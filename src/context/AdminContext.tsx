@@ -21,35 +21,29 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       setAdminLoading(false);
       return;
     }
-    setAdminLoading(true);
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle();
 
-    if (data?.role === 'admin') {
-      setIsAdmin(true);
-    } else {
-      // Auto-promote the very first user to admin if no admins exist
-      const { count } = await supabase
+    setAdminLoading(true);
+
+    try {
+      const { data, error } = await supabase
         .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('role', 'admin');
-      if (count === 0) {
-        const { data: firstUser } = await supabase
-          .from('profiles')
-          .select('id')
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (firstUser?.id === user.id) {
-          await supabase.from('profiles').update({ role: 'admin' }).eq('id', user.id);
-          setIsAdmin(true);
-        }
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Failed to check admin status:', error);
+        setIsAdmin(false);
+        return;
       }
+
+      setIsAdmin(data?.role === 'admin');
+    } catch (error) {
+      console.error('Admin status check failed:', error);
+      setIsAdmin(false);
+    } finally {
+      setAdminLoading(false);
     }
-    setAdminLoading(false);
   }, [user]);
 
   useEffect(() => {
@@ -57,7 +51,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }, [refreshAdminStatus]);
 
   return (
-    <AdminContext.Provider value={{ isAdmin, adminLoading, refreshAdminStatus }}>
+    <AdminContext.Provider
+      value={{
+        isAdmin,
+        adminLoading,
+        refreshAdminStatus,
+      }}
+    >
       {children}
     </AdminContext.Provider>
   );
@@ -65,6 +65,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
 export function useAdmin() {
   const ctx = useContext(AdminContext);
-  if (!ctx) throw new Error('useAdmin must be used within AdminProvider');
+
+  if (!ctx) {
+    throw new Error('useAdmin must be used within AdminProvider');
+  }
+
   return ctx;
 }
