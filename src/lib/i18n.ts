@@ -1,9 +1,18 @@
+import { usePreferences } from '@/context/PreferencesContext';
+
 export type Language = 'en' | 'ar' | 'sv';
 
 export type TranslationKey =
   | 'nav.home' | 'nav.tools' | 'nav.business' | 'nav.pricing' | 'nav.blog' | 'nav.contact'
   | 'nav.login' | 'nav.signup' | 'nav.settings' | 'nav.subscription' | 'nav.signout'
   | 'nav.dashboard' | 'nav.myFiles' | 'nav.aiUsage' | 'nav.support'
+| 'nav.myWorkspace' | 'nav.aiChat' | 'nav.projects' | 'nav.trash'
+| 'nav.activity' | 'nav.cvBuilder' | 'nav.coverLetter'
+| 'nav.documentAI' | 'nav.aiWriter' | 'nav.translator'
+| 'nav.studyAssistant' | 'nav.pdfTools' | 'nav.imageTools'
+| 'nav.help' | 'nav.about' | 'nav.feedback' | 'nav.bugReport'
+| 'nav.privacy' | 'nav.terms' | 'nav.profile'
+| 'nav.toolsSection' | 'nav.accountSection'
   | 'common.search' | 'common.save' | 'common.cancel' | 'common.delete' | 'common.edit'
   | 'common.loading' | 'common.copy' | 'common.copied' | 'common.back' | 'common.send'
   | 'common.close' | 'common.confirm' | 'common.continue'
@@ -44,6 +53,28 @@ const en: Translations = {
   'nav.myFiles': 'My Files',
   'nav.aiUsage': 'AI Usage',
   'nav.support': 'Support',
+'nav.myWorkspace': 'My Workspace',
+'nav.aiChat': 'AI Chat',
+'nav.projects': 'Projects',
+'nav.trash': 'Trash',
+'nav.activity': 'Recent Activity',
+'nav.cvBuilder': 'CV Builder',
+'nav.coverLetter': 'Cover Letter',
+'nav.documentAI': 'Document AI',
+'nav.aiWriter': 'AI Writer',
+'nav.translator': 'Translator',
+'nav.studyAssistant': 'Study Assistant',
+'nav.pdfTools': 'PDF Tools',
+'nav.imageTools': 'Image Tools',
+'nav.help': 'Help Center',
+'nav.about': 'About',
+'nav.feedback': 'Feedback',
+'nav.bugReport': 'Report a Bug',
+'nav.privacy': 'Privacy Policy',
+'nav.terms': 'Terms of Service',
+'nav.profile': 'Profile',
+'nav.toolsSection': 'Tools',
+'nav.accountSection': 'Account',
   'common.search': 'Search tools, files, actions...',
   'common.save': 'Save',
   'common.cancel': 'Cancel',
@@ -137,6 +168,28 @@ const ar: Translations = {
   'nav.myFiles': 'ملفاتي',
   'nav.aiUsage': 'استخدام الذكاء الاصطناعي',
   'nav.support': 'الدعم',
+'nav.myWorkspace': 'مساحة عملي',
+'nav.aiChat': 'محادثة الذكاء الاصطناعي',
+'nav.projects': 'المشاريع',
+'nav.trash': 'سلة المحذوفات',
+'nav.activity': 'النشاط الأخير',
+'nav.cvBuilder': 'منشئ السيرة الذاتية',
+'nav.coverLetter': 'كاتب خطاب التغطية',
+'nav.documentAI': 'الذكاء الاصطناعي للمستندات',
+'nav.aiWriter': 'الكاتب بالذكاء الاصطناعي',
+'nav.translator': 'المترجم',
+'nav.studyAssistant': 'مساعد الدراسة',
+'nav.pdfTools': 'أدوات PDF',
+'nav.imageTools': 'أدوات الصور',
+'nav.help': 'مركز المساعدة',
+'nav.about': 'حول',
+'nav.feedback': 'الملاحظات',
+'nav.bugReport': 'الإبلاغ عن خطأ',
+'nav.privacy': 'سياسة الخصوصية',
+'nav.terms': 'شروط الخدمة',
+'nav.profile': 'الملف الشخصي',
+'nav.toolsSection': 'الأدوات',
+'nav.accountSection': 'الحساب',
   'common.search': 'ابحث عن الأدوات والملفات والإجراءات...',
   'common.save': 'حفظ',
   'common.cancel': 'إلغاء',
@@ -230,6 +283,28 @@ const sv: Translations = {
   'nav.myFiles': 'Mina filer',
   'nav.aiUsage': 'AI-användning',
   'nav.support': 'Support',
+'nav.myWorkspace': 'Min arbetsyta',
+'nav.aiChat': 'AI-chatt',
+'nav.projects': 'Projekt',
+'nav.trash': 'Papperskorg',
+'nav.activity': 'Senaste aktivitet',
+'nav.cvBuilder': 'CV-byggare',
+'nav.coverLetter': 'Personligt brev',
+'nav.documentAI': 'Dokument-AI',
+'nav.aiWriter': 'AI-skrivare',
+'nav.translator': 'Översättare',
+'nav.studyAssistant': 'Studieassistent',
+'nav.pdfTools': 'PDF-verktyg',
+'nav.imageTools': 'Bildverktyg',
+'nav.help': 'Hjälpcenter',
+'nav.about': 'Om oss',
+'nav.feedback': 'Feedback',
+'nav.bugReport': 'Rapportera en bugg',
+'nav.privacy': 'Integritetspolicy',
+'nav.terms': 'Användarvillkor',
+'nav.profile': 'Profil',
+'nav.toolsSection': 'Verktyg',
+'nav.accountSection': 'Konto',
   'common.search': 'Sök verktyg, filer, åtgärder...',
   'common.save': 'Spara',
   'common.cancel': 'Avbryt',
@@ -324,3 +399,12 @@ export const LANGUAGE_FLAGS: Record<Language, string> = {
   ar: '🇸🇦',
   sv: '🇸🇪',
 };
+
+export function useTranslation() {
+  const { prefs } = usePreferences();
+
+  return {
+    t: (key: TranslationKey) => translate(key, prefs.language),
+    language: prefs.language,
+  };
+}

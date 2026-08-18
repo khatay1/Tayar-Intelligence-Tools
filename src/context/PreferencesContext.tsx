@@ -15,7 +15,7 @@ export interface UserPreferences {
 
 const DEFAULT_PREFS: UserPreferences = {
   theme: 'dark',
-  language: 'en',
+  language: 'ar',
   email_notifications: true,
   push_notifications: true,
   marketing_emails: false,

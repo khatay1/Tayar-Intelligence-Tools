@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect, Suspense, lazy } from 'react';
+﻿import { useState, useRef, useEffect, Suspense, lazy } from 'react';
 import {
   Bell, Menu, X, LogOut, ChevronDown, Globe, Sun, Moon,
   Crown, User as UserIcon, Settings, CreditCard, Command, Activity, Shield, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
+import { useTranslation } from '@/lib/i18n';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import AstronautLogo from '@/components/ui/AstronautLogo';
@@ -38,6 +39,7 @@ import InstallPrompt from '@/components/ui/InstallPrompt';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { useKeyboardShortcuts, SHORTCUT_HINTS } from '@/lib/use-keyboard-shortcuts';
 import { trackPageView } from '@/lib/analytics';
+import { translate } from '@/lib/i18n';
 import '@/modules';
 import { toolRegistry } from '@/modules/registry';
 
@@ -62,6 +64,7 @@ export default function Workspace({ onExitToLanding }: WorkspaceProps) {
 function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
   const { user, profile, signOut } = useAuth();
   const { prefs, setTheme, setLanguage } = usePreferences();
+const { t } = useTranslation();
   const { state: onboardingState, loading: onboardingLoading, needsOnboarding } = useOnboarding();
   const [activeView, setActiveView] = useState<ViewId>('my-workspace');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -164,12 +167,103 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
     group: 'tools' as const,
     badge: 'Soon',
   }));
-  const groups: { label: string; items: NavItem[] }[] = [
-    { label: '', items: NAV_ITEMS.filter(i => i.group === 'main') },
-    { label: 'Tools', items: [...registryToolItems, ...soonItems] },
-    { label: 'Account', items: NAV_ITEMS.filter(i => i.group === 'account') },
-  ];
+  const getNavLabel = (item: NavItem): string => {
+  const keys: Partial<Record<ViewId, string>> = {
+    dashboard: 'nav.dashboard',
+    'my-workspace': 'nav.workspace',
+    'ai-chat': 'nav.aiChat',
+    'my-files': 'nav.myFiles',
+    'my-projects': 'nav.projects',
+    trash: 'nav.trash',
+    'activity-timeline': 'nav.activity',
+    'cv-builder': 'nav.cvBuilder',
+    'cover-letter': 'nav.coverLetter',
+    'document-ai': 'nav.documentAI',
+    'ai-writer': 'nav.aiWriter',
+    translator: 'nav.translator',
+    'study-assistant': 'nav.studyAssistant',
+    'pdf-tools': 'nav.pdfTools',
+    'image-tools': 'nav.imageTools',
+    'ai-usage': 'nav.aiUsage',
+    subscription: 'nav.subscription',
+    settings: 'nav.settings',
+    support: 'nav.support',
+    help: 'nav.help',
+    about: 'nav.about',
+    contact: 'nav.contact',
+    feedback: 'nav.feedback',
+    'bug-report': 'nav.bugReport',
+    privacy: 'footer.privacy',
+    terms: 'footer.terms',
+    profile: 'nav.profile',
+  };
 
+  const key = keys[item.id];
+  return key ? translate(key as any, prefs.language) : item.label;
+};
+
+const translatedMainItems = NAV_ITEMS
+  .filter(i => i.group === 'main')
+  .map(item => ({ ...item, label: getNavLabel(item) }));
+
+
+
+const translateNavItem = (item: NavItem): NavItem => {
+  const translations: Partial<Record<ViewId, string>> = {
+    dashboard: t('nav.dashboard'),
+    'my-workspace': t('nav.myWorkspace'),
+    'ai-chat': t('nav.aiChat'),
+    'cv-builder': t('nav.cvBuilder'),
+    'cover-letter': t('nav.coverLetter'),
+    'document-ai': t('nav.documentAI'),
+    'ai-writer': t('nav.aiWriter'),
+    translator: t('nav.translator'),
+    'study-assistant': t('nav.studyAssistant'),
+    'pdf-tools': t('nav.pdfTools'),
+    'image-tools': t('nav.imageTools'),
+    'my-files': t('nav.myFiles'),
+    'my-projects': t('nav.projects'),
+    trash: t('nav.trash'),
+    'activity-timeline': t('nav.activity'),
+    'ai-usage': t('nav.aiUsage'),
+    subscription: t('nav.subscription'),
+    settings: t('nav.settings'),
+    support: t('nav.support'),
+    help: t('nav.help'),
+    about: t('nav.about'),
+    contact: t('nav.contact'),
+    feedback: t('nav.feedback'),
+    'bug-report': t('nav.bugReport'),
+    privacy: t('nav.privacy'),
+    terms: t('nav.terms'),
+    profile: t('nav.profile'),
+  };
+
+  return {
+    ...item,
+    label: translations[item.id] || item.label,
+  };
+};
+
+const translatedNavItems = NAV_ITEMS.map(translateNavItem);
+const translatedRegistryToolItems = registryToolItems.map(translateNavItem);
+const translatedSoonItems = soonItems.map(translateNavItem);
+
+
+const groups: { label: string; items: NavItem[] }[] = [
+  {
+    label: '',
+    items: translatedNavItems.filter(i => i.group === 'main'),
+  },
+  {
+    label: t('nav.toolsSection'),
+    items: [...translatedRegistryToolItems, ...translatedSoonItems],
+  },
+  {
+    label: t('nav.accountSection'),
+    items: translatedNavItems.filter(i => i.group === 'account'),
+  },
+];
   if (activeView === 'cv-builder') {
     return <ResumeBuilder onBack={() => setActiveView('my-workspace')} />;
   }
@@ -213,7 +307,9 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-violet-600/15 text-violet-300 font-medium border border-violet-500/20' : darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-transparent'} ${item.id === 'image-tools' ? 'opacity-60' : ''}`}
                     >
                       <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${active ? 'text-violet-400' : ''}`} />
-                      <span className="flex-1 text-left">{item.label}</span>
+                     <span className="flex-1 text-left">
+  {item.label}
+</span>
                       {item.badge && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 font-medium">{item.badge}</span>}
                     </button>
                   );
