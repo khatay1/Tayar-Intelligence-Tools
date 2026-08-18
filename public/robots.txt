@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /#workspace
+Disallow: /#settings
+Disallow: /#profile
+Crawl-delay: 1
+
+Sitemap: https://tayar.ai/sitemap.xml

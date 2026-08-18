@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#06060e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Tayar" />
+
+    <!-- Primary Meta Tags -->
+    <title>Tayar Intelligence Tools — AI-Powered Workspace for CVs, Writing, Study & More</title>
+    <meta name="title" content="Tayar Intelligence Tools — AI-Powered Workspace" />
+    <meta name="description" content="One platform. Endless AI tools. Build ATS-friendly CVs, write cover letters, translate 100+ languages, analyze documents, and more. Supports OpenAI, Claude & Gemini." />
+    <meta name="keywords" content="AI tools, CV builder, cover letter, AI writer, translator, document analysis, study assistant, GPT-4o, Claude, Gemini, AI workspace" />
+    <meta name="author" content="Tayar Intelligence" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://tayar.ai/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tayar.ai/" />
+    <meta property="og:title" content="Tayar Intelligence Tools — AI-Powered Workspace" />
+    <meta property="og:description" content="One platform. Endless AI tools. Build CVs, write cover letters, translate, analyze documents, and more with GPT-4o, Claude & Gemini." />
+    <meta property="og:image" content="https://tayar.ai/site.jfif" />
+    <meta property="og:site_name" content="Tayar Intelligence Tools" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://tayar.ai/" />
+    <meta name="twitter:title" content="Tayar Intelligence Tools — AI-Powered Workspace" />
+    <meta name="twitter:description" content="One platform. Endless AI tools. Build CVs, write cover letters, translate, analyze documents, and more." />
+    <meta name="twitter:image" content="https://tayar.ai/site.jfif" />
+
+    <!-- Performance: preconnect to fonts and API -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Tayar Intelligence Tools",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Web",
+      "description": "AI-powered workspace with 50+ tools for CV building, cover letters, writing, translation, document analysis, and study assistance.",
+      "url": "https://tayar.ai",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": "CV Builder, Cover Letter Writer, AI Writer, Translator, Document AI, Study Assistant"
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;text-align:center;padding:2rem;">
+        <div>
+          <h1>Tayar Intelligence Tools</h1>
+          <p>Please enable JavaScript to use this application.</p>
+        </div>
+      </div>
+    </noscript>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

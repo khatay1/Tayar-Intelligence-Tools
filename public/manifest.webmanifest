@@ -1,0 +1,41 @@
+{
+  "name": "Tayar Intelligence Tools",
+  "short_name": "Tayar",
+  "description": "AI-Powered Workspace for CVs, Writing, Study & More",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06060f",
+  "theme_color": "#06060f",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["productivity", "business", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/#dashboard"
+    },
+    {
+      "name": "CV Builder",
+      "url": "/#cv-builder"
+    },
+    {
+      "name": "AI Chat",
+      "url": "/#ai-chat"
+    }
+  ]
+}
