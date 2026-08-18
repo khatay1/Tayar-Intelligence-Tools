@@ -116,17 +116,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   setState(newState);
 }, [user, state]);
-    if (!user) return;
-    const newState = { ...state, ...updates };
-    setState(newState);
-    await supabase.from('user_onboarding').upsert({
-      user_id: user.id,
-      ...newState,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-  }, [user, state]);
-
-  const unlockAchievement = useCallback(async (id: string) => {
+    
+const unlockAchievement = useCallback(async (id: string) => {
     if (!user || state.achievements[id]) return;
     const achievements = { ...state.achievements, [id]: new Date().toISOString() };
     await updateState({ achievements });
