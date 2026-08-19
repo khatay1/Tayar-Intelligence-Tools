@@ -1,4 +1,4 @@
-// Upgraded File Manager — search, filter, sort, rename, duplicate, move, delete,
+﻿// Upgraded File Manager — search, filter, sort, rename, duplicate, move, delete,
 // favorites, pin, grid/list views, storage indicator, beautiful empty states.
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -299,7 +299,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
           ))}
         </div>
       ) : (
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl">
           {filtered.map((project, i) => (
             <FileCard
               key={project.id}
@@ -427,7 +427,7 @@ function FileCard({ project, view, index, isFirst, isLast, onOpen, menuOpen, set
 
   return (
     <div
-      className="group relative bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-5 hover:border-violet-500/30 transition-all duration-300"
+      className={`group relative ${menuOpen === project.id ? "z-[100]" : "z-10"} bg-white/[0.03] border border-white/10 rounded-2xl p-5 hover:border-violet-500/30 transition-all duration-300`}
       style={{ animation: 'fadeInUp 0.3s ease-out both', animationDelay: `${index * 0.04}s` }}
     >
       <div className="flex items-start justify-between mb-3">
@@ -471,12 +471,12 @@ function FileMenu({
     <div className="relative flex-shrink-0">
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
-        className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors opacity-0 group-hover:opacity-100"
+        className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
       >
         <MoreVertical className="w-4 h-4" />
       </button>
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 bg-[#12122a] border border-white/10 rounded-xl p-1.5 w-44 shadow-2xl shadow-black/50 z-50" onClick={e => e.stopPropagation()}>
+        <div className="fixed z-[99999] bg-[#12122a] border border-white/10 rounded-xl p-1.5 w-44 shadow-2xl shadow-black/50" onClick={e => e.stopPropagation()}>
           <button onClick={onRename} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
             <Edit2 className="w-3.5 h-3.5" /> Rename
           </button>
@@ -502,3 +502,11 @@ function FileMenu({
     </div>
   );
 }
+
+
+
+
+
+
+
+
