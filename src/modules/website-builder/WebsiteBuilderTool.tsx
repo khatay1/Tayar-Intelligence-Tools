@@ -1,4 +1,4 @@
-ï»¿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Plus,
   Trash2,
@@ -98,7 +98,7 @@ const defaultSections: WebsiteSection[] = [
   {
     id: 'contact-1',
     type: 'contact',
-    title: 'Letâ€™s Work Together',
+    title: 'Let’s Work Together',
     description:
       'Ready to get started? Give your customers an easy way to contact you.',
     buttonText: 'Contact Us',
@@ -277,9 +277,9 @@ function sectionToHtml(section: WebsiteSection): string {
     <h2>${title}</h2>
     <p class="lead">${description}</p>
     <div class="cards">
-      <article class="card"><p>â€œAmazing experience and excellent results.â€</p><strong>â€” Alex</strong></article>
-      <article class="card"><p>â€œProfessional, simple and exactly what we needed.â€</p><strong>â€” Sarah</strong></article>
-      <article class="card"><p>â€œThe easiest way to present our business online.â€</p><strong>â€” Daniel</strong></article>
+      <article class="card"><p>“Amazing experience and excellent results.”</p><strong>— Alex</strong></article>
+      <article class="card"><p>“Professional, simple and exactly what we needed.”</p><strong>— Sarah</strong></article>
+      <article class="card"><p>“The easiest way to present our business online.”</p><strong>— Daniel</strong></article>
     </div>
     ${button}
   </div>
@@ -562,6 +562,26 @@ export default function WebsiteBuilderTool({
     const section = createSection(type);
     setSections((current) => [...current, section]);
     setSelectedId(section.id);
+    setSaved(false);
+  }
+
+  function duplicateSection(id: string) {
+    setSections((current) => {
+      const index = current.findIndex((section) => section.id === id);
+      if (index === -1) return current;
+
+      const original = current[index];
+      const copy: WebsiteSection = {
+        ...original,
+        id: `${original.type}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+        title: `${original.title} Copy`,
+      };
+
+      const next = [...current];
+      next.splice(index + 1, 0, copy);
+      return next;
+    });
+
     setSaved(false);
   }
 
@@ -1085,3 +1105,4 @@ export default function WebsiteBuilderTool({
     </div>
   );
 }
+
