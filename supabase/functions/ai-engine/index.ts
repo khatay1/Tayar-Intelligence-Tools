@@ -1,6 +1,7 @@
 ﻿import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const FAL_KEY = Deno.env.get("FAL_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +25,79 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
+
+    // Image generation route
+    if (body.action === "generate-image") {
+      if (!FAL_KEY) {
+        return new Response(
+          JSON.stringify({ error: "FAL_KEY is not configured" }),
+          {
+            status: 503,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const prompt =
+        String(body.prompt || "Professional website image");
+
+      const imageResponse = await fetch(
+        "https://fal.run/fal-ai/flux/dev",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Key ${FAL_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt,
+            image_size: "landscape_16_9",
+            num_images: 1,
+          }),
+        },
+      );
+
+      const imageData = await imageResponse.json();
+
+      const imageUrl =
+        imageData?.images?.[0]?.url;
+
+      if (!imageUrl) {
+        return new Response(
+          JSON.stringify({
+            error: "Image provider returned no image",
+            details: imageData,
+          }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          content: JSON.stringify({
+            url: imageUrl,
+          }),
+          json: {
+            url: imageUrl,
+          },
+          model: "flux",
+          provider: "fal",
+          tokensIn: 0,
+          tokensOut: 0,
+          costUsd: 0,
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
     const messages = Array.isArray(body.messages) ? body.messages : [];
 
     if (!messages.length) {
@@ -149,3 +223,4 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
+
