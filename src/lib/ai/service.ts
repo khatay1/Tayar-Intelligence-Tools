@@ -69,11 +69,25 @@ function getApiKey() {
 }
 
 async function getAuthHeaders() {
-  const { data } = await supabase.auth.getSession();
+  let { data } = await supabase.auth.getSession();
+
+  if (!data.session) {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    ({ data } = await supabase.auth.getSession());
+  }
+
+  if (!data.session?.access_token) {
+    throw new AIError(
+      "You must be signed in to use AI.",
+      "AI_ERROR",
+      false,
+    );
+  }
+
   return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${data.session?.access_token || ''}`,
-    'apikey': getApiKey(),
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${data.session.access_token}`,
+    "apikey": getApiKey(),
   };
 }
 
@@ -544,4 +558,5 @@ export async function getUsageStats(): Promise<UsageStats> {
 export function createAIService(tool: ToolId, options?: string | AIServiceOptions): AIService {
   return new AIService(tool, options);
 }
+
 
