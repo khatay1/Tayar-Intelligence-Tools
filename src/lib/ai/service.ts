@@ -254,6 +254,21 @@ export class AIService {
         );
       }
       if (response.status === 502) {
+        const errorText = JSON.stringify(errBody);
+
+        if (
+          errorText.includes('"status":429') ||
+          errorText.includes('RESOURCE_EXHAUSTED') ||
+          errorText.includes('quota exceeded') ||
+          errorText.includes('Quota exceeded')
+        ) {
+          throw new AIError(
+            'AI quota exceeded. Please try again later.',
+            'RATE_LIMIT',
+            true,
+          );
+        }
+
         throw new AIError(
           (errBody as { error?: string }).error || 'AI provider is temporarily unavailable.',
           'PROVIDER_ERROR',
@@ -558,6 +573,7 @@ export async function getUsageStats(): Promise<UsageStats> {
 export function createAIService(tool: ToolId, options?: string | AIServiceOptions): AIService {
   return new AIService(tool, options);
 }
+
 
 
 
