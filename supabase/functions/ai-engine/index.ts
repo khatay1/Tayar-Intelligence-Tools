@@ -1,22 +1,15 @@
 ﻿import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Content-Type": "text/event-stream; charset=utf-8",
-  "Cache-Control": "no-cache",
 };
-
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-      },
-    });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -25,31 +18,25 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: "GEMINI_API_KEY is not configured" }),
         {
           status: 503,
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Content-Type": "application/json",
-          },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
     }
 
     const body = await req.json();
-
     const messages = Array.isArray(body.messages) ? body.messages : [];
-    const model = "gemini-3.6-flash";
 
     if (!messages.length) {
       return new Response(
         JSON.stringify({ error: "Messages are required" }),
         {
           status: 400,
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Content-Type": "application/json",
-          },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
     }
+
+    const model = "gemini-3.6-flash";
 
     const system = messages.find((m: any) => m.role === "system");
     const chatMessages = messages.filter((m: any) => m.role !== "system");
@@ -77,13 +64,11 @@ Deno.serve(async (req: Request) => {
       requestBody.generationConfig.responseMimeType = "application/json";
     }
 
-    console.log("[AI ENGINE] Calling Gemini:", model);
-
     const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent` +
-      `?alt=sse&key=${encodeURIComponent(GEMINI_API_KEY)}`;
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
+      `?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 
-    console.log("[AI ENGINE] Starting Gemini streaming:", model);
+    console.log("[AI ENGINE] Calling Gemini:", model);
 
     const upstream = await fetch(url, {
       method: "POST",
@@ -93,128 +78,63 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify(requestBody),
     });
 
-    if (!upstream.ok) {
-      const rawError = await upstream.text();
+    const raw = await upstream.text();
 
-      console.error("[GEMINI ERROR]", upstream.status, rawError);
+    if (!upstream.ok) {
+      console.error("[GEMINI ERROR]", upstream.status, raw);
 
       return new Response(
         JSON.stringify({
           error: "Gemini request failed",
           status: upstream.status,
-          details: rawError.slice(0, 3000),
+          details: raw.slice(0, 3000),
         }),
         {
           status: 502,
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Content-Type": "application/json",
-          },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
     }
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = upstream.body!.getReader();
-        let buffer = "";
+    const data = JSON.parse(raw);
 
-        const send = (data: any) => {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(data)}\n\n`),
-          );
-        };
+    const text =
+      data?.candidates?.[0]?.content?.parts
+        ?.map((p: any) => p?.text || "")
+        .join("") || "";
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
+    if (!text) {
+      console.error("[AI ENGINE] Empty Gemini response:", raw);
 
-            if (done) {
-              buffer += decoder.decode();
-              break;
-            }
+      return new Response(
+        JSON.stringify({
+          error: "Gemini returned an empty response",
+          details: raw.slice(0, 3000),
+        }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
-            buffer += decoder.decode(value, { stream: true });
-
-            const events = buffer.split(/\r?\n\r?\n/);
-            buffer = events.pop() || "";
-
-            for (const event of events) {
-              const lines = event.split(/\r?\n/);
-
-              for (const line of lines) {
-                if (!line.startsWith("data:")) continue;
-
-                const payload = line.slice(5).trim();
-                if (!payload || payload === "[DONE]") continue;
-
-                try {
-                  const chunk = JSON.parse(payload);
-
-                  const content =
-                    chunk?.candidates?.[0]?.content?.parts
-                      ?.map((p: any) => p?.text || "")
-                      .join("") || "";
-
-                  if (content) {
-                    send({ content });
-                  }
-                } catch {
-                  console.warn("[AI ENGINE] Could not parse Gemini chunk");
-                }
-              }
-            }
-          }
-
-          if (buffer.trim()) {
-            const lines = buffer.split(/\r?\n/);
-
-            for (const line of lines) {
-              if (!line.startsWith("data:")) continue;
-
-              const payload = line.slice(5).trim();
-              if (!payload || payload === "[DONE]") continue;
-
-              try {
-                const chunk = JSON.parse(payload);
-
-                const content =
-                  chunk?.candidates?.[0]?.content?.parts
-                    ?.map((p: any) => p?.text || "")
-                    .join("") || "";
-
-                if (content) {
-                  send({ content });
-                }
-              } catch {
-                // Ignore incomplete final chunk
-              }
-            }
-          }
-
-          send({
-            done: true,
-            provider: "gemini",
-            model,
-          });
-
-          controller.close();
-        } catch (error) {
-          console.error("[AI ENGINE STREAM ERROR]", error);
-
-          send({
-            error: error instanceof Error
-              ? error.message
-              : "Streaming failed",
-            code: "STREAM_ERROR",
-          });
-
-          controller.close();
-        }
+    return new Response(
+      JSON.stringify({
+        content: text,
+        tokensIn: 0,
+        tokensOut: 0,
+        model,
+        provider: "gemini",
+        costUsd: 0,
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
       },
-    });
+    );
   } catch (error) {
     console.error("[AI ENGINE ERROR]", error);
 
@@ -224,12 +144,8 @@ Deno.serve(async (req: Request) => {
       }),
       {
         status: 500,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
   }
 });
-
