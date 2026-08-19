@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createAIService } from '@/lib/ai/service';
 import {
   Plus,
   Trash2,
@@ -47,6 +48,19 @@ interface WebsiteSection {
 }
 
 type Device = 'desktop' | 'mobile';
+
+type AIWebsiteGeneration = {
+  siteName: string;
+  sections: Array<{
+    type: SectionType;
+    title: string;
+    description: string;
+    buttonText?: string;
+    buttonUrl?: string;
+    background?: string;
+    accent?: string;
+  }>;
+};
 
 const STORAGE_KEY = 'tayar-website-builder-project';
 
@@ -98,7 +112,7 @@ const defaultSections: WebsiteSection[] = [
   {
     id: 'contact-1',
     type: 'contact',
-    title: 'Let’s Work Together',
+    title: 'Letï¿½s Work Together',
     description:
       'Ready to get started? Give your customers an easy way to contact you.',
     buttonText: 'Contact Us',
@@ -277,9 +291,9 @@ function sectionToHtml(section: WebsiteSection): string {
     <h2>${title}</h2>
     <p class="lead">${description}</p>
     <div class="cards">
-      <article class="card"><p>“Amazing experience and excellent results.”</p><strong>— Alex</strong></article>
-      <article class="card"><p>“Professional, simple and exactly what we needed.”</p><strong>— Sarah</strong></article>
-      <article class="card"><p>“The easiest way to present our business online.”</p><strong>— Daniel</strong></article>
+      <article class="card"><p>ï¿½Amazing experience and excellent results.ï¿½</p><strong>ï¿½ Alex</strong></article>
+      <article class="card"><p>ï¿½Professional, simple and exactly what we needed.ï¿½</p><strong>ï¿½ Sarah</strong></article>
+      <article class="card"><p>ï¿½The easiest way to present our business online.ï¿½</p><strong>ï¿½ Daniel</strong></article>
     </div>
     ${button}
   </div>
@@ -518,6 +532,9 @@ export default function WebsiteBuilderTool({
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [siteName, setSiteName] = useState('My Website');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   const selectedSection = useMemo(
     () => sections.find((section) => section.id === selectedId) ?? null,
@@ -616,6 +633,63 @@ export default function WebsiteBuilderTool({
     });
 
     setSaved(false);
+  }
+
+  async function generateWithAI() {
+    const prompt = aiPrompt.trim();
+    if (!prompt || aiBusy) return;
+
+    setAiBusy(true);
+    setAiError('');
+
+    try {
+      const ai = createAIService('website-builder');
+      const response = await ai.completeJSON<AIWebsiteGeneration>(
+        { action: 'generate', prompt },
+        [],
+        { temperature: 0.7, maxTokens: 5000 },
+      );
+
+      let generated = response.json;
+      if (!generated && response.content) {
+        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        generated = JSON.parse(cleaned) as AIWebsiteGeneration;
+      }
+
+      if (!generated || !Array.isArray(generated.sections) || generated.sections.length === 0) {
+        throw new Error('AI returned an invalid website. Please try a more specific description.');
+      }
+
+      const allowedTypes = new Set<SectionType>([
+        'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
+      ]);
+
+      const normalized = generated.sections
+        .filter((section) => allowedTypes.has(section.type))
+        .map((section, index) => ({
+          id: `${section.type}-ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+          type: section.type,
+          title: section.title?.trim() || SECTION_LABELS[section.type],
+          description: section.description?.trim() || '',
+          buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
+          buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
+          background: /^#[0-9a-fA-F]{6}$/.test(section.background || '') ? section.background! : '#0f172a',
+          accent: /^#[0-9a-fA-F]{6}$/.test(section.accent || '') ? section.accent! : '#7c3aed',
+        }));
+
+      if (normalized.length === 0) {
+        throw new Error('AI did not return usable sections. Please try again.');
+      }
+
+      setSections(normalized);
+      setSelectedId(normalized[0].id);
+      setSiteName(generated.siteName?.trim() || 'My Website');
+      setSaved(false);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'AI generation failed.');
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   function saveProject() {
@@ -844,11 +918,36 @@ export default function WebsiteBuilderTool({
           >
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">AI Builder</span>
+              <span className="text-xs font-semibold">AI Website Builder</span>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-              AI generation will be connected after the visual builder is complete.
+              Describe the website you want and AI will replace the current canvas with a complete design.
             </p>
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => {
+                setAiPrompt(e.target.value);
+                setAiError('');
+              }}
+              rows={4}
+              placeholder="Example: Modern Italian restaurant in Stockholm with online booking, menu, testimonials and warm luxury colors..."
+              className={`mt-3 w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
+                darkMode
+                  ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600'
+                  : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'
+              }`}
+            />
+            <button
+              onClick={generateWithAI}
+              disabled={!aiPrompt.trim() || aiBusy}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {aiBusy ? 'Generating...' : 'Generate Website'}
+            </button>
+            {aiError && (
+              <p className="mt-2 text-[11px] leading-relaxed text-red-400">{aiError}</p>
+            )}
           </div>
 
           <div

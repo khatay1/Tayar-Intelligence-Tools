@@ -1,4 +1,4 @@
-﻿// AI Provider types and configuration
+// AI Provider types and configuration
 // Provider registry â€” to add a new provider, add its config here and implement
 // the corresponding adapter in the edge function (supabase/functions/ai-engine).
 
@@ -84,6 +84,7 @@ export const DEFAULT_MODELS: Record<string, string> = {
   'study-assistant': 'gemini-3.6-flash',
   'translator': 'gemini-3.6-flash',
   'ai-chat': 'gemini-3.6-flash',
+  'website-builder': 'gemini-3.6-flash',
 };
 
 export function getDefaultModel(tool: string): string {

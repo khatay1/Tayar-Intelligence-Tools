@@ -3,7 +3,7 @@
 
 export type ToolId =
   | 'cv-builder' | 'cover-letter' | 'ai-writer'
-  | 'document-ai' | 'study-assistant' | 'translator' | 'ai-chat';
+  | 'document-ai' | 'study-assistant' | 'translator' | 'ai-chat' | 'website-builder';
 
 export interface PromptTemplate {
   system: string;
@@ -269,6 +269,30 @@ ${input.text}`;
     },
   },
 
+  'website-builder': {
+    system: `You are an expert website designer and conversion-focused web copywriter for Tayar Intelligence Tools.
+Generate a complete website specification from the user's description.
+Return ONLY valid JSON. Do not use markdown fences or commentary.
+The JSON must have this exact shape:
+{
+  "siteName": "string",
+  "sections": [
+    {
+      "type": "hero|features|about|services|pricing|testimonials|contact|footer",
+      "title": "string",
+      "description": "string",
+      "buttonText": "string",
+      "buttonUrl": "string",
+      "background": "#RRGGBB",
+      "accent": "#RRGGBB"
+    }
+  ]
+}
+Use 5-8 sections, keep the content specific to the user's business, and use valid 6-digit hex colors.
+A typical strong site includes hero, features/services, about, social proof, contact, and footer.
+For pricing, use sensible generic plan copy and prices only when pricing makes sense for the request.`,
+    user: (input) => `Create the website specification for this request:\n${input.prompt || ''}\n\nReturn ONLY the JSON object.`,
+  },
   'ai-chat': {
     system: `You are Tayar, a helpful AI assistant integrated into the Tayar Intelligence Tools platform.
 You help users with questions about the platform, document creation, career advice, and general tasks.
