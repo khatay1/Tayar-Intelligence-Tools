@@ -45,6 +45,7 @@ interface WebsiteSection {
   buttonUrl: string;
   background: string;
   accent: string;
+  image?: string;
 }
 
 interface WebsiteBrand {
@@ -1355,6 +1356,8 @@ if (generated.seo) {
     </div>
   );
 }
+
+
 
 
 
