@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import {
   Cpu, Loader2, Zap, AlertCircle, CheckCircle, Activity,
   TrendingUp, RefreshCw, Server, Clock, Save,
@@ -29,8 +29,8 @@ export default function AdminAI() {
   const { success, error: showError } = useToast();
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeProvider, setActiveProvider] = useState('openai');
-  const [defaultModel, setDefaultModel] = useState('gpt-4o-mini');
+  const [activeProvider, setActiveProvider] = useState('gemini');
+  const [defaultModel, setDefaultModel] = useState('gemini-3.6-flash');
   const [savingModel, setSavingModel] = useState(false);
   const [dailyStats, setDailyStats] = useState<{ date: string; requests: number; tokens: number }[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
@@ -189,7 +189,7 @@ export default function AdminAI() {
               </select>
               <div className="text-xs text-gray-500 mt-1.5">
                 Provider: <span className="text-violet-400 capitalize">{getProviderForModel(defaultModel)}</span>
-                {' · '}
+                {' Â· '}
                 Context: <span className="text-gray-400">{ALL_MODELS.find(m => m.id === defaultModel)?.contextWindow.toLocaleString() || 'N/A'} tokens</span>
               </div>
             </div>
@@ -288,3 +288,5 @@ export default function AdminAI() {
     </div>
   );
 }
+
+
