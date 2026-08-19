@@ -1,5 +1,5 @@
-// AI Provider types and configuration
-// Provider registry — to add a new provider, add its config here and implement
+﻿// AI Provider types and configuration
+// Provider registry â€” to add a new provider, add its config here and implement
 // the corresponding adapter in the edge function (supabase/functions/ai-engine).
 
 export type AIProvider = 'openai' | 'gemini' | 'anthropic';
@@ -25,7 +25,7 @@ export const AI_PROVIDERS: Record<AIProvider, ProviderConfig> = {
     provider: 'openai',
     label: 'OpenAI',
     envKey: 'OPENAI_API_KEY',
-    description: 'GPT-4o, GPT-4o Mini, GPT-4 Turbo — versatile models for all tasks',
+    description: 'GPT-4o, GPT-4o Mini, GPT-4 Turbo â€” versatile models for all tasks',
     models: [
       { id: 'gpt-4o', label: 'GPT-4o', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
       { id: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
@@ -36,18 +36,18 @@ export const AI_PROVIDERS: Record<AIProvider, ProviderConfig> = {
     provider: 'gemini',
     label: 'Google Gemini',
     envKey: 'GEMINI_API_KEY',
-    description: 'Gemini 2.0 Flash, 1.5 Pro, 1.5 Flash — fast with huge context windows',
+    description: 'Gemini 3.6 Flash, 1.5 Pro, 1.5 Flash â€” fast with huge context windows',
     models: [
-      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'gemini', maxTokens: 8192, contextWindow: 1000000 },
+      { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', provider: 'gemini', maxTokens: 8192, contextWindow: 1000000 },
       { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', provider: 'gemini', maxTokens: 8192, contextWindow: 2000000 },
-      { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash', provider: 'gemini', maxTokens: 8192, contextWindow: 1000000 },
+      { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', provider: 'gemini', maxTokens: 8192, contextWindow: 1000000 },
     ],
   },
   anthropic: {
     provider: 'anthropic',
     label: 'Anthropic Claude',
     envKey: 'ANTHROPIC_API_KEY',
-    description: 'Claude Sonnet 4, 3.5 Sonnet, 3.5 Haiku — excellent for writing and analysis',
+    description: 'Claude Sonnet 4, 3.5 Sonnet, 3.5 Haiku â€” excellent for writing and analysis',
     models: [
       { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'anthropic', maxTokens: 8192, contextWindow: 200000 },
       { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', provider: 'anthropic', maxTokens: 8192, contextWindow: 200000 },
@@ -75,7 +75,7 @@ export function getProviderForModel(modelId: string): AIProvider {
   return 'openai';
 }
 
-// Default model per tool — can be overridden by admin settings or user preferences
+// Default model per tool â€” can be overridden by admin settings or user preferences
 export const DEFAULT_MODELS: Record<string, string> = {
   'cv-builder': 'gpt-4o',
   'cover-letter': 'gpt-4o',
@@ -89,3 +89,4 @@ export const DEFAULT_MODELS: Record<string, string> = {
 export function getDefaultModel(tool: string): string {
   return DEFAULT_MODELS[tool] || 'gpt-4o-mini';
 }
+
