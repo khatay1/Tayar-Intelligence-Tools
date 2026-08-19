@@ -108,17 +108,7 @@ Deno.serve(async (req) => {
         ?.map((p: any) => p?.text || "")
         .join("") || "";
 
-    return new Response(
-      JSON.stringify({
-        text,
-        provider: "gemini",
-        model,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    const encoder = new TextEncoder();`r`n    const output = new ReadableStream({`r`n      start(controller) {`r`n        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}` + "`r`n`r`n"));`r`n        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, provider: "gemini", model })}` + "`r`n`r`n"));`r`n        controller.close();`r`n      },`r`n    });`r`n`r`n    return new Response(output, {`r`n      status: 200,`r`n      headers: { ...corsHeaders, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache" },`r`n    });
   } catch (error) {
     console.error("[AI ENGINE ERROR]", error);
 
@@ -133,4 +123,5 @@ Deno.serve(async (req) => {
     );
   }
 });
+
 
