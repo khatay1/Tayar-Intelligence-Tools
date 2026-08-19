@@ -16,8 +16,9 @@ import {
   Copy,
   ExternalLink,
   Link,
-  Globe,
+    Globe,
   Check,
+  MousePointer2,
 } from 'lucide-react';
 
 interface WebsiteBuilderToolProps {
