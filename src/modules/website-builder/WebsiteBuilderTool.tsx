@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { createAIService } from '@/lib/ai/service';
 import {
   Plus,
@@ -47,7 +47,7 @@ interface WebsiteSection {
   accent: string;
 }
 
-type Device = 'desktop' | 'mobile';
+type Device = 'desktop' | 'tablet' | 'mobile';
 
 type AIWebsiteGeneration = {
   siteName: string;
@@ -112,7 +112,7 @@ const defaultSections: WebsiteSection[] = [
   {
     id: 'contact-1',
     type: 'contact',
-    title: 'Let�s Work Together',
+    title: 'Letï¿½s Work Together',
     description:
       'Ready to get started? Give your customers an easy way to contact you.',
     buttonText: 'Contact Us',
@@ -291,9 +291,9 @@ function sectionToHtml(section: WebsiteSection): string {
     <h2>${title}</h2>
     <p class="lead">${description}</p>
     <div class="cards">
-      <article class="card"><p>�Amazing experience and excellent results.�</p><strong>� Alex</strong></article>
-      <article class="card"><p>�Professional, simple and exactly what we needed.�</p><strong>� Sarah</strong></article>
-      <article class="card"><p>�The easiest way to present our business online.�</p><strong>� Daniel</strong></article>
+      <article class="card"><p>ï¿½Amazing experience and excellent results.ï¿½</p><strong>ï¿½ Alex</strong></article>
+      <article class="card"><p>ï¿½Professional, simple and exactly what we needed.ï¿½</p><strong>ï¿½ Sarah</strong></article>
+      <article class="card"><p>ï¿½The easiest way to present our business online.ï¿½</p><strong>ï¿½ Daniel</strong></article>
     </div>
     ${button}
   </div>
@@ -412,6 +412,7 @@ function SectionPreview({
   device: Device;
 }) {
   const compact = device === 'mobile';
+  const tablet = device === 'tablet';
 
   return (
     <section
@@ -433,7 +434,7 @@ function SectionPreview({
 
       <div
         className={`mx-auto flex w-full flex-col items-center justify-center text-center ${
-          compact ? 'min-h-[240px] px-5 py-10' : 'min-h-[300px] px-10 py-16'
+          compact ? 'min-h-[240px] px-5 py-10' : tablet ? 'min-h-[270px] px-8 py-14' : 'min-h-[300px] px-10 py-16'
         }`}
       >
         <span
@@ -446,7 +447,7 @@ function SectionPreview({
           {SECTION_LABELS[section.type]}
         </span>
 
-        <h2 className={`font-bold text-white ${compact ? 'text-2xl' : 'text-4xl'}`}>
+        <h2 className={`font-bold text-white ${compact ? 'text-2xl' : tablet ? 'text-3xl' : 'text-4xl'}`}>
           {section.title}
         </h2>
 
@@ -535,6 +536,8 @@ export default function WebsiteBuilderTool({
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [history, setHistory] = useState<WebsiteSection[][]>([]);
+  const [future, setFuture] = useState<WebsiteSection[][]>([]);
 
   const selectedSection = useMemo(
     () => sections.find((section) => section.id === selectedId) ?? null,
@@ -562,11 +565,35 @@ export default function WebsiteBuilderTool({
     }
   }, []);
 
+  function remember(current: WebsiteSection[]) {
+    setHistory((h) => [...h.slice(-19), current]);
+    setFuture([]);
+  }
+
+  function undo() {
+    if (!history.length) return;
+    const previous = history[history.length - 1];
+    setFuture((f) => [sections, ...f].slice(0, 20));
+    setSections(previous);
+    setHistory((h) => h.slice(0, -1));
+    setSelectedId(previous[0]?.id ?? null);
+  }
+
+  function redo() {
+    if (!future.length) return;
+    const next = future[0];
+    setHistory((h) => [...h, sections].slice(-20));
+    setSections(next);
+    setFuture((f) => f.slice(1));
+    setSelectedId(next[0]?.id ?? null);
+  }
+
   function updateSelected(
     changes: Partial<Omit<WebsiteSection, 'id' | 'type'>>
   ) {
     if (!selectedId) return;
 
+    remember(sections);
     setSections((current) =>
       current.map((section) =>
         section.id === selectedId ? { ...section, ...changes } : section
@@ -576,6 +603,7 @@ export default function WebsiteBuilderTool({
   }
 
   function addSection(type: SectionType) {
+    remember(sections);
     const section = createSection(type);
     setSections((current) => [...current, section]);
     setSelectedId(section.id);
@@ -603,6 +631,7 @@ export default function WebsiteBuilderTool({
   }
 
   function deleteSection(id: string) {
+    remember(sections);
     setSections((current) => {
       if (current.length <= 1) return current;
 
@@ -620,6 +649,7 @@ export default function WebsiteBuilderTool({
   }
 
   function moveSection(id: string, direction: 'up' | 'down') {
+    remember(sections);
     setSections((current) => {
       const index = current.findIndex((section) => section.id === id);
       if (index === -1) return current;
@@ -818,6 +848,18 @@ export default function WebsiteBuilderTool({
               title="Desktop preview"
             >
               <Monitor className="h-4 w-4" />
+            </button>            <button
+              onClick={() => setDevice('tablet')}
+              className={`rounded-md p-2 ${
+                device === 'tablet'
+                  ? 'bg-violet-600 text-white'
+                  : darkMode
+                    ? 'text-gray-400'
+                    : 'text-gray-500'
+              }`}
+              title="Tablet preview"
+            >
+              <Monitor className="h-4 w-4" />
             </button>
 
             <button
@@ -834,6 +876,26 @@ export default function WebsiteBuilderTool({
               <Smartphone className="h-4 w-4" />
             </button>
           </div>
+
+          <button
+            onClick={undo}
+            disabled={!history.length}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
+            title="Undo"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Undo
+          </button>
+
+          <button
+            onClick={redo}
+            disabled={!future.length}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
+            title="Redo"
+          >
+            <RotateCcw className="h-4 w-4 rotate-180" />
+            Redo
+          </button>
 
           <button
             onClick={previewWebsite}
@@ -983,7 +1045,7 @@ export default function WebsiteBuilderTool({
         >
           <div
             className={`mx-auto overflow-hidden rounded-2xl shadow-2xl transition-all ${
-              device === 'mobile' ? 'max-w-[390px]' : 'w-full max-w-6xl'
+              device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
             } ${darkMode ? 'bg-[#0f172a]' : 'bg-white'}`}
           >
             {sections.map((section) => (
@@ -1204,4 +1266,10 @@ export default function WebsiteBuilderTool({
     </div>
   );
 }
+
+
+
+
+
+
 
