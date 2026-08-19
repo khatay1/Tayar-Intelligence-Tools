@@ -1,4 +1,4 @@
-// AI Engine Edge Function
+﻿// AI Engine Edge Function
 // Unified backend for all AI tools in the Tayar Intelligence platform.
 // Supports OpenAI, Google Gemini, and Anthropic with streaming, retry, and usage tracking.
 // Provider selection is driven by admin_settings (default_ai_provider) and the model ID.
@@ -361,31 +361,11 @@ Deno.serve(async (req: Request) => {
 
     const body: AIRequest = await req.json();
     const { tool, messages, stream = true, jsonMode = false } = body;
-    let model = body.model || "gpt-4o-mini";
+    let model = body.model || "gemini-2.0-flash";
 
     // Determine provider: explicit > admin default > model inference
-    let provider = body.provider;
-    if (!provider) {
-      const adminDefaults = await getAdminDefaults(supabase);
-      if (adminDefaults.provider) {
-        provider = adminDefaults.provider;
-        // If admin set a default provider, use that provider's default model unless a specific model was requested
-        if (!body.model) {
-          if (adminDefaults.model) {
-            model = adminDefaults.model;
-          } else {
-            const providerDefaultModels: Record<string, string> = {
-              openai: "gpt-4o-mini",
-              gemini: "gemini-2.0-flash",
-              anthropic: "claude-3-5-haiku-20241022",
-            };
-            model = providerDefaultModels[provider] || model;
-          }
-        }
-      } else {
-        provider = getProviderForModel(model);
-      }
-    }
+    let provider = "gemini";
+    model = body.model || "gemini-2.0-flash";
 
     const adapter = PROVIDERS[provider];
 
@@ -537,3 +517,5 @@ Deno.serve(async (req: Request) => {
     });
   }
 });
+
+
