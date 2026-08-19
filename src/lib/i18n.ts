@@ -1,4 +1,4 @@
-import { usePreferences } from '@/context/PreferencesContext';
+﻿import { usePreferences } from '@/context/PreferencesContext';
 
 export type Language = 'en' | 'ar' | 'sv';
 
@@ -13,6 +13,14 @@ export type TranslationKey =
 | 'nav.help' | 'nav.about' | 'nav.feedback' | 'nav.bugReport'
 | 'nav.privacy' | 'nav.terms' | 'nav.profile'
 | 'nav.toolsSection' | 'nav.accountSection'
+| 'workspace.welcome' | 'workspace.recentFiles' | 'workspace.favorites'
+| 'workspace.pinned' | 'workspace.quickActions' | 'workspace.recentActivity'
+| 'workspace.noRecentActivity' | 'workspace.filesWillAppear'
+| 'workspace.starFiles' | 'workspace.upgradePro' | 'workspace.unlockPro'
+| 'workspace.upgradeNow' | 'workspace.newProject' | 'workspace.organizeFiles'
+| 'workspace.projectName' | 'workspace.cancel' | 'workspace.create'
+| 'workspace.newResume' | 'workspace.coverLetter' | 'workspace.aiChat'
+| 'workspace.translate' | 'workspace.studyNotes' | 'workspace.documentAI'
   | 'common.search' | 'common.save' | 'common.cancel' | 'common.delete' | 'common.edit'
   | 'common.loading' | 'common.copy' | 'common.copied' | 'common.back' | 'common.send'
   | 'common.close' | 'common.confirm' | 'common.continue'
@@ -150,6 +158,29 @@ const en: Translations = {
   'page.bugReport.steps': 'Steps to Reproduce',
   'page.bugReport.expected': 'Expected Behavior',
   'page.bugReport.actual': 'Actual Behavior',
+  'workspace.welcome': 'Welcome back',
+  'workspace.recentFiles': 'Recent Files',
+  'workspace.favorites': 'Favorites',
+  'workspace.pinned': 'Pinned',
+  'workspace.quickActions': 'Quick Actions',
+  'workspace.recentActivity': 'Recent Activity',
+  'workspace.noRecentActivity': 'No recent activity',
+  'workspace.filesWillAppear': 'Files you create will appear here.',
+  'workspace.starFiles': 'Star files and projects to find them quickly.',
+  'workspace.upgradePro': 'Upgrade to Pro',
+  'workspace.unlockPro': 'Unlock unlimited projects and 10GB storage.',
+  'workspace.upgradeNow': 'Upgrade Now',
+  'workspace.newProject': 'New Project',
+  'workspace.organizeFiles': 'Organize related files together',
+  'workspace.projectName': 'Project name',
+  'workspace.cancel': 'Cancel',
+  'workspace.create': 'Create',
+  'workspace.newResume': 'New Resume',
+  'workspace.coverLetter': 'Cover Letter',
+  'workspace.aiChat': 'AI Chat',
+  'workspace.translate': 'Translate',
+  'workspace.studyNotes': 'Study Notes',
+  'workspace.documentAI': 'Document AI',
 };
 
 const ar: Translations = {
@@ -265,6 +296,29 @@ const ar: Translations = {
   'page.bugReport.steps': 'خطوات إعادة الإنتاج',
   'page.bugReport.expected': 'السلوك المتوقع',
   'page.bugReport.actual': 'السلوك الفعلي',
+  'workspace.welcome': 'مرحباً بعودتك',
+  'workspace.recentFiles': 'الملفات الأخيرة',
+  'workspace.favorites': 'المفضلة',
+  'workspace.pinned': 'المثبتة',
+  'workspace.quickActions': 'إجراءات سريعة',
+  'workspace.recentActivity': 'النشاط الأخير',
+  'workspace.noRecentActivity': 'لا يوجد نشاط حديث',
+  'workspace.filesWillAppear': 'ستظهر الملفات التي تنشئها هنا.',
+  'workspace.starFiles': 'أضف نجمة للملفات والمشاريع للوصول إليها بسرعة.',
+  'workspace.upgradePro': 'الترقية إلى Pro',
+  'workspace.unlockPro': 'افتح مشاريع غير محدودة وسعة تخزين 10 جيجابايت.',
+  'workspace.upgradeNow': 'الترقية الآن',
+  'workspace.newProject': 'مشروع جديد',
+  'workspace.organizeFiles': 'نظّم الملفات المرتبطة معاً',
+  'workspace.projectName': 'اسم المشروع',
+  'workspace.cancel': 'إلغاء',
+  'workspace.create': 'إنشاء',
+  'workspace.newResume': 'سيرة ذاتية جديدة',
+  'workspace.coverLetter': 'خطاب تقديم',
+  'workspace.aiChat': 'محادثة الذكاء الاصطناعي',
+  'workspace.translate': 'ترجمة',
+  'workspace.studyNotes': 'ملاحظات دراسية',
+  'workspace.documentAI': 'الذكاء الاصطناعي للمستندات',
 };
 
 const sv: Translations = {
@@ -380,6 +434,29 @@ const sv: Translations = {
   'page.bugReport.steps': 'Steg för att reproducera',
   'page.bugReport.expected': 'Förväntat beteende',
   'page.bugReport.actual': 'Faktiskt beteende',
+  'workspace.welcome': 'Välkommen tillbaka',
+  'workspace.recentFiles': 'Senaste filer',
+  'workspace.favorites': 'Favoriter',
+  'workspace.pinned': 'Fästa',
+  'workspace.quickActions': 'Snabbåtgärder',
+  'workspace.recentActivity': 'Senaste aktivitet',
+  'workspace.noRecentActivity': 'Ingen senaste aktivitet',
+  'workspace.filesWillAppear': 'Filer du skapar visas här.',
+  'workspace.starFiles': 'Stjärnmärk filer och projekt för att hitta dem snabbt.',
+  'workspace.upgradePro': 'Uppgradera till Pro',
+  'workspace.unlockPro': 'Lås upp obegränsade projekt och 10 GB lagring.',
+  'workspace.upgradeNow': 'Uppgradera nu',
+  'workspace.newProject': 'Nytt projekt',
+  'workspace.organizeFiles': 'Organisera relaterade filer tillsammans',
+  'workspace.projectName': 'Projektnamn',
+  'workspace.cancel': 'Avbryt',
+  'workspace.create': 'Skapa',
+  'workspace.newResume': 'Nytt CV',
+  'workspace.coverLetter': 'Personligt brev',
+  'workspace.aiChat': 'AI-chatt',
+  'workspace.translate': 'Översätt',
+  'workspace.studyNotes': 'Studieanteckningar',
+  'workspace.documentAI': 'Dokument-AI',
 };
 
 export const TRANSLATIONS: Record<Language, Translations> = { en, ar, sv };

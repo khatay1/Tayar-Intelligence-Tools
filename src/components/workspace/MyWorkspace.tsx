@@ -1,4 +1,4 @@
-// My Workspace — the central hub combining recent activity, favorites, pinned files,
+﻿// {t('nav.myWorkspace')} — the central hub combining recent activity, favorites, pinned files,
 // project shortcuts, storage, and quick actions.
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,6 +14,7 @@ import { getFileMeta, timeAgo, ViewId } from './workspace-config';
 import { useToast } from '@/components/ui/Toast';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StorageIndicator } from './StorageIndicator';
+import { useTranslation } from '@/lib/i18n';
 
 interface MyWorkspaceProps {
   onNavigate: (view: ViewId, projectId?: string) => void;
@@ -47,6 +48,7 @@ const TYPE_ICONS: Record<string, typeof FileText> = {
 };
 
 export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
+  const { t } = useTranslation();
   const { user, profile } = useAuth();
   const { createProject } = useProjects();
   const { success, error: showError, loading, update } = useToast();
@@ -115,9 +117,9 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-4 h-4 text-violet-400" />
-              <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">My Workspace</span>
+              <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">{t('nav.myWorkspace')}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Welcome back, {displayName}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{t('workspace.welcome')}, {displayName}</h1>
             <p className="text-gray-400 text-sm">{recentFiles.length} recent files · {favoriteFiles.length} favorites · {pinnedFiles.length} pinned</p>
           </div>
           <button
@@ -131,7 +133,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
 
       {/* Quick actions */}
       <div>
-        <h2 className="text-white font-bold text-base mb-3">Quick Actions</h2>
+        <h2 className="text-white font-bold text-base mb-3">{t('workspace.quickActions')}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {QUICK_ACTIONS.map(action => {
             const Icon = action.icon;
@@ -156,7 +158,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Pin className="w-4 h-4 text-violet-400" />
-            <h2 className="text-white font-bold text-base">Pinned</h2>
+            <h2 className="text-white font-bold text-base">{t('workspace.pinned')}</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {pinnedFiles.map(project => (
@@ -172,12 +174,12 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Clock className="w-4 h-4 text-sky-400" />
-            <h2 className="text-white font-bold text-base">Recent Files</h2>
+            <h2 className="text-white font-bold text-base">{t('workspace.recentFiles')}</h2>
           </div>
           {recentFiles.length === 0 ? (
             <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 text-center">
               <Clock className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-              <p className="text-gray-500 text-xs">Files you create will appear here.</p>
+              <p className="text-gray-500 text-xs">{t('workspace.filesWillAppear')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -192,12 +194,12 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Star className="w-4 h-4 text-amber-400" />
-            <h2 className="text-white font-bold text-base">Favorites</h2>
+            <h2 className="text-white font-bold text-base">{t('workspace.favorites')}</h2>
           </div>
           {favoriteFiles.length === 0 ? (
             <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 text-center">
               <Star className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-              <p className="text-gray-500 text-xs">Star files and projects to find them quickly.</p>
+              <p className="text-gray-500 text-xs">{t('workspace.starFiles')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -214,13 +216,13 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
         <div className="lg:col-span-2">
           <div className="flex items-center gap-2 mb-3">
             <Activity className="w-4 h-4 text-violet-400" />
-            <h2 className="text-white font-bold text-base">Recent Activity</h2>
+            <h2 className="text-white font-bold text-base">{t('workspace.recentActivity')}</h2>
           </div>
           <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
             {activity.length === 0 ? (
               <div className="py-6 text-center">
                 <Zap className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-500 text-xs">No recent activity</p>
+                <p className="text-gray-500 text-xs">{t('workspace.noRecentActivity')}</p>
               </div>
             ) : (
               <div className="space-y-1">
@@ -247,9 +249,9 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
             <div className="relative">
               <div className="flex items-center gap-2 mb-1.5">
                 <Crown className="w-4 h-4 text-amber-400" />
-                <p className="text-white text-sm font-semibold">Upgrade to Pro</p>
+                <p className="text-white text-sm font-semibold">{t('workspace.upgradePro')}</p>
               </div>
-              <p className="text-gray-400 text-xs mb-3">Unlock unlimited projects and 10GB storage.</p>
+              <p className="text-gray-400 text-xs mb-3">{t('workspace.unlockPro')}</p>
               <button
                 onClick={() => onNavigate('subscription')}
                 className="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
@@ -270,8 +272,8 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
                 <Folder className="w-5 h-5 text-violet-400" />
               </div>
               <div>
-                <h3 className="text-white font-bold text-base">New Project</h3>
-                <p className="text-gray-500 text-xs">Organize related files together</p>
+                <h3 className="text-white font-bold text-base">{t('workspace.newProject')}</h3>
+                <p className="text-gray-500 text-xs">{t('workspace.organizeFiles')}</p>
               </div>
             </div>
             <input
@@ -280,11 +282,11 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
               onChange={e => setProjectName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreateProject()}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-violet-500/50 focus:outline-none transition-all"
-              placeholder="Project name"
+              placeholder={t("workspace.projectName")}
             />
             <div className="flex gap-2 mt-4">
-              <button onClick={() => setShowNewProject(false)} className="flex-1 text-gray-400 hover:text-white text-sm py-2 rounded-lg hover:bg-white/5 transition-colors">Cancel</button>
-              <button onClick={handleCreateProject} disabled={!projectName.trim()} className="flex-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-medium py-2 rounded-lg transition-colors">Create</button>
+              <button onClick={() => setShowNewProject(false)} className="flex-1 text-gray-400 hover:text-white text-sm py-2 rounded-lg hover:bg-white/5 transition-colors">{t('workspace.cancel')}</button>
+              <button onClick={handleCreateProject} disabled={!projectName.trim()} className="flex-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-medium py-2 rounded-lg transition-colors">{t('workspace.create')}</button>
             </div>
           </div>
         </div>
@@ -319,3 +321,4 @@ function FileRow({ project, onOpen, compact }: { project: Project; onOpen: () =>
     </button>
   );
 }
+
