@@ -1,4 +1,4 @@
-// Global AI Error Handler
+﻿// Global AI Error Handler
 // Maps AIError codes to user-friendly messages and toast notifications.
 
 import { AIError, AIErrorCode } from './service';
@@ -103,3 +103,4 @@ export function isRetryableError(error: unknown): boolean {
   if (error instanceof TypeError && error.message.includes('fetch')) return true;
   return false;
 }
+
