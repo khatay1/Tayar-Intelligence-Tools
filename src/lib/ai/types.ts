@@ -27,8 +27,8 @@ export const AI_PROVIDERS: Record<AIProvider, ProviderConfig> = {
     envKey: 'OPENAI_API_KEY',
     description: 'GPT-4o, GPT-4o Mini, GPT-4 Turbo â€” versatile models for all tasks',
     models: [
-      { id: 'gpt-4o', label: 'GPT-4o', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
-      { id: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
+      { id: 'gemini-3.6-flash', label: 'gemini-3.6-flash', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
+      { id: 'gemini-3.6-flash', label: 'GPT-4o Mini', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
       { id: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'openai', maxTokens: 4096, contextWindow: 128000 },
     ],
   },
@@ -77,16 +77,17 @@ export function getProviderForModel(modelId: string): AIProvider {
 
 // Default model per tool â€” can be overridden by admin settings or user preferences
 export const DEFAULT_MODELS: Record<string, string> = {
-  'cv-builder': 'gpt-4o',
-  'cover-letter': 'gpt-4o',
-  'ai-writer': 'gpt-4o',
-  'document-ai': 'gpt-4o',
-  'study-assistant': 'gpt-4o',
-  'translator': 'gpt-4o-mini',
-  'ai-chat': 'gpt-4o-mini',
+  'cv-builder': 'gemini-3.6-flash',
+  'cover-letter': 'gemini-3.6-flash',
+  'ai-writer': 'gemini-3.6-flash',
+  'document-ai': 'gemini-3.6-flash',
+  'study-assistant': 'gemini-3.6-flash',
+  'translator': 'gemini-3.6-flash',
+  'ai-chat': 'gemini-3.6-flash',
 };
 
 export function getDefaultModel(tool: string): string {
-  return DEFAULT_MODELS[tool] || 'gpt-4o-mini';
+  return DEFAULT_MODELS[tool] || 'gemini-3.6-flash';
 }
+
 
