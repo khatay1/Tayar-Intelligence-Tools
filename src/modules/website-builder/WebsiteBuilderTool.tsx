@@ -536,6 +536,7 @@ export default function WebsiteBuilderTool({
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [aiImproving, setAiImproving] = useState(false);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
 
@@ -719,6 +720,49 @@ export default function WebsiteBuilderTool({
       setAiError(error instanceof Error ? error.message : 'AI generation failed.');
     } finally {
       setAiBusy(false);
+    }
+  }
+
+  async function improveSelectedSection() {
+    if (!selectedSection || aiImproving) return;
+
+    setAiImproving(true);
+    setAiError('');
+
+    try {
+      const ai = createAIService('website-builder');
+
+      const response = await ai.completeJSON<{
+        title: string;
+        description: string;
+        buttonText: string;
+      }>(
+        {
+          action: 'improve-section',
+          section: selectedSection,
+        },
+        [],
+        { temperature: 0.7, maxTokens: 1000 },
+      );
+
+      if (!response.json) {
+        throw new Error('AI did not return an improvement.');
+      }
+
+      remember(sections);
+
+      updateSelected({
+        title: response.json.title || selectedSection.title,
+        description: response.json.description || selectedSection.description,
+        buttonText: response.json.buttonText || selectedSection.buttonText,
+      });
+
+    } catch (error) {
+      setAiError(
+        error instanceof Error ? error.message : 'AI improvement failed.'
+      );
+    } finally {
+      setAiImproving(false);
     }
   }
 
@@ -1266,6 +1310,9 @@ export default function WebsiteBuilderTool({
     </div>
   );
 }
+
+
+
 
 
 
