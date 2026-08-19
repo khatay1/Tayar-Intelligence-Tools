@@ -812,6 +812,46 @@ if (generated.seo) {
     }
   }
 
+
+  async function generateImagePrompt() {
+    if (!selectedSection || aiBusy) return;
+
+    setAiBusy(true);
+    setAiError('');
+
+    try {
+      const ai = createAIService('website-builder');
+
+      const response = await ai.completeJSON<{
+        prompt: string;
+      }>(
+        {
+          action: 'image-prompt',
+          section: selectedSection,
+          brand,
+        },
+        [],
+        { temperature: 0.8, maxTokens: 800 },
+      );
+
+      if (!response.json?.prompt) {
+        throw new Error('AI could not create image prompt.');
+      }
+
+      updateSelected({
+        image: response.json.prompt,
+      });
+
+    } catch (error) {
+      setAiError(
+        error instanceof Error
+          ? error.message
+          : 'Image prompt generation failed.'
+      );
+    } finally {
+      setAiBusy(false);
+    }
+  }
   function saveProject() {
     localStorage.setItem(
       STORAGE_KEY,
@@ -1356,6 +1396,7 @@ if (generated.seo) {
     </div>
   );
 }
+
 
 
 
