@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { createAIService } from '@/lib/ai/service';
+import { generateImage } from '@/lib/ai/image-service';
 import {
   Plus,
   Trash2,
@@ -1396,6 +1397,7 @@ if (generated.seo) {
     </div>
   );
 }
+
 
 
 
