@@ -814,6 +814,49 @@ if (generated.seo) {
   }
 
 
+
+  async function generateRealImage() {
+    if (!selectedSection || aiBusy) return;
+
+    setAiBusy(true);
+    setAiError('');
+
+    try {
+      const ai = createAIService('website-builder');
+
+      const response = await ai.completeJSON<{
+        url: string;
+      }>(
+        {
+          action: 'generate-image',
+          prompt: selectedSection.image || selectedSection.title,
+          section: selectedSection,
+          brand,
+        },
+        [],
+        { temperature: 0.8, maxTokens: 1000 },
+      );
+
+      if (!response.json?.url) {
+        throw new Error('Image generation did not return an image.');
+      }
+
+      remember(sections);
+
+      updateSelected({
+        image: response.json.url,
+      });
+
+    } catch (error) {
+      setAiError(
+        error instanceof Error
+          ? error.message
+          : 'Image generation failed.'
+      );
+    } finally {
+      setAiBusy(false);
+    }
+  }
   async function generateImagePrompt() {
     if (!selectedSection || aiBusy) return;
 
@@ -1397,6 +1440,7 @@ if (generated.seo) {
     </div>
   );
 }
+
 
 
 
