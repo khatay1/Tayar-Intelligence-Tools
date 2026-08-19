@@ -1,7 +1,7 @@
-// Client-side AI Service Layer
+﻿// Client-side AI Service Layer
 // Unified interface for all AI tools. Handles streaming, conversation history,
 // token tracking, cost tracking, error handling, retry, timeout, and usage analytics.
-// All AI requests go through the edge function — API keys are never exposed to the frontend.
+// All AI requests go through the edge function â€” API keys are never exposed to the frontend.
 
 import { supabase } from '@/lib/supabase';
 import { promptManager, ToolId } from './prompts';
@@ -113,7 +113,7 @@ async function loadToolSettings(tool: string): Promise<{ model?: string; tempera
       };
     }
   } catch {
-    // Table might not exist or query failed — use defaults
+    // Table might not exist or query failed â€” use defaults
   }
   return null;
 }
@@ -262,35 +262,67 @@ export class AIService {
     let costUsd = 0;
     let provider = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop() || '';
+    const processEvent = (event: string) => {
+      const lines = event.split(/\r?\n/);
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed.startsWith('data: ')) continue;
+
+        if (!trimmed.startsWith('data:')) continue;
+
+        const payload = trimmed.slice(5).trim();
+
+        if (!payload) continue;
+
         try {
-          const data = JSON.parse(trimmed.slice(6));
+          const data = JSON.parse(payload);
+
           if (data.error) {
-            throw new AIError(data.error, (data.code as AIErrorCode) || 'STREAM_ERROR', data.code === 'PROVIDER_ERROR');
+            throw new AIError(
+              data.error,
+              (data.code as AIErrorCode) || 'STREAM_ERROR',
+              data.code === 'PROVIDER_ERROR',
+            );
           }
+
+          if (data.content) {
+            fullContent += String(data.content);
+            onChunk?.(String(data.content));
+          }
+
           if (data.done) {
             tokensIn = data.tokensIn || 0;
             tokensOut = data.tokensOut || 0;
             costUsd = data.costUsd || 0;
             provider = data.provider || '';
           }
-          if (data.content) {
-            fullContent += data.content;
-            onChunk?.(data.content);
-          }
         } catch (e) {
           if (e instanceof AIError) throw e;
+          console.warn('[AIService] Failed to parse SSE event:', payload);
         }
       }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        buffer += decoder.decode();
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() || '';
+
+      for (const event of events) {
+        processEvent(event);
+      }
+    }
+
+    if (buffer.trim()) {
+      processEvent(buffer);
     }
 
     if (conversationId) {
@@ -366,7 +398,7 @@ export class AIService {
     };
   }
 
-  // Structured JSON response — requests jsonMode from the edge function
+  // Structured JSON response â€” requests jsonMode from the edge function
   async completeJSON<T = unknown>(
     input: Record<string, unknown>,
     history: ChatMessage[] = [],
@@ -512,3 +544,4 @@ export async function getUsageStats(): Promise<UsageStats> {
 export function createAIService(tool: ToolId, options?: string | AIServiceOptions): AIService {
   return new AIService(tool, options);
 }
+
