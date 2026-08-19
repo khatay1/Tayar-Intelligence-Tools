@@ -217,7 +217,7 @@ export class AIService {
           tool: this.tool,
           messages,
           model: this.model,
-          stream: true,
+          stream: false,
           conversationId,
           temperature,
           maxTokens,
@@ -558,5 +558,6 @@ export async function getUsageStats(): Promise<UsageStats> {
 export function createAIService(tool: ToolId, options?: string | AIServiceOptions): AIService {
   return new AIService(tool, options);
 }
+
 
 
