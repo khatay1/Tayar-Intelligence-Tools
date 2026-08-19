@@ -47,10 +47,30 @@ interface WebsiteSection {
   accent: string;
 }
 
+interface WebsiteBrand {
+  name: string;
+  industry: string;
+  style: string;
+  colors: {
+    primary: string;
+    secondary: string;
+  };
+  tone: string;
+}
+
+interface WebsiteSEO {
+  title: string;
+  description: string;
+  keywords: string[];
+}
+
 type Device = 'desktop' | 'tablet' | 'mobile';
 
 type AIWebsiteGeneration = {
   siteName: string;
+  brand?: WebsiteBrand;
+  seo?: WebsiteSEO;
+
   sections: Array<{
     type: SectionType;
     title: string;
@@ -528,6 +548,23 @@ export default function WebsiteBuilderTool({
   darkMode,
 }: WebsiteBuilderToolProps) {
   const [sections, setSections] = useState<WebsiteSection[]>(defaultSections);
+
+const [brand, setBrand] = useState<WebsiteBrand>({
+  name: 'My Brand',
+  industry: 'Business',
+  style: 'Modern',
+  colors: {
+    primary: '#7c3aed',
+    secondary: '#0f172a',
+  },
+  tone: 'Professional',
+});
+
+const [seo, setSeo] = useState<WebsiteSEO>({
+  title: 'My Website',
+  description: '',
+  keywords: [],
+});
   const [selectedId, setSelectedId] = useState<string | null>(defaultSections[0].id);
   const [device, setDevice] = useState<Device>('desktop');
   const [saved, setSaved] = useState(false);
@@ -715,6 +752,14 @@ export default function WebsiteBuilderTool({
       setSections(normalized);
       setSelectedId(normalized[0].id);
       setSiteName(generated.siteName?.trim() || 'My Website');
+
+if (generated.brand) {
+  setBrand(generated.brand);
+}
+
+if (generated.seo) {
+  setSeo(generated.seo);
+}
       setSaved(false);
     } catch (error) {
       setAiError(error instanceof Error ? error.message : 'AI generation failed.');
@@ -1310,6 +1355,7 @@ export default function WebsiteBuilderTool({
     </div>
   );
 }
+
 
 
 
