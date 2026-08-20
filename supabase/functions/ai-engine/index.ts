@@ -1,4 +1,4 @@
-﻿import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const FAL_KEY = Deno.env.get("FAL_KEY");
@@ -57,7 +57,30 @@ Deno.serve(async (req: Request) => {
         },
       );
 
-      const imageData = await imageResponse.json();
+      const rawImageResponse = await imageResponse.text();
+
+      let imageData: any;
+      try {
+        imageData = JSON.parse(rawImageResponse);
+      } catch {
+        imageData = { raw: rawImageResponse };
+      }
+
+      console.log("[IMAGE PROVIDER]", imageResponse.status, imageData);
+
+      if (!imageResponse.ok) {
+        return new Response(
+          JSON.stringify({
+            error: "Image provider request failed",
+            providerStatus: imageResponse.status,
+            details: imageData,
+          }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
 
       const imageUrl =
         imageData?.images?.[0]?.url;
@@ -223,4 +246,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createAIService } from '@/lib/ai/service';
 import { generateImage } from '@/lib/ai/image-service';
 import {
@@ -81,6 +81,8 @@ type AIWebsiteGeneration = {
     buttonUrl?: string;
     background?: string;
     accent?: string;
+    image?: string;
+    imagePrompt?: string;
   }>;
 };
 
@@ -805,6 +807,8 @@ const [seo, setSeo] = useState<WebsiteSEO>({
           buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
           background: /^#[0-9a-fA-F]{6}$/.test(section.background || '') ? section.background! : '#0f172a',
           accent: /^#[0-9a-fA-F]{6}$/.test(section.accent || '') ? section.accent! : '#7c3aed',
+          image: section.image?.trim() || undefined,
+          imagePrompt: section.imagePrompt?.trim() || undefined,
         }));
 
       if (normalized.length === 0) {
@@ -889,7 +893,7 @@ if (generated.seo) {
       }>(
         {
           action: 'generate-image',
-          prompt: selectedSection.image || selectedSection.title,
+          prompt: selectedSection.imagePrompt || selectedSection.image || selectedSection.title,
           section: selectedSection,
           brand,
         },
@@ -1473,6 +1477,53 @@ if (generated.seo) {
                 </div>
               </div>
 
+              <div className="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-violet-300">
+                    AI Image
+                  </label>
+
+                  <textarea
+                    value={selectedSection.imagePrompt || ''}
+                    onChange={(e) =>
+                      updateSelected({ imagePrompt: e.target.value })
+                    }
+                    rows={3}
+                    placeholder="Describe the image you want for this section..."
+                    className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
+                      darkMode
+                        ? 'border-white/10 bg-white/5 text-white'
+                        : 'border-gray-200 bg-gray-50 text-gray-900'
+                    }`}
+                  />
+                </div>
+
+                <button
+                  onClick={generateImagePrompt}
+                  disabled={aiBusy}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {aiBusy ? 'Generating...' : '✨ Generate AI Prompt'}
+                </button>
+
+                <button
+                  onClick={generateRealImage}
+                  disabled={aiBusy}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {aiBusy ? 'Generating Image...' : '🖼️ Generate Image'}
+                </button>
+
+                {selectedSection.image &&
+                  /^https?:\/\//i.test(selectedSection.image) && (
+                    <img
+                      src={selectedSection.image}
+                      alt={selectedSection.title}
+                      className="mt-2 w-full rounded-lg border border-white/10 object-cover"
+                    />
+                  )}
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => moveSection(selectedSection.id, 'up')}
@@ -1513,29 +1564,3 @@ if (generated.seo) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
