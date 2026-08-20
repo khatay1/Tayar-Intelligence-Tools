@@ -651,6 +651,7 @@ const [seo, setSeo] = useState<WebsiteSEO>({
   }
 
   function duplicateSection(id: string) {
+    remember(sections);
     setSections((current) => {
       const index = current.findIndex((section) => section.id === id);
       if (index === -1) return current;
@@ -1440,6 +1441,7 @@ if (generated.seo) {
     </div>
   );
 }
+
 
 
 
