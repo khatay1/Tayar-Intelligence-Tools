@@ -689,6 +689,42 @@ const [seo, setSeo] = useState<WebsiteSEO>({
     setSaved(false);
   }
 
+  function handleDragStart(id: string) {
+    setDraggedId(id);
+  }
+
+  function handleDragOver(
+    event: React.DragEvent<HTMLDivElement>,
+    targetId: string
+  ) {
+    event.preventDefault();
+
+    if (!draggedId || draggedId === targetId) return;
+
+    const fromIndex = sections.findIndex(
+      (section) => section.id === draggedId
+    );
+
+    const toIndex = sections.findIndex(
+      (section) => section.id === targetId
+    );
+
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    remember(sections);
+
+    setSections((current) => {
+      const next = [...current];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }
+
+  function handleDragEnd() {
+    setDraggedId(null);
+    setSaved(false);
+  }
   function moveSection(id: string, direction: 'up' | 'down') {
     remember(sections);
     setSections((current) => {
@@ -1441,6 +1477,8 @@ if (generated.seo) {
     </div>
   );
 }
+
+
 
 
 
