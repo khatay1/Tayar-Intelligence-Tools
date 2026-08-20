@@ -578,6 +578,8 @@ const [seo, setSeo] = useState<WebsiteSEO>({
   const [aiImproving, setAiImproving] = useState(false);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const selectedSection = useMemo(
     () => sections.find((section) => section.id === selectedId) ?? null,
@@ -689,42 +691,6 @@ const [seo, setSeo] = useState<WebsiteSEO>({
     setSaved(false);
   }
 
-  function handleDragStart(id: string) {
-    setDraggedId(id);
-  }
-
-  function handleDragOver(
-    event: React.DragEvent<HTMLDivElement>,
-    targetId: string
-  ) {
-    event.preventDefault();
-
-    if (!draggedId || draggedId === targetId) return;
-
-    const fromIndex = sections.findIndex(
-      (section) => section.id === draggedId
-    );
-
-    const toIndex = sections.findIndex(
-      (section) => section.id === targetId
-    );
-
-    if (fromIndex === -1 || toIndex === -1) return;
-
-    remember(sections);
-
-    setSections((current) => {
-      const next = [...current];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, moved);
-      return next;
-    });
-  }
-
-  function handleDragEnd() {
-    setDraggedId(null);
-    setSaved(false);
-  }
   function moveSection(id: string, direction: 'up' | 'down') {
     remember(sections);
     setSections((current) => {
@@ -742,6 +708,63 @@ const [seo, setSeo] = useState<WebsiteSEO>({
     setSaved(false);
   }
 
+  function handleDragStart(id: string, e: React.DragEvent) {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  }
+
+  function handleDragOver(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverId(targetId);
+  }
+
+  function handleDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const sourceId =
+      e.dataTransfer.getData('text/plain') || draggedId;
+
+    if (!sourceId || sourceId === targetId) {
+      setDraggedId(null);
+      return;
+    }
+
+    remember(sections);
+
+    setSections((current) => {
+      const sourceIndex = current.findIndex(
+        (section) => section.id === sourceId
+      );
+
+      const targetIndex = current.findIndex(
+        (section) => section.id === targetId
+      );
+
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return current;
+      }
+
+      const next = [...current];
+      const [moved] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, moved);
+
+      return next;
+    });
+
+    setSelectedId(sourceId);
+    setSaved(false);
+    setDraggedId(null);
+    setDragOverId(null);
+  }
+
+  function handleDragEnd() {
+    setDraggedId(null);
+    setDragOverId(null);
+  }
   async function generateWithAI() {
     const prompt = aiPrompt.trim();
     if (!prompt || aiBusy) return;
@@ -1260,14 +1283,27 @@ if (generated.seo) {
             } ${darkMode ? 'bg-[#0f172a]' : 'bg-white'}`}
           >
             {sections.map((section) => (
-              <SectionPreview
-                key={section.id}
-                section={section}
-                selected={selectedId === section.id}
-                onSelect={() => setSelectedId(section.id)}
-                device={device}
-              />
-            ))}
+  <div
+    key={section.id}
+    draggable
+    onDragStart={(e) => handleDragStart(section.id, e)}
+    onDragOver={(e) => handleDragOver(e, section.id)}
+    onDragEnd={handleDragEnd}
+              onDrop={(e) => handleDrop(e, section.id)}
+              draggable={true}
+    className={`relative transition-opacity ${
+      draggedId === section.id ? 'opacity-40' : 'opacity-100'
+      } 
+    }`}
+  >
+    <SectionPreview
+      section={section}
+      selected={selectedId === section.id}
+      onSelect={() => setSelectedId(section.id)}
+      device={device}
+    />
+  </div>
+))}
           </div>
         </main>
 
@@ -1477,6 +1513,11 @@ if (generated.seo) {
     </div>
   );
 }
+
+
+
+
+
 
 
 
