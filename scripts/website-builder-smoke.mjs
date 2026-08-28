@@ -44,6 +44,10 @@ check('Generated pages include CSP', builder.includes('Content-Security-Policy')
 check('Generated pages have keyboard skip navigation', builder.includes('tayar-skip-link'));
 check('Generated images use lazy loading', builder.includes('loading="lazy" decoding="async"'));
 check('Large-project diagnostics are enabled', builder.includes('snapshotKb'));
+check('Legacy array backups use a valid default language', builder.includes("if (Array.isArray(parsed) && parsed.length)") && builder.includes("showInNavigation: true, language: 'en', translationKey: 'home'"));
+check('Analytics CSV export uses the shared CSV serializer', builder.includes("-analytics.csv`, `\\uFEFF${buildCsv(rows)}`"));
+check('Container column controls are reachable', builder.includes('selectedSection && sectionColumnCount(selectedSection.layout) > 1'));
+check('Media insertion is not misclassified as a React hook', builder.includes('function applyMediaAsset') && !builder.includes('function useMediaAsset'));
 check('Public rate-limit table exists', migration.includes('website_public_rate_limits'));
 check('Form submission rate limit is enforced', migration.includes("'lead-form'"));
 check('Analytics page-view rate limit is enforced', migration.includes("'analytics-page-view'"));
