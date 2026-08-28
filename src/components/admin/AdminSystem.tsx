@@ -1,0 +1,494 @@
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Settings, Bell, Mail, Database, Key, Flag, FileText,
+  Loader2, Plus, Trash2, Save, RefreshCw, AlertCircle, CheckCircle,
+  Power, Shield, Download, Clock,
+} from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/Toast';
+
+type SystemTab = 'settings' | 'logs' | 'notifications' | 'email' | 'backups' | 'apikeys' | 'flags';
+
+const TABS: { id: SystemTab; label: string; icon: typeof Settings }[] = [
+  { id: 'settings', label: 'System Settings', icon: Settings },
+  { id: 'logs', label: 'System Logs', icon: FileText },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'email', label: 'Email Templates', icon: Mail },
+  { id: 'backups', label: 'Backups', icon: Database },
+  { id: 'apikeys', label: 'API Keys', icon: Key },
+  { id: 'flags', label: 'Feature Flags', icon: Flag },
+];
+
+export default function AdminSystem() {
+  const [tab, setTab] = useState<SystemTab>('settings');
+
+  return (
+    <div className="space-y-5 max-w-7xl mx-auto">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {TABS.map(t => {
+          const Icon = t.icon;
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                active ? 'bg-violet-600/15 text-violet-300 border border-violet-500/20' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/10'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === 'settings' && <SettingsTab />}
+      {tab === 'logs' && <LogsTab />}
+      {tab === 'notifications' && <NotificationsTab />}
+      {tab === 'email' && <EmailTab />}
+      {tab === 'backups' && <BackupsTab />}
+      {tab === 'apikeys' && <ApiKeysTab />}
+      {tab === 'flags' && <FlagsTab />}
+    </div>
+  );
+}
+
+function SettingsTab() {
+  const { success, error: showError } = useToast();
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('admin_settings').select('key, value');
+    const map: Record<string, string> = {};
+    for (const s of (data || []) as { key: string; value: string }[]) {
+      map[s.key] = s.value.replace(/"/g, '');
+    }
+    setSettings(map);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    setSaving(true);
+    const entries = Object.entries(settings).map(([key, value]) => ({
+      key, value: JSON.stringify(value), updated_at: new Date().toISOString(),
+    }));
+    for (const entry of entries) {
+      await supabase.from('admin_settings').upsert(entry, { onConflict: 'key' });
+    }
+    setSaving(false);
+    success('Settings saved');
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+
+  const fields = [
+    { key: 'platform_name', label: 'Platform Name', type: 'text' },
+    { key: 'default_ai_provider', label: 'Default AI Provider', type: 'text' },
+    { key: 'max_free_requests', label: 'Max Free Requests/day', type: 'number' },
+    { key: 'maintenance_mode', label: 'Maintenance Mode', type: 'toggle' },
+    { key: 'signup_enabled', label: 'Signup Enabled', type: 'toggle' },
+  ];
+
+  return (
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold">Platform Settings</h3>
+          <p className="text-gray-500 text-sm">Configure global platform behavior</p>
+        </div>
+        <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {fields.map(f => (
+          <div key={f.key}>
+            <label className="text-xs text-gray-400 mb-1.5 block font-medium">{f.label}</label>
+            {f.type === 'toggle' ? (
+              <button
+                onClick={() => setSettings(prev => ({ ...prev, [f.key]: prev[f.key] === 'true' ? 'false' : 'true' }))}
+                className="flex items-center gap-2"
+              >
+                <div className={`w-11 h-6 rounded-full transition-colors ${settings[f.key] === 'true' ? 'bg-emerald-500' : 'bg-gray-700'}`}>
+                  <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings[f.key] === 'true' ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </div>
+                <span className="text-sm text-gray-300">{settings[f.key] === 'true' ? 'Enabled' : 'Disabled'}</span>
+              </button>
+            ) : (
+              <input
+                type={f.type}
+                value={settings[f.key] || ''}
+                onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/40"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LogsTab() {
+  const [logs, setLogs] = useState<{ id: string; level: string; category: string; message: string; created_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [levelFilter, setLevelFilter] = useState('all');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('system_logs').select('id, level, category, message, created_at').order('created_at', { ascending: false }).limit(100);
+    setLogs((data || []) as typeof logs);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = levelFilter === 'all' ? logs : logs.filter(l => l.level === levelFilter);
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+
+  return (
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white font-semibold text-sm">System Logs</h3>
+        <div className="flex items-center gap-2">
+          {['all', 'info', 'warning', 'error'].map(l => (
+            <button key={l} onClick={() => setLevelFilter(l)} className={`text-xs px-2.5 py-1 rounded-full capitalize ${levelFilter === l ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10'}`}>{l}</button>
+          ))}
+          <button onClick={load} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5"><RefreshCw className="w-4 h-4" /></button>
+        </div>
+      </div>
+      {filtered.length === 0 ? (
+        <div className="py-8 text-center text-gray-500 text-sm">No logs found</div>
+      ) : (
+        <div className="space-y-1.5 max-h-[500px] overflow-y-auto font-mono text-xs">
+          {filtered.map(log => (
+            <div key={log.id} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                log.level === 'error' ? 'bg-red-500/10 text-red-400' :
+                log.level === 'warning' ? 'bg-amber-500/10 text-amber-400' :
+                'bg-blue-500/10 text-blue-400'
+              }`}>{log.level}</span>
+              <span className="text-gray-500">[{log.category}]</span>
+              <span className="text-gray-300 flex-1">{log.message}</span>
+              <span className="text-gray-600 flex-shrink-0">{new Date(log.created_at).toLocaleTimeString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NotificationsTab() {
+  const { success } = useToast();
+  const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: string; read: boolean; created_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('admin_notifications').select('*').order('created_at', { ascending: false }).limit(50);
+    setNotifications((data || []) as typeof notifications);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function markAllRead() {
+    await supabase.from('admin_notifications').update({ read: true }).eq('read', false);
+    success('All notifications marked as read');
+    load();
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+
+  const typeColors: Record<string, string> = {
+    info: 'text-blue-400 bg-blue-500/10', warning: 'text-amber-400 bg-amber-500/10',
+    error: 'text-red-400 bg-red-500/10', success: 'text-emerald-400 bg-emerald-500/10',
+  };
+
+  return (
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white font-semibold text-sm">Admin Notifications</h3>
+        <button onClick={markAllRead} className="text-xs text-violet-400 hover:text-violet-300">Mark all read</button>
+      </div>
+      {notifications.length === 0 ? (
+        <div className="py-8 text-center text-gray-500 text-sm">No notifications</div>
+      ) : (
+        <div className="space-y-2">
+          {notifications.map(n => (
+            <div key={n.id} className={`flex items-start gap-3 p-3 rounded-xl border ${n.read ? 'bg-white/[0.02] border-white/5' : 'bg-violet-500/5 border-violet-500/10'}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${typeColors[n.type] || typeColors.info}`}>
+                <Bell className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-white">{n.title}</div>
+                <div className="text-xs text-gray-400 mt-0.5">{n.message}</div>
+                <div className="text-xs text-gray-600 mt-1">{new Date(n.created_at).toLocaleString()}</div>
+              </div>
+              {!n.read && <span className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0 mt-1" />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmailTab() {
+  const { success, error: showError } = useToast();
+  const [templates, setTemplates] = useState<{ id: string; key: string; subject: string; body: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('email_templates').select('id, key, subject, body').order('key');
+    setTemplates((data || []) as typeof templates);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function saveTemplate(t: { id: string; subject: string; body: string }) {
+    const { error } = await supabase.from('email_templates').update({ subject: t.subject, body: t.body, updated_at: new Date().toISOString() }).eq('id', t.id);
+    if (error) showError('Failed to save template');
+    else { success('Template saved'); setEditing(null); load(); }
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-3">
+      {templates.map(t => {
+        const isEditing = editing === t.id;
+        return (
+          <div key={t.id} className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                  <Mail className="w-4.5 h-4.5 text-violet-400" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-white capitalize">{t.key.replace(/_/g, ' ')}</div>
+                  <div className="text-xs text-gray-500">Template key: {t.key}</div>
+                </div>
+              </div>
+              {isEditing ? (
+                <button onClick={() => saveTemplate(t)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
+                  <Save className="w-3.5 h-3.5" /> Save
+                </button>
+              ) : (
+                <button onClick={() => setEditing(t.id)} className="text-xs text-violet-400 hover:text-violet-300">Edit</button>
+              )}
+            </div>
+            {isEditing ? (
+              <div className="space-y-3">
+                <input
+                  defaultValue={t.subject}
+                  onChange={e => { t.subject = e.target.value; }}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/40"
+                  placeholder="Email subject"
+                />
+                <textarea
+                  defaultValue={t.body}
+                  onChange={e => { t.body = e.target.value; }}
+                  rows={6}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/40 resize-none font-mono"
+                  placeholder="Email body (use {{name}}, {{reset_link}}, etc. for variables)"
+                />
+              </div>
+            ) : (
+              <div>
+                <div className="text-sm text-gray-300 mb-1">Subject: {t.subject}</div>
+                <div className="text-xs text-gray-500 whitespace-pre-wrap line-clamp-3">{t.body}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BackupsTab() {
+  const { success } = useToast();
+  const [backing, setBacking] = useState(false);
+
+  async function createBackup() {
+    setBacking(true);
+    await new Promise(r => setTimeout(r, 1200));
+    setBacking(false);
+    success('Backup created successfully');
+  }
+
+  const mockBackups = [
+    { id: 1, name: 'backup-2026-08-05', size: '24.5 MB', date: '2026-08-05 09:00', status: 'complete' },
+    { id: 2, name: 'backup-2026-08-04', size: '23.8 MB', date: '2026-08-04 09:00', status: 'complete' },
+    { id: 3, name: 'backup-2026-08-03', size: '23.1 MB', date: '2026-08-03 09:00', status: 'complete' },
+  ];
+
+  return (
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-white font-semibold text-sm">Database Backups</h3>
+          <p className="text-gray-500 text-xs">Automatic daily backups at 09:00 UTC</p>
+        </div>
+        <button onClick={createBackup} disabled={backing} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
+          {backing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          {backing ? 'Creating...' : 'New Backup'}
+        </button>
+      </div>
+      <div className="space-y-2">
+        {mockBackups.map(b => (
+          <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+              <Database className="w-4.5 h-4.5 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-white font-mono">{b.name}</div>
+              <div className="text-xs text-gray-500 flex items-center gap-2">
+                <span>{b.size}</span>
+                <span>·</span>
+                <Clock className="w-3 h-3" />
+                {b.date}
+              </div>
+            </div>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" /> {b.status}
+            </span>
+            <button className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ApiKeysTab() {
+  const { success, error: showError } = useToast();
+  const [keys, setKeys] = useState<{ id: string; service: string; label: string; status: string; last_used: string | null; created_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('api_keys').select('id, service, label, status, last_used, created_at').order('service');
+    setKeys((data || []) as typeof keys);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function toggleStatus(key: { id: string; status: string }) {
+    const newStatus = key.status === 'active' ? 'inactive' : 'active';
+    const { error } = await supabase.from('api_keys').update({ status: newStatus }).eq('id', key.id);
+    if (error) showError('Failed to update key');
+    else { success('API key updated'); load(); }
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+
+  return (
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-white font-semibold text-sm">API Keys</h3>
+          <p className="text-gray-500 text-xs">Manage external service API keys</p>
+        </div>
+        <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
+          <Plus className="w-4 h-4" /> Add Key
+        </button>
+      </div>
+      <div className="space-y-2">
+        {keys.map(k => (
+          <div key={k.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${k.status === 'active' ? 'bg-emerald-500/10' : 'bg-gray-500/10'}`}>
+              <Key className={`w-4.5 h-4.5 ${k.status === 'active' ? 'text-emerald-400' : 'text-gray-500'}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-white">{k.label}</div>
+              <div className="text-xs text-gray-500 capitalize">{k.service} · Added {new Date(k.created_at).toLocaleDateString()}</div>
+            </div>
+            {k.last_used && <span className="text-xs text-gray-600 hidden sm:block">Last used: {new Date(k.last_used).toLocaleDateString()}</span>}
+            <button onClick={() => toggleStatus(k)} className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors ${k.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
+              <Power className="w-3 h-3" /> {k.status}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FlagsTab() {
+  const { success, error: showError } = useToast();
+  const [flags, setFlags] = useState<{ id: string; key: string; label: string; enabled: boolean; description: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('feature_flags').select('id, key, label, enabled, description').order('key');
+    setFlags((data || []) as typeof flags);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function toggle(flag: { id: string; key: string; label: string; enabled: boolean }) {
+    const newVal = !flag.enabled;
+    setFlags(prev => prev.map(f => f.id === flag.id ? { ...f, enabled: newVal } : f));
+    const { error } = await supabase.from('feature_flags').update({ enabled: newVal, updated_at: new Date().toISOString() }).eq('id', flag.id);
+    if (error) {
+      setFlags(prev => prev.map(f => f.id === flag.id ? { ...f, enabled: !newVal } : f));
+      showError('Failed to toggle flag');
+    } else {
+      success(`${flag.label} ${newVal ? 'enabled' : 'disabled'}`);
+    }
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+
+  return (
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-white font-semibold text-sm">Feature Flags</h3>
+          <p className="text-gray-500 text-xs">Toggle features on/off without deploying</p>
+        </div>
+        <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
+          <Plus className="w-4 h-4" /> New Flag
+        </button>
+      </div>
+      <div className="space-y-2">
+        {flags.map(f => (
+          <div key={f.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${f.enabled ? 'bg-emerald-500/10' : 'bg-gray-500/10'}`}>
+              <Flag className={`w-4.5 h-4.5 ${f.enabled ? 'text-emerald-400' : 'text-gray-500'}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-white">{f.label}</div>
+              <div className="text-xs text-gray-500">{f.description}</div>
+              <div className="text-[10px] text-gray-600 font-mono mt-0.5">{f.key}</div>
+            </div>
+            <button onClick={() => toggle(f)} className="transition-transform hover:scale-110">
+              <div className={`w-11 h-6 rounded-full transition-colors ${f.enabled ? 'bg-emerald-500' : 'bg-gray-700'}`}>
+                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${f.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </div>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
