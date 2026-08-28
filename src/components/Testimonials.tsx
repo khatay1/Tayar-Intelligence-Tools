@@ -5,7 +5,7 @@ export default function Testimonials() {
   const c = useLandingCopy().useCases;
   const icons = [Layers3, CheckCircle2, PackageCheck];
   return (
-    <section className="site-section bg-[#06060e]/70">
+    <section className="site-section bg-[#06060e]/45 backdrop-blur-[2px]/45 backdrop-blur-[2px]">
       <div className="site-container">
         <div className="section-heading">
           <span className="eyebrow">{c.eyebrow}</span>

@@ -135,7 +135,7 @@ const { t } = useTranslation();
   // Show welcome dashboard right after onboarding
   if (showWelcomeDash && !tourActive) {
     return (
-      <div className="min-h-screen bg-[#06060f] text-white">
+      <div className="min-h-screen tayar-space-bg-soft text-white">
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[120px]" />
           <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-fuchsia-600/8 rounded-full blur-[100px]" />
@@ -281,8 +281,8 @@ const groups: { label: string; items: NavItem[] }[] = [
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 ${darkMode ? 'bg-[#0a0a1a]/80' : 'bg-white'} backdrop-blur-xl border-r ${darkMode ? 'border-white/5' : 'border-gray-200'} flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className={`flex items-center justify-between px-5 h-16 border-b ${darkMode ? 'border-white/5' : 'border-gray-200'}`}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 ${darkMode ? 'bg-[#090918]/68' : 'bg-white'} backdrop-blur-xl border-r ${darkMode ? 'border-violet-400/10' : 'border-gray-200'} flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className={`flex items-center justify-between px-5 h-16 border-b ${darkMode ? 'border-violet-400/10' : 'border-gray-200'}`}>
           <button onClick={onExitToLanding} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
             <AstronautLogo size={32} />
             <span className={`font-bold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>Tayar Intelligence</span>
@@ -307,7 +307,7 @@ const groups: { label: string; items: NavItem[] }[] = [
                       key={item.id}
                       onClick={() => navigate(item.id)}
                       data-tour={item.id}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-violet-600/15 text-violet-300 font-medium border border-violet-500/20' : darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-transparent'} ${item.id === 'image-tools' ? 'opacity-60' : ''}`}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-violet-500/20 text-violet-200 font-medium border border-violet-400/30 shadow-[0_0_24px_rgba(139,92,246,0.10)]' : darkMode ? 'text-gray-400 hover:text-white hover:bg-white/[0.07] border border-transparent hover:border-white/[0.06]' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-transparent'} ${item.id === 'image-tools' ? 'opacity-60' : ''}`}
                     >
                       <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${active ? 'text-violet-400' : ''}`} />
                      <span className="flex-1 text-left">
@@ -336,7 +336,7 @@ const groups: { label: string; items: NavItem[] }[] = [
           </div>
         </div>
 
-        <div className={`px-3 pb-4 border-t ${darkMode ? 'border-white/5' : 'border-gray-200'} pt-3`}>
+        <div className={`px-3 pb-4 border-t ${darkMode ? 'border-violet-400/10' : 'border-gray-200'} pt-3`}>
           <div className="flex items-center gap-3 px-2">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">{initials}</div>
             <div className="flex-1 min-w-0">
@@ -356,7 +356,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       <div className="flex-1 flex min-w-0 relative z-10">
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top bar with Command Bar */}
-          <header className={`sticky top-0 z-30 ${darkMode ? 'bg-[#0a0a1a]/70' : 'bg-white/80'} backdrop-blur-xl border-b ${darkMode ? 'border-white/5' : 'border-gray-200'} h-16 flex items-center px-4 sm:px-6 gap-3`}>
+          <header className={`sticky top-0 z-30 ${darkMode ? 'bg-[#0a0a1a]/70' : 'bg-white/80'} backdrop-blur-xl border-b ${darkMode ? 'border-violet-400/10' : 'border-gray-200'} h-16 flex items-center px-4 sm:px-6 gap-3`}>
             <button className={`lg:hidden ${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'} transition-colors`} onClick={() => setSidebarOpen(true)}>
               <Menu className="w-5 h-5" />
             </button>

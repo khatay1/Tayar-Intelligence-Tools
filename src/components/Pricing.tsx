@@ -7,7 +7,7 @@ export default function Pricing({ onGetStarted }: PricingProps) {
   const c = useLandingCopy().pricing;
   const plans = [c.free, c.pro, c.business];
   return (
-    <section id="pricing" className="site-section bg-[#07070f]/75">
+    <section id="pricing" className="site-section bg-[#07070f]/55 backdrop-blur-[2px]/55 backdrop-blur-[2px]">
       <div className="site-container">
         <div className="section-heading">
           <span className="eyebrow">{c.eyebrow}</span>

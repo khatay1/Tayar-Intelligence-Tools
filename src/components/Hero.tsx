@@ -22,7 +22,7 @@ export default function Hero({ onGetStarted }: HeroProps) {
   ];
 
   return (
-    <section id="top" className="relative overflow-hidden bg-[#06060e]/70 pt-16">
+    <section id="top" className="relative overflow-hidden bg-transparent pt-16">
       <div className="absolute inset-0" aria-hidden="true">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_68%_10%,rgba(124,58,237,0.22),transparent_34%),radial-gradient(circle_at_15%_70%,rgba(79,70,229,0.12),transparent_30%)]" />
         <div className="absolute inset-0 opacity-80">
