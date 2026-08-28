@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowLeft, Save, Download, Eye, Plus, Trash2, GripVertical,
@@ -35,6 +36,7 @@ const inputClass = 'w-full bg-white/5 border border-white/10 rounded-lg px-3 py-
 const labelClass = 'text-gray-400 text-xs font-medium mb-1 block';
 
 export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const toast = useToast();
   const { createProject, saveProject, createFileEntry, logActivity } = useProjects();
@@ -361,8 +363,8 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="font-bold text-base">Choose a Template</h1>
-              <p className="text-gray-500 text-xs">Pick a design — you can change it anytime</p>
+              <h1 className="font-bold text-base">{l('Choose a Template')}</h1>
+              <p className="text-gray-500 text-xs">{l('Pick a design — you can change it anytime')}</p>
             </div>
           </div>
         </header>
@@ -426,17 +428,17 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-white font-bold text-sm">Resume Builder</h1>
+            <h1 className="text-white font-bold text-sm">{l('Resume Builder')}</h1>
             <p className="text-gray-500 text-xs flex items-center gap-1.5">
-              {saveStatus === 'saving' && <><Loader2 className="w-3 h-3 animate-spin" /> Saving...</>}
-              {saveStatus === 'saved' && <><CheckCircle2 className="w-3 h-3 text-emerald-400" /> All changes saved</>}
-              {saveStatus === 'idle' && <><CheckCircle2 className="w-3 h-3 text-gray-600" /> Auto-save on</>}
+              {saveStatus === 'saving' && <><Loader2 className="w-3 h-3 animate-spin" /> {l('Saving...')}</>}
+              {saveStatus === 'saved' && <><CheckCircle2 className="w-3 h-3 text-emerald-400" /> {l('All changes saved')}</>}
+              {saveStatus === 'idle' && <><CheckCircle2 className="w-3 h-3 text-gray-600" /> {l('Auto-save on')}</>}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={saveVersion} className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg transition-colors">
-            <History className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Save Version</span>
+            <History className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{l('Save Version')}</span>
           </button>
           <div className="relative">
             <button onClick={() => setExportMenu(!exportMenu)} disabled={exporting} className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50">
@@ -477,7 +479,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">{item.label}</span>
+                  <span className="hidden lg:inline">{l(item.label)}</span>
                 </button>
               );
             })}
@@ -504,21 +506,21 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Personal Info */}
                 {editSection === 'personal' && (
                   <div className="space-y-3">
-                    <Field label="Full Name"><input className={inputClass} value={cv.personal.fullName} onChange={e => updatePersonal('fullName', e.target.value)} placeholder="John Doe" /></Field>
-                    <Field label="Job Title"><input className={inputClass} value={cv.personal.jobTitle} onChange={e => updatePersonal('jobTitle', e.target.value)} placeholder="Software Engineer" /></Field>
-                    <Field label="Email"><input className={inputClass} value={cv.personal.email} onChange={e => updatePersonal('email', e.target.value)} placeholder="john@example.com" /></Field>
-                    <Field label="Phone"><input className={inputClass} value={cv.personal.phone} onChange={e => updatePersonal('phone', e.target.value)} placeholder="+1 234 567 890" /></Field>
-                    <Field label="Address"><input className={inputClass} value={cv.personal.address} onChange={e => updatePersonal('address', e.target.value)} placeholder="Stockholm, Sweden" /></Field>
-                    <Field label="LinkedIn"><input className={inputClass} value={cv.personal.linkedin} onChange={e => updatePersonal('linkedin', e.target.value)} placeholder="linkedin.com/in/johndoe" /></Field>
-                    <Field label="Portfolio"><input className={inputClass} value={cv.personal.portfolio} onChange={e => updatePersonal('portfolio', e.target.value)} placeholder="johndoe.com" /></Field>
+                    <Field label={l('Full Name')}><input className={inputClass} value={cv.personal.fullName} onChange={e => updatePersonal('fullName', e.target.value)} placeholder={l('John Doe')} /></Field>
+                    <Field label={l('Job Title')}><input className={inputClass} value={cv.personal.jobTitle} onChange={e => updatePersonal('jobTitle', e.target.value)} placeholder={l('Software Engineer')} /></Field>
+                    <Field label={l('Email')}><input className={inputClass} value={cv.personal.email} onChange={e => updatePersonal('email', e.target.value)} placeholder="john@example.com" /></Field>
+                    <Field label={l('Phone')}><input className={inputClass} value={cv.personal.phone} onChange={e => updatePersonal('phone', e.target.value)} placeholder="+1 234 567 890" /></Field>
+                    <Field label={l('Address')}><input className={inputClass} value={cv.personal.address} onChange={e => updatePersonal('address', e.target.value)} placeholder={l('Stockholm, Sweden')} /></Field>
+                    <Field label={l('LinkedIn')}><input className={inputClass} value={cv.personal.linkedin} onChange={e => updatePersonal('linkedin', e.target.value)} placeholder="linkedin.com/in/johndoe" /></Field>
+                    <Field label={l('Portfolio')}><input className={inputClass} value={cv.personal.portfolio} onChange={e => updatePersonal('portfolio', e.target.value)} placeholder="johndoe.com" /></Field>
                   </div>
                 )}
 
                 {/* Summary */}
                 {editSection === 'summary' && (
                   <div>
-                    <Field label="Professional Summary">
-                      <textarea className={inputClass + ' min-h-[200px] resize-y'} value={cv.summary} onChange={e => setCv({ ...cv, summary: e.target.value })} placeholder="Write a 2-3 sentence summary highlighting your experience, key skills, and career goals..." />
+                    <Field label={l('Professional Summary')}>
+                      <textarea className={inputClass + ' min-h-[200px] resize-y'} value={cv.summary} onChange={e => setCv({ ...cv, summary: e.target.value })} placeholder={l('Write a 2-3 sentence summary highlighting your experience, key skills, and career goals...')} />
                     </Field>
                     <button onClick={() => handleAIAction('optimize-ats')} disabled={aiLoading !== null} className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 mt-2 disabled:opacity-50">
                       {aiLoading === 'optimize-ats' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
@@ -537,17 +539,17 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                           <span className="text-xs text-gray-500">Experience {i + 1}</span>
                           <button onClick={() => deleteExperience(exp.id)} className="text-red-400/60 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
-                        <Field label="Job Title"><input className={inputClass} value={exp.jobTitle} onChange={e => updateExperience(exp.id, 'jobTitle', e.target.value)} /></Field>
-                        <Field label="Company"><input className={inputClass} value={exp.company} onChange={e => updateExperience(exp.id, 'company', e.target.value)} /></Field>
-                        <Field label="Location"><input className={inputClass} value={exp.location} onChange={e => updateExperience(exp.id, 'location', e.target.value)} /></Field>
+                        <Field label={l('Job Title')}><input className={inputClass} value={exp.jobTitle} onChange={e => updateExperience(exp.id, 'jobTitle', e.target.value)} /></Field>
+                        <Field label={l('Company')}><input className={inputClass} value={exp.company} onChange={e => updateExperience(exp.id, 'company', e.target.value)} /></Field>
+                        <Field label={l('Location')}><input className={inputClass} value={exp.location} onChange={e => updateExperience(exp.id, 'location', e.target.value)} /></Field>
                         <div className="grid grid-cols-2 gap-2">
-                          <Field label="Start"><input className={inputClass} value={exp.startDate} onChange={e => updateExperience(exp.id, 'startDate', e.target.value)} placeholder="Jan 2022" /></Field>
-                          <Field label="End"><input className={inputClass} value={exp.endDate} onChange={e => updateExperience(exp.id, 'endDate', e.target.value)} placeholder="Present" disabled={exp.current} /></Field>
+                          <Field label={l('Start')}><input className={inputClass} value={exp.startDate} onChange={e => updateExperience(exp.id, 'startDate', e.target.value)} placeholder={l('Jan 2022')} /></Field>
+                          <Field label={l('End')}><input className={inputClass} value={exp.endDate} onChange={e => updateExperience(exp.id, 'endDate', e.target.value)} placeholder={l('Present')} disabled={exp.current} /></Field>
                         </div>
                         <label className="flex items-center gap-2 text-xs text-gray-400">
                           <input type="checkbox" checked={exp.current} onChange={e => updateExperience(exp.id, 'current', e.target.checked)} className="accent-violet-600" /> Current role
                         </label>
-                        <Field label="Description"><textarea className={inputClass + ' min-h-[100px] resize-y'} value={exp.description} onChange={e => updateExperience(exp.id, 'description', e.target.value)} placeholder="Describe your achievements..." /></Field>
+                        <Field label={l('Description')}><textarea className={inputClass + ' min-h-[100px] resize-y'} value={exp.description} onChange={e => updateExperience(exp.id, 'description', e.target.value)} placeholder={l('Describe your achievements...')} /></Field>
                       </div>
                     ))}
                     <AddButton label="Add Experience" onClick={addExperience} />
@@ -564,14 +566,14 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                           <span className="text-xs text-gray-500">Education {i + 1}</span>
                           <button onClick={() => deleteEducation(edu.id)} className="text-red-400/60 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
-                        <Field label="Degree"><input className={inputClass} value={edu.degree} onChange={e => updateEducation(edu.id, 'degree', e.target.value)} /></Field>
-                        <Field label="Institution"><input className={inputClass} value={edu.institution} onChange={e => updateEducation(edu.id, 'institution', e.target.value)} /></Field>
-                        <Field label="Location"><input className={inputClass} value={edu.location} onChange={e => updateEducation(edu.id, 'location', e.target.value)} /></Field>
+                        <Field label={l('Degree')}><input className={inputClass} value={edu.degree} onChange={e => updateEducation(edu.id, 'degree', e.target.value)} /></Field>
+                        <Field label={l('Institution')}><input className={inputClass} value={edu.institution} onChange={e => updateEducation(edu.id, 'institution', e.target.value)} /></Field>
+                        <Field label={l('Location')}><input className={inputClass} value={edu.location} onChange={e => updateEducation(edu.id, 'location', e.target.value)} /></Field>
                         <div className="grid grid-cols-2 gap-2">
-                          <Field label="Start"><input className={inputClass} value={edu.startDate} onChange={e => updateEducation(edu.id, 'startDate', e.target.value)} /></Field>
-                          <Field label="End"><input className={inputClass} value={edu.endDate} onChange={e => updateEducation(edu.id, 'endDate', e.target.value)} /></Field>
+                          <Field label={l('Start')}><input className={inputClass} value={edu.startDate} onChange={e => updateEducation(edu.id, 'startDate', e.target.value)} /></Field>
+                          <Field label={l('End')}><input className={inputClass} value={edu.endDate} onChange={e => updateEducation(edu.id, 'endDate', e.target.value)} /></Field>
                         </div>
-                        <Field label="Description"><input className={inputClass} value={edu.description} onChange={e => updateEducation(edu.id, 'description', e.target.value)} /></Field>
+                        <Field label={l('Description')}><input className={inputClass} value={edu.description} onChange={e => updateEducation(edu.id, 'description', e.target.value)} /></Field>
                       </div>
                     ))}
                     <AddButton label="Add Education" onClick={addEducation} />
@@ -584,7 +586,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                     {cv.skills.length === 0 && <EmptyState icon={Zap} label="No skills yet" hint="Add your technical and soft skills" />}
                     {cv.skills.map(skill => (
                       <div key={skill.id} className="flex gap-2 items-center">
-                        <input className={inputClass + ' flex-1'} value={skill.name} onChange={e => updateSkill(skill.id, 'name', e.target.value)} placeholder="Skill name" />
+                        <input className={inputClass + ' flex-1'} value={skill.name} onChange={e => updateSkill(skill.id, 'name', e.target.value)} placeholder={l('Skill name')} />
                         <select className={inputClass + ' w-28'} value={skill.level} onChange={e => updateSkill(skill.id, 'level', e.target.value)}>
                           {SKILL_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                         </select>
@@ -605,9 +607,9 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                     {cv.languages.length === 0 && <EmptyState icon={Type} label="No languages yet" hint="Add languages you speak" />}
                     {cv.languages.map(lang => (
                       <div key={lang.id} className="flex gap-2 items-center">
-                        <input className={inputClass + ' flex-1'} value={lang.name} onChange={e => updateLanguage(lang.id, 'name', e.target.value)} placeholder="Language" />
+                        <input className={inputClass + ' flex-1'} value={lang.name} onChange={e => updateLanguage(lang.id, 'name', e.target.value)} placeholder={l('Language')} />
                         <select className={inputClass + ' w-32'} value={lang.proficiency} onChange={e => updateLanguage(lang.id, 'proficiency', e.target.value)}>
-                          {PROFICIENCY.map(p => <option key={p} value={p}>{p}</option>)}
+                          {PROFICIENCY.map(p => <option key={l(p)} value={l(p)}>{l(p)}</option>)}
                         </select>
                         <button onClick={() => deleteLanguage(lang.id)} className="text-red-400/60 hover:text-red-400 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
@@ -623,12 +625,12 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                     {cv.projects.map(proj => (
                       <div key={proj.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Project</span>
+                          <span className="text-xs text-gray-500">{l('Project')}</span>
                           <button onClick={() => deleteProject(proj.id)} className="text-red-400/60 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
-                        <Field label="Name"><input className={inputClass} value={proj.name} onChange={e => updateProject(proj.id, 'name', e.target.value)} /></Field>
-                        <Field label="Description"><textarea className={inputClass + ' min-h-[80px] resize-y'} value={proj.description} onChange={e => updateProject(proj.id, 'description', e.target.value)} /></Field>
-                        <Field label="Link"><input className={inputClass} value={proj.link} onChange={e => updateProject(proj.id, 'link', e.target.value)} /></Field>
+                        <Field label={l('Name')}><input className={inputClass} value={proj.name} onChange={e => updateProject(proj.id, 'name', e.target.value)} /></Field>
+                        <Field label={l('Description')}><textarea className={inputClass + ' min-h-[80px] resize-y'} value={proj.description} onChange={e => updateProject(proj.id, 'description', e.target.value)} /></Field>
+                        <Field label={l('Link')}><input className={inputClass} value={proj.link} onChange={e => updateProject(proj.id, 'link', e.target.value)} /></Field>
                       </div>
                     ))}
                     <AddButton label="Add Project" onClick={addProject} />
@@ -642,12 +644,12 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                     {cv.certificates.map(cert => (
                       <div key={cert.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Certificate</span>
+                          <span className="text-xs text-gray-500">{l('Certificate')}</span>
                           <button onClick={() => deleteCertificate(cert.id)} className="text-red-400/60 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
-                        <Field label="Name"><input className={inputClass} value={cert.name} onChange={e => updateCertificate(cert.id, 'name', e.target.value)} /></Field>
-                        <Field label="Issuer"><input className={inputClass} value={cert.issuer} onChange={e => updateCertificate(cert.id, 'issuer', e.target.value)} /></Field>
-                        <Field label="Date"><input className={inputClass} value={cert.date} onChange={e => updateCertificate(cert.id, 'date', e.target.value)} /></Field>
+                        <Field label={l('Name')}><input className={inputClass} value={cert.name} onChange={e => updateCertificate(cert.id, 'name', e.target.value)} /></Field>
+                        <Field label={l('Issuer')}><input className={inputClass} value={cert.issuer} onChange={e => updateCertificate(cert.id, 'issuer', e.target.value)} /></Field>
+                        <Field label={l('Date')}><input className={inputClass} value={cert.date} onChange={e => updateCertificate(cert.id, 'date', e.target.value)} /></Field>
                       </div>
                     ))}
                     <AddButton label="Add Certificate" onClick={addCertificate} />
@@ -661,13 +663,13 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                     {cv.awards.map(award => (
                       <div key={award.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Award</span>
+                          <span className="text-xs text-gray-500">{l('Award')}</span>
                           <button onClick={() => deleteAward(award.id)} className="text-red-400/60 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
-                        <Field label="Title"><input className={inputClass} value={award.title} onChange={e => updateAward(award.id, 'title', e.target.value)} /></Field>
-                        <Field label="Issuer"><input className={inputClass} value={award.issuer} onChange={e => updateAward(award.id, 'issuer', e.target.value)} /></Field>
-                        <Field label="Date"><input className={inputClass} value={award.date} onChange={e => updateAward(award.id, 'date', e.target.value)} /></Field>
-                        <Field label="Description"><input className={inputClass} value={award.description} onChange={e => updateAward(award.id, 'description', e.target.value)} /></Field>
+                        <Field label={l('Title')}><input className={inputClass} value={award.title} onChange={e => updateAward(award.id, 'title', e.target.value)} /></Field>
+                        <Field label={l('Issuer')}><input className={inputClass} value={award.issuer} onChange={e => updateAward(award.id, 'issuer', e.target.value)} /></Field>
+                        <Field label={l('Date')}><input className={inputClass} value={award.date} onChange={e => updateAward(award.id, 'date', e.target.value)} /></Field>
+                        <Field label={l('Description')}><input className={inputClass} value={award.description} onChange={e => updateAward(award.id, 'description', e.target.value)} /></Field>
                       </div>
                     ))}
                     <AddButton label="Add Award" onClick={addAward} />
@@ -681,7 +683,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
               <div className="space-y-6">
                 {/* Templates */}
                 <div>
-                  <h3 className="text-white text-sm font-semibold mb-3">Resume Template</h3>
+                  <h3 className="text-white text-sm font-semibold mb-3">{l('Resume Template')}</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {TEMPLATES.map(t => (
                       <button
@@ -700,7 +702,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
 
                 {/* Color themes */}
                 <div>
-                  <h3 className="text-white text-sm font-semibold mb-3">Color Theme</h3>
+                  <h3 className="text-white text-sm font-semibold mb-3">{l('Color Theme')}</h3>
                   <div className="grid grid-cols-3 gap-2">
                     {COLOR_THEMES.map(c => (
                       <button
@@ -743,7 +745,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                   <h3 className="text-white text-sm font-semibold mb-3 flex items-center gap-1.5">
                     <GripVertical className="w-4 h-4 text-gray-500" /> Section Order
                   </h3>
-                  <p className="text-gray-500 text-xs mb-2">Drag to reorder sections. Toggle to show/hide.</p>
+                  <p className="text-gray-500 text-xs mb-2">{l('Drag to reorder sections. Toggle to show/hide.')}</p>
                   <div className="space-y-1.5">
                     {sections.map((sec, idx) => (
                       <div
@@ -777,9 +779,9 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 <div className="bg-violet-600/10 border border-violet-500/20 rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <Sparkles className="w-4 h-4 text-violet-400" />
-                    <h3 className="text-white text-sm font-semibold">AI Assistant</h3>
+                    <h3 className="text-white text-sm font-semibold">{l('AI Assistant')}</h3>
                   </div>
-                  <p className="text-gray-400 text-xs">Select an action to improve your resume with AI.</p>
+                  <p className="text-gray-400 text-xs">{l('Select an action to improve your resume with AI.')}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -797,7 +799,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         className="flex flex-col items-start gap-1 p-3 rounded-xl border border-white/10 hover:border-violet-500/30 hover:bg-violet-600/5 transition-all text-left disabled:opacity-50"
                       >
                         <Icon className="w-4 h-4 text-violet-400" />
-                        <span className="text-white text-xs font-medium">{action.label}</span>
+                        <span className="text-white text-xs font-medium">{l(action.label)}</span>
                         <span className="text-gray-500 text-[10px] leading-tight">{action.description}</span>
                       </button>
                     );
@@ -814,13 +816,13 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 <div className="border-t border-white/5 pt-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Mail className="w-4 h-4 text-fuchsia-400" />
-                    <h3 className="text-white text-sm font-semibold">Cover Letter</h3>
+                    <h3 className="text-white text-sm font-semibold">{l('Cover Letter')}</h3>
                   </div>
                   <input
                     className={inputClass}
                     value={coverLetterCompany}
                     onChange={e => setCoverLetterCompany(e.target.value)}
-                    placeholder="Company name (optional)"
+                    placeholder={l('Company name (optional)')}
                   />
                   <button
                     onClick={() => handleAIAction('generate-cover-letter', jobDescription)}
@@ -851,16 +853,16 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <Briefcase className="w-4 h-4 text-blue-400" />
-                    <h3 className="text-white text-sm font-semibold">Job Match Analysis</h3>
+                    <h3 className="text-white text-sm font-semibold">{l('Job Match Analysis')}</h3>
                   </div>
-                  <p className="text-gray-400 text-xs">Paste a job description to see how well your resume matches.</p>
+                  <p className="text-gray-400 text-xs">{l('Paste a job description to see how well your resume matches.')}</p>
                 </div>
 
                 <textarea
                   className={inputClass + ' min-h-[150px] resize-y'}
                   value={jobDescription}
                   onChange={e => setJobDescription(e.target.value)}
-                  placeholder="Paste the job description here..."
+                  placeholder={l('Paste the job description here...')}
                 />
 
                 <button
@@ -895,7 +897,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                           <span className="text-2xl font-bold text-white">{jobMatch.matchPercentage}%</span>
                         </div>
                       </div>
-                      <p className="text-gray-400 text-xs mt-2">Match Score</p>
+                      <p className="text-gray-400 text-xs mt-2">{l('Match Score')}</p>
                     </div>
 
                     {jobMatch.missingSkills.length > 0 && (
@@ -942,7 +944,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {!jobMatch && !aiLoading && (
                   <div className="text-center py-6">
                     <Target className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-                    <p className="text-gray-500 text-xs">Paste a job description and click "Analyze Match" to see your results.</p>
+                    <p className="text-gray-500 text-xs">{l('Paste a job description and click "Analyze Match" to see your results.')}</p>
                   </div>
                 )}
               </div>
@@ -952,7 +954,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
             {activePanel === 'versions' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-white text-sm font-semibold">Version History</h3>
+                  <h3 className="text-white text-sm font-semibold">{l('Version History')}</h3>
                   <button onClick={saveVersion} className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300">
                     <Plus className="w-3.5 h-3.5" /> Save Current
                   </button>
@@ -995,7 +997,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
               <button onClick={() => setZoom(Math.min(2, zoom + 0.1))} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                 <ZoomIn className="w-4 h-4" />
               </button>
-              <button onClick={() => setZoom(1)} className="text-xs text-gray-500 hover:text-white px-2">Reset</button>
+              <button onClick={() => setZoom(1)} className="text-xs text-gray-500 hover:text-white px-2">{l('Reset')}</button>
             </div>
             <div className="flex items-center gap-2">
               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -1006,7 +1008,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 <Zap className="w-3 h-3" />
                 ATS Score: {score.ats}/100
               </div>
-              <div className="text-gray-500 text-xs hidden sm:block">A4 Preview</div>
+              <div className="text-gray-500 text-xs hidden sm:block">{l('A4 Preview')}</div>
             </div>
           </div>
 
@@ -1040,7 +1042,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-fuchsia-400" />
-                <h3 className="text-white font-bold text-base">Cover Letter</h3>
+                <h3 className="text-white font-bold text-base">{l('Cover Letter')}</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button

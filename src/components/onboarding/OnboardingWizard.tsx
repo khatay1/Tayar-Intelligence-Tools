@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
 import {
   ArrowRight, ArrowLeft, Check, Sparkles, Loader2,
@@ -34,6 +35,7 @@ const ICON_MAP: Record<string, typeof FileText> = {
 };
 
 export default function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const { completeWizard, markSampleSeeded } = useOnboarding();
   const { setLanguage } = usePreferences();
@@ -87,7 +89,7 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
       language,
       recommended_tools: tools,
     });
-    toast.success('Welcome to Tayar Intelligence!');
+    toast.success(l('Welcome to Tayar Intelligence!'));
     setSubmitting(false);
     onComplete();
   }
@@ -105,7 +107,7 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
       <div className="relative z-10 px-6 pt-6">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-500 text-xs font-medium">Onboarding</span>
+            <span className="text-gray-500 text-xs font-medium">{l('Onboarding')}</span>
             <span className="text-gray-400 text-xs font-medium">{Math.round(progress)}%</span>
           </div>
           <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -144,25 +146,25 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
                 </div>
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold mb-3 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                Welcome to Tayar Intelligence
+                {l('Welcome to Tayar Intelligence')}
               </h1>
               <p className="text-gray-400 text-base sm:text-lg max-w-md mx-auto mb-8 leading-relaxed">
-                Your AI-powered workspace for creating, writing, and analyzing. Let's get you set up in less than 3 minutes.
+                {l("Your AI-powered workspace for creating, writing, and analyzing. Let's get you set up in less than 3 minutes.")}
               </p>
               <button
                 onClick={next}
                 className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-8 py-3 rounded-xl transition-all hover:shadow-lg hover:shadow-violet-500/30 active:scale-95"
               >
-                Get Started <ArrowRight className="w-4 h-4" />
+                {l('Get Started')} <ArrowRight className="w-4 h-4" />
               </button>
-              <p className="text-gray-600 text-xs mt-4">Already have an account? Just wait — we'll personalize everything.</p>
+              <p className="text-gray-600 text-xs mt-4">{l("Already have an account? Just wait — we'll personalize everything.")}</p>
             </div>
           )}
 
           {/* LANGUAGE */}
           {step === 'language' && (
             <div>
-              <StepHeader title="Choose your language" subtitle="You can change this anytime in settings" />
+              <StepHeader title={l('Choose your language')} subtitle={l('You can change this anytime in settings')} />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
                 {LANGUAGES.map(lang => (
                   <button
@@ -176,18 +178,18 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
                   >
                     <span className="text-3xl">{lang.flag}</span>
                     <span className="text-white text-sm font-medium">{lang.labelNative}</span>
-                    <span className="text-gray-500 text-xs">{lang.label}</span>
+                    <span className="text-gray-500 text-xs">{l(lang.label)}</span>
                   </button>
                 ))}
               </div>
-              <StepNav onBack={prev} onNext={next} nextLabel="Continue" />
+              <StepNav onBack={prev} onNext={next} nextLabel={l('Continue')} />
             </div>
           )}
 
           {/* USER TYPE */}
           {step === 'user-type' && (
             <div>
-              <StepHeader title="What best describes you?" subtitle="We'll tailor your experience based on this" />
+              <StepHeader title={l('What best describes you?')} subtitle={l("We'll tailor your experience based on this")} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
                 {USER_TYPES.map(ut => {
                   const Icon = ICON_MAP[ut.icon] || User;
@@ -209,60 +211,60 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
                       </div>
                       <div className="flex-1">
                         <div className="text-white text-sm font-medium">{labels[language]}</div>
-                        <div className="text-gray-500 text-xs mt-0.5">{ut.description}</div>
+                        <div className="text-gray-500 text-xs mt-0.5">{l(ut.description)}</div>
                       </div>
                       {userType === ut.id && <Check className="w-4 h-4 text-violet-400 flex-shrink-0" />}
                     </button>
                   );
                 })}
               </div>
-              <StepNav onBack={prev} onNext={() => userType && next()} nextLabel="Continue" disabled={!userType} />
+              <StepNav onBack={prev} onNext={() => userType && next()} nextLabel={l('Continue')} disabled={!userType} />
             </div>
           )}
 
           {/* PERSONALIZE */}
           {step === 'personalize' && (
             <div>
-              <StepHeader title="Tell us about you" subtitle="Just the basics — we'll use this to personalize your workspace" />
+              <StepHeader title={l('Tell us about you')} subtitle={l("Just the basics — we'll use this to personalize your workspace")} />
               <div className="space-y-4 mb-8">
                 <div>
-                  <label className="text-gray-400 text-xs font-medium mb-1.5 block">Full Name</label>
+                  <label className="text-gray-400 text-xs font-medium mb-1.5 block">{l('Full Name')}</label>
                   <input
                     value={fullName}
                     onChange={e => setFullName(e.target.value)}
-                    placeholder="Your name"
+                    placeholder={l('Your name')}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-violet-500/50 focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="text-gray-400 text-xs font-medium mb-1.5 block">Country</label>
+                  <label className="text-gray-400 text-xs font-medium mb-1.5 block">{l('Country')}</label>
                   <select
                     value={country}
                     onChange={e => setCountry(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-violet-500/50 focus:outline-none transition-colors"
                   >
-                    <option value="" className="bg-[#12122a]">Select your country</option>
+                    <option value="" className="bg-[#12122a]">{l('Select your country')}</option>
                     {COUNTRIES.map(c => <option key={c} value={c} className="bg-[#12122a]">{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-gray-400 text-xs font-medium mb-1.5 block">Profession</label>
+                  <label className="text-gray-400 text-xs font-medium mb-1.5 block">{l('Profession')}</label>
                   <input
                     value={profession}
                     onChange={e => setProfession(e.target.value)}
-                    placeholder="e.g. Software Engineer, Student, Designer"
+                    placeholder={l('e.g. Software Engineer, Student, Designer')}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-violet-500/50 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
-              <StepNav onBack={prev} onNext={next} nextLabel="Continue" disabled={!fullName.trim()} />
+              <StepNav onBack={prev} onNext={next} nextLabel={l('Continue')} disabled={!fullName.trim()} />
             </div>
           )}
 
           {/* GOALS */}
           {step === 'goals' && (
             <div>
-              <StepHeader title="What's your main goal?" subtitle="Pick one — we'll recommend the best tools for it" />
+              <StepHeader title={l("What's your main goal?")} subtitle={l("Pick one — we'll recommend the best tools for it")} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-8">
                 {GOALS.map(g => {
                   const Icon = ICON_MAP[g.icon] || Target;
@@ -277,20 +279,20 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
                       }`}
                     >
                       <Icon className={`w-4 h-4 flex-shrink-0 ${goal === g.id ? 'text-violet-400' : 'text-gray-400'}`} />
-                      <span className="text-white text-xs font-medium">{g.label}</span>
+                      <span className="text-white text-xs font-medium">{l(g.label)}</span>
                       {goal === g.id && <Check className="w-4 h-4 text-violet-400 flex-shrink-0 ml-auto" />}
                     </button>
                   );
                 })}
               </div>
-              <StepNav onBack={prev} onNext={next} nextLabel="Continue" disabled={!goal} />
+              <StepNav onBack={prev} onNext={next} nextLabel={l('Continue')} disabled={!goal} />
             </div>
           )}
 
           {/* RECOMMENDATIONS */}
           {step === 'recommendations' && (
             <div>
-              <StepHeader title="Your recommended tools" subtitle="Based on your profile, these will help you get started fast" />
+              <StepHeader title={l('Your recommended tools')} subtitle={l('Based on your profile, these will help you get started fast')} />
               <div className="space-y-2.5 mb-8">
                 {(() => {
                   const tools = getRecommendedTools(userType as UserType, goal);
@@ -320,7 +322,7 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
               <StepNav
                 onBack={prev}
                 onNext={finish}
-                nextLabel={submitting ? 'Setting up...' : 'Enter Workspace'}
+                nextLabel={l(submitting ? 'Setting up...' : 'Enter Workspace')}
                 disabled={submitting}
                 loading={submitting}
               />

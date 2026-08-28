@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState } from 'react';
 import { FileText, Save, Loader2, Eye, Code } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
@@ -57,6 +58,7 @@ const CONTENT: Record<ContentType, { title: string; description: string; section
 };
 
 export default function AdminContent() {
+  const l = useLocalizer();
   const { success } = useToast();
   const [activeType, setActiveType] = useState<ContentType>('landing');
   const [content, setContent] = useState(CONTENT);
@@ -147,7 +149,7 @@ export default function AdminContent() {
 
         <div className="flex items-center gap-2 mt-6 pt-4 border-t border-white/5 text-xs text-gray-500">
           <Eye className="w-3.5 h-3.5" />
-          <span>Changes will be reflected on the live site after saving.</span>
+          <span>{l('Changes will be reflected on the live site after saving.')}</span>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 ﻿import { useState, useEffect, useCallback } from 'react';
 import {
   Cpu, Loader2, Zap, AlertCircle, CheckCircle, Activity,
@@ -26,6 +27,7 @@ interface ErrorLog {
 }
 
 export default function AdminAI() {
+  const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,8 +160,8 @@ export default function AdminAI() {
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-white font-semibold text-sm">AI Providers & Model Selection</h3>
-            <p className="text-gray-500 text-xs">Manage providers and set the default model for all AI tools</p>
+            <h3 className="text-white font-semibold text-sm">{l('AI Providers & Model Selection')}</h3>
+            <p className="text-gray-500 text-xs">{l('Manage providers and set the default model for all AI tools')}</p>
           </div>
           <button onClick={load} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
             <RefreshCw className="w-4 h-4" />
@@ -170,7 +172,7 @@ export default function AdminAI() {
         <div className="mb-4 p-4 rounded-xl bg-violet-500/5 border border-violet-500/20">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">
-              <label className="text-xs font-medium text-gray-400 mb-1.5 block">Default Model (used when no per-tool model is set)</label>
+              <label className="text-xs font-medium text-gray-400 mb-1.5 block">{l('Default Model (used when no per-tool model is set)')}</label>
               <select
                 value={defaultModel}
                 onChange={e => setDefaultModel(e.target.value)}
@@ -218,7 +220,7 @@ export default function AdminAI() {
                       <div className="text-xs text-gray-500 capitalize">{p.service}</div>
                     </div>
                   </div>
-                  {isActive && <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-medium">Default</span>}
+                  {isActive && <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-medium">{l('Default')}</span>}
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`w-2 h-2 rounded-full ${p.status === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`} />
@@ -241,26 +243,26 @@ export default function AdminAI() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-          <h3 className="text-white font-semibold text-sm mb-1">Daily Requests</h3>
-          <p className="text-gray-500 text-xs mb-4">Last 14 days</p>
+          <h3 className="text-white font-semibold text-sm mb-1">{l('Daily Requests')}</h3>
+          <p className="text-gray-500 text-xs mb-4">{l('Last 14 days')}</p>
           <BarChart data={dailyStats.map(d => ({ label: d.date.slice(5), value: d.requests }))} color="#a78bfa" height={200} />
         </div>
         <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-          <h3 className="text-white font-semibold text-sm mb-1">Token Usage by Provider</h3>
-          <p className="text-gray-500 text-xs mb-4">Total tokens consumed</p>
+          <h3 className="text-white font-semibold text-sm mb-1">{l('Token Usage by Provider')}</h3>
+          <p className="text-gray-500 text-xs mb-4">{l('Total tokens consumed')}</p>
           {tokenUsage.length > 0 ? (
             <div className="flex items-center justify-center h-[200px]">
               <DonutChart data={tokenUsage} size={160} />
             </div>
-          ) : <div className="flex items-center justify-center h-[200px] text-gray-600 text-sm">No data</div>}
+          ) : <div className="flex items-center justify-center h-[200px] text-gray-600 text-sm">{l('No data')}</div>}
         </div>
       </div>
 
       {/* Error logs */}
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-        <h3 className="text-white font-semibold text-sm mb-4">Recent System Logs</h3>
+        <h3 className="text-white font-semibold text-sm mb-4">{l('Recent System Logs')}</h3>
         {errorLogs.length === 0 ? (
-          <div className="py-8 text-center text-gray-500 text-sm">No logs yet</div>
+          <div className="py-8 text-center text-gray-500 text-sm">{l('No logs yet')}</div>
         ) : (
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {errorLogs.map(log => (

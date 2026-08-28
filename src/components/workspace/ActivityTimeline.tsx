@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import {
   FileText, Mail, Languages, GraduationCap, PenLine, Folder,
@@ -46,6 +47,7 @@ function actionLabel(action: string, entityType: string, metadata: Record<string
 }
 
 export default function ActivityTimeline({ darkMode, onNavigate }: ActivityTimelineProps) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,8 +114,8 @@ export default function ActivityTimeline({ darkMode, onNavigate }: ActivityTimel
           <ActivityIcon className="w-6 h-6 text-violet-400" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">Recent Activity</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Everything you've done across all tools</p>
+          <h1 className="text-2xl font-bold text-white">{l('Recent Activity')}</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{l("Everything you've done across all tools")}</p>
         </div>
       </div>
 
@@ -146,8 +148,8 @@ export default function ActivityTimeline({ darkMode, onNavigate }: ActivityTimel
           <div className={`w-16 h-16 rounded-2xl ${darkMode ? 'bg-white/5' : 'bg-gray-100'} flex items-center justify-center mb-4`}>
             <Clock className={`w-8 h-8 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
           </div>
-          <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>No activity yet</p>
-          <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>Start using a tool to see your activity here</p>
+          <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('No activity yet')}</p>
+          <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Start using a tool to see your activity here')}</p>
         </div>
       ) : (
         <div className="space-y-6">

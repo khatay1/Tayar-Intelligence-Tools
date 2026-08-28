@@ -6,6 +6,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useTranslation } from '@/lib/i18n';
+import { useLocalizer } from '@/lib/ui-localization';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import AstronautLogo from '@/components/ui/AstronautLogo';
@@ -30,6 +31,8 @@ import AboutPage from './AboutPage';
 import HelpCenter from './HelpCenter';
 import FeedbackPage from './FeedbackPage';
 import BugReportPage from './BugReportPage';
+import SubscriptionView from './SubscriptionView';
+import SupportView from './SupportView';
 import ResumeBuilder from '@/components/cv/ResumeBuilder';
 import OnboardingWizard from '@/components/onboarding/OnboardingWizard';
 import ProductTour from '@/components/onboarding/ProductTour';
@@ -64,6 +67,7 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
   const { user, profile, signOut } = useAuth();
   const { prefs, setTheme, setLanguage } = usePreferences();
 const { t } = useTranslation();
+  const l = useLocalizer();
   const { state: onboardingState, loading: onboardingLoading, needsOnboarding } = useOnboarding();
   const [activeView, setActiveView] = useState<ViewId>('my-workspace');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -142,7 +146,7 @@ const { t } = useTranslation();
             <span className="font-bold text-sm">Tayar Intelligence</span>
           </div>
           <button onClick={() => setShowWelcomeDash(false)} className="text-gray-400 hover:text-white text-sm transition-colors">
-            Go to Workspace →
+            {l('Go to Workspace →')}
           </button>
         </header>
         <main className="relative z-10 max-w-5xl mx-auto px-4 sm:px-8 py-8">
@@ -169,7 +173,7 @@ const { t } = useTranslation();
   const getNavLabel = (item: NavItem): string => {
   const keys: Partial<Record<ViewId, string>> = {
     dashboard: 'nav.dashboard',
-    'my-workspace': 'nav.workspace',
+    'my-workspace': 'nav.myWorkspace',
     'ai-chat': 'nav.aiChat',
     'my-files': 'nav.myFiles',
     'my-projects': 'nav.projects',
@@ -324,10 +328,10 @@ const groups: { label: string; items: NavItem[] }[] = [
             <div className="relative">
               <div className="flex items-center gap-2 mb-1.5">
                 <Crown className="w-4 h-4 text-amber-400" />
-                <p className="text-white text-sm font-semibold">Upgrade to Pro</p>
+                <p className="text-white text-sm font-semibold">{l('Upgrade to Pro')}</p>
               </div>
-              <p className="text-gray-400 text-xs mb-3">Unlock all 50+ AI tools and unlimited documents.</p>
-              <button onClick={() => navigate('subscription')} className="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors">Upgrade Now</button>
+              <p className="text-gray-400 text-xs mb-3">{l('Unlock higher limits, publishing, analytics and collaboration features.')}</p>
+              <button onClick={() => navigate('subscription')} className="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors">{l('Upgrade Now')}</button>
             </div>
           </div>
         </div>
@@ -362,14 +366,14 @@ const groups: { label: string; items: NavItem[] }[] = [
 
             {/* Right actions */}
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <button onClick={() => setPaletteOpen(true)} className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label="Command palette" title="Command palette (Ctrl+K)">
+              <button onClick={() => setPaletteOpen(true)} className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Command palette')} title={l('Command palette (Ctrl+K)')}>
                 <Command className="w-5 h-5" />
               </button>
-              <button onClick={() => setTheme(darkMode ? 'light' : 'dark')} className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label="Toggle theme">
+              <button onClick={() => setTheme(darkMode ? 'light' : 'dark')} className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Toggle theme')}>
                 {darkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
               </button>
               <div className="relative" ref={langRef}>
-                <button onClick={() => setLangOpen(!langOpen)} className={`flex items-center gap-1.5 text-sm px-2.5 py-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label="Change language">
+                <button onClick={() => setLangOpen(!langOpen)} className={`flex items-center gap-1.5 text-sm px-2.5 py-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Change language')}>
                   <Globe className="w-4 h-4" />
                   <span className="hidden sm:inline">{LANGUAGES.find(l => l.code === prefs.language)?.label || 'English'}</span>
                   <ChevronDown className="w-3.5 h-3.5" />
@@ -383,7 +387,7 @@ const groups: { label: string; items: NavItem[] }[] = [
                 )}
               </div>
               <div className="relative" ref={notifRef}>
-                <button onClick={() => setNotifOpen(!notifOpen)} className={`relative p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label="Notifications">
+                <button onClick={() => setNotifOpen(!notifOpen)} className={`relative p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Notifications')}>
                   <Bell className="w-5 h-5" />
                 </button>
                 {notifOpen && (
@@ -404,12 +408,12 @@ const groups: { label: string; items: NavItem[] }[] = [
                       <div className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user?.email}</div>
                     </div>
                     <div className="p-1.5">
-                      <button onClick={() => { navigate('settings'); setProfileOpen(false); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Settings className="w-4 h-4" /> Settings</button>
-                      <button onClick={() => { navigate('subscription'); setProfileOpen(false); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><CreditCard className="w-4 h-4" /> Subscription</button>
-                      <button onClick={() => { navigate('activity-timeline'); setProfileOpen(false); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Activity className="w-4 h-4" /> Recent Activity</button>
-                      <button onClick={() => { setProfileOpen(false); setTourActive(true); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Sparkles className="w-4 h-4" /> Replay Tour</button>
-                      <a href="#admin" className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Shield className="w-4 h-4" /> Admin Panel</a>
-                      <button onClick={signOut} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><LogOut className="w-4 h-4" /> Sign out</button>
+                      <button onClick={() => { navigate('settings'); setProfileOpen(false); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Settings className="w-4 h-4" /> {l('Settings')}</button>
+                      <button onClick={() => { navigate('subscription'); setProfileOpen(false); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><CreditCard className="w-4 h-4" /> {l('Subscription')}</button>
+                      <button onClick={() => { navigate('activity-timeline'); setProfileOpen(false); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Activity className="w-4 h-4" /> {l('Recent Activity')}</button>
+                      <button onClick={() => { setProfileOpen(false); setTourActive(true); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Sparkles className="w-4 h-4" /> {l('Replay Tour')}</button>
+                      <a href="#admin" className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Shield className="w-4 h-4" /> {l('Admin Panel')}</a>
+                      <button onClick={signOut} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><LogOut className="w-4 h-4" /> {l('Sign out')}</button>
                     </div>
                   </div>
                 )}
@@ -429,7 +433,7 @@ const groups: { label: string; items: NavItem[] }[] = [
               )}
               {activeView === 'trash' && <TrashView />}
               {activeView === 'activity-timeline' && <ActivityTimeline darkMode={darkMode} onNavigate={navigate} />}
-              {activeView === 'ai-chat' && <PlaceholderView title="AI Chat" desc="Use the AI Assistant panel on the right to chat!" icon={Activity} darkMode={darkMode} />}
+              {activeView === 'ai-chat' && <PlaceholderView title={l('AI Chat')} desc={l('Use the AI Assistant panel on the right to chat!')} icon={Activity} darkMode={darkMode} />}
               {(() => {
                 const tool = toolRegistry.get(activeView);
                 if (tool && tool.status !== 'soon') {
@@ -441,8 +445,8 @@ const groups: { label: string; items: NavItem[] }[] = [
                 }
                 return null;
               })()}
-              {activeView === 'subscription' && <PlaceholderView title="Subscription" desc="Manage your plan and billing." icon={CreditCard} darkMode={darkMode} />}
-              {activeView === 'support' && <PlaceholderView title="Support" desc="Get help, browse docs, or contact our team." icon={Activity} darkMode={darkMode} />}
+              {activeView === 'subscription' && <SubscriptionView />}
+              {activeView === 'support' && <SupportView onNavigate={(v) => navigate(v)} />}
               {activeView === 'ai-usage' && <AIUsageAnalytics />}
               {(activeView === 'settings' || activeView === 'profile') && <SettingsPage darkMode={darkMode} />}
               {activeView === 'privacy' && <PrivacyPolicy />}
@@ -477,7 +481,7 @@ const groups: { label: string; items: NavItem[] }[] = [
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-md bg-[#12122a] border border-white/10 rounded-2xl shadow-2xl p-6" onClick={e => e.stopPropagation()} style={{ animation: 'scaleIn 0.2s ease-out' }}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-white font-bold text-lg">Keyboard Shortcuts</h2>
+              <h2 className="text-white font-bold text-lg">{l('Keyboard Shortcuts')}</h2>
               <button onClick={() => setShortcutsOpen(false)} className="text-gray-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-2">

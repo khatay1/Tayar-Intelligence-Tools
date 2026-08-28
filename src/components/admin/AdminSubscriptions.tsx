@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
 import { CreditCard, Loader2, RefreshCw, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ interface SubRow {
 }
 
 export default function AdminSubscriptions() {
+  const l = useLocalizer();
   const [subs, setSubs] = useState<SubRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -69,7 +71,7 @@ export default function AdminSubscriptions() {
       </div>
 
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-        <h3 className="text-white font-semibold text-sm mb-4">Subscriptions by Plan</h3>
+        <h3 className="text-white font-semibold text-sm mb-4">{l('Subscriptions by Plan')}</h3>
         <BarChart data={byPlan} color="#a78bfa" height={180} />
       </div>
 
@@ -92,11 +94,11 @@ export default function AdminSubscriptions() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">User ID</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Plan</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Status</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden sm:table-cell">Renewal Date</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden md:table-cell">Created</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('User ID')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('Plan')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('Status')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden sm:table-cell">{l('Renewal Date')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden md:table-cell">{l('Created')}</th>
               </tr>
             </thead>
             <tbody>
@@ -130,7 +132,7 @@ export default function AdminSubscriptions() {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && <div className="py-8 text-center text-gray-500 text-sm">No subscriptions found</div>}
+        {filtered.length === 0 && <div className="py-8 text-center text-gray-500 text-sm">{l('No subscriptions found')}</div>}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, FormEvent } from 'react';
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import AuthLayout from './AuthLayout';
@@ -9,6 +10,7 @@ interface LoginProps {
 }
 
 export default function Login({ onBack, onNavigate }: LoginProps) {
+  const l = useLocalizer();
   const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,8 +37,8 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
 
   return (
     <AuthLayout onBack={onBack}>
-      <h1 className="text-2xl font-bold text-white mb-1">Welcome back</h1>
-      <p className="text-gray-400 text-sm mb-6">Sign in to your account to continue</p>
+      <h1 className="text-2xl font-bold text-white mb-1">{l('Welcome back')}</h1>
+      <p className="text-gray-400 text-sm mb-6">{l('Sign in to your account to continue')}</p>
 
       {error && (
         <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg px-4 py-3">
@@ -64,13 +66,13 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
 
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1 h-px bg-white/10" />
-        <span className="text-gray-500 text-xs">or</span>
+        <span className="text-gray-500 text-xs">{l('or')}</span>
         <div className="flex-1 h-px bg-white/10" />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-gray-300 text-sm font-medium mb-1.5">Email</label>
+          <label className="block text-gray-300 text-sm font-medium mb-1.5">{l('Email')}</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
@@ -86,7 +88,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-gray-300 text-sm font-medium">Password</label>
+            <label className="block text-gray-300 text-sm font-medium">{l('Password')}</label>
             <button
               type="button"
               onClick={() => onNavigate('forgot')}
@@ -102,7 +104,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder={l('Enter your password')}
               className="w-full bg-[#0c0c20] border border-white/10 rounded-xl pl-10 pr-10 py-3 text-white text-sm placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-all"
             />
             <button
@@ -121,12 +123,12 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
           className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-all hover:shadow-lg hover:shadow-violet-500/30 active:scale-95"
         >
           {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-          {loading ? 'Signing in...' : 'Sign In'}
+          {l(loading ? 'Signing in...' : 'Sign In')}
         </button>
       </form>
 
       <p className="text-center text-gray-400 text-sm mt-6">
-        Don't have an account?{' '}
+        {l("Don't have an account?")}{' '}
         <button
           onClick={() => onNavigate('register')}
           className="text-violet-400 font-medium hover:text-violet-300 transition-colors"

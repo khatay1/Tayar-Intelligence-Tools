@@ -1,9 +1,11 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
 import { Activity, Cpu, Zap, TrendingUp, Loader2, DollarSign, Calendar } from 'lucide-react';
 import { getUsageStats, UsageStats } from '@/lib/ai/service';
 import { AI_PROVIDERS } from '@/lib/ai/types';
 
 export default function AIUsageAnalytics() {
+  const l = useLocalizer();
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,15 +28,15 @@ export default function AIUsageAnalytics() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">AI Usage Analytics</h1>
-          <p className="text-gray-500 text-sm">Track your AI consumption across all tools.</p>
+          <h1 className="text-2xl font-bold text-white mb-1">{l('AI Usage Analytics')}</h1>
+          <p className="text-gray-500 text-sm">{l('Track your AI consumption across all tools.')}</p>
         </div>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
             <Activity className="w-8 h-8 text-gray-600" />
           </div>
-          <p className="text-gray-400 text-sm font-medium">No AI usage yet</p>
-          <p className="text-gray-600 text-xs mt-1">Start using AI tools and your usage stats will appear here.</p>
+          <p className="text-gray-400 text-sm font-medium">{l('No AI usage yet')}</p>
+          <p className="text-gray-600 text-xs mt-1">{l('Start using AI tools and your usage stats will appear here.')}</p>
         </div>
       </div>
     );
@@ -47,8 +49,8 @@ export default function AIUsageAnalytics() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white mb-1">AI Usage Analytics</h1>
-        <p className="text-gray-500 text-sm">Track your AI consumption, token usage, and costs across all tools.</p>
+        <h1 className="text-2xl font-bold text-white mb-1">{l('AI Usage Analytics')}</h1>
+        <p className="text-gray-500 text-sm">{l('Track your AI consumption, token usage, and costs across all tools.')}</p>
       </div>
 
       {/* Summary cards */}
@@ -65,7 +67,7 @@ export default function AIUsageAnalytics() {
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <Calendar className="w-4 h-4 text-violet-400" />
-            <span className="text-gray-400 text-xs">Today's Cost</span>
+            <span className="text-gray-400 text-xs">{l("Today's Cost")}</span>
           </div>
           <div className="text-2xl font-bold text-white">${(today?.cost || 0).toFixed(4)}</div>
           <div className="text-gray-500 text-xs mt-0.5">{(today?.requests || 0)} requests</div>
@@ -83,10 +85,10 @@ export default function AIUsageAnalytics() {
       {/* 7-day chart */}
       <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white font-bold text-base">Last 7 Days</h2>
+          <h2 className="text-white font-bold text-base">{l('Last 7 Days')}</h2>
           <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1.5 text-gray-400"><span className="w-2.5 h-2.5 rounded-sm bg-violet-500" /> Tokens</span>
-            <span className="flex items-center gap-1.5 text-gray-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Cost</span>
+            <span className="flex items-center gap-1.5 text-gray-400"><span className="w-2.5 h-2.5 rounded-sm bg-violet-500" /> {l('Tokens')}</span>
+            <span className="flex items-center gap-1.5 text-gray-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> {l('Cost')}</span>
           </div>
         </div>
         <div className="flex items-end justify-between gap-2 h-40">
@@ -112,7 +114,7 @@ export default function AIUsageAnalytics() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* By Provider */}
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-          <h2 className="text-white font-bold text-base mb-4">By Provider</h2>
+          <h2 className="text-white font-bold text-base mb-4">{l('By Provider')}</h2>
           <div className="space-y-3">
             {Object.entries(stats.byProvider).map(([provider, data]) => {
               const config = AI_PROVIDERS[provider as keyof typeof AI_PROVIDERS];
@@ -140,7 +142,7 @@ export default function AIUsageAnalytics() {
 
         {/* By Tool */}
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-          <h2 className="text-white font-bold text-base mb-4">By Tool</h2>
+          <h2 className="text-white font-bold text-base mb-4">{l('By Tool')}</h2>
           <div className="space-y-3">
             {Object.entries(stats.byTool).map(([tool, data]) => {
               const total = data.tokensIn + data.tokensOut;

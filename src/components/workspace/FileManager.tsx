@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 ﻿// Upgraded File Manager — search, filter, sort, rename, duplicate, move, delete,
 // favorites, pin, grid/list views, storage indicator, beautiful empty states.
 
@@ -41,6 +42,7 @@ interface FileManagerProps {
 }
 
 export default function FileManager({ onNavigate }: FileManagerProps) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const { deleteProject, renameProject, duplicateProject } = useProjects();
   const { success, error: showError } = useToast();
@@ -163,27 +165,27 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white mb-1">My Files</h1>
-        <p className="text-gray-500 text-sm">All your generated documents, CVs, translations, chats and projects in one place.</p>
+        <h1 className="text-2xl font-bold text-white mb-1">{l('My Files')}</h1>
+        <p className="text-gray-500 text-sm">{l('All your generated documents, CVs, translations, chats and projects in one place.')}</p>
       </div>
 
       {/* Stats + Storage */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
           <div className="text-2xl font-bold text-white">{projects.length}</div>
-          <div className="text-gray-500 text-xs mt-0.5">Total Files</div>
+          <div className="text-gray-500 text-xs mt-0.5">{l('Total Files')}</div>
         </div>
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
           <div className="text-2xl font-bold text-emerald-400">{projects.filter(p => p.status === 'completed').length}</div>
-          <div className="text-gray-500 text-xs mt-0.5">Completed</div>
+          <div className="text-gray-500 text-xs mt-0.5">{l('Completed')}</div>
         </div>
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
           <div className="text-2xl font-bold text-amber-400">{projects.filter(p => p.status === 'draft').length}</div>
-          <div className="text-gray-500 text-xs mt-0.5">Drafts</div>
+          <div className="text-gray-500 text-xs mt-0.5">{l('Drafts')}</div>
         </div>
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
           <div className="text-2xl font-bold text-violet-400">{favoriteCount}</div>
-          <div className="text-gray-500 text-xs mt-0.5">Favorites</div>
+          <div className="text-gray-500 text-xs mt-0.5">{l('Favorites')}</div>
         </div>
       </div>
 
@@ -194,7 +196,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search files..."
+            placeholder={l('Search files...')}
             className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none transition-all"
           />
         </div>
@@ -206,7 +208,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
               showFavoritesOnly ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
             }`}
           >
-            <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-amber-400' : ''}`} /> <span className="hidden sm:inline">Favorites</span>
+            <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-amber-400' : ''}`} /> <span className="hidden sm:inline">{l('Favorites')}</span>
           </button>
           {/* Pinned toggle */}
           <button
@@ -215,7 +217,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
               showPinnedOnly ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
             }`}
           >
-            <Pin className={`w-4 h-4 ${showPinnedOnly ? 'fill-violet-400' : ''}`} /> <span className="hidden sm:inline">Pinned</span>
+            <Pin className={`w-4 h-4 ${showPinnedOnly ? 'fill-violet-400' : ''}`} /> <span className="hidden sm:inline">{l('Pinned')}</span>
           </button>
           {/* Type filter */}
           <select
@@ -258,7 +260,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Pin className="w-4 h-4 text-violet-400" />
-            <h2 className="text-white font-bold text-base">Pinned</h2>
+            <h2 className="text-white font-bold text-base">{l('Pinned')}</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {projects.filter(p => (p as Project & { pinned?: boolean }).pinned).map((project, i) => (
@@ -329,18 +331,18 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
       {renaming && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setRenaming(null)}>
           <div className="bg-[#12122a] border border-white/10 rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-base mb-4">Rename</h3>
+            <h3 className="text-white font-bold text-base mb-4">{l('Rename')}</h3>
             <input
               autoFocus
               value={renameValue}
               onChange={e => setRenameValue(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && confirmRename()}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-violet-500/50 focus:outline-none transition-all"
-              placeholder="File name"
+              placeholder={l('File name')}
             />
             <div className="flex gap-2 mt-4">
-              <button onClick={() => setRenaming(null)} className="flex-1 text-gray-400 hover:text-white text-sm py-2 rounded-lg hover:bg-white/5 transition-colors">Cancel</button>
-              <button onClick={confirmRename} className="flex-1 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium py-2 rounded-lg transition-colors">Rename</button>
+              <button onClick={() => setRenaming(null)} className="flex-1 text-gray-400 hover:text-white text-sm py-2 rounded-lg hover:bg-white/5 transition-colors">{l('Cancel')}</button>
+              <button onClick={confirmRename} className="flex-1 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium py-2 rounded-lg transition-colors">{l('Rename')}</button>
             </div>
           </div>
         </div>
@@ -368,7 +370,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
                 </button>
               ))}
             </div>
-            <button onClick={() => setMovingItem(null)} className="w-full mt-4 text-gray-400 hover:text-white text-sm py-2 rounded-lg hover:bg-white/5 transition-colors">Cancel</button>
+            <button onClick={() => setMovingItem(null)} className="w-full mt-4 text-gray-400 hover:text-white text-sm py-2 rounded-lg hover:bg-white/5 transition-colors">{l('Cancel')}</button>
           </div>
         </div>
       )}

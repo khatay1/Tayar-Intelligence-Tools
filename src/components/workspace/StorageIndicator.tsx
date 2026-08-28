@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 // Storage Indicator — shows used storage with a progress bar.
 // Prepares for future cloud storage integration.
 
@@ -13,6 +14,7 @@ interface StorageData {
 }
 
 export function StorageIndicator({ compact = false }: { compact?: boolean }) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const [data, setData] = useState<StorageData>({ usedMB: 0, quotaMB: 500, fileCount: 0 });
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ export function StorageIndicator({ compact = false }: { compact?: boolean }) {
       <div className="px-3 py-2">
         <div className="flex items-center gap-2 mb-1.5">
           <HardDrive className="w-3.5 h-3.5 text-gray-500" />
-          <span className="text-gray-400 text-xs flex-1">Storage</span>
+          <span className="text-gray-400 text-xs flex-1">{l('Storage')}</span>
           <span className="text-gray-500 text-xs">{data.usedMB.toFixed(1)} MB</span>
         </div>
         <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -61,8 +63,8 @@ export function StorageIndicator({ compact = false }: { compact?: boolean }) {
           {loading ? <HardDrive className="w-5 h-5 text-violet-400 animate-pulse" /> : <Cloud className="w-5 h-5 text-violet-400" />}
         </div>
         <div>
-          <h3 className="text-white text-sm font-semibold">Storage</h3>
-          <p className="text-gray-500 text-xs">{data.fileCount} files · {data.usedMB.toFixed(2)} MB used</p>
+          <h3 className="text-white text-sm font-semibold">{l('Storage')}</h3>
+          <p className="text-gray-500 text-xs">{data.fileCount} {l('files')} · {data.usedMB.toFixed(2)} MB {l('used')}</p>
         </div>
       </div>
       <div className="space-y-2">
@@ -77,7 +79,7 @@ export function StorageIndicator({ compact = false }: { compact?: boolean }) {
           />
         </div>
         <p className="text-gray-600 text-xs">
-          {isLow ? 'Running low on storage. Upgrade to Pro for more space.' : `${(data.quotaMB - data.usedMB).toFixed(1)} MB available`}
+          {isLow ? l('Running low on storage. Upgrade to Pro for more space.') : `${(data.quotaMB - data.usedMB).toFixed(1)} MB ${l('available')}`}
         </p>
       </div>
     </div>

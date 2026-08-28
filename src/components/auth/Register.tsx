@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, FormEvent } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, Loader2, Check } from 'lucide-react';
 import AuthLayout from './AuthLayout';
@@ -9,6 +10,7 @@ interface RegisterProps {
 }
 
 export default function Register({ onBack, onNavigate }: RegisterProps) {
+  const l = useLocalizer();
   const { signUp, signInWithGoogle } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -24,7 +26,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
     e.preventDefault();
     setError(null);
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError(l('Password must be at least 6 characters.'));
       return;
     }
     setLoading(true);
@@ -46,8 +48,8 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
 
   return (
     <AuthLayout onBack={onBack}>
-      <h1 className="text-2xl font-bold text-white mb-1">Create your account</h1>
-      <p className="text-gray-400 text-sm mb-6">Start using 50+ AI tools for free</p>
+      <h1 className="text-2xl font-bold text-white mb-1">{l('Create your account')}</h1>
+      <p className="text-gray-400 text-sm mb-6">{l('Start with core AI tools and Website Builder for free')}</p>
 
       {error && (
         <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg px-4 py-3">
@@ -75,13 +77,13 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
 
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1 h-px bg-white/10" />
-        <span className="text-gray-500 text-xs">or</span>
+        <span className="text-gray-500 text-xs">{l('or')}</span>
         <div className="flex-1 h-px bg-white/10" />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-gray-300 text-sm font-medium mb-1.5">Full Name</label>
+          <label className="block text-gray-300 text-sm font-medium mb-1.5">{l('Full Name')}</label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
@@ -89,14 +91,14 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
               required
               value={fullName}
               onChange={e => setFullName(e.target.value)}
-              placeholder="Your name"
+              placeholder={l('Your name')}
               className="w-full bg-[#0c0c20] border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white text-sm placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-all"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-gray-300 text-sm font-medium mb-1.5">Email</label>
+          <label className="block text-gray-300 text-sm font-medium mb-1.5">{l('Email')}</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
@@ -111,7 +113,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
         </div>
 
         <div>
-          <label className="block text-gray-300 text-sm font-medium mb-1.5">Password</label>
+          <label className="block text-gray-300 text-sm font-medium mb-1.5">{l('Password')}</label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
@@ -119,7 +121,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
+              placeholder={l('At least 6 characters')}
               className="w-full bg-[#0c0c20] border border-white/10 rounded-xl pl-10 pr-10 py-3 text-white text-sm placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-all"
             />
             <button
@@ -142,7 +144,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
                   />
                 ))}
               </div>
-              <span className="text-xs text-gray-400">{strength.label}</span>
+              <span className="text-xs text-gray-400">{l(strength.label)}</span>
             </div>
           )}
         </div>
@@ -153,12 +155,12 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
           className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-all hover:shadow-lg hover:shadow-violet-500/30 active:scale-95"
         >
           {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-          {loading ? 'Creating account...' : 'Create Free Account'}
+          {l(loading ? 'Creating account...' : 'Create Free Account')}
         </button>
       </form>
 
       <p className="text-center text-gray-400 text-sm mt-6">
-        Already have an account?{' '}
+        {l('Already have an account?')}{' '}
         <button
           onClick={() => onNavigate('login')}
           className="text-violet-400 font-medium hover:text-violet-300 transition-colors"
@@ -171,7 +173,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
         <ul className="space-y-2">
           {['No credit card required', 'Access 5 basic AI tools', '10 documents per month'].map(b => (
             <li key={b} className="flex items-center gap-2 text-gray-400 text-xs">
-              <Check className="w-3.5 h-3.5 text-violet-400" /> {b}
+              <Check className="w-3.5 h-3.5 text-violet-400" /> {l(b)}
             </li>
           ))}
         </ul>

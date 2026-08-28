@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { ComponentType, ReactNode } from 'react';
 import { LucideIcon } from 'lucide-react';
 
@@ -53,13 +54,14 @@ interface ToolOutputPanelProps {
 }
 
 export function ToolOutputPanel({ children, loading, empty, hasContent }: ToolOutputPanelProps) {
+  const l = useLocalizer();
   return (
     <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-5 min-h-[200px]">
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
-            <p className="text-gray-500 text-sm">Generating...</p>
+            <p className="text-gray-500 text-sm">{l('Generating...')}</p>
           </div>
         </div>
       ) : hasContent ? (
@@ -67,7 +69,7 @@ export function ToolOutputPanel({ children, loading, empty, hasContent }: ToolOu
       ) : (
         empty || (
           <div className="flex items-center justify-center py-12 text-center">
-            <p className="text-gray-600 text-sm">Your result will appear here.</p>
+            <p className="text-gray-600 text-sm">{l('Your result will appear here.')}</p>
           </div>
         )
       )}

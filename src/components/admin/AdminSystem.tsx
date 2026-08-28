@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Settings, Bell, Mail, Database, Key, Flag, FileText,
@@ -20,6 +21,7 @@ const TABS: { id: SystemTab; label: string; icon: typeof Settings }[] = [
 ];
 
 export default function AdminSystem() {
+  const l = useLocalizer();
   const [tab, setTab] = useState<SystemTab>('settings');
 
   return (
@@ -55,6 +57,7 @@ export default function AdminSystem() {
 }
 
 function SettingsTab() {
+  const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -99,8 +102,8 @@ function SettingsTab() {
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-white font-semibold">Platform Settings</h3>
-          <p className="text-gray-500 text-sm">Configure global platform behavior</p>
+          <h3 className="text-white font-semibold">{l('Platform Settings')}</h3>
+          <p className="text-gray-500 text-sm">{l('Configure global platform behavior')}</p>
         </div>
         <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -137,6 +140,7 @@ function SettingsTab() {
 }
 
 function LogsTab() {
+  const l = useLocalizer();
   const [logs, setLogs] = useState<{ id: string; level: string; category: string; message: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState('all');
@@ -157,7 +161,7 @@ function LogsTab() {
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-semibold text-sm">System Logs</h3>
+        <h3 className="text-white font-semibold text-sm">{l('System Logs')}</h3>
         <div className="flex items-center gap-2">
           {['all', 'info', 'warning', 'error'].map(l => (
             <button key={l} onClick={() => setLevelFilter(l)} className={`text-xs px-2.5 py-1 rounded-full capitalize ${levelFilter === l ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10'}`}>{l}</button>
@@ -166,7 +170,7 @@ function LogsTab() {
         </div>
       </div>
       {filtered.length === 0 ? (
-        <div className="py-8 text-center text-gray-500 text-sm">No logs found</div>
+        <div className="py-8 text-center text-gray-500 text-sm">{l('No logs found')}</div>
       ) : (
         <div className="space-y-1.5 max-h-[500px] overflow-y-auto font-mono text-xs">
           {filtered.map(log => (
@@ -188,6 +192,7 @@ function LogsTab() {
 }
 
 function NotificationsTab() {
+  const l = useLocalizer();
   const { success } = useToast();
   const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: string; read: boolean; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,11 +222,11 @@ function NotificationsTab() {
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-semibold text-sm">Admin Notifications</h3>
-        <button onClick={markAllRead} className="text-xs text-violet-400 hover:text-violet-300">Mark all read</button>
+        <h3 className="text-white font-semibold text-sm">{l('Admin Notifications')}</h3>
+        <button onClick={markAllRead} className="text-xs text-violet-400 hover:text-violet-300">{l('Mark all read')}</button>
       </div>
       {notifications.length === 0 ? (
-        <div className="py-8 text-center text-gray-500 text-sm">No notifications</div>
+        <div className="py-8 text-center text-gray-500 text-sm">{l('No notifications')}</div>
       ) : (
         <div className="space-y-2">
           {notifications.map(n => (
@@ -244,6 +249,7 @@ function NotificationsTab() {
 }
 
 function EmailTab() {
+  const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [templates, setTemplates] = useState<{ id: string; key: string; subject: string; body: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -287,7 +293,7 @@ function EmailTab() {
                   <Save className="w-3.5 h-3.5" /> Save
                 </button>
               ) : (
-                <button onClick={() => setEditing(t.id)} className="text-xs text-violet-400 hover:text-violet-300">Edit</button>
+                <button onClick={() => setEditing(t.id)} className="text-xs text-violet-400 hover:text-violet-300">{l('Edit')}</button>
               )}
             </div>
             {isEditing ? (
@@ -320,6 +326,7 @@ function EmailTab() {
 }
 
 function BackupsTab() {
+  const l = useLocalizer();
   const { success } = useToast();
   const [backing, setBacking] = useState(false);
 
@@ -340,8 +347,8 @@ function BackupsTab() {
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-white font-semibold text-sm">Database Backups</h3>
-          <p className="text-gray-500 text-xs">Automatic daily backups at 09:00 UTC</p>
+          <h3 className="text-white font-semibold text-sm">{l('Database Backups')}</h3>
+          <p className="text-gray-500 text-xs">{l('Automatic daily backups at 09:00 UTC')}</p>
         </div>
         <button onClick={createBackup} disabled={backing} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
           {backing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -377,6 +384,7 @@ function BackupsTab() {
 }
 
 function ApiKeysTab() {
+  const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [keys, setKeys] = useState<{ id: string; service: string; label: string; status: string; last_used: string | null; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -403,8 +411,8 @@ function ApiKeysTab() {
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-white font-semibold text-sm">API Keys</h3>
-          <p className="text-gray-500 text-xs">Manage external service API keys</p>
+          <h3 className="text-white font-semibold text-sm">{l('API Keys')}</h3>
+          <p className="text-gray-500 text-xs">{l('Manage external service API keys')}</p>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
           <Plus className="w-4 h-4" /> Add Key
@@ -432,6 +440,7 @@ function ApiKeysTab() {
 }
 
 function FlagsTab() {
+  const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [flags, setFlags] = useState<{ id: string; key: string; label: string; enabled: boolean; description: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -463,8 +472,8 @@ function FlagsTab() {
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-white font-semibold text-sm">Feature Flags</h3>
-          <p className="text-gray-500 text-xs">Toggle features on/off without deploying</p>
+          <h3 className="text-white font-semibold text-sm">{l('Feature Flags')}</h3>
+          <p className="text-gray-500 text-xs">{l('Toggle features on/off without deploying')}</p>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
           <Plus className="w-4 h-4" /> New Flag

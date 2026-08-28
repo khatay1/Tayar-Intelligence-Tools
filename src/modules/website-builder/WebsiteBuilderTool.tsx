@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createAIService } from '@/lib/ai/service';
 import { usePreferences, type Language } from '@/context/PreferencesContext';
@@ -2635,6 +2636,7 @@ function SectionPreview({
 export default function WebsiteBuilderTool({
   darkMode,
 }: WebsiteBuilderToolProps) {
+  const l = useLocalizer();
   const { prefs } = usePreferences();
   const { user } = useAuth();
   const [sections, setSections] = useState<WebsiteSection[]>(defaultSections);
@@ -4683,7 +4685,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         title: `${original.title} Copy`,
         elements: original.elements.map((element) => ({
           ...element,
-          id: `${element.type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          id: `${l(element.type)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         })),
       };
 
@@ -5734,7 +5736,7 @@ if (generated.seo) {
       `Analytics events loaded: ${deliveryUsage.analyticsEvents}`,
       '',
       'LAUNCH CHECKS',
-      ...launchReadiness.checks.map((item) => `- ${item.ok ? '[x]' : '[ ]'} ${item.label}`),
+      ...launchReadiness.checks.map((item) => `- ${item.ok ? '[x]' : '[ ]'} ${l(item.label)}`),
       '',
       'AUDIT ERRORS',
       ...(siteAudit.errors.length ? siteAudit.errors.map((item) => `- ${item}`) : ['- None']),
@@ -6298,7 +6300,7 @@ if (generated.seo) {
           </div>
 
           <div>
-            <h1 className="text-sm font-bold">Website Builder</h1>
+            <h1 className="text-sm font-bold">{l('Website Builder')}</h1>
             <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
               Build, operate, audit, publish and grow your website
             </p>
@@ -6317,7 +6319,7 @@ if (generated.seo) {
                 ? 'border-white/10 bg-white/5 text-white'
                 : 'border-gray-200 bg-gray-50 text-gray-900'
             }`}
-            placeholder="Website name"
+            placeholder={l('Website name')}
           />
 
 
@@ -6354,9 +6356,9 @@ if (generated.seo) {
                   ? 'border-white/10 bg-white/5 text-white'
                   : 'border-gray-200 bg-gray-50 text-gray-900'
               }`}
-              title="Cloud projects"
+              title={l('Cloud projects')}
             >
-              <option value="">New cloud project</option>
+              <option value="">{l('New cloud project')}</option>
               {cloudProjects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.title}{project.user_id !== user.id ? ' · Shared' : ''}
@@ -6381,7 +6383,7 @@ if (generated.seo) {
                     ? 'text-gray-400'
                     : 'text-gray-500'
               }`}
-              title="Desktop preview"
+              title={l('Desktop preview')}
             >
               <Monitor className="h-4 w-4" />
             </button>            <button
@@ -6393,7 +6395,7 @@ if (generated.seo) {
                     ? 'text-gray-400'
                     : 'text-gray-500'
               }`}
-              title="Tablet preview"
+              title={l('Tablet preview')}
             >
               <Monitor className="h-4 w-4" />
             </button>
@@ -6407,7 +6409,7 @@ if (generated.seo) {
                     ? 'text-gray-400'
                     : 'text-gray-500'
               }`}
-              title="Mobile preview"
+              title={l('Mobile preview')}
             >
               <Smartphone className="h-4 w-4" />
             </button>
@@ -6417,21 +6419,17 @@ if (generated.seo) {
             onClick={undo}
             disabled={!history.length}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
-            title="Undo"
+            title={l('Undo')}
           >
-            <RotateCcw className="h-4 w-4" />
-            Undo
-          </button>
+            <RotateCcw className="h-4 w-4" />{l('Undo')}</button>
 
           <button
             onClick={redo}
             disabled={!future.length}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
-            title="Redo"
+            title={l('Redo')}
           >
-            <RotateCcw className="h-4 w-4 rotate-180" />
-            Redo
-          </button>
+            <RotateCcw className="h-4 w-4 rotate-180" />{l('Redo')}</button>
 
           <button
             onClick={() => setMediaOpen((open) => !open)}
@@ -6482,9 +6480,7 @@ if (generated.seo) {
             }`}
             title={!user ? 'Sign in to view analytics' : !cloudProjectId ? 'Save this project to cloud first' : 'Open site analytics'}
           >
-            <BarChart3 className="h-4 w-4" />
-            Analytics
-          </button>
+            <BarChart3 className="h-4 w-4" />{l('Analytics')}</button>
 
           <button
             onClick={() => { setLaunchCenterOpen((open) => !open); if (!launchCenterOpen) void runV1LaunchChecks(); }}
@@ -6497,7 +6493,7 @@ if (generated.seo) {
                     ? 'border-white/10 text-gray-300 hover:bg-white/5'
                     : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title="Website Builder V1 launch center"
+            title={l('Website Builder V1 launch center')}
           >
             <Check className="h-4 w-4" />
             Launch
@@ -6513,7 +6509,7 @@ if (generated.seo) {
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title="Plans, usage and billing"
+            title={l('Plans, usage and billing')}
           >
             <Sparkles className="h-4 w-4" />
             {BILLING_PLAN_DETAILS[billingPlan].label}
@@ -6528,7 +6524,7 @@ if (generated.seo) {
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title="Operations, backups and exports"
+            title={l('Operations, backups and exports')}
           >
             Tools
           </button>
@@ -6542,7 +6538,7 @@ if (generated.seo) {
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title="Client delivery, approval and handoff"
+            title={l('Client delivery, approval and handoff')}
           >
             Delivery
             <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${
@@ -6559,7 +6555,7 @@ if (generated.seo) {
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title="Project history"
+            title={l('Project history')}
           >
             <HistoryIcon className="h-4 w-4" />
             History
@@ -6589,11 +6585,9 @@ if (generated.seo) {
                 ? 'border-white/10 text-gray-300 hover:bg-white/5'
                 : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title="Duplicate project"
+            title={l('Duplicate project')}
           >
-            <Copy className="h-4 w-4" />
-            Duplicate
-          </button>
+            <Copy className="h-4 w-4" />{l('Duplicate')}</button>
 
           <button
             onClick={previewWebsite}
@@ -6603,9 +6597,7 @@ if (generated.seo) {
                 : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <ExternalLink className="h-4 w-4" />
-            Preview
-          </button>
+            <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
 
           <button
             onClick={() => void publishWebsite()}
@@ -6615,7 +6607,7 @@ if (generated.seo) {
           >
             <Globe className="h-4 w-4" />
             {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
-            {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">DRAFT</span>}
+            {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
           </button>
 
           {publishedUrl && (
@@ -6629,9 +6621,7 @@ if (generated.seo) {
                 }`}
                 title={publishedAt ? `Published ${new Date(publishedAt).toLocaleString()}` : 'Open published website'}
               >
-                <ExternalLink className="h-4 w-4" />
-                Live
-              </button>
+                <ExternalLink className="h-4 w-4" />{l('Live')}</button>
               <button
                 onClick={() => void verifyLiveDeployment()}
                 disabled={liveVerification === 'checking'}
@@ -6642,7 +6632,7 @@ if (generated.seo) {
                       ? 'border-red-500/30 text-red-400'
                       : 'border-white/10 text-gray-400'
                 }`}
-                title="Verify that index.html exists in published storage"
+                title={l('Verify that index.html exists in published storage')}
               >
                 {liveVerification === 'checking' ? 'Checking…' : liveVerification === 'healthy' ? 'Live ✓' : liveVerification === 'failed' ? 'Check failed' : 'Verify'}
               </button>
@@ -6654,7 +6644,7 @@ if (generated.seo) {
                     ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
                     : 'border-red-200 text-red-600 hover:bg-red-50'
                 }`}
-                title="Remove public website"
+                title={l('Remove public website')}
               >
                 Unpublish
               </button>
@@ -6702,7 +6692,7 @@ if (generated.seo) {
                 ? 'border-white/10 text-gray-400 hover:bg-white/5'
                 : 'border-gray-200 text-gray-500 hover:bg-gray-100'
             }`}
-            title="Reset"
+            title={l('Reset')}
           >
             <RotateCcw className="h-4 w-4" />
           </button>
@@ -6725,7 +6715,7 @@ if (generated.seo) {
         <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) setCommandOpen(false); }}>
           <div className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}>
             <div className="border-b border-white/10 p-3">
-              <input autoFocus value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setCommandOpen(false); }} placeholder="Type a command, page or section…" className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-sky-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} />
+              <input autoFocus value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setCommandOpen(false); }} placeholder={l('Type a command, page or section…')} className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-sky-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} />
             </div>
             <div className="max-h-[60vh] overflow-auto p-2">
               {[
@@ -6745,11 +6735,11 @@ if (generated.seo) {
                 { label: 'Open analytics', keywords: 'analytics stats traffic', run: () => { if (requireBillingFeature('analytics', 'Site analytics')) setAnalyticsOpen(true); } },
                 ...pages.map((page) => ({ label: `Go to page: ${page.name}`, keywords: `page ${page.slug}`, run: () => switchPage(page.id) })),
                 ...sections.map((section) => ({ label: `Select section: ${section.title || SECTION_LABELS[section.type]}`, keywords: `section ${section.type} ${section.anchorId || ''}`, run: () => { setSelectedId(section.id); setSelectedElementId(section.elements[0]?.id ?? null); } })),
-              ].filter((item) => !commandQuery.trim() || `${item.label} ${item.keywords}`.toLowerCase().includes(commandQuery.trim().toLowerCase())).slice(0, 24).map((item) => (
-                <button key={`${item.label}-${item.keywords}`} onClick={() => { item.run(); setCommandOpen(false); setCommandQuery(''); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{item.label}</span><span className="text-[9px] text-gray-500">↵</span></button>
+              ].filter((item) => !commandQuery.trim() || `${l(item.label)} ${item.keywords}`.toLowerCase().includes(commandQuery.trim().toLowerCase())).slice(0, 24).map((item) => (
+                <button key={`${l(item.label)}-${item.keywords}`} onClick={() => { item.run(); setCommandOpen(false); setCommandQuery(''); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{l(item.label)}</span><span className="text-[9px] text-gray-500">↵</span></button>
               ))}
             </div>
-            <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>Ctrl/Cmd+K</span><button onClick={() => setCommandOpen(false)} className="font-semibold text-violet-400">Close</button></div>
+            <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>Ctrl/Cmd+K</span><button onClick={() => setCommandOpen(false)} className="font-semibold text-violet-400">{l('Close')}</button></div>
           </div>
         </div>
       )}
@@ -6761,35 +6751,35 @@ if (generated.seo) {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Check className="h-4 w-4 text-cyan-400" />
-                  <p className="text-sm font-black">Website Builder V1 Launch Center</p>
+                  <p className="text-sm font-black">{l('Website Builder V1 Launch Center')}</p>
                   <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${v1LaunchStatus.status === 'V1 LIVE' ? 'bg-emerald-500 text-white' : v1LaunchStatus.preflightReady ? 'bg-cyan-500 text-white' : 'bg-amber-500/15 text-amber-400'}`}>{v1LaunchStatus.status}</span>
                   <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black text-gray-400">V1.0</span>
                 </div>
-                <p className="mt-1 text-[11px] text-gray-500">One place to onboard a project, run production checks, publish the release and verify that the live site is healthy.</p>
+                <p className="mt-1 text-[11px] text-gray-500">{l('One place to onboard a project, run production checks, publish the release and verify that the live site is healthy.')}</p>
                 {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">Last automated check: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? 'Checking…' : 'Run final checks'}</button>
-                <button onClick={exportV1LaunchReport} className="rounded-lg border border-cyan-500/25 px-3 py-2 text-[10px] font-bold text-cyan-400">Export launch report</button>
-                <button onClick={closeLaunchCenter} className="text-xs font-semibold text-violet-400">Close</button>
+                <button onClick={exportV1LaunchReport} className="rounded-lg border border-cyan-500/25 px-3 py-2 text-[10px] font-bold text-cyan-400">{l('Export launch report')}</button>
+                <button onClick={closeLaunchCenter} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-[.75fr_1.25fr]">
               <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <div className="flex items-end justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-wider text-cyan-400">Final readiness</p><p className="mt-1 text-xs text-gray-500">Automated release gate for this project.</p></div><span className={`text-4xl font-black ${v1LaunchStatus.score >= 90 ? 'text-emerald-400' : v1LaunchStatus.score >= 70 ? 'text-cyan-400' : 'text-amber-400'}`}>{v1LaunchStatus.score}</span></div>
+                <div className="flex items-end justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-wider text-cyan-400">{l('Final readiness')}</p><p className="mt-1 text-xs text-gray-500">{l('Automated release gate for this project.')}</p></div><span className={`text-4xl font-black ${v1LaunchStatus.score >= 90 ? 'text-emerald-400' : v1LaunchStatus.score >= 70 ? 'text-cyan-400' : 'text-amber-400'}`}>{v1LaunchStatus.score}</span></div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${v1LaunchStatus.score >= 90 ? 'bg-emerald-500' : v1LaunchStatus.score >= 70 ? 'bg-cyan-500' : 'bg-amber-500'}`} style={{ width: `${v1LaunchStatus.score}%` }} /></div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">Audit</p><p className="text-lg font-black">{siteAudit.score}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">Health</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? 'GOOD' : 'CHECK'}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">Sync</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? 'OK' : 'FIX'}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">Live</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? 'VERIFIED' : publishedUrl ? 'VERIFY' : 'NOT YET'}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Audit')}</p><p className="text-lg font-black">{siteAudit.score}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Health')}</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? 'GOOD' : 'CHECK'}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? 'OK' : 'FIX'}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? 'VERIFIED' : publishedUrl ? 'VERIFY' : 'NOT YET'}</p></div>
                 </div>
-                {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">Launch blockers</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">• {item}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">✓ No critical production blockers detected.</div>}
+                {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">{l('Launch blockers')}</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">• {item}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">{l('✓ No critical production blockers detected.')}</div>}
               </div>
 
               <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <div className="flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-wider text-violet-400">Automated launch checks</p><p className="mt-1 text-[10px] text-gray-500">Publish only after the preflight items are green.</p></div><span className="text-[10px] font-bold text-gray-500">{v1LaunchStatus.checks.filter((item) => item.ok).length}/{v1LaunchStatus.checks.length}</span></div>
+                <div className="flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-wider text-violet-400">{l('Automated launch checks')}</p><p className="mt-1 text-[10px] text-gray-500">{l('Publish only after the preflight items are green.')}</p></div><span className="text-[10px] font-bold text-gray-500">{v1LaunchStatus.checks.filter((item) => item.ok).length}/{v1LaunchStatus.checks.length}</span></div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {v1LaunchStatus.checks.map((check) => <div key={check.label} className={`rounded-xl border p-2.5 ${check.ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10 bg-black/10'}`}><div className="flex items-center gap-2"><span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${check.ok ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-500'}`}>{check.ok ? '✓' : '○'}</span><p className={`text-[10px] font-bold ${check.ok ? 'text-emerald-400' : 'text-gray-300'}`}>{check.label}</p></div><p className="mt-1 pl-7 text-[9px] text-gray-500">{check.detail}</p></div>)}
                 </div>
@@ -6797,22 +6787,22 @@ if (generated.seo) {
             </div>
 
             <div className={`rounded-2xl border p-4 ${darkMode ? 'border-violet-500/15 bg-violet-500/[0.03]' : 'border-violet-100 bg-white'}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-black">Quick-start onboarding</p><p className="mt-1 text-[10px] text-gray-500">Start from a proven page structure, then complete the production URL and cloud save.</p></div><span className="rounded-full bg-violet-500/10 px-2 py-1 text-[9px] font-black text-violet-400">FIRST PROJECT</span></div>
+              <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-black">{l('Quick-start onboarding')}</p><p className="mt-1 text-[10px] text-gray-500">{l('Start from a proven page structure, then complete the production URL and cloud save.')}</p></div><span className="rounded-full bg-violet-500/10 px-2 py-1 text-[9px] font-black text-violet-400">{l('FIRST PROJECT')}</span></div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                {PAGE_TEMPLATES.slice(0, 6).map((template) => <button key={template.id} onClick={() => applyPageTemplate(template)} className={`rounded-xl border p-2.5 text-left ${darkMode ? 'border-white/10 bg-white/[0.03] hover:border-violet-500/40' : 'border-gray-200 bg-gray-50 hover:border-violet-300'}`}><p className="text-[10px] font-bold">{template.name}</p><p className="mt-1 line-clamp-2 text-[9px] text-gray-500">{template.description}</p></button>)}
+                {PAGE_TEMPLATES.slice(0, 6).map((template) => <button key={template.id} onClick={() => applyPageTemplate(template)} className={`rounded-xl border p-2.5 text-left ${darkMode ? 'border-white/10 bg-white/[0.03] hover:border-violet-500/40' : 'border-gray-200 bg-gray-50 hover:border-violet-300'}`}><p className="text-[10px] font-bold">{l(template.name)}</p><p className="mt-1 line-clamp-2 text-[9px] text-gray-500">{l(template.description)}</p></button>)}
               </div>
               <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-                <input value={siteName} onChange={(e) => { setSiteName(e.target.value.slice(0, 160)); setSaved(false); }} placeholder="Website name" className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} />
+                <input value={siteName} onChange={(e) => { setSiteName(e.target.value.slice(0, 160)); setSaved(false); }} placeholder={l('Website name')} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} />
                 <input value={siteUrl} onChange={(e) => { setSiteUrl(e.target.value.slice(0, 1000)); setSaved(false); }} placeholder="https://example.com" className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} />
-                <button onClick={() => void saveProject()} disabled={cloudBusy} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50">Save project</button>
-                <button onClick={previewWebsite} className="rounded-lg border border-violet-500/25 px-3 py-2 text-[10px] font-black text-violet-400">Preview</button>
+                <button onClick={() => void saveProject()} disabled={cloudBusy} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50">{l('Save project')}</button>
+                <button onClick={previewWebsite} className="rounded-lg border border-violet-500/25 px-3 py-2 text-[10px] font-black text-violet-400">{l('Preview')}</button>
               </div>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
               <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">Manual production sign-off</p>
-                <p className="mt-1 text-[10px] text-gray-500">These checks involve external services and must be confirmed by a human before accepting paid customers.</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">{l('Manual production sign-off')}</p>
+                <p className="mt-1 text-[10px] text-gray-500">{l('These checks involve external services and must be confirmed by a human before accepting paid customers.')}</p>
                 <div className="mt-3 space-y-2">
                   {([
                     ['stripe', 'Stripe test purchase + Customer Portal + webhook verified'],
@@ -6823,15 +6813,15 @@ if (generated.seo) {
               </div>
 
               <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <p className="text-[10px] font-black uppercase tracking-wider text-cyan-400">Release actions</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-cyan-400">{l('Release actions')}</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button onClick={() => { setBillingOpen(true); void refreshBilling(cloudProjectId); }} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">Billing & limits<div className="mt-1 text-[9px] font-normal text-gray-500">Verify plan and Stripe state</div></button>
-                  <button onClick={() => setOperationsOpen(true)} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">Audit & backups<div className="mt-1 text-[9px] font-normal text-gray-500">Export backup and diagnostics</div></button>
-                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? 'Publish production changes' : 'Publish first release'}<div className="mt-1 text-[9px] font-normal text-sky-100">Blocked until automated preflight is ready</div></button>
-                  <button onClick={() => void verifyLiveDeployment()} disabled={!publishedUrl || liveVerification === 'checking'} className="rounded-xl border border-emerald-500/20 p-3 text-left text-[10px] font-bold text-emerald-400 disabled:opacity-40">Verify live release<div className="mt-1 text-[9px] font-normal text-gray-500">Confirm index.html is deployed</div></button>
+                  <button onClick={() => { setBillingOpen(true); void refreshBilling(cloudProjectId); }} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Billing & limits')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Verify plan and Stripe state')}</div></button>
+                  <button onClick={() => setOperationsOpen(true)} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Audit & backups')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Export backup and diagnostics')}</div></button>
+                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? 'Publish production changes' : 'Publish first release'}<div className="mt-1 text-[9px] font-normal text-sky-100">{l('Blocked until automated preflight is ready')}</div></button>
+                  <button onClick={() => void verifyLiveDeployment()} disabled={!publishedUrl || liveVerification === 'checking'} className="rounded-xl border border-emerald-500/20 p-3 text-left text-[10px] font-bold text-emerald-400 disabled:opacity-40">{l('Verify live release')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Confirm index.html is deployed')}</div></button>
                 </div>
                 <div className={`mt-3 rounded-xl border p-3 ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-black/10'}`}>
-                  <p className="text-[10px] font-black">V1 release decision</p>
+                  <p className="text-[10px] font-black">{l('V1 release decision')}</p>
                   <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'GO — READY FOR FIRST PAYING CUSTOMERS' : v1LaunchStatus.preflightReady ? 'CODE READY — COMPLETE PUBLISH / MANUAL CHECKS' : 'NO-GO — FIX AUTOMATED BLOCKERS'}</p>
                 </div>
               </div>
@@ -6847,10 +6837,10 @@ if (generated.seo) {
               <div>
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-emerald-400" />
-                  <p className="text-sm font-bold">Plans & Billing</p>
+                  <p className="text-sm font-bold">{l('Plans & Billing')}</p>
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-400">{BILLING_PLAN_DETAILS[billingPlan].badge}</span>
                 </div>
-                <p className="mt-1 text-[11px] text-gray-500">Secure entitlements, usage limits and Stripe subscription management.</p>
+                <p className="mt-1 text-[11px] text-gray-500">{l('Secure entitlements, usage limits and Stripe subscription management.')}</p>
                 {billingState.subscription?.status && (
                   <p className="mt-1 text-[10px] text-gray-500">
                     Subscription: <span className="font-semibold text-gray-300">{billingState.subscription.status}</span>
@@ -6861,10 +6851,10 @@ if (generated.seo) {
               </div>
               <div className="flex items-center gap-2">
                 {billingState.subscription?.stripeCustomerId && (
-                  <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-[10px] font-bold text-emerald-400 disabled:opacity-50">Manage subscription</button>
+                  <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-[10px] font-bold text-emerald-400 disabled:opacity-50">{l('Manage subscription')}</button>
                 )}
                 <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? 'Refreshing…' : 'Refresh'}</button>
-                <button onClick={() => setBillingOpen(false)} className="text-xs font-semibold text-violet-400">Close</button>
+                <button onClick={() => setBillingOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
@@ -6884,20 +6874,20 @@ if (generated.seo) {
                         <p className="text-sm font-black">{details.label}</p>
                         <p className="mt-1 text-[10px] text-gray-500">{details.description}</p>
                       </div>
-                      {current && <span className="rounded-full bg-emerald-500 px-2 py-1 text-[8px] font-black text-white">CURRENT</span>}
+                      {current && <span className="rounded-full bg-emerald-500 px-2 py-1 text-[8px] font-black text-white">{l('CURRENT')}</span>}
                     </div>
                     <div className="mt-3 space-y-1.5">
                       {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {bullet}</p>)}
                     </div>
                     <div className="mt-4">
                       {current ? (
-                        <div className="rounded-lg border border-emerald-500/20 px-3 py-2 text-center text-[10px] font-bold text-emerald-400">Active plan</div>
+                        <div className="rounded-lg border border-emerald-500/20 px-3 py-2 text-center text-[10px] font-bold text-emerald-400">{l('Active plan')}</div>
                       ) : isPaid ? (
                         <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? 'Opening Stripe…' : `Choose ${details.label}`}</button>
                       ) : billingState.subscription?.stripeCustomerId ? (
-                        <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="w-full rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">Manage downgrade in Stripe</button>
+                        <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="w-full rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{l('Manage downgrade in Stripe')}</button>
                       ) : (
-                        <div className="rounded-lg border border-white/10 px-3 py-2 text-center text-[10px] text-gray-500">Default plan</div>
+                        <div className="rounded-lg border border-white/10 px-3 py-2 text-center text-[10px] text-gray-500">{l('Default plan')}</div>
                       )}
                     </div>
                   </div>
@@ -6907,8 +6897,8 @@ if (generated.seo) {
 
             <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="text-xs font-bold">Website Builder Usage</p>
-                <p className="text-[9px] text-gray-500">Limits are also enforced by Supabase for project/page growth.</p>
+                <p className="text-xs font-bold">{l('Website Builder Usage')}</p>
+                <p className="text-[9px] text-gray-500">{l('Limits are also enforced by Supabase for project/page growth.')}</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 {[
@@ -6939,34 +6929,34 @@ if (generated.seo) {
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold">Client Delivery Workspace</p>
-                <p className="text-[11px] text-gray-500">Approval, launch readiness, usage and one-click client handoff.</p>
+                <p className="text-xs font-bold">{l('Client Delivery Workspace')}</p>
+                <p className="text-[11px] text-gray-500">{l('Approval, launch readiness, usage and one-click client handoff.')}</p>
               </div>
               <div className="flex items-center gap-2">
-                {previewUrl && <button onClick={() => void navigator.clipboard.writeText(previewUrl)} className="text-xs font-semibold text-cyan-400">Copy preview</button>}
-                <button onClick={() => setDeliveryOpen(false)} className="text-xs font-semibold text-violet-400">Close</button>
+                {previewUrl && <button onClick={() => void navigator.clipboard.writeText(previewUrl)} className="text-xs font-semibold text-cyan-400">{l('Copy preview')}</button>}
+                <button onClick={() => setDeliveryOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-[1.15fr_.85fr]">
               <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-fuchsia-400">Client & project</p>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-fuchsia-400">{l('Client & project')}</p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="text-[10px] text-gray-500">Client name<input value={deliveryConfig.clientName} onChange={(e) => setDeliveryConfig((current) => ({ ...current, clientName: e.target.value.slice(0, 160) }))} placeholder="Client or company" className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
-                  <label className="text-[10px] text-gray-500">Client email<input value={deliveryConfig.clientEmail} onChange={(e) => setDeliveryConfig((current) => ({ ...current, clientEmail: e.target.value.slice(0, 200) }))} placeholder="client@example.com" className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
-                  <label className="text-[10px] text-gray-500">Project code<input value={deliveryConfig.projectCode} onChange={(e) => setDeliveryConfig((current) => ({ ...current, projectCode: e.target.value.slice(0, 80) }))} placeholder="WEB-001" className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
-                  <label className="text-[10px] text-gray-500">Due date<input type="date" value={deliveryConfig.dueDate} onChange={(e) => setDeliveryConfig((current) => ({ ...current, dueDate: e.target.value }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
-                  <label className="text-[10px] text-gray-500">Delivery status<select value={deliveryConfig.status} onChange={(e) => setDeliveryConfig((current) => ({ ...current, status: e.target.value as DeliveryStatus }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white'}`}><option value="building">Building</option><option value="review">Ready for review</option><option value="approved">Approved</option><option value="delivered">Delivered</option></select></label>
+                  <label className="text-[10px] text-gray-500">{l('Client name')}<input value={deliveryConfig.clientName} onChange={(e) => setDeliveryConfig((current) => ({ ...current, clientName: e.target.value.slice(0, 160) }))} placeholder={l('Client or company')} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
+                  <label className="text-[10px] text-gray-500">{l('Client email')}<input value={deliveryConfig.clientEmail} onChange={(e) => setDeliveryConfig((current) => ({ ...current, clientEmail: e.target.value.slice(0, 200) }))} placeholder="client@example.com" className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
+                  <label className="text-[10px] text-gray-500">{l('Project code')}<input value={deliveryConfig.projectCode} onChange={(e) => setDeliveryConfig((current) => ({ ...current, projectCode: e.target.value.slice(0, 80) }))} placeholder="WEB-001" className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
+                  <label className="text-[10px] text-gray-500">{l('Due date')}<input type="date" value={deliveryConfig.dueDate} onChange={(e) => setDeliveryConfig((current) => ({ ...current, dueDate: e.target.value }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
+                  <label className="text-[10px] text-gray-500">{l('Delivery status')}<select value={deliveryConfig.status} onChange={(e) => setDeliveryConfig((current) => ({ ...current, status: e.target.value as DeliveryStatus }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white'}`}><option value="building">{l('Building')}</option><option value="review">{l('Ready for review')}</option><option value="approved">{l('Approved')}</option><option value="delivered">{l('Delivered')}</option></select></label>
                   <label className="flex items-end gap-2 rounded-lg border border-fuchsia-500/15 px-3 py-2 text-[10px] text-gray-400"><input type="checkbox" checked={deliveryConfig.whiteLabel} disabled={!billingEntitlements.features.whiteLabel} onChange={(e) => { if (!requireBillingFeature('whiteLabel', 'White-label client delivery')) return; setDeliveryConfig((current) => ({ ...current, whiteLabel: e.target.checked })); }} /> White-label client handoff files {!billingEntitlements.features.whiteLabel && <span className="font-bold text-amber-400">BUSINESS</span>}</label>
                 </div>
-                <label className="mt-2 block text-[10px] text-gray-500">Handoff notes<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder="Hosting notes, DNS details, next steps, support terms…" className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
+                <label className="mt-2 block text-[10px] text-gray-500">{l('Handoff notes')}<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder="Hosting notes, DNS details, next steps, support terms…" className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
               </div>
 
               <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-wide text-cyan-400">Launch readiness</p><span className={`text-2xl font-black ${launchReadiness.score >= 85 ? 'text-emerald-400' : launchReadiness.score >= 65 ? 'text-amber-400' : 'text-rose-400'}`}>{launchReadiness.score}%</span></div>
+                <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-wide text-cyan-400">{l('Launch readiness')}</p><span className={`text-2xl font-black ${launchReadiness.score >= 85 ? 'text-emerald-400' : launchReadiness.score >= 65 ? 'text-amber-400' : 'text-rose-400'}`}>{launchReadiness.score}%</span></div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-500" style={{ width: `${launchReadiness.score}%` }} /></div>
                 <div className="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
-                  {launchReadiness.checks.map((item) => <div key={item.label} className={`rounded-lg border px-2 py-1.5 ${item.ok ? 'border-emerald-500/20 text-emerald-400' : 'border-white/10 text-gray-500'}`}>{item.ok ? '✓' : '○'} {item.label}</div>)}
+                  {launchReadiness.checks.map((item) => <div key={l(item.label)} className={`rounded-lg border px-2 py-1.5 ${item.ok ? 'border-emerald-500/20 text-emerald-400' : 'border-white/10 text-gray-500'}`}>{item.ok ? '✓' : '○'} {l(item.label)}</div>)}
                 </div>
                 <p className="mt-2 text-[9px] text-gray-500">Audit contributes {launchReadiness.auditPoints}/40 points · current audit {siteAudit.score}/100.</p>
               </div>
@@ -6982,22 +6972,22 @@ if (generated.seo) {
             <div className={`rounded-xl border p-3 ${approvalCurrent ? 'border-emerald-500/25 bg-emerald-500/5' : deliveryConfig.approvedAt ? 'border-amber-500/25 bg-amber-500/5' : darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold">Client approval fingerprint</p>
+                  <p className="text-xs font-bold">{l('Client approval fingerprint')}</p>
                   <p className={`mt-1 text-[10px] ${approvalCurrent ? 'text-emerald-400' : deliveryConfig.approvedAt ? 'text-amber-400' : 'text-gray-500'}`}>{deliveryConfig.approvedAt ? (approvalCurrent ? `Approved ${new Date(deliveryConfig.approvedAt).toLocaleString()} — current build still matches` : `Approved ${new Date(deliveryConfig.approvedAt).toLocaleString()} — website changed after approval`) : 'No approval snapshot recorded yet.'}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={approveForDelivery} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Approve current build</button>
-                  {deliveryConfig.approvedAt && <button onClick={clearDeliveryApproval} className="rounded-lg border border-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-400">Clear approval</button>}
-                  <button onClick={markProjectDelivered} className="rounded-lg border border-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-400">Mark delivered</button>
+                  <button onClick={approveForDelivery} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">{l('Approve current build')}</button>
+                  {deliveryConfig.approvedAt && <button onClick={clearDeliveryApproval} className="rounded-lg border border-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-400">{l('Clear approval')}</button>}
+                  <button onClick={markProjectDelivered} className="rounded-lg border border-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-400">{l('Mark delivered')}</button>
                 </div>
               </div>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <button onClick={downloadClientHandoffZip} className="rounded-xl bg-fuchsia-600 p-3 text-left text-xs font-bold text-white hover:bg-fuchsia-500">Download client handoff ZIP<div className="mt-1 text-[10px] font-normal text-fuchsia-100">Site + backup + reports + checksums</div></button>
-              <button onClick={exportDeliveryReport} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>Export delivery report<div className="mt-1 text-[10px] font-normal text-gray-500">Approval, readiness, usage and audit</div></button>
-              <button onClick={() => setReleaseHistoryOpen(true)} disabled={!user || !cloudProjectId} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>Open releases<div className="mt-1 text-[10px] font-normal text-gray-500">{publishVersions.length} loaded releases</div></button>
-              <button onClick={() => previewUrl ? window.open(previewUrl, '_blank', 'noopener,noreferrer') : setReleaseHistoryOpen(true)} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{previewUrl ? 'Open client preview' : 'Create client preview'}<div className="mt-1 text-[10px] font-normal text-gray-500">Unlisted review link</div></button>
+              <button onClick={downloadClientHandoffZip} className="rounded-xl bg-fuchsia-600 p-3 text-left text-xs font-bold text-white hover:bg-fuchsia-500">{l('Download client handoff ZIP')}<div className="mt-1 text-[10px] font-normal text-fuchsia-100">{l('Site + backup + reports + checksums')}</div></button>
+              <button onClick={exportDeliveryReport} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{l('Export delivery report')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Approval, readiness, usage and audit')}</div></button>
+              <button onClick={() => setReleaseHistoryOpen(true)} disabled={!user || !cloudProjectId} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{l('Open releases')}<div className="mt-1 text-[10px] font-normal text-gray-500">{publishVersions.length} loaded releases</div></button>
+              <button onClick={() => previewUrl ? window.open(previewUrl, '_blank', 'noopener,noreferrer') : setReleaseHistoryOpen(true)} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{previewUrl ? 'Open client preview' : 'Create client preview'}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Unlisted review link')}</div></button>
             </div>
           </div>
         </div>
@@ -7007,18 +6997,18 @@ if (generated.seo) {
         <div className={`border-b px-4 py-3 ${darkMode ? 'border-sky-500/20 bg-[#08131a]' : 'border-sky-200 bg-sky-50/50'}`}>
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><p className="text-xs font-bold">Operations & Reliability</p><p className="text-[11px] text-gray-500">Backup, restore, exports and bulk operations.</p></div>
-              <div className="flex items-center gap-2"><button onClick={() => setCommandOpen(true)} className="text-xs font-semibold text-sky-400">Command palette</button><button onClick={() => setOperationsOpen(false)} className="text-xs font-semibold text-violet-400">Close</button></div>
+              <div><p className="text-xs font-bold">{l('Operations & Reliability')}</p><p className="text-[11px] text-gray-500">{l('Backup, restore, exports and bulk operations.')}</p></div>
+              <div className="flex items-center gap-2"><button onClick={() => setCommandOpen(true)} className="text-xs font-semibold text-sky-400">{l('Command palette')}</button><button onClick={() => setOperationsOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button></div>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <button onClick={exportProjectBackup} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>Export project backup<div className="mt-1 text-[10px] font-normal text-gray-500">Portable JSON snapshot</div></button>
-              <button onClick={importProjectBackup} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>Import project backup<div className="mt-1 text-[10px] font-normal text-gray-500">Restore JSON as local draft</div></button>
-              <button onClick={exportAuditReport} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>Export audit report<div className="mt-1 text-[10px] font-normal text-gray-500">Score {siteAudit.score}/100</div></button>
-              <button onClick={() => void copyProjectSummary()} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{copied ? 'Summary copied' : 'Copy project summary'}<div className="mt-1 text-[10px] font-normal text-gray-500">Pages, elements and health</div></button>
-              <button onClick={exportLeadsCsv} disabled={!leads.length} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>Export leads CSV<div className="mt-1 text-[10px] font-normal text-gray-500">{leads.length} loaded leads</div></button>
-              <button onClick={exportAnalyticsCsv} disabled={!analyticsEvents.length} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>Export analytics CSV<div className="mt-1 text-[10px] font-normal text-gray-500">{analyticsEvents.length} loaded events</div></button>
-              <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>Mark all leads read<div className="mt-1 text-[10px] font-normal text-gray-500">Bulk inbox cleanup</div></button>
-              <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>Archive read leads<div className="mt-1 text-[10px] font-normal text-gray-500">Keep inbox focused</div></button>
+              <button onClick={exportProjectBackup} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export project backup')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Portable JSON snapshot')}</div></button>
+              <button onClick={importProjectBackup} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Import project backup')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Restore JSON as local draft')}</div></button>
+              <button onClick={exportAuditReport} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export audit report')}<div className="mt-1 text-[10px] font-normal text-gray-500">Score {siteAudit.score}/100</div></button>
+              <button onClick={() => void copyProjectSummary()} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{copied ? 'Summary copied' : 'Copy project summary'}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Pages, elements and health')}</div></button>
+              <button onClick={exportLeadsCsv} disabled={!leads.length} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export leads CSV')}<div className="mt-1 text-[10px] font-normal text-gray-500">{leads.length} loaded leads</div></button>
+              <button onClick={exportAnalyticsCsv} disabled={!analyticsEvents.length} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export analytics CSV')}<div className="mt-1 text-[10px] font-normal text-gray-500">{analyticsEvents.length} loaded events</div></button>
+              <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Mark all leads read')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Bulk inbox cleanup')}</div></button>
+              <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Archive read leads')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Keep inbox focused')}</div></button>
             </div>
             <p className="text-[10px] text-gray-500">Shortcuts: Ctrl/Cmd+K commands · Ctrl/Cmd+S save · Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo · Ctrl/Cmd+Shift+P preview.</p>
           </div>
@@ -7030,7 +7020,7 @@ if (generated.seo) {
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-bold">Site Analytics</p>
+                <p className="text-xs font-bold">{l('Site Analytics')}</p>
                 <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                   Last 30 days. Anonymous session IDs only; no IP addresses are stored.
                 </p>
@@ -7040,7 +7030,7 @@ if (generated.seo) {
                 <button onClick={() => void refreshAnalytics()} disabled={analyticsLoading} className="text-xs font-semibold text-amber-400 disabled:opacity-50">
                   {analyticsLoading ? 'Refreshing…' : 'Refresh'}
                 </button>
-                <button onClick={() => setAnalyticsOpen(false)} className="text-xs font-semibold text-violet-400">Close</button>
+                <button onClick={() => setAnalyticsOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
@@ -7070,7 +7060,7 @@ if (generated.seo) {
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                  <p className="mb-2 text-xs font-bold">Top pages</p>
+                  <p className="mb-2 text-xs font-bold">{l('Top pages')}</p>
                   <div className="space-y-2">
                     {analyticsSummary.topPages.map(([page, count]) => (
                       <div key={page} className="flex items-center justify-between gap-3 text-xs">
@@ -7081,7 +7071,7 @@ if (generated.seo) {
                   </div>
                 </div>
                 <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                  <p className="mb-2 text-xs font-bold">Traffic sources</p>
+                  <p className="mb-2 text-xs font-bold">{l('Traffic sources')}</p>
                   <div className="space-y-2">
                     {analyticsSummary.topReferrers.map(([source, count]) => (
                       <div key={source} className="flex items-center justify-between gap-3 text-xs">
@@ -7102,7 +7092,7 @@ if (generated.seo) {
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-bold">Media Library</p>
+                <p className="text-xs font-bold">{l('Media Library')}</p>
                 <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                   Upload reusable images to your account and place them into any image element.
                 </p>
@@ -7126,7 +7116,7 @@ if (generated.seo) {
                 <button onClick={() => void refreshMedia()} disabled={mediaLoading} className="text-xs font-semibold text-fuchsia-400 disabled:opacity-50">
                   {mediaLoading ? 'Refreshing…' : 'Refresh'}
                 </button>
-                <button onClick={() => setMediaOpen(false)} className="text-xs font-semibold text-violet-400">Close</button>
+                <button onClick={() => setMediaOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
@@ -7140,16 +7130,16 @@ if (generated.seo) {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                 {mediaAssets.map((asset) => (
                   <article key={asset.path} className={`overflow-hidden rounded-xl border ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                    <button type="button" onClick={() => useMediaAsset(asset)} className="block w-full" title="Use image">
+                    <button type="button" onClick={() => useMediaAsset(asset)} className="block w-full" title={l('Use image')}>
                       <img src={asset.url} alt={asset.name} className="aspect-square w-full object-cover" loading="lazy" />
                     </button>
                     <div className="p-2">
                       <p className="truncate text-[10px] font-semibold" title={asset.name}>{asset.name}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <button onClick={() => useMediaAsset(asset)} className="text-[10px] font-bold text-fuchsia-400">Use</button>
-                        <button onClick={() => { setFaviconUrl(asset.url); setSaved(false); }} className="text-[10px] font-bold text-emerald-400">Favicon</button>
-                        <button onClick={() => updateActivePageMeta({ socialImage: asset.url })} disabled={!activePage} className="text-[10px] font-bold text-sky-400 disabled:opacity-40">Social</button>
-                        <button onClick={() => void deleteMediaAsset(asset)} className="text-[10px] font-bold text-rose-400">Delete</button>
+                        <button onClick={() => useMediaAsset(asset)} className="text-[10px] font-bold text-fuchsia-400">{l('Use')}</button>
+                        <button onClick={() => { setFaviconUrl(asset.url); setSaved(false); }} className="text-[10px] font-bold text-emerald-400">{l('Favicon')}</button>
+                        <button onClick={() => updateActivePageMeta({ socialImage: asset.url })} disabled={!activePage} className="text-[10px] font-bold text-sky-400 disabled:opacity-40">{l('Social')}</button>
+                        <button onClick={() => void deleteMediaAsset(asset)} className="text-[10px] font-bold text-rose-400">{l('Delete')}</button>
                       </div>
                     </div>
                   </article>
@@ -7165,15 +7155,15 @@ if (generated.seo) {
           <div className="mx-auto flex max-w-7xl flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-bold">Lead CRM</p>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>Search, qualify, prioritize and follow up with website leads.</p>
+                <p className="text-xs font-bold">{l('Lead CRM')}</p>
+                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Search, qualify, prioritize and follow up with website leads.')}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={exportLeadsCsv} disabled={!leads.length} className="text-xs font-semibold text-sky-400 disabled:opacity-40">CSV</button>
-                <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">Read all</button>
-                <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className="text-xs font-semibold text-gray-400 disabled:opacity-40">Archive read</button>
+                <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{l('Read all')}</button>
+                <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className="text-xs font-semibold text-gray-400 disabled:opacity-40">{l('Archive read')}</button>
                 <button onClick={() => void refreshLeads()} disabled={leadsLoading} className="text-xs font-semibold text-cyan-400 disabled:opacity-50">{leadsLoading ? 'Refreshing…' : 'Refresh'}</button>
-                <button onClick={() => setLeadsOpen(false)} className="text-xs font-semibold text-violet-400">Close</button>
+                <button onClick={() => setLeadsOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
@@ -7198,18 +7188,18 @@ if (generated.seo) {
             <div className="flex flex-wrap gap-2">
               <input value={leadQuery} onChange={(e) => setLeadQuery(e.target.value)} placeholder="Search name, email, message, tags…" className={`min-w-56 flex-1 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
               <select value={leadStatusFilter} onChange={(e) => setLeadStatusFilter(e.target.value as 'all' | WebsiteLead['status'])} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                <option value="all">All inbox statuses</option><option value="new">New</option><option value="read">Read</option><option value="archived">Archived</option>
+                <option value="all">{l('All inbox statuses')}</option><option value="new">{l('New')}</option><option value="read">{l('Read')}</option><option value="archived">{l('Archived')}</option>
               </select>
               <select value={leadStageFilter} onChange={(e) => setLeadStageFilter(e.target.value as 'all' | LeadStage)} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                <option value="all">All CRM stages</option><option value="new">New</option><option value="qualified">Qualified</option><option value="contacted">Contacted</option><option value="won">Won</option><option value="lost">Lost</option>
+                <option value="all">{l('All CRM stages')}</option><option value="new">{l('New')}</option><option value="qualified">{l('Qualified')}</option><option value="contacted">{l('Contacted')}</option><option value="won">{l('Won')}</option><option value="lost">{l('Lost')}</option>
               </select>
-              <button type="button" onClick={() => setSelectedLeadIds(filteredLeads.map((lead) => lead.id))} disabled={!filteredLeads.length} className="rounded-lg border border-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-400 disabled:opacity-40">Select shown</button>
+              <button type="button" onClick={() => setSelectedLeadIds(filteredLeads.map((lead) => lead.id))} disabled={!filteredLeads.length} className="rounded-lg border border-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-400 disabled:opacity-40">{l('Select shown')}</button>
               {!!selectedLeadIds.length && <button type="button" onClick={() => setSelectedLeadIds([])} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-400">Clear ({selectedLeadIds.length})</button>}
             </div>
 
             {!!selectedLeadIds.length && (
               <div className={`flex flex-wrap items-center gap-2 rounded-xl border p-2 ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
-                <span className="text-[10px] font-bold text-violet-400">Bulk stage:</span>
+                <span className="text-[10px] font-bold text-violet-400">{l('Bulk stage:')}</span>
                 {(['qualified', 'contacted', 'won', 'lost'] as LeadStage[]).map((stage) => <button key={stage} type="button" onClick={() => void bulkUpdateLeadStage(stage)} className="rounded border border-violet-500/20 px-2 py-1 text-[10px] font-semibold capitalize text-violet-400">{stage}</button>)}
               </div>
             )}
@@ -7217,9 +7207,9 @@ if (generated.seo) {
             {leadsError && <p className="text-xs text-amber-400">{leadsError}</p>}
 
             {!leadsLoading && !leads.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>No leads yet. Publish a website with a Contact section, then submissions will appear here.</div>
+              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l('No leads yet. Publish a website with a Contact section, then submissions will appear here.')}</div>
             ) : !leadsLoading && !filteredLeads.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>No leads match the current search and filters.</div>
+              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l('No leads match the current search and filters.')}</div>
             ) : (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {filteredLeads.map((lead) => {
@@ -7243,10 +7233,10 @@ if (generated.seo) {
 
                     <div className="mb-2 grid grid-cols-2 gap-2">
                       <select value={stage} onChange={(e) => void updateLeadCrm(lead.id, { stage: e.target.value as LeadStage })} className={`rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                        <option value="new">New</option><option value="qualified">Qualified</option><option value="contacted">Contacted</option><option value="won">Won</option><option value="lost">Lost</option>
+                        <option value="new">{l('New')}</option><option value="qualified">{l('Qualified')}</option><option value="contacted">{l('Contacted')}</option><option value="won">{l('Won')}</option><option value="lost">{l('Lost')}</option>
                       </select>
                       <select value={Number(lead.priority || 0)} onChange={(e) => void updateLeadCrm(lead.id, { priority: Number(e.target.value) })} className={`rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                        <option value={0}>Normal priority</option><option value={1}>★ Priority</option><option value={2}>★★ High priority</option>
+                        <option value={0}>{l('Normal priority')}</option><option value={1}>{l('★ Priority')}</option><option value={2}>{l('★★ High priority')}</option>
                       </select>
                     </div>
 
@@ -7265,16 +7255,16 @@ if (generated.seo) {
                         {visibleFormData.map(([key, value]) => <div key={key} className="grid grid-cols-[90px_1fr] gap-2 text-[10px]"><span className="truncate font-semibold text-gray-500">{key}</span><span className={`break-words ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value ?? '')}</span></div>)}
                       </div>
                     )}
-                    {lead.notes && <div className={`mb-2 rounded-lg border p-2 text-[10px] ${darkMode ? 'border-amber-500/20 bg-amber-500/5 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}><strong>Notes:</strong> {lead.notes}</div>}
+                    {lead.notes && <div className={`mb-2 rounded-lg border p-2 text-[10px] ${darkMode ? 'border-amber-500/20 bg-amber-500/5 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}><strong>{l('Notes:')}</strong> {lead.notes}</div>}
                     {lead.page_path && <p className="mb-1 text-[10px] text-gray-500">Page: {lead.page_path}</p>}
                     <p className="mb-3 text-[10px] text-gray-500">{new Date(lead.created_at).toLocaleString()}</p>
                     <div className="flex flex-wrap gap-2">
-                      {lead.status === 'new' && <button onClick={() => void updateLeadStatus(lead.id, 'read')} className="font-semibold text-emerald-400">Mark read</button>}
-                      {lead.status !== 'archived' && <button onClick={() => void updateLeadStatus(lead.id, 'archived')} className="font-semibold text-gray-400">Archive</button>}
-                      <button onClick={() => { const value = window.prompt('Comma-separated tags', (lead.tags || []).join(', ')); if (value !== null) void updateLeadCrm(lead.id, { tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) }); }} className="font-semibold text-amber-400">Tags</button>
-                      <button onClick={() => { const value = window.prompt('Lead notes', lead.notes || ''); if (value !== null) void updateLeadCrm(lead.id, { notes: value }); }} className="font-semibold text-violet-400">Notes</button>
+                      {lead.status === 'new' && <button onClick={() => void updateLeadStatus(lead.id, 'read')} className="font-semibold text-emerald-400">{l('Mark read')}</button>}
+                      {lead.status !== 'archived' && <button onClick={() => void updateLeadStatus(lead.id, 'archived')} className="font-semibold text-gray-400">{l('Archive')}</button>}
+                      <button onClick={() => { const value = window.prompt('Comma-separated tags', (lead.tags || []).join(', ')); if (value !== null) void updateLeadCrm(lead.id, { tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) }); }} className="font-semibold text-amber-400">{l('Tags')}</button>
+                      <button onClick={() => { const value = window.prompt('Lead notes', lead.notes || ''); if (value !== null) void updateLeadCrm(lead.id, { notes: value }); }} className="font-semibold text-violet-400">{l('Notes')}</button>
                       <button onClick={() => void copyLeadSummary(lead)} className="font-semibold text-sky-400">Copy</button>
-                      <button onClick={() => void deleteLead(lead.id)} className="font-semibold text-rose-400">Delete</button>
+                      <button onClick={() => void deleteLead(lead.id)} className="font-semibold text-rose-400">{l('Delete')}</button>
                     </div>
                   </article>
                   );
@@ -7290,19 +7280,19 @@ if (generated.seo) {
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold">Release Management</p>
-                <p className="text-[10px] text-gray-500">Immutable publish archives, live rollback and unlisted draft previews.</p>
+                <p className="text-xs font-bold">{l('Release Management')}</p>
+                <p className="text-[10px] text-gray-500">{l('Immutable publish archives, live rollback and unlisted draft previews.')}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={() => void refreshPublishVersions()} disabled={publishVersionsLoading} className="text-xs font-semibold text-indigo-400">{publishVersionsLoading ? 'Refreshing…' : 'Refresh'}</button>
-                <button onClick={() => setReleaseHistoryOpen(false)} className="text-xs font-semibold text-violet-400">Close</button>
+                <button onClick={() => setReleaseHistoryOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
               <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-indigo-400">Next release</p>
-                <textarea value={releaseNote} onChange={(e) => setReleaseNote(e.target.value.slice(0, 500))} rows={2} placeholder="Release note (optional): what changed?" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} />
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-indigo-400">{l('Next release')}</p>
+                <textarea value={releaseNote} onChange={(e) => setReleaseNote(e.target.value.slice(0, 500))} rows={2} placeholder={l('Release note (optional): what changed?')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} />
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
                   <span className={`rounded-full px-2 py-1 ${hasUnpublishedChanges ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>{publishedUrl ? (hasUnpublishedChanges ? 'Unpublished changes' : 'Editor matches live release') : 'Not published yet'}</span>
                   {lastPublishedVersionId && <span className="text-gray-500">Release: {lastPublishedVersionId.slice(0, 8)}</span>}
@@ -7310,16 +7300,16 @@ if (generated.seo) {
               </div>
 
               <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-cyan-400">Unlisted share preview</p>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-cyan-400">{l('Unlisted share preview')}</p>
                 {previewUrl ? (
                   <>
                     <p className="truncate text-[10px] text-cyan-400">{previewUrl}</p>
-                    <p className="mt-1 text-[9px] text-gray-500">Anyone with this URL can open it. Tracking integrations are disabled in preview.</p>
+                    <p className="mt-1 text-[9px] text-gray-500">{l('Anyone with this URL can open it. Tracking integrations are disabled in preview.')}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <button onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')} className="text-xs font-semibold text-cyan-400">Open</button>
+                      <button onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')} className="text-xs font-semibold text-cyan-400">{l('Open')}</button>
                       <button onClick={() => void navigator.clipboard.writeText(previewUrl)} className="text-xs font-semibold text-sky-400">Copy</button>
-                      <button onClick={() => void createSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-indigo-400">Regenerate</button>
-                      <button onClick={() => void revokeSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-rose-400">Revoke</button>
+                      <button onClick={() => void createSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-indigo-400">{l('Regenerate')}</button>
+                      <button onClick={() => void revokeSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-rose-400">{l('Revoke')}</button>
                     </div>
                   </>
                 ) : (
@@ -7332,7 +7322,7 @@ if (generated.seo) {
 
             {publishVersionsError && <p className="text-xs text-rose-400">{publishVersionsError}</p>}
             {!publishVersionsLoading && !publishVersions.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>No releases yet. Add an optional release note and click Publish.</div>
+              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l('No releases yet. Add an optional release note and click Publish.')}</div>
             ) : (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {publishVersions.map((version, index) => (
@@ -7342,14 +7332,14 @@ if (generated.seo) {
                         <p className="font-bold">Release {publishVersions.length - index}</p>
                         <p className="text-[9px] text-gray-500">{new Date(version.created_at).toLocaleString()}</p>
                       </div>
-                      {version.id === lastPublishedVersionId && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold text-emerald-400">LIVE REF</span>}
+                      {version.id === lastPublishedVersionId && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold text-emerald-400">{l('LIVE REF')}</span>}
                     </div>
                     <p className={`mt-2 min-h-8 text-[10px] ${version.release_note ? (darkMode ? 'text-gray-300' : 'text-gray-700') : 'text-gray-500'}`}>{version.release_note || 'No release note.'}</p>
                     <p className="mt-2 text-[9px] text-indigo-400">Current vs release: {releaseDiffSummary(version)}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button onClick={() => void rollbackPublishVersion(version)} disabled={publishBusy} className="font-semibold text-amber-400">Rollback live</button>
-                      <button onClick={() => restorePublishVersionToEditor(version)} className="font-semibold text-violet-400">Restore editor</button>
-                      <button onClick={() => void deletePublishVersion(version)} disabled={publishVersionsLoading || version.id === lastPublishedVersionId} className="font-semibold text-rose-400 disabled:opacity-30">Delete archive</button>
+                      <button onClick={() => void rollbackPublishVersion(version)} disabled={publishBusy} className="font-semibold text-amber-400">{l('Rollback live')}</button>
+                      <button onClick={() => restorePublishVersionToEditor(version)} className="font-semibold text-violet-400">{l('Restore editor')}</button>
+                      <button onClick={() => void deletePublishVersion(version)} disabled={publishVersionsLoading || version.id === lastPublishedVersionId} className="font-semibold text-rose-400 disabled:opacity-30">{l('Delete archive')}</button>
                     </div>
                   </article>
                 ))}
@@ -7364,10 +7354,10 @@ if (generated.seo) {
           <div className="mx-auto flex max-w-6xl flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-bold">Project History</p>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>Last 10 manual saves. Autosave does not create history entries.</p>
+                <p className="text-xs font-bold">{l('Project History')}</p>
+                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Last 10 manual saves. Autosave does not create history entries.')}</p>
               </div>
-              <button onClick={() => setHistoryOpen(false)} className="text-xs font-semibold text-violet-400">Close</button>
+              <button onClick={() => setHistoryOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
             </div>
             {projectHistory.length ? (
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -7376,15 +7366,15 @@ if (generated.seo) {
                     key={entry.id}
                     onClick={() => restoreHistoryEntry(entry)}
                     className={`min-w-52 rounded-lg border px-3 py-2 text-left text-xs ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-100'}`}
-                    title="Restore this version"
+                    title={l('Restore this version')}
                   >
                     <span className="block font-semibold">{entry.label}</span>
-                    <span className={`mt-1 block text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Restore version</span>
+                    <span className={`mt-1 block text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{l('Restore version')}</span>
                   </button>
                 ))}
               </div>
             ) : (
-              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>No manual save history yet. Click Save to create the first restore point.</p>
+              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('No manual save history yet. Click Save to create the first restore point.')}</p>
             )}
           </div>
         </div>
@@ -7400,8 +7390,8 @@ if (generated.seo) {
         >
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold">Pages</span>
-              <button type="button" onClick={addPage} className="rounded p-1 text-violet-400 hover:bg-violet-500/10" title="Add page">
+              <span className="text-xs font-semibold">{l('Pages')}</span>
+              <button type="button" onClick={addPage} className="rounded p-1 text-violet-400 hover:bg-violet-500/10" title={l('Add page')}>
                 <Plus className="h-4 w-4" />
               </button>
             </div>
@@ -7410,16 +7400,16 @@ if (generated.seo) {
                 <div key={page.id} className={`flex items-center gap-1 rounded-lg ${activePageId === page.id ? (darkMode ? 'bg-violet-500/15' : 'bg-violet-100') : ''}`}>
                   <button type="button" onClick={() => switchPage(page.id)} className={`min-w-0 flex-1 px-2 py-1.5 text-left text-xs ${activePageId === page.id ? (darkMode ? 'text-violet-300' : 'text-violet-700') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900')}`}>
                     <span className="flex items-center gap-1.5">
-                      {page.id === homePageId && <span className="text-[9px] font-bold text-emerald-400">HOME</span>}
+                      {page.id === homePageId && <span className="text-[9px] font-bold text-emerald-400">{l('HOME')}</span>}
                       <span className="truncate">{page.name}</span>
                       <span className="rounded bg-sky-500/10 px-1 text-[8px] font-bold text-sky-400">{languageCodeLabel(normalizePageLanguage(page.language, prefs.language))}</span>
-                      {page.showInNavigation === false && <span className="text-[9px] text-gray-500">HIDDEN</span>}
+                      {page.showInNavigation === false && <span className="text-[9px] text-gray-500">{l('HIDDEN')}</span>}
                     </span>
                     <span className="block truncate text-[9px] text-gray-500">/{page.slug}</span>
                   </button>
                   <div className="flex shrink-0 flex-col pr-1">
-                    <button type="button" onClick={() => movePage(page.id, 'up')} disabled={index === 0} className="rounded p-0.5 text-gray-500 hover:text-violet-400 disabled:opacity-20" title="Move page up"><ChevronUp className="h-3 w-3" /></button>
-                    <button type="button" onClick={() => movePage(page.id, 'down')} disabled={index === pages.length - 1} className="rounded p-0.5 text-gray-500 hover:text-violet-400 disabled:opacity-20" title="Move page down"><ChevronDown className="h-3 w-3" /></button>
+                    <button type="button" onClick={() => movePage(page.id, 'up')} disabled={index === 0} className="rounded p-0.5 text-gray-500 hover:text-violet-400 disabled:opacity-20" title={l('Move page up')}><ChevronUp className="h-3 w-3" /></button>
+                    <button type="button" onClick={() => movePage(page.id, 'down')} disabled={index === pages.length - 1} className="rounded p-0.5 text-gray-500 hover:text-violet-400 disabled:opacity-20" title={l('Move page down')}><ChevronDown className="h-3 w-3" /></button>
                   </div>
                 </div>
               ))}
@@ -7435,10 +7425,10 @@ if (generated.seo) {
                     {activePage.id === homePageId ? 'Home page' : 'Set home'}
                   </button>
                 </div>
-                <input value={activePage.name} onChange={(e) => updateActivePageMeta({ name: e.target.value })} placeholder="Page name" className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                <input value={activePage.name} onChange={(e) => updateActivePageMeta({ name: e.target.value })} placeholder={l('Page name')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 <div className="grid grid-cols-[110px_1fr] gap-2">
                   <select value={normalizePageLanguage(activePage.language, prefs.language)} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ language: e.target.value as Language }); }} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}>
-                    <option value="en">English</option><option value="sv">Svenska</option><option value="ar">العربية</option>
+                    <option value="en">{l('English')}</option><option value="sv">Svenska</option><option value="ar">العربية</option>
                   </select>
                   <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? 'Translation group (optional)' : 'Translation groups · Pro'} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
@@ -7446,30 +7436,30 @@ if (generated.seo) {
                   {(['en', 'sv', 'ar'] as Language[]).filter((language) => language !== normalizePageLanguage(activePage.language, prefs.language)).map((language) => (
                     <button key={language} type="button" disabled={!billingEntitlements.features.multilingual} onClick={() => duplicatePageAsTranslation(language)} className="rounded-md border border-sky-500/20 px-2 py-1 text-[9px] font-semibold text-sky-400 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-40">+ {PAGE_LANGUAGE_LABELS[language]}</button>
                   ))}
-                  {!billingEntitlements.features.multilingual && <button type="button" onClick={() => openBillingWithMessage('Multilingual pages require the Pro plan or higher.')} className="rounded-md border border-amber-500/20 px-2 py-1 text-[9px] font-bold text-amber-400 hover:bg-amber-500/10">Unlock multilingual</button>}
+                  {!billingEntitlements.features.multilingual && <button type="button" onClick={() => openBillingWithMessage('Multilingual pages require the Pro plan or higher.')} className="rounded-md border border-amber-500/20 px-2 py-1 text-[9px] font-bold text-amber-400 hover:bg-amber-500/10">{l('Unlock multilingual')}</button>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500">/</span>
                   <input value={activePage.slug} onChange={(e) => updateActivePageMeta({ slug: e.target.value })} placeholder="page-slug" className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <button type="button" onClick={duplicateActivePage} className="rounded p-1.5 text-sky-400 hover:bg-sky-500/10" title="Duplicate page">
+                  <button type="button" onClick={duplicateActivePage} className="rounded p-1.5 text-sky-400 hover:bg-sky-500/10" title={l('Duplicate page')}>
                     <Copy className="h-3.5 w-3.5" />
                   </button>
-                  <button type="button" onClick={deleteActivePage} disabled={pages.length <= 1} className="rounded p-1.5 text-red-400 disabled:opacity-30" title="Delete page">
+                  <button type="button" onClick={deleteActivePage} disabled={pages.length <= 1} className="rounded p-1.5 text-red-400 disabled:opacity-30" title={l('Delete page')}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 <div className="space-y-2 border-t border-white/10 pt-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">Page SEO</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">{l('Page SEO')}</span>
                     <label className="flex items-center gap-1.5 text-[10px] text-gray-500">
                       <input type="checkbox" checked={activePage.noIndex === true} onChange={(e) => updateActivePageMeta({ noIndex: e.target.checked })} />
                       Hide from search
                     </label>
                   </div>
-                  <input value={activePage.seoTitle || ''} onChange={(e) => updateActivePageMeta({ seoTitle: e.target.value })} placeholder="Custom SEO title (optional)" maxLength={70} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <textarea value={activePage.seoDescription || ''} onChange={(e) => updateActivePageMeta({ seoDescription: e.target.value })} placeholder="Custom meta description (optional)" maxLength={180} rows={3} className={`w-full resize-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={activePage.socialImage || ''} onChange={(e) => updateActivePageMeta({ socialImage: e.target.value })} placeholder="Social share image URL" className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={activePage.canonicalUrl || ''} onChange={(e) => updateActivePageMeta({ canonicalUrl: e.target.value })} placeholder="Canonical URL override (optional)" className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={activePage.seoTitle || ''} onChange={(e) => updateActivePageMeta({ seoTitle: e.target.value })} placeholder={l('Custom SEO title (optional)')} maxLength={70} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <textarea value={activePage.seoDescription || ''} onChange={(e) => updateActivePageMeta({ seoDescription: e.target.value })} placeholder={l('Custom meta description (optional)')} maxLength={180} rows={3} className={`w-full resize-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={activePage.socialImage || ''} onChange={(e) => updateActivePageMeta({ socialImage: e.target.value })} placeholder={l('Social share image URL')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={activePage.canonicalUrl || ''} onChange={(e) => updateActivePageMeta({ canonicalUrl: e.target.value })} placeholder={l('Canonical URL override (optional)')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
               </div>
             )}
@@ -7478,31 +7468,31 @@ if (generated.seo) {
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/60'}`}>
             <div className="mb-3 flex items-center gap-2">
               <Globe className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-semibold">Global Header & Footer</span>
+              <span className="text-xs font-semibold">{l('Global Header & Footer')}</span>
             </div>
             <div className="space-y-3">
               <div className="rounded-lg border border-emerald-500/15 p-2.5">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">Header</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{l('Header')}</span>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.enabled} onChange={(e) => { setHeaderConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /> Enabled</label>
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.sticky} onChange={(e) => { setHeaderConfig((current) => ({ ...current, sticky: e.target.checked })); setSaved(false); }} /> Sticky</label>
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.mobileMenu} onChange={(e) => { setHeaderConfig((current) => ({ ...current, mobileMenu: e.target.checked })); setSaved(false); }} /> Mobile menu</label>
+                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.enabled} onChange={(e) => { setHeaderConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} />{l('Enabled')}</label>
+                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.sticky} onChange={(e) => { setHeaderConfig((current) => ({ ...current, sticky: e.target.checked })); setSaved(false); }} />{l('Sticky')}</label>
+                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.mobileMenu} onChange={(e) => { setHeaderConfig((current) => ({ ...current, mobileMenu: e.target.checked })); setSaved(false); }} />{l('Mobile menu')}</label>
                     <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.languageSwitcher} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Language switcher')) return; setHeaderConfig((current) => ({ ...current, languageSwitcher: e.target.checked })); setSaved(false); }} /> Language switcher {!billingEntitlements.features.multilingual && <span className="font-bold text-amber-400">PRO</span>}</label>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <input value={headerConfig.brandText} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandText: e.target.value })); setSaved(false); }} placeholder="Brand text (blank = site name)" maxLength={80} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                  <input value={headerConfig.logoUrl} onChange={(e) => { setHeaderConfig((current) => ({ ...current, logoUrl: e.target.value })); setSaved(false); }} placeholder="Logo image URL (optional)" className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                  <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.showCta} onChange={(e) => { setHeaderConfig((current) => ({ ...current, showCta: e.target.checked })); setSaved(false); }} /> Show CTA button</label>
+                  <input value={headerConfig.brandText} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandText: e.target.value })); setSaved(false); }} placeholder={l('Brand text (blank = site name)')} maxLength={80} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                  <input value={headerConfig.logoUrl} onChange={(e) => { setHeaderConfig((current) => ({ ...current, logoUrl: e.target.value })); setSaved(false); }} placeholder={l('Logo image URL (optional)')} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                  <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.showCta} onChange={(e) => { setHeaderConfig((current) => ({ ...current, showCta: e.target.checked })); setSaved(false); }} />{l('Show CTA button')}</label>
                   {headerConfig.showCta && (
                     <div className="grid grid-cols-2 gap-2">
-                      <input value={headerConfig.ctaLabel} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaLabel: e.target.value })); setSaved(false); }} placeholder="CTA label" maxLength={80} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                      <input value={headerConfig.ctaLabel} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaLabel: e.target.value })); setSaved(false); }} placeholder={l('CTA label')} maxLength={80} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                       <input value={headerConfig.ctaHref} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaHref: e.target.value })); setSaved(false); }} placeholder="#contact or page:about" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                     </div>
                   )}
                   <div className={`rounded-lg border p-2 ${darkMode ? 'border-white/10 bg-black/10' : 'border-emerald-100 bg-emerald-50/50'}`}>
-                    <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-emerald-400">Navigation style</p>
+                    <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-emerald-400">{l('Navigation style')}</p>
                     <div className="grid grid-cols-4 gap-2">
                       {([
                         ['Bg', 'backgroundColor'],
@@ -7519,14 +7509,11 @@ if (generated.seo) {
                       ))}
                     </div>
                     <div className="mt-2 grid grid-cols-3 gap-2">
-                      <label className="text-[9px] text-gray-500">Link gap
-                        <input type="number" min="4" max="48" value={headerConfig.navGap} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navGap: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                      <label className="text-[9px] text-gray-500">{l('Link gap')}<input type="number" min="4" max="48" value={headerConfig.navGap} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navGap: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                       </label>
-                      <label className="text-[9px] text-gray-500">Brand px
-                        <input type="number" min="12" max="32" value={headerConfig.brandSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandSize: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                      <label className="text-[9px] text-gray-500">{l('Brand px')}<input type="number" min="12" max="32" value={headerConfig.brandSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandSize: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                       </label>
-                      <label className="text-[9px] text-gray-500">Links px
-                        <input type="number" min="10" max="24" value={headerConfig.navSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navSize: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                      <label className="text-[9px] text-gray-500">{l('Links px')}<input type="number" min="10" max="24" value={headerConfig.navSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navSize: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                       </label>
                     </div>
                   </div>
@@ -7535,14 +7522,14 @@ if (generated.seo) {
 
               <div className="rounded-lg border border-emerald-500/15 p-2.5">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">Footer</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{l('Footer')}</span>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={footerConfig.enabled} onChange={(e) => { setFooterConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /> Enabled</label>
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={footerConfig.showNavigation} onChange={(e) => { setFooterConfig((current) => ({ ...current, showNavigation: e.target.checked })); setSaved(false); }} /> Page links</label>
+                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={footerConfig.enabled} onChange={(e) => { setFooterConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} />{l('Enabled')}</label>
+                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={footerConfig.showNavigation} onChange={(e) => { setFooterConfig((current) => ({ ...current, showNavigation: e.target.checked })); setSaved(false); }} />{l('Page links')}</label>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <input value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} placeholder="Footer text (blank = automatic copyright)" maxLength={300} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                  <input value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} placeholder={l('Footer text (blank = automatic copyright)')} maxLength={300} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                   <div className="grid grid-cols-2 gap-2">
                     <input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} placeholder="Instagram URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                     <input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} placeholder="Facebook URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
@@ -7552,55 +7539,55 @@ if (generated.seo) {
                 </div>
               </div>
             </div>
-            <p className="mt-2 text-[9px] leading-4 text-gray-500">Header and footer are global across every page and are included in Preview, ZIP Export and Publish.</p>
+            <p className="mt-2 text-[9px] leading-4 text-gray-500">{l('Header and footer are global across every page and are included in Preview, ZIP Export and Publish.')}</p>
           </div>
 
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
             <div className="mb-3 flex items-center gap-2">
               <Eye className="h-4 w-4 text-cyan-400" />
-              <span className="text-xs font-semibold">Site Experience</span>
+              <span className="text-xs font-semibold">{l('Site Experience')}</span>
             </div>
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
-                <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.scrollProgress} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, scrollProgress: e.target.checked })); setSaved(false); }} /> Scroll progress</label>
-                <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.backToTop} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, backToTop: e.target.checked })); setSaved(false); }} /> Back to top</label>
+                <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.scrollProgress} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, scrollProgress: e.target.checked })); setSaved(false); }} />{l('Scroll progress')}</label>
+                <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.backToTop} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, backToTop: e.target.checked })); setSaved(false); }} />{l('Back to top')}</label>
               </div>
-              <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.cookieBanner} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieBanner: e.target.checked })); setSaved(false); }} /> Cookie / privacy notice</label>
+              <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.cookieBanner} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieBanner: e.target.checked })); setSaved(false); }} />{l('Cookie / privacy notice')}</label>
               {siteEnhancements.cookieBanner && (
                 <div className="grid gap-2">
-                  <textarea rows={3} value={siteEnhancements.cookieText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieText: e.target.value })); setSaved(false); }} maxLength={500} placeholder="Privacy notice text" className={`w-full resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} />
-                  <input value={siteEnhancements.cookieButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieButtonLabel: e.target.value })); setSaved(false); }} maxLength={60} placeholder="Accept button label" className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} />
+                  <textarea rows={3} value={siteEnhancements.cookieText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieText: e.target.value })); setSaved(false); }} maxLength={500} placeholder={l('Privacy notice text')} className={`w-full resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} />
+                  <input value={siteEnhancements.cookieButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieButtonLabel: e.target.value })); setSaved(false); }} maxLength={60} placeholder={l('Accept button label')} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} />
                 </div>
               )}
               <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-black/10' : 'border-cyan-100 bg-white'}`}>
-                <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-cyan-400">Marketing & discovery</p>
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-cyan-400">{l('Marketing & discovery')}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.announcementBar} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementBar: e.target.checked })); setSaved(false); }} /> Announcement</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.popupEnabled} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupEnabled: e.target.checked })); setSaved(false); }} /> Popup</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.siteSearch} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, siteSearch: e.target.checked })); setSaved(false); }} /> Site search</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.galleryLightbox} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, galleryLightbox: e.target.checked })); setSaved(false); }} /> Gallery lightbox</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.floatingCta} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCta: e.target.checked })); setSaved(false); }} /> Floating CTA</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.shareButtons} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, shareButtons: e.target.checked })); setSaved(false); }} /> Share tools</label>
+                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.announcementBar} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementBar: e.target.checked })); setSaved(false); }} />{l('Announcement')}</label>
+                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.popupEnabled} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupEnabled: e.target.checked })); setSaved(false); }} />{l('Popup')}</label>
+                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.siteSearch} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, siteSearch: e.target.checked })); setSaved(false); }} />{l('Site search')}</label>
+                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.galleryLightbox} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, galleryLightbox: e.target.checked })); setSaved(false); }} />{l('Gallery lightbox')}</label>
+                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.floatingCta} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCta: e.target.checked })); setSaved(false); }} />{l('Floating CTA')}</label>
+                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.shareButtons} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, shareButtons: e.target.checked })); setSaved(false); }} />{l('Share tools')}</label>
                 </div>
-                {siteEnhancements.announcementBar && <div className="mt-2 grid gap-2"><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} placeholder="Announcement text" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-2 gap-2"><input value={siteEnhancements.announcementLinkLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementLinkLabel: e.target.value })); setSaved(false); }} placeholder="Link label" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} placeholder="#anchor / page:about / URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
-                {siteEnhancements.popupEnabled && <div className="mt-2 grid gap-2"><input value={siteEnhancements.popupTitle} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupTitle: e.target.value })); setSaved(false); }} placeholder="Popup title" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><textarea rows={2} value={siteEnhancements.popupText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupText: e.target.value })); setSaved(false); }} placeholder="Popup message" className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-3 gap-2"><input value={siteEnhancements.popupButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonLabel: e.target.value })); setSaved(false); }} placeholder="Button" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.popupButtonHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonHref: e.target.value })); setSaved(false); }} placeholder="Button link" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input type="number" min="0" max="60" value={siteEnhancements.popupDelaySeconds} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupDelaySeconds: Number(e.target.value) })); setSaved(false); }} title="Delay in seconds" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
-                {siteEnhancements.floatingCta && <div className="mt-2 grid grid-cols-2 gap-2"><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} placeholder="Floating CTA label" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} placeholder="CTA link" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div>}
+                {siteEnhancements.announcementBar && <div className="mt-2 grid gap-2"><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} placeholder={l('Announcement text')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-2 gap-2"><input value={siteEnhancements.announcementLinkLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementLinkLabel: e.target.value })); setSaved(false); }} placeholder={l('Link label')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} placeholder="#anchor / page:about / URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
+                {siteEnhancements.popupEnabled && <div className="mt-2 grid gap-2"><input value={siteEnhancements.popupTitle} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupTitle: e.target.value })); setSaved(false); }} placeholder={l('Popup title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><textarea rows={2} value={siteEnhancements.popupText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupText: e.target.value })); setSaved(false); }} placeholder={l('Popup message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-3 gap-2"><input value={siteEnhancements.popupButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonLabel: e.target.value })); setSaved(false); }} placeholder={l('Button')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.popupButtonHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonHref: e.target.value })); setSaved(false); }} placeholder={l('Button link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input type="number" min="0" max="60" value={siteEnhancements.popupDelaySeconds} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupDelaySeconds: Number(e.target.value) })); setSaved(false); }} title="Delay in seconds" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
+                {siteEnhancements.floatingCta && <div className="mt-2 grid grid-cols-2 gap-2"><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} placeholder={l('Floating CTA label')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} placeholder={l('CTA link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div>}
               </div>
               <div className={`rounded-lg border p-2.5 ${siteAudit.errors.length ? 'border-red-500/30' : siteAudit.warnings.length ? 'border-amber-500/30' : 'border-emerald-500/30'}`}>
-                <div className="flex items-center justify-between gap-2"><p className="text-[9px] font-bold uppercase tracking-wide text-cyan-400">Pre-publish audit</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${siteAudit.score >= 90 ? 'bg-emerald-500/15 text-emerald-400' : siteAudit.score >= 70 ? 'bg-amber-500/15 text-amber-400' : 'bg-red-500/15 text-red-400'}`}>{siteAudit.score}/100</span></div>
+                <div className="flex items-center justify-between gap-2"><p className="text-[9px] font-bold uppercase tracking-wide text-cyan-400">{l('Pre-publish audit')}</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${siteAudit.score >= 90 ? 'bg-emerald-500/15 text-emerald-400' : siteAudit.score >= 70 ? 'bg-amber-500/15 text-amber-400' : 'bg-red-500/15 text-red-400'}`}>{siteAudit.score}/100</span></div>
                 <p className="mt-1 text-[9px] text-gray-500">{siteAudit.errors.length} errors · {siteAudit.warnings.length} warnings · checks SEO, accessibility basics and internal links.</p>
                 <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] text-gray-500"><span>{qualityDiagnostics.pages} pages</span><span>{qualityDiagnostics.sections} sections</span><span>{qualityDiagnostics.elements} elements</span><span>{qualityDiagnostics.snapshotKb} KB snapshot</span></div>
                 {qualityDiagnostics.warnings.length > 0 && <div className="mt-2 space-y-1">{qualityDiagnostics.warnings.slice(0, 4).map((item) => <p key={item} className="text-[9px] text-orange-400">• {item}</p>)}</div>}
-                {recoveryAvailable && <button onClick={restoreRecoverySnapshot} className="mt-2 rounded-lg border border-cyan-500/30 px-2 py-1 text-[9px] font-bold text-cyan-400">Restore recovery snapshot</button>}
+                {recoveryAvailable && <button onClick={restoreRecoverySnapshot} className="mt-2 rounded-lg border border-cyan-500/30 px-2 py-1 text-[9px] font-bold text-cyan-400">{l('Restore recovery snapshot')}</button>}
                 {(siteAudit.errors.length > 0 || siteAudit.warnings.length > 0) && <div className="mt-2 max-h-32 space-y-1 overflow-auto">{siteAudit.errors.slice(0, 5).map((item) => <p key={`e-${item}`} className="text-[9px] text-red-400">• {item}</p>)}{siteAudit.warnings.slice(0, 7).map((item) => <p key={`w-${item}`} className="text-[9px] text-amber-400">• {item}</p>)}</div>}
               </div>
-              <p className="text-[9px] leading-4 text-gray-500">FAQ structured data is generated automatically from Accordion elements during Preview, Export and Publish.</p>
+              <p className="text-[9px] leading-4 text-gray-500">{l('FAQ structured data is generated automatically from Accordion elements during Preview, Export and Publish.')}</p>
             </div>
           </div>
 
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-blue-500/20 bg-blue-500/5' : 'border-blue-200 bg-blue-50/60'}`}>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2"><Globe className="h-4 w-4 text-blue-400" /><span className="text-xs font-semibold">Production Integrations</span></div>
+              <div className="flex items-center gap-2"><Globe className="h-4 w-4 text-blue-400" /><span className="text-xs font-semibold">{l('Production Integrations')}</span></div>
               {!billingEntitlements.features.productionIntegrations && <button type="button" onClick={() => openBillingWithMessage('Production tracking integrations require the Pro plan or higher.')} className="rounded-full border border-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-400">PRO</button>}
             </div>
             <div className="space-y-3">
@@ -7608,32 +7595,30 @@ if (generated.seo) {
                 <input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} placeholder="GA4 · G-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                 <input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} placeholder="GTM · GTM-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                 <input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} placeholder="Meta Pixel ID" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} placeholder="Plausible domain" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} placeholder={l('Plausible domain')} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <input value={productionConfig.googleVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, googleVerification: e.target.value })); setSaved(false); }} placeholder="Google verification token" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.bingVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, bingVerification: e.target.value })); setSaved(false); }} placeholder="Bing verification token" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.googleVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, googleVerification: e.target.value })); setSaved(false); }} placeholder={l('Google verification token')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.bingVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, bingVerification: e.target.value })); setSaved(false); }} placeholder={l('Bing verification token')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </div>
               <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10' : 'border-blue-100 bg-white/70'}`}>
                 <div className="mb-2 grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={productionConfig.organizationSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationSchema: e.target.checked })); setSaved(false); }} /> Organization schema</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={productionConfig.localBusinessSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessSchema: e.target.checked })); setSaved(false); }} /> Local Business schema</label>
+                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={productionConfig.organizationSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationSchema: e.target.checked })); setSaved(false); }} />{l('Organization schema')}</label>
+                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={productionConfig.localBusinessSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessSchema: e.target.checked })); setSaved(false); }} />{l('Local Business schema')}</label>
                 </div>
                 {(productionConfig.organizationSchema || productionConfig.localBusinessSchema) && <div className="grid gap-2">
-                  <input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} placeholder="Organization / business name" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                  <div className="grid grid-cols-2 gap-2"><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} placeholder="Organization URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} placeholder="Logo URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div>
-                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder="Schema type · LocalBusiness" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder="Phone" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder="Business address" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
+                  <input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} placeholder={l('Organization / business name')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                  <div className="grid grid-cols-2 gap-2"><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} placeholder={l('Organization URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} placeholder={l('Logo URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div>
+                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder="Schema type · LocalBusiness" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder={l('Phone')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder={l('Business address')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
                 </div>}
               </div>
               <div className={`rounded-lg border p-2.5 ${productionConfig.maintenanceMode ? 'border-amber-500/30' : darkMode ? 'border-white/10' : 'border-blue-100 bg-white/70'}`}>
-                <label className="flex items-center gap-2 text-[10px] font-semibold text-amber-400"><input type="checkbox" checked={productionConfig.maintenanceMode} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceMode: e.target.checked })); setSaved(false); }} /> Maintenance mode</label>
-                {productionConfig.maintenanceMode && <div className="mt-2 grid gap-2"><input value={productionConfig.maintenanceTitle} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceTitle: e.target.value })); setSaved(false); }} placeholder="Maintenance title" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-amber-200 bg-white'}`} /><textarea rows={2} value={productionConfig.maintenanceText} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceText: e.target.value })); setSaved(false); }} placeholder="Maintenance message" className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-amber-200 bg-white'}`} /></div>}
+                <label className="flex items-center gap-2 text-[10px] font-semibold text-amber-400"><input type="checkbox" checked={productionConfig.maintenanceMode} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceMode: e.target.checked })); setSaved(false); }} />{l('Maintenance mode')}</label>
+                {productionConfig.maintenanceMode && <div className="mt-2 grid gap-2"><input value={productionConfig.maintenanceTitle} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceTitle: e.target.value })); setSaved(false); }} placeholder={l('Maintenance title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-amber-200 bg-white'}`} /><textarea rows={2} value={productionConfig.maintenanceText} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceText: e.target.value })); setSaved(false); }} placeholder={l('Maintenance message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-amber-200 bg-white'}`} /></div>}
               </div>
-              <label className="block text-[10px] text-gray-500">Global custom CSS
-                <textarea rows={5} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} placeholder={billingEntitlements.features.customCss ? '.my-class { ... }' : 'Custom CSS · Pro'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+              <label className="block text-[10px] text-gray-500">{l('Global custom CSS')}<textarea rows={5} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} placeholder={billingEntitlements.features.customCss ? '.my-class { ... }' : 'Custom CSS · Pro'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </label>
-              <label className="block text-[10px] text-gray-500">Extra robots.txt rules
-                <textarea rows={4} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} placeholder={'Disallow: /private\nCrawl-delay: 5'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+              <label className="block text-[10px] text-gray-500">{l('Extra robots.txt rules')}<textarea rows={4} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} placeholder={'Disallow: /private\nCrawl-delay: 5'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </label>
               <p className="text-[9px] leading-4 text-gray-500">Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.</p>
             </div>
@@ -7642,7 +7627,7 @@ if (generated.seo) {
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
             <div className="mb-3 flex items-center gap-2">
               <Palette className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">Global Theme</span>
+              <span className="text-xs font-semibold">{l('Global Theme')}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {([
@@ -7660,25 +7645,21 @@ if (generated.seo) {
                 </label>
               ))}
             </div>
-            <label className="mt-3 block text-[10px] text-gray-500">Font
-              <select value={theme.fontFamily} onChange={(e) => { setTheme((current) => ({ ...current, fontFamily: e.target.value })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-violet-200 bg-white'}`}>
+            <label className="mt-3 block text-[10px] text-gray-500">{l('Font')}<select value={theme.fontFamily} onChange={(e) => { setTheme((current) => ({ ...current, fontFamily: e.target.value })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-violet-200 bg-white'}`}>
                 {FONT_OPTIONS.map((font) => <option key={font} value={font}>{font}</option>)}
               </select>
             </label>
             <div className="mt-2 grid grid-cols-3 gap-2">
-              <label className="text-[9px] text-gray-500">Width
-                <input type="number" min="720" max="1440" step="20" value={theme.contentWidth} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, contentWidth: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
+              <label className="text-[9px] text-gray-500">{l('Width')}<input type="number" min="720" max="1440" step="20" value={theme.contentWidth} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, contentWidth: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
               </label>
-              <label className="text-[9px] text-gray-500">Radius
-                <input type="number" min="0" max="40" value={theme.buttonRadius} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, buttonRadius: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
+              <label className="text-[9px] text-gray-500">{l('Radius')}<input type="number" min="0" max="40" value={theme.buttonRadius} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, buttonRadius: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
               </label>
-              <label className="text-[9px] text-gray-500">Spacing
-                <input type="number" min="40" max="140" value={theme.sectionSpacing} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, sectionSpacing: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
+              <label className="text-[9px] text-gray-500">{l('Spacing')}<input type="number" min="40" max="140" value={theme.sectionSpacing} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, sectionSpacing: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
               </label>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" onClick={applyThemeToCurrentPage} className="rounded-lg bg-violet-600 px-2 py-2 text-[10px] font-semibold text-white hover:bg-violet-500">Apply to page</button>
-              <button type="button" onClick={applyThemeToAllPages} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${darkMode ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10' : 'border-violet-300 text-violet-700 hover:bg-violet-100'}`}>Apply all pages</button>
+              <button type="button" onClick={applyThemeToCurrentPage} className="rounded-lg bg-violet-600 px-2 py-2 text-[10px] font-semibold text-white hover:bg-violet-500">{l('Apply to page')}</button>
+              <button type="button" onClick={applyThemeToAllPages} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${darkMode ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10' : 'border-violet-300 text-violet-700 hover:bg-violet-100'}`}>{l('Apply all pages')}</button>
             </div>
             <p className="mt-2 text-[9px] leading-4 text-gray-500">Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.</p>
           </div>
@@ -7686,13 +7667,13 @@ if (generated.seo) {
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
             <div className="mb-3 flex items-center gap-2">
               <Globe className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-semibold">Site SEO & Branding</span>
+              <span className="text-xs font-semibold">{l('Site SEO & Branding')}</span>
             </div>
             <div className="space-y-2">
-              <input value={seo.title} onChange={(e) => { setSeo({ ...seo, title: e.target.value }); setSaved(false); }} placeholder="Default SEO title" maxLength={70} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              <textarea value={seo.description} onChange={(e) => { setSeo({ ...seo, description: e.target.value }); setSaved(false); }} placeholder="Default meta description" maxLength={180} rows={3} className={`w-full resize-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              <input value={seo.keywords.join(', ')} onChange={(e) => { setSeo({ ...seo, keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20) }); setSaved(false); }} placeholder="Keywords, comma separated" className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              <input value={faviconUrl} onChange={(e) => { setFaviconUrl(e.target.value); setSaved(false); }} placeholder="Favicon image URL" className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+              <input value={seo.title} onChange={(e) => { setSeo({ ...seo, title: e.target.value }); setSaved(false); }} placeholder={l('Default SEO title')} maxLength={70} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+              <textarea value={seo.description} onChange={(e) => { setSeo({ ...seo, description: e.target.value }); setSaved(false); }} placeholder={l('Default meta description')} maxLength={180} rows={3} className={`w-full resize-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+              <input value={seo.keywords.join(', ')} onChange={(e) => { setSeo({ ...seo, keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20) }); setSaved(false); }} placeholder={l('Keywords, comma separated')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+              <input value={faviconUrl} onChange={(e) => { setFaviconUrl(e.target.value); setSaved(false); }} placeholder={l('Favicon image URL')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               <p className="text-[9px] leading-4 text-gray-500">Page SEO overrides these defaults. Production export and Publish also include a no-index 404.html page.</p>
             </div>
           </div>
@@ -7700,7 +7681,7 @@ if (generated.seo) {
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
             <div className="mb-3 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-amber-400" />
-              <span className="text-xs font-semibold">Page Templates</span>
+              <span className="text-xs font-semibold">{l('Page Templates')}</span>
             </div>
             <div className="space-y-2">
               {PAGE_TEMPLATES.map((template) => (
@@ -7710,9 +7691,9 @@ if (generated.seo) {
                   onClick={() => applyPageTemplate(template)}
                   className={`w-full rounded-lg border px-2.5 py-2 text-left transition ${darkMode ? 'border-white/10 hover:border-amber-400/40 hover:bg-amber-400/5' : 'border-gray-200 bg-white hover:border-amber-300 hover:bg-amber-50'}`}
                 >
-                  <span className="block text-xs font-semibold">{template.name}</span>
-                  <span className="mt-0.5 block text-[10px] leading-4 text-gray-500">{template.description}</span>
-                  <span className="mt-1 block text-[9px] font-semibold uppercase tracking-wide text-amber-500">Use template</span>
+                  <span className="block text-xs font-semibold">{l(template.name)}</span>
+                  <span className="mt-0.5 block text-[10px] leading-4 text-gray-500">{l(template.description)}</span>
+                  <span className="mt-1 block text-[9px] font-semibold uppercase tracking-wide text-amber-500">{l('Use template')}</span>
                 </button>
               ))}
             </div>
@@ -7721,7 +7702,7 @@ if (generated.seo) {
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
             <div className="mb-3 flex items-center gap-2">
               <Copy className="h-4 w-4 text-cyan-400" />
-              <span className="text-xs font-semibold">Section Templates</span>
+              <span className="text-xs font-semibold">{l('Section Templates')}</span>
             </div>
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
               {SECTION_TEMPLATES.map((template) => (
@@ -7731,8 +7712,8 @@ if (generated.seo) {
                   onClick={() => addSectionTemplate(template)}
                   className={`rounded-lg border px-2.5 py-2 text-left transition ${darkMode ? 'border-white/10 hover:border-cyan-400/40 hover:bg-cyan-400/5' : 'border-gray-200 bg-white hover:border-cyan-300 hover:bg-cyan-50'}`}
                 >
-                  <span className="block text-xs font-semibold">{template.name}</span>
-                  <span className="mt-0.5 block text-[9px] leading-4 text-gray-500">{template.description}</span>
+                  <span className="block text-xs font-semibold">{l(template.name)}</span>
+                  <span className="mt-0.5 block text-[9px] leading-4 text-gray-500">{l(template.description)}</span>
                 </button>
               ))}
             </div>
@@ -7742,14 +7723,14 @@ if (generated.seo) {
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Copy className="h-4 w-4 text-sky-400" />
-                <span className="text-xs font-semibold">My Sections</span>
+                <span className="text-xs font-semibold">{l('My Sections')}</span>
               </div>
-              <button type="button" onClick={() => void saveSelectedSectionAsReusable()} disabled={!selectedSection || reusableBusy} className="rounded px-2 py-1 text-[9px] font-bold text-sky-400 hover:bg-sky-500/10 disabled:opacity-40">Save selected</button>
+              <button type="button" onClick={() => void saveSelectedSectionAsReusable()} disabled={!selectedSection || reusableBusy} className="rounded px-2 py-1 text-[9px] font-bold text-sky-400 hover:bg-sky-500/10 disabled:opacity-40">{l('Save selected')}</button>
             </div>
             <p className="mb-2 text-[9px] leading-4 text-gray-500">Reusable section templates are saved to your account when signed in, or this browser when signed out.</p>
             {reusableError && <p className="mb-2 text-[10px] text-amber-400">{reusableError}</p>}
             {reusableBusy && !reusableSections.length ? (
-              <p className="text-[10px] text-gray-500">Loading templates…</p>
+              <p className="text-[10px] text-gray-500">{l('Loading templates…')}</p>
             ) : reusableSections.length ? (
               <div className="max-h-44 space-y-1.5 overflow-auto pr-1">
                 {reusableSections.map((template) => (
@@ -7758,14 +7739,14 @@ if (generated.seo) {
                       <span className="block truncate text-[10px] font-semibold">{template.title}</span>
                       <span className="block text-[9px] text-gray-500">{SECTION_LABELS[template.section.type]} · Use template</span>
                     </button>
-                    <button type="button" onClick={() => void deleteReusableSection(template)} className="rounded p-1 text-rose-400 hover:bg-rose-500/10" title="Delete template">
+                    <button type="button" onClick={() => void deleteReusableSection(template)} className="rounded p-1 text-rose-400 hover:bg-rose-500/10" title={l('Delete template')}>
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-[10px] text-gray-500">No saved sections yet.</p>
+              <p className="text-[10px] text-gray-500">{l('No saved sections yet.')}</p>
             )}
           </div>
 
@@ -7797,7 +7778,7 @@ if (generated.seo) {
             <div className={`mt-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
               <div className="mb-3 flex items-center gap-2">
                 <Type className="h-4 w-4 text-violet-400" />
-                <span className="text-xs font-semibold">Add Element</span>
+                <span className="text-xs font-semibold">{l('Add Element')}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {(Object.keys(ELEMENT_LABELS) as WebsiteElementType[]).map((type) => (
@@ -7811,7 +7792,7 @@ if (generated.seo) {
 
           <div className={`mt-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold">Layers</span>
+              <span className="text-xs font-semibold">{l('Layers')}</span>
               <span className="text-[10px] text-gray-500">{sections.length} sections</span>
             </div>
             <div className="max-h-64 space-y-2 overflow-auto pr-1">
@@ -7852,7 +7833,7 @@ if (generated.seo) {
           >
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">AI Website Builder</span>
+              <span className="text-xs font-semibold">{l('AI Website Builder')}</span>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
               Describe the website you want and AI will replace the current canvas with a complete design.
@@ -7893,7 +7874,7 @@ if (generated.seo) {
           >
             <div className="flex items-center gap-2">
               <Copy className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">Export</span>
+              <span className="text-xs font-semibold">{l('Export')}</span>
             </div>
 
             <button
@@ -7998,10 +7979,10 @@ if (generated.seo) {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-bold">{ELEMENT_LABELS[selectedElement.type]}</span>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => moveSelectedElement('up')} title="Move element up" className={`rounded p-1 ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}>
+                  <button type="button" onClick={() => moveSelectedElement('up')} title={l('Move element up')} className={`rounded p-1 ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}>
                     <ChevronUp className="h-3.5 w-3.5" />
                   </button>
-                  <button type="button" onClick={() => moveSelectedElement('down')} title="Move element down" className={`rounded p-1 ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}>
+                  <button type="button" onClick={() => moveSelectedElement('down')} title={l('Move element down')} className={`rounded p-1 ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}>
                     <ChevronDown className="h-3.5 w-3.5" />
                   </button>
                   <span className="ml-1 text-[10px] uppercase text-gray-500">{device}</span>
@@ -8010,66 +7991,63 @@ if (generated.seo) {
               <p className="text-[10px] text-gray-500">Drag this element on the canvas to reorder it.</p>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={duplicateSelectedElement} className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
-                  <Copy className="h-3.5 w-3.5" /> Duplicate
-                </button>
+                  <Copy className="h-3.5 w-3.5" />{l('Duplicate')}</button>
                 <button onClick={resetSelectedElementResponsive} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
                   Reset {device}
                 </button>
               </div>
               <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-200 bg-sky-50/70'}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-sky-400">Container / Group</span>
-                  {!selectedContainer && <button type="button" onClick={createContainerForSelected} className="text-[9px] font-semibold text-sky-400">+ New container</button>}
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-sky-400">{l('Container / Group')}</span>
+                  {!selectedContainer && <button type="button" onClick={createContainerForSelected} className="text-[9px] font-semibold text-sky-400">{l('+ New container')}</button>}
                 </div>
                 <select value={selectedElement.containerId || ''} onChange={(e) => assignSelectedToContainer(e.target.value || undefined)} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}>
-                  <option value="">No container</option>
+                  <option value="">{l('No container')}</option>
                   {(selectedSection?.containers || []).map((container) => <option key={container.id} value={container.id}>{container.name}</option>)}
                 </select>
                 {selectedContainer && (
                   <div className="space-y-2">
                     <input value={selectedContainer.name} onChange={(e) => updateSelectedContainer({ name: e.target.value })} maxLength={80} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} />
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[9px] text-gray-500">Layout
-                        <select value={selectedContainer.layout} onChange={(e) => updateSelectedContainer({ layout: e.target.value as 'stack' | 'row' })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="stack">Stack</option><option value="row">Row</option></select>
+                      <label className="text-[9px] text-gray-500">{l('Layout')}<select value={selectedContainer.layout} onChange={(e) => updateSelectedContainer({ layout: e.target.value as 'stack' | 'row' })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="stack">{l('Stack')}</option><option value="row">{l('Row')}</option></select>
                       </label>
-                      <label className="text-[9px] text-gray-500">Align
-                        <select value={selectedContainer.align} onChange={(e) => updateSelectedContainer({ align: e.target.value as 'start' | 'center' | 'end' | 'stretch' })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="start">Start</option><option value="center">Center</option><option value="end">End</option><option value="stretch">Stretch</option></select>
+                      <label className="text-[9px] text-gray-500">{l('Align')}<select value={selectedContainer.align} onChange={(e) => updateSelectedContainer({ align: e.target.value as 'start' | 'center' | 'end' | 'stretch' })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="start">{l('Start')}</option><option value="center">{l('Center')}</option><option value="end">{l('End')}</option><option value="stretch">{l('Stretch')}</option></select>
                       </label>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
-                      <label className="text-[9px] text-gray-500">Gap<input type="number" min="0" max="80" value={selectedContainer.gap} onChange={(e) => updateSelectedContainer({ gap: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                      <label className="text-[9px] text-gray-500">Padding<input type="number" min="0" max="120" value={selectedContainer.padding} onChange={(e) => updateSelectedContainer({ padding: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                      <label className="text-[9px] text-gray-500">Radius<input type="number" min="0" max="120" value={selectedContainer.borderRadius} onChange={(e) => updateSelectedContainer({ borderRadius: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
+                      <label className="text-[9px] text-gray-500">{l('Gap')}<input type="number" min="0" max="80" value={selectedContainer.gap} onChange={(e) => updateSelectedContainer({ gap: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
+                      <label className="text-[9px] text-gray-500">{l('Padding')}<input type="number" min="0" max="120" value={selectedContainer.padding} onChange={(e) => updateSelectedContainer({ padding: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
+                      <label className="text-[9px] text-gray-500">{l('Radius')}<input type="number" min="0" max="120" value={selectedContainer.borderRadius} onChange={(e) => updateSelectedContainer({ borderRadius: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
-                      <label className="text-[9px] text-gray-500">Background<input type="color" value={/^#[0-9a-f]{6}$/i.test(selectedContainer.backgroundColor) ? selectedContainer.backgroundColor : '#111827'} onChange={(e) => updateSelectedContainer({ backgroundColor: e.target.value })} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" /></label>
-                      <label className="text-[9px] text-gray-500">Border<input type="color" value={/^#[0-9a-f]{6}$/i.test(selectedContainer.borderColor) ? selectedContainer.borderColor : '#374151'} onChange={(e) => updateSelectedContainer({ borderColor: e.target.value })} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" /></label>
-                      <label className="text-[9px] text-gray-500">Width<input type="number" min="0" max="16" value={selectedContainer.borderWidth} onChange={(e) => updateSelectedContainer({ borderWidth: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
+                      <label className="text-[9px] text-gray-500">{l('Background')}<input type="color" value={/^#[0-9a-f]{6}$/i.test(selectedContainer.backgroundColor) ? selectedContainer.backgroundColor : '#111827'} onChange={(e) => updateSelectedContainer({ backgroundColor: e.target.value })} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" /></label>
+                      <label className="text-[9px] text-gray-500">{l('Border')}<input type="color" value={/^#[0-9a-f]{6}$/i.test(selectedContainer.borderColor) ? selectedContainer.borderColor : '#374151'} onChange={(e) => updateSelectedContainer({ borderColor: e.target.value })} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" /></label>
+                      <label className="text-[9px] text-gray-500">{l('Width')}<input type="number" min="0" max="16" value={selectedContainer.borderWidth} onChange={(e) => updateSelectedContainer({ borderWidth: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                     </div>
-                    <select value={selectedContainer.shadow} onChange={(e) => updateSelectedContainer({ shadow: e.target.value as ElementShadow })} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="none">No shadow</option><option value="sm">Small shadow</option><option value="md">Medium shadow</option><option value="lg">Large shadow</option><option value="xl">XL shadow</option></select>
+                    <select value={selectedContainer.shadow} onChange={(e) => updateSelectedContainer({ shadow: e.target.value as ElementShadow })} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="none">{l('No shadow')}</option><option value="sm">{l('Small shadow')}</option><option value="md">{l('Medium shadow')}</option><option value="lg">{l('Large shadow')}</option><option value="xl">{l('XL shadow')}</option></select>
                     {selectedSection && !selectedContainer && sectionColumnCount(selectedSection.layout) > 1 && (
                       <div className="grid grid-cols-2 gap-2">
-                        <label className="text-[9px] text-gray-500">Container column<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.layoutColumn || 1} onChange={(e) => updateSelectedContainer({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                        <label className="text-[9px] text-gray-500">Span<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.columnSpan || 1} onChange={(e) => updateSelectedContainer({ columnSpan: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
+                        <label className="text-[9px] text-gray-500">{l('Container column')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.layoutColumn || 1} onChange={(e) => updateSelectedContainer({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
+                        <label className="text-[9px] text-gray-500">{l('Span')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.columnSpan || 1} onChange={(e) => updateSelectedContainer({ columnSpan: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                       </div>
                     )}
-                    <button type="button" onClick={deleteSelectedContainer} className="w-full rounded border border-red-500/20 px-2 py-1.5 text-[10px] font-semibold text-red-400">Delete container & ungroup</button>
+                    <button type="button" onClick={deleteSelectedContainer} className="w-full rounded border border-red-500/20 px-2 py-1.5 text-[10px] font-semibold text-red-400">{l('Delete container & ungroup')}</button>
                   </div>
                 )}
               </div>
 
               <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/70'}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-amber-400">Reusable Symbols</span>
-                  {selectedElement.symbolId ? <button type="button" onClick={detachSelectedSymbol} className="text-[9px] font-semibold text-amber-400">Detach</button> : <button type="button" onClick={createSymbolFromSelected} className="text-[9px] font-semibold text-amber-400">Create symbol</button>}
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-amber-400">{l('Reusable Symbols')}</span>
+                  {selectedElement.symbolId ? <button type="button" onClick={detachSelectedSymbol} className="text-[9px] font-semibold text-amber-400">{l('Detach')}</button> : <button type="button" onClick={createSymbolFromSelected} className="text-[9px] font-semibold text-amber-400">{l('Create symbol')}</button>}
                 </div>
                 {selectedElement.symbolId && <p className="text-[9px] text-amber-300">Linked symbol — edits sync across all pages automatically.</p>}
-                {!symbols.length ? <p className="text-[9px] text-gray-500">No symbols yet. Create one from this element.</p> : (
+                {!symbols.length ? <p className="text-[9px] text-gray-500">{l('No symbols yet. Create one from this element.')}</p> : (
                   <div className="max-h-40 space-y-1.5 overflow-auto">
                     {symbols.map((symbol) => (
                       <div key={symbol.id} className={`flex items-center gap-1.5 rounded border p-1.5 ${darkMode ? 'border-white/10' : 'border-amber-200 bg-white'}`}>
                         <button type="button" onClick={() => insertSymbol(symbol)} className="min-w-0 flex-1 truncate text-left text-[10px] font-semibold">+ {symbol.name}</button>
-                        <button type="button" onClick={() => deleteSymbol(symbol.id)} title="Delete symbol" className="text-[10px] text-red-400">×</button>
+                        <button type="button" onClick={() => deleteSymbol(symbol.id)} title={l('Delete symbol')} className="text-[10px] text-red-400">×</button>
                       </div>
                     ))}
                   </div>
@@ -8084,8 +8062,8 @@ if (generated.seo) {
                     className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                   />
                   <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setMediaOpen(true)} disabled={!user} className={`flex items-center justify-center gap-2 rounded-lg border px-2 py-2 text-[11px] disabled:opacity-50 ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}><Images className="h-3.5 w-3.5" /> Library</button>
-                    <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 py-2 text-[11px] ${!user || mediaUploading ? 'pointer-events-none opacity-50' : ''} ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}><Upload className="h-3.5 w-3.5" /> Upload<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" disabled={!user || mediaUploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMediaFile(file); event.currentTarget.value = ''; }} /></label>
+                    <button type="button" onClick={() => setMediaOpen(true)} disabled={!user} className={`flex items-center justify-center gap-2 rounded-lg border px-2 py-2 text-[11px] disabled:opacity-50 ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}><Images className="h-3.5 w-3.5" />{l('Library')}</button>
+                    <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 py-2 text-[11px] ${!user || mediaUploading ? 'pointer-events-none opacity-50' : ''} ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}><Upload className="h-3.5 w-3.5" />{l('Upload')}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" disabled={!user || mediaUploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMediaFile(file); event.currentTarget.value = ''; }} /></label>
                   </div>
                 </div>
               ) : selectedElement.type === 'video' ? (
@@ -8143,7 +8121,7 @@ if (generated.seo) {
 
               <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-400">Responsive layout</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-400">{l('Responsive layout')}</span>
                   <span className="text-[9px] uppercase text-gray-500">{device}</span>
                 </div>
                 <label className="flex items-center justify-between gap-3 text-[10px] text-gray-500">
@@ -8155,19 +8133,17 @@ if (generated.seo) {
                   />
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">Max width px
-                    <input
+                  <label className="text-[10px] text-gray-500">{l('Max width px')}<input
                       type="number"
                       min="0"
                       max="2000"
-                      placeholder="Auto"
+                      placeholder={l('Auto')}
                       value={effectiveStyle(selectedElement, device).maxWidth ?? ''}
                       onChange={(e) => updateSelectedElement({ style: { maxWidth: e.target.value ? Number(e.target.value) : undefined } }, true)}
                       className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`}
                     />
                   </label>
-                  <label className="text-[10px] text-gray-500">Order
-                    <input
+                  <label className="text-[10px] text-gray-500">{l('Order')}<input
                       type="number"
                       min="-50"
                       max="50"
@@ -8177,17 +8153,16 @@ if (generated.seo) {
                     />
                   </label>
                 </div>
-                <label className="block text-[10px] text-gray-500">Element position
-                  <select
+                <label className="block text-[10px] text-gray-500">{l('Element position')}<select
                     value={effectiveStyle(selectedElement, device).alignSelf || 'auto'}
                     onChange={(e) => updateSelectedElement({ style: { alignSelf: e.target.value as 'auto' | 'start' | 'center' | 'end' | 'stretch' } }, true)}
                     className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-cyan-200 bg-white'}`}
                   >
-                    <option value="auto">Auto</option>
-                    <option value="start">Start</option>
-                    <option value="center">Center</option>
-                    <option value="end">End</option>
-                    <option value="stretch">Stretch</option>
+                    <option value="auto">{l('Auto')}</option>
+                    <option value="start">{l('Start')}</option>
+                    <option value="center">{l('Center')}</option>
+                    <option value="end">{l('End')}</option>
+                    <option value="stretch">{l('Stretch')}</option>
                   </select>
                 </label>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -8205,8 +8180,7 @@ if (generated.seo) {
                   ))}
                 </div>
                 {device === 'desktop' && selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
-                  <label className="block text-[10px] text-gray-500">Column span
-                    <select
+                  <label className="block text-[10px] text-gray-500">{l('Column span')}<select
                       value={Math.min(sectionColumnCount(selectedSection.layout), Math.max(1, Number(effectiveStyle(selectedElement, device).columnSpan) || 1))}
                       onChange={(e) => updateSelectedElement({ style: { columnSpan: Number(e.target.value) } }, true)}
                       className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-cyan-200 bg-white'}`}
@@ -8220,100 +8194,83 @@ if (generated.seo) {
               {(selectedElement.type === 'heading' || selectedElement.type === 'text' || selectedElement.type === 'button' || selectedElement.type === 'list' || selectedElement.type === 'accordion' || selectedElement.type === 'tabs' || selectedElement.type === 'code' || selectedElement.type === 'countdown' || selectedElement.type === 'stats' || selectedElement.type === 'testimonials-slider') && (
                 <>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-gray-500">Size
-                      <input type="number" min="10" max="120" value={effectiveStyle(selectedElement, device).fontSize || 16} onChange={(e) => updateSelectedElement({ style: { fontSize: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+                    <label className="text-[10px] text-gray-500">{l('Size')}<input type="number" min="10" max="120" value={effectiveStyle(selectedElement, device).fontSize || 16} onChange={(e) => updateSelectedElement({ style: { fontSize: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
                     </label>
-                    <label className="text-[10px] text-gray-500">Weight
-                      <select value={effectiveStyle(selectedElement, device).fontWeight || 400} onChange={(e) => updateSelectedElement({ style: { fontWeight: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
+                    <label className="text-[10px] text-gray-500">{l('Weight')}<select value={effectiveStyle(selectedElement, device).fontWeight || 400} onChange={(e) => updateSelectedElement({ style: { fontWeight: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
                         <option value="400">400</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="800">800</option>
                       </select>
                     </label>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-gray-500">Text color
-                      <input type="color" value={effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { color: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
+                    <label className="text-[10px] text-gray-500">{l('Text color')}<input type="color" value={effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { color: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
                     </label>
-                    <label className="text-[10px] text-gray-500">Background
-                      <input type="color" value={effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { backgroundColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
+                    <label className="text-[10px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { backgroundColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
                     </label>
                   </div>
-                  <label className="text-[10px] text-gray-500">Alignment
-                    <select value={effectiveStyle(selectedElement, device).textAlign || 'center'} onChange={(e) => updateSelectedElement({ style: { textAlign: e.target.value as 'left' | 'center' | 'right' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                      <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+                  <label className="text-[10px] text-gray-500">{l('Alignment')}<select value={effectiveStyle(selectedElement, device).textAlign || 'center'} onChange={(e) => updateSelectedElement({ style: { textAlign: e.target.value as 'left' | 'center' | 'right' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
+                      <option value="left">{l('Left')}</option><option value="center">{l('Center')}</option><option value="right">{l('Right')}</option>
                     </select>
                   </label>
                 </>
               )}
               {(selectedElement.type === 'heading' || selectedElement.type === 'text' || selectedElement.type === 'button' || selectedElement.type === 'list' || selectedElement.type === 'accordion' || selectedElement.type === 'tabs' || selectedElement.type === 'code' || selectedElement.type === 'countdown' || selectedElement.type === 'stats' || selectedElement.type === 'testimonials-slider') && (
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">Line height
-                    <input type="number" min="0.7" max="4" step="0.05" value={effectiveStyle(selectedElement, device).lineHeight ?? 1.4} onChange={(e) => updateSelectedElement({ style: { lineHeight: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Line height')}<input type="number" min="0.7" max="4" step="0.05" value={effectiveStyle(selectedElement, device).lineHeight ?? 1.4} onChange={(e) => updateSelectedElement({ style: { lineHeight: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
                   </label>
-                  <label className="text-[10px] text-gray-500">Letter spacing
-                    <input type="number" min="-10" max="30" step="0.25" value={effectiveStyle(selectedElement, device).letterSpacing ?? 0} onChange={(e) => updateSelectedElement({ style: { letterSpacing: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Letter spacing')}<input type="number" min="-10" max="30" step="0.25" value={effectiveStyle(selectedElement, device).letterSpacing ?? 0} onChange={(e) => updateSelectedElement({ style: { letterSpacing: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
                   </label>
                 </div>
               )}
 
               <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-fuchsia-500/20 bg-fuchsia-500/5' : 'border-fuchsia-200 bg-fuchsia-50/60'}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-400">Effects</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-400">{l('Effects')}</span>
                   <span className="text-[9px] uppercase text-gray-500">{device}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">Opacity %
-                    <input type="number" min="0" max="100" value={Math.round((effectiveStyle(selectedElement, device).opacity ?? 1) * 100)} onChange={(e) => updateSelectedElement({ style: { opacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Opacity %')}<input type="number" min="0" max="100" value={Math.round((effectiveStyle(selectedElement, device).opacity ?? 1) * 100)} onChange={(e) => updateSelectedElement({ style: { opacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
-                  <label className="text-[10px] text-gray-500">Rotate °
-                    <input type="number" min="-180" max="180" value={effectiveStyle(selectedElement, device).rotate ?? 0} onChange={(e) => updateSelectedElement({ style: { rotate: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Rotate °')}<input type="number" min="-180" max="180" value={effectiveStyle(selectedElement, device).rotate ?? 0} onChange={(e) => updateSelectedElement({ style: { rotate: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">Border width
-                    <input type="number" min="0" max="24" value={effectiveStyle(selectedElement, device).borderWidth ?? 0} onChange={(e) => updateSelectedElement({ style: { borderWidth: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Border width')}<input type="number" min="0" max="24" value={effectiveStyle(selectedElement, device).borderWidth ?? 0} onChange={(e) => updateSelectedElement({ style: { borderWidth: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
-                  <label className="text-[10px] text-gray-500">Border style
-                    <select value={effectiveStyle(selectedElement, device).borderStyle || 'solid'} onChange={(e) => updateSelectedElement({ style: { borderStyle: e.target.value as 'solid' | 'dashed' | 'dotted' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                      <option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option>
+                  <label className="text-[10px] text-gray-500">{l('Border style')}<select value={effectiveStyle(selectedElement, device).borderStyle || 'solid'} onChange={(e) => updateSelectedElement({ style: { borderStyle: e.target.value as 'solid' | 'dashed' | 'dotted' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
+                      <option value="solid">{l('Solid')}</option><option value="dashed">{l('Dashed')}</option><option value="dotted">{l('Dotted')}</option>
                     </select>
                   </label>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">Border color
-                    <input type="color" value={effectiveStyle(selectedElement, device).borderColor || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { borderColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
+                  <label className="text-[10px] text-gray-500">{l('Border color')}<input type="color" value={effectiveStyle(selectedElement, device).borderColor || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { borderColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
                   </label>
-                  <label className="text-[10px] text-gray-500">Shadow
-                    <select value={effectiveStyle(selectedElement, device).shadow || 'none'} onChange={(e) => updateSelectedElement({ style: { shadow: e.target.value as ElementShadow } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                      <option value="none">None</option><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option><option value="xl">XL</option>
+                  <label className="text-[10px] text-gray-500">{l('Shadow')}<select value={effectiveStyle(selectedElement, device).shadow || 'none'} onChange={(e) => updateSelectedElement({ style: { shadow: e.target.value as ElementShadow } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
+                      <option value="none">{l('None')}</option><option value="sm">{l('Small')}</option><option value="md">{l('Medium')}</option><option value="lg">{l('Large')}</option><option value="xl">{l('XL')}</option>
                     </select>
                   </label>
                 </div>
                 <div className="border-t border-fuchsia-500/15 pt-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[9px] font-semibold uppercase tracking-wide text-fuchsia-400">Entrance Animation</span>
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-fuchsia-400">{l('Entrance Animation')}</span>
                     <span className="text-[9px] text-gray-500">{device}</span>
                   </div>
-                  <label className="mt-2 block text-[10px] text-gray-500">Animation
-                    <select value={normalizeElementAnimation(effectiveStyle(selectedElement, device).animation)} onChange={(e) => updateSelectedElement({ style: { animation: e.target.value as ElementAnimation } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                      <option value="none">None</option>
-                      <option value="fade">Fade</option>
-                      <option value="fade-up">Fade Up</option>
-                      <option value="fade-down">Fade Down</option>
-                      <option value="fade-left">Fade Left</option>
-                      <option value="fade-right">Fade Right</option>
-                      <option value="zoom-in">Zoom In</option>
-                      <option value="zoom-out">Zoom Out</option>
+                  <label className="mt-2 block text-[10px] text-gray-500">{l('Animation')}<select value={normalizeElementAnimation(effectiveStyle(selectedElement, device).animation)} onChange={(e) => updateSelectedElement({ style: { animation: e.target.value as ElementAnimation } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
+                      <option value="none">{l('None')}</option>
+                      <option value="fade">{l('Fade')}</option>
+                      <option value="fade-up">{l('Fade Up')}</option>
+                      <option value="fade-down">{l('Fade Down')}</option>
+                      <option value="fade-left">{l('Fade Left')}</option>
+                      <option value="fade-right">{l('Fade Right')}</option>
+                      <option value="zoom-in">{l('Zoom In')}</option>
+                      <option value="zoom-out">{l('Zoom Out')}</option>
                     </select>
                   </label>
                   <div className="mt-2 grid grid-cols-3 gap-2">
-                    <label className="text-[9px] text-gray-500">Duration ms
-                      <input type="number" min="100" max="4000" step="50" value={effectiveStyle(selectedElement, device).animationDuration ?? 650} onChange={(e) => updateSelectedElement({ style: { animationDuration: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                    <label className="text-[9px] text-gray-500">{l('Duration ms')}<input type="number" min="100" max="4000" step="50" value={effectiveStyle(selectedElement, device).animationDuration ?? 650} onChange={(e) => updateSelectedElement({ style: { animationDuration: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                     </label>
-                    <label className="text-[9px] text-gray-500">Delay ms
-                      <input type="number" min="0" max="5000" step="50" value={effectiveStyle(selectedElement, device).animationDelay ?? 0} onChange={(e) => updateSelectedElement({ style: { animationDelay: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                    <label className="text-[9px] text-gray-500">{l('Delay ms')}<input type="number" min="0" max="5000" step="50" value={effectiveStyle(selectedElement, device).animationDelay ?? 0} onChange={(e) => updateSelectedElement({ style: { animationDelay: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                     </label>
-                    <label className="text-[9px] text-gray-500">Distance px
-                      <input type="number" min="0" max="300" step="2" value={effectiveStyle(selectedElement, device).animationDistance ?? 36} onChange={(e) => updateSelectedElement({ style: { animationDistance: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                    <label className="text-[9px] text-gray-500">{l('Distance px')}<input type="number" min="0" max="300" step="2" value={effectiveStyle(selectedElement, device).animationDistance ?? 36} onChange={(e) => updateSelectedElement({ style: { animationDistance: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                     </label>
                   </div>
                   <label className="mt-2 flex items-center gap-2 text-[10px] text-gray-500">
@@ -8324,25 +8281,20 @@ if (generated.seo) {
                 </div>
 
                 <div className="border-t border-fuchsia-500/15 pt-3">
-                  <span className="text-[9px] font-semibold uppercase tracking-wide text-fuchsia-400">Hover</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wide text-fuchsia-400">{l('Hover')}</span>
                   <div className="mt-2 grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-gray-500">Scale
-                      <input type="number" min="0.5" max="1.6" step="0.01" value={effectiveStyle(selectedElement, device).hoverScale ?? 1} onChange={(e) => updateSelectedElement({ style: { hoverScale: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                    <label className="text-[10px] text-gray-500">{l('Scale')}<input type="number" min="0.5" max="1.6" step="0.01" value={effectiveStyle(selectedElement, device).hoverScale ?? 1} onChange={(e) => updateSelectedElement({ style: { hoverScale: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                     </label>
-                    <label className="text-[10px] text-gray-500">Opacity %
-                      <input type="number" min="0" max="100" value={Math.round((effectiveStyle(selectedElement, device).hoverOpacity ?? effectiveStyle(selectedElement, device).opacity ?? 1) * 100)} onChange={(e) => updateSelectedElement({ style: { hoverOpacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                    <label className="text-[10px] text-gray-500">{l('Opacity %')}<input type="number" min="0" max="100" value={Math.round((effectiveStyle(selectedElement, device).hoverOpacity ?? effectiveStyle(selectedElement, device).opacity ?? 1) * 100)} onChange={(e) => updateSelectedElement({ style: { hoverOpacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                     </label>
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2">
-                    <label className="text-[9px] text-gray-500">Text
-                      <input type="color" value={effectiveStyle(selectedElement, device).hoverColor || effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { hoverColor: e.target.value } }, true)} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" />
+                    <label className="text-[9px] text-gray-500">{l('Text')}<input type="color" value={effectiveStyle(selectedElement, device).hoverColor || effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { hoverColor: e.target.value } }, true)} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" />
                     </label>
-                    <label className="text-[9px] text-gray-500">Background
-                      <input type="color" value={effectiveStyle(selectedElement, device).hoverBackgroundColor || effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { hoverBackgroundColor: e.target.value } }, true)} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" />
+                    <label className="text-[9px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).hoverBackgroundColor || effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { hoverBackgroundColor: e.target.value } }, true)} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" />
                     </label>
-                    <label className="text-[9px] text-gray-500">Shadow
-                      <select value={effectiveStyle(selectedElement, device).hoverShadow || 'none'} onChange={(e) => updateSelectedElement({ style: { hoverShadow: e.target.value as ElementShadow } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                        <option value="none">None</option><option value="sm">S</option><option value="md">M</option><option value="lg">L</option><option value="xl">XL</option>
+                    <label className="text-[9px] text-gray-500">{l('Shadow')}<select value={effectiveStyle(selectedElement, device).hoverShadow || 'none'} onChange={(e) => updateSelectedElement({ style: { hoverShadow: e.target.value as ElementShadow } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
+                        <option value="none">{l('None')}</option><option value="sm">S</option><option value="md">M</option><option value="lg">L</option><option value="xl">{l('XL')}</option>
                       </select>
                     </label>
                   </div>
@@ -8350,19 +8302,15 @@ if (generated.seo) {
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <label className="text-[10px] text-gray-500">Width %
-                  <input type="number" min="10" max="100" value={effectiveStyle(selectedElement, device).width || 100} onChange={(e) => updateSelectedElement({ style: { width: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+                <label className="text-[10px] text-gray-500">{l('Width %')}<input type="number" min="10" max="100" value={effectiveStyle(selectedElement, device).width || 100} onChange={(e) => updateSelectedElement({ style: { width: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
                 </label>
-                <label className="text-[10px] text-gray-500">Padding
-                  <input type="number" min="0" max="80" value={effectiveStyle(selectedElement, device).padding || 0} onChange={(e) => updateSelectedElement({ style: { padding: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+                <label className="text-[10px] text-gray-500">{l('Padding')}<input type="number" min="0" max="80" value={effectiveStyle(selectedElement, device).padding || 0} onChange={(e) => updateSelectedElement({ style: { padding: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
                 </label>
-                <label className="text-[10px] text-gray-500">Radius
-                  <input type="number" min="0" max="80" value={effectiveStyle(selectedElement, device).borderRadius || 0} onChange={(e) => updateSelectedElement({ style: { borderRadius: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+                <label className="text-[10px] text-gray-500">{l('Radius')}<input type="number" min="0" max="80" value={effectiveStyle(selectedElement, device).borderRadius || 0} onChange={(e) => updateSelectedElement({ style: { borderRadius: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
                 </label>
               </div>
               <button onClick={deleteSelectedElement} className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">
-                <Trash2 className="h-3.5 w-3.5" /> Delete Element
-              </button>
+                <Trash2 className="h-3.5 w-3.5" />{l('Delete Element')}</button>
             </div>
           )}
 
@@ -8422,15 +8370,14 @@ if (generated.seo) {
               </div>
 
               <div className={`rounded-xl border p-3 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
-                <label className="block text-[10px] font-semibold text-cyan-400">Section Anchor / ID
-                  <input value={selectedSection.anchorId || ''} onChange={(e) => updateSelected({ anchorId: normalizeAnchorId(e.target.value, selectedSection.type) })} placeholder={selectedSection.type} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-cyan-200 bg-white text-gray-900'}`} />
+                <label className="block text-[10px] font-semibold text-cyan-400">{l('Section Anchor / ID')}<input value={selectedSection.anchorId || ''} onChange={(e) => updateSelected({ anchorId: normalizeAnchorId(e.target.value, selectedSection.type) })} placeholder={selectedSection.type} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-cyan-200 bg-white text-gray-900'}`} />
                 </label>
                 <p className="mt-1 text-[9px] text-gray-500">Link to this section with #{sectionDomId(selectedSection)}.</p>
               </div>
 
               <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50/60'}`}>
                 <div>
-                  <p className="text-xs font-bold text-indigo-400">Section Layout</p>
+                  <p className="text-xs font-bold text-indigo-400">{l('Section Layout')}</p>
                   <p className="mt-0.5 text-[10px] text-gray-500">Choose columns for this section. Mobile automatically collapses to one column.</p>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -8439,12 +8386,10 @@ if (generated.seo) {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">Gap
-                    <input type="number" min="0" max="80" value={sectionLayoutGap(selectedSection)} onChange={(e) => updateSelected({ layoutGap: Math.min(80, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-indigo-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Gap')}<input type="number" min="0" max="80" value={sectionLayoutGap(selectedSection)} onChange={(e) => updateSelected({ layoutGap: Math.min(80, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-indigo-200 bg-white'}`} />
                   </label>
-                  <label className="text-[10px] text-gray-500">Alignment
-                    <select value={sectionLayoutAlign(selectedSection)} onChange={(e) => updateSelected({ layoutAlign: e.target.value as SectionLayoutAlign })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-indigo-200 bg-white'}`}>
-                      <option value="start">Start</option><option value="center">Center</option><option value="end">End</option><option value="stretch">Stretch</option>
+                  <label className="text-[10px] text-gray-500">{l('Alignment')}<select value={sectionLayoutAlign(selectedSection)} onChange={(e) => updateSelected({ layoutAlign: e.target.value as SectionLayoutAlign })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-indigo-200 bg-white'}`}>
+                      <option value="start">{l('Start')}</option><option value="center">{l('Center')}</option><option value="end">{l('End')}</option><option value="stretch">{l('Stretch')}</option>
                     </select>
                   </label>
                 </div>
@@ -8452,7 +8397,7 @@ if (generated.seo) {
 
               <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-fuchsia-500/20 bg-fuchsia-500/5' : 'border-fuchsia-200 bg-fuchsia-50/60'}`}>
                 <div>
-                  <p className="text-xs font-bold text-fuchsia-400">Section Visuals</p>
+                  <p className="text-xs font-bold text-fuchsia-400">{l('Section Visuals')}</p>
                   <p className="mt-0.5 text-[10px] text-gray-500">Control background, spacing, height and content width for this section.</p>
                 </div>
 
@@ -8472,21 +8417,18 @@ if (generated.seo) {
                 {sectionBackgroundMode(selectedSection) === 'gradient' && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[10px] text-gray-500">From
-                        <div className="mt-1 flex gap-1.5">
+                      <label className="text-[10px] text-gray-500">{l('From')}<div className="mt-1 flex gap-1.5">
                           <input type="color" value={safeSectionColor(selectedSection.gradientFrom, selectedSection.background || '#111827')} onChange={(e) => updateSelected({ gradientFrom: e.target.value })} className="h-8 w-10 rounded border-0 bg-transparent" />
                           <input value={safeSectionColor(selectedSection.gradientFrom, selectedSection.background || '#111827')} onChange={(e) => updateSelected({ gradientFrom: e.target.value })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                         </div>
                       </label>
-                      <label className="text-[10px] text-gray-500">To
-                        <div className="mt-1 flex gap-1.5">
+                      <label className="text-[10px] text-gray-500">{l('To')}<div className="mt-1 flex gap-1.5">
                           <input type="color" value={safeSectionColor(selectedSection.gradientTo, selectedSection.accent || '#7c3aed')} onChange={(e) => updateSelected({ gradientTo: e.target.value })} className="h-8 w-10 rounded border-0 bg-transparent" />
                           <input value={safeSectionColor(selectedSection.gradientTo, selectedSection.accent || '#7c3aed')} onChange={(e) => updateSelected({ gradientTo: e.target.value })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                         </div>
                       </label>
                     </div>
-                    <label className="block text-[10px] text-gray-500">Gradient angle
-                      <input type="range" min="0" max="360" value={sectionVisualNumber(selectedSection.gradientAngle, 135, 0, 360)} onChange={(e) => updateSelected({ gradientAngle: Number(e.target.value) })} className="mt-1 w-full" />
+                    <label className="block text-[10px] text-gray-500">{l('Gradient angle')}<input type="range" min="0" max="360" value={sectionVisualNumber(selectedSection.gradientAngle, 135, 0, 360)} onChange={(e) => updateSelected({ gradientAngle: Number(e.target.value) })} className="mt-1 w-full" />
                       <span className="text-[9px] text-gray-500">{sectionVisualNumber(selectedSection.gradientAngle, 135, 0, 360)}°</span>
                     </label>
                   </div>
@@ -8494,8 +8436,7 @@ if (generated.seo) {
 
                 {sectionBackgroundMode(selectedSection) === 'image' && (
                   <div className="space-y-2">
-                    <label className="block text-[10px] text-gray-500">Background image URL
-                      <input
+                    <label className="block text-[10px] text-gray-500">{l('Background image URL')}<input
                         value={selectedSection.backgroundImage || ''}
                         onChange={(e) => updateSelected({ backgroundImage: e.target.value })}
                         placeholder="https://..."
@@ -8508,23 +8449,19 @@ if (generated.seo) {
                       </button>
                     )}
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[10px] text-gray-500">Position
-                        <select value={sectionBackgroundPosition(selectedSection)} onChange={(e) => updateSelected({ backgroundPosition: e.target.value as SectionBackgroundPosition })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                          <option value="center">Center</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="left">Left</option><option value="right">Right</option>
+                      <label className="text-[10px] text-gray-500">{l('Position')}<select value={sectionBackgroundPosition(selectedSection)} onChange={(e) => updateSelected({ backgroundPosition: e.target.value as SectionBackgroundPosition })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
+                          <option value="center">{l('Center')}</option><option value="top">{l('Top')}</option><option value="bottom">{l('Bottom')}</option><option value="left">{l('Left')}</option><option value="right">{l('Right')}</option>
                         </select>
                       </label>
-                      <label className="text-[10px] text-gray-500">Size
-                        <select value={sectionBackgroundSize(selectedSection)} onChange={(e) => updateSelected({ backgroundSize: e.target.value as SectionBackgroundSize })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                          <option value="cover">Cover</option><option value="contain">Contain</option><option value="auto">Auto</option>
+                      <label className="text-[10px] text-gray-500">{l('Size')}<select value={sectionBackgroundSize(selectedSection)} onChange={(e) => updateSelected({ backgroundSize: e.target.value as SectionBackgroundSize })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
+                          <option value="cover">{l('Cover')}</option><option value="contain">{l('Contain')}</option><option value="auto">{l('Auto')}</option>
                         </select>
                       </label>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[10px] text-gray-500">Overlay
-                        <input type="color" value={safeSectionColor(selectedSection.overlayColor, '#000000')} onChange={(e) => updateSelected({ overlayColor: e.target.value })} className="mt-1 h-8 w-full rounded border-0 bg-transparent" />
+                      <label className="text-[10px] text-gray-500">{l('Overlay')}<input type="color" value={safeSectionColor(selectedSection.overlayColor, '#000000')} onChange={(e) => updateSelected({ overlayColor: e.target.value })} className="mt-1 h-8 w-full rounded border-0 bg-transparent" />
                       </label>
-                      <label className="text-[10px] text-gray-500">Opacity
-                        <input type="range" min="0" max="1" step="0.05" value={sectionVisualNumber(selectedSection.overlayOpacity, 0.35, 0, 1)} onChange={(e) => updateSelected({ overlayOpacity: Number(e.target.value) })} className="mt-2 w-full" />
+                      <label className="text-[10px] text-gray-500">{l('Opacity')}<input type="range" min="0" max="1" step="0.05" value={sectionVisualNumber(selectedSection.overlayOpacity, 0.35, 0, 1)} onChange={(e) => updateSelected({ overlayOpacity: Number(e.target.value) })} className="mt-2 w-full" />
                         <span className="text-[9px] text-gray-500">{Math.round(sectionVisualNumber(selectedSection.overlayOpacity, 0.35, 0, 1) * 100)}%</span>
                       </label>
                     </div>
@@ -8532,17 +8469,13 @@ if (generated.seo) {
                 )}
 
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">Min height
-                    <input type="number" min="0" max="1200" value={sectionVisualNumber(selectedSection.minHeight, 0, 0, 1200)} onChange={(e) => updateSelected({ minHeight: Math.min(1200, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Min height')}<input type="number" min="0" max="1200" value={sectionVisualNumber(selectedSection.minHeight, 0, 0, 1200)} onChange={(e) => updateSelected({ minHeight: Math.min(1200, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
-                  <label className="text-[10px] text-gray-500">Corner radius
-                    <input type="number" min="0" max="80" value={sectionVisualNumber(selectedSection.sectionRadius, 0, 0, 80)} onChange={(e) => updateSelected({ sectionRadius: Math.min(80, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Corner radius')}<input type="number" min="0" max="80" value={sectionVisualNumber(selectedSection.sectionRadius, 0, 0, 80)} onChange={(e) => updateSelected({ sectionRadius: Math.min(80, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
-                  <label className="text-[10px] text-gray-500">Vertical padding
-                    <input type="number" min="0" max="240" value={sectionVisualNumber(selectedSection.sectionPaddingY, theme.sectionSpacing, 0, 240)} onChange={(e) => updateSelected({ sectionPaddingY: Math.min(240, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Vertical padding')}<input type="number" min="0" max="240" value={sectionVisualNumber(selectedSection.sectionPaddingY, theme.sectionSpacing, 0, 240)} onChange={(e) => updateSelected({ sectionPaddingY: Math.min(240, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
-                  <label className="text-[10px] text-gray-500">Horizontal padding
-                    <input type="number" min="0" max="160" value={sectionVisualNumber(selectedSection.sectionPaddingX, 24, 0, 160)} onChange={(e) => updateSelected({ sectionPaddingX: Math.min(160, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Horizontal padding')}<input type="number" min="0" max="160" value={sectionVisualNumber(selectedSection.sectionPaddingX, 24, 0, 160)} onChange={(e) => updateSelected({ sectionPaddingX: Math.min(160, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
                 </div>
 
@@ -8557,10 +8490,10 @@ if (generated.seo) {
                 <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <p className="text-xs font-bold text-cyan-400">Form Builder</p>
+                      <p className="text-xs font-bold text-cyan-400">{l('Form Builder')}</p>
                       <p className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>Add, edit and reorder the fields visitors must fill in.</p>
                     </div>
-                    <button type="button" onClick={resetContactForm} className="text-[10px] font-semibold text-cyan-400">Reset</button>
+                    <button type="button" onClick={resetContactForm} className="text-[10px] font-semibold text-cyan-400">{l('Reset')}</button>
                   </div>
 
                   <div className="space-y-2">
@@ -8575,22 +8508,22 @@ if (generated.seo) {
                             })}
                             className={`min-w-0 flex-1 rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}
                           >
-                            <option value="text">Text</option>
-                            <option value="email">Email</option>
-                            <option value="tel">Phone</option>
-                            <option value="textarea">Textarea</option>
-                            <option value="select">Select</option>
-                            <option value="checkbox">Checkbox</option>
+                            <option value="text">{l('Text')}</option>
+                            <option value="email">{l('Email')}</option>
+                            <option value="tel">{l('Phone')}</option>
+                            <option value="textarea">{l('Textarea')}</option>
+                            <option value="select">{l('Select')}</option>
+                            <option value="checkbox">{l('Checkbox')}</option>
                           </select>
-                          <button type="button" onClick={() => moveFormField(field.id, 'up')} disabled={fieldIndex === 0} className="rounded p-1 text-gray-400 disabled:opacity-25" title="Move up"><ChevronUp className="h-3 w-3" /></button>
-                          <button type="button" onClick={() => moveFormField(field.id, 'down')} disabled={fieldIndex === fieldList.length - 1} className="rounded p-1 text-gray-400 disabled:opacity-25" title="Move down"><ChevronDown className="h-3 w-3" /></button>
-                          <button type="button" onClick={() => deleteFormField(field.id)} className="rounded p-1 text-rose-400" title="Delete field"><Trash2 className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => moveFormField(field.id, 'up')} disabled={fieldIndex === 0} className="rounded p-1 text-gray-400 disabled:opacity-25" title={l('Move up')}><ChevronUp className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => moveFormField(field.id, 'down')} disabled={fieldIndex === fieldList.length - 1} className="rounded p-1 text-gray-400 disabled:opacity-25" title={l('Move down')}><ChevronDown className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => deleteFormField(field.id)} className="rounded p-1 text-rose-400" title={l('Delete field')}><Trash2 className="h-3 w-3" /></button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <input
                             value={field.label}
                             onChange={(e) => updateFormField(field.id, { label: e.target.value })}
-                            placeholder="Label"
+                            placeholder={l('Label')}
                             className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
                           />
                           <input
@@ -8604,7 +8537,7 @@ if (generated.seo) {
                           <input
                             value={field.placeholder || ''}
                             onChange={(e) => updateFormField(field.id, { placeholder: e.target.value })}
-                            placeholder="Placeholder"
+                            placeholder={l('Placeholder')}
                             className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
                           />
                         )}
@@ -8633,21 +8566,19 @@ if (generated.seo) {
                     ))}
                   </div>
 
-                  <label className="block text-[10px] text-gray-500">After submit
-                    <select
+                  <label className="block text-[10px] text-gray-500">{l('After submit')}<select
                       value={selectedSection.formSuccessAction === 'redirect' ? 'redirect' : 'message'}
                       onChange={(e) => updateSelected({ formSuccessAction: e.target.value === 'redirect' ? 'redirect' : 'message' })}
                       className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}
                     >
-                      <option value="message">Show success message</option>
-                      <option value="redirect">Redirect to thank-you page / URL</option>
+                      <option value="message">{l('Show success message')}</option>
+                      <option value="redirect">{l('Redirect to thank-you page / URL')}</option>
                     </select>
                   </label>
 
                   {selectedSection.formSuccessAction === 'redirect' ? (
                     <div className="space-y-2">
-                      <label className="block text-[10px] text-gray-500">Redirect target
-                        <input
+                      <label className="block text-[10px] text-gray-500">{l('Redirect target')}<input
                           value={selectedSection.formRedirectUrl || ''}
                           onChange={(e) => updateSelected({ formRedirectUrl: e.target.value })}
                           placeholder="page:thank-you or https://example.com/thanks"
@@ -8661,8 +8592,7 @@ if (generated.seo) {
                       </div>
                     </div>
                   ) : (
-                    <label className="block text-[10px] text-gray-500">Success message
-                      <input
+                    <label className="block text-[10px] text-gray-500">{l('Success message')}<input
                         value={selectedSection.formSuccessMessage || 'Thanks! Your message has been sent.'}
                         onChange={(e) => updateSelected({ formSuccessMessage: e.target.value })}
                         className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
@@ -8714,9 +8644,7 @@ if (generated.seo) {
 
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                  <Palette className="h-3.5 w-3.5" />
-                  Background
-                </label>
+                  <Palette className="h-3.5 w-3.5" />{l('Background')}</label>
 
                 <div className="flex gap-2">
                   <input

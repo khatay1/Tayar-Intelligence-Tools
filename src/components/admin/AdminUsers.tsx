@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useMemo } from 'react';
 import {
   Search, Users, Loader2, X, Ban, Trash2, Edit3, Mail,
@@ -9,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 
 export default function AdminUsers() {
+  const l = useLocalizer();
   const { users, loading, refresh } = useAdminUsers();
   const { success, error: showError } = useToast();
   const [search, setSearch] = useState('');
@@ -115,19 +117,19 @@ export default function AdminUsers() {
           onChange={e => { setPlanFilter(e.target.value); setPage(0); }}
           className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none"
         >
-          <option value="all" className="bg-[#12122a]">All Plans</option>
-          <option value="free" className="bg-[#12122a]">Free</option>
-          <option value="pro" className="bg-[#12122a]">Pro</option>
-          <option value="business" className="bg-[#12122a]">Business</option>
+          <option value="all" className="bg-[#12122a]">{l('All Plans')}</option>
+          <option value="free" className="bg-[#12122a]">{l('Free')}</option>
+          <option value="pro" className="bg-[#12122a]">{l('Pro')}</option>
+          <option value="business" className="bg-[#12122a]">{l('Business')}</option>
         </select>
         <select
           value={statusFilter}
           onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
           className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none"
         >
-          <option value="all" className="bg-[#12122a]">All Status</option>
-          <option value="active" className="bg-[#12122a]">Active</option>
-          <option value="suspended" className="bg-[#12122a]">Suspended</option>
+          <option value="all" className="bg-[#12122a]">{l('All Status')}</option>
+          <option value="active" className="bg-[#12122a]">{l('Active')}</option>
+          <option value="suspended" className="bg-[#12122a]">{l('Suspended')}</option>
         </select>
       </div>
 
@@ -137,12 +139,12 @@ export default function AdminUsers() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">User</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">Plan</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">Documents</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">AI Requests</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Status</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Actions</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">{l('User')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">{l('Plan')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">{l('Documents')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">{l('AI Requests')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">{l('Status')}</th>
+                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">{l('Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -204,7 +206,7 @@ export default function AdminUsers() {
         </div>
 
         {filtered.length === 0 && (
-          <div className="py-12 text-center text-gray-500 text-sm">No users found</div>
+          <div className="py-12 text-center text-gray-500 text-sm">{l('No users found')}</div>
         )}
 
         {/* Pagination */}
@@ -261,6 +263,7 @@ function EditUserModal({ user, onSave, onClose, loading }: {
   onClose: () => void;
   loading: boolean;
 }) {
+  const l = useLocalizer();
   const [fullName, setFullName] = useState(user.full_name);
   const [plan, setPlan] = useState(user.plan);
   const [role, setRole] = useState(user.role);
@@ -269,27 +272,27 @@ function EditUserModal({ user, onSave, onClose, loading }: {
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-[#12122a] border border-white/10 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()} style={{ animation: 'fadeInUp 0.2s ease-out' }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-white font-semibold">Edit User</h3>
+          <h3 className="text-white font-semibold">{l('Edit User')}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">Full Name</label>
+            <label className="text-xs text-gray-400 mb-1.5 block">{l('Full Name')}</label>
             <input value={fullName} onChange={e => setFullName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/40" />
           </div>
           <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">Subscription Plan</label>
+            <label className="text-xs text-gray-400 mb-1.5 block">{l('Subscription Plan')}</label>
             <select value={plan} onChange={e => setPlan(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
-              <option value="free" className="bg-[#12122a]">Free</option>
-              <option value="pro" className="bg-[#12122a]">Pro</option>
-              <option value="business" className="bg-[#12122a]">Business</option>
+              <option value="free" className="bg-[#12122a]">{l('Free')}</option>
+              <option value="pro" className="bg-[#12122a]">{l('Pro')}</option>
+              <option value="business" className="bg-[#12122a]">{l('Business')}</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">Role</label>
+            <label className="text-xs text-gray-400 mb-1.5 block">{l('Role')}</label>
             <select value={role} onChange={e => setRole(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
-              <option value="user" className="bg-[#12122a]">User</option>
-              <option value="admin" className="bg-[#12122a]">Admin</option>
+              <option value="user" className="bg-[#12122a]">{l('User')}</option>
+              <option value="admin" className="bg-[#12122a]">{l('Admin')}</option>
             </select>
           </div>
           <div className="text-xs text-gray-500 bg-white/[0.02] rounded-lg p-3 border border-white/5">
@@ -301,7 +304,7 @@ function EditUserModal({ user, onSave, onClose, loading }: {
           </div>
         </div>
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">Cancel</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">{l('Cancel')}</button>
           <button onClick={() => onSave({ ...user, full_name: fullName, plan, role })} disabled={loading} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
             {loading ? 'Saving...' : 'Save Changes'}
           </button>
@@ -320,6 +323,7 @@ function ConfirmModal({ title, message, confirmLabel, danger, loading, onConfirm
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const l = useLocalizer();
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-[#12122a] border border-white/10 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()} style={{ animation: 'fadeInUp 0.2s ease-out' }}>
@@ -331,7 +335,7 @@ function ConfirmModal({ title, message, confirmLabel, danger, loading, onConfirm
           </div>
         </div>
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">Cancel</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">{l('Cancel')}</button>
           <button onClick={onConfirm} disabled={loading} className={`flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50 transition-colors ${danger ? 'bg-red-600 hover:bg-red-500' : 'bg-violet-600 hover:bg-violet-500'}`}>
             {loading ? 'Processing...' : confirmLabel}
           </button>

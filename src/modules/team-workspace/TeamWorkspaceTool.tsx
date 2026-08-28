@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { useLocalizer } from '@/lib/ui-localization';
 
 type TeamRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
@@ -91,6 +92,7 @@ function errorMessage(error: unknown) {
 }
 
 export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -360,8 +362,8 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
             <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-violet-400">
               <UsersRound className="h-4 w-4" /> Team Workspace
             </div>
-            <h1 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Build websites together</h1>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">Secure roles, invitations and shared projects. Pro supports 3 seats; Business supports 10 seats.</p>
+            <h1 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('Build websites together')}</h1>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">{l('Secure roles, invitations and shared projects. Pro supports 3 seats; Business supports 10 seats.')}</p>
           </div>
           <button onClick={() => void loadWorkspaces(selectedId)} disabled={loading || busy} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-gray-400 hover:text-white disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${loading || busy ? 'animate-spin' : ''}`} /> Refresh
@@ -377,7 +379,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
 
       <div className={`rounded-2xl border ${panel} p-4`}>
         <div className="flex flex-col gap-3 md:flex-row">
-          <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} className={`min-w-0 flex-1 rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-violet-500 ${input}`} placeholder="Paste a team invitation token or open an invitation link" />
+          <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} className={`min-w-0 flex-1 rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-violet-500 ${input}`} placeholder={l('Paste a team invitation token or open an invitation link')} />
           <button onClick={() => void acceptInvite()} disabled={busy || !acceptToken.trim()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-40">
             <KeyRound className="h-4 w-4" /> Accept invite
           </button>
@@ -387,7 +389,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
       <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
         <div className={`rounded-3xl border ${panel} p-4`}>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className={`text-sm font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Your teams</h2>
+            <h2 className={`text-sm font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('Your teams')}</h2>
             <span className="text-xs text-gray-500">{workspaces.length}</span>
           </div>
           {loading ? (
@@ -405,11 +407,11 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
               ))}
             </div>
           ) : (
-            <p className="py-8 text-center text-xs text-gray-500">No team workspaces yet.</p>
+            <p className="py-8 text-center text-xs text-gray-500">{l('No team workspaces yet.')}</p>
           )}
 
           <div className="mt-4 border-t border-white/5 pt-4">
-            <input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void createWorkspace()} className={`w-full rounded-xl border px-3 py-2 text-xs outline-none focus:border-violet-500 ${input}`} placeholder="New workspace name" />
+            <input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void createWorkspace()} className={`w-full rounded-xl border px-3 py-2 text-xs outline-none focus:border-violet-500 ${input}`} placeholder={l('New workspace name')} />
             <button onClick={() => void createWorkspace()} disabled={busy || !newWorkspaceName.trim()} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-500 disabled:opacity-40">
               <Plus className="h-4 w-4" /> Create workspace
             </button>
@@ -420,7 +422,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
           <div className={`flex min-h-[460px] items-center justify-center rounded-3xl border ${panel} p-8 text-center`}>
             <div>
               <UsersRound className="mx-auto h-10 w-10 text-gray-600" />
-              <p className="mt-3 text-sm text-gray-500">Create or select a team workspace to manage members and projects.</p>
+              <p className="mt-3 text-sm text-gray-500">{l('Create or select a team workspace to manage members and projects.')}</p>
             </div>
           </div>
         ) : (
@@ -437,8 +439,8 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
                 {canManage && (
                   <div className="flex flex-wrap gap-2">
                     <input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} className={`w-44 rounded-xl border px-3 py-2 text-xs outline-none focus:border-violet-500 ${input}`} />
-                    <button onClick={() => void renameWorkspace()} disabled={busy || !renameValue.trim()} className="rounded-xl border border-white/10 p-2 text-gray-400 hover:text-white disabled:opacity-40" title="Rename workspace"><Save className="h-4 w-4" /></button>
-                    {isOwner && <button onClick={() => void deleteWorkspace()} disabled={busy} className="rounded-xl border border-red-500/20 p-2 text-red-400 hover:bg-red-500/10" title="Delete workspace"><Trash2 className="h-4 w-4" /></button>}
+                    <button onClick={() => void renameWorkspace()} disabled={busy || !renameValue.trim()} className="rounded-xl border border-white/10 p-2 text-gray-400 hover:text-white disabled:opacity-40" title={l('Rename workspace')}><Save className="h-4 w-4" /></button>
+                    {isOwner && <button onClick={() => void deleteWorkspace()} disabled={busy} className="rounded-xl border border-red-500/20 p-2 text-red-400 hover:bg-red-500/10" title={l('Delete workspace')}><Trash2 className="h-4 w-4" /></button>}
                   </div>
                 )}
               </div>
@@ -448,16 +450,16 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
               <div className={`rounded-3xl border ${panel} p-5`}>
                 <div className="mb-4 flex items-center gap-2">
                   <MailPlus className="h-5 w-5 text-violet-400" />
-                  <h3 className={`font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Invite teammate</h3>
+                  <h3 className={`font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('Invite teammate')}</h3>
                 </div>
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_150px_auto]">
                   <input value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} className={`rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-500 ${input}`} placeholder="teammate@example.com" />
                   <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as Exclude<TeamRole, 'owner'>)} className={`rounded-xl border px-3 py-2.5 text-sm outline-none ${input}`}>
-                    {isOwner && <option value="admin">Admin</option>}
-                    <option value="editor">Editor</option>
-                    <option value="viewer">Viewer</option>
+                    {isOwner && <option value="admin">{l('Admin')}</option>}
+                    <option value="editor">{l('Editor')}</option>
+                    <option value="viewer">{l('Viewer')}</option>
                   </select>
-                  <button onClick={() => void createInvite()} disabled={busy || !inviteEmail.trim()} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-40">Invite</button>
+                  <button onClick={() => void createInvite()} disabled={busy || !inviteEmail.trim()} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-40">{l('Invite')}</button>
                 </div>
                 {lastInviteLink && (
                   <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
@@ -471,7 +473,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
 
             <div className={`rounded-3xl border ${panel} p-5`}>
               <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-cyan-400" /><h3 className={`font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Members</h3></div>
+                <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-cyan-400" /><h3 className={`font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('Members')}</h3></div>
                 <span className="text-xs text-gray-500">{details.members.length}/{details.limits.maxTeamMembers}</span>
               </div>
               <div className="space-y-2">
@@ -484,7 +486,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
                         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-sm font-black text-violet-300">{(member.fullName || member.email || '?').charAt(0).toUpperCase()}</div>
                         <div className="min-w-0">
                           <div className={`truncate text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{member.fullName || member.email || 'Member'} {self && <span className="text-[10px] text-gray-500">(you)</span>}</div>
-                          <div className="truncate text-xs text-gray-500">{member.email || ROLE_META[member.role].description}</div>
+                          <div className="truncate text-xs text-gray-500">{member.email || l(ROLE_META[member.role].description)}</div>
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -492,16 +494,16 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
                           <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs font-bold text-amber-400"><Crown className="h-3.5 w-3.5" /> Owner</span>
                         ) : canEditMember ? (
                           <select value={member.role} onChange={(event) => void changeRole(member, event.target.value as Exclude<TeamRole, 'owner'>)} className={`rounded-lg border px-2 py-1.5 text-xs outline-none ${input}`}>
-                            {isOwner && <option value="admin">Admin</option>}
-                            <option value="editor">Editor</option>
-                            <option value="viewer">Viewer</option>
+                            {isOwner && <option value="admin">{l('Admin')}</option>}
+                            <option value="editor">{l('Editor')}</option>
+                            <option value="viewer">{l('Viewer')}</option>
                           </select>
                         ) : (
                           <span className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs capitalize text-gray-400">{member.role}</span>
                         )}
-                        {isOwner && member.role !== 'owner' && <button onClick={() => void transferOwnership(member)} className="rounded-lg border border-amber-500/20 p-1.5 text-amber-400 hover:bg-amber-500/10" title="Transfer ownership"><Crown className="h-4 w-4" /></button>}
-                        {(self && member.role !== 'owner') && <button onClick={() => void removeMember(member)} className="rounded-lg border border-white/10 p-1.5 text-gray-400 hover:text-white" title="Leave workspace"><LogOut className="h-4 w-4" /></button>}
-                        {canEditMember && !self && <button onClick={() => void removeMember(member)} className="rounded-lg border border-red-500/20 p-1.5 text-red-400 hover:bg-red-500/10" title="Remove member"><UserMinus className="h-4 w-4" /></button>}
+                        {isOwner && member.role !== 'owner' && <button onClick={() => void transferOwnership(member)} className="rounded-lg border border-amber-500/20 p-1.5 text-amber-400 hover:bg-amber-500/10" title={l('Transfer ownership')}><Crown className="h-4 w-4" /></button>}
+                        {(self && member.role !== 'owner') && <button onClick={() => void removeMember(member)} className="rounded-lg border border-white/10 p-1.5 text-gray-400 hover:text-white" title={l('Leave workspace')}><LogOut className="h-4 w-4" /></button>}
+                        {canEditMember && !self && <button onClick={() => void removeMember(member)} className="rounded-lg border border-red-500/20 p-1.5 text-red-400 hover:bg-red-500/10" title={l('Remove member')}><UserMinus className="h-4 w-4" /></button>}
                       </div>
                     </div>
                   );
@@ -510,7 +512,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
 
               {canManage && details.invites.length > 0 && (
                 <div className="mt-5 border-t border-white/5 pt-4">
-                  <h4 className="mb-2 text-xs font-black uppercase tracking-wider text-gray-500">Pending invitations</h4>
+                  <h4 className="mb-2 text-xs font-black uppercase tracking-wider text-gray-500">{l('Pending invitations')}</h4>
                   <div className="space-y-2">
                     {details.invites.map((invite) => (
                       <div key={invite.id} className="flex items-center gap-3 rounded-xl border border-white/5 px-3 py-2">
@@ -525,16 +527,16 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
 
             <div className={`rounded-3xl border ${panel} p-5`}>
               <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2"><FolderKanban className="h-5 w-5 text-fuchsia-400" /><h3 className={`font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Shared projects</h3></div>
+                <div className="flex items-center gap-2"><FolderKanban className="h-5 w-5 text-fuchsia-400" /><h3 className={`font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('Shared projects')}</h3></div>
                 <span className="text-xs text-gray-500">{projects.length}</span>
               </div>
               {canManage && (
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row">
                   <select value={assignProjectId} onChange={(event) => setAssignProjectId(event.target.value)} className={`min-w-0 flex-1 rounded-xl border px-3 py-2.5 text-sm outline-none ${input}`}>
-                    <option value="">Select one of your personal projects…</option>
+                    <option value="">{l('Select one of your personal projects…')}</option>
                     {assignableProjects.map((project) => <option key={project.id} value={project.id}>{project.title} · {project.type}</option>)}
                   </select>
-                  <button onClick={() => void assignProject()} disabled={busy || !assignProjectId} className="rounded-xl bg-fuchsia-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-fuchsia-500 disabled:opacity-40">Share project</button>
+                  <button onClick={() => void assignProject()} disabled={busy || !assignProjectId} className="rounded-xl bg-fuchsia-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-fuchsia-500 disabled:opacity-40">{l('Share project')}</button>
                 </div>
               )}
               {projects.length ? (
@@ -543,14 +545,14 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
                     <div key={project.id} className="rounded-2xl border border-white/5 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0"><div className={`truncate text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{project.title}</div><div className="mt-1 text-[11px] text-gray-500">{project.type} · {project.status} · {project.user_id === user?.id ? 'owned by you' : 'shared with you'}</div></div>
-                        {(project.user_id === user?.id || canManage) && <button onClick={() => void unshareProject(project.id)} className="rounded-lg border border-white/10 p-1.5 text-gray-500 hover:text-red-400" title="Remove from workspace"><Trash2 className="h-4 w-4" /></button>}
+                        {(project.user_id === user?.id || canManage) && <button onClick={() => void unshareProject(project.id)} className="rounded-lg border border-white/10 p-1.5 text-gray-500 hover:text-red-400" title={l('Remove from workspace')}><Trash2 className="h-4 w-4" /></button>}
                       </div>
-                      {project.type === 'website-builder' && <p className="mt-3 text-[11px] text-violet-400">Open Website Builder from the Tools menu; this shared project will appear in the Cloud Projects selector.</p>}
+                      {project.type === 'website-builder' && <p className="mt-3 text-[11px] text-violet-400">{l('Open Website Builder from the Tools menu; this shared project will appear in the Cloud Projects selector.')}</p>}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-xs text-gray-500">No projects shared with this workspace yet.</div>
+                <div className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-xs text-gray-500">{l('No projects shared with this workspace yet.')}</div>
               )}
             </div>
           </div>

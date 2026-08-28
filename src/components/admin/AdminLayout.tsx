@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, Users, Cpu, Wrench, CreditCard, LifeBuoy,
@@ -47,6 +48,7 @@ const NAV_GROUPS: { label: string; items: { id: AdminView; label: string; icon: 
 ];
 
 export default function AdminLayout({ activeView, onViewChange, onExitToWorkspace, children }: AdminLayoutProps) {
+  const l = useLocalizer();
   const { profile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -90,8 +92,8 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
               </div>
             </div>
             <div>
-              <div className="font-bold text-sm text-white">Tayar Admin</div>
-              <div className="text-[10px] text-violet-400 font-medium">Control Panel</div>
+              <div className="font-bold text-sm text-white">{l('Tayar Admin')}</div>
+              <div className="text-[10px] text-violet-400 font-medium">{l('Control Panel')}</div>
             </div>
           </button>
           <button className="lg:hidden text-gray-400" onClick={() => setSidebarOpen(false)}>
@@ -129,7 +131,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">{initials}</div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate text-white">{profile?.full_name || 'Admin'}</div>
-              <div className="text-xs text-violet-400">Administrator</div>
+              <div className="text-xs text-violet-400">{l('Administrator')}</div>
             </div>
             <button onClick={onExitToWorkspace} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Back to Workspace">
               <LogOut className="w-4 h-4" />
@@ -154,7 +156,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-medium text-emerald-400">System Online</span>
+              <span className="text-xs font-medium text-emerald-400">{l('System Online')}</span>
             </div>
             <div className="relative" ref={notifRef}>
               <button onClick={() => setNotifOpen(!notifOpen)} className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
@@ -167,7 +169,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
             </div>
             <button onClick={onExitToWorkspace} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5">
               <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Exit Admin</span>
+              <span className="hidden sm:inline">{l('Exit Admin')}</span>
             </button>
           </div>
         </header>
@@ -181,6 +183,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
 }
 
 function AdminNotifications() {
+  const l = useLocalizer();
   const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: string; read: boolean; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -207,14 +210,14 @@ function AdminNotifications() {
   return (
     <div className="absolute top-full right-0 mt-2 w-80 bg-[#12122a] border border-white/10 rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden">
       <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-        <span className="text-sm font-semibold text-white">Notifications</span>
+        <span className="text-sm font-semibold text-white">{l('Notifications')}</span>
         <span className="text-xs text-gray-500">{notifications.filter(n => !n.read).length} unread</span>
       </div>
       <div className="max-h-80 overflow-y-auto">
         {loading ? (
-          <div className="p-4 text-center text-gray-500 text-sm">Loading...</div>
+          <div className="p-4 text-center text-gray-500 text-sm">{l('Loading...')}</div>
         ) : notifications.length === 0 ? (
-          <div className="p-6 text-center text-gray-500 text-sm">No notifications</div>
+          <div className="p-6 text-center text-gray-500 text-sm">{l('No notifications')}</div>
         ) : (
           notifications.map(n => (
             <div key={n.id} className={`px-4 py-3 border-b border-white/5 ${!n.read ? 'bg-white/[0.02]' : ''}`}>

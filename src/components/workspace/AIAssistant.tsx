@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Sparkles, X, Send, Loader2, MessageSquare, Trash2, Plus,
@@ -63,6 +64,7 @@ interface AIAssistantProps {
 }
 
 export default function AIAssistant({ darkMode, onNavigate }: AIAssistantProps) {
+  const l = useLocalizer();
   const { assistantOpen, setAssistantOpen, activeContext, clearActiveContext } = useWorkspace();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -182,7 +184,7 @@ export default function AIAssistant({ darkMode, onNavigate }: AIAssistantProps) 
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="text-white text-sm font-semibold">AI Assistant</div>
+              <div className="text-white text-sm font-semibold">{l('AI Assistant')}</div>
               <div className="text-emerald-400 text-xs flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Online
               </div>
@@ -216,7 +218,7 @@ export default function AIAssistant({ darkMode, onNavigate }: AIAssistantProps) 
         {showHistory && (
           <div className="border-b border-white/5 max-h-48 overflow-y-auto p-2 space-y-1">
             {conversations.length === 0 ? (
-              <p className="text-gray-500 text-xs text-center py-4">No conversations yet</p>
+              <p className="text-gray-500 text-xs text-center py-4">{l('No conversations yet')}</p>
             ) : (
               conversations.map(c => (
                 <div key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${activeConversationId === c.id ? 'bg-violet-600/15' : 'hover:bg-white/5'}`}>
@@ -241,8 +243,8 @@ export default function AIAssistant({ darkMode, onNavigate }: AIAssistantProps) 
                 <Sparkles className="w-6 h-6 text-violet-400" />
               </div>
               <div>
-                <p className="text-white text-sm font-medium">How can I help you?</p>
-                <p className="text-gray-500 text-xs mt-1">Ask me anything about your tools or documents.</p>
+                <p className="text-white text-sm font-medium">{l('How can I help you?')}</p>
+                <p className="text-gray-500 text-xs mt-1">{l('Ask me anything about your tools or documents.')}</p>
               </div>
             </div>
           )}
@@ -277,7 +279,7 @@ export default function AIAssistant({ darkMode, onNavigate }: AIAssistantProps) 
         {messages.length === 0 && !loading && (
           <div className="px-4 pb-2 flex flex-wrap gap-1.5">
             {QUICK_PROMPTS.map(p => (
-              <button key={p} onClick={() => send(p)} className="text-xs text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 transition-colors">{p}</button>
+              <button key={p} onClick={() => send(p)} className="text-xs text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 transition-colors">{l(p)}</button>
             ))}
           </div>
         )}
@@ -289,7 +291,7 @@ export default function AIAssistant({ darkMode, onNavigate }: AIAssistantProps) 
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && send()}
-              placeholder="Ask anything..."
+              placeholder={l('Ask anything...')}
               className="flex-1 bg-transparent text-white text-sm placeholder:text-gray-600 focus:outline-none"
             />
             <button onClick={() => send()} disabled={!input.trim() || loading} className="text-violet-400 hover:text-violet-300 disabled:opacity-40 transition-colors">

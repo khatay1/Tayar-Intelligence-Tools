@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState } from 'react';
 import { PenLine, Loader2, Copy, Check } from 'lucide-react';
 import { ToolShell, ToolInputPanel, ToolOutputPanel, ToolField, toolInputClass, toolButtonClass } from '../shared/ToolShell';
@@ -9,6 +10,7 @@ const TONES = ['Professional', 'Casual', 'Persuasive', 'Informative', 'Humorous'
 const LENGTHS = ['Short', 'Medium', 'Long'];
 
 export default function WriterTool({ darkMode: _darkMode }: { darkMode: boolean }) {
+  const l = useLocalizer();
   const { loading, update } = useToast();
   const [type, setType] = useState('Blog Post');
   const [topic, setTopic] = useState('');
@@ -24,7 +26,7 @@ export default function WriterTool({ darkMode: _darkMode }: { darkMode: boolean 
     if (!topic) return;
     setGenerating(true);
     setResult('');
-    const toastId = loading('Writing content...');
+    const toastId = loading(l('Writing content...'));
     try {
       const ai = createAIService('ai-writer');
       await ai.stream(
@@ -32,7 +34,7 @@ export default function WriterTool({ darkMode: _darkMode }: { darkMode: boolean 
         [],
         (chunk) => setResult(prev => prev + chunk)
       );
-      update(toastId, 'Content generated', 'success');
+      update(toastId, l('Content generated'), 'success');
     } catch (err) {
       update(toastId, (err as Error).message, 'error');
     }
@@ -46,38 +48,38 @@ export default function WriterTool({ darkMode: _darkMode }: { darkMode: boolean 
   }
 
   return (
-    <ToolShell icon={PenLine} title="AI Writer" description="Write blogs, articles, and marketing copy." badge="v2.0">
+    <ToolShell icon={PenLine} title={l('AI Writer')} description={l('Write blogs, articles, and marketing copy.')} badge="v2.0">
       <div className="grid lg:grid-cols-2 gap-6">
         <ToolInputPanel>
-          <ToolField label="Content Type">
+          <ToolField label={l('Content Type')}>
             <select value={type} onChange={e => setType(e.target.value)} className={toolInputClass}>
-              {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {CONTENT_TYPES.map(t => <option key={t} value={t}>{l(t)}</option>)}
             </select>
           </ToolField>
-          <ToolField label="Topic">
-            <input value={topic} onChange={e => setTopic(e.target.value)} className={toolInputClass} placeholder="The future of AI in healthcare" />
+          <ToolField label={l('Topic')}>
+            <input value={topic} onChange={e => setTopic(e.target.value)} className={toolInputClass} placeholder={l('The future of AI in healthcare')} />
           </ToolField>
           <div className="grid grid-cols-2 gap-3">
-            <ToolField label="Tone">
+            <ToolField label={l('Tone')}>
               <select value={tone} onChange={e => setTone(e.target.value)} className={toolInputClass}>
-                {TONES.map(t => <option key={t} value={t}>{t}</option>)}
+                {TONES.map(t => <option key={t} value={t}>{l(t)}</option>)}
               </select>
             </ToolField>
-            <ToolField label="Length">
+            <ToolField label={l('Length')}>
               <select value={length} onChange={e => setLength(e.target.value)} className={toolInputClass}>
-                {LENGTHS.map(l => <option key={l} value={l}>{l}</option>)}
+                {LENGTHS.map(item => <option key={item} value={item}>{l(item)}</option>)}
               </select>
             </ToolField>
           </div>
-          <ToolField label="Target Audience">
-            <input value={audience} onChange={e => setAudience(e.target.value)} className={toolInputClass} placeholder="Healthcare professionals" />
+          <ToolField label={l('Target Audience')}>
+            <input value={audience} onChange={e => setAudience(e.target.value)} className={toolInputClass} placeholder={l('Healthcare professionals')} />
           </ToolField>
-          <ToolField label="Key Points (optional)">
-            <textarea value={points} onChange={e => setPoints(e.target.value)} className={`${toolInputClass} min-h-[60px] resize-y`} placeholder="One point per line" />
+          <ToolField label={l('Key Points (optional)')}>
+            <textarea value={points} onChange={e => setPoints(e.target.value)} className={`${toolInputClass} min-h-[60px] resize-y`} placeholder={l('One point per line')} />
           </ToolField>
           <button onClick={handleGenerate} disabled={generating} className={toolButtonClass}>
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PenLine className="w-4 h-4" />}
-            {generating ? 'Writing...' : 'Generate Content'}
+            {l(generating ? 'Writing...' : 'Generate Content')}
           </button>
         </ToolInputPanel>
 
@@ -87,7 +89,7 @@ export default function WriterTool({ darkMode: _darkMode }: { darkMode: boolean 
               <div className="flex justify-end mb-2">
                 <button onClick={copyResult} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-xs transition-colors">
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? 'Copied' : 'Copy'}
+                  {l(copied ? 'Copied' : 'Copy')}
                 </button>
               </div>
               <div className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{result}</div>

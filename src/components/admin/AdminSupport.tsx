@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import { LifeBuoy, Loader2, Bug, Lightbulb, MessageSquare, X, Send, Clock, CheckCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -17,6 +18,7 @@ interface Ticket {
 }
 
 export default function AdminSupport() {
+  const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,14 +105,14 @@ export default function AdminSupport() {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        <button onClick={() => setFilter('all')} className={`text-xs px-3 py-1.5 rounded-full ${filter === 'all' ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10'}`}>All</button>
+        <button onClick={() => setFilter('all')} className={`text-xs px-3 py-1.5 rounded-full ${filter === 'all' ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10'}`}>{l('All')}</button>
       </div>
 
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <LifeBuoy className="w-10 h-10 text-gray-700 mx-auto mb-2" />
-            <p className="text-gray-500 text-sm">No tickets found</p>
+            <p className="text-gray-500 text-sm">{l('No tickets found')}</p>
           </div>
         ) : (
           <div className="divide-y divide-white/5">
@@ -168,12 +170,12 @@ export default function AdminSupport() {
               </div>
               {selected.admin_response && (
                 <div className="bg-violet-500/5 rounded-xl p-4 border border-violet-500/10">
-                  <div className="text-xs text-violet-400 font-medium mb-1">Admin Response</div>
+                  <div className="text-xs text-violet-400 font-medium mb-1">{l('Admin Response')}</div>
                   <p className="text-sm text-gray-300 whitespace-pre-wrap">{selected.admin_response}</p>
                 </div>
               )}
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">Response</label>
+                <label className="text-xs text-gray-400 mb-1.5 block">{l('Response')}</label>
                 <textarea
                   value={response}
                   onChange={e => setResponse(e.target.value)}

@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -17,6 +18,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const { isAdmin, adminLoading } = useAdmin();
   const [view, setView] = useState<AdminView>('dashboard');
@@ -26,7 +28,7 @@ export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
       <div className="min-h-screen bg-[#06060f] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
-          <p className="text-gray-400 text-sm">Checking admin access...</p>
+          <p className="text-gray-400 text-sm">{l('Checking admin access...')}</p>
         </div>
       </div>
     );
@@ -39,8 +41,8 @@ export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
           <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
             <ShieldAlert className="w-8 h-8 text-red-400" />
           </div>
-          <h1 className="text-xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-gray-400 text-sm mb-6">You don't have permission to access the admin panel. Only administrators can view this page.</p>
+          <h1 className="text-xl font-bold text-white mb-2">{l('Access Denied')}</h1>
+          <p className="text-gray-400 text-sm mb-6">{l("You don't have permission to access the admin panel. Only administrators can view this page.")}</p>
           <button onClick={onExitToWorkspace} className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
             Back to Workspace
           </button>

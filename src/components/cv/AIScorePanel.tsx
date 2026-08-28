@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { ResumeScore } from '@/lib/cv-types';
 import { AISuggestion } from '@/lib/cv-ai';
 import { AlertCircle, CheckCircle2, Info, Lightbulb } from 'lucide-react';
@@ -37,6 +38,7 @@ function ScoreRing({ score, label, size = 80 }: { score: number; label: string; 
 }
 
 export default function AIScorePanel({ score, suggestions }: AIScorePanelProps) {
+  const l = useLocalizer();
   const overallColor = score.overall >= 80 ? 'text-emerald-400' : score.overall >= 60 ? 'text-amber-400' : score.overall >= 40 ? 'text-orange-400' : 'text-red-400';
   const overallLabel = score.overall >= 80 ? 'Excellent' : score.overall >= 60 ? 'Good' : score.overall >= 40 ? 'Needs Work' : 'Poor';
 
@@ -45,7 +47,7 @@ export default function AIScorePanel({ score, suggestions }: AIScorePanelProps) 
       {/* Overall Score */}
       <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-semibold text-sm">Resume Score</h3>
+          <h3 className="text-white font-semibold text-sm">{l('Resume Score')}</h3>
           <span className={`text-xs font-medium ${overallColor}`}>{overallLabel}</span>
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
@@ -62,7 +64,7 @@ export default function AIScorePanel({ score, suggestions }: AIScorePanelProps) 
       <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-3">
           <Lightbulb className="w-4 h-4 text-violet-400" />
-          <h3 className="text-white font-semibold text-sm">AI Suggestions</h3>
+          <h3 className="text-white font-semibold text-sm">{l('AI Suggestions')}</h3>
           <span className="text-xs text-gray-500 ml-auto">{suggestions.length}</span>
         </div>
         {suggestions.length === 0 ? (

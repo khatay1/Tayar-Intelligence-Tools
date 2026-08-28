@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useMemo, useEffect } from 'react';
 import {
   Sparkles, Search, Star, Pin, Clock, ArrowUpRight, Crown,
@@ -19,10 +20,11 @@ interface DashboardViewProps {
 const RECOMMENDATIONS: { icon: typeof TrendingUp; title: string; desc: string; action: ViewId; label: string }[] = [
   { icon: TrendingUp, title: 'Add more skills to your CV', desc: 'ATS systems look for 8+ relevant skills. You currently have 5.', action: 'cv-builder', label: 'Open CV Builder' },
   { icon: Lightbulb, title: 'Try the AI Writer', desc: 'You haven\'t used the AI Writer yet. It\'s great for creating blog posts and articles.', action: 'ai-writer', label: 'Try AI Writer' },
-  { icon: Sparkles, title: 'Upgrade to Pro', desc: 'Unlock all 50+ tools, unlimited documents, and priority AI processing.', action: 'subscription', label: 'View Plans' },
+  { icon: Sparkles, title: 'Upgrade to Pro', desc: 'Unlock higher limits, publishing, analytics and collaboration features.', action: 'subscription', label: 'View Plans' },
 ];
 
 export default function DashboardView({ onNavigate }: DashboardViewProps) {
+  const l = useLocalizer();
   const { user, profile } = useAuth();
   const { deleteProject, renameProject, duplicateProject } = useProjects();
   const prefs = useToolPreferences();
@@ -94,7 +96,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-4 h-4 text-violet-400" />
-              <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">AI Workspace</span>
+              <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">{l('AI Workspace')}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Welcome back, {displayName}</h1>
             <p className="text-gray-400 text-sm">{allTools.length} tools available · {availableTools.length} ready to use</p>
@@ -114,7 +116,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search tools... (e.g. CV, translate, quiz)"
+          placeholder={l('Search tools... (e.g. CV, translate, quiz)')}
           className="w-full bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl pl-12 pr-4 py-3.5 text-white text-sm placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none transition-all"
         />
         {search && (
@@ -166,7 +168,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Pin className="w-4 h-4 text-amber-400" />
-            <h2 className="text-white font-bold text-base">Pinned</h2>
+            <h2 className="text-white font-bold text-base">{l('Pinned')}</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {pinnedTools.map(tool => (
@@ -190,8 +192,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         {filteredTools.length === 0 ? (
           <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-8 text-center">
             <Search className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-            <p className="text-gray-400 text-sm">No tools found</p>
-            <p className="text-gray-600 text-xs mt-1">Try a different search or category.</p>
+            <p className="text-gray-400 text-sm">{l('No tools found')}</p>
+            <p className="text-gray-600 text-xs mt-1">{l('Try a different search or category.')}</p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -215,12 +217,12 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Star className="w-4 h-4 text-amber-400" />
-              <h2 className="text-white font-bold text-base">Favorites</h2>
+              <h2 className="text-white font-bold text-base">{l('Favorites')}</h2>
             </div>
             {favoriteTools.length === 0 ? (
               <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 text-center">
                 <Star className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-500 text-xs">Click the star on any tool to add it here.</p>
+                <p className="text-gray-500 text-xs">{l('Click the star on any tool to add it here.')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -235,12 +237,12 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Clock className="w-4 h-4 text-sky-400" />
-              <h2 className="text-white font-bold text-base">Recently Used</h2>
+              <h2 className="text-white font-bold text-base">{l('Recently Used')}</h2>
             </div>
             {recentTools.length === 0 ? (
               <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 text-center">
                 <Clock className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-500 text-xs">Tools you use will appear here for quick access.</p>
+                <p className="text-gray-500 text-xs">{l('Tools you use will appear here for quick access.')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -256,7 +258,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       {/* Continue Working */}
       {!search && activeCategory === 'all' && (
         <div>
-          <h2 className="text-white font-bold text-base mb-3">Continue Working</h2>
+          <h2 className="text-white font-bold text-base mb-3">{l('Continue Working')}</h2>
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 text-violet-500 animate-spin" />
@@ -264,7 +266,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           ) : continueProjects.length === 0 ? (
             <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 text-center">
               <Clock className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-              <p className="text-gray-500 text-xs">No drafts in progress. Start a new document and it'll show up here.</p>
+              <p className="text-gray-500 text-xs">{l("No drafts in progress. Start a new document and it'll show up here.")}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -283,7 +285,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                       <div className="text-white text-sm font-medium truncate">{project.title}</div>
                       <div className="text-gray-500 text-xs">{meta.label} · Updated {timeAgo(project.updated_at)}</div>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Draft</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">{l('Draft')}</span>
                   </button>
                 );
               })}
@@ -298,7 +300,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-violet-400" />
-              <h2 className="text-white font-bold text-base">AI Recommendations</h2>
+              <h2 className="text-white font-bold text-base">{l('AI Recommendations')}</h2>
             </div>
             <div className="space-y-3">
               {RECOMMENDATIONS.map((rec, i) => {
@@ -329,13 +331,13 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Zap className="w-4 h-4 text-violet-400" />
-              <h2 className="text-white font-bold text-base">Recent Activity</h2>
+              <h2 className="text-white font-bold text-base">{l('Recent Activity')}</h2>
             </div>
             <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
               {activity.length === 0 ? (
                 <div className="py-6 text-center">
                   <Clock className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-500 text-xs">No recent activity</p>
+                  <p className="text-gray-500 text-xs">{l('No recent activity')}</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -359,9 +361,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <div className="relative">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Crown className="w-4 h-4 text-amber-400" />
-                  <p className="text-white text-sm font-semibold">Upgrade to Pro</p>
+                  <p className="text-white text-sm font-semibold">{l('Upgrade to Pro')}</p>
                 </div>
-                <p className="text-gray-400 text-xs mb-3">Unlock all 50+ AI tools and unlimited documents.</p>
+                <p className="text-gray-400 text-xs mb-3">{l('Unlock higher limits, publishing, analytics and collaboration features.')}</p>
                 <button
                   onClick={() => onNavigate('subscription')}
                   className="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
@@ -386,6 +388,7 @@ function ToolCard({
   compact?: boolean;
   index?: number;
 }) {
+  const l = useLocalizer();
   const Icon = tool.icon;
   const cat = getCategory(tool.category);
   const isFav = prefs.favorites.has(tool.id);
@@ -414,7 +417,7 @@ function ToolCard({
             </span>
           )}
           {isSoon && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-gray-500">Soon</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-gray-500">{l('Soon')}</span>
           )}
           {!isSoon && (
             <button
@@ -445,7 +448,7 @@ function ToolCard({
             <span>{cat?.label}</span>
             <span>·</span>
             <span>v{tool.version}</span>
-            {tool.status === 'beta' && <span className="text-sky-400">Beta</span>}
+            {tool.status === 'beta' && <span className="text-sky-400">{l('Beta')}</span>}
           </div>
         )}
       </button>

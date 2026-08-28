@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import {
   Users, Activity, FileText, CreditCard, DollarSign, Server,
   TrendingUp, Cpu, ArrowUpRight, ArrowDownRight, Loader2, Zap,
@@ -9,6 +10,7 @@ import {
 import { LineChart, BarChart, DonutChart, Sparkline } from './Charts';
 
 export default function AdminDashboard() {
+  const l = useLocalizer();
   const { stats, loading } = useDashboardStats();
   const { data: userGrowth } = useUserGrowth();
   const { data: revenueData } = useRevenueData();
@@ -81,8 +83,8 @@ export default function AdminDashboard() {
         <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold text-sm">User Growth</h3>
-              <p className="text-gray-500 text-xs">Cumulative users over last 30 days</p>
+              <h3 className="text-white font-semibold text-sm">{l('User Growth')}</h3>
+              <p className="text-gray-500 text-xs">{l('Cumulative users over last 30 days')}</p>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
               <Users className="w-3.5 h-3.5 text-violet-400" />
@@ -100,8 +102,8 @@ export default function AdminDashboard() {
         <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold text-sm">Revenue</h3>
-              <p className="text-gray-500 text-xs">Monthly subscription revenue</p>
+              <h3 className="text-white font-semibold text-sm">{l('Revenue')}</h3>
+              <p className="text-gray-500 text-xs">{l('Monthly subscription revenue')}</p>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
@@ -122,8 +124,8 @@ export default function AdminDashboard() {
         <div className="lg:col-span-2 bg-white/[0.02] border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-semibold text-sm">AI Usage</h3>
-              <p className="text-gray-500 text-xs">Daily requests and token consumption</p>
+              <h3 className="text-white font-semibold text-sm">{l('AI Usage')}</h3>
+              <p className="text-gray-500 text-xs">{l('Daily requests and token consumption')}</p>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20">
               <Zap className="w-3.5 h-3.5 text-fuchsia-400" />
@@ -140,20 +142,20 @@ export default function AdminDashboard() {
 
         <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
           <div className="mb-4">
-            <h3 className="text-white font-semibold text-sm">Tool Popularity</h3>
-            <p className="text-gray-500 text-xs">Requests by tool</p>
+            <h3 className="text-white font-semibold text-sm">{l('Tool Popularity')}</h3>
+            <p className="text-gray-500 text-xs">{l('Requests by tool')}</p>
           </div>
           {toolPop.length > 0 ? (
             <DonutChart data={toolPop.slice(0, 7).map(t => ({ label: t.tool, value: t.count }))} size={140} />
           ) : (
-            <div className="flex items-center justify-center h-[140px] text-gray-600 text-sm">No data yet</div>
+            <div className="flex items-center justify-center h-[140px] text-gray-600 text-sm">{l('No data yet')}</div>
           )}
         </div>
       </div>
 
       {/* Recent activity feed */}
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-        <h3 className="text-white font-semibold text-sm mb-4">System Health</h3>
+        <h3 className="text-white font-semibold text-sm mb-4">{l('System Health')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'API Latency', value: '142ms', status: 'good' },

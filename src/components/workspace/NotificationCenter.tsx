@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { Bell, Check, Trash2, BellOff } from 'lucide-react';
 import { useNotifications } from '@/lib/use-notifications';
 
@@ -6,6 +7,7 @@ interface NotificationCenterProps {
 }
 
 export default function NotificationCenter({ darkMode }: NotificationCenterProps) {
+  const l = useLocalizer();
   const { notifications, unreadCount, markAsRead, markAllRead, deleteNotification, loading } = useNotifications();
 
   function timeAgo(dateStr: string): string {
@@ -24,7 +26,7 @@ export default function NotificationCenter({ darkMode }: NotificationCenterProps
       <div className={`flex items-center justify-between px-4 py-3 border-b ${darkMode ? 'border-white/5' : 'border-gray-100'}`}>
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-violet-400" />
-          <span className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Notifications</span>
+          <span className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('Notifications')}</span>
           {unreadCount > 0 && <span className="text-violet-400 text-xs">{unreadCount} new</span>}
         </div>
         {unreadCount > 0 && (
@@ -35,11 +37,11 @@ export default function NotificationCenter({ darkMode }: NotificationCenterProps
       </div>
       <div className="max-h-80 overflow-y-auto">
         {loading ? (
-          <div className="py-8 text-center text-gray-500 text-sm">Loading...</div>
+          <div className="py-8 text-center text-gray-500 text-sm">{l('Loading...')}</div>
         ) : notifications.length === 0 ? (
           <div className="py-8 text-center">
             <BellOff className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-            <p className="text-gray-500 text-xs">No notifications yet</p>
+            <p className="text-gray-500 text-xs">{l('No notifications yet')}</p>
           </div>
         ) : (
           notifications.map(n => (

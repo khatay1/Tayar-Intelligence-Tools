@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useMemo } from 'react';
 
 interface LineChartProps {
@@ -8,6 +9,7 @@ interface LineChartProps {
 }
 
 export function LineChart({ data, color = '#a78bfa', height = 200, formatValue }: LineChartProps) {
+  const l = useLocalizer();
   const { points, areaPath, linePath, maxVal, minVal } = useMemo(() => {
     if (data.length === 0) return { points: [], areaPath: '', linePath: '', maxVal: 0, minVal: 0 };
     const w = 100;
@@ -28,7 +30,7 @@ export function LineChart({ data, color = '#a78bfa', height = 200, formatValue }
   }, [data]);
 
   if (data.length === 0) {
-    return <div className="flex items-center justify-center text-gray-600 text-sm" style={{ height }}>No data</div>;
+    return <div className="flex items-center justify-center text-gray-600 text-sm" style={{ height }}>{l('No data')}</div>;
   }
 
   return (
@@ -64,9 +66,10 @@ interface BarChartProps {
 }
 
 export function BarChart({ data, color = '#a78bfa', height = 200, formatValue }: BarChartProps) {
+  const l = useLocalizer();
   const max = Math.max(...data.map(d => d.value), 1);
   if (data.length === 0) {
-    return <div className="flex items-center justify-center text-gray-600 text-sm" style={{ height }}>No data</div>;
+    return <div className="flex items-center justify-center text-gray-600 text-sm" style={{ height }}>{l('No data')}</div>;
   }
   return (
     <div className="w-full flex flex-col gap-2" style={{ height }}>
@@ -104,6 +107,7 @@ interface DonutChartProps {
 }
 
 export function DonutChart({ data, size = 160 }: DonutChartProps) {
+  const l = useLocalizer();
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
@@ -113,7 +117,7 @@ export function DonutChart({ data, size = 160 }: DonutChartProps) {
   if (total === 0) {
     return (
       <div className="flex items-center justify-center text-gray-600 text-sm" style={{ width: size, height: size }}>
-        No data
+        {l('No data')}
       </div>
     );
   }

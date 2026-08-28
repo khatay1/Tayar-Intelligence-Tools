@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
 import {
   FileText, Upload, MessageSquare, Sparkles, Rocket,
@@ -26,6 +27,7 @@ const ACHIEVEMENT_ICONS: Record<string, typeof FileText> = {
 };
 
 export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDashboardProps) {
+  const l = useLocalizer();
   const { user, profile } = useAuth();
   const { state, hasAchievement } = useOnboarding();
   const [projectCount, setProjectCount] = useState(0);
@@ -65,7 +67,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-4 h-4 text-violet-400" />
-            <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">You're all set</span>
+            <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">{l("You're all set")}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
             Welcome, {displayName}! 👋
@@ -122,7 +124,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
         <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <Target className="w-4 h-4 text-violet-400" />
-            <h2 className="text-white font-bold text-sm">Your Progress</h2>
+            <h2 className="text-white font-bold text-sm">{l('Your Progress')}</h2>
           </div>
           <div className="space-y-3">
             {nextSteps.map((step, i) => (
@@ -148,7 +150,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-amber-400" />
-              <h2 className="text-white font-bold text-sm">Achievements</h2>
+              <h2 className="text-white font-bold text-sm">{l('Achievements')}</h2>
             </div>
             <span className="text-xs text-gray-500">{unlockedCount}/{ACHIEVEMENTS.length}</span>
           </div>
@@ -188,7 +190,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
       <div>
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp className="w-4 h-4 text-violet-400" />
-          <h2 className="text-white font-bold text-sm">Recommended For You</h2>
+          <h2 className="text-white font-bold text-sm">{l('Recommended For You')}</h2>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {recommendedTools.map((tool, i) => {

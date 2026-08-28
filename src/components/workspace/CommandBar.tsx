@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, ArrowRight, Search, Loader2 } from 'lucide-react';
 import { AI_COMMANDS, matchCommand, AICommand } from '@/lib/ai-commands';
@@ -9,6 +10,7 @@ interface CommandBarProps {
 }
 
 export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
+  const l = useLocalizer();
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -55,11 +57,11 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
           onChange={e => setQuery(e.target.value)}
           onFocus={() => setFocused(true)}
           onKeyDown={handleKey}
-          placeholder="Ask AI to do anything... e.g. 'Create a CV', 'Analyze this PDF', 'Translate text'"
+          placeholder={l("Ask AI to do anything... e.g. 'Create a CV', 'Analyze this PDF', 'Translate text'")}
           className={`flex-1 bg-transparent text-sm placeholder:text-gray-500 focus:outline-none ${darkMode ? 'text-white' : 'text-gray-900'}`}
         />
         {focused && query && (
-          <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'} hidden sm:block`}>Enter to open</span>
+          <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'} hidden sm:block`}>{l('Enter to open')}</span>
         )}
       </div>
 
@@ -70,7 +72,7 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
         >
           <div className="px-3 py-2 flex items-center gap-1.5">
             <Search className={`w-3 h-3 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
-            <span className={`text-xs font-medium ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>AI Commands</span>
+            <span className={`text-xs font-medium ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{l('AI Commands')}</span>
           </div>
           <div className="max-h-72 overflow-y-auto p-1.5">
             {matches.map((cmd, i) => {
@@ -104,7 +106,7 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
           style={{ animation: 'fadeInUp 0.15s ease-out' }}
         >
           <p className={`text-sm text-center ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-            No matching AI command. Try "Create a CV" or "Translate text".
+            {l('No matching AI command. Try Create a CV or Translate text.')}
           </p>
         </div>
       )}

@@ -27,8 +27,8 @@ export const AI_PROVIDERS: Record<AIProvider, ProviderConfig> = {
     envKey: 'OPENAI_API_KEY',
     description: 'GPT-4o, GPT-4o Mini, GPT-4 Turbo â€” versatile models for all tasks',
     models: [
-      { id: 'gemini-3.6-flash', label: 'gemini-3.6-flash', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
-      { id: 'gemini-3.6-flash', label: 'GPT-4o Mini', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
+      { id: 'gpt-4o', label: 'GPT-4o', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
+      { id: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai', maxTokens: 16384, contextWindow: 128000 },
       { id: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'openai', maxTokens: 4096, contextWindow: 128000 },
     ],
   },

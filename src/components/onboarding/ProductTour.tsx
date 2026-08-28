@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useRef } from 'react';
 import { ArrowRight, ArrowLeft, X, Check, SkipForward } from 'lucide-react';
 import { useOnboarding } from '@/context/OnboardingContext';
@@ -9,6 +10,7 @@ interface ProductTourProps {
 }
 
 export default function ProductTour({ onNavigate, onComplete }: ProductTourProps) {
+  const l = useLocalizer();
   const { recordTourStep, completeTour, skipTour } = useOnboarding();
   const [stepIdx, setStepIdx] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -155,7 +157,7 @@ export default function ProductTour({ onNavigate, onComplete }: ProductTourProps
               onClick={next}
               className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
             >
-              {stepIdx === TOUR_STEPS.length - 1 ? <><Check className="w-3.5 h-3.5" /> Finish</> : <>Next <ArrowRight className="w-3.5 h-3.5" /></>}
+              {stepIdx === TOUR_STEPS.length - 1 ? <><Check className="w-3.5 h-3.5" /> {l('Finish')}</> : <>{l('Next')} <ArrowRight className="w-3.5 h-3.5" /></>}
             </button>
           </div>
         </div>

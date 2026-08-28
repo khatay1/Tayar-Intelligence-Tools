@@ -1,4 +1,4 @@
-﻿import { usePreferences } from '@/context/PreferencesContext';
+import { usePreferences } from '@/context/PreferencesContext';
 
 export type Language = 'en' | 'ar' | 'sv';
 
@@ -41,7 +41,11 @@ export type TranslationKey =
   | 'page.help.title' | 'page.feedback.title' | 'page.bugReport.title'
   | 'page.contact.name' | 'page.contact.email' | 'page.contact.subject' | 'page.contact.message'
   | 'page.feedback.rating' | 'page.feedback.comment' | 'page.bugReport.severity'
-  | 'page.bugReport.steps' | 'page.bugReport.expected' | 'page.bugReport.actual';
+  | 'page.bugReport.steps' | 'page.bugReport.expected' | 'page.bugReport.actual'
+  | 'translator.title' | 'translator.description' | 'translator.from' | 'translator.to'
+  | 'translator.autoDetect' | 'translator.swap' | 'translator.swapDisabled'
+  | 'translator.textToTranslate' | 'translator.placeholder' | 'translator.translate'
+  | 'translator.translating' | 'translator.complete' | 'translator.failed' | 'translator.sameLanguage';
 
 type Translations = Record<TranslationKey, string>;
 
@@ -158,6 +162,20 @@ const en: Translations = {
   'page.bugReport.steps': 'Steps to Reproduce',
   'page.bugReport.expected': 'Expected Behavior',
   'page.bugReport.actual': 'Actual Behavior',
+  'translator.title': 'AI Translator',
+  'translator.description': 'Translate naturally across 75+ languages while preserving tone and formatting.',
+  'translator.from': 'From',
+  'translator.to': 'To',
+  'translator.autoDetect': 'Auto-detect',
+  'translator.swap': 'Swap languages',
+  'translator.swapDisabled': 'Choose a source language before swapping',
+  'translator.textToTranslate': 'Text to Translate',
+  'translator.placeholder': 'Enter text to translate...',
+  'translator.translate': 'Translate',
+  'translator.translating': 'Translating...',
+  'translator.complete': 'Translation complete',
+  'translator.failed': 'Translation failed',
+  'translator.sameLanguage': 'Source and target languages must be different',
   'workspace.welcome': 'Welcome back',
   'workspace.recentFiles': 'Recent Files',
   'workspace.favorites': 'Favorites',
@@ -296,6 +314,20 @@ const ar: Translations = {
   'page.bugReport.steps': 'خطوات إعادة الإنتاج',
   'page.bugReport.expected': 'السلوك المتوقع',
   'page.bugReport.actual': 'السلوك الفعلي',
+  'translator.title': 'المترجم بالذكاء الاصطناعي',
+  'translator.description': 'ترجمة طبيعية بين أكثر من 75 لغة مع الحفاظ على المعنى والنبرة والتنسيق.',
+  'translator.from': 'من',
+  'translator.to': 'إلى',
+  'translator.autoDetect': 'اكتشاف تلقائي',
+  'translator.swap': 'تبديل اللغات',
+  'translator.swapDisabled': 'اختر لغة المصدر أولاً قبل التبديل',
+  'translator.textToTranslate': 'النص المراد ترجمته',
+  'translator.placeholder': 'أدخل النص الذي تريد ترجمته...',
+  'translator.translate': 'ترجمة',
+  'translator.translating': 'جارٍ الترجمة...',
+  'translator.complete': 'اكتملت الترجمة',
+  'translator.failed': 'فشلت الترجمة',
+  'translator.sameLanguage': 'يجب أن تختلف لغة المصدر عن لغة الترجمة',
   'workspace.welcome': 'مرحباً بعودتك',
   'workspace.recentFiles': 'الملفات الأخيرة',
   'workspace.favorites': 'المفضلة',
@@ -434,6 +466,20 @@ const sv: Translations = {
   'page.bugReport.steps': 'Steg för att reproducera',
   'page.bugReport.expected': 'Förväntat beteende',
   'page.bugReport.actual': 'Faktiskt beteende',
+  'translator.title': 'AI-översättare',
+  'translator.description': 'Översätt naturligt mellan fler än 75 språk och behåll ton och formatering.',
+  'translator.from': 'Från',
+  'translator.to': 'Till',
+  'translator.autoDetect': 'Identifiera automatiskt',
+  'translator.swap': 'Byt språk',
+  'translator.swapDisabled': 'Välj ett källspråk innan du byter',
+  'translator.textToTranslate': 'Text att översätta',
+  'translator.placeholder': 'Skriv texten som ska översättas...',
+  'translator.translate': 'Översätt',
+  'translator.translating': 'Översätter...',
+  'translator.complete': 'Översättningen är klar',
+  'translator.failed': 'Översättningen misslyckades',
+  'translator.sameLanguage': 'Källspråk och målspråk måste vara olika',
   'workspace.welcome': 'Välkommen tillbaka',
   'workspace.recentFiles': 'Senaste filer',
   'workspace.favorites': 'Favoriter',

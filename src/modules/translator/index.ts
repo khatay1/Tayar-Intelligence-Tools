@@ -10,10 +10,10 @@ const module: ToolModule = {
   category: 'productivity',
   status: 'active',
   tier: 'free',
-  version: '2.0.0',
+  version: '2.1.0',
   icon: Languages,
   component: TranslatorTool,
-  defaultModel: 'gpt-4o-mini',
+  defaultModel: 'gemini-3.6-flash',
 };
 
 toolRegistry.register(module);

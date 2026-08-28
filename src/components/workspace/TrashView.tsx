@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 // Trash View — shows soft-deleted projects with 30-day retention and restore.
 
 import { useState, useEffect } from 'react';
@@ -19,6 +20,7 @@ interface TrashItem {
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export default function TrashView() {
+  const l = useLocalizer();
   const { user } = useAuth();
   const { success, error: showError, loading, update } = useToast();
   const [items, setItems] = useState<TrashItem[]>([]);
@@ -90,8 +92,8 @@ export default function TrashView() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Trash</h1>
-          <p className="text-gray-500 text-sm">Deleted items are kept for 30 days before being permanently removed.</p>
+          <h1 className="text-2xl font-bold text-white mb-1">{l('Trash')}</h1>
+          <p className="text-gray-500 text-sm">{l('Deleted items are kept for 30 days before being permanently removed.')}</p>
         </div>
         {items.length > 0 && (
           <button
@@ -159,14 +161,14 @@ export default function TrashView() {
                 <AlertTriangle className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="text-white font-bold text-base">Empty Trash?</h3>
-                <p className="text-gray-500 text-xs">This cannot be undone.</p>
+                <h3 className="text-white font-bold text-base">{l('Empty Trash?')}</h3>
+                <p className="text-gray-500 text-xs">{l('This cannot be undone.')}</p>
               </div>
             </div>
             <p className="text-gray-400 text-sm mb-4">All {items.length} items will be permanently deleted.</p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmPurge(false)} className="flex-1 text-gray-400 hover:text-white text-sm py-2.5 rounded-lg hover:bg-white/5 transition-colors">Cancel</button>
-              <button onClick={handleEmptyTrash} className="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">Delete All</button>
+              <button onClick={() => setConfirmPurge(false)} className="flex-1 text-gray-400 hover:text-white text-sm py-2.5 rounded-lg hover:bg-white/5 transition-colors">{l('Cancel')}</button>
+              <button onClick={handleEmptyTrash} className="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">{l('Delete All')}</button>
             </div>
           </div>
         </div>

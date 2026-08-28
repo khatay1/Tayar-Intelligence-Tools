@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState } from 'react';
 import { BookOpen, Loader2, Copy, Check } from 'lucide-react';
 import { ToolShell, ToolInputPanel, ToolOutputPanel, ToolField, toolInputClass, toolButtonClass } from '../shared/ToolShell';
@@ -11,6 +12,7 @@ const ACTIONS = [
 ];
 
 export default function DocumentAITool({ darkMode: _darkMode }: { darkMode: boolean }) {
+  const l = useLocalizer();
   const { loading, update } = useToast();
   const [action, setAction] = useState('summarize');
   const [content, setContent] = useState('');
@@ -23,7 +25,7 @@ export default function DocumentAITool({ darkMode: _darkMode }: { darkMode: bool
     if (!content) return;
     setGenerating(true);
     setResult('');
-    const toastId = loading('Analyzing document...');
+    const toastId = loading(l('Analyzing document...'));
     try {
       const ai = createAIService('document-ai');
       await ai.stream(
@@ -31,7 +33,7 @@ export default function DocumentAITool({ darkMode: _darkMode }: { darkMode: bool
         [],
         (chunk) => setResult(prev => prev + chunk)
       );
-      update(toastId, 'Analysis complete', 'success');
+      update(toastId, l('Analysis complete'), 'success');
     } catch (err) {
       update(toastId, (err as Error).message, 'error');
     }
@@ -45,25 +47,25 @@ export default function DocumentAITool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   return (
-    <ToolShell icon={BookOpen} title="Document AI" description="Summarize, analyze, and extract from documents." badge="Premium">
+    <ToolShell icon={BookOpen} title={l('Document AI')} description={l('Summarize, analyze, and extract from documents.')} badge="Premium">
       <div className="grid lg:grid-cols-2 gap-6">
         <ToolInputPanel>
-          <ToolField label="Action">
+          <ToolField label={l('Action')}>
             <select value={action} onChange={e => setAction(e.target.value)} className={toolInputClass}>
-              {ACTIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+              {ACTIONS.map(a => <option key={a.value} value={a.value}>{l(a.label)}</option>)}
             </select>
           </ToolField>
-          <ToolField label="Document Content">
-            <textarea value={content} onChange={e => setContent(e.target.value)} className={`${toolInputClass} min-h-[200px] resize-y font-mono text-xs`} placeholder="Paste your document text here..." />
+          <ToolField label={l('Document Content')}>
+            <textarea value={content} onChange={e => setContent(e.target.value)} className={`${toolInputClass} min-h-[200px] resize-y font-mono text-xs`} placeholder={l('Paste your document text here...')} />
           </ToolField>
           {action === 'qa' && (
-            <ToolField label="Question">
-              <input value={question} onChange={e => setQuestion(e.target.value)} className={toolInputClass} placeholder="What is the main conclusion?" />
+            <ToolField label={l('Question')}>
+              <input value={question} onChange={e => setQuestion(e.target.value)} className={toolInputClass} placeholder={l('What is the main conclusion?')} />
             </ToolField>
           )}
           <button onClick={handleAnalyze} disabled={generating || !content} className={toolButtonClass}>
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
-            {generating ? 'Analyzing...' : 'Analyze Document'}
+            {l(generating ? 'Analyzing...' : 'Analyze Document')}
           </button>
         </ToolInputPanel>
 
@@ -73,7 +75,7 @@ export default function DocumentAITool({ darkMode: _darkMode }: { darkMode: bool
               <div className="flex justify-end mb-2">
                 <button onClick={copyResult} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-xs transition-colors">
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? 'Copied' : 'Copy'}
+                  {l(copied ? 'Copied' : 'Copy')}
                 </button>
               </div>
               <div className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{result}</div>

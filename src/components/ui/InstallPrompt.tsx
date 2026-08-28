@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
 import { Download, X, Sparkles } from 'lucide-react';
 
@@ -9,6 +10,7 @@ interface BeforeInstallPromptEvent extends Event {
 const DISMISS_KEY = 'tayar-pwa-install-dismissed';
 
 export default function InstallPrompt() {
+  const l = useLocalizer();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -51,8 +53,8 @@ export default function InstallPrompt() {
             <Sparkles className="w-5 h-5 text-violet-400" />
           </div>
           <div className="flex-1">
-            <h3 className="text-white text-sm font-semibold mb-1">Install Tayar Intelligence</h3>
-            <p className="text-gray-500 text-xs leading-relaxed">Add to your home screen for a faster, app-like experience.</p>
+            <h3 className="text-white text-sm font-semibold mb-1">{l('Install Tayar Intelligence')}</h3>
+            <p className="text-gray-500 text-xs leading-relaxed">{l('Add to your home screen for a faster, app-like experience.')}</p>
           </div>
           <button onClick={handleDismiss} className="text-gray-500 hover:text-white transition-colors flex-shrink-0">
             <X className="w-4 h-4" />
@@ -62,7 +64,7 @@ export default function InstallPrompt() {
           onClick={handleInstall}
           className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
         >
-          <Download className="w-4 h-4" /> Install App
+          <Download className="w-4 h-4" /> {l('Install App')}
         </button>
       </div>
     </div>

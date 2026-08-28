@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 // Project View — shows a project's contents and allows adding items to it.
 
 import { useState, useEffect, useCallback } from 'react';
@@ -43,6 +44,7 @@ const ADD_OPTIONS = [
 ];
 
 export default function ProjectView({ projectId, onBack, onNavigate }: ProjectViewProps) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const { success, error: showError, loading, update } = useToast();
   const [project, setProject] = useState<{ id: string; title: string; type: string; favorite: boolean; pinned: boolean } | null>(null);
@@ -140,8 +142,8 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
                 onKeyDown={e => e.key === 'Enter' && confirmRename()}
                 className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-white text-lg font-bold focus:border-violet-500/50 focus:outline-none"
               />
-              <button onClick={confirmRename} className="text-violet-400 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-violet-500/10">Save</button>
-              <button onClick={() => setRenaming(false)} className="text-gray-500 text-sm px-3 py-1.5 rounded-lg hover:bg-white/5">Cancel</button>
+              <button onClick={confirmRename} className="text-violet-400 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-violet-500/10">{l('Save')}</button>
+              <button onClick={() => setRenaming(false)} className="text-gray-500 text-sm px-3 py-1.5 rounded-lg hover:bg-white/5">{l('Cancel')}</button>
             </div>
           ) : (
             <h1 className="text-2xl font-bold text-white cursor-pointer hover:text-violet-300 transition-colors" onClick={() => { setRenaming(true); setRenameValue(project.title); }}>
