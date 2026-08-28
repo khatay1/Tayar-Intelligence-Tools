@@ -178,3 +178,56 @@
   .print\:hidden { display: none !important; }
   .print\:block { display: block !important; }
 }
+.tayar-space-bg {
+  background-color: #06060e;
+  background-image:
+    linear-gradient(rgba(6, 6, 14, 0.82), rgba(6, 6, 14, 0.92)),
+    url('/brand/tayar-space-background.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.tayar-space-bg-soft {
+  background-color: #06060f;
+  background-image:
+    linear-gradient(rgba(6, 6, 15, 0.72), rgba(6, 6, 15, 0.92)),
+    url('/brand/tayar-space-background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+@media (max-width: 768px) {
+  .tayar-space-bg,
+  .tayar-space-bg-soft {
+    background-attachment: scroll;
+    background-position: 55% top;
+  }
+}
+html, body, #root { min-height: 100%; background: transparent !important; }
+body { background-color:#06060e !important; background-image:linear-gradient(rgba(6,6,14,.72),rgba(6,6,14,.9)),url('/brand/tayar-space-background.png') !important; background-size:cover !important; background-position:center top !important; background-repeat:no-repeat !important; background-attachment:fixed !important; }
+
+/* TAYAR COSMIC BACKGROUND — temporary visual test */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(rgba(6, 6, 14, 0.35), rgba(6, 6, 14, 0.72)),
+    url("/brand/tayar-space-background.png") center top / cover no-repeat;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: transparent !important;
+}
+
+#root > div {
+  background-color: transparent !important;
+}

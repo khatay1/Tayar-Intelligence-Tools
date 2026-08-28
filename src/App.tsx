@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+﻿import { lazy, Suspense, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { PreferencesProvider } from '@/context/PreferencesContext';
@@ -36,7 +36,7 @@ function FullScreenLoader() {
     <div className="flex min-h-screen items-center justify-center bg-[#06060e]">
       <div className="flex flex-col items-center gap-3">
         <Loader2 className="h-7 w-7 animate-spin text-violet-400" />
-        <p className="text-sm text-gray-500">Loading Tayar Intelligence…</p>
+        <p className="text-sm text-gray-500">Loading Tayar Intelligenceâ€¦</p>
       </div>
     </div>
   );
@@ -125,7 +125,7 @@ function AppContent() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-[#06060e] text-white antialiased">
+      <div className="min-h-screen tayar-space-bg text-white antialiased">
         <a href="#main-content" className="skip-link">Skip to content</a>
         <Suspense fallback={<FullScreenLoader />}>
           <Navbar onGetStarted={startFree} onLogin={() => navigate('login')} />
@@ -162,3 +162,4 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+

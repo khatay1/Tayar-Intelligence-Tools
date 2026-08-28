@@ -23,7 +23,7 @@ export default function AITools({ onGetStarted }: AIToolsProps) {
   };
 
   return (
-    <section id="tools" className="site-section bg-[#080811]">
+    <section id="tools" className="site-section bg-[#080811]/75">
       <div className="site-container">
         <div className="section-heading">
           <span className="eyebrow">{c.eyebrow}</span>

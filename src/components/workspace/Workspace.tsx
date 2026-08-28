@@ -272,7 +272,7 @@ const groups: { label: string; items: NavItem[] }[] = [
   }
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-[#06060f]' : 'bg-gray-50'} ${darkMode ? 'text-white' : 'text-gray-900'} flex`}>
+    <div className={`min-h-screen ${darkMode ? 'tayar-space-bg-soft' : 'bg-gray-50'} ${darkMode ? 'text-white' : 'text-gray-900'} flex`}>
       {darkMode && (
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[120px]" />
