@@ -5,7 +5,7 @@ export default function BusinessSolutions() {
   const c = useLandingCopy().business;
   const icons = [Globe2, Users, BarChart3];
   return (
-    <section id="business" className="site-section bg-[#06060e]/45 backdrop-blur-[2px]/45 backdrop-blur-[2px]">
+    <section id="business" className="site-section bg-[#06060e]/45 backdrop-blur-[2px]">
       <div className="site-container">
         <div className="section-heading">
           <span className="eyebrow">{c.eyebrow}</span>

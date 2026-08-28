@@ -6,7 +6,7 @@ interface CTAProps { onGetStarted?: () => void; }
 export default function CTA({ onGetStarted }: CTAProps) {
   const c = useLandingCopy().cta;
   return (
-    <section className="bg-[#06060e]/45 backdrop-blur-[2px]/45 backdrop-blur-[2px] px-4 py-16 sm:px-6 sm:py-20">
+    <section className="bg-[#06060e]/45 backdrop-blur-[2px] px-4 py-16 sm:px-6 sm:py-20">
       <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-violet-400/20 bg-gradient-to-br from-violet-600/[0.16] via-[#0d0d1b] to-fuchsia-600/[0.08] p-8 text-center shadow-[0_30px_90px_rgba(49,20,92,0.24)] sm:p-12 lg:p-16">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(167,139,250,0.14),transparent_45%)]" aria-hidden="true" />
         <div className="relative">

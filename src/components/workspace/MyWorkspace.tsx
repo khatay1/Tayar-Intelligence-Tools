@@ -1,4 +1,4 @@
-﻿// {t('nav.myWorkspace')} — the central hub combining recent activity, favorites, pinned files,
+// {t('nav.myWorkspace')} — the central hub combining recent activity, favorites, pinned files,
 // project shortcuts, storage, and quick actions.
 
 import { useState, useEffect, useCallback } from 'react';

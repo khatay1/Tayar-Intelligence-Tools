@@ -6,7 +6,7 @@ export default function FAQ() {
   const c = useLandingCopy().faq;
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section id="faq" className="site-section bg-[#080811]/55 backdrop-blur-[2px]/55 backdrop-blur-[2px]">
+    <section id="faq" className="site-section bg-[#080811]/55 backdrop-blur-[2px]">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="section-heading">
           <span className="eyebrow">{c.eyebrow}</span>

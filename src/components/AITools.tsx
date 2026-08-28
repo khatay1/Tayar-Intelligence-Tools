@@ -23,7 +23,7 @@ export default function AITools({ onGetStarted }: AIToolsProps) {
   };
 
   return (
-    <section id="tools" className="site-section bg-[#080811]/55 backdrop-blur-[2px]/55 backdrop-blur-[2px]">
+    <section id="tools" className="site-section bg-[#080811]/55 backdrop-blur-[2px]">
       <div className="site-container">
         <div className="section-heading">
           <span className="eyebrow">{c.eyebrow}</span>
