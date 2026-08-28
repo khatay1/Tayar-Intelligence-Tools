@@ -5960,6 +5960,10 @@ if (generated.seo) {
       setPublishError('Save this project to the cloud before publishing.');
       return;
     }
+    if (!v1LaunchStatus.preflightReady) {
+      setPublishError(`Publish preflight blocked: ${v1LaunchStatus.blockers[0] || 'complete the Launch Center checks first.'}`);
+      return;
+    }
 
     const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
     if (!supabaseUrl) {
@@ -6222,6 +6226,11 @@ if (generated.seo) {
       !networkOnline ? 'Reconnect to the internet.' : '',
       cloudSyncFailed || autoSaveStatus === 'failed' ? 'Resolve cloud sync before publishing.' : '',
       siteAudit.errors.length ? `Fix ${siteAudit.errors.length} critical audit error${siteAudit.errors.length === 1 ? '' : 's'}.` : '',
+      !siteAudit.errors.length && siteAudit.score < 80 ? 'Raise the SEO and accessibility audit score to at least 80.' : '',
+      !productionUrlReady ? 'Add a valid production URL.' : '',
+      !seoReady ? 'Complete the SEO title and favicon.' : '',
+      billingLoading ? 'Wait for billing entitlements to finish loading.' : '',
+      !billingVerified && !billingLoading && !billingError ? 'Refresh billing entitlements before publishing.' : '',
       productionConfig.maintenanceMode ? 'Disable maintenance mode for public launch.' : '',
       user && cloudProjectId && !projectTeamAccess.canPublish ? 'The project owner must perform the publish.' : '',
       billingError ? 'Billing entitlements could not be verified.' : '',
@@ -6601,9 +6610,9 @@ if (generated.seo) {
 
           <button
             onClick={() => void publishWebsite()}
-            disabled={!user || !cloudProjectId || publishBusy || !projectTeamAccess.canPublish}
+            disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
             className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
-            title={!user ? 'Sign in before publishing' : !cloudProjectId ? 'Save this project to cloud first' : !projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : 'Publish website'}
+            title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
           >
             <Globe className="h-4 w-4" />
             {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}

@@ -69,6 +69,24 @@ function AppContent() {
 
   useEffect(() => {
     if (loading) return;
+
+    const replaceHash = (nextHash: string) => {
+      const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+      window.history.replaceState({}, '', nextUrl);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    };
+
+    if (user) {
+      if (hashRoute === 'admin' || hashRoute.startsWith('workspace/')) return;
+      replaceHash('#workspace/my-workspace');
+      return;
+    }
+
+    if (hashRoute.startsWith('workspace/')) replaceHash('');
+  }, [user, loading, hashRoute]);
+
+  useEffect(() => {
+    if (loading) return;
     if (user) {
       updateSEO(PAGE_SEO.workspace);
       trackPageView('/workspace');
@@ -162,4 +180,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-

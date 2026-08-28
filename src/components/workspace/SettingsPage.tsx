@@ -5,6 +5,7 @@ import {
   Download, Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import { usePreferences, Theme, Language } from '@/context/PreferencesContext';
 import { LANGUAGE_LABELS } from '@/lib/i18n';
 import { useLocalizer } from '@/lib/ui-localization';
@@ -333,6 +334,7 @@ function ProfileTab({
 }) {
   void darkMode;
   const l = useLocalizer();
+  const { isAdmin } = useAdmin();
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [bio, setBio] = useState('');
   const [saving, setSaving] = useState(false);
@@ -362,7 +364,7 @@ function ProfileTab({
             <p className="text-gray-500 text-sm">{user?.email}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 capitalize">
-                {profile?.plan || 'free'} {l('plan')}
+                {isAdmin ? l('Admin · Business access') : `${profile?.plan || 'free'} ${l('plan')}`}
               </span>
               {user?.email_confirmed_at ? (
                 <span className="flex items-center gap-1 text-xs text-emerald-400">

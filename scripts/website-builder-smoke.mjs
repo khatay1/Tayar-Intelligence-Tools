@@ -6,6 +6,7 @@ const builderPath = resolve(root, 'src/modules/website-builder/WebsiteBuilderToo
 const qualityMigrationPath = resolve(root, 'supabase/migrations/20260828161000_quality_security_hardening.sql');
 const teamMigrationPath = resolve(root, 'supabase/migrations/20260828155500_add_team_workspaces.sql');
 const billingMigrationPath = resolve(root, 'supabase/migrations/20260828154000_add_secure_billing_entitlements.sql');
+const adminEntitlementsMigrationPath = resolve(root, 'supabase/migrations/20260828223000_admin_business_entitlements.sql');
 
 const failures = [];
 const passes = [];
@@ -19,12 +20,14 @@ for (const [label, path] of [
   ['Quality/security migration exists', qualityMigrationPath],
   ['Team workspace migration exists', teamMigrationPath],
   ['Billing migration exists', billingMigrationPath],
+  ['Admin Business entitlements migration exists', adminEntitlementsMigrationPath],
 ]) {
   check(label, existsSync(path));
 }
 
 const builder = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
 const migration = existsSync(qualityMigrationPath) ? readFileSync(qualityMigrationPath, 'utf8') : '';
+const adminEntitlementsMigration = existsSync(adminEntitlementsMigrationPath) ? readFileSync(adminEntitlementsMigrationPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Recovery snapshot storage is enabled', builder.includes('RECOVERY_STORAGE_KEY'));
@@ -33,6 +36,9 @@ check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
 check('Cloud mutations retry transient failures', builder.includes('retryCloudOperation'));
 check('Publish preflight blocks critical audit errors', builder.includes('Publish preflight blocked: fix'));
 check('Publish preflight blocks offline deploys', builder.includes('Publish preflight blocked: you are offline'));
+check('Top-level Publish button uses the complete launch preflight', builder.includes('disabled={!v1LaunchStatus.preflightReady || publishBusy'));
+check('Publish handler enforces the complete launch preflight', builder.includes('Publish preflight blocked: ${v1LaunchStatus.blockers[0]'));
+check('Launch blockers include production URL and SEO branding', builder.includes("!productionUrlReady ? 'Add a valid production URL.'") && builder.includes("!seoReady ? 'Complete the SEO title and favicon.'"));
 check('Generated pages use a referrer policy', builder.includes('strict-origin-when-cross-origin'));
 check('Generated pages include CSP', builder.includes('Content-Security-Policy'));
 check('Generated pages have keyboard skip navigation', builder.includes('tayar-skip-link'));
@@ -43,6 +49,9 @@ check('Form submission rate limit is enforced', migration.includes("'lead-form'"
 check('Analytics page-view rate limit is enforced', migration.includes("'analytics-page-view'"));
 check('Analytics event rate limit is enforced', migration.includes("'analytics-event'"));
 check('Plan ingestion caps are enforced', migration.includes('website_public_ingestion_limit'));
+check('Admin role receives effective Business entitlements', adminEntitlementsMigration.includes("WHEN p.role = 'admin' THEN 'business'"));
+check('Billing state uses the shared effective plan', adminEntitlementsMigration.includes('v_plan := public.team_effective_plan(v_owner_id)'));
+check('Admin entitlement does not mutate subscription records', !/UPDATE\s+public\.subscriptions/i.test(adminEntitlementsMigration));
 check('Server-side email validation exists', migration.includes('Invalid email address'));
 check('Rate-limit table is not directly exposed to anon users', migration.includes('REVOKE ALL ON public.website_public_rate_limits'));
 check('No Stripe live secret literal appears in changed source', !/sk_live_[A-Za-z0-9]+/.test(builder + migration));

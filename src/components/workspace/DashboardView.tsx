@@ -5,6 +5,7 @@ import {
   Loader2, TrendingUp, Lightbulb, Zap, Lock,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import { supabase } from '@/lib/supabase';
 import { useProjects, Project } from '@/lib/use-projects';
 import { useToolPreferences } from '@/lib/use-tool-preferences';
@@ -26,6 +27,7 @@ const RECOMMENDATIONS: { icon: typeof TrendingUp; title: string; desc: string; a
 export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const l = useLocalizer();
   const { user, profile } = useAuth();
+  const { isAdmin } = useAdmin();
   const { deleteProject, renameProject, duplicateProject } = useProjects();
   const prefs = useToolPreferences();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -303,7 +305,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <h2 className="text-white font-bold text-base">{l('AI Recommendations')}</h2>
             </div>
             <div className="space-y-3">
-              {RECOMMENDATIONS.map((rec, i) => {
+              {RECOMMENDATIONS.filter((rec) => !isAdmin || rec.action !== 'subscription').map((rec, i) => {
                 const Icon = rec.icon;
                 return (
                   <div key={i} className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4 hover:border-violet-500/20 transition-all">
@@ -356,7 +358,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               )}
             </div>
 
-            <div className="mt-4 relative bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 border border-violet-500/20 rounded-2xl p-4 overflow-hidden">
+            {!isAdmin && <div className="mt-4 relative bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 border border-violet-500/20 rounded-2xl p-4 overflow-hidden">
               <div className="absolute -top-4 -right-4 w-20 h-20 bg-violet-500/20 rounded-full blur-2xl" />
               <div className="relative">
                 <div className="flex items-center gap-2 mb-1.5">
@@ -371,7 +373,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   Upgrade Now
                 </button>
               </div>
-            </div>
+            </div>}
           </div>
         </div>
       )}
