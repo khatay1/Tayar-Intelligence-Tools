@@ -3492,7 +3492,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setMediaLoading(false);
   }
 
-  function useMediaAsset(asset: WebsiteMediaAsset) {
+  function applyMediaAsset(asset: WebsiteMediaAsset) {
     if (!selectedSection) return;
 
     if (selectedElement?.type === 'image') {
@@ -5662,8 +5662,8 @@ if (generated.seo) {
     });
 
     downloadTextFile(
-      `${normalizeSlug(siteName || 'website')}-analytics.csv`,
-      `\uFEFF${buildCsv(rows)}`,
+      `${normalizeSlug(siteName || 'website')}-analytics.csv`, `\uFEFF${buildCsv(rows)}`,
+
       'text/csv;charset=utf-8',
     );
   }
@@ -7155,13 +7155,13 @@ if (generated.seo) {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                 {mediaAssets.map((asset) => (
                   <article key={asset.path} className={`overflow-hidden rounded-xl border ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                    <button type="button" onClick={() => useMediaAsset(asset)} className="block w-full" title={l('Use image')}>
+                    <button type="button" onClick={() => applyMediaAsset(asset)} className="block w-full" title={l('Use image')}>
                       <img src={asset.url} alt={asset.name} className="aspect-square w-full object-cover" loading="lazy" />
                     </button>
                     <div className="p-2">
                       <p className="truncate text-[10px] font-semibold" title={asset.name}>{asset.name}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <button onClick={() => useMediaAsset(asset)} className="text-[10px] font-bold text-fuchsia-400">{l('Use')}</button>
+                        <button onClick={() => applyMediaAsset(asset)} className="text-[10px] font-bold text-fuchsia-400">{l('Use')}</button>
                         <button onClick={() => { setFaviconUrl(asset.url); setSaved(false); }} className="text-[10px] font-bold text-emerald-400">{l('Favicon')}</button>
                         <button onClick={() => updateActivePageMeta({ socialImage: asset.url })} disabled={!activePage} className="text-[10px] font-bold text-sky-400 disabled:opacity-40">{l('Social')}</button>
                         <button onClick={() => void deleteMediaAsset(asset)} className="text-[10px] font-bold text-rose-400">{l('Delete')}</button>
