@@ -55,6 +55,21 @@ const LANGUAGES: { code: 'en' | 'ar' | 'sv'; label: string }[] = [
   { code: 'sv', label: 'Svenska' },
 ];
 
+const DEFAULT_WORKSPACE_VIEW: ViewId = 'my-workspace';
+
+function getWorkspaceViewFromHash(): ViewId {
+  const route = window.location.hash.replace(/^#/, '');
+  if (!route.startsWith('workspace/')) return DEFAULT_WORKSPACE_VIEW;
+
+  const candidate = route.slice('workspace/'.length);
+  const knownViews = new Set<string>([
+    ...NAV_ITEMS.map((item) => item.id),
+    ...toolRegistry.all().map((tool) => tool.id),
+  ]);
+
+  return knownViews.has(candidate) ? candidate as ViewId : DEFAULT_WORKSPACE_VIEW;
+}
+
 export default function Workspace({ onExitToLanding }: WorkspaceProps) {
   return (
     <WorkspaceProvider>
@@ -69,7 +84,7 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
 const { t } = useTranslation();
   const l = useLocalizer();
   const { state: onboardingState, loading: onboardingLoading, needsOnboarding } = useOnboarding();
-  const [activeView, setActiveView] = useState<ViewId>('my-workspace');
+  const [activeView, setActiveView] = useState<ViewId>(getWorkspaceViewFromHash);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
@@ -108,6 +123,17 @@ const { t } = useTranslation();
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  useEffect(() => {
+    const syncViewFromHash = () => {
+      const nextView = getWorkspaceViewFromHash();
+      setActiveView(nextView);
+      if (nextView !== 'my-projects') setActiveProjectId(null);
+    };
+
+    window.addEventListener('hashchange', syncViewFromHash);
+    return () => window.removeEventListener('hashchange', syncViewFromHash);
+  }, []);
+
   // Ctrl+K / Cmd+K to open command palette
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -123,13 +149,16 @@ const { t } = useTranslation();
   function navigate(view: ViewId, projectId?: string) {
     setActiveView(view);
     if (projectId) setActiveProjectId(projectId);
+    else if (view !== 'my-projects') setActiveProjectId(null);
     setSidebarOpen(false);
+    const nextHash = `#workspace/${view}`;
+    if (window.location.hash !== nextHash) window.location.hash = nextHash;
     trackPageView(`/workspace/${view}`);
   }
 
   // Onboarding gate: show wizard if user hasn't completed it
   if (!onboardingLoading && needsOnboarding) {
-    return <OnboardingWizard onComplete={() => { setShowWelcomeDash(true); setActiveView('my-workspace'); }} />;
+    return <OnboardingWizard onComplete={() => { setShowWelcomeDash(true); navigate('my-workspace'); }} />;
   }
 
   // Show welcome dashboard right after onboarding
@@ -268,7 +297,7 @@ const groups: { label: string; items: NavItem[] }[] = [
   },
 ];
   if (activeView === 'cv-builder') {
-    return <ResumeBuilder onBack={() => setActiveView('my-workspace')} />;
+    return <ResumeBuilder onBack={() => navigate('my-workspace')} />;
   }
 
   return (
@@ -429,7 +458,7 @@ const groups: { label: string; items: NavItem[] }[] = [
               {activeView === 'my-files' && <FileManager onNavigate={navigate} />}
               {activeView === 'my-projects' && !activeProjectId && <FileManager onNavigate={navigate} />}
               {activeView === 'my-projects' && activeProjectId && (
-                <ProjectView projectId={activeProjectId} onBack={() => { setActiveProjectId(null); setActiveView('my-workspace'); }} onNavigate={(v) => navigate(v)} />
+                <ProjectView projectId={activeProjectId} onBack={() => { setActiveProjectId(null); navigate('my-workspace'); }} onNavigate={(v) => navigate(v)} />
               )}
               {activeView === 'trash' && <TrashView />}
               {activeView === 'activity-timeline' && <ActivityTimeline darkMode={darkMode} onNavigate={navigate} />}

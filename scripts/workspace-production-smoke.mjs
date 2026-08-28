@@ -9,6 +9,7 @@ const bug = read('src/components/workspace/BugReportPage.tsx');
 const subscription = read('src/components/workspace/SubscriptionView.tsx');
 const support = read('src/components/workspace/SupportView.tsx');
 const register = read('src/components/auth/Register.tsx');
+const app = read('src/App.tsx');
 
 const checks = [
   ['Subscription view exists', subscription.includes('create-checkout-session') && subscription.includes('billing-portal')],
@@ -24,6 +25,9 @@ const checks = [
   ['Register old 50+ claim removed', !register.includes('50+ AI tools')],
   ['Workspace billing placeholder removed', !workspace.includes("activeView === 'subscription' && <PlaceholderView")],
   ['Workspace support placeholder removed', !workspace.includes("activeView === 'support' && <PlaceholderView")],
+  ['Signed-in auth hashes normalize to a workspace route', app.includes("replaceHash('#workspace/my-workspace')")],
+  ['Workspace navigation persists the active view in the URL', workspace.includes('const nextHash = `#workspace/${view}`')],
+  ['Workspace restores the active view from the URL', workspace.includes('getWorkspaceViewFromHash') && workspace.includes("window.addEventListener('hashchange', syncViewFromHash)")],
 ];
 
 let failed = 0;
