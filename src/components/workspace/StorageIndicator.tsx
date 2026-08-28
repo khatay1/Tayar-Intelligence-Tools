@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { HardDrive, Cloud } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 
 interface StorageData {
   usedMB: number;
@@ -16,6 +17,7 @@ interface StorageData {
 export function StorageIndicator({ compact = false }: { compact?: boolean }) {
   const l = useLocalizer();
   const { user } = useAuth();
+  const { isAdmin } = useAdmin();
   const [data, setData] = useState<StorageData>({ usedMB: 0, quotaMB: 500, fileCount: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -30,10 +32,10 @@ export function StorageIndicator({ compact = false }: { compact?: boolean }) {
         const fileCount = rows?.length || 0;
         const usedBytes = JSON.stringify(rows || []).length;
         const usedMB = usedBytes / (1024 * 1024);
-        setData({ usedMB, quotaMB: 500, fileCount });
+        setData({ usedMB, quotaMB: isAdmin ? 10240 : 500, fileCount });
         setLoading(false);
       });
-  }, [user]);
+  }, [user, isAdmin]);
 
   const percent = Math.min((data.usedMB / data.quotaMB) * 100, 100);
   const isLow = percent > 80;

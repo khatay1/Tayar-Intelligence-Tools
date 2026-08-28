@@ -8,6 +8,7 @@ import {
   Zap, Crown, Activity,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import { supabase } from '@/lib/supabase';
 import { useProjects, Project } from '@/lib/use-projects';
 import { getFileMeta, timeAgo, ViewId } from './workspace-config';
@@ -50,6 +51,7 @@ const TYPE_ICONS: Record<string, typeof FileText> = {
 export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
+  const { isAdmin } = useAdmin();
   const { createProject } = useProjects();
   const { success, error: showError, loading, update } = useToast();
   const [recentFiles, setRecentFiles] = useState<Project[]>([]);
@@ -244,7 +246,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
 
         <div>
           <StorageIndicator />
-          <div className="mt-4 relative bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 border border-violet-500/20 rounded-2xl p-4 overflow-hidden">
+          {!isAdmin && <div className="mt-4 relative bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 border border-violet-500/20 rounded-2xl p-4 overflow-hidden">
             <div className="absolute -top-4 -right-4 w-20 h-20 bg-violet-500/20 rounded-full blur-2xl" />
             <div className="relative">
               <div className="flex items-center gap-2 mb-1.5">
@@ -259,7 +261,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
                 Upgrade Now
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -321,4 +323,3 @@ function FileRow({ project, onOpen, compact }: { project: Project; onOpen: () =>
     </button>
   );
 }
-

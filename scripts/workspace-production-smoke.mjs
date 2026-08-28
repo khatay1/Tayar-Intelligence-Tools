@@ -10,6 +10,9 @@ const subscription = read('src/components/workspace/SubscriptionView.tsx');
 const support = read('src/components/workspace/SupportView.tsx');
 const register = read('src/components/auth/Register.tsx');
 const app = read('src/App.tsx');
+const dashboard = read('src/components/workspace/DashboardView.tsx');
+const myWorkspace = read('src/components/workspace/MyWorkspace.tsx');
+const settings = read('src/components/workspace/SettingsPage.tsx');
 
 const checks = [
   ['Subscription view exists', subscription.includes('create-checkout-session') && subscription.includes('billing-portal')],
@@ -28,6 +31,12 @@ const checks = [
   ['Signed-in auth hashes normalize to a workspace route', app.includes("replaceHash('#workspace/my-workspace')")],
   ['Workspace navigation persists the active view in the URL', workspace.includes('const nextHash = `#workspace/${view}`')],
   ['Workspace restores the active view from the URL', workspace.includes('getWorkspaceViewFromHash') && workspace.includes("window.addEventListener('hashchange', syncViewFromHash)")],
+  ['Workspace labels admin Business access', workspace.includes("isAdmin ? 'Admin · Business access'")],
+  ['Admin upgrade prompt is hidden in sidebar', workspace.includes('!isAdmin && <div className="px-3 pb-3">')],
+  ['Admin panel link is only rendered for admins', workspace.includes('{isAdmin && <a href="#admin"')],
+  ['Admin upgrade recommendations are hidden', dashboard.includes("!isAdmin || rec.action !== 'subscription'")],
+  ['Admin workspace upgrade card is hidden', myWorkspace.includes('!isAdmin && <div className="mt-4 relative')],
+  ['Settings identifies admin Business access', settings.includes("isAdmin ? l('Admin · Business access')")],
 ];
 
 let failed = 0;

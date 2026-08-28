@@ -4,6 +4,7 @@ import {
   Crown, User as UserIcon, Settings, CreditCard, Command, Activity, Shield, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useTranslation } from '@/lib/i18n';
 import { useLocalizer } from '@/lib/ui-localization';
@@ -80,6 +81,7 @@ export default function Workspace({ onExitToLanding }: WorkspaceProps) {
 
 function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
   const { user, profile, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const { prefs, setTheme, setLanguage } = usePreferences();
 const { t } = useTranslation();
   const l = useLocalizer();
@@ -111,7 +113,7 @@ const { t } = useTranslation();
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
   const initials = displayName.charAt(0).toUpperCase();
-  const plan = profile?.plan || 'free';
+  const planLabel = isAdmin ? 'Admin · Business access' : `${profile?.plan || 'free'} plan`;
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -351,7 +353,7 @@ const groups: { label: string; items: NavItem[] }[] = [
           ))}
         </nav>
 
-        <div className="px-3 pb-3">
+        {!isAdmin && <div className="px-3 pb-3">
           <div className="relative bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 border border-violet-500/20 rounded-xl p-4 overflow-hidden">
             <div className="absolute -top-4 -right-4 w-20 h-20 bg-violet-500/20 rounded-full blur-2xl" />
             <div className="relative">
@@ -363,14 +365,14 @@ const groups: { label: string; items: NavItem[] }[] = [
               <button onClick={() => navigate('subscription')} className="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors">{l('Upgrade Now')}</button>
             </div>
           </div>
-        </div>
+        </div>}
 
         <div className={`px-3 pb-4 border-t ${darkMode ? 'border-violet-400/10' : 'border-gray-200'} pt-3`}>
           <div className="flex items-center gap-3 px-2">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">{initials}</div>
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{displayName}</div>
-              <div className="text-violet-400 text-xs capitalize">{plan} plan</div>
+              <div className="text-violet-400 text-xs capitalize">{planLabel}</div>
             </div>
             <button onClick={signOut} className={`transition-colors flex-shrink-0 ${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
               <LogOut className="w-4 h-4" />
@@ -441,7 +443,7 @@ const groups: { label: string; items: NavItem[] }[] = [
                       <button onClick={() => { navigate('subscription'); setProfileOpen(false); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><CreditCard className="w-4 h-4" /> {l('Subscription')}</button>
                       <button onClick={() => { navigate('activity-timeline'); setProfileOpen(false); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Activity className="w-4 h-4" /> {l('Recent Activity')}</button>
                       <button onClick={() => { setProfileOpen(false); setTourActive(true); }} className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Sparkles className="w-4 h-4" /> {l('Replay Tour')}</button>
-                      <a href="#admin" className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Shield className="w-4 h-4" /> {l('Admin Panel')}</a>
+                      {isAdmin && <a href="#admin" className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Shield className="w-4 h-4" /> {l('Admin Panel')}</a>}
                       <button onClick={signOut} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><LogOut className="w-4 h-4" /> {l('Sign out')}</button>
                     </div>
                   </div>
