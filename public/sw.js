@@ -1,6 +1,7 @@
 // Service Worker for Tayar Intelligence Tools PWA
-const CACHE_NAME = 'tayar-v1';
+const CACHE_NAME = 'tayar-v2';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/offline.html'];
+const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1']);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -20,34 +21,48 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  const url = new URL(request.url);
 
-  // Skip non-GET and cross-origin requests
-  if (request.method !== 'GET' || !request.url.startsWith(self.location.origin)) return;
+  // Never intercept the Vite development server. A previously registered
+  // production worker can otherwise break HMR/module requests on localhost.
+  if (LOCAL_DEV_HOSTS.has(url.hostname)) return;
 
-  // Network-first for HTML, cache-first for static assets
+  // Skip non-GET and cross-origin requests.
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+
+  // Network-first for HTML, cache-first for static assets.
   if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => undefined);
+          }
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match('/offline.html')))
+        .catch(() =>
+          caches.match(request).then((cached) => cached || caches.match('/offline.html'))
+        )
     );
-  } else {
-    event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
-            if (response.status === 200) {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            }
-            return response;
-          })
-      )
-    );
+    return;
   }
+
+  event.respondWith(
+    caches.match(request).then(async (cached) => {
+      if (cached) return cached;
+
+      try {
+        const response = await fetch(request);
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => undefined);
+        }
+        return response;
+      } catch {
+        // Avoid uncaught fetch promise errors for transient/blocked static requests.
+        return new Response('', { status: 504, statusText: 'Gateway Timeout' });
+      }
+    })
+  );
 });
