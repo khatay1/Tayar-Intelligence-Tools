@@ -96,7 +96,13 @@ check('ws security override is pinned to 8.21.3+', packageJson.overrides?.ws ===
 check('Auth refreshes profile after auth state changes', auth.includes('void fetchProfile(nextSession.user.id)'));
 check('Admin access uses trusted is_admin RPC', adminContext.includes("supabase.rpc('is_admin')") && !adminContext.includes(".select('role')"));
 check('Admin role fields are not directly client-updatable', adminSecurityMigration.includes('REVOKE UPDATE ON public.profiles FROM authenticated') && adminSecurityMigration.includes('GRANT UPDATE (full_name, avatar_url, language)'));
-check('Admin user mutations use protected RPCs', adminUsers.includes("supabase.rpc('admin_update_user'") && adminUsers.includes("supabase.rpc('admin_delete_user'") && !adminUsers.includes(".from('profiles').update"));
+check(
+  'Admin user mutations use protected RPCs',
+  adminUsers.includes("supabase.rpc('admin_update_user'") &&
+  adminUsers.includes("admin_delete_user") &&
+  adminUsers.includes("admin_delete_user_and_block") &&
+  !adminUsers.includes(".from('profiles').update")
+);
 check('Admin user list uses server-side RPC', adminHooks.includes("supabase.rpc('admin_list_users')"));
 check('Admin self-lockout protections exist', adminSecurityMigration.includes('You cannot remove or suspend your own administrator access') && adminSecurityMigration.includes('You cannot delete your own administrator account'));
 check('Active admins receive business-level builder access without fake billing', adminFullAccessMigration.includes("v_plan := 'business'") && adminFullAccessMigration.includes("'accessSource'") && adminFullAccessMigration.includes("'admin'"));
