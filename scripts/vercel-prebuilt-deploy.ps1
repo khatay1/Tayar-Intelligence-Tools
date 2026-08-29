@@ -117,26 +117,107 @@ Write-Host "Pulling production environment/config..." -ForegroundColor Cyan
 Invoke-Vercel pull --yes --environment=production --scope $Scope
 
 Write-Host ""
-Write-Host "Building locally for production..." -ForegroundColor Cyan
-Write-Host "Using command processor: $env:ComSpec" -ForegroundColor DarkGray
-Write-Host "Using npm script shell: $env:npm_config_script_shell" -ForegroundColor DarkGray
+Write-Host "Building Vite directly (bypassing vercel build)..." -ForegroundColor Cyan
 
-# Prove the exact child-process path Vercel/npm will need before entering build.
-$previousErrorAction = $ErrorActionPreference
-$ErrorActionPreference = 'Continue'
+$ViteEntry = Join-Path (Get-Location) 'node_modules\vite\bin\vite.js'
+if (-not (Test-Path $ViteEntry)) {
+  throw "Local Vite installation not found at $ViteEntry. Run npm install in the project, then rerun this script."
+}
+
+# vercel pull writes the production environment here. Vite expects production
+# env files at the project root, so expose it only for the duration of the build.
+$PulledEnv = Join-Path (Get-Location) '.vercel\.env.production.local'
+$RootEnv = Join-Path (Get-Location) '.env.production.local'
+$RootEnvBackup = Join-Path $env:TEMP ('tayar-env-production-' + [guid]::NewGuid().ToString('N') + '.bak')
+$HadRootEnv = Test-Path $RootEnv
+
+if ($HadRootEnv) {
+  Copy-Item $RootEnv $RootEnvBackup -Force
+}
+if (Test-Path $PulledEnv) {
+  Copy-Item $PulledEnv $RootEnv -Force
+}
+
 try {
-  & node.exe -e "const {spawnSync}=require('node:child_process'); const p=spawnSync(process.env.npm_config_script_shell,['/d','/s','/c','echo cmd-ok'],{encoding:'utf8'}); if(p.error){console.error(p.error); process.exit(1)}; process.stdout.write(p.stdout||''); process.exit(p.status||0)" 2>&1 |
-    ForEach-Object { Write-Host $_ }
-  $cmdProbeExit = $LASTEXITCODE
+  if (Test-Path (Join-Path (Get-Location) 'dist')) {
+    Remove-Item (Join-Path (Get-Location) 'dist') -Recurse -Force
+  }
+
+  $previousErrorAction = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & node.exe $ViteEntry build 2>&1 | ForEach-Object { Write-Host $_ }
+    $viteExit = $LASTEXITCODE
+  }
+  finally {
+    $ErrorActionPreference = $previousErrorAction
+  }
+
+  if ($viteExit -ne 0) {
+    throw "Direct Vite production build failed (exit $viteExit)"
+  }
 }
 finally {
-  $ErrorActionPreference = $previousErrorAction
-}
-if ($cmdProbeExit -ne 0) {
-  throw "Node could not launch the configured command processor: $env:npm_config_script_shell"
+  if ($HadRootEnv -and (Test-Path $RootEnvBackup)) {
+    Copy-Item $RootEnvBackup $RootEnv -Force
+    Remove-Item $RootEnvBackup -Force
+  }
+  elseif (Test-Path $RootEnv) {
+    Remove-Item $RootEnv -Force
+  }
 }
 
-Invoke-Vercel build --prod --scope $Scope
+$DistDir = Join-Path (Get-Location) 'dist'
+if (-not (Test-Path (Join-Path $DistDir 'index.html'))) {
+  throw "Vite build completed but dist\index.html is missing"
+}
+
+Write-Host ""
+Write-Host "Creating Vercel Build Output API artifact..." -ForegroundColor Cyan
+$OutputDir = Join-Path (Get-Location) '.vercel\output'
+$StaticDir = Join-Path $OutputDir 'static'
+if (Test-Path $OutputDir) {
+  Remove-Item $OutputDir -Recurse -Force
+}
+New-Item -ItemType Directory -Force -Path $StaticDir | Out-Null
+Copy-Item (Join-Path $DistDir '*') $StaticDir -Recurse -Force
+
+$OutputConfig = @{
+  version = 3
+  routes = @(
+    @{
+      src = '/(.*)'
+      headers = @{
+        'Strict-Transport-Security' = 'max-age=63072000; includeSubDomains; preload'
+        'X-Content-Type-Options' = 'nosniff'
+        'X-Frame-Options' = 'DENY'
+        'Referrer-Policy' = 'strict-origin-when-cross-origin'
+        'Permissions-Policy' = 'camera=(), microphone=(), geolocation=()'
+      }
+      continue = $true
+    },
+    @{
+      src = '/sw\.js'
+      headers = @{ 'Cache-Control' = 'public, max-age=0, must-revalidate' }
+      continue = $true
+    },
+    @{
+      src = '/manifest\.webmanifest'
+      headers = @{ 'Cache-Control' = 'public, max-age=0, must-revalidate' }
+      continue = $true
+    },
+    @{
+      src = '/assets/(.*)'
+      headers = @{ 'Cache-Control' = 'public, max-age=31536000, immutable' }
+      continue = $true
+    },
+    @{ handle = 'filesystem' }
+  )
+}
+
+$OutputConfig | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $OutputDir 'config.json') -Encoding UTF8
+
+Write-Host "Prepared .vercel/output/static and config.json" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Deploying prebuilt output to production..." -ForegroundColor Cyan
