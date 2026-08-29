@@ -21,6 +21,9 @@ export default function AdminUsers() {
   const [page, setPage] = useState(0);
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'delete' | 'delete-block'>('delete');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteBlockExpiry, setDeleteBlockExpiry] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const pageSize = 10;
 
@@ -62,10 +65,28 @@ export default function AdminUsers() {
       showError('You cannot delete your own administrator account.');
       return;
     }
+
     setActionLoading(true);
-    const { error: actionError } = await supabase.rpc('admin_delete_user', { p_user_id: user.id });
-    if (actionError) showError(actionError.message || 'Failed to delete user');
-    else { success('User account deleted'); void refresh(); setConfirmDelete(null); }
+    const rpc = deleteMode === 'delete-block' ? 'admin_delete_user_and_block' : 'admin_delete_user';
+    const args = deleteMode === 'delete-block'
+      ? {
+          p_user_id: user.id,
+          p_reason: deleteReason,
+          p_expires_at: deleteBlockExpiry ? new Date(deleteBlockExpiry).toISOString() : null,
+        }
+      : { p_user_id: user.id };
+
+    const { error: actionError } = await supabase.rpc(rpc, args);
+    if (actionError) {
+      showError(actionError.message || 'Failed to delete user');
+    } else {
+      success(deleteMode === 'delete-block' ? 'User deleted and re-registration blocked' : 'User account deleted');
+      void refresh();
+      setConfirmDelete(null);
+      setDeleteMode('delete');
+      setDeleteReason('');
+      setDeleteBlockExpiry('');
+    }
     setActionLoading(false);
   }
 
@@ -274,15 +295,68 @@ export default function AdminUsers() {
 
       {/* Delete confirm */}
       {confirmDelete && (
-        <ConfirmModal
-          title="Delete User"
-          message={`Are you sure you want to delete "${confirmDelete.full_name || 'this user'}"? This will permanently remove their profile and all associated data. This action cannot be undone.`}
-          confirmLabel="Delete Permanently"
-          danger
-          loading={actionLoading}
-          onConfirm={() => deleteUser(confirmDelete)}
-          onClose={() => setConfirmDelete(null)}
-        />
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setConfirmDelete(null)}>
+          <div className="bg-[#12122a] border border-white/10 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold">{l('Delete User')}</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  {l('Choose whether this email may create a new account later.')}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer">
+                <input type="radio" name="deleteMode" checked={deleteMode === 'delete'} onChange={() => setDeleteMode('delete')} className="mt-1" />
+                <div>
+                  <div className="text-sm font-medium text-white">{l('Delete account only')}</div>
+                  <div className="text-xs text-gray-500 mt-1">{l('The user may register again later with the same email.')}</div>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 cursor-pointer">
+                <input type="radio" name="deleteMode" checked={deleteMode === 'delete-block'} onChange={() => setDeleteMode('delete-block')} className="mt-1" />
+                <div>
+                  <div className="text-sm font-medium text-red-200">{l('Delete + Block re-registration')}</div>
+                  <div className="text-xs text-gray-500 mt-1">{l('The email remains blocked even after the account is deleted.')}</div>
+                </div>
+              </label>
+
+              {deleteMode === 'delete-block' && (
+                <div className="space-y-3 rounded-xl border border-red-500/20 bg-black/10 p-3">
+                  <input
+                    value={deleteReason}
+                    onChange={e => setDeleteReason(e.target.value)}
+                    placeholder={l('Reason for block')}
+                    className="w-full bg-[#0b0b18] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                  />
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 block">{l('Block expires (optional)')}</label>
+                    <input
+                      type="datetime-local"
+                      value={deleteBlockExpiry}
+                      onChange={e => setDeleteBlockExpiry(e.target.value)}
+                      className="w-full bg-[#0b0b18] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5">
+                {l('Cancel')}
+              </button>
+              <button onClick={() => void deleteUser(confirmDelete)} disabled={actionLoading} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-500 disabled:opacity-50">
+                {actionLoading ? l('Processing...') : deleteMode === 'delete-block' ? l('Delete & Block') : l('Delete Permanently')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
