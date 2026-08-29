@@ -3,16 +3,18 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Settings, Bell, Mail, Database, Key, Flag, FileText,
   Loader2, Save, RefreshCw, AlertTriangle,
-  Power,
+  Power, ShieldBan, Activity, CheckCircle, XCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 
-type SystemTab = 'settings' | 'logs' | 'notifications' | 'email' | 'backups' | 'apikeys' | 'flags';
+type SystemTab = 'settings' | 'logs' | 'blocks' | 'readiness' | 'notifications' | 'email' | 'backups' | 'apikeys' | 'flags';
 
 const TABS: { id: SystemTab; label: string; icon: typeof Settings }[] = [
   { id: 'settings', label: 'System Settings', icon: Settings },
   { id: 'logs', label: 'System Logs', icon: FileText },
+  { id: 'blocks', label: 'Account Blocks', icon: ShieldBan },
+  { id: 'readiness', label: 'Readiness', icon: Activity },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'email', label: 'Email Templates', icon: Mail },
   { id: 'backups', label: 'Backups', icon: Database },
@@ -59,6 +61,8 @@ export default function AdminSystem() {
 
       {tab === 'settings' && <SettingsTab />}
       {tab === 'logs' && <LogsTab />}
+      {tab === 'blocks' && <BlocksTab />}
+      {tab === 'readiness' && <ReadinessTab />}
       {tab === 'notifications' && <NotificationsTab />}
       {tab === 'email' && <EmailTab />}
       {tab === 'backups' && <BackupsTab />}
@@ -185,7 +189,7 @@ function SettingsTab() {
 
 function LogsTab() {
   const l = useLocalizer();
-  const [logs, setLogs] = useState<{ id: string; level: string; category: string; message: string; created_at: string }[]>([]);
+  const [logs, setLogs] = useState<{ id: string; level: string; category: string; message: string; metadata?: Record<string, unknown> | null; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [levelFilter, setLevelFilter] = useState('all');
@@ -193,7 +197,7 @@ function LogsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: queryError } = await supabase.from('system_logs').select('id, level, category, message, created_at').order('created_at', { ascending: false }).limit(100);
+    const { data, error: queryError } = await supabase.from('system_logs').select('id, level, category, message, metadata, created_at').order('created_at', { ascending: false }).limit(100);
     if (queryError) {
       setLogs([]);
       setError(queryError.message || 'Failed to load system logs.');
@@ -233,12 +237,164 @@ function LogsTab() {
                 'bg-blue-500/10 text-blue-400'
               }`}>{log.level}</span>
               <span className="text-gray-500">[{log.category}]</span>
-              <span className="text-gray-300 flex-1">{log.message}</span>
-              <span className="text-gray-600 flex-shrink-0">{new Date(log.created_at).toLocaleTimeString()}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-gray-300">{log.message}</div>
+                {log.metadata && Object.keys(log.metadata).length > 0 && (
+                  <div className="text-[10px] text-gray-600 mt-1 break-all">
+                    {Object.entries(log.metadata).map(([key, value]) => `${key}=${String(value)}`).join(' · ')}
+                  </div>
+                )}
+              </div>
+              <span className="text-gray-600 flex-shrink-0">{new Date(log.created_at).toLocaleString()}</span>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+
+function BlocksTab() {
+  const l = useLocalizer();
+  const { success, error: showError } = useToast();
+  const [rows, setRows] = useState<{ email: string; reason: string; blocked_by_email: string; blocked_at: string; expires_at: string | null; active: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: queryError } = await supabase.rpc('admin_list_account_blocks');
+    if (queryError) {
+      setRows([]);
+      setError(queryError.message || 'Could not load account blocks.');
+    } else {
+      setRows((data || []) as typeof rows);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function unblock(email: string) {
+    const { error: actionError } = await supabase.rpc('admin_unblock_email', { p_email: email });
+    if (actionError) {
+      showError(actionError.message || 'Failed to remove block');
+      return;
+    }
+    success('Email unblocked');
+    void load();
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (error) return <AdminTabError title={l('Account blocks unavailable')} message={error} onRetry={() => void load()} />;
+
+  return (
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
+      <div className="flex items-center justify-between p-5 border-b border-white/5">
+        <div>
+          <h3 className="text-white font-semibold">{l('Account Block List')}</h3>
+          <p className="text-xs text-gray-500 mt-1">{l('Blocks survive account deletion and prevent re-registration while active.')}</p>
+        </div>
+        <button onClick={() => void load()} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5"><RefreshCw className="w-4 h-4" /></button>
+      </div>
+      {rows.length === 0 ? (
+        <div className="py-10 text-center text-gray-500 text-sm">{l('No blocked emails')}</div>
+      ) : (
+        <div className="divide-y divide-white/5">
+          {rows.map(row => (
+            <div key={row.email} className="p-4 flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-white break-all">{row.email}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full border ${row.active ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-gray-500/10 text-gray-400 border-white/10'}`}>
+                    {row.active ? l('Blocked') : l('Expired')}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">{row.reason || l('No reason provided')}</div>
+                <div className="text-[10px] text-gray-600 mt-1">
+                  {l('By')}: {row.blocked_by_email || 'admin'} · {new Date(row.blocked_at).toLocaleString()}
+                  {row.expires_at ? ` · ${l('Expires')}: ${new Date(row.expires_at).toLocaleString()}` : ` · ${l('Permanent')}`}
+                </div>
+              </div>
+              {row.active && (
+                <button onClick={() => void unblock(row.email)} className="px-3 py-2 rounded-xl text-sm text-amber-200 border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10">
+                  {l('Unblock')}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReadinessTab() {
+  const l = useLocalizer();
+  const [status, setStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: invokeError } = await supabase.functions.invoke('billing-admin-status', { body: {} });
+    if (invokeError) {
+      setStatus(null);
+      setError(invokeError.message || 'Could not load production readiness.');
+    } else {
+      setStatus(data);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (error) return <AdminTabError title={l('Production readiness unavailable')} message={error} onRetry={() => void load()} />;
+
+  const checks = [
+    { label: 'Stripe connection', ok: status?.connected === true, detail: status?.mode || 'unconfigured' },
+    { label: 'Stripe charges', ok: status?.account?.chargesEnabled === true, detail: status?.account?.chargesEnabled ? 'enabled' : 'needs attention' },
+    { label: 'Stripe payouts', ok: status?.account?.payoutsEnabled === true, detail: status?.account?.payoutsEnabled ? 'enabled' : 'needs attention' },
+    { label: 'Pro price', ok: status?.plans?.pro?.valid === true, detail: status?.plans?.pro?.priceId || 'missing' },
+    { label: 'Business price', ok: status?.plans?.business?.valid === true, detail: status?.plans?.business?.priceId || 'missing' },
+    { label: 'Stripe webhook', ok: status?.webhook?.endpointConfigured === true && status?.webhook?.receivesRequiredEvents === true, detail: status?.webhook?.status || 'not verified' },
+    { label: 'Checkout', ok: status?.checkoutReady === true, detail: status?.checkoutReady ? 'ready' : 'needs setup' },
+    { label: 'Billing portal', ok: status?.portalReady === true, detail: status?.portalReady ? 'ready' : 'needs setup' },
+  ];
+
+  const readyCount = checks.filter(item => item.ok).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-white font-semibold">{l('Production Readiness')}</h3>
+          <p className="text-xs text-gray-500 mt-1">{l('Live service checks before launch. Secrets remain server-side.')}</p>
+        </div>
+        <div className={`text-sm font-semibold px-3 py-1.5 rounded-full border ${readyCount === checks.length ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : 'bg-amber-500/10 text-amber-300 border-amber-500/20'}`}>
+          {readyCount}/{checks.length} {l('ready')}
+        </div>
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        {checks.map(item => (
+          <div key={item.label} className="rounded-xl border border-white/10 bg-[#0b0b18] p-4 flex items-start gap-3">
+            {item.ok ? <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5" /> : <XCircle className="w-5 h-5 text-amber-400 mt-0.5" />}
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-white">{l(item.label)}</div>
+              <div className="text-xs text-gray-500 mt-1 break-all">{item.detail}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end">
+        <button onClick={() => void load()} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-300 border border-white/10 bg-white/[0.03] hover:bg-white/5">
+          <RefreshCw className="w-4 h-4" /> {l('Refresh')}
+        </button>
+      </div>
     </div>
   );
 }
