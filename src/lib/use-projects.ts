@@ -74,7 +74,7 @@ export function useProjects() {
       update(toastId, 'Failed to save', 'error');
     }
     return ok;
-  }, [loading, saveProject, update, error]);
+  }, [loading, saveProject, update]);
 
   // Delete a project
   const deleteProject = useCallback(async (projectId: string): Promise<boolean> => {
