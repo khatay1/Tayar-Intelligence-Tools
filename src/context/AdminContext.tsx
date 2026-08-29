@@ -49,8 +49,24 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    refreshAdminStatus();
+    void refreshAdminStatus();
   }, [refreshAdminStatus]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshOnFocus = () => { void refreshAdminStatus(); };
+    const refreshOnVisibility = () => {
+      if (document.visibilityState === 'visible') void refreshAdminStatus();
+    };
+
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshOnVisibility);
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshOnVisibility);
+    };
+  }, [user, refreshAdminStatus]);
 
   return (
     <AdminContext.Provider
