@@ -7825,38 +7825,64 @@ if (generated.seo) {
           </>
           )}
 
-          <div className="mb-4 flex items-center gap-2">
-            <Plus className="h-4 w-4 text-violet-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider">
-              Add Section
-            </h2>
-          </div>
-
-          {selectedSection && (
-            <details className={`mt-4 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-                <span className="flex items-center gap-2 text-xs font-semibold">
-                  <Type className="h-4 w-4 text-violet-400" />
-                  {l('Add Element')}
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
-              </summary>
-              <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-3">
-                {(Object.keys(ELEMENT_LABELS) as WebsiteElementType[]).map((type) => (
-                  <button key={type} onClick={() => addElement(type)} className={`rounded-lg border px-2 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
-                    + {ELEMENT_LABELS[type]}
-                  </button>
-                ))}
+          <details open className={`rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2 text-xs font-semibold">
+                <Plus className="h-4 w-4 text-violet-400" />
+                {l('Add')}
+              </span>
+              <span className="flex items-center gap-2 text-[9px] text-gray-500">{l('Sections & elements')}<ChevronDown className="h-3.5 w-3.5" /></span>
+            </summary>
+            <div className="space-y-3 border-t border-violet-500/10 p-3">
+              <div>
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Sections')}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => addSection(type)}
+                      className={`rounded-lg border px-2 py-2 text-left text-[11px] transition-colors ${
+                        darkMode
+                          ? 'border-white/10 text-gray-300 hover:border-violet-500/40 hover:bg-violet-500/10'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-violet-300 hover:bg-violet-50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5"><Plus className="h-3 w-3 text-violet-400" />{SECTION_LABELS[type]}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </details>
-          )}
 
-          <div className={`mt-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold">{l('Layers')}</span>
-              <span className="text-[10px] text-gray-500">{sections.length} sections</span>
+              {selectedSection && (
+                <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white'}`}>
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                    <span className="flex items-center gap-2"><Type className="h-3.5 w-3.5 text-violet-400" />{l('Add element')}</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                  </summary>
+                  <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-2.5">
+                    {(Object.keys(ELEMENT_LABELS) as WebsiteElementType[]).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => addElement(type)}
+                        className={`rounded-lg border px-2 py-2 text-[10px] ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        + {ELEMENT_LABELS[type]}
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              <p className="text-[9px] leading-relaxed text-gray-500">{l('Choose a section first. Add individual elements only when you need more control.')}</p>
             </div>
-            <div className="max-h-64 space-y-2 overflow-auto pr-1">
+          </details>
+
+          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+              <span className="text-xs font-semibold">{l('Layers')}</span>
+              <span className="flex items-center gap-2 text-[9px] text-gray-500">{sections.length} {l('sections')}<ChevronDown className="h-3.5 w-3.5" /></span>
+            </summary>
+            <div className="max-h-72 space-y-2 overflow-auto border-t border-white/10 p-2.5">
               {sections.map((section, sectionIndex) => (
                 <div key={section.id}>
                   <button
@@ -7883,52 +7909,39 @@ if (generated.seo) {
                 </div>
               ))}
             </div>
-          </div>
+          </details>
 
-          <div
-            className={`mt-6 rounded-xl border p-3 ${
-              darkMode
-                ? 'border-violet-500/20 bg-violet-500/5'
-                : 'border-violet-100 bg-violet-50'
-            }`}
-          >
-            <details className={`mt-4 rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-100 bg-violet-50'}`}>
+          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
               <span className="flex items-center gap-2 text-xs font-semibold">
                 <Sparkles className="h-4 w-4 text-violet-400" />
-                {l('AI Website Builder')}
+                {l('Build with AI')}
               </span>
               <span className="flex items-center gap-2 text-[9px] font-semibold text-violet-400">{l('Optional')}<ChevronDown className="h-3.5 w-3.5" /></span>
             </summary>
             <div className="border-t border-violet-500/10 p-3">
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-              Describe the website you want and AI will replace the current canvas with a complete design.
-            </p>
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => {
-                setAiPrompt(e.target.value);
-                setAiError('');
-              }}
-              rows={4}
-              placeholder="Example: Modern Italian restaurant in Stockholm with online booking, menu, testimonials and warm luxury colors..."
-              className={`mt-3 w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-                darkMode
-                  ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600'
-                  : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'
-              }`}
-            />
-            <button
-              onClick={generateWithAI}
-              disabled={!aiPrompt.trim() || aiBusy}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              {aiBusy ? 'Generating...' : 'Generate Website'}
-            </button>
-            {aiError && (
-              <p className="mt-2 text-[11px] leading-relaxed text-red-400">{aiError}</p>
-            )}
+              <p className="text-[10px] leading-relaxed text-gray-500">
+                {l('Describe the website you want. AI can create a starting design that you can edit normally afterward.')}
+              </p>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => {
+                  setAiPrompt(e.target.value);
+                  setAiError('');
+                }}
+                rows={4}
+                placeholder="Example: Modern Italian restaurant in Stockholm with online booking, menu, testimonials and warm luxury colors..."
+                className={`mt-3 w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
+              />
+              <button
+                onClick={generateWithAI}
+                disabled={!aiPrompt.trim() || aiBusy}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {aiBusy ? 'Generating...' : l('Generate starting website')}
+              </button>
+              {aiError && <p className="mt-2 text-[11px] leading-relaxed text-red-400">{aiError}</p>}
             </div>
           </details>
 
@@ -7938,17 +7951,13 @@ if (generated.seo) {
               <ChevronDown className="h-3.5 w-3.5" />
             </summary>
             <div className="border-t border-white/10 p-3">
-<button
-              onClick={copyHtml}
-              className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${
-                darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? 'Copied HTML' : 'Copy HTML'}
-            </button>
+              <button
+                onClick={copyHtml}
+                className={`flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? 'Copied HTML' : 'Copy HTML'}
+              </button>
             </div>
           </details>
         </aside>
