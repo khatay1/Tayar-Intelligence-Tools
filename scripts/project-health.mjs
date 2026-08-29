@@ -45,6 +45,10 @@ const adminSecurityMigration = read('supabase/migrations/20260829144000_harden_a
 const adminContext = read('src/context/AdminContext.tsx');
 const adminUsers = read('src/components/admin/AdminUsers.tsx');
 const adminHooks = read('src/lib/admin-hooks.ts');
+const adminContent = read('src/components/admin/AdminContent.tsx');
+const adminSystem = read('src/components/admin/AdminSystem.tsx');
+const adminTools = read('src/components/admin/AdminTools.tsx');
+const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
 const manifest = read('public/manifest.webmanifest');
 const sitemap = read('public/sitemap.xml');
@@ -74,9 +78,15 @@ check('Admin role fields are not directly client-updatable', adminSecurityMigrat
 check('Admin user mutations use protected RPCs', adminUsers.includes("supabase.rpc('admin_update_user'") && adminUsers.includes("supabase.rpc('admin_delete_user'") && !adminUsers.includes(".from('profiles').update"));
 check('Admin user list uses server-side RPC', adminHooks.includes("supabase.rpc('admin_list_users')"));
 check('Admin self-lockout protections exist', adminSecurityMigration.includes('You cannot remove or suspend your own administrator access') && adminSecurityMigration.includes('You cannot delete your own administrator account'));
-check('Admin settings are admin-readable only', adminSecurityMigration.includes('DROP POLICY IF EXISTS "admin_settings_select"') && !adminSecurityMigration.includes('admin_settings_select" ON public.admin_settings') ? true : adminSecurityMigration.includes('USING (public.is_admin())'));
+check('Admin settings are admin-readable only', adminSecurityMigration.includes('DROP POLICY IF EXISTS "admin_settings_select"') && adminSecurityMigration.includes('CREATE POLICY "admin_settings_select"') && adminSecurityMigration.includes('USING (public.is_admin())'));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
+check('Suspended users are rejected by shared Edge Function auth', sharedBilling.includes('.select("suspended")') && sharedBilling.includes('throw new HttpError(403, "Account suspended")'));
+check('Support admin-only fields are protected server-side', adminSecurityMigration.includes('protect_support_ticket_admin_fields') && adminSecurityMigration.includes('NEW.admin_response IS DISTINCT FROM OLD.admin_response'));
+check('Admin content save persists instead of simulating success', adminContent.includes(".eq('key', 'content_draft')") && adminContent.includes(".upsert({") && !adminContent.includes('setTimeout'));
+check('Admin system settings cannot overwrite content drafts', adminSystem.includes('SYSTEM_SETTING_KEYS') && adminSystem.includes(".in('key', [...SYSTEM_SETTING_KEYS])") && adminSystem.includes('SYSTEM_SETTING_KEYS.map'));
+check('Admin system no longer exposes fake backup operations', !adminSystem.includes('mockBackups') && !adminSystem.includes('Backup created successfully'));
+check('Admin tools no longer use random ratings', !adminTools.includes('Math.random()'));
 
 for (const name of [
   'VITE_PUBLIC_SITE_URL', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY',
