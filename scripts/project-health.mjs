@@ -18,6 +18,9 @@ check('Team workspace migration exists', exists('supabase/migrations/20260828155
 check('Quality/security migration exists', exists('supabase/migrations/20260828161000_quality_security_hardening.sql'));
 check('AI security migration exists', exists('supabase/migrations/20260829110000_ai_engine_security_hardening.sql'));
 check('Admin hardening migration exists', exists('supabase/migrations/20260829144000_harden_admin_role_and_admin_access.sql'));
+check('Supabase CLI config exists', exists('supabase/config.toml'));
+check('Guarded admin deploy script exists', exists('scripts/admin-hardening-deploy.ps1'));
+check('Admin deployment runbook exists', exists('docs/ADMIN_HARDENING_DEPLOYMENT.md'));
 
 for (const rel of [
   '.bolt',
@@ -42,6 +45,7 @@ const packageJson = JSON.parse(read('package.json'));
 const packageLock = JSON.parse(read('package-lock.json'));
 const aiSecurityMigration = read('supabase/migrations/20260829110000_ai_engine_security_hardening.sql');
 const adminSecurityMigration = read('supabase/migrations/20260829144000_harden_admin_role_and_admin_access.sql');
+const adminDeployScript = read('scripts/admin-hardening-deploy.ps1');
 const adminContext = read('src/context/AdminContext.tsx');
 const adminUsers = read('src/components/admin/AdminUsers.tsx');
 const adminHooks = read('src/lib/admin-hooks.ts');
@@ -87,6 +91,9 @@ check('Admin content save persists instead of simulating success', adminContent.
 check('Admin system settings cannot overwrite content drafts', adminSystem.includes('SYSTEM_SETTING_KEYS') && adminSystem.includes(".in('key', [...SYSTEM_SETTING_KEYS])") && adminSystem.includes('SYSTEM_SETTING_KEYS.map'));
 check('Admin system no longer exposes fake backup operations', !adminSystem.includes('mockBackups') && !adminSystem.includes('Backup created successfully'));
 check('Admin tools no longer use random ratings', !adminTools.includes('Math.random()'));
+check('Admin deploy defaults to dry-run', adminDeployScript.includes('db push --dry-run') && adminDeployScript.includes('if (-not $Apply)'));
+check('Admin production deploy requires explicit confirmation', adminDeployScript.includes('if (-not $ConfirmProduction)') && adminDeployScript.includes('-Apply -ConfirmProduction'));
+check('Admin deploy updates affected Edge Functions', ['ai-engine', 'billing-portal', 'create-checkout-session', 'email-service'].every((name) => adminDeployScript.includes(name)));
 
 for (const name of [
   'VITE_PUBLIC_SITE_URL', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY',
