@@ -2,8 +2,8 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Settings, Bell, Mail, Database, Key, Flag, FileText,
-  Loader2, Plus, Save, RefreshCw, CheckCircle,
-  Power, Download, Clock,
+  Loader2, Save, RefreshCw,
+  Power,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -326,62 +326,26 @@ function EmailTab() {
 
 function BackupsTab() {
   const l = useLocalizer();
-  const { success } = useToast();
-  const [backing, setBacking] = useState(false);
-
-  async function createBackup() {
-    setBacking(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setBacking(false);
-    success('Backup created successfully');
-  }
-
-  const mockBackups = [
-    { id: 1, name: 'backup-2026-08-05', size: '24.5 MB', date: '2026-08-05 09:00', status: 'complete' },
-    { id: 2, name: 'backup-2026-08-04', size: '23.8 MB', date: '2026-08-04 09:00', status: 'complete' },
-    { id: 3, name: 'backup-2026-08-03', size: '23.1 MB', date: '2026-08-03 09:00', status: 'complete' },
-  ];
 
   return (
-    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
+      <div className="flex items-start gap-4">
+        <div className="w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+          <Database className="w-5 h-5 text-violet-400" />
+        </div>
         <div>
           <h3 className="text-white font-semibold text-sm">{l('Database Backups')}</h3>
-          <p className="text-gray-500 text-xs">{l('Automatic daily backups at 09:00 UTC')}</p>
+          <p className="mt-1 text-sm text-gray-400">
+            {l('Backups are managed by the database hosting provider. No in-app backup API is configured, so this panel will not pretend to create or download backups.')}
+          </p>
+          <p className="mt-3 text-xs text-gray-500">
+            {l('Use the Supabase project backup controls for real backup and restore operations.')}
+          </p>
         </div>
-        <button onClick={createBackup} disabled={backing} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
-          {backing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          {backing ? 'Creating...' : 'New Backup'}
-        </button>
-      </div>
-      <div className="space-y-2">
-        {mockBackups.map(b => (
-          <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-              <Database className="w-4.5 h-4.5 text-emerald-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white font-mono">{b.name}</div>
-              <div className="text-xs text-gray-500 flex items-center gap-2">
-                <span>{b.size}</span>
-                <span>·</span>
-                <Clock className="w-3 h-3" />
-                {b.date}
-              </div>
-            </div>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" /> {b.status}
-            </span>
-            <button className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
-              <Download className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
       </div>
     </div>
   );
 }
-
 function ApiKeysTab() {
   const l = useLocalizer();
   const { success, error: showError } = useToast();
@@ -413,9 +377,7 @@ function ApiKeysTab() {
           <h3 className="text-white font-semibold text-sm">{l('API Keys')}</h3>
           <p className="text-gray-500 text-xs">{l('Manage external service API keys')}</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
-          <Plus className="w-4 h-4" /> Add Key
-        </button>
+        <span className="text-[10px] text-gray-500 text-right">{l('Metadata only — secrets stay server-side')}</span>
       </div>
       <div className="space-y-2">
         {keys.map(k => (
@@ -474,9 +436,7 @@ function FlagsTab() {
           <h3 className="text-white font-semibold text-sm">{l('Feature Flags')}</h3>
           <p className="text-gray-500 text-xs">{l('Toggle features on/off without deploying')}</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
-          <Plus className="w-4 h-4" /> New Flag
-        </button>
+        <span className="text-[10px] text-gray-500">{l('Existing flags only')}</span>
       </div>
       <div className="space-y-2">
         {flags.map(f => (
