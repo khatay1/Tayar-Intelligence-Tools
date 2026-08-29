@@ -24,3 +24,8 @@ git pull --ff-only origin main
 ```
 
 Generated `dist/` output is disposable and should be recreated with `npm run build`.
+
+
+## Production release note — 2026-08-29
+
+The Admin AI default-model fix is part of the canonical production baseline. The production AI engine resolves models in this order: per-tool user setting, administrator default model, then the safe Gemini fallback.
