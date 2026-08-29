@@ -7850,19 +7850,22 @@ if (generated.seo) {
           </div>
 
           {selectedSection && (
-            <div className={`mt-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="mb-3 flex items-center gap-2">
-                <Type className="h-4 w-4 text-violet-400" />
-                <span className="text-xs font-semibold">{l('Add Element')}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+            <details className={`mt-4 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-2 text-xs font-semibold">
+                  <Type className="h-4 w-4 text-violet-400" />
+                  {l('Add Element')}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+              </summary>
+              <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-3">
                 {(Object.keys(ELEMENT_LABELS) as WebsiteElementType[]).map((type) => (
                   <button key={type} onClick={() => addElement(type)} className={`rounded-lg border px-2 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
                     + {ELEMENT_LABELS[type]}
                   </button>
                 ))}
               </div>
-            </div>
+            </details>
           )}
 
           <div className={`mt-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
@@ -7906,10 +7909,15 @@ if (generated.seo) {
                 : 'border-violet-100 bg-violet-50'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">{l('AI Website Builder')}</span>
-            </div>
+            <details className={`mt-4 rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-100 bg-violet-50'}`}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2 text-xs font-semibold">
+                <Sparkles className="h-4 w-4 text-violet-400" />
+                {l('AI Website Builder')}
+              </span>
+              <span className="flex items-center gap-2 text-[9px] font-semibold text-violet-400">{l('Optional')}<ChevronDown className="h-3.5 w-3.5" /></span>
+            </summary>
+            <div className="border-t border-violet-500/10 p-3">
             <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
               Describe the website you want and AI will replace the current canvas with a complete design.
             </p>
@@ -7940,19 +7948,13 @@ if (generated.seo) {
             )}
           </div>
 
-          <div
-            className={`mt-4 rounded-xl border p-3 ${
-              darkMode
-                ? 'border-white/10 bg-white/[0.03]'
-                : 'border-gray-200 bg-gray-50'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Copy className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">{l('Export')}</span>
-            </div>
-
-            <button
+          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
+              <span>{l('Developer export')}</span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </summary>
+            <div className="border-t border-white/10 p-3">
+<button
               onClick={copyHtml}
               className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${
                 darkMode
@@ -7963,7 +7965,8 @@ if (generated.seo) {
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? 'Copied HTML' : 'Copy HTML'}
             </button>
-          </div>
+            </div>
+          </details>
         </aside>
 
         <main
@@ -8044,9 +8047,10 @@ if (generated.seo) {
         >
           <div className="mb-5 flex items-center gap-2">
             <Eye className="h-4 w-4 text-violet-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider">
-              Inspector
-            </h2>
+            <div>
+              <h2 className="text-xs font-bold">{l('Edit selected item')}</h2>
+              <p className="mt-0.5 text-[9px] text-gray-500">{selectedElement ? l('Content first. Advanced controls are optional.') : l('Select a section or element on the canvas.')}</p>
+            </div>
           </div>
 
           {selectedElement && (
@@ -8071,7 +8075,13 @@ if (generated.seo) {
                   Reset {device}
                 </button>
               </div>
-              <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-200 bg-sky-50/70'}`}>
+              <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-200 bg-white/70'}`}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                  <span>{l('Structure & reusable components')}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                </summary>
+                <div className="space-y-2 border-t border-white/10 p-2">
+<div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-200 bg-sky-50/70'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wide text-sky-400">{l('Container / Group')}</span>
                   {!selectedContainer && <button type="button" onClick={createContainerForSelected} className="text-[9px] font-semibold text-sky-400">{l('+ New container')}</button>}
@@ -8128,6 +8138,8 @@ if (generated.seo) {
                   </div>
                 )}
               </div>
+                </div>
+              </details>
               {selectedElement.type === 'image' ? (
                 <div className="space-y-2">
                   <input
@@ -8194,7 +8206,13 @@ if (generated.seo) {
                 </div>
               )}
 
-              <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
+              <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white/70'}`}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                  <span>{l('Design & responsive')}</span>
+                  <span className="flex items-center gap-2 text-[9px] uppercase text-gray-500">{device}<ChevronDown className="h-3.5 w-3.5" /></span>
+                </summary>
+                <div className="space-y-3 border-t border-white/10 p-2">
+<div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-400">{l('Responsive layout')}</span>
                   <span className="text-[9px] uppercase text-gray-500">{device}</span>
@@ -8384,6 +8402,8 @@ if (generated.seo) {
                 <label className="text-[10px] text-gray-500">{l('Radius')}<input type="number" min="0" max="80" value={effectiveStyle(selectedElement, device).borderRadius || 0} onChange={(e) => updateSelectedElement({ style: { borderRadius: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
                 </label>
               </div>
+                </div>
+              </details>
               <button onClick={deleteSelectedElement} className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">
                 <Trash2 className="h-3.5 w-3.5" />{l('Delete Element')}</button>
             </div>
