@@ -140,9 +140,9 @@ export default function AdminSubscriptions() {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`flex items-center gap-1 text-xs font-medium ${
-                      s.status === 'active' ? 'text-emerald-400' : 'text-red-400'
+                      s.status === 'active' || s.status === 'trialing' ? 'text-emerald-400' : 'text-red-400'
                     }`}>
-                      {s.status === 'active' ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                      {s.status === 'active' || s.status === 'trialing' ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                       {s.status}
                     </span>
                   </td>
