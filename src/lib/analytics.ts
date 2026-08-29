@@ -13,6 +13,19 @@ const QUEUE_KEY = 'tayar-analytics-queue';
 const SESSION_KEY = 'tayar-analytics-session';
 const BATCH_SIZE = 10;
 const FLUSH_INTERVAL = 30_000;
+export const COOKIE_CONSENT_KEY = 'tayar-cookie-consent';
+export const COOKIE_CONSENT_EVENT = 'tayar-cookie-consent-changed';
+
+export function hasAnalyticsConsent(): boolean {
+  try {
+    const raw = localStorage.getItem(COOKIE_CONSENT_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { analytics?: unknown };
+    return parsed.analytics === true;
+  } catch {
+    return false;
+  }
+}
 
 function getSessionId(): string {
   let id = sessionStorage.getItem(SESSION_KEY);
@@ -40,6 +53,7 @@ function setQueue(queue: AnalyticsEvent[]) {
 }
 
 export function track(event: string, category: AnalyticsEvent['category'] = 'user_action', properties?: Record<string, unknown>) {
+  if (!hasAnalyticsConsent()) return;
   const e: AnalyticsEvent = { event, category, properties };
   const queue = getQueue();
   queue.push(e);
@@ -63,14 +77,39 @@ export function trackError(message: string, stack?: string) {
 }
 
 let flushTimer: ReturnType<typeof setInterval> | null = null;
+let consentListenerRegistered = false;
 
 export function startAnalytics() {
+  if (!consentListenerRegistered) {
+    consentListenerRegistered = true;
+    window.addEventListener(COOKIE_CONSENT_EVENT, () => {
+      if (hasAnalyticsConsent()) startAnalytics();
+      else {
+        if (flushTimer) {
+          clearInterval(flushTimer);
+          flushTimer = null;
+        }
+        setQueue([]);
+      }
+    });
+  }
+
+  if (!hasAnalyticsConsent()) {
+    setQueue([]);
+    return;
+  }
+
   if (flushTimer) return;
   flushTimer = setInterval(flush, FLUSH_INTERVAL);
   window.addEventListener('beforeunload', flush);
 }
 
 export async function flush() {
+  if (!hasAnalyticsConsent()) {
+    setQueue([]);
+    return;
+  }
+
   const queue = getQueue();
   if (queue.length === 0) return;
 
