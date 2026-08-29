@@ -155,7 +155,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-medium text-emerald-400">{l('System Online')}</span>
+              <span className="text-xs font-medium text-emerald-400">{l('Admin Verified')}</span>
             </div>
             <div className="relative" ref={notifRef}>
               <button onClick={() => setNotifOpen(!notifOpen)} className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
