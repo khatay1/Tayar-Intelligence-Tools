@@ -331,9 +331,22 @@ function BlocksTab() {
   );
 }
 
+interface ReadinessStatus {
+  connected?: boolean;
+  mode?: string;
+  account?: { chargesEnabled?: boolean; payoutsEnabled?: boolean };
+  plans?: {
+    pro?: { valid?: boolean; priceId?: string | null };
+    business?: { valid?: boolean; priceId?: string | null };
+  };
+  webhook?: { endpointConfigured?: boolean; receivesRequiredEvents?: boolean; status?: string | null };
+  checkoutReady?: boolean;
+  portalReady?: boolean;
+}
+
 function ReadinessTab() {
   const l = useLocalizer();
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<ReadinessStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -345,7 +358,7 @@ function ReadinessTab() {
       setStatus(null);
       setError(invokeError.message || 'Could not load production readiness.');
     } else {
-      setStatus(data);
+      setStatus((data || null) as ReadinessStatus | null);
     }
     setLoading(false);
   }, []);
