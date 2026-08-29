@@ -198,7 +198,10 @@ $OutputConfig = @{
     },
     @{
       src = '/sw\.js'
-      headers = @{ 'Cache-Control' = 'public, max-age=0, must-revalidate' }
+      headers = @{
+        'Cache-Control' = 'public, max-age=0, must-revalidate'
+        'Service-Worker-Allowed' = '/'
+      }
       continue = $true
     },
     @{
@@ -215,7 +218,13 @@ $OutputConfig = @{
   )
 }
 
-$OutputConfig | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $OutputDir 'config.json') -Encoding UTF8
+$OutputConfigPath = Join-Path $OutputDir 'config.json'
+$OutputConfigJson = $OutputConfig | ConvertTo-Json -Depth 8
+[System.IO.File]::WriteAllText(
+  $OutputConfigPath,
+  $OutputConfigJson,
+  (New-Object System.Text.UTF8Encoding($false))
+)
 
 Write-Host "Prepared .vercel/output/static and config.json" -ForegroundColor Green
 
