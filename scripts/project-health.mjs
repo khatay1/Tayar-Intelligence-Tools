@@ -65,6 +65,7 @@ const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
 const manifest = read('public/manifest.webmanifest');
 const vercelConfig = JSON.parse(read('vercel.json'));
+const globalStyles = read('src/index.css');
 const sitemap = read('public/sitemap.xml');
 const allCore = [auth, onboarding, aiEngine, emailService].join('\n');
 
@@ -153,6 +154,7 @@ check(
 );
 check('Production verification script exists', exists('scripts/verify-production.ps1'));
 check('Tomorrow release runbook exists', exists('docs/TOMORROW_RELEASE.md'));
+check('Native dropdown menus stay dark globally', globalStyles.includes('select,') && globalStyles.includes('option,') && globalStyles.includes('optgroup') && globalStyles.includes('color-scheme: dark') && !globalStyles.includes('html:not(.dark) { color-scheme: light; }'));
 
 const failed = checks.filter((item) => !item.ok);
 console.log(`Project health check: ${checks.length - failed.length} passed, ${failed.length} failed`);
