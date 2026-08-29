@@ -2,7 +2,7 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Cpu, Loader2, Zap, AlertCircle, CheckCircle, Activity,
-  RefreshCw, Server, Clock, Save,
+  RefreshCw, Server, Clock, Save, Plus, Trash2, Check,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -11,7 +11,6 @@ import {
   SERVER_SUPPORTED_TEXT_MODELS,
   getModel,
   getProviderForModel,
-  isServerSupportedTextModel,
 } from '@/lib/ai/types';
 
 interface AIProvider {
@@ -31,6 +30,44 @@ interface ErrorLog {
   created_at: string;
 }
 
+interface ManagedModel {
+  id: string;
+  label: string;
+  custom: boolean;
+}
+
+const GEMINI_MODEL_ID = /^gemini-[a-z0-9][a-z0-9._-]{1,80}$/i;
+
+function builtInModelCatalog(): ManagedModel[] {
+  return SERVER_SUPPORTED_TEXT_MODELS.map((id) => ({
+    id,
+    label: getModel(id)?.label || id,
+    custom: false,
+  }));
+}
+
+function parseManagedModels(value: unknown): ManagedModel[] {
+  const builtIns = builtInModelCatalog();
+  const seen = new Set(builtIns.map((model) => model.id));
+
+  if (!Array.isArray(value)) return builtIns;
+
+  const custom: ManagedModel[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue;
+    const source = entry as Record<string, unknown>;
+    const id = typeof source.id === 'string' ? source.id.trim() : '';
+    if (!GEMINI_MODEL_ID.test(id) || seen.has(id)) continue;
+    const label = typeof source.label === 'string' && source.label.trim()
+      ? source.label.trim().slice(0, 80)
+      : id;
+    seen.add(id);
+    custom.push({ id, label, custom: true });
+  }
+
+  return [...builtIns, ...custom];
+}
+
 export default function AdminAI() {
   const l = useLocalizer();
   const { success, error: showError } = useToast();
@@ -39,6 +76,10 @@ export default function AdminAI() {
   const [activeProvider, setActiveProvider] = useState('gemini');
   const [defaultModel, setDefaultModel] = useState('gemini-3.6-flash');
   const [savingModel, setSavingModel] = useState(false);
+  const [savingCatalog, setSavingCatalog] = useState(false);
+  const [modelCatalog, setModelCatalog] = useState<ManagedModel[]>(() => builtInModelCatalog());
+  const [newModelId, setNewModelId] = useState('');
+  const [newModelLabel, setNewModelLabel] = useState('');
   const [dailyStats, setDailyStats] = useState<{ date: string; requests: number; tokens: number }[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [tokenUsage, setTokenUsage] = useState<{ label: string; value: number }[]>([]);
@@ -49,14 +90,15 @@ export default function AdminAI() {
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const [provRes, usageRes, logsRes, modelRes] = await Promise.all([
+    const [provRes, usageRes, logsRes, modelRes, catalogRes] = await Promise.all([
       supabase.from('api_keys').select('id, service, label, status, last_used').order('service'),
       supabase.from('ai_usage').select('created_at, tokens_in, tokens_out, provider, model, tool, status').limit(5000),
       supabase.from('system_logs').select('id, level, category, message, metadata, created_at').order('created_at', { ascending: false }).limit(20),
       supabase.from('admin_settings').select('key, value').eq('key', 'default_ai_model').maybeSingle(),
+      supabase.from('admin_settings').select('key, value').eq('key', 'ai_model_catalog').maybeSingle(),
     ]);
 
-    const queryError = provRes.error || usageRes.error || logsRes.error || modelRes.error;
+    const queryError = provRes.error || usageRes.error || logsRes.error || modelRes.error || catalogRes.error;
     if (queryError) {
       console.error('Failed to load admin AI data:', queryError);
       setLoadError(queryError.message || 'Failed to load AI administration data.');
@@ -67,11 +109,17 @@ export default function AdminAI() {
     setProviders((provRes.data || []) as AIProvider[]);
     setActiveProvider('gemini');
 
+    const catalog = parseManagedModels(catalogRes.data?.value);
+    setModelCatalog(catalog);
+
     if (modelRes.data) {
       const val = typeof modelRes.data.value === 'string'
         ? modelRes.data.value.replace(/"/g, '')
         : (modelRes.data.value as Record<string, unknown>)?.default as string;
-      if (val && isServerSupportedTextModel(val)) setDefaultModel(val);
+      if (val && catalog.some((model) => model.id === val)) setDefaultModel(val);
+      else setDefaultModel('gemini-3.6-flash');
+    } else {
+      setDefaultModel('gemini-3.6-flash');
     }
 
     // Daily stats
@@ -127,8 +175,8 @@ export default function AdminAI() {
   }
 
   async function saveDefaultModel() {
-    if (!isServerSupportedTextModel(defaultModel)) {
-      showError('Choose a model supported by the production AI backend.');
+    if (!modelCatalog.some((model) => model.id === defaultModel)) {
+      showError('Choose a model from the managed model catalog.');
       return;
     }
 
@@ -147,6 +195,63 @@ export default function AdminAI() {
       success(`Default model set to ${defaultModel}`);
     }
     setSavingModel(false);
+  }
+
+  async function persistModelCatalog(nextCatalog: ManagedModel[]) {
+    setSavingCatalog(true);
+    const customModels = nextCatalog
+      .filter((model) => model.custom)
+      .map((model) => ({ id: model.id, label: model.label, enabled: true }));
+
+    const { error } = await supabase
+      .from('admin_settings')
+      .upsert({
+        key: 'ai_model_catalog',
+        value: customModels,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+
+    setSavingCatalog(false);
+    if (error) {
+      showError(error.message || 'Failed to save model catalog');
+      return false;
+    }
+    return true;
+  }
+
+  async function addModel() {
+    const id = newModelId.trim();
+    const label = newModelLabel.trim() || id;
+
+    if (!GEMINI_MODEL_ID.test(id)) {
+      showError('Model ID must start with gemini- and contain only letters, numbers, dots, underscores, or hyphens.');
+      return;
+    }
+    if (modelCatalog.some((model) => model.id.toLowerCase() === id.toLowerCase())) {
+      showError('This model already exists in the catalog.');
+      return;
+    }
+
+    const nextCatalog = [...modelCatalog, { id, label: label.slice(0, 80), custom: true }];
+    if (!(await persistModelCatalog(nextCatalog))) return;
+
+    setModelCatalog(nextCatalog);
+    setNewModelId('');
+    setNewModelLabel('');
+    success(`Added ${label}`);
+  }
+
+  async function removeModel(model: ManagedModel) {
+    if (!model.custom) return;
+    if (model.id === defaultModel) {
+      showError('Choose another default model before removing this one.');
+      return;
+    }
+
+    const nextCatalog = modelCatalog.filter((item) => item.id !== model.id);
+    if (!(await persistModelCatalog(nextCatalog))) return;
+    setModelCatalog(nextCatalog);
+    success(`Removed ${model.label}`);
   }
 
   if (loading) {
