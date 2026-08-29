@@ -8,7 +8,6 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 import { BarChart, DonutChart } from './Charts';
 import {
-  AI_PROVIDERS,
   SERVER_SUPPORTED_TEXT_MODELS,
   getModel,
   getProviderForModel,
