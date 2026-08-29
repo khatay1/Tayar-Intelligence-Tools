@@ -30,6 +30,18 @@ if (-not (Test-Path $Migration)) {
   throw "Required admin hardening migration is missing: $Migration"
 }
 
+# Supabase CLI parses the repository .env file before commands run. Some Windows
+# editors save UTF-8 with a BOM, which Supabase treats as part of the first
+# variable name. Strip only that BOM and preserve the rest of the file exactly.
+$EnvPath = Join-Path (Get-Location) '.env'
+if (Test-Path $EnvPath) {
+  $bytes = [System.IO.File]::ReadAllBytes($EnvPath)
+  if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    Write-Host "Removing UTF-8 BOM from .env for Supabase CLI compatibility..." -ForegroundColor Yellow
+    [System.IO.File]::WriteAllBytes($EnvPath, $bytes[3..($bytes.Length - 1)])
+  }
+}
+
 Write-Host ""
 Write-Host "Tayar Admin Hardening - Supabase deployment guard" -ForegroundColor Cyan
 Write-Host "Project ref: $ProjectRef"
