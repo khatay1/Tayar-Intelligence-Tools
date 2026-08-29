@@ -2,7 +2,7 @@
 // All integrations are opt-in via environment variables and load lazily.
 
 import { env } from './env';
-import { track as trackLocal } from './analytics';
+import { COOKIE_CONSENT_EVENT, hasAnalyticsConsent, track as trackLocal } from './analytics';
 
 // --- PostHog ---
 let posthogLoaded = false;
@@ -58,9 +58,15 @@ function loadSentry() {
 
 // --- Initialize all ---
 export function initMonitoring() {
-  loadPostHog();
-  loadGA();
-  loadSentry();
+  const loadConsentedMonitoring = () => {
+    if (!hasAnalyticsConsent()) return;
+    loadPostHog();
+    loadGA();
+    loadSentry();
+  };
+
+  loadConsentedMonitoring();
+  window.addEventListener(COOKIE_CONSENT_EVENT, loadConsentedMonitoring);
 }
 
 // --- Unified tracking ---
