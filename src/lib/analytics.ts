@@ -78,6 +78,7 @@ export function trackError(message: string, stack?: string) {
 
 let flushTimer: ReturnType<typeof setInterval> | null = null;
 let consentListenerRegistered = false;
+let beforeUnloadRegistered = false;
 
 export function startAnalytics() {
   if (!consentListenerRegistered) {
@@ -101,7 +102,10 @@ export function startAnalytics() {
 
   if (flushTimer) return;
   flushTimer = setInterval(flush, FLUSH_INTERVAL);
-  window.addEventListener('beforeunload', flush);
+  if (!beforeUnloadRegistered) {
+    beforeUnloadRegistered = true;
+    window.addEventListener('beforeunload', flush);
+  }
 }
 
 export async function flush() {
