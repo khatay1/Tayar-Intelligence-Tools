@@ -298,6 +298,30 @@ function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
   const l = useLocalizer();
   const [fullName, setFullName] = useState(user.full_name);
   const [role, setRole] = useState(user.role);
+  const [accessOverride, setAccessOverride] = useState<'none' | 'pro' | 'business'>('none');
+  const [accessReason, setAccessReason] = useState('');
+  const [accessExpiry, setAccessExpiry] = useState('');
+  const [accessSaving, setAccessSaving] = useState(false);
+
+  async function saveAccessOverride() {
+    setAccessSaving(true);
+    const expiresAt = accessExpiry ? new Date(accessExpiry).toISOString() : null;
+    const { error } = await supabase.rpc('admin_set_access_override', {
+      p_user_id: user.id,
+      p_plan: accessOverride === 'none' ? null : accessOverride,
+      p_reason: accessReason,
+      p_expires_at: expiresAt,
+    });
+    setAccessSaving(false);
+
+    if (error) {
+      alert(error.message || 'Failed to update complimentary access');
+      return;
+    }
+
+    onClose();
+    window.location.reload();
+  }
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
@@ -325,6 +349,51 @@ function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
               <option value="admin" className="bg-[#12122a]">{l('Admin')}</option>
             </select>
           </div>
+          {!isSelf && user.role !== 'admin' && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-3">
+              <div>
+                <label className="text-xs text-amber-200 mb-1.5 block">{l('Complimentary Access')}</label>
+                <select
+                  value={accessOverride}
+                  onChange={e => setAccessOverride(e.target.value as 'none' | 'pro' | 'business')}
+                  className="w-full bg-[#12122a] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                >
+                  <option value="none" className="bg-[#12122a]">{l('No override')}</option>
+                  <option value="pro" className="bg-[#12122a]">{l('Pro Access')}</option>
+                  <option value="business" className="bg-[#12122a]">{l('Business Access')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">{l('Reason')}</label>
+                <input
+                  value={accessReason}
+                  onChange={e => setAccessReason(e.target.value)}
+                  placeholder="Internal note"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">{l('Expires (optional)')}</label>
+                <input
+                  type="datetime-local"
+                  value={accessExpiry}
+                  onChange={e => setAccessExpiry(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void saveAccessOverride()}
+                disabled={accessSaving}
+                className="w-full py-2.5 rounded-xl text-sm font-medium text-amber-100 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-50"
+              >
+                {accessSaving ? l('Saving...') : l('Save Complimentary Access')}
+              </button>
+              <p className="text-[10px] text-gray-500">
+                {l('This changes product access only. It does not create a Stripe subscription or affect MRR.')}
+              </p>
+            </div>
+          )}
           <div className="text-xs text-gray-500 bg-white/[0.02] rounded-lg p-3 border border-white/5">
             <div className="flex items-center gap-1.5 mb-1">
               <Mail className="w-3 h-3" />
