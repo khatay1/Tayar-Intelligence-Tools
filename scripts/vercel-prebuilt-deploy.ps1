@@ -4,18 +4,43 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Vercel = 'vercel@latest'
+$VercelPackage = 'vercel@latest'
+$VercelInstallDir = Join-Path $env:TEMP 'tayar-vercel-cli'
+$VercelCmd = Join-Path $VercelInstallDir 'node_modules\.bin\vercel.cmd'
+
+function Ensure-VercelCli {
+  if (Test-Path $VercelCmd) {
+    return
+  }
+
+  Write-Host "Installing isolated Vercel CLI..." -ForegroundColor Cyan
+  New-Item -ItemType Directory -Force -Path $VercelInstallDir | Out-Null
+
+  $previousErrorAction = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & npm.cmd install --prefix $VercelInstallDir --no-save --package-lock=false --fund=false --audit=false $VercelPackage 2>&1 |
+      ForEach-Object { Write-Host $_ }
+    $exitCode = $LASTEXITCODE
+  }
+  finally {
+    $ErrorActionPreference = $previousErrorAction
+  }
+
+  if ($exitCode -ne 0 -or -not (Test-Path $VercelCmd)) {
+    throw "Failed to install isolated Vercel CLI (exit $exitCode)"
+  }
+}
 
 function Invoke-Vercel {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 
-  # Windows PowerShell 5 can turn harmless native stderr warnings (for example
-  # npm deprecation notices) into NativeCommandError records. Run npx.cmd with
-  # native errors in Continue mode and trust the process exit code instead.
+  Ensure-VercelCli
+
   $previousErrorAction = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
   try {
-    & npx.cmd --yes $Vercel @Arguments 2>&1 | ForEach-Object { Write-Host $_ }
+    & $VercelCmd @Arguments 2>&1 | ForEach-Object { Write-Host $_ }
     $exitCode = $LASTEXITCODE
   }
   finally {
@@ -28,10 +53,12 @@ function Invoke-Vercel {
 }
 
 function Test-VercelLogin {
+  Ensure-VercelCli
+
   $previousErrorAction = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
   try {
-    $loginOutput = & npx.cmd --yes $Vercel whoami 2>&1
+    $loginOutput = & $VercelCmd whoami 2>&1
     $exitCode = $LASTEXITCODE
   }
   finally {
