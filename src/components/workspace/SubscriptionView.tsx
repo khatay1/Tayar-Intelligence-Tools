@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, CreditCard, ExternalLink, Loader2, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { PageShell } from './PageShell';
 import { useAuth } from '@/context/AuthContext';
@@ -44,6 +44,7 @@ function formatDate(value?: string | null) {
 export default function SubscriptionView() {
   const { user, profile } = useAuth();
   const l = useLocalizer();
+  const userId = user?.id;
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<'pro' | 'business' | 'portal' | null>(null);
@@ -58,8 +59,8 @@ export default function SubscriptionView() {
     [subscription],
   );
 
-  async function loadSubscription() {
-    if (!user) {
+  const loadSubscription = useCallback(async () => {
+    if (!userId) {
       setSubscription(null);
       setLoading(false);
       return;
@@ -69,17 +70,17 @@ export default function SubscriptionView() {
     const { data, error: queryError } = await supabase
       .from('subscriptions')
       .select('plan, status, renewal_date, current_period_end, cancel_at_period_end, stripe_customer_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (queryError) setError(l('Could not load subscription details.'));
     setSubscription((data as SubscriptionRow | null) ?? null);
     setLoading(false);
-  }
+  }, [l, userId]);
 
   useEffect(() => {
     void loadSubscription();
-  }, [user?.id]);
+  }, [loadSubscription]);
 
   async function startCheckout(plan: 'pro' | 'business') {
     if (hasManagedSubscription) {
