@@ -1,7 +1,8 @@
 import { useLocalizer } from '@/lib/ui-localization';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FileText, Save, Loader2, Eye } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { supabase } from '@/lib/supabase';
 
 type ContentType = 'landing' | 'pricing' | 'faq' | 'terms' | 'privacy';
 
@@ -59,10 +60,34 @@ const CONTENT: Record<ContentType, { title: string; description: string; section
 
 export default function AdminContent() {
   const l = useLocalizer();
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
   const [activeType, setActiveType] = useState<ContentType>('landing');
   const [content, setContent] = useState(CONTENT);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .select('value')
+        .eq('key', 'content_draft')
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error) {
+        console.error('Failed to load admin content draft:', error);
+        showError('Failed to load saved content draft');
+      } else if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
+        setContent((current) => ({ ...current, ...(data.value as Partial<typeof CONTENT>) }));
+      }
+      setLoading(false);
+    })();
+
+    return () => { active = false; };
+  }, [showError]);
 
   function updateValue(type: ContentType, sectionId: string, value: string) {
     setContent(prev => ({
@@ -76,13 +101,29 @@ export default function AdminContent() {
 
   async function save() {
     setSaving(true);
-    // In a real app, this would persist to admin_settings or a content table
-    await new Promise(r => setTimeout(r, 800));
+    const { error } = await supabase
+      .from('admin_settings')
+      .upsert({
+        key: 'content_draft',
+        value: content,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+
     setSaving(false);
-    success('Content saved successfully');
+
+    if (error) {
+      showError(error.message || 'Failed to save content draft');
+      return;
+    }
+
+    success('Content draft saved');
   }
 
   const current = content[activeType];
+
+  if (loading) {
+    return <div className="flex justify-center py-20"><Loader2 className="w-7 h-7 animate-spin text-violet-500" /></div>;
+  }
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto">
@@ -149,7 +190,7 @@ export default function AdminContent() {
 
         <div className="flex items-center gap-2 mt-6 pt-4 border-t border-white/5 text-xs text-gray-500">
           <Eye className="w-3.5 h-3.5" />
-          <span>{l('Changes will be reflected on the live site after saving.')}</span>
+          <span>{l('Saved here as an admin content draft. Public pages are not changed until live-content wiring is enabled.')}</span>
         </div>
       </div>
     </div>
