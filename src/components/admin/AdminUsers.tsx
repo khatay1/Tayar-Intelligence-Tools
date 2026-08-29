@@ -150,6 +150,7 @@ export default function AdminUsers() {
           <option value="free" className="bg-[#12122a]">{l('Free')}</option>
           <option value="pro" className="bg-[#12122a]">{l('Pro')}</option>
           <option value="business" className="bg-[#12122a]">{l('Business')}</option>
+          <option value="admin" className="bg-[#12122a]">{l('Admin Access')}</option>
         </select>
         <select
           value={statusFilter}
@@ -195,11 +196,12 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                      user.plan === 'admin' ? 'bg-amber-500/10 text-amber-300' :
                       user.plan === 'pro' ? 'bg-fuchsia-500/10 text-fuchsia-400' :
                       user.plan === 'business' ? 'bg-cyan-500/10 text-cyan-400' :
                       'bg-gray-500/10 text-gray-400'
                     }`}>
-                      {user.plan}
+                      {user.plan === 'admin' ? l('Admin Access') : user.plan}
                     </span>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-sm text-gray-300">{user.project_count}</td>
@@ -312,7 +314,7 @@ function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">{l('Subscription Plan')}</label>
             <div className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-gray-300 flex items-center justify-between">
-              <span className="capitalize">{user.plan}</span>
+              <span className="capitalize">{user.plan === 'admin' ? l('Admin Access') : user.plan}</span>
               <span className="text-[10px] text-gray-500">{l('Managed by Billing')}</span>
             </div>
           </div>
