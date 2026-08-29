@@ -157,10 +157,12 @@ const unlockAchievement = useCallback(async (id: string) => {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useOnboarding() {
   const ctx = useContext(OnboardingContext);
   if (!ctx) throw new Error('useOnboarding must be used within OnboardingProvider');
   return ctx;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { ACHIEVEMENTS };
