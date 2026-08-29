@@ -71,6 +71,7 @@ export function initMonitoring() {
 
 // --- Unified tracking ---
 export function trackEvent(name: string, properties?: Record<string, unknown>) {
+  if (!hasAnalyticsConsent()) return;
   trackLocal(name, 'user_action', properties);
 
   if (typeof window !== 'undefined' && window.posthog) {
@@ -83,6 +84,7 @@ export function trackEvent(name: string, properties?: Record<string, unknown>) {
 }
 
 export function trackPageViewMonitored(path: string) {
+  if (!hasAnalyticsConsent()) return;
   trackLocal(path, 'page_view', { referrer: document.referrer || undefined });
 
   if (typeof window !== 'undefined') {
@@ -95,6 +97,7 @@ export function trackPageViewMonitored(path: string) {
 }
 
 export function captureError(error: Error, context?: Record<string, unknown>) {
+  if (!hasAnalyticsConsent()) return;
   trackLocal('error', 'error', { message: error.message, stack: error.stack?.slice(0, 500) });
 
   if (typeof window !== 'undefined' && window.Sentry) {
