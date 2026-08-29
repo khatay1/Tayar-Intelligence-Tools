@@ -8,7 +8,7 @@ interface SEOConfig {
   robots?: string;
 }
 
-const BASE_URL = import.meta.env.VITE_PUBLIC_SITE_URL || 'https://tayar.ai';
+const BASE_URL = import.meta.env.VITE_PUBLIC_SITE_URL || 'https://tayar.se';
 const DEFAULT_IMAGE = `${BASE_URL}/site.jfif`;
 
 export function updateSEO(config: SEOConfig) {
