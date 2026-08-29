@@ -1,7 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
+import { env } from './env';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = env.supabaseUrl.trim();
+const supabaseAnonKey = env.supabaseAnonKey.trim();
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing required Supabase browser configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before starting Tayar.'
+  );
+}
 
 export const supabase = createClient(
   supabaseUrl,
