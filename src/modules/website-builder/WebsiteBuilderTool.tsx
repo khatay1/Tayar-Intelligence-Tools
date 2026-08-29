@@ -2735,7 +2735,7 @@ function SectionPreview({
               onClick={(event) => event.stopPropagation()}
             >
               <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-violet-400/30 bg-[#111122]/90 px-3 py-1.5 text-[10px] font-bold text-violet-200 shadow-lg backdrop-blur hover:bg-violet-500/15 [&::-webkit-details-marker]:hidden">
-                <Plus className="h-3.5 w-3.5" /> {l('Add element')}
+                <Plus className="h-3.5 w-3.5" /> Add element
               </summary>
               <div className="absolute bottom-9 left-1/2 z-50 grid w-52 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#111122] p-2 shadow-2xl">
                 {(['heading', 'text', 'button', 'image'] as WebsiteElementType[]).map((type) => (
