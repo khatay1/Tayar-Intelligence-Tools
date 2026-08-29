@@ -857,6 +857,8 @@ function elementVisualCss(style: WebsiteElement['style'], important = false): st
   const letterSpacing = clampElementNumber(style.letterSpacing, 0, -10, 30);
   const opacity = clampElementNumber(style.opacity, 1, 0, 1);
   const rotate = clampElementNumber(style.rotate, 0, -180, 180);
+  const positionX = clampElementNumber(style.positionX, 0, -4000, 4000);
+  const positionY = clampElementNumber(style.positionY, 0, -4000, 4000);
   const borderWidth = clampElementNumber(style.borderWidth, 0, 0, 24);
   const borderStyle = style.borderStyle === 'dashed' || style.borderStyle === 'dotted' ? style.borderStyle : 'solid';
   return [
@@ -874,7 +876,7 @@ function elementVisualCss(style: WebsiteElement['style'], important = false): st
     `border-color:${style.borderColor || 'transparent'}${suffix}`,
     `box-shadow:${elementShadowCss(style.shadow)}${suffix}`,
     `opacity:${opacity}${suffix}`,
-    `transform:rotate(${rotate}deg)${suffix}`,
+    `transform:translate3d(${positionX}px,${positionY}px,0) rotate(${rotate}deg)${suffix}`,
     `width:${width ? `${width}%` : 'auto'}${suffix}`,
   ].join(';');
 }
@@ -882,10 +884,12 @@ function elementVisualCss(style: WebsiteElement['style'], important = false): st
 function elementHoverCss(style: WebsiteElement['style'], important = false): string {
   const suffix = important ? ' !important' : '';
   const rotate = clampElementNumber(style.rotate, 0, -180, 180);
+  const positionX = clampElementNumber(style.positionX, 0, -4000, 4000);
+  const positionY = clampElementNumber(style.positionY, 0, -4000, 4000);
   const scale = clampElementNumber(style.hoverScale, 1, 0.5, 1.6);
   const hoverOpacity = clampElementNumber(style.hoverOpacity, style.opacity ?? 1, 0, 1);
   const rules = [
-    `transform:rotate(${rotate}deg) scale(${scale})${suffix}`,
+    `transform:translate3d(${positionX}px,${positionY}px,0) rotate(${rotate}deg) scale(${scale})${suffix}`,
     `opacity:${hoverOpacity}${suffix}`,
   ];
   if (style.hoverBackgroundColor) rules.push(`background-color:${style.hoverBackgroundColor}${suffix}`);
@@ -2277,9 +2281,11 @@ function ElementPreview({
   device,
   onSelect,
   onDragStart,
+  onDragMove,
   onDragOver,
   onDrop,
   onDragEnd,
+  onInlineContentChange,
 }: {
   element: WebsiteElement;
   selected: boolean;
@@ -2288,13 +2294,32 @@ function ElementPreview({
   device: Device;
   onSelect: () => void;
   onDragStart: (e: React.DragEvent) => void;
+  onDragMove: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: () => void;
+  onInlineContentChange: (content: string) => void;
 }) {
   const style = effectiveStyle(element, device);
   const [hovered, setHovered] = useState(false);
+  const [editingInline, setEditingInline] = useState(false);
+  const inlineEditRef = useRef<HTMLElement | null>(null);
+  const inlineEditable = element.type === 'heading' || element.type === 'text';
+
+  useEffect(() => {
+    if (!editingInline || !inlineEditRef.current) return;
+    inlineEditRef.current.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(inlineEditRef.current);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, [editingInline]);
   const rotate = clampElementNumber(style.rotate, 0, -180, 180);
+  const positionX = clampElementNumber(style.positionX, 0, -4000, 4000);
+  const positionY = clampElementNumber(style.positionY, 0, -4000, 4000);
   const hoverScale = hovered ? clampElementNumber(style.hoverScale, 1, 0.5, 1.6) : 1;
   const commonStyle = {
     color: hovered && style.hoverColor ? style.hoverColor : style.color,
@@ -2311,31 +2336,70 @@ function ElementPreview({
     borderColor: style.borderColor,
     boxShadow: elementShadowCss(hovered && style.hoverShadow ? style.hoverShadow : style.shadow),
     opacity: hovered && style.hoverOpacity !== undefined ? style.hoverOpacity : style.opacity,
-    transform: `rotate(${rotate}deg) scale(${hoverScale})`,
+    transform: `translate3d(${positionX}px, ${positionY}px, 0) rotate(${rotate}deg) scale(${hoverScale})`,
     transition: 'transform .2s ease, opacity .2s ease, background-color .2s ease, color .2s ease, box-shadow .2s ease, border-color .2s ease',
     width: style.width ? `${style.width}%` : undefined,
   } as const;
 
-  const wrapper = `relative max-w-full cursor-grab rounded-md outline-none transition active:cursor-grabbing ${
-    selected ? 'ring-2 ring-violet-500 ring-offset-2 ring-offset-transparent' : 'hover:ring-1 hover:ring-violet-400/50'
-  } ${dragging ? 'opacity-35' : 'opacity-100'} ${dragOver ? 'ring-2 ring-cyan-400 ring-offset-4 ring-offset-transparent' : ''}`;
+  const wrapper = `relative max-w-full rounded-lg outline-none transition duration-150 ${editingInline ? 'cursor-text' : 'cursor-grab active:cursor-grabbing'} ${
+    selected ? 'ring-2 ring-violet-400/90 shadow-[0_0_0_4px_rgba(139,92,246,0.08)]' : 'hover:ring-1 hover:ring-violet-400/40'
+  } ${dragging ? 'scale-[0.99] opacity-55 shadow-xl' : 'opacity-100'} ${dragOver ? 'ring-2 ring-cyan-400/80' : ''}`;
+
+  const commitInlineEdit = () => {
+    if (!editingInline) return;
+    const next = (inlineEditRef.current?.textContent || '').replace(/\u00a0/g, ' ').trim();
+    setEditingInline(false);
+    if (next && next !== element.content) onInlineContentChange(next);
+  };
+
+  const cancelInlineEdit = () => {
+    if (inlineEditRef.current) inlineEditRef.current.textContent = element.content;
+    setEditingInline(false);
+  };
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelInlineEdit();
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      inlineEditRef.current?.blur();
+    }
+  };
 
   const dragProps = {
-    draggable: true,
-    onDragStart: (e: React.DragEvent) => { e.stopPropagation(); onDragStart(e); },
+    draggable: !editingInline,
+    onDragStart: (e: React.DragEvent) => {
+      if (editingInline) { e.preventDefault(); return; }
+      e.stopPropagation(); onDragStart(e);
+    },
+    onDrag: (e: React.DragEvent) => {
+      if (editingInline) return;
+      e.stopPropagation();
+      onDragMove(e);
+    },
     onDragOver: (e: React.DragEvent) => { e.stopPropagation(); onDragOver(e); },
     onDrop: (e: React.DragEvent) => { e.stopPropagation(); onDrop(e); },
     onDragEnd: (e: React.DragEvent) => { e.stopPropagation(); onDragEnd(); },
     onClick: (e: React.MouseEvent) => { e.stopPropagation(); onSelect(); },
+    onDoubleClick: (e: React.MouseEvent) => {
+      if (!inlineEditable) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onSelect();
+      setEditingInline(true);
+    },
     onMouseEnter: () => setHovered(true),
     onMouseLeave: () => setHovered(false),
   };
 
   if (element.type === 'heading') {
-    return <h2 {...dragProps} className={wrapper} style={commonStyle}>{element.content}</h2>;
+    return <h2 {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</h2>;
   }
   if (element.type === 'text') {
-    return <p {...dragProps} className={wrapper} style={commonStyle}>{element.content}</p>;
+    return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</p>;
   }
   if (element.type === 'button') {
     return <button {...dragProps} type="button" className={wrapper} style={commonStyle}>{element.content}</button>;
@@ -2345,7 +2409,7 @@ function ElementPreview({
     return <ul {...dragProps} className={`${wrapper} list-disc space-y-2 pl-6`} style={commonStyle}>{items.map((item, index) => <li key={`${element.id}-${index}`}>{item}</li>)}</ul>;
   }
   if (element.type === 'divider') {
-    return <div {...dragProps} className={`${wrapper} py-2`} style={{ width: commonStyle.width }}><div style={{ height: '2px', width: '100%', background: style.backgroundColor || '#7c3aed', opacity: style.opacity ?? 0.35 }} /></div>;
+    return <div {...dragProps} className={`${wrapper} py-2`} style={{ ...commonStyle, backgroundColor: 'transparent', padding: undefined, borderWidth: undefined, boxShadow: undefined }}><div style={{ height: '2px', width: '100%', background: style.backgroundColor || '#7c3aed', opacity: style.opacity ?? 0.35 }} /></div>;
   }
   if (element.type === 'spacer') {
     const height = Math.max(8, Math.min(320, (clampElementNumber(style.padding, 24, 0, 160) || 24) * 2));
@@ -2410,10 +2474,22 @@ function SectionPreview({
   onSelectElement,
   draggedElementId,
   dragOverElementId,
+  dragOverElementPosition,
   onElementDragStart,
+  onElementDragMove,
   onElementDragOver,
   onElementDrop,
   onElementDragEnd,
+  onMoveSelectedElement,
+  onDuplicateSelectedElement,
+  onDeleteSelectedElement,
+  onInlineContentChange,
+  onAddElement,
+  onMoveSection,
+  onDeleteSection,
+  canMoveSectionUp,
+  canMoveSectionDown,
+  canDeleteSection,
   device,
   theme,
 }: {
@@ -2424,10 +2500,22 @@ function SectionPreview({
   onSelectElement: (id: string) => void;
   draggedElementId: string | null;
   dragOverElementId: string | null;
+  dragOverElementPosition: 'before' | 'after' | null;
   onElementDragStart: (id: string, e: React.DragEvent) => void;
+  onElementDragMove: (id: string, e: React.DragEvent) => void;
   onElementDragOver: (id: string, e: React.DragEvent) => void;
   onElementDrop: (id: string, e: React.DragEvent) => void;
   onElementDragEnd: () => void;
+  onMoveSelectedElement: (direction: 'up' | 'down') => void;
+  onDuplicateSelectedElement: () => void;
+  onDeleteSelectedElement: () => void;
+  onInlineContentChange: (elementId: string, content: string) => void;
+  onAddElement: (type: WebsiteElementType) => void;
+  onMoveSection: (direction: 'up' | 'down') => void;
+  onDeleteSection: () => void;
+  canMoveSectionUp: boolean;
+  canMoveSectionDown: boolean;
+  canDeleteSection: boolean;
   device: Device;
   theme: WebsiteTheme;
 }) {
@@ -2457,11 +2545,42 @@ function SectionPreview({
   const sectionPaddingX = sectionVisualNumber(section.sectionPaddingX, compact ? 20 : 40, 0, 160);
   const sectionRadius = sectionVisualNumber(section.sectionRadius, 0, 0, 80);
   const sectionFullWidth = sectionContentWidth(section) === 'full';
+
+  const renderSelectedElementToolbar = (element: WebsiteElement) => {
+    if (selectedElementId !== element.id) return null;
+    const selectedElementIndex = section.elements.findIndex((item) => item.id === element.id);
+    const canMoveElementUp = selectedElementIndex > 0;
+    const canMoveElementDown = selectedElementIndex >= 0 && selectedElementIndex < section.elements.length - 1;
+    return (
+      <div
+        draggable={false}
+        className="absolute -top-10 right-0 z-40 flex max-w-full items-center gap-0.5 rounded-lg border border-white/10 bg-[#111122]/95 p-1 shadow-xl backdrop-blur"
+        onDragStart={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span className="max-w-24 truncate px-2 text-[9px] font-bold text-violet-300">{ELEMENT_LABELS[element.type]}</span>
+        <button type="button" onClick={() => onMoveSelectedElement('up')} disabled={!canMoveElementUp} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move up">
+          <ChevronUp className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={() => onMoveSelectedElement('down')} disabled={!canMoveElementDown} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move down">
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={onDuplicateSelectedElement} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white" title="Duplicate">
+          <Copy className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={onDeleteSelectedElement} className="rounded-md p-1.5 text-red-300 hover:bg-red-500/15 hover:text-red-200" title="Delete">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <section
       id={sectionDomId(section)}
       onClick={onSelect}
-      className={`relative group cursor-pointer border-2 transition-all ${selected ? 'border-violet-500 shadow-lg shadow-violet-500/10' : 'border-transparent hover:border-violet-400/40'}`}
+      className={`relative group cursor-pointer border border-transparent transition-all duration-150 ${selected ? 'ring-2 ring-violet-500/70 ring-inset' : 'hover:ring-1 hover:ring-violet-400/35 hover:ring-inset'}`}
       style={{
         background: sectionBackgroundCss(section),
         minHeight: sectionMinHeight ? `${sectionMinHeight}px` : undefined,
@@ -2469,10 +2588,29 @@ function SectionPreview({
         overflow: 'hidden',
       }}
     >
-      {selected && (
-        <div className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-md bg-violet-600 px-2 py-1 text-[10px] font-semibold text-white">
-          <MousePointer2 className="h-3 w-3" /> {SECTION_LABELS[section.type]}
-        </div>
+      {selected && !selectedElementId && (
+        <>
+          <div className="absolute left-2 top-2 z-30 flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-lg">
+            <MousePointer2 className="h-3 w-3" /> {SECTION_LABELS[section.type]}
+          </div>
+          <div
+            draggable={false}
+            className="absolute right-2 top-2 z-30 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#111122]/95 p-1 shadow-xl backdrop-blur"
+            onDragStart={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button type="button" onClick={() => onMoveSection('up')} disabled={!canMoveSectionUp} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30" title="Move section up">
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => onMoveSection('down')} disabled={!canMoveSectionDown} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30" title="Move section down">
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={onDeleteSection} disabled={!canDeleteSection} className="rounded-md p-1.5 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-30" title="Delete section">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </>
       )}
       <div
         className="mx-auto min-h-[260px] w-full"
@@ -2538,7 +2676,11 @@ function SectionPreview({
                             opacity: hiddenOnDevice ? 0.32 : 1,
                           }}
                         >
+                          {dragOverElementId === element.id && dragOverElementPosition && draggedElementId !== element.id && (
+                            <span className={`pointer-events-none absolute left-0 right-0 z-50 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.75)] ${dragOverElementPosition === 'before' ? '-top-2' : '-bottom-2'}`} />
+                          )}
                           {hiddenOnDevice && <span className="absolute right-1 top-1 z-20 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">Hidden on {device}</span>}
+                          {renderSelectedElementToolbar(element)}
                           <ElementPreview
                             element={element}
                             selected={selectedElementId === element.id}
@@ -2547,9 +2689,11 @@ function SectionPreview({
                             device={device}
                             onSelect={() => onSelectElement(element.id)}
                             onDragStart={(e) => onElementDragStart(element.id, e)}
+                            onDragMove={(e) => onElementDragMove(element.id, e)}
                             onDragOver={(e) => onElementDragOver(element.id, e)}
                             onDrop={(e) => onElementDrop(element.id, e)}
                             onDragEnd={onElementDragEnd}
+                            onInlineContentChange={(content) => onInlineContentChange(element.id, content)}
                           />
                         </div>
                       );
@@ -2582,9 +2726,13 @@ function SectionPreview({
             };
             return (
               <div key={element.id} className="relative flex min-w-0 w-full flex-col" style={wrapperStyle}>
+                {dragOverElementId === element.id && dragOverElementPosition && draggedElementId !== element.id && (
+                  <span className={`pointer-events-none absolute left-0 right-0 z-50 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.75)] ${dragOverElementPosition === 'before' ? '-top-2' : '-bottom-2'}`} />
+                )}
                 {hiddenOnDevice && (
                   <span className="absolute right-1 top-1 z-20 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">Hidden on {device}</span>
                 )}
+                {renderSelectedElementToolbar(element)}
                 <ElementPreview
                   element={element}
                   selected={selectedElementId === element.id}
@@ -2593,15 +2741,40 @@ function SectionPreview({
                   device={device}
                   onSelect={() => onSelectElement(element.id)}
                   onDragStart={(e) => onElementDragStart(element.id, e)}
+                  onDragMove={(e) => onElementDragMove(element.id, e)}
                   onDragOver={(e) => onElementDragOver(element.id, e)}
                   onDrop={(e) => onElementDrop(element.id, e)}
                   onDragEnd={onElementDragEnd}
+                  onInlineContentChange={(content) => onInlineContentChange(element.id, content)}
                 />
               </div>
             );
           })}
         </div>
-        {section.type === 'contact' && (
+        {selected && (
+          <div className="flex justify-center px-4 pb-4 pt-2">
+            <details
+              className="relative"
+              draggable={false}
+              onDragStart={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-violet-400/30 bg-[#111122]/90 px-3 py-1.5 text-[10px] font-bold text-violet-200 shadow-lg backdrop-blur hover:bg-violet-500/15 [&::-webkit-details-marker]:hidden">
+                <Plus className="h-3.5 w-3.5" /> Add element
+              </summary>
+              <div className="absolute bottom-9 left-1/2 z-50 grid w-52 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#111122] p-2 shadow-2xl">
+                {(['heading', 'text', 'button', 'image'] as WebsiteElementType[]).map((type) => (
+                  <button key={type} type="button" onClick={() => onAddElement(type)} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">
+                    + {ELEMENT_LABELS[type]}
+                  </button>
+                ))}
+                <button type="button" onClick={() => onAddElement('spacer')} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">+ {ELEMENT_LABELS.spacer}</button>
+                <button type="button" onClick={() => onAddElement('divider')} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">+ {ELEMENT_LABELS.divider}</button>
+              </div>
+            </details>
+          </div>
+        )}
+                {section.type === 'contact' && (
           <div className={`mx-auto mt-5 grid w-full max-w-xl gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 ${compact ? 'text-xs' : 'text-sm'}`}>
             {(section.formFields ?? createDefaultContactFormFields()).map((field) => (
               field.type === 'checkbox' ? (
@@ -2628,11 +2801,13 @@ function SectionPreview({
                 </label>
               )
             ))}
+            <div className="relative">
+              {contactSubmitElement && renderSelectedElementToolbar(contactSubmitElement)}
             {contactSubmitStyle?.hidden ? (
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id); }}
-                className="rounded-lg border border-dashed border-amber-400/60 px-4 py-3 text-xs font-semibold text-amber-300"
+                className={`rounded-lg border border-dashed border-amber-400/60 px-4 py-3 text-xs font-semibold text-amber-300 ${selectedElementId === contactSubmitElement?.id ? 'ring-2 ring-violet-400' : ''}`}
               >
                 Submit button hidden on {device}
               </button>
@@ -2640,7 +2815,7 @@ function SectionPreview({
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id); }}
-                className="font-semibold opacity-90"
+                className={`font-semibold opacity-90 transition ${selectedElementId === contactSubmitElement?.id ? 'ring-2 ring-violet-400 ring-offset-2 ring-offset-transparent' : 'hover:ring-1 hover:ring-violet-400/40'}`}
                 style={{
                   color: contactSubmitStyle?.color || '#ffffff',
                   background: contactSubmitStyle?.backgroundColor || section.accent,
@@ -2660,6 +2835,7 @@ function SectionPreview({
                 {contactSubmitElement?.content || section.buttonText || 'Send Message'}
               </button>
             )}
+            </div>
           </div>
         )}
       </div>
@@ -2695,6 +2871,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [selectedId, setSelectedId] = useState<string | null>(defaultSections[0].id);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(defaultSections[0].elements[0]?.id ?? null);
   const [device, setDevice] = useState<Device>('desktop');
+  const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
+  const [advancedSiteSettingsOpen, setAdvancedSiteSettingsOpen] = useState(false);
+  const [builderPanel, setBuilderPanel] = useState<'add' | 'pages' | 'layers'>('add');
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [siteName, setSiteName] = useState('My Website');
@@ -2706,9 +2885,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [, setDragOverId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragOverSectionPosition, setDragOverSectionPosition] = useState<'before' | 'after' | null>(null);
   const [draggedElementId, setDraggedElementId] = useState<string | null>(null);
   const [dragOverElementId, setDragOverElementId] = useState<string | null>(null);
+  const [dragOverElementPosition, setDragOverElementPosition] = useState<'before' | 'after' | null>(null);
+  const draggedSectionRef = useRef<string | null>(null);
+  const draggedElementRef = useRef<string | null>(null);
+  const draggedElementSectionRef = useRef<string | null>(null);
+  const freeElementDragRef = useRef<{
+    sectionId: string;
+    elementId: string;
+    symbolId?: string;
+    startClientX: number;
+    startClientY: number;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
   const [cloudProjects, setCloudProjects] = useState<CloudWebsiteProject[]>([]);
   const [cloudProjectId, setCloudProjectId] = useState<string | null>(null);
   const [projectTeamAccess, setProjectTeamAccess] = useState<ProjectTeamAccess>(DEFAULT_PROJECT_TEAM_ACCESS);
@@ -4369,22 +4564,53 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
   }
 
-  function addElement(type: WebsiteElementType) {
-    if (!selectedSection) return;
+  function addElementToSection(sectionId: string, type: WebsiteElementType) {
+    const targetSection = sections.find((section) => section.id === sectionId);
+    if (!targetSection) return;
     remember(sections);
-    const columnCount = sectionColumnCount(selectedSection.layout);
+    const columnCount = sectionColumnCount(targetSection.layout);
     const counts = Array.from({ length: columnCount }, (_, columnIndex) =>
-      selectedSection.elements.reduce((count, existingElement, index) =>
+      targetSection.elements.reduce((count, existingElement, index) =>
         count + (elementColumn(existingElement, index, columnCount) === columnIndex + 1 ? 1 : 0), 0)
     );
     const targetColumn = columnCount > 1 ? counts.indexOf(Math.min(...counts)) + 1 : undefined;
-    const element = { ...createElement(type, selectedSection.accent), layoutColumn: targetColumn };
+    const element = { ...createElement(type, targetSection.accent), layoutColumn: targetColumn };
     setSections((current) => current.map((section) =>
-      section.id === selectedSection.id
-        ? { ...section, elements: [...section.elements, element] }
-        : section
+      section.id === sectionId ? { ...section, elements: [...section.elements, element] } : section
     ));
+    setSelectedId(sectionId);
     setSelectedElementId(element.id);
+    setSaved(false);
+  }
+
+  function addElement(type: WebsiteElementType) {
+    if (!selectedSection) return;
+    addElementToSection(selectedSection.id, type);
+  }
+
+  function updateInlineElementContent(sectionId: string, elementId: string, content: string) {
+    const targetSection = sections.find((section) => section.id === sectionId);
+    const targetElement = targetSection?.elements.find((element) => element.id === elementId);
+    if (!targetSection || !targetElement || !content.trim() || targetElement.content === content) return;
+    remember(sections);
+    const symbolId = targetElement.symbolId;
+    const updateSection = (section: WebsiteSection) => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = symbolId ? element.symbolId === symbolId : element.id === elementId;
+        return matches ? { ...element, content } : element;
+      }),
+    });
+    setSections((current) => current.map((section) => section.id === sectionId || symbolId ? updateSection(section) : section));
+    if (symbolId) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : { ...page, sections: page.sections.map(updateSection) }));
+      setSymbols((current) => current.map((symbol) => symbol.id === symbolId
+        ? { ...symbol, element: { ...symbol.element, content }, updatedAt: new Date().toISOString() }
+        : symbol
+      ));
+    }
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
     setSaved(false);
   }
 
@@ -4620,57 +4846,206 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function handleElementDragStart(id: string, e: React.DragEvent) {
+  function handleElementDragStart(sectionId: string, id: string, e: React.DragEvent) {
+    const sourceSection = sections.find((section) => section.id === sectionId);
+    const sourceElement = sourceSection?.elements.find((element) => element.id === id);
+    if (!sourceSection || !sourceElement) return;
+    remember(sections);
+    draggedElementRef.current = id;
+    draggedElementSectionRef.current = sectionId;
+    const sourceStyle = effectiveStyle(sourceElement, device);
+    freeElementDragRef.current = {
+      sectionId,
+      elementId: id,
+      symbolId: sourceElement.symbolId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startX: clampElementNumber(sourceStyle.positionX, 0, -4000, 4000),
+      startY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
+      currentX: clampElementNumber(sourceStyle.positionX, 0, -4000, 4000),
+      currentY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
+    };
     setDraggedElementId(id);
     setDragOverElementId(null);
+    setDragOverElementPosition(null);
+    setSelectedId(sectionId);
+    setSelectedElementId(id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/x-tayar-element', id);
+    e.dataTransfer.setData('application/x-tayar-section', sectionId);
   }
 
-  function handleElementDragOver(id: string, e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverElementId(id);
-  }
+  function handleElementDragMove(sectionId: string, id: string, e: React.DragEvent) {
+    const drag = freeElementDragRef.current;
+    if (!drag || drag.sectionId !== sectionId || drag.elementId !== id) return;
+    if (!e.clientX && !e.clientY) return;
 
-  function handleElementDrop(targetId: string, e: React.DragEvent) {
-    e.preventDefault();
-    if (!selectedSection) return;
-    const sourceId = e.dataTransfer.getData('application/x-tayar-element') || draggedElementId;
-    if (!sourceId || sourceId === targetId) {
-      handleElementDragEnd();
-      return;
-    }
+    const nextX = Math.max(-4000, Math.min(4000, Math.round(drag.startX + (e.clientX - drag.startClientX))));
+    const nextY = Math.max(-4000, Math.min(4000, Math.round(drag.startY + (e.clientY - drag.startClientY))));
+    if (nextX === drag.currentX && nextY === drag.currentY) return;
+    drag.currentX = nextX;
+    drag.currentY = nextY;
 
-    const sourceIndex = selectedSection.elements.findIndex((element) => element.id === sourceId);
-    const targetIndex = selectedSection.elements.findIndex((element) => element.id === targetId);
-    if (sourceIndex === -1 || targetIndex === -1) {
-      handleElementDragEnd();
-      return;
-    }
-
-    remember(sections);
-    setSections((current) => current.map((section) => {
-      if (section.id !== selectedSection.id) return section;
-      const elements = [...section.elements];
-      const [moved] = elements.splice(sourceIndex, 1);
-      elements.splice(targetIndex, 0, moved);
-      return { ...section, elements };
-    }));
-    setSelectedElementId(sourceId);
+    setSections((current) => current.map((section) => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = drag.symbolId ? element.symbolId === drag.symbolId : section.id === sectionId && element.id === id;
+        if (!matches) return element;
+        return {
+          ...element,
+          responsive: {
+            ...element.responsive,
+            [device]: {
+              ...(element.responsive?.[device] || {}),
+              positionX: nextX,
+              positionY: nextY,
+            },
+          },
+        };
+      }),
+    })));
     setSaved(false);
+  }
+
+  function handleElementDragOver(targetSectionId: string, targetId: string, e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (!e.shiftKey) {
+      setDragOverElementId(null);
+      setDragOverElementPosition(null);
+      return;
+    }
+
+    const sourceId = draggedElementRef.current;
+    const sourceSectionId = draggedElementSectionRef.current;
+    if (!sourceId || !sourceSectionId || sourceId === targetId) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const position: 'before' | 'after' = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    setDragOverElementId(targetId);
+    setDragOverElementPosition(position);
+
+    setSections((current) => {
+      const sourceSection = current.find((section) => section.id === sourceSectionId);
+      const targetSection = current.find((section) => section.id === targetSectionId);
+      if (!sourceSection || !targetSection) return current;
+
+      const sourceElement = sourceSection.elements.find((element) => element.id === sourceId);
+      if (!sourceElement) return current;
+
+      // Build the target list without the dragged element first so the insertion index is stable.
+      const targetWithoutSource = targetSection.elements.filter((element) => element.id !== sourceId);
+      const targetIndex = targetWithoutSource.findIndex((element) => element.id === targetId);
+      if (targetIndex === -1) return current;
+      const insertAt = targetIndex + (position === 'after' ? 1 : 0);
+
+      if (sourceSectionId === targetSectionId) {
+        const originalIndex = sourceSection.elements.findIndex((element) => element.id === sourceId);
+        const currentWithoutSource = sourceSection.elements.filter((element) => element.id !== sourceId);
+        const currentInsertAt = Math.min(insertAt, currentWithoutSource.length);
+        if (originalIndex === currentInsertAt) return current;
+
+        const nextElements = [...currentWithoutSource];
+        nextElements.splice(currentInsertAt, 0, sourceElement);
+        return current.map((section) => section.id === sourceSectionId ? { ...section, elements: nextElements } : section);
+      }
+
+      const movedElement: WebsiteElement = {
+        ...sourceElement,
+        containerId: undefined,
+        layoutColumn: undefined,
+      };
+      const nextTargetElements = [...targetWithoutSource];
+      nextTargetElements.splice(Math.min(insertAt, nextTargetElements.length), 0, movedElement);
+      draggedElementSectionRef.current = targetSectionId;
+      setSelectedId(targetSectionId);
+
+      return current.map((section) => {
+        if (section.id === sourceSectionId) return { ...section, elements: section.elements.filter((element) => element.id !== sourceId) };
+        if (section.id === targetSectionId) return { ...section, elements: nextTargetElements };
+        return section;
+      });
+    });
+    setSaved(false);
+  }
+
+  function handleElementDrop(targetSectionId: string, targetId: string, e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceId = draggedElementRef.current || e.dataTransfer.getData('application/x-tayar-element');
+    if (sourceId && e.shiftKey) {
+      setSelectedId(targetSectionId);
+      setSelectedElementId(sourceId);
+      setDragOverElementId(targetId);
+    }
     handleElementDragEnd();
   }
 
   function handleElementDragEnd() {
+    const drag = freeElementDragRef.current;
+    if (drag?.symbolId) {
+      setPages((current) => current.map((page) => ({
+        ...page,
+        sections: page.sections.map((section) => ({
+          ...section,
+          elements: section.elements.map((element) => element.symbolId === drag.symbolId ? {
+            ...element,
+            responsive: {
+              ...element.responsive,
+              [device]: {
+                ...(element.responsive?.[device] || {}),
+                positionX: drag.currentX,
+                positionY: drag.currentY,
+              },
+            },
+          } : element),
+        })),
+      })));
+      setSymbols((current) => current.map((symbol) => symbol.id === drag.symbolId ? {
+        ...symbol,
+        element: {
+          ...symbol.element,
+          responsive: {
+            ...symbol.element.responsive,
+            [device]: {
+              ...(symbol.element.responsive?.[device] || {}),
+              positionX: drag.currentX,
+              positionY: drag.currentY,
+            },
+          },
+        },
+        updatedAt: new Date().toISOString(),
+      } : symbol));
+    }
+    freeElementDragRef.current = null;
+    draggedElementRef.current = null;
+    draggedElementSectionRef.current = null;
     setDraggedElementId(null);
     setDragOverElementId(null);
+    setDragOverElementPosition(null);
   }
 
   function addSection(type: SectionType) {
     remember(sections);
     const section = createSection(type);
     setSections((current) => [...current, section]);
+    setSelectedId(section.id);
+    setSelectedElementId(section.elements[0]?.id ?? null);
+    setSaved(false);
+  }
+
+  function insertSectionAfter(afterSectionId: string, type: SectionType) {
+    remember(sections);
+    const section = createSection(type);
+    setSections((current) => {
+      const index = current.findIndex((item) => item.id === afterSectionId);
+      if (index === -1) return [...current, section];
+      const next = [...current];
+      next.splice(index + 1, 0, section);
+      return next;
+    });
     setSelectedId(section.id);
     setSelectedElementId(section.elements[0]?.id ?? null);
     setSaved(false);
@@ -4746,7 +5121,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function handleDragStart(id: string, e: React.DragEvent) {
+    remember(sections);
+    draggedSectionRef.current = id;
     setDraggedId(id);
+    setDragOverId(null);
+    setDragOverSectionPosition(null);
+    setSelectedId(id);
+    setSelectedElementId(null);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', id);
   }
@@ -4755,52 +5136,45 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
+
+    const sourceId = draggedSectionRef.current;
+    if (!sourceId || sourceId === targetId) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const position: 'before' | 'after' = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
     setDragOverId(targetId);
+    setDragOverSectionPosition(position);
+
+    setSections((current) => {
+      const source = current.find((section) => section.id === sourceId);
+      if (!source) return current;
+      const withoutSource = current.filter((section) => section.id !== sourceId);
+      const targetIndex = withoutSource.findIndex((section) => section.id === targetId);
+      if (targetIndex === -1) return current;
+      const insertAt = targetIndex + (position === 'after' ? 1 : 0);
+      const currentSourceIndex = current.findIndex((section) => section.id === sourceId);
+      if (currentSourceIndex === insertAt) return current;
+      const next = [...withoutSource];
+      next.splice(Math.min(insertAt, next.length), 0, source);
+      return next;
+    });
+    setSaved(false);
   }
 
   function handleDrop(e: React.DragEvent, targetId: string) {
     e.preventDefault();
     e.stopPropagation();
-
-    const sourceId =
-      e.dataTransfer.getData('text/plain') || draggedId;
-
-    if (!sourceId || sourceId === targetId) {
-      setDraggedId(null);
-      return;
-    }
-
-    remember(sections);
-
-    setSections((current) => {
-      const sourceIndex = current.findIndex(
-        (section) => section.id === sourceId
-      );
-
-      const targetIndex = current.findIndex(
-        (section) => section.id === targetId
-      );
-
-      if (sourceIndex === -1 || targetIndex === -1) {
-        return current;
-      }
-
-      const next = [...current];
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, moved);
-
-      return next;
-    });
-
-    setSelectedId(sourceId);
-    setSaved(false);
-    setDraggedId(null);
-    setDragOverId(null);
+    const sourceId = draggedSectionRef.current || e.dataTransfer.getData('text/plain');
+    if (sourceId) setSelectedId(sourceId);
+    setDragOverId(targetId);
+    handleDragEnd();
   }
 
   function handleDragEnd() {
+    draggedSectionRef.current = null;
     setDraggedId(null);
     setDragOverId(null);
+    setDragOverSectionPosition(null);
   }
   async function generateWithAI() {
     const prompt = aiPrompt.trim();
@@ -6300,21 +6674,21 @@ if (generated.seo) {
       }`}
     >
       <header
-        className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 ${
+        className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 ${
           darkMode
             ? 'border-white/10 bg-[#0a0a1a]'
             : 'border-gray-200 bg-white'
         }`}
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600/15">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600/12">
             <Globe className="h-5 w-5 text-violet-400" />
           </div>
 
           <div>
             <h1 className="text-sm font-bold">{l('Website Builder')}</h1>
-            <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-              Build, operate, audit, publish and grow your website
+            <p className={`hidden text-[10px] lg:block ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+              {l('Build, preview and publish')}
             </p>
           </div>
         </div>
@@ -6334,50 +6708,6 @@ if (generated.seo) {
             placeholder={l('Website name')}
           />
 
-
-          <input
-            value={siteUrl}
-            onChange={(e) => {
-              setSiteUrl(e.target.value);
-              setSaved(false);
-            }}
-            className={`hidden xl:block w-48 rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-              darkMode
-                ? 'border-white/10 bg-white/5 text-white'
-                : 'border-gray-200 bg-gray-50 text-gray-900'
-            }`}
-            placeholder="https://your-domain.com"
-            title="Production URL used for canonical links, sitemap.xml and robots.txt"
-          />
-
-          {user && (
-            <select
-              value={cloudProjectId ?? ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) {
-                  setCloudProjectId(null);
-                  setProjectTeamAccess(DEFAULT_PROJECT_TEAM_ACCESS);
-                  return;
-                }
-                void loadCloudProject(value);
-              }}
-              disabled={cloudBusy}
-              className={`hidden md:block max-w-44 rounded-lg border px-2 py-2 text-xs outline-none focus:border-violet-500 ${
-                darkMode
-                  ? 'border-white/10 bg-white/5 text-white'
-                  : 'border-gray-200 bg-gray-50 text-gray-900'
-              }`}
-              title={l('Cloud projects')}
-            >
-              <option value="">{l('New cloud project')}</option>
-              {cloudProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.title}{project.user_id !== user.id ? ' · Shared' : ''}
-                </option>
-              ))}
-            </select>
-          )}
 
           <div
             className={`flex rounded-lg border p-1 ${
@@ -6433,7 +6763,7 @@ if (generated.seo) {
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
             title={l('Undo')}
           >
-            <RotateCcw className="h-4 w-4" />{l('Undo')}</button>
+            <RotateCcw className="h-4 w-4" /><span className="sr-only">{l('Undo')}</span></button>
 
           <button
             onClick={redo}
@@ -6441,8 +6771,58 @@ if (generated.seo) {
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
             title={l('Redo')}
           >
-            <RotateCcw className="h-4 w-4 rotate-180" />{l('Redo')}</button>
+            <RotateCcw className="h-4 w-4 rotate-180" /><span className="sr-only">{l('Redo')}</span></button>
 
+
+          <details className="relative">
+            <summary
+              className={'flex cursor-pointer list-none items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden ' + (darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100')}
+              title={l('More website tools')}
+            >
+              {l('More')}
+              <ChevronDown className="h-3.5 w-3.5" />
+            </summary>
+            <div className={'absolute right-0 top-11 z-[90] w-[min(92vw,430px)] rounded-2xl border p-3 shadow-2xl ' + (darkMode ? 'border-white/10 bg-[#0a0a1a] text-white' : 'border-gray-200 bg-white text-gray-900')}>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold">{l('Website tools')}</p>
+                  <p className="mt-0.5 text-[10px] text-gray-500">{l('Advanced tools stay here until you need them.')}</p>
+                </div>
+                <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] font-bold text-gray-500">{BILLING_PLAN_DETAILS[billingPlan].label}</span>
+              </div>
+              <div className={`mb-3 rounded-xl border p-2.5 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Project & domain')}</p>
+                <input
+                  value={siteUrl}
+                  onChange={(e) => { setSiteUrl(e.target.value); setSaved(false); }}
+                  placeholder="https://your-domain.com"
+                  className={`w-full rounded-lg border px-2.5 py-2 text-[11px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                />
+                {user && (
+                  <select
+                    value={cloudProjectId ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (!value) {
+                        setCloudProjectId(null);
+                        setProjectTeamAccess(DEFAULT_PROJECT_TEAM_ACCESS);
+                        return;
+                      }
+                      void loadCloudProject(value);
+                    }}
+                    disabled={cloudBusy}
+                    className={`mt-2 w-full rounded-lg border px-2.5 py-2 text-[11px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                  >
+                    <option value="">{l('New cloud project')}</option>
+                    {cloudProjects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.title}{project.user_id !== user.id ? ' · Shared' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setMediaOpen((open) => !open)}
             disabled={!user}
@@ -6601,27 +6981,33 @@ if (generated.seo) {
           >
             <Copy className="h-4 w-4" />{l('Duplicate')}</button>
 
-          <button
-            onClick={previewWebsite}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              darkMode
-                ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
 
+              </div>
+              <div className="mt-3 border-t border-white/10 pt-3">
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Project actions')}</p>
+                <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => void publishWebsite()}
-            disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
-            className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
-            title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
+            onClick={downloadProductionZip}
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500"
           >
-            <Globe className="h-4 w-4" />
-            {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
-            {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
+            <Download className="h-4 w-4" />
+            Export ZIP
           </button>
 
+          <button
+            onClick={resetProject}
+            className={`rounded-lg border p-2 ${
+              darkMode
+                ? 'border-white/10 text-gray-400 hover:bg-white/5'
+                : 'border-gray-200 text-gray-500 hover:bg-gray-100'
+            }`}
+            title={l('Reset')}
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
           {publishedUrl && (
             <>
               <button
@@ -6663,15 +7049,7 @@ if (generated.seo) {
             </>
           )}
 
-          <button
-            onClick={downloadProductionZip}
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500"
-          >
-            <Download className="h-4 w-4" />
-            Export ZIP
-          </button>
-
-          <span className={`hidden xl:inline text-[11px] ${
+          <span className={`inline-flex text-[11px] ${
             autoSaveStatus === 'saving'
               ? 'text-amber-400'
               : autoSaveStatus === 'saved'
@@ -6683,14 +7061,29 @@ if (generated.seo) {
             {autoSaveStatus === 'saving' ? 'Autosaving…' : autoSaveStatus === 'saved' ? 'Autosaved' : autoSaveStatus === 'failed' ? 'Sync failed' : 'Autosave on'}
           </span>
 
-          <span className={`hidden xl:inline rounded-full border px-2 py-1 text-[9px] font-bold ${networkOnline ? (qualityDiagnostics.healthy ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400') : 'border-red-500/30 text-red-400'}`}>
+          <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-bold ${networkOnline ? (qualityDiagnostics.healthy ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400') : 'border-red-500/30 text-red-400'}`}>
             {networkOnline ? (qualityDiagnostics.healthy ? 'Health ✓' : 'Health warning') : 'Offline'}
           </span>
+
+
+              </div>
+            </div>
+          </details>
+
+          <button
+            onClick={previewWebsite}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
+              darkMode
+                ? 'border-white/10 text-gray-300 hover:bg-white/5'
+                : 'border-gray-200 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
 
           <button
             onClick={() => void saveProject()}
             disabled={cloudBusy}
-            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${darkMode ? 'border-white/10 text-gray-200 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
             title={user ? 'Save locally and to your account' : 'Save locally'}
           >
             {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
@@ -6698,16 +7091,19 @@ if (generated.seo) {
           </button>
 
           <button
-            onClick={resetProject}
-            className={`rounded-lg border p-2 ${
-              darkMode
-                ? 'border-white/10 text-gray-400 hover:bg-white/5'
-                : 'border-gray-200 text-gray-500 hover:bg-gray-100'
-            }`}
-            title={l('Reset')}
+            onClick={() => void publishWebsite()}
+            disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
+            className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+            title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
           >
-            <RotateCcw className="h-4 w-4" />
+            <Globe className="h-4 w-4" />
+            {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
+            {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
           </button>
+
+
+
+
         </div>
       </header>
 
@@ -7394,12 +7790,31 @@ if (generated.seo) {
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside
-          className={`w-full shrink-0 border-b p-4 lg:w-64 lg:border-b-0 lg:border-r ${
+          className={`w-full shrink-0 border-b p-3 lg:w-60 lg:border-b-0 lg:border-r ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
           }`}
         >
+          <div className={`mb-3 grid grid-cols-3 gap-1 rounded-xl border p-1 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
+            {([
+              ['add', l('Add')],
+              ['pages', l('Pages')],
+              ['layers', l('Layers')],
+            ] as const).map(([panel, label]) => (
+              <button
+                key={panel}
+                type="button"
+                onClick={() => setBuilderPanel(panel)}
+                className={`rounded-lg px-2 py-2 text-[10px] font-bold transition ${builderPanel === panel ? 'bg-violet-600 text-white shadow-sm' : darkMode ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-white'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {builderPanel === 'pages' && (
+            <>
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
             <div className="mb-3 flex items-center justify-between">
               <span className="text-xs font-semibold">{l('Pages')}</span>
@@ -7426,7 +7841,17 @@ if (generated.seo) {
                 </div>
               ))}
             </div>
-            {activePage && (
+
+            <button
+              type="button"
+              onClick={() => setPageSettingsOpen((open) => !open)}
+              className={'mt-3 flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-[10px] font-semibold ' + (darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-white')}
+              aria-expanded={pageSettingsOpen}
+            >
+              <span>{l('Page settings')}</span>
+              <ChevronDown className={'h-3.5 w-3.5 transition-transform ' + (pageSettingsOpen ? 'rotate-180' : '')} />
+            </button>
+            {activePage && pageSettingsOpen && (
               <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
                 <div className="flex items-center justify-between gap-2 text-[10px]">
                   <label className="flex items-center gap-1.5 text-gray-500">
@@ -7477,6 +7902,22 @@ if (generated.seo) {
             )}
           </div>
 
+
+          <button
+            type="button"
+            onClick={() => setAdvancedSiteSettingsOpen((open) => !open)}
+            className={'mb-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs font-semibold ' + (advancedSiteSettingsOpen ? 'border-violet-500/40 bg-violet-500/10 text-violet-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50')}
+            aria-expanded={advancedSiteSettingsOpen}
+          >
+            <span>
+              <span className="block">{l('Site settings')}</span>
+              <span className="mt-0.5 block text-[9px] font-normal text-gray-500">{l('Header, footer, theme, SEO and advanced options')}</span>
+            </span>
+            <ChevronDown className={'h-4 w-4 transition-transform ' + (advancedSiteSettingsOpen ? 'rotate-180' : '')} />
+          </button>
+
+          {advancedSiteSettingsOpen && (
+            <>
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/60'}`}>
             <div className="mb-3 flex items-center gap-2">
               <Globe className="h-4 w-4 text-emerald-400" />
@@ -7762,52 +8203,74 @@ if (generated.seo) {
             )}
           </div>
 
-          <div className="mb-4 flex items-center gap-2">
-            <Plus className="h-4 w-4 text-violet-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider">
-              Add Section
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-            {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
-              <button
-                key={type}
-                onClick={() => addSection(type)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
-                  darkMode
-                    ? 'border-white/10 text-gray-300 hover:border-violet-500/40 hover:bg-violet-500/10'
-                    : 'border-gray-200 text-gray-700 hover:border-violet-300 hover:bg-violet-50'
-                }`}
-              >
-                <Plus className="h-3.5 w-3.5 text-violet-400" />
-                {SECTION_LABELS[type]}
-              </button>
-            ))}
-          </div>
-
-          {selectedSection && (
-            <div className={`mt-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="mb-3 flex items-center gap-2">
-                <Type className="h-4 w-4 text-violet-400" />
-                <span className="text-xs font-semibold">{l('Add Element')}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(ELEMENT_LABELS) as WebsiteElementType[]).map((type) => (
-                  <button key={type} onClick={() => addElement(type)} className={`rounded-lg border px-2 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
-                    + {ELEMENT_LABELS[type]}
-                  </button>
-                ))}
-              </div>
-            </div>
+          </>
           )}
 
-          <div className={`mt-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold">{l('Layers')}</span>
-              <span className="text-[10px] text-gray-500">{sections.length} sections</span>
+            </>
+          )}
+
+          {builderPanel === 'add' && (
+          <details open className={`rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2 text-xs font-semibold">
+                <Plus className="h-4 w-4 text-violet-400" />
+                {l('Add')}
+              </span>
+              <span className="flex items-center gap-2 text-[9px] text-gray-500">{l('Sections & elements')}<ChevronDown className="h-3.5 w-3.5" /></span>
+            </summary>
+            <div className="space-y-3 border-t border-violet-500/10 p-3">
+              <div>
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Sections')}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => addSection(type)}
+                      className={`rounded-lg border px-2 py-2 text-left text-[11px] transition-colors ${
+                        darkMode
+                          ? 'border-white/10 text-gray-300 hover:border-violet-500/40 hover:bg-violet-500/10'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-violet-300 hover:bg-violet-50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5"><Plus className="h-3 w-3 text-violet-400" />{SECTION_LABELS[type]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {selectedSection && (
+                <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white'}`}>
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                    <span className="flex items-center gap-2"><Type className="h-3.5 w-3.5 text-violet-400" />{l('Add element')}</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                  </summary>
+                  <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-2.5">
+                    {(Object.keys(ELEMENT_LABELS) as WebsiteElementType[]).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => addElement(type)}
+                        className={`rounded-lg border px-2 py-2 text-[10px] ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        + {ELEMENT_LABELS[type]}
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              <p className="text-[9px] leading-relaxed text-gray-500">{l('Choose a section first. Add individual elements only when you need more control.')}</p>
             </div>
-            <div className="max-h-64 space-y-2 overflow-auto pr-1">
+          </details>
+
+          )}
+
+          {builderPanel === 'layers' && (
+          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+              <span className="text-xs font-semibold">{l('Layers')}</span>
+              <span className="flex items-center gap-2 text-[9px] text-gray-500">{sections.length} {l('sections')}<ChevronDown className="h-3.5 w-3.5" /></span>
+            </summary>
+            <div className="max-h-72 space-y-2 overflow-auto border-t border-white/10 p-2.5">
               {sections.map((section, sectionIndex) => (
                 <div key={section.id}>
                   <button
@@ -7834,84 +8297,74 @@ if (generated.seo) {
                 </div>
               ))}
             </div>
-          </div>
+          </details>
 
-          <div
-            className={`mt-6 rounded-xl border p-3 ${
-              darkMode
-                ? 'border-violet-500/20 bg-violet-500/5'
-                : 'border-violet-100 bg-violet-50'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">{l('AI Website Builder')}</span>
+          )}
+
+          {builderPanel === 'add' && (
+            <div className="mt-3 space-y-3">
+          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2 text-xs font-semibold">
+                <Sparkles className="h-4 w-4 text-violet-400" />
+                {l('Build with AI')}
+              </span>
+              <span className="flex items-center gap-2 text-[9px] font-semibold text-violet-400">{l('Optional')}<ChevronDown className="h-3.5 w-3.5" /></span>
+            </summary>
+            <div className="border-t border-violet-500/10 p-3">
+              <p className="text-[10px] leading-relaxed text-gray-500">
+                {l('Describe the website you want. AI can create a starting design that you can edit normally afterward.')}
+              </p>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => {
+                  setAiPrompt(e.target.value);
+                  setAiError('');
+                }}
+                rows={4}
+                placeholder="Example: Modern Italian restaurant in Stockholm with online booking, menu, testimonials and warm luxury colors..."
+                className={`mt-3 w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
+              />
+              <button
+                onClick={generateWithAI}
+                disabled={!aiPrompt.trim() || aiBusy}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {aiBusy ? 'Generating...' : l('Generate starting website')}
+              </button>
+              {aiError && <p className="mt-2 text-[11px] leading-relaxed text-red-400">{aiError}</p>}
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-              Describe the website you want and AI will replace the current canvas with a complete design.
-            </p>
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => {
-                setAiPrompt(e.target.value);
-                setAiError('');
-              }}
-              rows={4}
-              placeholder="Example: Modern Italian restaurant in Stockholm with online booking, menu, testimonials and warm luxury colors..."
-              className={`mt-3 w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-                darkMode
-                  ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600'
-                  : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'
-              }`}
-            />
-            <button
-              onClick={generateWithAI}
-              disabled={!aiPrompt.trim() || aiBusy}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              {aiBusy ? 'Generating...' : 'Generate Website'}
-            </button>
-            {aiError && (
-              <p className="mt-2 text-[11px] leading-relaxed text-red-400">{aiError}</p>
-            )}
-          </div>
+          </details>
 
-          <div
-            className={`mt-4 rounded-xl border p-3 ${
-              darkMode
-                ? 'border-white/10 bg-white/[0.03]'
-                : 'border-gray-200 bg-gray-50'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Copy className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">{l('Export')}</span>
+          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
+              <span>{l('Developer export')}</span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </summary>
+            <div className="border-t border-white/10 p-3">
+              <button
+                onClick={copyHtml}
+                className={`flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? 'Copied HTML' : 'Copy HTML'}
+              </button>
             </div>
-
-            <button
-              onClick={copyHtml}
-              className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${
-                darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? 'Copied HTML' : 'Copy HTML'}
-            </button>
-          </div>
+          </details>
+            </div>
+          )}
         </aside>
 
         <main
-          className={`min-h-[600px] flex-1 overflow-auto p-4 lg:p-6 ${
-            darkMode ? 'bg-[#030712]' : 'bg-gray-100'
+          className={`min-h-[600px] flex-1 overflow-auto p-3 lg:p-5 ${
+            darkMode ? 'bg-[#050914]' : 'bg-[#f3f4f6]'
           }`}
         >
           <div
-            className={`mx-auto overflow-hidden rounded-2xl shadow-2xl transition-all ${
+            className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${
               device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
-            } ${darkMode ? 'bg-[#0f172a]' : 'bg-white'}`}
+            } ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
             style={{ fontFamily: `${theme.fontFamily}, Arial, sans-serif` }}
           >
             {headerConfig.enabled && (
@@ -7930,7 +8383,7 @@ if (generated.seo) {
                 )}
               </div>
             )}
-            {sections.map((section) => (
+            {sections.map((section, sectionIndex) => (
   <div
     key={section.id}
     onDragStart={(e) => handleDragStart(section.id, e)}
@@ -7938,26 +8391,61 @@ if (generated.seo) {
     onDragEnd={handleDragEnd}
               onDrop={(e) => handleDrop(e, section.id)}
               draggable={true}
-    className={`relative transition-opacity ${
-      draggedId === section.id ? 'opacity-40' : 'opacity-100'
-      } 
+    className={`relative transition-all duration-150 ${
+      draggedId === section.id ? 'scale-[0.995] opacity-45' : 'opacity-100'
+      }
     }`}
   >
+    {dragOverId === section.id && dragOverSectionPosition && draggedId !== section.id && (
+      <span className={`pointer-events-none absolute left-2 right-2 z-[60] h-1 rounded-full bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.8)] ${dragOverSectionPosition === 'before' ? '-top-0.5' : '-bottom-0.5'}`} />
+    )}
     <SectionPreview
       section={section}
       selected={selectedId === section.id}
       selectedElementId={selectedId === section.id ? selectedElementId : null}
       onSelect={() => { setSelectedId(section.id); setSelectedElementId(null); }}
       onSelectElement={(elementId) => { setSelectedId(section.id); setSelectedElementId(elementId); }}
-      draggedElementId={selectedId === section.id ? draggedElementId : null}
-      dragOverElementId={selectedId === section.id ? dragOverElementId : null}
-      onElementDragStart={(elementId, e) => { setSelectedId(section.id); setSelectedElementId(elementId); handleElementDragStart(elementId, e); }}
-      onElementDragOver={(elementId, e) => handleElementDragOver(elementId, e)}
-      onElementDrop={(elementId, e) => handleElementDrop(elementId, e)}
+      draggedElementId={draggedElementId}
+      dragOverElementId={dragOverElementId}
+      dragOverElementPosition={dragOverElementPosition}
+      onElementDragStart={(elementId, e) => handleElementDragStart(section.id, elementId, e)}
+      onElementDragMove={(elementId, e) => handleElementDragMove(section.id, elementId, e)}
+      onElementDragOver={(elementId, e) => handleElementDragOver(section.id, elementId, e)}
+      onElementDrop={(elementId, e) => handleElementDrop(section.id, elementId, e)}
       onElementDragEnd={handleElementDragEnd}
+      onMoveSelectedElement={moveSelectedElement}
+      onDuplicateSelectedElement={duplicateSelectedElement}
+      onDeleteSelectedElement={deleteSelectedElement}
+      onInlineContentChange={(elementId, content) => updateInlineElementContent(section.id, elementId, content)}
+      onAddElement={(type) => addElementToSection(section.id, type)}
+      onMoveSection={(direction) => moveSection(section.id, direction)}
+      onDeleteSection={() => deleteSection(section.id)}
+      canMoveSectionUp={sectionIndex > 0}
+      canMoveSectionDown={sectionIndex < sections.length - 1}
+      canDeleteSection={sections.length > 1}
       device={device}
       theme={theme}
     />
+    <div
+      className="group/add-section relative flex h-8 items-center justify-center"
+      draggable={false}
+      onDragStart={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="h-px w-full bg-violet-500/0 transition group-hover/add-section:bg-violet-500/20" />
+      <details className="absolute z-40">
+        <summary className="flex cursor-pointer list-none items-center gap-1 rounded-full border border-violet-400/20 bg-[#111122]/90 px-2.5 py-1 text-[9px] font-bold text-violet-300 opacity-60 shadow transition hover:opacity-100 [&::-webkit-details-marker]:hidden">
+          <Plus className="h-3 w-3" /> {l('Add section')}
+        </summary>
+        <div className="absolute left-1/2 top-7 z-50 grid w-56 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#111122] p-2 shadow-2xl">
+          {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
+            <button key={type} type="button" onClick={() => insertSectionAfter(section.id, type)} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">
+              + {SECTION_LABELS[type]}
+            </button>
+          ))}
+        </div>
+      </details>
+    </div>
   </div>
 ))}
             {footerConfig.enabled && (
@@ -7973,7 +8461,7 @@ if (generated.seo) {
         </main>
 
         <aside
-          className={`w-full shrink-0 border-t p-4 lg:w-72 lg:border-l lg:border-t-0 ${
+          className={`w-full shrink-0 border-t p-3 lg:w-80 lg:border-l lg:border-t-0 ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
@@ -7981,9 +8469,10 @@ if (generated.seo) {
         >
           <div className="mb-5 flex items-center gap-2">
             <Eye className="h-4 w-4 text-violet-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider">
-              Inspector
-            </h2>
+            <div>
+              <h2 className="text-xs font-bold">{selectedElement ? `${l('Edit')} ${ELEMENT_LABELS[selectedElement.type]}` : l('Inspector')}</h2>
+              <p className="mt-0.5 text-[9px] text-gray-500">{selectedElement ? (selectedElement.type === 'heading' || selectedElement.type === 'text' ? l('Double-click the text on the page for quick editing, or use the controls here.') : l('Change the basics here. Open Advanced only when you need it.')) : l('Select something on the page to start editing.')}</p>
+            </div>
           </div>
 
           {selectedElement && (
@@ -8004,11 +8493,16 @@ if (generated.seo) {
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={duplicateSelectedElement} className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
                   <Copy className="h-3.5 w-3.5" />{l('Duplicate')}</button>
-                <button onClick={resetSelectedElementResponsive} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
-                  Reset {device}
-                </button>
+                <button onClick={deleteSelectedElement} className="flex items-center justify-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">
+                  <Trash2 className="h-3.5 w-3.5" />{l('Delete')}</button>
               </div>
-              <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-200 bg-sky-50/70'}`}>
+              <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-200 bg-white/70'}`}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                  <span>{l('Structure & reusable components')}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                </summary>
+                <div className="space-y-2 border-t border-white/10 p-2">
+<div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-200 bg-sky-50/70'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wide text-sky-400">{l('Container / Group')}</span>
                   {!selectedContainer && <button type="button" onClick={createContainerForSelected} className="text-[9px] font-semibold text-sky-400">{l('+ New container')}</button>}
@@ -8037,7 +8531,7 @@ if (generated.seo) {
                       <label className="text-[9px] text-gray-500">{l('Width')}<input type="number" min="0" max="16" value={selectedContainer.borderWidth} onChange={(e) => updateSelectedContainer({ borderWidth: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                     </div>
                     <select value={selectedContainer.shadow} onChange={(e) => updateSelectedContainer({ shadow: e.target.value as ElementShadow })} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="none">{l('No shadow')}</option><option value="sm">{l('Small shadow')}</option><option value="md">{l('Medium shadow')}</option><option value="lg">{l('Large shadow')}</option><option value="xl">{l('XL shadow')}</option></select>
-                    {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
+              {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
                       <div className="grid grid-cols-2 gap-2">
                         <label className="text-[9px] text-gray-500">{l('Container column')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.layoutColumn || 1} onChange={(e) => updateSelectedContainer({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                         <label className="text-[9px] text-gray-500">{l('Span')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.columnSpan || 1} onChange={(e) => updateSelectedContainer({ columnSpan: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
@@ -8065,6 +8559,8 @@ if (generated.seo) {
                   </div>
                 )}
               </div>
+                </div>
+              </details>
               {selectedElement.type === 'image' ? (
                 <div className="space-y-2">
                   <input
@@ -8121,6 +8617,36 @@ if (generated.seo) {
                   </select>
                 </div>
               )}
+              <div className={`space-y-2 rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">{l('Quick style')}</span>
+                  <span className="text-[9px] uppercase text-gray-500">{device}</span>
+                </div>
+                {(selectedElement.type === 'heading' || selectedElement.type === 'text' || selectedElement.type === 'button' || selectedElement.type === 'list') && (
+                  <>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] text-gray-500">{l('Size')}<input type="number" min="10" max="120" value={effectiveStyle(selectedElement, device).fontSize || 16} onChange={(e) => updateSelectedElement({ style: { fontSize: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                <label className="text-[10px] text-gray-500">{l('Text color')}<input type="color" value={effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { color: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" /></label>
+              </div>
+              <label className="block text-[10px] text-gray-500">{l('Alignment')}<select value={effectiveStyle(selectedElement, device).textAlign || 'center'} onChange={(e) => updateSelectedElement({ style: { textAlign: e.target.value as 'left' | 'center' | 'right' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="left">{l('Left')}</option><option value="center">{l('Center')}</option><option value="right">{l('Right')}</option></select></label>
+                  </>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] text-gray-500">{l('Width %')}<input type="number" min="10" max="100" value={effectiveStyle(selectedElement, device).width || 100} onChange={(e) => updateSelectedElement({ style: { width: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                  {selectedElement.type === 'button' ? (
+              <label className="text-[10px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { backgroundColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" /></label>
+                  ) : <div />}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] text-gray-500">X position<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionX ?? 0} onChange={(e) => updateSelectedElement({ style: { positionX: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                  <label className="text-[10px] text-gray-500">Y position<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionY ?? 0} onChange={(e) => updateSelectedElement({ style: { positionY: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-[9px] text-gray-500">
+                  <span>Drag freely · Shift + drag reorders</span>
+                  <button type="button" onClick={() => updateSelectedElement({ style: { positionX: 0, positionY: 0 } }, true)} className="font-semibold text-violet-400 hover:text-violet-300">Reset position</button>
+                </div>
+              </div>
+
               {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
                 <div className={`rounded-lg border p-2 ${darkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50/60'}`}>
                   <label className="block text-[10px] font-semibold text-indigo-400">Column
@@ -8131,7 +8657,16 @@ if (generated.seo) {
                 </div>
               )}
 
-              <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
+              <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white/70'}`}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                  <span>{l('Advanced design & responsive')}</span>
+                  <span className="flex items-center gap-2 text-[9px] uppercase text-gray-500">{device}<ChevronDown className="h-3.5 w-3.5" /></span>
+                </summary>
+                <div className="space-y-3 border-t border-white/10 p-2">
+                  <button onClick={resetSelectedElementResponsive} className={`w-full rounded-lg border px-2.5 py-2 text-[10px] font-semibold ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    {l('Reset')} {device} {l('styles')}
+                  </button>
+<div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-400">{l('Responsive layout')}</span>
                   <span className="text-[9px] uppercase text-gray-500">{device}</span>
@@ -8321,8 +8856,8 @@ if (generated.seo) {
                 <label className="text-[10px] text-gray-500">{l('Radius')}<input type="number" min="0" max="80" value={effectiveStyle(selectedElement, device).borderRadius || 0} onChange={(e) => updateSelectedElement({ style: { borderRadius: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
                 </label>
               </div>
-              <button onClick={deleteSelectedElement} className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">
-                <Trash2 className="h-3.5 w-3.5" />{l('Delete Element')}</button>
+                </div>
+              </details>
             </div>
           )}
 
