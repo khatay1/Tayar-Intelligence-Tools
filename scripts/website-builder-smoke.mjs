@@ -44,6 +44,9 @@ check('Generated pages include CSP', builder.includes('Content-Security-Policy')
 check('Generated pages have keyboard skip navigation', builder.includes('tayar-skip-link'));
 check('Generated images use lazy loading', builder.includes('loading="lazy" decoding="async"'));
 check('Large-project diagnostics are enabled', builder.includes('snapshotKb'));
+check('Builder primary toolbar uses progressive disclosure', builder.includes("More website tools") && builder.includes("Advanced tools stay here until you need them."));
+check('Page settings are collapsed by default', builder.includes('pageSettingsOpen') && builder.includes("Page settings"));
+check('Advanced site settings are collapsed by default', builder.includes('advancedSiteSettingsOpen') && builder.includes("Advanced site settings"));
 check('Legacy array backups use a valid default language', builder.includes("if (Array.isArray(input) && input.length)") && builder.includes("showInNavigation: true, language: 'en', translationKey: 'home'"));
 check('Analytics CSV export uses the shared CSV serializer', builder.includes("-analytics.csv`, `\\uFEFF${buildCsv(rows)}`"));
 check('Container column controls are reachable', builder.includes('selectedSection && sectionColumnCount(selectedSection.layout) > 1'));
