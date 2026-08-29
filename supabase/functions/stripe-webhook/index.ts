@@ -8,6 +8,26 @@ import {
   stripeRequest,
 } from "../_shared/billing.ts";
 
+interface StripeReference {
+  id?: string | null;
+}
+
+interface StripeSubscriptionItem {
+  current_period_end?: unknown;
+  price?: StripeReference | null;
+  plan?: StripeReference | null;
+}
+
+interface StripeSubscription {
+  customer?: string | StripeReference | null;
+  id?: string | null;
+  items?: { data?: StripeSubscriptionItem[] | null } | null;
+  current_period_end?: unknown;
+  metadata?: { user_id?: unknown; plan?: unknown } | null;
+  status?: unknown;
+  cancel_at_period_end?: boolean | null;
+}
+
 function hex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -58,7 +78,7 @@ function isoFromUnix(value: unknown): string | null {
   return Number.isFinite(numeric) && numeric > 0 ? new Date(numeric * 1000).toISOString() : null;
 }
 
-async function syncSubscription(subscription: any, fallbackUserId?: string | null): Promise<void> {
+async function syncSubscription(subscription: StripeSubscription, fallbackUserId?: string | null): Promise<void> {
   const admin = createAdminClient();
   const stripeCustomerId = typeof subscription?.customer === "string" ? subscription.customer : subscription?.customer?.id || null;
   const stripeSubscriptionId = subscription?.id || null;
@@ -92,10 +112,10 @@ async function syncSubscription(subscription: any, fallbackUserId?: string | nul
   if (error) throw new HttpError(500, `Could not sync subscription: ${error.message}`);
 }
 
-async function retrieveSubscription(id: string): Promise<any> {
+async function retrieveSubscription(id: string): Promise<StripeSubscription> {
   // GET requests still authenticate with the server-side Stripe secret.
   getStripeSecret();
-  return await stripeRequest(`/v1/subscriptions/${encodeURIComponent(id)}`, { method: "GET" });
+  return await stripeRequest<StripeSubscription>(`/v1/subscriptions/${encodeURIComponent(id)}`, { method: "GET" });
 }
 
 Deno.serve(async (req: Request) => {
