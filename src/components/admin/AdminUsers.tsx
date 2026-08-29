@@ -8,11 +8,13 @@ import {
 import { useAdminUsers, AdminUser } from '@/lib/admin-hooks';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AdminUsers() {
   const l = useLocalizer();
-  const { users, loading, refresh } = useAdminUsers();
+  const { users, loading, error, refresh } = useAdminUsers();
   const { success, error: showError } = useToast();
+  const { user: currentUser } = useAuth();
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -24,7 +26,11 @@ export default function AdminUsers() {
 
   const filtered = useMemo(() => {
     return users.filter(u => {
-      const matchSearch = !search || u.full_name.toLowerCase().includes(search.toLowerCase()) || u.id.includes(search);
+      const query = search.toLowerCase();
+      const matchSearch = !search
+        || u.full_name.toLowerCase().includes(query)
+        || u.email.toLowerCase().includes(query)
+        || u.id.includes(search);
       const matchPlan = planFilter === 'all' || u.plan === planFilter;
       const matchStatus = statusFilter === 'all' || (statusFilter === 'suspended' ? u.suspended : !u.suspended);
       return matchSearch && matchPlan && matchStatus;
@@ -35,32 +41,44 @@ export default function AdminUsers() {
   const totalPages = Math.ceil(filtered.length / pageSize);
 
   async function toggleSuspend(user: AdminUser) {
+    if (currentUser?.id === user.id) {
+      showError('You cannot suspend your own administrator account.');
+      return;
+    }
     setActionLoading(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ suspended: !user.suspended, suspended_at: !user.suspended ? new Date().toISOString() : null })
-      .eq('id', user.id);
-    if (error) showError('Failed to update user');
-    else { success(user.suspended ? 'User reinstated' : 'User suspended'); refresh(); }
+    const { error: actionError } = await supabase.rpc('admin_update_user', {
+      p_user_id: user.id,
+      p_full_name: user.full_name,
+      p_role: user.role,
+      p_suspended: !user.suspended,
+    });
+    if (actionError) showError(actionError.message || 'Failed to update user');
+    else { success(user.suspended ? 'User reinstated' : 'User suspended'); void refresh(); }
     setActionLoading(false);
   }
 
   async function deleteUser(user: AdminUser) {
+    if (currentUser?.id === user.id) {
+      showError('You cannot delete your own administrator account.');
+      return;
+    }
     setActionLoading(true);
-    const { error } = await supabase.from('profiles').delete().eq('id', user.id);
-    if (error) showError('Failed to delete user');
-    else { success('User deleted'); refresh(); setConfirmDelete(null); }
+    const { error: actionError } = await supabase.rpc('admin_delete_user', { p_user_id: user.id });
+    if (actionError) showError(actionError.message || 'Failed to delete user');
+    else { success('User account deleted'); void refresh(); setConfirmDelete(null); }
     setActionLoading(false);
   }
 
   async function saveEdit(updated: AdminUser) {
     setActionLoading(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: updated.full_name, plan: updated.plan, role: updated.role })
-      .eq('id', updated.id);
-    if (error) showError('Failed to save changes');
-    else { success('User updated'); refresh(); setEditUser(null); }
+    const { error: actionError } = await supabase.rpc('admin_update_user', {
+      p_user_id: updated.id,
+      p_full_name: updated.full_name,
+      p_role: updated.role,
+      p_suspended: updated.suspended,
+    });
+    if (actionError) showError(actionError.message || 'Failed to save changes');
+    else { success('User updated'); void refresh(); setEditUser(null); }
     setActionLoading(false);
   }
 
@@ -68,6 +86,17 @@ export default function AdminUsers() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+        <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <h2 className="text-white font-semibold mb-2">{l('Could not load users')}</h2>
+        <p className="text-sm text-gray-400 mb-4">{error}</p>
+        <button onClick={() => void refresh()} className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium">{l('Retry')}</button>
       </div>
     );
   }
@@ -108,7 +137,7 @@ export default function AdminUsers() {
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Search by name or ID..."
+            placeholder="Search by name, email or ID..."
             className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
           />
         </div>
@@ -160,7 +189,7 @@ export default function AdminUsers() {
                           {user.full_name || 'Unnamed'}
                           {user.role === 'admin' && <Shield className="w-3 h-3 text-amber-400" />}
                         </div>
-                        <div className="text-xs text-gray-500 truncate font-mono">{user.id.slice(0, 8)}...</div>
+                        <div className="text-xs text-gray-500 truncate">{user.email || user.id}</div>
                       </div>
                     </div>
                   </td>
@@ -191,10 +220,10 @@ export default function AdminUsers() {
                       <button onClick={() => setEditUser(user)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title="Edit">
                         <Edit3 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => toggleSuspend(user)} disabled={actionLoading} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors" title={user.suspended ? 'Reinstate' : 'Suspend'}>
+                      <button onClick={() => toggleSuspend(user)} disabled={actionLoading || currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? 'You cannot suspend yourself' : user.suspended ? 'Reinstate' : 'Suspend'}>
                         <Ban className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setConfirmDelete(user)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Delete">
+                      <button onClick={() => setConfirmDelete(user)} disabled={currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? 'You cannot delete yourself' : 'Delete'}>
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -238,7 +267,7 @@ export default function AdminUsers() {
 
       {/* Edit modal */}
       {editUser && (
-        <EditUserModal user={editUser} onSave={saveEdit} onClose={() => setEditUser(null)} loading={actionLoading} />
+        <EditUserModal user={editUser} isSelf={currentUser?.id === editUser.id} onSave={saveEdit} onClose={() => setEditUser(null)} loading={actionLoading} />
       )}
 
       {/* Delete confirm */}
@@ -257,15 +286,15 @@ export default function AdminUsers() {
   );
 }
 
-function EditUserModal({ user, onSave, onClose, loading }: {
+function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
   user: AdminUser;
+  isSelf: boolean;
   onSave: (u: AdminUser) => void;
   onClose: () => void;
   loading: boolean;
 }) {
   const l = useLocalizer();
   const [fullName, setFullName] = useState(user.full_name);
-  const [plan, setPlan] = useState(user.plan);
   const [role, setRole] = useState(user.role);
 
   return (
@@ -282,15 +311,14 @@ function EditUserModal({ user, onSave, onClose, loading }: {
           </div>
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">{l('Subscription Plan')}</label>
-            <select value={plan} onChange={e => setPlan(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
-              <option value="free" className="bg-[#12122a]">{l('Free')}</option>
-              <option value="pro" className="bg-[#12122a]">{l('Pro')}</option>
-              <option value="business" className="bg-[#12122a]">{l('Business')}</option>
-            </select>
+            <div className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-gray-300 flex items-center justify-between">
+              <span className="capitalize">{user.plan}</span>
+              <span className="text-[10px] text-gray-500">{l('Managed by Billing')}</span>
+            </div>
           </div>
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">{l('Role')}</label>
-            <select value={role} onChange={e => setRole(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
+            <select value={role} disabled={isSelf} onChange={e => setRole(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
               <option value="user" className="bg-[#12122a]">{l('User')}</option>
               <option value="admin" className="bg-[#12122a]">{l('Admin')}</option>
             </select>
@@ -305,7 +333,7 @@ function EditUserModal({ user, onSave, onClose, loading }: {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">{l('Cancel')}</button>
-          <button onClick={() => onSave({ ...user, full_name: fullName, plan, role })} disabled={loading} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
+          <button onClick={() => onSave({ ...user, full_name: fullName, role })} disabled={loading} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
             {loading ? 'Saving...' : 'Save Changes'}
           </button>
         </div>

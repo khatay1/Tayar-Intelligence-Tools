@@ -1,0 +1,4 @@
+# Supabase CLI project-local configuration.
+# This project_id is only a local CLI identifier; production linking is done
+# explicitly with: supabase link --project-ref <remote-project-ref>
+project_id = "tayar-intelligence-tools"

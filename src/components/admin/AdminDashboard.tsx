@@ -1,7 +1,7 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import {
   Users, Activity, FileText, CreditCard, DollarSign, Server,
-  TrendingUp, Cpu, ArrowUpRight, ArrowDownRight, Loader2, Zap,
+  TrendingUp, Cpu, Loader2, Zap, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import {
   useDashboardStats, useUserGrowth, useRevenueData,
@@ -11,13 +11,13 @@ import { LineChart, BarChart, DonutChart, Sparkline } from './Charts';
 
 export default function AdminDashboard() {
   const l = useLocalizer();
-  const { stats, loading } = useDashboardStats();
+  const { stats, loading, error, refresh } = useDashboardStats();
   const { data: userGrowth } = useUserGrowth();
   const { data: revenueData } = useRevenueData();
   const { data: aiUsage } = useAIUsageData();
   const { data: toolPop } = useToolPopularity();
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
@@ -25,15 +25,31 @@ export default function AdminDashboard() {
     );
   }
 
+  if (error || !stats) {
+    return (
+      <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+        <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <h2 className="text-white font-semibold mb-2">{l('Dashboard data unavailable')}</h2>
+        <p className="text-sm text-gray-400 mb-4">{error || l('The admin data source could not be loaded.')}</p>
+        <button onClick={() => void refresh()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+          <RefreshCw className="w-4 h-4" /> {l('Retry')}
+        </button>
+      </div>
+    );
+  }
+
+  const recentGrowth = userGrowth.slice(-7);
+  const newUserSpark = recentGrowth.map((point, index) => index === 0 ? 0 : Math.max(0, point.users - recentGrowth[index - 1].users));
+
   const statCards = [
-    { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'violet', change: '+12%', trend: 'up', spark: userGrowth.slice(-7).map(d => d.users) },
-    { label: 'Active Users', value: stats.activeUsers, icon: Activity, color: 'emerald', change: '+8%', trend: 'up', spark: aiUsage.slice(-7).map(d => d.requests) },
-    { label: 'New Today', value: stats.newUsersToday, icon: TrendingUp, color: 'blue', change: '+3', trend: 'up', spark: [1, 2, 1, 3, 2, 4, stats.newUsersToday] },
-    { label: 'AI Requests', value: stats.totalAIRequests, icon: Cpu, color: 'fuchsia', change: '+24%', trend: 'up', spark: aiUsage.slice(-7).map(d => d.requests) },
-    { label: 'Documents', value: stats.totalDocuments, icon: FileText, color: 'amber', change: '+15%', trend: 'up', spark: [5, 8, 6, 10, 12, 9, 14] },
-    { label: 'Active Subs', value: stats.activeSubscriptions, icon: CreditCard, color: 'cyan', change: '+5%', trend: 'up', spark: [10, 12, 11, 14, 15, 13, stats.activeSubscriptions] },
-    { label: 'Monthly Revenue', value: `$${stats.monthlyRevenue}`, icon: DollarSign, color: 'emerald', change: '+18%', trend: 'up', spark: revenueData.map(d => d.revenue) },
-    { label: 'Server Status', value: stats.serverStatus === 'online' ? 'Online' : 'Offline', icon: Server, color: stats.serverStatus === 'online' ? 'emerald' : 'red', change: '99.9%', trend: 'up', spark: [99, 100, 99, 100, 100, 99, 100] },
+    { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'violet', spark: recentGrowth.map(d => d.users) },
+    { label: 'Active Users', value: stats.activeUsers, icon: Activity, color: 'emerald', spark: aiUsage.slice(-7).map(d => d.requests) },
+    { label: 'New Today', value: stats.newUsersToday, icon: TrendingUp, color: 'blue', spark: newUserSpark },
+    { label: 'AI Requests', value: stats.totalAIRequests, icon: Cpu, color: 'fuchsia', spark: aiUsage.slice(-7).map(d => d.requests) },
+    { label: 'Documents', value: stats.totalDocuments, icon: FileText, color: 'amber', spark: [0, stats.totalDocuments] },
+    { label: 'Active Subs', value: stats.activeSubscriptions, icon: CreditCard, color: 'cyan', spark: [0, stats.activeSubscriptions] },
+    { label: 'Monthly Revenue', value: `${stats.monthlyRevenue}`, icon: DollarSign, color: 'emerald', spark: revenueData.map(d => d.revenue) },
+    { label: 'Data Status', value: stats.serverStatus === 'online' ? 'Connected' : 'Unavailable', icon: Server, color: stats.serverStatus === 'online' ? 'emerald' : 'red', spark: [1, 1] },
   ];
 
   const colorMap: Record<string, { bg: string; text: string; border: string; spark: string }> = {
@@ -66,13 +82,7 @@ export default function AdminDashboard() {
                 <Sparkline data={card.spark.length > 1 ? card.spark : [0, 1]} color={c.spark} width={60} height={20} />
               </div>
               <div className="text-2xl font-bold text-white">{card.value}</div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="text-xs text-gray-400">{card.label}</span>
-                <span className={`text-[10px] flex items-center gap-0.5 ${card.trend === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {card.trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                  {card.change}
-                </span>
-              </div>
+              <div className="mt-1 text-xs text-gray-400">{card.label}</div>
             </div>
           );
         })}
@@ -153,18 +163,18 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Recent activity feed */}
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-        <h3 className="text-white font-semibold text-sm mb-4">{l('System Health')}</h3>
+        <h3 className="text-white font-semibold text-sm mb-1">{l('Admin Data Status')}</h3>
+        <p className="text-xs text-gray-500 mb-4">{l('Only verified live data is shown here; placeholder health metrics have been removed.')}</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'API Latency', value: '142ms', status: 'good' },
-            { label: 'Error Rate', value: '0.3%', status: 'good' },
-            { label: 'Uptime', value: '99.9%', status: 'good' },
-            { label: 'Database', value: 'Healthy', status: 'good' },
+            { label: 'Profiles', value: 'Connected' },
+            { label: 'Subscriptions', value: 'Connected' },
+            { label: 'AI Usage', value: 'Connected' },
+            { label: 'Projects', value: 'Connected' },
           ].map(item => (
             <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-emerald-400" />
               <div>
                 <div className="text-xs text-gray-500">{item.label}</div>
                 <div className="text-sm font-medium text-white">{item.value}</div>

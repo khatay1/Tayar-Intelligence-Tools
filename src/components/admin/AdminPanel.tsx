@@ -18,7 +18,7 @@ interface AdminPanelProps {
 
 export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
   const l = useLocalizer();
-  const { isAdmin, adminLoading } = useAdmin();
+  const { isAdmin, adminLoading, adminError, refreshAdminStatus } = useAdmin();
   const [view, setView] = useState<AdminView>('dashboard');
 
   if (adminLoading) {
@@ -32,6 +32,28 @@ export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
     );
   }
 
+  if (adminError) {
+    return (
+      <div className="min-h-screen bg-[#06060f] flex items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-amber-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">{l('Admin access check failed')}</h1>
+          <p className="text-gray-400 text-sm mb-5">{adminError}</p>
+          <div className="flex items-center justify-center gap-3">
+            <button onClick={() => void refreshAdminStatus()} className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
+              {l('Retry')}
+            </button>
+            <button onClick={onExitToWorkspace} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-300 border border-white/10 hover:bg-white/5 transition-colors">
+              {l('Back to Workspace')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-[#06060f] flex items-center justify-center p-4">
@@ -40,9 +62,9 @@ export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
             <ShieldAlert className="w-8 h-8 text-red-400" />
           </div>
           <h1 className="text-xl font-bold text-white mb-2">{l('Access Denied')}</h1>
-          <p className="text-gray-400 text-sm mb-6">{l("You don't have permission to access the admin panel. Only administrators can view this page.")}</p>
+          <p className="text-gray-400 text-sm mb-6">{l("You don't have permission to access the admin panel. Only active administrators can view this page.")}</p>
           <button onClick={onExitToWorkspace} className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
-            Back to Workspace
+            {l('Back to Workspace')}
           </button>
         </div>
       </div>

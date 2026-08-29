@@ -52,14 +52,28 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationError, setNotificationError] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase
+    let active = true;
+    void supabase
       .from('admin_notifications')
       .select('id', { count: 'exact', head: true })
       .eq('read', false)
-      .then(({ count }) => setUnreadCount(count || 0));
+      .then(({ count, error }) => {
+        if (!active) return;
+        if (error) {
+          console.error('Failed to load admin notification count:', error);
+          setUnreadCount(0);
+          setNotificationError(true);
+          return;
+        }
+        setUnreadCount(count || 0);
+        setNotificationError(false);
+      });
+
+    return () => { active = false; };
   }, [activeView]);
 
   useEffect(() => {
@@ -155,14 +169,16 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-medium text-emerald-400">{l('System Online')}</span>
+              <span className="text-xs font-medium text-emerald-400">{l('Admin Verified')}</span>
             </div>
             <div className="relative" ref={notifRef}>
               <button onClick={() => setNotifOpen(!notifOpen)} className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                 <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
+                {notificationError ? (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-black text-[10px] font-bold flex items-center justify-center" title="Notifications unavailable">!</span>
+                ) : unreadCount > 0 ? (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">{unreadCount}</span>
-                )}
+                ) : null}
               </button>
               {notifOpen && <AdminNotifications />}
             </div>
@@ -185,16 +201,23 @@ function AdminNotifications() {
   const l = useLocalizer();
   const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: string; read: boolean; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('admin_notifications')
         .select('id, title, message, type, read, created_at')
         .order('created_at', { ascending: false })
         .limit(10);
-      setNotifications((data || []) as typeof notifications);
+      if (error) {
+        setNotifications([]);
+        setLoadError(error.message || 'Notifications unavailable');
+      } else {
+        setNotifications((data || []) as typeof notifications);
+        setLoadError(null);
+      }
       setLoading(false);
     })();
   }, []);
@@ -215,6 +238,8 @@ function AdminNotifications() {
       <div className="max-h-80 overflow-y-auto">
         {loading ? (
           <div className="p-4 text-center text-gray-500 text-sm">{l('Loading...')}</div>
+        ) : loadError ? (
+          <div className="p-6 text-center text-amber-400 text-sm">{loadError}</div>
         ) : notifications.length === 0 ? (
           <div className="p-6 text-center text-gray-500 text-sm">{l('No notifications')}</div>
         ) : (

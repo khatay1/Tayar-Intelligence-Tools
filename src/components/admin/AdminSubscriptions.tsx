@@ -1,5 +1,5 @@
 import { useLocalizer } from '@/lib/ui-localization';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Loader2, RefreshCw, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { BarChart } from './Charts';
@@ -16,29 +16,66 @@ interface SubRow {
 export default function AdminSubscriptions() {
   const l = useLocalizer();
   const [subs, setSubs] = useState<SubRow[]>([]);
+  const [userLabels, setUserLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase.from('subscriptions').select('id, user_id, plan, status, renewal_date, created_at').order('created_at', { ascending: false });
-      setSubs((data || []) as SubRow[]);
-      setLoading(false);
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const [subscriptionsRes, usersRes] = await Promise.all([
+      supabase
+        .from('subscriptions')
+        .select('id, user_id, plan, status, renewal_date, created_at')
+        .order('created_at', { ascending: false }),
+      supabase.rpc('admin_list_users'),
+    ]);
+
+    const queryError = subscriptionsRes.error || usersRes.error;
+    if (queryError) {
+      console.error('Failed to load admin subscriptions:', queryError);
+      setSubs([]);
+      setUserLabels({});
+      setError(queryError.message || 'Failed to load subscriptions.');
+    } else {
+      setSubs((subscriptionsRes.data || []) as SubRow[]);
+      const labels: Record<string, string> = {};
+      for (const adminUser of (usersRes.data || []) as { id: string; email?: string; full_name?: string }[]) {
+        labels[adminUser.id] = adminUser.email || adminUser.full_name || adminUser.id;
+      }
+      setUserLabels(labels);
+    }
+
+    setLoading(false);
   }, []);
+
+  useEffect(() => { void load(); }, [load]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-violet-500 animate-spin" /></div>;
   }
 
-  const planPrices: Record<string, number> = { pro: 19, business: 49, enterprise: 99, free: 0 };
-  const active = subs.filter(s => s.status === 'active');
+  if (error) {
+    return (
+      <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+        <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <h2 className="text-white font-semibold mb-2">{l('Could not load subscriptions')}</h2>
+        <p className="text-sm text-gray-400 mb-4">{error}</p>
+        <button onClick={() => void load()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+          <RefreshCw className="w-4 h-4" /> {l('Retry')}
+        </button>
+      </div>
+    );
+  }
+
+  const planPrices: Record<string, number> = { pro: 19, business: 49, free: 0 };
+  const active = subs.filter(s => s.status === 'active' || s.status === 'trialing');
   const revenue = active.reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0);
   const renewals = active.filter(s => s.renewal_date && new Date(s.renewal_date) > new Date());
-  const failed = subs.filter(s => s.status === 'expired' || s.status === 'canceled');
+  const failed = subs.filter(s => ['expired', 'canceled', 'past_due', 'unpaid'].includes(s.status));
 
-  const byPlan = ['free', 'pro', 'business', 'enterprise'].map(p => ({
+  const byPlan = ['free', 'pro', 'business'].map(p => ({
     label: p, value: subs.filter(s => s.plan === p).length,
   }));
 
@@ -48,7 +85,7 @@ export default function AdminSubscriptions() {
     <div className="space-y-5 max-w-7xl mx-auto">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Monthly Revenue', value: `$${revenue}`, icon: TrendingUp, color: 'emerald' },
+          { label: 'Est. MRR', value: `${revenue}`, icon: TrendingUp, color: 'emerald' },
           { label: 'Active Subs', value: active.length, icon: CheckCircle, color: 'violet' },
           { label: 'Upcoming Renewals', value: renewals.length, icon: RefreshCw, color: 'blue' },
           { label: 'Failed Payments', value: failed.length, icon: AlertCircle, color: 'red' },
@@ -94,7 +131,7 @@ export default function AdminSubscriptions() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('User ID')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('User')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('Plan')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('Status')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden sm:table-cell">{l('Renewal Date')}</th>
@@ -104,20 +141,22 @@ export default function AdminSubscriptions() {
             <tbody>
               {filtered.map(s => (
                 <tr key={s.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-300 font-mono">{s.user_id.slice(0, 8)}...</td>
+                  <td className="px-4 py-3">
+                    <div className="max-w-[260px] truncate text-sm text-gray-300">{userLabels[s.user_id] || s.user_id}</div>
+                    <div className="text-[10px] font-mono text-gray-600">{s.user_id.slice(0, 8)}...</div>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                       s.plan === 'pro' ? 'bg-fuchsia-500/10 text-fuchsia-400' :
                       s.plan === 'business' ? 'bg-cyan-500/10 text-cyan-400' :
-                      s.plan === 'enterprise' ? 'bg-amber-500/10 text-amber-400' :
                       'bg-gray-500/10 text-gray-400'
                     }`}>{s.plan}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`flex items-center gap-1 text-xs font-medium ${
-                      s.status === 'active' ? 'text-emerald-400' : 'text-red-400'
+                      s.status === 'active' || s.status === 'trialing' ? 'text-emerald-400' : 'text-red-400'
                     }`}>
-                      {s.status === 'active' ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                      {s.status === 'active' || s.status === 'trialing' ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                       {s.status}
                     </span>
                   </td>

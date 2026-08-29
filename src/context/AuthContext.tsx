@@ -8,6 +8,8 @@ export interface Profile {
   avatar_url: string | null;
   plan: string;
   language: string;
+  role: 'user' | 'admin';
+  suspended: boolean;
 }
 
 interface AuthContextValue {
@@ -36,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function fetchProfile(userId: string) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, avatar_url, plan, language')
+      .select('id, full_name, avatar_url, plan, language, role, suspended')
       .eq('id', userId)
       .maybeSingle();
 
@@ -62,10 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: userId,
           full_name: fullName,
           avatar_url: avatarUrl,
-          plan: 'free',
           language: 'en',
         })
-        .select('id, full_name, avatar_url, plan, language')
+        .select('id, full_name, avatar_url, plan, language, role, suspended')
         .maybeSingle();
 
       if (createError) {
@@ -236,9 +237,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
+    const safeUpdates: Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>> = {};
+    if (updates.full_name !== undefined) safeUpdates.full_name = updates.full_name;
+    if (updates.avatar_url !== undefined) safeUpdates.avatar_url = updates.avatar_url;
+    if (updates.language !== undefined) safeUpdates.language = updates.language;
+
+    if (Object.keys(safeUpdates).length === 0) {
+      return { error: null };
+    }
+
     const { error } = await supabase
       .from('profiles')
-      .update(updates)
+      .update(safeUpdates)
       .eq('id', user.id);
 
     if (error) {
@@ -248,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setProfile((prev) =>
-      prev ? { ...prev, ...updates } : prev
+      prev ? { ...prev, ...safeUpdates } : prev
     );
 
     return {

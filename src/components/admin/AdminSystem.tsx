@@ -2,8 +2,8 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Settings, Bell, Mail, Database, Key, Flag, FileText,
-  Loader2, Plus, Save, RefreshCw, CheckCircle,
-  Power, Download, Clock,
+  Loader2, Save, RefreshCw, AlertTriangle,
+  Power,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -19,6 +19,19 @@ const TABS: { id: SystemTab; label: string; icon: typeof Settings }[] = [
   { id: 'apikeys', label: 'API Keys', icon: Key },
   { id: 'flags', label: 'Feature Flags', icon: Flag },
 ];
+
+function AdminTabError({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  return (
+    <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+      <AlertTriangle className="mx-auto mb-3 h-7 w-7 text-red-400" />
+      <h3 className="font-semibold text-white">{title}</h3>
+      <p className="mt-1 text-sm text-gray-400">{message}</p>
+      <button onClick={onRetry} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+        <RefreshCw className="h-4 w-4" /> Retry
+      </button>
+    </div>
+  );
+}
 
 export default function AdminSystem() {
   const [tab, setTab] = useState<SystemTab>('settings');
@@ -55,34 +68,66 @@ export default function AdminSystem() {
   );
 }
 
+const SYSTEM_SETTING_KEYS = [
+  'platform_name',
+  'default_ai_provider',
+  'max_free_requests',
+  'maintenance_mode',
+  'signup_enabled',
+] as const;
+
 function SettingsTab() {
   const l = useLocalizer();
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('admin_settings').select('key, value');
+    const { data, error } = await supabase
+      .from('admin_settings')
+      .select('key, value')
+      .in('key', [...SYSTEM_SETTING_KEYS]);
+
+    if (error) {
+      console.error('Failed to load admin settings:', error);
+      showError(error.message || 'Failed to load settings');
+      setLoading(false);
+      return;
+    }
+
     const map: Record<string, string> = {};
-    for (const s of (data || []) as { key: string; value: string }[]) {
-      map[s.key] = s.value.replace(/"/g, '');
+    for (const s of (data || []) as { key: string; value: unknown }[]) {
+      if (typeof s.value === 'string') map[s.key] = s.value.replace(/^"|"$/g, '');
+      else if (typeof s.value === 'number' || typeof s.value === 'boolean') map[s.key] = String(s.value);
+      else if (s.value != null) map[s.key] = JSON.stringify(s.value);
     }
     setSettings(map);
     setLoading(false);
-  }, []);
+  }, [showError]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function save() {
     setSaving(true);
-    const entries = Object.entries(settings).map(([key, value]) => ({
-      key, value: JSON.stringify(value), updated_at: new Date().toISOString(),
-    }));
+    const entries = SYSTEM_SETTING_KEYS.map((key) => {
+      const value = settings[key] ?? '';
+      let storedValue: string | number | boolean = value;
+      if (key === 'maintenance_mode' || key === 'signup_enabled') storedValue = value === 'true';
+      if (key === 'max_free_requests') storedValue = Math.max(0, Number(value) || 0);
+      return { key, value: storedValue, updated_at: new Date().toISOString() };
+    });
+
     for (const entry of entries) {
-      await supabase.from('admin_settings').upsert(entry, { onConflict: 'key' });
+      const { error } = await supabase.from('admin_settings').upsert(entry, { onConflict: 'key' });
+      if (error) {
+        setSaving(false);
+        showError(error.message || 'Failed to save settings');
+        return;
+      }
     }
+
     setSaving(false);
     success('Settings saved');
   }
@@ -142,20 +187,28 @@ function LogsTab() {
   const l = useLocalizer();
   const [logs, setLogs] = useState<{ id: string; level: string; category: string; message: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [levelFilter, setLevelFilter] = useState('all');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('system_logs').select('id, level, category, message, created_at').order('created_at', { ascending: false }).limit(100);
-    setLogs((data || []) as typeof logs);
+    setError(null);
+    const { data, error: queryError } = await supabase.from('system_logs').select('id, level, category, message, created_at').order('created_at', { ascending: false }).limit(100);
+    if (queryError) {
+      setLogs([]);
+      setError(queryError.message || 'Failed to load system logs.');
+    } else {
+      setLogs((data || []) as typeof logs);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const filtered = levelFilter === 'all' ? logs : logs.filter(l => l.level === levelFilter);
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (error) return <AdminTabError title={l('System logs unavailable')} message={error} onRetry={() => void load()} />;
 
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
@@ -192,26 +245,38 @@ function LogsTab() {
 
 function NotificationsTab() {
   const l = useLocalizer();
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
   const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: string; read: boolean; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('admin_notifications').select('*').order('created_at', { ascending: false }).limit(50);
-    setNotifications((data || []) as typeof notifications);
+    setLoadError(null);
+    const { data, error } = await supabase.from('admin_notifications').select('*').order('created_at', { ascending: false }).limit(50);
+    if (error) {
+      setNotifications([]);
+      setLoadError(error.message || 'Failed to load notifications.');
+    } else {
+      setNotifications((data || []) as typeof notifications);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function markAllRead() {
-    await supabase.from('admin_notifications').update({ read: true }).eq('read', false);
+    const { error } = await supabase.from('admin_notifications').update({ read: true }).eq('read', false);
+    if (error) {
+      showError(error.message || 'Failed to mark notifications as read');
+      return;
+    }
     success('All notifications marked as read');
-    load();
+    void load();
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (loadError) return <AdminTabError title={l('Notifications unavailable')} message={loadError} onRetry={() => void load()} />;
 
   const typeColors: Record<string, string> = {
     info: 'text-blue-400 bg-blue-500/10', warning: 'text-amber-400 bg-amber-500/10',
@@ -252,24 +317,32 @@ function EmailTab() {
   const { success, error: showError } = useToast();
   const [templates, setTemplates] = useState<{ id: string; key: string; subject: string; body: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('email_templates').select('id, key, subject, body').order('key');
-    setTemplates((data || []) as typeof templates);
+    setLoadError(null);
+    const { data, error } = await supabase.from('email_templates').select('id, key, subject, body').order('key');
+    if (error) {
+      setTemplates([]);
+      setLoadError(error.message || 'Failed to load email templates.');
+    } else {
+      setTemplates((data || []) as typeof templates);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function saveTemplate(t: { id: string; subject: string; body: string }) {
     const { error } = await supabase.from('email_templates').update({ subject: t.subject, body: t.body, updated_at: new Date().toISOString() }).eq('id', t.id);
     if (error) showError('Failed to save template');
-    else { success('Template saved'); setEditing(null); load(); }
+    else { success('Template saved'); setEditing(null); void load(); }
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (loadError) return <AdminTabError title={l('Email templates unavailable')} message={loadError} onRetry={() => void load()} />;
 
   return (
     <div className="space-y-3">
@@ -326,85 +399,57 @@ function EmailTab() {
 
 function BackupsTab() {
   const l = useLocalizer();
-  const { success } = useToast();
-  const [backing, setBacking] = useState(false);
-
-  async function createBackup() {
-    setBacking(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setBacking(false);
-    success('Backup created successfully');
-  }
-
-  const mockBackups = [
-    { id: 1, name: 'backup-2026-08-05', size: '24.5 MB', date: '2026-08-05 09:00', status: 'complete' },
-    { id: 2, name: 'backup-2026-08-04', size: '23.8 MB', date: '2026-08-04 09:00', status: 'complete' },
-    { id: 3, name: 'backup-2026-08-03', size: '23.1 MB', date: '2026-08-03 09:00', status: 'complete' },
-  ];
 
   return (
-    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
+      <div className="flex items-start gap-4">
+        <div className="w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+          <Database className="w-5 h-5 text-violet-400" />
+        </div>
         <div>
           <h3 className="text-white font-semibold text-sm">{l('Database Backups')}</h3>
-          <p className="text-gray-500 text-xs">{l('Automatic daily backups at 09:00 UTC')}</p>
+          <p className="mt-1 text-sm text-gray-400">
+            {l('Backups are managed by the database hosting provider. No in-app backup API is configured, so this panel will not pretend to create or download backups.')}
+          </p>
+          <p className="mt-3 text-xs text-gray-500">
+            {l('Use the Supabase project backup controls for real backup and restore operations.')}
+          </p>
         </div>
-        <button onClick={createBackup} disabled={backing} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
-          {backing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          {backing ? 'Creating...' : 'New Backup'}
-        </button>
-      </div>
-      <div className="space-y-2">
-        {mockBackups.map(b => (
-          <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-              <Database className="w-4.5 h-4.5 text-emerald-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white font-mono">{b.name}</div>
-              <div className="text-xs text-gray-500 flex items-center gap-2">
-                <span>{b.size}</span>
-                <span>·</span>
-                <Clock className="w-3 h-3" />
-                {b.date}
-              </div>
-            </div>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" /> {b.status}
-            </span>
-            <button className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
-              <Download className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
       </div>
     </div>
   );
 }
-
 function ApiKeysTab() {
   const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [keys, setKeys] = useState<{ id: string; service: string; label: string; status: string; last_used: string | null; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('api_keys').select('id, service, label, status, last_used, created_at').order('service');
-    setKeys((data || []) as typeof keys);
+    setLoadError(null);
+    const { data, error } = await supabase.from('api_keys').select('id, service, label, status, last_used, created_at').order('service');
+    if (error) {
+      setKeys([]);
+      setLoadError(error.message || 'Failed to load API key metadata.');
+    } else {
+      setKeys((data || []) as typeof keys);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function toggleStatus(key: { id: string; status: string }) {
     const newStatus = key.status === 'active' ? 'inactive' : 'active';
     const { error } = await supabase.from('api_keys').update({ status: newStatus }).eq('id', key.id);
     if (error) showError('Failed to update key');
-    else { success('API key updated'); load(); }
+    else { success('API key updated'); void load(); }
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (loadError) return <AdminTabError title={l('API key metadata unavailable')} message={loadError} onRetry={() => void load()} />;
 
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
@@ -413,9 +458,7 @@ function ApiKeysTab() {
           <h3 className="text-white font-semibold text-sm">{l('API Keys')}</h3>
           <p className="text-gray-500 text-xs">{l('Manage external service API keys')}</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
-          <Plus className="w-4 h-4" /> Add Key
-        </button>
+        <span className="text-[10px] text-gray-500 text-right">{l('Metadata only — secrets stay server-side')}</span>
       </div>
       <div className="space-y-2">
         {keys.map(k => (
@@ -443,15 +486,22 @@ function FlagsTab() {
   const { success, error: showError } = useToast();
   const [flags, setFlags] = useState<{ id: string; key: string; label: string; enabled: boolean; description: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('feature_flags').select('id, key, label, enabled, description').order('key');
-    setFlags((data || []) as typeof flags);
+    setLoadError(null);
+    const { data, error } = await supabase.from('feature_flags').select('id, key, label, enabled, description').order('key');
+    if (error) {
+      setFlags([]);
+      setLoadError(error.message || 'Failed to load feature flags.');
+    } else {
+      setFlags((data || []) as typeof flags);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function toggle(flag: { id: string; key: string; label: string; enabled: boolean }) {
     const newVal = !flag.enabled;
@@ -466,6 +516,7 @@ function FlagsTab() {
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (loadError) return <AdminTabError title={l('Feature flags unavailable')} message={loadError} onRetry={() => void load()} />;
 
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
@@ -474,9 +525,7 @@ function FlagsTab() {
           <h3 className="text-white font-semibold text-sm">{l('Feature Flags')}</h3>
           <p className="text-gray-500 text-xs">{l('Toggle features on/off without deploying')}</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
-          <Plus className="w-4 h-4" /> New Flag
-        </button>
+        <span className="text-[10px] text-gray-500">{l('Existing flags only')}</span>
       </div>
       <div className="space-y-2">
         {flags.map(f => (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Star, ToggleRight, ToggleLeft, Users } from 'lucide-react';
+import { AlertTriangle, Loader2, RefreshCw, ToggleRight, ToggleLeft, Users } from 'lucide-react';
 import { toolRegistry } from '@/modules/registry';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -8,22 +8,41 @@ export default function AdminTools() {
   const { success, error: showError } = useToast();
   const [usage, setUsage] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [flags, setFlags] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    let active = true;
     (async () => {
       setLoading(true);
-      const { data: usageData } = await supabase.from('ai_usage').select('tool').limit(10000);
+      setLoadError(null);
+
+      const [usageRes, flagRes] = await Promise.all([
+        supabase.from('ai_usage').select('tool').limit(10000),
+        supabase.from('feature_flags').select('key, enabled'),
+      ]);
+
+      if (!active) return;
+
+      const queryError = usageRes.error || flagRes.error;
+      if (queryError) {
+        console.error('Failed to load admin tools data:', queryError);
+        setLoadError(queryError.message || 'Failed to load tools administration data.');
+        setLoading(false);
+        return;
+      }
+
       const counts: Record<string, number> = {};
-      for (const u of (usageData || []) as { tool: string }[]) counts[u.tool] = (counts[u.tool] || 0) + 1;
+      for (const u of (usageRes.data || []) as { tool: string }[]) counts[u.tool] = (counts[u.tool] || 0) + 1;
       setUsage(counts);
 
-      const { data: flagData } = await supabase.from('feature_flags').select('key, enabled');
       const flagMap: Record<string, boolean> = {};
-      for (const f of (flagData || []) as { key: string; enabled: boolean }[]) flagMap[f.key] = f.enabled;
+      for (const f of (flagRes.data || []) as { key: string; enabled: boolean }[]) flagMap[f.key] = f.enabled;
       setFlags(flagMap);
       setLoading(false);
     })();
+
+    return () => { active = false; };
   }, []);
 
   async function toggleFlag(key: string) {
@@ -42,6 +61,19 @@ export default function AdminTools() {
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-violet-500 animate-spin" /></div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+        <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <h2 className="text-white font-semibold mb-2">Tools data unavailable</h2>
+        <p className="text-sm text-gray-400 mb-4">{loadError}</p>
+        <button onClick={() => window.location.reload()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+          <RefreshCw className="w-4 h-4" /> Retry
+        </button>
+      </div>
+    );
   }
 
   const tools = toolRegistry.all();
@@ -109,10 +141,7 @@ export default function AdminTools() {
                   <Users className="w-3.5 h-3.5" />
                   {usageCount.toLocaleString()} uses
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                  <Star className="w-3.5 h-3.5 text-amber-400" />
-                  {(4.2 + Math.random() * 0.7).toFixed(1)}
-                </div>
+                <div className="text-xs text-gray-500">Live usage data</div>
               </div>
             </div>
           );

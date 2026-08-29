@@ -32,16 +32,21 @@ export interface ToolPopularityPoint { tool: string; count: number; }
 export function useDashboardStats() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [profilesRes, projectsRes, aiRes, subsRes] = await Promise.all([
         supabase.from('profiles').select('id, created_at, plan, suspended'),
         supabase.from('projects').select('id, created_at', { count: 'exact', head: false }),
-        supabase.from('ai_usage').select('id, created_at, status, cost_usd'),
+        supabase.from('ai_usage').select('id, user_id, created_at, status, cost_usd'),
         supabase.from('subscriptions').select('id, plan, status'),
       ]);
+
+      const queryError = profilesRes.error || projectsRes.error || aiRes.error || subsRes.error;
+      if (queryError) throw queryError;
 
       const profiles = profilesRes.data || [];
       const projects = projectsRes.data || [];
@@ -59,7 +64,7 @@ export function useDashboardStats() {
 
       // Active users: users with AI requests in last 7 days
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-      const activeUserIds = new Set(aiUsage.filter(u => new Date(u.created_at) >= weekAgo).map(u => (u as { user_id?: string }).user_id).filter(Boolean));
+      const activeUserIds = new Set(aiUsage.filter(u => new Date(u.created_at) >= weekAgo).map(u => u.user_id).filter(Boolean));
 
       setStats({
         totalUsers: profiles.length,
@@ -71,14 +76,16 @@ export function useDashboardStats() {
         monthlyRevenue,
         serverStatus: 'online',
       });
-    } catch {
+    } catch (loadError) {
+      console.error('Failed to load admin dashboard:', loadError);
       setStats(null);
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load admin dashboard.');
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-  return { stats, loading, refresh: load };
+  useEffect(() => { void load(); }, [load]);
+  return { stats, loading, error, refresh: load };
 }
 
 export function useUserGrowth() {
@@ -94,31 +101,32 @@ export function useUserGrowth() {
         .order('created_at', { ascending: true });
       const profilesData = (profiles || []) as { created_at: string }[];
 
-      // Group by day for last 30 days
+      // Group by day for the last 30 days while preserving users created
+      // before the window as the cumulative baseline.
       const days: Record<string, number> = {};
       const now = new Date();
+      const firstDay = new Date(now);
+      firstDay.setDate(firstDay.getDate() - 29);
+      firstDay.setHours(0, 0, 0, 0);
+
       for (let i = 29; i >= 0; i--) {
         const d = new Date(now); d.setDate(d.getDate() - i);
         const key = d.toISOString().split('T')[0];
         days[key] = 0;
       }
-      let cumulative = 0;
-      const allTimeCount: Record<string, number> = {};
-      for (const p of profilesData) {
-        const key = new Date(p.created_at).toISOString().split('T')[0];
-        allTimeCount[key] = (allTimeCount[key] || 0) + 1;
+
+      let cumulative = profilesData.filter((profile) => new Date(profile.created_at) < firstDay).length;
+      const dailyCounts: Record<string, number> = {};
+      for (const profile of profilesData) {
+        const created = new Date(profile.created_at);
+        if (created < firstDay) continue;
+        const key = created.toISOString().split('T')[0];
+        if (days[key] !== undefined) dailyCounts[key] = (dailyCounts[key] || 0) + 1;
       }
-      const sortedKeys = Object.keys(allTimeCount).sort();
-      for (const key of sortedKeys) {
-        cumulative += allTimeCount[key];
-        if (days[key] !== undefined) days[key] = cumulative;
-      }
-      // Fill forward cumulative
-      let lastVal = 0;
-      const result = Object.entries(days).map(([date, val]) => {
-        if (val === 0 && lastVal > 0) val = lastVal;
-        lastVal = val;
-        return { date, users: val };
+
+      const result = Object.keys(days).map((date) => {
+        cumulative += dailyCounts[date] || 0;
+        return { date, users: cumulative };
       });
       setData(result);
       setLoading(false);
@@ -223,43 +231,34 @@ export function useToolPopularity() {
 export function useAdminUsers() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, plan, role, suspended, created_at')
-      .order('created_at', { ascending: false });
-    const profilesData = (profiles || []) as Omit<AdminUser, 'email' | 'project_count' | 'ai_request_count'>[];
+    setError(null);
 
-    // Get emails from auth via RPC — not available, so we use a workaround
-    // We'll fetch project counts and AI request counts in batch
-    const userIds = profilesData.map(p => p.id);
-    const [projectsRes, aiRes] = await Promise.all([
-      supabase.from('projects').select('user_id').in('user_id', userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000']),
-      supabase.from('ai_usage').select('user_id').in('user_id', userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000']),
-    ]);
+    const { data, error: rpcError } = await supabase.rpc('admin_list_users');
 
-    const projectCounts: Record<string, number> = {};
-    for (const p of (projectsRes.data || []) as { user_id: string }[]) {
-      projectCounts[p.user_id] = (projectCounts[p.user_id] || 0) + 1;
-    }
-    const aiCounts: Record<string, number> = {};
-    for (const u of (aiRes.data || []) as { user_id: string }[]) {
-      aiCounts[u.user_id] = (aiCounts[u.user_id] || 0) + 1;
+    if (rpcError) {
+      console.error('Failed to load admin users:', rpcError);
+      setUsers([]);
+      setError(rpcError.message || 'Failed to load users.');
+      setLoading(false);
+      return;
     }
 
-    const result: AdminUser[] = profilesData.map(p => ({
-      ...p,
-      email: '', // Not available via client — admins see name + ID
-      project_count: projectCounts[p.id] || 0,
-      ai_request_count: aiCounts[p.id] || 0,
+    const result = ((data || []) as AdminUser[]).map((user) => ({
+      ...user,
+      email: user.email || '',
+      project_count: Number(user.project_count || 0),
+      ai_request_count: Number(user.ai_request_count || 0),
     }));
+
     setUsers(result);
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  return { users, loading, refresh: load };
+  return { users, loading, error, refresh: load };
 }

@@ -60,7 +60,7 @@ function useHashRoute() {
 }
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const hashRoute = useHashRoute();
   const authPage = AUTH_PAGES.includes(hashRoute as AuthPage) ? hashRoute as AuthPage : null;
   const publicPage = PUBLIC_PAGES.includes(hashRoute as PublicPage) ? hashRoute as PublicPage : null;
@@ -111,6 +111,26 @@ function AppContent() {
   const startFree = () => { track('sign_up_click', 'user_action'); navigate('register'); };
 
   if (loading) return <FullScreenLoader />;
+
+  if (user && profile?.suspended) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#06060e] p-4 text-white">
+        <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+          <h1 className="text-xl font-bold">{'Account suspended'}</h1>
+          <p className="mt-2 text-sm text-gray-400">
+            {'Your account is currently suspended. Contact support if you believe this is a mistake.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="mt-5 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/15"
+          >
+            {'Sign out'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (user) {
     if (hashRoute === 'admin') {

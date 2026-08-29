@@ -67,6 +67,20 @@ export async function requireUser(req: Request): Promise<User> {
   });
   const { data, error } = await userClient.auth.getUser();
   if (error || !data.user) throw new HttpError(401, "Invalid or expired session");
+
+  const { data: profile, error: profileError } = await userClient
+    .from("profiles")
+    .select("suspended")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    throw new HttpError(503, "Account status could not be verified");
+  }
+  if (profile?.suspended === true) {
+    throw new HttpError(403, "Account suspended");
+  }
+
   return data.user;
 }
 
