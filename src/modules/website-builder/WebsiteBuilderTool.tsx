@@ -857,6 +857,8 @@ function elementVisualCss(style: WebsiteElement['style'], important = false): st
   const letterSpacing = clampElementNumber(style.letterSpacing, 0, -10, 30);
   const opacity = clampElementNumber(style.opacity, 1, 0, 1);
   const rotate = clampElementNumber(style.rotate, 0, -180, 180);
+  const positionX = clampElementNumber(style.positionX, 0, -4000, 4000);
+  const positionY = clampElementNumber(style.positionY, 0, -4000, 4000);
   const borderWidth = clampElementNumber(style.borderWidth, 0, 0, 24);
   const borderStyle = style.borderStyle === 'dashed' || style.borderStyle === 'dotted' ? style.borderStyle : 'solid';
   return [
@@ -874,7 +876,7 @@ function elementVisualCss(style: WebsiteElement['style'], important = false): st
     `border-color:${style.borderColor || 'transparent'}${suffix}`,
     `box-shadow:${elementShadowCss(style.shadow)}${suffix}`,
     `opacity:${opacity}${suffix}`,
-    `transform:rotate(${rotate}deg)${suffix}`,
+    `transform:translate3d(${positionX}px,${positionY}px,0) rotate(${rotate}deg)${suffix}`,
     `width:${width ? `${width}%` : 'auto'}${suffix}`,
   ].join(';');
 }
@@ -882,10 +884,12 @@ function elementVisualCss(style: WebsiteElement['style'], important = false): st
 function elementHoverCss(style: WebsiteElement['style'], important = false): string {
   const suffix = important ? ' !important' : '';
   const rotate = clampElementNumber(style.rotate, 0, -180, 180);
+  const positionX = clampElementNumber(style.positionX, 0, -4000, 4000);
+  const positionY = clampElementNumber(style.positionY, 0, -4000, 4000);
   const scale = clampElementNumber(style.hoverScale, 1, 0.5, 1.6);
   const hoverOpacity = clampElementNumber(style.hoverOpacity, style.opacity ?? 1, 0, 1);
   const rules = [
-    `transform:rotate(${rotate}deg) scale(${scale})${suffix}`,
+    `transform:translate3d(${positionX}px,${positionY}px,0) rotate(${rotate}deg) scale(${scale})${suffix}`,
     `opacity:${hoverOpacity}${suffix}`,
   ];
   if (style.hoverBackgroundColor) rules.push(`background-color:${style.hoverBackgroundColor}${suffix}`);
@@ -2277,6 +2281,7 @@ function ElementPreview({
   device,
   onSelect,
   onDragStart,
+  onDragMove,
   onDragOver,
   onDrop,
   onDragEnd,
@@ -2289,6 +2294,7 @@ function ElementPreview({
   device: Device;
   onSelect: () => void;
   onDragStart: (e: React.DragEvent) => void;
+  onDragMove: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: () => void;
@@ -2312,6 +2318,8 @@ function ElementPreview({
     selection.addRange(range);
   }, [editingInline]);
   const rotate = clampElementNumber(style.rotate, 0, -180, 180);
+  const positionX = clampElementNumber(style.positionX, 0, -4000, 4000);
+  const positionY = clampElementNumber(style.positionY, 0, -4000, 4000);
   const hoverScale = hovered ? clampElementNumber(style.hoverScale, 1, 0.5, 1.6) : 1;
   const commonStyle = {
     color: hovered && style.hoverColor ? style.hoverColor : style.color,
@@ -2328,7 +2336,7 @@ function ElementPreview({
     borderColor: style.borderColor,
     boxShadow: elementShadowCss(hovered && style.hoverShadow ? style.hoverShadow : style.shadow),
     opacity: hovered && style.hoverOpacity !== undefined ? style.hoverOpacity : style.opacity,
-    transform: `rotate(${rotate}deg) scale(${hoverScale})`,
+    transform: `translate3d(${positionX}px, ${positionY}px, 0) rotate(${rotate}deg) scale(${hoverScale})`,
     transition: 'transform .2s ease, opacity .2s ease, background-color .2s ease, color .2s ease, box-shadow .2s ease, border-color .2s ease',
     width: style.width ? `${style.width}%` : undefined,
   } as const;
@@ -2366,6 +2374,11 @@ function ElementPreview({
     onDragStart: (e: React.DragEvent) => {
       if (editingInline) { e.preventDefault(); return; }
       e.stopPropagation(); onDragStart(e);
+    },
+    onDrag: (e: React.DragEvent) => {
+      if (editingInline) return;
+      e.stopPropagation();
+      onDragMove(e);
     },
     onDragOver: (e: React.DragEvent) => { e.stopPropagation(); onDragOver(e); },
     onDrop: (e: React.DragEvent) => { e.stopPropagation(); onDrop(e); },
@@ -2463,6 +2476,7 @@ function SectionPreview({
   dragOverElementId,
   dragOverElementPosition,
   onElementDragStart,
+  onElementDragMove,
   onElementDragOver,
   onElementDrop,
   onElementDragEnd,
@@ -2488,6 +2502,7 @@ function SectionPreview({
   dragOverElementId: string | null;
   dragOverElementPosition: 'before' | 'after' | null;
   onElementDragStart: (id: string, e: React.DragEvent) => void;
+  onElementDragMove: (id: string, e: React.DragEvent) => void;
   onElementDragOver: (id: string, e: React.DragEvent) => void;
   onElementDrop: (id: string, e: React.DragEvent) => void;
   onElementDragEnd: () => void;
@@ -2674,6 +2689,7 @@ function SectionPreview({
                             device={device}
                             onSelect={() => onSelectElement(element.id)}
                             onDragStart={(e) => onElementDragStart(element.id, e)}
+                            onDragMove={(e) => onElementDragMove(element.id, e)}
                             onDragOver={(e) => onElementDragOver(element.id, e)}
                             onDrop={(e) => onElementDrop(element.id, e)}
                             onDragEnd={onElementDragEnd}
@@ -2725,6 +2741,7 @@ function SectionPreview({
                   device={device}
                   onSelect={() => onSelectElement(element.id)}
                   onDragStart={(e) => onElementDragStart(element.id, e)}
+                  onDragMove={(e) => onElementDragMove(element.id, e)}
                   onDragOver={(e) => onElementDragOver(element.id, e)}
                   onDrop={(e) => onElementDrop(element.id, e)}
                   onDragEnd={onElementDragEnd}
@@ -2876,6 +2893,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const draggedSectionRef = useRef<string | null>(null);
   const draggedElementRef = useRef<string | null>(null);
   const draggedElementSectionRef = useRef<string | null>(null);
+  const freeElementDragRef = useRef<{
+    sectionId: string;
+    elementId: string;
+    symbolId?: string;
+    startClientX: number;
+    startClientY: number;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
   const [cloudProjects, setCloudProjects] = useState<CloudWebsiteProject[]>([]);
   const [cloudProjectId, setCloudProjectId] = useState<string | null>(null);
   const [projectTeamAccess, setProjectTeamAccess] = useState<ProjectTeamAccess>(DEFAULT_PROJECT_TEAM_ACCESS);
@@ -4819,9 +4847,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function handleElementDragStart(sectionId: string, id: string, e: React.DragEvent) {
+    const sourceSection = sections.find((section) => section.id === sectionId);
+    const sourceElement = sourceSection?.elements.find((element) => element.id === id);
+    if (!sourceSection || !sourceElement) return;
     remember(sections);
     draggedElementRef.current = id;
     draggedElementSectionRef.current = sectionId;
+    const sourceStyle = effectiveStyle(sourceElement, device);
+    freeElementDragRef.current = {
+      sectionId,
+      elementId: id,
+      symbolId: sourceElement.symbolId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startX: clampElementNumber(sourceStyle.positionX, 0, -4000, 4000),
+      startY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
+      currentX: clampElementNumber(sourceStyle.positionX, 0, -4000, 4000),
+      currentY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
+    };
     setDraggedElementId(id);
     setDragOverElementId(null);
     setDragOverElementPosition(null);
@@ -4832,10 +4875,48 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.dataTransfer.setData('application/x-tayar-section', sectionId);
   }
 
+  function handleElementDragMove(sectionId: string, id: string, e: React.DragEvent) {
+    const drag = freeElementDragRef.current;
+    if (!drag || drag.sectionId !== sectionId || drag.elementId !== id) return;
+    if (!e.clientX && !e.clientY) return;
+
+    const nextX = Math.max(-4000, Math.min(4000, Math.round(drag.startX + (e.clientX - drag.startClientX))));
+    const nextY = Math.max(-4000, Math.min(4000, Math.round(drag.startY + (e.clientY - drag.startClientY))));
+    if (nextX === drag.currentX && nextY === drag.currentY) return;
+    drag.currentX = nextX;
+    drag.currentY = nextY;
+
+    setSections((current) => current.map((section) => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = drag.symbolId ? element.symbolId === drag.symbolId : section.id === sectionId && element.id === id;
+        if (!matches) return element;
+        return {
+          ...element,
+          responsive: {
+            ...element.responsive,
+            [device]: {
+              ...(element.responsive?.[device] || {}),
+              positionX: nextX,
+              positionY: nextY,
+            },
+          },
+        };
+      }),
+    })));
+    setSaved(false);
+  }
+
   function handleElementDragOver(targetSectionId: string, targetId: string, e: React.DragEvent) {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
+
+    if (!e.shiftKey) {
+      setDragOverElementId(null);
+      setDragOverElementPosition(null);
+      return;
+    }
 
     const sourceId = draggedElementRef.current;
     const sourceSectionId = draggedElementSectionRef.current;
@@ -4894,15 +4975,51 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.preventDefault();
     e.stopPropagation();
     const sourceId = draggedElementRef.current || e.dataTransfer.getData('application/x-tayar-element');
-    if (sourceId) {
+    if (sourceId && e.shiftKey) {
       setSelectedId(targetSectionId);
       setSelectedElementId(sourceId);
+      setDragOverElementId(targetId);
     }
-    setDragOverElementId(targetId);
     handleElementDragEnd();
   }
 
   function handleElementDragEnd() {
+    const drag = freeElementDragRef.current;
+    if (drag?.symbolId) {
+      setPages((current) => current.map((page) => ({
+        ...page,
+        sections: page.sections.map((section) => ({
+          ...section,
+          elements: section.elements.map((element) => element.symbolId === drag.symbolId ? {
+            ...element,
+            responsive: {
+              ...element.responsive,
+              [device]: {
+                ...(element.responsive?.[device] || {}),
+                positionX: drag.currentX,
+                positionY: drag.currentY,
+              },
+            },
+          } : element),
+        })),
+      })));
+      setSymbols((current) => current.map((symbol) => symbol.id === drag.symbolId ? {
+        ...symbol,
+        element: {
+          ...symbol.element,
+          responsive: {
+            ...symbol.element.responsive,
+            [device]: {
+              ...(symbol.element.responsive?.[device] || {}),
+              positionX: drag.currentX,
+              positionY: drag.currentY,
+            },
+          },
+        },
+        updatedAt: new Date().toISOString(),
+      } : symbol));
+    }
+    freeElementDragRef.current = null;
     draggedElementRef.current = null;
     draggedElementSectionRef.current = null;
     setDraggedElementId(null);
@@ -8292,6 +8409,7 @@ if (generated.seo) {
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
       onElementDragStart={(elementId, e) => handleElementDragStart(section.id, elementId, e)}
+      onElementDragMove={(elementId, e) => handleElementDragMove(section.id, elementId, e)}
       onElementDragOver={(elementId, e) => handleElementDragOver(section.id, elementId, e)}
       onElementDrop={(elementId, e) => handleElementDrop(section.id, elementId, e)}
       onElementDragEnd={handleElementDragEnd}
@@ -8518,6 +8636,14 @@ if (generated.seo) {
                   {selectedElement.type === 'button' ? (
               <label className="text-[10px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { backgroundColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" /></label>
                   ) : <div />}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] text-gray-500">X position<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionX ?? 0} onChange={(e) => updateSelectedElement({ style: { positionX: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                  <label className="text-[10px] text-gray-500">Y position<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionY ?? 0} onChange={(e) => updateSelectedElement({ style: { positionY: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-[9px] text-gray-500">
+                  <span>Drag freely · Shift + drag reorders</span>
+                  <button type="button" onClick={() => updateSelectedElement({ style: { positionX: 0, positionY: 0 } }, true)} className="font-semibold text-violet-400 hover:text-violet-300">Reset position</button>
                 </div>
               </div>
 
