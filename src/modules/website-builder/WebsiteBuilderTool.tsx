@@ -247,6 +247,40 @@ interface WebsiteSymbol {
   updatedAt: string;
 }
 
+interface PersistedWebsiteProject {
+  pages?: Partial<WebsitePage>[];
+  sections?: WebsiteSection[];
+  language?: Language;
+  activePageId?: string;
+  homePageId?: string;
+  siteName?: string;
+  siteUrl?: string;
+  faviconUrl?: string;
+  publishedUrl?: string;
+  publishedAt?: string | null;
+  previewUrl?: string;
+  previewToken?: string;
+  previewCreatedAt?: string | null;
+  lastPublishedVersionId?: string | null;
+  lastPublishedFingerprint?: string;
+  brand?: WebsiteBrand;
+  theme?: Partial<WebsiteTheme>;
+  headerConfig?: Partial<WebsiteHeaderConfig>;
+  footerConfig?: Partial<WebsiteFooterConfig>;
+  siteEnhancements?: Partial<WebsiteSiteEnhancements>;
+  productionConfig?: Partial<WebsiteProductionConfig>;
+  deliveryConfig?: Partial<WebsiteDeliveryConfig>;
+  symbols?: unknown[];
+  seo?: WebsiteSEO;
+  history?: ProjectHistoryEntry[];
+}
+
+function isWebsiteSymbol(value: unknown): value is WebsiteSymbol {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Partial<WebsiteSymbol>;
+  return typeof item.id === 'string' && typeof item.name === 'string' && Boolean(item.element) && typeof item.updatedAt === 'string';
+}
+
 interface WebsitePublishVersion {
   id: string;
   project_id: string;
@@ -2893,99 +2927,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  function applyProjectData(parsed: any, loadHistory = true) {
-    if (Array.isArray(parsed?.pages) && parsed.pages.length) {
-      const normalizedPages: WebsitePage[] = parsed.pages.map((page: Partial<WebsitePage>, index: number) => ({
-        id: page.id || `page-${index}-${Date.now()}`,
-        name: page.name || `Page ${index + 1}`,
-        slug: normalizeSlug(page.slug || page.name || `page-${index + 1}`),
-        sections: Array.isArray(page.sections) && page.sections.length
-          ? page.sections.map(normalizeSection)
-          : [createSection('hero')],
-        showInNavigation: page.showInNavigation !== false,
-        seoTitle: typeof page.seoTitle === 'string' ? page.seoTitle : '',
-        seoDescription: typeof page.seoDescription === 'string' ? page.seoDescription : '',
-        socialImage: typeof page.socialImage === 'string' ? page.socialImage : '',
-        canonicalUrl: typeof page.canonicalUrl === 'string' ? page.canonicalUrl : '',
-        language: normalizePageLanguage(page.language, normalizePageLanguage(parsed.language, 'en')),
-        translationKey: typeof page.translationKey === 'string' ? page.translationKey.slice(0, 120) : '',
-        noIndex: page.noIndex === true,
-      }));
-      const requestedPage = normalizedPages.find((page) => page.id === parsed.activePageId) || normalizedPages[0];
-      setPages(normalizedPages);
-      setActivePageId(requestedPage.id);
-      setHomePageId(normalizedPages.some((page) => page.id === parsed.homePageId) ? parsed.homePageId : normalizedPages[0].id);
-      setSections(requestedPage.sections);
-      setSelectedId(requestedPage.sections[0]?.id ?? null);
-      setSelectedElementId(requestedPage.sections[0]?.elements[0]?.id ?? null);
-      setSiteName(parsed.siteName || 'My Website');
-      setSiteUrl(parsed.siteUrl || '');
-      setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
-      setPublishedUrl(typeof parsed.publishedUrl === 'string' ? parsed.publishedUrl : '');
-      setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
-      setPreviewUrl(typeof parsed.previewUrl === 'string' ? parsed.previewUrl : '');
-      setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
-      setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
-      setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
-      setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
-      setLiveVerification('idle');
-      setPublishError('');
-      setPreviewError('');
-      if (parsed.brand) setBrand(parsed.brand);
-      setTheme(normalizeTheme(parsed.theme));
-      setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
-      setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
-      setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
-      setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
-      setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
-      setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter((item: any) => item?.id && item?.element).slice(0, 50) : []);
-      if (parsed.seo) setSeo(parsed.seo);
-      setHistory([]);
-      setFuture([]);
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
-      setSaved(false);
-      return;
-    }
-
-    if (parsed?.sections && Array.isArray(parsed.sections) && parsed.sections.length) {
-      const normalized = parsed.sections.map(normalizeSection);
-      setSections(normalized);
-      setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: normalized, showInNavigation: true, language: 'en', translationKey: 'home' }]);
-      setActivePageId('page-home');
-      setHomePageId('page-home');
-      setSelectedId(normalized[0].id);
-      setSelectedElementId(normalized[0].elements[0]?.id ?? null);
-      setSiteName(parsed.siteName || 'My Website');
-      setSiteUrl(parsed.siteUrl || '');
-      setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
-      setPublishedUrl(typeof parsed.publishedUrl === 'string' ? parsed.publishedUrl : '');
-      setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
-      setPreviewUrl(typeof parsed.previewUrl === 'string' ? parsed.previewUrl : '');
-      setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
-      setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
-      setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
-      setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
-      setLiveVerification('idle');
-      setPublishError('');
-      setPreviewError('');
-      if (parsed.brand) setBrand(parsed.brand);
-      setTheme(normalizeTheme(parsed.theme));
-      setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
-      setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
-      setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
-      setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
-      setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
-      setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter((item: any) => item?.id && item?.element).slice(0, 50) : []);
-      if (parsed.seo) setSeo(parsed.seo);
-      setHistory([]);
-      setFuture([]);
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
-      setSaved(false);
-      return;
-    }
-
-    if (Array.isArray(parsed) && parsed.length) {
-      const normalized = parsed.map(normalizeSection);
+  function applyProjectData(input: unknown, loadHistory = true) {
+    if (Array.isArray(input) && input.length) {
+      const normalized = input.map(normalizeSection);
       setSections(normalized);
       setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: normalized, showInNavigation: true, language: 'en', translationKey: 'home' }]);
       setActivePageId('page-home');
@@ -3013,6 +2957,99 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setHistory([]);
       setFuture([]);
       if (loadHistory) setProjectHistory([]);
+      setSaved(false);
+      return;
+    }
+
+    if (!input || typeof input !== 'object') return;
+    const parsed = input as PersistedWebsiteProject;
+
+    if (Array.isArray(parsed.pages) && parsed.pages.length) {
+      const normalizedPages: WebsitePage[] = parsed.pages.map((page: Partial<WebsitePage>, index: number) => ({
+        id: page.id || `page-${index}-${Date.now()}`,
+        name: page.name || `Page ${index + 1}`,
+        slug: normalizeSlug(page.slug || page.name || `page-${index + 1}`),
+        sections: Array.isArray(page.sections) && page.sections.length
+          ? page.sections.map(normalizeSection)
+          : [createSection('hero')],
+        showInNavigation: page.showInNavigation !== false,
+        seoTitle: typeof page.seoTitle === 'string' ? page.seoTitle : '',
+        seoDescription: typeof page.seoDescription === 'string' ? page.seoDescription : '',
+        socialImage: typeof page.socialImage === 'string' ? page.socialImage : '',
+        canonicalUrl: typeof page.canonicalUrl === 'string' ? page.canonicalUrl : '',
+        language: normalizePageLanguage(page.language, normalizePageLanguage(parsed.language, 'en')),
+        translationKey: typeof page.translationKey === 'string' ? page.translationKey.slice(0, 120) : '',
+        noIndex: page.noIndex === true,
+      }));
+      const requestedPage = normalizedPages.find((page) => page.id === parsed.activePageId) || normalizedPages[0];
+      setPages(normalizedPages);
+      setActivePageId(requestedPage.id);
+      setHomePageId(parsed.homePageId && normalizedPages.some((page) => page.id === parsed.homePageId) ? parsed.homePageId : normalizedPages[0].id);
+      setSections(requestedPage.sections);
+      setSelectedId(requestedPage.sections[0]?.id ?? null);
+      setSelectedElementId(requestedPage.sections[0]?.elements[0]?.id ?? null);
+      setSiteName(parsed.siteName || 'My Website');
+      setSiteUrl(parsed.siteUrl || '');
+      setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
+      setPublishedUrl(typeof parsed.publishedUrl === 'string' ? parsed.publishedUrl : '');
+      setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
+      setPreviewUrl(typeof parsed.previewUrl === 'string' ? parsed.previewUrl : '');
+      setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
+      setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
+      setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
+      setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
+      setLiveVerification('idle');
+      setPublishError('');
+      setPreviewError('');
+      if (parsed.brand) setBrand(parsed.brand);
+      setTheme(normalizeTheme(parsed.theme));
+      setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
+      setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
+      setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
+      setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
+      setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
+      setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
+      if (parsed.seo) setSeo(parsed.seo);
+      setHistory([]);
+      setFuture([]);
+      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
+      setSaved(false);
+      return;
+    }
+
+    if (Array.isArray(parsed.sections) && parsed.sections.length) {
+      const normalized = parsed.sections.map(normalizeSection);
+      setSections(normalized);
+      setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: normalized, showInNavigation: true, language: 'en', translationKey: 'home' }]);
+      setActivePageId('page-home');
+      setHomePageId('page-home');
+      setSelectedId(normalized[0].id);
+      setSelectedElementId(normalized[0].elements[0]?.id ?? null);
+      setSiteName(parsed.siteName || 'My Website');
+      setSiteUrl(parsed.siteUrl || '');
+      setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
+      setPublishedUrl(typeof parsed.publishedUrl === 'string' ? parsed.publishedUrl : '');
+      setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
+      setPreviewUrl(typeof parsed.previewUrl === 'string' ? parsed.previewUrl : '');
+      setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
+      setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
+      setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
+      setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
+      setLiveVerification('idle');
+      setPublishError('');
+      setPreviewError('');
+      if (parsed.brand) setBrand(parsed.brand);
+      setTheme(normalizeTheme(parsed.theme));
+      setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
+      setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
+      setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
+      setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
+      setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
+      setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
+      if (parsed.seo) setSeo(parsed.seo);
+      setHistory([]);
+      setFuture([]);
+      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
       setSaved(false);
     }
   }
@@ -3651,9 +3688,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const raw = data as Record<string, any>;
+    const raw = data as Record<string, unknown>;
     const rawPlan = raw.plan === 'business' ? 'business' : raw.plan === 'pro' ? 'pro' : 'free';
-    const rawEntitlements = raw.entitlements && typeof raw.entitlements === 'object' ? raw.entitlements : {};
+    const rawEntitlements = raw.entitlements && typeof raw.entitlements === 'object'
+      ? raw.entitlements as Record<string, unknown>
+      : {};
+    const rawFeatures = rawEntitlements.features && typeof rawEntitlements.features === 'object'
+      ? rawEntitlements.features as Partial<Record<BillingFeature, boolean>>
+      : {};
     const local = LOCAL_BILLING_ENTITLEMENTS[rawPlan];
     const entitlements: BillingEntitlements = {
       plan: rawPlan,
@@ -3662,9 +3704,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       maxReleaseHistory: Number(rawEntitlements.maxReleaseHistory) || local.maxReleaseHistory,
       maxLeads: Number(rawEntitlements.maxLeads) || local.maxLeads,
       maxAnalyticsEvents: Number(rawEntitlements.maxAnalyticsEvents) || local.maxAnalyticsEvents,
-      features: { ...local.features, ...(rawEntitlements.features || {}) },
+      features: { ...local.features, ...rawFeatures },
     };
-    const rawUsage = raw.usage && typeof raw.usage === 'object' ? raw.usage : {};
+    const rawUsage = raw.usage && typeof raw.usage === 'object' ? raw.usage as Record<string, unknown> : {};
     setBillingState({
       plan: rawPlan,
       entitlements,
@@ -4937,10 +4979,23 @@ if (generated.seo) {
   }
 
   function projectSnapshotCounts(snapshot: Record<string, unknown>) {
-    const snapshotPages = Array.isArray((snapshot as any)?.pages) ? (snapshot as any).pages : [];
+    const snapshotPages = Array.isArray(snapshot.pages) ? snapshot.pages : [];
     const pageCount = snapshotPages.length;
-    const sectionCount = snapshotPages.reduce((sum: number, page: any) => sum + (Array.isArray(page?.sections) ? page.sections.length : 0), 0);
-    const elementCount = snapshotPages.reduce((sum: number, page: any) => sum + (Array.isArray(page?.sections) ? page.sections.reduce((sectionSum: number, section: any) => sectionSum + (Array.isArray(section?.elements) ? section.elements.length : 0), 0) : 0), 0);
+    const sectionCount = snapshotPages.reduce((sum: number, page: unknown) => {
+      if (!page || typeof page !== 'object') return sum;
+      const pageSections = (page as { sections?: unknown }).sections;
+      return sum + (Array.isArray(pageSections) ? pageSections.length : 0);
+    }, 0);
+    const elementCount = snapshotPages.reduce((sum: number, page: unknown) => {
+      if (!page || typeof page !== 'object') return sum;
+      const pageSections = (page as { sections?: unknown }).sections;
+      if (!Array.isArray(pageSections)) return sum;
+      return sum + pageSections.reduce((sectionSum: number, section: unknown) => {
+        if (!section || typeof section !== 'object') return sectionSum;
+        const elements = (section as { elements?: unknown }).elements;
+        return sectionSum + (Array.isArray(elements) ? elements.length : 0);
+      }, 0);
+    }, 0);
     return { pageCount, sectionCount, elementCount };
   }
 
@@ -5153,7 +5208,7 @@ if (generated.seo) {
     return !/permission|policy|not authorized|forbidden|limit reached|invalid|duplicate|violates|read-only/i.test(message || '');
   }
 
-  async function retryCloudOperation<T extends { error: { message?: string } | null; data?: any }>(operation: () => PromiseLike<T>, attempts = 3): Promise<T> {
+  async function retryCloudOperation<T extends { error: { message?: string } | null; data?: unknown }>(operation: () => PromiseLike<T>, attempts = 3): Promise<T> {
     let result = await operation();
     for (let attempt = 1; result.error && attempt < attempts; attempt += 1) {
       if (!cloudErrorIsRetryable(result.error.message || '') || (typeof navigator !== 'undefined' && !navigator.onLine)) break;
