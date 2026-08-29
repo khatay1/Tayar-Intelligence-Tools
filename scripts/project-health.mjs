@@ -57,6 +57,9 @@ const adminContent = read('src/components/admin/AdminContent.tsx');
 const adminSystem = read('src/components/admin/AdminSystem.tsx');
 const adminTools = read('src/components/admin/AdminTools.tsx');
 const adminAI = read('src/components/admin/AdminAI.tsx');
+const adminSubscriptions = read('src/components/admin/AdminSubscriptions.tsx');
+const billingAdminStatus = read('supabase/functions/billing-admin-status/index.ts');
+const stripeWebhook = read('supabase/functions/stripe-webhook/index.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
@@ -107,13 +110,17 @@ check('AI engine resolves per-tool model before admin default', aiEngine.include
 check('AI engine validates production model catalog', aiEngine.includes('BUILTIN_TEXT_MODELS') && aiEngine.includes('"ai_model_catalog"') && aiEngine.includes('allowedModels.has') && !aiEngine.includes('const model = "gemini-3.6-flash"'));
 check('Admin model manager supports manual Gemini models', adminAI.includes('Add model manually') && adminAI.includes('ai_model_catalog') && adminAI.includes('GEMINI_MODEL_ID') && adminAI.includes('removeModel'));
 check('Admin model manager uses dark controls instead of native select', !adminAI.includes('<select') && adminAI.includes('bg-[#090916]') && adminAI.includes('bg-[#0b0b18]'));
+check('Admin subscriptions exposes secure Payment Settings', adminSubscriptions.includes('Payment Settings') && adminSubscriptions.includes("billing-admin-status") && adminSubscriptions.includes('Open Stripe Dashboard'));
+check('Billing admin status never returns Stripe secret values', billingAdminStatus.includes('STRIPE_SECRET_KEY') && !billingAdminStatus.includes('stripeSecret,') && !billingAdminStatus.includes('webhookSecret,'));
+check('Billing admin status verifies account, prices and webhook endpoint', billingAdminStatus.includes('/v1/account') && billingAdminStatus.includes('/v1/prices/') && billingAdminStatus.includes('/v1/webhook_endpoints'));
+check('Stripe webhook still verifies signatures', stripeWebhook.includes('verifyStripeSignature') && stripeWebhook.includes('STRIPE_WEBHOOK_SECRET'));
 check('Admin provider cards remain honest about backend support', adminAI.includes('Backend not enabled'));
 check('Gemini registry uses current production model IDs', aiTypes.includes("'gemini-3.7-flash'") && aiTypes.includes("'gemini-3.6-flash'") && aiTypes.includes("'gemini-3.5-flash'") && !aiTypes.includes("'gemini-1.5-pro'"));
 check('Gemini 3.x requests omit deprecated temperature sampling', !aiEngine.includes('temperature: clampNumber(body.temperature'));
 check('AI engine accepts admin-added Gemini IDs only from catalog', aiEngine.includes('GEMINI_MODEL_ID') && aiEngine.includes('loadAllowedTextModels') && aiEngine.includes('source.enabled === false'));
 check('Admin deploy defaults to dry-run', adminDeployScript.includes('db push --dry-run') && adminDeployScript.includes('if (-not $Apply)'));
 check('Admin production deploy requires explicit confirmation', adminDeployScript.includes('if (-not $ConfirmProduction)') && adminDeployScript.includes('-Apply -ConfirmProduction'));
-check('Admin deploy updates affected Edge Functions', ['ai-engine', 'billing-portal', 'create-checkout-session', 'email-service'].every((name) => adminDeployScript.includes(name)));
+check('Admin deploy updates affected Edge Functions', ['ai-engine', 'billing-portal', 'create-checkout-session', 'stripe-webhook', 'billing-admin-status', 'email-service'].every((name) => adminDeployScript.includes(name)));
 check('Admin deploy handles Windows env BOM', adminDeployScript.includes('Removing UTF-8 BOM from .env') && adminDeployScript.includes('[System.IO.File]::ReadAllBytes'));
 
 for (const name of [
