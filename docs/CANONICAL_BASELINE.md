@@ -4,18 +4,13 @@
 
 The GitHub `main` branch is the only source of truth for Tayar Intelligence Tools.
 
-On 2026-08-29, the uploaded archive `Tayar-Intelligence-Tools-CANONICAL-CLEAN-TRANSLATIONS-COMPLETE (1).zip` was reviewed against the production-hardened repository. The archive was not copied over `main` wholesale because it predates later security, TypeScript, lint, billing, admin, workspace, CI, Vercel, and production-hardening work.
+On 2026-08-29, the uploaded archive `Tayar-Intelligence-Tools-CANONICAL-CLEAN-TRANSLATIONS-COMPLETE (1).zip` was reviewed against the production-hardened repository.
 
-The latest Website Builder UI refinements from that archive were safely merged onto the newer production baseline instead:
+The archive is **not** used as a wholesale replacement for `main` because it predates later security, TypeScript, lint, billing, admin, workspace, CI, Vercel, and production-hardening work.
 
-- Collapsible Build sidebar
-- Collapsible Inspector sidebar
-- Operational panels moved into compact side drawers
-- Sticky compact builder header
-- Responsive fixed sidebars on smaller screens
-- Existing P0/P1/P2, production hardening, billing, admin, workspace, publishing, security and release-gate fixes preserved
+A later attempt to adopt its compact Website Builder sidebar/drawer layout was reverted because it degraded the builder design. The stable production-hardened Website Builder layout is the canonical UI baseline again.
 
-The canonical merge passed the full GitHub Release Gate: lint, project health, production build, production dependency audit, and whitespace validation.
+All later security, billing, admin, workspace, publishing, TypeScript, P1/P2, service-worker, Vercel, and release-gate fixes remain preserved.
 
 ## Working rule
 
