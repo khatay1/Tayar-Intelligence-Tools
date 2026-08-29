@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { Component, ReactNode, ErrorInfo } from 'react';
 import { AlertTriangle, RefreshCw, Home, WifiOff, Lock, ServerCrash, Search } from 'lucide-react';
 
