@@ -2,7 +2,7 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Settings, Bell, Mail, Database, Key, Flag, FileText,
-  Loader2, Save, RefreshCw,
+  Loader2, Save, RefreshCw, AlertTriangle,
   Power,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,19 @@ const TABS: { id: SystemTab; label: string; icon: typeof Settings }[] = [
   { id: 'apikeys', label: 'API Keys', icon: Key },
   { id: 'flags', label: 'Feature Flags', icon: Flag },
 ];
+
+function AdminTabError({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  return (
+    <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+      <AlertTriangle className="mx-auto mb-3 h-7 w-7 text-red-400" />
+      <h3 className="font-semibold text-white">{title}</h3>
+      <p className="mt-1 text-sm text-gray-400">{message}</p>
+      <button onClick={onRetry} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+        <RefreshCw className="h-4 w-4" /> Retry
+      </button>
+    </div>
+  );
+}
 
 export default function AdminSystem() {
   const [tab, setTab] = useState<SystemTab>('settings');
@@ -174,20 +187,28 @@ function LogsTab() {
   const l = useLocalizer();
   const [logs, setLogs] = useState<{ id: string; level: string; category: string; message: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [levelFilter, setLevelFilter] = useState('all');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('system_logs').select('id, level, category, message, created_at').order('created_at', { ascending: false }).limit(100);
-    setLogs((data || []) as typeof logs);
+    setError(null);
+    const { data, error: queryError } = await supabase.from('system_logs').select('id, level, category, message, created_at').order('created_at', { ascending: false }).limit(100);
+    if (queryError) {
+      setLogs([]);
+      setError(queryError.message || 'Failed to load system logs.');
+    } else {
+      setLogs((data || []) as typeof logs);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const filtered = levelFilter === 'all' ? logs : logs.filter(l => l.level === levelFilter);
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (error) return <AdminTabError title={l('System logs unavailable')} message={error} onRetry={() => void load()} />;
 
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
@@ -224,26 +245,38 @@ function LogsTab() {
 
 function NotificationsTab() {
   const l = useLocalizer();
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
   const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: string; read: boolean; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('admin_notifications').select('*').order('created_at', { ascending: false }).limit(50);
-    setNotifications((data || []) as typeof notifications);
+    setLoadError(null);
+    const { data, error } = await supabase.from('admin_notifications').select('*').order('created_at', { ascending: false }).limit(50);
+    if (error) {
+      setNotifications([]);
+      setLoadError(error.message || 'Failed to load notifications.');
+    } else {
+      setNotifications((data || []) as typeof notifications);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function markAllRead() {
-    await supabase.from('admin_notifications').update({ read: true }).eq('read', false);
+    const { error } = await supabase.from('admin_notifications').update({ read: true }).eq('read', false);
+    if (error) {
+      showError(error.message || 'Failed to mark notifications as read');
+      return;
+    }
     success('All notifications marked as read');
-    load();
+    void load();
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (loadError) return <AdminTabError title={l('Notifications unavailable')} message={loadError} onRetry={() => void load()} />;
 
   const typeColors: Record<string, string> = {
     info: 'text-blue-400 bg-blue-500/10', warning: 'text-amber-400 bg-amber-500/10',
@@ -284,24 +317,32 @@ function EmailTab() {
   const { success, error: showError } = useToast();
   const [templates, setTemplates] = useState<{ id: string; key: string; subject: string; body: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('email_templates').select('id, key, subject, body').order('key');
-    setTemplates((data || []) as typeof templates);
+    setLoadError(null);
+    const { data, error } = await supabase.from('email_templates').select('id, key, subject, body').order('key');
+    if (error) {
+      setTemplates([]);
+      setLoadError(error.message || 'Failed to load email templates.');
+    } else {
+      setTemplates((data || []) as typeof templates);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function saveTemplate(t: { id: string; subject: string; body: string }) {
     const { error } = await supabase.from('email_templates').update({ subject: t.subject, body: t.body, updated_at: new Date().toISOString() }).eq('id', t.id);
     if (error) showError('Failed to save template');
-    else { success('Template saved'); setEditing(null); load(); }
+    else { success('Template saved'); setEditing(null); void load(); }
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (loadError) return <AdminTabError title={l('Email templates unavailable')} message={loadError} onRetry={() => void load()} />;
 
   return (
     <div className="space-y-3">
@@ -383,24 +424,32 @@ function ApiKeysTab() {
   const { success, error: showError } = useToast();
   const [keys, setKeys] = useState<{ id: string; service: string; label: string; status: string; last_used: string | null; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('api_keys').select('id, service, label, status, last_used, created_at').order('service');
-    setKeys((data || []) as typeof keys);
+    setLoadError(null);
+    const { data, error } = await supabase.from('api_keys').select('id, service, label, status, last_used, created_at').order('service');
+    if (error) {
+      setKeys([]);
+      setLoadError(error.message || 'Failed to load API key metadata.');
+    } else {
+      setKeys((data || []) as typeof keys);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function toggleStatus(key: { id: string; status: string }) {
     const newStatus = key.status === 'active' ? 'inactive' : 'active';
     const { error } = await supabase.from('api_keys').update({ status: newStatus }).eq('id', key.id);
     if (error) showError('Failed to update key');
-    else { success('API key updated'); load(); }
+    else { success('API key updated'); void load(); }
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (loadError) return <AdminTabError title={l('API key metadata unavailable')} message={loadError} onRetry={() => void load()} />;
 
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
@@ -437,15 +486,22 @@ function FlagsTab() {
   const { success, error: showError } = useToast();
   const [flags, setFlags] = useState<{ id: string; key: string; label: string; enabled: boolean; description: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('feature_flags').select('id, key, label, enabled, description').order('key');
-    setFlags((data || []) as typeof flags);
+    setLoadError(null);
+    const { data, error } = await supabase.from('feature_flags').select('id, key, label, enabled, description').order('key');
+    if (error) {
+      setFlags([]);
+      setLoadError(error.message || 'Failed to load feature flags.');
+    } else {
+      setFlags((data || []) as typeof flags);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function toggle(flag: { id: string; key: string; label: string; enabled: boolean }) {
     const newVal = !flag.enabled;
@@ -460,6 +516,7 @@ function FlagsTab() {
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+  if (loadError) return <AdminTabError title={l('Feature flags unavailable')} message={loadError} onRetry={() => void load()} />;
 
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
