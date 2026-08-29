@@ -7,7 +7,13 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 import { BarChart, DonutChart } from './Charts';
-import { AI_PROVIDERS, ALL_MODELS, getProviderForModel, type AIProvider as ProviderType } from '@/lib/ai/types';
+import {
+  AI_PROVIDERS,
+  SERVER_SUPPORTED_TEXT_MODELS,
+  getModel,
+  getProviderForModel,
+  isServerSupportedTextModel,
+} from '@/lib/ai/types';
 
 interface AIProvider {
   id: string;
@@ -44,15 +50,14 @@ export default function AdminAI() {
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const [provRes, usageRes, logsRes, settingsRes, modelRes] = await Promise.all([
+    const [provRes, usageRes, logsRes, modelRes] = await Promise.all([
       supabase.from('api_keys').select('id, service, label, status, last_used').order('service'),
       supabase.from('ai_usage').select('created_at, tokens_in, tokens_out, provider, model, tool, status').limit(5000),
       supabase.from('system_logs').select('id, level, category, message, metadata, created_at').order('created_at', { ascending: false }).limit(20),
-      supabase.from('admin_settings').select('key, value').eq('key', 'default_ai_provider').maybeSingle(),
       supabase.from('admin_settings').select('key, value').eq('key', 'default_ai_model').maybeSingle(),
     ]);
 
-    const queryError = provRes.error || usageRes.error || logsRes.error || settingsRes.error || modelRes.error;
+    const queryError = provRes.error || usageRes.error || logsRes.error || modelRes.error;
     if (queryError) {
       console.error('Failed to load admin AI data:', queryError);
       setLoadError(queryError.message || 'Failed to load AI administration data.');
@@ -61,13 +66,13 @@ export default function AdminAI() {
     }
 
     setProviders((provRes.data || []) as AIProvider[]);
-    if (settingsRes.data) {
-      const providerValue = settingsRes.data.value;
-      if (typeof providerValue === 'string') setActiveProvider(providerValue.replace(/^"|"$/g, ''));
-    }
+    setActiveProvider('gemini');
+
     if (modelRes.data) {
-      const val = typeof modelRes.data.value === 'string' ? modelRes.data.value.replace(/"/g, '') : (modelRes.data.value as Record<string, unknown>)?.default as string;
-      if (val) setDefaultModel(val);
+      const val = typeof modelRes.data.value === 'string'
+        ? modelRes.data.value.replace(/"/g, '')
+        : (modelRes.data.value as Record<string, unknown>)?.default as string;
+      if (val && isServerSupportedTextModel(val)) setDefaultModel(val);
     }
 
     // Daily stats
@@ -104,34 +109,44 @@ export default function AdminAI() {
   useEffect(() => { load(); }, [load]);
 
   async function switchProvider(service: string) {
+    if (service !== 'gemini') {
+      showError('This provider is not enabled in the production AI backend yet.');
+      return;
+    }
+
     setSwitching(true);
     const { error } = await supabase
       .from('admin_settings')
-      .upsert({ key: 'default_ai_provider', value: service, updated_at: new Date().toISOString() });
-    if (error) showError('Failed to switch provider');
+      .upsert({ key: 'default_ai_provider', value: 'gemini', updated_at: new Date().toISOString() });
+
+    if (error) showError('Failed to save provider setting');
     else {
-      setActiveProvider(service);
-      // Also update the default model to the first model of that provider
-      const providerModels = ALL_MODELS.filter(m => m.provider === service);
-      if (providerModels.length > 0) {
-        const newModel = providerModels[0].id;
-        setDefaultModel(newModel);
-        await supabase
-          .from('admin_settings')
-          .upsert({ key: 'default_ai_model', value: newModel, updated_at: new Date().toISOString() });
-      }
-      success(`Default AI provider switched to ${service}`);
+      setActiveProvider('gemini');
+      success('Google Gemini is the active production provider');
     }
     setSwitching(false);
   }
 
   async function saveDefaultModel() {
+    if (!isServerSupportedTextModel(defaultModel)) {
+      showError('Choose a model supported by the production AI backend.');
+      return;
+    }
+
     setSavingModel(true);
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from('admin_settings')
-      .upsert({ key: 'default_ai_model', value: defaultModel, updated_at: new Date().toISOString() });
+      .upsert([
+        { key: 'default_ai_model', value: defaultModel, updated_at: now },
+        { key: 'default_ai_provider', value: 'gemini', updated_at: now },
+      ], { onConflict: 'key' });
+
     if (error) showError('Failed to save model setting');
-    else success(`Default model set to ${defaultModel}`);
+    else {
+      setActiveProvider('gemini');
+      success(`Default model set to ${defaultModel}`);
+    }
     setSavingModel(false);
   }
 
@@ -163,7 +178,7 @@ export default function AdminAI() {
         {[
           { label: '14d Requests', value: totalRequests.toLocaleString(), icon: Zap, color: 'violet' },
           { label: 'Total Tokens', value: totalTokens.toLocaleString(), icon: Activity, color: 'fuchsia' },
-          { label: 'Active Providers', value: providers.filter(p => p.status === 'active').length, icon: Server, color: 'emerald' },
+          { label: 'Backend Providers', value: providers.filter(p => p.status === 'active' && p.service === 'gemini').length, icon: Server, color: 'emerald' },
           { label: 'Recent Error Rate', value: `${errorRate.toFixed(1)}%`, icon: AlertCircle, color: 'amber' },
         ].map(s => {
           const colors: Record<string, string> = {
@@ -188,7 +203,7 @@ export default function AdminAI() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-white font-semibold text-sm">{l('AI Providers & Model Selection')}</h3>
-            <p className="text-gray-500 text-xs">{l('Manage providers and set the default model for all AI tools')}</p>
+            <p className="text-gray-500 text-xs">{l('Set the production default model. Per-tool user settings override this value.')}</p>
           </div>
           <button onClick={load} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
             <RefreshCw className="w-4 h-4" />
@@ -205,21 +220,19 @@ export default function AdminAI() {
                 onChange={e => setDefaultModel(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-violet-500/50 focus:outline-none"
               >
-                {(Object.keys(AI_PROVIDERS) as ProviderType[]).map(p => {
-                  const provider = AI_PROVIDERS[p];
-                  return (
-                    <optgroup key={p} label={provider.label}>
-                      {provider.models.map(m => (
-                        <option key={m.id} value={m.id}>{m.label}</option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
+                <optgroup label="Google Gemini · production enabled">
+                  {SERVER_SUPPORTED_TEXT_MODELS.map((modelId) => {
+                    const model = getModel(modelId);
+                    return model ? <option key={model.id} value={model.id}>{model.label}</option> : null;
+                  })}
+                </optgroup>
               </select>
               <div className="text-xs text-gray-500 mt-1.5">
                 Provider: <span className="text-violet-400 capitalize">{getProviderForModel(defaultModel)}</span>
                 {' · '}
-                Context: <span className="text-gray-400">{ALL_MODELS.find(m => m.id === defaultModel)?.contextWindow.toLocaleString() || 'N/A'} tokens</span>
+                Context: <span className="text-gray-400">{getModel(defaultModel)?.contextWindow.toLocaleString() || 'N/A'} tokens</span>
+                {' · '}
+                <span className="text-emerald-400">Backend supported</span>
               </div>
             </div>
             <button
@@ -234,7 +247,8 @@ export default function AdminAI() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {providers.map(p => {
-            const isActive = p.service === activeProvider;
+            const backendEnabled = p.service === 'gemini';
+            const isActive = backendEnabled && p.service === activeProvider;
             return (
               <div key={p.id} className={`rounded-xl border p-4 transition-all ${isActive ? 'bg-violet-600/10 border-violet-500/30' : 'bg-white/[0.02] border-white/10'}`}>
                 <div className="flex items-start justify-between mb-3">
@@ -251,15 +265,17 @@ export default function AdminAI() {
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`w-2 h-2 rounded-full ${p.status === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`} />
-                  <span className="text-xs text-gray-400">{p.status === 'active' ? 'Active' : 'Inactive'}</span>
+                  <span className="text-xs text-gray-400">
+                    {!backendEnabled ? 'Backend not enabled' : p.status === 'active' ? 'Active' : 'Inactive'}
+                  </span>
                   {p.last_used && <span className="text-xs text-gray-600 ml-auto">{new Date(p.last_used).toLocaleDateString()}</span>}
                 </div>
                 <button
                   onClick={() => switchProvider(p.service)}
-                  disabled={switching || isActive}
-                  className={`w-full py-2 rounded-lg text-xs font-medium transition-colors ${isActive ? 'bg-violet-600/20 text-violet-300 cursor-default' : 'bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-50'}`}
+                  disabled={switching || isActive || !backendEnabled}
+                  className={`w-full py-2 rounded-lg text-xs font-medium transition-colors ${isActive ? 'bg-violet-600/20 text-violet-300 cursor-default' : 'bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed'}`}
                 >
-                  {isActive ? 'Current Provider' : 'Set as Default'}
+                  {!backendEnabled ? 'Backend not enabled' : isActive ? 'Current Provider' : 'Set as Default'}
                 </button>
               </div>
             );
