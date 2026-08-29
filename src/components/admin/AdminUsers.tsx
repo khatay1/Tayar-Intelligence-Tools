@@ -486,34 +486,3 @@ function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
     </div>
   );
 }
-
-function ConfirmModal({ title, message, confirmLabel, danger, loading, onConfirm, onClose }: {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  danger?: boolean;
-  loading: boolean;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const l = useLocalizer();
-  return (
-    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-[#12122a] border border-white/10 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()} style={{ animation: 'fadeInUp 0.2s ease-out' }}>
-        <div className="flex items-start gap-3 mb-4">
-          {danger && <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0"><AlertTriangle className="w-5 h-5 text-red-400" /></div>}
-          <div>
-            <h3 className="text-white font-semibold">{title}</h3>
-            <p className="text-sm text-gray-400 mt-1">{message}</p>
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">{l('Cancel')}</button>
-          <button onClick={onConfirm} disabled={loading} className={`flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50 transition-colors ${danger ? 'bg-red-600 hover:bg-red-500' : 'bg-violet-600 hover:bg-violet-500'}`}>
-            {loading ? 'Processing...' : confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
