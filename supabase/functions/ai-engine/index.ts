@@ -9,6 +9,13 @@ const MAX_REQUEST_CHARS = readPositiveInt("AI_MAX_REQUEST_CHARS", 40_000, 1_000,
 const MAX_BODY_CHARS = readPositiveInt("AI_MAX_BODY_CHARS", 60_000, 2_000, 300_000);
 const MAX_OUTPUT_TOKENS = readPositiveInt("AI_MAX_OUTPUT_TOKENS", 8_192, 256, 32_768);
 
+const FALLBACK_TEXT_MODEL = "gemini-3.6-flash";
+const SUPPORTED_TEXT_MODELS = new Set([
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+]);
+
 interface IncomingMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -104,6 +111,46 @@ async function parseBody(req: Request): Promise<AIRequestBody> {
   } catch {
     throw new HttpError(400, "Invalid JSON request");
   }
+}
+
+function supportedTextModel(value: unknown): string | null {
+  const model = typeof value === "string" ? value.trim() : "";
+  return model && SUPPORTED_TEXT_MODELS.has(model) ? model : null;
+}
+
+async function resolveTextModel(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  tool: string,
+): Promise<string> {
+  const { data: toolSetting, error: toolError } = await admin
+    .from("ai_settings")
+    .select("model")
+    .eq("user_id", userId)
+    .eq("tool", tool)
+    .maybeSingle();
+
+  if (toolError) {
+    console.error("[AI ENGINE] Failed to read per-tool model setting");
+  } else {
+    const toolModel = supportedTextModel(toolSetting?.model);
+    if (toolModel) return toolModel;
+  }
+
+  const { data: adminSetting, error: adminError } = await admin
+    .from("admin_settings")
+    .select("value")
+    .eq("key", "default_ai_model")
+    .maybeSingle();
+
+  if (adminError) {
+    console.error("[AI ENGINE] Failed to read admin default model");
+  } else {
+    const adminModel = supportedTextModel(adminSetting?.value);
+    if (adminModel) return adminModel;
+  }
+
+  return FALLBACK_TEXT_MODEL;
 }
 
 async function enforceRateLimit(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<void> {
@@ -203,7 +250,7 @@ Deno.serve(async (req: Request) => {
 
     if (!GEMINI_API_KEY) throw new HttpError(503, "AI provider is not configured");
     const messages = normalizeMessages(body.messages);
-    const model = "gemini-3.6-flash";
+    const model = await resolveTextModel(admin, user.id, tool);
     const system = messages.find((message) => message.role === "system");
     const chatMessages = messages.filter((message) => message.role !== "system");
     if (!chatMessages.length) throw new HttpError(400, "At least one user message is required");
@@ -214,7 +261,6 @@ Deno.serve(async (req: Request) => {
         parts: [{ text: message.content }],
       })),
       generationConfig: {
-        temperature: clampNumber(body.temperature, 0.7, 0, 2),
         maxOutputTokens: Math.floor(clampNumber(body.maxTokens, 4096, 1, MAX_OUTPUT_TOKENS)),
         ...(body.jsonMode ? { responseMimeType: "application/json" } : {}),
       },
