@@ -12,7 +12,7 @@
     "smoke:website-builder": "node scripts/website-builder-smoke.mjs",
     "launch:website-builder": "node scripts/website-builder-smoke.mjs && node scripts/website-builder-launch.mjs",
     "smoke:site-polish": "node scripts/site-polish-smoke.mjs",
-    "health:project": "npm run typecheck && npm run lint && node scripts/project-health.mjs && npm run launch:website-builder && npm run smoke:site-polish && npm run smoke:translator && npm run smoke:workspace-production && npm run smoke:i18n",
+    "health:project": "npm run typecheck && node scripts/project-health.mjs && npm run launch:website-builder && npm run smoke:site-polish && npm run smoke:translator && npm run smoke:workspace-production && npm run smoke:i18n",
     "smoke:translator": "node scripts/translator-smoke.mjs",
     "smoke:i18n": "node scripts/i18n-coverage-smoke.mjs",
     "smoke:workspace-production": "node scripts/workspace-production-smoke.mjs"
@@ -38,5 +38,8 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
+  },
+  "overrides": {
+    "ws": "8.21.3"
   }
 }

@@ -1,4 +1,4 @@
-﻿// Client-side AI Service Layer
+// Client-side AI Service Layer
 // Unified interface for all AI tools. Handles streaming, conversation history,
 // token tracking, cost tracking, error handling, retry, timeout, and usage analytics.
 // All AI requests go through the edge function â€” API keys are never exposed to the frontend.
@@ -280,6 +280,34 @@ export class AIService {
         'REQUEST_FAILED',
         response.status >= 500,
       );
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await response.json() as Partial<AIResponse>;
+      const fullContent = String(data.content || '');
+      if (!fullContent) {
+        throw new AIError('AI provider returned an empty response.', 'INVALID_RESPONSE', true);
+      }
+
+      onChunk?.(fullContent);
+      const tokensIn = Number(data.tokensIn) || 0;
+      const tokensOut = Number(data.tokensOut) || 0;
+      const costUsd = Number(data.costUsd) || 0;
+      const provider = String(data.provider || '');
+      const model = String(data.model || this.model);
+
+      if (conversationId) {
+        await supabase.from('ai_messages').insert({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: fullContent,
+          tokens_in: tokensIn,
+          tokens_out: tokensOut,
+        });
+      }
+
+      return { content: fullContent, tokensIn, tokensOut, model, provider, costUsd };
     }
 
     const reader = response.body!.getReader();

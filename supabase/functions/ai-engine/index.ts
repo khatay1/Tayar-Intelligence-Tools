@@ -1,246 +1,275 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createAdminClient, HttpError, requireUser } from "../_shared/billing.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const FAL_KEY = Deno.env.get("FAL_KEY");
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const RATE_LIMIT_PER_MINUTE = readPositiveInt("AI_RATE_LIMIT_PER_MINUTE", 30, 1, 300);
+const MAX_REQUEST_CHARS = readPositiveInt("AI_MAX_REQUEST_CHARS", 40_000, 1_000, 200_000);
+const MAX_BODY_CHARS = readPositiveInt("AI_MAX_BODY_CHARS", 60_000, 2_000, 300_000);
+const MAX_OUTPUT_TOKENS = readPositiveInt("AI_MAX_OUTPUT_TOKENS", 8_192, 256, 32_768);
+
+interface IncomingMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+interface AIRequestBody {
+  action?: string;
+  prompt?: string;
+  tool?: string;
+  messages?: unknown;
+  temperature?: unknown;
+  maxTokens?: unknown;
+  jsonMode?: boolean;
+}
+
+function readPositiveInt(name: string, fallback: number, min: number, max: number): number {
+  const parsed = Number(Deno.env.get(name));
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
+function allowedOrigins(): Set<string> {
+  const origins = new Set<string>([
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ]);
+  for (const raw of [Deno.env.get("APP_URL"), ...(Deno.env.get("ALLOWED_ORIGINS") || "").split(",")]) {
+    const value = raw?.trim();
+    if (!value) continue;
+    try { origins.add(new URL(value).origin); } catch { /* ignore invalid configured origins */ }
+  }
+  return origins;
+}
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin")?.trim();
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+  if (origin && allowedOrigins().has(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
+
+function assertAllowedOrigin(req: Request): void {
+  const origin = req.headers.get("Origin")?.trim();
+  if (origin && !allowedOrigins().has(origin)) throw new HttpError(403, "Origin is not allowed");
+}
+
+function jsonResponse(req: Request, body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+  });
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function normalizeMessages(value: unknown): IncomingMessage[] {
+  if (!Array.isArray(value) || value.length === 0) throw new HttpError(400, "Messages are required");
+  if (value.length > 40) throw new HttpError(400, "Too many messages in one request");
+
+  let totalChars = 0;
+  const messages = value.map((item) => {
+    if (!item || typeof item !== "object") throw new HttpError(400, "Invalid message payload");
+    const source = item as Record<string, unknown>;
+    const role = source.role;
+    if (role !== "user" && role !== "assistant" && role !== "system") {
+      throw new HttpError(400, "Invalid message role");
+    }
+    const content = String(source.content ?? "").trim();
+    if (!content) throw new HttpError(400, "Message content cannot be empty");
+    totalChars += content.length;
+    if (totalChars > MAX_REQUEST_CHARS) throw new HttpError(413, "AI request is too large");
+    return { role, content } as IncomingMessage;
+  });
+
+  return messages;
+}
+
+async function parseBody(req: Request): Promise<AIRequestBody> {
+  const raw = await req.text();
+  if (!raw || raw.length > MAX_BODY_CHARS) throw new HttpError(raw ? 413 : 400, raw ? "Request body is too large" : "Request body is required");
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid object");
+    return parsed as AIRequestBody;
+  } catch {
+    throw new HttpError(400, "Invalid JSON request");
+  }
+}
+
+async function enforceRateLimit(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<void> {
+  const { error } = await admin.rpc("enforce_ai_rate_limit", {
+    p_user_id: userId,
+    p_bucket: "ai-engine",
+    p_limit: RATE_LIMIT_PER_MINUTE,
+    p_window_seconds: 60,
+  });
+  if (!error) return;
+  if (/too many/i.test(error.message || "")) throw new HttpError(429, "Rate limit exceeded. Please wait a moment and try again.");
+  console.error("[AI ENGINE] Rate limit check failed");
+  throw new HttpError(500, "Unable to validate AI request limits");
+}
+
+async function recordUsage(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  values: { provider: string; model: string; tool: string; tokensIn?: number; tokensOut?: number; durationMs: number; status: "success" | "error" },
+): Promise<void> {
+  const { error } = await admin.from("ai_usage").insert({
+    user_id: userId,
+    provider: values.provider.slice(0, 60),
+    model: values.model.slice(0, 100),
+    tool: values.tool.slice(0, 100),
+    tokens_in: Math.max(0, Math.floor(values.tokensIn || 0)),
+    tokens_out: Math.max(0, Math.floor(values.tokensOut || 0)),
+    duration_ms: Math.max(0, Math.floor(values.durationMs)),
+    status: values.status,
+    cost_usd: 0,
+  });
+  if (error) console.error("[AI ENGINE] Usage logging failed");
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    try { assertAllowedOrigin(req); return new Response("ok", { headers: corsHeaders(req) }); }
+    catch { return new Response("Forbidden", { status: 403, headers: corsHeaders(req) }); }
   }
+  if (req.method !== "POST") return jsonResponse(req, { error: "Method not allowed" }, 405);
+
+  const startedAt = Date.now();
+  let userId = "";
+  let tool = "ai-chat";
+  let admin: ReturnType<typeof createAdminClient> | null = null;
 
   try {
-    if (!GEMINI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "GEMINI_API_KEY is not configured" }),
-        {
-          status: 503,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
+    assertAllowedOrigin(req);
+    const user = await requireUser(req);
+    userId = user.id;
+    admin = createAdminClient();
+    await enforceRateLimit(admin, user.id);
 
-    const body = await req.json();
+    const body = await parseBody(req);
+    tool = String(body.tool || "ai-chat").trim().slice(0, 100) || "ai-chat";
 
-    // Image generation route
     if (body.action === "generate-image") {
-      if (!FAL_KEY) {
-        return new Response(
-          JSON.stringify({ error: "FAL_KEY is not configured" }),
-          {
-            status: 503,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
+      if (!FAL_KEY) throw new HttpError(503, "Image generation is not configured");
+      const prompt = String(body.prompt || "").trim();
+      if (!prompt) throw new HttpError(400, "Image prompt is required");
+      if (prompt.length > 4_000) throw new HttpError(413, "Image prompt is too large");
 
-      const prompt =
-        String(body.prompt || "Professional website image");
-
-      const imageResponse = await fetch(
-        "https://fal.run/fal-ai/flux/dev",
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Key ${FAL_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            prompt,
-            image_size: "landscape_16_9",
-            num_images: 1,
-          }),
-        },
-      );
-
+      const imageResponse = await fetch("https://fal.run/fal-ai/flux/dev", {
+        method: "POST",
+        headers: { "Authorization": `Key ${FAL_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, image_size: "landscape_16_9", num_images: 1 }),
+      });
       const rawImageResponse = await imageResponse.text();
-
-      let imageData: any;
-      try {
-        imageData = JSON.parse(rawImageResponse);
-      } catch {
-        imageData = { raw: rawImageResponse };
-      }
-
+      let imageData: Record<string, unknown> = {};
+      try { imageData = JSON.parse(rawImageResponse) as Record<string, unknown>; } catch { /* provider returned non-JSON */ }
 
       if (!imageResponse.ok) {
-        return new Response(
-          JSON.stringify({
-            error: "Image provider request failed",
-            providerStatus: imageResponse.status,
-            details: imageData,
-          }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
+        console.error(`[AI ENGINE] Image provider failed (${imageResponse.status})`);
+        await recordUsage(admin, user.id, { provider: "fal", model: "flux", tool, durationMs: Date.now() - startedAt, status: "error" });
+        return jsonResponse(req, { error: "Image provider is temporarily unavailable" }, 502);
       }
 
-      const imageUrl =
-        imageData?.images?.[0]?.url;
-
+      const images = Array.isArray(imageData.images) ? imageData.images : [];
+      const first = images[0] && typeof images[0] === "object" ? images[0] as Record<string, unknown> : null;
+      const imageUrl = typeof first?.url === "string" ? first.url : "";
       if (!imageUrl) {
-        return new Response(
-          JSON.stringify({
-            error: "Image provider returned no image",
-            details: imageData,
-          }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
+        await recordUsage(admin, user.id, { provider: "fal", model: "flux", tool, durationMs: Date.now() - startedAt, status: "error" });
+        return jsonResponse(req, { error: "Image provider returned no image" }, 502);
       }
 
-      return new Response(
-        JSON.stringify({
-          content: JSON.stringify({
-            url: imageUrl,
-          }),
-          json: {
-            url: imageUrl,
-          },
-          model: "flux",
-          provider: "fal",
-          tokensIn: 0,
-          tokensOut: 0,
-          costUsd: 0,
-        }),
-        {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-    }
-    const messages = Array.isArray(body.messages) ? body.messages : [];
-
-    if (!messages.length) {
-      return new Response(
-        JSON.stringify({ error: "Messages are required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      await recordUsage(admin, user.id, { provider: "fal", model: "flux", tool, durationMs: Date.now() - startedAt, status: "success" });
+      return jsonResponse(req, {
+        content: JSON.stringify({ url: imageUrl }),
+        json: { url: imageUrl },
+        model: "flux",
+        provider: "fal",
+        tokensIn: 0,
+        tokensOut: 0,
+        costUsd: 0,
+      });
     }
 
+    if (!GEMINI_API_KEY) throw new HttpError(503, "AI provider is not configured");
+    const messages = normalizeMessages(body.messages);
     const model = "gemini-3.6-flash";
+    const system = messages.find((message) => message.role === "system");
+    const chatMessages = messages.filter((message) => message.role !== "system");
+    if (!chatMessages.length) throw new HttpError(400, "At least one user message is required");
 
-    const system = messages.find((m: any) => m.role === "system");
-    const chatMessages = messages.filter((m: any) => m.role !== "system");
-
-    const contents = chatMessages.map((m: any) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: String(m.content ?? "") }],
-    }));
-
-    const requestBody: any = {
-      contents,
+    const requestBody: Record<string, unknown> = {
+      contents: chatMessages.map((message) => ({
+        role: message.role === "assistant" ? "model" : "user",
+        parts: [{ text: message.content }],
+      })),
       generationConfig: {
-        temperature: body.temperature ?? 0.7,
-        maxOutputTokens: body.maxTokens ?? 4096,
+        temperature: clampNumber(body.temperature, 0.7, 0, 2),
+        maxOutputTokens: Math.floor(clampNumber(body.maxTokens, 4096, 1, MAX_OUTPUT_TOKENS)),
+        ...(body.jsonMode ? { responseMimeType: "application/json" } : {}),
       },
     };
+    if (system) requestBody.systemInstruction = { parts: [{ text: system.content }] };
 
-    if (system) {
-      requestBody.systemInstruction = {
-        parts: [{ text: String(system.content ?? "") }],
-      };
-    }
-
-    if (body.jsonMode) {
-      requestBody.generationConfig.responseMimeType = "application/json";
-    }
-
-    const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
-      `?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-
-
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
     const upstream = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
     });
-
     const raw = await upstream.text();
 
     if (!upstream.ok) {
-      console.error("[GEMINI ERROR]", upstream.status, raw);
-
-      return new Response(
-        JSON.stringify({
-          error: "Gemini request failed",
-          status: upstream.status,
-          details: raw.slice(0, 3000),
-        }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      console.error(`[AI ENGINE] Gemini provider failed (${upstream.status})`);
+      await recordUsage(admin, user.id, { provider: "gemini", model, tool, durationMs: Date.now() - startedAt, status: "error" });
+      return jsonResponse(req, { error: upstream.status === 429 ? "AI quota exceeded. Please try again later." : "AI provider is temporarily unavailable" }, upstream.status === 429 ? 429 : 502);
     }
 
-    const data = JSON.parse(raw);
+    let data: Record<string, unknown>;
+    try { data = JSON.parse(raw) as Record<string, unknown>; }
+    catch {
+      await recordUsage(admin, user.id, { provider: "gemini", model, tool, durationMs: Date.now() - startedAt, status: "error" });
+      return jsonResponse(req, { error: "AI provider returned an invalid response" }, 502);
+    }
 
-    const text =
-      data?.candidates?.[0]?.content?.parts
-        ?.map((p: any) => p?.text || "")
-        .join("") || "";
-
+    const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+    const candidate = candidates[0] && typeof candidates[0] === "object" ? candidates[0] as Record<string, unknown> : null;
+    const content = candidate?.content && typeof candidate.content === "object" ? candidate.content as Record<string, unknown> : null;
+    const parts = Array.isArray(content?.parts) ? content.parts : [];
+    const text = parts.map((part) => part && typeof part === "object" && typeof (part as Record<string, unknown>).text === "string" ? (part as Record<string, unknown>).text as string : "").join("");
     if (!text) {
-      console.error("[AI ENGINE] Empty Gemini response:", raw);
-
-      return new Response(
-        JSON.stringify({
-          error: "Gemini returned an empty response",
-          details: raw.slice(0, 3000),
-        }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      await recordUsage(admin, user.id, { provider: "gemini", model, tool, durationMs: Date.now() - startedAt, status: "error" });
+      return jsonResponse(req, { error: "AI provider returned an empty response" }, 502);
     }
 
-    return new Response(
-      JSON.stringify({
-        content: text,
-        tokensIn: 0,
-        tokensOut: 0,
-        model,
-        provider: "gemini",
-        costUsd: 0,
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-  } catch (error) {
-    console.error("[AI ENGINE ERROR]", error);
+    const usage = data.usageMetadata && typeof data.usageMetadata === "object" ? data.usageMetadata as Record<string, unknown> : {};
+    const tokensIn = Math.max(0, Number(usage.promptTokenCount) || 0);
+    const tokensOut = Math.max(0, Number(usage.candidatesTokenCount) || 0);
+    await recordUsage(admin, user.id, { provider: "gemini", model, tool, tokensIn, tokensOut, durationMs: Date.now() - startedAt, status: "success" });
 
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    let json: unknown = null;
+    if (body.jsonMode) {
+      try { json = JSON.parse(text); } catch { json = null; }
+    }
+
+    return jsonResponse(req, { content: text, json, tokensIn, tokensOut, model, provider: "gemini", costUsd: 0 });
+  } catch (error) {
+    const status = error instanceof HttpError ? error.status : 500;
+    const safeMessage = error instanceof HttpError ? error.message : "AI request failed";
+    if (status >= 500) console.error(`[AI ENGINE] Request failed (${status})`);
+    if (admin && userId) {
+      await recordUsage(admin, userId, { provider: "internal", model: "none", tool, durationMs: Date.now() - startedAt, status: "error" });
+    }
+    return jsonResponse(req, { error: safeMessage }, status);
   }
 });
