@@ -46,9 +46,11 @@ check('Generated images use lazy loading', builder.includes('loading="lazy" deco
 check('Large-project diagnostics are enabled', builder.includes('snapshotKb'));
 check('Builder primary toolbar uses progressive disclosure', builder.includes("More website tools") && builder.includes("Advanced tools stay here until you need them."));
 check('Page settings are collapsed by default', builder.includes('pageSettingsOpen') && builder.includes("Page settings"));
-check('Advanced site settings are collapsed by default', builder.includes('advancedSiteSettingsOpen') && builder.includes("Advanced site settings"));
+check('Site settings are collapsed by default', builder.includes('advancedSiteSettingsOpen') && builder.includes("Site settings"));
 check('Element palette uses progressive disclosure', builder.includes("Add element") && builder.includes("Sections & elements") && builder.includes("<details"));
-check('Inspector advanced controls are collapsed', builder.includes("Structure & reusable components") && builder.includes("Design & responsive"));
+check('Builder sidebar uses focused Add/Pages/Layers modes', builder.includes("builderPanel") && builder.includes("setBuilderPanel") && builder.includes("['add', l('Add')]") && builder.includes("['pages', l('Pages')]") && builder.includes("['layers', l('Layers')]"));
+check('Inspector exposes quick style before advanced controls', builder.includes("Quick style") && builder.includes("Advanced design & responsive"));
+check('Inspector advanced controls are collapsed', builder.includes("Structure & reusable components") && builder.includes("Advanced design & responsive"));
 check('AI builder is optional by default', builder.includes("Build with AI") && builder.includes("Optional"));
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
 check('Layers are collapsed by default', builder.includes("sections.length") && builder.includes("Layers") && builder.includes("<details"));
