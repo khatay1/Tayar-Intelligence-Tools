@@ -2476,17 +2476,22 @@ function SectionPreview({
 
   const renderSelectedElementToolbar = (element: WebsiteElement) => {
     if (selectedElementId !== element.id) return null;
+    const selectedElementIndex = section.elements.findIndex((item) => item.id === element.id);
+    const canMoveElementUp = selectedElementIndex > 0;
+    const canMoveElementDown = selectedElementIndex >= 0 && selectedElementIndex < section.elements.length - 1;
     return (
       <div
+        draggable={false}
         className="absolute -top-10 right-0 z-40 flex max-w-full items-center gap-0.5 rounded-lg border border-white/10 bg-[#111122]/95 p-1 shadow-xl backdrop-blur"
+        onDragStart={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
       >
         <span className="max-w-24 truncate px-2 text-[9px] font-bold text-violet-300">{ELEMENT_LABELS[element.type]}</span>
-        <button type="button" onClick={() => onMoveSelectedElement('up')} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white" title="Move up">
+        <button type="button" onClick={() => onMoveSelectedElement('up')} disabled={!canMoveElementUp} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move up">
           <ChevronUp className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={() => onMoveSelectedElement('down')} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white" title="Move down">
+        <button type="button" onClick={() => onMoveSelectedElement('down')} disabled={!canMoveElementDown} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move down">
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
         <button type="button" onClick={onDuplicateSelectedElement} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white" title="Duplicate">
@@ -2517,7 +2522,9 @@ function SectionPreview({
             <MousePointer2 className="h-3 w-3" /> {SECTION_LABELS[section.type]}
           </div>
           <div
+            draggable={false}
             className="absolute right-2 top-2 z-30 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#111122]/95 p-1 shadow-xl backdrop-blur"
+            onDragStart={(event) => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
