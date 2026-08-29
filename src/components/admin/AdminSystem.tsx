@@ -57,32 +57,52 @@ export default function AdminSystem() {
 
 function SettingsTab() {
   const l = useLocalizer();
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('admin_settings').select('key, value');
+    const { data, error } = await supabase.from('admin_settings').select('key, value');
+
+    if (error) {
+      console.error('Failed to load admin settings:', error);
+      showError(error.message || 'Failed to load settings');
+      setLoading(false);
+      return;
+    }
+
     const map: Record<string, string> = {};
-    for (const s of (data || []) as { key: string; value: string }[]) {
-      map[s.key] = s.value.replace(/"/g, '');
+    for (const s of (data || []) as { key: string; value: unknown }[]) {
+      if (typeof s.value === 'string') map[s.key] = s.value.replace(/^"|"$/g, '');
+      else if (typeof s.value === 'number' || typeof s.value === 'boolean') map[s.key] = String(s.value);
+      else if (s.value != null) map[s.key] = JSON.stringify(s.value);
     }
     setSettings(map);
     setLoading(false);
-  }, []);
+  }, [showError]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function save() {
     setSaving(true);
-    const entries = Object.entries(settings).map(([key, value]) => ({
-      key, value: JSON.stringify(value), updated_at: new Date().toISOString(),
-    }));
+    const entries = Object.entries(settings).map(([key, value]) => {
+      let storedValue: string | number | boolean = value;
+      if (key === 'maintenance_mode' || key === 'signup_enabled') storedValue = value === 'true';
+      if (key === 'max_free_requests') storedValue = Math.max(0, Number(value) || 0);
+      return { key, value: storedValue, updated_at: new Date().toISOString() };
+    });
+
     for (const entry of entries) {
-      await supabase.from('admin_settings').upsert(entry, { onConflict: 'key' });
+      const { error } = await supabase.from('admin_settings').upsert(entry, { onConflict: 'key' });
+      if (error) {
+        setSaving(false);
+        showError(error.message || 'Failed to save settings');
+        return;
+      }
     }
+
     setSaving(false);
     success('Settings saved');
   }
