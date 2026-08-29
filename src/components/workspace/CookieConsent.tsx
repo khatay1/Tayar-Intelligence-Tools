@@ -12,7 +12,7 @@ export default function CookieConsent() {
   const l = useLocalizer();
   const [visible, setVisible] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [prefs, setPrefs] = useState<CookiePreferences>({ necessary: true, analytics: true, marketing: false });
+  const [prefs, setPrefs] = useState<CookiePreferences>({ necessary: true, analytics: false, marketing: false });
 
   useEffect(() => {
     const consent = localStorage.getItem('tayar-cookie-consent');
@@ -22,7 +22,7 @@ export default function CookieConsent() {
     }
     try {
       const saved = JSON.parse(consent);
-      setPrefs({ necessary: true, analytics: saved.analytics ?? true, marketing: saved.marketing ?? false });
+      setPrefs({ necessary: true, analytics: saved.analytics === true, marketing: saved.marketing === true });
     } catch {
       // ignore
     }
@@ -30,6 +30,7 @@ export default function CookieConsent() {
 
   function save(p: CookiePreferences) {
     localStorage.setItem('tayar-cookie-consent', JSON.stringify(p));
+    window.dispatchEvent(new CustomEvent('tayar-cookie-consent-changed', { detail: p }));
     setVisible(false);
   }
 
