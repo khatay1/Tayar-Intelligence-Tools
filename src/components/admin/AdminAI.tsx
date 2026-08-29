@@ -38,9 +38,11 @@ export default function AdminAI() {
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [tokenUsage, setTokenUsage] = useState<{ label: string; value: number }[]>([]);
   const [switching, setSwitching] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     const [provRes, usageRes, logsRes, settingsRes, modelRes] = await Promise.all([
       supabase.from('api_keys').select('id, service, label, status, last_used').order('service'),
       supabase.from('ai_usage').select('created_at, tokens_in, tokens_out, provider, model, tool, status').limit(5000),
@@ -49,9 +51,18 @@ export default function AdminAI() {
       supabase.from('admin_settings').select('key, value').eq('key', 'default_ai_model').maybeSingle(),
     ]);
 
+    const queryError = provRes.error || usageRes.error || logsRes.error || settingsRes.error || modelRes.error;
+    if (queryError) {
+      console.error('Failed to load admin AI data:', queryError);
+      setLoadError(queryError.message || 'Failed to load AI administration data.');
+      setLoading(false);
+      return;
+    }
+
     setProviders((provRes.data || []) as AIProvider[]);
     if (settingsRes.data) {
-      setActiveProvider((settingsRes.data.value as string).replace(/"/g, ''));
+      const providerValue = settingsRes.data.value;
+      if (typeof providerValue === 'string') setActiveProvider(providerValue.replace(/^"|"$/g, ''));
     }
     if (modelRes.data) {
       const val = typeof modelRes.data.value === 'string' ? modelRes.data.value.replace(/"/g, '') : (modelRes.data.value as Record<string, unknown>)?.default as string;
@@ -94,7 +105,7 @@ export default function AdminAI() {
     setSwitching(true);
     const { error } = await supabase
       .from('admin_settings')
-      .upsert({ key: 'default_ai_provider', value: JSON.stringify(service), updated_at: new Date().toISOString() });
+      .upsert({ key: 'default_ai_provider', value: service, updated_at: new Date().toISOString() });
     if (error) showError('Failed to switch provider');
     else {
       setActiveProvider(service);
@@ -105,7 +116,7 @@ export default function AdminAI() {
         setDefaultModel(newModel);
         await supabase
           .from('admin_settings')
-          .upsert({ key: 'default_ai_model', value: JSON.stringify(newModel), updated_at: new Date().toISOString() });
+          .upsert({ key: 'default_ai_model', value: newModel, updated_at: new Date().toISOString() });
       }
       success(`Default AI provider switched to ${service}`);
     }
@@ -116,7 +127,7 @@ export default function AdminAI() {
     setSavingModel(true);
     const { error } = await supabase
       .from('admin_settings')
-      .upsert({ key: 'default_ai_model', value: JSON.stringify(defaultModel), updated_at: new Date().toISOString() });
+      .upsert({ key: 'default_ai_model', value: defaultModel, updated_at: new Date().toISOString() });
     if (error) showError('Failed to save model setting');
     else success(`Default model set to ${defaultModel}`);
     setSavingModel(false);
@@ -126,18 +137,33 @@ export default function AdminAI() {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-violet-500 animate-spin" /></div>;
   }
 
+  if (loadError) {
+    return (
+      <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+        <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <h2 className="text-white font-semibold mb-2">{l('AI admin data unavailable')}</h2>
+        <p className="text-sm text-gray-400 mb-4">{loadError}</p>
+        <button onClick={() => void load()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+          <RefreshCw className="w-4 h-4" /> {l('Retry')}
+        </button>
+      </div>
+    );
+  }
+
   const totalRequests = dailyStats.reduce((s, d) => s + d.requests, 0);
   const totalTokens = dailyStats.reduce((s, d) => s + d.tokens, 0);
+  const recentErrorCount = errorLogs.filter((log) => log.level === 'error').length;
+  const errorRate = totalRequests > 0 ? (recentErrorCount / totalRequests) * 100 : 0;
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Requests', value: totalRequests.toLocaleString(), icon: Zap, color: 'violet' },
+          { label: '14d Requests', value: totalRequests.toLocaleString(), icon: Zap, color: 'violet' },
           { label: 'Total Tokens', value: totalTokens.toLocaleString(), icon: Activity, color: 'fuchsia' },
           { label: 'Active Providers', value: providers.filter(p => p.status === 'active').length, icon: Server, color: 'emerald' },
-          { label: 'Error Rate', value: '0.3%', icon: AlertCircle, color: 'amber' },
+          { label: 'Recent Error Rate', value: `${errorRate.toFixed(1)}%`, icon: AlertCircle, color: 'amber' },
         ].map(s => {
           const colors: Record<string, string> = {
             violet: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
@@ -191,7 +217,7 @@ export default function AdminAI() {
               </select>
               <div className="text-xs text-gray-500 mt-1.5">
                 Provider: <span className="text-violet-400 capitalize">{getProviderForModel(defaultModel)}</span>
-                {' Â· '}
+                {' · '}
                 Context: <span className="text-gray-400">{ALL_MODELS.find(m => m.id === defaultModel)?.contextWindow.toLocaleString() || 'N/A'} tokens</span>
               </div>
             </div>
