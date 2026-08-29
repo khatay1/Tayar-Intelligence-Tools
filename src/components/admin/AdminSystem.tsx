@@ -55,6 +55,14 @@ export default function AdminSystem() {
   );
 }
 
+const SYSTEM_SETTING_KEYS = [
+  'platform_name',
+  'default_ai_provider',
+  'max_free_requests',
+  'maintenance_mode',
+  'signup_enabled',
+] as const;
+
 function SettingsTab() {
   const l = useLocalizer();
   const { success, error: showError } = useToast();
@@ -64,7 +72,10 @@ function SettingsTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('admin_settings').select('key, value');
+    const { data, error } = await supabase
+      .from('admin_settings')
+      .select('key, value')
+      .in('key', [...SYSTEM_SETTING_KEYS]);
 
     if (error) {
       console.error('Failed to load admin settings:', error);
@@ -87,7 +98,8 @@ function SettingsTab() {
 
   async function save() {
     setSaving(true);
-    const entries = Object.entries(settings).map(([key, value]) => {
+    const entries = SYSTEM_SETTING_KEYS.map((key) => {
+      const value = settings[key] ?? '';
       let storedValue: string | number | boolean = value;
       if (key === 'maintenance_mode' || key === 'signup_enabled') storedValue = value === 'true';
       if (key === 'max_free_requests') storedValue = Math.max(0, Number(value) || 0);
