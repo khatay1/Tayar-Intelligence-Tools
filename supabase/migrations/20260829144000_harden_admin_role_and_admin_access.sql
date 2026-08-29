@@ -106,7 +106,15 @@ BEGIN
     (SELECT count(*) FROM public.ai_usage au WHERE au.user_id = p.id) AS ai_request_count
   FROM public.profiles p
   LEFT JOIN auth.users u ON u.id = p.id
-  LEFT JOIN public.subscriptions s ON s.user_id = p.id
+  LEFT JOIN LATERAL (
+    SELECT subscription.plan, subscription.status
+    FROM public.subscriptions subscription
+    WHERE subscription.user_id = p.id
+    ORDER BY
+      CASE WHEN subscription.status IN ('active', 'trialing') THEN 0 ELSE 1 END,
+      subscription.created_at DESC
+    LIMIT 1
+  ) s ON true
   ORDER BY p.created_at DESC;
 END;
 $$;
@@ -288,7 +296,8 @@ AS $$
 BEGIN
   IF NOT public.is_admin() THEN
     IF NEW.admin_response IS DISTINCT FROM OLD.admin_response
-       OR NEW.priority IS DISTINCT FROM OLD.priority THEN
+       OR NEW.priority IS DISTINCT FROM OLD.priority
+       OR NEW.status IS DISTINCT FROM OLD.status THEN
       RAISE EXCEPTION 'Support ticket administrator fields cannot be changed by the ticket owner';
     END IF;
   END IF;
