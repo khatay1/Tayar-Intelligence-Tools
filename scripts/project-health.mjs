@@ -23,6 +23,7 @@ check('Admin complimentary-access migration exists', exists('supabase/migrations
 check('Account re-registration block migration exists', exists('supabase/migrations/20260829231500_account_block_re_registration.sql'));
 check('Block-list/support immutability migration exists', exists('supabase/migrations/20260829233000_admin_block_list_and_support_immutability.sql'));
 check('Subscription grace-period migration exists', exists('supabase/migrations/20260829234500_subscription_grace_period.sql'));
+check('Signup policy migration exists', exists('supabase/migrations/20260829235500_enforce_signup_policy.sql'));
 check('Supabase CLI config exists', exists('supabase/config.toml'));
 check('Guarded admin deploy script exists', exists('scripts/admin-hardening-deploy.ps1'));
 check('Admin deployment runbook exists', exists('docs/ADMIN_HARDENING_DEPLOYMENT.md'));
@@ -55,6 +56,7 @@ const adminAccessOverrideMigration = read('supabase/migrations/20260829225000_ad
 const accountBlockMigration = read('supabase/migrations/20260829231500_account_block_re_registration.sql');
 const blockListSupportMigration = read('supabase/migrations/20260829233000_admin_block_list_and_support_immutability.sql');
 const subscriptionGraceMigration = read('supabase/migrations/20260829234500_subscription_grace_period.sql');
+const signupPolicyMigration = read('supabase/migrations/20260829235500_enforce_signup_policy.sql');
 const adminDeployScript = read('scripts/admin-hardening-deploy.ps1');
 const adminContext = read('src/context/AdminContext.tsx');
 const adminUsers = read('src/components/admin/AdminUsers.tsx');
@@ -130,6 +132,9 @@ check('Admin System exposes production readiness panel', adminSystem.includes('P
 check('System logs show audit metadata', adminSystem.includes("select('id, level, category, message, metadata, created_at')") && adminSystem.includes('Object.entries(log.metadata)'));
 check('Paid subscriptions use explicit 3-day past-due grace', subscriptionGraceMigration.includes("interval '3 days'") && subscriptionGraceMigration.includes("status = 'past_due'"));
 check('Admin subscriptions labels past-due grace', adminSubscriptions.includes('Past Due / Grace') && adminSubscriptions.includes('3-day grace'));
+check('Admin signup setting is enforced through trusted RPC', signupPolicyMigration.includes('is_signup_enabled') && auth.includes("supabase.rpc('is_signup_enabled'"));
+check('Blocked email policy also guards OAuth sessions', auth.includes('isBlockedEmail(nextSession.user.email)') && auth.includes('await supabase.auth.signOut()'));
+check('Google OAuth respects signup-disabled policy', auth.includes('async function signInWithGoogle()') && auth.includes('New registrations are temporarily disabled.'));
 check('Admin settings are admin-readable only', adminSecurityMigration.includes('DROP POLICY IF EXISTS "admin_settings_select"') && adminSecurityMigration.includes('CREATE POLICY "admin_settings_select"') && adminSecurityMigration.includes('USING (public.is_admin())'));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
