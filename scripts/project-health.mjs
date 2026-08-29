@@ -19,6 +19,7 @@ check('Quality/security migration exists', exists('supabase/migrations/202608281
 check('AI security migration exists', exists('supabase/migrations/20260829110000_ai_engine_security_hardening.sql'));
 check('Admin hardening migration exists', exists('supabase/migrations/20260829144000_harden_admin_role_and_admin_access.sql'));
 check('Admin full-access override migration exists', exists('supabase/migrations/20260829223500_admin_full_access_override.sql'));
+check('Admin complimentary-access migration exists', exists('supabase/migrations/20260829225000_admin_access_overrides.sql'));
 check('Supabase CLI config exists', exists('supabase/config.toml'));
 check('Guarded admin deploy script exists', exists('scripts/admin-hardening-deploy.ps1'));
 check('Admin deployment runbook exists', exists('docs/ADMIN_HARDENING_DEPLOYMENT.md'));
@@ -47,6 +48,7 @@ const packageLock = JSON.parse(read('package-lock.json'));
 const aiSecurityMigration = read('supabase/migrations/20260829110000_ai_engine_security_hardening.sql');
 const adminSecurityMigration = read('supabase/migrations/20260829144000_harden_admin_role_and_admin_access.sql');
 const adminFullAccessMigration = read('supabase/migrations/20260829223500_admin_full_access_override.sql');
+const adminAccessOverrideMigration = read('supabase/migrations/20260829225000_admin_access_overrides.sql');
 const adminDeployScript = read('scripts/admin-hardening-deploy.ps1');
 const adminContext = read('src/context/AdminContext.tsx');
 const adminUsers = read('src/components/admin/AdminUsers.tsx');
@@ -89,6 +91,9 @@ check('Admin user list uses server-side RPC', adminHooks.includes("supabase.rpc(
 check('Admin self-lockout protections exist', adminSecurityMigration.includes('You cannot remove or suspend your own administrator access') && adminSecurityMigration.includes('You cannot delete your own administrator account'));
 check('Active admins receive business-level builder access without fake billing', adminFullAccessMigration.includes("v_plan := 'business'") && adminFullAccessMigration.includes("'accessSource'") && adminFullAccessMigration.includes("'admin'"));
 check('Admin user list distinguishes admin access from paid plans', adminFullAccessMigration.includes("THEN 'admin'") && adminUsers.includes("Admin Access"));
+check('Admin complimentary access stays separate from Stripe billing', adminAccessOverrideMigration.includes('admin_access_overrides') && adminAccessOverrideMigration.includes('admin_set_access_override') && !adminAccessOverrideMigration.includes('stripe_subscription_id'));
+check('Website Builder uses effective access plan', adminAccessOverrideMigration.includes('effective_access_plan') && adminAccessOverrideMigration.includes('v_plan := public.effective_access_plan'));
+check('Admin user editor exposes complimentary access controls', adminUsers.includes('Complimentary Access') && adminUsers.includes("admin_set_access_override"));
 check('Admin settings are admin-readable only', adminSecurityMigration.includes('DROP POLICY IF EXISTS "admin_settings_select"') && adminSecurityMigration.includes('CREATE POLICY "admin_settings_select"') && adminSecurityMigration.includes('USING (public.is_admin())'));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
