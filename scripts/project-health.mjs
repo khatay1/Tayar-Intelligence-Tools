@@ -17,6 +17,7 @@ check('Billing migration exists', exists('supabase/migrations/20260828154000_add
 check('Team workspace migration exists', exists('supabase/migrations/20260828155500_add_team_workspaces.sql'));
 check('Quality/security migration exists', exists('supabase/migrations/20260828161000_quality_security_hardening.sql'));
 check('AI security migration exists', exists('supabase/migrations/20260829110000_ai_engine_security_hardening.sql'));
+check('Admin hardening migration exists', exists('supabase/migrations/20260829144000_harden_admin_role_and_admin_access.sql'));
 
 for (const rel of [
   '.bolt',
@@ -40,6 +41,10 @@ const envExample = read('.env.example');
 const packageJson = JSON.parse(read('package.json'));
 const packageLock = JSON.parse(read('package-lock.json'));
 const aiSecurityMigration = read('supabase/migrations/20260829110000_ai_engine_security_hardening.sql');
+const adminSecurityMigration = read('supabase/migrations/20260829144000_harden_admin_role_and_admin_access.sql');
+const adminContext = read('src/context/AdminContext.tsx');
+const adminUsers = read('src/components/admin/AdminUsers.tsx');
+const app = read('src/App.tsx');
 const manifest = read('public/manifest.webmanifest');
 const sitemap = read('public/sitemap.xml');
 const allCore = [auth, onboarding, aiEngine, emailService].join('\n');
@@ -63,6 +68,14 @@ check('Email templates escape user-controlled HTML', emailService.includes('func
 check('AI usage inserts are no longer client-writable', aiSecurityMigration.includes('DROP POLICY IF EXISTS "insert_own_ai_usage"'));
 check('ws security override is pinned to 8.21.3+', packageJson.overrides?.ws === '8.21.3' && packageLock.packages?.['node_modules/ws']?.version === '8.21.3');
 check('Auth refreshes profile after auth state changes', auth.includes('void fetchProfile(nextSession.user.id)'));
+check('Admin access uses trusted is_admin RPC', adminContext.includes("supabase.rpc('is_admin')") && !adminContext.includes(".select('role')"));
+check('Admin role fields are not directly client-updatable', adminSecurityMigration.includes('REVOKE UPDATE ON public.profiles FROM authenticated') && adminSecurityMigration.includes('GRANT UPDATE (full_name, avatar_url, language)'));
+check('Admin user mutations use protected RPCs', adminUsers.includes("supabase.rpc('admin_update_user'") && adminUsers.includes("supabase.rpc('admin_delete_user'") && !adminUsers.includes(".from('profiles').update"));
+check('Admin user list uses server-side RPC', adminUsers.includes("supabase.rpc('admin_list_users')"));
+check('Admin self-lockout protections exist', adminSecurityMigration.includes('You cannot remove or suspend your own administrator access') && adminSecurityMigration.includes('You cannot delete your own administrator account'));
+check('Admin settings are admin-readable only', adminSecurityMigration.includes('DROP POLICY IF EXISTS "admin_settings_select"') && !adminSecurityMigration.includes('admin_settings_select" ON public.admin_settings') ? true : adminSecurityMigration.includes('USING (public.is_admin())'));
+check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
+check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
 
 for (const name of [
   'VITE_PUBLIC_SITE_URL', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY',
