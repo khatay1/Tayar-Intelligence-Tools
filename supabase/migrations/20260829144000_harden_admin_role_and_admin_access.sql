@@ -276,3 +276,29 @@ CREATE POLICY "admin_settings_select"
   FOR SELECT
   TO authenticated
   USING (public.is_admin());
+
+
+-- Support-ticket owners may update their own rows under the legacy policy, but
+-- administrator-only fields must not be forgeable by the ticket owner.
+CREATE OR REPLACE FUNCTION public.protect_support_ticket_admin_fields()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    IF NEW.admin_response IS DISTINCT FROM OLD.admin_response
+       OR NEW.priority IS DISTINCT FROM OLD.priority THEN
+      RAISE EXCEPTION 'Support ticket administrator fields cannot be changed by the ticket owner';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_support_ticket_admin_fields ON public.support_tickets;
+CREATE TRIGGER trg_protect_support_ticket_admin_fields
+BEFORE UPDATE ON public.support_tickets
+FOR EACH ROW
+EXECUTE FUNCTION public.protect_support_ticket_admin_fields();
