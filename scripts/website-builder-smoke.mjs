@@ -59,6 +59,10 @@ check('Element drag and drop reorders live while dragging', builder.includes("dr
 check('Element drag and drop supports moving across sections', builder.includes("draggedElementSectionRef.current = targetSectionId") && builder.includes("containerId: undefined") && builder.includes("layoutColumn: undefined"));
 check('Section drag and drop reorders live while dragging', builder.includes("draggedSectionRef.current") && builder.includes("dragOverSectionPosition") && builder.includes("setDragOverId(targetId)"));
 check('Canvas shows before/after drop indicators', builder.includes("dragOverElementPosition === 'before'") && builder.includes("dragOverSectionPosition === 'before'"));
+check('Canvas elements support free X/Y positioning', builder.includes("positionX") && builder.includes("positionY") && builder.includes("handleElementDragMove"));
+check('Free positioning is device-aware and published', builder.includes("translate3d(${positionX}px,${positionY}px,0)") && builder.includes("responsive") && builder.includes("[device]"));
+check('Shift drag preserves flow reordering', builder.includes("if (!e.shiftKey)") && builder.includes("Shift + drag reorders"));
+check('Inspector exposes X/Y and reset position controls', builder.includes("X position") && builder.includes("Y position") && builder.includes("Reset position"));
 check('Inspector advanced controls are collapsed', builder.includes("Structure & reusable components") && builder.includes("Advanced design & responsive"));
 check('AI builder is optional by default', builder.includes("Build with AI") && builder.includes("Optional"));
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
