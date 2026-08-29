@@ -3817,10 +3817,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [analyticsOpen, refreshAnalytics]);
 
   useEffect(() => {
-    if (releaseHistoryOpen) void refreshPublishVersions();
-  }, [releaseHistoryOpen, refreshPublishVersions]);
-
-  useEffect(() => {
     const updateNetwork = () => setNetworkOnline(navigator.onLine);
     window.addEventListener('online', updateNetwork);
     window.addEventListener('offline', updateNetwork);
@@ -4090,7 +4086,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       warnings,
       healthy: networkOnline && !cloudSyncFailed && siteAudit.errors.length === 0,
     };
-  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, siteAudit.errors.length, siteName, siteUrl, faviconUrl, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language, projectHistory, buildProjectData]);
+  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, siteAudit.errors.length, buildProjectData]);
 
   function switchPage(pageId: string) {
     const target = pages.find((page) => page.id === pageId);
@@ -4978,6 +4974,10 @@ if (generated.seo) {
     setPublishVersions((data || []) as WebsitePublishVersion[]);
     setPublishVersionsLoading(false);
   }, [user, cloudProjectId]);
+
+  useEffect(() => {
+    if (releaseHistoryOpen) void refreshPublishVersions();
+  }, [releaseHistoryOpen, refreshPublishVersions]);
 
   function projectSnapshotCounts(snapshot: Record<string, unknown>) {
     const snapshotPages = Array.isArray(snapshot.pages) ? snapshot.pages : [];
@@ -6249,7 +6249,7 @@ if (generated.seo) {
             ? 'V1 LIVE'
             : 'VERIFY LIVE';
     return { score, checks, blockers, preflightReady, publishedRelease, liveHealthy, status };
-  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, siteName, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, prefs.language, buildEditableFingerprint]);
+  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, buildEditableFingerprint]);
 
   function exportV1LaunchReport() {
     const manual = [
