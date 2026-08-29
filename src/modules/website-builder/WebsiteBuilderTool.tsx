@@ -2409,7 +2409,7 @@ function ElementPreview({
     return <ul {...dragProps} className={`${wrapper} list-disc space-y-2 pl-6`} style={commonStyle}>{items.map((item, index) => <li key={`${element.id}-${index}`}>{item}</li>)}</ul>;
   }
   if (element.type === 'divider') {
-    return <div {...dragProps} className={`${wrapper} py-2`} style={{ width: commonStyle.width }}><div style={{ height: '2px', width: '100%', background: style.backgroundColor || '#7c3aed', opacity: style.opacity ?? 0.35 }} /></div>;
+    return <div {...dragProps} className={`${wrapper} py-2`} style={{ ...commonStyle, backgroundColor: 'transparent', padding: undefined, borderWidth: undefined, boxShadow: undefined }}><div style={{ height: '2px', width: '100%', background: style.backgroundColor || '#7c3aed', opacity: style.opacity ?? 0.35 }} /></div>;
   }
   if (element.type === 'spacer') {
     const height = Math.max(8, Math.min(320, (clampElementNumber(style.padding, 24, 0, 160) || 24) * 2));
