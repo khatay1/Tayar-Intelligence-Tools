@@ -2316,8 +2316,8 @@ function ElementPreview({
     width: style.width ? `${style.width}%` : undefined,
   } as const;
 
-  const wrapper = `relative max-w-full cursor-grab rounded-md outline-none transition active:cursor-grabbing ${
-    selected ? 'ring-2 ring-violet-500 ring-offset-2 ring-offset-transparent' : 'hover:ring-1 hover:ring-violet-400/50'
+  const wrapper = `relative max-w-full cursor-grab rounded-lg outline-none transition duration-150 active:cursor-grabbing ${
+    selected ? 'ring-2 ring-violet-400/90 shadow-[0_0_0_4px_rgba(139,92,246,0.08)]' : 'hover:ring-1 hover:ring-violet-400/40'
   } ${dragging ? 'opacity-35' : 'opacity-100'} ${dragOver ? 'ring-2 ring-cyan-400 ring-offset-4 ring-offset-transparent' : ''}`;
 
   const dragProps = {
@@ -2414,6 +2414,14 @@ function SectionPreview({
   onElementDragOver,
   onElementDrop,
   onElementDragEnd,
+  onMoveSelectedElement,
+  onDuplicateSelectedElement,
+  onDeleteSelectedElement,
+  onMoveSection,
+  onDeleteSection,
+  canMoveSectionUp,
+  canMoveSectionDown,
+  canDeleteSection,
   device,
   theme,
 }: {
@@ -2428,6 +2436,14 @@ function SectionPreview({
   onElementDragOver: (id: string, e: React.DragEvent) => void;
   onElementDrop: (id: string, e: React.DragEvent) => void;
   onElementDragEnd: () => void;
+  onMoveSelectedElement: (direction: 'up' | 'down') => void;
+  onDuplicateSelectedElement: () => void;
+  onDeleteSelectedElement: () => void;
+  onMoveSection: (direction: 'up' | 'down') => void;
+  onDeleteSection: () => void;
+  canMoveSectionUp: boolean;
+  canMoveSectionDown: boolean;
+  canDeleteSection: boolean;
   device: Device;
   theme: WebsiteTheme;
 }) {
@@ -2457,11 +2473,37 @@ function SectionPreview({
   const sectionPaddingX = sectionVisualNumber(section.sectionPaddingX, compact ? 20 : 40, 0, 160);
   const sectionRadius = sectionVisualNumber(section.sectionRadius, 0, 0, 80);
   const sectionFullWidth = sectionContentWidth(section) === 'full';
+
+  const renderSelectedElementToolbar = (element: WebsiteElement) => {
+    if (selectedElementId !== element.id) return null;
+    return (
+      <div
+        className="absolute -top-10 right-0 z-40 flex max-w-full items-center gap-0.5 rounded-lg border border-white/10 bg-[#111122]/95 p-1 shadow-xl backdrop-blur"
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span className="max-w-24 truncate px-2 text-[9px] font-bold text-violet-300">{ELEMENT_LABELS[element.type]}</span>
+        <button type="button" onClick={() => onMoveSelectedElement('up')} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white" title="Move up">
+          <ChevronUp className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={() => onMoveSelectedElement('down')} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white" title="Move down">
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={onDuplicateSelectedElement} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white" title="Duplicate">
+          <Copy className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={onDeleteSelectedElement} className="rounded-md p-1.5 text-red-300 hover:bg-red-500/15 hover:text-red-200" title="Delete">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <section
       id={sectionDomId(section)}
       onClick={onSelect}
-      className={`relative group cursor-pointer border-2 transition-all ${selected ? 'border-violet-500 shadow-lg shadow-violet-500/10' : 'border-transparent hover:border-violet-400/40'}`}
+      className={`relative group cursor-pointer border border-transparent transition-all duration-150 ${selected ? 'ring-2 ring-violet-500/70 ring-inset' : 'hover:ring-1 hover:ring-violet-400/35 hover:ring-inset'}`}
       style={{
         background: sectionBackgroundCss(section),
         minHeight: sectionMinHeight ? `${sectionMinHeight}px` : undefined,
@@ -2469,10 +2511,27 @@ function SectionPreview({
         overflow: 'hidden',
       }}
     >
-      {selected && (
-        <div className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-md bg-violet-600 px-2 py-1 text-[10px] font-semibold text-white">
-          <MousePointer2 className="h-3 w-3" /> {SECTION_LABELS[section.type]}
-        </div>
+      {selected && !selectedElementId && (
+        <>
+          <div className="absolute left-2 top-2 z-30 flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-lg">
+            <MousePointer2 className="h-3 w-3" /> {SECTION_LABELS[section.type]}
+          </div>
+          <div
+            className="absolute right-2 top-2 z-30 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#111122]/95 p-1 shadow-xl backdrop-blur"
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button type="button" onClick={() => onMoveSection('up')} disabled={!canMoveSectionUp} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30" title="Move section up">
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => onMoveSection('down')} disabled={!canMoveSectionDown} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30" title="Move section down">
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={onDeleteSection} disabled={!canDeleteSection} className="rounded-md p-1.5 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-30" title="Delete section">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </>
       )}
       <div
         className="mx-auto min-h-[260px] w-full"
@@ -2539,6 +2598,7 @@ function SectionPreview({
                           }}
                         >
                           {hiddenOnDevice && <span className="absolute right-1 top-1 z-20 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">Hidden on {device}</span>}
+                          {renderSelectedElementToolbar(element)}
                           <ElementPreview
                             element={element}
                             selected={selectedElementId === element.id}
@@ -2585,6 +2645,7 @@ function SectionPreview({
                 {hiddenOnDevice && (
                   <span className="absolute right-1 top-1 z-20 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">Hidden on {device}</span>
                 )}
+                {renderSelectedElementToolbar(element)}
                 <ElementPreview
                   element={element}
                   selected={selectedElementId === element.id}
@@ -2628,11 +2689,13 @@ function SectionPreview({
                 </label>
               )
             ))}
+            <div className="relative">
+              {contactSubmitElement && renderSelectedElementToolbar(contactSubmitElement)}
             {contactSubmitStyle?.hidden ? (
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id); }}
-                className="rounded-lg border border-dashed border-amber-400/60 px-4 py-3 text-xs font-semibold text-amber-300"
+                className={`rounded-lg border border-dashed border-amber-400/60 px-4 py-3 text-xs font-semibold text-amber-300 ${selectedElementId === contactSubmitElement?.id ? 'ring-2 ring-violet-400' : ''}`}
               >
                 Submit button hidden on {device}
               </button>
@@ -2640,7 +2703,7 @@ function SectionPreview({
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id); }}
-                className="font-semibold opacity-90"
+                className={`font-semibold opacity-90 transition ${selectedElementId === contactSubmitElement?.id ? 'ring-2 ring-violet-400 ring-offset-2 ring-offset-transparent' : 'hover:ring-1 hover:ring-violet-400/40'}`}
                 style={{
                   color: contactSubmitStyle?.color || '#ffffff',
                   background: contactSubmitStyle?.backgroundColor || section.accent,
@@ -2660,6 +2723,7 @@ function SectionPreview({
                 {contactSubmitElement?.content || section.buttonText || 'Send Message'}
               </button>
             )}
+            </div>
           </div>
         )}
       </div>
@@ -6303,21 +6367,21 @@ if (generated.seo) {
       }`}
     >
       <header
-        className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 ${
+        className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 ${
           darkMode
             ? 'border-white/10 bg-[#0a0a1a]'
             : 'border-gray-200 bg-white'
         }`}
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600/15">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600/12">
             <Globe className="h-5 w-5 text-violet-400" />
           </div>
 
           <div>
             <h1 className="text-sm font-bold">{l('Website Builder')}</h1>
-            <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-              Design your pages, preview the result, then publish when you are ready.
+            <p className={`hidden text-[10px] lg:block ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+              {l('Build, preview and publish')}
             </p>
           </div>
         </div>
@@ -7419,7 +7483,7 @@ if (generated.seo) {
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside
-          className={`w-full shrink-0 border-b p-4 lg:w-60 lg:border-b-0 lg:border-r ${
+          className={`w-full shrink-0 border-b p-3 lg:w-60 lg:border-b-0 lg:border-r ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
@@ -7986,14 +8050,14 @@ if (generated.seo) {
         </aside>
 
         <main
-          className={`min-h-[600px] flex-1 overflow-auto p-4 lg:p-6 ${
-            darkMode ? 'bg-[#030712]' : 'bg-gray-100'
+          className={`min-h-[600px] flex-1 overflow-auto p-3 lg:p-5 ${
+            darkMode ? 'bg-[#050914]' : 'bg-[#f3f4f6]'
           }`}
         >
           <div
-            className={`mx-auto overflow-hidden rounded-2xl shadow-2xl transition-all ${
+            className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${
               device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
-            } ${darkMode ? 'bg-[#0f172a]' : 'bg-white'}`}
+            } ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
             style={{ fontFamily: `${theme.fontFamily}, Arial, sans-serif` }}
           >
             {headerConfig.enabled && (
@@ -8012,7 +8076,7 @@ if (generated.seo) {
                 )}
               </div>
             )}
-            {sections.map((section) => (
+            {sections.map((section, sectionIndex) => (
   <div
     key={section.id}
     onDragStart={(e) => handleDragStart(section.id, e)}
@@ -8037,6 +8101,14 @@ if (generated.seo) {
       onElementDragOver={(elementId, e) => handleElementDragOver(elementId, e)}
       onElementDrop={(elementId, e) => handleElementDrop(elementId, e)}
       onElementDragEnd={handleElementDragEnd}
+      onMoveSelectedElement={moveSelectedElement}
+      onDuplicateSelectedElement={duplicateSelectedElement}
+      onDeleteSelectedElement={deleteSelectedElement}
+      onMoveSection={(direction) => moveSection(section.id, direction)}
+      onDeleteSection={() => deleteSection(section.id)}
+      canMoveSectionUp={sectionIndex > 0}
+      canMoveSectionDown={sectionIndex < sections.length - 1}
+      canDeleteSection={sections.length > 1}
       device={device}
       theme={theme}
     />
@@ -8055,7 +8127,7 @@ if (generated.seo) {
         </main>
 
         <aside
-          className={`w-full shrink-0 border-t p-4 lg:w-80 lg:border-l lg:border-t-0 ${
+          className={`w-full shrink-0 border-t p-3 lg:w-80 lg:border-l lg:border-t-0 ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
