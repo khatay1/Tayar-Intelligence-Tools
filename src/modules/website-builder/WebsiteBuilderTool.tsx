@@ -2695,6 +2695,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [selectedId, setSelectedId] = useState<string | null>(defaultSections[0].id);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(defaultSections[0].elements[0]?.id ?? null);
   const [device, setDevice] = useState<Device>('desktop');
+  const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
+  const [advancedSiteSettingsOpen, setAdvancedSiteSettingsOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [siteName, setSiteName] = useState('My Website');
@@ -6314,7 +6316,7 @@ if (generated.seo) {
           <div>
             <h1 className="text-sm font-bold">{l('Website Builder')}</h1>
             <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-              Build, operate, audit, publish and grow your website
+              Design your pages, preview the result, then publish when you are ready.
             </p>
           </div>
         </div>
@@ -6341,7 +6343,7 @@ if (generated.seo) {
               setSiteUrl(e.target.value);
               setSaved(false);
             }}
-            className={`hidden xl:block w-48 rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
+            className={`hidden 2xl:block w-48 rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
               darkMode
                 ? 'border-white/10 bg-white/5 text-white'
                 : 'border-gray-200 bg-gray-50 text-gray-900'
@@ -6363,7 +6365,7 @@ if (generated.seo) {
                 void loadCloudProject(value);
               }}
               disabled={cloudBusy}
-              className={`hidden md:block max-w-44 rounded-lg border px-2 py-2 text-xs outline-none focus:border-violet-500 ${
+              className={`hidden 2xl:block max-w-44 rounded-lg border px-2 py-2 text-xs outline-none focus:border-violet-500 ${
                 darkMode
                   ? 'border-white/10 bg-white/5 text-white'
                   : 'border-gray-200 bg-gray-50 text-gray-900'
@@ -6433,7 +6435,7 @@ if (generated.seo) {
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
             title={l('Undo')}
           >
-            <RotateCcw className="h-4 w-4" />{l('Undo')}</button>
+            <RotateCcw className="h-4 w-4" /><span className="sr-only">{l('Undo')}</span></button>
 
           <button
             onClick={redo}
@@ -6441,8 +6443,26 @@ if (generated.seo) {
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
             title={l('Redo')}
           >
-            <RotateCcw className="h-4 w-4 rotate-180" />{l('Redo')}</button>
+            <RotateCcw className="h-4 w-4 rotate-180" /><span className="sr-only">{l('Redo')}</span></button>
 
+
+          <details className="relative">
+            <summary
+              className={'flex cursor-pointer list-none items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden ' + (darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100')}
+              title={l('More website tools')}
+            >
+              {l('More')}
+              <ChevronDown className="h-3.5 w-3.5" />
+            </summary>
+            <div className={'absolute right-0 top-11 z-[90] w-[min(92vw,430px)] rounded-2xl border p-3 shadow-2xl ' + (darkMode ? 'border-white/10 bg-[#0a0a1a] text-white' : 'border-gray-200 bg-white text-gray-900')}>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold">{l('Website tools')}</p>
+                  <p className="mt-0.5 text-[10px] text-gray-500">{l('Advanced tools stay here until you need them.')}</p>
+                </div>
+                <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] font-bold text-gray-500">{BILLING_PLAN_DETAILS[billingPlan].label}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setMediaOpen((open) => !open)}
             disabled={!user}
@@ -6601,27 +6621,33 @@ if (generated.seo) {
           >
             <Copy className="h-4 w-4" />{l('Duplicate')}</button>
 
-          <button
-            onClick={previewWebsite}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              darkMode
-                ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
 
+              </div>
+              <div className="mt-3 border-t border-white/10 pt-3">
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Project actions')}</p>
+                <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => void publishWebsite()}
-            disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
-            className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
-            title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
+            onClick={downloadProductionZip}
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500"
           >
-            <Globe className="h-4 w-4" />
-            {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
-            {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
+            <Download className="h-4 w-4" />
+            Export ZIP
           </button>
 
+          <button
+            onClick={resetProject}
+            className={`rounded-lg border p-2 ${
+              darkMode
+                ? 'border-white/10 text-gray-400 hover:bg-white/5'
+                : 'border-gray-200 text-gray-500 hover:bg-gray-100'
+            }`}
+            title={l('Reset')}
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
           {publishedUrl && (
             <>
               <button
@@ -6663,15 +6689,7 @@ if (generated.seo) {
             </>
           )}
 
-          <button
-            onClick={downloadProductionZip}
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500"
-          >
-            <Download className="h-4 w-4" />
-            Export ZIP
-          </button>
-
-          <span className={`hidden xl:inline text-[11px] ${
+          <span className={`inline-flex text-[11px] ${
             autoSaveStatus === 'saving'
               ? 'text-amber-400'
               : autoSaveStatus === 'saved'
@@ -6683,9 +6701,35 @@ if (generated.seo) {
             {autoSaveStatus === 'saving' ? 'Autosaving…' : autoSaveStatus === 'saved' ? 'Autosaved' : autoSaveStatus === 'failed' ? 'Sync failed' : 'Autosave on'}
           </span>
 
-          <span className={`hidden xl:inline rounded-full border px-2 py-1 text-[9px] font-bold ${networkOnline ? (qualityDiagnostics.healthy ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400') : 'border-red-500/30 text-red-400'}`}>
+          <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-bold ${networkOnline ? (qualityDiagnostics.healthy ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400') : 'border-red-500/30 text-red-400'}`}>
             {networkOnline ? (qualityDiagnostics.healthy ? 'Health ✓' : 'Health warning') : 'Offline'}
           </span>
+
+
+              </div>
+            </div>
+          </details>
+
+          <button
+            onClick={previewWebsite}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
+              darkMode
+                ? 'border-white/10 text-gray-300 hover:bg-white/5'
+                : 'border-gray-200 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
+
+          <button
+            onClick={() => void publishWebsite()}
+            disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
+            className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+            title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
+          >
+            <Globe className="h-4 w-4" />
+            {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
+            {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
+          </button>
 
           <button
             onClick={() => void saveProject()}
@@ -6697,17 +6741,7 @@ if (generated.seo) {
             {saved ? 'Saved' : 'Save'}
           </button>
 
-          <button
-            onClick={resetProject}
-            className={`rounded-lg border p-2 ${
-              darkMode
-                ? 'border-white/10 text-gray-400 hover:bg-white/5'
-                : 'border-gray-200 text-gray-500 hover:bg-gray-100'
-            }`}
-            title={l('Reset')}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
+
         </div>
       </header>
 
@@ -7426,7 +7460,17 @@ if (generated.seo) {
                 </div>
               ))}
             </div>
-            {activePage && (
+
+            <button
+              type="button"
+              onClick={() => setPageSettingsOpen((open) => !open)}
+              className={'mt-3 flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-[10px] font-semibold ' + (darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-white')}
+              aria-expanded={pageSettingsOpen}
+            >
+              <span>{l('Page settings')}</span>
+              <ChevronDown className={'h-3.5 w-3.5 transition-transform ' + (pageSettingsOpen ? 'rotate-180' : '')} />
+            </button>
+            {activePage && pageSettingsOpen && (
               <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
                 <div className="flex items-center justify-between gap-2 text-[10px]">
                   <label className="flex items-center gap-1.5 text-gray-500">
@@ -7477,6 +7521,22 @@ if (generated.seo) {
             )}
           </div>
 
+
+          <button
+            type="button"
+            onClick={() => setAdvancedSiteSettingsOpen((open) => !open)}
+            className={'mb-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs font-semibold ' + (advancedSiteSettingsOpen ? 'border-violet-500/40 bg-violet-500/10 text-violet-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50')}
+            aria-expanded={advancedSiteSettingsOpen}
+          >
+            <span>
+              <span className="block">{l('Advanced site settings')}</span>
+              <span className="mt-0.5 block text-[9px] font-normal text-gray-500">{l('Header, footer, theme, SEO, integrations and templates')}</span>
+            </span>
+            <ChevronDown className={'h-4 w-4 transition-transform ' + (advancedSiteSettingsOpen ? 'rotate-180' : '')} />
+          </button>
+
+          {advancedSiteSettingsOpen && (
+            <>
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/60'}`}>
             <div className="mb-3 flex items-center gap-2">
               <Globe className="h-4 w-4 text-emerald-400" />
@@ -7761,6 +7821,9 @@ if (generated.seo) {
               <p className="text-[10px] text-gray-500">{l('No saved sections yet.')}</p>
             )}
           </div>
+
+          </>
+          )}
 
           <div className="mb-4 flex items-center gap-2">
             <Plus className="h-4 w-4 text-violet-400" />
