@@ -140,8 +140,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }, []);
 
   async function signIn(email: string, password: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data: blocked, error: blockError } = await supabase.rpc('is_email_blocked', { p_email: normalizedEmail });
+    if (blockError) {
+      return { error: 'Could not verify account access. Please try again.' };
+    }
+    if (blocked === true) {
+      return { error: 'This account is blocked. Contact support if you believe this is a mistake.' };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     });
 
@@ -155,8 +164,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     fullName: string
   ) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data: blocked, error: blockError } = await supabase.rpc('is_email_blocked', { p_email: normalizedEmail });
+    if (blockError) {
+      return { error: 'Could not verify account eligibility. Please try again.' };
+    }
+    if (blocked === true) {
+      return { error: 'Registration is not available for this email address.' };
+    }
+
     const { error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         data: {
