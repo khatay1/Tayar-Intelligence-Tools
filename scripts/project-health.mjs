@@ -94,7 +94,18 @@ check('Admin user list uses server-side RPC', adminHooks.includes("supabase.rpc(
 check('Admin self-lockout protections exist', adminSecurityMigration.includes('You cannot remove or suspend your own administrator access') && adminSecurityMigration.includes('You cannot delete your own administrator account'));
 check('Active admins receive business-level builder access without fake billing', adminFullAccessMigration.includes("v_plan := 'business'") && adminFullAccessMigration.includes("'accessSource'") && adminFullAccessMigration.includes("'admin'"));
 check('Admin user list distinguishes admin access from paid plans', adminFullAccessMigration.includes("THEN 'admin'") && adminUsers.includes("Admin Access"));
-check('Admin complimentary access stays separate from Stripe billing', adminAccessOverrideMigration.includes('admin_access_overrides') && adminAccessOverrideMigration.includes('admin_set_access_override') && !adminAccessOverrideMigration.includes('stripe_subscription_id'));
+{
+  const grantStart = adminAccessOverrideMigration.indexOf('CREATE OR REPLACE FUNCTION public.admin_set_access_override');
+  const grantEnd = adminAccessOverrideMigration.indexOf('CREATE OR REPLACE FUNCTION public.effective_access_plan');
+  const grantBody = grantStart >= 0 && grantEnd > grantStart ? adminAccessOverrideMigration.slice(grantStart, grantEnd) : '';
+  check(
+    'Admin complimentary access stays separate from Stripe billing',
+    grantBody.includes('admin_access_overrides') &&
+    !grantBody.includes('INSERT INTO public.subscriptions') &&
+    !grantBody.includes('UPDATE public.subscriptions') &&
+    !grantBody.includes('sync_billing_subscription')
+  );
+}
 check('Website Builder uses effective access plan', adminAccessOverrideMigration.includes('effective_access_plan') && adminAccessOverrideMigration.includes('v_plan := public.effective_access_plan'));
 check('Admin user editor exposes complimentary access controls', adminUsers.includes('Complimentary Access') && adminUsers.includes("admin_set_access_override"));
 check('Admin settings are admin-readable only', adminSecurityMigration.includes('DROP POLICY IF EXISTS "admin_settings_select"') && adminSecurityMigration.includes('CREATE POLICY "admin_settings_select"') && adminSecurityMigration.includes('USING (public.is_admin())'));
