@@ -36,11 +36,11 @@ export const AI_PROVIDERS: Record<AIProvider, ProviderConfig> = {
     provider: 'gemini',
     label: 'Google Gemini',
     envKey: 'GEMINI_API_KEY',
-    description: 'Gemini 3.6 Flash, 1.5 Pro, 1.5 Flash â€” fast with huge context windows',
+    description: 'Current production Gemini Flash models supported by the Tayar AI backend',
     models: [
+      { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', provider: 'gemini', maxTokens: 65536, contextWindow: 1000000 },
       { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', provider: 'gemini', maxTokens: 8192, contextWindow: 1000000 },
-      { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', provider: 'gemini', maxTokens: 8192, contextWindow: 2000000 },
-      { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', provider: 'gemini', maxTokens: 8192, contextWindow: 1000000 },
+      { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', provider: 'gemini', maxTokens: 65536, contextWindow: 1000000 },
     ],
   },
   anthropic: {
@@ -57,6 +57,18 @@ export const AI_PROVIDERS: Record<AIProvider, ProviderConfig> = {
 };
 
 export const ALL_MODELS: AIModel[] = Object.values(AI_PROVIDERS).flatMap(p => p.models);
+
+// These are the text models the production Edge Function can actually execute.
+// Keep this list aligned with supabase/functions/ai-engine/index.ts.
+export const SERVER_SUPPORTED_TEXT_MODELS = [
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+] as const;
+
+export function isServerSupportedTextModel(modelId: string): boolean {
+  return (SERVER_SUPPORTED_TEXT_MODELS as readonly string[]).includes(modelId);
+}
 
 export function getModel(modelId: string): AIModel | undefined {
   return ALL_MODELS.find(m => m.id === modelId);
