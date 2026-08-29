@@ -2280,6 +2280,7 @@ function ElementPreview({
   onDragOver,
   onDrop,
   onDragEnd,
+  onInlineContentChange,
 }: {
   element: WebsiteElement;
   selected: boolean;
@@ -2291,9 +2292,25 @@ function ElementPreview({
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: () => void;
+  onInlineContentChange: (content: string) => void;
 }) {
   const style = effectiveStyle(element, device);
   const [hovered, setHovered] = useState(false);
+  const [editingInline, setEditingInline] = useState(false);
+  const inlineEditRef = useRef<HTMLElement | null>(null);
+  const inlineEditable = element.type === 'heading' || element.type === 'text';
+
+  useEffect(() => {
+    if (!editingInline || !inlineEditRef.current) return;
+    inlineEditRef.current.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(inlineEditRef.current);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, [editingInline]);
   const rotate = clampElementNumber(style.rotate, 0, -180, 180);
   const hoverScale = hovered ? clampElementNumber(style.hoverScale, 1, 0.5, 1.6) : 1;
   const commonStyle = {
@@ -2316,26 +2333,60 @@ function ElementPreview({
     width: style.width ? `${style.width}%` : undefined,
   } as const;
 
-  const wrapper = `relative max-w-full cursor-grab rounded-lg outline-none transition duration-150 active:cursor-grabbing ${
+  const wrapper = `relative max-w-full rounded-lg outline-none transition duration-150 ${editingInline ? 'cursor-text' : 'cursor-grab active:cursor-grabbing'} ${
     selected ? 'ring-2 ring-violet-400/90 shadow-[0_0_0_4px_rgba(139,92,246,0.08)]' : 'hover:ring-1 hover:ring-violet-400/40'
   } ${dragging ? 'opacity-35' : 'opacity-100'} ${dragOver ? 'ring-2 ring-cyan-400 ring-offset-4 ring-offset-transparent' : ''}`;
 
+  const commitInlineEdit = () => {
+    if (!editingInline) return;
+    const next = (inlineEditRef.current?.textContent || '').replace(/\u00a0/g, ' ').trim();
+    setEditingInline(false);
+    if (next && next !== element.content) onInlineContentChange(next);
+  };
+
+  const cancelInlineEdit = () => {
+    if (inlineEditRef.current) inlineEditRef.current.textContent = element.content;
+    setEditingInline(false);
+  };
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelInlineEdit();
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      inlineEditRef.current?.blur();
+    }
+  };
+
   const dragProps = {
-    draggable: true,
-    onDragStart: (e: React.DragEvent) => { e.stopPropagation(); onDragStart(e); },
+    draggable: !editingInline,
+    onDragStart: (e: React.DragEvent) => {
+      if (editingInline) { e.preventDefault(); return; }
+      e.stopPropagation(); onDragStart(e);
+    },
     onDragOver: (e: React.DragEvent) => { e.stopPropagation(); onDragOver(e); },
     onDrop: (e: React.DragEvent) => { e.stopPropagation(); onDrop(e); },
     onDragEnd: (e: React.DragEvent) => { e.stopPropagation(); onDragEnd(); },
     onClick: (e: React.MouseEvent) => { e.stopPropagation(); onSelect(); },
+    onDoubleClick: (e: React.MouseEvent) => {
+      if (!inlineEditable) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onSelect();
+      setEditingInline(true);
+    },
     onMouseEnter: () => setHovered(true),
     onMouseLeave: () => setHovered(false),
   };
 
   if (element.type === 'heading') {
-    return <h2 {...dragProps} className={wrapper} style={commonStyle}>{element.content}</h2>;
+    return <h2 {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</h2>;
   }
   if (element.type === 'text') {
-    return <p {...dragProps} className={wrapper} style={commonStyle}>{element.content}</p>;
+    return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</p>;
   }
   if (element.type === 'button') {
     return <button {...dragProps} type="button" className={wrapper} style={commonStyle}>{element.content}</button>;
@@ -2417,6 +2468,8 @@ function SectionPreview({
   onMoveSelectedElement,
   onDuplicateSelectedElement,
   onDeleteSelectedElement,
+  onInlineContentChange,
+  onAddElement,
   onMoveSection,
   onDeleteSection,
   canMoveSectionUp,
@@ -2439,6 +2492,8 @@ function SectionPreview({
   onMoveSelectedElement: (direction: 'up' | 'down') => void;
   onDuplicateSelectedElement: () => void;
   onDeleteSelectedElement: () => void;
+  onInlineContentChange: (elementId: string, content: string) => void;
+  onAddElement: (type: WebsiteElementType) => void;
   onMoveSection: (direction: 'up' | 'down') => void;
   onDeleteSection: () => void;
   canMoveSectionUp: boolean;
@@ -2617,6 +2672,7 @@ function SectionPreview({
                             onDragOver={(e) => onElementDragOver(element.id, e)}
                             onDrop={(e) => onElementDrop(element.id, e)}
                             onDragEnd={onElementDragEnd}
+                            onInlineContentChange={(content) => onInlineContentChange(element.id, content)}
                           />
                         </div>
                       );
@@ -2664,12 +2720,36 @@ function SectionPreview({
                   onDragOver={(e) => onElementDragOver(element.id, e)}
                   onDrop={(e) => onElementDrop(element.id, e)}
                   onDragEnd={onElementDragEnd}
+                  onInlineContentChange={(content) => onInlineContentChange(element.id, content)}
                 />
               </div>
             );
           })}
         </div>
-        {section.type === 'contact' && (
+        {selected && (
+          <div className="flex justify-center px-4 pb-4 pt-2">
+            <details
+              className="relative"
+              draggable={false}
+              onDragStart={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-violet-400/30 bg-[#111122]/90 px-3 py-1.5 text-[10px] font-bold text-violet-200 shadow-lg backdrop-blur hover:bg-violet-500/15 [&::-webkit-details-marker]:hidden">
+                <Plus className="h-3.5 w-3.5" /> {l('Add element')}
+              </summary>
+              <div className="absolute bottom-9 left-1/2 z-50 grid w-52 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#111122] p-2 shadow-2xl">
+                {(['heading', 'text', 'button', 'image'] as WebsiteElementType[]).map((type) => (
+                  <button key={type} type="button" onClick={() => onAddElement(type)} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">
+                    + {ELEMENT_LABELS[type]}
+                  </button>
+                ))}
+                <button type="button" onClick={() => onAddElement('spacer')} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">+ {ELEMENT_LABELS.spacer}</button>
+                <button type="button" onClick={() => onAddElement('divider')} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">+ {ELEMENT_LABELS.divider}</button>
+              </div>
+            </details>
+          </div>
+        )}
+                {section.type === 'contact' && (
           <div className={`mx-auto mt-5 grid w-full max-w-xl gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 ${compact ? 'text-xs' : 'text-sm'}`}>
             {(section.formFields ?? createDefaultContactFormFields()).map((field) => (
               field.type === 'checkbox' ? (
@@ -4443,22 +4523,53 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
   }
 
-  function addElement(type: WebsiteElementType) {
-    if (!selectedSection) return;
+  function addElementToSection(sectionId: string, type: WebsiteElementType) {
+    const targetSection = sections.find((section) => section.id === sectionId);
+    if (!targetSection) return;
     remember(sections);
-    const columnCount = sectionColumnCount(selectedSection.layout);
+    const columnCount = sectionColumnCount(targetSection.layout);
     const counts = Array.from({ length: columnCount }, (_, columnIndex) =>
-      selectedSection.elements.reduce((count, existingElement, index) =>
+      targetSection.elements.reduce((count, existingElement, index) =>
         count + (elementColumn(existingElement, index, columnCount) === columnIndex + 1 ? 1 : 0), 0)
     );
     const targetColumn = columnCount > 1 ? counts.indexOf(Math.min(...counts)) + 1 : undefined;
-    const element = { ...createElement(type, selectedSection.accent), layoutColumn: targetColumn };
+    const element = { ...createElement(type, targetSection.accent), layoutColumn: targetColumn };
     setSections((current) => current.map((section) =>
-      section.id === selectedSection.id
-        ? { ...section, elements: [...section.elements, element] }
-        : section
+      section.id === sectionId ? { ...section, elements: [...section.elements, element] } : section
     ));
+    setSelectedId(sectionId);
     setSelectedElementId(element.id);
+    setSaved(false);
+  }
+
+  function addElement(type: WebsiteElementType) {
+    if (!selectedSection) return;
+    addElementToSection(selectedSection.id, type);
+  }
+
+  function updateInlineElementContent(sectionId: string, elementId: string, content: string) {
+    const targetSection = sections.find((section) => section.id === sectionId);
+    const targetElement = targetSection?.elements.find((element) => element.id === elementId);
+    if (!targetSection || !targetElement || !content.trim() || targetElement.content === content) return;
+    remember(sections);
+    const symbolId = targetElement.symbolId;
+    const updateSection = (section: WebsiteSection) => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = symbolId ? element.symbolId === symbolId : element.id === elementId;
+        return matches ? { ...element, content } : element;
+      }),
+    });
+    setSections((current) => current.map((section) => section.id === sectionId || symbolId ? updateSection(section) : section));
+    if (symbolId) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : { ...page, sections: page.sections.map(updateSection) }));
+      setSymbols((current) => current.map((symbol) => symbol.id === symbolId
+        ? { ...symbol, element: { ...symbol.element, content }, updatedAt: new Date().toISOString() }
+        : symbol
+      ));
+    }
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
     setSaved(false);
   }
 
@@ -4745,6 +4856,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections);
     const section = createSection(type);
     setSections((current) => [...current, section]);
+    setSelectedId(section.id);
+    setSelectedElementId(section.elements[0]?.id ?? null);
+    setSaved(false);
+  }
+
+  function insertSectionAfter(afterSectionId: string, type: SectionType) {
+    remember(sections);
+    const section = createSection(type);
+    setSections((current) => {
+      const index = current.findIndex((item) => item.id === afterSectionId);
+      if (index === -1) return [...current, section];
+      const next = [...current];
+      next.splice(index + 1, 0, section);
+      return next;
+    });
     setSelectedId(section.id);
     setSelectedElementId(section.elements[0]?.id ?? null);
     setSaved(false);
@@ -8111,6 +8237,8 @@ if (generated.seo) {
       onMoveSelectedElement={moveSelectedElement}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
+      onInlineContentChange={(elementId, content) => updateInlineElementContent(section.id, elementId, content)}
+      onAddElement={(type) => addElementToSection(section.id, type)}
       onMoveSection={(direction) => moveSection(section.id, direction)}
       onDeleteSection={() => deleteSection(section.id)}
       canMoveSectionUp={sectionIndex > 0}
@@ -8119,6 +8247,26 @@ if (generated.seo) {
       device={device}
       theme={theme}
     />
+    <div
+      className="group/add-section relative flex h-8 items-center justify-center"
+      draggable={false}
+      onDragStart={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="h-px w-full bg-violet-500/0 transition group-hover/add-section:bg-violet-500/20" />
+      <details className="absolute z-40">
+        <summary className="flex cursor-pointer list-none items-center gap-1 rounded-full border border-violet-400/20 bg-[#111122]/90 px-2.5 py-1 text-[9px] font-bold text-violet-300 opacity-60 shadow transition hover:opacity-100 [&::-webkit-details-marker]:hidden">
+          <Plus className="h-3 w-3" /> {l('Add section')}
+        </summary>
+        <div className="absolute left-1/2 top-7 z-50 grid w-56 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#111122] p-2 shadow-2xl">
+          {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
+            <button key={type} type="button" onClick={() => insertSectionAfter(section.id, type)} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">
+              + {SECTION_LABELS[type]}
+            </button>
+          ))}
+        </div>
+      </details>
+    </div>
   </div>
 ))}
             {footerConfig.enabled && (
@@ -8144,7 +8292,7 @@ if (generated.seo) {
             <Eye className="h-4 w-4 text-violet-400" />
             <div>
               <h2 className="text-xs font-bold">{selectedElement ? `${l('Edit')} ${ELEMENT_LABELS[selectedElement.type]}` : l('Inspector')}</h2>
-              <p className="mt-0.5 text-[9px] text-gray-500">{selectedElement ? l('Change the basics here. Open Advanced only when you need it.') : l('Select something on the page to start editing.')}</p>
+              <p className="mt-0.5 text-[9px] text-gray-500">{selectedElement ? (selectedElement.type === 'heading' || selectedElement.type === 'text' ? l('Double-click the text on the page for quick editing, or use the controls here.') : l('Change the basics here. Open Advanced only when you need it.')) : l('Select something on the page to start editing.')}</p>
             </div>
           </div>
 
