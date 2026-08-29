@@ -49,6 +49,8 @@ export interface ElementStyle {
   marginRight?: number;
   marginBottom?: number;
   marginLeft?: number;
+  positionX?: number;
+  positionY?: number;
   order?: number;
   hidden?: boolean;
   alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
