@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
 
-# Update this URL when the production custom domain is finalized.
-Sitemap: https://tayar.ai/sitemap.xml
+Sitemap: https://tayar.se/sitemap.xml
