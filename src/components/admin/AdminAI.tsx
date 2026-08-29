@@ -37,6 +37,7 @@ export default function AdminAI() {
   const [dailyStats, setDailyStats] = useState<{ date: string; requests: number; tokens: number }[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [tokenUsage, setTokenUsage] = useState<{ label: string; value: number }[]>([]);
+  const [recentAiErrorCount, setRecentAiErrorCount] = useState(0);
   const [switching, setSwitching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -70,7 +71,8 @@ export default function AdminAI() {
     }
 
     // Daily stats
-    const usage = (usageRes.data || []) as { created_at: string; tokens_in: number; tokens_out: number; status: string }[];
+    const usage = (usageRes.data || []) as { created_at: string; tokens_in: number; tokens_out: number; status: string; provider?: string }[];
+    setRecentAiErrorCount(usage.filter((entry) => entry.status === 'error').length);
     const days: Record<string, { requests: number; tokens: number }> = {};
     const now = new Date();
     for (let i = 13; i >= 0; i--) {
@@ -152,8 +154,7 @@ export default function AdminAI() {
 
   const totalRequests = dailyStats.reduce((s, d) => s + d.requests, 0);
   const totalTokens = dailyStats.reduce((s, d) => s + d.tokens, 0);
-  const recentErrorCount = errorLogs.filter((log) => log.level === 'error').length;
-  const errorRate = totalRequests > 0 ? (recentErrorCount / totalRequests) * 100 : 0;
+  const errorRate = totalRequests > 0 ? (recentAiErrorCount / totalRequests) * 100 : 0;
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
