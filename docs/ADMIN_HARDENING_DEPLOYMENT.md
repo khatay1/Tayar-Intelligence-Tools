@@ -26,10 +26,10 @@ Affected Edge Functions:
 Use PowerShell from the repository root:
 
 ```powershell
-.\scripts\admin-hardening-deploy.ps1 -ProjectRef <SUPABASE_PROJECT_REF>
+.\scripts\admin-hardening-deploy.ps1
 ```
 
-The default mode links the selected Supabase project, lists migration state, and runs:
+The script defaults to the Tayar Supabase project ref `pnbllxdlskljcakyaylt`. The default mode links that project, lists migration state, and runs:
 
 ```text
 supabase db push --dry-run
@@ -42,7 +42,7 @@ Supabase documents `db push --dry-run` as the preview step before applying remot
 ## Apply only after reviewing the dry-run
 
 ```powershell
-.\scripts\admin-hardening-deploy.ps1 -ProjectRef <SUPABASE_PROJECT_REF> -Apply -ConfirmProduction
+.\scripts\admin-hardening-deploy.ps1 -Apply -ConfirmProduction
 ```
 
 The explicit `-ConfirmProduction` switch is intentional. The script then applies pending migrations and deploys only the four Edge Functions that depend on the modified shared authentication helper.
