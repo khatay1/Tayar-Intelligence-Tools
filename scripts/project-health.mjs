@@ -21,6 +21,8 @@ check('Admin hardening migration exists', exists('supabase/migrations/2026082914
 check('Admin full-access override migration exists', exists('supabase/migrations/20260829223500_admin_full_access_override.sql'));
 check('Admin complimentary-access migration exists', exists('supabase/migrations/20260829225000_admin_access_overrides.sql'));
 check('Account re-registration block migration exists', exists('supabase/migrations/20260829231500_account_block_re_registration.sql'));
+check('Block-list/support immutability migration exists', exists('supabase/migrations/20260829233000_admin_block_list_and_support_immutability.sql'));
+check('Subscription grace-period migration exists', exists('supabase/migrations/20260829234500_subscription_grace_period.sql'));
 check('Supabase CLI config exists', exists('supabase/config.toml'));
 check('Guarded admin deploy script exists', exists('scripts/admin-hardening-deploy.ps1'));
 check('Admin deployment runbook exists', exists('docs/ADMIN_HARDENING_DEPLOYMENT.md'));
@@ -51,6 +53,8 @@ const adminSecurityMigration = read('supabase/migrations/20260829144000_harden_a
 const adminFullAccessMigration = read('supabase/migrations/20260829223500_admin_full_access_override.sql');
 const adminAccessOverrideMigration = read('supabase/migrations/20260829225000_admin_access_overrides.sql');
 const accountBlockMigration = read('supabase/migrations/20260829231500_account_block_re_registration.sql');
+const blockListSupportMigration = read('supabase/migrations/20260829233000_admin_block_list_and_support_immutability.sql');
+const subscriptionGraceMigration = read('supabase/migrations/20260829234500_subscription_grace_period.sql');
 const adminDeployScript = read('scripts/admin-hardening-deploy.ps1');
 const adminContext = read('src/context/AdminContext.tsx');
 const adminUsers = read('src/components/admin/AdminUsers.tsx');
@@ -114,6 +118,12 @@ check('Admin user editor exposes complimentary access controls', adminUsers.incl
 check('Deleted identities can remain blocked from re-registration', accountBlockMigration.includes('account_blocks') && accountBlockMigration.includes('admin_delete_user_and_block') && accountBlockMigration.includes('is_email_blocked'));
 check('Auth checks account block before sign-in and sign-up', auth.includes("supabase.rpc('is_email_blocked'") && auth.indexOf("is_email_blocked") < auth.indexOf("signInWithPassword") && auth.lastIndexOf("is_email_blocked") < auth.indexOf("auth.signUp"));
 check('Admin delete UI distinguishes delete-only from delete-and-block', adminUsers.includes('Delete account only') && adminUsers.includes('Delete + Block re-registration') && adminUsers.includes("admin_delete_user_and_block"));
+check('Submitted support ticket content becomes immutable', blockListSupportMigration.includes('protect_support_ticket_owner_content') && blockListSupportMigration.includes('Submitted support ticket content cannot be changed'));
+check('Admin System exposes account block list management', adminSystem.includes('Account Blocks') && adminSystem.includes('admin_list_account_blocks') && adminSystem.includes('admin_unblock_email'));
+check('Admin System exposes production readiness panel', adminSystem.includes('Production Readiness') && adminSystem.includes('Stripe connection') && adminSystem.includes('Stripe webhook'));
+check('System logs show audit metadata', adminSystem.includes("select('id, level, category, message, metadata, created_at')") && adminSystem.includes('Object.entries(log.metadata)'));
+check('Paid subscriptions use explicit 3-day past-due grace', subscriptionGraceMigration.includes("interval '3 days'") && subscriptionGraceMigration.includes("status = 'past_due'"));
+check('Admin subscriptions labels past-due grace', adminSubscriptions.includes('Past Due / Grace') && adminSubscriptions.includes('3-day grace'));
 check('Admin settings are admin-readable only', adminSecurityMigration.includes('DROP POLICY IF EXISTS "admin_settings_select"') && adminSecurityMigration.includes('CREATE POLICY "admin_settings_select"') && adminSecurityMigration.includes('USING (public.is_admin())'));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
