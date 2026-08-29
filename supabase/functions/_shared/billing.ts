@@ -76,10 +76,10 @@ export function getStripeSecret(): string {
   return key;
 }
 
-export async function stripeRequest(
+export async function stripeRequest<T = Record<string, unknown>>(
   path: string,
   init: { method?: string; params?: URLSearchParams } = {},
-): Promise<any> {
+): Promise<T> {
   const response = await fetch(`https://api.stripe.com${path}`, {
     method: init.method || "POST",
     headers: {
@@ -90,13 +90,18 @@ export async function stripeRequest(
   });
 
   const raw = await response.text();
-  let data: any = null;
+  let data: unknown = null;
   try { data = raw ? JSON.parse(raw) : null; } catch { data = { raw }; }
   if (!response.ok) {
-    const message = data?.error?.message || `Stripe request failed (${response.status})`;
+    const stripeError = data && typeof data === "object"
+      ? (data as { error?: { message?: unknown } }).error
+      : undefined;
+    const message = typeof stripeError?.message === "string"
+      ? stripeError.message
+      : `Stripe request failed (${response.status})`;
     throw new HttpError(response.status >= 500 ? 502 : 400, message);
   }
-  return data;
+  return data as T;
 }
 
 export function safeAppOrigin(req: Request): string {
