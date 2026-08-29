@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 interface AdminContextValue {
   isAdmin: boolean;
   adminLoading: boolean;
+  adminError: string | null;
   refreshAdminStatus: () => Promise<void>;
 }
 
@@ -14,33 +15,34 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(true);
+  const [adminError, setAdminError] = useState<string | null>(null);
 
   const refreshAdminStatus = useCallback(async () => {
     if (!user) {
       setIsAdmin(false);
+      setAdminError(null);
       setAdminLoading(false);
       return;
     }
 
     setAdminLoading(true);
+    setAdminError(null);
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('is_admin');
 
       if (error) {
         console.error('Failed to check admin status:', error);
         setIsAdmin(false);
+        setAdminError(error.message || 'Admin access could not be verified.');
         return;
       }
 
-      setIsAdmin(data?.role === 'admin');
+      setIsAdmin(data === true);
     } catch (error) {
       console.error('Admin status check failed:', error);
       setIsAdmin(false);
+      setAdminError(error instanceof Error ? error.message : 'Admin access could not be verified.');
     } finally {
       setAdminLoading(false);
     }
@@ -55,6 +57,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       value={{
         isAdmin,
         adminLoading,
+        adminError,
         refreshAdminStatus,
       }}
     >
