@@ -1,5 +1,5 @@
 import { useLocalizer } from '@/lib/ui-localization';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createAIService } from '@/lib/ai/service';
 import { usePreferences, type Language } from '@/context/PreferencesContext';
 import { useAuth } from '@/context/AuthContext';
@@ -2787,12 +2787,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const lastSavedSnapshotRef = useRef('');
   const autosaveTimerRef = useRef<number | null>(null);
   const skipNextAutosaveRef = useRef(false);
+  const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
 
-  function getCurrentPages() {
+  const getCurrentPages = useCallback(() => {
     return pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
-  }
+  }, [pages, activePageId, sections]);
 
-  function buildProjectSnapshot() {
+  const buildProjectSnapshot = useCallback(() => {
     return {
       version: 5,
       siteName,
@@ -2820,9 +2821,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       language: prefs.language,
       updatedAt: new Date().toISOString(),
     };
-  }
+  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
-  function buildProjectFingerprint() {
+  const buildProjectFingerprint = useCallback(() => {
     return JSON.stringify({
       siteName,
       siteUrl,
@@ -2848,9 +2849,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       seo,
       language: prefs.language,
     });
-  }
+  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
-  function buildEditableFingerprint() {
+  const buildEditableFingerprint = useCallback(() => {
     return JSON.stringify({
       siteName,
       siteUrl,
@@ -2868,7 +2869,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       seo,
       language: prefs.language,
     });
-  }
+  }, [siteName, siteUrl, faviconUrl, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
 
   function buildDeliveryFingerprint() {
     return JSON.stringify({
@@ -2889,12 +2890,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
   }
 
-  function buildProjectData(historyEntries: ProjectHistoryEntry[] = projectHistory) {
+  const buildProjectData = useCallback((historyEntries: ProjectHistoryEntry[] = projectHistory) => {
     return {
       ...buildProjectSnapshot(),
       history: historyEntries,
     };
-  }
+  }, [buildProjectSnapshot, projectHistory]);
 
   function saveRecoverySnapshot(reason: string) {
     try {
@@ -3093,7 +3094,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return next;
   }
 
-  async function refreshCloudProjects() {
+  const refreshCloudProjects = useCallback(async () => {
     if (!user) {
       setCloudProjects([]);
       setCloudProjectId(null);
@@ -3117,9 +3118,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setCloudProjects((data || []) as CloudWebsiteProject[]);
     setCloudBusy(false);
-  }
+  }, [user]);
 
-  function loadLocalReusableSections() {
+  const loadLocalReusableSections = useCallback(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(REUSABLE_SECTIONS_KEY) || '[]');
       if (!Array.isArray(stored)) return [];
@@ -3129,9 +3130,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     } catch {
       return [];
     }
-  }
+  }, []);
 
-  async function refreshReusableSections() {
+  const refreshReusableSections = useCallback(async () => {
     setReusableError('');
     if (!user) {
       setReusableSections(loadLocalReusableSections());
@@ -3171,7 +3172,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setReusableSections(items);
     setReusableBusy(false);
-  }
+  }, [user, loadLocalReusableSections]);
 
   async function saveSelectedSectionAsReusable() {
     if (!selectedSection) return;
@@ -3315,7 +3316,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(project.content));
   }
 
-  async function refreshLeads() {
+  const refreshLeads = useCallback(async () => {
     if (!user || !cloudProjectId) {
       setLeads([]);
       setLeadsError('');
@@ -3341,7 +3342,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLeads(nextLeads);
     setSelectedLeadIds((current) => current.filter((id) => nextLeads.some((lead) => lead.id === id)));
     setLeadsLoading(false);
-  }
+  }, [user, cloudProjectId]);
 
   async function updateLeadStatus(leadId: string, status: WebsiteLead['status']) {
     if (!user || !cloudProjectId) return;
@@ -3464,7 +3465,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSelectedLeadIds((current) => current.filter((id) => id !== leadId));
   }
 
-  async function refreshAnalytics() {
+  const refreshAnalytics = useCallback(async () => {
     if (!user || !cloudProjectId) {
       setAnalyticsEvents([]);
       setAnalyticsError('');
@@ -3490,9 +3491,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setAnalyticsEvents((data || []) as WebsiteAnalyticsEvent[]);
     setAnalyticsLoading(false);
-  }
+  }, [user, cloudProjectId]);
 
-  async function refreshMedia() {
+  const refreshMedia = useCallback(async () => {
     if (!user) {
       setMediaAssets([]);
       setMediaError('');
@@ -3526,7 +3527,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setMediaAssets(assets);
     setMediaLoading(false);
-  }
+  }, [user]);
 
   function applyMediaAsset(asset: WebsiteMediaAsset) {
     if (!selectedSection) return;
@@ -3658,7 +3659,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     };
   }
 
-  async function refreshBilling(projectId: string | null = cloudProjectId) {
+  const refreshBilling = useCallback(async (projectId: string | null = cloudProjectId) => {
     if (!user) {
       setBillingState({
         plan: 'free',
@@ -3720,7 +3721,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       },
     });
     setBillingLoading(false);
-  }
+  }, [user, pages.length, cloudProjectId]);
 
   async function startBillingCheckout(plan: 'pro' | 'business') {
     if (!user) {
@@ -3781,11 +3782,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   useEffect(() => {
     void refreshCloudProjects();
     void refreshReusableSections();
-  }, [user?.id]);
+  }, [refreshCloudProjects, refreshReusableSections]);
 
   useEffect(() => {
     void refreshBilling(cloudProjectId);
-  }, [user?.id, cloudProjectId]);
+  }, [cloudProjectId, refreshBilling]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -3801,23 +3802,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     params.delete('billing');
     const query = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-  }, [user?.id]);
+  }, [cloudProjectId, refreshBilling]);
 
   useEffect(() => {
     if (leadsOpen) void refreshLeads();
-  }, [leadsOpen, cloudProjectId, user?.id]);
+  }, [leadsOpen, refreshLeads]);
 
   useEffect(() => {
     if (mediaOpen) void refreshMedia();
-  }, [mediaOpen, user?.id]);
+  }, [mediaOpen, refreshMedia]);
 
   useEffect(() => {
     if (analyticsOpen) void refreshAnalytics();
-  }, [analyticsOpen, cloudProjectId, user?.id]);
+  }, [analyticsOpen, refreshAnalytics]);
 
   useEffect(() => {
     if (releaseHistoryOpen) void refreshPublishVersions();
-  }, [releaseHistoryOpen, cloudProjectId, user?.id]);
+  }, [releaseHistoryOpen, refreshPublishVersions]);
 
   useEffect(() => {
     const updateNetwork = () => setNetworkOnline(navigator.onLine);
@@ -3830,10 +3831,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, []);
 
   useEffect(() => {
-    if (!networkOnline || !cloudSyncFailed || !user || !projectTeamAccess.canEdit) return;
-    const timer = window.setTimeout(() => { void saveProject({ automatic: true, createHistory: false }); }, 600);
+    if (!networkOnline || !cloudSyncFailed || !user?.id || !projectTeamAccess.canEdit) return;
+    const timer = window.setTimeout(() => { void saveProjectRef.current({ automatic: true, createHistory: false }); }, 600);
     return () => window.clearTimeout(timer);
-  }, [networkOnline, cloudSyncFailed, user?.id, cloudProjectId, projectTeamAccess.canEdit]);
+  }, [networkOnline, cloudSyncFailed, user?.id, projectTeamAccess.canEdit]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -3881,13 +3882,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     setAutoSaveStatus('saving');
     autosaveTimerRef.current = window.setTimeout(() => {
-      void saveProject({ automatic: true, createHistory: false });
+      void saveProjectRef.current({ automatic: true, createHistory: false });
     }, 1800);
 
     return () => {
       if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     };
-  }, [sections, pages, activePageId, homePageId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language, user?.id, cloudProjectId]);
+  }, [buildProjectFingerprint]);
 
   const analyticsSummary = useMemo(() => {
     const pageViews = analyticsEvents.filter((event) => !event.event_type || event.event_type === 'page_view');
@@ -4089,7 +4090,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       warnings,
       healthy: networkOnline && !cloudSyncFailed && siteAudit.errors.length === 0,
     };
-  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, siteAudit.errors.length, siteName, siteUrl, faviconUrl, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language, projectHistory]);
+  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, siteAudit.errors.length, siteName, siteUrl, faviconUrl, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language, projectHistory, buildProjectData]);
 
   function switchPage(pageId: string) {
     const target = pages.find((page) => page.id === pageId);
@@ -4954,7 +4955,7 @@ if (generated.seo) {
       setAiBusy(false);
     }
   }
-  async function refreshPublishVersions() {
+  const refreshPublishVersions = useCallback(async () => {
     if (!user || !cloudProjectId) {
       setPublishVersions([]);
       setPublishVersionsError('');
@@ -4976,7 +4977,7 @@ if (generated.seo) {
     }
     setPublishVersions((data || []) as WebsitePublishVersion[]);
     setPublishVersionsLoading(false);
-  }
+  }, [user, cloudProjectId]);
 
   function projectSnapshotCounts(snapshot: Record<string, unknown>) {
     const snapshotPages = Array.isArray(snapshot.pages) ? snapshot.pages : [];
@@ -5318,6 +5319,8 @@ if (generated.seo) {
     }
     return durableSaved;
   }
+
+  saveProjectRef.current = saveProject;
 
   async function duplicateProject() {
     if (user && billingState.usage.websiteProjects >= billingEntitlements.maxWebsiteProjects) {
@@ -6246,7 +6249,7 @@ if (generated.seo) {
             ? 'V1 LIVE'
             : 'VERIFY LIVE';
     return { score, checks, blockers, preflightReady, publishedRelease, liveHealthy, status };
-  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, siteName, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, prefs.language]);
+  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, siteName, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, prefs.language, buildEditableFingerprint]);
 
   function exportV1LaunchReport() {
     const manual = [
