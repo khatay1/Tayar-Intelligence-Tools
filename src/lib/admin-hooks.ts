@@ -39,9 +39,12 @@ export function useDashboardStats() {
       const [profilesRes, projectsRes, aiRes, subsRes] = await Promise.all([
         supabase.from('profiles').select('id, created_at, plan, suspended'),
         supabase.from('projects').select('id, created_at', { count: 'exact', head: false }),
-        supabase.from('ai_usage').select('id, created_at, status, cost_usd'),
+        supabase.from('ai_usage').select('id, user_id, created_at, status, cost_usd'),
         supabase.from('subscriptions').select('id, plan, status'),
       ]);
+
+      const queryError = profilesRes.error || projectsRes.error || aiRes.error || subsRes.error;
+      if (queryError) throw queryError;
 
       const profiles = profilesRes.data || [];
       const projects = projectsRes.data || [];
@@ -59,7 +62,7 @@ export function useDashboardStats() {
 
       // Active users: users with AI requests in last 7 days
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-      const activeUserIds = new Set(aiUsage.filter(u => new Date(u.created_at) >= weekAgo).map(u => (u as { user_id?: string }).user_id).filter(Boolean));
+      const activeUserIds = new Set(aiUsage.filter(u => new Date(u.created_at) >= weekAgo).map(u => u.user_id).filter(Boolean));
 
       setStats({
         totalUsers: profiles.length,
@@ -223,43 +226,34 @@ export function useToolPopularity() {
 export function useAdminUsers() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, plan, role, suspended, created_at')
-      .order('created_at', { ascending: false });
-    const profilesData = (profiles || []) as Omit<AdminUser, 'email' | 'project_count' | 'ai_request_count'>[];
+    setError(null);
 
-    // Get emails from auth via RPC — not available, so we use a workaround
-    // We'll fetch project counts and AI request counts in batch
-    const userIds = profilesData.map(p => p.id);
-    const [projectsRes, aiRes] = await Promise.all([
-      supabase.from('projects').select('user_id').in('user_id', userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000']),
-      supabase.from('ai_usage').select('user_id').in('user_id', userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000']),
-    ]);
+    const { data, error: rpcError } = await supabase.rpc('admin_list_users');
 
-    const projectCounts: Record<string, number> = {};
-    for (const p of (projectsRes.data || []) as { user_id: string }[]) {
-      projectCounts[p.user_id] = (projectCounts[p.user_id] || 0) + 1;
-    }
-    const aiCounts: Record<string, number> = {};
-    for (const u of (aiRes.data || []) as { user_id: string }[]) {
-      aiCounts[u.user_id] = (aiCounts[u.user_id] || 0) + 1;
+    if (rpcError) {
+      console.error('Failed to load admin users:', rpcError);
+      setUsers([]);
+      setError(rpcError.message || 'Failed to load users.');
+      setLoading(false);
+      return;
     }
 
-    const result: AdminUser[] = profilesData.map(p => ({
-      ...p,
-      email: '', // Not available via client — admins see name + ID
-      project_count: projectCounts[p.id] || 0,
-      ai_request_count: aiCounts[p.id] || 0,
+    const result = ((data || []) as AdminUser[]).map((user) => ({
+      ...user,
+      email: user.email || '',
+      project_count: Number(user.project_count || 0),
+      ai_request_count: Number(user.ai_request_count || 0),
     }));
+
     setUsers(result);
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  return { users, loading, refresh: load };
+  return { users, loading, error, refresh: load };
 }
