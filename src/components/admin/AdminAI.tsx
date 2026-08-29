@@ -314,39 +314,133 @@ export default function AdminAI() {
           </button>
         </div>
 
-        {/* Default Model Selector */}
-        <div className="mb-4 p-4 rounded-xl bg-violet-500/5 border border-violet-500/20">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <label className="text-xs font-medium text-gray-400 mb-1.5 block">{l('Default Model (used when no per-tool model is set)')}</label>
-              <select
-                value={defaultModel}
-                onChange={e => setDefaultModel(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-violet-500/50 focus:outline-none"
-              >
-                <optgroup label="Google Gemini · production enabled">
-                  {SERVER_SUPPORTED_TEXT_MODELS.map((modelId) => {
-                    const model = getModel(modelId);
-                    return model ? <option key={model.id} value={model.id}>{model.label}</option> : null;
-                  })}
-                </optgroup>
-              </select>
-              <div className="text-xs text-gray-500 mt-1.5">
-                Provider: <span className="text-violet-400 capitalize">{getProviderForModel(defaultModel)}</span>
-                {' · '}
-                Context: <span className="text-gray-400">{getModel(defaultModel)?.contextWindow.toLocaleString() || 'N/A'} tokens</span>
-                {' · '}
-                <span className="text-emerald-400">Backend supported</span>
-              </div>
+        {/* Managed model catalog */}
+        <div className="mb-4 rounded-2xl border border-violet-500/20 bg-[#0b0b18] p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300">{l('Default Model (used when no per-tool model is set)')}</label>
+              <p className="mt-1 text-[11px] text-gray-500">
+                {l('Choose a managed model below, or add a new Gemini model ID manually when Google releases one.')}
+              </p>
             </div>
-            <button
-              onClick={saveDefaultModel}
-              disabled={savingModel}
-              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all flex-shrink-0"
-            >
-              {savingModel ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save
-            </button>
+            <div className="mt-2 flex items-center gap-2 sm:mt-0">
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-emerald-300">
+                {l('Gemini backend')}
+              </span>
+              <button
+                onClick={saveDefaultModel}
+                disabled={savingModel}
+                className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-60"
+              >
+                {savingModel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {l('Save default')}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2">
+            {modelCatalog.map((model) => {
+              const selected = model.id === defaultModel;
+              const knownModel = getModel(model.id);
+              return (
+                <div
+                  key={model.id}
+                  className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
+                    selected
+                      ? 'border-violet-400/50 bg-violet-500/10'
+                      : 'border-white/10 bg-[#111122] hover:border-white/20'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setDefaultModel(model.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border ${
+                      selected
+                        ? 'border-violet-400/40 bg-violet-500/20 text-violet-300'
+                        : 'border-white/10 bg-black/20 text-gray-500'
+                    }`}>
+                      {selected ? <Check className="h-4 w-4" /> : <Cpu className="h-4 w-4" />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-white">{model.label}</span>
+                      <span className="block truncate font-mono text-[10px] text-gray-500">{model.id}</span>
+                    </span>
+                  </button>
+
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    {model.custom ? (
+                      <span className="rounded-md bg-cyan-500/10 px-2 py-1 text-[9px] font-medium uppercase tracking-wide text-cyan-300">
+                        {l('Custom')}
+                      </span>
+                    ) : (
+                      <span className="rounded-md bg-white/5 px-2 py-1 text-[9px] font-medium uppercase tracking-wide text-gray-500">
+                        {l('Built-in')}
+                      </span>
+                    )}
+                    {model.custom && (
+                      <button
+                        type="button"
+                        onClick={() => void removeModel(model)}
+                        disabled={savingCatalog}
+                        title={l('Remove model')}
+                        className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {knownModel && (
+                    <span className="hidden text-[10px] text-gray-600 xl:inline">
+                      {knownModel.contextWindow.toLocaleString()} ctx
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 rounded-xl border border-white/10 bg-[#0e0e1d] p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-semibold text-white">{l('Add model manually')}</div>
+                <div className="mt-0.5 text-[10px] text-gray-500">{l('Use the exact Gemini API model ID, for example gemini-3.x-flash.')}</div>
+              </div>
+              <Plus className="h-4 w-4 text-violet-400" />
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
+              <input
+                value={newModelId}
+                onChange={(e) => setNewModelId(e.target.value)}
+                placeholder="gemini-model-id"
+                spellCheck={false}
+                className="rounded-xl border border-white/10 bg-[#090916] px-3 py-2.5 font-mono text-xs text-white outline-none transition-colors placeholder:text-gray-700 focus:border-violet-500/50"
+              />
+              <input
+                value={newModelLabel}
+                onChange={(e) => setNewModelLabel(e.target.value)}
+                placeholder={l('Display name (optional)')}
+                className="rounded-xl border border-white/10 bg-[#090916] px-3 py-2.5 text-xs text-white outline-none transition-colors placeholder:text-gray-700 focus:border-violet-500/50"
+              />
+              <button
+                type="button"
+                onClick={() => void addModel()}
+                disabled={savingCatalog || !newModelId.trim()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-xs font-semibold text-violet-200 transition-colors hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {savingCatalog ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                {l('Add model')}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
+            <span>{l('Selected')}:</span>
+            <span className="rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-1 font-mono text-violet-300">{defaultModel}</span>
+            <span>·</span>
+            <span>{l('Provider')}: <span className="text-gray-300">{getProviderForModel(defaultModel)}</span></span>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
