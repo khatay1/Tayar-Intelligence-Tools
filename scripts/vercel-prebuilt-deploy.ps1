@@ -25,6 +25,11 @@ if (-not $env:PATHEXT) {
   $env:PATHEXT = '.COM;.EXE;.BAT;.CMD'
 }
 
+# npm/Vercel may ignore ComSpec and spawn the configured script shell by name.
+# Force npm lifecycle scripts to use the absolute Windows command processor.
+$env:npm_config_script_shell = $CmdExe
+$env:NPM_CONFIG_SCRIPT_SHELL = $CmdExe
+
 function Ensure-VercelCli {
   if (Test-Path $VercelCmd) {
     return
@@ -114,6 +119,23 @@ Invoke-Vercel pull --yes --environment=production --scope $Scope
 Write-Host ""
 Write-Host "Building locally for production..." -ForegroundColor Cyan
 Write-Host "Using command processor: $env:ComSpec" -ForegroundColor DarkGray
+Write-Host "Using npm script shell: $env:npm_config_script_shell" -ForegroundColor DarkGray
+
+# Prove the exact child-process path Vercel/npm will need before entering build.
+$previousErrorAction = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try {
+  & node.exe -e "const {spawnSync}=require('node:child_process'); const p=spawnSync(process.env.npm_config_script_shell,['/d','/s','/c','echo cmd-ok'],{encoding:'utf8'}); if(p.error){console.error(p.error); process.exit(1)}; process.stdout.write(p.stdout||''); process.exit(p.status||0)" 2>&1 |
+    ForEach-Object { Write-Host $_ }
+  $cmdProbeExit = $LASTEXITCODE
+}
+finally {
+  $ErrorActionPreference = $previousErrorAction
+}
+if ($cmdProbeExit -ne 0) {
+  throw "Node could not launch the configured command processor: $env:npm_config_script_shell"
+}
+
 Invoke-Vercel build --prod --scope $Scope
 
 Write-Host ""
