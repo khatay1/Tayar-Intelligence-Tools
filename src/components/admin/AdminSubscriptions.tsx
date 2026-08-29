@@ -124,13 +124,14 @@ export default function AdminSubscriptions() {
   const active = subs.filter(s => s.status === 'active' || s.status === 'trialing');
   const revenue = active.reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0);
   const renewals = active.filter(s => s.renewal_date && new Date(s.renewal_date) > new Date());
-  const failed = subs.filter(s => ['expired', 'canceled', 'past_due', 'unpaid'].includes(s.status));
+  const failed = subs.filter(s => ['expired', 'canceled', 'unpaid'].includes(s.status));
+  const pastDue = subs.filter(s => s.status === 'past_due');
 
   const byPlan = ['free', 'pro', 'business'].map(p => ({
     label: p, value: subs.filter(s => s.plan === p).length,
   }));
 
-  const filtered = filter === 'all' ? subs : filter === 'active' ? active : filter === 'failed' ? failed : renewals;
+  const filtered = filter === 'all' ? subs : filter === 'active' ? active : filter === 'past_due' ? pastDue : filter === 'failed' ? failed : renewals;
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
@@ -157,11 +158,12 @@ export default function AdminSubscriptions() {
           onRefresh={() => void loadBillingStatus()}
         />
       ) : <>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: 'Est. MRR', value: `${revenue}`, icon: TrendingUp, color: 'emerald' },
           { label: 'Active Subs', value: active.length, icon: CheckCircle, color: 'violet' },
           { label: 'Upcoming Renewals', value: renewals.length, icon: RefreshCw, color: 'blue' },
+          { label: 'Past Due / Grace', value: pastDue.length, icon: AlertCircle, color: 'blue' },
           { label: 'Failed Payments', value: failed.length, icon: AlertCircle, color: 'red' },
         ].map(s => {
           const colors: Record<string, string> = {
@@ -187,7 +189,7 @@ export default function AdminSubscriptions() {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {['all', 'active', 'renewals', 'failed'].map(f => (
+        {['all', 'active', 'past_due', 'renewals', 'failed'].map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -231,7 +233,7 @@ export default function AdminSubscriptions() {
                       s.status === 'active' || s.status === 'trialing' ? 'text-emerald-400' : 'text-red-400'
                     }`}>
                       {s.status === 'active' || s.status === 'trialing' ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                      {s.status}
+                      {s.status === 'past_due' ? l('past_due · 3-day grace') : s.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-400 hidden sm:table-cell">
