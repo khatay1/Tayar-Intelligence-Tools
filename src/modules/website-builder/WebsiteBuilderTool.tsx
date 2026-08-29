@@ -2695,8 +2695,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [selectedId, setSelectedId] = useState<string | null>(defaultSections[0].id);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(defaultSections[0].elements[0]?.id ?? null);
   const [device, setDevice] = useState<Device>('desktop');
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [siteName, setSiteName] = useState('My Website');
@@ -6295,16 +6293,14 @@ if (generated.seo) {
     publishedUrl && lastPublishedFingerprint && buildEditableFingerprint() !== lastPublishedFingerprint
   );
 
-  const utilityDrawerClass = 'fixed bottom-0 right-0 top-16 z-[220] w-full max-w-3xl overflow-y-auto border-l px-4 py-4 shadow-2xl backdrop-blur-xl';
-
   return (
     <div
-      className={`-m-4 flex min-h-[calc(100vh-64px)] flex-col overflow-hidden lg:-m-8 ${
+      className={`-m-4 flex min-h-[calc(100vh-64px)] flex-col lg:-m-8 ${
         darkMode ? 'bg-[#06060f] text-white' : 'bg-gray-50 text-gray-900'
       }`}
     >
       <header
-        className={`sticky top-0 z-40 flex items-center justify-between gap-3 border-b px-4 py-3 ${
+        className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 ${
           darkMode
             ? 'border-white/10 bg-[#0a0a1a]'
             : 'border-gray-200 bg-white'
@@ -6323,29 +6319,7 @@ if (generated.seo) {
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto whitespace-nowrap pb-1 [&>button]:shrink-0 [&>div]:shrink-0 [&>input]:shrink-0 [&>select]:shrink-0">
-          <button
-            type="button"
-            onClick={() => setLeftSidebarOpen((open) => !open)}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${leftSidebarOpen ? 'border-violet-500 bg-violet-500/10 text-violet-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
-            title={leftSidebarOpen ? l('Hide builder sidebar') : l('Show builder sidebar')}
-            aria-pressed={leftSidebarOpen}
-          >
-            <Type className="h-4 w-4" />
-            <span className="hidden xl:inline">{l('Build')}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setInspectorOpen((open) => !open)}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${inspectorOpen ? 'border-violet-500 bg-violet-500/10 text-violet-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
-            title={inspectorOpen ? l('Hide inspector') : l('Show inspector')}
-            aria-pressed={inspectorOpen}
-          >
-            <Eye className="h-4 w-4" />
-            <span className="hidden xl:inline">{l('Inspector')}</span>
-          </button>
-
+        <div className="flex flex-wrap items-center gap-2">
           <input
             value={siteName}
             onChange={(e) => {
@@ -6783,7 +6757,7 @@ if (generated.seo) {
       )}
 
       {launchCenterOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-cyan-500/20 bg-[#06141a]/95' : 'border-cyan-200 bg-cyan-50/95'}`}>
+        <div className={`border-b px-4 py-4 ${darkMode ? 'border-cyan-500/20 bg-[#06141a]' : 'border-cyan-200 bg-cyan-50/60'}`}>
           <div className="mx-auto max-w-6xl space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -6869,7 +6843,7 @@ if (generated.seo) {
       )}
 
       {billingOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-emerald-500/20 bg-[#07140f]/95' : 'border-emerald-200 bg-emerald-50/95'}`}>
+        <div className={`border-b px-4 py-4 ${darkMode ? 'border-emerald-500/20 bg-[#07140f]' : 'border-emerald-200 bg-emerald-50/60'}`}>
           <div className="mx-auto max-w-6xl space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -6963,7 +6937,7 @@ if (generated.seo) {
       )}
 
       {deliveryOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-fuchsia-500/20 bg-[#170b18]/95' : 'border-fuchsia-200 bg-fuchsia-50/95'}`}>
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-fuchsia-500/20 bg-[#170b18]' : 'border-fuchsia-200 bg-fuchsia-50/50'}`}>
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -7032,7 +7006,7 @@ if (generated.seo) {
       )}
 
       {operationsOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-sky-500/20 bg-[#08131a]/95' : 'border-sky-200 bg-sky-50/95'}`}>
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-sky-500/20 bg-[#08131a]' : 'border-sky-200 bg-sky-50/50'}`}>
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div><p className="text-xs font-bold">{l('Operations & Reliability')}</p><p className="text-[11px] text-gray-500">{l('Backup, restore, exports and bulk operations.')}</p></div>
@@ -7054,7 +7028,7 @@ if (generated.seo) {
       )}
 
       {analyticsOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-amber-500/20 bg-[#181208]/95' : 'border-amber-200 bg-amber-50/95'}`}>
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-amber-500/20 bg-[#181208]' : 'border-amber-200 bg-amber-50/50'}`}>
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -7126,7 +7100,7 @@ if (generated.seo) {
       )}
 
       {mediaOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-fuchsia-500/20 bg-[#170b18]/95' : 'border-fuchsia-200 bg-fuchsia-50/95'}`}>
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-fuchsia-500/20 bg-[#170b18]' : 'border-fuchsia-200 bg-fuchsia-50/50'}`}>
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -7189,7 +7163,7 @@ if (generated.seo) {
       )}
 
       {leadsOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-cyan-500/20 bg-[#08131a]/95' : 'border-cyan-200 bg-cyan-50/95'}`}>
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-cyan-500/20 bg-[#08131a]' : 'border-cyan-200 bg-cyan-50/50'}`}>
           <div className="mx-auto flex max-w-7xl flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -7314,7 +7288,7 @@ if (generated.seo) {
       )}
 
       {releaseHistoryOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-indigo-500/20 bg-[#0b0d1d]/95' : 'border-indigo-200 bg-indigo-50/95'}`}>
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-indigo-500/20 bg-[#0b0d1d]' : 'border-indigo-200 bg-indigo-50/40'}`}>
           <div className="mx-auto flex max-w-6xl flex-col gap-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -7388,7 +7362,7 @@ if (generated.seo) {
       )}
 
       {historyOpen && (
-        <div className={`${utilityDrawerClass} ${darkMode ? 'border-white/10 bg-[#0d0d20]/95' : 'border-gray-200 bg-gray-50/95'}`}>
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-white/10 bg-[#0d0d20]' : 'border-gray-200 bg-gray-50'}`}>
           <div className="mx-auto flex max-w-6xl flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -7418,23 +7392,20 @@ if (generated.seo) {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {leftSidebarOpen && <aside
-          className={`fixed bottom-0 left-0 top-16 z-[210] w-[min(20rem,92vw)] shrink-0 overflow-y-auto border-r p-4 shadow-2xl lg:static lg:z-auto lg:w-72 lg:shadow-none ${
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <aside
+          className={`w-full shrink-0 border-b p-4 lg:w-64 lg:border-b-0 lg:border-r ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
           }`}
         >
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="mb-3 flex items-center justify-between">
               <span className="text-xs font-semibold">{l('Pages')}</span>
-              <div className="flex items-center gap-1">
-                <button type="button" onClick={addPage} className="rounded p-1 text-violet-400 hover:bg-violet-500/10" title={l('Add page')}>
-                  <Plus className="h-4 w-4" />
-                </button>
-                <button type="button" onClick={() => setLeftSidebarOpen(false)} className="rounded px-2 py-1 text-sm text-gray-500 hover:bg-white/10 hover:text-violet-400" title={l('Hide builder sidebar')} aria-label={l('Hide builder sidebar')}>×</button>
-              </div>
+              <button type="button" onClick={addPage} className="rounded p-1 text-violet-400 hover:bg-violet-500/10" title={l('Add page')}>
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
             <div className="space-y-1">
               {pages.map((page, index) => (
@@ -7930,7 +7901,7 @@ if (generated.seo) {
               {copied ? 'Copied HTML' : 'Copy HTML'}
             </button>
           </div>
-        </aside>}
+        </aside>
 
         <main
           className={`min-h-[600px] flex-1 overflow-auto p-4 lg:p-6 ${
@@ -8001,19 +7972,18 @@ if (generated.seo) {
           </div>
         </main>
 
-        {inspectorOpen && <aside
-          className={`fixed bottom-0 right-0 top-16 z-[210] w-[min(22rem,92vw)] shrink-0 overflow-y-auto border-l p-4 shadow-2xl lg:static lg:z-auto lg:w-80 lg:shadow-none ${
+        <aside
+          className={`w-full shrink-0 border-t p-4 lg:w-72 lg:border-l lg:border-t-0 ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
           }`}
         >
-          <div className="mb-5 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-violet-400" />
-              <h2 className="text-xs font-bold uppercase tracking-wider">Inspector</h2>
-            </div>
-            <button type="button" onClick={() => setInspectorOpen(false)} className="rounded px-2 py-1 text-sm text-gray-500 hover:bg-white/10 hover:text-violet-400" title={l('Hide inspector')} aria-label={l('Hide inspector')}>×</button>
+          <div className="mb-5 flex items-center gap-2">
+            <Eye className="h-4 w-4 text-violet-400" />
+            <h2 className="text-xs font-bold uppercase tracking-wider">
+              Inspector
+            </h2>
           </div>
 
           {selectedElement && (
@@ -8821,7 +8791,7 @@ if (generated.seo) {
               </button>
             </div>
           )}
-        </aside>}
+        </aside>
       </div>
     </div>
   );
