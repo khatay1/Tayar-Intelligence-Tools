@@ -1,6 +1,6 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
-import { LifeBuoy, Loader2, Bug, Lightbulb, MessageSquare, X, Send, Clock, CheckCircle } from 'lucide-react';
+import { LifeBuoy, Loader2, Bug, Lightbulb, MessageSquare, X, Send, Clock, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 
@@ -22,6 +22,7 @@ export default function AdminSupport() {
   const { success, error: showError } = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'open' | 'closed' | 'bug' | 'feature'>('all');
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [response, setResponse] = useState('');
@@ -29,12 +30,23 @@ export default function AdminSupport() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
-    setTickets((data || []) as Ticket[]);
+    setLoadError(null);
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to load admin support tickets:', error);
+      setTickets([]);
+      setLoadError(error.message || 'Failed to load support tickets.');
+    } else {
+      setTickets((data || []) as Ticket[]);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const filtered = tickets.filter(t => {
     if (filter === 'all') return true;
@@ -54,7 +66,7 @@ export default function AdminSupport() {
       success('Response sent and ticket closed');
       setSelected(null);
       setResponse('');
-      load();
+      void load();
     }
     setResponding(false);
   }
@@ -62,11 +74,24 @@ export default function AdminSupport() {
   async function changeStatus(ticket: Ticket, status: string) {
     const { error } = await supabase.from('support_tickets').update({ status, updated_at: new Date().toISOString() }).eq('id', ticket.id);
     if (error) showError('Failed to update ticket');
-    else { success('Ticket updated'); load(); }
+    else { success('Ticket updated'); void load(); }
   }
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-violet-500 animate-spin" /></div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+        <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <h2 className="text-white font-semibold mb-2">{l('Support data unavailable')}</h2>
+        <p className="text-sm text-gray-400 mb-4">{loadError}</p>
+        <button onClick={() => void load()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+          <RefreshCw className="w-4 h-4" /> {l('Retry')}
+        </button>
+      </div>
+    );
   }
 
   const typeIcons: Record<string, typeof Bug> = {
