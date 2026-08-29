@@ -1,29 +1,31 @@
 # Canonical Baseline
 
-This clean baseline was prepared from Git commit `9ff2ee4261ae32edaea11ad95d9ea35d1d687733` (public-site polish) and is the source tree to continue building on.
+## Source of truth
 
-## Removed as unnecessary or obsolete
+The GitHub `main` branch is the only source of truth for Tayar Intelligence Tools.
 
-- Duplicate outer copy of the project from `final.zip`
-- `.git/` metadata from the uploaded archive
-- `dist/` build output
-- `.bolt/` generator metadata
-- Empty `db-data.sql`
-- Unused `public/icon-512.webp`
-- Legacy `scripts/upgrade-website-builder-ai.ps1`
-- Dead/unreachable UI/source files: old `Dashboard.tsx`, `GlassCard.tsx`, `GlobalSearch.tsx`, `AISettings.tsx`, placeholder `image-service.ts`, and unused `errors.ts`
+On 2026-08-29, the uploaded archive `Tayar-Intelligence-Tools-CANONICAL-CLEAN-TRANSLATIONS-COMPLETE (1).zip` was reviewed against the production-hardened repository. The archive was not copied over `main` wholesale because it predates later security, TypeScript, lint, billing, admin, workspace, CI, Vercel, and production-hardening work.
 
-## Production cleanup applied
+The latest Website Builder UI refinements from that archive were safely merged onto the newer production baseline instead:
 
-- Removed verbose authentication/onboarding debug logs
-- Removed noisy AI provider payload/model logs
-- Email Edge Function no longer logs recipient/subject; it fails closed unless a provider is configured or explicit development mode is enabled
-- Auth profile is refreshed after auth-state changes so plan/profile state is available without a manual reload
-- `.env.example` now reflects environment variables actually used by the codebase
-- PWA manifest no longer contains shortcuts that the current hash router does not honor
-- Sitemap no longer lists noindex authentication hash pages
-- `.gitignore` excludes generated/cache metadata consistently
+- Collapsible Build sidebar
+- Collapsible Inspector sidebar
+- Operational panels moved into compact side drawers
+- Sticky compact builder header
+- Responsive fixed sidebars on smaller screens
+- Existing P0/P1/P2, production hardening, billing, admin, workspace, publishing, security and release-gate fixes preserved
 
-## Continue from here
+The canonical merge passed the full GitHub Release Gate: lint, project health, production build, production dependency audit, and whitespace validation.
 
-Use this directory as the only project root for future work. Generated `dist/` output is disposable and should be recreated with `npm run build`.
+## Working rule
+
+Do not continue development from old ZIP copies or extracted folders.
+
+Always start from the repository `main` branch:
+
+```powershell
+git switch main
+git pull --ff-only origin main
+```
+
+Generated `dist/` output is disposable and should be recreated with `npm run build`.
