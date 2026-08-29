@@ -14,6 +14,8 @@ $Functions = @(
   'ai-engine',
   'billing-portal',
   'create-checkout-session',
+  'stripe-webhook',
+  'billing-admin-status',
   'email-service'
 )
 
