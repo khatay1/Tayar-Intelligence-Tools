@@ -10,11 +10,13 @@ const MAX_BODY_CHARS = readPositiveInt("AI_MAX_BODY_CHARS", 60_000, 2_000, 300_0
 const MAX_OUTPUT_TOKENS = readPositiveInt("AI_MAX_OUTPUT_TOKENS", 8_192, 256, 32_768);
 
 const FALLBACK_TEXT_MODEL = "gemini-3.6-flash";
-const SUPPORTED_TEXT_MODELS = new Set([
+const BUILTIN_TEXT_MODELS = new Set([
   "gemini-3.7-flash",
   "gemini-3.6-flash",
   "gemini-3.5-flash",
 ]);
+
+const GEMINI_MODEL_ID = /^gemini-[a-z0-9][a-z0-9._-]{1,80}$/i;
 
 interface IncomingMessage {
   role: "user" | "assistant" | "system";
@@ -113,9 +115,37 @@ async function parseBody(req: Request): Promise<AIRequestBody> {
   }
 }
 
-function supportedTextModel(value: unknown): string | null {
+function normalizeManagedModelId(value: unknown): string | null {
   const model = typeof value === "string" ? value.trim() : "";
-  return model && SUPPORTED_TEXT_MODELS.has(model) ? model : null;
+  return model && GEMINI_MODEL_ID.test(model) ? model : null;
+}
+
+async function loadAllowedTextModels(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<Set<string>> {
+  const allowed = new Set(BUILTIN_TEXT_MODELS);
+  const { data, error } = await admin
+    .from("admin_settings")
+    .select("value")
+    .eq("key", "ai_model_catalog")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[AI ENGINE] Failed to read admin model catalog");
+    return allowed;
+  }
+
+  if (!Array.isArray(data?.value)) return allowed;
+
+  for (const entry of data.value) {
+    if (!entry || typeof entry !== "object") continue;
+    const source = entry as Record<string, unknown>;
+    if (source.enabled === false) continue;
+    const model = normalizeManagedModelId(source.id);
+    if (model) allowed.add(model);
+  }
+
+  return allowed;
 }
 
 async function resolveTextModel(
@@ -123,6 +153,8 @@ async function resolveTextModel(
   userId: string,
   tool: string,
 ): Promise<string> {
+  const allowedModels = await loadAllowedTextModels(admin);
+
   const { data: toolSetting, error: toolError } = await admin
     .from("ai_settings")
     .select("model")
@@ -133,8 +165,8 @@ async function resolveTextModel(
   if (toolError) {
     console.error("[AI ENGINE] Failed to read per-tool model setting");
   } else {
-    const toolModel = supportedTextModel(toolSetting?.model);
-    if (toolModel) return toolModel;
+    const toolModel = normalizeManagedModelId(toolSetting?.model);
+    if (toolModel && allowedModels.has(toolModel)) return toolModel;
   }
 
   const { data: adminSetting, error: adminError } = await admin
@@ -146,8 +178,8 @@ async function resolveTextModel(
   if (adminError) {
     console.error("[AI ENGINE] Failed to read admin default model");
   } else {
-    const adminModel = supportedTextModel(adminSetting?.value);
-    if (adminModel) return adminModel;
+    const adminModel = normalizeManagedModelId(adminSetting?.value);
+    if (adminModel && allowedModels.has(adminModel)) return adminModel;
   }
 
   return FALLBACK_TEXT_MODEL;
