@@ -38,6 +38,7 @@ Review the pending migrations. The prepared release includes these new migration
 - `20260829231500_account_block_re_registration.sql`
 - `20260829233000_admin_block_list_and_support_immutability.sql`
 - `20260829234500_subscription_grace_period.sql`
+- `20260829235500_enforce_signup_policy.sql`
 
 Then apply only after the dry-run is clean:
 
@@ -89,6 +90,9 @@ git pull --ff-only origin main
 Verify on `https://www.tayar.se`:
 
 ### Admin / users
+- Toggle `signup_enabled` off and confirm new email/password registration is rejected while existing sign-in still works.
+- Confirm Google OAuth also respects signup-disabled mode.
+- Confirm a blocked email returning through Google OAuth is signed out and cannot enter Workspace.
 - Admin account displays `Admin Access`, not Free.
 - Admin keeps Business-level internal access without fake Stripe revenue.
 - Complimentary Pro/Business access can be granted and removed.
