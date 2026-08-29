@@ -1,8 +1,8 @@
 import { useLocalizer } from '@/lib/ui-localization';
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Cpu, Loader2, Zap, AlertCircle, CheckCircle, Activity,
-  TrendingUp, RefreshCw, Server, Clock, Save,
+  RefreshCw, Server, Clock, Save,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -290,5 +290,4 @@ export default function AdminAI() {
     </div>
   );
 }
-
 

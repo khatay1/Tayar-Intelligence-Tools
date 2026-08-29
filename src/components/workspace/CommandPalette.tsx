@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Search, X, FileText, Mail, Languages, GraduationCap, Folder,
-  ArrowRight, Loader2, Sparkles, Command, Settings, Bell, CreditCard,
-  LayoutDashboard, FolderOpen, Trash2, FileBarChart, ChevronRight,
+  Search, FileText, Folder, ArrowRight, Loader2, Command, Settings, Bell,
+  CreditCard, LayoutDashboard, FolderOpen, Trash2, FileBarChart,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -39,7 +38,7 @@ const NAV_ICONS: Record<string, typeof Search> = {
   'support': Bell,
 };
 
-export default function CommandPalette({ open, onClose, onNavigate, darkMode }: CommandPaletteProps) {
+export default function CommandPalette({ open, onClose, onNavigate, darkMode: _darkMode }: CommandPaletteProps) {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PaletteResult[]>([]);

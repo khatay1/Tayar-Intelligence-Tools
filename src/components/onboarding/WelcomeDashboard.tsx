@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   FileText, Upload, MessageSquare, Sparkles, Rocket,
   Trophy, Lock, CheckCircle2, ArrowRight, TrendingUp,
-  Zap, Target, BookOpen, PenLine, Mail, Languages,
+  Zap, Target,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useOnboarding, ACHIEVEMENTS } from '@/context/OnboardingContext';

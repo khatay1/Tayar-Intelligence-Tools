@@ -10,7 +10,7 @@ interface LineChartProps {
 
 export function LineChart({ data, color = '#a78bfa', height = 200, formatValue }: LineChartProps) {
   const l = useLocalizer();
-  const { points, areaPath, linePath, maxVal, minVal } = useMemo(() => {
+  const { points, areaPath, linePath } = useMemo(() => {
     if (data.length === 0) return { points: [], areaPath: '', linePath: '', maxVal: 0, minVal: 0 };
     const w = 100;
     const h = 100;

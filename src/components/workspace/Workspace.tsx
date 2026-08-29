@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, Suspense, lazy } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import {
   Bell, Menu, X, LogOut, ChevronDown, Globe, Sun, Moon,
-  Crown, User as UserIcon, Settings, CreditCard, Command, Activity, Shield, Sparkles,
+  Crown, Settings, CreditCard, Command, Activity, Shield, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
@@ -42,7 +42,6 @@ import InstallPrompt from '@/components/ui/InstallPrompt';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { useKeyboardShortcuts, SHORTCUT_HINTS } from '@/lib/use-keyboard-shortcuts';
 import { trackPageView } from '@/lib/analytics';
-import { translate } from '@/lib/i18n';
 import '@/modules';
 import { toolRegistry } from '@/modules/registry';
 
@@ -85,7 +84,7 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
   const { prefs, setTheme, setLanguage } = usePreferences();
 const { t } = useTranslation();
   const l = useLocalizer();
-  const { state: onboardingState, loading: onboardingLoading, needsOnboarding } = useOnboarding();
+  const { loading: onboardingLoading, needsOnboarding } = useOnboarding();
   const [activeView, setActiveView] = useState<ViewId>(getWorkspaceViewFromHash);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -201,47 +200,6 @@ const { t } = useTranslation();
     group: 'tools' as const,
     badge: 'Soon',
   }));
-  const getNavLabel = (item: NavItem): string => {
-  const keys: Partial<Record<ViewId, string>> = {
-    dashboard: 'nav.dashboard',
-    'my-workspace': 'nav.myWorkspace',
-    'ai-chat': 'nav.aiChat',
-    'my-files': 'nav.myFiles',
-    'my-projects': 'nav.projects',
-    trash: 'nav.trash',
-    'activity-timeline': 'nav.activity',
-    'cv-builder': 'nav.cvBuilder',
-    'cover-letter': 'nav.coverLetter',
-    'document-ai': 'nav.documentAI',
-    'ai-writer': 'nav.aiWriter',
-    translator: 'nav.translator',
-    'study-assistant': 'nav.studyAssistant',
-    'pdf-tools': 'nav.pdfTools',
-    'image-tools': 'nav.imageTools',
-    'ai-usage': 'nav.aiUsage',
-    subscription: 'nav.subscription',
-    settings: 'nav.settings',
-    support: 'nav.support',
-    help: 'nav.help',
-    about: 'nav.about',
-    contact: 'nav.contact',
-    feedback: 'nav.feedback',
-    'bug-report': 'nav.bugReport',
-    privacy: 'footer.privacy',
-    terms: 'footer.terms',
-    profile: 'nav.profile',
-  };
-
-  const key = keys[item.id];
-  return key ? translate(key as any, prefs.language) : item.label;
-};
-
-const translatedMainItems = NAV_ITEMS
-  .filter(i => i.group === 'main')
-  .map(item => ({ ...item, label: getNavLabel(item) }));
-
-
-
 const translateNavItem = (item: NavItem): NavItem => {
   const translations: Partial<Record<ViewId, string>> = {
     dashboard: t('nav.dashboard'),

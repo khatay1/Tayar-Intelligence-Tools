@@ -150,7 +150,7 @@ interface TemplateProps {
   renderSection: (secId: string, label: string, titleClass: string) => React.ReactNode;
 }
 
-function ContactRow({ data, className = '', theme }: { data: CVData; className?: string; theme: typeof COLOR_THEMES[0] }) {
+function ContactRow({ data, className = '', theme: _theme }: { data: CVData; className?: string; theme: typeof COLOR_THEMES[0] }) {
   return (
     <div className={`flex flex-wrap gap-x-4 gap-y-1 text-xs ${className}`}>
       {data.personal.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {data.personal.email}</span>}
@@ -203,7 +203,7 @@ function ModernTemplate({ data, theme, fontFamily, orderedSections, sectionMap, 
 }
 
 /* ===== MINIMAL ===== */
-function MinimalTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection }: TemplateProps) {
+function MinimalTemplate({ data, theme, fontFamily, orderedSections, sectionMap: _sectionMap, renderSection }: TemplateProps) {
   return (
     <div className="bg-white text-gray-800 min-h-full p-8" style={{ fontFamily }}>
       <div className="text-center mb-6 pb-4 border-b border-gray-200">
@@ -217,7 +217,7 @@ function MinimalTemplate({ data, theme, fontFamily, orderedSections, sectionMap,
 }
 
 /* ===== EXECUTIVE ===== */
-function ExecutiveTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection }: TemplateProps) {
+function ExecutiveTemplate({ data, theme, fontFamily, orderedSections, sectionMap: _sectionMap, renderSection }: TemplateProps) {
   return (
     <div className="bg-white text-gray-800 min-h-full" style={{ fontFamily }}>
       <div className="text-white p-6 text-center" style={{ background: theme.primaryDark }}>
@@ -233,7 +233,7 @@ function ExecutiveTemplate({ data, theme, fontFamily, orderedSections, sectionMa
 }
 
 /* ===== CREATIVE ===== */
-function CreativeTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection }: TemplateProps) {
+function CreativeTemplate({ data, theme, fontFamily, orderedSections, sectionMap: _sectionMap, renderSection }: TemplateProps) {
   return (
     <div className="bg-white text-gray-800 min-h-full" style={{ fontFamily }}>
       <div className="text-white p-6 rounded-b-3xl" style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})` }}>
@@ -256,7 +256,7 @@ function CreativeTemplate({ data, theme, fontFamily, orderedSections, sectionMap
 }
 
 /* ===== PROFESSIONAL ===== */
-function ProfessionalTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection }: TemplateProps) {
+function ProfessionalTemplate({ data, theme, fontFamily, orderedSections, sectionMap: _sectionMap, renderSection }: TemplateProps) {
   return (
     <div className="bg-white text-gray-800 min-h-full p-8" style={{ fontFamily }}>
       <div className="mb-5 pb-4 border-b-2" style={{ borderColor: theme.primary }}>
@@ -270,7 +270,7 @@ function ProfessionalTemplate({ data, theme, fontFamily, orderedSections, sectio
 }
 
 /* ===== ATS ===== */
-function ATSTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection }: TemplateProps) {
+function ATSTemplate({ data, theme: _theme, fontFamily, orderedSections, sectionMap, renderSection: _renderSection }: TemplateProps) {
   return (
     <div className="bg-white text-black min-h-full p-8" style={{ fontFamily }}>
       <div className="text-center mb-4">
@@ -344,7 +344,7 @@ function TechTemplate({ data, theme, fontFamily, orderedSections, sectionMap, re
 }
 
 /* ===== FINANCE ===== */
-function FinanceTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection }: TemplateProps) {
+function FinanceTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection: _renderSection }: TemplateProps) {
   return (
     <div className="bg-white text-gray-800 min-h-full p-8" style={{ fontFamily }}>
       <div className="mb-5 pb-3 border-b-2 border-double" style={{ borderColor: theme.primaryDark }}>
@@ -404,7 +404,7 @@ function HealthcareTemplate({ data, theme, fontFamily, orderedSections, sectionM
 }
 
 /* ===== ACADEMIC ===== */
-function AcademicTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection }: TemplateProps) {
+function AcademicTemplate({ data, theme, fontFamily, orderedSections, sectionMap, renderSection: _renderSection }: TemplateProps) {
   return (
     <div className="bg-white text-gray-800 min-h-full p-8" style={{ fontFamily }}>
       <div className="text-center mb-5 pb-3 border-b border-gray-300">

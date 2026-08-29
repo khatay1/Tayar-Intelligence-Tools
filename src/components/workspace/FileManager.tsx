@@ -1,11 +1,11 @@
 import { useLocalizer } from '@/lib/ui-localization';
-﻿// Upgraded File Manager — search, filter, sort, rename, duplicate, move, delete,
+// Upgraded File Manager — search, filter, sort, rename, duplicate, move, delete,
 // favorites, pin, grid/list views, storage indicator, beautiful empty states.
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, Grid3x3, List, Star, Trash2, FileText, Loader2, FolderOpen,
-  MoreVertical, Copy, Edit2, X, Pin, ArrowUpDown, Folder, Heart,
+  MoreVertical, Copy, Edit2, Pin, ArrowUpDown, Folder, Heart,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -44,7 +44,7 @@ interface FileManagerProps {
 export default function FileManager({ onNavigate }: FileManagerProps) {
   const l = useLocalizer();
   const { user } = useAuth();
-  const { deleteProject, renameProject, duplicateProject } = useProjects();
+  const { renameProject, duplicateProject } = useProjects();
   const { success, error: showError } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -396,7 +396,7 @@ interface FileCardProps {
   onMove: (p: Project) => void;
 }
 
-function FileCard({ project, view, index, isFirst, isLast, onOpen, menuOpen, setMenuOpen, onDelete, onDuplicate, onRename, onToggleFavorite, onTogglePin, onMove }: FileCardProps) {
+function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, menuOpen, setMenuOpen, onDelete, onDuplicate, onRename, onToggleFavorite, onTogglePin, onMove }: FileCardProps) {
   const meta = getFileMeta(project.type);
   const isFavorite = (project as Project & { favorite?: boolean }).favorite;
   const isPinned = (project as Project & { pinned?: boolean }).pinned;
@@ -504,7 +504,6 @@ function FileMenu({
     </div>
   );
 }
-
 
 
 

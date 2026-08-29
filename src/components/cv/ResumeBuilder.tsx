@@ -1,7 +1,7 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  ArrowLeft, Save, Download, Eye, Plus, Trash2, GripVertical,
+  ArrowLeft, Download, Eye, Plus, Trash2, GripVertical,
   Sparkles, Loader2, FileText, FileDown, ZoomIn, ZoomOut,
   Briefcase, Target, Check, X, History, Palette, ChevronDown,
   PenLine, CheckCircle2, Minimize2, Maximize2, Award, Wand2, Mail, Copy,

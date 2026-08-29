@@ -2,8 +2,8 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Settings, Bell, Mail, Database, Key, Flag, FileText,
-  Loader2, Plus, Trash2, Save, RefreshCw, AlertCircle, CheckCircle,
-  Power, Shield, Download, Clock,
+  Loader2, Plus, Save, RefreshCw, CheckCircle,
+  Power, Download, Clock,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -21,7 +21,6 @@ const TABS: { id: SystemTab; label: string; icon: typeof Settings }[] = [
 ];
 
 export default function AdminSystem() {
-  const l = useLocalizer();
   const [tab, setTab] = useState<SystemTab>('settings');
 
   return (
@@ -58,7 +57,7 @@ export default function AdminSystem() {
 
 function SettingsTab() {
   const l = useLocalizer();
-  const { success, error: showError } = useToast();
+  const { success } = useToast();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

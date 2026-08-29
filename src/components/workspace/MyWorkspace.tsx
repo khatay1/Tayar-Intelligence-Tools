@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Sparkles, Clock, Star, Pin, Folder, FileText, Mail, MessageSquare,
-  Languages, GraduationCap, ArrowUpRight, Plus, Loader2, TrendingUp,
+  Languages, GraduationCap, ArrowUpRight, Plus, Loader2,
   Zap, Crown, Activity,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -13,7 +13,6 @@ import { supabase } from '@/lib/supabase';
 import { useProjects, Project } from '@/lib/use-projects';
 import { getFileMeta, timeAgo, ViewId } from './workspace-config';
 import { useToast } from '@/components/ui/Toast';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { StorageIndicator } from './StorageIndicator';
 import { useTranslation } from '@/lib/i18n';
 
@@ -53,7 +52,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
   const { user, profile } = useAuth();
   const { isAdmin } = useAdmin();
   const { createProject } = useProjects();
-  const { success, error: showError, loading, update } = useToast();
+  const { loading, update } = useToast();
   const [recentFiles, setRecentFiles] = useState<Project[]>([]);
   const [favoriteFiles, setFavoriteFiles] = useState<Project[]>([]);
   const [pinnedFiles, setPinnedFiles] = useState<Project[]>([]);

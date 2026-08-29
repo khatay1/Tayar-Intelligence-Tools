@@ -1,6 +1,6 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import { useState } from 'react';
-import { FileText, Save, Loader2, Eye, Code } from 'lucide-react';
+import { FileText, Save, Loader2, Eye } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 type ContentType = 'landing' | 'pricing' | 'faq' | 'terms' | 'privacy';

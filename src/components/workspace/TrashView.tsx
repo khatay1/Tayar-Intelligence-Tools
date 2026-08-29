@@ -22,7 +22,7 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 export default function TrashView() {
   const l = useLocalizer();
   const { user } = useAuth();
-  const { success, error: showError, loading, update } = useToast();
+  const { loading, update } = useToast();
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loadingState, setLoadingState] = useState(true);
   const [confirmPurge, setConfirmPurge] = useState(false);

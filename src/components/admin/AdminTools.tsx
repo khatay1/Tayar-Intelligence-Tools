@@ -1,14 +1,10 @@
-import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
-import { Wrench, Loader2, Star, ToggleRight, ToggleLeft, Users } from 'lucide-react';
+import { Loader2, Star, ToggleRight, ToggleLeft, Users } from 'lucide-react';
 import { toolRegistry } from '@/modules/registry';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 
-interface ToolUsage { tool: string; count: number; }
-
 export default function AdminTools() {
-  const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [usage, setUsage] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);

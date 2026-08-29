@@ -57,7 +57,7 @@ export function calculateATSScore(cv: CVData): number {
 }
 
 function calculateGrammarScore(cv: CVData): number {
-  let score = 100;
+  const score = 100;
   let deductions = 0;
   const allText = [
     cv.summary,

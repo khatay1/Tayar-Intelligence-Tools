@@ -2,7 +2,7 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useMemo } from 'react';
 import {
   Search, Users, Loader2, X, Ban, Trash2, Edit3, Mail,
-  Shield, Crown, MoreVertical, ChevronLeft, ChevronRight,
+  Shield, Crown, ChevronLeft, ChevronRight,
   AlertTriangle, CheckCircle,
 } from 'lucide-react';
 import { useAdminUsers, AdminUser } from '@/lib/admin-hooks';

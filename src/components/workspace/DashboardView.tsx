@@ -7,7 +7,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { supabase } from '@/lib/supabase';
-import { useProjects, Project } from '@/lib/use-projects';
+import { Project } from '@/lib/use-projects';
 import { useToolPreferences } from '@/lib/use-tool-preferences';
 import { toolRegistry } from '@/modules/registry';
 import { CATEGORIES, getCategory } from '@/modules/categories';
@@ -28,7 +28,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const l = useLocalizer();
   const { user, profile } = useAuth();
   const { isAdmin } = useAdmin();
-  const { deleteProject, renameProject, duplicateProject } = useProjects();
   const prefs = useToolPreferences();
   const [projects, setProjects] = useState<Project[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);

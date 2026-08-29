@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   User as UserIcon, Shield, Bell, Palette, Globe, Mail,
-  Check, Loader2, AlertTriangle, Crown, Lock, Eye, EyeOff,
+  Check, Loader2, AlertTriangle, Lock, Eye, EyeOff,
   Download, Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -432,7 +432,6 @@ function SecurityTab({
 }) {
   void darkMode;
   const l = useLocalizer();
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswords, setShowPasswords] = useState(false);
@@ -454,7 +453,6 @@ function SecurityTab({
       toast.update(toastId, err, 'error');
     } else {
       toast.update(toastId, l('Password updated successfully'), 'success');
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     }
@@ -573,7 +571,7 @@ function SecurityTab({
 
 // --- Preferences Tab ---
 function PreferencesTab({
-  prefs, setTheme, setLanguage, darkMode,
+  prefs, setTheme, setLanguage, darkMode: _darkMode,
 }: {
   prefs: ReturnType<typeof usePreferences>['prefs'];
   setTheme: (t: Theme) => void;
@@ -645,7 +643,7 @@ function PreferencesTab({
 
 // --- Notifications Tab ---
 function NotificationsTab({
-  prefs, updatePrefs, darkMode,
+  prefs, updatePrefs, darkMode: _darkMode,
 }: {
   prefs: ReturnType<typeof usePreferences>['prefs'];
   updatePrefs: ReturnType<typeof usePreferences>['updatePrefs'];

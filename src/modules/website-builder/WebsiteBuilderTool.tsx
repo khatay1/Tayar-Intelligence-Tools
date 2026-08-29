@@ -907,7 +907,7 @@ function buildDesktopElementAnimationCss(sections: WebsiteSection[]): string {
   sections.forEach((section) => {
     (section.elements || []).forEach((element) => {
       const style = effectiveStyle(element, 'desktop');
-      const selector = `[data-tayar-element=\"${cssAttributeValue(element.id)}\"]`;
+      const selector = `[data-tayar-element="${cssAttributeValue(element.id)}"]`;
       rules.push(`.tayar-js ${selector}{${elementRevealCss(style)}}`);
       rules.push(`.tayar-js ${selector}.tayar-visible{${elementRevealVisibleCss(style)}}`);
     });
@@ -1900,7 +1900,7 @@ function buildFullHtml(
     if (node.dataset.counted === 'true') return;
     node.dataset.counted = 'true';
     const raw = node.getAttribute('data-target') || '0';
-    const match = raw.match(/-?\d+(?:\.\d+)?/);
+    const match = raw.match(/-?\\d+(?:\\.\\d+)?/);
     if (!match) { node.textContent = raw; return; }
     const target = Number(match[0]);
     const prefix = raw.slice(0, match.index || 0);
@@ -2669,11 +2669,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState('');
-  const [aiImproving, setAiImproving] = useState(false);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [, setDragOverId] = useState<string | null>(null);
   const [draggedElementId, setDraggedElementId] = useState<string | null>(null);
   const [dragOverElementId, setDragOverElementId] = useState<string | null>(null);
   const [cloudProjects, setCloudProjects] = useState<CloudWebsiteProject[]>([]);
@@ -4672,31 +4671,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function duplicateSection(id: string) {
-    remember(sections);
-    setSections((current) => {
-      const index = current.findIndex((section) => section.id === id);
-      if (index === -1) return current;
-
-      const original = current[index];
-      const copy: WebsiteSection = {
-        ...original,
-        id: `${original.type}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-        title: `${original.title} Copy`,
-        elements: original.elements.map((element) => ({
-          ...element,
-          id: `${l(element.type)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        })),
-      };
-
-      const next = [...current];
-      next.splice(index + 1, 0, copy);
-      return next;
-    });
-
-    setSaved(false);
-  }
-
   function deleteSection(id: string) {
     remember(sections);
     setSections((current) => {
@@ -4856,51 +4830,6 @@ if (generated.seo) {
       setAiBusy(false);
     }
   }
-
-  async function improveSelectedSection() {
-    if (!selectedSection || aiImproving) return;
-
-    setAiImproving(true);
-    setAiError('');
-
-    try {
-      const ai = createAIService('website-builder');
-
-      const response = await ai.completeJSON<{
-        title: string;
-        description: string;
-        buttonText: string;
-      }>(
-        {
-          action: 'improve-section',
-          section: selectedSection,
-        },
-        [],
-        { temperature: 0.7, maxTokens: 1000 },
-      );
-
-      if (!response.json) {
-        throw new Error('AI did not return an improvement.');
-      }
-
-      remember(sections);
-
-      updateSelected({
-        title: response.json.title || selectedSection.title,
-        description: response.json.description || selectedSection.description,
-        buttonText: response.json.buttonText || selectedSection.buttonText,
-      });
-
-    } catch (error) {
-      setAiError(
-        error instanceof Error ? error.message : 'AI improvement failed.'
-      );
-    } finally {
-      setAiImproving(false);
-    }
-  }
-
-
 
   async function generateRealImage() {
     if (!selectedSection || aiBusy) return;
@@ -5084,7 +5013,7 @@ if (generated.seo) {
       setPreviewUrl(nextUrl);
       setPreviewCreatedAt(createdAt);
       setSaved(false);
-      try { await navigator.clipboard.writeText(nextUrl); } catch {}
+      try { await navigator.clipboard.writeText(nextUrl); } catch { /* Clipboard access is optional. */ }
     } catch (error) {
       setPreviewError(error instanceof Error ? error.message : 'Could not create share preview.');
     } finally {
@@ -5898,7 +5827,7 @@ if (generated.seo) {
       `Analytics events loaded: ${analyticsEvents.length}`,
       `Published: ${publishedUrl || 'No'}`,
     ].join('\n');
-    try { await navigator.clipboard.writeText(summary); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch {}
+    try { await navigator.clipboard.writeText(summary); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch { /* Clipboard access is optional. */ }
   }
 
   function previewWebsite() {

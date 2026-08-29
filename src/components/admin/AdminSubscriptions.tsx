@@ -1,6 +1,6 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
-import { CreditCard, Loader2, RefreshCw, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, RefreshCw, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { BarChart } from './Charts';
 

@@ -1,7 +1,6 @@
 import { useLocalizer } from '@/lib/ui-localization';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Loader2, ShieldAlert } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import AdminLayout, { AdminView } from './AdminLayout';
 import AdminDashboard from './AdminDashboard';
@@ -19,7 +18,6 @@ interface AdminPanelProps {
 
 export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
   const l = useLocalizer();
-  const { user } = useAuth();
   const { isAdmin, adminLoading } = useAdmin();
   const [view, setView] = useState<AdminView>('dashboard');
 

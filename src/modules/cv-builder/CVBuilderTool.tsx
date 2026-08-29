@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/Toast';
 
 export default function CVBuilderTool({ darkMode: _darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
-  const { loading, update, success } = useToast();
+  const { loading, update } = useToast();
   const [fullName, setFullName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [years, setYears] = useState('');

@@ -3,10 +3,9 @@ import { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, Users, Cpu, Wrench, CreditCard, LifeBuoy,
   FileText, Settings, LogOut, Menu, X, Bell, ChevronRight,
-  Shield, Server, Activity,
+  Shield, Activity,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useAdmin } from '@/context/AdminContext';
 import { supabase } from '@/lib/supabase';
 import AstronautLogo from '@/components/ui/AstronautLogo';
 

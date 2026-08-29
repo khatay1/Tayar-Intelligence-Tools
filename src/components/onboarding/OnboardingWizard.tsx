@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   ArrowRight, ArrowLeft, Check, Sparkles, Loader2,
   GraduationCap, Briefcase, User, Building2, Laptop,
-  Globe, FileText, PenLine, Languages, BookOpen, Mail,
+  FileText, PenLine, Languages, BookOpen, Mail,
   MessageSquare, TrendingUp, Rocket, Target,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -20,15 +20,6 @@ import { toolRegistry } from '@/modules/registry';
 type Step = 'welcome' | 'language' | 'user-type' | 'personalize' | 'goals' | 'recommendations';
 
 const STEP_ORDER: Step[] = ['welcome', 'language', 'user-type', 'personalize', 'goals', 'recommendations'];
-const STEP_LABELS: Record<Step, string> = {
-  welcome: 'Welcome',
-  language: 'Language',
-  'user-type': 'You',
-  personalize: 'Profile',
-  goals: 'Goals',
-  recommendations: 'Tools',
-};
-
 const ICON_MAP: Record<string, typeof FileText> = {
   GraduationCap, Briefcase, User, Building2, Laptop,
   FileText, PenLine, Languages, BookOpen, Mail, MessageSquare, TrendingUp, Rocket, Target,
@@ -50,7 +41,6 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
   const [country, setCountry] = useState('');
   const [profession, setProfession] = useState('');
   const [goal, setGoal] = useState('');
-  const [recommendedTools, setRecommendedTools] = useState<string[]>([]);
 
   // Pre-fill name from profile
   useEffect(() => {
@@ -76,7 +66,6 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
     if (!user) return;
     setSubmitting(true);
     const tools = getRecommendedTools(userType as UserType, goal);
-    setRecommendedTools(tools);
     await setLanguage(language);
     await seedSampleContent(user.id, fullName, userType);
     await markSampleSeeded();

@@ -105,7 +105,6 @@ export function exportToTXT(data: CVData): void {
 
 export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: ColorTheme): void {
   const theme = getTheme(colorTheme);
-  const primaryHex = theme.primary.replace('#', '');
 
   const sections: string[] = [];
 

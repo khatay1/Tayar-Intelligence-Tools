@@ -2,7 +2,7 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Sparkles, X, Send, Loader2, MessageSquare, Trash2, Plus,
-  ChevronRight, FileText,
+  FileText,
 } from 'lucide-react';
 import { createAIService } from '@/lib/ai/service';
 import { getErrorInfo } from '@/lib/ai/error-handler';
@@ -63,7 +63,7 @@ interface AIAssistantProps {
   onNavigate?: (view: ViewId) => void;
 }
 
-export default function AIAssistant({ darkMode, onNavigate }: AIAssistantProps) {
+export default function AIAssistant({ darkMode: _darkMode, onNavigate: _onNavigate }: AIAssistantProps) {
   const l = useLocalizer();
   const { assistantOpen, setAssistantOpen, activeContext, clearActiveContext } = useWorkspace();
   const [input, setInput] = useState('');

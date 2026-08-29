@@ -1,7 +1,7 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, ArrowRight, Search, Loader2 } from 'lucide-react';
-import { AI_COMMANDS, matchCommand, AICommand } from '@/lib/ai-commands';
+import { Sparkles, ArrowRight, Search } from 'lucide-react';
+import { matchCommand, AICommand } from '@/lib/ai-commands';
 import { ViewId } from './workspace-config';
 
 interface CommandBarProps {
