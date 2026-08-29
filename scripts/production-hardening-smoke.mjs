@@ -21,6 +21,7 @@ const requiredFiles = [
   'src/lib/seo.ts',
   'src/lib/analytics.ts',
   'src/lib/monitoring.ts',
+  'src/lib/supabase.ts',
   'src/components/workspace/CookieConsent.tsx',
 ];
 
@@ -34,6 +35,7 @@ const sitemap = read('public/sitemap.xml');
 const seo = read('src/lib/seo.ts');
 const analytics = read('src/lib/analytics.ts');
 const monitoring = read('src/lib/monitoring.ts');
+const supabase = read('src/lib/supabase.ts');
 const consent = read('src/components/workspace/CookieConsent.tsx');
 const vercelConfig = read('vercel.json');
 
@@ -61,6 +63,11 @@ check('External monitoring requires analytics consent',
 check('Consent changes are broadcast',
   consent.includes("'tayar-cookie-consent-changed'") &&
   analytics.includes("COOKIE_CONSENT_EVENT = 'tayar-cookie-consent-changed'"));
+
+check('Supabase browser configuration fails fast when missing',
+  supabase.includes('VITE_SUPABASE_URL') &&
+  supabase.includes('VITE_SUPABASE_ANON_KEY') &&
+  supabase.includes('throw new Error'));
 
 for (const header of [
   'Strict-Transport-Security',
