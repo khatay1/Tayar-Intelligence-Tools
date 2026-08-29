@@ -57,6 +57,7 @@ const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
 const manifest = read('public/manifest.webmanifest');
+const vercelConfig = JSON.parse(read('vercel.json'));
 const sitemap = read('public/sitemap.xml');
 const allCore = [auth, onboarding, aiEngine, emailService].join('\n');
 
@@ -118,6 +119,13 @@ check('PWA manifest has no broken hash shortcuts', !manifest.includes('"shortcut
 check('Sitemap excludes login hash route', !sitemap.includes('#login'));
 check('Sitemap excludes register hash route', !sitemap.includes('#register'));
 check('Sitemap excludes forgot-password hash route', !sitemap.includes('#forgot'));
+check(
+  'Vercel auto-deploys production main only',
+  vercelConfig.git?.deploymentEnabled?.main === true &&
+  vercelConfig.git?.deploymentEnabled?.['*'] === false
+);
+check('Production verification script exists', exists('scripts/verify-production.ps1'));
+check('Tomorrow release runbook exists', exists('docs/TOMORROW_RELEASE.md'));
 
 const failed = checks.filter((item) => !item.ok);
 console.log(`Project health check: ${checks.length - failed.length} passed, ${failed.length} failed`);
