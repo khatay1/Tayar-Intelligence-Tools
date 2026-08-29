@@ -8,6 +8,23 @@ $VercelPackage = 'vercel@latest'
 $VercelInstallDir = Join-Path $env:TEMP 'tayar-vercel-cli'
 $VercelCmd = Join-Path $VercelInstallDir 'node_modules\.bin\vercel.cmd'
 
+# Vercel's Windows build runner spawns cmd.exe for package scripts. Some
+# PowerShell environments do not expose System32 to child-process PATH, which
+# causes "spawn cmd.exe ENOENT". Normalize the Windows command environment.
+$CmdExe = Join-Path $env:SystemRoot 'System32\cmd.exe'
+$System32 = Split-Path $CmdExe -Parent
+if (-not (Test-Path $CmdExe)) {
+  throw "Windows command processor was not found at $CmdExe"
+}
+$env:ComSpec = $CmdExe
+$pathEntries = @($env:Path -split ';' | Where-Object { $_ })
+if ($pathEntries -notcontains $System32) {
+  $env:Path = "$System32;$env:Path"
+}
+if (-not $env:PATHEXT) {
+  $env:PATHEXT = '.COM;.EXE;.BAT;.CMD'
+}
+
 function Ensure-VercelCli {
   if (Test-Path $VercelCmd) {
     return
@@ -96,6 +113,7 @@ Invoke-Vercel pull --yes --environment=production --scope $Scope
 
 Write-Host ""
 Write-Host "Building locally for production..." -ForegroundColor Cyan
+Write-Host "Using command processor: $env:ComSpec" -ForegroundColor DarkGray
 Invoke-Vercel build --prod --scope $Scope
 
 Write-Host ""
