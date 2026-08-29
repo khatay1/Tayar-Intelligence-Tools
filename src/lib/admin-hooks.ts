@@ -32,9 +32,11 @@ export interface ToolPopularityPoint { tool: string; count: number; }
 export function useDashboardStats() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [profilesRes, projectsRes, aiRes, subsRes] = await Promise.all([
         supabase.from('profiles').select('id, created_at, plan, suspended'),
@@ -74,14 +76,16 @@ export function useDashboardStats() {
         monthlyRevenue,
         serverStatus: 'online',
       });
-    } catch {
+    } catch (loadError) {
+      console.error('Failed to load admin dashboard:', loadError);
       setStats(null);
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load admin dashboard.');
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-  return { stats, loading, refresh: load };
+  useEffect(() => { void load(); }, [load]);
+  return { stats, loading, error, refresh: load };
 }
 
 export function useUserGrowth() {
@@ -97,31 +101,32 @@ export function useUserGrowth() {
         .order('created_at', { ascending: true });
       const profilesData = (profiles || []) as { created_at: string }[];
 
-      // Group by day for last 30 days
+      // Group by day for the last 30 days while preserving users created
+      // before the window as the cumulative baseline.
       const days: Record<string, number> = {};
       const now = new Date();
+      const firstDay = new Date(now);
+      firstDay.setDate(firstDay.getDate() - 29);
+      firstDay.setHours(0, 0, 0, 0);
+
       for (let i = 29; i >= 0; i--) {
         const d = new Date(now); d.setDate(d.getDate() - i);
         const key = d.toISOString().split('T')[0];
         days[key] = 0;
       }
-      let cumulative = 0;
-      const allTimeCount: Record<string, number> = {};
-      for (const p of profilesData) {
-        const key = new Date(p.created_at).toISOString().split('T')[0];
-        allTimeCount[key] = (allTimeCount[key] || 0) + 1;
+
+      let cumulative = profilesData.filter((profile) => new Date(profile.created_at) < firstDay).length;
+      const dailyCounts: Record<string, number> = {};
+      for (const profile of profilesData) {
+        const created = new Date(profile.created_at);
+        if (created < firstDay) continue;
+        const key = created.toISOString().split('T')[0];
+        if (days[key] !== undefined) dailyCounts[key] = (dailyCounts[key] || 0) + 1;
       }
-      const sortedKeys = Object.keys(allTimeCount).sort();
-      for (const key of sortedKeys) {
-        cumulative += allTimeCount[key];
-        if (days[key] !== undefined) days[key] = cumulative;
-      }
-      // Fill forward cumulative
-      let lastVal = 0;
-      const result = Object.entries(days).map(([date, val]) => {
-        if (val === 0 && lastVal > 0) val = lastVal;
-        lastVal = val;
-        return { date, users: val };
+
+      const result = Object.keys(days).map((date) => {
+        cumulative += dailyCounts[date] || 0;
+        return { date, users: cumulative };
       });
       setData(result);
       setLoading(false);
