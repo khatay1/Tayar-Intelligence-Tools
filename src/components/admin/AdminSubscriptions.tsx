@@ -1,5 +1,5 @@
 import { useLocalizer } from '@/lib/ui-localization';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Loader2, RefreshCw, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { BarChart } from './Charts';
@@ -17,28 +17,54 @@ export default function AdminSubscriptions() {
   const l = useLocalizer();
   const [subs, setSubs] = useState<SubRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase.from('subscriptions').select('id, user_id, plan, status, renewal_date, created_at').order('created_at', { ascending: false });
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: queryError } = await supabase
+      .from('subscriptions')
+      .select('id, user_id, plan, status, renewal_date, created_at')
+      .order('created_at', { ascending: false });
+
+    if (queryError) {
+      console.error('Failed to load admin subscriptions:', queryError);
+      setSubs([]);
+      setError(queryError.message || 'Failed to load subscriptions.');
+    } else {
       setSubs((data || []) as SubRow[]);
-      setLoading(false);
-    })();
+    }
+
+    setLoading(false);
   }, []);
+
+  useEffect(() => { void load(); }, [load]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-violet-500 animate-spin" /></div>;
   }
 
-  const planPrices: Record<string, number> = { pro: 19, business: 49, enterprise: 99, free: 0 };
-  const active = subs.filter(s => s.status === 'active');
+  if (error) {
+    return (
+      <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+        <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <h2 className="text-white font-semibold mb-2">{l('Could not load subscriptions')}</h2>
+        <p className="text-sm text-gray-400 mb-4">{error}</p>
+        <button onClick={() => void load()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+          <RefreshCw className="w-4 h-4" /> {l('Retry')}
+        </button>
+      </div>
+    );
+  }
+
+  const planPrices: Record<string, number> = { pro: 19, business: 49, free: 0 };
+  const active = subs.filter(s => s.status === 'active' || s.status === 'trialing');
   const revenue = active.reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0);
   const renewals = active.filter(s => s.renewal_date && new Date(s.renewal_date) > new Date());
-  const failed = subs.filter(s => s.status === 'expired' || s.status === 'canceled');
+  const failed = subs.filter(s => ['expired', 'canceled', 'past_due', 'unpaid'].includes(s.status));
 
-  const byPlan = ['free', 'pro', 'business', 'enterprise'].map(p => ({
+  const byPlan = ['free', 'pro', 'business'].map(p => ({
     label: p, value: subs.filter(s => s.plan === p).length,
   }));
 
@@ -109,7 +135,6 @@ export default function AdminSubscriptions() {
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                       s.plan === 'pro' ? 'bg-fuchsia-500/10 text-fuchsia-400' :
                       s.plan === 'business' ? 'bg-cyan-500/10 text-cyan-400' :
-                      s.plan === 'enterprise' ? 'bg-amber-500/10 text-amber-400' :
                       'bg-gray-500/10 text-gray-400'
                     }`}>{s.plan}</span>
                   </td>
