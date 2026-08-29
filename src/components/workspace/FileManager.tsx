@@ -44,6 +44,7 @@ interface FileManagerProps {
 export default function FileManager({ onNavigate }: FileManagerProps) {
   const l = useLocalizer();
   const { user } = useAuth();
+  const userId = user?.id;
   const { renameProject, duplicateProject } = useProjects();
   const { success, error: showError } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -61,30 +62,30 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   const [movingItem, setMovingItem] = useState<Project | null>(null);
   const [parentProjects, setParentProjects] = useState<Project[]>([]);
 
-  useEffect(() => {
-    if (!user) return;
-    refreshProjects();
-    supabase
-      .from('projects')
-      .select('id, title')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .is('parent_project_id', null)
-      .order('title')
-      .then(({ data }) => setParentProjects((data as Project[]) || []));
-  }, [user]);
-
   const refreshProjects = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
     const { data } = await supabase
       .from('projects')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .is('deleted_at', null)
       .order('updated_at', { ascending: false });
     setProjects((data as Project[]) || []);
     setLoading(false);
-  }, [user]);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void refreshProjects();
+    void supabase
+      .from('projects')
+      .select('id, title')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .is('parent_project_id', null)
+      .order('title')
+      .then(({ data }) => setParentProjects((data as Project[]) || []));
+  }, [refreshProjects, userId]);
 
   async function handleDelete(id: string) {
     setMenuOpen(null);
