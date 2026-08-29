@@ -2335,7 +2335,7 @@ function ElementPreview({
 
   const wrapper = `relative max-w-full rounded-lg outline-none transition duration-150 ${editingInline ? 'cursor-text' : 'cursor-grab active:cursor-grabbing'} ${
     selected ? 'ring-2 ring-violet-400/90 shadow-[0_0_0_4px_rgba(139,92,246,0.08)]' : 'hover:ring-1 hover:ring-violet-400/40'
-  } ${dragging ? 'opacity-35' : 'opacity-100'} ${dragOver ? 'ring-2 ring-cyan-400 ring-offset-4 ring-offset-transparent' : ''}`;
+  } ${dragging ? 'scale-[0.99] opacity-55 shadow-xl' : 'opacity-100'} ${dragOver ? 'ring-2 ring-cyan-400/80' : ''}`;
 
   const commitInlineEdit = () => {
     if (!editingInline) return;
@@ -2461,6 +2461,7 @@ function SectionPreview({
   onSelectElement,
   draggedElementId,
   dragOverElementId,
+  dragOverElementPosition,
   onElementDragStart,
   onElementDragOver,
   onElementDrop,
@@ -2485,6 +2486,7 @@ function SectionPreview({
   onSelectElement: (id: string) => void;
   draggedElementId: string | null;
   dragOverElementId: string | null;
+  dragOverElementPosition: 'before' | 'after' | null;
   onElementDragStart: (id: string, e: React.DragEvent) => void;
   onElementDragOver: (id: string, e: React.DragEvent) => void;
   onElementDrop: (id: string, e: React.DragEvent) => void;
@@ -2659,6 +2661,9 @@ function SectionPreview({
                             opacity: hiddenOnDevice ? 0.32 : 1,
                           }}
                         >
+                          {dragOverElementId === element.id && dragOverElementPosition && draggedElementId !== element.id && (
+                            <span className={`pointer-events-none absolute left-0 right-0 z-50 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.75)] ${dragOverElementPosition === 'before' ? '-top-2' : '-bottom-2'}`} />
+                          )}
                           {hiddenOnDevice && <span className="absolute right-1 top-1 z-20 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">Hidden on {device}</span>}
                           {renderSelectedElementToolbar(element)}
                           <ElementPreview
@@ -2705,6 +2710,9 @@ function SectionPreview({
             };
             return (
               <div key={element.id} className="relative flex min-w-0 w-full flex-col" style={wrapperStyle}>
+                {dragOverElementId === element.id && dragOverElementPosition && draggedElementId !== element.id && (
+                  <span className={`pointer-events-none absolute left-0 right-0 z-50 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.75)] ${dragOverElementPosition === 'before' ? '-top-2' : '-bottom-2'}`} />
+                )}
                 {hiddenOnDevice && (
                   <span className="absolute right-1 top-1 z-20 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">Hidden on {device}</span>
                 )}
@@ -2860,9 +2868,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [, setDragOverId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragOverSectionPosition, setDragOverSectionPosition] = useState<'before' | 'after' | null>(null);
   const [draggedElementId, setDraggedElementId] = useState<string | null>(null);
   const [dragOverElementId, setDragOverElementId] = useState<string | null>(null);
+  const [dragOverElementPosition, setDragOverElementPosition] = useState<'before' | 'after' | null>(null);
+  const draggedSectionRef = useRef<string | null>(null);
+  const draggedElementRef = useRef<string | null>(null);
+  const draggedElementSectionRef = useRef<string | null>(null);
   const [cloudProjects, setCloudProjects] = useState<CloudWebsiteProject[]>([]);
   const [cloudProjectId, setCloudProjectId] = useState<string | null>(null);
   const [projectTeamAccess, setProjectTeamAccess] = useState<ProjectTeamAccess>(DEFAULT_PROJECT_TEAM_ACCESS);
@@ -4805,51 +4818,97 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function handleElementDragStart(id: string, e: React.DragEvent) {
+  function handleElementDragStart(sectionId: string, id: string, e: React.DragEvent) {
+    remember(sections);
+    draggedElementRef.current = id;
+    draggedElementSectionRef.current = sectionId;
     setDraggedElementId(id);
     setDragOverElementId(null);
+    setDragOverElementPosition(null);
+    setSelectedId(sectionId);
+    setSelectedElementId(id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/x-tayar-element', id);
+    e.dataTransfer.setData('application/x-tayar-section', sectionId);
   }
 
-  function handleElementDragOver(id: string, e: React.DragEvent) {
+  function handleElementDragOver(targetSectionId: string, targetId: string, e: React.DragEvent) {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    setDragOverElementId(id);
+
+    const sourceId = draggedElementRef.current;
+    const sourceSectionId = draggedElementSectionRef.current;
+    if (!sourceId || !sourceSectionId || sourceId === targetId) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const position: 'before' | 'after' = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    setDragOverElementId(targetId);
+    setDragOverElementPosition(position);
+
+    setSections((current) => {
+      const sourceSection = current.find((section) => section.id === sourceSectionId);
+      const targetSection = current.find((section) => section.id === targetSectionId);
+      if (!sourceSection || !targetSection) return current;
+
+      const sourceElement = sourceSection.elements.find((element) => element.id === sourceId);
+      if (!sourceElement) return current;
+
+      // Build the target list without the dragged element first so the insertion index is stable.
+      const targetWithoutSource = targetSection.elements.filter((element) => element.id !== sourceId);
+      const targetIndex = targetWithoutSource.findIndex((element) => element.id === targetId);
+      if (targetIndex === -1) return current;
+      const insertAt = targetIndex + (position === 'after' ? 1 : 0);
+
+      if (sourceSectionId === targetSectionId) {
+        const originalIndex = sourceSection.elements.findIndex((element) => element.id === sourceId);
+        const currentWithoutSource = sourceSection.elements.filter((element) => element.id !== sourceId);
+        const currentInsertAt = Math.min(insertAt, currentWithoutSource.length);
+        const originalInsertAt = originalIndex > currentInsertAt ? originalIndex - 1 : originalIndex;
+        if (originalInsertAt === currentInsertAt) return current;
+
+        const nextElements = [...currentWithoutSource];
+        nextElements.splice(currentInsertAt, 0, sourceElement);
+        return current.map((section) => section.id === sourceSectionId ? { ...section, elements: nextElements } : section);
+      }
+
+      const movedElement: WebsiteElement = {
+        ...sourceElement,
+        containerId: undefined,
+        layoutColumn: undefined,
+      };
+      const nextTargetElements = [...targetWithoutSource];
+      nextTargetElements.splice(Math.min(insertAt, nextTargetElements.length), 0, movedElement);
+      draggedElementSectionRef.current = targetSectionId;
+      setSelectedId(targetSectionId);
+
+      return current.map((section) => {
+        if (section.id === sourceSectionId) return { ...section, elements: section.elements.filter((element) => element.id !== sourceId) };
+        if (section.id === targetSectionId) return { ...section, elements: nextTargetElements };
+        return section;
+      });
+    });
+    setSaved(false);
   }
 
-  function handleElementDrop(targetId: string, e: React.DragEvent) {
+  function handleElementDrop(targetSectionId: string, targetId: string, e: React.DragEvent) {
     e.preventDefault();
-    if (!selectedSection) return;
-    const sourceId = e.dataTransfer.getData('application/x-tayar-element') || draggedElementId;
-    if (!sourceId || sourceId === targetId) {
-      handleElementDragEnd();
-      return;
+    e.stopPropagation();
+    const sourceId = draggedElementRef.current || e.dataTransfer.getData('application/x-tayar-element');
+    if (sourceId) {
+      setSelectedId(targetSectionId);
+      setSelectedElementId(sourceId);
     }
-
-    const sourceIndex = selectedSection.elements.findIndex((element) => element.id === sourceId);
-    const targetIndex = selectedSection.elements.findIndex((element) => element.id === targetId);
-    if (sourceIndex === -1 || targetIndex === -1) {
-      handleElementDragEnd();
-      return;
-    }
-
-    remember(sections);
-    setSections((current) => current.map((section) => {
-      if (section.id !== selectedSection.id) return section;
-      const elements = [...section.elements];
-      const [moved] = elements.splice(sourceIndex, 1);
-      elements.splice(targetIndex, 0, moved);
-      return { ...section, elements };
-    }));
-    setSelectedElementId(sourceId);
-    setSaved(false);
+    setDragOverElementId(targetId);
     handleElementDragEnd();
   }
 
   function handleElementDragEnd() {
+    draggedElementRef.current = null;
+    draggedElementSectionRef.current = null;
     setDraggedElementId(null);
     setDragOverElementId(null);
+    setDragOverElementPosition(null);
   }
 
   function addSection(type: SectionType) {
@@ -4946,7 +5005,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function handleDragStart(id: string, e: React.DragEvent) {
+    remember(sections);
+    draggedSectionRef.current = id;
     setDraggedId(id);
+    setDragOverId(null);
+    setDragOverSectionPosition(null);
+    setSelectedId(id);
+    setSelectedElementId(null);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', id);
   }
@@ -4955,52 +5020,46 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
+
+    const sourceId = draggedSectionRef.current;
+    if (!sourceId || sourceId === targetId) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const position: 'before' | 'after' = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
     setDragOverId(targetId);
+    setDragOverSectionPosition(position);
+
+    setSections((current) => {
+      const source = current.find((section) => section.id === sourceId);
+      if (!source) return current;
+      const withoutSource = current.filter((section) => section.id !== sourceId);
+      const targetIndex = withoutSource.findIndex((section) => section.id === targetId);
+      if (targetIndex === -1) return current;
+      const insertAt = targetIndex + (position === 'after' ? 1 : 0);
+      const currentSourceIndex = current.findIndex((section) => section.id === sourceId);
+      const normalizedCurrentIndex = currentSourceIndex > insertAt ? currentSourceIndex - 1 : currentSourceIndex;
+      if (normalizedCurrentIndex === insertAt) return current;
+      const next = [...withoutSource];
+      next.splice(Math.min(insertAt, next.length), 0, source);
+      return next;
+    });
+    setSaved(false);
   }
 
   function handleDrop(e: React.DragEvent, targetId: string) {
     e.preventDefault();
     e.stopPropagation();
-
-    const sourceId =
-      e.dataTransfer.getData('text/plain') || draggedId;
-
-    if (!sourceId || sourceId === targetId) {
-      setDraggedId(null);
-      return;
-    }
-
-    remember(sections);
-
-    setSections((current) => {
-      const sourceIndex = current.findIndex(
-        (section) => section.id === sourceId
-      );
-
-      const targetIndex = current.findIndex(
-        (section) => section.id === targetId
-      );
-
-      if (sourceIndex === -1 || targetIndex === -1) {
-        return current;
-      }
-
-      const next = [...current];
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, moved);
-
-      return next;
-    });
-
-    setSelectedId(sourceId);
-    setSaved(false);
-    setDraggedId(null);
-    setDragOverId(null);
+    const sourceId = draggedSectionRef.current || e.dataTransfer.getData('text/plain');
+    if (sourceId) setSelectedId(sourceId);
+    setDragOverId(targetId);
+    handleDragEnd();
   }
 
   function handleDragEnd() {
+    draggedSectionRef.current = null;
     setDraggedId(null);
     setDragOverId(null);
+    setDragOverSectionPosition(null);
   }
   async function generateWithAI() {
     const prompt = aiPrompt.trim();
@@ -8217,22 +8276,26 @@ if (generated.seo) {
     onDragEnd={handleDragEnd}
               onDrop={(e) => handleDrop(e, section.id)}
               draggable={true}
-    className={`relative transition-opacity ${
-      draggedId === section.id ? 'opacity-40' : 'opacity-100'
-      } 
+    className={`relative transition-all duration-150 ${
+      draggedId === section.id ? 'scale-[0.995] opacity-45' : 'opacity-100'
+      }
     }`}
   >
+    {dragOverId === section.id && dragOverSectionPosition && draggedId !== section.id && (
+      <span className={`pointer-events-none absolute left-2 right-2 z-[60] h-1 rounded-full bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.8)] ${dragOverSectionPosition === 'before' ? '-top-0.5' : '-bottom-0.5'}`} />
+    )}
     <SectionPreview
       section={section}
       selected={selectedId === section.id}
       selectedElementId={selectedId === section.id ? selectedElementId : null}
       onSelect={() => { setSelectedId(section.id); setSelectedElementId(null); }}
       onSelectElement={(elementId) => { setSelectedId(section.id); setSelectedElementId(elementId); }}
-      draggedElementId={selectedId === section.id ? draggedElementId : null}
-      dragOverElementId={selectedId === section.id ? dragOverElementId : null}
-      onElementDragStart={(elementId, e) => { setSelectedId(section.id); setSelectedElementId(elementId); handleElementDragStart(elementId, e); }}
-      onElementDragOver={(elementId, e) => handleElementDragOver(elementId, e)}
-      onElementDrop={(elementId, e) => handleElementDrop(elementId, e)}
+      draggedElementId={draggedElementId}
+      dragOverElementId={dragOverElementId}
+      dragOverElementPosition={dragOverElementPosition}
+      onElementDragStart={(elementId, e) => handleElementDragStart(section.id, elementId, e)}
+      onElementDragOver={(elementId, e) => handleElementDragOver(section.id, elementId, e)}
+      onElementDrop={(elementId, e) => handleElementDrop(section.id, elementId, e)}
       onElementDragEnd={handleElementDragEnd}
       onMoveSelectedElement={moveSelectedElement}
       onDuplicateSelectedElement={duplicateSelectedElement}
