@@ -35,6 +35,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function isSignupAllowed() {
+    const { data, error } = await supabase.rpc('is_signup_enabled');
+    if (error) return { allowed: false, error: 'Could not verify signup availability. Please try again.' };
+    return { allowed: data !== false, error: null };
+  }
+
+  async function isBlockedEmail(email: string | null | undefined) {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    if (!normalizedEmail) return { blocked: false, error: null };
+    const { data, error } = await supabase.rpc('is_email_blocked', { p_email: normalizedEmail });
+    if (error) return { blocked: false, error: 'Could not verify account access. Please try again.' };
+    return { blocked: data === true, error: null };
+  }
+
   async function fetchProfile(userId: string) {
     const { data, error } = await supabase
       .from('profiles')
@@ -101,6 +115,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
 
+    if (session?.user) {
+      const blockState = await isBlockedEmail(session.user.email);
+      if (blockState.blocked) {
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        if (mounted) setLoading(false);
+        return;
+      }
+    }
+
     setSession(session);
     setUser(session?.user ?? null);
 
@@ -120,17 +146,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = supabase.auth.onAuthStateChange((_event, nextSession) => {
     if (!mounted) return;
 
-    setSession(nextSession);
-    setUser(nextSession?.user ?? null);
-
     if (!nextSession?.user) {
+      setSession(null);
+      setUser(null);
       setProfile(null);
       return;
     }
 
-    // Refresh the profile after sign-in/token changes so plan/name state is
-    // available immediately without requiring a browser reload.
-    void fetchProfile(nextSession.user.id);
+    void (async () => {
+      const blockState = await isBlockedEmail(nextSession.user.email);
+      if (!mounted) return;
+
+      if (blockState.blocked) {
+        await supabase.auth.signOut();
+        if (!mounted) return;
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+
+      setSession(nextSession);
+      setUser(nextSession.user);
+      // Refresh the profile after sign-in/token changes so plan/name state is
+      // available immediately without requiring a browser reload.
+      await fetchProfile(nextSession.user.id);
+    })();
   });
 
   return () => {
@@ -140,8 +181,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }, []);
 
   async function signIn(email: string, password: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const blockState = await isBlockedEmail(normalizedEmail);
+    if (blockState.error) return { error: blockState.error };
+    if (blockState.blocked) {
+      return { error: 'This account is blocked. Contact support if you believe this is a mistake.' };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     });
 
@@ -155,8 +203,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     fullName: string
   ) {
+    const signupState = await isSignupAllowed();
+    if (signupState.error) return { error: signupState.error };
+    if (!signupState.allowed) return { error: 'New registrations are temporarily disabled.' };
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const blockState = await isBlockedEmail(normalizedEmail);
+    if (blockState.error) return { error: 'Could not verify account eligibility. Please try again.' };
+    if (blockState.blocked) {
+      return { error: 'Registration is not available for this email address.' };
+    }
+
     const { error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         data: {
@@ -173,6 +232,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithGoogle() {
+    const signupState = await isSignupAllowed();
+    if (signupState.error) return { error: signupState.error };
+    if (!signupState.allowed) return { error: 'New registrations are temporarily disabled.' };
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

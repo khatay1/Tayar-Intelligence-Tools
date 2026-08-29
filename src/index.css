@@ -52,8 +52,27 @@
     color: #fff;
   }
 
-  html.dark { color-scheme: dark; }
-  html:not(.dark) { color-scheme: light; }
+  html,
+  html.dark,
+  html:not(.dark) {
+    color-scheme: dark;
+  }
+
+  select,
+  option,
+  optgroup {
+    color-scheme: dark;
+    background-color: #12122a;
+    color: #f8fafc;
+  }
+
+  select {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  select:focus {
+    background-color: #12122a;
+  }
 
   *:focus-visible {
     outline: 2px solid rgb(167, 139, 250);

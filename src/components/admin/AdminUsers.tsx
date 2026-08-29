@@ -21,6 +21,9 @@ export default function AdminUsers() {
   const [page, setPage] = useState(0);
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'delete' | 'delete-block'>('delete');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteBlockExpiry, setDeleteBlockExpiry] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const pageSize = 10;
 
@@ -62,10 +65,28 @@ export default function AdminUsers() {
       showError('You cannot delete your own administrator account.');
       return;
     }
+
     setActionLoading(true);
-    const { error: actionError } = await supabase.rpc('admin_delete_user', { p_user_id: user.id });
-    if (actionError) showError(actionError.message || 'Failed to delete user');
-    else { success('User account deleted'); void refresh(); setConfirmDelete(null); }
+    const rpc = deleteMode === 'delete-block' ? 'admin_delete_user_and_block' : 'admin_delete_user';
+    const args = deleteMode === 'delete-block'
+      ? {
+          p_user_id: user.id,
+          p_reason: deleteReason,
+          p_expires_at: deleteBlockExpiry ? new Date(deleteBlockExpiry).toISOString() : null,
+        }
+      : { p_user_id: user.id };
+
+    const { error: actionError } = await supabase.rpc(rpc, args);
+    if (actionError) {
+      showError(actionError.message || 'Failed to delete user');
+    } else {
+      success(deleteMode === 'delete-block' ? 'User deleted and re-registration blocked' : 'User account deleted');
+      void refresh();
+      setConfirmDelete(null);
+      setDeleteMode('delete');
+      setDeleteReason('');
+      setDeleteBlockExpiry('');
+    }
     setActionLoading(false);
   }
 
@@ -150,6 +171,7 @@ export default function AdminUsers() {
           <option value="free" className="bg-[#12122a]">{l('Free')}</option>
           <option value="pro" className="bg-[#12122a]">{l('Pro')}</option>
           <option value="business" className="bg-[#12122a]">{l('Business')}</option>
+          <option value="admin" className="bg-[#12122a]">{l('Admin Access')}</option>
         </select>
         <select
           value={statusFilter}
@@ -195,11 +217,12 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                      user.plan === 'admin' ? 'bg-amber-500/10 text-amber-300' :
                       user.plan === 'pro' ? 'bg-fuchsia-500/10 text-fuchsia-400' :
                       user.plan === 'business' ? 'bg-cyan-500/10 text-cyan-400' :
                       'bg-gray-500/10 text-gray-400'
                     }`}>
-                      {user.plan}
+                      {user.plan === 'admin' ? l('Admin Access') : user.plan}
                     </span>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-sm text-gray-300">{user.project_count}</td>
@@ -272,15 +295,68 @@ export default function AdminUsers() {
 
       {/* Delete confirm */}
       {confirmDelete && (
-        <ConfirmModal
-          title="Delete User"
-          message={`Are you sure you want to delete "${confirmDelete.full_name || 'this user'}"? This will permanently remove their profile and all associated data. This action cannot be undone.`}
-          confirmLabel="Delete Permanently"
-          danger
-          loading={actionLoading}
-          onConfirm={() => deleteUser(confirmDelete)}
-          onClose={() => setConfirmDelete(null)}
-        />
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setConfirmDelete(null)}>
+          <div className="bg-[#12122a] border border-white/10 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold">{l('Delete User')}</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  {l('Choose whether this email may create a new account later.')}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer">
+                <input type="radio" name="deleteMode" checked={deleteMode === 'delete'} onChange={() => setDeleteMode('delete')} className="mt-1" />
+                <div>
+                  <div className="text-sm font-medium text-white">{l('Delete account only')}</div>
+                  <div className="text-xs text-gray-500 mt-1">{l('The user may register again later with the same email.')}</div>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 cursor-pointer">
+                <input type="radio" name="deleteMode" checked={deleteMode === 'delete-block'} onChange={() => setDeleteMode('delete-block')} className="mt-1" />
+                <div>
+                  <div className="text-sm font-medium text-red-200">{l('Delete + Block re-registration')}</div>
+                  <div className="text-xs text-gray-500 mt-1">{l('The email remains blocked even after the account is deleted.')}</div>
+                </div>
+              </label>
+
+              {deleteMode === 'delete-block' && (
+                <div className="space-y-3 rounded-xl border border-red-500/20 bg-black/10 p-3">
+                  <input
+                    value={deleteReason}
+                    onChange={e => setDeleteReason(e.target.value)}
+                    placeholder={l('Reason for block')}
+                    className="w-full bg-[#0b0b18] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                  />
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 block">{l('Block expires (optional)')}</label>
+                    <input
+                      type="datetime-local"
+                      value={deleteBlockExpiry}
+                      onChange={e => setDeleteBlockExpiry(e.target.value)}
+                      className="w-full bg-[#0b0b18] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5">
+                {l('Cancel')}
+              </button>
+              <button onClick={() => void deleteUser(confirmDelete)} disabled={actionLoading} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-500 disabled:opacity-50">
+                {actionLoading ? l('Processing...') : deleteMode === 'delete-block' ? l('Delete & Block') : l('Delete Permanently')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -296,6 +372,30 @@ function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
   const l = useLocalizer();
   const [fullName, setFullName] = useState(user.full_name);
   const [role, setRole] = useState(user.role);
+  const [accessOverride, setAccessOverride] = useState<'none' | 'pro' | 'business'>('none');
+  const [accessReason, setAccessReason] = useState('');
+  const [accessExpiry, setAccessExpiry] = useState('');
+  const [accessSaving, setAccessSaving] = useState(false);
+
+  async function saveAccessOverride() {
+    setAccessSaving(true);
+    const expiresAt = accessExpiry ? new Date(accessExpiry).toISOString() : null;
+    const { error } = await supabase.rpc('admin_set_access_override', {
+      p_user_id: user.id,
+      p_plan: accessOverride === 'none' ? null : accessOverride,
+      p_reason: accessReason,
+      p_expires_at: expiresAt,
+    });
+    setAccessSaving(false);
+
+    if (error) {
+      alert(error.message || 'Failed to update complimentary access');
+      return;
+    }
+
+    onClose();
+    window.location.reload();
+  }
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
@@ -312,7 +412,7 @@ function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">{l('Subscription Plan')}</label>
             <div className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-gray-300 flex items-center justify-between">
-              <span className="capitalize">{user.plan}</span>
+              <span className="capitalize">{user.plan === 'admin' ? l('Admin Access') : user.plan}</span>
               <span className="text-[10px] text-gray-500">{l('Managed by Billing')}</span>
             </div>
           </div>
@@ -323,6 +423,51 @@ function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
               <option value="admin" className="bg-[#12122a]">{l('Admin')}</option>
             </select>
           </div>
+          {!isSelf && user.role !== 'admin' && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-3">
+              <div>
+                <label className="text-xs text-amber-200 mb-1.5 block">{l('Complimentary Access')}</label>
+                <select
+                  value={accessOverride}
+                  onChange={e => setAccessOverride(e.target.value as 'none' | 'pro' | 'business')}
+                  className="w-full bg-[#12122a] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                >
+                  <option value="none" className="bg-[#12122a]">{l('No override')}</option>
+                  <option value="pro" className="bg-[#12122a]">{l('Pro Access')}</option>
+                  <option value="business" className="bg-[#12122a]">{l('Business Access')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">{l('Reason')}</label>
+                <input
+                  value={accessReason}
+                  onChange={e => setAccessReason(e.target.value)}
+                  placeholder="Internal note"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">{l('Expires (optional)')}</label>
+                <input
+                  type="datetime-local"
+                  value={accessExpiry}
+                  onChange={e => setAccessExpiry(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void saveAccessOverride()}
+                disabled={accessSaving}
+                className="w-full py-2.5 rounded-xl text-sm font-medium text-amber-100 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-50"
+              >
+                {accessSaving ? l('Saving...') : l('Save Complimentary Access')}
+              </button>
+              <p className="text-[10px] text-gray-500">
+                {l('This changes product access only. It does not create a Stripe subscription or affect MRR.')}
+              </p>
+            </div>
+          )}
           <div className="text-xs text-gray-500 bg-white/[0.02] rounded-lg p-3 border border-white/5">
             <div className="flex items-center gap-1.5 mb-1">
               <Mail className="w-3 h-3" />
@@ -335,37 +480,6 @@ function EditUserModal({ user, isSelf, onSave, onClose, loading }: {
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">{l('Cancel')}</button>
           <button onClick={() => onSave({ ...user, full_name: fullName, role })} disabled={loading} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
             {loading ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmModal({ title, message, confirmLabel, danger, loading, onConfirm, onClose }: {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  danger?: boolean;
-  loading: boolean;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const l = useLocalizer();
-  return (
-    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-[#12122a] border border-white/10 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()} style={{ animation: 'fadeInUp 0.2s ease-out' }}>
-        <div className="flex items-start gap-3 mb-4">
-          {danger && <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0"><AlertTriangle className="w-5 h-5 text-red-400" /></div>}
-          <div>
-            <h3 className="text-white font-semibold">{title}</h3>
-            <p className="text-sm text-gray-400 mt-1">{message}</p>
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">{l('Cancel')}</button>
-          <button onClick={onConfirm} disabled={loading} className={`flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50 transition-colors ${danger ? 'bg-red-600 hover:bg-red-500' : 'bg-violet-600 hover:bg-violet-500'}`}>
-            {loading ? 'Processing...' : confirmLabel}
           </button>
         </div>
       </div>
