@@ -1,7 +1,6 @@
 param(
-  [Parameter(Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
-  [string]$ProjectRef,
+  [string]$ProjectRef = 'pnbllxdlskljcakyaylt',
 
   [switch]$Apply,
 
