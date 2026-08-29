@@ -7832,24 +7832,6 @@ if (generated.seo) {
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-            {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
-              <button
-                key={type}
-                onClick={() => addSection(type)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
-                  darkMode
-                    ? 'border-white/10 text-gray-300 hover:border-violet-500/40 hover:bg-violet-500/10'
-                    : 'border-gray-200 text-gray-700 hover:border-violet-300 hover:bg-violet-50'
-                }`}
-              >
-                <Plus className="h-3.5 w-3.5 text-violet-400" />
-                {SECTION_LABELS[type]}
-              </button>
-            ))}
-          </div>
-
-          {selectedSection && (
             <details className={`mt-4 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
                 <span className="flex items-center gap-2 text-xs font-semibold">
@@ -7946,7 +7928,8 @@ if (generated.seo) {
             {aiError && (
               <p className="mt-2 text-[11px] leading-relaxed text-red-400">{aiError}</p>
             )}
-          </div>
+            </div>
+          </details>
 
           <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
