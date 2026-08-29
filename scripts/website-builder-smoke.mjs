@@ -52,6 +52,9 @@ check('Builder sidebar uses focused Add/Pages/Layers modes', builder.includes("b
 check('Inspector exposes quick style before advanced controls', builder.includes("Quick style") && builder.includes("Advanced design & responsive"));
 check('Selected elements expose direct canvas actions', builder.includes("renderSelectedElementToolbar") && builder.includes("onDuplicateSelectedElement") && builder.includes("onDeleteSelectedElement"));
 check('Selected sections expose direct canvas actions', builder.includes("canMoveSectionUp") && builder.includes("onMoveSection") && builder.includes("onDeleteSection"));
+check('Heading and text support inline canvas editing', builder.includes("Double-click to edit text") && builder.includes("editingInline") && builder.includes("updateInlineElementContent"));
+check('Selected sections expose quick add element controls', builder.includes("onAddElement") && builder.includes("Add element") && builder.includes("ELEMENT_LABELS.spacer"));
+check('Canvas exposes add section controls between sections', builder.includes("insertSectionAfter") && builder.includes("Add section") && builder.includes("Object.keys(SECTION_LABELS)"));
 check('Inspector advanced controls are collapsed', builder.includes("Structure & reusable components") && builder.includes("Advanced design & responsive"));
 check('AI builder is optional by default', builder.includes("Build with AI") && builder.includes("Optional"));
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
