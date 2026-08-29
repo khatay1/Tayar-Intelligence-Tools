@@ -2697,6 +2697,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [device, setDevice] = useState<Device>('desktop');
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
   const [advancedSiteSettingsOpen, setAdvancedSiteSettingsOpen] = useState(false);
+  const [builderPanel, setBuilderPanel] = useState<'add' | 'pages' | 'layers'>('add');
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [siteName, setSiteName] = useState('My Website');
@@ -6337,50 +6338,6 @@ if (generated.seo) {
           />
 
 
-          <input
-            value={siteUrl}
-            onChange={(e) => {
-              setSiteUrl(e.target.value);
-              setSaved(false);
-            }}
-            className={`hidden 2xl:block w-48 rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-              darkMode
-                ? 'border-white/10 bg-white/5 text-white'
-                : 'border-gray-200 bg-gray-50 text-gray-900'
-            }`}
-            placeholder="https://your-domain.com"
-            title="Production URL used for canonical links, sitemap.xml and robots.txt"
-          />
-
-          {user && (
-            <select
-              value={cloudProjectId ?? ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) {
-                  setCloudProjectId(null);
-                  setProjectTeamAccess(DEFAULT_PROJECT_TEAM_ACCESS);
-                  return;
-                }
-                void loadCloudProject(value);
-              }}
-              disabled={cloudBusy}
-              className={`hidden 2xl:block max-w-44 rounded-lg border px-2 py-2 text-xs outline-none focus:border-violet-500 ${
-                darkMode
-                  ? 'border-white/10 bg-white/5 text-white'
-                  : 'border-gray-200 bg-gray-50 text-gray-900'
-              }`}
-              title={l('Cloud projects')}
-            >
-              <option value="">{l('New cloud project')}</option>
-              {cloudProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.title}{project.user_id !== user.id ? ' · Shared' : ''}
-                </option>
-              ))}
-            </select>
-          )}
-
           <div
             className={`flex rounded-lg border p-1 ${
               darkMode
@@ -6461,6 +6418,38 @@ if (generated.seo) {
                   <p className="mt-0.5 text-[10px] text-gray-500">{l('Advanced tools stay here until you need them.')}</p>
                 </div>
                 <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] font-bold text-gray-500">{BILLING_PLAN_DETAILS[billingPlan].label}</span>
+              </div>
+              <div className={`mb-3 rounded-xl border p-2.5 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Project & domain')}</p>
+                <input
+                  value={siteUrl}
+                  onChange={(e) => { setSiteUrl(e.target.value); setSaved(false); }}
+                  placeholder="https://your-domain.com"
+                  className={`w-full rounded-lg border px-2.5 py-2 text-[11px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                />
+                {user && (
+                  <select
+                    value={cloudProjectId ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (!value) {
+                        setCloudProjectId(null);
+                        setProjectTeamAccess(DEFAULT_PROJECT_TEAM_ACCESS);
+                        return;
+                      }
+                      void loadCloudProject(value);
+                    }}
+                    disabled={cloudBusy}
+                    className={`mt-2 w-full rounded-lg border px-2.5 py-2 text-[11px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                  >
+                    <option value="">{l('New cloud project')}</option>
+                    {cloudProjects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.title}{project.user_id !== user.id ? ' · Shared' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
           <button
@@ -6721,6 +6710,14 @@ if (generated.seo) {
             <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
 
           <button
+            onClick={() => void saveProject()}
+            disabled={cloudBusy}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${darkMode ? 'border-white/10 text-gray-200 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+            title={user ? 'Save locally and to your account' : 'Save locally'}
+          >
+            {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+            {saved ? 'Saved' : 'Save'}
+          </button>          <button
             onClick={() => void publishWebsite()}
             disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
             className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
@@ -6731,15 +6728,7 @@ if (generated.seo) {
             {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
           </button>
 
-          <button
-            onClick={() => void saveProject()}
-            disabled={cloudBusy}
-            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-            title={user ? 'Save locally and to your account' : 'Save locally'}
-          >
-            {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            {saved ? 'Saved' : 'Save'}
-          </button>
+
 
 
         </div>
@@ -7428,12 +7417,31 @@ if (generated.seo) {
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside
-          className={`w-full shrink-0 border-b p-4 lg:w-64 lg:border-b-0 lg:border-r ${
+          className={`w-full shrink-0 border-b p-4 lg:w-60 lg:border-b-0 lg:border-r ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
           }`}
         >
+          <div className={`mb-3 grid grid-cols-3 gap-1 rounded-xl border p-1 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
+            {([
+              ['add', l('Add')],
+              ['pages', l('Pages')],
+              ['layers', l('Layers')],
+            ] as const).map(([panel, label]) => (
+              <button
+                key={panel}
+                type="button"
+                onClick={() => setBuilderPanel(panel)}
+                className={`rounded-lg px-2 py-2 text-[10px] font-bold transition ${builderPanel === panel ? 'bg-violet-600 text-white shadow-sm' : darkMode ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-white'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {builderPanel === 'pages' && (
+            <>
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
             <div className="mb-3 flex items-center justify-between">
               <span className="text-xs font-semibold">{l('Pages')}</span>
@@ -7529,8 +7537,8 @@ if (generated.seo) {
             aria-expanded={advancedSiteSettingsOpen}
           >
             <span>
-              <span className="block">{l('Advanced site settings')}</span>
-              <span className="mt-0.5 block text-[9px] font-normal text-gray-500">{l('Header, footer, theme, SEO, integrations and templates')}</span>
+              <span className="block">{l('Site settings')}</span>
+              <span className="mt-0.5 block text-[9px] font-normal text-gray-500">{l('Header, footer, theme, SEO and advanced options')}</span>
             </span>
             <ChevronDown className={'h-4 w-4 transition-transform ' + (advancedSiteSettingsOpen ? 'rotate-180' : '')} />
           </button>
@@ -7825,6 +7833,10 @@ if (generated.seo) {
           </>
           )}
 
+            </>
+          )}
+
+          {builderPanel === 'add' && (
           <details open className={`rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
               <span className="flex items-center gap-2 text-xs font-semibold">
@@ -7877,6 +7889,9 @@ if (generated.seo) {
             </div>
           </details>
 
+          )}
+
+          {builderPanel === 'layers' && (
           <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
               <span className="text-xs font-semibold">{l('Layers')}</span>
@@ -7911,6 +7926,10 @@ if (generated.seo) {
             </div>
           </details>
 
+          )}
+
+          {builderPanel === 'add' && (
+            <div className="mt-3 space-y-3">
           <details className={`mt-3 rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
               <span className="flex items-center gap-2 text-xs font-semibold">
@@ -7960,6 +7979,8 @@ if (generated.seo) {
               </button>
             </div>
           </details>
+            </div>
+          )}
         </aside>
 
         <main
@@ -8032,7 +8053,7 @@ if (generated.seo) {
         </main>
 
         <aside
-          className={`w-full shrink-0 border-t p-4 lg:w-72 lg:border-l lg:border-t-0 ${
+          className={`w-full shrink-0 border-t p-4 lg:w-80 lg:border-l lg:border-t-0 ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
@@ -8041,8 +8062,8 @@ if (generated.seo) {
           <div className="mb-5 flex items-center gap-2">
             <Eye className="h-4 w-4 text-violet-400" />
             <div>
-              <h2 className="text-xs font-bold">{l('Edit selected item')}</h2>
-              <p className="mt-0.5 text-[9px] text-gray-500">{selectedElement ? l('Content first. Advanced controls are optional.') : l('Select a section or element on the canvas.')}</p>
+              <h2 className="text-xs font-bold">{selectedElement ? `${l('Edit')} ${ELEMENT_LABELS[selectedElement.type]}` : l('Inspector')}</h2>
+              <p className="mt-0.5 text-[9px] text-gray-500">{selectedElement ? l('Change the basics here. Open Advanced only when you need it.') : l('Select something on the page to start editing.')}</p>
             </div>
           </div>
 
@@ -8064,9 +8085,8 @@ if (generated.seo) {
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={duplicateSelectedElement} className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
                   <Copy className="h-3.5 w-3.5" />{l('Duplicate')}</button>
-                <button onClick={resetSelectedElementResponsive} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
-                  Reset {device}
-                </button>
+                <button onClick={deleteSelectedElement} className="flex items-center justify-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">
+                  <Trash2 className="h-3.5 w-3.5" />{l('Delete')}</button>
               </div>
               <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-200 bg-white/70'}`}>
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
@@ -8103,7 +8123,29 @@ if (generated.seo) {
                       <label className="text-[9px] text-gray-500">{l('Width')}<input type="number" min="0" max="16" value={selectedContainer.borderWidth} onChange={(e) => updateSelectedContainer({ borderWidth: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                     </div>
                     <select value={selectedContainer.shadow} onChange={(e) => updateSelectedContainer({ shadow: e.target.value as ElementShadow })} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="none">{l('No shadow')}</option><option value="sm">{l('Small shadow')}</option><option value="md">{l('Medium shadow')}</option><option value="lg">{l('Large shadow')}</option><option value="xl">{l('XL shadow')}</option></select>
-                    {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
+                    <div className={`space-y-2 rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">{l('Quick style')}</span>
+                  <span className="text-[9px] uppercase text-gray-500">{device}</span>
+                </div>
+                {(selectedElement.type === 'heading' || selectedElement.type === 'text' || selectedElement.type === 'button' || selectedElement.type === 'list') && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="text-[10px] text-gray-500">{l('Size')}<input type="number" min="10" max="120" value={effectiveStyle(selectedElement, device).fontSize || 16} onChange={(e) => updateSelectedElement({ style: { fontSize: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                      <label className="text-[10px] text-gray-500">{l('Text color')}<input type="color" value={effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { color: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" /></label>
+                    </div>
+                    <label className="block text-[10px] text-gray-500">{l('Alignment')}<select value={effectiveStyle(selectedElement, device).textAlign || 'center'} onChange={(e) => updateSelectedElement({ style: { textAlign: e.target.value as 'left' | 'center' | 'right' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="left">{l('Left')}</option><option value="center">{l('Center')}</option><option value="right">{l('Right')}</option></select></label>
+                  </>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] text-gray-500">{l('Width %')}<input type="number" min="10" max="100" value={effectiveStyle(selectedElement, device).width || 100} onChange={(e) => updateSelectedElement({ style: { width: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                  {selectedElement.type === 'button' ? (
+                    <label className="text-[10px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { backgroundColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" /></label>
+                  ) : <div />}
+                </div>
+              </div>
+
+              {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
                       <div className="grid grid-cols-2 gap-2">
                         <label className="text-[9px] text-gray-500">{l('Container column')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.layoutColumn || 1} onChange={(e) => updateSelectedContainer({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                         <label className="text-[9px] text-gray-500">{l('Span')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.columnSpan || 1} onChange={(e) => updateSelectedContainer({ columnSpan: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
@@ -8201,10 +8243,13 @@ if (generated.seo) {
 
               <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white/70'}`}>
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
-                  <span>{l('Design & responsive')}</span>
+                  <span>{l('Advanced design & responsive')}</span>
                   <span className="flex items-center gap-2 text-[9px] uppercase text-gray-500">{device}<ChevronDown className="h-3.5 w-3.5" /></span>
                 </summary>
                 <div className="space-y-3 border-t border-white/10 p-2">
+                  <button onClick={resetSelectedElementResponsive} className={`w-full rounded-lg border px-2.5 py-2 text-[10px] font-semibold ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    {l('Reset')} {device} {l('styles')}
+                  </button>
 <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-400">{l('Responsive layout')}</span>
@@ -8397,8 +8442,6 @@ if (generated.seo) {
               </div>
                 </div>
               </details>
-              <button onClick={deleteSelectedElement} className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">
-                <Trash2 className="h-3.5 w-3.5" />{l('Delete Element')}</button>
             </div>
           )}
 
