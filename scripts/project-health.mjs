@@ -94,10 +94,13 @@ check('Admin system settings cannot overwrite content drafts', adminSystem.inclu
 check('Admin system no longer exposes fake backup operations', !adminSystem.includes('mockBackups') && !adminSystem.includes('Backup created successfully'));
 check('Admin tools no longer use random ratings', !adminTools.includes('Math.random()'));
 check('AI engine resolves per-tool model before admin default', aiEngine.includes('resolveTextModel') && aiEngine.includes('.from("ai_settings")') && aiEngine.includes('"default_ai_model"'));
-check('AI engine validates production model allowlist', aiEngine.includes('SUPPORTED_TEXT_MODELS') && !aiEngine.includes('const model = "gemini-3.6-flash"'));
-check('Admin default model selector only exposes backend-supported models', adminAI.includes('SERVER_SUPPORTED_TEXT_MODELS.map') && adminAI.includes('Backend not enabled'));
+check('AI engine validates production model catalog', aiEngine.includes('BUILTIN_TEXT_MODELS') && aiEngine.includes('"ai_model_catalog"') && aiEngine.includes('allowedModels.has') && !aiEngine.includes('const model = "gemini-3.6-flash"'));
+check('Admin model manager supports manual Gemini models', adminAI.includes('Add model manually') && adminAI.includes('ai_model_catalog') && adminAI.includes('GEMINI_MODEL_ID') && adminAI.includes('removeModel'));
+check('Admin model manager uses dark controls instead of native select', !adminAI.includes('<select') && adminAI.includes('bg-[#090916]') && adminAI.includes('bg-[#0b0b18]'));
+check('Admin provider cards remain honest about backend support', adminAI.includes('Backend not enabled'));
 check('Gemini registry uses current production model IDs', aiTypes.includes("'gemini-3.7-flash'") && aiTypes.includes("'gemini-3.6-flash'") && aiTypes.includes("'gemini-3.5-flash'") && !aiTypes.includes("'gemini-1.5-pro'"));
 check('Gemini 3.x requests omit deprecated temperature sampling', !aiEngine.includes('temperature: clampNumber(body.temperature'));
+check('AI engine accepts admin-added Gemini IDs only from catalog', aiEngine.includes('GEMINI_MODEL_ID') && aiEngine.includes('loadAllowedTextModels') && aiEngine.includes('source.enabled === false'));
 check('Admin deploy defaults to dry-run', adminDeployScript.includes('db push --dry-run') && adminDeployScript.includes('if (-not $Apply)'));
 check('Admin production deploy requires explicit confirmation', adminDeployScript.includes('if (-not $ConfirmProduction)') && adminDeployScript.includes('-Apply -ConfirmProduction'));
 check('Admin deploy updates affected Edge Functions', ['ai-engine', 'billing-portal', 'create-checkout-session', 'email-service'].every((name) => adminDeployScript.includes(name)));
