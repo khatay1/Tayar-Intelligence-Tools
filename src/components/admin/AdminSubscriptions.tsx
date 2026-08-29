@@ -16,6 +16,7 @@ interface SubRow {
 export default function AdminSubscriptions() {
   const l = useLocalizer();
   const [subs, setSubs] = useState<SubRow[]>([]);
+  const [userLabels, setUserLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
@@ -23,17 +24,27 @@ export default function AdminSubscriptions() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: queryError } = await supabase
-      .from('subscriptions')
-      .select('id, user_id, plan, status, renewal_date, created_at')
-      .order('created_at', { ascending: false });
+    const [subscriptionsRes, usersRes] = await Promise.all([
+      supabase
+        .from('subscriptions')
+        .select('id, user_id, plan, status, renewal_date, created_at')
+        .order('created_at', { ascending: false }),
+      supabase.rpc('admin_list_users'),
+    ]);
 
+    const queryError = subscriptionsRes.error || usersRes.error;
     if (queryError) {
       console.error('Failed to load admin subscriptions:', queryError);
       setSubs([]);
+      setUserLabels({});
       setError(queryError.message || 'Failed to load subscriptions.');
     } else {
-      setSubs((data || []) as SubRow[]);
+      setSubs((subscriptionsRes.data || []) as SubRow[]);
+      const labels: Record<string, string> = {};
+      for (const adminUser of (usersRes.data || []) as { id: string; email?: string; full_name?: string }[]) {
+        labels[adminUser.id] = adminUser.email || adminUser.full_name || adminUser.id;
+      }
+      setUserLabels(labels);
     }
 
     setLoading(false);
@@ -74,7 +85,7 @@ export default function AdminSubscriptions() {
     <div className="space-y-5 max-w-7xl mx-auto">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Monthly Revenue', value: `$${revenue}`, icon: TrendingUp, color: 'emerald' },
+          { label: 'Est. MRR', value: `${revenue}`, icon: TrendingUp, color: 'emerald' },
           { label: 'Active Subs', value: active.length, icon: CheckCircle, color: 'violet' },
           { label: 'Upcoming Renewals', value: renewals.length, icon: RefreshCw, color: 'blue' },
           { label: 'Failed Payments', value: failed.length, icon: AlertCircle, color: 'red' },
@@ -120,7 +131,7 @@ export default function AdminSubscriptions() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('User ID')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('User')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('Plan')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('Status')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden sm:table-cell">{l('Renewal Date')}</th>
@@ -130,7 +141,10 @@ export default function AdminSubscriptions() {
             <tbody>
               {filtered.map(s => (
                 <tr key={s.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-300 font-mono">{s.user_id.slice(0, 8)}...</td>
+                  <td className="px-4 py-3">
+                    <div className="max-w-[260px] truncate text-sm text-gray-300">{userLabels[s.user_id] || s.user_id}</div>
+                    <div className="text-[10px] font-mono text-gray-600">{s.user_id.slice(0, 8)}...</div>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                       s.plan === 'pro' ? 'bg-fuchsia-500/10 text-fuchsia-400' :
