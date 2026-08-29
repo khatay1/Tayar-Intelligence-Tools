@@ -29,3 +29,8 @@ Generated `dist/` output is disposable and should be recreated with `npm run bui
 ## Production release note — 2026-08-29
 
 The Admin AI default-model fix is part of the canonical production baseline. The production AI engine resolves models in this order: per-tool user setting, administrator default model, then the safe Gemini fallback.
+
+
+## Admin AI model manager — 2026-08-29
+
+The canonical Admin AI interface now includes a dark model manager. Administrators can add custom Gemini model IDs to the managed catalog, choose any managed model as the default, and remove custom models after switching away from them. The production AI engine reads this catalog server-side.
