@@ -5612,7 +5612,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAiStage('planning');
     setAiMessages((current) => [
       ...current,
-      { id: requestId, role: 'user', content: prompt },
+      { id: requestId, role: 'user' as const, content: prompt },
     ].slice(-12));
 
     try {
@@ -5719,7 +5719,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ...current,
         {
           id: `ai-result-${generatedAt}`,
-          role: 'assistant',
+          role: 'assistant' as const,
           content: `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
         },
       ].slice(-12));
@@ -5729,7 +5729,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAiStage('error');
       setAiMessages((current) => [
         ...current,
-        { id: `ai-error-${Date.now()}`, role: 'assistant', content: message },
+        { id: `ai-error-${Date.now()}`, role: 'assistant' as const, content: message },
       ].slice(-12));
     } finally {
       setAiBusy(false);
