@@ -70,6 +70,39 @@ interface AIWebsiteGeneration {
   sections?: AIWebsitePageGeneration['sections'];
 }
 
+interface AIWebsitePatchChanges {
+  title?: string;
+  description?: string;
+  buttonText?: string;
+  buttonUrl?: string;
+  background?: string;
+  accent?: string;
+  image?: string;
+  imagePrompt?: string;
+  name?: string;
+  slug?: string;
+  showInNavigation?: boolean;
+  primaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+}
+
+interface AIWebsitePatchOperation {
+  action: 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site';
+  pageId?: string;
+  pageSlug?: string;
+  sectionId?: string;
+  sectionType?: SectionType;
+  afterSectionId?: string;
+  changes?: AIWebsitePatchChanges;
+  section?: Partial<WebsiteSection> & Pick<WebsiteSection, 'type'>;
+}
+
+interface AIWebsitePatch {
+  summary?: string;
+  operations?: AIWebsitePatchOperation[];
+}
+
 type AIBuilderStage = 'idle' | 'planning' | 'building' | 'styling' | 'ready' | 'error';
 
 interface AIBuilderMessage {
@@ -93,6 +126,16 @@ interface WebsitePage {
   language?: Language;
   translationKey?: string;
   noIndex?: boolean;
+}
+
+interface AIWebsiteUndoSnapshot {
+  pages: WebsitePage[];
+  activePageId: string;
+  homePageId: string;
+  siteName: string;
+  brand: WebsiteBrand;
+  seo: WebsiteSEO;
+  theme: WebsiteTheme;
 }
 
 interface CloudWebsiteProject {
@@ -3058,6 +3101,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       content: 'Describe the website you want. I will plan the pages, build the structure and hand it to the visual editor.',
     },
   ]);
+  const [aiUndoSnapshot, setAiUndoSnapshot] = useState<AIWebsiteUndoSnapshot | null>(null);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -5712,6 +5756,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (generated.brand) setBrand(generated.brand);
       if (generated.seo) setSeo(generated.seo);
 
+      setAiUndoSnapshot(null);
       setSaved(false);
       setAiPrompt('');
       setAiStage('ready');
@@ -5730,6 +5775,374 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAiMessages((current) => [
         ...current,
         { id: `ai-error-${Date.now()}`, role: 'assistant' as const, content: message },
+      ].slice(-12));
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  function buildAIEditableSnapshot() {
+    return {
+      siteName,
+      activePageId,
+      theme: {
+        primaryColor: theme.primaryColor,
+        secondaryColor: theme.secondaryColor,
+        backgroundColor: theme.backgroundColor,
+        textColor: theme.textColor,
+      },
+      pages: getCurrentPages().map((page) => ({
+        id: page.id,
+        name: page.name,
+        slug: page.slug,
+        showInNavigation: page.showInNavigation,
+        sections: page.sections.map((section) => ({
+          id: section.id,
+          type: section.type,
+          title: section.title,
+          description: section.description,
+          buttonText: section.buttonText,
+          buttonUrl: section.buttonUrl,
+          background: section.background,
+          accent: section.accent,
+          image: section.image,
+          imagePrompt: section.imagePrompt,
+        })),
+      })),
+    };
+  }
+
+  function undoLastAIChange() {
+    if (!aiUndoSnapshot || aiBusy) return;
+    const snapshot = aiUndoSnapshot;
+    const restoredPages = JSON.parse(JSON.stringify(snapshot.pages)) as WebsitePage[];
+    const restoredActive = restoredPages.find((page) => page.id === snapshot.activePageId) || restoredPages[0];
+    setPages(restoredPages);
+    setActivePageId(restoredActive?.id || snapshot.activePageId);
+    setHomePageId(snapshot.homePageId);
+    setSections(restoredActive?.sections || []);
+    setSelectedId(restoredActive?.sections[0]?.id ?? null);
+    setSelectedElementId(restoredActive?.sections[0]?.elements[0]?.id ?? null);
+    setSiteName(snapshot.siteName);
+    setBrand(snapshot.brand);
+    setSeo(snapshot.seo);
+    setTheme(snapshot.theme);
+    setAiUndoSnapshot(null);
+    setAiStage('ready');
+    setSaved(false);
+    setAiMessages((current) => [
+      ...current,
+      { id: `ai-undo-${Date.now()}`, role: 'assistant' as const, content: 'Reverted the last AI change.' },
+    ].slice(-12));
+  }
+
+  async function applyAIChange() {
+    const prompt = aiPrompt.trim();
+    if (!prompt || aiBusy) return;
+
+    const requestId = `ai-edit-${Date.now()}`;
+    const currentPages = getCurrentPages();
+    const snapshot: AIWebsiteUndoSnapshot = {
+      pages: JSON.parse(JSON.stringify(currentPages)) as WebsitePage[],
+      activePageId,
+      homePageId,
+      siteName,
+      brand: JSON.parse(JSON.stringify(brand)) as WebsiteBrand,
+      seo: JSON.parse(JSON.stringify(seo)) as WebsiteSEO,
+      theme: JSON.parse(JSON.stringify(theme)) as WebsiteTheme,
+    };
+
+    setAiBusy(true);
+    setAiError('');
+    setAiStage('planning');
+    setAiMessages((current) => [
+      ...current,
+      { id: requestId, role: 'user' as const, content: prompt },
+    ].slice(-12));
+
+    try {
+      const ai = createAIService('website-builder');
+      const response = await ai.completeJSON<AIWebsitePatch>(
+        {
+          action: 'edit',
+          prompt,
+          currentSite: buildAIEditableSnapshot(),
+        },
+        aiMessages.slice(-6).map((message) => ({ role: message.role, content: message.content })),
+        { temperature: 0.35, maxTokens: 9000 },
+      );
+
+      let patch = response.json;
+      if (!patch && response.content) {
+        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        patch = JSON.parse(cleaned) as AIWebsitePatch;
+      }
+
+      const operations = Array.isArray(patch?.operations) ? patch.operations.slice(0, 40) : [];
+      if (!patch || operations.length === 0) {
+        throw new Error('AI did not return any safe website changes. Try a more specific request.');
+      }
+
+      setAiStage('building');
+
+      const allowedTypes = new Set<SectionType>([
+        'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
+      ]);
+      const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
+      const normalizeSlugValue = (value: string) => value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      const updateSectionContent = (section: WebsiteSection, changes: AIWebsitePatchChanges): WebsiteSection => {
+        const next: WebsiteSection = {
+          ...section,
+          title: typeof changes.title === 'string' ? changes.title.trim() : section.title,
+          description: typeof changes.description === 'string' ? changes.description.trim() : section.description,
+          buttonText: typeof changes.buttonText === 'string' ? changes.buttonText.trim() : section.buttonText,
+          buttonUrl: typeof changes.buttonUrl === 'string' ? changes.buttonUrl.trim() : section.buttonUrl,
+          background: validHex(changes.background) ? changes.background! : section.background,
+          accent: validHex(changes.accent) ? changes.accent! : section.accent,
+          image: typeof changes.image === 'string' ? changes.image.trim() || undefined : section.image,
+          imagePrompt: typeof changes.imagePrompt === 'string' ? changes.imagePrompt.trim() || undefined : section.imagePrompt,
+        };
+
+        return {
+          ...next,
+          elements: section.elements.map((element) => {
+            if (changes.title !== undefined && element.type === 'heading') {
+              return { ...element, content: next.title };
+            }
+            if (changes.description !== undefined && element.type === 'text') {
+              return { ...element, content: next.description };
+            }
+            if (element.type === 'button') {
+              return {
+                ...element,
+                content: changes.buttonText !== undefined ? next.buttonText : element.content,
+                href: changes.buttonUrl !== undefined ? next.buttonUrl : element.href,
+                style: changes.accent !== undefined
+                  ? { ...element.style, backgroundColor: next.accent }
+                  : element.style,
+              };
+            }
+            return element;
+          }),
+        };
+      };
+
+      let nextPages = JSON.parse(JSON.stringify(currentPages)) as WebsitePage[];
+      let nextSiteName = siteName;
+      let nextTheme = { ...theme };
+      let applied = 0;
+
+      const resolvePageIndex = (operation: AIWebsitePatchOperation) => {
+        if (operation.pageId) {
+          const index = nextPages.findIndex((page) => page.id === operation.pageId);
+          if (index >= 0) return index;
+        }
+        if (operation.pageSlug) {
+          const slug = normalizeSlugValue(operation.pageSlug);
+          const index = nextPages.findIndex((page) => normalizeSlugValue(page.slug) === slug);
+          if (index >= 0) return index;
+        }
+        return nextPages.findIndex((page) => page.id === activePageId);
+      };
+
+      const resolveSectionIndex = (page: WebsitePage, operation: AIWebsitePatchOperation) => {
+        if (operation.sectionId) {
+          const index = page.sections.findIndex((section) => section.id === operation.sectionId);
+          if (index >= 0) return index;
+        }
+        if (operation.sectionType && allowedTypes.has(operation.sectionType)) {
+          return page.sections.findIndex((section) => section.type === operation.sectionType);
+        }
+        return -1;
+      };
+
+      for (const operation of operations) {
+        if (!operation || typeof operation.action !== 'string') continue;
+
+        if (operation.action === 'update_site') {
+          const changes = operation.changes || {};
+          if (typeof changes.name === 'string' && changes.name.trim()) {
+            nextSiteName = changes.name.trim().slice(0, 100);
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'restyle_site') {
+          const changes = operation.changes || {};
+          const backgroundColor = validHex(changes.backgroundColor)
+            ? changes.backgroundColor!
+            : validHex(changes.primaryColor)
+              ? changes.primaryColor!
+              : undefined;
+          const accentColor = validHex(changes.accentColor) ? changes.accentColor! : undefined;
+
+          if (!backgroundColor && !accentColor) continue;
+
+          nextPages = nextPages.map((page) => ({
+            ...page,
+            sections: page.sections.map((section) => {
+              const restyled = {
+                ...section,
+                background: backgroundColor || section.background,
+                accent: accentColor || section.accent,
+              };
+              return {
+                ...restyled,
+                elements: section.elements.map((element) => element.type === 'button' && accentColor
+                  ? { ...element, style: { ...element.style, backgroundColor: accentColor } }
+                  : element
+                ),
+              };
+            }),
+          }));
+
+          nextTheme = {
+            ...nextTheme,
+            backgroundColor: backgroundColor || nextTheme.backgroundColor,
+            secondaryColor: backgroundColor || nextTheme.secondaryColor,
+            primaryColor: accentColor || nextTheme.primaryColor,
+          };
+          applied += 1;
+          continue;
+        }
+
+        const pageIndex = resolvePageIndex(operation);
+        if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+        const page = nextPages[pageIndex];
+
+        if (operation.action === 'update_page') {
+          const changes = operation.changes || {};
+          const nextName = typeof changes.name === 'string' && changes.name.trim()
+            ? changes.name.trim().slice(0, 60)
+            : page.name;
+          const requestedSlug = typeof changes.slug === 'string' ? normalizeSlugValue(changes.slug) : '';
+          const nextSlug = requestedSlug || page.slug;
+          nextPages[pageIndex] = {
+            ...page,
+            name: nextName,
+            slug: nextSlug,
+            showInNavigation: typeof changes.showInNavigation === 'boolean'
+              ? changes.showInNavigation
+              : page.showInNavigation,
+          };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'add_section') {
+          const source = operation.section;
+          if (!source || !allowedTypes.has(source.type) || page.sections.length >= 20) continue;
+          const created = normalizeSection({
+            ...source,
+            id: `${source.type}-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            type: source.type,
+            title: source.title?.trim() || SECTION_LABELS[source.type],
+            description: source.description?.trim() || '',
+            buttonText: source.type === 'footer' ? '' : (source.buttonText?.trim() || 'Learn More'),
+            buttonUrl: source.type === 'footer' ? '' : (source.buttonUrl?.trim() || '#contact'),
+            background: validHex(source.background) ? source.background! : page.sections[0]?.background || '#0f172a',
+            accent: validHex(source.accent) ? source.accent! : page.sections[0]?.accent || '#7c3aed',
+            image: source.image?.trim() || undefined,
+            imagePrompt: source.imagePrompt?.trim() || undefined,
+          });
+          const sectionList = [...page.sections];
+          const requestedAfter = operation.afterSectionId
+            ? sectionList.findIndex((section) => section.id === operation.afterSectionId)
+            : -1;
+          const footerIndex = sectionList.findIndex((section) => section.type === 'footer');
+          const insertAt = requestedAfter >= 0
+            ? requestedAfter + 1
+            : footerIndex >= 0
+              ? footerIndex
+              : sectionList.length;
+          sectionList.splice(insertAt, 0, created);
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        const sectionIndex = resolveSectionIndex(page, operation);
+        if (sectionIndex < 0 || sectionIndex >= page.sections.length) continue;
+
+        if (operation.action === 'remove_section') {
+          if (page.sections.length <= 1) continue;
+          nextPages[pageIndex] = {
+            ...page,
+            sections: page.sections.filter((_, index) => index !== sectionIndex),
+          };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_section') {
+          const changes = operation.changes || {};
+          const sectionList = [...page.sections];
+          sectionList[sectionIndex] = updateSectionContent(sectionList[sectionIndex], changes);
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+        }
+      }
+
+      if (applied === 0) {
+        throw new Error('AI changes could not be matched safely to this website. Try naming the page or section more clearly.');
+      }
+
+      setAiStage('styling');
+
+      const activeAfterPatch = nextPages.find((page) => page.id === activePageId) || nextPages[0];
+      const usedSlugs = new Set<string>();
+      nextPages = nextPages.map((page, index) => {
+        const baseSlug = normalizeSlugValue(page.slug || page.name) || `page-${index + 1}`;
+        let slug = baseSlug;
+        let suffix = 2;
+        while (usedSlugs.has(slug)) {
+          slug = `${baseSlug}-${suffix}`;
+          suffix += 1;
+        }
+        usedSlugs.add(slug);
+        return { ...page, slug };
+      });
+
+      const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
+      setAiUndoSnapshot(snapshot);
+      setPages(nextPages);
+      setSections(finalActive?.sections || []);
+      setActivePageId(finalActive?.id || activePageId);
+      setSiteName(nextSiteName);
+      setTheme(nextTheme);
+      setSelectedId(finalActive?.sections[0]?.id ?? null);
+      setSelectedElementId(finalActive?.sections[0]?.elements[0]?.id ?? null);
+      setHistory([]);
+      setFuture([]);
+      setSaved(false);
+      setAiPrompt('');
+      setAiStage('ready');
+
+      const summary = patch.summary?.trim() || `Applied ${applied} targeted AI change${applied === 1 ? '' : 's'}.`;
+      setAiPlan({
+        summary,
+        pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
+      });
+      setAiMessages((current) => [
+        ...current,
+        {
+          id: `ai-patch-result-${Date.now()}`,
+          role: 'assistant' as const,
+          content: `${summary} Applied ${applied} safe operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.`,
+        },
+      ].slice(-12));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI edit failed.';
+      setAiError(message);
+      setAiStage('error');
+      setAiMessages((current) => [
+        ...current,
+        { id: `ai-patch-error-${Date.now()}`, role: 'assistant' as const, content: message },
       ].slice(-12));
     } finally {
       setAiBusy(false);
@@ -8920,11 +9333,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               )}
 
               <div className="flex flex-wrap gap-1">
-                {[
+                {(aiStage === 'ready' ? [
+                  'Make the hero more premium and concise',
+                  'Add a pricing section before contact',
+                  'Use a dark background with gold accents',
+                  'Rewrite the current page in Swedish',
+                ] : [
                   'Modern business website with Home, Services, About and Contact',
                   'Premium landing page focused on conversions and trust',
                   'Clean portfolio website with projects, about and contact',
-                ].map((example) => (
+                ]).map((example) => (
                   <button
                     key={example}
                     type="button"
@@ -8945,31 +9363,64 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   if (aiStage === 'error') setAiStage('idle');
                 }}
                 rows={5}
-                placeholder="Describe the website: business, audience, pages, style, language, location and goal..."
+                placeholder={aiStage === 'ready'
+                  ? 'Ask Tayar to change this website without rebuilding it...'
+                  : 'Describe the website: business, audience, pages, style, language, location and goal...'}
                 className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
               />
 
-              <button
-                onClick={generateWithAI}
-                disabled={!aiPrompt.trim() || aiBusy}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Styling'}...` : aiStage === 'ready' ? l('Build another version') : l('Build website with AI')}
-              </button>
-
-              {aiStage === 'ready' && (
+              {aiStage === 'ready' ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={applyAIChange}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {aiBusy ? `${aiStage === 'planning' ? 'Planning change' : aiStage === 'building' ? 'Applying change' : 'Styling'}...` : l('Apply AI change')}
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={generateWithAI}
+                      disabled={!aiPrompt.trim() || aiBusy}
+                      className={`rounded-lg border px-2 py-2 text-[9px] font-bold ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
+                    >
+                      {l('Rebuild from prompt')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
+                      className={`rounded-lg border px-2 py-2 text-[9px] font-bold ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {l('Edit manually')}
+                    </button>
+                  </div>
+                  {aiUndoSnapshot && (
+                    <button
+                      type="button"
+                      onClick={undoLastAIChange}
+                      disabled={aiBusy}
+                      className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-bold ${darkMode ? 'border-amber-500/20 bg-amber-500/5 text-amber-300 hover:bg-amber-500/10' : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'} disabled:opacity-40`}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      {l('Undo AI change')}
+                    </button>
+                  )}
+                </div>
+              ) : (
                 <button
-                  type="button"
-                  onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
-                  className={`flex w-full items-center justify-center rounded-lg border px-3 py-2 text-[10px] font-bold ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+                  onClick={generateWithAI}
+                  disabled={!aiPrompt.trim() || aiBusy}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {l('Edit manually')}
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Styling'}...` : l('Build website with AI')}
                 </button>
               )}
 
               {aiError && <p className="text-[10px] leading-relaxed text-red-400">{aiError}</p>}
-              <p className="text-[8px] leading-relaxed text-gray-600">{l('AI creates real Tayar pages and sections, so every result remains editable in the visual builder.')}</p>
+              <p className="text-[8px] leading-relaxed text-gray-600">{l('AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.')}</p>
             </div>
           </div>
 
