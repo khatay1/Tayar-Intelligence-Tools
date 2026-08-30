@@ -8295,6 +8295,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
 
           <button
+            onClick={() => void runAIQualityCheck()}
+            disabled={aiQualityBusy || aiBusy}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${aiQualityReview && aiQualityReview.score >= 80 ? 'border-emerald-500/30 text-emerald-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+            title={l('AI quality check before publishing')}
+          >
+            <Check className="h-4 w-4" />
+            {aiQualityBusy ? l('Checking…') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}
+          </button>
+
+          <button
             onClick={() => void saveProject()}
             disabled={cloudBusy}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${darkMode ? 'border-white/10 text-gray-200 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
@@ -8333,6 +8343,48 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         </div>
       )}
 
+      {aiQualityOpen && (
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-emerald-500/15 bg-[#07140f]' : 'border-emerald-200 bg-emerald-50/50'}`}>
+          <div className="mx-auto flex max-w-6xl flex-col gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-2 text-xs font-bold">
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  {l('AI Quality Check')}
+                  {aiQualityReview && <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${aiQualityReview.score >= 80 ? 'bg-emerald-500/10 text-emerald-400' : aiQualityReview.score >= 60 ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'}`}>{aiQualityReview.score}/100</span>}
+                </p>
+                <p className="mt-1 text-[10px] text-gray-500">{aiQualityReview?.summary || (aiQualityBusy ? l('Reviewing design, content, SEO, accessibility and publish readiness…') : l('Run the final AI review before publishing.'))}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => void runAIQualityCheck()} disabled={aiQualityBusy || aiBusy} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{aiQualityBusy ? l('Checking…') : l('Run again')}</button>
+                <button onClick={() => setAiQualityOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
+              </div>
+            </div>
+
+            {aiQualityReview && (
+              <>
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  {aiQualityReview.findings.map((finding, index) => (
+                    <article key={`${finding.title}-${index}`} className={`rounded-xl border p-3 ${darkMode ? 'border-white/[0.07] bg-white/[0.025]' : 'border-gray-200 bg-white'}`}>
+                      <span className={`text-[8px] font-black uppercase tracking-wider ${finding.severity === 'critical' ? 'text-rose-400' : finding.severity === 'warning' ? 'text-amber-400' : 'text-sky-400'}`}>{finding.severity}</span>
+                      <p className="mt-1 text-[10px] font-bold">{finding.title}</p>
+                      <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{finding.detail}</p>
+                    </article>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {aiQualityReview.fixPrompt && (
+                    <button onClick={() => void fixAIQualityIssues()} disabled={aiBusy} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-50">{l('Fix safe issues with AI')}</button>
+                  )}
+                  <button onClick={previewWebsite} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${darkMode ? 'border-white/10 text-gray-300' : 'border-gray-200 bg-white text-gray-700'}`}>{l('Preview')}</button>
+                  <span className="text-[9px] text-gray-500">{l('Publish remains blocked by critical deterministic audit errors and launch checks.')}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {commandOpen && (
         <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) setCommandOpen(false); }}>
           <div className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}>
@@ -8343,6 +8395,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               {[
                 { label: 'Save project', keywords: 'save cloud', run: () => void saveProject() },
                 { label: 'Preview website', keywords: 'preview open', run: previewWebsite },
+                { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', run: () => void runAIQualityCheck() },
                 { label: 'Duplicate current page', keywords: 'copy page duplicate', run: duplicateActivePage },
                 { label: 'Export project backup', keywords: 'backup json export', run: exportProjectBackup },
                 { label: 'Import project backup', keywords: 'backup json import restore', run: importProjectBackup },
@@ -8977,7 +9030,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-bold">{l('Project History')}</p>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Last 10 manual saves. Autosave does not create history entries.')}</p>
+                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Up to 30 manual and AI checkpoints. Autosave stays lightweight.')}</p>
               </div>
               <button onClick={() => setHistoryOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
             </div>
@@ -8996,7 +9049,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ))}
               </div>
             ) : (
-              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('No manual save history yet. Click Save to create the first restore point.')}</p>
+              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('No restore points yet. Save or use Tayar AI to create the first checkpoint.')}</p>
             )}
           </div>
         </div>
@@ -9682,7 +9735,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               {aiStage === 'ready' ? (
                 <div className="space-y-2">
                   <button
-                    onClick={applyAIChange}
+                    onClick={() => void applyAIChange()}
                     disabled={!aiPrompt.trim() || aiBusy}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -9692,7 +9745,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={generateWithAI}
+                      onClick={() => void generateWithAI(false)}
                       disabled={!aiPrompt.trim() || aiBusy}
                       className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
                     >
@@ -9704,6 +9757,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-300 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
                     >
                       {l('Edit manually')}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void generateRealImage()}
+                      disabled={aiBusy || !selectedSection}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-cyan-500/15 bg-cyan-500/[0.03] text-cyan-300 hover:bg-cyan-500/[0.07]' : 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100'} disabled:opacity-40`}
+                    >
+                      {l('Generate selected image')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void runAIQualityCheck()}
+                      disabled={aiQualityBusy || aiBusy}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-emerald-500/15 bg-emerald-500/[0.03] text-emerald-300 hover:bg-emerald-500/[0.07]' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'} disabled:opacity-40`}
+                    >
+                      {aiQualityBusy ? l('Checking…') : l('Quality check')}
                     </button>
                   </div>
                   {aiUndoSnapshot && (
@@ -9719,14 +9790,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   )}
                 </div>
               ) : (
-                <button
-                  onClick={generateWithAI}
-                  disabled={!aiPrompt.trim() || aiBusy}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Styling'}...` : l('Build website with AI')}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => void generateWithAI(true)}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Finishing'}...` : l('Build with Tayar Agent')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void generateWithAI(false)}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className={`w-full rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
+                  >
+                    {l('Fast build · no generated images')}
+                  </button>
+                </div>
               )}
 
               {aiError && <p className={`rounded-lg border px-2.5 py-2 text-[9px] leading-relaxed ${darkMode ? 'border-red-500/15 bg-red-500/[0.04] text-red-300' : 'border-red-100 bg-red-50 text-red-600'}`}>{aiError}</p>}
