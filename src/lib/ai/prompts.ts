@@ -397,7 +397,7 @@ Return ONLY valid JSON with this shape:
   "summary": "short description of what changed",
   "operations": [
     {
-      "action": "update_section|add_section|remove_section|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
+      "action": "add_page|remove_page|update_section|add_section|remove_section|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
       "pageId": "existing page id when applicable",
       "pageSlug": "existing page slug when applicable",
       "sectionId": "existing section id when applicable",
@@ -405,6 +405,23 @@ Return ONLY valid JSON with this shape:
       "afterSectionId": "existing section id for add_section, optional",
       "prompt": "image description for generate_image, optional",
       "placement": "section_background|section_image|image_element for generate_image, optional",
+      "page": {
+        "name": "new page name for add_page",
+        "slug": "new-page-slug",
+        "showInNavigation": true,
+        "sections": [
+          {
+            "type": "hero|features|about|services|pricing|testimonials|contact|footer",
+            "title": "string",
+            "description": "string",
+            "buttonText": "string",
+            "buttonUrl": "string",
+            "background": "#RRGGBB",
+            "accent": "#RRGGBB",
+            "imagePrompt": "optional"
+          }
+        ]
+      },
       "changes": {
         "title": "optional",
         "description": "optional",
@@ -448,8 +465,10 @@ Patch rules:
 - Preserve all unrelated pages and sections.
 - Prefer exact pageId and sectionId values from the snapshot.
 - For changing text/colors of an existing section, use update_section.
+- For a new page, use add_page with 1-8 supported sections.
+- To remove an existing non-home page, use remove_page with an exact existing pageId or pageSlug.
 - For a new section, use add_section.
-- For deletion, use remove_section.
+- For section deletion, use remove_section.
 - For renaming/navigation changes, use update_page.
 - For a site-wide visual color change, use restyle_site.
 - For renaming the whole website, use update_site.
@@ -459,6 +478,7 @@ Patch rules:
 - When the user asks to create, replace or improve a real image, use generate_image with an exact page/section target and a concise visual prompt.
 - Use section_background for hero/banner imagery, image_element when an image element already exists, and section_image for other section artwork.
 - Never invent an existing pageId or sectionId.
+- Never remove the home page and never remove the final remaining page.
 - Never delete the final section on a page.
 - Do not return a full "pages" replacement in edit mode.
 - If the request asks for translation, return update_page/update_section operations for the affected existing content rather than rebuilding the site.
