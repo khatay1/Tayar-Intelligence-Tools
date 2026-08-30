@@ -8256,9 +8256,12 @@ if (generated.seo) {
             </summary>
             <div className="space-y-3 border-t border-violet-500/10 p-3">
               <div>
-                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Sections')}</p>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Popular sections')}</p>
+                  <span className="text-[9px] text-gray-600">{l('Start simple')}</span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
+                  {(['hero', 'features', 'services', 'contact'] as SectionType[]).map((type) => (
                     <button
                       key={type}
                       onClick={() => addSection(type)}
@@ -8272,24 +8275,60 @@ if (generated.seo) {
                     </button>
                   ))}
                 </div>
+                <details className={`mt-2 rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white'}`}>
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
+                    <span>{l('More sections')}</span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </summary>
+                  <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-2.5">
+                    {(['about', 'pricing', 'testimonials', 'footer'] as SectionType[]).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => addSection(type)}
+                        className={`rounded-lg border px-2 py-2 text-left text-[10px] transition-colors ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        + {SECTION_LABELS[type]}
+                      </button>
+                    ))}
+                  </div>
+                </details>
               </div>
 
               {selectedSection && (
                 <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white'}`}>
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
                     <span className="flex items-center gap-2"><Type className="h-3.5 w-3.5 text-violet-400" />{l('Add element')}</span>
-                    <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                    <span className="flex items-center gap-2 text-[9px] text-gray-500">{l('Common first')}<ChevronDown className="h-3.5 w-3.5" /></span>
                   </summary>
-                  <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-2.5">
-                    {(Object.keys(ELEMENT_LABELS) as WebsiteElementType[]).map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => addElement(type)}
-                        className={`rounded-lg border px-2 py-2 text-[10px] ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        + {ELEMENT_LABELS[type]}
-                      </button>
-                    ))}
+                  <div className="border-t border-white/10 p-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['heading', 'text', 'button', 'image', 'video', 'list'] as WebsiteElementType[]).map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => addElement(type)}
+                          className={`rounded-lg border px-2 py-2 text-[10px] ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                        >
+                          + {ELEMENT_LABELS[type]}
+                        </button>
+                      ))}
+                    </div>
+                    <details className={`mt-2 rounded-lg border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[9px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
+                        <span>{l('Advanced elements')}</span>
+                        <ChevronDown className="h-3 w-3" />
+                      </summary>
+                      <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-2">
+                        {(['divider', 'spacer', 'accordion', 'tabs', 'gallery', 'embed', 'code', 'countdown', 'stats', 'testimonials-slider'] as WebsiteElementType[]).map((type) => (
+                          <button
+                            key={type}
+                            onClick={() => addElement(type)}
+                            className={`rounded-lg border px-2 py-2 text-[9px] ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-gray-200' : 'border-gray-200 text-gray-600 hover:bg-white'}`}
+                          >
+                            + {ELEMENT_LABELS[type]}
+                          </button>
+                        ))}
+                      </div>
+                    </details>
                   </div>
                 </details>
               )}
