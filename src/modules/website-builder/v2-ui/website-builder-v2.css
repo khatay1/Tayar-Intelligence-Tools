@@ -1,0 +1,342 @@
+.tayar-v2-shell {
+  --tayar-v2-left-rail: 56px;
+  --tayar-v2-left-panel: 300px;
+  --tayar-v2-inspector: 320px;
+  --tayar-v2-topbar: 56px;
+  --tayar-v2-statusbar: 30px;
+  display: grid;
+  grid-template-rows: var(--tayar-v2-topbar) minmax(0, 1fr) var(--tayar-v2-statusbar);
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.tayar-v2-topbar,
+.tayar-v2-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tayar-v2-topbar {
+  justify-content: space-between;
+  padding: 0 12px;
+}
+
+.tayar-v2-topbar__brand,
+.tayar-v2-topbar__history,
+.tayar-v2-topbar__actions,
+.tayar-v2-canvas__toolbar,
+.tayar-v2-inspector__tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tayar-v2-topbar__center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.tayar-v2-shell__workspace {
+  display: grid;
+  grid-template-columns: calc(var(--tayar-v2-left-rail) + var(--tayar-v2-left-panel)) minmax(0, 1fr) var(--tayar-v2-inspector);
+  min-height: 0;
+  min-width: 0;
+}
+
+.tayar-v2-shell[data-focus='true'] .tayar-v2-shell__workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tayar-v2-left-sidebar {
+  display: grid;
+  grid-template-columns: var(--tayar-v2-left-rail) minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tayar-v2-left-sidebar__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px;
+}
+
+.tayar-v2-left-sidebar__panel,
+.tayar-v2-inspector__body {
+  overflow: auto;
+  min-height: 0;
+}
+
+.tayar-v2-canvas {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.tayar-v2-canvas__toolbar {
+  justify-content: space-between;
+  padding: 8px 12px;
+}
+
+.tayar-v2-canvas__viewport {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  margin: 0 auto;
+  width: 100%;
+  transition: width 160ms ease;
+}
+
+.tayar-v2-canvas__viewport[data-device='tablet'] { max-width: 820px; }
+.tayar-v2-canvas__viewport[data-device='mobile'] { max-width: 430px; }
+
+.tayar-v2-inspector {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.tayar-v2-inspector__tabs {
+  padding: 8px;
+  overflow-x: auto;
+}
+
+.tayar-v2-statusbar {
+  padding: 0 12px;
+  font-size: 12px;
+  justify-content: flex-end;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .tayar-v2-shell { --tayar-v2-left-panel: 260px; --tayar-v2-inspector: 290px; }
+}
+
+@media (max-width: 980px) {
+  .tayar-v2-shell__workspace {
+    grid-template-columns: var(--tayar-v2-left-rail) minmax(0, 1fr);
+  }
+  .tayar-v2-left-sidebar { grid-template-columns: var(--tayar-v2-left-rail); }
+  .tayar-v2-left-sidebar__panel,
+  .tayar-v2-inspector { display: none; }
+}
+
+.tayar-v2-panel-heading,
+.tayar-v2-page-row,
+.tayar-v2-layer-section__row,
+.tayar-v2-layer-element {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tayar-v2-panel-heading {
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.tayar-v2-page-list,
+.tayar-v2-layer-tree,
+.tayar-v2-layer-elements {
+  display: flex;
+  flex-direction: column;
+}
+
+.tayar-v2-page-row,
+.tayar-v2-layer-section__row,
+.tayar-v2-layer-element {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  padding: 8px 12px;
+}
+
+.tayar-v2-page-row__name,
+.tayar-v2-layer-section__row > span:first-child,
+.tayar-v2-layer-element > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tayar-v2-page-row__slug {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tayar-v2-layer-elements { padding-left: 14px; }
+.tayar-v2-empty-panel { padding: 16px; }
+
+.tayar-v2-panel-search,
+.tayar-v2-panel-actions,
+.tayar-v2-chip-row {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+
+.tayar-v2-panel-search input {
+  width: 100%;
+  min-width: 0;
+}
+
+.tayar-v2-chip-row {
+  overflow-x: auto;
+}
+
+.tayar-v2-insert-grid,
+.tayar-v2-media-grid,
+.tayar-v2-history-list {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 14px;
+}
+
+.tayar-v2-insert-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tayar-v2-media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.tayar-v2-insert-card,
+.tayar-v2-media-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 10px;
+}
+
+.tayar-v2-insert-card__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tayar-v2-media-card__preview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.tayar-v2-media-card__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tayar-v2-media-card__name,
+.tayar-v2-history-entry__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tayar-v2-history-entry {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+}
+
+.tayar-v2-history-entry__meta {
+  font-size: 11px;
+  opacity: .7;
+}
+
+.tayar-v2-history-redo {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.tayar-v2-canvas__viewport { position: relative; }
+
+.tayar-v2-canvas-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.tayar-v2-canvas-overlay__target {
+  position: absolute;
+  pointer-events: auto;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0;
+}
+
+.tayar-v2-canvas-overlay__target[data-active='true'],
+.tayar-v2-canvas-overlay__target[data-selected='true'] {
+  border-width: 2px;
+  border-style: solid;
+}
+
+.tayar-v2-canvas-overlay__target > span {
+  position: absolute;
+  left: -2px;
+  top: -24px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 3px 6px;
+}
+
+@media (max-width: 1180px) {
+  .tayar-v2-insert-grid,
+  .tayar-v2-media-grid { grid-template-columns: 1fr; }
+}
+
+.tayar-v2-inspector-fields {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.tayar-v2-inspector-field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.tayar-v2-inspector-field > input,
+.tayar-v2-inspector-field > select {
+  width: 100%;
+  min-width: 0;
+}
+
+.tayar-v2-drop-indicator {
+  position: absolute;
+  height: 2px;
+  z-index: 30;
+  pointer-events: none;
+  background: currentColor;
+}
+
+.tayar-v2-drop-indicator > span {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+}
