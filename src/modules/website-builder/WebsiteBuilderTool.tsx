@@ -2389,11 +2389,12 @@ function ElementPreview({
     onDragEnd: (e: React.DragEvent) => { e.stopPropagation(); onDragEnd(); },
     onClick: (e: React.MouseEvent) => { e.stopPropagation(); onSelect(); },
     onDoubleClick: (e: React.MouseEvent) => {
-      if (element.type === 'image') {
+      if (element.type === 'image' || element.type === 'video' || element.type === 'embed') {
         e.preventDefault();
         e.stopPropagation();
         onSelect();
-        const nextSource = window.prompt('Image URL', element.src || '')?.trim();
+        const sourceLabel = element.type === 'image' ? 'Image URL' : element.type === 'video' ? 'Video URL' : 'Embed URL';
+        const nextSource = window.prompt(sourceLabel, element.src || '')?.trim();
         if (nextSource && nextSource !== element.src) onInlineSourceChange(nextSource);
         return;
       }
@@ -2430,8 +2431,8 @@ function ElementPreview({
   if (element.type === 'video') {
     const source = videoSource(element.src || '');
     return (
-      <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle}>
-        {source?.kind === 'iframe' ? <iframe src={source.src} title={element.content || 'Video'} className="aspect-video w-full border-0" /> : source?.kind === 'video' ? <video src={source.src} controls className="h-auto w-full" /> : <div className="flex min-h-40 w-full items-center justify-center border border-dashed border-white/20 bg-black/20 px-6 text-center text-xs text-gray-400">Add a YouTube, Vimeo or direct video URL</div>}
+      <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle} title="Double-click to edit video URL">
+        {source?.kind === 'iframe' ? <iframe src={source.src} title={element.content || 'Video'} className="aspect-video w-full border-0" /> : source?.kind === 'video' ? <video src={source.src} controls className="h-auto w-full" /> : <div className="flex min-h-40 w-full items-center justify-center border border-dashed border-white/20 bg-black/20 px-6 text-center text-xs text-gray-400">Double-click to add a video URL</div>}
       </div>
     );
   }
@@ -2449,7 +2450,7 @@ function ElementPreview({
   }
   if (element.type === 'embed') {
     const source = safeEmbedUrl(element.src || '');
-    return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle}>{source ? <iframe src={source} title={element.content || 'Embedded content'} className="aspect-video w-full border-0" /> : <div className="flex min-h-44 items-center justify-center border border-dashed border-white/20 px-6 text-center text-xs text-gray-400">Add a map or embeddable URL</div>}</div>;
+    return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle} title="Double-click to edit embed URL">{source ? <iframe src={source} title={element.content || 'Embedded content'} className="aspect-video w-full border-0" /> : <div className="flex min-h-44 items-center justify-center border border-dashed border-white/20 px-6 text-center text-xs text-gray-400">Double-click to add an embeddable URL</div>}</div>;
   }
   if (element.type === 'countdown') {
     const [target, ...labelParts] = (element.content || '').split('|');
@@ -2501,7 +2502,6 @@ function SectionPreview({
   onQuickUpdateElement,
   onOpenMediaLibrary,
   onOpenInspector,
-  onMoveSelectedElement,
   onDuplicateSelectedElement,
   onDeleteSelectedElement,
   onInlineContentChange,
@@ -2534,7 +2534,6 @@ function SectionPreview({
   onQuickUpdateElement: (id: string, changes: Partial<WebsiteElement>) => void;
   onOpenMediaLibrary: () => void;
   onOpenInspector: () => void;
-  onMoveSelectedElement: (direction: 'up' | 'down') => void;
   onDuplicateSelectedElement: () => void;
   onDeleteSelectedElement: () => void;
   onInlineContentChange: (elementId: string, content: string) => void;
@@ -2577,9 +2576,6 @@ function SectionPreview({
 
   const renderSelectedElementToolbar = (element: WebsiteElement) => {
     if (selectedElementId !== element.id) return null;
-    const selectedElementIndex = section.elements.findIndex((item) => item.id === element.id);
-    const canMoveElementUp = selectedElementIndex > 0;
-    const canMoveElementDown = selectedElementIndex >= 0 && selectedElementIndex < section.elements.length - 1;
     const elementStyle = effectiveStyle(element, device);
     const width = clampElementNumber(elementStyle.width, 100, 10, 100);
     const positionX = clampElementNumber(elementStyle.positionX, 0, -4000, 4000);
@@ -2587,9 +2583,11 @@ function SectionPreview({
     const hasFreePosition = positionX !== 0 || positionY !== 0;
     const directEditHint = element.type === 'image'
       ? 'Double-click replace'
-      : element.type === 'heading' || element.type === 'text' || element.type === 'button'
-        ? 'Double-click edit'
-        : null;
+      : element.type === 'video' || element.type === 'embed'
+        ? 'Double-click source'
+        : element.type === 'heading' || element.type === 'text' || element.type === 'button'
+          ? 'Double-click edit'
+          : null;
     return (
       <div
         draggable={false}
@@ -2598,7 +2596,7 @@ function SectionPreview({
           right: `${Math.max(0, 100 - width)}%`,
           transform: `translate3d(${positionX}px, ${positionY}px, 0)`,
         }}
-        title="Drag to move · Arrow keys nudge · Shift+arrow 10px · Shift+drag to reorder"
+        title="Drag to move · Arrows nudge · Shift+arrow 10px · Ctrl/Cmd+D duplicate · Delete remove · Esc deselect · Shift+drag reorder"
         onDragStart={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
@@ -2631,27 +2629,8 @@ function SectionPreview({
             <Images className="h-3.5 w-3.5" />
           </button>
         )}
-        {(element.type === 'video' || element.type === 'embed') && (
-          <button
-            type="button"
-            onClick={() => {
-              const next = window.prompt(element.type === 'video' ? 'Video URL' : 'Embed URL', element.src || '');
-              if (next !== null) onQuickUpdateElement(element.id, { src: next.trim() });
-            }}
-            className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200"
-            title={element.type === 'video' ? 'Edit video URL' : 'Edit embed URL'}
-          >
-            <Link className="h-3.5 w-3.5" />
-          </button>
-        )}
         <button type="button" onClick={onOpenInspector} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title="Open inspector">
           <Palette className="h-3.5 w-3.5" />
-        </button>
-        <button type="button" onClick={() => onMoveSelectedElement('up')} disabled={!canMoveElementUp} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move up">
-          <ChevronUp className="h-3.5 w-3.5" />
-        </button>
-        <button type="button" onClick={() => onMoveSelectedElement('down')} disabled={!canMoveElementDown} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move down">
-          <ChevronDown className="h-3.5 w-3.5" />
         </button>
         <button type="button" onClick={onDuplicateSelectedElement} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title="Duplicate">
           <Copy className="h-3.5 w-3.5" />
@@ -3980,10 +3959,29 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!selectedSection || !selectedElement) return;
 
     const handleCanvasKeyDown = (event: KeyboardEvent) => {
-      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (target && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        duplicateSelectedElement();
+        return;
+      }
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'Delete' || event.key === 'Backspace')) {
+        event.preventDefault();
+        deleteSelectedElement();
+        return;
+      }
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key === 'Escape') {
+        event.preventDefault();
+        setSelectedElementId(null);
+        return;
+      }
+
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
 
       event.preventDefault();
       const step = event.shiftKey ? 10 : 1;
@@ -3995,7 +3993,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     window.addEventListener('keydown', handleCanvasKeyDown);
     return () => window.removeEventListener('keydown', handleCanvasKeyDown);
-  }, [selectedSection, selectedElement, device, sections]);
+  }, [selectedSection, selectedElement, device, sections, deleteSelectedElement, duplicateSelectedElement, nudgeSelectedElement]);
 
   useEffect(() => {
     setSectionSettingsOpen(!selectedElementId);
@@ -8891,7 +8889,6 @@ if (generated.seo) {
       onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
       onOpenMediaLibrary={() => { setSelectedId(section.id); setMediaOpen(true); }}
       onOpenInspector={() => setInspectorOpen(true)}
-      onMoveSelectedElement={moveSelectedElement}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
       onInlineContentChange={(elementId, content) => updateInlineElementContent(section.id, elementId, content)}
