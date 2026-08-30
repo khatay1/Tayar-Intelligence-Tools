@@ -318,8 +318,79 @@ Rules:
 - Button URLs should prefer useful anchors such as #contact or page paths such as /services.
 - Avoid placeholder language such as "Lorem ipsum", "Feature 1", or generic AI filler.
 - If the user explicitly asks for one landing page, keep it one page.
-- If a legacy consumer requires "sections", it may derive them from the first page, but "pages" is the source of truth.`,
-    user: (input) => `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nReturn ONLY the JSON object.`,
+- If a legacy consumer requires "sections", it may derive them from the first page, but "pages" is the source of truth.
+- When the user input action is "edit", do NOT return a full website. Return only the patch operations requested by the edit-mode user prompt.`,
+    user: (input) => {
+      const action = input.action as string;
+      if (action === 'edit') {
+        return `Modify the existing Tayar website without rebuilding unrelated content.
+
+CURRENT WEBSITE SNAPSHOT:
+${JSON.stringify(input.currentSite || {}, null, 2)}
+
+USER REQUEST:
+${input.prompt || ''}
+
+Return ONLY valid JSON with this shape:
+{
+  "summary": "short description of what changed",
+  "operations": [
+    {
+      "action": "update_section|add_section|remove_section|update_page|restyle_site|update_site",
+      "pageId": "existing page id when applicable",
+      "pageSlug": "existing page slug when applicable",
+      "sectionId": "existing section id when applicable",
+      "sectionType": "hero|features|about|services|pricing|testimonials|contact|footer when applicable",
+      "afterSectionId": "existing section id for add_section, optional",
+      "changes": {
+        "title": "optional",
+        "description": "optional",
+        "buttonText": "optional",
+        "buttonUrl": "optional",
+        "background": "#RRGGBB optional",
+        "accent": "#RRGGBB optional",
+        "image": "optional URL",
+        "imagePrompt": "optional",
+        "name": "optional page/site name",
+        "slug": "optional page slug",
+        "showInNavigation": true,
+        "primaryColor": "#RRGGBB optional",
+        "accentColor": "#RRGGBB optional"
+      },
+      "section": {
+        "type": "hero|features|about|services|pricing|testimonials|contact|footer",
+        "title": "string",
+        "description": "string",
+        "buttonText": "string",
+        "buttonUrl": "string",
+        "background": "#RRGGBB",
+        "accent": "#RRGGBB",
+        "imagePrompt": "optional"
+      }
+    }
+  ]
+}
+
+Patch rules:
+- Make the smallest set of operations that fully satisfies the user's request.
+- Preserve all unrelated pages and sections.
+- Prefer exact pageId and sectionId values from the snapshot.
+- For changing text/colors of an existing section, use update_section.
+- For a new section, use add_section.
+- For deletion, use remove_section.
+- For renaming/navigation changes, use update_page.
+- For a site-wide visual color change, use restyle_site.
+- For renaming the whole website, use update_site.
+- Never invent an existing pageId or sectionId.
+- Never delete the final section on a page.
+- Do not return a full "pages" replacement in edit mode.
+- If the request asks for translation, return update_page/update_section operations for the affected existing content rather than rebuilding the site.
+- Maximum 40 operations.
+
+Return ONLY the patch JSON object.`;
+      }
+      return `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nReturn ONLY the JSON object.`;
+    },
   },
   'ai-chat': {
     system: `You are Tayar, a helpful AI assistant integrated into the Tayar Intelligence Tools platform.
