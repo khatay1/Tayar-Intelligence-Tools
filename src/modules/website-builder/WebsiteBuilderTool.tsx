@@ -8340,39 +8340,49 @@ if (generated.seo) {
           )}
 
           {builderPanel === 'layers' && (
-          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-              <span className="text-xs font-semibold">{l('Layers')}</span>
-              <span className="flex items-center gap-2 text-[9px] text-gray-500">{sections.length} {l('sections')}<ChevronDown className="h-3.5 w-3.5" /></span>
-            </summary>
-            <div className="max-h-72 space-y-2 overflow-auto border-t border-white/10 p-2.5">
+          <div className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
+            <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+              <div>
+                <span className="text-xs font-semibold">{l('Layers')}</span>
+                <p className="mt-0.5 text-[9px] text-gray-500">{l('Select a section to see its elements.')}</p>
+              </div>
+              <span className="text-[9px] text-gray-500">{sections.length} {l('sections')}</span>
+            </div>
+            <div className="max-h-[420px] space-y-1.5 overflow-auto border-t border-white/10 p-2.5">
               {sections.map((section, sectionIndex) => (
                 <div key={section.id}>
                   <button
                     type="button"
                     onClick={() => { setSelectedId(section.id); setSelectedElementId(null); }}
-                    className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs ${selectedId === section.id && !selectedElementId ? (darkMode ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700') : (darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-white')}`}
+                    className={`flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-xs transition ${selectedId === section.id ? (darkMode ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700') : (darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-white')}`}
                   >
-                    <span className="truncate">{sectionIndex + 1}. {SECTION_LABELS[section.type]}</span>
-                    <span className="text-[10px] text-gray-500">{section.elements.length}</span>
+                    <span className="min-w-0 truncate">{sectionIndex + 1}. {SECTION_LABELS[section.type]}</span>
+                    <span className="ml-2 flex shrink-0 items-center gap-1 text-[9px] text-gray-500">
+                      {section.elements.length}
+                      <ChevronRight className={`h-3 w-3 transition-transform ${selectedId === section.id ? 'rotate-90' : ''}`} />
+                    </span>
                   </button>
-                  <div className="ml-3 mt-1 space-y-1 border-l border-white/10 pl-2">
-                    {section.elements.map((element, elementIndex) => (
-                      <button
-                        key={element.id}
-                        type="button"
-                        onClick={() => { setSelectedId(section.id); setSelectedElementId(element.id); }}
-                        className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] ${selectedId === section.id && selectedElementId === element.id ? (darkMode ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700') : (darkMode ? 'text-gray-400 hover:bg-white/5' : 'text-gray-600 hover:bg-white')}`}
-                      >
-                        <span className="w-4 shrink-0 text-[9px] text-gray-500">{elementIndex + 1}</span>
-                        <span className="truncate">{ELEMENT_LABELS[element.type]}{element.content ? ` · ${element.content}` : ''}</span>
-                      </button>
-                    ))}
-                  </div>
+                  {selectedId === section.id && (
+                    <div className="ml-3 mt-1 space-y-1 border-l border-violet-500/20 pl-2">
+                      {section.elements.length ? section.elements.map((element, elementIndex) => (
+                        <button
+                          key={element.id}
+                          type="button"
+                          onClick={() => { setSelectedId(section.id); setSelectedElementId(element.id); setInspectorOpen(true); }}
+                          className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[10px] transition ${selectedElementId === element.id ? (darkMode ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700') : (darkMode ? 'text-gray-400 hover:bg-white/5 hover:text-gray-200' : 'text-gray-600 hover:bg-white')}`}
+                        >
+                          <span className="w-4 shrink-0 text-[9px] text-gray-500">{elementIndex + 1}</span>
+                          <span className="truncate">{ELEMENT_LABELS[element.type]}{element.content ? ` · ${element.content}` : ''}</span>
+                        </button>
+                      )) : (
+                        <p className="px-2 py-1 text-[9px] text-gray-600">{l('No elements in this section.')}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          </details>
+          </div>
 
           )}
 
