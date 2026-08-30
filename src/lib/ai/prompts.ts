@@ -311,6 +311,13 @@ Rules:
 - Each page should contain 3-8 relevant sections; Home is usually the richest page.
 - Keep section copy specific to the user's business, audience, location and goal.
 - Reuse a consistent visual direction across all pages.
+- Design with a restrained palette: one dominant surface family plus one accent color. Avoid rainbow sections.
+- Keep section backgrounds in the same contrast family (all predominantly dark or all predominantly light) so typography remains readable and intentional.
+- Create visual rhythm: the hero may be the strongest surface, then alternate subtle shades rather than giving every section the exact same background.
+- Favor generous whitespace, short readable paragraphs, clear heading hierarchy and one obvious primary CTA per section.
+- For premium/minimal sites, avoid excessive gradients, neon colors, heavy borders, tiny text or crowded card grids.
+- Choose accent colors with strong contrast against the dominant background.
+- Home hero copy should be concise: a strong headline, one supporting thought and a specific CTA.
 - Use only the supported section types listed in the schema.
 - Use valid 6-digit hex colors.
 - Use pricing only when it genuinely fits the business.
