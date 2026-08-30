@@ -9377,7 +9377,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    {aiBusy ? `${aiStage === 'planning' ? 'Planning change' : aiStage === 'building' ? 'Applying change' : 'Styling'}...` : l('Apply AI change')}
+                    {aiBusy ? 'Applying AI change...' : l('Apply AI change')}
                   </button>
                   <div className="grid grid-cols-2 gap-2">
                     <button
