@@ -49,12 +49,36 @@ const V3_STORAGE_KEY = 'tayar.website-builder.project.v3';
 const V2_STORAGE_KEY = 'tayar.website-builder.project.v2';
 const LEGACY_STORAGE_KEY = 'tayar.website-builder.project';
 
-interface AIWebsiteGeneration {
-  siteName?: string;
-  brand?: WebsiteBrand;
-  seo?: WebsiteSEO;
+interface AIWebsitePageGeneration {
+  name?: string;
+  slug?: string;
+  showInNavigation?: boolean;
   sections: Array<Partial<WebsiteSection> & Pick<WebsiteSection, 'type'>>;
 }
+
+interface AIWebsiteGeneration {
+  siteName?: string;
+  summary?: string;
+  style?: {
+    tone?: string;
+    primaryColor?: string;
+    accentColor?: string;
+  };
+  brand?: WebsiteBrand;
+  seo?: WebsiteSEO;
+  pages?: AIWebsitePageGeneration[];
+  sections?: AIWebsitePageGeneration['sections'];
+}
+
+type AIBuilderStage = 'idle' | 'planning' | 'building' | 'styling' | 'ready' | 'error';
+
+interface AIBuilderMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+const AI_BUILDER_STAGE_ORDER: Array<Exclude<AIBuilderStage, 'idle' | 'error'>> = ['planning', 'building', 'styling', 'ready'];
 
 interface WebsitePage {
   id: string;
@@ -3025,6 +3049,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [aiStage, setAiStage] = useState<AIBuilderStage>('idle');
+  const [aiPlan, setAiPlan] = useState<{ summary: string; pages: Array<{ name: string; sections: number }> } | null>(null);
+  const [aiMessages, setAiMessages] = useState<AIBuilderMessage[]>([
+    {
+      id: 'ai-welcome',
+      role: 'assistant',
+      content: 'Describe the website you want. I will plan the pages, build the structure and hand it to the visual editor.',
+    },
+  ]);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -5573,15 +5606,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const prompt = aiPrompt.trim();
     if (!prompt || aiBusy) return;
 
+    const requestId = `ai-request-${Date.now()}`;
     setAiBusy(true);
     setAiError('');
+    setAiStage('planning');
+    setAiMessages((current) => [
+      ...current,
+      { id: requestId, role: 'user', content: prompt },
+    ].slice(-12));
 
     try {
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
         { action: 'generate', prompt },
         [],
-        { temperature: 0.7, maxTokens: 5000 },
+        { temperature: 0.65, maxTokens: 9000 },
       );
 
       let generated = response.json;
@@ -5590,48 +5629,108 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         generated = JSON.parse(cleaned) as AIWebsiteGeneration;
       }
 
-      if (!generated || !Array.isArray(generated.sections) || generated.sections.length === 0) {
-        throw new Error('AI returned an invalid website. Please try a more specific description.');
+      const pageCandidates: AIWebsitePageGeneration[] = Array.isArray(generated?.pages) && generated.pages.length > 0
+        ? generated.pages
+        : Array.isArray(generated?.sections) && generated.sections.length > 0
+          ? [{ name: 'Home', slug: 'home', showInNavigation: true, sections: generated.sections }]
+          : [];
+
+      if (!generated || pageCandidates.length === 0) {
+        throw new Error('AI returned an invalid website plan. Please try a more specific description.');
       }
+
+      setAiStage('building');
 
       const allowedTypes = new Set<SectionType>([
         'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
       ]);
+      const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
+      const generatedAt = Date.now();
+      const maxGeneratedPages = Math.max(1, Math.min(6, billingEntitlements.maxPages || 1));
+      const usedSlugs = new Set<string>();
 
-      const normalized = generated.sections
-        .filter((section) => allowedTypes.has(section.type))
-        .map((section, index) => normalizeSection({
-          id: `${section.type}-ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
-          type: section.type,
-          title: section.title?.trim() || SECTION_LABELS[section.type],
-          description: section.description?.trim() || '',
-          buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
-          buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
-          background: /^#[0-9a-fA-F]{6}$/.test(section.background || '') ? section.background! : '#0f172a',
-          accent: /^#[0-9a-fA-F]{6}$/.test(section.accent || '') ? section.accent! : '#7c3aed',
-          image: section.image?.trim() || undefined,
-          imagePrompt: section.imagePrompt?.trim() || undefined,
-        }));
+      const nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
+        const normalizedSections = (page.sections || [])
+          .filter((section) => allowedTypes.has(section.type))
+          .slice(0, 8)
+          .map((section, sectionIndex) => normalizeSection({
+            id: `${section.type}-ai-${generatedAt}-${pageIndex}-${sectionIndex}-${Math.random().toString(36).slice(2, 6)}`,
+            type: section.type,
+            title: section.title?.trim() || SECTION_LABELS[section.type],
+            description: section.description?.trim() || '',
+            buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
+            buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
+            background: validHex(section.background) ? section.background! : (validHex(generated.style?.primaryColor) ? generated.style!.primaryColor! : '#0f172a'),
+            accent: validHex(section.accent) ? section.accent! : (validHex(generated.style?.accentColor) ? generated.style!.accentColor! : '#7c3aed'),
+            image: section.image?.trim() || undefined,
+            imagePrompt: section.imagePrompt?.trim() || undefined,
+          }));
 
-      if (normalized.length === 0) {
-        throw new Error('AI did not return usable sections. Please try again.');
+        const pageName = page.name?.trim() || (pageIndex === 0 ? 'Home' : `Page ${pageIndex + 1}`);
+        const rawSlug = (page.slug?.trim() || pageName)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || `page-${pageIndex + 1}`;
+        let slug = pageIndex === 0 && rawSlug === 'home' ? 'home' : rawSlug;
+        let suffix = 2;
+        while (usedSlugs.has(slug)) {
+          slug = `${rawSlug}-${suffix}`;
+          suffix += 1;
+        }
+        usedSlugs.add(slug);
+
+        return {
+          id: `page-ai-${generatedAt}-${pageIndex}`,
+          name: pageName,
+          slug,
+          sections: normalizedSections,
+          showInNavigation: page.showInNavigation !== false,
+        } satisfies WebsitePage;
+      }).filter((page) => page.sections.length > 0);
+
+      if (nextPages.length === 0) {
+        throw new Error('AI did not return usable pages or sections. Please try again.');
       }
 
-      setSections(normalized);
-      setSelectedId(normalized[0].id);
-      setSelectedElementId(normalized[0].elements[0]?.id ?? null);
+      const firstPage = nextPages[0];
+      const totalSections = nextPages.reduce((sum, page) => sum + page.sections.length, 0);
+      const summary = generated.summary?.trim() || `${nextPages.length} page website with ${totalSections} structured sections.`;
+
+      setAiPlan({
+        summary,
+        pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
+      });
+      setPages(nextPages);
+      setActivePageId(firstPage.id);
+      setHomePageId(firstPage.id);
+      setSections(firstPage.sections);
+      setSelectedId(firstPage.sections[0]?.id ?? null);
+      setSelectedElementId(firstPage.sections[0]?.elements[0]?.id ?? null);
       setSiteName(generated.siteName?.trim() || 'My Website');
 
-if (generated.brand) {
-  setBrand(generated.brand);
-}
+      setAiStage('styling');
+      if (generated.brand) setBrand(generated.brand);
+      if (generated.seo) setSeo(generated.seo);
 
-if (generated.seo) {
-  setSeo(generated.seo);
-}
       setSaved(false);
+      setAiPrompt('');
+      setAiStage('ready');
+      setAiMessages((current) => [
+        ...current,
+        {
+          id: `ai-result-${generatedAt}`,
+          role: 'assistant',
+          content: `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
+        },
+      ].slice(-12));
     } catch (error) {
-      setAiError(error instanceof Error ? error.message : 'AI generation failed.');
+      const message = error instanceof Error ? error.message : 'AI generation failed.';
+      setAiError(message);
+      setAiStage('error');
+      setAiMessages((current) => [
+        ...current,
+        { id: `ai-error-${Date.now()}`, role: 'assistant', content: message },
+      ].slice(-12));
     } finally {
       setAiBusy(false);
     }
@@ -8772,39 +8871,107 @@ if (generated.seo) {
 
           {builderPanel === 'add' && (
             <div className="mt-3 space-y-3">
-          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center gap-2 text-xs font-semibold">
+          <div className={`mt-3 overflow-hidden rounded-xl border ${darkMode ? 'border-violet-500/25 bg-violet-500/[0.06]' : 'border-violet-200 bg-violet-50/70'}`}>
+            <div className="flex items-center justify-between gap-2 border-b border-violet-500/10 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-xs font-black">
                 <Sparkles className="h-4 w-4 text-violet-400" />
-                {l('Build with AI')}
+                {l('Tayar AI Builder')}
               </span>
-              <span className="flex items-center gap-2 text-[9px] font-semibold text-violet-400">{l('Optional')}<ChevronDown className="h-3.5 w-3.5" /></span>
-            </summary>
-            <div className="border-t border-violet-500/10 p-3">
-              <p className="text-[10px] leading-relaxed text-gray-500">
-                {l('Describe the website you want. AI can create a starting design that you can edit normally afterward.')}
-              </p>
+              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-violet-400">V2</span>
+            </div>
+
+            <div className="space-y-3 p-3">
+              <div className="max-h-36 space-y-2 overflow-auto pr-1">
+                {aiMessages.slice(-4).map((message) => (
+                  <div key={message.id} className={`rounded-lg px-2.5 py-2 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-5 bg-violet-500/15 text-violet-100' : 'ml-5 bg-violet-100 text-violet-900') : (darkMode ? 'mr-3 bg-white/[0.04] text-gray-300' : 'mr-3 bg-white text-gray-700')}`}>
+                    <span className="mb-1 block text-[8px] font-black uppercase tracking-wider text-gray-500">{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
+                    {message.content}
+                  </div>
+                ))}
+              </div>
+
+              {(aiBusy || aiStage === 'ready') && (
+                <div className="grid grid-cols-4 gap-1">
+                  {AI_BUILDER_STAGE_ORDER.map((stage, index) => {
+                    const activeIndex = AI_BUILDER_STAGE_ORDER.indexOf(aiStage === 'idle' || aiStage === 'error' ? 'planning' : aiStage);
+                    const complete = aiStage === 'ready' || index < activeIndex;
+                    const active = aiStage === stage && aiStage !== 'ready';
+                    return (
+                      <div key={stage} className={`rounded-md border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : active ? 'border-violet-500/30 bg-violet-500/15 text-violet-300' : 'border-white/10 text-gray-600'}`}>
+                        {complete ? '✓ ' : ''}{stage}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {aiPlan && (
+                <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-100 bg-white'}`}>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-violet-400">{l('Website plan')}</p>
+                  <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{aiPlan.summary}</p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {aiPlan.pages.map((page) => (
+                      <span key={page.name} className="rounded-full border border-white/10 px-2 py-1 text-[8px] font-semibold text-gray-400">
+                        {page.name} · {page.sections}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-1">
+                {[
+                  'Modern business website with Home, Services, About and Contact',
+                  'Premium landing page focused on conversions and trust',
+                  'Clean portfolio website with projects, about and contact',
+                ].map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => { setAiPrompt(example); setAiError(''); }}
+                    disabled={aiBusy}
+                    className="rounded-full border border-violet-500/15 px-2 py-1 text-[8px] font-semibold text-violet-400 hover:bg-violet-500/10 disabled:opacity-40"
+                  >
+                    {example.split(' ').slice(0, 3).join(' ')}
+                  </button>
+                ))}
+              </div>
+
               <textarea
                 value={aiPrompt}
                 onChange={(e) => {
                   setAiPrompt(e.target.value);
                   setAiError('');
+                  if (aiStage === 'error') setAiStage('idle');
                 }}
-                rows={4}
-                placeholder="Example: Modern Italian restaurant in Stockholm with online booking, menu, testimonials and warm luxury colors..."
-                className={`mt-3 w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
+                rows={5}
+                placeholder="Describe the website: business, audience, pages, style, language, location and goal..."
+                className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
               />
+
               <button
                 onClick={generateWithAI}
                 disabled={!aiPrompt.trim() || aiBusy}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                {aiBusy ? 'Generating...' : l('Generate starting website')}
+                {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Styling'}...` : aiStage === 'ready' ? l('Build another version') : l('Build website with AI')}
               </button>
-              {aiError && <p className="mt-2 text-[11px] leading-relaxed text-red-400">{aiError}</p>}
+
+              {aiStage === 'ready' && (
+                <button
+                  type="button"
+                  onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
+                  className={`flex w-full items-center justify-center rounded-lg border px-3 py-2 text-[10px] font-bold ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {l('Edit manually')}
+                </button>
+              )}
+
+              {aiError && <p className="text-[10px] leading-relaxed text-red-400">{aiError}</p>}
+              <p className="text-[8px] leading-relaxed text-gray-600">{l('AI creates real Tayar pages and sections, so every result remains editable in the visual builder.')}</p>
             </div>
-          </details>
+          </div>
 
           <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
