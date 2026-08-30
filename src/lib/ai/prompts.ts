@@ -397,11 +397,13 @@ Return ONLY valid JSON with this shape:
   "summary": "short description of what changed",
   "operations": [
     {
-      "action": "add_page|remove_page|set_home_page|move_page|update_section|add_section|remove_section|move_section|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
+      "action": "add_page|remove_page|set_home_page|move_page|update_section|add_section|remove_section|move_section|update_element|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
       "pageId": "existing page id when applicable",
       "pageSlug": "existing page slug when applicable",
       "sectionId": "existing section id when applicable",
       "sectionType": "hero|features|about|services|pricing|testimonials|contact|footer when applicable",
+      "elementId": "existing element id for update_element",
+      "device": "desktop|tablet|mobile for responsive element changes, optional",
       "beforePageId": "existing destination page id for move_page, optional",
       "afterPageId": "existing destination page id for move_page, optional",
       "beforeSectionId": "existing destination section id for move_section, optional",
@@ -447,7 +449,31 @@ Return ONLY valid JSON with this shape:
         "headerEnabled": true,
         "showCta": true,
         "ctaLabel": "optional",
-        "ctaHref": "optional"
+        "ctaHref": "optional",
+        "elementContent": "optional text/content",
+        "elementHref": "optional link URL",
+        "elementSrc": "optional media URL",
+        "color": "#RRGGBB optional",
+        "elementBackgroundColor": "#RRGGBB optional",
+        "fontSize": 32,
+        "fontWeight": 700,
+        "textAlign": "left|center|right",
+        "padding": 16,
+        "borderRadius": 12,
+        "width": 100,
+        "maxWidth": 720,
+        "marginTop": 0,
+        "marginRight": 0,
+        "marginBottom": 0,
+        "marginLeft": 0,
+        "positionX": 0,
+        "positionY": 0,
+        "hidden": false,
+        "alignSelf": "auto|start|center|end|stretch",
+        "lineHeight": 1.2,
+        "letterSpacing": 0,
+        "opacity": 1,
+        "rotate": 0
       },
       "section": {
         "type": "hero|features|about|services|pricing|testimonials|contact|footer",
@@ -474,6 +500,10 @@ Patch rules:
 - To reorder navigation/pages, use move_page with an exact target pageId and one exact beforePageId or afterPageId.
 - For a new section, use add_section.
 - To reorder sections within a page, use move_section with exact pageId, sectionId and one exact beforeSectionId or afterSectionId.
+- To change one existing element, use update_element with exact pageId, sectionId and elementId.
+- For device-specific changes such as "on mobile", set device to mobile or tablet; desktop/global changes omit device or use desktop.
+- For element width, use percentage values from 10-100 where practical. "Full width on mobile" means width: 100 with device: mobile.
+- Never emulate responsive requests by restyling the whole site when update_element can satisfy them.
 - For section deletion, use remove_section.
 - For renaming/navigation changes, use update_page.
 - For a site-wide visual color change, use restyle_site.
@@ -483,7 +513,7 @@ Patch rules:
 - For page-specific SEO, canonical URL or indexing settings, use update_page.
 - When the user asks to create, replace or improve a real image, use generate_image with an exact page/section target and a concise visual prompt.
 - Use section_background for hero/banner imagery, image_element when an image element already exists, and section_image for other section artwork.
-- Never invent an existing pageId or sectionId.
+- Never invent an existing pageId, sectionId or elementId.
 - Never remove the home page and never remove the final remaining page.
 - Never delete the final section on a page.
 - Do not return a full "pages" replacement in edit mode.
