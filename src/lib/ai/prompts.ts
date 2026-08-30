@@ -329,6 +329,60 @@ Rules:
 - When the user input action is "edit", do NOT return a full website. Return only the patch operations requested by the edit-mode user prompt.`,
     user: (input) => {
       const action = input.action as string;
+      if (action === 'image-prompt') {
+        return `Create one excellent production image prompt for this website section.
+
+SECTION:
+${JSON.stringify(input.section || {}, null, 2)}
+
+BRAND:
+${JSON.stringify(input.brand || {}, null, 2)}
+
+Return ONLY valid JSON:
+{
+  "prompt": "a concise but specific photographic or illustrative prompt"
+}
+
+Rules:
+- Match the brand, industry, audience and section purpose.
+- Describe subject, environment, lighting, composition and mood.
+- Avoid text, logos, watermarks and UI screenshots unless explicitly requested.
+- Prefer realistic commercial website imagery unless the section clearly needs illustration.
+- Keep it under 90 words.`;
+      }
+      if (action === 'quality-check') {
+        return `Act as Tayar's final website quality reviewer.
+
+CURRENT WEBSITE:
+${JSON.stringify(input.currentSite || {}, null, 2)}
+
+DETERMINISTIC AUDIT:
+${JSON.stringify(input.audit || {}, null, 2)}
+
+Review design quality, content hierarchy, CTA clarity, imagery, responsive readiness, SEO completeness, accessibility and publish readiness.
+
+Return ONLY valid JSON:
+{
+  "score": 0,
+  "summary": "short final assessment",
+  "findings": [
+    {
+      "severity": "critical|warning|improvement",
+      "title": "short issue",
+      "detail": "specific explanation"
+    }
+  ],
+  "fixPrompt": "one natural-language instruction that Tayar's patch engine can use to fix the safe content/design issues"
+}
+
+Rules:
+- Score from 0-100.
+- Do not invent technical failures that are absent from the supplied audit.
+- Critical means the site should not publish as-is.
+- Keep findings specific and actionable; maximum 8.
+- fixPrompt must preserve unrelated content and must not request deletion of the whole site.
+- Do not claim a real mobile-browser test occurred; assess responsive readiness from the builder structure.`;
+      }
       if (action === 'edit') {
         return `Modify the existing Tayar website without rebuilding unrelated content.
 
@@ -343,12 +397,14 @@ Return ONLY valid JSON with this shape:
   "summary": "short description of what changed",
   "operations": [
     {
-      "action": "update_section|add_section|remove_section|update_page|restyle_site|update_site",
+      "action": "update_section|add_section|remove_section|update_page|restyle_site|update_site|generate_image",
       "pageId": "existing page id when applicable",
       "pageSlug": "existing page slug when applicable",
       "sectionId": "existing section id when applicable",
       "sectionType": "hero|features|about|services|pricing|testimonials|contact|footer when applicable",
       "afterSectionId": "existing section id for add_section, optional",
+      "prompt": "image description for generate_image, optional",
+      "placement": "section_background|section_image|image_element for generate_image, optional",
       "changes": {
         "title": "optional",
         "description": "optional",
@@ -388,6 +444,8 @@ Patch rules:
 - For renaming/navigation changes, use update_page.
 - For a site-wide visual color change, use restyle_site.
 - For renaming the whole website, use update_site.
+- When the user asks to create, replace or improve a real image, use generate_image with an exact page/section target and a concise visual prompt.
+- Use section_background for hero/banner imagery, image_element when an image element already exists, and section_image for other section artwork.
 - Never invent an existing pageId or sectionId.
 - Never delete the final section on a page.
 - Do not return a full "pages" replacement in edit mode.
