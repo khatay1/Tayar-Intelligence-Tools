@@ -61,8 +61,8 @@ check('Section drag and drop reorders live while dragging', builder.includes("dr
 check('Canvas shows before/after drop indicators', builder.includes("dragOverElementPosition === 'before'") && builder.includes("dragOverSectionPosition === 'before'"));
 check('Canvas elements support free X/Y positioning', builder.includes("positionX") && builder.includes("positionY") && builder.includes("handleElementDragMove"));
 check('Free positioning is device-aware and published', builder.includes("translate3d(${positionX}px,${positionY}px,0)") && builder.includes("responsive") && builder.includes("[device]"));
-check('Shift drag preserves flow reordering', builder.includes("if (!e.shiftKey)") && builder.includes("Shift + drag reorders"));
-check('Inspector exposes X/Y and reset position controls', builder.includes("X position") && builder.includes("Y position") && builder.includes("Reset position"));
+check('Shift drag preserves flow reordering', builder.includes("if (!e.shiftKey)") && builder.includes("Hold Shift while dragging to reorder instead."));
+check('Inspector exposes X/Y and reset position controls', builder.includes("Free position") && builder.includes("positionX") && builder.includes("positionY") && builder.includes("positionX: 0, positionY: 0"));
 check('Divider applies free-position transform like other elements', builder.includes("element.type === 'divider'") && builder.includes("style={{ ...commonStyle, backgroundColor: 'transparent'"));
 check('Inspector advanced controls are collapsed', builder.includes("Structure & reusable components") && builder.includes("Advanced design & responsive"));
 check('AI builder is optional by default', builder.includes("Build with AI") && builder.includes("Optional"));
