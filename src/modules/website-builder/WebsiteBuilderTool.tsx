@@ -2306,7 +2306,7 @@ function ElementPreview({
   const [hovered, setHovered] = useState(false);
   const [editingInline, setEditingInline] = useState(false);
   const inlineEditRef = useRef<HTMLElement | null>(null);
-  const inlineEditable = element.type === 'heading' || element.type === 'text';
+  const inlineEditable = element.type === 'heading' || element.type === 'text' || element.type === 'button';
 
   useEffect(() => {
     if (!editingInline || !inlineEditRef.current) return;
@@ -2404,7 +2404,7 @@ function ElementPreview({
     return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</p>;
   }
   if (element.type === 'button') {
-    return <button {...dragProps} type="button" className={wrapper} style={commonStyle}>{element.content}</button>;
+    return <button {...dragProps} ref={(node) => { inlineEditRef.current = node; }} type="button" contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit button text'}>{element.content}</button>;
   }
   if (element.type === 'list') {
     const items = (element.content || '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
@@ -2485,6 +2485,9 @@ function SectionPreview({
   onResizeElementStart,
   onResizeElementWidth,
   onResetElementPosition,
+  onQuickUpdateElement,
+  onOpenMediaLibrary,
+  onOpenInspector,
   onMoveSelectedElement,
   onDuplicateSelectedElement,
   onDeleteSelectedElement,
@@ -2514,6 +2517,9 @@ function SectionPreview({
   onResizeElementStart: (id: string) => void;
   onResizeElementWidth: (id: string, width: number) => void;
   onResetElementPosition: (id: string) => void;
+  onQuickUpdateElement: (id: string, changes: Partial<WebsiteElement>) => void;
+  onOpenMediaLibrary: () => void;
+  onOpenInspector: () => void;
   onMoveSelectedElement: (direction: 'up' | 'down') => void;
   onDuplicateSelectedElement: () => void;
   onDeleteSelectedElement: () => void;
@@ -2572,7 +2578,7 @@ function SectionPreview({
           right: `${Math.max(0, 100 - width)}%`,
           transform: `translate3d(${positionX}px, ${positionY}px, 0)`,
         }}
-        title="Drag to move · Shift+drag to reorder"
+        title="Drag to move · Arrow keys nudge · Shift+arrow 10px · Shift+drag to reorder"
         onDragStart={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
@@ -2584,6 +2590,40 @@ function SectionPreview({
             X {positionX} · Y {positionY}
           </span>
         )}
+        {element.type === 'button' && (
+          <button
+            type="button"
+            onClick={() => {
+              const next = window.prompt('Button link', element.href || '#');
+              if (next !== null) onQuickUpdateElement(element.id, { href: next.trim() || '#' });
+            }}
+            className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200"
+            title="Edit button link"
+          >
+            <Link className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {element.type === 'image' && (
+          <button type="button" onClick={onOpenMediaLibrary} className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200" title="Open media library">
+            <Images className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {(element.type === 'video' || element.type === 'embed') && (
+          <button
+            type="button"
+            onClick={() => {
+              const next = window.prompt(element.type === 'video' ? 'Video URL' : 'Embed URL', element.src || '');
+              if (next !== null) onQuickUpdateElement(element.id, { src: next.trim() });
+            }}
+            className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200"
+            title={element.type === 'video' ? 'Edit video URL' : 'Edit embed URL'}
+          >
+            <Link className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button type="button" onClick={onOpenInspector} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title="Open inspector">
+          <Palette className="h-3.5 w-3.5" />
+        </button>
         <button type="button" onClick={() => onMoveSelectedElement('up')} disabled={!canMoveElementUp} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move up">
           <ChevronUp className="h-3.5 w-3.5" />
         </button>
@@ -3903,6 +3943,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   );
 
   useEffect(() => {
+    if (!selectedSection || !selectedElement) return;
+
+    const handleCanvasKeyDown = (event: KeyboardEvent) => {
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (target && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+
+      event.preventDefault();
+      const step = event.shiftKey ? 10 : 1;
+      if (event.key === 'ArrowLeft') nudgeSelectedElement(-step, 0);
+      if (event.key === 'ArrowRight') nudgeSelectedElement(step, 0);
+      if (event.key === 'ArrowUp') nudgeSelectedElement(0, -step);
+      if (event.key === 'ArrowDown') nudgeSelectedElement(0, step);
+    };
+
+    window.addEventListener('keydown', handleCanvasKeyDown);
+    return () => window.removeEventListener('keydown', handleCanvasKeyDown);
+  }, [selectedSection, selectedElement, device, sections]);
+
+  useEffect(() => {
     setSectionSettingsOpen(!selectedElementId);
   }, [selectedElementId]);
 
@@ -4754,6 +4815,92 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
     setSelectedId(sectionId);
     setSelectedElementId(elementId);
+    setSaved(false);
+  }
+
+  function quickUpdateElement(sectionId: string, elementId: string, changes: Partial<WebsiteElement>) {
+    const targetSection = sections.find((section) => section.id === sectionId);
+    const targetElement = targetSection?.elements.find((element) => element.id === elementId);
+    if (!targetSection || !targetElement) return;
+    remember(sections);
+    const symbolId = targetElement.symbolId;
+
+    const applyChanges = (element: WebsiteElement): WebsiteElement => ({
+      ...element,
+      ...changes,
+      id: element.id,
+      containerId: element.containerId,
+      layoutColumn: element.layoutColumn,
+      symbolId: element.symbolId,
+    });
+
+    const updateSection = (section: WebsiteSection): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = symbolId ? element.symbolId === symbolId : element.id === elementId;
+        return matches ? applyChanges(element) : element;
+      }),
+    });
+
+    setSections((current) => current.map((section) => section.id === sectionId || symbolId ? updateSection(section) : section));
+    if (symbolId) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : {
+        ...page,
+        sections: page.sections.map(updateSection),
+      }));
+      setSymbols((current) => current.map((symbol) => symbol.id === symbolId ? {
+        ...symbol,
+        element: applyChanges(symbol.element),
+        updatedAt: new Date().toISOString(),
+      } : symbol));
+    }
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
+    setSaved(false);
+  }
+
+  function nudgeSelectedElement(deltaX: number, deltaY: number) {
+    if (!selectedSection || !selectedElement) return;
+    const currentStyle = effectiveStyle(selectedElement, device);
+    const currentX = clampElementNumber(currentStyle.positionX, 0, -4000, 4000);
+    const currentY = clampElementNumber(currentStyle.positionY, 0, -4000, 4000);
+    const nextX = Math.max(-4000, Math.min(4000, currentX + deltaX));
+    const nextY = Math.max(-4000, Math.min(4000, currentY + deltaY));
+    if (nextX === currentX && nextY === currentY) return;
+
+    remember(sections);
+    const symbolId = selectedElement.symbolId;
+    const moveElement = (element: WebsiteElement): WebsiteElement => ({
+      ...element,
+      responsive: {
+        ...element.responsive,
+        [device]: {
+          ...(element.responsive?.[device] || {}),
+          positionX: nextX,
+          positionY: nextY,
+        },
+      },
+    });
+    const moveSection = (section: WebsiteSection): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = symbolId ? element.symbolId === symbolId : element.id === selectedElement.id;
+        return matches ? moveElement(element) : element;
+      }),
+    });
+
+    setSections((current) => current.map((section) => section.id === selectedSection.id || symbolId ? moveSection(section) : section));
+    if (symbolId) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : {
+        ...page,
+        sections: page.sections.map(moveSection),
+      }));
+      setSymbols((current) => current.map((symbol) => symbol.id === symbolId ? {
+        ...symbol,
+        element: moveElement(symbol.element),
+        updatedAt: new Date().toISOString(),
+      } : symbol));
+    }
     setSaved(false);
   }
 
@@ -8680,6 +8827,9 @@ if (generated.seo) {
       onResizeElementStart={(elementId) => beginElementResize(section.id, elementId)}
       onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
       onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
+      onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
+      onOpenMediaLibrary={() => { setSelectedId(section.id); setMediaOpen(true); }}
+      onOpenInspector={() => setInspectorOpen(true)}
       onMoveSelectedElement={moveSelectedElement}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
