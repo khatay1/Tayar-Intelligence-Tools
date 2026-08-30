@@ -65,7 +65,7 @@ check('Shift drag preserves flow reordering', builder.includes("if (!e.shiftKey)
 check('Inspector exposes X/Y and reset position controls', builder.includes("Free position") && builder.includes("positionX") && builder.includes("positionY") && builder.includes("positionX: 0, positionY: 0"));
 check('Divider applies free-position transform like other elements', builder.includes("element.type === 'divider'") && builder.includes("style={{ ...commonStyle, backgroundColor: 'transparent'"));
 check('Inspector advanced controls are collapsed', builder.includes("Structure & reusable components") && builder.includes("Advanced design & responsive"));
-check('AI builder is first-class in the Add panel', builder.includes("Tayar AI Builder") && builder.includes(">V2<") && builder.includes("Build with Tayar Agent") && builder.includes("AI creates and patches real Tayar pages and sections"));
+check('AI builder is first-class in the Add panel', builder.includes("Tayar AI Builder") && builder.includes(">Agent<") && builder.includes("Build with Tayar Agent") && builder.includes("AI creates and patches real Tayar pages and sections"));
 check('AI builder supports targeted follow-up edits', builder.includes("Apply AI change") && builder.includes("applyAIChange") && builder.includes("update_section") && builder.includes("remove_section"));
 check('AI builder follow-up edits are undoable', builder.includes("Undo AI change") && builder.includes("setAiUndoSnapshot(snapshot)") && builder.includes("undoLastAIChange"));
 check('AI builder can preserve unrelated content while patching', builder.includes("JSON.parse(JSON.stringify(currentPages))") && builder.includes("resolvePageIndex") && builder.includes("resolveSectionIndex"));
@@ -111,6 +111,8 @@ check('Final Agent can copy section and element visual styles natively', builder
 check('Final Agent responsive repair is device-aware and desktop-preserving', builder.includes("repair_responsive") && builder.includes('sectionResponsive.mobile') && builder.includes('sectionResponsive.tablet') && builder.includes('baseStyle'));
 check('Final Agent returns focus to native Layers and Inspector', builder.includes('handoffOperation') && builder.includes("setBuilderPanel('layers')") && builder.includes('setInspectorOpen(true)'));
 check('Manual editor contracts still survive final Agent polish', builder.includes('function addPage()') && builder.includes('function updateSelectedElement(') && builder.includes('function createSymbolFromSelected()') && builder.includes('function undo()') && builder.includes('function redo()'));
+check('Final UX polish keeps a compact canvas-first shell', builder.includes("lg:w-56 xl:w-60") && builder.includes("lg:w-72 xl:w-80") && builder.includes("hidden 2xl:inline"));
+check('Final UX polish keeps advanced manual controls progressively disclosed', builder.includes("l('Structure')") && builder.includes("l('Advanced')") && builder.includes("l('Advanced design & responsive')"));
 
 check('Published output carries responsive section overrides', builder.includes('buildResponsiveSectionCss') && builder.includes('data-tayar-section-id') && builder.includes('${responsiveSectionCss}'));
 check('Project history contains AI checkpoints', builder.includes("Before AI change") && builder.includes("After AI change") && builder.includes("slice(0, 30)"));
