@@ -2927,6 +2927,15 @@ function SectionPreview({
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id); }}
+                onDoubleClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (!contactSubmitElement) return;
+                  onSelectElement(contactSubmitElement.id);
+                  const nextText = window.prompt('Button text', contactSubmitElement.content || '')?.trim();
+                  if (nextText && nextText !== contactSubmitElement.content) onInlineContentChange(contactSubmitElement.id, nextText);
+                }}
+                title="Double-click to edit button text"
                 className={`font-semibold opacity-90 transition ${selectedElementId === contactSubmitElement?.id ? 'ring-2 ring-violet-400 ring-offset-2 ring-offset-transparent' : 'hover:ring-1 hover:ring-violet-400/40'}`}
                 style={{
                   color: contactSubmitStyle?.color || '#ffffff',
