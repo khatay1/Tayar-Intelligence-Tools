@@ -397,12 +397,15 @@ Return ONLY valid JSON with this shape:
   "summary": "short description of what changed",
   "operations": [
     {
-      "action": "add_page|remove_page|set_home_page|update_section|add_section|remove_section|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
+      "action": "add_page|remove_page|set_home_page|move_page|update_section|add_section|remove_section|move_section|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
       "pageId": "existing page id when applicable",
       "pageSlug": "existing page slug when applicable",
       "sectionId": "existing section id when applicable",
       "sectionType": "hero|features|about|services|pricing|testimonials|contact|footer when applicable",
-      "afterSectionId": "existing section id for add_section, optional",
+      "beforePageId": "existing destination page id for move_page, optional",
+      "afterPageId": "existing destination page id for move_page, optional",
+      "beforeSectionId": "existing destination section id for move_section, optional",
+      "afterSectionId": "existing section id for add_section or move_section, optional",
       "prompt": "image description for generate_image, optional",
       "placement": "section_background|section_image|image_element for generate_image, optional",
       "page": {
@@ -468,7 +471,9 @@ Patch rules:
 - For a new page, use add_page with 1-8 supported sections.
 - To remove an existing non-home page, use remove_page with an exact existing pageId or pageSlug.
 - To make an existing page the homepage, use set_home_page with an exact existing pageId or pageSlug.
+- To reorder navigation/pages, use move_page with an exact target pageId and one exact beforePageId or afterPageId.
 - For a new section, use add_section.
+- To reorder sections within a page, use move_section with exact pageId, sectionId and one exact beforeSectionId or afterSectionId.
 - For section deletion, use remove_section.
 - For renaming/navigation changes, use update_page.
 - For a site-wide visual color change, use restyle_site.
