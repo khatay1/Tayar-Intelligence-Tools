@@ -24,8 +24,8 @@ export function WebsiteBuilderV2Shell(props: WebsiteBuilderV2ShellProps) {
     <div
       className="tayar-v2-shell"
       data-focus={shell.view.focusMode ? 'true' : 'false'}
-      data-left-open={shell.view.focusMode ? 'false' : 'true'}
-      data-inspector-open={shell.view.focusMode ? 'false' : 'true'}
+      data-left-open={shell.view.focusMode || !shell.view.leftSidebarOpen ? 'false' : 'true'}
+      data-inspector-open={shell.view.focusMode || !shell.view.inspectorOpen ? 'false' : 'true'}
     >
       <BuilderTopbar
         shell={shell}
@@ -34,13 +34,13 @@ export function WebsiteBuilderV2Shell(props: WebsiteBuilderV2ShellProps) {
         trailingSlot={props.topbarTrailingSlot}
       />
       <div className="tayar-v2-shell__workspace">
-        {!shell.view.focusMode && (
+        {!shell.view.focusMode && shell.view.leftSidebarOpen && (
           <BuilderLeftSidebar shell={shell} renderPanel={props.renderLeftPanel} />
         )}
         <BuilderCanvasFrame shell={shell} overlaySlot={props.canvasOverlaySlot}>
           {props.canvas}
         </BuilderCanvasFrame>
-        {!shell.view.focusMode && (
+        {!shell.view.focusMode && shell.view.inspectorOpen && (
           <BuilderInspector shell={shell} renderInspector={props.renderInspector} />
         )}
       </div>

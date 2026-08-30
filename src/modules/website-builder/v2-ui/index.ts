@@ -17,3 +17,7 @@ export * from './BuilderPanelRouter';
 export * from './BuilderInspectorFields';
 export * from './BuilderCanvasMeasurement';
 export * from './BuilderDropIndicator';
+
+export * from './WebsiteBuilderV2Bridge';
+
+export * from './BuilderV2NativeBridge';

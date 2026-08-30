@@ -12,6 +12,8 @@ export interface EditorShellViewModel {
   canUndo: boolean;
   canRedo: boolean;
   focusMode: boolean;
+  leftSidebarOpen: boolean;
+  inspectorOpen: boolean;
   previewDevice: 'desktop' | 'tablet' | 'mobile';
   leftPanel: string;
   inspectorTab: string;
@@ -39,6 +41,8 @@ export function buildEditorShellViewModel<P extends EditorProjectLike>(
     canUndo: state.session.history.past.length > 0,
     canRedo: state.session.history.future.length > 0,
     focusMode: state.layout.focusMode,
+    leftSidebarOpen: state.layout.leftSidebarOpen,
+    inspectorOpen: state.layout.inspectorOpen,
     previewDevice: state.layout.previewDevice,
     leftPanel: state.layout.leftPanel,
     inspectorTab: state.layout.inspectorTab,

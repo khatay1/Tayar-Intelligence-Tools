@@ -23,7 +23,7 @@ export function buildEditorInspectorFields<P extends EditorProjectLike>(project:
   if (!selection.elementId) {
     return [
       field('title', 'Section title', section.title || '', 'text', 'content'),
-      field('backgroundColor', 'Background', section.backgroundColor || '', 'color', 'design'),
+      field(Object.prototype.hasOwnProperty.call(section, 'background') ? 'background' : 'backgroundColor', 'Background', (section as any).background ?? section.backgroundColor ?? '', 'color', 'design'),
       field('sectionPaddingY', 'Vertical padding', section.sectionPaddingY ?? 48, 'number', 'design'),
       field('layoutGap', 'Gap', section.layoutGap ?? 16, 'number', 'design'),
       field('responsive.mobile.sectionPaddingY', 'Mobile vertical padding', (section.responsive as any)?.mobile?.sectionPaddingY ?? '', 'number', 'responsive'),
