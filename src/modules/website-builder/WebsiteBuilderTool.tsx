@@ -9,6 +9,8 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Monitor,
   Smartphone,
   Save,
@@ -2874,6 +2876,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
   const [advancedSiteSettingsOpen, setAdvancedSiteSettingsOpen] = useState(false);
   const [builderPanel, setBuilderPanel] = useState<'add' | 'pages' | 'layers'>('add');
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [siteName, setSiteName] = useState('My Website');
@@ -7790,12 +7794,25 @@ if (generated.seo) {
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside
-          className={`w-full shrink-0 border-b p-3 lg:w-60 lg:border-b-0 lg:border-r ${
+          className={`w-full shrink-0 border-b p-3 transition-[width,padding] duration-200 lg:border-b-0 lg:border-r ${leftSidebarOpen ? 'lg:w-60 lg:p-3' : 'lg:w-12 lg:p-2'} ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
           }`}
         >
+          <div className="mb-2 hidden lg:flex lg:justify-end">
+            <button
+              type="button"
+              onClick={() => setLeftSidebarOpen((open) => !open)}
+              className={`grid h-8 w-8 place-items-center rounded-lg border transition ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white' : 'border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+              title={l(leftSidebarOpen ? 'Collapse tools panel' : 'Expand tools panel')}
+              aria-label={l(leftSidebarOpen ? 'Collapse tools panel' : 'Expand tools panel')}
+              aria-expanded={leftSidebarOpen}
+            >
+              {leftSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+          </div>
+          <div className={leftSidebarOpen ? 'block' : 'lg:hidden'}>
           <div className={`mb-3 grid grid-cols-3 gap-1 rounded-xl border p-1 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
             {([
               ['add', l('Add')],
@@ -8354,6 +8371,7 @@ if (generated.seo) {
           </details>
             </div>
           )}
+          </div>
         </aside>
 
         <main
@@ -8461,12 +8479,25 @@ if (generated.seo) {
         </main>
 
         <aside
-          className={`w-full shrink-0 border-t p-3 lg:w-80 lg:border-l lg:border-t-0 ${
+          className={`w-full shrink-0 border-t p-3 transition-[width,padding] duration-200 lg:border-l lg:border-t-0 ${inspectorOpen ? 'lg:w-80 lg:p-3' : 'lg:w-12 lg:p-2'} ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
           }`}
         >
+          <div className="mb-2 hidden lg:flex lg:justify-start">
+            <button
+              type="button"
+              onClick={() => setInspectorOpen((open) => !open)}
+              className={`grid h-8 w-8 place-items-center rounded-lg border transition ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white' : 'border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+              title={l(inspectorOpen ? 'Collapse inspector' : 'Expand inspector')}
+              aria-label={l(inspectorOpen ? 'Collapse inspector' : 'Expand inspector')}
+              aria-expanded={inspectorOpen}
+            >
+              {inspectorOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </button>
+          </div>
+          <div className={inspectorOpen ? 'block' : 'lg:hidden'}>
           <div className="mb-5 flex items-center gap-2">
             <Eye className="h-4 w-4 text-violet-400" />
             <div>
@@ -9326,6 +9357,7 @@ if (generated.seo) {
               </button>
             </div>
           )}
+          </div>
         </aside>
       </div>
     </div>
