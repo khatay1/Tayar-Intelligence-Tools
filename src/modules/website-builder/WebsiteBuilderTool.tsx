@@ -3993,7 +3993,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     window.addEventListener('keydown', handleCanvasKeyDown);
     return () => window.removeEventListener('keydown', handleCanvasKeyDown);
-  }, [selectedSection, selectedElement, device, sections]);
+  }, [selectedSection, selectedElement, device, sections, deleteSelectedElement, duplicateSelectedElement, nudgeSelectedElement]);
 
   useEffect(() => {
     setSectionSettingsOpen(!selectedElementId);
