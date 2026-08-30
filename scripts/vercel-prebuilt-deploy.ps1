@@ -124,19 +124,111 @@ if (-not (Test-Path $ViteEntry)) {
   throw "Local Vite installation not found at $ViteEntry. Run npm install in the project, then rerun this script."
 }
 
-# vercel pull writes the production environment here. Vite expects production
-# env files at the project root, so expose it only for the duration of the build.
+# vercel pull can redact Sensitive Environment Variables as "[SENSITIVE]".
+# Vite would otherwise bake those placeholders into the browser bundle. Merge
+# the pulled production env with valid local browser values and fail closed
+# before building if the required Supabase config cannot be resolved.
 $PulledEnv = Join-Path (Get-Location) '.vercel\.env.production.local'
 $RootEnv = Join-Path (Get-Location) '.env.production.local'
 $RootEnvBackup = Join-Path $env:TEMP ('tayar-env-production-' + [guid]::NewGuid().ToString('N') + '.bak')
 $HadRootEnv = Test-Path $RootEnv
 
+function Get-DotEnvValue {
+  param(
+    [string]$Path,
+    [string]$Name
+  )
+
+  if (-not (Test-Path $Path)) {
+    return $null
+  }
+
+  foreach ($line in [System.IO.File]::ReadAllLines($Path)) {
+    if ($line -match ('^\s*' + [regex]::Escape($Name) + '\s*=\s*(.*)\s*$')) {
+      $value = $Matches[1].Trim()
+      if (
+        ($value.StartsWith('"') -and $value.EndsWith('"')) -or
+        ($value.StartsWith("'") -and $value.EndsWith("'"))
+      ) {
+        $value = $value.Substring(1, $value.Length - 2)
+      }
+      if ($value -and $value -ne '[SENSITIVE]') {
+        return $value
+      }
+    }
+  }
+
+  return $null
+}
+
+function Resolve-LocalEnvValue {
+  param([string]$Name)
+
+  $processValue = [Environment]::GetEnvironmentVariable($Name, 'Process')
+  if ($processValue -and $processValue -ne '[SENSITIVE]') {
+    return $processValue.Trim()
+  }
+
+  $candidates = @(
+    (Join-Path (Get-Location) '.env.local'),
+    (Join-Path (Get-Location) '.env.production'),
+    (Join-Path (Get-Location) '.env')
+  )
+  if ($HadRootEnv -and (Test-Path $RootEnvBackup)) {
+    $candidates = @($RootEnvBackup) + $candidates
+  }
+
+  foreach ($candidate in $candidates) {
+    $value = Get-DotEnvValue -Path $candidate -Name $Name
+    if ($value) {
+      return $value
+    }
+  }
+
+  return $null
+}
+
 if ($HadRootEnv) {
   Copy-Item $RootEnv $RootEnvBackup -Force
 }
-if (Test-Path $PulledEnv) {
-  Copy-Item $PulledEnv $RootEnv -Force
+
+$SupabaseUrl = Resolve-LocalEnvValue 'VITE_SUPABASE_URL'
+$SupabaseAnonKey = Resolve-LocalEnvValue 'VITE_SUPABASE_ANON_KEY'
+
+if (-not $SupabaseUrl -and (Test-Path $PulledEnv)) {
+  $SupabaseUrl = Get-DotEnvValue -Path $PulledEnv -Name 'VITE_SUPABASE_URL'
 }
+if (-not $SupabaseAnonKey -and (Test-Path $PulledEnv)) {
+  $SupabaseAnonKey = Get-DotEnvValue -Path $PulledEnv -Name 'VITE_SUPABASE_ANON_KEY'
+}
+
+if (-not $SupabaseUrl -or $SupabaseUrl -notmatch '^https?://') {
+  throw 'A valid VITE_SUPABASE_URL was not found locally. Restore it in .env.local or .env before deploying.'
+}
+if (-not $SupabaseAnonKey -or $SupabaseAnonKey -eq '[SENSITIVE]') {
+  throw 'VITE_SUPABASE_ANON_KEY is redacted by Vercel and no valid local copy was found. Restore it in .env.local or .env before deploying.'
+}
+
+$pulledLines = @()
+if (Test-Path $PulledEnv) {
+  $pulledLines = @([System.IO.File]::ReadAllLines($PulledEnv) | Where-Object {
+    $_ -notmatch '^\s*VITE_SUPABASE_URL\s*=' -and
+    $_ -notmatch '^\s*VITE_SUPABASE_ANON_KEY\s*=' -and
+    $_ -notmatch '\[SENSITIVE\]'
+  })
+}
+
+$mergedLines = @($pulledLines) + @(
+  ('VITE_SUPABASE_URL="' + $SupabaseUrl.Replace('"', '\"') + '"'),
+  ('VITE_SUPABASE_ANON_KEY="' + $SupabaseAnonKey.Replace('"', '\"') + '"')
+)
+[System.IO.File]::WriteAllLines(
+  $RootEnv,
+  $mergedLines,
+  (New-Object System.Text.UTF8Encoding($false))
+)
+
+Write-Host "Validated local Supabase browser configuration." -ForegroundColor Green
 
 try {
   if (Test-Path (Join-Path (Get-Location) 'dist')) {
@@ -170,6 +262,11 @@ finally {
 $DistDir = Join-Path (Get-Location) 'dist'
 if (-not (Test-Path (Join-Path $DistDir 'index.html'))) {
   throw "Vite build completed but dist\index.html is missing"
+}
+
+$redactedBundle = Get-ChildItem $DistDir -Recurse -File | Select-String -SimpleMatch '[SENSITIVE]' -List -ErrorAction SilentlyContinue
+if ($redactedBundle) {
+  throw 'Build output contains a redacted [SENSITIVE] placeholder. Deployment aborted before upload.'
 }
 
 Write-Host ""
