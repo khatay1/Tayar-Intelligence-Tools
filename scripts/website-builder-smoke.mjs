@@ -77,6 +77,7 @@ check('AI patches can repair SEO and header CTA', builder.includes("update_seo")
 check('AI builder can add pages without rebuilding the site', builder.includes("add_page") && builder.includes('sourcePage') && builder.includes('billingEntitlements.maxPages'));
 check('AI builder protects home and final page from deletion', builder.includes("remove_page") && builder.includes('targetPage.id === nextHomePageId') && builder.includes('nextPages.length <= 1'));
 check('AI builder can switch the homepage without rebuilding', builder.includes("set_home_page") && builder.includes('nextHomePageId') && builder.includes('setHomePageId(nextHomePageId)'));
+check('AI builder can reorder pages and sections safely', builder.includes("move_page") && builder.includes("move_section") && builder.includes('beforePageId') && builder.includes('beforeSectionId'));
 check('Project history contains AI checkpoints', builder.includes("Before AI change") && builder.includes("After AI change") && builder.includes("slice(0, 30)"));
 check('Publish actions expose Preview Check Publish flow', builder.includes("AI quality check before publishing") && builder.includes("Check") && builder.includes("Publish"));
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
