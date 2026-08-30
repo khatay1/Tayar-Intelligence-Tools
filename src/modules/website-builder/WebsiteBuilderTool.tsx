@@ -85,10 +85,19 @@ interface AIWebsitePatchChanges {
   primaryColor?: string;
   accentColor?: string;
   backgroundColor?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
+  noIndex?: boolean;
+  seoKeywords?: string[];
+  headerEnabled?: boolean;
+  showCta?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
 }
 
 interface AIWebsitePatchOperation {
-  action: 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site' | 'generate_image';
+  action: 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
   pageId?: string;
   pageSlug?: string;
   sectionId?: string;
@@ -149,6 +158,7 @@ interface AIWebsiteUndoSnapshot {
   brand: WebsiteBrand;
   seo: WebsiteSEO;
   theme: WebsiteTheme;
+  headerConfig: WebsiteHeaderConfig;
 }
 
 interface CloudWebsiteProject {
@@ -5933,17 +5943,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return {
       siteName,
       activePageId,
+      homePageId,
+      seo: {
+        title: seo.title,
+        description: seo.description,
+        keywords: seo.keywords.slice(0, 20),
+      },
+      header: {
+        enabled: headerConfig.enabled,
+        showCta: headerConfig.showCta,
+        ctaLabel: headerConfig.ctaLabel,
+        ctaHref: headerConfig.ctaHref,
+      },
       theme: {
         primaryColor: theme.primaryColor,
         secondaryColor: theme.secondaryColor,
         backgroundColor: theme.backgroundColor,
         textColor: theme.textColor,
+        mutedTextColor: theme.mutedTextColor,
+        fontFamily: theme.fontFamily,
+        contentWidth: theme.contentWidth,
+        buttonRadius: theme.buttonRadius,
+        sectionSpacing: theme.sectionSpacing,
       },
       pages: getCurrentPages().map((page) => ({
         id: page.id,
         name: page.name,
         slug: page.slug,
         showInNavigation: page.showInNavigation,
+        seoTitle: page.seoTitle || '',
+        seoDescription: page.seoDescription || '',
+        canonicalUrl: page.canonicalUrl || '',
+        noIndex: page.noIndex === true,
         sections: page.sections.map((section) => ({
           id: section.id,
           type: section.type,
@@ -5955,6 +5986,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           accent: section.accent,
           image: section.image,
           imagePrompt: section.imagePrompt,
+          backgroundMode: section.backgroundMode,
+          layout: section.layout,
+          elements: section.elements.slice(0, 12).map((element) => ({
+            id: element.id,
+            type: element.type,
+            content: element.content,
+            href: element.href,
+            src: element.src,
+            responsiveModes: Object.keys(element.responsive || {}),
+          })),
         })),
       })),
     };
@@ -5975,6 +6016,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBrand(snapshot.brand);
     setSeo(snapshot.seo);
     setTheme(snapshot.theme);
+    setHeaderConfig(snapshot.headerConfig);
     setAiUndoSnapshot(null);
     setAiStage('ready');
     setSaved(false);
@@ -5999,6 +6041,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       brand: JSON.parse(JSON.stringify(brand)) as WebsiteBrand,
       seo: JSON.parse(JSON.stringify(seo)) as WebsiteSEO,
       theme: JSON.parse(JSON.stringify(theme)) as WebsiteTheme,
+      headerConfig: JSON.parse(JSON.stringify(headerConfig)) as WebsiteHeaderConfig,
     };
 
     setAiBusy(true);
@@ -6083,6 +6126,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       let nextPages = JSON.parse(JSON.stringify(currentPages)) as WebsitePage[];
       let nextSiteName = siteName;
       let nextTheme = { ...theme };
+      let nextSeo: WebsiteSEO = { ...seo, keywords: [...seo.keywords] };
+      let nextHeaderConfig: WebsiteHeaderConfig = { ...headerConfig };
       let applied = 0;
 
       const resolvePageIndex = (operation: AIWebsitePatchOperation) => {
@@ -6116,6 +6161,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const changes = operation.changes || {};
           if (typeof changes.name === 'string' && changes.name.trim()) {
             nextSiteName = changes.name.trim().slice(0, 100);
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'update_seo') {
+          const changes = operation.changes || {};
+          const nextTitle = typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : nextSeo.title;
+          const nextDescription = typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : nextSeo.description;
+          const nextKeywords = Array.isArray(changes.seoKeywords)
+            ? changes.seoKeywords.map((keyword) => String(keyword).trim()).filter(Boolean).slice(0, 20)
+            : nextSeo.keywords;
+          if (nextTitle !== nextSeo.title || nextDescription !== nextSeo.description || JSON.stringify(nextKeywords) !== JSON.stringify(nextSeo.keywords)) {
+            nextSeo = { title: nextTitle, description: nextDescription, keywords: nextKeywords };
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'update_header') {
+          const changes = operation.changes || {};
+          const next = {
+            ...nextHeaderConfig,
+            enabled: typeof changes.headerEnabled === 'boolean' ? changes.headerEnabled : nextHeaderConfig.enabled,
+            showCta: typeof changes.showCta === 'boolean' ? changes.showCta : nextHeaderConfig.showCta,
+            ctaLabel: typeof changes.ctaLabel === 'string' ? changes.ctaLabel.trim().slice(0, 80) : nextHeaderConfig.ctaLabel,
+            ctaHref: typeof changes.ctaHref === 'string' ? changes.ctaHref.trim().slice(0, 500) : nextHeaderConfig.ctaHref,
+          };
+          if (JSON.stringify(next) !== JSON.stringify(nextHeaderConfig)) {
+            nextHeaderConfig = next;
             applied += 1;
           }
           continue;
@@ -6178,6 +6253,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             showInNavigation: typeof changes.showInNavigation === 'boolean'
               ? changes.showInNavigation
               : page.showInNavigation,
+            seoTitle: typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : page.seoTitle,
+            seoDescription: typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : page.seoDescription,
+            canonicalUrl: typeof changes.canonicalUrl === 'string' ? changes.canonicalUrl.trim().slice(0, 500) : page.canonicalUrl,
+            noIndex: typeof changes.noIndex === 'boolean' ? changes.noIndex : page.noIndex,
           };
           applied += 1;
           continue;
@@ -6314,6 +6393,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setActivePageId(finalActive?.id || activePageId);
       setSiteName(nextSiteName);
       setTheme(nextTheme);
+      setSeo(nextSeo);
+      setHeaderConfig(nextHeaderConfig);
       setSelectedId(finalActive?.sections[0]?.id ?? null);
       setSelectedElementId(finalActive?.sections[0]?.elements[0]?.id ?? null);
       setHistory([]);
@@ -6328,6 +6409,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         activePageId: finalActive?.id || activePageId,
         siteName: nextSiteName,
         theme: nextTheme,
+        seo: nextSeo,
+        headerConfig: nextHeaderConfig,
       });
 
       const summary = patch.summary?.trim() || `Applied ${applied} targeted AI change${applied === 1 ? '' : 's'}.`;
