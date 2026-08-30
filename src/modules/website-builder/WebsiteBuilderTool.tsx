@@ -9284,33 +9284,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           {builderPanel === 'add' && (
             <div className="mt-3 space-y-3">
-          <div className={`mt-3 overflow-hidden rounded-xl border ${darkMode ? 'border-violet-500/25 bg-violet-500/[0.06]' : 'border-violet-200 bg-violet-50/70'}`}>
-            <div className="flex items-center justify-between gap-2 border-b border-violet-500/10 px-3 py-2.5">
-              <span className="flex items-center gap-2 text-xs font-black">
-                <Sparkles className="h-4 w-4 text-violet-400" />
-                {l('Tayar AI Builder')}
-              </span>
-              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-violet-400">V2</span>
+          <div className={`mt-3 overflow-hidden rounded-2xl border shadow-sm ${darkMode ? 'border-white/10 bg-[#0d1220]/80' : 'border-gray-200 bg-white'}`}>
+            <div className={`flex items-start justify-between gap-3 border-b px-3.5 py-3 ${darkMode ? 'border-white/[0.06]' : 'border-gray-100'}`}>
+              <div className="min-w-0">
+                <span className="flex items-center gap-2 text-xs font-black">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10">
+                    <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                  </span>
+                  {l('Tayar AI Builder')}
+                </span>
+                <p className="mt-1 pl-9 text-[8px] leading-relaxed text-gray-500">{l('Build, refine and undo with natural language.')}</p>
+              </div>
+              <span className="mt-0.5 rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-violet-400">V2</span>
             </div>
 
-            <div className="space-y-3 p-3">
-              <div className="max-h-36 space-y-2 overflow-auto pr-1">
+            <div className="space-y-3.5 p-3.5">
+              <div className="max-h-44 space-y-2.5 overflow-auto pr-1">
                 {aiMessages.slice(-4).map((message) => (
-                  <div key={message.id} className={`rounded-lg px-2.5 py-2 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-5 bg-violet-500/15 text-violet-100' : 'ml-5 bg-violet-100 text-violet-900') : (darkMode ? 'mr-3 bg-white/[0.04] text-gray-300' : 'mr-3 bg-white text-gray-700')}`}>
-                    <span className="mb-1 block text-[8px] font-black uppercase tracking-wider text-gray-500">{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
+                  <div key={message.id} className={`rounded-xl border px-3 py-2.5 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-7 border-violet-500/10 bg-violet-500/[0.09] text-violet-50' : 'ml-7 border-violet-100 bg-violet-50 text-violet-900') : (darkMode ? 'mr-2 border-white/[0.06] bg-white/[0.025] text-gray-300' : 'mr-2 border-gray-100 bg-gray-50/80 text-gray-700')}`}>
+                    <span className={`mb-1.5 block text-[7px] font-black uppercase tracking-[0.14em] ${message.role === 'user' ? 'text-violet-400' : 'text-gray-500'}`}>{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
                     {message.content}
                   </div>
                 ))}
               </div>
 
-              {(aiBusy || aiStage === 'ready') && (
-                <div className="grid grid-cols-4 gap-1">
+              {aiBusy && (
+                <div className="grid grid-cols-4 gap-1.5">
                   {AI_BUILDER_STAGE_ORDER.map((stage, index) => {
                     const activeIndex = AI_BUILDER_STAGE_ORDER.indexOf(aiStage === 'idle' || aiStage === 'error' ? 'planning' : aiStage);
                     const complete = aiStage === 'ready' || index < activeIndex;
                     const active = aiStage === stage && aiStage !== 'ready';
                     return (
-                      <div key={stage} className={`rounded-md border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : active ? 'border-violet-500/30 bg-violet-500/15 text-violet-300' : 'border-white/10 text-gray-600'}`}>
+                      <div key={stage} className={`rounded-lg border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/15 bg-emerald-500/[0.07] text-emerald-400' : active ? 'border-violet-500/20 bg-violet-500/[0.08] text-violet-300' : darkMode ? 'border-white/[0.06] text-gray-600' : 'border-gray-100 text-gray-400'}`}>
                         {complete ? '✓ ' : ''}{stage}
                       </div>
                     );
@@ -9319,19 +9324,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               )}
 
               {aiStage === 'ready' && (
-                <div className="flex items-center justify-between rounded-lg border border-emerald-500/15 bg-emerald-500/[0.05] px-2.5 py-1.5">
-                  <span className="text-[8px] font-black uppercase tracking-wider text-emerald-400">{l('Safe patch mode')}</span>
-                  <span className="text-[8px] text-gray-500">{l('Unrelated content stays intact')}</span>
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.035] px-3 py-2">
+                  <span className="flex items-center gap-1.5 text-[8px] font-black text-emerald-400">
+                    <Check className="h-3 w-3" />
+                    {l('Safe patch mode')}
+                  </span>
+                  <span className="text-right text-[8px] text-gray-500">{l('Unrelated content stays intact')}</span>
                 </div>
               )}
 
               {aiPlan && (
-                <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-100 bg-white'}`}>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-violet-400">{l('Website plan')}</p>
-                  <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{aiPlan.summary}</p>
-                  <div className="mt-2 flex flex-wrap gap-1">
+                <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/[0.06] bg-black/10' : 'border-gray-100 bg-gray-50/70'}`}>
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-gray-500">{l('Website plan')}</p>
+                  <p className="mt-1.5 text-[9px] leading-relaxed text-gray-500">{aiPlan.summary}</p>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {aiPlan.pages.map((page) => (
-                      <span key={page.name} className="rounded-full border border-white/10 px-2 py-1 text-[8px] font-semibold text-gray-400">
+                      <span key={page.name} className={`rounded-full border px-2 py-1 text-[8px] font-semibold ${darkMode ? 'border-white/[0.07] bg-white/[0.025] text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>
                         {page.name} · {page.sections}
                       </span>
                     ))}
@@ -9339,7 +9347,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-1">
+              <div className="grid grid-cols-2 gap-1.5">
                 {(aiStage === 'ready' ? [
                   'Make the hero more premium and concise',
                   'Add a pricing section before contact',
@@ -9355,9 +9363,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     type="button"
                     onClick={() => { setAiPrompt(example); setAiError(''); }}
                     disabled={aiBusy}
-                    className="rounded-full border border-violet-500/15 px-2 py-1 text-[8px] font-semibold text-violet-400 hover:bg-violet-500/10 disabled:opacity-40"
+                    className={`min-h-8 rounded-lg border px-2 py-1.5 text-left text-[8px] font-semibold leading-tight transition ${darkMode ? 'border-white/[0.07] bg-white/[0.02] text-gray-400 hover:border-violet-500/20 hover:bg-violet-500/[0.05] hover:text-violet-300' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700'} disabled:opacity-40`}
                   >
-                    {example.split(' ').slice(0, 3).join(' ')}
+                    {example.split(' ').slice(0, 4).join(' ')}
                   </button>
                 ))}
               </div>
@@ -9369,11 +9377,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   setAiError('');
                   if (aiStage === 'error') setAiStage('idle');
                 }}
-                rows={5}
+                rows={4}
                 placeholder={aiStage === 'ready'
                   ? 'Ask Tayar to change this website without rebuilding it...'
                   : 'Describe the website: business, audience, pages, style, language, location and goal...'}
-                className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
+                className={`w-full resize-none rounded-xl border px-3.5 py-3 text-xs leading-relaxed outline-none transition focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 ${darkMode ? 'border-white/[0.08] bg-black/15 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
               />
 
               {aiStage === 'ready' ? (
@@ -9381,7 +9389,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <button
                     onClick={applyAIChange}
                     disabled={!aiPrompt.trim() || aiBusy}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {aiBusy ? 'Applying AI change...' : l('Apply AI change')}
@@ -9391,14 +9399,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       type="button"
                       onClick={generateWithAI}
                       disabled={!aiPrompt.trim() || aiBusy}
-                      className={`rounded-lg border px-2 py-2 text-[9px] font-bold ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
                     >
                       {l('Rebuild from prompt')}
                     </button>
                     <button
                       type="button"
                       onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
-                      className={`rounded-lg border px-2 py-2 text-[9px] font-bold ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-300 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
                     >
                       {l('Edit manually')}
                     </button>
@@ -9408,7 +9416,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       type="button"
                       onClick={undoLastAIChange}
                       disabled={aiBusy}
-                      className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-bold ${darkMode ? 'border-amber-500/20 bg-amber-500/5 text-amber-300 hover:bg-amber-500/10' : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'} disabled:opacity-40`}
+                      className={`flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-amber-500/15 bg-amber-500/[0.035] text-amber-300 hover:bg-amber-500/[0.07]' : 'border-amber-200 bg-amber-50/70 text-amber-700 hover:bg-amber-100'} disabled:opacity-40`}
                     >
                       <RotateCcw className="h-3 w-3" />
                       {l('Undo AI change')}
@@ -9419,15 +9427,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <button
                   onClick={generateWithAI}
                   disabled={!aiPrompt.trim() || aiBusy}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Styling'}...` : l('Build website with AI')}
                 </button>
               )}
 
-              {aiError && <p className="text-[10px] leading-relaxed text-red-400">{aiError}</p>}
-              <p className="text-[8px] leading-relaxed text-gray-600">{l('AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.')}</p>
+              {aiError && <p className={`rounded-lg border px-2.5 py-2 text-[9px] leading-relaxed ${darkMode ? 'border-red-500/15 bg-red-500/[0.04] text-red-300' : 'border-red-100 bg-red-50 text-red-600'}`}>{aiError}</p>}
+              <p className="px-1 text-[8px] leading-relaxed text-gray-600">{l('AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.')}</p>
             </div>
           </div>
 
