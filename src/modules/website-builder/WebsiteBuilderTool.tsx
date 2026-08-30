@@ -5984,11 +5984,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     ].slice(-12));
   }
 
-  async function applyAIChange() {
-    const prompt = aiPrompt.trim();
+  async function applyAIChange(requestedPrompt?: string) {
+    const prompt = typeof requestedPrompt === 'string' ? requestedPrompt.trim() : aiPrompt.trim();
     if (!prompt || aiBusy) return;
 
     const requestId = `ai-edit-${Date.now()}`;
+    pushProjectCheckpoint(`Before AI change · ${prompt.slice(0, 60)}`);
     const currentPages = getCurrentPages();
     const snapshot: AIWebsiteUndoSnapshot = {
       pages: JSON.parse(JSON.stringify(currentPages)) as WebsitePage[],
@@ -6217,6 +6218,56 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const sectionIndex = resolveSectionIndex(page, operation);
         if (sectionIndex < 0 || sectionIndex >= page.sections.length) continue;
 
+        if (operation.action === 'generate_image') {
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const imagePrompt = operation.prompt?.trim() || targetSection.imagePrompt?.trim() || `${targetSection.title}. Professional website image for ${siteName}.`;
+          try {
+            const generatedImage = await requestGeneratedImage(imagePrompt);
+            const placement = operation.placement || (targetSection.type === 'hero' ? 'section_background' : 'section_image');
+            if (placement === 'section_background') {
+              sectionList[sectionIndex] = {
+                ...targetSection,
+                image: generatedImage.url,
+                imagePrompt,
+                backgroundMode: 'image',
+                backgroundImage: generatedImage.url,
+                backgroundPosition: 'center',
+                backgroundSize: 'cover',
+                overlayColor: '#000000',
+                overlayOpacity: targetSection.type === 'hero' ? 0.42 : 0.3,
+              };
+            } else {
+              const existingImageIndex = targetSection.elements.findIndex((element) => element.type === 'image');
+              const nextElements = [...targetSection.elements];
+              if (existingImageIndex >= 0) {
+                nextElements[existingImageIndex] = {
+                  ...nextElements[existingImageIndex],
+                  src: generatedImage.url,
+                  content: targetSection.title || 'Generated image',
+                };
+              } else {
+                nextElements.push({
+                  ...createElement('image', targetSection.accent),
+                  src: generatedImage.url,
+                  content: targetSection.title || 'Generated image',
+                });
+              }
+              sectionList[sectionIndex] = {
+                ...targetSection,
+                image: generatedImage.url,
+                imagePrompt,
+                elements: nextElements,
+              };
+            }
+            nextPages[pageIndex] = { ...page, sections: sectionList };
+            applied += 1;
+          } catch {
+            // A failed image provider should not discard other safe patch operations in the same request.
+          }
+          continue;
+        }
+
         if (operation.action === 'remove_section') {
           if (page.sections.length <= 1) continue;
           nextPages[pageIndex] = {
@@ -6269,7 +6320,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setFuture([]);
       setSaved(false);
       setAiPrompt('');
+      setAiQualityReview(null);
       setAiStage('ready');
+      pushProjectCheckpoint(`After AI change · ${prompt.slice(0, 60)}`, {
+        ...buildProjectSnapshot(),
+        pages: nextPages,
+        activePageId: finalActive?.id || activePageId,
+        siteName: nextSiteName,
+        theme: nextTheme,
+      });
 
       const summary = patch.summary?.trim() || `Applied ${applied} targeted AI change${applied === 1 ? '' : 's'}.`;
       setAiPlan({
@@ -6302,43 +6361,62 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setAiBusy(true);
     setAiError('');
+    pushProjectCheckpoint(`Before AI image · ${selectedSection.title || SECTION_LABELS[selectedSection.type]}`);
 
     try {
-      const ai = createAIService('website-builder');
-
-      const response = await ai.completeJSON<{
-        url: string;
-      }>(
-        {
-          action: 'generate-image',
-          prompt: selectedSection.imagePrompt || selectedSection.image || selectedSection.title,
-          section: selectedSection,
-          brand,
-        },
-        [],
-        { temperature: 0.8, maxTokens: 1000 },
+      const generatedImage = await requestGeneratedImage(
+        selectedSection.imagePrompt || selectedSection.title || `Professional ${selectedSection.type} website image`,
       );
-
-      if (!response.json?.url) {
-        throw new Error('Image generation did not return an image.');
-      }
 
       remember(sections);
 
-      updateSelected({
-        image: response.json.url,
-      });
+      if (selectedElement?.type === 'image') {
+        updateSelectedElement({
+          src: generatedImage.url,
+          content: selectedSection.title || 'Generated image',
+        });
+      } else if (selectedSection.type === 'hero') {
+        updateSelected({
+          image: generatedImage.url,
+          backgroundMode: 'image',
+          backgroundImage: generatedImage.url,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+          overlayColor: '#000000',
+          overlayOpacity: 0.42,
+        });
+      } else {
+        const existingImage = selectedSection.elements.find((element) => element.type === 'image');
+        if (existingImage) {
+          setSelectedElementId(existingImage.id);
+          updateSelectedElement({ src: generatedImage.url, content: selectedSection.title || 'Generated image' });
+        } else {
+          const element: WebsiteElement = {
+            ...createElement('image', selectedSection.accent),
+            src: generatedImage.url,
+            content: selectedSection.title || 'Generated image',
+          };
+          setSections((current) => current.map((section) =>
+            section.id === selectedSection.id
+              ? { ...section, image: generatedImage.url, elements: [...section.elements, element] }
+              : section
+          ));
+          setSelectedElementId(element.id);
+          setSaved(false);
+        }
+      }
 
+      setAiMessages((current) => [
+        ...current,
+        { id: `ai-image-${Date.now()}`, role: 'assistant' as const, content: 'Generated the image, saved it to Media Library and applied it to the selected section.' },
+      ].slice(-12));
     } catch (error) {
-      setAiError(
-        error instanceof Error
-          ? error.message
-          : 'Image generation failed.'
-      );
+      setAiError(error instanceof Error ? error.message : 'Image generation failed.');
     } finally {
       setAiBusy(false);
     }
   }
+
   async function generateImagePrompt() {
     if (!selectedSection || aiBusy) return;
 
@@ -6378,6 +6456,75 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAiBusy(false);
     }
   }
+  async function runAIQualityCheck(): Promise<AIQualityReview | null> {
+    if (aiQualityBusy || aiBusy) return aiQualityReview;
+    setAiQualityBusy(true);
+    setAiQualityOpen(true);
+    setAiError('');
+
+    try {
+      const ai = createAIService('website-builder');
+      const response = await ai.completeJSON<AIQualityReview>(
+        {
+          action: 'quality-check',
+          currentSite: buildAIEditableSnapshot(),
+          audit: {
+            score: siteAudit.score,
+            errors: siteAudit.errors,
+            warnings: siteAudit.warnings,
+            diagnostics: qualityDiagnostics,
+            deviceModes: ['desktop', 'tablet', 'mobile'],
+          },
+        },
+        [],
+        { temperature: 0.25, maxTokens: 5000 },
+      );
+
+      let review = response.json;
+      if (!review && response.content) {
+        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        review = JSON.parse(cleaned) as AIQualityReview;
+      }
+      if (!review) throw new Error('AI quality check returned no review.');
+
+      const normalized: AIQualityReview = {
+        score: Math.max(0, Math.min(100, Number(review.score) || 0)),
+        summary: String(review.summary || 'Quality review completed.').slice(0, 500),
+        findings: Array.isArray(review.findings)
+          ? review.findings.slice(0, 8).map((finding) => ({
+              severity: finding.severity === 'critical' || finding.severity === 'warning' ? finding.severity : 'improvement',
+              title: String(finding.title || 'Website improvement').slice(0, 120),
+              detail: String(finding.detail || '').slice(0, 500),
+            }))
+          : [],
+        fixPrompt: String(review.fixPrompt || '').slice(0, 5000),
+      };
+      setAiQualityReview(normalized);
+      return normalized;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI quality check failed.';
+      setAiError(message);
+      setAiQualityReview({
+        score: siteAudit.score,
+        summary: 'Automated builder audit is available, but the AI review could not complete.',
+        findings: [
+          ...siteAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: 'Publish blocker', detail })),
+          ...siteAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: 'Recommended improvement', detail })),
+        ].slice(0, 8),
+        fixPrompt: '',
+      });
+      return null;
+    } finally {
+      setAiQualityBusy(false);
+    }
+  }
+
+  async function fixAIQualityIssues() {
+    if (!aiQualityReview?.fixPrompt || aiBusy) return;
+    setAiQualityOpen(false);
+    await applyAIChange(aiQualityReview.fixPrompt);
+  }
+
   const refreshPublishVersions = useCallback(async () => {
     if (!user || !cloudProjectId) {
       setPublishVersions([]);
