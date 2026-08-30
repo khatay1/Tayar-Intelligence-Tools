@@ -103,6 +103,10 @@ check('Canvas resize is device-aware and undo-friendly', websiteBuilder.includes
 check('Selected element toolbar stays compact on canvas', websiteBuilder.includes('max-w-20 truncate') && websiteBuilder.includes('rounded-md border border-white/10 bg-[#111122]/95 p-0.5'));
 check('Selected element toolbar follows canvas move offsets', websiteBuilder.includes('transform: `translate3d(${positionX}px, ${positionY}px, 0)`') && websiteBuilder.includes('Drag to move · Shift+drag to reorder'));
 check('Canvas free-position offsets can reset without Inspector', websiteBuilder.includes('onResetElementPosition') && websiteBuilder.includes('resetElementPosition') && websiteBuilder.includes('positionX: 0') && websiteBuilder.includes('positionY: 0'));
+check('Canvas button labels support direct inline editing', websiteBuilder.includes("element.type === 'heading' || element.type === 'text' || element.type === 'button'") && websiteBuilder.includes('Double-click to edit button text'));
+check('Canvas toolbar exposes contextual quick editing', websiteBuilder.includes('onQuickUpdateElement') && websiteBuilder.includes('Edit button link') && websiteBuilder.includes('Open media library') && websiteBuilder.includes('Edit video URL'));
+check('Canvas toolbar can reopen the Inspector directly', websiteBuilder.includes('onOpenInspector') && websiteBuilder.includes('title="Open inspector"'));
+check('Selected canvas elements support keyboard nudging', websiteBuilder.includes('handleCanvasKeyDown') && websiteBuilder.includes("event.shiftKey ? 10 : 1") && websiteBuilder.includes('nudgeSelectedElement'));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
 check('Suspended users are rejected by shared Edge Function auth', sharedBilling.includes('.select("suspended")') && sharedBilling.includes('throw new HttpError(403, "Account suspended")'));
