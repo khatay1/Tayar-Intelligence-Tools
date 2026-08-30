@@ -9751,15 +9751,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }`}
     >
       <header
-        className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 ${
+        className={`flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 ${
           darkMode
             ? 'border-white/10 bg-[#0a0a1a]'
             : 'border-gray-200 bg-white'
         }`}
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600/12">
-            <Globe className="h-5 w-5 text-violet-400" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600/12">
+            <Globe className="h-4 w-4 text-violet-400" />
           </div>
 
           <div>
@@ -9777,7 +9777,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               setSiteName(e.target.value);
               setSaved(false);
             }}
-            className={`hidden sm:block w-36 rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
+            className={`hidden md:block w-32 xl:w-36 rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:border-violet-500 ${
               darkMode
                 ? 'border-white/10 bg-white/5 text-white'
                 : 'border-gray-200 bg-gray-50 text-gray-900'
@@ -9841,11 +9841,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               setLeftSidebarOpen(reopenPanels);
               setInspectorOpen(reopenPanels);
             }}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+            className={`flex items-center gap-2 rounded-lg border p-2 text-xs font-semibold transition ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
             title={l(!leftSidebarOpen && !inspectorOpen ? 'Show editing panels' : 'Focus on canvas')}
           >
             <Eye className="h-4 w-4" />
-            <span className="hidden xl:inline">{l(!leftSidebarOpen && !inspectorOpen ? 'Panels' : 'Focus')}</span>
+            <span className="hidden 2xl:inline">{l(!leftSidebarOpen && !inspectorOpen ? 'Panels' : 'Focus')}</span>
           </button>
 
           <button
@@ -9867,7 +9867,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           <details className="relative">
             <summary
-              className={'flex cursor-pointer list-none items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden ' + (darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100')}
+              className={'flex cursor-pointer list-none items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden ' + (darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100')}
               title={l('More website tools')}
             >
               {l('More')}
@@ -10169,7 +10169,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
+            <ExternalLink className="h-4 w-4" /><span className="hidden 2xl:inline">{l('Preview')}</span></button>
 
           <button
             onClick={() => void runAIQualityCheck()}
@@ -10178,7 +10178,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             title={l('AI quality check before publishing')}
           >
             <Check className="h-4 w-4" />
-            {aiQualityBusy ? l('Checking…') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}
+            <span className="hidden 2xl:inline">{aiQualityBusy ? l('Checking…') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}</span>
           </button>
 
           <button
@@ -10188,7 +10188,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             title={user ? 'Save locally and to your account' : 'Save locally'}
           >
             {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            {saved ? 'Saved' : 'Save'}
+            <span className="hidden 2xl:inline">{saved ? 'Saved' : 'Save'}</span>
           </button>
 
           <button
@@ -10934,7 +10934,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside
-          className={`w-full shrink-0 border-b p-3 transition-[width,padding] duration-200 lg:border-b-0 lg:border-r ${leftSidebarOpen ? 'lg:w-60 lg:p-3' : 'lg:w-12 lg:p-2'} ${
+          className={`w-full shrink-0 border-b p-3 transition-[width,padding] duration-200 lg:border-b-0 lg:border-r ${leftSidebarOpen ? 'lg:w-56 xl:w-60 lg:p-3' : 'lg:w-12 lg:p-2'} ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
@@ -11520,11 +11520,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </span>
                 <p className="mt-1 pl-9 text-[8px] leading-relaxed text-gray-500">{l('Build, refine and undo with natural language.')}</p>
               </div>
-              <span className="mt-0.5 rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-violet-400">V2</span>
+              <span className="mt-0.5 rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-violet-400">Agent</span>
             </div>
 
             <div className="space-y-3.5 p-3.5">
-              <div className="max-h-44 space-y-2.5 overflow-auto pr-1">
+              <div className="max-h-36 space-y-2 overflow-auto pr-1">
                 {aiMessages.slice(-4).map((message) => (
                   <div key={message.id} className={`rounded-xl border px-3 py-2.5 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-7 border-violet-500/10 bg-violet-500/[0.09] text-violet-50' : 'ml-7 border-violet-100 bg-violet-50 text-violet-900') : (darkMode ? 'mr-2 border-white/[0.06] bg-white/[0.025] text-gray-300' : 'mr-2 border-gray-100 bg-gray-50/80 text-gray-700')}`}>
                     <span className={`mb-1.5 block text-[7px] font-black uppercase tracking-[0.14em] ${message.role === 'user' ? 'text-violet-400' : 'text-gray-500'}`}>{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
@@ -11852,7 +11852,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         </main>
 
         <aside
-          className={`w-full shrink-0 border-t p-3 transition-[width,padding] duration-200 lg:border-l lg:border-t-0 ${inspectorOpen ? 'lg:w-80 lg:p-3' : 'lg:w-12 lg:p-2'} ${
+          className={`w-full shrink-0 border-t p-3 transition-[width,padding] duration-200 lg:border-l lg:border-t-0 ${inspectorOpen ? 'lg:w-72 xl:w-80 lg:p-3' : 'lg:w-12 lg:p-2'} ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
@@ -11871,7 +11871,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </button>
           </div>
           <div className={inspectorOpen ? 'block' : 'lg:hidden'}>
-          <div className="mb-5 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <Eye className="h-4 w-4 text-violet-400" />
             <div>
               <h2 className="text-xs font-bold">{selectedElement ? `${l('Edit')} ${ELEMENT_LABELS[selectedElement.type]}` : l('Inspector')}</h2>
@@ -11880,7 +11880,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           </div>
 
           {selectedElement && (
-            <div className={`mb-5 space-y-3 rounded-xl border p-3 ${darkMode ? 'border-violet-500/25 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
+            <div className={`mb-3 space-y-2.5 rounded-xl border p-2.5 ${darkMode ? 'border-violet-500/25 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-bold">{ELEMENT_LABELS[selectedElement.type]}</span>
                 <div className="flex items-center gap-1">
@@ -11902,7 +11902,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </div>
               <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-200 bg-white/70'}`}>
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
-                  <span>{l('Structure & reusable components')}</span>
+                  <span>{l('Structure')}</span><span className="sr-only">{l('Structure & reusable components')}</span>
                   <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
                 </summary>
                 <div className="space-y-2 border-t border-white/10 p-2">
@@ -12056,7 +12056,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
               <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white/70'}`}>
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
-                  <span>{l('Advanced design & responsive')}</span>
+                  <span>{l('Advanced')}</span><span className="sr-only">{l('Advanced design & responsive')}</span>
                   <span className="flex items-center gap-2 text-[9px] uppercase text-gray-500">{device}<ChevronDown className="h-3.5 w-3.5" /></span>
                 </summary>
                 <div className="space-y-3 border-t border-white/10 p-2">
