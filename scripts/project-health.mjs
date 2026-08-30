@@ -101,6 +101,8 @@ check('Website Builder Layers only expand the active section', websiteBuilder.in
 check('Website Builder supports direct canvas element resizing', websiteBuilder.includes('renderSelectedElementResizeHandle') && websiteBuilder.includes('cursor-ew-resize') && websiteBuilder.includes('onResizeElementWidth'));
 check('Canvas resize is device-aware and undo-friendly', websiteBuilder.includes('beginElementResize') && websiteBuilder.includes('remember(sections)') && websiteBuilder.includes('[device]:') && websiteBuilder.includes('width: safeWidth'));
 check('Selected element toolbar stays compact on canvas', websiteBuilder.includes('max-w-20 truncate') && websiteBuilder.includes('rounded-md border border-white/10 bg-[#111122]/95 p-0.5'));
+check('Selected element toolbar follows canvas move offsets', websiteBuilder.includes('transform: `translate3d(${positionX}px, ${positionY}px, 0)`') && websiteBuilder.includes('Drag to move · Shift+drag to reorder'));
+check('Canvas free-position offsets can reset without Inspector', websiteBuilder.includes('onResetElementPosition') && websiteBuilder.includes('resetElementPosition') && websiteBuilder.includes('positionX: 0') && websiteBuilder.includes('positionY: 0'));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
 check('Suspended users are rejected by shared Edge Function auth', sharedBilling.includes('.select("suspended")') && sharedBilling.includes('throw new HttpError(403, "Account suspended")'));
