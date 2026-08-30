@@ -97,7 +97,7 @@ interface AIWebsitePatchChanges {
 }
 
 interface AIWebsitePatchOperation {
-  action: 'add_page' | 'remove_page' | 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
+  action: 'add_page' | 'remove_page' | 'set_home_page' | 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
   pageId?: string;
   pageSlug?: string;
   sectionId?: string;
@@ -6126,6 +6126,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       let nextPages = JSON.parse(JSON.stringify(currentPages)) as WebsitePage[];
       let nextSiteName = siteName;
+      let nextHomePageId = homePageId;
       let nextTheme = { ...theme };
       let nextSeo: WebsiteSEO = { ...seo, keywords: [...seo.keywords] };
       let nextHeaderConfig: WebsiteHeaderConfig = { ...headerConfig };
@@ -6203,9 +6204,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const pageIndex = resolvePageIndex(operation);
           if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
           const targetPage = nextPages[pageIndex];
-          if (targetPage.id === homePageId) continue;
+          if (targetPage.id === nextHomePageId) continue;
           nextPages.splice(pageIndex, 1);
           applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'set_home_page') {
+          if (!operation.pageId && !operation.pageSlug) continue;
+          const pageIndex = resolvePageIndex(operation);
+          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+          const targetPage = nextPages[pageIndex];
+          if (targetPage.id !== nextHomePageId) {
+            nextHomePageId = targetPage.id;
+            applied += 1;
+          }
           continue;
         }
 
@@ -6443,6 +6456,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPages(nextPages);
       setSections(finalActive?.sections || []);
       setActivePageId(finalActive?.id || activePageId);
+      setHomePageId(nextHomePageId);
       setSiteName(nextSiteName);
       setTheme(nextTheme);
       setSeo(nextSeo);
@@ -6459,6 +6473,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ...buildProjectSnapshot(),
         pages: nextPages,
         activePageId: finalActive?.id || activePageId,
+        homePageId: nextHomePageId,
         siteName: nextSiteName,
         theme: nextTheme,
         seo: nextSeo,
