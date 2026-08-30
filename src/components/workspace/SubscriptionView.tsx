@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, CreditCard, ExternalLink, Loader2, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { PageShell } from './PageShell';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import { useLocalizer } from '@/lib/ui-localization';
 import { supabase } from '@/lib/supabase';
 
@@ -43,6 +44,7 @@ function formatDate(value?: string | null) {
 
 export default function SubscriptionView() {
   const { user, profile } = useAuth();
+  const { isAdmin } = useAdmin();
   const l = useLocalizer();
   const userId = user?.id;
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
@@ -50,9 +52,9 @@ export default function SubscriptionView() {
   const [busy, setBusy] = useState<'pro' | 'business' | 'portal' | null>(null);
   const [error, setError] = useState('');
 
-  const activePlan = (subscription?.plan || profile?.plan || 'free').toLowerCase();
-  const statusLabel = subscription?.status || (activePlan === 'free' ? 'active' : 'unknown');
-  const periodEnd = subscription?.current_period_end || subscription?.renewal_date || null;
+  const activePlan = isAdmin ? 'business' : (subscription?.plan || profile?.plan || 'free').toLowerCase();
+  const statusLabel = isAdmin ? 'admin access' : (subscription?.status || (activePlan === 'free' ? 'active' : 'unknown'));
+  const periodEnd = isAdmin ? null : (subscription?.current_period_end || subscription?.renewal_date || null);
 
   const hasManagedSubscription = useMemo(
     () => Boolean(subscription?.stripe_customer_id && ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(subscription?.status || '')),
@@ -129,7 +131,7 @@ export default function SubscriptionView() {
         </div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{l('Next billing date')}</div>
-          <div className="text-lg font-bold text-white">{loading ? '—' : formatDate(periodEnd)}</div>
+          <div className="text-lg font-bold text-white">{loading ? '—' : isAdmin ? l('Not required') : formatDate(periodEnd)}</div>
         </div>
       </div>
 
@@ -167,7 +169,11 @@ export default function SubscriptionView() {
               </div>
 
               <div className="mt-5">
-                {plan.id === 'free' ? (
+                {isAdmin ? (
+                  <div className={`rounded-xl border px-3 py-2.5 text-center text-xs font-semibold ${current ? 'border-violet-400/30 bg-violet-500/10 text-violet-200' : 'border-white/10 text-gray-500'}`}>
+                    {current ? l('Admin · Business access') : l('Included with admin access')}
+                  </div>
+                ) : plan.id === 'free' ? (
                   <div className="rounded-xl border border-white/10 px-3 py-2.5 text-center text-xs font-semibold text-gray-400">{current ? l('Your current plan') : l('Free plan')}</div>
                 ) : current || hasManagedSubscription ? (
                   <button onClick={() => void openPortal()} disabled={busy !== null} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60">
