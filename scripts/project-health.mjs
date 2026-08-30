@@ -95,6 +95,8 @@ check('Subscription view shows Admin Business access instead of Free', subscript
 check('Website Builder has one-click canvas focus mode', websiteBuilder.includes('Focus on canvas') && websiteBuilder.includes('setLeftSidebarOpen(reopenPanels)') && websiteBuilder.includes('setInspectorOpen(reopenPanels)'));
 check('Website Builder collapses section settings while editing elements', websiteBuilder.includes('sectionSettingsOpen') && websiteBuilder.includes('setSectionSettingsOpen(!selectedElementId)') && websiteBuilder.includes('collapsed while editing element'));
 check('Website Builder keeps free positioning out of Quick style', websiteBuilder.includes("l('Free position')") && websiteBuilder.indexOf("l('Free position')") > websiteBuilder.indexOf("l('Advanced design & responsive')"));
+check('Website Builder prioritizes popular sections in Add panel', websiteBuilder.includes("l('Popular sections')") && websiteBuilder.includes("l('More sections')") && websiteBuilder.includes("['hero', 'features', 'services', 'contact']"));
+check('Website Builder hides advanced elements behind progressive disclosure', websiteBuilder.includes("l('Advanced elements')") && websiteBuilder.includes("['heading', 'text', 'button', 'image', 'video', 'list']"));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
 check('Suspended users are rejected by shared Edge Function auth', sharedBilling.includes('.select("suspended")') && sharedBilling.includes('throw new HttpError(403, "Account suspended")'));
