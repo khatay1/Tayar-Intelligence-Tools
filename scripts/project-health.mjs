@@ -46,6 +46,7 @@ const packageLock = JSON.parse(read('package-lock.json'));
 const aiSecurityMigration = read('supabase/migrations/20260829110000_ai_engine_security_hardening.sql');
 const adminSecurityMigration = read('supabase/migrations/20260829144000_harden_admin_role_and_admin_access.sql');
 const adminDeployScript = read('scripts/admin-hardening-deploy.ps1');
+const vercelPrebuiltDeployScript = read('scripts/vercel-prebuilt-deploy.ps1');
 const adminContext = read('src/context/AdminContext.tsx');
 const adminUsers = read('src/components/admin/AdminUsers.tsx');
 const adminHooks = read('src/lib/admin-hooks.ts');
@@ -105,6 +106,12 @@ check('Admin deploy defaults to dry-run', adminDeployScript.includes('db push --
 check('Admin production deploy requires explicit confirmation', adminDeployScript.includes('if (-not $ConfirmProduction)') && adminDeployScript.includes('-Apply -ConfirmProduction'));
 check('Admin deploy updates affected Edge Functions', ['ai-engine', 'billing-portal', 'create-checkout-session', 'email-service'].every((name) => adminDeployScript.includes(name)));
 check('Admin deploy handles Windows env BOM', adminDeployScript.includes('Removing UTF-8 BOM from .env') && adminDeployScript.includes('[System.IO.File]::ReadAllBytes'));
+check('Vercel prebuilt deploy helper exists', exists('scripts/vercel-prebuilt-deploy.ps1'));
+check('Vercel fallback bypasses vercel build on Windows', !vercelPrebuiltDeployScript.includes('Invoke-Vercel build') && vercelPrebuiltDeployScript.includes('node.exe $ViteEntry build'));
+check('Vercel fallback emits Build Output API v3 artifact', vercelPrebuiltDeployScript.includes(".vercel\\output") && vercelPrebuiltDeployScript.includes('version = 3') && vercelPrebuiltDeployScript.includes("handle = 'filesystem'"));
+check('Vercel fallback preserves production security and cache headers', ['Strict-Transport-Security', 'X-Content-Type-Options', 'Service-Worker-Allowed', 'Cache-Control'].every((name) => vercelPrebuiltDeployScript.includes(name)));
+check('Vercel fallback rejects redacted secrets', vercelPrebuiltDeployScript.includes("value -ne '[SENSITIVE]'") && vercelPrebuiltDeployScript.includes('Build output contains a redacted [SENSITIVE] placeholder'));
+check('Vercel fallback validates Supabase browser config before build', vercelPrebuiltDeployScript.includes('Validated local Supabase browser configuration.') && vercelPrebuiltDeployScript.includes('VITE_SUPABASE_ANON_KEY is redacted by Vercel'));
 
 for (const name of [
   'VITE_PUBLIC_SITE_URL', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY',
