@@ -2288,6 +2288,7 @@ function ElementPreview({
   onDrop,
   onDragEnd,
   onInlineContentChange,
+  onInlineSourceChange,
 }: {
   element: WebsiteElement;
   selected: boolean;
@@ -2301,12 +2302,13 @@ function ElementPreview({
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onInlineContentChange: (content: string) => void;
+  onInlineSourceChange: (src: string) => void;
 }) {
   const style = effectiveStyle(element, device);
   const [hovered, setHovered] = useState(false);
   const [editingInline, setEditingInline] = useState(false);
   const inlineEditRef = useRef<HTMLElement | null>(null);
-  const inlineEditable = element.type === 'heading' || element.type === 'text';
+  const inlineEditable = element.type === 'heading' || element.type === 'text' || element.type === 'button';
 
   useEffect(() => {
     if (!editingInline || !inlineEditRef.current) return;
@@ -2387,6 +2389,14 @@ function ElementPreview({
     onDragEnd: (e: React.DragEvent) => { e.stopPropagation(); onDragEnd(); },
     onClick: (e: React.MouseEvent) => { e.stopPropagation(); onSelect(); },
     onDoubleClick: (e: React.MouseEvent) => {
+      if (element.type === 'image') {
+        e.preventDefault();
+        e.stopPropagation();
+        onSelect();
+        const nextSource = window.prompt('Image URL', element.src || '')?.trim();
+        if (nextSource && nextSource !== element.src) onInlineSourceChange(nextSource);
+        return;
+      }
       if (!inlineEditable) return;
       e.preventDefault();
       e.stopPropagation();
@@ -2404,7 +2414,7 @@ function ElementPreview({
     return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</p>;
   }
   if (element.type === 'button') {
-    return <button {...dragProps} type="button" className={wrapper} style={commonStyle}>{element.content}</button>;
+    return <button {...dragProps} ref={(node) => { inlineEditRef.current = node; }} type="button" contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit button text'}>{element.content}</button>;
   }
   if (element.type === 'list') {
     const items = (element.content || '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
@@ -2457,15 +2467,18 @@ function ElementPreview({
   if (element.type === 'code') {
     return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle}><div className="pointer-events-none" dangerouslySetInnerHTML={{ __html: sanitizeCustomHtml(element.content) }} /></div>;
   }
-  return (
-    <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle}>
-      {element.src ? (
-        <img src={element.src} alt={element.content || 'Website image'} className="h-auto w-full object-cover" draggable={false} />
-      ) : (
-        <div className="flex min-h-32 w-full items-center justify-center border border-dashed border-white/20 bg-white/5 px-6 text-xs text-gray-400">Image</div>
-      )}
-    </div>
-  );
+  if (element.type === 'image') {
+    return (
+      <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle} title="Double-click to replace image">
+        {element.src ? (
+          <img src={element.src} alt={element.content || 'Website image'} className="h-auto w-full object-cover" draggable={false} />
+        ) : (
+          <div className="flex min-h-32 w-full items-center justify-center border border-dashed border-white/20 bg-white/5 px-6 text-xs text-gray-400">Double-click to add image URL</div>
+        )}
+      </div>
+    );
+  }
+  return <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle}>{element.content}</div>;
 }
 
 function SectionPreview({
@@ -2489,6 +2502,7 @@ function SectionPreview({
   onDuplicateSelectedElement,
   onDeleteSelectedElement,
   onInlineContentChange,
+  onInlineSourceChange,
   onAddElement,
   onMoveSection,
   onDeleteSection,
@@ -2518,6 +2532,7 @@ function SectionPreview({
   onDuplicateSelectedElement: () => void;
   onDeleteSelectedElement: () => void;
   onInlineContentChange: (elementId: string, content: string) => void;
+  onInlineSourceChange: (elementId: string, src: string) => void;
   onAddElement: (type: WebsiteElementType) => void;
   onMoveSection: (direction: 'up' | 'down') => void;
   onDeleteSection: () => void;
@@ -2564,6 +2579,11 @@ function SectionPreview({
     const positionX = clampElementNumber(elementStyle.positionX, 0, -4000, 4000);
     const positionY = clampElementNumber(elementStyle.positionY, 0, -4000, 4000);
     const hasFreePosition = positionX !== 0 || positionY !== 0;
+    const directEditHint = element.type === 'image'
+      ? 'Double-click replace'
+      : element.type === 'heading' || element.type === 'text' || element.type === 'button'
+        ? 'Double-click edit'
+        : null;
     return (
       <div
         draggable={false}
@@ -2579,6 +2599,9 @@ function SectionPreview({
       >
         <MousePointer2 className="ml-1 h-3 w-3 shrink-0 text-gray-500" />
         <span className="max-w-20 truncate px-1 text-[8px] font-bold text-violet-300">{ELEMENT_LABELS[element.type]}</span>
+        {directEditHint && (
+          <span className="rounded bg-cyan-500/10 px-1 py-0.5 text-[7px] font-semibold text-cyan-300">{directEditHint}</span>
+        )}
         {hasFreePosition && (
           <span className="max-w-24 truncate rounded bg-white/5 px-1 py-0.5 text-[7px] font-semibold text-gray-400">
             X {positionX} · Y {positionY}
@@ -2779,6 +2802,7 @@ function SectionPreview({
                             onDrop={(e) => onElementDrop(element.id, e)}
                             onDragEnd={onElementDragEnd}
                             onInlineContentChange={(content) => onInlineContentChange(element.id, content)}
+                            onInlineSourceChange={(src) => onInlineSourceChange(element.id, src)}
                           />
                         </div>
                       );
@@ -2832,6 +2856,7 @@ function SectionPreview({
                   onDrop={(e) => onElementDrop(element.id, e)}
                   onDragEnd={onElementDragEnd}
                   onInlineContentChange={(content) => onInlineContentChange(element.id, content)}
+                  onInlineSourceChange={(src) => onInlineSourceChange(element.id, src)}
                 />
               </div>
             );
@@ -4700,6 +4725,33 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPages((current) => current.map((page) => page.id === activePageId ? page : { ...page, sections: page.sections.map(updateSection) }));
       setSymbols((current) => current.map((symbol) => symbol.id === symbolId
         ? { ...symbol, element: { ...symbol.element, content }, updatedAt: new Date().toISOString() }
+        : symbol
+      ));
+    }
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
+    setSaved(false);
+  }
+
+  function updateInlineElementSource(sectionId: string, elementId: string, src: string) {
+    const targetSection = sections.find((section) => section.id === sectionId);
+    const targetElement = targetSection?.elements.find((element) => element.id === elementId);
+    const nextSource = src.trim();
+    if (!targetSection || !targetElement || !nextSource || targetElement.src === nextSource) return;
+    remember(sections);
+    const symbolId = targetElement.symbolId;
+    const updateSection = (section: WebsiteSection): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = symbolId ? element.symbolId === symbolId : element.id === elementId;
+        return matches ? { ...element, src: nextSource } : element;
+      }),
+    });
+    setSections((current) => current.map((section) => section.id === sectionId || symbolId ? updateSection(section) : section));
+    if (symbolId) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : { ...page, sections: page.sections.map(updateSection) }));
+      setSymbols((current) => current.map((symbol) => symbol.id === symbolId
+        ? { ...symbol, element: { ...symbol.element, src: nextSource }, updatedAt: new Date().toISOString() }
         : symbol
       ));
     }
@@ -8684,6 +8736,7 @@ if (generated.seo) {
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
       onInlineContentChange={(elementId, content) => updateInlineElementContent(section.id, elementId, content)}
+      onInlineSourceChange={(elementId, src) => updateInlineElementSource(section.id, elementId, src)}
       onAddElement={(type) => addElementToSection(section.id, type)}
       onMoveSection={(direction) => moveSection(section.id, direction)}
       onDeleteSection={() => deleteSection(section.id)}
