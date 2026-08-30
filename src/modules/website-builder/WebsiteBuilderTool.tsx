@@ -2878,6 +2878,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [builderPanel, setBuilderPanel] = useState<'add' | 'pages' | 'layers'>('add');
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [sectionSettingsOpen, setSectionSettingsOpen] = useState(true);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [siteName, setSiteName] = useState('My Website');
@@ -3815,6 +3816,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     () => selectedSection?.elements.find((element) => element.id === selectedElementId) ?? null,
     [selectedSection, selectedElementId]
   );
+
+  useEffect(() => {
+    setSectionSettingsOpen(!selectedElementId);
+  }, [selectedElementId]);
 
   const selectedContainer = useMemo(
     () => selectedElement?.containerId ? selectedSection?.containers?.find((container) => container.id === selectedElement.containerId) ?? null : null,
@@ -6762,6 +6767,20 @@ if (generated.seo) {
           </div>
 
           <button
+            type="button"
+            onClick={() => {
+              const reopenPanels = !leftSidebarOpen && !inspectorOpen;
+              setLeftSidebarOpen(reopenPanels);
+              setInspectorOpen(reopenPanels);
+            }}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+            title={l(!leftSidebarOpen && !inspectorOpen ? 'Show editing panels' : 'Focus on canvas')}
+          >
+            <Eye className="h-4 w-4" />
+            <span className="hidden xl:inline">{l(!leftSidebarOpen && !inspectorOpen ? 'Panels' : 'Focus')}</span>
+          </button>
+
+          <button
             onClick={undo}
             disabled={!history.length}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
@@ -8668,14 +8687,7 @@ if (generated.seo) {
               <label className="text-[10px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { backgroundColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" /></label>
                   ) : <div />}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">X position<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionX ?? 0} onChange={(e) => updateSelectedElement({ style: { positionX: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
-                  <label className="text-[10px] text-gray-500">Y position<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionY ?? 0} onChange={(e) => updateSelectedElement({ style: { positionY: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
-                </div>
-                <div className="flex items-center justify-between gap-2 text-[9px] text-gray-500">
-                  <span>Drag freely · Shift + drag reorders</span>
-                  <button type="button" onClick={() => updateSelectedElement({ style: { positionX: 0, positionY: 0 } }, true)} className="font-semibold text-violet-400 hover:text-violet-300">Reset position</button>
-                </div>
+
               </div>
 
               {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
@@ -8730,6 +8742,17 @@ if (generated.seo) {
                       className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`}
                     />
                   </label>
+                </div>
+                <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-violet-500/15 bg-violet-500/[0.04]' : 'border-violet-200 bg-violet-50/50'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold text-violet-400">{l('Free position')}</span>
+                    <button type="button" onClick={() => updateSelectedElement({ style: { positionX: 0, positionY: 0 } }, true)} className="text-[9px] font-semibold text-violet-400 hover:text-violet-300">{l('Reset')}</button>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-[10px] text-gray-500">X<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionX ?? 0} onChange={(e) => updateSelectedElement({ style: { positionX: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} /></label>
+                    <label className="text-[10px] text-gray-500">Y<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionY ?? 0} onChange={(e) => updateSelectedElement({ style: { positionY: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} /></label>
+                  </div>
+                  <p className="mt-1.5 text-[9px] text-gray-500">{l('Drag freely on the canvas. Hold Shift while dragging to reorder instead.')}</p>
                 </div>
                 <label className="block text-[10px] text-gray-500">{l('Element position')}<select
                     value={effectiveStyle(selectedElement, device).alignSelf || 'auto'}
@@ -8897,7 +8920,19 @@ if (generated.seo) {
               Select a section to edit it.
             </div>
           ) : (
-            <div className="space-y-5">
+            <details
+              open={sectionSettingsOpen}
+              onToggle={(event) => setSectionSettingsOpen(event.currentTarget.open)}
+              className={`rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold">{l('Section settings')}</p>
+                  <p className="truncate text-[9px] text-gray-500">{SECTION_LABELS[selectedSection.type]}{selectedElement ? ` · ${l('collapsed while editing element')}` : ''}</p>
+                </div>
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform ${sectionSettingsOpen ? 'rotate-180' : ''}`} />
+              </summary>
+              <div className="space-y-5 border-t border-white/10 p-3">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-400">
                   Section
@@ -9355,7 +9390,8 @@ if (generated.seo) {
                 <Trash2 className="h-3.5 w-3.5" />
                 Delete Section
               </button>
-            </div>
+              </div>
+            </details>
           )}
           </div>
         </aside>

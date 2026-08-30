@@ -56,6 +56,7 @@ const adminSystem = read('src/components/admin/AdminSystem.tsx');
 const adminTools = read('src/components/admin/AdminTools.tsx');
 const adminAI = read('src/components/admin/AdminAI.tsx');
 const subscriptionView = read('src/components/workspace/SubscriptionView.tsx');
+const websiteBuilder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
@@ -91,6 +92,9 @@ check('Admin settings are admin-readable only', adminSecurityMigration.includes(
 check('Admin effective plan is Business without mutating billing records', adminBusinessAccessMigration.includes("WHEN p.role = 'admin'") && adminBusinessAccessMigration.includes("THEN 'business'") && adminBusinessAccessMigration.includes('team_effective_plan'));
 check('Admin user list reports effective Business access', adminBusinessAccessMigration.includes('CREATE OR REPLACE FUNCTION public.admin_list_users()') && adminBusinessAccessMigration.includes("WHEN p.role = 'admin' AND coalesce(p.suspended, false) = false THEN 'business'"));
 check('Subscription view shows Admin Business access instead of Free', subscriptionView.includes('const { isAdmin } = useAdmin()') && subscriptionView.includes("const activePlan = isAdmin ? 'business'") && subscriptionView.includes('Admin · Business access'));
+check('Website Builder has one-click canvas focus mode', websiteBuilder.includes('Focus on canvas') && websiteBuilder.includes('setLeftSidebarOpen(reopenPanels)') && websiteBuilder.includes('setInspectorOpen(reopenPanels)'));
+check('Website Builder collapses section settings while editing elements', websiteBuilder.includes('sectionSettingsOpen') && websiteBuilder.includes('setSectionSettingsOpen(!selectedElementId)') && websiteBuilder.includes('collapsed while editing element'));
+check('Website Builder keeps free positioning out of Quick style', websiteBuilder.includes("l('Free position')") && websiteBuilder.indexOf("l('Free position')") > websiteBuilder.indexOf("l('Advanced design & responsive')"));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
 check('Suspended users are rejected by shared Edge Function auth', sharedBilling.includes('.select("suspended")') && sharedBilling.includes('throw new HttpError(403, "Account suspended")'));
