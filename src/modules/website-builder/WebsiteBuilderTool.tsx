@@ -70,6 +70,209 @@ interface AIWebsiteGeneration {
   sections?: AIWebsitePageGeneration['sections'];
 }
 
+interface AIWebsitePatchChanges {
+  title?: string;
+  description?: string;
+  buttonText?: string;
+  buttonUrl?: string;
+  background?: string;
+  accent?: string;
+  image?: string;
+  imagePrompt?: string;
+  name?: string;
+  slug?: string;
+  showInNavigation?: boolean;
+  primaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
+  noIndex?: boolean;
+  seoKeywords?: string[];
+  headerEnabled?: boolean;
+  showCta?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
+  secondaryColor?: string;
+  textColor?: string;
+  mutedTextColor?: string;
+  fontFamily?: string;
+  themeContentWidth?: number;
+  themeButtonRadius?: number;
+  themeSectionSpacing?: number;
+  headerSticky?: boolean;
+  headerMobileMenu?: boolean;
+  headerLanguageSwitcher?: boolean;
+  headerBrandText?: string;
+  headerLogoUrl?: string;
+  headerBackgroundColor?: string;
+  headerTextColor?: string;
+  headerActiveColor?: string;
+  headerHoverColor?: string;
+  headerCtaBackgroundColor?: string;
+  headerCtaTextColor?: string;
+  headerNavGap?: number;
+  headerBrandSize?: number;
+  headerNavSize?: number;
+  headerBorderColor?: string;
+  sectionMinHeight?: number;
+  sectionPaddingY?: number;
+  sectionPaddingX?: number;
+  sectionLayoutGap?: number;
+  sectionLayout?: SectionLayout;
+  sectionLayoutAlign?: SectionLayoutAlign;
+  sectionContentWidth?: SectionContentWidth;
+  sectionBackgroundMode?: SectionBackgroundMode;
+  sectionBackgroundImage?: string;
+  sectionBackgroundPosition?: SectionBackgroundPosition;
+  sectionBackgroundSize?: SectionBackgroundSize;
+  sectionGradientFrom?: string;
+  sectionGradientTo?: string;
+  sectionGradientAngle?: number;
+  sectionOverlayColor?: string;
+  sectionOverlayOpacity?: number;
+  sectionRadius?: number;
+  sectionAnchorId?: string;
+  elementColumn?: number;
+  elementColumnSpan?: number;
+  elementContent?: string;
+  elementHref?: string;
+  elementSrc?: string;
+  color?: string;
+  elementBackgroundColor?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  textAlign?: 'left' | 'center' | 'right';
+  padding?: number;
+  borderRadius?: number;
+  width?: number;
+  maxWidth?: number;
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  positionX?: number;
+  positionY?: number;
+  hidden?: boolean;
+  alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
+  lineHeight?: number;
+  letterSpacing?: number;
+  opacity?: number;
+  rotate?: number;
+  elementBorderWidth?: number;
+  elementBorderColor?: string;
+  elementBorderStyle?: 'solid' | 'dashed' | 'dotted';
+  elementShadow?: ElementShadow;
+  elementHoverScale?: number;
+  elementHoverOpacity?: number;
+  elementHoverBackgroundColor?: string;
+  elementHoverColor?: string;
+  elementHoverShadow?: ElementShadow;
+  elementAnimation?: ElementAnimation;
+  elementAnimationDuration?: number;
+  elementAnimationDelay?: number;
+  elementAnimationDistance?: number;
+  elementAnimationOnce?: boolean;
+  containerName?: string;
+  containerLayout?: 'stack' | 'row';
+  containerGap?: number;
+  containerAlign?: 'start' | 'center' | 'end' | 'stretch';
+  containerBackgroundColor?: string;
+  containerPadding?: number;
+  containerBorderRadius?: number;
+  containerBorderWidth?: number;
+  containerBorderColor?: string;
+  containerShadow?: ElementShadow;
+  containerColumn?: number;
+  containerColumnSpan?: number;
+  formSuccessMessage?: string;
+  formSuccessAction?: 'message' | 'redirect';
+  formRedirectUrl?: string;
+  formFieldName?: string;
+  formFieldLabel?: string;
+  formFieldPlaceholder?: string;
+  formFieldRequired?: boolean;
+  formFieldOptions?: string[];
+}
+
+interface AIWebsitePatchOperation {
+  action: 'add_page' | 'duplicate_page' | 'remove_page' | 'set_home_page' | 'move_page' | 'update_section' | 'add_section' | 'duplicate_section' | 'remove_section' | 'move_section' | 'add_container' | 'update_container' | 'remove_container' | 'assign_element_container' | 'create_symbol' | 'insert_symbol' | 'detach_symbol' | 'add_element' | 'duplicate_element' | 'remove_element' | 'move_element' | 'update_element' | 'update_form' | 'add_form_field' | 'update_form_field' | 'remove_form_field' | 'move_form_field' | 'copy_section_style' | 'copy_element_style' | 'repair_responsive' | 'repair_accessibility' | 'update_page' | 'update_theme' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
+  pageId?: string;
+  pageSlug?: string;
+  sectionId?: string;
+  sectionType?: SectionType;
+  elementId?: string;
+  elementType?: WebsiteElementType;
+  device?: Device;
+  beforeElementId?: string;
+  afterElementId?: string;
+  containerId?: string;
+  formFieldId?: string;
+  formFieldType?: WebsiteFormFieldType;
+  beforeFormFieldId?: string;
+  afterFormFieldId?: string;
+  symbolId?: string;
+  symbolName?: string;
+  sourceSectionId?: string;
+  sourceElementId?: string;
+  beforePageId?: string;
+  afterPageId?: string;
+  beforeSectionId?: string;
+  afterSectionId?: string;
+  prompt?: string;
+  placement?: 'section_background' | 'section_image' | 'image_element';
+  page?: AIWebsitePageGeneration;
+  changes?: AIWebsitePatchChanges;
+  section?: Partial<WebsiteSection> & Pick<WebsiteSection, 'type'>;
+}
+
+interface AIQualityReview {
+  score: number;
+  summary: string;
+  findings: Array<{
+    severity: 'critical' | 'warning' | 'improvement';
+    title: string;
+    detail: string;
+  }>;
+  fixPrompt: string;
+}
+
+interface AIWebsiteAgentPlanStep {
+  id: string;
+  title: string;
+  target?: string;
+  reason?: string;
+  destructive?: boolean;
+}
+
+interface AIWebsiteAgentPlan {
+  summary?: string;
+  steps?: AIWebsiteAgentPlanStep[];
+  warnings?: string[];
+}
+
+interface AIWebsiteAgentReviewFinding {
+  severity: 'critical' | 'warning' | 'improvement';
+  title: string;
+  detail: string;
+  target?: string;
+}
+
+interface AIWebsiteAgentReview {
+  score?: number;
+  summary?: string;
+  findings?: AIWebsiteAgentReviewFinding[];
+  followUpPrompt?: string;
+}
+
+interface AIWebsitePatch {
+  summary?: string;
+  warnings?: string[];
+  confidence?: number;
+  operations?: AIWebsitePatchOperation[];
+}
+
 type AIBuilderStage = 'idle' | 'planning' | 'building' | 'styling' | 'ready' | 'error';
 
 interface AIBuilderMessage {
@@ -93,6 +296,18 @@ interface WebsitePage {
   language?: Language;
   translationKey?: string;
   noIndex?: boolean;
+}
+
+interface AIWebsiteUndoSnapshot {
+  pages: WebsitePage[];
+  activePageId: string;
+  homePageId: string;
+  siteName: string;
+  brand: WebsiteBrand;
+  seo: WebsiteSEO;
+  theme: WebsiteTheme;
+  headerConfig: WebsiteHeaderConfig;
+  symbols: WebsiteSymbol[];
 }
 
 interface CloudWebsiteProject {
@@ -1023,6 +1238,40 @@ function buildDesktopElementHoverCss(sections: WebsiteSection[]): string {
   return rules.join('\n');
 }
 
+function buildResponsiveSectionCss(sections: WebsiteSection[]): string {
+  const buildRules = (device: Device) => {
+    const rules: string[] = [];
+    sections.forEach((section) => {
+      const style = section.responsive?.[device];
+      if (!style) return;
+      const selector = `[data-tayar-section-id="${cssAttributeValue(section.id)}"]`;
+      const sectionRules: string[] = [];
+      const minHeight = Number(style.minHeight);
+      const paddingY = Number(style.sectionPaddingY);
+      const paddingX = Number(style.sectionPaddingX);
+      const layoutGap = Number(style.layoutGap);
+
+      if (Number.isFinite(minHeight)) sectionRules.push(`min-height:${Math.min(1200, Math.max(0, minHeight))}px!important`);
+      if (Number.isFinite(paddingY)) {
+        const safe = Math.min(240, Math.max(0, paddingY));
+        sectionRules.push(`padding-top:${safe}px!important`, `padding-bottom:${safe}px!important`);
+      }
+      if (Number.isFinite(paddingX)) {
+        const safe = Math.min(160, Math.max(0, paddingX));
+        sectionRules.push(`padding-left:${safe}px!important`, `padding-right:${safe}px!important`);
+      }
+      if (sectionRules.length) rules.push(`${selector}{${sectionRules.join(';')}}`);
+      if (Number.isFinite(layoutGap)) {
+        const safe = Math.min(80, Math.max(0, layoutGap));
+        rules.push(`${selector} .element-stack,${selector} .section-layout{gap:${safe}px!important}`);
+      }
+    });
+    return rules.join('\n');
+  };
+
+  return `@media(max-width:900px){\n${buildRules('tablet')}\n}\n@media(max-width:700px){\n${buildRules('mobile')}\n}`;
+}
+
 function buildResponsiveElementCss(sections: WebsiteSection[]): string {
   const buildRules = (device: Device) => {
     const rules: string[] = [];
@@ -1528,7 +1777,7 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
       : `<button class="btn" type="submit"${enabled ? '' : ' disabled'}>${submitLabel}</button>`;
 
     return `
-<section id="${sectionId}" class="section" style="${sectionInlineCss(section)}">
+<section id="${sectionId}" data-tayar-section-id="${escapeHtml(section.id)}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
     ${sectionElementsToHtml(section, homeSlug, true)}
     <form class="contact-box" data-tayar-lead-form data-success-message="${escapeHtml(section.formSuccessMessage || 'Thanks! Your message has been sent.')}" data-success-action="${section.formSuccessAction === 'redirect' ? 'redirect' : 'message'}" data-redirect-url="${escapeHtml(section.formRedirectUrl ? safeFormRedirectHref(section.formRedirectUrl, homeSlug) : '')}">
@@ -1552,7 +1801,7 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
 
   if (section.type === 'footer') {
     return `
-<footer id="${sectionId}" class="section footer" style="${sectionInlineCss(section)}">
+<footer id="${sectionId}" data-tayar-section-id="${escapeHtml(section.id)}" class="section footer" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
     <h2>${title}</h2>
     <p>${description}</p>
@@ -1687,6 +1936,7 @@ function buildFullHtml(
   const theme = normalizeTheme(options.theme);
   const desktopElementHoverCss = buildDesktopElementHoverCss(sections);
   const desktopElementAnimationCss = buildDesktopElementAnimationCss(sections);
+  const responsiveSectionCss = buildResponsiveSectionCss(sections);
   const responsiveElementCss = buildResponsiveElementCss(sections);
   const headerConfig = normalizeHeaderConfig(options.headerConfig);
   const footerConfig = normalizeFooterConfig(options.footerConfig);
@@ -2265,6 +2515,7 @@ ${desktopElementHoverCss}
 .price.featured{transform:none}
 h1{font-size:45px}
 }
+${responsiveSectionCss}
 ${responsiveElementCss}
 @media(prefers-reduced-motion:reduce){.tayar-js [data-tayar-animated]{opacity:1!important;transform:none!important;transition:none!important;will-change:auto!important}}
 .tayar-maintenance{min-height:100vh;display:grid;place-items:center;padding:32px;background:${theme.backgroundColor};color:${theme.textColor};text-align:center}.tayar-maintenance>div{width:min(720px,100%)}.tayar-maintenance span{display:inline-block;margin-bottom:14px;color:${theme.primaryColor};font-weight:900;text-transform:uppercase;letter-spacing:.16em;font-size:12px}.tayar-maintenance h1{font-size:clamp(42px,8vw,78px)}.tayar-maintenance p{max-width:640px;margin:18px auto;color:${theme.mutedTextColor};font-size:18px}
@@ -2297,6 +2548,10 @@ ${motionScript}`}
 
 function effectiveStyle(element: WebsiteElement, device: Device) {
   return { ...element.style, ...(element.responsive?.[device] || {}) };
+}
+
+function effectiveSectionStyle(section: WebsiteSection, device: Device): WebsiteSection {
+  return { ...section, ...(section.responsive?.[device] || {}) };
 }
 
 function ElementPreview({
@@ -2572,9 +2827,10 @@ function SectionPreview({
   theme: WebsiteTheme;
 }) {
   const compact = device === 'mobile';
+  const responsiveSection = effectiveSectionStyle(section, device);
   const configuredColumns = sectionColumnCount(section.layout);
   const previewColumns = compact ? 1 : device === 'tablet' && configuredColumns === 3 ? 2 : configuredColumns;
-  const layoutGap = sectionLayoutGap(section);
+  const layoutGap = sectionLayoutGap(responsiveSection);
   const layoutAlign = sectionLayoutAlign(section);
   const visibleElements = section.elements.filter((element) => section.type !== 'contact' || element.type !== 'button');
   const previewContainers = (section.containers || []).filter((container) => visibleElements.some((element) => element.containerId === container.id));
@@ -2592,9 +2848,9 @@ function SectionPreview({
   });
   const contactSubmitElement = section.type === 'contact' ? section.elements.find((element) => element.type === 'button') : undefined;
   const contactSubmitStyle = contactSubmitElement ? effectiveStyle(contactSubmitElement, device) : undefined;
-  const sectionMinHeight = sectionVisualNumber(section.minHeight, 0, 0, 1200);
-  const sectionPaddingY = sectionVisualNumber(section.sectionPaddingY, theme.sectionSpacing, 0, 240);
-  const sectionPaddingX = sectionVisualNumber(section.sectionPaddingX, compact ? 20 : 40, 0, 160);
+  const sectionMinHeight = sectionVisualNumber(responsiveSection.minHeight, 0, 0, 1200);
+  const sectionPaddingY = sectionVisualNumber(responsiveSection.sectionPaddingY, theme.sectionSpacing, 0, 240);
+  const sectionPaddingX = sectionVisualNumber(responsiveSection.sectionPaddingX, compact ? 20 : 40, 0, 160);
   const sectionRadius = sectionVisualNumber(section.sectionRadius, 0, 0, 80);
   const sectionFullWidth = sectionContentWidth(section) === 'full';
 
@@ -3058,6 +3314,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       content: 'Describe the website you want. I will plan the pages, build the structure and hand it to the visual editor.',
     },
   ]);
+  const [aiUndoSnapshot, setAiUndoSnapshot] = useState<AIWebsiteUndoSnapshot | null>(null);
+  const [aiQualityReview, setAiQualityReview] = useState<AIQualityReview | null>(null);
+  const [aiQualityBusy, setAiQualityBusy] = useState(false);
+  const [aiQualityOpen, setAiQualityOpen] = useState(false);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -3384,7 +3644,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (parsed.seo) setSeo(parsed.seo);
       setHistory([]);
       setFuture([]);
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
+      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
       setSaved(false);
       return;
     }
@@ -3421,7 +3681,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (parsed.seo) setSeo(parsed.seo);
       setHistory([]);
       setFuture([]);
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
+      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
       setSaved(false);
     }
   }
@@ -5602,11 +5862,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setDragOverId(null);
     setDragOverSectionPosition(null);
   }
-  async function generateWithAI() {
+  function pushProjectCheckpoint(label: string, snapshot: Record<string, unknown> = buildProjectSnapshot()) {
+    const savedAt = new Date().toISOString();
+    const entry: ProjectHistoryEntry = {
+      id: `history-ai-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      savedAt,
+      label,
+      snapshot: { ...snapshot, updatedAt: savedAt },
+    };
+    setProjectHistory((current) => [entry, ...current].slice(0, 30));
+  }
+
+  async function requestGeneratedImage(prompt: string) {
+    const cleanPrompt = prompt.trim();
+    if (!cleanPrompt) throw new Error('Image prompt is required.');
+    const ai = createAIService('website-builder');
+    const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean }>(
+      { action: 'generate-image', prompt: cleanPrompt },
+      [],
+      { temperature: 0.8, maxTokens: 1000 },
+    );
+    if (!response.json?.url) throw new Error('Image generation did not return an image.');
+    if (user) void refreshMedia();
+    return response.json;
+  }
+
+  async function generateWithAI(agentMode = false) {
     const prompt = aiPrompt.trim();
     if (!prompt || aiBusy) return;
 
     const requestId = `ai-request-${Date.now()}`;
+    pushProjectCheckpoint(agentMode ? 'Before Tayar Agent build' : 'Before AI build');
     setAiBusy(true);
     setAiError('');
     setAiStage('planning');
@@ -5618,7 +5904,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try {
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', prompt },
+        { action: 'generate', prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
         [],
         { temperature: 0.65, maxTokens: 9000 },
       );
@@ -5645,11 +5931,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
       ]);
       const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
+      const isLightHex = (value: string) => {
+        const hex = value.replace('#', '');
+        const r = Number.parseInt(hex.slice(0, 2), 16);
+        const g = Number.parseInt(hex.slice(2, 4), 16);
+        const b = Number.parseInt(hex.slice(4, 6), 16);
+        return ((r * 299) + (g * 587) + (b * 114)) / 1000 > 165;
+      };
+      const generatedPrimary = validHex(generated.style?.primaryColor) ? generated.style!.primaryColor! : '#0f172a';
+      const generatedAccent = validHex(generated.style?.accentColor) ? generated.style!.accentColor! : '#7c3aed';
+      const generatedSurfaceIsLight = isLightHex(generatedPrimary);
+      const generatedAccentIsLight = isLightHex(generatedAccent);
+      const generatedTextColor = generatedSurfaceIsLight ? '#0f172a' : '#f8fafc';
+      const generatedMutedTextColor = generatedSurfaceIsLight ? '#475569' : '#cbd5e1';
       const generatedAt = Date.now();
       const maxGeneratedPages = Math.max(1, Math.min(6, billingEntitlements.maxPages || 1));
       const usedSlugs = new Set<string>();
 
-      const nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
+      let nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
         const normalizedSections = (page.sections || [])
           .filter((section) => allowedTypes.has(section.type))
           .slice(0, 8)
@@ -5660,8 +5959,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             description: section.description?.trim() || '',
             buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
             buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
-            background: validHex(section.background) ? section.background! : (validHex(generated.style?.primaryColor) ? generated.style!.primaryColor! : '#0f172a'),
-            accent: validHex(section.accent) ? section.accent! : (validHex(generated.style?.accentColor) ? generated.style!.accentColor! : '#7c3aed'),
+            background: validHex(section.background) ? section.background! : generatedPrimary,
+            accent: validHex(section.accent) ? section.accent! : generatedAccent,
             image: section.image?.trim() || undefined,
             imagePrompt: section.imagePrompt?.trim() || undefined,
           }));
@@ -5692,6 +5991,54 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('AI did not return usable pages or sections. Please try again.');
       }
 
+      let agentImagesGenerated = 0;
+      if (agentMode) {
+        setAiStage('styling');
+        const visualTargets: Array<{ pageIndex: number; sectionIndex: number; prompt: string }> = [];
+        nextPages.forEach((page, pageIndex) => {
+          page.sections.forEach((section, sectionIndex) => {
+            if (visualTargets.length >= 2) return;
+            if ((section.type === 'hero' || section.type === 'about' || section.type === 'services') && section.imagePrompt?.trim()) {
+              visualTargets.push({ pageIndex, sectionIndex, prompt: section.imagePrompt.trim() });
+            }
+          });
+        });
+
+        for (const target of visualTargets) {
+          try {
+            const generatedImage = await requestGeneratedImage(target.prompt);
+            const page = nextPages[target.pageIndex];
+            const section = page?.sections[target.sectionIndex];
+            if (!section) continue;
+            const nextSection: WebsiteSection = section.type === 'hero'
+              ? {
+                  ...section,
+                  image: generatedImage.url,
+                  backgroundMode: 'image',
+                  backgroundImage: generatedImage.url,
+                  backgroundPosition: 'center',
+                  backgroundSize: 'cover',
+                  overlayColor: '#000000',
+                  overlayOpacity: 0.42,
+                }
+              : {
+                  ...section,
+                  image: generatedImage.url,
+                  elements: section.elements.some((element) => element.type === 'image')
+                    ? section.elements.map((element) => element.type === 'image' ? { ...element, src: generatedImage.url, content: section.title || 'Generated image' } : element)
+                    : [...section.elements, { ...createElement('image', section.accent), src: generatedImage.url, content: section.title || 'Generated image' }],
+                };
+            nextPages = nextPages.map((candidate, pageIndex) => pageIndex === target.pageIndex
+              ? { ...candidate, sections: candidate.sections.map((candidateSection, sectionIndex) => sectionIndex === target.sectionIndex ? nextSection : candidateSection) }
+              : candidate
+            );
+            agentImagesGenerated += 1;
+          } catch {
+            // Agent image generation is best-effort; the site remains fully editable if the image provider is unavailable.
+          }
+        }
+      }
+
       const firstPage = nextPages[0];
       const totalSections = nextPages.reduce((sum, page) => sum + page.sections.length, 0);
       const summary = generated.summary?.trim() || `${nextPages.length} page website with ${totalSections} structured sections.`;
@@ -5709,9 +6056,53 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSiteName(generated.siteName?.trim() || 'My Website');
 
       setAiStage('styling');
+      const tone = generated.style?.tone?.toLowerCase() || 'modern';
+      const nextGeneratedTheme = normalizeTheme({
+        ...theme,
+        primaryColor: generatedAccent,
+        secondaryColor: generatedPrimary,
+        backgroundColor: generatedPrimary,
+        textColor: generatedTextColor,
+        mutedTextColor: generatedMutedTextColor,
+        contentWidth: tone === 'editorial' ? 1040 : 1120,
+        buttonRadius: tone === 'premium' || tone === 'friendly' ? 16 : tone === 'corporate' ? 10 : 12,
+        sectionSpacing: tone === 'minimal' || tone === 'premium' ? 104 : 92,
+      });
+      const nextGeneratedHeader = {
+        ...headerConfig,
+        backgroundColor: generatedPrimary,
+        textColor: generatedTextColor,
+        activeColor: generatedTextColor,
+        hoverColor: generatedAccent,
+        ctaBackgroundColor: generatedAccent,
+        ctaTextColor: generatedAccentIsLight ? '#0f172a' : '#ffffff',
+        borderColor: generatedSurfaceIsLight ? '#e2e8f0' : '#334155',
+      };
+      const nextGeneratedSeo: WebsiteSEO = generated.seo || {
+        ...seo,
+        title: generated.siteName?.trim() || seo.title || 'Website',
+        description: generated.summary?.trim() || seo.description || 'Professional website built with Tayar.',
+        keywords: seo.keywords,
+      };
+      setTheme(nextGeneratedTheme);
+      setHeaderConfig(nextGeneratedHeader);
       if (generated.brand) setBrand(generated.brand);
-      if (generated.seo) setSeo(generated.seo);
+      setSeo(nextGeneratedSeo);
 
+      const finalSiteName = generated.siteName?.trim() || 'My Website';
+      pushProjectCheckpoint(agentMode ? 'After Tayar Agent build' : 'After AI build', {
+        ...buildProjectSnapshot(),
+        siteName: finalSiteName,
+        pages: nextPages,
+        activePageId: firstPage.id,
+        homePageId: firstPage.id,
+        theme: nextGeneratedTheme,
+        headerConfig: nextGeneratedHeader,
+        brand: generated.brand || brand,
+        seo: nextGeneratedSeo,
+      });
+      setAiUndoSnapshot(null);
+      setAiQualityReview(null);
       setSaved(false);
       setAiPrompt('');
       setAiStage('ready');
@@ -5720,7 +6111,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-result-${generatedAt}`,
           role: 'assistant' as const,
-          content: `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
+          content: agentMode
+            ? `Tayar Agent prepared ${nextPages.length} page${nextPages.length === 1 ? '' : 's'}, ${totalSections} sections, design system, SEO and ${agentImagesGenerated} generated image${agentImagesGenerated === 1 ? '' : 's'}. ${summary}`
+            : `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
         },
       ].slice(-12));
     } catch (error) {
@@ -5736,48 +6129,2171 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
+  function buildAIEditableSnapshot() {
+    return {
+      siteName,
+      activePageId,
+      homePageId,
+      selection: {
+        pageId: activePageId,
+        sectionId: selectedId,
+        elementId: selectedElementId,
+        device,
+      },
+      seo: {
+        title: seo.title,
+        description: seo.description,
+        keywords: seo.keywords.slice(0, 20),
+      },
+      header: {
+        enabled: headerConfig.enabled,
+        sticky: headerConfig.sticky,
+        mobileMenu: headerConfig.mobileMenu,
+        languageSwitcher: headerConfig.languageSwitcher,
+        brandText: headerConfig.brandText,
+        logoUrl: headerConfig.logoUrl,
+        showCta: headerConfig.showCta,
+        ctaLabel: headerConfig.ctaLabel,
+        ctaHref: headerConfig.ctaHref,
+        backgroundColor: headerConfig.backgroundColor,
+        textColor: headerConfig.textColor,
+        activeColor: headerConfig.activeColor,
+        hoverColor: headerConfig.hoverColor,
+        ctaBackgroundColor: headerConfig.ctaBackgroundColor,
+        ctaTextColor: headerConfig.ctaTextColor,
+        navGap: headerConfig.navGap,
+        brandSize: headerConfig.brandSize,
+        navSize: headerConfig.navSize,
+        borderColor: headerConfig.borderColor,
+      },
+      theme: {
+        primaryColor: theme.primaryColor,
+        secondaryColor: theme.secondaryColor,
+        backgroundColor: theme.backgroundColor,
+        textColor: theme.textColor,
+        mutedTextColor: theme.mutedTextColor,
+        fontFamily: theme.fontFamily,
+        contentWidth: theme.contentWidth,
+        buttonRadius: theme.buttonRadius,
+        sectionSpacing: theme.sectionSpacing,
+      },
+      symbols: symbols.slice(0, 50).map((symbol) => ({
+        id: symbol.id,
+        name: symbol.name,
+        type: symbol.element.type,
+        content: symbol.element.content,
+      })),
+      pages: getCurrentPages().map((page) => ({
+        id: page.id,
+        name: page.name,
+        slug: page.slug,
+        showInNavigation: page.showInNavigation,
+        seoTitle: page.seoTitle || '',
+        seoDescription: page.seoDescription || '',
+        canonicalUrl: page.canonicalUrl || '',
+        noIndex: page.noIndex === true,
+        sections: page.sections.map((section) => ({
+          id: section.id,
+          type: section.type,
+          title: section.title,
+          description: section.description,
+          buttonText: section.buttonText,
+          buttonUrl: section.buttonUrl,
+          background: section.background,
+          accent: section.accent,
+          image: section.image,
+          imagePrompt: section.imagePrompt,
+          backgroundMode: section.backgroundMode,
+          backgroundImage: section.backgroundImage,
+          backgroundPosition: section.backgroundPosition,
+          backgroundSize: section.backgroundSize,
+          gradientFrom: section.gradientFrom,
+          gradientTo: section.gradientTo,
+          gradientAngle: section.gradientAngle,
+          overlayColor: section.overlayColor,
+          overlayOpacity: section.overlayOpacity,
+          sectionRadius: section.sectionRadius,
+          anchorId: section.anchorId,
+          layout: section.layout,
+          layoutAlign: section.layoutAlign,
+          contentWidth: section.contentWidth,
+          minHeight: section.minHeight,
+          sectionPaddingY: section.sectionPaddingY,
+          sectionPaddingX: section.sectionPaddingX,
+          layoutGap: section.layoutGap,
+          responsive: section.responsive || {},
+          containers: (section.containers || []).slice(0, 30).map((container) => ({
+            id: container.id,
+            name: container.name,
+            layout: container.layout,
+            gap: container.gap,
+            align: container.align,
+            backgroundColor: container.backgroundColor,
+            padding: container.padding,
+            borderRadius: container.borderRadius,
+            borderWidth: container.borderWidth,
+            borderColor: container.borderColor,
+            shadow: container.shadow,
+            layoutColumn: container.layoutColumn,
+            columnSpan: container.columnSpan,
+          })),
+          form: section.type === 'contact' ? {
+            successMessage: section.formSuccessMessage || '',
+            successAction: section.formSuccessAction || 'message',
+            redirectUrl: section.formRedirectUrl || '',
+            fields: (section.formFields || createDefaultContactFormFields()).slice(0, 20).map((field) => ({
+              id: field.id,
+              name: field.name,
+              label: field.label,
+              type: field.type,
+              placeholder: field.placeholder || '',
+              required: field.required,
+              options: field.options || [],
+            })),
+          } : undefined,
+          elements: section.elements.slice(0, 20).map((element) => ({
+            id: element.id,
+            type: element.type,
+            content: element.content,
+            href: element.href,
+            src: element.src,
+            layoutColumn: element.layoutColumn,
+            containerId: element.containerId,
+            symbolId: element.symbolId,
+            animationOnce: element.animationOnce,
+            style: element.style,
+            responsive: element.responsive || {},
+          })),
+        })),
+      })),
+    };
+  }
+
+  function undoLastAIChange() {
+    if (!aiUndoSnapshot || aiBusy) return;
+    const snapshot = aiUndoSnapshot;
+    const restoredPages = JSON.parse(JSON.stringify(snapshot.pages)) as WebsitePage[];
+    const restoredActive = restoredPages.find((page) => page.id === snapshot.activePageId) || restoredPages[0];
+    setPages(restoredPages);
+    setActivePageId(restoredActive?.id || snapshot.activePageId);
+    setHomePageId(snapshot.homePageId);
+    setSections(restoredActive?.sections || []);
+    setSelectedId(restoredActive?.sections[0]?.id ?? null);
+    setSelectedElementId(restoredActive?.sections[0]?.elements[0]?.id ?? null);
+    setSiteName(snapshot.siteName);
+    setBrand(snapshot.brand);
+    setSeo(snapshot.seo);
+    setTheme(snapshot.theme);
+    setHeaderConfig(snapshot.headerConfig);
+    setSymbols(JSON.parse(JSON.stringify(snapshot.symbols)) as WebsiteSymbol[]);
+    setAiUndoSnapshot(null);
+    setAiStage('ready');
+    setSaved(false);
+    setAiMessages((current) => [
+      ...current,
+      { id: `ai-undo-${Date.now()}`, role: 'assistant' as const, content: 'Reverted the last AI change.' },
+    ].slice(-12));
+  }
+
+  async function applyAIChange(requestedPrompt?: string) {
+    const prompt = typeof requestedPrompt === 'string' ? requestedPrompt.trim() : aiPrompt.trim();
+    if (!prompt || aiBusy) return;
+
+    const requestId = `ai-edit-${Date.now()}`;
+    pushProjectCheckpoint(`Before AI change · ${prompt.slice(0, 60)}`);
+    const currentPages = getCurrentPages();
+    const snapshot: AIWebsiteUndoSnapshot = {
+      pages: JSON.parse(JSON.stringify(currentPages)) as WebsitePage[],
+      activePageId,
+      homePageId,
+      siteName,
+      brand: JSON.parse(JSON.stringify(brand)) as WebsiteBrand,
+      seo: JSON.parse(JSON.stringify(seo)) as WebsiteSEO,
+      theme: JSON.parse(JSON.stringify(theme)) as WebsiteTheme,
+      headerConfig: JSON.parse(JSON.stringify(headerConfig)) as WebsiteHeaderConfig,
+      symbols: JSON.parse(JSON.stringify(symbols)) as WebsiteSymbol[],
+    };
+
+    setAiBusy(true);
+    setAiError('');
+    setAiStage('planning');
+    setAiMessages((current) => [
+      ...current,
+      { id: requestId, role: 'user' as const, content: prompt },
+    ].slice(-12));
+
+    try {
+      const ai = createAIService('website-builder');
+      const editableSnapshot = buildAIEditableSnapshot();
+      const planResponse = await ai.completeJSON<AIWebsiteAgentPlan>(
+        {
+          action: 'plan-edit',
+          prompt,
+          currentSite: editableSnapshot,
+        },
+        aiMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
+        { temperature: 0.2, maxTokens: 3500 },
+      );
+
+      let rawAgentPlan = planResponse.json as AIWebsiteAgentPlan | null;
+      if (!rawAgentPlan && planResponse.content) {
+        try {
+          const cleanedPlan = planResponse.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+          rawAgentPlan = JSON.parse(cleanedPlan) as AIWebsiteAgentPlan;
+        } catch {
+          rawAgentPlan = null;
+        }
+      }
+
+      const plannedSteps = Array.isArray(rawAgentPlan?.steps)
+        ? rawAgentPlan.steps
+            .map((step, index): AIWebsiteAgentPlanStep | null => {
+              if (!step || typeof step !== 'object') return null;
+              const title = typeof step.title === 'string' ? step.title.trim().slice(0, 140) : '';
+              if (!title) return null;
+              return {
+                id: typeof step.id === 'string' && step.id.trim() ? step.id.trim().slice(0, 40) : `step-${index + 1}`,
+                title,
+                target: typeof step.target === 'string' ? step.target.trim().slice(0, 180) : undefined,
+                reason: typeof step.reason === 'string' ? step.reason.trim().slice(0, 220) : undefined,
+                destructive: step.destructive === true,
+              };
+            })
+            .filter((step): step is AIWebsiteAgentPlanStep => Boolean(step))
+            .slice(0, 12)
+        : [];
+
+      const agentPlan: AIWebsiteAgentPlan = {
+        summary: typeof rawAgentPlan?.summary === 'string' && rawAgentPlan.summary.trim()
+          ? rawAgentPlan.summary.trim().slice(0, 240)
+          : 'Apply the requested website changes safely.',
+        steps: plannedSteps.length
+          ? plannedSteps
+          : [{ id: 'step-1', title: 'Apply the requested changes with native editable Tayar operations.', destructive: false }],
+        warnings: Array.isArray(rawAgentPlan?.warnings)
+          ? rawAgentPlan.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
+          : [],
+      };
+      const planPreview = (agentPlan.steps || []).map((step, index) => `${index + 1}. ${step.title}`).join(' → ');
+      setAiMessages((current) => [
+        ...current,
+        {
+          id: `ai-plan-${Date.now()}`,
+          role: 'assistant' as const,
+          content: `Plan: ${planPreview}${agentPlan.warnings?.length ? ` · ${agentPlan.warnings.join(' · ')}` : ''}`,
+        },
+      ].slice(-30));
+
+      const response = await ai.completeJSON<AIWebsitePatch>(
+        {
+          action: 'edit',
+          prompt,
+          currentSite: editableSnapshot,
+          executionPlan: agentPlan,
+        },
+        aiMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
+        { temperature: 0.25, maxTokens: 12000 },
+      );
+
+      let patch = response.json;
+      if (!patch && response.content) {
+        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        patch = JSON.parse(cleaned) as AIWebsitePatch;
+      }
+
+      const operations = Array.isArray(patch?.operations) ? patch.operations.slice(0, 60) : [];
+      if (!patch || operations.length === 0) {
+        throw new Error('AI did not return any safe website changes. Try a more specific request.');
+      }
+
+      const destructiveActions = new Set([
+        'remove_page', 'remove_section', 'remove_container', 'remove_element', 'remove_form_field',
+      ]);
+      const destructiveOperations = operations.filter((operation) => operation && destructiveActions.has(operation.action));
+      const removesPage = destructiveOperations.some((operation) => operation.action === 'remove_page');
+      if (removesPage || destructiveOperations.length >= 3) {
+        const confirmed = window.confirm(
+          `Tayar AI wants to run ${destructiveOperations.length} destructive change${destructiveOperations.length === 1 ? '' : 's'}. Continue?`
+        );
+        if (!confirmed) {
+          setAiStage('ready');
+          setAiMessages((current) => [
+            ...current,
+            { id: `ai-cancel-${Date.now()}`, role: 'assistant' as const, content: 'AI change cancelled before destructive operations were applied.' },
+          ].slice(-20));
+          return;
+        }
+      }
+
+      setAiStage('building');
+
+      const allowedTypes = new Set<SectionType>([
+        'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
+      ]);
+      const allowedElementTypes = new Set<WebsiteElementType>([
+        'heading', 'text', 'button', 'image', 'video', 'list', 'divider', 'spacer',
+        'accordion', 'tabs', 'gallery', 'embed', 'code', 'countdown', 'stats', 'testimonials-slider',
+      ]);
+      const allowedShadows = new Set<ElementShadow>(['none', 'sm', 'md', 'lg', 'xl']);
+      const allowedAnimations = new Set<ElementAnimation>(['none', 'fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in', 'zoom-out']);
+      const allowedFormFieldTypes = new Set<WebsiteFormFieldType>(['text', 'email', 'tel', 'textarea', 'select', 'checkbox']);
+      const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
+      const finiteStyleNumber = (value: unknown, min: number, max: number) =>
+        typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : undefined;
+      const normalizeSlugValue = (value: string) => value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      const updateSectionContent = (section: WebsiteSection, changes: AIWebsitePatchChanges): WebsiteSection => {
+        const next: WebsiteSection = {
+          ...section,
+          title: typeof changes.title === 'string' ? changes.title.trim() : section.title,
+          description: typeof changes.description === 'string' ? changes.description.trim() : section.description,
+          buttonText: typeof changes.buttonText === 'string' ? changes.buttonText.trim() : section.buttonText,
+          buttonUrl: typeof changes.buttonUrl === 'string' ? changes.buttonUrl.trim() : section.buttonUrl,
+          background: validHex(changes.background) ? changes.background! : section.background,
+          accent: validHex(changes.accent) ? changes.accent! : section.accent,
+          image: typeof changes.image === 'string' ? changes.image.trim() || undefined : section.image,
+          imagePrompt: typeof changes.imagePrompt === 'string' ? changes.imagePrompt.trim() || undefined : section.imagePrompt,
+        };
+
+        return {
+          ...next,
+          elements: section.elements.map((element) => {
+            if (changes.title !== undefined && element.type === 'heading') {
+              return { ...element, content: next.title };
+            }
+            if (changes.description !== undefined && element.type === 'text') {
+              return { ...element, content: next.description };
+            }
+            if (element.type === 'button') {
+              return {
+                ...element,
+                content: changes.buttonText !== undefined ? next.buttonText : element.content,
+                href: changes.buttonUrl !== undefined ? next.buttonUrl : element.href,
+                style: changes.accent !== undefined
+                  ? { ...element.style, backgroundColor: next.accent }
+                  : element.style,
+              };
+            }
+            return element;
+          }),
+        };
+      };
+
+      const validateAIProjectIntegrity = (candidatePages: WebsitePage[], expectedHomePageId: string, candidateSymbols: WebsiteSymbol[]): string[] => {
+        const errors: string[] = [];
+        if (!candidatePages.length) return ['The project must keep at least one page.'];
+        const pageIds = new Set<string>();
+        const sectionIds = new Set<string>();
+        const elementIds = new Set<string>();
+
+        for (const page of candidatePages) {
+          if (!page.id || pageIds.has(page.id)) errors.push(`Duplicate or missing page id: ${page.id || 'unknown'}.`);
+          pageIds.add(page.id);
+          if (!Array.isArray(page.sections) || page.sections.length === 0) {
+            errors.push(`${page.name || page.id}: page must contain at least one section.`);
+            continue;
+          }
+
+          for (const section of page.sections) {
+            if (!section.id || sectionIds.has(section.id)) errors.push(`Duplicate or missing section id: ${section.id || 'unknown'}.`);
+            sectionIds.add(section.id);
+            if (!Array.isArray(section.elements) || section.elements.length === 0) {
+              errors.push(`${page.name}: section ${section.id || section.type} must keep at least one editable element.`);
+              continue;
+            }
+
+            const containerIds = new Set<string>();
+            for (const container of section.containers || []) {
+              if (!container.id || containerIds.has(container.id)) errors.push(`${page.name}: duplicate or missing container id in ${section.id}.`);
+              containerIds.add(container.id);
+            }
+
+            for (const element of section.elements) {
+              if (!element.id || elementIds.has(element.id)) errors.push(`Duplicate or missing element id: ${element.id || 'unknown'}.`);
+              elementIds.add(element.id);
+              if (element.containerId && !containerIds.has(element.containerId)) {
+                errors.push(`${page.name}: element ${element.id} points to missing container ${element.containerId}.`);
+              }
+            }
+          }
+        }
+
+        if (!candidatePages.some((page) => page.id === expectedHomePageId)) errors.push('The selected home page no longer exists.');
+
+        const symbolIds = new Set<string>();
+        for (const symbol of candidateSymbols) {
+          if (!symbol.id || symbolIds.has(symbol.id)) errors.push(`Duplicate or missing reusable component id: ${symbol.id || 'unknown'}.`);
+          symbolIds.add(symbol.id);
+        }
+        for (const page of candidatePages) {
+          for (const section of page.sections) {
+            for (const element of section.elements) {
+              if (element.symbolId && !symbolIds.has(element.symbolId)) errors.push(`${page.name}: element ${element.id} points to missing reusable component ${element.symbolId}.`);
+            }
+          }
+        }
+        return [...new Set(errors)].slice(0, 20);
+      };
+
+      let nextPages = JSON.parse(JSON.stringify(currentPages)) as WebsitePage[];
+      let nextSiteName = siteName;
+      let nextHomePageId = homePageId;
+      let nextTheme = { ...theme };
+      let nextSeo: WebsiteSEO = { ...seo, keywords: [...seo.keywords] };
+      let nextHeaderConfig: WebsiteHeaderConfig = { ...headerConfig };
+      let nextSymbols = JSON.parse(JSON.stringify(symbols)) as WebsiteSymbol[];
+      let applied = 0;
+
+      const resolvePageIndex = (operation: AIWebsitePatchOperation) => {
+        if (operation.pageId) {
+          const index = nextPages.findIndex((page) => page.id === operation.pageId);
+          if (index >= 0) return index;
+        }
+        if (operation.pageSlug) {
+          const slug = normalizeSlugValue(operation.pageSlug);
+          const index = nextPages.findIndex((page) => normalizeSlugValue(page.slug) === slug);
+          if (index >= 0) return index;
+        }
+        return nextPages.findIndex((page) => page.id === activePageId);
+      };
+
+      const resolveSectionIndex = (page: WebsitePage, operation: AIWebsitePatchOperation) => {
+        if (operation.sectionId) {
+          const index = page.sections.findIndex((section) => section.id === operation.sectionId);
+          if (index >= 0) return index;
+        }
+        if (operation.sectionType && allowedTypes.has(operation.sectionType)) {
+          return page.sections.findIndex((section) => section.type === operation.sectionType);
+        }
+        return -1;
+      };
+
+      const cloneElementForAI = (element: WebsiteElement, containerIdMap?: Map<string, string>): WebsiteElement => ({
+        ...element,
+        id: `${element.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        style: { ...element.style },
+        responsive: element.responsive
+          ? JSON.parse(JSON.stringify(element.responsive)) as WebsiteElement['responsive']
+          : undefined,
+        containerId: element.containerId
+          ? (containerIdMap ? containerIdMap.get(element.containerId) : element.containerId)
+          : undefined,
+        symbolId: undefined,
+      });
+
+      const cloneSectionForAI = (section: WebsiteSection): WebsiteSection => {
+        const containerIdMap = new Map<string, string>();
+        const clonedContainers = (section.containers || []).map((container, index) => {
+          const nextId = `container-ai-copy-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
+          containerIdMap.set(container.id, nextId);
+          return { ...container, id: nextId };
+        });
+        const clonedFields = Array.isArray(section.formFields)
+          ? section.formFields.map((field, index) => ({
+              ...field,
+              id: `field-ai-copy-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+              options: Array.isArray(field.options) ? [...field.options] : field.options,
+            }))
+          : section.formFields;
+        return normalizeSection({
+          ...section,
+          id: `${section.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          anchorId: undefined,
+          containers: clonedContainers,
+          formFields: clonedFields,
+          elements: section.elements.map((element) => cloneElementForAI(element, containerIdMap)),
+        });
+      };
+
+      for (const operation of operations) {
+        if (!operation || typeof operation.action !== 'string') continue;
+
+        if (operation.action === 'add_page') {
+          const sourcePage = operation.page;
+          if (!sourcePage || nextPages.length >= billingEntitlements.maxPages) continue;
+          const sourceSections = Array.isArray(sourcePage.sections) ? sourcePage.sections : [];
+          const normalizedSections = sourceSections
+            .filter((section) => section && allowedTypes.has(section.type))
+            .slice(0, 8)
+            .map((section, sectionIndex) => normalizeSection({
+              ...section,
+              id: `${section.type}-ai-page-${Date.now()}-${sectionIndex}-${Math.random().toString(36).slice(2, 7)}`,
+              type: section.type,
+              title: section.title?.trim() || SECTION_LABELS[section.type],
+              description: section.description?.trim() || '',
+              buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
+              buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
+              background: validHex(section.background) ? section.background! : nextTheme.backgroundColor || '#0f172a',
+              accent: validHex(section.accent) ? section.accent! : nextTheme.primaryColor || '#7c3aed',
+              image: section.image?.trim() || undefined,
+              imagePrompt: section.imagePrompt?.trim() || undefined,
+            }));
+          if (!normalizedSections.length) continue;
+          const pageName = sourcePage.name?.trim().slice(0, 60) || `Page ${nextPages.length + 1}`;
+          const requestedSlug = normalizeSlugValue(sourcePage.slug || pageName) || `page-${nextPages.length + 1}`;
+          nextPages.push({
+            id: `page-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: pageName,
+            slug: requestedSlug,
+            sections: normalizedSections,
+            showInNavigation: sourcePage.showInNavigation !== false,
+            language: prefs.language,
+            translationKey: '',
+            seoTitle: '',
+            seoDescription: '',
+            canonicalUrl: '',
+            noIndex: false,
+          });
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'duplicate_page') {
+          if (nextPages.length >= billingEntitlements.maxPages || (!operation.pageId && !operation.pageSlug)) continue;
+          const sourceIndex = resolvePageIndex(operation);
+          if (sourceIndex < 0 || sourceIndex >= nextPages.length) continue;
+          const sourcePage = nextPages[sourceIndex];
+          const changes = operation.changes || {};
+          const requestedName = typeof changes.name === 'string' && changes.name.trim()
+            ? changes.name.trim().slice(0, 60)
+            : `${sourcePage.name} Copy`;
+          const requestedSlug = typeof changes.slug === 'string' && changes.slug.trim()
+            ? normalizeSlugValue(changes.slug)
+            : normalizeSlugValue(`${sourcePage.slug}-copy`);
+          const clonedPage: WebsitePage = {
+            ...sourcePage,
+            id: `page-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: requestedName,
+            slug: requestedSlug || `page-copy-${Date.now()}`,
+            sections: sourcePage.sections.map((section) => cloneSectionForAI(section)),
+            translationKey: '',
+            canonicalUrl: '',
+          };
+          nextPages.splice(sourceIndex + 1, 0, clonedPage);
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'remove_page') {
+          if (nextPages.length <= 1 || (!operation.pageId && !operation.pageSlug)) continue;
+          const pageIndex = resolvePageIndex(operation);
+          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+          const targetPage = nextPages[pageIndex];
+          if (targetPage.id === nextHomePageId) continue;
+          nextPages.splice(pageIndex, 1);
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'set_home_page') {
+          if (!operation.pageId && !operation.pageSlug) continue;
+          const pageIndex = resolvePageIndex(operation);
+          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+          const targetPage = nextPages[pageIndex];
+          if (targetPage.id !== nextHomePageId) {
+            nextHomePageId = targetPage.id;
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'move_page') {
+          if (!operation.pageId || (!operation.beforePageId && !operation.afterPageId)) continue;
+          const sourceIndex = nextPages.findIndex((page) => page.id === operation.pageId);
+          if (sourceIndex < 0) continue;
+          const sourcePage = nextPages[sourceIndex];
+          const withoutSource = nextPages.filter((page) => page.id !== sourcePage.id);
+          const destinationId = operation.beforePageId || operation.afterPageId || '';
+          const destinationIndex = withoutSource.findIndex((page) => page.id === destinationId);
+          if (destinationIndex < 0) continue;
+          const insertAt = destinationIndex + (operation.afterPageId ? 1 : 0);
+          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourcePage);
+          nextPages = withoutSource;
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_theme') {
+          const changes = operation.changes || {};
+          const next = normalizeTheme({
+            ...nextTheme,
+            primaryColor: validHex(changes.primaryColor) ? changes.primaryColor : nextTheme.primaryColor,
+            secondaryColor: validHex(changes.secondaryColor) ? changes.secondaryColor : nextTheme.secondaryColor,
+            backgroundColor: validHex(changes.backgroundColor) ? changes.backgroundColor : nextTheme.backgroundColor,
+            textColor: validHex(changes.textColor) ? changes.textColor : nextTheme.textColor,
+            mutedTextColor: validHex(changes.mutedTextColor) ? changes.mutedTextColor : nextTheme.mutedTextColor,
+            fontFamily: typeof changes.fontFamily === 'string' && FONT_OPTIONS.includes(changes.fontFamily)
+              ? changes.fontFamily
+              : nextTheme.fontFamily,
+            contentWidth: finiteStyleNumber(changes.themeContentWidth, 720, 1440) ?? nextTheme.contentWidth,
+            buttonRadius: finiteStyleNumber(changes.themeButtonRadius, 0, 40) ?? nextTheme.buttonRadius,
+            sectionSpacing: finiteStyleNumber(changes.themeSectionSpacing, 40, 140) ?? nextTheme.sectionSpacing,
+          });
+          if (JSON.stringify(next) !== JSON.stringify(nextTheme)) {
+            nextTheme = next;
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'update_site') {
+          const changes = operation.changes || {};
+          if (typeof changes.name === 'string' && changes.name.trim()) {
+            nextSiteName = changes.name.trim().slice(0, 100);
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'update_seo') {
+          const changes = operation.changes || {};
+          const nextTitle = typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : nextSeo.title;
+          const nextDescription = typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : nextSeo.description;
+          const nextKeywords = Array.isArray(changes.seoKeywords)
+            ? changes.seoKeywords.map((keyword) => String(keyword).trim()).filter(Boolean).slice(0, 20)
+            : nextSeo.keywords;
+          if (nextTitle !== nextSeo.title || nextDescription !== nextSeo.description || JSON.stringify(nextKeywords) !== JSON.stringify(nextSeo.keywords)) {
+            nextSeo = { title: nextTitle, description: nextDescription, keywords: nextKeywords };
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'update_header') {
+          const changes = operation.changes || {};
+          const requestedLogo = typeof changes.headerLogoUrl === 'string' ? changes.headerLogoUrl.trim().slice(0, 2000) : '';
+          const safeLogo = requestedLogo && /^(?:https?:\/\/|\/)/i.test(requestedLogo) ? requestedLogo : undefined;
+          const next: WebsiteHeaderConfig = {
+            ...nextHeaderConfig,
+            enabled: typeof changes.headerEnabled === 'boolean' ? changes.headerEnabled : nextHeaderConfig.enabled,
+            sticky: typeof changes.headerSticky === 'boolean' ? changes.headerSticky : nextHeaderConfig.sticky,
+            mobileMenu: typeof changes.headerMobileMenu === 'boolean' ? changes.headerMobileMenu : nextHeaderConfig.mobileMenu,
+            languageSwitcher: typeof changes.headerLanguageSwitcher === 'boolean' ? changes.headerLanguageSwitcher : nextHeaderConfig.languageSwitcher,
+            brandText: typeof changes.headerBrandText === 'string' ? changes.headerBrandText.trim().slice(0, 100) : nextHeaderConfig.brandText,
+            logoUrl: safeLogo !== undefined ? safeLogo : nextHeaderConfig.logoUrl,
+            showCta: typeof changes.showCta === 'boolean' ? changes.showCta : nextHeaderConfig.showCta,
+            ctaLabel: typeof changes.ctaLabel === 'string' ? changes.ctaLabel.trim().slice(0, 80) : nextHeaderConfig.ctaLabel,
+            ctaHref: typeof changes.ctaHref === 'string' ? changes.ctaHref.trim().slice(0, 500) : nextHeaderConfig.ctaHref,
+            backgroundColor: validHex(changes.headerBackgroundColor) ? changes.headerBackgroundColor! : nextHeaderConfig.backgroundColor,
+            textColor: validHex(changes.headerTextColor) ? changes.headerTextColor! : nextHeaderConfig.textColor,
+            activeColor: validHex(changes.headerActiveColor) ? changes.headerActiveColor! : nextHeaderConfig.activeColor,
+            hoverColor: validHex(changes.headerHoverColor) ? changes.headerHoverColor! : nextHeaderConfig.hoverColor,
+            ctaBackgroundColor: validHex(changes.headerCtaBackgroundColor) ? changes.headerCtaBackgroundColor! : nextHeaderConfig.ctaBackgroundColor,
+            ctaTextColor: validHex(changes.headerCtaTextColor) ? changes.headerCtaTextColor! : nextHeaderConfig.ctaTextColor,
+            navGap: finiteStyleNumber(changes.headerNavGap, 0, 64) ?? nextHeaderConfig.navGap,
+            brandSize: finiteStyleNumber(changes.headerBrandSize, 10, 42) ?? nextHeaderConfig.brandSize,
+            navSize: finiteStyleNumber(changes.headerNavSize, 10, 32) ?? nextHeaderConfig.navSize,
+            borderColor: validHex(changes.headerBorderColor) ? changes.headerBorderColor! : nextHeaderConfig.borderColor,
+          };
+          if (JSON.stringify(next) !== JSON.stringify(nextHeaderConfig)) {
+            nextHeaderConfig = next;
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'repair_responsive') {
+          let repaired = 0;
+          const targetPageId = operation.pageId?.trim();
+          const targetPageSlug = operation.pageSlug ? normalizeSlugValue(operation.pageSlug) : '';
+          nextPages = nextPages.map((candidatePage) => {
+            const pageMatches = !targetPageId && !targetPageSlug
+              ? true
+              : targetPageId
+                ? candidatePage.id === targetPageId
+                : normalizeSlugValue(candidatePage.slug) === targetPageSlug;
+            if (!pageMatches) return candidatePage;
+
+            return {
+              ...candidatePage,
+              sections: candidatePage.sections.map((candidateSection) => {
+                let sectionChanged = false;
+                const sectionResponsive = { ...(candidateSection.responsive || {}) };
+                const mobileSection = { ...(sectionResponsive.mobile || {}) };
+                const tabletSection = { ...(sectionResponsive.tablet || {}) };
+
+                const basePaddingX = Number(candidateSection.sectionPaddingX);
+                if (Number.isFinite(basePaddingX) && basePaddingX > 28 && mobileSection.sectionPaddingX === undefined) {
+                  mobileSection.sectionPaddingX = 20;
+                  sectionChanged = true;
+                }
+                if (Number.isFinite(basePaddingX) && basePaddingX > 48 && tabletSection.sectionPaddingX === undefined) {
+                  tabletSection.sectionPaddingX = 32;
+                  sectionChanged = true;
+                }
+
+                const basePaddingY = Number(candidateSection.sectionPaddingY);
+                if (Number.isFinite(basePaddingY) && basePaddingY > 96 && mobileSection.sectionPaddingY === undefined) {
+                  mobileSection.sectionPaddingY = 64;
+                  sectionChanged = true;
+                }
+                if (Number.isFinite(basePaddingY) && basePaddingY > 120 && tabletSection.sectionPaddingY === undefined) {
+                  tabletSection.sectionPaddingY = 84;
+                  sectionChanged = true;
+                }
+
+                const baseGap = Number(candidateSection.layoutGap);
+                if (Number.isFinite(baseGap) && baseGap > 36 && mobileSection.layoutGap === undefined) {
+                  mobileSection.layoutGap = 24;
+                  sectionChanged = true;
+                }
+                if (Number.isFinite(baseGap) && baseGap > 52 && tabletSection.layoutGap === undefined) {
+                  tabletSection.layoutGap = 36;
+                  sectionChanged = true;
+                }
+
+                const elements = candidateSection.elements.map((element) => {
+                  let elementChanged = false;
+                  const responsive = { ...(element.responsive || {}) };
+                  const mobile = { ...(responsive.mobile || {}) };
+                  const tablet = { ...(responsive.tablet || {}) };
+                  const baseStyle = element.style || {};
+
+                  const fontSize = Number(baseStyle.fontSize);
+                  if (Number.isFinite(fontSize) && fontSize > 52 && mobile.fontSize === undefined) {
+                    mobile.fontSize = Math.max(28, Math.min(48, Math.round(fontSize * 0.72)));
+                    elementChanged = true;
+                  }
+                  if (Number.isFinite(fontSize) && fontSize > 76 && tablet.fontSize === undefined) {
+                    tablet.fontSize = Math.max(36, Math.min(68, Math.round(fontSize * 0.84)));
+                    elementChanged = true;
+                  }
+
+                  const padding = Number(baseStyle.padding);
+                  if (Number.isFinite(padding) && padding > 32 && mobile.padding === undefined) {
+                    mobile.padding = 20;
+                    elementChanged = true;
+                  }
+                  if (Number.isFinite(padding) && padding > 48 && tablet.padding === undefined) {
+                    tablet.padding = 32;
+                    elementChanged = true;
+                  }
+
+                  for (const side of ['marginLeft', 'marginRight'] as const) {
+                    const margin = Number(baseStyle[side]);
+                    if (Number.isFinite(margin) && Math.abs(margin) > 32 && mobile[side] === undefined) {
+                      mobile[side] = 0;
+                      elementChanged = true;
+                    }
+                    if (Number.isFinite(margin) && Math.abs(margin) > 64 && tablet[side] === undefined) {
+                      tablet[side] = 0;
+                      elementChanged = true;
+                    }
+                  }
+
+                  const positionX = Number(baseStyle.positionX || 0);
+                  const positionY = Number(baseStyle.positionY || 0);
+                  if (Math.abs(positionX) > 24 && mobile.positionX === undefined) {
+                    mobile.positionX = 0;
+                    elementChanged = true;
+                  }
+                  if (Math.abs(positionY) > 24 && mobile.positionY === undefined) {
+                    mobile.positionY = 0;
+                    elementChanged = true;
+                  }
+                  if (Math.abs(positionX) > 80 && tablet.positionX === undefined) {
+                    tablet.positionX = 0;
+                    elementChanged = true;
+                  }
+                  if (Math.abs(positionY) > 80 && tablet.positionY === undefined) {
+                    tablet.positionY = 0;
+                    elementChanged = true;
+                  }
+
+                  const maxWidth = Number(baseStyle.maxWidth);
+                  if (Number.isFinite(maxWidth) && maxWidth > 520 && mobile.maxWidth === undefined) {
+                    mobile.maxWidth = 420;
+                    mobile.width = mobile.width ?? 100;
+                    elementChanged = true;
+                  }
+                  if (Number.isFinite(maxWidth) && maxWidth > 900 && tablet.maxWidth === undefined) {
+                    tablet.maxWidth = 760;
+                    elementChanged = true;
+                  }
+
+                  if (!elementChanged) return element;
+                  repaired += 1;
+                  return {
+                    ...element,
+                    responsive: {
+                      ...responsive,
+                      mobile,
+                      tablet,
+                    },
+                  };
+                });
+
+                if (sectionChanged) {
+                  repaired += 1;
+                  sectionResponsive.mobile = mobileSection;
+                  sectionResponsive.tablet = tabletSection;
+                }
+
+                return sectionChanged
+                  ? { ...candidateSection, responsive: sectionResponsive, elements }
+                  : elements === candidateSection.elements
+                    ? candidateSection
+                    : { ...candidateSection, elements };
+              }),
+            };
+          });
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'repair_accessibility') {
+          let repaired = 0;
+          nextPages = nextPages.map((candidatePage) => ({
+            ...candidatePage,
+            sections: candidatePage.sections.map((candidateSection) => {
+              const elements = candidateSection.elements.map((element) => {
+                if (element.type === 'image' && element.src?.trim() && !element.content.trim()) {
+                  repaired += 1;
+                  return { ...element, content: `${candidateSection.title || candidatePage.name} image`.slice(0, 180) };
+                }
+                if (element.type === 'button' && !element.content.trim()) {
+                  repaired += 1;
+                  return { ...element, content: 'Learn more' };
+                }
+                return element;
+              });
+              if (candidateSection.type !== 'contact') return { ...candidateSection, elements };
+              const fields = (candidateSection.formFields || createDefaultContactFormFields()).map((field) => {
+                if (field.label.trim()) return field;
+                repaired += 1;
+                const fallback = field.name.replace(/[_-]+/g, ' ').trim() || 'Field';
+                return { ...field, label: fallback.charAt(0).toUpperCase() + fallback.slice(1) };
+              });
+              return { ...candidateSection, elements, formFields: fields };
+            }),
+          }));
+          if (repaired > 0) applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'restyle_site') {
+          const changes = operation.changes || {};
+          const backgroundColor = validHex(changes.backgroundColor)
+            ? changes.backgroundColor!
+            : validHex(changes.primaryColor)
+              ? changes.primaryColor!
+              : undefined;
+          const accentColor = validHex(changes.accentColor) ? changes.accentColor! : undefined;
+
+          if (!backgroundColor && !accentColor) continue;
+
+          nextPages = nextPages.map((page) => ({
+            ...page,
+            sections: page.sections.map((section) => {
+              const restyled = {
+                ...section,
+                background: backgroundColor || section.background,
+                accent: accentColor || section.accent,
+              };
+              return {
+                ...restyled,
+                elements: section.elements.map((element) => element.type === 'button' && accentColor
+                  ? { ...element, style: { ...element.style, backgroundColor: accentColor } }
+                  : element
+                ),
+              };
+            }),
+          }));
+
+          nextTheme = {
+            ...nextTheme,
+            backgroundColor: backgroundColor || nextTheme.backgroundColor,
+            secondaryColor: backgroundColor || nextTheme.secondaryColor,
+            primaryColor: accentColor || nextTheme.primaryColor,
+          };
+          applied += 1;
+          continue;
+        }
+
+        const pageIndex = resolvePageIndex(operation);
+        if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+        const page = nextPages[pageIndex];
+
+        if (operation.action === 'update_page') {
+          const changes = operation.changes || {};
+          const nextName = typeof changes.name === 'string' && changes.name.trim()
+            ? changes.name.trim().slice(0, 60)
+            : page.name;
+          const requestedSlug = typeof changes.slug === 'string' ? normalizeSlugValue(changes.slug) : '';
+          const nextSlug = requestedSlug || page.slug;
+          nextPages[pageIndex] = {
+            ...page,
+            name: nextName,
+            slug: nextSlug,
+            showInNavigation: typeof changes.showInNavigation === 'boolean'
+              ? changes.showInNavigation
+              : page.showInNavigation,
+            seoTitle: typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : page.seoTitle,
+            seoDescription: typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : page.seoDescription,
+            canonicalUrl: typeof changes.canonicalUrl === 'string' ? changes.canonicalUrl.trim().slice(0, 500) : page.canonicalUrl,
+            noIndex: typeof changes.noIndex === 'boolean' ? changes.noIndex : page.noIndex,
+          };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'duplicate_section') {
+          if (!operation.sectionId || page.sections.length >= 20) continue;
+          const sourceIndex = page.sections.findIndex((section) => section.id === operation.sectionId);
+          if (sourceIndex < 0) continue;
+          const sourceSection = page.sections[sourceIndex];
+          const clonedSection = cloneSectionForAI(sourceSection);
+          const sectionList = [...page.sections];
+          const beforeIndex = operation.beforeSectionId
+            ? sectionList.findIndex((section) => section.id === operation.beforeSectionId)
+            : -1;
+          const afterIndex = operation.afterSectionId
+            ? sectionList.findIndex((section) => section.id === operation.afterSectionId)
+            : -1;
+          const insertAt = beforeIndex >= 0
+            ? beforeIndex
+            : afterIndex >= 0
+              ? afterIndex + 1
+              : sourceIndex + 1;
+          sectionList.splice(Math.min(Math.max(insertAt, 0), sectionList.length), 0, clonedSection);
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'move_section') {
+          if (!operation.sectionId || (!operation.beforeSectionId && !operation.afterSectionId)) continue;
+          const sourceIndex = page.sections.findIndex((section) => section.id === operation.sectionId);
+          if (sourceIndex < 0) continue;
+          const sourceSection = page.sections[sourceIndex];
+          const withoutSource = page.sections.filter((section) => section.id !== sourceSection.id);
+          const destinationId = operation.beforeSectionId || operation.afterSectionId || '';
+          const destinationIndex = withoutSource.findIndex((section) => section.id === destinationId);
+          if (destinationIndex < 0) continue;
+          const insertAt = destinationIndex + (operation.afterSectionId ? 1 : 0);
+          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourceSection);
+          nextPages[pageIndex] = { ...page, sections: withoutSource };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'add_section') {
+          const source = operation.section;
+          if (!source || !allowedTypes.has(source.type) || page.sections.length >= 20) continue;
+          const created = normalizeSection({
+            ...source,
+            id: `${source.type}-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            type: source.type,
+            title: source.title?.trim() || SECTION_LABELS[source.type],
+            description: source.description?.trim() || '',
+            buttonText: source.type === 'footer' ? '' : (source.buttonText?.trim() || 'Learn More'),
+            buttonUrl: source.type === 'footer' ? '' : (source.buttonUrl?.trim() || '#contact'),
+            background: validHex(source.background) ? source.background! : page.sections[0]?.background || '#0f172a',
+            accent: validHex(source.accent) ? source.accent! : page.sections[0]?.accent || '#7c3aed',
+            image: source.image?.trim() || undefined,
+            imagePrompt: source.imagePrompt?.trim() || undefined,
+          });
+          const sectionList = [...page.sections];
+          const requestedAfter = operation.afterSectionId
+            ? sectionList.findIndex((section) => section.id === operation.afterSectionId)
+            : -1;
+          const footerIndex = sectionList.findIndex((section) => section.type === 'footer');
+          const insertAt = requestedAfter >= 0
+            ? requestedAfter + 1
+            : footerIndex >= 0
+              ? footerIndex
+              : sectionList.length;
+          sectionList.splice(insertAt, 0, created);
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        const sectionIndex = resolveSectionIndex(page, operation);
+        if (sectionIndex < 0 || sectionIndex >= page.sections.length) continue;
+
+        if (operation.action === 'add_container') {
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const existingContainers = targetSection.containers || [];
+          if (existingContainers.length >= 30) continue;
+
+          const changes = operation.changes || {};
+          const columns = sectionColumnCount(targetSection.layout);
+          const requestedColumn = finiteStyleNumber(changes.containerColumn, 1, columns);
+          const requestedSpan = finiteStyleNumber(changes.containerColumnSpan, 1, columns);
+          const container: WebsiteElementContainer = {
+            id: `container-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: typeof changes.containerName === 'string' && changes.containerName.trim()
+              ? changes.containerName.trim().slice(0, 80)
+              : `AI Container ${existingContainers.length + 1}`,
+            layout: changes.containerLayout === 'row' ? 'row' : 'stack',
+            gap: finiteStyleNumber(changes.containerGap, 0, 80) ?? 16,
+            align: changes.containerAlign === 'start' || changes.containerAlign === 'end' || changes.containerAlign === 'stretch'
+              ? changes.containerAlign
+              : 'center',
+            backgroundColor: validHex(changes.containerBackgroundColor) ? changes.containerBackgroundColor! : '#ffffff08',
+            padding: finiteStyleNumber(changes.containerPadding, 0, 120) ?? 20,
+            borderRadius: finiteStyleNumber(changes.containerBorderRadius, 0, 120) ?? 16,
+            borderWidth: finiteStyleNumber(changes.containerBorderWidth, 0, 16) ?? 1,
+            borderColor: validHex(changes.containerBorderColor) ? changes.containerBorderColor! : '#ffffff18',
+            shadow: changes.containerShadow && allowedShadows.has(changes.containerShadow) ? changes.containerShadow : 'none',
+            layoutColumn: targetSection.layout === 'stack' ? undefined : Math.round(requestedColumn ?? 1),
+            columnSpan: Math.round(requestedSpan ?? 1),
+          };
+
+          const nextElements = targetSection.elements.map((element) =>
+            operation.elementId && element.id === operation.elementId && !element.symbolId
+              ? { ...element, containerId: container.id }
+              : element
+          );
+
+          sectionList[sectionIndex] = {
+            ...targetSection,
+            containers: [...existingContainers, container],
+            elements: nextElements,
+          };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_container') {
+          if (!operation.containerId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const containers = [...(targetSection.containers || [])];
+          const containerIndex = containers.findIndex((container) => container.id === operation.containerId);
+          if (containerIndex < 0) continue;
+
+          const current = containers[containerIndex];
+          const changes = operation.changes || {};
+          const columns = sectionColumnCount(targetSection.layout);
+          const nextColumn = finiteStyleNumber(changes.containerColumn, 1, columns);
+          const nextSpan = finiteStyleNumber(changes.containerColumnSpan, 1, columns);
+
+          containers[containerIndex] = {
+            ...current,
+            name: typeof changes.containerName === 'string' && changes.containerName.trim() ? changes.containerName.trim().slice(0, 80) : current.name,
+            layout: changes.containerLayout === 'row' || changes.containerLayout === 'stack' ? changes.containerLayout : current.layout,
+            gap: finiteStyleNumber(changes.containerGap, 0, 80) ?? current.gap,
+            align: changes.containerAlign === 'start' || changes.containerAlign === 'center' || changes.containerAlign === 'end' || changes.containerAlign === 'stretch'
+              ? changes.containerAlign
+              : current.align,
+            backgroundColor: validHex(changes.containerBackgroundColor) ? changes.containerBackgroundColor! : current.backgroundColor,
+            padding: finiteStyleNumber(changes.containerPadding, 0, 120) ?? current.padding,
+            borderRadius: finiteStyleNumber(changes.containerBorderRadius, 0, 120) ?? current.borderRadius,
+            borderWidth: finiteStyleNumber(changes.containerBorderWidth, 0, 16) ?? current.borderWidth,
+            borderColor: validHex(changes.containerBorderColor) ? changes.containerBorderColor! : current.borderColor,
+            shadow: changes.containerShadow && allowedShadows.has(changes.containerShadow) ? changes.containerShadow : current.shadow,
+            layoutColumn: targetSection.layout === 'stack' ? undefined : nextColumn !== undefined ? Math.round(nextColumn) : current.layoutColumn,
+            columnSpan: nextSpan !== undefined ? Math.round(nextSpan) : current.columnSpan,
+          };
+
+          sectionList[sectionIndex] = { ...targetSection, containers };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'remove_container') {
+          if (!operation.containerId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (!(targetSection.containers || []).some((container) => container.id === operation.containerId)) continue;
+          sectionList[sectionIndex] = {
+            ...targetSection,
+            containers: (targetSection.containers || []).filter((container) => container.id !== operation.containerId),
+            elements: targetSection.elements.map((element) =>
+              element.containerId === operation.containerId ? { ...element, containerId: undefined } : element
+            ),
+          };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'assign_element_container') {
+          if (!operation.elementId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
+          if (elementIndex < 0 || targetSection.elements[elementIndex].symbolId) continue;
+
+          const targetContainer = operation.containerId
+            ? (targetSection.containers || []).find((container) => container.id === operation.containerId)
+            : undefined;
+          if (operation.containerId && !targetContainer) continue;
+
+          const elements = [...targetSection.elements];
+          elements[elementIndex] = { ...elements[elementIndex], containerId: targetContainer?.id };
+          sectionList[sectionIndex] = { ...targetSection, elements };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'create_symbol') {
+          if (!operation.elementId || nextSymbols.length >= 50) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
+          if (elementIndex < 0) continue;
+          const targetElement = targetSection.elements[elementIndex];
+          if (targetElement.symbolId) continue;
+
+          const symbolId = `symbol-ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const symbolName = typeof operation.symbolName === 'string' && operation.symbolName.trim()
+            ? operation.symbolName.trim().slice(0, 80)
+            : (targetElement.content?.trim().slice(0, 60) || ELEMENT_LABELS[targetElement.type] || 'Reusable component');
+          const symbol: WebsiteSymbol = {
+            id: symbolId,
+            name: symbolName,
+            element: cloneSymbolElement(targetElement),
+            updatedAt: new Date().toISOString(),
+          };
+          nextSymbols = [symbol, ...nextSymbols].slice(0, 50);
+
+          const elements = [...targetSection.elements];
+          elements[elementIndex] = { ...targetElement, symbolId };
+          sectionList[sectionIndex] = { ...targetSection, elements };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'insert_symbol') {
+          if (!operation.symbolId) continue;
+          const symbol = nextSymbols.find((item) => item.id === operation.symbolId);
+          if (!symbol) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.elements.length >= 60) continue;
+
+          const instance: WebsiteElement = {
+            ...JSON.parse(JSON.stringify(symbol.element)) as WebsiteElement,
+            id: `${symbol.element.type}-ai-symbol-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            symbolId: symbol.id,
+            containerId: undefined,
+            layoutColumn: targetSection.layout === 'stack' ? undefined : 1,
+          };
+          const elements = [...targetSection.elements];
+          const beforeIndex = operation.beforeElementId ? elements.findIndex((element) => element.id === operation.beforeElementId) : -1;
+          const afterIndex = operation.afterElementId ? elements.findIndex((element) => element.id === operation.afterElementId) : -1;
+          const insertAt = beforeIndex >= 0 ? beforeIndex : afterIndex >= 0 ? afterIndex + 1 : elements.length;
+          elements.splice(Math.min(Math.max(insertAt, 0), elements.length), 0, instance);
+          sectionList[sectionIndex] = { ...targetSection, elements };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'detach_symbol') {
+          if (!operation.elementId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
+          if (elementIndex < 0 || !targetSection.elements[elementIndex].symbolId) continue;
+          const elements = [...targetSection.elements];
+          elements[elementIndex] = { ...elements[elementIndex], symbolId: undefined };
+          sectionList[sectionIndex] = { ...targetSection, elements };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'duplicate_element') {
+          if (!operation.elementId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.elements.length >= 60) continue;
+          const sourceIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
+          if (sourceIndex < 0) continue;
+          const sourceElement = targetSection.elements[sourceIndex];
+          const clonedElement: WebsiteElement = {
+            ...cloneElementForAI(sourceElement),
+            containerId: sourceElement.containerId,
+          };
+          const nextElements = [...targetSection.elements];
+          const beforeIndex = operation.beforeElementId
+            ? nextElements.findIndex((element) => element.id === operation.beforeElementId)
+            : -1;
+          const afterIndex = operation.afterElementId
+            ? nextElements.findIndex((element) => element.id === operation.afterElementId)
+            : -1;
+          const insertAt = beforeIndex >= 0
+            ? beforeIndex
+            : afterIndex >= 0
+              ? afterIndex + 1
+              : sourceIndex + 1;
+          nextElements.splice(Math.min(Math.max(insertAt, 0), nextElements.length), 0, clonedElement);
+          sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'add_element') {
+          if (!operation.elementType || !allowedElementTypes.has(operation.elementType)) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.elements.length >= 60) continue;
+
+          const changes = operation.changes || {};
+          const created = createElement(operation.elementType, targetSection.accent);
+          const createdStyle: WebsiteElement['style'] = { ...created.style };
+          const setCreatedNumber = (key: keyof WebsiteElement['style'], value: unknown, min: number, max: number) => {
+            const nextValue = finiteStyleNumber(value, min, max);
+            if (nextValue !== undefined) {
+              (createdStyle as Record<string, unknown>)[key] = nextValue;
+            }
+          };
+
+          if (validHex(changes.color)) createdStyle.color = changes.color;
+          if (validHex(changes.elementBackgroundColor)) createdStyle.backgroundColor = changes.elementBackgroundColor;
+          if (validHex(changes.elementBorderColor)) createdStyle.borderColor = changes.elementBorderColor;
+          if (validHex(changes.elementHoverBackgroundColor)) createdStyle.hoverBackgroundColor = changes.elementHoverBackgroundColor;
+          if (validHex(changes.elementHoverColor)) createdStyle.hoverColor = changes.elementHoverColor;
+          if (changes.elementBorderStyle === 'solid' || changes.elementBorderStyle === 'dashed' || changes.elementBorderStyle === 'dotted') createdStyle.borderStyle = changes.elementBorderStyle;
+          if (changes.elementShadow && allowedShadows.has(changes.elementShadow)) createdStyle.shadow = changes.elementShadow;
+          if (changes.elementHoverShadow && allowedShadows.has(changes.elementHoverShadow)) createdStyle.hoverShadow = changes.elementHoverShadow;
+          if (changes.elementAnimation && allowedAnimations.has(changes.elementAnimation)) createdStyle.animation = changes.elementAnimation;
+          if (changes.textAlign === 'left' || changes.textAlign === 'center' || changes.textAlign === 'right') createdStyle.textAlign = changes.textAlign;
+          if (changes.alignSelf === 'auto' || changes.alignSelf === 'start' || changes.alignSelf === 'center' || changes.alignSelf === 'end' || changes.alignSelf === 'stretch') createdStyle.alignSelf = changes.alignSelf;
+          if (typeof changes.hidden === 'boolean') createdStyle.hidden = changes.hidden;
+          setCreatedNumber('fontSize', changes.fontSize, 8, 240);
+          setCreatedNumber('fontWeight', changes.fontWeight, 100, 1000);
+          setCreatedNumber('padding', changes.padding, 0, 160);
+          setCreatedNumber('borderRadius', changes.borderRadius, 0, 160);
+          setCreatedNumber('width', changes.width, 1, 100);
+          setCreatedNumber('maxWidth', changes.maxWidth, 0, 2000);
+          setCreatedNumber('marginTop', changes.marginTop, -200, 400);
+          setCreatedNumber('marginRight', changes.marginRight, -200, 400);
+          setCreatedNumber('marginBottom', changes.marginBottom, -200, 400);
+          setCreatedNumber('marginLeft', changes.marginLeft, -200, 400);
+          setCreatedNumber('positionX', changes.positionX, -4000, 4000);
+          setCreatedNumber('positionY', changes.positionY, -4000, 4000);
+          setCreatedNumber('lineHeight', changes.lineHeight, 0.7, 4);
+          setCreatedNumber('letterSpacing', changes.letterSpacing, -10, 30);
+          setCreatedNumber('opacity', changes.opacity, 0, 1);
+          setCreatedNumber('rotate', changes.rotate, -180, 180);
+          setCreatedNumber('borderWidth', changes.elementBorderWidth, 0, 24);
+          setCreatedNumber('hoverScale', changes.elementHoverScale, 0.5, 1.6);
+          setCreatedNumber('hoverOpacity', changes.elementHoverOpacity, 0, 1);
+          setCreatedNumber('animationDuration', changes.elementAnimationDuration, 100, 4000);
+          setCreatedNumber('animationDelay', changes.elementAnimationDelay, 0, 5000);
+          setCreatedNumber('animationDistance', changes.elementAnimationDistance, 0, 300);
+
+          const newElement: WebsiteElement = {
+            ...created,
+            content: typeof changes.elementContent === 'string' ? changes.elementContent.slice(0, 5000) : created.content,
+            href: typeof changes.elementHref === 'string' ? changes.elementHref.trim().slice(0, 2000) : created.href,
+            src: typeof changes.elementSrc === 'string' ? changes.elementSrc.trim().slice(0, 2000) : created.src,
+            style: createdStyle,
+            animationOnce: typeof changes.elementAnimationOnce === 'boolean' ? changes.elementAnimationOnce : created.animationOnce,
+          };
+
+          const nextElements = [...targetSection.elements];
+          const beforeIndex = operation.beforeElementId
+            ? nextElements.findIndex((element) => element.id === operation.beforeElementId)
+            : -1;
+          const afterIndex = operation.afterElementId
+            ? nextElements.findIndex((element) => element.id === operation.afterElementId)
+            : -1;
+          const insertAt = beforeIndex >= 0
+            ? beforeIndex
+            : afterIndex >= 0
+              ? afterIndex + 1
+              : nextElements.length;
+          nextElements.splice(Math.min(Math.max(insertAt, 0), nextElements.length), 0, newElement);
+
+          sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'remove_element') {
+          if (!operation.elementId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.elements.length <= 1) continue;
+          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
+          if (elementIndex < 0) continue;
+          const targetElement = targetSection.elements[elementIndex];
+          if (targetElement.symbolId) continue;
+
+          sectionList[sectionIndex] = {
+            ...targetSection,
+            elements: targetSection.elements.filter((element) => element.id !== operation.elementId),
+          };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'move_element') {
+          if (!operation.elementId || (!operation.beforeElementId && !operation.afterElementId)) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const sourceIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
+          if (sourceIndex < 0) continue;
+          const sourceElement = targetSection.elements[sourceIndex];
+          if (sourceElement.symbolId) continue;
+
+          const withoutSource = targetSection.elements.filter((element) => element.id !== sourceElement.id);
+          const destinationId = operation.beforeElementId || operation.afterElementId || '';
+          const destinationIndex = withoutSource.findIndex((element) => element.id === destinationId);
+          if (destinationIndex < 0) continue;
+          const destinationElement = withoutSource[destinationIndex];
+          if (destinationElement.symbolId) continue;
+
+          const insertAt = destinationIndex + (operation.afterElementId ? 1 : 0);
+          withoutSource.splice(Math.min(Math.max(insertAt, 0), withoutSource.length), 0, sourceElement);
+          sectionList[sectionIndex] = { ...targetSection, elements: withoutSource };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_element') {
+          if (!operation.elementId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
+          if (elementIndex < 0) continue;
+
+          const changes = operation.changes || {};
+          const targetElement = targetSection.elements[elementIndex];
+          const styleChanges: WebsiteElement['style'] = {};
+          const setNumeric = (key: keyof WebsiteElement['style'], value: unknown, min: number, max: number) => {
+            const nextValue = finiteStyleNumber(value, min, max);
+            if (nextValue !== undefined) {
+              (styleChanges as Record<string, unknown>)[key] = nextValue;
+            }
+          };
+
+          if (validHex(changes.color)) styleChanges.color = changes.color;
+          if (validHex(changes.elementBackgroundColor)) styleChanges.backgroundColor = changes.elementBackgroundColor;
+          if (validHex(changes.elementBorderColor)) styleChanges.borderColor = changes.elementBorderColor;
+          if (validHex(changes.elementHoverBackgroundColor)) styleChanges.hoverBackgroundColor = changes.elementHoverBackgroundColor;
+          if (validHex(changes.elementHoverColor)) styleChanges.hoverColor = changes.elementHoverColor;
+          if (changes.elementBorderStyle === 'solid' || changes.elementBorderStyle === 'dashed' || changes.elementBorderStyle === 'dotted') styleChanges.borderStyle = changes.elementBorderStyle;
+          if (changes.elementShadow && allowedShadows.has(changes.elementShadow)) styleChanges.shadow = changes.elementShadow;
+          if (changes.elementHoverShadow && allowedShadows.has(changes.elementHoverShadow)) styleChanges.hoverShadow = changes.elementHoverShadow;
+          if (changes.elementAnimation && allowedAnimations.has(changes.elementAnimation)) styleChanges.animation = changes.elementAnimation;
+          if (changes.textAlign === 'left' || changes.textAlign === 'center' || changes.textAlign === 'right') styleChanges.textAlign = changes.textAlign;
+          if (changes.alignSelf === 'auto' || changes.alignSelf === 'start' || changes.alignSelf === 'center' || changes.alignSelf === 'end' || changes.alignSelf === 'stretch') styleChanges.alignSelf = changes.alignSelf;
+          if (typeof changes.hidden === 'boolean') styleChanges.hidden = changes.hidden;
+          setNumeric('fontSize', changes.fontSize, 8, 240);
+          setNumeric('fontWeight', changes.fontWeight, 100, 1000);
+          setNumeric('padding', changes.padding, 0, 160);
+          setNumeric('borderRadius', changes.borderRadius, 0, 160);
+          setNumeric('width', changes.width, 1, 100);
+          setNumeric('maxWidth', changes.maxWidth, 0, 2000);
+          setNumeric('columnSpan', changes.elementColumnSpan, 1, sectionColumnCount(targetSection.layout));
+          setNumeric('marginTop', changes.marginTop, -200, 400);
+          setNumeric('marginRight', changes.marginRight, -200, 400);
+          setNumeric('marginBottom', changes.marginBottom, -200, 400);
+          setNumeric('marginLeft', changes.marginLeft, -200, 400);
+          setNumeric('positionX', changes.positionX, -4000, 4000);
+          setNumeric('positionY', changes.positionY, -4000, 4000);
+          setNumeric('lineHeight', changes.lineHeight, 0.7, 4);
+          setNumeric('letterSpacing', changes.letterSpacing, -10, 30);
+          setNumeric('opacity', changes.opacity, 0, 1);
+          setNumeric('rotate', changes.rotate, -180, 180);
+          setNumeric('borderWidth', changes.elementBorderWidth, 0, 24);
+          setNumeric('hoverScale', changes.elementHoverScale, 0.5, 1.6);
+          setNumeric('hoverOpacity', changes.elementHoverOpacity, 0, 1);
+          setNumeric('animationDuration', changes.elementAnimationDuration, 100, 4000);
+          setNumeric('animationDelay', changes.elementAnimationDelay, 0, 5000);
+          setNumeric('animationDistance', changes.elementAnimationDistance, 0, 300);
+
+          const hasContentChange = typeof changes.elementContent === 'string' || typeof changes.elementHref === 'string' || typeof changes.elementSrc === 'string';
+          const hasElementMetaChange = typeof changes.elementAnimationOnce === 'boolean';
+          if (!hasContentChange && !hasElementMetaChange && Object.keys(styleChanges).length === 0) continue;
+
+          const responsiveDevice = operation.device === 'mobile' || operation.device === 'tablet' ? operation.device : null;
+          const sectionColumns = sectionColumnCount(targetSection.layout);
+          const requestedColumn = finiteStyleNumber(changes.elementColumn, 1, sectionColumns);
+          const baseElement: WebsiteElement = {
+            ...targetElement,
+            content: typeof changes.elementContent === 'string' ? changes.elementContent.slice(0, 5000) : targetElement.content,
+            href: typeof changes.elementHref === 'string' ? changes.elementHref.trim().slice(0, 2000) : targetElement.href,
+            src: typeof changes.elementSrc === 'string' ? changes.elementSrc.trim().slice(0, 2000) : targetElement.src,
+            layoutColumn: responsiveDevice
+              ? targetElement.layoutColumn
+              : requestedColumn !== undefined
+                ? Math.round(requestedColumn)
+                : targetElement.layoutColumn,
+            animationOnce: typeof changes.elementAnimationOnce === 'boolean' ? changes.elementAnimationOnce : targetElement.animationOnce,
+          };
+          const updatedElement: WebsiteElement = responsiveDevice
+            ? {
+                ...baseElement,
+                responsive: {
+                  ...(targetElement.responsive || {}),
+                  [responsiveDevice]: {
+                    ...(targetElement.responsive?.[responsiveDevice] || {}),
+                    ...styleChanges,
+                  },
+                },
+              }
+            : {
+                ...baseElement,
+                style: { ...targetElement.style, ...styleChanges },
+              };
+
+          if (targetElement.symbolId) {
+            const linkedSymbolId = targetElement.symbolId;
+            const syncInstance = (instance: WebsiteElement): WebsiteElement => ({
+              ...updatedElement,
+              id: instance.id,
+              containerId: instance.containerId,
+              layoutColumn: instance.layoutColumn,
+              symbolId: linkedSymbolId,
+            });
+            nextPages = nextPages.map((candidatePage) => ({
+              ...candidatePage,
+              sections: candidatePage.sections.map((candidateSection) => ({
+                ...candidateSection,
+                elements: candidateSection.elements.map((instance) =>
+                  instance.symbolId === linkedSymbolId ? syncInstance(instance) : instance
+                ),
+              })),
+            }));
+            nextSymbols = nextSymbols.map((symbol) => symbol.id === linkedSymbolId
+              ? { ...symbol, element: cloneSymbolElement(updatedElement), updatedAt: new Date().toISOString() }
+              : symbol
+            );
+          } else {
+            const nextElements = [...targetSection.elements];
+            nextElements[elementIndex] = updatedElement;
+            sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
+            nextPages[pageIndex] = { ...page, sections: sectionList };
+          }
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_form') {
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.type !== 'contact') continue;
+          const changes = operation.changes || {};
+
+          sectionList[sectionIndex] = {
+            ...targetSection,
+            formSuccessMessage: typeof changes.formSuccessMessage === 'string'
+              ? changes.formSuccessMessage.trim().slice(0, 500)
+              : targetSection.formSuccessMessage,
+            formSuccessAction: changes.formSuccessAction === 'redirect' ? 'redirect' : changes.formSuccessAction === 'message' ? 'message' : targetSection.formSuccessAction,
+            formRedirectUrl: typeof changes.formRedirectUrl === 'string'
+              ? changes.formRedirectUrl.trim().slice(0, 1000)
+              : targetSection.formRedirectUrl,
+          };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'add_form_field') {
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.type !== 'contact' || !operation.formFieldType || !allowedFormFieldTypes.has(operation.formFieldType)) continue;
+          const fields = [...(targetSection.formFields || createDefaultContactFormFields())];
+          if (fields.length >= 20) continue;
+
+          const changes = operation.changes || {};
+          const baseName = typeof changes.formFieldName === 'string' && changes.formFieldName.trim()
+            ? normalizeFormFieldName(changes.formFieldName, 'field')
+            : operation.formFieldType === 'email'
+              ? 'email'
+              : operation.formFieldType === 'tel'
+                ? 'phone'
+                : operation.formFieldType === 'textarea'
+                  ? 'message'
+                  : operation.formFieldType === 'checkbox'
+                    ? 'consent'
+                    : operation.formFieldType === 'select'
+                      ? 'option'
+                      : 'field';
+          let uniqueName = baseName;
+          let suffix = 2;
+          while (fields.some((field) => field.name === uniqueName)) {
+            uniqueName = `${baseName}_${suffix}`;
+            suffix += 1;
+          }
+
+          const newField: WebsiteFormField = {
+            id: `field-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: uniqueName,
+            label: typeof changes.formFieldLabel === 'string' && changes.formFieldLabel.trim()
+              ? changes.formFieldLabel.trim().slice(0, 120)
+              : operation.formFieldType === 'textarea'
+                ? 'Message'
+                : operation.formFieldType === 'checkbox'
+                  ? 'I agree'
+                  : operation.formFieldType === 'select'
+                    ? 'Choose an option'
+                    : operation.formFieldType === 'tel'
+                      ? 'Phone'
+                      : operation.formFieldType === 'email'
+                        ? 'Email'
+                        : 'New field',
+            type: operation.formFieldType,
+            placeholder: operation.formFieldType === 'checkbox'
+              ? ''
+              : typeof changes.formFieldPlaceholder === 'string'
+                ? changes.formFieldPlaceholder.slice(0, 160)
+                : '',
+            required: changes.formFieldRequired === true,
+            options: operation.formFieldType === 'select'
+              ? (Array.isArray(changes.formFieldOptions)
+                  ? changes.formFieldOptions.map((item) => String(item).trim()).filter(Boolean).slice(0, 20)
+                  : ['Option 1', 'Option 2'])
+              : undefined,
+          };
+
+          const beforeIndex = operation.beforeFormFieldId ? fields.findIndex((field) => field.id === operation.beforeFormFieldId) : -1;
+          const afterIndex = operation.afterFormFieldId ? fields.findIndex((field) => field.id === operation.afterFormFieldId) : -1;
+          const insertAt = beforeIndex >= 0 ? beforeIndex : afterIndex >= 0 ? afterIndex + 1 : fields.length;
+          fields.splice(Math.min(Math.max(insertAt, 0), fields.length), 0, newField);
+
+          sectionList[sectionIndex] = { ...targetSection, formFields: fields };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_form_field') {
+          if (!operation.formFieldId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.type !== 'contact') continue;
+          const fields = [...(targetSection.formFields || createDefaultContactFormFields())];
+          const fieldIndex = fields.findIndex((field) => field.id === operation.formFieldId);
+          if (fieldIndex < 0) continue;
+
+          const changes = operation.changes || {};
+          const current = fields[fieldIndex];
+          const nextType = operation.formFieldType && allowedFormFieldTypes.has(operation.formFieldType)
+            ? operation.formFieldType
+            : current.type;
+          fields[fieldIndex] = {
+            ...current,
+            name: typeof changes.formFieldName === 'string' && changes.formFieldName.trim()
+              ? normalizeFormFieldName(changes.formFieldName, current.name || 'field')
+              : current.name,
+            label: typeof changes.formFieldLabel === 'string' ? changes.formFieldLabel.trim().slice(0, 120) : current.label,
+            type: nextType,
+            placeholder: nextType === 'checkbox'
+              ? ''
+              : typeof changes.formFieldPlaceholder === 'string'
+                ? changes.formFieldPlaceholder.slice(0, 160)
+                : current.placeholder,
+            required: typeof changes.formFieldRequired === 'boolean' ? changes.formFieldRequired : current.required,
+            options: nextType === 'select'
+              ? (Array.isArray(changes.formFieldOptions)
+                  ? changes.formFieldOptions.map((item) => String(item).trim()).filter(Boolean).slice(0, 20)
+                  : current.options || ['Option 1', 'Option 2'])
+              : undefined,
+          };
+
+          sectionList[sectionIndex] = { ...targetSection, formFields: fields };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'remove_form_field') {
+          if (!operation.formFieldId) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.type !== 'contact') continue;
+          const fields = [...(targetSection.formFields || createDefaultContactFormFields())];
+          if (fields.length <= 1 || !fields.some((field) => field.id === operation.formFieldId)) continue;
+
+          sectionList[sectionIndex] = {
+            ...targetSection,
+            formFields: fields.filter((field) => field.id !== operation.formFieldId),
+          };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'move_form_field') {
+          if (!operation.formFieldId || (!operation.beforeFormFieldId && !operation.afterFormFieldId)) continue;
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          if (targetSection.type !== 'contact') continue;
+          const fields = [...(targetSection.formFields || createDefaultContactFormFields())];
+          const sourceIndex = fields.findIndex((field) => field.id === operation.formFieldId);
+          if (sourceIndex < 0) continue;
+          const sourceField = fields[sourceIndex];
+          const withoutSource = fields.filter((field) => field.id !== sourceField.id);
+          const destinationId = operation.beforeFormFieldId || operation.afterFormFieldId || '';
+          const destinationIndex = withoutSource.findIndex((field) => field.id === destinationId);
+          if (destinationIndex < 0) continue;
+
+          const insertAt = destinationIndex + (operation.afterFormFieldId ? 1 : 0);
+          withoutSource.splice(Math.min(Math.max(insertAt, 0), withoutSource.length), 0, sourceField);
+          sectionList[sectionIndex] = { ...targetSection, formFields: withoutSource };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'copy_section_style') {
+          if (!operation.sourceSectionId) continue;
+          const sourceSection = nextPages
+            .flatMap((candidatePage) => candidatePage.sections)
+            .find((candidateSection) => candidateSection.id === operation.sourceSectionId);
+          if (!sourceSection) continue;
+
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          sectionList[sectionIndex] = {
+            ...targetSection,
+            background: sourceSection.background,
+            accent: sourceSection.accent,
+            backgroundMode: sourceSection.backgroundMode,
+            backgroundImage: sourceSection.backgroundImage,
+            backgroundPosition: sourceSection.backgroundPosition,
+            backgroundSize: sourceSection.backgroundSize,
+            gradientFrom: sourceSection.gradientFrom,
+            gradientTo: sourceSection.gradientTo,
+            gradientAngle: sourceSection.gradientAngle,
+            overlayColor: sourceSection.overlayColor,
+            overlayOpacity: sourceSection.overlayOpacity,
+            minHeight: sourceSection.minHeight,
+            sectionPaddingY: sourceSection.sectionPaddingY,
+            sectionPaddingX: sourceSection.sectionPaddingX,
+            sectionRadius: sourceSection.sectionRadius,
+            layoutGap: sourceSection.layoutGap,
+            layoutAlign: sourceSection.layoutAlign,
+            contentWidth: sourceSection.contentWidth,
+            responsive: sourceSection.responsive
+              ? JSON.parse(JSON.stringify(sourceSection.responsive)) as WebsiteSection['responsive']
+              : undefined,
+          };
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'copy_element_style') {
+          if (!operation.sourceElementId || !operation.elementId) continue;
+          const sourceElement = nextPages
+            .flatMap((candidatePage) => candidatePage.sections)
+            .flatMap((candidateSection) => candidateSection.elements)
+            .find((candidateElement) => candidateElement.id === operation.sourceElementId);
+          const targetSection = page.sections[sectionIndex];
+          const targetIndex = targetSection.elements.findIndex((candidateElement) => candidateElement.id === operation.elementId);
+          if (!sourceElement || targetIndex < 0) continue;
+          const targetElement = targetSection.elements[targetIndex];
+
+          const copyVisualStyle = (candidateElement: WebsiteElement): WebsiteElement => {
+            const copiedStyle = JSON.parse(JSON.stringify(sourceElement.style || {})) as WebsiteElement['style'];
+            copiedStyle.positionX = candidateElement.style.positionX;
+            copiedStyle.positionY = candidateElement.style.positionY;
+            copiedStyle.columnSpan = candidateElement.style.columnSpan;
+
+            const sourceResponsive = sourceElement.responsive
+              ? JSON.parse(JSON.stringify(sourceElement.responsive)) as WebsiteElement['responsive']
+              : {};
+            const copiedResponsive = { ...(sourceResponsive || {}) };
+            for (const responsiveDevice of ['desktop', 'tablet', 'mobile'] as Device[]) {
+              const sourceDevice = copiedResponsive?.[responsiveDevice];
+              if (!sourceDevice) continue;
+              const candidateDevice = candidateElement.responsive?.[responsiveDevice];
+              copiedResponsive[responsiveDevice] = {
+                ...sourceDevice,
+                positionX: candidateDevice?.positionX,
+                positionY: candidateDevice?.positionY,
+                columnSpan: candidateDevice?.columnSpan,
+              };
+            }
+            return {
+              ...candidateElement,
+              style: copiedStyle,
+              responsive: copiedResponsive,
+            };
+          };
+
+          const linkedSymbolId = targetElement.symbolId;
+          if (linkedSymbolId) {
+            nextPages = nextPages.map((candidatePage) => ({
+              ...candidatePage,
+              sections: candidatePage.sections.map((candidateSection) => ({
+                ...candidateSection,
+                elements: candidateSection.elements.map((candidateElement) =>
+                  candidateElement.symbolId === linkedSymbolId ? copyVisualStyle(candidateElement) : candidateElement
+                ),
+              })),
+            }));
+            nextSymbols = nextSymbols.map((symbol) => symbol.id === linkedSymbolId
+              ? {
+                  ...symbol,
+                  element: cloneSymbolElement(copyVisualStyle(symbol.element)),
+                  updatedAt: new Date().toISOString(),
+                }
+              : symbol
+            );
+          } else {
+            const sectionList = [...page.sections];
+            const elements = [...sectionList[sectionIndex].elements];
+            elements[targetIndex] = copyVisualStyle(targetElement);
+            sectionList[sectionIndex] = { ...sectionList[sectionIndex], elements };
+            nextPages[pageIndex] = { ...page, sections: sectionList };
+          }
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'generate_image') {
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const imagePrompt = operation.prompt?.trim() || targetSection.imagePrompt?.trim() || `${targetSection.title}. Professional website image for ${siteName}.`;
+          try {
+            const generatedImage = await requestGeneratedImage(imagePrompt);
+            const placement = operation.placement || (targetSection.type === 'hero' ? 'section_background' : 'section_image');
+            if (placement === 'section_background') {
+              sectionList[sectionIndex] = {
+                ...targetSection,
+                image: generatedImage.url,
+                imagePrompt,
+                backgroundMode: 'image',
+                backgroundImage: generatedImage.url,
+                backgroundPosition: 'center',
+                backgroundSize: 'cover',
+                overlayColor: '#000000',
+                overlayOpacity: targetSection.type === 'hero' ? 0.42 : 0.3,
+              };
+            } else {
+              const existingImageIndex = targetSection.elements.findIndex((element) => element.type === 'image');
+              const nextElements = [...targetSection.elements];
+              if (existingImageIndex >= 0) {
+                nextElements[existingImageIndex] = {
+                  ...nextElements[existingImageIndex],
+                  src: generatedImage.url,
+                  content: targetSection.title || 'Generated image',
+                };
+              } else {
+                nextElements.push({
+                  ...createElement('image', targetSection.accent),
+                  src: generatedImage.url,
+                  content: targetSection.title || 'Generated image',
+                });
+              }
+              sectionList[sectionIndex] = {
+                ...targetSection,
+                image: generatedImage.url,
+                imagePrompt,
+                elements: nextElements,
+              };
+            }
+            nextPages[pageIndex] = { ...page, sections: sectionList };
+            applied += 1;
+          } catch {
+            // A failed image provider should not discard other safe patch operations in the same request.
+          }
+          continue;
+        }
+
+        if (operation.action === 'remove_section') {
+          if (page.sections.length <= 1) continue;
+          nextPages[pageIndex] = {
+            ...page,
+            sections: page.sections.filter((_, index) => index !== sectionIndex),
+          };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_section') {
+          const changes = operation.changes || {};
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const responsiveDevice = operation.device === 'mobile' || operation.device === 'tablet' ? operation.device : null;
+          const sectionStyleChanges: Record<string, number> = {};
+          const setSectionNumber = (key: string, value: unknown, min: number, max: number) => {
+            const nextValue = finiteStyleNumber(value, min, max);
+            if (nextValue !== undefined) sectionStyleChanges[key] = nextValue;
+          };
+          setSectionNumber('minHeight', changes.sectionMinHeight, 0, 1200);
+          setSectionNumber('sectionPaddingY', changes.sectionPaddingY, 0, 240);
+          setSectionNumber('sectionPaddingX', changes.sectionPaddingX, 0, 160);
+          setSectionNumber('layoutGap', changes.sectionLayoutGap, 0, 80);
+
+          if (responsiveDevice) {
+            if (Object.keys(sectionStyleChanges).length === 0) continue;
+            sectionList[sectionIndex] = {
+              ...targetSection,
+              responsive: {
+                ...(targetSection.responsive || {}),
+                [responsiveDevice]: {
+                  ...(targetSection.responsive?.[responsiveDevice] || {}),
+                  ...sectionStyleChanges,
+                },
+              },
+            };
+          } else {
+            const baseUpdatedSection = updateSectionContent(targetSection, changes);
+            const updatedSection: WebsiteSection = {
+              ...baseUpdatedSection,
+              backgroundMode: changes.sectionBackgroundMode === 'gradient' || changes.sectionBackgroundMode === 'image'
+                ? changes.sectionBackgroundMode
+                : changes.sectionBackgroundMode === 'color'
+                  ? 'color'
+                  : baseUpdatedSection.backgroundMode,
+              backgroundImage: typeof changes.sectionBackgroundImage === 'string'
+                ? changes.sectionBackgroundImage.trim().slice(0, 2000) || undefined
+                : baseUpdatedSection.backgroundImage,
+              backgroundPosition: changes.sectionBackgroundPosition === 'top' || changes.sectionBackgroundPosition === 'bottom' || changes.sectionBackgroundPosition === 'left' || changes.sectionBackgroundPosition === 'right'
+                ? changes.sectionBackgroundPosition
+                : changes.sectionBackgroundPosition === 'center'
+                  ? 'center'
+                  : baseUpdatedSection.backgroundPosition,
+              backgroundSize: changes.sectionBackgroundSize === 'contain' || changes.sectionBackgroundSize === 'auto'
+                ? changes.sectionBackgroundSize
+                : changes.sectionBackgroundSize === 'cover'
+                  ? 'cover'
+                  : baseUpdatedSection.backgroundSize,
+              gradientFrom: validHex(changes.sectionGradientFrom) ? changes.sectionGradientFrom : baseUpdatedSection.gradientFrom,
+              gradientTo: validHex(changes.sectionGradientTo) ? changes.sectionGradientTo : baseUpdatedSection.gradientTo,
+              gradientAngle: finiteStyleNumber(changes.sectionGradientAngle, 0, 360) ?? baseUpdatedSection.gradientAngle,
+              overlayColor: validHex(changes.sectionOverlayColor) ? changes.sectionOverlayColor : baseUpdatedSection.overlayColor,
+              overlayOpacity: finiteStyleNumber(changes.sectionOverlayOpacity, 0, 1) ?? baseUpdatedSection.overlayOpacity,
+              sectionRadius: finiteStyleNumber(changes.sectionRadius, 0, 80) ?? baseUpdatedSection.sectionRadius,
+              anchorId: typeof changes.sectionAnchorId === 'string' && changes.sectionAnchorId.trim()
+                ? normalizeAnchorId(changes.sectionAnchorId, baseUpdatedSection.type)
+                : baseUpdatedSection.anchorId,
+            };
+            const nextLayout: SectionLayout =
+              changes.sectionLayout === 'two-column' || changes.sectionLayout === 'three-column'
+                ? changes.sectionLayout
+                : changes.sectionLayout === 'stack'
+                  ? 'stack'
+                  : (updatedSection.layout || 'stack');
+            const nextAlign: SectionLayoutAlign =
+              changes.sectionLayoutAlign === 'start' || changes.sectionLayoutAlign === 'end' || changes.sectionLayoutAlign === 'stretch'
+                ? changes.sectionLayoutAlign
+                : changes.sectionLayoutAlign === 'center'
+                  ? 'center'
+                  : (updatedSection.layoutAlign || 'center');
+            const nextContentWidth: SectionContentWidth =
+              changes.sectionContentWidth === 'full' ? 'full' : changes.sectionContentWidth === 'boxed' ? 'boxed' : (updatedSection.contentWidth || 'boxed');
+            const nextColumns = sectionColumnCount(nextLayout);
+
+            sectionList[sectionIndex] = {
+              ...updatedSection,
+              ...sectionStyleChanges,
+              layout: nextLayout,
+              layoutAlign: nextAlign,
+              contentWidth: nextContentWidth,
+              elements: updatedSection.elements.map((element, elementIndex) => {
+                const requestedColumn = Number(element.layoutColumn) || ((elementIndex % nextColumns) + 1);
+                const safeColumn = nextLayout === 'stack' ? undefined : Math.min(nextColumns, Math.max(1, requestedColumn));
+                const currentSpan = Number(element.style.columnSpan) || 1;
+                return {
+                  ...element,
+                  layoutColumn: safeColumn,
+                  style: {
+                    ...element.style,
+                    columnSpan: Math.min(nextColumns, Math.max(1, currentSpan)),
+                  },
+                };
+              }),
+            };
+          }
+
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+        }
+      }
+
+      if (applied === 0) {
+        throw new Error('AI changes could not be matched safely to this website. Try naming the page or section more clearly.');
+      }
+
+      setAiStage('styling');
+
+      const activeAfterPatch = nextPages.find((page) => page.id === activePageId) || nextPages[0];
+      const usedSlugs = new Set<string>();
+      nextPages = nextPages.map((page, index) => {
+        const baseSlug = normalizeSlugValue(page.slug || page.name) || `page-${index + 1}`;
+        let slug = baseSlug;
+        let suffix = 2;
+        while (usedSlugs.has(slug)) {
+          slug = `${baseSlug}-${suffix}`;
+          suffix += 1;
+        }
+        usedSlugs.add(slug);
+        return { ...page, slug };
+      });
+
+      let agentReview: AIWebsiteAgentReview | null = null;
+      try {
+        const proposedProject = {
+          homePageId: nextHomePageId,
+          siteName: nextSiteName,
+          theme: nextTheme,
+          seo: nextSeo,
+          header: nextHeaderConfig,
+          symbols: nextSymbols.slice(0, 50).map((symbol) => ({
+            id: symbol.id,
+            name: symbol.name,
+            type: symbol.element.type,
+            content: symbol.element.content?.slice(0, 160),
+            style: symbol.element.style,
+            responsive: symbol.element.responsive || {},
+          })),
+          pages: nextPages.slice(0, 24).map((candidatePage) => ({
+            id: candidatePage.id,
+            name: candidatePage.name,
+            slug: candidatePage.slug,
+            showInNavigation: candidatePage.showInNavigation,
+            seoTitle: candidatePage.seoTitle,
+            seoDescription: candidatePage.seoDescription,
+            sections: candidatePage.sections.slice(0, 20).map((candidateSection) => ({
+              id: candidateSection.id,
+              type: candidateSection.type,
+              title: candidateSection.title?.slice(0, 160),
+              description: candidateSection.description?.slice(0, 260),
+              background: candidateSection.background,
+              accent: candidateSection.accent,
+              backgroundMode: candidateSection.backgroundMode,
+              layout: candidateSection.layout,
+              layoutAlign: candidateSection.layoutAlign,
+              contentWidth: candidateSection.contentWidth,
+              responsive: candidateSection.responsive || {},
+              formFields: (candidateSection.formFields || []).slice(0, 20).map((field) => ({
+                id: field.id,
+                name: field.name,
+                label: field.label,
+                type: field.type,
+                required: field.required,
+              })),
+              elements: candidateSection.elements.slice(0, 40).map((element) => ({
+                id: element.id,
+                type: element.type,
+                content: element.content?.slice(0, 180),
+                href: element.href,
+                src: element.src,
+                containerId: element.containerId,
+                symbolId: element.symbolId,
+                style: element.style,
+                responsive: element.responsive || {},
+              })),
+            })),
+          })),
+        };
+
+        const reviewResponse = await ai.completeJSON<AIWebsiteAgentReview>(
+          {
+            action: 'review-edit',
+            originalPrompt: prompt,
+            executionPlan: agentPlan,
+            proposedProject,
+          },
+          [],
+          { temperature: 0.1, maxTokens: 3200 },
+        );
+
+        let rawReview = reviewResponse.json as AIWebsiteAgentReview | null;
+        if (!rawReview && reviewResponse.content) {
+          try {
+            const cleanedReview = reviewResponse.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+            rawReview = JSON.parse(cleanedReview) as AIWebsiteAgentReview;
+          } catch {
+            rawReview = null;
+          }
+        }
+
+        if (rawReview) {
+          const score = Number.isFinite(Number(rawReview.score))
+            ? Math.max(0, Math.min(100, Math.round(Number(rawReview.score))))
+            : undefined;
+          const findings = Array.isArray(rawReview.findings)
+            ? rawReview.findings
+                .filter((finding) => finding && typeof finding === 'object')
+                .map((finding): AIWebsiteAgentReviewFinding => ({
+                  severity: finding.severity === 'critical' || finding.severity === 'warning' ? finding.severity : 'improvement',
+                  title: String(finding.title || 'Review note').trim().slice(0, 120),
+                  detail: String(finding.detail || '').trim().slice(0, 360),
+                  target: typeof finding.target === 'string' ? finding.target.trim().slice(0, 160) : undefined,
+                }))
+                .slice(0, 6)
+            : [];
+          agentReview = {
+            score,
+            summary: typeof rawReview.summary === 'string' ? rawReview.summary.trim().slice(0, 300) : undefined,
+            findings,
+            followUpPrompt: typeof rawReview.followUpPrompt === 'string' ? rawReview.followUpPrompt.trim().slice(0, 500) : undefined,
+          };
+        }
+      } catch {
+        // Agent review is advisory. Deterministic project integrity remains the blocking safety gate.
+      }
+
+      const integrityErrors = validateAIProjectIntegrity(nextPages, nextHomePageId, nextSymbols);
+      if (integrityErrors.length) {
+        throw new Error(`AI change blocked by project safety validation: ${integrityErrors.join(' ')}`);
+      }
+
+      const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
+      setAiUndoSnapshot(snapshot);
+      setPages(nextPages);
+      setSections(finalActive?.sections || []);
+      setActivePageId(finalActive?.id || activePageId);
+      setHomePageId(nextHomePageId);
+      setSiteName(nextSiteName);
+      setTheme(nextTheme);
+      setSeo(nextSeo);
+      setHeaderConfig(nextHeaderConfig);
+      setSymbols(nextSymbols);
+
+      const handoffOperation = [...operations].reverse().find((operation) =>
+        operation && typeof operation.action === 'string' &&
+        !['repair_accessibility', 'repair_responsive', 'update_theme', 'restyle_site', 'update_site', 'update_seo', 'update_header'].includes(operation.action)
+      );
+      const handoffPage = handoffOperation?.pageId
+        ? nextPages.find((candidatePage) => candidatePage.id === handoffOperation.pageId)
+        : handoffOperation?.pageSlug
+          ? nextPages.find((candidatePage) => normalizeSlugValue(candidatePage.slug) === normalizeSlugValue(handoffOperation.pageSlug || ''))
+          : finalActive;
+      const handoffSection = handoffOperation?.sectionId
+        ? handoffPage?.sections.find((candidateSection) => candidateSection.id === handoffOperation.sectionId)
+        : handoffPage?.sections[0];
+      const handoffElement = handoffOperation?.elementId
+        ? handoffSection?.elements.find((candidateElement) => candidateElement.id === handoffOperation.elementId)
+        : handoffSection?.elements[0];
+
+      if (handoffPage) {
+        setActivePageId(handoffPage.id);
+        setSections(handoffPage.sections);
+      }
+      setSelectedId(handoffSection?.id ?? handoffPage?.sections[0]?.id ?? finalActive?.sections[0]?.id ?? null);
+      setSelectedElementId(handoffElement?.id ?? handoffSection?.elements[0]?.id ?? null);
+      setBuilderPanel('layers');
+      setInspectorOpen(true);
+      setHistory([]);
+      setFuture([]);
+      setSaved(false);
+      setAiPrompt('');
+      setAiQualityReview(null);
+      setAiStage('ready');
+      pushProjectCheckpoint(`After AI change · ${prompt.slice(0, 60)}`, {
+        ...buildProjectSnapshot(),
+        pages: nextPages,
+        activePageId: finalActive?.id || activePageId,
+        homePageId: nextHomePageId,
+        siteName: nextSiteName,
+        theme: nextTheme,
+        seo: nextSeo,
+        headerConfig: nextHeaderConfig,
+        symbols: nextSymbols,
+      });
+
+      const skipped = Math.max(0, operations.length - applied);
+      const patchWarnings = Array.isArray(patch.warnings)
+        ? patch.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
+        : [];
+      const confidence = Number.isFinite(Number(patch.confidence))
+        ? Math.min(1, Math.max(0, Number(patch.confidence)))
+        : null;
+      const summary = patch.summary?.trim() || `Applied ${applied} targeted AI change${applied === 1 ? '' : 's'}.`;
+      setAiPlan({
+        summary,
+        pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
+      });
+      setAiMessages((current) => [
+        ...current,
+        {
+          id: `ai-patch-result-${Date.now()}`,
+          role: 'assistant' as const,
+          content: `${summary} Planned ${(agentPlan.steps || []).length} step${(agentPlan.steps || []).length === 1 ? '' : 's'} and applied ${applied} safe native operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.${skipped ? ` ${skipped} unsupported or unsafe operation${skipped === 1 ? ' was' : 's were'} skipped.` : ''}${patchWarnings.length ? ` Warnings: ${patchWarnings.join(' · ')}` : ''}${confidence !== null ? ` Confidence: ${Math.round(confidence * 100)}%.` : ''}${agentReview ? ` Agent review${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || 'Review complete.'}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · Suggested follow-up: ${agentReview.followUpPrompt}` : ''}` : ''}`,
+        },
+      ].slice(-12));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI edit failed.';
+      setAiError(message);
+      setAiStage('error');
+      setAiMessages((current) => [
+        ...current,
+        { id: `ai-patch-error-${Date.now()}`, role: 'assistant' as const, content: message },
+      ].slice(-12));
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   async function generateRealImage() {
     if (!selectedSection || aiBusy) return;
 
     setAiBusy(true);
     setAiError('');
+    pushProjectCheckpoint(`Before AI image · ${selectedSection.title || SECTION_LABELS[selectedSection.type]}`);
 
     try {
-      const ai = createAIService('website-builder');
-
-      const response = await ai.completeJSON<{
-        url: string;
-      }>(
-        {
-          action: 'generate-image',
-          prompt: selectedSection.imagePrompt || selectedSection.image || selectedSection.title,
-          section: selectedSection,
-          brand,
-        },
-        [],
-        { temperature: 0.8, maxTokens: 1000 },
+      const generatedImage = await requestGeneratedImage(
+        selectedSection.imagePrompt || selectedSection.title || `Professional ${selectedSection.type} website image`,
       );
-
-      if (!response.json?.url) {
-        throw new Error('Image generation did not return an image.');
-      }
 
       remember(sections);
 
-      updateSelected({
-        image: response.json.url,
-      });
+      if (selectedElement?.type === 'image') {
+        updateSelectedElement({
+          src: generatedImage.url,
+          content: selectedSection.title || 'Generated image',
+        });
+      } else if (selectedSection.type === 'hero') {
+        updateSelected({
+          image: generatedImage.url,
+          backgroundMode: 'image',
+          backgroundImage: generatedImage.url,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+          overlayColor: '#000000',
+          overlayOpacity: 0.42,
+        });
+      } else {
+        const existingImage = selectedSection.elements.find((element) => element.type === 'image');
+        if (existingImage) {
+          setSelectedElementId(existingImage.id);
+          updateSelectedElement({ src: generatedImage.url, content: selectedSection.title || 'Generated image' });
+        } else {
+          const element: WebsiteElement = {
+            ...createElement('image', selectedSection.accent),
+            src: generatedImage.url,
+            content: selectedSection.title || 'Generated image',
+          };
+          setSections((current) => current.map((section) =>
+            section.id === selectedSection.id
+              ? { ...section, image: generatedImage.url, elements: [...section.elements, element] }
+              : section
+          ));
+          setSelectedElementId(element.id);
+          setSaved(false);
+        }
+      }
 
+      setAiMessages((current) => [
+        ...current,
+        { id: `ai-image-${Date.now()}`, role: 'assistant' as const, content: 'Generated the image, saved it to Media Library and applied it to the selected section.' },
+      ].slice(-12));
     } catch (error) {
-      setAiError(
-        error instanceof Error
-          ? error.message
-          : 'Image generation failed.'
-      );
+      setAiError(error instanceof Error ? error.message : 'Image generation failed.');
     } finally {
       setAiBusy(false);
     }
   }
+
   async function generateImagePrompt() {
     if (!selectedSection || aiBusy) return;
 
@@ -5817,6 +8333,75 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAiBusy(false);
     }
   }
+  async function runAIQualityCheck(): Promise<AIQualityReview | null> {
+    if (aiQualityBusy || aiBusy) return aiQualityReview;
+    setAiQualityBusy(true);
+    setAiQualityOpen(true);
+    setAiError('');
+
+    try {
+      const ai = createAIService('website-builder');
+      const response = await ai.completeJSON<AIQualityReview>(
+        {
+          action: 'quality-check',
+          currentSite: buildAIEditableSnapshot(),
+          audit: {
+            score: siteAudit.score,
+            errors: siteAudit.errors,
+            warnings: siteAudit.warnings,
+            diagnostics: qualityDiagnostics,
+            deviceModes: ['desktop', 'tablet', 'mobile'],
+          },
+        },
+        [],
+        { temperature: 0.25, maxTokens: 5000 },
+      );
+
+      let review = response.json;
+      if (!review && response.content) {
+        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        review = JSON.parse(cleaned) as AIQualityReview;
+      }
+      if (!review) throw new Error('AI quality check returned no review.');
+
+      const normalized: AIQualityReview = {
+        score: Math.max(0, Math.min(100, Number(review.score) || 0)),
+        summary: String(review.summary || 'Quality review completed.').slice(0, 500),
+        findings: Array.isArray(review.findings)
+          ? review.findings.slice(0, 8).map((finding) => ({
+              severity: finding.severity === 'critical' || finding.severity === 'warning' ? finding.severity : 'improvement',
+              title: String(finding.title || 'Website improvement').slice(0, 120),
+              detail: String(finding.detail || '').slice(0, 500),
+            }))
+          : [],
+        fixPrompt: String(review.fixPrompt || '').slice(0, 5000),
+      };
+      setAiQualityReview(normalized);
+      return normalized;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI quality check failed.';
+      setAiError(message);
+      setAiQualityReview({
+        score: siteAudit.score,
+        summary: 'Automated builder audit is available, but the AI review could not complete.',
+        findings: [
+          ...siteAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: 'Publish blocker', detail })),
+          ...siteAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: 'Recommended improvement', detail })),
+        ].slice(0, 8),
+        fixPrompt: '',
+      });
+      return null;
+    } finally {
+      setAiQualityBusy(false);
+    }
+  }
+
+  async function fixAIQualityIssues() {
+    if (!aiQualityReview?.fixPrompt || aiBusy) return;
+    setAiQualityOpen(false);
+    await applyAIChange(aiQualityReview.fixPrompt);
+  }
+
   const refreshPublishVersions = useCallback(async () => {
     if (!user || !cloudProjectId) {
       setPublishVersions([]);
@@ -6105,7 +8690,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         label: `Saved ${new Date(snapshot.updatedAt).toLocaleString()}`,
         snapshot,
       };
-      historyEntries = [entry, ...projectHistory].slice(0, 10);
+      historyEntries = [entry, ...projectHistory].slice(0, 30);
       setProjectHistory(historyEntries);
     }
 
@@ -6472,7 +9057,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
         setCloudProjectId(null);
-        setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 10) : []);
+        setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(importedProject));
         lastSavedSnapshotRef.current = '';
         setAutoSaveStatus('saved');
@@ -7166,15 +9751,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }`}
     >
       <header
-        className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 ${
+        className={`flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 ${
           darkMode
             ? 'border-white/10 bg-[#0a0a1a]'
             : 'border-gray-200 bg-white'
         }`}
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600/12">
-            <Globe className="h-5 w-5 text-violet-400" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600/12">
+            <Globe className="h-4 w-4 text-violet-400" />
           </div>
 
           <div>
@@ -7192,7 +9777,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               setSiteName(e.target.value);
               setSaved(false);
             }}
-            className={`hidden sm:block w-36 rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
+            className={`hidden md:block w-32 xl:w-36 rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:border-violet-500 ${
               darkMode
                 ? 'border-white/10 bg-white/5 text-white'
                 : 'border-gray-200 bg-gray-50 text-gray-900'
@@ -7256,11 +9841,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               setLeftSidebarOpen(reopenPanels);
               setInspectorOpen(reopenPanels);
             }}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+            className={`flex items-center gap-2 rounded-lg border p-2 text-xs font-semibold transition ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
             title={l(!leftSidebarOpen && !inspectorOpen ? 'Show editing panels' : 'Focus on canvas')}
           >
             <Eye className="h-4 w-4" />
-            <span className="hidden xl:inline">{l(!leftSidebarOpen && !inspectorOpen ? 'Panels' : 'Focus')}</span>
+            <span className="hidden 2xl:inline">{l(!leftSidebarOpen && !inspectorOpen ? 'Panels' : 'Focus')}</span>
           </button>
 
           <button
@@ -7282,7 +9867,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           <details className="relative">
             <summary
-              className={'flex cursor-pointer list-none items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden ' + (darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100')}
+              className={'flex cursor-pointer list-none items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden ' + (darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100')}
               title={l('More website tools')}
             >
               {l('More')}
@@ -7584,7 +10169,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
+            <ExternalLink className="h-4 w-4" /><span className="hidden 2xl:inline">{l('Preview')}</span></button>
+
+          <button
+            onClick={() => void runAIQualityCheck()}
+            disabled={aiQualityBusy || aiBusy}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${aiQualityReview && aiQualityReview.score >= 80 ? 'border-emerald-500/30 text-emerald-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+            title={l('AI quality check before publishing')}
+          >
+            <Check className="h-4 w-4" />
+            <span className="hidden 2xl:inline">{aiQualityBusy ? l('Checking…') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}</span>
+          </button>
 
           <button
             onClick={() => void saveProject()}
@@ -7593,7 +10188,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             title={user ? 'Save locally and to your account' : 'Save locally'}
           >
             {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            {saved ? 'Saved' : 'Save'}
+            <span className="hidden 2xl:inline">{saved ? 'Saved' : 'Save'}</span>
           </button>
 
           <button
@@ -7625,6 +10220,48 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         </div>
       )}
 
+      {aiQualityOpen && (
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-emerald-500/15 bg-[#07140f]' : 'border-emerald-200 bg-emerald-50/50'}`}>
+          <div className="mx-auto flex max-w-6xl flex-col gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-2 text-xs font-bold">
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  {l('AI Quality Check')}
+                  {aiQualityReview && <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${aiQualityReview.score >= 80 ? 'bg-emerald-500/10 text-emerald-400' : aiQualityReview.score >= 60 ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'}`}>{aiQualityReview.score}/100</span>}
+                </p>
+                <p className="mt-1 text-[10px] text-gray-500">{aiQualityReview?.summary || (aiQualityBusy ? l('Reviewing design, content, SEO, accessibility and publish readiness…') : l('Run the final AI review before publishing.'))}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => void runAIQualityCheck()} disabled={aiQualityBusy || aiBusy} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{aiQualityBusy ? l('Checking…') : l('Run again')}</button>
+                <button onClick={() => setAiQualityOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
+              </div>
+            </div>
+
+            {aiQualityReview && (
+              <>
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  {aiQualityReview.findings.map((finding, index) => (
+                    <article key={`${finding.title}-${index}`} className={`rounded-xl border p-3 ${darkMode ? 'border-white/[0.07] bg-white/[0.025]' : 'border-gray-200 bg-white'}`}>
+                      <span className={`text-[8px] font-black uppercase tracking-wider ${finding.severity === 'critical' ? 'text-rose-400' : finding.severity === 'warning' ? 'text-amber-400' : 'text-sky-400'}`}>{finding.severity}</span>
+                      <p className="mt-1 text-[10px] font-bold">{finding.title}</p>
+                      <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{finding.detail}</p>
+                    </article>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {aiQualityReview.fixPrompt && (
+                    <button onClick={() => void fixAIQualityIssues()} disabled={aiBusy} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-50">{l('Fix safe issues with AI')}</button>
+                  )}
+                  <button onClick={previewWebsite} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${darkMode ? 'border-white/10 text-gray-300' : 'border-gray-200 bg-white text-gray-700'}`}>{l('Preview')}</button>
+                  <span className="text-[9px] text-gray-500">{l('Publish remains blocked by critical deterministic audit errors and launch checks.')}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {commandOpen && (
         <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) setCommandOpen(false); }}>
           <div className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}>
@@ -7635,6 +10272,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               {[
                 { label: 'Save project', keywords: 'save cloud', run: () => void saveProject() },
                 { label: 'Preview website', keywords: 'preview open', run: previewWebsite },
+                { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', run: () => void runAIQualityCheck() },
                 { label: 'Duplicate current page', keywords: 'copy page duplicate', run: duplicateActivePage },
                 { label: 'Export project backup', keywords: 'backup json export', run: exportProjectBackup },
                 { label: 'Import project backup', keywords: 'backup json import restore', run: importProjectBackup },
@@ -8269,7 +10907,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-bold">{l('Project History')}</p>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Last 10 manual saves. Autosave does not create history entries.')}</p>
+                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Up to 30 manual and AI checkpoints. Autosave stays lightweight.')}</p>
               </div>
               <button onClick={() => setHistoryOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
             </div>
@@ -8288,7 +10926,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ))}
               </div>
             ) : (
-              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('No manual save history yet. Click Save to create the first restore point.')}</p>
+              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('No restore points yet. Save or use Tayar AI to create the first checkpoint.')}</p>
             )}
           </div>
         </div>
@@ -8296,7 +10934,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside
-          className={`w-full shrink-0 border-b p-3 transition-[width,padding] duration-200 lg:border-b-0 lg:border-r ${leftSidebarOpen ? 'lg:w-60 lg:p-3' : 'lg:w-12 lg:p-2'} ${
+          className={`w-full shrink-0 border-b p-3 transition-[width,padding] duration-200 lg:border-b-0 lg:border-r ${leftSidebarOpen ? 'lg:w-56 xl:w-60 lg:p-3' : 'lg:w-12 lg:p-2'} ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
@@ -8871,33 +11509,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           {builderPanel === 'add' && (
             <div className="mt-3 space-y-3">
-          <div className={`mt-3 overflow-hidden rounded-xl border ${darkMode ? 'border-violet-500/25 bg-violet-500/[0.06]' : 'border-violet-200 bg-violet-50/70'}`}>
-            <div className="flex items-center justify-between gap-2 border-b border-violet-500/10 px-3 py-2.5">
-              <span className="flex items-center gap-2 text-xs font-black">
-                <Sparkles className="h-4 w-4 text-violet-400" />
-                {l('Tayar AI Builder')}
-              </span>
-              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-violet-400">V2</span>
+          <div className={`mt-3 overflow-hidden rounded-2xl border shadow-sm ${darkMode ? 'border-white/10 bg-[#0d1220]/80' : 'border-gray-200 bg-white'}`}>
+            <div className={`flex items-start justify-between gap-3 border-b px-3.5 py-3 ${darkMode ? 'border-white/[0.06]' : 'border-gray-100'}`}>
+              <div className="min-w-0">
+                <span className="flex items-center gap-2 text-xs font-black">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10">
+                    <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                  </span>
+                  {l('Tayar AI Builder')}
+                </span>
+                <p className="mt-1 pl-9 text-[8px] leading-relaxed text-gray-500">{l('Build, refine and undo with natural language.')}</p>
+              </div>
+              <span className="mt-0.5 rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-violet-400">Agent</span>
             </div>
 
-            <div className="space-y-3 p-3">
+            <div className="space-y-3.5 p-3.5">
               <div className="max-h-36 space-y-2 overflow-auto pr-1">
                 {aiMessages.slice(-4).map((message) => (
-                  <div key={message.id} className={`rounded-lg px-2.5 py-2 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-5 bg-violet-500/15 text-violet-100' : 'ml-5 bg-violet-100 text-violet-900') : (darkMode ? 'mr-3 bg-white/[0.04] text-gray-300' : 'mr-3 bg-white text-gray-700')}`}>
-                    <span className="mb-1 block text-[8px] font-black uppercase tracking-wider text-gray-500">{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
+                  <div key={message.id} className={`rounded-xl border px-3 py-2.5 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-7 border-violet-500/10 bg-violet-500/[0.09] text-violet-50' : 'ml-7 border-violet-100 bg-violet-50 text-violet-900') : (darkMode ? 'mr-2 border-white/[0.06] bg-white/[0.025] text-gray-300' : 'mr-2 border-gray-100 bg-gray-50/80 text-gray-700')}`}>
+                    <span className={`mb-1.5 block text-[7px] font-black uppercase tracking-[0.14em] ${message.role === 'user' ? 'text-violet-400' : 'text-gray-500'}`}>{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
                     {message.content}
                   </div>
                 ))}
               </div>
 
-              {(aiBusy || aiStage === 'ready') && (
-                <div className="grid grid-cols-4 gap-1">
+              {aiBusy && (
+                <div className="grid grid-cols-4 gap-1.5">
                   {AI_BUILDER_STAGE_ORDER.map((stage, index) => {
                     const activeIndex = AI_BUILDER_STAGE_ORDER.indexOf(aiStage === 'idle' || aiStage === 'error' ? 'planning' : aiStage);
                     const complete = aiStage === 'ready' || index < activeIndex;
                     const active = aiStage === stage && aiStage !== 'ready';
                     return (
-                      <div key={stage} className={`rounded-md border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : active ? 'border-violet-500/30 bg-violet-500/15 text-violet-300' : 'border-white/10 text-gray-600'}`}>
+                      <div key={stage} className={`rounded-lg border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/15 bg-emerald-500/[0.07] text-emerald-400' : active ? 'border-violet-500/20 bg-violet-500/[0.08] text-violet-300' : darkMode ? 'border-white/[0.06] text-gray-600' : 'border-gray-100 text-gray-400'}`}>
                         {complete ? '✓ ' : ''}{stage}
                       </div>
                     );
@@ -8905,13 +11548,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
 
+              {aiStage === 'ready' && (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.035] px-3 py-2">
+                  <span className="flex items-center gap-1.5 text-[8px] font-black text-emerald-400">
+                    <Check className="h-3 w-3" />
+                    {l('Safe patch mode')}
+                  </span>
+                  <span className="text-right text-[8px] text-gray-500">{l('Unrelated content stays intact')}</span>
+                </div>
+              )}
+
               {aiPlan && (
-                <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-100 bg-white'}`}>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-violet-400">{l('Website plan')}</p>
-                  <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{aiPlan.summary}</p>
-                  <div className="mt-2 flex flex-wrap gap-1">
+                <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/[0.06] bg-black/10' : 'border-gray-100 bg-gray-50/70'}`}>
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-gray-500">{l('Website plan')}</p>
+                  <p className="mt-1.5 text-[9px] leading-relaxed text-gray-500">{aiPlan.summary}</p>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {aiPlan.pages.map((page) => (
-                      <span key={page.name} className="rounded-full border border-white/10 px-2 py-1 text-[8px] font-semibold text-gray-400">
+                      <span key={page.name} className={`rounded-full border px-2 py-1 text-[8px] font-semibold ${darkMode ? 'border-white/[0.07] bg-white/[0.025] text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>
                         {page.name} · {page.sections}
                       </span>
                     ))}
@@ -8919,20 +11572,54 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-1">
-                {[
+              <div className="grid grid-cols-2 gap-1.5">
+                {(aiStage === 'ready' ? [
+                  'Make the hero more premium and concise',
+                  'Add a pricing section before contact',
+                  'Make selected heading smaller on mobile',
+                  'Make selected button full width on mobile',
+                  'Make selected section two columns',
+                  'Put selected element in column two',
+                  'Make selected element span two columns',
+                  'Duplicate selected element and keep it editable',
+                  'Turn selected element into a reusable component',
+                  'Detach selected component instance',
+                  'Fix accessibility issues across the website',
+                  'Repair mobile and tablet layout without changing desktop',
+                  'Polish this page for responsive, accessibility and visual consistency',
+                  'Review this site like a premium launch and suggest the next safe edit',
+                  'Duplicate this section',
+                  'Duplicate the current page',
+                  'Make global typography more premium',
+                  'Make the header compact and sticky',
+                  'Repair mobile spacing on this page without changing desktop',
+                  'Make all CTAs on this page visually consistent',
+                  'Improve this page without changing unrelated sections',
+                  'Wrap selected element in a glass card',
+                  'Animate selected heading with fade-up',
+                  'Give selected button a premium hover effect',
+                  'Make the hero use a subtle gradient',
+                  'Add a required phone field to contact form',
+                  'Add a second button after the selected element',
+                  'Move the selected element after the text',
+                  'Remove the selected element',
+                  'Reduce selected section spacing on mobile',
+                  'Reduce the hero height on mobile',
+                  'Use a dark background with gold accents',
+                  'Rewrite the current page in Swedish',
+                ] : [
                   'Modern business website with Home, Services, About and Contact',
                   'Premium landing page focused on conversions and trust',
                   'Clean portfolio website with projects, about and contact',
-                ].map((example) => (
+                ]).map((example) => (
                   <button
                     key={example}
                     type="button"
                     onClick={() => { setAiPrompt(example); setAiError(''); }}
                     disabled={aiBusy}
-                    className="rounded-full border border-violet-500/15 px-2 py-1 text-[8px] font-semibold text-violet-400 hover:bg-violet-500/10 disabled:opacity-40"
+                    className={`min-h-8 rounded-lg border px-2 py-1.5 text-left text-[8px] font-semibold leading-tight transition ${darkMode ? 'border-white/[0.07] bg-white/[0.02] text-gray-400 hover:border-violet-500/20 hover:bg-violet-500/[0.05] hover:text-violet-300' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700'} disabled:opacity-40`}
                   >
-                    {example.split(' ').slice(0, 3).join(' ')}
+                    {example.split(' ').slice(0, 4).join(' ')}
                   </button>
                 ))}
               </div>
@@ -8944,32 +11631,93 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   setAiError('');
                   if (aiStage === 'error') setAiStage('idle');
                 }}
-                rows={5}
-                placeholder="Describe the website: business, audience, pages, style, language, location and goal..."
-                className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
+                rows={4}
+                placeholder={aiStage === 'ready'
+                  ? 'Ask Tayar to change this website without rebuilding it...'
+                  : 'Describe the website: business, audience, pages, style, language, location and goal...'}
+                className={`w-full resize-none rounded-xl border px-3.5 py-3 text-xs leading-relaxed outline-none transition focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 ${darkMode ? 'border-white/[0.08] bg-black/15 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
               />
 
-              <button
-                onClick={generateWithAI}
-                disabled={!aiPrompt.trim() || aiBusy}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Styling'}...` : aiStage === 'ready' ? l('Build another version') : l('Build website with AI')}
-              </button>
-
-              {aiStage === 'ready' && (
-                <button
-                  type="button"
-                  onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
-                  className={`flex w-full items-center justify-center rounded-lg border px-3 py-2 text-[10px] font-bold ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {l('Edit manually')}
-                </button>
+              {aiStage === 'ready' ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => void applyAIChange()}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {aiBusy ? 'Applying AI change...' : l('Apply AI change')}
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void generateWithAI(false)}
+                      disabled={!aiPrompt.trim() || aiBusy}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
+                    >
+                      {l('Rebuild from prompt')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-300 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {l('Edit manually')}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void generateRealImage()}
+                      disabled={aiBusy || !selectedSection}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-cyan-500/15 bg-cyan-500/[0.03] text-cyan-300 hover:bg-cyan-500/[0.07]' : 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100'} disabled:opacity-40`}
+                    >
+                      {l('Generate selected image')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void runAIQualityCheck()}
+                      disabled={aiQualityBusy || aiBusy}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-emerald-500/15 bg-emerald-500/[0.03] text-emerald-300 hover:bg-emerald-500/[0.07]' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'} disabled:opacity-40`}
+                    >
+                      {aiQualityBusy ? l('Checking…') : l('Quality check')}
+                    </button>
+                  </div>
+                  {aiUndoSnapshot && (
+                    <button
+                      type="button"
+                      onClick={undoLastAIChange}
+                      disabled={aiBusy}
+                      className={`flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-amber-500/15 bg-amber-500/[0.035] text-amber-300 hover:bg-amber-500/[0.07]' : 'border-amber-200 bg-amber-50/70 text-amber-700 hover:bg-amber-100'} disabled:opacity-40`}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      {l('Undo AI change')}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => void generateWithAI(true)}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Finishing'}...` : l('Build with Tayar Agent')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void generateWithAI(false)}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className={`w-full rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
+                  >
+                    {l('Fast build · no generated images')}
+                  </button>
+                </div>
               )}
 
-              {aiError && <p className="text-[10px] leading-relaxed text-red-400">{aiError}</p>}
-              <p className="text-[8px] leading-relaxed text-gray-600">{l('AI creates real Tayar pages and sections, so every result remains editable in the visual builder.')}</p>
+              {aiError && <p className={`rounded-lg border px-2.5 py-2 text-[9px] leading-relaxed ${darkMode ? 'border-red-500/15 bg-red-500/[0.04] text-red-300' : 'border-red-100 bg-red-50 text-red-600'}`}>{aiError}</p>}
+              <p className="px-1 text-[8px] leading-relaxed text-gray-600">{l('AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.')}</p>
             </div>
           </div>
 
@@ -9104,7 +11852,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         </main>
 
         <aside
-          className={`w-full shrink-0 border-t p-3 transition-[width,padding] duration-200 lg:border-l lg:border-t-0 ${inspectorOpen ? 'lg:w-80 lg:p-3' : 'lg:w-12 lg:p-2'} ${
+          className={`w-full shrink-0 border-t p-3 transition-[width,padding] duration-200 lg:border-l lg:border-t-0 ${inspectorOpen ? 'lg:w-72 xl:w-80 lg:p-3' : 'lg:w-12 lg:p-2'} ${
             darkMode
               ? 'border-white/10 bg-[#0a0a1a]'
               : 'border-gray-200 bg-white'
@@ -9123,7 +11871,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </button>
           </div>
           <div className={inspectorOpen ? 'block' : 'lg:hidden'}>
-          <div className="mb-5 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <Eye className="h-4 w-4 text-violet-400" />
             <div>
               <h2 className="text-xs font-bold">{selectedElement ? `${l('Edit')} ${ELEMENT_LABELS[selectedElement.type]}` : l('Inspector')}</h2>
@@ -9132,7 +11880,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           </div>
 
           {selectedElement && (
-            <div className={`mb-5 space-y-3 rounded-xl border p-3 ${darkMode ? 'border-violet-500/25 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
+            <div className={`mb-3 space-y-2.5 rounded-xl border p-2.5 ${darkMode ? 'border-violet-500/25 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-bold">{ELEMENT_LABELS[selectedElement.type]}</span>
                 <div className="flex items-center gap-1">
@@ -9154,7 +11902,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </div>
               <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-200 bg-white/70'}`}>
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
-                  <span>{l('Structure & reusable components')}</span>
+                  <span>{l('Structure')}</span><span className="sr-only">{l('Structure & reusable components')}</span>
                   <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
                 </summary>
                 <div className="space-y-2 border-t border-white/10 p-2">
@@ -9187,7 +11935,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       <label className="text-[9px] text-gray-500">{l('Width')}<input type="number" min="0" max="16" value={selectedContainer.borderWidth} onChange={(e) => updateSelectedContainer({ borderWidth: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                     </div>
                     <select value={selectedContainer.shadow} onChange={(e) => updateSelectedContainer({ shadow: e.target.value as ElementShadow })} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="none">{l('No shadow')}</option><option value="sm">{l('Small shadow')}</option><option value="md">{l('Medium shadow')}</option><option value="lg">{l('Large shadow')}</option><option value="xl">{l('XL shadow')}</option></select>
-              {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
+              {selectedContainer && selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
                       <div className="grid grid-cols-2 gap-2">
                         <label className="text-[9px] text-gray-500">{l('Container column')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.layoutColumn || 1} onChange={(e) => updateSelectedContainer({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
                         <label className="text-[9px] text-gray-500">{l('Span')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.columnSpan || 1} onChange={(e) => updateSelectedContainer({ columnSpan: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
@@ -9308,7 +12056,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
               <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white/70'}`}>
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
-                  <span>{l('Advanced design & responsive')}</span>
+                  <span>{l('Advanced')}</span><span className="sr-only">{l('Advanced design & responsive')}</span>
                   <span className="flex items-center gap-2 text-[9px] uppercase text-gray-500">{device}<ChevronDown className="h-3.5 w-3.5" /></span>
                 </summary>
                 <div className="space-y-3 border-t border-white/10 p-2">

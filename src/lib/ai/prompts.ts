@@ -311,6 +311,13 @@ Rules:
 - Each page should contain 3-8 relevant sections; Home is usually the richest page.
 - Keep section copy specific to the user's business, audience, location and goal.
 - Reuse a consistent visual direction across all pages.
+- Design with a restrained palette: one dominant surface family plus one accent color. Avoid rainbow sections.
+- Keep section backgrounds in the same contrast family (all predominantly dark or all predominantly light) so typography remains readable and intentional.
+- Create visual rhythm: the hero may be the strongest surface, then alternate subtle shades rather than giving every section the exact same background.
+- Favor generous whitespace, short readable paragraphs, clear heading hierarchy and one obvious primary CTA per section.
+- For premium/minimal sites, avoid excessive gradients, neon colors, heavy borders, tiny text or crowded card grids.
+- Choose accent colors with strong contrast against the dominant background.
+- Home hero copy should be concise: a strong headline, one supporting thought and a specific CTA.
 - Use only the supported section types listed in the schema.
 - Use valid 6-digit hex colors.
 - Use pricing only when it genuinely fits the business.
@@ -318,8 +325,424 @@ Rules:
 - Button URLs should prefer useful anchors such as #contact or page paths such as /services.
 - Avoid placeholder language such as "Lorem ipsum", "Feature 1", or generic AI filler.
 - If the user explicitly asks for one landing page, keep it one page.
-- If a legacy consumer requires "sections", it may derive them from the first page, but "pages" is the source of truth.`,
-    user: (input) => `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nReturn ONLY the JSON object.`,
+- If a legacy consumer requires "sections", it may derive them from the first page, but "pages" is the source of truth.
+- When the user input action is "edit", do NOT return a full website. Return only the patch operations requested by the edit-mode user prompt.
+- Treat Tayar as an editable visual canvas, not a one-shot generator: every AI result must remain fully editable with the existing manual page, section, element, layout, responsive, container, form and design controls.
+- Preserve manual editability and stable project structure. Never replace an editable native element with opaque generated markup when native builder operations can express the result.
+- Prefer native sections, elements, containers, responsive overrides and reusable symbols over custom HTML.
+- Make coherent multi-step edits in one transaction while preserving unrelated user work.
+- Respect the existing design system first; only change global theme tokens when the user explicitly asks for a site-wide design change.
+- Responsive changes must be intentional: desktop edits should not silently erase tablet/mobile overrides, and device-specific requests should use the requested responsive target.`,
+    user: (input) => {
+      const action = input.action as string;
+      if (action === 'image-prompt') {
+        return `Create one excellent production image prompt for this website section.
+
+SECTION:
+${JSON.stringify(input.section || {}, null, 2)}
+
+BRAND:
+${JSON.stringify(input.brand || {}, null, 2)}
+
+Return ONLY valid JSON:
+{
+  "prompt": "a concise but specific photographic or illustrative prompt"
+}
+
+Rules:
+- Match the brand, industry, audience and section purpose.
+- Describe subject, environment, lighting, composition and mood.
+- Avoid text, logos, watermarks and UI screenshots unless explicitly requested.
+- Prefer realistic commercial website imagery unless the section clearly needs illustration.
+- Keep it under 90 words.`;
+      }
+      if (action === 'quality-check') {
+        return `Act as Tayar's final website quality reviewer.
+
+CURRENT WEBSITE:
+${JSON.stringify(input.currentSite || {}, null, 2)}
+
+DETERMINISTIC AUDIT:
+${JSON.stringify(input.audit || {}, null, 2)}
+
+Review design quality, content hierarchy, CTA clarity, imagery, responsive readiness, SEO completeness, accessibility and publish readiness.
+
+Return ONLY valid JSON:
+{
+  "score": 0,
+  "summary": "short final assessment",
+  "findings": [
+    {
+      "severity": "critical|warning|improvement",
+      "title": "short issue",
+      "detail": "specific explanation"
+    }
+  ],
+  "fixPrompt": "one natural-language instruction that Tayar's patch engine can use to fix the safe content/design issues"
+}
+
+Rules:
+- Score from 0-100.
+- Do not invent technical failures that are absent from the supplied audit.
+- Critical means the site should not publish as-is.
+- Keep findings specific and actionable; maximum 8.
+- fixPrompt must preserve unrelated content and must not request deletion of the whole site.
+- Do not claim a real mobile-browser test occurred; assess responsive readiness from the builder structure.`;
+      }
+      if (action === 'plan-edit') {
+        return `Plan a safe multi-step edit for the existing Tayar visual website. Do not modify anything in this planning response.
+
+SITE SNAPSHOT:
+${JSON.stringify(input.currentSite || {}, null, 2)}
+
+USER REQUEST:
+${input.prompt || ''}
+
+Return ONLY valid JSON:
+{
+  "summary": "one sentence describing the intended result",
+  "steps": [
+    {
+      "id": "step-1",
+      "title": "specific action",
+      "target": "exact page/section/element/component target when known",
+      "reason": "short reason this step is needed",
+      "destructive": false
+    }
+  ],
+  "warnings": ["optional planning warning"]
+}
+
+Planning rules:
+- Produce 1-12 ordered steps. Keep the plan as small as possible while fully satisfying the request.
+- Use exact page, section, element, container and symbol IDs from the supplied snapshot whenever a target already exists.
+- Never invent an existing ID.
+- Preserve unrelated pages, sections, components, forms, responsive overrides and manual edits.
+- Mark destructive=true for any step that removes a page, section, container, element, form field or reusable component relationship.
+- Prefer native Tayar elements and reusable components. Never plan opaque generated HTML as a replacement for editable builder content.
+- Include responsive/accessibility work only when requested or clearly required by the user's goal.
+- This response is a plan only. Do not return patch operations here.`;
+      }
+      if (action === 'review-edit') {
+        return `Review the proposed result of a Tayar Agent edit before it is handed back to the visual canvas.
+
+ORIGINAL USER REQUEST:
+${input.originalPrompt || ''}
+
+EXECUTION PLAN:
+${JSON.stringify(input.executionPlan || {}, null, 2)}
+
+PROPOSED PROJECT:
+${JSON.stringify(input.proposedProject || {}, null, 2)}
+
+Return ONLY valid JSON:
+{
+  "score": 0,
+  "summary": "one short assessment of the proposed result",
+  "findings": [
+    {
+      "severity": "critical|warning|improvement",
+      "title": "short finding",
+      "detail": "specific explanation based only on the supplied project",
+      "target": "exact supplied page/section/element id when relevant"
+    }
+  ],
+  "followUpPrompt": "optional concise next edit request that can safely improve the result"
+}
+
+Review rules:
+- Score 0-100 and return at most 6 findings.
+- Review layout consistency, hierarchy, responsive readiness, accessibility, CTA clarity and manual editability.
+- Never claim a real browser, screenshot, network, device or publish test happened.
+- Never invent IDs or technical failures that are not visible in the supplied proposed project.
+- Treat native Tayar elements/components as authoritative and preserve manual editability.
+- A critical finding must be a concrete structural or usability problem, not a subjective style preference.
+- followUpPrompt must request targeted native edits and must not rebuild unrelated content.
+- This pass is read-only. Do not return mutation operations.`;
+      }
+      if (action === 'edit') {
+        return `Modify the existing Tayar website without rebuilding unrelated content.
+
+CURRENT WEBSITE SNAPSHOT:
+${JSON.stringify(input.currentSite || {}, null, 2)}
+
+EXECUTION PLAN:
+${JSON.stringify(input.executionPlan || {}, null, 2)}
+
+USER REQUEST:
+${input.prompt || ''}
+
+Return ONLY valid JSON with this shape:
+{
+  "summary": "short description of what changed",
+  "warnings": ["optional short warning when part of the request cannot be applied safely"],
+  "confidence": 0.95,
+  "operations": [
+    {
+      "action": "add_page|duplicate_page|remove_page|set_home_page|move_page|update_section|add_section|duplicate_section|remove_section|move_section|add_container|update_container|remove_container|assign_element_container|create_symbol|insert_symbol|detach_symbol|add_element|duplicate_element|remove_element|move_element|update_element|update_form|add_form_field|update_form_field|remove_form_field|move_form_field|copy_section_style|copy_element_style|repair_responsive|repair_accessibility|update_page|update_theme|restyle_site|update_site|update_seo|update_header|generate_image",
+      "pageId": "existing page id when applicable",
+      "pageSlug": "existing page slug when applicable",
+      "sectionId": "existing section id when applicable",
+      "sectionType": "hero|features|about|services|pricing|testimonials|contact|footer when applicable",
+      "elementId": "existing element id for update_element/remove_element/move_element",
+      "elementType": "heading|text|button|image|video|list|divider|spacer|accordion|tabs|gallery|embed|code|countdown|stats|testimonials-slider for add_element",
+      "device": "desktop|tablet|mobile for element styling, optional",
+      "beforeElementId": "existing destination element id for add_element or move_element, optional",
+      "afterElementId": "existing destination element id for add_element or move_element, optional",
+      "containerId": "existing container id for update/remove/assignment, optional; empty string detaches element",
+      "formFieldId": "existing contact form field id for update/remove/move, optional",
+      "formFieldType": "text|email|tel|textarea|select|checkbox for add/update form field, optional",
+      "beforeFormFieldId": "existing destination form field id for move/add, optional",
+      "afterFormFieldId": "existing destination form field id for move/add, optional",
+      "symbolId": "existing reusable component/symbol id for insert_symbol, optional",
+      "symbolName": "reusable component name for create_symbol, optional",
+      "sourceSectionId": "exact existing source section id for copy_section_style, optional",
+      "sourceElementId": "exact existing source element id for copy_element_style, optional",
+      "beforePageId": "existing destination page id for move_page, optional",
+      "afterPageId": "existing destination page id for move_page, optional",
+      "beforeSectionId": "existing destination section id for move_section, optional",
+      "afterSectionId": "existing section id for add_section or move_section, optional",
+      "prompt": "image description for generate_image, optional",
+      "placement": "section_background|section_image|image_element for generate_image, optional",
+      "page": {
+        "name": "new page name for add_page",
+        "slug": "new-page-slug",
+        "showInNavigation": true,
+        "sections": [
+          {
+            "type": "hero|features|about|services|pricing|testimonials|contact|footer",
+            "title": "string",
+            "description": "string",
+            "buttonText": "string",
+            "buttonUrl": "string",
+            "background": "#RRGGBB",
+            "accent": "#RRGGBB",
+            "imagePrompt": "optional"
+          }
+        ]
+      },
+      "changes": {
+        "title": "optional",
+        "description": "optional",
+        "buttonText": "optional",
+        "buttonUrl": "optional",
+        "background": "#RRGGBB optional",
+        "accent": "#RRGGBB optional",
+        "image": "optional URL",
+        "imagePrompt": "optional",
+        "name": "optional page/site name",
+        "slug": "optional page slug",
+        "showInNavigation": true,
+        "seoTitle": "optional page SEO title",
+        "seoDescription": "optional page meta description",
+        "canonicalUrl": "optional canonical URL",
+        "noIndex": false,
+        "primaryColor": "#RRGGBB optional",
+        "accentColor": "#RRGGBB optional",
+        "seoKeywords": ["optional", "keywords"],
+        "headerEnabled": true,
+        "showCta": true,
+        "ctaLabel": "optional",
+        "ctaHref": "optional",
+        "secondaryColor": "#RRGGBB optional global theme color",
+        "textColor": "#RRGGBB optional global text color",
+        "mutedTextColor": "#RRGGBB optional global muted text color",
+        "fontFamily": "Inter|Arial|Georgia|Trebuchet MS|Courier New|system-ui",
+        "themeContentWidth": 1100,
+        "themeButtonRadius": 12,
+        "themeSectionSpacing": 90,
+        "headerSticky": true,
+        "headerMobileMenu": true,
+        "headerLanguageSwitcher": true,
+        "headerBrandText": "optional brand text",
+        "headerLogoUrl": "optional safe logo URL or root-relative path",
+        "headerBackgroundColor": "#RRGGBB optional",
+        "headerTextColor": "#RRGGBB optional",
+        "headerActiveColor": "#RRGGBB optional",
+        "headerHoverColor": "#RRGGBB optional",
+        "headerCtaBackgroundColor": "#RRGGBB optional",
+        "headerCtaTextColor": "#RRGGBB optional",
+        "headerNavGap": 18,
+        "headerBrandSize": 16,
+        "headerNavSize": 14,
+        "headerBorderColor": "#RRGGBB optional",
+        "sectionMinHeight": 520,
+        "sectionPaddingY": 64,
+        "sectionPaddingX": 20,
+        "sectionLayoutGap": 18,
+        "sectionLayout": "stack|two-column|three-column",
+        "sectionLayoutAlign": "start|center|end|stretch",
+        "sectionContentWidth": "boxed|full",
+        "sectionBackgroundMode": "color|gradient|image",
+        "sectionBackgroundImage": "optional image URL",
+        "sectionBackgroundPosition": "center|top|bottom|left|right",
+        "sectionBackgroundSize": "cover|contain|auto",
+        "sectionGradientFrom": "#RRGGBB optional",
+        "sectionGradientTo": "#RRGGBB optional",
+        "sectionGradientAngle": 135,
+        "sectionOverlayColor": "#RRGGBB optional",
+        "sectionOverlayOpacity": 0.35,
+        "sectionRadius": 20,
+        "sectionAnchorId": "optional stable anchor",
+        "elementColumn": 1,
+        "elementColumnSpan": 1,
+        "elementContent": "optional element text/content",
+        "elementHref": "optional element link",
+        "elementSrc": "optional media URL",
+        "color": "#RRGGBB optional",
+        "elementBackgroundColor": "#RRGGBB optional",
+        "fontSize": 32,
+        "fontWeight": 700,
+        "textAlign": "left|center|right",
+        "padding": 16,
+        "borderRadius": 12,
+        "width": 100,
+        "maxWidth": 720,
+        "marginTop": 0,
+        "marginRight": 0,
+        "marginBottom": 0,
+        "marginLeft": 0,
+        "positionX": 0,
+        "positionY": 0,
+        "hidden": false,
+        "alignSelf": "auto|start|center|end|stretch",
+        "lineHeight": 1.2,
+        "letterSpacing": 0,
+        "opacity": 1,
+        "rotate": 0,
+        "elementBorderWidth": 1,
+        "elementBorderColor": "#RRGGBB optional",
+        "elementBorderStyle": "solid|dashed|dotted",
+        "elementShadow": "none|sm|md|lg|xl",
+        "elementHoverScale": 1.03,
+        "elementHoverOpacity": 1,
+        "elementHoverBackgroundColor": "#RRGGBB optional",
+        "elementHoverColor": "#RRGGBB optional",
+        "elementHoverShadow": "none|sm|md|lg|xl",
+        "elementAnimation": "none|fade|fade-up|fade-down|fade-left|fade-right|zoom-in|zoom-out",
+        "elementAnimationDuration": 650,
+        "elementAnimationDelay": 0,
+        "elementAnimationDistance": 36,
+        "elementAnimationOnce": true,
+        "containerName": "optional container name",
+        "containerLayout": "stack|row",
+        "containerGap": 16,
+        "containerAlign": "start|center|end|stretch",
+        "containerBackgroundColor": "#RRGGBB optional",
+        "containerPadding": 20,
+        "containerBorderRadius": 16,
+        "containerBorderWidth": 1,
+        "containerBorderColor": "#RRGGBB optional",
+        "containerShadow": "none|sm|md|lg|xl",
+        "containerColumn": 1,
+        "containerColumnSpan": 1,
+        "formSuccessMessage": "optional success message",
+        "formSuccessAction": "message|redirect",
+        "formRedirectUrl": "optional safe redirect URL",
+        "formFieldName": "optional machine field name",
+        "formFieldLabel": "optional field label",
+        "formFieldPlaceholder": "optional placeholder",
+        "formFieldRequired": true,
+        "formFieldOptions": ["Option 1", "Option 2"]
+      },
+      "section": {
+        "type": "hero|features|about|services|pricing|testimonials|contact|footer",
+        "title": "string",
+        "description": "string",
+        "buttonText": "string",
+        "buttonUrl": "string",
+        "background": "#RRGGBB",
+        "accent": "#RRGGBB",
+        "imagePrompt": "optional"
+      }
+    }
+  ]
+}
+
+Patch rules:
+- Make the smallest set of operations that fully satisfies the user's request.
+- Preserve all unrelated pages and sections.
+- Prefer exact pageId and sectionId values from the snapshot.
+- For changing text/colors of an existing section, use update_section.
+- For a new page, use add_page with 1-8 supported sections.
+- To remove an existing non-home page, use remove_page with an exact existing pageId or pageSlug.
+- To make an existing page the homepage, use set_home_page with an exact existing pageId or pageSlug.
+- To reorder navigation/pages, use move_page with an exact target pageId and one exact beforePageId or afterPageId.
+- For a new section, use add_section.
+- To reorder sections within a page, use move_section with exact pageId, sectionId and one exact beforeSectionId or afterSectionId.
+- To create a visual group/card around an element, use add_container and provide the elementId to place inside it.
+- To restyle an existing group/card, use update_container with exact pageId, sectionId and containerId.
+- To remove a container while preserving its child elements, use remove_container.
+- To move an element into or out of a container, use assign_element_container. Use containerId "" to detach it.
+- To add a new element inside an existing section, use add_element with exact pageId, sectionId and elementType. Use beforeElementId or afterElementId when placement matters.
+- To remove an existing ordinary element, use remove_element with exact pageId, sectionId and elementId.
+- To reorder ordinary elements within the same section, use move_element with exact pageId, sectionId, elementId and one exact beforeElementId or afterElementId.
+- To change one existing element, use update_element with exact pageId, sectionId and elementId.
+- If the user says selected/current/this element, use the exact IDs from CURRENT WEBSITE SNAPSHOT.selection.
+- For mobile or tablet-only styling, set device to mobile or tablet. Desktop/global styling omits device or uses desktop.
+- For section-specific responsive spacing/height, use update_section with sectionMinHeight, sectionPaddingY, sectionPaddingX or sectionLayoutGap.
+- To change section structure, use update_section with sectionLayout, sectionLayoutAlign or sectionContentWidth.
+- For section color/gradient/image backgrounds, overlays, rounded section corners or anchors, use update_section with the advanced section visual fields.
+- Background and gradient changes are global section design changes; do not pretend they are device-specific.
+- "Make this section two columns" means sectionLayout: two-column. "Three columns" means sectionLayout: three-column.
+- To place an element in a section column, use update_element with elementColumn. To span columns, use elementColumnSpan.
+- elementColumn and elementColumnSpan must stay within the section's current column count. Stack sections have one column.
+- When changing sectionLayout and element placement together, update the section layout first, then target elements with later operations.
+- "Reduce hero height on mobile" means update_section with device mobile and sectionMinHeight.
+- "Reduce section spacing on mobile" means update_section with device mobile and sectionPaddingY and/or sectionPaddingX.
+- "Full width on mobile" means update_element with device mobile and width 100.
+- Prefer update_element over restyle_site for element-specific responsive requests.
+- For borders, shadows, hover states and reveal motion, use update_element rather than custom code.
+- For contact forms: use update_form for success behavior, add_form_field/update_form_field/remove_form_field/move_form_field for fields.
+- Never add arbitrary JavaScript to solve a form or animation request when the native operation exists.
+- If the user says duplicate/copy/clone an existing page, use duplicate_page with its exact existing pageId or pageSlug. Put a requested new page name/slug in changes.name and changes.slug.
+- If the user says duplicate/copy/clone an existing section, use duplicate_section with exact pageId and sectionId. The clone is independent and gets fresh internal IDs.
+- If the user says duplicate/copy/clone an existing element, use duplicate_element with exact pageId, sectionId and elementId. The clone is independent even if the source is a reusable symbol.
+- Use update_theme for global typography, content width, button radius, section spacing and theme color tokens. Use restyle_site when existing section surfaces/buttons also need recoloring.
+- update_theme may use primaryColor, secondaryColor, backgroundColor, textColor, mutedTextColor, fontFamily, themeContentWidth, themeButtonRadius and themeSectionSpacing.
+- update_header supports sticky/mobile menu/language switcher, brand text/logo, navigation typography/spacing, border and full header/CTA colors.
+- Follow the supplied EXECUTION PLAN in order. It is guidance, not permission to bypass safety rules; skip any planned step that cannot be represented safely by supported native operations.
+- Keep every result editable in the manual Tayar canvas and preserve unrelated manual work.
+- Treat reusable symbols as native components. Use create_symbol with exact pageId, sectionId and elementId to turn an ordinary element into a reusable component.
+- Use insert_symbol with exact pageId, sectionId and symbolId from CURRENT WEBSITE SNAPSHOT.symbols to add another linked instance.
+- Use detach_symbol with exact pageId, sectionId and elementId when the user wants one component instance to become independent.
+- When update_element targets a symbol-linked element, the builder synchronizes that edit to every linked instance and the reusable component definition.
+- Use copy_element_style with exact sourceElementId plus exact target pageId, sectionId and elementId when the user wants one element to visually match another. It copies visual style/responsive design only, never content, links, media, IDs, position or component relationship.
+- Use copy_section_style with exact sourceSectionId plus exact target pageId and sectionId when one section should inherit another section's visual treatment without replacing its content/elements/forms.
+- Use repair_responsive for a safe page/site pass that adds conservative mobile/tablet overrides for oversized typography, excessive padding/margins and large free-position offsets while preserving desktop design.
+- Use repair_accessibility for a safe site-wide pass that fills missing image alt text, blank button labels and blank contact-field labels without changing layout.
+- For a broad polish request, prefer a small combination of repair_responsive, repair_accessibility and targeted style-copy/update operations instead of restyling unrelated content.
+- Never invent symbolId, sourceSectionId or sourceElementId values; use only IDs present in CURRENT WEBSITE SNAPSHOT.
+- For section deletion, use remove_section.
+- For renaming/navigation changes, use update_page.
+- For a site-wide visual color change, use restyle_site.
+- For renaming the whole website, use update_site.
+- For global SEO title/description/keywords, use update_seo.
+- For navigation/header CTA fixes, use update_header.
+- For page-specific SEO, canonical URL or indexing settings, use update_page.
+- When the user asks to create, replace or improve a real image, use generate_image with an exact page/section target and a concise visual prompt.
+- Use section_background for hero/banner imagery, image_element when an image element already exists, and section_image for other section artwork.
+- Never invent an existing pageId, sectionId or elementId.
+- Never remove the final remaining element from a section.
+- Do not remove or reorder symbol-linked elements; preserve reusable components unless the user detaches them manually.
+- Do not create more than 30 containers in one section, 60 elements in one section, or 20 form fields.
+- Duplicate operations must obey the same page/section/element limits as creation operations.
+- A duplicated section must receive fresh section, element, container and form-field IDs; a duplicated page must receive fresh page and descendant IDs.
+- Never remove the final remaining contact form field.
+- Keep select field options concise; maximum 20 options.
+- Never remove the home page and never remove the final remaining page.
+- Never delete the final section on a page.
+- Do not return a full "pages" replacement in edit mode.
+- If the request asks for translation, return update_page/update_section operations for the affected existing content rather than rebuilding the site.
+- When fixing quality-check findings, prefer safe SEO/header/content operations that the schema supports; do not claim to fix infrastructure or browser-tested issues.
+- Maximum 60 operations.
+- For complex requests, prefer a coherent set of targeted operations in one transaction rather than rebuilding the site or returning partial unrelated changes.
+- If some requested work cannot be represented safely with the supported operations, apply the safe subset and explain the remainder in warnings.
+
+Return ONLY the patch JSON object.`;
+      }
+      return `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nReturn ONLY the JSON object.`;
+    },
   },
   'ai-chat': {
     system: `You are Tayar, a helpful AI assistant integrated into the Tayar Intelligence Tools platform.
