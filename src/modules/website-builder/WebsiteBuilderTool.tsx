@@ -5689,6 +5689,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
       ]);
       const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
+      const isLightHex = (value: string) => {
+        const hex = value.replace('#', '');
+        const r = Number.parseInt(hex.slice(0, 2), 16);
+        const g = Number.parseInt(hex.slice(2, 4), 16);
+        const b = Number.parseInt(hex.slice(4, 6), 16);
+        return ((r * 299) + (g * 587) + (b * 114)) / 1000 > 165;
+      };
+      const generatedPrimary = validHex(generated.style?.primaryColor) ? generated.style!.primaryColor! : '#0f172a';
+      const generatedAccent = validHex(generated.style?.accentColor) ? generated.style!.accentColor! : '#7c3aed';
+      const generatedSurfaceIsLight = isLightHex(generatedPrimary);
+      const generatedAccentIsLight = isLightHex(generatedAccent);
+      const generatedTextColor = generatedSurfaceIsLight ? '#0f172a' : '#f8fafc';
+      const generatedMutedTextColor = generatedSurfaceIsLight ? '#475569' : '#cbd5e1';
       const generatedAt = Date.now();
       const maxGeneratedPages = Math.max(1, Math.min(6, billingEntitlements.maxPages || 1));
       const usedSlugs = new Set<string>();
@@ -5704,8 +5717,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             description: section.description?.trim() || '',
             buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
             buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
-            background: validHex(section.background) ? section.background! : (validHex(generated.style?.primaryColor) ? generated.style!.primaryColor! : '#0f172a'),
-            accent: validHex(section.accent) ? section.accent! : (validHex(generated.style?.accentColor) ? generated.style!.accentColor! : '#7c3aed'),
+            background: validHex(section.background) ? section.background! : generatedPrimary,
+            accent: validHex(section.accent) ? section.accent! : generatedAccent,
             image: section.image?.trim() || undefined,
             imagePrompt: section.imagePrompt?.trim() || undefined,
           }));
@@ -5753,6 +5766,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSiteName(generated.siteName?.trim() || 'My Website');
 
       setAiStage('styling');
+      const tone = generated.style?.tone?.toLowerCase() || 'modern';
+      setTheme((current) => normalizeTheme({
+        ...current,
+        primaryColor: generatedAccent,
+        secondaryColor: generatedPrimary,
+        backgroundColor: generatedPrimary,
+        textColor: generatedTextColor,
+        mutedTextColor: generatedMutedTextColor,
+        contentWidth: tone === 'editorial' ? 1040 : 1120,
+        buttonRadius: tone === 'premium' || tone === 'friendly' ? 16 : tone === 'corporate' ? 10 : 12,
+        sectionSpacing: tone === 'minimal' || tone === 'premium' ? 104 : 92,
+      }));
+      setHeaderConfig((current) => ({
+        ...current,
+        backgroundColor: generatedPrimary,
+        textColor: generatedTextColor,
+        activeColor: generatedTextColor,
+        hoverColor: generatedAccent,
+        ctaBackgroundColor: generatedAccent,
+        ctaTextColor: generatedAccentIsLight ? '#0f172a' : '#ffffff',
+        borderColor: generatedSurfaceIsLight ? '#e2e8f0' : '#334155',
+      }));
       if (generated.brand) setBrand(generated.brand);
       if (generated.seo) setSeo(generated.seo);
 
