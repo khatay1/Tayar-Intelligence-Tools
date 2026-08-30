@@ -97,11 +97,14 @@ interface AIWebsitePatchChanges {
 }
 
 interface AIWebsitePatchOperation {
-  action: 'add_page' | 'remove_page' | 'set_home_page' | 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
+  action: 'add_page' | 'remove_page' | 'set_home_page' | 'move_page' | 'update_section' | 'add_section' | 'remove_section' | 'move_section' | 'update_page' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
   pageId?: string;
   pageSlug?: string;
   sectionId?: string;
   sectionType?: SectionType;
+  beforePageId?: string;
+  afterPageId?: string;
+  beforeSectionId?: string;
   afterSectionId?: string;
   prompt?: string;
   placement?: 'section_background' | 'section_image' | 'image_element';
@@ -6222,6 +6225,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           continue;
         }
 
+        if (operation.action === 'move_page') {
+          if (!operation.pageId || (!operation.beforePageId && !operation.afterPageId)) continue;
+          const sourceIndex = nextPages.findIndex((page) => page.id === operation.pageId);
+          if (sourceIndex < 0) continue;
+          const sourcePage = nextPages[sourceIndex];
+          const withoutSource = nextPages.filter((page) => page.id !== sourcePage.id);
+          const destinationId = operation.beforePageId || operation.afterPageId || '';
+          const destinationIndex = withoutSource.findIndex((page) => page.id === destinationId);
+          if (destinationIndex < 0) continue;
+          const insertAt = destinationIndex + (operation.afterPageId ? 1 : 0);
+          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourcePage);
+          nextPages = withoutSource;
+          applied += 1;
+          continue;
+        }
+
         if (operation.action === 'update_site') {
           const changes = operation.changes || {};
           if (typeof changes.name === 'string' && changes.name.trim()) {
@@ -6323,6 +6342,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             canonicalUrl: typeof changes.canonicalUrl === 'string' ? changes.canonicalUrl.trim().slice(0, 500) : page.canonicalUrl,
             noIndex: typeof changes.noIndex === 'boolean' ? changes.noIndex : page.noIndex,
           };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'move_section') {
+          if (!operation.sectionId || (!operation.beforeSectionId && !operation.afterSectionId)) continue;
+          const sourceIndex = page.sections.findIndex((section) => section.id === operation.sectionId);
+          if (sourceIndex < 0) continue;
+          const sourceSection = page.sections[sourceIndex];
+          const withoutSource = page.sections.filter((section) => section.id !== sourceSection.id);
+          const destinationId = operation.beforeSectionId || operation.afterSectionId || '';
+          const destinationIndex = withoutSource.findIndex((section) => section.id === destinationId);
+          if (destinationIndex < 0) continue;
+          const insertAt = destinationIndex + (operation.afterSectionId ? 1 : 0);
+          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourceSection);
+          nextPages[pageIndex] = { ...page, sections: withoutSource };
           applied += 1;
           continue;
         }
