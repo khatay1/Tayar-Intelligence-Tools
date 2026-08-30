@@ -2482,6 +2482,8 @@ function SectionPreview({
   onElementDragOver,
   onElementDrop,
   onElementDragEnd,
+  onResizeElementStart,
+  onResizeElementWidth,
   onMoveSelectedElement,
   onDuplicateSelectedElement,
   onDeleteSelectedElement,
@@ -2508,6 +2510,8 @@ function SectionPreview({
   onElementDragOver: (id: string, e: React.DragEvent) => void;
   onElementDrop: (id: string, e: React.DragEvent) => void;
   onElementDragEnd: () => void;
+  onResizeElementStart: (id: string) => void;
+  onResizeElementWidth: (id: string, width: number) => void;
   onMoveSelectedElement: (direction: 'up' | 'down') => void;
   onDuplicateSelectedElement: () => void;
   onDeleteSelectedElement: () => void;
@@ -2556,25 +2560,81 @@ function SectionPreview({
     return (
       <div
         draggable={false}
-        className="absolute -top-10 right-0 z-40 flex max-w-full items-center gap-0.5 rounded-lg border border-white/10 bg-[#111122]/95 p-1 shadow-xl backdrop-blur"
+        className="absolute -top-9 z-40 flex max-w-full items-center gap-0.5 rounded-md border border-white/10 bg-[#111122]/95 p-0.5 shadow-lg backdrop-blur"
+        style={{ right: `${Math.max(0, 100 - clampElementNumber(effectiveStyle(element, device).width, 100, 10, 100))}%` }}
         onDragStart={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
       >
-        <span className="max-w-24 truncate px-2 text-[9px] font-bold text-violet-300">{ELEMENT_LABELS[element.type]}</span>
-        <button type="button" onClick={() => onMoveSelectedElement('up')} disabled={!canMoveElementUp} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move up">
+        <span className="max-w-20 truncate px-1.5 text-[8px] font-bold text-violet-300">{ELEMENT_LABELS[element.type]}</span>
+        <button type="button" onClick={() => onMoveSelectedElement('up')} disabled={!canMoveElementUp} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move up">
           <ChevronUp className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={() => onMoveSelectedElement('down')} disabled={!canMoveElementDown} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move down">
+        <button type="button" onClick={() => onMoveSelectedElement('down')} disabled={!canMoveElementDown} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move down">
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={onDuplicateSelectedElement} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 hover:text-white" title="Duplicate">
+        <button type="button" onClick={onDuplicateSelectedElement} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title="Duplicate">
           <Copy className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={onDeleteSelectedElement} className="rounded-md p-1.5 text-red-300 hover:bg-red-500/15 hover:text-red-200" title="Delete">
+        <button type="button" onClick={onDeleteSelectedElement} className="rounded p-1 text-red-300 hover:bg-red-500/15 hover:text-red-200" title="Delete">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
+    );
+  };
+
+  const renderSelectedElementResizeHandle = (element: WebsiteElement) => {
+    if (selectedElementId !== element.id) return null;
+    const elementStyle = effectiveStyle(element, device);
+    const width = clampElementNumber(elementStyle.width, 100, 10, 100);
+    const positionX = clampElementNumber(elementStyle.positionX, 0, -4000, 4000);
+    const positionY = clampElementNumber(elementStyle.positionY, 0, -4000, 4000);
+
+    return (
+      <>
+        <div
+          className="pointer-events-none absolute z-30 border-r-2 border-violet-400/80"
+          style={{
+            left: `calc(${width}% + ${positionX}px)`,
+            top: `calc(8px + ${positionY}px)`,
+            bottom: `calc(8px - ${positionY}px)`,
+          }}
+        />
+        <button
+          type="button"
+          draggable={false}
+          aria-label="Resize element"
+          title={`Drag to resize · ${Math.round(width)}%`}
+          className="absolute z-50 h-3.5 w-3.5 cursor-ew-resize rounded-full border-2 border-white bg-violet-500 shadow-[0_0_0_3px_rgba(139,92,246,0.18)] transition hover:scale-125"
+          style={{
+            left: `calc(${width}% + ${positionX}px - 7px)`,
+            top: `calc(50% + ${positionY}px - 7px)`,
+          }}
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const host = event.currentTarget.parentElement;
+            if (!host) return;
+            const hostWidth = Math.max(1, host.getBoundingClientRect().width);
+            const startClientX = event.clientX;
+            const startWidth = width;
+            onResizeElementStart(element.id);
+
+            const handleMove = (moveEvent: PointerEvent) => {
+              const deltaPercent = ((moveEvent.clientX - startClientX) / hostWidth) * 100;
+              const nextWidth = Math.max(10, Math.min(100, Math.round(startWidth + deltaPercent)));
+              onResizeElementWidth(element.id, nextWidth);
+            };
+            const handleUp = () => {
+              window.removeEventListener('pointermove', handleMove);
+              window.removeEventListener('pointerup', handleUp);
+            };
+            window.addEventListener('pointermove', handleMove);
+            window.addEventListener('pointerup', handleUp, { once: true });
+          }}
+        />
+      </>
     );
   };
 
@@ -2683,6 +2743,7 @@ function SectionPreview({
                           )}
                           {hiddenOnDevice && <span className="absolute right-1 top-1 z-20 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">Hidden on {device}</span>}
                           {renderSelectedElementToolbar(element)}
+                          {renderSelectedElementResizeHandle(element)}
                           <ElementPreview
                             element={element}
                             selected={selectedElementId === element.id}
@@ -2735,6 +2796,7 @@ function SectionPreview({
                   <span className="absolute right-1 top-1 z-20 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">Hidden on {device}</span>
                 )}
                 {renderSelectedElementToolbar(element)}
+                {renderSelectedElementResizeHandle(element)}
                 <ElementPreview
                   element={element}
                   selected={selectedElementId === element.id}
@@ -2805,6 +2867,7 @@ function SectionPreview({
             ))}
             <div className="relative">
               {contactSubmitElement && renderSelectedElementToolbar(contactSubmitElement)}
+              {contactSubmitElement && renderSelectedElementResizeHandle(contactSubmitElement)}
             {contactSubmitStyle?.hidden ? (
               <button
                 type="button"
@@ -4617,6 +4680,55 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ? { ...symbol, element: { ...symbol.element, content }, updatedAt: new Date().toISOString() }
         : symbol
       ));
+    }
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
+    setSaved(false);
+  }
+
+  function beginElementResize(sectionId: string, elementId: string) {
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
+    remember(sections);
+  }
+
+  function resizeElementWidth(sectionId: string, elementId: string, width: number) {
+    const targetSection = sections.find((section) => section.id === sectionId);
+    const targetElement = targetSection?.elements.find((element) => element.id === elementId);
+    if (!targetSection || !targetElement) return;
+    const symbolId = targetElement.symbolId;
+    const safeWidth = Math.max(10, Math.min(100, Math.round(width)));
+
+    const resizeElement = (element: WebsiteElement): WebsiteElement => ({
+      ...element,
+      responsive: {
+        ...element.responsive,
+        [device]: {
+          ...(element.responsive?.[device] || {}),
+          width: safeWidth,
+        },
+      },
+    });
+
+    const resizeSection = (section: WebsiteSection): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = symbolId ? element.symbolId === symbolId : element.id === elementId;
+        return matches ? resizeElement(element) : element;
+      }),
+    });
+
+    setSections((current) => current.map((section) => section.id === sectionId || symbolId ? resizeSection(section) : section));
+    if (symbolId) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : {
+        ...page,
+        sections: page.sections.map(resizeSection),
+      }));
+      setSymbols((current) => current.map((symbol) => symbol.id === symbolId ? {
+        ...symbol,
+        element: resizeElement(symbol.element),
+        updatedAt: new Date().toISOString(),
+      } : symbol));
     }
     setSelectedId(sectionId);
     setSelectedElementId(elementId);
@@ -8499,6 +8611,8 @@ if (generated.seo) {
       onElementDragOver={(elementId, e) => handleElementDragOver(section.id, elementId, e)}
       onElementDrop={(elementId, e) => handleElementDrop(section.id, elementId, e)}
       onElementDragEnd={handleElementDragEnd}
+      onResizeElementStart={(elementId) => beginElementResize(section.id, elementId)}
+      onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
       onMoveSelectedElement={moveSelectedElement}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
