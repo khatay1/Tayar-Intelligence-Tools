@@ -397,7 +397,7 @@ Return ONLY valid JSON with this shape:
   "summary": "short description of what changed",
   "operations": [
     {
-      "action": "add_page|remove_page|update_section|add_section|remove_section|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
+      "action": "add_page|remove_page|set_home_page|update_section|add_section|remove_section|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
       "pageId": "existing page id when applicable",
       "pageSlug": "existing page slug when applicable",
       "sectionId": "existing section id when applicable",
@@ -467,6 +467,7 @@ Patch rules:
 - For changing text/colors of an existing section, use update_section.
 - For a new page, use add_page with 1-8 supported sections.
 - To remove an existing non-home page, use remove_page with an exact existing pageId or pageSlug.
+- To make an existing page the homepage, use set_home_page with an exact existing pageId or pageSlug.
 - For a new section, use add_section.
 - For section deletion, use remove_section.
 - For renaming/navigation changes, use update_page.
