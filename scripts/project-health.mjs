@@ -98,6 +98,9 @@ check('Website Builder keeps free positioning out of Quick style', websiteBuilde
 check('Website Builder prioritizes popular sections in Add panel', websiteBuilder.includes("l('Popular sections')") && websiteBuilder.includes("l('More sections')") && websiteBuilder.includes("['hero', 'features', 'services', 'contact']"));
 check('Website Builder hides advanced elements behind progressive disclosure', websiteBuilder.includes("l('Advanced elements')") && websiteBuilder.includes("['heading', 'text', 'button', 'image', 'video', 'list']"));
 check('Website Builder Layers only expand the active section', websiteBuilder.includes("Select a section to see its elements.") && websiteBuilder.includes("selectedId === section.id && (") && websiteBuilder.includes("setInspectorOpen(true)"));
+check('Website Builder supports direct canvas element resizing', websiteBuilder.includes('renderSelectedElementResizeHandle') && websiteBuilder.includes('cursor-ew-resize') && websiteBuilder.includes('onResizeElementWidth'));
+check('Canvas resize is device-aware and undo-friendly', websiteBuilder.includes('beginElementResize') && websiteBuilder.includes('remember(sections)') && websiteBuilder.includes('[device]:') && websiteBuilder.includes('width: safeWidth'));
+check('Selected element toolbar stays compact on canvas', websiteBuilder.includes('max-w-20 truncate') && websiteBuilder.includes('rounded-md border border-white/10 bg-[#111122]/95 p-0.5'));
 check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
 check('Suspended users are rejected by shared Edge Function auth', sharedBilling.includes('.select("suspended")') && sharedBilling.includes('throw new HttpError(403, "Account suspended")'));
