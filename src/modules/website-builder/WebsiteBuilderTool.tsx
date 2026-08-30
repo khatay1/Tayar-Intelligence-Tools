@@ -2906,7 +2906,7 @@ function SectionPreview({
           right: `${Math.max(0, 100 - width)}%`,
           transform: `translate3d(${positionX}px, ${positionY}px, 0)`,
         }}
-        title="Drag to move Â· Arrows nudge Â· Shift+arrow 10px Â· Ctrl/Cmd+D duplicate Â· Delete remove Â· Esc deselect Â· Shift+drag reorder"
+        title="Drag to move · Arrows nudge · Shift+arrow 10px · Ctrl/Cmd+D duplicate · Delete remove · Esc deselect · Shift+drag reorder"
         onDragStart={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
