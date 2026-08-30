@@ -72,6 +72,8 @@ check('AI builder can preserve unrelated content while patching', builder.includ
 check('AI builder can generate and persist targeted images', builder.includes("generate_image") && builder.includes("requestGeneratedImage") && builder.includes("Media Library"));
 check('Tayar Agent performs full build preparation', builder.includes("Build with Tayar Agent") && builder.includes("agentImagesGenerated") && builder.includes("nextGeneratedSeo"));
 check('AI quality check can review and fix safe issues', builder.includes("AI Quality Check") && builder.includes("runAIQualityCheck") && builder.includes("Fix safe issues with AI"));
+check('AI quality context includes SEO header and element details', builder.includes('responsiveModes: Object.keys(element.responsive || {})') && builder.includes('seoTitle: page.seoTitle') && builder.includes('showCta: headerConfig.showCta'));
+check('AI patches can repair SEO and header CTA', builder.includes("update_seo") && builder.includes("update_header") && builder.includes('setSeo(nextSeo)') && builder.includes('setHeaderConfig(nextHeaderConfig)'));
 check('Project history contains AI checkpoints', builder.includes("Before AI change") && builder.includes("After AI change") && builder.includes("slice(0, 30)"));
 check('Publish actions expose Preview Check Publish flow', builder.includes("AI quality check before publishing") && builder.includes("Check") && builder.includes("Publish"));
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
