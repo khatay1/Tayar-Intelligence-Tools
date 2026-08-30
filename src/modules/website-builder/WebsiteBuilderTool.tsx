@@ -2484,6 +2484,7 @@ function SectionPreview({
   onElementDragEnd,
   onResizeElementStart,
   onResizeElementWidth,
+  onResetElementPosition,
   onMoveSelectedElement,
   onDuplicateSelectedElement,
   onDeleteSelectedElement,
@@ -2512,6 +2513,7 @@ function SectionPreview({
   onElementDragEnd: () => void;
   onResizeElementStart: (id: string) => void;
   onResizeElementWidth: (id: string, width: number) => void;
+  onResetElementPosition: (id: string) => void;
   onMoveSelectedElement: (direction: 'up' | 'down') => void;
   onDuplicateSelectedElement: () => void;
   onDeleteSelectedElement: () => void;
@@ -2557,16 +2559,31 @@ function SectionPreview({
     const selectedElementIndex = section.elements.findIndex((item) => item.id === element.id);
     const canMoveElementUp = selectedElementIndex > 0;
     const canMoveElementDown = selectedElementIndex >= 0 && selectedElementIndex < section.elements.length - 1;
+    const elementStyle = effectiveStyle(element, device);
+    const width = clampElementNumber(elementStyle.width, 100, 10, 100);
+    const positionX = clampElementNumber(elementStyle.positionX, 0, -4000, 4000);
+    const positionY = clampElementNumber(elementStyle.positionY, 0, -4000, 4000);
+    const hasFreePosition = positionX !== 0 || positionY !== 0;
     return (
       <div
         draggable={false}
         className="absolute -top-9 z-40 flex max-w-full items-center gap-0.5 rounded-md border border-white/10 bg-[#111122]/95 p-0.5 shadow-lg backdrop-blur"
-        style={{ right: `${Math.max(0, 100 - clampElementNumber(effectiveStyle(element, device).width, 100, 10, 100))}%` }}
+        style={{
+          right: `${Math.max(0, 100 - width)}%`,
+          transform: `translate3d(${positionX}px, ${positionY}px, 0)`,
+        }}
+        title="Drag to move · Shift+drag to reorder"
         onDragStart={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
       >
-        <span className="max-w-20 truncate px-1.5 text-[8px] font-bold text-violet-300">{ELEMENT_LABELS[element.type]}</span>
+        <MousePointer2 className="ml-1 h-3 w-3 shrink-0 text-gray-500" />
+        <span className="max-w-20 truncate px-1 text-[8px] font-bold text-violet-300">{ELEMENT_LABELS[element.type]}</span>
+        {hasFreePosition && (
+          <span className="max-w-24 truncate rounded bg-white/5 px-1 py-0.5 text-[7px] font-semibold text-gray-400">
+            X {positionX} · Y {positionY}
+          </span>
+        )}
         <button type="button" onClick={() => onMoveSelectedElement('up')} disabled={!canMoveElementUp} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30" title="Move up">
           <ChevronUp className="h-3.5 w-3.5" />
         </button>
@@ -2576,6 +2593,11 @@ function SectionPreview({
         <button type="button" onClick={onDuplicateSelectedElement} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title="Duplicate">
           <Copy className="h-3.5 w-3.5" />
         </button>
+        {hasFreePosition && (
+          <button type="button" onClick={() => onResetElementPosition(element.id)} className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200" title="Reset position">
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button type="button" onClick={onDeleteSelectedElement} className="rounded p-1 text-red-300 hover:bg-red-500/15 hover:text-red-200" title="Delete">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -4727,6 +4749,50 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSymbols((current) => current.map((symbol) => symbol.id === symbolId ? {
         ...symbol,
         element: resizeElement(symbol.element),
+        updatedAt: new Date().toISOString(),
+      } : symbol));
+    }
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
+    setSaved(false);
+  }
+
+  function resetElementPosition(sectionId: string, elementId: string) {
+    const targetSection = sections.find((section) => section.id === sectionId);
+    const targetElement = targetSection?.elements.find((element) => element.id === elementId);
+    if (!targetSection || !targetElement) return;
+    remember(sections);
+    const symbolId = targetElement.symbolId;
+
+    const resetElement = (element: WebsiteElement): WebsiteElement => ({
+      ...element,
+      responsive: {
+        ...element.responsive,
+        [device]: {
+          ...(element.responsive?.[device] || {}),
+          positionX: 0,
+          positionY: 0,
+        },
+      },
+    });
+
+    const resetSection = (section: WebsiteSection): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = symbolId ? element.symbolId === symbolId : element.id === elementId;
+        return matches ? resetElement(element) : element;
+      }),
+    });
+
+    setSections((current) => current.map((section) => section.id === sectionId || symbolId ? resetSection(section) : section));
+    if (symbolId) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : {
+        ...page,
+        sections: page.sections.map(resetSection),
+      }));
+      setSymbols((current) => current.map((symbol) => symbol.id === symbolId ? {
+        ...symbol,
+        element: resetElement(symbol.element),
         updatedAt: new Date().toISOString(),
       } : symbol));
     }
@@ -8613,6 +8679,7 @@ if (generated.seo) {
       onElementDragEnd={handleElementDragEnd}
       onResizeElementStart={(elementId) => beginElementResize(section.id, elementId)}
       onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
+      onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
       onMoveSelectedElement={moveSelectedElement}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
