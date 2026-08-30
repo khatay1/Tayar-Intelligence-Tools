@@ -397,7 +397,7 @@ Return ONLY valid JSON with this shape:
   "summary": "short description of what changed",
   "operations": [
     {
-      "action": "update_section|add_section|remove_section|update_page|restyle_site|update_site|generate_image",
+      "action": "update_section|add_section|remove_section|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
       "pageId": "existing page id when applicable",
       "pageSlug": "existing page slug when applicable",
       "sectionId": "existing section id when applicable",
@@ -417,8 +417,17 @@ Return ONLY valid JSON with this shape:
         "name": "optional page/site name",
         "slug": "optional page slug",
         "showInNavigation": true,
+        "seoTitle": "optional page SEO title",
+        "seoDescription": "optional page meta description",
+        "canonicalUrl": "optional canonical URL",
+        "noIndex": false,
         "primaryColor": "#RRGGBB optional",
-        "accentColor": "#RRGGBB optional"
+        "accentColor": "#RRGGBB optional",
+        "seoKeywords": ["optional", "keywords"],
+        "headerEnabled": true,
+        "showCta": true,
+        "ctaLabel": "optional",
+        "ctaHref": "optional"
       },
       "section": {
         "type": "hero|features|about|services|pricing|testimonials|contact|footer",
@@ -444,12 +453,16 @@ Patch rules:
 - For renaming/navigation changes, use update_page.
 - For a site-wide visual color change, use restyle_site.
 - For renaming the whole website, use update_site.
+- For global SEO title/description/keywords, use update_seo.
+- For navigation/header CTA fixes, use update_header.
+- For page-specific SEO, canonical URL or indexing settings, use update_page.
 - When the user asks to create, replace or improve a real image, use generate_image with an exact page/section target and a concise visual prompt.
 - Use section_background for hero/banner imagery, image_element when an image element already exists, and section_image for other section artwork.
 - Never invent an existing pageId or sectionId.
 - Never delete the final section on a page.
 - Do not return a full "pages" replacement in edit mode.
 - If the request asks for translation, return update_page/update_section operations for the affected existing content rather than rebuilding the site.
+- When fixing quality-check findings, prefer safe SEO/header/content operations that the schema supports; do not claim to fix infrastructure or browser-tested issues.
 - Maximum 40 operations.
 
 Return ONLY the patch JSON object.`;
