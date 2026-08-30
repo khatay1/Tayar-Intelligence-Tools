@@ -9318,6 +9318,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
 
+              {aiStage === 'ready' && (
+                <div className="flex items-center justify-between rounded-lg border border-emerald-500/15 bg-emerald-500/[0.05] px-2.5 py-1.5">
+                  <span className="text-[8px] font-black uppercase tracking-wider text-emerald-400">{l('Safe patch mode')}</span>
+                  <span className="text-[8px] text-gray-500">{l('Unrelated content stays intact')}</span>
+                </div>
+              )}
+
               {aiPlan && (
                 <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-100 bg-white'}`}>
                   <p className="text-[9px] font-black uppercase tracking-wider text-violet-400">{l('Website plan')}</p>
