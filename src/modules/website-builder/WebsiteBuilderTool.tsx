@@ -97,7 +97,7 @@ interface AIWebsitePatchChanges {
 }
 
 interface AIWebsitePatchOperation {
-  action: 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
+  action: 'add_page' | 'remove_page' | 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
   pageId?: string;
   pageSlug?: string;
   sectionId?: string;
@@ -105,6 +105,7 @@ interface AIWebsitePatchOperation {
   afterSectionId?: string;
   prompt?: string;
   placement?: 'section_background' | 'section_image' | 'image_element';
+  page?: AIWebsitePageGeneration;
   changes?: AIWebsitePatchChanges;
   section?: Partial<WebsiteSection> & Pick<WebsiteSection, 'type'>;
 }
@@ -6156,6 +6157,57 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       for (const operation of operations) {
         if (!operation || typeof operation.action !== 'string') continue;
+
+        if (operation.action === 'add_page') {
+          const sourcePage = operation.page;
+          if (!sourcePage || nextPages.length >= billingEntitlements.maxPages) continue;
+          const sourceSections = Array.isArray(sourcePage.sections) ? sourcePage.sections : [];
+          const normalizedSections = sourceSections
+            .filter((section) => section && allowedTypes.has(section.type))
+            .slice(0, 8)
+            .map((section, sectionIndex) => normalizeSection({
+              ...section,
+              id: `${section.type}-ai-page-${Date.now()}-${sectionIndex}-${Math.random().toString(36).slice(2, 7)}`,
+              type: section.type,
+              title: section.title?.trim() || SECTION_LABELS[section.type],
+              description: section.description?.trim() || '',
+              buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
+              buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
+              background: validHex(section.background) ? section.background! : nextTheme.backgroundColor || '#0f172a',
+              accent: validHex(section.accent) ? section.accent! : nextTheme.primaryColor || '#7c3aed',
+              image: section.image?.trim() || undefined,
+              imagePrompt: section.imagePrompt?.trim() || undefined,
+            }));
+          if (!normalizedSections.length) continue;
+          const pageName = sourcePage.name?.trim().slice(0, 60) || `Page ${nextPages.length + 1}`;
+          const requestedSlug = normalizeSlugValue(sourcePage.slug || pageName) || `page-${nextPages.length + 1}`;
+          nextPages.push({
+            id: `page-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: pageName,
+            slug: requestedSlug,
+            sections: normalizedSections,
+            showInNavigation: sourcePage.showInNavigation !== false,
+            language: prefs.language,
+            translationKey: '',
+            seoTitle: '',
+            seoDescription: '',
+            canonicalUrl: '',
+            noIndex: false,
+          });
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'remove_page') {
+          if (nextPages.length <= 1 || (!operation.pageId && !operation.pageSlug)) continue;
+          const pageIndex = resolvePageIndex(operation);
+          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+          const targetPage = nextPages[pageIndex];
+          if (targetPage.id === homePageId) continue;
+          nextPages.splice(pageIndex, 1);
+          applied += 1;
+          continue;
+        }
 
         if (operation.action === 'update_site') {
           const changes = operation.changes || {};
