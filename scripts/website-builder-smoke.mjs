@@ -65,7 +65,7 @@ check('Shift drag preserves flow reordering', builder.includes("if (!e.shiftKey)
 check('Inspector exposes X/Y and reset position controls', builder.includes("Free position") && builder.includes("positionX") && builder.includes("positionY") && builder.includes("positionX: 0, positionY: 0"));
 check('Divider applies free-position transform like other elements', builder.includes("element.type === 'divider'") && builder.includes("style={{ ...commonStyle, backgroundColor: 'transparent'"));
 check('Inspector advanced controls are collapsed', builder.includes("Structure & reusable components") && builder.includes("Advanced design & responsive"));
-check('AI builder is optional by default', builder.includes("Build with AI") && builder.includes("Optional"));
+check('AI builder is first-class in the Add panel', builder.includes("Tayar AI Builder") && builder.includes(">V2<") && builder.includes("Build website with AI") && builder.includes("AI creates real Tayar pages and sections"));
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
 check('Layers show elements only for the selected section', builder.includes("Select a section to see its elements.") && builder.includes("selectedId === section.id && (") && builder.includes("setInspectorOpen(true)"));
 check('Legacy array backups use a valid default language', builder.includes("if (Array.isArray(input) && input.length)") && builder.includes("showInNavigation: true, language: 'en', translationKey: 'home'"));
