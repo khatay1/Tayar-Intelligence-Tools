@@ -479,6 +479,8 @@ export class AIService {
           jsonMode: true,
           temperature,
           maxTokens,
+          ...(typeof input.action === 'string' ? { action: input.action } : {}),
+          ...(typeof input.prompt === 'string' ? { prompt: input.prompt } : {}),
         }),
         signal: AbortSignal.timeout(90_000),
       });
