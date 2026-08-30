@@ -88,14 +88,27 @@ interface AIWebsitePatchChanges {
 }
 
 interface AIWebsitePatchOperation {
-  action: 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site';
+  action: 'update_section' | 'add_section' | 'remove_section' | 'update_page' | 'restyle_site' | 'update_site' | 'generate_image';
   pageId?: string;
   pageSlug?: string;
   sectionId?: string;
   sectionType?: SectionType;
   afterSectionId?: string;
+  prompt?: string;
+  placement?: 'section_background' | 'section_image' | 'image_element';
   changes?: AIWebsitePatchChanges;
   section?: Partial<WebsiteSection> & Pick<WebsiteSection, 'type'>;
+}
+
+interface AIQualityReview {
+  score: number;
+  summary: string;
+  findings: Array<{
+    severity: 'critical' | 'warning' | 'improvement';
+    title: string;
+    detail: string;
+  }>;
+  fixPrompt: string;
 }
 
 interface AIWebsitePatch {
@@ -3102,6 +3115,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     },
   ]);
   const [aiUndoSnapshot, setAiUndoSnapshot] = useState<AIWebsiteUndoSnapshot | null>(null);
+  const [aiQualityReview, setAiQualityReview] = useState<AIQualityReview | null>(null);
+  const [aiQualityBusy, setAiQualityBusy] = useState(false);
+  const [aiQualityOpen, setAiQualityOpen] = useState(false);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -3428,7 +3444,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (parsed.seo) setSeo(parsed.seo);
       setHistory([]);
       setFuture([]);
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
+      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
       setSaved(false);
       return;
     }
@@ -3465,7 +3481,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (parsed.seo) setSeo(parsed.seo);
       setHistory([]);
       setFuture([]);
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
+      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
       setSaved(false);
     }
   }
@@ -5646,11 +5662,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setDragOverId(null);
     setDragOverSectionPosition(null);
   }
-  async function generateWithAI() {
+  function pushProjectCheckpoint(label: string, snapshot: Record<string, unknown> = buildProjectSnapshot()) {
+    const savedAt = new Date().toISOString();
+    const entry: ProjectHistoryEntry = {
+      id: `history-ai-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      savedAt,
+      label,
+      snapshot: { ...snapshot, updatedAt: savedAt },
+    };
+    setProjectHistory((current) => [entry, ...current].slice(0, 30));
+  }
+
+  async function requestGeneratedImage(prompt: string) {
+    const cleanPrompt = prompt.trim();
+    if (!cleanPrompt) throw new Error('Image prompt is required.');
+    const ai = createAIService('website-builder');
+    const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean }>(
+      { action: 'generate-image', prompt: cleanPrompt },
+      [],
+      { temperature: 0.8, maxTokens: 1000 },
+    );
+    if (!response.json?.url) throw new Error('Image generation did not return an image.');
+    if (user) void refreshMedia();
+    return response.json;
+  }
+
+  async function generateWithAI(agentMode = false) {
     const prompt = aiPrompt.trim();
     if (!prompt || aiBusy) return;
 
     const requestId = `ai-request-${Date.now()}`;
+    pushProjectCheckpoint(agentMode ? 'Before Tayar Agent build' : 'Before AI build');
     setAiBusy(true);
     setAiError('');
     setAiStage('planning');
@@ -5662,7 +5704,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try {
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', prompt },
+        { action: 'generate', prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
         [],
         { temperature: 0.65, maxTokens: 9000 },
       );
@@ -5706,7 +5748,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const maxGeneratedPages = Math.max(1, Math.min(6, billingEntitlements.maxPages || 1));
       const usedSlugs = new Set<string>();
 
-      const nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
+      let nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
         const normalizedSections = (page.sections || [])
           .filter((section) => allowedTypes.has(section.type))
           .slice(0, 8)
@@ -5749,6 +5791,54 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('AI did not return usable pages or sections. Please try again.');
       }
 
+      let agentImagesGenerated = 0;
+      if (agentMode) {
+        setAiStage('styling');
+        const visualTargets: Array<{ pageIndex: number; sectionIndex: number; prompt: string }> = [];
+        nextPages.forEach((page, pageIndex) => {
+          page.sections.forEach((section, sectionIndex) => {
+            if (visualTargets.length >= 2) return;
+            if ((section.type === 'hero' || section.type === 'about' || section.type === 'services') && section.imagePrompt?.trim()) {
+              visualTargets.push({ pageIndex, sectionIndex, prompt: section.imagePrompt.trim() });
+            }
+          });
+        });
+
+        for (const target of visualTargets) {
+          try {
+            const generatedImage = await requestGeneratedImage(target.prompt);
+            const page = nextPages[target.pageIndex];
+            const section = page?.sections[target.sectionIndex];
+            if (!section) continue;
+            const nextSection: WebsiteSection = section.type === 'hero'
+              ? {
+                  ...section,
+                  image: generatedImage.url,
+                  backgroundMode: 'image',
+                  backgroundImage: generatedImage.url,
+                  backgroundPosition: 'center',
+                  backgroundSize: 'cover',
+                  overlayColor: '#000000',
+                  overlayOpacity: 0.42,
+                }
+              : {
+                  ...section,
+                  image: generatedImage.url,
+                  elements: section.elements.some((element) => element.type === 'image')
+                    ? section.elements.map((element) => element.type === 'image' ? { ...element, src: generatedImage.url, content: section.title || 'Generated image' } : element)
+                    : [...section.elements, { ...createElement('image', section.accent), src: generatedImage.url, content: section.title || 'Generated image' }],
+                };
+            nextPages = nextPages.map((candidate, pageIndex) => pageIndex === target.pageIndex
+              ? { ...candidate, sections: candidate.sections.map((candidateSection, sectionIndex) => sectionIndex === target.sectionIndex ? nextSection : candidateSection) }
+              : candidate
+            );
+            agentImagesGenerated += 1;
+          } catch {
+            // Agent image generation is best-effort; the site remains fully editable if the image provider is unavailable.
+          }
+        }
+      }
+
       const firstPage = nextPages[0];
       const totalSections = nextPages.reduce((sum, page) => sum + page.sections.length, 0);
       const summary = generated.summary?.trim() || `${nextPages.length} page website with ${totalSections} structured sections.`;
@@ -5767,8 +5857,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       setAiStage('styling');
       const tone = generated.style?.tone?.toLowerCase() || 'modern';
-      setTheme((current) => normalizeTheme({
-        ...current,
+      const nextGeneratedTheme = normalizeTheme({
+        ...theme,
         primaryColor: generatedAccent,
         secondaryColor: generatedPrimary,
         backgroundColor: generatedPrimary,
@@ -5777,9 +5867,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         contentWidth: tone === 'editorial' ? 1040 : 1120,
         buttonRadius: tone === 'premium' || tone === 'friendly' ? 16 : tone === 'corporate' ? 10 : 12,
         sectionSpacing: tone === 'minimal' || tone === 'premium' ? 104 : 92,
-      }));
-      setHeaderConfig((current) => ({
-        ...current,
+      });
+      const nextGeneratedHeader = {
+        ...headerConfig,
         backgroundColor: generatedPrimary,
         textColor: generatedTextColor,
         activeColor: generatedTextColor,
@@ -5787,11 +5877,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ctaBackgroundColor: generatedAccent,
         ctaTextColor: generatedAccentIsLight ? '#0f172a' : '#ffffff',
         borderColor: generatedSurfaceIsLight ? '#e2e8f0' : '#334155',
-      }));
+      };
+      const nextGeneratedSeo: WebsiteSEO = generated.seo || {
+        ...seo,
+        title: generated.siteName?.trim() || seo.title || 'Website',
+        description: generated.summary?.trim() || seo.description || 'Professional website built with Tayar.',
+        keywords: seo.keywords,
+      };
+      setTheme(nextGeneratedTheme);
+      setHeaderConfig(nextGeneratedHeader);
       if (generated.brand) setBrand(generated.brand);
-      if (generated.seo) setSeo(generated.seo);
+      setSeo(nextGeneratedSeo);
 
+      const finalSiteName = generated.siteName?.trim() || 'My Website';
+      pushProjectCheckpoint(agentMode ? 'After Tayar Agent build' : 'After AI build', {
+        ...buildProjectSnapshot(),
+        siteName: finalSiteName,
+        pages: nextPages,
+        activePageId: firstPage.id,
+        homePageId: firstPage.id,
+        theme: nextGeneratedTheme,
+        headerConfig: nextGeneratedHeader,
+        brand: generated.brand || brand,
+        seo: nextGeneratedSeo,
+      });
       setAiUndoSnapshot(null);
+      setAiQualityReview(null);
       setSaved(false);
       setAiPrompt('');
       setAiStage('ready');
@@ -5800,7 +5911,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-result-${generatedAt}`,
           role: 'assistant' as const,
-          content: `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
+          content: agentMode
+            ? `Tayar Agent prepared ${nextPages.length} page${nextPages.length === 1 ? '' : 's'}, ${totalSections} sections, design system, SEO and ${agentImagesGenerated} generated image${agentImagesGenerated === 1 ? '' : 's'}. ${summary}`
+            : `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
         },
       ].slice(-12));
     } catch (error) {
@@ -6553,7 +6666,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         label: `Saved ${new Date(snapshot.updatedAt).toLocaleString()}`,
         snapshot,
       };
-      historyEntries = [entry, ...projectHistory].slice(0, 10);
+      historyEntries = [entry, ...projectHistory].slice(0, 30);
       setProjectHistory(historyEntries);
     }
 
@@ -6920,7 +7033,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
         setCloudProjectId(null);
-        setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 10) : []);
+        setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(importedProject));
         lastSavedSnapshotRef.current = '';
         setAutoSaveStatus('saved');
