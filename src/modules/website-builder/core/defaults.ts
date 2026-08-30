@@ -1,4 +1,6 @@
 import type {
+  Device,
+  SectionResponsiveStyle,
   SectionType,
   WebsiteBrand,
   WebsiteElement,
@@ -186,6 +188,32 @@ export function createSection(type: SectionType): WebsiteSection {
   return section;
 }
 
+function normalizeSectionResponsiveStyle(value: unknown): SectionResponsiveStyle {
+  const source = value && typeof value === 'object' ? value as Partial<SectionResponsiveStyle> : {};
+  const finite = (candidate: unknown, min: number, max: number) => {
+    const parsed = Number(candidate);
+    return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : undefined;
+  };
+  return {
+    minHeight: finite(source.minHeight, 0, 1200),
+    sectionPaddingY: finite(source.sectionPaddingY, 0, 240),
+    sectionPaddingX: finite(source.sectionPaddingX, 0, 160),
+    layoutGap: finite(source.layoutGap, 0, 80),
+  };
+}
+
+function normalizeSectionResponsive(value: unknown): Partial<Record<Device, SectionResponsiveStyle>> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const source = value as Partial<Record<Device, unknown>>;
+  const result: Partial<Record<Device, SectionResponsiveStyle>> = {};
+  (['desktop', 'tablet', 'mobile'] as Device[]).forEach((device) => {
+    if (!source[device] || typeof source[device] !== 'object') return;
+    const normalized = normalizeSectionResponsiveStyle(source[device]);
+    if (Object.values(normalized).some((entry) => entry !== undefined)) result[device] = normalized;
+  });
+  return Object.keys(result).length ? result : undefined;
+}
+
 export function normalizeSection(section: Partial<WebsiteSection> & Pick<WebsiteSection, 'id' | 'type'>): WebsiteSection {
   const base = createSection(section.type);
   const merged = { ...base, ...section } as WebsiteSection;
@@ -210,6 +238,7 @@ export function normalizeSection(section: Partial<WebsiteSection> & Pick<Website
     layout,
     layoutGap,
     layoutAlign,
+    responsive: normalizeSectionResponsive(section.responsive),
     containers,
     formFields: section.type === 'contact'
       ? (Array.isArray(section.formFields) ? section.formFields : createDefaultContactFormFields())

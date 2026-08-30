@@ -104,6 +104,13 @@ export interface WebsiteElement {
   symbolId?: string;
 }
 
+export interface SectionResponsiveStyle {
+  minHeight?: number;
+  sectionPaddingY?: number;
+  sectionPaddingX?: number;
+  layoutGap?: number;
+}
+
 export interface WebsiteSection {
   id: string;
   type: SectionType;
@@ -136,6 +143,7 @@ export interface WebsiteSection {
   sectionPaddingY?: number;
   sectionPaddingX?: number;
   sectionRadius?: number;
+  responsive?: Partial<Record<Device, SectionResponsiveStyle>>;
   contentWidth?: SectionContentWidth;
   containers?: WebsiteElementContainer[];
   elements: WebsiteElement[];
