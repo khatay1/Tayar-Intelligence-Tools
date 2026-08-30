@@ -311,6 +311,13 @@ Rules:
 - Each page should contain 3-8 relevant sections; Home is usually the richest page.
 - Keep section copy specific to the user's business, audience, location and goal.
 - Reuse a consistent visual direction across all pages.
+- Design with a restrained palette: one dominant surface family plus one accent color. Avoid rainbow sections.
+- Keep section backgrounds in the same contrast family (all predominantly dark or all predominantly light) so typography remains readable and intentional.
+- Create visual rhythm: the hero may be the strongest surface, then alternate subtle shades rather than giving every section the exact same background.
+- Favor generous whitespace, short readable paragraphs, clear heading hierarchy and one obvious primary CTA per section.
+- For premium/minimal sites, avoid excessive gradients, neon colors, heavy borders, tiny text or crowded card grids.
+- Choose accent colors with strong contrast against the dominant background.
+- Home hero copy should be concise: a strong headline, one supporting thought and a specific CTA.
 - Use only the supported section types listed in the schema.
 - Use valid 6-digit hex colors.
 - Use pricing only when it genuinely fits the business.
@@ -318,8 +325,206 @@ Rules:
 - Button URLs should prefer useful anchors such as #contact or page paths such as /services.
 - Avoid placeholder language such as "Lorem ipsum", "Feature 1", or generic AI filler.
 - If the user explicitly asks for one landing page, keep it one page.
-- If a legacy consumer requires "sections", it may derive them from the first page, but "pages" is the source of truth.`,
-    user: (input) => `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nReturn ONLY the JSON object.`,
+- If a legacy consumer requires "sections", it may derive them from the first page, but "pages" is the source of truth.
+- When the user input action is "edit", do NOT return a full website. Return only the patch operations requested by the edit-mode user prompt.`,
+    user: (input) => {
+      const action = input.action as string;
+      if (action === 'image-prompt') {
+        return `Create one excellent production image prompt for this website section.
+
+SECTION:
+${JSON.stringify(input.section || {}, null, 2)}
+
+BRAND:
+${JSON.stringify(input.brand || {}, null, 2)}
+
+Return ONLY valid JSON:
+{
+  "prompt": "a concise but specific photographic or illustrative prompt"
+}
+
+Rules:
+- Match the brand, industry, audience and section purpose.
+- Describe subject, environment, lighting, composition and mood.
+- Avoid text, logos, watermarks and UI screenshots unless explicitly requested.
+- Prefer realistic commercial website imagery unless the section clearly needs illustration.
+- Keep it under 90 words.`;
+      }
+      if (action === 'quality-check') {
+        return `Act as Tayar's final website quality reviewer.
+
+CURRENT WEBSITE:
+${JSON.stringify(input.currentSite || {}, null, 2)}
+
+DETERMINISTIC AUDIT:
+${JSON.stringify(input.audit || {}, null, 2)}
+
+Review design quality, content hierarchy, CTA clarity, imagery, responsive readiness, SEO completeness, accessibility and publish readiness.
+
+Return ONLY valid JSON:
+{
+  "score": 0,
+  "summary": "short final assessment",
+  "findings": [
+    {
+      "severity": "critical|warning|improvement",
+      "title": "short issue",
+      "detail": "specific explanation"
+    }
+  ],
+  "fixPrompt": "one natural-language instruction that Tayar's patch engine can use to fix the safe content/design issues"
+}
+
+Rules:
+- Score from 0-100.
+- Do not invent technical failures that are absent from the supplied audit.
+- Critical means the site should not publish as-is.
+- Keep findings specific and actionable; maximum 8.
+- fixPrompt must preserve unrelated content and must not request deletion of the whole site.
+- Do not claim a real mobile-browser test occurred; assess responsive readiness from the builder structure.`;
+      }
+      if (action === 'edit') {
+        return `Modify the existing Tayar website without rebuilding unrelated content.
+
+CURRENT WEBSITE SNAPSHOT:
+${JSON.stringify(input.currentSite || {}, null, 2)}
+
+USER REQUEST:
+${input.prompt || ''}
+
+Return ONLY valid JSON with this shape:
+{
+  "summary": "short description of what changed",
+  "operations": [
+    {
+      "action": "add_page|remove_page|set_home_page|move_page|update_section|add_section|remove_section|move_section|update_element|update_page|restyle_site|update_site|update_seo|update_header|generate_image",
+      "pageId": "existing page id when applicable",
+      "pageSlug": "existing page slug when applicable",
+      "sectionId": "existing section id when applicable",
+      "sectionType": "hero|features|about|services|pricing|testimonials|contact|footer when applicable",
+      "elementId": "existing element id for update_element",
+      "device": "desktop|tablet|mobile for responsive element changes, optional",
+      "beforePageId": "existing destination page id for move_page, optional",
+      "afterPageId": "existing destination page id for move_page, optional",
+      "beforeSectionId": "existing destination section id for move_section, optional",
+      "afterSectionId": "existing section id for add_section or move_section, optional",
+      "prompt": "image description for generate_image, optional",
+      "placement": "section_background|section_image|image_element for generate_image, optional",
+      "page": {
+        "name": "new page name for add_page",
+        "slug": "new-page-slug",
+        "showInNavigation": true,
+        "sections": [
+          {
+            "type": "hero|features|about|services|pricing|testimonials|contact|footer",
+            "title": "string",
+            "description": "string",
+            "buttonText": "string",
+            "buttonUrl": "string",
+            "background": "#RRGGBB",
+            "accent": "#RRGGBB",
+            "imagePrompt": "optional"
+          }
+        ]
+      },
+      "changes": {
+        "title": "optional",
+        "description": "optional",
+        "buttonText": "optional",
+        "buttonUrl": "optional",
+        "background": "#RRGGBB optional",
+        "accent": "#RRGGBB optional",
+        "image": "optional URL",
+        "imagePrompt": "optional",
+        "name": "optional page/site name",
+        "slug": "optional page slug",
+        "showInNavigation": true,
+        "seoTitle": "optional page SEO title",
+        "seoDescription": "optional page meta description",
+        "canonicalUrl": "optional canonical URL",
+        "noIndex": false,
+        "primaryColor": "#RRGGBB optional",
+        "accentColor": "#RRGGBB optional",
+        "seoKeywords": ["optional", "keywords"],
+        "headerEnabled": true,
+        "showCta": true,
+        "ctaLabel": "optional",
+        "ctaHref": "optional",
+        "elementContent": "optional text/content",
+        "elementHref": "optional link URL",
+        "elementSrc": "optional media URL",
+        "color": "#RRGGBB optional",
+        "elementBackgroundColor": "#RRGGBB optional",
+        "fontSize": 32,
+        "fontWeight": 700,
+        "textAlign": "left|center|right",
+        "padding": 16,
+        "borderRadius": 12,
+        "width": 100,
+        "maxWidth": 720,
+        "marginTop": 0,
+        "marginRight": 0,
+        "marginBottom": 0,
+        "marginLeft": 0,
+        "positionX": 0,
+        "positionY": 0,
+        "hidden": false,
+        "alignSelf": "auto|start|center|end|stretch",
+        "lineHeight": 1.2,
+        "letterSpacing": 0,
+        "opacity": 1,
+        "rotate": 0
+      },
+      "section": {
+        "type": "hero|features|about|services|pricing|testimonials|contact|footer",
+        "title": "string",
+        "description": "string",
+        "buttonText": "string",
+        "buttonUrl": "string",
+        "background": "#RRGGBB",
+        "accent": "#RRGGBB",
+        "imagePrompt": "optional"
+      }
+    }
+  ]
+}
+
+Patch rules:
+- Make the smallest set of operations that fully satisfies the user's request.
+- Preserve all unrelated pages and sections.
+- Prefer exact pageId and sectionId values from the snapshot.
+- For changing text/colors of an existing section, use update_section.
+- For a new page, use add_page with 1-8 supported sections.
+- To remove an existing non-home page, use remove_page with an exact existing pageId or pageSlug.
+- To make an existing page the homepage, use set_home_page with an exact existing pageId or pageSlug.
+- To reorder navigation/pages, use move_page with an exact target pageId and one exact beforePageId or afterPageId.
+- For a new section, use add_section.
+- To reorder sections within a page, use move_section with exact pageId, sectionId and one exact beforeSectionId or afterSectionId.
+- To change one existing element, use update_element with exact pageId, sectionId and elementId.
+- For device-specific changes such as "on mobile", set device to mobile or tablet; desktop/global changes omit device or use desktop.
+- For element width, use percentage values from 10-100 where practical. "Full width on mobile" means width: 100 with device: mobile.
+- Never emulate responsive requests by restyling the whole site when update_element can satisfy them.
+- For section deletion, use remove_section.
+- For renaming/navigation changes, use update_page.
+- For a site-wide visual color change, use restyle_site.
+- For renaming the whole website, use update_site.
+- For global SEO title/description/keywords, use update_seo.
+- For navigation/header CTA fixes, use update_header.
+- For page-specific SEO, canonical URL or indexing settings, use update_page.
+- When the user asks to create, replace or improve a real image, use generate_image with an exact page/section target and a concise visual prompt.
+- Use section_background for hero/banner imagery, image_element when an image element already exists, and section_image for other section artwork.
+- Never invent an existing pageId, sectionId or elementId.
+- Never remove the home page and never remove the final remaining page.
+- Never delete the final section on a page.
+- Do not return a full "pages" replacement in edit mode.
+- If the request asks for translation, return update_page/update_section operations for the affected existing content rather than rebuilding the site.
+- When fixing quality-check findings, prefer safe SEO/header/content operations that the schema supports; do not claim to fix infrastructure or browser-tested issues.
+- Maximum 40 operations.
+
+Return ONLY the patch JSON object.`;
+      }
+      return `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nReturn ONLY the JSON object.`;
+    },
   },
   'ai-chat': {
     system: `You are Tayar, a helpful AI assistant integrated into the Tayar Intelligence Tools platform.

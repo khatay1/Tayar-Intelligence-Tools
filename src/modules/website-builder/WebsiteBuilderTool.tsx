@@ -70,6 +70,65 @@ interface AIWebsiteGeneration {
   sections?: AIWebsitePageGeneration['sections'];
 }
 
+interface AIWebsitePatchChanges {
+  title?: string;
+  description?: string;
+  buttonText?: string;
+  buttonUrl?: string;
+  background?: string;
+  accent?: string;
+  image?: string;
+  imagePrompt?: string;
+  name?: string;
+  slug?: string;
+  showInNavigation?: boolean;
+  primaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
+  noIndex?: boolean;
+  seoKeywords?: string[];
+  headerEnabled?: boolean;
+  showCta?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
+}
+
+interface AIWebsitePatchOperation {
+  action: 'add_page' | 'remove_page' | 'set_home_page' | 'move_page' | 'update_section' | 'add_section' | 'remove_section' | 'move_section' | 'update_page' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
+  pageId?: string;
+  pageSlug?: string;
+  sectionId?: string;
+  sectionType?: SectionType;
+  beforePageId?: string;
+  afterPageId?: string;
+  beforeSectionId?: string;
+  afterSectionId?: string;
+  prompt?: string;
+  placement?: 'section_background' | 'section_image' | 'image_element';
+  page?: AIWebsitePageGeneration;
+  changes?: AIWebsitePatchChanges;
+  section?: Partial<WebsiteSection> & Pick<WebsiteSection, 'type'>;
+}
+
+interface AIQualityReview {
+  score: number;
+  summary: string;
+  findings: Array<{
+    severity: 'critical' | 'warning' | 'improvement';
+    title: string;
+    detail: string;
+  }>;
+  fixPrompt: string;
+}
+
+interface AIWebsitePatch {
+  summary?: string;
+  operations?: AIWebsitePatchOperation[];
+}
+
 type AIBuilderStage = 'idle' | 'planning' | 'building' | 'styling' | 'ready' | 'error';
 
 interface AIBuilderMessage {
@@ -93,6 +152,17 @@ interface WebsitePage {
   language?: Language;
   translationKey?: string;
   noIndex?: boolean;
+}
+
+interface AIWebsiteUndoSnapshot {
+  pages: WebsitePage[];
+  activePageId: string;
+  homePageId: string;
+  siteName: string;
+  brand: WebsiteBrand;
+  seo: WebsiteSEO;
+  theme: WebsiteTheme;
+  headerConfig: WebsiteHeaderConfig;
 }
 
 interface CloudWebsiteProject {
@@ -3058,6 +3128,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       content: 'Describe the website you want. I will plan the pages, build the structure and hand it to the visual editor.',
     },
   ]);
+  const [aiUndoSnapshot, setAiUndoSnapshot] = useState<AIWebsiteUndoSnapshot | null>(null);
+  const [aiQualityReview, setAiQualityReview] = useState<AIQualityReview | null>(null);
+  const [aiQualityBusy, setAiQualityBusy] = useState(false);
+  const [aiQualityOpen, setAiQualityOpen] = useState(false);
   const [history, setHistory] = useState<WebsiteSection[][]>([]);
   const [future, setFuture] = useState<WebsiteSection[][]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -3384,7 +3458,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (parsed.seo) setSeo(parsed.seo);
       setHistory([]);
       setFuture([]);
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
+      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
       setSaved(false);
       return;
     }
@@ -3421,7 +3495,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (parsed.seo) setSeo(parsed.seo);
       setHistory([]);
       setFuture([]);
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 10) : []);
+      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
       setSaved(false);
     }
   }
@@ -5602,11 +5676,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setDragOverId(null);
     setDragOverSectionPosition(null);
   }
-  async function generateWithAI() {
+  function pushProjectCheckpoint(label: string, snapshot: Record<string, unknown> = buildProjectSnapshot()) {
+    const savedAt = new Date().toISOString();
+    const entry: ProjectHistoryEntry = {
+      id: `history-ai-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      savedAt,
+      label,
+      snapshot: { ...snapshot, updatedAt: savedAt },
+    };
+    setProjectHistory((current) => [entry, ...current].slice(0, 30));
+  }
+
+  async function requestGeneratedImage(prompt: string) {
+    const cleanPrompt = prompt.trim();
+    if (!cleanPrompt) throw new Error('Image prompt is required.');
+    const ai = createAIService('website-builder');
+    const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean }>(
+      { action: 'generate-image', prompt: cleanPrompt },
+      [],
+      { temperature: 0.8, maxTokens: 1000 },
+    );
+    if (!response.json?.url) throw new Error('Image generation did not return an image.');
+    if (user) void refreshMedia();
+    return response.json;
+  }
+
+  async function generateWithAI(agentMode = false) {
     const prompt = aiPrompt.trim();
     if (!prompt || aiBusy) return;
 
     const requestId = `ai-request-${Date.now()}`;
+    pushProjectCheckpoint(agentMode ? 'Before Tayar Agent build' : 'Before AI build');
     setAiBusy(true);
     setAiError('');
     setAiStage('planning');
@@ -5618,7 +5718,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try {
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', prompt },
+        { action: 'generate', prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
         [],
         { temperature: 0.65, maxTokens: 9000 },
       );
@@ -5645,11 +5745,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
       ]);
       const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
+      const isLightHex = (value: string) => {
+        const hex = value.replace('#', '');
+        const r = Number.parseInt(hex.slice(0, 2), 16);
+        const g = Number.parseInt(hex.slice(2, 4), 16);
+        const b = Number.parseInt(hex.slice(4, 6), 16);
+        return ((r * 299) + (g * 587) + (b * 114)) / 1000 > 165;
+      };
+      const generatedPrimary = validHex(generated.style?.primaryColor) ? generated.style!.primaryColor! : '#0f172a';
+      const generatedAccent = validHex(generated.style?.accentColor) ? generated.style!.accentColor! : '#7c3aed';
+      const generatedSurfaceIsLight = isLightHex(generatedPrimary);
+      const generatedAccentIsLight = isLightHex(generatedAccent);
+      const generatedTextColor = generatedSurfaceIsLight ? '#0f172a' : '#f8fafc';
+      const generatedMutedTextColor = generatedSurfaceIsLight ? '#475569' : '#cbd5e1';
       const generatedAt = Date.now();
       const maxGeneratedPages = Math.max(1, Math.min(6, billingEntitlements.maxPages || 1));
       const usedSlugs = new Set<string>();
 
-      const nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
+      let nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
         const normalizedSections = (page.sections || [])
           .filter((section) => allowedTypes.has(section.type))
           .slice(0, 8)
@@ -5660,8 +5773,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             description: section.description?.trim() || '',
             buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
             buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
-            background: validHex(section.background) ? section.background! : (validHex(generated.style?.primaryColor) ? generated.style!.primaryColor! : '#0f172a'),
-            accent: validHex(section.accent) ? section.accent! : (validHex(generated.style?.accentColor) ? generated.style!.accentColor! : '#7c3aed'),
+            background: validHex(section.background) ? section.background! : generatedPrimary,
+            accent: validHex(section.accent) ? section.accent! : generatedAccent,
             image: section.image?.trim() || undefined,
             imagePrompt: section.imagePrompt?.trim() || undefined,
           }));
@@ -5692,6 +5805,54 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('AI did not return usable pages or sections. Please try again.');
       }
 
+      let agentImagesGenerated = 0;
+      if (agentMode) {
+        setAiStage('styling');
+        const visualTargets: Array<{ pageIndex: number; sectionIndex: number; prompt: string }> = [];
+        nextPages.forEach((page, pageIndex) => {
+          page.sections.forEach((section, sectionIndex) => {
+            if (visualTargets.length >= 2) return;
+            if ((section.type === 'hero' || section.type === 'about' || section.type === 'services') && section.imagePrompt?.trim()) {
+              visualTargets.push({ pageIndex, sectionIndex, prompt: section.imagePrompt.trim() });
+            }
+          });
+        });
+
+        for (const target of visualTargets) {
+          try {
+            const generatedImage = await requestGeneratedImage(target.prompt);
+            const page = nextPages[target.pageIndex];
+            const section = page?.sections[target.sectionIndex];
+            if (!section) continue;
+            const nextSection: WebsiteSection = section.type === 'hero'
+              ? {
+                  ...section,
+                  image: generatedImage.url,
+                  backgroundMode: 'image',
+                  backgroundImage: generatedImage.url,
+                  backgroundPosition: 'center',
+                  backgroundSize: 'cover',
+                  overlayColor: '#000000',
+                  overlayOpacity: 0.42,
+                }
+              : {
+                  ...section,
+                  image: generatedImage.url,
+                  elements: section.elements.some((element) => element.type === 'image')
+                    ? section.elements.map((element) => element.type === 'image' ? { ...element, src: generatedImage.url, content: section.title || 'Generated image' } : element)
+                    : [...section.elements, { ...createElement('image', section.accent), src: generatedImage.url, content: section.title || 'Generated image' }],
+                };
+            nextPages = nextPages.map((candidate, pageIndex) => pageIndex === target.pageIndex
+              ? { ...candidate, sections: candidate.sections.map((candidateSection, sectionIndex) => sectionIndex === target.sectionIndex ? nextSection : candidateSection) }
+              : candidate
+            );
+            agentImagesGenerated += 1;
+          } catch {
+            // Agent image generation is best-effort; the site remains fully editable if the image provider is unavailable.
+          }
+        }
+      }
+
       const firstPage = nextPages[0];
       const totalSections = nextPages.reduce((sum, page) => sum + page.sections.length, 0);
       const summary = generated.summary?.trim() || `${nextPages.length} page website with ${totalSections} structured sections.`;
@@ -5709,9 +5870,53 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSiteName(generated.siteName?.trim() || 'My Website');
 
       setAiStage('styling');
+      const tone = generated.style?.tone?.toLowerCase() || 'modern';
+      const nextGeneratedTheme = normalizeTheme({
+        ...theme,
+        primaryColor: generatedAccent,
+        secondaryColor: generatedPrimary,
+        backgroundColor: generatedPrimary,
+        textColor: generatedTextColor,
+        mutedTextColor: generatedMutedTextColor,
+        contentWidth: tone === 'editorial' ? 1040 : 1120,
+        buttonRadius: tone === 'premium' || tone === 'friendly' ? 16 : tone === 'corporate' ? 10 : 12,
+        sectionSpacing: tone === 'minimal' || tone === 'premium' ? 104 : 92,
+      });
+      const nextGeneratedHeader = {
+        ...headerConfig,
+        backgroundColor: generatedPrimary,
+        textColor: generatedTextColor,
+        activeColor: generatedTextColor,
+        hoverColor: generatedAccent,
+        ctaBackgroundColor: generatedAccent,
+        ctaTextColor: generatedAccentIsLight ? '#0f172a' : '#ffffff',
+        borderColor: generatedSurfaceIsLight ? '#e2e8f0' : '#334155',
+      };
+      const nextGeneratedSeo: WebsiteSEO = generated.seo || {
+        ...seo,
+        title: generated.siteName?.trim() || seo.title || 'Website',
+        description: generated.summary?.trim() || seo.description || 'Professional website built with Tayar.',
+        keywords: seo.keywords,
+      };
+      setTheme(nextGeneratedTheme);
+      setHeaderConfig(nextGeneratedHeader);
       if (generated.brand) setBrand(generated.brand);
-      if (generated.seo) setSeo(generated.seo);
+      setSeo(nextGeneratedSeo);
 
+      const finalSiteName = generated.siteName?.trim() || 'My Website';
+      pushProjectCheckpoint(agentMode ? 'After Tayar Agent build' : 'After AI build', {
+        ...buildProjectSnapshot(),
+        siteName: finalSiteName,
+        pages: nextPages,
+        activePageId: firstPage.id,
+        homePageId: firstPage.id,
+        theme: nextGeneratedTheme,
+        headerConfig: nextGeneratedHeader,
+        brand: generated.brand || brand,
+        seo: nextGeneratedSeo,
+      });
+      setAiUndoSnapshot(null);
+      setAiQualityReview(null);
       setSaved(false);
       setAiPrompt('');
       setAiStage('ready');
@@ -5720,7 +5925,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-result-${generatedAt}`,
           role: 'assistant' as const,
-          content: `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
+          content: agentMode
+            ? `Tayar Agent prepared ${nextPages.length} page${nextPages.length === 1 ? '' : 's'}, ${totalSections} sections, design system, SEO and ${agentImagesGenerated} generated image${agentImagesGenerated === 1 ? '' : 's'}. ${summary}`
+            : `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
         },
       ].slice(-12));
     } catch (error) {
@@ -5736,48 +5943,665 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
+  function buildAIEditableSnapshot() {
+    return {
+      siteName,
+      activePageId,
+      homePageId,
+      seo: {
+        title: seo.title,
+        description: seo.description,
+        keywords: seo.keywords.slice(0, 20),
+      },
+      header: {
+        enabled: headerConfig.enabled,
+        showCta: headerConfig.showCta,
+        ctaLabel: headerConfig.ctaLabel,
+        ctaHref: headerConfig.ctaHref,
+      },
+      theme: {
+        primaryColor: theme.primaryColor,
+        secondaryColor: theme.secondaryColor,
+        backgroundColor: theme.backgroundColor,
+        textColor: theme.textColor,
+        mutedTextColor: theme.mutedTextColor,
+        fontFamily: theme.fontFamily,
+        contentWidth: theme.contentWidth,
+        buttonRadius: theme.buttonRadius,
+        sectionSpacing: theme.sectionSpacing,
+      },
+      pages: getCurrentPages().map((page) => ({
+        id: page.id,
+        name: page.name,
+        slug: page.slug,
+        showInNavigation: page.showInNavigation,
+        seoTitle: page.seoTitle || '',
+        seoDescription: page.seoDescription || '',
+        canonicalUrl: page.canonicalUrl || '',
+        noIndex: page.noIndex === true,
+        sections: page.sections.map((section) => ({
+          id: section.id,
+          type: section.type,
+          title: section.title,
+          description: section.description,
+          buttonText: section.buttonText,
+          buttonUrl: section.buttonUrl,
+          background: section.background,
+          accent: section.accent,
+          image: section.image,
+          imagePrompt: section.imagePrompt,
+          backgroundMode: section.backgroundMode,
+          layout: section.layout,
+          elements: section.elements.slice(0, 12).map((element) => ({
+            id: element.id,
+            type: element.type,
+            content: element.content,
+            href: element.href,
+            src: element.src,
+            responsiveModes: Object.keys(element.responsive || {}),
+          })),
+        })),
+      })),
+    };
+  }
+
+  function undoLastAIChange() {
+    if (!aiUndoSnapshot || aiBusy) return;
+    const snapshot = aiUndoSnapshot;
+    const restoredPages = JSON.parse(JSON.stringify(snapshot.pages)) as WebsitePage[];
+    const restoredActive = restoredPages.find((page) => page.id === snapshot.activePageId) || restoredPages[0];
+    setPages(restoredPages);
+    setActivePageId(restoredActive?.id || snapshot.activePageId);
+    setHomePageId(snapshot.homePageId);
+    setSections(restoredActive?.sections || []);
+    setSelectedId(restoredActive?.sections[0]?.id ?? null);
+    setSelectedElementId(restoredActive?.sections[0]?.elements[0]?.id ?? null);
+    setSiteName(snapshot.siteName);
+    setBrand(snapshot.brand);
+    setSeo(snapshot.seo);
+    setTheme(snapshot.theme);
+    setHeaderConfig(snapshot.headerConfig);
+    setAiUndoSnapshot(null);
+    setAiStage('ready');
+    setSaved(false);
+    setAiMessages((current) => [
+      ...current,
+      { id: `ai-undo-${Date.now()}`, role: 'assistant' as const, content: 'Reverted the last AI change.' },
+    ].slice(-12));
+  }
+
+  async function applyAIChange(requestedPrompt?: string) {
+    const prompt = typeof requestedPrompt === 'string' ? requestedPrompt.trim() : aiPrompt.trim();
+    if (!prompt || aiBusy) return;
+
+    const requestId = `ai-edit-${Date.now()}`;
+    pushProjectCheckpoint(`Before AI change · ${prompt.slice(0, 60)}`);
+    const currentPages = getCurrentPages();
+    const snapshot: AIWebsiteUndoSnapshot = {
+      pages: JSON.parse(JSON.stringify(currentPages)) as WebsitePage[],
+      activePageId,
+      homePageId,
+      siteName,
+      brand: JSON.parse(JSON.stringify(brand)) as WebsiteBrand,
+      seo: JSON.parse(JSON.stringify(seo)) as WebsiteSEO,
+      theme: JSON.parse(JSON.stringify(theme)) as WebsiteTheme,
+      headerConfig: JSON.parse(JSON.stringify(headerConfig)) as WebsiteHeaderConfig,
+    };
+
+    setAiBusy(true);
+    setAiError('');
+    setAiStage('planning');
+    setAiMessages((current) => [
+      ...current,
+      { id: requestId, role: 'user' as const, content: prompt },
+    ].slice(-12));
+
+    try {
+      const ai = createAIService('website-builder');
+      const response = await ai.completeJSON<AIWebsitePatch>(
+        {
+          action: 'edit',
+          prompt,
+          currentSite: buildAIEditableSnapshot(),
+        },
+        aiMessages.slice(-6).map((message) => ({ role: message.role, content: message.content })),
+        { temperature: 0.35, maxTokens: 9000 },
+      );
+
+      let patch = response.json;
+      if (!patch && response.content) {
+        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        patch = JSON.parse(cleaned) as AIWebsitePatch;
+      }
+
+      const operations = Array.isArray(patch?.operations) ? patch.operations.slice(0, 40) : [];
+      if (!patch || operations.length === 0) {
+        throw new Error('AI did not return any safe website changes. Try a more specific request.');
+      }
+
+      setAiStage('building');
+
+      const allowedTypes = new Set<SectionType>([
+        'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
+      ]);
+      const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
+      const normalizeSlugValue = (value: string) => value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      const updateSectionContent = (section: WebsiteSection, changes: AIWebsitePatchChanges): WebsiteSection => {
+        const next: WebsiteSection = {
+          ...section,
+          title: typeof changes.title === 'string' ? changes.title.trim() : section.title,
+          description: typeof changes.description === 'string' ? changes.description.trim() : section.description,
+          buttonText: typeof changes.buttonText === 'string' ? changes.buttonText.trim() : section.buttonText,
+          buttonUrl: typeof changes.buttonUrl === 'string' ? changes.buttonUrl.trim() : section.buttonUrl,
+          background: validHex(changes.background) ? changes.background! : section.background,
+          accent: validHex(changes.accent) ? changes.accent! : section.accent,
+          image: typeof changes.image === 'string' ? changes.image.trim() || undefined : section.image,
+          imagePrompt: typeof changes.imagePrompt === 'string' ? changes.imagePrompt.trim() || undefined : section.imagePrompt,
+        };
+
+        return {
+          ...next,
+          elements: section.elements.map((element) => {
+            if (changes.title !== undefined && element.type === 'heading') {
+              return { ...element, content: next.title };
+            }
+            if (changes.description !== undefined && element.type === 'text') {
+              return { ...element, content: next.description };
+            }
+            if (element.type === 'button') {
+              return {
+                ...element,
+                content: changes.buttonText !== undefined ? next.buttonText : element.content,
+                href: changes.buttonUrl !== undefined ? next.buttonUrl : element.href,
+                style: changes.accent !== undefined
+                  ? { ...element.style, backgroundColor: next.accent }
+                  : element.style,
+              };
+            }
+            return element;
+          }),
+        };
+      };
+
+      let nextPages = JSON.parse(JSON.stringify(currentPages)) as WebsitePage[];
+      let nextSiteName = siteName;
+      let nextHomePageId = homePageId;
+      let nextTheme = { ...theme };
+      let nextSeo: WebsiteSEO = { ...seo, keywords: [...seo.keywords] };
+      let nextHeaderConfig: WebsiteHeaderConfig = { ...headerConfig };
+      let applied = 0;
+
+      const resolvePageIndex = (operation: AIWebsitePatchOperation) => {
+        if (operation.pageId) {
+          const index = nextPages.findIndex((page) => page.id === operation.pageId);
+          if (index >= 0) return index;
+        }
+        if (operation.pageSlug) {
+          const slug = normalizeSlugValue(operation.pageSlug);
+          const index = nextPages.findIndex((page) => normalizeSlugValue(page.slug) === slug);
+          if (index >= 0) return index;
+        }
+        return nextPages.findIndex((page) => page.id === activePageId);
+      };
+
+      const resolveSectionIndex = (page: WebsitePage, operation: AIWebsitePatchOperation) => {
+        if (operation.sectionId) {
+          const index = page.sections.findIndex((section) => section.id === operation.sectionId);
+          if (index >= 0) return index;
+        }
+        if (operation.sectionType && allowedTypes.has(operation.sectionType)) {
+          return page.sections.findIndex((section) => section.type === operation.sectionType);
+        }
+        return -1;
+      };
+
+      for (const operation of operations) {
+        if (!operation || typeof operation.action !== 'string') continue;
+
+        if (operation.action === 'add_page') {
+          const sourcePage = operation.page;
+          if (!sourcePage || nextPages.length >= billingEntitlements.maxPages) continue;
+          const sourceSections = Array.isArray(sourcePage.sections) ? sourcePage.sections : [];
+          const normalizedSections = sourceSections
+            .filter((section) => section && allowedTypes.has(section.type))
+            .slice(0, 8)
+            .map((section, sectionIndex) => normalizeSection({
+              ...section,
+              id: `${section.type}-ai-page-${Date.now()}-${sectionIndex}-${Math.random().toString(36).slice(2, 7)}`,
+              type: section.type,
+              title: section.title?.trim() || SECTION_LABELS[section.type],
+              description: section.description?.trim() || '',
+              buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
+              buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
+              background: validHex(section.background) ? section.background! : nextTheme.backgroundColor || '#0f172a',
+              accent: validHex(section.accent) ? section.accent! : nextTheme.primaryColor || '#7c3aed',
+              image: section.image?.trim() || undefined,
+              imagePrompt: section.imagePrompt?.trim() || undefined,
+            }));
+          if (!normalizedSections.length) continue;
+          const pageName = sourcePage.name?.trim().slice(0, 60) || `Page ${nextPages.length + 1}`;
+          const requestedSlug = normalizeSlugValue(sourcePage.slug || pageName) || `page-${nextPages.length + 1}`;
+          nextPages.push({
+            id: `page-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: pageName,
+            slug: requestedSlug,
+            sections: normalizedSections,
+            showInNavigation: sourcePage.showInNavigation !== false,
+            language: prefs.language,
+            translationKey: '',
+            seoTitle: '',
+            seoDescription: '',
+            canonicalUrl: '',
+            noIndex: false,
+          });
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'remove_page') {
+          if (nextPages.length <= 1 || (!operation.pageId && !operation.pageSlug)) continue;
+          const pageIndex = resolvePageIndex(operation);
+          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+          const targetPage = nextPages[pageIndex];
+          if (targetPage.id === nextHomePageId) continue;
+          nextPages.splice(pageIndex, 1);
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'set_home_page') {
+          if (!operation.pageId && !operation.pageSlug) continue;
+          const pageIndex = resolvePageIndex(operation);
+          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+          const targetPage = nextPages[pageIndex];
+          if (targetPage.id !== nextHomePageId) {
+            nextHomePageId = targetPage.id;
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'move_page') {
+          if (!operation.pageId || (!operation.beforePageId && !operation.afterPageId)) continue;
+          const sourceIndex = nextPages.findIndex((page) => page.id === operation.pageId);
+          if (sourceIndex < 0) continue;
+          const sourcePage = nextPages[sourceIndex];
+          const withoutSource = nextPages.filter((page) => page.id !== sourcePage.id);
+          const destinationId = operation.beforePageId || operation.afterPageId || '';
+          const destinationIndex = withoutSource.findIndex((page) => page.id === destinationId);
+          if (destinationIndex < 0) continue;
+          const insertAt = destinationIndex + (operation.afterPageId ? 1 : 0);
+          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourcePage);
+          nextPages = withoutSource;
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_site') {
+          const changes = operation.changes || {};
+          if (typeof changes.name === 'string' && changes.name.trim()) {
+            nextSiteName = changes.name.trim().slice(0, 100);
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'update_seo') {
+          const changes = operation.changes || {};
+          const nextTitle = typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : nextSeo.title;
+          const nextDescription = typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : nextSeo.description;
+          const nextKeywords = Array.isArray(changes.seoKeywords)
+            ? changes.seoKeywords.map((keyword) => String(keyword).trim()).filter(Boolean).slice(0, 20)
+            : nextSeo.keywords;
+          if (nextTitle !== nextSeo.title || nextDescription !== nextSeo.description || JSON.stringify(nextKeywords) !== JSON.stringify(nextSeo.keywords)) {
+            nextSeo = { title: nextTitle, description: nextDescription, keywords: nextKeywords };
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'update_header') {
+          const changes = operation.changes || {};
+          const next = {
+            ...nextHeaderConfig,
+            enabled: typeof changes.headerEnabled === 'boolean' ? changes.headerEnabled : nextHeaderConfig.enabled,
+            showCta: typeof changes.showCta === 'boolean' ? changes.showCta : nextHeaderConfig.showCta,
+            ctaLabel: typeof changes.ctaLabel === 'string' ? changes.ctaLabel.trim().slice(0, 80) : nextHeaderConfig.ctaLabel,
+            ctaHref: typeof changes.ctaHref === 'string' ? changes.ctaHref.trim().slice(0, 500) : nextHeaderConfig.ctaHref,
+          };
+          if (JSON.stringify(next) !== JSON.stringify(nextHeaderConfig)) {
+            nextHeaderConfig = next;
+            applied += 1;
+          }
+          continue;
+        }
+
+        if (operation.action === 'restyle_site') {
+          const changes = operation.changes || {};
+          const backgroundColor = validHex(changes.backgroundColor)
+            ? changes.backgroundColor!
+            : validHex(changes.primaryColor)
+              ? changes.primaryColor!
+              : undefined;
+          const accentColor = validHex(changes.accentColor) ? changes.accentColor! : undefined;
+
+          if (!backgroundColor && !accentColor) continue;
+
+          nextPages = nextPages.map((page) => ({
+            ...page,
+            sections: page.sections.map((section) => {
+              const restyled = {
+                ...section,
+                background: backgroundColor || section.background,
+                accent: accentColor || section.accent,
+              };
+              return {
+                ...restyled,
+                elements: section.elements.map((element) => element.type === 'button' && accentColor
+                  ? { ...element, style: { ...element.style, backgroundColor: accentColor } }
+                  : element
+                ),
+              };
+            }),
+          }));
+
+          nextTheme = {
+            ...nextTheme,
+            backgroundColor: backgroundColor || nextTheme.backgroundColor,
+            secondaryColor: backgroundColor || nextTheme.secondaryColor,
+            primaryColor: accentColor || nextTheme.primaryColor,
+          };
+          applied += 1;
+          continue;
+        }
+
+        const pageIndex = resolvePageIndex(operation);
+        if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
+        const page = nextPages[pageIndex];
+
+        if (operation.action === 'update_page') {
+          const changes = operation.changes || {};
+          const nextName = typeof changes.name === 'string' && changes.name.trim()
+            ? changes.name.trim().slice(0, 60)
+            : page.name;
+          const requestedSlug = typeof changes.slug === 'string' ? normalizeSlugValue(changes.slug) : '';
+          const nextSlug = requestedSlug || page.slug;
+          nextPages[pageIndex] = {
+            ...page,
+            name: nextName,
+            slug: nextSlug,
+            showInNavigation: typeof changes.showInNavigation === 'boolean'
+              ? changes.showInNavigation
+              : page.showInNavigation,
+            seoTitle: typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : page.seoTitle,
+            seoDescription: typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : page.seoDescription,
+            canonicalUrl: typeof changes.canonicalUrl === 'string' ? changes.canonicalUrl.trim().slice(0, 500) : page.canonicalUrl,
+            noIndex: typeof changes.noIndex === 'boolean' ? changes.noIndex : page.noIndex,
+          };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'move_section') {
+          if (!operation.sectionId || (!operation.beforeSectionId && !operation.afterSectionId)) continue;
+          const sourceIndex = page.sections.findIndex((section) => section.id === operation.sectionId);
+          if (sourceIndex < 0) continue;
+          const sourceSection = page.sections[sourceIndex];
+          const withoutSource = page.sections.filter((section) => section.id !== sourceSection.id);
+          const destinationId = operation.beforeSectionId || operation.afterSectionId || '';
+          const destinationIndex = withoutSource.findIndex((section) => section.id === destinationId);
+          if (destinationIndex < 0) continue;
+          const insertAt = destinationIndex + (operation.afterSectionId ? 1 : 0);
+          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourceSection);
+          nextPages[pageIndex] = { ...page, sections: withoutSource };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'add_section') {
+          const source = operation.section;
+          if (!source || !allowedTypes.has(source.type) || page.sections.length >= 20) continue;
+          const created = normalizeSection({
+            ...source,
+            id: `${source.type}-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            type: source.type,
+            title: source.title?.trim() || SECTION_LABELS[source.type],
+            description: source.description?.trim() || '',
+            buttonText: source.type === 'footer' ? '' : (source.buttonText?.trim() || 'Learn More'),
+            buttonUrl: source.type === 'footer' ? '' : (source.buttonUrl?.trim() || '#contact'),
+            background: validHex(source.background) ? source.background! : page.sections[0]?.background || '#0f172a',
+            accent: validHex(source.accent) ? source.accent! : page.sections[0]?.accent || '#7c3aed',
+            image: source.image?.trim() || undefined,
+            imagePrompt: source.imagePrompt?.trim() || undefined,
+          });
+          const sectionList = [...page.sections];
+          const requestedAfter = operation.afterSectionId
+            ? sectionList.findIndex((section) => section.id === operation.afterSectionId)
+            : -1;
+          const footerIndex = sectionList.findIndex((section) => section.type === 'footer');
+          const insertAt = requestedAfter >= 0
+            ? requestedAfter + 1
+            : footerIndex >= 0
+              ? footerIndex
+              : sectionList.length;
+          sectionList.splice(insertAt, 0, created);
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+          continue;
+        }
+
+        const sectionIndex = resolveSectionIndex(page, operation);
+        if (sectionIndex < 0 || sectionIndex >= page.sections.length) continue;
+
+        if (operation.action === 'generate_image') {
+          const sectionList = [...page.sections];
+          const targetSection = sectionList[sectionIndex];
+          const imagePrompt = operation.prompt?.trim() || targetSection.imagePrompt?.trim() || `${targetSection.title}. Professional website image for ${siteName}.`;
+          try {
+            const generatedImage = await requestGeneratedImage(imagePrompt);
+            const placement = operation.placement || (targetSection.type === 'hero' ? 'section_background' : 'section_image');
+            if (placement === 'section_background') {
+              sectionList[sectionIndex] = {
+                ...targetSection,
+                image: generatedImage.url,
+                imagePrompt,
+                backgroundMode: 'image',
+                backgroundImage: generatedImage.url,
+                backgroundPosition: 'center',
+                backgroundSize: 'cover',
+                overlayColor: '#000000',
+                overlayOpacity: targetSection.type === 'hero' ? 0.42 : 0.3,
+              };
+            } else {
+              const existingImageIndex = targetSection.elements.findIndex((element) => element.type === 'image');
+              const nextElements = [...targetSection.elements];
+              if (existingImageIndex >= 0) {
+                nextElements[existingImageIndex] = {
+                  ...nextElements[existingImageIndex],
+                  src: generatedImage.url,
+                  content: targetSection.title || 'Generated image',
+                };
+              } else {
+                nextElements.push({
+                  ...createElement('image', targetSection.accent),
+                  src: generatedImage.url,
+                  content: targetSection.title || 'Generated image',
+                });
+              }
+              sectionList[sectionIndex] = {
+                ...targetSection,
+                image: generatedImage.url,
+                imagePrompt,
+                elements: nextElements,
+              };
+            }
+            nextPages[pageIndex] = { ...page, sections: sectionList };
+            applied += 1;
+          } catch {
+            // A failed image provider should not discard other safe patch operations in the same request.
+          }
+          continue;
+        }
+
+        if (operation.action === 'remove_section') {
+          if (page.sections.length <= 1) continue;
+          nextPages[pageIndex] = {
+            ...page,
+            sections: page.sections.filter((_, index) => index !== sectionIndex),
+          };
+          applied += 1;
+          continue;
+        }
+
+        if (operation.action === 'update_section') {
+          const changes = operation.changes || {};
+          const sectionList = [...page.sections];
+          sectionList[sectionIndex] = updateSectionContent(sectionList[sectionIndex], changes);
+          nextPages[pageIndex] = { ...page, sections: sectionList };
+          applied += 1;
+        }
+      }
+
+      if (applied === 0) {
+        throw new Error('AI changes could not be matched safely to this website. Try naming the page or section more clearly.');
+      }
+
+      setAiStage('styling');
+
+      const activeAfterPatch = nextPages.find((page) => page.id === activePageId) || nextPages[0];
+      const usedSlugs = new Set<string>();
+      nextPages = nextPages.map((page, index) => {
+        const baseSlug = normalizeSlugValue(page.slug || page.name) || `page-${index + 1}`;
+        let slug = baseSlug;
+        let suffix = 2;
+        while (usedSlugs.has(slug)) {
+          slug = `${baseSlug}-${suffix}`;
+          suffix += 1;
+        }
+        usedSlugs.add(slug);
+        return { ...page, slug };
+      });
+
+      const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
+      setAiUndoSnapshot(snapshot);
+      setPages(nextPages);
+      setSections(finalActive?.sections || []);
+      setActivePageId(finalActive?.id || activePageId);
+      setHomePageId(nextHomePageId);
+      setSiteName(nextSiteName);
+      setTheme(nextTheme);
+      setSeo(nextSeo);
+      setHeaderConfig(nextHeaderConfig);
+      setSelectedId(finalActive?.sections[0]?.id ?? null);
+      setSelectedElementId(finalActive?.sections[0]?.elements[0]?.id ?? null);
+      setHistory([]);
+      setFuture([]);
+      setSaved(false);
+      setAiPrompt('');
+      setAiQualityReview(null);
+      setAiStage('ready');
+      pushProjectCheckpoint(`After AI change · ${prompt.slice(0, 60)}`, {
+        ...buildProjectSnapshot(),
+        pages: nextPages,
+        activePageId: finalActive?.id || activePageId,
+        homePageId: nextHomePageId,
+        siteName: nextSiteName,
+        theme: nextTheme,
+        seo: nextSeo,
+        headerConfig: nextHeaderConfig,
+      });
+
+      const summary = patch.summary?.trim() || `Applied ${applied} targeted AI change${applied === 1 ? '' : 's'}.`;
+      setAiPlan({
+        summary,
+        pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
+      });
+      setAiMessages((current) => [
+        ...current,
+        {
+          id: `ai-patch-result-${Date.now()}`,
+          role: 'assistant' as const,
+          content: `${summary} Applied ${applied} safe operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.`,
+        },
+      ].slice(-12));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI edit failed.';
+      setAiError(message);
+      setAiStage('error');
+      setAiMessages((current) => [
+        ...current,
+        { id: `ai-patch-error-${Date.now()}`, role: 'assistant' as const, content: message },
+      ].slice(-12));
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   async function generateRealImage() {
     if (!selectedSection || aiBusy) return;
 
     setAiBusy(true);
     setAiError('');
+    pushProjectCheckpoint(`Before AI image · ${selectedSection.title || SECTION_LABELS[selectedSection.type]}`);
 
     try {
-      const ai = createAIService('website-builder');
-
-      const response = await ai.completeJSON<{
-        url: string;
-      }>(
-        {
-          action: 'generate-image',
-          prompt: selectedSection.imagePrompt || selectedSection.image || selectedSection.title,
-          section: selectedSection,
-          brand,
-        },
-        [],
-        { temperature: 0.8, maxTokens: 1000 },
+      const generatedImage = await requestGeneratedImage(
+        selectedSection.imagePrompt || selectedSection.title || `Professional ${selectedSection.type} website image`,
       );
-
-      if (!response.json?.url) {
-        throw new Error('Image generation did not return an image.');
-      }
 
       remember(sections);
 
-      updateSelected({
-        image: response.json.url,
-      });
+      if (selectedElement?.type === 'image') {
+        updateSelectedElement({
+          src: generatedImage.url,
+          content: selectedSection.title || 'Generated image',
+        });
+      } else if (selectedSection.type === 'hero') {
+        updateSelected({
+          image: generatedImage.url,
+          backgroundMode: 'image',
+          backgroundImage: generatedImage.url,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+          overlayColor: '#000000',
+          overlayOpacity: 0.42,
+        });
+      } else {
+        const existingImage = selectedSection.elements.find((element) => element.type === 'image');
+        if (existingImage) {
+          setSelectedElementId(existingImage.id);
+          updateSelectedElement({ src: generatedImage.url, content: selectedSection.title || 'Generated image' });
+        } else {
+          const element: WebsiteElement = {
+            ...createElement('image', selectedSection.accent),
+            src: generatedImage.url,
+            content: selectedSection.title || 'Generated image',
+          };
+          setSections((current) => current.map((section) =>
+            section.id === selectedSection.id
+              ? { ...section, image: generatedImage.url, elements: [...section.elements, element] }
+              : section
+          ));
+          setSelectedElementId(element.id);
+          setSaved(false);
+        }
+      }
 
+      setAiMessages((current) => [
+        ...current,
+        { id: `ai-image-${Date.now()}`, role: 'assistant' as const, content: 'Generated the image, saved it to Media Library and applied it to the selected section.' },
+      ].slice(-12));
     } catch (error) {
-      setAiError(
-        error instanceof Error
-          ? error.message
-          : 'Image generation failed.'
-      );
+      setAiError(error instanceof Error ? error.message : 'Image generation failed.');
     } finally {
       setAiBusy(false);
     }
   }
+
   async function generateImagePrompt() {
     if (!selectedSection || aiBusy) return;
 
@@ -5817,6 +6641,75 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAiBusy(false);
     }
   }
+  async function runAIQualityCheck(): Promise<AIQualityReview | null> {
+    if (aiQualityBusy || aiBusy) return aiQualityReview;
+    setAiQualityBusy(true);
+    setAiQualityOpen(true);
+    setAiError('');
+
+    try {
+      const ai = createAIService('website-builder');
+      const response = await ai.completeJSON<AIQualityReview>(
+        {
+          action: 'quality-check',
+          currentSite: buildAIEditableSnapshot(),
+          audit: {
+            score: siteAudit.score,
+            errors: siteAudit.errors,
+            warnings: siteAudit.warnings,
+            diagnostics: qualityDiagnostics,
+            deviceModes: ['desktop', 'tablet', 'mobile'],
+          },
+        },
+        [],
+        { temperature: 0.25, maxTokens: 5000 },
+      );
+
+      let review = response.json;
+      if (!review && response.content) {
+        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        review = JSON.parse(cleaned) as AIQualityReview;
+      }
+      if (!review) throw new Error('AI quality check returned no review.');
+
+      const normalized: AIQualityReview = {
+        score: Math.max(0, Math.min(100, Number(review.score) || 0)),
+        summary: String(review.summary || 'Quality review completed.').slice(0, 500),
+        findings: Array.isArray(review.findings)
+          ? review.findings.slice(0, 8).map((finding) => ({
+              severity: finding.severity === 'critical' || finding.severity === 'warning' ? finding.severity : 'improvement',
+              title: String(finding.title || 'Website improvement').slice(0, 120),
+              detail: String(finding.detail || '').slice(0, 500),
+            }))
+          : [],
+        fixPrompt: String(review.fixPrompt || '').slice(0, 5000),
+      };
+      setAiQualityReview(normalized);
+      return normalized;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI quality check failed.';
+      setAiError(message);
+      setAiQualityReview({
+        score: siteAudit.score,
+        summary: 'Automated builder audit is available, but the AI review could not complete.',
+        findings: [
+          ...siteAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: 'Publish blocker', detail })),
+          ...siteAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: 'Recommended improvement', detail })),
+        ].slice(0, 8),
+        fixPrompt: '',
+      });
+      return null;
+    } finally {
+      setAiQualityBusy(false);
+    }
+  }
+
+  async function fixAIQualityIssues() {
+    if (!aiQualityReview?.fixPrompt || aiBusy) return;
+    setAiQualityOpen(false);
+    await applyAIChange(aiQualityReview.fixPrompt);
+  }
+
   const refreshPublishVersions = useCallback(async () => {
     if (!user || !cloudProjectId) {
       setPublishVersions([]);
@@ -6105,7 +6998,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         label: `Saved ${new Date(snapshot.updatedAt).toLocaleString()}`,
         snapshot,
       };
-      historyEntries = [entry, ...projectHistory].slice(0, 10);
+      historyEntries = [entry, ...projectHistory].slice(0, 30);
       setProjectHistory(historyEntries);
     }
 
@@ -6472,7 +7365,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
         setCloudProjectId(null);
-        setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 10) : []);
+        setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(importedProject));
         lastSavedSnapshotRef.current = '';
         setAutoSaveStatus('saved');
@@ -7587,6 +8480,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <ExternalLink className="h-4 w-4" />{l('Preview')}</button>
 
           <button
+            onClick={() => void runAIQualityCheck()}
+            disabled={aiQualityBusy || aiBusy}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${aiQualityReview && aiQualityReview.score >= 80 ? 'border-emerald-500/30 text-emerald-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+            title={l('AI quality check before publishing')}
+          >
+            <Check className="h-4 w-4" />
+            {aiQualityBusy ? l('Checking…') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}
+          </button>
+
+          <button
             onClick={() => void saveProject()}
             disabled={cloudBusy}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${darkMode ? 'border-white/10 text-gray-200 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
@@ -7625,6 +8528,48 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         </div>
       )}
 
+      {aiQualityOpen && (
+        <div className={`border-b px-4 py-3 ${darkMode ? 'border-emerald-500/15 bg-[#07140f]' : 'border-emerald-200 bg-emerald-50/50'}`}>
+          <div className="mx-auto flex max-w-6xl flex-col gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-2 text-xs font-bold">
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  {l('AI Quality Check')}
+                  {aiQualityReview && <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${aiQualityReview.score >= 80 ? 'bg-emerald-500/10 text-emerald-400' : aiQualityReview.score >= 60 ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'}`}>{aiQualityReview.score}/100</span>}
+                </p>
+                <p className="mt-1 text-[10px] text-gray-500">{aiQualityReview?.summary || (aiQualityBusy ? l('Reviewing design, content, SEO, accessibility and publish readiness…') : l('Run the final AI review before publishing.'))}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => void runAIQualityCheck()} disabled={aiQualityBusy || aiBusy} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{aiQualityBusy ? l('Checking…') : l('Run again')}</button>
+                <button onClick={() => setAiQualityOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
+              </div>
+            </div>
+
+            {aiQualityReview && (
+              <>
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  {aiQualityReview.findings.map((finding, index) => (
+                    <article key={`${finding.title}-${index}`} className={`rounded-xl border p-3 ${darkMode ? 'border-white/[0.07] bg-white/[0.025]' : 'border-gray-200 bg-white'}`}>
+                      <span className={`text-[8px] font-black uppercase tracking-wider ${finding.severity === 'critical' ? 'text-rose-400' : finding.severity === 'warning' ? 'text-amber-400' : 'text-sky-400'}`}>{finding.severity}</span>
+                      <p className="mt-1 text-[10px] font-bold">{finding.title}</p>
+                      <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{finding.detail}</p>
+                    </article>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {aiQualityReview.fixPrompt && (
+                    <button onClick={() => void fixAIQualityIssues()} disabled={aiBusy} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-50">{l('Fix safe issues with AI')}</button>
+                  )}
+                  <button onClick={previewWebsite} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${darkMode ? 'border-white/10 text-gray-300' : 'border-gray-200 bg-white text-gray-700'}`}>{l('Preview')}</button>
+                  <span className="text-[9px] text-gray-500">{l('Publish remains blocked by critical deterministic audit errors and launch checks.')}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {commandOpen && (
         <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) setCommandOpen(false); }}>
           <div className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}>
@@ -7635,6 +8580,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               {[
                 { label: 'Save project', keywords: 'save cloud', run: () => void saveProject() },
                 { label: 'Preview website', keywords: 'preview open', run: previewWebsite },
+                { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', run: () => void runAIQualityCheck() },
                 { label: 'Duplicate current page', keywords: 'copy page duplicate', run: duplicateActivePage },
                 { label: 'Export project backup', keywords: 'backup json export', run: exportProjectBackup },
                 { label: 'Import project backup', keywords: 'backup json import restore', run: importProjectBackup },
@@ -8269,7 +9215,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-bold">{l('Project History')}</p>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Last 10 manual saves. Autosave does not create history entries.')}</p>
+                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Up to 30 manual and AI checkpoints. Autosave stays lightweight.')}</p>
               </div>
               <button onClick={() => setHistoryOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
             </div>
@@ -8288,7 +9234,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ))}
               </div>
             ) : (
-              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('No manual save history yet. Click Save to create the first restore point.')}</p>
+              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('No restore points yet. Save or use Tayar AI to create the first checkpoint.')}</p>
             )}
           </div>
         </div>
@@ -8871,33 +9817,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           {builderPanel === 'add' && (
             <div className="mt-3 space-y-3">
-          <div className={`mt-3 overflow-hidden rounded-xl border ${darkMode ? 'border-violet-500/25 bg-violet-500/[0.06]' : 'border-violet-200 bg-violet-50/70'}`}>
-            <div className="flex items-center justify-between gap-2 border-b border-violet-500/10 px-3 py-2.5">
-              <span className="flex items-center gap-2 text-xs font-black">
-                <Sparkles className="h-4 w-4 text-violet-400" />
-                {l('Tayar AI Builder')}
-              </span>
-              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-violet-400">V2</span>
+          <div className={`mt-3 overflow-hidden rounded-2xl border shadow-sm ${darkMode ? 'border-white/10 bg-[#0d1220]/80' : 'border-gray-200 bg-white'}`}>
+            <div className={`flex items-start justify-between gap-3 border-b px-3.5 py-3 ${darkMode ? 'border-white/[0.06]' : 'border-gray-100'}`}>
+              <div className="min-w-0">
+                <span className="flex items-center gap-2 text-xs font-black">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10">
+                    <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                  </span>
+                  {l('Tayar AI Builder')}
+                </span>
+                <p className="mt-1 pl-9 text-[8px] leading-relaxed text-gray-500">{l('Build, refine and undo with natural language.')}</p>
+              </div>
+              <span className="mt-0.5 rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-violet-400">V2</span>
             </div>
 
-            <div className="space-y-3 p-3">
-              <div className="max-h-36 space-y-2 overflow-auto pr-1">
+            <div className="space-y-3.5 p-3.5">
+              <div className="max-h-44 space-y-2.5 overflow-auto pr-1">
                 {aiMessages.slice(-4).map((message) => (
-                  <div key={message.id} className={`rounded-lg px-2.5 py-2 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-5 bg-violet-500/15 text-violet-100' : 'ml-5 bg-violet-100 text-violet-900') : (darkMode ? 'mr-3 bg-white/[0.04] text-gray-300' : 'mr-3 bg-white text-gray-700')}`}>
-                    <span className="mb-1 block text-[8px] font-black uppercase tracking-wider text-gray-500">{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
+                  <div key={message.id} className={`rounded-xl border px-3 py-2.5 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-7 border-violet-500/10 bg-violet-500/[0.09] text-violet-50' : 'ml-7 border-violet-100 bg-violet-50 text-violet-900') : (darkMode ? 'mr-2 border-white/[0.06] bg-white/[0.025] text-gray-300' : 'mr-2 border-gray-100 bg-gray-50/80 text-gray-700')}`}>
+                    <span className={`mb-1.5 block text-[7px] font-black uppercase tracking-[0.14em] ${message.role === 'user' ? 'text-violet-400' : 'text-gray-500'}`}>{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
                     {message.content}
                   </div>
                 ))}
               </div>
 
-              {(aiBusy || aiStage === 'ready') && (
-                <div className="grid grid-cols-4 gap-1">
+              {aiBusy && (
+                <div className="grid grid-cols-4 gap-1.5">
                   {AI_BUILDER_STAGE_ORDER.map((stage, index) => {
                     const activeIndex = AI_BUILDER_STAGE_ORDER.indexOf(aiStage === 'idle' || aiStage === 'error' ? 'planning' : aiStage);
                     const complete = aiStage === 'ready' || index < activeIndex;
                     const active = aiStage === stage && aiStage !== 'ready';
                     return (
-                      <div key={stage} className={`rounded-md border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : active ? 'border-violet-500/30 bg-violet-500/15 text-violet-300' : 'border-white/10 text-gray-600'}`}>
+                      <div key={stage} className={`rounded-lg border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/15 bg-emerald-500/[0.07] text-emerald-400' : active ? 'border-violet-500/20 bg-violet-500/[0.08] text-violet-300' : darkMode ? 'border-white/[0.06] text-gray-600' : 'border-gray-100 text-gray-400'}`}>
                         {complete ? '✓ ' : ''}{stage}
                       </div>
                     );
@@ -8905,13 +9856,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
 
+              {aiStage === 'ready' && (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.035] px-3 py-2">
+                  <span className="flex items-center gap-1.5 text-[8px] font-black text-emerald-400">
+                    <Check className="h-3 w-3" />
+                    {l('Safe patch mode')}
+                  </span>
+                  <span className="text-right text-[8px] text-gray-500">{l('Unrelated content stays intact')}</span>
+                </div>
+              )}
+
               {aiPlan && (
-                <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-100 bg-white'}`}>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-violet-400">{l('Website plan')}</p>
-                  <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{aiPlan.summary}</p>
-                  <div className="mt-2 flex flex-wrap gap-1">
+                <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/[0.06] bg-black/10' : 'border-gray-100 bg-gray-50/70'}`}>
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-gray-500">{l('Website plan')}</p>
+                  <p className="mt-1.5 text-[9px] leading-relaxed text-gray-500">{aiPlan.summary}</p>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {aiPlan.pages.map((page) => (
-                      <span key={page.name} className="rounded-full border border-white/10 px-2 py-1 text-[8px] font-semibold text-gray-400">
+                      <span key={page.name} className={`rounded-full border px-2 py-1 text-[8px] font-semibold ${darkMode ? 'border-white/[0.07] bg-white/[0.025] text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>
                         {page.name} · {page.sections}
                       </span>
                     ))}
@@ -8919,20 +9880,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-1">
-                {[
+              <div className="grid grid-cols-2 gap-1.5">
+                {(aiStage === 'ready' ? [
+                  'Make the hero more premium and concise',
+                  'Add a pricing section before contact',
+                  'Use a dark background with gold accents',
+                  'Rewrite the current page in Swedish',
+                ] : [
                   'Modern business website with Home, Services, About and Contact',
                   'Premium landing page focused on conversions and trust',
                   'Clean portfolio website with projects, about and contact',
-                ].map((example) => (
+                ]).map((example) => (
                   <button
                     key={example}
                     type="button"
                     onClick={() => { setAiPrompt(example); setAiError(''); }}
                     disabled={aiBusy}
-                    className="rounded-full border border-violet-500/15 px-2 py-1 text-[8px] font-semibold text-violet-400 hover:bg-violet-500/10 disabled:opacity-40"
+                    className={`min-h-8 rounded-lg border px-2 py-1.5 text-left text-[8px] font-semibold leading-tight transition ${darkMode ? 'border-white/[0.07] bg-white/[0.02] text-gray-400 hover:border-violet-500/20 hover:bg-violet-500/[0.05] hover:text-violet-300' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700'} disabled:opacity-40`}
                   >
-                    {example.split(' ').slice(0, 3).join(' ')}
+                    {example.split(' ').slice(0, 4).join(' ')}
                   </button>
                 ))}
               </div>
@@ -8944,32 +9910,93 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   setAiError('');
                   if (aiStage === 'error') setAiStage('idle');
                 }}
-                rows={5}
-                placeholder="Describe the website: business, audience, pages, style, language, location and goal..."
-                className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
+                rows={4}
+                placeholder={aiStage === 'ready'
+                  ? 'Ask Tayar to change this website without rebuilding it...'
+                  : 'Describe the website: business, audience, pages, style, language, location and goal...'}
+                className={`w-full resize-none rounded-xl border px-3.5 py-3 text-xs leading-relaxed outline-none transition focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 ${darkMode ? 'border-white/[0.08] bg-black/15 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
               />
 
-              <button
-                onClick={generateWithAI}
-                disabled={!aiPrompt.trim() || aiBusy}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Styling'}...` : aiStage === 'ready' ? l('Build another version') : l('Build website with AI')}
-              </button>
-
-              {aiStage === 'ready' && (
-                <button
-                  type="button"
-                  onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
-                  className={`flex w-full items-center justify-center rounded-lg border px-3 py-2 text-[10px] font-bold ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {l('Edit manually')}
-                </button>
+              {aiStage === 'ready' ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => void applyAIChange()}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {aiBusy ? 'Applying AI change...' : l('Apply AI change')}
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void generateWithAI(false)}
+                      disabled={!aiPrompt.trim() || aiBusy}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
+                    >
+                      {l('Rebuild from prompt')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-300 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {l('Edit manually')}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void generateRealImage()}
+                      disabled={aiBusy || !selectedSection}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-cyan-500/15 bg-cyan-500/[0.03] text-cyan-300 hover:bg-cyan-500/[0.07]' : 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100'} disabled:opacity-40`}
+                    >
+                      {l('Generate selected image')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void runAIQualityCheck()}
+                      disabled={aiQualityBusy || aiBusy}
+                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-emerald-500/15 bg-emerald-500/[0.03] text-emerald-300 hover:bg-emerald-500/[0.07]' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'} disabled:opacity-40`}
+                    >
+                      {aiQualityBusy ? l('Checking…') : l('Quality check')}
+                    </button>
+                  </div>
+                  {aiUndoSnapshot && (
+                    <button
+                      type="button"
+                      onClick={undoLastAIChange}
+                      disabled={aiBusy}
+                      className={`flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-amber-500/15 bg-amber-500/[0.035] text-amber-300 hover:bg-amber-500/[0.07]' : 'border-amber-200 bg-amber-50/70 text-amber-700 hover:bg-amber-100'} disabled:opacity-40`}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      {l('Undo AI change')}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => void generateWithAI(true)}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Finishing'}...` : l('Build with Tayar Agent')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void generateWithAI(false)}
+                    disabled={!aiPrompt.trim() || aiBusy}
+                    className={`w-full rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
+                  >
+                    {l('Fast build · no generated images')}
+                  </button>
+                </div>
               )}
 
-              {aiError && <p className="text-[10px] leading-relaxed text-red-400">{aiError}</p>}
-              <p className="text-[8px] leading-relaxed text-gray-600">{l('AI creates real Tayar pages and sections, so every result remains editable in the visual builder.')}</p>
+              {aiError && <p className={`rounded-lg border px-2.5 py-2 text-[9px] leading-relaxed ${darkMode ? 'border-red-500/15 bg-red-500/[0.04] text-red-300' : 'border-red-100 bg-red-50 text-red-600'}`}>{aiError}</p>}
+              <p className="px-1 text-[8px] leading-relaxed text-gray-600">{l('AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.')}</p>
             </div>
           </div>
 

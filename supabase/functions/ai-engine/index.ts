@@ -268,10 +268,37 @@ Deno.serve(async (req: Request) => {
         return jsonResponse(req, { error: "Image provider returned no image" }, 502);
       }
 
+      let finalUrl = imageUrl;
+      let assetPath = "";
+      let persisted = false;
+      try {
+        const generatedImage = await fetch(imageUrl);
+        if (generatedImage.ok) {
+          const contentType = generatedImage.headers.get("content-type") || "image/jpeg";
+          const extension = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+          const bytes = await generatedImage.arrayBuffer();
+          assetPath = `${user.id}/ai-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+          const { error: uploadError } = await admin.storage
+            .from("website-media")
+            .upload(assetPath, bytes, { contentType, cacheControl: "31536000", upsert: false });
+          if (!uploadError) {
+            const { data: publicData } = admin.storage.from("website-media").getPublicUrl(assetPath);
+            if (publicData?.publicUrl) {
+              finalUrl = publicData.publicUrl;
+              persisted = true;
+            }
+          } else {
+            console.error("[AI ENGINE] Generated image could not be persisted to website-media");
+          }
+        }
+      } catch {
+        console.error("[AI ENGINE] Generated image persistence failed");
+      }
+
       await recordUsage(admin, user.id, { provider: "fal", model: "flux", tool, durationMs: Date.now() - startedAt, status: "success" });
       return jsonResponse(req, {
-        content: JSON.stringify({ url: imageUrl }),
-        json: { url: imageUrl },
+        content: JSON.stringify({ url: finalUrl, assetPath, persisted }),
+        json: { url: finalUrl, assetPath, persisted },
         model: "flux",
         provider: "fal",
         tokensIn: 0,
