@@ -73,6 +73,8 @@ export interface WebsiteBuilderV2BridgeProps {
   activePageId: string;
   selectedSectionId?: string | null;
   selectedElementId?: string | null;
+  selectedContainerId?: string | null;
+  selectedFormFieldId?: string | null;
 
   device: EditorPreviewDevice;
 
@@ -195,6 +197,8 @@ export function WebsiteBuilderV2Bridge({
   activePageId,
   selectedSectionId,
   selectedElementId,
+  selectedContainerId,
+  selectedFormFieldId,
 
   device,
 
@@ -302,11 +306,30 @@ export function WebsiteBuilderV2Bridge({
                 selectedElementId,
             }
           : {}),
+
+        ...(!selectedElementId &&
+        selectedContainerId
+          ? {
+              containerId:
+                selectedContainerId,
+            }
+          : {}),
+
+        ...(!selectedElementId &&
+        !selectedContainerId &&
+        selectedFormFieldId
+          ? {
+              formFieldId:
+                selectedFormFieldId,
+            }
+          : {}),
       }),
       [
         activePageId,
         selectedSectionId,
         selectedElementId,
+        selectedContainerId,
+        selectedFormFieldId,
       ],
     );
 
