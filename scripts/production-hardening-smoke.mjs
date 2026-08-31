@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = process.cwd();
+const publishedProxyModule = await import('../api/published-site.js');
 const failures = [];
 const passes = [];
 
@@ -94,6 +95,9 @@ check('Service worker is revalidated on deploy',
 check('Hashed assets use immutable caching',
   vercelConfig.includes('"source": "/assets/(.*)"') &&
   vercelConfig.includes('max-age=31536000, immutable'));
+
+check('Published-site proxy module loads as a valid serverless handler',
+  typeof publishedProxyModule.default === 'function');
 
 check('Published HTML is rendered through an isolated Vercel proxy',
   publishedProxy.includes("'text/html; charset=utf-8'") &&
