@@ -1,7 +1,7 @@
 // Client-side AI Service Layer
 // Unified interface for all AI tools. Handles streaming, conversation history,
 // token tracking, cost tracking, error handling, retry, timeout, and usage analytics.
-// All AI requests go through the edge function â€” API keys are never exposed to the frontend.
+// All AI requests go through the edge function — API keys are never exposed to the frontend.
 
 import { supabase } from '@/lib/supabase';
 import { promptManager, ToolId } from './prompts';
@@ -127,7 +127,7 @@ async function loadToolSettings(tool: string): Promise<{ model?: string; tempera
       };
     }
   } catch {
-    // Table might not exist or query failed â€” use defaults
+    // Table might not exist or query failed — use defaults
   }
   return null;
 }
@@ -455,7 +455,7 @@ export class AIService {
     };
   }
 
-  // Structured JSON response â€” requests jsonMode from the edge function
+  // Structured JSON response — requests jsonMode from the edge function
   async completeJSON<T = unknown>(
     input: Record<string, unknown>,
     history: ChatMessage[] = [],
