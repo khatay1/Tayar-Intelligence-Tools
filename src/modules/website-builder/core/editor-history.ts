@@ -6,6 +6,7 @@ export interface EditorHistoryEntry<T> {
   source: EditorChangeSource;
   createdAt: number;
   snapshot: T;
+  coalesceKey?: string;
 }
 
 export interface EditorHistoryState<T> {
@@ -46,12 +47,14 @@ function historyEntry<T>(
   options: PushHistoryOptions<T>,
 ): EditorHistoryEntry<T> {
   const clone = options.clone || cloneEditorValue;
+  const coalesceKey = options.coalesceKey?.trim() || undefined;
   return {
     id: options.id,
     label: options.label.trim() || 'Editor change',
     source: options.source,
     createdAt: options.createdAt,
     snapshot: clone(snapshot),
+    ...(coalesceKey ? { coalesceKey } : {}),
   };
 }
 
@@ -67,18 +70,22 @@ export function pushEditorHistory<T>(
 
   const last = nextPast[nextPast.length - 1];
   const coalesceWindow = Math.max(0, options.coalesceWindowMs || 0);
+  const coalesceKey = options.coalesceKey?.trim() || undefined;
   const shouldCoalesce = Boolean(
-    options.coalesceKey &&
+    coalesceKey &&
       last &&
       last.source === options.source &&
-      last.label === options.coalesceKey &&
+      last.coalesceKey === coalesceKey &&
       options.createdAt - last.createdAt <= coalesceWindow,
   );
 
   if (shouldCoalesce) {
+    // Keep the earliest snapshot so one Undo reverts the full burst, while the
+    // visible label stays human-readable rather than becoming an internal key.
     nextPast[nextPast.length - 1] = {
       ...last,
       id: options.id,
+      label: options.label.trim() || last.label,
       createdAt: options.createdAt,
     };
   } else {
@@ -111,6 +118,7 @@ export function undoEditorHistory<T>(
     source: target.source,
     createdAt: now,
     snapshot: clone(current),
+    ...(target.coalesceKey ? { coalesceKey: target.coalesceKey } : {}),
   };
 
   return {
@@ -141,6 +149,7 @@ export function redoEditorHistory<T>(
     source: target.source,
     createdAt: now,
     snapshot: clone(current),
+    ...(target.coalesceKey ? { coalesceKey: target.coalesceKey } : {}),
   };
 
   return {
