@@ -61,7 +61,7 @@ export function runEditorCommand<T>(
 
   const history = pushEditorHistory(options.history, transaction.before, {
     id: transaction.meta.id,
-    label: command.coalesceKey || transaction.meta.label,
+    label: transaction.meta.label,
     source,
     createdAt: transaction.meta.finishedAt,
     maxEntries: options.maxHistoryEntries,
