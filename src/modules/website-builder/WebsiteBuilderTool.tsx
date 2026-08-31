@@ -1809,7 +1809,7 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
     const submitElement = (section.elements || []).find((element) => element.type === 'button');
     const submitLabel = escapeHtml(submitElement?.content || section.buttonText || 'Send Message');
     const enabled = Boolean(leadCapture?.projectId && leadCapture?.supabaseUrl && leadCapture?.supabaseAnonKey);
-    const setupMessage = enabled ? '' : 'Save this project to Tayar cloud before publishing to activate lead capture.';
+    const setupMessage = enabled ? '' : 'Lead capture is disabled in previews and activates on a published cloud website.';
     const submitButton = submitElement
       ? (() => {
           const submitStyle = effectiveStyle(submitElement, 'desktop');
@@ -8742,6 +8742,34 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
+  async function listAllPublishedSiteFiles(folder: string) {
+    const entries: Array<{ id?: string | null; name: string }> = [];
+    const pageSize = 100;
+
+    for (let offset = 0; offset < 5000; offset += pageSize) {
+      const { data, error } = await supabase.storage
+        .from('published-sites')
+        .list(folder, {
+          limit: pageSize,
+          offset,
+          sortBy: { column: 'name', order: 'asc' },
+        });
+
+      if (error) throw error;
+
+      const batch = data || [];
+      entries.push(
+        ...batch
+          .filter((item) => Boolean(item.name))
+          .map((item) => ({ id: item.id, name: item.name })),
+      );
+
+      if (batch.length < pageSize) return entries;
+    }
+
+    throw new Error('Published-site folder contains too many files to process safely.');
+  }
+
   async function createSharePreview() {
     if (cloudProjectId && !projectTeamAccess.canPublish) {
       setPreviewError('Only the project owner can create public share previews.');
@@ -8809,9 +8837,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPreviewError('');
     try {
       const folder = `${user.id}/${cloudProjectId}/previews/${previewToken}`;
-      const { data, error } = await supabase.storage.from('published-sites').list(folder, { limit: 100 });
-      if (error) throw error;
-      const paths = (data || []).filter((item) => item.name && item.id).map((item) => `${folder}/${item.name}`);
+      const existing = await listAllPublishedSiteFiles(folder);
+      const paths = existing
+        .filter((item) => item.name && item.id)
+        .map((item) => `${folder}/${item.name}`);
       if (paths.length) {
         const { error: removeError } = await supabase.storage.from('published-sites').remove(paths);
         if (removeError) throw removeError;
@@ -8837,9 +8866,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
       if (!manifest.length) throw new Error('This release has no stored files.');
       const liveNames = new Set(manifest.map((item) => item.name));
-      const { data: existing, error: listError } = await supabase.storage.from('published-sites').list(folder, { limit: 100 });
-      if (listError) throw listError;
-      const stalePaths = (existing || [])
+      const existing = await listAllPublishedSiteFiles(folder);
+      const stalePaths = existing
         .filter((item) => item.id && item.name && !liveNames.has(item.name))
         .map((item) => `${folder}/${item.name}`);
       if (stalePaths.length) {
@@ -9294,7 +9322,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       homePageId,
       currentPageId: pageId,
       siteName,
-      leadProjectId: cloudProjectId,
+      leadProjectId: trackAnalytics ? cloudProjectId : null,
       analyticsProjectId: cloudProjectId,
       analyticsEnabled: trackAnalytics,
       supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
@@ -9363,7 +9391,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const parsed = JSON.parse(await file.text());
         const project = parsed?.project ?? parsed;
         if (!project || (!Array.isArray(project.pages) && !Array.isArray(project.sections))) throw new Error('Invalid project backup');
-        const importedProject = { ...project, publishedUrl: '', publishedAt: null, updatedAt: new Date().toISOString() };
+        const importedProject = {
+          ...project,
+          publishedUrl: '',
+          publishedAt: null,
+          previewUrl: '',
+          previewToken: '',
+          previewCreatedAt: null,
+          lastPublishedVersionId: null,
+          lastPublishedFingerprint: '',
+          deliveryConfig: {
+            ...normalizeDeliveryConfig(project.deliveryConfig),
+            status: 'building',
+            approvedAt: null,
+            approvedFingerprint: '',
+            deliveredAt: null,
+          },
+          history: [],
+          updatedAt: new Date().toISOString(),
+        };
         saveRecoverySnapshot('before importing backup');
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
@@ -9887,22 +9933,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           files.map((file) => file.name),
         );
 
-      const {
-        data: existing,
-        error: listError,
-      } = await supabase.storage
-        .from('published-sites')
-        .list(folder, { limit: 100 });
-
-      if (listError) {
+      let existing: Array<{ id?: string | null; name: string }>;
+      try {
+        existing = await listAllPublishedSiteFiles(folder);
+      } catch (error) {
         throw new Error(
           'Published-sites storage is unavailable: ' +
-          listError.message
+          (error instanceof Error ? error.message : 'unknown storage error')
         );
       }
 
       const stalePaths =
-        (existing || [])
+        existing
           .filter(
             (item) =>
               item.id &&
@@ -10264,12 +10306,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     try {
       const folder = `${user.id}/${cloudProjectId}`;
-      const { data: existing, error: listError } = await supabase.storage
-        .from('published-sites')
-        .list(folder, { limit: 100 });
-      if (listError) throw listError;
+      const existing = await listAllPublishedSiteFiles(folder);
 
-      const paths = (existing || []).filter((item) => item.name && item.id).map((item) => `${folder}/${item.name}`);
+      const paths = existing
+        .filter((item) => item.name && item.id)
+        .map((item) => `${folder}/${item.name}`);
       if (paths.length) {
         const { error: removeError } = await supabase.storage.from('published-sites').remove(paths);
         if (removeError) throw removeError;

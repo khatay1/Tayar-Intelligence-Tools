@@ -11,6 +11,8 @@ const publishedUrlHelperPath = resolve(root, 'src/lib/published-site-url.ts');
 const publishedProxyPath = resolve(root, 'api/published-site.js');
 const vercelConfigPath = resolve(root, 'vercel.json');
 const serviceWorkerPath = resolve(root, 'public/sw.js');
+const workspaceProjectsPath = resolve(root, 'src/lib/use-projects.ts');
+const runtimeHardeningMigrationPath = resolve(root, 'supabase/migrations/20260831210500_harden_website_public_runtime.sql');
 
 const failures = [];
 const passes = [];
@@ -29,6 +31,8 @@ for (const [label, path] of [
   ['Published-site HTML proxy exists', publishedProxyPath],
   ['Vercel routing config exists', vercelConfigPath],
   ['Service worker exists', serviceWorkerPath],
+  ['Workspace project helper exists', workspaceProjectsPath],
+  ['Website public runtime hardening migration exists', runtimeHardeningMigrationPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -40,6 +44,8 @@ const publishedUrlHelper = existsSync(publishedUrlHelperPath) ? readFileSync(pub
 const publishedProxy = existsSync(publishedProxyPath) ? readFileSync(publishedProxyPath, 'utf8') : '';
 const vercelConfig = existsSync(vercelConfigPath) ? readFileSync(vercelConfigPath, 'utf8') : '';
 const serviceWorker = existsSync(serviceWorkerPath) ? readFileSync(serviceWorkerPath, 'utf8') : '';
+const workspaceProjects = existsSync(workspaceProjectsPath) ? readFileSync(workspaceProjectsPath, 'utf8') : '';
+const runtimeHardeningMigration = existsSync(runtimeHardeningMigrationPath) ? readFileSync(runtimeHardeningMigrationPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -51,6 +57,11 @@ check('Published-site proxy forces inline HTML rendering', publishedProxy.includ
 check('Published-site proxy sandboxes customer HTML from Tayar auth origin', publishedProxy.includes('sandbox allow-scripts') && !publishedProxy.includes('allow-same-origin'));
 check('Vercel routes live and preview websites through the proxy', vercelConfig.includes('"/site/:ownerId/:projectId/:file*"') && vercelConfig.includes('"/preview/:ownerId/:projectId/:previewToken/:file*"'));
 check('Service worker never caches published sites or previews', serviceWorker.includes("url.pathname.startsWith('/site/')") && serviceWorker.includes("url.pathname.startsWith('/preview/')"));
+check('Published-site cleanup paginates beyond 100 files', builder.includes('listAllPublishedSiteFiles') && builder.includes('offset += pageSize') && builder.includes('Published-site folder contains too many files to process safely.'));
+check('Preview HTML cannot submit real leads', builder.includes('leadProjectId: trackAnalytics ? cloudProjectId : null'));
+check('Imported backups detach old publication identity', builder.includes("const importedProject = {") && builder.includes("previewCreatedAt: null") && builder.includes("lastPublishedFingerprint: ''") && builder.includes("history: []"));
+check('Workspace duplication detaches Website Builder publication identity', workspaceProjects.includes('sanitizedDuplicateContent(project)') && workspaceProjects.includes("publishedUrl: ''") && workspaceProjects.includes("previewToken: ''") && workspaceProjects.includes("lastPublishedVersionId: null") && workspaceProjects.includes("history: []"));
+check('Public website ingestion requires a published project', runtimeHardeningMigration.includes("v_project_status <> 'completed'") && runtimeHardeningMigration.includes('trg_enforce_published_website_lead_ingestion') && runtimeHardeningMigration.includes('trg_enforce_published_website_analytics_ingestion'));
 check('Recovery snapshot storage is enabled', builder.includes('RECOVERY_STORAGE_KEY'));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));

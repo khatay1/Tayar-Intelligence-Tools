@@ -13,6 +13,41 @@ export interface Project {
   updated_at: string;
 }
 
+function sanitizedDuplicateContent(project: Project): Record<string, unknown> {
+  const source =
+    project.content && typeof project.content === 'object' && !Array.isArray(project.content)
+      ? { ...project.content }
+      : {};
+
+  if (project.type !== 'website-builder') return source;
+
+  const rawDelivery = source.deliveryConfig;
+  const deliveryConfig =
+    rawDelivery && typeof rawDelivery === 'object' && !Array.isArray(rawDelivery)
+      ? {
+          ...(rawDelivery as Record<string, unknown>),
+          status: 'building',
+          approvedAt: null,
+          approvedFingerprint: '',
+          deliveredAt: null,
+        }
+      : undefined;
+
+  return {
+    ...source,
+    publishedUrl: '',
+    publishedAt: null,
+    previewUrl: '',
+    previewToken: '',
+    previewCreatedAt: null,
+    lastPublishedVersionId: null,
+    lastPublishedFingerprint: '',
+    history: [],
+    ...(deliveryConfig ? { deliveryConfig } : {}),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function useProjects() {
   const { success, error, loading, update } = useToast();
   const [saving, setSaving] = useState(false);
@@ -111,7 +146,7 @@ export function useProjects() {
         user_id: project.user_id,
         title: `${project.title} (Copy)`,
         type: project.type,
-        content: project.content,
+        content: sanitizedDuplicateContent(project),
         status: 'draft',
       })
       .select('id')
