@@ -2066,3 +2066,46 @@
   cursor: not-allowed;
   opacity: .42;
 }
+
+
+/* V2 WEBSITE LIFECYCLE */
+.tayar-v2-publish-state {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(245, 158, 11, .18);
+  border-radius: 10px;
+  background: rgba(245, 158, 11, .06);
+  padding: 10px;
+}
+
+.tayar-v2-publish-state[data-live='true'] {
+  border-color: rgba(16, 185, 129, .22);
+  background: rgba(16, 185, 129, .07);
+}
+
+.tayar-v2-publish-state strong {
+  font-size: 11px;
+}
+
+.tayar-v2-publish-state span {
+  font-size: 9px;
+  color: rgba(203, 213, 225, .65);
+}
+
+.tayar-v2-publish-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.tayar-v2-publish-actions .is-danger,
+.tayar-v2-unpublish-button {
+  color: #fb7185;
+  border-color: rgba(244, 63, 94, .24) !important;
+}
+
+@media (max-width: 1180px) {
+  .tayar-v2-topbar__actions .tayar-v2-unpublish-button {
+    display: none;
+  }
+}
