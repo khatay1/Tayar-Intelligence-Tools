@@ -2,7 +2,7 @@
   const PROJECT_REF = "pnbllxdlskljcakyaylt";
   const ROOT_FOLDER_ID = "1NLQlCySD88ZbeHt6E2q88c4FsvHzfzBi";
   const ROOT_PATH = "office-11000";
-  const STATE_KEY = "tayar-template-import-24billions-v1";
+  const STATE_KEY = "tayar-template-import-24billions-v2";
   const DISCOVER_URL =
     `https://${PROJECT_REF}.supabase.co/functions/v1/template-library-drive-discover`;
   const SYNC_URL =
@@ -34,7 +34,7 @@
 
   function defaultState() {
     return {
-      version: 1,
+      version: 2,
       status: "idle",
       queue: [{ id: ROOT_FOLDER_ID, path: ROOT_PATH, offset: 0 }],
       seenFolderIds: [ROOT_FOLDER_ID],
@@ -59,7 +59,7 @@
 
     try {
       const parsed = JSON.parse(raw);
-      return parsed?.version === 1 ? parsed : defaultState();
+      return parsed?.version === 2 ? parsed : defaultState();
     } catch {
       return defaultState();
     }
@@ -244,6 +244,10 @@
         state.stats.discoveredFiles += files.length;
         enqueueFolders(state, discovery.folders);
 
+        // Persist discovery progress immediately. This is essential for folders
+        // that contain only subfolders and no direct files.
+        saveState(state);
+
         for (let index = 0; index < files.length; index += SYNC_BATCH_SIZE) {
           state = loadState();
           if (state.status === "paused") break;
@@ -255,10 +259,15 @@
         state = loadState();
         if (state.status === "paused") break;
 
+        const currentIndex = state.queue.findIndex((item) => item.id === folder.id);
+        if (currentIndex === -1) {
+          throw new Error("Importer queue lost the current folder state");
+        }
+
         if (discovery.nextOffset !== null && discovery.nextOffset !== undefined) {
-          state.queue[0].offset = discovery.nextOffset;
+          state.queue[currentIndex].offset = discovery.nextOffset;
         } else {
-          state.queue.shift();
+          state.queue.splice(currentIndex, 1);
           state.stats.processedFolders += 1;
         }
 
