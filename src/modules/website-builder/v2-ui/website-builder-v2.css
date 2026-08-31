@@ -1609,3 +1609,58 @@
   opacity: .2;
   cursor: not-allowed;
 }
+
+
+/* TAYAR V2 AI PANEL RENDER FIX */
+
+.tayar-v2-left-sidebar {
+  min-height: 0;
+}
+
+.tayar-v2-left-sidebar__panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+.tayar-v2-ai-panel-host {
+  display: flex;
+  flex-direction: column;
+
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  overflow: hidden;
+
+  color: #e5e7eb;
+  background: #0d121e;
+}
+
+.tayar-v2-ai-panel-host > * {
+  flex: 1 1 auto;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/*
+  An older V2 breakpoint hid the entire left panel
+  below 980px, while the newer layout expects it
+  to remain visible until 850px.
+
+  Restore the panel between 851px and 980px.
+*/
+@media (min-width: 851px) and (max-width: 980px) {
+  .tayar-v2-left-sidebar {
+    grid-template-columns:
+      var(--tayar-v2-left-rail)
+      minmax(0, 1fr);
+  }
+
+  .tayar-v2-left-sidebar__panel {
+    display: block;
+  }
+}
+

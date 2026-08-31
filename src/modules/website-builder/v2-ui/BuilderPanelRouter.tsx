@@ -122,6 +122,18 @@ export function BuilderPanelRouter(
   return function renderPanel(
     panel: EditorLeftPanel,
   ): ReactNode {
+    if (panel === 'ai') {
+      return (
+        <div className="tayar-v2-ai-panel-host">
+          {props.aiPanel || (
+            <div className="tayar-v2-empty-panel">
+              Tayar AI is loading...
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (panel === 'pages') {
       return (
         <BuilderPagesPanel
