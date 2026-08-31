@@ -80,9 +80,10 @@ export function writeEditorSnapshot<T>(
   schemaVersion: number,
 ): EditorPersistenceResult<T> {
   try {
-    const raw = serializeEditorSnapshot(payload, schemaVersion);
+    const savedAt = Date.now();
+    const raw = serializeEditorSnapshot(payload, schemaVersion, savedAt);
     storage.setItem(key, raw);
-    return { ok: true, value: payload, savedAt: Date.now() };
+    return { ok: true, value: payload, savedAt };
   } catch {
     return { ok: false, error: 'Editor snapshot could not be saved' };
   }
