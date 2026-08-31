@@ -5,6 +5,13 @@ import { usePreferences, type Language } from '@/context/PreferencesContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
+  buildPreviewSiteBaseUrl,
+  buildPreviewSiteUrl,
+  buildPublishedSiteBaseUrl,
+  buildPublishedSiteUrl,
+  normalizePublishedSiteUrl,
+} from '@/lib/published-site-url';
+import {
   Plus,
   Trash2,
   ChevronUp,
@@ -717,7 +724,7 @@ const DEFAULT_PRODUCTION_CONFIG: WebsiteProductionConfig = {
   localBusinessPhone: '',
   localBusinessAddress: '',
   maintenanceMode: false,
-  maintenanceTitle: 'Weâ€™ll be back soon',
+  maintenanceTitle: 'We’ll be back soon',
   maintenanceText: 'This website is temporarily unavailable while we make improvements.',
   customRobotsRules: '',
 };
@@ -1787,7 +1794,7 @@ function elementToHtml(element: WebsiteElement, homeSlug: string, device: Device
   }
   if (element.type === 'testimonials-slider') {
     const rows = parseRichRows(element.content);
-    return `<div class="builder-testimonials tayar-element" data-tayar-testimonials style="${css}"><div class="testimonial-track">${rows.map((row, index) => `<article class="testimonial-slide${index === 0 ? ' active' : ''}" data-slide="${index}"><p>â€œ${escapeHtml(row.body)}â€</p><strong>â€” ${escapeHtml(row.title)}</strong></article>`).join('')}</div><div class="testimonial-controls"><button type="button" data-testimonial-prev aria-label="Previous testimonial">â†</button><span data-testimonial-position>1 / ${Math.max(rows.length, 1)}</span><button type="button" data-testimonial-next aria-label="Next testimonial">â†’</button></div></div>`;
+    return `<div class="builder-testimonials tayar-element" data-tayar-testimonials style="${css}"><div class="testimonial-track">${rows.map((row, index) => `<article class="testimonial-slide${index === 0 ? ' active' : ''}" data-slide="${index}"><p>“${escapeHtml(row.body)}”</p><strong>— ${escapeHtml(row.title)}</strong></article>`).join('')}</div><div class="testimonial-controls"><button type="button" data-testimonial-prev aria-label="Previous testimonial">←</button><span data-testimonial-position>1 / ${Math.max(rows.length, 1)}</span><button type="button" data-testimonial-next aria-label="Next testimonial">→</button></div></div>`;
   }
   if (element.type === 'code') {
     return `<div class="builder-custom-html tayar-element" style="${css}">${sanitizeCustomHtml(element.content)}</div>`;
@@ -1901,9 +1908,9 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
     <h2>${title}</h2>
     <p class="lead">${description}</p>
     <div class="cards">
-      <article class="card"><p>â€œAmazing experience and excellent results.â€</p><strong>â€” Alex</strong></article>
-      <article class="card"><p>â€œProfessional, simple and exactly what we needed.â€</p><strong>â€” Sarah</strong></article>
-      <article class="card"><p>â€œThe easiest way to present our business online.â€</p><strong>â€” Daniel</strong></article>
+      <article class="card"><p>“Amazing experience and excellent results.”</p><strong>— Alex</strong></article>
+      <article class="card"><p>“Professional, simple and exactly what we needed.”</p><strong>— Sarah</strong></article>
+      <article class="card"><p>“The easiest way to present our business online.”</p><strong>— Daniel</strong></article>
     </div>
     ${button}
   </div>
@@ -2005,7 +2012,7 @@ function buildFullHtml(
     ? `<a class="site-cta" href="${escapeHtml(resolveBuilderHref(headerConfig.ctaHref, homeSlug))}">${escapeHtml(headerConfig.ctaLabel)}</a>`
     : '';
   const searchTrigger = siteEnhancements.siteSearch
-    ? '<button class="site-search-trigger" type="button" data-site-search-open aria-label="Search website">âŒ• <span>Search</span></button>'
+    ? '<button class="site-search-trigger" type="button" data-site-search-open aria-label="Search website">⌕ <span>Search</span></button>'
     : '';
   const languageSwitcher = headerConfig.languageSwitcher && translationPages.length > 1
     ? `<div class="site-language-switcher" aria-label="Language">${translationPages.map((page) => {
@@ -2014,7 +2021,7 @@ function buildFullHtml(
       }).join('')}</div>`
     : '';
   const navigation = headerConfig.enabled
-    ? `<nav class="site-nav${headerConfig.sticky ? ' sticky' : ''}${headerConfig.mobileMenu ? ' mobile-menu' : ''}" data-tayar-mobile-nav><a class="site-brand" href="${escapeHtml(pageHref(homePage, options.homePageId))}"><span class="site-brand-wrap">${headerLogo}<span>${escapeHtml(brandLabel)}</span></span></a>${headerConfig.mobileMenu ? '<button class="site-menu-toggle" type="button" aria-expanded="false" aria-label="Toggle navigation"><span aria-hidden="true">â˜°</span><span>Menu</span></button>' : ''}<div class="site-links">${navigationPages.map((page) => `<a href="${escapeHtml(pageHref(page, options.homePageId))}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(page.name)}</a>`).join('')}${languageSwitcher}${searchTrigger}${headerCta}</div></nav>`
+    ? `<nav class="site-nav${headerConfig.sticky ? ' sticky' : ''}${headerConfig.mobileMenu ? ' mobile-menu' : ''}" data-tayar-mobile-nav><a class="site-brand" href="${escapeHtml(pageHref(homePage, options.homePageId))}"><span class="site-brand-wrap">${headerLogo}<span>${escapeHtml(brandLabel)}</span></span></a>${headerConfig.mobileMenu ? '<button class="site-menu-toggle" type="button" aria-expanded="false" aria-label="Toggle navigation"><span aria-hidden="true">☰</span><span>Menu</span></button>' : ''}<div class="site-links">${navigationPages.map((page) => `<a href="${escapeHtml(pageHref(page, options.homePageId))}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(page.name)}</a>`).join('')}${languageSwitcher}${searchTrigger}${headerCta}</div></nav>`
     : '';
 
   const navigationScript = headerConfig.enabled && headerConfig.mobileMenu ? `<script>
@@ -2046,7 +2053,7 @@ function buildFullHtml(
   const footerSocials = socialLinks
     .map(([label, href]) => `<a href="${escapeHtml(safeSocialUrl(href))}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`)
     .join('');
-  const footerText = footerConfig.text.trim() || `Â© ${new Date().getFullYear()} ${options.siteName}. All rights reserved.`;
+  const footerText = footerConfig.text.trim() || `© ${new Date().getFullYear()} ${options.siteName}. All rights reserved.`;
   const globalFooter = footerConfig.enabled
     ? `<footer class="global-site-footer"><div class="footer-inner"><div><strong>${escapeHtml(brandLabel)}</strong><p>${escapeHtml(footerText)}</p></div>${footerNavigation ? `<div class="footer-links">${footerNavigation}</div>` : ''}${footerSocials ? `<div class="footer-socials">${footerSocials}</div>` : ''}</div></footer>`
     : '';
@@ -2081,7 +2088,7 @@ function buildFullHtml(
       if (document.referrer) values._referrer = String(document.referrer).slice(0, 500);
       values._page_language = document.documentElement.lang || '';
 
-      if (status) status.textContent = 'Sendingâ€¦';
+      if (status) status.textContent = 'Sending…';
       if (submitButton) submitButton.disabled = true;
 
       try {
@@ -2107,7 +2114,7 @@ function buildFullHtml(
           window.tayarTrackEvent('form_submit', { page: location.pathname, language: document.documentElement.lang || '', success_action: successAction });
         }
         if (successAction === 'redirect' && redirectUrl) {
-          if (status) status.textContent = 'Thanks! Redirectingâ€¦';
+          if (status) status.textContent = 'Thanks! Redirecting…';
           window.setTimeout(() => location.assign(redirectUrl), 250);
         } else if (status) {
           status.textContent = form.dataset.successMessage || 'Thanks! Your message has been sent.';
@@ -2198,12 +2205,12 @@ function buildFullHtml(
     ? `<div class="tayar-cookie-banner" data-tayar-cookie hidden><p>${escapeHtml(siteEnhancements.cookieText)}</p><button type="button" data-cookie-accept>${escapeHtml(siteEnhancements.cookieButtonLabel)}</button></div>`
     : '';
   const scrollProgress = siteEnhancements.scrollProgress ? '<div class="tayar-scroll-progress" data-scroll-progress></div>' : '';
-  const backToTop = siteEnhancements.backToTop ? '<button class="tayar-back-to-top" type="button" data-back-to-top aria-label="Back to top">â†‘</button>' : '';
+  const backToTop = siteEnhancements.backToTop ? '<button class="tayar-back-to-top" type="button" data-back-to-top aria-label="Back to top">↑</button>' : '';
   const announcementBar = siteEnhancements.announcementBar
     ? `<aside class="tayar-announcement" role="status"><span>${escapeHtml(siteEnhancements.announcementText)}</span>${siteEnhancements.announcementHref && siteEnhancements.announcementHref !== '#' ? `<a href="${escapeHtml(resolveBuilderHref(siteEnhancements.announcementHref, homeSlug))}">${escapeHtml(siteEnhancements.announcementLinkLabel)}</a>` : ''}</aside>`
     : '';
   const popupModal = siteEnhancements.popupEnabled
-    ? `<div class="tayar-popup-backdrop" data-tayar-popup hidden><div class="tayar-popup" role="dialog" aria-modal="true" aria-label="${escapeHtml(siteEnhancements.popupTitle)}"><button class="tayar-popup-close" type="button" data-popup-close aria-label="Close">Ã—</button><h2>${escapeHtml(siteEnhancements.popupTitle)}</h2><p>${escapeHtml(siteEnhancements.popupText)}</p><a class="btn" href="${escapeHtml(resolveBuilderHref(siteEnhancements.popupButtonHref, homeSlug))}">${escapeHtml(siteEnhancements.popupButtonLabel)}</a></div></div>`
+    ? `<div class="tayar-popup-backdrop" data-tayar-popup hidden><div class="tayar-popup" role="dialog" aria-modal="true" aria-label="${escapeHtml(siteEnhancements.popupTitle)}"><button class="tayar-popup-close" type="button" data-popup-close aria-label="Close">×</button><h2>${escapeHtml(siteEnhancements.popupTitle)}</h2><p>${escapeHtml(siteEnhancements.popupText)}</p><a class="btn" href="${escapeHtml(resolveBuilderHref(siteEnhancements.popupButtonHref, homeSlug))}">${escapeHtml(siteEnhancements.popupButtonLabel)}</a></div></div>`
     : '';
   const floatingCta = siteEnhancements.floatingCta
     ? `<a class="tayar-floating-cta" href="${escapeHtml(resolveBuilderHref(siteEnhancements.floatingCtaHref, homeSlug))}">${escapeHtml(siteEnhancements.floatingCtaLabel)}</a>`
@@ -2212,7 +2219,7 @@ function buildFullHtml(
     ? '<div class="tayar-share-tools" data-share-tools><button type="button" data-share-native>Share</button><button type="button" data-share-copy>Copy link</button></div>'
     : '';
   const lightbox = siteEnhancements.galleryLightbox
-    ? '<div class="tayar-lightbox" data-tayar-lightbox hidden><button type="button" data-lightbox-close aria-label="Close image">Ã—</button><img data-lightbox-image alt="Gallery preview"></div>'
+    ? '<div class="tayar-lightbox" data-tayar-lightbox hidden><button type="button" data-lightbox-close aria-label="Close image">×</button><img data-lightbox-image alt="Gallery preview"></div>'
     : '';
   const searchIndex = options.pages.map((page) => ({
     title: page.name,
@@ -2220,7 +2227,7 @@ function buildFullHtml(
     text: page.sections.flatMap((section) => [section.title, section.description, ...(section.elements || []).map((element) => element.content || '')]).join(' ').replace(/\s+/g, ' ').trim().slice(0, 6000),
   }));
   const searchOverlay = siteEnhancements.siteSearch
-    ? `<div class="tayar-search-overlay" data-site-search hidden><div class="tayar-search-dialog" role="dialog" aria-modal="true" aria-label="Search website"><div class="tayar-search-head"><strong>Search this site</strong><button type="button" data-site-search-close aria-label="Close search">Ã—</button></div><input data-site-search-input type="search" placeholder="Search pagesâ€¦" autocomplete="off"><div class="tayar-search-results" data-site-search-results><p>Start typing to search.</p></div></div></div>`
+    ? `<div class="tayar-search-overlay" data-site-search hidden><div class="tayar-search-dialog" role="dialog" aria-modal="true" aria-label="Search website"><div class="tayar-search-head"><strong>Search this site</strong><button type="button" data-site-search-close aria-label="Close search">×</button></div><input data-site-search-input type="search" placeholder="Search pages…" autocomplete="off"><div class="tayar-search-results" data-site-search-results><p>Start typing to search.</p></div></div></div>`
     : '';
   const searchIndexJson = JSON.stringify(searchIndex).replace(/</g, '\\u003c');
 
@@ -2722,13 +2729,13 @@ function ElementPreview({
   };
 
   if (element.type === 'heading') {
-    return <h2 {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish Â· Esc to cancel' : 'Double-click to edit text'}>{element.content}</h2>;
+    return <h2 {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</h2>;
   }
   if (element.type === 'text') {
-    return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish Â· Esc to cancel' : 'Double-click to edit text'}>{element.content}</p>;
+    return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</p>;
   }
   if (element.type === 'button') {
-    return <button {...dragProps} ref={(node) => { inlineEditRef.current = node; }} type="button" contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish Â· Esc to cancel' : 'Double-click to edit button text'}>{element.content}</button>;
+    return <button {...dragProps} ref={(node) => { inlineEditRef.current = node; }} type="button" contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit button text'}>{element.content}</button>;
   }
   if (element.type === 'list') {
     const items = (element.content || '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
@@ -2776,7 +2783,7 @@ function ElementPreview({
   if (element.type === 'testimonials-slider') {
     const rows = parseRichRows(element.content);
     const first = rows[0];
-    return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><div className="rounded-xl border border-white/10 bg-black/10 p-5 text-center"><p className="text-sm italic opacity-85">â€œ{first?.body || 'Add testimonial text'}â€</p><strong className="mt-3 block text-xs">â€” {first?.title || 'Customer'}</strong></div><div className="mt-2 text-center text-[9px] opacity-50">Slider preview â€¢ {rows.length} testimonials</div></div>;
+    return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><div className="rounded-xl border border-white/10 bg-black/10 p-5 text-center"><p className="text-sm italic opacity-85">“{first?.body || 'Add testimonial text'}”</p><strong className="mt-3 block text-xs">— {first?.title || 'Customer'}</strong></div><div className="mt-2 text-center text-[9px] opacity-50">Slider preview • {rows.length} testimonials</div></div>;
   }
   if (element.type === 'code') {
     return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle}><div className="pointer-events-none" dangerouslySetInnerHTML={{ __html: sanitizeCustomHtml(element.content) }} /></div>;
@@ -2922,7 +2929,7 @@ function SectionPreview({
         )}
         {hasFreePosition && (
           <span className="max-w-24 truncate rounded bg-white/5 px-1 py-0.5 text-[7px] font-semibold text-gray-400">
-            X {positionX} Â· Y {positionY}
+            X {positionX} · Y {positionY}
           </span>
         )}
         {element.type === 'button' && (
@@ -2982,7 +2989,7 @@ function SectionPreview({
           type="button"
           draggable={false}
           aria-label="Resize element"
-          title={`Drag to resize Â· ${Math.round(width)}%`}
+          title={`Drag to resize · ${Math.round(width)}%`}
           className="absolute z-50 h-3.5 w-3.5 cursor-ew-resize rounded-full border-2 border-white bg-violet-500 shadow-[0_0_0_3px_rgba(139,92,246,0.18)] transition hover:scale-125"
           style={{
             left: `calc(${width}% + ${positionX}px - 7px)`,
@@ -3905,7 +3912,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function deleteReusableSection(template: ReusableSectionTemplate) {
-    if (!window.confirm(`Delete reusable section â€œ${template.title}â€?`)) return;
+    if (!window.confirm(`Delete reusable section “${template.title}”?`)) return;
     setReusableError('');
 
     if (!user || !template.cloudId) {
@@ -3980,9 +3987,34 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function publicWebsiteUrl(projectId: string) {
     if (!user) return '';
-    const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
-    if (!supabaseUrl) return '';
-    return `${supabaseUrl}/storage/v1/object/public/published-sites/${user.id}/${projectId}/index.html`;
+    return buildPublishedSiteUrl(user.id, projectId, 'index.html');
+  }
+
+  async function verifyPublishedRoute(url: string): Promise<boolean> {
+    if (!url) return false;
+
+    // Vite dev does not run the Vercel /api proxy. Storage verification remains
+    // useful locally, while production verifies the exact URL customers open.
+    if (import.meta.env.DEV) return true;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Accept: 'text/html' },
+      });
+
+      if (!response.ok) return false;
+
+      const contentType = (response.headers.get('content-type') || '').toLowerCase();
+      if (!contentType.includes('text/html')) return false;
+
+      const body = await response.text();
+      const head = body.slice(0, 4096);
+      return /<!doctype\s+html|<html(?:\s|>)/i.test(head);
+    } catch {
+      return false;
+    }
   }
 
   async function recoverPublishedProjectState(project: CloudWebsiteProject) {
@@ -4003,7 +4035,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return false;
     }
 
-    const recoveredUrl = storedUrl || publicWebsiteUrl(project.id);
+    const canonicalStoredUrl = normalizePublishedSiteUrl(storedUrl);
+    const recoveredUrl = publicWebsiteUrl(project.id) || canonicalStoredUrl;
     const recoveredAt =
       typeof project.content?.publishedAt === 'string'
         ? project.content.publishedAt
@@ -4014,11 +4047,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return false;
     }
 
+    const routeHealthy = await verifyPublishedRoute(recoveredUrl);
+
     setPublishedUrl(recoveredUrl);
     setPublishedAt(recoveredAt);
-    setLiveVerification('healthy');
+    setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
-    if (!storedUrl || project.status !== 'completed') {
+    if (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed') {
       const recoveredContent = {
         ...project.content,
         publishedUrl: recoveredUrl,
@@ -4487,7 +4522,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         entitlements: FREE_BILLING_ENTITLEMENTS,
         usage: { ...current.usage, pages: pages.length },
       }));
-      setBillingError('Billing status could not be verified, so paid features are temporarily locked. Apply the Sprint 121â€“132 migration if this is a new install.');
+      setBillingError('Billing status could not be verified, so paid features are temporarily locked. Apply the Sprint 121–132 migration if this is a new install.');
       setBillingLoading(false);
       return;
     }
@@ -4859,7 +4894,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           if (element.type === 'image' && !element.src) warnings.push(`${page.name}: image element has no source.`);
           if (element.type === 'button' && element.href?.startsWith('page:')) {
             const target = normalizeSlug(element.href.slice(5));
-            if (!pageSlugs.has(target)) errors.push(`${page.name}: broken page link â†’ ${target}.`);
+            if (!pageSlugs.has(target)) errors.push(`${page.name}: broken page link → ${target}.`);
           }
           if (element.type === 'button' && element.href?.startsWith('#') && element.href.length > 1) {
             const target = element.href.slice(1);
@@ -5000,7 +5035,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const page: WebsitePage = {
       ...activePage,
       id: `page-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name: `${activePage.name} Â· ${languageCodeLabel(language)}`,
+      name: `${activePage.name} · ${languageCodeLabel(language)}`,
       slug,
       sections: clonedSections,
       language,
@@ -6520,7 +6555,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const requestId = `ai-edit-${Date.now()}`;
     remember(sections, `AI change: ${prompt.slice(0, 60)}`);
-    pushProjectCheckpoint(`Before AI change Â· ${prompt.slice(0, 60)}`);
+    pushProjectCheckpoint(`Before AI change · ${prompt.slice(0, 60)}`);
     const currentPages = getCurrentPages();
     const snapshot: AIWebsiteUndoSnapshot = {
       pages: JSON.parse(JSON.stringify(currentPages)) as WebsitePage[],
@@ -6594,13 +6629,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           ? rawAgentPlan.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
           : [],
       };
-      const planPreview = (agentPlan.steps || []).map((step, index) => `${index + 1}. ${step.title}`).join(' â†’ ');
+      const planPreview = (agentPlan.steps || []).map((step, index) => `${index + 1}. ${step.title}`).join(' → ');
       setAiMessages((current) => [
         ...current,
         {
           id: `ai-plan-${Date.now()}`,
           role: 'assistant' as const,
-          content: `Plan: ${planPreview}${agentPlan.warnings?.length ? ` Â· ${agentPlan.warnings.join(' Â· ')}` : ''}`,
+          content: `Plan: ${planPreview}${agentPlan.warnings?.length ? ` · ${agentPlan.warnings.join(' · ')}` : ''}`,
         },
       ].slice(-30));
 
@@ -8406,7 +8441,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAiPrompt('');
       setAiQualityReview(null);
       setAiStage('ready');
-      pushProjectCheckpoint(`After AI change Â· ${prompt.slice(0, 60)}`, {
+      pushProjectCheckpoint(`After AI change · ${prompt.slice(0, 60)}`, {
         ...buildProjectSnapshot(),
         pages: nextPages,
         activePageId: finalActive?.id || activePageId,
@@ -8435,7 +8470,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-patch-result-${Date.now()}`,
           role: 'assistant' as const,
-          content: `${summary} Planned ${(agentPlan.steps || []).length} step${(agentPlan.steps || []).length === 1 ? '' : 's'} and applied ${applied} safe native operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.${skipped ? ` ${skipped} unsupported or unsafe operation${skipped === 1 ? ' was' : 's were'} skipped.` : ''}${patchWarnings.length ? ` Warnings: ${patchWarnings.join(' Â· ')}` : ''}${confidence !== null ? ` Confidence: ${Math.round(confidence * 100)}%.` : ''}${agentReview ? ` Agent review${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || 'Review complete.'}${agentReview.findings?.length ? ` Â· ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' Â· ')}` : ''}${agentReview.followUpPrompt ? ` Â· Suggested follow-up: ${agentReview.followUpPrompt}` : ''}` : ''}`,
+          content: `${summary} Planned ${(agentPlan.steps || []).length} step${(agentPlan.steps || []).length === 1 ? '' : 's'} and applied ${applied} safe native operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.${skipped ? ` ${skipped} unsupported or unsafe operation${skipped === 1 ? ' was' : 's were'} skipped.` : ''}${patchWarnings.length ? ` Warnings: ${patchWarnings.join(' · ')}` : ''}${confidence !== null ? ` Confidence: ${Math.round(confidence * 100)}%.` : ''}${agentReview ? ` Agent review${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || 'Review complete.'}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · Suggested follow-up: ${agentReview.followUpPrompt}` : ''}` : ''}`,
         },
       ].slice(-12));
     } catch (error) {
@@ -8456,7 +8491,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setAiBusy(true);
     setAiError('');
-    pushProjectCheckpoint(`Before AI image Â· ${selectedSection.title || SECTION_LABELS[selectedSection.type]}`);
+    pushProjectCheckpoint(`Before AI image · ${selectedSection.title || SECTION_LABELS[selectedSection.type]}`);
 
     try {
       const generatedImage = await requestGeneratedImage(
@@ -8674,7 +8709,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const current = projectSnapshotCounts(currentSnapshot as unknown as Record<string, unknown>);
     const previous = projectSnapshotCounts(version.snapshot || {});
     const delta = (value: number) => value === 0 ? '0' : value > 0 ? `+${value}` : String(value);
-    return `${delta(current.pageCount - previous.pageCount)} pages Â· ${delta(current.sectionCount - previous.sectionCount)} sections Â· ${delta(current.elementCount - previous.elementCount)} elements`;
+    return `${delta(current.pageCount - previous.pageCount)} pages · ${delta(current.sectionCount - previous.sectionCount)} sections · ${delta(current.elementCount - previous.elementCount)} elements`;
   }
 
   async function verifyLiveDeployment() {
@@ -8682,10 +8717,26 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLiveVerification('idle');
       return;
     }
+
     setLiveVerification('checking');
+
     const path = `${user.id}/${cloudProjectId}/index.html`;
-    const { data, error } = await supabase.storage.from('published-sites').download(path);
-    setLiveVerification(!error && data && data.size > 0 ? 'healthy' : 'failed');
+    const { data, error } = await supabase.storage
+      .from('published-sites')
+      .download(path);
+
+    if (error || !data || data.size <= 0) {
+      setLiveVerification('failed');
+      return;
+    }
+
+    const liveUrl = publicWebsiteUrl(cloudProjectId);
+    const routeHealthy = await verifyPublishedRoute(liveUrl);
+    setLiveVerification(routeHealthy ? 'healthy' : 'failed');
+
+    if (!routeHealthy && import.meta.env.PROD) {
+      setPublishError('The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar.');
+    }
   }
 
   async function createSharePreview() {
@@ -8703,11 +8754,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
-    if (!supabaseUrl) {
-      setPreviewError('Supabase URL is not configured.');
-      return;
-    }
     setPreviewBusy(true);
     setPreviewError('');
     try {
@@ -8716,7 +8762,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ? crypto.randomUUID().replace(/-/g, '')
         : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
       const folder = `${user.id}/${cloudProjectId}/previews/${token}`;
-      const publicBaseUrl = `${supabaseUrl}/storage/v1/object/public/published-sites/${folder}`;
+      const publicBaseUrl = buildPreviewSiteBaseUrl(user.id, cloudProjectId, token);
+      if (!publicBaseUrl) throw new Error('Could not build the public preview URL.');
       const currentPages = getCurrentPages();
       const files: Array<{ name: string; content: string; contentType: string }> = currentPages.map((page) => ({
         name: page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`,
@@ -8732,7 +8779,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
         if (error) throw error;
       }
-      const nextUrl = `${publicBaseUrl}/index.html`;
+      const nextUrl = buildPreviewSiteUrl(user.id, cloudProjectId, token, 'index.html');
+      if (!nextUrl) throw new Error('Could not build the public preview URL.');
+
+      const routeHealthy = await verifyPublishedRoute(nextUrl);
+      if (!routeHealthy) {
+        throw new Error('Preview files were saved, but the public preview renderer did not return HTML.');
+      }
+
       const createdAt = new Date().toISOString();
       setPreviewToken(token);
       setPreviewUrl(nextUrl);
@@ -8789,10 +8843,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const { error: removeError } = await supabase.storage.from('published-sites').remove(stalePaths);
         if (removeError) throw removeError;
       }
+      const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(user.id, cloudProjectId);
+      const nextPublishedUrl = buildPublishedSiteUrl(user.id, cloudProjectId, 'index.html');
+      if (!nextPublishedBaseUrl || !nextPublishedUrl) throw new Error('Could not build the live website URL.');
+
+      const legacyVersionUrl = normalizePublishedSiteUrl(version.published_url || '');
+      const legacyVersionBase = (version.published_url || '').replace(/\/index\.html(?:[?#].*)?$/i, '');
+      const canonicalVersionBase = legacyVersionUrl.replace(/\/index\.html(?:[?#].*)?$/i, '');
+
       for (const file of manifest) {
         const { data: blob, error: downloadError } = await supabase.storage.from('published-sites').download(`${version.storage_prefix}/${file.name}`);
         if (downloadError || !blob) throw downloadError || new Error(`Could not restore ${file.name}`);
-        const { error: uploadError } = await supabase.storage.from('published-sites').upload(`${folder}/${file.name}`, blob, {
+
+        let uploadBody: Blob = blob;
+        const textual = /(?:text\/|application\/(?:json|xml))/i.test(file.contentType || blob.type || '') || /\.(?:html?|xml|txt|css|js|json)$/i.test(file.name);
+        if (textual) {
+          let text = await blob.text();
+          if (legacyVersionBase && legacyVersionBase !== canonicalVersionBase) {
+            text = text.split(legacyVersionBase).join(nextPublishedBaseUrl);
+          }
+          if (canonicalVersionBase && canonicalVersionBase !== nextPublishedBaseUrl) {
+            text = text.split(canonicalVersionBase).join(nextPublishedBaseUrl);
+          }
+          uploadBody = new Blob([text], { type: file.contentType || blob.type || 'text/plain; charset=utf-8' });
+        }
+
+        const { error: uploadError } = await supabase.storage.from('published-sites').upload(`${folder}/${file.name}`, uploadBody, {
           upsert: true,
           contentType: file.contentType || blob.type || 'application/octet-stream',
           cacheControl: '60',
@@ -8802,7 +8878,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const nextPublishedAt = new Date().toISOString();
       const projectData = {
         ...buildProjectData(),
-        publishedUrl: version.published_url || publishedUrl,
+        publishedUrl: nextPublishedUrl,
         publishedAt: nextPublishedAt,
         lastPublishedVersionId: version.id,
         lastPublishedFingerprint: version.editor_fingerprint,
@@ -8814,7 +8890,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updated_at: nextPublishedAt,
       }).eq('id', cloudProjectId).eq('user_id', user.id);
       if (projectError) throw projectError;
-      setPublishedUrl(version.published_url || publishedUrl);
+      setPublishedUrl(nextPublishedUrl);
       setPublishedAt(nextPublishedAt);
       setLastPublishedVersionId(version.id);
       setLastPublishedFingerprint(version.editor_fingerprint);
@@ -9228,7 +9304,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     notFoundSection.buttonText = 'Back to Home';
     notFoundSection.buttonUrl = homeHref;
     notFoundSection.elements = notFoundSection.elements.map((element) => {
-      if (element.type === 'heading') return { ...element, content: '404 â€” Page not found' };
+      if (element.type === 'heading') return { ...element, content: '404 — Page not found' };
       if (element.type === 'text') return { ...element, content: 'The page you are looking for does not exist or may have moved.' };
       if (element.type === 'button') return { ...element, content: 'Back to Home', href: homeHref };
       return element;
@@ -9335,7 +9411,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function exportAuditReport() {
     const lines = [
-      'Tayar Website Builder â€” Pre-publish Audit',
+      'Tayar Website Builder — Pre-publish Audit',
       `Site: ${siteName}`,
       `Generated: ${new Date().toISOString()}`,
       `Score: ${siteAudit.score}/100`,
@@ -9391,12 +9467,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ? `${new Date(deliveryConfig.approvedAt).toLocaleString()}${approvalCurrent ? ' (current build)' : ' (site changed after approval)'}`
       : 'Not approved';
     return [
-      deliveryConfig.whiteLabel ? 'Website Delivery Report' : 'Tayar Website Builder â€” Client Delivery Report',
+      deliveryConfig.whiteLabel ? 'Website Delivery Report' : 'Tayar Website Builder — Client Delivery Report',
       '',
       `Project: ${siteName}`,
-      `Project code: ${deliveryConfig.projectCode || 'â€”'}`,
-      `Client: ${deliveryConfig.clientName || 'â€”'}`,
-      `Client email: ${deliveryConfig.clientEmail || 'â€”'}`,
+      `Project code: ${deliveryConfig.projectCode || '—'}`,
+      `Client: ${deliveryConfig.clientName || '—'}`,
+      `Client email: ${deliveryConfig.clientEmail || '—'}`,
       `Status: ${deliveryConfig.status}`,
       `Due date: ${due}`,
       `Generated: ${new Date().toISOString()}`,
@@ -9426,7 +9502,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ...(siteAudit.warnings.length ? siteAudit.warnings.map((item) => `- ${item}`) : ['- None']),
       '',
       'HANDOFF NOTES',
-      deliveryConfig.handoffNotes || 'â€”',
+      deliveryConfig.handoffNotes || '—',
     ].join('\n');
   }
 
@@ -9481,24 +9557,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ? publishVersions.map((version, index) => `${index + 1}. ${version.created_at} | ${version.release_note || 'No release note'} | ${version.published_url}`).join('\n')
       : 'No release history loaded.' });
 
-    const handoffTitle = deliveryConfig.whiteLabel ? 'CLIENT WEBSITE HANDOFF' : 'TAYAR WEBSITE BUILDER â€” CLIENT HANDOFF';
+    const handoffTitle = deliveryConfig.whiteLabel ? 'CLIENT WEBSITE HANDOFF' : 'TAYAR WEBSITE BUILDER — CLIENT HANDOFF';
     files.push({ name: 'HANDOFF.txt', content: [
       handoffTitle,
       '',
       `Project: ${siteName}`,
-      `Client: ${deliveryConfig.clientName || 'â€”'}`,
-      `Project code: ${deliveryConfig.projectCode || 'â€”'}`,
+      `Client: ${deliveryConfig.clientName || '—'}`,
+      `Project code: ${deliveryConfig.projectCode || '—'}`,
       `Live URL: ${publishedUrl || productionUrl}`,
       `Launch readiness: ${launchReadiness.score}/100`,
       '',
       'Package contents:',
-      '- site/ â€” production HTML, sitemap and robots.txt',
-      '- project/project-backup.json â€” editable project backup',
-      '- reports/delivery-report.txt â€” approval, readiness and audit',
-      '- reports/leads.csv â€” currently loaded lead data',
-      '- reports/analytics.csv â€” currently loaded analytics events',
-      '- reports/releases.txt â€” currently loaded release history',
-      '- MANIFEST.txt â€” file sizes and CRC32 checksums',
+      '- site/ — production HTML, sitemap and robots.txt',
+      '- project/project-backup.json — editable project backup',
+      '- reports/delivery-report.txt — approval, readiness and audit',
+      '- reports/leads.csv — currently loaded lead data',
+      '- reports/analytics.csv — currently loaded analytics events',
+      '- reports/releases.txt — currently loaded release history',
+      '- MANIFEST.txt — file sizes and CRC32 checksums',
       '',
       deliveryConfig.handoffNotes || '',
     ].join('\n') });
@@ -9702,10 +9778,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       const folder = user.id + '/' + publishProjectId;
-      const publicBaseUrl =
-        supabaseUrl +
-        '/storage/v1/object/public/published-sites/' +
-        folder;
+      const publicBaseUrl = buildPublishedSiteBaseUrl(user.id, publishProjectId);
+      if (!publicBaseUrl) {
+        throw new Error('Could not build the public website URL.');
+      }
 
       const currentPages = getCurrentPages();
 
@@ -10033,8 +10109,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       const nextPublishedUrl =
-        publicBaseUrl +
-        '/index.html';
+        buildPublishedSiteUrl(user.id, publishProjectId, 'index.html');
+
+      if (!nextPublishedUrl) {
+        throw new Error('Could not build the public website URL.');
+      }
+
+      const renderedRouteHealthy =
+        await verifyPublishedRoute(nextPublishedUrl);
+
+      if (!renderedRouteHealthy) {
+        throw new Error(
+          'The website files were uploaded, but the public renderer did not return a valid HTML page.'
+        );
+      }
 
       const nextPublishedAt =
         new Date().toISOString();
@@ -10288,7 +10376,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const checks = [
       { label: 'Site content', detail: `${currentPages.length} page${currentPages.length === 1 ? '' : 's'} configured`, ok: contentReady, points: 8 },
-      { label: 'SEO & accessibility audit', detail: `${siteAudit.score}/100 Â· ${siteAudit.errors.length} critical`, ok: auditReady, points: 15 },
+      { label: 'SEO & accessibility audit', detail: `${siteAudit.score}/100 · ${siteAudit.errors.length} critical`, ok: auditReady, points: 15 },
       { label: 'Cloud project', detail: cloudProjectId ? 'Project is saved to Tayar cloud' : 'Save the project to cloud', ok: Boolean(cloudProjectId), points: 10 },
       { label: 'Cloud sync', detail: !networkOnline ? 'Offline' : cloudSyncFailed || autoSaveStatus === 'failed' ? 'Sync needs retry' : 'Sync healthy', ok: syncHealthy, points: 10 },
       { label: 'Production URL', detail: productionUrlReady ? normalizeSiteUrl(siteUrl) : 'Add your production URL', ok: productionUrlReady, points: 8 },
@@ -10334,7 +10422,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ['Support + legal contact review', launchManualChecks.support],
     ] as const;
     const lines = [
-      'Tayar Website Builder V1 â€” Final Launch Report',
+      'Tayar Website Builder V1 — Final Launch Report',
       `Generated: ${new Date().toISOString()}`,
       `Project: ${siteName || 'Untitled website'}`,
       `Cloud project: ${cloudProjectId || 'Not saved'}`,
@@ -11376,7 +11464,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <span className="truncate">{headerConfig.brandText.trim() || siteName}</span>
                 </div>
                 {device === 'mobile' && headerConfig.mobileMenu ? (
-                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: headerConfig.textColor, borderColor: headerConfig.borderColor }}>â˜° Menu</div>
+                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: headerConfig.textColor, borderColor: headerConfig.borderColor }}>☰ Menu</div>
                 ) : (
                   <div className="flex flex-wrap items-center justify-end text-[10px]" style={{ color: headerConfig.textColor, gap: `${headerConfig.navGap}px`, fontSize: `${headerConfig.navSize}px` }}>
                     {pages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id} className={page.id === activePageId ? 'font-bold' : ''} style={{ color: page.id === activePageId ? headerConfig.activeColor : headerConfig.textColor }}>{page.name}</span>)}
@@ -11440,7 +11528,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             {footerConfig.enabled && (
               <div className="border-t border-white/10 px-5 py-5" style={{ background: theme.secondaryColor, color: theme.textColor }}>
                 <div className="flex flex-wrap items-start justify-between gap-4 text-[10px]">
-                  <div><p className="font-bold">{headerConfig.brandText.trim() || siteName}</p><p className="mt-1" style={{ color: theme.mutedTextColor }}>{footerConfig.text.trim() || `Â© ${new Date().getFullYear()} ${siteName}. All rights reserved.`}</p></div>
+                  <div><p className="font-bold">{headerConfig.brandText.trim() || siteName}</p><p className="mt-1" style={{ color: theme.mutedTextColor }}>{footerConfig.text.trim() || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`}</p></div>
                   {footerConfig.showNavigation && <div className="flex flex-wrap gap-3" style={{ color: theme.mutedTextColor }}>{pages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id}>{page.name}</span>)}</div>}
                   <div className="flex flex-wrap gap-3" style={{ color: theme.mutedTextColor }}>{footerConfig.instagramUrl && <span>Instagram</span>}{footerConfig.facebookUrl && <span>Facebook</span>}{footerConfig.linkedinUrl && <span>LinkedIn</span>}{footerConfig.xUrl && <span>X</span>}</div>
                 </div>
@@ -11612,7 +11700,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <option value="">{l('Start a new website…')}</option>
                     {cloudProjects.map((project) => (
                       <option key={project.id} value={project.id}>
-                        {project.title}{project.user_id !== user.id ? ' Â· Shared' : ''}
+                        {project.title}{project.user_id !== user.id ? ' · Shared' : ''}
                       </option>
                     ))}
                   </select>
@@ -11828,7 +11916,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 }`}
                 title={l('Verify that index.html exists in published storage')}
               >
-                {liveVerification === 'checking' ? 'Checkingâ€¦' : liveVerification === 'healthy' ? 'Live âœ“' : liveVerification === 'failed' ? 'Check failed' : 'Verify'}
+                {liveVerification === 'checking' ? 'Checking…' : liveVerification === 'healthy' ? 'Live ✓' : liveVerification === 'failed' ? 'Check failed' : 'Verify'}
               </button>
               <button
                 onClick={() => void unpublishWebsite()}
@@ -11854,11 +11942,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'text-red-400'
                   : darkMode ? 'text-gray-500' : 'text-gray-400'
           }`}>
-            {autoSaveStatus === 'saving' ? 'Autosavingâ€¦' : autoSaveStatus === 'saved' ? 'Autosaved' : autoSaveStatus === 'failed' ? 'Sync failed' : 'Autosave on'}
+            {autoSaveStatus === 'saving' ? 'Autosaving…' : autoSaveStatus === 'saved' ? 'Autosaved' : autoSaveStatus === 'failed' ? 'Sync failed' : 'Autosave on'}
           </span>
 
           <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-bold ${networkOnline ? (qualityDiagnostics.healthy ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400') : 'border-red-500/30 text-red-400'}`}>
-            {networkOnline ? (qualityDiagnostics.healthy ? 'Health âœ“' : 'Health warning') : 'Offline'}
+            {networkOnline ? (qualityDiagnostics.healthy ? 'Health ✓' : 'Health warning') : 'Offline'}
           </span>
 
 
@@ -11883,7 +11971,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             title={l('AI quality check before publishing')}
           >
             <Check className="h-4 w-4" />
-            <span className="hidden 2xl:inline">{aiQualityBusy ? l('Checkingâ€¦') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}</span>
+            <span className="hidden 2xl:inline">{aiQualityBusy ? l('Checking…') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}</span>
           </button>
 
           <button
@@ -11903,7 +11991,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
           >
             <Globe className="h-4 w-4" />
-            {publishBusy ? 'Publishingâ€¦' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
+            {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
             {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
           </button>
 
@@ -11935,10 +12023,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   {l('AI Quality Check')}
                   {aiQualityReview && <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${aiQualityReview.score >= 80 ? 'bg-emerald-500/10 text-emerald-400' : aiQualityReview.score >= 60 ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'}`}>{aiQualityReview.score}/100</span>}
                 </p>
-                <p className="mt-1 text-[10px] text-gray-500">{aiQualityReview?.summary || (aiQualityBusy ? l('Reviewing design, content, SEO, accessibility and publish readinessâ€¦') : l('Run the final AI review before publishing.'))}</p>
+                <p className="mt-1 text-[10px] text-gray-500">{aiQualityReview?.summary || (aiQualityBusy ? l('Reviewing design, content, SEO, accessibility and publish readiness…') : l('Run the final AI review before publishing.'))}</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => void runAIQualityCheck()} disabled={aiQualityBusy || aiBusy} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{aiQualityBusy ? l('Checkingâ€¦') : l('Run again')}</button>
+                <button onClick={() => void runAIQualityCheck()} disabled={aiQualityBusy || aiBusy} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{aiQualityBusy ? l('Checking…') : l('Run again')}</button>
                 <button onClick={() => setAiQualityOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
@@ -11971,7 +12059,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) setCommandOpen(false); }}>
           <div className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}>
             <div className="border-b border-white/10 p-3">
-              <input autoFocus value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setCommandOpen(false); }} placeholder={l('Type a command, page or sectionâ€¦')} className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-sky-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} />
+              <input autoFocus value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setCommandOpen(false); }} placeholder={l('Type a command, page or section…')} className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-sky-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} />
             </div>
             <div className="max-h-[60vh] overflow-auto p-2">
               {[
@@ -11993,7 +12081,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ...pages.map((page) => ({ label: `Go to page: ${page.name}`, keywords: `page ${page.slug}`, run: () => switchPage(page.id) })),
                 ...sections.map((section) => ({ label: `Select section: ${section.title || SECTION_LABELS[section.type]}`, keywords: `section ${section.type} ${section.anchorId || ''}`, run: () => { setSelectedId(section.id); setSelectedElementId(section.elements[0]?.id ?? null); } })),
               ].filter((item) => !commandQuery.trim() || `${l(item.label)} ${item.keywords}`.toLowerCase().includes(commandQuery.trim().toLowerCase())).slice(0, 24).map((item) => (
-                <button key={`${l(item.label)}-${item.keywords}`} onClick={() => { item.run(); setCommandOpen(false); setCommandQuery(''); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{l(item.label)}</span><span className="text-[9px] text-gray-500">â†µ</span></button>
+                <button key={`${l(item.label)}-${item.keywords}`} onClick={() => { item.run(); setCommandOpen(false); setCommandQuery(''); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{l(item.label)}</span><span className="text-[9px] text-gray-500">↵</span></button>
               ))}
             </div>
             <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>Ctrl/Cmd+K</span><button onClick={() => setCommandOpen(false)} className="font-semibold text-violet-400">{l('Close')}</button></div>
@@ -12016,7 +12104,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">Last automated check: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? 'Checkingâ€¦' : 'Run final checks'}</button>
+                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? 'Checking…' : 'Run final checks'}</button>
                 <button onClick={exportV1LaunchReport} className="rounded-lg border border-cyan-500/25 px-3 py-2 text-[10px] font-bold text-cyan-400">{l('Export launch report')}</button>
                 <button onClick={closeLaunchCenter} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
@@ -12032,13 +12120,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? 'OK' : 'FIX'}</p></div>
                   <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? 'VERIFIED' : publishedUrl ? 'VERIFY' : 'NOT YET'}</p></div>
                 </div>
-                {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">{l('Launch blockers')}</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">â€¢ {item}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">{l('âœ“ No critical production blockers detected.')}</div>}
+                {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">{l('Launch blockers')}</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">• {item}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">{l('✓ No critical production blockers detected.')}</div>}
               </div>
 
               <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
                 <div className="flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-wider text-violet-400">{l('Automated launch checks')}</p><p className="mt-1 text-[10px] text-gray-500">{l('Publish only after the preflight items are green.')}</p></div><span className="text-[10px] font-bold text-gray-500">{v1LaunchStatus.checks.filter((item) => item.ok).length}/{v1LaunchStatus.checks.length}</span></div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {v1LaunchStatus.checks.map((check) => <div key={check.label} className={`rounded-xl border p-2.5 ${check.ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10 bg-black/10'}`}><div className="flex items-center gap-2"><span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${check.ok ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-500'}`}>{check.ok ? 'âœ“' : 'â—‹'}</span><p className={`text-[10px] font-bold ${check.ok ? 'text-emerald-400' : 'text-gray-300'}`}>{check.label}</p></div><p className="mt-1 pl-7 text-[9px] text-gray-500">{check.detail}</p></div>)}
+                  {v1LaunchStatus.checks.map((check) => <div key={check.label} className={`rounded-xl border p-2.5 ${check.ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10 bg-black/10'}`}><div className="flex items-center gap-2"><span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${check.ok ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-500'}`}>{check.ok ? '✓' : '○'}</span><p className={`text-[10px] font-bold ${check.ok ? 'text-emerald-400' : 'text-gray-300'}`}>{check.label}</p></div><p className="mt-1 pl-7 text-[9px] text-gray-500">{check.detail}</p></div>)}
                 </div>
               </div>
             </div>
@@ -12079,7 +12167,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
                 <div className={`mt-3 rounded-xl border p-3 ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-black/10'}`}>
                   <p className="text-[10px] font-black">{l('V1 release decision')}</p>
-                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'GO â€” READY FOR FIRST PAYING CUSTOMERS' : v1LaunchStatus.preflightReady ? 'CODE READY â€” COMPLETE PUBLISH / MANUAL CHECKS' : 'NO-GO â€” FIX AUTOMATED BLOCKERS'}</p>
+                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'GO — READY FOR FIRST PAYING CUSTOMERS' : v1LaunchStatus.preflightReady ? 'CODE READY — COMPLETE PUBLISH / MANUAL CHECKS' : 'NO-GO — FIX AUTOMATED BLOCKERS'}</p>
                 </div>
               </div>
             </div>
@@ -12101,8 +12189,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {billingState.subscription?.status && (
                   <p className="mt-1 text-[10px] text-gray-500">
                     Subscription: <span className="font-semibold text-gray-300">{billingState.subscription.status}</span>
-                    {billingState.subscription.currentPeriodEnd ? ` Â· period ends ${new Date(billingState.subscription.currentPeriodEnd).toLocaleDateString()}` : ''}
-                    {billingState.subscription.cancelAtPeriodEnd ? ' Â· cancels at period end' : ''}
+                    {billingState.subscription.currentPeriodEnd ? ` · period ends ${new Date(billingState.subscription.currentPeriodEnd).toLocaleDateString()}` : ''}
+                    {billingState.subscription.cancelAtPeriodEnd ? ' · cancels at period end' : ''}
                   </p>
                 )}
               </div>
@@ -12110,7 +12198,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {billingState.subscription?.stripeCustomerId && (
                   <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-[10px] font-bold text-emerald-400 disabled:opacity-50">{l('Manage subscription')}</button>
                 )}
-                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? 'Refreshingâ€¦' : 'Refresh'}</button>
+                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? 'Refreshing…' : 'Refresh'}</button>
                 <button onClick={() => setBillingOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
@@ -12134,13 +12222,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       {current && <span className="rounded-full bg-emerald-500 px-2 py-1 text-[8px] font-black text-white">{l('CURRENT')}</span>}
                     </div>
                     <div className="mt-3 space-y-1.5">
-                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">âœ“ {bullet}</p>)}
+                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {bullet}</p>)}
                     </div>
                     <div className="mt-4">
                       {current ? (
                         <div className="rounded-lg border border-emerald-500/20 px-3 py-2 text-center text-[10px] font-bold text-emerald-400">{l('Active plan')}</div>
                       ) : isPaid ? (
-                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? 'Opening Stripeâ€¦' : `Choose ${details.label}`}</button>
+                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? 'Opening Stripe…' : `Choose ${details.label}`}</button>
                       ) : billingState.subscription?.stripeCustomerId ? (
                         <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="w-full rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{l('Manage downgrade in Stripe')}</button>
                       ) : (
@@ -12206,16 +12294,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <label className="text-[10px] text-gray-500">{l('Delivery status')}<select value={deliveryConfig.status} onChange={(e) => setDeliveryConfig((current) => ({ ...current, status: e.target.value as DeliveryStatus }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white'}`}><option value="building">{l('Building')}</option><option value="review">{l('Ready for review')}</option><option value="approved">{l('Approved')}</option><option value="delivered">{l('Delivered')}</option></select></label>
                   <label className="flex items-end gap-2 rounded-lg border border-fuchsia-500/15 px-3 py-2 text-[10px] text-gray-400"><input type="checkbox" checked={deliveryConfig.whiteLabel} disabled={!billingEntitlements.features.whiteLabel} onChange={(e) => { if (!requireBillingFeature('whiteLabel', 'White-label client delivery')) return; setDeliveryConfig((current) => ({ ...current, whiteLabel: e.target.checked })); }} /> White-label client handoff files {!billingEntitlements.features.whiteLabel && <span className="font-bold text-amber-400">BUSINESS</span>}</label>
                 </div>
-                <label className="mt-2 block text-[10px] text-gray-500">{l('Handoff notes')}<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder="Hosting notes, DNS details, next steps, support termsâ€¦" className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
+                <label className="mt-2 block text-[10px] text-gray-500">{l('Handoff notes')}<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder="Hosting notes, DNS details, next steps, support terms…" className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
               </div>
 
               <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
                 <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-wide text-cyan-400">{l('Launch readiness')}</p><span className={`text-2xl font-black ${launchReadiness.score >= 85 ? 'text-emerald-400' : launchReadiness.score >= 65 ? 'text-amber-400' : 'text-rose-400'}`}>{launchReadiness.score}%</span></div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-500" style={{ width: `${launchReadiness.score}%` }} /></div>
                 <div className="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
-                  {launchReadiness.checks.map((item) => <div key={l(item.label)} className={`rounded-lg border px-2 py-1.5 ${item.ok ? 'border-emerald-500/20 text-emerald-400' : 'border-white/10 text-gray-500'}`}>{item.ok ? 'âœ“' : 'â—‹'} {l(item.label)}</div>)}
+                  {launchReadiness.checks.map((item) => <div key={l(item.label)} className={`rounded-lg border px-2 py-1.5 ${item.ok ? 'border-emerald-500/20 text-emerald-400' : 'border-white/10 text-gray-500'}`}>{item.ok ? '✓' : '○'} {l(item.label)}</div>)}
                 </div>
-                <p className="mt-2 text-[9px] text-gray-500">Audit contributes {launchReadiness.auditPoints}/40 points Â· current audit {siteAudit.score}/100.</p>
+                <p className="mt-2 text-[9px] text-gray-500">Audit contributes {launchReadiness.auditPoints}/40 points · current audit {siteAudit.score}/100.</p>
               </div>
             </div>
 
@@ -12230,7 +12318,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold">{l('Client approval fingerprint')}</p>
-                  <p className={`mt-1 text-[10px] ${approvalCurrent ? 'text-emerald-400' : deliveryConfig.approvedAt ? 'text-amber-400' : 'text-gray-500'}`}>{deliveryConfig.approvedAt ? (approvalCurrent ? `Approved ${new Date(deliveryConfig.approvedAt).toLocaleString()} â€” current build still matches` : `Approved ${new Date(deliveryConfig.approvedAt).toLocaleString()} â€” website changed after approval`) : 'No approval snapshot recorded yet.'}</p>
+                  <p className={`mt-1 text-[10px] ${approvalCurrent ? 'text-emerald-400' : deliveryConfig.approvedAt ? 'text-amber-400' : 'text-gray-500'}`}>{deliveryConfig.approvedAt ? (approvalCurrent ? `Approved ${new Date(deliveryConfig.approvedAt).toLocaleString()} — current build still matches` : `Approved ${new Date(deliveryConfig.approvedAt).toLocaleString()} — website changed after approval`) : 'No approval snapshot recorded yet.'}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={approveForDelivery} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">{l('Approve current build')}</button>
@@ -12267,7 +12355,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Mark all leads read')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Bulk inbox cleanup')}</div></button>
               <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Archive read leads')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Keep inbox focused')}</div></button>
             </div>
-            <p className="text-[10px] text-gray-500">Shortcuts: Ctrl/Cmd+K commands Â· Ctrl/Cmd+S save Â· Ctrl/Cmd+Z undo Â· Ctrl/Cmd+Shift+Z redo Â· Ctrl/Cmd+Shift+P preview.</p>
+            <p className="text-[10px] text-gray-500">Shortcuts: Ctrl/Cmd+K commands · Ctrl/Cmd+S save · Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo · Ctrl/Cmd+Shift+P preview.</p>
           </div>
         </div>
       )}
@@ -12285,7 +12373,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className="flex items-center gap-2">
                 <button onClick={exportAnalyticsCsv} disabled={!analyticsEvents.length} className="text-xs font-semibold text-sky-400 disabled:opacity-40">CSV</button>
                 <button onClick={() => void refreshAnalytics()} disabled={analyticsLoading} className="text-xs font-semibold text-amber-400 disabled:opacity-50">
-                  {analyticsLoading ? 'Refreshingâ€¦' : 'Refresh'}
+                  {analyticsLoading ? 'Refreshing…' : 'Refresh'}
                 </button>
                 <button onClick={() => setAnalyticsOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
@@ -12295,10 +12383,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
               {[
-                ['Views Â· 30d', analyticsSummary.views],
-                ['Visitors Â· 30d', analyticsSummary.sessions],
-                ['Views Â· 7d', analyticsSummary.last7Days],
-                ['Views Â· Today', analyticsSummary.todayViews],
+                ['Views · 30d', analyticsSummary.views],
+                ['Visitors · 30d', analyticsSummary.sessions],
+                ['Views · 7d', analyticsSummary.last7Days],
+                ['Views · Today', analyticsSummary.todayViews],
                 ['CTA clicks', analyticsSummary.ctaClicks],
                 ['Form submits', analyticsSummary.formSubmits],
                 ['Form CVR', `${analyticsSummary.conversionRate}%`],
@@ -12357,7 +12445,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className="flex items-center gap-2">
                 <label className={`flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-white ${mediaUploading ? 'pointer-events-none bg-fuchsia-400 opacity-60' : 'bg-fuchsia-600 hover:bg-fuchsia-500'}`}>
                   <Upload className="h-3.5 w-3.5" />
-                  {mediaUploading ? 'Uploadingâ€¦' : 'Upload image'}
+                  {mediaUploading ? 'Uploading…' : 'Upload image'}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
@@ -12371,7 +12459,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   />
                 </label>
                 <button onClick={() => void refreshMedia()} disabled={mediaLoading} className="text-xs font-semibold text-fuchsia-400 disabled:opacity-50">
-                  {mediaLoading ? 'Refreshingâ€¦' : 'Refresh'}
+                  {mediaLoading ? 'Refreshing…' : 'Refresh'}
                 </button>
                 <button onClick={() => setMediaOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
@@ -12419,7 +12507,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <button onClick={exportLeadsCsv} disabled={!leads.length} className="text-xs font-semibold text-sky-400 disabled:opacity-40">CSV</button>
                 <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{l('Read all')}</button>
                 <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className="text-xs font-semibold text-gray-400 disabled:opacity-40">{l('Archive read')}</button>
-                <button onClick={() => void refreshLeads()} disabled={leadsLoading} className="text-xs font-semibold text-cyan-400 disabled:opacity-50">{leadsLoading ? 'Refreshingâ€¦' : 'Refresh'}</button>
+                <button onClick={() => void refreshLeads()} disabled={leadsLoading} className="text-xs font-semibold text-cyan-400 disabled:opacity-50">{leadsLoading ? 'Refreshing…' : 'Refresh'}</button>
                 <button onClick={() => setLeadsOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
@@ -12443,7 +12531,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <input value={leadQuery} onChange={(e) => setLeadQuery(e.target.value)} placeholder="Search name, email, message, tagsâ€¦" className={`min-w-56 flex-1 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+              <input value={leadQuery} onChange={(e) => setLeadQuery(e.target.value)} placeholder="Search name, email, message, tags…" className={`min-w-56 flex-1 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
               <select value={leadStatusFilter} onChange={(e) => setLeadStatusFilter(e.target.value as 'all' | WebsiteLead['status'])} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
                 <option value="all">{l('All inbox statuses')}</option><option value="new">{l('New')}</option><option value="read">{l('Read')}</option><option value="archived">{l('Archived')}</option>
               </select>
@@ -12493,7 +12581,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                         <option value="new">{l('New')}</option><option value="qualified">{l('Qualified')}</option><option value="contacted">{l('Contacted')}</option><option value="won">{l('Won')}</option><option value="lost">{l('Lost')}</option>
                       </select>
                       <select value={Number(lead.priority || 0)} onChange={(e) => void updateLeadCrm(lead.id, { priority: Number(e.target.value) })} className={`rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                        <option value={0}>{l('Normal priority')}</option><option value={1}>{l('â˜… Priority')}</option><option value={2}>{l('â˜…â˜… High priority')}</option>
+                        <option value={0}>{l('Normal priority')}</option><option value={1}>{l('★ Priority')}</option><option value={2}>{l('★★ High priority')}</option>
                       </select>
                     </div>
 
@@ -12541,7 +12629,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <p className="text-[10px] text-gray-500">{l('Immutable publish archives, live rollback and unlisted draft previews.')}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => void refreshPublishVersions()} disabled={publishVersionsLoading} className="text-xs font-semibold text-indigo-400">{publishVersionsLoading ? 'Refreshingâ€¦' : 'Refresh'}</button>
+                <button onClick={() => void refreshPublishVersions()} disabled={publishVersionsLoading} className="text-xs font-semibold text-indigo-400">{publishVersionsLoading ? 'Refreshing…' : 'Refresh'}</button>
                 <button onClick={() => setReleaseHistoryOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
@@ -12570,7 +12658,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     </div>
                   </>
                 ) : (
-                  <button onClick={() => void createSharePreview()} disabled={previewBusy || !user || !cloudProjectId} className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{previewBusy ? 'Creatingâ€¦' : 'Create share preview'}</button>
+                  <button onClick={() => void createSharePreview()} disabled={previewBusy || !user || !cloudProjectId} className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{previewBusy ? 'Creating…' : 'Create share preview'}</button>
                 )}
                 {previewCreatedAt && <p className="mt-2 text-[9px] text-gray-500">Created {new Date(previewCreatedAt).toLocaleString()}</p>}
                 {previewError && <p className="mt-2 text-[10px] text-rose-400">{previewError}</p>}
@@ -12729,7 +12817,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <select value={normalizePageLanguage(activePage.language, prefs.language)} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ language: e.target.value as Language }); }} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}>
                     <option value="en">{l('English')}</option><option value="sv">Svenska</option><option value="ar">Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©</option>
                   </select>
-                  <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? 'Translation group (optional)' : 'Translation groups Â· Pro'} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? 'Translation group (optional)' : 'Translation groups · Pro'} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {(['en', 'sv', 'ar'] as Language[]).filter((language) => language !== normalizePageLanguage(activePage.language, prefs.language)).map((language) => (
@@ -12890,11 +12978,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </div>
               <div className={`rounded-lg border p-2.5 ${siteAudit.errors.length ? 'border-red-500/30' : siteAudit.warnings.length ? 'border-amber-500/30' : 'border-emerald-500/30'}`}>
                 <div className="flex items-center justify-between gap-2"><p className="text-[9px] font-bold uppercase tracking-wide text-cyan-400">{l('Pre-publish audit')}</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${siteAudit.score >= 90 ? 'bg-emerald-500/15 text-emerald-400' : siteAudit.score >= 70 ? 'bg-amber-500/15 text-amber-400' : 'bg-red-500/15 text-red-400'}`}>{siteAudit.score}/100</span></div>
-                <p className="mt-1 text-[9px] text-gray-500">{siteAudit.errors.length} errors Â· {siteAudit.warnings.length} warnings Â· checks SEO, accessibility basics and internal links.</p>
+                <p className="mt-1 text-[9px] text-gray-500">{siteAudit.errors.length} errors · {siteAudit.warnings.length} warnings · checks SEO, accessibility basics and internal links.</p>
                 <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] text-gray-500"><span>{qualityDiagnostics.pages} pages</span><span>{qualityDiagnostics.sections} sections</span><span>{qualityDiagnostics.elements} elements</span><span>{qualityDiagnostics.snapshotKb} KB snapshot</span></div>
-                {qualityDiagnostics.warnings.length > 0 && <div className="mt-2 space-y-1">{qualityDiagnostics.warnings.slice(0, 4).map((item) => <p key={item} className="text-[9px] text-orange-400">â€¢ {item}</p>)}</div>}
+                {qualityDiagnostics.warnings.length > 0 && <div className="mt-2 space-y-1">{qualityDiagnostics.warnings.slice(0, 4).map((item) => <p key={item} className="text-[9px] text-orange-400">• {item}</p>)}</div>}
                 {recoveryAvailable && <button onClick={restoreRecoverySnapshot} className="mt-2 rounded-lg border border-cyan-500/30 px-2 py-1 text-[9px] font-bold text-cyan-400">{l('Restore recovery snapshot')}</button>}
-                {(siteAudit.errors.length > 0 || siteAudit.warnings.length > 0) && <div className="mt-2 max-h-32 space-y-1 overflow-auto">{siteAudit.errors.slice(0, 5).map((item) => <p key={`e-${item}`} className="text-[9px] text-red-400">â€¢ {item}</p>)}{siteAudit.warnings.slice(0, 7).map((item) => <p key={`w-${item}`} className="text-[9px] text-amber-400">â€¢ {item}</p>)}</div>}
+                {(siteAudit.errors.length > 0 || siteAudit.warnings.length > 0) && <div className="mt-2 max-h-32 space-y-1 overflow-auto">{siteAudit.errors.slice(0, 5).map((item) => <p key={`e-${item}`} className="text-[9px] text-red-400">• {item}</p>)}{siteAudit.warnings.slice(0, 7).map((item) => <p key={`w-${item}`} className="text-[9px] text-amber-400">• {item}</p>)}</div>}
               </div>
               <p className="text-[9px] leading-4 text-gray-500">{l('FAQ structured data is generated automatically from Accordion elements during Preview, Export and Publish.')}</p>
             </div>
@@ -12907,8 +12995,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} placeholder="GA4 Â· G-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} placeholder="GTM Â· GTM-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} placeholder="GA4 · G-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} placeholder="GTM · GTM-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                 <input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} placeholder="Meta Pixel ID" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                 <input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} placeholder={l('Plausible domain')} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </div>
@@ -12924,14 +13012,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {(productionConfig.organizationSchema || productionConfig.localBusinessSchema) && <div className="grid gap-2">
                   <input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} placeholder={l('Organization / business name')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                   <div className="grid grid-cols-2 gap-2"><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} placeholder={l('Organization URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} placeholder={l('Logo URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div>
-                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder="Schema type Â· LocalBusiness" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder={l('Phone')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder={l('Business address')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
+                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder="Schema type · LocalBusiness" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder={l('Phone')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder={l('Business address')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
                 </div>}
               </div>
               <div className={`rounded-lg border p-2.5 ${productionConfig.maintenanceMode ? 'border-amber-500/30' : darkMode ? 'border-white/10' : 'border-blue-100 bg-white/70'}`}>
                 <label className="flex items-center gap-2 text-[10px] font-semibold text-amber-400"><input type="checkbox" checked={productionConfig.maintenanceMode} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceMode: e.target.checked })); setSaved(false); }} />{l('Maintenance mode')}</label>
                 {productionConfig.maintenanceMode && <div className="mt-2 grid gap-2"><input value={productionConfig.maintenanceTitle} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceTitle: e.target.value })); setSaved(false); }} placeholder={l('Maintenance title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-amber-200 bg-white'}`} /><textarea rows={2} value={productionConfig.maintenanceText} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceText: e.target.value })); setSaved(false); }} placeholder={l('Maintenance message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-amber-200 bg-white'}`} /></div>}
               </div>
-              <label className="block text-[10px] text-gray-500">{l('Global custom CSS')}<textarea rows={5} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} placeholder={billingEntitlements.features.customCss ? '.my-class { ... }' : 'Custom CSS Â· Pro'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+              <label className="block text-[10px] text-gray-500">{l('Global custom CSS')}<textarea rows={5} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} placeholder={billingEntitlements.features.customCss ? '.my-class { ... }' : 'Custom CSS · Pro'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </label>
               <label className="block text-[10px] text-gray-500">{l('Extra robots.txt rules')}<textarea rows={4} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} placeholder={'Disallow: /private\nCrawl-delay: 5'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </label>
@@ -12976,7 +13064,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button type="button" onClick={applyThemeToCurrentPage} className="rounded-lg bg-violet-600 px-2 py-2 text-[10px] font-semibold text-white hover:bg-violet-500">{l('Apply to page')}</button>
               <button type="button" onClick={applyThemeToAllPages} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${darkMode ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10' : 'border-violet-300 text-violet-700 hover:bg-violet-100'}`}>{l('Apply all pages')}</button>
             </div>
-            <p className="mt-2 text-[9px] leading-4 text-gray-500">Font, width and spacing apply globally. â€œApplyâ€ also recolors existing sections and buttons.</p>
+            <p className="mt-2 text-[9px] leading-4 text-gray-500">Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.</p>
           </div>
 
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
@@ -13045,14 +13133,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <p className="mb-2 text-[9px] leading-4 text-gray-500">Reusable section templates are saved to your account when signed in, or this browser when signed out.</p>
             {reusableError && <p className="mb-2 text-[10px] text-amber-400">{reusableError}</p>}
             {reusableBusy && !reusableSections.length ? (
-              <p className="text-[10px] text-gray-500">{l('Loading templatesâ€¦')}</p>
+              <p className="text-[10px] text-gray-500">{l('Loading templates…')}</p>
             ) : reusableSections.length ? (
               <div className="max-h-44 space-y-1.5 overflow-auto pr-1">
                 {reusableSections.map((template) => (
                   <div key={template.id} className={`flex items-center gap-1 rounded-lg border p-1.5 ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-100 bg-white'}`}>
                     <button type="button" onClick={() => insertReusableSection(template)} className="min-w-0 flex-1 text-left">
                       <span className="block truncate text-[10px] font-semibold">{template.title}</span>
-                      <span className="block text-[9px] text-gray-500">{SECTION_LABELS[template.section.type]} Â· Use template</span>
+                      <span className="block text-[9px] text-gray-500">{SECTION_LABELS[template.section.type]} · Use template</span>
                     </button>
                     <button type="button" onClick={() => void deleteReusableSection(template)} className="rounded p-1 text-rose-400 hover:bg-rose-500/10" title={l('Delete template')}>
                       <Trash2 className="h-3 w-3" />
@@ -13198,7 +13286,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                           className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[10px] transition ${selectedElementId === element.id ? (darkMode ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700') : (darkMode ? 'text-gray-400 hover:bg-white/5 hover:text-gray-200' : 'text-gray-600 hover:bg-white')}`}
                         >
                           <span className="w-4 shrink-0 text-[9px] text-gray-500">{elementIndex + 1}</span>
-                          <span className="truncate">{ELEMENT_LABELS[element.type]}{element.content ? ` Â· ${element.content}` : ''}</span>
+                          <span className="truncate">{ELEMENT_LABELS[element.type]}{element.content ? ` · ${element.content}` : ''}</span>
                         </button>
                       )) : (
                         <p className="px-2 py-1 text-[9px] text-gray-600">{l('No elements in this section.')}</p>
@@ -13246,7 +13334,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     const active = aiStage === stage && aiStage !== 'ready';
                     return (
                       <div key={stage} className={`rounded-lg border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/15 bg-emerald-500/[0.07] text-emerald-400' : active ? 'border-violet-500/20 bg-violet-500/[0.08] text-violet-300' : darkMode ? 'border-white/[0.06] text-gray-600' : 'border-gray-100 text-gray-400'}`}>
-                        {complete ? 'âœ“ ' : ''}{stage}
+                        {complete ? '✓ ' : ''}{stage}
                       </div>
                     );
                   })}
@@ -13270,7 +13358,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {aiPlan.pages.map((page) => (
                       <span key={page.name} className={`rounded-full border px-2 py-1 text-[8px] font-semibold ${darkMode ? 'border-white/[0.07] bg-white/[0.025] text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>
-                        {page.name} Â· {page.sections}
+                        {page.name} · {page.sections}
                       </span>
                     ))}
                   </div>
@@ -13385,7 +13473,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       disabled={aiQualityBusy || aiBusy}
                       className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-emerald-500/15 bg-emerald-500/[0.03] text-emerald-300 hover:bg-emerald-500/[0.07]' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'} disabled:opacity-40`}
                     >
-                      {aiQualityBusy ? l('Checkingâ€¦') : l('Quality check')}
+                      {aiQualityBusy ? l('Checking…') : l('Quality check')}
                     </button>
                   </div>
                   {aiUndoSnapshot && (
@@ -13416,7 +13504,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     disabled={!aiPrompt.trim() || aiBusy}
                     className={`w-full rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
                   >
-                    {l('Fast build Â· no generated images')}
+                    {l('Fast build · no generated images')}
                   </button>
                 </div>
               )}
@@ -13464,7 +13552,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <span className="truncate">{headerConfig.brandText.trim() || siteName}</span>
                 </div>
                 {device === 'mobile' && headerConfig.mobileMenu ? (
-                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: headerConfig.textColor, borderColor: headerConfig.borderColor }}>â˜° Menu</div>
+                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: headerConfig.textColor, borderColor: headerConfig.borderColor }}>☰ Menu</div>
                 ) : (
                   <div className="flex flex-wrap items-center justify-end text-[10px]" style={{ color: headerConfig.textColor, gap: `${headerConfig.navGap}px`, fontSize: `${headerConfig.navSize}px` }}>
                     {pages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id} className={page.id === activePageId ? 'font-bold' : ''} style={{ color: page.id === activePageId ? headerConfig.activeColor : headerConfig.textColor }}>{page.name}</span>)}
@@ -13547,7 +13635,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             {footerConfig.enabled && (
               <div className="border-t border-white/10 px-5 py-5" style={{ background: theme.secondaryColor, color: theme.textColor }}>
                 <div className="flex flex-wrap items-start justify-between gap-4 text-[10px]">
-                  <div><p className="font-bold">{headerConfig.brandText.trim() || siteName}</p><p className="mt-1" style={{ color: theme.mutedTextColor }}>{footerConfig.text.trim() || `Â© ${new Date().getFullYear()} ${siteName}. All rights reserved.`}</p></div>
+                  <div><p className="font-bold">{headerConfig.brandText.trim() || siteName}</p><p className="mt-1" style={{ color: theme.mutedTextColor }}>{footerConfig.text.trim() || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`}</p></div>
                   {footerConfig.showNavigation && <div className="flex flex-wrap gap-3" style={{ color: theme.mutedTextColor }}>{pages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id}>{page.name}</span>)}</div>}
                   <div className="flex flex-wrap gap-3" style={{ color: theme.mutedTextColor }}>{footerConfig.instagramUrl && <span>Instagram</span>}{footerConfig.facebookUrl && <span>Facebook</span>}{footerConfig.linkedinUrl && <span>LinkedIn</span>}{footerConfig.xUrl && <span>X</span>}</div>
                 </div>
@@ -13656,13 +13744,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <span className="text-[10px] font-bold uppercase tracking-wide text-amber-400">{l('Reusable Symbols')}</span>
                   {selectedElement.symbolId ? <button type="button" onClick={detachSelectedSymbol} className="text-[9px] font-semibold text-amber-400">{l('Detach')}</button> : <button type="button" onClick={createSymbolFromSelected} className="text-[9px] font-semibold text-amber-400">{l('Create symbol')}</button>}
                 </div>
-                {selectedElement.symbolId && <p className="text-[9px] text-amber-300">Linked symbol â€” edits sync across all pages automatically.</p>}
+                {selectedElement.symbolId && <p className="text-[9px] text-amber-300">Linked symbol — edits sync across all pages automatically.</p>}
                 {!symbols.length ? <p className="text-[9px] text-gray-500">{l('No symbols yet. Create one from this element.')}</p> : (
                   <div className="max-h-40 space-y-1.5 overflow-auto">
                     {symbols.map((symbol) => (
                       <div key={symbol.id} className={`flex items-center gap-1.5 rounded border p-1.5 ${darkMode ? 'border-white/10' : 'border-amber-200 bg-white'}`}>
                         <button type="button" onClick={() => insertSymbol(symbol)} className="min-w-0 flex-1 truncate text-left text-[10px] font-semibold">+ {symbol.name}</button>
-                        <button type="button" onClick={() => deleteSymbol(symbol.id)} title={l('Delete symbol')} className="text-[10px] text-red-400">Ã—</button>
+                        <button type="button" onClick={() => deleteSymbol(symbol.id)} title={l('Delete symbol')} className="text-[10px] text-red-400">×</button>
                       </div>
                     ))}
                   </div>
@@ -13696,7 +13784,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               ) : selectedElement.type === 'gallery' ? (
                 <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder="One image URL per line" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               ) : selectedElement.type === 'accordion' || selectedElement.type === 'tabs' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={8} placeholder="Title | Content â€” one item per line" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Use one line per item: Title | Content</p></div>
+                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={8} placeholder="Title | Content — one item per line" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Use one line per item: Title | Content</p></div>
               ) : selectedElement.type === 'countdown' ? (
                 <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={3} placeholder="2026-12-31T23:59:59 | Launching soon" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Format: ISO date/time | label</p></div>
               ) : selectedElement.type === 'stats' || selectedElement.type === 'testimonials-slider' ? (
@@ -13704,7 +13792,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               ) : selectedElement.type === 'code' ? (
                 <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={10} placeholder="Custom HTML (scripts and inline event handlers are stripped)" className={`w-full resize-none rounded-lg border px-3 py-2 font-mono text-[10px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-emerald-500">Safe HTML mode: script/object/embed tags and on* handlers are removed before preview/publish.</p></div>
               ) : selectedElement.type === 'divider' || selectedElement.type === 'spacer' ? (
-                <p className="text-[10px] text-gray-500">Use the styling controls below to adjust {selectedElement.type === 'divider' ? 'width, color and opacity' : 'height (Padding Ã— 2)'}.</p>
+                <p className="text-[10px] text-gray-500">Use the styling controls below to adjust {selectedElement.type === 'divider' ? 'width, color and opacity' : 'height (Padding × 2)'}.</p>
               ) : (
                 <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={selectedElement.type === 'text' || selectedElement.type === 'list' ? 4 : 2} placeholder={selectedElement.type === 'list' ? 'One list item per line' : undefined} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               )}
@@ -13721,7 +13809,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     onChange={(e) => e.target.value && updateSelectedElement({ href: e.target.value })}
                     className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                   >
-                    <option value="">Link to internal pageâ€¦</option>
+                    <option value="">Link to internal page…</option>
                     {pages.map((page) => <option key={page.id} value={`page:${page.slug}`}>{page.name} (/{page.slug})</option>)}
                   </select>
                 </div>
@@ -13890,7 +13978,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="grid grid-cols-2 gap-2">
                   <label className="text-[10px] text-gray-500">{l('Opacity %')}<input type="number" min="0" max="100" value={Math.round((effectiveStyle(selectedElement, device).opacity ?? 1) * 100)} onChange={(e) => updateSelectedElement({ style: { opacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
-                  <label className="text-[10px] text-gray-500">{l('Rotate Â°')}<input type="number" min="-180" max="180" value={effectiveStyle(selectedElement, device).rotate ?? 0} onChange={(e) => updateSelectedElement({ style: { rotate: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                  <label className="text-[10px] text-gray-500">{l('Rotate °')}<input type="number" min="-180" max="180" value={effectiveStyle(selectedElement, device).rotate ?? 0} onChange={(e) => updateSelectedElement({ style: { rotate: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                   </label>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -13987,7 +14075,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold">{l('Section settings')}</p>
-                  <p className="truncate text-[9px] text-gray-500">{SECTION_LABELS[selectedSection.type]}{selectedElement ? ` Â· ${l('collapsed while editing element')}` : ''}</p>
+                  <p className="truncate text-[9px] text-gray-500">{SECTION_LABELS[selectedSection.type]}{selectedElement ? ` · ${l('collapsed while editing element')}` : ''}</p>
                 </div>
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform ${sectionSettingsOpen ? 'rotate-180' : ''}`} />
               </summary>
@@ -14101,7 +14189,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       </label>
                     </div>
                     <label className="block text-[10px] text-gray-500">{l('Gradient angle')}<input type="range" min="0" max="360" value={sectionVisualNumber(selectedSection.gradientAngle, 135, 0, 360)} onChange={(e) => updateSelected({ gradientAngle: Number(e.target.value) })} className="mt-1 w-full" />
-                      <span className="text-[9px] text-gray-500">{sectionVisualNumber(selectedSection.gradientAngle, 135, 0, 360)}Â°</span>
+                      <span className="text-[9px] text-gray-500">{sectionVisualNumber(selectedSection.gradientAngle, 135, 0, 360)}°</span>
                     </label>
                   </div>
                 )}
@@ -14395,7 +14483,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   disabled={aiBusy}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {aiBusy ? 'Generating...' : 'âœ¨ Generate AI Prompt'}
+                  {aiBusy ? 'Generating...' : '✨ Generate AI Prompt'}
                 </button>
 
                 <button
@@ -14403,7 +14491,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   disabled={aiBusy}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {aiBusy ? 'Generating Image...' : 'ðŸ–¼ï¸ Generate Image'}
+                  {aiBusy ? 'Generating Image...' : '🖼️ Generate Image'}
                 </button>
 
                 {selectedSection.image &&
