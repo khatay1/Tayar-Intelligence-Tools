@@ -30,8 +30,10 @@ const QUICK_PROMPTS = [
 ];
 
 function renderMarkdown(text: string): string {
-  let html = text;
-  html = html.replace(/```([\s\S]*?)```/g, (_, code) => `<pre class="bg-black/30 rounded-lg p-3 my-2 overflow-x-auto text-xs text-gray-300"><code>${escapeHtml(code.trim())}</code></pre>`);
+  // Escape the entire AI response first. Markdown formatting is applied only
+  // after escaping so model/user supplied HTML can never execute in Tayar.
+  let html = escapeHtml(text);
+  html = html.replace(/```([\s\S]*?)```/g, (_, code) => `<pre class="bg-black/30 rounded-lg p-3 my-2 overflow-x-auto text-xs text-gray-300"><code>${code.trim()}</code></pre>`);
   html = html.replace(/`([^`]+)`/g, '<code class="bg-white/10 rounded px-1.5 py-0.5 text-xs text-violet-300">$1</code>');
   html = html.replace(/^### (.+)$/gm, '<h3 class="text-white font-semibold text-sm mt-3 mb-1">$1</h3>');
   html = html.replace(/^## (.+)$/gm, '<h2 class="text-white font-bold text-base mt-3 mb-1">$1</h2>');
@@ -45,7 +47,12 @@ function renderMarkdown(text: string): string {
 }
 
 function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function contextLabel(ctx: ActiveContext): string {

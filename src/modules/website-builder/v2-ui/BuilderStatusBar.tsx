@@ -29,7 +29,9 @@ export function BuilderStatusBar({
                 ? 'VERIFYING'
                 : status.liveVerification === 'failed'
                   ? 'CHECK FAILED'
-                  : 'LIVE'}
+                  : status.liveVerification === 'healthy'
+                    ? 'LIVE'
+                    : 'PUBLISHED'}
             </strong>
             <span>Open site ↗</span>
           </a>

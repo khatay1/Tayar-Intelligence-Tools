@@ -15,6 +15,10 @@ import type {
 } from '../core/editor-shell-contract';
 
 import type {
+  EditorSymbolLike,
+} from '../core/editor-model';
+
+import type {
   EditorLeftPanel,
 } from '../core/editor-layout';
 
@@ -49,7 +53,7 @@ export interface BuilderPanelRouterProps {
   sitePanel?: ReactNode;
   settingsPanel?: ReactNode;
 
-  symbols?: Array<{ id: string; name?: string; element: { id: string; [key: string]: unknown }; [key: string]: unknown }>;
+  symbols?: EditorSymbolLike[];
   canCreateSymbol?: boolean;
   canInsertSymbol?: boolean;
   canDetachSymbol?: boolean;
@@ -207,7 +211,7 @@ export function BuilderPanelRouter(
     if (panel === 'components') {
       return (
         <BuilderComponentsPanel
-          symbols={(props.symbols || []) as any}
+          symbols={props.symbols || []}
           canCreate={props.canCreateSymbol}
           canInsert={props.canInsertSymbol}
           canDetach={props.canDetachSymbol}

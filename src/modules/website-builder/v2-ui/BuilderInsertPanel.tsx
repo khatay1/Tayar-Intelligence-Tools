@@ -1,4 +1,5 @@
-﻿import type {
+import type { ChangeEvent } from 'react';
+import type {
   EditorInsertCatalogItem,
   EditorInsertCategory,
 } from '../core/editor-insert-catalog';
@@ -56,9 +57,9 @@ export function BuilderInsertPanel({
           value={query}
           placeholder="Search"
           aria-label="Search elements"
-          onChange={(event: any) =>
+          onChange={(event: ChangeEvent<HTMLInputElement>) =>
             onQueryChange?.(
-              event.target.value,
+              event.currentTarget.value,
             )
           }
         />

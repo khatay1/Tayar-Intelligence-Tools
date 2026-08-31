@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/Toast';
 import { getFileMeta, timeAgo, ViewId } from './workspace-config';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StorageIndicator } from './StorageIndicator';
+import { normalizePublishedSiteUrl } from '@/lib/published-site-url';
 
 type SortBy = 'updated' | 'created' | 'name' | 'size';
 type SortDir = 'asc' | 'desc';
@@ -411,7 +412,9 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
     ? 'bg-emerald-500/10 text-emerald-400'
     : 'bg-amber-500/10 text-amber-400';
   const liveUrl = websiteLive
-    ? String((project.content as { publishedUrl?: unknown } | null)?.publishedUrl || '')
+    ? normalizePublishedSiteUrl(
+        String((project.content as { publishedUrl?: unknown } | null)?.publishedUrl || '')
+      )
     : '';
 
   if (view === 'list') {

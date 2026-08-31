@@ -8,7 +8,7 @@ export interface EditorMediaUsage {
   field: string;
 }
 
-const MEDIA_FIELDS = ['src', 'url', 'imageUrl', 'backgroundImage', 'poster', 'videoUrl'] as const;
+const MEDIA_FIELDS = ['src', 'url', 'imageUrl', 'backgroundImage', 'poster', 'videoUrl', 'href'] as const;
 
 function extractUrl(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;

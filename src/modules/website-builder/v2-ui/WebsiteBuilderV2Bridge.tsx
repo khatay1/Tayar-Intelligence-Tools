@@ -587,7 +587,7 @@ export function WebsiteBuilderV2Bridge({
             },
 
             history: {
-              undo: historyEntries.map((entry) => ({
+              undo: [...historyEntries].reverse().map((entry) => ({
                 ...entry,
                 direction: 'undo' as const,
               })),

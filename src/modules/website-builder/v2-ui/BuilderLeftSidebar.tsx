@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import {
   Sparkles,
   FileText,
@@ -47,7 +47,7 @@ export function BuilderLeftSidebar({
 }: BuilderLeftSidebarProps) {
   const { view, actions } = shell;
 
-  const onRailKeyDown = (event: any) => {
+  const onRailKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const next = resolveEditorSidebarKey(
       view.leftPanel as EditorLeftPanel,
       event.key,
@@ -59,11 +59,11 @@ export function BuilderLeftSidebar({
     actions.onOpenLeftPanel(next);
 
     const target =
-      event.currentTarget?.querySelector?.(
+      event.currentTarget.querySelector<HTMLButtonElement>(
         `[data-panel-id="${next}"]`,
       );
 
-    target?.focus?.();
+    target?.focus();
   };
 
   return (

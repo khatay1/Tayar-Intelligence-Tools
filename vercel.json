@@ -61,5 +61,23 @@
     "deploymentEnabled": {
       "release/ai-patch-engine-v1": false
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/site/:ownerId/:projectId",
+      "destination": "/api/published-site?ownerId=:ownerId&projectId=:projectId&file=index.html"
+    },
+    {
+      "source": "/site/:ownerId/:projectId/:file*",
+      "destination": "/api/published-site?ownerId=:ownerId&projectId=:projectId&file=:file*"
+    },
+    {
+      "source": "/preview/:ownerId/:projectId/:previewToken",
+      "destination": "/api/published-site?ownerId=:ownerId&projectId=:projectId&previewToken=:previewToken&file=index.html"
+    },
+    {
+      "source": "/preview/:ownerId/:projectId/:previewToken/:file*",
+      "destination": "/api/published-site?ownerId=:ownerId&projectId=:projectId&previewToken=:previewToken&file=:file*"
+    }
+  ]
 }

@@ -79,13 +79,18 @@ export function preflightEditorNativeOperations(
     if (operation.action === 'update_page' && operation.changes?.sections !== undefined) {
       errors.push(`${prefix} cannot replace sections through update_page`);
     }
-    if (
-      operation.action === 'update_section' &&
-      (operation.changes?.elements !== undefined ||
-        operation.changes?.containers !== undefined ||
-        operation.changes?.formFields !== undefined)
-    ) {
-      errors.push(`${prefix} cannot replace structural arrays through update_section`);
+    if (operation.action === 'update_section') {
+      if (operation.changes?.elements !== undefined || operation.changes?.containers !== undefined) {
+        errors.push(`${prefix} cannot replace element/container structural arrays through update_section`);
+      }
+
+      // V2 Reset Form is an intentional manual operation. It may replace the
+      // form-field array atomically, and the resulting project is still fully
+      // validated by validateEditorProject before commit. AI/system patches must
+      // continue using explicit add/remove/move form-field operations.
+      if (operation.changes?.formFields !== undefined && operation.source !== 'manual') {
+        errors.push(`${prefix} cannot replace form fields through update_section unless it is a validated manual edit`);
+      }
     }
     if (operation.action === 'update_element' && operation.changes?.id !== undefined) {
       errors.push(`${prefix} cannot change element identity`);

@@ -7,6 +7,10 @@ const qualityMigrationPath = resolve(root, 'supabase/migrations/20260828161000_q
 const teamMigrationPath = resolve(root, 'supabase/migrations/20260828155500_add_team_workspaces.sql');
 const billingMigrationPath = resolve(root, 'supabase/migrations/20260828154000_add_secure_billing_entitlements.sql');
 const adminEntitlementsMigrationPath = resolve(root, 'supabase/migrations/20260828223000_admin_business_entitlements.sql');
+const publishedUrlHelperPath = resolve(root, 'src/lib/published-site-url.ts');
+const publishedProxyPath = resolve(root, 'api/published-site.js');
+const vercelConfigPath = resolve(root, 'vercel.json');
+const serviceWorkerPath = resolve(root, 'public/sw.js');
 
 const failures = [];
 const passes = [];
@@ -21,6 +25,10 @@ for (const [label, path] of [
   ['Team workspace migration exists', teamMigrationPath],
   ['Billing migration exists', billingMigrationPath],
   ['Admin Business entitlements migration exists', adminEntitlementsMigrationPath],
+  ['Published-site URL helper exists', publishedUrlHelperPath],
+  ['Published-site HTML proxy exists', publishedProxyPath],
+  ['Vercel routing config exists', vercelConfigPath],
+  ['Service worker exists', serviceWorkerPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -28,8 +36,21 @@ for (const [label, path] of [
 const builder = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
 const migration = existsSync(qualityMigrationPath) ? readFileSync(qualityMigrationPath, 'utf8') : '';
 const adminEntitlementsMigration = existsSync(adminEntitlementsMigrationPath) ? readFileSync(adminEntitlementsMigrationPath, 'utf8') : '';
+const publishedUrlHelper = existsSync(publishedUrlHelperPath) ? readFileSync(publishedUrlHelperPath, 'utf8') : '';
+const publishedProxy = existsSync(publishedProxyPath) ? readFileSync(publishedProxyPath, 'utf8') : '';
+const vercelConfig = existsSync(vercelConfigPath) ? readFileSync(vercelConfigPath, 'utf8') : '';
+const serviceWorker = existsSync(serviceWorkerPath) ? readFileSync(serviceWorkerPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
+check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
+check('Published HTML never exposes direct Supabase Storage URLs', !builder.includes('/storage/v1/object/public/published-sites'));
+check('Publish and preview use canonical Tayar renderer URLs', builder.includes('buildPublishedSiteBaseUrl') && builder.includes('buildPreviewSiteBaseUrl') && builder.includes('buildPublishedSiteUrl'));
+check('Live verification checks rendered HTML content type', builder.includes("contentType.includes('text/html')") && builder.includes('verifyPublishedRoute'));
+check('Legacy published URLs are normalized', publishedUrlHelper.includes('normalizePublishedSiteUrl') && publishedUrlHelper.includes('/storage/v1/object/public/published-sites/'));
+check('Published-site proxy forces inline HTML rendering', publishedProxy.includes("'text/html; charset=utf-8'") && publishedProxy.includes("'Content-Disposition', 'inline'"));
+check('Published-site proxy sandboxes customer HTML from Tayar auth origin', publishedProxy.includes('sandbox allow-scripts') && !publishedProxy.includes('allow-same-origin'));
+check('Vercel routes live and preview websites through the proxy', vercelConfig.includes('"/site/:ownerId/:projectId/:file*"') && vercelConfig.includes('"/preview/:ownerId/:projectId/:previewToken/:file*"'));
+check('Service worker never caches published sites or previews', serviceWorker.includes("url.pathname.startsWith('/site/')") && serviceWorker.includes("url.pathname.startsWith('/preview/')"));
 check('Recovery snapshot storage is enabled', builder.includes('RECOVERY_STORAGE_KEY'));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));

@@ -12,7 +12,7 @@ export interface EditorInsertCatalogItem {
 }
 
 export const EDITOR_INSERT_CATALOG: EditorInsertCatalogItem[] = [
-  { id: 'section', label: 'Blank Section', description: 'Add a flexible website section.', category: 'layout', sectionType: 'custom', keywords: ['section', 'layout', 'container'], recommended: true },
+  { id: 'section', label: 'Flexible Section', description: 'Add a flexible section you can fully restyle and replace with your own elements.', category: 'layout', sectionType: 'features', keywords: ['section', 'layout', 'container', 'flexible'], recommended: true },
   { id: 'hero-section', label: 'Hero', description: 'Add a hero section.', category: 'layout', sectionType: 'hero', keywords: ['hero', 'banner', 'landing'], recommended: true },
   { id: 'features-section', label: 'Features', description: 'Add a features section.', category: 'layout', sectionType: 'features', keywords: ['features', 'benefits'] },
   { id: 'about-section', label: 'About', description: 'Add an about section.', category: 'layout', sectionType: 'about', keywords: ['about', 'company'] },

@@ -1,4 +1,4 @@
-// Central module import â€” importing this file registers all tools.
+// Central module import — importing this file registers all tools.
 // To add a new tool, create a module folder and add an import here.
 
 import './cv-builder';
