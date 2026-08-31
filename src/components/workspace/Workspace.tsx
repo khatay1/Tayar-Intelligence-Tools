@@ -427,7 +427,7 @@ const groups: { label: string; items: NavItem[] }[] = [
                 const tool = toolRegistry.get(activeView);
                 if (tool && tool.status !== 'soon') {
                   const Component = tool.component;
-                  return <Component darkMode={darkMode} />;
+                  return <Component darkMode={darkMode} projectId={activeProjectId} />;
                 }
                 if (tool && tool.status === 'soon') {
                   return <PlaceholderView title={tool.name} desc={tool.description} icon={Activity} darkMode={darkMode} badge="Coming Soon" />;
