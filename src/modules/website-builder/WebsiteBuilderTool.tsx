@@ -55,7 +55,7 @@ import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
 import type { EditorSelection } from './core/editor-selection';
-import type { EditorPageLike } from './core/editor-model';
+import type { EditorPageLike, EditorSymbolLike } from './core/editor-model';
 
 const STORAGE_KEY = 'tayar.website-builder.project.v5';
 const ACTIVE_PROJECT_STORAGE_KEY = 'tayar.website-builder.active-project.v1';
@@ -3817,7 +3817,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     } catch {
       return [];
     }
-  }, [projectId]);
+  }, []);
 
   const refreshReusableSections = useCallback(async () => {
     setReusableError('');
@@ -4110,6 +4110,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(project.content));
     await recoverPublishedProjectState(project);
   }
+
+  const loadCloudProjectRef = useRef(loadCloudProject);
+  loadCloudProjectRef.current = loadCloudProject;
 
   const refreshLeads = useCallback(async () => {
     if (!user || !cloudProjectId) {
@@ -4412,6 +4415,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     [selectedSection, selectedElementId]
   );
 
+  const canvasKeyboardActionsRef = useRef({
+    duplicate: duplicateSelectedElement,
+    remove: deleteSelectedElement,
+    nudge: nudgeSelectedElement,
+  });
+  canvasKeyboardActionsRef.current = {
+    duplicate: duplicateSelectedElement,
+    remove: deleteSelectedElement,
+    nudge: nudgeSelectedElement,
+  };
+
   useEffect(() => {
     if (!selectedSection || !selectedElement) return;
 
@@ -4421,13 +4435,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'd') {
         event.preventDefault();
-        duplicateSelectedElement();
+        canvasKeyboardActionsRef.current.duplicate();
         return;
       }
 
       if (!event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'Delete' || event.key === 'Backspace')) {
         event.preventDefault();
-        deleteSelectedElement();
+        canvasKeyboardActionsRef.current.remove();
         return;
       }
 
@@ -4442,15 +4456,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       event.preventDefault();
       const step = event.shiftKey ? 10 : 1;
-      if (event.key === 'ArrowLeft') nudgeSelectedElement(-step, 0);
-      if (event.key === 'ArrowRight') nudgeSelectedElement(step, 0);
-      if (event.key === 'ArrowUp') nudgeSelectedElement(0, -step);
-      if (event.key === 'ArrowDown') nudgeSelectedElement(0, step);
+      if (event.key === 'ArrowLeft') canvasKeyboardActionsRef.current.nudge(-step, 0);
+      if (event.key === 'ArrowRight') canvasKeyboardActionsRef.current.nudge(step, 0);
+      if (event.key === 'ArrowUp') canvasKeyboardActionsRef.current.nudge(0, -step);
+      if (event.key === 'ArrowDown') canvasKeyboardActionsRef.current.nudge(0, step);
     };
 
     window.addEventListener('keydown', handleCanvasKeyDown);
     return () => window.removeEventListener('keydown', handleCanvasKeyDown);
-  }, [selectedSection, selectedElement, device, sections, deleteSelectedElement, duplicateSelectedElement, nudgeSelectedElement]);
+  }, [selectedSection, selectedElement]);
 
   useEffect(() => {
     setSectionSettingsOpen(!selectedElementId);
@@ -4617,7 +4631,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     } catch {
       // Ignore invalid project data.
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     void refreshCloudProjects();
@@ -4642,7 +4656,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
       return;
     }
-    void loadCloudProject(desiredProjectId);
+    void loadCloudProjectRef.current(desiredProjectId);
   }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId]);
 
   useEffect(() => {
@@ -10360,7 +10374,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     ];
     const score = Math.min(100, auditPoints + checks.reduce((total, item) => total + (item.ok ? item.points : 0), 0));
     return { score, checks, auditPoints };
-  }, [siteAudit.score, siteUrl, cloudProjectId, previewUrl, approvalCurrent, publishedUrl, lastPublishedVersionId, faviconUrl]);
+  }, [siteAudit.score, siteUrl, cloudProjectId, previewUrl, approvalCurrent, publishedUrl, faviconUrl]);
 
   const v1LaunchStatus = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -14569,7 +14583,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
       sitePanel={v2SitePanel}
       settingsPanel={v2SettingsPanel}
-      symbols={symbols as any}
+      symbols={symbols as unknown as EditorSymbolLike[]}
       onCreateSymbol={createSymbolFromSelected}
       onDetachSymbol={detachSelectedSymbol}
       onInsertSymbol={(symbolId) => {
