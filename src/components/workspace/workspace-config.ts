@@ -12,7 +12,7 @@ export type ViewId =
   | 'pdf-tools' | 'image-tools' | 'my-files' | 'my-projects' | 'trash'
   | 'subscription' | 'settings' | 'support' | 'ai-usage' | 'profile'
   | 'privacy' | 'terms' | 'contact' | 'about' | 'help'
-  | 'feedback' | 'bug-report' | 'activity-timeline' | 'invoice-generator' | 'templates-hub' | 'name-generator' | 'letter-generator';
+  | 'feedback' | 'bug-report' | 'activity-timeline' | 'invoice-generator' | 'templates-hub' | 'name-generator' | 'letter-generator' | 'prompt-library';
 
 export interface NavItem {
   id: ViewId;

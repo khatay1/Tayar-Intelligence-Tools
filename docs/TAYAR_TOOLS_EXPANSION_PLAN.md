@@ -126,6 +126,7 @@ Shared engines should eventually live under areas such as:
 - Templates Hub: shipped with original Tayar finance, business and productivity starter templates inspired by common workflow categories, not copied files.
 - Name Generator: shipped for business, product, brand, YouTube and Instagram names using local original word banks and bounded generation.
 - Letter Generator: shipped with original recommendation, authorization, business inquiry, complaint, resignation and thank-you templates, with manual editing and local export.
+- Prompt Library: shipped with original searchable Business, Career, Writing and Social prompt templates plus bounded local personalization.
 - PDF Toolkit: deferred after security review found an open ReDoS report in the original pdf-lib parser and a malicious similarly named package; no PDF dependency will be added until the implementation path is acceptable.
 
 ## First implementation

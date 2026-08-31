@@ -16,6 +16,7 @@ import './csv-cleaner';
 import './templates-hub';
 import './name-generator';
 import './letter-generator';
+import './prompt-library';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
