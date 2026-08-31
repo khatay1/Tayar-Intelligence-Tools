@@ -4,6 +4,8 @@ import { createAdminClient, HttpError, requireUser } from "../_shared/billing.ts
 const MAX_REQUEST_CHARS = 30_000;
 const MAX_FOLDERS_PER_REQUEST = 12;
 const MAX_RESULTS_PER_REQUEST = 600;
+const MAX_OFFSET = 50_000;
+const DEFAULT_PAGE_SIZE = 300;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 
@@ -50,6 +52,12 @@ function json(req: Request, body: unknown, status = 200) {
 
 function bounded(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function boundedInteger(value: unknown, fallback: number, min: number, max: number) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(numeric)));
 }
 
 function assertFolderId(value: unknown) {
@@ -281,43 +289,65 @@ Deno.serve(async (req: Request) => {
       };
     });
 
-    const files: DiscoveredFile[] = [];
-    const folders: DiscoveredFolder[] = [];
+    const offset = boundedInteger(input.offset, 0, 0, MAX_OFFSET);
+    const pageSize = boundedInteger(
+      input.pageSize,
+      DEFAULT_PAGE_SIZE,
+      1,
+      MAX_RESULTS_PER_REQUEST,
+    );
+
+    const discoveredFiles: DiscoveredFile[] = [];
+    const discoveredFolders: DiscoveredFolder[] = [];
     const errors: Array<{ folderId: string; error: string }> = [];
 
     for (const folder of requested) {
       try {
         const html = await fetchFolderHtml(folder.id);
         const parsedFolder = parseFolderHtml(html, folder);
-
-        for (const file of parsedFolder.files) {
-          if (files.length + folders.length >= MAX_RESULTS_PER_REQUEST) break;
-          files.push(file);
-        }
-        for (const child of parsedFolder.folders) {
-          if (files.length + folders.length >= MAX_RESULTS_PER_REQUEST) break;
-          folders.push(child);
-        }
+        discoveredFiles.push(...parsedFolder.files);
+        discoveredFolders.push(...parsedFolder.folders);
       } catch (error) {
         errors.push({
           folderId: folder.id,
           error: error instanceof Error ? error.message.slice(0, 400) : "Folder discovery failed",
         });
       }
-
-      if (files.length + folders.length >= MAX_RESULTS_PER_REQUEST) break;
     }
+
+    const combined = [
+      ...discoveredFiles.map((file) => ({ kind: "file" as const, file })),
+      ...discoveredFolders.map((folder) => ({ kind: "folder" as const, folder })),
+    ];
+
+    const page = combined.slice(offset, offset + pageSize);
+    const files = page
+      .filter((item) => item.kind === "file")
+      .map((item) => item.file);
+    const folders = page
+      .filter((item) => item.kind === "folder")
+      .map((item) => item.folder);
+
+    const consumed = offset + page.length;
+    const nextOffset = consumed < combined.length ? consumed : null;
 
     return json(req, {
       requestedFolderCount: requested.length,
       fileCount: files.length,
       folderCount: folders.length,
+      totalFileCount: discoveredFiles.length,
+      totalFolderCount: discoveredFolders.length,
+      totalResultCount: combined.length,
+      offset,
+      pageSize,
+      nextOffset,
       files,
       folders,
       errors,
       limits: {
         maxFoldersPerRequest: MAX_FOLDERS_PER_REQUEST,
         maxResultsPerRequest: MAX_RESULTS_PER_REQUEST,
+        maxOffset: MAX_OFFSET,
       },
     });
   } catch (error) {
