@@ -89,6 +89,18 @@ export interface WebsiteBuilderV2BridgeProps {
   dirty: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  historyEntries?: Array<{
+    id: string;
+    label: string;
+    createdAt: number;
+    source: 'manual' | 'ai' | 'system';
+  }>;
+  futureEntries?: Array<{
+    id: string;
+    label: string;
+    createdAt: number;
+    source: 'manual' | 'ai' | 'system';
+  }>;
 
   saving?: boolean;
   publishing?: boolean;
@@ -221,6 +233,8 @@ export function WebsiteBuilderV2Bridge({
   dirty,
   canUndo,
   canRedo,
+  historyEntries = [],
+  futureEntries = [],
 
   saving,
   publishing,
@@ -528,6 +542,24 @@ export function WebsiteBuilderV2Bridge({
 
               blockers,
             },
+
+            history: {
+              undo: historyEntries.map((entry) => ({
+                ...entry,
+                direction: 'undo' as const,
+              })),
+              redo: futureEntries.map((entry) => ({
+                ...entry,
+                direction: 'redo' as const,
+              })),
+              latest: historyEntries[historyEntries.length - 1]
+                ? {
+                    ...historyEntries[historyEntries.length - 1],
+                    direction: 'undo' as const,
+                  }
+                : undefined,
+              total: historyEntries.length + futureEntries.length,
+            },
           },
         };
       },
@@ -536,6 +568,8 @@ export function WebsiteBuilderV2Bridge({
         dirty,
         canUndo,
         canRedo,
+        historyEntries,
+        futureEntries,
         publishBlockers,
       ],
     );
