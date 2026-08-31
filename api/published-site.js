@@ -39,12 +39,16 @@ function contentTypeFor(file) {
   return 'application/octet-stream';
 }
 
-function setCommonHeaders(res, file) {
+function setCommonHeaders(res, file, isPreview = false) {
   res.setHeader('Content-Type', contentTypeFor(file));
   res.setHeader('Content-Disposition', 'inline');
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  if (isPreview) {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
 
   if (/\.html?$/i.test(file)) {
     // Published customer HTML runs under an opaque sandboxed origin so it cannot
@@ -104,6 +108,12 @@ export default async function handler(req, res) {
     return;
   }
 
+  if (!previewToken && /^(?:versions|previews)(?:\/|$)/i.test(file)) {
+    res.statusCode = 404;
+    res.end('Published page not found');
+    return;
+  }
+
   const root = previewToken
     ? `${ownerId}/${projectId}/previews/${previewToken}`
     : `${ownerId}/${projectId}`;
@@ -139,7 +149,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  setCommonHeaders(res, responseFile);
+  setCommonHeaders(res, responseFile, Boolean(previewToken));
   res.statusCode = status === 404 ? 404 : 200;
 
   if (req.method === 'HEAD') {
