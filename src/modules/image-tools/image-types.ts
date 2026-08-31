@@ -20,7 +20,7 @@ export const MAX_IMAGE_PIXELS = 40_000_000;
 export const MAX_IMAGE_DIMENSION = 12_000;
 export const MIN_IMAGE_DIMENSION = 1;
 
-export const ALLOWED_IMAGE_TYPES = new Set<ImageOutputFormat>([
+export const ALLOWED_IMAGE_TYPES = new Set<string>([
   'image/jpeg',
   'image/png',
   'image/webp',

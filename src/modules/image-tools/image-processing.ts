@@ -15,7 +15,7 @@ function assertDimension(value: number, label: string) {
 }
 
 export function validateImageFile(file: File) {
-  if (!ALLOWED_IMAGE_TYPES.has(file.type as never)) {
+  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
     throw new Error('Unsupported image type. Use JPEG, PNG, or WebP.');
   }
   if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
