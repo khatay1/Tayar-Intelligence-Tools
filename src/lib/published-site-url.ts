@@ -102,7 +102,16 @@ export function normalizePublishedSiteUrl(value: string): string {
   if (markerIndex < 0) return raw;
 
   const storagePath = url.pathname.slice(markerIndex + marker.length);
-  const parts = storagePath.split('/').filter(Boolean).map((part) => decodeURIComponent(part));
+  const parts = storagePath
+    .split('/')
+    .filter(Boolean)
+    .map((part) => {
+      try {
+        return decodeURIComponent(part);
+      } catch {
+        return part;
+      }
+    });
 
   const [ownerId, projectId, ...rest] = parts;
   if (!ownerId || !projectId) return raw;
