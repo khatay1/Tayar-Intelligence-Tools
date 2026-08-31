@@ -10243,8 +10243,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLaunchCheckBusy(true);
     try {
       if (user) await refreshBilling(cloudProjectId);
-      if (user && cloudProjectId) await refreshProjectTeamAccess(cloudProjectId);
-      if (publishedUrl) await verifyLiveDeployment();
+      if (user && cloudProjectId) {
+        await refreshProjectTeamAccess(cloudProjectId);
+
+        if (publishedUrl) {
+          await verifyLiveDeployment();
+        } else {
+          const project = cloudProjects.find((item) => item.id === cloudProjectId);
+          if (project) await recoverPublishedProjectState(project);
+        }
+      }
       setLaunchLastCheckedAt(new Date().toISOString());
     } finally {
       setLaunchCheckBusy(false);
