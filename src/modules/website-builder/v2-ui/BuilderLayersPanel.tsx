@@ -33,6 +33,29 @@ export interface BuilderLayersPanelProps {
     sectionId: string,
     elementId: string,
   ): void;
+
+  onUngroupContainer?(
+    sectionId: string,
+    containerId: string,
+  ): void;
+
+  onAddFormField?(
+    sectionId: string,
+    type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox',
+  ): void;
+
+  onMoveFormField?(
+    sectionId: string,
+    formFieldId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDeleteFormField?(
+    sectionId: string,
+    formFieldId: string,
+  ): void;
+
+  onResetForm?(sectionId: string): void;
 }
 
 export function BuilderLayersPanel({
@@ -43,6 +66,11 @@ export function BuilderLayersPanel({
   onMoveElement,
   onDuplicateElement,
   onDeleteElement,
+  onUngroupContainer,
+  onAddFormField,
+  onMoveFormField,
+  onDeleteFormField,
+  onResetForm,
 }: BuilderLayersPanelProps) {
   const pages =
     shell.view.navigation;
@@ -167,36 +195,62 @@ export function BuilderLayersPanel({
 
                   {section.containers.map(
                     (container) => (
-                      <button
-                        type="button"
+                      <div
                         key={container.id}
-                        className="tayar-v2-layer-child tayar-v2-layer-child--container"
-                        aria-current={
+                        className="tayar-v2-layer-element-wrap"
+                        data-selected={
                           container.selected
                             ? 'true'
-                            : undefined
-                        }
-                        onClick={() =>
-                          shell.actions.onSelect({
-                            pageId:
-                              page.id,
-
-                            sectionId:
-                              section.id,
-
-                            containerId:
-                              container.id,
-                          })
+                            : 'false'
                         }
                       >
-                        <span aria-hidden="true">
-                          ▦
-                        </span>
+                        <button
+                          type="button"
+                          className="tayar-v2-layer-child tayar-v2-layer-child--container"
+                          aria-current={
+                            container.selected
+                              ? 'true'
+                              : undefined
+                          }
+                          onClick={() =>
+                            shell.actions.onSelect({
+                              pageId:
+                                page.id,
 
-                        <span>
-                          {container.label}
-                        </span>
-                      </button>
+                              sectionId:
+                                section.id,
+
+                              containerId:
+                                container.id,
+                            })
+                          }
+                        >
+                          <span aria-hidden="true">
+                            ▦
+                          </span>
+
+                          <span>
+                            {container.label}
+                          </span>
+                        </button>
+
+                        {container.selected && (
+                          <div className="tayar-v2-direct-actions tayar-v2-direct-actions--element">
+                            <button
+                              type="button"
+                              className="is-danger"
+                              onClick={() =>
+                                onUngroupContainer?.(
+                                  section.id,
+                                  container.id,
+                                )
+                              }
+                            >
+                              UNGROUP
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     ),
                   )}
                 </div>
@@ -318,50 +372,124 @@ export function BuilderLayersPanel({
                 )}
               </div>
 
-              {section.formFields.length > 0 && (
+              {section.type === 'contact' && (
                 <div className="tayar-v2-layer-group">
-                  <div className="tayar-v2-layer-group__title">
-                    Form fields
+                  <div className="tayar-v2-layer-group__title tayar-v2-layer-group__title--actions">
+                    <span>Form fields</span>
+                    <button
+                      type="button"
+                      onClick={() => onResetForm?.(section.id)}
+                    >
+                      Reset
+                    </button>
                   </div>
 
                   {section.formFields.map(
-                    (formField) => (
-                      <button
-                        type="button"
+                    (formField, formFieldIndex) => (
+                      <div
                         key={formField.id}
-                        className="tayar-v2-layer-child tayar-v2-layer-child--form"
-                        aria-current={
+                        className="tayar-v2-layer-element-wrap"
+                        data-selected={
                           formField.selected
                             ? 'true'
-                            : undefined
-                        }
-                        onClick={() =>
-                          shell.actions.onSelect({
-                            pageId:
-                              page.id,
-
-                            sectionId:
-                              section.id,
-
-                            formFieldId:
-                              formField.id,
-                          })
+                            : 'false'
                         }
                       >
-                        <span aria-hidden="true">
-                          ◫
-                        </span>
+                        <button
+                          type="button"
+                          className="tayar-v2-layer-child tayar-v2-layer-child--form"
+                          aria-current={
+                            formField.selected
+                              ? 'true'
+                              : undefined
+                          }
+                          onClick={() =>
+                            shell.actions.onSelect({
+                              pageId:
+                                page.id,
 
-                        <span>
-                          {formField.label}
-                        </span>
+                              sectionId:
+                                section.id,
 
-                        <small>
-                          {formField.type}
-                        </small>
-                      </button>
+                              formFieldId:
+                                formField.id,
+                            })
+                          }
+                        >
+                          <span aria-hidden="true">
+                            ◫
+                          </span>
+
+                          <span>
+                            {formField.label}
+                          </span>
+
+                          <small>
+                            {formField.type}
+                          </small>
+                        </button>
+
+                        {formField.selected && (
+                          <div className="tayar-v2-direct-actions tayar-v2-direct-actions--element">
+                            <button
+                              type="button"
+                              disabled={formFieldIndex === 0}
+                              onClick={() =>
+                                onMoveFormField?.(
+                                  section.id,
+                                  formField.id,
+                                  'up',
+                                )
+                              }
+                            >
+                              UP
+                            </button>
+                            <button
+                              type="button"
+                              disabled={
+                                formFieldIndex ===
+                                section.formFields.length - 1
+                              }
+                              onClick={() =>
+                                onMoveFormField?.(
+                                  section.id,
+                                  formField.id,
+                                  'down',
+                                )
+                              }
+                            >
+                              DN
+                            </button>
+                            <button
+                              type="button"
+                              className="is-danger"
+                              disabled={section.formFields.length <= 1}
+                              onClick={() =>
+                                onDeleteFormField?.(
+                                  section.id,
+                                  formField.id,
+                                )
+                              }
+                            >
+                              DEL
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     ),
                   )}
+
+                  <div className="tayar-v2-form-add-grid">
+                    {(['text', 'email', 'tel', 'textarea', 'select', 'checkbox'] as const).map((type) => (
+                      <button
+                        type="button"
+                        key={type}
+                        onClick={() => onAddFormField?.(section.id, type)}
+                      >
+                        + {type === 'tel' ? 'Phone' : type}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>
