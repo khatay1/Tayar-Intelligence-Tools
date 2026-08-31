@@ -49,5 +49,8 @@ export const EDITOR_LEFT_PANEL_REGISTRY: EditorPanelRegistration[] = [
   { id: 'layers', label: 'Layers', order: 30, shortcut: '3' },
   { id: 'insert', label: 'Insert', order: 40, shortcut: '4' },
   { id: 'media', label: 'Media', order: 50, shortcut: '5' },
-  { id: 'history', label: 'History', order: 60, shortcut: '6' },
+  { id: 'components', label: 'Components', order: 60, shortcut: '6' },
+  { id: 'site', label: 'Site', order: 70, shortcut: '7' },
+  { id: 'settings', label: 'Settings', order: 80, shortcut: '8' },
+  { id: 'history', label: 'History', order: 90, shortcut: '9' },
 ];
