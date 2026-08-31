@@ -6,7 +6,7 @@ export interface BackgroundRemovalResult {
   contentType: string;
 }
 
-export const MAX_BACKGROUND_IMAGE_BYTES = 3 * 1024 * 1024;
+export const MAX_BACKGROUND_IMAGE_BYTES = 2 * 1024 * 1024;
 export const BACKGROUND_ALLOWED_TYPES = new Set([
   'image/jpeg',
   'image/png',

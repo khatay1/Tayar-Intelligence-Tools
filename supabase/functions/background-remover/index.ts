@@ -4,9 +4,9 @@ import { createAdminClient, HttpError, requireUser } from "../_shared/billing.ts
 const rawFalKey = Deno.env.get("FAL_KEY") || "";
 const FAL_KEY = rawFalKey.trim().replace(/^["']|["']$/g, "").trim();
 
-const MAX_BODY_CHARS = 4_500_000;
+const MAX_BODY_CHARS = 3_000_000;
 const ALLOWED_DATA_URL = /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i;
-const MAX_IMAGE_DATA_URL_CHARS = 4_200_000;
+const MAX_IMAGE_DATA_URL_CHARS = 2_850_000;
 const FAL_ENDPOINT = "https://queue.fal.run/fal-ai/imageutils/rembg";
 
 function allowedOrigins(): Set<string> {
@@ -103,11 +103,28 @@ async function recordUsage(
   if (error) console.error("[BACKGROUND REMOVER] Usage logging failed");
 }
 
-function validateProviderUrl(value: unknown) {
+function validateFalQueueUrl(value: unknown) {
   if (typeof value !== "string") return "";
   try {
     const parsed = new URL(value);
-    return parsed.protocol === "https:" ? parsed.toString() : "";
+    const allowedHost =
+      parsed.hostname === "queue.fal.run" ||
+      parsed.hostname.endsWith(".fal.run");
+    return parsed.protocol === "https:" && allowedHost ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function validateFalMediaUrl(value: unknown) {
+  if (typeof value !== "string") return "";
+  try {
+    const parsed = new URL(value);
+    const allowedHost =
+      parsed.hostname === "fal.media" ||
+      parsed.hostname.endsWith(".fal.media") ||
+      parsed.hostname === "storage.googleapis.com";
+    return parsed.protocol === "https:" && allowedHost ? parsed.toString() : "";
   } catch {
     return "";
   }
@@ -165,8 +182,8 @@ Deno.serve(async (req: Request) => {
       throw new HttpError(502, "Background-removal provider is unavailable");
     }
 
-    const statusUrl = validateProviderUrl(submitData.status_url);
-    const responseUrl = validateProviderUrl(submitData.response_url);
+    const statusUrl = validateFalQueueUrl(submitData.status_url);
+    const responseUrl = validateFalQueueUrl(submitData.response_url);
     if (!statusUrl || !responseUrl) throw new HttpError(502, "Image provider returned invalid tracking URLs");
 
     const deadline = Date.now() + 60_000;
@@ -197,7 +214,7 @@ Deno.serve(async (req: Request) => {
     const image = resultData.image && typeof resultData.image === "object"
       ? resultData.image as Record<string, unknown>
       : null;
-    const url = validateProviderUrl(image?.url);
+    const url = validateFalMediaUrl(image?.url);
     if (!url) throw new HttpError(502, "Image provider returned no result image");
 
     const contentType = typeof image?.content_type === "string" ? image.content_type : "image/png";
