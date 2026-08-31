@@ -4,6 +4,7 @@ import type {
   EditorElementLike,
   EditorProjectLike,
   EditorSectionLike,
+  EditorSymbolLike,
 } from '../core/editor-model';
 import { findEditorElement } from '../core/editor-model';
 import {
@@ -45,7 +46,7 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
   sitePanel?: ReactNode;
   settingsPanel?: ReactNode;
 
-  symbols?: Array<{ id: string; name?: string; element: { id: string; [key: string]: unknown }; [key: string]: unknown }>;
+  symbols?: EditorSymbolLike[];
   onCreateSymbol?(): void;
   onDetachSymbol?(): void;
   onInsertSymbol?(symbolId: string): void;
