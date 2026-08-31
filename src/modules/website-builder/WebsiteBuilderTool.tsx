@@ -35,6 +35,7 @@ import {
 
 interface WebsiteBuilderToolProps {
   darkMode: boolean;
+  projectId?: string | null;
 }
 
 import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionType, WebsiteBrand, WebsiteElement, WebsiteElementContainer, WebsiteElementType, WebsiteFormField, WebsiteFormFieldType, WebsiteSEO, WebsiteSection } from './core/types';
@@ -50,6 +51,7 @@ import type { EditorSelection } from './core/editor-selection';
 import type { EditorPageLike } from './core/editor-model';
 
 const STORAGE_KEY = 'tayar.website-builder.project.v5';
+const ACTIVE_PROJECT_STORAGE_KEY = 'tayar.website-builder.active-project.v1';
 const RECOVERY_STORAGE_KEY = 'tayar.website-builder.recovery.v1';
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -3296,6 +3298,7 @@ function SectionPreview({
 
 export default function WebsiteBuilderTool({
   darkMode,
+  projectId = null,
 }: WebsiteBuilderToolProps) {
   const l = useLocalizer();
   const { prefs } = usePreferences();
@@ -3375,6 +3378,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     currentY: number;
   } | null>(null);
   const [cloudProjects, setCloudProjects] = useState<CloudWebsiteProject[]>([]);
+  const [cloudProjectsLoaded, setCloudProjectsLoaded] = useState(false);
   const [cloudProjectId, setCloudProjectId] = useState<string | null>(null);
   const [projectTeamAccess, setProjectTeamAccess] = useState<ProjectTeamAccess>(DEFAULT_PROJECT_TEAM_ACCESS);
   const [cloudBusy, setCloudBusy] = useState(false);
@@ -3769,9 +3773,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user) {
       setCloudProjects([]);
       setCloudProjectId(null);
+      setCloudProjectsLoaded(true);
       return;
     }
 
+    setCloudProjectsLoaded(false);
     setCloudBusy(true);
     setCloudError('');
     const { data, error } = await supabase
@@ -3784,11 +3790,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (error) {
       setCloudError('Could not load cloud projects.');
       setCloudBusy(false);
+      setCloudProjectsLoaded(true);
       return;
     }
 
     setCloudProjects((data || []) as CloudWebsiteProject[]);
     setCloudBusy(false);
+    setCloudProjectsLoaded(true);
   }, [user]);
 
   const loadLocalReusableSections = useCallback(() => {
@@ -3801,7 +3809,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     } catch {
       return [];
     }
-  }, []);
+  }, [projectId]);
 
   const refreshReusableSections = useCallback(async () => {
     setReusableError('');
@@ -3973,6 +3981,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const project = cloudProjects.find((item) => item.id === projectId);
     if (!project) return;
     setCloudProjectId(project.id);
+    try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, project.id); } catch { /* ignore */ }
     await refreshProjectTeamAccess(project.id);
     setLeads([]);
     setLeadsOpen(false);
@@ -4483,6 +4492,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   useEffect(() => {
+    if (projectId) return;
     try {
       const savedProject = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(PREVIOUS_STORAGE_KEY) || localStorage.getItem(V3_STORAGE_KEY) || localStorage.getItem(V2_STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
       if (savedProject) {
@@ -4498,6 +4508,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     void refreshCloudProjects();
     void refreshReusableSections();
   }, [refreshCloudProjects, refreshReusableSections]);
+
+  useEffect(() => {
+    if (!user || !cloudProjectsLoaded) return;
+    let desiredProjectId = projectId;
+    if (!desiredProjectId) {
+      try {
+        desiredProjectId = localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY);
+      } catch {
+        desiredProjectId = null;
+      }
+    }
+    if (!desiredProjectId || cloudProjectId === desiredProjectId) return;
+    const exists = cloudProjects.some((project) => project.id === desiredProjectId);
+    if (!exists) {
+      if (!projectId) {
+        try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
+      }
+      return;
+    }
+    void loadCloudProject(desiredProjectId);
+  }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId]);
+
+  useEffect(() => {
+    if (!user || !cloudProjectId) return;
+    try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, cloudProjectId); } catch { /* ignore */ }
+  }, [user, cloudProjectId]);
 
   useEffect(() => {
     void refreshBilling(cloudProjectId);
@@ -4574,6 +4610,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [sections, activePageId]);
 
   useEffect(() => {
+    if (user && !cloudProjectsLoaded) return;
+    if (projectId && cloudProjectId !== projectId) return;
     const fingerprint = buildProjectFingerprint();
 
     if (!lastSavedSnapshotRef.current) {
@@ -4599,7 +4637,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return () => {
       if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     };
-  }, [buildProjectFingerprint]);
+  }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId]);
 
   const analyticsSummary = useMemo(() => {
     const pageViews = analyticsEvents.filter((event) => !event.event_type || event.event_type === 'page_view');
@@ -8773,6 +8811,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function saveProject(options: { automatic?: boolean; createHistory?: boolean } = {}): Promise<boolean> {
     const automatic = options.automatic === true;
+    if (user && projectId && cloudProjectId !== projectId) {
+      setCloudError('Opening your saved website. Save will continue when it is loaded.');
+      return false;
+    }
     const createHistory = options.createHistory ?? !automatic;
     const fingerprint = buildProjectFingerprint();
 
@@ -8851,6 +8893,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setCloudSyncFailed(true);
         } else {
           setCloudProjectId(result.data.id);
+          try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, result.data.id); } catch { /* ignore */ }
           setProjectTeamAccess({ ...DEFAULT_PROJECT_TEAM_ACCESS, ownerId: user.id });
           cloudSaved = true;
           setCloudSyncFailed(false);
@@ -8897,6 +8940,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     if (!user) {
       setCloudProjectId(null);
+      try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
       setProjectHistory([]);
       setSiteName(duplicateTitle);
       setPublishedUrl('');
@@ -8939,6 +8983,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     setCloudProjectId(data.id);
+    try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, data.id); } catch { /* ignore */ }
     setProjectHistory([]);
     setLeads([]);
     setLeadsOpen(false);
@@ -9017,6 +9062,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     localStorage.removeItem(V2_STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
     setCloudProjectId(null);
+    try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
     setCloudError('');
     setProjectHistory([]);
     setLeads([]);
@@ -9158,6 +9204,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
         setCloudProjectId(null);
+        try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
         setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(importedProject));
         lastSavedSnapshotRef.current = '';
@@ -9563,6 +9610,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         publishProjectId = String((createResult.data as { id: string }).id);
         setCloudProjectId(publishProjectId);
+        try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, publishProjectId); } catch { /* ignore */ }
         setProjectTeamAccess({
           ...DEFAULT_PROJECT_TEAM_ACCESS,
           ownerId: user.id,
@@ -11371,8 +11419,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     onChange={(e) => {
                       const value = e.target.value;
                       if (!value) {
-                        setCloudProjectId(null);
-                        setProjectTeamAccess(DEFAULT_PROJECT_TEAM_ACCESS);
+                        resetProject();
                         return;
                       }
                       void loadCloudProject(value);
@@ -11380,7 +11427,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     disabled={cloudBusy}
                     className={`mt-2 w-full rounded-lg border px-2.5 py-2 text-[11px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                   >
-                    <option value="">{l('New cloud project')}</option>
+                    <option value="">{l('Start a new website…')}</option>
                     {cloudProjects.map((project) => (
                       <option key={project.id} value={project.id}>
                         {project.title}{project.user_id !== user.id ? ' Â· Shared' : ''}
