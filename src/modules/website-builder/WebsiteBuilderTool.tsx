@@ -4008,6 +4008,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       const contentType = (response.headers.get('content-type') || '').toLowerCase();
       if (!contentType.includes('text/html')) return false;
+      if (response.headers.get('x-tayar-published-site') !== '1') return false;
 
       const body = await response.text();
       const head = body.slice(0, 4096);
@@ -4053,7 +4054,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPublishedAt(recoveredAt);
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
-    if (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed') {
+    if (routeHealthy && (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed')) {
       const recoveredContent = {
         ...project.content,
         publishedUrl: recoveredUrl,
@@ -4087,7 +4088,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
     }
 
-    return true;
+    return routeHealthy;
   }
 
   async function loadCloudProject(projectId: string) {
@@ -8775,7 +8776,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const { error } = await supabase.storage.from('published-sites').upload(
           `${folder}/${file.name}`,
           new Blob([file.content], { type: file.contentType }),
-          { upsert: true, contentType: file.contentType, cacheControl: '60' },
+          { upsert: true, contentType: file.contentType, cacheControl: '0' },
         );
         if (error) throw error;
       }
@@ -9935,7 +9936,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               upsert: true,
               contentType:
                 file.contentType,
-              cacheControl: '60',
+              cacheControl: '0',
             },
           );
 
