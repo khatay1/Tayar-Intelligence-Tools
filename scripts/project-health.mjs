@@ -40,6 +40,8 @@ check('CSV cleaner engine exists', exists('src/modules/csv-cleaner/csv-cleaner.t
 check('Templates Hub module exists', exists('src/modules/templates-hub/TemplatesHubTool.tsx'));
 check('Template mirror migration exists', exists('supabase/migrations/20260831234500_create_template_library_mirror.sql'));
 check('Template mirror sync Edge Function exists', exists('supabase/functions/template-library-sync/index.ts'));
+check('Template mirror discovery Edge Function exists', exists('supabase/functions/template-library-discover/index.ts'));
+check('24Billions source catalog exists', exists('src/modules/templates-hub/source-catalog.ts'));
 check('Template mirror client service exists', exists('src/modules/templates-hub/library-service.ts'));
 check('Templates are split by domain', exists('src/modules/templates-hub/templates/finance.ts') && exists('src/modules/templates-hub/templates/business.ts') && exists('src/modules/templates-hub/templates/productivity.ts'));
 check('Name Generator module exists', exists('src/modules/name-generator/NameGeneratorTool.tsx'));
@@ -140,6 +142,8 @@ const templatesHub = read('src/modules/templates-hub/TemplatesHubTool.tsx');
 const templateExport = read('src/modules/templates-hub/template-export.ts');
 const templateMirrorMigration = read('supabase/migrations/20260831234500_create_template_library_mirror.sql');
 const templateMirrorSync = read('supabase/functions/template-library-sync/index.ts');
+const templateMirrorDiscover = read('supabase/functions/template-library-discover/index.ts');
+const templateSourceCatalog = read('src/modules/templates-hub/source-catalog.ts');
 const templateMirrorService = read('src/modules/templates-hub/library-service.ts');
 const nameGeneratorTool = read('src/modules/name-generator/NameGeneratorTool.tsx');
 const nameGeneratorEngine = read('src/modules/name-generator/name-generator.ts');
@@ -207,6 +211,9 @@ check('Templates Hub does not import remote template assets', !templatesHub.incl
 check('Template mirror keeps binary files out of Git and in dedicated Storage', templateMirrorMigration.includes("'template-library'") && templateMirrorMigration.includes('template_assets') && templateMirrorMigration.includes('template_import_runs'));
 check('Template sync requires admin and validates every external hop', templateMirrorSync.includes('requireUser(req)') && templateMirrorSync.includes('assertAdmin(admin, user.id)') && templateMirrorSync.includes("data.role !== \"admin\"") && templateMirrorSync.includes("redirect: \"manual\"") && templateMirrorSync.includes('assertAllowedSourceUrl'));
 check('Template sync bounds batches and file sizes', templateMirrorSync.includes('MAX_ASSETS_PER_REQUEST') && templateMirrorSync.includes('MAX_FILE_BYTES') && templateMirrorSync.includes('MAX_BATCH_BYTES'));
+check('Template discovery is admin-only and non-recursive', templateMirrorDiscover.includes('assertAdmin(admin, user.id)') && templateMirrorDiscover.includes('MAX_HTML_BYTES') && templateMirrorDiscover.includes('MAX_CANDIDATES') && !templateMirrorDiscover.includes('while (queue.length'));
+check('Template discovery validates page and candidate hosts', templateMirrorDiscover.includes('assert24BillionsPageUrl') && templateMirrorDiscover.includes('isAllowedCandidateUrl') && templateMirrorDiscover.includes("redirect: 'manual'"));
+check('24Billions catalog covers the major public library families', ['excel-templates-bundle','excel-ppt-word-power-bi-templates','modern-cv-template-word-free-download','letterhead-templates','weekly-planner','invoice'].some((value) => templateSourceCatalog.includes(value)));
 check('Template library service exposes only ready public assets', templateMirrorService.includes(".eq('status', 'ready')") && templateMirrorService.includes(".eq('is_public', true)"));
 check('Name Generator is local and does not claim availability checks', modulesIndex.includes("import './name-generator'") && nameGeneratorTool.includes('Availability is not checked') && !nameGeneratorEngine.includes('fetch(') && !nameGeneratorEngine.includes('supabase'));
 check('Name Generator bounds user input and result count', nameGeneratorEngine.includes('MAX_KEYWORD_LENGTH') && nameGeneratorEngine.includes('MAX_RESULTS'));

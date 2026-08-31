@@ -46,6 +46,10 @@ Per-request limits:
 
 The Storage bucket allows up to 50 MB per object.
 
+## Discovery workflow
+
+The separate `template-library-discover` worker scans one approved 24Billions page at a time and returns candidate file/download URLs. It is intentionally non-recursive so a malformed page cannot turn into an uncontrolled crawler. Source roots are stored in `source-catalog.ts` and can be processed in batches.
+
 ## Import workflow
 
 1. Discover public template download URLs.
