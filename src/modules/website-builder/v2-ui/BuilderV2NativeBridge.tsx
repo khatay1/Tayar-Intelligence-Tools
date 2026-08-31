@@ -121,6 +121,14 @@ const IMAGE_INSERT_ITEM =
   EDITOR_INSERT_CATALOG.find((item) => item.id === 'image') ||
   EDITOR_INSERT_CATALOG[0];
 
+const VIDEO_INSERT_ITEM =
+  EDITOR_INSERT_CATALOG.find((item) => item.id === 'video') ||
+  IMAGE_INSERT_ITEM;
+
+const FILE_INSERT_ITEM =
+  EDITOR_INSERT_CATALOG.find((item) => item.id === 'button') ||
+  EDITOR_INSERT_CATALOG[0];
+
 function withContainer(
   element: EditorElementLike,
   containerId?: string,
@@ -231,7 +239,6 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
 
     if (!placement) return;
 
-    // Section / contact form
     if (item.sectionType) {
       const section =
         props.createSection(item);
@@ -261,7 +268,6 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
     const operations =
       [...target.operations];
 
-    // Real V2 container
     if (item.elementType === 'container') {
       const container =
         props.createContainer(item);
@@ -285,7 +291,6 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
       return;
     }
 
-    // Real V2 element
     if (item.elementType) {
       const element =
         withContainer(
@@ -315,10 +320,6 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
   function handleMediaSelect(
     asset: EditorMediaAsset,
   ) {
-    if (asset.kind !== 'image') return;
-
-    // If an image is currently selected,
-    // replace that image directly.
     if (
       selection.pageId &&
       selection.sectionId &&
@@ -332,58 +333,100 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
           selection.elementId,
         );
 
-      if (
-        match &&
-        match.element.type === 'image'
-      ) {
-        applyOperations(
-          [
-            {
+      if (match) {
+        if (asset.kind === 'image' && match.element.type === 'image') {
+          applyOperations(
+            [{
               action: 'update_element',
               pageId: selection.pageId,
               sectionId: selection.sectionId,
               elementId: selection.elementId,
-
               changes: {
                 src: asset.url,
-                content:
-                  asset.alt ||
-                  asset.name,
-                alt:
-                  asset.alt ||
-                  asset.name,
+                content: asset.alt || asset.name,
+                alt: asset.alt || asset.name,
               },
-            },
-          ],
-          selection,
-        );
+            }],
+            selection,
+          );
+          return;
+        }
 
-        return;
+        if (asset.kind === 'video' && match.element.type === 'video') {
+          applyOperations(
+            [{
+              action: 'update_element',
+              pageId: selection.pageId,
+              sectionId: selection.sectionId,
+              elementId: selection.elementId,
+              changes: {
+                src: asset.url,
+                content: asset.name,
+              },
+            }],
+            selection,
+          );
+          return;
+        }
+
+        if (asset.kind === 'file' && match.element.type === 'button') {
+          applyOperations(
+            [{
+              action: 'update_element',
+              pageId: selection.pageId,
+              sectionId: selection.sectionId,
+              elementId: selection.elementId,
+              changes: {
+                href: asset.url,
+                content: asset.name,
+              },
+            }],
+            selection,
+          );
+          return;
+        }
       }
     }
 
-    // Otherwise insert a new image in
-    // selected container / selected section.
+    const insertItem =
+      asset.kind === 'image'
+        ? IMAGE_INSERT_ITEM
+        : asset.kind === 'video'
+          ? VIDEO_INSERT_ITEM
+          : FILE_INSERT_ITEM;
+
     const target =
-      ensureSection(
-        IMAGE_INSERT_ITEM,
-      );
+      ensureSection(insertItem);
 
     if (!target) return;
 
-    const element =
-      withContainer(
-        props.createElement(
-          IMAGE_INSERT_ITEM,
-          asset,
-        ),
-        target.containerId,
-      );
+    let element = props.createElement(
+      insertItem,
+      asset.kind === 'image' ? asset : undefined,
+    );
+
+    if (asset.kind === 'video') {
+      element = {
+        ...element,
+        src: asset.url,
+        content: asset.name,
+      };
+    } else if (asset.kind === 'file') {
+      element = {
+        ...element,
+        href: asset.url,
+        content: asset.name,
+      };
+    }
+
+    element = withContainer(
+      element,
+      target.containerId,
+    );
 
     applyOperations(
       [
         ...target.operations,
-
         {
           action: 'add_element',
           pageId: target.pageId,
