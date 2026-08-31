@@ -6,7 +6,6 @@ const MAX_FOLDERS_PER_REQUEST = 12;
 const MAX_RESULTS_PER_REQUEST = 600;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
-const FOLDER_MIME = "application/vnd.google-apps.folder";
 
 type FolderInput = {
   id?: unknown;
@@ -62,8 +61,14 @@ function assertFolderId(value: unknown) {
 }
 
 function sanitizePathPart(value: string) {
-  return value
-    .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-")
+  const cleaned = [...value]
+    .map((char) => {
+      const code = char.charCodeAt(0);
+      return code < 32 || '\\/:*?"<>|'.includes(char) ? "-" : char;
+    })
+    .join("");
+
+  return cleaned
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 180) || "unnamed";
