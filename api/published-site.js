@@ -6,6 +6,14 @@ function queryValue(url, name) {
   return value ? value.trim() : '';
 }
 
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(String(value || ''));
+  } catch {
+    return '';
+  }
+}
+
 function safeFilePath(value) {
   const file = String(value || 'index.html').replace(/^\/+/, '');
   if (!SAFE_FILE.test(file)) return '';
@@ -19,6 +27,77 @@ function encodeStoragePath(path) {
     .split('/')
     .map((segment) => encodeURIComponent(segment))
     .join('/');
+}
+
+function routeFromPath(pathname) {
+  const clean = String(pathname || '').split('?')[0];
+  const parts = clean
+    .split('/')
+    .filter(Boolean)
+    .map(safeDecode);
+
+  if (parts[0] === 'site' && parts[1] && parts[2]) {
+    return {
+      ownerId: parts[1],
+      projectId: parts[2],
+      previewToken: '',
+      file: parts.slice(3).join('/') || 'index.html',
+    };
+  }
+
+  if (parts[0] === 'preview' && parts[1] && parts[2] && parts[3]) {
+    return {
+      ownerId: parts[1],
+      projectId: parts[2],
+      previewToken: parts[3],
+      file: parts.slice(4).join('/') || 'index.html',
+    };
+  }
+
+  return null;
+}
+
+function firstHeader(req, name) {
+  const raw = req?.headers?.[name];
+  if (Array.isArray(raw)) return raw[0] || '';
+  return typeof raw === 'string' ? raw : '';
+}
+
+function resolveRoute(req, url) {
+  const queryRoute = {
+    ownerId: queryValue(url, 'ownerId'),
+    projectId: queryValue(url, 'projectId'),
+    previewToken: queryValue(url, 'previewToken'),
+    file: queryValue(url, 'file'),
+  };
+
+  const pathCandidates = [
+    firstHeader(req, 'x-vercel-original-url'),
+    firstHeader(req, 'x-original-url'),
+    firstHeader(req, 'x-invoke-path'),
+    firstHeader(req, 'x-matched-path'),
+    url.pathname,
+  ];
+
+  let pathRoute = null;
+  for (const candidate of pathCandidates) {
+    if (!candidate) continue;
+    let pathname = candidate;
+    try {
+      pathname = new URL(candidate, 'https://tayar.local').pathname;
+    } catch {
+      pathname = String(candidate).split('?')[0];
+    }
+    pathRoute = routeFromPath(pathname);
+    if (pathRoute) break;
+  }
+
+  return {
+    ownerId: queryRoute.ownerId || pathRoute?.ownerId || '',
+    projectId: queryRoute.projectId || pathRoute?.projectId || '',
+    previewToken: queryRoute.previewToken || pathRoute?.previewToken || '',
+    file: queryRoute.file || pathRoute?.file || 'index.html',
+  };
 }
 
 function contentTypeFor(file) {
@@ -52,8 +131,8 @@ function setCommonHeaders(res, file, isPreview = false) {
   }
 
   if (/\.html?$/i.test(file)) {
-    // Published customer HTML runs under an opaque sandboxed origin so it cannot
-    // read Tayar auth/localStorage even though the URL is served by tayar.se.
+    // Customer HTML is intentionally sandboxed without allow-same-origin so it
+    // cannot read Tayar cookies/localStorage even when served from tayar.se.
     res.setHeader(
       'Content-Security-Policy',
       "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation; default-src 'self' https: data: blob:; script-src 'unsafe-inline' https:; style-src 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src https:; frame-src https:; object-src 'none'; base-uri 'none'; form-action https:;"
@@ -93,10 +172,11 @@ export default async function handler(req, res) {
   }
 
   const url = new URL(req.url || '/', `https://${req.headers.host || 'tayar.local'}`);
-  const ownerId = queryValue(url, 'ownerId');
-  const projectId = queryValue(url, 'projectId');
-  const previewToken = queryValue(url, 'previewToken');
-  const file = safeFilePath(queryValue(url, 'file') || 'index.html');
+  const route = resolveRoute(req, url);
+  const ownerId = route.ownerId;
+  const projectId = route.projectId;
+  const previewToken = route.previewToken;
+  const file = safeFilePath(route.file || 'index.html');
 
   if (
     !SAFE_SEGMENT.test(ownerId) ||
