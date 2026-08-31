@@ -51,6 +51,7 @@ export interface BuilderPanelRouterProps {
 
   symbols?: Array<{ id: string; name?: string; element: { id: string; [key: string]: unknown }; [key: string]: unknown }>;
   canCreateSymbol?: boolean;
+  canInsertSymbol?: boolean;
   canDetachSymbol?: boolean;
   onCreateSymbol?(): void;
   onDetachSymbol?(): void;
@@ -208,6 +209,7 @@ export function BuilderPanelRouter(
         <BuilderComponentsPanel
           symbols={(props.symbols || []) as any}
           canCreate={props.canCreateSymbol}
+          canInsert={props.canInsertSymbol}
           canDetach={props.canDetachSymbol}
           onCreate={props.onCreateSymbol}
           onDetach={props.onDetachSymbol}

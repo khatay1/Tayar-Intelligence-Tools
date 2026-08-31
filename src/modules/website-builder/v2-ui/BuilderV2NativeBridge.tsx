@@ -663,7 +663,17 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
         settingsPanel: props.settingsPanel,
 
         symbols: props.symbols,
-        canCreateSymbol: Boolean(selection.elementId),
+        canCreateSymbol: Boolean(
+          selection.elementId &&
+          !project.pages
+            .find((page) => page.id === selection.pageId)
+            ?.sections
+            .find((section) => section.id === selection.sectionId)
+            ?.elements
+            .find((element) => element.id === selection.elementId)
+            ?.symbolId
+        ),
+        canInsertSymbol: Boolean(selection.sectionId),
         canDetachSymbol: Boolean(
           selection.elementId &&
           project.pages

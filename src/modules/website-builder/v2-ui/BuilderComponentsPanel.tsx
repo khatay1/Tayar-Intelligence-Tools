@@ -3,6 +3,7 @@ import type { EditorSymbolLike } from '../core/editor-model';
 export interface BuilderComponentsPanelProps {
   symbols: EditorSymbolLike[];
   canCreate?: boolean;
+  canInsert?: boolean;
   canDetach?: boolean;
   onCreate?(): void;
   onDetach?(): void;
@@ -13,6 +14,7 @@ export interface BuilderComponentsPanelProps {
 export function BuilderComponentsPanel({
   symbols,
   canCreate,
+  canInsert,
   canDetach,
   onCreate,
   onDetach,
@@ -28,7 +30,7 @@ export function BuilderComponentsPanel({
 
       <div className="tayar-v2-panel-actions">
         <button type="button" disabled={!canCreate} onClick={onCreate}>
-          Create from selection
+          Save selected element
         </button>
         <button type="button" disabled={!canDetach} onClick={onDetach}>
           Detach
@@ -41,8 +43,9 @@ export function BuilderComponentsPanel({
             <button
               type="button"
               className="tayar-v2-component-row__insert"
+              disabled={!canInsert}
               onClick={() => onInsert?.(symbol.id)}
-              title="Insert component into the selected section"
+              title={canInsert ? 'Insert component into the selected section' : 'Select a section or element first'}
             >
               <span>◆</span>
               <span>{symbol.name || 'Component'}</span>
@@ -60,7 +63,13 @@ export function BuilderComponentsPanel({
 
         {!symbols.length && (
           <div className="tayar-v2-empty-panel">
-            Select an element and create a reusable component.
+            Select an element on the canvas, then choose “Save selected element”.
+          </div>
+        )}
+
+        {symbols.length > 0 && !canInsert && (
+          <div className="tayar-v2-empty-panel">
+            Select a section or an element on the canvas before inserting a component.
           </div>
         )}
       </div>
