@@ -17,6 +17,7 @@ import './templates-hub';
 import './name-generator';
 import './letter-generator';
 import './prompt-library';
+import './batch-image-tools';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';

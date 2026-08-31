@@ -45,6 +45,8 @@ check('Letter Generator module exists', exists('src/modules/letter-generator/Let
 check('Letter Generator templates are isolated', exists('src/modules/letter-generator/letter-templates.ts') && exists('src/modules/letter-generator/letter-generator.ts'));
 check('Prompt Library module exists', exists('src/modules/prompt-library/PromptLibraryTool.tsx'));
 check('Prompt Library data is split by domain', exists('src/modules/prompt-library/prompts/business.ts') && exists('src/modules/prompt-library/prompts/career.ts') && exists('src/modules/prompt-library/prompts/creative.ts'));
+check('Batch Image Tools module exists', exists('src/modules/batch-image-tools/BatchImageTool.tsx'));
+check('Batch Image core is split by responsibility', exists('src/modules/batch-image-tools/batch-processing.ts') && exists('src/modules/batch-image-tools/batch-download.ts') && exists('src/modules/batch-image-tools/zip-writer.ts'));
 check('Tayar Tools expansion plan exists', exists('docs/TAYAR_TOOLS_EXPANSION_PLAN.md'));
 check('Billing migration exists', exists('supabase/migrations/20260828154000_add_secure_billing_entitlements.sql'));
 check('Team workspace migration exists', exists('supabase/migrations/20260828155500_add_team_workspaces.sql'));
@@ -130,6 +132,9 @@ const letterGeneratorTool = read('src/modules/letter-generator/LetterGeneratorTo
 const letterGeneratorEngine = read('src/modules/letter-generator/letter-generator.ts');
 const promptLibraryTool = read('src/modules/prompt-library/PromptLibraryTool.tsx');
 const promptUtils = read('src/modules/prompt-library/prompt-utils.ts');
+const batchImageTool = read('src/modules/batch-image-tools/BatchImageTool.tsx');
+const batchImageProcessing = read('src/modules/batch-image-tools/batch-processing.ts');
+const batchZipWriter = read('src/modules/batch-image-tools/zip-writer.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
@@ -178,6 +183,8 @@ check('Name Generator bounds user input and result count', nameGeneratorEngine.i
 check('Letter Generator is local and output remains manually editable', modulesIndex.includes("import './letter-generator'") && letterGeneratorTool.includes('Edit the result') && !letterGeneratorEngine.includes('fetch(') && !letterGeneratorEngine.includes('supabase'));
 check('Letter Generator bounds user-provided fields', letterGeneratorEngine.includes('MAX_SHORT_FIELD') && letterGeneratorEngine.includes('MAX_DETAILS'));
 check('Prompt Library is local original content with bounded personalization', modulesIndex.includes("import './prompt-library'") && promptLibraryTool.includes('Original Tayar prompts') && promptUtils.includes('MAX_VARIABLE_LENGTH') && !promptUtils.includes('fetch('));
+check('Batch Image Tools are local and bounded', modulesIndex.includes("import './batch-image-tools'") && batchImageTool.includes('Processed locally') && batchImageProcessing.includes('MAX_BATCH_FILES') && batchImageProcessing.includes('MAX_BATCH_INPUT_BYTES') && batchImageProcessing.includes('MAX_BATCH_OUTPUT_BYTES'));
+check('Batch ZIP writer only creates store-only archives', batchZipWriter.includes('createStoreOnlyZip') && !batchZipWriter.includes('loadAsync') && !batchZipWriter.includes('fetch(') && !batchZipWriter.includes('supabase'));
 check('Website Builder AI prompt uses multi-page planner schema', aiPrompts.includes('Tayar AI Builder') && aiPrompts.includes('"pages": [') && aiPrompts.includes('Build 1-6 useful pages'));
 check('Website Builder AI supports multi-page generation with legacy fallback', websiteBuilder.includes('interface AIWebsitePageGeneration') && websiteBuilder.includes('Array.isArray(generated?.pages)') && websiteBuilder.includes('Array.isArray(generated?.sections)') && websiteBuilder.includes('setPages(nextPages)'));
 check('Website Builder AI exposes planning progress and plan summary', websiteBuilder.includes('AI_BUILDER_STAGE_ORDER') && websiteBuilder.includes("setAiStage('planning')") && websiteBuilder.includes("setAiStage('building')") && websiteBuilder.includes("setAiStage('styling')") && websiteBuilder.includes("setAiStage('ready')") && websiteBuilder.includes("l('Website plan')"));
