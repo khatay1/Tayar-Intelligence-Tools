@@ -11121,6 +11121,35 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       </div>
 
       <details open className="tayar-v2-manual-section">
+        <summary>Publishing</summary>
+        <div className="tayar-v2-manual-fields">
+          <div className="tayar-v2-publish-state" data-live={publishedUrl ? 'true' : 'false'}>
+            <strong>{publishedUrl ? 'LIVE' : 'DRAFT'}</strong>
+            <span>{publishedUrl ? 'Your website is public.' : 'Your website is saved but not public.'}</span>
+          </div>
+          {publishedUrl && (
+            <>
+              <label>
+                <span>Live URL</span>
+                <input value={publishedUrl} readOnly />
+              </label>
+              {publishedAt && <div className="tayar-v2-manual-note">Published {new Date(publishedAt).toLocaleString()}</div>}
+              <div className="tayar-v2-publish-actions">
+                <button type="button" className="tayar-v2-manual-action" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}>Open live site</button>
+                <button type="button" className="tayar-v2-manual-action" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>Copy URL</button>
+                <button type="button" className="tayar-v2-manual-action is-danger" disabled={publishBusy} onClick={() => void unpublishWebsite()}>Unpublish</button>
+              </div>
+            </>
+          )}
+          {!publishedUrl && (
+            <button type="button" className="tayar-v2-manual-action" disabled={publishBusy || !projectTeamAccess.canPublish} onClick={() => void publishWebsite()}>
+              {publishBusy ? 'Publishing…' : 'Publish website'}
+            </button>
+          )}
+        </div>
+      </details>
+
+      <details className="tayar-v2-manual-section">
         <summary>SEO</summary>
         <div className="tayar-v2-manual-fields">
           <label><span>Site title</span><input value={seo.title} onChange={(e) => { setSeo((current) => ({ ...current, title: e.target.value })); setSaved(false); }} /></label>
@@ -14284,6 +14313,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     <WebsiteBuilderV2Bridge
       canvas={v2Canvas}
       aiPanel={v2AiPanel}
+      topbarTrailingSlot={
+        publishedUrl ? (
+          <>
+            <button type="button" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')} title={publishedUrl}>
+              Live ↗
+            </button>
+            <button type="button" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>
+              Copy URL
+            </button>
+            <button type="button" className="tayar-v2-unpublish-button" disabled={publishBusy} onClick={() => void unpublishWebsite()}>
+              Unpublish
+            </button>
+          </>
+        ) : null
+      }
       sitePanel={v2SitePanel}
       settingsPanel={v2SettingsPanel}
       symbols={symbols as any}
