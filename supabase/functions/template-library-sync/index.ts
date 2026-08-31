@@ -153,6 +153,52 @@ function validateFilename(value: string) {
   return cleaned;
 }
 
+function hasBytes(bytes: Uint8Array, signature: number[], offset = 0) {
+  if (bytes.byteLength < offset + signature.length) return false;
+  return signature.every((value, index) => bytes[offset + index] === value);
+}
+
+function bytesIncludeAscii(bytes: Uint8Array, needle: string) {
+  const target = new TextEncoder().encode(needle);
+  if (!target.byteLength || target.byteLength > bytes.byteLength) return false;
+
+  outer:
+  for (let index = 0; index <= bytes.byteLength - target.byteLength; index += 1) {
+    if (bytes[index] !== target[0]) continue;
+    for (let needleIndex = 1; needleIndex < target.byteLength; needleIndex += 1) {
+      if (bytes[index + needleIndex] !== target[needleIndex]) continue outer;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+function inferExtensionFromBytes(bytes: Uint8Array) {
+  if (hasBytes(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d])) return "pdf";
+  if (hasBytes(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "png";
+  if (hasBytes(bytes, [0xff, 0xd8, 0xff])) return "jpg";
+
+  const isZip = hasBytes(bytes, [0x50, 0x4b, 0x03, 0x04])
+    || hasBytes(bytes, [0x50, 0x4b, 0x05, 0x06])
+    || hasBytes(bytes, [0x50, 0x4b, 0x07, 0x08]);
+
+  if (isZip) {
+    if (bytesIncludeAscii(bytes, "xl/workbook.xml")) return "xlsx";
+    if (bytesIncludeAscii(bytes, "word/document.xml")) return "docx";
+    if (bytesIncludeAscii(bytes, "ppt/presentation.xml")) return "pptx";
+    if (
+      bytesIncludeAscii(bytes, "Report/Layout")
+      || bytesIncludeAscii(bytes, "DataModel")
+    ) {
+      return "pbix";
+    }
+    return "zip";
+  }
+
+  return "";
+}
+
 function resolveFilename(
   requested: unknown,
   downloadUrl: string,
@@ -160,6 +206,7 @@ function resolveFilename(
     finalUrl: string;
     contentType: string;
     contentDisposition: string | null;
+    bytes: Uint8Array;
   },
 ) {
   const requestedName = bounded(requested, 180);
@@ -183,12 +230,17 @@ function resolveFilename(
     if (cleaned.includes(".")) return validateFilename(cleaned);
   }
 
-  const inferredExtension = CONTENT_TYPE_EXTENSIONS[downloaded.contentType.toLowerCase()] || "";
+  const inferredExtension =
+    CONTENT_TYPE_EXTENSIONS[downloaded.contentType.toLowerCase()]
+    || inferExtensionFromBytes(downloaded.bytes);
   const base = cleanFilename(requestedName || dispositionName || finalUrlName || originalUrlName || "template")
     .replace(/\.+$/, "") || "template";
 
   if (!inferredExtension) {
-    throw new HttpError(400, "Could not determine template file type from source response");
+    throw new HttpError(
+      400,
+      "Could not determine template file type from filename, content type, or file signature",
+    );
   }
 
   return validateFilename(`${base}.${inferredExtension}`);
@@ -455,7 +507,15 @@ Deno.serve(async (req: Request) => {
             .eq("id", assetId);
         }
 
-        results.push({ id: assetId || null, status: "failed", error: message });
+        results.push({
+          id: assetId || null,
+          title: bounded(rawAsset.title, MAX_TITLE)
+            || bounded(rawAsset.filename, 180)
+            || "Unknown template",
+          sourceDownloadUrl: bounded(rawAsset.downloadUrl, MAX_URL),
+          status: "failed",
+          error: message,
+        });
       }
     }
 
