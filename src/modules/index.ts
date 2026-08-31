@@ -11,6 +11,7 @@ import './future-tools';
 import './website-builder';
 import './team-workspace';
 import './invoice-generator';
+import './image-tools';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';

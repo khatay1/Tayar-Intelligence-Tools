@@ -118,6 +118,12 @@ Shared engines should eventually live under areas such as:
 - `src/lib/spreadsheets/`
 - `src/lib/templates/`
 
+## Progress
+
+- Invoice Generator: shipped.
+- Image Tools: shipped as a browser-local resize/compress/format converter with bounded file and pixel processing.
+- PDF Toolkit: pending library/security review before adding a PDF dependency.
+
 ## First implementation
 
 Invoice Generator is the first Wave 1 tool because it is useful, requires no paid API, adds no dependency, and can be delivered with:

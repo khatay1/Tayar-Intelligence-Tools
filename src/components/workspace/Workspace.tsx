@@ -296,7 +296,7 @@ const groups: { label: string; items: NavItem[] }[] = [
                       key={item.id}
                       onClick={() => navigate(item.id)}
                       data-tour={item.id}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-violet-500/20 text-violet-200 font-medium border border-violet-400/30 shadow-[0_0_24px_rgba(139,92,246,0.10)]' : darkMode ? 'text-gray-400 hover:text-white hover:bg-white/[0.07] border border-transparent hover:border-white/[0.06]' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-transparent'} ${item.id === 'image-tools' ? 'opacity-60' : ''}`}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-violet-500/20 text-violet-200 font-medium border border-violet-400/30 shadow-[0_0_24px_rgba(139,92,246,0.10)]' : darkMode ? 'text-gray-400 hover:text-white hover:bg-white/[0.07] border border-transparent hover:border-white/[0.06]' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-transparent'}`}
                     >
                       <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${active ? 'text-violet-400' : ''}`} />
                      <span className="flex-1 text-left">

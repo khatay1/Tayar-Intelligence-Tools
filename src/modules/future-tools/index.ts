@@ -1,4 +1,4 @@
-import { Image, FileStack, FileSignature, Mailbox, BarChart3, Code2 } from 'lucide-react';
+import { FileStack, FileSignature, Mailbox, BarChart3, Code2 } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
 import FutureToolsView from './FutureToolsView';
@@ -16,17 +16,6 @@ const futureModules: ToolModule[] = [
     tier: 'free',
     version: '0.1.0',
     icon: FileStack,
-    component: FutureToolsView,
-  },
-  {
-    id: 'image-tools',
-    name: 'AI Image Generator',
-    description: 'Generate stunning images from text descriptions.',
-    category: 'images',
-    status: 'soon',
-    tier: 'premium',
-    version: '0.1.0',
-    icon: Image,
     component: FutureToolsView,
   },
   {
