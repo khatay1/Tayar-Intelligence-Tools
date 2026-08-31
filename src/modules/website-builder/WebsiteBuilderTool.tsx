@@ -3483,7 +3483,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       previewCreatedAt,
       lastPublishedVersionId,
       lastPublishedFingerprint,
-      activePageId,
       homePageId,
       pages: getCurrentPages(),
       brand,
@@ -3546,7 +3545,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       seo,
       language: prefs.language,
     });
-  }, [siteName, siteUrl, faviconUrl, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
+  }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
 
   function buildDeliveryFingerprint() {
     return JSON.stringify({
@@ -10457,8 +10456,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     downloadTextFile(`${normalizeSlug(siteName || 'website')}-v1-launch-report.txt`, lines.join('\n'));
   }
 
+  const hasUnsavedChanges = Boolean(
+    !lastSavedSnapshotRef.current ||
+    buildProjectFingerprint() !== lastSavedSnapshotRef.current
+  );
+
   const hasUnpublishedChanges = Boolean(
-    publishedUrl && lastPublishedFingerprint && buildEditableFingerprint() !== lastPublishedFingerprint
+    publishedUrl &&
+    lastPublishedFingerprint &&
+    buildEditableFingerprint() !== lastPublishedFingerprint
   );
 
   function openV2MediaUpload() {
@@ -14660,7 +14666,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       selectedContainerId={selectedContainerId}
       selectedFormFieldId={selectedFormFieldId}
       device={device}
-      dirty={!saved || hasUnpublishedChanges}
+      dirty={hasUnsavedChanges}
       canUndo={history.length > 0}
       canRedo={future.length > 0}
       historyEntries={history.map((entry) => ({
@@ -14675,10 +14681,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         createdAt: Date.parse(entry.savedAt) || Date.now(),
         source: 'manual' as const,
       }))}
-      saving={cloudBusy}
+      saving={cloudBusy || autoSaveStatus === 'saving'}
       publishing={publishBusy}
       checking={launchCheckBusy}
-      saveError={cloudError || undefined}
+      saveError={cloudError || (autoSaveStatus === 'failed' ? 'Autosave needs attention.' : undefined)}
       publishError={publishError || undefined}
       checkScore={siteAudit.score}
       checkErrors={siteAudit.errors.length}
