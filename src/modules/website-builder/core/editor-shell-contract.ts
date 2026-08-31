@@ -25,6 +25,13 @@ export interface EditorShellStatus {
   saveError?: string;
   publishError?: string;
   lastSavedAt?: number;
+  checkScore?: number;
+  checkErrors?: number;
+  checkWarnings?: number;
+  lastCheckedAt?: number;
+  publishedUrl?: string;
+  publishedAt?: number;
+  liveVerification?: 'idle' | 'checking' | 'healthy' | 'failed';
 }
 
 export interface EditorShellContract {
