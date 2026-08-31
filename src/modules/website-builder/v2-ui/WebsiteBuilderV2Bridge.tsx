@@ -106,6 +106,8 @@ export interface WebsiteBuilderV2BridgeProps {
   saving?: boolean;
   publishing?: boolean;
   checking?: boolean;
+  saveError?: string;
+  publishError?: string;
   checkScore?: number;
   checkErrors?: number;
   checkWarnings?: number;
@@ -248,6 +250,8 @@ export function WebsiteBuilderV2Bridge({
   saving,
   publishing,
   checking,
+  saveError,
+  publishError,
   checkScore,
   checkErrors,
   checkWarnings,
@@ -513,6 +517,8 @@ export function WebsiteBuilderV2Bridge({
             saving,
             publishing,
             checking,
+            saveError,
+            publishError,
             checkScore,
             checkErrors,
             checkWarnings,
@@ -528,6 +534,8 @@ export function WebsiteBuilderV2Bridge({
         saving,
         publishing,
         checking,
+        saveError,
+        publishError,
         checkScore,
         checkErrors,
         checkWarnings,
