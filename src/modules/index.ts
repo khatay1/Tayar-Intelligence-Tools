@@ -13,6 +13,7 @@ import './team-workspace';
 import './invoice-generator';
 import './image-tools';
 import './csv-cleaner';
+import './templates-hub';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
