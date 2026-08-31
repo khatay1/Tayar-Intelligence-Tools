@@ -655,9 +655,7 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
     );
   }
 
-  const renderLeftPanel = useMemo(
-    () =>
-      BuilderPanelRouter({
+  const renderLeftPanel = BuilderPanelRouter({
         shell,
         aiPanel: props.aiPanel,
         sitePanel: props.sitePanel,
@@ -764,27 +762,7 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
 
         onResetForm:
           handleResetForm,
-      }),
-    [
-      shell,
-      props.aiPanel,
-      props.sitePanel,
-      props.settingsPanel,
-      props.symbols,
-      props.onCreateSymbol,
-      props.onDetachSymbol,
-      props.onInsertSymbol,
-      props.onDeleteSymbol,
-      props.onMediaUpload,
-      props.onGenerateMediaWithAI,
-      project,
-      selection,
-      insertQuery,
-      insertCategory,
-      mediaAssets,
-      mediaFilter,
-    ],
-  );
+      });
 
   function renderInspector(
     _target:
