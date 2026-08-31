@@ -9100,6 +9100,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setCloudProjectId(null);
       try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
       setProjectHistory([]);
+      setHistory([]);
+      setFuture([]);
       setSiteName(duplicateTitle);
       setPublishedUrl('');
       setPublishedAt(null);
@@ -9143,6 +9145,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setCloudProjectId(data.id);
     try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, data.id); } catch { /* ignore */ }
     setProjectHistory([]);
+    setHistory([]);
+    setFuture([]);
     setLeads([]);
     setLeadsOpen(false);
     setSiteName(duplicateTitle);
@@ -9223,6 +9227,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
     setCloudError('');
     setProjectHistory([]);
+    setHistory([]);
+    setFuture([]);
     setLeads([]);
     setLeadsOpen(false);
     setLeadsError('');
