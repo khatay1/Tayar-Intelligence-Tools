@@ -23,6 +23,10 @@ import {
 } from './BuilderHistoryPanel';
 
 import {
+  BuilderComponentsPanel,
+} from './BuilderComponentsPanel';
+
+import {
   BuilderInsertPanel,
 } from './BuilderInsertPanel';
 
@@ -42,6 +46,16 @@ export interface BuilderPanelRouterProps {
   shell: EditorShellContract;
 
   aiPanel?: ReactNode;
+  sitePanel?: ReactNode;
+  settingsPanel?: ReactNode;
+
+  symbols?: Array<{ id: string; name?: string; element: { id: string; [key: string]: unknown }; [key: string]: unknown }>;
+  canCreateSymbol?: boolean;
+  canDetachSymbol?: boolean;
+  onCreateSymbol?(): void;
+  onDetachSymbol?(): void;
+  onInsertSymbol?(symbolId: string): void;
+  onDeleteSymbol?(symbolId: string): void;
 
   insertQuery?: string;
   insertCategory?: EditorInsertCategory;
@@ -114,6 +128,29 @@ export interface BuilderPanelRouterProps {
     sectionId: string,
     elementId: string,
   ): void;
+
+  onUngroupContainer?(
+    sectionId: string,
+    containerId: string,
+  ): void;
+
+  onAddFormField?(
+    sectionId: string,
+    type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox',
+  ): void;
+
+  onMoveFormField?(
+    sectionId: string,
+    formFieldId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDeleteFormField?(
+    sectionId: string,
+    formFieldId: string,
+  ): void;
+
+  onResetForm?(sectionId: string): void;
 }
 
 export function BuilderPanelRouter(
@@ -157,7 +194,42 @@ export function BuilderPanelRouter(
           onMoveElement={props.onMoveElement}
           onDuplicateElement={props.onDuplicateElement}
           onDeleteElement={props.onDeleteElement}
+          onUngroupContainer={props.onUngroupContainer}
+          onAddFormField={props.onAddFormField}
+          onMoveFormField={props.onMoveFormField}
+          onDeleteFormField={props.onDeleteFormField}
+          onResetForm={props.onResetForm}
         />
+      );
+    }
+
+    if (panel === 'components') {
+      return (
+        <BuilderComponentsPanel
+          symbols={(props.symbols || []) as any}
+          canCreate={props.canCreateSymbol}
+          canDetach={props.canDetachSymbol}
+          onCreate={props.onCreateSymbol}
+          onDetach={props.onDetachSymbol}
+          onInsert={props.onInsertSymbol}
+          onDelete={props.onDeleteSymbol}
+        />
+      );
+    }
+
+    if (panel === 'site') {
+      return props.sitePanel || (
+        <div className="tayar-v2-empty-panel">
+          Site controls are loading...
+        </div>
+      );
+    }
+
+    if (panel === 'settings') {
+      return props.settingsPanel || (
+        <div className="tayar-v2-empty-panel">
+          Settings are loading...
+        </div>
       );
     }
 
