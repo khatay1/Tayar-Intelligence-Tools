@@ -45,6 +45,7 @@
         discoveredFolders: 0,
         imported: 0,
         skipped: 0,
+        reused: 0,
         failed: 0,
         bytesImported: 0,
       },
@@ -162,6 +163,7 @@
 
       state.stats.imported += Number(result.imported || 0);
       state.stats.skipped += Number(result.skipped || 0);
+      state.stats.reused += Number(result.reused || 0);
       state.stats.failed += Number(result.failed || 0);
       state.stats.bytesImported += Number(result.bytesImported || 0);
 
