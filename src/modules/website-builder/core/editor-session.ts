@@ -18,6 +18,7 @@ import {
 
 export interface EditorSessionState<T> {
   project: T;
+  savedProject: T;
   history: EditorHistoryState<T>;
   revision: number;
   savedRevision: number;
@@ -38,12 +39,23 @@ export interface EditorSessionMutationResult<T> {
   transaction?: EditorTransactionResult<T>;
 }
 
+function editorValuesEqual<T>(left: T, right: T) {
+  if (Object.is(left, right)) return true;
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+}
+
 export function createEditorSession<T>(
   project: T,
   clone: (value: T) => T = cloneEditorValue,
 ): EditorSessionState<T> {
+  const initial = clone(project);
   return {
-    project: clone(project),
+    project: initial,
+    savedProject: clone(initial),
     history: createEditorHistory<T>(),
     revision: 0,
     savedRevision: 0,
@@ -51,7 +63,7 @@ export function createEditorSession<T>(
 }
 
 export function isEditorSessionDirty<T>(state: EditorSessionState<T>) {
-  return state.revision !== state.savedRevision;
+  return !editorValuesEqual(state.project, state.savedProject);
 }
 
 export function executeEditorSessionCommand<T>(
@@ -94,7 +106,6 @@ export function executeEditorSessionCommand<T>(
     },
   };
 }
-
 
 export function executeEditorSessionBatch<T>(
   state: EditorSessionState<T>,
@@ -207,6 +218,7 @@ export function markEditorSessionSaved<T>(
 ): EditorSessionState<T> {
   return {
     ...state,
+    savedProject: cloneEditorValue(state.project),
     savedRevision: state.revision,
     lastSavedAt: savedAt,
   };
@@ -224,9 +236,11 @@ export function replaceEditorSessionProject<T>(
 ): EditorSessionState<T> {
   const clone = options.clone || cloneEditorValue;
   const nextRevision = state.revision + 1;
+  const nextProject = clone(project);
   return {
     ...state,
-    project: clone(project),
+    project: nextProject,
+    savedProject: options.markSaved ? clone(nextProject) : clone(state.savedProject),
     history: options.resetHistory === false ? state.history : createEditorHistory<T>(),
     revision: nextRevision,
     savedRevision: options.markSaved ? nextRevision : state.savedRevision,
