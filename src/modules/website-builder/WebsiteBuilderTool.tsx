@@ -3970,6 +3970,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function applyThemeToAllPages() {
+    remember(sections, 'Apply theme to all pages');
     const currentPages = getCurrentPages();
     const nextPages = currentPages.map((page) => ({
       ...page,
@@ -3980,8 +3981,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections(active?.sections || []);
     setSelectedId(active?.sections[0]?.id ?? null);
     setSelectedElementId(active?.sections[0]?.elements[0]?.id ?? null);
-    setHistory([]);
-    setFuture([]);
     setSaved(false);
   }
 
@@ -4977,8 +4976,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections(target.sections);
     setSelectedId(target.sections[0]?.id ?? null);
     setSelectedElementId(target.sections[0]?.elements[0]?.id ?? null);
-    setHistory([]);
-    setFuture([]);
     setSaved(false);
   }
 
@@ -4996,8 +4993,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections(page.sections);
     setSelectedId(page.sections[0]?.id ?? null);
     setSelectedElementId(page.sections[0]?.elements[0]?.id ?? null);
-    setHistory([]);
-    setFuture([]);
     setSaved(false);
   }
 
@@ -5025,8 +5020,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections(clonedSections);
     setSelectedId(clonedSections[0]?.id ?? null);
     setSelectedElementId(clonedSections[0]?.elements[0]?.id ?? null);
-    setHistory([]);
-    setFuture([]);
     setSaved(false);
   }
 
@@ -5064,8 +5057,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections(clonedSections);
     setSelectedId(clonedSections[0]?.id ?? null);
     setSelectedElementId(clonedSections[0]?.elements[0]?.id ?? null);
-    setHistory([]);
-    setFuture([]);
     setSaved(false);
   }
 
@@ -5114,8 +5105,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections(next.sections);
     setSelectedId(next.sections[0]?.id ?? null);
     setSelectedElementId(next.sections[0]?.elements[0]?.id ?? null);
-    setHistory([]);
-    setFuture([]);
     setSaved(false);
   }
 
