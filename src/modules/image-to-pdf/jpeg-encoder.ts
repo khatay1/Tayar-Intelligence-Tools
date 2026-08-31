@@ -1,7 +1,5 @@
-import {
-  MAX_IMAGE_PIXELS,
-  validateImageFile,
-} from '../image-tools/image-processing';
+import { validateImageFile } from '../image-tools/image-processing';
+import { MAX_IMAGE_PIXELS } from '../image-tools/image-types';
 
 function canvasToJpeg(canvas: HTMLCanvasElement, quality: number) {
   return new Promise<Blob>((resolve, reject) => {
