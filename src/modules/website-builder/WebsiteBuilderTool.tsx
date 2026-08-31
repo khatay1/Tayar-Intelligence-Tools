@@ -3352,8 +3352,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [aiQualityReview, setAiQualityReview] = useState<AIQualityReview | null>(null);
   const [aiQualityBusy, setAiQualityBusy] = useState(false);
   const [aiQualityOpen, setAiQualityOpen] = useState(false);
-  const [history, setHistory] = useState<WebsiteSection[][]>([]);
-  const [future, setFuture] = useState<WebsiteSection[][]>([]);
+  const [history, setHistory] = useState<ProjectHistoryEntry[]>([]);
+  const [future, setFuture] = useState<ProjectHistoryEntry[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragOverSectionPosition, setDragOverSectionPosition] = useState<'before' | 'after' | null>(null);
@@ -3593,7 +3593,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  function applyProjectData(input: unknown, loadHistory = true) {
+  function applyProjectData(input: unknown, loadHistory = true, resetEditHistory = true) {
     if (Array.isArray(input) && input.length) {
       const normalized = input.map(normalizeSection);
       setSections(normalized);
@@ -3620,8 +3620,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLiveVerification('idle');
       setPublishError('');
       setPreviewError('');
-      setHistory([]);
-      setFuture([]);
+      if (resetEditHistory) {
+        setHistory([]);
+        setFuture([]);
+      }
       if (loadHistory) setProjectHistory([]);
       setSaved(false);
       return;
@@ -3676,8 +3678,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
       setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
       if (parsed.seo) setSeo(parsed.seo);
-      setHistory([]);
-      setFuture([]);
+      if (resetEditHistory) {
+        setHistory([]);
+        setFuture([]);
+      }
       if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
       setSaved(false);
       return;
@@ -3713,8 +3717,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
       setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
       if (parsed.seo) setSeo(parsed.seo);
-      setHistory([]);
-      setFuture([]);
+      if (resetEditHistory) {
+        setHistory([]);
+        setFuture([]);
+      }
       if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
       setSaved(false);
     }
@@ -4811,6 +4817,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function addPage() {
     if (!requirePageCapacity(1)) return;
+    remember(sections, 'Add page');
     const base = `page-${pages.length + 1}`;
     const used = new Set(pages.map((page) => page.slug));
     let slug = base;
@@ -4830,6 +4837,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function duplicateActivePage() {
     if (!activePage) return;
     if (!requirePageCapacity(1)) return;
+    remember(sections, 'Duplicate page');
     const used = new Set(pages.map((page) => normalizeSlug(page.slug)));
     const base = `${normalizeSlug(activePage.slug)}-copy`;
     let slug = base;
@@ -4895,6 +4903,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function updateActivePageMeta(changes: Partial<Pick<WebsitePage, 'name' | 'slug' | 'showInNavigation' | 'seoTitle' | 'seoDescription' | 'socialImage' | 'canonicalUrl' | 'language' | 'translationKey' | 'noIndex'>>) {
+    remember(sections, 'Edit page settings');
     setPages((current) => current.map((page) => {
       if (page.id !== activePageId) return page;
       return {
@@ -4907,6 +4916,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function movePage(pageId: string, direction: 'up' | 'down') {
+    remember(sections, 'Move page');
     setPages((current) => {
       const index = current.findIndex((page) => page.id === pageId);
       if (index === -1) return current;
@@ -4921,12 +4931,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function makeActivePageHome() {
     if (!activePage) return;
+    remember(sections, 'Set home page');
     setHomePageId(activePage.id);
     setSaved(false);
   }
 
   function deleteActivePage() {
     if (pages.length <= 1) return;
+    remember(sections, 'Delete page');
     const remaining = pages.filter((page) => page.id !== activePageId);
     const next = remaining[0];
     setPages(remaining);
@@ -4940,29 +4952,42 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function remember(current: WebsiteSection[]) {
-    setHistory((h) => [...h.slice(-19), current]);
+  function createEditHistoryEntry(label: string): ProjectHistoryEntry {
+    const savedAt = new Date().toISOString();
+    return {
+      id: `edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      savedAt,
+      label,
+      snapshot: buildProjectSnapshot(),
+    };
+  }
+
+  function remember(_current: WebsiteSection[], label = 'Manual edit') {
+    const entry = createEditHistoryEntry(label);
+    setHistory((current) => [...current.slice(-49), entry]);
     setFuture([]);
   }
 
   function undo() {
     if (!history.length) return;
     const previous = history[history.length - 1];
-    setFuture((f) => [sections, ...f].slice(0, 20));
-    setSections(previous);
-    setHistory((h) => h.slice(0, -1));
-    setSelectedId(previous[0]?.id ?? null);
-    setSelectedElementId(previous[0]?.elements[0]?.id ?? null);
+    const redoEntry = createEditHistoryEntry(previous.label);
+    setHistory((current) => current.slice(0, -1));
+    setFuture((current) => [redoEntry, ...current].slice(0, 50));
+    skipNextAutosaveRef.current = true;
+    applyProjectData(previous.snapshot, false, false);
+    setSaved(false);
   }
 
   function redo() {
     if (!future.length) return;
     const next = future[0];
-    setHistory((h) => [...h, sections].slice(-20));
-    setSections(next);
-    setFuture((f) => f.slice(1));
-    setSelectedId(next[0]?.id ?? null);
-    setSelectedElementId(next[0]?.elements[0]?.id ?? null);
+    const undoEntry = createEditHistoryEntry(next.label);
+    setFuture((current) => current.slice(1));
+    setHistory((current) => [...current.slice(-49), undoEntry]);
+    skipNextAutosaveRef.current = true;
+    applyProjectData(next.snapshot, false, false);
+    setSaved(false);
   }
 
   function updateSelected(
@@ -5473,11 +5498,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function createSymbolFromSelected() {
-    if (!selectedElement || !selectedSection) return;
-    remember(sections);
-    if (selectedElement.symbolId) return;
-    const name = window.prompt('Symbol name', selectedElement.content?.slice(0, 40) || ELEMENT_LABELS[selectedElement.type])?.trim();
-    if (!name) return;
+    if (!selectedElement || !selectedSection || selectedElement.symbolId) return;
+    remember(sections, 'Create reusable component');
+    const baseName = (selectedElement.content?.slice(0, 40) || ELEMENT_LABELS[selectedElement.type] || 'Component').trim();
+    const matching = symbols.filter((symbol) => symbol.name === baseName || symbol.name.startsWith(`${baseName} `)).length;
+    const name = matching ? `${baseName} ${matching + 1}` : baseName;
     const symbolId = `symbol-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const symbol: WebsiteSymbol = {
       id: symbolId,
@@ -5495,7 +5520,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function insertSymbol(symbol: WebsiteSymbol) {
     if (!selectedSection) return;
-    remember(sections);
+    remember(sections, `Insert component: ${symbol.name}`);
     const columnCount = sectionColumnCount(selectedSection.layout);
     const instance: WebsiteElement = {
       ...JSON.parse(JSON.stringify(symbol.element)) as WebsiteElement,
@@ -5511,7 +5536,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function detachSelectedSymbol() {
     if (!selectedSection || !selectedElement?.symbolId) return;
-    remember(sections);
+    remember(sections, 'Detach component');
     setSections((current) => current.map((section) => section.id === selectedSection.id ? {
       ...section,
       elements: section.elements.map((element) => element.id === selectedElement.id ? { ...element, symbolId: undefined } : element),
@@ -5520,7 +5545,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function deleteSymbol(symbolId: string) {
-    if (!window.confirm('Delete this symbol? Existing instances will become normal elements.')) return;
+    if (!window.confirm('Delete this component? Existing instances will become normal elements.')) return;
+    remember(sections, 'Delete reusable component');
     setSymbols((current) => current.filter((symbol) => symbol.id !== symbolId));
     const detach = (section: WebsiteSection) => ({
       ...section,
@@ -8258,8 +8284,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSelectedElementId(handoffElement?.id ?? handoffSection?.elements[0]?.id ?? null);
       setBuilderPanel('layers');
       setInspectorOpen(true);
-      setHistory([]);
-      setFuture([]);
+      if (resetEditHistory) {
+        setHistory([]);
+        setFuture([]);
+      }
       setSaved(false);
       setAiPrompt('');
       setAiQualityReview(null);
@@ -10594,7 +10622,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    remember(sections);
+    const operationLabel = operations.length === 1
+      ? operations[0].action.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase())
+      : `${operations.length} manual changes`;
+
+    remember(sections, operationLabel);
 
     const nextProject =
       store
@@ -14301,6 +14333,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       dirty={!saved || hasUnpublishedChanges}
       canUndo={history.length > 0}
       canRedo={future.length > 0}
+      historyEntries={history.map((entry) => ({
+        id: entry.id,
+        label: entry.label,
+        createdAt: Date.parse(entry.savedAt) || Date.now(),
+        source: 'manual' as const,
+      }))}
+      futureEntries={future.map((entry) => ({
+        id: entry.id,
+        label: entry.label,
+        createdAt: Date.parse(entry.savedAt) || Date.now(),
+        source: 'manual' as const,
+      }))}
       saving={cloudBusy}
       publishing={publishBusy}
       checking={liveVerification === 'checking'}
