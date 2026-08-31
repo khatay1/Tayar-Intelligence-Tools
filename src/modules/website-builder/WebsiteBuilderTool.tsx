@@ -9467,7 +9467,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function publishWebsite() {
     if (!networkOnline) {
-      setPublishError('Publish blocked: you are offline. Reconnect and try again.');
+      setPublishError('Publish preflight blocked: you are offline. Reconnect and try again.');
+      return;
+    }
+
+    if (siteAudit.errors.length) {
+      setPublishError(`Publish preflight blocked: fix ${siteAudit.errors.length} critical audit error${siteAudit.errors.length === 1 ? '' : 's'} first.`);
       return;
     }
 
