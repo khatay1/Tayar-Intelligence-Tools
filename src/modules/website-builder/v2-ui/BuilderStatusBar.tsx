@@ -43,6 +43,15 @@ export function BuilderStatusBar({
       </div>
 
       <div className="tayar-v2-statusbar__right">
+        {(status.publishError || status.saveError) && (
+          <span
+            className="tayar-v2-statusbar__error"
+            title={status.publishError || status.saveError}
+          >
+            {status.publishError || status.saveError}
+          </span>
+        )}
+
         {view.publish.blockers.length > 0 && (
           <span>
             {view.publish.blockers.length} issue
