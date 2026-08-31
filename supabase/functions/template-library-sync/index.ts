@@ -332,6 +332,7 @@ Deno.serve(async (req: Request) => {
     runId = run.id;
 
     let imported = 0;
+    let skipped = 0;
     let failed = 0;
     let bytesImported = 0;
     const results: Array<Record<string, unknown>> = [];
@@ -343,6 +344,29 @@ Deno.serve(async (req: Request) => {
         const sourcePageUrl = rawAsset.sourcePageUrl
           ? assertAllowedSourceUrl(rawAsset.sourcePageUrl)
           : null;
+
+        const { data: existing, error: existingError } = await admin
+          .from("template_assets")
+          .select("id,title,status,storage_path")
+          .eq("source_download_url", downloadUrl)
+          .maybeSingle();
+
+        if (existingError) {
+          throw new Error("Could not check existing template asset");
+        }
+
+        if (existing?.status === "ready" && existing.storage_path) {
+          skipped += 1;
+          results.push({
+            id: existing.id,
+            title: existing.title,
+            status: "ready",
+            skipped: true,
+            storagePath: existing.storage_path,
+          });
+          continue;
+        }
+
         const downloaded = await fetchAllowlisted(downloadUrl);
         if (bytesImported + downloaded.bytes.byteLength > MAX_BATCH_BYTES) {
           throw new HttpError(413, "Import batch exceeds the 120 MB limit");
@@ -451,6 +475,7 @@ Deno.serve(async (req: Request) => {
       runId,
       status: runStatus,
       imported,
+      skipped,
       failed,
       bytesImported,
       results,
