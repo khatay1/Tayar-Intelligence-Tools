@@ -106,6 +106,15 @@ export interface WebsiteBuilderV2BridgeProps {
   saving?: boolean;
   publishing?: boolean;
   checking?: boolean;
+  saveError?: string;
+  publishError?: string;
+  checkScore?: number;
+  checkErrors?: number;
+  checkWarnings?: number;
+  lastCheckedAt?: number;
+  publishedUrl?: string;
+  publishedAt?: number;
+  liveVerification?: 'idle' | 'checking' | 'healthy' | 'failed';
 
   publishBlockers?: string[];
 
@@ -241,6 +250,15 @@ export function WebsiteBuilderV2Bridge({
   saving,
   publishing,
   checking,
+  saveError,
+  publishError,
+  checkScore,
+  checkErrors,
+  checkWarnings,
+  lastCheckedAt,
+  publishedUrl,
+  publishedAt,
+  liveVerification,
 
   publishBlockers = [],
 
@@ -417,7 +435,12 @@ export function WebsiteBuilderV2Bridge({
         save: onSave,
         preview: onPreview,
         publish: onPublish,
-        runCheck: onRunCheck,
+        runCheck: () => {
+          setLeftPanel('settings');
+          setLeftSidebarOpen(true);
+          setFocusMode(false);
+          onRunCheck();
+        },
 
         toggleFocus: () =>
           setFocusMode(
@@ -494,6 +517,15 @@ export function WebsiteBuilderV2Bridge({
             saving,
             publishing,
             checking,
+            saveError,
+            publishError,
+            checkScore,
+            checkErrors,
+            checkWarnings,
+            lastCheckedAt,
+            publishedUrl,
+            publishedAt,
+            liveVerification,
           },
         ),
       [
@@ -502,6 +534,15 @@ export function WebsiteBuilderV2Bridge({
         saving,
         publishing,
         checking,
+        saveError,
+        publishError,
+        checkScore,
+        checkErrors,
+        checkWarnings,
+        lastCheckedAt,
+        publishedUrl,
+        publishedAt,
+        liveVerification,
       ],
     );
 

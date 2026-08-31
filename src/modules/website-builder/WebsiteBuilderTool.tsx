@@ -349,6 +349,7 @@ interface CloudWebsiteProject {
   workspace_id: string | null;
   title: string;
   content: Record<string, unknown>;
+  status: string;
   updated_at: string;
 }
 
@@ -3782,7 +3783,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setCloudError('');
     const { data, error } = await supabase
       .from('projects')
-      .select('id, user_id, workspace_id, title, content, updated_at')
+      .select('id, user_id, workspace_id, title, content, status, updated_at')
       .eq('type', 'website-builder')
       .is('deleted_at', null)
       .order('updated_at', { ascending: false });
@@ -3977,6 +3978,83 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
+  function publicWebsiteUrl(projectId: string) {
+    if (!user) return '';
+    const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
+    if (!supabaseUrl) return '';
+    return `${supabaseUrl}/storage/v1/object/public/published-sites/${user.id}/${projectId}/index.html`;
+  }
+
+  async function recoverPublishedProjectState(project: CloudWebsiteProject) {
+    if (!user) return false;
+
+    const path = `${user.id}/${project.id}/index.html`;
+    const { data, error } = await supabase.storage
+      .from('published-sites')
+      .download(path);
+
+    const storedUrl =
+      typeof project.content?.publishedUrl === 'string'
+        ? project.content.publishedUrl
+        : '';
+
+    if (error || !data || data.size <= 0) {
+      setLiveVerification(storedUrl ? 'failed' : 'idle');
+      return false;
+    }
+
+    const recoveredUrl = storedUrl || publicWebsiteUrl(project.id);
+    const recoveredAt =
+      typeof project.content?.publishedAt === 'string'
+        ? project.content.publishedAt
+        : project.updated_at || new Date().toISOString();
+
+    if (!recoveredUrl) {
+      setLiveVerification('failed');
+      return false;
+    }
+
+    setPublishedUrl(recoveredUrl);
+    setPublishedAt(recoveredAt);
+    setLiveVerification('healthy');
+
+    if (!storedUrl || project.status !== 'completed') {
+      const recoveredContent = {
+        ...project.content,
+        publishedUrl: recoveredUrl,
+        publishedAt: recoveredAt,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const { error: recoverError } = await supabase
+        .from('projects')
+        .update({
+          content: recoveredContent,
+          status: 'completed',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', project.id)
+        .eq('user_id', user.id);
+
+      if (!recoverError) {
+        setCloudProjects((current) =>
+          current.map((item) =>
+            item.id === project.id
+              ? { ...item, content: recoveredContent, status: 'completed' }
+              : item
+          )
+        );
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(recoveredContent));
+        } catch {
+          // Cloud state remains authoritative.
+        }
+      }
+    }
+
+    return true;
+  }
+
   async function loadCloudProject(projectId: string) {
     const project = cloudProjects.find((item) => item.id === projectId);
     if (!project) return;
@@ -3994,6 +4072,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     applyProjectData(project.content);
     setSiteName(project.title || 'My Website');
     localStorage.setItem(STORAGE_KEY, JSON.stringify(project.content));
+    await recoverPublishedProjectState(project);
   }
 
   const refreshLeads = useCallback(async () => {
@@ -10164,8 +10243,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLaunchCheckBusy(true);
     try {
       if (user) await refreshBilling(cloudProjectId);
-      if (user && cloudProjectId) await refreshProjectTeamAccess(cloudProjectId);
-      if (publishedUrl) await verifyLiveDeployment();
+      if (user && cloudProjectId) {
+        await refreshProjectTeamAccess(cloudProjectId);
+
+        if (publishedUrl) {
+          await verifyLiveDeployment();
+        } else {
+          const project = cloudProjects.find((item) => item.id === cloudProjectId);
+          if (project) await recoverPublishedProjectState(project);
+        }
+      }
       setLaunchLastCheckedAt(new Date().toISOString());
     } finally {
       setLaunchCheckBusy(false);
@@ -10179,7 +10266,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       { label: 'Cloud project', ok: Boolean(cloudProjectId), points: 10 },
       { label: 'Share preview', ok: Boolean(previewUrl), points: 8 },
       { label: 'Client approval', ok: approvalCurrent, points: 12 },
-      { label: 'Published release', ok: Boolean(publishedUrl && lastPublishedVersionId), points: 15 },
+      { label: 'Published website', ok: Boolean(publishedUrl), points: 15 },
       { label: 'Favicon', ok: Boolean(faviconUrl.trim()), points: 5 },
     ];
     const score = Math.min(100, auditPoints + checks.reduce((total, item) => total + (item.ok ? item.points : 0), 0));
@@ -10195,7 +10282,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const seoReady = Boolean(seo.title.trim() && faviconUrl.trim());
     const auditReady = siteAudit.errors.length === 0 && siteAudit.score >= 80;
     const publishPermission = Boolean(user && cloudProjectId && projectTeamAccess.canPublish);
-    const publishedRelease = Boolean(publishedUrl && lastPublishedVersionId);
+    const publishedRelease = Boolean(publishedUrl);
     const liveHealthy = Boolean(publishedRelease && liveVerification === 'healthy');
     const unpublished = Boolean(publishedUrl && lastPublishedFingerprint && buildEditableFingerprint() !== lastPublishedFingerprint);
 
@@ -10208,7 +10295,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       { label: 'SEO title + favicon', detail: seoReady ? 'Branding metadata is configured' : 'Complete SEO title and favicon', ok: seoReady, points: 7 },
       { label: 'Billing backend', detail: billingVerified ? `${BILLING_PLAN_DETAILS[billingPlan].label} entitlements verified` : billingError || 'Sign in and refresh billing', ok: billingVerified, points: 7 },
       { label: 'Publish permission', detail: projectTeamAccess.canPublish ? 'Owner may publish' : 'Only the project owner can publish', ok: publishPermission, points: 5 },
-      { label: 'Published release', detail: publishedRelease ? `Release ${lastPublishedVersionId?.slice(0, 8) || 'saved'}` : 'Publish the first release', ok: publishedRelease, points: 15 },
+      { label: 'Published website', detail: publishedRelease ? (lastPublishedVersionId ? `Live · archive ${lastPublishedVersionId.slice(0, 8)}` : 'Live website detected') : 'Publish the first release', ok: publishedRelease, points: 15 },
       { label: 'Live verification', detail: liveVerification === 'healthy' ? 'Published index verified' : publishedRelease ? 'Run live verification' : 'Available after publishing', ok: liveHealthy, points: 15 },
     ];
     const score = Math.min(100, checks.reduce((total, check) => total + (check.ok ? check.points : 0), 0));
@@ -11121,11 +11208,68 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       </div>
 
       <details open className="tayar-v2-manual-section">
+        <summary>Site Check</summary>
+        <div className="tayar-v2-manual-fields">
+          <div className="tayar-v2-check-score" data-ok={siteAudit.errors.length === 0 ? 'true' : 'false'}>
+            <strong>{siteAudit.score}/100</strong>
+            <span>
+              {siteAudit.errors.length} critical · {siteAudit.warnings.length} warnings
+            </span>
+          </div>
+          {launchLastCheckedAt && (
+            <div className="tayar-v2-manual-note">
+              Last checked {new Date(launchLastCheckedAt).toLocaleString()}
+            </div>
+          )}
+          {siteAudit.errors.length > 0 && (
+            <div className="tayar-v2-check-list is-error">
+              {siteAudit.errors.map((item) => <p key={item}>• {item}</p>)}
+            </div>
+          )}
+          {siteAudit.warnings.length > 0 && (
+            <div className="tayar-v2-check-list">
+              {siteAudit.warnings.slice(0, 12).map((item) => <p key={item}>• {item}</p>)}
+            </div>
+          )}
+          {!siteAudit.errors.length && !siteAudit.warnings.length && (
+            <div className="tayar-v2-manual-note">No site issues detected.</div>
+          )}
+          <button
+            type="button"
+            className="tayar-v2-manual-action"
+            disabled={launchCheckBusy}
+            onClick={() => void runV1LaunchChecks()}
+          >
+            {launchCheckBusy ? 'Checking…' : 'Run check again'}
+          </button>
+        </div>
+      </details>
+
+      <details open className="tayar-v2-manual-section">
         <summary>Publishing</summary>
         <div className="tayar-v2-manual-fields">
-          <div className="tayar-v2-publish-state" data-live={publishedUrl ? 'true' : 'false'}>
-            <strong>{publishedUrl ? 'LIVE' : 'DRAFT'}</strong>
-            <span>{publishedUrl ? 'Your website is public.' : 'Your website is saved but not public.'}</span>
+          <div
+            className="tayar-v2-publish-state"
+            data-live={publishedUrl && liveVerification !== 'failed' ? 'true' : 'false'}
+          >
+            <strong>
+              {!publishedUrl
+                ? 'DRAFT'
+                : liveVerification === 'checking'
+                  ? 'VERIFYING'
+                  : liveVerification === 'failed'
+                    ? 'CHECK FAILED'
+                    : 'LIVE'}
+            </strong>
+            <span>
+              {!publishedUrl
+                ? 'Your website is saved but not public.'
+                : liveVerification === 'failed'
+                  ? 'A published URL is saved, but the live file could not be verified.'
+                  : liveVerification === 'checking'
+                    ? 'Checking the public website now…'
+                    : 'Your website is public.'}
+            </span>
           </div>
           {publishedUrl && (
             <>
@@ -11137,13 +11281,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className="tayar-v2-publish-actions">
                 <button type="button" className="tayar-v2-manual-action" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}>Open live site</button>
                 <button type="button" className="tayar-v2-manual-action" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>Copy URL</button>
+                <button type="button" className="tayar-v2-manual-action" disabled={liveVerification === 'checking'} onClick={() => void verifyLiveDeployment()}>
+                  {liveVerification === 'checking' ? 'Verifying…' : 'Verify live'}
+                </button>
                 <button type="button" className="tayar-v2-manual-action is-danger" disabled={publishBusy} onClick={() => void unpublishWebsite()}>Unpublish</button>
               </div>
             </>
           )}
+          {publishError && (
+            <div className="tayar-v2-publish-error">{publishError}</div>
+          )}
+          {cloudError && (
+            <div className="tayar-v2-publish-error">{cloudError}</div>
+          )}
           {!publishedUrl && (
-            <button type="button" className="tayar-v2-manual-action" disabled={publishBusy || !projectTeamAccess.canPublish} onClick={() => void publishWebsite()}>
-              {publishBusy ? 'Publishing…' : 'Publish website'}
+            <button type="button" className="tayar-v2-manual-action" disabled={publishBusy || !projectTeamAccess.canPublish || siteAudit.errors.length > 0} onClick={() => void publishWebsite()}>
+              {publishBusy ? 'Publishing…' : siteAudit.errors.length ? 'Fix critical Check issues first' : 'Publish website'}
             </button>
           )}
         </div>
@@ -14315,17 +14468,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       aiPanel={v2AiPanel}
       topbarTrailingSlot={
         publishedUrl ? (
-          <>
-            <button type="button" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')} title={publishedUrl}>
-              Live ↗
-            </button>
-            <button type="button" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>
-              Copy URL
-            </button>
-            <button type="button" className="tayar-v2-unpublish-button" disabled={publishBusy} onClick={() => void unpublishWebsite()}>
-              Unpublish
-            </button>
-          </>
+          <button
+            type="button"
+            className="tayar-v2-live-button"
+            onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}
+            title={publishedUrl}
+          >
+            LIVE ↗
+          </button>
         ) : null
       }
       sitePanel={v2SitePanel}
@@ -14435,11 +14585,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }))}
       saving={cloudBusy}
       publishing={publishBusy}
-      checking={liveVerification === 'checking'}
+      checking={launchCheckBusy}
+      saveError={cloudError || undefined}
+      publishError={publishError || undefined}
+      checkScore={siteAudit.score}
+      checkErrors={siteAudit.errors.length}
+      checkWarnings={siteAudit.warnings.length}
+      lastCheckedAt={launchLastCheckedAt ? Date.parse(launchLastCheckedAt) : undefined}
+      publishedUrl={publishedUrl || undefined}
+      publishedAt={publishedAt ? Date.parse(publishedAt) : undefined}
+      liveVerification={liveVerification}
       publishBlockers={[
         !user ? 'Sign in before publishing.' : '',
         !networkOnline ? 'Reconnect before publishing.' : '',
         user && cloudProjectId && !projectTeamAccess.canPublish ? 'Only the project owner can publish.' : '',
+        siteAudit.errors.length ? `Fix ${siteAudit.errors.length} critical Check issue${siteAudit.errors.length === 1 ? '' : 's'} before publishing.` : '',
       ].filter(Boolean)}
       onUndo={undo}
       onRedo={redo}

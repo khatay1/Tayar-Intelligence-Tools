@@ -410,6 +410,9 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
   const statusClass = websiteLive || (!isWebsite && project.status === 'completed')
     ? 'bg-emerald-500/10 text-emerald-400'
     : 'bg-amber-500/10 text-amber-400';
+  const liveUrl = websiteLive
+    ? String((project.content as { publishedUrl?: unknown } | null)?.publishedUrl || '')
+    : '';
 
   if (view === 'list') {
     return (
@@ -431,6 +434,16 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
           <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
             {statusLabel}
           </span>
+          {liveUrl && (
+            <button
+              type="button"
+              onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')}
+              className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
+              title={liveUrl}
+            >
+              Open live ↗
+            </button>
+          )}
           <FileMenu isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={() => onDelete(project.id)} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} />
         </div>
       </div>
@@ -463,6 +476,16 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
           {statusLabel}
         </span>
       </button>
+      {liveUrl && (
+        <button
+          type="button"
+          onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')}
+          className="mt-3 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
+          title={liveUrl}
+        >
+          Open live site ↗
+        </button>
+      )}
     </div>
   );
 }
