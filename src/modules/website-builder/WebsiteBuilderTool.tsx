@@ -47,6 +47,7 @@ import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
 import type { EditorSelection } from './core/editor-selection';
+import type { EditorPageLike } from './core/editor-model';
 
 const STORAGE_KEY = 'tayar.website-builder.project.v5';
 const RECOVERY_STORAGE_KEY = 'tayar.website-builder.recovery.v1';
@@ -3321,6 +3322,8 @@ const [brand, setBrand] = useState<WebsiteBrand>(defaultBrand);
 const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [selectedId, setSelectedId] = useState<string | null>(defaultSections[0].id);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(defaultSections[0].elements[0]?.id ?? null);
+  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
+  const [selectedFormFieldId, setSelectedFormFieldId] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>('desktop');
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
   const [advancedSiteSettingsOpen, setAdvancedSiteSettingsOpen] = useState(false);
@@ -7013,7 +7016,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               }),
             };
           });
-          applied += 1;
+          if (repaired > 0) applied += 1;
           continue;
         }
 
@@ -10136,13 +10139,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 selectedElementId,
             }
           : {}),
+
+        ...(!selectedElementId &&
+        selectedContainerId
+          ? {
+              containerId:
+                selectedContainerId,
+            }
+          : {}),
+
+        ...(!selectedElementId &&
+        !selectedContainerId &&
+        selectedFormFieldId
+          ? {
+              formFieldId:
+                selectedFormFieldId,
+            }
+          : {}),
       };
 
     const store =
       new EditorStore(
         {
           pages:
-            currentPages,
+            currentPages as unknown as EditorPageLike[],
 
           homePageId,
         },
@@ -10194,7 +10214,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         .project;
 
     const nextPages =
-      nextProject.pages as WebsitePage[];
+      nextProject.pages as unknown as WebsitePage[];
 
     const requestedPageId =
       nextSelection?.pageId ||
@@ -10263,6 +10283,49 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSelectedElementId(
       hasRequestedElement
         ? requestedElementId!
+        : null,
+    );
+
+    const requestedContainerId =
+      nextSelection?.containerId;
+
+    const hasRequestedContainer =
+      Boolean(
+        !hasRequestedElement &&
+        requestedContainerId &&
+        resolvedSection?.containers
+          ?.some(
+            (container) =>
+              container.id ===
+              requestedContainerId,
+          ),
+      );
+
+    setSelectedContainerId(
+      hasRequestedContainer
+        ? requestedContainerId!
+        : null,
+    );
+
+    const requestedFormFieldId =
+      nextSelection?.formFieldId;
+
+    const hasRequestedFormField =
+      Boolean(
+        !hasRequestedElement &&
+        !hasRequestedContainer &&
+        requestedFormFieldId &&
+        resolvedSection?.formFields
+          ?.some(
+            (formField) =>
+              formField.id ===
+              requestedFormFieldId,
+          ),
+      );
+
+    setSelectedFormFieldId(
+      hasRequestedFormField
+        ? requestedFormFieldId!
         : null,
     );
 
@@ -13584,7 +13647,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         page.id === activePageId
           ? { ...page, sections }
           : page
-      )}
+      ) as unknown as EditorPageLike[]}
       homePageId={homePageId}
 
       mediaAssets={mediaAssets.map((asset) => ({
@@ -13604,9 +13667,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       onMediaUpload={openV2MediaUpload}
 
-      onGenerateMediaWithAI={(prompt) =>
-        generateMediaLibraryImage(prompt)
-      }
+      onGenerateMediaWithAI={async (prompt) => {
+        await generateMediaLibraryImage(prompt);
+      }}
 
       onAddPage={addPage}
 
@@ -13657,6 +13720,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       activePageId={activePageId}
       selectedSectionId={selectedId}
       selectedElementId={selectedElementId}
+      selectedContainerId={selectedContainerId}
+      selectedFormFieldId={selectedFormFieldId}
       device={device}
       dirty={!saved || hasUnpublishedChanges}
       canUndo={history.length > 0}
@@ -13684,9 +13749,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         if (selection.sectionId) {
           setSelectedId(selection.sectionId);
+
           setSelectedElementId(
             selection.elementId ?? null
           );
+
+          setSelectedContainerId(
+            selection.elementId
+              ? null
+              : selection.containerId ?? null
+          );
+
+          setSelectedFormFieldId(
+            selection.elementId ||
+            selection.containerId
+              ? null
+              : selection.formFieldId ?? null
+          );
+
           setInspectorOpen(true);
         }
       }}
