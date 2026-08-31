@@ -10,6 +10,7 @@ import './study-assistant';
 import './future-tools';
 import './website-builder';
 import './team-workspace';
+import './invoice-generator';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
