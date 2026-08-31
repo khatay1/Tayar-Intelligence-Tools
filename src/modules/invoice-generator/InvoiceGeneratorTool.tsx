@@ -74,7 +74,7 @@ function createDefaultDraft(): InvoiceDraft {
     sellerDetails: '',
     customerName: '',
     customerDetails: '',
-    invoiceNumber: `INV-${isoDate(now).replaceAll('-', '')}`,
+    invoiceNumber: `INV-${isoDate(now).replace(/-/g, '')}`,
     issueDate: isoDate(now),
     dueDate: isoDate(addDays(now, 30)),
     currency: 'SEK',
@@ -134,11 +134,11 @@ function formatMoney(value: number, currency: InvoiceCurrency) {
 
 function escapeHtml(value: string) {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function printableInvoiceHtml(draft: InvoiceDraft) {
@@ -318,7 +318,7 @@ export default function InvoiceGeneratorTool({ darkMode: _darkMode }: { darkMode
     const html = printableInvoiceHtml(draft);
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const printWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    const printWindow = window.open(url, '_blank');
 
     if (!printWindow) {
       URL.revokeObjectURL(url);
@@ -326,6 +326,7 @@ export default function InvoiceGeneratorTool({ darkMode: _darkMode }: { darkMode
       return;
     }
 
+    printWindow.opener = null;
     const cleanup = () => window.setTimeout(() => URL.revokeObjectURL(url), 30000);
     printWindow.addEventListener('load', () => {
       printWindow.focus();
