@@ -37,7 +37,7 @@ CREATE POLICY "website_leads_owner_update"
   USING (public.website_project_team_role(project_id) IN ('owner', 'admin'))
   WITH CHECK (
     public.website_project_team_role(project_id) IN ('owner', 'admin')
-    AND user_id = (SELECT p.user_id FROM public.projects p WHERE p.id = project_id)
+    AND user_id = (SELECT p.user_id FROM public.projects p WHERE p.id = website_leads.project_id)
   );
 
 DROP POLICY IF EXISTS "website_leads_owner_delete" ON public.website_leads;

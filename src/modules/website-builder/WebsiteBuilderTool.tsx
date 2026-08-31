@@ -56,6 +56,13 @@ import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
 import type { EditorSelection } from './core/editor-selection';
 import type { EditorPageLike, EditorSymbolLike } from './core/editor-model';
+import {
+  DEFAULT_EDITOR_PROJECT_ACCESS,
+  createEditorProjectAccessFallback,
+  normalizeEditorProjectAccess,
+  resolveEditorProjectOwnerId,
+  type EditorProjectAccess,
+} from './core/editor-project-access';
 
 const STORAGE_KEY = 'tayar.website-builder.project.v5';
 const ACTIVE_PROJECT_STORAGE_KEY = 'tayar.website-builder.active-project.v1';
@@ -359,26 +366,6 @@ interface CloudWebsiteProject {
   status: string;
   updated_at: string;
 }
-
-interface ProjectTeamAccess {
-  ownerId: string | null;
-  workspaceId: string | null;
-  role: 'owner' | 'admin' | 'editor' | 'viewer' | null;
-  canView: boolean;
-  canEdit: boolean;
-  canManage: boolean;
-  canPublish: boolean;
-}
-
-const DEFAULT_PROJECT_TEAM_ACCESS: ProjectTeamAccess = {
-  ownerId: null,
-  workspaceId: null,
-  role: 'owner',
-  canView: true,
-  canEdit: true,
-  canManage: true,
-  canPublish: true,
-};
 
 interface ProjectHistoryEntry {
   id: string;
@@ -3388,14 +3375,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [cloudProjects, setCloudProjects] = useState<CloudWebsiteProject[]>([]);
   const [cloudProjectsLoaded, setCloudProjectsLoaded] = useState(false);
   const [cloudProjectId, setCloudProjectId] = useState<string | null>(null);
-  const [projectTeamAccess, setProjectTeamAccess] = useState<ProjectTeamAccess>(DEFAULT_PROJECT_TEAM_ACCESS);
-  const activeProjectOwnerId = useMemo(() => {
-    if (!user) return '';
-    if (!cloudProjectId) return user.id;
-    return cloudProjects.find((item) => item.id === cloudProjectId)?.user_id
-      || projectTeamAccess.ownerId
-      || user.id;
-  }, [user, cloudProjectId, cloudProjects, projectTeamAccess.ownerId]);
+  const [projectTeamAccess, setProjectTeamAccess] = useState<EditorProjectAccess>(DEFAULT_EDITOR_PROJECT_ACCESS);
+  const activeProjectOwnerId = useMemo(() => resolveEditorProjectOwnerId({
+    currentUserId: user?.id,
+    projectId: cloudProjectId,
+    activeProjectId: cloudProjectId,
+    activeOwnerId: projectTeamAccess.ownerId,
+    projects: cloudProjects,
+  }), [user?.id, cloudProjectId, cloudProjects, projectTeamAccess.ownerId]);
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudError, setCloudError] = useState('');
   const [projectHistory, setProjectHistory] = useState<ProjectHistoryEntry[]>([]);
@@ -3746,22 +3733,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function refreshProjectTeamAccess(projectId: string | null) {
     if (!user || !projectId) {
-      setProjectTeamAccess(DEFAULT_PROJECT_TEAM_ACCESS);
-      return DEFAULT_PROJECT_TEAM_ACCESS;
+      setProjectTeamAccess(DEFAULT_EDITOR_PROJECT_ACCESS);
+      return DEFAULT_EDITOR_PROJECT_ACCESS;
     }
 
     const project = cloudProjects.find((item) => item.id === projectId);
-    const fallback: ProjectTeamAccess = project
-      ? {
-          ownerId: project.user_id,
-          workspaceId: project.workspace_id,
-          role: project.user_id === user.id ? 'owner' : null,
-          canView: project.user_id === user.id,
-          canEdit: project.user_id === user.id,
-          canManage: project.user_id === user.id,
-          canPublish: project.user_id === user.id,
-        }
-      : DEFAULT_PROJECT_TEAM_ACCESS;
+    const fallback = createEditorProjectAccessFallback(project, user.id);
 
     const { data, error } = await supabase.rpc('get_project_team_access', { p_project_id: projectId });
     if (error || !data) {
@@ -3769,16 +3746,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return fallback;
     }
 
-    const raw = data as Record<string, unknown>;
-    const next: ProjectTeamAccess = {
-      ownerId: typeof raw.ownerId === 'string' ? raw.ownerId : fallback.ownerId,
-      workspaceId: typeof raw.workspaceId === 'string' ? raw.workspaceId : null,
-      role: raw.role === 'owner' || raw.role === 'admin' || raw.role === 'editor' || raw.role === 'viewer' ? raw.role : fallback.role,
-      canView: raw.canView !== false,
-      canEdit: raw.canEdit === true,
-      canManage: raw.canManage === true,
-      canPublish: raw.canPublish === true,
-    };
+    const next = normalizeEditorProjectAccess(data, fallback);
     setProjectTeamAccess(next);
     return next;
   }
@@ -3991,11 +3959,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function publicWebsiteUrl(projectId: string, ownerId?: string) {
-    const resolvedOwnerId = ownerId
-      || cloudProjects.find((item) => item.id === projectId)?.user_id
-      || (projectId === cloudProjectId ? activeProjectOwnerId : '')
-      || user?.id
-      || '';
+    const resolvedOwnerId = ownerId || resolveEditorProjectOwnerId({
+      currentUserId: user?.id,
+      projectId,
+      activeProjectId: cloudProjectId,
+      activeOwnerId: projectTeamAccess.ownerId,
+      projects: cloudProjects,
+    });
     if (!resolvedOwnerId) return '';
     return buildPublishedSiteUrl(resolvedOwnerId, projectId, 'index.html');
   }
@@ -9113,7 +9083,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         } else {
           setCloudProjectId(result.data.id);
           try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, result.data.id); } catch { /* ignore */ }
-          setProjectTeamAccess({ ...DEFAULT_PROJECT_TEAM_ACCESS, ownerId: user.id });
+          setProjectTeamAccess({ ...DEFAULT_EDITOR_PROJECT_ACCESS, ownerId: user.id });
           cloudSaved = true;
           setCloudSyncFailed(false);
         }
@@ -9855,7 +9825,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setCloudProjectId(publishProjectId);
         try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, publishProjectId); } catch { /* ignore */ }
         setProjectTeamAccess({
-          ...DEFAULT_PROJECT_TEAM_ACCESS,
+          ...DEFAULT_EDITOR_PROJECT_ACCESS,
           ownerId: user.id,
         });
         setCloudSyncFailed(false);

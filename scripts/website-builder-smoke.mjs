@@ -14,6 +14,7 @@ const serviceWorkerPath = resolve(root, 'public/sw.js');
 const workspaceProjectsPath = resolve(root, 'src/lib/use-projects.ts');
 const runtimeHardeningMigrationPath = resolve(root, 'supabase/migrations/20260831210500_harden_website_public_runtime.sql');
 const sharedRuntimeMigrationPath = resolve(root, 'supabase/migrations/20260831222000_align_shared_website_runtime.sql');
+const projectAccessCorePath = resolve(root, 'src/modules/website-builder/core/editor-project-access.ts');
 
 const failures = [];
 const passes = [];
@@ -35,6 +36,7 @@ for (const [label, path] of [
   ['Workspace project helper exists', workspaceProjectsPath],
   ['Website public runtime hardening migration exists', runtimeHardeningMigrationPath],
   ['Shared Website runtime migration exists', sharedRuntimeMigrationPath],
+  ['Core project-access module exists', projectAccessCorePath],
 ]) {
   check(label, existsSync(path));
 }
@@ -49,6 +51,7 @@ const serviceWorker = existsSync(serviceWorkerPath) ? readFileSync(serviceWorker
 const workspaceProjects = existsSync(workspaceProjectsPath) ? readFileSync(workspaceProjectsPath, 'utf8') : '';
 const runtimeHardeningMigration = existsSync(runtimeHardeningMigrationPath) ? readFileSync(runtimeHardeningMigrationPath, 'utf8') : '';
 const sharedRuntimeMigration = existsSync(sharedRuntimeMigrationPath) ? readFileSync(sharedRuntimeMigrationPath, 'utf8') : '';
+const projectAccessCore = existsSync(projectAccessCorePath) ? readFileSync(projectAccessCorePath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -70,6 +73,8 @@ check('Shared project recovery uses the actual project owner', builder.includes(
 check('Lead operations require owner or workspace admin', builder.includes('Lead inbox is available to project owners and workspace admins.') && sharedRuntimeMigration.includes("IN ('owner', 'admin')"));
 check('Analytics is available to shared editors without exposing leads', builder.includes('Analytics is available to project owners, admins, and editors.') && sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor')"));
 check('Shared release history is read-only while rollback stays owner-only', sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor', 'viewer')") && builder.includes('Only the project owner can rollback a published release.') && builder.includes('Only the project owner can delete release archives.'));
+check('Core V3 centralizes project access and owner resolution', projectAccessCore.includes('resolveEditorProjectOwnerId') && projectAccessCore.includes('normalizeEditorProjectAccess') && builder.includes("from './core/editor-project-access'"));
+check('Shared lead policy keeps row ownership tied to the website owner', sharedRuntimeMigration.includes('website_leads.project_id'));
 check('Recovery snapshot storage is enabled', builder.includes('RECOVERY_STORAGE_KEY'));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
