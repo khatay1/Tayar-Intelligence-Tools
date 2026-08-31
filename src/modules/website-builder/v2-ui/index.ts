@@ -4,7 +4,6 @@ export * from './BuilderLeftSidebar';
 export * from './BuilderCanvasFrame';
 export * from './BuilderInspector';
 export * from './BuilderStatusBar';
-export * from './LegacyBuilderSlots';
 export * from './BuilderPagesPanel';
 export * from './BuilderLayersPanel';
 export * from './useEditorStore';

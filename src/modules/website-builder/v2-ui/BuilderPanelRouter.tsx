@@ -74,6 +74,46 @@ export interface BuilderPanelRouterProps {
   onGenerateMediaWithAI?(
     prompt: string,
   ): void | Promise<void>;
+
+  onAddPage?(): void;
+
+  onMovePage?(
+    pageId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicatePage?(): void;
+  onDeletePage?(): void;
+  onSetHomePage?(): void;
+
+  onMoveSection?(
+    sectionId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicateSection?(
+    sectionId: string,
+  ): void;
+
+  onDeleteSection?(
+    sectionId: string,
+  ): void;
+
+  onMoveElement?(
+    sectionId: string,
+    elementId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicateElement?(
+    sectionId: string,
+    elementId: string,
+  ): void;
+
+  onDeleteElement?(
+    sectionId: string,
+    elementId: string,
+  ): void;
 }
 
 export function BuilderPanelRouter(
@@ -86,6 +126,11 @@ export function BuilderPanelRouter(
       return (
         <BuilderPagesPanel
           shell={props.shell}
+          onAddPage={props.onAddPage}
+          onMovePage={props.onMovePage}
+          onDuplicatePage={props.onDuplicatePage}
+          onDeletePage={props.onDeletePage}
+          onSetHomePage={props.onSetHomePage}
         />
       );
     }
@@ -94,6 +139,12 @@ export function BuilderPanelRouter(
       return (
         <BuilderLayersPanel
           shell={props.shell}
+          onMoveSection={props.onMoveSection}
+          onDuplicateSection={props.onDuplicateSection}
+          onDeleteSection={props.onDeleteSection}
+          onMoveElement={props.onMoveElement}
+          onDuplicateElement={props.onDuplicateElement}
+          onDeleteElement={props.onDeleteElement}
         />
       );
     }

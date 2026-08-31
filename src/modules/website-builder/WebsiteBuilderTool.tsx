@@ -5908,7 +5908,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const cleanPrompt = prompt.trim();
     if (!cleanPrompt) throw new Error('Image prompt is required.');
     const ai = createAIService('website-builder');
-    const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean }>(
+    const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean; persistenceError?: string }>(
       { action: 'generate-image', prompt: cleanPrompt },
       [],
       { temperature: 0.8, maxTokens: 1000 },
@@ -5940,6 +5940,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (!generated.persisted) {
         throw new Error(
+          generated.persistenceError ||
           'Image was generated but could not be saved to Media.'
         );
       }
@@ -9835,6 +9836,273 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     input.click();
   }
 
+  function v2DuplicateSectionDirect(
+    sectionId: string,
+  ) {
+    const source =
+      sections.find(
+        (section) =>
+          section.id === sectionId,
+      );
+
+    if (!source) return;
+
+    const duplicate =
+      cloneSectionWithFreshIds(
+        source,
+      );
+
+    const index =
+      sections.findIndex(
+        (section) =>
+          section.id === sectionId,
+      );
+
+    remember(sections);
+
+    setSections((current) => {
+      const next =
+        [...current];
+
+      next.splice(
+        Math.max(0, index + 1),
+        0,
+        duplicate,
+      );
+
+      return next;
+    });
+
+    setSelectedId(
+      duplicate.id,
+    );
+
+    setSelectedElementId(
+      duplicate.elements[0]
+        ?.id ?? null,
+    );
+
+    setSaved(false);
+  }
+
+  function v2MoveElementDirect(
+    sectionId: string,
+    elementId: string,
+    direction: 'up' | 'down',
+  ) {
+    const targetSection =
+      sections.find(
+        (section) =>
+          section.id === sectionId,
+      );
+
+    if (!targetSection) return;
+
+    const index =
+      targetSection.elements.findIndex(
+        (element) =>
+          element.id === elementId,
+      );
+
+    if (index < 0) return;
+
+    const targetIndex =
+      direction === 'up'
+        ? index - 1
+        : index + 1;
+
+    if (
+      targetIndex < 0 ||
+      targetIndex >=
+        targetSection.elements.length
+    ) {
+      return;
+    }
+
+    remember(sections);
+
+    setSections((current) =>
+      current.map((section) => {
+        if (
+          section.id !== sectionId
+        ) {
+          return section;
+        }
+
+        const elements =
+          [...section.elements];
+
+        [
+          elements[index],
+          elements[targetIndex],
+        ] = [
+          elements[targetIndex],
+          elements[index],
+        ];
+
+        return {
+          ...section,
+          elements,
+        };
+      }),
+    );
+
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
+    setSaved(false);
+  }
+
+  function v2DuplicateElementDirect(
+    sectionId: string,
+    elementId: string,
+  ) {
+    const targetSection =
+      sections.find(
+        (section) =>
+          section.id === sectionId,
+      );
+
+    const source =
+      targetSection?.elements.find(
+        (element) =>
+          element.id === elementId,
+      );
+
+    if (
+      !targetSection ||
+      !source
+    ) {
+      return;
+    }
+
+    const duplicate: WebsiteElement = {
+      ...source,
+
+      id:
+        `${source.type}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      style: {
+        ...source.style,
+      },
+
+      responsive:
+        source.responsive
+          ? JSON.parse(
+              JSON.stringify(
+                source.responsive,
+              ),
+            )
+          : undefined,
+
+      symbolId:
+        undefined,
+    };
+
+    const index =
+      targetSection.elements.findIndex(
+        (element) =>
+          element.id === elementId,
+      );
+
+    remember(sections);
+
+    setSections((current) =>
+      current.map((section) => {
+        if (
+          section.id !== sectionId
+        ) {
+          return section;
+        }
+
+        const elements =
+          [...section.elements];
+
+        elements.splice(
+          index + 1,
+          0,
+          duplicate,
+        );
+
+        return {
+          ...section,
+          elements,
+        };
+      }),
+    );
+
+    setSelectedId(sectionId);
+
+    setSelectedElementId(
+      duplicate.id,
+    );
+
+    setSaved(false);
+  }
+
+  function v2DeleteElementDirect(
+    sectionId: string,
+    elementId: string,
+  ) {
+    const targetSection =
+      sections.find(
+        (section) =>
+          section.id === sectionId,
+      );
+
+    if (
+      !targetSection ||
+      targetSection.elements.length <= 1
+    ) {
+      return;
+    }
+
+    const index =
+      targetSection.elements.findIndex(
+        (element) =>
+          element.id === elementId,
+      );
+
+    if (index < 0) return;
+
+    const remaining =
+      targetSection.elements.filter(
+        (element) =>
+          element.id !== elementId,
+      );
+
+    const nextElement =
+      remaining[
+        Math.min(
+          index,
+          remaining.length - 1,
+        )
+      ];
+
+    remember(sections);
+
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              elements:
+                remaining,
+            }
+          : section,
+      ),
+    );
+
+    setSelectedId(sectionId);
+
+    setSelectedElementId(
+      nextElement?.id ?? null,
+    );
+
+    setSaved(false);
+  }
+
   function applyV2NativeOperations(
     operations: EditorNativeOperation[],
     nextSelection?: EditorSelection,
@@ -9894,7 +10162,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     ) {
       console.error(
         '[WebsiteBuilder V2] Native operation failed:',
-        result.errors,
+        {
+          operations,
+          errors:
+            result.errors,
+          warnings:
+            result.warnings,
+        },
       );
 
       return;
@@ -9903,6 +10177,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (
       !result.changed
     ) {
+      console.warn(
+        '[WebsiteBuilder V2] Native operation produced no change:',
+        operations,
+      );
+
       return;
     }
 
@@ -9991,7 +10270,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   const v2Canvas = (
-        <div data-tayar-v1-canvas="true"
+        <div data-tayar-v2-canvas="true"
           className={`min-h-[600px] flex-1 overflow-auto p-3 lg:p-5 ${
             darkMode ? 'bg-[#050914]' : 'bg-[#f3f4f6]'
           }`}
@@ -10067,26 +10346,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       device={device}
       theme={theme}
     />
-    <div data-tayar-v1-root="true"
-      className="group/add-section relative flex h-8 items-center justify-center"
-      draggable={false}
-      onDragStart={(event) => event.stopPropagation()}
-      onClick={(event) => event.stopPropagation()}
-    >
-      <div className="h-px w-full bg-violet-500/0 transition group-hover/add-section:bg-violet-500/20" />
-      <details className="absolute z-40">
-        <summary className="flex cursor-pointer list-none items-center gap-1 rounded-full border border-violet-400/20 bg-[#111122]/90 px-2.5 py-1 text-[9px] font-bold text-violet-300 opacity-60 shadow transition hover:opacity-100 [&::-webkit-details-marker]:hidden">
-          <Plus className="h-3 w-3" /> {l('Add section')}
-        </summary>
-        <div className="absolute left-1/2 top-7 z-50 grid w-56 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#111122] p-2 shadow-2xl">
-          {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
-            <button key={type} type="button" onClick={() => insertSectionAfter(section.id, type)} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">
-              + {SECTION_LABELS[type]}
-            </button>
-          ))}
-        </div>
-      </details>
-    </div>
+
   </div>
 ))}
             {footerConfig.enabled && (
@@ -13144,6 +13404,46 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       onGenerateMediaWithAI={(prompt) =>
         generateMediaLibraryImage(prompt)
+      }
+
+      onAddPage={addPage}
+
+      onMovePage={movePage}
+
+      onDuplicatePage={
+        duplicateActivePage
+      }
+
+      onDeletePage={
+        deleteActivePage
+      }
+
+      onSetHomePage={
+        makeActivePageHome
+      }
+
+      onMoveSection={
+        moveSection
+      }
+
+      onDuplicateSection={
+        v2DuplicateSectionDirect
+      }
+
+      onDeleteSection={
+        deleteSection
+      }
+
+      onMoveElement={
+        v2MoveElementDirect
+      }
+
+      onDuplicateElement={
+        v2DuplicateElementDirect
+      }
+
+      onDeleteElement={
+        v2DeleteElementDirect
       }
 
       onApplyOperations={applyV2NativeOperations}

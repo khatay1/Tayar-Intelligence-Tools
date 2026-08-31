@@ -1482,3 +1482,130 @@
   color: #fb7185;
 }
 
+
+/* AI Media error + retry */
+.tayar-v2-media-ai__error {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tayar-v2-media-ai__error span {
+  min-width: 0;
+  flex: 1;
+}
+
+.tayar-v2-media-ai__error button {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 9px;
+}
+
+
+
+/* V2 native layer actions */
+.tayar-v2-layer-section__head {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.tayar-v2-layer-section__head
+.tayar-v2-layer-section__row {
+  flex: 1;
+  min-width: 0;
+}
+
+.tayar-v2-layer-section__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.tayar-v2-layer-section:hover
+.tayar-v2-layer-section__actions,
+.tayar-v2-layer-section[data-selected='true']
+.tayar-v2-layer-section__actions {
+  opacity: 1;
+}
+
+.tayar-v2-layer-section__actions button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: .68;
+}
+
+.tayar-v2-layer-section__actions button:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(255,255,255,.08);
+}
+
+.tayar-v2-layer-section__actions button:last-child:hover:not(:disabled) {
+  background: rgba(239,68,68,.12);
+}
+
+.tayar-v2-layer-section__actions button:disabled {
+  opacity: .2;
+  cursor: not-allowed;
+}
+
+
+/* V2 direct action controls */
+
+.tayar-v2-page-item,
+.tayar-v2-layer-element-wrap {
+  min-width: 0;
+}
+
+.tayar-v2-page-item[data-selected='true'],
+.tayar-v2-layer-section[data-selected='true'],
+.tayar-v2-layer-element-wrap[data-selected='true'] {
+  background: rgba(124, 58, 237, .07);
+}
+
+.tayar-v2-direct-actions {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px 8px;
+  flex-wrap: wrap;
+}
+
+.tayar-v2-direct-actions--element {
+  padding-left: 20px;
+}
+
+.tayar-v2-direct-actions button,
+.tayar-v2-mini-action {
+  min-height: 24px;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  opacity: .72;
+}
+
+.tayar-v2-direct-actions button:hover:not(:disabled),
+.tayar-v2-mini-action:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(255,255,255,.08);
+}
+
+.tayar-v2-direct-actions button.is-danger:hover:not(:disabled) {
+  background: rgba(239,68,68,.14);
+}
+
+.tayar-v2-direct-actions button:disabled {
+  opacity: .2;
+  cursor: not-allowed;
+}

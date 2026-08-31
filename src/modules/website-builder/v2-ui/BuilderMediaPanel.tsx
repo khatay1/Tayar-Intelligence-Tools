@@ -160,7 +160,15 @@ export function BuilderMediaPanel({
 
           {aiError && (
             <div className="tayar-v2-media-ai__error">
-              {aiError}
+              <span>{aiError}</span>
+
+              <button
+                type="button"
+                disabled={aiBusy || !aiPrompt.trim()}
+                onClick={() => void generate()}
+              >
+                Retry
+              </button>
             </div>
           )}
         </div>

@@ -95,6 +95,46 @@ export interface WebsiteBuilderV2BridgeProps {
     prompt: string,
   ): void | Promise<void>;
 
+  onAddPage?(): void;
+
+  onMovePage?(
+    pageId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicatePage?(): void;
+  onDeletePage?(): void;
+  onSetHomePage?(): void;
+
+  onMoveSection?(
+    sectionId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicateSection?(
+    sectionId: string,
+  ): void;
+
+  onDeleteSection?(
+    sectionId: string,
+  ): void;
+
+  onMoveElement?(
+    sectionId: string,
+    elementId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicateElement?(
+    sectionId: string,
+    elementId: string,
+  ): void;
+
+  onDeleteElement?(
+    sectionId: string,
+    elementId: string,
+  ): void;
+
   onApplyOperations(
     operations: EditorNativeOperation[],
     nextSelection?: EditorSelection,
@@ -173,6 +213,21 @@ export function WebsiteBuilderV2Bridge({
   onMediaOpen,
   onMediaUpload,
   onGenerateMediaWithAI,
+
+  onAddPage,
+  onMovePage,
+  onDuplicatePage,
+  onDeletePage,
+  onSetHomePage,
+
+  onMoveSection,
+  onDuplicateSection,
+  onDeleteSection,
+
+  onMoveElement,
+  onDuplicateElement,
+  onDeleteElement,
+
   onApplyOperations,
 
   onUndo,
@@ -618,6 +673,20 @@ export function WebsiteBuilderV2Bridge({
       onGenerateMediaWithAI={
         onGenerateMediaWithAI
       }
+
+      onAddPage={onAddPage}
+      onMovePage={onMovePage}
+      onDuplicatePage={onDuplicatePage}
+      onDeletePage={onDeletePage}
+      onSetHomePage={onSetHomePage}
+
+      onMoveSection={onMoveSection}
+      onDuplicateSection={onDuplicateSection}
+      onDeleteSection={onDeleteSection}
+
+      onMoveElement={onMoveElement}
+      onDuplicateElement={onDuplicateElement}
+      onDeleteElement={onDeleteElement}
 
       createSection={
         createNativeSection

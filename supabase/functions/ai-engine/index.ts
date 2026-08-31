@@ -2,7 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient, HttpError, requireUser } from "../_shared/billing.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-const FAL_KEY = Deno.env.get("FAL_KEY");
+const rawFalKey = Deno.env.get("FAL_KEY") || "";
+const FAL_KEY = rawFalKey
+  .trim()
+  .replace(/^["']|["']$/g, "")
+  .trim();
 
 const RATE_LIMIT_PER_MINUTE = readPositiveInt("AI_RATE_LIMIT_PER_MINUTE", 30, 1, 300);
 const MAX_REQUEST_CHARS = readPositiveInt("AI_MAX_REQUEST_CHARS", 40_000, 1_000, 200_000);
@@ -245,19 +249,267 @@ Deno.serve(async (req: Request) => {
       if (!prompt) throw new HttpError(400, "Image prompt is required");
       if (prompt.length > 4_000) throw new HttpError(413, "Image prompt is too large");
 
-      const imageResponse = await fetch("https://fal.run/fal-ai/flux/dev", {
-        method: "POST",
-        headers: { "Authorization": `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, image_size: "landscape_16_9", num_images: 1 }),
-      });
-      const rawImageResponse = await imageResponse.text();
-      let imageData: Record<string, unknown> = {};
-      try { imageData = JSON.parse(rawImageResponse) as Record<string, unknown>; } catch { /* provider returned non-JSON */ }
+      const falHeaders = {
+        "Authorization": `Key ${FAL_KEY}`,
+        "Content-Type": "application/json",
+      };
 
-      if (!imageResponse.ok) {
-        console.error(`[AI ENGINE] Image provider failed (${imageResponse.status})`);
-        await recordUsage(admin, user.id, { provider: "fal", model: "flux", tool, durationMs: Date.now() - startedAt, status: "error" });
-        return jsonResponse(req, { error: "Image provider is temporarily unavailable" }, 502);
+      let submitResponse: Response;
+
+      try {
+        submitResponse = await fetch(
+          "https://queue.fal.run/fal-ai/flux/dev",
+          {
+            method: "POST",
+            headers: falHeaders,
+            body: JSON.stringify({
+              prompt,
+              image_size: "landscape_16_9",
+              num_images: 1,
+              enable_safety_checker: true,
+              output_format: "jpeg",
+            }),
+          },
+        );
+      } catch (error) {
+        const detail =
+          error instanceof Error
+            ? error.message
+            : "unknown network error";
+
+        console.error(
+          "[AI ENGINE] FAL queue submit failed: " + detail,
+        );
+
+        const normalizedDetail = detail.toLowerCase();
+
+        const safeMessage =
+          normalizedDetail.includes("header")
+            ? "Image provider key/header format is invalid"
+            : normalizedDetail.includes("dns") ||
+                normalizedDetail.includes("lookup") ||
+                normalizedDetail.includes("resolve")
+              ? "Image provider DNS lookup failed"
+              : normalizedDetail.includes("certificate") ||
+                  normalizedDetail.includes("tls")
+                ? "Image provider secure connection failed"
+                : normalizedDetail.includes("timeout") ||
+                    normalizedDetail.includes("timed out")
+                  ? "Image provider connection timed out"
+                  : "Could not reach image provider queue";
+
+        throw new HttpError(
+          502,
+          safeMessage,
+        );
+      }
+
+      const submitRaw = await submitResponse.text();
+
+      let submitData: Record<string, unknown> = {};
+
+      try {
+        submitData =
+          JSON.parse(submitRaw) as Record<string, unknown>;
+      } catch {
+        /* handled below */
+      }
+
+      if (!submitResponse.ok) {
+        console.error(
+          `[AI ENGINE] FAL queue rejected request (${submitResponse.status})`,
+        );
+
+        const message =
+          submitResponse.status === 401 ||
+          submitResponse.status === 403
+            ? "Image provider authentication failed"
+            : submitResponse.status === 429
+              ? "Image generation rate limit reached. Try again shortly."
+              : submitResponse.status === 422
+                ? "Image provider rejected this prompt"
+                : "Image provider queue is temporarily unavailable";
+
+        return jsonResponse(
+          req,
+          { error: message },
+          submitResponse.status === 429 ? 429 : 502,
+        );
+      }
+
+      const requestId =
+        typeof submitData.request_id === "string"
+          ? submitData.request_id
+          : "";
+
+      const statusUrl =
+        typeof submitData.status_url === "string"
+          ? submitData.status_url
+          : "";
+
+      const responseUrl =
+        typeof submitData.response_url === "string"
+          ? submitData.response_url
+          : "";
+
+      if (!requestId || !statusUrl || !responseUrl) {
+        console.error(
+          "[AI ENGINE] FAL queue response missing tracking URLs",
+        );
+
+        throw new HttpError(
+          502,
+          "Image provider returned an invalid queue response",
+        );
+      }
+
+      let imageData: Record<string, unknown> = {};
+      let completed = false;
+
+      const deadline =
+        Date.now() + 80_000;
+
+      while (Date.now() < deadline) {
+        await new Promise(
+          (resolve) => setTimeout(resolve, 1200),
+        );
+
+        let statusResponse: Response;
+
+        try {
+          statusResponse = await fetch(
+            statusUrl,
+            {
+              method: "GET",
+              headers: {
+                "Authorization": `Key ${FAL_KEY}`,
+              },
+            },
+          );
+        } catch (error) {
+          console.error(
+            "[AI ENGINE] FAL queue status failed: " +
+            (error instanceof Error
+              ? error.message
+              : "unknown network error"),
+          );
+
+          throw new HttpError(
+            502,
+            "Lost connection to image provider",
+          );
+        }
+
+        if (!statusResponse.ok) {
+          console.error(
+            `[AI ENGINE] FAL status request failed (${statusResponse.status})`,
+          );
+
+          throw new HttpError(
+            502,
+            "Could not check image generation status",
+          );
+        }
+
+        const statusRaw =
+          await statusResponse.text();
+
+        let statusData:
+          Record<string, unknown> = {};
+
+        try {
+          statusData =
+            JSON.parse(statusRaw) as Record<string, unknown>;
+        } catch {
+          throw new HttpError(
+            502,
+            "Image provider returned invalid status",
+          );
+        }
+
+        const queueStatus =
+          typeof statusData.status === "string"
+            ? statusData.status
+            : "";
+
+        if (statusData.error) {
+          console.error(
+            "[AI ENGINE] FAL generation reported an error",
+          );
+
+          throw new HttpError(
+            502,
+            "Image provider could not generate this image",
+          );
+        }
+
+        if (queueStatus !== "COMPLETED") {
+          continue;
+        }
+
+        let resultResponse: Response;
+
+        try {
+          resultResponse = await fetch(
+            responseUrl,
+            {
+              method: "GET",
+              headers: {
+                "Authorization": `Key ${FAL_KEY}`,
+              },
+            },
+          );
+        } catch (error) {
+          console.error(
+            "[AI ENGINE] FAL result fetch failed: " +
+            (error instanceof Error
+              ? error.message
+              : "unknown network error"),
+          );
+
+          throw new HttpError(
+            502,
+            "Could not retrieve generated image",
+          );
+        }
+
+        if (!resultResponse.ok) {
+          console.error(
+            `[AI ENGINE] FAL result failed (${resultResponse.status})`,
+          );
+
+          throw new HttpError(
+            502,
+            "Could not retrieve generated image",
+          );
+        }
+
+        const resultRaw =
+          await resultResponse.text();
+
+        try {
+          imageData =
+            JSON.parse(resultRaw) as Record<string, unknown>;
+        } catch {
+          throw new HttpError(
+            502,
+            "Image provider returned an invalid result",
+          );
+        }
+
+        completed = true;
+        break;
+      }
+
+      if (!completed) {
+        console.error(
+          "[AI ENGINE] FAL image generation timed out",
+        );
+
+        throw new HttpError(
+          504,
+          "Image generation timed out. Try again.",
+        );
       }
 
       const images = Array.isArray(imageData.images) ? imageData.images : [];
@@ -271,34 +523,72 @@ Deno.serve(async (req: Request) => {
       let finalUrl = imageUrl;
       let assetPath = "";
       let persisted = false;
+      let persistenceError = "";
+
       try {
         const generatedImage = await fetch(imageUrl);
-        if (generatedImage.ok) {
-          const contentType = generatedImage.headers.get("content-type") || "image/jpeg";
-          const extension = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+
+        if (!generatedImage.ok) {
+          persistenceError = "Generated image could not be downloaded for Media";
+          console.error(
+            `[AI ENGINE] Generated image download failed (${generatedImage.status})`,
+          );
+        } else {
+          const contentType =
+            generatedImage.headers.get("content-type") || "image/jpeg";
+
+          const extension = contentType.includes("png")
+            ? "png"
+            : contentType.includes("webp")
+              ? "webp"
+              : "jpg";
+
           const bytes = await generatedImage.arrayBuffer();
-          assetPath = `${user.id}/ai-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+
+          assetPath =
+            `${user.id}/ai-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+
           const { error: uploadError } = await admin.storage
             .from("website-media")
-            .upload(assetPath, bytes, { contentType, cacheControl: "31536000", upsert: false });
-          if (!uploadError) {
-            const { data: publicData } = admin.storage.from("website-media").getPublicUrl(assetPath);
+            .upload(assetPath, bytes, {
+              contentType,
+              cacheControl: "31536000",
+              upsert: false,
+            });
+
+          if (uploadError) {
+            persistenceError = "Generated image could not be saved to Media";
+            console.error(
+              "[AI ENGINE] Generated image could not be persisted to website-media",
+            );
+          } else {
+            const { data: publicData } = admin.storage
+              .from("website-media")
+              .getPublicUrl(assetPath);
+
             if (publicData?.publicUrl) {
               finalUrl = publicData.publicUrl;
               persisted = true;
+            } else {
+              persistenceError = "Media URL could not be created";
+              console.error(
+                "[AI ENGINE] Public URL missing after generated image upload",
+              );
             }
-          } else {
-            console.error("[AI ENGINE] Generated image could not be persisted to website-media");
           }
         }
-      } catch {
-        console.error("[AI ENGINE] Generated image persistence failed");
+      } catch (error) {
+        persistenceError = "Generated image could not be saved to Media";
+        console.error(
+          "[AI ENGINE] Generated image persistence failed: " +
+          (error instanceof Error ? error.message : "unknown persistence error"),
+        );
       }
 
       await recordUsage(admin, user.id, { provider: "fal", model: "flux", tool, durationMs: Date.now() - startedAt, status: "success" });
       return jsonResponse(req, {
         content: JSON.stringify({ url: finalUrl, assetPath, persisted }),
-        json: { url: finalUrl, assetPath, persisted },
+        json: { url: finalUrl, assetPath, persisted, persistenceError },
         model: "flux",
         provider: "fal",
         tokensIn: 0,

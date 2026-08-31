@@ -50,6 +50,46 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
     prompt: string,
   ): void | Promise<void>;
 
+  onAddPage?(): void;
+
+  onMovePage?(
+    pageId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicatePage?(): void;
+  onDeletePage?(): void;
+  onSetHomePage?(): void;
+
+  onMoveSection?(
+    sectionId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicateSection?(
+    sectionId: string,
+  ): void;
+
+  onDeleteSection?(
+    sectionId: string,
+  ): void;
+
+  onMoveElement?(
+    sectionId: string,
+    elementId: string,
+    direction: 'up' | 'down',
+  ): void;
+
+  onDuplicateElement?(
+    sectionId: string,
+    elementId: string,
+  ): void;
+
+  onDeleteElement?(
+    sectionId: string,
+    elementId: string,
+  ): void;
+
   createSection(item: EditorInsertCatalogItem): EditorSectionLike;
   createContainer(item: EditorInsertCatalogItem): EditorContainerLike;
 
@@ -397,6 +437,39 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
 
         onGenerateMediaWithAI:
           props.onGenerateMediaWithAI,
+
+        onAddPage:
+          props.onAddPage,
+
+        onMovePage:
+          props.onMovePage,
+
+        onDuplicatePage:
+          props.onDuplicatePage,
+
+        onDeletePage:
+          props.onDeletePage,
+
+        onSetHomePage:
+          props.onSetHomePage,
+
+        onMoveSection:
+          props.onMoveSection,
+
+        onDuplicateSection:
+          props.onDuplicateSection,
+
+        onDeleteSection:
+          props.onDeleteSection,
+
+        onMoveElement:
+          props.onMoveElement,
+
+        onDuplicateElement:
+          props.onDuplicateElement,
+
+        onDeleteElement:
+          props.onDeleteElement,
       }),
     [
       shell,

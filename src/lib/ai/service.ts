@@ -486,16 +486,71 @@ export class AIService {
       });
     };
 
-    const response = await withRetry(doFetch, 3, (err) => {
-      if (err instanceof AIError) return err.retryable;
-      if (err instanceof DOMException && err.name === 'TimeoutError') return true;
-      return false;
-    });
+    let response: Response;
+
+    try {
+      response = await withRetry(doFetch, 3, (err) => {
+        if (err instanceof AIError) return err.retryable;
+        if (err instanceof DOMException && err.name === 'TimeoutError') return true;
+        if (err instanceof TypeError) return true;
+        return false;
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        throw new AIError(
+          'AI request timed out.',
+          'TIMEOUT',
+          true,
+        );
+      }
+
+      if (error instanceof TypeError) {
+        throw new AIError(
+          'Could not reach the AI service.',
+          'NETWORK_ERROR',
+          true,
+        );
+      }
+
+      throw error;
+    }
 
     if (!response.ok) {
-      const errBody = await response.json().catch(() => ({ error: 'Request failed' }));
+      const errBody =
+        await response.json().catch(() => ({
+          error: `Request failed (${response.status})`,
+        }));
+
+      const message =
+        (errBody as { error?: string }).error ||
+        `Request failed (${response.status})`;
+
+      if (response.status === 429) {
+        throw new AIError(
+          message,
+          'RATE_LIMIT',
+          true,
+        );
+      }
+
+      if (response.status === 503) {
+        throw new AIError(
+          message,
+          'PROVIDER_NOT_CONFIGURED',
+          false,
+        );
+      }
+
+      if (response.status === 502) {
+        throw new AIError(
+          message,
+          'PROVIDER_ERROR',
+          true,
+        );
+      }
+
       throw new AIError(
-        (errBody as { error?: string }).error || `Request failed (${response.status})`,
+        message,
         'REQUEST_FAILED',
         response.status >= 500,
       );
