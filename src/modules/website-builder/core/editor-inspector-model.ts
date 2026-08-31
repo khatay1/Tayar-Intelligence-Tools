@@ -713,6 +713,33 @@ export function buildEditorInspectorFields<P extends EditorProjectLike>(
         section: 'URL',
         placeholder: '/about',
       }),
+      field('seoTitle', 'SEO title', page.seoTitle || '', 'text', 'content', {
+        section: 'SEO',
+      }),
+      field('seoDescription', 'SEO description', page.seoDescription || '', 'textarea', 'content', {
+        section: 'SEO',
+      }),
+      field('canonicalUrl', 'Canonical URL', page.canonicalUrl || '', 'text', 'settings', {
+        section: 'SEO',
+        placeholder: 'https://example.com/page',
+      }),
+      field('socialImage', 'Social image URL', page.socialImage || '', 'text', 'settings', {
+        section: 'SEO',
+        placeholder: 'https://...',
+      }),
+      field('showInNavigation', 'Show in navigation', page.showInNavigation !== false, 'toggle', 'settings', {
+        section: 'Navigation',
+      }),
+      field('noIndex', 'Hide from search engines', Boolean(page.noIndex), 'toggle', 'settings', {
+        section: 'SEO',
+      }),
+      field('language', 'Page language', page.language || '', 'text', 'settings', {
+        section: 'Localization',
+        placeholder: 'en, sv, ar...',
+      }),
+      field('translationKey', 'Translation group', page.translationKey || '', 'text', 'settings', {
+        section: 'Localization',
+      }),
     ];
   }
 
