@@ -172,6 +172,8 @@
             folderId: folder.id,
             folderPath: folder.path,
             id: entry.id || null,
+            file: entry.title || "Unknown template",
+            sourceDownloadUrl: entry.sourceDownloadUrl || "",
             error: entry.error || "Import failed",
           });
         }
