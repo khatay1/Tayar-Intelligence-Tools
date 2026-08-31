@@ -42,6 +42,14 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
   canvas: ReactNode;
   canvasOverlaySlot?: ReactNode;
   aiPanel?: ReactNode;
+  sitePanel?: ReactNode;
+  settingsPanel?: ReactNode;
+
+  symbols?: Array<{ id: string; name?: string; element: { id: string; [key: string]: unknown }; [key: string]: unknown }>;
+  onCreateSymbol?(): void;
+  onDetachSymbol?(): void;
+  onInsertSymbol?(symbolId: string): void;
+  onDeleteSymbol?(symbolId: string): void;
 
   mediaAssets?: EditorMediaAsset[];
 
@@ -153,8 +161,14 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
   ) {
     if (!operations.length) return;
 
+    const manualOperations =
+      operations.map((operation) => ({
+        ...operation,
+        source: operation.source || 'manual' as const,
+      }));
+
     props.onApplyOperations(
-      operations,
+      manualOperations,
       nextSelection,
     );
   }
@@ -405,11 +419,265 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
     );
   }
 
+  function manualId(prefix: string) {
+    const uuid =
+      globalThis.crypto?.randomUUID?.();
+
+    return uuid
+      ? `${prefix}-${uuid}`
+      : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function handleUngroupContainer(
+    sectionId: string,
+    containerId: string,
+  ) {
+    if (!selection.pageId) return;
+
+    const section =
+      project.pages
+        .find((page) => page.id === selection.pageId)
+        ?.sections
+        .find((candidate) => candidate.id === sectionId);
+
+    if (!section) return;
+
+    const operations: EditorNativeOperation[] =
+      section.elements
+        .filter((element) => element.containerId === containerId)
+        .map((element) => ({
+          action: 'assign_element_container' as const,
+          pageId: selection.pageId,
+          sectionId,
+          elementId: element.id,
+          containerId: undefined,
+        }));
+
+    operations.push({
+      action: 'remove_container',
+      pageId: selection.pageId,
+      sectionId,
+      containerId,
+    });
+
+    applyOperations(
+      operations,
+      {
+        pageId: selection.pageId,
+        sectionId,
+      },
+    );
+  }
+
+  function formFieldDefaults(
+    type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox',
+    index = 0,
+  ) {
+    const labels = {
+      text: 'Text',
+      email: 'Email',
+      tel: 'Phone',
+      textarea: 'Message',
+      select: 'Select',
+      checkbox: 'Checkbox',
+    } as const;
+
+    const id = manualId(`field-${type}`);
+
+    return {
+      id,
+      name: `${type}_${index + 1}`,
+      label: labels[type],
+      type,
+      placeholder:
+        type === 'checkbox'
+          ? ''
+          : `Enter ${labels[type].toLowerCase()}`,
+      required: type === 'email',
+      ...(type === 'select'
+        ? { options: ['Option 1', 'Option 2'] }
+        : {}),
+    };
+  }
+
+  function handleAddFormField(
+    sectionId: string,
+    type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox',
+  ) {
+    if (!selection.pageId) return;
+
+    const section =
+      project.pages
+        .find((page) => page.id === selection.pageId)
+        ?.sections
+        .find((candidate) => candidate.id === sectionId);
+
+    const field =
+      formFieldDefaults(
+        type,
+        section?.formFields?.length || 0,
+      );
+
+    applyOperations(
+      [{
+        action: 'add_form_field',
+        pageId: selection.pageId,
+        sectionId,
+        formField: field,
+      }],
+      {
+        pageId: selection.pageId,
+        sectionId,
+        formFieldId: field.id,
+      },
+    );
+  }
+
+  function handleMoveFormField(
+    sectionId: string,
+    formFieldId: string,
+    direction: 'up' | 'down',
+  ) {
+    if (!selection.pageId) return;
+
+    const fields =
+      project.pages
+        .find((page) => page.id === selection.pageId)
+        ?.sections
+        .find((section) => section.id === sectionId)
+        ?.formFields || [];
+
+    const index =
+      fields.findIndex(
+        (field) => field.id === formFieldId,
+      );
+
+    if (index < 0) return;
+
+    const target =
+      direction === 'up'
+        ? index - 1
+        : index + 1;
+
+    if (
+      target < 0 ||
+      target >= fields.length
+    ) {
+      return;
+    }
+
+    applyOperations(
+      [{
+        action: 'move_form_field',
+        pageId: selection.pageId,
+        sectionId,
+        formFieldId,
+        position: {
+          index: target,
+        },
+      }],
+      {
+        pageId: selection.pageId,
+        sectionId,
+        formFieldId,
+      },
+    );
+  }
+
+  function handleDeleteFormField(
+    sectionId: string,
+    formFieldId: string,
+  ) {
+    if (!selection.pageId) return;
+
+    applyOperations(
+      [{
+        action: 'remove_form_field',
+        pageId: selection.pageId,
+        sectionId,
+        formFieldId,
+      }],
+      {
+        pageId: selection.pageId,
+        sectionId,
+      },
+    );
+  }
+
+  function handleResetForm(
+    sectionId: string,
+  ) {
+    if (!selection.pageId) return;
+
+    const fields = [
+      {
+        ...formFieldDefaults('text', 0),
+        name: 'name',
+        label: 'Name',
+        placeholder: 'Your name',
+        required: true,
+      },
+      {
+        ...formFieldDefaults('email', 1),
+        name: 'email',
+        label: 'Email',
+        placeholder: 'Your email',
+        required: true,
+      },
+      {
+        ...formFieldDefaults('textarea', 2),
+        name: 'message',
+        label: 'Message',
+        placeholder: 'Your message',
+        required: true,
+      },
+    ];
+
+    applyOperations(
+      [{
+        action: 'update_section',
+        pageId: selection.pageId,
+        sectionId,
+        changes: {
+          formFields: fields,
+          formSuccessMessage:
+            'Thanks! Your message has been sent.',
+          formSuccessAction: 'message',
+          formRedirectUrl: '',
+        },
+      }],
+      {
+        pageId: selection.pageId,
+        sectionId,
+        formFieldId: fields[0].id,
+      },
+    );
+  }
+
   const renderLeftPanel = useMemo(
     () =>
       BuilderPanelRouter({
         shell,
         aiPanel: props.aiPanel,
+        sitePanel: props.sitePanel,
+        settingsPanel: props.settingsPanel,
+
+        symbols: props.symbols,
+        canCreateSymbol: Boolean(selection.elementId),
+        canDetachSymbol: Boolean(
+          selection.elementId &&
+          project.pages
+            .find((page) => page.id === selection.pageId)
+            ?.sections
+            .find((section) => section.id === selection.sectionId)
+            ?.elements
+            .find((element) => element.id === selection.elementId)
+            ?.symbolId
+        ),
+        onCreateSymbol: props.onCreateSymbol,
+        onDetachSymbol: props.onDetachSymbol,
+        onInsertSymbol: props.onInsertSymbol,
+        onDeleteSymbol: props.onDeleteSymbol,
 
         insertQuery,
         insertCategory,
@@ -470,10 +738,32 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
 
         onDeleteElement:
           props.onDeleteElement,
+
+        onUngroupContainer:
+          handleUngroupContainer,
+
+        onAddFormField:
+          handleAddFormField,
+
+        onMoveFormField:
+          handleMoveFormField,
+
+        onDeleteFormField:
+          handleDeleteFormField,
+
+        onResetForm:
+          handleResetForm,
       }),
     [
       shell,
       props.aiPanel,
+      props.sitePanel,
+      props.settingsPanel,
+      props.symbols,
+      props.onCreateSymbol,
+      props.onDetachSymbol,
+      props.onInsertSymbol,
+      props.onDeleteSymbol,
       props.onMediaUpload,
       props.onGenerateMediaWithAI,
       project,
