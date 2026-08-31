@@ -1,4 +1,6 @@
-﻿import type {
+﻿import { useState } from 'react';
+
+import type {
   EditorInspectorField,
 } from '../core/editor-inspector-model';
 
@@ -193,6 +195,9 @@ export function BuilderInspectorFields({
   group,
   onChange,
 }: BuilderInspectorFieldsProps) {
+  const [openSections, setOpenSections] =
+    useState<Record<string, boolean>>({});
+
   const visible =
     fields.filter(
       (field) =>
@@ -249,7 +254,26 @@ export function BuilderInspectorFields({
           <details
             className="tayar-v2-inspector-section"
             key={section.name}
-            defaultOpen={index === 0}
+            open={
+              openSections[section.name] ??
+              index === 0
+            }
+            onToggle={(event) => {
+              const nextOpen =
+                event.currentTarget.open;
+
+              setOpenSections(
+                (current) =>
+                  current[section.name] ===
+                  nextOpen
+                    ? current
+                    : {
+                        ...current,
+                        [section.name]:
+                          nextOpen,
+                      },
+              );
+            }}
           >
             <summary>
               <span>
