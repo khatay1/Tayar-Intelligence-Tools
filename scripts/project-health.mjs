@@ -47,6 +47,8 @@ check('Prompt Library module exists', exists('src/modules/prompt-library/PromptL
 check('Prompt Library data is split by domain', exists('src/modules/prompt-library/prompts/business.ts') && exists('src/modules/prompt-library/prompts/career.ts') && exists('src/modules/prompt-library/prompts/creative.ts'));
 check('Batch Image Tools module exists', exists('src/modules/batch-image-tools/BatchImageTool.tsx'));
 check('Batch Image core is split by responsibility', exists('src/modules/batch-image-tools/batch-processing.ts') && exists('src/modules/batch-image-tools/batch-download.ts') && exists('src/modules/batch-image-tools/zip-writer.ts'));
+check('Image Cropper module exists', exists('src/modules/image-cropper/ImageCropperTool.tsx'));
+check('Image Cropper processing and preview are isolated', exists('src/modules/image-cropper/crop-processing.ts') && exists('src/modules/image-cropper/CropPreview.tsx'));
 check('Tayar Tools expansion plan exists', exists('docs/TAYAR_TOOLS_EXPANSION_PLAN.md'));
 check('Billing migration exists', exists('supabase/migrations/20260828154000_add_secure_billing_entitlements.sql'));
 check('Team workspace migration exists', exists('supabase/migrations/20260828155500_add_team_workspaces.sql'));
@@ -135,6 +137,8 @@ const promptUtils = read('src/modules/prompt-library/prompt-utils.ts');
 const batchImageTool = read('src/modules/batch-image-tools/BatchImageTool.tsx');
 const batchImageProcessing = read('src/modules/batch-image-tools/batch-processing.ts');
 const batchZipWriter = read('src/modules/batch-image-tools/zip-writer.ts');
+const imageCropperTool = read('src/modules/image-cropper/ImageCropperTool.tsx');
+const imageCropperProcessing = read('src/modules/image-cropper/crop-processing.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
@@ -185,6 +189,7 @@ check('Letter Generator bounds user-provided fields', letterGeneratorEngine.incl
 check('Prompt Library is local original content with bounded personalization', modulesIndex.includes("import './prompt-library'") && promptLibraryTool.includes('Original Tayar prompts') && promptUtils.includes('MAX_VARIABLE_LENGTH') && !promptUtils.includes('fetch('));
 check('Batch Image Tools are local and bounded', modulesIndex.includes("import './batch-image-tools'") && batchImageTool.includes('Processed locally') && batchImageProcessing.includes('MAX_BATCH_FILES') && batchImageProcessing.includes('MAX_BATCH_INPUT_BYTES') && batchImageProcessing.includes('MAX_BATCH_OUTPUT_BYTES'));
 check('Batch ZIP writer only creates store-only archives', batchZipWriter.includes('createStoreOnlyZip') && !batchZipWriter.includes('loadAsync') && !batchZipWriter.includes('fetch(') && !batchZipWriter.includes('supabase'));
+check('Image Cropper is local and validates crop bounds', modulesIndex.includes("import './image-cropper'") && imageCropperTool.includes('Processed locally') && imageCropperProcessing.includes('validateCropRect') && !imageCropperProcessing.includes('fetch(') && !imageCropperProcessing.includes('supabase'));
 check('Website Builder AI prompt uses multi-page planner schema', aiPrompts.includes('Tayar AI Builder') && aiPrompts.includes('"pages": [') && aiPrompts.includes('Build 1-6 useful pages'));
 check('Website Builder AI supports multi-page generation with legacy fallback', websiteBuilder.includes('interface AIWebsitePageGeneration') && websiteBuilder.includes('Array.isArray(generated?.pages)') && websiteBuilder.includes('Array.isArray(generated?.sections)') && websiteBuilder.includes('setPages(nextPages)'));
 check('Website Builder AI exposes planning progress and plan summary', websiteBuilder.includes('AI_BUILDER_STAGE_ORDER') && websiteBuilder.includes("setAiStage('planning')") && websiteBuilder.includes("setAiStage('building')") && websiteBuilder.includes("setAiStage('styling')") && websiteBuilder.includes("setAiStage('ready')") && websiteBuilder.includes("l('Website plan')"));

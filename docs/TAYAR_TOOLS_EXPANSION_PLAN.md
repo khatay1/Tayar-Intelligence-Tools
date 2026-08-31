@@ -128,6 +128,7 @@ Shared engines should eventually live under areas such as:
 - Letter Generator: shipped with original recommendation, authorization, business inquiry, complaint, resignation and thank-you templates, with manual editing and local export.
 - Prompt Library: shipped with original searchable Business, Career, Writing and Social prompt templates plus bounded local personalization.
 - Batch Image Converter: shipped with local multi-file processing, explicit reorder controls, sequential bounded conversion and dependency-free ZIP creation for Download All.
+- Image Cropper: shipped with local crop presets, numeric positioning, preview overlay and safe JPEG/PNG/WebP export.
 - PDF Toolkit: deferred after security review found an open ReDoS report in the original pdf-lib parser and a malicious similarly named package; no PDF dependency will be added until the implementation path is acceptable.
 
 ## First implementation
