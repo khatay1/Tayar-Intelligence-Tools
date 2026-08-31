@@ -47,6 +47,7 @@ const templateSourceCatalogDiscovery = read('src/modules/templates-hub/source-ca
 const templateDriveDiscoverSource = read('supabase/functions/template-library-drive-discover/index.ts');
 check('11K source catalog pins the public Google Drive folder', templateSourceCatalogDiscovery.includes('1NLQlCySD88ZbeHt6E2q88c4FsvHzfzBi'));
 check('Drive discovery stays admin-only and Google-host bounded', templateDriveDiscoverSource.includes('Administrator access required') && templateDriveDiscoverSource.includes('embeddedfolderview') && templateDriveDiscoverSource.includes('MAX_FOLDERS_PER_REQUEST') && !templateDriveDiscoverSource.includes('fetch(input.'));
+check('Drive discovery paginates large public folders', templateDriveDiscoverSource.includes('nextOffset') && templateDriveDiscoverSource.includes('totalResultCount') && templateDriveDiscoverSource.includes('pageSize') && templateDriveDiscoverSource.includes('MAX_OFFSET'));
 check('Template mirror client service exists', exists('src/modules/templates-hub/library-service.ts'));
 check('Templates are split by domain', exists('src/modules/templates-hub/templates/finance.ts') && exists('src/modules/templates-hub/templates/business.ts') && exists('src/modules/templates-hub/templates/productivity.ts'));
 check('Name Generator module exists', exists('src/modules/name-generator/NameGeneratorTool.tsx'));
