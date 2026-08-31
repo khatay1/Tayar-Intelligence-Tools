@@ -43,10 +43,10 @@ check('Template mirror sync Edge Function exists', exists('supabase/functions/te
 check('Template mirror discovery Edge Function exists', exists('supabase/functions/template-library-discover/index.ts'));
 check('Template Drive folder discovery Edge Function exists', exists('supabase/functions/template-library-drive-discover/index.ts'));
 check('24Billions source catalog exists', exists('src/modules/templates-hub/source-catalog.ts'));
-const templateSourceCatalog = read('src/modules/templates-hub/source-catalog.ts');
-const templateDriveDiscover = read('supabase/functions/template-library-drive-discover/index.ts');
-check('11K source catalog pins the public Google Drive folder', templateSourceCatalog.includes('1NLQlCySD88ZbeHt6E2q88c4FsvHzfzBi'));
-check('Drive discovery stays admin-only and Google-host bounded', templateDriveDiscover.includes('Administrator access required') && templateDriveDiscover.includes('embeddedfolderview') && templateDriveDiscover.includes('MAX_FOLDERS_PER_REQUEST') && !templateDriveDiscover.includes('fetch(input.'));
+const templateSourceCatalogDiscovery = read('src/modules/templates-hub/source-catalog.ts');
+const templateDriveDiscoverSource = read('supabase/functions/template-library-drive-discover/index.ts');
+check('11K source catalog pins the public Google Drive folder', templateSourceCatalogDiscovery.includes('1NLQlCySD88ZbeHt6E2q88c4FsvHzfzBi'));
+check('Drive discovery stays admin-only and Google-host bounded', templateDriveDiscoverSource.includes('Administrator access required') && templateDriveDiscoverSource.includes('embeddedfolderview') && templateDriveDiscoverSource.includes('MAX_FOLDERS_PER_REQUEST') && !templateDriveDiscoverSource.includes('fetch(input.'));
 check('Template mirror client service exists', exists('src/modules/templates-hub/library-service.ts'));
 check('Templates are split by domain', exists('src/modules/templates-hub/templates/finance.ts') && exists('src/modules/templates-hub/templates/business.ts') && exists('src/modules/templates-hub/templates/productivity.ts'));
 check('Name Generator module exists', exists('src/modules/name-generator/NameGeneratorTool.tsx'));
