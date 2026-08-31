@@ -47,6 +47,7 @@ import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
 import type { EditorSelection } from './core/editor-selection';
+import type { EditorPageLike } from './core/editor-model';
 
 const STORAGE_KEY = 'tayar.website-builder.project.v5';
 const RECOVERY_STORAGE_KEY = 'tayar.website-builder.recovery.v1';
@@ -10161,7 +10162,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       new EditorStore(
         {
           pages:
-            currentPages,
+            currentPages as unknown as EditorPageLike[],
 
           homePageId,
         },
@@ -10213,7 +10214,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         .project;
 
     const nextPages =
-      nextProject.pages as WebsitePage[];
+      nextProject.pages as unknown as WebsitePage[];
 
     const requestedPageId =
       nextSelection?.pageId ||
@@ -13646,7 +13647,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         page.id === activePageId
           ? { ...page, sections }
           : page
-      )}
+      ) as unknown as EditorPageLike[]}
       homePageId={homePageId}
 
       mediaAssets={mediaAssets.map((asset) => ({
@@ -13666,9 +13667,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       onMediaUpload={openV2MediaUpload}
 
-      onGenerateMediaWithAI={(prompt) =>
-        generateMediaLibraryImage(prompt)
-      }
+      onGenerateMediaWithAI={async (prompt) => {
+        await generateMediaLibraryImage(prompt);
+      }}
 
       onAddPage={addPage}
 
