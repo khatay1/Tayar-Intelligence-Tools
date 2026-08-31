@@ -13,6 +13,7 @@ const vercelConfigPath = resolve(root, 'vercel.json');
 const serviceWorkerPath = resolve(root, 'public/sw.js');
 const workspaceProjectsPath = resolve(root, 'src/lib/use-projects.ts');
 const runtimeHardeningMigrationPath = resolve(root, 'supabase/migrations/20260831210500_harden_website_public_runtime.sql');
+const sharedRuntimeMigrationPath = resolve(root, 'supabase/migrations/20260831222000_align_shared_website_runtime.sql');
 
 const failures = [];
 const passes = [];
@@ -33,6 +34,7 @@ for (const [label, path] of [
   ['Service worker exists', serviceWorkerPath],
   ['Workspace project helper exists', workspaceProjectsPath],
   ['Website public runtime hardening migration exists', runtimeHardeningMigrationPath],
+  ['Shared Website runtime migration exists', sharedRuntimeMigrationPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -46,6 +48,7 @@ const vercelConfig = existsSync(vercelConfigPath) ? readFileSync(vercelConfigPat
 const serviceWorker = existsSync(serviceWorkerPath) ? readFileSync(serviceWorkerPath, 'utf8') : '';
 const workspaceProjects = existsSync(workspaceProjectsPath) ? readFileSync(workspaceProjectsPath, 'utf8') : '';
 const runtimeHardeningMigration = existsSync(runtimeHardeningMigrationPath) ? readFileSync(runtimeHardeningMigrationPath, 'utf8') : '';
+const sharedRuntimeMigration = existsSync(sharedRuntimeMigrationPath) ? readFileSync(sharedRuntimeMigrationPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -62,6 +65,11 @@ check('Preview HTML cannot submit real leads', builder.includes('leadProjectId: 
 check('Imported backups detach old publication identity', builder.includes("const importedProject = {") && builder.includes("previewCreatedAt: null") && builder.includes("lastPublishedFingerprint: ''") && builder.includes("history: []"));
 check('Workspace duplication detaches Website Builder publication identity', workspaceProjects.includes('sanitizedDuplicateContent(project)') && workspaceProjects.includes("publishedUrl: ''") && workspaceProjects.includes("previewToken: ''") && workspaceProjects.includes("lastPublishedVersionId: null") && workspaceProjects.includes("history: []"));
 check('Public website ingestion requires a published project', runtimeHardeningMigration.includes("v_project_status <> 'completed'") && runtimeHardeningMigration.includes('trg_enforce_published_website_lead_ingestion') && runtimeHardeningMigration.includes('trg_enforce_published_website_analytics_ingestion'));
+check('Shared live verification uses the project owner storage prefix', builder.includes('const path = `${activeProjectOwnerId}/${cloudProjectId}/index.html`;') && builder.includes('publicWebsiteUrl(cloudProjectId, activeProjectOwnerId)'));
+check('Shared project recovery uses the actual project owner', builder.includes('const ownerId = project.user_id || user.id;') && builder.includes('publicWebsiteUrl(project.id, ownerId)'));
+check('Lead operations require owner or workspace admin', builder.includes('Lead inbox is available to project owners and workspace admins.') && sharedRuntimeMigration.includes("IN ('owner', 'admin')"));
+check('Analytics is available to shared editors without exposing leads', builder.includes('Analytics is available to project owners, admins, and editors.') && sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor')"));
+check('Shared release history is read-only while rollback stays owner-only', sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor', 'viewer')") && builder.includes('Only the project owner can rollback a published release.') && builder.includes('Only the project owner can delete release archives.'));
 check('Recovery snapshot storage is enabled', builder.includes('RECOVERY_STORAGE_KEY'));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));

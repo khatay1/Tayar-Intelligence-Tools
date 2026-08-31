@@ -3389,6 +3389,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [cloudProjectsLoaded, setCloudProjectsLoaded] = useState(false);
   const [cloudProjectId, setCloudProjectId] = useState<string | null>(null);
   const [projectTeamAccess, setProjectTeamAccess] = useState<ProjectTeamAccess>(DEFAULT_PROJECT_TEAM_ACCESS);
+  const activeProjectOwnerId = useMemo(() => {
+    if (!user) return '';
+    if (!cloudProjectId) return user.id;
+    return cloudProjects.find((item) => item.id === cloudProjectId)?.user_id
+      || projectTeamAccess.ownerId
+      || user.id;
+  }, [user, cloudProjectId, cloudProjects, projectTeamAccess.ownerId]);
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudError, setCloudError] = useState('');
   const [projectHistory, setProjectHistory] = useState<ProjectHistoryEntry[]>([]);
@@ -3983,9 +3990,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function publicWebsiteUrl(projectId: string) {
-    if (!user) return '';
-    return buildPublishedSiteUrl(user.id, projectId, 'index.html');
+  function publicWebsiteUrl(projectId: string, ownerId?: string) {
+    const resolvedOwnerId = ownerId
+      || cloudProjects.find((item) => item.id === projectId)?.user_id
+      || (projectId === cloudProjectId ? activeProjectOwnerId : '')
+      || user?.id
+      || '';
+    if (!resolvedOwnerId) return '';
+    return buildPublishedSiteUrl(resolvedOwnerId, projectId, 'index.html');
   }
 
   async function verifyPublishedRoute(url: string): Promise<boolean> {
@@ -4019,7 +4031,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function recoverPublishedProjectState(project: CloudWebsiteProject) {
     if (!user) return false;
 
-    const path = `${user.id}/${project.id}/index.html`;
+    const ownerId = project.user_id || user.id;
+    const path = `${ownerId}/${project.id}/index.html`;
     const { data, error } = await supabase.storage
       .from('published-sites')
       .download(path);
@@ -4035,7 +4048,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     const canonicalStoredUrl = normalizePublishedSiteUrl(storedUrl);
-    const recoveredUrl = publicWebsiteUrl(project.id) || canonicalStoredUrl;
+    const recoveredUrl = publicWebsiteUrl(project.id, ownerId) || canonicalStoredUrl;
     const recoveredAt =
       typeof project.content?.publishedAt === 'string'
         ? project.content.publishedAt
@@ -4052,7 +4065,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPublishedAt(recoveredAt);
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
-    if (routeHealthy && (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed')) {
+    if (project.user_id === user.id && routeHealthy && (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed')) {
       const recoveredContent = {
         ...project.content,
         publishedUrl: recoveredUrl,
@@ -4119,6 +4132,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    if (!projectTeamAccess.canManage) {
+      setLeads([]);
+      setLeadsError('Lead inbox is available to project owners and workspace admins.');
+      return;
+    }
+
     setLeadsLoading(true);
     setLeadsError('');
     const { data, error } = await supabase
@@ -4138,17 +4157,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLeads(nextLeads);
     setSelectedLeadIds((current) => current.filter((id) => nextLeads.some((lead) => lead.id === id)));
     setLeadsLoading(false);
-  }, [user, cloudProjectId]);
+  }, [user, cloudProjectId, projectTeamAccess.canManage]);
 
   async function updateLeadStatus(leadId: string, status: WebsiteLead['status']) {
-    if (!user || !cloudProjectId) return;
+    if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const updatedAt = new Date().toISOString();
     const { error } = await supabase
       .from('website_leads')
       .update({ status, updated_at: updatedAt })
       .eq('id', leadId)
       .eq('project_id', cloudProjectId)
-      .eq('user_id', user.id);
+      .eq('user_id', activeProjectOwnerId);
 
     if (error) {
       setLeadsError('Could not update this lead.');
@@ -4159,7 +4178,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function updateLeadCrm(leadId: string, updates: Partial<Pick<WebsiteLead, 'stage' | 'priority' | 'tags' | 'notes'>>) {
-    if (!user || !cloudProjectId) return;
+    if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const sanitized = {
       ...updates,
       ...(updates.tags ? { tags: updates.tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 12) } : {}),
@@ -4171,7 +4190,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       .update(sanitized)
       .eq('id', leadId)
       .eq('project_id', cloudProjectId)
-      .eq('user_id', user.id);
+      .eq('user_id', activeProjectOwnerId);
 
     if (error) {
       setLeadsError('Could not update CRM details for this lead.');
@@ -4182,14 +4201,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function bulkUpdateLeadStage(stage: LeadStage) {
-    if (!user || !cloudProjectId || !selectedLeadIds.length) return;
+    if (!user || !cloudProjectId || !projectTeamAccess.canManage || !selectedLeadIds.length) return;
     const ids = [...selectedLeadIds];
     const updatedAt = new Date().toISOString();
     const { error } = await supabase
       .from('website_leads')
       .update({ stage, updated_at: updatedAt })
       .eq('project_id', cloudProjectId)
-      .eq('user_id', user.id)
+      .eq('user_id', activeProjectOwnerId)
       .in('id', ids);
 
     if (error) {
@@ -4241,7 +4260,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function deleteLead(leadId: string) {
-    if (!user || !cloudProjectId) return;
+    if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const confirmed = window.confirm('Delete this lead permanently?');
     if (!confirmed) return;
 
@@ -4250,7 +4269,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       .delete()
       .eq('id', leadId)
       .eq('project_id', cloudProjectId)
-      .eq('user_id', user.id);
+      .eq('user_id', activeProjectOwnerId);
 
     if (error) {
       setLeadsError('Could not delete this lead.');
@@ -4265,6 +4284,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId) {
       setAnalyticsEvents([]);
       setAnalyticsError('');
+      return;
+    }
+
+    if (!projectTeamAccess.canEdit) {
+      setAnalyticsEvents([]);
+      setAnalyticsError('Analytics is available to project owners, admins, and editors.');
       return;
     }
 
@@ -4287,7 +4312,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setAnalyticsEvents((data || []) as WebsiteAnalyticsEvent[]);
     setAnalyticsLoading(false);
-  }, [user, cloudProjectId]);
+  }, [user, cloudProjectId, projectTeamAccess.canEdit]);
 
   const refreshMedia = useCallback(async () => {
     if (!user) {
@@ -8670,7 +8695,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       .from('website_publish_versions')
       .select('id, project_id, user_id, release_note, published_url, storage_prefix, editor_fingerprint, snapshot, file_manifest, created_at')
       .eq('project_id', cloudProjectId)
-      .eq('user_id', user.id)
+      .eq('user_id', activeProjectOwnerId)
       .order('created_at', { ascending: false })
       .limit(30);
     if (error) {
@@ -8680,7 +8705,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
     setPublishVersions((data || []) as WebsitePublishVersion[]);
     setPublishVersionsLoading(false);
-  }, [user, cloudProjectId]);
+  }, [user, cloudProjectId, activeProjectOwnerId]);
 
   useEffect(() => {
     if (releaseHistoryOpen) void refreshPublishVersions();
@@ -8723,7 +8748,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setLiveVerification('checking');
 
-    const path = `${user.id}/${cloudProjectId}/index.html`;
+    const path = `${activeProjectOwnerId}/${cloudProjectId}/index.html`;
     const { data, error } = await supabase.storage
       .from('published-sites')
       .download(path);
@@ -8733,7 +8758,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const liveUrl = publicWebsiteUrl(cloudProjectId);
+    const liveUrl = publicWebsiteUrl(cloudProjectId, activeProjectOwnerId);
     const routeHealthy = await verifyPublishedRoute(liveUrl);
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
@@ -8858,6 +8883,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function rollbackPublishVersion(version: WebsitePublishVersion) {
     if (!user || !cloudProjectId) return;
+    if (!projectTeamAccess.canPublish) {
+      setPublishError('Only the project owner can rollback a published release.');
+      return;
+    }
     if (!window.confirm(`Rollback the live website to the release from ${new Date(version.created_at).toLocaleString()}? Your editor draft will stay unchanged.`)) return;
     setPublishBusy(true);
     setPublishError('');
@@ -8957,6 +8986,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function deletePublishVersion(version: WebsitePublishVersion) {
     if (!user || !cloudProjectId) return;
+    if (!projectTeamAccess.canPublish) {
+      setPublishVersionsError('Only the project owner can delete release archives.');
+      return;
+    }
     if (version.id === lastPublishedVersionId) {
       setPublishVersionsError('You cannot delete the release currently serving as the live rollback reference.');
       return;
@@ -8971,7 +9004,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const { error: removeError } = await supabase.storage.from('published-sites').remove(paths);
         if (removeError) throw removeError;
       }
-      const { error } = await supabase.from('website_publish_versions').delete().eq('id', version.id).eq('project_id', cloudProjectId).eq('user_id', user.id);
+      const { error } = await supabase.from('website_publish_versions').delete().eq('id', version.id).eq('project_id', cloudProjectId).eq('user_id', activeProjectOwnerId);
       if (error) throw error;
       setPublishVersions((current) => current.filter((item) => item.id !== version.id));
     } catch (error) {
@@ -9653,28 +9686,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function markAllLeadsRead() {
-    if (!user || !cloudProjectId) return;
+    if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const newIds = leads.filter((lead) => lead.status === 'new').map((lead) => lead.id);
     if (!newIds.length) return;
     const { error } = await supabase
       .from('website_leads')
       .update({ status: 'read', updated_at: new Date().toISOString() })
       .eq('project_id', cloudProjectId)
-      .eq('user_id', user.id)
+      .eq('user_id', activeProjectOwnerId)
       .eq('status', 'new');
     if (error) { setLeadsError('Could not mark all leads as read.'); return; }
     setLeads((current) => current.map((lead) => lead.status === 'new' ? { ...lead, status: 'read' } : lead));
   }
 
   async function archiveReadLeads() {
-    if (!user || !cloudProjectId) return;
+    if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const readCount = leads.filter((lead) => lead.status === 'read').length;
     if (!readCount) return;
     const { error } = await supabase
       .from('website_leads')
       .update({ status: 'archived', updated_at: new Date().toISOString() })
       .eq('project_id', cloudProjectId)
-      .eq('user_id', user.id)
+      .eq('user_id', activeProjectOwnerId)
       .eq('status', 'read');
     if (error) { setLeadsError('Could not archive read leads.'); return; }
     setLeads((current) => current.map((lead) => lead.status === 'read' ? { ...lead, status: 'archived' } : lead));
