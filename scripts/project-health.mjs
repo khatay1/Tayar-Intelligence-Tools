@@ -41,7 +41,12 @@ check('Templates Hub module exists', exists('src/modules/templates-hub/Templates
 check('Template mirror migration exists', exists('supabase/migrations/20260831234500_create_template_library_mirror.sql'));
 check('Template mirror sync Edge Function exists', exists('supabase/functions/template-library-sync/index.ts'));
 check('Template mirror discovery Edge Function exists', exists('supabase/functions/template-library-discover/index.ts'));
+check('Template Drive folder discovery Edge Function exists', exists('supabase/functions/template-library-drive-discover/index.ts'));
 check('24Billions source catalog exists', exists('src/modules/templates-hub/source-catalog.ts'));
+const templateSourceCatalog = read('src/modules/templates-hub/source-catalog.ts');
+const templateDriveDiscover = read('supabase/functions/template-library-drive-discover/index.ts');
+check('11K source catalog pins the public Google Drive folder', templateSourceCatalog.includes('1NLQlCySD88ZbeHt6E2q88c4FsvHzfzBi'));
+check('Drive discovery stays admin-only and Google-host bounded', templateDriveDiscover.includes('Administrator access required') && templateDriveDiscover.includes('embeddedfolderview') && templateDriveDiscover.includes('MAX_FOLDERS_PER_REQUEST') && !templateDriveDiscover.includes('fetch(input.'));
 check('Template mirror client service exists', exists('src/modules/templates-hub/library-service.ts'));
 check('Templates are split by domain', exists('src/modules/templates-hub/templates/finance.ts') && exists('src/modules/templates-hub/templates/business.ts') && exists('src/modules/templates-hub/templates/productivity.ts'));
 check('Name Generator module exists', exists('src/modules/name-generator/NameGeneratorTool.tsx'));
