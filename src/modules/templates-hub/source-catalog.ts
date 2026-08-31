@@ -16,6 +16,7 @@ export interface TemplateSourceRoot {
   family: SourceFamily;
   label: string;
   pageUrl: string;
+  driveFolderId?: string;
   expectedFormats: string[];
   categoryHint: string;
 }
@@ -34,6 +35,7 @@ export const BILLIONS_SOURCE_ROOTS: TemplateSourceRoot[] = [
     family: 'office-bundle',
     label: '11,000+ Excel, Word, PowerPoint & Power BI',
     pageUrl: 'https://24billions.com/excel-ppt-word-power-bi-templates/',
+    driveFolderId: '1NLQlCySD88ZbeHt6E2q88c4FsvHzfzBi',
     expectedFormats: ['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt', 'pbix', 'zip'],
     categoryHint: 'office-bundle',
   },
