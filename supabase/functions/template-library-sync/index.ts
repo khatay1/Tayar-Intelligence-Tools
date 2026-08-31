@@ -385,6 +385,7 @@ Deno.serve(async (req: Request) => {
 
     let imported = 0;
     let skipped = 0;
+    let reused = 0;
     let failed = 0;
     let bytesImported = 0;
     const results: Array<Record<string, unknown>> = [];
@@ -461,6 +462,51 @@ Deno.serve(async (req: Request) => {
           .slice(0, 60) || "uncategorized";
         const storagePath = `24billions/${safeCategory}/${checksum.slice(0, 16)}-${filename}`;
 
+        const { data: duplicate, error: duplicateError } = await admin
+          .from("template_assets")
+          .select("id,storage_path")
+          .eq("storage_path", storagePath)
+          .eq("status", "ready")
+          .neq("id", assetId)
+          .limit(1)
+          .maybeSingle();
+
+        if (duplicateError) {
+          throw new Error("Could not check template binary deduplication");
+        }
+
+        if (duplicate?.storage_path) {
+          const { error: reuseError } = await admin
+            .from("template_assets")
+            .update({
+              storage_path: duplicate.storage_path,
+              mime_type: downloaded.contentType,
+              file_size_bytes: downloaded.bytes.byteLength,
+              sha256: checksum,
+              status: "ready",
+              error_message: null,
+              updated_at: new Date().toISOString(),
+              metadata: {
+                final_source_url: downloaded.finalUrl,
+                imported_by: user.id,
+                deduplicated_from_asset_id: duplicate.id,
+              },
+            })
+            .eq("id", assetId);
+
+          if (reuseError) throw new Error("Could not finalize deduplicated asset metadata");
+
+          reused += 1;
+          results.push({
+            id: assetId,
+            title,
+            status: "ready",
+            reused: true,
+            storagePath: duplicate.storage_path,
+          });
+          continue;
+        }
+
         const { error: uploadError } = await admin.storage
           .from("template-library")
           .upload(storagePath, downloaded.bytes, {
@@ -487,7 +533,7 @@ Deno.serve(async (req: Request) => {
           })
           .eq("id", assetId);
 
-        if (readyError) throw new Error("Could not finalize mirrored asset metadata");
+        if (readyError) throw new Error("Could not finalize imported asset metadata");
 
         imported += 1;
         bytesImported += downloaded.bytes.byteLength;
@@ -536,6 +582,7 @@ Deno.serve(async (req: Request) => {
       status: runStatus,
       imported,
       skipped,
+      reused,
       failed,
       bytesImported,
       results,
