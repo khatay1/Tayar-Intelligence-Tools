@@ -79,26 +79,47 @@ function assertAllowedSourceUrl(value: unknown) {
   return parsed.toString();
 }
 
-function safeFilename(value: unknown, url: string) {
-  const fromInput = bounded(value, 180);
-  let candidate = fromInput;
+const CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
+  "application/zip": "zip",
+  "application/pdf": "pdf",
+  "text/csv": "csv",
+  "text/plain": "txt",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+};
 
-  if (!candidate) {
-    try {
-      const urlName = decodeURIComponent(new URL(url).pathname.split("/").pop() || "");
-      candidate = urlName;
-    } catch {
-      candidate = "";
-    }
-  }
-
-  const cleaned = candidate
+function cleanFilename(value: string) {
+  return value
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^\.+/, "")
     .slice(0, 160);
+}
 
+function filenameFromContentDisposition(value: string | null) {
+  if (!value) return "";
+
+  const encoded = value.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded.replace(/^["']|["']$/g, ""));
+    } catch {
+      // Fall through to the ordinary filename form.
+    }
+  }
+
+  return value.match(/filename="?([^";]+)"?/i)?.[1]?.trim() || "";
+}
+
+function validateFilename(value: string) {
+  const cleaned = cleanFilename(value);
   if (!cleaned || !cleaned.includes(".")) {
-    throw new HttpError(400, "A valid filename with extension is required");
+    throw new HttpError(400, "Could not determine a valid template filename");
   }
 
   const extension = cleaned.split(".").pop()?.toLowerCase() || "";
@@ -107,6 +128,47 @@ function safeFilename(value: unknown, url: string) {
   }
 
   return cleaned;
+}
+
+function resolveFilename(
+  requested: unknown,
+  downloadUrl: string,
+  downloaded: {
+    finalUrl: string;
+    contentType: string;
+    contentDisposition: string | null;
+  },
+) {
+  const requestedName = bounded(requested, 180);
+  const dispositionName = filenameFromContentDisposition(downloaded.contentDisposition);
+
+  let finalUrlName = "";
+  let originalUrlName = "";
+  try {
+    finalUrlName = decodeURIComponent(new URL(downloaded.finalUrl).pathname.split("/").pop() || "");
+  } catch {
+    finalUrlName = "";
+  }
+  try {
+    originalUrlName = decodeURIComponent(new URL(downloadUrl).pathname.split("/").pop() || "");
+  } catch {
+    originalUrlName = "";
+  }
+
+  for (const candidate of [requestedName, dispositionName, finalUrlName, originalUrlName]) {
+    const cleaned = cleanFilename(candidate);
+    if (cleaned.includes(".")) return validateFilename(cleaned);
+  }
+
+  const inferredExtension = CONTENT_TYPE_EXTENSIONS[downloaded.contentType.toLowerCase()] || "";
+  const base = cleanFilename(requestedName || dispositionName || finalUrlName || originalUrlName || "template")
+    .replace(/\.+$/, "") || "template";
+
+  if (!inferredExtension) {
+    throw new HttpError(400, "Could not determine template file type from source response");
+  }
+
+  return validateFilename(`${base}.${inferredExtension}`);
 }
 
 async function assertAdmin(admin: ReturnType<typeof createAdminClient>, userId: string) {
@@ -157,12 +219,22 @@ async function fetchAllowlisted(url: string) {
       throw new HttpError(413, "Downloaded file is empty or exceeds the 50 MB limit");
     }
 
+    const contentType = (response.headers.get("content-type") || "application/octet-stream")
+      .split(";")[0]
+      .trim()
+      .slice(0, 160);
+
+    if (contentType === "text/html" || contentType === "application/xhtml+xml") {
+      throw new HttpError(
+        502,
+        "Source returned an HTML page instead of a downloadable template file",
+      );
+    }
+
     return {
       bytes: body,
-      contentType: (response.headers.get("content-type") || "application/octet-stream")
-        .split(";")[0]
-        .trim()
-        .slice(0, 160),
+      contentType,
+      contentDisposition: response.headers.get("content-disposition"),
       finalUrl: current,
     };
   }
@@ -218,7 +290,7 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (sourceError || !source || source.active !== true || source.can_redistribute !== true) {
-      throw new HttpError(409, "24Billions mirror source is not enabled");
+      throw new HttpError(409, "24Billions import source is not enabled");
     }
 
     const { data: run, error: runError } = await admin
@@ -248,12 +320,19 @@ Deno.serve(async (req: Request) => {
         const sourcePageUrl = rawAsset.sourcePageUrl
           ? assertAllowedSourceUrl(rawAsset.sourcePageUrl)
           : null;
-        const filename = safeFilename(rawAsset.filename, downloadUrl);
+        const downloaded = await fetchAllowlisted(downloadUrl);
+        if (bytesImported + downloaded.bytes.byteLength > MAX_BATCH_BYTES) {
+          throw new HttpError(413, "Import batch exceeds the 120 MB limit");
+        }
+
+        const filename = resolveFilename(rawAsset.filename, downloadUrl, downloaded);
         const title = bounded(rawAsset.title, MAX_TITLE) || filename;
         const category = bounded(rawAsset.category, MAX_CATEGORY) || "uncategorized";
-        const format = bounded(rawAsset.format, MAX_FORMAT)
-          || filename.split(".").pop()?.toLowerCase()
-          || "file";
+        const requestedFormat = bounded(rawAsset.format, MAX_FORMAT).toLowerCase();
+        const filenameFormat = filename.split(".").pop()?.toLowerCase() || "file";
+        const format = requestedFormat && requestedFormat !== "unknown"
+          ? requestedFormat
+          : filenameFormat;
 
         const { data: queued, error: queueError } = await admin
           .from("template_assets")
@@ -275,11 +354,6 @@ Deno.serve(async (req: Request) => {
         if (queueError || !queued) throw new Error("Could not queue asset");
         assetId = queued.id;
 
-        const downloaded = await fetchAllowlisted(downloadUrl);
-        if (bytesImported + downloaded.bytes.byteLength > MAX_BATCH_BYTES) {
-          throw new HttpError(413, "Import batch exceeds the 120 MB limit");
-        }
-
         const checksum = await sha256Hex(downloaded.bytes);
         const safeCategory = category
           .toLowerCase()
@@ -295,7 +369,7 @@ Deno.serve(async (req: Request) => {
             upsert: true,
           });
 
-        if (uploadError) throw new Error("Could not store mirrored asset");
+        if (uploadError) throw new Error("Could not store imported asset");
 
         const { error: readyError } = await admin
           .from("template_assets")
