@@ -11248,9 +11248,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       <details open className="tayar-v2-manual-section">
         <summary>Publishing</summary>
         <div className="tayar-v2-manual-fields">
-          <div className="tayar-v2-publish-state" data-live={publishedUrl ? 'true' : 'false'}>
-            <strong>{publishedUrl ? 'LIVE' : 'DRAFT'}</strong>
-            <span>{publishedUrl ? 'Your website is public.' : 'Your website is saved but not public.'}</span>
+          <div
+            className="tayar-v2-publish-state"
+            data-live={publishedUrl && liveVerification !== 'failed' ? 'true' : 'false'}
+          >
+            <strong>
+              {!publishedUrl
+                ? 'DRAFT'
+                : liveVerification === 'checking'
+                  ? 'VERIFYING'
+                  : liveVerification === 'failed'
+                    ? 'CHECK FAILED'
+                    : 'LIVE'}
+            </strong>
+            <span>
+              {!publishedUrl
+                ? 'Your website is saved but not public.'
+                : liveVerification === 'failed'
+                  ? 'A published URL is saved, but the live file could not be verified.'
+                  : liveVerification === 'checking'
+                    ? 'Checking the public website now…'
+                    : 'Your website is public.'}
+            </span>
           </div>
           {publishedUrl && (
             <>
@@ -11262,6 +11281,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className="tayar-v2-publish-actions">
                 <button type="button" className="tayar-v2-manual-action" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}>Open live site</button>
                 <button type="button" className="tayar-v2-manual-action" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>Copy URL</button>
+                <button type="button" className="tayar-v2-manual-action" disabled={liveVerification === 'checking'} onClick={() => void verifyLiveDeployment()}>
+                  {liveVerification === 'checking' ? 'Verifying…' : 'Verify live'}
+                </button>
                 <button type="button" className="tayar-v2-manual-action is-danger" disabled={publishBusy} onClick={() => void unpublishWebsite()}>Unpublish</button>
               </div>
             </>
