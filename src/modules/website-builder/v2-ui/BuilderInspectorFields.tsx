@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 
 import type {
   EditorInspectorField,
@@ -49,7 +49,7 @@ function renderFieldControl(
         checked={
           Boolean(field.value)
         }
-        onChange={(event: any) =>
+        onChange={(event: ChangeEvent<HTMLInputElement>) =>
           onChange(
             field.key,
             event.currentTarget.checked,
@@ -67,7 +67,7 @@ function renderFieldControl(
             field.value,
           )
         }
-        onChange={(event: any) =>
+        onChange={(event: ChangeEvent<HTMLSelectElement>) =>
           onChange(
             field.key,
             event.currentTarget.value,
@@ -102,7 +102,7 @@ function renderFieldControl(
         placeholder={
           field.placeholder
         }
-        onChange={(event: any) =>
+        onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
           onChange(
             field.key,
             event.currentTarget.value,
@@ -122,7 +122,7 @@ function renderFieldControl(
               field.value,
             )
           }
-          onChange={(event: any) =>
+          onChange={(event: ChangeEvent<HTMLInputElement>) =>
             onChange(
               field.key,
               event.currentTarget.value,
@@ -144,7 +144,7 @@ function renderFieldControl(
             field.placeholder ||
             '#000000 or transparent'
           }
-          onChange={(event: any) =>
+          onChange={(event: ChangeEvent<HTMLInputElement>) =>
             onChange(
               field.key,
               event.currentTarget.value,
@@ -173,7 +173,7 @@ function renderFieldControl(
       placeholder={
         field.placeholder
       }
-      onChange={(event: any) => {
+      onChange={(event: ChangeEvent<HTMLInputElement>) => {
         const raw =
           event.currentTarget.value;
 
