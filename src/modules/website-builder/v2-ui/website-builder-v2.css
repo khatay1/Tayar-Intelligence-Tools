@@ -2027,3 +2027,42 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* V2 PANEL SCROLL / EXPANSION FIX */
+.tayar-v2-left-sidebar__panel,
+.tayar-v2-inspector__body {
+  overscroll-behavior: contain;
+}
+
+.tayar-v2-manual-panel,
+.tayar-v2-components-panel,
+.tayar-v2-history-panel {
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tayar-v2-manual-section,
+.tayar-v2-inspector-section {
+  flex: 0 0 auto;
+  min-height: max-content;
+}
+
+.tayar-v2-manual-section[open],
+.tayar-v2-inspector-section[open] {
+  overflow: visible;
+}
+
+.tayar-v2-manual-section[open] > .tayar-v2-manual-fields,
+.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body {
+  position: relative;
+  z-index: 1;
+}
+
+.tayar-v2-component-row__insert:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
