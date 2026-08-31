@@ -122,7 +122,8 @@ Shared engines should eventually live under areas such as:
 
 - Invoice Generator: shipped.
 - Image Tools: shipped as a browser-local resize/compress/format converter with bounded file and pixel processing.
-- PDF Toolkit: pending library/security review before adding a PDF dependency.
+- CSV Cleaner: shipped as browser-local CSV cleanup/export with bounded parsing and spreadsheet formula-injection protection.
+- PDF Toolkit: deferred after security review found an open ReDoS report in the original pdf-lib parser and a malicious similarly named package; no PDF dependency will be added until the implementation path is acceptable.
 
 ## First implementation
 
