@@ -8,7 +8,7 @@ const module: ToolModule = {
   name: 'Background Remover',
   description: 'Remove image backgrounds through Tayar’s secured server-side image utility.',
   category: 'images',
-  status: 'active',
+  status: 'soon',
   tier: 'free',
   version: '1.0.0',
   icon: Eraser,
