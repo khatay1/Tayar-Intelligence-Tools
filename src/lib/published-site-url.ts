@@ -2,19 +2,35 @@ function configuredOrigin(): string {
   const configured =
     String(import.meta.env.VITE_PUBLIC_SITE_URL || import.meta.env.VITE_APP_URL || '').trim();
 
+  const currentOrigin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : '';
+
   if (configured) {
     try {
-      return new URL(configured).origin;
+      const configuredUrl = new URL(configured);
+      const configuredIsLocal =
+        configuredUrl.hostname === 'localhost' ||
+        configuredUrl.hostname === '127.0.0.1';
+
+      if (currentOrigin) {
+        const currentUrl = new URL(currentOrigin);
+        const currentIsLocal =
+          currentUrl.hostname === 'localhost' ||
+          currentUrl.hostname === '127.0.0.1';
+
+        // Never leak a template/local URL into a real published website.
+        if (configuredIsLocal && !currentIsLocal) return currentUrl.origin;
+      }
+
+      return configuredUrl.origin;
     } catch {
       // Fall back to the current browser origin below.
     }
   }
 
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
-  }
-
-  return '';
+  return currentOrigin;
 }
 
 function safeSegment(value: string): string {
