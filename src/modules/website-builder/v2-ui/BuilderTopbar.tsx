@@ -21,7 +21,11 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
       <div className="tayar-v2-topbar__actions">
         <button type="button" onClick={actions.onPreview}>Preview</button>
         <button type="button" onClick={actions.onRunCheck} disabled={Boolean(status.checking)}>
-          {status.checking ? 'Checking…' : 'Check'}
+          {status.checking
+            ? 'Checking…'
+            : typeof status.checkScore === 'number'
+              ? `Check ${status.checkScore}`
+              : 'Check'}
         </button>
         <button type="button" onClick={actions.onSave} disabled={Boolean(status.saving) || !view.dirty}>
           {status.saving ? 'Saving…' : view.dirty ? 'Save' : 'Saved'}
