@@ -11266,9 +11266,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </div>
             </>
           )}
+          {publishError && (
+            <div className="tayar-v2-publish-error">{publishError}</div>
+          )}
+          {cloudError && (
+            <div className="tayar-v2-publish-error">{cloudError}</div>
+          )}
           {!publishedUrl && (
-            <button type="button" className="tayar-v2-manual-action" disabled={publishBusy || !projectTeamAccess.canPublish} onClick={() => void publishWebsite()}>
-              {publishBusy ? 'Publishing…' : 'Publish website'}
+            <button type="button" className="tayar-v2-manual-action" disabled={publishBusy || !projectTeamAccess.canPublish || siteAudit.errors.length > 0} onClick={() => void publishWebsite()}>
+              {publishBusy ? 'Publishing…' : siteAudit.errors.length ? 'Fix critical Check issues first' : 'Publish website'}
             </button>
           )}
         </div>
@@ -14558,6 +14564,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saving={cloudBusy}
       publishing={publishBusy}
       checking={launchCheckBusy}
+      saveError={cloudError || undefined}
+      publishError={publishError || undefined}
       checkScore={siteAudit.score}
       checkErrors={siteAudit.errors.length}
       checkWarnings={siteAudit.warnings.length}
@@ -14569,6 +14577,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         !user ? 'Sign in before publishing.' : '',
         !networkOnline ? 'Reconnect before publishing.' : '',
         user && cloudProjectId && !projectTeamAccess.canPublish ? 'Only the project owner can publish.' : '',
+        siteAudit.errors.length ? `Fix ${siteAudit.errors.length} critical Check issue${siteAudit.errors.length === 1 ? '' : 's'} before publishing.` : '',
       ].filter(Boolean)}
       onUndo={undo}
       onRedo={redo}
