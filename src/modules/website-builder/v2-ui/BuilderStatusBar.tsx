@@ -21,9 +21,16 @@ export function BuilderStatusBar({
             target="_blank"
             rel="noreferrer"
             className="tayar-v2-statusbar__live"
+            data-state={status.liveVerification || 'idle'}
             title={status.publishedUrl}
           >
-            <strong>LIVE</strong>
+            <strong>
+              {status.liveVerification === 'checking'
+                ? 'VERIFYING'
+                : status.liveVerification === 'failed'
+                  ? 'CHECK FAILED'
+                  : 'LIVE'}
+            </strong>
             <span>Open site ↗</span>
           </a>
         ) : (
