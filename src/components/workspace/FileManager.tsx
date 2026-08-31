@@ -472,33 +472,20 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
           <span>·</span>
           <span>{timeAgo(project.updated_at)}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
-            {statusLabel}
-          </span>
-          {liveUrl && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(event) => {
-                event.stopPropagation();
-                window.open(liveUrl, '_blank', 'noopener,noreferrer');
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  window.open(liveUrl, '_blank', 'noopener,noreferrer');
-                }
-              }}
-              className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
-              title={liveUrl}
-            >
-              Open live ↗
-            </span>
-          )}
-        </div>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
+          {statusLabel}
+        </span>
       </button>
+      {liveUrl && (
+        <button
+          type="button"
+          onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')}
+          className="mt-3 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
+          title={liveUrl}
+        >
+          Open live site ↗
+        </button>
+      )}
     </div>
   );
 }
