@@ -7,6 +7,24 @@ const check = (name, ok) => checks.push({ name, ok: Boolean(ok) });
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 const exists = (rel) => fs.existsSync(path.join(root, rel));
 
+function walkTextFiles(relDir) {
+  const start = path.join(root, relDir);
+  if (!fs.existsSync(start)) return [];
+  const result = [];
+  const visit = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        visit(full);
+      } else if (/\.(?:ts|tsx|js|mjs|css)$/i.test(entry.name)) {
+        result.push(full);
+      }
+    }
+  };
+  visit(start);
+  return result;
+}
+
 check('Canonical README exists', exists('README.md'));
 check('Git line-ending policy exists', exists('.gitattributes'));
 check('Editor configuration exists', exists('.editorconfig'));
@@ -21,6 +39,30 @@ check('Admin hardening migration exists', exists('supabase/migrations/2026082914
 check('Supabase CLI config exists', exists('supabase/config.toml'));
 check('Guarded admin deploy script exists', exists('scripts/admin-hardening-deploy.ps1'));
 check('Admin deployment runbook exists', exists('docs/ADMIN_HARDENING_DEPLOYMENT.md'));
+
+const sourceTextFiles = walkTextFiles('src');
+const mojibakeFiles = sourceTextFiles.filter((file) =>
+  /[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(fs.readFileSync(file, 'utf8'))
+);
+check(
+  `Source tree has no common mojibake encoding corruption${mojibakeFiles.length ? `: ${mojibakeFiles.map((file) => path.relative(root, file)).join(', ')}` : ''}`,
+  mojibakeFiles.length === 0,
+);
+
+const directPublishedStorageFiles = sourceTextFiles
+  .filter((file) => !file.endsWith(path.join('src', 'lib', 'published-site-url.ts')))
+  .filter((file) => fs.readFileSync(file, 'utf8').includes('/storage/v1/object/public/published-sites'));
+check(
+  `Client source does not expose Supabase HTML storage URLs directly${directPublishedStorageFiles.length ? `: ${directPublishedStorageFiles.map((file) => path.relative(root, file)).join(', ')}` : ''}`,
+  directPublishedStorageFiles.length === 0,
+);
+
+const v2Css = read('src/modules/website-builder/v2-ui/website-builder-v2.css');
+check(
+  'V2 topbar styling is role-based instead of button-order based',
+  !v2Css.includes('button:last-of-type') &&
+  !v2Css.includes('button:nth-last-of-type'),
+);
 
 for (const rel of [
   '.bolt',
