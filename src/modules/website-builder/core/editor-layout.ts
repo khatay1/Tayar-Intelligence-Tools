@@ -1,4 +1,4 @@
-export type EditorLeftPanel = 'ai' | 'pages' | 'layers' | 'insert' | 'media' | 'history';
+export type EditorLeftPanel = 'ai' | 'pages' | 'layers' | 'insert' | 'media' | 'components' | 'site' | 'settings' | 'history';
 export type EditorInspectorTab = 'content' | 'design' | 'responsive' | 'settings';
 export type EditorPreviewDevice = 'desktop' | 'tablet' | 'mobile';
 
