@@ -79,6 +79,29 @@ function assertAllowedSourceUrl(value: unknown) {
   return parsed.toString();
 }
 
+function normalizeGoogleDriveDownloadUrl(value: string) {
+  const parsed = new URL(value);
+  const host = parsed.hostname.toLowerCase();
+
+  if (host !== "drive.google.com" && host !== "docs.google.com") {
+    return value;
+  }
+
+  const fileId = parsed.searchParams.get("id")
+    || parsed.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1]
+    || "";
+
+  if (!/^[a-zA-Z0-9_-]{10,200}$/.test(fileId)) {
+    return value;
+  }
+
+  const direct = new URL("https://drive.usercontent.google.com/download");
+  direct.searchParams.set("id", fileId);
+  direct.searchParams.set("export", "download");
+  direct.searchParams.set("confirm", "t");
+  return direct.toString();
+}
+
 const CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
   "application/zip": "zip",
   "application/pdf": "pdf",
@@ -184,7 +207,7 @@ async function assertAdmin(admin: ReturnType<typeof createAdminClient>, userId: 
 }
 
 async function fetchAllowlisted(url: string) {
-  let current = url;
+  let current = normalizeGoogleDriveDownloadUrl(url);
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
     assertAllowedSourceUrl(current);
