@@ -28,6 +28,7 @@ const TYPE_FILTERS = [
   { value: 'study', label: 'Study Notes' },
   { value: 'ai-chat', label: 'AI Chats' },
   { value: 'project', label: 'Projects' },
+  { value: 'website-builder', label: 'Websites' },
 ];
 
 const SORT_OPTIONS: { value: SortBy; label: string }[] = [
@@ -401,6 +402,14 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
   const meta = getFileMeta(project.type);
   const isFavorite = (project as Project & { favorite?: boolean }).favorite;
   const isPinned = (project as Project & { pinned?: boolean }).pinned;
+  const isWebsite = project.type === 'website-builder';
+  const websiteLive = isWebsite && project.status === 'completed' && Boolean((project.content as { publishedUrl?: unknown } | null)?.publishedUrl);
+  const statusLabel = isWebsite
+    ? (websiteLive ? 'Live Website' : 'Website Draft')
+    : (project.status === 'completed' ? 'Completed' : 'Draft');
+  const statusClass = websiteLive || (!isWebsite && project.status === 'completed')
+    ? 'bg-emerald-500/10 text-emerald-400'
+    : 'bg-amber-500/10 text-amber-400';
 
   if (view === 'list') {
     return (
@@ -419,8 +428,8 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
         </button>
         <div className="flex items-center gap-1 flex-shrink-0">
           {isFavorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
-          <span className={`text-xs px-2 py-0.5 rounded-full ${project.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-            {project.status === 'completed' ? 'Completed' : 'Draft'}
+          <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
+            {statusLabel}
           </span>
           <FileMenu isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={() => onDelete(project.id)} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} />
         </div>
@@ -450,8 +459,8 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
           <span>·</span>
           <span>{timeAgo(project.updated_at)}</span>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${project.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-          {project.status === 'completed' ? 'Completed' : 'Draft'}
+        <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
+          {statusLabel}
         </span>
       </button>
     </div>
