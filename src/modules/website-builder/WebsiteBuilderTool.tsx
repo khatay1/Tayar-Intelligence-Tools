@@ -7015,7 +7015,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               }),
             };
           });
-          applied += 1;
+          if (repaired > 0) applied += 1;
           continue;
         }
 
