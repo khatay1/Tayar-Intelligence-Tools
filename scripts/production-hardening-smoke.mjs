@@ -23,6 +23,10 @@ const requiredFiles = [
   'src/lib/monitoring.ts',
   'src/lib/supabase.ts',
   'src/components/workspace/CookieConsent.tsx',
+  'src/components/workspace/AIAssistant.tsx',
+  'src/lib/published-site-url.ts',
+  'api/published-site.js',
+  'public/sw.js',
 ];
 
 for (const path of requiredFiles) {
@@ -37,6 +41,10 @@ const analytics = read('src/lib/analytics.ts');
 const monitoring = read('src/lib/monitoring.ts');
 const supabase = read('src/lib/supabase.ts');
 const consent = read('src/components/workspace/CookieConsent.tsx');
+const aiAssistant = read('src/components/workspace/AIAssistant.tsx');
+const publishedUrlHelper = read('src/lib/published-site-url.ts');
+const publishedProxy = read('api/published-site.js');
+const serviceWorker = read('public/sw.js');
 const vercelConfig = read('vercel.json');
 
 check('Canonical production domain is tayar.se',
@@ -86,6 +94,24 @@ check('Service worker is revalidated on deploy',
 check('Hashed assets use immutable caching',
   vercelConfig.includes('"source": "/assets/(.*)"') &&
   vercelConfig.includes('max-age=31536000, immutable'));
+
+check('Published HTML is rendered through an isolated Vercel proxy',
+  publishedProxy.includes("'text/html; charset=utf-8'") &&
+  publishedProxy.includes('sandbox allow-scripts') &&
+  !publishedProxy.includes('allow-same-origin') &&
+  vercelConfig.includes('/api/published-site'));
+
+check('Published URL helper migrates legacy Supabase Storage links',
+  publishedUrlHelper.includes('normalizePublishedSiteUrl') &&
+  publishedUrlHelper.includes('/storage/v1/object/public/published-sites/'));
+
+check('Published and preview routes bypass the app service worker',
+  serviceWorker.includes("url.pathname.startsWith('/site/')") &&
+  serviceWorker.includes("url.pathname.startsWith('/preview/')"));
+
+check('AI Assistant escapes model output before applying markdown HTML',
+  aiAssistant.includes('let html = escapeHtml(text)') &&
+  aiAssistant.includes('dangerouslySetInnerHTML'));
 
 console.log(`Production hardening smoke test: ${passes.length} passed, ${failures.length} failed`);
 for (const label of passes) console.log(`  ✓ ${label}`);
