@@ -159,6 +159,49 @@ export function BuilderLayersPanel({
                 </div>
               )}
 
+              {section.containers.length > 0 && (
+                <div className="tayar-v2-layer-group">
+                  <div className="tayar-v2-layer-group__title">
+                    Containers
+                  </div>
+
+                  {section.containers.map(
+                    (container) => (
+                      <button
+                        type="button"
+                        key={container.id}
+                        className="tayar-v2-layer-child tayar-v2-layer-child--container"
+                        aria-current={
+                          container.selected
+                            ? 'true'
+                            : undefined
+                        }
+                        onClick={() =>
+                          shell.actions.onSelect({
+                            pageId:
+                              page.id,
+
+                            sectionId:
+                              section.id,
+
+                            containerId:
+                              container.id,
+                          })
+                        }
+                      >
+                        <span aria-hidden="true">
+                          ▦
+                        </span>
+
+                        <span>
+                          {container.label}
+                        </span>
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+
               <div className="tayar-v2-layer-elements">
                 {section.elements.map(
                   (
@@ -274,6 +317,53 @@ export function BuilderLayersPanel({
                   ),
                 )}
               </div>
+
+              {section.formFields.length > 0 && (
+                <div className="tayar-v2-layer-group">
+                  <div className="tayar-v2-layer-group__title">
+                    Form fields
+                  </div>
+
+                  {section.formFields.map(
+                    (formField) => (
+                      <button
+                        type="button"
+                        key={formField.id}
+                        className="tayar-v2-layer-child tayar-v2-layer-child--form"
+                        aria-current={
+                          formField.selected
+                            ? 'true'
+                            : undefined
+                        }
+                        onClick={() =>
+                          shell.actions.onSelect({
+                            pageId:
+                              page.id,
+
+                            sectionId:
+                              section.id,
+
+                            formFieldId:
+                              formField.id,
+                          })
+                        }
+                      >
+                        <span aria-hidden="true">
+                          ◫
+                        </span>
+
+                        <span>
+                          {formField.label}
+                        </span>
+
+                        <small>
+                          {formField.type}
+                        </small>
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
             </section>
           ),
         )}
