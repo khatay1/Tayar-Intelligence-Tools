@@ -20,6 +20,7 @@ import './prompt-library';
 import './batch-image-tools';
 import './image-cropper';
 import './background-remover';
+import './image-to-pdf';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';

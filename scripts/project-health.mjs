@@ -51,6 +51,8 @@ check('Image Cropper module exists', exists('src/modules/image-cropper/ImageCrop
 check('Image Cropper processing and preview are isolated', exists('src/modules/image-cropper/crop-processing.ts') && exists('src/modules/image-cropper/CropPreview.tsx'));
 check('Background Remover module exists', exists('src/modules/background-remover/BackgroundRemoverTool.tsx'));
 check('Background Remover has isolated client and Edge Function', exists('src/modules/background-remover/background-remover-client.ts') && exists('supabase/functions/background-remover/index.ts'));
+check('Image to PDF module exists', exists('src/modules/image-to-pdf/ImageToPdfTool.tsx'));
+check('Image to PDF core is split by responsibility', exists('src/modules/image-to-pdf/jpeg-encoder.ts') && exists('src/modules/image-to-pdf/pdf-layout.ts') && exists('src/modules/image-to-pdf/simple-pdf-writer.ts') && exists('src/modules/image-to-pdf/image-to-pdf.ts'));
 check('Tayar Tools expansion plan exists', exists('docs/TAYAR_TOOLS_EXPANSION_PLAN.md'));
 check('Billing migration exists', exists('supabase/migrations/20260828154000_add_secure_billing_entitlements.sql'));
 check('Team workspace migration exists', exists('supabase/migrations/20260828155500_add_team_workspaces.sql'));
@@ -144,6 +146,9 @@ const imageCropperProcessing = read('src/modules/image-cropper/crop-processing.t
 const backgroundRemoverTool = read('src/modules/background-remover/BackgroundRemoverTool.tsx');
 const backgroundRemoverClient = read('src/modules/background-remover/background-remover-client.ts');
 const backgroundRemoverEdge = read('supabase/functions/background-remover/index.ts');
+const imageToPdfTool = read('src/modules/image-to-pdf/ImageToPdfTool.tsx');
+const imageToPdfCore = read('src/modules/image-to-pdf/image-to-pdf.ts');
+const simplePdfWriter = read('src/modules/image-to-pdf/simple-pdf-writer.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
@@ -197,6 +202,8 @@ check('Batch ZIP writer only creates store-only archives', batchZipWriter.includ
 check('Image Cropper is local and validates crop bounds', modulesIndex.includes("import './image-cropper'") && imageCropperTool.includes('Processed locally') && imageCropperProcessing.includes('validateCropRect') && !imageCropperProcessing.includes('fetch(') && !imageCropperProcessing.includes('supabase'));
 check('Background Remover keeps FAL key server-side and discloses external processing', modulesIndex.includes("import './background-remover'") && backgroundRemoverTool.includes('External processing') && !backgroundRemoverClient.includes('FAL_KEY') && backgroundRemoverEdge.includes('Deno.env.get("FAL_KEY")'));
 check('Background Remover stays gated until Edge Function deployment is confirmed', read('src/modules/background-remover/index.ts').includes("status: 'soon'"));
+check('Image to PDF is local bounded and dependency-free', modulesIndex.includes("import './image-to-pdf'") && imageToPdfTool.includes('Processed locally') && imageToPdfCore.includes('MAX_PDF_IMAGES') && imageToPdfCore.includes('MAX_PDF_INPUT_BYTES') && !imageToPdfCore.includes('fetch(') && !imageToPdfCore.includes('supabase'));
+check('Image to PDF writer embeds JPEG without PDF parsing libraries', simplePdfWriter.includes('/DCTDecode') && simplePdfWriter.includes('xref') && packageJson.dependencies?.['pdf-lib'] === undefined && packageJson.dependencies?.['pdfjs-dist'] === undefined);
 check('Background Remover enforces auth rate MIME and body limits', backgroundRemoverEdge.includes('requireUser(req)') && backgroundRemoverEdge.includes('enforce_ai_rate_limit') && backgroundRemoverEdge.includes('MAX_BODY_CHARS') && backgroundRemoverEdge.includes('ALLOWED_DATA_URL'));
 check('Background Remover restricts provider tracking and media URLs', backgroundRemoverEdge.includes('validateFalQueueUrl') && backgroundRemoverEdge.includes('queue.fal.run') && backgroundRemoverEdge.includes('validateFalMediaUrl'));
 check('Website Builder AI prompt uses multi-page planner schema', aiPrompts.includes('Tayar AI Builder') && aiPrompts.includes('"pages": [') && aiPrompts.includes('Build 1-6 useful pages'));
