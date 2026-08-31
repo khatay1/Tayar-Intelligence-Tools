@@ -41,6 +41,8 @@ check('Templates Hub module exists', exists('src/modules/templates-hub/Templates
 check('Templates are split by domain', exists('src/modules/templates-hub/templates/finance.ts') && exists('src/modules/templates-hub/templates/business.ts') && exists('src/modules/templates-hub/templates/productivity.ts'));
 check('Name Generator module exists', exists('src/modules/name-generator/NameGeneratorTool.tsx'));
 check('Name Generator engine is isolated', exists('src/modules/name-generator/name-generator.ts') && exists('src/modules/name-generator/name-banks.ts'));
+check('Letter Generator module exists', exists('src/modules/letter-generator/LetterGeneratorTool.tsx'));
+check('Letter Generator templates are isolated', exists('src/modules/letter-generator/letter-templates.ts') && exists('src/modules/letter-generator/letter-generator.ts'));
 check('Tayar Tools expansion plan exists', exists('docs/TAYAR_TOOLS_EXPANSION_PLAN.md'));
 check('Billing migration exists', exists('supabase/migrations/20260828154000_add_secure_billing_entitlements.sql'));
 check('Team workspace migration exists', exists('supabase/migrations/20260828155500_add_team_workspaces.sql'));
@@ -122,6 +124,8 @@ const templatesHub = read('src/modules/templates-hub/TemplatesHubTool.tsx');
 const templateExport = read('src/modules/templates-hub/template-export.ts');
 const nameGeneratorTool = read('src/modules/name-generator/NameGeneratorTool.tsx');
 const nameGeneratorEngine = read('src/modules/name-generator/name-generator.ts');
+const letterGeneratorTool = read('src/modules/letter-generator/LetterGeneratorTool.tsx');
+const letterGeneratorEngine = read('src/modules/letter-generator/letter-generator.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
@@ -167,6 +171,8 @@ check('Templates Hub is registered and exports original starter data safely', mo
 check('Templates Hub does not import remote template assets', !templatesHub.includes('fetch(') && !templateExport.includes('http://') && !templateExport.includes('https://'));
 check('Name Generator is local and does not claim availability checks', modulesIndex.includes("import './name-generator'") && nameGeneratorTool.includes('Availability is not checked') && !nameGeneratorEngine.includes('fetch(') && !nameGeneratorEngine.includes('supabase'));
 check('Name Generator bounds user input and result count', nameGeneratorEngine.includes('MAX_KEYWORD_LENGTH') && nameGeneratorEngine.includes('MAX_RESULTS'));
+check('Letter Generator is local and output remains manually editable', modulesIndex.includes("import './letter-generator'") && letterGeneratorTool.includes('Edit the result') && !letterGeneratorEngine.includes('fetch(') && !letterGeneratorEngine.includes('supabase'));
+check('Letter Generator bounds user-provided fields', letterGeneratorEngine.includes('MAX_SHORT_FIELD') && letterGeneratorEngine.includes('MAX_DETAILS'));
 check('Website Builder AI prompt uses multi-page planner schema', aiPrompts.includes('Tayar AI Builder') && aiPrompts.includes('"pages": [') && aiPrompts.includes('Build 1-6 useful pages'));
 check('Website Builder AI supports multi-page generation with legacy fallback', websiteBuilder.includes('interface AIWebsitePageGeneration') && websiteBuilder.includes('Array.isArray(generated?.pages)') && websiteBuilder.includes('Array.isArray(generated?.sections)') && websiteBuilder.includes('setPages(nextPages)'));
 check('Website Builder AI exposes planning progress and plan summary', websiteBuilder.includes('AI_BUILDER_STAGE_ORDER') && websiteBuilder.includes("setAiStage('planning')") && websiteBuilder.includes("setAiStage('building')") && websiteBuilder.includes("setAiStage('styling')") && websiteBuilder.includes("setAiStage('ready')") && websiteBuilder.includes("l('Website plan')"));

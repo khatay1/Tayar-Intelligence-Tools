@@ -125,6 +125,7 @@ Shared engines should eventually live under areas such as:
 - CSV Cleaner: shipped as browser-local CSV cleanup/export with bounded parsing and spreadsheet formula-injection protection.
 - Templates Hub: shipped with original Tayar finance, business and productivity starter templates inspired by common workflow categories, not copied files.
 - Name Generator: shipped for business, product, brand, YouTube and Instagram names using local original word banks and bounded generation.
+- Letter Generator: shipped with original recommendation, authorization, business inquiry, complaint, resignation and thank-you templates, with manual editing and local export.
 - PDF Toolkit: deferred after security review found an open ReDoS report in the original pdf-lib parser and a malicious similarly named package; no PDF dependency will be added until the implementation path is acceptable.
 
 ## First implementation

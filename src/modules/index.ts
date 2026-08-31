@@ -15,6 +15,7 @@ import './image-tools';
 import './csv-cleaner';
 import './templates-hub';
 import './name-generator';
+import './letter-generator';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
