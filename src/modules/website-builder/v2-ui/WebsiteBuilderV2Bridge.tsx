@@ -65,6 +65,7 @@ import './website-builder-v2.css';
 
 export interface WebsiteBuilderV2BridgeProps {
   canvas: ReactNode;
+  aiPanel?: ReactNode;
 
   pages: EditorPageLike[];
   homePageId?: string;
@@ -186,6 +187,7 @@ function createNativeId(
 
 export function WebsiteBuilderV2Bridge({
   canvas,
+  aiPanel,
 
   pages,
   homePageId,
@@ -660,6 +662,10 @@ export function WebsiteBuilderV2Bridge({
 
       canvas={
         canvas
+      }
+
+      aiPanel={
+        aiPanel
       }
 
       mediaAssets={

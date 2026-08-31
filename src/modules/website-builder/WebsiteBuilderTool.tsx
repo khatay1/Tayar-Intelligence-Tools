@@ -10269,6 +10269,207 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
+  const v2AiPanel = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b border-white/10 px-3 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-violet-400" />
+
+              <strong className="text-xs">
+                Tayar AI
+              </strong>
+            </div>
+
+            <p className="mt-1 text-[9px] leading-relaxed text-gray-500">
+              Build or edit your website with natural language.
+            </p>
+          </div>
+
+          <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-violet-300">
+            {aiBusy ? aiStage : 'Agent'}
+          </span>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        <div className="space-y-2">
+          {aiMessages.slice(-8).map((message) => (
+            <div
+              key={message.id}
+              className={
+                message.role === 'user'
+                  ? 'ml-5 rounded-xl border border-violet-500/15 bg-violet-500/10 px-3 py-2.5 text-[10px] leading-relaxed text-violet-50'
+                  : 'mr-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[10px] leading-relaxed text-gray-300'
+              }
+            >
+              <span className="mb-1 block text-[8px] font-black uppercase tracking-wider text-gray-500">
+                {message.role === 'user'
+                  ? 'You'
+                  : 'Tayar AI'}
+              </span>
+
+              {message.content}
+            </div>
+          ))}
+        </div>
+
+        {aiBusy && (
+          <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.06] p-3">
+            <div className="flex items-center gap-2 text-[10px] font-bold text-violet-300">
+              <Sparkles className="h-3.5 w-3.5" />
+              Tayar AI is {aiStage}...
+            </div>
+          </div>
+        )}
+
+        {aiPlan && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+            <p className="text-[8px] font-black uppercase tracking-wider text-gray-500">
+              Website plan
+            </p>
+
+            <p className="mt-1.5 text-[10px] leading-relaxed text-gray-300">
+              {aiPlan.summary}
+            </p>
+
+            <div className="mt-2 flex flex-wrap gap-1">
+              {aiPlan.pages.map((page) => (
+                <span
+                  key={page.name}
+                  className="rounded-full border border-white/10 px-2 py-1 text-[8px] text-gray-400"
+                >
+                  {page.name} - {page.sections} sections
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {aiQualityReview && (
+          <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3">
+            <div className="flex items-center justify-between gap-2">
+              <strong className="text-[10px] text-emerald-300">
+                Quality score
+              </strong>
+
+              <span className="text-sm font-black text-emerald-400">
+                {aiQualityReview.score}/100
+              </span>
+            </div>
+
+            <p className="mt-1.5 text-[9px] leading-relaxed text-gray-400">
+              {aiQualityReview.summary}
+            </p>
+          </div>
+        )}
+
+        {aiError && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2.5 text-[10px] leading-relaxed text-red-300">
+            {aiError}
+          </div>
+        )}
+
+        <div>
+          <p className="mb-2 text-[8px] font-black uppercase tracking-wider text-gray-500">
+            Quick actions
+          </p>
+
+          <div className="grid grid-cols-1 gap-1.5">
+            {[
+              'Make this page look more premium',
+              'Improve mobile and tablet layout',
+              'Improve the hero and calls to action',
+              'Review this website and fix safe issues',
+            ].map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                onClick={() => setAiPrompt(prompt)}
+                disabled={aiBusy}
+                className="rounded-lg border border-white/10 px-2.5 py-2 text-left text-[9px] text-gray-400 transition hover:bg-white/[0.04] hover:text-gray-200 disabled:opacity-40"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10 p-3">
+        <textarea
+          value={aiPrompt}
+          onChange={(event) =>
+            setAiPrompt(event.target.value)
+          }
+          disabled={aiBusy}
+          rows={4}
+          placeholder={
+            aiStage === 'ready'
+              ? 'Tell Tayar AI what to change...'
+              : 'Describe the website you want to build...'
+          }
+          className="w-full resize-none rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-[11px] leading-relaxed text-white outline-none placeholder:text-gray-600 focus:border-violet-500/50 disabled:opacity-50"
+        />
+
+        <button
+          type="button"
+          onClick={() => {
+            if (aiStage === 'ready') {
+              void applyAIChange();
+            } else {
+              void generateWithAI(true);
+            }
+          }}
+          disabled={!aiPrompt.trim() || aiBusy}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2.5 text-[10px] font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+
+          {aiBusy
+            ? 'Tayar AI is working...'
+            : aiStage === 'ready'
+              ? 'Apply AI change'
+              : 'Build with Tayar AI'}
+        </button>
+
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => void generateWithAI(true)}
+            disabled={!aiPrompt.trim() || aiBusy}
+            className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-400 hover:bg-white/[0.04] disabled:opacity-40"
+          >
+            Rebuild
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void runAIQualityCheck()}
+            disabled={aiBusy || aiQualityBusy}
+            className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-400 hover:bg-white/[0.04] disabled:opacity-40"
+          >
+            {aiQualityBusy
+              ? 'Checking...'
+              : 'Quality check'}
+          </button>
+        </div>
+
+        {aiUndoSnapshot && (
+          <button
+            type="button"
+            onClick={undoLastAIChange}
+            disabled={aiBusy}
+            className="mt-2 w-full rounded-lg border border-amber-500/20 bg-amber-500/[0.05] px-2 py-2 text-[9px] font-bold text-amber-300 disabled:opacity-40"
+          >
+            Undo last AI change
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   const v2Canvas = (
         <div data-tayar-v2-canvas="true"
           className={`min-h-[600px] flex-1 overflow-auto p-3 lg:p-5 ${
@@ -13378,6 +13579,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   return (
     <WebsiteBuilderV2Bridge
       canvas={v2Canvas}
+      aiPanel={v2AiPanel}
       pages={pages.map((page) =>
         page.id === activePageId
           ? { ...page, sections }
