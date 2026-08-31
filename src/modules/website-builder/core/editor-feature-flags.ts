@@ -7,7 +7,7 @@ export interface EditorV2FeatureFlags {
 }
 
 export const DEFAULT_EDITOR_V2_FEATURE_FLAGS: EditorV2FeatureFlags = {
-  shell: false,
+  shell: true,
   controller: true,
   nativePatchGateway: true,
   autosave: true,
