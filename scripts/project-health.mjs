@@ -39,6 +39,8 @@ check('CSV parser engine exists', exists('src/modules/csv-cleaner/csv-parser.ts'
 check('CSV cleaner engine exists', exists('src/modules/csv-cleaner/csv-cleaner.ts'));
 check('Templates Hub module exists', exists('src/modules/templates-hub/TemplatesHubTool.tsx'));
 check('Templates are split by domain', exists('src/modules/templates-hub/templates/finance.ts') && exists('src/modules/templates-hub/templates/business.ts') && exists('src/modules/templates-hub/templates/productivity.ts'));
+check('Name Generator module exists', exists('src/modules/name-generator/NameGeneratorTool.tsx'));
+check('Name Generator engine is isolated', exists('src/modules/name-generator/name-generator.ts') && exists('src/modules/name-generator/name-banks.ts'));
 check('Tayar Tools expansion plan exists', exists('docs/TAYAR_TOOLS_EXPANSION_PLAN.md'));
 check('Billing migration exists', exists('supabase/migrations/20260828154000_add_secure_billing_entitlements.sql'));
 check('Team workspace migration exists', exists('supabase/migrations/20260828155500_add_team_workspaces.sql'));
@@ -118,6 +120,8 @@ const csvParser = read('src/modules/csv-cleaner/csv-parser.ts');
 const csvCleaner = read('src/modules/csv-cleaner/csv-cleaner.ts');
 const templatesHub = read('src/modules/templates-hub/TemplatesHubTool.tsx');
 const templateExport = read('src/modules/templates-hub/template-export.ts');
+const nameGeneratorTool = read('src/modules/name-generator/NameGeneratorTool.tsx');
+const nameGeneratorEngine = read('src/modules/name-generator/name-generator.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
@@ -161,6 +165,8 @@ check('CSV parser enforces file row column and total-cell bounds', csvParser.inc
 check('CSV export protects spreadsheet formula injection by default', csvCleaner.includes('sanitizeSpreadsheetCell') && csvCleaner.includes("trimmed.startsWith('=')") && csvCleanerTool.includes('Spreadsheet-safe export'));
 check('Templates Hub is registered and exports original starter data safely', modulesIndex.includes("import './templates-hub'") && templatesHub.includes('Original Tayar templates') && templateExport.includes('sanitizeSpreadsheetCell'));
 check('Templates Hub does not import remote template assets', !templatesHub.includes('fetch(') && !templateExport.includes('http://') && !templateExport.includes('https://'));
+check('Name Generator is local and does not claim availability checks', modulesIndex.includes("import './name-generator'") && nameGeneratorTool.includes('Availability is not checked') && !nameGeneratorEngine.includes('fetch(') && !nameGeneratorEngine.includes('supabase'));
+check('Name Generator bounds user input and result count', nameGeneratorEngine.includes('MAX_KEYWORD_LENGTH') && nameGeneratorEngine.includes('MAX_RESULTS'));
 check('Website Builder AI prompt uses multi-page planner schema', aiPrompts.includes('Tayar AI Builder') && aiPrompts.includes('"pages": [') && aiPrompts.includes('Build 1-6 useful pages'));
 check('Website Builder AI supports multi-page generation with legacy fallback', websiteBuilder.includes('interface AIWebsitePageGeneration') && websiteBuilder.includes('Array.isArray(generated?.pages)') && websiteBuilder.includes('Array.isArray(generated?.sections)') && websiteBuilder.includes('setPages(nextPages)'));
 check('Website Builder AI exposes planning progress and plan summary', websiteBuilder.includes('AI_BUILDER_STAGE_ORDER') && websiteBuilder.includes("setAiStage('planning')") && websiteBuilder.includes("setAiStage('building')") && websiteBuilder.includes("setAiStage('styling')") && websiteBuilder.includes("setAiStage('ready')") && websiteBuilder.includes("l('Website plan')"));

@@ -14,6 +14,7 @@ import './invoice-generator';
 import './image-tools';
 import './csv-cleaner';
 import './templates-hub';
+import './name-generator';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
