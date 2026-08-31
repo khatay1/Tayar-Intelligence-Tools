@@ -89,6 +89,7 @@ export const FILE_TYPE_META: Record<string, { label: string; color: string; bg: 
   'translation': { label: 'Translation', color: 'text-sky-400', bg: 'bg-sky-500/10' },
   'study': { label: 'Study', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
   'project': { label: 'Project', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  'website-builder': { label: 'Website', color: 'text-sky-400', bg: 'bg-sky-500/10' },
 };
 
 export function getFileMeta(type: string) {

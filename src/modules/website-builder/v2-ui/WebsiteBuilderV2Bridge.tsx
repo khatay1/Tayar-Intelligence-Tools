@@ -66,6 +66,7 @@ import './website-builder-v2.css';
 export interface WebsiteBuilderV2BridgeProps {
   canvas: ReactNode;
   aiPanel?: ReactNode;
+  topbarTrailingSlot?: ReactNode;
   sitePanel?: ReactNode;
   settingsPanel?: ReactNode;
 
@@ -210,6 +211,7 @@ function createNativeId(
 export function WebsiteBuilderV2Bridge({
   canvas,
   aiPanel,
+  topbarTrailingSlot,
   sitePanel,
   settingsPanel,
 
@@ -737,6 +739,10 @@ export function WebsiteBuilderV2Bridge({
 
       canvas={
         canvas
+      }
+
+      topbarTrailingSlot={
+        topbarTrailingSlot
       }
 
       aiPanel={

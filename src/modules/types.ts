@@ -14,7 +14,7 @@ export interface ToolModule {
   tier: ToolTier;
   version: string;
   icon: LucideIcon;
-  component: ComponentType<{ darkMode: boolean }>;
+  component: ComponentType<{ darkMode: boolean; projectId?: string | null }>;
   defaultModel?: string;
 }
 
