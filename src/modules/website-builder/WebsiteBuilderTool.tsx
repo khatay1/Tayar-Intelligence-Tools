@@ -8874,7 +8874,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const { error: uploadError } = await supabase.storage.from('published-sites').upload(`${folder}/${file.name}`, uploadBody, {
           upsert: true,
           contentType: file.contentType || blob.type || 'application/octet-stream',
-          cacheControl: '60',
+          cacheControl: '0',
         });
         if (uploadError) throw uploadError;
       }
@@ -8898,7 +8898,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLastPublishedVersionId(version.id);
       setLastPublishedFingerprint(version.editor_fingerprint);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData));
-      lastSavedSnapshotRef.current = buildProjectFingerprint();
+      lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
       await verifyLiveDeployment();
     } catch (error) {
@@ -10206,8 +10206,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ),
       );
 
-      lastSavedSnapshotRef.current =
-        buildProjectFingerprint();
+      lastSavedSnapshotRef.current = '';
 
       setAutoSaveStatus(
         'saved',
@@ -10303,7 +10302,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLastPublishedFingerprint('');
       setLiveVerification('idle');
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData));
-      lastSavedSnapshotRef.current = buildProjectFingerprint();
+      lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
       await refreshCloudProjects();
     } catch (error) {
