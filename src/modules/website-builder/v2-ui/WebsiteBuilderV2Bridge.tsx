@@ -66,6 +66,14 @@ import './website-builder-v2.css';
 export interface WebsiteBuilderV2BridgeProps {
   canvas: ReactNode;
   aiPanel?: ReactNode;
+  sitePanel?: ReactNode;
+  settingsPanel?: ReactNode;
+
+  symbols?: EditorProjectLike['symbols'];
+  onCreateSymbol?(): void;
+  onDetachSymbol?(): void;
+  onInsertSymbol?(symbolId: string): void;
+  onDeleteSymbol?(symbolId: string): void;
 
   pages: EditorPageLike[];
   homePageId?: string;
@@ -190,6 +198,14 @@ function createNativeId(
 export function WebsiteBuilderV2Bridge({
   canvas,
   aiPanel,
+  sitePanel,
+  settingsPanel,
+
+  symbols = [],
+  onCreateSymbol,
+  onDetachSymbol,
+  onInsertSymbol,
+  onDeleteSymbol,
 
   pages,
   homePageId,
@@ -280,10 +296,12 @@ export function WebsiteBuilderV2Bridge({
       () => ({
         pages,
         homePageId,
+        symbols,
       }),
       [
         pages,
         homePageId,
+        symbols,
       ],
     );
 
@@ -689,6 +707,34 @@ export function WebsiteBuilderV2Bridge({
 
       aiPanel={
         aiPanel
+      }
+
+      sitePanel={
+        sitePanel
+      }
+
+      settingsPanel={
+        settingsPanel
+      }
+
+      symbols={
+        symbols
+      }
+
+      onCreateSymbol={
+        onCreateSymbol
+      }
+
+      onDetachSymbol={
+        onDetachSymbol
+      }
+
+      onInsertSymbol={
+        onInsertSymbol
+      }
+
+      onDeleteSymbol={
+        onDeleteSymbol
       }
 
       mediaAssets={
