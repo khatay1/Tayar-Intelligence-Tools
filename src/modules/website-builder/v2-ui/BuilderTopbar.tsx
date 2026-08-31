@@ -19,18 +19,18 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
       </div>
       <div className="tayar-v2-topbar__center">{centerSlot}</div>
       <div className="tayar-v2-topbar__actions">
-        <button type="button" onClick={actions.onPreview}>Preview</button>
-        <button type="button" onClick={actions.onRunCheck} disabled={Boolean(status.checking)}>
+        <button type="button" className="tayar-v2-preview-button" onClick={actions.onPreview}>Preview</button>
+        <button type="button" className="tayar-v2-check-button" onClick={actions.onRunCheck} disabled={Boolean(status.checking)}>
           {status.checking
             ? 'Checking…'
             : typeof status.checkScore === 'number'
               ? `Check ${status.checkScore}`
               : 'Check'}
         </button>
-        <button type="button" onClick={actions.onSave} disabled={Boolean(status.saving) || !view.dirty}>
+        <button type="button" className="tayar-v2-save-button" onClick={actions.onSave} disabled={Boolean(status.saving) || !view.dirty}>
           {status.saving ? 'Saving…' : view.dirty ? 'Save' : 'Saved'}
         </button>
-        <button type="button" onClick={actions.onPublish} disabled={Boolean(status.publishing) || view.publish.blockers.length > 0}>
+        <button type="button" className="tayar-v2-publish-button" onClick={actions.onPublish} disabled={Boolean(status.publishing) || view.publish.blockers.length > 0}>
           {status.publishing ? 'Publishing…' : 'Publish'}
         </button>
         {trailingSlot}
