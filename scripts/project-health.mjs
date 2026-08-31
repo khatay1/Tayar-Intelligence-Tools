@@ -49,6 +49,7 @@ const templateSourceCatalogDiscovery = read('src/modules/templates-hub/source-ca
 const templateDriveDiscoverSource = read('supabase/functions/template-library-drive-discover/index.ts');
 const templateImportRunner = read('scripts/template-library-browser-importer.js');
 const templateSyncSource = read('supabase/functions/template-library-sync/index.ts');
+const templateStorageDedupMigration = read('supabase/migrations/20260901000500_allow_template_asset_storage_dedup.sql');
 check('11K source catalog pins the public Google Drive folder', templateSourceCatalogDiscovery.includes('1NLQlCySD88ZbeHt6E2q88c4FsvHzfzBi'));
 check('Drive discovery stays admin-only and Google-host bounded', templateDriveDiscoverSource.includes('Administrator access required') && templateDriveDiscoverSource.includes('embeddedfolderview') && templateDriveDiscoverSource.includes('MAX_FOLDERS_PER_REQUEST') && !templateDriveDiscoverSource.includes('fetch(input.'));
 check('Drive discovery paginates large public folders', templateDriveDiscoverSource.includes('nextOffset') && templateDriveDiscoverSource.includes('totalResultCount') && templateDriveDiscoverSource.includes('pageSize') && templateDriveDiscoverSource.includes('MAX_OFFSET'));
@@ -160,7 +161,6 @@ const csvCleaner = read('src/modules/csv-cleaner/csv-cleaner.ts');
 const templatesHub = read('src/modules/templates-hub/TemplatesHubTool.tsx');
 const templateExport = read('src/modules/templates-hub/template-export.ts');
 const templateMirrorMigration = read('supabase/migrations/20260831234500_create_template_library_mirror.sql');
-const templateStorageDedupMigration = read('supabase/migrations/20260901000500_allow_template_asset_storage_dedup.sql');
 const templateMirrorSync = read('supabase/functions/template-library-sync/index.ts');
 const templateMirrorDiscover = read('supabase/functions/template-library-discover/index.ts');
 const templateSourceCatalog = read('src/modules/templates-hub/source-catalog.ts');
