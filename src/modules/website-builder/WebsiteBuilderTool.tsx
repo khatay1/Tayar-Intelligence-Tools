@@ -11348,7 +11348,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         <div className="tayar-v2-manual-fields">
           <div
             className="tayar-v2-publish-state"
-            data-live={publishedUrl && liveVerification !== 'failed' ? 'true' : 'false'}
+            data-live={publishedUrl && liveVerification === 'healthy' ? 'true' : 'false'}
           >
             <strong>
               {!publishedUrl
@@ -11357,7 +11357,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'VERIFYING'
                   : liveVerification === 'failed'
                     ? 'CHECK FAILED'
-                    : 'LIVE'}
+                    : liveVerification === 'healthy'
+                      ? 'LIVE'
+                      : 'PUBLISHED'}
             </strong>
             <span>
               {!publishedUrl
@@ -11366,7 +11368,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'A published URL is saved, but the live file could not be verified.'
                   : liveVerification === 'checking'
                     ? 'Checking the public website now…'
-                    : 'Your website is public.'}
+                    : liveVerification === 'healthy'
+                      ? 'Your website is public.'
+                      : 'The website is published. Verify the live renderer before treating it as live.'}
             </span>
           </div>
           {publishedUrl && (
@@ -14572,7 +14576,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}
             title={publishedUrl}
           >
-            LIVE ↗
+            {liveVerification === 'healthy' ? 'LIVE ↗' : 'Open ↗'}
           </button>
         ) : null
       }
