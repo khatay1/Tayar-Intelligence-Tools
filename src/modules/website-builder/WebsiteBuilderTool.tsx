@@ -6402,6 +6402,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!prompt || aiBusy) return;
 
     const requestId = `ai-edit-${Date.now()}`;
+    remember(sections, `AI change: ${prompt.slice(0, 60)}`);
     pushProjectCheckpoint(`Before AI change Â· ${prompt.slice(0, 60)}`);
     const currentPages = getCurrentPages();
     const snapshot: AIWebsiteUndoSnapshot = {
@@ -8284,10 +8285,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSelectedElementId(handoffElement?.id ?? handoffSection?.elements[0]?.id ?? null);
       setBuilderPanel('layers');
       setInspectorOpen(true);
-      if (resetEditHistory) {
-        setHistory([]);
-        setFuture([]);
-      }
       setSaved(false);
       setAiPrompt('');
       setAiQualityReview(null);
