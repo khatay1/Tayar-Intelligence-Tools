@@ -45,6 +45,7 @@ function setCommonHeaders(res, file, isPreview = false) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Tayar-Published-Site', '1');
 
   if (isPreview) {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
