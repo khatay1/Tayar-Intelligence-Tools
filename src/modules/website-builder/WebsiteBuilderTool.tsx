@@ -3321,6 +3321,8 @@ const [brand, setBrand] = useState<WebsiteBrand>(defaultBrand);
 const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [selectedId, setSelectedId] = useState<string | null>(defaultSections[0].id);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(defaultSections[0].elements[0]?.id ?? null);
+  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
+  const [selectedFormFieldId, setSelectedFormFieldId] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>('desktop');
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
   const [advancedSiteSettingsOpen, setAdvancedSiteSettingsOpen] = useState(false);
@@ -10136,6 +10138,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 selectedElementId,
             }
           : {}),
+
+        ...(!selectedElementId &&
+        selectedContainerId
+          ? {
+              containerId:
+                selectedContainerId,
+            }
+          : {}),
+
+        ...(!selectedElementId &&
+        !selectedContainerId &&
+        selectedFormFieldId
+          ? {
+              formFieldId:
+                selectedFormFieldId,
+            }
+          : {}),
       };
 
     const store =
@@ -10263,6 +10282,49 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSelectedElementId(
       hasRequestedElement
         ? requestedElementId!
+        : null,
+    );
+
+    const requestedContainerId =
+      nextSelection?.containerId;
+
+    const hasRequestedContainer =
+      Boolean(
+        !hasRequestedElement &&
+        requestedContainerId &&
+        resolvedSection?.containers
+          ?.some(
+            (container) =>
+              container.id ===
+              requestedContainerId,
+          ),
+      );
+
+    setSelectedContainerId(
+      hasRequestedContainer
+        ? requestedContainerId!
+        : null,
+    );
+
+    const requestedFormFieldId =
+      nextSelection?.formFieldId;
+
+    const hasRequestedFormField =
+      Boolean(
+        !hasRequestedElement &&
+        !hasRequestedContainer &&
+        requestedFormFieldId &&
+        resolvedSection?.formFields
+          ?.some(
+            (formField) =>
+              formField.id ===
+              requestedFormFieldId,
+          ),
+      );
+
+    setSelectedFormFieldId(
+      hasRequestedFormField
+        ? requestedFormFieldId!
         : null,
     );
 
@@ -13657,6 +13719,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       activePageId={activePageId}
       selectedSectionId={selectedId}
       selectedElementId={selectedElementId}
+      selectedContainerId={selectedContainerId}
+      selectedFormFieldId={selectedFormFieldId}
       device={device}
       dirty={!saved || hasUnpublishedChanges}
       canUndo={history.length > 0}
@@ -13684,9 +13748,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         if (selection.sectionId) {
           setSelectedId(selection.sectionId);
+
           setSelectedElementId(
             selection.elementId ?? null
           );
+
+          setSelectedContainerId(
+            selection.elementId
+              ? null
+              : selection.containerId ?? null
+          );
+
+          setSelectedFormFieldId(
+            selection.elementId ||
+            selection.containerId
+              ? null
+              : selection.formFieldId ?? null
+          );
+
           setInspectorOpen(true);
         }
       }}
