@@ -19,6 +19,7 @@ import './letter-generator';
 import './prompt-library';
 import './batch-image-tools';
 import './image-cropper';
+import './background-remover';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
