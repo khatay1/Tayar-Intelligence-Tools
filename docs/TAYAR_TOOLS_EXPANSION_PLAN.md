@@ -120,6 +120,8 @@ Shared engines should eventually live under areas such as:
 
 ## Progress
 
+- Template Mirror Foundation: added Supabase metadata tables, dedicated public Storage bucket, admin-only sync worker, checksum tracking and a client catalog service so large third-party libraries can live outside Git/Vercel.
+
 - Invoice Generator: shipped.
 - Image Tools: shipped as a browser-local resize/compress/format converter with bounded file and pixel processing.
 - CSV Cleaner: shipped as browser-local CSV cleanup/export with bounded parsing and spreadsheet formula-injection protection.
