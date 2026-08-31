@@ -63,6 +63,11 @@ import {
   resolveEditorProjectOwnerId,
   type EditorProjectAccess,
 } from './core/editor-project-access';
+import {
+  listAllPublishedSiteFiles,
+  publishedSiteFilePaths,
+  removePublishedSiteFiles,
+} from './core/editor-published-storage';
 
 const STORAGE_KEY = 'tayar.website-builder.project.v5';
 const ACTIVE_PROJECT_STORAGE_KEY = 'tayar.website-builder.active-project.v1';
@@ -74,6 +79,7 @@ const V3_STORAGE_KEY = 'tayar.website-builder.project.v3';
 const V2_STORAGE_KEY = 'tayar.website-builder.project.v2';
 const LEGACY_STORAGE_KEY = 'tayar.website-builder.project';
 const EDITOR_V2_FLAGS_STORAGE_KEY = 'tayar.website-builder.v2.flags';
+const publishedSiteStorage = supabase.storage.from('published-sites');
 
 function resolveWebsiteBuilderV2Flags() {
   if (typeof window === 'undefined') {
@@ -8737,34 +8743,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  async function listAllPublishedSiteFiles(folder: string) {
-    const entries: Array<{ id?: string | null; name: string }> = [];
-    const pageSize = 100;
-
-    for (let offset = 0; offset < 5000; offset += pageSize) {
-      const { data, error } = await supabase.storage
-        .from('published-sites')
-        .list(folder, {
-          limit: pageSize,
-          offset,
-          sortBy: { column: 'name', order: 'asc' },
-        });
-
-      if (error) throw error;
-
-      const batch = data || [];
-      entries.push(
-        ...batch
-          .filter((item) => Boolean(item.name))
-          .map((item) => ({ id: item.id, name: item.name })),
-      );
-
-      if (batch.length < pageSize) return entries;
-    }
-
-    throw new Error('Published-site folder contains too many files to process safely.');
-  }
-
   async function createSharePreview() {
     if (cloudProjectId && !projectTeamAccess.canPublish) {
       setPreviewError('Only the project owner can create public share previews.');
@@ -8832,14 +8810,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPreviewError('');
     try {
       const folder = `${user.id}/${cloudProjectId}/previews/${previewToken}`;
-      const existing = await listAllPublishedSiteFiles(folder);
-      const paths = existing
-        .filter((item) => item.name && item.id)
-        .map((item) => `${folder}/${item.name}`);
-      if (paths.length) {
-        const { error: removeError } = await supabase.storage.from('published-sites').remove(paths);
-        if (removeError) throw removeError;
-      }
+      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
+      const paths = publishedSiteFilePaths(folder, existing);
+      await removePublishedSiteFiles(publishedSiteStorage, paths);
       setPreviewUrl('');
       setPreviewToken('');
       setPreviewCreatedAt(null);
@@ -8865,14 +8838,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
       if (!manifest.length) throw new Error('This release has no stored files.');
       const liveNames = new Set(manifest.map((item) => item.name));
-      const existing = await listAllPublishedSiteFiles(folder);
-      const stalePaths = existing
-        .filter((item) => item.id && item.name && !liveNames.has(item.name))
-        .map((item) => `${folder}/${item.name}`);
-      if (stalePaths.length) {
-        const { error: removeError } = await supabase.storage.from('published-sites').remove(stalePaths);
-        if (removeError) throw removeError;
-      }
+      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
+      const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
+      await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
       const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(user.id, cloudProjectId);
       const nextPublishedUrl = buildPublishedSiteUrl(user.id, cloudProjectId, 'index.html');
       if (!nextPublishedBaseUrl || !nextPublishedUrl) throw new Error('Could not build the live website URL.');
@@ -9938,7 +9906,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       let existing: Array<{ id?: string | null; name: string }>;
       try {
-        existing = await listAllPublishedSiteFiles(folder);
+        existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
       } catch (error) {
         throw new Error(
           'Published-sites storage is unavailable: ' +
@@ -9946,30 +9914,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
 
-      const stalePaths =
-        existing
-          .filter(
-            (item) =>
-              item.id &&
-              item.name &&
-              !liveNames.has(item.name)
-          )
-          .map(
-            (item) =>
-              folder + '/' + item.name
-          );
-
-      if (stalePaths.length) {
-        const {
-          error: removeError,
-        } = await supabase.storage
-          .from('published-sites')
-          .remove(stalePaths);
-
-        if (removeError) {
-          throw removeError;
-        }
-      }
+      const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
+      await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
 
       for (const file of files) {
         const blob =
@@ -10309,15 +10255,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     try {
       const folder = `${user.id}/${cloudProjectId}`;
-      const existing = await listAllPublishedSiteFiles(folder);
-
-      const paths = existing
-        .filter((item) => item.name && item.id)
-        .map((item) => `${folder}/${item.name}`);
-      if (paths.length) {
-        const { error: removeError } = await supabase.storage.from('published-sites').remove(paths);
-        if (removeError) throw removeError;
-      }
+      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
+      const paths = publishedSiteFilePaths(folder, existing);
+      await removePublishedSiteFiles(publishedSiteStorage, paths);
 
       const nextUpdatedAt = new Date().toISOString();
       const projectData = {

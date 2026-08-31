@@ -15,6 +15,7 @@ const workspaceProjectsPath = resolve(root, 'src/lib/use-projects.ts');
 const runtimeHardeningMigrationPath = resolve(root, 'supabase/migrations/20260831210500_harden_website_public_runtime.sql');
 const sharedRuntimeMigrationPath = resolve(root, 'supabase/migrations/20260831222000_align_shared_website_runtime.sql');
 const projectAccessCorePath = resolve(root, 'src/modules/website-builder/core/editor-project-access.ts');
+const publishedStorageCorePath = resolve(root, 'src/modules/website-builder/core/editor-published-storage.ts');
 
 const failures = [];
 const passes = [];
@@ -37,6 +38,7 @@ for (const [label, path] of [
   ['Website public runtime hardening migration exists', runtimeHardeningMigrationPath],
   ['Shared Website runtime migration exists', sharedRuntimeMigrationPath],
   ['Core project-access module exists', projectAccessCorePath],
+  ['Core published-storage module exists', publishedStorageCorePath],
 ]) {
   check(label, existsSync(path));
 }
@@ -52,6 +54,7 @@ const workspaceProjects = existsSync(workspaceProjectsPath) ? readFileSync(works
 const runtimeHardeningMigration = existsSync(runtimeHardeningMigrationPath) ? readFileSync(runtimeHardeningMigrationPath, 'utf8') : '';
 const sharedRuntimeMigration = existsSync(sharedRuntimeMigrationPath) ? readFileSync(sharedRuntimeMigrationPath, 'utf8') : '';
 const projectAccessCore = existsSync(projectAccessCorePath) ? readFileSync(projectAccessCorePath, 'utf8') : '';
+const publishedStorageCore = existsSync(publishedStorageCorePath) ? readFileSync(publishedStorageCorePath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -63,7 +66,7 @@ check('Published-site proxy forces inline HTML rendering', publishedProxy.includ
 check('Published-site proxy sandboxes customer HTML from Tayar auth origin', publishedProxy.includes('sandbox allow-scripts') && !publishedProxy.includes('allow-same-origin'));
 check('Vercel routes live and preview websites through the proxy', vercelConfig.includes('"/site/:ownerId/:projectId/:file*"') && vercelConfig.includes('"/preview/:ownerId/:projectId/:previewToken/:file*"'));
 check('Service worker never caches published sites or previews', serviceWorker.includes("url.pathname.startsWith('/site/')") && serviceWorker.includes("url.pathname.startsWith('/preview/')"));
-check('Published-site cleanup paginates beyond 100 files', builder.includes('listAllPublishedSiteFiles') && builder.includes('offset += pageSize') && builder.includes('Published-site folder contains too many files to process safely.'));
+check('Published-site cleanup paginates beyond 100 files', publishedStorageCore.includes('listAllPublishedSiteFiles') && publishedStorageCore.includes('offset += pageSize') && publishedStorageCore.includes('Published-site folder contains too many files to process safely.'));
 check('Preview HTML cannot submit real leads', builder.includes('leadProjectId: trackAnalytics ? cloudProjectId : null'));
 check('Imported backups detach old publication identity', builder.includes("const importedProject = {") && builder.includes("previewCreatedAt: null") && builder.includes("lastPublishedFingerprint: ''") && builder.includes("history: []"));
 check('Workspace duplication detaches Website Builder publication identity', workspaceProjects.includes('sanitizedDuplicateContent(project)') && workspaceProjects.includes("publishedUrl: ''") && workspaceProjects.includes("previewToken: ''") && workspaceProjects.includes("lastPublishedVersionId: null") && workspaceProjects.includes("history: []"));
@@ -74,6 +77,7 @@ check('Lead operations require owner or workspace admin', builder.includes('Lead
 check('Analytics is available to shared editors without exposing leads', builder.includes('Analytics is available to project owners, admins, and editors.') && sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor')"));
 check('Shared release history is read-only while rollback stays owner-only', sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor', 'viewer')") && builder.includes('Only the project owner can rollback a published release.') && builder.includes('Only the project owner can delete release archives.'));
 check('Core V3 centralizes project access and owner resolution', projectAccessCore.includes('resolveEditorProjectOwnerId') && projectAccessCore.includes('normalizeEditorProjectAccess') && builder.includes("from './core/editor-project-access'"));
+check('Core V3 centralizes published storage cleanup', publishedStorageCore.includes('publishedSiteFilePaths') && publishedStorageCore.includes('removePublishedSiteFiles') && builder.includes("from './core/editor-published-storage'"));
 check('Shared lead policy keeps row ownership tied to the website owner', sharedRuntimeMigration.includes('website_leads.project_id'));
 check('Recovery snapshot storage is enabled', builder.includes('RECOVERY_STORAGE_KEY'));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
