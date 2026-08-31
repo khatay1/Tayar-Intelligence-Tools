@@ -29,3 +29,6 @@ coverage/
 
 .bolt/
 supabase/.temp/
+
+.vercel
+.env*
