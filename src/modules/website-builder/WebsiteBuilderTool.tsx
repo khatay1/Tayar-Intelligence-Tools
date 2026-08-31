@@ -9470,28 +9470,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishError('Publish preflight blocked: you are offline. Reconnect and try again.');
       return;
     }
+
     if (siteAudit.errors.length) {
       setPublishError(`Publish preflight blocked: fix ${siteAudit.errors.length} critical audit error${siteAudit.errors.length === 1 ? '' : 's'} first.`);
       return;
     }
-    if (cloudSyncFailed || autoSaveStatus === 'failed') {
-      setPublishError('Publish preflight blocked: cloud sync is not healthy. Save successfully before publishing.');
-      return;
-    }
-    if (cloudProjectId && !projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can publish a shared website. Editors can save content changes for the owner to publish.');
-      return;
-    }
+
     if (!user) {
       setPublishError('Sign in before publishing.');
       return;
     }
-    if (!cloudProjectId) {
-      setPublishError('Save this project to the cloud before publishing.');
-      return;
-    }
-    if (!v1LaunchStatus.preflightReady) {
-      setPublishError(`Publish preflight blocked: ${v1LaunchStatus.blockers[0] || 'complete the Launch Center checks first.'}`);
+
+    if (cloudProjectId && !projectTeamAccess.canPublish) {
+      setPublishError('Only the project owner can publish a shared website.');
       return;
     }
 
@@ -9503,112 +9494,510 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setPublishBusy(true);
     setPublishError('');
+    setPublishVersionsError('');
     setLiveVerification('checking');
 
     try {
-      const folder = `${user.id}/${cloudProjectId}`;
-      const publicBaseUrl = `${supabaseUrl}/storage/v1/object/public/published-sites/${folder}`;
+      let publishProjectId = cloudProjectId;
+
+      if (publishProjectId) {
+        const latestSaved = await saveProject({
+          automatic: true,
+          createHistory: false,
+        });
+
+        if (!latestSaved) {
+          throw new Error('The latest editor changes could not be synchronized before publishing.');
+        }
+      } else {
+        const draftData = buildProjectData();
+        const createResult = await retryCloudOperation(() =>
+          supabase
+            .from('projects')
+            .insert({
+              user_id: user.id,
+              title: siteName.trim() || 'My Website',
+              type: 'website-builder',
+              content: draftData,
+              status: 'draft',
+            })
+            .select('id')
+            .single()
+        );
+
+        if (createResult.error || !createResult.data) {
+          if (createResult.error && /limit reached/i.test(createResult.error.message || '')) {
+            openBillingWithMessage(createResult.error.message || 'Website project limit reached.');
+          }
+
+          throw new Error(
+            createResult.error?.message ||
+            'The project could not be created in Tayar cloud before publishing.'
+          );
+        }
+
+        publishProjectId = String((createResult.data as { id: string }).id);
+        setCloudProjectId(publishProjectId);
+        setProjectTeamAccess({
+          ...DEFAULT_PROJECT_TEAM_ACCESS,
+          ownerId: user.id,
+        });
+        setCloudSyncFailed(false);
+      }
+
+      if (!publishProjectId) {
+        throw new Error('A cloud project ID is required to publish.');
+      }
+
+      const folder = user.id + '/' + publishProjectId;
+      const publicBaseUrl =
+        supabaseUrl +
+        '/storage/v1/object/public/published-sites/' +
+        folder;
+
       const currentPages = getCurrentPages();
-      const files: Array<{ name: string; content: string; contentType: string }> = currentPages.map((page) => ({
-        name: page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`,
-        content: getHtml(page.sections, page.id, publicBaseUrl, true, true),
+
+      if (!currentPages.length) {
+        throw new Error('Add at least one page before publishing.');
+      }
+
+      const files: Array<{
+        name: string;
+        content: string;
+        contentType: string;
+      }> = currentPages.map((page) => ({
+        name:
+          page.id === homePageId
+            ? 'index.html'
+            : normalizeSlug(page.slug) + '.html',
+        content: getHtml(
+          page.sections,
+          page.id,
+          publicBaseUrl,
+          true,
+          true,
+        ),
         contentType: 'text/html; charset=utf-8',
       }));
 
-      const sitemapEntries = currentPages.filter((page) => page.noIndex !== true).map((page) => {
-        const location = page.id === homePageId
-          ? `${publicBaseUrl}/index.html`
-          : `${publicBaseUrl}/${normalizeSlug(page.slug)}.html`;
-        return `  <url><loc>${escapeHtml(location)}</loc></url>`;
-      }).join('\n');
-      const customRobotsRules = sanitizeRobotsRules(productionConfig.customRobotsRules);
+      if (!files.some((file) => file.name === 'index.html')) {
+        const firstPage = currentPages[0];
+        files.unshift({
+          name: 'index.html',
+          content: getHtml(
+            firstPage.sections,
+            firstPage.id,
+            publicBaseUrl,
+            true,
+            true,
+          ),
+          contentType: 'text/html; charset=utf-8',
+        });
+      }
+
+      const sitemapEntries = currentPages
+        .filter((page) => page.noIndex !== true)
+        .map((page) => {
+          const location =
+            page.id === homePageId
+              ? publicBaseUrl + '/index.html'
+              : publicBaseUrl + '/' + normalizeSlug(page.slug) + '.html';
+
+          return '  <url><loc>' + escapeHtml(location) + '</loc></url>';
+        })
+        .join('\n');
+
+      const customRobotsRules =
+        sanitizeRobotsRules(
+          productionConfig.customRobotsRules,
+        );
+
       files.push(
-        { name: '404.html', content: get404Html(publicBaseUrl, true, true), contentType: 'text/html; charset=utf-8' },
-        { name: 'sitemap.xml', content: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapEntries}\n</urlset>`, contentType: 'application/xml; charset=utf-8' },
-        { name: 'robots.txt', content: `User-agent: *\nAllow: /\n${customRobotsRules ? `\n${customRobotsRules}\n` : '\n'}Sitemap: ${publicBaseUrl}/sitemap.xml\n`, contentType: 'text/plain; charset=utf-8' },
+        {
+          name: '404.html',
+          content: get404Html(
+            publicBaseUrl,
+            true,
+            true,
+          ),
+          contentType: 'text/html; charset=utf-8',
+        },
+        {
+          name: 'sitemap.xml',
+          content:
+            '<?xml version="1.0" encoding="UTF-8"?>\n' +
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+            sitemapEntries +
+            '\n</urlset>',
+          contentType: 'application/xml; charset=utf-8',
+        },
+        {
+          name: 'robots.txt',
+          content:
+            'User-agent: *\nAllow: /\n' +
+            (customRobotsRules
+              ? '\n' + customRobotsRules + '\n'
+              : '\n') +
+            'Sitemap: ' +
+            publicBaseUrl +
+            '/sitemap.xml\n',
+          contentType: 'text/plain; charset=utf-8',
+        },
       );
 
-      const liveNames = new Set(files.map((file) => file.name));
-      const { data: existing, error: listError } = await supabase.storage.from('published-sites').list(folder, { limit: 100 });
-      if (listError) throw listError;
-      const stalePaths = (existing || [])
-        .filter((item) => item.id && item.name && !liveNames.has(item.name))
-        .map((item) => `${folder}/${item.name}`);
-      if (stalePaths.length) {
-        const { error: removeError } = await supabase.storage.from('published-sites').remove(stalePaths);
-        if (removeError) throw removeError;
+      const liveNames =
+        new Set(
+          files.map((file) => file.name),
+        );
+
+      const {
+        data: existing,
+        error: listError,
+      } = await supabase.storage
+        .from('published-sites')
+        .list(folder, { limit: 100 });
+
+      if (listError) {
+        throw new Error(
+          'Published-sites storage is unavailable: ' +
+          listError.message
+        );
       }
 
-      const versionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
-            const random = Math.floor(Math.random() * 16);
-            const value = character === 'x' ? random : (random & 0x3) | 0x8;
-            return value.toString(16);
-          });
-      const versionPrefix = `${folder}/versions/${versionId}`;
+      const stalePaths =
+        (existing || [])
+          .filter(
+            (item) =>
+              item.id &&
+              item.name &&
+              !liveNames.has(item.name)
+          )
+          .map(
+            (item) =>
+              folder + '/' + item.name
+          );
+
+      if (stalePaths.length) {
+        const {
+          error: removeError,
+        } = await supabase.storage
+          .from('published-sites')
+          .remove(stalePaths);
+
+        if (removeError) {
+          throw removeError;
+        }
+      }
 
       for (const file of files) {
-        const blob = new Blob([file.content], { type: file.contentType });
-        const { error: liveError } = await supabase.storage.from('published-sites').upload(`${folder}/${file.name}`, blob, {
-          upsert: true,
-          contentType: file.contentType,
-          cacheControl: '60',
-        });
-        if (liveError) throw liveError;
-        const { error: archiveError } = await supabase.storage.from('published-sites').upload(`${versionPrefix}/${file.name}`, blob, {
-          upsert: false,
-          contentType: file.contentType,
-          cacheControl: '31536000',
-        });
-        if (archiveError) throw archiveError;
+        const blob =
+          new Blob(
+            [file.content],
+            { type: file.contentType },
+          );
+
+        const {
+          error: liveError,
+        } = await supabase.storage
+          .from('published-sites')
+          .upload(
+            folder + '/' + file.name,
+            blob,
+            {
+              upsert: true,
+              contentType:
+                file.contentType,
+              cacheControl: '60',
+            },
+          );
+
+        if (liveError) {
+          throw new Error(
+            'Could not publish ' +
+            file.name +
+            ': ' +
+            liveError.message
+          );
+        }
       }
 
-      const nextPublishedUrl = `${publicBaseUrl}/index.html`;
-      const nextPublishedAt = new Date().toISOString();
-      const editableFingerprint = buildEditableFingerprint();
+      const {
+        data: verifiedIndex,
+        error: verifyError,
+      } = await supabase.storage
+        .from('published-sites')
+        .download(
+          folder + '/index.html',
+        );
+
+      if (
+        verifyError ||
+        !verifiedIndex ||
+        verifiedIndex.size <= 0
+      ) {
+        throw new Error(
+          'Files were uploaded but the live index could not be verified' +
+          (verifyError?.message
+            ? ': ' + verifyError.message
+            : '.')
+        );
+      }
+
+      const versionId =
+        typeof crypto !== 'undefined' &&
+        'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+              .replace(
+                /[xy]/g,
+                (character) => {
+                  const random =
+                    Math.floor(
+                      Math.random() * 16,
+                    );
+
+                  const value =
+                    character === 'x'
+                      ? random
+                      : (random & 0x3) |
+                        0x8;
+
+                  return value.toString(16);
+                },
+              );
+
+      const versionPrefix =
+        folder +
+        '/versions/' +
+        versionId;
+
+      let archivedReleaseId:
+        string | null = null;
+
+      let archiveWarning = '';
+
+      if (
+        billingEntitlements
+          .features
+          .releaseHistory
+      ) {
+        try {
+          for (const file of files) {
+            const blob =
+              new Blob(
+                [file.content],
+                {
+                  type:
+                    file.contentType,
+                },
+              );
+
+            const {
+              error: archiveError,
+            } = await supabase.storage
+              .from('published-sites')
+              .upload(
+                versionPrefix +
+                  '/' +
+                  file.name,
+                blob,
+                {
+                  upsert: false,
+                  contentType:
+                    file.contentType,
+                  cacheControl:
+                    '31536000',
+                },
+              );
+
+            if (archiveError) {
+              throw archiveError;
+            }
+          }
+
+          const editableFingerprint =
+            buildEditableFingerprint();
+
+          const provisionalData = {
+            ...buildProjectData(),
+            publishedUrl:
+              publicBaseUrl +
+              '/index.html',
+            publishedAt:
+              new Date().toISOString(),
+            lastPublishedVersionId:
+              versionId,
+            lastPublishedFingerprint:
+              editableFingerprint,
+          };
+
+          const manifest =
+            files.map((file) => ({
+              name: file.name,
+              contentType:
+                file.contentType,
+            }));
+
+          const {
+            error: versionError,
+          } = await supabase
+            .from(
+              'website_publish_versions',
+            )
+            .insert({
+              id: versionId,
+              project_id:
+                publishProjectId,
+              user_id: user.id,
+              release_note:
+                releaseNote
+                  .trim()
+                  .slice(0, 500),
+              published_url:
+                publicBaseUrl +
+                '/index.html',
+              storage_prefix:
+                versionPrefix,
+              editor_fingerprint:
+                editableFingerprint,
+              snapshot:
+                provisionalData,
+              file_manifest:
+                manifest,
+            });
+
+          if (versionError) {
+            throw versionError;
+          }
+
+          archivedReleaseId =
+            versionId;
+        } catch (error) {
+          archiveWarning =
+            error instanceof Error
+              ? error.message
+              : 'Release history could not be archived.';
+        }
+      }
+
+      const nextPublishedUrl =
+        publicBaseUrl +
+        '/index.html';
+
+      const nextPublishedAt =
+        new Date().toISOString();
+
+      const editableFingerprint =
+        buildEditableFingerprint();
+
       const projectData = {
         ...buildProjectData(),
-        publishedUrl: nextPublishedUrl,
-        publishedAt: nextPublishedAt,
-        lastPublishedVersionId: versionId,
-        lastPublishedFingerprint: editableFingerprint,
-        updatedAt: nextPublishedAt,
+        publishedUrl:
+          nextPublishedUrl,
+        publishedAt:
+          nextPublishedAt,
+        lastPublishedVersionId:
+          archivedReleaseId,
+        lastPublishedFingerprint:
+          editableFingerprint,
+        updatedAt:
+          nextPublishedAt,
       };
-      const manifest = files.map((file) => ({ name: file.name, contentType: file.contentType }));
-      const { error: versionError } = await supabase.from('website_publish_versions').insert({
-        id: versionId,
-        project_id: cloudProjectId,
-        user_id: user.id,
-        release_note: releaseNote.trim().slice(0, 500),
-        published_url: nextPublishedUrl,
-        storage_prefix: versionPrefix,
-        editor_fingerprint: editableFingerprint,
-        snapshot: projectData,
-        file_manifest: manifest,
-      });
-      if (versionError) throw versionError;
 
-      const { error: projectError } = await supabase.from('projects').update({
-        content: projectData,
-        status: 'completed',
-        updated_at: nextPublishedAt,
-      }).eq('id', cloudProjectId).eq('user_id', user.id);
-      if (projectError) throw projectError;
+      const {
+        error: projectError,
+      } = await supabase
+        .from('projects')
+        .update({
+          content:
+            projectData,
+          status:
+            'completed',
+          updated_at:
+            nextPublishedAt,
+        })
+        .eq(
+          'id',
+          publishProjectId,
+        )
+        .eq(
+          'user_id',
+          user.id,
+        );
 
-      setPublishedUrl(nextPublishedUrl);
-      setPublishedAt(nextPublishedAt);
-      setLastPublishedVersionId(versionId);
-      setLastPublishedFingerprint(editableFingerprint);
+      if (projectError) {
+        throw new Error(
+          'The site is uploaded, but the project publish state could not be saved: ' +
+          projectError.message
+        );
+      }
+
+      setPublishedUrl(
+        nextPublishedUrl,
+      );
+
+      setPublishedAt(
+        nextPublishedAt,
+      );
+
+      setLastPublishedVersionId(
+        archivedReleaseId,
+      );
+
+      setLastPublishedFingerprint(
+        editableFingerprint,
+      );
+
       setReleaseNote('');
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData));
-      lastSavedSnapshotRef.current = buildProjectFingerprint();
-      setAutoSaveStatus('saved');
-      setLiveVerification('healthy');
-      await Promise.all([refreshCloudProjects(), refreshPublishVersions()]);
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(
+          projectData,
+        ),
+      );
+
+      lastSavedSnapshotRef.current =
+        buildProjectFingerprint();
+
+      setAutoSaveStatus(
+        'saved',
+      );
+
+      setCloudSyncFailed(
+        false,
+      );
+
+      setLiveVerification(
+        'healthy',
+      );
+
+      if (archiveWarning) {
+        setPublishVersionsError(
+          'Website published successfully. Release history was skipped: ' +
+          archiveWarning
+        );
+      }
+
+      await refreshCloudProjects();
+
+      if (
+        billingEntitlements
+          .features
+          .releaseHistory
+      ) {
+        await refreshPublishVersions();
+      }
     } catch (error) {
-      setPublishError(error instanceof Error ? error.message : 'Could not publish this website.');
-      setLiveVerification('failed');
+      setPublishError(
+        error instanceof Error
+          ? error.message
+          : 'Could not publish this website.',
+      );
+
+      setLiveVerification(
+        'failed',
+      );
     } finally {
       setPublishBusy(false);
     }
@@ -10530,6 +10919,182 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           </button>
         )}
       </div>
+    </div>
+  );
+
+  const v2SitePanel = (
+    <div className="tayar-v2-manual-panel">
+      <div className="tayar-v2-panel-heading">
+        <strong>Site</strong>
+      </div>
+
+      <details open className="tayar-v2-manual-section">
+        <summary>Identity</summary>
+        <div className="tayar-v2-manual-fields">
+          <label>
+            <span>Site name</span>
+            <input value={siteName} onChange={(e) => { setSiteName(e.target.value); setSaved(false); }} />
+          </label>
+          <label>
+            <span>Production URL</span>
+            <input value={siteUrl} placeholder="https://example.com" onChange={(e) => { setSiteUrl(e.target.value); setSaved(false); }} />
+          </label>
+          <label>
+            <span>Favicon URL</span>
+            <input value={faviconUrl} placeholder="https://..." onChange={(e) => { setFaviconUrl(e.target.value); setSaved(false); }} />
+          </label>
+        </div>
+      </details>
+
+      <details open className="tayar-v2-manual-section">
+        <summary>Global theme</summary>
+        <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
+          <label><span>Primary</span><input type="color" value={theme.primaryColor} onChange={(e) => { setTheme((current) => ({ ...current, primaryColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Secondary</span><input type="color" value={theme.secondaryColor} onChange={(e) => { setTheme((current) => ({ ...current, secondaryColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Background</span><input type="color" value={theme.backgroundColor} onChange={(e) => { setTheme((current) => ({ ...current, backgroundColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Text</span><input type="color" value={theme.textColor} onChange={(e) => { setTheme((current) => ({ ...current, textColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Muted text</span><input type="color" value={theme.mutedTextColor} onChange={(e) => { setTheme((current) => ({ ...current, mutedTextColor: e.target.value })); setSaved(false); }} /></label>
+          <label>
+            <span>Font</span>
+            <select value={theme.fontFamily} onChange={(e) => { setTheme((current) => ({ ...current, fontFamily: e.target.value })); setSaved(false); }}>
+              {FONT_OPTIONS.map((font) => <option key={font} value={font}>{font}</option>)}
+            </select>
+          </label>
+          <label><span>Content width</span><input type="number" min="720" max="1440" step="20" value={theme.contentWidth} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, contentWidth: Number(e.target.value) })); setSaved(false); }} /></label>
+          <label><span>Section spacing</span><input type="number" min="0" max="240" value={theme.sectionSpacing} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, sectionSpacing: Number(e.target.value) })); setSaved(false); }} /></label>
+          <label><span>Button radius</span><input type="number" min="0" max="80" value={theme.buttonRadius} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, buttonRadius: Number(e.target.value) })); setSaved(false); }} /></label>
+        </div>
+      </details>
+
+      <details className="tayar-v2-manual-section">
+        <summary>Header</summary>
+        <div className="tayar-v2-manual-fields">
+          <label className="tayar-v2-manual-toggle"><span>Enable header</span><input type="checkbox" checked={headerConfig.enabled} onChange={(e) => { setHeaderConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>Sticky</span><input type="checkbox" checked={headerConfig.sticky} onChange={(e) => { setHeaderConfig((current) => ({ ...current, sticky: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>Mobile menu</span><input type="checkbox" checked={headerConfig.mobileMenu} onChange={(e) => { setHeaderConfig((current) => ({ ...current, mobileMenu: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>Language switcher</span><input type="checkbox" checked={headerConfig.languageSwitcher} onChange={(e) => { setHeaderConfig((current) => ({ ...current, languageSwitcher: e.target.checked })); setSaved(false); }} /></label>
+          <label><span>Brand text</span><input value={headerConfig.brandText} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandText: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Logo URL</span><input value={headerConfig.logoUrl} placeholder="https://..." onChange={(e) => { setHeaderConfig((current) => ({ ...current, logoUrl: e.target.value })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>Show CTA</span><input type="checkbox" checked={headerConfig.showCta} onChange={(e) => { setHeaderConfig((current) => ({ ...current, showCta: e.target.checked })); setSaved(false); }} /></label>
+          <label><span>CTA label</span><input value={headerConfig.ctaLabel} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaLabel: e.target.value })); setSaved(false); }} /></label>
+          <label><span>CTA link</span><input value={headerConfig.ctaHref} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaHref: e.target.value })); setSaved(false); }} /></label>
+          <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
+            <label><span>Background</span><input type="color" value={headerConfig.backgroundColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, backgroundColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Text</span><input type="color" value={headerConfig.textColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, textColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Active</span><input type="color" value={headerConfig.activeColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, activeColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Hover</span><input type="color" value={headerConfig.hoverColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, hoverColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>CTA background</span><input type="color" value={headerConfig.ctaBackgroundColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaBackgroundColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>CTA text</span><input type="color" value={headerConfig.ctaTextColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaTextColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Nav gap</span><input type="number" min="0" max="80" value={headerConfig.navGap} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navGap: Number(e.target.value) })); setSaved(false); }} /></label>
+            <label><span>Brand size</span><input type="number" min="10" max="60" value={headerConfig.brandSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandSize: Number(e.target.value) })); setSaved(false); }} /></label>
+            <label><span>Nav size</span><input type="number" min="8" max="40" value={headerConfig.navSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navSize: Number(e.target.value) })); setSaved(false); }} /></label>
+          </div>
+        </div>
+      </details>
+
+      <details className="tayar-v2-manual-section">
+        <summary>Footer</summary>
+        <div className="tayar-v2-manual-fields">
+          <label className="tayar-v2-manual-toggle"><span>Enable footer</span><input type="checkbox" checked={footerConfig.enabled} onChange={(e) => { setFooterConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>Show navigation</span><input type="checkbox" checked={footerConfig.showNavigation} onChange={(e) => { setFooterConfig((current) => ({ ...current, showNavigation: e.target.checked })); setSaved(false); }} /></label>
+          <label><span>Footer text</span><textarea rows={3} value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Instagram</span><input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Facebook</span><input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} /></label>
+          <label><span>LinkedIn</span><input value={footerConfig.linkedinUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, linkedinUrl: e.target.value })); setSaved(false); }} /></label>
+          <label><span>X</span><input value={footerConfig.xUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, xUrl: e.target.value })); setSaved(false); }} /></label>
+        </div>
+      </details>
+
+      <details className="tayar-v2-manual-section">
+        <summary>Site features</summary>
+        <div className="tayar-v2-manual-fields">
+          {([
+            ['cookieBanner', 'Cookie banner'],
+            ['scrollProgress', 'Scroll progress'],
+            ['backToTop', 'Back to top'],
+            ['announcementBar', 'Announcement bar'],
+            ['popupEnabled', 'Popup'],
+            ['siteSearch', 'Site search'],
+            ['galleryLightbox', 'Gallery lightbox'],
+            ['floatingCta', 'Floating CTA'],
+            ['shareButtons', 'Share buttons'],
+          ] as const).map(([key, label]) => (
+            <label key={key} className="tayar-v2-manual-toggle">
+              <span>{label}</span>
+              <input type="checkbox" checked={siteEnhancements[key]} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, [key]: e.target.checked })); setSaved(false); }} />
+            </label>
+          ))}
+          {siteEnhancements.announcementBar && <>
+            <label><span>Announcement</span><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Announcement link</span><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} /></label>
+          </>}
+          {siteEnhancements.floatingCta && <>
+            <label><span>Floating CTA label</span><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Floating CTA link</span><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} /></label>
+          </>}
+        </div>
+      </details>
+    </div>
+  );
+
+  const v2SettingsPanel = (
+    <div className="tayar-v2-manual-panel">
+      <div className="tayar-v2-panel-heading">
+        <strong>Settings</strong>
+      </div>
+
+      <details open className="tayar-v2-manual-section">
+        <summary>SEO</summary>
+        <div className="tayar-v2-manual-fields">
+          <label><span>Site title</span><input value={seo.title} onChange={(e) => { setSeo((current) => ({ ...current, title: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Description</span><textarea rows={4} value={seo.description} onChange={(e) => { setSeo((current) => ({ ...current, description: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Keywords</span><textarea rows={3} value={seo.keywords.join(', ')} onChange={(e) => { setSeo((current) => ({ ...current, keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 40) })); setSaved(false); }} /></label>
+          <div className="tayar-v2-manual-note">Audit: {siteAudit.score}/100 · {siteAudit.errors.length} critical · {siteAudit.warnings.length} warnings</div>
+        </div>
+      </details>
+
+      <details className="tayar-v2-manual-section">
+        <summary>Analytics & verification</summary>
+        <div className="tayar-v2-manual-fields">
+          <label><span>Google Analytics 4</span><input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} placeholder="G-XXXX" onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Google Tag Manager</span><input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} placeholder="GTM-XXXX" onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Meta Pixel</span><input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Plausible domain</span><input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Google verification</span><input value={productionConfig.googleVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, googleVerification: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Bing verification</span><input value={productionConfig.bingVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, bingVerification: e.target.value })); setSaved(false); }} /></label>
+        </div>
+      </details>
+
+      <details className="tayar-v2-manual-section">
+        <summary>Structured data</summary>
+        <div className="tayar-v2-manual-fields">
+          <label className="tayar-v2-manual-toggle"><span>Organization schema</span><input type="checkbox" checked={productionConfig.organizationSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationSchema: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>Local business schema</span><input type="checkbox" checked={productionConfig.localBusinessSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessSchema: e.target.checked })); setSaved(false); }} /></label>
+          <label><span>Organization name</span><input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Organization URL</span><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Organization logo</span><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} /></label>
+          {productionConfig.localBusinessSchema && <>
+            <label><span>Business type</span><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Phone</span><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Address</span><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} /></label>
+          </>}
+        </div>
+      </details>
+
+      <details className="tayar-v2-manual-section">
+        <summary>Production</summary>
+        <div className="tayar-v2-manual-fields">
+          <label className="tayar-v2-manual-toggle"><span>Maintenance mode</span><input type="checkbox" checked={productionConfig.maintenanceMode} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceMode: e.target.checked })); setSaved(false); }} /></label>
+          {productionConfig.maintenanceMode && <>
+            <label><span>Maintenance title</span><input value={productionConfig.maintenanceTitle} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceTitle: e.target.value })); setSaved(false); }} /></label>
+            <label><span>Maintenance message</span><textarea rows={3} value={productionConfig.maintenanceText} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceText: e.target.value })); setSaved(false); }} /></label>
+          </>}
+          <label><span>Global custom CSS</span><textarea rows={7} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} /></label>
+          <label><span>Extra robots.txt rules</span><textarea rows={5} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} /></label>
+          <button type="button" className="tayar-v2-manual-action" onClick={() => setReleaseHistoryOpen(true)}>Release history</button>
+          <button type="button" className="tayar-v2-manual-action" onClick={() => setDeliveryOpen(true)}>Client delivery</button>
+        </div>
+      </details>
     </div>
   );
 
@@ -13643,6 +14208,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     <WebsiteBuilderV2Bridge
       canvas={v2Canvas}
       aiPanel={v2AiPanel}
+      sitePanel={v2SitePanel}
+      settingsPanel={v2SettingsPanel}
+      symbols={symbols as any}
+      onCreateSymbol={createSymbolFromSelected}
+      onDetachSymbol={detachSelectedSymbol}
+      onInsertSymbol={(symbolId) => {
+        const symbol = symbols.find((item) => item.id === symbolId);
+        if (symbol) insertSymbol(symbol);
+      }}
+      onDeleteSymbol={deleteSymbol}
       pages={pages.map((page) =>
         page.id === activePageId
           ? { ...page, sections }
@@ -13729,7 +14304,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saving={cloudBusy}
       publishing={publishBusy}
       checking={liveVerification === 'checking'}
-      publishBlockers={v1LaunchStatus.blockers}
+      publishBlockers={[
+        !user ? 'Sign in before publishing.' : '',
+        !networkOnline ? 'Reconnect before publishing.' : '',
+        user && cloudProjectId && !projectTeamAccess.canPublish ? 'Only the project owner can publish.' : '',
+      ].filter(Boolean)}
       onUndo={undo}
       onRedo={redo}
       onSave={() => void saveProject()}

@@ -88,6 +88,7 @@ export type EditorNativeOperationAction =
 
 export interface EditorNativeOperation {
   action: EditorNativeOperationAction;
+  source?: 'manual' | 'ai' | 'system';
   pageId?: string;
   sectionId?: string;
   elementId?: string;
@@ -120,7 +121,7 @@ function requireText(value: string | undefined, label: string) {
 
 function adapterOptions(operation: EditorNativeOperation, index: number): EditorCommandAdapterOptions {
   return {
-    source: 'ai',
+    source: operation.source || 'ai',
     id: `native-${operation.action}-${index}`,
   };
 }

@@ -5,6 +5,9 @@ import {
   Layers,
   Plus,
   Image as ImageIcon,
+  Boxes,
+  Palette,
+  Settings2,
   History,
 } from 'lucide-react';
 
@@ -32,6 +35,9 @@ const ICONS = {
   layers: Layers,
   insert: Plus,
   media: ImageIcon,
+  components: Boxes,
+  site: Palette,
+  settings: Settings2,
   history: History,
 };
 

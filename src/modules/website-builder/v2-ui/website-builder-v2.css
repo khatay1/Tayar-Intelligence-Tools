@@ -1865,3 +1865,165 @@
 .tayar-v2-layer-child--form > span:first-child {
   color: #34d399;
 }
+
+
+/* V2 MANUAL PARITY PANELS */
+.tayar-v2-manual-panel,
+.tayar-v2-components-panel {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: auto;
+  padding-bottom: 18px;
+}
+
+.tayar-v2-manual-section {
+  margin: 8px 10px 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.tayar-v2-manual-section > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.tayar-v2-manual-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tayar-v2-manual-fields {
+  display: grid;
+  gap: 9px;
+  padding: 0 10px 11px;
+}
+
+.tayar-v2-manual-fields--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tayar-v2-manual-fields label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  font-size: 10px;
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.tayar-v2-manual-fields input:not([type="checkbox"]):not([type="color"]),
+.tayar-v2-manual-fields select,
+.tayar-v2-manual-fields textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 9px;
+  background: rgba(2, 6, 23, 0.5);
+  color: inherit;
+  padding: 8px 9px;
+  font: inherit;
+  outline: none;
+}
+
+.tayar-v2-manual-fields input[type="color"] {
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 0;
+}
+
+.tayar-v2-manual-toggle {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+}
+
+.tayar-v2-manual-note {
+  border-radius: 9px;
+  background: rgba(124, 58, 237, 0.08);
+  padding: 8px 9px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(221, 214, 254, 0.9);
+}
+
+.tayar-v2-manual-action {
+  border: 1px solid rgba(124, 58, 237, 0.24);
+  border-radius: 9px;
+  background: rgba(124, 58, 237, 0.09);
+  padding: 8px 10px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tayar-v2-component-list {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+}
+
+.tayar-v2-component-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tayar-v2-component-row__insert {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 9px;
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.tayar-v2-component-row__insert span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tayar-v2-layer-group__title--actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tayar-v2-layer-group__title--actions button {
+  font-size: 9px;
+  opacity: 0.8;
+}
+
+.tayar-v2-form-add-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.tayar-v2-form-add-grid button {
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  border-radius: 8px;
+  padding: 6px 7px;
+  font-size: 9px;
+}
+
+@media (max-width: 1080px) {
+  .tayar-v2-manual-fields--two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
