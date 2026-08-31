@@ -42,12 +42,17 @@ check('Template mirror migration exists', exists('supabase/migrations/2026083123
 check('Template mirror sync Edge Function exists', exists('supabase/functions/template-library-sync/index.ts'));
 check('Template mirror discovery Edge Function exists', exists('supabase/functions/template-library-discover/index.ts'));
 check('Template Drive folder discovery Edge Function exists', exists('supabase/functions/template-library-drive-discover/index.ts'));
+check('Resumable template import runner exists', exists('scripts/template-library-browser-importer.js'));
 check('24Billions source catalog exists', exists('src/modules/templates-hub/source-catalog.ts'));
 const templateSourceCatalogDiscovery = read('src/modules/templates-hub/source-catalog.ts');
 const templateDriveDiscoverSource = read('supabase/functions/template-library-drive-discover/index.ts');
+const templateImportRunner = read('scripts/template-library-browser-importer.js');
+const templateSyncSource = read('supabase/functions/template-library-sync/index.ts');
 check('11K source catalog pins the public Google Drive folder', templateSourceCatalogDiscovery.includes('1NLQlCySD88ZbeHt6E2q88c4FsvHzfzBi'));
 check('Drive discovery stays admin-only and Google-host bounded', templateDriveDiscoverSource.includes('Administrator access required') && templateDriveDiscoverSource.includes('embeddedfolderview') && templateDriveDiscoverSource.includes('MAX_FOLDERS_PER_REQUEST') && !templateDriveDiscoverSource.includes('fetch(input.'));
 check('Drive discovery paginates large public folders', templateDriveDiscoverSource.includes('nextOffset') && templateDriveDiscoverSource.includes('totalResultCount') && templateDriveDiscoverSource.includes('pageSize') && templateDriveDiscoverSource.includes('MAX_OFFSET'));
+check('Template sync skips already-ready assets', templateSyncSource.includes('skipped += 1') && templateSyncSource.includes('existing?.status === "ready"') && templateSyncSource.includes('storage_path'));
+check('Template import runner persists recursive progress', templateImportRunner.includes('STATE_KEY') && templateImportRunner.includes('nextOffset') && templateImportRunner.includes('seenFolderIds') && templateImportRunner.includes('SYNC_BATCH_SIZE = 2'));
 check('Template mirror client service exists', exists('src/modules/templates-hub/library-service.ts'));
 check('Templates are split by domain', exists('src/modules/templates-hub/templates/finance.ts') && exists('src/modules/templates-hub/templates/business.ts') && exists('src/modules/templates-hub/templates/productivity.ts'));
 check('Name Generator module exists', exists('src/modules/name-generator/NameGeneratorTool.tsx'));
