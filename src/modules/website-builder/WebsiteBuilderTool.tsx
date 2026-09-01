@@ -3434,6 +3434,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const reusableOperationSequenceRef = useRef(0);
   const mediaRefreshSequenceRef = useRef(0);
   const mediaOperationSequenceRef = useRef(0);
+  const billingRefreshSequenceRef = useRef(0);
+  const billingOperationSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
 
   activeUserIdRef.current = user?.id ?? null;
@@ -3441,9 +3443,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   useEffect(() => {
     reusableOperationSequenceRef.current += 1;
     mediaOperationSequenceRef.current += 1;
+    billingRefreshSequenceRef.current += 1;
+    billingOperationSequenceRef.current += 1;
     setReusableBusy(false);
     setMediaLoading(false);
     setMediaUploading(false);
+    setBillingLoading(false);
+    setBillingBusy(false);
   }, [user?.id]);
 
   const cancelPendingProjectPersistence = useCallback(() => {
