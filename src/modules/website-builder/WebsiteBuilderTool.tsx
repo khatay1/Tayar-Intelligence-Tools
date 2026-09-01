@@ -80,6 +80,8 @@ import {
 } from './core/editor-project-lifecycle';
 import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
 import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles, uploadPublishedWebsiteFolderFiles } from './services/publishedWebsiteService';
+import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
+import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
@@ -3753,14 +3755,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     setReusableBusy(true);
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, title, content, updated_at')
-      .eq('user_id', user.id)
-      .eq('type', 'website-section-template')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false })
-      .limit(30);
+    const { data, error } = await listReusableSectionsInCloud(user.id);
 
     if (error) {
       setReusableError('Could not load reusable sections.');
@@ -3809,13 +3804,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const { error } = await supabase.from('projects').insert({
-      user_id: user.id,
-      title,
-      type: 'website-section-template',
-      content: { version: 1, section: savedSection },
-      status: 'completed',
-    });
+    const { error } = await saveReusableSectionInCloud(user.id, title, savedSection);
 
     if (error) {
       setReusableError('Could not save this reusable section.');
@@ -3848,12 +3837,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     setReusableBusy(true);
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', template.cloudId)
-      .eq('user_id', user.id)
-      .eq('type', 'website-section-template');
+    const { error } = await deleteReusableSectionInCloud(user.id, template.cloudId);
 
     if (error) {
       setReusableError('Could not delete this reusable section.');
@@ -8611,13 +8595,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
     setPublishVersionsLoading(true);
     setPublishVersionsError('');
-    const { data, error } = await supabase
-      .from('website_publish_versions')
-      .select('id, project_id, user_id, release_note, published_url, storage_prefix, editor_fingerprint, snapshot, file_manifest, created_at')
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId)
-      .order('created_at', { ascending: false })
-      .limit(30);
+    const { data, error } = await listWebsitePublishVersions(cloudProjectId, activeProjectOwnerId);
     if (error) {
       setPublishVersionsError('Release history is unavailable. Apply the Sprint 97-108 database migration.');
       setPublishVersionsLoading(false);
@@ -8872,12 +8850,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPublishVersionsError('');
     try {
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
-      const paths = manifest.map((item) => `${version.storage_prefix}/${item.name}`);
-      if (paths.length) {
-        const { error: removeError } = await supabase.storage.from('published-sites').remove(paths);
-        if (removeError) throw removeError;
-      }
-      const { error } = await supabase.from('website_publish_versions').delete().eq('id', version.id).eq('project_id', cloudProjectId).eq('user_id', activeProjectOwnerId);
+      const { error } = await deleteWebsitePublishVersionArchive({
+        versionId: version.id,
+        projectId: cloudProjectId,
+        ownerId: activeProjectOwnerId,
+        storagePrefix: version.storage_prefix,
+        fileManifest: manifest,
+      });
       if (error) throw error;
       setPublishVersions((current) => current.filter((item) => item.id !== version.id));
     } catch (error) {
