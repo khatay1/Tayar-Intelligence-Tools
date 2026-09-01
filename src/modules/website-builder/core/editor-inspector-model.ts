@@ -9,6 +9,7 @@ import {
   findEditorSection,
 } from './editor-model';
 import type { EditorSelection } from './editor-selection';
+import { editorPayloadHasForbiddenKey } from './editor-payload-safety';
 
 export interface EditorInspectorField {
   key: string;
@@ -781,7 +782,18 @@ export function patchForEditorInspectorField(
   key: string,
   value: unknown,
 ) {
-  const parts = key.split('.');
+  const parts = key.split('.').filter(Boolean);
+  if (
+    !parts.length ||
+    parts.length > 4 ||
+    parts.some(
+      (part) =>
+        part.length > 80 ||
+        editorPayloadHasForbiddenKey(part),
+    )
+  ) {
+    return {};
+  }
 
   if (parts.length === 1) {
     return { [key]: value };
