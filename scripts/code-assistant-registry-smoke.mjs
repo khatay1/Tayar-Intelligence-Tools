@@ -19,7 +19,7 @@ if (futureIndex.includes("id: 'code-assistant'")) fail('Old Coming Soon Code Ass
 if (!sourceCatalog.includes("id: 'react-bits'") || !sourceCatalog.includes('redistributionAllowed: false')) fail('Restricted source guard is missing.');
 if (seed.includes("sourceId: 'react-bits'")) fail('Restricted React Bits content was bundled.');
 if (!assistant.includes("matches.find((item) => item.id === selectedId) || matches[0]")) fail('Filtered selection must stay inside visible registry results.');
-if (!upstream.includes("sourceId: 'shadcn'") || !upstream.includes("sourceId: 'kokonut-ui'") || !upstream.includes("sourceId: 'magic-ui'")) fail('Approved upstream registries are not configured.');
+if (!upstream.includes("sourceId: 'shadcn'") || !upstream.includes("sourceId: 'kokonut-ui'") || !upstream.includes("sourceId: 'magic-ui'") || !upstream.includes("sourceId: 'cult-ui'") || !upstream.includes("sourceId: '8bitcn'") || !upstream.includes("sourceId: 'eldora-ui'")) fail('Approved upstream registries are not configured.');
 if (upstream.includes("sourceId: 'react-bits'")) fail('Restricted React Bits source must never be configured for upstream loading.');
 const manifestLines = upstream.split('\n').filter((line) => line.includes('manifestUrl:'));
 if (manifestLines.some((line) => !line.includes('https://raw.githubusercontent.com/'))) fail('Registry manifests must use raw GitHub URLs.');

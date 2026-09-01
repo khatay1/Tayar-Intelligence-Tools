@@ -59,6 +59,27 @@ export const UPSTREAM_REGISTRIES: UpstreamRegistryConfig[] = [
     sourcePathPrefix: 'apps/www/',
     licensePath: 'LICENSE.md',
   },
+  {
+    sourceId: 'cult-ui',
+    manifestUrl: 'https://raw.githubusercontent.com/nolly-studio/cult-ui/main/apps/www/public/registry/index.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/nolly-studio/cult-ui/main',
+    sourcePathPrefix: 'apps/www/',
+    licensePath: 'LICENSE.md',
+  },
+  {
+    sourceId: '8bitcn',
+    manifestUrl: 'https://raw.githubusercontent.com/TheOrcDev/8bitcn-ui/main/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/TheOrcDev/8bitcn-ui/main',
+    sourcePathPrefix: '',
+    licensePath: 'license.md',
+  },
+  {
+    sourceId: 'eldora-ui',
+    manifestUrl: 'https://raw.githubusercontent.com/karthikmudunuri/eldoraui/main/apps/www/public/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/karthikmudunuri/eldoraui/main',
+    sourcePathPrefix: 'apps/www/',
+    licensePath: 'LICENSE.md',
+  },
 ];
 
 const codeCache = new Map<string, Promise<string>>();

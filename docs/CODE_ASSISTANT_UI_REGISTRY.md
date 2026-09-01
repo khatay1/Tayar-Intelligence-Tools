@@ -17,6 +17,9 @@ Currently verified:
 - `shadcn-ui/ui` — MIT — allowed with upstream notice preserved for substantial copied portions.
 - `magicuidesign/magicui` — MIT — allowed with upstream notice preserved for substantial copied portions.
 - `kokonut-labs/kokonutui` — MIT — allowed with upstream notice preserved for substantial copied portions.
+- `nolly-studio/cult-ui` — MIT — allowed with upstream notice preserved.
+- `TheOrcDev/8bitcn-ui` — MIT — allowed with upstream notice preserved.
+- `karthikmudunuri/eldoraui` — MIT — allowed with upstream notice preserved.
 - `DavidHDev/react-bits` — current Commons Clause restriction — blocked from registry redistribution.
 
 The registry source catalog is the enforcement point. A component cannot be registered from a blocked source.
@@ -32,7 +35,8 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Structured “Use with AI” adaptation prompt.
 - Source and license visibility.
 - Source-level redistribution guard.
-- Runtime loading of approved upstream registry manifests from shadcn/ui, KokonutUI and Magic UI.
+- Runtime loading of approved upstream registry manifests from shadcn/ui, KokonutUI, Magic UI, Cult UI, 8bitcn and Eldora UI.
+- Current verified manifests expose roughly 530 redistributable UI components/blocks before future sources are added.
 - On-demand component source fetching; third-party code is not executed inside the registry browser.
 - Full upstream MIT license text is prepended when remote source is loaded/copied.
 - Network/path/payload size guards for upstream source loading.
