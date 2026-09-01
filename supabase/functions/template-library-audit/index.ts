@@ -72,9 +72,9 @@ function inferExtensionFromBytes(bytes: Uint8Array) {
   if (hasBytes(bytes, [0xff, 0xd8, 0xff])) return "jpg";
 
   if (isZipContainer(bytes)) {
-    if (bytesIncludeAscii(bytes, "xl/workbook.xml")) return "xlsx";
-    if (bytesIncludeAscii(bytes, "word/document.xml")) return "docx";
     if (bytesIncludeAscii(bytes, "ppt/presentation.xml")) return "pptx";
+    if (bytesIncludeAscii(bytes, "word/document.xml")) return "docx";
+    if (bytesIncludeAscii(bytes, "xl/workbook.xml")) return "xlsx";
     if (
       bytesIncludeAscii(bytes, "Report/Layout")
       || bytesIncludeAscii(bytes, "DataModel")
@@ -88,43 +88,44 @@ function inferExtensionFromBytes(bytes: Uint8Array) {
   return "";
 }
 
-function inspectFile(filename: string, bytes: Uint8Array) {
-  const extension = filename.split(".").pop()?.toLowerCase() || "";
-  const detected = inferExtensionFromBytes(bytes);
-  let valid = true;
-
+function matchesExpectedExtension(extension: string, bytes: Uint8Array) {
   switch (extension) {
     case "pdf":
-      valid = detected === "pdf";
-      break;
+      return hasBytes(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d]);
     case "png":
-      valid = detected === "png";
-      break;
+      return hasBytes(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     case "jpg":
     case "jpeg":
-      valid = detected === "jpg";
-      break;
+      return hasBytes(bytes, [0xff, 0xd8, 0xff]);
     case "xlsx":
+      return isZipContainer(bytes) && bytesIncludeAscii(bytes, "xl/workbook.xml");
     case "docx":
+      return isZipContainer(bytes) && bytesIncludeAscii(bytes, "word/document.xml");
     case "pptx":
+      return isZipContainer(bytes) && bytesIncludeAscii(bytes, "ppt/presentation.xml");
     case "pbix":
-      valid = detected === extension;
-      break;
+      return isZipContainer(bytes) && (
+        bytesIncludeAscii(bytes, "Report/Layout")
+        || bytesIncludeAscii(bytes, "DataModel")
+      );
     case "zip":
-      valid = isZipContainer(bytes);
-      break;
+      return isZipContainer(bytes);
     case "xls":
     case "doc":
     case "ppt":
-      valid = isOleCompoundDocument(bytes);
-      break;
+      return isOleCompoundDocument(bytes);
     case "csv":
     case "txt":
-      valid = !looksLikeHtml(bytes);
-      break;
+      return !looksLikeHtml(bytes);
     default:
-      valid = false;
+      return false;
   }
+}
+
+function inspectFile(filename: string, bytes: Uint8Array) {
+  const extension = filename.split(".").pop()?.toLowerCase() || "";
+  const detected = inferExtensionFromBytes(bytes);
+  const valid = matchesExpectedExtension(extension, bytes);
 
   if (looksLikeHtml(bytes)) {
     return {
