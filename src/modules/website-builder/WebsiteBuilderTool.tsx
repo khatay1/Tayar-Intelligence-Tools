@@ -78,7 +78,7 @@ import {
   saveLocalWebsiteProject,
   saveRecoveryWebsiteProject,
 } from './core/editor-project-lifecycle';
-import { createWebsiteProjectInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
+import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
 import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles } from './services/publishedWebsiteService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 
@@ -3717,12 +3717,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setCloudProjectsLoaded(false);
     setCloudBusy(true);
     setCloudError('');
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, user_id, workspace_id, title, content, status, updated_at')
-      .eq('type', 'website-builder')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false });
+    const { data, error } = await listWebsiteProjectsInCloud();
 
     if (error) {
       setCloudError('Could not load cloud projects.');
@@ -9038,17 +9033,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setCloudBusy(true);
     setCloudError('');
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({
-        user_id: user.id,
-        title: duplicateTitle,
-        type: 'website-builder',
-        content: duplicateContent,
-        status: 'draft',
-      })
-      .select('id, title, content, updated_at')
-      .single();
+    const { data, error } = await createWebsiteProjectInCloud({
+      userId: user.id,
+      title: duplicateTitle,
+      content: duplicateContent,
+      published: false,
+    });
 
     if (error || !data) {
       if (error && /limit reached/i.test(error.message || '')) openBillingWithMessage(error.message);
