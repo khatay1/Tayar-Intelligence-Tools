@@ -53,6 +53,8 @@ const editorInspectorOperationPath = resolve(root, 'src/modules/website-builder/
 const editorInspectorModelPath = resolve(root, 'src/modules/website-builder/core/editor-inspector-model.ts');
 const editorValueSafetyPath = resolve(root, 'src/modules/website-builder/core/editor-value-safety.ts');
 const editorAIOperationContextPath = resolve(root, 'src/modules/website-builder/core/editor-ai-operation-context.ts');
+const editorAINativeBridgePath = resolve(root, 'src/modules/website-builder/core/editor-ai-native-bridge.ts');
+const editorNativeProjectPatchPath = resolve(root, 'src/modules/website-builder/core/editor-native-project-patch.ts');
 
 const failures = [];
 const passes = [];
@@ -113,6 +115,8 @@ for (const [label, path] of [
   ['Native inspector model exists', editorInspectorModelPath],
   ['Native semantic value safety helper exists', editorValueSafetyPath],
   ['AI async editor context helper exists', editorAIOperationContextPath],
+  ['AI native operation bridge exists', editorAINativeBridgePath],
+  ['Plain native project patch executor exists', editorNativeProjectPatchPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -166,6 +170,8 @@ const editorInspectorOperation = existsSync(editorInspectorOperationPath) ? read
 const editorInspectorModel = existsSync(editorInspectorModelPath) ? readFileSync(editorInspectorModelPath, 'utf8') : '';
 const editorValueSafety = existsSync(editorValueSafetyPath) ? readFileSync(editorValueSafetyPath, 'utf8') : '';
 const editorAIOperationContext = existsSync(editorAIOperationContextPath) ? readFileSync(editorAIOperationContextPath, 'utf8') : '';
+const editorAINativeBridge = existsSync(editorAINativeBridgePath) ? readFileSync(editorAINativeBridgePath, 'utf8') : '';
+const editorNativeProjectPatch = existsSync(editorNativeProjectPatchPath) ? readFileSync(editorNativeProjectPatchPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -271,7 +277,7 @@ check('AI builder can add hover and reveal motion without custom code', builder.
 check('AI builder can edit contact form structure and success behavior', builder.includes("update_form") && builder.includes("add_form_field") && builder.includes("update_form_field") && builder.includes("remove_form_field") && builder.includes("move_form_field"));
 check('AI builder sends containers and forms in edit context', builder.includes('containers: (section.containers || [])') && builder.includes("form: section.type === 'contact'"));
 check('AI builder duplicates content without reusing source identities', builder.includes("duplicate_page") && builder.includes("duplicate_section") && builder.includes("duplicate_element") && builder.includes('cloneElementForAI') && builder.includes('symbolId: undefined'));
-check('AI builder edits global typography spacing and theme tokens', builder.includes("update_theme") && builder.includes('themeContentWidth') && builder.includes('themeSectionSpacing') && builder.includes('FONT_OPTIONS.includes(changes.fontFamily)'));
+check('AI builder edits global typography spacing and theme tokens', builder.includes("update_theme") && builder.includes('themeContentWidth') && builder.includes('themeSectionSpacing') && editorAINativeBridge.includes("['Inter', 'Arial', 'Georgia', 'Trebuchet MS', 'Courier New', 'system-ui']"));
 check('AI builder edits complete header behavior and styling', builder.includes('headerSticky') && builder.includes('headerMobileMenu') && builder.includes('headerBackgroundColor') && builder.includes('headerNavGap'));
 check('AI builder exposes clone and global design quick prompts', builder.includes('Duplicate selected element and keep it editable') && builder.includes('Make global typography more premium') && builder.includes('Make the header compact and sticky'));
 check('Manual builder page controls survive AI upgrades', builder.includes('function addPage()') && builder.includes('function duplicateActivePage()') && builder.includes('function movePage(') && builder.includes('function deleteActivePage()'));
@@ -332,6 +338,12 @@ check('AI quality reviews are invalidated when the editor changes before fixes',
 check('AI undo snapshots cannot restore into another project lifecycle', builder.includes('aiUndoContextRef.current = operationContext') && builder.includes('aiProjectIdentityIsCurrent(undoContext)'));
 check('AI busy cleanup uses request ownership instead of stale apply context', builder.includes('if (operationIsLatest()) {\n        setAiBusy(false);') && builder.includes('if (operationIsLatest()) setAiQualityBusy(false)'));
 check('AI lifecycle resets stale undo and quality contexts', builder.includes('aiUndoContextRef.current = null') && builder.includes('aiQualityReviewContextRef.current = null'));
+check('Plain native project patches reuse the canonical transaction path', editorNativeProjectPatch.includes('createEditorSession(project') && editorNativeProjectPatch.includes('applyEditorNativePatch(') && editorNativeProjectPatch.includes('result.state.project'));
+check('AI global bridge maps legacy theme SEO and header aliases into native fields', editorAINativeBridge.includes("'update_theme'") && editorAINativeBridge.includes("'update_seo'") && editorAINativeBridge.includes("'update_header'") && editorAINativeBridge.includes("'themeContentWidth'") && editorAINativeBridge.includes("'seoKeywords'") && editorAINativeBridge.includes("'headerNavGap'"));
+check('AI global bridge rejects unsafe links and preserves empty logo compatibility', editorAINativeBridge.includes('safeLink(') && editorAINativeBridge.includes('/^https?:\\/\\//i') && editorAINativeBridge.includes("safeMediaUrl(changes.headerLogoUrl, 1000, false)"));
+check('AI global edits execute through native project transactions', builder.includes('convertLegacyAIGlobalOperationToNative') && builder.includes('applyEditorNativeProjectPatch(') && builder.includes('applyAIGlobalNativeOperation('));
+check('Legacy AI global mutation branches are removed after native routing', !builder.includes("if (operation.action === 'update_theme')") && !builder.includes("if (operation.action === 'update_seo')") && !builder.includes("if (operation.action === 'update_header')"));
+check('AI native bridge failures stay scoped as patch warnings', builder.includes('nativeBridgeWarnings') && builder.includes('if (!nativeResult.ok)') && builder.includes('...nativeBridgeWarnings'));
 check('V2 native page growth respects billing while existing over-limit projects remain editable', builder.includes('const pageCountIncreased =') && builder.includes('candidate.pages.length >') && builder.includes('billingEntitlements.maxPages'));
 check('Reusable components stop safely at 50 instead of evicting linked symbols', builder.includes('if (symbols.length >= 50)') && builder.includes('setSymbols((current) => [symbol, ...current]);') && !builder.includes('setSymbols((current) => [symbol, ...current].slice(0, 50))'));
 check('Expanded V2 option groups stay in normal flow instead of overlapping', websiteBuilderV2Css.includes('Keep one scroll owner per side panel') && websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields') && websiteBuilderV2Css.includes('position: static') && !websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body'));
