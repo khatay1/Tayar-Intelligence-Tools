@@ -6,7 +6,7 @@ import TemplatesHubTool from './TemplatesHubTool';
 const module: ToolModule = {
   id: 'templates-hub',
   name: 'Templates Hub',
-  description: 'Original starter templates for finance, business and productivity workflows.',
+  description: 'Browse Tayar-hosted office templates and original starter files.',
   category: 'productivity',
   status: 'active',
   tier: 'free',
