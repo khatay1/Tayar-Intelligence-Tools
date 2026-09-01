@@ -74,7 +74,6 @@ import {
   loadActiveWebsiteProjectId,
   loadLocalWebsiteProject,
   loadRecoveryWebsiteProject,
-  retryCloudOperation,
   saveActiveWebsiteProjectId,
   saveLocalWebsiteProject,
   saveRecoveryWebsiteProject,
@@ -9676,19 +9675,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }
       } else {
         const draftData = buildProjectData();
-        const createResult = await retryCloudOperation(() =>
-          supabase
-            .from('projects')
-            .insert({
-              user_id: user.id,
-              title: siteName.trim() || 'My Website',
-              type: 'website-builder',
-              content: draftData,
-              status: 'draft',
-            })
-            .select('id')
-            .single()
-        );
+        const createResult = await createWebsiteProjectInCloud({
+          userId: user.id,
+          title: siteName.trim() || 'My Website',
+          content: draftData,
+          published: false,
+        });
 
         if (createResult.error || !createResult.data) {
           if (createResult.error && /limit reached/i.test(createResult.error.message || '')) {
