@@ -38,6 +38,7 @@ const builderHistoryPanelPath = resolve(root, 'src/modules/website-builder/v2-ui
 const builderPanelRouterPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderPanelRouter.tsx');
 const builderV2NativeBridgePath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderV2NativeBridge.tsx');
 const websiteBuilderV2BridgePath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
+const builderComponentsPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderComponentsPanel.tsx');
 
 const failures = [];
 const passes = [];
@@ -83,6 +84,7 @@ for (const [label, path] of [
   ['V2 panel router exists', builderPanelRouterPath],
   ['V2 native bridge exists', builderV2NativeBridgePath],
   ['V2 bridge exists', websiteBuilderV2BridgePath],
+  ['V2 Components panel exists', builderComponentsPanelPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -121,6 +123,7 @@ const builderHistoryPanel = existsSync(builderHistoryPanelPath) ? readFileSync(b
 const builderPanelRouter = existsSync(builderPanelRouterPath) ? readFileSync(builderPanelRouterPath, 'utf8') : '';
 const builderV2NativeBridge = existsSync(builderV2NativeBridgePath) ? readFileSync(builderV2NativeBridgePath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
+const builderComponentsPanel = existsSync(builderComponentsPanelPath) ? readFileSync(builderComponentsPanelPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -229,6 +232,8 @@ check('AI builder exposes clone and global design quick prompts', builder.includ
 check('Manual builder page controls survive AI upgrades', builder.includes('function addPage()') && builder.includes('function duplicateActivePage()') && builder.includes('function movePage(') && builder.includes('function deleteActivePage()'));
 check('Manual builder edit and history controls survive AI upgrades', builder.includes('function updateSelected(') && builder.includes('function undo()') && builder.includes('function redo()') && builder.includes('function updateSelectedElement('));
 check('V2 history entries restore real editor checkpoints', builder.includes('function restoreEditHistoryEntry(entryId: string)') && builder.includes('onRestoreHistoryEntry={restoreEditHistoryEntry}') && builderHistoryPanel.includes('onRestoreEntry?.(entry.id)') && builderPanelRouter.includes('onRestoreEntry={props.onRestoreHistoryEntry}') && builderV2NativeBridge.includes('props.onRestoreHistoryEntry') && websiteBuilderV2Bridge.includes('onRestoreHistoryEntry'));
+check('V2 Components insert at the selected editor location', builder.includes('const targetContainerId =') && builder.includes('selectedElement?.containerId') && builder.includes('selectedContainerId') && builder.includes('elements.splice(insertAt, 0, instance)'));
+check('V2 Components panel explains linked behavior', builderComponentsPanel.includes('Components are reusable linked elements') && builderComponentsPanel.includes('Create component') && builderComponentsPanel.includes('Detach selected'));
 check('Manual builder advanced controls survive AI upgrades', builder.includes('function createContainerForSelected()') && builder.includes('function assignSelectedToContainer(') && builder.includes('function deleteSelectedContainer()') && builder.includes('function createSymbolFromSelected()'));
 check('AI builder uses guarded atomic transactions', builder.includes('validateAIProjectIntegrity') && builder.includes('destructiveOperations') && builder.includes('operations.length - applied'));
 check('Manual container inspector remains null-safe', builder.includes('{selectedContainer && selectedSection && sectionColumnCount(selectedSection.layout) > 1 && ('));
