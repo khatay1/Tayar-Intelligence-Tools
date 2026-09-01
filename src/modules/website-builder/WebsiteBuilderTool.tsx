@@ -82,7 +82,7 @@ import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteP
 import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles, uploadPublishedWebsiteFolderFiles } from './services/publishedWebsiteService';
 import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
 import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
-import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus } from './services/websiteLeadService';
+import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
 import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles, uploadWebsiteMediaFile } from './services/websiteMediaService';
@@ -9448,12 +9448,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const newIds = leads.filter((lead) => lead.status === 'new').map((lead) => lead.id);
     if (!newIds.length) return;
-    const { error } = await supabase
-      .from('website_leads')
-      .update({ status: 'read', updated_at: new Date().toISOString() })
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId)
-      .eq('status', 'new');
+    const { error } = await updateWebsiteLeadsByStatus({
+      projectId: cloudProjectId,
+      ownerId: activeProjectOwnerId,
+      fromStatus: 'new',
+      toStatus: 'read',
+      updatedAt: new Date().toISOString(),
+    });
     if (error) { setLeadsError('Could not mark all leads as read.'); return; }
     setLeads((current) => current.map((lead) => lead.status === 'new' ? { ...lead, status: 'read' } : lead));
   }
@@ -9462,12 +9463,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const readCount = leads.filter((lead) => lead.status === 'read').length;
     if (!readCount) return;
-    const { error } = await supabase
-      .from('website_leads')
-      .update({ status: 'archived', updated_at: new Date().toISOString() })
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId)
-      .eq('status', 'read');
+    const { error } = await updateWebsiteLeadsByStatus({
+      projectId: cloudProjectId,
+      ownerId: activeProjectOwnerId,
+      fromStatus: 'read',
+      toStatus: 'archived',
+      updatedAt: new Date().toISOString(),
+    });
     if (error) { setLeadsError('Could not archive read leads.'); return; }
     setLeads((current) => current.map((lead) => lead.status === 'read' ? { ...lead, status: 'archived' } : lead));
   }
