@@ -8235,6 +8235,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           return true;
         }
 
+        if (operation.action === 'update_form') {
+          if (section.type !== 'contact') {
+            return true;
+          }
+
+          const nativeOperation =
+            convertLegacyAIUpdateOperationToNative(
+              operation,
+              {
+                pageId: page.id,
+                sectionId: section.id,
+              },
+            );
+
+          if (!nativeOperation) {
+            applied += 1;
+            return true;
+          }
+
+          const status =
+            applyAIWorkingNativeOperation(
+              nativeOperation,
+              operation.action,
+            );
+
+          if (status === 'unchanged') {
+            applied += 1;
+          }
+
+          return true;
+        }
+
         if (operation.action === 'update_container') {
           if (
             !operation.containerId ||
@@ -9228,27 +9260,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
             nextPages[pageIndex] = { ...page, sections: sectionList };
           }
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'update_form') {
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.type !== 'contact') continue;
-          const changes = operation.changes || {};
-
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            formSuccessMessage: typeof changes.formSuccessMessage === 'string'
-              ? changes.formSuccessMessage.trim().slice(0, 500)
-              : targetSection.formSuccessMessage,
-            formSuccessAction: changes.formSuccessAction === 'redirect' ? 'redirect' : changes.formSuccessAction === 'message' ? 'message' : targetSection.formSuccessAction,
-            formRedirectUrl: typeof changes.formRedirectUrl === 'string'
-              ? changes.formRedirectUrl.trim().slice(0, 1000)
-              : targetSection.formRedirectUrl,
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
           applied += 1;
           continue;
         }
