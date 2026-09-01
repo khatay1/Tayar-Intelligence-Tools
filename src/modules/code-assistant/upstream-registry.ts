@@ -115,6 +115,7 @@ export const UPSTREAM_REGISTRIES: UpstreamRegistryConfig[] = [
 
 const codeCache = new Map<string, Promise<string>>();
 const licenseCache = new Map<string, Promise<string>>();
+let upstreamCatalogPromise: Promise<UpstreamLoadResult> | null = null;
 
 function asString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -252,17 +253,25 @@ async function loadRegistry(config: UpstreamRegistryConfig): Promise<UIComponent
 }
 
 export async function loadUpstreamComponents(): Promise<UpstreamLoadResult> {
-  const settled = await Promise.allSettled(UPSTREAM_REGISTRIES.map(loadRegistry));
-  const items: UIComponentRecord[] = [];
-  const errors: string[] = [];
+  if (!upstreamCatalogPromise) {
+    upstreamCatalogPromise = (async () => {
+      const settled = await Promise.allSettled(UPSTREAM_REGISTRIES.map(loadRegistry));
+      const items: UIComponentRecord[] = [];
+      const errors: string[] = [];
 
-  settled.forEach((result, index) => {
-    const sourceId = UPSTREAM_REGISTRIES[index].sourceId;
-    if (result.status === 'fulfilled') items.push(...result.value);
-    else errors.push(`${sourceId}: ${result.reason instanceof Error ? result.reason.message : 'Unable to load registry.'}`);
-  });
+      settled.forEach((result, index) => {
+        const sourceId = UPSTREAM_REGISTRIES[index].sourceId;
+        if (result.status === 'fulfilled') items.push(...result.value);
+        else errors.push(`${sourceId}: ${result.reason instanceof Error ? result.reason.message : 'Unable to load registry.'}`);
+      });
 
-  return { items, errors };
+      return { items, errors };
+    })();
+  }
+
+  const result = await upstreamCatalogPromise;
+  if (!result.items.length) upstreamCatalogPromise = null;
+  return result;
 }
 
 async function loadLicense(config: UpstreamRegistryConfig): Promise<string> {

@@ -54,6 +54,8 @@ if (manifestUrls.some((url) => !url.startsWith('https://raw.githubusercontent.co
 if (manifestUrls.some((url) => url.includes('/main/') || url.includes('/master/'))) fail('Registry manifests must be pinned to immutable commits.');
 if (!upstream.includes("replace(/^\\.\\/+/, '')")) fail('Registry path normalization for ./-prefixed files is missing.');
 if (!assistant.includes('visibleMatches') || !assistant.includes('Show 80 more')) fail('Large registry result pagination is missing.');
+if (!assistant.includes('similarRecords') || !assistant.includes('Similar components') || !assistant.includes('name.startsWith(q)')) fail('Registry discovery relevance features are missing.');
+if (!upstream.includes('upstreamCatalogPromise') || !upstream.includes('if (!result.items.length) upstreamCatalogPromise = null')) fail('Immutable registry catalog session cache is missing.');
 if (vercel?.git?.deploymentEnabled?.['internal-*'] !== false) fail('Internal branch Vercel deployment guard is missing.');
 
 if (!process.exitCode) {

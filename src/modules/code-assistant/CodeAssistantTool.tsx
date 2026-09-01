@@ -53,7 +53,7 @@ function filterRecords(
   favoriteIds: Set<string>,
 ) {
   const q = query.trim().toLowerCase();
-  return records.filter((record) => {
+  const filtered = records.filter((record) => {
     if (category !== 'all' && record.category !== category) return false;
     if (kind !== 'all' && (record.kind || 'component') !== kind) return false;
     if (sourceId !== 'all' && record.sourceId !== sourceId) return false;
@@ -62,6 +62,44 @@ function filterRecords(
     return [record.name, record.description, record.category, ...record.tags]
       .some((value) => value.toLowerCase().includes(q));
   });
+
+  if (!q) return filtered;
+  const score = (record: UIComponentRecord) => {
+    const name = record.name.toLowerCase();
+    const description = record.description.toLowerCase();
+    const tags = record.tags.map((tag) => tag.toLowerCase());
+    let total = 0;
+    if (name === q) total += 120;
+    else if (name.startsWith(q)) total += 80;
+    else if (name.includes(q)) total += 50;
+    if (tags.includes(q)) total += 40;
+    total += tags.filter((tag) => tag.includes(q)).length * 15;
+    if (record.category.includes(q)) total += 20;
+    if (description.includes(q)) total += 10;
+    return total;
+  };
+
+  return [...filtered].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name));
+}
+
+function similarRecords(records: UIComponentRecord[], selected: UIComponentRecord | undefined) {
+  if (!selected) return [];
+  const selectedTags = new Set(selected.tags.map((tag) => tag.toLowerCase()));
+  const score = (record: UIComponentRecord) => {
+    let total = 0;
+    if (record.category === selected.category) total += 12;
+    if ((record.kind || 'component') === (selected.kind || 'component')) total += 3;
+    if (record.sourceId === selected.sourceId) total += 2;
+    for (const tag of record.tags) if (selectedTags.has(tag.toLowerCase())) total += 4;
+    return total;
+  };
+  return records
+    .filter((record) => record.id !== selected.id)
+    .map((record) => ({ record, score: score(record) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || a.record.name.localeCompare(b.record.name))
+    .slice(0, 6)
+    .map((entry) => entry.record);
 }
 
 export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: boolean; projectId?: string | null }) {
@@ -159,6 +197,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const visibleMatches = useMemo(() => matches.slice(0, visibleCount), [matches, visibleCount]);
   const selected = visibleMatches.find((item) => item.id === selectedId) || visibleMatches[0] || matches[0];
   const source = selected ? getRegistrySource(selected.sourceId) : undefined;
+  const similarItems = useMemo(() => similarRecords(allItems, selected), [allItems, selected]);
   const selectedCode = selected ? (loadedCode[selected.id] ?? selected.code) : '';
   const selectedRegistryResolution = useMemo(
     () => selected ? resolveRegistryDependencies(allItems, selected) : { resolved: [], unresolved: [], npmDependencies: [] },
@@ -501,7 +540,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             {actionError && <div className="mx-4 mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">{actionError}</div>}
 
             <div className="p-4 sm:p-5">
-              {tab === 'preview' && <div><Preview item={selected} /><p className="mt-2 text-[11px] opacity-45">Safe schematic preview. Third-party component code is never executed inside the registry browser.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 p-3"><Boxes className="h-4 w-4 text-violet-400" /><div className="mt-2 text-xs font-semibold">Category</div><div className="mt-1 text-xs opacity-50 capitalize">{selected.category}</div></div><div className="rounded-xl border border-white/10 p-3"><Package className="h-4 w-4 text-cyan-400" /><div className="mt-2 text-xs font-semibold">Dependencies</div><div className="mt-1 text-xs opacity-50">{selectedRegistryResolution.npmDependencies.length ? selectedRegistryResolution.npmDependencies.join(', ') : 'None'}</div>{projectContext && selectedRegistryResolution.npmDependencies.length > 0 && <div className={`mt-2 text-[10px] ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? `${missingDependencies.length} missing in active project` : 'All npm dependencies found'}</div>}</div><div className="rounded-xl border border-white/10 p-3"><Sparkles className="h-4 w-4 text-amber-400" /><div className="mt-2 text-xs font-semibold">AI ready</div><div className="mt-1 text-xs opacity-50">{projectContext ? 'Project-aware adaptation context' : 'Source-aware adaptation payload'}</div></div></div>{projectContext && <div className="mt-3 rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><FolderCog className="h-4 w-4 text-cyan-400" /> Active project compatibility</div><div className="mt-3 grid gap-2 sm:grid-cols-3"><div><div className="text-[10px] uppercase tracking-wider opacity-40">Framework</div><div className="mt-1 text-xs">{projectContext.framework}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Context files</div><div className="mt-1 text-xs">{projectContext.files.length}/{projectContext.totalCandidateFiles}{projectContext.truncated ? ' bounded' : ''}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Missing npm deps</div><div className={`mt-1 text-xs ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? missingDependencies.map((entry) => entry.name).join(', ') : 'None'}</div></div></div></div>}</div>}
+              {tab === 'preview' && <div><Preview item={selected} /><p className="mt-2 text-[11px] opacity-45">Safe schematic preview. Third-party component code is never executed inside the registry browser.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 p-3"><Boxes className="h-4 w-4 text-violet-400" /><div className="mt-2 text-xs font-semibold">Category</div><div className="mt-1 text-xs opacity-50 capitalize">{selected.category}</div></div><div className="rounded-xl border border-white/10 p-3"><Package className="h-4 w-4 text-cyan-400" /><div className="mt-2 text-xs font-semibold">Dependencies</div><div className="mt-1 text-xs opacity-50">{selectedRegistryResolution.npmDependencies.length ? selectedRegistryResolution.npmDependencies.join(', ') : 'None'}</div>{projectContext && selectedRegistryResolution.npmDependencies.length > 0 && <div className={`mt-2 text-[10px] ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? `${missingDependencies.length} missing in active project` : 'All npm dependencies found'}</div>}</div><div className="rounded-xl border border-white/10 p-3"><Sparkles className="h-4 w-4 text-amber-400" /><div className="mt-2 text-xs font-semibold">AI ready</div><div className="mt-1 text-xs opacity-50">{projectContext ? 'Project-aware adaptation context' : 'Source-aware adaptation payload'}</div></div></div>{similarItems.length > 0 && <div className="mt-3 rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Similar components</div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{similarItems.map((item) => <button key={item.id} onClick={() => { setSelectedId(item.id); setTab('preview'); setActionError(null); }} className={`rounded-lg border p-3 text-left transition ${darkMode ? 'border-white/10 bg-black/10 hover:border-violet-400/30' : 'border-gray-200 bg-white hover:border-violet-300'}`}><div className="truncate text-xs font-semibold">{item.name}</div><div className="mt-1 text-[10px] opacity-45">{getRegistrySource(item.sourceId)?.name || item.sourceId} · {item.kind || 'component'}</div></button>)}</div></div>}{projectContext && <div className="mt-3 rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><FolderCog className="h-4 w-4 text-cyan-400" /> Active project compatibility</div><div className="mt-3 grid gap-2 sm:grid-cols-3"><div><div className="text-[10px] uppercase tracking-wider opacity-40">Framework</div><div className="mt-1 text-xs">{projectContext.framework}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Context files</div><div className="mt-1 text-xs">{projectContext.files.length}/{projectContext.totalCandidateFiles}{projectContext.truncated ? ' bounded' : ''}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Missing npm deps</div><div className={`mt-1 text-xs ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? missingDependencies.map((entry) => entry.name).join(', ') : 'None'}</div></div></div></div>}</div>}
               {tab === 'code' && (selectedCode
                 ? <pre className="max-h-[520px] overflow-auto rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{selectedCode}</code></pre>
                 : <div className="rounded-xl border border-white/10 p-6 text-center"><Code2 className="mx-auto h-8 w-8 text-violet-400" /><div className="mt-3 text-sm font-semibold">Source code loads on demand</div><p className="mx-auto mt-2 max-w-md text-xs leading-5 opacity-50">The component files and upstream MIT license are fetched only when needed. The license notice is prepended to copied source.</p><button disabled={codeLoadingId === selected.id} onClick={() => void ensureCode(selected)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{codeLoadingId === selected.id && <Loader2 className="h-4 w-4 animate-spin" />} Load source code</button></div>
