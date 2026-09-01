@@ -139,6 +139,36 @@
     );
   }
 
+  function isSystemJunkFailure(failure) {
+    if (isSystemJunkFile(failure?.file)) return true;
+    return Array.isArray(failure?.files)
+      && failure.files.length > 0
+      && failure.files.every((name) => isSystemJunkFile(name));
+  }
+
+  function summarizeState(state) {
+    const systemFailures = (state.failures || []).filter(isSystemJunkFailure);
+    const realFailures = (state.failures || []).filter((failure) => !isSystemJunkFailure(failure));
+
+    return {
+      status: state.status,
+      queueRemaining: state.queue.length,
+      pages: state.stats.pages,
+      processedFolders: state.stats.processedFolders,
+      discoveredFiles: state.stats.discoveredFiles,
+      discoveredFolders: state.stats.discoveredFolders,
+      imported: state.stats.imported,
+      skipped: state.stats.skipped,
+      reused: state.stats.reused,
+      failed: state.stats.failed,
+      bytesImported: state.stats.bytesImported,
+      systemFailureCount: systemFailures.length,
+      realFailureCount: realFailures.length,
+      realFailures,
+      updatedAt: state.updatedAt,
+    };
+  }
+
   function enqueueFolders(state, folders) {
     const seen = new Set(state.seenFolderIds);
     for (const folder of folders || []) {
@@ -286,7 +316,7 @@
 
         saveState(state);
 
-        console.log("Tayar import progress", {
+        console.log("Tayar import progress — folder page completed", {
           currentFolder: folder.path,
           queueRemaining: state.queue.length,
           ...state.stats,
@@ -297,7 +327,7 @@
       if (state.queue.length === 0) {
         state.status = "completed";
         saveState(state);
-        console.log("Tayar template import completed.", state.stats);
+        console.log("FULL TAYAR TEMPLATE IMPORT COMPLETED", summarizeState(state));
       } else if (state.status === "paused") {
         console.log("Tayar template import paused.", state.stats);
       }
@@ -325,6 +355,11 @@
       console.log(state);
       return state;
     },
+    summary() {
+      const summary = summarizeState(loadState());
+      console.log("Tayar template import summary", summary);
+      return summary;
+    },
     reset() {
       if (running) {
         throw new Error("Pause the importer before resetting it");
@@ -337,6 +372,6 @@
   };
 
   console.log(
-    "TayarTemplateImport ready. Use TayarTemplateImport.start(), .status(), .pause(), or .resume().",
+    "TayarTemplateImport ready. Use .start(), .status(), .summary(), .pause(), or .resume().",
   );
 })();
