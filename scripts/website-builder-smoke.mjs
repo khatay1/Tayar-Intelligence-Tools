@@ -21,6 +21,11 @@ const projectNormalizationPath = resolve(root, 'src/modules/website-builder/core
 const projectCloudServicePath = resolve(root, 'src/modules/website-builder/services/projectCloudService.ts');
 const publishedWebsiteServicePath = resolve(root, 'src/modules/website-builder/services/publishedWebsiteService.ts');
 const autosavePolicyPath = resolve(root, 'src/modules/website-builder/core/editor-autosave-policy.ts');
+const reusableSectionServicePath = resolve(root, 'src/modules/website-builder/services/reusableSectionService.ts');
+const publishVersionServicePath = resolve(root, 'src/modules/website-builder/services/publishVersionService.ts');
+const websiteLeadServicePath = resolve(root, 'src/modules/website-builder/services/websiteLeadService.ts');
+const websiteAnalyticsServicePath = resolve(root, 'src/modules/website-builder/services/websiteAnalyticsService.ts');
+const websiteAnalyticsSummaryPath = resolve(root, 'src/modules/website-builder/core/website-analytics-summary.ts');
 
 const failures = [];
 const passes = [];
@@ -49,6 +54,11 @@ for (const [label, path] of [
   ['Cloud project service exists', projectCloudServicePath],
   ['Published website service exists', publishedWebsiteServicePath],
   ['Autosave policy helper exists', autosavePolicyPath],
+  ['Reusable section service exists', reusableSectionServicePath],
+  ['Publish version service exists', publishVersionServicePath],
+  ['Website lead service exists', websiteLeadServicePath],
+  ['Website analytics service exists', websiteAnalyticsServicePath],
+  ['Website analytics summary helper exists', websiteAnalyticsSummaryPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -70,6 +80,11 @@ const projectNormalization = existsSync(projectNormalizationPath) ? readFileSync
 const projectCloudService = existsSync(projectCloudServicePath) ? readFileSync(projectCloudServicePath, 'utf8') : '';
 const publishedWebsiteService = existsSync(publishedWebsiteServicePath) ? readFileSync(publishedWebsiteServicePath, 'utf8') : '';
 const autosavePolicy = existsSync(autosavePolicyPath) ? readFileSync(autosavePolicyPath, 'utf8') : '';
+const reusableSectionService = existsSync(reusableSectionServicePath) ? readFileSync(reusableSectionServicePath, 'utf8') : '';
+const publishVersionService = existsSync(publishVersionServicePath) ? readFileSync(publishVersionServicePath, 'utf8') : '';
+const websiteLeadService = existsSync(websiteLeadServicePath) ? readFileSync(websiteLeadServicePath, 'utf8') : '';
+const websiteAnalyticsService = existsSync(websiteAnalyticsServicePath) ? readFileSync(websiteAnalyticsServicePath, 'utf8') : '';
+const websiteAnalyticsSummary = existsSync(websiteAnalyticsSummaryPath) ? readFileSync(websiteAnalyticsSummaryPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -99,6 +114,10 @@ check('Project load normalization is extracted from the builder', projectNormali
 check('Cloud save/create is extracted from the builder', projectCloudService.includes('createWebsiteProjectInCloud') && projectCloudService.includes('updateWebsiteProjectInCloud') && builder.includes("from './services/projectCloudService'"));
 check('Publish and unpublish storage writes are extracted', publishedWebsiteService.includes('replacePublishedWebsiteFiles') && publishedWebsiteService.includes('removePublishedWebsiteFiles') && builder.includes("from './services/publishedWebsiteService'"));
 check('Autosave policy and history entry creation are extracted', autosavePolicy.includes('decideEditorAutosave') && autosavePolicy.includes('createProjectHistoryEntry') && builder.includes("from './core/editor-autosave-policy'"));
+check('Reusable section cloud mutations are extracted', reusableSectionService.includes('listReusableSectionsInCloud') && reusableSectionService.includes('saveReusableSectionInCloud') && reusableSectionService.includes('deleteReusableSectionInCloud') && builder.includes("from './services/reusableSectionService'"));
+check('Publish version list/delete is extracted', publishVersionService.includes('listWebsitePublishVersions') && publishVersionService.includes('deleteWebsitePublishVersionArchive') && builder.includes("from './services/publishVersionService'"));
+check('Lead CRUD is extracted', websiteLeadService.includes('listWebsiteLeads') && websiteLeadService.includes('updateWebsiteLeadStatus') && websiteLeadService.includes('deleteWebsiteLead') && builder.includes("from './services/websiteLeadService'"));
+check('Analytics querying and summary are extracted', websiteAnalyticsService.includes('listWebsiteAnalyticsEvents') && websiteAnalyticsSummary.includes('summarizeWebsiteAnalytics') && builder.includes("from './services/websiteAnalyticsService'") && builder.includes("from './core/website-analytics-summary'"));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
 check('Cloud mutations retry transient failures', projectCloudService.includes('retryCloudOperation') && builder.includes('createWebsiteProjectInCloud') && builder.includes('updateWebsiteProjectInCloud'));
