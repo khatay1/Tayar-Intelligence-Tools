@@ -56,6 +56,46 @@ function targetKey(operation: EditorNativeOperation) {
   );
 }
 
+function positionTargetKey(operation: EditorNativeOperation, targetId: string) {
+  if (
+    operation.action === 'add_page' ||
+    operation.action === 'duplicate_page' ||
+    operation.action === 'move_page'
+  ) {
+    return `page:${targetId}`;
+  }
+  if (
+    operation.action === 'add_section' ||
+    operation.action === 'duplicate_section' ||
+    operation.action === 'move_section'
+  ) {
+    return `section:${operation.pageId || ''}:${targetId}`;
+  }
+  if (
+    operation.action === 'add_element' ||
+    operation.action === 'duplicate_element' ||
+    operation.action === 'move_element' ||
+    operation.action === 'insert_symbol'
+  ) {
+    return `element:${operation.pageId || ''}:${operation.sectionId || ''}:${targetId}`;
+  }
+  if (
+    operation.action === 'add_form_field' ||
+    operation.action === 'move_form_field'
+  ) {
+    return `form-field:${operation.pageId || ''}:${operation.sectionId || ''}:${targetId}`;
+  }
+  return undefined;
+}
+
+function movingIdentity(operation: EditorNativeOperation) {
+  if (operation.action === 'move_page') return operation.pageId;
+  if (operation.action === 'move_section') return operation.sectionId;
+  if (operation.action === 'move_element') return operation.elementId;
+  if (operation.action === 'move_form_field') return operation.formFieldId;
+  return undefined;
+}
+
 function referencedTargetKeys(operation: EditorNativeOperation) {
   const targets: string[] = [];
 
@@ -76,7 +116,75 @@ function referencedTargetKeys(operation: EditorNativeOperation) {
     );
   }
 
+  for (const targetId of [operation.position?.beforeId, operation.position?.afterId]) {
+    if (!targetId) continue;
+    const positionTarget = positionTargetKey(operation, targetId);
+    if (positionTarget) targets.push(positionTarget);
+  }
+
   return targets;
+}
+
+type CreatedIdentityKind = 'page' | 'section' | 'element' | 'container' | 'form-field' | 'symbol';
+
+function createdIdentityEntries(operation: EditorNativeOperation) {
+  const entries: Array<{ kind: CreatedIdentityKind; id: string }> = [];
+  const push = (kind: CreatedIdentityKind, id: string | undefined) => {
+    if (id !== undefined) entries.push({ kind, id });
+  };
+
+  if (operation.action === 'add_page' && operation.page) {
+    push('page', operation.page.id);
+    for (const section of operation.page.sections || []) {
+      push('section', section.id);
+      for (const element of section.elements || []) push('element', element.id);
+      for (const container of section.containers || []) push('container', container.id);
+      for (const field of section.formFields || []) push('form-field', field.id);
+    }
+  }
+
+  if (operation.action === 'add_section' && operation.section) {
+    push('section', operation.section.id);
+    for (const element of operation.section.elements || []) push('element', element.id);
+    for (const container of operation.section.containers || []) push('container', container.id);
+    for (const field of operation.section.formFields || []) push('form-field', field.id);
+  }
+
+  if (operation.action === 'add_element' && operation.element) push('element', operation.element.id);
+  if (operation.action === 'add_container' && operation.container) push('container', operation.container.id);
+  if (operation.action === 'add_form_field' && operation.formField) push('form-field', operation.formField.id);
+  if (operation.action === 'create_symbol' && operation.symbolId !== undefined) push('symbol', operation.symbolId);
+
+  return entries;
+}
+
+function validatePosition(operation: EditorNativeOperation, prefix: string, errors: string[]) {
+  const position = operation.position;
+  if (!position) return;
+
+  const hasBefore = position.beforeId !== undefined;
+  const hasAfter = position.afterId !== undefined;
+  const hasIndex = position.index !== undefined;
+  if ([hasBefore, hasAfter, hasIndex].filter(Boolean).length > 1) {
+    errors.push(`${prefix} position must use exactly one of beforeId, afterId, or index`);
+    return;
+  }
+
+  const anchor = hasBefore ? position.beforeId : hasAfter ? position.afterId : undefined;
+  if (anchor !== undefined) {
+    if (!anchor.trim()) {
+      errors.push(`${prefix} position target ID cannot be blank`);
+      return;
+    }
+    const movingId = movingIdentity(operation)?.trim();
+    if (movingId && movingId === anchor.trim()) {
+      errors.push(`${prefix} cannot position content relative to itself`);
+    }
+  }
+
+  if (hasIndex && !Number.isFinite(Number(position.index))) {
+    errors.push(`${prefix} position index is invalid`);
+  }
 }
 
 function removedTargetKey(operation: EditorNativeOperation) {
@@ -128,6 +236,7 @@ export function preflightEditorNativeOperations(
   const errors: string[] = [];
   const warnings: string[] = [];
   const removed = new Set<string>();
+  const created = new Map<string, number>();
   let destructiveCount = 0;
 
   if (operations.length > maxOperations) {
@@ -137,6 +246,29 @@ export function preflightEditorNativeOperations(
   operations.slice(0, maxOperations).forEach((operation, index) => {
     const prefix = `Operation ${index + 1} (${operation.action})`;
     if (DESTRUCTIVE_ACTIONS.has(operation.action)) destructiveCount += 1;
+
+    validatePosition(operation, prefix, errors);
+
+    for (const entry of createdIdentityEntries(operation)) {
+      const id = entry.id.trim();
+      if (!id) {
+        errors.push(`${prefix} creates a blank ${entry.kind} ID`);
+        continue;
+      }
+      if (id !== entry.id) {
+        errors.push(`${prefix} creates a ${entry.kind} ID with surrounding whitespace: ${entry.id}`);
+        continue;
+      }
+      const key = `${entry.kind}:${id}`;
+      const firstIndex = created.get(key);
+      if (firstIndex !== undefined) {
+        errors.push(
+          `${prefix} creates duplicate ${entry.kind} ID ${id}; already created by operation ${firstIndex + 1}`,
+        );
+      } else {
+        created.set(key, index);
+      }
+    }
 
     const target = targetKey(operation);
     if (targetWasRemoved(target, removed)) {
