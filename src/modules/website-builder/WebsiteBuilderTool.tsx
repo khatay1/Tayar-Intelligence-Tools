@@ -4614,23 +4614,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     };
   }
 
-  const refreshBilling = useCallback(async (projectId: string | null = cloudProjectId) => {
-    if (!user) {
-      setBillingState({
-        plan: 'free',
-        entitlements: FREE_BILLING_ENTITLEMENTS,
-        subscription: null,
-        usage: { websiteProjects: 0, pages: pages.length, releases: 0, leads: 0, analyticsEvents: 0 },
-      });
+  const refreshBilling = useCallback(async (
+    projectId: string | null = cloudProjectId,
+    expectedLoadSequence = projectLoadSequenceRef.current,
+  ) => {
+    const refreshSequence = ++billingRefreshSequenceRef.current;
+    const refreshUserId = user?.id ?? null;
+    const refreshIsCurrent = () =>
+      billingRefreshSequenceRef.current === refreshSequence &&
+      activeUserIdRef.current === refreshUserId &&
+      projectLoadSequenceRef.current === expectedLoadSequence;
+
+    if (!refreshUserId) {
+      if (refreshIsCurrent()) {
+        setBillingState({
+          plan: 'free',
+          entitlements: FREE_BILLING_ENTITLEMENTS,
+          subscription: null,
+          usage: { websiteProjects: 0, pages: pages.length, releases: 0, leads: 0, analyticsEvents: 0 },
+        });
+        setBillingLoading(false);
+      }
       return;
     }
 
     setBillingLoading(true);
     setBillingError('');
+
     const { data, error } = await getWebsiteBuilderBillingState(projectId);
+    if (!refreshIsCurrent()) return;
 
     if (error || !data || typeof data !== 'object') {
-      // Fail closed: never grant paid features from browser-editable profile data when billing cannot be verified.
       setBillingState((current) => ({
         ...current,
         plan: 'free',
@@ -4661,6 +4675,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       features: { ...local.features, ...rawFeatures },
     };
     const rawUsage = raw.usage && typeof raw.usage === 'object' ? raw.usage as Record<string, unknown> : {};
+
     setBillingState({
       plan: rawPlan,
       entitlements,
@@ -4674,8 +4689,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       },
     });
     setBillingLoading(false);
-  }, [user, pages.length, cloudProjectId]);
-
+  }, [user?.id, pages.length, cloudProjectId]);
   async function startBillingCheckout(plan: 'pro' | 'business') {
     if (!user) {
       openBillingWithMessage('Sign in before upgrading your plan.');
