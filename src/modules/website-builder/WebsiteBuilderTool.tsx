@@ -9551,10 +9551,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     const saveLoadSequence = projectLoadSequenceRef.current;
+    const saveUserId = user?.id ?? null;
     const saveController = new AbortController();
     const saveIsCurrent = () =>
       !saveController.signal.aborted &&
-      projectLoadSequenceRef.current === saveLoadSequence;
+      projectLoadSequenceRef.current === saveLoadSequence &&
+      activeUserIdRef.current === saveUserId;
 
     saveAbortControllerRef.current = saveController;
     saveInFlightRef.current = true;
@@ -9679,10 +9681,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
     return durableSaved;
     } catch (error) {
-      if (!saveController.signal.aborted && projectLoadSequenceRef.current === saveLoadSequence) {
+      if (saveIsCurrent()) {
         const message = error instanceof Error ? error.message : 'Unexpected save failure.';
-        setCloudSyncFailed(Boolean(user));
-        setCloudError(user ? `Save failed: ${message}` : message);
+        setCloudSyncFailed(Boolean(saveUserId));
+        setCloudError(saveUserId ? `Save failed: ${message}` : message);
         setAutoSaveStatus('failed');
         if (!automatic) setSaved(false);
       }
@@ -9691,7 +9693,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (saveAbortControllerRef.current === saveController) {
         saveAbortControllerRef.current = null;
         saveInFlightRef.current = false;
-        setCloudBusy(false);
+        if (saveIsCurrent()) setCloudBusy(false);
       }
     }
   }
