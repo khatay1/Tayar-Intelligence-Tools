@@ -51,6 +51,7 @@ const editorPayloadSafetyPath = resolve(root, 'src/modules/website-builder/core/
 const editorDesignCommandsPath = resolve(root, 'src/modules/website-builder/core/editor-design-commands.ts');
 const editorInspectorOperationPath = resolve(root, 'src/modules/website-builder/core/editor-inspector-operation.ts');
 const editorInspectorModelPath = resolve(root, 'src/modules/website-builder/core/editor-inspector-model.ts');
+const editorValueSafetyPath = resolve(root, 'src/modules/website-builder/core/editor-value-safety.ts');
 
 const failures = [];
 const passes = [];
@@ -109,6 +110,7 @@ for (const [label, path] of [
   ['Native design commands exist', editorDesignCommandsPath],
   ['Native inspector operation helper exists', editorInspectorOperationPath],
   ['Native inspector model exists', editorInspectorModelPath],
+  ['Native semantic value safety helper exists', editorValueSafetyPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -160,6 +162,7 @@ const editorPayloadSafety = existsSync(editorPayloadSafetyPath) ? readFileSync(e
 const editorDesignCommands = existsSync(editorDesignCommandsPath) ? readFileSync(editorDesignCommandsPath, 'utf8') : '';
 const editorInspectorOperation = existsSync(editorInspectorOperationPath) ? readFileSync(editorInspectorOperationPath, 'utf8') : '';
 const editorInspectorModel = existsSync(editorInspectorModelPath) ? readFileSync(editorInspectorModelPath, 'utf8') : '';
+const editorValueSafety = existsSync(editorValueSafetyPath) ? readFileSync(editorValueSafetyPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -305,6 +308,15 @@ check('Native duplicate elements cannot restore symbol or container linkage thro
 check('Native duplicate sections reject form-field replacement payloads', editorOperationPolicy.includes('SECTION_DUPLICATE_CHANGE_KEYS') && editorOperationPolicy.includes("key !== 'formFields'"));
 check('Native restyle mutations sanitize changes and keep aliases out of theme', editorDesignCommands.includes("safeEditorPayloadRecord(changes, 'restyle changes')") && editorDesignCommands.includes('accentColor: _accentColor') && editorDesignCommands.includes('cloneEditorValue(themeChanges)'));
 check('Inspector payload paths block prototype-pollution segments', editorInspectorOperation.includes('editorPayloadHasForbiddenKey(part)') && editorInspectorModel.includes('editorPayloadHasForbiddenKey(part)') && editorInspectorOperation.includes('parts.length > 4'));
+check('Native semantic preflight validates partial changes by action', editorOperationPolicy.includes('SEMANTIC_CHANGE_KIND_BY_ACTION') && editorOperationPolicy.includes('inspectEditorSemanticRecord') && editorOperationPolicy.includes('inspectEditorPageSemantic') && editorOperationPolicy.includes('inspectEditorSectionSemantic'));
+check('Native semantic values enforce real editor enum contracts', editorValueSafety.includes('SECTION_LAYOUTS') && editorValueSafety.includes('ELEMENT_TYPES') && editorValueSafety.includes('FORM_FIELD_TYPES') && editorValueSafety.includes('FONT_FAMILIES'));
+check('Native semantic values enforce editor numeric ranges', editorValueSafety.includes("'fontSize', 8, 160") && editorValueSafety.includes("'positionX', -2000, 2000") && editorValueSafety.includes("'contentWidth', 720, 1440") && editorValueSafety.includes("'navGap', 4, 48"));
+check('Native semantic URLs reject unsafe schemes while keeping editor links', editorValueSafety.includes("parsed.protocol === 'http:' || parsed.protocol === 'https:'") && editorValueSafety.includes("/^(?:mailto|tel):/i") && editorValueSafety.includes("value.startsWith('#')"));
+check('Native semantic colors distinguish theme tokens from element surfaces', editorValueSafety.includes('HEX_6_PATTERN') && editorValueSafety.includes('CSS_COLOR_PATTERN') && editorValueSafety.includes("'transparent'"));
+check('Native semantic content preserves multiline text but keeps URLs control-free', editorValueSafety.includes('URL_CONTROL_CHARACTER_PATTERN') && editorValueSafety.includes('\\u000B') && editorValueSafety.includes('hasSafeUrlCharacters'));
+check('Native command adapters enforce semantic values without preflight', editorCommandAdapters.includes('assertEditorSemanticRecord') && editorCommandAdapters.includes('assertEditorPageSemantic') && editorCommandAdapters.includes('assertEditorSectionLikeSemantic') && editorCommandAdapters.includes('assertEditorElementLikeSemantic'));
+check('Native semantic form replacements require complete fields', editorValueSafety.includes("for (const requiredKey of ['name', 'label', 'type', 'required'])") && editorValueSafety.includes('formFields'));
+check('Native restyle path validates semantic values before mutation', editorDesignCommands.includes("assertEditorSemanticRecord('restyle', safeChanges, 'restyle changes')"));
 check('V2 native page growth respects billing while existing over-limit projects remain editable', builder.includes('const pageCountIncreased =') && builder.includes('candidate.pages.length >') && builder.includes('billingEntitlements.maxPages'));
 check('Reusable components stop safely at 50 instead of evicting linked symbols', builder.includes('if (symbols.length >= 50)') && builder.includes('setSymbols((current) => [symbol, ...current]);') && !builder.includes('setSymbols((current) => [symbol, ...current].slice(0, 50))'));
 check('Expanded V2 option groups stay in normal flow instead of overlapping', websiteBuilderV2Css.includes('Keep one scroll owner per side panel') && websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields') && websiteBuilderV2Css.includes('position: static') && !websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body'));
