@@ -79,7 +79,7 @@ import {
   saveRecoveryWebsiteProject,
 } from './core/editor-project-lifecycle';
 import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
-import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles } from './services/publishedWebsiteService';
+import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles, uploadPublishedWebsiteFolderFiles } from './services/publishedWebsiteService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
@@ -8719,14 +8719,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         contentType: 'text/html; charset=utf-8',
       }));
       files.push({ name: '404.html', content: get404Html(publicBaseUrl, true, false), contentType: 'text/html; charset=utf-8' });
-      for (const file of files) {
-        const { error } = await supabase.storage.from('published-sites').upload(
-          `${folder}/${file.name}`,
-          new Blob([file.content], { type: file.contentType }),
-          { upsert: true, contentType: file.contentType, cacheControl: '0' },
-        );
-        if (error) throw error;
-      }
+      await uploadPublishedWebsiteFolderFiles(folder, files);
       const nextUrl = buildPreviewSiteUrl(user.id, cloudProjectId, token, 'index.html');
       if (!nextUrl) throw new Error('Could not build the public preview URL.');
 
@@ -8754,9 +8747,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPreviewError('');
     try {
       const folder = `${user.id}/${cloudProjectId}/previews/${previewToken}`;
-      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
-      const paths = publishedSiteFilePaths(folder, existing);
-      await removePublishedSiteFiles(publishedSiteStorage, paths);
+      await removePublishedWebsiteFiles(folder);
       setPreviewUrl('');
       setPreviewToken('');
       setPreviewCreatedAt(null);
