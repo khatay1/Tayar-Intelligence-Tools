@@ -774,8 +774,10 @@ export function preflightEditorNativeOperations(
     if (!validateOperationPayloadShape(operation, prefix, errors)) return;
     validatePosition(operation, prefix, errors);
 
-    for (const reference of operationReferenceEntries(operation)) {
-      validateReference(referenceState, reference, prefix, errors);
+    if (options.project) {
+      for (const reference of operationReferenceEntries(operation)) {
+        validateReference(referenceState, reference, prefix, errors);
+      }
     }
 
     for (const entry of createdIdentityEntries(operation)) {
