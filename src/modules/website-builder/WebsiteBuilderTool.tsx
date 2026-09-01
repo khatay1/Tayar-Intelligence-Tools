@@ -109,10 +109,12 @@ import {
 import {
   convertLegacyAIGlobalOperationToNative,
   convertLegacyAIPageOperationToNative,
+  convertLegacyAIStructuralOperationToNative,
   isLegacyAIGlobalNativeAction,
   isLegacyAIPageNativeAction,
+  isLegacyAIStructuralNativeAction,
 } from './core/editor-ai-native-bridge';
-import { applyEditorAIWorkingNativeOperation } from './core/editor-ai-working-project';
+import { applyEditorAIWorkingNativeOperations } from './core/editor-ai-working-project';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -7508,12 +7510,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       let applied = 0;
       const nativeBridgeWarnings: string[] = [];
 
-      const applyAIWorkingNativeOperation = (
-        nativeOperation: EditorNativeOperation,
+      const applyAIWorkingNativeOperations = (
+        nativeOperations: EditorNativeOperation[],
         sourceAction: string,
       ) => {
+        if (!nativeOperations.length) {
+          return false;
+        }
+
         const nativeResult =
-          applyEditorAIWorkingNativeOperation(
+          applyEditorAIWorkingNativeOperations(
             {
               pages:
                 nextPages as unknown as EditorPageLike[],
@@ -7536,7 +7542,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   JSON.stringify(nextSymbols),
                 ) as EditorSymbolLike[],
             },
-            nativeOperation,
+            nativeOperations,
             {
               source: 'ai',
               label:
@@ -7684,6 +7690,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         return true;
       };
+
+      const applyAIWorkingNativeOperation = (
+        nativeOperation: EditorNativeOperation,
+        sourceAction: string,
+      ) =>
+        applyAIWorkingNativeOperations(
+          [nativeOperation],
+          sourceAction,
+        );
 
       const applyAIGlobalNativeOperation = (
         operation: AIWebsitePatchOperation,
