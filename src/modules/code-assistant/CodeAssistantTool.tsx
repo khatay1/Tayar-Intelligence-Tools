@@ -1,7 +1,7 @@
 import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import {
   Boxes, Check, Code2, Copy, ExternalLink, FileDiff, FolderCog, Heart, LayoutTemplate, Loader2, Package,
-  ArrowRightLeft, Eye, Layers3, RotateCcw, Save, Search, ShieldCheck, Sparkles, Upload, Zap,
+  ArrowRightLeft, Eye, Layers3, PackageCheck, RotateCcw, Save, Search, ShieldCheck, Sparkles, Upload, Zap,
 } from 'lucide-react';
 import { AIService } from '@/lib/ai/service';
 import { componentRegistry } from './component-registry';
@@ -19,6 +19,7 @@ import { buildIsolatedLivePreview } from './live-preview';
 import { replacementCandidates, replacementTargets, validateExactReplacementPlan } from './replacement';
 import { FEATURE_PRESETS, FeatureKind, featureCandidateMetadata, featureRegistryCandidates, getFeaturePreset, validateFeaturePatchPlan } from './feature-generator';
 import { buildFeaturePreviewModel, buildFeaturePrimaryLivePreview } from './feature-preview';
+import { buildControlledPackageEdit } from './package-editor';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -181,6 +182,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [featureInstruction, setFeatureInstruction] = useState('');
   const [featureLoading, setFeatureLoading] = useState(false);
   const [patchOwnerId, setPatchOwnerId] = useState('');
+  const [packageEditConfirmed, setPackageEditConfirmed] = useState(false);
   const [featurePreviewDoc, setFeaturePreviewDoc] = useState<string | null>(null);
   const [featurePreviewReason, setFeaturePreviewReason] = useState<string | null>(null);
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
@@ -329,6 +331,19 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     [projectContext, patchPlan],
   );
   const unresolvedPatchDependencies = patchDependencyChecks.filter((entry) => !entry.installed);
+  const controlledPackageEdit = useMemo(
+    () => buildControlledPackageEdit(projectContext, patchPlan?.dependenciesToInstall || []),
+    [projectContext, patchPlan],
+  );
+  const controlledPackageNames = new Set(
+    packageEditConfirmed && controlledPackageEdit?.operation
+      ? controlledPackageEdit.additions.map((entry) => entry.name)
+      : [],
+  );
+  const unresolvedAfterPackageEdit = unresolvedPatchDependencies.filter((entry) => !controlledPackageNames.has(entry.name));
+  const patchInstallCommand = projectContext && patchPlan
+    ? buildDependencyInstallCommand(projectContext.packageManager, patchPlan.dependenciesToInstall, unresolvedPatchDependencies.map((entry) => entry.name))
+    : '';
   const patchRegistryResolution = useMemo(
     () => selected ? resolveRegistryDependencies(allItems, selected) : { resolved: [], unresolved: [], npmDependencies: [], npmDependencyRequirements: [] },
     [allItems, selected],
@@ -350,7 +365,8 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const applyBlockers = [
     ...(!targetProjectId || !projectContext ? ['Choose a project before applying a patch.'] : []),
     ...(projectContext && !projectContext.canApply ? ['This project does not expose a supported content.files store.'] : []),
-    ...(unresolvedPatchDependencies.length ? [`Missing npm dependencies: ${unresolvedPatchDependencies.map((entry) => entry.name).join(', ')}`] : []),
+    ...(unresolvedAfterPackageEdit.length ? [`Missing npm dependencies: ${unresolvedAfterPackageEdit.map((entry) => entry.name).join(', ')}`] : []),
+    ...(controlledPackageEdit?.operation && unresolvedPatchDependencies.length && !packageEditConfirmed ? ['Review and confirm the controlled package.json dependency edit, or use the install command instead.'] : []),
     ...(unresolvedPatchRegistryDependencies.length ? [`Resolve registry dependencies first: ${unresolvedPatchRegistryDependencies.join(', ')}`] : []),
     ...(blindReplacePaths.length ? [`Patch tries to replace files that were missing or truncated in the AI project snapshot: ${blindReplacePaths.join(', ')}`] : []),
   ];
@@ -364,6 +380,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   }, [replaceTargets, replaceTargetPath]);
 
   useEffect(() => {
+    setPackageEditConfirmed(false);
     setFeaturePreviewDoc(null);
     setFeaturePreviewReason(null);
   }, [patchPlan]);
@@ -752,9 +769,16 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     setActionError(null);
     setApplyMessage(null);
     try {
-      await applyCodePatch(targetProjectId, projectContext.fileStoreFingerprint, patchPlan, patchOwnerId || item.id);
+      await applyCodePatch(
+        targetProjectId,
+        projectContext.fileStoreFingerprint,
+        patchPlan,
+        patchOwnerId || item.id,
+        packageEditConfirmed ? controlledPackageEdit?.operation || null : null,
+      );
       await refreshProjectContext();
       setApplyConfirmed(false);
+      setPackageEditConfirmed(false);
       setApplyMessage('Patch applied. A rollback checkpoint is available until the project files change again.');
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Unable to apply the patch.');
@@ -773,6 +797,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       await refreshProjectContext();
       setPatchPlan(null);
       setPatchOwnerId('');
+      setPackageEditConfirmed(false);
       setApplyConfirmed(false);
       setApplyMessage('Last Coding Assistance patch was rolled back.');
     } catch (error) {
