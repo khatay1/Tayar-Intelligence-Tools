@@ -24,7 +24,7 @@ if (!moduleIndex.includes("import './code-assistant';")) fail('Code Assistant mo
 if (futureIndex.includes("id: 'code-assistant'")) fail('Old Coming Soon Code Assistant placeholder still exists.');
 if (!sourceCatalog.includes("id: 'react-bits'") || !sourceCatalog.includes('redistributionAllowed: false')) fail('Restricted source guard is missing.');
 if (seed.includes("sourceId: 'react-bits'")) fail('Restricted React Bits content was bundled.');
-if (!assistant.includes("matches.find((item) => item.id === selectedId) || matches[0]")) fail('Filtered selection must stay inside visible registry results.');
+if (!assistant.includes("visibleMatches.find((item) => item.id === selectedId) || visibleMatches[0] || matches[0]")) fail('Filtered selection must stay inside visible registry results.');
 if (!upstream.includes("sourceId: 'shadcn'") || !upstream.includes("sourceId: 'kokonut-ui'") || !upstream.includes("sourceId: 'magic-ui'") || !upstream.includes("sourceId: 'cult-ui'") || !upstream.includes("sourceId: '8bitcn'") || !upstream.includes("sourceId: 'eldora-ui'") || !upstream.includes("sourceId: 'ui-layouts'") || !upstream.includes("sourceId: 'spectrum-ui'") || !upstream.includes("sourceId: 'shadcn-space'")) fail('Approved upstream registries are not configured.');
 if (upstream.includes("sourceId: 'react-bits'") || upstream.includes("sourceId: 'animmaster-lib'")) fail('Restricted/private sources must never be configured for upstream loading.');
 if (!sourceCatalog.includes("id: 'animmaster-lib'") || !sourceCatalog.includes('private user-provided licensed imports only')) fail('Animmaster private-license policy is missing.');
