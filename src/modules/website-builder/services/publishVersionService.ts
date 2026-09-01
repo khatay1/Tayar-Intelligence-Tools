@@ -45,3 +45,29 @@ export async function deleteWebsitePublishVersionArchive(input: {
 
   return { error };
 }
+
+export async function createWebsitePublishVersion(input: {
+  id: string;
+  projectId: string;
+  ownerId: string;
+  releaseNote: string;
+  publishedUrl: string;
+  storagePrefix: string;
+  editorFingerprint: string;
+  snapshot: Record<string, unknown>;
+  fileManifest: PublishVersionManifestItem[];
+}) {
+  return supabase
+    .from('website_publish_versions')
+    .insert({
+      id: input.id,
+      project_id: input.projectId,
+      user_id: input.ownerId,
+      release_note: input.releaseNote,
+      published_url: input.publishedUrl,
+      storage_prefix: input.storagePrefix,
+      editor_fingerprint: input.editorFingerprint,
+      snapshot: input.snapshot,
+      file_manifest: input.fileManifest,
+    });
+}
