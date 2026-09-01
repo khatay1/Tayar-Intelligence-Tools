@@ -79,6 +79,7 @@ import {
   saveLocalWebsiteProject,
   saveRecoveryWebsiteProject,
 } from './core/editor-project-lifecycle';
+import { createWebsiteProjectInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -8981,15 +8982,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setCloudSyncFailed(true);
         setCloudError('You are offline. Changes are saved locally and will retry when the connection returns.');
       } else if (cloudProjectId) {
-        const result = await retryCloudOperation(() => supabase
-          .from('projects')
-          .update({
-            title: siteName.trim() || 'My Website',
-            content: projectData,
-            status: publishedUrl ? 'completed' : 'draft',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', cloudProjectId));
+        const result = await updateWebsiteProjectInCloud({
+          projectId: cloudProjectId,
+          title: siteName.trim() || 'My Website',
+          content: projectData,
+          published: Boolean(publishedUrl),
+        });
 
         if (result.error) {
           if (/limit reached/i.test(result.error.message || '')) openBillingWithMessage(result.error.message);
@@ -9000,17 +8998,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setCloudSyncFailed(false);
         }
       } else {
-        const result = await retryCloudOperation(() => supabase
-          .from('projects')
-          .insert({
-            user_id: user.id,
-            title: siteName.trim() || 'My Website',
-            type: 'website-builder',
-            content: projectData,
-            status: publishedUrl ? 'completed' : 'draft',
-          })
-          .select('id, title, content, updated_at')
-          .single());
+        const result = await createWebsiteProjectInCloud({
+          userId: user.id,
+          title: siteName.trim() || 'My Website',
+          content: projectData,
+          published: Boolean(publishedUrl),
+        });
 
         if (result.error || !result.data) {
           if (result.error && /limit reached/i.test(result.error.message || '')) openBillingWithMessage(result.error.message);
