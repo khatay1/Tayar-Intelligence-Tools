@@ -8773,6 +8773,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setCloudError('Opening your saved website. Save will continue when it is loaded.');
       return false;
     }
+
+    if (user && !cloudProjectId) {
+      const preservedProjectId = projectId || loadActiveWebsiteProjectId();
+      if (preservedProjectId) {
+        setCloudError('Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available.');
+        setAutoSaveStatus('failed');
+        return false;
+      }
+    }
+
     const createHistory = options.createHistory ?? !automatic;
     const fingerprint = buildProjectFingerprint();
 
