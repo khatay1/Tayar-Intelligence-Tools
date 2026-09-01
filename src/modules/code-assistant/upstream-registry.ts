@@ -87,6 +87,30 @@ export const UPSTREAM_REGISTRIES: UpstreamRegistryConfig[] = [
     sourcePathPrefix: 'apps/www/',
     licensePath: 'LICENSE.md',
   },
+  {
+    sourceId: 'ui-layouts',
+    revision: '88d827d7ec342917ca06f6894e5add65fabbe5d8',
+    manifestUrl: 'https://raw.githubusercontent.com/ui-layouts/uilayouts/88d827d7ec342917ca06f6894e5add65fabbe5d8/apps/ui-layout/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/ui-layouts/uilayouts/88d827d7ec342917ca06f6894e5add65fabbe5d8',
+    sourcePathPrefix: 'apps/ui-layout/',
+    licensePath: 'LICENSE',
+  },
+  {
+    sourceId: 'spectrum-ui',
+    revision: '3f52ca5c7dbc8d0114a49960280a05c716664ed1',
+    manifestUrl: 'https://raw.githubusercontent.com/arihantcodes/spectrum-ui/3f52ca5c7dbc8d0114a49960280a05c716664ed1/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/arihantcodes/spectrum-ui/3f52ca5c7dbc8d0114a49960280a05c716664ed1',
+    sourcePathPrefix: '',
+    licensePath: 'LICENSE',
+  },
+  {
+    sourceId: 'shadcn-space',
+    revision: '6cbc9245562238a03d84f1e914e35942c800eb24',
+    manifestUrl: 'https://raw.githubusercontent.com/shadcnspace/shadcnspace/6cbc9245562238a03d84f1e914e35942c800eb24/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/shadcnspace/shadcnspace/6cbc9245562238a03d84f1e914e35942c800eb24',
+    sourcePathPrefix: '',
+    licensePath: 'LICENSE',
+  },
 ];
 
 const codeCache = new Map<string, Promise<string>>();
@@ -101,13 +125,18 @@ function stringArray(value: unknown): string[] {
   return value.map(asString).filter(Boolean);
 }
 
+function normalizePath(path: string): string {
+  return path.trim().replace(/^\.\/+/, '');
+}
+
 function safePath(path: string): boolean {
-  if (!path || path.length > 260 || path.startsWith('/') || path.includes('\\') || path.includes('?') || path.includes('#')) return false;
-  return path.split('/').every((part) => part && part !== '.' && part !== '..');
+  const normalized = normalizePath(path);
+  if (!normalized || normalized.length > 260 || normalized.startsWith('/') || normalized.includes('\\') || normalized.includes('?') || normalized.includes('#')) return false;
+  return normalized.split('/').every((part) => part && part !== '.' && part !== '..');
 }
 
 function rawUrl(config: UpstreamRegistryConfig, path: string): string {
-  const fullPath = `${config.sourcePathPrefix}${path}`;
+  const fullPath = `${config.sourcePathPrefix}${normalizePath(path)}`;
   if (!safePath(fullPath)) throw new Error('Unsafe upstream file path.');
   const encodedPath = fullPath.split('/').map(encodeURIComponent).join('/');
   return `${config.rawBaseUrl}/${encodedPath}`;
@@ -170,7 +199,7 @@ function normalizeItem(config: UpstreamRegistryConfig, raw: RawRegistryItem): UI
 
   const files = Array.isArray(raw.files)
     ? raw.files
-        .map((file) => asString((file as RawRegistryFile)?.path))
+        .map((file) => normalizePath(asString((file as RawRegistryFile)?.path)))
         .filter((path) => safePath(path))
     : [];
   if (!files.length || files.length > MAX_COMPONENT_FILES) return null;

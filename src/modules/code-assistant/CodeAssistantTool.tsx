@@ -69,6 +69,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [kindFilter, setKindFilter] = useState<'all' | 'component' | 'block'>('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(80);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState(componentRegistry.all()[0]?.id || '');
   const [tab, setTab] = useState<'preview' | 'code' | 'ai' | 'info'>('preview');
@@ -154,7 +155,8 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     () => filterRecords(allItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds),
     [allItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds],
   );
-  const selected = matches.find((item) => item.id === selectedId) || matches[0];
+  const visibleMatches = useMemo(() => matches.slice(0, visibleCount), [matches, visibleCount]);
+  const selected = visibleMatches.find((item) => item.id === selectedId) || visibleMatches[0] || matches[0];
   const source = selected ? getRegistrySource(selected.sourceId) : undefined;
   const selectedCode = selected ? (loadedCode[selected.id] ?? selected.code) : '';
   const dependencyChecks = useMemo(
@@ -181,6 +183,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     ...(patchPlan?.registryDependencies.length ? [`Resolve registry dependencies first: ${patchPlan.registryDependencies.join(', ')}`] : []),
     ...(blindReplacePaths.length ? [`Patch tries to replace files that were not present in the AI project snapshot: ${blindReplacePaths.join(', ')}`] : []),
   ];
+
+  useEffect(() => {
+    setVisibleCount(80);
+  }, [query, category, kindFilter, sourceFilter, favoritesOnly]);
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((current) => {
@@ -429,13 +435,15 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             </div>
           </div>
           <button onClick={() => setFavoritesOnly((value) => !value)} className={`mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs ${favoritesOnly ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10 text-gray-400' : 'border-gray-200 text-gray-600'}`}><Heart className={`h-3.5 w-3.5 ${favoritesOnly ? 'fill-current' : ''}`} /> Favorites only ({favoriteIds.size})</button>
-          <div className="mt-3 max-h-[620px] space-y-2 overflow-y-auto pr-1">
-            {matches.map((item) => (
+          <div className="mt-3 flex items-center justify-between text-[10px] opacity-45"><span>{matches.length} matches</span><span>Showing {Math.min(visibleCount, matches.length)}</span></div>
+          <div className="mt-2 max-h-[620px] space-y-2 overflow-y-auto pr-1">
+            {visibleMatches.map((item) => (
               <button key={item.id} onClick={() => { setSelectedId(item.id); setTab('preview'); setActionError(null); }} className={`w-full rounded-xl border p-3 text-left transition ${selected?.id === item.id ? 'border-violet-400/40 bg-violet-500/10' : darkMode ? 'border-white/5 bg-black/10 hover:border-white/15' : 'border-gray-200 bg-white hover:border-violet-200'}`}>
                 <div className="flex items-start gap-3"><div className="rounded-lg bg-violet-500/10 p-2 text-violet-400"><LayoutTemplate className="h-4 w-4" /></div><div className="min-w-0"><div className="flex items-center gap-2"><div className="truncate text-sm font-semibold">{item.name}</div>{item.remote && <span className="rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[9px] text-cyan-400">OSS</span>}<span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] opacity-50">{item.kind || 'component'}</span></div><div className={`mt-1 line-clamp-2 text-xs leading-5 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{item.description}</div><div className="mt-2 flex flex-wrap gap-1">{item.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] opacity-60">{tag}</span>)}</div></div></div>
               </button>
             ))}
             {matches.length === 0 && !upstreamLoading && <div className="py-10 text-center text-sm opacity-50">No matching components.</div>}
+            {visibleMatches.length < matches.length && <button onClick={() => setVisibleCount((current) => Math.min(matches.length, current + 80))} className={`w-full rounded-xl border px-3 py-2.5 text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>Show 80 more</button>}
           </div>
         </section>
 

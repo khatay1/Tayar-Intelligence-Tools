@@ -20,6 +20,9 @@ Currently verified:
 - `nolly-studio/cult-ui` — MIT — allowed with upstream notice preserved.
 - `TheOrcDev/8bitcn-ui` — MIT — allowed with upstream notice preserved.
 - `karthikmudunuri/eldoraui` — MIT — allowed with upstream notice preserved.
+- `ui-layouts/uilayouts` — MIT — allowed with upstream notice preserved.
+- `arihantcodes/spectrum-ui` — Apache-2.0 — allowed with upstream notice preserved.
+- `shadcnspace/shadcnspace` — MIT — allowed with upstream notice preserved.
 - `DavidHDev/react-bits` — current Commons Clause restriction — blocked from registry redistribution.
 - `animmasterlib.dev` — paid/private distribution. No public redistribution license found during review; blocked from Tayar bundling. Planned path: user-provided private licensed pack import only.
 
@@ -36,9 +39,10 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Structured “Use with AI” adaptation prompt.
 - Source and license visibility.
 - Source-level redistribution guard.
-- Runtime loading of approved upstream registry manifests from shadcn/ui, KokonutUI, Magic UI, Cult UI, 8bitcn and Eldora UI.
+- Runtime loading of approved upstream registry manifests from shadcn/ui, KokonutUI, Magic UI, Cult UI, 8bitcn, Eldora UI, UI Layouts, Spectrum UI and Shadcn Space.
 - Every approved public source is pinned to a reviewed immutable Git commit; the registry never follows a moving `main` branch at runtime.
-- Current verified manifests expose roughly 530 redistributable UI components/blocks before future sources are added.
+- Current verified manifests expose roughly 1,490 redistributable UI components/blocks before future sources are added.
+- Large result sets render in incremental batches instead of mounting the full registry list at once.
 - On-demand component source fetching; third-party code is not executed inside the registry browser.
 - Full upstream MIT license text is prepended when remote source is loaded/copied.
 - Network/path/payload size guards for upstream source loading.
