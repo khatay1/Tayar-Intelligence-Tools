@@ -116,6 +116,7 @@ export interface AdaptNativeOperationResult<P> {
 function requireText(value: string | undefined, label: string) {
   const normalized = value?.trim();
   if (!normalized) throw new Error(`${label} is required for this operation`);
+  if (normalized !== value) throw new Error(`${label} cannot contain surrounding whitespace`);
   return normalized;
 }
 
