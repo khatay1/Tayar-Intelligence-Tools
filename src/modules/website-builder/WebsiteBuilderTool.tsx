@@ -85,6 +85,7 @@ import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from '
 import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus } from './services/websiteLeadService';
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
+import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles, uploadWebsiteMediaFile } from './services/websiteMediaService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
@@ -4217,9 +4218,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setMediaLoading(true);
     setMediaError('');
-    const { data, error } = await supabase.storage
-      .from('website-media')
-      .list(user.id, { limit: 100, offset: 0, sortBy: { column: 'created_at', order: 'desc' } });
+    const { data, error } = await listWebsiteMediaFiles(user.id);
 
     if (error) {
       setMediaError('Media library is unavailable. Make sure the Sprint 12 storage migration is applied.');
@@ -4231,11 +4230,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       .filter((item) => Boolean(item.name) && item.name !== '.emptyFolderPlaceholder')
       .map((item) => {
         const path = `${user.id}/${item.name}`;
-        const { data: publicData } = supabase.storage.from('website-media').getPublicUrl(path);
         return {
           name: item.name,
           path,
-          url: publicData.publicUrl,
+          url: getWebsiteMediaPublicUrl(path),
           createdAt: item.created_at,
         };
       });
@@ -4286,9 +4284,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const extension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
     const base = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
     const path = `${user.id}/${Date.now()}-${base}.${extension}`;
-    const { error } = await supabase.storage
-      .from('website-media')
-      .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+    const { error } = await uploadWebsiteMediaFile(path, file);
 
     if (error) {
       setMediaError('Could not upload this image.');
@@ -4296,12 +4292,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const { data: publicData } = supabase.storage.from('website-media').getPublicUrl(path);
+    const publicUrl = getWebsiteMediaPublicUrl(path);
     await refreshMedia();
     setMediaUploading(false);
 
     if (selectedElement?.type === 'image') {
-      updateSelectedElement({ src: publicData.publicUrl, content: file.name });
+      updateSelectedElement({ src: publicUrl, content: file.name });
     }
   }
 
@@ -4310,7 +4306,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!window.confirm(`Delete ${asset.name} from your media library?`)) return;
 
     setMediaError('');
-    const { error } = await supabase.storage.from('website-media').remove([asset.path]);
+    const { error } = await deleteWebsiteMediaFile(asset.path);
     if (error) {
       setMediaError('Could not delete this image.');
       return;
