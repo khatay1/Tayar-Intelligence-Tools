@@ -87,6 +87,8 @@ import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from '
 import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
+import { buildProjectSnapshotDiffSummary } from './core/project-release-metrics';
+import { getWebsiteLeadPhone, getWebsiteLeadSource } from './core/website-lead-utils';
 import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles, uploadWebsiteMediaFile } from './services/websiteMediaService';
 import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
 import { createWebsiteCheckoutSession, getWebsiteBuilderBillingState, openWebsiteBillingPortalSession } from './services/websiteBillingService';
@@ -1446,7 +1448,7 @@ function createPage(name = 'New Page', slug = 'page'): WebsitePage {
 const PAGE_LANGUAGE_LABELS: Record<Language, string> = {
   en: 'English',
   sv: 'Svenska',
-  ar: 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©',
+  ar: 'العربية',
 };
 
 function normalizePageLanguage(value: unknown, fallback: Language = 'en'): Language {
@@ -3562,22 +3564,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
 
   function buildDeliveryFingerprint() {
-    return JSON.stringify({
-      siteName,
-      siteUrl,
-      faviconUrl,
-      homePageId,
-      pages: getCurrentPages(),
-      brand,
-      theme,
-      headerConfig,
-      footerConfig,
-      siteEnhancements,
-      productionConfig,
-      symbols,
-      seo,
-      language: prefs.language,
-    });
+    return buildEditableFingerprint();
   }
 
   const buildProjectData = useCallback((historyEntries: ProjectHistoryEntry[] = projectHistory) => {
@@ -4121,25 +4108,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLeads((current) => current.map((lead) => ids.includes(lead.id) ? { ...lead, stage, updated_at: updatedAt } : lead));
   }
 
-  function leadPhone(lead: WebsiteLead) {
-    const entry = Object.entries(lead.form_data || {}).find(([key, value]) =>
-      (key.toLowerCase().includes('phone') || key.toLowerCase().includes('tel')) && String(value || '').trim()
-    );
-    return entry ? String(entry[1] || '').trim() : '';
-  }
 
-  function leadSource(lead: WebsiteLead) {
-    const data = lead.form_data || {};
-    const source = String(data._utm_source || '').trim();
-    const medium = String(data._utm_medium || '').trim();
-    const campaign = String(data._utm_campaign || '').trim();
-    const referrer = String(data._referrer || '').trim();
-    return { source, medium, campaign, referrer };
-  }
 
   async function copyLeadSummary(lead: WebsiteLead) {
-    const meta = leadSource(lead);
-    const phone = leadPhone(lead);
+    const meta = getWebsiteLeadSource(lead);
+    const phone = getWebsiteLeadPhone(lead);
     const lines = [
       `Lead: ${lead.name}`,
       lead.email ? `Email: ${lead.email}` : '',
@@ -8552,33 +8525,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (releaseHistoryOpen) void refreshPublishVersions();
   }, [releaseHistoryOpen, refreshPublishVersions]);
 
-  function projectSnapshotCounts(snapshot: Record<string, unknown>) {
-    const snapshotPages = Array.isArray(snapshot.pages) ? snapshot.pages : [];
-    const pageCount = snapshotPages.length;
-    const sectionCount = snapshotPages.reduce((sum: number, page: unknown) => {
-      if (!page || typeof page !== 'object') return sum;
-      const pageSections = (page as { sections?: unknown }).sections;
-      return sum + (Array.isArray(pageSections) ? pageSections.length : 0);
-    }, 0);
-    const elementCount = snapshotPages.reduce((sum: number, page: unknown) => {
-      if (!page || typeof page !== 'object') return sum;
-      const pageSections = (page as { sections?: unknown }).sections;
-      if (!Array.isArray(pageSections)) return sum;
-      return sum + pageSections.reduce((sectionSum: number, section: unknown) => {
-        if (!section || typeof section !== 'object') return sectionSum;
-        const elements = (section as { elements?: unknown }).elements;
-        return sectionSum + (Array.isArray(elements) ? elements.length : 0);
-      }, 0);
-    }, 0);
-    return { pageCount, sectionCount, elementCount };
-  }
-
   function releaseDiffSummary(version: WebsitePublishVersion) {
-    const currentSnapshot = buildProjectSnapshot();
-    const current = projectSnapshotCounts(currentSnapshot as unknown as Record<string, unknown>);
-    const previous = projectSnapshotCounts(version.snapshot || {});
-    const delta = (value: number) => value === 0 ? '0' : value > 0 ? `+${value}` : String(value);
-    return `${delta(current.pageCount - previous.pageCount)} pages · ${delta(current.sectionCount - previous.sectionCount)} sections · ${delta(current.elementCount - previous.elementCount)} elements`;
+    return buildProjectSnapshotDiffSummary(
+      buildProjectSnapshot() as unknown as Record<string, unknown>,
+      version.snapshot || {},
+    );
   }
 
   async function verifyLiveDeployment() {
