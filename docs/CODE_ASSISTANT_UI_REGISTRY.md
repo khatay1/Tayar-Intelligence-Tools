@@ -54,3 +54,7 @@ The registry source catalog is the enforcement point. A component cannot be regi
 4. Add safe patch/diff/apply against user projects.
 5. Add AI variants, similar-component search, and full-page templates.
 6. Add registry audits that prevent duplicate IDs, missing license metadata, and restricted sources.
+
+## Verification
+
+The internal branch is checked on GitHub with TypeScript and the dedicated Coding Assistance smoke suite. This verification does not deploy the application to Vercel.
