@@ -17,6 +17,7 @@ export interface MirroredTemplateQuery {
   query?: string;
   category?: string;
   format?: string;
+  sort?: 'title' | 'newest' | 'size';
   page?: number;
   pageSize?: number;
 }
@@ -58,6 +59,9 @@ export async function listMirroredTemplates(
   const query = String(options.query || '').trim().slice(0, 120);
   const category = String(options.category || '').trim().slice(0, 80);
   const format = String(options.format || '').trim().slice(0, 24).toLowerCase();
+  const sort = options.sort === 'newest' || options.sort === 'size'
+    ? options.sort
+    : 'title';
 
   let request = supabase
     .from('template_assets')
@@ -73,8 +77,15 @@ export async function listMirroredTemplates(
   if (category && category !== 'all') request = request.eq('category', category);
   if (format && format !== 'all') request = request.eq('format', format);
 
+  const sortColumn = sort === 'newest'
+    ? 'created_at'
+    : sort === 'size'
+      ? 'file_size_bytes'
+      : 'title';
+  const ascending = sort === 'title';
+
   const { data, error, count } = await request
-    .order('title', { ascending: true })
+    .order(sortColumn, { ascending, nullsFirst: false })
     .range(from, to);
 
   if (error) throw error;
