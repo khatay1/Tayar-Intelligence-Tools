@@ -3696,13 +3696,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
   }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
 
+  const currentAIEditableFingerprint = useMemo(
+    () => buildEditableFingerprint(),
+    [buildEditableFingerprint],
+  );
+
   const currentAIEditorContext: EditorAIAsyncContext = {
     loadSequence: projectLoadSequenceRef.current,
     userId: user?.id ?? null,
     routeProjectId: projectId,
     projectId: cloudProjectId,
     ownerId: activeProjectOwnerId || null,
-    editableFingerprint: buildEditableFingerprint(),
+    editableFingerprint: currentAIEditableFingerprint,
     activePageId,
     sectionId: selectedId,
     elementId: selectedElementId,
