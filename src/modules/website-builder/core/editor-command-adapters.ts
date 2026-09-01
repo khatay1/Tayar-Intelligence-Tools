@@ -703,7 +703,7 @@ export function commandDuplicateElement<P extends EditorProjectLike>(
       options.idFactory || createEditorCloneIdFactory('duplicate'),
     );
     const clone = cloneEditorElementIndependent(match.element, idFactory);
-    mergeWithoutIdentity(clone, changes);
+    mergeWithoutIdentity(clone, changes, ['symbolId', 'containerId']);
     const index = hasExplicitPosition(position)
       ? targetIndex(match.section.elements, position)
       : match.elementIndex + 1;
