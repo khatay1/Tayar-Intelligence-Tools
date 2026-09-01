@@ -1,11 +1,13 @@
 import { supabase } from '@/lib/supabase';
 import { CodePatchPlan } from './patch-plan';
+import { validateControlledPackageOperation } from './package-editor';
 import {
   applyFileOperations,
   FileRollbackEntry,
   fingerprintFileStore,
   inspectProjectFileStore,
   restoreFileOperations,
+  FileWriteOperation,
 } from './project-file-store';
 
 interface StoredApply {
@@ -61,6 +63,7 @@ export async function applyCodePatch(
   expectedFingerprint: string,
   plan: CodePatchPlan,
   componentId: string,
+  controlledPackageOperation: FileWriteOperation | null = null,
 ): Promise<{ applyId: string; fingerprintAfter: string }> {
   const data = await loadProject(projectId);
   const currentContent = data.content as Record<string, unknown>;
@@ -71,7 +74,11 @@ export async function applyCodePatch(
     throw new Error('Project files changed since this patch was planned. Refresh project context and generate a new patch.');
   }
 
-  const applied = applyFileOperations(currentContent, plan.operations);
+  if (controlledPackageOperation) {
+    validateControlledPackageOperation(currentContent, controlledPackageOperation, plan.dependenciesToInstall);
+  }
+  const operations = controlledPackageOperation ? [...plan.operations, controlledPackageOperation] : plan.operations;
+  const applied = applyFileOperations(currentContent, operations);
   const fingerprintAfter = fingerprintFileStore(applied.content.files);
   const applyId = newApplyId();
   const now = new Date().toISOString();

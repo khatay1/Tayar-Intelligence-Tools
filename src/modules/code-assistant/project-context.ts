@@ -19,6 +19,7 @@ export interface CodeProjectContext {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
   files: CodeProjectFile[];
+  packageJsonFile: { content: string; complete: boolean } | null;
   filePaths: string[];
   totalCandidateFiles: number;
   truncated: boolean;
@@ -272,6 +273,7 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
   const content = isRecord(data.content) ? data.content : {};
   const allFiles = collectFiles(content);
   const packageJson = parsePackageJson(content, allFiles);
+  const packageJsonSource = allFiles.find((file) => file.path === 'package.json')?.content || null;
   const dependencies = stringRecord(packageJson.dependencies);
   const devDependencies = stringRecord(packageJson.devDependencies);
   const bounded = boundedFiles(allFiles);
@@ -301,6 +303,7 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
     dependencies,
     devDependencies,
     files: bounded.files,
+    packageJsonFile: packageJsonSource ? { content: packageJsonSource.slice(0, 80_000), complete: packageJsonSource.length <= 80_000 } : null,
     filePaths: allFiles.map((file) => file.path).slice(0, 300),
     totalCandidateFiles: allFiles.length,
     truncated: bounded.truncated,
