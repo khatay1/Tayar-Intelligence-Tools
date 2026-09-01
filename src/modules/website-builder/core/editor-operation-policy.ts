@@ -67,6 +67,15 @@ function referencedTargetKeys(operation: EditorNativeOperation) {
     if (container) targets.push(container);
   }
 
+  if (
+    operation.action === 'add_element' &&
+    operation.element?.containerId
+  ) {
+    targets.push(
+      `container:${operation.pageId || ''}:${operation.sectionId || ''}:${operation.element.containerId}`,
+    );
+  }
+
   return targets;
 }
 
@@ -161,6 +170,13 @@ export function preflightEditorNativeOperations(
     }
     if (operation.action === 'update_element' && operation.changes?.symbolId !== undefined) {
       errors.push(`${prefix} cannot change reusable component linkage through update_element`);
+    }
+    if (
+      operation.action === 'update_element' &&
+      operation.changes &&
+      Object.prototype.hasOwnProperty.call(operation.changes, 'containerId')
+    ) {
+      errors.push(`${prefix} cannot change container assignment through update_element; use assign_element_container`);
     }
 
     const removedKey = removedTargetKey(operation);
