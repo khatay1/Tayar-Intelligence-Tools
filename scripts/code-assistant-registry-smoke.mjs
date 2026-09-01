@@ -11,6 +11,7 @@ const futureIndex = read('src/modules/future-tools/index.ts');
 const sourceCatalog = read('src/modules/code-assistant/source-catalog.ts');
 const seed = read('src/modules/code-assistant/seed-components.ts');
 const assistant = read('src/modules/code-assistant/CodeAssistantTool.tsx');
+const upstream = read('src/modules/code-assistant/upstream-registry.ts');
 const vercel = JSON.parse(read('vercel.json'));
 
 if (!moduleIndex.includes("import './code-assistant';")) fail('Code Assistant module is not registered.');
@@ -18,6 +19,9 @@ if (futureIndex.includes("id: 'code-assistant'")) fail('Old Coming Soon Code Ass
 if (!sourceCatalog.includes("id: 'react-bits'") || !sourceCatalog.includes('redistributionAllowed: false')) fail('Restricted source guard is missing.');
 if (seed.includes("sourceId: 'react-bits'")) fail('Restricted React Bits content was bundled.');
 if (!assistant.includes("matches.find((item) => item.id === selectedId) || matches[0]")) fail('Filtered selection must stay inside visible registry results.');
+if (!upstream.includes("sourceId: 'kokonut-ui'") || !upstream.includes("sourceId: 'magic-ui'")) fail('Approved upstream registries are not configured.');
+if (upstream.includes("sourceId: 'react-bits'")) fail('Restricted React Bits source must never be configured for upstream loading.');
+if (/https:\\/\\/(?!raw\\.githubusercontent\\.com)/.test(upstream.match(/manifestUrl:[^\\n]+/g)?.join(' ') || '')) fail('Registry manifests must use raw GitHub URLs.');
 if (vercel?.git?.deploymentEnabled?.['internal-*'] !== false) fail('Internal branch Vercel deployment guard is missing.');
 
 if (!process.exitCode) {

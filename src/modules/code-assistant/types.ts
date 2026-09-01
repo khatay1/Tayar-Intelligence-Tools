@@ -33,6 +33,11 @@ export interface UIComponentRecord {
   license: RegistryLicense;
   dependencies: string[];
   code: string;
-  preview: 'hero' | 'nav' | 'pricing' | 'auth' | 'stats' | 'dashboard' | 'chat' | 'cta';
+  remote?: {
+    sourceId: string;
+    files: string[];
+    registryDependencies: string[];
+  };
+  preview: 'hero' | 'nav' | 'pricing' | 'auth' | 'stats' | 'dashboard' | 'chat' | 'cta' | 'generic';
   aiPrompt: string;
 }

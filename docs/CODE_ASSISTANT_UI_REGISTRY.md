@@ -32,11 +32,15 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Structured “Use with AI” adaptation prompt.
 - Source and license visibility.
 - Source-level redistribution guard.
+- Runtime loading of approved upstream registry manifests from KokonutUI and Magic UI.
+- On-demand component source fetching; third-party code is not executed inside the registry browser.
+- Full upstream MIT license text is prepended when remote source is loaded/copied.
+- Network/path/payload size guards for upstream source loading.
 
 ## Next implementation layers
 
-1. Add upstream MIT component ingestion with preserved license notices.
-2. Normalize imported React/Tailwind component metadata.
+1. Expand the approved upstream catalog (including shadcn-compatible registries) after per-source license verification.
+2. Add generated local snapshots for offline/fast browsing and change detection.
 3. Add project-aware dependency detection.
 4. Add safe patch/diff/apply against user projects.
 5. Add AI variants, similar-component search, and full-page templates.
