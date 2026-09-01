@@ -4929,6 +4929,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
+  function restoreEditHistoryEntry(entryId: string) {
+    const targetIndex = history.findIndex((entry) => entry.id === entryId);
+    if (targetIndex < 0) return;
+
+    const target = history[targetIndex];
+    const currentEntry = createEditHistoryEntry('Current state before history restore');
+    const redoPath = [
+      ...history.slice(targetIndex + 1),
+      currentEntry,
+      ...future,
+    ].slice(0, 50);
+
+    setHistory(history.slice(0, targetIndex));
+    setFuture(redoPath);
+    skipNextAutosaveRef.current = true;
+    applyProjectData(target.snapshot, false, false);
+    setSaved(false);
+  }
+
   function updateSelected(
     changes: Partial<Omit<WebsiteSection, 'id' | 'type'>>
   ) {
@@ -14216,6 +14235,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       onApplyOperations={applyV2NativeOperations}
+      onRestoreHistoryEntry={restoreEditHistoryEntry}
 
       accent={
         selectedSection?.accent ||
