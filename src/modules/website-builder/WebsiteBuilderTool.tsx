@@ -5479,16 +5479,43 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function insertSymbol(symbol: WebsiteSymbol) {
     if (!selectedSection) return;
     remember(sections, `Insert component: ${symbol.name}`);
+
     const columnCount = sectionColumnCount(selectedSection.layout);
+    const targetContainerId =
+      selectedElement?.containerId ||
+      selectedContainerId ||
+      undefined;
+
     const instance: WebsiteElement = {
       ...JSON.parse(JSON.stringify(symbol.element)) as WebsiteElement,
       id: `${symbol.element.type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       symbolId: symbol.id,
-      layoutColumn: columnCount > 1 ? 1 : undefined,
-      containerId: undefined,
+      layoutColumn: targetContainerId
+        ? undefined
+        : columnCount > 1
+          ? selectedElement?.layoutColumn || 1
+          : undefined,
+      containerId: targetContainerId,
     };
-    setSections((current) => current.map((section) => section.id === selectedSection.id ? { ...section, elements: [...section.elements, instance] } : section));
+
+    setSections((current) => current.map((section) => {
+      if (section.id !== selectedSection.id) return section;
+
+      const elements = [...section.elements];
+      const selectedIndex = selectedElementId
+        ? elements.findIndex((element) => element.id === selectedElementId)
+        : -1;
+      const insertAt = selectedIndex >= 0
+        ? selectedIndex + 1
+        : elements.length;
+
+      elements.splice(insertAt, 0, instance);
+      return { ...section, elements };
+    }));
+
     setSelectedElementId(instance.id);
+    setSelectedContainerId(null);
+    setSelectedFormFieldId(null);
     setSaved(false);
   }
 
