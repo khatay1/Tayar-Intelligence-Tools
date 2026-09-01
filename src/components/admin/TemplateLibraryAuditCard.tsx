@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, CheckCircle2, Download, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, Wrench, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, Trash2, Wrench, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const STORAGE_KEY = 'tayar-admin-template-audit-v2';
@@ -36,6 +36,15 @@ type RepairAnalysis = {
   failed: number;
 };
 
+type DeletionResult = {
+  requested: number;
+  deletedRows: number;
+  missingRows: number;
+  storageDeleted: number;
+  preservedSharedStorage: number;
+  storageDeleteFailures: number;
+};
+
 const emptyState = (): AuditState => ({
   offset: 0,
   total: null,
@@ -67,7 +76,9 @@ export default function TemplateLibraryAuditCard() {
   const [state, setState] = useState<AuditState>(() => loadStoredState());
   const [running, setRunning] = useState(false);
   const [analyzingRepairs, setAnalyzingRepairs] = useState(false);
+  const [deletingInvalid, setDeletingInvalid] = useState(false);
   const [repairAnalysis, setRepairAnalysis] = useState<RepairAnalysis | null>(null);
+  const [deletionResult, setDeletionResult] = useState<DeletionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const runRef = useRef(0);
 
@@ -94,10 +105,11 @@ export default function TemplateLibraryAuditCard() {
   };
 
   async function runAudit(restart = false) {
-    if (running || analyzingRepairs) return;
+    if (running || analyzingRepairs || deletingInvalid) return;
     const runId = ++runRef.current;
     setRunning(true);
     setRepairAnalysis(null);
+    setDeletionResult(null);
     setError(null);
 
     let current = restart ? emptyState() : loadStoredState();
@@ -140,9 +152,10 @@ export default function TemplateLibraryAuditCard() {
   }
 
   async function analyzeRepairs() {
-    if (running || analyzingRepairs || !state.completed || uniqueIssueIds.length === 0) return;
+    if (running || analyzingRepairs || deletingInvalid || !state.completed || uniqueIssueIds.length === 0) return;
     setAnalyzingRepairs(true);
     setRepairAnalysis(null);
+    setDeletionResult(null);
     setError(null);
 
     const analysis: RepairAnalysis = {
@@ -179,6 +192,39 @@ export default function TemplateLibraryAuditCard() {
     }
   }
 
+  async function deleteInvalidAssets() {
+    if (running || analyzingRepairs || deletingInvalid || !state.completed || uniqueIssueIds.length === 0) return;
+    setDeletingInvalid(true);
+    setDeletionResult(null);
+    setError(null);
+
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('template-library-delete-invalid', {
+        body: { assetIds: uniqueIssueIds },
+      });
+
+      if (invokeError) throw invokeError;
+      if (!data?.ok) throw new Error(data?.error || 'Invalid template deletion failed.');
+
+      setDeletionResult({
+        requested: Number(data.requested || uniqueIssueIds.length),
+        deletedRows: Number(data.deletedRows || 0),
+        missingRows: Number(data.missingRows || 0),
+        storageDeleted: Number(data.storageDeleted || 0),
+        preservedSharedStorage: Number(data.preservedSharedStorage || 0),
+        storageDeleteFailures: Array.isArray(data.storageDeleteFailures) ? data.storageDeleteFailures.length : 0,
+      });
+
+      localStorage.removeItem(STORAGE_KEY);
+      setState(emptyState());
+      setRepairAnalysis(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid template deletion failed.');
+    } finally {
+      setDeletingInvalid(false);
+    }
+  }
+
   function pauseAudit() {
     runRef.current += 1;
     setRunning(false);
@@ -188,7 +234,9 @@ export default function TemplateLibraryAuditCard() {
     runRef.current += 1;
     setRunning(false);
     setAnalyzingRepairs(false);
+    setDeletingInvalid(false);
     setRepairAnalysis(null);
+    setDeletionResult(null);
     setError(null);
     localStorage.removeItem(STORAGE_KEY);
     setState(emptyState());
@@ -205,6 +253,8 @@ export default function TemplateLibraryAuditCard() {
     URL.revokeObjectURL(url);
   }
 
+  const busy = running || analyzingRepairs || deletingInvalid;
+
   return (
     <section className="rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -219,7 +269,7 @@ export default function TemplateLibraryAuditCard() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!running ? (
-            <button onClick={() => runAudit(state.scanned === 0 || state.completed)} disabled={analyzingRepairs} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-40">
+            <button onClick={() => runAudit(state.scanned === 0 || state.completed)} disabled={analyzingRepairs || deletingInvalid} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-40">
               <Play className="h-4 w-4" /> {state.scanned > 0 && !state.completed ? 'Resume Audit' : state.completed ? 'Run Again' : 'Start Audit'}
             </button>
           ) : (
@@ -227,13 +277,16 @@ export default function TemplateLibraryAuditCard() {
               <Pause className="h-4 w-4" /> Pause
             </button>
           )}
-          <button onClick={analyzeRepairs} disabled={running || analyzingRepairs || !state.completed || uniqueIssueIds.length === 0} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40">
+          <button onClick={analyzeRepairs} disabled={busy || !state.completed || uniqueIssueIds.length === 0} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40">
             <Wrench className={`h-4 w-4 ${analyzingRepairs ? 'animate-pulse' : ''}`} /> {analyzingRepairs ? 'Analyzing…' : 'Analyze Repairs'}
           </button>
-          <button onClick={resetAudit} disabled={running || analyzingRepairs} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
+          <button onClick={deleteInvalidAssets} disabled={busy || !state.completed || uniqueIssueIds.length === 0} className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-40">
+            <Trash2 className={`h-4 w-4 ${deletingInvalid ? 'animate-pulse' : ''}`} /> {deletingInvalid ? 'Deleting…' : `Delete ${uniqueIssueIds.length || ''} Invalid`}
+          </button>
+          <button onClick={resetAudit} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
             <RotateCcw className="h-4 w-4" /> Reset
           </button>
-          <button onClick={exportIssues} disabled={!state.issues.length} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
+          <button onClick={exportIssues} disabled={!state.issues.length || busy} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
             <Download className="h-4 w-4" /> Export
           </button>
         </div>
@@ -251,12 +304,27 @@ export default function TemplateLibraryAuditCard() {
         <Metric label="Valid" value={state.valid} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
         <Metric label="Invalid" value={state.invalid} icon={<XCircle className="h-4 w-4 text-red-400" />} />
         <Metric label="Missing" value={state.missing} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
-        <Metric label="Status" value={running ? 'Running' : analyzingRepairs ? 'Analyzing' : state.completed ? 'Complete' : state.scanned ? 'Paused' : 'Idle'} icon={<RefreshCw className={`h-4 w-4 text-cyan-400 ${running || analyzingRepairs ? 'animate-spin' : ''}`} />} />
+        <Metric label="Status" value={running ? 'Running' : analyzingRepairs ? 'Analyzing' : deletingInvalid ? 'Deleting' : state.completed ? 'Complete' : state.scanned ? 'Paused' : 'Idle'} icon={<RefreshCw className={`h-4 w-4 text-cyan-400 ${busy ? 'animate-spin' : ''}`} />} />
       </div>
 
       {error && (
         <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">
-          {error} Audit progress is still saved.
+          {error} Audit progress is still saved unless deletion completed.
+        </div>
+      )}
+
+      {deletionResult && (
+        <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/[0.04] p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-red-300">
+            <Trash2 className="h-4 w-4" /> Invalid template deletion completed
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Metric label="Rows deleted" value={deletionResult.deletedRows} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
+            <Metric label="Storage deleted" value={deletionResult.storageDeleted} icon={<Trash2 className="h-4 w-4 text-red-400" />} />
+            <Metric label="Shared preserved" value={deletionResult.preservedSharedStorage} icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />} />
+            <Metric label="Storage failures" value={deletionResult.storageDeleteFailures} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
+          </div>
+          <p className="mt-3 text-[11px] text-gray-500">The previous audit snapshot was cleared. Run the audit again to verify the remaining library.</p>
         </div>
       )}
 
