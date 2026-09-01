@@ -64,11 +64,6 @@ import {
   type EditorProjectAccess,
 } from './core/editor-project-access';
 import {
-  listAllPublishedSiteFiles,
-  publishedSiteFilePaths,
-  removePublishedSiteFiles,
-} from './core/editor-published-storage';
-import {
   clearLocalWebsiteProjects,
   hasRecoveryWebsiteProject,
   loadActiveWebsiteProjectId,
@@ -79,7 +74,15 @@ import {
   saveRecoveryWebsiteProject,
 } from './core/editor-project-lifecycle';
 import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud, updateWebsiteProjectPublicationState } from './services/projectCloudService';
-import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles, uploadPublishedWebsiteFolderFiles } from './services/publishedWebsiteService';
+import {
+  archivePublishedWebsiteFiles,
+  downloadPublishedWebsiteFile,
+  removePublishedWebsiteFiles,
+  removeStalePublishedWebsiteFiles,
+  replacePublishedWebsiteFiles,
+  uploadPublishedWebsiteBlob,
+  uploadPublishedWebsiteFolderFiles,
+} from './services/publishedWebsiteService';
 import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
 import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
 import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
@@ -94,7 +97,6 @@ import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-a
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
 const EDITOR_V2_FLAGS_STORAGE_KEY = 'tayar.website-builder.v2.flags';
-const publishedSiteStorage = supabase.storage.from('published-sites');
 
 function resolveWebsiteBuilderV2Flags() {
   if (typeof window === 'undefined') {
@@ -3944,9 +3946,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const ownerId = project.user_id || user.id;
     const path = `${ownerId}/${project.id}/index.html`;
-    const { data, error } = await supabase.storage
-      .from('published-sites')
-      .download(path);
+    const { data, error } = await downloadPublishedWebsiteFile(path);
 
     const storedUrl =
       typeof project.content?.publishedUrl === 'string'
@@ -8591,9 +8591,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLiveVerification('checking');
 
     const path = `${activeProjectOwnerId}/${cloudProjectId}/index.html`;
-    const { data, error } = await supabase.storage
-      .from('published-sites')
-      .download(path);
+    const { data, error } = await downloadPublishedWebsiteFile(path);
 
     if (error || !data || data.size <= 0) {
       setLiveVerification('failed');
@@ -8695,9 +8693,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
       if (!manifest.length) throw new Error('This release has no stored files.');
       const liveNames = new Set(manifest.map((item) => item.name));
-      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
-      const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
-      await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
+      await removeStalePublishedWebsiteFiles(folder, liveNames);
       const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(user.id, cloudProjectId);
       const nextPublishedUrl = buildPublishedSiteUrl(user.id, cloudProjectId, 'index.html');
       if (!nextPublishedBaseUrl || !nextPublishedUrl) throw new Error('Could not build the live website URL.');
@@ -8707,7 +8703,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const canonicalVersionBase = legacyVersionUrl.replace(/\/index\.html(?:[?#].*)?$/i, '');
 
       for (const file of manifest) {
-        const { data: blob, error: downloadError } = await supabase.storage.from('published-sites').download(`${version.storage_prefix}/${file.name}`);
+        const { data: blob, error: downloadError } = await downloadPublishedWebsiteFile(`${version.storage_prefix}/${file.name}`);
         if (downloadError || !blob) throw downloadError || new Error(`Could not restore ${file.name}`);
 
         let uploadBody: Blob = blob;
@@ -8723,10 +8719,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           uploadBody = new Blob([text], { type: file.contentType || blob.type || 'text/plain; charset=utf-8' });
         }
 
-        const { error: uploadError } = await supabase.storage.from('published-sites').upload(`${folder}/${file.name}`, uploadBody, {
-          upsert: true,
+        const { error: uploadError } = await uploadPublishedWebsiteBlob({
+          path: `${folder}/${file.name}`,
+          body: uploadBody,
           contentType: file.contentType || blob.type || 'application/octet-stream',
           cacheControl: '0',
+          upsert: true,
         });
         if (uploadError) throw uploadError;
       }
@@ -9756,38 +9754,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           .releaseHistory
       ) {
         try {
-          for (const file of files) {
-            const blob =
-              new Blob(
-                [file.content],
-                {
-                  type:
-                    file.contentType,
-                },
-              );
-
-            const {
-              error: archiveError,
-            } = await supabase.storage
-              .from('published-sites')
-              .upload(
-                versionPrefix +
-                  '/' +
-                  file.name,
-                blob,
-                {
-                  upsert: false,
-                  contentType:
-                    file.contentType,
-                  cacheControl:
-                    '31536000',
-                },
-              );
-
-            if (archiveError) {
-              throw archiveError;
-            }
-          }
+          await archivePublishedWebsiteFiles(versionPrefix, files);
 
           const editableFingerprint =
             buildEditableFingerprint();
