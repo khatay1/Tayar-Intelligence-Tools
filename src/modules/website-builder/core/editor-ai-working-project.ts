@@ -75,19 +75,21 @@ function projectToWorkingState(
   };
 }
 
-export function applyEditorAIWorkingNativeOperation(
+export function applyEditorAIWorkingNativeOperations(
   state: EditorAIWorkingProjectState,
-  operation: EditorNativeOperation,
+  operations: EditorNativeOperation[],
   options: ApplyEditorNativePatchOptions<EditorProjectLike> = {},
 ): ApplyEditorAIWorkingNativeResult {
   const result =
     applyEditorNativeProjectPatch(
       createWorkingProject(state),
-      [operation],
+      operations,
       {
         ...options,
         source: options.source || 'ai',
-        maxOperations: 1,
+        maxOperations:
+          options.maxOperations ??
+          Math.max(1, operations.length),
       },
     );
 
@@ -95,4 +97,19 @@ export function applyEditorAIWorkingNativeOperation(
     ...result,
     working: projectToWorkingState(result.project),
   };
+}
+
+export function applyEditorAIWorkingNativeOperation(
+  state: EditorAIWorkingProjectState,
+  operation: EditorNativeOperation,
+  options: ApplyEditorNativePatchOptions<EditorProjectLike> = {},
+): ApplyEditorAIWorkingNativeResult {
+  return applyEditorAIWorkingNativeOperations(
+    state,
+    [operation],
+    {
+      ...options,
+      maxOperations: 1,
+    },
+  );
 }
