@@ -3429,7 +3429,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const publishOperationSequenceRef = useRef(0);
   const previewOperationSequenceRef = useRef(0);
   const liveVerificationSequenceRef = useRef(0);
+  const activeUserIdRef = useRef<string | null>(user?.id ?? null);
+  const reusableRefreshSequenceRef = useRef(0);
+  const reusableOperationSequenceRef = useRef(0);
+  const mediaRefreshSequenceRef = useRef(0);
+  const mediaOperationSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
+
+  activeUserIdRef.current = user?.id ?? null;
 
   const cancelPendingProjectPersistence = useCallback(() => {
     if (autosaveTimerRef.current) {
@@ -3753,15 +3760,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, []);
 
   const refreshReusableSections = useCallback(async () => {
+    const refreshUserId = user?.id ?? null;
+    const refreshSequence = ++reusableRefreshSequenceRef.current;
+    const refreshIsCurrent = () =>
+      reusableRefreshSequenceRef.current === refreshSequence &&
+      activeUserIdRef.current === refreshUserId;
+
     setReusableError('');
-    if (!user) {
-      setReusableSections(loadLocalReusableSections());
-      setReusableBusy(false);
+
+    if (!refreshUserId) {
+      if (refreshIsCurrent()) {
+        setReusableSections(loadLocalReusableSections());
+        setReusableBusy(false);
+      }
       return;
     }
 
     setReusableBusy(true);
-    const { data, error } = await listReusableSectionsInCloud(user.id);
+
+    const { data, error } = await listReusableSectionsInCloud(refreshUserId);
+
+    if (!refreshIsCurrent()) return;
 
     if (error) {
       setReusableError('Could not load reusable sections.');
@@ -3785,18 +3804,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setReusableSections(items);
     setReusableBusy(false);
-  }, [user, loadLocalReusableSections]);
+  }, [user?.id, loadLocalReusableSections]);
 
   async function saveSelectedSectionAsReusable() {
     if (!selectedSection) return;
     const title = window.prompt('Template name', selectedSection.title || SECTION_LABELS[selectedSection.type])?.trim();
     if (!title) return;
 
-    setReusableBusy(true);
     setReusableError('');
     const savedSection = JSON.parse(JSON.stringify(selectedSection)) as WebsiteSection;
+    const operationUserId = user?.id ?? null;
 
-    if (!user) {
+    if (!operationUserId) {
       const item: ReusableSectionTemplate = {
         id: `local-template-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         title,
@@ -3810,17 +3829,31 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const { error } = await saveReusableSectionInCloud(user.id, title, savedSection);
+    const operationSequence = ++reusableOperationSequenceRef.current;
+    const operationIsCurrent = () =>
+      reusableOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
 
-    if (error) {
-      setReusableError('Could not save this reusable section.');
-      setReusableBusy(false);
-      return;
+    setReusableBusy(true);
+
+    try {
+      const { error } = await saveReusableSectionInCloud(operationUserId, title, savedSection);
+
+      if (!operationIsCurrent()) return;
+
+      if (error) {
+        setReusableError('Could not save this reusable section.');
+        return;
+      }
+
+      await refreshReusableSections();
+    } finally {
+      if (operationIsCurrent()) {
+        setReusableBusy(false);
+      }
     }
-
-    await refreshReusableSections();
-    setReusableBusy(false);
   }
+
 
   function insertReusableSection(template: ReusableSectionTemplate) {
     remember(sections);
@@ -3835,26 +3868,39 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!window.confirm(`Delete reusable section “${template.title}”?`)) return;
     setReusableError('');
 
-    if (!user || !template.cloudId) {
+    const operationUserId = user?.id ?? null;
+
+    if (!operationUserId || !template.cloudId) {
       const next = reusableSections.filter((item) => item.id !== template.id);
       setReusableSections(next);
       localStorage.setItem(REUSABLE_SECTIONS_KEY, JSON.stringify(next));
       return;
     }
 
+    const operationSequence = ++reusableOperationSequenceRef.current;
+    const operationIsCurrent = () =>
+      reusableOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
+
     setReusableBusy(true);
-    const { error } = await deleteReusableSectionInCloud(user.id, template.cloudId);
 
-    if (error) {
-      setReusableError('Could not delete this reusable section.');
-      setReusableBusy(false);
-      return;
+    try {
+      const { error } = await deleteReusableSectionInCloud(operationUserId, template.cloudId);
+
+      if (!operationIsCurrent()) return;
+
+      if (error) {
+        setReusableError('Could not delete this reusable section.');
+        return;
+      }
+
+      await refreshReusableSections();
+    } finally {
+      if (operationIsCurrent()) {
+        setReusableBusy(false);
+      }
     }
-
-    await refreshReusableSections();
-    setReusableBusy(false);
   }
-
   function applyThemeToSection(section: WebsiteSection, index: number): WebsiteSection {
     const background = section.type === 'footer'
       ? theme.secondaryColor
@@ -4290,16 +4336,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAnalyticsLoading(false);
   }, [user, cloudProjectId, projectTeamAccess.canEdit]);
 
-  const refreshMedia = useCallback(async () => {
-    if (!user) {
-      setMediaAssets([]);
-      setMediaError('');
+  const refreshMedia = useCallback(async (expectedUserId: string | null = user?.id ?? null) => {
+    const refreshSequence = ++mediaRefreshSequenceRef.current;
+    const refreshIsCurrent = () =>
+      mediaRefreshSequenceRef.current === refreshSequence &&
+      activeUserIdRef.current === expectedUserId;
+
+    if (!expectedUserId) {
+      if (refreshIsCurrent()) {
+        setMediaAssets([]);
+        setMediaError('');
+        setMediaLoading(false);
+      }
       return;
     }
 
     setMediaLoading(true);
     setMediaError('');
-    const { data, error } = await listWebsiteMediaFiles(user.id);
+
+    const { data, error } = await listWebsiteMediaFiles(expectedUserId);
+
+    if (!refreshIsCurrent()) return;
 
     if (error) {
       setMediaError('Media library is unavailable. Make sure the Sprint 12 storage migration is applied.');
@@ -4310,7 +4367,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const assets: WebsiteMediaAsset[] = (data || [])
       .filter((item) => Boolean(item.name) && item.name !== '.emptyFolderPlaceholder')
       .map((item) => {
-        const path = `${user.id}/${item.name}`;
+        const path = `${expectedUserId}/${item.name}`;
         return {
           name: item.name,
           path,
@@ -4321,8 +4378,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setMediaAssets(assets);
     setMediaLoading(false);
-  }, [user]);
-
+  }, [user?.id]);
   function applyMediaAsset(asset: WebsiteMediaAsset) {
     if (!selectedSection) return;
 
@@ -4347,7 +4403,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function uploadMediaFile(file: File) {
-    if (!user) {
+    const uploadUserId = user?.id ?? null;
+    if (!uploadUserId) {
       setMediaError('Sign in before uploading media.');
       return;
     }
@@ -4360,45 +4417,78 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    const uploadSequence = ++mediaOperationSequenceRef.current;
+    const uploadProjectSequence = projectLoadSequenceRef.current;
+    const uploadIsCurrentUser = () =>
+      mediaOperationSequenceRef.current === uploadSequence &&
+      activeUserIdRef.current === uploadUserId;
+
     setMediaUploading(true);
     setMediaError('');
+
     const extension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
     const base = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
-    const path = `${user.id}/${Date.now()}-${base}.${extension}`;
-    const { error } = await uploadWebsiteMediaFile(path, file);
+    const path = `${uploadUserId}/${Date.now()}-${base}.${extension}`;
 
-    if (error) {
-      setMediaError('Could not upload this image.');
-      setMediaUploading(false);
-      return;
-    }
+    try {
+      const { error } = await uploadWebsiteMediaFile(path, file);
 
-    const publicUrl = getWebsiteMediaPublicUrl(path);
-    await refreshMedia();
-    setMediaUploading(false);
+      if (!uploadIsCurrentUser()) return;
 
-    if (selectedElement?.type === 'image') {
-      updateSelectedElement({ src: publicUrl, content: file.name });
+      if (error) {
+        setMediaError('Could not upload this image.');
+        return;
+      }
+
+      const publicUrl = getWebsiteMediaPublicUrl(path);
+      await refreshMedia(uploadUserId);
+
+      if (!uploadIsCurrentUser()) return;
+
+      if (
+        projectLoadSequenceRef.current === uploadProjectSequence &&
+        selectedElement?.type === 'image'
+      ) {
+        updateSelectedElement({ src: publicUrl, content: file.name });
+      }
+    } finally {
+      if (uploadIsCurrentUser()) {
+        setMediaUploading(false);
+      }
     }
   }
-
   async function deleteMediaAsset(asset: WebsiteMediaAsset) {
-    if (!user) return;
+    const deleteUserId = user?.id ?? null;
+    if (!deleteUserId) return;
     if (!window.confirm(`Delete ${asset.name} from your media library?`)) return;
 
+    const deleteSequence = ++mediaOperationSequenceRef.current;
+    const deleteProjectSequence = projectLoadSequenceRef.current;
+    const deleteIsCurrentUser = () =>
+      mediaOperationSequenceRef.current === deleteSequence &&
+      activeUserIdRef.current === deleteUserId;
+
     setMediaError('');
+
     const { error } = await deleteWebsiteMediaFile(asset.path);
+
+    if (!deleteIsCurrentUser()) return;
+
     if (error) {
       setMediaError('Could not delete this image.');
       return;
     }
 
     setMediaAssets((current) => current.filter((item) => item.path !== asset.path));
-    if (selectedElement?.type === 'image' && selectedElement.src === asset.url) {
+
+    if (
+      projectLoadSequenceRef.current === deleteProjectSequence &&
+      selectedElement?.type === 'image' &&
+      selectedElement.src === asset.url
+    ) {
       updateSelectedElement({ src: '' });
     }
   }
-
   const selectedSection = useMemo(
     () => sections.find((section) => section.id === selectedId) ?? null,
     [sections, selectedId]
