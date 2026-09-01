@@ -102,8 +102,36 @@ const FONT_FAMILIES = new Set([
   'system-ui',
 ]);
 
-const CONTROL_CHARACTER_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
-const URL_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/;
+// Multiline editor text allows \u0009, \u000A and \u000D, but rejects \u000B and other controls.
+const CONTROL_CHARACTER_PATTERN = {
+  test(value: string) {
+    for (let index = 0; index < value.length; index += 1) {
+      const code = value.charCodeAt(index);
+      if (
+        code === 0x7f ||
+        (code <= 0x1f &&
+          code !== 0x09 &&
+          code !== 0x0a &&
+          code !== 0x0d)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  },
+};
+
+const URL_CONTROL_CHARACTER_PATTERN = {
+  test(value: string) {
+    for (let index = 0; index < value.length; index += 1) {
+      const code = value.charCodeAt(index);
+      if (code <= 0x1f || code === 0x7f) {
+        return true;
+      }
+    }
+    return false;
+  },
+};
 const HEX_6_PATTERN = /^#[0-9a-f]{6}$/i;
 const CSS_COLOR_PATTERN = /^(?:#[0-9a-f]{3,4}|#[0-9a-f]{6}|#[0-9a-f]{8}|transparent)$/i;
 const LANGUAGE_PATTERN = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/;
