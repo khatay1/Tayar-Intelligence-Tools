@@ -8828,16 +8828,29 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
     if (!window.confirm(`Rollback the live website to the release from ${new Date(version.created_at).toLocaleString()}? Your editor draft will stay unchanged.`)) return;
+
+    const rollbackSequence = ++publishOperationSequenceRef.current;
+    const rollbackLoadSequence = projectLoadSequenceRef.current;
+    const rollbackProjectId = cloudProjectId;
+    const rollbackUserId = user.id;
+    const rollbackBaseProjectData = buildProjectData();
+    const rollbackIsCurrent = () =>
+      publishOperationSequenceRef.current === rollbackSequence &&
+      projectLoadSequenceRef.current === rollbackLoadSequence;
+
     setPublishBusy(true);
     setPublishError('');
+
     try {
-      const folder = `${user.id}/${cloudProjectId}`;
+      const folder = `${rollbackUserId}/${rollbackProjectId}`;
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
       if (!manifest.length) throw new Error('This release has no stored files.');
+
       const liveNames = new Set(manifest.map((item) => item.name));
       await removeStalePublishedWebsiteFiles(folder, liveNames);
-      const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(user.id, cloudProjectId);
-      const nextPublishedUrl = buildPublishedSiteUrl(user.id, cloudProjectId, 'index.html');
+
+      const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(rollbackUserId, rollbackProjectId);
+      const nextPublishedUrl = buildPublishedSiteUrl(rollbackUserId, rollbackProjectId, 'index.html');
       if (!nextPublishedBaseUrl || !nextPublishedUrl) throw new Error('Could not build the live website URL.');
 
       const legacyVersionUrl = normalizePublishedSiteUrl(version.published_url || '');
@@ -8870,23 +8883,40 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         });
         if (uploadError) throw uploadError;
       }
+
       const nextPublishedAt = new Date().toISOString();
       const projectData = {
-        ...buildProjectData(),
+        ...rollbackBaseProjectData,
         publishedUrl: nextPublishedUrl,
         publishedAt: nextPublishedAt,
         lastPublishedVersionId: version.id,
         lastPublishedFingerprint: version.editor_fingerprint,
         updatedAt: nextPublishedAt,
       };
+
       const { error: projectError } = await updateWebsiteProjectPublicationState({
-        projectId: cloudProjectId,
-        userId: user.id,
+        projectId: rollbackProjectId,
+        userId: rollbackUserId,
         content: projectData,
         published: true,
         updatedAt: nextPublishedAt,
       });
       if (projectError) throw projectError;
+
+      if (!rollbackIsCurrent()) return;
+
+      setCloudProjects((current) =>
+        current.map((project) =>
+          project.id === rollbackProjectId
+            ? {
+                ...project,
+                content: projectData,
+                status: 'completed',
+                updated_at: nextPublishedAt,
+              }
+            : project
+        )
+      );
       setPublishedUrl(nextPublishedUrl);
       setPublishedAt(nextPublishedAt);
       setLastPublishedVersionId(version.id);
@@ -8894,14 +8924,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
-      await verifyLiveDeployment();
+
+      await verifyLiveDeployment(
+        rollbackProjectId,
+        rollbackUserId,
+        rollbackLoadSequence,
+      );
     } catch (error) {
+      if (!rollbackIsCurrent()) return;
       setPublishError(error instanceof Error ? error.message : 'Could not rollback this release.');
     } finally {
-      setPublishBusy(false);
+      if (publishOperationSequenceRef.current === rollbackSequence) {
+        setPublishBusy(false);
+      }
     }
   }
-
   function restorePublishVersionToEditor(version: WebsitePublishVersion) {
     if (!window.confirm('Restore this release into the editor? The live website will not change until you publish again.')) return;
     const restored = {
