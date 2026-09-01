@@ -3720,6 +3720,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     expected: EditorAIAsyncContext,
     requireSelection = false,
   ) {
+    if (
+      projectLoadSequenceRef.current !== expected.loadSequence ||
+      activeUserIdRef.current !== expected.userId
+    ) {
+      return false;
+    }
+
     return editorAIContextMatches(
       expected,
       aiEditorContextRef.current,
@@ -3733,6 +3740,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function aiProjectIdentityIsCurrent(
     expected: EditorAIAsyncContext,
   ) {
+    if (
+      projectLoadSequenceRef.current !== expected.loadSequence ||
+      activeUserIdRef.current !== expected.userId
+    ) {
+      return false;
+    }
+
     return editorAIProjectIdentityMatches(
       expected,
       aiEditorContextRef.current,
