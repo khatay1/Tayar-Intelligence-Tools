@@ -93,6 +93,7 @@ import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles
 import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
 import { createWebsiteCheckoutSession, getWebsiteBuilderBillingState, openWebsiteBillingPortalSession } from './services/websiteBillingService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
+import { normalizePageLanguage, normalizeSlug } from './core/project-identifiers';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
@@ -1451,10 +1452,6 @@ const PAGE_LANGUAGE_LABELS: Record<Language, string> = {
   ar: 'العربية',
 };
 
-function normalizePageLanguage(value: unknown, fallback: Language = 'en'): Language {
-  return value === 'ar' || value === 'sv' || value === 'en' ? value : fallback;
-}
-
 function languageCodeLabel(language: Language): string {
   return language.toUpperCase();
 }
@@ -1516,14 +1513,6 @@ function createSectionFromTemplate(template: SectionTemplateDefinition): Website
     buttonText: template.buttonText ?? section.buttonText,
     elements,
   };
-}
-
-function normalizeSlug(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'page';
 }
 
 function normalizeAnchorId(value: string, fallback = 'section'): string {
