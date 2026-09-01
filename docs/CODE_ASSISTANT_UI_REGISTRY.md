@@ -50,13 +50,17 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - The bounded active-project snapshot is included in AI adaptation context, with project source explicitly treated as untrusted data.
 - Structured AI patch planning returns validated create/replace operations and a before/after change preview.
 - Patch planning blocks deletes, environment/credential files, lockfiles, package.json writes, unsafe paths, duplicate operations, and oversized payloads.
+- Safe Apply is enabled only for recognized `content.files` project stores and requires explicit in-UI confirmation after review.
+- Apply re-reads the project and checks both the file-store fingerprint and row `updated_at` to reject stale/racing writes.
+- Each successful apply stores a bounded per-file rollback checkpoint; rollback is allowed only while the file-store fingerprint still matches the applied state.
+- Safe Apply blocks unresolved npm dependencies, unresolved registry dependencies, and blind replacement of files absent from the bounded AI snapshot.
 
 ## Next implementation layers
 
 1. Expand the approved upstream catalog with additional MIT/Apache registries after per-source license verification.
 2. Add generated local snapshots for offline/fast browsing and change detection.
-3. Add explicit-confirmation safe apply with rollback checkpoints for supported code-project shapes.
-4. Add package/registry dependency install planning with conflict/version warnings.
+3. Add package/registry dependency install planning with conflict/version warnings.
+4. Add a controlled package.json dependency editor instead of raw package.json AI writes.
 5. Add AI variants, similar-component search, and full-page templates.
 6. Add registry audits that prevent duplicate IDs, missing license metadata, and restricted sources.
 

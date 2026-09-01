@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Boxes, Check, Code2, Copy, ExternalLink, FileDiff, FolderCog, Heart, LayoutTemplate, Loader2, Package,
-  Search, ShieldCheck, Sparkles,
+  RotateCcw, Save, Search, ShieldCheck, Sparkles,
 } from 'lucide-react';
 import { AIService } from '@/lib/ai/service';
 import { componentRegistry } from './component-registry';
@@ -9,6 +9,7 @@ import { getRegistrySource, REGISTRY_SOURCES } from './source-catalog';
 import { loadUpstreamComponentCode, loadUpstreamComponents } from './upstream-registry';
 import { checkProjectDependencies, CodeProjectContext, loadCodeProjectContext, summarizeProjectForAI } from './project-context';
 import { buildPatchPreviews, CodePatchPlan, validatePatchPlan } from './patch-plan';
+import { applyCodePatch, rollbackCodePatch } from './project-apply';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const CATEGORIES: Array<{ id: UIComponentCategory | 'all'; label: string }> = [
@@ -88,6 +89,9 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [projectError, setProjectError] = useState<string | null>(null);
   const [patchPlan, setPatchPlan] = useState<CodePatchPlan | null>(null);
   const [patchLoading, setPatchLoading] = useState(false);
+  const [applyConfirmed, setApplyConfirmed] = useState(false);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<string | null>(null);
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
@@ -162,6 +166,21 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     () => patchPlan ? buildPatchPreviews(projectContext, patchPlan) : [],
     [patchPlan, projectContext],
   );
+  const patchDependencyChecks = useMemo(
+    () => patchPlan ? checkProjectDependencies(projectContext, patchPlan.dependenciesToInstall) : [],
+    [projectContext, patchPlan],
+  );
+  const unresolvedPatchDependencies = patchDependencyChecks.filter((entry) => !entry.installed);
+  const blindReplacePaths = patchPlan
+    ? patchPlan.operations.filter((operation) => operation.type === 'replace' && !projectContext?.files.some((file) => file.path === operation.path)).map((operation) => operation.path)
+    : [];
+  const applyBlockers = [
+    ...(!projectId || !projectContext ? ['Open a project before applying a patch.'] : []),
+    ...(projectContext && !projectContext.canApply ? ['This project does not expose a supported content.files store.'] : []),
+    ...(unresolvedPatchDependencies.length ? [`Missing npm dependencies: ${unresolvedPatchDependencies.map((entry) => entry.name).join(', ')}`] : []),
+    ...(patchPlan?.registryDependencies.length ? [`Resolve registry dependencies first: ${patchPlan.registryDependencies.join(', ')}`] : []),
+    ...(blindReplacePaths.length ? [`Patch tries to replace files that were not present in the AI project snapshot: ${blindReplacePaths.join(', ')}`] : []),
+  ];
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((current) => {
@@ -292,6 +311,48 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     }
   };
 
+  const refreshProjectContext = async () => {
+    if (!projectId) return null;
+    const refreshed = await loadCodeProjectContext(projectId);
+    setProjectContext(refreshed);
+    return refreshed;
+  };
+
+  const onApplyPatch = async (item: UIComponentRecord) => {
+    if (!projectId || !projectContext || !patchPlan || !applyConfirmed || applyBlockers.length || applyLoading) return;
+    setApplyLoading(true);
+    setActionError(null);
+    setApplyMessage(null);
+    try {
+      await applyCodePatch(projectId, projectContext.fileStoreFingerprint, patchPlan, item.id);
+      await refreshProjectContext();
+      setApplyConfirmed(false);
+      setApplyMessage('Patch applied. A rollback checkpoint is available until the project files change again.');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to apply the patch.');
+    } finally {
+      setApplyLoading(false);
+    }
+  };
+
+  const onRollbackPatch = async () => {
+    if (!projectId || !projectContext?.lastApply || applyLoading) return;
+    setApplyLoading(true);
+    setActionError(null);
+    setApplyMessage(null);
+    try {
+      await rollbackCodePatch(projectId, projectContext.lastApply.id);
+      await refreshProjectContext();
+      setPatchPlan(null);
+      setApplyConfirmed(false);
+      setApplyMessage('Last Coding Assistance patch was rolled back.');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to rollback the patch.');
+    } finally {
+      setApplyLoading(false);
+    }
+  };
+
   const shell = darkMode ? 'bg-[#080814] text-white' : 'bg-white text-gray-900';
   const panel = darkMode ? 'border-white/10 bg-white/[0.035]' : 'border-gray-200 bg-gray-50';
 
@@ -313,6 +374,12 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
         </div>
         <button onClick={() => setShowSources((value) => !value)} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${panel}`}><ShieldCheck className="h-4 w-4 text-emerald-400" /> Source policy</button>
       </div>
+
+      {applyMessage && (
+        <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-300">
+          {applyMessage}
+        </div>
+      )}
 
       {projectError && (
         <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
@@ -416,7 +483,14 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
                   </div>}
                   {patchPlan.warnings.length > 0 && <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">{patchPlan.warnings.join(' · ')}</div>}
                   <div className="space-y-3">{patchPreviews.map(({ operation, existingContent, preview }) => <div key={operation.path} className="rounded-lg border border-white/10 overflow-hidden"><div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2"><div className="min-w-0"><div className="truncate text-xs font-semibold">{operation.path}</div><div className="mt-0.5 text-[10px] opacity-45">{operation.type} · {existingContent === null ? 'new file' : 'existing file'}{operation.reason ? ` · ${operation.reason}` : ''}</div></div><button onClick={() => void copyText(operation.content)} className="rounded-lg border border-white/10 p-2 opacity-60 hover:opacity-100" aria-label={`Copy ${operation.path}`}><Copy className="h-3.5 w-3.5" /></button></div><pre className="max-h-72 overflow-auto whitespace-pre-wrap bg-black/30 p-3 text-[11px] leading-5 text-gray-300"><code>{preview}</code></pre></div>)}</div>
-                  <p className="text-[10px] leading-4 opacity-45">Safety gate: this plan cannot delete files, edit environment/credential files, modify lockfiles, or write package.json. Nothing is applied automatically.</p>
+                  <p className="text-[10px] leading-4 opacity-45">Safety gate: this plan cannot delete files, edit environment/credential files, modify lockfiles, or write package.json.</p>
+                  {projectContext?.lastApply && projectContext.lastApply.fingerprintAfter === projectContext.fileStoreFingerprint && <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3"><div className="text-xs font-semibold text-amber-300">Rollback checkpoint available</div><div className="mt-1 text-[10px] opacity-55">{projectContext.lastApply.summary}{projectContext.lastApply.appliedAt ? ` · ${new Date(projectContext.lastApply.appliedAt).toLocaleString()}` : ''}</div><button disabled={applyLoading} onClick={() => void onRollbackPatch()} className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-400/20 px-3 py-1.5 text-xs text-amber-300 disabled:opacity-50">{applyLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />} Rollback last patch</button></div>}
+                  <div className="rounded-lg border border-white/10 p-3">
+                    {applyBlockers.length > 0 ? <div><div className="text-xs font-semibold text-amber-300">Safe Apply blocked</div><ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] leading-5 opacity-65">{applyBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div> : <div>
+                      <label className="flex cursor-pointer items-start gap-2 text-xs"><input type="checkbox" checked={applyConfirmed} onChange={(event) => setApplyConfirmed(event.target.checked)} className="mt-0.5" /><span>I reviewed the file changes above and want to apply this patch to the active project.</span></label>
+                      <button disabled={!applyConfirmed || applyLoading} onClick={() => void onApplyPatch(selected)} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">{applyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Apply reviewed patch</button>
+                    </div>}
+                  </div>
                 </div>}
                 {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && !patchLoading && !patchPlan && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation or patch plan generated yet.</div>}
               </div>}

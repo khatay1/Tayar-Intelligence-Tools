@@ -14,6 +14,8 @@ const assistant = read('src/modules/code-assistant/CodeAssistantTool.tsx');
 const upstream = read('src/modules/code-assistant/upstream-registry.ts');
 const projectContext = read('src/modules/code-assistant/project-context.ts');
 const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
+const projectFileStore = read('src/modules/code-assistant/project-file-store.ts');
+const projectApply = read('src/modules/code-assistant/project-apply.ts');
 const prompts = read('src/lib/ai/prompts.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const vercel = JSON.parse(read('vercel.json'));
@@ -35,6 +37,9 @@ if (!prompts.includes('ACTIVE PROJECT CONTEXT') || !prompts.includes('project so
 if (!assistant.includes('completeJSON<unknown>') || !assistant.includes('validatePatchPlan(response.json)')) fail('Structured reviewable patch planning is missing.');
 if (!prompts.includes("action === 'plan-component-patch'") || !prompts.includes('No delete operations.')) fail('Patch-plan AI safety prompt is missing.');
 if (!patchPlan.includes("type: 'create' | 'replace'") || !patchPlan.includes("lower.includes('.env')") || !patchPlan.includes("lower === 'package.json'") || !patchPlan.includes('MAX_TOTAL_CHARS = 240_000')) fail('Patch-plan validation gates are incomplete.');
+if (!projectApply.includes(".eq('updated_at', data.updated_at)") || !projectApply.includes('fingerprint !== expectedFingerprint') || !projectApply.includes('fingerprintAfter') || !projectApply.includes('rollbackCodePatch')) fail('Safe apply stale guards or rollback support are missing.');
+if (!projectFileStore.includes("ProjectFileStoreKind = 'object' | 'array' | 'unsupported'") || !projectFileStore.includes('Cannot replace missing project file') || !projectFileStore.includes('restoreFileOperations')) fail('Supported file-store mutation guards are missing.');
+if (!assistant.includes('I reviewed the file changes above') || !assistant.includes('applyBlockers.length') || !assistant.includes('Apply reviewed patch')) fail('Explicit Safe Apply confirmation UI is missing.');
 const manifestUrls = upstream
   .split('\n')
   .map((line) => line.trim())

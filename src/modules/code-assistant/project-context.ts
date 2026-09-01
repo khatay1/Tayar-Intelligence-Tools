@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { inspectProjectFileStore, ProjectFileStoreKind } from './project-file-store';
 
 export interface CodeProjectFile {
   path: string;
@@ -16,6 +17,15 @@ export interface CodeProjectContext {
   files: CodeProjectFile[];
   totalCandidateFiles: number;
   truncated: boolean;
+  fileStoreKind: ProjectFileStoreKind;
+  fileStoreFingerprint: string;
+  canApply: boolean;
+  lastApply?: {
+    id: string;
+    summary: string;
+    appliedAt: string;
+    fingerprintAfter: string;
+  } | null;
 }
 
 export interface DependencyCheck {
@@ -203,6 +213,20 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
   const dependencies = stringRecord(packageJson.dependencies);
   const devDependencies = stringRecord(packageJson.devDependencies);
   const bounded = boundedFiles(allFiles);
+  const fileStore = inspectProjectFileStore(content);
+  const rawAssistantState = isRecord(content._tayarCodeAssistant) ? content._tayarCodeAssistant : {};
+  const rawLastApply = isRecord(rawAssistantState.lastApply) ? rawAssistantState.lastApply : null;
+  const lastApply =
+    rawLastApply &&
+    typeof rawLastApply.id === 'string' &&
+    typeof rawLastApply.fingerprintAfter === 'string'
+      ? {
+          id: rawLastApply.id,
+          summary: typeof rawLastApply.summary === 'string' ? rawLastApply.summary : 'Applied patch',
+          appliedAt: typeof rawLastApply.appliedAt === 'string' ? rawLastApply.appliedAt : '',
+          fingerprintAfter: rawLastApply.fingerprintAfter,
+        }
+      : null;
 
   return {
     id: String(data.id),
@@ -215,6 +239,10 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
     files: bounded.files,
     totalCandidateFiles: allFiles.length,
     truncated: bounded.truncated,
+    fileStoreKind: fileStore.kind,
+    fileStoreFingerprint: fileStore.fingerprint,
+    canApply: fileStore.kind !== 'unsupported',
+    lastApply,
   };
 }
 
