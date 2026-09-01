@@ -46,13 +46,15 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - AI payload now carries both NPM and registry dependency requirements with the licensed source.
 - Direct authenticated AI adaptation through Tayar's existing AI service, with bounded source context and no automatic code execution/application.
 - AI source is explicitly treated as untrusted data to reduce prompt-injection risk from third-party code comments.
+- When an active Tayar project is available, Coding Assistance reads a bounded, read-only project snapshot, detects framework/package metadata, and reports missing component dependencies.
+- The bounded active-project snapshot is included in AI adaptation context, with project source explicitly treated as untrusted data.
 
 ## Next implementation layers
 
 1. Expand the approved upstream catalog with additional MIT/Apache registries after per-source license verification.
 2. Add generated local snapshots for offline/fast browsing and change detection.
-3. Add project-aware dependency detection.
-4. Add safe patch/diff/apply against user projects.
+3. Add a reviewable patch proposal format against active project files.
+4. Add explicit-confirmation safe apply with rollback checkpoints for supported code-project shapes.
 5. Add AI variants, similar-component search, and full-page templates.
 6. Add registry audits that prevent duplicate IDs, missing license metadata, and restricted sources.
 

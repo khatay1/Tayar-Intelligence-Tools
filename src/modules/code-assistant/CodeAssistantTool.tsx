@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Boxes, Check, Code2, Copy, ExternalLink, Heart, LayoutTemplate, Loader2, Package,
+  Boxes, Check, Code2, Copy, ExternalLink, FolderCode, Heart, LayoutTemplate, Loader2, Package,
   Search, ShieldCheck, Sparkles,
 } from 'lucide-react';
 import { AIService } from '@/lib/ai/service';
 import { componentRegistry } from './component-registry';
 import { getRegistrySource, REGISTRY_SOURCES } from './source-catalog';
 import { loadUpstreamComponentCode, loadUpstreamComponents } from './upstream-registry';
+import { checkProjectDependencies, CodeProjectContext, loadCodeProjectContext, summarizeProjectForAI } from './project-context';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const CATEGORIES: Array<{ id: UIComponentCategory | 'all'; label: string }> = [
@@ -60,7 +61,7 @@ function filterRecords(
   });
 }
 
-export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; projectId?: string | null }) {
+export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: boolean; projectId?: string | null }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<UIComponentCategory | 'all'>('all');
   const [kindFilter, setKindFilter] = useState<'all' | 'component' | 'block'>('all');
@@ -81,6 +82,9 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   const [aiResult, setAiResult] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMeta, setAiMeta] = useState<{ model: string; tokensIn: number; tokensOut: number } | null>(null);
+  const [projectContext, setProjectContext] = useState<CodeProjectContext | null>(null);
+  const [projectLoading, setProjectLoading] = useState(false);
+  const [projectError, setProjectError] = useState<string | null>(null);
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
@@ -91,6 +95,33 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
       // Ignore invalid local preference data.
     }
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!projectId) {
+      setProjectContext(null);
+      setProjectError(null);
+      setProjectLoading(false);
+      return () => { active = false; };
+    }
+
+    setProjectLoading(true);
+    setProjectError(null);
+    loadCodeProjectContext(projectId)
+      .then((context) => {
+        if (active) setProjectContext(context);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setProjectContext(null);
+        setProjectError(error instanceof Error ? error.message : 'Unable to load project context.');
+      })
+      .finally(() => {
+        if (active) setProjectLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [projectId]);
 
   useEffect(() => {
     let active = true;
@@ -119,6 +150,11 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   const selected = matches.find((item) => item.id === selectedId) || matches[0];
   const source = selected ? getRegistrySource(selected.sourceId) : undefined;
   const selectedCode = selected ? (loadedCode[selected.id] ?? selected.code) : '';
+  const dependencyChecks = useMemo(
+    () => checkProjectDependencies(projectContext, selected?.dependencies || []),
+    [projectContext, selected],
+  );
+  const missingDependencies = dependencyChecks.filter((entry) => !entry.installed);
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((current) => {
@@ -191,6 +227,8 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
             npmDependencies: item.dependencies,
             registryDependencies: item.remote?.registryDependencies || [],
           },
+          project: summarizeProjectForAI(projectContext),
+          dependencyAnalysis: checkProjectDependencies(projectContext, item.dependencies),
           sourceCode,
           sourceTruncated: code.length > maxSourceChars,
         },
@@ -218,12 +256,21 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
           <p className={`mt-2 max-w-2xl text-sm leading-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Browse reusable UI, inspect code and dependencies, then hand source-aware adaptation instructions to AI. Only approved redistributable sources are loaded.</p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full bg-violet-500/10 px-2.5 py-1 text-violet-300">{allItems.length} components</span>
+            {projectLoading && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 opacity-60"><Loader2 className="h-3 w-3 animate-spin" /> Reading active project</span>}
+            {!projectLoading && projectContext && <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-2.5 py-1 text-cyan-300"><FolderCode className="h-3 w-3" /> {projectContext.title} · {projectContext.framework}</span>}
+            {!projectLoading && projectId && !projectContext && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-300">Project context unavailable</span>}
             {upstreamLoading && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 opacity-60"><Loader2 className="h-3 w-3 animate-spin" /> Loading open-source registries</span>}
             {!upstreamLoading && upstreamItems.length > 0 && <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-emerald-400">{upstreamItems.length} upstream items loaded</span>}
           </div>
         </div>
         <button onClick={() => setShowSources((value) => !value)} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${panel}`}><ShieldCheck className="h-4 w-4 text-emerald-400" /> Source policy</button>
       </div>
+
+      {projectError && (
+        <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
+          {projectError}
+        </div>
+      )}
 
       {upstreamErrors.length > 0 && (
         <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
@@ -295,7 +342,7 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
             {actionError && <div className="mx-4 mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">{actionError}</div>}
 
             <div className="p-4 sm:p-5">
-              {tab === 'preview' && <div><Preview item={selected} /><p className="mt-2 text-[11px] opacity-45">Safe schematic preview. Third-party component code is never executed inside the registry browser.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 p-3"><Boxes className="h-4 w-4 text-violet-400" /><div className="mt-2 text-xs font-semibold">Category</div><div className="mt-1 text-xs opacity-50 capitalize">{selected.category}</div></div><div className="rounded-xl border border-white/10 p-3"><Package className="h-4 w-4 text-cyan-400" /><div className="mt-2 text-xs font-semibold">Dependencies</div><div className="mt-1 text-xs opacity-50">{selected.dependencies.length ? selected.dependencies.join(', ') : 'None'}</div></div><div className="rounded-xl border border-white/10 p-3"><Sparkles className="h-4 w-4 text-amber-400" /><div className="mt-2 text-xs font-semibold">AI ready</div><div className="mt-1 text-xs opacity-50">Source-aware adaptation payload</div></div></div></div>}
+              {tab === 'preview' && <div><Preview item={selected} /><p className="mt-2 text-[11px] opacity-45">Safe schematic preview. Third-party component code is never executed inside the registry browser.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 p-3"><Boxes className="h-4 w-4 text-violet-400" /><div className="mt-2 text-xs font-semibold">Category</div><div className="mt-1 text-xs opacity-50 capitalize">{selected.category}</div></div><div className="rounded-xl border border-white/10 p-3"><Package className="h-4 w-4 text-cyan-400" /><div className="mt-2 text-xs font-semibold">Dependencies</div><div className="mt-1 text-xs opacity-50">{selected.dependencies.length ? selected.dependencies.join(', ') : 'None'}</div>{projectContext && selected.dependencies.length > 0 && <div className={`mt-2 text-[10px] ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? `${missingDependencies.length} missing in active project` : 'All npm dependencies found'}</div>}</div><div className="rounded-xl border border-white/10 p-3"><Sparkles className="h-4 w-4 text-amber-400" /><div className="mt-2 text-xs font-semibold">AI ready</div><div className="mt-1 text-xs opacity-50">{projectContext ? 'Project-aware adaptation context' : 'Source-aware adaptation payload'}</div></div></div>{projectContext && <div className="mt-3 rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><FolderCode className="h-4 w-4 text-cyan-400" /> Active project compatibility</div><div className="mt-3 grid gap-2 sm:grid-cols-3"><div><div className="text-[10px] uppercase tracking-wider opacity-40">Framework</div><div className="mt-1 text-xs">{projectContext.framework}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Context files</div><div className="mt-1 text-xs">{projectContext.files.length}/{projectContext.totalCandidateFiles}{projectContext.truncated ? ' bounded' : ''}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Missing npm deps</div><div className={`mt-1 text-xs ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? missingDependencies.map((entry) => entry.name).join(', ') : 'None'}</div></div></div></div>}</div>}
               {tab === 'code' && (selectedCode
                 ? <pre className="max-h-[520px] overflow-auto rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{selectedCode}</code></pre>
                 : <div className="rounded-xl border border-white/10 p-6 text-center"><Code2 className="mx-auto h-8 w-8 text-violet-400" /><div className="mt-3 text-sm font-semibold">Source code loads on demand</div><p className="mx-auto mt-2 max-w-md text-xs leading-5 opacity-50">The component files and upstream MIT license are fetched only when needed. The license notice is prepended to copied source.</p><button disabled={codeLoadingId === selected.id} onClick={() => void ensureCode(selected)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{codeLoadingId === selected.id && <Loader2 className="h-4 w-4 animate-spin" />} Load source code</button></div>
@@ -303,7 +350,7 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
               {tab === 'ai' && <div className="space-y-4">
                 <div className="rounded-xl border border-white/10 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-violet-400" /> AI adaptation</div>
-                  <p className="mt-2 text-xs leading-5 opacity-55">Describe the change you want. Tayar sends a bounded source excerpt plus dependency and license metadata to the existing authenticated AI engine. The result is review-only and is never executed or applied automatically.</p>
+                  <p className="mt-2 text-xs leading-5 opacity-55">Describe the change you want. Tayar sends a bounded source excerpt plus dependency/license metadata and a bounded snapshot of the active project to the existing authenticated AI engine. The result is review-only and is never executed or applied automatically.</p>
                   <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} maxLength={2000} placeholder="Example: Make this fit a dark SaaS dashboard, use our existing buttons, reduce motion on mobile, and keep it accessible." className={`mt-3 w-full resize-y rounded-xl border p-3 text-sm outline-none focus:border-violet-400/50 ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button disabled={aiLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate adaptation</button>
@@ -313,7 +360,7 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
                 {aiMeta && <div className="flex flex-wrap gap-2 text-[10px] opacity-50"><span>Model: {aiMeta.model}</span><span>Input tokens: {aiMeta.tokensIn}</span><span>Output tokens: {aiMeta.tokensOut}</span></div>}
                 {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation generated yet.</div>}
               </div>}
-              {tab === 'info' && <div className="space-y-4"><div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.remote?.revision ? ` @ ${selected.remote.revision.slice(0, 8)}` : ''}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
+              {tab === 'info' && <div className="space-y-4">{projectContext && <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="text-xs uppercase tracking-wider text-cyan-300/70">Active project</div><div className="mt-2 font-semibold">{projectContext.title}</div><div className="mt-1 text-xs opacity-60">{projectContext.framework} · {Object.keys(projectContext.dependencies).length} dependencies · {projectContext.totalCandidateFiles} candidate files</div><p className="mt-2 text-[11px] leading-5 opacity-45">Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.</p></div>}<div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.remote?.revision ? ` @ ${selected.remote.revision.slice(0, 8)}` : ''}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
             </div>
           </section>
         )}
