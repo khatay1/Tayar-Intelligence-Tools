@@ -88,3 +88,48 @@ export async function removePublishedWebsiteFiles(folder: string): Promise<void>
   const paths = publishedSiteFilePaths(folder, existing);
   await removePublishedSiteFiles(publishedSiteStorage, paths);
 }
+
+export async function downloadPublishedWebsiteFile(path: string) {
+  return publishedSiteStorage.download(path);
+}
+
+export async function removeStalePublishedWebsiteFiles(
+  folder: string,
+  liveNames: Set<string>,
+): Promise<void> {
+  const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
+  const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
+  await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
+}
+
+export async function uploadPublishedWebsiteBlob(input: {
+  path: string;
+  body: Blob;
+  contentType: string;
+  cacheControl?: string;
+  upsert?: boolean;
+}) {
+  return publishedSiteStorage.upload(input.path, input.body, {
+    upsert: input.upsert ?? true,
+    contentType: input.contentType,
+    cacheControl: input.cacheControl ?? '0',
+  });
+}
+
+export async function archivePublishedWebsiteFiles(
+  prefix: string,
+  files: PublishedWebsiteFile[],
+): Promise<void> {
+  for (const file of files) {
+    const { error } = await publishedSiteStorage.upload(
+      prefix + '/' + file.name,
+      new Blob([file.content], { type: file.contentType }),
+      {
+        upsert: false,
+        contentType: file.contentType,
+        cacheControl: '31536000',
+      },
+    );
+    if (error) throw error;
+  }
+}
