@@ -150,3 +150,14 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 - The dependency edit requires its own checkbox. No package-manager command or lockfile mutation is executed automatically.
 - If a lockfile exists, the UI warns that it must be refreshed using the project's package manager after Apply.
 - Package.json is retained locally for controlled editing only and is never added to the bounded AI project context.
+
+
+## Project-wide UI audit
+
+- Coding Assistance includes a deterministic local static audit before AI is involved.
+- The bounded scan covers up to 100 UI/source files and 600k characters, prioritizing components, pages/app files and src files.
+- Current checks cover missing image alt text, icon/empty buttons without accessible names, clickable div/span keyboard semantics, weak input label metadata, large fixed widths, rigid multi-column grids, animation without reduced-motion handling, hard-coded colors when project tokens exist, repeated long class patterns, undeclared imports and overlapping UI/animation/icon dependency families.
+- Audit results include a 0–100 score, high/medium/low counts, category counts, scan coverage and per-finding evidence/suggestions.
+- The full audit corpus remains browser-local and is never added to normal AI project context.
+- AI fix planning is allowed only for deterministic findings whose target files already exist as complete files in the bounded Safe Context.
+- Audit fix plans are replace-only, limited to 10 files, cannot add dependencies/registry items, and are validated against the audit fingerprint before Safe Apply.

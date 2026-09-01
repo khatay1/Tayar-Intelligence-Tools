@@ -20,6 +20,7 @@ import { replacementCandidates, replacementTargets, validateExactReplacementPlan
 import { FEATURE_PRESETS, FeatureKind, featureCandidateMetadata, featureRegistryCandidates, getFeaturePreset, validateFeaturePatchPlan } from './feature-generator';
 import { buildFeaturePreviewModel, buildFeaturePrimaryLivePreview } from './feature-preview';
 import { buildControlledPackageEdit } from './package-editor';
+import { auditFixableFindings, runProjectUIAudit, UIAuditReport, validateAuditFixPlan } from './ui-audit';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -185,6 +186,8 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [packageEditConfirmed, setPackageEditConfirmed] = useState(false);
   const [featurePreviewDoc, setFeaturePreviewDoc] = useState<string | null>(null);
   const [featurePreviewReason, setFeaturePreviewReason] = useState<string | null>(null);
+  const [auditReport, setAuditReport] = useState<UIAuditReport | null>(null);
+  const [auditFixLoading, setAuditFixLoading] = useState(false);
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
@@ -315,6 +318,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     () => buildFeaturePreviewModel(patchPlan, patchOwnerId),
     [patchPlan, patchOwnerId],
   );
+  const auditFixable = useMemo(
+    () => auditReport ? auditFixableFindings(auditReport) : [],
+    [auditReport],
+  );
   const installCommand = projectContext
     ? buildDependencyInstallCommand(
         projectContext.packageManager,
@@ -378,6 +385,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   useEffect(() => {
     if (replaceTargetPath && !replaceTargets.some((entry) => entry.path === replaceTargetPath)) setReplaceTargetPath('');
   }, [replaceTargets, replaceTargetPath]);
+
+  useEffect(() => {
+    if (auditReport && projectContext?.fileStoreFingerprint !== auditReport.fingerprint) setAuditReport(null);
+  }, [projectContext?.fileStoreFingerprint, auditReport]);
 
   useEffect(() => {
     setPackageEditConfirmed(false);
@@ -744,6 +755,58 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     }
   };
 
+  const onRunProjectAudit = () => {
+    if (!projectContext) return;
+    setActionError(null);
+    setAuditReport(runProjectUIAudit(projectContext));
+  };
+
+  const onPlanAuditFixes = async () => {
+    if (!projectContext || !auditReport || !auditFixable.length || auditFixLoading || patchLoading || aiLoading) return;
+    setAuditFixLoading(true);
+    setActionError(null);
+    setPatchPlan(null);
+    setApplyConfirmed(false);
+    setPackageEditConfirmed(false);
+    setTab('ai');
+    try {
+      const response = await aiService.completeJSON<unknown>(
+        {
+          action: 'plan-ui-audit-fixes',
+          constraints: activeConstraintInstructions,
+          audit: {
+            score: auditReport.score,
+            counts: auditReport.counts,
+            scannedFiles: auditReport.scannedFiles,
+            totalFiles: auditReport.totalFiles,
+            findings: auditFixable.map((finding) => ({
+              id: finding.id,
+              category: finding.category,
+              severity: finding.severity,
+              path: finding.path,
+              message: finding.message,
+              evidence: finding.evidence,
+              suggestion: finding.suggestion,
+            })),
+          },
+          project: summarizeProjectForAI(projectContext),
+        },
+        [],
+        { temperature: 0.05, maxTokens: 8192 },
+      );
+      if (!response.json) throw new Error('AI did not return a structured UI audit fix plan.');
+      const plan = validatePatchPlan(response.json);
+      validateAuditFixPlan(projectContext, auditReport, plan);
+      setPatchPlan(plan);
+      setPatchOwnerId(`audit:${auditReport.fingerprint}`);
+      setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to generate a safe UI audit fix plan.');
+    } finally {
+      setAuditFixLoading(false);
+    }
+  };
+
   const onRunFeaturePreview = () => {
     if (!patchPlan || !patchOwnerId.startsWith('feature:')) return;
     const result = buildFeaturePrimaryLivePreview(patchPlan, patchOwnerId);
@@ -895,6 +958,20 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
         <div className="mt-4 grid gap-2 sm:grid-cols-5">{FEATURE_PRESETS.map((preset) => <button key={preset.id} onClick={() => { setFeatureKind(preset.id); setPatchPlan(null); setApplyConfirmed(false); }} className={`rounded-xl border p-3 text-left transition ${featureKind === preset.id ? 'border-violet-400/30 bg-violet-500/10' : darkMode ? 'border-white/10 bg-black/10 hover:border-white/20' : 'border-gray-200 bg-white hover:border-violet-200'}`}><div className="text-xs font-semibold">{preset.label}</div><div className="mt-1 text-[10px] leading-4 opacity-45">{preset.description}</div></button>)}</div>
         <textarea value={featureInstruction} onChange={(event) => setFeatureInstruction(event.target.value)} placeholder={featurePreset.defaultGoal} className={`mt-3 min-h-20 w-full resize-y rounded-xl border p-3 text-xs outline-none ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
         <div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-[10px] uppercase tracking-wider opacity-40">Registry anchors</span>{featureCandidates.map((item) => <button key={item.id} onClick={() => { setSelectedId(item.id); setTab('preview'); }} className="rounded-full border border-white/10 px-2 py-1 text-[10px] opacity-65 hover:opacity-100">{item.name}</button>)}{!projectContext && <span className="text-[10px] text-amber-300">Choose a target project to generate a feature pack.</span>}</div>
+      </section>
+
+      <section className={`mt-5 rounded-2xl border p-4 sm:p-5 ${panel}`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div><div className="flex items-center gap-2 text-sm font-semibold"><Search className="h-4 w-4 text-cyan-400" /> Project UI Audit</div><p className="mt-2 max-w-2xl text-xs leading-5 opacity-55">Run a bounded project-wide static scan for accessibility, responsive layout, style consistency, motion handling, dependency noise and repeated UI patterns. Findings are produced locally before AI is involved.</p></div>
+          <div className="flex flex-wrap gap-2"><button disabled={!projectContext} onClick={onRunProjectAudit} className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-500/5 px-4 py-2.5 text-xs font-semibold text-cyan-200 disabled:opacity-40"><Search className="h-4 w-4" /> {auditReport ? 'Run audit again' : 'Run project audit'}</button>{auditReport && <button disabled={!auditFixable.length || auditFixLoading || patchLoading || aiLoading} onClick={() => void onPlanAuditFixes()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-40">{auditFixLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDiff className="h-4 w-4" />} Generate fix plan</button>}</div>
+        </div>
+        {!projectContext && <div className="mt-3 text-[11px] text-amber-300">Choose a target project to run the UI audit.</div>}
+        {auditReport && <div className="mt-4 space-y-3">
+          <div className="grid gap-2 sm:grid-cols-5"><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">Score</div><div className={`mt-1 text-xl font-bold ${auditReport.score >= 85 ? 'text-emerald-300' : auditReport.score >= 65 ? 'text-amber-300' : 'text-red-300'}`}>{auditReport.score}/100</div></div><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">High</div><div className="mt-1 text-xl font-bold text-red-300">{auditReport.counts.high}</div></div><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">Medium</div><div className="mt-1 text-xl font-bold text-amber-300">{auditReport.counts.medium}</div></div><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">Low</div><div className="mt-1 text-xl font-bold opacity-70">{auditReport.counts.low}</div></div><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">Coverage</div><div className="mt-1 text-sm font-bold">{auditReport.scannedFiles}/{auditReport.totalFiles}</div><div className="mt-1 text-[9px] opacity-40">{auditReport.truncated ? 'bounded scan' : 'all UI files scanned'}</div></div></div>
+          <div className="flex flex-wrap gap-1.5">{(['accessibility','responsive','consistency','motion','dependencies','duplication'] as const).map((categoryName) => { const count = auditReport.findings.filter((finding) => finding.category === categoryName).length; return <span key={categoryName} className="rounded-full border border-white/10 px-2 py-1 text-[10px] capitalize opacity-70">{categoryName}: {count}</span>; })}<span className="rounded-full border border-emerald-400/20 bg-emerald-500/5 px-2 py-1 text-[10px] text-emerald-300">Fixable in safe context: {auditFixable.length}</span></div>
+          {auditReport.findings.length ? <div className="grid gap-2 lg:grid-cols-2">{auditReport.findings.slice(0, 16).map((finding) => <div key={finding.id} className="rounded-xl border border-white/10 p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="flex flex-wrap items-center gap-1"><span className={`rounded-full px-2 py-0.5 text-[9px] ${finding.severity === 'high' ? 'bg-red-500/10 text-red-300' : finding.severity === 'medium' ? 'bg-amber-500/10 text-amber-300' : 'bg-white/5 opacity-60'}`}>{finding.severity}</span><span className="rounded-full bg-cyan-500/5 px-2 py-0.5 text-[9px] text-cyan-300">{finding.category}</span>{finding.fixable && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] text-emerald-300">safe fix context</span>}</div><div className="mt-2 text-xs font-semibold leading-5">{finding.message}</div>{finding.path && <div className="mt-1 truncate text-[10px] opacity-45">{finding.path}</div>}</div></div><div className="mt-2 text-[10px] leading-4 opacity-50">{finding.suggestion}</div></div>)}</div> : <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs text-emerald-300">No issues matched the current deterministic audit rules.</div>}
+          {auditReport.findings.length > 16 && <div className="text-[10px] opacity-45">Showing the first 16 of {auditReport.findings.length} findings. The full finding set is retained for scoring; only safe-context findings are eligible for AI fix planning.</div>}
+        </div>}
       </section>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
