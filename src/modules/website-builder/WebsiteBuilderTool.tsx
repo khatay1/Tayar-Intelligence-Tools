@@ -93,6 +93,12 @@ import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles
 import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
 import { createWebsiteCheckoutSession, getWebsiteBuilderBillingState, openWebsiteBillingPortalSession } from './services/websiteBillingService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
+import {
+  DEFAULT_DELIVERY_CONFIG,
+  normalizeDeliveryConfig,
+  type DeliveryStatus,
+  type WebsiteDeliveryConfig,
+} from './core/delivery-config';
 import { languageCodeLabel, normalizePageLanguage, normalizeSlug, PAGE_LANGUAGE_LABELS } from './core/project-identifiers';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
@@ -589,21 +595,6 @@ interface WebsitePublishVersion {
 }
 
 type LiveVerification = 'idle' | 'checking' | 'healthy' | 'failed';
-type DeliveryStatus = 'building' | 'review' | 'approved' | 'delivered';
-
-interface WebsiteDeliveryConfig {
-  clientName: string;
-  clientEmail: string;
-  projectCode: string;
-  status: DeliveryStatus;
-  dueDate: string;
-  handoffNotes: string;
-  whiteLabel: boolean;
-  approvedAt: string | null;
-  approvedFingerprint: string;
-  deliveredAt: string | null;
-}
-
 type BillingPlan = 'free' | 'pro' | 'business';
 type BillingFeature = 'publish' | 'exportZip' | 'multilingual' | 'analytics' | 'productionIntegrations' | 'customCss' | 'releaseHistory' | 'clientDelivery' | 'whiteLabel';
 
@@ -739,19 +730,6 @@ const DEFAULT_PRODUCTION_CONFIG: WebsiteProductionConfig = {
   maintenanceTitle: 'We’ll be back soon',
   maintenanceText: 'This website is temporarily unavailable while we make improvements.',
   customRobotsRules: '',
-};
-
-const DEFAULT_DELIVERY_CONFIG: WebsiteDeliveryConfig = {
-  clientName: '',
-  clientEmail: '',
-  projectCode: '',
-  status: 'building',
-  dueDate: '',
-  handoffNotes: '',
-  whiteLabel: true,
-  approvedAt: null,
-  approvedFingerprint: '',
-  deliveredAt: null,
 };
 
 const FREE_BILLING_ENTITLEMENTS: BillingEntitlements = {
@@ -1384,24 +1362,6 @@ function sectionElementsToHtml(section: WebsiteSection, homeSlug: string, exclud
   });
 
   return `<div class="${containerClass}" ${containerAttrs}>${items.join('\n')}</div>`;
-}
-
-function normalizeDeliveryConfig(value: Partial<WebsiteDeliveryConfig> | null | undefined): WebsiteDeliveryConfig {
-  const status: DeliveryStatus = value?.status === 'review' || value?.status === 'approved' || value?.status === 'delivered'
-    ? value.status
-    : 'building';
-  return {
-    clientName: typeof value?.clientName === 'string' ? value.clientName.slice(0, 160) : '',
-    clientEmail: typeof value?.clientEmail === 'string' ? value.clientEmail.slice(0, 200) : '',
-    projectCode: typeof value?.projectCode === 'string' ? value.projectCode.slice(0, 80) : '',
-    status,
-    dueDate: typeof value?.dueDate === 'string' ? value.dueDate.slice(0, 20) : '',
-    handoffNotes: typeof value?.handoffNotes === 'string' ? value.handoffNotes.slice(0, 4000) : '',
-    whiteLabel: value?.whiteLabel !== false,
-    approvedAt: typeof value?.approvedAt === 'string' ? value.approvedAt : null,
-    approvedFingerprint: typeof value?.approvedFingerprint === 'string' ? value.approvedFingerprint.slice(0, 200000) : '',
-    deliveredAt: typeof value?.deliveredAt === 'string' ? value.deliveredAt : null,
-  };
 }
 
 function cloneSectionWithFreshIds(source: WebsiteSection): WebsiteSection {
