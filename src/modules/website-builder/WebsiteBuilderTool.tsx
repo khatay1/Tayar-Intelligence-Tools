@@ -3556,17 +3556,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     skipNextAutosaveRef.current = true;
   }
 
-  function selectEditorTarget(
+  const selectEditorTarget = useCallback((
     sectionId: string | null,
     elementId: string | null = null,
     containerId: string | null = null,
     formFieldId: string | null = null,
-  ) {
+  ) => {
     setSelectedId(sectionId);
     setSelectedElementId(elementId);
     setSelectedContainerId(elementId ? null : containerId);
     setSelectedFormFieldId(elementId || containerId ? null : formFieldId);
-  }
+  }, []);
 
   function clearEditorDragState() {
     draggedSectionRef.current = null;
@@ -5123,6 +5123,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     selectedElementId,
     selectedContainerId,
     selectedFormFieldId,
+    selectEditorTarget,
   ]);
 
   useEffect(() => {
@@ -5970,7 +5971,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections((current) => current.map((section) =>
       section.id === selectedSection.id ? { ...section, elements: remaining } : section
     ));
-    setSelectedElementId(remaining[0]?.id ?? null);
+    selectEditorTarget(selectedSection.id, remaining[0]?.id ?? null);
     setSaved(false);
   }
 
@@ -5987,14 +5988,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           ) as WebsiteElement['responsive']
         : undefined,
     };
-    const index = selectedSection.elements.findIndex((element) => element.id === selectedElement.id);
     setSections((current) => current.map((section) => {
       if (section.id !== selectedSection.id) return section;
+
+      const index = section.elements.findIndex((element) => element.id === selectedElement.id);
+      if (index < 0) return section;
+
       const elements = [...section.elements];
       elements.splice(index + 1, 0, duplicate);
       return { ...section, elements };
     }));
-    setSelectedElementId(duplicate.id);
+    selectEditorTarget(selectedSection.id, duplicate.id);
     setSaved(false);
   }
 
@@ -6165,14 +6169,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function moveSelectedElement(direction: 'up' | 'down') {
     if (!selectedSection || !selectedElementId) return;
-    const index = selectedSection.elements.findIndex((element) => element.id === selectedElementId);
-    if (index === -1) return;
-    const target = direction === 'up' ? index - 1 : index + 1;
-    if (target < 0 || target >= selectedSection.elements.length) return;
+    if (!selectedSection.elements.some((element) => element.id === selectedElementId)) return;
 
     remember(sections);
     setSections((current) => current.map((section) => {
       if (section.id !== selectedSection.id) return section;
+
+      const index = section.elements.findIndex((element) => element.id === selectedElementId);
+      if (index < 0) return section;
+
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= section.elements.length) return section;
+
       const elements = [...section.elements];
       [elements[index], elements[target]] = [elements[target], elements[index]];
       return { ...section, elements };
@@ -6449,29 +6457,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function deleteSection(id: string) {
+    if (sections.length <= 1) return;
+
+    const index = sections.findIndex((section) => section.id === id);
+    if (index < 0) return;
+
     remember(sections);
-    setSections((current) => {
-      if (current.length <= 1) return current;
+    const next = sections.filter((section) => section.id !== id);
 
-      const index = current.findIndex((section) => section.id === id);
-      if (index < 0) return current;
+    setSections(next);
 
-      const next = current.filter((section) => section.id !== id);
+    if (id === selectedId) {
+      const fallbackSection =
+        next[Math.min(Math.max(0, index - 1), next.length - 1)] ||
+        next[0] ||
+        null;
 
-      if (id === selectedId) {
-        const fallbackSection =
-          next[Math.min(Math.max(0, index - 1), next.length - 1)] ||
-          next[0] ||
-          null;
-
-        selectEditorTarget(
-          fallbackSection?.id ?? null,
-          fallbackSection?.elements[0]?.id ?? null,
-        );
-      }
-
-      return next;
-    });
+      selectEditorTarget(
+        fallbackSection?.id ?? null,
+        fallbackSection?.elements[0]?.id ?? null,
+      );
+    }
 
     setSaved(false);
   }
@@ -11307,24 +11313,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         source,
       );
 
-    const index =
-      sections.findIndex(
-        (section) =>
-          section.id === sectionId,
-      );
-
     remember(sections);
 
     setSections((current) => {
-      const next =
-        [...current];
-
-      next.splice(
-        Math.max(0, index + 1),
-        0,
-        duplicate,
+      const index = current.findIndex(
+        (section) => section.id === sectionId,
       );
+      if (index < 0) return current;
 
+      const next = [...current];
+      next.splice(index + 1, 0, duplicate);
       return next;
     });
 
@@ -11349,44 +11347,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     if (!targetSection) return;
 
-    const index =
-      targetSection.elements.findIndex(
-        (element) =>
-          element.id === elementId,
-      );
-
-    if (index < 0) return;
-
-    const targetIndex =
-      direction === 'up'
-        ? index - 1
-        : index + 1;
-
-    if (
-      targetIndex < 0 ||
-      targetIndex >=
-        targetSection.elements.length
-    ) {
-      return;
-    }
-
     remember(sections);
 
     setSections((current) =>
       current.map((section) => {
+        if (section.id !== sectionId) return section;
+
+        const index = section.elements.findIndex(
+          (element) => element.id === elementId,
+        );
+        if (index < 0) return section;
+
+        const targetIndex =
+          direction === 'up'
+            ? index - 1
+            : index + 1;
         if (
-          section.id !== sectionId
+          targetIndex < 0 ||
+          targetIndex >= section.elements.length
         ) {
           return section;
         }
 
-        const elements =
-          [...section.elements];
-
-        [
-          elements[index],
-          elements[targetIndex],
-        ] = [
+        const elements = [...section.elements];
+        [elements[index], elements[targetIndex]] = [
           elements[targetIndex],
           elements[index],
         ];
@@ -11450,12 +11434,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         undefined,
     };
 
-    const index =
-      targetSection.elements.findIndex(
-        (element) =>
-          element.id === elementId,
-      );
-
     remember(sections);
 
     setSections((current) =>
@@ -11466,14 +11444,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           return section;
         }
 
-        const elements =
-          [...section.elements];
-
-        elements.splice(
-          index + 1,
-          0,
-          duplicate,
+        const index = section.elements.findIndex(
+          (element) => element.id === elementId,
         );
+        if (index < 0) return section;
+
+        const elements = [...section.elements];
+        elements.splice(index + 1, 0, duplicate);
 
         return {
           ...section,
@@ -11532,15 +11509,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections);
 
     setSections((current) =>
-      current.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              elements:
-                remaining,
-            }
-          : section,
-      ),
+      current.map((section) => {
+        if (section.id !== sectionId) return section;
+        if (section.elements.length <= 1) return section;
+
+        const elements = section.elements.filter(
+          (element) => element.id !== elementId,
+        );
+        return elements.length === section.elements.length
+          ? section
+          : { ...section, elements };
+      }),
     );
 
     selectEditorTarget(
@@ -12305,8 +12284,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       section={section}
       selected={selectedId === section.id}
       selectedElementId={selectedId === section.id ? selectedElementId : null}
-      onSelect={() => { setSelectedId(section.id); setSelectedElementId(null); }}
-      onSelectElement={(elementId) => { setSelectedId(section.id); setSelectedElementId(elementId); }}
+      onSelect={() => selectEditorTarget(section.id)}
+      onSelectElement={(elementId) => selectEditorTarget(section.id, elementId)}
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
@@ -12319,7 +12298,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
       onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
       onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
-      onOpenMediaLibrary={() => { setSelectedId(section.id); setMediaOpen(true); }}
+      onOpenMediaLibrary={() => { selectEditorTarget(section.id); setMediaOpen(true); }}
       onOpenInspector={() => setInspectorOpen(true)}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
@@ -14393,8 +14372,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       section={section}
       selected={selectedId === section.id}
       selectedElementId={selectedId === section.id ? selectedElementId : null}
-      onSelect={() => { setSelectedId(section.id); setSelectedElementId(null); }}
-      onSelectElement={(elementId) => { setSelectedId(section.id); setSelectedElementId(elementId); }}
+      onSelect={() => selectEditorTarget(section.id)}
+      onSelectElement={(elementId) => selectEditorTarget(section.id, elementId)}
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
@@ -14407,7 +14386,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
       onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
       onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
-      onOpenMediaLibrary={() => { setSelectedId(section.id); setMediaOpen(true); }}
+      onOpenMediaLibrary={() => { selectEditorTarget(section.id); setMediaOpen(true); }}
       onOpenInspector={() => setInspectorOpen(true)}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
@@ -15509,39 +15488,53 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onPreview={previewWebsite}
       onPublish={() => void publishWebsite()}
       onRunCheck={() => void runV1LaunchChecks()}
-      onSetDevice={(nextDevice) =>
-        setDevice(nextDevice as Device)
-      }
+      onSetDevice={(nextDevice) => {
+        clearEditorDragState();
+        setDevice(nextDevice as Device);
+      }}
       onSelect={(selection) => {
-        if (
-          selection.pageId &&
-          selection.pageId !== activePageId
-        ) {
-          switchPage(selection.pageId);
+        const currentPages = getCurrentPages();
+        const targetPageId = selection.pageId || activePageId;
+        const targetPage = currentPages.find((page) => page.id === targetPageId);
+        if (!targetPage) return;
+
+        if (targetPage.id !== activePageId) {
+          switchPage(targetPage.id);
         }
 
-        if (selection.sectionId) {
-          setSelectedId(selection.sectionId);
+        if (!selection.sectionId) return;
 
-          setSelectedElementId(
-            selection.elementId ?? null
-          );
+        const targetSection = targetPage.sections.find(
+          (section) => section.id === selection.sectionId,
+        );
+        if (!targetSection) return;
 
-          setSelectedContainerId(
-            selection.elementId
-              ? null
-              : selection.containerId ?? null
-          );
+        const elementId =
+          selection.elementId &&
+          targetSection.elements.some((element) => element.id === selection.elementId)
+            ? selection.elementId
+            : null;
+        const containerId =
+          !elementId &&
+          selection.containerId &&
+          (targetSection.containers || []).some((container) => container.id === selection.containerId)
+            ? selection.containerId
+            : null;
+        const formFieldId =
+          !elementId &&
+          !containerId &&
+          selection.formFieldId &&
+          (targetSection.formFields || []).some((field) => field.id === selection.formFieldId)
+            ? selection.formFieldId
+            : null;
 
-          setSelectedFormFieldId(
-            selection.elementId ||
-            selection.containerId
-              ? null
-              : selection.formFieldId ?? null
-          );
-
-          setInspectorOpen(true);
-        }
+        selectEditorTarget(
+          targetSection.id,
+          elementId,
+          containerId,
+          formFieldId,
+        );
+        setInspectorOpen(true);
       }}
     />
   );
