@@ -4680,6 +4680,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const uploadSequence = ++mediaOperationSequenceRef.current;
     const uploadProjectSequence = projectLoadSequenceRef.current;
+    const uploadEditorContext = captureAIEditorContext();
     const uploadIsCurrentUser = () =>
       mediaOperationSequenceRef.current === uploadSequence &&
       activeUserIdRef.current === uploadUserId;
@@ -4708,6 +4709,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (
         projectLoadSequenceRef.current === uploadProjectSequence &&
+        aiEditorContextIsCurrent(uploadEditorContext, true) &&
         selectedElement?.type === 'image'
       ) {
         updateSelectedElement({ src: publicUrl, content: file.name });
@@ -4725,6 +4727,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const deleteSequence = ++mediaOperationSequenceRef.current;
     const deleteProjectSequence = projectLoadSequenceRef.current;
+    const deleteEditorContext = captureAIEditorContext();
     const deleteIsCurrentUser = () =>
       mediaOperationSequenceRef.current === deleteSequence &&
       activeUserIdRef.current === deleteUserId;
@@ -4744,6 +4747,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     if (
       projectLoadSequenceRef.current === deleteProjectSequence &&
+      aiEditorContextIsCurrent(deleteEditorContext, true) &&
       selectedElement?.type === 'image' &&
       selectedElement.src === asset.url
     ) {
