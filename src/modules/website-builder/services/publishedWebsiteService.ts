@@ -13,6 +13,24 @@ export interface PublishedWebsiteFile {
 
 const publishedSiteStorage = supabase.storage.from('published-sites');
 
+export async function uploadPublishedWebsiteFolderFiles(
+  folder: string,
+  files: PublishedWebsiteFile[],
+): Promise<void> {
+  for (const file of files) {
+    const { error } = await publishedSiteStorage.upload(
+      folder + '/' + file.name,
+      new Blob([file.content], { type: file.contentType }),
+      {
+        upsert: true,
+        contentType: file.contentType,
+        cacheControl: '0',
+      },
+    );
+    if (error) throw error;
+  }
+}
+
 export async function replacePublishedWebsiteFiles(
   folder: string,
   files: PublishedWebsiteFile[],
