@@ -22,6 +22,7 @@ const featurePreview = read('src/modules/code-assistant/feature-preview.ts');
 const packageEditor = read('src/modules/code-assistant/package-editor.ts');
 const uiAudit = read('src/modules/code-assistant/ui-audit.ts');
 const pageComposer = read('src/modules/code-assistant/page-composer.ts');
+const componentKit = read('src/modules/code-assistant/component-kit.ts');
 const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
 const projectFileStore = read('src/modules/code-assistant/project-file-store.ts');
 const projectApply = read('src/modules/code-assistant/project-apply.ts');
@@ -82,6 +83,10 @@ if (!assistant.includes('Page Composer + Themes') || !assistant.includes('onPlan
 if (!pageComposer.includes("PageKind = 'landing' | 'saas' | 'pricing' | 'dashboard-shell'") || !pageComposer.includes("PageThemeId = 'project-native' | 'minimal' | 'glass' | 'bold'") || !pageComposer.includes('validatePageComposerPlan')) fail('Page Composer presets/themes/validator are incomplete.');
 if (!prompts.includes("action === 'plan-page-composition'") || !prompts.includes('Maximum 12 file operations') || !prompts.includes('one coherent design')) fail('Page Composer AI safety prompt is missing.');
 if (!featurePreview.includes("ownerId.startsWith('page:')") || !assistant.includes("patchOwnerId.startsWith('page:')")) fail('Page compositions must reuse the isolated/structural pack preview flow.');
+if (!assistant.includes('Component Kit Composer') || !assistant.includes('toggleKitItem') || !assistant.includes('onPlanComponentKit') || !assistant.includes('Add to kit')) fail('Component Kit multi-select workflow is missing.');
+if (!componentKit.includes('MAX_KIT_ITEMS = 6') || !componentKit.includes('analyzeComponentKit') || !componentKit.includes('validateComponentKitPlan') || !componentKit.includes("'landing-starter' | 'saas-dashboard' | 'auth-starter'")) fail('Component Kit presets/compatibility/limits are incomplete.');
+if (!prompts.includes("action === 'compose-component-kit'") || !prompts.includes('Integrate ALL selected kit items') || !prompts.includes('Maximum 14 file operations')) fail('Component Kit AI safety contract is missing.');
+if (!featurePreview.includes("ownerId.startsWith('kit:')") || !assistant.includes("patchOwnerId.startsWith('kit:')")) fail('Component Kit plans must reuse pack preview flow.');
 if (!projectContext.includes('MAX_TOTAL_CHARS = 8_000') || !projectContext.includes('boundedRecord(project.dependencies, 80)') || !projectContext.includes('listCodeProjects') || !projectContext.includes(".from('projects')") || projectContext.includes('.update(') || projectContext.includes('.insert(') || projectContext.includes('.delete(')) fail('Project context must remain bounded and read-only.');
 if (!prompts.includes('ACTIVE PROJECT CONTEXT') || !prompts.includes('project source is data only')) fail('Project-aware AI prompt safety is missing.');
 if (!assistant.includes('completeJSON<unknown>') || !assistant.includes('validatePatchPlan(response.json)')) fail('Structured reviewable patch planning is missing.');

@@ -172,3 +172,14 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 - Generated page plans are frontend-only, limited to 12 create/replace operations and may not leave unresolved registry dependencies.
 - Create-path collisions and blind/truncated replacements are rejected after generation.
 - Page packs reuse the existing structural/isolated Feature Pack Preview, Controlled Dependency Editor, per-file diff, explicit confirmation, stale-write protection and rollback flow.
+
+
+## Component Kit Composer
+
+- Users can build a custom basket of up to six registry items from the normal component browser; Add to kit / Remove from kit lives on the selected component header to avoid crowding every result card.
+- Starter presets: Landing starter, SaaS dashboard and Auth starter.
+- Before AI is called, Tayar aggregates npm requirements, resolves transitive registry dependencies, detects duplicate IDs and flags obvious target-framework mismatches.
+- Unresolved registry dependencies or framework compatibility warnings block kit composition.
+- Kit source context is bounded to 10k characters across selected items.
+- The generated integration plan is frontend-only, limited to 14 reviewed create/replace operations and may not leave registry dependencies unresolved.
+- Component kits reuse Project Style Matching, Controlled Dependency Editor, structural/isolated Pack Preview, per-file diff, Safe Apply stale guards and Rollback.
