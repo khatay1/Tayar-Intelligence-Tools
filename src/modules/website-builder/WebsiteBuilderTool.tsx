@@ -3449,6 +3449,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setCloudBusy(false);
     setPublishBusy(false);
     setPreviewBusy(false);
+    setPublishVersionsLoading(false);
+    setLeadsLoading(false);
+    setAnalyticsLoading(false);
     setLaunchCheckBusy(false);
     setLiveVerification('idle');
   }, []);
@@ -4062,21 +4065,35 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   loadCloudProjectRef.current = loadCloudProject;
 
   const refreshLeads = useCallback(async () => {
-    if (!user || !cloudProjectId) {
-      setLeads([]);
-      setLeadsError('');
+    const refreshLoadSequence = projectLoadSequenceRef.current;
+    const refreshProjectId = cloudProjectId;
+    const refreshIsCurrent = () =>
+      projectLoadSequenceRef.current === refreshLoadSequence;
+
+    if (!user || !refreshProjectId) {
+      if (refreshIsCurrent()) {
+        setLeads([]);
+        setLeadsError('');
+        setLeadsLoading(false);
+      }
       return;
     }
 
     if (!projectTeamAccess.canManage) {
-      setLeads([]);
-      setLeadsError('Lead inbox is available to project owners and workspace admins.');
+      if (refreshIsCurrent()) {
+        setLeads([]);
+        setLeadsError('Lead inbox is available to project owners and workspace admins.');
+        setLeadsLoading(false);
+      }
       return;
     }
 
     setLeadsLoading(true);
     setLeadsError('');
-    const { data, error } = await listWebsiteLeads(cloudProjectId);
+
+    const { data, error } = await listWebsiteLeads(refreshProjectId);
+
+    if (!refreshIsCurrent()) return;
 
     if (error) {
       setLeadsError('Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied.');
@@ -4092,14 +4109,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function updateLeadStatus(leadId: string, status: WebsiteLead['status']) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
+
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence;
     const updatedAt = new Date().toISOString();
+
     const { error } = await updateWebsiteLeadStatus({
       leadId,
-      projectId: cloudProjectId,
-      ownerId: activeProjectOwnerId,
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
       status,
       updatedAt,
     });
+
+    if (!updateIsCurrent()) return;
 
     if (error) {
       setLeadsError('Could not update this lead.');
@@ -4111,18 +4137,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function updateLeadCrm(leadId: string, updates: Partial<Pick<WebsiteLead, 'stage' | 'priority' | 'tags' | 'notes'>>) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
+
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence;
     const sanitized = {
       ...updates,
       ...(updates.tags ? { tags: updates.tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 12) } : {}),
       ...(typeof updates.notes === 'string' ? { notes: updates.notes.slice(0, 4000) } : {}),
       updated_at: new Date().toISOString(),
     };
+
     const { error } = await updateWebsiteLeadCrm({
       leadId,
-      projectId: cloudProjectId,
-      ownerId: activeProjectOwnerId,
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
       updates: sanitized as Record<string, unknown>,
     });
+
+    if (!updateIsCurrent()) return;
 
     if (error) {
       setLeadsError('Could not update CRM details for this lead.');
@@ -4134,15 +4169,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function bulkUpdateLeadStage(stage: LeadStage) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage || !selectedLeadIds.length) return;
+
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence;
     const ids = [...selectedLeadIds];
     const updatedAt = new Date().toISOString();
+
     const { error } = await bulkUpdateWebsiteLeadStage({
       leadIds: ids,
-      projectId: cloudProjectId,
-      ownerId: activeProjectOwnerId,
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
       stage,
       updatedAt,
     });
+
+    if (!updateIsCurrent()) return;
 
     if (error) {
       setLeadsError('Could not update the selected leads.');
@@ -4151,7 +4195,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setLeads((current) => current.map((lead) => ids.includes(lead.id) ? { ...lead, stage, updated_at: updatedAt } : lead));
   }
-
 
 
   async function copyLeadSummary(lead: WebsiteLead) {
@@ -4183,11 +4226,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const confirmed = window.confirm('Delete this lead permanently?');
     if (!confirmed) return;
 
+    const deleteLoadSequence = projectLoadSequenceRef.current;
+    const deleteProjectId = cloudProjectId;
+    const deleteOwnerId = activeProjectOwnerId;
+    const deleteIsCurrent = () =>
+      projectLoadSequenceRef.current === deleteLoadSequence;
+
     const { error } = await deleteWebsiteLead({
       leadId,
-      projectId: cloudProjectId,
-      ownerId: activeProjectOwnerId,
+      projectId: deleteProjectId,
+      ownerId: deleteOwnerId,
     });
+
+    if (!deleteIsCurrent()) return;
 
     if (error) {
       setLeadsError('Could not delete this lead.');
@@ -4199,22 +4250,35 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   const refreshAnalytics = useCallback(async () => {
-    if (!user || !cloudProjectId) {
-      setAnalyticsEvents([]);
-      setAnalyticsError('');
+    const refreshLoadSequence = projectLoadSequenceRef.current;
+    const refreshProjectId = cloudProjectId;
+    const refreshIsCurrent = () =>
+      projectLoadSequenceRef.current === refreshLoadSequence;
+
+    if (!user || !refreshProjectId) {
+      if (refreshIsCurrent()) {
+        setAnalyticsEvents([]);
+        setAnalyticsError('');
+        setAnalyticsLoading(false);
+      }
       return;
     }
 
     if (!projectTeamAccess.canEdit) {
-      setAnalyticsEvents([]);
-      setAnalyticsError('Analytics is available to project owners, admins, and editors.');
+      if (refreshIsCurrent()) {
+        setAnalyticsEvents([]);
+        setAnalyticsError('Analytics is available to project owners, admins, and editors.');
+        setAnalyticsLoading(false);
+      }
       return;
     }
 
     setAnalyticsLoading(true);
     setAnalyticsError('');
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await listWebsiteAnalyticsEvents(cloudProjectId, since);
+    const { data, error } = await listWebsiteAnalyticsEvents(refreshProjectId, since);
+
+    if (!refreshIsCurrent()) return;
 
     if (error) {
       setAnalyticsError('Analytics is unavailable. Make sure the Sprint 15 database migration is applied.');
@@ -8974,23 +9038,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
     if (!window.confirm('Delete this stored release archive? This cannot be undone.')) return;
+
+    const deleteLoadSequence = projectLoadSequenceRef.current;
+    const deleteProjectId = cloudProjectId;
+    const deleteOwnerId = activeProjectOwnerId;
+    const deleteIsCurrent = () =>
+      projectLoadSequenceRef.current === deleteLoadSequence;
+
     setPublishVersionsLoading(true);
     setPublishVersionsError('');
+
     try {
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
       const { error } = await deleteWebsitePublishVersionArchive({
         versionId: version.id,
-        projectId: cloudProjectId,
-        ownerId: activeProjectOwnerId,
+        projectId: deleteProjectId,
+        ownerId: deleteOwnerId,
         storagePrefix: version.storage_prefix,
         fileManifest: manifest,
       });
+
+      if (!deleteIsCurrent()) return;
       if (error) throw error;
+
       setPublishVersions((current) => current.filter((item) => item.id !== version.id));
     } catch (error) {
+      if (!deleteIsCurrent()) return;
       setPublishVersionsError(error instanceof Error ? error.message : 'Could not delete this release.');
     } finally {
-      setPublishVersionsLoading(false);
+      if (deleteIsCurrent()) {
+        setPublishVersionsLoading(false);
+      }
     }
   }
 
