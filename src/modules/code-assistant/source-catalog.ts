@@ -65,6 +65,15 @@ export const REGISTRY_SOURCES: RegistrySource[] = [
     note: 'MIT source. Preserve the upstream copyright and permission notice when substantial code is imported.',
   },
   {
+    id: 'animmaster-lib',
+    name: 'Animmaster Lib',
+    homepageUrl: 'https://animmasterlib.dev/',
+    license: 'restricted',
+    redistributionAllowed: false,
+    attributionRequired: true,
+    note: 'Paid component pack delivered privately after purchase. No public redistribution license was found, so Tayar must not bundle or mirror its code. Future support should use private user-provided licensed imports only.',
+  },
+  {
     id: 'react-bits',
     name: 'React Bits',
     repository: 'DavidHDev/react-bits',

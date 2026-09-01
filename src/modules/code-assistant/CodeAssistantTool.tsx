@@ -3,6 +3,7 @@ import {
   Boxes, Check, Code2, Copy, ExternalLink, Heart, LayoutTemplate, Loader2, Package,
   Search, ShieldCheck, Sparkles,
 } from 'lucide-react';
+import { AIService } from '@/lib/ai/service';
 import { componentRegistry } from './component-registry';
 import { getRegistrySource, REGISTRY_SOURCES } from './source-catalog';
 import { loadUpstreamComponentCode, loadUpstreamComponents } from './upstream-registry';
@@ -67,7 +68,7 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState(componentRegistry.all()[0]?.id || '');
-  const [tab, setTab] = useState<'preview' | 'code' | 'info'>('preview');
+  const [tab, setTab] = useState<'preview' | 'code' | 'ai' | 'info'>('preview');
   const [copied, setCopied] = useState<'code' | 'prompt' | null>(null);
   const [showSources, setShowSources] = useState(false);
   const [upstreamItems, setUpstreamItems] = useState<UIComponentRecord[]>([]);
@@ -76,6 +77,11 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   const [loadedCode, setLoadedCode] = useState<Record<string, string>>({});
   const [codeLoadingId, setCodeLoadingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [aiInstruction, setAiInstruction] = useState('');
+  const [aiResult, setAiResult] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMeta, setAiMeta] = useState<{ model: string; tokensIn: number; tokensOut: number } | null>(null);
+  const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
     try {
@@ -161,20 +167,42 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   };
 
   const onUseAI = async (item: UIComponentRecord) => {
+    if (aiLoading) return;
+    setAiLoading(true);
+    setActionError(null);
+    setAiResult('');
+    setAiMeta(null);
+    setTab('ai');
     try {
       const code = await ensureCode(item);
-      const dependencyPlan = [
-        item.dependencies.length ? `NPM dependencies: ${item.dependencies.join(', ')}` : '',
-        item.remote?.registryDependencies.length ? `Registry dependencies: ${item.remote.registryDependencies.join(', ')}` : '',
-      ].filter(Boolean).join('\n');
-      const payload = code
-        ? `${item.aiPrompt}\n\n${dependencyPlan}\n\nComponent source:\n\n${code}`
-        : [item.aiPrompt, dependencyPlan].filter(Boolean).join('\n\n');
-      await copyText(payload);
-      setCopied('prompt');
-      window.setTimeout(() => setCopied(null), 1400);
-    } catch {
-      // Error is rendered in the panel.
+      const maxSourceChars = 24_000;
+      const sourceCode = code.slice(0, maxSourceChars);
+      const response = await aiService.complete(
+        {
+          action: 'adapt-component',
+          instruction: aiInstruction.trim() || item.aiPrompt,
+          component: {
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            kind: item.kind || 'component',
+            source: getRegistrySource(item.sourceId)?.name || item.sourceId,
+            license: item.license,
+            npmDependencies: item.dependencies,
+            registryDependencies: item.remote?.registryDependencies || [],
+          },
+          sourceCode,
+          sourceTruncated: code.length > maxSourceChars,
+        },
+        [],
+        { temperature: 0.2, maxTokens: 4096 },
+      );
+      setAiResult(response.content);
+      setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'AI adaptation failed.');
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -206,13 +234,16 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
       {showSources && (
         <div className={`mt-5 rounded-2xl border p-4 ${panel}`}>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {REGISTRY_SOURCES.filter((entry) => entry.id !== 'tayar-native').map((entry) => (
-              <div key={entry.id} className="rounded-xl border border-white/10 p-3">
-                <div className="flex items-start justify-between gap-2"><strong className="text-sm">{entry.name}</strong><span className={`rounded-full px-2 py-0.5 text-[10px] ${entry.redistributionAllowed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{entry.redistributionAllowed ? entry.license : 'Blocked'}</span></div>
-                <p className={`mt-2 text-xs leading-5 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>{entry.note}</p>
-                <a href={`https://github.com/${entry.repository}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300">Repository <ExternalLink className="h-3 w-3" /></a>
-              </div>
-            ))}
+            {REGISTRY_SOURCES.filter((entry) => entry.id !== 'tayar-native').map((entry) => {
+              const sourceUrl = entry.repository ? `https://github.com/${entry.repository}` : entry.homepageUrl;
+              return (
+                <div key={entry.id} className="rounded-xl border border-white/10 p-3">
+                  <div className="flex items-start justify-between gap-2"><strong className="text-sm">{entry.name}</strong><span className={`rounded-full px-2 py-0.5 text-[10px] ${entry.redistributionAllowed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{entry.redistributionAllowed ? entry.license : 'Blocked'}</span></div>
+                  <p className={`mt-2 text-xs leading-5 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>{entry.note}</p>
+                  {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300">{entry.repository ? 'Repository' : 'Website'} <ExternalLink className="h-3 w-3" /></a>}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -252,13 +283,13 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
               <div><div className="flex items-center gap-2"><h2 className="font-semibold">{selected.name}</h2>{selected.remote && <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-400">Open source</span>}</div><p className={`mt-1 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{selected.description}</p></div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => toggleFavorite(selected.id)} aria-label={favoriteIds.has(selected.id) ? 'Remove from favorites' : 'Add to favorites'} className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 ${favoriteIds.has(selected.id) ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10' : 'border-gray-200'}`}><Heart className={`h-4 w-4 ${favoriteIds.has(selected.id) ? 'fill-current' : ''}`} /></button>
-                <button disabled={codeLoadingId === selected.id} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-400 disabled:opacity-50">{codeLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} {copied === 'prompt' ? 'AI payload copied' : 'Use with AI'}</button>
+                <button disabled={codeLoadingId === selected.id || aiLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-400 disabled:opacity-50">{codeLoadingId === selected.id || aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI Adapt</button>
                 <button disabled={codeLoadingId === selected.id} onClick={() => void onCopyCode(selected)} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${darkMode ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-100'}`}>{codeLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : copied === 'code' ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} Copy code</button>
               </div>
             </div>
 
             <div className="flex gap-1 border-b border-white/10 px-4 pt-3">
-              {(['preview', 'code', 'info'] as const).map((entry) => <button key={entry} onClick={() => setTab(entry)} className={`rounded-t-lg px-3 py-2 text-xs font-semibold capitalize ${tab === entry ? 'bg-violet-500/15 text-violet-300' : 'opacity-50 hover:opacity-100'}`}>{entry}</button>)}
+              {(['preview', 'code', 'ai', 'info'] as const).map((entry) => <button key={entry} onClick={() => setTab(entry)} className={`rounded-t-lg px-3 py-2 text-xs font-semibold capitalize ${tab === entry ? 'bg-violet-500/15 text-violet-300' : 'opacity-50 hover:opacity-100'}`}>{entry}</button>)}
             </div>
 
             {actionError && <div className="mx-4 mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">{actionError}</div>}
@@ -269,7 +300,20 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
                 ? <pre className="max-h-[520px] overflow-auto rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{selectedCode}</code></pre>
                 : <div className="rounded-xl border border-white/10 p-6 text-center"><Code2 className="mx-auto h-8 w-8 text-violet-400" /><div className="mt-3 text-sm font-semibold">Source code loads on demand</div><p className="mx-auto mt-2 max-w-md text-xs leading-5 opacity-50">The component files and upstream MIT license are fetched only when needed. The license notice is prepended to copied source.</p><button disabled={codeLoadingId === selected.id} onClick={() => void ensureCode(selected)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{codeLoadingId === selected.id && <Loader2 className="h-4 w-4 animate-spin" />} Load source code</button></div>
               )}
-              {tab === 'info' && <div className="space-y-4"><div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
+              {tab === 'ai' && <div className="space-y-4">
+                <div className="rounded-xl border border-white/10 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-violet-400" /> AI adaptation</div>
+                  <p className="mt-2 text-xs leading-5 opacity-55">Describe the change you want. Tayar sends a bounded source excerpt plus dependency and license metadata to the existing authenticated AI engine. The result is review-only and is never executed or applied automatically.</p>
+                  <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} maxLength={2000} placeholder="Example: Make this fit a dark SaaS dashboard, use our existing buttons, reduce motion on mobile, and keep it accessible." className={`mt-3 w-full resize-y rounded-xl border p-3 text-sm outline-none focus:border-violet-400/50 ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button disabled={aiLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate adaptation</button>
+                    {aiResult && <button onClick={() => void copyText(aiResult).then(() => { setCopied('prompt'); window.setTimeout(() => setCopied(null), 1400); })} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold ${darkMode ? 'border-white/10' : 'border-gray-200'}`}><Copy className="h-4 w-4" /> {copied === 'prompt' ? 'Copied' : 'Copy result'}</button>}
+                  </div>
+                </div>
+                {aiMeta && <div className="flex flex-wrap gap-2 text-[10px] opacity-50"><span>Model: {aiMeta.model}</span><span>Input tokens: {aiMeta.tokensIn}</span><span>Output tokens: {aiMeta.tokensOut}</span></div>}
+                {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation generated yet.</div>}
+              </div>}
+              {tab === 'info' && <div className="space-y-4"><div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
             </div>
           </section>
         )}

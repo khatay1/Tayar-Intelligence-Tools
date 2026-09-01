@@ -21,6 +21,7 @@ Currently verified:
 - `TheOrcDev/8bitcn-ui` — MIT — allowed with upstream notice preserved.
 - `karthikmudunuri/eldoraui` — MIT — allowed with upstream notice preserved.
 - `DavidHDev/react-bits` — current Commons Clause restriction — blocked from registry redistribution.
+- `animmasterlib.dev` — paid/private distribution. No public redistribution license found during review; blocked from Tayar bundling. Planned path: user-provided private licensed pack import only.
 
 The registry source catalog is the enforcement point. A component cannot be registered from a blocked source.
 
@@ -42,6 +43,8 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Network/path/payload size guards for upstream source loading.
 - Source filter, component/block filter, category filter, search, and browser-local favorites.
 - AI payload now carries both NPM and registry dependency requirements with the licensed source.
+- Direct authenticated AI adaptation through Tayar's existing AI service, with bounded source context and no automatic code execution/application.
+- AI source is explicitly treated as untrusted data to reduce prompt-injection risk from third-party code comments.
 
 ## Next implementation layers
 

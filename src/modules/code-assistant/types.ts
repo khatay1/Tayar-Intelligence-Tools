@@ -15,7 +15,8 @@ export type RegistryLicense = 'MIT' | 'Apache-2.0' | 'Tayar' | 'restricted';
 export interface RegistrySource {
   id: string;
   name: string;
-  repository: string;
+  repository?: string;
+  homepageUrl?: string;
   license: RegistryLicense;
   redistributionAllowed: boolean;
   attributionRequired: boolean;
