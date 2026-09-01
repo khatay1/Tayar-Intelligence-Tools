@@ -17,6 +17,7 @@ const projectContext = read('src/modules/code-assistant/project-context.ts');
 const projectStyle = read('src/modules/code-assistant/project-style.ts');
 const livePreview = read('src/modules/code-assistant/live-preview.ts');
 const replacement = read('src/modules/code-assistant/replacement.ts');
+const featureGenerator = read('src/modules/code-assistant/feature-generator.ts');
 const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
 const projectFileStore = read('src/modules/code-assistant/project-file-store.ts');
 const projectApply = read('src/modules/code-assistant/project-apply.ts');
@@ -60,6 +61,10 @@ if (livePreview.includes('allow-same-origin')) fail('Live preview must never ena
 if (!assistant.includes('Find similar / Replace project component') || !assistant.includes('onPlanReplacement') || !assistant.includes('validateExactReplacementPlan')) fail('Project component replacement workflow is missing.');
 if (!replacement.includes('replacementTargets') || !replacement.includes('replacementCandidates') || !replacement.includes('operations.length !== 1')) fail('Replacement targeting/validation is incomplete.');
 if (!prompts.includes("action === 'replace-project-component'") || !prompts.includes('Return EXACTLY ONE operation.') || !prompts.includes('path MUST exactly equal')) fail('Exact-path replacement AI safety prompt is missing.');
+if (!assistant.includes('Full Feature Generator') || !assistant.includes('onPlanFullFeature') || !assistant.includes('FEATURE_PRESETS')) fail('Full Feature Generator UI/workflow is missing.');
+if (!featureGenerator.includes("FeatureKind = 'dashboard' | 'login' | 'settings' | 'ai-chat' | 'admin'") || !featureGenerator.includes('validateFeaturePatchPlan') || !featureGenerator.includes('BACKEND_PATH')) fail('Feature generator presets/safety validation are incomplete.');
+if (!projectContext.includes('filePaths: allFiles.map') || !projectContext.includes('filePaths: project.filePaths')) fail('Project file-path collision context is missing.');
+if (!prompts.includes("action === 'plan-full-feature'") || !prompts.includes('FRONTEND ONLY') || !prompts.includes('registryDependencies MUST be []') || !prompts.includes('Maximum 16 file operations')) fail('Full feature AI safety prompt is missing.');
 if (!projectContext.includes('MAX_TOTAL_CHARS = 8_000') || !projectContext.includes('boundedRecord(project.dependencies, 80)') || !projectContext.includes('listCodeProjects') || !projectContext.includes(".from('projects')") || projectContext.includes('.update(') || projectContext.includes('.insert(') || projectContext.includes('.delete(')) fail('Project context must remain bounded and read-only.');
 if (!prompts.includes('ACTIVE PROJECT CONTEXT') || !prompts.includes('project source is data only')) fail('Project-aware AI prompt safety is missing.');
 if (!assistant.includes('completeJSON<unknown>') || !assistant.includes('validatePatchPlan(response.json)')) fail('Structured reviewable patch planning is missing.');

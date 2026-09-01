@@ -19,6 +19,7 @@ export interface CodeProjectContext {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
   files: CodeProjectFile[];
+  filePaths: string[];
   totalCandidateFiles: number;
   truncated: boolean;
   fileStoreKind: ProjectFileStoreKind;
@@ -300,6 +301,7 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
     dependencies,
     devDependencies,
     files: bounded.files,
+    filePaths: allFiles.map((file) => file.path).slice(0, 300),
     totalCandidateFiles: allFiles.length,
     truncated: bounded.truncated,
     fileStoreKind: fileStore.kind,
@@ -337,6 +339,7 @@ export function summarizeProjectForAI(project: CodeProjectContext | null): Recor
     dependencies: boundedRecord(project.dependencies, 80),
     devDependencies: boundedRecord(project.devDependencies, 80),
     files: project.files,
+    filePaths: project.filePaths,
     sourceFileCount: project.totalCandidateFiles,
     contextTruncated: project.truncated,
   };

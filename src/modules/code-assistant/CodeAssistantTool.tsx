@@ -1,7 +1,7 @@
 import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import {
   Boxes, Check, Code2, Copy, ExternalLink, FileDiff, FolderCog, Heart, LayoutTemplate, Loader2, Package,
-  ArrowRightLeft, Eye, RotateCcw, Save, Search, ShieldCheck, Sparkles, Upload, Zap,
+  ArrowRightLeft, Eye, Layers3, RotateCcw, Save, Search, ShieldCheck, Sparkles, Upload, Zap,
 } from 'lucide-react';
 import { AIService } from '@/lib/ai/service';
 import { componentRegistry } from './component-registry';
@@ -17,6 +17,7 @@ import { importPrivateComponentFiles, isAnimatedComponent } from './private-impo
 import { summarizeStyleProfile } from './project-style';
 import { buildIsolatedLivePreview } from './live-preview';
 import { replacementCandidates, replacementTargets, validateExactReplacementPlan } from './replacement';
+import { FEATURE_PRESETS, FeatureKind, featureCandidateMetadata, featureRegistryCandidates, getFeaturePreset, validateFeaturePatchPlan } from './feature-generator';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -175,6 +176,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
   const [replaceTargetPath, setReplaceTargetPath] = useState('');
   const [replaceLoading, setReplaceLoading] = useState(false);
+  const [featureKind, setFeatureKind] = useState<FeatureKind>('dashboard');
+  const [featureInstruction, setFeatureInstruction] = useState('');
+  const [featureLoading, setFeatureLoading] = useState(false);
+  const [patchOwnerId, setPatchOwnerId] = useState('');
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
@@ -295,6 +300,11 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const suggestedReplacements = useMemo(
     () => replacementCandidates(searchableItems, replaceTarget, 8),
     [searchableItems, replaceTarget],
+  );
+  const featurePreset = useMemo(() => getFeaturePreset(featureKind), [featureKind]);
+  const featureCandidates = useMemo(
+    () => featureRegistryCandidates(searchableItems, featureKind, 6),
+    [searchableItems, featureKind],
   );
   const installCommand = projectContext
     ? buildDependencyInstallCommand(
@@ -599,6 +609,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       );
       if (!response.json) throw new Error('AI did not return a structured patch plan.');
       setPatchPlan(validatePatchPlan(response.json));
+      setPatchOwnerId(item.id);
       setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Unable to generate a safe patch plan.');
@@ -649,12 +660,58 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       const plan = validatePatchPlan(response.json);
       validateExactReplacementPlan(replaceTarget.path, plan);
       setPatchPlan(plan);
+      setPatchOwnerId(`replace:${replaceTarget.path}:${item.id}`);
       setSelectedId(item.id);
       setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Unable to generate a safe replacement patch.');
     } finally {
       setReplaceLoading(false);
+    }
+  };
+
+  const onPlanFullFeature = async () => {
+    if (!projectContext || featureLoading || patchLoading || aiLoading) return;
+    setFeatureLoading(true);
+    setActionError(null);
+    setPatchPlan(null);
+    setApplyConfirmed(false);
+    setTab('ai');
+    try {
+      const snippets: string[] = [];
+      for (const item of featureCandidates.slice(0, 4)) {
+        try {
+          const code = await ensureCode(item);
+          if (code) snippets.push(`// Inspiration: ${item.id}\n${code.slice(0, 2_000)}`);
+        } catch {
+          // Candidate metadata remains useful even when an upstream source file is temporarily unavailable.
+        }
+      }
+      const registrySource = snippets.join('\n\n').slice(0, 8_000);
+      const response = await aiService.completeJSON<unknown>(
+        {
+          action: 'plan-full-feature',
+          feature: featurePreset,
+          instruction: featureInstruction.trim() || featurePreset.defaultGoal,
+          constraints: activeConstraintInstructions,
+          project: summarizeProjectForAI(projectContext),
+          registryCandidates: featureCandidateMetadata(featureCandidates),
+          registrySource,
+          registrySourceTruncated: snippets.join('\n\n').length > registrySource.length,
+        },
+        [],
+        { temperature: 0.15, maxTokens: 8192 },
+      );
+      if (!response.json) throw new Error('AI did not return a structured feature patch plan.');
+      const plan = validatePatchPlan(response.json);
+      validateFeaturePatchPlan(projectContext, plan);
+      setPatchPlan(plan);
+      setPatchOwnerId(`feature:${featureKind}`);
+      setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to generate a safe feature pack.');
+    } finally {
+      setFeatureLoading(false);
     }
   };
 
@@ -671,7 +728,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     setActionError(null);
     setApplyMessage(null);
     try {
-      await applyCodePatch(targetProjectId, projectContext.fileStoreFingerprint, patchPlan, item.id);
+      await applyCodePatch(targetProjectId, projectContext.fileStoreFingerprint, patchPlan, patchOwnerId || item.id);
       await refreshProjectContext();
       setApplyConfirmed(false);
       setApplyMessage('Patch applied. A rollback checkpoint is available until the project files change again.');
@@ -691,6 +748,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       await rollbackCodePatch(targetProjectId, projectContext.lastApply.id);
       await refreshProjectContext();
       setPatchPlan(null);
+      setPatchOwnerId('');
       setApplyConfirmed(false);
       setApplyMessage('Last Coding Assistance patch was rolled back.');
     } catch (error) {
@@ -779,6 +837,16 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
           </div>
         </div>
       )}
+
+      <section className={`mt-5 rounded-2xl border p-4 sm:p-5 ${panel}`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div><div className="flex items-center gap-2 text-sm font-semibold"><Layers3 className="h-4 w-4 text-violet-400" /> Full Feature Generator</div><p className="mt-2 max-w-2xl text-xs leading-5 opacity-55">Generate a reviewable multi-file frontend feature pack using the active project's style, framework and existing file boundaries. No DB migration, API/server file or package.json write is allowed.</p></div>
+          <button disabled={!projectContext || featureLoading || patchLoading || aiLoading} onClick={() => void onPlanFullFeature()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 py-2.5 text-xs font-semibold text-white hover:bg-violet-400 disabled:opacity-40">{featureLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers3 className="h-4 w-4" />} Plan full feature</button>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-5">{FEATURE_PRESETS.map((preset) => <button key={preset.id} onClick={() => { setFeatureKind(preset.id); setPatchPlan(null); setApplyConfirmed(false); }} className={`rounded-xl border p-3 text-left transition ${featureKind === preset.id ? 'border-violet-400/30 bg-violet-500/10' : darkMode ? 'border-white/10 bg-black/10 hover:border-white/20' : 'border-gray-200 bg-white hover:border-violet-200'}`}><div className="text-xs font-semibold">{preset.label}</div><div className="mt-1 text-[10px] leading-4 opacity-45">{preset.description}</div></button>)}</div>
+        <textarea value={featureInstruction} onChange={(event) => setFeatureInstruction(event.target.value)} placeholder={featurePreset.defaultGoal} className={`mt-3 min-h-20 w-full resize-y rounded-xl border p-3 text-xs outline-none ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
+        <div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-[10px] uppercase tracking-wider opacity-40">Registry anchors</span>{featureCandidates.map((item) => <button key={item.id} onClick={() => { setSelectedId(item.id); setTab('preview'); }} className="rounded-full border border-white/10 px-2 py-1 text-[10px] opacity-65 hover:opacity-100">{item.name}</button>)}{!projectContext && <span className="text-[10px] text-amber-300">Choose a target project to generate a feature pack.</span>}</div>
+      </section>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <section className={`rounded-2xl border p-3 ${panel}`}>

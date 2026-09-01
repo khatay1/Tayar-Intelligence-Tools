@@ -127,3 +127,14 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 - Replacement planning uses a dedicated AI action and must validate to exactly one `replace` operation for the exact selected path.
 - Any plan that creates another file, targets another path, or returns multiple operations is rejected before Safe Apply.
 - Existing project style profile and Safe Apply/rollback protections remain active for replacements.
+
+
+## Full Feature Generator
+
+- Presets: Dashboard, Login, Settings, AI Chat and Admin.
+- Each preset ranks up to six relevant registry anchors; up to four bounded source snippets may be used as untrusted design/code inspiration.
+- The generator is project-aware and receives the style profile plus up to 300 existing project file paths to prevent create-path collisions.
+- First release is frontend-only: API/server/backend/Supabase/migration/route-handler files are rejected both in the AI contract and post-generation validator.
+- Feature plans are limited to 16 reviewed create/replace operations and use the existing Patch Plan, diff, explicit confirmation, stale-write protection and rollback workflow.
+- Replace operations are allowed only for complete, non-truncated project files already in the bounded project context.
+- Login/AI/Admin packs must reuse existing real services when present; otherwise they expose honest frontend adapter boundaries instead of inventing authentication, data or network behavior.
