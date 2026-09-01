@@ -16,3 +16,13 @@ export function normalizePageLanguage(
     ? value
     : fallback;
 }
+
+export const PAGE_LANGUAGE_LABELS: Record<Language, string> = {
+  en: 'English',
+  sv: 'Svenska',
+  ar: 'العربية',
+};
+
+export function languageCodeLabel(language: Language): string {
+  return language.toUpperCase();
+}
