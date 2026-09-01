@@ -132,7 +132,7 @@ await check('Archived release files cannot be exposed through live routes', asyn
 
 await check('Path traversal is rejected before storage access', async () => {
   const { res, calls } = await execute({
-    url: '/site/owner-1/project-1/%2E%2E/secret.html',
+    url: '/api/published-site?ownerId=owner-1&projectId=project-1&file=../secret.html',
     fetchImpl: async () => new Response('should-not-run', { status: 200 }),
   });
 
