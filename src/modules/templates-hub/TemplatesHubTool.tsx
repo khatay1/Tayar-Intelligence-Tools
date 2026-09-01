@@ -48,6 +48,7 @@ export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: bo
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [format, setFormat] = useState('all');
+  const [sort, setSort] = useState<'title' | 'newest' | 'size'>('title');
   const [page, setPage] = useState(1);
 
   const localTemplates = useMemo(
@@ -60,6 +61,7 @@ export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: bo
       query,
       category,
       format,
+      sort,
       page,
       pageSize: 36,
     },
@@ -72,6 +74,7 @@ export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: bo
     setMode(next);
     setCategory('all');
     setFormat('all');
+    setSort('title');
     setPage(1);
   }
 
@@ -136,21 +139,36 @@ export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: bo
         </div>
 
         {mode === 'library' && (
-          <select
-            value={format}
-            onChange={(event) => {
-              setFormat(event.target.value);
-              setPage(1);
-            }}
-            className={`${toolInputClass} md:w-36`}
-            aria-label={l('File format')}
-          >
-            {LIBRARY_FORMATS.map((item) => (
-              <option key={item} value={item}>
-                {item === 'all' ? l('All formats') : item.toUpperCase()}
-              </option>
-            ))}
-          </select>
+          <>
+            <select
+              value={format}
+              onChange={(event) => {
+                setFormat(event.target.value);
+                setPage(1);
+              }}
+              className={`${toolInputClass} md:w-36`}
+              aria-label={l('File format')}
+            >
+              {LIBRARY_FORMATS.map((item) => (
+                <option key={item} value={item}>
+                  {item === 'all' ? l('All formats') : item.toUpperCase()}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sort}
+              onChange={(event) => {
+                setSort(event.target.value as 'title' | 'newest' | 'size');
+                setPage(1);
+              }}
+              className={`${toolInputClass} md:w-40`}
+              aria-label={l('Sort templates')}
+            >
+              <option value="title">{l('Name A–Z')}</option>
+              <option value="newest">{l('Newest')}</option>
+              <option value="size">{l('Largest files')}</option>
+            </select>
+          </>
         )}
 
         <div className="flex gap-2 flex-wrap">
