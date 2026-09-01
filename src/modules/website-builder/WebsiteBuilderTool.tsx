@@ -80,6 +80,7 @@ import {
   saveRecoveryWebsiteProject,
 } from './core/editor-project-lifecycle';
 import { createWebsiteProjectInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
+import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -3599,14 +3600,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function applyProjectData(input: unknown, loadHistory = true, resetEditHistory = true) {
-    if (Array.isArray(input) && input.length) {
-      const normalized = input.map(normalizeSection);
-      setSections(normalized);
-      setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: normalized, showInNavigation: true, language: 'en', translationKey: 'home' }]);
-      setActivePageId('page-home');
-      setHomePageId('page-home');
-      setSelectedId(normalized[0].id);
-      setSelectedElementId(normalized[0].elements[0]?.id ?? null);
+    const normalizedLoad = normalizeWebsiteProjectLoad(input);
+    if (normalizedLoad.kind === 'invalid') return;
+
+    const normalizedSections = normalizedLoad.sections;
+    const normalizedPages = normalizedLoad.pages as WebsitePage[];
+
+    if (normalizedLoad.kind === 'legacy-array') {
+      setSections(normalizedSections);
+      setPages(normalizedPages);
+      setActivePageId(normalizedLoad.activePageId);
+      setHomePageId(normalizedLoad.homePageId);
+      setSelectedId(normalizedSections[0].id);
+      setSelectedElementId(normalizedSections[0].elements[0]?.id ?? null);
       setFaviconUrl('');
       setTheme(DEFAULT_THEME);
       setHeaderConfig(DEFAULT_HEADER_CONFIG);
@@ -3634,101 +3640,50 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    if (!input || typeof input !== 'object') return;
-    const parsed = input as PersistedWebsiteProject;
+    const parsed = normalizedLoad.parsed as PersistedWebsiteProject;
 
-    if (Array.isArray(parsed.pages) && parsed.pages.length) {
-      const normalizedPages: WebsitePage[] = parsed.pages.map((page: Partial<WebsitePage>, index: number) => ({
-        id: page.id || `page-${index}-${Date.now()}`,
-        name: page.name || `Page ${index + 1}`,
-        slug: normalizeSlug(page.slug || page.name || `page-${index + 1}`),
-        sections: Array.isArray(page.sections) && page.sections.length
-          ? page.sections.map(normalizeSection)
-          : [createSection('hero')],
-        showInNavigation: page.showInNavigation !== false,
-        seoTitle: typeof page.seoTitle === 'string' ? page.seoTitle : '',
-        seoDescription: typeof page.seoDescription === 'string' ? page.seoDescription : '',
-        socialImage: typeof page.socialImage === 'string' ? page.socialImage : '',
-        canonicalUrl: typeof page.canonicalUrl === 'string' ? page.canonicalUrl : '',
-        language: normalizePageLanguage(page.language, normalizePageLanguage(parsed.language, 'en')),
-        translationKey: typeof page.translationKey === 'string' ? page.translationKey.slice(0, 120) : '',
-        noIndex: page.noIndex === true,
-      }));
-      const requestedPage = normalizedPages.find((page) => page.id === parsed.activePageId) || normalizedPages[0];
+    if (normalizedLoad.kind === 'pages') {
       setPages(normalizedPages);
-      setActivePageId(requestedPage.id);
-      setHomePageId(parsed.homePageId && normalizedPages.some((page) => page.id === parsed.homePageId) ? parsed.homePageId : normalizedPages[0].id);
-      setSections(requestedPage.sections);
-      setSelectedId(requestedPage.sections[0]?.id ?? null);
-      setSelectedElementId(requestedPage.sections[0]?.elements[0]?.id ?? null);
-      setSiteName(parsed.siteName || 'My Website');
-      setSiteUrl(parsed.siteUrl || '');
-      setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
-      setPublishedUrl(typeof parsed.publishedUrl === 'string' ? normalizePublishedSiteUrl(parsed.publishedUrl) : '');
-      setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
-      setPreviewUrl(typeof parsed.previewUrl === 'string' ? normalizePublishedSiteUrl(parsed.previewUrl) : '');
-      setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
-      setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
-      setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
-      setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
-      setLiveVerification('idle');
-      setPublishError('');
-      setPreviewError('');
-      if (parsed.brand) setBrand(parsed.brand);
-      setTheme(normalizeTheme(parsed.theme));
-      setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
-      setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
-      setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
-      setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
-      setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
-      setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
-      if (parsed.seo) setSeo(parsed.seo);
-      if (resetEditHistory) {
-        setHistory([]);
-        setFuture([]);
-      }
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
-      setSaved(false);
-      return;
+      setActivePageId(normalizedLoad.activePageId);
+      setHomePageId(normalizedLoad.homePageId);
+      setSections(normalizedSections);
+    } else {
+      setSections(normalizedSections);
+      setPages(normalizedPages);
+      setActivePageId(normalizedLoad.activePageId);
+      setHomePageId(normalizedLoad.homePageId);
     }
 
-    if (Array.isArray(parsed.sections) && parsed.sections.length) {
-      const normalized = parsed.sections.map(normalizeSection);
-      setSections(normalized);
-      setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: normalized, showInNavigation: true, language: 'en', translationKey: 'home' }]);
-      setActivePageId('page-home');
-      setHomePageId('page-home');
-      setSelectedId(normalized[0].id);
-      setSelectedElementId(normalized[0].elements[0]?.id ?? null);
-      setSiteName(parsed.siteName || 'My Website');
-      setSiteUrl(parsed.siteUrl || '');
-      setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
-      setPublishedUrl(typeof parsed.publishedUrl === 'string' ? normalizePublishedSiteUrl(parsed.publishedUrl) : '');
-      setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
-      setPreviewUrl(typeof parsed.previewUrl === 'string' ? normalizePublishedSiteUrl(parsed.previewUrl) : '');
-      setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
-      setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
-      setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
-      setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
-      setLiveVerification('idle');
-      setPublishError('');
-      setPreviewError('');
-      if (parsed.brand) setBrand(parsed.brand);
-      setTheme(normalizeTheme(parsed.theme));
-      setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
-      setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
-      setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
-      setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
-      setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
-      setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
-      if (parsed.seo) setSeo(parsed.seo);
-      if (resetEditHistory) {
-        setHistory([]);
-        setFuture([]);
-      }
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
-      setSaved(false);
+    setSelectedId(normalizedSections[0]?.id ?? null);
+    setSelectedElementId(normalizedSections[0]?.elements[0]?.id ?? null);
+    setSiteName(parsed.siteName || 'My Website');
+    setSiteUrl(parsed.siteUrl || '');
+    setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
+    setPublishedUrl(typeof parsed.publishedUrl === 'string' ? normalizePublishedSiteUrl(parsed.publishedUrl) : '');
+    setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
+    setPreviewUrl(typeof parsed.previewUrl === 'string' ? normalizePublishedSiteUrl(parsed.previewUrl) : '');
+    setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
+    setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
+    setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
+    setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
+    setLiveVerification('idle');
+    setPublishError('');
+    setPreviewError('');
+    if (parsed.brand) setBrand(parsed.brand);
+    setTheme(normalizeTheme(parsed.theme));
+    setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
+    setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
+    setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
+    setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
+    setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
+    setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
+    if (parsed.seo) setSeo(parsed.seo);
+    if (resetEditHistory) {
+      setHistory([]);
+      setFuture([]);
     }
+    if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
+    setSaved(false);
   }
 
   async function refreshProjectTeamAccess(projectId: string | null) {
