@@ -29,6 +29,9 @@ const websiteAnalyticsSummaryPath = resolve(root, 'src/modules/website-builder/c
 const websiteMediaServicePath = resolve(root, 'src/modules/website-builder/services/websiteMediaService.ts');
 const websiteAccessServicePath = resolve(root, 'src/modules/website-builder/services/websiteAccessService.ts');
 const websiteBillingServicePath = resolve(root, 'src/modules/website-builder/services/websiteBillingService.ts');
+const projectIdentifiersPath = resolve(root, 'src/modules/website-builder/core/project-identifiers.ts');
+const projectReleaseMetricsPath = resolve(root, 'src/modules/website-builder/core/project-release-metrics.ts');
+const websiteLeadUtilsPath = resolve(root, 'src/modules/website-builder/core/website-lead-utils.ts');
 
 const failures = [];
 const passes = [];
@@ -65,6 +68,9 @@ for (const [label, path] of [
   ['Website media service exists', websiteMediaServicePath],
   ['Website access service exists', websiteAccessServicePath],
   ['Website billing service exists', websiteBillingServicePath],
+  ['Project identifiers helper exists', projectIdentifiersPath],
+  ['Project release metrics helper exists', projectReleaseMetricsPath],
+  ['Website lead utils helper exists', websiteLeadUtilsPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -94,9 +100,12 @@ const websiteAnalyticsSummary = existsSync(websiteAnalyticsSummaryPath) ? readFi
 const websiteMediaService = existsSync(websiteMediaServicePath) ? readFileSync(websiteMediaServicePath, 'utf8') : '';
 const websiteAccessService = existsSync(websiteAccessServicePath) ? readFileSync(websiteAccessServicePath, 'utf8') : '';
 const websiteBillingService = existsSync(websiteBillingServicePath) ? readFileSync(websiteBillingServicePath, 'utf8') : '';
+const projectIdentifiers = existsSync(projectIdentifiersPath) ? readFileSync(projectIdentifiersPath, 'utf8') : '';
+const projectReleaseMetrics = existsSync(projectReleaseMetricsPath) ? readFileSync(projectReleaseMetricsPath, 'utf8') : '';
+const websiteLeadUtils = existsSync(websiteLeadUtilsPath) ? readFileSync(websiteLeadUtilsPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
-check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
+check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
 check('Published HTML never exposes direct Supabase Storage URLs', !builder.includes('/storage/v1/object/public/published-sites'));
 check('Publish and preview use canonical Tayar renderer URLs', builder.includes('buildPublishedSiteBaseUrl') && builder.includes('buildPreviewSiteBaseUrl') && builder.includes('buildPublishedSiteUrl'));
 check('Live verification checks rendered HTML content type', builder.includes("contentType.includes('text/html')") && builder.includes('verifyPublishedRoute'));
@@ -130,6 +139,9 @@ check('Analytics querying and summary are extracted', websiteAnalyticsService.in
 check('Media storage operations are extracted', websiteMediaService.includes('listWebsiteMediaFiles') && websiteMediaService.includes('uploadWebsiteMediaFile') && websiteMediaService.includes('deleteWebsiteMediaFile') && builder.includes("from './services/websiteMediaService'"));
 check('Project access RPC is extracted', websiteAccessService.includes('getWebsiteProjectTeamAccess') && builder.includes("from './services/websiteAccessService'"));
 check('Billing RPC is extracted', websiteBillingService.includes('getWebsiteBuilderBillingState') && builder.includes("from './services/websiteBillingService'"));
+check('Project slug and language identifiers are centralized', projectIdentifiers.includes('normalizeSlug') && projectIdentifiers.includes('normalizePageLanguage') && projectIdentifiers.includes('PAGE_LANGUAGE_LABELS') && builder.includes("from './core/project-identifiers'") && projectNormalization.includes("from './project-identifiers'"));
+check('Release metrics are extracted', projectReleaseMetrics.includes('buildProjectSnapshotDiffSummary') && builder.includes("from './core/project-release-metrics'"));
+check('Lead parsing utilities are extracted', websiteLeadUtils.includes('getWebsiteLeadPhone') && websiteLeadUtils.includes('getWebsiteLeadSource') && builder.includes("from './core/website-lead-utils'"));
 check('Builder has no direct Supabase calls', !builder.includes("from '@/lib/supabase'") && !builder.includes('supabase.') && !builder.includes(".from('projects')") && !builder.includes(".from('website_leads')") && !builder.includes(".from('website_analytics_events')") && !builder.includes(".from('website_publish_versions')") && !builder.includes(".from('website-media')") && !builder.includes(".from('published-sites')"));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
