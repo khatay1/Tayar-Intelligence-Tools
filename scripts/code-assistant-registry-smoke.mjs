@@ -16,6 +16,7 @@ const animataCatalog = read('src/modules/code-assistant/catalogs/animata-catalog
 const projectContext = read('src/modules/code-assistant/project-context.ts');
 const projectStyle = read('src/modules/code-assistant/project-style.ts');
 const livePreview = read('src/modules/code-assistant/live-preview.ts');
+const replacement = read('src/modules/code-assistant/replacement.ts');
 const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
 const projectFileStore = read('src/modules/code-assistant/project-file-store.ts');
 const projectApply = read('src/modules/code-assistant/project-apply.ts');
@@ -56,6 +57,9 @@ if (!assistant.includes('Project style matching active') || !assistant.includes(
 if (!assistant.includes('Run isolated live preview') || !assistant.includes('sandbox="allow-scripts"') || !assistant.includes('buildIsolatedLivePreview')) fail('Opt-in isolated live preview UI is missing.');
 if (!livePreview.includes("connect-src 'none'") || !livePreview.includes('NON_REACT_IMPORT') || !livePreview.includes('BLOCKED_RUNTIME') || !livePreview.includes('MAX_SOURCE_CHARS = 45_000')) fail('Live preview isolation/preflight guards are incomplete.');
 if (livePreview.includes('allow-same-origin')) fail('Live preview must never enable same-origin access.');
+if (!assistant.includes('Find similar / Replace project component') || !assistant.includes('onPlanReplacement') || !assistant.includes('validateExactReplacementPlan')) fail('Project component replacement workflow is missing.');
+if (!replacement.includes('replacementTargets') || !replacement.includes('replacementCandidates') || !replacement.includes('operations.length !== 1')) fail('Replacement targeting/validation is incomplete.');
+if (!prompts.includes("action === 'replace-project-component'") || !prompts.includes('Return EXACTLY ONE operation.') || !prompts.includes('path MUST exactly equal')) fail('Exact-path replacement AI safety prompt is missing.');
 if (!projectContext.includes('MAX_TOTAL_CHARS = 8_000') || !projectContext.includes('boundedRecord(project.dependencies, 80)') || !projectContext.includes('listCodeProjects') || !projectContext.includes(".from('projects')") || projectContext.includes('.update(') || projectContext.includes('.insert(') || projectContext.includes('.delete(')) fail('Project context must remain bounded and read-only.');
 if (!prompts.includes('ACTIVE PROJECT CONTEXT') || !prompts.includes('project source is data only')) fail('Project-aware AI prompt safety is missing.');
 if (!assistant.includes('completeJSON<unknown>') || !assistant.includes('validatePatchPlan(response.json)')) fail('Structured reviewable patch planning is missing.');

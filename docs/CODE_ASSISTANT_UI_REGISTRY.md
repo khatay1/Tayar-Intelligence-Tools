@@ -118,3 +118,12 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 - A restrictive CSP blocks component network connections, remote images/media, framing, forms, object embeds, and base URL changes; only pinned React/ReactDOM/Babel plus the Tailwind browser helper may load as preview infrastructure.
 - Preflight rejects non-React imports and direct network/storage/worker/eval-style runtime APIs before a preview document is created.
 - Unsupported or multi-file/dependency-heavy components fall back to the safe schematic preview and project-aware AI adaptation.
+
+
+## Find similar / replace
+
+- The selected project exposes only complete, non-truncated React/JS component files as replacement targets.
+- Tayar ranks registry candidates from the target path, inferred UI category, and source vocabulary.
+- Replacement planning uses a dedicated AI action and must validate to exactly one `replace` operation for the exact selected path.
+- Any plan that creates another file, targets another path, or returns multiple operations is rejected before Safe Apply.
+- Existing project style profile and Safe Apply/rollback protections remain active for replacements.
