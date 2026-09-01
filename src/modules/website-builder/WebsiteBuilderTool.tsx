@@ -9193,23 +9193,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             animationOnce: typeof changes.elementAnimationOnce === 'boolean' ? changes.elementAnimationOnce : created.animationOnce,
           };
 
-          const nextElements = [...targetSection.elements];
-          const beforeIndex = operation.beforeElementId
-            ? nextElements.findIndex((element) => element.id === operation.beforeElementId)
-            : -1;
-          const afterIndex = operation.afterElementId
-            ? nextElements.findIndex((element) => element.id === operation.afterElementId)
-            : -1;
-          const insertAt = beforeIndex >= 0
-            ? beforeIndex
-            : afterIndex >= 0
-              ? afterIndex + 1
-              : nextElements.length;
-          nextElements.splice(Math.min(Math.max(insertAt, 0), nextElements.length), 0, newElement);
+          const beforeId =
+            operation.beforeElementId &&
+            targetSection.elements.some(
+              (element) => element.id === operation.beforeElementId,
+            )
+              ? operation.beforeElementId
+              : '';
+          const afterId =
+            !beforeId &&
+            operation.afterElementId &&
+            targetSection.elements.some(
+              (element) => element.id === operation.afterElementId,
+            )
+              ? operation.afterElementId
+              : '';
 
-          sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
+          applyAIWorkingNativeOperation(
+            {
+              action: 'add_element',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: targetSection.id,
+              element:
+                newElement as unknown as EditorPageLike['sections'][number]['elements'][number],
+              ...(beforeId
+                ? { position: { beforeId } }
+                : afterId
+                  ? { position: { afterId } }
+                  : {}),
+            },
+            operation.action,
+          );
           continue;
         }
 
