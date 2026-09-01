@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Boxes, Check, Code2, Copy, ExternalLink, LayoutTemplate, Loader2, Package,
+  Boxes, Check, Code2, Copy, ExternalLink, Heart, LayoutTemplate, Loader2, Package,
   Search, ShieldCheck, Sparkles, WandSparkles,
 } from 'lucide-react';
 import { componentRegistry } from './component-registry';
@@ -38,10 +38,21 @@ async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
-function filterRecords(records: UIComponentRecord[], query: string, category: UIComponentCategory | 'all') {
+function filterRecords(
+  records: UIComponentRecord[],
+  query: string,
+  category: UIComponentCategory | 'all',
+  kind: 'all' | 'component' | 'block',
+  sourceId: string,
+  favoritesOnly: boolean,
+  favoriteIds: Set<string>,
+) {
   const q = query.trim().toLowerCase();
   return records.filter((record) => {
     if (category !== 'all' && record.category !== category) return false;
+    if (kind !== 'all' && (record.kind || 'component') !== kind) return false;
+    if (sourceId !== 'all' && record.sourceId !== sourceId) return false;
+    if (favoritesOnly && !favoriteIds.has(record.id)) return false;
     if (!q) return true;
     return [record.name, record.description, record.category, ...record.tags]
       .some((value) => value.toLowerCase().includes(q));
@@ -51,6 +62,10 @@ function filterRecords(records: UIComponentRecord[], query: string, category: UI
 export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; projectId?: string | null }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<UIComponentCategory | 'all'>('all');
+  const [kindFilter, setKindFilter] = useState<'all' | 'component' | 'block'>('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState(componentRegistry.all()[0]?.id || '');
   const [tab, setTab] = useState<'preview' | 'code' | 'info'>('preview');
   const [copied, setCopied] = useState<'code' | 'prompt' | null>(null);
@@ -61,6 +76,15 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   const [loadedCode, setLoadedCode] = useState<Record<string, string>>({});
   const [codeLoadingId, setCodeLoadingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('tayar-code-assistant-favorites-v1') || '[]');
+      if (Array.isArray(saved)) setFavoriteIds(new Set(saved.filter((value): value is string => typeof value === 'string')));
+    } catch {
+      // Ignore invalid local preference data.
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -82,10 +106,27 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   }, []);
 
   const allItems = useMemo(() => [...componentRegistry.all(), ...upstreamItems], [upstreamItems]);
-  const matches = useMemo(() => filterRecords(allItems, query, category), [allItems, query, category]);
+  const matches = useMemo(
+    () => filterRecords(allItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds),
+    [allItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds],
+  );
   const selected = matches.find((item) => item.id === selectedId) || matches[0];
   const source = selected ? getRegistrySource(selected.sourceId) : undefined;
   const selectedCode = selected ? (loadedCode[selected.id] ?? selected.code) : '';
+
+  const toggleFavorite = (id: string) => {
+    setFavoriteIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        window.localStorage.setItem('tayar-code-assistant-favorites-v1', JSON.stringify(Array.from(next)));
+      } catch {
+        // Favorites still work for this session if storage is unavailable.
+      }
+      return next;
+    });
+  };
 
   const ensureCode = async (item: UIComponentRecord): Promise<string> => {
     const existing = loadedCode[item.id] ?? item.code;
@@ -122,9 +163,13 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   const onUseAI = async (item: UIComponentRecord) => {
     try {
       const code = await ensureCode(item);
+      const dependencyPlan = [
+        item.dependencies.length ? `NPM dependencies: ${item.dependencies.join(', ')}` : '',
+        item.remote?.registryDependencies.length ? `Registry dependencies: ${item.remote.registryDependencies.join(', ')}` : '',
+      ].filter(Boolean).join('\n');
       const payload = code
-        ? `${item.aiPrompt}\n\nComponent source:\n\n${code}`
-        : item.aiPrompt;
+        ? `${item.aiPrompt}\n\n${dependencyPlan}\n\nComponent source:\n\n${code}`
+        : [item.aiPrompt, dependencyPlan].filter(Boolean).join('\n\n');
       await copyText(payload);
       setCopied('prompt');
       window.setTimeout(() => setCopied(null), 1400);
@@ -181,10 +226,20 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {CATEGORIES.map((entry) => <button key={entry.id} onClick={() => setCategory(entry.id)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs ${category === entry.id ? 'bg-violet-500 text-white' : darkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-600'}`}>{entry.label}</button>)}
           </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} className={`min-w-0 rounded-xl border px-2.5 py-2 text-xs outline-none ${darkMode ? 'border-white/10 bg-[#10101d]' : 'border-gray-200 bg-white'}`}>
+              <option value="all">All sources</option>
+              {REGISTRY_SOURCES.filter((entry) => entry.redistributionAllowed).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </select>
+            <div className="flex rounded-xl border border-white/10 p-1">
+              {(['all', 'component', 'block'] as const).map((kind) => <button key={kind} onClick={() => setKindFilter(kind)} className={`flex-1 rounded-lg px-1.5 py-1 text-[10px] capitalize ${kindFilter === kind ? 'bg-violet-500 text-white' : 'opacity-50 hover:opacity-100'}`}>{kind}</button>)}
+            </div>
+          </div>
+          <button onClick={() => setFavoritesOnly((value) => !value)} className={`mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs ${favoritesOnly ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10 text-gray-400' : 'border-gray-200 text-gray-600'}`}><Heart className={`h-3.5 w-3.5 ${favoritesOnly ? 'fill-current' : ''}`} /> Favorites only ({favoriteIds.size})</button>
           <div className="mt-3 max-h-[620px] space-y-2 overflow-y-auto pr-1">
             {matches.map((item) => (
               <button key={item.id} onClick={() => { setSelectedId(item.id); setTab('preview'); setActionError(null); }} className={`w-full rounded-xl border p-3 text-left transition ${selected?.id === item.id ? 'border-violet-400/40 bg-violet-500/10' : darkMode ? 'border-white/5 bg-black/10 hover:border-white/15' : 'border-gray-200 bg-white hover:border-violet-200'}`}>
-                <div className="flex items-start gap-3"><div className="rounded-lg bg-violet-500/10 p-2 text-violet-400"><LayoutTemplate className="h-4 w-4" /></div><div className="min-w-0"><div className="flex items-center gap-2"><div className="truncate text-sm font-semibold">{item.name}</div>{item.remote && <span className="rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[9px] text-cyan-400">OSS</span>}</div><div className={`mt-1 line-clamp-2 text-xs leading-5 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{item.description}</div><div className="mt-2 flex flex-wrap gap-1">{item.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] opacity-60">{tag}</span>)}</div></div></div>
+                <div className="flex items-start gap-3"><div className="rounded-lg bg-violet-500/10 p-2 text-violet-400"><LayoutTemplate className="h-4 w-4" /></div><div className="min-w-0"><div className="flex items-center gap-2"><div className="truncate text-sm font-semibold">{item.name}</div>{item.remote && <span className="rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[9px] text-cyan-400">OSS</span>}<span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] opacity-50">{item.kind || 'component'}</span></div><div className={`mt-1 line-clamp-2 text-xs leading-5 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{item.description}</div><div className="mt-2 flex flex-wrap gap-1">{item.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] opacity-60">{tag}</span>)}</div></div></div>
               </button>
             ))}
             {matches.length === 0 && !upstreamLoading && <div className="py-10 text-center text-sm opacity-50">No matching components.</div>}
@@ -196,6 +251,7 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
             <div className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div><div className="flex items-center gap-2"><h2 className="font-semibold">{selected.name}</h2>{selected.remote && <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-400">Open source</span>}</div><p className={`mt-1 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{selected.description}</p></div>
               <div className="flex flex-wrap gap-2">
+                <button onClick={() => toggleFavorite(selected.id)} aria-label={favoriteIds.has(selected.id) ? 'Remove from favorites' : 'Add to favorites'} className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 ${favoriteIds.has(selected.id) ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10' : 'border-gray-200'}`}><Heart className={`h-4 w-4 ${favoriteIds.has(selected.id) ? 'fill-current' : ''}`} /></button>
                 <button disabled={codeLoadingId === selected.id} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-400 disabled:opacity-50">{codeLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />} {copied === 'prompt' ? 'AI payload copied' : 'Use with AI'}</button>
                 <button disabled={codeLoadingId === selected.id} onClick={() => void onCopyCode(selected)} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${darkMode ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-100'}`}>{codeLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : copied === 'code' ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} Copy code</button>
               </div>

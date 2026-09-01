@@ -40,6 +40,8 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - On-demand component source fetching; third-party code is not executed inside the registry browser.
 - Full upstream MIT license text is prepended when remote source is loaded/copied.
 - Network/path/payload size guards for upstream source loading.
+- Source filter, component/block filter, category filter, search, and browser-local favorites.
+- AI payload now carries both NPM and registry dependency requirements with the licensed source.
 
 ## Next implementation layers
 

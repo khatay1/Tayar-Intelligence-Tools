@@ -180,6 +180,7 @@ function normalizeItem(config: UpstreamRegistryConfig, raw: RawRegistryItem): UI
     name: title,
     description,
     category,
+    kind: type === 'registry:block' ? 'block' : 'component',
     tags: Array.from(new Set([name, category, ...dependencies.slice(0, 4)])).slice(0, 7),
     sourceId: config.sourceId,
     sourcePath: files[0],

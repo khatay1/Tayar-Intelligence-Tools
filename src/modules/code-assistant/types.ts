@@ -27,6 +27,7 @@ export interface UIComponentRecord {
   name: string;
   description: string;
   category: UIComponentCategory;
+  kind?: 'component' | 'block';
   tags: string[];
   sourceId: string;
   sourcePath?: string;
