@@ -260,14 +260,18 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       })
     : [];
   const blindReplacePaths = patchPlan
-    ? patchPlan.operations.filter((operation) => operation.type === 'replace' && !projectContext?.files.some((file) => file.path === operation.path)).map((operation) => operation.path)
+    ? patchPlan.operations.filter((operation) => {
+        if (operation.type !== 'replace') return false;
+        const snapshot = projectContext?.files.find((file) => file.path === operation.path);
+        return !snapshot || snapshot.truncated;
+      }).map((operation) => operation.path)
     : [];
   const applyBlockers = [
     ...(!targetProjectId || !projectContext ? ['Choose a project before applying a patch.'] : []),
     ...(projectContext && !projectContext.canApply ? ['This project does not expose a supported content.files store.'] : []),
     ...(unresolvedPatchDependencies.length ? [`Missing npm dependencies: ${unresolvedPatchDependencies.map((entry) => entry.name).join(', ')}`] : []),
     ...(unresolvedPatchRegistryDependencies.length ? [`Resolve registry dependencies first: ${unresolvedPatchRegistryDependencies.join(', ')}`] : []),
-    ...(blindReplacePaths.length ? [`Patch tries to replace files that were not present in the AI project snapshot: ${blindReplacePaths.join(', ')}`] : []),
+    ...(blindReplacePaths.length ? [`Patch tries to replace files that were missing or truncated in the AI project snapshot: ${blindReplacePaths.join(', ')}`] : []),
   ];
 
   useEffect(() => {

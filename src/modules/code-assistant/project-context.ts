@@ -4,6 +4,7 @@ import { inspectProjectFileStore, ProjectFileStoreKind } from './project-file-st
 export interface CodeProjectFile {
   path: string;
   content: string;
+  truncated: boolean;
 }
 
 export interface CodeProjectContext {
@@ -153,8 +154,32 @@ function stringRecord(value: unknown): Record<string, string> {
   return output;
 }
 
-function detectPackageManager(files: Array<{ path: string; content: string }>): 'npm' | 'pnpm' | 'yarn' | 'bun' {
-  const paths = new Set(files.map((file) => file.path));
+function declaredProjectPaths(content: Record<string, unknown>): Set<string> {
+  const paths = new Set<string>();
+  const files = content.files;
+  if (Array.isArray(files)) {
+    for (const entry of files) {
+      if (!isRecord(entry)) continue;
+      const path = safePath(entry.path ?? entry.name ?? entry.filename);
+      if (path) paths.add(path);
+    }
+  } else if (isRecord(files)) {
+    for (const pathValue of Object.keys(files)) {
+      const path = safePath(pathValue);
+      if (path) paths.add(path);
+    }
+  }
+  return paths;
+}
+
+function detectPackageManager(content: Record<string, unknown>): 'npm' | 'pnpm' | 'yarn' | 'bun' {
+  const declared = typeof content.packageManager === 'string' ? content.packageManager.toLowerCase() : '';
+  if (declared.startsWith('pnpm')) return 'pnpm';
+  if (declared.startsWith('yarn')) return 'yarn';
+  if (declared.startsWith('bun')) return 'bun';
+  if (declared.startsWith('npm')) return 'npm';
+
+  const paths = declaredProjectPaths(content);
   if (paths.has('pnpm-lock.yaml')) return 'pnpm';
   if (paths.has('yarn.lock')) return 'yarn';
   if (paths.has('bun.lock') || paths.has('bun.lockb')) return 'bun';
@@ -204,7 +229,7 @@ function boundedFiles(files: Array<{ path: string; content: string }>): { files:
     const limit = Math.min(MAX_FILE_CHARS, remaining);
     const slice = file.content.slice(0, limit);
     if (slice.length < file.content.length) truncated = true;
-    output.push({ path: file.path, content: slice });
+    output.push({ path: file.path, content: slice, truncated: slice.length < file.content.length });
     totalChars += slice.length;
   }
 
@@ -268,7 +293,7 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
     type: typeof data.type === 'string' ? data.type : 'project',
     status: typeof data.status === 'string' ? data.status : 'unknown',
     framework: detectFramework(dependencies, devDependencies, allFiles),
-    packageManager: detectPackageManager(allFiles),
+    packageManager: detectPackageManager(content),
     dependencies,
     devDependencies,
     files: bounded.files,

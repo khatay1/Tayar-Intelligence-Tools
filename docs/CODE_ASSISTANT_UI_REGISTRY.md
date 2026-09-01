@@ -66,7 +66,9 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Safe Apply is enabled only for recognized `content.files` project stores and requires explicit in-UI confirmation after review.
 - Apply re-reads the project and checks both the file-store fingerprint and row `updated_at` to reject stale/racing writes.
 - Each successful apply stores a bounded per-file rollback checkpoint; rollback is allowed only while the file-store fingerprint still matches the applied state.
-- Safe Apply blocks unresolved npm dependencies, unresolved registry dependencies, and blind replacement of files absent from the bounded AI snapshot.
+- Safe Apply blocks unresolved npm dependencies, unresolved registry dependencies, and replacement of files that are absent or truncated in the bounded AI snapshot.
+- Per-file truncation is tracked explicitly, so AI can never replace a file based on a partial excerpt.
+- Package-manager detection reads declared project file paths directly, so yarn/bun lockfiles are detected without sending lockfile contents into AI context.
 
 ## Next implementation layers
 

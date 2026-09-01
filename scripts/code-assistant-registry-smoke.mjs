@@ -45,7 +45,8 @@ if (!assistant.includes('I reviewed the file changes above') || !assistant.inclu
 if (!assistant.includes('buildSourceBundle') || !assistant.includes('resolvedRegistryDependencies') || !assistant.includes('unresolvedRegistryDependencies')) fail('Registry dependency source bundling is missing.');
 if (!registryDependencies.includes('MAX_RESOLVED_ITEMS = 16') || !registryDependencies.includes("ownerSourceId") || !registryDependencies.includes("'shadcn'") || !registryDependencies.includes('npmDependencyRequirements')) fail('Bounded registry dependency resolution is missing.');
 if (!dependencySpec.includes('parseNpmDependencyRequirement') || !dependencySpec.includes('buildDependencyInstallCommand') || !dependencySpec.includes("packageManager === 'pnpm'")) fail('NPM dependency normalization/install planning is missing.');
-if (!projectContext.includes('detectPackageManager') || !assistant.includes('Copy {projectContext?.packageManager} install command')) fail('Project package-manager install guidance is missing.');
+if (!projectContext.includes('detectPackageManager') || !projectContext.includes('declaredProjectPaths') || !assistant.includes('Copy {projectContext.packageManager} install command')) fail('Project package-manager install guidance is missing.');
+if (!projectContext.includes('truncated: slice.length < file.content.length') || !assistant.includes('!snapshot || snapshot.truncated')) fail('Safe Apply must block replacement from incomplete AI file snapshots.');
 const manifestUrls = upstream
   .split('\n')
   .map((line) => line.trim())
