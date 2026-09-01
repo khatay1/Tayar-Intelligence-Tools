@@ -191,6 +191,13 @@ function validateOperationPayloadShape(
     ['sourceElementId', operation.sourceElementId],
     ['sourceSectionId', operation.sourceSectionId],
   ] as const) {
+    if (
+      label === 'containerId' &&
+      operation.action === 'assign_element_container' &&
+      value === ''
+    ) {
+      continue;
+    }
     if (value !== undefined && !validateIdValue(value, label, prefix, errors)) ok = false;
   }
 
@@ -421,7 +428,7 @@ function operationReferenceEntries(operation: EditorNativeOperation) {
       break;
     case 'assign_element_container':
       pushScopedReferences(references, operation, ['page', 'section', 'element']);
-      if (operation.containerId !== undefined) {
+      if (operation.containerId !== undefined && operation.containerId !== '') {
         references.push({
           kind: 'container',
           id: operation.containerId,
@@ -732,12 +739,13 @@ function validatePosition(operation: EditorNativeOperation, prefix: string, erro
 
   const anchor = hasBefore ? position.beforeId : hasAfter ? position.afterId : undefined;
   if (anchor !== undefined) {
-    if (!anchor.trim()) {
-      errors.push(`${prefix} position target ID cannot be blank`);
+    if (!hasValidId(anchor)) {
+      errors.push(`${prefix} position target ID must be non-blank and cannot contain surrounding whitespace`);
       return;
     }
+    const anchorId = anchor.trim();
     const movingId = movingIdentity(operation)?.trim();
-    if (movingId && movingId === anchor.trim()) {
+    if (movingId && movingId === anchorId) {
       errors.push(`${prefix} cannot position content relative to itself`);
     }
   }
