@@ -243,7 +243,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     setTab('ai');
     try {
       const code = await ensureCode(item);
-      const maxSourceChars = 24_000;
+      const maxSourceChars = 10_000;
       const sourceCode = code.slice(0, maxSourceChars);
       const response = await aiService.complete(
         {
@@ -284,7 +284,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     setTab('ai');
     try {
       const code = await ensureCode(item);
-      const maxSourceChars = 24_000;
+      const maxSourceChars = 10_000;
       const response = await aiService.completeJSON<unknown>(
         {
           action: 'plan-component-patch',

@@ -52,6 +52,7 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - AI source is explicitly treated as untrusted data to reduce prompt-injection risk from third-party code comments.
 - When an active Tayar project is available, Coding Assistance reads a bounded, read-only project snapshot, detects framework/package metadata, and reports missing component dependencies.
 - The bounded active-project snapshot is included in AI adaptation context, with project source explicitly treated as untrusted data.
+- AI request budgeting stays below the current 40k-character backend request ceiling by bounding project file context to 8k characters, component source to 10k characters, and package metadata to 80 dependency entries per section.
 - Structured AI patch planning returns validated create/replace operations and a before/after change preview.
 - Patch planning blocks deletes, environment/credential files, lockfiles, package.json writes, unsafe paths, duplicate operations, and oversized payloads.
 - Safe Apply is enabled only for recognized `content.files` project stores and requires explicit in-UI confirmation after review.

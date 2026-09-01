@@ -35,9 +35,9 @@ export interface DependencyCheck {
   kind: 'dependency' | 'devDependency' | 'missing';
 }
 
-const MAX_CONTEXT_FILES = 32;
-const MAX_FILE_CHARS = 12_000;
-const MAX_TOTAL_CHARS = 48_000;
+const MAX_CONTEXT_FILES = 12;
+const MAX_FILE_CHARS = 4_000;
+const MAX_TOTAL_CHARS = 8_000;
 const SAFE_TEXT_EXTENSION = /\.(?:[cm]?[jt]sx?|css|scss|sass|less|html?|json|mdx?|yaml|yml|toml|txt)$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -261,14 +261,16 @@ export function checkProjectDependencies(
 
 export function summarizeProjectForAI(project: CodeProjectContext | null): Record<string, unknown> | null {
   if (!project) return null;
+  const boundedRecord = (value: Record<string, string>, maxEntries: number) =>
+    Object.fromEntries(Object.entries(value).slice(0, maxEntries));
   return {
     id: project.id,
-    title: project.title,
-    type: project.type,
-    status: project.status,
+    title: project.title.slice(0, 160),
+    type: project.type.slice(0, 80),
+    status: project.status.slice(0, 80),
     framework: project.framework,
-    dependencies: project.dependencies,
-    devDependencies: project.devDependencies,
+    dependencies: boundedRecord(project.dependencies, 80),
+    devDependencies: boundedRecord(project.devDependencies, 80),
     files: project.files,
     sourceFileCount: project.totalCandidateFiles,
     contextTruncated: project.truncated,
