@@ -68,16 +68,20 @@ import {
   publishedSiteFilePaths,
   removePublishedSiteFiles,
 } from './core/editor-published-storage';
+import {
+  clearLocalWebsiteProjects,
+  hasRecoveryWebsiteProject,
+  loadActiveWebsiteProjectId,
+  loadLocalWebsiteProject,
+  loadRecoveryWebsiteProject,
+  retryCloudOperation,
+  saveActiveWebsiteProjectId,
+  saveLocalWebsiteProject,
+  saveRecoveryWebsiteProject,
+} from './core/editor-project-lifecycle';
 
-const STORAGE_KEY = 'tayar.website-builder.project.v5';
-const ACTIVE_PROJECT_STORAGE_KEY = 'tayar.website-builder.active-project.v1';
-const RECOVERY_STORAGE_KEY = 'tayar.website-builder.recovery.v1';
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
-const PREVIOUS_STORAGE_KEY = 'tayar.website-builder.project.v4';
-const V3_STORAGE_KEY = 'tayar.website-builder.project.v3';
-const V2_STORAGE_KEY = 'tayar.website-builder.project.v2';
-const LEGACY_STORAGE_KEY = 'tayar.website-builder.project';
 const EDITOR_V2_FLAGS_STORAGE_KEY = 'tayar.website-builder.v2.flags';
 const publishedSiteStorage = supabase.storage.from('published-sites');
 
@@ -3458,9 +3462,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return { stripe: false, domain: false, support: false };
     }
   });
-  const [recoveryAvailable, setRecoveryAvailable] = useState(() => {
-    try { return Boolean(localStorage.getItem(RECOVERY_STORAGE_KEY)); } catch { return false; }
-  });
+  const [recoveryAvailable, setRecoveryAvailable] = useState(() => hasRecoveryWebsiteProject());
   const lastSavedSnapshotRef = useRef('');
   const autosaveTimerRef = useRef<number | null>(null);
   const skipNextAutosaveRef = useRef(false);
@@ -3574,24 +3576,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [buildProjectSnapshot, projectHistory]);
 
   function saveRecoverySnapshot(reason: string) {
-    try {
-      localStorage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify({
-        savedAt: new Date().toISOString(),
-        reason: reason.slice(0, 120),
-        project: buildProjectData(),
-      }));
+    if (saveRecoveryWebsiteProject(buildProjectData(), reason)) {
       setRecoveryAvailable(true);
-    } catch {
-      // Recovery is best-effort; cloud save remains the primary durable copy.
     }
   }
 
   function restoreRecoverySnapshot() {
     try {
-      const raw = localStorage.getItem(RECOVERY_STORAGE_KEY);
-      if (!raw) { setRecoveryAvailable(false); return; }
-      const parsed = JSON.parse(raw);
-      if (!parsed?.project || (!Array.isArray(parsed.project.pages) && !Array.isArray(parsed.project.sections))) throw new Error('Invalid recovery snapshot');
+      const parsed = loadRecoveryWebsiteProject<PersistedWebsiteProject>();
+      if (!parsed) { setRecoveryAvailable(false); return; }
       if (!window.confirm(`Restore the recovery snapshot from ${parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : 'the previous edit'}?`)) return;
       saveRecoverySnapshot('before recovery restore');
       skipNextAutosaveRef.current = true;
@@ -4622,10 +4615,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   useEffect(() => {
     if (projectId) return;
     try {
-      const savedProject = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(PREVIOUS_STORAGE_KEY) || localStorage.getItem(V3_STORAGE_KEY) || localStorage.getItem(V2_STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+      const savedProject = loadLocalWebsiteProject();
       if (savedProject) {
         skipNextAutosaveRef.current = true;
-        applyProjectData(JSON.parse(savedProject));
+        applyProjectData(savedProject);
       }
     } catch {
       // Ignore invalid project data.
@@ -4641,17 +4634,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectsLoaded) return;
     let desiredProjectId = projectId;
     if (!desiredProjectId) {
-      try {
-        desiredProjectId = localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY);
-      } catch {
-        desiredProjectId = null;
-      }
+      desiredProjectId = loadActiveWebsiteProjectId();
     }
     if (!desiredProjectId || cloudProjectId === desiredProjectId) return;
     const exists = cloudProjects.some((project) => project.id === desiredProjectId);
     if (!exists) {
       if (!projectId) {
-        try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
+        saveActiveWebsiteProjectId(null);
       }
       return;
     }
@@ -4660,7 +4649,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   useEffect(() => {
     if (!user || !cloudProjectId) return;
-    try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, cloudProjectId); } catch { /* ignore */ }
+    saveActiveWebsiteProjectId(cloudProjectId);
   }, [user, cloudProjectId]);
 
   useEffect(() => {
@@ -8950,20 +8939,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     } finally {
       setPublishVersionsLoading(false);
     }
-  }
-
-  function cloudErrorIsRetryable(message: string) {
-    return !/permission|policy|not authorized|forbidden|limit reached|invalid|duplicate|violates|read-only/i.test(message || '');
-  }
-
-  async function retryCloudOperation<T extends { error: { message?: string } | null; data?: unknown }>(operation: () => PromiseLike<T>, attempts = 3): Promise<T> {
-    let result = await operation();
-    for (let attempt = 1; result.error && attempt < attempts; attempt += 1) {
-      if (!cloudErrorIsRetryable(result.error.message || '') || (typeof navigator !== 'undefined' && !navigator.onLine)) break;
-      await new Promise((resolve) => window.setTimeout(resolve, 350 * Math.pow(2, attempt - 1)));
-      result = await operation();
-    }
-    return result;
   }
 
   async function saveProject(options: { automatic?: boolean; createHistory?: boolean } = {}): Promise<boolean> {
