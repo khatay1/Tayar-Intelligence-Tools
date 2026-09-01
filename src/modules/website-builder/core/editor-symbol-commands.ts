@@ -116,6 +116,7 @@ export function commandInsertSymbol<P extends EditorProjectLike>(
     element.id = nextUniqueGeneratedId(draft, 'element', symbolMatch.symbol.element.id, idFactory);
     element.symbolId = symbolId;
     delete element.containerId;
+    element.layoutColumn = sectionMatch.section.layout === 'stack' ? undefined : 1;
     sectionMatch.section.elements.splice(insertIndex(sectionMatch.section.elements, position), 0, element);
   }, options);
 }
