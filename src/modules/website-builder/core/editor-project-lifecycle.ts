@@ -151,7 +151,7 @@ export function loadRecoveryWebsiteProject<TProject = unknown>(): EditorRecovery
 }
 
 export function cloudErrorIsRetryable(message: string): boolean {
-  return !/permission|policy|not authorized|forbidden|limit reached|invalid|duplicate|violates|read-only/i.test(
+  return !/permission|policy|not authorized|forbidden|limit reached|invalid|duplicate|violates|read-only|abort|cancel/i.test(
     message || '',
   );
 }
