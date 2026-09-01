@@ -42,6 +42,18 @@ export interface LegacyAIUpdateNativeContext {
   currentFormField?: Record<string, unknown>;
 }
 
+export interface LegacyAIAddNativeContext {
+  pageId: string;
+  sectionId: string;
+  generatedId: string;
+  sectionColumns?: number;
+  sectionIsStack?: boolean;
+  existingContainerCount?: number;
+  assignElementId?: string;
+  existingFormFieldNames?: string[];
+  existingFormFieldIds?: string[];
+}
+
 const GLOBAL_NATIVE_AI_ACTIONS = new Set([
   'update_theme',
   'update_seo',
@@ -879,4 +891,255 @@ export function convertLegacyAIUpdateOperationToNative(
     formFieldId,
     changes: mapped,
   };
+}
+
+
+export function convertLegacyAIAddOperationToNative(
+  operation: LegacyAIStructuralOperationLike,
+  context: LegacyAIAddNativeContext,
+): EditorNativeOperation[] {
+  const pageId = context.pageId.trim();
+  const sectionId = context.sectionId.trim();
+  const generatedId = context.generatedId.trim();
+  if (!pageId || !sectionId || !generatedId) {
+    return [];
+  }
+
+  const changes = isRecord(operation.changes)
+    ? operation.changes
+    : {};
+
+  if (operation.action === 'add_container') {
+    const columns = Math.max(
+      1,
+      Math.min(
+        3,
+        Math.round(context.sectionColumns || 1),
+      ),
+    );
+
+    const requestedColumn =
+      finiteLegacyNumber(
+        changes.containerColumn,
+        1,
+        columns,
+      );
+    const requestedSpan =
+      finiteLegacyNumber(
+        changes.containerColumnSpan,
+        1,
+        columns,
+      );
+
+    const container: Record<string, unknown> = {
+      id: generatedId,
+      name:
+        text(changes.containerName, 80, false) ||
+        `AI Container ${(context.existingContainerCount || 0) + 1}`,
+      layout:
+        changes.containerLayout === 'row'
+          ? 'row'
+          : 'stack',
+      gap:
+        finiteLegacyNumber(
+          changes.containerGap,
+          0,
+          80,
+        ) ?? 16,
+      align:
+        changes.containerAlign === 'start' ||
+        changes.containerAlign === 'end' ||
+        changes.containerAlign === 'stretch'
+          ? changes.containerAlign
+          : 'center',
+      backgroundColor:
+        validHex(changes.containerBackgroundColor)
+          ? changes.containerBackgroundColor
+          : '#ffffff08',
+      padding:
+        finiteLegacyNumber(
+          changes.containerPadding,
+          0,
+          120,
+        ) ?? 20,
+      borderRadius:
+        finiteLegacyNumber(
+          changes.containerBorderRadius,
+          0,
+          120,
+        ) ?? 16,
+      borderWidth:
+        finiteLegacyNumber(
+          changes.containerBorderWidth,
+          0,
+          16,
+        ) ?? 1,
+      borderColor:
+        validHex(changes.containerBorderColor)
+          ? changes.containerBorderColor
+          : '#ffffff18',
+      shadow:
+        typeof changes.containerShadow === 'string' &&
+        ALLOWED_SHADOWS.has(
+          changes.containerShadow,
+        )
+          ? changes.containerShadow
+          : 'none',
+      layoutColumn:
+        context.sectionIsStack
+          ? undefined
+          : Math.round(requestedColumn ?? 1),
+      columnSpan:
+        Math.round(requestedSpan ?? 1),
+    };
+
+    const operations: EditorNativeOperation[] = [
+      {
+        action: 'add_container',
+        source: 'ai',
+        pageId,
+        sectionId,
+        container: container as {
+          id: string;
+          [key: string]: unknown;
+        },
+      },
+    ];
+
+    if (context.assignElementId?.trim()) {
+      operations.push({
+        action: 'assign_element_container',
+        source: 'ai',
+        pageId,
+        sectionId,
+        elementId:
+          context.assignElementId.trim(),
+        containerId: generatedId,
+      });
+    }
+
+    return operations;
+  }
+
+  if (operation.action !== 'add_form_field') {
+    return [];
+  }
+
+  const fieldType =
+    typeof operation.formFieldType === 'string' &&
+    ALLOWED_FORM_FIELD_TYPES.has(operation.formFieldType)
+      ? operation.formFieldType
+      : '';
+
+  if (!fieldType) return [];
+
+  const explicitBaseName =
+    typeof changes.formFieldName === 'string' &&
+    changes.formFieldName.trim()
+      ? normalizedFormFieldName(
+          changes.formFieldName,
+          'field',
+        )
+      : '';
+
+  const baseName =
+    explicitBaseName ||
+    (fieldType === 'email'
+      ? 'email'
+      : fieldType === 'tel'
+        ? 'phone'
+        : fieldType === 'textarea'
+          ? 'message'
+          : fieldType === 'checkbox'
+            ? 'consent'
+            : fieldType === 'select'
+              ? 'option'
+              : 'field');
+
+  const existingNames = new Set(
+    context.existingFormFieldNames || [],
+  );
+  let uniqueName = baseName;
+  let suffix = 2;
+  while (existingNames.has(uniqueName)) {
+    uniqueName = `${baseName}_${suffix}`;
+    suffix += 1;
+  }
+
+  const label =
+    typeof changes.formFieldLabel === 'string' &&
+    changes.formFieldLabel.trim()
+      ? changes.formFieldLabel
+          .trim()
+          .slice(0, 120)
+      : fieldType === 'textarea'
+        ? 'Message'
+        : fieldType === 'checkbox'
+          ? 'I agree'
+          : fieldType === 'select'
+            ? 'Choose an option'
+            : fieldType === 'tel'
+              ? 'Phone'
+              : fieldType === 'email'
+                ? 'Email'
+                : 'New field';
+
+  const field: Record<string, unknown> = {
+    id: generatedId,
+    name: uniqueName,
+    label,
+    type: fieldType,
+    placeholder:
+      fieldType === 'checkbox'
+        ? ''
+        : typeof changes.formFieldPlaceholder === 'string'
+          ? changes.formFieldPlaceholder.slice(0, 160)
+          : '',
+    required:
+      changes.formFieldRequired === true,
+    options:
+      fieldType === 'select'
+        ? Array.isArray(changes.formFieldOptions)
+          ? changes.formFieldOptions
+              .map((item) =>
+                String(item).trim(),
+              )
+              .filter(Boolean)
+              .slice(0, 20)
+          : ['Option 1', 'Option 2']
+        : undefined,
+  };
+
+  const existingIds = new Set(
+    context.existingFormFieldIds || [],
+  );
+  const before =
+    typeof operation.beforeFormFieldId === 'string' &&
+    existingIds.has(operation.beforeFormFieldId)
+      ? operation.beforeFormFieldId
+      : '';
+  const after =
+    !before &&
+    typeof operation.afterFormFieldId === 'string' &&
+    existingIds.has(operation.afterFormFieldId)
+      ? operation.afterFormFieldId
+      : '';
+
+  return [
+    {
+      action: 'add_form_field',
+      source: 'ai',
+      pageId,
+      sectionId,
+      formField: field as {
+        id: string;
+        [key: string]: unknown;
+      },
+      ...(before
+        ? { position: { beforeId: before } }
+        : after
+          ? { position: { afterId: after } }
+          : {}),
+    },
+  ];
 }
