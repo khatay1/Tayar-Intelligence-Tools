@@ -16,6 +16,18 @@ export interface UpdateWebsiteProjectCloudInput extends WebsiteProjectCloudSaveI
   projectId: string;
 }
 
+export interface CreatedWebsiteProjectCloudRow {
+  id: string;
+  title?: string | null;
+  content?: unknown;
+  updated_at?: string | null;
+}
+
+export interface WebsiteProjectCloudMutationResult<TData = unknown> {
+  data: TData | null;
+  error: { message: string } | null;
+}
+
 export async function updateWebsiteProjectInCloud({
   projectId,
   title,
@@ -50,7 +62,9 @@ export async function createWebsiteProjectInCloud({
   content,
   published,
   signal,
-}: CreateWebsiteProjectCloudInput) {
+}: CreateWebsiteProjectCloudInput): Promise<
+  WebsiteProjectCloudMutationResult<CreatedWebsiteProjectCloudRow>
+> {
   return retryCloudOperation(() => {
     const query = supabase
       .from('projects')
