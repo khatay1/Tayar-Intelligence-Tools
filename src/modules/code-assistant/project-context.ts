@@ -339,7 +339,7 @@ export function summarizeProjectForAI(project: CodeProjectContext | null): Recor
     dependencies: boundedRecord(project.dependencies, 80),
     devDependencies: boundedRecord(project.devDependencies, 80),
     files: project.files,
-    filePaths: project.filePaths,
+    filePaths: project.filePaths.slice(0, 80),
     sourceFileCount: project.totalCandidateFiles,
     contextTruncated: project.truncated,
   };

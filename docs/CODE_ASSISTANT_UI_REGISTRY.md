@@ -133,7 +133,7 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 
 - Presets: Dashboard, Login, Settings, AI Chat and Admin.
 - Each preset ranks up to six relevant registry anchors; up to four bounded source snippets may be used as untrusted design/code inspiration.
-- The generator is project-aware and receives the style profile plus up to 300 existing project file paths to prevent create-path collisions.
+- The generator keeps up to 300 project file paths locally for collision validation, while only the first 80 paths are included in bounded AI context to protect the existing request-size budget.
 - First release is frontend-only: API/server/backend/Supabase/migration/route-handler files are rejected both in the AI contract and post-generation validator.
 - Feature plans are limited to 16 reviewed create/replace operations and use the existing Patch Plan, diff, explicit confirmation, stale-write protection and rollback workflow.
 - Replace operations are allowed only for complete, non-truncated project files already in the bounded project context.
