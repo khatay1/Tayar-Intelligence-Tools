@@ -8076,6 +8076,26 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           }
         }
 
+        if (
+          operation.action ===
+          'detach_symbol'
+        ) {
+          if (!operation.elementId) {
+            return true;
+          }
+
+          const element =
+            section.elements.find(
+              (candidate) =>
+                candidate.id ===
+                operation.elementId,
+            );
+
+          if (!element?.symbolId) {
+            return true;
+          }
+        }
+
         let detachElementIds:
           | string[]
           | undefined;
@@ -8778,20 +8798,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const afterIndex = operation.afterElementId ? elements.findIndex((element) => element.id === operation.afterElementId) : -1;
           const insertAt = beforeIndex >= 0 ? beforeIndex : afterIndex >= 0 ? afterIndex + 1 : elements.length;
           elements.splice(Math.min(Math.max(insertAt, 0), elements.length), 0, instance);
-          sectionList[sectionIndex] = { ...targetSection, elements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'detach_symbol') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0 || !targetSection.elements[elementIndex].symbolId) continue;
-          const elements = [...targetSection.elements];
-          elements[elementIndex] = { ...elements[elementIndex], symbolId: undefined };
           sectionList[sectionIndex] = { ...targetSection, elements };
           nextPages[pageIndex] = { ...page, sections: sectionList };
           applied += 1;
