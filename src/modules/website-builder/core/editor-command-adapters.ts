@@ -23,6 +23,15 @@ import {
   cloneSafeEditorPayload,
   safeEditorPayloadRecord,
 } from './editor-payload-safety';
+import {
+  assertEditorContainerSemantic,
+  assertEditorElementLikeSemantic,
+  assertEditorFormFieldSemantic,
+  assertEditorPageSemantic,
+  assertEditorSectionLikeSemantic,
+  assertEditorSemanticRecord,
+  type EditorSemanticRecordKind,
+} from './editor-value-safety';
 
 export type EditorInsertPosition = {
   beforeId?: string;
@@ -110,6 +119,7 @@ function mergeWithoutIdentity<T extends { id: string }>(
   target: T,
   changes: Partial<T>,
   blockedKeys: string[] = [],
+  semanticKind?: EditorSemanticRecordKind,
 ): T {
   const safeChanges = safeEditorPayloadRecord(
     changes as Record<string, unknown>,
@@ -117,6 +127,13 @@ function mergeWithoutIdentity<T extends { id: string }>(
   );
   delete safeChanges.id;
   for (const key of blockedKeys) delete safeChanges[key];
+  if (semanticKind) {
+    assertEditorSemanticRecord(
+      semanticKind,
+      safeChanges,
+      `${semanticKind} changes`,
+    );
+  }
   return Object.assign(target, safeChanges);
 }
 
@@ -221,6 +238,7 @@ export function commandAddPage<P extends EditorProjectLike>(
 ) {
   return commandOptions<P>('Add page', (draft) => {
     const safePage = cloneSafeEditorPayload(page, 'page');
+    assertEditorPageSemantic(safePage, 'page');
     const id = normalizedId(safePage.id, 'Page');
     assertIncomingPageIdentities(draft, safePage);
     const index = targetIndex(draft.pages, position);
@@ -237,7 +255,7 @@ export function commandUpdatePage<P extends EditorProjectLike>(
   return commandOptions<P>('Update page', (draft) => {
     const match = findEditorPage(draft, normalizedId(pageId, 'Page'));
     if (!match) throw new Error(`Page not found: ${pageId}`);
-    mergeWithoutIdentity(match.page, changes, ['sections']);
+    mergeWithoutIdentity(match.page, changes, ['sections'], 'page');
   }, options);
 }
 
@@ -292,6 +310,7 @@ export function commandAddSection<P extends EditorProjectLike>(
     const pageMatch = findEditorPage(draft, normalizedId(pageId, 'Page'));
     if (!pageMatch) throw new Error(`Page not found: ${pageId}`);
     const safeSection = cloneSafeEditorPayload(section, 'section');
+    assertEditorSectionLikeSemantic(safeSection, 'section');
     normalizedId(safeSection.id, 'Section');
     assertIncomingSectionIdentities(draft, safeSection);
     insertAt(pageMatch.page.sections, safeSection, targetIndex(pageMatch.page.sections, position));
@@ -311,7 +330,12 @@ export function commandUpdateSection<P extends EditorProjectLike>(
       normalizedId(sectionId, 'Section'),
     );
     if (!match) throw new Error(`Section not found: ${sectionId}`);
-    mergeWithoutIdentity(match.section, changes, ['elements', 'containers', 'formFields']);
+    mergeWithoutIdentity(
+      match.section,
+      changes,
+      ['elements', 'containers', 'formFields'],
+      'section',
+    );
   }, options);
 }
 
@@ -367,6 +391,7 @@ export function commandAddElement<P extends EditorProjectLike>(
     );
     if (!match) throw new Error(`Section not found: ${sectionId}`);
     const safeElement = cloneSafeEditorPayload(element, 'element');
+    assertEditorElementLikeSemantic(safeElement, 'element');
     normalizedId(safeElement.id, 'Element');
     assertIdentityIdsAvailable(draft, 'element', [safeElement.id], 'Element');
 
@@ -399,7 +424,7 @@ export function commandUpdateElement<P extends EditorProjectLike>(
     );
     if (!match) throw new Error(`Element not found: ${elementId}`);
     const symbolId = match.element.symbolId;
-    mergeWithoutIdentity(match.element, changes, ['symbolId']);
+    mergeWithoutIdentity(match.element, changes, ['symbolId'], 'element');
     if (symbolId) syncEditorSymbolFromInstance(draft, symbolId, match.element);
   }, options);
 }
@@ -453,6 +478,7 @@ export function commandUpdateTheme<P extends EditorProjectLike>(
 ) {
   return commandOptions<P>('Update theme', (draft) => {
     const safeChanges = safeEditorPayloadRecord(changes, 'theme changes');
+    assertEditorSemanticRecord('theme', safeChanges, 'theme changes');
     draft.theme = { ...(draft.theme || {}), ...safeChanges };
   }, options);
 }
@@ -463,6 +489,7 @@ export function commandUpdateSeo<P extends EditorProjectLike>(
 ) {
   return commandOptions<P>('Update SEO', (draft) => {
     const safeChanges = safeEditorPayloadRecord(changes, 'SEO changes');
+    assertEditorSemanticRecord('seo', safeChanges, 'SEO changes');
     draft.seo = { ...(draft.seo || {}), ...safeChanges };
   }, options);
 }
@@ -473,6 +500,7 @@ export function commandUpdateHeader<P extends EditorProjectLike>(
 ) {
   return commandOptions<P>('Update header', (draft) => {
     const safeChanges = safeEditorPayloadRecord(changes, 'header changes');
+    assertEditorSemanticRecord('header', safeChanges, 'header changes');
     draft.headerConfig = { ...(draft.headerConfig || {}), ...safeChanges };
   }, options);
 }
@@ -487,6 +515,7 @@ export function commandAddContainer<P extends EditorProjectLike>(
     const match = findEditorSection(draft, normalizedId(pageId, 'Page'), normalizedId(sectionId, 'Section'));
     if (!match) throw new Error(`Section not found: ${sectionId}`);
     const safeContainer = cloneSafeEditorPayload(container, 'container');
+    assertEditorContainerSemantic(safeContainer, 'container');
     normalizedId(safeContainer.id, 'Container');
     assertIdentityIdsAvailable(draft, 'container', [safeContainer.id], 'Container');
     const containers = match.section.containers || (match.section.containers = []);
@@ -509,6 +538,7 @@ export function commandUpdateContainer<P extends EditorProjectLike>(
     if (!container) throw new Error(`Container not found: ${id}`);
     const safeChanges = safeEditorPayloadRecord(changes, 'container changes');
     delete safeChanges.id;
+    assertEditorSemanticRecord('container', safeChanges, 'container changes');
     Object.assign(container, safeChanges);
   }, options);
 }
@@ -571,6 +601,7 @@ export function commandAddFormField<P extends EditorProjectLike>(
     const match = findEditorSection(draft, normalizedId(pageId, 'Page'), normalizedId(sectionId, 'Section'));
     if (!match) throw new Error(`Section not found: ${sectionId}`);
     const safeField = cloneSafeEditorPayload(field, 'form field');
+    assertEditorFormFieldSemantic(safeField, 'form field');
     normalizedId(safeField.id, 'Form field');
     assertIdentityIdsAvailable(draft, 'form-field', [safeField.id], 'Form field');
     const fields = match.section.formFields || (match.section.formFields = []);
@@ -593,6 +624,7 @@ export function commandUpdateFormField<P extends EditorProjectLike>(
     if (!field) throw new Error(`Form field not found: ${id}`);
     const safeChanges = safeEditorPayloadRecord(changes, 'form-field changes');
     delete safeChanges.id;
+    assertEditorSemanticRecord('form-field', safeChanges, 'form-field changes');
     Object.assign(field, safeChanges);
   }, options);
 }
@@ -651,7 +683,7 @@ export function commandDuplicatePage<P extends EditorProjectLike>(
       options.idFactory || createEditorCloneIdFactory('duplicate'),
     );
     const clone = cloneEditorPageIndependent(match.page, idFactory);
-    mergeWithoutIdentity(clone, changes, ['sections']);
+    mergeWithoutIdentity(clone, changes, ['sections'], 'page');
     const index = hasExplicitPosition(position)
       ? targetIndex(draft.pages, position)
       : match.index + 1;
@@ -674,7 +706,12 @@ export function commandDuplicateSection<P extends EditorProjectLike>(
       options.idFactory || createEditorCloneIdFactory('duplicate'),
     );
     const clone = cloneEditorSectionIndependent(match.section, idFactory);
-    mergeWithoutIdentity(clone, changes, ['elements', 'containers', 'formFields']);
+    mergeWithoutIdentity(
+      clone,
+      changes,
+      ['elements', 'containers', 'formFields'],
+      'section',
+    );
     const index = hasExplicitPosition(position)
       ? targetIndex(match.page.sections, position)
       : match.index + 1;
@@ -703,7 +740,12 @@ export function commandDuplicateElement<P extends EditorProjectLike>(
       options.idFactory || createEditorCloneIdFactory('duplicate'),
     );
     const clone = cloneEditorElementIndependent(match.element, idFactory);
-    mergeWithoutIdentity(clone, changes, ['symbolId', 'containerId']);
+    mergeWithoutIdentity(
+      clone,
+      changes,
+      ['symbolId', 'containerId'],
+      'element',
+    );
     const index = hasExplicitPosition(position)
       ? targetIndex(match.section.elements, position)
       : match.elementIndex + 1;
