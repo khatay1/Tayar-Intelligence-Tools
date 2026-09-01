@@ -11671,6 +11671,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           homePageId,
 
+          theme: {
+            ...theme,
+          },
+
+          seo: {
+            ...seo,
+            keywords: [
+              ...seo.keywords,
+            ],
+          },
+
+          headerConfig: {
+            ...headerConfig,
+          },
+
           symbols:
             JSON.parse(
               JSON.stringify(symbols),
@@ -11729,6 +11744,74 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const nextPages =
       nextProject.pages as unknown as WebsitePage[];
+
+    const rawTheme =
+      nextProject.theme &&
+      typeof nextProject.theme === 'object'
+        ? nextProject.theme as Partial<WebsiteTheme>
+        : theme;
+
+    const nextTheme =
+      normalizeTheme(rawTheme);
+
+    const rawHeaderConfig =
+      nextProject.headerConfig &&
+      typeof nextProject.headerConfig === 'object'
+        ? nextProject.headerConfig as Partial<WebsiteHeaderConfig>
+        : headerConfig;
+
+    const nextHeaderConfig =
+      normalizeHeaderConfig(
+        rawHeaderConfig,
+      );
+
+    const rawSeo =
+      nextProject.seo &&
+      typeof nextProject.seo === 'object'
+        ? nextProject.seo as Partial<WebsiteSEO>
+        : seo;
+
+    const nextSeo: WebsiteSEO = {
+      title:
+        typeof rawSeo.title === 'string'
+          ? rawSeo.title.trim().slice(0, 160)
+          : seo.title,
+      description:
+        typeof rawSeo.description === 'string'
+          ? rawSeo.description.trim().slice(0, 500)
+          : seo.description,
+      keywords:
+        Array.isArray(rawSeo.keywords)
+          ? rawSeo.keywords
+              .filter(
+                (keyword): keyword is string =>
+                  typeof keyword === 'string',
+              )
+              .map((keyword) =>
+                keyword.trim().slice(0, 80),
+              )
+              .filter(Boolean)
+              .slice(0, 40)
+          : [...seo.keywords],
+    };
+
+    const requestedHomePageId =
+      typeof nextProject.homePageId === 'string'
+        ? nextProject.homePageId.trim()
+        : '';
+
+    const nextHomePageId =
+      nextPages.some(
+        (page) =>
+          page.id === requestedHomePageId,
+      )
+        ? requestedHomePageId
+        : nextPages.some(
+            (page) =>
+              page.id === homePageId,
+          )
+          ? homePageId
+          : nextPages[0]?.id || '';
 
     const previousSymbolsById =
       new Map(
@@ -11814,6 +11897,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     clearEditorDragState();
     setPages(nextPages);
+    setHomePageId(nextHomePageId);
+    setTheme(nextTheme);
+    setSeo(nextSeo);
+    setHeaderConfig(nextHeaderConfig);
     setSymbols(nextSymbols);
 
     setActivePageId(
