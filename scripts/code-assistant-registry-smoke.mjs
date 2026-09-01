@@ -35,6 +35,7 @@ const manifestUrls = upstream
   .filter(Boolean);
 if (manifestUrls.length < 6) fail('Expected approved registry manifests are missing.');
 if (manifestUrls.some((url) => !url.startsWith('https://raw.githubusercontent.com/'))) fail('Registry manifests must use raw GitHub URLs.');
+if (manifestUrls.some((url) => url.includes('/main/') || url.includes('/master/'))) fail('Registry manifests must be pinned to immutable commits.');
 if (vercel?.git?.deploymentEnabled?.['internal-*'] !== false) fail('Internal branch Vercel deployment guard is missing.');
 
 if (!process.exitCode) {

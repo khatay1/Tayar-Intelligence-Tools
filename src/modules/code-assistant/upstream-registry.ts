@@ -3,6 +3,7 @@ import { UIComponentCategory, UIComponentRecord } from './types';
 
 interface UpstreamRegistryConfig {
   sourceId: string;
+  revision: string;
   manifestUrl: string;
   rawBaseUrl: string;
   sourcePathPrefix: string;
@@ -40,43 +41,49 @@ const MAX_COMPONENT_CODE_BYTES = 2_000_000;
 export const UPSTREAM_REGISTRIES: UpstreamRegistryConfig[] = [
   {
     sourceId: 'shadcn',
-    manifestUrl: 'https://raw.githubusercontent.com/shadcn-ui/ui/main/apps/v4/registry.json',
-    rawBaseUrl: 'https://raw.githubusercontent.com/shadcn-ui/ui/main',
+    revision: '8a1b5386010e1a4a50367fff39ee3216bf6f01b2',
+    manifestUrl: 'https://raw.githubusercontent.com/shadcn-ui/ui/8a1b5386010e1a4a50367fff39ee3216bf6f01b2/apps/v4/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/shadcn-ui/ui/8a1b5386010e1a4a50367fff39ee3216bf6f01b2',
     sourcePathPrefix: 'apps/v4/',
     licensePath: 'LICENSE.md',
   },
   {
     sourceId: 'kokonut-ui',
-    manifestUrl: 'https://raw.githubusercontent.com/kokonut-labs/kokonutui/main/registry.json',
-    rawBaseUrl: 'https://raw.githubusercontent.com/kokonut-labs/kokonutui/main',
+    revision: '83eec6d982d400a18438001a8efdbac1f159dd43',
+    manifestUrl: 'https://raw.githubusercontent.com/kokonut-labs/kokonutui/83eec6d982d400a18438001a8efdbac1f159dd43/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/kokonut-labs/kokonutui/83eec6d982d400a18438001a8efdbac1f159dd43',
     sourcePathPrefix: '',
     licensePath: 'LICENSE',
   },
   {
     sourceId: 'magic-ui',
-    manifestUrl: 'https://raw.githubusercontent.com/magicuidesign/magicui/main/apps/www/public/registry.json',
-    rawBaseUrl: 'https://raw.githubusercontent.com/magicuidesign/magicui/main',
+    revision: '2d671cc6c0e0f40e28682c9cbddd16694dcfe627',
+    manifestUrl: 'https://raw.githubusercontent.com/magicuidesign/magicui/2d671cc6c0e0f40e28682c9cbddd16694dcfe627/apps/www/public/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/magicuidesign/magicui/2d671cc6c0e0f40e28682c9cbddd16694dcfe627',
     sourcePathPrefix: 'apps/www/',
     licensePath: 'LICENSE.md',
   },
   {
     sourceId: 'cult-ui',
-    manifestUrl: 'https://raw.githubusercontent.com/nolly-studio/cult-ui/main/apps/www/public/registry/index.json',
-    rawBaseUrl: 'https://raw.githubusercontent.com/nolly-studio/cult-ui/main',
+    revision: '3b855612fb524cb042cc91b65f0cd575057471cc',
+    manifestUrl: 'https://raw.githubusercontent.com/nolly-studio/cult-ui/3b855612fb524cb042cc91b65f0cd575057471cc/apps/www/public/registry/index.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/nolly-studio/cult-ui/3b855612fb524cb042cc91b65f0cd575057471cc',
     sourcePathPrefix: 'apps/www/',
     licensePath: 'LICENSE.md',
   },
   {
     sourceId: '8bitcn',
-    manifestUrl: 'https://raw.githubusercontent.com/TheOrcDev/8bitcn-ui/main/registry.json',
-    rawBaseUrl: 'https://raw.githubusercontent.com/TheOrcDev/8bitcn-ui/main',
+    revision: '898caa5932590ab8ff70f54e3c9aff5b5baa523c',
+    manifestUrl: 'https://raw.githubusercontent.com/TheOrcDev/8bitcn-ui/898caa5932590ab8ff70f54e3c9aff5b5baa523c/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/TheOrcDev/8bitcn-ui/898caa5932590ab8ff70f54e3c9aff5b5baa523c',
     sourcePathPrefix: '',
     licensePath: 'license.md',
   },
   {
     sourceId: 'eldora-ui',
-    manifestUrl: 'https://raw.githubusercontent.com/karthikmudunuri/eldoraui/main/apps/www/public/registry.json',
-    rawBaseUrl: 'https://raw.githubusercontent.com/karthikmudunuri/eldoraui/main',
+    revision: '2ef4f1eb4f4a6dea6fc2bdd4d87b6a3f2ff65321',
+    manifestUrl: 'https://raw.githubusercontent.com/karthikmudunuri/eldoraui/2ef4f1eb4f4a6dea6fc2bdd4d87b6a3f2ff65321/apps/www/public/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/karthikmudunuri/eldoraui/2ef4f1eb4f4a6dea6fc2bdd4d87b6a3f2ff65321',
     sourcePathPrefix: 'apps/www/',
     licensePath: 'LICENSE.md',
   },
@@ -189,6 +196,7 @@ function normalizeItem(config: UpstreamRegistryConfig, raw: RawRegistryItem): UI
     code: '',
     remote: {
       sourceId: config.sourceId,
+      revision: config.revision,
       files,
       registryDependencies,
     },

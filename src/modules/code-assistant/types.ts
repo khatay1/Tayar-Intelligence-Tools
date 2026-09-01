@@ -37,6 +37,7 @@ export interface UIComponentRecord {
   code: string;
   remote?: {
     sourceId: string;
+    revision?: string;
     files: string[];
     registryDependencies: string[];
   };

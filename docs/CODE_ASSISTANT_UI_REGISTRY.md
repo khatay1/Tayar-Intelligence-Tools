@@ -37,6 +37,7 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Source and license visibility.
 - Source-level redistribution guard.
 - Runtime loading of approved upstream registry manifests from shadcn/ui, KokonutUI, Magic UI, Cult UI, 8bitcn and Eldora UI.
+- Every approved public source is pinned to a reviewed immutable Git commit; the registry never follows a moving `main` branch at runtime.
 - Current verified manifests expose roughly 530 redistributable UI components/blocks before future sources are added.
 - On-demand component source fetching; third-party code is not executed inside the registry browser.
 - Full upstream MIT license text is prepended when remote source is loaded/copied.
