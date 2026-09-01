@@ -1,4 +1,17 @@
-import type { WebsiteDeliveryConfig, DeliveryStatus } from './types';
+export type DeliveryStatus = 'building' | 'review' | 'approved' | 'delivered';
+
+export interface WebsiteDeliveryConfig {
+  clientName: string;
+  clientEmail: string;
+  projectCode: string;
+  status: DeliveryStatus;
+  dueDate: string;
+  handoffNotes: string;
+  whiteLabel: boolean;
+  approvedAt: string | null;
+  approvedFingerprint: string;
+  deliveredAt: string | null;
+}
 
 export const DEFAULT_DELIVERY_CONFIG: WebsiteDeliveryConfig = {
   clientName: '',
