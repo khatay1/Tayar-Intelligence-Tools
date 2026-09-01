@@ -28,12 +28,26 @@ export function BuilderComponentsPanel({
         <span>{symbols.length}</span>
       </div>
 
+      <div className="tayar-v2-empty-panel">
+        Components are reusable linked elements. Create one from the selected element, insert it anywhere, and linked copies stay in sync. Detach makes only the selected copy independent.
+      </div>
+
       <div className="tayar-v2-panel-actions">
-        <button type="button" disabled={!canCreate} onClick={onCreate}>
-          Save selected element
+        <button
+          type="button"
+          disabled={!canCreate}
+          onClick={onCreate}
+          title={canCreate ? 'Create a reusable linked component from the selected element' : 'Select a normal element first'}
+        >
+          Create component
         </button>
-        <button type="button" disabled={!canDetach} onClick={onDetach}>
-          Detach
+        <button
+          type="button"
+          disabled={!canDetach}
+          onClick={onDetach}
+          title={canDetach ? 'Detach the selected linked instance' : 'Select a linked component instance first'}
+        >
+          Detach selected
         </button>
       </div>
 
@@ -63,7 +77,7 @@ export function BuilderComponentsPanel({
 
         {!symbols.length && (
           <div className="tayar-v2-empty-panel">
-            Select an element on the canvas, then choose “Save selected element”.
+            Select an element on the canvas, then choose “Create component”.
           </div>
         )}
 
