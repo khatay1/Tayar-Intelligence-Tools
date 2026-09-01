@@ -1,10 +1,19 @@
 import { createEditorCommand, type EditorCommand } from './editor-command';
-import { cloneEditorElementIndependent, cloneEditorPageIndependent, cloneEditorSectionIndependent, createEditorCloneIdFactory, type EditorCloneIdFactory } from './editor-clone';
 import {
+  cloneEditorElementIndependent,
+  cloneEditorPageIndependent,
+  cloneEditorSectionIndependent,
+  createEditorCloneIdFactory,
+  type EditorCloneIdFactory,
+  type EditorCloneKind,
+} from './editor-clone';
+import {
+  editorProjectIdentitySet,
   findEditorElement,
   findEditorPage,
   findEditorSection,
   type EditorElementLike,
+  type EditorIdentityKind,
   type EditorPageLike,
   type EditorProjectLike,
   type EditorSectionLike,
@@ -42,6 +51,7 @@ function commandOptions<P>(
 function normalizedId(value: string, label: string) {
   const id = value.trim();
   if (!id) throw new Error(`${label} ID is required`);
+  if (id !== value) throw new Error(`${label} ID cannot contain surrounding whitespace`);
   return id;
 }
 
@@ -50,18 +60,29 @@ function targetIndex<T extends { id: string }>(
   position: EditorInsertPosition,
   movingId?: string,
 ) {
+  const hasBefore = position.beforeId !== undefined;
+  const hasAfter = position.afterId !== undefined;
+  const hasIndex = position.index !== undefined;
+  if ([hasBefore, hasAfter, hasIndex].filter(Boolean).length > 1) {
+    throw new Error('Position must use exactly one of beforeId, afterId, or index');
+  }
+
   const withoutMoving = movingId ? items.filter((item) => item.id !== movingId) : items;
-  if (position.beforeId) {
-    const index = withoutMoving.findIndex((item) => item.id === position.beforeId);
-    if (index < 0) throw new Error(`Target before ID not found: ${position.beforeId}`);
+  if (hasBefore) {
+    const beforeId = normalizedId(position.beforeId || '', 'Target before');
+    if (movingId && beforeId === movingId) throw new Error('Move target cannot reference the moving ID');
+    const index = withoutMoving.findIndex((item) => item.id === beforeId);
+    if (index < 0) throw new Error(`Target before ID not found: ${beforeId}`);
     return index;
   }
-  if (position.afterId) {
-    const index = withoutMoving.findIndex((item) => item.id === position.afterId);
-    if (index < 0) throw new Error(`Target after ID not found: ${position.afterId}`);
+  if (hasAfter) {
+    const afterId = normalizedId(position.afterId || '', 'Target after');
+    if (movingId && afterId === movingId) throw new Error('Move target cannot reference the moving ID');
+    const index = withoutMoving.findIndex((item) => item.id === afterId);
+    if (index < 0) throw new Error(`Target after ID not found: ${afterId}`);
     return index + 1;
   }
-  if (position.index !== undefined) {
+  if (hasIndex) {
     const parsed = Number(position.index);
     if (!Number.isFinite(parsed)) throw new Error('Target index is invalid');
     return Math.max(0, Math.min(withoutMoving.length, Math.round(parsed)));
@@ -84,6 +105,100 @@ function mergeWithoutIdentity<T extends { id: string }>(
   return Object.assign(target, safeChanges);
 }
 
+function assertIdentityIdsAvailable<P extends EditorProjectLike>(
+  draft: P,
+  kind: EditorIdentityKind,
+  ids: string[],
+  label: string,
+) {
+  const existing = editorProjectIdentitySet(draft, kind);
+  const incoming = new Set<string>();
+
+  for (const rawId of ids) {
+    const id = normalizedId(rawId, label);
+    if (incoming.has(id)) throw new Error(`Duplicate ${label.toLowerCase()} ID in incoming content: ${id}`);
+    if (existing.has(id)) throw new Error(`${label} already exists elsewhere in the project: ${id}`);
+    incoming.add(id);
+  }
+}
+
+function assertIncomingSectionIdentities<P extends EditorProjectLike>(
+  draft: P,
+  section: EditorSectionLike,
+) {
+  assertIdentityIdsAvailable(draft, 'section', [section.id], 'Section');
+  assertIdentityIdsAvailable(draft, 'element', section.elements.map((element) => element.id), 'Element');
+  assertIdentityIdsAvailable(draft, 'container', (section.containers || []).map((container) => container.id), 'Container');
+  assertIdentityIdsAvailable(draft, 'form-field', (section.formFields || []).map((field) => field.id), 'Form field');
+
+  const containerIds = new Set((section.containers || []).map((container) => normalizedId(container.id, 'Container')));
+  for (const element of section.elements) {
+    if (element.containerId && !containerIds.has(normalizedId(element.containerId, 'Container'))) {
+      throw new Error(`Container not found for incoming element ${element.id}: ${element.containerId}`);
+    }
+  }
+}
+
+function assertIncomingPageIdentities<P extends EditorProjectLike>(
+  draft: P,
+  page: EditorPageLike,
+) {
+  assertIdentityIdsAvailable(draft, 'page', [page.id], 'Page');
+  assertIdentityIdsAvailable(draft, 'section', page.sections.map((section) => section.id), 'Section');
+  assertIdentityIdsAvailable(
+    draft,
+    'element',
+    page.sections.flatMap((section) => section.elements.map((element) => element.id)),
+    'Element',
+  );
+  assertIdentityIdsAvailable(
+    draft,
+    'container',
+    page.sections.flatMap((section) => (section.containers || []).map((container) => container.id)),
+    'Container',
+  );
+  assertIdentityIdsAvailable(
+    draft,
+    'form-field',
+    page.sections.flatMap((section) => (section.formFields || []).map((field) => field.id)),
+    'Form field',
+  );
+
+  for (const section of page.sections) {
+    const containerIds = new Set((section.containers || []).map((container) => normalizedId(container.id, 'Container')));
+    for (const element of section.elements) {
+      if (element.containerId && !containerIds.has(normalizedId(element.containerId, 'Container'))) {
+        throw new Error(`Container not found for incoming element ${element.id}: ${element.containerId}`);
+      }
+    }
+  }
+}
+
+function createCollisionSafeCloneIdFactory<P extends EditorProjectLike>(
+  draft: P,
+  baseFactory: EditorCloneIdFactory,
+): EditorCloneIdFactory {
+  const reserved: Record<EditorCloneKind, Set<string>> = {
+    page: editorProjectIdentitySet(draft, 'page'),
+    section: editorProjectIdentitySet(draft, 'section'),
+    element: editorProjectIdentitySet(draft, 'element'),
+    container: editorProjectIdentitySet(draft, 'container'),
+    'form-field': editorProjectIdentitySet(draft, 'form-field'),
+    symbol: editorProjectIdentitySet(draft, 'symbol'),
+  };
+
+  return (kind, sourceId) => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const candidate = normalizedId(baseFactory(kind, sourceId), `${kind} clone`);
+      if (!reserved[kind].has(candidate)) {
+        reserved[kind].add(candidate);
+        return candidate;
+      }
+    }
+    throw new Error(`Could not generate a unique ${kind} clone ID`);
+  };
+}
+
 export function commandAddPage<P extends EditorProjectLike>(
   page: EditorPageLike,
   position: EditorInsertPosition = {},
@@ -91,9 +206,7 @@ export function commandAddPage<P extends EditorProjectLike>(
 ) {
   return commandOptions<P>('Add page', (draft) => {
     const id = normalizedId(page.id, 'Page');
-    if (draft.pages.some((candidate) => candidate.id === id)) {
-      throw new Error(`Page already exists: ${id}`);
-    }
+    assertIncomingPageIdentities(draft, page);
     const index = targetIndex(draft.pages, position);
     insertAt(draft.pages, page, index);
     if (!draft.homePageId) draft.homePageId = id;
@@ -162,10 +275,8 @@ export function commandAddSection<P extends EditorProjectLike>(
   return commandOptions<P>('Add section', (draft) => {
     const pageMatch = findEditorPage(draft, normalizedId(pageId, 'Page'));
     if (!pageMatch) throw new Error(`Page not found: ${pageId}`);
-    const id = normalizedId(section.id, 'Section');
-    if (pageMatch.page.sections.some((candidate) => candidate.id === id)) {
-      throw new Error(`Section already exists: ${id}`);
-    }
+    normalizedId(section.id, 'Section');
+    assertIncomingSectionIdentities(draft, section);
     insertAt(pageMatch.page.sections, section, targetIndex(pageMatch.page.sections, position));
   }, options);
 }
@@ -238,10 +349,8 @@ export function commandAddElement<P extends EditorProjectLike>(
       normalizedId(sectionId, 'Section'),
     );
     if (!match) throw new Error(`Section not found: ${sectionId}`);
-    const id = normalizedId(element.id, 'Element');
-    if (match.section.elements.some((candidate) => candidate.id === id)) {
-      throw new Error(`Element already exists: ${id}`);
-    }
+    normalizedId(element.id, 'Element');
+    assertIdentityIdsAvailable(draft, 'element', [element.id], 'Element');
 
     if (
       element.containerId &&
@@ -356,9 +465,9 @@ export function commandAddContainer<P extends EditorProjectLike>(
   return commandOptions<P>('Add container', (draft) => {
     const match = findEditorSection(draft, normalizedId(pageId, 'Page'), normalizedId(sectionId, 'Section'));
     if (!match) throw new Error(`Section not found: ${sectionId}`);
-    const id = normalizedId(container.id, 'Container');
+    normalizedId(container.id, 'Container');
+    assertIdentityIdsAvailable(draft, 'container', [container.id], 'Container');
     const containers = match.section.containers || (match.section.containers = []);
-    if (containers.some((candidate) => candidate.id === id)) throw new Error(`Container already exists: ${id}`);
     containers.push(container);
   }, options);
 }
@@ -438,9 +547,9 @@ export function commandAddFormField<P extends EditorProjectLike>(
   return commandOptions<P>('Add form field', (draft) => {
     const match = findEditorSection(draft, normalizedId(pageId, 'Page'), normalizedId(sectionId, 'Section'));
     if (!match) throw new Error(`Section not found: ${sectionId}`);
-    const id = normalizedId(field.id, 'Form field');
+    normalizedId(field.id, 'Form field');
+    assertIdentityIdsAvailable(draft, 'form-field', [field.id], 'Form field');
     const fields = match.section.formFields || (match.section.formFields = []);
-    if (fields.some((candidate) => candidate.id === id)) throw new Error(`Form field already exists: ${id}`);
     insertAt(fields, field, targetIndex(fields, position));
   }, options);
 }
@@ -512,7 +621,10 @@ export function commandDuplicatePage<P extends EditorProjectLike>(
   return commandOptions<P>('Duplicate page', (draft) => {
     const match = findEditorPage(draft, normalizedId(pageId, 'Page'));
     if (!match) throw new Error(`Page not found: ${pageId}`);
-    const idFactory = options.idFactory || createEditorCloneIdFactory('duplicate');
+    const idFactory = createCollisionSafeCloneIdFactory(
+      draft,
+      options.idFactory || createEditorCloneIdFactory('duplicate'),
+    );
     const clone = cloneEditorPageIndependent(match.page, idFactory);
     mergeWithoutIdentity(clone, changes, ['sections']);
     const index = Object.keys(position).length
@@ -532,7 +644,10 @@ export function commandDuplicateSection<P extends EditorProjectLike>(
   return commandOptions<P>('Duplicate section', (draft) => {
     const match = findEditorSection(draft, normalizedId(pageId, 'Page'), normalizedId(sectionId, 'Section'));
     if (!match) throw new Error(`Section not found: ${sectionId}`);
-    const idFactory = options.idFactory || createEditorCloneIdFactory('duplicate');
+    const idFactory = createCollisionSafeCloneIdFactory(
+      draft,
+      options.idFactory || createEditorCloneIdFactory('duplicate'),
+    );
     const clone = cloneEditorSectionIndependent(match.section, idFactory);
     mergeWithoutIdentity(clone, changes, ['elements', 'containers', 'formFields']);
     const index = Object.keys(position).length
@@ -558,7 +673,10 @@ export function commandDuplicateElement<P extends EditorProjectLike>(
       normalizedId(elementId, 'Element'),
     );
     if (!match) throw new Error(`Element not found: ${elementId}`);
-    const idFactory = options.idFactory || createEditorCloneIdFactory('duplicate');
+    const idFactory = createCollisionSafeCloneIdFactory(
+      draft,
+      options.idFactory || createEditorCloneIdFactory('duplicate'),
+    );
     const clone = cloneEditorElementIndependent(match.element, idFactory);
     mergeWithoutIdentity(clone, changes);
     const index = Object.keys(position).length
