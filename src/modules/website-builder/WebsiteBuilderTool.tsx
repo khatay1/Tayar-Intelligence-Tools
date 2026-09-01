@@ -3542,6 +3542,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     skipNextAutosaveRef.current = true;
   }
 
+  function selectEditorTarget(
+    sectionId: string | null,
+    elementId: string | null = null,
+    containerId: string | null = null,
+    formFieldId: string | null = null,
+  ) {
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
+    setSelectedContainerId(elementId ? null : containerId);
+    setSelectedFormFieldId(elementId || containerId ? null : formFieldId);
+  }
+
   function showSavedFeedback(
     expectedLoadSequence = projectLoadSequenceRef.current,
     expectedUserId = user?.id ?? null,
@@ -5049,6 +5061,43 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [sections, activePageId]);
 
   useEffect(() => {
+    const scopedSection = selectedId
+      ? sections.find((section) => section.id === selectedId) ?? null
+      : null;
+
+    if (!scopedSection) {
+      const fallbackSection = sections[0] ?? null;
+      selectEditorTarget(
+        fallbackSection?.id ?? null,
+        fallbackSection?.elements[0]?.id ?? null,
+      );
+      return;
+    }
+
+    const elementValid = selectedElementId
+      ? scopedSection.elements.some((element) => element.id === selectedElementId)
+      : false;
+    const containerValid = selectedContainerId
+      ? (scopedSection.containers || []).some((container) => container.id === selectedContainerId)
+      : false;
+    const formFieldValid = selectedFormFieldId
+      ? (scopedSection.formFields || []).some((field) => field.id === selectedFormFieldId)
+      : false;
+
+    if (selectedElementId && !elementValid) setSelectedElementId(null);
+    if (selectedContainerId && (!containerValid || elementValid)) setSelectedContainerId(null);
+    if (selectedFormFieldId && (!formFieldValid || elementValid || containerValid)) {
+      setSelectedFormFieldId(null);
+    }
+  }, [
+    sections,
+    selectedId,
+    selectedElementId,
+    selectedContainerId,
+    selectedFormFieldId,
+  ]);
+
+  useEffect(() => {
     const fingerprint = buildProjectFingerprint();
     const decision = decideEditorAutosave({
       fingerprint,
@@ -5259,10 +5308,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function switchPage(pageId: string) {
     const target = pages.find((page) => page.id === pageId);
     if (!target || target.id === activePageId) return;
+    setPages((current) => current.map((page) =>
+      page.id === activePageId ? { ...page, sections } : page
+    ));
     setActivePageId(target.id);
     setSections(target.sections);
-    setSelectedId(target.sections[0]?.id ?? null);
-    setSelectedElementId(target.sections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      target.sections[0]?.id ?? null,
+      target.sections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5278,8 +5332,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPages((current) => [...current, page]);
     setActivePageId(page.id);
     setSections(page.sections);
-    setSelectedId(page.sections[0]?.id ?? null);
-    setSelectedElementId(page.sections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      page.sections[0]?.id ?? null,
+      page.sections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5305,8 +5361,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPages((current) => [...current, page]);
     setActivePageId(page.id);
     setSections(clonedSections);
-    setSelectedId(clonedSections[0]?.id ?? null);
-    setSelectedElementId(clonedSections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      clonedSections[0]?.id ?? null,
+      clonedSections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5342,8 +5400,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       .concat(page));
     setActivePageId(page.id);
     setSections(clonedSections);
-    setSelectedId(clonedSections[0]?.id ?? null);
-    setSelectedElementId(clonedSections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      clonedSections[0]?.id ?? null,
+      clonedSections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5390,8 +5450,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (activePageId === homePageId) setHomePageId(next.id);
     setActivePageId(next.id);
     setSections(next.sections);
-    setSelectedId(next.sections[0]?.id ?? null);
-    setSelectedElementId(next.sections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      next.sections[0]?.id ?? null,
+      next.sections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5588,8 +5650,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections((current) => current.map((section) =>
       section.id === sectionId ? { ...section, elements: [...section.elements, element] } : section
     ));
-    setSelectedId(sectionId);
-    setSelectedElementId(element.id);
+    selectEditorTarget(sectionId, element.id);
     setSaved(false);
   }
 
@@ -5652,8 +5713,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function beginElementResize(sectionId: string, elementId: string) {
-    setSelectedId(sectionId);
-    setSelectedElementId(elementId);
+    selectEditorTarget(sectionId, elementId);
     remember(sections);
   }
 
@@ -6275,8 +6335,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections);
     const section = createSection(type);
     setSections((current) => [...current, section]);
-    setSelectedId(section.id);
-    setSelectedElementId(section.elements[0]?.id ?? null);
+    selectEditorTarget(section.id, section.elements[0]?.id ?? null);
     setSaved(false);
   }
 
@@ -6290,8 +6349,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       next.splice(index + 1, 0, section);
       return next;
     });
-    setSelectedId(section.id);
-    setSelectedElementId(section.elements[0]?.id ?? null);
+    selectEditorTarget(section.id, section.elements[0]?.id ?? null);
     setSaved(false);
   }
 
@@ -6315,8 +6373,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       };
     });
     setSections(nextSections);
-    setSelectedId(nextSections[0]?.id ?? null);
-    setSelectedElementId(nextSections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      nextSections[0]?.id ?? null,
+      nextSections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -6324,8 +6384,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections);
     const section = createSectionFromTemplate(template);
     setSections((current) => [...current, section]);
-    setSelectedId(section.id);
-    setSelectedElementId(section.elements[0]?.id ?? null);
+    selectEditorTarget(section.id, section.elements[0]?.id ?? null);
     setSaved(false);
   }
 
@@ -6335,10 +6394,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (current.length <= 1) return current;
 
       const index = current.findIndex((section) => section.id === id);
+      if (index < 0) return current;
+
       const next = current.filter((section) => section.id !== id);
 
       if (id === selectedId) {
-        setSelectedId(next[Math.max(0, index - 1)]?.id ?? next[0]?.id);
+        const fallbackSection =
+          next[Math.min(Math.max(0, index - 1), next.length - 1)] ||
+          next[0] ||
+          null;
+
+        selectEditorTarget(
+          fallbackSection?.id ?? null,
+          fallbackSection?.elements[0]?.id ?? null,
+        );
       }
 
       return next;
@@ -11191,13 +11260,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return next;
     });
 
-    setSelectedId(
+    selectEditorTarget(
       duplicate.id,
-    );
-
-    setSelectedElementId(
-      duplicate.elements[0]
-        ?.id ?? null,
+      duplicate.elements[0]?.id ?? null,
     );
 
     setSaved(false);
@@ -11265,8 +11330,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }),
     );
 
-    setSelectedId(sectionId);
-    setSelectedElementId(elementId);
+    selectEditorTarget(sectionId, elementId);
     setSaved(false);
   }
 
@@ -11350,9 +11414,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }),
     );
 
-    setSelectedId(sectionId);
-
-    setSelectedElementId(
+    selectEditorTarget(
+      sectionId,
       duplicate.id,
     );
 
@@ -11412,9 +11475,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ),
     );
 
-    setSelectedId(sectionId);
-
-    setSelectedElementId(
+    selectEditorTarget(
+      sectionId,
       nextElement?.id ?? null,
     );
 
