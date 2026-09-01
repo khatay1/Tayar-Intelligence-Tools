@@ -93,7 +93,7 @@ import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles
 import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
 import { createWebsiteCheckoutSession, getWebsiteBuilderBillingState, openWebsiteBillingPortalSession } from './services/websiteBillingService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
-import { normalizePageLanguage, normalizeSlug } from './core/project-identifiers';
+import { languageCodeLabel, normalizePageLanguage, normalizeSlug, PAGE_LANGUAGE_LABELS } from './core/project-identifiers';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
@@ -1444,16 +1444,6 @@ function createPage(name = 'New Page', slug = 'page'): WebsitePage {
     translationKey: '',
     noIndex: false,
   };
-}
-
-const PAGE_LANGUAGE_LABELS: Record<Language, string> = {
-  en: 'English',
-  sv: 'Svenska',
-  ar: 'العربية',
-};
-
-function languageCodeLabel(language: Language): string {
-  return language.toUpperCase();
 }
 
 interface PageTemplateDefinition {
@@ -12450,7 +12440,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <input value={activePage.name} onChange={(e) => updateActivePageMeta({ name: e.target.value })} placeholder={l('Page name')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 <div className="grid grid-cols-[110px_1fr] gap-2">
                   <select value={normalizePageLanguage(activePage.language, prefs.language)} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ language: e.target.value as Language }); }} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}>
-                    <option value="en">{l('English')}</option><option value="sv">Svenska</option><option value="ar">Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©</option>
+                    <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option><option value="sv">{PAGE_LANGUAGE_LABELS.sv}</option><option value="ar">{PAGE_LANGUAGE_LABELS.ar}</option>
                   </select>
                   <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? 'Translation group (optional)' : 'Translation groups · Pro'} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
