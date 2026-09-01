@@ -121,6 +121,12 @@
     return "office-bundle";
   }
 
+  function formatFromFilename(name) {
+    const match = String(name || "").trim().toLowerCase().match(/\.([a-z0-9]{1,8})$/);
+    const extension = match?.[1] || "unknown";
+    return ALLOWED_FORMATS.has(extension) ? extension : "unknown";
+  }
+
   function isSystemJunkFile(name) {
     const value = String(name || "").trim().toLowerCase();
     return value === ".ds_store"
@@ -164,6 +170,11 @@
       bytesImported: state.stats.bytesImported,
       systemFailureCount: systemFailures.length,
       realFailureCount: realFailures.length,
+      retryableFailureCount: realFailures.filter((failure) =>
+        failure?.type === "asset"
+        && failure?.sourceDownloadUrl
+        && failure?.file
+      ).length,
       realFailures,
       updatedAt: state.updatedAt,
     };
@@ -234,6 +245,80 @@
     }
 
     saveState(state);
+  }
+
+  async function retryFailures() {
+    if (running) {
+      throw new Error("Wait for the current importer run to finish before retrying failures");
+    }
+
+    running = true;
+    let state = loadState();
+
+    try {
+      const retryable = (state.failures || []).filter((failure) =>
+        !isSystemJunkFailure(failure)
+        && failure?.type === "asset"
+        && failure?.sourceDownloadUrl
+        && failure?.file
+      );
+
+      if (retryable.length === 0) {
+        console.log("No retryable real template failures found.");
+        return summarizeState(state);
+      }
+
+      console.log(`Retrying ${retryable.length} real template failures…`);
+
+      for (const failure of retryable) {
+        const format = formatFromFilename(failure.file);
+        const asset = {
+          title: failure.file,
+          category: categoryFor({ format }),
+          format,
+          sourcePageUrl: failure.folderId
+            ? `https://drive.google.com/drive/folders/${failure.folderId}`
+            : undefined,
+          downloadUrl: failure.sourceDownloadUrl,
+          filename: failure.file,
+        };
+
+        try {
+          const result = await postJson(SYNC_URL, {
+            label: "24billions-office-11000-failure-retry",
+            assets: [asset],
+          });
+          const entry = result.results?.[0];
+
+          if (entry?.status === "failed") {
+            failure.error = entry.error || "Retry failed";
+            failure.at = new Date().toISOString();
+            failure.retryCount = Number(failure.retryCount || 0) + 1;
+          } else {
+            state.stats.imported += Number(result.imported || 0);
+            state.stats.skipped += Number(result.skipped || 0);
+            state.stats.reused += Number(result.reused || 0);
+            state.stats.bytesImported += Number(result.bytesImported || 0);
+            state.stats.failed = Math.max(0, state.stats.failed - 1);
+            state.failures = state.failures.filter((item) => item !== failure);
+          }
+        } catch (error) {
+          const httpStatus = Number(error?.httpStatus || 0);
+          if (httpStatus === 401 || httpStatus === 403) throw error;
+          failure.error = error instanceof Error ? error.message : "Retry failed";
+          failure.at = new Date().toISOString();
+          failure.retryCount = Number(failure.retryCount || 0) + 1;
+        }
+
+        saveState(state);
+      }
+
+      const summary = summarizeState(state);
+      console.log("Tayar template failure retry completed", summary);
+      return summary;
+    } finally {
+      running = false;
+    }
   }
 
   async function run() {
@@ -360,6 +445,7 @@
       console.log("Tayar template import summary", summary);
       return summary;
     },
+    retryFailures,
     reset() {
       if (running) {
         throw new Error("Pause the importer before resetting it");
@@ -372,6 +458,6 @@
   };
 
   console.log(
-    "TayarTemplateImport ready. Use .start(), .status(), .summary(), .pause(), or .resume().",
+    "TayarTemplateImport ready. Use .start(), .status(), .summary(), .retryFailures(), .pause(), or .resume().",
   );
 })();
