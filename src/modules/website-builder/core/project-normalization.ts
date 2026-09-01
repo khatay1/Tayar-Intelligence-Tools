@@ -1,6 +1,7 @@
 import type { Language } from '@/context/PreferencesContext';
 import { createSection, normalizeSection } from './defaults';
 import type { WebsiteSection } from './types';
+import { normalizePageLanguage, normalizeSlug } from './project-identifiers';
 
 export interface NormalizedWebsiteProjectPage {
   id: string;
@@ -53,18 +54,6 @@ export type NormalizedWebsiteProjectLoad =
   | ({ kind: 'pages'; parsed: PersistedProjectEnvelope } & NormalizedProjectLoadBase)
   | ({ kind: 'sections'; parsed: PersistedProjectEnvelope } & NormalizedProjectLoadBase)
   | { kind: 'invalid'; parsed: null; pages: []; sections: []; activePageId: ''; homePageId: '' };
-
-function normalizeSlug(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'page';
-}
-
-function normalizePageLanguage(value: unknown, fallback: Language = 'en'): Language {
-  return value === 'ar' || value === 'sv' || value === 'en' ? value : fallback;
-}
 
 function createLegacyHomePage(sections: WebsiteSection[]): NormalizedWebsiteProjectPage {
   return {
