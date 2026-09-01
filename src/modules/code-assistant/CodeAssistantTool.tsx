@@ -22,6 +22,7 @@ import { buildFeaturePreviewModel, buildFeaturePrimaryLivePreview } from './feat
 import { buildControlledPackageEdit } from './package-editor';
 import { auditFixableFindings, runProjectUIAudit, UIAuditReport, validateAuditFixPlan } from './ui-audit';
 import { PAGE_PRESETS, PAGE_THEME_PRESETS, PageKind, PageThemeId, composePageAnchors, getPagePreset, getPageTheme, pageAnchorMetadata, validatePageComposerPlan } from './page-composer';
+import { COMPONENT_KIT_PRESETS, ComponentKitPresetId, MAX_KIT_ITEMS, analyzeComponentKit, kitMetadata, presetKitItems, validateComponentKitPlan } from './component-kit';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -193,6 +194,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [pageThemeId, setPageThemeId] = useState<PageThemeId>('project-native');
   const [pageInstruction, setPageInstruction] = useState('');
   const [pageLoading, setPageLoading] = useState(false);
+  const [kitIds, setKitIds] = useState<string[]>([]);
+  const [kitPresetId, setKitPresetId] = useState<ComponentKitPresetId>('landing-starter');
+  const [kitInstruction, setKitInstruction] = useState('');
+  const [kitLoading, setKitLoading] = useState(false);
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
@@ -333,6 +338,14 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     () => composePageAnchors(searchableItems, pageKind),
     [searchableItems, pageKind],
   );
+  const kitItems = useMemo(
+    () => kitIds.map((id) => allItems.find((item) => item.id === id)).filter((item): item is UIComponentRecord => Boolean(item)),
+    [kitIds, allItems],
+  );
+  const kitCompatibility = useMemo(
+    () => analyzeComponentKit(allItems, kitItems, projectContext),
+    [allItems, kitItems, projectContext],
+  );
   const installCommand = projectContext
     ? buildDependencyInstallCommand(
         projectContext.packageManager,
@@ -412,6 +425,27 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     setLivePreviewDoc(null);
     setLivePreviewReason(null);
   }, [selected?.id]);
+
+  const toggleKitItem = (item: UIComponentRecord) => {
+    setKitIds((current) => {
+      if (current.includes(item.id)) return current.filter((id) => id !== item.id);
+      if (current.length >= MAX_KIT_ITEMS) {
+        setActionError(`A component kit can contain up to ${MAX_KIT_ITEMS} items.`);
+        return current;
+      }
+      setActionError(null);
+      return [...current, item.id];
+    });
+  };
+
+  const loadKitPreset = (presetId: ComponentKitPresetId) => {
+    setKitPresetId(presetId);
+    const items = presetKitItems(searchableItems, presetId);
+    setKitIds(items.map((item) => item.id));
+    setActionError(null);
+    setPatchPlan(null);
+    setApplyConfirmed(false);
+  };
 
   const toggleConstraint = (id: AIConstraintId) => {
     setConstraintIds((current) => {
@@ -766,6 +800,64 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     }
   };
 
+  const onPlanComponentKit = async () => {
+    if (!projectContext || kitLoading || patchLoading || aiLoading || !kitItems.length) return;
+    if (kitCompatibility.unresolvedRegistryDependencies.length) {
+      setActionError(`Resolve registry dependencies first: ${kitCompatibility.unresolvedRegistryDependencies.join(', ')}`);
+      return;
+    }
+    if (kitCompatibility.frameworkWarnings.length) {
+      setActionError(kitCompatibility.frameworkWarnings.join(' '));
+      return;
+    }
+    setKitLoading(true);
+    setActionError(null);
+    setPatchPlan(null);
+    setApplyConfirmed(false);
+    setPackageEditConfirmed(false);
+    setTab('ai');
+    try {
+      const snippets: string[] = [];
+      for (const item of kitItems) {
+        try {
+          const bundle = await buildSourceBundle(item);
+          if (bundle.resolution.unresolved.length) {
+            throw new Error(`Unresolved registry dependency for ${item.name}: ${bundle.resolution.unresolved.join(', ')}`);
+          }
+          if (bundle.code) snippets.push(`// Kit item: ${item.id}\n${bundle.code.slice(0, 1_600)}`);
+        } catch (error) {
+          throw new Error(error instanceof Error ? error.message : `Unable to load ${item.name} for kit composition.`);
+        }
+      }
+      const combined = snippets.join('\n\n');
+      const source = combined.slice(0, 10_000);
+      const response = await aiService.completeJSON<unknown>(
+        {
+          action: 'compose-component-kit',
+          instruction: kitInstruction.trim() || 'Compose the selected UI components into one coherent project-ready integration pack.',
+          constraints: activeConstraintInstructions,
+          project: summarizeProjectForAI(projectContext),
+          kit: kitMetadata(kitItems),
+          compatibility: kitCompatibility,
+          source,
+          sourceTruncated: combined.length > source.length,
+        },
+        [],
+        { temperature: 0.1, maxTokens: 8192 },
+      );
+      if (!response.json) throw new Error('AI did not return a structured component kit patch.');
+      const plan = validatePatchPlan(response.json);
+      validateComponentKitPlan(projectContext, kitCompatibility, plan);
+      setPatchPlan(plan);
+      setPatchOwnerId(`kit:${kitIds.join('|')}`);
+      setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to generate a safe component kit patch.');
+    } finally {
+      setKitLoading(false);
+    }
+  };
+
   const onPlanPageComposition = async () => {
     if (!projectContext || pageLoading || patchLoading || aiLoading) return;
     setPageLoading(true);
@@ -872,7 +964,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   };
 
   const onRunFeaturePreview = () => {
-    if (!patchPlan || (!patchOwnerId.startsWith('feature:') && !patchOwnerId.startsWith('page:'))) return;
+    if (!patchPlan || (!patchOwnerId.startsWith('feature:') && !patchOwnerId.startsWith('page:') && !patchOwnerId.startsWith('kit:'))) return;
     const result = buildFeaturePrimaryLivePreview(patchPlan, patchOwnerId);
     if (!result.supported || !result.srcDoc) {
       setFeaturePreviewDoc(null);
@@ -1026,6 +1118,17 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
 
       <section className={`mt-5 rounded-2xl border p-4 sm:p-5 ${panel}`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div><div className="flex items-center gap-2 text-sm font-semibold"><Boxes className="h-4 w-4 text-emerald-400" /> Component Kit Composer</div><p className="mt-2 max-w-2xl text-xs leading-5 opacity-55">Combine up to {MAX_KIT_ITEMS} compatible components into one coherent integration pack. Use a starter preset or build a custom kit by selecting a component and pressing Add to kit.</p></div>
+          <button disabled={!projectContext || !kitItems.length || kitLoading || patchLoading || aiLoading || kitCompatibility.unresolvedRegistryDependencies.length > 0 || kitCompatibility.frameworkWarnings.length > 0} onClick={() => void onPlanComponentKit()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">{kitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Boxes className="h-4 w-4" />} Compose kit</button>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">{COMPONENT_KIT_PRESETS.map((preset) => <button key={preset.id} onClick={() => loadKitPreset(preset.id)} className={`rounded-xl border p-3 text-left transition ${kitPresetId === preset.id ? 'border-emerald-400/30 bg-emerald-500/10' : darkMode ? 'border-white/10 bg-black/10 hover:border-white/20' : 'border-gray-200 bg-white hover:border-emerald-200'}`}><div className="text-xs font-semibold">{preset.label}</div><div className="mt-1 text-[10px] leading-4 opacity-45">{preset.description}</div></button>)}</div>
+        <textarea value={kitInstruction} onChange={(event) => setKitInstruction(event.target.value)} placeholder="Example: Build these into a compact onboarding flow, reuse existing project buttons and keep mobile layout simple." className={`mt-3 min-h-20 w-full resize-y rounded-xl border p-3 text-xs outline-none ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
+        <div className="mt-3 flex flex-wrap gap-2">{kitItems.map((item) => <button key={item.id} onClick={() => toggleKitItem(item)} className="rounded-full border border-emerald-400/20 bg-emerald-500/5 px-2.5 py-1.5 text-[10px] text-emerald-200">{item.name} ×</button>)}{!kitItems.length && <span className="text-[10px] opacity-45">Kit is empty. Load a preset or add selected components.</span>}{kitItems.length > 0 && <button onClick={() => { setKitIds([]); setPatchPlan(null); setApplyConfirmed(false); }} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] opacity-55">Clear kit</button>}</div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-4"><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">Items</div><div className="mt-1 text-sm font-semibold">{kitItems.length}/{MAX_KIT_ITEMS}</div></div><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">NPM</div><div className="mt-1 text-[10px] leading-4">{kitCompatibility.npmNames.length ? kitCompatibility.npmNames.join(', ') : 'None'}</div></div><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">Registry deps</div><div className={`mt-1 text-[10px] leading-4 ${kitCompatibility.unresolvedRegistryDependencies.length ? 'text-amber-300' : 'text-emerald-300'}`}>{kitCompatibility.unresolvedRegistryDependencies.length ? `Unresolved: ${kitCompatibility.unresolvedRegistryDependencies.join(', ')}` : `${kitCompatibility.resolvedRegistryIds.length} resolved / none blocked`}</div></div><div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] uppercase tracking-wider opacity-40">Compatibility</div><div className={`mt-1 text-[10px] leading-4 ${kitCompatibility.frameworkWarnings.length ? 'text-amber-300' : 'text-emerald-300'}`}>{kitCompatibility.frameworkWarnings.length ? kitCompatibility.frameworkWarnings.join(' ') : projectContext ? `Ready for ${projectContext.framework}` : 'Choose project'}</div></div></div>
+      </section>
+
+      <section className={`mt-5 rounded-2xl border p-4 sm:p-5 ${panel}`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div><div className="flex items-center gap-2 text-sm font-semibold"><LayoutTemplate className="h-4 w-4 text-fuchsia-400" /> Page Composer + Themes</div><p className="mt-2 max-w-2xl text-xs leading-5 opacity-55">Compose a complete page from ranked registry anchors instead of choosing components one by one. The generated pack reuses project style, supports a controlled theme direction and still goes through Preview, Dependency Review, Diff, Safe Apply and Rollback.</p></div>
           <button disabled={!projectContext || pageLoading || patchLoading || aiLoading} onClick={() => void onPlanPageComposition()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-fuchsia-500 disabled:opacity-40">{pageLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutTemplate className="h-4 w-4" />} Compose page</button>
         </div>
@@ -1091,6 +1194,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
               <div><div className="flex items-center gap-2"><h2 className="font-semibold">{selected.name}</h2>{selected.remote && <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-400">Open source</span>}{selected.sourceId === 'private-session' && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">Private session</span>}</div><p className={`mt-1 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{selected.description}</p></div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => toggleFavorite(selected.id)} aria-label={favoriteIds.has(selected.id) ? 'Remove from favorites' : 'Add to favorites'} className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 ${favoriteIds.has(selected.id) ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10' : 'border-gray-200'}`}><Heart className={`h-4 w-4 ${favoriteIds.has(selected.id) ? 'fill-current' : ''}`} /></button>
+                <button onClick={() => toggleKitItem(selected)} disabled={!kitIds.includes(selected.id) && kitIds.length >= MAX_KIT_ITEMS} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-40 ${kitIds.includes(selected.id) ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : darkMode ? 'border-white/10' : 'border-gray-200'}`}><Boxes className="h-4 w-4" /> {kitIds.includes(selected.id) ? 'Remove from kit' : 'Add to kit'}</button>
                 <button disabled={codeLoadingId === selected.id || aiLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-400 disabled:opacity-50">{codeLoadingId === selected.id || aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI Adapt</button>
                 <button disabled={codeLoadingId === selected.id} onClick={() => void onCopyCode(selected)} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${darkMode ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-100'}`}>{codeLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : copied === 'code' ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} Copy code</button>
               </div>
