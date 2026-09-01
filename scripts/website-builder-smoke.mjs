@@ -44,6 +44,7 @@ const editorNativePatchPath = resolve(root, 'src/modules/website-builder/core/ed
 const editorBatchPath = resolve(root, 'src/modules/website-builder/core/editor-batch.ts');
 const editorOperationPolicyPath = resolve(root, 'src/modules/website-builder/core/editor-operation-policy.ts');
 const editorCommandAdaptersPath = resolve(root, 'src/modules/website-builder/core/editor-command-adapters.ts');
+const editorNativeOperationPath = resolve(root, 'src/modules/website-builder/core/editor-native-operation.ts');
 const editorModelPath = resolve(root, 'src/modules/website-builder/core/editor-model.ts');
 const editorSymbolCommandsPath = resolve(root, 'src/modules/website-builder/core/editor-symbol-commands.ts');
 
@@ -97,6 +98,7 @@ for (const [label, path] of [
   ['Editor batch transaction core exists', editorBatchPath],
   ['Native operation policy exists', editorOperationPolicyPath],
   ['Native command adapters exist', editorCommandAdaptersPath],
+  ['Native operation adapter exists', editorNativeOperationPath],
   ['Native editor model exists', editorModelPath],
   ['Native symbol commands exist', editorSymbolCommandsPath],
 ]) {
@@ -143,6 +145,7 @@ const editorNativePatch = existsSync(editorNativePatchPath) ? readFileSync(edito
 const editorBatch = existsSync(editorBatchPath) ? readFileSync(editorBatchPath, 'utf8') : '';
 const editorOperationPolicy = existsSync(editorOperationPolicyPath) ? readFileSync(editorOperationPolicyPath, 'utf8') : '';
 const editorCommandAdapters = existsSync(editorCommandAdaptersPath) ? readFileSync(editorCommandAdaptersPath, 'utf8') : '';
+const editorNativeOperation = existsSync(editorNativeOperationPath) ? readFileSync(editorNativeOperationPath, 'utf8') : '';
 const editorModel = existsSync(editorModelPath) ? readFileSync(editorModelPath, 'utf8') : '';
 const editorSymbolCommands = existsSync(editorSymbolCommandsPath) ? readFileSync(editorSymbolCommandsPath, 'utf8') : '';
 
@@ -277,6 +280,9 @@ check('Native symbol references cannot be missing or forward-only', editorOperat
 check('Native runtime structural payloads are validated before adaptation', editorOperationPolicy.includes('validateOperationPayloadShape') && editorOperationPolicy.includes('validatePagePayload') && editorOperationPolicy.includes('validateSectionPayload') && editorOperationPolicy.includes('section.elements must be a non-empty array'));
 check('Native update operations cannot smuggle structural identities', editorOperationPolicy.includes('cannot change page identity') && editorOperationPolicy.includes('cannot change section identity') && editorOperationPolicy.includes('cannot change container identity') && editorOperationPolicy.includes('cannot change form-field identity'));
 check('Invalid native operations do not mutate simulated reference state', editorOperationPolicy.includes('operationErrorStart') && editorOperationPolicy.includes('errors.length === operationErrorStart'));
+check('Native position IDs fail safely on malformed runtime values', editorOperationPolicy.includes('position target ID must be non-blank') && editorOperationPolicy.includes('hasValidId(anchor)'));
+check('Native container detach remains compatible while real container references stay strict', editorOperationPolicy.includes("operation.action === 'assign_element_container'") && editorOperationPolicy.includes("value === ''") && editorOperationPolicy.includes("operation.containerId !== ''"));
+check('Native adapter reference parsing rejects non-string runtime IDs safely', editorNativeOperation.includes("typeof value !== 'string'") && editorNativeOperation.includes('cannot contain surrounding whitespace'));
 check('V2 native page growth respects billing while existing over-limit projects remain editable', builder.includes('const pageCountIncreased =') && builder.includes('candidate.pages.length >') && builder.includes('billingEntitlements.maxPages'));
 check('Reusable components stop safely at 50 instead of evicting linked symbols', builder.includes('if (symbols.length >= 50)') && builder.includes('setSymbols((current) => [symbol, ...current]);') && !builder.includes('setSymbols((current) => [symbol, ...current].slice(0, 50))'));
 check('Expanded V2 option groups stay in normal flow instead of overlapping', websiteBuilderV2Css.includes('Keep one scroll owner per side panel') && websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields') && websiteBuilderV2Css.includes('position: static') && !websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body'));
