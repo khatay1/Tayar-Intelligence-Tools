@@ -5,10 +5,24 @@ export interface LegacyAIEditorOperationLike {
   changes?: Record<string, unknown>;
 }
 
+export interface LegacyAIPageOperationLike
+  extends LegacyAIEditorOperationLike {
+  pageId?: string;
+  pageSlug?: string;
+  beforePageId?: string;
+  afterPageId?: string;
+}
+
 const GLOBAL_NATIVE_AI_ACTIONS = new Set([
   'update_theme',
   'update_seo',
   'update_header',
+]);
+
+const PAGE_NATIVE_AI_ACTIONS = new Set([
+  'remove_page',
+  'set_home_page',
+  'move_page',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -194,5 +208,58 @@ export function convertLegacyAIGlobalOperationToNative(
     action: operation.action as 'update_theme' | 'update_seo' | 'update_header',
     source: 'ai',
     changes: mapped,
+  };
+}
+
+
+export function isLegacyAIPageNativeAction(action: string) {
+  return PAGE_NATIVE_AI_ACTIONS.has(action);
+}
+
+export function convertLegacyAIPageOperationToNative(
+  operation: LegacyAIPageOperationLike,
+  resolvedPageId: string,
+): EditorNativeOperation | null {
+  if (!isLegacyAIPageNativeAction(operation.action)) return null;
+
+  const pageId = resolvedPageId.trim();
+  if (!pageId) return null;
+
+  if (operation.action === 'remove_page') {
+    return {
+      action: 'remove_page',
+      source: 'ai',
+      pageId,
+    };
+  }
+
+  if (operation.action === 'set_home_page') {
+    return {
+      action: 'set_home_page',
+      source: 'ai',
+      pageId,
+    };
+  }
+
+  const beforeId =
+    typeof operation.beforePageId === 'string'
+      ? operation.beforePageId.trim()
+      : '';
+  const afterId =
+    typeof operation.afterPageId === 'string'
+      ? operation.afterPageId.trim()
+      : '';
+
+  if ((!beforeId && !afterId) || (beforeId && afterId)) {
+    return null;
+  }
+
+  return {
+    action: 'move_page',
+    source: 'ai',
+    pageId,
+    position: beforeId
+      ? { beforeId }
+      : { afterId },
   };
 }
