@@ -26,29 +26,87 @@ function bounded(value: number | undefined, fallback: number, max: number) {
   return Math.max(1, Math.min(max, Math.round(parsed)));
 }
 
+function elementTargetKey(operation: EditorNativeOperation) {
+  return operation.elementId
+    ? `element:${operation.pageId || ''}:${operation.sectionId || ''}:${operation.elementId}`
+    : undefined;
+}
+
+function containerTargetKey(operation: EditorNativeOperation) {
+  return operation.containerId
+    ? `container:${operation.pageId || ''}:${operation.sectionId || ''}:${operation.containerId}`
+    : undefined;
+}
+
+function formFieldTargetKey(operation: EditorNativeOperation) {
+  return operation.formFieldId
+    ? `form-field:${operation.pageId || ''}:${operation.sectionId || ''}:${operation.formFieldId}`
+    : undefined;
+}
+
 function targetKey(operation: EditorNativeOperation) {
-  if (operation.elementId) return `element:${operation.pageId || ''}:${operation.sectionId || ''}:${operation.elementId}`;
-  if (operation.sectionId) return `section:${operation.pageId || ''}:${operation.sectionId}`;
-  if (operation.pageId) return `page:${operation.pageId}`;
-  return undefined;
+  return (
+    elementTargetKey(operation) ||
+    containerTargetKey(operation) ||
+    formFieldTargetKey(operation) ||
+    (operation.sectionId
+      ? `section:${operation.pageId || ''}:${operation.sectionId}`
+      : undefined) ||
+    (operation.pageId ? `page:${operation.pageId}` : undefined)
+  );
+}
+
+function referencedTargetKeys(operation: EditorNativeOperation) {
+  const targets: string[] = [];
+
+  if (
+    operation.action === 'assign_element_container' &&
+    operation.containerId
+  ) {
+    const container = containerTargetKey(operation);
+    if (container) targets.push(container);
+  }
+
+  return targets;
 }
 
 function removedTargetKey(operation: EditorNativeOperation) {
-  if (operation.action === 'remove_element' && operation.elementId) return targetKey(operation);
-  if (operation.action === 'remove_section' && operation.sectionId) return `section:${operation.pageId || ''}:${operation.sectionId}`;
-  if (operation.action === 'remove_page' && operation.pageId) return `page:${operation.pageId}`;
+  if (operation.action === 'remove_element' && operation.elementId) {
+    return elementTargetKey(operation);
+  }
+  if (operation.action === 'remove_container' && operation.containerId) {
+    return containerTargetKey(operation);
+  }
+  if (operation.action === 'remove_form_field' && operation.formFieldId) {
+    return formFieldTargetKey(operation);
+  }
+  if (operation.action === 'remove_section' && operation.sectionId) {
+    return `section:${operation.pageId || ''}:${operation.sectionId}`;
+  }
+  if (operation.action === 'remove_page' && operation.pageId) {
+    return `page:${operation.pageId}`;
+  }
   return undefined;
 }
 
 function targetWasRemoved(target: string | undefined, removed: Set<string>) {
   if (!target) return false;
   if (removed.has(target)) return true;
+
   const parts = target.split(':');
-  if (parts[0] === 'element') {
+  if (
+    parts[0] === 'element' ||
+    parts[0] === 'container' ||
+    parts[0] === 'form-field'
+  ) {
     if (removed.has(`section:${parts[1]}:${parts[2]}`)) return true;
     if (removed.has(`page:${parts[1]}`)) return true;
   }
-  if (parts[0] === 'section' && removed.has(`page:${parts[1]}`)) return true;
+
+  if (parts[0] === 'section' && removed.has(`page:${parts[1]}`)) {
+    return true;
+  }
+
   return false;
 }
 
@@ -74,6 +132,12 @@ export function preflightEditorNativeOperations(
     const target = targetKey(operation);
     if (targetWasRemoved(target, removed)) {
       errors.push(`${prefix} targets content removed earlier in the same patch`);
+    }
+
+    for (const referencedTarget of referencedTargetKeys(operation)) {
+      if (targetWasRemoved(referencedTarget, removed)) {
+        errors.push(`${prefix} references content removed earlier in the same patch`);
+      }
     }
 
     if (operation.action === 'update_page' && operation.changes?.sections !== undefined) {
