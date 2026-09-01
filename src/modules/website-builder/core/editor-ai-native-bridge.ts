@@ -80,6 +80,7 @@ const STRUCTURAL_NATIVE_AI_ACTIONS = new Set([
 
 const UPDATE_NATIVE_AI_ACTIONS = new Set([
   'update_container',
+  'update_form',
   'update_form_field',
 ]);
 
@@ -662,6 +663,44 @@ export function convertLegacyAIUpdateOperationToNative(
   const changes = isRecord(operation.changes)
     ? operation.changes
     : {};
+
+  if (operation.action === 'update_form') {
+    const mapped: Record<string, unknown> = {};
+
+    if (typeof changes.formSuccessMessage === 'string') {
+      mapped.formSuccessMessage =
+        changes.formSuccessMessage
+          .trim()
+          .slice(0, 500);
+    }
+
+    if (
+      changes.formSuccessAction === 'redirect' ||
+      changes.formSuccessAction === 'message'
+    ) {
+      mapped.formSuccessAction =
+        changes.formSuccessAction;
+    }
+
+    if (typeof changes.formRedirectUrl === 'string') {
+      mapped.formRedirectUrl =
+        changes.formRedirectUrl
+          .trim()
+          .slice(0, 1000);
+    }
+
+    if (!Object.keys(mapped).length) {
+      return null;
+    }
+
+    return {
+      action: 'update_section',
+      source: 'ai',
+      pageId,
+      sectionId,
+      changes: mapped,
+    };
+  }
 
   if (operation.action === 'update_container') {
     const containerId = operation.containerId?.trim();
