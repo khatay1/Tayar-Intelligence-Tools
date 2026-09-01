@@ -3460,7 +3460,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const reusableRefreshSequenceRef = useRef(0);
   const reusableOperationSequenceRef = useRef(0);
   const mediaRefreshSequenceRef = useRef(0);
-  const mediaOperationSequenceRef = useRef(0);
+  const mediaUploadSequenceRef = useRef(0);
+  const mediaDeleteSequenceRef = useRef(0);
   const billingRefreshSequenceRef = useRef(0);
   const billingOperationSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
@@ -3469,7 +3470,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   useEffect(() => {
     reusableOperationSequenceRef.current += 1;
-    mediaOperationSequenceRef.current += 1;
+    mediaUploadSequenceRef.current += 1;
+    mediaDeleteSequenceRef.current += 1;
     billingRefreshSequenceRef.current += 1;
     billingOperationSequenceRef.current += 1;
     aiOperationSequenceRef.current += 1;
@@ -4678,11 +4680,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const uploadSequence = ++mediaOperationSequenceRef.current;
+    const uploadSequence = ++mediaUploadSequenceRef.current;
     const uploadProjectSequence = projectLoadSequenceRef.current;
     const uploadEditorContext = captureAIEditorContext();
     const uploadIsCurrentUser = () =>
-      mediaOperationSequenceRef.current === uploadSequence &&
+      mediaUploadSequenceRef.current === uploadSequence &&
       activeUserIdRef.current === uploadUserId;
 
     setMediaUploading(true);
@@ -4725,11 +4727,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!deleteUserId) return;
     if (!window.confirm(`Delete ${asset.name} from your media library?`)) return;
 
-    const deleteSequence = ++mediaOperationSequenceRef.current;
+    const deleteSequence = ++mediaDeleteSequenceRef.current;
     const deleteProjectSequence = projectLoadSequenceRef.current;
     const deleteEditorContext = captureAIEditorContext();
     const deleteIsCurrentUser = () =>
-      mediaOperationSequenceRef.current === deleteSequence &&
+      mediaDeleteSequenceRef.current === deleteSequence &&
       activeUserIdRef.current === deleteUserId;
 
     setMediaError('');
