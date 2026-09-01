@@ -3703,17 +3703,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function refreshProjectTeamAccess(projectId: string | null, expectedLoadSequence?: number) {
+    const accessUserId = user?.id ?? null;
     const loadIsCurrent = () =>
-      expectedLoadSequence === undefined ||
-      projectLoadSequenceRef.current === expectedLoadSequence;
+      (expectedLoadSequence === undefined ||
+        projectLoadSequenceRef.current === expectedLoadSequence) &&
+      activeUserIdRef.current === accessUserId;
 
-    if (!user || !projectId) {
+    if (!accessUserId || !projectId) {
       if (loadIsCurrent()) setProjectTeamAccess(DEFAULT_EDITOR_PROJECT_ACCESS);
       return DEFAULT_EDITOR_PROJECT_ACCESS;
     }
 
     const project = cloudProjects.find((item) => item.id === projectId);
-    const fallback = createEditorProjectAccessFallback(project, user.id);
+    const fallback = createEditorProjectAccessFallback(project, accessUserId);
 
     const { data, error } = await getWebsiteProjectTeamAccess(projectId);
     if (error || !data) {
@@ -3729,6 +3731,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const refreshCloudProjects = useCallback(async () => {
     cloudProjectsRefreshSequenceRef.current += 1;
     const refreshSequence = cloudProjectsRefreshSequenceRef.current;
+    const refreshUserId = user?.id ?? null;
 
     if (cloudProjectsRefreshAbortControllerRef.current) {
       cloudProjectsRefreshAbortControllerRef.current.abort();
@@ -3752,7 +3755,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const refreshIsCurrent = () =>
       !refreshController.signal.aborted &&
       cloudProjectsRefreshSequenceRef.current === refreshSequence &&
-      cloudProjectsRefreshAbortControllerRef.current === refreshController;
+      cloudProjectsRefreshAbortControllerRef.current === refreshController &&
+      activeUserIdRef.current === refreshUserId;
 
     setCloudProjectsLoaded(false);
     setCloudBusy(true);
@@ -4027,15 +4031,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function recoverPublishedProjectState(project: CloudWebsiteProject, expectedLoadSequence?: number) {
-    if (!user) return false;
+    const recoveryUserId = user?.id ?? null;
+    if (!recoveryUserId) return false;
 
     const loadIsCurrent = () =>
-      expectedLoadSequence === undefined ||
-      projectLoadSequenceRef.current === expectedLoadSequence;
+      (expectedLoadSequence === undefined ||
+        projectLoadSequenceRef.current === expectedLoadSequence) &&
+      activeUserIdRef.current === recoveryUserId;
 
     if (!loadIsCurrent()) return false;
 
-    const ownerId = project.user_id || user.id;
+    const ownerId = project.user_id || recoveryUserId;
     const path = `${ownerId}/${project.id}/index.html`;
     const { data, error } = await downloadPublishedWebsiteFile(path);
 
@@ -4071,7 +4077,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPublishedAt(recoveredAt);
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
-    if (project.user_id === user.id && routeHealthy && (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed')) {
+    if (project.user_id === recoveryUserId && routeHealthy && (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed')) {
       const recoveredContent = {
         ...project.content,
         publishedUrl: recoveredUrl,
@@ -4082,7 +4088,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const recoverUpdatedAt = new Date().toISOString();
       const { error: recoverError } = await updateWebsiteProjectPublicationState({
         projectId: project.id,
-        userId: user.id,
+        userId: recoveryUserId,
         content: recoveredContent,
         published: true,
         updatedAt: recoverUpdatedAt,
@@ -4154,10 +4160,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const refreshLeads = useCallback(async () => {
     const refreshLoadSequence = projectLoadSequenceRef.current;
     const refreshProjectId = cloudProjectId;
+    const refreshUserId = user?.id ?? null;
     const refreshIsCurrent = () =>
-      projectLoadSequenceRef.current === refreshLoadSequence;
+      projectLoadSequenceRef.current === refreshLoadSequence &&
+      activeUserIdRef.current === refreshUserId;
 
-    if (!user || !refreshProjectId) {
+    if (!refreshUserId || !refreshProjectId) {
       if (refreshIsCurrent()) {
         setLeads([]);
         setLeadsError('');
@@ -4198,10 +4206,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
 
     const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
     const updateProjectId = cloudProjectId;
     const updateOwnerId = activeProjectOwnerId;
     const updateIsCurrent = () =>
-      projectLoadSequenceRef.current === updateLoadSequence;
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
     const updatedAt = new Date().toISOString();
 
     const { error } = await updateWebsiteLeadStatus({
@@ -4226,10 +4236,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
 
     const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
     const updateProjectId = cloudProjectId;
     const updateOwnerId = activeProjectOwnerId;
     const updateIsCurrent = () =>
-      projectLoadSequenceRef.current === updateLoadSequence;
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
     const sanitized = {
       ...updates,
       ...(updates.tags ? { tags: updates.tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 12) } : {}),
@@ -4258,10 +4270,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId || !projectTeamAccess.canManage || !selectedLeadIds.length) return;
 
     const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
     const updateProjectId = cloudProjectId;
     const updateOwnerId = activeProjectOwnerId;
     const updateIsCurrent = () =>
-      projectLoadSequenceRef.current === updateLoadSequence;
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
     const ids = [...selectedLeadIds];
     const updatedAt = new Date().toISOString();
 
@@ -4314,10 +4328,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!confirmed) return;
 
     const deleteLoadSequence = projectLoadSequenceRef.current;
+    const deleteUserId = user.id;
     const deleteProjectId = cloudProjectId;
     const deleteOwnerId = activeProjectOwnerId;
     const deleteIsCurrent = () =>
-      projectLoadSequenceRef.current === deleteLoadSequence;
+      projectLoadSequenceRef.current === deleteLoadSequence &&
+      activeUserIdRef.current === deleteUserId;
 
     const { error } = await deleteWebsiteLead({
       leadId,
@@ -4339,10 +4355,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const refreshAnalytics = useCallback(async () => {
     const refreshLoadSequence = projectLoadSequenceRef.current;
     const refreshProjectId = cloudProjectId;
+    const refreshUserId = user?.id ?? null;
     const refreshIsCurrent = () =>
-      projectLoadSequenceRef.current === refreshLoadSequence;
+      projectLoadSequenceRef.current === refreshLoadSequence &&
+      activeUserIdRef.current === refreshUserId;
 
-    if (!user || !refreshProjectId) {
+    if (!refreshUserId || !refreshProjectId) {
       if (refreshIsCurrent()) {
         setAnalyticsEvents([]);
         setAnalyticsError('');
@@ -8961,10 +8979,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     expectedOwnerId = activeProjectOwnerId,
     expectedLoadSequence = projectLoadSequenceRef.current,
   ) => {
+    const refreshUserId = user?.id ?? null;
     const refreshIsCurrent = () =>
-      projectLoadSequenceRef.current === expectedLoadSequence;
+      projectLoadSequenceRef.current === expectedLoadSequence &&
+      activeUserIdRef.current === refreshUserId;
 
-    if (!user || !expectedProjectId) {
+    if (!refreshUserId || !expectedProjectId) {
       if (refreshIsCurrent()) {
         setPublishVersions([]);
         setPublishVersionsError('');
@@ -9006,13 +9026,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     expectedLoadSequence = projectLoadSequenceRef.current,
   ) {
     const verificationSequence = ++liveVerificationSequenceRef.current;
+    const verificationUserId = user?.id ?? null;
     const verificationIsCurrent = () =>
       liveVerificationSequenceRef.current === verificationSequence &&
-      projectLoadSequenceRef.current === expectedLoadSequence;
+      projectLoadSequenceRef.current === expectedLoadSequence &&
+      activeUserIdRef.current === verificationUserId;
 
     if (!verificationIsCurrent()) return false;
 
-    if (!user || !expectedProjectId) {
+    if (!verificationUserId || !expectedProjectId) {
       setLiveVerification('idle');
       return false;
     }
@@ -9059,7 +9081,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const existingPreviewToken = previewToken;
     const previewIsCurrent = () =>
       previewOperationSequenceRef.current === previewSequence &&
-      projectLoadSequenceRef.current === previewLoadSequence;
+      projectLoadSequenceRef.current === previewLoadSequence &&
+      activeUserIdRef.current === previewUserId;
 
     setPreviewBusy(true);
     setPreviewError('');
@@ -9136,7 +9159,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const revokeToken = previewToken;
     const revokeIsCurrent = () =>
       previewOperationSequenceRef.current === revokeSequence &&
-      projectLoadSequenceRef.current === revokeLoadSequence;
+      projectLoadSequenceRef.current === revokeLoadSequence &&
+      activeUserIdRef.current === revokeUserId;
 
     if (updateBusy) setPreviewBusy(true);
     setPreviewError('');
@@ -9327,8 +9351,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const deleteLoadSequence = projectLoadSequenceRef.current;
     const deleteProjectId = cloudProjectId;
     const deleteOwnerId = activeProjectOwnerId;
+    const deleteUserId = user.id;
     const deleteIsCurrent = () =>
-      projectLoadSequenceRef.current === deleteLoadSequence;
+      projectLoadSequenceRef.current === deleteLoadSequence &&
+      activeUserIdRef.current === deleteUserId;
 
     setPublishVersionsLoading(true);
     setPublishVersionsError('');
@@ -10121,10 +10147,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!newIds.length) return;
 
     const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
     const updateProjectId = cloudProjectId;
     const updateOwnerId = activeProjectOwnerId;
     const updateIsCurrent = () =>
-      projectLoadSequenceRef.current === updateLoadSequence;
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
 
     const { error } = await updateWebsiteLeadsByStatus({
       projectId: updateProjectId,
@@ -10151,10 +10179,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!readCount) return;
 
     const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
     const updateProjectId = cloudProjectId;
     const updateOwnerId = activeProjectOwnerId;
     const updateIsCurrent = () =>
-      projectLoadSequenceRef.current === updateLoadSequence;
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
 
     const { error } = await updateWebsiteLeadsByStatus({
       projectId: updateProjectId,
@@ -10786,8 +10816,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const launchLoadSequence = projectLoadSequenceRef.current;
     const launchProjectId = cloudProjectId;
     const launchOwnerId = activeProjectOwnerId;
+    const launchUserId = user?.id ?? null;
     const launchIsCurrent = () =>
-      projectLoadSequenceRef.current === launchLoadSequence;
+      projectLoadSequenceRef.current === launchLoadSequence &&
+      activeUserIdRef.current === launchUserId;
 
     setLaunchCheckBusy(true);
     try {
