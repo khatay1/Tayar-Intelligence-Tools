@@ -5359,6 +5359,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     let suffix = 2;
     while (used.has(slug)) slug = `${base}-${suffix++}`;
     const page = { ...createPage(`Page ${pages.length + 1}`, slug), language: prefs.language };
+    clearEditorDragState();
     setPages((current) => [...current, page]);
     setActivePageId(page.id);
     setSections(page.sections);
@@ -5388,6 +5389,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       showInNavigation: false,
       canonicalUrl: '',
     };
+    clearEditorDragState();
     setPages((current) => [...current, page]);
     setActivePageId(page.id);
     setSections(clonedSections);
@@ -5425,6 +5427,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       translationKey: groupKey,
       canonicalUrl: '',
     };
+    clearEditorDragState();
     setPages((current) => current
       .map((item) => item.id === activePage.id ? { ...item, translationKey: groupKey } : item)
       .concat(page));
@@ -6318,16 +6321,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       };
       const nextTargetElements = [...targetWithoutSource];
       nextTargetElements.splice(Math.min(insertAt, nextTargetElements.length), 0, movedElement);
-      draggedElementSectionRef.current = targetSectionId;
-      drag.sectionId = targetSectionId;
-      selectEditorTarget(targetSectionId, sourceId);
-
       return current.map((section) => {
         if (section.id === sourceSectionId) return { ...section, elements: section.elements.filter((element) => element.id !== sourceId) };
         if (section.id === targetSectionId) return { ...section, elements: nextTargetElements };
         return section;
       });
     });
+
+    if (sourceSectionId !== targetSectionId) {
+      draggedElementSectionRef.current = targetSectionId;
+      drag.sectionId = targetSectionId;
+      selectEditorTarget(targetSectionId, sourceId);
+    }
+
     setSaved(false);
   }
 
@@ -11660,6 +11666,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    clearEditorDragState();
     setPages(nextPages);
 
     setActivePageId(
