@@ -138,3 +138,15 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 - Feature plans are limited to 16 reviewed create/replace operations and use the existing Patch Plan, diff, explicit confirmation, stale-write protection and rollback workflow.
 - Replace operations are allowed only for complete, non-truncated project files already in the bounded project context.
 - Login/AI/Admin packs must reuse existing real services when present; otherwise they expose honest frontend adapter boundaries instead of inventing authentication, data or network behavior.
+
+
+## Feature pack preview and controlled dependencies
+
+- Full feature plans show a structural preview before Apply: primary entry candidate, inferred route hints, create/replace counts and per-file roles.
+- The primary generated TSX/JSX file can use the existing isolated live-preview preflight. Multi-file/local-import/dependency-heavy packs fall back to structural review instead of unsafe execution.
+- `package.json` remains forbidden to AI patch operations.
+- Tayar has a separate deterministic dependency editor that may add missing runtime dependencies only when the plan contains an explicit safe version/spec and a complete project `package.json` is available.
+- Existing dependencies, devDependencies, scripts and all other package.json fields are immutable under the controlled editor and are revalidated against the current project again at Apply time.
+- The dependency edit requires its own checkbox. No package-manager command or lockfile mutation is executed automatically.
+- If a lockfile exists, the UI warns that it must be refreshed using the project's package manager after Apply.
+- Package.json is retained locally for controlled editing only and is never added to the bounded AI project context.
