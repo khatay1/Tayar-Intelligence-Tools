@@ -62,6 +62,8 @@ check('Template import runner persists recursive progress', templateImportRunner
 check('Template import runner preserves failure asset identity', templateImportRunner.includes('file: entry.title') && templateImportRunner.includes('sourceDownloadUrl: entry.sourceDownloadUrl'));
 check('Template import runner tracks reused binaries', templateImportRunner.includes('reused: 0') && templateImportRunner.includes('state.stats.reused += Number(result.reused || 0)'));
 check('Template import runner ignores OS metadata junk files', templateImportRunner.includes('isSystemJunkFile') && templateImportRunner.includes('.ds_store') && templateImportRunner.includes('thumbs.db') && templateImportRunner.includes('desktop.ini'));
+check('Template import runner separates real failures from system junk in summaries', templateImportRunner.includes('summarizeState') && templateImportRunner.includes('systemFailureCount') && templateImportRunner.includes('realFailureCount'));
+check('Template import runner has an unambiguous full completion message', templateImportRunner.includes('FULL TAYAR TEMPLATE IMPORT COMPLETED') && templateImportRunner.includes('folder page completed') && templateImportRunner.includes('summary()'));
 check('Template import runner saves subfolder-only discovery before queue reload', templateImportRunner.includes('Persist discovery progress immediately') && templateImportRunner.includes('saveState(state);') && templateImportRunner.includes('findIndex((item) => item.id === folder.id)'));
 check('Template mirror client service exists', exists('src/modules/templates-hub/library-service.ts'));
 check('Template mirror browser hook exists', exists('src/modules/templates-hub/use-template-library.ts'));
