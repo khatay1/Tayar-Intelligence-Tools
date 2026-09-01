@@ -5230,10 +5230,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     deliveryConfig.approvedFingerprint && deliveryConfig.approvedFingerprint === buildDeliveryFingerprint()
   );
 
-  const activePage = useMemo(
-    () => pages.find((page) => page.id === activePageId) ?? pages[0] ?? null,
-    [pages, activePageId]
-  );
+  const activePage = useMemo(() => {
+    const storedActivePage = pages.find((page) => page.id === activePageId);
+    if (storedActivePage) {
+      return {
+        ...storedActivePage,
+        sections,
+      };
+    }
+
+    return pages[0] ?? null;
+  }, [pages, activePageId, sections]);
 
   const siteAudit = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -6123,9 +6130,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return { ...section, elements };
     }));
 
-    setSelectedElementId(instance.id);
-    setSelectedContainerId(null);
-    setSelectedFormFieldId(null);
+    selectEditorTarget(selectedSection.id, instance.id);
     setSaved(false);
   }
 
@@ -6148,25 +6153,65 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       elements: section.elements.map((element) => element.symbolId === symbolId ? { ...element, symbolId: undefined } : element),
     });
     setSections((current) => current.map(detach));
-    setPages((current) => current.map((page) => ({ ...page, sections: page.sections.map(detach) })));
+    setPages((current) => current.map((page) =>
+      page.id === activePageId
+        ? page
+        : { ...page, sections: page.sections.map(detach) }
+    ));
     setSaved(false);
   }
 
   function resetSelectedElementResponsive() {
-    if (!selectedSection || !selectedElementId) return;
+    if (!selectedSection || !selectedElementId || !selectedElement) return;
+
     remember(sections);
-    setSections((current) => current.map((section) => {
-      if (section.id !== selectedSection.id) return section;
-      return {
-        ...section,
-        elements: section.elements.map((element) => {
-          if (element.id !== selectedElementId) return element;
-          const responsive = { ...(element.responsive || {}) };
-          delete responsive[device];
-          return { ...element, responsive };
-        }),
-      };
-    }));
+    const selectedSymbolId = selectedElement.symbolId;
+
+    const resetElement = (element: WebsiteElement): WebsiteElement => {
+      const responsive = { ...(element.responsive || {}) };
+      delete responsive[device];
+      return { ...element, responsive };
+    };
+
+    const resetSection = (section: WebsiteSection): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = selectedSymbolId
+          ? element.symbolId === selectedSymbolId
+          : element.id === selectedElementId;
+        return matches ? resetElement(element) : element;
+      }),
+    });
+
+    setSections((current) =>
+      current.map((section) =>
+        section.id === selectedSection.id || selectedSymbolId
+          ? resetSection(section)
+          : section
+      )
+    );
+
+    if (selectedSymbolId) {
+      setPages((current) => current.map((page) =>
+        page.id === activePageId
+          ? page
+          : {
+              ...page,
+              sections: page.sections.map(resetSection),
+            }
+      ));
+
+      setSymbols((current) => current.map((symbol) =>
+        symbol.id === selectedSymbolId
+          ? {
+              ...symbol,
+              element: cloneSymbolElement(resetElement(symbol.element)),
+              updatedAt: new Date().toISOString(),
+            }
+          : symbol
+      ));
+    }
+
     setSaved(false);
   }
 
