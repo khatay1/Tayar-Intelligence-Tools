@@ -64,6 +64,8 @@ check('Template import runner tracks reused binaries', templateImportRunner.incl
 check('Template import runner ignores OS metadata junk files', templateImportRunner.includes('isSystemJunkFile') && templateImportRunner.includes('.ds_store') && templateImportRunner.includes('thumbs.db') && templateImportRunner.includes('desktop.ini'));
 check('Template import runner saves subfolder-only discovery before queue reload', templateImportRunner.includes('Persist discovery progress immediately') && templateImportRunner.includes('saveState(state);') && templateImportRunner.includes('findIndex((item) => item.id === folder.id)'));
 check('Template mirror client service exists', exists('src/modules/templates-hub/library-service.ts'));
+check('Template mirror browser hook exists', exists('src/modules/templates-hub/use-template-library.ts'));
+check('Template mirror card exists', exists('src/modules/templates-hub/MirroredTemplateCard.tsx'));
 check('Templates are split by domain', exists('src/modules/templates-hub/templates/finance.ts') && exists('src/modules/templates-hub/templates/business.ts') && exists('src/modules/templates-hub/templates/productivity.ts'));
 check('Name Generator module exists', exists('src/modules/name-generator/NameGeneratorTool.tsx'));
 check('Name Generator engine is isolated', exists('src/modules/name-generator/name-generator.ts') && exists('src/modules/name-generator/name-banks.ts'));
@@ -166,6 +168,8 @@ const templateMirrorSync = read('supabase/functions/template-library-sync/index.
 const templateMirrorDiscover = read('supabase/functions/template-library-discover/index.ts');
 const templateSourceCatalog = read('src/modules/templates-hub/source-catalog.ts');
 const templateMirrorService = read('src/modules/templates-hub/library-service.ts');
+const templateLibraryHook = read('src/modules/templates-hub/use-template-library.ts');
+const mirroredTemplateCard = read('src/modules/templates-hub/MirroredTemplateCard.tsx');
 const nameGeneratorTool = read('src/modules/name-generator/NameGeneratorTool.tsx');
 const nameGeneratorEngine = read('src/modules/name-generator/name-generator.ts');
 const letterGeneratorTool = read('src/modules/letter-generator/LetterGeneratorTool.tsx');
@@ -236,6 +240,10 @@ check('Template discovery is admin-only and non-recursive', templateMirrorDiscov
 check('Template discovery validates page and candidate hosts', templateMirrorDiscover.includes('assert24BillionsPageUrl') && templateMirrorDiscover.includes('isAllowedCandidateUrl') && templateMirrorDiscover.includes("redirect: \"manual\""));
 check('24Billions catalog covers the major public library families', ['excel-templates-bundle','excel-ppt-word-power-bi-templates','modern-cv-template-word-free-download','letterhead-templates','weekly-planner','invoice'].some((value) => templateSourceCatalog.includes(value)));
 check('Template library service exposes only ready public assets', templateMirrorService.includes(".eq('status', 'ready')") && templateMirrorService.includes(".eq('is_public', true)"));
+check('Template library service paginates and bounds catalog requests', templateMirrorService.includes('MAX_PAGE_SIZE = 100') && templateMirrorService.includes('.range(from, to)') && templateMirrorService.includes("{ count: 'exact' }"));
+check('Template library hook ignores stale async results', templateLibraryHook.includes('requestId.current !== id') && templateLibraryHook.includes('window.setTimeout'));
+check('Mirrored template downloads use public storage URLs safely', mirroredTemplateCard.includes('publicTemplateUrl(asset.storagePath)') && mirroredTemplateCard.includes('rel="noopener noreferrer"'));
+check('Templates Hub exposes mirrored library with local originals fallback', templatesHub.includes("mode === 'library'") && templatesHub.includes('Tayar Originals') && templatesHub.includes('useTemplateLibrary'));
 check('Name Generator is local and does not claim availability checks', modulesIndex.includes("import './name-generator'") && nameGeneratorTool.includes('Availability is not checked') && !nameGeneratorEngine.includes('fetch(') && !nameGeneratorEngine.includes('supabase'));
 check('Name Generator bounds user input and result count', nameGeneratorEngine.includes('MAX_KEYWORD_LENGTH') && nameGeneratorEngine.includes('MAX_RESULTS'));
 check('Letter Generator is local and output remains manually editable', modulesIndex.includes("import './letter-generator'") && letterGeneratorTool.includes('Edit the result') && !letterGeneratorEngine.includes('fetch(') && !letterGeneratorEngine.includes('supabase'));
