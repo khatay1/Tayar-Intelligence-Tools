@@ -252,8 +252,27 @@
 
 .tayar-v2-history-entry {
   display: grid;
+  width: 100%;
   gap: 2px;
   padding: 9px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  text-align: left;
+}
+
+button.tayar-v2-history-entry:not(:disabled) {
+  cursor: pointer;
+}
+
+button.tayar-v2-history-entry:not(:disabled):hover {
+  border-color: rgba(124, 58, 237, 0.42);
+  background: rgba(124, 58, 237, 0.08);
+}
+
+button.tayar-v2-history-entry:disabled {
+  cursor: default;
 }
 
 .tayar-v2-history-entry__meta {
