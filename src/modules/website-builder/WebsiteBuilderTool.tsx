@@ -3426,6 +3426,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const projectLoadSequenceRef = useRef(0);
   const cloudProjectsRefreshSequenceRef = useRef(0);
   const cloudProjectsRefreshAbortControllerRef = useRef<AbortController | null>(null);
+  const publishOperationSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
 
   const cancelPendingProjectPersistence = useCallback(() => {
@@ -3440,7 +3441,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     saveInFlightRef.current = false;
+    publishOperationSequenceRef.current += 1;
     setCloudBusy(false);
+    setPublishBusy(false);
   }, []);
 
   const getCurrentPages = useCallback(() => {
@@ -9741,6 +9744,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    const publishSequence = ++publishOperationSequenceRef.current;
+    const publishLoadSequence = projectLoadSequenceRef.current;
+    const publishUserId = user.id;
+    const publishIsCurrent = () =>
+      publishOperationSequenceRef.current === publishSequence &&
+      projectLoadSequenceRef.current === publishLoadSequence;
+
     setPublishBusy(true);
     setPublishError('');
     setPublishVersionsError('');
@@ -9755,17 +9765,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           createHistory: false,
         });
 
+        if (!publishIsCurrent()) return;
+
         if (!latestSaved) {
           throw new Error('The latest editor changes could not be synchronized before publishing.');
         }
       } else {
         const draftData = buildProjectData();
         const createResult = await createWebsiteProjectInCloud({
-          userId: user.id,
+          userId: publishUserId,
           title: siteName.trim() || 'My Website',
           content: draftData,
           published: false,
         });
+
+        if (!publishIsCurrent()) return;
 
         if (createResult.error || !createResult.data) {
           if (createResult.error && /limit reached/i.test(createResult.error.message || '')) {
@@ -9783,7 +9797,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         saveActiveWebsiteProjectId(publishProjectId);
         setProjectTeamAccess({
           ...DEFAULT_EDITOR_PROJECT_ACCESS,
-          ownerId: user.id,
+          ownerId: publishUserId,
         });
         setCloudSyncFailed(false);
       }
@@ -9792,8 +9806,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('A cloud project ID is required to publish.');
       }
 
-      const folder = user.id + '/' + publishProjectId;
-      const publicBaseUrl = buildPublishedSiteBaseUrl(user.id, publishProjectId);
+      if (!publishIsCurrent()) return;
+
+      const folder = publishUserId + '/' + publishProjectId;
+      const publicBaseUrl = buildPublishedSiteBaseUrl(publishUserId, publishProjectId);
       if (!publicBaseUrl) {
         throw new Error('Could not build the public website URL.');
       }
@@ -9888,6 +9904,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         },
       );
 
+      const publishBaseProjectData = buildProjectData();
+      const publishEditableFingerprint = buildEditableFingerprint();
+      const publishReleaseNote = releaseNote.trim().slice(0, 500);
+      const publishReleaseHistoryEnabled =
+        billingEntitlements.features.releaseHistory;
+
       await replacePublishedWebsiteFiles(folder, files);
 
       const versionId =
@@ -9923,19 +9945,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       let archiveWarning = '';
 
-      if (
-        billingEntitlements
-          .features
-          .releaseHistory
-      ) {
+      if (publishReleaseHistoryEnabled) {
         try {
           await archivePublishedWebsiteFiles(versionPrefix, files);
 
-          const editableFingerprint =
-            buildEditableFingerprint();
-
           const provisionalData = {
-            ...buildProjectData(),
+            ...publishBaseProjectData,
             publishedUrl:
               publicBaseUrl +
               '/index.html',
@@ -9944,7 +9959,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             lastPublishedVersionId:
               versionId,
             lastPublishedFingerprint:
-              editableFingerprint,
+              publishEditableFingerprint,
           };
 
           const manifest =
@@ -9959,11 +9974,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           } = await createWebsitePublishVersion({
             id: versionId,
             projectId: publishProjectId,
-            ownerId: user.id,
-            releaseNote: releaseNote.trim().slice(0, 500),
+            ownerId: publishUserId,
+            releaseNote: publishReleaseNote,
             publishedUrl: publicBaseUrl + '/index.html',
             storagePrefix: versionPrefix,
-            editorFingerprint: editableFingerprint,
+            editorFingerprint: publishEditableFingerprint,
             snapshot: provisionalData,
             fileManifest: manifest,
           });
@@ -9983,7 +9998,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       const nextPublishedUrl =
-        buildPublishedSiteUrl(user.id, publishProjectId, 'index.html');
+        buildPublishedSiteUrl(publishUserId, publishProjectId, 'index.html');
 
       if (!nextPublishedUrl) {
         throw new Error('Could not build the public website URL.');
@@ -10001,11 +10016,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const nextPublishedAt =
         new Date().toISOString();
 
-      const editableFingerprint =
-        buildEditableFingerprint();
-
       const projectData = {
-        ...buildProjectData(),
+        ...publishBaseProjectData,
         publishedUrl:
           nextPublishedUrl,
         publishedAt:
@@ -10013,7 +10025,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         lastPublishedVersionId:
           archivedReleaseId,
         lastPublishedFingerprint:
-          editableFingerprint,
+          publishEditableFingerprint,
         updatedAt:
           nextPublishedAt,
       };
@@ -10022,7 +10034,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         error: projectError,
       } = await updateWebsiteProjectPublicationState({
         projectId: publishProjectId,
-        userId: user.id,
+        userId: publishUserId,
         content: projectData,
         published: true,
         updatedAt: nextPublishedAt,
@@ -10034,6 +10046,31 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           projectError.message
         );
       }
+
+      setCloudProjects((current) => {
+        const existing = current.find((project) => project.id === publishProjectId);
+        const updatedProject: CloudWebsiteProject = {
+          ...(existing || {
+            id: publishProjectId,
+            user_id: publishUserId,
+            workspace_id: null,
+            title: siteName.trim() || 'My Website',
+            content: projectData,
+            status: 'completed',
+            updated_at: nextPublishedAt,
+          }),
+          content: projectData,
+          status: 'completed',
+          updated_at: nextPublishedAt,
+        };
+
+        return [
+          updatedProject,
+          ...current.filter((project) => project.id !== publishProjectId),
+        ];
+      });
+
+      if (!publishIsCurrent()) return;
 
       setPublishedUrl(
         nextPublishedUrl,
@@ -10048,7 +10085,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       );
 
       setLastPublishedFingerprint(
-        editableFingerprint,
+        publishEditableFingerprint,
       );
 
       setReleaseNote('');
@@ -10076,16 +10113,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
 
-      await refreshCloudProjects();
-
-      if (
-        billingEntitlements
-          .features
-          .releaseHistory
-      ) {
+      if (publishReleaseHistoryEnabled) {
         await refreshPublishVersions();
       }
     } catch (error) {
+      if (!publishIsCurrent()) return;
+
       setPublishError(
         error instanceof Error
           ? error.message
@@ -10096,10 +10129,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         'failed',
       );
     } finally {
-      setPublishBusy(false);
+      if (publishOperationSequenceRef.current === publishSequence) {
+        setPublishBusy(false);
+      }
     }
   }
-
   async function unpublishWebsite() {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
@@ -10108,16 +10142,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
     if (!window.confirm('Remove the public version of this website?')) return;
 
+    const unpublishSequence = ++publishOperationSequenceRef.current;
+    const unpublishLoadSequence = projectLoadSequenceRef.current;
+    const unpublishProjectId = cloudProjectId;
+    const unpublishUserId = user.id;
+    const unpublishBaseProjectData = buildProjectData();
+    const unpublishIsCurrent = () =>
+      publishOperationSequenceRef.current === unpublishSequence &&
+      projectLoadSequenceRef.current === unpublishLoadSequence;
+
     setPublishBusy(true);
     setPublishError('');
 
     try {
-      const folder = `${user.id}/${cloudProjectId}`;
+      const folder = `${unpublishUserId}/${unpublishProjectId}`;
       await removePublishedWebsiteFiles(folder);
 
       const nextUpdatedAt = new Date().toISOString();
       const projectData = {
-        ...buildProjectData(),
+        ...unpublishBaseProjectData,
         publishedUrl: '',
         publishedAt: null,
         lastPublishedVersionId: null,
@@ -10126,13 +10169,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       };
 
       const { error: projectError } = await updateWebsiteProjectPublicationState({
-        projectId: cloudProjectId,
-        userId: user.id,
+        projectId: unpublishProjectId,
+        userId: unpublishUserId,
         content: projectData,
         published: false,
         updatedAt: nextUpdatedAt,
       });
       if (projectError) throw projectError;
+
+      setCloudProjects((current) =>
+        current.map((project) =>
+          project.id === unpublishProjectId
+            ? {
+                ...project,
+                content: projectData,
+                status: 'draft',
+                updated_at: nextUpdatedAt,
+              }
+            : project
+        )
+      );
+
+      if (!unpublishIsCurrent()) return;
 
       setPublishedUrl('');
       setPublishedAt(null);
@@ -10142,14 +10200,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
-      await refreshCloudProjects();
     } catch (error) {
+      if (!unpublishIsCurrent()) return;
       setPublishError(error instanceof Error ? error.message : 'Could not unpublish this website.');
     } finally {
-      setPublishBusy(false);
+      if (publishOperationSequenceRef.current === unpublishSequence) {
+        setPublishBusy(false);
+      }
     }
   }
-
   async function copyHtml() {
     try {
       await navigator.clipboard.writeText(getHtml());
