@@ -3462,6 +3462,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const mediaRefreshSequenceRef = useRef(0);
   const mediaUploadSequenceRef = useRef(0);
   const mediaDeleteSequenceRef = useRef(0);
+  const mediaGenerationSequenceRef = useRef(0);
   const billingRefreshSequenceRef = useRef(0);
   const billingOperationSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
@@ -3472,6 +3473,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     reusableOperationSequenceRef.current += 1;
     mediaUploadSequenceRef.current += 1;
     mediaDeleteSequenceRef.current += 1;
+    mediaGenerationSequenceRef.current += 1;
     billingRefreshSequenceRef.current += 1;
     billingOperationSequenceRef.current += 1;
     aiOperationSequenceRef.current += 1;
@@ -4600,6 +4602,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [user, cloudProjectId, projectTeamAccess.canEdit]);
 
   const refreshMedia = useCallback(async (expectedUserId: string | null = user?.id ?? null) => {
+    if (activeUserIdRef.current !== expectedUserId) {
+      return;
+    }
+
     const refreshSequence = ++mediaRefreshSequenceRef.current;
     const refreshIsCurrent = () =>
       mediaRefreshSequenceRef.current === refreshSequence &&
@@ -6757,6 +6763,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function requestGeneratedImage(prompt: string) {
     const cleanPrompt = prompt.trim();
     if (!cleanPrompt) throw new Error('Image prompt is required.');
+    const requestUserId = user?.id ?? null;
     const ai = createAIService('website-builder');
     const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean; persistenceError?: string }>(
       { action: 'generate-image', prompt: cleanPrompt },
@@ -6764,7 +6771,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       { temperature: 0.8, maxTokens: 1000 },
     );
     if (!response.json?.url) throw new Error('Image generation did not return an image.');
-    if (user) void refreshMedia();
+    if (requestUserId) void refreshMedia(requestUserId);
     return response.json;
   }
 
@@ -6780,7 +6787,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       );
     }
 
-    setMediaError('');
+    const generationSequence = ++mediaGenerationSequenceRef.current;
+    const generationUserId = user?.id ?? null;
+    const generationIsCurrent = () =>
+      mediaGenerationSequenceRef.current === generationSequence &&
+      activeUserIdRef.current === generationUserId;
+
+    if (generationIsCurrent()) {
+      setMediaError('');
+    }
 
     try {
       const generated =
@@ -6795,10 +6810,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
 
-      await refreshMedia();
+      if (generationIsCurrent()) {
+        await refreshMedia(generationUserId);
+      }
 
       return generated;
     } catch (error) {
+      if (!generationIsCurrent()) {
+        return undefined;
+      }
+
       const message =
         error instanceof Error
           ? error.message
