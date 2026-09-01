@@ -52,6 +52,8 @@ function primaryScore(operation: CodePatchOperation): number {
 }
 
 function categoryForOwner(ownerId: string): UIComponentCategory {
+  if (ownerId.includes('pricing')) return 'pricing';
+  if (ownerId.includes('landing') || ownerId.includes('saas')) return 'hero';
   if (ownerId.includes('login')) return 'authentication';
   if (ownerId.includes('ai-chat')) return 'ai';
   if (ownerId.includes('dashboard') || ownerId.includes('admin')) return 'dashboard';
@@ -60,7 +62,7 @@ function categoryForOwner(ownerId: string): UIComponentCategory {
 }
 
 export function buildFeaturePreviewModel(plan: CodePatchPlan | null, ownerId: string): FeaturePreviewModel | null {
-  if (!plan || !ownerId.startsWith('feature:')) return null;
+  if (!plan || (!ownerId.startsWith('feature:') && !ownerId.startsWith('page:'))) return null;
   const files = plan.operations.map((operation) => ({
     path: operation.path,
     mode: operation.type,
