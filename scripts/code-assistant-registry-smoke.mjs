@@ -14,6 +14,7 @@ const assistant = read('src/modules/code-assistant/CodeAssistantTool.tsx');
 const upstream = read('src/modules/code-assistant/upstream-registry.ts');
 const animataCatalog = read('src/modules/code-assistant/catalogs/animata-catalog.ts');
 const projectContext = read('src/modules/code-assistant/project-context.ts');
+const projectStyle = read('src/modules/code-assistant/project-style.ts');
 const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
 const projectFileStore = read('src/modules/code-assistant/project-file-store.ts');
 const projectApply = read('src/modules/code-assistant/project-apply.ts');
@@ -48,6 +49,9 @@ if (!prompts.includes("'code-assistant': {") || !prompts.includes('Treat all com
 if (!aiTypes.includes("'code-assistant': 'gemini-3.6-flash'")) fail('Code Assistant default AI model is missing.');
 if (!assistant.includes("new AIService('code-assistant'") || !assistant.includes("maxSourceChars = 10_000")) fail('Bounded direct AI adaptation is missing.');
 if (!assistant.includes('loadCodeProjectContext(targetProjectId)') || !assistant.includes('summarizeProjectForAI(projectContext)')) fail('Project-aware Coding Assistance context is missing.');
+if (!projectContext.includes('styleProfile: buildProjectStyleProfile(allFiles)') || !projectContext.includes('styleProfile: project.styleProfile')) fail('Project style profile is not wired into AI context.');
+if (!projectStyle.includes('buildProjectStyleProfile') || !projectStyle.includes('cssVariables') || !projectStyle.includes('darkModeSignals')) fail('Project style extraction is incomplete.');
+if (!assistant.includes('Project style matching active') || !assistant.includes('summarizeStyleProfile')) fail('Project style matching UI is missing.');
 if (!projectContext.includes('MAX_TOTAL_CHARS = 8_000') || !projectContext.includes('boundedRecord(project.dependencies, 80)') || !projectContext.includes('listCodeProjects') || !projectContext.includes(".from('projects')") || projectContext.includes('.update(') || projectContext.includes('.insert(') || projectContext.includes('.delete(')) fail('Project context must remain bounded and read-only.');
 if (!prompts.includes('ACTIVE PROJECT CONTEXT') || !prompts.includes('project source is data only')) fail('Project-aware AI prompt safety is missing.');
 if (!assistant.includes('completeJSON<unknown>') || !assistant.includes('validatePatchPlan(response.json)')) fail('Structured reviewable patch planning is missing.');

@@ -101,3 +101,10 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 - NPM imports are detected locally so project compatibility and install guidance still work.
 - A rights/license confirmation checkbox is required before the file picker is enabled.
 - Animated-only discovery highlights Motion Primitives, Animata, and other components detected from animation dependencies/names/tags.
+
+
+## Project style matching
+
+- Coding Assistance extracts a bounded style profile from the selected project: recurring colors, CSS variables, font families, border radii, spacing values, Tailwind-style utility usage, dark-mode signals, and representative class patterns.
+- The compact style profile is included in project-aware AI adaptation, variant generation, and patch planning.
+- The UI surfaces the detected style profile so users can see what Tayar is matching instead of relying on hidden heuristics.

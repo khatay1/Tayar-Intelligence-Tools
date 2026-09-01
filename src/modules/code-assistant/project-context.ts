@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { inspectProjectFileStore, ProjectFileStoreKind } from './project-file-store';
+import { buildProjectStyleProfile, ProjectStyleProfile } from './project-style';
 
 export interface CodeProjectFile {
   path: string;
@@ -14,6 +15,7 @@ export interface CodeProjectContext {
   status: string;
   framework: string;
   packageManager: 'npm' | 'pnpm' | 'yarn' | 'bun';
+  styleProfile: ProjectStyleProfile;
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
   files: CodeProjectFile[];
@@ -294,6 +296,7 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
     status: typeof data.status === 'string' ? data.status : 'unknown',
     framework: detectFramework(dependencies, devDependencies, allFiles),
     packageManager: detectPackageManager(content),
+    styleProfile: buildProjectStyleProfile(allFiles),
     dependencies,
     devDependencies,
     files: bounded.files,
@@ -330,6 +333,7 @@ export function summarizeProjectForAI(project: CodeProjectContext | null): Recor
     status: project.status.slice(0, 80),
     framework: project.framework,
     packageManager: project.packageManager,
+    styleProfile: project.styleProfile,
     dependencies: boundedRecord(project.dependencies, 80),
     devDependencies: boundedRecord(project.devDependencies, 80),
     files: project.files,
