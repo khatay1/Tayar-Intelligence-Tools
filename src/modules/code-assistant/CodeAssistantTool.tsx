@@ -18,6 +18,7 @@ import { summarizeStyleProfile } from './project-style';
 import { buildIsolatedLivePreview } from './live-preview';
 import { replacementCandidates, replacementTargets, validateExactReplacementPlan } from './replacement';
 import { FEATURE_PRESETS, FeatureKind, featureCandidateMetadata, featureRegistryCandidates, getFeaturePreset, validateFeaturePatchPlan } from './feature-generator';
+import { buildFeaturePreviewModel, buildFeaturePrimaryLivePreview } from './feature-preview';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -180,6 +181,8 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [featureInstruction, setFeatureInstruction] = useState('');
   const [featureLoading, setFeatureLoading] = useState(false);
   const [patchOwnerId, setPatchOwnerId] = useState('');
+  const [featurePreviewDoc, setFeaturePreviewDoc] = useState<string | null>(null);
+  const [featurePreviewReason, setFeaturePreviewReason] = useState<string | null>(null);
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
@@ -306,6 +309,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     () => featureRegistryCandidates(searchableItems, featureKind, 6),
     [searchableItems, featureKind],
   );
+  const featurePreview = useMemo(
+    () => buildFeaturePreviewModel(patchPlan, patchOwnerId),
+    [patchPlan, patchOwnerId],
+  );
   const installCommand = projectContext
     ? buildDependencyInstallCommand(
         projectContext.packageManager,
@@ -355,6 +362,11 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   useEffect(() => {
     if (replaceTargetPath && !replaceTargets.some((entry) => entry.path === replaceTargetPath)) setReplaceTargetPath('');
   }, [replaceTargets, replaceTargetPath]);
+
+  useEffect(() => {
+    setFeaturePreviewDoc(null);
+    setFeaturePreviewReason(null);
+  }, [patchPlan]);
 
   useEffect(() => {
     setVariants([]);
@@ -715,6 +727,18 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     }
   };
 
+  const onRunFeaturePreview = () => {
+    if (!patchPlan || !patchOwnerId.startsWith('feature:')) return;
+    const result = buildFeaturePrimaryLivePreview(patchPlan, patchOwnerId);
+    if (!result.supported || !result.srcDoc) {
+      setFeaturePreviewDoc(null);
+      setFeaturePreviewReason(result.reason || 'Primary feature preview is not available for this pack.');
+      return;
+    }
+    setFeaturePreviewDoc(result.srcDoc);
+    setFeaturePreviewReason(null);
+  };
+
   const refreshProjectContext = async () => {
     if (!targetProjectId) return null;
     const refreshed = await loadCodeProjectContext(targetProjectId);
@@ -931,6 +955,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
                     <div className="rounded-lg border border-white/10 p-3"><div className="text-[10px] uppercase tracking-wider opacity-40">NPM to install</div><div className="mt-1 text-xs">{patchPlan.dependenciesToInstall.join(', ') || 'None'}</div></div>
                     <div className="rounded-lg border border-white/10 p-3"><div className="text-[10px] uppercase tracking-wider opacity-40">Registry dependencies</div><div className="mt-1 text-xs">{patchPlan.registryDependencies.join(', ') || 'None'}</div></div>
                   </div>}
+                  {featurePreview && <div className="rounded-xl border border-cyan-400/15 bg-cyan-500/5 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm font-semibold"><Layers3 className="h-4 w-4 text-cyan-300" /> Feature Pack Preview</div><button onClick={onRunFeaturePreview} className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/20 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-200"><Eye className="h-3 w-3" /> Preview primary file</button></div><div className="mt-3 grid gap-2 sm:grid-cols-4"><div className="rounded-lg border border-white/10 p-2"><div className="text-[9px] uppercase opacity-40">Files</div><div className="mt-1 text-sm font-semibold">{featurePreview.files.length}</div></div><div className="rounded-lg border border-white/10 p-2"><div className="text-[9px] uppercase opacity-40">Create</div><div className="mt-1 text-sm font-semibold">{featurePreview.creates}</div></div><div className="rounded-lg border border-white/10 p-2"><div className="text-[9px] uppercase opacity-40">Replace</div><div className="mt-1 text-sm font-semibold">{featurePreview.replaces}</div></div><div className="rounded-lg border border-white/10 p-2"><div className="text-[9px] uppercase opacity-40">Primary</div><div className="mt-1 truncate text-[10px] font-semibold">{featurePreview.primaryPath || 'Not detected'}</div></div></div>{featurePreview.routeHints.length > 0 && <div className="mt-3 flex flex-wrap gap-1">{featurePreview.routeHints.map((route) => <span key={route} className="rounded-full bg-white/5 px-2 py-1 text-[10px]">{route}</span>)}</div>}<div className="mt-3 grid gap-1.5 sm:grid-cols-2">{featurePreview.files.map((file) => <div key={file.path} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-2.5 py-2 text-[10px]"><span className="truncate">{file.path}</span><span className="shrink-0 opacity-45">{file.mode} · {file.role}</span></div>)}</div>{featurePreviewDoc && <iframe title="Feature primary isolated preview" sandbox="allow-scripts" srcDoc={featurePreviewDoc} className="mt-3 h-[360px] w-full rounded-xl border border-white/10 bg-[#090917]" />}{featurePreviewReason && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-[10px] leading-4 text-amber-300">{featurePreviewReason}</div>}</div>}
                   {patchPlan.warnings.length > 0 && <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">{patchPlan.warnings.join(' · ')}</div>}
                   <div className="space-y-3">{patchPreviews.map(({ operation, existingContent, preview }) => <div key={operation.path} className="rounded-lg border border-white/10 overflow-hidden"><div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2"><div className="min-w-0"><div className="truncate text-xs font-semibold">{operation.path}</div><div className="mt-0.5 text-[10px] opacity-45">{operation.type} · {existingContent === null ? 'new file' : 'existing file'}{operation.reason ? ` · ${operation.reason}` : ''}</div></div><button onClick={() => void copyText(operation.content)} className="rounded-lg border border-white/10 p-2 opacity-60 hover:opacity-100" aria-label={`Copy ${operation.path}`}><Copy className="h-3.5 w-3.5" /></button></div><pre className="max-h-72 overflow-auto whitespace-pre-wrap bg-black/30 p-3 text-[11px] leading-5 text-gray-300"><code>{preview}</code></pre></div>)}</div>
                   <p className="text-[10px] leading-4 opacity-45">Safety gate: this plan cannot delete files, edit environment/credential files, modify lockfiles, or write package.json.</p>
