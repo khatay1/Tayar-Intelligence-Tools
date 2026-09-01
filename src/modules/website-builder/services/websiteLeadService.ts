@@ -65,3 +65,18 @@ export async function deleteWebsiteLead(input: {
     .eq('project_id', input.projectId)
     .eq('user_id', input.ownerId);
 }
+
+export async function updateWebsiteLeadsByStatus(input: {
+  projectId: string;
+  ownerId: string;
+  fromStatus: 'new' | 'read' | 'archived';
+  toStatus: 'new' | 'read' | 'archived';
+  updatedAt: string;
+}) {
+  return supabase
+    .from('website_leads')
+    .update({ status: input.toStatus, updated_at: input.updatedAt })
+    .eq('project_id', input.projectId)
+    .eq('user_id', input.ownerId)
+    .eq('status', input.fromStatus);
+}
