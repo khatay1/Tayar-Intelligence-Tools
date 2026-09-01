@@ -813,6 +813,7 @@ export function preflightEditorNativeOperations(
     }
 
     const prefix = `Operation ${index + 1} (${String(rawOperation.action || 'invalid')})`;
+    const operationErrorStart = errors.length;
     if (DESTRUCTIVE_ACTIONS.has(operation.action)) destructiveCount += 1;
 
     if (!validateOperationPayloadShape(operation, prefix, errors)) return;
@@ -901,10 +902,11 @@ export function preflightEditorNativeOperations(
       errors.push(`${prefix} cannot change container assignment through update_element; use assign_element_container`);
     }
 
-    const removedKey = removedTargetKey(operation);
-    if (removedKey) removed.add(removedKey);
-
-    applyOperationToReferenceState(operation, referenceState);
+    if (errors.length === operationErrorStart) {
+      const removedKey = removedTargetKey(operation);
+      if (removedKey) removed.add(removedKey);
+      applyOperationToReferenceState(operation, referenceState);
+    }
   });
 
   if (destructiveCount > maxDestructive) {
