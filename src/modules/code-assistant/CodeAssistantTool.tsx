@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Boxes, Check, Code2, Copy, ExternalLink, FolderCode, Heart, LayoutTemplate, Loader2, Package,
+  Boxes, Check, Code2, Copy, ExternalLink, FileDiff, FolderCode, Heart, LayoutTemplate, Loader2, Package,
   Search, ShieldCheck, Sparkles,
 } from 'lucide-react';
 import { AIService } from '@/lib/ai/service';
@@ -8,6 +8,7 @@ import { componentRegistry } from './component-registry';
 import { getRegistrySource, REGISTRY_SOURCES } from './source-catalog';
 import { loadUpstreamComponentCode, loadUpstreamComponents } from './upstream-registry';
 import { checkProjectDependencies, CodeProjectContext, loadCodeProjectContext, summarizeProjectForAI } from './project-context';
+import { buildPatchPreviews, CodePatchPlan, validatePatchPlan } from './patch-plan';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const CATEGORIES: Array<{ id: UIComponentCategory | 'all'; label: string }> = [
@@ -85,6 +86,8 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [projectContext, setProjectContext] = useState<CodeProjectContext | null>(null);
   const [projectLoading, setProjectLoading] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [patchPlan, setPatchPlan] = useState<CodePatchPlan | null>(null);
+  const [patchLoading, setPatchLoading] = useState(false);
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
@@ -155,6 +158,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     [projectContext, selected],
   );
   const missingDependencies = dependencyChecks.filter((entry) => !entry.installed);
+  const patchPreviews = useMemo(
+    () => patchPlan ? buildPatchPreviews(projectContext, patchPlan) : [],
+    [patchPlan, projectContext],
+  );
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((current) => {
@@ -241,6 +248,47 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       setActionError(error instanceof Error ? error.message : 'AI adaptation failed.');
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const onPlanPatch = async (item: UIComponentRecord) => {
+    if (patchLoading || aiLoading) return;
+    setPatchLoading(true);
+    setActionError(null);
+    setPatchPlan(null);
+    setTab('ai');
+    try {
+      const code = await ensureCode(item);
+      const maxSourceChars = 24_000;
+      const response = await aiService.completeJSON<unknown>(
+        {
+          action: 'plan-component-patch',
+          instruction: aiInstruction.trim() || item.aiPrompt,
+          component: {
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            kind: item.kind || 'component',
+            source: getRegistrySource(item.sourceId)?.name || item.sourceId,
+            license: item.license,
+            npmDependencies: item.dependencies,
+            registryDependencies: item.remote?.registryDependencies || [],
+          },
+          project: summarizeProjectForAI(projectContext),
+          dependencyAnalysis: checkProjectDependencies(projectContext, item.dependencies),
+          sourceCode: code.slice(0, maxSourceChars),
+          sourceTruncated: code.length > maxSourceChars,
+        },
+        [],
+        { temperature: 0.1, maxTokens: 6144 },
+      );
+      if (!response.json) throw new Error('AI did not return a structured patch plan.');
+      setPatchPlan(validatePatchPlan(response.json));
+      setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to generate a safe patch plan.');
+    } finally {
+      setPatchLoading(false);
     }
   };
 
@@ -353,12 +401,24 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
                   <p className="mt-2 text-xs leading-5 opacity-55">Describe the change you want. Tayar sends a bounded source excerpt plus dependency/license metadata and a bounded snapshot of the active project to the existing authenticated AI engine. The result is review-only and is never executed or applied automatically.</p>
                   <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} maxLength={2000} placeholder="Example: Make this fit a dark SaaS dashboard, use our existing buttons, reduce motion on mobile, and keep it accessible." className={`mt-3 w-full resize-y rounded-xl border p-3 text-sm outline-none focus:border-violet-400/50 ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button disabled={aiLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate adaptation</button>
+                    <button disabled={aiLoading || patchLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate adaptation</button>
+                    <button disabled={aiLoading || patchLoading} onClick={() => void onPlanPatch(selected)} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50 ${darkMode ? 'border-violet-400/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>{patchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDiff className="h-4 w-4" />} Plan file patch</button>
                     {aiResult && <button onClick={() => void copyText(aiResult).then(() => { setCopied('prompt'); window.setTimeout(() => setCopied(null), 1400); })} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold ${darkMode ? 'border-white/10' : 'border-gray-200'}`}><Copy className="h-4 w-4" /> {copied === 'prompt' ? 'Copied' : 'Copy result'}</button>}
                   </div>
                 </div>
                 {aiMeta && <div className="flex flex-wrap gap-2 text-[10px] opacity-50"><span>Model: {aiMeta.model}</span><span>Input tokens: {aiMeta.tokensIn}</span><span>Output tokens: {aiMeta.tokensOut}</span></div>}
-                {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation generated yet.</div>}
+                {patchPlan && <div className="space-y-3 rounded-xl border border-violet-400/15 bg-violet-500/5 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold"><FileDiff className="h-4 w-4 text-violet-400" /> Reviewable patch plan</div>
+                  <p className="text-xs leading-5 opacity-65">{patchPlan.summary}</p>
+                  {(patchPlan.dependenciesToInstall.length > 0 || patchPlan.registryDependencies.length > 0) && <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg border border-white/10 p-3"><div className="text-[10px] uppercase tracking-wider opacity-40">NPM to install</div><div className="mt-1 text-xs">{patchPlan.dependenciesToInstall.join(', ') || 'None'}</div></div>
+                    <div className="rounded-lg border border-white/10 p-3"><div className="text-[10px] uppercase tracking-wider opacity-40">Registry dependencies</div><div className="mt-1 text-xs">{patchPlan.registryDependencies.join(', ') || 'None'}</div></div>
+                  </div>}
+                  {patchPlan.warnings.length > 0 && <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">{patchPlan.warnings.join(' · ')}</div>}
+                  <div className="space-y-3">{patchPreviews.map(({ operation, existingContent, preview }) => <div key={operation.path} className="rounded-lg border border-white/10 overflow-hidden"><div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2"><div className="min-w-0"><div className="truncate text-xs font-semibold">{operation.path}</div><div className="mt-0.5 text-[10px] opacity-45">{operation.type} · {existingContent === null ? 'new file' : 'existing file'}{operation.reason ? ` · ${operation.reason}` : ''}</div></div><button onClick={() => void copyText(operation.content)} className="rounded-lg border border-white/10 p-2 opacity-60 hover:opacity-100" aria-label={`Copy ${operation.path}`}><Copy className="h-3.5 w-3.5" /></button></div><pre className="max-h-72 overflow-auto whitespace-pre-wrap bg-black/30 p-3 text-[11px] leading-5 text-gray-300"><code>{preview}</code></pre></div>)}</div>
+                  <p className="text-[10px] leading-4 opacity-45">Safety gate: this plan cannot delete files, edit environment/credential files, modify lockfiles, or write package.json. Nothing is applied automatically.</p>
+                </div>}
+                {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && !patchLoading && !patchPlan && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation or patch plan generated yet.</div>}
               </div>}
               {tab === 'info' && <div className="space-y-4">{projectContext && <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="text-xs uppercase tracking-wider text-cyan-300/70">Active project</div><div className="mt-2 font-semibold">{projectContext.title}</div><div className="mt-1 text-xs opacity-60">{projectContext.framework} · {Object.keys(projectContext.dependencies).length} dependencies · {projectContext.totalCandidateFiles} candidate files</div><p className="mt-2 text-[11px] leading-5 opacity-45">Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.</p></div>}<div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.remote?.revision ? ` @ ${selected.remote.revision.slice(0, 8)}` : ''}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
             </div>

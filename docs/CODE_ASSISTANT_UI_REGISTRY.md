@@ -48,13 +48,15 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - AI source is explicitly treated as untrusted data to reduce prompt-injection risk from third-party code comments.
 - When an active Tayar project is available, Coding Assistance reads a bounded, read-only project snapshot, detects framework/package metadata, and reports missing component dependencies.
 - The bounded active-project snapshot is included in AI adaptation context, with project source explicitly treated as untrusted data.
+- Structured AI patch planning returns validated create/replace operations and a before/after change preview.
+- Patch planning blocks deletes, environment/credential files, lockfiles, package.json writes, unsafe paths, duplicate operations, and oversized payloads.
 
 ## Next implementation layers
 
 1. Expand the approved upstream catalog with additional MIT/Apache registries after per-source license verification.
 2. Add generated local snapshots for offline/fast browsing and change detection.
-3. Add a reviewable patch proposal format against active project files.
-4. Add explicit-confirmation safe apply with rollback checkpoints for supported code-project shapes.
+3. Add explicit-confirmation safe apply with rollback checkpoints for supported code-project shapes.
+4. Add package/registry dependency install planning with conflict/version warnings.
 5. Add AI variants, similar-component search, and full-page templates.
 6. Add registry audits that prevent duplicate IDs, missing license metadata, and restricted sources.
 

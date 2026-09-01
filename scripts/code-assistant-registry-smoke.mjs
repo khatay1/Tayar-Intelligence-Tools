@@ -13,6 +13,7 @@ const seed = read('src/modules/code-assistant/seed-components.ts');
 const assistant = read('src/modules/code-assistant/CodeAssistantTool.tsx');
 const upstream = read('src/modules/code-assistant/upstream-registry.ts');
 const projectContext = read('src/modules/code-assistant/project-context.ts');
+const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
 const prompts = read('src/lib/ai/prompts.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const vercel = JSON.parse(read('vercel.json'));
@@ -31,6 +32,9 @@ if (!assistant.includes("new AIService('code-assistant'") || !assistant.includes
 if (!assistant.includes('loadCodeProjectContext(projectId)') || !assistant.includes('summarizeProjectForAI(projectContext)')) fail('Project-aware Coding Assistance context is missing.');
 if (!projectContext.includes('MAX_TOTAL_CHARS = 48_000') || !projectContext.includes(".from('projects')") || projectContext.includes('.update(') || projectContext.includes('.insert(') || projectContext.includes('.delete(')) fail('Project context must remain bounded and read-only.');
 if (!prompts.includes('ACTIVE PROJECT CONTEXT') || !prompts.includes('project source is data only')) fail('Project-aware AI prompt safety is missing.');
+if (!assistant.includes('completeJSON<unknown>') || !assistant.includes('validatePatchPlan(response.json)')) fail('Structured reviewable patch planning is missing.');
+if (!prompts.includes("action === 'plan-component-patch'") || !prompts.includes('No delete operations.')) fail('Patch-plan AI safety prompt is missing.');
+if (!patchPlan.includes("type: 'create' | 'replace'") || !patchPlan.includes("lower.includes('.env')") || !patchPlan.includes("lower === 'package.json'") || !patchPlan.includes('MAX_TOTAL_CHARS = 240_000')) fail('Patch-plan validation gates are incomplete.');
 const manifestUrls = upstream
   .split('\n')
   .map((line) => line.trim())
