@@ -121,11 +121,20 @@
     return "office-bundle";
   }
 
+  function isSystemJunkFile(name) {
+    const value = String(name || "").trim().toLowerCase();
+    return value === ".ds_store"
+      || value === "thumbs.db"
+      || value === "desktop.ini"
+      || value.startsWith("._");
+  }
+
   function normalizeFiles(files) {
     return (files || []).filter((file) =>
       file?.id
       && file?.downloadUrl
       && file?.name
+      && !isSystemJunkFile(file.name)
       && ALLOWED_FORMATS.has(String(file.format || "unknown").toLowerCase())
     );
   }
