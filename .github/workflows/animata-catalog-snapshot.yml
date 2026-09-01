@@ -1,0 +1,55 @@
+name: Snapshot Animata Catalog
+
+on:
+  push:
+    branches:
+      - 'internal-code-assistant-registry-*'
+    paths:
+      - 'scripts/generate-animata-catalog.mjs'
+      - '.github/workflows/animata-catalog-snapshot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: animata-catalog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Tayar
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download pinned Animata source
+        run: |
+          rm -rf /tmp/animata-src /tmp/animata.tar.gz
+          mkdir -p /tmp/animata-src
+          curl --fail --location --retry 3 \
+            "https://codeload.github.com/codse/animata/tar.gz/de9aabb0eed14e0db944bb07720961ddc450c672" \
+            --output /tmp/animata.tar.gz
+          tar -xzf /tmp/animata.tar.gz -C /tmp/animata-src --strip-components=1
+
+      - name: Build Animata registry with upstream generator
+        working-directory: /tmp/animata-src
+        run: node scripts/build-registry.js
+
+      - name: Generate Tayar catalog snapshot
+        run: node scripts/generate-animata-catalog.mjs /tmp/animata-src src/modules/code-assistant/catalogs/animata-catalog.ts
+
+      - name: Commit snapshot when changed
+        run: |
+          if git diff --quiet -- src/modules/code-assistant/catalogs/animata-catalog.ts && git ls-files --error-unmatch src/modules/code-assistant/catalogs/animata-catalog.ts >/dev/null 2>&1; then
+            echo "Animata catalog already matches the pinned revision."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/code-assistant/catalogs/animata-catalog.ts
+          git commit -m "Refresh pinned Animata catalog"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
