@@ -26,6 +26,7 @@ export function decideEditorAutosave({
 }: EditorAutosaveDecisionInput): EditorAutosaveDecision {
   if (signedIn && !cloudProjectsLoaded) return 'blocked';
   if (requestedProjectId && activeProjectId !== requestedProjectId) return 'blocked';
+  if (signedIn && !activeProjectId) return 'blocked';
   if (!lastSavedFingerprint) return 'initialize';
   if (skipNext) return 'skip-once';
   if (fingerprint === lastSavedFingerprint) return 'unchanged';
