@@ -1,5 +1,6 @@
 import type { EditorNativeOperation, EditorNativeOperationAction } from './editor-native-operation';
 import type { EditorProjectLike } from './editor-model';
+import { inspectEditorPayloadSafety } from './editor-payload-safety';
 
 export interface EditorOperationPreflightOptions {
   maxOperations?: number;
@@ -21,6 +22,412 @@ const DESTRUCTIVE_ACTIONS = new Set<EditorNativeOperationAction>([
   'remove_container',
   'remove_form_field',
 ]);
+
+const VALID_NATIVE_ACTIONS = new Set<EditorNativeOperationAction>([
+  'add_page',
+  'duplicate_page',
+  'update_page',
+  'remove_page',
+  'move_page',
+  'set_home_page',
+  'add_section',
+  'duplicate_section',
+  'update_section',
+  'remove_section',
+  'move_section',
+  'add_element',
+  'duplicate_element',
+  'update_element',
+  'remove_element',
+  'move_element',
+  'add_container',
+  'update_container',
+  'remove_container',
+  'assign_element_container',
+  'add_form_field',
+  'update_form_field',
+  'remove_form_field',
+  'move_form_field',
+  'create_symbol',
+  'insert_symbol',
+  'detach_symbol',
+  'copy_element_style',
+  'copy_section_style',
+  'repair_responsive',
+  'repair_accessibility',
+  'restyle_site',
+  'update_theme',
+  'update_seo',
+  'update_header',
+]);
+
+const PAGE_CHANGE_KEYS = new Set([
+  'name',
+  'slug',
+  'seoTitle',
+  'seoDescription',
+  'canonicalUrl',
+  'socialImage',
+  'showInNavigation',
+  'noIndex',
+  'language',
+  'translationKey',
+]);
+
+const SECTION_CHANGE_KEYS = new Set([
+  'title',
+  'description',
+  'buttonText',
+  'buttonUrl',
+  'background',
+  'accent',
+  'image',
+  'imagePrompt',
+  'formFields',
+  'formSuccessMessage',
+  'formSuccessAction',
+  'formRedirectUrl',
+  'anchorId',
+  'layout',
+  'layoutGap',
+  'layoutAlign',
+  'backgroundMode',
+  'backgroundImage',
+  'backgroundPosition',
+  'backgroundSize',
+  'gradientFrom',
+  'gradientTo',
+  'gradientAngle',
+  'overlayColor',
+  'overlayOpacity',
+  'minHeight',
+  'sectionPaddingY',
+  'sectionPaddingX',
+  'sectionRadius',
+  'responsive',
+  'contentWidth',
+  'hidden',
+]);
+
+const ELEMENT_CHANGE_KEYS = new Set([
+  'content',
+  'href',
+  'src',
+  'alt',
+  'title',
+  'style',
+  'responsive',
+  'layoutColumn',
+  'animationOnce',
+  'muted',
+]);
+
+const ELEMENT_STYLE_KEYS = new Set([
+  'color',
+  'backgroundColor',
+  'fontSize',
+  'fontWeight',
+  'textAlign',
+  'padding',
+  'borderRadius',
+  'width',
+  'maxWidth',
+  'marginTop',
+  'marginRight',
+  'marginBottom',
+  'marginLeft',
+  'positionX',
+  'positionY',
+  'order',
+  'hidden',
+  'alignSelf',
+  'columnSpan',
+  'lineHeight',
+  'letterSpacing',
+  'opacity',
+  'rotate',
+  'borderWidth',
+  'borderColor',
+  'borderStyle',
+  'shadow',
+  'hoverScale',
+  'hoverOpacity',
+  'hoverBackgroundColor',
+  'hoverColor',
+  'hoverShadow',
+  'animation',
+  'animationDuration',
+  'animationDelay',
+  'animationDistance',
+]);
+
+const SECTION_RESPONSIVE_KEYS = new Set([
+  'minHeight',
+  'sectionPaddingY',
+  'sectionPaddingX',
+  'layoutGap',
+]);
+
+const CONTAINER_CHANGE_KEYS = new Set([
+  'name',
+  'layout',
+  'gap',
+  'align',
+  'backgroundColor',
+  'padding',
+  'borderRadius',
+  'borderWidth',
+  'borderColor',
+  'shadow',
+  'layoutColumn',
+  'columnSpan',
+]);
+
+const FORM_FIELD_CHANGE_KEYS = new Set([
+  'name',
+  'label',
+  'type',
+  'placeholder',
+  'required',
+  'options',
+]);
+
+const THEME_CHANGE_KEYS = new Set([
+  'primaryColor',
+  'secondaryColor',
+  'backgroundColor',
+  'textColor',
+  'mutedTextColor',
+  'fontFamily',
+  'contentWidth',
+  'buttonRadius',
+  'sectionSpacing',
+]);
+
+const SEO_CHANGE_KEYS = new Set([
+  'title',
+  'description',
+  'keywords',
+]);
+
+const HEADER_CHANGE_KEYS = new Set([
+  'enabled',
+  'sticky',
+  'mobileMenu',
+  'languageSwitcher',
+  'brandText',
+  'logoUrl',
+  'showCta',
+  'ctaLabel',
+  'ctaHref',
+  'backgroundColor',
+  'textColor',
+  'activeColor',
+  'hoverColor',
+  'ctaBackgroundColor',
+  'ctaTextColor',
+  'navGap',
+  'brandSize',
+  'navSize',
+  'borderColor',
+]);
+
+const RESTYLE_CHANGE_KEYS = new Set([
+  ...THEME_CHANGE_KEYS,
+  'accentColor',
+]);
+
+const CHANGE_KEYS_BY_ACTION: Partial<
+  Record<EditorNativeOperationAction, ReadonlySet<string>>
+> = {
+  duplicate_page: PAGE_CHANGE_KEYS,
+  update_page: PAGE_CHANGE_KEYS,
+  duplicate_section: SECTION_CHANGE_KEYS,
+  update_section: SECTION_CHANGE_KEYS,
+  duplicate_element: ELEMENT_CHANGE_KEYS,
+  update_element: ELEMENT_CHANGE_KEYS,
+  update_container: CONTAINER_CHANGE_KEYS,
+  update_form_field: FORM_FIELD_CHANGE_KEYS,
+  update_theme: THEME_CHANGE_KEYS,
+  update_seo: SEO_CHANGE_KEYS,
+  update_header: HEADER_CHANGE_KEYS,
+  restyle_site: RESTYLE_CHANGE_KEYS,
+};
+
+function validateAllowedKeys(
+  value: unknown,
+  label: string,
+  allowed: ReadonlySet<string>,
+  prefix: string,
+  errors: string[],
+) {
+  if (!isRecord(value)) {
+    errors.push(`${prefix} ${label} must be an object`);
+    return false;
+  }
+
+  let ok = true;
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      errors.push(`${prefix} ${label} contains unsupported key: ${key}`);
+      ok = false;
+    }
+  }
+  return ok;
+}
+
+function validateResponsiveStyleChanges(
+  value: unknown,
+  allowedStyleKeys: ReadonlySet<string>,
+  label: string,
+  prefix: string,
+  errors: string[],
+) {
+  if (!isRecord(value)) {
+    errors.push(`${prefix} ${label} must be an object`);
+    return false;
+  }
+
+  let ok = true;
+  const devices = new Set(['desktop', 'tablet', 'mobile']);
+  for (const [device, changes] of Object.entries(value)) {
+    if (!devices.has(device)) {
+      errors.push(`${prefix} ${label} contains unsupported device: ${device}`);
+      ok = false;
+      continue;
+    }
+    if (
+      !validateAllowedKeys(
+        changes,
+        `${label}.${device}`,
+        allowedStyleKeys,
+        prefix,
+        errors,
+      )
+    ) {
+      ok = false;
+    }
+  }
+  return ok;
+}
+
+function validateChangesContract(
+  operation: EditorNativeOperation,
+  prefix: string,
+  errors: string[],
+) {
+  if (operation.changes === undefined) return true;
+  if (!isRecord(operation.changes)) return false;
+
+  const allowed = CHANGE_KEYS_BY_ACTION[operation.action];
+  if (!allowed) {
+    if (Object.keys(operation.changes).length > 0) {
+      errors.push(`${prefix} does not accept changes`);
+      return false;
+    }
+    return true;
+  }
+
+  let ok = validateAllowedKeys(
+    operation.changes,
+    'changes',
+    allowed,
+    prefix,
+    errors,
+  );
+
+  if (
+    (operation.action === 'update_element' ||
+      operation.action === 'duplicate_element') &&
+    operation.changes.style !== undefined
+  ) {
+    if (
+      !validateAllowedKeys(
+        operation.changes.style,
+        'changes.style',
+        ELEMENT_STYLE_KEYS,
+        prefix,
+        errors,
+      )
+    ) {
+      ok = false;
+    }
+  }
+
+  if (
+    (operation.action === 'update_element' ||
+      operation.action === 'duplicate_element') &&
+    operation.changes.responsive !== undefined
+  ) {
+    if (
+      !validateResponsiveStyleChanges(
+        operation.changes.responsive,
+        ELEMENT_STYLE_KEYS,
+        'changes.responsive',
+        prefix,
+        errors,
+      )
+    ) {
+      ok = false;
+    }
+  }
+
+  if (
+    (operation.action === 'update_section' ||
+      operation.action === 'duplicate_section') &&
+    operation.changes.responsive !== undefined
+  ) {
+    if (
+      !validateResponsiveStyleChanges(
+        operation.changes.responsive,
+        SECTION_RESPONSIVE_KEYS,
+        'changes.responsive',
+        prefix,
+        errors,
+      )
+    ) {
+      ok = false;
+    }
+  }
+
+  if (
+    operation.action === 'update_form_field' &&
+    operation.changes.options !== undefined
+  ) {
+    if (
+      !Array.isArray(operation.changes.options) ||
+      operation.changes.options.length > 50 ||
+      operation.changes.options.some(
+        (option) => typeof option !== 'string' || option.length > 500,
+      )
+    ) {
+      errors.push(
+        `${prefix} changes.options must contain at most 50 short strings`,
+      );
+      ok = false;
+    }
+  }
+
+  if (
+    operation.action === 'update_seo' &&
+    operation.changes.keywords !== undefined
+  ) {
+    if (
+      !Array.isArray(operation.changes.keywords) ||
+      operation.changes.keywords.length > 50 ||
+      operation.changes.keywords.some(
+        (keyword) => typeof keyword !== 'string' || keyword.length > 500,
+      )
+    ) {
+      errors.push(
+        `${prefix} changes.keywords must contain at most 50 short strings`,
+      );
+      ok = false;
+    }
+  }
+
+  return ok;
+}
 
 function bounded(value: number | undefined, fallback: number, max: number) {
   const parsed = Number(value);
@@ -203,6 +610,8 @@ function validateOperationPayloadShape(
 
   if (operation.changes !== undefined && !isRecord(operation.changes)) {
     errors.push(`${prefix} changes must be an object when provided`);
+    ok = false;
+  } else if (!validateChangesContract(operation, prefix, errors)) {
     ok = false;
   }
 
