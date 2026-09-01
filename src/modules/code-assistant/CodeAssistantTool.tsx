@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Boxes, Check, Code2, Copy, ExternalLink, Heart, LayoutTemplate, Loader2, Package,
-  Search, ShieldCheck, Sparkles, WandSparkles,
+  Search, ShieldCheck, Sparkles,
 } from 'lucide-react';
 import { componentRegistry } from './component-registry';
 import { getRegistrySource, REGISTRY_SOURCES } from './source-catalog';
@@ -252,7 +252,7 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
               <div><div className="flex items-center gap-2"><h2 className="font-semibold">{selected.name}</h2>{selected.remote && <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-400">Open source</span>}</div><p className={`mt-1 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{selected.description}</p></div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => toggleFavorite(selected.id)} aria-label={favoriteIds.has(selected.id) ? 'Remove from favorites' : 'Add to favorites'} className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 ${favoriteIds.has(selected.id) ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10' : 'border-gray-200'}`}><Heart className={`h-4 w-4 ${favoriteIds.has(selected.id) ? 'fill-current' : ''}`} /></button>
-                <button disabled={codeLoadingId === selected.id} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-400 disabled:opacity-50">{codeLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />} {copied === 'prompt' ? 'AI payload copied' : 'Use with AI'}</button>
+                <button disabled={codeLoadingId === selected.id} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-400 disabled:opacity-50">{codeLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} {copied === 'prompt' ? 'AI payload copied' : 'Use with AI'}</button>
                 <button disabled={codeLoadingId === selected.id} onClick={() => void onCopyCode(selected)} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${darkMode ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-100'}`}>{codeLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : copied === 'code' ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} Copy code</button>
               </div>
             </div>

@@ -237,12 +237,13 @@ async function loadLicense(config: UpstreamRegistryConfig): Promise<string> {
 }
 
 export async function loadUpstreamComponentCode(record: UIComponentRecord): Promise<string> {
-  if (!record.remote) return record.code;
+  const remote = record.remote;
+  if (!remote) return record.code;
   const cached = codeCache.get(record.id);
   if (cached) return cached;
 
   const request = (async () => {
-    const config = UPSTREAM_REGISTRIES.find((entry) => entry.sourceId === record.remote?.sourceId);
+    const config = UPSTREAM_REGISTRIES.find((entry) => entry.sourceId === remote.sourceId);
     if (!config || !isRedistributableSource(config.sourceId)) {
       throw new Error('Component source is not approved.');
     }
@@ -251,7 +252,7 @@ export async function loadUpstreamComponentCode(record: UIComponentRecord): Prom
     let total = 0;
     const chunks: string[] = [];
 
-    for (const file of record.remote.files) {
+    for (const file of remote.files) {
       const content = await fetchText(rawUrl(config, file), MAX_COMPONENT_CODE_BYTES);
       total += content.length;
       if (total > MAX_COMPONENT_CODE_BYTES) throw new Error('Component source exceeded the safe combined size limit.');
