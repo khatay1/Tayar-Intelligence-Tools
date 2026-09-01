@@ -5,6 +5,7 @@ export interface WebsiteProjectCloudSaveInput {
   title: string;
   content: Record<string, unknown>;
   published: boolean;
+  signal?: AbortSignal;
 }
 
 export interface CreateWebsiteProjectCloudInput extends WebsiteProjectCloudSaveInput {
@@ -20,9 +21,10 @@ export async function updateWebsiteProjectInCloud({
   title,
   content,
   published,
+  signal,
 }: UpdateWebsiteProjectCloudInput) {
-  return retryCloudOperation(() =>
-    supabase
+  return retryCloudOperation(() => {
+    const query = supabase
       .from('projects')
       .update({
         title,
@@ -30,8 +32,10 @@ export async function updateWebsiteProjectInCloud({
         status: published ? 'completed' : 'draft',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', projectId),
-  );
+      .eq('id', projectId);
+
+    return signal ? query.abortSignal(signal) : query;
+  });
 }
 
 export async function createWebsiteProjectInCloud({
@@ -39,9 +43,10 @@ export async function createWebsiteProjectInCloud({
   title,
   content,
   published,
+  signal,
 }: CreateWebsiteProjectCloudInput) {
-  return retryCloudOperation(() =>
-    supabase
+  return retryCloudOperation(() => {
+    const query = supabase
       .from('projects')
       .insert({
         user_id: userId,
@@ -51,8 +56,10 @@ export async function createWebsiteProjectInCloud({
         status: published ? 'completed' : 'draft',
       })
       .select('id, title, content, updated_at')
-      .single(),
-  );
+      .single();
+
+    return signal ? query.abortSignal(signal) : query;
+  });
 }
 
 export async function listWebsiteProjectsInCloud() {
