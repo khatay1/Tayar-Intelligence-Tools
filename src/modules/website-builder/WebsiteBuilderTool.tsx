@@ -82,6 +82,8 @@ import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteP
 import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles, uploadPublishedWebsiteFolderFiles } from './services/publishedWebsiteService';
 import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
 import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
+import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus } from './services/websiteLeadService';
+import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
@@ -4041,12 +4043,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setLeadsLoading(true);
     setLeadsError('');
-    const { data, error } = await supabase
-      .from('website_leads')
-      .select('id, project_id, user_id, name, email, message, form_data, page_path, status, stage, priority, tags, notes, updated_at, created_at')
-      .eq('project_id', cloudProjectId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    const { data, error } = await listWebsiteLeads(cloudProjectId);
 
     if (error) {
       setLeadsError('Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied.');
@@ -4063,12 +4060,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function updateLeadStatus(leadId: string, status: WebsiteLead['status']) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const updatedAt = new Date().toISOString();
-    const { error } = await supabase
-      .from('website_leads')
-      .update({ status, updated_at: updatedAt })
-      .eq('id', leadId)
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId);
+    const { error } = await updateWebsiteLeadStatus({
+      leadId,
+      projectId: cloudProjectId,
+      ownerId: activeProjectOwnerId,
+      status,
+      updatedAt,
+    });
 
     if (error) {
       setLeadsError('Could not update this lead.');
@@ -4086,12 +4084,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ...(typeof updates.notes === 'string' ? { notes: updates.notes.slice(0, 4000) } : {}),
       updated_at: new Date().toISOString(),
     };
-    const { error } = await supabase
-      .from('website_leads')
-      .update(sanitized)
-      .eq('id', leadId)
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId);
+    const { error } = await updateWebsiteLeadCrm({
+      leadId,
+      projectId: cloudProjectId,
+      ownerId: activeProjectOwnerId,
+      updates: sanitized as Record<string, unknown>,
+    });
 
     if (error) {
       setLeadsError('Could not update CRM details for this lead.');
@@ -4105,12 +4103,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId || !projectTeamAccess.canManage || !selectedLeadIds.length) return;
     const ids = [...selectedLeadIds];
     const updatedAt = new Date().toISOString();
-    const { error } = await supabase
-      .from('website_leads')
-      .update({ stage, updated_at: updatedAt })
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId)
-      .in('id', ids);
+    const { error } = await bulkUpdateWebsiteLeadStage({
+      leadIds: ids,
+      projectId: cloudProjectId,
+      ownerId: activeProjectOwnerId,
+      stage,
+      updatedAt,
+    });
 
     if (error) {
       setLeadsError('Could not update the selected leads.');
@@ -4165,12 +4164,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const confirmed = window.confirm('Delete this lead permanently?');
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from('website_leads')
-      .delete()
-      .eq('id', leadId)
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId);
+    const { error } = await deleteWebsiteLead({
+      leadId,
+      projectId: cloudProjectId,
+      ownerId: activeProjectOwnerId,
+    });
 
     if (error) {
       setLeadsError('Could not delete this lead.');
@@ -4197,13 +4195,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAnalyticsLoading(true);
     setAnalyticsError('');
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
-      .from('website_analytics_events')
-      .select('id, project_id, user_id, page_path, referrer, session_id, event_type, event_data, created_at')
-      .eq('project_id', cloudProjectId)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(5000);
+    const { data, error } = await listWebsiteAnalyticsEvents(cloudProjectId, since);
 
     if (error) {
       setAnalyticsError('Analytics is unavailable. Make sure the Sprint 15 database migration is applied.');
