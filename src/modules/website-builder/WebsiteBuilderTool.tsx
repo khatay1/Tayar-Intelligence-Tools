@@ -3424,6 +3424,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const saveAbortControllerRef = useRef<AbortController | null>(null);
   const newProjectIntentRef = useRef(false);
   const projectLoadSequenceRef = useRef(0);
+  const savedFeedbackSequenceRef = useRef(0);
   const aiOperationSequenceRef = useRef(0);
   const aiQualityOperationSequenceRef = useRef(0);
   const cloudProjectsRefreshSequenceRef = useRef(0);
@@ -3470,12 +3471,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     saveInFlightRef.current = false;
+    savedFeedbackSequenceRef.current += 1;
     publishOperationSequenceRef.current += 1;
     previewOperationSequenceRef.current += 1;
     liveVerificationSequenceRef.current += 1;
     aiOperationSequenceRef.current += 1;
     aiQualityOperationSequenceRef.current += 1;
     setCloudBusy(false);
+    setSaved(false);
     setPublishBusy(false);
     setPreviewBusy(false);
     setPublishVersionsLoading(false);
@@ -3499,6 +3502,65 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       },
     ]);
   }, []);
+
+  function snapshotProjectIdentity(snapshot: unknown): {
+    hasIdentity: boolean;
+    projectId: string | null;
+  } {
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+      return { hasIdentity: false, projectId: null };
+    }
+
+    const record = snapshot as Record<string, unknown>;
+    const hasIdentity = Object.prototype.hasOwnProperty.call(record, 'cloudProjectId');
+    const rawProjectId = record.cloudProjectId;
+    const projectId =
+      typeof rawProjectId === 'string' && rawProjectId.trim()
+        ? rawProjectId.trim()
+        : null;
+
+    return { hasIdentity, projectId };
+  }
+
+  function snapshotConflictsWithActiveProject(
+    snapshot: unknown,
+    requireIdentity = false,
+  ): boolean {
+    const identity = snapshotProjectIdentity(snapshot);
+    const activeId = cloudProjectId?.trim() || null;
+
+    if (!identity.hasIdentity) {
+      return requireIdentity && activeId !== null;
+    }
+
+    return identity.projectId !== activeId;
+  }
+
+  function prepareProjectStateRestore() {
+    cancelPendingProjectPersistence();
+    projectLoadSequenceRef.current += 1;
+    skipNextAutosaveRef.current = true;
+  }
+
+  function showSavedFeedback(
+    expectedLoadSequence = projectLoadSequenceRef.current,
+    expectedUserId = user?.id ?? null,
+  ) {
+    const feedbackSequence = ++savedFeedbackSequenceRef.current;
+    setSaved(true);
+
+    window.setTimeout(() => {
+      if (
+        savedFeedbackSequenceRef.current !== feedbackSequence ||
+        projectLoadSequenceRef.current !== expectedLoadSequence ||
+        activeUserIdRef.current !== expectedUserId
+      ) {
+        return;
+      }
+
+      setSaved(false);
+    }, 2000);
+  }
 
   const getCurrentPages = useCallback(() => {
     return pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -3603,9 +3665,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try {
       const parsed = loadRecoveryWebsiteProject<PersistedWebsiteProject>();
       if (!parsed) { setRecoveryAvailable(false); return; }
+
+      if (snapshotConflictsWithActiveProject(parsed.project, true)) {
+        window.alert('This recovery snapshot belongs to a different project. Open that project before restoring it.');
+        return;
+      }
+
       if (!window.confirm(`Restore the recovery snapshot from ${parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : 'the previous edit'}?`)) return;
       saveRecoverySnapshot('before recovery restore');
-      skipNextAutosaveRef.current = true;
+      prepareProjectStateRestore();
       applyProjectData(parsed.project);
       setAutoSaveStatus('saving');
       setSaved(false);
@@ -4875,17 +4943,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const params = new URLSearchParams(window.location.search);
     const billingResult = params.get('billing');
     if (!billingResult) return;
+
+    const billingLoadSequence = projectLoadSequenceRef.current;
+    const billingProjectId = cloudProjectId;
+    const billingUserId = user?.id ?? null;
+    let syncTimer: number | null = null;
+
     setBillingOpen(true);
     if (billingResult === 'success') {
       setBillingError('Payment completed. Stripe is syncing your subscription; refresh billing if the badge does not update immediately.');
-      window.setTimeout(() => void refreshBilling(cloudProjectId), 1200);
+      syncTimer = window.setTimeout(() => {
+        if (
+          projectLoadSequenceRef.current !== billingLoadSequence ||
+          activeUserIdRef.current !== billingUserId
+        ) {
+          return;
+        }
+
+        void refreshBilling(billingProjectId, billingLoadSequence);
+      }, 1200);
     } else if (billingResult === 'canceled') {
       setBillingError('Checkout was canceled. Your current plan was not changed.');
     }
     params.delete('billing');
     const query = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-  }, [cloudProjectId, refreshBilling]);
+
+    return () => {
+      if (syncTimer !== null) window.clearTimeout(syncTimer);
+    };
+  }, [cloudProjectId, refreshBilling, user?.id]);
 
   useEffect(() => {
     if (leadsOpen) void refreshLeads();
@@ -4911,9 +4998,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   useEffect(() => {
     if (!networkOnline || !cloudSyncFailed || !user?.id || !projectTeamAccess.canEdit) return;
-    const timer = window.setTimeout(() => { void saveProjectRef.current({ automatic: true, createHistory: false }); }, 600);
+
+    const retryLoadSequence = projectLoadSequenceRef.current;
+    const retryUserId = user.id;
+    const timer = window.setTimeout(() => {
+      if (
+        projectLoadSequenceRef.current !== retryLoadSequence ||
+        activeUserIdRef.current !== retryUserId
+      ) {
+        return;
+      }
+
+      void saveProjectRef.current({ automatic: true, createHistory: false });
+    }, 600);
+
     return () => window.clearTimeout(timer);
-  }, [networkOnline, cloudSyncFailed, user?.id, projectTeamAccess.canEdit]);
+  }, [networkOnline, cloudSyncFailed, user?.id, cloudProjectId, projectTeamAccess.canEdit]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -4968,9 +5068,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+
+    const autosaveLoadSequence = projectLoadSequenceRef.current;
+    const autosaveUserId = user?.id ?? null;
+
     setAutoSaveStatus('saving');
     autosaveTimerRef.current = window.setTimeout(() => {
       autosaveTimerRef.current = null;
+
+      if (
+        projectLoadSequenceRef.current !== autosaveLoadSequence ||
+        activeUserIdRef.current !== autosaveUserId
+      ) {
+        return;
+      }
+
       void saveProjectRef.current({ automatic: true, createHistory: false });
     }, 1800);
 
@@ -5295,7 +5407,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function undo() {
     if (!history.length) return;
     const previous = history[history.length - 1];
+    if (snapshotConflictsWithActiveProject(previous.snapshot)) return;
+
     const redoEntry = createEditHistoryEntry(previous.label);
+    prepareProjectStateRestore();
     setHistory((current) => current.slice(0, -1));
     setFuture((current) => [redoEntry, ...current].slice(0, 50));
     skipNextAutosaveRef.current = true;
@@ -5306,7 +5421,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function redo() {
     if (!future.length) return;
     const next = future[0];
+    if (snapshotConflictsWithActiveProject(next.snapshot)) return;
+
     const undoEntry = createEditHistoryEntry(next.label);
+    prepareProjectStateRestore();
     setFuture((current) => current.slice(1));
     setHistory((current) => [...current.slice(-49), undoEntry]);
     skipNextAutosaveRef.current = true;
@@ -5319,7 +5437,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (targetIndex < 0) return;
 
     const target = history[targetIndex];
+    if (snapshotConflictsWithActiveProject(target.snapshot)) return;
+
     const currentEntry = createEditHistoryEntry('Current state before history restore');
+    prepareProjectStateRestore();
     const redoPath = [
       ...history.slice(targetIndex + 1),
       currentEntry,
@@ -9318,6 +9439,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
   function restorePublishVersionToEditor(version: WebsitePublishVersion) {
+    if (snapshotConflictsWithActiveProject(version.snapshot)) {
+      setPublishVersionsError('This release snapshot does not belong to the active project.');
+      return;
+    }
+
     if (!window.confirm('Restore this release into the editor? The live website will not change until you publish again.')) return;
     const restored = {
       ...(version.snapshot || {}),
@@ -9330,7 +9456,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       lastPublishedFingerprint,
     };
     saveRecoverySnapshot('before restoring published release');
-    skipNextAutosaveRef.current = true;
+    prepareProjectStateRestore();
     applyProjectData(restored, false);
     setReleaseHistoryOpen(false);
     setAutoSaveStatus('saving');
@@ -9545,8 +9671,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAutoSaveStatus(durableSaved ? 'saved' : 'failed');
 
     if (!automatic) {
-      setSaved(durableSaved);
-      if (durableSaved) window.setTimeout(() => setSaved(false), 2000);
+      if (durableSaved) {
+        showSavedFeedback(saveLoadSequence, user?.id ?? null);
+      } else {
+        setSaved(false);
+      }
     }
     return durableSaved;
     } catch (error) {
@@ -9620,8 +9749,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLiveVerification('idle');
       saveLocalWebsiteProject(duplicateContent);
       lastSavedSnapshotRef.current = '';
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
+      showSavedFeedback(duplicateLoadSequence, duplicateUserId);
       return;
     }
 
@@ -9673,17 +9801,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     await refreshCloudProjects();
     if (!duplicateIsCurrent()) return;
     setCloudBusy(false);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
+    showSavedFeedback(duplicateLoadSequence, duplicateUserId);
   }
 
   function restoreHistoryEntry(entry: ProjectHistoryEntry) {
     const confirmed = window.confirm(`Restore "${entry.label}"? Your current unsaved changes will be replaced.`);
     if (!confirmed) return;
 
+    if (snapshotConflictsWithActiveProject(entry.snapshot)) {
+      setCloudError('This history snapshot does not belong to the active project.');
+      return;
+    }
+
     saveRecoverySnapshot('before restoring history entry');
 
     const undoEntry = createEditHistoryEntry(`Before restoring ${entry.label}`);
+    prepareProjectStateRestore();
     setHistory((current) => [...current.slice(-49), undoEntry]);
     setFuture([]);
 
