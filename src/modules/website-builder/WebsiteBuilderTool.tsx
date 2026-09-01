@@ -3427,6 +3427,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const cloudProjectsRefreshSequenceRef = useRef(0);
   const cloudProjectsRefreshAbortControllerRef = useRef<AbortController | null>(null);
   const publishOperationSequenceRef = useRef(0);
+  const previewOperationSequenceRef = useRef(0);
+  const liveVerificationSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
 
   const cancelPendingProjectPersistence = useCallback(() => {
@@ -3442,8 +3444,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     saveInFlightRef.current = false;
     publishOperationSequenceRef.current += 1;
+    previewOperationSequenceRef.current += 1;
+    liveVerificationSequenceRef.current += 1;
     setCloudBusy(false);
     setPublishBusy(false);
+    setPreviewBusy(false);
   }, []);
 
   const getCurrentPages = useCallback(() => {
@@ -8659,31 +8664,46 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     );
   }
 
-  async function verifyLiveDeployment() {
-    if (!user || !cloudProjectId) {
-      setLiveVerification('idle');
-      return;
+  async function verifyLiveDeployment(
+    expectedProjectId: string | null = cloudProjectId,
+    expectedOwnerId = activeProjectOwnerId,
+    expectedLoadSequence = projectLoadSequenceRef.current,
+  ) {
+    const verificationSequence = ++liveVerificationSequenceRef.current;
+    const verificationIsCurrent = () =>
+      liveVerificationSequenceRef.current === verificationSequence &&
+      projectLoadSequenceRef.current === expectedLoadSequence;
+
+    if (!user || !expectedProjectId) {
+      if (verificationIsCurrent()) setLiveVerification('idle');
+      return false;
     }
 
     setLiveVerification('checking');
 
-    const path = `${activeProjectOwnerId}/${cloudProjectId}/index.html`;
+    const path = `${expectedOwnerId}/${expectedProjectId}/index.html`;
     const { data, error } = await downloadPublishedWebsiteFile(path);
+
+    if (!verificationIsCurrent()) return false;
 
     if (error || !data || data.size <= 0) {
       setLiveVerification('failed');
-      return;
+      return false;
     }
 
-    const liveUrl = publicWebsiteUrl(cloudProjectId, activeProjectOwnerId);
+    const liveUrl = publicWebsiteUrl(expectedProjectId, expectedOwnerId);
     const routeHealthy = await verifyPublishedRoute(liveUrl);
+
+    if (!verificationIsCurrent()) return false;
+
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
     if (!routeHealthy && import.meta.env.PROD) {
       setPublishError('The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar.');
     }
-  }
 
+    return routeHealthy;
+  }
   async function createSharePreview() {
     if (cloudProjectId && !projectTeamAccess.canPublish) {
       setPreviewError('Only the project owner can create public share previews.');
@@ -8693,7 +8713,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPreviewError('Save this project to the cloud before creating a share preview.');
       return;
     }
+
+    const previewSequence = ++previewOperationSequenceRef.current;
+    const previewLoadSequence = projectLoadSequenceRef.current;
+    const previewProjectId = cloudProjectId;
+    const previewUserId = user.id;
+    const existingPreviewToken = previewToken;
+    const previewIsCurrent = () =>
+      previewOperationSequenceRef.current === previewSequence &&
+      projectLoadSequenceRef.current === previewLoadSequence;
+
     const latestSaved = await saveProject({ automatic: true, createHistory: false });
+
+    if (!previewIsCurrent()) return;
+
     if (!latestSaved) {
       setPublishError('Publish preflight blocked: the latest changes could not be synchronized to cloud.');
       return;
@@ -8701,14 +8734,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setPreviewBusy(true);
     setPreviewError('');
+
     try {
-      if (previewToken) await revokeSharePreview(false);
+      if (existingPreviewToken) {
+        const existingFolder = `${previewUserId}/${previewProjectId}/previews/${existingPreviewToken}`;
+        await removePublishedWebsiteFiles(existingFolder);
+        if (!previewIsCurrent()) return;
+      }
+
       const token = typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID().replace(/-/g, '')
         : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-      const folder = `${user.id}/${cloudProjectId}/previews/${token}`;
-      const publicBaseUrl = buildPreviewSiteBaseUrl(user.id, cloudProjectId, token);
+      const folder = `${previewUserId}/${previewProjectId}/previews/${token}`;
+      const publicBaseUrl = buildPreviewSiteBaseUrl(previewUserId, previewProjectId, token);
       if (!publicBaseUrl) throw new Error('Could not build the public preview URL.');
+
       const currentPages = getCurrentPages();
       const files: Array<{ name: string; content: string; contentType: string }> = currentPages.map((page) => ({
         name: page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`,
@@ -8716,11 +8756,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         contentType: 'text/html; charset=utf-8',
       }));
       files.push({ name: '404.html', content: get404Html(publicBaseUrl, true, false), contentType: 'text/html; charset=utf-8' });
+
       await uploadPublishedWebsiteFolderFiles(folder, files);
-      const nextUrl = buildPreviewSiteUrl(user.id, cloudProjectId, token, 'index.html');
+
+      if (!previewIsCurrent()) return;
+
+      const nextUrl = buildPreviewSiteUrl(previewUserId, previewProjectId, token, 'index.html');
       if (!nextUrl) throw new Error('Could not build the public preview URL.');
 
       const routeHealthy = await verifyPublishedRoute(nextUrl);
+
+      if (!previewIsCurrent()) return;
+
       if (!routeHealthy) {
         throw new Error('Preview files were saved, but the public preview renderer did not return HTML.');
       }
@@ -8732,30 +8779,48 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
       try { await navigator.clipboard.writeText(nextUrl); } catch { /* Clipboard access is optional. */ }
     } catch (error) {
+      if (!previewIsCurrent()) return;
       setPreviewError(error instanceof Error ? error.message : 'Could not create share preview.');
     } finally {
-      setPreviewBusy(false);
+      if (previewOperationSequenceRef.current === previewSequence) {
+        setPreviewBusy(false);
+      }
     }
   }
-
   async function revokeSharePreview(updateBusy = true) {
     if (!user || !cloudProjectId || !previewToken) return;
+
+    const revokeSequence = ++previewOperationSequenceRef.current;
+    const revokeLoadSequence = projectLoadSequenceRef.current;
+    const revokeProjectId = cloudProjectId;
+    const revokeUserId = user.id;
+    const revokeToken = previewToken;
+    const revokeIsCurrent = () =>
+      previewOperationSequenceRef.current === revokeSequence &&
+      projectLoadSequenceRef.current === revokeLoadSequence;
+
     if (updateBusy) setPreviewBusy(true);
     setPreviewError('');
+
     try {
-      const folder = `${user.id}/${cloudProjectId}/previews/${previewToken}`;
+      const folder = `${revokeUserId}/${revokeProjectId}/previews/${revokeToken}`;
       await removePublishedWebsiteFiles(folder);
+
+      if (!revokeIsCurrent()) return;
+
       setPreviewUrl('');
       setPreviewToken('');
       setPreviewCreatedAt(null);
       setSaved(false);
     } catch (error) {
+      if (!revokeIsCurrent()) return;
       setPreviewError(error instanceof Error ? error.message : 'Could not revoke share preview.');
     } finally {
-      if (updateBusy) setPreviewBusy(false);
+      if (updateBusy && previewOperationSequenceRef.current === revokeSequence) {
+        setPreviewBusy(false);
+      }
     }
   }
-
   async function rollbackPublishVersion(version: WebsitePublishVersion) {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
