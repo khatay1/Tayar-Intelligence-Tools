@@ -186,6 +186,13 @@ export function inspectEditorPayloadSafety(
         errors.push(`${path} contains forbidden key: ${key}`);
         continue;
       }
+
+      const descriptor = Object.getOwnPropertyDescriptor(candidate, key);
+      if (descriptor?.get || descriptor?.set) {
+        errors.push(`${pathKey(path, key)} cannot use accessor properties`);
+        continue;
+      }
+
       visit(
         (candidate as Record<string, unknown>)[key],
         pathKey(path, key),
