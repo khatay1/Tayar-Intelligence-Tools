@@ -3461,6 +3461,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     billingOperationSequenceRef.current += 1;
     aiOperationSequenceRef.current += 1;
     aiQualityOperationSequenceRef.current += 1;
+    aiUndoContextRef.current = null;
+    aiQualityReviewContextRef.current = null;
     setReusableBusy(false);
     setMediaLoading(false);
     setMediaUploading(false);
@@ -3493,6 +3495,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     liveVerificationSequenceRef.current += 1;
     aiOperationSequenceRef.current += 1;
     aiQualityOperationSequenceRef.current += 1;
+    aiUndoContextRef.current = null;
+    aiQualityReviewContextRef.current = null;
     setCloudBusy(false);
     setSaved(false);
     setDraggedId(null);
@@ -6998,6 +7002,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         brand: generated.brand || brand,
         seo: nextGeneratedSeo,
       });
+      aiUndoContextRef.current = null;
+      aiQualityReviewContextRef.current = null;
       setAiUndoSnapshot(null);
       setAiQualityReview(null);
       setSaved(false);
