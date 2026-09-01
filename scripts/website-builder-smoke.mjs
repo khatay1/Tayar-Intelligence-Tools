@@ -235,7 +235,7 @@ check('Project history contains AI checkpoints', builder.includes("Before AI cha
 check('Publish actions expose Preview Check Publish flow', builder.includes("AI quality check before publishing") && builder.includes("Check") && builder.includes("Publish"));
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
 check('Layers show elements only for the selected section', builder.includes("Select a section to see its elements.") && builder.includes("selectedId === section.id && (") && builder.includes("setInspectorOpen(true)"));
-check('Legacy array backups use a valid default language', builder.includes("if (Array.isArray(input) && input.length)") && builder.includes("showInNavigation: true, language: 'en', translationKey: 'home'"));
+check('Legacy array backups use a valid default language', projectNormalization.includes('if (Array.isArray(input) && input.length)') && projectNormalization.includes("language: 'en'") && projectNormalization.includes("translationKey: 'home'"));
 check('Analytics CSV export uses the shared CSV serializer', builder.includes("-analytics.csv`, `\\uFEFF${buildCsv(rows)}`"));
 check('Container column controls are reachable', builder.includes('selectedSection && sectionColumnCount(selectedSection.layout) > 1'));
 check('Media insertion is not misclassified as a React hook', builder.includes('function applyMediaAsset') && !builder.includes('function useMediaAsset'));
