@@ -54,3 +54,12 @@ export async function createWebsiteProjectInCloud({
       .single(),
   );
 }
+
+export async function listWebsiteProjectsInCloud() {
+  return supabase
+    .from('projects')
+    .select('id, user_id, workspace_id, title, content, status, updated_at')
+    .eq('type', 'website-builder')
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false });
+}
