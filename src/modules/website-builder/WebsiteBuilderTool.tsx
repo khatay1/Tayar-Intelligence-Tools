@@ -11640,6 +11640,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             currentPages as unknown as EditorPageLike[],
 
           homePageId,
+
+          symbols:
+            JSON.parse(
+              JSON.stringify(symbols),
+            ) as EditorSymbolLike[],
         },
         {
           selection:
@@ -11695,6 +11700,72 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const nextPages =
       nextProject.pages as unknown as WebsitePage[];
 
+    const previousSymbolsById =
+      new Map(
+        symbols.map((symbol) => [
+          symbol.id,
+          symbol,
+        ]),
+      );
+
+    const nextSymbols =
+      Array.isArray(nextProject.symbols)
+        ? nextProject.symbols
+            .slice(0, 50)
+            .map((rawSymbol) => {
+              const id =
+                typeof rawSymbol?.id === 'string'
+                  ? rawSymbol.id.trim()
+                  : '';
+
+              if (
+                !id ||
+                !rawSymbol?.element
+              ) {
+                return null;
+              }
+
+              const previous =
+                previousSymbolsById.get(id);
+
+              const name =
+                typeof rawSymbol.name === 'string' &&
+                rawSymbol.name.trim()
+                  ? rawSymbol.name
+                      .trim()
+                      .slice(0, 80)
+                  : previous?.name ||
+                    'Reusable component';
+
+              const element =
+                cloneSymbolElement(
+                  rawSymbol.element as WebsiteElement,
+                );
+
+              const unchanged =
+                Boolean(previous) &&
+                previous?.name === name &&
+                JSON.stringify(previous.element) ===
+                  JSON.stringify(element);
+
+              return {
+                id,
+                name,
+                element,
+                updatedAt:
+                  unchanged && previous
+                    ? previous.updatedAt
+                    : new Date().toISOString(),
+              } satisfies WebsiteSymbol;
+            })
+            .filter(
+              (
+                symbol,
+              ): symbol is WebsiteSymbol =>
+                Boolean(symbol),
+            )
+        : symbols;
+
     const requestedPageId =
       nextSelection?.pageId ||
       activePageId;
@@ -11713,6 +11784,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     clearEditorDragState();
     setPages(nextPages);
+    setSymbols(nextSymbols);
 
     setActivePageId(
       nextActivePage.id,
