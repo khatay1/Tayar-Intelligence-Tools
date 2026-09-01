@@ -6720,7 +6720,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function handleDrop(e: React.DragEvent, targetId: string) {
+  function handleDrop(e: React.DragEvent, _targetId: string) {
     e.preventDefault();
     e.stopPropagation();
     const sourceId = draggedSectionRef.current || e.dataTransfer.getData('text/plain');
