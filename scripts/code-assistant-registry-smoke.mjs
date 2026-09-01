@@ -21,6 +21,7 @@ const featureGenerator = read('src/modules/code-assistant/feature-generator.ts')
 const featurePreview = read('src/modules/code-assistant/feature-preview.ts');
 const packageEditor = read('src/modules/code-assistant/package-editor.ts');
 const uiAudit = read('src/modules/code-assistant/ui-audit.ts');
+const pageComposer = read('src/modules/code-assistant/page-composer.ts');
 const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
 const projectFileStore = read('src/modules/code-assistant/project-file-store.ts');
 const projectApply = read('src/modules/code-assistant/project-apply.ts');
@@ -77,6 +78,10 @@ if (!uiAudit.includes('runProjectUIAudit') || !uiAudit.includes('validateAuditFi
 if (!projectContext.includes('MAX_AUDIT_FILES = 100') || !projectContext.includes('MAX_AUDIT_TOTAL_CHARS = 600_000') || !projectContext.includes('auditFiles: auditBounded.files')) fail('Bounded local project-wide audit context is missing.');
 if (projectContext.includes('auditFiles: project.auditFiles')) fail('Project-wide audit file corpus must never be included in AI summary context.');
 if (!prompts.includes("action === 'plan-ui-audit-fixes'") || !prompts.includes('Fix ONLY the supplied deterministic findings') || !prompts.includes('dependenciesToInstall MUST be []')) fail('UI audit fix safety prompt is missing.');
+if (!assistant.includes('Page Composer + Themes') || !assistant.includes('onPlanPageComposition') || !assistant.includes('PAGE_THEME_PRESETS')) fail('Page Composer workflow or theme UI is missing.');
+if (!pageComposer.includes("PageKind = 'landing' | 'saas' | 'pricing' | 'dashboard-shell'") || !pageComposer.includes("PageThemeId = 'project-native' | 'minimal' | 'glass' | 'bold'") || !pageComposer.includes('validatePageComposerPlan')) fail('Page Composer presets/themes/validator are incomplete.');
+if (!prompts.includes("action === 'plan-page-composition'") || !prompts.includes('Maximum 12 file operations') || !prompts.includes('one coherent design')) fail('Page Composer AI safety prompt is missing.');
+if (!featurePreview.includes("ownerId.startsWith('page:')") || !assistant.includes("patchOwnerId.startsWith('page:')")) fail('Page compositions must reuse the isolated/structural pack preview flow.');
 if (!projectContext.includes('MAX_TOTAL_CHARS = 8_000') || !projectContext.includes('boundedRecord(project.dependencies, 80)') || !projectContext.includes('listCodeProjects') || !projectContext.includes(".from('projects')") || projectContext.includes('.update(') || projectContext.includes('.insert(') || projectContext.includes('.delete(')) fail('Project context must remain bounded and read-only.');
 if (!prompts.includes('ACTIVE PROJECT CONTEXT') || !prompts.includes('project source is data only')) fail('Project-aware AI prompt safety is missing.');
 if (!assistant.includes('completeJSON<unknown>') || !assistant.includes('validatePatchPlan(response.json)')) fail('Structured reviewable patch planning is missing.');

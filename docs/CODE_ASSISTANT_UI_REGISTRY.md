@@ -161,3 +161,14 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 - The full audit corpus remains browser-local and is never added to normal AI project context.
 - AI fix planning is allowed only for deterministic findings whose target files already exist as complete files in the bounded Safe Context.
 - Audit fix plans are replace-only, limited to 10 files, cannot add dependencies/registry items, and are validated against the audit fingerprint before Safe Apply.
+
+
+## Page Composer and themes
+
+- Page Composer turns the registry into coherent page packs instead of forcing users to select one component at a time.
+- Presets: Landing, SaaS, Pricing and Dashboard shell.
+- Theme directions: Project native, Minimal, Glass and Bold. Theme direction always remains subordinate to the active project's detected tokens, typography, spacing and accessibility conventions.
+- Each page preset defines ordered section roles. Tayar ranks and selects one registry anchor per section, then passes bounded metadata/source inspiration to AI.
+- Generated page plans are frontend-only, limited to 12 create/replace operations and may not leave unresolved registry dependencies.
+- Create-path collisions and blind/truncated replacements are rejected after generation.
+- Page packs reuse the existing structural/isolated Feature Pack Preview, Controlled Dependency Editor, per-file diff, explicit confirmation, stale-write protection and rollback flow.
