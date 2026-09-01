@@ -2,7 +2,7 @@ import type { EditorNativeOperation } from './editor-native-operation';
 
 export interface LegacyAIEditorOperationLike {
   action: string;
-  changes?: Record<string, unknown>;
+  changes?: unknown;
 }
 
 export interface LegacyAIPageOperationLike
