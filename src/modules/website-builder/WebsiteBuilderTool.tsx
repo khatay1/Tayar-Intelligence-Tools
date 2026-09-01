@@ -109,6 +109,7 @@ import {
 import {
   convertLegacyAIGlobalOperationToNative,
   convertLegacyAIPageOperationToNative,
+  convertLegacyAIPageUpdateOperationToNative,
   convertLegacyAIStructuralOperationToNative,
   convertLegacyAIUpdateOperationToNative,
   isLegacyAIGlobalNativeAction,
@@ -8682,25 +8683,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }
 
         if (operation.action === 'update_page') {
-          const changes = operation.changes || {};
-          const nextName = typeof changes.name === 'string' && changes.name.trim()
-            ? changes.name.trim().slice(0, 60)
-            : page.name;
-          const requestedSlug = typeof changes.slug === 'string' ? normalizeSlugValue(changes.slug) : '';
-          const nextSlug = requestedSlug || page.slug;
-          nextPages[pageIndex] = {
-            ...page,
-            name: nextName,
-            slug: nextSlug,
-            showInNavigation: typeof changes.showInNavigation === 'boolean'
-              ? changes.showInNavigation
-              : page.showInNavigation,
-            seoTitle: typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : page.seoTitle,
-            seoDescription: typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : page.seoDescription,
-            canonicalUrl: typeof changes.canonicalUrl === 'string' ? changes.canonicalUrl.trim().slice(0, 500) : page.canonicalUrl,
-            noIndex: typeof changes.noIndex === 'boolean' ? changes.noIndex : page.noIndex,
-          };
-          applied += 1;
+          const nativeOperation =
+            convertLegacyAIPageUpdateOperationToNative(
+              operation,
+              page.id,
+            );
+
+          if (!nativeOperation) {
+            applied += 1;
+            continue;
+          }
+
+          const status =
+            applyAIWorkingNativeOperation(
+              nativeOperation,
+              operation.action,
+            );
+
+          if (status === 'unchanged') {
+            applied += 1;
+          }
+
           continue;
         }
 
