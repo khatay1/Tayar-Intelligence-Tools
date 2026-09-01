@@ -9980,32 +9980,62 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const newIds = leads.filter((lead) => lead.status === 'new').map((lead) => lead.id);
     if (!newIds.length) return;
+
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence;
+
     const { error } = await updateWebsiteLeadsByStatus({
-      projectId: cloudProjectId,
-      ownerId: activeProjectOwnerId,
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
       fromStatus: 'new',
       toStatus: 'read',
       updatedAt: new Date().toISOString(),
     });
-    if (error) { setLeadsError('Could not mark all leads as read.'); return; }
-    setLeads((current) => current.map((lead) => lead.status === 'new' ? { ...lead, status: 'read' } : lead));
-  }
 
+    if (!updateIsCurrent()) return;
+
+    if (error) {
+      setLeadsError('Could not mark all leads as read.');
+      return;
+    }
+
+    setLeads((current) => current.map((lead) =>
+      lead.status === 'new' ? { ...lead, status: 'read' } : lead
+    ));
+  }
   async function archiveReadLeads() {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const readCount = leads.filter((lead) => lead.status === 'read').length;
     if (!readCount) return;
+
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence;
+
     const { error } = await updateWebsiteLeadsByStatus({
-      projectId: cloudProjectId,
-      ownerId: activeProjectOwnerId,
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
       fromStatus: 'read',
       toStatus: 'archived',
       updatedAt: new Date().toISOString(),
     });
-    if (error) { setLeadsError('Could not archive read leads.'); return; }
-    setLeads((current) => current.map((lead) => lead.status === 'read' ? { ...lead, status: 'archived' } : lead));
-  }
 
+    if (!updateIsCurrent()) return;
+
+    if (error) {
+      setLeadsError('Could not archive read leads.');
+      return;
+    }
+
+    setLeads((current) => current.map((lead) =>
+      lead.status === 'read' ? { ...lead, status: 'archived' } : lead
+    ));
+  }
   async function copyProjectSummary() {
     const currentPages = getCurrentPages();
     const sectionCount = currentPages.reduce((sum, page) => sum + page.sections.length, 0);
