@@ -3421,9 +3421,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const autosaveTimerRef = useRef<number | null>(null);
   const skipNextAutosaveRef = useRef(false);
   const saveInFlightRef = useRef(false);
+  const saveAbortControllerRef = useRef<AbortController | null>(null);
   const newProjectIntentRef = useRef(false);
   const projectLoadSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
+
+  const cancelPendingProjectPersistence = useCallback(() => {
+    if (autosaveTimerRef.current) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    if (saveAbortControllerRef.current) {
+      saveAbortControllerRef.current.abort();
+      saveAbortControllerRef.current = null;
+    }
+
+    saveInFlightRef.current = false;
+    setCloudBusy(false);
+  }, []);
 
   const getCurrentPages = useCallback(() => {
     return pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -3653,6 +3669,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   const refreshCloudProjects = useCallback(async () => {
     if (!user) {
+      cancelPendingProjectPersistence();
       projectLoadSequenceRef.current += 1;
       setCloudProjects([]);
       setCloudProjectId(null);
@@ -3675,7 +3692,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setCloudProjects((data || []) as CloudWebsiteProject[]);
     setCloudBusy(false);
     setCloudProjectsLoaded(true);
-  }, [user]);
+  }, [user, cancelPendingProjectPersistence]);
 
   const loadLocalReusableSections = useCallback(() => {
     try {
@@ -3960,10 +3977,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const project = cloudProjects.find((item) => item.id === projectId);
     if (!project) return;
 
+    cancelPendingProjectPersistence();
+
     const loadSequence = ++projectLoadSequenceRef.current;
     newProjectIntentRef.current = false;
     setCloudProjectId(project.id);
     saveActiveWebsiteProjectId(project.id);
+
+    const identifiedContent = {
+      ...project.content,
+      cloudProjectId: project.id,
+    };
+
+    saveLocalWebsiteProject(identifiedContent);
 
     await refreshProjectTeamAccess(project.id, loadSequence);
     if (projectLoadSequenceRef.current !== loadSequence) return;
@@ -3977,14 +4003,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLiveVerification('idle');
     skipNextAutosaveRef.current = true;
 
-    const identifiedContent = {
-      ...project.content,
-      cloudProjectId: project.id,
-    };
-
     applyProjectData(identifiedContent);
     setSiteName(project.title || 'My Website');
-    saveLocalWebsiteProject(identifiedContent);
 
     await recoverPublishedProjectState(
       {
@@ -4656,6 +4676,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     setAutoSaveStatus('saving');
     autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
       void saveProjectRef.current({ automatic: true, createHistory: false });
     }, 1800);
 
@@ -8856,6 +8877,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return false;
     }
 
+    const saveLoadSequence = projectLoadSequenceRef.current;
+    const saveController = new AbortController();
+    const saveIsCurrent = () =>
+      !saveController.signal.aborted &&
+      projectLoadSequenceRef.current === saveLoadSequence;
+
+    saveAbortControllerRef.current = saveController;
     saveInFlightRef.current = true;
 
     try {
@@ -8888,7 +8916,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           title: siteName.trim() || 'My Website',
           content: projectData,
           published: Boolean(publishedUrl),
+          signal: saveController.signal,
         });
+
+        if (!saveIsCurrent()) return false;
 
         if (result.error) {
           if (/limit reached/i.test(result.error.message || '')) openBillingWithMessage(result.error.message);
@@ -8904,7 +8935,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           title: siteName.trim() || 'My Website',
           content: projectData,
           published: Boolean(publishedUrl),
+          signal: saveController.signal,
         });
+
+        if (!saveIsCurrent()) return false;
 
         if (result.error || !result.data) {
           if (result.error && /limit reached/i.test(result.error.message || '')) openBillingWithMessage(result.error.message);
@@ -8924,9 +8958,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }
       }
 
-      if (cloudSaved) await refreshCloudProjects();
+      if (cloudSaved && saveIsCurrent()) await refreshCloudProjects();
+      if (!saveIsCurrent()) return false;
       setCloudBusy(false);
     }
+
+    if (!saveIsCurrent()) return false;
 
     const durableSaved = user ? cloudSaved : localSaved;
     if (durableSaved) lastSavedSnapshotRef.current = fingerprint;
@@ -8938,7 +8975,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
     return durableSaved;
     } finally {
-      saveInFlightRef.current = false;
+      if (saveAbortControllerRef.current === saveController) {
+        saveAbortControllerRef.current = null;
+        saveInFlightRef.current = false;
+      }
     }
   }
 
@@ -8949,6 +8989,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       openBillingWithMessage(`Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports ${billingEntitlements.maxWebsiteProjects} Website Builder project${billingEntitlements.maxWebsiteProjects === 1 ? '' : 's'}. Upgrade before duplicating another project.`);
       return;
     }
+
+    cancelPendingProjectPersistence();
+    projectLoadSequenceRef.current += 1;
+
     const duplicateTitle = `${siteName.trim() || 'My Website'} Copy`;
     const duplicateContent = {
       ...buildProjectSnapshot(),
@@ -9062,6 +9106,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!confirmed) return;
 
     saveRecoverySnapshot('before reset');
+    cancelPendingProjectPersistence();
     projectLoadSequenceRef.current += 1;
     newProjectIntentRef.current = true;
     setSections(defaultSections);
@@ -9257,6 +9302,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           updatedAt: new Date().toISOString(),
         };
         saveRecoverySnapshot('before importing backup');
+        cancelPendingProjectPersistence();
         projectLoadSequenceRef.current += 1;
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
