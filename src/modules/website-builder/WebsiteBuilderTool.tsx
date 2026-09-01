@@ -81,6 +81,7 @@ import {
 import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
 import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles } from './services/publishedWebsiteService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
+import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -4674,23 +4675,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [sections, activePageId]);
 
   useEffect(() => {
-    if (user && !cloudProjectsLoaded) return;
-    if (projectId && cloudProjectId !== projectId) return;
     const fingerprint = buildProjectFingerprint();
+    const decision = decideEditorAutosave({
+      fingerprint,
+      lastSavedFingerprint: lastSavedSnapshotRef.current,
+      skipNext: skipNextAutosaveRef.current,
+      signedIn: Boolean(user),
+      cloudProjectsLoaded,
+      requestedProjectId: projectId,
+      activeProjectId: cloudProjectId,
+    });
 
-    if (!lastSavedSnapshotRef.current) {
+    if (decision === 'blocked' || decision === 'unchanged') return;
+
+    if (decision === 'initialize') {
       lastSavedSnapshotRef.current = fingerprint;
       return;
     }
 
-    if (skipNextAutosaveRef.current) {
+    if (decision === 'skip-once') {
       skipNextAutosaveRef.current = false;
       lastSavedSnapshotRef.current = fingerprint;
       setAutoSaveStatus('saved');
       return;
     }
-
-    if (fingerprint === lastSavedSnapshotRef.current) return;
 
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     setAutoSaveStatus('saving');
@@ -8906,12 +8914,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     let historyEntries = projectHistory;
     if (createHistory) {
       const snapshot = buildProjectSnapshot();
-      const entry: ProjectHistoryEntry = {
-        id: `history-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        savedAt: snapshot.updatedAt,
-        label: `Saved ${new Date(snapshot.updatedAt).toLocaleString()}`,
-        snapshot,
-      };
+      const entry = createProjectHistoryEntry(snapshot) as ProjectHistoryEntry;
       historyEntries = [entry, ...projectHistory].slice(0, 30);
       setProjectHistory(historyEntries);
     }
