@@ -3449,6 +3449,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setCloudBusy(false);
     setPublishBusy(false);
     setPreviewBusy(false);
+    setLiveVerification('idle');
   }, []);
 
   const getCurrentPages = useCallback(() => {
@@ -10356,22 +10357,40 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function runV1LaunchChecks() {
+    const launchLoadSequence = projectLoadSequenceRef.current;
+    const launchProjectId = cloudProjectId;
+    const launchOwnerId = activeProjectOwnerId;
+    const launchIsCurrent = () =>
+      projectLoadSequenceRef.current === launchLoadSequence;
+
     setLaunchCheckBusy(true);
     try {
-      if (user) await refreshBilling(cloudProjectId);
-      if (user && cloudProjectId) {
-        await refreshProjectTeamAccess(cloudProjectId);
+      if (user) await refreshBilling(launchProjectId);
+      if (!launchIsCurrent()) return;
+
+      if (user && launchProjectId) {
+        await refreshProjectTeamAccess(launchProjectId, launchLoadSequence);
+        if (!launchIsCurrent()) return;
 
         if (publishedUrl) {
-          await verifyLiveDeployment();
+          await verifyLiveDeployment(
+            launchProjectId,
+            launchOwnerId,
+            launchLoadSequence,
+          );
         } else {
-          const project = cloudProjects.find((item) => item.id === cloudProjectId);
-          if (project) await recoverPublishedProjectState(project);
+          const project = cloudProjects.find((item) => item.id === launchProjectId);
+          if (project) await recoverPublishedProjectState(project, launchIsCurrent);
         }
       }
-      setLaunchLastCheckedAt(new Date().toISOString());
+
+      if (launchIsCurrent()) {
+        setLaunchLastCheckedAt(new Date().toISOString());
+      }
     } finally {
-      setLaunchCheckBusy(false);
+      if (launchIsCurrent()) {
+        setLaunchCheckBusy(false);
+      }
     }
   }
 
