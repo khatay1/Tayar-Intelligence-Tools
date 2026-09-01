@@ -34,7 +34,13 @@ export function assertValidPublishedWebsiteBundle(
   const seenNames = new Set<string>();
   for (const file of files) {
     const name = String(file.name || '').trim();
-    if (!name || name.startsWith('/') || name.includes('..')) {
+    const segments = name.split('/');
+    if (
+      !name ||
+      name.startsWith('/') ||
+      name.includes('\\') ||
+      segments.some((segment) => !segment || segment === '.' || segment === '..')
+    ) {
       throw new Error('Published website bundle contains an invalid file path.');
     }
     if (seenNames.has(name)) duplicateNames.add(name);
