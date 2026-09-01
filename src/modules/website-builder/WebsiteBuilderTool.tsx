@@ -10107,8 +10107,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   const hasUnpublishedChanges = Boolean(
     publishedUrl &&
-    lastPublishedFingerprint &&
-    buildEditableFingerprint() !== lastPublishedFingerprint
+    (
+      !lastPublishedFingerprint ||
+      buildEditableFingerprint() !== lastPublishedFingerprint
+    )
   );
 
   function openV2MediaUpload() {
