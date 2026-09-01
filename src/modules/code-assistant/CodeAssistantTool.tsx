@@ -21,6 +21,7 @@ import { FEATURE_PRESETS, FeatureKind, featureCandidateMetadata, featureRegistry
 import { buildFeaturePreviewModel, buildFeaturePrimaryLivePreview } from './feature-preview';
 import { buildControlledPackageEdit } from './package-editor';
 import { auditFixableFindings, runProjectUIAudit, UIAuditReport, validateAuditFixPlan } from './ui-audit';
+import { PAGE_PRESETS, PAGE_THEME_PRESETS, PageKind, PageThemeId, composePageAnchors, getPagePreset, getPageTheme, pageAnchorMetadata, validatePageComposerPlan } from './page-composer';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -188,6 +189,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [featurePreviewReason, setFeaturePreviewReason] = useState<string | null>(null);
   const [auditReport, setAuditReport] = useState<UIAuditReport | null>(null);
   const [auditFixLoading, setAuditFixLoading] = useState(false);
+  const [pageKind, setPageKind] = useState<PageKind>('landing');
+  const [pageThemeId, setPageThemeId] = useState<PageThemeId>('project-native');
+  const [pageInstruction, setPageInstruction] = useState('');
+  const [pageLoading, setPageLoading] = useState(false);
   const aiService = useMemo(() => new AIService('code-assistant', { temperature: 0.2, maxTokens: 4096 }), []);
 
   useEffect(() => {
@@ -321,6 +326,12 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const auditFixable = useMemo(
     () => auditReport ? auditFixableFindings(auditReport) : [],
     [auditReport],
+  );
+  const pagePreset = useMemo(() => getPagePreset(pageKind), [pageKind]);
+  const pageTheme = useMemo(() => getPageTheme(pageThemeId), [pageThemeId]);
+  const pageAnchors = useMemo(
+    () => composePageAnchors(searchableItems, pageKind),
+    [searchableItems, pageKind],
   );
   const installCommand = projectContext
     ? buildDependencyInstallCommand(
@@ -755,6 +766,59 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     }
   };
 
+  const onPlanPageComposition = async () => {
+    if (!projectContext || pageLoading || patchLoading || aiLoading) return;
+    setPageLoading(true);
+    setActionError(null);
+    setPatchPlan(null);
+    setApplyConfirmed(false);
+    setPackageEditConfirmed(false);
+    setTab('ai');
+    try {
+      const snippets: string[] = [];
+      for (const anchor of pageAnchors.slice(0, 5)) {
+        try {
+          const code = await ensureCode(anchor.item);
+          if (code) snippets.push(`// Section: ${anchor.section.label} · ${anchor.item.id}\n${code.slice(0, 1_500)}`);
+        } catch {
+          // Metadata remains usable when an upstream source is temporarily unavailable.
+        }
+      }
+      const combined = snippets.join('\n\n');
+      const source = combined.slice(0, 8_000);
+      const response = await aiService.completeJSON<unknown>(
+        {
+          action: 'plan-page-composition',
+          page: {
+            id: pagePreset.id,
+            label: pagePreset.label,
+            description: pagePreset.description,
+            sections: pagePreset.sections.map((section) => ({ id: section.id, label: section.label })),
+          },
+          theme: pageTheme,
+          instruction: pageInstruction.trim() || pagePreset.defaultGoal,
+          constraints: activeConstraintInstructions,
+          project: summarizeProjectForAI(projectContext),
+          anchors: pageAnchorMetadata(pageAnchors),
+          anchorSource: source,
+          anchorSourceTruncated: combined.length > source.length,
+        },
+        [],
+        { temperature: 0.12, maxTokens: 8192 },
+      );
+      if (!response.json) throw new Error('AI did not return a structured page composition patch.');
+      const plan = validatePatchPlan(response.json);
+      validatePageComposerPlan(projectContext, plan);
+      setPatchPlan(plan);
+      setPatchOwnerId(`page:${pageKind}:${pageThemeId}`);
+      setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to generate a safe page composition.');
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
   const onRunProjectAudit = () => {
     if (!projectContext) return;
     setActionError(null);
@@ -808,7 +872,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   };
 
   const onRunFeaturePreview = () => {
-    if (!patchPlan || !patchOwnerId.startsWith('feature:')) return;
+    if (!patchPlan || (!patchOwnerId.startsWith('feature:') && !patchOwnerId.startsWith('page:'))) return;
     const result = buildFeaturePrimaryLivePreview(patchPlan, patchOwnerId);
     if (!result.supported || !result.srcDoc) {
       setFeaturePreviewDoc(null);
@@ -958,6 +1022,18 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
         <div className="mt-4 grid gap-2 sm:grid-cols-5">{FEATURE_PRESETS.map((preset) => <button key={preset.id} onClick={() => { setFeatureKind(preset.id); setPatchPlan(null); setApplyConfirmed(false); }} className={`rounded-xl border p-3 text-left transition ${featureKind === preset.id ? 'border-violet-400/30 bg-violet-500/10' : darkMode ? 'border-white/10 bg-black/10 hover:border-white/20' : 'border-gray-200 bg-white hover:border-violet-200'}`}><div className="text-xs font-semibold">{preset.label}</div><div className="mt-1 text-[10px] leading-4 opacity-45">{preset.description}</div></button>)}</div>
         <textarea value={featureInstruction} onChange={(event) => setFeatureInstruction(event.target.value)} placeholder={featurePreset.defaultGoal} className={`mt-3 min-h-20 w-full resize-y rounded-xl border p-3 text-xs outline-none ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
         <div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-[10px] uppercase tracking-wider opacity-40">Registry anchors</span>{featureCandidates.map((item) => <button key={item.id} onClick={() => { setSelectedId(item.id); setTab('preview'); }} className="rounded-full border border-white/10 px-2 py-1 text-[10px] opacity-65 hover:opacity-100">{item.name}</button>)}{!projectContext && <span className="text-[10px] text-amber-300">Choose a target project to generate a feature pack.</span>}</div>
+      </section>
+
+      <section className={`mt-5 rounded-2xl border p-4 sm:p-5 ${panel}`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div><div className="flex items-center gap-2 text-sm font-semibold"><LayoutTemplate className="h-4 w-4 text-fuchsia-400" /> Page Composer + Themes</div><p className="mt-2 max-w-2xl text-xs leading-5 opacity-55">Compose a complete page from ranked registry anchors instead of choosing components one by one. The generated pack reuses project style, supports a controlled theme direction and still goes through Preview, Dependency Review, Diff, Safe Apply and Rollback.</p></div>
+          <button disabled={!projectContext || pageLoading || patchLoading || aiLoading} onClick={() => void onPlanPageComposition()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-fuchsia-500 disabled:opacity-40">{pageLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutTemplate className="h-4 w-4" />} Compose page</button>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-4">{PAGE_PRESETS.map((preset) => <button key={preset.id} onClick={() => { setPageKind(preset.id); setPatchPlan(null); setApplyConfirmed(false); }} className={`rounded-xl border p-3 text-left transition ${pageKind === preset.id ? 'border-fuchsia-400/30 bg-fuchsia-500/10' : darkMode ? 'border-white/10 bg-black/10 hover:border-white/20' : 'border-gray-200 bg-white hover:border-fuchsia-200'}`}><div className="text-xs font-semibold">{preset.label}</div><div className="mt-1 text-[10px] leading-4 opacity-45">{preset.description}</div></button>)}</div>
+        <div className="mt-3 flex flex-wrap gap-2">{PAGE_THEME_PRESETS.map((theme) => <button key={theme.id} onClick={() => { setPageThemeId(theme.id); setPatchPlan(null); setApplyConfirmed(false); }} className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold ${pageThemeId === theme.id ? 'border-fuchsia-400/30 bg-fuchsia-500/10 text-fuchsia-200' : 'border-white/10 opacity-60'}`}>{theme.label}</button>)}</div>
+        <textarea value={pageInstruction} onChange={(event) => setPageInstruction(event.target.value)} placeholder={pagePreset.defaultGoal} className={`mt-3 min-h-20 w-full resize-y rounded-xl border p-3 text-xs outline-none ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
+        <div className="mt-3"><div className="text-[10px] uppercase tracking-wider opacity-40">Section anchors</div><div className="mt-2 flex flex-wrap gap-2">{pageAnchors.map(({ section, item }) => <button key={section.id} onClick={() => { setSelectedId(item.id); setTab('preview'); }} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] opacity-70 hover:opacity-100"><span className="opacity-45">{section.label}:</span> {item.name}</button>)}{!pageAnchors.length && <span className="text-[10px] opacity-45">No strong registry anchors found for this page preset.</span>}</div></div>
+        <div className="mt-3 rounded-xl border border-white/10 p-3 text-[10px] leading-4 opacity-55"><strong className="opacity-90">{pageTheme.label}:</strong> {pageTheme.instruction}</div>
       </section>
 
       <section className={`mt-5 rounded-2xl border p-4 sm:p-5 ${panel}`}>
