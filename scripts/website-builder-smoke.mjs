@@ -40,6 +40,10 @@ const builderV2NativeBridgePath = resolve(root, 'src/modules/website-builder/v2-
 const websiteBuilderV2BridgePath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
 const builderComponentsPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderComponentsPanel.tsx');
 const websiteBuilderV2CssPath = resolve(root, 'src/modules/website-builder/v2-ui/website-builder-v2.css');
+const editorNativePatchPath = resolve(root, 'src/modules/website-builder/core/editor-native-patch.ts');
+const editorBatchPath = resolve(root, 'src/modules/website-builder/core/editor-batch.ts');
+const editorOperationPolicyPath = resolve(root, 'src/modules/website-builder/core/editor-operation-policy.ts');
+const editorCommandAdaptersPath = resolve(root, 'src/modules/website-builder/core/editor-command-adapters.ts');
 
 const failures = [];
 const passes = [];
@@ -87,6 +91,10 @@ for (const [label, path] of [
   ['V2 bridge exists', websiteBuilderV2BridgePath],
   ['V2 Components panel exists', builderComponentsPanelPath],
   ['V2 stylesheet exists', websiteBuilderV2CssPath],
+  ['Native patch transaction core exists', editorNativePatchPath],
+  ['Editor batch transaction core exists', editorBatchPath],
+  ['Native operation policy exists', editorOperationPolicyPath],
+  ['Native command adapters exist', editorCommandAdaptersPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -127,6 +135,10 @@ const builderV2NativeBridge = existsSync(builderV2NativeBridgePath) ? readFileSy
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
 const builderComponentsPanel = existsSync(builderComponentsPanelPath) ? readFileSync(builderComponentsPanelPath, 'utf8') : '';
 const websiteBuilderV2Css = existsSync(websiteBuilderV2CssPath) ? readFileSync(websiteBuilderV2CssPath, 'utf8') : '';
+const editorNativePatch = existsSync(editorNativePatchPath) ? readFileSync(editorNativePatchPath, 'utf8') : '';
+const editorBatch = existsSync(editorBatchPath) ? readFileSync(editorBatchPath, 'utf8') : '';
+const editorOperationPolicy = existsSync(editorOperationPolicyPath) ? readFileSync(editorOperationPolicyPath, 'utf8') : '';
+const editorCommandAdapters = existsSync(editorCommandAdaptersPath) ? readFileSync(editorCommandAdaptersPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -243,6 +255,12 @@ check('V2 Components panel explains linked behavior', builderComponentsPanel.inc
 check('V2 native operations round-trip global editor state', builder.includes('theme: {\n            ...theme,') && builder.includes('headerConfig: {\n            ...headerConfig,') && builder.includes('setHomePageId(nextHomePageId)') && builder.includes('setTheme(nextTheme)') && builder.includes('setSeo(nextSeo)') && builder.includes('setHeaderConfig(nextHeaderConfig)'));
 check('V2 native operations carry reusable component catalog through EditorStore', builder.includes('symbols:\n            JSON.parse(') && builder.includes('const nextSymbols =') && builder.includes('setSymbols(nextSymbols)'));
 check('V2 native homepage result is validated against surviving pages', builder.includes('const requestedHomePageId =') && builder.includes('nextPages.some(') && builder.includes("nextPages[0]?.id || ''"));
+check('Native editor batches are atomic transactions', editorBatch.includes('applyEditorTransaction(current') && editorBatch.includes('for (const command of resolved)') && editorBatch.includes('project: clone(current)'));
+check('Native patches validate the final project before commit', editorNativePatch.includes('executeEditorSessionBatch') && editorNativePatch.includes('validateEditorProject(candidate, options.limits)'));
+check('Native preflight tracks removed containers and form fields', editorOperationPolicy.includes("operation.action === 'remove_container'") && editorOperationPolicy.includes("operation.action === 'remove_form_field'") && editorOperationPolicy.includes('referencedTargetKeys(operation)'));
+check('Native element updates cannot bypass container assignment rules', editorOperationPolicy.includes('cannot change container assignment through update_element') && editorCommandAdapters.includes('Container not found:'));
+check('V2 native page growth respects billing while existing over-limit projects remain editable', builder.includes('const pageCountIncreased =') && builder.includes('candidate.pages.length >') && builder.includes('billingEntitlements.maxPages'));
+check('Reusable components stop safely at 50 instead of evicting linked symbols', builder.includes('if (symbols.length >= 50)') && builder.includes('setSymbols((current) => [symbol, ...current]);') && !builder.includes('setSymbols((current) => [symbol, ...current].slice(0, 50))'));
 check('Expanded V2 option groups stay in normal flow instead of overlapping', websiteBuilderV2Css.includes('Keep one scroll owner per side panel') && websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields') && websiteBuilderV2Css.includes('position: static') && !websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body'));
 check('Manual builder advanced controls survive AI upgrades', builder.includes('function createContainerForSelected()') && builder.includes('function assignSelectedToContainer(') && builder.includes('function deleteSelectedContainer()') && builder.includes('function createSymbolFromSelected()'));
 check('AI builder uses guarded atomic transactions', builder.includes('validateAIProjectIntegrity') && builder.includes('destructiveOperations') && builder.includes('operations.length - applied'));
