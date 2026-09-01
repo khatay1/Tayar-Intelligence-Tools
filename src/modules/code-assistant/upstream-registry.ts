@@ -1,3 +1,4 @@
+import { ANIMATA_CATALOG } from './catalogs/animata-catalog';
 import { getRegistrySource, isRedistributableSource } from './source-catalog';
 import { normalizeNpmDependencyNames } from './dependency-spec';
 import { UIComponentCategory, UIComponentRecord } from './types';
@@ -5,7 +6,8 @@ import { UIComponentCategory, UIComponentRecord } from './types';
 interface UpstreamRegistryConfig {
   sourceId: string;
   revision: string;
-  manifestUrl: string;
+  manifestUrl?: string;
+  items?: readonly RawRegistryItem[];
   rawBaseUrl: string;
   sourcePathPrefix: string;
   licensePath: string;
@@ -24,6 +26,8 @@ interface RawRegistryItem {
   dependencies?: unknown;
   registryDependencies?: unknown;
   files?: unknown;
+  css?: unknown;
+  cssVars?: unknown;
 }
 
 interface RawRegistry {
@@ -119,6 +123,14 @@ export const UPSTREAM_REGISTRIES: UpstreamRegistryConfig[] = [
     rawBaseUrl: 'https://raw.githubusercontent.com/ibelick/motion-primitives/92586e62a951eb9b6bfd1cc7c8a4e6e2ab6ba17d',
     sourcePathPrefix: '',
     licensePath: 'LICENCE.md',
+  },
+  {
+    sourceId: 'animata',
+    revision: 'de9aabb0eed14e0db944bb07720961ddc450c672',
+    items: ANIMATA_CATALOG,
+    rawBaseUrl: 'https://raw.githubusercontent.com/codse/animata/de9aabb0eed14e0db944bb07720961ddc450c672',
+    sourcePathPrefix: '',
+    licensePath: 'LICENSE.md',
   },
 ];
 
@@ -234,6 +246,7 @@ function normalizeItem(config: UpstreamRegistryConfig, raw: RawRegistryItem): UI
     license: source.license,
     dependencies,
     dependencyRequirements,
+    ...(raw.css || raw.cssVars ? { registryStyles: { css: raw.css, cssVars: raw.cssVars } } : {}),
     code: '',
     remote: {
       sourceId: config.sourceId,
@@ -250,12 +263,19 @@ async function loadRegistry(config: UpstreamRegistryConfig): Promise<UIComponent
   if (!isRedistributableSource(config.sourceId)) {
     throw new Error(`Source "${config.sourceId}" is not approved for redistribution.`);
   }
-  const text = await fetchText(config.manifestUrl, MAX_MANIFEST_BYTES);
-  const parsed = JSON.parse(text) as RawRegistry;
-  if (!Array.isArray(parsed.items)) throw new Error('Registry manifest does not contain an items array.');
+  let rawItems: readonly RawRegistryItem[];
+  if (config.items) {
+    rawItems = config.items;
+  } else {
+    if (!config.manifestUrl) throw new Error('Registry source has no manifest or local catalog.');
+    const text = await fetchText(config.manifestUrl, MAX_MANIFEST_BYTES);
+    const parsed = JSON.parse(text) as RawRegistry;
+    if (!Array.isArray(parsed.items)) throw new Error('Registry manifest does not contain an items array.');
+    rawItems = parsed.items as RawRegistryItem[];
+  }
 
   const unique = new Map<string, UIComponentRecord>();
-  for (const raw of parsed.items.slice(0, 5000)) {
+  for (const raw of rawItems.slice(0, 5000)) {
     if (!raw || typeof raw !== 'object') continue;
     const item = normalizeItem(config, raw as RawRegistryItem);
     if (item && !unique.has(item.id)) unique.set(item.id, item);

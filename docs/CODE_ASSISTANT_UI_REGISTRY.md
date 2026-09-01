@@ -24,7 +24,7 @@ Currently verified:
 - `arihantcodes/spectrum-ui` — Apache-2.0 — allowed with upstream notice preserved.
 - `shadcnspace/shadcnspace` — MIT — allowed with upstream notice preserved.
 - `ibelick/motion-primitives` — MIT — allowed with upstream notice preserved; 33 registry items at the reviewed revision.
-- `codse/animata` — MIT — allowed with upstream notice preserved; local pinned catalog ingestion is supported separately.
+- `codse/animata` — MIT — allowed with upstream notice preserved; 154 published registry components are generated with Animata's own registry builder from pinned commit `de9aabb0`.
 - `imskyleen/animate-ui` — MIT + Commons Clause — blocked from Tayar public registry redistribution.
 - `DavidHDev/react-bits` — current Commons Clause restriction — blocked from registry redistribution.
 - `animmasterlib.dev` — paid/private distribution. No public redistribution license found during review; blocked from Tayar bundling. Planned path: user-provided private licensed pack import only.
@@ -44,9 +44,10 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Source-level redistribution guard.
 - Runtime loading of approved upstream registry manifests from shadcn/ui, KokonutUI, Magic UI, Cult UI, 8bitcn, Eldora UI, UI Layouts, Spectrum UI, Shadcn Space and Motion Primitives.
 - Every approved public source is pinned to a reviewed immutable Git commit; the registry never follows a moving `main` branch at runtime.
-- Current verified manifests expose roughly 1,520 redistributable UI components/blocks before the Animata catalog snapshot before future sources are added.
+- Current verified manifests expose roughly 1,674 redistributable UI components/blocks including the pinned Animata snapshot before future sources are added.
 - Large result sets render in incremental batches instead of mounting the full registry list at once.
 - Registry dependencies are resolved recursively from the approved loaded catalog with bounded depth/item limits, preferring the component's own source and then shadcn-compatible primitives.
+- Registry-provided CSS and CSS variables are preserved as metadata and included in bounded AI adaptation/patch context so animated components do not silently lose required styles.
 - NPM requirements such as `react-day-picker@latest` and `recharts@2.15.4` are normalized to package names for compatibility checks while preserving their original install requirement.
 - The selected project's lockfile identifies npm/pnpm/yarn/bun, and Coding Assistance can generate the correct install command for missing dependencies without editing package.json or executing commands automatically.
 - Resolved dependency source is bundled into AI/Patch Plan context; only genuinely unresolved registry references remain Safe Apply blockers.

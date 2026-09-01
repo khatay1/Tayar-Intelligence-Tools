@@ -35,6 +35,10 @@ export interface UIComponentRecord {
   license: RegistryLicense;
   dependencies: string[];
   dependencyRequirements?: string[];
+  registryStyles?: {
+    css?: unknown;
+    cssVars?: unknown;
+  };
   code: string;
   remote?: {
     sourceId: string;

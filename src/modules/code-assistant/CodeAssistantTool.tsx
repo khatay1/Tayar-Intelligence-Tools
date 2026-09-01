@@ -55,6 +55,16 @@ async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
+function registryStylesForAI(item: UIComponentRecord): unknown {
+  if (!item.registryStyles) return null;
+  const serialized = JSON.stringify(item.registryStyles);
+  if (serialized.length <= 8_000) return item.registryStyles;
+  return {
+    truncated: true,
+    preview: serialized.slice(0, 8_000),
+  };
+}
+
 function filterRecords(
   records: UIComponentRecord[],
   query: string,
@@ -398,6 +408,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             kind: item.kind || 'component',
             source: getRegistrySource(item.sourceId)?.name || item.sourceId,
             license: item.license,
+            registryStyles: registryStylesForAI(item),
             npmDependencies: bundle.resolution.npmDependencies,
             npmDependencyRequirements: bundle.resolution.npmDependencyRequirements,
             registryDependencies: item.remote?.registryDependencies || [],
@@ -482,6 +493,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             kind: item.kind || 'component',
             source: getRegistrySource(item.sourceId)?.name || item.sourceId,
             license: item.license,
+            registryStyles: registryStylesForAI(item),
             npmDependencies: bundle.resolution.npmDependencies,
             npmDependencyRequirements: bundle.resolution.npmDependencyRequirements,
             registryDependencies: item.remote?.registryDependencies || [],
@@ -705,7 +717,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
                 </div>}
                 {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && !patchLoading && !variantsLoading && !patchPlan && variants.length === 0 && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation or patch plan generated yet.</div>}
               </div>}
-              {tab === 'info' && <div className="space-y-4">{projectContext && <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="text-xs uppercase tracking-wider text-cyan-300/70">Active project</div><div className="mt-2 font-semibold">{projectContext.title}</div><div className="mt-1 text-xs opacity-60">{projectContext.framework} · {Object.keys(projectContext.dependencies).length} dependencies · {projectContext.totalCandidateFiles} candidate files</div><p className="mt-2 text-[11px] leading-5 opacity-45">Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.</p></div>}<div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.remote?.revision ? ` @ ${selected.remote.revision.slice(0, 8)}` : ''}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p><div className="mt-2 flex flex-wrap gap-1">{selectedRegistryResolution.resolved.map((entry) => <span key={entry.id} className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">{entry.name}</span>)}{selectedRegistryResolution.unresolved.map((entry) => <span key={entry} className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">Unresolved: {entry}</span>)}</div></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
+              {tab === 'info' && <div className="space-y-4">{projectContext && <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="text-xs uppercase tracking-wider text-cyan-300/70">Active project</div><div className="mt-2 font-semibold">{projectContext.title}</div><div className="mt-1 text-xs opacity-60">{projectContext.framework} · {Object.keys(projectContext.dependencies).length} dependencies · {projectContext.totalCandidateFiles} candidate files</div><p className="mt-2 text-[11px] leading-5 opacity-45">Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.</p></div>}<div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.remote?.revision ? ` @ ${selected.remote.revision.slice(0, 8)}` : ''}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.registryStyles && <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry styles</div><p className="mt-2 text-xs leading-5 opacity-60">This component includes upstream CSS/CSS variables. Tayar carries the style metadata into AI adaptation and patch planning instead of silently dropping it.</p></div>}{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p><div className="mt-2 flex flex-wrap gap-1">{selectedRegistryResolution.resolved.map((entry) => <span key={entry.id} className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">{entry.name}</span>)}{selectedRegistryResolution.unresolved.map((entry) => <span key={entry} className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">Unresolved: {entry}</span>)}</div></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
             </div>
           </section>
         )}
