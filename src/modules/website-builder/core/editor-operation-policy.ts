@@ -181,6 +181,19 @@ function validateOperationPayloadShape(
 ) {
   let ok = true;
 
+  for (const [label, value] of [
+    ['pageId', operation.pageId],
+    ['sectionId', operation.sectionId],
+    ['elementId', operation.elementId],
+    ['containerId', operation.containerId],
+    ['formFieldId', operation.formFieldId],
+    ['symbolId', operation.symbolId],
+    ['sourceElementId', operation.sourceElementId],
+    ['sourceSectionId', operation.sourceSectionId],
+  ] as const) {
+    if (value !== undefined && !validateIdValue(value, label, prefix, errors)) ok = false;
+  }
+
   if (operation.changes !== undefined && !isRecord(operation.changes)) {
     errors.push(`${prefix} changes must be an object when provided`);
     ok = false;
@@ -205,6 +218,21 @@ function validateOperationPayloadShape(
   }
   if (operation.action === 'add_form_field') {
     if (!validateFormFieldPayload(operation.formField, prefix, errors)) ok = false;
+  }
+
+  if (
+    operation.action === 'update_section' &&
+    isRecord(operation.changes) &&
+    operation.changes.formFields !== undefined
+  ) {
+    if (!Array.isArray(operation.changes.formFields)) {
+      errors.push(`${prefix} changes.formFields must be an array when provided`);
+      ok = false;
+    } else {
+      operation.changes.formFields.forEach((field, index) => {
+        if (!validateFormFieldPayload(field, `${prefix} changes.formFields[${index}]`, errors)) ok = false;
+      });
+    }
   }
 
   return ok;
@@ -296,7 +324,6 @@ function validateReference(
   prefix: string,
   errors: string[],
 ) {
-  if (reference.id === undefined) return;
   if (!validateIdValue(reference.id, reference.label, prefix, errors)) return;
   if (!referenceExists(state, reference)) {
     errors.push(`${prefix} references missing or out-of-scope ${reference.label}: ${reference.id}`);
@@ -332,6 +359,15 @@ function operationReferenceEntries(operation: EditorNativeOperation) {
   const references: NativeReferenceEntry[] = [];
 
   switch (operation.action) {
+    case 'add_page':
+      for (const section of operation.page?.sections || []) {
+        for (const element of section.elements || []) {
+          if (element.symbolId) {
+            references.push({ kind: 'symbol', id: element.symbolId, label: 'page element symbolId' });
+          }
+        }
+      }
+      break;
     case 'duplicate_page':
     case 'update_page':
     case 'remove_page':
@@ -341,6 +377,11 @@ function operationReferenceEntries(operation: EditorNativeOperation) {
       break;
     case 'add_section':
       pushScopedReferences(references, operation, ['page']);
+      for (const element of operation.section?.elements || []) {
+        if (element.symbolId) {
+          references.push({ kind: 'symbol', id: element.symbolId, label: 'section element symbolId' });
+        }
+      }
       break;
     case 'duplicate_section':
     case 'update_section':
@@ -358,6 +399,9 @@ function operationReferenceEntries(operation: EditorNativeOperation) {
           pageId: operation.pageId,
           sectionId: operation.sectionId,
         });
+      }
+      if (operation.element?.symbolId) {
+        references.push({ kind: 'symbol', id: operation.element.symbolId, label: 'element.symbolId' });
       }
       break;
     case 'duplicate_element':
@@ -830,6 +874,18 @@ export function preflightEditorNativeOperations(
       if (operation.changes?.formFields !== undefined && operation.source !== 'manual') {
         errors.push(`${prefix} cannot replace form fields through update_section unless it is a validated manual edit`);
       }
+    }
+    if (operation.action === 'update_page' && operation.changes?.id !== undefined) {
+      errors.push(`${prefix} cannot change page identity`);
+    }
+    if (operation.action === 'update_section' && operation.changes?.id !== undefined) {
+      errors.push(`${prefix} cannot change section identity`);
+    }
+    if (operation.action === 'update_container' && operation.changes?.id !== undefined) {
+      errors.push(`${prefix} cannot change container identity`);
+    }
+    if (operation.action === 'update_form_field' && operation.changes?.id !== undefined) {
+      errors.push(`${prefix} cannot change form-field identity`);
     }
     if (operation.action === 'update_element' && operation.changes?.id !== undefined) {
       errors.push(`${prefix} cannot change element identity`);
