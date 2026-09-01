@@ -101,6 +101,11 @@ import {
 } from './core/delivery-config';
 import { languageCodeLabel, normalizePageLanguage, normalizeSlug, PAGE_LANGUAGE_LABELS } from './core/project-identifiers';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
+import {
+  editorAIContextMatches,
+  editorAIProjectIdentityMatches,
+  type EditorAIAsyncContext,
+} from './core/editor-ai-operation-context';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -3430,6 +3435,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const savedFeedbackSequenceRef = useRef(0);
   const aiOperationSequenceRef = useRef(0);
   const aiQualityOperationSequenceRef = useRef(0);
+  const aiEditorContextRef = useRef<EditorAIAsyncContext | null>(null);
+  const aiUndoContextRef = useRef<EditorAIAsyncContext | null>(null);
+  const aiQualityReviewContextRef = useRef<EditorAIAsyncContext | null>(null);
   const cloudProjectsRefreshSequenceRef = useRef(0);
   const cloudProjectsRefreshAbortControllerRef = useRef<AbortController | null>(null);
   const publishOperationSequenceRef = useRef(0);
@@ -3683,6 +3691,49 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       language: prefs.language,
     });
   }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
+
+  const currentAIEditorContext: EditorAIAsyncContext = {
+    loadSequence: projectLoadSequenceRef.current,
+    userId: user?.id ?? null,
+    routeProjectId: projectId,
+    projectId: cloudProjectId,
+    ownerId: activeProjectOwnerId || null,
+    editableFingerprint: buildEditableFingerprint(),
+    activePageId,
+    sectionId: selectedId,
+    elementId: selectedElementId,
+    containerId: selectedContainerId,
+    formFieldId: selectedFormFieldId,
+    device,
+  };
+  aiEditorContextRef.current = currentAIEditorContext;
+
+  function captureAIEditorContext() {
+    return { ...currentAIEditorContext };
+  }
+
+  function aiEditorContextIsCurrent(
+    expected: EditorAIAsyncContext,
+    requireSelection = false,
+  ) {
+    return editorAIContextMatches(
+      expected,
+      aiEditorContextRef.current,
+      {
+        requireEditableFingerprint: true,
+        requireSelection,
+      },
+    );
+  }
+
+  function aiProjectIdentityIsCurrent(
+    expected: EditorAIAsyncContext,
+  ) {
+    return editorAIProjectIdentityMatches(
+      expected,
+      aiEditorContextRef.current,
+    );
+  }
 
   function buildDeliveryFingerprint() {
     return buildEditableFingerprint();
