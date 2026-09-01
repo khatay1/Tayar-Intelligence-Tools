@@ -1,0 +1,57 @@
+import { RegistrySource } from './types';
+
+export const REGISTRY_SOURCES: RegistrySource[] = [
+  {
+    id: 'tayar-native',
+    name: 'Tayar Native',
+    repository: 'khatay1/Tayar-Intelligence-Tools',
+    license: 'Tayar',
+    redistributionAllowed: true,
+    attributionRequired: false,
+    note: 'Original components authored for the Tayar registry.',
+  },
+  {
+    id: 'shadcn',
+    name: 'shadcn/ui',
+    repository: 'shadcn-ui/ui',
+    license: 'MIT',
+    redistributionAllowed: true,
+    attributionRequired: true,
+    note: 'MIT source. Preserve the upstream copyright and permission notice when substantial code is imported.',
+  },
+  {
+    id: 'magic-ui',
+    name: 'Magic UI',
+    repository: 'magicuidesign/magicui',
+    license: 'MIT',
+    redistributionAllowed: true,
+    attributionRequired: true,
+    note: 'MIT source. Preserve the upstream copyright and permission notice when substantial code is imported.',
+  },
+  {
+    id: 'kokonut-ui',
+    name: 'KokonutUI',
+    repository: 'kokonut-labs/kokonutui',
+    license: 'MIT',
+    redistributionAllowed: true,
+    attributionRequired: true,
+    note: 'MIT source. Preserve the upstream copyright and permission notice when substantial code is imported.',
+  },
+  {
+    id: 'react-bits',
+    name: 'React Bits',
+    repository: 'DavidHDev/react-bits',
+    license: 'restricted',
+    redistributionAllowed: false,
+    attributionRequired: true,
+    note: 'Current Commons Clause terms prohibit redistributing the components themselves. Keep blocked from the Tayar component registry.',
+  },
+];
+
+export function getRegistrySource(sourceId: string) {
+  return REGISTRY_SOURCES.find((source) => source.id === sourceId);
+}
+
+export function isRedistributableSource(sourceId: string): boolean {
+  return getRegistrySource(sourceId)?.redistributionAllowed === true;
+}

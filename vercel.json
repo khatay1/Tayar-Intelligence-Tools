@@ -59,7 +59,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "release/ai-patch-engine-v1": false
+      "release/ai-patch-engine-v1": false,
+      "internal-*": false
     }
   },
   "rewrites": [
