@@ -18,6 +18,7 @@ const projectFileStore = read('src/modules/code-assistant/project-file-store.ts'
 const projectApply = read('src/modules/code-assistant/project-apply.ts');
 const registryDependencies = read('src/modules/code-assistant/registry-dependencies.ts');
 const dependencySpec = read('src/modules/code-assistant/dependency-spec.ts');
+const variantPlan = read('src/modules/code-assistant/variant-plan.ts');
 const prompts = read('src/lib/ai/prompts.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const vercel = JSON.parse(read('vercel.json'));
@@ -47,6 +48,9 @@ if (!registryDependencies.includes('MAX_RESOLVED_ITEMS = 16') || !registryDepend
 if (!dependencySpec.includes('parseNpmDependencyRequirement') || !dependencySpec.includes('buildDependencyInstallCommand') || !dependencySpec.includes("packageManager === 'pnpm'")) fail('NPM dependency normalization/install planning is missing.');
 if (!projectContext.includes('detectPackageManager') || !projectContext.includes('declaredProjectPaths') || !assistant.includes('Copy {projectContext.packageManager} install command')) fail('Project package-manager install guidance is missing.');
 if (!projectContext.includes('truncated: slice.length < file.content.length') || !assistant.includes('!snapshot || snapshot.truncated')) fail('Safe Apply must block replacement from incomplete AI file snapshots.');
+if (!assistant.includes('Generate 3 options') || !assistant.includes('AI_CONSTRAINTS') || !assistant.includes("constraintIds.has('no-animation-lib')")) fail('AI variant/constraint workflow is missing.');
+if (!prompts.includes("action === 'suggest-component-variants'") || !prompts.includes('Return exactly three meaningfully different options.')) fail('AI variant prompt is missing.');
+if (!variantPlan.includes('validateVariantOptions') || !variantPlan.includes('output.length < 2')) fail('Structured variant validation is missing.');
 const manifestUrls = upstream
   .split('\n')
   .map((line) => line.trim())

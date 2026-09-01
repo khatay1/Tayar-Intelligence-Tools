@@ -48,6 +48,9 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - The selected project's lockfile identifies npm/pnpm/yarn/bun, and Coding Assistance can generate the correct install command for missing dependencies without editing package.json or executing commands automatically.
 - Resolved dependency source is bundled into AI/Patch Plan context; only genuinely unresolved registry references remain Safe Apply blockers.
 - Search results are relevance-ranked for exact/prefix/name/tag/description matches.
+- AI constraints can be toggled before generation: reuse project tokens, accessibility, reduced motion, no animation library, and server-component compatibility.
+- “Generate 3 options” returns validated, side-by-side adaptation directions before code or a patch is generated; choosing one feeds its precise instruction into the existing adaptation/patch workflow.
+- Enabling “No animation lib” also filters catalog items that explicitly require motion, framer-motion or GSAP.
 - Each selected item surfaces up to six similar components based on category, kind, source and shared tags.
 - The immutable upstream catalog is cached in-memory per app session to avoid repeatedly downloading nine pinned manifests when the tool remounts.
 - On-demand component source fetching; third-party code is not executed inside the registry browser.

@@ -12,7 +12,18 @@ import { buildPatchPreviews, CodePatchPlan, validatePatchPlan } from './patch-pl
 import { applyCodePatch, rollbackCodePatch } from './project-apply';
 import { buildDependencyInstallCommand } from './dependency-spec';
 import { resolveRegistryDependencies } from './registry-dependencies';
+import { AIVariantOption, validateVariantOptions } from './variant-plan';
 import { UIComponentCategory, UIComponentRecord } from './types';
+
+const AI_CONSTRAINTS = [
+  { id: 'reuse-tokens', label: 'Reuse tokens', instruction: 'Reuse existing project design tokens and primitives instead of introducing a parallel design system.' },
+  { id: 'accessibility', label: 'Accessible', instruction: 'Preserve or improve keyboard access, semantic markup, labels, focus visibility and contrast.' },
+  { id: 'reduced-motion', label: 'Reduced motion', instruction: 'Respect prefers-reduced-motion and avoid motion that is required to understand or operate the UI.' },
+  { id: 'no-animation-lib', label: 'No animation lib', instruction: 'Do not add motion, framer-motion, GSAP or another animation dependency; prefer CSS or no animation.' },
+  { id: 'server-compatible', label: 'Server compatible', instruction: 'Prefer server-component-compatible structure where the project framework supports it; isolate client-only behavior to the smallest boundary.' },
+] as const;
+
+type AIConstraintId = typeof AI_CONSTRAINTS[number]['id'];
 
 const CATEGORIES: Array<{ id: UIComponentCategory | 'all'; label: string }> = [
   { id: 'all', label: 'All' },
@@ -125,6 +136,9 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [aiResult, setAiResult] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMeta, setAiMeta] = useState<{ model: string; tokensIn: number; tokensOut: number } | null>(null);
+  const [constraintIds, setConstraintIds] = useState<Set<AIConstraintId>>(new Set(['reuse-tokens', 'accessibility', 'reduced-motion']));
+  const [variants, setVariants] = useState<AIVariantOption[]>([]);
+  const [variantsLoading, setVariantsLoading] = useState(false);
   const [projectContext, setProjectContext] = useState<CodeProjectContext | null>(null);
   const [projectOptions, setProjectOptions] = useState<CodeProjectOption[]>([]);
   const [targetProjectId, setTargetProjectId] = useState(projectId || '');
@@ -214,14 +228,24 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   }, []);
 
   const allItems = useMemo(() => [...componentRegistry.all(), ...upstreamItems], [upstreamItems]);
+  const activeConstraintInstructions = useMemo(
+    () => AI_CONSTRAINTS.filter((constraint) => constraintIds.has(constraint.id)).map((constraint) => constraint.instruction),
+    [constraintIds],
+  );
+  const searchableItems = useMemo(
+    () => constraintIds.has('no-animation-lib')
+      ? allItems.filter((item) => !item.dependencies.some((dependency) => dependency === 'motion' || dependency === 'framer-motion' || dependency === 'gsap'))
+      : allItems,
+    [allItems, constraintIds],
+  );
   const matches = useMemo(
-    () => filterRecords(allItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds),
-    [allItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds],
+    () => filterRecords(searchableItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds),
+    [searchableItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds],
   );
   const visibleMatches = useMemo(() => matches.slice(0, visibleCount), [matches, visibleCount]);
   const selected = visibleMatches.find((item) => item.id === selectedId) || visibleMatches[0] || matches[0];
   const source = selected ? getRegistrySource(selected.sourceId) : undefined;
-  const similarItems = useMemo(() => similarRecords(allItems, selected), [allItems, selected]);
+  const similarItems = useMemo(() => similarRecords(searchableItems, selected), [searchableItems, selected]);
   const selectedCode = selected ? (loadedCode[selected.id] ?? selected.code) : '';
   const selectedRegistryResolution = useMemo(
     () => selected ? resolveRegistryDependencies(allItems, selected) : { resolved: [], unresolved: [], npmDependencies: [], npmDependencyRequirements: [] },
@@ -276,7 +300,20 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
 
   useEffect(() => {
     setVisibleCount(80);
-  }, [query, category, kindFilter, sourceFilter, favoritesOnly]);
+  }, [query, category, kindFilter, sourceFilter, favoritesOnly, constraintIds]);
+
+  useEffect(() => {
+    setVariants([]);
+  }, [selected?.id]);
+
+  const toggleConstraint = (id: AIConstraintId) => {
+    setConstraintIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((current) => {
@@ -368,6 +405,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             unresolvedRegistryDependencies: bundle.resolution.unresolved,
           },
           project: summarizeProjectForAI(projectContext),
+          constraints: activeConstraintInstructions,
           dependencyAnalysis: checkProjectDependencies(projectContext, bundle.resolution.npmDependencies),
           sourceCode,
           sourceTruncated: code.length > maxSourceChars,
@@ -381,6 +419,45 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       setActionError(error instanceof Error ? error.message : 'AI adaptation failed.');
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const onGenerateVariants = async (item: UIComponentRecord) => {
+    if (variantsLoading || aiLoading || patchLoading) return;
+    setVariantsLoading(true);
+    setActionError(null);
+    setVariants([]);
+    setTab('ai');
+    try {
+      const bundle = await buildSourceBundle(item);
+      const maxSourceChars = 6_000;
+      const response = await aiService.completeJSON<unknown>(
+        {
+          action: 'suggest-component-variants',
+          instruction: aiInstruction.trim() || item.aiPrompt,
+          constraints: activeConstraintInstructions,
+          component: {
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            kind: item.kind || 'component',
+            source: getRegistrySource(item.sourceId)?.name || item.sourceId,
+            npmDependencies: bundle.resolution.npmDependencies,
+          },
+          project: summarizeProjectForAI(projectContext),
+          sourceCode: bundle.code.slice(0, maxSourceChars),
+          sourceTruncated: bundle.code.length > maxSourceChars,
+        },
+        [],
+        { temperature: 0.5, maxTokens: 1800 },
+      );
+      if (!response.json) throw new Error('AI did not return structured variant options.');
+      setVariants(validateVariantOptions(response.json));
+      setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to generate component options.');
+    } finally {
+      setVariantsLoading(false);
     }
   };
 
@@ -412,6 +489,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             unresolvedRegistryDependencies: bundle.resolution.unresolved,
           },
           project: summarizeProjectForAI(projectContext),
+          constraints: activeConstraintInstructions,
           dependencyAnalysis: checkProjectDependencies(projectContext, bundle.resolution.npmDependencies),
           sourceCode: code.slice(0, maxSourceChars),
           sourceTruncated: code.length > maxSourceChars,
@@ -593,14 +671,20 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
                 <div className="rounded-xl border border-white/10 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-violet-400" /> AI adaptation</div>
                   <p className="mt-2 text-xs leading-5 opacity-55">Describe the change you want. Tayar sends a bounded source excerpt plus dependency/license metadata and a bounded snapshot of the active project to the existing authenticated AI engine. The result is review-only and is never executed or applied automatically.</p>
+                  <div className="mt-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider opacity-45">Constraints</div>
+                    <div className="mt-2 flex flex-wrap gap-2">{AI_CONSTRAINTS.map((constraint) => <button key={constraint.id} onClick={() => toggleConstraint(constraint.id)} className={`rounded-full border px-2.5 py-1.5 text-[10px] transition ${constraintIds.has(constraint.id) ? 'border-violet-400/30 bg-violet-500/10 text-violet-300' : darkMode ? 'border-white/10 text-gray-500 hover:text-gray-300' : 'border-gray-200 text-gray-500 hover:text-gray-700'}`}>{constraint.label}</button>)}</div>
+                  </div>
                   <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} maxLength={2000} placeholder="Example: Make this fit a dark SaaS dashboard, use our existing buttons, reduce motion on mobile, and keep it accessible." className={`mt-3 w-full resize-y rounded-xl border p-3 text-sm outline-none focus:border-violet-400/50 ${darkMode ? 'border-white/10 bg-black/20 placeholder:text-gray-600' : 'border-gray-200 bg-white'}`} />
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button disabled={aiLoading || patchLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate adaptation</button>
-                    <button disabled={aiLoading || patchLoading} onClick={() => void onPlanPatch(selected)} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50 ${darkMode ? 'border-violet-400/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>{patchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDiff className="h-4 w-4" />} Plan file patch</button>
+                    <button disabled={aiLoading || patchLoading || variantsLoading} onClick={() => void onGenerateVariants(selected)} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>{variantsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutTemplate className="h-4 w-4" />} Generate 3 options</button>
+                    <button disabled={aiLoading || patchLoading || variantsLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate adaptation</button>
+                    <button disabled={aiLoading || patchLoading || variantsLoading} onClick={() => void onPlanPatch(selected)} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-50 ${darkMode ? 'border-violet-400/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>{patchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDiff className="h-4 w-4" />} Plan file patch</button>
                     {aiResult && <button onClick={() => void copyText(aiResult).then(() => { setCopied('prompt'); window.setTimeout(() => setCopied(null), 1400); })} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold ${darkMode ? 'border-white/10' : 'border-gray-200'}`}><Copy className="h-4 w-4" /> {copied === 'prompt' ? 'Copied' : 'Copy result'}</button>}
                   </div>
                 </div>
                 {aiMeta && <div className="flex flex-wrap gap-2 text-[10px] opacity-50"><span>Model: {aiMeta.model}</span><span>Input tokens: {aiMeta.tokensIn}</span><span>Output tokens: {aiMeta.tokensOut}</span></div>}
+                {variants.length > 0 && <div className="grid gap-3 lg:grid-cols-3">{variants.map((variant) => <div key={variant.id} className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">{variant.title}</div><p className="mt-2 text-xs leading-5 opacity-60">{variant.direction}</p>{variant.tradeoffs.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-4 text-[10px] leading-4 opacity-45">{variant.tradeoffs.map((tradeoff) => <li key={tradeoff}>{tradeoff}</li>)}</ul>}<button onClick={() => { setAiInstruction(variant.instruction); setPatchPlan(null); setAiResult(''); }} className="mt-3 rounded-lg bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-300 hover:bg-violet-500/20">Use this direction</button></div>)}</div>}
                 {patchPlan && <div className="space-y-3 rounded-xl border border-violet-400/15 bg-violet-500/5 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold"><FileDiff className="h-4 w-4 text-violet-400" /> Reviewable patch plan</div>
                   <p className="text-xs leading-5 opacity-65">{patchPlan.summary}</p>
@@ -619,7 +703,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
                     </div>}
                   </div>
                 </div>}
-                {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && !patchLoading && !patchPlan && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation or patch plan generated yet.</div>}
+                {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && !patchLoading && !variantsLoading && !patchPlan && variants.length === 0 && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation or patch plan generated yet.</div>}
               </div>}
               {tab === 'info' && <div className="space-y-4">{projectContext && <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="text-xs uppercase tracking-wider text-cyan-300/70">Active project</div><div className="mt-2 font-semibold">{projectContext.title}</div><div className="mt-1 text-xs opacity-60">{projectContext.framework} · {Object.keys(projectContext.dependencies).length} dependencies · {projectContext.totalCandidateFiles} candidate files</div><p className="mt-2 text-[11px] leading-5 opacity-45">Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.</p></div>}<div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.remote?.revision ? ` @ ${selected.remote.revision.slice(0, 8)}` : ''}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p><div className="mt-2 flex flex-wrap gap-1">{selectedRegistryResolution.resolved.map((entry) => <span key={entry.id} className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">{entry.name}</span>)}{selectedRegistryResolution.unresolved.map((entry) => <span key={entry} className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">Unresolved: {entry}</span>)}</div></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
             </div>
