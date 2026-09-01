@@ -10380,7 +10380,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           );
         } else {
           const project = cloudProjects.find((item) => item.id === launchProjectId);
-          if (project) await recoverPublishedProjectState(project, launchIsCurrent);
+          if (project) await recoverPublishedProjectState(project, launchLoadSequence);
         }
       }
 
