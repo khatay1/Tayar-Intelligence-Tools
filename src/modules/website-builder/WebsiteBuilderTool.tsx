@@ -3422,6 +3422,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const skipNextAutosaveRef = useRef(false);
   const saveInFlightRef = useRef(false);
   const newProjectIntentRef = useRef(false);
+  const projectLoadSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
 
   const getCurrentPages = useCallback(() => {
@@ -3626,9 +3627,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  async function refreshProjectTeamAccess(projectId: string | null) {
+  async function refreshProjectTeamAccess(projectId: string | null, expectedLoadSequence?: number) {
+    const loadIsCurrent = () =>
+      expectedLoadSequence === undefined ||
+      projectLoadSequenceRef.current === expectedLoadSequence;
+
     if (!user || !projectId) {
-      setProjectTeamAccess(DEFAULT_EDITOR_PROJECT_ACCESS);
+      if (loadIsCurrent()) setProjectTeamAccess(DEFAULT_EDITOR_PROJECT_ACCESS);
       return DEFAULT_EDITOR_PROJECT_ACCESS;
     }
 
@@ -3637,12 +3642,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const { data, error } = await getWebsiteProjectTeamAccess(projectId);
     if (error || !data) {
-      setProjectTeamAccess(fallback);
+      if (loadIsCurrent()) setProjectTeamAccess(fallback);
       return fallback;
     }
 
     const next = normalizeEditorProjectAccess(data, fallback);
-    setProjectTeamAccess(next);
+    if (loadIsCurrent()) setProjectTeamAccess(next);
     return next;
   }
 
@@ -3870,12 +3875,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  async function recoverPublishedProjectState(project: CloudWebsiteProject) {
+  async function recoverPublishedProjectState(project: CloudWebsiteProject, expectedLoadSequence?: number) {
     if (!user) return false;
+
+    const loadIsCurrent = () =>
+      expectedLoadSequence === undefined ||
+      projectLoadSequenceRef.current === expectedLoadSequence;
+
+    if (!loadIsCurrent()) return false;
 
     const ownerId = project.user_id || user.id;
     const path = `${ownerId}/${project.id}/index.html`;
     const { data, error } = await downloadPublishedWebsiteFile(path);
+
+    if (!loadIsCurrent()) return false;
 
     const storedUrl =
       typeof project.content?.publishedUrl === 'string'
@@ -3901,6 +3914,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const routeHealthy = await verifyPublishedRoute(recoveredUrl);
 
+    if (!loadIsCurrent()) return false;
+
     setPublishedUrl(recoveredUrl);
     setPublishedAt(recoveredAt);
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
@@ -3922,7 +3937,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: recoverUpdatedAt,
       });
 
-      if (!recoverError) {
+      if (!recoverError && loadIsCurrent()) {
         setCloudProjects((current) =>
           current.map((item) =>
             item.id === project.id
@@ -3943,10 +3958,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function loadCloudProject(projectId: string) {
     const project = cloudProjects.find((item) => item.id === projectId);
     if (!project) return;
+
+    const loadSequence = ++projectLoadSequenceRef.current;
     newProjectIntentRef.current = false;
     setCloudProjectId(project.id);
     saveActiveWebsiteProjectId(project.id);
-    await refreshProjectTeamAccess(project.id);
+
+    await refreshProjectTeamAccess(project.id, loadSequence);
+    if (projectLoadSequenceRef.current !== loadSequence) return;
+
     setLeads([]);
     setLeadsOpen(false);
     setAnalyticsEvents([]);
@@ -3955,17 +3975,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setReleaseHistoryOpen(false);
     setLiveVerification('idle');
     skipNextAutosaveRef.current = true;
+
     const identifiedContent = {
       ...project.content,
       cloudProjectId: project.id,
     };
+
     applyProjectData(identifiedContent);
     setSiteName(project.title || 'My Website');
     saveLocalWebsiteProject(identifiedContent);
-    await recoverPublishedProjectState({
-      ...project,
-      content: identifiedContent,
-    });
+
+    await recoverPublishedProjectState(
+      {
+        ...project,
+        content: identifiedContent,
+      },
+      loadSequence,
+    );
   }
 
   const loadCloudProjectRef = useRef(loadCloudProject);
