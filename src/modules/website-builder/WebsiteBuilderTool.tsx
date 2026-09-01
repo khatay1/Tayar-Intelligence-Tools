@@ -10785,27 +10785,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setCloudError(result.error?.message || (automatic ? 'Autosaved locally, but cloud autosave failed.' : 'Saved locally, but cloud save failed.'));
           setCloudSyncFailed(true);
         } else {
+          const createdProject = result.data;
           newProjectIntentRef.current = false;
-          setCloudProjectId(result.data.id);
-          saveActiveWebsiteProjectId(result.data.id);
+          setCloudProjectId(createdProject.id);
+          saveActiveWebsiteProjectId(createdProject.id);
           saveLocalWebsiteProject({
             ...projectData,
-            cloudProjectId: result.data.id,
+            cloudProjectId: createdProject.id,
           });
           setProjectTeamAccess({ ...DEFAULT_EDITOR_PROJECT_ACCESS, ownerId: user.id });
           setCloudProjects((current) => [
             {
-              id: result.data.id,
+              id: createdProject.id,
               user_id: user.id,
               workspace_id: null,
               title: siteName.trim() || 'My Website',
               content: projectData,
               status: publishedUrl ? 'completed' : 'draft',
-              updated_at: typeof result.data.updated_at === 'string'
-                ? result.data.updated_at
+              updated_at: typeof createdProject.updated_at === 'string'
+                ? createdProject.updated_at
                 : String(projectData.updatedAt || new Date().toISOString()),
             },
-            ...current.filter((project) => project.id !== result.data.id),
+            ...current.filter((project) => project.id !== createdProject.id),
           ]);
           cloudSaved = true;
           setCloudSyncFailed(false);
