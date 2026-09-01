@@ -23,6 +23,7 @@ export interface LegacyAIStructuralOperationLike
   afterElementId?: string;
   containerId?: string;
   formFieldId?: string;
+  formFieldType?: string;
   beforeFormFieldId?: string;
   afterFormFieldId?: string;
 }
@@ -31,6 +32,14 @@ export interface LegacyAIStructuralNativeContext {
   pageId: string;
   sectionId: string;
   detachElementIds?: string[];
+}
+
+export interface LegacyAIUpdateNativeContext {
+  pageId: string;
+  sectionId: string;
+  sectionColumns?: number;
+  sectionIsStack?: boolean;
+  currentFormField?: Record<string, unknown>;
 }
 
 const GLOBAL_NATIVE_AI_ACTIONS = new Set([
@@ -57,6 +66,28 @@ const STRUCTURAL_NATIVE_AI_ACTIONS = new Set([
   'move_form_field',
 ]);
 
+const UPDATE_NATIVE_AI_ACTIONS = new Set([
+  'update_container',
+  'update_form_field',
+]);
+
+const ALLOWED_SHADOWS = new Set([
+  'none',
+  'sm',
+  'md',
+  'lg',
+  'xl',
+]);
+
+const ALLOWED_FORM_FIELD_TYPES = new Set([
+  'text',
+  'email',
+  'tel',
+  'textarea',
+  'select',
+  'checkbox',
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -73,6 +104,32 @@ function finiteNumber(
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return undefined;
   return Math.max(min, Math.min(max, parsed));
+}
+
+function finiteLegacyNumber(
+  value: unknown,
+  min: number,
+  max: number,
+) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value)
+  ) {
+    return undefined;
+  }
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizedFormFieldName(
+  value: string,
+  fallback = 'field',
+) {
+  const normalized = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized || fallback;
 }
 
 function text(
@@ -491,4 +548,257 @@ export function convertLegacyAIStructuralOperationToNative(
       position,
     },
   ];
+}
+
+
+export function isLegacyAIUpdateNativeAction(
+  action: string,
+) {
+  return UPDATE_NATIVE_AI_ACTIONS.has(action);
+}
+
+export function convertLegacyAIUpdateOperationToNative(
+  operation: LegacyAIStructuralOperationLike,
+  context: LegacyAIUpdateNativeContext,
+): EditorNativeOperation | null {
+  if (!isLegacyAIUpdateNativeAction(operation.action)) {
+    return null;
+  }
+
+  const pageId = context.pageId.trim();
+  const sectionId = context.sectionId.trim();
+  if (!pageId || !sectionId) return null;
+
+  const changes = isRecord(operation.changes)
+    ? operation.changes
+    : {};
+
+  if (operation.action === 'update_container') {
+    const containerId = operation.containerId?.trim();
+    if (!containerId) return null;
+
+    const mapped: Record<string, unknown> = {};
+    const columns = Math.max(
+      1,
+      Math.min(
+        3,
+        Math.round(context.sectionColumns || 1),
+      ),
+    );
+
+    const name = text(
+      changes.containerName,
+      80,
+      false,
+    );
+    assignDefined(mapped, 'name', name);
+
+    if (
+      changes.containerLayout === 'row' ||
+      changes.containerLayout === 'stack'
+    ) {
+      mapped.layout = changes.containerLayout;
+    }
+
+    assignDefined(
+      mapped,
+      'gap',
+      finiteLegacyNumber(
+        changes.containerGap,
+        0,
+        80,
+      ),
+    );
+
+    if (
+      changes.containerAlign === 'start' ||
+      changes.containerAlign === 'center' ||
+      changes.containerAlign === 'end' ||
+      changes.containerAlign === 'stretch'
+    ) {
+      mapped.align = changes.containerAlign;
+    }
+
+    if (validHex(changes.containerBackgroundColor)) {
+      mapped.backgroundColor =
+        changes.containerBackgroundColor;
+    }
+
+    assignDefined(
+      mapped,
+      'padding',
+      finiteLegacyNumber(
+        changes.containerPadding,
+        0,
+        120,
+      ),
+    );
+    assignDefined(
+      mapped,
+      'borderRadius',
+      finiteLegacyNumber(
+        changes.containerBorderRadius,
+        0,
+        120,
+      ),
+    );
+    assignDefined(
+      mapped,
+      'borderWidth',
+      finiteLegacyNumber(
+        changes.containerBorderWidth,
+        0,
+        16,
+      ),
+    );
+
+    if (validHex(changes.containerBorderColor)) {
+      mapped.borderColor =
+        changes.containerBorderColor;
+    }
+
+    if (
+      typeof changes.containerShadow === 'string' &&
+      ALLOWED_SHADOWS.has(
+        changes.containerShadow,
+      )
+    ) {
+      mapped.shadow =
+        changes.containerShadow;
+    }
+
+    if (context.sectionIsStack) {
+      mapped.layoutColumn = undefined;
+    } else {
+      const layoutColumn =
+        finiteLegacyNumber(
+          changes.containerColumn,
+          1,
+          columns,
+        );
+      if (layoutColumn !== undefined) {
+        mapped.layoutColumn =
+          Math.round(layoutColumn);
+      }
+    }
+
+    const columnSpan =
+      finiteLegacyNumber(
+        changes.containerColumnSpan,
+        1,
+        columns,
+      );
+    if (columnSpan !== undefined) {
+      mapped.columnSpan =
+        Math.round(columnSpan);
+    }
+
+    if (!Object.keys(mapped).length) {
+      return null;
+    }
+
+    return {
+      action: 'update_container',
+      source: 'ai',
+      pageId,
+      sectionId,
+      containerId,
+      changes: mapped,
+    };
+  }
+
+  const formFieldId =
+    operation.formFieldId?.trim();
+  const current =
+    context.currentFormField;
+  if (!formFieldId || !current) {
+    return null;
+  }
+
+  const currentType =
+    typeof current.type === 'string' &&
+    ALLOWED_FORM_FIELD_TYPES.has(current.type)
+      ? current.type
+      : 'text';
+
+  const requestedType =
+    typeof operation.formFieldType === 'string' &&
+    ALLOWED_FORM_FIELD_TYPES.has(
+      operation.formFieldType,
+    )
+      ? operation.formFieldType
+      : currentType;
+
+  const mapped: Record<string, unknown> = {
+    type: requestedType,
+  };
+
+  if (
+    typeof changes.formFieldName === 'string' &&
+    changes.formFieldName.trim()
+  ) {
+    mapped.name =
+      normalizedFormFieldName(
+        changes.formFieldName,
+        typeof current.name === 'string' &&
+          current.name
+          ? current.name
+          : 'field',
+      );
+  }
+
+  if (typeof changes.formFieldLabel === 'string') {
+    mapped.label =
+      changes.formFieldLabel
+        .trim()
+        .slice(0, 120);
+  }
+
+  if (requestedType === 'checkbox') {
+    mapped.placeholder = '';
+  } else if (
+    typeof changes.formFieldPlaceholder === 'string'
+  ) {
+    mapped.placeholder =
+      changes.formFieldPlaceholder.slice(0, 160);
+  }
+
+  if (
+    typeof changes.formFieldRequired === 'boolean'
+  ) {
+    mapped.required =
+      changes.formFieldRequired;
+  }
+
+  if (requestedType === 'select') {
+    if (Array.isArray(changes.formFieldOptions)) {
+      mapped.options =
+        changes.formFieldOptions
+          .map((item) =>
+            String(item).trim(),
+          )
+          .filter(Boolean)
+          .slice(0, 20);
+    } else if (Array.isArray(current.options)) {
+      mapped.options = [
+        ...current.options,
+      ];
+    } else {
+      mapped.options = [
+        'Option 1',
+        'Option 2',
+      ];
+    }
+  } else {
+    mapped.options = undefined;
+  }
+
+  return {
+    action: 'update_form_field',
+    source: 'ai',
+    pageId,
+    sectionId,
+    formFieldId,
+    changes: mapped,
+  };
 }
