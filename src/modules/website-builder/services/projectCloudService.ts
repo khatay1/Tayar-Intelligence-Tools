@@ -62,13 +62,15 @@ export async function createWebsiteProjectInCloud({
   });
 }
 
-export async function listWebsiteProjectsInCloud() {
-  return supabase
+export async function listWebsiteProjectsInCloud(signal?: AbortSignal) {
+  const query = supabase
     .from('projects')
     .select('id, user_id, workspace_id, title, content, status, updated_at')
     .eq('type', 'website-builder')
     .is('deleted_at', null)
     .order('updated_at', { ascending: false });
+
+  return signal ? query.abortSignal(signal) : query;
 }
 
 export async function updateWebsiteProjectPublicationState(input: {
