@@ -8160,6 +8160,60 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           return true;
         }
 
+        if (operation.action === 'insert_symbol') {
+          if (
+            !operation.symbolId ||
+            section.elements.length >= 60 ||
+            !nextSymbols.some(
+              (symbol) => symbol.id === operation.symbolId,
+            )
+          ) {
+            return true;
+          }
+
+          const beforeCandidate =
+            typeof operation.beforeElementId === 'string'
+              ? operation.beforeElementId.trim()
+              : '';
+          const afterCandidate =
+            typeof operation.afterElementId === 'string'
+              ? operation.afterElementId.trim()
+              : '';
+          const beforeId =
+            beforeCandidate &&
+            section.elements.some(
+              (element) => element.id === beforeCandidate,
+            )
+              ? beforeCandidate
+              : '';
+          const afterId =
+            !beforeId &&
+            afterCandidate &&
+            section.elements.some(
+              (element) => element.id === afterCandidate,
+            )
+              ? afterCandidate
+              : '';
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'insert_symbol',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: section.id,
+              symbolId: operation.symbolId,
+              ...(beforeId
+                ? { position: { beforeId } }
+                : afterId
+                  ? { position: { afterId } }
+                  : {}),
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
         if (
           !isLegacyAIStructuralNativeAction(
             operation.action,
@@ -9076,32 +9130,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             sectionIndex,
           )
         ) {
-          continue;
-        }
-
-        if (operation.action === 'insert_symbol') {
-          if (!operation.symbolId) continue;
-          const symbol = nextSymbols.find((item) => item.id === operation.symbolId);
-          if (!symbol) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.elements.length >= 60) continue;
-
-          const instance: WebsiteElement = {
-            ...JSON.parse(JSON.stringify(symbol.element)) as WebsiteElement,
-            id: `${symbol.element.type}-ai-symbol-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            symbolId: symbol.id,
-            containerId: undefined,
-            layoutColumn: targetSection.layout === 'stack' ? undefined : 1,
-          };
-          const elements = [...targetSection.elements];
-          const beforeIndex = operation.beforeElementId ? elements.findIndex((element) => element.id === operation.beforeElementId) : -1;
-          const afterIndex = operation.afterElementId ? elements.findIndex((element) => element.id === operation.afterElementId) : -1;
-          const insertAt = beforeIndex >= 0 ? beforeIndex : afterIndex >= 0 ? afterIndex + 1 : elements.length;
-          elements.splice(Math.min(Math.max(insertAt, 0), elements.length), 0, instance);
-          sectionList[sectionIndex] = { ...targetSection, elements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
           continue;
         }
 
