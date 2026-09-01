@@ -9872,8 +9872,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
+
+      const importLoadSequence = projectLoadSequenceRef.current;
+      const importUserId = user?.id ?? null;
+      const importIsCurrent = () =>
+        projectLoadSequenceRef.current === importLoadSequence &&
+        activeUserIdRef.current === importUserId;
+
+      let raw = '';
       try {
-        const parsed = JSON.parse(await file.text());
+        raw = await file.text();
+      } catch {
+        if (importIsCurrent()) {
+          window.alert('This JSON file could not be read.');
+        }
+        return;
+      }
+
+      if (!importIsCurrent()) return;
+
+      try {
+        const parsed = JSON.parse(raw);
         const project = parsed?.project ?? parsed;
         if (!project || (!Array.isArray(project.pages) && !Array.isArray(project.sections))) throw new Error('Invalid project backup');
         const importedProject = {
@@ -9896,6 +9915,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           history: [],
           updatedAt: new Date().toISOString(),
         };
+
+        if (!importIsCurrent()) return;
+
         saveRecoverySnapshot('before importing backup');
         cancelPendingProjectPersistence();
         projectLoadSequenceRef.current += 1;
