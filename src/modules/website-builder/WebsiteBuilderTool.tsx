@@ -4691,49 +4691,73 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBillingLoading(false);
   }, [user?.id, pages.length, cloudProjectId]);
   async function startBillingCheckout(plan: 'pro' | 'business') {
-    if (!user) {
+    const checkoutUserId = user?.id ?? null;
+    if (!checkoutUserId) {
       openBillingWithMessage('Sign in before upgrading your plan.');
       return;
     }
+
     const subscriptionStatus = billingState.subscription?.status || '';
     const hasManagedPaidSubscription = Boolean(
       billingState.subscription?.stripeCustomerId &&
       ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(subscriptionStatus),
     );
+
     if (hasManagedPaidSubscription) {
       await openBillingPortal();
       return;
     }
+
+    const operationSequence = ++billingOperationSequenceRef.current;
+    const operationIsCurrent = () =>
+      billingOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === checkoutUserId;
+
     setBillingBusy(true);
     setBillingError('');
+
     try {
       const { data, error } = await createWebsiteCheckoutSession(plan);
+      if (!operationIsCurrent()) return;
       if (error) throw error;
+
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Stripe Checkout is not configured yet.');
+
       window.location.assign(url);
     } catch (error) {
+      if (!operationIsCurrent()) return;
       setBillingError(error instanceof Error ? error.message : 'Could not open Stripe Checkout.');
       setBillingBusy(false);
     }
   }
-
   async function openBillingPortal() {
-    if (!user) return;
+    const portalUserId = user?.id ?? null;
+    if (!portalUserId) return;
+
+    const operationSequence = ++billingOperationSequenceRef.current;
+    const operationIsCurrent = () =>
+      billingOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === portalUserId;
+
     setBillingBusy(true);
     setBillingError('');
+
     try {
       const { data, error } = await openWebsiteBillingPortalSession();
+      if (!operationIsCurrent()) return;
       if (error) throw error;
+
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Billing portal is not available yet.');
+
       window.location.assign(url);
     } catch (error) {
+      if (!operationIsCurrent()) return;
       setBillingError(error instanceof Error ? error.message : 'Could not open the billing portal.');
       setBillingBusy(false);
     }
   }
-
   useEffect(() => {
     if (projectId) return;
     try {
