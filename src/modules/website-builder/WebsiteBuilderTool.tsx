@@ -54,7 +54,7 @@ import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
 import type { EditorSelection } from './core/editor-selection';
-import type { EditorPageLike, EditorProjectLike, EditorSymbolLike } from './core/editor-model';
+import type { EditorPageLike, EditorSymbolLike } from './core/editor-model';
 import {
   DEFAULT_EDITOR_PROJECT_ACCESS,
   createEditorProjectAccessFallback,
@@ -110,7 +110,7 @@ import {
   convertLegacyAIGlobalOperationToNative,
   isLegacyAIGlobalNativeAction,
 } from './core/editor-ai-native-bridge';
-import { applyEditorNativeProjectPatch } from './core/editor-native-project-patch';
+import { applyEditorAIWorkingNativeOperation } from './core/editor-ai-working-project';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -7506,57 +7506,39 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       let applied = 0;
       const nativeBridgeWarnings: string[] = [];
 
-      const applyAIGlobalNativeOperation = (
-        operation: AIWebsitePatchOperation,
+      const applyAIWorkingNativeOperation = (
+        nativeOperation: EditorNativeOperation,
+        sourceAction: string,
       ) => {
-        if (!isLegacyAIGlobalNativeAction(operation.action)) {
-          return false;
-        }
-
-        const nativeOperation =
-          convertLegacyAIGlobalOperationToNative(
-            operation as unknown as {
-              action: string;
-              changes?: Record<string, unknown>;
-            },
-          );
-
-        if (!nativeOperation) {
-          return true;
-        }
-
-        const workingProject = {
-          pages:
-            nextPages as unknown as EditorPageLike[],
-          homePageId:
-            nextHomePageId,
-          theme: {
-            ...nextTheme,
-          },
-          seo: {
-            ...nextSeo,
-            keywords: [
-              ...nextSeo.keywords,
-            ],
-          },
-          headerConfig: {
-            ...nextHeaderConfig,
-          },
-          symbols:
-            JSON.parse(
-              JSON.stringify(nextSymbols),
-            ) as EditorSymbolLike[],
-        } satisfies EditorProjectLike;
-
         const nativeResult =
-          applyEditorNativeProjectPatch(
-            workingProject,
-            [nativeOperation],
+          applyEditorAIWorkingNativeOperation(
+            {
+              pages:
+                nextPages as unknown as EditorPageLike[],
+              homePageId:
+                nextHomePageId,
+              theme: {
+                ...nextTheme,
+              },
+              seo: {
+                ...nextSeo,
+                keywords: [
+                  ...nextSeo.keywords,
+                ],
+              },
+              headerConfig: {
+                ...nextHeaderConfig,
+              },
+              symbols:
+                JSON.parse(
+                  JSON.stringify(nextSymbols),
+                ) as EditorSymbolLike[],
+            },
+            nativeOperation,
             {
               source: 'ai',
               label:
-                `Apply AI ${operation.action.replace(/_/g, ' ')}`,
-              maxOperations: 1,
+                `Apply AI ${sourceAction.replace(/_/g, ' ')}`,
               limits: {
                 maxPages:
                   BUSINESS_BILLING_ENTITLEMENTS.maxPages,
@@ -7594,26 +7576,26 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           nativeBridgeWarnings.push(
             ...nativeResult.errors
               .map((error) =>
-                `${operation.action}: ${error}`,
+                `${sourceAction}: ${error}`,
               )
               .slice(0, 3),
           );
-          return true;
+          return false;
         }
 
         if (!nativeResult.changed) {
-          return true;
+          return false;
         }
 
-        const project =
-          nativeResult.project;
+        const working =
+          nativeResult.working;
 
         nextPages =
-          project.pages as unknown as WebsitePage[];
+          working.pages as unknown as WebsitePage[];
 
         const requestedHomePageId =
-          typeof project.homePageId === 'string'
-            ? project.homePageId
+          typeof working.homePageId === 'string'
+            ? working.homePageId
             : nextHomePageId;
 
         if (
@@ -7628,21 +7610,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }
 
         if (
-          project.theme &&
-          typeof project.theme === 'object'
+          working.theme &&
+          typeof working.theme === 'object'
         ) {
           nextTheme =
             normalizeTheme(
-              project.theme as Partial<WebsiteTheme>,
+              working.theme as Partial<WebsiteTheme>,
             );
         }
 
         if (
-          project.seo &&
-          typeof project.seo === 'object'
+          working.seo &&
+          typeof working.seo === 'object'
         ) {
           const rawSeo =
-            project.seo as Partial<WebsiteSEO>;
+            working.seo as Partial<WebsiteSEO>;
 
           nextSeo = {
             title:
@@ -7670,33 +7652,58 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }
 
         if (
-          project.headerConfig &&
-          typeof project.headerConfig ===
+          working.headerConfig &&
+          typeof working.headerConfig ===
             'object'
         ) {
           nextHeaderConfig =
             normalizeHeaderConfig(
-              project.headerConfig as Partial<WebsiteHeaderConfig>,
+              working.headerConfig as Partial<WebsiteHeaderConfig>,
             );
         }
 
         if (
           Array.isArray(
-            project.symbols,
+            working.symbols,
           )
         ) {
           nextSymbols =
-            project.symbols as unknown as WebsiteSymbol[];
+            working.symbols as unknown as WebsiteSymbol[];
         }
 
         applied += 1;
         nativeBridgeWarnings.push(
           ...nativeResult.warnings
             .map((warning) =>
-              `${operation.action}: ${warning}`,
+              `${sourceAction}: ${warning}`,
             )
             .slice(0, 3),
         );
+
+        return true;
+      };
+
+      const applyAIGlobalNativeOperation = (
+        operation: AIWebsitePatchOperation,
+      ) => {
+        if (!isLegacyAIGlobalNativeAction(operation.action)) {
+          return false;
+        }
+
+        const nativeOperation =
+          convertLegacyAIGlobalOperationToNative(
+            operation as unknown as {
+              action: string;
+              changes?: Record<string, unknown>;
+            },
+          );
+
+        if (nativeOperation) {
+          applyAIWorkingNativeOperation(
+            nativeOperation,
+            operation.action,
+          );
+        }
 
         return true;
       };
