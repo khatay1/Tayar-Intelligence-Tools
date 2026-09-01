@@ -16,6 +16,7 @@ const runtimeHardeningMigrationPath = resolve(root, 'supabase/migrations/2026083
 const sharedRuntimeMigrationPath = resolve(root, 'supabase/migrations/20260831222000_align_shared_website_runtime.sql');
 const projectAccessCorePath = resolve(root, 'src/modules/website-builder/core/editor-project-access.ts');
 const publishedStorageCorePath = resolve(root, 'src/modules/website-builder/core/editor-published-storage.ts');
+const projectLifecycleCorePath = resolve(root, 'src/modules/website-builder/core/editor-project-lifecycle.ts');
 
 const failures = [];
 const passes = [];
@@ -39,6 +40,7 @@ for (const [label, path] of [
   ['Shared Website runtime migration exists', sharedRuntimeMigrationPath],
   ['Core project-access module exists', projectAccessCorePath],
   ['Core published-storage module exists', publishedStorageCorePath],
+  ['Core project-lifecycle module exists', projectLifecycleCorePath],
 ]) {
   check(label, existsSync(path));
 }
@@ -55,6 +57,7 @@ const runtimeHardeningMigration = existsSync(runtimeHardeningMigrationPath) ? re
 const sharedRuntimeMigration = existsSync(sharedRuntimeMigrationPath) ? readFileSync(sharedRuntimeMigrationPath, 'utf8') : '';
 const projectAccessCore = existsSync(projectAccessCorePath) ? readFileSync(projectAccessCorePath, 'utf8') : '';
 const publishedStorageCore = existsSync(publishedStorageCorePath) ? readFileSync(publishedStorageCorePath, 'utf8') : '';
+const projectLifecycleCore = existsSync(projectLifecycleCorePath) ? readFileSync(projectLifecycleCorePath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -79,7 +82,7 @@ check('Shared release history is read-only while rollback stays owner-only', sha
 check('Core V3 centralizes project access and owner resolution', projectAccessCore.includes('resolveEditorProjectOwnerId') && projectAccessCore.includes('normalizeEditorProjectAccess') && builder.includes("from './core/editor-project-access'"));
 check('Core V3 centralizes published storage cleanup', publishedStorageCore.includes('publishedSiteFilePaths') && publishedStorageCore.includes('removePublishedSiteFiles') && builder.includes("from './core/editor-published-storage'"));
 check('Shared lead policy keeps row ownership tied to the website owner', sharedRuntimeMigration.includes('website_leads.project_id'));
-check('Recovery snapshot storage is enabled', builder.includes('RECOVERY_STORAGE_KEY'));
+check('Recovery snapshot storage is enabled', projectLifecycleCore.includes('RECOVERY_STORAGE_KEY') && projectLifecycleCore.includes('saveRecoveryWebsiteProject') && builder.includes("from './core/editor-project-lifecycle'"));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
 check('Cloud mutations retry transient failures', builder.includes('retryCloudOperation'));
