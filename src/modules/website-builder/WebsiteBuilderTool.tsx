@@ -7506,25 +7506,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       let applied = 0;
       const nativeBridgeWarnings: string[] = [];
 
-      const applyAIGlobalNativeOperation = (
-        operation: AIWebsitePatchOperation,
+      const applyAIWorkingNativeOperation = (
+        nativeOperation: EditorNativeOperation,
+        sourceAction: string,
       ) => {
-        if (!isLegacyAIGlobalNativeAction(operation.action)) {
-          return false;
-        }
-
-        const nativeOperation =
-          convertLegacyAIGlobalOperationToNative(
-            operation as unknown as {
-              action: string;
-              changes?: Record<string, unknown>;
-            },
-          );
-
-        if (!nativeOperation) {
-          return true;
-        }
-
         const workingProject = {
           pages:
             nextPages as unknown as EditorPageLike[],
@@ -7555,7 +7540,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             {
               source: 'ai',
               label:
-                `Apply AI ${operation.action.replace(/_/g, ' ')}`,
+                `Apply AI ${sourceAction.replace(/_/g, ' ')}`,
               maxOperations: 1,
               limits: {
                 maxPages:
@@ -7594,15 +7579,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           nativeBridgeWarnings.push(
             ...nativeResult.errors
               .map((error) =>
-                `${operation.action}: ${error}`,
+                `${sourceAction}: ${error}`,
               )
               .slice(0, 3),
           );
-          return true;
+          return;
         }
 
         if (!nativeResult.changed) {
-          return true;
+          return;
         }
 
         const project =
@@ -7693,10 +7678,33 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         nativeBridgeWarnings.push(
           ...nativeResult.warnings
             .map((warning) =>
-              `${operation.action}: ${warning}`,
+              `${sourceAction}: ${warning}`,
             )
             .slice(0, 3),
         );
+      };
+
+      const applyAIGlobalNativeOperation = (
+        operation: AIWebsitePatchOperation,
+      ) => {
+        if (!isLegacyAIGlobalNativeAction(operation.action)) {
+          return false;
+        }
+
+        const nativeOperation =
+          convertLegacyAIGlobalOperationToNative(
+            operation as unknown as {
+              action: string;
+              changes?: Record<string, unknown>;
+            },
+          );
+
+        if (nativeOperation) {
+          applyAIWorkingNativeOperation(
+            nativeOperation,
+            operation.action,
+          );
+        }
 
         return true;
       };
@@ -7714,63 +7722,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return nextPages.findIndex((page) => page.id === activePageId);
       };
 
-      const resolveSectionIndex = (page: WebsitePage, operation: AIWebsitePatchOperation) => {
-        if (operation.sectionId) {
-          const index = page.sections.findIndex((section) => section.id === operation.sectionId);
-          if (index >= 0) return index;
-        }
-        if (operation.sectionType && allowedTypes.has(operation.sectionType)) {
-          return page.sections.findIndex((section) => section.type === operation.sectionType);
-        }
-        return -1;
-      };
-
-      const cloneElementForAI = (element: WebsiteElement, containerIdMap?: Map<string, string>): WebsiteElement => ({
-        ...element,
-        id: `${element.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        style: { ...element.style },
-        responsive: element.responsive
-          ? JSON.parse(JSON.stringify(element.responsive)) as WebsiteElement['responsive']
-          : undefined,
-        containerId: element.containerId
-          ? (containerIdMap ? containerIdMap.get(element.containerId) : element.containerId)
-          : undefined,
-        symbolId: undefined,
-      });
-
-      const cloneSectionForAI = (section: WebsiteSection): WebsiteSection => {
-        const containerIdMap = new Map<string, string>();
-        const clonedContainers = (section.containers || []).map((container, index) => {
-          const nextId = `container-ai-copy-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
-          containerIdMap.set(container.id, nextId);
-          return { ...container, id: nextId };
-        });
-        const clonedFields = Array.isArray(section.formFields)
-          ? section.formFields.map((field, index) => ({
-              ...field,
-              id: `field-ai-copy-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-              options: Array.isArray(field.options) ? [...field.options] : field.options,
-            }))
-          : section.formFields;
-        return normalizeSection({
-          ...section,
-          id: `${section.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          anchorId: undefined,
-          containers: clonedContainers,
-          formFields: clonedFields,
-          elements: section.elements.map((element) => cloneElementForAI(element, containerIdMap)),
-        });
-      };
-
-      for (const operation of operations) {
-        if (!operation || typeof operation.action !== 'string') continue;
-
+      const applyAIPageNativeOperation = (
+        operation: AIWebsitePatchOperation,
+      ) => {
         if (
-          applyAIGlobalNativeOperation(
-            operation,
-          )
+          operation.action !== 'remove_page' &&
+          operation.action !== 'set_home_page' &&
+          operation.action !== 'move_page'
         ) {
-          continue;
+          return false;
         }
 
         if (operation.action === 'add_page') {
@@ -7836,29 +7796,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           };
           nextPages.splice(sourceIndex + 1, 0, clonedPage);
           applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'remove_page') {
-          if (nextPages.length <= 1 || (!operation.pageId && !operation.pageSlug)) continue;
-          const pageIndex = resolvePageIndex(operation);
-          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
-          const targetPage = nextPages[pageIndex];
-          if (targetPage.id === nextHomePageId) continue;
-          nextPages.splice(pageIndex, 1);
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'set_home_page') {
-          if (!operation.pageId && !operation.pageSlug) continue;
-          const pageIndex = resolvePageIndex(operation);
-          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
-          const targetPage = nextPages[pageIndex];
-          if (targetPage.id !== nextHomePageId) {
-            nextHomePageId = targetPage.id;
-            applied += 1;
-          }
           continue;
         }
 
