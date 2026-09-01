@@ -8723,17 +8723,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       previewOperationSequenceRef.current === previewSequence &&
       projectLoadSequenceRef.current === previewLoadSequence;
 
+    setPreviewBusy(true);
+    setPreviewError('');
+
     const latestSaved = await saveProject({ automatic: true, createHistory: false });
 
     if (!previewIsCurrent()) return;
 
     if (!latestSaved) {
-      setPublishError('Publish preflight blocked: the latest changes could not be synchronized to cloud.');
+      setPreviewError('The latest editor changes could not be synchronized before creating the preview.');
+      setPreviewBusy(false);
       return;
     }
-
-    setPreviewBusy(true);
-    setPreviewError('');
 
     try {
       if (existingPreviewToken) {
