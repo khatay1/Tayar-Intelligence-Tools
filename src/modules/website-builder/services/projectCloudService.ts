@@ -78,7 +78,13 @@ export async function createWebsiteProjectInCloud({
       .select('id, title, content, updated_at')
       .single();
 
-    return signal ? query.abortSignal(signal) : query;
+    if (!signal) return query;
+    const abortableQuery = query as typeof query & {
+      abortSignal?: (abortSignal: AbortSignal) => typeof query;
+    };
+    return typeof abortableQuery.abortSignal === 'function'
+      ? abortableQuery.abortSignal(signal)
+      : query;
   });
 }
 
