@@ -33,6 +33,7 @@ const projectIdentifiersPath = resolve(root, 'src/modules/website-builder/core/p
 const projectReleaseMetricsPath = resolve(root, 'src/modules/website-builder/core/project-release-metrics.ts');
 const websiteLeadUtilsPath = resolve(root, 'src/modules/website-builder/core/website-lead-utils.ts');
 const deliveryConfigPath = resolve(root, 'src/modules/website-builder/core/delivery-config.ts');
+const publishedSiteValidationPath = resolve(root, 'src/modules/website-builder/core/published-site-validation.ts');
 
 const failures = [];
 const passes = [];
@@ -73,6 +74,7 @@ for (const [label, path] of [
   ['Project release metrics helper exists', projectReleaseMetricsPath],
   ['Website lead utils helper exists', websiteLeadUtilsPath],
   ['Delivery config helper exists', deliveryConfigPath],
+  ['Published-site validation helper exists', publishedSiteValidationPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -106,6 +108,7 @@ const projectIdentifiers = existsSync(projectIdentifiersPath) ? readFileSync(pro
 const projectReleaseMetrics = existsSync(projectReleaseMetricsPath) ? readFileSync(projectReleaseMetricsPath, 'utf8') : '';
 const websiteLeadUtils = existsSync(websiteLeadUtilsPath) ? readFileSync(websiteLeadUtilsPath, 'utf8') : '';
 const deliveryConfig = existsSync(deliveryConfigPath) ? readFileSync(deliveryConfigPath, 'utf8') : '';
+const publishedSiteValidation = existsSync(publishedSiteValidationPath) ? readFileSync(publishedSiteValidationPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -146,6 +149,7 @@ check('Project slug and language identifiers are centralized', projectIdentifier
 check('Release metrics are extracted', projectReleaseMetrics.includes('buildProjectSnapshotDiffSummary') && builder.includes("from './core/project-release-metrics'"));
 check('Lead parsing utilities are extracted', websiteLeadUtils.includes('getWebsiteLeadPhone') && websiteLeadUtils.includes('getWebsiteLeadSource') && builder.includes("from './core/website-lead-utils'"));
 check('Delivery config defaults and normalization are extracted', deliveryConfig.includes('DEFAULT_DELIVERY_CONFIG') && deliveryConfig.includes('normalizeDeliveryConfig') && builder.includes("from './core/delivery-config'"));
+check('Published bundle validates index.html before live cleanup', publishedSiteValidation.includes('assertValidPublishedWebsiteBundle') && publishedSiteValidation.includes('isValidPublishedHtml') && publishedWebsiteService.includes('assertValidPublishedWebsiteBundle(files)') && publishedWebsiteService.includes('const verifiedHtml = await verifiedIndex.text()') && publishedWebsiteService.includes('await removePublishedSiteFiles(publishedSiteStorage, stalePaths)'));
 check('Builder has no direct Supabase calls', !builder.includes("from '@/lib/supabase'") && !/\bsupabase\b/.test(builder) && !builder.includes(".from('projects')") && !builder.includes(".from('website_leads')") && !builder.includes(".from('website_analytics_events')") && !builder.includes(".from('website_publish_versions')") && !builder.includes(".from('website-media')") && !builder.includes(".from('published-sites')"));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
