@@ -31,6 +31,7 @@ export interface EditorShellStatus {
   lastCheckedAt?: number;
   publishedUrl?: string;
   publishedAt?: number;
+  publishedOutdated?: boolean;
   liveVerification?: 'idle' | 'checking' | 'healthy' | 'failed';
 }
 
