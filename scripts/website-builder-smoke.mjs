@@ -39,6 +39,7 @@ const builderPanelRouterPath = resolve(root, 'src/modules/website-builder/v2-ui/
 const builderV2NativeBridgePath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderV2NativeBridge.tsx');
 const websiteBuilderV2BridgePath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
 const builderComponentsPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderComponentsPanel.tsx');
+const websiteBuilderV2CssPath = resolve(root, 'src/modules/website-builder/v2-ui/website-builder-v2.css');
 
 const failures = [];
 const passes = [];
@@ -85,6 +86,7 @@ for (const [label, path] of [
   ['V2 native bridge exists', builderV2NativeBridgePath],
   ['V2 bridge exists', websiteBuilderV2BridgePath],
   ['V2 Components panel exists', builderComponentsPanelPath],
+  ['V2 stylesheet exists', websiteBuilderV2CssPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -124,6 +126,7 @@ const builderPanelRouter = existsSync(builderPanelRouterPath) ? readFileSync(bui
 const builderV2NativeBridge = existsSync(builderV2NativeBridgePath) ? readFileSync(builderV2NativeBridgePath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
 const builderComponentsPanel = existsSync(builderComponentsPanelPath) ? readFileSync(builderComponentsPanelPath, 'utf8') : '';
+const websiteBuilderV2Css = existsSync(websiteBuilderV2CssPath) ? readFileSync(websiteBuilderV2CssPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -151,6 +154,9 @@ check('Shared lead policy keeps row ownership tied to the website owner', shared
 check('Recovery snapshot storage is enabled', projectLifecycleCore.includes('RECOVERY_STORAGE_KEY') && projectLifecycleCore.includes('saveRecoveryWebsiteProject') && builder.includes("from './core/editor-project-lifecycle'"));
 check('Project load normalization is extracted from the builder', projectNormalization.includes('normalizeWebsiteProjectLoad') && builder.includes("from './core/project-normalization'"));
 check('Cloud save/create is extracted from the builder', projectCloudService.includes('createWebsiteProjectInCloud') && projectCloudService.includes('updateWebsiteProjectInCloud') && builder.includes("from './services/projectCloudService'"));
+check('Cloud project identity survives local re-entry', builder.includes('cloudProjectId?: string | null') && builder.includes('cloudProjectId,\n      siteName') && builder.includes('saveActiveWebsiteProjectId(savedIdentity)') && builder.includes('cloudProjectId: project.id'));
+check('Autosave cannot create a duplicate draft while an existing identity reconnects', builder.includes('const preservedProjectId = projectId || loadActiveWebsiteProjectId()') && builder.includes('Tayar will not create a duplicate draft while its saved identity is available.'));
+check('Duplicate and imported projects detach source cloud identity', builder.includes('cloudProjectId: null,\n      siteName: duplicateTitle') && builder.includes('cloudProjectId: null,\n          publishedUrl:'));
 check('Publish and unpublish storage writes are extracted', publishedWebsiteService.includes('replacePublishedWebsiteFiles') && publishedWebsiteService.includes('removePublishedWebsiteFiles') && builder.includes("from './services/publishedWebsiteService'"));
 check('Autosave policy and history entry creation are extracted', autosavePolicy.includes('decideEditorAutosave') && autosavePolicy.includes('createProjectHistoryEntry') && builder.includes("from './core/editor-autosave-policy'"));
 check('Reusable section cloud mutations are extracted', reusableSectionService.includes('listReusableSectionsInCloud') && reusableSectionService.includes('saveReusableSectionInCloud') && reusableSectionService.includes('deleteReusableSectionInCloud') && builder.includes("from './services/reusableSectionService'"));
@@ -234,6 +240,7 @@ check('Manual builder edit and history controls survive AI upgrades', builder.in
 check('V2 history entries restore real editor checkpoints', builder.includes('function restoreEditHistoryEntry(entryId: string)') && builder.includes('onRestoreHistoryEntry={restoreEditHistoryEntry}') && builderHistoryPanel.includes('onRestoreEntry?.(entry.id)') && builderPanelRouter.includes('onRestoreEntry={props.onRestoreHistoryEntry}') && builderV2NativeBridge.includes('props.onRestoreHistoryEntry') && websiteBuilderV2Bridge.includes('onRestoreHistoryEntry'));
 check('V2 Components insert at the selected editor location', builder.includes('const targetContainerId =') && builder.includes('selectedElement?.containerId') && builder.includes('selectedContainerId') && builder.includes('elements.splice(insertAt, 0, instance)'));
 check('V2 Components panel explains linked behavior', builderComponentsPanel.includes('Components are reusable linked elements') && builderComponentsPanel.includes('Create component') && builderComponentsPanel.includes('Detach selected'));
+check('Expanded V2 option groups stay in normal flow instead of overlapping', websiteBuilderV2Css.includes('Keep one scroll owner per side panel') && websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields') && websiteBuilderV2Css.includes('position: static') && !websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body'));
 check('Manual builder advanced controls survive AI upgrades', builder.includes('function createContainerForSelected()') && builder.includes('function assignSelectedToContainer(') && builder.includes('function deleteSelectedContainer()') && builder.includes('function createSymbolFromSelected()'));
 check('AI builder uses guarded atomic transactions', builder.includes('validateAIProjectIntegrity') && builder.includes('destructiveOperations') && builder.includes('operations.length - applied'));
 check('Manual container inspector remains null-safe', builder.includes('{selectedContainer && selectedSection && sectionColumnCount(selectedSection.layout) > 1 && ('));
