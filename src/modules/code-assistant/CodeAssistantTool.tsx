@@ -7,7 +7,7 @@ import { AIService } from '@/lib/ai/service';
 import { componentRegistry } from './component-registry';
 import { getRegistrySource, REGISTRY_SOURCES } from './source-catalog';
 import { loadUpstreamComponentCode, loadUpstreamComponents } from './upstream-registry';
-import { checkProjectDependencies, CodeProjectContext, loadCodeProjectContext, summarizeProjectForAI } from './project-context';
+import { checkProjectDependencies, CodeProjectContext, CodeProjectOption, listCodeProjects, loadCodeProjectContext, summarizeProjectForAI } from './project-context';
 import { buildPatchPreviews, CodePatchPlan, validatePatchPlan } from './patch-plan';
 import { applyCodePatch, rollbackCodePatch } from './project-apply';
 import { resolveRegistryDependencies } from './registry-dependencies';
@@ -125,6 +125,9 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMeta, setAiMeta] = useState<{ model: string; tokensIn: number; tokensOut: number } | null>(null);
   const [projectContext, setProjectContext] = useState<CodeProjectContext | null>(null);
+  const [projectOptions, setProjectOptions] = useState<CodeProjectOption[]>([]);
+  const [targetProjectId, setTargetProjectId] = useState(projectId || '');
+  const [projectOptionsLoading, setProjectOptionsLoading] = useState(true);
   const [projectLoading, setProjectLoading] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [patchPlan, setPatchPlan] = useState<CodePatchPlan | null>(null);
@@ -144,8 +147,28 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   }, []);
 
   useEffect(() => {
+    if (projectId) setTargetProjectId(projectId);
+  }, [projectId]);
+
+  useEffect(() => {
     let active = true;
-    if (!projectId) {
+    setProjectOptionsLoading(true);
+    listCodeProjects()
+      .then((projects) => {
+        if (active) setProjectOptions(projects);
+      })
+      .catch((error) => {
+        if (active) setProjectError(error instanceof Error ? error.message : 'Unable to load project choices.');
+      })
+      .finally(() => {
+        if (active) setProjectOptionsLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!targetProjectId) {
       setProjectContext(null);
       setProjectError(null);
       setProjectLoading(false);
@@ -154,7 +177,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
 
     setProjectLoading(true);
     setProjectError(null);
-    loadCodeProjectContext(projectId)
+    loadCodeProjectContext(targetProjectId)
       .then((context) => {
         if (active) setProjectContext(context);
       })
@@ -168,7 +191,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       });
 
     return () => { active = false; };
-  }, [projectId]);
+  }, [targetProjectId]);
 
   useEffect(() => {
     let active = true;
@@ -232,7 +255,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     ? patchPlan.operations.filter((operation) => operation.type === 'replace' && !projectContext?.files.some((file) => file.path === operation.path)).map((operation) => operation.path)
     : [];
   const applyBlockers = [
-    ...(!projectId || !projectContext ? ['Open a project before applying a patch.'] : []),
+    ...(!targetProjectId || !projectContext ? ['Choose a project before applying a patch.'] : []),
     ...(projectContext && !projectContext.canApply ? ['This project does not expose a supported content.files store.'] : []),
     ...(unresolvedPatchDependencies.length ? [`Missing npm dependencies: ${unresolvedPatchDependencies.map((entry) => entry.name).join(', ')}`] : []),
     ...(unresolvedPatchRegistryDependencies.length ? [`Resolve registry dependencies first: ${unresolvedPatchRegistryDependencies.join(', ')}`] : []),
@@ -393,19 +416,19 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   };
 
   const refreshProjectContext = async () => {
-    if (!projectId) return null;
-    const refreshed = await loadCodeProjectContext(projectId);
+    if (!targetProjectId) return null;
+    const refreshed = await loadCodeProjectContext(targetProjectId);
     setProjectContext(refreshed);
     return refreshed;
   };
 
   const onApplyPatch = async (item: UIComponentRecord) => {
-    if (!projectId || !projectContext || !patchPlan || !applyConfirmed || applyBlockers.length || applyLoading) return;
+    if (!targetProjectId || !projectContext || !patchPlan || !applyConfirmed || applyBlockers.length || applyLoading) return;
     setApplyLoading(true);
     setActionError(null);
     setApplyMessage(null);
     try {
-      await applyCodePatch(projectId, projectContext.fileStoreFingerprint, patchPlan, item.id);
+      await applyCodePatch(targetProjectId, projectContext.fileStoreFingerprint, patchPlan, item.id);
       await refreshProjectContext();
       setApplyConfirmed(false);
       setApplyMessage('Patch applied. A rollback checkpoint is available until the project files change again.');
@@ -417,12 +440,12 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   };
 
   const onRollbackPatch = async () => {
-    if (!projectId || !projectContext?.lastApply || applyLoading) return;
+    if (!targetProjectId || !projectContext?.lastApply || applyLoading) return;
     setApplyLoading(true);
     setActionError(null);
     setApplyMessage(null);
     try {
-      await rollbackCodePatch(projectId, projectContext.lastApply.id);
+      await rollbackCodePatch(targetProjectId, projectContext.lastApply.id);
       await refreshProjectContext();
       setPatchPlan(null);
       setApplyConfirmed(false);
@@ -448,12 +471,19 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             <span className="rounded-full bg-violet-500/10 px-2.5 py-1 text-violet-300">{allItems.length} components</span>
             {projectLoading && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 opacity-60"><Loader2 className="h-3 w-3 animate-spin" /> Reading active project</span>}
             {!projectLoading && projectContext && <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-2.5 py-1 text-cyan-300"><FolderCog className="h-3 w-3" /> {projectContext.title} · {projectContext.framework}</span>}
-            {!projectLoading && projectId && !projectContext && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-300">Project context unavailable</span>}
+            {!projectLoading && targetProjectId && !projectContext && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-300">Project context unavailable</span>}
             {upstreamLoading && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 opacity-60"><Loader2 className="h-3 w-3 animate-spin" /> Loading open-source registries</span>}
             {!upstreamLoading && upstreamItems.length > 0 && <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-emerald-400">{upstreamItems.length} upstream items loaded</span>}
           </div>
         </div>
-        <button onClick={() => setShowSources((value) => !value)} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${panel}`}><ShieldCheck className="h-4 w-4 text-emerald-400" /> Source policy</button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[260px]">
+          <label className="text-[10px] font-semibold uppercase tracking-wider opacity-45">Target project</label>
+          <select value={targetProjectId} disabled={projectOptionsLoading} onChange={(event) => { setTargetProjectId(event.target.value); setPatchPlan(null); setApplyConfirmed(false); setApplyMessage(null); }} className={`w-full rounded-xl border px-3 py-2.5 text-xs outline-none ${darkMode ? 'border-white/10 bg-[#10101d]' : 'border-gray-200 bg-white'}`}>
+            <option value="">{projectOptionsLoading ? 'Loading projects...' : 'Review only — no project selected'}</option>
+            {projectOptions.map((project) => <option key={project.id} value={project.id}>{project.title} · {project.type}</option>)}
+          </select>
+          <button onClick={() => setShowSources((value) => !value)} className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${panel}`}><ShieldCheck className="h-4 w-4 text-emerald-400" /> Source policy</button>
+        </div>
       </div>
 
       {applyMessage && (

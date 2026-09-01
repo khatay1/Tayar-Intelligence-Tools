@@ -55,7 +55,8 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - AI payload now carries both NPM and registry dependency requirements with the licensed source.
 - Direct authenticated AI adaptation through Tayar's existing AI service, with bounded source context and no automatic code execution/application.
 - AI source is explicitly treated as untrusted data to reduce prompt-injection risk from third-party code comments.
-- When an active Tayar project is available, Coding Assistance reads a bounded, read-only project snapshot, detects framework/package metadata, and reports missing component dependencies.
+- Coding Assistance includes an in-tool project picker backed by the user's RLS-scoped `projects` rows; it can also inherit the Workspace active project.
+- When a target Tayar project is selected, Coding Assistance reads a bounded, read-only project snapshot, detects framework/package metadata, and reports missing component dependencies.
 - The bounded active-project snapshot is included in AI adaptation context, with project source explicitly treated as untrusted data.
 - AI request budgeting stays below the current 40k-character backend request ceiling by bounding project file context to 8k characters, component source to 10k characters, and package metadata to 80 dependency entries per section.
 - Structured AI patch planning returns validated create/replace operations and a before/after change preview.

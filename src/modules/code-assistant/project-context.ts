@@ -28,6 +28,14 @@ export interface CodeProjectContext {
   } | null;
 }
 
+export interface CodeProjectOption {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  updatedAt: string;
+}
+
 export interface DependencyCheck {
   name: string;
   installed: boolean;
@@ -192,6 +200,23 @@ function boundedFiles(files: Array<{ path: string; content: string }>): { files:
   }
 
   return { files: output, truncated };
+}
+
+export async function listCodeProjects(): Promise<CodeProjectOption[]> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('id, title, type, status, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(80);
+
+  if (error) throw new Error('Unable to load project choices.');
+  return (data || []).map((entry) => ({
+    id: String(entry.id),
+    title: typeof entry.title === 'string' && entry.title.trim() ? entry.title : 'Untitled project',
+    type: typeof entry.type === 'string' ? entry.type : 'project',
+    status: typeof entry.status === 'string' ? entry.status : 'unknown',
+    updatedAt: typeof entry.updated_at === 'string' ? entry.updated_at : '',
+  }));
 }
 
 export async function loadCodeProjectContext(projectId: string): Promise<CodeProjectContext | null> {
