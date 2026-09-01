@@ -44,6 +44,8 @@ const editorNativePatchPath = resolve(root, 'src/modules/website-builder/core/ed
 const editorBatchPath = resolve(root, 'src/modules/website-builder/core/editor-batch.ts');
 const editorOperationPolicyPath = resolve(root, 'src/modules/website-builder/core/editor-operation-policy.ts');
 const editorCommandAdaptersPath = resolve(root, 'src/modules/website-builder/core/editor-command-adapters.ts');
+const editorModelPath = resolve(root, 'src/modules/website-builder/core/editor-model.ts');
+const editorSymbolCommandsPath = resolve(root, 'src/modules/website-builder/core/editor-symbol-commands.ts');
 
 const failures = [];
 const passes = [];
@@ -95,6 +97,8 @@ for (const [label, path] of [
   ['Editor batch transaction core exists', editorBatchPath],
   ['Native operation policy exists', editorOperationPolicyPath],
   ['Native command adapters exist', editorCommandAdaptersPath],
+  ['Native editor model exists', editorModelPath],
+  ['Native symbol commands exist', editorSymbolCommandsPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -139,6 +143,8 @@ const editorNativePatch = existsSync(editorNativePatchPath) ? readFileSync(edito
 const editorBatch = existsSync(editorBatchPath) ? readFileSync(editorBatchPath, 'utf8') : '';
 const editorOperationPolicy = existsSync(editorOperationPolicyPath) ? readFileSync(editorOperationPolicyPath, 'utf8') : '';
 const editorCommandAdapters = existsSync(editorCommandAdaptersPath) ? readFileSync(editorCommandAdaptersPath, 'utf8') : '';
+const editorModel = existsSync(editorModelPath) ? readFileSync(editorModelPath, 'utf8') : '';
+const editorSymbolCommands = existsSync(editorSymbolCommandsPath) ? readFileSync(editorSymbolCommandsPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -259,6 +265,12 @@ check('Native editor batches are atomic transactions', editorBatch.includes('app
 check('Native patches validate the final project before commit', editorNativePatch.includes('executeEditorSessionBatch') && editorNativePatch.includes('validateEditorProject(candidate, options.limits)'));
 check('Native preflight tracks removed containers and form fields', editorOperationPolicy.includes("operation.action === 'remove_container'") && editorOperationPolicy.includes("operation.action === 'remove_form_field'") && editorOperationPolicy.includes('referencedTargetKeys(operation)'));
 check('Native element updates cannot bypass container assignment rules', editorOperationPolicy.includes('cannot change container assignment through update_element') && editorCommandAdapters.includes('Container not found:'));
+check('Native identity registry spans project-wide structural IDs', editorModel.includes('export function editorProjectIdentitySet') && editorModel.includes("kind === 'section'") && editorModel.includes("kind === 'element'") && editorModel.includes("kind === 'container'") && editorModel.includes("kind === 'form-field'"));
+check('Native inserts reject project-wide identity collisions before commit', editorCommandAdapters.includes("assertIdentityIdsAvailable(draft, 'section'") && editorCommandAdapters.includes("assertIdentityIdsAvailable(draft, 'element'") && editorCommandAdapters.includes("assertIdentityIdsAvailable(draft, 'container'") && editorCommandAdapters.includes("assertIdentityIdsAvailable(draft, 'form-field'"));
+check('Native duplicate IDs retry against the live draft registry', editorCommandAdapters.includes('createCollisionSafeCloneIdFactory') && editorCommandAdapters.includes('for (let attempt = 0; attempt < 100; attempt += 1)') && editorCommandAdapters.includes('hasExplicitPosition(position)'));
+check('Native move positions reject ambiguous and self-referential anchors', editorCommandAdapters.includes('Position must use exactly one of beforeId, afterId, or index') && editorCommandAdapters.includes('Move target cannot reference the moving ID'));
+check('Native preflight blocks cross-operation identity and position collisions', editorOperationPolicy.includes('createdIdentityEntries(operation)') && editorOperationPolicy.includes('created.get(key)') && editorOperationPolicy.includes('positionTargetKey(operation, targetId)') && editorOperationPolicy.includes('validatePosition(operation, prefix, errors)'));
+check('Reusable component insertion retries generated identity collisions', editorSymbolCommands.includes('nextUniqueGeneratedId') && editorSymbolCommands.includes("nextUniqueGeneratedId(draft, 'element'") && editorSymbolCommands.includes("nextUniqueGeneratedId(draft, 'symbol'"));
 check('V2 native page growth respects billing while existing over-limit projects remain editable', builder.includes('const pageCountIncreased =') && builder.includes('candidate.pages.length >') && builder.includes('billingEntitlements.maxPages'));
 check('Reusable components stop safely at 50 instead of evicting linked symbols', builder.includes('if (symbols.length >= 50)') && builder.includes('setSymbols((current) => [symbol, ...current]);') && !builder.includes('setSymbols((current) => [symbol, ...current].slice(0, 50))'));
 check('Expanded V2 option groups stay in normal flow instead of overlapping', websiteBuilderV2Css.includes('Keep one scroll owner per side panel') && websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields') && websiteBuilderV2Css.includes('position: static') && !websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body'));
