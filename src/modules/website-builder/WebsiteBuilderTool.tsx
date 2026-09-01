@@ -8887,15 +8887,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     saveInFlightRef.current = true;
 
     try {
-    let historyEntries = projectHistory;
-    if (createHistory) {
-      const snapshot = buildProjectSnapshot();
-      const entry = createProjectHistoryEntry(snapshot) as ProjectHistoryEntry;
-      historyEntries = [entry, ...projectHistory].slice(0, 30);
-      setProjectHistory(historyEntries);
-    }
+      let historyEntries = projectHistory;
+      if (createHistory) {
+        const snapshot = buildProjectSnapshot();
+        const entry = createProjectHistoryEntry(snapshot) as ProjectHistoryEntry;
+        historyEntries = [entry, ...projectHistory].slice(0, 30);
+      }
 
-    const projectData = buildProjectData(historyEntries);
+      const projectData = buildProjectData(historyEntries);
     const localSaved = saveLocalWebsiteProject(projectData);
     if (!localSaved) {
       setCloudError('Local recovery storage is full. Cloud save will still be attempted.');
@@ -8986,10 +8985,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       if (!saveIsCurrent()) return false;
-      setCloudBusy(false);
     }
 
     if (!saveIsCurrent()) return false;
+
+    if (createHistory && (localSaved || cloudSaved)) {
+      setProjectHistory(historyEntries);
+    }
 
     const durableSaved = user ? cloudSaved : localSaved;
     if (durableSaved) lastSavedSnapshotRef.current = fingerprint;
@@ -9000,10 +9002,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (durableSaved) window.setTimeout(() => setSaved(false), 2000);
     }
     return durableSaved;
+    } catch (error) {
+      if (!saveController.signal.aborted && projectLoadSequenceRef.current === saveLoadSequence) {
+        const message = error instanceof Error ? error.message : 'Unexpected save failure.';
+        setCloudSyncFailed(Boolean(user));
+        setCloudError(user ? `Save failed: ${message}` : message);
+        setAutoSaveStatus('failed');
+        if (!automatic) setSaved(false);
+      }
+      return false;
     } finally {
       if (saveAbortControllerRef.current === saveController) {
         saveAbortControllerRef.current = null;
         saveInFlightRef.current = false;
+        setCloudBusy(false);
       }
     }
   }
