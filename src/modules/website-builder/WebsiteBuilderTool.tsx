@@ -8523,7 +8523,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           if (!normalizedSections.length) continue;
           const pageName = sourcePage.name?.trim().slice(0, 60) || `Page ${nextPages.length + 1}`;
           const requestedSlug = normalizeSlugValue(sourcePage.slug || pageName) || `page-${nextPages.length + 1}`;
-          nextPages.push({
+          const createdPage: WebsitePage = {
             id: `page-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             name: pageName,
             slug: requestedSlug,
@@ -8535,8 +8535,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             seoDescription: '',
             canonicalUrl: '',
             noIndex: false,
-          });
-          applied += 1;
+          };
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'add_page',
+              source: 'ai',
+              page:
+                createdPage as unknown as EditorPageLike,
+            },
+            operation.action,
+          );
           continue;
         }
 
@@ -8871,19 +8880,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             image: source.image?.trim() || undefined,
             imagePrompt: source.imagePrompt?.trim() || undefined,
           });
-          const sectionList = [...page.sections];
-          const requestedAfter = operation.afterSectionId
-            ? sectionList.findIndex((section) => section.id === operation.afterSectionId)
-            : -1;
-          const footerIndex = sectionList.findIndex((section) => section.type === 'footer');
-          const insertAt = requestedAfter >= 0
-            ? requestedAfter + 1
-            : footerIndex >= 0
-              ? footerIndex
-              : sectionList.length;
-          sectionList.splice(insertAt, 0, created);
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
+          const requestedAfter =
+            operation.afterSectionId &&
+            page.sections.some(
+              (section) =>
+                section.id === operation.afterSectionId,
+            )
+              ? operation.afterSectionId
+              : '';
+          const footer =
+            page.sections.find(
+              (section) =>
+                section.type === 'footer',
+            );
+          const position = requestedAfter
+            ? { afterId: requestedAfter }
+            : footer
+              ? { beforeId: footer.id }
+              : {};
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'add_section',
+              source: 'ai',
+              pageId: page.id,
+              section:
+                created as unknown as EditorPageLike['sections'][number],
+              position,
+            },
+            operation.action,
+          );
           continue;
         }
 
