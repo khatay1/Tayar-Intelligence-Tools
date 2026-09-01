@@ -548,6 +548,7 @@ interface WebsiteSymbol {
 }
 
 interface PersistedWebsiteProject {
+  cloudProjectId?: string | null;
   pages?: Partial<WebsitePage>[];
   sections?: WebsiteSection[];
   language?: Language;
@@ -3428,6 +3429,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const buildProjectSnapshot = useCallback(() => {
     return {
       version: 5,
+      cloudProjectId,
       siteName,
       siteUrl,
       faviconUrl,
@@ -3453,7 +3455,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       language: prefs.language,
       updatedAt: new Date().toISOString(),
     };
-  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  }, [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
   const buildProjectFingerprint = useCallback(() => {
     return JSON.stringify({
@@ -3926,7 +3928,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               : item
           )
         );
-        saveLocalWebsiteProject(recoveredContent);
+        saveLocalWebsiteProject({
+          ...recoveredContent,
+          cloudProjectId: project.id,
+        });
       }
     }
 
@@ -3947,10 +3952,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setReleaseHistoryOpen(false);
     setLiveVerification('idle');
     skipNextAutosaveRef.current = true;
-    applyProjectData(project.content);
+    const identifiedContent = {
+      ...project.content,
+      cloudProjectId: project.id,
+    };
+    applyProjectData(identifiedContent);
     setSiteName(project.title || 'My Website');
-    saveLocalWebsiteProject(project.content);
-    await recoverPublishedProjectState(project);
+    saveLocalWebsiteProject(identifiedContent);
+    await recoverPublishedProjectState({
+      ...project,
+      content: identifiedContent,
+    });
   }
 
   const loadCloudProjectRef = useRef(loadCloudProject);
@@ -4448,6 +4460,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try {
       const savedProject = loadLocalWebsiteProject();
       if (savedProject) {
+        const savedIdentity =
+          savedProject &&
+          typeof savedProject === 'object' &&
+          !Array.isArray(savedProject) &&
+          typeof (savedProject as PersistedWebsiteProject).cloudProjectId === 'string'
+            ? (savedProject as PersistedWebsiteProject).cloudProjectId?.trim() || null
+            : null;
+
+        if (savedIdentity) {
+          saveActiveWebsiteProjectId(savedIdentity);
+        }
+
         skipNextAutosaveRef.current = true;
         applyProjectData(savedProject);
       }
@@ -4470,9 +4494,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!desiredProjectId || cloudProjectId === desiredProjectId) return;
     const exists = cloudProjects.some((project) => project.id === desiredProjectId);
     if (!exists) {
-      if (!projectId) {
-        saveActiveWebsiteProjectId(null);
-      }
+      setCloudError('Your saved website identity is preserved, but the project is not visible in the current cloud list yet.');
       return;
     }
     void loadCloudProjectRef.current(desiredProjectId);
@@ -8814,6 +8836,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         } else {
           setCloudProjectId(result.data.id);
           saveActiveWebsiteProjectId(result.data.id);
+          saveLocalWebsiteProject({
+            ...projectData,
+            cloudProjectId: result.data.id,
+          });
           setProjectTeamAccess({ ...DEFAULT_EDITOR_PROJECT_ACCESS, ownerId: user.id });
           cloudSaved = true;
           setCloudSyncFailed(false);
@@ -8845,6 +8871,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const duplicateTitle = `${siteName.trim() || 'My Website'} Copy`;
     const duplicateContent = {
       ...buildProjectSnapshot(),
+      cloudProjectId: null,
       siteName: duplicateTitle,
       publishedUrl: '',
       publishedAt: null,
@@ -8918,7 +8945,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPublishVersions([]);
     setReleaseHistoryOpen(false);
     setLiveVerification('idle');
-    saveLocalWebsiteProject(duplicateContent);
+    saveLocalWebsiteProject({
+      ...duplicateContent,
+      cloudProjectId: data.id,
+    });
     lastSavedSnapshotRef.current = '';
     await refreshCloudProjects();
     setCloudBusy(false);
@@ -9118,6 +9148,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         if (!project || (!Array.isArray(project.pages) && !Array.isArray(project.sections))) throw new Error('Invalid project backup');
         const importedProject = {
           ...project,
+          cloudProjectId: null,
           publishedUrl: '',
           publishedAt: null,
           previewUrl: '',
