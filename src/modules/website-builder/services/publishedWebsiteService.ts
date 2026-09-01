@@ -4,6 +4,10 @@ import {
   publishedSiteFilePaths,
   removePublishedSiteFiles,
 } from '../core/editor-published-storage';
+import {
+  assertValidPublishedWebsiteBundle,
+  isValidPublishedHtml,
+} from '../core/published-site-validation';
 
 export interface PublishedWebsiteFile {
   name: string;
@@ -35,6 +39,8 @@ export async function replacePublishedWebsiteFiles(
   folder: string,
   files: PublishedWebsiteFile[],
 ): Promise<void> {
+  assertValidPublishedWebsiteBundle(files);
+
   let existing: Array<{ id?: string | null; name: string }>;
 
   try {
@@ -48,7 +54,6 @@ export async function replacePublishedWebsiteFiles(
 
   const liveNames = new Set(files.map((file) => file.name));
   const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
-  await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
 
   for (const file of files) {
     const blob = new Blob([file.content], { type: file.contentType });
@@ -81,6 +86,16 @@ export async function replacePublishedWebsiteFiles(
       (verifyError?.message ? ': ' + verifyError.message : '.'),
     );
   }
+
+  const verifiedHtml = await verifiedIndex.text();
+  if (!isValidPublishedHtml(verifiedHtml)) {
+    throw new Error('The uploaded index.html is not a valid HTML document.');
+  }
+
+  // Keep the previous live files in place until the new bundle is uploaded
+  // and its index has been verified. Only then remove files that are no
+  // longer part of the new release.
+  await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
 }
 
 export async function removePublishedWebsiteFiles(folder: string): Promise<void> {
