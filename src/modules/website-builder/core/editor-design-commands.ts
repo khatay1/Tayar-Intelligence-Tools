@@ -11,6 +11,7 @@ import {
 import { cloneEditorValue } from './editor-transaction';
 import { syncEditorSymbolFromInstance } from './editor-symbols';
 import { safeEditorPayloadRecord } from './editor-payload-safety';
+import { assertEditorSemanticRecord } from './editor-value-safety';
 import type { EditorCommandAdapterOptions } from './editor-command-adapters';
 
 function commandOptions<P>(
@@ -246,6 +247,7 @@ export function commandRestyleSite<P extends EditorProjectLike>(
 ) {
   return commandOptions<P>('Restyle site', (draft) => {
     const safeChanges = safeEditorPayloadRecord(changes, 'restyle changes');
+    assertEditorSemanticRecord('restyle', safeChanges, 'restyle changes');
     const primary = safeChanges.primaryColor ?? safeChanges.accentColor;
     const background = safeChanges.backgroundColor;
     const text = safeChanges.textColor;
