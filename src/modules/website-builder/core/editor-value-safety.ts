@@ -714,7 +714,7 @@ function validateRestyleRecord(
 export function inspectEditorSemanticRecord(
   kind: EditorSemanticRecordKind,
   value: unknown,
-  label = kind,
+  label: string = kind,
 ): EditorSemanticValidationResult {
   const errors: string[] = [];
   if (!isRecord(value)) {
@@ -737,7 +737,7 @@ export function inspectEditorSemanticRecord(
 export function assertEditorSemanticRecord(
   kind: EditorSemanticRecordKind,
   value: unknown,
-  label = kind,
+  label: string = kind,
 ) {
   const result = inspectEditorSemanticRecord(kind, value, label);
   if (!result.ok) {
