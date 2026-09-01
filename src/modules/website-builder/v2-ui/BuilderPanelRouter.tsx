@@ -46,6 +46,10 @@ import {
   BuilderPagesPanel,
 } from './BuilderPagesPanel';
 
+import {
+  BuilderTemplateLibraryPanel,
+} from './BuilderTemplateLibraryPanel';
+
 export interface BuilderPanelRouterProps {
   shell: EditorShellContract;
 
@@ -208,6 +212,10 @@ export function BuilderPanelRouter(
           onResetForm={props.onResetForm}
         />
       );
+    }
+
+    if (panel === 'templates') {
+      return <BuilderTemplateLibraryPanel />;
     }
 
     if (panel === 'components') {
