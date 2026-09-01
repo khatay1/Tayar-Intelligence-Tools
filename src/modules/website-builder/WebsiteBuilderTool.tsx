@@ -84,6 +84,7 @@ import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusable
 import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
 import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus } from './services/websiteLeadService';
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
+import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
@@ -4687,54 +4688,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     };
   }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId]);
 
-  const analyticsSummary = useMemo(() => {
-    const pageViews = analyticsEvents.filter((event) => !event.event_type || event.event_type === 'page_view');
-    const conversions = analyticsEvents.filter((event) => event.event_type === 'cta_click' || event.event_type === 'form_submit');
-    const formSubmits = analyticsEvents.filter((event) => event.event_type === 'form_submit').length;
-    const ctaClicks = analyticsEvents.filter((event) => event.event_type === 'cta_click').length;
-    const sessions = new Set(pageViews.map((event) => event.session_id)).size;
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const today = new Date();
-    const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-    const last7Days = pageViews.filter((event) => new Date(event.created_at).getTime() >= sevenDaysAgo).length;
-    const todayViews = pageViews.filter((event) => {
-      const date = new Date(event.created_at);
-      return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}` === todayKey;
-    }).length;
-
-    const pageCounts = new Map<string, number>();
-    const referrerCounts = new Map<string, number>();
-    pageViews.forEach((event) => {
-      const page = event.page_path || '/';
-      pageCounts.set(page, (pageCounts.get(page) || 0) + 1);
-
-      let source = 'Direct';
-      if (event.referrer) {
-        try {
-          source = new URL(event.referrer).hostname.replace(/^www\./, '') || 'Direct';
-        } catch {
-          source = event.referrer.slice(0, 80);
-        }
-      }
-      referrerCounts.set(source, (referrerCounts.get(source) || 0) + 1);
-    });
-
-    const topPages = [...pageCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const topReferrers = [...referrerCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-    return {
-      views: pageViews.length,
-      sessions,
-      last7Days,
-      todayViews,
-      conversions: conversions.length,
-      ctaClicks,
-      formSubmits,
-      conversionRate: sessions ? Math.round((formSubmits / sessions) * 1000) / 10 : 0,
-      topPages,
-      topReferrers,
-    };
-  }, [analyticsEvents]);
+  const analyticsSummary = useMemo(
+    () => summarizeWebsiteAnalytics(analyticsEvents),
+    [analyticsEvents],
+  );
 
   const filteredLeads = useMemo(() => {
     const query = leadQuery.trim().toLowerCase();
