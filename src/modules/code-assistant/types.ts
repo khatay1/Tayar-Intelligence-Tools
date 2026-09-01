@@ -34,6 +34,7 @@ export interface UIComponentRecord {
   sourcePath?: string;
   license: RegistryLicense;
   dependencies: string[];
+  dependencyRequirements?: string[];
   code: string;
   remote?: {
     sourceId: string;

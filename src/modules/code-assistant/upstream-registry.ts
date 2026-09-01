@@ -1,4 +1,5 @@
 import { getRegistrySource, isRedistributableSource } from './source-catalog';
+import { normalizeNpmDependencyNames } from './dependency-spec';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 interface UpstreamRegistryConfig {
@@ -209,7 +210,8 @@ function normalizeItem(config: UpstreamRegistryConfig, raw: RawRegistryItem): UI
   if (!source || !isRedistributableSource(config.sourceId)) return null;
 
   const category = inferCategory(name, description);
-  const dependencies = stringArray(raw.dependencies);
+  const dependencyRequirements = stringArray(raw.dependencies);
+  const dependencies = normalizeNpmDependencyNames(dependencyRequirements);
   const registryDependencies = stringArray(raw.registryDependencies);
 
   return {
@@ -223,6 +225,7 @@ function normalizeItem(config: UpstreamRegistryConfig, raw: RawRegistryItem): UI
     sourcePath: files[0],
     license: source.license,
     dependencies,
+    dependencyRequirements,
     code: '',
     remote: {
       sourceId: config.sourceId,

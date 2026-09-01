@@ -17,6 +17,7 @@ const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
 const projectFileStore = read('src/modules/code-assistant/project-file-store.ts');
 const projectApply = read('src/modules/code-assistant/project-apply.ts');
 const registryDependencies = read('src/modules/code-assistant/registry-dependencies.ts');
+const dependencySpec = read('src/modules/code-assistant/dependency-spec.ts');
 const prompts = read('src/lib/ai/prompts.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const vercel = JSON.parse(read('vercel.json'));
@@ -42,7 +43,9 @@ if (!projectApply.includes(".eq('updated_at', data.updated_at)") || !projectAppl
 if (!projectFileStore.includes("ProjectFileStoreKind = 'object' | 'array' | 'unsupported'") || !projectFileStore.includes('Cannot replace missing project file') || !projectFileStore.includes('restoreFileOperations')) fail('Supported file-store mutation guards are missing.');
 if (!assistant.includes('I reviewed the file changes above') || !assistant.includes('applyBlockers.length') || !assistant.includes('Apply reviewed patch')) fail('Explicit Safe Apply confirmation UI is missing.');
 if (!assistant.includes('buildSourceBundle') || !assistant.includes('resolvedRegistryDependencies') || !assistant.includes('unresolvedRegistryDependencies')) fail('Registry dependency source bundling is missing.');
-if (!registryDependencies.includes('MAX_RESOLVED_ITEMS = 16') || !registryDependencies.includes("ownerSourceId") || !registryDependencies.includes("'shadcn'")) fail('Bounded registry dependency resolution is missing.');
+if (!registryDependencies.includes('MAX_RESOLVED_ITEMS = 16') || !registryDependencies.includes("ownerSourceId") || !registryDependencies.includes("'shadcn'") || !registryDependencies.includes('npmDependencyRequirements')) fail('Bounded registry dependency resolution is missing.');
+if (!dependencySpec.includes('parseNpmDependencyRequirement') || !dependencySpec.includes('buildDependencyInstallCommand') || !dependencySpec.includes("packageManager === 'pnpm'")) fail('NPM dependency normalization/install planning is missing.');
+if (!projectContext.includes('detectPackageManager') || !assistant.includes('Copy {projectContext?.packageManager} install command')) fail('Project package-manager install guidance is missing.');
 const manifestUrls = upstream
   .split('\n')
   .map((line) => line.trim())

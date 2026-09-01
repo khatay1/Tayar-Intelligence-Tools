@@ -12,6 +12,7 @@ export interface CodeProjectContext {
   type: string;
   status: string;
   framework: string;
+  packageManager: 'npm' | 'pnpm' | 'yarn' | 'bun';
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
   files: CodeProjectFile[];
@@ -152,6 +153,14 @@ function stringRecord(value: unknown): Record<string, string> {
   return output;
 }
 
+function detectPackageManager(files: Array<{ path: string; content: string }>): 'npm' | 'pnpm' | 'yarn' | 'bun' {
+  const paths = new Set(files.map((file) => file.path));
+  if (paths.has('pnpm-lock.yaml')) return 'pnpm';
+  if (paths.has('yarn.lock')) return 'yarn';
+  if (paths.has('bun.lock') || paths.has('bun.lockb')) return 'bun';
+  return 'npm';
+}
+
 function detectFramework(
   dependencies: Record<string, string>,
   devDependencies: Record<string, string>,
@@ -259,6 +268,7 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
     type: typeof data.type === 'string' ? data.type : 'project',
     status: typeof data.status === 'string' ? data.status : 'unknown',
     framework: detectFramework(dependencies, devDependencies, allFiles),
+    packageManager: detectPackageManager(allFiles),
     dependencies,
     devDependencies,
     files: bounded.files,
@@ -294,6 +304,7 @@ export function summarizeProjectForAI(project: CodeProjectContext | null): Recor
     type: project.type.slice(0, 80),
     status: project.status.slice(0, 80),
     framework: project.framework,
+    packageManager: project.packageManager,
     dependencies: boundedRecord(project.dependencies, 80),
     devDependencies: boundedRecord(project.devDependencies, 80),
     files: project.files,

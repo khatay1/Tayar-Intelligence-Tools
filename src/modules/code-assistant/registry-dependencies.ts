@@ -1,9 +1,11 @@
+import { mergeNpmDependencyRequirements } from './dependency-spec';
 import { UIComponentRecord } from './types';
 
 export interface RegistryDependencyResolution {
   resolved: UIComponentRecord[];
   unresolved: string[];
   npmDependencies: string[];
+  npmDependencyRequirements: string[];
 }
 
 const MAX_RESOLVED_ITEMS = 16;
@@ -77,6 +79,7 @@ export function resolveRegistryDependencies(
   const unresolved = new Set<string>();
   const visited = new Set<string>([root.id]);
   const npmDependencies = new Set(root.dependencies);
+  const npmRequirements: string[] = [...(root.dependencyRequirements || root.dependencies)];
   const queue: Array<{ item: UIComponentRecord; depth: number }> = [{ item: root, depth: 0 }];
 
   while (queue.length && resolved.length < MAX_RESOLVED_ITEMS) {
@@ -94,6 +97,7 @@ export function resolveRegistryDependencies(
         continue;
       }
       dependency.dependencies.forEach((name) => npmDependencies.add(name));
+      npmRequirements.push(...(dependency.dependencyRequirements || dependency.dependencies));
       if (visited.has(dependency.id)) continue;
       visited.add(dependency.id);
       resolved.push(dependency);
@@ -112,5 +116,6 @@ export function resolveRegistryDependencies(
     resolved,
     unresolved: Array.from(unresolved),
     npmDependencies: Array.from(npmDependencies),
+    npmDependencyRequirements: mergeNpmDependencyRequirements(npmRequirements),
   };
 }

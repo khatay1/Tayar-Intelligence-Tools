@@ -44,6 +44,8 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Current verified manifests expose roughly 1,490 redistributable UI components/blocks before future sources are added.
 - Large result sets render in incremental batches instead of mounting the full registry list at once.
 - Registry dependencies are resolved recursively from the approved loaded catalog with bounded depth/item limits, preferring the component's own source and then shadcn-compatible primitives.
+- NPM requirements such as `react-day-picker@latest` and `recharts@2.15.4` are normalized to package names for compatibility checks while preserving their original install requirement.
+- The selected project's lockfile identifies npm/pnpm/yarn/bun, and Coding Assistance can generate the correct install command for missing dependencies without editing package.json or executing commands automatically.
 - Resolved dependency source is bundled into AI/Patch Plan context; only genuinely unresolved registry references remain Safe Apply blockers.
 - Search results are relevance-ranked for exact/prefix/name/tag/description matches.
 - Each selected item surfaces up to six similar components based on category, kind, source and shared tags.
