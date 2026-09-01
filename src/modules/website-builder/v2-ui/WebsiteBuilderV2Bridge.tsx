@@ -173,6 +173,8 @@ export interface WebsiteBuilderV2BridgeProps {
     nextSelection?: EditorSelection,
   ): void;
 
+  onRestoreHistoryEntry?(entryId: string): void;
+
   onUndo(): void;
   onRedo(): void;
   onSave(): void;
@@ -285,6 +287,7 @@ export function WebsiteBuilderV2Bridge({
   onDeleteElement,
 
   onApplyOperations,
+  onRestoreHistoryEntry,
 
   onUndo,
   onRedo,
@@ -858,6 +861,10 @@ export function WebsiteBuilderV2Bridge({
 
       onApplyOperations={
         onApplyOperations
+      }
+
+      onRestoreHistoryEntry={
+        onRestoreHistoryEntry
       }
     />
   );
