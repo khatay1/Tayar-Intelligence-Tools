@@ -14341,6 +14341,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       lastCheckedAt={launchLastCheckedAt ? Date.parse(launchLastCheckedAt) : undefined}
       publishedUrl={publishedUrl || undefined}
       publishedAt={publishedAt ? Date.parse(publishedAt) : undefined}
+      publishedOutdated={hasUnpublishedChanges}
       liveVerification={liveVerification}
       publishBlockers={[
         !user ? 'Sign in before publishing.' : '',
