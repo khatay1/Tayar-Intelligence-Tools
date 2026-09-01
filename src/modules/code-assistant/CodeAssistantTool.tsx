@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import {
   Boxes, Check, Code2, Copy, ExternalLink, FileDiff, FolderCog, Heart, LayoutTemplate, Loader2, Package,
-  RotateCcw, Save, Search, ShieldCheck, Sparkles,
+  RotateCcw, Save, Search, ShieldCheck, Sparkles, Upload, Zap,
 } from 'lucide-react';
 import { AIService } from '@/lib/ai/service';
 import { componentRegistry } from './component-registry';
@@ -13,6 +13,7 @@ import { applyCodePatch, rollbackCodePatch } from './project-apply';
 import { buildDependencyInstallCommand } from './dependency-spec';
 import { resolveRegistryDependencies } from './registry-dependencies';
 import { AIVariantOption, validateVariantOptions } from './variant-plan';
+import { importPrivateComponentFiles, isAnimatedComponent } from './private-import';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -130,6 +131,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [kindFilter, setKindFilter] = useState<'all' | 'component' | 'block'>('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [animatedOnly, setAnimatedOnly] = useState(false);
+  const [privateItems, setPrivateItems] = useState<UIComponentRecord[]>([]);
+  const [privateImportConfirmed, setPrivateImportConfirmed] = useState(false);
+  const [privateImportMessage, setPrivateImportMessage] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(80);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState(componentRegistry.all()[0]?.id || '');
@@ -237,17 +242,19 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     return () => { active = false; };
   }, []);
 
-  const allItems = useMemo(() => [...componentRegistry.all(), ...upstreamItems], [upstreamItems]);
+  const allItems = useMemo(() => [...componentRegistry.all(), ...upstreamItems, ...privateItems], [upstreamItems, privateItems]);
   const activeConstraintInstructions = useMemo(
     () => AI_CONSTRAINTS.filter((constraint) => constraintIds.has(constraint.id)).map((constraint) => constraint.instruction),
     [constraintIds],
   );
-  const searchableItems = useMemo(
-    () => constraintIds.has('no-animation-lib')
-      ? allItems.filter((item) => !item.dependencies.some((dependency) => dependency === 'motion' || dependency === 'framer-motion' || dependency === 'gsap'))
-      : allItems,
-    [allItems, constraintIds],
-  );
+  const searchableItems = useMemo(() => {
+    let items = allItems;
+    if (constraintIds.has('no-animation-lib')) {
+      items = items.filter((item) => !item.dependencies.some((dependency) => dependency === 'motion' || dependency === 'framer-motion' || dependency === 'gsap'));
+    }
+    if (animatedOnly) items = items.filter(isAnimatedComponent);
+    return items;
+  }, [allItems, constraintIds, animatedOnly]);
   const matches = useMemo(
     () => filterRecords(searchableItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds),
     [searchableItems, query, category, kindFilter, sourceFilter, favoritesOnly, favoriteIds],
@@ -310,7 +317,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
 
   useEffect(() => {
     setVisibleCount(80);
-  }, [query, category, kindFilter, sourceFilter, favoritesOnly, constraintIds]);
+  }, [query, category, kindFilter, sourceFilter, favoritesOnly, animatedOnly, constraintIds]);
 
   useEffect(() => {
     setVariants([]);
@@ -323,6 +330,37 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       else next.add(id);
       return next;
     });
+  };
+
+  const onPrivateImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    event.target.value = '';
+    if (!files?.length || !privateImportConfirmed) return;
+
+    setActionError(null);
+    setPrivateImportMessage(null);
+    try {
+      const result = await importPrivateComponentFiles(files);
+      setPrivateItems(result.items);
+      if (result.items[0]) {
+        setSelectedId(result.items[0].id);
+        setSourceFilter('private-session');
+        setTab('preview');
+      }
+      setPrivateImportMessage(
+        `Loaded ${result.items.length} private components for this browser session${result.skipped.length ? `; skipped ${result.skipped.length} unsafe/unsupported files` : ''}.`,
+      );
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to import private component files.');
+    }
+  };
+
+  const clearPrivateImport = () => {
+    setPrivateItems([]);
+    setPrivateImportMessage(null);
+    setPrivateImportConfirmed(false);
+    if (sourceFilter === 'private-session') setSourceFilter('all');
+    if (selected?.sourceId === 'private-session') setSelectedId(componentRegistry.all()[0]?.id || '');
   };
 
   const toggleFavorite = (id: string) => {
@@ -578,6 +616,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             {!projectLoading && targetProjectId && !projectContext && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-300">Project context unavailable</span>}
             {upstreamLoading && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 opacity-60"><Loader2 className="h-3 w-3 animate-spin" /> Loading open-source registries</span>}
             {!upstreamLoading && upstreamItems.length > 0 && <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-emerald-400">{upstreamItems.length} upstream items loaded</span>}
+            {privateItems.length > 0 && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-300">{privateItems.length} private session items</span>}
           </div>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[260px]">
@@ -587,8 +626,20 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             {projectOptions.map((project) => <option key={project.id} value={project.id}>{project.title} · {project.type}</option>)}
           </select>
           <button onClick={() => setShowSources((value) => !value)} className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${panel}`}><ShieldCheck className="h-4 w-4 text-emerald-400" /> Source policy</button>
+          <div className={`rounded-xl border p-3 ${panel}`}>
+            <label className="flex items-start gap-2 text-[11px] leading-4"><input type="checkbox" checked={privateImportConfirmed} onChange={(event) => setPrivateImportConfirmed(event.target.checked)} className="mt-0.5" /><span>I confirm I have the right/license to use the private files I select.</span></label>
+            <label className={`mt-2 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${privateImportConfirmed ? 'border-amber-400/30 bg-amber-500/10 text-amber-300' : 'pointer-events-none opacity-40'}`}><Upload className="h-3.5 w-3.5" /> Import private files<input type="file" multiple accept=".ts,.tsx,.js,.jsx,.mts,.cts,.mjs,.cjs,.css,.scss,.sass,.less" onChange={(event) => void onPrivateImport(event)} className="hidden" /></label>
+            <p className="mt-2 text-[10px] leading-4 opacity-45">Session only: selected source is read locally in your browser and is not uploaded to the Tayar public registry.</p>
+            {privateItems.length > 0 && <button onClick={clearPrivateImport} className="mt-2 text-[10px] text-amber-300 underline underline-offset-2">Clear private session files</button>}
+          </div>
         </div>
       </div>
+
+      {privateImportMessage && (
+        <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
+          {privateImportMessage}
+        </div>
+      )}
 
       {applyMessage && (
         <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-300">
@@ -638,12 +689,16 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} className={`min-w-0 rounded-xl border px-2.5 py-2 text-xs outline-none ${darkMode ? 'border-white/10 bg-[#10101d]' : 'border-gray-200 bg-white'}`}>
               <option value="all">All sources</option>
               {REGISTRY_SOURCES.filter((entry) => entry.redistributionAllowed).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+              {privateItems.length > 0 && <option value="private-session">Private Session</option>}
             </select>
             <div className="flex rounded-xl border border-white/10 p-1">
               {(['all', 'component', 'block'] as const).map((kind) => <button key={kind} onClick={() => setKindFilter(kind)} className={`flex-1 rounded-lg px-1.5 py-1 text-[10px] capitalize ${kindFilter === kind ? 'bg-violet-500 text-white' : 'opacity-50 hover:opacity-100'}`}>{kind}</button>)}
             </div>
           </div>
-          <button onClick={() => setFavoritesOnly((value) => !value)} className={`mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs ${favoritesOnly ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10 text-gray-400' : 'border-gray-200 text-gray-600'}`}><Heart className={`h-3.5 w-3.5 ${favoritesOnly ? 'fill-current' : ''}`} /> Favorites only ({favoriteIds.size})</button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button onClick={() => setFavoritesOnly((value) => !value)} className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs ${favoritesOnly ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10 text-gray-400' : 'border-gray-200 text-gray-600'}`}><Heart className={`h-3.5 w-3.5 ${favoritesOnly ? 'fill-current' : ''}`} /> Favorites ({favoriteIds.size})</button>
+            <button onClick={() => setAnimatedOnly((value) => !value)} className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs ${animatedOnly ? 'border-amber-400/30 bg-amber-500/10 text-amber-300' : darkMode ? 'border-white/10 text-gray-400' : 'border-gray-200 text-gray-600'}`}><Zap className={`h-3.5 w-3.5 ${animatedOnly ? 'fill-current' : ''}`} /> Animated only</button>
+          </div>
           <div className="mt-3 flex items-center justify-between text-[10px] opacity-45"><span>{matches.length} matches</span><span>Showing {Math.min(visibleCount, matches.length)}</span></div>
           <div className="mt-2 max-h-[620px] space-y-2 overflow-y-auto pr-1">
             {visibleMatches.map((item) => (
@@ -659,7 +714,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
         {selected && (
           <section className={`min-w-0 rounded-2xl border ${panel}`}>
             <div className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div><div className="flex items-center gap-2"><h2 className="font-semibold">{selected.name}</h2>{selected.remote && <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-400">Open source</span>}</div><p className={`mt-1 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{selected.description}</p></div>
+              <div><div className="flex items-center gap-2"><h2 className="font-semibold">{selected.name}</h2>{selected.remote && <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-400">Open source</span>}{selected.sourceId === 'private-session' && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">Private session</span>}</div><p className={`mt-1 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{selected.description}</p></div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => toggleFavorite(selected.id)} aria-label={favoriteIds.has(selected.id) ? 'Remove from favorites' : 'Add to favorites'} className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 ${favoriteIds.has(selected.id) ? 'border-rose-400/30 bg-rose-500/10 text-rose-300' : darkMode ? 'border-white/10' : 'border-gray-200'}`}><Heart className={`h-4 w-4 ${favoriteIds.has(selected.id) ? 'fill-current' : ''}`} /></button>
                 <button disabled={codeLoadingId === selected.id || aiLoading} onClick={() => void onUseAI(selected)} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-400 disabled:opacity-50">{codeLoadingId === selected.id || aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI Adapt</button>

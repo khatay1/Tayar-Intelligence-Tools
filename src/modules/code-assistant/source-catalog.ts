@@ -11,6 +11,14 @@ export const REGISTRY_SOURCES: RegistrySource[] = [
     note: 'Original components authored for the Tayar registry.',
   },
   {
+    id: 'private-session',
+    name: 'Private Session',
+    license: 'restricted',
+    redistributionAllowed: false,
+    attributionRequired: false,
+    note: 'User-selected licensed source kept only in the current browser session. Tayar may adapt it for the user but must never publish it into the public registry.',
+  },
+  {
     id: 'shadcn',
     name: 'shadcn/ui',
     repository: 'shadcn-ui/ui',

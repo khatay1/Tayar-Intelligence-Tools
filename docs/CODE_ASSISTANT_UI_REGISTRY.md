@@ -89,3 +89,13 @@ The registry source catalog is the enforcement point. A component cannot be regi
 ## Verification
 
 The internal branch is checked on GitHub with TypeScript and the dedicated Coding Assistance smoke suite. This verification does not deploy the application to Vercel.
+
+
+## Private licensed imports
+
+- Users can select local TS/TSX/JS/JSX and style files they already have rights to use.
+- Private imports are held only in React session memory; the source is not persisted to localStorage, Supabase, GitHub, or the Tayar public registry.
+- The importer rejects environment/credential/lock files, unsafe paths, unsupported extensions, more than 80 files, individual files above 250k characters, and combined imports above 2M characters.
+- NPM imports are detected locally so project compatibility and install guidance still work.
+- A rights/license confirmation checkbox is required before the file picker is enabled.
+- Animated-only discovery highlights Motion Primitives, Animata, and other components detected from animation dependencies/names/tags.
