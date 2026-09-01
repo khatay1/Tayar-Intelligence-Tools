@@ -424,11 +424,21 @@ function validateSectionRecord(
           );
           return;
         }
+        const fieldLabel = `${label}.formFields[${index}]`;
         validateFormFieldRecord(
           field,
           errors,
-          `${label}.formFields[${index}]`,
+          fieldLabel,
         );
+        for (const requiredKey of ['name', 'label', 'type', 'required']) {
+          if (field[requiredKey] === undefined) {
+            pushError(
+              errors,
+              `${fieldLabel}.${requiredKey}`,
+              'is required',
+            );
+          }
+        }
       });
     }
   }
