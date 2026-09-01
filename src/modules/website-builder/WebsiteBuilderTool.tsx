@@ -83,7 +83,7 @@ import {
   uploadPublishedWebsiteFolderFiles,
 } from './services/publishedWebsiteService';
 import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
-import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
+import { createWebsitePublishVersion, deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
 import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
@@ -9109,8 +9109,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function exportLeadsCsv() {
     const rows: unknown[][] = [[ 'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'updated_at', 'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer', 'form_data' ]];
     leads.forEach((lead) => {
-      const meta = leadSource(lead);
-      rows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.updated_at || '', lead.name, lead.email, leadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer, lead.form_data || {}]);
+      const meta = getWebsiteLeadSource(lead);
+      rows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.updated_at || '', lead.name, lead.email, getWebsiteLeadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer, lead.form_data || {}]);
     });
     downloadTextFile(`${normalizeSlug(siteName || 'website')}-leads.csv`, `\uFEFF${buildCsv(rows)}`, 'text/csv;charset=utf-8');
   }
@@ -9279,8 +9279,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const leadRows: unknown[][] = [[ 'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer' ]];
     leads.forEach((lead) => {
-      const meta = leadSource(lead);
-      leadRows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.name, lead.email, leadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer]);
+      const meta = getWebsiteLeadSource(lead);
+      leadRows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.name, lead.email, getWebsiteLeadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer]);
     });
     files.push({ name: 'reports/leads.csv', content: `\uFEFF${buildCsv(leadRows)}` });
 
@@ -9670,31 +9670,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           const {
             error: versionError,
-          } = await supabase
-            .from(
-              'website_publish_versions',
-            )
-            .insert({
-              id: versionId,
-              project_id:
-                publishProjectId,
-              user_id: user.id,
-              release_note:
-                releaseNote
-                  .trim()
-                  .slice(0, 500),
-              published_url:
-                publicBaseUrl +
-                '/index.html',
-              storage_prefix:
-                versionPrefix,
-              editor_fingerprint:
-                editableFingerprint,
-              snapshot:
-                provisionalData,
-              file_manifest:
-                manifest,
-            });
+          } = await createWebsitePublishVersion({
+            id: versionId,
+            projectId: publishProjectId,
+            ownerId: user.id,
+            releaseNote: releaseNote.trim().slice(0, 500),
+            publishedUrl: publicBaseUrl + '/index.html',
+            storagePrefix: versionPrefix,
+            editorFingerprint: editableFingerprint,
+            snapshot: provisionalData,
+            fileManifest: manifest,
+          });
 
           if (versionError) {
             throw versionError;
@@ -12143,8 +12129,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             ) : (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {filteredLeads.map((lead) => {
-                  const meta = leadSource(lead);
-                  const phone = leadPhone(lead);
+                  const meta = getWebsiteLeadSource(lead);
+                  const phone = getWebsiteLeadPhone(lead);
                   const stage = lead.stage || 'new';
                   const visibleFormData = Object.entries(lead.form_data || {}).filter(([key]) => !key.startsWith('_'));
                   return (
