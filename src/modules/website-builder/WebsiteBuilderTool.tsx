@@ -9412,6 +9412,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     cancelPendingProjectPersistence();
     projectLoadSequenceRef.current += 1;
+    const duplicateLoadSequence = projectLoadSequenceRef.current;
+    const duplicateUserId = user?.id ?? null;
+    const duplicateIsCurrent = () =>
+      projectLoadSequenceRef.current === duplicateLoadSequence &&
+      activeUserIdRef.current === duplicateUserId;
 
     const duplicateTitle = `${siteName.trim() || 'My Website'} Copy`;
     const duplicateContent = {
@@ -9455,14 +9460,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    if (!duplicateUserId) return;
+
     setCloudBusy(true);
     setCloudError('');
     const { data, error } = await createWebsiteProjectInCloud({
-      userId: user.id,
+      userId: duplicateUserId,
       title: duplicateTitle,
       content: duplicateContent,
       published: false,
     });
+
+    if (!duplicateIsCurrent()) return;
 
     if (error || !data) {
       if (error && /limit reached/i.test(error.message || '')) openBillingWithMessage(error.message);
@@ -9497,6 +9506,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
     lastSavedSnapshotRef.current = '';
     await refreshCloudProjects();
+    if (!duplicateIsCurrent()) return;
     setCloudBusy(false);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2000);
