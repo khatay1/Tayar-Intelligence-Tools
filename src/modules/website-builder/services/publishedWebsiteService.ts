@@ -54,50 +54,137 @@ export async function replacePublishedWebsiteFiles(
     );
   }
 
-  const liveNames = new Set(files.map((file) => file.name));
-  const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
+  const existingFiles = existing.filter(
+    (item) => Boolean(item.id) && Boolean(item.name),
+  );
 
-  for (const file of files) {
-    const blob = new Blob([file.content], { type: file.contentType });
-    const { error: liveError } = await publishedSiteStorage.upload(
-      folder + '/' + file.name,
-      blob,
-      {
-        upsert: true,
-        contentType: file.contentType,
-        cacheControl: '0',
-      },
+  if (existingFiles.length > 250) {
+    throw new Error(
+      'Published-site folder contains too many live files to replace safely.',
     );
+  }
 
-    if (liveError) {
+  const previousFiles = new Map<string, Blob>();
+
+  for (const item of existingFiles) {
+    const path = folder + '/' + item.name;
+    const { data, error } = await publishedSiteStorage.download(path);
+
+    if (error || !data) {
       throw new Error(
-        'Could not publish ' +
-        file.name +
-        ': ' +
-        liveError.message,
+        'Could not create a safe pre-publish backup for ' +
+        item.name +
+        (error?.message ? ': ' + error.message : '.'),
       );
     }
+
+    previousFiles.set(item.name, data);
   }
 
-  const { data: verifiedIndex, error: verifyError } =
-    await publishedSiteStorage.download(folder + '/index.html');
+  const liveNames = new Set(files.map((file) => file.name));
+  const existingNames = new Set(existingFiles.map((item) => item.name));
+  const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
+  const newlyCreatedPaths = files
+    .filter((file) => !existingNames.has(file.name))
+    .map((file) => folder + '/' + file.name);
 
-  if (verifyError || !verifiedIndex || verifiedIndex.size <= 0) {
+  const restorePreviousLiveState = async () => {
+    const rollbackErrors: string[] = [];
+
+    for (const [name, blob] of previousFiles) {
+      const { error } = await publishedSiteStorage.upload(
+        folder + '/' + name,
+        blob,
+        {
+          upsert: true,
+          contentType: blob.type || undefined,
+          cacheControl: '0',
+        },
+      );
+
+      if (error) {
+        rollbackErrors.push(name + ': ' + error.message);
+      }
+    }
+
+    if (newlyCreatedPaths.length) {
+      const { error } = await publishedSiteStorage.remove(
+        newlyCreatedPaths,
+      );
+
+      if (error) {
+        rollbackErrors.push(
+          'new files cleanup: ' +
+          (error.message || 'unknown storage error'),
+        );
+      }
+    }
+
+    return rollbackErrors;
+  };
+
+  try {
+    for (const file of files) {
+      const blob = new Blob([file.content], { type: file.contentType });
+      const { error: liveError } = await publishedSiteStorage.upload(
+        folder + '/' + file.name,
+        blob,
+        {
+          upsert: true,
+          contentType: file.contentType,
+          cacheControl: '0',
+        },
+      );
+
+      if (liveError) {
+        throw new Error(
+          'Could not publish ' +
+          file.name +
+          ': ' +
+          liveError.message,
+        );
+      }
+    }
+
+    const { data: verifiedIndex, error: verifyError } =
+      await publishedSiteStorage.download(folder + '/index.html');
+
+    if (verifyError || !verifiedIndex || verifiedIndex.size <= 0) {
+      throw new Error(
+        'Files were uploaded but the live index could not be verified' +
+        (verifyError?.message ? ': ' + verifyError.message : '.'),
+      );
+    }
+
+    const verifiedHtml = await verifiedIndex.text();
+    if (!isValidPublishedHtml(verifiedHtml)) {
+      throw new Error('The uploaded index.html is not a valid HTML document.');
+    }
+
+    // Keep the previous live files in place until the new bundle is uploaded
+    // and its index has been verified. Only then remove files that are no
+    // longer part of the new release.
+    await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
+  } catch (error) {
+    const rollbackErrors = await restorePreviousLiveState();
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Published-site replacement failed.';
+
+    if (rollbackErrors.length) {
+      throw new Error(
+        message +
+        ' Automatic rollback was incomplete: ' +
+        rollbackErrors.join('; '),
+      );
+    }
+
     throw new Error(
-      'Files were uploaded but the live index could not be verified' +
-      (verifyError?.message ? ': ' + verifyError.message : '.'),
+      message +
+      ' The previous live website was restored automatically.',
     );
   }
-
-  const verifiedHtml = await verifiedIndex.text();
-  if (!isValidPublishedHtml(verifiedHtml)) {
-    throw new Error('The uploaded index.html is not a valid HTML document.');
-  }
-
-  // Keep the previous live files in place until the new bundle is uploaded
-  // and its index has been verified. Only then remove files that are no
-  // longer part of the new release.
-  await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
 }
 
 export async function removePublishedWebsiteFiles(folder: string): Promise<void> {
