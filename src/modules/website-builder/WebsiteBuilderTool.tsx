@@ -6104,6 +6104,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function createSymbolFromSelected() {
     if (!selectedElement || !selectedSection || selectedElement.symbolId) return;
+
+    if (symbols.length >= 50) {
+      window.alert('You can keep up to 50 reusable components in one website. Delete an unused component before creating another.');
+      return;
+    }
+
     remember(sections, 'Create reusable component');
     const baseName = (selectedElement.content?.slice(0, 40) || ELEMENT_LABELS[selectedElement.type] || 'Component').trim();
     const matching = symbols.filter((symbol) => symbol.name === baseName || symbol.name.startsWith(`${baseName} `)).length;
@@ -6115,7 +6121,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       element: cloneSymbolElement(selectedElement),
       updatedAt: new Date().toISOString(),
     };
-    setSymbols((current) => [symbol, ...current].slice(0, 50));
+    setSymbols((current) => [symbol, ...current]);
     setSections((current) => current.map((section) => section.id === selectedSection.id ? {
       ...section,
       elements: section.elements.map((element) => element.id === selectedElement.id ? { ...element, symbolId } : element),
@@ -11700,6 +11706,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const result =
       store.applyNativePatch(
         operations,
+        {
+          limits: {
+            maxPages:
+              BUSINESS_BILLING_ENTITLEMENTS.maxPages,
+            maxSymbols: 50,
+          },
+          validateProject: (
+            candidate,
+            previous,
+          ) => {
+            const pageCountIncreased =
+              candidate.pages.length >
+              previous.pages.length;
+
+            if (
+              pageCountIncreased &&
+              candidate.pages.length >
+                billingEntitlements.maxPages
+            ) {
+              return {
+                ok: false,
+                errors: [
+                  `Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports up to ${billingEntitlements.maxPages} pages.`,
+                ],
+              };
+            }
+
+            return {
+              ok: true,
+            };
+          },
+        },
       );
 
     if (
