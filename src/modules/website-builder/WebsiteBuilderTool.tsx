@@ -7745,6 +7745,48 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const applyAIPageNativeOperation = (
         operation: AIWebsitePatchOperation,
       ) => {
+        if (operation.action === 'duplicate_page') {
+          if (
+            nextPages.length >= billingEntitlements.maxPages ||
+            (!operation.pageId && !operation.pageSlug)
+          ) {
+            return true;
+          }
+
+          const sourceIndex = resolvePageIndex(operation);
+          if (sourceIndex < 0 || sourceIndex >= nextPages.length) {
+            return true;
+          }
+
+          const sourcePage = nextPages[sourceIndex];
+          const changes = operation.changes || {};
+          const requestedName =
+            typeof changes.name === 'string' && changes.name.trim()
+              ? changes.name.trim().slice(0, 60)
+              : `${sourcePage.name} Copy`;
+          const requestedSlug =
+            typeof changes.slug === 'string' && changes.slug.trim()
+              ? normalizeSlugValue(changes.slug)
+              : normalizeSlugValue(`${sourcePage.slug}-copy`);
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'duplicate_page',
+              source: 'ai',
+              pageId: sourcePage.id,
+              changes: {
+                name: requestedName,
+                slug: requestedSlug || `page-copy-${Date.now()}`,
+                translationKey: '',
+                canonicalUrl: '',
+              },
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
         if (!isLegacyAIPageNativeAction(operation.action)) {
           return false;
         }
@@ -7879,7 +7921,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ) => {
         if (
           operation.action !== 'remove_section' &&
-          operation.action !== 'move_section'
+          operation.action !== 'move_section' &&
+          operation.action !== 'duplicate_section'
         ) {
           return false;
         }
@@ -7906,6 +7949,52 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           operation.action === 'remove_section' &&
           page.sections.length <= 1
         ) {
+          return true;
+        }
+
+        if (operation.action === 'duplicate_section') {
+          if (page.sections.length >= 20) {
+            return true;
+          }
+
+          const beforeCandidate =
+            typeof operation.beforeSectionId === 'string'
+              ? operation.beforeSectionId.trim()
+              : '';
+          const afterCandidate =
+            typeof operation.afterSectionId === 'string'
+              ? operation.afterSectionId.trim()
+              : '';
+          const beforeId =
+            beforeCandidate &&
+            page.sections.some((section) => section.id === beforeCandidate)
+              ? beforeCandidate
+              : '';
+          const afterId =
+            !beforeId &&
+            afterCandidate &&
+            page.sections.some((section) => section.id === afterCandidate)
+              ? afterCandidate
+              : '';
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'duplicate_section',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: operation.sectionId,
+              changes: {
+                anchorId: undefined,
+              },
+              ...(beforeId
+                ? { position: { beforeId } }
+                : afterId
+                  ? { position: { afterId } }
+                  : {}),
+            },
+            operation.action,
+          );
+
           return true;
         }
 
@@ -8494,30 +8583,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         symbolId: undefined,
       });
 
-      const cloneSectionForAI = (section: WebsiteSection): WebsiteSection => {
-        const containerIdMap = new Map<string, string>();
-        const clonedContainers = (section.containers || []).map((container, index) => {
-          const nextId = `container-ai-copy-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
-          containerIdMap.set(container.id, nextId);
-          return { ...container, id: nextId };
-        });
-        const clonedFields = Array.isArray(section.formFields)
-          ? section.formFields.map((field, index) => ({
-              ...field,
-              id: `field-ai-copy-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-              options: Array.isArray(field.options) ? [...field.options] : field.options,
-            }))
-          : section.formFields;
-        return normalizeSection({
-          ...section,
-          id: `${section.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          anchorId: undefined,
-          containers: clonedContainers,
-          formFields: clonedFields,
-          elements: section.elements.map((element) => cloneElementForAI(element, containerIdMap)),
-        });
-      };
-
       for (const operation of operations) {
         if (!operation || typeof operation.action !== 'string') continue;
 
@@ -8578,32 +8643,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             },
             operation.action,
           );
-          continue;
-        }
-
-        if (operation.action === 'duplicate_page') {
-          if (nextPages.length >= billingEntitlements.maxPages || (!operation.pageId && !operation.pageSlug)) continue;
-          const sourceIndex = resolvePageIndex(operation);
-          if (sourceIndex < 0 || sourceIndex >= nextPages.length) continue;
-          const sourcePage = nextPages[sourceIndex];
-          const changes = operation.changes || {};
-          const requestedName = typeof changes.name === 'string' && changes.name.trim()
-            ? changes.name.trim().slice(0, 60)
-            : `${sourcePage.name} Copy`;
-          const requestedSlug = typeof changes.slug === 'string' && changes.slug.trim()
-            ? normalizeSlugValue(changes.slug)
-            : normalizeSlugValue(`${sourcePage.slug}-copy`);
-          const clonedPage: WebsitePage = {
-            ...sourcePage,
-            id: `page-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: requestedName,
-            slug: requestedSlug || `page-copy-${Date.now()}`,
-            sections: sourcePage.sections.map((section) => cloneSectionForAI(section)),
-            translationKey: '',
-            canonicalUrl: '',
-          };
-          nextPages.splice(sourceIndex + 1, 0, clonedPage);
-          applied += 1;
           continue;
         }
 
@@ -8869,30 +8908,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             applied += 1;
           }
 
-          continue;
-        }
-
-        if (operation.action === 'duplicate_section') {
-          if (!operation.sectionId || page.sections.length >= 20) continue;
-          const sourceIndex = page.sections.findIndex((section) => section.id === operation.sectionId);
-          if (sourceIndex < 0) continue;
-          const sourceSection = page.sections[sourceIndex];
-          const clonedSection = cloneSectionForAI(sourceSection);
-          const sectionList = [...page.sections];
-          const beforeIndex = operation.beforeSectionId
-            ? sectionList.findIndex((section) => section.id === operation.beforeSectionId)
-            : -1;
-          const afterIndex = operation.afterSectionId
-            ? sectionList.findIndex((section) => section.id === operation.afterSectionId)
-            : -1;
-          const insertAt = beforeIndex >= 0
-            ? beforeIndex
-            : afterIndex >= 0
-              ? afterIndex + 1
-              : sourceIndex + 1;
-          sectionList.splice(Math.min(Math.max(insertAt, 0), sectionList.length), 0, clonedSection);
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
           continue;
         }
 
