@@ -79,6 +79,7 @@ import {
   saveRecoveryWebsiteProject,
 } from './core/editor-project-lifecycle';
 import { createWebsiteProjectInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
+import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles } from './services/publishedWebsiteService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
@@ -9803,77 +9804,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         },
       );
 
-      const liveNames =
-        new Set(
-          files.map((file) => file.name),
-        );
-
-      let existing: Array<{ id?: string | null; name: string }>;
-      try {
-        existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
-      } catch (error) {
-        throw new Error(
-          'Published-sites storage is unavailable: ' +
-          (error instanceof Error ? error.message : 'unknown storage error')
-        );
-      }
-
-      const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
-      await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
-
-      for (const file of files) {
-        const blob =
-          new Blob(
-            [file.content],
-            { type: file.contentType },
-          );
-
-        const {
-          error: liveError,
-        } = await supabase.storage
-          .from('published-sites')
-          .upload(
-            folder + '/' + file.name,
-            blob,
-            {
-              upsert: true,
-              contentType:
-                file.contentType,
-              cacheControl: '0',
-            },
-          );
-
-        if (liveError) {
-          throw new Error(
-            'Could not publish ' +
-            file.name +
-            ': ' +
-            liveError.message
-          );
-        }
-      }
-
-      const {
-        data: verifiedIndex,
-        error: verifyError,
-      } = await supabase.storage
-        .from('published-sites')
-        .download(
-          folder + '/index.html',
-        );
-
-      if (
-        verifyError ||
-        !verifiedIndex ||
-        verifiedIndex.size <= 0
-      ) {
-        throw new Error(
-          'Files were uploaded but the live index could not be verified' +
-          (verifyError?.message
-            ? ': ' + verifyError.message
-            : '.')
-        );
-      }
+      await replacePublishedWebsiteFiles(folder, files);
 
       const versionId =
         typeof crypto !== 'undefined' &&
@@ -10154,9 +10085,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     try {
       const folder = `${user.id}/${cloudProjectId}`;
-      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
-      const paths = publishedSiteFilePaths(folder, existing);
-      await removePublishedSiteFiles(publishedSiteStorage, paths);
+      await removePublishedWebsiteFiles(folder);
 
       const nextUpdatedAt = new Date().toISOString();
       const projectData = {
