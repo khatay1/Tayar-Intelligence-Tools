@@ -108,7 +108,9 @@ import {
 } from './core/editor-ai-operation-context';
 import {
   convertLegacyAIGlobalOperationToNative,
+  convertLegacyAIPageOperationToNative,
   isLegacyAIGlobalNativeAction,
+  isLegacyAIPageNativeAction,
 } from './core/editor-ai-native-bridge';
 import { applyEditorAIWorkingNativeOperation } from './core/editor-ai-working-project';
 
@@ -7721,6 +7723,126 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return nextPages.findIndex((page) => page.id === activePageId);
       };
 
+      const applyAIPageNativeOperation = (
+        operation: AIWebsitePatchOperation,
+      ) => {
+        if (!isLegacyAIPageNativeAction(operation.action)) {
+          return false;
+        }
+
+        if (operation.action === 'move_page') {
+          if (
+            !operation.pageId ||
+            (!operation.beforePageId &&
+              !operation.afterPageId) ||
+            (operation.beforePageId &&
+              operation.afterPageId)
+          ) {
+            return true;
+          }
+
+          const sourceIndex =
+            nextPages.findIndex(
+              (page) =>
+                page.id === operation.pageId,
+            );
+
+          if (sourceIndex < 0) {
+            return true;
+          }
+
+          const destinationId =
+            operation.beforePageId ||
+            operation.afterPageId ||
+            '';
+
+          if (
+            destinationId ===
+            operation.pageId
+          ) {
+            return true;
+          }
+
+          const destinationExists =
+            nextPages.some(
+              (page) =>
+                page.id ===
+                destinationId,
+            );
+
+          if (!destinationExists) {
+            return true;
+          }
+
+          const nativeOperation =
+            convertLegacyAIPageOperationToNative(
+              operation,
+              operation.pageId,
+            );
+
+          if (nativeOperation) {
+            applyAIWorkingNativeOperation(
+              nativeOperation,
+              operation.action,
+            );
+          }
+
+          return true;
+        }
+
+        if (
+          !operation.pageId &&
+          !operation.pageSlug
+        ) {
+          return true;
+        }
+
+        const pageIndex =
+          resolvePageIndex(operation);
+
+        if (
+          pageIndex < 0 ||
+          pageIndex >= nextPages.length
+        ) {
+          return true;
+        }
+
+        const pageId =
+          nextPages[pageIndex].id;
+
+        if (
+          operation.action === 'remove_page' &&
+          (
+            nextPages.length <= 1 ||
+            pageId === nextHomePageId
+          )
+        ) {
+          return true;
+        }
+
+        if (
+          operation.action === 'set_home_page' &&
+          pageId === nextHomePageId
+        ) {
+          return true;
+        }
+
+        const nativeOperation =
+          convertLegacyAIPageOperationToNative(
+            operation,
+            pageId,
+          );
+
+        if (nativeOperation) {
+          applyAIWorkingNativeOperation(
+            nativeOperation,
+            operation.action,
+          );
+        }
+
+        return true;
+      };
+
       const resolveSectionIndex = (page: WebsitePage, operation: AIWebsitePatchOperation) => {
         if (operation.sectionId) {
           const index = page.sections.findIndex((section) => section.id === operation.sectionId);
@@ -7774,6 +7896,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         if (
           applyAIGlobalNativeOperation(
+            operation,
+          ) ||
+          applyAIPageNativeOperation(
             operation,
           )
         ) {
@@ -7842,45 +7967,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             canonicalUrl: '',
           };
           nextPages.splice(sourceIndex + 1, 0, clonedPage);
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'remove_page') {
-          if (nextPages.length <= 1 || (!operation.pageId && !operation.pageSlug)) continue;
-          const pageIndex = resolvePageIndex(operation);
-          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
-          const targetPage = nextPages[pageIndex];
-          if (targetPage.id === nextHomePageId) continue;
-          nextPages.splice(pageIndex, 1);
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'set_home_page') {
-          if (!operation.pageId && !operation.pageSlug) continue;
-          const pageIndex = resolvePageIndex(operation);
-          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
-          const targetPage = nextPages[pageIndex];
-          if (targetPage.id !== nextHomePageId) {
-            nextHomePageId = targetPage.id;
-            applied += 1;
-          }
-          continue;
-        }
-
-        if (operation.action === 'move_page') {
-          if (!operation.pageId || (!operation.beforePageId && !operation.afterPageId)) continue;
-          const sourceIndex = nextPages.findIndex((page) => page.id === operation.pageId);
-          if (sourceIndex < 0) continue;
-          const sourcePage = nextPages[sourceIndex];
-          const withoutSource = nextPages.filter((page) => page.id !== sourcePage.id);
-          const destinationId = operation.beforePageId || operation.afterPageId || '';
-          const destinationIndex = withoutSource.findIndex((page) => page.id === destinationId);
-          if (destinationIndex < 0) continue;
-          const insertAt = destinationIndex + (operation.afterPageId ? 1 : 0);
-          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourcePage);
-          nextPages = withoutSource;
           applied += 1;
           continue;
         }
