@@ -52,6 +52,7 @@ const editorDesignCommandsPath = resolve(root, 'src/modules/website-builder/core
 const editorInspectorOperationPath = resolve(root, 'src/modules/website-builder/core/editor-inspector-operation.ts');
 const editorInspectorModelPath = resolve(root, 'src/modules/website-builder/core/editor-inspector-model.ts');
 const editorValueSafetyPath = resolve(root, 'src/modules/website-builder/core/editor-value-safety.ts');
+const editorAIOperationContextPath = resolve(root, 'src/modules/website-builder/core/editor-ai-operation-context.ts');
 
 const failures = [];
 const passes = [];
@@ -111,6 +112,7 @@ for (const [label, path] of [
   ['Native inspector operation helper exists', editorInspectorOperationPath],
   ['Native inspector model exists', editorInspectorModelPath],
   ['Native semantic value safety helper exists', editorValueSafetyPath],
+  ['AI async editor context helper exists', editorAIOperationContextPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -163,6 +165,7 @@ const editorDesignCommands = existsSync(editorDesignCommandsPath) ? readFileSync
 const editorInspectorOperation = existsSync(editorInspectorOperationPath) ? readFileSync(editorInspectorOperationPath, 'utf8') : '';
 const editorInspectorModel = existsSync(editorInspectorModelPath) ? readFileSync(editorInspectorModelPath, 'utf8') : '';
 const editorValueSafety = existsSync(editorValueSafetyPath) ? readFileSync(editorValueSafetyPath, 'utf8') : '';
+const editorAIOperationContext = existsSync(editorAIOperationContextPath) ? readFileSync(editorAIOperationContextPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -317,6 +320,18 @@ check('Native semantic content preserves multiline text but keeps URLs control-f
 check('Native command adapters enforce semantic values without preflight', editorCommandAdapters.includes('assertEditorSemanticRecord') && editorCommandAdapters.includes('assertEditorPageSemantic') && editorCommandAdapters.includes('assertEditorSectionLikeSemantic') && editorCommandAdapters.includes('assertEditorElementLikeSemantic'));
 check('Native semantic form replacements require complete fields', editorValueSafety.includes("for (const requiredKey of ['name', 'label', 'type', 'required'])") && editorValueSafety.includes('formFields'));
 check('Native restyle path validates semantic values before mutation', editorDesignCommands.includes("assertEditorSemanticRecord('restyle', safeChanges, 'restyle changes')"));
+check('AI async context binds results to route project owner and load sequence', editorAIOperationContext.includes('routeProjectId') && editorAIOperationContext.includes('projectId') && editorAIOperationContext.includes('ownerId') && editorAIOperationContext.includes('loadSequence'));
+check('AI async context can require unchanged editor content and selection', editorAIOperationContext.includes('editableFingerprint') && editorAIOperationContext.includes('requireEditableFingerprint') && editorAIOperationContext.includes('requireSelection') && editorAIOperationContext.includes('activePageId'));
+check('Website Builder keeps a live memoized AI context snapshot', builder.includes('currentAIEditableFingerprint = useMemo') && builder.includes('aiEditorContextRef.current = currentAIEditorContext') && builder.includes('captureAIEditorContext()'));
+check('AI project-load race is closed with direct ref checks', builder.includes('projectLoadSequenceRef.current !== expected.loadSequence') && builder.includes('activeUserIdRef.current !== expected.userId'));
+check('Whole-site AI generation rejects stale editable project results', builder.includes('async function generateWithAI') && builder.includes('aiEditorContextIsCurrent(operationContext, false)'));
+check('Targeted AI edits reject stale selection and content results', builder.includes('async function applyAIChange') && builder.includes('aiEditorContextIsCurrent(operationContext, true)'));
+check('AI patch image generation rechecks context immediately after await', builder.includes('const generatedImage = await requestGeneratedImage(imagePrompt);\n            if (!operationCanApply()) return;'));
+check('AI image and image-prompt operations require the original selection context', builder.includes('async function generateRealImage') && builder.includes('async function generateImagePrompt') && builder.match(/aiEditorContextIsCurrent\(operationContext, true\)/g)?.length >= 3);
+check('AI quality reviews are invalidated when the editor changes before fixes', builder.includes('aiQualityReviewContextRef.current = operationContext') && builder.includes('The website changed after this quality review'));
+check('AI undo snapshots cannot restore into another project lifecycle', builder.includes('aiUndoContextRef.current = operationContext') && builder.includes('aiProjectIdentityIsCurrent(undoContext)'));
+check('AI busy cleanup uses request ownership instead of stale apply context', builder.includes('if (operationIsLatest()) {\n        setAiBusy(false);') && builder.includes('if (operationIsLatest()) setAiQualityBusy(false)'));
+check('AI lifecycle resets stale undo and quality contexts', builder.includes('aiUndoContextRef.current = null') && builder.includes('aiQualityReviewContextRef.current = null'));
 check('V2 native page growth respects billing while existing over-limit projects remain editable', builder.includes('const pageCountIncreased =') && builder.includes('candidate.pages.length >') && builder.includes('billingEntitlements.maxPages'));
 check('Reusable components stop safely at 50 instead of evicting linked symbols', builder.includes('if (symbols.length >= 50)') && builder.includes('setSymbols((current) => [symbol, ...current]);') && !builder.includes('setSymbols((current) => [symbol, ...current].slice(0, 50))'));
 check('Expanded V2 option groups stay in normal flow instead of overlapping', websiteBuilderV2Css.includes('Keep one scroll owner per side panel') && websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields') && websiteBuilderV2Css.includes('position: static') && !websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body'));
