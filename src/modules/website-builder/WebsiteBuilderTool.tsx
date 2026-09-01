@@ -3323,9 +3323,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [dragOverElementId, setDragOverElementId] = useState<string | null>(null);
   const [dragOverElementPosition, setDragOverElementPosition] = useState<'before' | 'after' | null>(null);
   const draggedSectionRef = useRef<string | null>(null);
+  const draggedSectionPageRef = useRef<string | null>(null);
   const draggedElementRef = useRef<string | null>(null);
   const draggedElementSectionRef = useRef<string | null>(null);
   const freeElementDragRef = useRef<{
+    pageId: string;
+    device: Device;
     sectionId: string;
     elementId: string;
     symbolId?: string;
@@ -3471,6 +3474,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     saveInFlightRef.current = false;
+    draggedSectionRef.current = null;
+    draggedSectionPageRef.current = null;
+    draggedElementRef.current = null;
+    draggedElementSectionRef.current = null;
+    freeElementDragRef.current = null;
     savedFeedbackSequenceRef.current += 1;
     publishOperationSequenceRef.current += 1;
     previewOperationSequenceRef.current += 1;
@@ -3479,6 +3487,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     aiQualityOperationSequenceRef.current += 1;
     setCloudBusy(false);
     setSaved(false);
+    setDraggedId(null);
+    setDragOverId(null);
+    setDragOverSectionPosition(null);
+    setDraggedElementId(null);
+    setDragOverElementId(null);
+    setDragOverElementPosition(null);
     setPublishBusy(false);
     setPreviewBusy(false);
     setPublishVersionsLoading(false);
@@ -3552,6 +3566,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSelectedElementId(elementId);
     setSelectedContainerId(elementId ? null : containerId);
     setSelectedFormFieldId(elementId || containerId ? null : formFieldId);
+  }
+
+  function clearEditorDragState() {
+    draggedSectionRef.current = null;
+    draggedSectionPageRef.current = null;
+    draggedElementRef.current = null;
+    draggedElementSectionRef.current = null;
+    freeElementDragRef.current = null;
+    setDraggedId(null);
+    setDragOverId(null);
+    setDragOverSectionPosition(null);
+    setDraggedElementId(null);
+    setDragOverElementId(null);
+    setDragOverElementPosition(null);
   }
 
   function showSavedFeedback(
@@ -5308,6 +5336,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function switchPage(pageId: string) {
     const target = pages.find((page) => page.id === pageId);
     if (!target || target.id === activePageId) return;
+    clearEditorDragState();
     setPages((current) => current.map((page) =>
       page.id === activePageId ? { ...page, sections } : page
     ));
@@ -5446,6 +5475,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections, 'Delete page');
     const remaining = pages.filter((page) => page.id !== activePageId);
     const next = remaining[0];
+    clearEditorDragState();
     setPages(remaining);
     if (activePageId === homePageId) setHomePageId(next.id);
     setActivePageId(next.id);
@@ -6159,6 +6189,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     draggedElementSectionRef.current = sectionId;
     const sourceStyle = effectiveStyle(sourceElement, device);
     freeElementDragRef.current = {
+      pageId: activePageId,
+      device,
       sectionId,
       elementId: id,
       symbolId: sourceElement.symbolId,
@@ -6172,8 +6204,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setDraggedElementId(id);
     setDragOverElementId(null);
     setDragOverElementPosition(null);
-    setSelectedId(sectionId);
-    setSelectedElementId(id);
+    selectEditorTarget(sectionId, id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/x-tayar-element', id);
     e.dataTransfer.setData('application/x-tayar-section', sectionId);
@@ -6181,7 +6212,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function handleElementDragMove(sectionId: string, id: string, e: React.DragEvent) {
     const drag = freeElementDragRef.current;
-    if (!drag || drag.sectionId !== sectionId || drag.elementId !== id) return;
+    if (
+      !drag ||
+      drag.pageId !== activePageId ||
+      drag.sectionId !== sectionId ||
+      drag.elementId !== id
+    ) {
+      return;
+    }
     if (!e.clientX && !e.clientY) return;
 
     const nextX = Math.max(-4000, Math.min(4000, Math.round(drag.startX + (e.clientX - drag.startClientX))));
@@ -6199,8 +6237,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           ...element,
           responsive: {
             ...element.responsive,
-            [device]: {
-              ...(element.responsive?.[device] || {}),
+            [drag.device]: {
+              ...(element.responsive?.[drag.device] || {}),
               positionX: nextX,
               positionY: nextY,
             },
@@ -6224,7 +6262,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const sourceId = draggedElementRef.current;
     const sourceSectionId = draggedElementSectionRef.current;
-    if (!sourceId || !sourceSectionId || sourceId === targetId) return;
+    const drag = freeElementDragRef.current;
+    if (
+      !sourceId ||
+      !sourceSectionId ||
+      !drag ||
+      drag.pageId !== activePageId ||
+      sourceId === targetId
+    ) {
+      return;
+    }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const position: 'before' | 'after' = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
@@ -6264,7 +6311,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const nextTargetElements = [...targetWithoutSource];
       nextTargetElements.splice(Math.min(insertAt, nextTargetElements.length), 0, movedElement);
       draggedElementSectionRef.current = targetSectionId;
-      setSelectedId(targetSectionId);
+      drag.sectionId = targetSectionId;
+      selectEditorTarget(targetSectionId, sourceId);
 
       return current.map((section) => {
         if (section.id === sourceSectionId) return { ...section, elements: section.elements.filter((element) => element.id !== sourceId) };
@@ -6279,9 +6327,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.preventDefault();
     e.stopPropagation();
     const sourceId = draggedElementRef.current || e.dataTransfer.getData('application/x-tayar-element');
-    if (sourceId && e.shiftKey) {
-      setSelectedId(targetSectionId);
-      setSelectedElementId(sourceId);
+    const drag = freeElementDragRef.current;
+    if (
+      sourceId &&
+      e.shiftKey &&
+      drag?.pageId === activePageId
+    ) {
+      selectEditorTarget(targetSectionId, sourceId);
       setDragOverElementId(targetId);
     }
     handleElementDragEnd();
@@ -6289,32 +6341,39 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function handleElementDragEnd() {
     const drag = freeElementDragRef.current;
-    if (drag?.symbolId) {
-      setPages((current) => current.map((page) => ({
-        ...page,
-        sections: page.sections.map((section) => ({
-          ...section,
-          elements: section.elements.map((element) => element.symbolId === drag.symbolId ? {
-            ...element,
-            responsive: {
-              ...element.responsive,
-              [device]: {
-                ...(element.responsive?.[device] || {}),
-                positionX: drag.currentX,
-                positionY: drag.currentY,
-              },
-            },
-          } : element),
-        })),
-      })));
+    if (
+      drag?.symbolId &&
+      drag.pageId === activePageId
+    ) {
+      setPages((current) => current.map((page) =>
+        page.id === drag.pageId
+          ? page
+          : {
+              ...page,
+              sections: page.sections.map((section) => ({
+                ...section,
+                elements: section.elements.map((element) => element.symbolId === drag.symbolId ? {
+                  ...element,
+                  responsive: {
+                    ...element.responsive,
+                    [drag.device]: {
+                      ...(element.responsive?.[drag.device] || {}),
+                      positionX: drag.currentX,
+                      positionY: drag.currentY,
+                    },
+                  },
+                } : element),
+              })),
+            }
+      ));
       setSymbols((current) => current.map((symbol) => symbol.id === drag.symbolId ? {
         ...symbol,
         element: {
           ...symbol.element,
           responsive: {
             ...symbol.element.responsive,
-            [device]: {
-              ...(symbol.element.responsive?.[device] || {}),
+            [drag.device]: {
+              ...(symbol.element.responsive?.[drag.device] || {}),
               positionX: drag.currentX,
               positionY: drag.currentY,
             },
@@ -6372,6 +6431,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }),
       };
     });
+    clearEditorDragState();
     setSections(nextSections);
     selectEditorTarget(
       nextSections[0]?.id ?? null,
@@ -6436,11 +6496,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function handleDragStart(id: string, e: React.DragEvent) {
     remember(sections);
     draggedSectionRef.current = id;
+    draggedSectionPageRef.current = activePageId;
     setDraggedId(id);
     setDragOverId(null);
     setDragOverSectionPosition(null);
-    setSelectedId(id);
-    setSelectedElementId(null);
+    selectEditorTarget(id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', id);
   }
@@ -6451,7 +6511,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.dataTransfer.dropEffect = 'move';
 
     const sourceId = draggedSectionRef.current;
-    if (!sourceId || sourceId === targetId) return;
+    if (
+      !sourceId ||
+      draggedSectionPageRef.current !== activePageId ||
+      sourceId === targetId
+    ) {
+      return;
+    }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const position: 'before' | 'after' = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
@@ -6478,13 +6544,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.preventDefault();
     e.stopPropagation();
     const sourceId = draggedSectionRef.current || e.dataTransfer.getData('text/plain');
-    if (sourceId) setSelectedId(sourceId);
-    setDragOverId(targetId);
+    if (sourceId && draggedSectionPageRef.current === activePageId) {
+      selectEditorTarget(sourceId);
+    }
     handleDragEnd();
   }
 
   function handleDragEnd() {
     draggedSectionRef.current = null;
+    draggedSectionPageRef.current = null;
     setDraggedId(null);
     setDragOverId(null);
     setDragOverSectionPosition(null);
