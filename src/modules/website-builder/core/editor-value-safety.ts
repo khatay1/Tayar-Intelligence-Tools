@@ -102,7 +102,8 @@ const FONT_FAMILIES = new Set([
   'system-ui',
 ]);
 
-const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/;
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+const URL_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/;
 const HEX_6_PATTERN = /^#[0-9a-f]{6}$/i;
 const CSS_COLOR_PATTERN = /^(?:#[0-9a-f]{3,4}|#[0-9a-f]{6}|#[0-9a-f]{8}|transparent)$/i;
 const LANGUAGE_PATTERN = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/;
@@ -227,7 +228,7 @@ function optionalColor(
 
 function hasSafeUrlCharacters(value: string) {
   return (
-    !CONTROL_CHARACTER_PATTERN.test(value) &&
+    !URL_CONTROL_CHARACTER_PATTERN.test(value) &&
     !/[<>\\"']/.test(value) &&
     value === value.trim()
   );
@@ -410,6 +411,28 @@ function validateSectionRecord(
   optionalBoolean(record, 'hidden', errors, label);
   validateSectionResponsive(record.responsive, errors, `${label}.responsive`);
 
+  if (record.formFields !== undefined) {
+    if (!Array.isArray(record.formFields)) {
+      pushError(errors, `${label}.formFields`, 'must be an array');
+    } else {
+      record.formFields.forEach((field, index) => {
+        if (!isRecord(field)) {
+          pushError(
+            errors,
+            `${label}.formFields[${index}]`,
+            'must be an object',
+          );
+          return;
+        }
+        validateFormFieldRecord(
+          field,
+          errors,
+          `${label}.formFields[${index}]`,
+        );
+      });
+    }
+  }
+
   if (
     record.formSuccessAction === 'redirect' &&
     typeof record.formRedirectUrl === 'string' &&
@@ -439,7 +462,6 @@ function validateElementStyle(
   optionalNumber(value, 'fontSize', 8, 160, errors, label);
   optionalNumber(value, 'fontWeight', 100, 900, errors, label, {
     integer: true,
-    step: 100,
   });
   optionalEnum(value, 'textAlign', ELEMENT_TEXT_ALIGNS, errors, label);
   optionalNumber(value, 'padding', 0, 240, errors, label);
