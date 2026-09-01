@@ -3653,6 +3653,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   const refreshCloudProjects = useCallback(async () => {
     if (!user) {
+      projectLoadSequenceRef.current += 1;
       setCloudProjects([]);
       setCloudProjectId(null);
       setCloudProjectsLoaded(true);
@@ -9061,6 +9062,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!confirmed) return;
 
     saveRecoverySnapshot('before reset');
+    projectLoadSequenceRef.current += 1;
     newProjectIntentRef.current = true;
     setSections(defaultSections);
     setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: defaultSections, showInNavigation: true }]);
@@ -9255,6 +9257,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           updatedAt: new Date().toISOString(),
         };
         saveRecoverySnapshot('before importing backup');
+        projectLoadSequenceRef.current += 1;
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
         newProjectIntentRef.current = true;
