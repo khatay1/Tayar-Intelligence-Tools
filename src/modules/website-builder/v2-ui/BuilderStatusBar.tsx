@@ -33,7 +33,11 @@ export function BuilderStatusBar({
                     ? 'LIVE'
                     : 'PUBLISHED'}
             </strong>
-            <span>Open site ↗</span>
+            <span>
+              {status.publishedOutdated
+                ? 'Saved changes need republish · Open site ↗'
+                : 'Up to date · Open site ↗'}
+            </span>
           </a>
         ) : (
           <span className="tayar-v2-statusbar__draft">DRAFT</span>
@@ -68,12 +72,16 @@ export function BuilderStatusBar({
           </span>
         )}
 
-        <span>
+        <span data-publish-outdated={status.publishedOutdated ? 'true' : 'false'}>
           {status.saving
             ? 'Saving…'
             : view.dirty
               ? 'Unsaved'
-              : 'Saved'}
+              : status.publishedOutdated
+                ? 'Saved · Not live yet'
+                : status.publishedUrl
+                  ? 'Saved · Live'
+                  : 'Saved'}
         </span>
       </div>
     </footer>
