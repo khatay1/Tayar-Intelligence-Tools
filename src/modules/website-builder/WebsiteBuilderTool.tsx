@@ -8052,6 +8052,114 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         pageIndex: number,
         sectionIndex: number,
       ) => {
+        const page =
+          nextPages[pageIndex];
+        const section =
+          page?.sections[sectionIndex];
+
+        if (!page || !section) {
+          return true;
+        }
+
+        if (operation.action === 'duplicate_element') {
+          if (
+            !operation.elementId ||
+            section.elements.length >= 60 ||
+            !section.elements.some(
+              (element) => element.id === operation.elementId,
+            )
+          ) {
+            return true;
+          }
+
+          const beforeCandidate =
+            typeof operation.beforeElementId === 'string'
+              ? operation.beforeElementId.trim()
+              : '';
+          const afterCandidate =
+            typeof operation.afterElementId === 'string'
+              ? operation.afterElementId.trim()
+              : '';
+          const beforeId =
+            beforeCandidate &&
+            beforeCandidate !== operation.elementId &&
+            section.elements.some(
+              (element) => element.id === beforeCandidate,
+            )
+              ? beforeCandidate
+              : '';
+          const afterId =
+            !beforeId &&
+            afterCandidate &&
+            afterCandidate !== operation.elementId &&
+            section.elements.some(
+              (element) => element.id === afterCandidate,
+            )
+              ? afterCandidate
+              : '';
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'duplicate_element',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: section.id,
+              elementId: operation.elementId,
+              ...(beforeId
+                ? { position: { beforeId } }
+                : afterId
+                  ? { position: { afterId } }
+                  : {}),
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
+        if (operation.action === 'create_symbol') {
+          if (
+            !operation.elementId ||
+            nextSymbols.length >= 50
+          ) {
+            return true;
+          }
+
+          const targetElement =
+            section.elements.find(
+              (element) =>
+                element.id === operation.elementId,
+            );
+
+          if (!targetElement || targetElement.symbolId) {
+            return true;
+          }
+
+          const symbolName =
+            typeof operation.symbolName === 'string' &&
+            operation.symbolName.trim()
+              ? operation.symbolName.trim().slice(0, 80)
+              : (
+                  targetElement.content?.trim().slice(0, 60) ||
+                  ELEMENT_LABELS[targetElement.type] ||
+                  'Reusable component'
+                );
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'create_symbol',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: section.id,
+              elementId: targetElement.id,
+              symbolName,
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
         if (
           !isLegacyAIStructuralNativeAction(
             operation.action,
@@ -8060,15 +8168,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           operation.action === 'move_section'
         ) {
           return false;
-        }
-
-        const page =
-          nextPages[pageIndex];
-        const section =
-          page?.sections[sectionIndex];
-
-        if (!page || !section) {
-          return true;
         }
 
         if (
@@ -8570,19 +8669,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return true;
       };
 
-      const cloneElementForAI = (element: WebsiteElement, containerIdMap?: Map<string, string>): WebsiteElement => ({
-        ...element,
-        id: `${element.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        style: { ...element.style },
-        responsive: element.responsive
-          ? JSON.parse(JSON.stringify(element.responsive)) as WebsiteElement['responsive']
-          : undefined,
-        containerId: element.containerId
-          ? (containerIdMap ? containerIdMap.get(element.containerId) : element.containerId)
-          : undefined,
-        symbolId: undefined,
-      });
-
       for (const operation of operations) {
         if (!operation || typeof operation.action !== 'string') continue;
 
@@ -8993,35 +9079,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           continue;
         }
 
-        if (operation.action === 'create_symbol') {
-          if (!operation.elementId || nextSymbols.length >= 50) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0) continue;
-          const targetElement = targetSection.elements[elementIndex];
-          if (targetElement.symbolId) continue;
-
-          const symbolId = `symbol-ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          const symbolName = typeof operation.symbolName === 'string' && operation.symbolName.trim()
-            ? operation.symbolName.trim().slice(0, 80)
-            : (targetElement.content?.trim().slice(0, 60) || ELEMENT_LABELS[targetElement.type] || 'Reusable component');
-          const symbol: WebsiteSymbol = {
-            id: symbolId,
-            name: symbolName,
-            element: cloneSymbolElement(targetElement),
-            updatedAt: new Date().toISOString(),
-          };
-          nextSymbols = [symbol, ...nextSymbols].slice(0, 50);
-
-          const elements = [...targetSection.elements];
-          elements[elementIndex] = { ...targetElement, symbolId };
-          sectionList[sectionIndex] = { ...targetSection, elements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
         if (operation.action === 'insert_symbol') {
           if (!operation.symbolId) continue;
           const symbol = nextSymbols.find((item) => item.id === operation.symbolId);
@@ -9043,37 +9100,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const insertAt = beforeIndex >= 0 ? beforeIndex : afterIndex >= 0 ? afterIndex + 1 : elements.length;
           elements.splice(Math.min(Math.max(insertAt, 0), elements.length), 0, instance);
           sectionList[sectionIndex] = { ...targetSection, elements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'duplicate_element') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.elements.length >= 60) continue;
-          const sourceIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (sourceIndex < 0) continue;
-          const sourceElement = targetSection.elements[sourceIndex];
-          const clonedElement: WebsiteElement = {
-            ...cloneElementForAI(sourceElement),
-            containerId: sourceElement.containerId,
-          };
-          const nextElements = [...targetSection.elements];
-          const beforeIndex = operation.beforeElementId
-            ? nextElements.findIndex((element) => element.id === operation.beforeElementId)
-            : -1;
-          const afterIndex = operation.afterElementId
-            ? nextElements.findIndex((element) => element.id === operation.afterElementId)
-            : -1;
-          const insertAt = beforeIndex >= 0
-            ? beforeIndex
-            : afterIndex >= 0
-              ? afterIndex + 1
-              : sourceIndex + 1;
-          nextElements.splice(Math.min(Math.max(insertAt, 0), nextElements.length), 0, clonedElement);
-          sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
           nextPages[pageIndex] = { ...page, sections: sectionList };
           applied += 1;
           continue;
