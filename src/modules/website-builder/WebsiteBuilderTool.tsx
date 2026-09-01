@@ -78,7 +78,7 @@ import {
   saveLocalWebsiteProject,
   saveRecoveryWebsiteProject,
 } from './core/editor-project-lifecycle';
-import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud } from './services/projectCloudService';
+import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud, updateWebsiteProjectPublicationState } from './services/projectCloudService';
 import { removePublishedWebsiteFiles, replacePublishedWebsiteFiles, uploadPublishedWebsiteFolderFiles } from './services/publishedWebsiteService';
 import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
 import { deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
@@ -3982,15 +3982,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: new Date().toISOString(),
       };
 
-      const { error: recoverError } = await supabase
-        .from('projects')
-        .update({
-          content: recoveredContent,
-          status: 'completed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', project.id)
-        .eq('user_id', user.id);
+      const recoverUpdatedAt = new Date().toISOString();
+      const { error: recoverError } = await updateWebsiteProjectPublicationState({
+        projectId: project.id,
+        userId: user.id,
+        content: recoveredContent,
+        published: true,
+        updatedAt: recoverUpdatedAt,
+      });
 
       if (!recoverError) {
         setCloudProjects((current) =>
@@ -8740,11 +8739,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         lastPublishedFingerprint: version.editor_fingerprint,
         updatedAt: nextPublishedAt,
       };
-      const { error: projectError } = await supabase.from('projects').update({
+      const { error: projectError } = await updateWebsiteProjectPublicationState({
+        projectId: cloudProjectId,
+        userId: user.id,
         content: projectData,
-        status: 'completed',
-        updated_at: nextPublishedAt,
-      }).eq('id', cloudProjectId).eq('user_id', user.id);
+        published: true,
+        updatedAt: nextPublishedAt,
+      });
       if (projectError) throw projectError;
       setPublishedUrl(nextPublishedUrl);
       setPublishedAt(nextPublishedAt);
@@ -9889,24 +9890,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       const {
         error: projectError,
-      } = await supabase
-        .from('projects')
-        .update({
-          content:
-            projectData,
-          status:
-            'completed',
-          updated_at:
-            nextPublishedAt,
-        })
-        .eq(
-          'id',
-          publishProjectId,
-        )
-        .eq(
-          'user_id',
-          user.id,
-        );
+      } = await updateWebsiteProjectPublicationState({
+        projectId: publishProjectId,
+        userId: user.id,
+        content: projectData,
+        published: true,
+        updatedAt: nextPublishedAt,
+      });
 
       if (projectError) {
         throw new Error(
@@ -10005,15 +9995,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: nextUpdatedAt,
       };
 
-      const { error: projectError } = await supabase
-        .from('projects')
-        .update({
-          content: projectData,
-          status: 'draft',
-          updated_at: nextUpdatedAt,
-        })
-        .eq('id', cloudProjectId)
-        .eq('user_id', user.id);
+      const { error: projectError } = await updateWebsiteProjectPublicationState({
+        projectId: cloudProjectId,
+        userId: user.id,
+        content: projectData,
+        published: false,
+        updatedAt: nextUpdatedAt,
+      });
       if (projectError) throw projectError;
 
       setPublishedUrl('');
