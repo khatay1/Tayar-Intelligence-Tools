@@ -13,6 +13,26 @@ export interface LegacyAIPageOperationLike
   afterPageId?: string;
 }
 
+export interface LegacyAIStructuralOperationLike
+  extends LegacyAIPageOperationLike {
+  sectionId?: string;
+  elementId?: string;
+  beforeSectionId?: string;
+  afterSectionId?: string;
+  beforeElementId?: string;
+  afterElementId?: string;
+  containerId?: string;
+  formFieldId?: string;
+  beforeFormFieldId?: string;
+  afterFormFieldId?: string;
+}
+
+export interface LegacyAIStructuralNativeContext {
+  pageId: string;
+  sectionId: string;
+  detachElementIds?: string[];
+}
+
 const GLOBAL_NATIVE_AI_ACTIONS = new Set([
   'update_theme',
   'update_seo',
@@ -23,6 +43,17 @@ const PAGE_NATIVE_AI_ACTIONS = new Set([
   'remove_page',
   'set_home_page',
   'move_page',
+]);
+
+const STRUCTURAL_NATIVE_AI_ACTIONS = new Set([
+  'remove_section',
+  'move_section',
+  'remove_element',
+  'move_element',
+  'remove_container',
+  'assign_element_container',
+  'remove_form_field',
+  'move_form_field',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -262,4 +293,187 @@ export function convertLegacyAIPageOperationToNative(
       ? { beforeId }
       : { afterId },
   };
+}
+
+
+export function isLegacyAIStructuralNativeAction(
+  action: string,
+) {
+  return STRUCTURAL_NATIVE_AI_ACTIONS.has(action);
+}
+
+function positionFromLegacyAnchors(
+  beforeId: string | undefined,
+  afterId: string | undefined,
+) {
+  const before =
+    typeof beforeId === 'string'
+      ? beforeId.trim()
+      : '';
+  const after =
+    typeof afterId === 'string'
+      ? afterId.trim()
+      : '';
+
+  if ((!before && !after) || (before && after)) {
+    return null;
+  }
+
+  return before
+    ? { beforeId: before }
+    : { afterId: after };
+}
+
+export function convertLegacyAIStructuralOperationToNative(
+  operation: LegacyAIStructuralOperationLike,
+  context: LegacyAIStructuralNativeContext,
+): EditorNativeOperation[] {
+  if (!isLegacyAIStructuralNativeAction(operation.action)) {
+    return [];
+  }
+
+  const pageId = context.pageId.trim();
+  const sectionId = context.sectionId.trim();
+  if (!pageId || !sectionId) return [];
+
+  if (operation.action === 'remove_section') {
+    return [
+      {
+        action: 'remove_section',
+        source: 'ai',
+        pageId,
+        sectionId,
+      },
+    ];
+  }
+
+  if (operation.action === 'move_section') {
+    const position = positionFromLegacyAnchors(
+      operation.beforeSectionId,
+      operation.afterSectionId,
+    );
+    if (!position || !operation.sectionId?.trim()) {
+      return [];
+    }
+    return [
+      {
+        action: 'move_section',
+        source: 'ai',
+        pageId,
+        sectionId: operation.sectionId.trim(),
+        position,
+      },
+    ];
+  }
+
+  if (operation.action === 'remove_element') {
+    const elementId = operation.elementId?.trim();
+    if (!elementId) return [];
+    return [
+      {
+        action: 'remove_element',
+        source: 'ai',
+        pageId,
+        sectionId,
+        elementId,
+      },
+    ];
+  }
+
+  if (operation.action === 'move_element') {
+    const elementId = operation.elementId?.trim();
+    const position = positionFromLegacyAnchors(
+      operation.beforeElementId,
+      operation.afterElementId,
+    );
+    if (!elementId || !position) return [];
+    return [
+      {
+        action: 'move_element',
+        source: 'ai',
+        pageId,
+        sectionId,
+        elementId,
+        position,
+      },
+    ];
+  }
+
+  if (operation.action === 'assign_element_container') {
+    const elementId = operation.elementId?.trim();
+    if (!elementId) return [];
+    return [
+      {
+        action: 'assign_element_container',
+        source: 'ai',
+        pageId,
+        sectionId,
+        elementId,
+        ...(typeof operation.containerId === 'string'
+          ? { containerId: operation.containerId.trim() }
+          : {}),
+      },
+    ];
+  }
+
+  if (operation.action === 'remove_container') {
+    const containerId = operation.containerId?.trim();
+    if (!containerId) return [];
+
+    const detachOperations =
+      (context.detachElementIds || [])
+        .map((elementId) => elementId.trim())
+        .filter(Boolean)
+        .map<EditorNativeOperation>((elementId) => ({
+          action: 'assign_element_container',
+          source: 'ai',
+          pageId,
+          sectionId,
+          elementId,
+          containerId: '',
+        }));
+
+    return [
+      ...detachOperations,
+      {
+        action: 'remove_container',
+        source: 'ai',
+        pageId,
+        sectionId,
+        containerId,
+      },
+    ];
+  }
+
+  if (operation.action === 'remove_form_field') {
+    const formFieldId = operation.formFieldId?.trim();
+    if (!formFieldId) return [];
+    return [
+      {
+        action: 'remove_form_field',
+        source: 'ai',
+        pageId,
+        sectionId,
+        formFieldId,
+      },
+    ];
+  }
+
+  const formFieldId = operation.formFieldId?.trim();
+  const position = positionFromLegacyAnchors(
+    operation.beforeFormFieldId,
+    operation.afterFormFieldId,
+  );
+  if (!formFieldId || !position) return [];
+
+  return [
+    {
+      action: 'move_form_field',
+      source: 'ai',
+      pageId,
+      sectionId,
+      formFieldId,
+      position,
+    },
+  ];
 }
