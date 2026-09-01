@@ -1,13 +1,14 @@
 import { normalizeNpmDependencyNames } from './dependency-spec';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
-const MAX_FILES = 80;
-const MAX_FILE_CHARS = 250_000;
-const MAX_TOTAL_CHARS = 2_000_000;
+const MAX_FILES = 600;
+const MAX_FILE_CHARS = 400_000;
+const MAX_TOTAL_CHARS = 20_000_000;
 const CODE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/i;
 const STYLE_EXTENSION = /\.(?:css|scss|sass|less)$/i;
 const ALLOWED_EXTENSION = /\.(?:[cm]?[jt]sx?|css|scss|sass|less)$/i;
 const FORBIDDEN_NAME = /(?:^|\/)(?:\.env(?:\.|$)|package-lock\.json$|pnpm-lock\.yaml$|yarn\.lock$|bun\.lockb?$|.*secret.*|.*credential.*)/i;
+const NON_COMPONENT_FILE = /(?:^|\/)(?:hooks?|lib|utils?|types?|constants?|helpers?)\/|(?:^|\/)(?:index|types?|constants?|utils?|helpers?)\.[cm]?[jt]sx?$|\.d\.ts$/i;
 
 export interface PrivateImportResult {
   items: UIComponentRecord[];
@@ -87,7 +88,7 @@ export async function importPrivateComponentFiles(files: FileList | File[]): Pro
   );
 
   const items = loaded
-    .filter((entry) => CODE_EXTENSION.test(entry.path))
+    .filter((entry) => CODE_EXTENSION.test(entry.path) && !NON_COMPONENT_FILE.test(entry.path))
     .map((entry, index): UIComponentRecord => {
       const dependencies = npmImports(entry.content);
       const category = inferCategory(entry.path);
