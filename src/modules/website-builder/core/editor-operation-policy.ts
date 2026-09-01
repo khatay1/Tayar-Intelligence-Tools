@@ -588,6 +588,32 @@ function validateOperationPayloadShape(
 ) {
   let ok = true;
 
+  if (
+    typeof operation.action !== 'string' ||
+    !VALID_NATIVE_ACTIONS.has(operation.action as EditorNativeOperationAction)
+  ) {
+    errors.push(`${prefix} uses an unsupported action`);
+    return false;
+  }
+
+  if (
+    operation.source !== undefined &&
+    operation.source !== 'manual' &&
+    operation.source !== 'ai' &&
+    operation.source !== 'system'
+  ) {
+    errors.push(`${prefix} source must be manual, ai, or system`);
+    ok = false;
+  }
+
+  if (
+    operation.symbolName !== undefined &&
+    (typeof operation.symbolName !== 'string' || operation.symbolName.length > 200)
+  ) {
+    errors.push(`${prefix} symbolName must be a short string`);
+    ok = false;
+  }
+
   for (const [label, value] of [
     ['pageId', operation.pageId],
     ['sectionId', operation.sectionId],
@@ -1208,6 +1234,15 @@ export function preflightEditorNativeOperations(
   operations: EditorNativeOperation[],
   options: EditorOperationPreflightOptions = {},
 ): EditorOperationPreflightResult {
+  if (!Array.isArray(operations)) {
+    return {
+      ok: false,
+      errors: ['Native editor patch must be an array of operations'],
+      warnings: [],
+      destructiveCount: 0,
+    };
+  }
+
   const maxOperations = bounded(options.maxOperations, 60, 200);
   const maxDestructive = bounded(options.maxDestructiveOperations, 20, 100);
   const errors: string[] = [];
@@ -1217,6 +1252,8 @@ export function preflightEditorNativeOperations(
   const referenceState = createReferenceState(options.project);
   const reserved = reservedIdentityKeys(referenceState);
   let destructiveCount = 0;
+  let payloadStringLength = 0;
+  let payloadAggregateLimitReported = false;
 
   if (operations.length > maxOperations) {
     errors.push(`Patch contains ${operations.length} operations; maximum is ${maxOperations}`);
@@ -1226,6 +1263,31 @@ export function preflightEditorNativeOperations(
     const rawOperation = operation as unknown;
     if (!isRecord(rawOperation)) {
       errors.push(`Operation ${index + 1} must be an object`);
+      return;
+    }
+
+    const safety = inspectEditorPayloadSafety(
+      rawOperation,
+      `Operation ${index + 1} payload`,
+      {
+        maxDepth: 12,
+        maxNodes: 5000,
+        maxArrayLength: 500,
+        maxObjectKeys: 300,
+        maxStringLength: 100_000,
+        maxTotalStringLength: 400_000,
+      },
+    );
+    payloadStringLength += safety.stringLength;
+    if (!safety.ok) {
+      errors.push(...safety.errors);
+      return;
+    }
+    if (payloadStringLength > 1_000_000) {
+      if (!payloadAggregateLimitReported) {
+        errors.push('Patch exceeds aggregate string payload limit (1000000)');
+        payloadAggregateLimitReported = true;
+      }
       return;
     }
 
