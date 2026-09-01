@@ -10,9 +10,10 @@ function formatTime(timestamp: number) {
 
 export interface BuilderHistoryPanelProps {
   shell: EditorShellContract;
+  onRestoreEntry?(entryId: string): void;
 }
 
-export function BuilderHistoryPanel({ shell }: BuilderHistoryPanelProps) {
+export function BuilderHistoryPanel({ shell, onRestoreEntry }: BuilderHistoryPanelProps) {
   const { history } = shell.view;
   return (
     <div className="tayar-v2-history-panel">
@@ -26,10 +27,20 @@ export function BuilderHistoryPanel({ shell }: BuilderHistoryPanelProps) {
       </div>
       <div className="tayar-v2-history-list">
         {history.undo.map((entry, index) => (
-          <div key={entry.id} className="tayar-v2-history-entry" data-current={index === 0 ? 'true' : 'false'}>
+          <button
+            key={entry.id}
+            type="button"
+            className="tayar-v2-history-entry"
+            data-current={index === 0 ? 'true' : 'false'}
+            onClick={() => onRestoreEntry?.(entry.id)}
+            disabled={!onRestoreEntry}
+            title="Restore this editor state"
+          >
             <span className="tayar-v2-history-entry__label">{entry.label}</span>
-            <span className="tayar-v2-history-entry__meta">{entry.source} · {formatTime(entry.createdAt)}</span>
-          </div>
+            <span className="tayar-v2-history-entry__meta">
+              {entry.source} · {formatTime(entry.createdAt)} · Restore
+            </span>
+          </button>
         ))}
         {!history.undo.length && <div className="tayar-v2-empty-panel">No changes yet.</div>}
         {history.redo.length > 0 && (
