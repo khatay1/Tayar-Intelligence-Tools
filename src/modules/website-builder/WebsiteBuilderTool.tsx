@@ -7869,6 +7869,333 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return -1;
       };
 
+      const applyAIPageScopedStructuralNativeOperation = (
+        operation: AIWebsitePatchOperation,
+        pageIndex: number,
+      ) => {
+        if (
+          operation.action !== 'remove_section' &&
+          operation.action !== 'move_section'
+        ) {
+          return false;
+        }
+
+        const page =
+          nextPages[pageIndex];
+
+        if (!page) {
+          return true;
+        }
+
+        if (
+          !operation.sectionId ||
+          !page.sections.some(
+            (section) =>
+              section.id ===
+              operation.sectionId,
+          )
+        ) {
+          return true;
+        }
+
+        if (
+          operation.action === 'remove_section' &&
+          page.sections.length <= 1
+        ) {
+          return true;
+        }
+
+        if (
+          operation.action === 'move_section'
+        ) {
+          if (
+            (!operation.beforeSectionId &&
+              !operation.afterSectionId) ||
+            (operation.beforeSectionId &&
+              operation.afterSectionId)
+          ) {
+            return true;
+          }
+
+          const destinationId =
+            operation.beforeSectionId ||
+            operation.afterSectionId ||
+            '';
+
+          if (
+            destinationId ===
+            operation.sectionId ||
+            !page.sections.some(
+              (section) =>
+                section.id === destinationId,
+            )
+          ) {
+            return true;
+          }
+        }
+
+        const nativeOperations =
+          convertLegacyAIStructuralOperationToNative(
+            operation,
+            {
+              pageId: page.id,
+              sectionId:
+                operation.sectionId,
+            },
+          );
+
+        if (nativeOperations.length) {
+          applyAIWorkingNativeOperations(
+            nativeOperations,
+            operation.action,
+          );
+        }
+
+        return true;
+      };
+
+      const applyAISectionScopedStructuralNativeOperation = (
+        operation: AIWebsitePatchOperation,
+        pageIndex: number,
+        sectionIndex: number,
+      ) => {
+        if (
+          !isLegacyAIStructuralNativeAction(
+            operation.action,
+          ) ||
+          operation.action === 'remove_section' ||
+          operation.action === 'move_section'
+        ) {
+          return false;
+        }
+
+        const page =
+          nextPages[pageIndex];
+        const section =
+          page?.sections[sectionIndex];
+
+        if (!page || !section) {
+          return true;
+        }
+
+        if (
+          operation.action === 'remove_element'
+        ) {
+          if (
+            !operation.elementId ||
+            section.elements.length <= 1
+          ) {
+            return true;
+          }
+
+          const target =
+            section.elements.find(
+              (element) =>
+                element.id ===
+                operation.elementId,
+            );
+
+          if (!target || target.symbolId) {
+            return true;
+          }
+        }
+
+        if (
+          operation.action === 'move_element'
+        ) {
+          if (
+            !operation.elementId ||
+            (!operation.beforeElementId &&
+              !operation.afterElementId) ||
+            (operation.beforeElementId &&
+              operation.afterElementId)
+          ) {
+            return true;
+          }
+
+          const source =
+            section.elements.find(
+              (element) =>
+                element.id ===
+                operation.elementId,
+            );
+
+          if (!source || source.symbolId) {
+            return true;
+          }
+
+          const destinationId =
+            operation.beforeElementId ||
+            operation.afterElementId ||
+            '';
+
+          const destination =
+            section.elements.find(
+              (element) =>
+                element.id ===
+                destinationId,
+            );
+
+          if (
+            !destination ||
+            destination.id === source.id ||
+            destination.symbolId
+          ) {
+            return true;
+          }
+        }
+
+        if (
+          operation.action ===
+          'assign_element_container'
+        ) {
+          if (!operation.elementId) {
+            return true;
+          }
+
+          const element =
+            section.elements.find(
+              (candidate) =>
+                candidate.id ===
+                operation.elementId,
+            );
+
+          if (!element || element.symbolId) {
+            return true;
+          }
+
+          if (
+            operation.containerId &&
+            !(section.containers || []).some(
+              (container) =>
+                container.id ===
+                operation.containerId,
+            )
+          ) {
+            return true;
+          }
+        }
+
+        let detachElementIds:
+          | string[]
+          | undefined;
+
+        if (
+          operation.action === 'remove_container'
+        ) {
+          if (
+            !operation.containerId ||
+            !(section.containers || []).some(
+              (container) =>
+                container.id ===
+                operation.containerId,
+            )
+          ) {
+            return true;
+          }
+
+          detachElementIds =
+            section.elements
+              .filter(
+                (element) =>
+                  element.containerId ===
+                  operation.containerId,
+              )
+              .map(
+                (element) =>
+                  element.id,
+              );
+        }
+
+        if (
+          operation.action ===
+            'remove_form_field' ||
+          operation.action ===
+            'move_form_field'
+        ) {
+          if (
+            section.type !== 'contact' ||
+            !Array.isArray(
+              section.formFields,
+            )
+          ) {
+            return false;
+          }
+
+          const fields =
+            section.formFields;
+
+          if (
+            !operation.formFieldId ||
+            !fields.some(
+              (field) =>
+                field.id ===
+                operation.formFieldId,
+            )
+          ) {
+            return true;
+          }
+
+          if (
+            operation.action ===
+              'remove_form_field' &&
+            fields.length <= 1
+          ) {
+            return true;
+          }
+
+          if (
+            operation.action ===
+            'move_form_field'
+          ) {
+            if (
+              (!operation.beforeFormFieldId &&
+                !operation.afterFormFieldId) ||
+              (operation.beforeFormFieldId &&
+                operation.afterFormFieldId)
+            ) {
+              return true;
+            }
+
+            const destinationId =
+              operation.beforeFormFieldId ||
+              operation.afterFormFieldId ||
+              '';
+
+            if (
+              destinationId ===
+                operation.formFieldId ||
+              !fields.some(
+                (field) =>
+                  field.id ===
+                  destinationId,
+              )
+            ) {
+              return true;
+            }
+          }
+        }
+
+        const nativeOperations =
+          convertLegacyAIStructuralOperationToNative(
+            operation,
+            {
+              pageId: page.id,
+              sectionId: section.id,
+              detachElementIds,
+            },
+          );
+
+        if (nativeOperations.length) {
+          applyAIWorkingNativeOperations(
+            nativeOperations,
+            operation.action,
+          );
+        }
+
+        return true;
+      };
+
       const cloneElementForAI = (element: WebsiteElement, containerIdMap?: Map<string, string>): WebsiteElement => ({
         ...element,
         id: `${element.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -8217,6 +8544,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
         const page = nextPages[pageIndex];
 
+        if (
+          applyAIPageScopedStructuralNativeOperation(
+            operation,
+            pageIndex,
+          )
+        ) {
+          continue;
+        }
+
         if (operation.action === 'update_page') {
           const changes = operation.changes || {};
           const nextName = typeof changes.name === 'string' && changes.name.trim()
@@ -8264,22 +8600,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           continue;
         }
 
-        if (operation.action === 'move_section') {
-          if (!operation.sectionId || (!operation.beforeSectionId && !operation.afterSectionId)) continue;
-          const sourceIndex = page.sections.findIndex((section) => section.id === operation.sectionId);
-          if (sourceIndex < 0) continue;
-          const sourceSection = page.sections[sourceIndex];
-          const withoutSource = page.sections.filter((section) => section.id !== sourceSection.id);
-          const destinationId = operation.beforeSectionId || operation.afterSectionId || '';
-          const destinationIndex = withoutSource.findIndex((section) => section.id === destinationId);
-          if (destinationIndex < 0) continue;
-          const insertAt = destinationIndex + (operation.afterSectionId ? 1 : 0);
-          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourceSection);
-          nextPages[pageIndex] = { ...page, sections: withoutSource };
-          applied += 1;
-          continue;
-        }
-
         if (operation.action === 'add_section') {
           const source = operation.section;
           if (!source || !allowedTypes.has(source.type) || page.sections.length >= 20) continue;
@@ -8314,6 +8634,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         const sectionIndex = resolveSectionIndex(page, operation);
         if (sectionIndex < 0 || sectionIndex >= page.sections.length) continue;
+
+        if (
+          applyAISectionScopedStructuralNativeOperation(
+            operation,
+            pageIndex,
+            sectionIndex,
+          )
+        ) {
+          continue;
+        }
 
         if (operation.action === 'add_container') {
           const sectionList = [...page.sections];
@@ -8394,43 +8724,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           };
 
           sectionList[sectionIndex] = { ...targetSection, containers };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'remove_container') {
-          if (!operation.containerId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (!(targetSection.containers || []).some((container) => container.id === operation.containerId)) continue;
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            containers: (targetSection.containers || []).filter((container) => container.id !== operation.containerId),
-            elements: targetSection.elements.map((element) =>
-              element.containerId === operation.containerId ? { ...element, containerId: undefined } : element
-            ),
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'assign_element_container') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0 || targetSection.elements[elementIndex].symbolId) continue;
-
-          const targetContainer = operation.containerId
-            ? (targetSection.containers || []).find((container) => container.id === operation.containerId)
-            : undefined;
-          if (operation.containerId && !targetContainer) continue;
-
-          const elements = [...targetSection.elements];
-          elements[elementIndex] = { ...elements[elementIndex], containerId: targetContainer?.id };
-          sectionList[sectionIndex] = { ...targetSection, elements };
           nextPages[pageIndex] = { ...page, sections: sectionList };
           applied += 1;
           continue;
@@ -8611,49 +8904,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           nextElements.splice(Math.min(Math.max(insertAt, 0), nextElements.length), 0, newElement);
 
           sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'remove_element') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.elements.length <= 1) continue;
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0) continue;
-          const targetElement = targetSection.elements[elementIndex];
-          if (targetElement.symbolId) continue;
-
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            elements: targetSection.elements.filter((element) => element.id !== operation.elementId),
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'move_element') {
-          if (!operation.elementId || (!operation.beforeElementId && !operation.afterElementId)) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const sourceIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (sourceIndex < 0) continue;
-          const sourceElement = targetSection.elements[sourceIndex];
-          if (sourceElement.symbolId) continue;
-
-          const withoutSource = targetSection.elements.filter((element) => element.id !== sourceElement.id);
-          const destinationId = operation.beforeElementId || operation.afterElementId || '';
-          const destinationIndex = withoutSource.findIndex((element) => element.id === destinationId);
-          if (destinationIndex < 0) continue;
-          const destinationElement = withoutSource[destinationIndex];
-          if (destinationElement.symbolId) continue;
-
-          const insertAt = destinationIndex + (operation.afterElementId ? 1 : 0);
-          withoutSource.splice(Math.min(Math.max(insertAt, 0), withoutSource.length), 0, sourceElement);
-          sectionList[sectionIndex] = { ...targetSection, elements: withoutSource };
           nextPages[pageIndex] = { ...page, sections: sectionList };
           applied += 1;
           continue;
@@ -9103,16 +9353,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           } catch {
             // A failed image provider should not discard other safe patch operations in the same request.
           }
-          continue;
-        }
-
-        if (operation.action === 'remove_section') {
-          if (page.sections.length <= 1) continue;
-          nextPages[pageIndex] = {
-            ...page,
-            sections: page.sections.filter((_, index) => index !== sectionIndex),
-          };
-          applied += 1;
           continue;
         }
 
