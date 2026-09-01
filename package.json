@@ -17,7 +17,8 @@
     "smoke:i18n": "node scripts/i18n-coverage-smoke.mjs",
     "smoke:workspace-production": "node scripts/workspace-production-smoke.mjs",
     "smoke:production": "node scripts/production-hardening-smoke.mjs",
-    "smoke:published-runtime": "node scripts/published-site-runtime-smoke.mjs"
+    "smoke:published-runtime": "node scripts/published-site-runtime-smoke.mjs",
+    "smoke:code-assistant": "node scripts/code-assistant-registry-smoke.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

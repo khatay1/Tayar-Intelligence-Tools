@@ -46,7 +46,7 @@ export default function CodeAssistantTool({ darkMode }: { darkMode: boolean; pro
   const [showSources, setShowSources] = useState(false);
 
   const matches = useMemo(() => componentRegistry.search(query, category), [query, category]);
-  const selected = componentRegistry.get(selectedId) || matches[0] || componentRegistry.all()[0];
+  const selected = matches.find((item) => item.id === selectedId) || matches[0];
   const source = selected ? getRegistrySource(selected.sourceId) : undefined;
 
   const onCopy = async (kind: 'code' | 'prompt', value: string) => {
