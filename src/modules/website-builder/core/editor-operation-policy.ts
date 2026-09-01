@@ -1,6 +1,15 @@
 import type { EditorNativeOperation, EditorNativeOperationAction } from './editor-native-operation';
 import type { EditorProjectLike } from './editor-model';
 import { inspectEditorPayloadSafety } from './editor-payload-safety';
+import {
+  inspectEditorContainerSemantic,
+  inspectEditorElementSemantic,
+  inspectEditorFormFieldSemantic,
+  inspectEditorPageSemantic,
+  inspectEditorSectionSemantic,
+  inspectEditorSemanticRecord,
+  type EditorSemanticRecordKind,
+} from './editor-value-safety';
 
 export interface EditorOperationPreflightOptions {
   maxOperations?: number;
@@ -241,6 +250,23 @@ const RESTYLE_CHANGE_KEYS = new Set([
   'accentColor',
 ]);
 
+const SEMANTIC_CHANGE_KIND_BY_ACTION: Partial<
+  Record<EditorNativeOperationAction, EditorSemanticRecordKind>
+> = {
+  duplicate_page: 'page',
+  update_page: 'page',
+  duplicate_section: 'section',
+  update_section: 'section',
+  duplicate_element: 'element',
+  update_element: 'element',
+  update_container: 'container',
+  update_form_field: 'form-field',
+  update_theme: 'theme',
+  update_seo: 'seo',
+  update_header: 'header',
+  restyle_site: 'restyle',
+};
+
 const CHANGE_KEYS_BY_ACTION: Partial<
   Record<EditorNativeOperationAction, ReadonlySet<string>>
 > = {
@@ -426,6 +452,19 @@ function validateChangesContract(
       errors.push(
         `${prefix} changes.keywords must contain at most 50 short strings`,
       );
+      ok = false;
+    }
+  }
+
+  const semanticKind = SEMANTIC_CHANGE_KIND_BY_ACTION[operation.action];
+  if (semanticKind) {
+    const semantic = inspectEditorSemanticRecord(
+      semanticKind,
+      operation.changes,
+      `${prefix} changes`,
+    );
+    if (!semantic.ok) {
+      errors.push(...semantic.errors);
       ok = false;
     }
   }
@@ -652,18 +691,43 @@ function validateOperationPayloadShape(
 
   if (operation.action === 'add_page') {
     if (!validatePagePayload(operation.page, prefix, errors)) ok = false;
+    const semantic = inspectEditorPageSemantic(operation.page, `${prefix} page`);
+    if (!semantic.ok) {
+      errors.push(...semantic.errors);
+      ok = false;
+    }
   }
   if (operation.action === 'add_section') {
     if (!validateSectionPayload(operation.section, prefix, errors)) ok = false;
+    const semantic = inspectEditorSectionSemantic(operation.section, `${prefix} section`);
+    if (!semantic.ok) {
+      errors.push(...semantic.errors);
+      ok = false;
+    }
   }
   if (operation.action === 'add_element') {
     if (!validateElementPayload(operation.element, prefix, errors)) ok = false;
+    const semantic = inspectEditorElementSemantic(operation.element, `${prefix} element`);
+    if (!semantic.ok) {
+      errors.push(...semantic.errors);
+      ok = false;
+    }
   }
   if (operation.action === 'add_container') {
     if (!validateContainerPayload(operation.container, prefix, errors)) ok = false;
+    const semantic = inspectEditorContainerSemantic(operation.container, `${prefix} container`);
+    if (!semantic.ok) {
+      errors.push(...semantic.errors);
+      ok = false;
+    }
   }
   if (operation.action === 'add_form_field') {
     if (!validateFormFieldPayload(operation.formField, prefix, errors)) ok = false;
+    const semantic = inspectEditorFormFieldSemantic(operation.formField, `${prefix} formField`);
+    if (!semantic.ok) {
+      errors.push(...semantic.errors);
+      ok = false;
+    }
   }
 
   if (
