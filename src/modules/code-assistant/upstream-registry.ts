@@ -34,10 +34,17 @@ export interface UpstreamLoadResult {
 }
 
 const MAX_MANIFEST_BYTES = 5_000_000;
-const MAX_COMPONENT_FILES = 16;
-const MAX_COMPONENT_CODE_BYTES = 750_000;
+const MAX_COMPONENT_FILES = 64;
+const MAX_COMPONENT_CODE_BYTES = 2_000_000;
 
 export const UPSTREAM_REGISTRIES: UpstreamRegistryConfig[] = [
+  {
+    sourceId: 'shadcn',
+    manifestUrl: 'https://raw.githubusercontent.com/shadcn-ui/ui/main/apps/v4/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/shadcn-ui/ui/main',
+    sourcePathPrefix: 'apps/v4/',
+    licensePath: 'LICENSE.md',
+  },
   {
     sourceId: 'kokonut-ui',
     manifestUrl: 'https://raw.githubusercontent.com/kokonut-labs/kokonutui/main/registry.json',
@@ -137,9 +144,8 @@ function normalizeItem(config: UpstreamRegistryConfig, raw: RawRegistryItem): UI
     ? raw.files
         .map((file) => asString((file as RawRegistryFile)?.path))
         .filter((path) => safePath(path))
-        .slice(0, MAX_COMPONENT_FILES)
     : [];
-  if (!files.length) return null;
+  if (!files.length || files.length > MAX_COMPONENT_FILES) return null;
 
   const source = getRegistrySource(config.sourceId);
   if (!source || !isRedistributableSource(config.sourceId)) return null;

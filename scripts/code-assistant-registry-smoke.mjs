@@ -19,9 +19,10 @@ if (futureIndex.includes("id: 'code-assistant'")) fail('Old Coming Soon Code Ass
 if (!sourceCatalog.includes("id: 'react-bits'") || !sourceCatalog.includes('redistributionAllowed: false')) fail('Restricted source guard is missing.');
 if (seed.includes("sourceId: 'react-bits'")) fail('Restricted React Bits content was bundled.');
 if (!assistant.includes("matches.find((item) => item.id === selectedId) || matches[0]")) fail('Filtered selection must stay inside visible registry results.');
-if (!upstream.includes("sourceId: 'kokonut-ui'") || !upstream.includes("sourceId: 'magic-ui'")) fail('Approved upstream registries are not configured.');
+if (!upstream.includes("sourceId: 'shadcn'") || !upstream.includes("sourceId: 'kokonut-ui'") || !upstream.includes("sourceId: 'magic-ui'")) fail('Approved upstream registries are not configured.');
 if (upstream.includes("sourceId: 'react-bits'")) fail('Restricted React Bits source must never be configured for upstream loading.');
-if (/https:\\/\\/(?!raw\\.githubusercontent\\.com)/.test(upstream.match(/manifestUrl:[^\\n]+/g)?.join(' ') || '')) fail('Registry manifests must use raw GitHub URLs.');
+const manifestLines = upstream.split('\n').filter((line) => line.includes('manifestUrl:'));
+if (manifestLines.some((line) => !line.includes('https://raw.githubusercontent.com/'))) fail('Registry manifests must use raw GitHub URLs.');
 if (vercel?.git?.deploymentEnabled?.['internal-*'] !== false) fail('Internal branch Vercel deployment guard is missing.');
 
 if (!process.exitCode) {
