@@ -17,6 +17,9 @@ const sharedRuntimeMigrationPath = resolve(root, 'supabase/migrations/2026083122
 const projectAccessCorePath = resolve(root, 'src/modules/website-builder/core/editor-project-access.ts');
 const publishedStorageCorePath = resolve(root, 'src/modules/website-builder/core/editor-published-storage.ts');
 const projectLifecycleCorePath = resolve(root, 'src/modules/website-builder/core/editor-project-lifecycle.ts');
+const projectNormalizationPath = resolve(root, 'src/modules/website-builder/core/project-normalization.ts');
+const projectCloudServicePath = resolve(root, 'src/modules/website-builder/services/projectCloudService.ts');
+const publishedWebsiteServicePath = resolve(root, 'src/modules/website-builder/services/publishedWebsiteService.ts');
 
 const failures = [];
 const passes = [];
@@ -41,6 +44,9 @@ for (const [label, path] of [
   ['Core project-access module exists', projectAccessCorePath],
   ['Core published-storage module exists', publishedStorageCorePath],
   ['Core project-lifecycle module exists', projectLifecycleCorePath],
+  ['Project normalization module exists', projectNormalizationPath],
+  ['Cloud project service exists', projectCloudServicePath],
+  ['Published website service exists', publishedWebsiteServicePath],
 ]) {
   check(label, existsSync(path));
 }
@@ -58,6 +64,9 @@ const sharedRuntimeMigration = existsSync(sharedRuntimeMigrationPath) ? readFile
 const projectAccessCore = existsSync(projectAccessCorePath) ? readFileSync(projectAccessCorePath, 'utf8') : '';
 const publishedStorageCore = existsSync(publishedStorageCorePath) ? readFileSync(publishedStorageCorePath, 'utf8') : '';
 const projectLifecycleCore = existsSync(projectLifecycleCorePath) ? readFileSync(projectLifecycleCorePath, 'utf8') : '';
+const projectNormalization = existsSync(projectNormalizationPath) ? readFileSync(projectNormalizationPath, 'utf8') : '';
+const projectCloudService = existsSync(projectCloudServicePath) ? readFileSync(projectCloudServicePath, 'utf8') : '';
+const publishedWebsiteService = existsSync(publishedWebsiteServicePath) ? readFileSync(publishedWebsiteServicePath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -83,9 +92,12 @@ check('Core V3 centralizes project access and owner resolution', projectAccessCo
 check('Core V3 centralizes published storage cleanup', publishedStorageCore.includes('publishedSiteFilePaths') && publishedStorageCore.includes('removePublishedSiteFiles') && builder.includes("from './core/editor-published-storage'"));
 check('Shared lead policy keeps row ownership tied to the website owner', sharedRuntimeMigration.includes('website_leads.project_id'));
 check('Recovery snapshot storage is enabled', projectLifecycleCore.includes('RECOVERY_STORAGE_KEY') && projectLifecycleCore.includes('saveRecoveryWebsiteProject') && builder.includes("from './core/editor-project-lifecycle'"));
+check('Project load normalization is extracted from the builder', projectNormalization.includes('normalizeWebsiteProjectLoad') && builder.includes("from './core/project-normalization'"));
+check('Cloud save/create is extracted from the builder', projectCloudService.includes('createWebsiteProjectInCloud') && projectCloudService.includes('updateWebsiteProjectInCloud') && builder.includes("from './services/projectCloudService'"));
+check('Publish and unpublish storage writes are extracted', publishedWebsiteService.includes('replacePublishedWebsiteFiles') && publishedWebsiteService.includes('removePublishedWebsiteFiles') && builder.includes("from './services/publishedWebsiteService'"));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
-check('Cloud mutations retry transient failures', builder.includes('retryCloudOperation'));
+check('Cloud mutations retry transient failures', projectCloudService.includes('retryCloudOperation') && builder.includes('createWebsiteProjectInCloud') && builder.includes('updateWebsiteProjectInCloud'));
 check('Publish preflight blocks critical audit errors', builder.includes('Publish preflight blocked: fix'));
 check('Publish preflight blocks offline deploys', builder.includes('Publish preflight blocked: you are offline'));
 check('V2 Publish button uses hard operational blockers', builder.includes("!user ? 'Sign in before publishing.'") && builder.includes("!networkOnline ? 'Reconnect before publishing.'"));
