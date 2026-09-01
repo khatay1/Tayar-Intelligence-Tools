@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, CheckCircle2, Download, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, Wrench, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const STORAGE_KEY = 'tayar-admin-template-audit-v2';
 const PAGE_SIZE = 12;
+const REPAIR_BATCH_SIZE = 12;
 
 type AuditIssue = {
   id?: string;
@@ -25,6 +26,14 @@ type AuditState = {
   issues: AuditIssue[];
   completed: boolean;
   updatedAt: string | null;
+};
+
+type RepairAnalysis = {
+  requested: number;
+  repairable: number;
+  hideJunk: number;
+  unchanged: number;
+  failed: number;
 };
 
 const emptyState = (): AuditState => ({
@@ -57,12 +66,18 @@ function saveState(state: AuditState) {
 export default function TemplateLibraryAuditCard() {
   const [state, setState] = useState<AuditState>(() => loadStoredState());
   const [running, setRunning] = useState(false);
+  const [analyzingRepairs, setAnalyzingRepairs] = useState(false);
+  const [repairAnalysis, setRepairAnalysis] = useState<RepairAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const runRef = useRef(0);
 
   const progress = state.total && state.total > 0
     ? Math.min(100, Math.round((state.scanned / state.total) * 100))
     : 0;
+
+  const uniqueIssueIds = useMemo(() => (
+    [...new Set(state.issues.map(issue => issue.id).filter((id): id is string => Boolean(id)))]
+  ), [state.issues]);
 
   const issueSummary = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -79,9 +94,10 @@ export default function TemplateLibraryAuditCard() {
   };
 
   async function runAudit(restart = false) {
-    if (running) return;
+    if (running || analyzingRepairs) return;
     const runId = ++runRef.current;
     setRunning(true);
+    setRepairAnalysis(null);
     setError(null);
 
     let current = restart ? emptyState() : loadStoredState();
@@ -123,6 +139,46 @@ export default function TemplateLibraryAuditCard() {
     }
   }
 
+  async function analyzeRepairs() {
+    if (running || analyzingRepairs || !state.completed || uniqueIssueIds.length === 0) return;
+    setAnalyzingRepairs(true);
+    setRepairAnalysis(null);
+    setError(null);
+
+    const analysis: RepairAnalysis = {
+      requested: uniqueIssueIds.length,
+      repairable: 0,
+      hideJunk: 0,
+      unchanged: 0,
+      failed: 0,
+    };
+
+    try {
+      for (let index = 0; index < uniqueIssueIds.length; index += REPAIR_BATCH_SIZE) {
+        const assetIds = uniqueIssueIds.slice(index, index + REPAIR_BATCH_SIZE);
+        const { data, error: invokeError } = await supabase.functions.invoke('template-library-repair', {
+          body: { assetIds, dryRun: true },
+        });
+
+        if (invokeError) throw invokeError;
+        if (!data?.ok) throw new Error(data?.error || 'Repair analysis failed.');
+
+        analysis.repairable += Number(data.repairable || 0);
+        analysis.unchanged += Number(data.unchanged || 0);
+        analysis.failed += Number(data.failed || 0);
+        if (Array.isArray(data.results)) {
+          analysis.hideJunk += data.results.filter((result: { action?: string }) => result?.action === 'hide-junk').length;
+        }
+
+        setRepairAnalysis({ ...analysis });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Repair analysis failed.');
+    } finally {
+      setAnalyzingRepairs(false);
+    }
+  }
+
   function pauseAudit() {
     runRef.current += 1;
     setRunning(false);
@@ -131,13 +187,15 @@ export default function TemplateLibraryAuditCard() {
   function resetAudit() {
     runRef.current += 1;
     setRunning(false);
+    setAnalyzingRepairs(false);
+    setRepairAnalysis(null);
     setError(null);
     localStorage.removeItem(STORAGE_KEY);
     setState(emptyState());
   }
 
   function exportIssues() {
-    const payload = JSON.stringify({ exportedAt: new Date().toISOString(), ...state }, null, 2);
+    const payload = JSON.stringify({ exportedAt: new Date().toISOString(), repairAnalysis, ...state }, null, 2);
     const blob = new Blob([payload], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -161,7 +219,7 @@ export default function TemplateLibraryAuditCard() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!running ? (
-            <button onClick={() => runAudit(state.scanned === 0 || state.completed)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500">
+            <button onClick={() => runAudit(state.scanned === 0 || state.completed)} disabled={analyzingRepairs} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-40">
               <Play className="h-4 w-4" /> {state.scanned > 0 && !state.completed ? 'Resume Audit' : state.completed ? 'Run Again' : 'Start Audit'}
             </button>
           ) : (
@@ -169,7 +227,10 @@ export default function TemplateLibraryAuditCard() {
               <Pause className="h-4 w-4" /> Pause
             </button>
           )}
-          <button onClick={resetAudit} disabled={running} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
+          <button onClick={analyzeRepairs} disabled={running || analyzingRepairs || !state.completed || uniqueIssueIds.length === 0} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40">
+            <Wrench className={`h-4 w-4 ${analyzingRepairs ? 'animate-pulse' : ''}`} /> {analyzingRepairs ? 'Analyzing…' : 'Analyze Repairs'}
+          </button>
+          <button onClick={resetAudit} disabled={running || analyzingRepairs} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
             <RotateCcw className="h-4 w-4" /> Reset
           </button>
           <button onClick={exportIssues} disabled={!state.issues.length} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
@@ -190,12 +251,27 @@ export default function TemplateLibraryAuditCard() {
         <Metric label="Valid" value={state.valid} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
         <Metric label="Invalid" value={state.invalid} icon={<XCircle className="h-4 w-4 text-red-400" />} />
         <Metric label="Missing" value={state.missing} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
-        <Metric label="Status" value={running ? 'Running' : state.completed ? 'Complete' : state.scanned ? 'Paused' : 'Idle'} icon={<RefreshCw className={`h-4 w-4 text-cyan-400 ${running ? 'animate-spin' : ''}`} />} />
+        <Metric label="Status" value={running ? 'Running' : analyzingRepairs ? 'Analyzing' : state.completed ? 'Complete' : state.scanned ? 'Paused' : 'Idle'} icon={<RefreshCw className={`h-4 w-4 text-cyan-400 ${running || analyzingRepairs ? 'animate-spin' : ''}`} />} />
       </div>
 
       {error && (
         <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">
-          {error} Progress is still saved; use Resume Audit after the problem is resolved.
+          {error} Audit progress is still saved.
+        </div>
+      )}
+
+      {repairAnalysis && (
+        <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
+            <Wrench className="h-4 w-4" /> Repair dry-run analysis
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Metric label="Issues checked" value={repairAnalysis.requested} icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />} />
+            <Metric label="Repairable" value={repairAnalysis.repairable} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
+            <Metric label="Junk to hide" value={repairAnalysis.hideJunk} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
+            <Metric label="Needs review" value={repairAnalysis.failed} icon={<XCircle className="h-4 w-4 text-red-400" />} />
+          </div>
+          <p className="mt-3 text-[11px] text-gray-500">Analysis is read-only. No storage object or database row is changed by this button.</p>
         </div>
       )}
 
