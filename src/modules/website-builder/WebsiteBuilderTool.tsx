@@ -8615,20 +8615,35 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     await applyAIChange(aiQualityReview.fixPrompt);
   }
 
-  const refreshPublishVersions = useCallback(async () => {
-    if (!user || !cloudProjectId) {
-      setPublishVersions([]);
-      setPublishVersionsError('');
+  const refreshPublishVersions = useCallback(async (
+    expectedProjectId: string | null = cloudProjectId,
+    expectedOwnerId = activeProjectOwnerId,
+    expectedLoadSequence = projectLoadSequenceRef.current,
+  ) => {
+    const refreshIsCurrent = () =>
+      projectLoadSequenceRef.current === expectedLoadSequence;
+
+    if (!user || !expectedProjectId) {
+      if (refreshIsCurrent()) {
+        setPublishVersions([]);
+        setPublishVersionsError('');
+      }
       return;
     }
+
     setPublishVersionsLoading(true);
     setPublishVersionsError('');
-    const { data, error } = await listWebsitePublishVersions(cloudProjectId, activeProjectOwnerId);
+
+    const { data, error } = await listWebsitePublishVersions(expectedProjectId, expectedOwnerId);
+
+    if (!refreshIsCurrent()) return;
+
     if (error) {
       setPublishVersionsError('Release history is unavailable. Apply the Sprint 97-108 database migration.');
       setPublishVersionsLoading(false);
       return;
     }
+
     setPublishVersions((data || []) as WebsitePublishVersion[]);
     setPublishVersionsLoading(false);
   }, [user, cloudProjectId, activeProjectOwnerId]);
@@ -9747,6 +9762,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const publishSequence = ++publishOperationSequenceRef.current;
     const publishLoadSequence = projectLoadSequenceRef.current;
     const publishUserId = user.id;
+    const publishTitle = siteName.trim() || 'My Website';
     const publishIsCurrent = () =>
       publishOperationSequenceRef.current === publishSequence &&
       projectLoadSequenceRef.current === publishLoadSequence;
@@ -9774,7 +9790,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const draftData = buildProjectData();
         const createResult = await createWebsiteProjectInCloud({
           userId: publishUserId,
-          title: siteName.trim() || 'My Website',
+          title: publishTitle,
           content: draftData,
           published: false,
         });
@@ -10047,6 +10063,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
 
+      if (!publishIsCurrent()) return;
+
       setCloudProjects((current) => {
         const existing = current.find((project) => project.id === publishProjectId);
         const updatedProject: CloudWebsiteProject = {
@@ -10054,7 +10072,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             id: publishProjectId,
             user_id: publishUserId,
             workspace_id: null,
-            title: siteName.trim() || 'My Website',
+            title: publishTitle,
             content: projectData,
             status: 'completed',
             updated_at: nextPublishedAt,
@@ -10069,8 +10087,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           ...current.filter((project) => project.id !== publishProjectId),
         ];
       });
-
-      if (!publishIsCurrent()) return;
 
       setPublishedUrl(
         nextPublishedUrl,
@@ -10114,7 +10130,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       if (publishReleaseHistoryEnabled) {
-        await refreshPublishVersions();
+        await refreshPublishVersions(
+          publishProjectId,
+          publishUserId,
+          publishLoadSequence,
+        );
       }
     } catch (error) {
       if (!publishIsCurrent()) return;
@@ -10177,6 +10197,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       });
       if (projectError) throw projectError;
 
+      if (!unpublishIsCurrent()) return;
+
       setCloudProjects((current) =>
         current.map((project) =>
           project.id === unpublishProjectId
@@ -10189,8 +10211,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             : project
         )
       );
-
-      if (!unpublishIsCurrent()) return;
 
       setPublishedUrl('');
       setPublishedAt(null);
