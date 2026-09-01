@@ -8969,8 +8969,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function restoreHistoryEntry(entry: ProjectHistoryEntry) {
     const confirmed = window.confirm(`Restore "${entry.label}"? Your current unsaved changes will be replaced.`);
     if (!confirmed) return;
+
     saveRecoverySnapshot('before restoring history entry');
-    applyProjectData(entry.snapshot, false);
+
+    const undoEntry = createEditHistoryEntry(`Before restoring ${entry.label}`);
+    setHistory((current) => [...current.slice(-49), undoEntry]);
+    setFuture([]);
+
+    applyProjectData(entry.snapshot, false, false);
     setHistoryOpen(false);
     setSaved(false);
     setAutoSaveStatus('saving');
