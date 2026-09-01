@@ -52,6 +52,7 @@ const STRUCTURAL_NATIVE_AI_ACTIONS = new Set([
   'move_element',
   'remove_container',
   'assign_element_container',
+  'detach_symbol',
   'remove_form_field',
   'move_form_field',
 ]);
@@ -412,6 +413,20 @@ export function convertLegacyAIStructuralOperationToNative(
         ...(typeof operation.containerId === 'string'
           ? { containerId: operation.containerId.trim() }
           : {}),
+      },
+    ];
+  }
+
+  if (operation.action === 'detach_symbol') {
+    const elementId = operation.elementId?.trim();
+    if (!elementId) return [];
+    return [
+      {
+        action: 'detach_symbol',
+        source: 'ai',
+        pageId,
+        sectionId,
+        elementId,
       },
     ];
   }
