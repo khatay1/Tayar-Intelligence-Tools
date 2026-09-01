@@ -86,6 +86,8 @@ import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, update
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
 import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles, uploadWebsiteMediaFile } from './services/websiteMediaService';
+import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
+import { getWebsiteBuilderBillingState } from './services/websiteBillingService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
@@ -3702,7 +3704,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const project = cloudProjects.find((item) => item.id === projectId);
     const fallback = createEditorProjectAccessFallback(project, user.id);
 
-    const { data, error } = await supabase.rpc('get_project_team_access', { p_project_id: projectId });
+    const { data, error } = await getWebsiteProjectTeamAccess(projectId);
     if (error || !data) {
       setProjectTeamAccess(fallback);
       return fallback;
@@ -4437,9 +4439,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setBillingLoading(true);
     setBillingError('');
-    const { data, error } = await supabase.rpc('get_website_builder_billing_state', {
-      p_project_id: projectId,
-    });
+    const { data, error } = await getWebsiteBuilderBillingState(projectId);
 
     if (error || !data || typeof data !== 'object') {
       // Fail closed: never grant paid features from browser-editable profile data when billing cannot be verified.
