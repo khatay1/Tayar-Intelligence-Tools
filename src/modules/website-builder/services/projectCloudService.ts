@@ -63,3 +63,21 @@ export async function listWebsiteProjectsInCloud() {
     .is('deleted_at', null)
     .order('updated_at', { ascending: false });
 }
+
+export async function updateWebsiteProjectPublicationState(input: {
+  projectId: string;
+  userId: string;
+  content: Record<string, unknown>;
+  published: boolean;
+  updatedAt: string;
+}) {
+  return supabase
+    .from('projects')
+    .update({
+      content: input.content,
+      status: input.published ? 'completed' : 'draft',
+      updated_at: input.updatedAt,
+    })
+    .eq('id', input.projectId)
+    .eq('user_id', input.userId);
+}
