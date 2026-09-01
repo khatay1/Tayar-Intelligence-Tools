@@ -5367,7 +5367,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     while (used.has(slug)) slug = `${base}-${suffix++}`;
     const page = { ...createPage(`Page ${pages.length + 1}`, slug), language: prefs.language };
     clearEditorDragState();
-    setPages((current) => [...current, page]);
+    setPages((current) => [
+      ...current.map((item) =>
+        item.id === activePageId
+          ? { ...item, sections }
+          : item
+      ),
+      page,
+    ]);
     setActivePageId(page.id);
     setSections(page.sections);
     selectEditorTarget(
@@ -5397,7 +5404,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       canonicalUrl: '',
     };
     clearEditorDragState();
-    setPages((current) => [...current, page]);
+    setPages((current) => [
+      ...current.map((item) =>
+        item.id === activePageId
+          ? { ...item, sections }
+          : item
+      ),
+      page,
+    ]);
     setActivePageId(page.id);
     setSections(clonedSections);
     selectEditorTarget(
@@ -5436,7 +5450,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     };
     clearEditorDragState();
     setPages((current) => current
-      .map((item) => item.id === activePage.id ? { ...item, translationKey: groupKey } : item)
+      .map((item) =>
+        item.id === activePage.id
+          ? {
+              ...item,
+              sections,
+              translationKey: groupKey,
+            }
+          : item
+      )
       .concat(page));
     setActivePageId(page.id);
     setSections(clonedSections);
@@ -5453,6 +5475,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (page.id !== activePageId) return page;
       return {
         ...page,
+        sections,
         ...changes,
         slug: changes.slug !== undefined ? normalizeSlug(changes.slug) : page.slug,
       };
@@ -5463,11 +5486,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function movePage(pageId: string, direction: 'up' | 'down') {
     remember(sections, 'Move page');
     setPages((current) => {
-      const index = current.findIndex((page) => page.id === pageId);
+      const withLiveActivePage = current.map((page) =>
+        page.id === activePageId
+          ? { ...page, sections }
+          : page
+      );
+      const index = withLiveActivePage.findIndex((page) => page.id === pageId);
       if (index === -1) return current;
       const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
+      if (target < 0 || target >= withLiveActivePage.length) {
+        return withLiveActivePage;
+      }
+      const next = [...withLiveActivePage];
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
