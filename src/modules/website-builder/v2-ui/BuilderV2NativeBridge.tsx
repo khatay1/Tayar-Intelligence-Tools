@@ -99,6 +99,8 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
     elementId: string,
   ): void;
 
+  onRestoreHistoryEntry?(entryId: string): void;
+
   createSection(item: EditorInsertCatalogItem): EditorSectionLike;
   createContainer(item: EditorInsertCatalogItem): EditorContainerLike;
 
@@ -805,6 +807,9 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
 
         onResetForm:
           handleResetForm,
+
+        onRestoreHistoryEntry:
+          props.onRestoreHistoryEntry,
       });
 
   function renderInspector(
