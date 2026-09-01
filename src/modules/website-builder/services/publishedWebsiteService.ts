@@ -21,6 +21,8 @@ export async function uploadPublishedWebsiteFolderFiles(
   folder: string,
   files: PublishedWebsiteFile[],
 ): Promise<void> {
+  assertValidPublishedWebsiteBundle(files);
+
   for (const file of files) {
     const { error } = await publishedSiteStorage.upload(
       folder + '/' + file.name,
@@ -135,6 +137,8 @@ export async function archivePublishedWebsiteFiles(
   prefix: string,
   files: PublishedWebsiteFile[],
 ): Promise<void> {
+  assertValidPublishedWebsiteBundle(files);
+
   for (const file of files) {
     const { error } = await publishedSiteStorage.upload(
       prefix + '/' + file.name,
