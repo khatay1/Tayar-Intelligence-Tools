@@ -34,7 +34,13 @@ export async function updateWebsiteProjectInCloud({
       })
       .eq('id', projectId);
 
-    return signal ? query.abortSignal(signal) : query;
+    if (!signal) return query;
+    const abortableQuery = query as typeof query & {
+      abortSignal?: (abortSignal: AbortSignal) => typeof query;
+    };
+    return typeof abortableQuery.abortSignal === 'function'
+      ? abortableQuery.abortSignal(signal)
+      : query;
   });
 }
 
