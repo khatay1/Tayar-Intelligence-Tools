@@ -26,6 +26,20 @@ const LIBRARY_CATEGORIES = [
   { id: 'office-bundle', label: 'Office bundle' },
 ] as const;
 
+const LIBRARY_FORMATS = [
+  'all',
+  'xlsx',
+  'xls',
+  'docx',
+  'doc',
+  'pptx',
+  'ppt',
+  'pdf',
+  'pbix',
+  'zip',
+  'csv',
+] as const;
+
 type LibraryMode = 'library' | 'originals';
 
 export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: boolean }) {
@@ -33,6 +47,7 @@ export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: bo
   const [mode, setMode] = useState<LibraryMode>('library');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
+  const [format, setFormat] = useState('all');
   const [page, setPage] = useState(1);
 
   const localTemplates = useMemo(
@@ -44,6 +59,7 @@ export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: bo
     {
       query,
       category,
+      format,
       page,
       pageSize: 36,
     },
@@ -55,6 +71,7 @@ export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: bo
   function changeMode(next: LibraryMode) {
     setMode(next);
     setCategory('all');
+    setFormat('all');
     setPage(1);
   }
 
@@ -117,6 +134,24 @@ export default function TemplatesHubTool({ darkMode: _darkMode }: { darkMode: bo
             placeholder={l('Search templates')}
           />
         </div>
+
+        {mode === 'library' && (
+          <select
+            value={format}
+            onChange={(event) => {
+              setFormat(event.target.value);
+              setPage(1);
+            }}
+            className={`${toolInputClass} md:w-36`}
+            aria-label={l('File format')}
+          >
+            {LIBRARY_FORMATS.map((item) => (
+              <option key={item} value={item}>
+                {item === 'all' ? l('All formats') : item.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        )}
 
         <div className="flex gap-2 flex-wrap">
           {categories.map((item) => (
