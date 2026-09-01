@@ -35,3 +35,6 @@ jobs:
 
       - name: Coding Assistance smoke
         run: npm run smoke:code-assistant
+
+      - name: Vite production build
+        run: npm run build
