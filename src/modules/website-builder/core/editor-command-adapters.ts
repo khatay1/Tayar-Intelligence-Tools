@@ -19,6 +19,10 @@ import {
   type EditorSectionLike,
 } from './editor-model';
 import { syncEditorSymbolFromInstance } from './editor-symbols';
+import {
+  cloneSafeEditorPayload,
+  safeEditorPayloadRecord,
+} from './editor-payload-safety';
 
 export type EditorInsertPosition = {
   beforeId?: string;
@@ -107,7 +111,10 @@ function mergeWithoutIdentity<T extends { id: string }>(
   changes: Partial<T>,
   blockedKeys: string[] = [],
 ): T {
-  const safeChanges = { ...changes } as Record<string, unknown>;
+  const safeChanges = safeEditorPayloadRecord(
+    changes as Record<string, unknown>,
+    'editor changes',
+  );
   delete safeChanges.id;
   for (const key of blockedKeys) delete safeChanges[key];
   return Object.assign(target, safeChanges);
@@ -213,10 +220,11 @@ export function commandAddPage<P extends EditorProjectLike>(
   options: EditorCommandAdapterOptions = {},
 ) {
   return commandOptions<P>('Add page', (draft) => {
-    const id = normalizedId(page.id, 'Page');
-    assertIncomingPageIdentities(draft, page);
+    const safePage = cloneSafeEditorPayload(page, 'page');
+    const id = normalizedId(safePage.id, 'Page');
+    assertIncomingPageIdentities(draft, safePage);
     const index = targetIndex(draft.pages, position);
-    insertAt(draft.pages, page, index);
+    insertAt(draft.pages, safePage, index);
     if (!draft.homePageId) draft.homePageId = id;
   }, options);
 }
@@ -283,9 +291,10 @@ export function commandAddSection<P extends EditorProjectLike>(
   return commandOptions<P>('Add section', (draft) => {
     const pageMatch = findEditorPage(draft, normalizedId(pageId, 'Page'));
     if (!pageMatch) throw new Error(`Page not found: ${pageId}`);
-    normalizedId(section.id, 'Section');
-    assertIncomingSectionIdentities(draft, section);
-    insertAt(pageMatch.page.sections, section, targetIndex(pageMatch.page.sections, position));
+    const safeSection = cloneSafeEditorPayload(section, 'section');
+    normalizedId(safeSection.id, 'Section');
+    assertIncomingSectionIdentities(draft, safeSection);
+    insertAt(pageMatch.page.sections, safeSection, targetIndex(pageMatch.page.sections, position));
   }, options);
 }
 
@@ -357,19 +366,20 @@ export function commandAddElement<P extends EditorProjectLike>(
       normalizedId(sectionId, 'Section'),
     );
     if (!match) throw new Error(`Section not found: ${sectionId}`);
-    normalizedId(element.id, 'Element');
-    assertIdentityIdsAvailable(draft, 'element', [element.id], 'Element');
+    const safeElement = cloneSafeEditorPayload(element, 'element');
+    normalizedId(safeElement.id, 'Element');
+    assertIdentityIdsAvailable(draft, 'element', [safeElement.id], 'Element');
 
     if (
-      element.containerId &&
+      safeElement.containerId &&
       !match.section.containers?.some(
-        (container) => container.id === element.containerId,
+        (container) => container.id === safeElement.containerId,
       )
     ) {
-      throw new Error(`Container not found: ${element.containerId}`);
+      throw new Error(`Container not found: ${safeElement.containerId}`);
     }
 
-    insertAt(match.section.elements, element, targetIndex(match.section.elements, position));
+    insertAt(match.section.elements, safeElement, targetIndex(match.section.elements, position));
   }, options);
 }
 
@@ -442,7 +452,8 @@ export function commandUpdateTheme<P extends EditorProjectLike>(
   options: EditorCommandAdapterOptions = {},
 ) {
   return commandOptions<P>('Update theme', (draft) => {
-    draft.theme = { ...(draft.theme || {}), ...changes };
+    const safeChanges = safeEditorPayloadRecord(changes, 'theme changes');
+    draft.theme = { ...(draft.theme || {}), ...safeChanges };
   }, options);
 }
 
@@ -451,7 +462,8 @@ export function commandUpdateSeo<P extends EditorProjectLike>(
   options: EditorCommandAdapterOptions = {},
 ) {
   return commandOptions<P>('Update SEO', (draft) => {
-    draft.seo = { ...(draft.seo || {}), ...changes };
+    const safeChanges = safeEditorPayloadRecord(changes, 'SEO changes');
+    draft.seo = { ...(draft.seo || {}), ...safeChanges };
   }, options);
 }
 
@@ -460,7 +472,8 @@ export function commandUpdateHeader<P extends EditorProjectLike>(
   options: EditorCommandAdapterOptions = {},
 ) {
   return commandOptions<P>('Update header', (draft) => {
-    draft.headerConfig = { ...(draft.headerConfig || {}), ...changes };
+    const safeChanges = safeEditorPayloadRecord(changes, 'header changes');
+    draft.headerConfig = { ...(draft.headerConfig || {}), ...safeChanges };
   }, options);
 }
 
@@ -473,10 +486,11 @@ export function commandAddContainer<P extends EditorProjectLike>(
   return commandOptions<P>('Add container', (draft) => {
     const match = findEditorSection(draft, normalizedId(pageId, 'Page'), normalizedId(sectionId, 'Section'));
     if (!match) throw new Error(`Section not found: ${sectionId}`);
-    normalizedId(container.id, 'Container');
-    assertIdentityIdsAvailable(draft, 'container', [container.id], 'Container');
+    const safeContainer = cloneSafeEditorPayload(container, 'container');
+    normalizedId(safeContainer.id, 'Container');
+    assertIdentityIdsAvailable(draft, 'container', [safeContainer.id], 'Container');
     const containers = match.section.containers || (match.section.containers = []);
-    containers.push(container);
+    containers.push(safeContainer);
   }, options);
 }
 
@@ -493,7 +507,8 @@ export function commandUpdateContainer<P extends EditorProjectLike>(
     const id = normalizedId(containerId, 'Container');
     const container = match.section.containers?.find((candidate) => candidate.id === id);
     if (!container) throw new Error(`Container not found: ${id}`);
-    const { id: _ignored, ...safeChanges } = changes;
+    const safeChanges = safeEditorPayloadRecord(changes, 'container changes');
+    delete safeChanges.id;
     Object.assign(container, safeChanges);
   }, options);
 }
@@ -555,10 +570,11 @@ export function commandAddFormField<P extends EditorProjectLike>(
   return commandOptions<P>('Add form field', (draft) => {
     const match = findEditorSection(draft, normalizedId(pageId, 'Page'), normalizedId(sectionId, 'Section'));
     if (!match) throw new Error(`Section not found: ${sectionId}`);
-    normalizedId(field.id, 'Form field');
-    assertIdentityIdsAvailable(draft, 'form-field', [field.id], 'Form field');
+    const safeField = cloneSafeEditorPayload(field, 'form field');
+    normalizedId(safeField.id, 'Form field');
+    assertIdentityIdsAvailable(draft, 'form-field', [safeField.id], 'Form field');
     const fields = match.section.formFields || (match.section.formFields = []);
-    insertAt(fields, field, targetIndex(fields, position));
+    insertAt(fields, safeField, targetIndex(fields, position));
   }, options);
 }
 
@@ -575,7 +591,8 @@ export function commandUpdateFormField<P extends EditorProjectLike>(
     const id = normalizedId(fieldId, 'Form field');
     const field = match.section.formFields?.find((candidate) => candidate.id === id);
     if (!field) throw new Error(`Form field not found: ${id}`);
-    const { id: _ignored, ...safeChanges } = changes;
+    const safeChanges = safeEditorPayloadRecord(changes, 'form-field changes');
+    delete safeChanges.id;
     Object.assign(field, safeChanges);
   }, options);
 }
