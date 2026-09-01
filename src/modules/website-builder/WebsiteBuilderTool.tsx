@@ -54,7 +54,7 @@ import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
 import type { EditorSelection } from './core/editor-selection';
-import type { EditorPageLike, EditorSymbolLike } from './core/editor-model';
+import type { EditorPageLike, EditorProjectLike, EditorSymbolLike } from './core/editor-model';
 import {
   DEFAULT_EDITOR_PROJECT_ACCESS,
   createEditorProjectAccessFallback,
@@ -106,6 +106,11 @@ import {
   editorAIProjectIdentityMatches,
   type EditorAIAsyncContext,
 } from './core/editor-ai-operation-context';
+import {
+  convertLegacyAIGlobalOperationToNative,
+  isLegacyAIGlobalNativeAction,
+} from './core/editor-ai-native-bridge';
+import { applyEditorNativeProjectPatch } from './core/editor-native-project-patch';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -7499,6 +7504,202 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       let nextHeaderConfig: WebsiteHeaderConfig = { ...headerConfig };
       let nextSymbols = JSON.parse(JSON.stringify(symbols)) as WebsiteSymbol[];
       let applied = 0;
+      const nativeBridgeWarnings: string[] = [];
+
+      const applyAIGlobalNativeOperation = (
+        operation: AIWebsitePatchOperation,
+      ) => {
+        if (!isLegacyAIGlobalNativeAction(operation.action)) {
+          return false;
+        }
+
+        const nativeOperation =
+          convertLegacyAIGlobalOperationToNative(
+            operation as unknown as {
+              action: string;
+              changes?: Record<string, unknown>;
+            },
+          );
+
+        if (!nativeOperation) {
+          return true;
+        }
+
+        const workingProject = {
+          pages:
+            nextPages as unknown as EditorPageLike[],
+          homePageId:
+            nextHomePageId,
+          theme: {
+            ...nextTheme,
+          },
+          seo: {
+            ...nextSeo,
+            keywords: [
+              ...nextSeo.keywords,
+            ],
+          },
+          headerConfig: {
+            ...nextHeaderConfig,
+          },
+          symbols:
+            JSON.parse(
+              JSON.stringify(nextSymbols),
+            ) as EditorSymbolLike[],
+        } satisfies EditorProjectLike;
+
+        const nativeResult =
+          applyEditorNativeProjectPatch(
+            workingProject,
+            [nativeOperation],
+            {
+              source: 'ai',
+              label:
+                `Apply AI ${operation.action.replace(/_/g, ' ')}`,
+              maxOperations: 1,
+              limits: {
+                maxPages:
+                  BUSINESS_BILLING_ENTITLEMENTS.maxPages,
+                maxSymbols: 50,
+              },
+              validateProject: (
+                candidate,
+                previous,
+              ) => {
+                const pageCountIncreased =
+                  candidate.pages.length >
+                  previous.pages.length;
+
+                if (
+                  pageCountIncreased &&
+                  candidate.pages.length >
+                    billingEntitlements.maxPages
+                ) {
+                  return {
+                    ok: false,
+                    errors: [
+                      `Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports up to ${billingEntitlements.maxPages} pages.`,
+                    ],
+                  };
+                }
+
+                return {
+                  ok: true,
+                };
+              },
+            },
+          );
+
+        if (!nativeResult.ok) {
+          nativeBridgeWarnings.push(
+            ...nativeResult.errors
+              .map((error) =>
+                `${operation.action}: ${error}`,
+              )
+              .slice(0, 3),
+          );
+          return true;
+        }
+
+        if (!nativeResult.changed) {
+          return true;
+        }
+
+        const project =
+          nativeResult.project;
+
+        nextPages =
+          project.pages as unknown as WebsitePage[];
+
+        const requestedHomePageId =
+          typeof project.homePageId === 'string'
+            ? project.homePageId
+            : nextHomePageId;
+
+        if (
+          nextPages.some(
+            (page) =>
+              page.id ===
+              requestedHomePageId,
+          )
+        ) {
+          nextHomePageId =
+            requestedHomePageId;
+        }
+
+        if (
+          project.theme &&
+          typeof project.theme === 'object'
+        ) {
+          nextTheme =
+            normalizeTheme(
+              project.theme as Partial<WebsiteTheme>,
+            );
+        }
+
+        if (
+          project.seo &&
+          typeof project.seo === 'object'
+        ) {
+          const rawSeo =
+            project.seo as Partial<WebsiteSEO>;
+
+          nextSeo = {
+            title:
+              typeof rawSeo.title === 'string'
+                ? rawSeo.title
+                : nextSeo.title,
+            description:
+              typeof rawSeo.description === 'string'
+                ? rawSeo.description
+                : nextSeo.description,
+            keywords:
+              Array.isArray(rawSeo.keywords)
+                ? rawSeo.keywords
+                    .filter(
+                      (
+                        keyword,
+                      ): keyword is string =>
+                        typeof keyword === 'string',
+                    )
+                    .slice(0, 40)
+                : [
+                    ...nextSeo.keywords,
+                  ],
+          };
+        }
+
+        if (
+          project.headerConfig &&
+          typeof project.headerConfig ===
+            'object'
+        ) {
+          nextHeaderConfig =
+            normalizeHeaderConfig(
+              project.headerConfig as Partial<WebsiteHeaderConfig>,
+            );
+        }
+
+        if (
+          Array.isArray(
+            project.symbols,
+          )
+        ) {
+          nextSymbols =
+            project.symbols as unknown as WebsiteSymbol[];
+        }
+
+        applied += 1;
+        nativeBridgeWarnings.push(
+          ...nativeResult.warnings
+            .map((warning) =>
+              `${operation.action}: ${warning}`,
+            )
+            .slice(0, 3),
+        );
+
+        return true;
+      };
 
       const resolvePageIndex = (operation: AIWebsitePatchOperation) => {
         if (operation.pageId) {
@@ -7563,6 +7764,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       for (const operation of operations) {
         if (!operation || typeof operation.action !== 'string') continue;
+
+        if (
+          applyAIGlobalNativeOperation(
+            operation,
+          )
+        ) {
+          continue;
+        }
 
         if (operation.action === 'add_page') {
           const sourcePage = operation.page;
@@ -7669,80 +7878,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           continue;
         }
 
-        if (operation.action === 'update_theme') {
-          const changes = operation.changes || {};
-          const next = normalizeTheme({
-            ...nextTheme,
-            primaryColor: validHex(changes.primaryColor) ? changes.primaryColor : nextTheme.primaryColor,
-            secondaryColor: validHex(changes.secondaryColor) ? changes.secondaryColor : nextTheme.secondaryColor,
-            backgroundColor: validHex(changes.backgroundColor) ? changes.backgroundColor : nextTheme.backgroundColor,
-            textColor: validHex(changes.textColor) ? changes.textColor : nextTheme.textColor,
-            mutedTextColor: validHex(changes.mutedTextColor) ? changes.mutedTextColor : nextTheme.mutedTextColor,
-            fontFamily: typeof changes.fontFamily === 'string' && FONT_OPTIONS.includes(changes.fontFamily)
-              ? changes.fontFamily
-              : nextTheme.fontFamily,
-            contentWidth: finiteStyleNumber(changes.themeContentWidth, 720, 1440) ?? nextTheme.contentWidth,
-            buttonRadius: finiteStyleNumber(changes.themeButtonRadius, 0, 40) ?? nextTheme.buttonRadius,
-            sectionSpacing: finiteStyleNumber(changes.themeSectionSpacing, 40, 140) ?? nextTheme.sectionSpacing,
-          });
-          if (JSON.stringify(next) !== JSON.stringify(nextTheme)) {
-            nextTheme = next;
-            applied += 1;
-          }
-          continue;
-        }
-
         if (operation.action === 'update_site') {
           const changes = operation.changes || {};
           if (typeof changes.name === 'string' && changes.name.trim()) {
             nextSiteName = changes.name.trim().slice(0, 100);
-            applied += 1;
-          }
-          continue;
-        }
-
-        if (operation.action === 'update_seo') {
-          const changes = operation.changes || {};
-          const nextTitle = typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : nextSeo.title;
-          const nextDescription = typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : nextSeo.description;
-          const nextKeywords = Array.isArray(changes.seoKeywords)
-            ? changes.seoKeywords.map((keyword) => String(keyword).trim()).filter(Boolean).slice(0, 20)
-            : nextSeo.keywords;
-          if (nextTitle !== nextSeo.title || nextDescription !== nextSeo.description || JSON.stringify(nextKeywords) !== JSON.stringify(nextSeo.keywords)) {
-            nextSeo = { title: nextTitle, description: nextDescription, keywords: nextKeywords };
-            applied += 1;
-          }
-          continue;
-        }
-
-        if (operation.action === 'update_header') {
-          const changes = operation.changes || {};
-          const requestedLogo = typeof changes.headerLogoUrl === 'string' ? changes.headerLogoUrl.trim().slice(0, 2000) : '';
-          const safeLogo = requestedLogo && /^(?:https?:\/\/|\/)/i.test(requestedLogo) ? requestedLogo : undefined;
-          const next: WebsiteHeaderConfig = {
-            ...nextHeaderConfig,
-            enabled: typeof changes.headerEnabled === 'boolean' ? changes.headerEnabled : nextHeaderConfig.enabled,
-            sticky: typeof changes.headerSticky === 'boolean' ? changes.headerSticky : nextHeaderConfig.sticky,
-            mobileMenu: typeof changes.headerMobileMenu === 'boolean' ? changes.headerMobileMenu : nextHeaderConfig.mobileMenu,
-            languageSwitcher: typeof changes.headerLanguageSwitcher === 'boolean' ? changes.headerLanguageSwitcher : nextHeaderConfig.languageSwitcher,
-            brandText: typeof changes.headerBrandText === 'string' ? changes.headerBrandText.trim().slice(0, 100) : nextHeaderConfig.brandText,
-            logoUrl: safeLogo !== undefined ? safeLogo : nextHeaderConfig.logoUrl,
-            showCta: typeof changes.showCta === 'boolean' ? changes.showCta : nextHeaderConfig.showCta,
-            ctaLabel: typeof changes.ctaLabel === 'string' ? changes.ctaLabel.trim().slice(0, 80) : nextHeaderConfig.ctaLabel,
-            ctaHref: typeof changes.ctaHref === 'string' ? changes.ctaHref.trim().slice(0, 500) : nextHeaderConfig.ctaHref,
-            backgroundColor: validHex(changes.headerBackgroundColor) ? changes.headerBackgroundColor! : nextHeaderConfig.backgroundColor,
-            textColor: validHex(changes.headerTextColor) ? changes.headerTextColor! : nextHeaderConfig.textColor,
-            activeColor: validHex(changes.headerActiveColor) ? changes.headerActiveColor! : nextHeaderConfig.activeColor,
-            hoverColor: validHex(changes.headerHoverColor) ? changes.headerHoverColor! : nextHeaderConfig.hoverColor,
-            ctaBackgroundColor: validHex(changes.headerCtaBackgroundColor) ? changes.headerCtaBackgroundColor! : nextHeaderConfig.ctaBackgroundColor,
-            ctaTextColor: validHex(changes.headerCtaTextColor) ? changes.headerCtaTextColor! : nextHeaderConfig.ctaTextColor,
-            navGap: finiteStyleNumber(changes.headerNavGap, 0, 64) ?? nextHeaderConfig.navGap,
-            brandSize: finiteStyleNumber(changes.headerBrandSize, 10, 42) ?? nextHeaderConfig.brandSize,
-            navSize: finiteStyleNumber(changes.headerNavSize, 10, 32) ?? nextHeaderConfig.navSize,
-            borderColor: validHex(changes.headerBorderColor) ? changes.headerBorderColor! : nextHeaderConfig.borderColor,
-          };
-          if (JSON.stringify(next) !== JSON.stringify(nextHeaderConfig)) {
-            nextHeaderConfig = next;
             applied += 1;
           }
           continue;
@@ -9160,9 +9299,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       });
 
       const skipped = Math.max(0, operations.length - applied);
-      const patchWarnings = Array.isArray(patch.warnings)
-        ? patch.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
-        : [];
+      const patchWarnings = [
+        ...(Array.isArray(patch.warnings)
+          ? patch.warnings
+              .map((warning) =>
+                String(warning).trim(),
+              )
+              .filter(Boolean)
+              .slice(0, 5)
+          : []),
+        ...nativeBridgeWarnings,
+      ].slice(0, 8);
       const confidence = Number.isFinite(Number(patch.confidence))
         ? Math.min(1, Math.max(0, Number(patch.confidence)))
         : null;
