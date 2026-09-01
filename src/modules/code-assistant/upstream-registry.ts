@@ -112,6 +112,14 @@ export const UPSTREAM_REGISTRIES: UpstreamRegistryConfig[] = [
     sourcePathPrefix: '',
     licensePath: 'LICENSE',
   },
+  {
+    sourceId: 'motion-primitives',
+    revision: '92586e62a951eb9b6bfd1cc7c8a4e6e2ab6ba17d',
+    manifestUrl: 'https://raw.githubusercontent.com/ibelick/motion-primitives/92586e62a951eb9b6bfd1cc7c8a4e6e2ab6ba17d/public/c/registry.json',
+    rawBaseUrl: 'https://raw.githubusercontent.com/ibelick/motion-primitives/92586e62a951eb9b6bfd1cc7c8a4e6e2ab6ba17d',
+    sourcePathPrefix: '',
+    licensePath: 'LICENCE.md',
+  },
 ];
 
 const codeCache = new Map<string, Promise<string>>();
