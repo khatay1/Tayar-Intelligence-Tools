@@ -156,6 +156,8 @@ export interface BuilderPanelRouterProps {
   ): void;
 
   onResetForm?(sectionId: string): void;
+
+  onRestoreHistoryEntry?(entryId: string): void;
 }
 
 export function BuilderPanelRouter(
@@ -243,6 +245,7 @@ export function BuilderPanelRouter(
       return (
         <BuilderHistoryPanel
           shell={props.shell}
+          onRestoreEntry={props.onRestoreHistoryEntry}
         />
       );
     }
