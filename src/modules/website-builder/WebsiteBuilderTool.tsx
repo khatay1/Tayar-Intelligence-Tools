@@ -4187,6 +4187,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     cancelPendingProjectPersistence();
 
     const loadSequence = ++projectLoadSequenceRef.current;
+    const loadUserId = user?.id ?? null;
+    const loadIsCurrent = () =>
+      projectLoadSequenceRef.current === loadSequence &&
+      activeUserIdRef.current === loadUserId;
+
     newProjectIntentRef.current = false;
     setCloudProjectId(project.id);
     saveActiveWebsiteProjectId(project.id);
@@ -4199,7 +4204,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     saveLocalWebsiteProject(identifiedContent);
 
     await refreshProjectTeamAccess(project.id, loadSequence);
-    if (projectLoadSequenceRef.current !== loadSequence) return;
+    if (!loadIsCurrent()) return;
 
     setLeads([]);
     setLeadsOpen(false);
@@ -4220,6 +4225,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       },
       loadSequence,
     );
+
+    if (!loadIsCurrent()) return;
   }
 
   const loadCloudProjectRef = useRef(loadCloudProject);
