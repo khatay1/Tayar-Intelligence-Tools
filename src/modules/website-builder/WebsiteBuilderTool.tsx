@@ -3421,6 +3421,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const autosaveTimerRef = useRef<number | null>(null);
   const skipNextAutosaveRef = useRef(false);
   const saveInFlightRef = useRef(false);
+  const newProjectIntentRef = useRef(false);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
 
   const getCurrentPages = useCallback(() => {
@@ -3942,6 +3943,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function loadCloudProject(projectId: string) {
     const project = cloudProjects.find((item) => item.id === projectId);
     if (!project) return;
+    newProjectIntentRef.current = false;
     setCloudProjectId(project.id);
     saveActiveWebsiteProjectId(project.id);
     await refreshProjectTeamAccess(project.id);
@@ -4487,18 +4489,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [refreshCloudProjects, refreshReusableSections]);
 
   useEffect(() => {
-    if (!user || !cloudProjectsLoaded) return;
-    let desiredProjectId = projectId;
-    if (!desiredProjectId) {
-      desiredProjectId = loadActiveWebsiteProjectId();
+    if (!user || !cloudProjectsLoaded || newProjectIntentRef.current) return;
+
+    let desiredProjectId = projectId || loadActiveWebsiteProjectId();
+
+    if (desiredProjectId) {
+      if (cloudProjectId === desiredProjectId) return;
+
+      const exists = cloudProjects.some((project) => project.id === desiredProjectId);
+      if (exists) {
+        void loadCloudProjectRef.current(desiredProjectId);
+        return;
+      }
+
+      if (projectId) {
+        setCloudError('The requested website is not visible in your current cloud projects.');
+        return;
+      }
+
+      saveActiveWebsiteProjectId(null);
+      desiredProjectId = null;
     }
-    if (!desiredProjectId || cloudProjectId === desiredProjectId) return;
-    const exists = cloudProjects.some((project) => project.id === desiredProjectId);
-    if (!exists) {
-      setCloudError('Your saved website identity is preserved, but the project is not visible in the current cloud list yet.');
-      return;
+
+    const fallbackProject =
+      cloudProjects.find((project) => project.user_id === user.id) ??
+      cloudProjects[0];
+
+    if (!desiredProjectId && fallbackProject && cloudProjectId !== fallbackProject.id) {
+      saveActiveWebsiteProjectId(fallbackProject.id);
+      void loadCloudProjectRef.current(fallbackProject.id);
     }
-    void loadCloudProjectRef.current(desiredProjectId);
   }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId]);
 
   useEffect(() => {
@@ -8782,6 +8802,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setAutoSaveStatus('failed');
         return false;
       }
+
+      if (!newProjectIntentRef.current && cloudProjectsLoaded && cloudProjects.length > 0) {
+        const fallbackProject =
+          cloudProjects.find((project) => project.user_id === user.id) ??
+          cloudProjects[0];
+
+        saveActiveWebsiteProjectId(fallbackProject.id);
+        setCloudError('Opening your most recent saved website before saving. No duplicate draft was created.');
+        setAutoSaveStatus('saving');
+        void loadCloudProjectRef.current(fallbackProject.id);
+        return false;
+      }
     }
 
     const createHistory = options.createHistory ?? !automatic;
@@ -8852,6 +8884,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setCloudError(result.error?.message || (automatic ? 'Autosaved locally, but cloud autosave failed.' : 'Saved locally, but cloud save failed.'));
           setCloudSyncFailed(true);
         } else {
+          newProjectIntentRef.current = false;
           setCloudProjectId(result.data.id);
           saveActiveWebsiteProjectId(result.data.id);
           saveLocalWebsiteProject({
@@ -8947,6 +8980,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    newProjectIntentRef.current = false;
     setCloudProjectId(data.id);
     saveActiveWebsiteProjectId(data.id);
     setProjectHistory([]);
@@ -9001,6 +9035,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!confirmed) return;
 
     saveRecoverySnapshot('before reset');
+    newProjectIntentRef.current = true;
     setSections(defaultSections);
     setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: defaultSections, showInNavigation: true }]);
     setActivePageId('page-home');
@@ -9196,6 +9231,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         saveRecoverySnapshot('before importing backup');
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
+        newProjectIntentRef.current = true;
         setCloudProjectId(null);
         saveActiveWebsiteProjectId(null);
         setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
