@@ -250,7 +250,9 @@ export function commandRestyleSite<P extends EditorProjectLike>(
     const background = safeChanges.backgroundColor;
     const text = safeChanges.textColor;
     const muted = safeChanges.mutedTextColor;
-    draft.theme = { ...(draft.theme || {}), ...cloneEditorValue(safeChanges) };
+    const { accentColor: _accentColor, ...themeChanges } = safeChanges;
+    if (primary !== undefined) themeChanges.primaryColor = cloneEditorValue(primary);
+    draft.theme = { ...(draft.theme || {}), ...cloneEditorValue(themeChanges) };
 
     for (const page of draft.pages) {
       for (const section of page.sections) {
