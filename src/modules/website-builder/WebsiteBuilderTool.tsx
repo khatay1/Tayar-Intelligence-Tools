@@ -12806,7 +12806,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
               const element =
                 cloneSymbolElement(
-                  rawSymbol.element as WebsiteElement,
+                  rawSymbol.element as unknown as WebsiteElement,
                 );
 
               const unchanged =
