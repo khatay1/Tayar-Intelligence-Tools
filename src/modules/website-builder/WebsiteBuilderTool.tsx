@@ -3449,6 +3449,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setCloudBusy(false);
     setPublishBusy(false);
     setPreviewBusy(false);
+    setLaunchCheckBusy(false);
     setLiveVerification('idle');
   }, []);
 
@@ -8675,8 +8676,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       liveVerificationSequenceRef.current === verificationSequence &&
       projectLoadSequenceRef.current === expectedLoadSequence;
 
+    if (!verificationIsCurrent()) return false;
+
     if (!user || !expectedProjectId) {
-      if (verificationIsCurrent()) setLiveVerification('idle');
+      setLiveVerification('idle');
       return false;
     }
 
