@@ -26,6 +26,9 @@ const publishVersionServicePath = resolve(root, 'src/modules/website-builder/ser
 const websiteLeadServicePath = resolve(root, 'src/modules/website-builder/services/websiteLeadService.ts');
 const websiteAnalyticsServicePath = resolve(root, 'src/modules/website-builder/services/websiteAnalyticsService.ts');
 const websiteAnalyticsSummaryPath = resolve(root, 'src/modules/website-builder/core/website-analytics-summary.ts');
+const websiteMediaServicePath = resolve(root, 'src/modules/website-builder/services/websiteMediaService.ts');
+const websiteAccessServicePath = resolve(root, 'src/modules/website-builder/services/websiteAccessService.ts');
+const websiteBillingServicePath = resolve(root, 'src/modules/website-builder/services/websiteBillingService.ts');
 
 const failures = [];
 const passes = [];
@@ -59,6 +62,9 @@ for (const [label, path] of [
   ['Website lead service exists', websiteLeadServicePath],
   ['Website analytics service exists', websiteAnalyticsServicePath],
   ['Website analytics summary helper exists', websiteAnalyticsSummaryPath],
+  ['Website media service exists', websiteMediaServicePath],
+  ['Website access service exists', websiteAccessServicePath],
+  ['Website billing service exists', websiteBillingServicePath],
 ]) {
   check(label, existsSync(path));
 }
@@ -85,6 +91,9 @@ const publishVersionService = existsSync(publishVersionServicePath) ? readFileSy
 const websiteLeadService = existsSync(websiteLeadServicePath) ? readFileSync(websiteLeadServicePath, 'utf8') : '';
 const websiteAnalyticsService = existsSync(websiteAnalyticsServicePath) ? readFileSync(websiteAnalyticsServicePath, 'utf8') : '';
 const websiteAnalyticsSummary = existsSync(websiteAnalyticsSummaryPath) ? readFileSync(websiteAnalyticsSummaryPath, 'utf8') : '';
+const websiteMediaService = existsSync(websiteMediaServicePath) ? readFileSync(websiteMediaServicePath, 'utf8') : '';
+const websiteAccessService = existsSync(websiteAccessServicePath) ? readFileSync(websiteAccessServicePath, 'utf8') : '';
+const websiteBillingService = existsSync(websiteBillingServicePath) ? readFileSync(websiteBillingServicePath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -107,7 +116,7 @@ check('Lead operations require owner or workspace admin', builder.includes('Lead
 check('Analytics is available to shared editors without exposing leads', builder.includes('Analytics is available to project owners, admins, and editors.') && sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor')"));
 check('Shared release history is read-only while rollback stays owner-only', sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor', 'viewer')") && builder.includes('Only the project owner can rollback a published release.') && builder.includes('Only the project owner can delete release archives.'));
 check('Core V3 centralizes project access and owner resolution', projectAccessCore.includes('resolveEditorProjectOwnerId') && projectAccessCore.includes('normalizeEditorProjectAccess') && builder.includes("from './core/editor-project-access'"));
-check('Core V3 centralizes published storage cleanup', publishedStorageCore.includes('publishedSiteFilePaths') && publishedStorageCore.includes('removePublishedSiteFiles') && builder.includes("from './core/editor-published-storage'"));
+check('Core V3 centralizes published storage cleanup', publishedStorageCore.includes('publishedSiteFilePaths') && publishedStorageCore.includes('removePublishedSiteFiles') && publishedWebsiteService.includes("from '../core/editor-published-storage'") && builder.includes("from './services/publishedWebsiteService'"));
 check('Shared lead policy keeps row ownership tied to the website owner', sharedRuntimeMigration.includes('website_leads.project_id'));
 check('Recovery snapshot storage is enabled', projectLifecycleCore.includes('RECOVERY_STORAGE_KEY') && projectLifecycleCore.includes('saveRecoveryWebsiteProject') && builder.includes("from './core/editor-project-lifecycle'"));
 check('Project load normalization is extracted from the builder', projectNormalization.includes('normalizeWebsiteProjectLoad') && builder.includes("from './core/project-normalization'"));
@@ -118,6 +127,10 @@ check('Reusable section cloud mutations are extracted', reusableSectionService.i
 check('Publish version list/delete is extracted', publishVersionService.includes('listWebsitePublishVersions') && publishVersionService.includes('deleteWebsitePublishVersionArchive') && builder.includes("from './services/publishVersionService'"));
 check('Lead CRUD is extracted', websiteLeadService.includes('listWebsiteLeads') && websiteLeadService.includes('updateWebsiteLeadStatus') && websiteLeadService.includes('deleteWebsiteLead') && builder.includes("from './services/websiteLeadService'"));
 check('Analytics querying and summary are extracted', websiteAnalyticsService.includes('listWebsiteAnalyticsEvents') && websiteAnalyticsSummary.includes('summarizeWebsiteAnalytics') && builder.includes("from './services/websiteAnalyticsService'") && builder.includes("from './core/website-analytics-summary'"));
+check('Media storage operations are extracted', websiteMediaService.includes('listWebsiteMediaFiles') && websiteMediaService.includes('uploadWebsiteMediaFile') && websiteMediaService.includes('deleteWebsiteMediaFile') && builder.includes("from './services/websiteMediaService'"));
+check('Project access RPC is extracted', websiteAccessService.includes('getWebsiteProjectTeamAccess') && builder.includes("from './services/websiteAccessService'"));
+check('Billing RPC is extracted', websiteBillingService.includes('getWebsiteBuilderBillingState') && builder.includes("from './services/websiteBillingService'"));
+check('Builder has no direct project, lead, analytics, release, media or published-site Supabase table/storage calls', !builder.includes(".from('projects')") && !builder.includes(".from('website_leads')") && !builder.includes(".from('website_analytics_events')") && !builder.includes(".from('website_publish_versions')") && !builder.includes(".from('website-media')") && !builder.includes(".from('published-sites')"));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
 check('Cloud mutations retry transient failures', projectCloudService.includes('retryCloudOperation') && builder.includes('createWebsiteProjectInCloud') && builder.includes('updateWebsiteProjectInCloud'));
