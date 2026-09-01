@@ -109,6 +109,10 @@ const SECTION_CHANGE_KEYS = new Set([
   'hidden',
 ]);
 
+const SECTION_DUPLICATE_CHANGE_KEYS = new Set(
+  [...SECTION_CHANGE_KEYS].filter((key) => key !== 'formFields'),
+);
+
 const ELEMENT_CHANGE_KEYS = new Set([
   'content',
   'href',
@@ -242,7 +246,7 @@ const CHANGE_KEYS_BY_ACTION: Partial<
 > = {
   duplicate_page: PAGE_CHANGE_KEYS,
   update_page: PAGE_CHANGE_KEYS,
-  duplicate_section: SECTION_CHANGE_KEYS,
+  duplicate_section: SECTION_DUPLICATE_CHANGE_KEYS,
   update_section: SECTION_CHANGE_KEYS,
   duplicate_element: ELEMENT_CHANGE_KEYS,
   update_element: ELEMENT_CHANGE_KEYS,
