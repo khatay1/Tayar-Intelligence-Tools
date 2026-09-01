@@ -10,6 +10,7 @@ import { loadUpstreamComponentCode, loadUpstreamComponents } from './upstream-re
 import { checkProjectDependencies, CodeProjectContext, loadCodeProjectContext, summarizeProjectForAI } from './project-context';
 import { buildPatchPreviews, CodePatchPlan, validatePatchPlan } from './patch-plan';
 import { applyCodePatch, rollbackCodePatch } from './project-apply';
+import { resolveRegistryDependencies } from './registry-dependencies';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const CATEGORIES: Array<{ id: UIComponentCategory | 'all'; label: string }> = [
@@ -159,9 +160,13 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const selected = visibleMatches.find((item) => item.id === selectedId) || visibleMatches[0] || matches[0];
   const source = selected ? getRegistrySource(selected.sourceId) : undefined;
   const selectedCode = selected ? (loadedCode[selected.id] ?? selected.code) : '';
+  const selectedRegistryResolution = useMemo(
+    () => selected ? resolveRegistryDependencies(allItems, selected) : { resolved: [], unresolved: [], npmDependencies: [] },
+    [allItems, selected],
+  );
   const dependencyChecks = useMemo(
-    () => checkProjectDependencies(projectContext, selected?.dependencies || []),
-    [projectContext, selected],
+    () => checkProjectDependencies(projectContext, selectedRegistryResolution.npmDependencies),
+    [projectContext, selectedRegistryResolution],
   );
   const missingDependencies = dependencyChecks.filter((entry) => !entry.installed);
   const patchPreviews = useMemo(
@@ -173,6 +178,17 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     [projectContext, patchPlan],
   );
   const unresolvedPatchDependencies = patchDependencyChecks.filter((entry) => !entry.installed);
+  const patchRegistryResolution = useMemo(
+    () => selected ? resolveRegistryDependencies(allItems, selected) : { resolved: [], unresolved: [], npmDependencies: [] },
+    [allItems, selected],
+  );
+  const unresolvedPatchRegistryDependencies = patchPlan
+    ? patchPlan.registryDependencies.filter((reference) => {
+        const normalized = reference.replace(/\.json$/i, '').split('/').filter(Boolean).pop() || reference;
+        return !patchRegistryResolution.resolved.some((item) => item.id.endsWith(`:${normalized}`))
+          && !allItems.some((item) => item.id.endsWith(`:${normalized}`));
+      })
+    : [];
   const blindReplacePaths = patchPlan
     ? patchPlan.operations.filter((operation) => operation.type === 'replace' && !projectContext?.files.some((file) => file.path === operation.path)).map((operation) => operation.path)
     : [];
@@ -180,7 +196,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     ...(!projectId || !projectContext ? ['Open a project before applying a patch.'] : []),
     ...(projectContext && !projectContext.canApply ? ['This project does not expose a supported content.files store.'] : []),
     ...(unresolvedPatchDependencies.length ? [`Missing npm dependencies: ${unresolvedPatchDependencies.map((entry) => entry.name).join(', ')}`] : []),
-    ...(patchPlan?.registryDependencies.length ? [`Resolve registry dependencies first: ${patchPlan.registryDependencies.join(', ')}`] : []),
+    ...(unresolvedPatchRegistryDependencies.length ? [`Resolve registry dependencies first: ${unresolvedPatchRegistryDependencies.join(', ')}`] : []),
     ...(blindReplacePaths.length ? [`Patch tries to replace files that were not present in the AI project snapshot: ${blindReplacePaths.join(', ')}`] : []),
   ];
 
@@ -222,6 +238,20 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     }
   };
 
+  const buildSourceBundle = async (item: UIComponentRecord) => {
+    const resolution = resolveRegistryDependencies(allItems, item);
+    const records = [item, ...resolution.resolved];
+    const chunks: string[] = [];
+    for (const record of records) {
+      const code = await ensureCode(record);
+      if (code) chunks.push(`// Registry item: ${record.id}\n${code}`);
+    }
+    return {
+      code: chunks.join('\n\n'),
+      resolution,
+    };
+  };
+
   const onCopyCode = async (item: UIComponentRecord) => {
     try {
       const code = await ensureCode(item);
@@ -242,7 +272,8 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     setAiMeta(null);
     setTab('ai');
     try {
-      const code = await ensureCode(item);
+      const bundle = await buildSourceBundle(item);
+      const code = bundle.code;
       const maxSourceChars = 10_000;
       const sourceCode = code.slice(0, maxSourceChars);
       const response = await aiService.complete(
@@ -256,11 +287,13 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             kind: item.kind || 'component',
             source: getRegistrySource(item.sourceId)?.name || item.sourceId,
             license: item.license,
-            npmDependencies: item.dependencies,
+            npmDependencies: bundle.resolution.npmDependencies,
             registryDependencies: item.remote?.registryDependencies || [],
+            resolvedRegistryDependencies: bundle.resolution.resolved.map((entry) => entry.id),
+            unresolvedRegistryDependencies: bundle.resolution.unresolved,
           },
           project: summarizeProjectForAI(projectContext),
-          dependencyAnalysis: checkProjectDependencies(projectContext, item.dependencies),
+          dependencyAnalysis: checkProjectDependencies(projectContext, bundle.resolution.npmDependencies),
           sourceCode,
           sourceTruncated: code.length > maxSourceChars,
         },
@@ -283,7 +316,8 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     setPatchPlan(null);
     setTab('ai');
     try {
-      const code = await ensureCode(item);
+      const bundle = await buildSourceBundle(item);
+      const code = bundle.code;
       const maxSourceChars = 10_000;
       const response = await aiService.completeJSON<unknown>(
         {
@@ -296,11 +330,13 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             kind: item.kind || 'component',
             source: getRegistrySource(item.sourceId)?.name || item.sourceId,
             license: item.license,
-            npmDependencies: item.dependencies,
+            npmDependencies: bundle.resolution.npmDependencies,
             registryDependencies: item.remote?.registryDependencies || [],
+            resolvedRegistryDependencies: bundle.resolution.resolved.map((entry) => entry.id),
+            unresolvedRegistryDependencies: bundle.resolution.unresolved,
           },
           project: summarizeProjectForAI(projectContext),
-          dependencyAnalysis: checkProjectDependencies(projectContext, item.dependencies),
+          dependencyAnalysis: checkProjectDependencies(projectContext, bundle.resolution.npmDependencies),
           sourceCode: code.slice(0, maxSourceChars),
           sourceTruncated: code.length > maxSourceChars,
         },
@@ -465,7 +501,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             {actionError && <div className="mx-4 mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">{actionError}</div>}
 
             <div className="p-4 sm:p-5">
-              {tab === 'preview' && <div><Preview item={selected} /><p className="mt-2 text-[11px] opacity-45">Safe schematic preview. Third-party component code is never executed inside the registry browser.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 p-3"><Boxes className="h-4 w-4 text-violet-400" /><div className="mt-2 text-xs font-semibold">Category</div><div className="mt-1 text-xs opacity-50 capitalize">{selected.category}</div></div><div className="rounded-xl border border-white/10 p-3"><Package className="h-4 w-4 text-cyan-400" /><div className="mt-2 text-xs font-semibold">Dependencies</div><div className="mt-1 text-xs opacity-50">{selected.dependencies.length ? selected.dependencies.join(', ') : 'None'}</div>{projectContext && selected.dependencies.length > 0 && <div className={`mt-2 text-[10px] ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? `${missingDependencies.length} missing in active project` : 'All npm dependencies found'}</div>}</div><div className="rounded-xl border border-white/10 p-3"><Sparkles className="h-4 w-4 text-amber-400" /><div className="mt-2 text-xs font-semibold">AI ready</div><div className="mt-1 text-xs opacity-50">{projectContext ? 'Project-aware adaptation context' : 'Source-aware adaptation payload'}</div></div></div>{projectContext && <div className="mt-3 rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><FolderCog className="h-4 w-4 text-cyan-400" /> Active project compatibility</div><div className="mt-3 grid gap-2 sm:grid-cols-3"><div><div className="text-[10px] uppercase tracking-wider opacity-40">Framework</div><div className="mt-1 text-xs">{projectContext.framework}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Context files</div><div className="mt-1 text-xs">{projectContext.files.length}/{projectContext.totalCandidateFiles}{projectContext.truncated ? ' bounded' : ''}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Missing npm deps</div><div className={`mt-1 text-xs ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? missingDependencies.map((entry) => entry.name).join(', ') : 'None'}</div></div></div></div>}</div>}
+              {tab === 'preview' && <div><Preview item={selected} /><p className="mt-2 text-[11px] opacity-45">Safe schematic preview. Third-party component code is never executed inside the registry browser.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 p-3"><Boxes className="h-4 w-4 text-violet-400" /><div className="mt-2 text-xs font-semibold">Category</div><div className="mt-1 text-xs opacity-50 capitalize">{selected.category}</div></div><div className="rounded-xl border border-white/10 p-3"><Package className="h-4 w-4 text-cyan-400" /><div className="mt-2 text-xs font-semibold">Dependencies</div><div className="mt-1 text-xs opacity-50">{selectedRegistryResolution.npmDependencies.length ? selectedRegistryResolution.npmDependencies.join(', ') : 'None'}</div>{projectContext && selectedRegistryResolution.npmDependencies.length > 0 && <div className={`mt-2 text-[10px] ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? `${missingDependencies.length} missing in active project` : 'All npm dependencies found'}</div>}</div><div className="rounded-xl border border-white/10 p-3"><Sparkles className="h-4 w-4 text-amber-400" /><div className="mt-2 text-xs font-semibold">AI ready</div><div className="mt-1 text-xs opacity-50">{projectContext ? 'Project-aware adaptation context' : 'Source-aware adaptation payload'}</div></div></div>{projectContext && <div className="mt-3 rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><FolderCog className="h-4 w-4 text-cyan-400" /> Active project compatibility</div><div className="mt-3 grid gap-2 sm:grid-cols-3"><div><div className="text-[10px] uppercase tracking-wider opacity-40">Framework</div><div className="mt-1 text-xs">{projectContext.framework}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Context files</div><div className="mt-1 text-xs">{projectContext.files.length}/{projectContext.totalCandidateFiles}{projectContext.truncated ? ' bounded' : ''}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Missing npm deps</div><div className={`mt-1 text-xs ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? missingDependencies.map((entry) => entry.name).join(', ') : 'None'}</div></div></div></div>}</div>}
               {tab === 'code' && (selectedCode
                 ? <pre className="max-h-[520px] overflow-auto rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{selectedCode}</code></pre>
                 : <div className="rounded-xl border border-white/10 p-6 text-center"><Code2 className="mx-auto h-8 w-8 text-violet-400" /><div className="mt-3 text-sm font-semibold">Source code loads on demand</div><p className="mx-auto mt-2 max-w-md text-xs leading-5 opacity-50">The component files and upstream MIT license are fetched only when needed. The license notice is prepended to copied source.</p><button disabled={codeLoadingId === selected.id} onClick={() => void ensureCode(selected)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{codeLoadingId === selected.id && <Loader2 className="h-4 w-4 animate-spin" />} Load source code</button></div>
@@ -502,7 +538,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
                 </div>}
                 {aiResult ? <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{aiResult}</code></pre> : !aiLoading && !patchLoading && !patchPlan && <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs opacity-45">No AI adaptation or patch plan generated yet.</div>}
               </div>}
-              {tab === 'info' && <div className="space-y-4">{projectContext && <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="text-xs uppercase tracking-wider text-cyan-300/70">Active project</div><div className="mt-2 font-semibold">{projectContext.title}</div><div className="mt-1 text-xs opacity-60">{projectContext.framework} · {Object.keys(projectContext.dependencies).length} dependencies · {projectContext.totalCandidateFiles} candidate files</div><p className="mt-2 text-[11px] leading-5 opacity-45">Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.</p></div>}<div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.remote?.revision ? ` @ ${selected.remote.revision.slice(0, 8)}` : ''}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
+              {tab === 'info' && <div className="space-y-4">{projectContext && <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="text-xs uppercase tracking-wider text-cyan-300/70">Active project</div><div className="mt-2 font-semibold">{projectContext.title}</div><div className="mt-1 text-xs opacity-60">{projectContext.framework} · {Object.keys(projectContext.dependencies).length} dependencies · {projectContext.totalCandidateFiles} candidate files</div><p className="mt-2 text-[11px] leading-5 opacity-45">Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.</p></div>}<div className="rounded-xl border border-white/10 p-4"><div className="text-xs uppercase tracking-wider opacity-50">Source</div><div className="mt-2 font-semibold">{source?.name || selected.sourceId}</div><div className="mt-1 text-xs opacity-60">{source?.repository || source?.homepageUrl || selected.sourceId}{selected.remote?.revision ? ` @ ${selected.remote.revision.slice(0, 8)}` : ''}{selected.sourcePath ? ` · ${selected.sourcePath}` : ''}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> License gate</div><p className="mt-2 text-xs leading-5 opacity-60">{source?.redistributionAllowed ? `Approved: ${source.license}. Upstream license notice is preserved when code is loaded or copied.` : 'This source is blocked from redistribution.'}</p></div>{selected.remote?.registryDependencies.length ? <div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Registry dependencies</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.remote.registryDependencies.join(', ')}</p><div className="mt-2 flex flex-wrap gap-1">{selectedRegistryResolution.resolved.map((entry) => <span key={entry.id} className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">{entry.name}</span>)}{selectedRegistryResolution.unresolved.map((entry) => <span key={entry} className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">Unresolved: {entry}</span>)}</div></div> : null}<div className="rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">AI adaptation instruction</div><p className="mt-2 text-xs leading-5 opacity-60">{selected.aiPrompt}</p></div></div>}
             </div>
           </section>
         )}

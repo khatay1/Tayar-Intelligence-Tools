@@ -43,6 +43,8 @@ The registry source catalog is the enforcement point. A component cannot be regi
 - Every approved public source is pinned to a reviewed immutable Git commit; the registry never follows a moving `main` branch at runtime.
 - Current verified manifests expose roughly 1,490 redistributable UI components/blocks before future sources are added.
 - Large result sets render in incremental batches instead of mounting the full registry list at once.
+- Registry dependencies are resolved recursively from the approved loaded catalog with bounded depth/item limits, preferring the component's own source and then shadcn-compatible primitives.
+- Resolved dependency source is bundled into AI/Patch Plan context; only genuinely unresolved registry references remain Safe Apply blockers.
 - On-demand component source fetching; third-party code is not executed inside the registry browser.
 - Full upstream MIT license text is prepended when remote source is loaded/copied.
 - Network/path/payload size guards for upstream source loading.
