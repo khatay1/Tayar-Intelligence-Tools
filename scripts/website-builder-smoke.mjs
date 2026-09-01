@@ -34,6 +34,10 @@ const projectReleaseMetricsPath = resolve(root, 'src/modules/website-builder/cor
 const websiteLeadUtilsPath = resolve(root, 'src/modules/website-builder/core/website-lead-utils.ts');
 const deliveryConfigPath = resolve(root, 'src/modules/website-builder/core/delivery-config.ts');
 const publishedSiteValidationPath = resolve(root, 'src/modules/website-builder/core/published-site-validation.ts');
+const builderHistoryPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderHistoryPanel.tsx');
+const builderPanelRouterPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderPanelRouter.tsx');
+const builderV2NativeBridgePath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderV2NativeBridge.tsx');
+const websiteBuilderV2BridgePath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
 
 const failures = [];
 const passes = [];
@@ -75,6 +79,10 @@ for (const [label, path] of [
   ['Website lead utils helper exists', websiteLeadUtilsPath],
   ['Delivery config helper exists', deliveryConfigPath],
   ['Published-site validation helper exists', publishedSiteValidationPath],
+  ['V2 history panel exists', builderHistoryPanelPath],
+  ['V2 panel router exists', builderPanelRouterPath],
+  ['V2 native bridge exists', builderV2NativeBridgePath],
+  ['V2 bridge exists', websiteBuilderV2BridgePath],
 ]) {
   check(label, existsSync(path));
 }
@@ -109,6 +117,10 @@ const projectReleaseMetrics = existsSync(projectReleaseMetricsPath) ? readFileSy
 const websiteLeadUtils = existsSync(websiteLeadUtilsPath) ? readFileSync(websiteLeadUtilsPath, 'utf8') : '';
 const deliveryConfig = existsSync(deliveryConfigPath) ? readFileSync(deliveryConfigPath, 'utf8') : '';
 const publishedSiteValidation = existsSync(publishedSiteValidationPath) ? readFileSync(publishedSiteValidationPath, 'utf8') : '';
+const builderHistoryPanel = existsSync(builderHistoryPanelPath) ? readFileSync(builderHistoryPanelPath, 'utf8') : '';
+const builderPanelRouter = existsSync(builderPanelRouterPath) ? readFileSync(builderPanelRouterPath, 'utf8') : '';
+const builderV2NativeBridge = existsSync(builderV2NativeBridgePath) ? readFileSync(builderV2NativeBridgePath, 'utf8') : '';
+const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -216,6 +228,7 @@ check('AI builder edits complete header behavior and styling', builder.includes(
 check('AI builder exposes clone and global design quick prompts', builder.includes('Duplicate selected element and keep it editable') && builder.includes('Make global typography more premium') && builder.includes('Make the header compact and sticky'));
 check('Manual builder page controls survive AI upgrades', builder.includes('function addPage()') && builder.includes('function duplicateActivePage()') && builder.includes('function movePage(') && builder.includes('function deleteActivePage()'));
 check('Manual builder edit and history controls survive AI upgrades', builder.includes('function updateSelected(') && builder.includes('function undo()') && builder.includes('function redo()') && builder.includes('function updateSelectedElement('));
+check('V2 history entries restore real editor checkpoints', builder.includes('function restoreEditHistoryEntry(entryId: string)') && builder.includes('onRestoreHistoryEntry={restoreEditHistoryEntry}') && builderHistoryPanel.includes('onRestoreEntry?.(entry.id)') && builderPanelRouter.includes('onRestoreEntry={props.onRestoreHistoryEntry}') && builderV2NativeBridge.includes('props.onRestoreHistoryEntry') && websiteBuilderV2Bridge.includes('onRestoreHistoryEntry'));
 check('Manual builder advanced controls survive AI upgrades', builder.includes('function createContainerForSelected()') && builder.includes('function assignSelectedToContainer(') && builder.includes('function deleteSelectedContainer()') && builder.includes('function createSymbolFromSelected()'));
 check('AI builder uses guarded atomic transactions', builder.includes('validateAIProjectIntegrity') && builder.includes('destructiveOperations') && builder.includes('operations.length - applied'));
 check('Manual container inspector remains null-safe', builder.includes('{selectedContainer && selectedSection && sectionColumnCount(selectedSection.layout) > 1 && ('));
