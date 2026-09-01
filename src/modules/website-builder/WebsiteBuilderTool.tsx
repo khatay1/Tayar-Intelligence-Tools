@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createAIService } from '@/lib/ai/service';
 import { usePreferences, type Language } from '@/context/PreferencesContext';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
 import {
   buildPreviewSiteBaseUrl,
   buildPreviewSiteUrl,
@@ -90,7 +89,7 @@ import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
 import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles, uploadWebsiteMediaFile } from './services/websiteMediaService';
 import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
-import { getWebsiteBuilderBillingState } from './services/websiteBillingService';
+import { createWebsiteCheckoutSession, getWebsiteBuilderBillingState, openWebsiteBillingPortalSession } from './services/websiteBillingService';
 import { normalizeWebsiteProjectLoad } from './core/project-normalization';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 
@@ -4505,7 +4504,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBillingBusy(true);
     setBillingError('');
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', { body: { plan } });
+      const { data, error } = await createWebsiteCheckoutSession(plan);
       if (error) throw error;
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Stripe Checkout is not configured yet.');
@@ -4521,7 +4520,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBillingBusy(true);
     setBillingError('');
     try {
-      const { data, error } = await supabase.functions.invoke('billing-portal', { body: {} });
+      const { data, error } = await openWebsiteBillingPortalSession();
       if (error) throw error;
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Billing portal is not available yet.');
