@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Download, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -44,11 +44,7 @@ function loadStoredState(): AuditState {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as Partial<AuditState> | null;
     if (!parsed) return emptyState();
-    return {
-      ...emptyState(),
-      ...parsed,
-      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
-    };
+    return { ...emptyState(), ...parsed, issues: Array.isArray(parsed.issues) ? parsed.issues : [] };
   } catch {
     return emptyState();
   }
@@ -97,6 +93,7 @@ export default function TemplateLibraryAuditCard() {
           body: { offset: current.offset, limit: PAGE_SIZE },
         });
 
+        if (runRef.current !== runId) break;
         if (invokeError) throw invokeError;
         if (!data?.ok) throw new Error(data?.error || 'Template audit failed.');
 
@@ -135,9 +132,8 @@ export default function TemplateLibraryAuditCard() {
     runRef.current += 1;
     setRunning(false);
     setError(null);
-    const next = emptyState();
     localStorage.removeItem(STORAGE_KEY);
-    setState(next);
+    setState(emptyState());
   }
 
   function exportIssues() {
@@ -165,7 +161,7 @@ export default function TemplateLibraryAuditCard() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!running ? (
-            <button onClick={() => runAudit(state.scanned === 0)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500">
+            <button onClick={() => runAudit(state.scanned === 0 || state.completed)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500">
               <Play className="h-4 w-4" /> {state.scanned > 0 && !state.completed ? 'Resume Audit' : state.completed ? 'Run Again' : 'Start Audit'}
             </button>
           ) : (
@@ -220,7 +216,7 @@ export default function TemplateLibraryAuditCard() {
   );
 }
 
-function Metric({ label, value, icon }: { label: string; value: number | string; icon: React.ReactNode }) {
+function Metric({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
       <div className="flex items-center gap-2 text-[11px] text-gray-500">{icon}{label}</div>
