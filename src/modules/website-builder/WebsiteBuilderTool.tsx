@@ -8928,6 +8928,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         } else {
           cloudSaved = true;
           setCloudSyncFailed(false);
+          setCloudProjects((current) =>
+            current.map((project) =>
+              project.id === cloudProjectId
+                ? {
+                    ...project,
+                    title: siteName.trim() || 'My Website',
+                    content: projectData,
+                    status: publishedUrl ? 'completed' : 'draft',
+                    updated_at: String(projectData.updatedAt || new Date().toISOString()),
+                  }
+                : project
+            )
+          );
         }
       } else {
         const result = await createWebsiteProjectInCloud({
@@ -8953,12 +8966,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             cloudProjectId: result.data.id,
           });
           setProjectTeamAccess({ ...DEFAULT_EDITOR_PROJECT_ACCESS, ownerId: user.id });
+          setCloudProjects((current) => [
+            {
+              id: result.data.id,
+              user_id: user.id,
+              workspace_id: null,
+              title: siteName.trim() || 'My Website',
+              content: projectData,
+              status: publishedUrl ? 'completed' : 'draft',
+              updated_at: typeof result.data.updated_at === 'string'
+                ? result.data.updated_at
+                : String(projectData.updatedAt || new Date().toISOString()),
+            },
+            ...current.filter((project) => project.id !== result.data.id),
+          ]);
           cloudSaved = true;
           setCloudSyncFailed(false);
         }
       }
 
-      if (cloudSaved && saveIsCurrent()) await refreshCloudProjects();
       if (!saveIsCurrent()) return false;
       setCloudBusy(false);
     }
