@@ -47,6 +47,10 @@ const editorCommandAdaptersPath = resolve(root, 'src/modules/website-builder/cor
 const editorNativeOperationPath = resolve(root, 'src/modules/website-builder/core/editor-native-operation.ts');
 const editorModelPath = resolve(root, 'src/modules/website-builder/core/editor-model.ts');
 const editorSymbolCommandsPath = resolve(root, 'src/modules/website-builder/core/editor-symbol-commands.ts');
+const editorPayloadSafetyPath = resolve(root, 'src/modules/website-builder/core/editor-payload-safety.ts');
+const editorDesignCommandsPath = resolve(root, 'src/modules/website-builder/core/editor-design-commands.ts');
+const editorInspectorOperationPath = resolve(root, 'src/modules/website-builder/core/editor-inspector-operation.ts');
+const editorInspectorModelPath = resolve(root, 'src/modules/website-builder/core/editor-inspector-model.ts');
 
 const failures = [];
 const passes = [];
@@ -101,6 +105,10 @@ for (const [label, path] of [
   ['Native operation adapter exists', editorNativeOperationPath],
   ['Native editor model exists', editorModelPath],
   ['Native symbol commands exist', editorSymbolCommandsPath],
+  ['Native payload safety helper exists', editorPayloadSafetyPath],
+  ['Native design commands exist', editorDesignCommandsPath],
+  ['Native inspector operation helper exists', editorInspectorOperationPath],
+  ['Native inspector model exists', editorInspectorModelPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -148,6 +156,10 @@ const editorCommandAdapters = existsSync(editorCommandAdaptersPath) ? readFileSy
 const editorNativeOperation = existsSync(editorNativeOperationPath) ? readFileSync(editorNativeOperationPath, 'utf8') : '';
 const editorModel = existsSync(editorModelPath) ? readFileSync(editorModelPath, 'utf8') : '';
 const editorSymbolCommands = existsSync(editorSymbolCommandsPath) ? readFileSync(editorSymbolCommandsPath, 'utf8') : '';
+const editorPayloadSafety = existsSync(editorPayloadSafetyPath) ? readFileSync(editorPayloadSafetyPath, 'utf8') : '';
+const editorDesignCommands = existsSync(editorDesignCommandsPath) ? readFileSync(editorDesignCommandsPath, 'utf8') : '';
+const editorInspectorOperation = existsSync(editorInspectorOperationPath) ? readFileSync(editorInspectorOperationPath, 'utf8') : '';
+const editorInspectorModel = existsSync(editorInspectorModelPath) ? readFileSync(editorInspectorModelPath, 'utf8') : '';
 
 check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>>>)/.test(builder));
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
@@ -283,6 +295,14 @@ check('Invalid native operations do not mutate simulated reference state', edito
 check('Native position IDs fail safely on malformed runtime values', editorOperationPolicy.includes('position target ID must be non-blank') && editorOperationPolicy.includes('hasValidId(anchor)'));
 check('Native container detach remains compatible while real container references stay strict', editorOperationPolicy.includes("operation.action === 'assign_element_container'") && editorOperationPolicy.includes("value === ''") && editorOperationPolicy.includes("operation.containerId !== ''"));
 check('Native adapter reference parsing rejects non-string runtime IDs safely', editorNativeOperation.includes("typeof value !== 'string'") && editorNativeOperation.includes('cannot contain surrounding whitespace'));
+check('Native payload safety rejects prototype-pollution and accessor keys', editorPayloadSafety.includes("'__proto__'") && editorPayloadSafety.includes("'prototype'") && editorPayloadSafety.includes("'constructor'") && editorPayloadSafety.includes('cannot use accessor properties'));
+check('Native payload safety rejects non-finite and non-JSON runtime values', editorPayloadSafety.includes('contains a non-finite number') && editorPayloadSafety.includes('unsupported bigint data') && editorPayloadSafety.includes('contains a circular reference'));
+check('Native payload safety bounds nesting collections and string volume', editorPayloadSafety.includes('maxDepth: 12') && editorPayloadSafety.includes('maxNodes: 5000') && editorPayloadSafety.includes('maxArrayLength: 500') && editorOperationPolicy.includes('aggregate string payload limit'));
+check('Native change contracts reject unsupported mutation keys', editorOperationPolicy.includes('CHANGE_KEYS_BY_ACTION') && editorOperationPolicy.includes('changes contains unsupported key') && editorOperationPolicy.includes('ELEMENT_STYLE_KEYS') && editorOperationPolicy.includes('SECTION_RESPONSIVE_KEYS'));
+check('Native runtime actions and sources are explicitly allowlisted', editorOperationPolicy.includes('VALID_NATIVE_ACTIONS') && editorOperationPolicy.includes('source must be manual, ai, or system'));
+check('Native command adapters sanitize payloads even without preflight', editorCommandAdapters.includes('safeEditorPayloadRecord') && editorCommandAdapters.includes('cloneSafeEditorPayload') && editorCommandAdapters.includes("'theme changes'") && editorCommandAdapters.includes("'container changes'"));
+check('Native restyle mutations sanitize changes before theme merge', editorDesignCommands.includes("safeEditorPayloadRecord(changes, 'restyle changes')") && editorDesignCommands.includes('cloneEditorValue(safeChanges)'));
+check('Inspector payload paths block prototype-pollution segments', editorInspectorOperation.includes('editorPayloadHasForbiddenKey(part)') && editorInspectorModel.includes('editorPayloadHasForbiddenKey(part)') && editorInspectorOperation.includes('parts.length > 4'));
 check('V2 native page growth respects billing while existing over-limit projects remain editable', builder.includes('const pageCountIncreased =') && builder.includes('candidate.pages.length >') && builder.includes('billingEntitlements.maxPages'));
 check('Reusable components stop safely at 50 instead of evicting linked symbols', builder.includes('if (symbols.length >= 50)') && builder.includes('setSymbols((current) => [symbol, ...current]);') && !builder.includes('setSymbols((current) => [symbol, ...current].slice(0, 50))'));
 check('Expanded V2 option groups stay in normal flow instead of overlapping', websiteBuilderV2Css.includes('Keep one scroll owner per side panel') && websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields') && websiteBuilderV2Css.includes('position: static') && !websiteBuilderV2Css.includes('.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body'));
