@@ -9175,7 +9175,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const rollbackBaseProjectData = buildProjectData();
     const rollbackIsCurrent = () =>
       publishOperationSequenceRef.current === rollbackSequence &&
-      projectLoadSequenceRef.current === rollbackLoadSequence;
+      projectLoadSequenceRef.current === rollbackLoadSequence &&
+      activeUserIdRef.current === rollbackUserId;
 
     setPublishBusy(true);
     setPublishError('');
@@ -9188,6 +9189,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const liveNames = new Set(manifest.map((item) => item.name));
       await removeStalePublishedWebsiteFiles(folder, liveNames);
 
+      if (!rollbackIsCurrent()) return;
+
       const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(rollbackUserId, rollbackProjectId);
       const nextPublishedUrl = buildPublishedSiteUrl(rollbackUserId, rollbackProjectId, 'index.html');
       if (!nextPublishedBaseUrl || !nextPublishedUrl) throw new Error('Could not build the live website URL.');
@@ -9197,13 +9200,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const canonicalVersionBase = legacyVersionUrl.replace(/\/index\.html(?:[?#].*)?$/i, '');
 
       for (const file of manifest) {
+        if (!rollbackIsCurrent()) return;
+
         const { data: blob, error: downloadError } = await downloadPublishedWebsiteFile(`${version.storage_prefix}/${file.name}`);
+        if (!rollbackIsCurrent()) return;
         if (downloadError || !blob) throw downloadError || new Error(`Could not restore ${file.name}`);
 
         let uploadBody: Blob = blob;
         const textual = /(?:text\/|application\/(?:json|xml))/i.test(file.contentType || blob.type || '') || /\.(?:html?|xml|txt|css|js|json)$/i.test(file.name);
         if (textual) {
           let text = await blob.text();
+          if (!rollbackIsCurrent()) return;
           if (legacyVersionBase && legacyVersionBase !== canonicalVersionBase) {
             text = text.split(legacyVersionBase).join(nextPublishedBaseUrl);
           }
@@ -9213,6 +9220,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           uploadBody = new Blob([text], { type: file.contentType || blob.type || 'text/plain; charset=utf-8' });
         }
 
+        if (!rollbackIsCurrent()) return;
+
         const { error: uploadError } = await uploadPublishedWebsiteBlob({
           path: `${folder}/${file.name}`,
           body: uploadBody,
@@ -9220,8 +9229,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           cacheControl: '0',
           upsert: true,
         });
+
+        if (!rollbackIsCurrent()) return;
         if (uploadError) throw uploadError;
       }
+
+      if (!rollbackIsCurrent()) return;
 
       const nextPublishedAt = new Date().toISOString();
       const projectData = {
@@ -9233,6 +9246,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: nextPublishedAt,
       };
 
+      if (!rollbackIsCurrent()) return;
+
       const { error: projectError } = await updateWebsiteProjectPublicationState({
         projectId: rollbackProjectId,
         userId: rollbackUserId,
@@ -9240,9 +9255,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         published: true,
         updatedAt: nextPublishedAt,
       });
-      if (projectError) throw projectError;
 
       if (!rollbackIsCurrent()) return;
+      if (projectError) throw projectError;
 
       setCloudProjects((current) =>
         current.map((project) =>
@@ -10260,7 +10275,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const publishTitle = siteName.trim() || 'My Website';
     const publishIsCurrent = () =>
       publishOperationSequenceRef.current === publishSequence &&
-      projectLoadSequenceRef.current === publishLoadSequence;
+      projectLoadSequenceRef.current === publishLoadSequence &&
+      activeUserIdRef.current === publishUserId;
 
     setPublishBusy(true);
     setPublishError('');
@@ -10423,6 +10439,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       await replacePublishedWebsiteFiles(folder, files);
 
+      if (!publishIsCurrent()) return;
+
       const versionId =
         typeof crypto !== 'undefined' &&
         'randomUUID' in crypto
@@ -10460,6 +10478,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         try {
           await archivePublishedWebsiteFiles(versionPrefix, files);
 
+          if (!publishIsCurrent()) return;
+
           const provisionalData = {
             ...publishBaseProjectData,
             publishedUrl:
@@ -10494,6 +10514,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             fileManifest: manifest,
           });
 
+          if (!publishIsCurrent()) return;
+
           if (versionError) {
             throw versionError;
           }
@@ -10515,8 +10537,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('Could not build the public website URL.');
       }
 
+      if (!publishIsCurrent()) return;
+
       const renderedRouteHealthy =
         await verifyPublishedRoute(nextPublishedUrl);
+
+      if (!publishIsCurrent()) return;
 
       if (!renderedRouteHealthy) {
         throw new Error(
@@ -10541,6 +10567,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           nextPublishedAt,
       };
 
+      if (!publishIsCurrent()) return;
+
       const {
         error: projectError,
       } = await updateWebsiteProjectPublicationState({
@@ -10550,6 +10578,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         published: true,
         updatedAt: nextPublishedAt,
       });
+
+      if (!publishIsCurrent()) return;
 
       if (projectError) {
         throw new Error(
@@ -10664,7 +10694,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const unpublishBaseProjectData = buildProjectData();
     const unpublishIsCurrent = () =>
       publishOperationSequenceRef.current === unpublishSequence &&
-      projectLoadSequenceRef.current === unpublishLoadSequence;
+      projectLoadSequenceRef.current === unpublishLoadSequence &&
+      activeUserIdRef.current === unpublishUserId;
 
     setPublishBusy(true);
     setPublishError('');
@@ -10672,6 +10703,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try {
       const folder = `${unpublishUserId}/${unpublishProjectId}`;
       await removePublishedWebsiteFiles(folder);
+
+      if (!unpublishIsCurrent()) return;
 
       const nextUpdatedAt = new Date().toISOString();
       const projectData = {
@@ -10683,6 +10716,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: nextUpdatedAt,
       };
 
+      if (!unpublishIsCurrent()) return;
+
       const { error: projectError } = await updateWebsiteProjectPublicationState({
         projectId: unpublishProjectId,
         userId: unpublishUserId,
@@ -10690,9 +10725,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         published: false,
         updatedAt: nextUpdatedAt,
       });
-      if (projectError) throw projectError;
 
       if (!unpublishIsCurrent()) return;
+      if (projectError) throw projectError;
 
       setCloudProjects((current) =>
         current.map((project) =>
