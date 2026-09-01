@@ -108,6 +108,7 @@ import {
 } from './core/editor-ai-operation-context';
 import {
   convertLegacyAIGlobalOperationToNative,
+  convertLegacyAIAddOperationToNative,
   convertLegacyAIPageOperationToNative,
   convertLegacyAIPageUpdateOperationToNative,
   convertLegacyAIStructuralOperationToNative,
@@ -8325,6 +8326,129 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return true;
       };
 
+      const applyAISectionScopedAddNativeOperation = (
+        operation: AIWebsitePatchOperation,
+        pageIndex: number,
+        sectionIndex: number,
+      ) => {
+        if (
+          operation.action !== 'add_container' &&
+          operation.action !== 'add_form_field'
+        ) {
+          return false;
+        }
+
+        const page = nextPages[pageIndex];
+        const section = page?.sections[sectionIndex];
+        if (!page || !section) {
+          return true;
+        }
+
+        if (operation.action === 'add_container') {
+          const containers =
+            section.containers || [];
+
+          if (containers.length >= 30) {
+            return true;
+          }
+
+          const assignElement =
+            operation.elementId
+              ? section.elements.find(
+                  (element) =>
+                    element.id ===
+                    operation.elementId,
+                )
+              : undefined;
+
+          const assignElementId =
+            assignElement &&
+            !assignElement.symbolId
+              ? assignElement.id
+              : undefined;
+
+          const nativeOperations =
+            convertLegacyAIAddOperationToNative(
+              operation,
+              {
+                pageId: page.id,
+                sectionId: section.id,
+                generatedId:
+                  `container-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                sectionColumns:
+                  sectionColumnCount(section.layout),
+                sectionIsStack:
+                  section.layout === 'stack',
+                existingContainerCount:
+                  containers.length,
+                assignElementId,
+              },
+            );
+
+          if (nativeOperations.length) {
+            applyAIWorkingNativeOperations(
+              nativeOperations,
+              operation.action,
+            );
+          }
+
+          return true;
+        }
+
+        if (
+          section.type !== 'contact' ||
+          !Array.isArray(section.formFields)
+        ) {
+          return false;
+        }
+
+        if (
+          !operation.formFieldType ||
+          !allowedFormFieldTypes.has(
+            operation.formFieldType,
+          )
+        ) {
+          return true;
+        }
+
+        const fields =
+          section.formFields;
+
+        if (fields.length >= 20) {
+          return true;
+        }
+
+        const nativeOperations =
+          convertLegacyAIAddOperationToNative(
+            operation,
+            {
+              pageId: page.id,
+              sectionId: section.id,
+              generatedId:
+                `field-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              existingFormFieldNames:
+                fields.map(
+                  (field) =>
+                    field.name,
+                ),
+              existingFormFieldIds:
+                fields.map(
+                  (field) =>
+                    field.id,
+                ),
+            },
+          );
+
+        if (nativeOperations.length) {
+          applyAIWorkingNativeOperations(
+            nativeOperations,
+            operation.action,
+          );
+        }
+
+        return true;
+      };
+
       const cloneElementForAI = (element: WebsiteElement, containerIdMap?: Map<string, string>): WebsiteElement => ({
         ...element,
         id: `${element.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -8786,49 +8910,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           continue;
         }
 
-        if (operation.action === 'add_container') {
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const existingContainers = targetSection.containers || [];
-          if (existingContainers.length >= 30) continue;
-
-          const changes = operation.changes || {};
-          const columns = sectionColumnCount(targetSection.layout);
-          const requestedColumn = finiteStyleNumber(changes.containerColumn, 1, columns);
-          const requestedSpan = finiteStyleNumber(changes.containerColumnSpan, 1, columns);
-          const container: WebsiteElementContainer = {
-            id: `container-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: typeof changes.containerName === 'string' && changes.containerName.trim()
-              ? changes.containerName.trim().slice(0, 80)
-              : `AI Container ${existingContainers.length + 1}`,
-            layout: changes.containerLayout === 'row' ? 'row' : 'stack',
-            gap: finiteStyleNumber(changes.containerGap, 0, 80) ?? 16,
-            align: changes.containerAlign === 'start' || changes.containerAlign === 'end' || changes.containerAlign === 'stretch'
-              ? changes.containerAlign
-              : 'center',
-            backgroundColor: validHex(changes.containerBackgroundColor) ? changes.containerBackgroundColor! : '#ffffff08',
-            padding: finiteStyleNumber(changes.containerPadding, 0, 120) ?? 20,
-            borderRadius: finiteStyleNumber(changes.containerBorderRadius, 0, 120) ?? 16,
-            borderWidth: finiteStyleNumber(changes.containerBorderWidth, 0, 16) ?? 1,
-            borderColor: validHex(changes.containerBorderColor) ? changes.containerBorderColor! : '#ffffff18',
-            shadow: changes.containerShadow && allowedShadows.has(changes.containerShadow) ? changes.containerShadow : 'none',
-            layoutColumn: targetSection.layout === 'stack' ? undefined : Math.round(requestedColumn ?? 1),
-            columnSpan: Math.round(requestedSpan ?? 1),
-          };
-
-          const nextElements = targetSection.elements.map((element) =>
-            operation.elementId && element.id === operation.elementId && !element.symbolId
-              ? { ...element, containerId: container.id }
-              : element
-          );
-
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            containers: [...existingContainers, container],
-            elements: nextElements,
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
+        if (
+          applyAISectionScopedAddNativeOperation(
+            operation,
+            pageIndex,
+            sectionIndex,
+          )
+        ) {
           continue;
         }
 
