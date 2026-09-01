@@ -6773,12 +6773,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!prompt || aiBusy) return;
 
     const operationSequence = ++aiOperationSequenceRef.current;
-    const operationLoadSequence = projectLoadSequenceRef.current;
     const operationUserId = user?.id ?? null;
-    const operationIsCurrent = () =>
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
       aiOperationSequenceRef.current === operationSequence &&
-      projectLoadSequenceRef.current === operationLoadSequence &&
       activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, false);
 
     const requestId = `ai-request-${Date.now()}`;
     pushProjectCheckpoint(agentMode ? 'Before Tayar Agent build' : 'Before AI build');
@@ -6798,7 +6800,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { temperature: 0.65, maxTokens: 9000 },
       );
 
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
 
       let generated = response.json;
       if (!generated && response.content) {
@@ -6898,7 +6900,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         for (const target of visualTargets) {
           try {
             const generatedImage = await requestGeneratedImage(target.prompt);
-            if (!operationIsCurrent()) return;
+            if (!operationCanApply()) return;
             const page = nextPages[target.pageIndex];
             const section = page?.sections[target.sectionIndex];
             if (!section) continue;
@@ -6926,7 +6928,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             );
             agentImagesGenerated += 1;
           } catch {
-            if (!operationIsCurrent()) return;
+            if (!operationCanApply()) return;
             // Agent image generation is best-effort; the site remains fully editable if the image provider is unavailable.
           }
         }
@@ -6936,7 +6938,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const totalSections = nextPages.reduce((sum, page) => sum + page.sections.length, 0);
       const summary = generated.summary?.trim() || `${nextPages.length} page website with ${totalSections} structured sections.`;
 
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
 
       setAiPlan({
         summary,
@@ -7012,7 +7014,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         },
       ].slice(-12));
     } catch (error) {
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
       const message = error instanceof Error ? error.message : 'AI generation failed.';
       setAiError(message);
       setAiStage('error');
@@ -7021,7 +7023,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { id: `ai-error-${Date.now()}`, role: 'assistant' as const, content: message },
       ].slice(-12));
     } finally {
-      if (operationIsCurrent()) setAiBusy(false);
+      if (operationIsLatest()) {
+        setAiBusy(false);
+        if (!operationCanApply()) setAiStage('ready');
+      }
     }
   }
 
@@ -7167,6 +7172,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function undoLastAIChange() {
     if (!aiUndoSnapshot || aiBusy) return;
+
+    const undoContext = aiUndoContextRef.current;
+    if (
+      !undoContext ||
+      !aiProjectIdentityIsCurrent(undoContext)
+    ) {
+      aiUndoContextRef.current = null;
+      setAiUndoSnapshot(null);
+      return;
+    }
+
     const snapshot = aiUndoSnapshot;
     const restoredPages = JSON.parse(JSON.stringify(snapshot.pages)) as WebsitePage[];
     const restoredActive = restoredPages.find((page) => page.id === snapshot.activePageId) || restoredPages[0];
@@ -7182,6 +7198,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setTheme(snapshot.theme);
     setHeaderConfig(snapshot.headerConfig);
     setSymbols(JSON.parse(JSON.stringify(snapshot.symbols)) as WebsiteSymbol[]);
+    aiUndoContextRef.current = null;
     setAiUndoSnapshot(null);
     setAiStage('ready');
     setSaved(false);
@@ -7196,12 +7213,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!prompt || aiBusy) return;
 
     const operationSequence = ++aiOperationSequenceRef.current;
-    const operationLoadSequence = projectLoadSequenceRef.current;
     const operationUserId = user?.id ?? null;
-    const operationIsCurrent = () =>
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
       aiOperationSequenceRef.current === operationSequence &&
-      projectLoadSequenceRef.current === operationLoadSequence &&
       activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, true);
 
     const requestId = `ai-edit-${Date.now()}`;
     remember(sections, `AI change: ${prompt.slice(0, 60)}`);
@@ -7240,7 +7259,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { temperature: 0.2, maxTokens: 3500 },
       );
 
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
 
       let rawAgentPlan = planResponse.json as AIWebsiteAgentPlan | null;
       if (!rawAgentPlan && planResponse.content) {
@@ -7302,7 +7321,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { temperature: 0.25, maxTokens: 12000 },
       );
 
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
 
       let patch = response.json;
       if (!patch && response.content) {
@@ -8770,6 +8789,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const imagePrompt = operation.prompt?.trim() || targetSection.imagePrompt?.trim() || `${targetSection.title}. Professional website image for ${siteName}.`;
           try {
             const generatedImage = await requestGeneratedImage(imagePrompt);
+            if (!operationCanApply()) return;
             const placement = operation.placement || (targetSection.type === 'hero' ? 'section_background' : 'section_image');
             if (placement === 'section_background') {
               sectionList[sectionIndex] = {
@@ -9014,7 +9034,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           { temperature: 0.1, maxTokens: 3200 },
         );
 
-        if (!operationIsCurrent()) return;
+        if (!operationCanApply()) return;
 
         let rawReview = reviewResponse.json as AIWebsiteAgentReview | null;
         if (!rawReview && reviewResponse.content) {
@@ -9052,7 +9072,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         // Agent review is advisory. Deterministic project integrity remains the blocking safety gate.
       }
 
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
 
       const integrityErrors = validateAIProjectIntegrity(nextPages, nextHomePageId, nextSymbols);
       if (integrityErrors.length) {
@@ -9060,7 +9080,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
+      aiUndoContextRef.current = operationContext;
       setAiUndoSnapshot(snapshot);
       setPages(nextPages);
       setSections(finalActive?.sections || []);
@@ -9098,6 +9119,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setInspectorOpen(true);
       setSaved(false);
       setAiPrompt('');
+      aiQualityReviewContextRef.current = null;
       setAiQualityReview(null);
       setAiStage('ready');
       pushProjectCheckpoint(`After AI change · ${prompt.slice(0, 60)}`, {
@@ -9133,7 +9155,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         },
       ].slice(-12));
     } catch (error) {
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
       const message = error instanceof Error ? error.message : 'AI edit failed.';
       setAiError(message);
       setAiStage('error');
@@ -9142,7 +9164,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { id: `ai-patch-error-${Date.now()}`, role: 'assistant' as const, content: message },
       ].slice(-12));
     } finally {
-      if (operationIsCurrent()) setAiBusy(false);
+      if (operationIsLatest()) {
+        setAiBusy(false);
+        if (!operationCanApply()) setAiStage('ready');
+      }
     }
   }
 
@@ -9150,12 +9175,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!selectedSection || aiBusy) return;
 
     const operationSequence = ++aiOperationSequenceRef.current;
-    const operationLoadSequence = projectLoadSequenceRef.current;
     const operationUserId = user?.id ?? null;
-    const operationIsCurrent = () =>
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
       aiOperationSequenceRef.current === operationSequence &&
-      projectLoadSequenceRef.current === operationLoadSequence &&
       activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, true);
     const targetSection = selectedSection;
     const targetElementId = selectedElement?.type === 'image' ? selectedElement.id : null;
     const existingImageId = targetElementId
@@ -9171,7 +9198,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         targetSection.imagePrompt || targetSection.title || `Professional ${targetSection.type} website image`,
       );
 
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
 
       remember(sections);
 
@@ -9234,10 +9261,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { id: `ai-image-${Date.now()}`, role: 'assistant' as const, content: 'Generated the image, saved it to Media Library and applied it to the selected section.' },
       ].slice(-12));
     } catch (error) {
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
       setAiError(error instanceof Error ? error.message : 'Image generation failed.');
     } finally {
-      if (operationIsCurrent()) setAiBusy(false);
+      if (operationIsLatest()) setAiBusy(false);
     }
   }
 
@@ -9245,12 +9272,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!selectedSection || aiBusy) return;
 
     const operationSequence = ++aiOperationSequenceRef.current;
-    const operationLoadSequence = projectLoadSequenceRef.current;
     const operationUserId = user?.id ?? null;
-    const operationIsCurrent = () =>
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
       aiOperationSequenceRef.current === operationSequence &&
-      projectLoadSequenceRef.current === operationLoadSequence &&
       activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, true);
     const targetSection = selectedSection;
 
     setAiBusy(true);
@@ -9271,7 +9300,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { temperature: 0.8, maxTokens: 800 },
       );
 
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
 
       if (!response.json?.prompt) {
         throw new Error('AI could not create image prompt.');
@@ -9284,14 +9313,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ));
       setSaved(false);
     } catch (error) {
-      if (!operationIsCurrent()) return;
+      if (!operationCanApply()) return;
       setAiError(
         error instanceof Error
           ? error.message
           : 'Image prompt generation failed.'
       );
     } finally {
-      if (operationIsCurrent()) setAiBusy(false);
+      if (operationIsLatest()) setAiBusy(false);
     }
   }
 
@@ -9299,12 +9328,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (aiQualityBusy || aiBusy) return aiQualityReview;
 
     const operationSequence = ++aiQualityOperationSequenceRef.current;
-    const operationLoadSequence = projectLoadSequenceRef.current;
     const operationUserId = user?.id ?? null;
-    const operationIsCurrent = () =>
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
       aiQualityOperationSequenceRef.current === operationSequence &&
-      projectLoadSequenceRef.current === operationLoadSequence &&
       activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, false);
     const currentSite = buildAIEditableSnapshot();
     const qualityAudit = {
       score: siteAudit.score,
@@ -9333,7 +9364,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { temperature: 0.25, maxTokens: 5000 },
       );
 
-      if (!operationIsCurrent()) return null;
+      if (!operationCanApply()) return null;
 
       let review = response.json;
       if (!review && response.content) {
@@ -9355,13 +9386,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         fixPrompt: String(review.fixPrompt || '').slice(0, 5000),
       };
 
-      if (!operationIsCurrent()) return null;
+      if (!operationCanApply()) return null;
+      aiQualityReviewContextRef.current = operationContext;
       setAiQualityReview(normalized);
       return normalized;
     } catch (error) {
-      if (!operationIsCurrent()) return null;
+      if (!operationCanApply()) return null;
       const message = error instanceof Error ? error.message : 'AI quality check failed.';
       setAiError(message);
+      aiQualityReviewContextRef.current = operationContext;
       setAiQualityReview({
         score: qualityAudit.score,
         summary: 'Automated builder audit is available, but the AI review could not complete.',
@@ -9373,12 +9406,26 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       });
       return null;
     } finally {
-      if (operationIsCurrent()) setAiQualityBusy(false);
+      if (operationIsLatest()) setAiQualityBusy(false);
     }
   }
 
   async function fixAIQualityIssues() {
     if (!aiQualityReview?.fixPrompt || aiBusy) return;
+
+    const reviewContext = aiQualityReviewContextRef.current;
+    if (
+      !reviewContext ||
+      !aiEditorContextIsCurrent(reviewContext, false)
+    ) {
+      aiQualityReviewContextRef.current = null;
+      setAiQualityReview(null);
+      setAiError(
+        'The website changed after this quality review. Run the quality check again before applying fixes.',
+      );
+      return;
+    }
+
     setAiQualityOpen(false);
     await applyAIChange(aiQualityReview.fixPrompt);
   }
