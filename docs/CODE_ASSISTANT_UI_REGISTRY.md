@@ -108,3 +108,13 @@ The internal branch is checked on GitHub with TypeScript and the dedicated Codin
 - Coding Assistance extracts a bounded style profile from the selected project: recurring colors, CSS variables, font families, border radii, spacing values, Tailwind-style utility usage, dark-mode signals, and representative class patterns.
 - The compact style profile is included in project-aware AI adaptation, variant generation, and patch planning.
 - The UI surfaces the detected style profile so users can see what Tayar is matching instead of relying on hidden heuristics.
+
+
+## Isolated live preview
+
+- Live execution is opt-in per selected component; schematic previews remain the default.
+- The first version deliberately supports only self-contained single-file React components without external/registry dependencies.
+- Preview code runs inside an iframe with `sandbox="allow-scripts"` and no same-origin permission.
+- A restrictive CSP blocks component network connections, remote images/media, framing, forms, object embeds, and base URL changes; only pinned React/ReactDOM/Babel plus the Tailwind browser helper may load as preview infrastructure.
+- Preflight rejects non-React imports and direct network/storage/worker/eval-style runtime APIs before a preview document is created.
+- Unsupported or multi-file/dependency-heavy components fall back to the safe schematic preview and project-aware AI adaptation.

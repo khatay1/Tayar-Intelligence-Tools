@@ -1,7 +1,7 @@
 import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import {
   Boxes, Check, Code2, Copy, ExternalLink, FileDiff, FolderCog, Heart, LayoutTemplate, Loader2, Package,
-  RotateCcw, Save, Search, ShieldCheck, Sparkles, Upload, Zap,
+  Eye, RotateCcw, Save, Search, ShieldCheck, Sparkles, Upload, Zap,
 } from 'lucide-react';
 import { AIService } from '@/lib/ai/service';
 import { componentRegistry } from './component-registry';
@@ -15,6 +15,7 @@ import { resolveRegistryDependencies } from './registry-dependencies';
 import { AIVariantOption, validateVariantOptions } from './variant-plan';
 import { importPrivateComponentFiles, isAnimatedComponent } from './private-import';
 import { summarizeStyleProfile } from './project-style';
+import { buildIsolatedLivePreview } from './live-preview';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -150,6 +151,9 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const [loadedCode, setLoadedCode] = useState<Record<string, string>>({});
   const [codeLoadingId, setCodeLoadingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [livePreviewDoc, setLivePreviewDoc] = useState<string | null>(null);
+  const [livePreviewReason, setLivePreviewReason] = useState<string | null>(null);
+  const [livePreviewLoading, setLivePreviewLoading] = useState(false);
   const [aiInstruction, setAiInstruction] = useState('');
   const [aiResult, setAiResult] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
@@ -328,6 +332,8 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
 
   useEffect(() => {
     setVariants([]);
+    setLivePreviewDoc(null);
+    setLivePreviewReason(null);
   }, [selected?.id]);
 
   const toggleConstraint = (id: AIConstraintId) => {
@@ -416,6 +422,27 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       code: chunks.join('\n\n'),
       resolution,
     };
+  };
+
+  const onRunLivePreview = async (item: UIComponentRecord) => {
+    if (livePreviewLoading) return;
+    setLivePreviewLoading(true);
+    setLivePreviewReason(null);
+    try {
+      const code = await ensureCode(item);
+      const result = buildIsolatedLivePreview(item, code);
+      if (!result.supported || !result.srcDoc) {
+        setLivePreviewDoc(null);
+        setLivePreviewReason(result.reason || 'Live preview is not available for this component.');
+        return;
+      }
+      setLivePreviewDoc(result.srcDoc);
+    } catch (error) {
+      setLivePreviewDoc(null);
+      setLivePreviewReason(error instanceof Error ? error.message : 'Unable to prepare live preview.');
+    } finally {
+      setLivePreviewLoading(false);
+    }
   };
 
   const onCopyCode = async (item: UIComponentRecord) => {
@@ -739,7 +766,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
             {actionError && <div className="mx-4 mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">{actionError}</div>}
 
             <div className="p-4 sm:p-5">
-              {tab === 'preview' && <div><Preview item={selected} /><p className="mt-2 text-[11px] opacity-45">Safe schematic preview. Third-party component code is never executed inside the registry browser.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 p-3"><Boxes className="h-4 w-4 text-violet-400" /><div className="mt-2 text-xs font-semibold">Category</div><div className="mt-1 text-xs opacity-50 capitalize">{selected.category}</div></div><div className="rounded-xl border border-white/10 p-3"><Package className="h-4 w-4 text-cyan-400" /><div className="mt-2 text-xs font-semibold">Dependencies</div><div className="mt-1 text-xs opacity-50">{selectedRegistryResolution.npmDependencies.length ? selectedRegistryResolution.npmDependencies.join(', ') : 'None'}</div>{projectContext && selectedRegistryResolution.npmDependencies.length > 0 && <div className="mt-2 space-y-2"><div className={`text-[10px] ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? `${missingDependencies.length} missing in active project` : 'All npm dependencies found'}</div>{installCommand && <button onClick={() => void copyText(installCommand)} className="inline-flex items-center gap-1 rounded-lg border border-amber-400/20 px-2 py-1 text-[10px] text-amber-300"><Copy className="h-3 w-3" /> Copy {projectContext.packageManager} install command</button>}</div>}</div><div className="rounded-xl border border-white/10 p-3"><Sparkles className="h-4 w-4 text-amber-400" /><div className="mt-2 text-xs font-semibold">AI ready</div><div className="mt-1 text-xs opacity-50">{projectContext ? 'Project-aware adaptation context' : 'Source-aware adaptation payload'}</div></div></div>{similarItems.length > 0 && <div className="mt-3 rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Similar components</div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{similarItems.map((item) => <button key={item.id} onClick={() => { setSelectedId(item.id); setTab('preview'); setActionError(null); }} className={`rounded-lg border p-3 text-left transition ${darkMode ? 'border-white/10 bg-black/10 hover:border-violet-400/30' : 'border-gray-200 bg-white hover:border-violet-300'}`}><div className="truncate text-xs font-semibold">{item.name}</div><div className="mt-1 text-[10px] opacity-45">{getRegistrySource(item.sourceId)?.name || item.sourceId} · {item.kind || 'component'}</div></button>)}</div></div>}{projectContext && <div className="mt-3 rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><FolderCog className="h-4 w-4 text-cyan-400" /> Active project compatibility</div><div className="mt-3 grid gap-2 sm:grid-cols-3"><div><div className="text-[10px] uppercase tracking-wider opacity-40">Framework</div><div className="mt-1 text-xs">{projectContext.framework} · {projectContext.packageManager}</div></div><div className="sm:col-span-3"><div className="text-[10px] uppercase tracking-wider opacity-40">Detected project style</div><div className="mt-2 flex flex-wrap gap-1.5">{projectStyleSummary.length ? projectStyleSummary.map((entry) => <span key={entry} className="rounded-full border border-cyan-400/15 bg-cyan-500/5 px-2 py-1 text-[10px] text-cyan-200/80">{entry}</span>) : <span className="text-[10px] opacity-45">No strong style tokens detected yet.</span>}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Context files</div><div className="mt-1 text-xs">{projectContext.files.length}/{projectContext.totalCandidateFiles}{projectContext.truncated ? ' bounded' : ''}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Missing npm deps</div><div className={`mt-1 text-xs ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? missingDependencies.map((entry) => entry.name).join(', ') : 'None'}</div></div></div></div>}</div>}
+              {tab === 'preview' && <div>{livePreviewDoc ? <div className="overflow-hidden rounded-2xl border border-emerald-400/20 bg-black"><div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2 text-[10px]"><span className="text-emerald-300">Isolated live preview</span><button onClick={() => { setLivePreviewDoc(null); setLivePreviewReason(null); }} className="opacity-60 hover:opacity-100">Stop preview</button></div><iframe title={`Live preview: ${selected.name}`} sandbox="allow-scripts" srcDoc={livePreviewDoc} className="h-[360px] w-full border-0 bg-[#090917]" /></div> : <Preview item={selected} />}<div className="mt-2 flex flex-wrap items-center gap-2"><p className="text-[11px] opacity-45">{livePreviewDoc ? 'Sandboxed iframe: no same-origin access, component network/storage APIs blocked by preflight/CSP.' : 'Safe schematic preview. Live execution never starts automatically.'}</p>{!livePreviewDoc && <button disabled={livePreviewLoading} onClick={() => void onRunLivePreview(selected)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-300 disabled:opacity-40">{livePreviewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />} Run isolated live preview</button>}</div>{livePreviewReason && <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-[10px] leading-4 text-amber-300">{livePreviewReason}</div>}<div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 p-3"><Boxes className="h-4 w-4 text-violet-400" /><div className="mt-2 text-xs font-semibold">Category</div><div className="mt-1 text-xs opacity-50 capitalize">{selected.category}</div></div><div className="rounded-xl border border-white/10 p-3"><Package className="h-4 w-4 text-cyan-400" /><div className="mt-2 text-xs font-semibold">Dependencies</div><div className="mt-1 text-xs opacity-50">{selectedRegistryResolution.npmDependencies.length ? selectedRegistryResolution.npmDependencies.join(', ') : 'None'}</div>{projectContext && selectedRegistryResolution.npmDependencies.length > 0 && <div className="mt-2 space-y-2"><div className={`text-[10px] ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? `${missingDependencies.length} missing in active project` : 'All npm dependencies found'}</div>{installCommand && <button onClick={() => void copyText(installCommand)} className="inline-flex items-center gap-1 rounded-lg border border-amber-400/20 px-2 py-1 text-[10px] text-amber-300"><Copy className="h-3 w-3" /> Copy {projectContext.packageManager} install command</button>}</div>}</div><div className="rounded-xl border border-white/10 p-3"><Sparkles className="h-4 w-4 text-amber-400" /><div className="mt-2 text-xs font-semibold">AI ready</div><div className="mt-1 text-xs opacity-50">{projectContext ? 'Project-aware adaptation context' : 'Source-aware adaptation payload'}</div></div></div>{similarItems.length > 0 && <div className="mt-3 rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Similar components</div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{similarItems.map((item) => <button key={item.id} onClick={() => { setSelectedId(item.id); setTab('preview'); setActionError(null); }} className={`rounded-lg border p-3 text-left transition ${darkMode ? 'border-white/10 bg-black/10 hover:border-violet-400/30' : 'border-gray-200 bg-white hover:border-violet-300'}`}><div className="truncate text-xs font-semibold">{item.name}</div><div className="mt-1 text-[10px] opacity-45">{getRegistrySource(item.sourceId)?.name || item.sourceId} · {item.kind || 'component'}</div></button>)}</div></div>}{projectContext && <div className="mt-3 rounded-xl border border-cyan-500/15 bg-cyan-500/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><FolderCog className="h-4 w-4 text-cyan-400" /> Active project compatibility</div><div className="mt-3 grid gap-2 sm:grid-cols-3"><div><div className="text-[10px] uppercase tracking-wider opacity-40">Framework</div><div className="mt-1 text-xs">{projectContext.framework} · {projectContext.packageManager}</div></div><div className="sm:col-span-3"><div className="text-[10px] uppercase tracking-wider opacity-40">Detected project style</div><div className="mt-2 flex flex-wrap gap-1.5">{projectStyleSummary.length ? projectStyleSummary.map((entry) => <span key={entry} className="rounded-full border border-cyan-400/15 bg-cyan-500/5 px-2 py-1 text-[10px] text-cyan-200/80">{entry}</span>) : <span className="text-[10px] opacity-45">No strong style tokens detected yet.</span>}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Context files</div><div className="mt-1 text-xs">{projectContext.files.length}/{projectContext.totalCandidateFiles}{projectContext.truncated ? ' bounded' : ''}</div></div><div><div className="text-[10px] uppercase tracking-wider opacity-40">Missing npm deps</div><div className={`mt-1 text-xs ${missingDependencies.length ? 'text-amber-300' : 'text-emerald-400'}`}>{missingDependencies.length ? missingDependencies.map((entry) => entry.name).join(', ') : 'None'}</div></div></div></div>}</div>}
               {tab === 'code' && (selectedCode
                 ? <pre className="max-h-[520px] overflow-auto rounded-xl bg-black/40 p-4 text-xs leading-6 text-gray-300"><code>{selectedCode}</code></pre>
                 : <div className="rounded-xl border border-white/10 p-6 text-center"><Code2 className="mx-auto h-8 w-8 text-violet-400" /><div className="mt-3 text-sm font-semibold">Source code loads on demand</div><p className="mx-auto mt-2 max-w-md text-xs leading-5 opacity-50">The component files and upstream MIT license are fetched only when needed. The license notice is prepended to copied source.</p><button disabled={codeLoadingId === selected.id} onClick={() => void ensureCode(selected)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{codeLoadingId === selected.id && <Loader2 className="h-4 w-4 animate-spin" />} Load source code</button></div>
