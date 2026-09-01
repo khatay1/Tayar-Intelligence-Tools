@@ -3424,6 +3424,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const saveAbortControllerRef = useRef<AbortController | null>(null);
   const newProjectIntentRef = useRef(false);
   const projectLoadSequenceRef = useRef(0);
+  const cloudProjectsRefreshSequenceRef = useRef(0);
+  const cloudProjectsRefreshAbortControllerRef = useRef<AbortController | null>(null);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
 
   const cancelPendingProjectPersistence = useCallback(() => {
@@ -3668,30 +3670,61 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   const refreshCloudProjects = useCallback(async () => {
+    cloudProjectsRefreshSequenceRef.current += 1;
+    const refreshSequence = cloudProjectsRefreshSequenceRef.current;
+
+    if (cloudProjectsRefreshAbortControllerRef.current) {
+      cloudProjectsRefreshAbortControllerRef.current.abort();
+      cloudProjectsRefreshAbortControllerRef.current = null;
+    }
+
     if (!user) {
       cancelPendingProjectPersistence();
       projectLoadSequenceRef.current += 1;
       setCloudProjects([]);
       setCloudProjectId(null);
-      setCloudProjectsLoaded(true);
-      return;
-    }
-
-    setCloudProjectsLoaded(false);
-    setCloudBusy(true);
-    setCloudError('');
-    const { data, error } = await listWebsiteProjectsInCloud();
-
-    if (error) {
-      setCloudError('Could not load cloud projects.');
+      setCloudError('');
       setCloudBusy(false);
       setCloudProjectsLoaded(true);
       return;
     }
 
-    setCloudProjects((data || []) as CloudWebsiteProject[]);
-    setCloudBusy(false);
-    setCloudProjectsLoaded(true);
+    const refreshController = new AbortController();
+    cloudProjectsRefreshAbortControllerRef.current = refreshController;
+
+    const refreshIsCurrent = () =>
+      !refreshController.signal.aborted &&
+      cloudProjectsRefreshSequenceRef.current === refreshSequence &&
+      cloudProjectsRefreshAbortControllerRef.current === refreshController;
+
+    setCloudProjectsLoaded(false);
+    setCloudBusy(true);
+    setCloudError('');
+
+    try {
+      const { data, error } = await listWebsiteProjectsInCloud(refreshController.signal);
+
+      if (!refreshIsCurrent()) return;
+
+      if (error) {
+        setCloudError('Could not load cloud projects.');
+        return;
+      }
+
+      setCloudProjects((data || []) as CloudWebsiteProject[]);
+    } catch (error) {
+      if (!refreshIsCurrent()) return;
+      const message = error instanceof Error ? error.message : '';
+      if (!/abort|cancel/i.test(message)) {
+        setCloudError('Could not load cloud projects.');
+      }
+    } finally {
+      if (refreshIsCurrent()) {
+        cloudProjectsRefreshAbortControllerRef.current = null;
+        setCloudBusy(false);
+        setCloudProjectsLoaded(true);
+      }
+    }
   }, [user, cancelPendingProjectPersistence]);
 
   const loadLocalReusableSections = useCallback(() => {
