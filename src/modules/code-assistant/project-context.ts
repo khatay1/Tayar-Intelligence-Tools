@@ -19,6 +19,8 @@ export interface CodeProjectContext {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
   files: CodeProjectFile[];
+  auditFiles: CodeProjectFile[];
+  auditTruncated: boolean;
   packageJsonFile: { content: string; complete: boolean } | null;
   filePaths: string[];
   totalCandidateFiles: number;
@@ -52,6 +54,9 @@ export interface DependencyCheck {
 const MAX_CONTEXT_FILES = 12;
 const MAX_FILE_CHARS = 4_000;
 const MAX_TOTAL_CHARS = 8_000;
+const MAX_AUDIT_FILES = 100;
+const MAX_AUDIT_FILE_CHARS = 12_000;
+const MAX_AUDIT_TOTAL_CHARS = 600_000;
 const SAFE_TEXT_EXTENSION = /\.(?:[cm]?[jt]sx?|css|scss|sass|less|html?|json|mdx?|yaml|yml|toml|txt)$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -240,6 +245,39 @@ function boundedFiles(files: Array<{ path: string; content: string }>): { files:
   return { files: output, truncated };
 }
 
+
+function boundedAuditFiles(files: Array<{ path: string; content: string }>): { files: CodeProjectFile[]; truncated: boolean } {
+  let totalChars = 0;
+  let truncated = false;
+  const output: CodeProjectFile[] = [];
+  const prioritized = files
+    .filter((file) => /\.(?:[cm]?[jt]sx?|css|scss|sass|less|html?)$/i.test(file.path))
+    .sort((a, b) => {
+      const score = (path: string) =>
+        /(?:^|\/)components?\//.test(path) ? 0
+        : /(?:^|\/)(?:pages?|app)\//.test(path) ? 1
+        : /(?:^|\/)src\//.test(path) ? 2
+        : 3;
+      return score(a.path) - score(b.path) || a.path.localeCompare(b.path);
+    });
+  if (prioritized.length > MAX_AUDIT_FILES) truncated = true;
+
+  for (const file of prioritized.slice(0, MAX_AUDIT_FILES)) {
+    if (totalChars >= MAX_AUDIT_TOTAL_CHARS) {
+      truncated = true;
+      break;
+    }
+    const remaining = MAX_AUDIT_TOTAL_CHARS - totalChars;
+    const limit = Math.min(MAX_AUDIT_FILE_CHARS, remaining);
+    const content = file.content.slice(0, limit);
+    const fileTruncated = content.length < file.content.length;
+    if (fileTruncated) truncated = true;
+    output.push({ path: file.path, content, truncated: fileTruncated });
+    totalChars += content.length;
+  }
+  return { files: output, truncated };
+}
+
 export async function listCodeProjects(): Promise<CodeProjectOption[]> {
   const { data, error } = await supabase
     .from('projects')
@@ -277,6 +315,7 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
   const dependencies = stringRecord(packageJson.dependencies);
   const devDependencies = stringRecord(packageJson.devDependencies);
   const bounded = boundedFiles(allFiles);
+  const auditBounded = boundedAuditFiles(allFiles);
   const fileStore = inspectProjectFileStore(content);
   const rawAssistantState = isRecord(content._tayarCodeAssistant) ? content._tayarCodeAssistant : {};
   const rawLastApply = isRecord(rawAssistantState.lastApply) ? rawAssistantState.lastApply : null;
@@ -303,6 +342,8 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
     dependencies,
     devDependencies,
     files: bounded.files,
+    auditFiles: auditBounded.files,
+    auditTruncated: auditBounded.truncated,
     packageJsonFile: packageJsonSource ? { content: packageJsonSource.slice(0, 80_000), complete: packageJsonSource.length <= 80_000 } : null,
     filePaths: allFiles.map((file) => file.path).slice(0, 300),
     totalCandidateFiles: allFiles.length,
