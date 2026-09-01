@@ -114,6 +114,7 @@ export interface WebsiteBuilderV2BridgeProps {
   lastCheckedAt?: number;
   publishedUrl?: string;
   publishedAt?: number;
+  publishedOutdated?: boolean;
   liveVerification?: 'idle' | 'checking' | 'healthy' | 'failed';
 
   publishBlockers?: string[];
@@ -260,6 +261,7 @@ export function WebsiteBuilderV2Bridge({
   lastCheckedAt,
   publishedUrl,
   publishedAt,
+  publishedOutdated,
   liveVerification,
 
   publishBlockers = [],
@@ -528,6 +530,7 @@ export function WebsiteBuilderV2Bridge({
             lastCheckedAt,
             publishedUrl,
             publishedAt,
+            publishedOutdated,
             liveVerification,
           },
         ),
@@ -545,6 +548,7 @@ export function WebsiteBuilderV2Bridge({
         lastCheckedAt,
         publishedUrl,
         publishedAt,
+        publishedOutdated,
         liveVerification,
       ],
     );
