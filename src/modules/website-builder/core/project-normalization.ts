@@ -8,13 +8,13 @@ export interface NormalizedWebsiteProjectPage {
   slug: string;
   sections: WebsiteSection[];
   showInNavigation: boolean;
-  seoTitle: string;
-  seoDescription: string;
-  socialImage: string;
-  canonicalUrl: string;
-  language: Language;
-  translationKey: string;
-  noIndex: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  socialImage?: string;
+  canonicalUrl?: string;
+  language?: Language;
+  translationKey?: string;
+  noIndex?: boolean;
 }
 
 interface PersistedProjectPageInput {
@@ -73,13 +73,8 @@ function createLegacyHomePage(sections: WebsiteSection[]): NormalizedWebsiteProj
     slug: 'home',
     sections,
     showInNavigation: true,
-    seoTitle: '',
-    seoDescription: '',
-    socialImage: '',
-    canonicalUrl: '',
     language: 'en',
     translationKey: 'home',
-    noIndex: false,
   };
 }
 
