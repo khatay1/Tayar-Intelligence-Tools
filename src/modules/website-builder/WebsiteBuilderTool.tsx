@@ -6499,6 +6499,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             );
             agentImagesGenerated += 1;
           } catch {
+            if (!operationIsCurrent()) return;
             // Agent image generation is best-effort; the site remains fully editable if the image provider is unavailable.
           }
         }
@@ -8882,7 +8883,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       score: siteAudit.score,
       errors: [...siteAudit.errors],
       warnings: [...siteAudit.warnings],
-      diagnostics: [...qualityDiagnostics],
+      diagnostics: {
+        ...qualityDiagnostics,
+        warnings: [...qualityDiagnostics.warnings],
+      },
       deviceModes: ['desktop', 'tablet', 'mobile'],
     };
 
