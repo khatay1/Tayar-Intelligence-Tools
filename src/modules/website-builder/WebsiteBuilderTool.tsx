@@ -3420,6 +3420,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const lastSavedSnapshotRef = useRef('');
   const autosaveTimerRef = useRef<number | null>(null);
   const skipNextAutosaveRef = useRef(false);
+  const saveInFlightRef = useRef(false);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
 
   const getCurrentPages = useCallback(() => {
@@ -8792,6 +8793,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return false;
     }
 
+    if (saveInFlightRef.current) {
+      return false;
+    }
+
+    saveInFlightRef.current = true;
+
+    try {
     let historyEntries = projectHistory;
     if (createHistory) {
       const snapshot = buildProjectSnapshot();
@@ -8869,6 +8877,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (durableSaved) window.setTimeout(() => setSaved(false), 2000);
     }
     return durableSaved;
+    } finally {
+      saveInFlightRef.current = false;
+    }
   }
 
   saveProjectRef.current = saveProject;
