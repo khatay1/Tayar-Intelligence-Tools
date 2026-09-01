@@ -57,10 +57,14 @@ function safeLink(value: unknown, maxLength: number) {
   return undefined;
 }
 
-function safeMediaUrl(value: unknown, maxLength: number) {
+function safeMediaUrl(
+  value: unknown,
+  maxLength: number,
+  allowEmpty = true,
+) {
   const normalized = text(value, maxLength);
   if (normalized === undefined) return undefined;
-  if (!normalized) return '';
+  if (!normalized) return allowEmpty ? '' : undefined;
   if (
     (normalized.startsWith('/') && !normalized.startsWith('//')) ||
     /^https?:\/\//i.test(normalized)
@@ -137,7 +141,7 @@ function headerChanges(
   }
 
   assignDefined(result, 'brandText', text(changes.headerBrandText, 80));
-  assignDefined(result, 'logoUrl', safeMediaUrl(changes.headerLogoUrl, 1000));
+  assignDefined(result, 'logoUrl', safeMediaUrl(changes.headerLogoUrl, 1000, false));
   assignDefined(result, 'ctaLabel', text(changes.ctaLabel, 80));
   assignDefined(result, 'ctaHref', safeLink(changes.ctaHref, 1000));
 
