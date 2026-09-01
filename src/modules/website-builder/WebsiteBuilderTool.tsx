@@ -4060,11 +4060,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               : item
           )
         );
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(recoveredContent));
-        } catch {
-          // Cloud state remains authoritative.
-        }
+        saveLocalWebsiteProject(recoveredContent);
       }
     }
 
@@ -4075,7 +4071,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const project = cloudProjects.find((item) => item.id === projectId);
     if (!project) return;
     setCloudProjectId(project.id);
-    try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, project.id); } catch { /* ignore */ }
+    saveActiveWebsiteProjectId(project.id);
     await refreshProjectTeamAccess(project.id);
     setLeads([]);
     setLeadsOpen(false);
@@ -4087,7 +4083,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     skipNextAutosaveRef.current = true;
     applyProjectData(project.content);
     setSiteName(project.title || 'My Website');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(project.content));
+    saveLocalWebsiteProject(project.content);
     await recoverPublishedProjectState(project);
   }
 
@@ -8881,7 +8877,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishedAt(nextPublishedAt);
       setLastPublishedVersionId(version.id);
       setLastPublishedFingerprint(version.editor_fingerprint);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData));
+      saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
       await verifyLiveDeployment();
@@ -8970,11 +8966,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     const projectData = buildProjectData(historyEntries);
-    let localSaved = true;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData));
-    } catch {
-      localSaved = false;
+    const localSaved = saveLocalWebsiteProject(projectData);
+    if (!localSaved) {
       setCloudError('Local recovery storage is full. Cloud save will still be attempted.');
     }
 
@@ -9025,7 +9018,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setCloudSyncFailed(true);
         } else {
           setCloudProjectId(result.data.id);
-          try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, result.data.id); } catch { /* ignore */ }
+          saveActiveWebsiteProjectId(result.data.id);
           setProjectTeamAccess({ ...DEFAULT_EDITOR_PROJECT_ACCESS, ownerId: user.id });
           cloudSaved = true;
           setCloudSyncFailed(false);
@@ -9072,7 +9065,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     if (!user) {
       setCloudProjectId(null);
-      try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
+      saveActiveWebsiteProjectId(null);
       setProjectHistory([]);
       setHistory([]);
       setFuture([]);
@@ -9088,7 +9081,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishVersions([]);
       setReleaseHistoryOpen(false);
       setLiveVerification('idle');
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(duplicateContent));
+      saveLocalWebsiteProject(duplicateContent);
       lastSavedSnapshotRef.current = '';
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
@@ -9117,7 +9110,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     setCloudProjectId(data.id);
-    try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, data.id); } catch { /* ignore */ }
+    saveActiveWebsiteProjectId(data.id);
     setProjectHistory([]);
     setHistory([]);
     setFuture([]);
@@ -9135,7 +9128,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPublishVersions([]);
     setReleaseHistoryOpen(false);
     setLiveVerification('idle');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(duplicateContent));
+    saveLocalWebsiteProject(duplicateContent);
     lastSavedSnapshotRef.current = '';
     await refreshCloudProjects();
     setCloudBusy(false);
@@ -9192,13 +9185,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLiveVerification('idle');
     setPublishError('');
     setPreviewError('');
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(PREVIOUS_STORAGE_KEY);
-    localStorage.removeItem(V3_STORAGE_KEY);
-    localStorage.removeItem(V2_STORAGE_KEY);
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    clearLocalWebsiteProjects();
     setCloudProjectId(null);
-    try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
+    saveActiveWebsiteProjectId(null);
     setCloudError('');
     setProjectHistory([]);
     setHistory([]);
@@ -9360,9 +9349,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
         setCloudProjectId(null);
-        try { localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY); } catch { /* ignore */ }
+        saveActiveWebsiteProjectId(null);
         setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(importedProject));
+        saveLocalWebsiteProject(importedProject);
         lastSavedSnapshotRef.current = '';
         setAutoSaveStatus('saved');
         setOperationsOpen(false);
@@ -9766,7 +9755,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         publishProjectId = String((createResult.data as { id: string }).id);
         setCloudProjectId(publishProjectId);
-        try { localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, publishProjectId); } catch { /* ignore */ }
+        saveActiveWebsiteProjectId(publishProjectId);
         setProjectTeamAccess({
           ...DEFAULT_EDITOR_PROJECT_ACCESS,
           ownerId: user.id,
@@ -10165,12 +10154,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       setReleaseNote('');
 
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(
-          projectData,
-        ),
-      );
+      saveLocalWebsiteProject(projectData);
 
       lastSavedSnapshotRef.current = '';
 
@@ -10260,7 +10244,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLastPublishedVersionId(null);
       setLastPublishedFingerprint('');
       setLiveVerification('idle');
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData));
+      saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
       await refreshCloudProjects();
