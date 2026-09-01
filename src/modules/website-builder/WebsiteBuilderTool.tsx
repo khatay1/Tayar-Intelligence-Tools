@@ -3438,6 +3438,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   activeUserIdRef.current = user?.id ?? null;
 
+  useEffect(() => {
+    reusableOperationSequenceRef.current += 1;
+    mediaOperationSequenceRef.current += 1;
+    setReusableBusy(false);
+    setMediaLoading(false);
+    setMediaUploading(false);
+  }, [user?.id]);
+
   const cancelPendingProjectPersistence = useCallback(() => {
     if (autosaveTimerRef.current) {
       window.clearTimeout(autosaveTimerRef.current);
@@ -3835,6 +3843,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       activeUserIdRef.current === operationUserId;
 
     setReusableBusy(true);
+    let refreshStarted = false;
 
     try {
       const { error } = await saveReusableSectionInCloud(operationUserId, title, savedSection);
@@ -3846,9 +3855,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return;
       }
 
+      refreshStarted = true;
       await refreshReusableSections();
     } finally {
-      if (operationIsCurrent()) {
+      if (operationIsCurrent() && !refreshStarted) {
         setReusableBusy(false);
       }
     }
@@ -3883,6 +3893,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       activeUserIdRef.current === operationUserId;
 
     setReusableBusy(true);
+    let refreshStarted = false;
 
     try {
       const { error } = await deleteReusableSectionInCloud(operationUserId, template.cloudId);
@@ -3894,9 +3905,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return;
       }
 
+      refreshStarted = true;
       await refreshReusableSections();
     } finally {
-      if (operationIsCurrent()) {
+      if (operationIsCurrent() && !refreshStarted) {
         setReusableBusy(false);
       }
     }
