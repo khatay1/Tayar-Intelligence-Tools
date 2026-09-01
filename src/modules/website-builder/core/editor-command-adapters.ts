@@ -94,6 +94,14 @@ function insertAt<T>(items: T[], value: T, index: number) {
   items.splice(Math.max(0, Math.min(items.length, index)), 0, value);
 }
 
+function hasExplicitPosition(position: EditorInsertPosition) {
+  return (
+    position.beforeId !== undefined ||
+    position.afterId !== undefined ||
+    position.index !== undefined
+  );
+}
+
 function mergeWithoutIdentity<T extends { id: string }>(
   target: T,
   changes: Partial<T>,
@@ -627,7 +635,7 @@ export function commandDuplicatePage<P extends EditorProjectLike>(
     );
     const clone = cloneEditorPageIndependent(match.page, idFactory);
     mergeWithoutIdentity(clone, changes, ['sections']);
-    const index = Object.keys(position).length
+    const index = hasExplicitPosition(position)
       ? targetIndex(draft.pages, position)
       : match.index + 1;
     insertAt(draft.pages, clone, index);
@@ -650,7 +658,7 @@ export function commandDuplicateSection<P extends EditorProjectLike>(
     );
     const clone = cloneEditorSectionIndependent(match.section, idFactory);
     mergeWithoutIdentity(clone, changes, ['elements', 'containers', 'formFields']);
-    const index = Object.keys(position).length
+    const index = hasExplicitPosition(position)
       ? targetIndex(match.page.sections, position)
       : match.index + 1;
     insertAt(match.page.sections, clone, index);
@@ -679,7 +687,7 @@ export function commandDuplicateElement<P extends EditorProjectLike>(
     );
     const clone = cloneEditorElementIndependent(match.element, idFactory);
     mergeWithoutIdentity(clone, changes);
-    const index = Object.keys(position).length
+    const index = hasExplicitPosition(position)
       ? targetIndex(match.section.elements, position)
       : match.elementIndex + 1;
     insertAt(match.section.elements, clone, index);
