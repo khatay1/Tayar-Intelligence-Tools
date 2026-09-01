@@ -104,7 +104,7 @@ export async function importPrivateComponentFiles(files: FileList | File[]): Pro
         license: 'restricted',
         dependencies,
         dependencyRequirements: dependencies,
-        ...(matchingStyle ? { registryStyles: { cssText: matchingStyle } } : {}),
+        ...(matchingStyle ? { registryStyles: { css: matchingStyle } } : {}),
         code: `// Private user-provided source: ${entry.path}\n${entry.content}`,
         preview: category === 'hero' ? 'hero'
           : category === 'navigation' ? 'nav'
