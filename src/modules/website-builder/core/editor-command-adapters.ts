@@ -242,6 +242,16 @@ export function commandAddElement<P extends EditorProjectLike>(
     if (match.section.elements.some((candidate) => candidate.id === id)) {
       throw new Error(`Element already exists: ${id}`);
     }
+
+    if (
+      element.containerId &&
+      !match.section.containers?.some(
+        (container) => container.id === element.containerId,
+      )
+    ) {
+      throw new Error(`Container not found: ${element.containerId}`);
+    }
+
     insertAt(match.section.elements, element, targetIndex(match.section.elements, position));
   }, options);
 }
