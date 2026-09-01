@@ -551,6 +551,84 @@ export function convertLegacyAIStructuralOperationToNative(
 }
 
 
+export function convertLegacyAIPageUpdateOperationToNative(
+  operation: LegacyAIPageOperationLike,
+  resolvedPageId: string,
+): EditorNativeOperation | null {
+  if (operation.action !== 'update_page') {
+    return null;
+  }
+
+  const pageId = resolvedPageId.trim();
+  if (!pageId) return null;
+
+  const changes = isRecord(operation.changes)
+    ? operation.changes
+    : {};
+  const mapped: Record<string, unknown> = {};
+
+  if (
+    typeof changes.name === 'string' &&
+    changes.name.trim()
+  ) {
+    mapped.name =
+      changes.name.trim().slice(0, 60);
+  }
+
+  if (typeof changes.slug === 'string') {
+    const slug = changes.slug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    if (slug) mapped.slug = slug;
+  }
+
+  if (
+    typeof changes.showInNavigation === 'boolean'
+  ) {
+    mapped.showInNavigation =
+      changes.showInNavigation;
+  }
+
+  if (typeof changes.seoTitle === 'string') {
+    mapped.seoTitle =
+      changes.seoTitle.trim().slice(0, 120);
+  }
+
+  if (
+    typeof changes.seoDescription === 'string'
+  ) {
+    mapped.seoDescription =
+      changes.seoDescription
+        .trim()
+        .slice(0, 300);
+  }
+
+  if (
+    typeof changes.canonicalUrl === 'string'
+  ) {
+    mapped.canonicalUrl =
+      changes.canonicalUrl
+        .trim()
+        .slice(0, 500);
+  }
+
+  if (typeof changes.noIndex === 'boolean') {
+    mapped.noIndex = changes.noIndex;
+  }
+
+  if (!Object.keys(mapped).length) {
+    return null;
+  }
+
+  return {
+    action: 'update_page',
+    source: 'ai',
+    pageId,
+    changes: mapped,
+  };
+}
+
 export function isLegacyAIUpdateNativeAction(
   action: string,
 ) {
