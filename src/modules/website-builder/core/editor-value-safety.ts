@@ -255,6 +255,7 @@ function validLinkUrl(value: string) {
     return !value.startsWith('//');
   }
   if (/^(?:mailto|tel):/i.test(value)) return true;
+  if (/^page:[a-z0-9][a-z0-9-]{0,239}$/i.test(value)) return true;
   return validHttpUrl(value);
 }
 
