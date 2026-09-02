@@ -500,7 +500,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         editSection === s.id ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
                       }`}
                     >
-                      {s.label}
+                      {l(s.label)}
                     </button>
                   ))}
                 </div>
