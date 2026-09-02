@@ -387,10 +387,10 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 </div>
                 <div className="p-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-white text-sm font-semibold">{t.name}</h3>
+                    <h3 className="text-white text-sm font-semibold">{l(t.name)}</h3>
                     <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-violet-400 group-hover:translate-x-1 transition-all" />
                   </div>
-                  <p className="text-gray-500 text-xs mt-1 leading-relaxed">{t.description}</p>
+                  <p className="text-gray-500 text-xs mt-1 leading-relaxed">{l(t.description)}</p>
                 </div>
               </button>
             ))}
@@ -761,7 +761,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         }`}
                       >
                         <GripVertical className="w-4 h-4 text-gray-500" />
-                        <span className="text-white text-xs flex-1">{sec.label}</span>
+                        <span className="text-white text-xs flex-1">{l(sec.label)}</span>
                         <button
                           onClick={() => toggleSectionVisible(sec.id)}
                           className={`w-7 h-4 rounded-full transition-colors ${sec.visible ? 'bg-violet-600' : 'bg-white/10'}`}
@@ -802,7 +802,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                       >
                         <Icon className="w-4 h-4 text-violet-400" />
                         <span className="text-white text-xs font-medium">{l(action.label)}</span>
-                        <span className="text-gray-500 text-[10px] leading-tight">{action.description}</span>
+                        <span className="text-gray-500 text-[10px] leading-tight">{l(action.description)}</span>
                       </button>
                     );
                   })}
