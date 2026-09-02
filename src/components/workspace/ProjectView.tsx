@@ -217,7 +217,7 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-white text-sm font-medium truncate">{item.title}</div>
-                  <div className="text-gray-500 text-xs">{meta.label} · {timeAgo(item.updated_at)}</div>
+                  <div className="text-gray-500 text-xs">{l(meta.label)} · {timeAgo(item.updated_at)}</div>
                 </div>
                 <button
                   onClick={() => deleteItem(item.id)}
