@@ -85,6 +85,16 @@ const contentOnlyFiles = new Set([
   'src/modules/code-assistant/seed-components.ts',
   'src/modules/website-builder/core/defaults.ts',
 ]);
+const internalErrorFiles = new Set([
+  'src/context/AdminContext.tsx',
+  'src/modules/background-remover/background-remover-client.ts',
+  'src/modules/website-builder/core/editor-migrations.ts',
+  'src/modules/website-builder/core/editor-native-operation.ts',
+  'src/modules/website-builder/core/editor-published-storage.ts',
+  'src/modules/website-builder/core/editor-transaction.ts',
+  'src/modules/website-builder/services/publishedWebsiteService.ts',
+  'src/modules/website-builder/services/templateLibraryService.ts',
+]);
 
 for (const file of sourceFiles) {
   const source = read(file);
@@ -122,7 +132,7 @@ for (const file of sourceFiles) {
       ['fallback', hardcodedErrorFallbackRe],
     ]) {
       for (const match of source.matchAll(regex)) {
-        if (kind === 'attribute-expression' && /\b(?:l|localizeUi)\s*\(/.test(match[0])) continue;
+        if (kind === 'attribute-expression' && /\b(?:l|localizeUi|label)\s*\(/.test(match[0])) continue;
         const text = match[1].trim();
         if (!/[A-Za-z]/.test(text)) continue;
         if (ignoredHardcoded.has(text)) continue;
@@ -149,9 +159,23 @@ for (const file of sourceFiles) {
 
 const missingArabic = [];
 const missingSwedish = [];
+const internalErrorPhrases = new Map();
 for (const [key, files] of localizedUsage) {
   if (!arKeys.has(key)) missingArabic.push({ key, files: [...new Set(files)] });
   if (!svKeys.has(key)) missingSwedish.push({ key, files: [...new Set(files)] });
+}
+
+for (const item of hardcodedCandidates) {
+  if (item.kind !== 'fallback' || !internalErrorFiles.has(item.file)) continue;
+  const files = internalErrorPhrases.get(item.text) || [];
+  files.push(item.file);
+  internalErrorPhrases.set(item.text, files);
+}
+const missingInternalArabic = [];
+const missingInternalSwedish = [];
+for (const [key, files] of internalErrorPhrases) {
+  if (!arKeys.has(key)) missingInternalArabic.push({ key, files: [...new Set(files)] });
+  if (!svKeys.has(key)) missingInternalSwedish.push({ key, files: [...new Set(files)] });
 }
 
 const dedupedHardcodedCandidates = [...new Map(
@@ -162,6 +186,7 @@ const metadataReviewCandidates = dedupedHardcodedCandidates.filter(({ kind }) =>
 const unexpectedHardcoded = dedupedHardcodedCandidates.filter(({ file, text, kind }) => {
   if (contentOnlyFiles.has(file)) return false;
   if (kind === 'property') return false;
+  if (kind === 'fallback' && internalErrorFiles.has(file)) return false;
   if (file === 'src/modules/website-builder/WebsiteBuilderTool.tsx' && text.startsWith('JSON.stringify(')) return false;
   return true;
 });
@@ -218,6 +243,8 @@ check('Every useLocalizer phrase has an Arabic translation', missingArabic.lengt
 check('Every useLocalizer phrase has a Swedish translation', missingSwedish.length === 0);
 check('Every dynamic UI catalog phrase has an Arabic translation', missingCatalogArabic.length === 0);
 check('Every dynamic UI catalog phrase has a Swedish translation', missingCatalogSwedish.length === 0);
+check('Every surfaced internal error phrase has an Arabic translation', missingInternalArabic.length === 0);
+check('Every surfaced internal error phrase has a Swedish translation', missingInternalSwedish.length === 0);
 check('No internal machine state is passed through UI localization', localizedInternalStateViolations.length === 0);
 check('No unexpected hard-coded application UI remains', unexpectedHardcoded.length === 0);
 
@@ -240,6 +267,14 @@ if (missingCatalogSwedish.length) {
 if (localizedInternalStateViolations.length) {
   console.log('\nLocalized internal machine-state violations:');
   for (const item of localizedInternalStateViolations) console.log(`  - ${item.file}  ${item.setter}(${item.state})`);
+}
+if (missingInternalArabic.length) {
+  console.log('\nMissing Arabic internal error phrases:');
+  for (const item of missingInternalArabic) console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
+}
+if (missingInternalSwedish.length) {
+  console.log('\nMissing Swedish internal error phrases:');
+  for (const item of missingInternalSwedish) console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
 }
 if (unexpectedHardcoded.length) {
   console.log('\nUnexpected hard-coded application UI:');
