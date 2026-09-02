@@ -117,7 +117,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-xs text-emerald-300 font-medium">${stats.monthlyRevenue}/mo</span>
+              <span className="text-xs text-emerald-300 font-medium">${stats.monthlyRevenue} / ${l('month')}</span>
             </div>
           </div>
           <BarChart
