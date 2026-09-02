@@ -2706,13 +2706,13 @@ function ElementPreview({
   };
 
   if (element.type === 'heading') {
-    return <h2 {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</h2>;
+    return <h2 {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? l('Press Enter to finish · Esc to cancel') : l('Double-click to edit text')}>{element.content}</h2>;
   }
   if (element.type === 'text') {
-    return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</p>;
+    return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? l('Press Enter to finish · Esc to cancel') : l('Double-click to edit text')}>{element.content}</p>;
   }
   if (element.type === 'button') {
-    return <button {...dragProps} ref={(node) => { inlineEditRef.current = node; }} type="button" contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit button text'}>{element.content}</button>;
+    return <button {...dragProps} ref={(node) => { inlineEditRef.current = node; }} type="button" contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? l('Press Enter to finish · Esc to cancel') : l('Double-click to edit button text')}>{element.content}</button>;
   }
   if (element.type === 'list') {
     const items = (element.content || '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
@@ -6831,8 +6831,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       const message =
         error instanceof Error
-          ? error.message
-          : 'Could not generate image.';
+          ? l(error.message)
+          : l('Could not generate image.');
 
       setMediaError(message);
 
@@ -10170,8 +10170,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!operationCanApply()) return;
       setAiError(
         error instanceof Error
-          ? error.message
-          : 'Image prompt generation failed.'
+          ? l(error.message)
+          : l('Image prompt generation failed.')
       );
     } finally {
       if (operationIsLatest()) setAiBusy(false);
@@ -11687,12 +11687,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         if (createResult.error || !createResult.data) {
           if (createResult.error && /limit reached/i.test(createResult.error.message || '')) {
-            openBillingWithMessage(createResult.error.message || 'Website project limit reached.');
+            openBillingWithMessage(createResult.error.message ? l(createResult.error.message) : l('Website project limit reached.'));
           }
 
           throw new Error(
-            createResult.error?.message ||
-            'The project could not be created in Tayar cloud before publishing.'
+            createResult.error?.message ? l(createResult.error.message) :
+            l('The project could not be created in Tayar cloud before publishing.')
           );
         }
 
@@ -11902,8 +11902,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         } catch (error) {
           archiveWarning =
             error instanceof Error
-              ? error.message
-              : 'Release history could not be archived.';
+              ? l(error.message)
+              : l('Release history could not be archived.');
         }
       }
 
@@ -12043,8 +12043,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       setPublishError(
         error instanceof Error
-          ? error.message
-          : 'Could not publish this website.',
+          ? l(error.message)
+          : l('Could not publish this website.'),
       );
 
       setLiveVerification(
@@ -13728,7 +13728,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title={!user ? 'Sign in to use the media library' : 'Open media library'}
+            title={!user ? l('Sign in to use the media library') : l('Open media library')}
           >
             <Images className="h-4 w-4" />{l("Media")}</button>
 
@@ -13742,10 +13742,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title={!user ? 'Sign in to view leads' : !cloudProjectId ? 'Save this project to cloud first' : 'Open lead inbox'}
+            title={!user ? l('Sign in to view leads') : !cloudProjectId ? l('Save this project to cloud first') : l('Open lead inbox')}
           >
             <Inbox className="h-4 w-4" />
-            Leads
+            {l('Leads')}
             {leads.filter((lead) => lead.status === 'new').length > 0 && (
               <span className="rounded-full bg-cyan-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
                 {leads.filter((lead) => lead.status === 'new').length}
@@ -13763,7 +13763,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title={!user ? 'Sign in to view analytics' : !cloudProjectId ? 'Save this project to cloud first' : 'Open site analytics'}
+            title={!user ? l('Sign in to view analytics') : !cloudProjectId ? l('Save this project to cloud first') : l('Open site analytics')}
           >
             <BarChart3 className="h-4 w-4" />{l('Analytics')}</button>
 
@@ -13848,9 +13848,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title={!user ? 'Sign in to use release history' : !cloudProjectId ? 'Save this project to cloud first' : 'Publish releases, previews and rollback'}
+            title={!user ? l('Sign in to use release history') : !cloudProjectId ? l('Save this project to cloud first') : l('Publish releases, previews and rollback')}
           >
-            Releases
+            {l('Releases')}
             {publishVersions.length > 0 && <span className="rounded-full bg-indigo-500 px-1.5 py-0.5 text-[9px] font-bold text-white">{publishVersions.length}</span>}
           </button>
 
@@ -13900,7 +13900,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
                     : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'
                 }`}
-                title={publishedAt ? `Published ${new Date(publishedAt).toLocaleString()}` : 'Open published website'}
+                title={publishedAt ? l('Published {time}').replace('{time}', new Date(publishedAt).toLocaleString()) : l('Open published website')}
               >
                 <ExternalLink className="h-4 w-4" />{l('Live')}</button>
               <button
@@ -13975,20 +13975,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onClick={() => void saveProject()}
             disabled={cloudBusy}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${darkMode ? 'border-white/10 text-gray-200 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
-            title={user ? 'Save locally and to your account' : 'Save locally'}
+            title={user ? l('Save locally and to your account') : l('Save locally')}
           >
             {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            <span className="hidden 2xl:inline">{saved ? 'Saved' : 'Save'}</span>
+            <span className="hidden 2xl:inline">{saved ? l('Saved') : l('Save')}</span>
           </button>
 
           <button
             onClick={() => void publishWebsite()}
             disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
             className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
-            title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
+            title={!projectTeamAccess.canPublish ? l('Only the project owner can publish shared projects') : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || l('Complete the Launch Center checks before publishing') : l('Publish website')}
           >
             <Globe className="h-4 w-4" />
-            {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
+            {publishBusy ? l('Publishing…') : publishedUrl ? (hasUnpublishedChanges ? l('Publish Changes') : l('Republish')) : l('Publish')}
             {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
           </button>
 
@@ -14797,21 +14797,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <label className="flex items-center gap-1.5 text-gray-500">
                     <input type="checkbox" checked={activePage.showInNavigation !== false} onChange={(e) => updateActivePageMeta({ showInNavigation: e.target.checked })} />{l("Show in navigation")}</label>
                   <button type="button" onClick={makeActivePageHome} disabled={activePage.id === homePageId} className="rounded px-2 py-1 font-semibold text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40">
-                    {activePage.id === homePageId ? 'Home page' : 'Set home'}
+                    {activePage.id === homePageId ? l('Home page') : l('Set home')}
                   </button>
                 </div>
                 <input value={activePage.name} onChange={(e) => updateActivePageMeta({ name: e.target.value })} placeholder={l('Page name')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 <div className="grid grid-cols-[110px_1fr] gap-2">
                   <select value={normalizePageLanguage(activePage.language, prefs.language)} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ language: e.target.value as Language }); }} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}>
-                    <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option><option value="sv">{PAGE_LANGUAGE_LABELS.sv}</option><option value="ar">{PAGE_LANGUAGE_LABELS.ar}</option>
+                    <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option><option value="sv">{l(PAGE_LANGUAGE_LABELS.sv)}</option><option value="ar">{l(PAGE_LANGUAGE_LABELS.ar)}</option>
                   </select>
-                  <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? 'Translation group (optional)' : 'Translation groups · Pro'} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? l('Translation group (optional)') : l('Translation groups · Pro')} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {(['en', 'sv', 'ar'] as Language[]).filter((language) => language !== normalizePageLanguage(activePage.language, prefs.language)).map((language) => (
-                    <button key={language} type="button" disabled={!billingEntitlements.features.multilingual} onClick={() => duplicatePageAsTranslation(language)} className="rounded-md border border-sky-500/20 px-2 py-1 text-[9px] font-semibold text-sky-400 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-40">+ {PAGE_LANGUAGE_LABELS[language]}</button>
+                    <button key={language} type="button" disabled={!billingEntitlements.features.multilingual} onClick={() => duplicatePageAsTranslation(language)} className="rounded-md border border-sky-500/20 px-2 py-1 text-[9px] font-semibold text-sky-400 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-40">+ {l(PAGE_LANGUAGE_LABELS[language])}</button>
                   ))}
-                  {!billingEntitlements.features.multilingual && <button type="button" onClick={() => openBillingWithMessage('Multilingual pages require the Pro plan or higher.')} className="rounded-md border border-amber-500/20 px-2 py-1 text-[9px] font-bold text-amber-400 hover:bg-amber-500/10">{l('Unlock multilingual')}</button>}
+                  {!billingEntitlements.features.multilingual && <button type="button" onClick={() => openBillingWithMessage(l('Multilingual pages require the Pro plan or higher.'))} className="rounded-md border border-amber-500/20 px-2 py-1 text-[9px] font-bold text-amber-400 hover:bg-amber-500/10">{l('Unlock multilingual')}</button>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500">/</span>
@@ -15009,7 +15009,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </label>
               <label className="block text-[10px] text-gray-500">{l('Extra robots.txt rules')}<textarea rows={4} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} placeholder={'Disallow: /private\nCrawl-delay: 5'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </label>
-              <p className="text-[9px] leading-4 text-gray-500">Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.</p>
+              <p className="text-[9px] leading-4 text-gray-500">{l('Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.')}</p>
             </div>
           </div>
 
@@ -16279,7 +16279,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                             value={(field.options || []).join('\n')}
                             onChange={(e) => updateFormField(field.id, { options: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })}
                             rows={3}
-                            placeholder={'One option per line'}
+                            placeholder={l('One option per line')}
                             className={`mt-2 w-full resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
                           />
                         )}
