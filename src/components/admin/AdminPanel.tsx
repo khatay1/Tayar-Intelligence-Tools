@@ -40,7 +40,7 @@ export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
             <ShieldAlert className="w-8 h-8 text-amber-400" />
           </div>
           <h1 className="text-xl font-bold text-white mb-2">{l('Admin access check failed')}</h1>
-          <p className="text-gray-400 text-sm mb-5">{adminError}</p>
+          <p className="text-gray-400 text-sm mb-5">{l(adminError)}</p>
           <div className="flex items-center justify-center gap-3">
             <button onClick={() => void refreshAdminStatus()} className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
               {l('Retry')}
