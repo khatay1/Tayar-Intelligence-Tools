@@ -99,9 +99,9 @@ const { success, error: showError } = useToast();
             fuchsia: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20',
           };
           return (
-            <div key={s.label} className={`rounded-xl border p-3 ${colors[s.color]}`}>
+            <div key={l(s.label)} className={`rounded-xl border p-3 ${colors[s.color]}`}>
               <div className="text-2xl font-bold text-white">{s.value}</div>
-              <div className="text-xs text-gray-400">{s.label}</div>
+              <div className="text-xs text-gray-400">{l(s.label)}</div>
             </div>
           );
         })}
