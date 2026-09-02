@@ -51,7 +51,7 @@ export default function NotificationCenter({ darkMode }: NotificationCenterProps
             >
               <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.read ? 'bg-violet-500' : 'bg-gray-600'}`} />
               <div className="flex-1 min-w-0">
-                <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{n.title}</div>
+                <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l(n.title)}</div>
                 <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{n.message}</div>
                 <div className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{timeAgo(n.created_at)}</div>
               </div>
