@@ -111,7 +111,7 @@ function SettingsTab() {
     }
     setSettings(map);
     setLoading(false);
-  }, [showError]);
+  }, [showError, l]);
 
   useEffect(() => { void load(); }, [load]);
 
