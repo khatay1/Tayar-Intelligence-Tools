@@ -638,9 +638,9 @@ function ApiKeysTab() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-white">{k.label}</div>
-              <div className="text-xs text-gray-500 capitalize">{k.service} · Added {new Date(k.created_at).toLocaleDateString()}</div>
+              <div className="text-xs text-gray-500 capitalize">{k.service} · {l('Added')} {new Date(k.created_at).toLocaleDateString()}</div>
             </div>
-            {k.last_used && <span className="text-xs text-gray-600 hidden sm:block">Last used: {new Date(k.last_used).toLocaleDateString()}</span>}
+            {k.last_used && <span className="text-xs text-gray-600 hidden sm:block">{l('Last used')}: {new Date(k.last_used).toLocaleDateString()}</span>}
             <button onClick={() => toggleStatus(k)} className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors ${k.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
               <Power className="w-3 h-3" /> {k.status}
             </button>
@@ -704,8 +704,8 @@ function FlagsTab() {
               <Flag className={`w-4.5 h-4.5 ${f.enabled ? 'text-emerald-400' : 'text-gray-500'}`} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white">{f.label}</div>
-              <div className="text-xs text-gray-500">{f.description}</div>
+              <div className="text-sm font-medium text-white">{l(f.label)}</div>
+              <div className="text-xs text-gray-500">{l(f.description)}</div>
               <div className="text-[10px] text-gray-600 font-mono mt-0.5">{f.key}</div>
             </div>
             <button onClick={() => toggle(f)} className="transition-transform hover:scale-110">
