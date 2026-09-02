@@ -5646,8 +5646,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     };
   }
 
-  function remember(_current: WebsiteSection[], label = 'Manual edit') {
-    const entry = createEditHistoryEntry(label);
+  function remember(_current: WebsiteSection[], label?: string) {
+    const entry = createEditHistoryEntry(label ?? l('Manual edit'));
     setHistory((current) => [...current.slice(-49), entry]);
     setFuture([]);
   }
