@@ -154,7 +154,7 @@ export default function AdminUsers() {
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Search by name, email or ID..."
+            placeholder={l("Search by name, email or ID...")}
             className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
           />
         </div>
@@ -293,7 +293,7 @@ export default function AdminUsers() {
 
       {confirmDelete && (
         <ConfirmModal
-          title="Delete User"
+          title={l("Delete User")}
           message={`Choose whether to delete "${confirmDelete.full_name || 'this user'}" only, or also block this email from re-registering. This action permanently removes the account.`}
           confirmLabel={deleteMode === 'delete-block' ? 'Delete & Block' : 'Delete Permanently'}
           danger
@@ -324,7 +324,7 @@ export default function AdminUsers() {
                 <input
                   value={deleteReason}
                   onChange={e => setDeleteReason(e.target.value)}
-                  placeholder="Block reason (internal note)"
+                  placeholder={l("Block reason (internal note)")}
                   className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none"
                 />
                 <div>
@@ -424,7 +424,7 @@ function EditUserModal({ user, isSelf, onSave, onAccessChanged, onClose, loading
               <input
                 value={accessReason}
                 onChange={e => setAccessReason(e.target.value)}
-                placeholder="Reason (internal note)"
+                placeholder={l("Reason (internal note)")}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
               />
               <div>
