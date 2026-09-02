@@ -1,4 +1,5 @@
 import type { EditorShellContract } from '../core/editor-shell-contract';
+import { useLocalizer } from '@/lib/ui-localization';
 
 function formatTime(timestamp: number) {
   try {
@@ -13,17 +14,18 @@ export interface BuilderHistoryPanelProps {
   onRestoreEntry?(entryId: string): void;
 }
 
-export function BuilderHistoryPanel({ shell, onRestoreEntry }: BuilderHistoryPanelProps) {
+export function BuilderHistoryPanel({
+  const l = useLocalizer(); shell, onRestoreEntry }: BuilderHistoryPanelProps) {
   const { history } = shell.view;
   return (
     <div className="tayar-v2-history-panel">
       <div className="tayar-v2-panel-heading">
-        <strong>History</strong>
-        <span>{history.total} changes</span>
+        <strong>{l('History')}</strong>
+        <span>{history.total} {l('changes')}</span>
       </div>
       <div className="tayar-v2-panel-actions">
-        <button type="button" disabled={!shell.view.canUndo} onClick={shell.actions.onUndo}>Undo</button>
-        <button type="button" disabled={!shell.view.canRedo} onClick={shell.actions.onRedo}>Redo</button>
+        <button type="button" disabled={!shell.view.canUndo} onClick={shell.actions.onUndo}>{l('Undo')}</button>
+        <button type="button" disabled={!shell.view.canRedo} onClick={shell.actions.onRedo}>{l('Redo')}</button>
       </div>
       <div className="tayar-v2-history-list">
         {history.undo.map((entry, index) => (
@@ -34,18 +36,18 @@ export function BuilderHistoryPanel({ shell, onRestoreEntry }: BuilderHistoryPan
             data-current={index === 0 ? 'true' : 'false'}
             onClick={() => onRestoreEntry?.(entry.id)}
             disabled={!onRestoreEntry}
-            title="Restore this editor state"
+            title={l('Restore this editor state')}
           >
             <span className="tayar-v2-history-entry__label">{entry.label}</span>
             <span className="tayar-v2-history-entry__meta">
-              {entry.source} · {formatTime(entry.createdAt)} · Restore
+              {entry.source} · {formatTime(entry.createdAt)} · {l('Restore')}
             </span>
           </button>
         ))}
-        {!history.undo.length && <div className="tayar-v2-empty-panel">No changes yet.</div>}
+        {!history.undo.length && <div className="tayar-v2-empty-panel">{l('No changes yet.')}</div>}
         {history.redo.length > 0 && (
           <div className="tayar-v2-history-redo">
-            <small>Redo queue</small>
+            <small>{l('Redo queue')}</small>
             {history.redo.map((entry) => (
               <div key={entry.id} className="tayar-v2-history-entry" data-redo="true">
                 <span className="tayar-v2-history-entry__label">{entry.label}</span>
