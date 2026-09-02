@@ -1,4 +1,5 @@
-﻿import type {
+﻿import { useLocalizer } from '@/lib/ui-localization';
+import type {
   ReactNode,
 } from 'react';
 
@@ -47,6 +48,7 @@ export function BuilderInspector({
   shell,
   renderInspector,
 }: BuilderInspectorProps) {
+  const l = useLocalizer();
   const { view, actions } =
     shell;
 
