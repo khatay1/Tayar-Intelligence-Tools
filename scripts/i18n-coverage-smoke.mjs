@@ -72,6 +72,7 @@ const hardcodedPropRe = /\b(?:label|title|description|placeholder|tooltip|helper
 const hardcodedNotifyRe = /\b(?:toast\.(?:success|error|info|warning)|window\.confirm|confirm|alert|showError|success|loading|set[A-Za-z0-9_]*(?:Message|Error|Status|Notice|Feedback))\(\s*["'`]([^"'`\n]{2,220})["'`]/g;
 const hardcodedToastUpdateRe = /\bupdate\(\s*[^,\n]+,\s*["'`]([^"'`\n]{2,220})["'`]/g;
 const hardcodedPromptRe = /\b(?:window\.)?prompt\(\s*["'`]([^"'`\n]{2,220})["'`]/g;
+const hardcodedTemplateCallRe = /\b(?:window\.)?(?:confirm|alert|prompt)\(\s*`([^`\n]{2,320})`\s*\)/g;
 const hardcodedAttrExpressionRe = /\b(?:placeholder|title|aria-label|alt|label|hint|subtitle|description|actionLabel|badge)\s*=\s*\{[^}\n]{0,180}?["'`]([^"'`\n]{2,220})["'`][^}\n]{0,180}?\}/g;
 const localizedInternalStateRe = /\b(set(?:AutoSaveStatus|LiveVerification|PublishStatus|SyncStatus|SaveStatus))\(\s*l\(\s*["'`]([^"'`]+)["'`]\s*\)\s*\)/g;
 const hardcodedErrorFallbackRe = /(?:\b(?:error|err|invokeError)\s+instanceof\s+Error\s*\?\s*(?:error|err|invokeError)\.message\s*:\s*|\b(?:error|err|invokeError)\.message\s*\|\|\s*)["'`]([^"'`\n]{2,260})["'`]/g;
@@ -129,11 +130,12 @@ for (const file of sourceFiles) {
       ['notification', hardcodedNotifyRe],
       ['notification', hardcodedToastUpdateRe],
       ['prompt', hardcodedPromptRe],
+      ['template-call', hardcodedTemplateCallRe],
       ['attribute-expression', hardcodedAttrExpressionRe],
       ['fallback', hardcodedErrorFallbackRe],
     ]) {
       for (const match of source.matchAll(regex)) {
-        if (kind === 'attribute-expression' && /\b(?:l|localizeUi|label)\s*\(/.test(match[0])) continue;
+        if ((kind === 'attribute-expression' || kind === 'template-call') && /\b(?:l|localizeUi|label)\s*\(/.test(match[0])) continue;
         const text = match[1].trim();
         if (!/[A-Za-z]/.test(text)) continue;
         if (ignoredHardcoded.has(text)) continue;
