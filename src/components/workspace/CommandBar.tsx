@@ -89,8 +89,8 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
                     <Icon className="w-4 h-4 text-violet-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{cmd.label}</div>
-                    <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{cmd.description}</div>
+                    <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l(cmd.label)}</div>
+                    <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l(cmd.description)}</div>
                   </div>
                   <ArrowRight className={`w-4 h-4 flex-shrink-0 transition-opacity ${active ? 'text-violet-400 opacity-100' : 'opacity-0'}`} />
                 </button>
