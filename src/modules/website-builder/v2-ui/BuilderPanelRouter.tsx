@@ -169,7 +169,7 @@ export function BuilderPanelRouter(
   props: BuilderPanelRouterProps,
 ) {
   const l = useLocalizer();
-  return function renderPanel(
+return function renderPanel(
     panel: EditorLeftPanel,
   ): ReactNode {
     if (panel === 'ai') {
