@@ -66,7 +66,7 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
     try {
       setResult(await removeImageBackground(file, cropToBbox));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : l('Background removal failed.'));
+      setError(caught instanceof Error ? l(caught.message) : l('Background removal failed.'));
     } finally {
       setProcessing(false);
     }
@@ -77,7 +77,7 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
       icon={Eraser}
       title={l('Background Remover')}
       description={l('Remove image backgrounds using Tayar’s secured server-side image service.')}
-      badge="AI image utility"
+      badge={l('AI image utility')}
     >
       <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 flex gap-3 text-sm text-amber-100">
         <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
