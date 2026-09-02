@@ -49,7 +49,7 @@ export default function AdminDashboard() {
     { label: 'Documents', value: stats.totalDocuments, icon: FileText, color: 'amber', spark: [0, stats.totalDocuments] },
     { label: 'Active Subs', value: stats.activeSubscriptions, icon: CreditCard, color: 'cyan', spark: [0, stats.activeSubscriptions] },
     { label: 'Monthly Revenue', value: `${stats.monthlyRevenue}`, icon: DollarSign, color: 'emerald', spark: revenueData.map(d => d.revenue) },
-    { label: 'Data Status', value: stats.serverStatus === 'online' ? 'Connected' : 'Unavailable', icon: Server, color: stats.serverStatus === 'online' ? 'emerald' : 'red', spark: [1, 1] },
+    { label: 'Data Status', value: stats.serverStatus === 'online' ? l('Connected') : l('Unavailable'), icon: Server, color: stats.serverStatus === 'online' ? 'emerald' : 'red', spark: [1, 1] },
   ];
 
   const colorMap: Record<string, { bg: string; text: string; border: string; spark: string }> = {
@@ -71,7 +71,7 @@ export default function AdminDashboard() {
           const Icon = card.icon;
           return (
             <div
-              key={card.label}
+              key={l(card.label)}
               className={`relative ${c.bg} border ${c.border} rounded-2xl p-4 overflow-hidden group hover:scale-[1.02] transition-transform cursor-default`}
               style={{ animation: 'fadeInUp 0.3s ease-out' }}
             >
@@ -98,14 +98,14 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
               <Users className="w-3.5 h-3.5 text-violet-400" />
-              <span className="text-xs text-violet-300 font-medium">{stats.totalUsers} total</span>
+              <span className="text-xs text-violet-300 font-medium">{stats.totalUsers} {l('total')}</span>
             </div>
           </div>
           <LineChart
             data={userGrowth.map(d => ({ label: d.date.slice(5), value: d.users }))}
             color="#a78bfa"
             height={220}
-            formatValue={(v) => `${v} users`}
+            formatValue={(v) => `${v} ${l('users')}`}
           />
         </div>
 
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20">
               <Zap className="w-3.5 h-3.5 text-fuchsia-400" />
-              <span className="text-xs text-fuchsia-300 font-medium">{stats.totalAIRequests} total</span>
+              <span className="text-xs text-fuchsia-300 font-medium">{stats.totalAIRequests} {l('total')}</span>
             </div>
           </div>
           <LineChart
