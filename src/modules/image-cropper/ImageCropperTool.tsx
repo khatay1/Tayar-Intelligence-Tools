@@ -186,7 +186,7 @@ export default function ImageCropperTool({ darkMode: _darkMode }: { darkMode: bo
                           : 'border-white/10 bg-white/5 text-gray-400 hover:text-white'
                       }`}
                     >
-                      {item.label}
+                      {l(item.label)}
                     </button>
                   ))}
                 </div>
@@ -279,7 +279,7 @@ export default function ImageCropperTool({ darkMode: _darkMode }: { darkMode: bo
                   </div>
                   <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.025] p-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="text-sm">
-                      <div className="text-white font-medium">{crop.width} × {crop.height}px · {selectedFormat.label}</div>
+                      <div className="text-white font-medium">{crop.width} × {crop.height}px · {l(selectedFormat.label)}</div>
                       <div className="text-xs text-gray-500 mt-0.5">{formatBytes(resultBlob.size)}</div>
                     </div>
                     <button
