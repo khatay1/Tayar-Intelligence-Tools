@@ -1,5 +1,4 @@
-import { useLocalizer } from '@/lib/ui-localization';
-﻿import {
+import {
   useMemo,
   useState,
   type ReactNode,
@@ -302,7 +301,6 @@ canvas,
   onSetDevice,
   onSelect,
 }: WebsiteBuilderV2BridgeProps) {
-  const l = useLocalizer();
   const [leftPanel, setLeftPanel] =
     useState<EditorLeftPanel>('pages');
 

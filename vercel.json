@@ -58,9 +58,7 @@
     }
   ],
   "git": {
-    "deploymentEnabled": {
-      "release/ai-patch-engine-v1": false
-    }
+    "deploymentEnabled": false
   },
   "rewrites": [
     {

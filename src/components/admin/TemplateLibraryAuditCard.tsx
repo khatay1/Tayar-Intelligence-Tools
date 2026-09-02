@@ -334,7 +334,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
             <Metric label="Junk to hide" value={repairAnalysis.hideJunk} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
             <Metric label="Needs review" value={repairAnalysis.failed} icon={<XCircle className="h-4 w-4 text-red-400" />} />
           </div>
-          <p className="mt-3 text-[11px] text-gray-500">{l('Analysis is read-only. No storage object or database row is changed by this button.')}<p>
+          <p className="mt-3 text-[11px] text-gray-500">{l('Analysis is read-only. No storage object or database row is changed by this button.')}</p>
         </div>
       )}
 

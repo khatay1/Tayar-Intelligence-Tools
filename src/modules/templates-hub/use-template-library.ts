@@ -14,6 +14,7 @@ const EMPTY_PAGE: MirroredTemplatePage = {
 };
 
 export function useTemplateLibrary(query: MirroredTemplateQuery, enabled = true) {
+  const { category, format, page, pageSize, query: searchQuery, sort } = query;
   const [result, setResult] = useState<MirroredTemplatePage>(EMPTY_PAGE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +29,7 @@ export function useTemplateLibrary(query: MirroredTemplateQuery, enabled = true)
     setError('');
 
     const timer = window.setTimeout(() => {
-      void listMirroredTemplates(query)
+      void listMirroredTemplates({ category, format, page, pageSize, query: searchQuery, sort })
         .then((next) => {
           if (requestId.current !== id) return;
           setResult(next);
@@ -45,7 +46,7 @@ export function useTemplateLibrary(query: MirroredTemplateQuery, enabled = true)
     return () => {
       window.clearTimeout(timer);
     };
-  }, [enabled, query.category, query.format, query.page, query.pageSize, query.query]);
+  }, [enabled, category, format, page, pageSize, searchQuery, sort]);
 
   return {
     ...result,

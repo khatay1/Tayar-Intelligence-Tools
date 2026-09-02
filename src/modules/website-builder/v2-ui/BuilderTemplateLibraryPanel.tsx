@@ -216,7 +216,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
       <div>
-        <div className="text-sm font-semibold text-white">{l('Template Library')}<div>
+        <div className="text-sm font-semibold text-white">{l('Template Library')}</div>
         <p className="mt-1 text-[11px] leading-4 text-gray-500">
           Browse imported assets safely. Office, PDF and archive files download as references; Tayar-native website formats can be opened directly when available.
         </p>
