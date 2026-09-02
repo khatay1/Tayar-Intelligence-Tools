@@ -233,13 +233,13 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setEditUser(user)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title="Edit">
+                      <button onClick={() => setEditUser(user)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title={l('Edit')}>
                         <Edit3 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => toggleSuspend(user)} disabled={actionLoading || currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? 'You cannot suspend yourself' : user.suspended ? 'Reinstate' : 'Suspend'}>
+                      <button onClick={() => toggleSuspend(user)} disabled={actionLoading || currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? l('You cannot suspend yourself') : user.suspended ? l('Reinstate') : l('Suspend')}>
                         <Ban className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setConfirmDelete(user)} disabled={currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? 'You cannot delete yourself' : 'Delete'}>
+                      <button onClick={() => setConfirmDelete(user)} disabled={currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? l('You cannot delete yourself') : l('Delete')}>
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -373,11 +373,11 @@ function EditUserModal({ user, isSelf, onSave, onAccessChanged, onClose, loading
     setAccessSaving(false);
 
     if (error) {
-      showError(error.message || 'Failed to update complimentary access');
+      showError(error.message ? l(error.message) : l('Failed to update complimentary access'));
       return;
     }
 
-    success(accessOverride === 'none' ? 'Complimentary access removed' : 'Complimentary access saved');
+    success(accessOverride === 'none' ? l('Complimentary access removed') : l('Complimentary access saved'));
     onAccessChanged();
   }
 
