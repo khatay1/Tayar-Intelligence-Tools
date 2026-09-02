@@ -12026,7 +12026,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (archiveWarning) {
         setPublishVersionsError(
-          l("Website published successfully. Release history was skipped: ") +
+          l('Website published successfully. Release history was skipped:') + ' ' +
           archiveWarning
         );
       }
