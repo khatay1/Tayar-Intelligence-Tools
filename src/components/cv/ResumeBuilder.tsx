@@ -642,7 +642,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Certificates */}
                 {editSection === 'certificates' && (
                   <div className="space-y-3">
-                    {cv.certificates.length === 0 && <EmptyState icon={Award} label={l("No certificates yet")} hint="Add your certifications" />}
+                    {cv.certificates.length === 0 && <EmptyState icon={Award} label={l("No certificates yet")} hint={l("Add your certifications")} />}
                     {cv.certificates.map(cert => (
                       <div key={cert.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -661,7 +661,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Awards */}
                 {editSection === 'awards' && (
                   <div className="space-y-3">
-                    {cv.awards.length === 0 && <EmptyState icon={Award} label={l("No awards yet")} hint="Add your achievements" />}
+                    {cv.awards.length === 0 && <EmptyState icon={Award} label={l("No awards yet")} hint={l("Add your achievements")} />}
                     {cv.awards.map(award => (
                       <div key={award.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -695,8 +695,8 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                           template === t.id ? 'border-violet-500/50 bg-violet-600/10' : 'border-white/10 hover:border-white/20'
                         }`}
                       >
-                        <div className="text-white text-xs font-medium">{t.name}</div>
-                        <div className="text-gray-500 text-[10px] mt-0.5 leading-tight">{t.description}</div>
+                        <div className="text-white text-xs font-medium">{l(t.name)}</div>
+                        <div className="text-gray-500 text-[10px] mt-0.5 leading-tight">{l(t.description)}</div>
                       </button>
                     ))}
                   </div>
