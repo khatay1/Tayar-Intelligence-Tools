@@ -120,10 +120,10 @@ export default function AdminSupport() {
           };
           const Icon = s.icon;
           return (
-            <button key={s.label} onClick={() => setFilter(s.filter)} className={`rounded-xl border p-3 text-left hover:scale-[1.02] transition-transform ${colors[s.color]} ${filter === s.filter ? 'ring-2 ring-white/20' : ''}`}>
+            <button key={l(s.label)} onClick={() => setFilter(s.filter)} className={`rounded-xl border p-3 text-left hover:scale-[1.02] transition-transform ${colors[s.color]} ${filter === s.filter ? 'ring-2 ring-white/20' : ''}`}>
               <Icon className="w-5 h-5 mb-1" />
               <div className="text-2xl font-bold text-white">{s.value}</div>
-              <div className="text-xs text-gray-400">{s.label}</div>
+              <div className="text-xs text-gray-400">{l(s.label)}</div>
             </button>
           );
         })}
