@@ -253,6 +253,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithGoogle() {
+    const signupState = await isSignupAllowed();
+    if (signupState.error) return { error: signupState.error };
+    if (!signupState.allowed) {
+      return { error: 'New registrations are temporarily disabled.' };
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
