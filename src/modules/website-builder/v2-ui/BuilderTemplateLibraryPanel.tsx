@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+import { useLocalizer } from '@/lib/ui-localization';
   Clock3,
   Download,
   FileArchive,
@@ -75,6 +76,7 @@ function formatBytes(bytes: number) {
 }
 
 export function BuilderTemplateLibraryPanel() {
+  const l = useLocalizer();
   const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -214,7 +216,7 @@ export function BuilderTemplateLibraryPanel() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
       <div>
-        <div className="text-sm font-semibold text-white">Template Library</div>
+        <div className="text-sm font-semibold text-white">{l('Template Library')}<div>
         <p className="mt-1 text-[11px] leading-4 text-gray-500">
           Browse imported assets safely. Office, PDF and archive files download as references; Tayar-native website formats can be opened directly when available.
         </p>
