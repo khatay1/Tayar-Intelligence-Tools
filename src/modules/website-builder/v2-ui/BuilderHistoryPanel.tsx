@@ -1,5 +1,5 @@
-import type { EditorShellContract } from '../core/editor-shell-contract';
 import { useLocalizer } from '@/lib/ui-localization';
+import type { EditorShellContract } from '../core/editor-shell-contract';
 
 function formatTime(timestamp: number) {
   try {
@@ -14,8 +14,8 @@ export interface BuilderHistoryPanelProps {
   onRestoreEntry?(entryId: string): void;
 }
 
-export function BuilderHistoryPanel({
-  const l = useLocalizer(); shell, onRestoreEntry }: BuilderHistoryPanelProps) {
+export function BuilderHistoryPanel({ shell, onRestoreEntry }: BuilderHistoryPanelProps) {
+  const l = useLocalizer();
   const { history } = shell.view;
   return (
     <div className="tayar-v2-history-panel">
