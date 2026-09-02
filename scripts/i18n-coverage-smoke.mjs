@@ -84,8 +84,8 @@ const contentOnlyFiles = new Set([
 for (const file of sourceFiles) {
   const source = read(file);
 
-  for (const match of source.matchAll(/\bl\(\s*'((?:\\'|[^'])+)'\s*\)/g)) {
-    const key = match[1].replace(/\\'/g, "'");
+  for (const match of source.matchAll(/\bl\(\s*(['"])((?:\\.|(?!\1).)+)\1\s*\)/g)) {
+    const key = match[2].replace(/\\(['"\\])/g, '$1');
     const list = localizedUsage.get(key) || [];
     list.push(file);
     localizedUsage.set(key, list);
@@ -137,14 +137,58 @@ const dedupedHardcodedCandidates = [...new Map(
   hardcodedCandidates.map((item) => [`${item.file}:${item.line}:${item.text}`, item])
 ).values()];
 const expectedContentCandidates = dedupedHardcodedCandidates.filter(({ file }) => contentOnlyFiles.has(file));
-const unexpectedHardcoded = dedupedHardcodedCandidates.filter(({ file, text }) => {
+const metadataReviewCandidates = dedupedHardcodedCandidates.filter(({ kind }) => kind === 'property');
+const unexpectedHardcoded = dedupedHardcodedCandidates.filter(({ file, text, kind }) => {
   if (contentOnlyFiles.has(file)) return false;
+  if (kind === 'property') return false;
   if (file === 'src/modules/website-builder/WebsiteBuilderTool.tsx' && text.startsWith('JSON.stringify(')) return false;
   return true;
 });
 
+const catalogFiles = new Set([
+  'src/components/workspace/workspace-config.ts',
+  'src/lib/ai-commands.ts',
+  'src/lib/onboarding-types.ts',
+  'src/lib/cv-ai.ts',
+  'src/modules/categories.ts',
+  'src/modules/website-builder/core/editor-insert-catalog.ts',
+  'src/modules/code-assistant/feature-generator.ts',
+  'src/modules/code-assistant/component-kit.ts',
+  'src/modules/code-assistant/page-composer.ts',
+  'src/modules/invoice-generator/invoice-themes.ts',
+  'src/components/admin/AdminContent.tsx',
+]);
+for (const file of sourceFiles) {
+  if (/^src[/\\]modules[/\\][^/\\]+[/\\]index\.ts$/.test(file)) catalogFiles.add(file);
+}
+
+const catalogPhrases = new Map();
+const catalogPropRe = /\b(?:label|name|description|title|desc|defaultGoal|placeholder)\s*:\s*(['"`])([^'"`\n]{2,220})\1/g;
+for (const file of catalogFiles) {
+  if (!fs.existsSync(file)) continue;
+  const source = read(file);
+  for (const match of source.matchAll(catalogPropRe)) {
+    const phrase = match[2].trim();
+    if (!/[A-Za-z]/.test(phrase)) continue;
+    if (/^(?:https?:|mailto:|tel:)/.test(phrase)) continue;
+    if (/^[a-z0-9_.:/+-]{1,30}$/i.test(phrase) && !/\s/.test(phrase)) continue;
+    const files = catalogPhrases.get(phrase) || [];
+    files.push(file);
+    catalogPhrases.set(phrase, files);
+  }
+}
+
+const missingCatalogArabic = [];
+const missingCatalogSwedish = [];
+for (const [key, files] of catalogPhrases) {
+  if (!arKeys.has(key)) missingCatalogArabic.push({ key, files: [...new Set(files)] });
+  if (!svKeys.has(key)) missingCatalogSwedish.push({ key, files: [...new Set(files)] });
+}
+
 check('Every useLocalizer phrase has an Arabic translation', missingArabic.length === 0);
 check('Every useLocalizer phrase has a Swedish translation', missingSwedish.length === 0);
+check('Every dynamic UI catalog phrase has an Arabic translation', missingCatalogArabic.length === 0);
+check('Every dynamic UI catalog phrase has a Swedish translation', missingCatalogSwedish.length === 0);
 check('No unexpected hard-coded application UI remains', unexpectedHardcoded.length === 0);
 
 if (missingArabic.length) {
@@ -155,12 +199,22 @@ if (missingSwedish.length) {
   console.log('\nMissing Swedish UI phrases:');
   for (const item of missingSwedish) console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
 }
+if (missingCatalogArabic.length) {
+  console.log('\nMissing Arabic dynamic catalog phrases:');
+  for (const item of missingCatalogArabic) console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
+}
+if (missingCatalogSwedish.length) {
+  console.log('\nMissing Swedish dynamic catalog phrases:');
+  for (const item of missingCatalogSwedish) console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
+}
 if (unexpectedHardcoded.length) {
   console.log('\nUnexpected hard-coded application UI:');
   for (const item of unexpectedHardcoded) console.log(`  ! ${item.file}:${item.line}  [${item.kind || 'jsx'}] ${item.text}`);
 }
 
 console.log(`\nI18N scan: ${sourceFiles.length} source files, ${localizedUsage.size} localized UI phrases.`);
+console.log(`Metadata property review candidates: ${metadataReviewCandidates.length}`);
+console.log(`Dynamic catalog phrases checked: ${catalogPhrases.size}`);
 console.log(`Direct dynamic UI review candidates: ${dynamicUiCandidates.length}`);
 for (const item of dynamicUiCandidates) console.log(`  dynamic ${item.file}:${item.line}  ${item.expression}`);
 console.log(`Expected customer/template content candidates: ${expectedContentCandidates.length}`);
