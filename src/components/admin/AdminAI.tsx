@@ -464,7 +464,7 @@ export default function AdminAI() {
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`w-2 h-2 rounded-full ${p.status === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`} />
                   <span className="text-xs text-gray-400">
-                    {!backendEnabled ? 'Backend not enabled' : p.status === 'active' ? 'Active' : 'Inactive'}
+                    {!backendEnabled ? l('Backend not enabled') : p.status === 'active' ? l('Active') : l('Inactive')}
                   </span>
                   {p.last_used && <span className="text-xs text-gray-600 ml-auto">{new Date(p.last_used).toLocaleDateString()}</span>}
                 </div>
