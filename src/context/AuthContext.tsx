@@ -183,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setSession(nextSession);
         setUser(nextSession.user);
-        await fetchProfile(nextSession.user.id);
+        void fetchProfile(nextSession.user.id);
       })();
     });
 
