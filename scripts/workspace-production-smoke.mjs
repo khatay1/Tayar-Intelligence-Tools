@@ -31,7 +31,7 @@ const checks = [
   ['Signed-in auth hashes normalize to a workspace route', app.includes("replaceHash('#workspace/my-workspace')")],
   ['Workspace navigation persists the active view in the URL', workspace.includes('const nextHash = `#workspace/${view}`')],
   ['Workspace restores the active view from the URL', workspace.includes('getWorkspaceViewFromHash') && workspace.includes("window.addEventListener('hashchange', syncViewFromHash)")],
-  ['Workspace labels admin Business access', workspace.includes("isAdmin ? l('Admin · Business access')")],
+  ['Workspace labels admin Business access', /isAdmin\s*\?\s*l\((['"])Admin · Business access\1\)/.test(workspace)],
   ['Admin upgrade prompt is hidden in sidebar', workspace.includes('!isAdmin && <div className="px-3 pb-3">')],
   ['Admin panel link is only rendered for admins', workspace.includes('{isAdmin && <a href="#admin"')],
   ['Admin upgrade recommendations are hidden', dashboard.includes("!isAdmin || rec.action !== 'subscription'")],
