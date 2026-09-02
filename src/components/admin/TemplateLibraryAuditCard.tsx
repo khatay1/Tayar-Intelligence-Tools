@@ -262,9 +262,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2 text-white font-semibold">
-            <ShieldCheck className="h-5 w-5 text-cyan-400" />
-            Template Library Integrity Audit
-          </div>
+            <ShieldCheck className="h-5 w-5 text-cyan-400" />{l('Template Library Integrity Audit')}</div>
           <p className="mt-1 max-w-3xl text-xs text-gray-400">
             Read-only validation of stored 24Billions templates. Progress is saved in this browser and can be paused or resumed safely.
           </p>
@@ -276,8 +274,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
             </button>
           ) : (
             <button onClick={pauseAudit} className="inline-flex items-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/25">
-              <Pause className="h-4 w-4" /> Pause
-            </button>
+              <Pause className="h-4 w-4" />{l('Pause')}</button>
           )}
           <button onClick={analyzeRepairs} disabled={busy || !state.completed || uniqueIssueIds.length === 0} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40">
             <Wrench className={`h-4 w-4 ${analyzingRepairs ? 'animate-pulse' : ''}`} /> {analyzingRepairs ? 'Analyzing…' : 'Analyze Repairs'}
@@ -286,11 +283,9 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
             <Trash2 className={`h-4 w-4 ${deletingInvalid ? 'animate-pulse' : ''}`} /> {deletingInvalid ? 'Deleting…' : `Delete ${uniqueIssueIds.length || ''} Invalid`}
           </button>
           <button onClick={resetAudit} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
-            <RotateCcw className="h-4 w-4" /> Reset
-          </button>
+            <RotateCcw className="h-4 w-4" />{l('Reset')}</button>
           <button onClick={exportIssues} disabled={!state.issues.length || busy} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
-            <Download className="h-4 w-4" /> Export
-          </button>
+            <Download className="h-4 w-4" />{l('Export')}</button>
         </div>
       </div>
 
@@ -318,23 +313,21 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
       {deletionResult && (
         <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/[0.04] p-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-red-300">
-            <Trash2 className="h-4 w-4" /> Invalid template deletion completed
-          </div>
+            <Trash2 className="h-4 w-4" />{l('Invalid template deletion completed')}</div>
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
             <Metric label="Rows deleted" value={deletionResult.deletedRows} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
             <Metric label="Storage deleted" value={deletionResult.storageDeleted} icon={<Trash2 className="h-4 w-4 text-red-400" />} />
             <Metric label="Shared preserved" value={deletionResult.preservedSharedStorage} icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />} />
             <Metric label="Storage failures" value={deletionResult.storageDeleteFailures} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
           </div>
-          <p className="mt-3 text-[11px] text-gray-500">The previous audit snapshot was cleared. Run the audit again to verify the remaining library.</p>
+          <p className="mt-3 text-[11px] text-gray-500">{l('The previous audit snapshot was cleared. Run the audit again to verify the remaining library.')}</p>
         </div>
       )}
 
       {repairAnalysis && (
         <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
-            <Wrench className="h-4 w-4" /> Repair dry-run analysis
-          </div>
+            <Wrench className="h-4 w-4" />{l('Repair dry-run analysis')}</div>
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
             <Metric label="Issues checked" value={repairAnalysis.requested} icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />} />
             <Metric label="Repairable" value={repairAnalysis.repairable} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
