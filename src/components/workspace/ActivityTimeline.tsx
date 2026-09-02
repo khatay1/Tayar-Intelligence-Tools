@@ -156,7 +156,7 @@ export default function ActivityTimeline({ darkMode, onNavigate }: ActivityTimel
           {grouped.map(group => (
             <div key={group.label}>
               <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>
-                {group.label}
+                {l(group.label)}
               </div>
               <div className={`relative ${darkMode ? 'bg-white/[0.02]' : 'bg-white'} border ${darkMode ? 'border-white/10' : 'border-gray-200'} rounded-2xl overflow-hidden`}>
                 {group.items.map((act, i) => {
