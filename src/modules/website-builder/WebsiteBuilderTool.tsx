@@ -3815,7 +3815,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saveRecoverySnapshot('before recovery restore');
       prepareProjectStateRestore();
       applyProjectData(parsed.project);
-      setAutoSaveStatus('saving');
+      setAutoSaveStatus(l("saving"));
       setSaved(false);
       setOperationsOpen(false);
     } catch {
@@ -3976,7 +3976,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!refreshIsCurrent()) return;
 
       if (error) {
-        setCloudError('Could not load cloud projects.');
+        setCloudError(l("Could not load cloud projects."));
         return;
       }
 
@@ -3985,7 +3985,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!refreshIsCurrent()) return;
       const message = error instanceof Error ? error.message : '';
       if (!/abort|cancel/i.test(message)) {
-        setCloudError('Could not load cloud projects.');
+        setCloudError(l("Could not load cloud projects."));
       }
     } finally {
       if (refreshIsCurrent()) {
@@ -4032,7 +4032,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setReusableError('Could not load reusable sections.');
+      setReusableError(l("Could not load reusable sections."));
       setReusableBusy(false);
       return;
     }
@@ -4092,7 +4092,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!operationIsCurrent()) return;
 
       if (error) {
-        setReusableError('Could not save this reusable section.');
+        setReusableError(l("Could not save this reusable section."));
         return;
       }
 
@@ -4142,7 +4142,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!operationIsCurrent()) return;
 
       if (error) {
-        setReusableError('Could not delete this reusable section.');
+        setReusableError(l("Could not delete this reusable section."));
         return;
       }
 
@@ -4392,7 +4392,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!projectTeamAccess.canManage) {
       if (refreshIsCurrent()) {
         setLeads([]);
-        setLeadsError('Lead inbox is available to project owners and workspace admins.');
+        setLeadsError(l("Lead inbox is available to project owners and workspace admins."));
         setLeadsLoading(false);
       }
       return;
@@ -4406,7 +4406,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied.');
+      setLeadsError(l("Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied."));
       setLeadsLoading(false);
       return;
     }
@@ -4440,7 +4440,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not update this lead.');
+      setLeadsError(l("Could not update this lead."));
       return;
     }
 
@@ -4474,7 +4474,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not update CRM details for this lead.');
+      setLeadsError(l("Could not update CRM details for this lead."));
       return;
     }
 
@@ -4505,7 +4505,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not update the selected leads.');
+      setLeadsError(l("Could not update the selected leads."));
       return;
     }
 
@@ -4559,7 +4559,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!deleteIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not delete this lead.');
+      setLeadsError(l("Could not delete this lead."));
       return;
     }
 
@@ -4587,7 +4587,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!projectTeamAccess.canEdit) {
       if (refreshIsCurrent()) {
         setAnalyticsEvents([]);
-        setAnalyticsError('Analytics is available to project owners, admins, and editors.');
+        setAnalyticsError(l("Analytics is available to project owners, admins, and editors."));
         setAnalyticsLoading(false);
       }
       return;
@@ -4601,7 +4601,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setAnalyticsError('Analytics is unavailable. Make sure the Sprint 15 database migration is applied.');
+      setAnalyticsError(l("Analytics is unavailable. Make sure the Sprint 15 database migration is applied."));
       setAnalyticsLoading(false);
       return;
     }
@@ -4637,7 +4637,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setMediaError('Media library is unavailable. Make sure the Sprint 12 storage migration is applied.');
+      setMediaError(l("Media library is unavailable. Make sure the Sprint 12 storage migration is applied."));
       setMediaLoading(false);
       return;
     }
@@ -4683,15 +4683,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function uploadMediaFile(file: File) {
     const uploadUserId = user?.id ?? null;
     if (!uploadUserId) {
-      setMediaError('Sign in before uploading media.');
+      setMediaError(l("Sign in before uploading media."));
       return;
     }
     if (!file.type.startsWith('image/')) {
-      setMediaError('Only image files are supported.');
+      setMediaError(l("Only image files are supported."));
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setMediaError('Images must be 5 MB or smaller.');
+      setMediaError(l("Images must be 5 MB or smaller."));
       return;
     }
 
@@ -4715,7 +4715,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!uploadIsCurrentUser()) return;
 
       if (error) {
-        setMediaError('Could not upload this image.');
+        setMediaError(l("Could not upload this image."));
         return;
       }
 
@@ -4756,7 +4756,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!deleteIsCurrentUser()) return;
 
     if (error) {
-      setMediaError('Could not delete this image.');
+      setMediaError(l("Could not delete this image."));
       return;
     }
 
@@ -4915,7 +4915,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         entitlements: FREE_BILLING_ENTITLEMENTS,
         usage: { ...current.usage, pages: pages.length },
       }));
-      setBillingError('Billing status could not be verified, so paid features are temporarily locked. Apply the Sprint 121–132 migration if this is a new install.');
+      setBillingError(l("Billing status could not be verified, so paid features are temporarily locked. Apply the Sprint 121–132 migration if this is a new install."));
       setBillingLoading(false);
       return;
     }
@@ -5067,7 +5067,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       if (projectId) {
-        setCloudError('The requested website is not visible in your current cloud projects.');
+        setCloudError(l("The requested website is not visible in your current cloud projects."));
         return;
       }
 
@@ -5106,7 +5106,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setBillingOpen(true);
     if (billingResult === 'success') {
-      setBillingError('Payment completed. Stripe is syncing your subscription; refresh billing if the badge does not update immediately.');
+      setBillingError(l("Payment completed. Stripe is syncing your subscription; refresh billing if the badge does not update immediately."));
       syncTimer = window.setTimeout(() => {
         if (
           projectLoadSequenceRef.current !== billingLoadSequence ||
@@ -5118,7 +5118,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         void refreshBilling(billingProjectId, billingLoadSequence);
       }, 1200);
     } else if (billingResult === 'canceled') {
-      setBillingError('Checkout was canceled. Your current plan was not changed.');
+      setBillingError(l("Checkout was canceled. Your current plan was not changed."));
     }
     params.delete('billing');
     const query = params.toString();
@@ -5256,7 +5256,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (decision === 'skip-once') {
       skipNextAutosaveRef.current = false;
       lastSavedSnapshotRef.current = fingerprint;
-      setAutoSaveStatus('saved');
+      setAutoSaveStatus(l("saved"));
       return;
     }
 
@@ -5265,7 +5265,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const autosaveLoadSequence = projectLoadSequenceRef.current;
     const autosaveUserId = user?.id ?? null;
 
-    setAutoSaveStatus('saving');
+    setAutoSaveStatus(l("saving"));
     autosaveTimerRef.current = window.setTimeout(() => {
       autosaveTimerRef.current = null;
 
@@ -10275,7 +10275,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       aiQualityReviewContextRef.current = null;
       setAiQualityReview(null);
       setAiError(
-        'The website changed after this quality review. Run the quality check again before applying fixes.',
+        l("The website changed after this quality review. Run the quality check again before applying fixes."),
       );
       return;
     }
@@ -10310,7 +10310,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setPublishVersionsError('Release history is unavailable. Apply the Sprint 97-108 database migration.');
+      setPublishVersionsError(l("Release history is unavailable. Apply the Sprint 97-108 database migration."));
       setPublishVersionsLoading(false);
       return;
     }
@@ -10369,18 +10369,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
     if (!routeHealthy && import.meta.env.PROD) {
-      setPublishError('The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar.');
+      setPublishError(l("The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar."));
     }
 
     return routeHealthy;
   }
   async function createSharePreview() {
     if (cloudProjectId && !projectTeamAccess.canPublish) {
-      setPreviewError('Only the project owner can create public share previews.');
+      setPreviewError(l("Only the project owner can create public share previews."));
       return;
     }
     if (!user || !cloudProjectId) {
-      setPreviewError('Save this project to the cloud before creating a share preview.');
+      setPreviewError(l("Save this project to the cloud before creating a share preview."));
       return;
     }
 
@@ -10402,7 +10402,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!previewIsCurrent()) return;
 
     if (!latestSaved) {
-      setPreviewError('The latest editor changes could not be synchronized before creating the preview.');
+      setPreviewError(l("The latest editor changes could not be synchronized before creating the preview."));
       setPreviewBusy(false);
       return;
     }
@@ -10497,7 +10497,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function rollbackPublishVersion(version: WebsitePublishVersion) {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can rollback a published release.');
+      setPublishError(l("Only the project owner can rollback a published release."));
       return;
     }
     if (!window.confirm(l('Rollback the live website to the release from {time}? Your editor draft will stay unchanged.').replace('{time}', new Date(version.created_at).toLocaleString()))) return;
@@ -10611,7 +10611,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLastPublishedFingerprint(version.editor_fingerprint);
       saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
-      setAutoSaveStatus('saved');
+      setAutoSaveStatus(l("saved"));
 
       await verifyLiveDeployment(
         rollbackProjectId,
@@ -10629,7 +10629,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
   function restorePublishVersionToEditor(version: WebsitePublishVersion) {
     if (snapshotConflictsWithActiveProject(version.snapshot)) {
-      setPublishVersionsError('This release snapshot does not belong to the active project.');
+      setPublishVersionsError(l("This release snapshot does not belong to the active project."));
       return;
     }
 
@@ -10648,17 +10648,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     prepareProjectStateRestore();
     applyProjectData(restored, false);
     setReleaseHistoryOpen(false);
-    setAutoSaveStatus('saving');
+    setAutoSaveStatus(l("saving"));
   }
 
   async function deletePublishVersion(version: WebsitePublishVersion) {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
-      setPublishVersionsError('Only the project owner can delete release archives.');
+      setPublishVersionsError(l("Only the project owner can delete release archives."));
       return;
     }
     if (version.id === lastPublishedVersionId) {
-      setPublishVersionsError('You cannot delete the release currently serving as the live rollback reference.');
+      setPublishVersionsError(l("You cannot delete the release currently serving as the live rollback reference."));
       return;
     }
     if (!window.confirm(l("Delete this stored release archive? This cannot be undone."))) return;
@@ -10701,15 +10701,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function saveProject(options: { automatic?: boolean; createHistory?: boolean } = {}): Promise<boolean> {
     const automatic = options.automatic === true;
     if (user && projectId && cloudProjectId !== projectId) {
-      setCloudError('Opening your saved website. Save will continue when it is loaded.');
+      setCloudError(l("Opening your saved website. Save will continue when it is loaded."));
       return false;
     }
 
     if (user && !cloudProjectId) {
       const preservedProjectId = projectId || loadActiveWebsiteProjectId();
       if (preservedProjectId) {
-        setCloudError('Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available.');
-        setAutoSaveStatus('failed');
+        setCloudError(l("Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available."));
+        setAutoSaveStatus(l("failed"));
         return false;
       }
 
@@ -10719,8 +10719,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           cloudProjects[0];
 
         saveActiveWebsiteProjectId(fallbackProject.id);
-        setCloudError('Opening your most recent saved website before saving. No duplicate draft was created.');
-        setAutoSaveStatus('saving');
+        setCloudError(l("Opening your most recent saved website before saving. No duplicate draft was created."));
+        setAutoSaveStatus(l("saving"));
         void loadCloudProjectRef.current(fallbackProject.id);
         return false;
       }
@@ -10730,8 +10730,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const fingerprint = buildProjectFingerprint();
 
     if (user && cloudProjectId && !projectTeamAccess.canEdit) {
-      setCloudError('This shared project is read-only for your Viewer role.');
-      setAutoSaveStatus('failed');
+      setCloudError(l("This shared project is read-only for your Viewer role."));
+      setAutoSaveStatus(l("failed"));
       return false;
     }
 
@@ -10761,18 +10761,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const projectData = buildProjectData(historyEntries);
     const localSaved = saveLocalWebsiteProject(projectData);
     if (!localSaved) {
-      setCloudError('Local recovery storage is full. Cloud save will still be attempted.');
+      setCloudError(l("Local recovery storage is full. Cloud save will still be attempted."));
     }
 
     let cloudSaved = !user;
     if (user) {
       setCloudBusy(true);
       setCloudError('');
-      setAutoSaveStatus('saving');
+      setAutoSaveStatus(l("saving"));
 
       if (!networkOnline) {
         setCloudSyncFailed(true);
-        setCloudError('You are offline. Changes are saved locally and will retry when the connection returns.');
+        setCloudError(l("You are offline. Changes are saved locally and will retry when the connection returns."));
       } else if (cloudProjectId) {
         const result = await updateWebsiteProjectInCloud({
           projectId: cloudProjectId,
@@ -10875,7 +10875,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const message = error instanceof Error ? error.message : 'Unexpected save failure.';
         setCloudSyncFailed(Boolean(saveUserId));
         setCloudError(saveUserId ? `Save failed: ${message}` : message);
-        setAutoSaveStatus('failed');
+        setAutoSaveStatus(l("failed"));
         if (!automatic) setSaved(false);
       }
       return false;
@@ -11001,7 +11001,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!confirmed) return;
 
     if (snapshotConflictsWithActiveProject(entry.snapshot)) {
-      setCloudError('This history snapshot does not belong to the active project.');
+      setCloudError(l("This history snapshot does not belong to the active project."));
       return;
     }
 
@@ -11015,7 +11015,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     applyProjectData(entry.snapshot, false, false);
     setHistoryOpen(false);
     setSaved(false);
-    setAutoSaveStatus('saving');
+    setAutoSaveStatus(l("saving"));
   }
 
   function resetProject() {
@@ -11075,7 +11075,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAnalyticsError('');
     setHistoryOpen(false);
     lastSavedSnapshotRef.current = '';
-    setAutoSaveStatus('idle');
+    setAutoSaveStatus(l("idle"));
     setSaved(false);
   }
 
@@ -11254,7 +11254,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
         saveLocalWebsiteProject(importedProject);
         lastSavedSnapshotRef.current = '';
-        setAutoSaveStatus('saved');
+        setAutoSaveStatus(l("saved"));
         setOperationsOpen(false);
       } catch {
         window.alert(l("This JSON file is not a valid Tayar Website Builder backup."));
@@ -11512,7 +11512,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not mark all leads as read.');
+      setLeadsError(l("Could not mark all leads as read."));
       return;
     }
 
@@ -11544,7 +11544,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not archive read leads.');
+      setLeadsError(l("Could not archive read leads."));
       return;
     }
 
@@ -11621,7 +11621,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function publishWebsite() {
     if (!networkOnline) {
-      setPublishError('Publish preflight blocked: you are offline. Reconnect and try again.');
+      setPublishError(l("Publish preflight blocked: you are offline. Reconnect and try again."));
       return;
     }
 
@@ -11631,18 +11631,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     if (!user) {
-      setPublishError('Sign in before publishing.');
+      setPublishError(l("Sign in before publishing."));
       return;
     }
 
     if (cloudProjectId && !projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can publish a shared website.');
+      setPublishError(l("Only the project owner can publish a shared website."));
       return;
     }
 
     const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
     if (!supabaseUrl) {
-      setPublishError('Supabase URL is not configured.');
+      setPublishError(l("Supabase URL is not configured."));
       return;
     }
 
@@ -12013,7 +12013,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       lastSavedSnapshotRef.current = '';
 
       setAutoSaveStatus(
-        'saved',
+        l("saved"),
       );
 
       setCloudSyncFailed(
@@ -12026,7 +12026,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (archiveWarning) {
         setPublishVersionsError(
-          'Website published successfully. Release history was skipped: ' +
+          l("Website published successfully. Release history was skipped: ") +
           archiveWarning
         );
       }
@@ -12059,7 +12059,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function unpublishWebsite() {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can unpublish a shared website.');
+      setPublishError(l("Only the project owner can unpublish a shared website."));
       return;
     }
     if (!window.confirm(l("Remove the public version of this website?"))) return;
@@ -12126,7 +12126,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLiveVerification('idle');
       saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
-      setAutoSaveStatus('saved');
+      setAutoSaveStatus(l("saved"));
     } catch (error) {
       if (!unpublishIsCurrent()) return;
       setPublishError(error instanceof Error ? error.message : 'Could not unpublish this website.');
