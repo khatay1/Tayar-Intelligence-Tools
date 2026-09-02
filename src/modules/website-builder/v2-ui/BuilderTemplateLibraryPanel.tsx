@@ -1,12 +1,29 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileArchive, FileImage, FileText, Loader2, Presentation, RefreshCw, Search, Sheet } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Clock3,
+  Download,
+  FileArchive,
+  FileImage,
+  FileText,
+  Heart,
+  Loader2,
+  Presentation,
+  RefreshCw,
+  Search,
+  Sheet,
+} from 'lucide-react';
 import {
   TEMPLATE_LIBRARY_PAGE_SIZE,
   createTemplateLibraryDownloadUrl,
+  createTemplateLibraryPreviewUrl,
   listTemplateLibraryAssets,
   type TemplateLibraryAsset,
   type TemplateLibraryAssetKind,
 } from '../services/templateLibraryService';
+
+const FAVORITES_KEY = 'tayar-template-library-favorites-v1';
+const RECENT_KEY = 'tayar-template-library-recent-v1';
+const RECENT_LIMIT = 24;
 
 const FORMAT_OPTIONS = [
   ['all', 'All'],
@@ -20,6 +37,27 @@ const FORMAT_OPTIONS = [
   ['pbix', 'Power BI'],
   ['zip', 'ZIP'],
 ] as const;
+
+type LibraryView = 'all' | 'favorites' | 'recent';
+
+function readStoredIds(key: string) {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(key) || '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string').slice(0, 100)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredIds(key: string, ids: string[]) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(ids));
+  } catch {
+    // Local persistence is optional; browsing must remain usable if storage is blocked.
+  }
+}
 
 function iconForKind(kind: TemplateLibraryAssetKind) {
   if (kind === 'spreadsheet') return Sheet;
@@ -42,6 +80,10 @@ export function BuilderTemplateLibraryPanel() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [format, setFormat] = useState('all');
+  const [view, setView] = useState<LibraryView>('all');
+  const [favorites, setFavorites] = useState<string[]>(() => readStoredIds(FAVORITES_KEY));
+  const [recent, setRecent] = useState<string[]>(() => readStoredIds(RECENT_KEY));
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [downloadId, setDownloadId] = useState<string | null>(null);
@@ -53,9 +95,10 @@ export function BuilderTemplateLibraryPanel() {
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  async function loadPage(offset: number, append: boolean) {
+  const loadPage = useCallback(async (offset: number, append: boolean) => {
     const requestId = ++requestRef.current;
-    append ? setLoadingMore(true) : setLoading(true);
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     if (!append) setError(null);
 
     try {
@@ -82,21 +125,71 @@ export function BuilderTemplateLibraryPanel() {
         setLoadingMore(false);
       }
     }
-  }
+  }, [debouncedSearch, format]);
 
   useEffect(() => {
     void loadPage(0, false);
     return () => {
       requestRef.current += 1;
     };
-  }, [debouncedSearch, format]);
+  }, [loadPage]);
 
-  const hasMore = assets.length < total;
+  useEffect(() => {
+    let cancelled = false;
+    const imageAssets = assets.filter(asset => asset.kind === 'image' && !previewUrls[asset.id]).slice(0, 12);
+    if (!imageAssets.length) return undefined;
+
+    void Promise.all(
+      imageAssets.map(async asset => [asset.id, await createTemplateLibraryPreviewUrl(asset)] as const),
+    ).then(entries => {
+      if (cancelled) return;
+      const resolved = entries.reduce<Record<string, string>>((next, [id, url]) => {
+        if (url) next[id] = url;
+        return next;
+      }, {});
+      if (Object.keys(resolved).length) {
+        setPreviewUrls(current => ({ ...current, ...resolved }));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assets, previewUrls]);
+
+  const visibleAssets = useMemo(() => {
+    if (view === 'all') return assets;
+    const order = view === 'favorites' ? favorites : recent;
+    const byId = new Map(assets.map(asset => [asset.id, asset]));
+    return order.map(id => byId.get(id)).filter((asset): asset is TemplateLibraryAsset => Boolean(asset));
+  }, [assets, favorites, recent, view]);
+
+  const hasMore = view === 'all' && assets.length < total;
   const summary = useMemo(() => {
     if (loading && assets.length === 0) return 'Loading library…';
+    if (view === 'favorites') return `${visibleAssets.length} saved favorite${visibleAssets.length === 1 ? '' : 's'}`;
+    if (view === 'recent') return `${visibleAssets.length} recent template${visibleAssets.length === 1 ? '' : 's'}`;
     if (!total) return 'No matching templates';
     return `${assets.length.toLocaleString()} of ${total.toLocaleString()} templates`;
-  }, [assets.length, loading, total]);
+  }, [assets.length, loading, total, view, visibleAssets.length]);
+
+  function toggleFavorite(assetId: string) {
+    setFavorites(current => {
+      const next = current.includes(assetId)
+        ? current.filter(id => id !== assetId)
+        : [assetId, ...current].slice(0, 100);
+      writeStoredIds(FAVORITES_KEY, next);
+      return next;
+    });
+  }
+
+  function markRecent(assetId: string) {
+    setRecent(current => {
+      const next = [assetId, ...current.filter(id => id !== assetId)].slice(0, RECENT_LIMIT);
+      writeStoredIds(RECENT_KEY, next);
+      return next;
+    });
+  }
 
   async function downloadAsset(asset: TemplateLibraryAsset) {
     if (downloadId) return;
@@ -105,6 +198,7 @@ export function BuilderTemplateLibraryPanel() {
 
     try {
       const url = await createTemplateLibraryDownloadUrl(asset);
+      markRecent(asset.id);
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.rel = 'noopener noreferrer';
@@ -122,7 +216,7 @@ export function BuilderTemplateLibraryPanel() {
       <div>
         <div className="text-sm font-semibold text-white">Template Library</div>
         <p className="mt-1 text-[11px] leading-4 text-gray-500">
-          Browse imported assets safely. Office, PDF and archive files download as references; only Tayar-native website formats will become directly insertable.
+          Browse imported assets safely. Office, PDF and archive files download as references; Tayar-native website formats can be opened directly when available.
         </p>
       </div>
 
@@ -135,6 +229,25 @@ export function BuilderTemplateLibraryPanel() {
           className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-8 pr-3 text-xs text-white outline-none placeholder:text-gray-600 focus:border-cyan-500/50"
         />
       </label>
+
+      <div className="grid grid-cols-3 gap-1 rounded-lg border border-white/10 bg-black/15 p-1">
+        {([
+          ['all', 'All'],
+          ['favorites', 'Favorites'],
+          ['recent', 'Recent'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setView(value)}
+            className={`rounded-md px-2 py-1.5 text-[10px] font-medium ${
+              view === value ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex items-center gap-2">
         <select
@@ -173,38 +286,74 @@ export function BuilderTemplateLibraryPanel() {
           <div className="flex items-center justify-center gap-2 py-10 text-xs text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading templates…
           </div>
-        ) : assets.length === 0 ? (
+        ) : visibleAssets.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 p-5 text-center text-xs text-gray-500">
-            No templates match this search.
+            {view === 'favorites'
+              ? 'No favorites yet.'
+              : view === 'recent'
+                ? 'Templates you download will appear here.'
+                : 'No templates match this search.'}
           </div>
         ) : (
-          assets.map(asset => {
+          visibleAssets.map(asset => {
             const Icon = iconForKind(asset.kind);
             const downloading = downloadId === asset.id;
+            const favorite = favorites.includes(asset.id);
+            const previewUrl = previewUrls[asset.id];
+
             return (
-              <article key={asset.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-                <div className="flex items-start gap-2.5">
-                  <div className="rounded-lg bg-white/5 p-2 text-cyan-300">
-                    <Icon className="h-4 w-4" />
+              <article key={asset.id} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.025]">
+                {previewUrl && (
+                  <div className="aspect-[16/9] overflow-hidden border-b border-white/10 bg-black/20">
+                    <img
+                      src={previewUrl}
+                      alt={asset.title}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium text-gray-200" title={asset.title}>{asset.title}</div>
-                    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-gray-600">
-                      <span>{asset.format.toUpperCase() || 'FILE'}</span>
-                      <span>{formatBytes(asset.fileSizeBytes)}</span>
-                      <span>{asset.category}</span>
+                )}
+
+                <div className="p-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="rounded-lg bg-white/5 p-2 text-cyan-300">
+                      <Icon className="h-4 w-4" />
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs font-medium text-gray-200" title={asset.title}>{asset.title}</div>
+                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-gray-600">
+                        <span>{asset.format.toUpperCase() || 'FILE'}</span>
+                        <span>{formatBytes(asset.fileSizeBytes)}</span>
+                        <span>{asset.category}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleFavorite(asset.id)}
+                      aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
+                      title={favorite ? 'Remove from favorites' : 'Add to favorites'}
+                      className={`rounded-md p-1.5 ${favorite ? 'text-pink-300' : 'text-gray-600 hover:text-gray-300'}`}
+                    >
+                      <Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} />
+                    </button>
                   </div>
+
+                  {recent.includes(asset.id) && (
+                    <div className="mt-2 inline-flex items-center gap-1 text-[9px] text-gray-600">
+                      <Clock3 className="h-3 w-3" /> Recently used
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => void downloadAsset(asset)}
+                    disabled={Boolean(downloadId)}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] font-medium text-gray-300 hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                  >
+                    {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    {asset.usageMode === 'builder-native' ? 'Open template' : 'Download template'}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void downloadAsset(asset)}
-                  disabled={Boolean(downloadId)}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] font-medium text-gray-300 hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
-                >
-                  {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                  {asset.usageMode === 'builder-native' ? 'Open template' : 'Download template'}
-                </button>
               </article>
             );
           })
