@@ -287,7 +287,7 @@ export default function ImageToolsTool({ darkMode: _darkMode }: { darkMode: bool
               {outputBlob && (
                 <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="text-sm">
-                    <div className="text-white font-medium">{selectedFormat.label} · {width} × {height}px</div>
+                    <div className="text-white font-medium">{l(selectedFormat.label)} · {width} × {height}px</div>
                     <div className="text-xs text-gray-500 mt-0.5">
                       {formatBytes(outputBlob.size)}
                       {source.size > 0 && ` · ${Math.round((1 - outputBlob.size / source.size) * 100)}% size change`}
