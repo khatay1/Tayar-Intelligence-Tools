@@ -145,7 +145,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
   function restoreVersion(version: ResumeVersion) {
     setCv(version.data);
     setTemplate(version.template as TemplateId);
-    toast.success(`Restored ${version.version_label}`);
+    toast.success(l('Restored {version}').replace('{version}', version.version_label));
   }
 
   // AI handlers
@@ -197,7 +197,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
           if (cv.experience.length > 0) {
             setCv({ ...cv, experience: cv.experience.map((exp, i) => i === 0 ? { ...exp, description: exp.description + '\n' + bullets.join('\n') } : exp) });
           }
-          toast.success(`${bullets.length} achievements generated`);
+          toast.success(l('{count} achievements generated').replace('{count}', String(bullets.length)));
           break;
         }
         case 'suggest-skills': {
@@ -206,7 +206,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
           const existing = cv.skills.map(s => s.name.toLowerCase());
           const toAdd = suggested.filter(s => !existing.includes(s.toLowerCase()));
           setCv({ ...cv, skills: [...cv.skills, ...toAdd.slice(0, 8).map(s => ({ id: uid(), name: s, level: 'Intermediate' }))] });
-          toast.success(`Added ${Math.min(toAdd.length, 8)} skills`);
+          toast.success(l('Added {count} skills').replace('{count}', String(Math.min(toAdd.length, 8))));
           break;
         }
         case 'optimize-ats': {
@@ -272,12 +272,12 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
       if (format === 'pdf') await exportToPDF();
       else if (format === 'docx') exportToDOCX(cv, template, colorTheme, prefs.language);
       else exportToTXT(cv, prefs.language);
-      toast.success(`Exported as ${format.toUpperCase()}`);
+      toast.success(l('Exported as {format}').replace('{format}', format.toUpperCase()));
       if (user && projectId) {
         await logActivity(`Exported resume as ${format.toUpperCase()}`, 'cv-builder');
       }
     } catch {
-      toast.error(`Failed to export as ${format.toUpperCase()}`);
+      toast.error(l('Failed to export as {format}').replace('{format}', format.toUpperCase()));
     }
     setExporting(false);
   }
@@ -376,7 +376,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
             {TEMPLATES.map((t, idx) => (
               <button
                 key={t.id}
-                onClick={() => { setTemplate(t.id); setPhase('builder'); toast.success(`${t.name} template selected`); }}
+                onClick={() => { setTemplate(t.id); setPhase('builder'); toast.success(l('{template} template selected').replace('{template}', t.name)); }}
                 className="group text-left rounded-2xl border border-white/10 hover:border-violet-500/40 bg-white/[0.02] hover:bg-violet-600/5 overflow-hidden transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-violet-500/10"
                 style={{ animation: `fadeInUp 0.3s ease-out ${idx * 0.05}s both` }}
               >
