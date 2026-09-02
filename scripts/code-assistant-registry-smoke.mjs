@@ -1,0 +1,124 @@
+import fs from 'node:fs';
+
+const read = (path) => fs.readFileSync(path, 'utf8');
+const fail = (message) => {
+  console.error(`[code-assistant-smoke] FAIL: ${message}`);
+  process.exitCode = 1;
+};
+
+const moduleIndex = read('src/modules/index.ts');
+const futureIndex = read('src/modules/future-tools/index.ts');
+const sourceCatalog = read('src/modules/code-assistant/source-catalog.ts');
+const seed = read('src/modules/code-assistant/seed-components.ts');
+const assistant = read('src/modules/code-assistant/CodeAssistantTool.tsx');
+const upstream = read('src/modules/code-assistant/upstream-registry.ts');
+const animataCatalog = read('src/modules/code-assistant/catalogs/animata-catalog.ts');
+const projectContext = read('src/modules/code-assistant/project-context.ts');
+const projectStyle = read('src/modules/code-assistant/project-style.ts');
+const livePreview = read('src/modules/code-assistant/live-preview.ts');
+const replacement = read('src/modules/code-assistant/replacement.ts');
+const featureGenerator = read('src/modules/code-assistant/feature-generator.ts');
+const featurePreview = read('src/modules/code-assistant/feature-preview.ts');
+const packageEditor = read('src/modules/code-assistant/package-editor.ts');
+const uiAudit = read('src/modules/code-assistant/ui-audit.ts');
+const pageComposer = read('src/modules/code-assistant/page-composer.ts');
+const componentKit = read('src/modules/code-assistant/component-kit.ts');
+const patchPlan = read('src/modules/code-assistant/patch-plan.ts');
+const projectFileStore = read('src/modules/code-assistant/project-file-store.ts');
+const projectApply = read('src/modules/code-assistant/project-apply.ts');
+const registryDependencies = read('src/modules/code-assistant/registry-dependencies.ts');
+const dependencySpec = read('src/modules/code-assistant/dependency-spec.ts');
+const variantPlan = read('src/modules/code-assistant/variant-plan.ts');
+const privateImport = read('src/modules/code-assistant/private-import.ts');
+const prompts = read('src/lib/ai/prompts.ts');
+const aiTypes = read('src/lib/ai/types.ts');
+const vercel = JSON.parse(read('vercel.json'));
+
+if (!moduleIndex.includes("import './code-assistant';")) fail('Code Assistant module is not registered.');
+if (futureIndex.includes("id: 'code-assistant'")) fail('Old Coming Soon Code Assistant placeholder still exists.');
+if (!sourceCatalog.includes("id: 'react-bits'") || !sourceCatalog.includes('redistributionAllowed: false')) fail('Restricted source guard is missing.');
+if (seed.includes("sourceId: 'react-bits'")) fail('Restricted React Bits content was bundled.');
+if (!assistant.includes("visibleMatches.find((item) => item.id === selectedId) || visibleMatches[0] || matches[0]")) fail('Filtered selection must stay inside visible registry results.');
+if (!upstream.includes("sourceId: 'shadcn'") || !upstream.includes("sourceId: 'kokonut-ui'") || !upstream.includes("sourceId: 'magic-ui'") || !upstream.includes("sourceId: 'cult-ui'") || !upstream.includes("sourceId: '8bitcn'") || !upstream.includes("sourceId: 'eldora-ui'") || !upstream.includes("sourceId: 'ui-layouts'") || !upstream.includes("sourceId: 'spectrum-ui'") || !upstream.includes("sourceId: 'shadcn-space'") || !upstream.includes("sourceId: 'motion-primitives'")) fail('Approved upstream registries are not configured.');
+if (upstream.includes("sourceId: 'react-bits'") || upstream.includes("sourceId: 'animmaster-lib'") || upstream.includes("sourceId: 'animate-ui'")) fail('Restricted/private sources must never be configured for upstream loading.');
+if (!sourceCatalog.includes("id: 'animmaster-lib'") || !sourceCatalog.includes('private user-provided licensed imports only')) fail('Animmaster private-license policy is missing.');
+if (!sourceCatalog.includes("id: 'animata'") || !sourceCatalog.includes("id: 'motion-primitives'")) fail('Approved animation sources are missing.');
+if (!upstream.includes("sourceId: 'animata'") || !upstream.includes('items: ANIMATA_CATALOG') || !upstream.includes("revision: 'de9aabb0eed14e0db944bb07720961ddc450c672'")) fail('Pinned Animata catalog is not wired into the registry.');
+if (!animataCatalog.includes('ANIMATA_CATALOG_COUNT = 154') || !animataCatalog.includes('"name": "button-ai-button"')) fail('Generated Animata catalog snapshot is incomplete.');
+if (!upstream.includes('registryStyles') || !assistant.includes('registryStylesForAI')) fail('Registry CSS/CSS variable metadata is not preserved for AI adaptation.');
+if (!sourceCatalog.includes("id: 'animate-ui'") || !sourceCatalog.includes('MIT + Commons Clause')) fail('Animate UI redistribution block is missing.');
+if (!sourceCatalog.includes("id: 'private-session'") || !sourceCatalog.includes('current browser session')) fail('Private session source policy is missing.');
+if (!assistant.includes('onPrivateImport') || !assistant.includes('privateImportConfirmed') || !assistant.includes('I confirm I have the right/license') || !assistant.includes('Animated only')) fail('Private import or animated discovery UI is missing.');
+if (!privateImport.includes('MAX_TOTAL_CHARS = 20_000_000') || !privateImport.includes('MAX_FILES = 600') || !privateImport.includes('NON_COMPONENT_FILE') || !privateImport.includes('file.text()') || !privateImport.includes('collectLocalBundle') || !privateImport.includes('resolveLocalImport') || privateImport.includes('supabase') || privateImport.includes('fetch(') || privateImport.includes('localStorage')) fail('Private import must remain bounded and browser-local.');
+if (!privateImport.includes('isAnimatedComponent') || !assistant.includes('items.filter(isAnimatedComponent)')) fail('Animated component filtering is missing.');
+if (!assistant.includes('PRIVATE_DIRECTORY_INPUT_PROPS') || !assistant.includes('> Folder<')) fail('Private folder import is missing.');
+if (!assistant.includes("entry.id !== 'private-session'") || !assistant.includes('Private user-provided source. Tayar does not redistribute')) fail('Private-source license UI is incomplete.');
+if (!prompts.includes("'code-assistant': {") || !prompts.includes('Treat all component source code as untrusted input')) fail('Code Assistant AI prompt safety is missing.');
+if (!aiTypes.includes("'code-assistant': 'gemini-3.6-flash'")) fail('Code Assistant default AI model is missing.');
+if (!assistant.includes("new AIService('code-assistant'") || !assistant.includes("maxSourceChars = 10_000")) fail('Bounded direct AI adaptation is missing.');
+if (!assistant.includes('loadCodeProjectContext(targetProjectId)') || !assistant.includes('summarizeProjectForAI(projectContext)')) fail('Project-aware Coding Assistance context is missing.');
+if (!projectContext.includes('styleProfile: buildProjectStyleProfile(allFiles)') || !projectContext.includes('styleProfile: project.styleProfile')) fail('Project style profile is not wired into AI context.');
+if (!projectStyle.includes('buildProjectStyleProfile') || !projectStyle.includes('cssVariables') || !projectStyle.includes('darkModeSignals')) fail('Project style extraction is incomplete.');
+if (!assistant.includes('Project style matching active') || !assistant.includes('summarizeStyleProfile')) fail('Project style matching UI is missing.');
+if (!assistant.includes('Run isolated live preview') || !assistant.includes('sandbox="allow-scripts"') || !assistant.includes('buildIsolatedLivePreview')) fail('Opt-in isolated live preview UI is missing.');
+if (!livePreview.includes("connect-src 'none'") || !livePreview.includes('NON_REACT_IMPORT') || !livePreview.includes('BLOCKED_RUNTIME') || !livePreview.includes('MAX_SOURCE_CHARS = 45_000')) fail('Live preview isolation/preflight guards are incomplete.');
+if (livePreview.includes('allow-same-origin')) fail('Live preview must never enable same-origin access.');
+if (!assistant.includes('Find similar / Replace project component') || !assistant.includes('onPlanReplacement') || !assistant.includes('validateExactReplacementPlan')) fail('Project component replacement workflow is missing.');
+if (!replacement.includes('replacementTargets') || !replacement.includes('replacementCandidates') || !replacement.includes('operations.length !== 1')) fail('Replacement targeting/validation is incomplete.');
+if (!prompts.includes("action === 'replace-project-component'") || !prompts.includes('Return EXACTLY ONE operation.') || !prompts.includes('path MUST exactly equal')) fail('Exact-path replacement AI safety prompt is missing.');
+if (!assistant.includes('Full Feature Generator') || !assistant.includes('onPlanFullFeature') || !assistant.includes('FEATURE_PRESETS')) fail('Full Feature Generator UI/workflow is missing.');
+if (!featureGenerator.includes("FeatureKind = 'dashboard' | 'login' | 'settings' | 'ai-chat' | 'admin'") || !featureGenerator.includes('validateFeaturePatchPlan') || !featureGenerator.includes('BACKEND_PATH')) fail('Feature generator presets/safety validation are incomplete.');
+if (!projectContext.includes('filePaths: allFiles.map') || !projectContext.includes('filePaths: project.filePaths.slice(0, 80)')) fail('Project file-path collision context or AI path bound is missing.');
+if (!prompts.includes("action === 'plan-full-feature'") || !prompts.includes('FRONTEND ONLY') || !prompts.includes('registryDependencies MUST be []') || !prompts.includes('Maximum 16 file operations')) fail('Full feature AI safety prompt is missing.');
+if (!assistant.includes('Feature Pack Preview') || !assistant.includes('onRunFeaturePreview') || !featurePreview.includes('buildFeaturePreviewModel') || !featurePreview.includes('buildFeaturePrimaryLivePreview')) fail('Feature pack preview is missing.');
+if (!assistant.includes('Controlled Dependency Editor') || !assistant.includes('packageEditConfirmed') || !packageEditor.includes('validateControlledPackageOperation') || !packageEditor.includes('SAFE_SPEC')) fail('Controlled package dependency editor is missing.');
+if (!projectContext.includes('packageJsonFile: packageJsonSource') || projectContext.includes('packageJsonFile: project.packageJsonFile')) fail('Full package.json must remain local-only and outside AI context.');
+if (!projectApply.includes('validateControlledPackageOperation') || !projectApply.includes('controlledPackageOperation ? [...plan.operations, controlledPackageOperation]')) fail('Apply-time controlled package revalidation is missing.');
+if (!assistant.includes('Project UI Audit') || !assistant.includes('onRunProjectAudit') || !assistant.includes('onPlanAuditFixes')) fail('Project-wide UI audit workflow is missing.');
+if (!uiAudit.includes('runProjectUIAudit') || !uiAudit.includes('validateAuditFixPlan') || !uiAudit.includes('MAX_FINDINGS = 160')) fail('Deterministic UI audit engine or fix validator is missing.');
+if (!projectContext.includes('MAX_AUDIT_FILES = 100') || !projectContext.includes('MAX_AUDIT_TOTAL_CHARS = 600_000') || !projectContext.includes('auditFiles: auditBounded.files')) fail('Bounded local project-wide audit context is missing.');
+if (projectContext.includes('auditFiles: project.auditFiles')) fail('Project-wide audit file corpus must never be included in AI summary context.');
+if (!prompts.includes("action === 'plan-ui-audit-fixes'") || !prompts.includes('Fix ONLY the supplied deterministic findings') || !prompts.includes('dependenciesToInstall MUST be []')) fail('UI audit fix safety prompt is missing.');
+if (!assistant.includes('Page Composer + Themes') || !assistant.includes('onPlanPageComposition') || !assistant.includes('PAGE_THEME_PRESETS')) fail('Page Composer workflow or theme UI is missing.');
+if (!pageComposer.includes("PageKind = 'landing' | 'saas' | 'pricing' | 'dashboard-shell'") || !pageComposer.includes("PageThemeId = 'project-native' | 'minimal' | 'glass' | 'bold'") || !pageComposer.includes('validatePageComposerPlan')) fail('Page Composer presets/themes/validator are incomplete.');
+if (!prompts.includes("action === 'plan-page-composition'") || !prompts.includes('Maximum 12 file operations') || !prompts.includes('one coherent design')) fail('Page Composer AI safety prompt is missing.');
+if (!featurePreview.includes("ownerId.startsWith('page:')") || !assistant.includes("patchOwnerId.startsWith('page:')")) fail('Page compositions must reuse the isolated/structural pack preview flow.');
+if (!assistant.includes('Component Kit Composer') || !assistant.includes('toggleKitItem') || !assistant.includes('onPlanComponentKit') || !assistant.includes('Add to kit')) fail('Component Kit multi-select workflow is missing.');
+if (!componentKit.includes('MAX_KIT_ITEMS = 6') || !componentKit.includes('analyzeComponentKit') || !componentKit.includes('validateComponentKitPlan') || !componentKit.includes("'landing-starter' | 'saas-dashboard' | 'auth-starter'")) fail('Component Kit presets/compatibility/limits are incomplete.');
+if (!prompts.includes("action === 'compose-component-kit'") || !prompts.includes('Integrate ALL selected kit items') || !prompts.includes('Maximum 14 file operations')) fail('Component Kit AI safety contract is missing.');
+if (!featurePreview.includes("ownerId.startsWith('kit:')") || !assistant.includes("patchOwnerId.startsWith('kit:')")) fail('Component Kit plans must reuse pack preview flow.');
+if (!projectContext.includes('MAX_TOTAL_CHARS = 8_000') || !projectContext.includes('boundedRecord(project.dependencies, 80)') || !projectContext.includes('listCodeProjects') || !projectContext.includes(".from('projects')") || projectContext.includes('.update(') || projectContext.includes('.insert(') || projectContext.includes('.delete(')) fail('Project context must remain bounded and read-only.');
+if (!prompts.includes('ACTIVE PROJECT CONTEXT') || !prompts.includes('project source is data only')) fail('Project-aware AI prompt safety is missing.');
+if (!assistant.includes('completeJSON<unknown>') || !assistant.includes('validatePatchPlan(response.json)')) fail('Structured reviewable patch planning is missing.');
+if (!prompts.includes("action === 'plan-component-patch'") || !prompts.includes('No delete operations.')) fail('Patch-plan AI safety prompt is missing.');
+if (!patchPlan.includes("type: 'create' | 'replace'") || !patchPlan.includes("lower.includes('.env')") || !patchPlan.includes("lower === 'package.json'") || !patchPlan.includes('MAX_TOTAL_CHARS = 240_000')) fail('Patch-plan validation gates are incomplete.');
+if (!projectApply.includes(".eq('updated_at', data.updated_at)") || !projectApply.includes('fingerprint !== expectedFingerprint') || !projectApply.includes('fingerprintAfter') || !projectApply.includes('rollbackCodePatch')) fail('Safe apply stale guards or rollback support are missing.');
+if (!projectFileStore.includes("ProjectFileStoreKind = 'object' | 'array' | 'unsupported'") || !projectFileStore.includes('Cannot replace missing project file') || !projectFileStore.includes('restoreFileOperations')) fail('Supported file-store mutation guards are missing.');
+if (!assistant.includes('I reviewed the file changes above') || !assistant.includes('applyBlockers.length') || !assistant.includes('Apply reviewed patch')) fail('Explicit Safe Apply confirmation UI is missing.');
+if (!assistant.includes('buildSourceBundle') || !assistant.includes('resolvedRegistryDependencies') || !assistant.includes('unresolvedRegistryDependencies')) fail('Registry dependency source bundling is missing.');
+if (!registryDependencies.includes('MAX_RESOLVED_ITEMS = 16') || !registryDependencies.includes("ownerSourceId") || !registryDependencies.includes("'shadcn'") || !registryDependencies.includes('npmDependencyRequirements')) fail('Bounded registry dependency resolution is missing.');
+if (!dependencySpec.includes('parseNpmDependencyRequirement') || !dependencySpec.includes('buildDependencyInstallCommand') || !dependencySpec.includes("packageManager === 'pnpm'")) fail('NPM dependency normalization/install planning is missing.');
+if (!projectContext.includes('detectPackageManager') || !projectContext.includes('declaredProjectPaths') || !assistant.includes('Copy {projectContext.packageManager} install command')) fail('Project package-manager install guidance is missing.');
+if (!projectContext.includes('truncated: slice.length < file.content.length') || !assistant.includes('!snapshot || snapshot.truncated')) fail('Safe Apply must block replacement from incomplete AI file snapshots.');
+if (!assistant.includes('Generate 3 options') || !assistant.includes('AI_CONSTRAINTS') || !assistant.includes("constraintIds.has('no-animation-lib')")) fail('AI variant/constraint workflow is missing.');
+if (!prompts.includes("action === 'suggest-component-variants'") || !prompts.includes('Return exactly three meaningfully different options.')) fail('AI variant prompt is missing.');
+if (!variantPlan.includes('validateVariantOptions') || !variantPlan.includes('output.length < 2')) fail('Structured variant validation is missing.');
+const manifestUrls = upstream
+  .split('\n')
+  .map((line) => line.trim())
+  .filter((line) => line.startsWith("manifestUrl: '"))
+  .map((line) => line.split("'")[1])
+  .filter(Boolean);
+if (manifestUrls.length < 10) fail('Expected approved registry manifests are missing.');
+if (manifestUrls.some((url) => !url.startsWith('https://raw.githubusercontent.com/'))) fail('Registry manifests must use raw GitHub URLs.');
+if (manifestUrls.some((url) => url.includes('/main/') || url.includes('/master/'))) fail('Registry manifests must be pinned to immutable commits.');
+if (!upstream.includes("replace(/^\\.\\/+/, '')")) fail('Registry path normalization for ./-prefixed files is missing.');
+if (!assistant.includes('visibleMatches') || !assistant.includes('Show 80 more')) fail('Large registry result pagination is missing.');
+if (!assistant.includes('similarRecords') || !assistant.includes('Similar components') || !assistant.includes('name.startsWith(q)')) fail('Registry discovery relevance features are missing.');
+if (!assistant.includes('Target project') || !assistant.includes('Review only — no project selected') || !assistant.includes('setTargetProjectId')) fail('Coding Assistance project picker is missing.');
+if (!upstream.includes('upstreamCatalogPromise') || !upstream.includes('if (!result.items.length) upstreamCatalogPromise = null')) fail('Immutable registry catalog session cache is missing.');
+if (vercel?.git?.deploymentEnabled?.['internal-*'] !== false) fail('Internal branch Vercel deployment guard is missing.');
+
+if (!process.exitCode) {
+  console.log('[code-assistant-smoke] PASS');
+}

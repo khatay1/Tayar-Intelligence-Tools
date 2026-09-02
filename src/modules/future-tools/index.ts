@@ -1,4 +1,4 @@
-import { FileStack, FileSignature, Mailbox, BarChart3, Code2 } from 'lucide-react';
+import { FileStack, FileSignature, Mailbox, BarChart3 } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
 import FutureToolsView from './FutureToolsView';
@@ -27,17 +27,6 @@ const futureModules: ToolModule[] = [
     tier: 'free',
     version: '0.1.0',
     icon: Mailbox,
-    component: FutureToolsView,
-  },
-  {
-    id: 'code-assistant',
-    name: 'Code Assistant',
-    description: 'Generate, explain, and debug code in any language.',
-    category: 'productivity',
-    status: 'soon',
-    tier: 'premium',
-    version: '0.1.0',
-    icon: Code2,
     component: FutureToolsView,
   },
   {
