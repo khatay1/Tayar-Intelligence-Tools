@@ -92,6 +92,18 @@ function escapeLikePattern(value: string) {
   return value.replace(/[\\%_]/g, match => `\\${match}`);
 }
 
+function assertSafeTemplateStoragePath(storagePathInput: unknown) {
+  const storagePath = normalizeText(storagePathInput, 1200);
+  if (!storagePath || !storagePath.startsWith('24billions/')) {
+    throw new Error('Template storage path is invalid.');
+  }
+  return storagePath;
+}
+
+function normalizeSignedUrlExpiry(value: unknown, fallback = 300) {
+  return Math.max(60, Math.min(900, Math.floor(Number(value) || fallback)));
+}
+
 export function getTemplateLibraryAssetKind(formatInput: string): TemplateLibraryAssetKind {
   const format = normalizeFormat(formatInput);
   if (BUILDER_NATIVE_FORMATS.has(format)) return 'builder-native';
@@ -175,12 +187,8 @@ export async function createTemplateLibraryDownloadUrl(
   asset: Pick<TemplateLibraryAsset, 'storagePath'>,
   expiresInSeconds = 300,
 ) {
-  const storagePath = normalizeText(asset.storagePath, 1200);
-  if (!storagePath || !storagePath.startsWith('24billions/')) {
-    throw new Error('Template storage path is invalid.');
-  }
-
-  const safeExpiry = Math.max(60, Math.min(900, Math.floor(Number(expiresInSeconds) || 300)));
+  const storagePath = assertSafeTemplateStoragePath(asset.storagePath);
+  const safeExpiry = normalizeSignedUrlExpiry(expiresInSeconds);
   const { data, error } = await supabase.storage
     .from('template-library')
     .createSignedUrl(storagePath, safeExpiry, { download: true });
@@ -189,5 +197,21 @@ export async function createTemplateLibraryDownloadUrl(
     throw new Error(error?.message || 'Could not create template download link.');
   }
 
+  return data.signedUrl;
+}
+
+export async function createTemplateLibraryPreviewUrl(
+  asset: Pick<TemplateLibraryAsset, 'storagePath' | 'kind'>,
+  expiresInSeconds = 600,
+) {
+  if (asset.kind !== 'image') return null;
+
+  const storagePath = assertSafeTemplateStoragePath(asset.storagePath);
+  const safeExpiry = normalizeSignedUrlExpiry(expiresInSeconds, 600);
+  const { data, error } = await supabase.storage
+    .from('template-library')
+    .createSignedUrl(storagePath, safeExpiry);
+
+  if (error || !data?.signedUrl) return null;
   return data.signedUrl;
 }
