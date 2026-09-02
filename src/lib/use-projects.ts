@@ -90,7 +90,7 @@ export function useProjects() {
       return false;
     }
     return true;
-  }, [error]);
+  }, [error, l]);
 
   // Save with toast feedback (used by Save Draft buttons)
   const saveProjectWithToast = useCallback(async (
@@ -159,7 +159,7 @@ export function useProjects() {
     }
     update(toastId, l('Project duplicated'), 'success');
     return data.id;
-  }, [loading, update]);
+  }, [loading, update, l]);
 
   // Create a file entry linked to a project (for "My Files")
   const createFileEntry = useCallback(async (
