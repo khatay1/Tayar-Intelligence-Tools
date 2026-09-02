@@ -192,7 +192,7 @@ export default function AdminAI() {
     if (error) showError(l("Failed to save model setting"));
     else {
       setActiveProvider('gemini');
-      success(`Default model set to ${defaultModel}`);
+      success(l('Default model set to {model}').replace('{model}', defaultModel));
     }
     setSavingModel(false);
   }
