@@ -105,10 +105,12 @@ check('Published HTML is rendered through an isolated Vercel proxy',
   !publishedProxy.includes('allow-same-origin') &&
   vercelConfig.includes('/api/published-site'));
 
-check('Published rewrites explicitly pass route parameters',
-  vercelConfig.includes('ownerId=:ownerId&projectId=:projectId') &&
-  vercelConfig.includes('previewToken=:previewToken') &&
-  vercelConfig.includes('file=:file*'));
+check('Published rewrites preserve pathname routing to the proxy',
+  vercelConfig.includes('"source": "/site/:ownerId/:projectId"') &&
+  vercelConfig.includes('"source": "/site/:ownerId/:projectId/:file*"') &&
+  vercelConfig.includes('"source": "/preview/:ownerId/:projectId/:previewToken"') &&
+  vercelConfig.includes('"source": "/preview/:ownerId/:projectId/:previewToken/:file*"') &&
+  vercelConfig.includes('"destination": "/api/published-site"'));
 
 check('Published URL helper migrates legacy Supabase Storage links',
   publishedUrlHelper.includes('normalizePublishedSiteUrl') &&

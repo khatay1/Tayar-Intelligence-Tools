@@ -35,6 +35,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function isSignupAllowed() {
+    const { data, error } = await supabase.rpc('is_signup_enabled');
+    if (error) {
+      return {
+        allowed: false,
+        error: 'Could not verify signup availability. Please try again.',
+      };
+    }
+
+    return { allowed: data !== false, error: null };
+  }
+
+  async function isBlockedEmail(email: string | null | undefined) {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    if (!normalizedEmail) return { blocked: false, error: null };
+
+    const { data, error } = await supabase.rpc('is_email_blocked', {
+      p_email: normalizedEmail,
+    });
+
+    if (error) {
+      return {
+        blocked: false,
+        error: 'Could not verify account access. Please try again.',
+      };
+    }
+
+    return { blocked: data === true, error: null };
+  }
+
   async function fetchProfile(userId: string) {
     const { data, error } = await supabase
       .from('profiles')
@@ -52,11 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       const { data: userData } = await supabase.auth.getUser();
 
-      const fullName =
-        userData.user?.user_metadata?.full_name || '';
-
-      const avatarUrl =
-        userData.user?.user_metadata?.avatar_url || null;
+      const fullName = userData.user?.user_metadata?.full_name || '';
+      const avatarUrl = userData.user?.user_metadata?.avatar_url || null;
 
       const { data: created, error: createError } = await supabase
         .from('profiles')
@@ -81,67 +108,104 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  async function initializeAuth() {
+    async function initializeAuth() {
+      const {
+        data: { session: initialSession },
+        error,
+      } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error('[AUTH] getSession error:', error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (initialSession?.user) {
+        const blockState = await isBlockedEmail(initialSession.user.email);
+        if (!mounted) return;
+
+        if (blockState.blocked) {
+          await supabase.auth.signOut();
+          if (!mounted) return;
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+      }
+
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+
+      if (initialSession?.user) {
+        await fetchProfile(initialSession.user.id);
+      }
+
+      if (mounted) {
+        setLoading(false);
+      }
+    }
+
+    void initializeAuth();
+
     const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
 
-    if (!mounted) return;
+      if (!nextSession?.user) {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        return;
+      }
 
-    if (error) {
-      console.error('[AUTH] getSession error:', error);
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
+      void (async () => {
+        const blockState = await isBlockedEmail(nextSession.user.email);
+        if (!mounted) return;
 
+        if (blockState.blocked) {
+          await supabase.auth.signOut();
+          if (!mounted) return;
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          return;
+        }
 
-    setSession(session);
-    setUser(session?.user ?? null);
+        setSession(nextSession);
+        setUser(nextSession.user);
+        void fetchProfile(nextSession.user.id);
+      })();
+    });
 
-    if (session?.user) {
-      await fetchProfile(session.user.id);
-    }
-
-    if (mounted) {
-      setLoading(false);
-    }
-  }
-
-  initializeAuth();
-
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-    if (!mounted) return;
-
-    setSession(nextSession);
-    setUser(nextSession?.user ?? null);
-
-    if (!nextSession?.user) {
-      setProfile(null);
-      return;
-    }
-
-    // Refresh the profile after sign-in/token changes so plan/name state is
-    // available immediately without requiring a browser reload.
-    void fetchProfile(nextSession.user.id);
-  });
-
-  return () => {
-    mounted = false;
-    subscription.unsubscribe();
-  };
-}, []);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   async function signIn(email: string, password: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const blockState = await isBlockedEmail(normalizedEmail);
+
+    if (blockState.error) return { error: blockState.error };
+    if (blockState.blocked) {
+      return {
+        error: 'This account is blocked. Contact support if you believe this is a mistake.',
+      };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     });
 
@@ -155,8 +219,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     fullName: string
   ) {
+    const signupState = await isSignupAllowed();
+    if (signupState.error) return { error: signupState.error };
+    if (!signupState.allowed) {
+      return { error: 'New registrations are temporarily disabled.' };
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const blockState = await isBlockedEmail(normalizedEmail);
+
+    if (blockState.error) {
+      return { error: 'Could not verify account eligibility. Please try again.' };
+    }
+    if (blockState.blocked) {
+      return { error: 'Registration is not available for this email address.' };
+    }
+
     const { error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         data: {
@@ -173,6 +253,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithGoogle() {
+    const signupState = await isSignupAllowed();
+    if (signupState.error) return { error: signupState.error };
+    if (!signupState.allowed) {
+      return { error: 'New registrations are temporarily disabled.' };
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -194,8 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function resetPassword(email: string) {
-    const { error } =
-      await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     return {
       error: error?.message ?? null,
@@ -203,10 +288,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function updatePassword(newPassword: string) {
-    const { error } =
-      await supabase.auth.updateUser({
-        password: newPassword,
-      });
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
 
     return {
       error: error?.message ?? null,
@@ -218,8 +302,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       type: 'signup',
       email,
       options: {
-        emailRedirectTo:
-          window.location.origin + '#login',
+        emailRedirectTo: window.location.origin + '#login',
       },
     });
 
@@ -228,9 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }
 
-  async function updateProfile(
-    updates: Partial<Profile>
-  ) {
+  async function updateProfile(updates: Partial<Profile>) {
     if (!user) {
       return {
         error: 'Not authenticated',
@@ -257,9 +338,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    setProfile((prev) =>
-      prev ? { ...prev, ...safeUpdates } : prev
-    );
+    setProfile((prev) => (prev ? { ...prev, ...safeUpdates } : prev));
 
     return {
       error: null,
@@ -293,9 +372,7 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
 
   if (!ctx) {
-    throw new Error(
-      'useAuth must be used within AuthProvider'
-    );
+    throw new Error('useAuth must be used within AuthProvider');
   }
 
   return ctx;
