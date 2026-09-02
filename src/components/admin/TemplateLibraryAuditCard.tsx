@@ -147,7 +147,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
         if (nextOffset === null || batchScanned === 0) break;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Template audit failed.');
+      setError(err instanceof Error ? l(err.message) : l('Template audit failed.'));
     } finally {
       if (runRef.current === runId) setRunning(false);
     }
@@ -176,7 +176,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
         });
 
         if (invokeError) throw invokeError;
-        if (!data?.ok) throw new Error(data?.error || 'Repair analysis failed.');
+        if (!data?.ok) throw new Error(data?.error || l('Repair analysis failed.'));
 
         analysis.repairable += Number(data.repairable || 0);
         analysis.unchanged += Number(data.unchanged || 0);
@@ -188,7 +188,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
         setRepairAnalysis({ ...analysis });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Repair analysis failed.');
+      setError(err instanceof Error ? l(err.message) : l('Repair analysis failed.'));
     } finally {
       setAnalyzingRepairs(false);
     }
@@ -206,7 +206,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
       });
 
       if (invokeError) throw invokeError;
-      if (!data?.ok) throw new Error(data?.error || 'Invalid template deletion failed.');
+      if (!data?.ok) throw new Error(data?.error || l('Invalid template deletion failed.'));
 
       setDeletionResult({
         requested: Number(data.requested || uniqueIssueIds.length),
@@ -221,7 +221,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
       setState(emptyState());
       setRepairAnalysis(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid template deletion failed.');
+      setError(err instanceof Error ? l(err.message) : l('Invalid template deletion failed.'));
     } finally {
       setDeletingInvalid(false);
     }
