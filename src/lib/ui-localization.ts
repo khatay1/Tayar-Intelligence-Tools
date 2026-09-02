@@ -2254,6 +2254,7 @@ const ar: PhraseMap = {
   '5 AI requests/day\\nBasic CV builder': '5 طلبات AI يومياً\\nمنشئ CV أساسي',
   'Unlimited AI requests\\nAll tools unlocked': 'طلبات AI غير محدودة\\nجميع الأدوات متاحة',
   'text-gray-800 font-medium': 'text-gray-800 font-medium',
+  'Manual edit': 'تعديل يدوي',
 };
 
 const sv: PhraseMap = {
@@ -4460,6 +4461,7 @@ const sv: PhraseMap = {
   '5 AI requests/day\\nBasic CV builder': '5 AI-begäranden/dag\\nGrundläggande CV-byggare',
   'Unlimited AI requests\\nAll tools unlocked': 'Obegränsade AI-begäranden\\nAlla verktyg upplåsta',
   'text-gray-800 font-medium': 'text-gray-800 font-medium',
+  'Manual edit': 'Manuell redigering',
 };
 
 const maps: Record<Language, PhraseMap> = { en: {}, ar, sv };
