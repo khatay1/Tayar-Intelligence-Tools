@@ -122,7 +122,7 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
   }
 
   if (!project) {
-    return <EmptyState icon={Folder} title="Project not found" description="This project may have been deleted." onAction={onBack} actionLabel="Go Back" />;
+    return <EmptyState icon={Folder} title={l("Project not found")} description="This project may have been deleted." onAction={onBack} actionLabel="Go Back" />;
   }
 
   return (
