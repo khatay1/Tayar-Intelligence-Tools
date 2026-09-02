@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { EditorShellContract } from '../core/editor-shell-contract';
+import { useLocalizer } from '@/lib/ui-localization';
 
 export interface BuilderTopbarProps {
   shell: EditorShellContract;
@@ -8,18 +9,19 @@ export interface BuilderTopbarProps {
   trailingSlot?: ReactNode;
 }
 
-export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: BuilderTopbarProps) {
+export function BuilderTopbar({
+  const l = useLocalizer(); shell, brandSlot, centerSlot, trailingSlot }: BuilderTopbarProps) {
   const { view, status, actions } = shell;
   return (
     <header className="tayar-v2-topbar" data-dirty={view.dirty ? 'true' : 'false'}>
       <div className="tayar-v2-topbar__brand">{brandSlot}</div>
       <div className="tayar-v2-topbar__history" aria-label="Editor history">
-        <button type="button" onClick={actions.onUndo} disabled={!view.canUndo}>Undo</button>
-        <button type="button" onClick={actions.onRedo} disabled={!view.canRedo}>Redo</button>
+        <button type="button" onClick={actions.onUndo} disabled={!view.canUndo}>{l('Undo')}</button>
+        <button type="button" onClick={actions.onRedo} disabled={!view.canRedo}>{l('Redo')}</button>
       </div>
       <div className="tayar-v2-topbar__center">{centerSlot}</div>
       <div className="tayar-v2-topbar__actions">
-        <button type="button" className="tayar-v2-preview-button" onClick={actions.onPreview}>Preview</button>
+        <button type="button" className="tayar-v2-preview-button" onClick={actions.onPreview}>{l('Preview')}</button>
         <button type="button" className="tayar-v2-check-button" onClick={actions.onRunCheck} disabled={Boolean(status.checking)}>
           {status.checking
             ? 'Checking…'
