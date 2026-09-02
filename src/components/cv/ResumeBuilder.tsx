@@ -547,7 +547,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                           <Field label={l('End')}><input className={inputClass} value={exp.endDate} onChange={e => updateExperience(exp.id, 'endDate', e.target.value)} placeholder={l('Present')} disabled={exp.current} /></Field>
                         </div>
                         <label className="flex items-center gap-2 text-xs text-gray-400">
-                          <input type="checkbox" checked={exp.current} onChange={e => updateExperience(exp.id, 'current', e.target.checked)} className="accent-violet-600" /> Current role
+                          <input type="checkbox" checked={exp.current} onChange={e => updateExperience(exp.id, 'current', e.target.checked)} className="accent-violet-600" /> {l('Current role')}
                         </label>
                         <Field label={l('Description')}><textarea className={inputClass + ' min-h-[100px] resize-y'} value={exp.description} onChange={e => updateExperience(exp.id, 'description', e.target.value)} placeholder={l('Describe your achievements...')} /></Field>
                       </div>
@@ -722,7 +722,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Font selection */}
                 <div>
                   <h3 className="text-white text-sm font-semibold mb-3 flex items-center gap-1.5">
-                    <Type className="w-4 h-4 text-gray-500" /> Font Family
+                    <Type className="w-4 h-4 text-gray-500" /> {l('Font Family')}
                   </h3>
                   <div className="grid grid-cols-2 gap-2">
                     {FONT_OPTIONS.map(f => (
@@ -743,7 +743,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Section reordering */}
                 <div>
                   <h3 className="text-white text-sm font-semibold mb-3 flex items-center gap-1.5">
-                    <GripVertical className="w-4 h-4 text-gray-500" /> Section Order
+                    <GripVertical className="w-4 h-4 text-gray-500" /> {l('Section Order')}
                   </h3>
                   <p className="text-gray-500 text-xs mb-2">{l('Drag to reorder sections. Toggle to show/hide.')}</p>
                   <div className="space-y-1.5">
@@ -808,7 +808,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
 
                 {aiLoading && (
                   <div className="flex items-center gap-2 text-violet-400 text-xs bg-violet-600/5 rounded-lg p-2.5">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Processing with AI...
+                    <Loader2 className="w-4 h-4 animate-spin" /> {l('Processing with AI...')}
                   </div>
                 )}
 
@@ -837,7 +837,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                       onClick={() => setShowCoverLetter(true)}
                       className="w-full flex items-center justify-center gap-2 text-fuchsia-400 hover:text-fuchsia-300 text-xs font-medium py-2 rounded-lg border border-fuchsia-500/20 hover:bg-fuchsia-600/10 transition-colors"
                     >
-                      <Eye className="w-3.5 h-3.5" /> View Cover Letter
+                      <Eye className="w-3.5 h-3.5" /> {l('View Cover Letter')}
                     </button>
                   )}
                 </div>
@@ -876,7 +876,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
 
                 {aiLoading === 'match-job' && (
                   <div className="flex items-center gap-2 text-blue-400 text-xs bg-blue-600/5 rounded-lg p-2.5">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Analyzing your resume against the job description...
+                    <Loader2 className="w-4 h-4 animate-spin" /> {l('Analyzing your resume against the job description...')}
                   </div>
                 )}
 
@@ -928,7 +928,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
 
                     <div className="bg-white/[0.03] border border-white/10 rounded-xl p-3">
                       <h4 className="text-white text-xs font-semibold mb-2 flex items-center gap-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-violet-400" /> Suggestions
+                        <TrendingUp className="w-3.5 h-3.5 text-violet-400" /> {l('Suggestions')}
                       </h4>
                       <ul className="space-y-1.5">
                         {jobMatch.suggestions.map((s, i) => (
@@ -956,7 +956,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 <div className="flex items-center justify-between">
                   <h3 className="text-white text-sm font-semibold">{l('Version History')}</h3>
                   <button onClick={saveVersion} className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300">
-                    <Plus className="w-3.5 h-3.5" /> Save Current
+                    <Plus className="w-3.5 h-3.5" /> {l('Save Current')}
                   </button>
                 </div>
 
@@ -974,7 +974,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                           onClick={() => restoreVersion(v)}
                           className="text-xs text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:bg-violet-600/10 px-3 py-1.5 rounded-lg transition-colors"
                         >
-                          Restore
+                          {l('Restore')}
                         </button>
                       </div>
                     ))}
@@ -1049,7 +1049,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                   onClick={() => { navigator.clipboard.writeText(coverLetter); toast.success('Copied to clipboard'); }}
                   className="flex items-center gap-1.5 text-gray-400 hover:text-white text-xs px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
                 >
-                  <Copy className="w-3.5 h-3.5" /> Copy
+                  <Copy className="w-3.5 h-3.5" /> {l('Copy')}
                 </button>
                 <button onClick={() => setShowCoverLetter(false)} className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors">
                   <X className="w-4 h-4" />

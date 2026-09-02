@@ -106,7 +106,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             onClick={() => onNavigate('ai-chat')}
             className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-violet-500/30 active:scale-95 whitespace-nowrap"
           >
-            <Sparkles className="w-4 h-4" /> Ask AI
+            <Sparkles className="w-4 h-4" /> {l('Ask AI')}
           </button>
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             onClick={() => setSearch('')}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-sm"
           >
-            Clear
+            {l('Clear')}
           </button>
         )}
       </div>
@@ -140,7 +140,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               : 'bg-white/[0.03] border border-white/10 text-gray-400 hover:text-white hover:border-white/20'
           }`}
         >
-          All Tools
+          {l('All Tools')}
         </button>
         {CATEGORIES.map(cat => {
           const count = toolRegistry.byCategory(cat.id).filter(t => t.status !== 'soon').length;
@@ -313,15 +313,15 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         <Icon className="w-4 h-4 text-violet-400" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-white text-sm font-semibold">{rec.title}</h3>
-                        <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{rec.desc}</p>
+                        <h3 className="text-white text-sm font-semibold">{l(rec.title)}</h3>
+                        <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{l(rec.desc)}</p>
                       </div>
                     </div>
                     <button
                       onClick={() => onNavigate(rec.action)}
                       className="text-violet-400 text-xs font-medium hover:text-violet-300 transition-colors flex items-center gap-1 ml-10"
                     >
-                      {rec.label} <ArrowUpRight className="w-3 h-3" />
+                      {l(rec.label)} <ArrowUpRight className="w-3 h-3" />
                     </button>
                   </div>
                 );
@@ -369,7 +369,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   onClick={() => onNavigate('subscription')}
                   className="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
                 >
-                  Upgrade Now
+                  {l('Upgrade Now')}
                 </button>
               </div>
             </div>}

@@ -70,21 +70,21 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
             <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">{l("You're all set")}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-            Welcome, {displayName}! 👋
+            {l('Welcome')}, {displayName}! 👋
           </h1>
           <p className="text-gray-400 text-sm max-w-lg leading-relaxed">
-            Your AI workspace is ready. We've added some sample content to get you started. Pick a quick action below, or explore the tools we recommended for you.
+            {l("Your AI workspace is ready. We've added some sample content to get you started. Pick a quick action below, or explore the tools we recommended for you.")}
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-4">
             <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
-              {projectCount} {projectCount === 1 ? 'file' : 'files'} ready
+              {projectCount} {l(projectCount === 1 ? 'file' : 'files')} {l('ready')}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
-              {recommendedTools.length} recommended tools
+              {recommendedTools.length} {l('recommended tools')}
             </span>
             {!state.tour_completed && (
               <button onClick={onStartTour} className="text-xs px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:bg-violet-500/30 transition-colors flex items-center gap-1">
-                <Rocket className="w-3 h-3" /> Take tour
+                <Rocket className="w-3 h-3" /> {l('Take tour')}
               </button>
             )}
           </div>
@@ -94,7 +94,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
       {/* Quick actions */}
       <div>
         <h2 className="text-white font-bold text-base mb-3 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-violet-400" /> Quick Start
+          <Zap className="w-4 h-4 text-violet-400" /> {l('Quick Start')}
         </h2>
         <div className="grid sm:grid-cols-3 gap-4">
           {QUICK_ACTIONS.map((qa, i) => {
@@ -109,8 +109,8 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
                 <div className={`w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
                   <Icon className={`w-5 h-5 ${qa.iconColor}`} />
                 </div>
-                <h3 className="text-white text-sm font-semibold mb-1">{qa.label}</h3>
-                <p className="text-gray-500 text-xs leading-relaxed">{qa.description}</p>
+                <h3 className="text-white text-sm font-semibold mb-1">{l(qa.label)}</h3>
+                <p className="text-gray-500 text-xs leading-relaxed">{l(qa.description)}</p>
                 <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-violet-400 group-hover:translate-x-1 transition-all absolute top-5 right-5" />
               </button>
             );
@@ -138,7 +138,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
                 }`}>
                   {step.done ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <div className="w-2 h-2 rounded-full bg-gray-600" />}
                 </div>
-                <span className={`text-sm flex-1 ${step.done ? 'text-gray-500 line-through' : 'text-white'}`}>{step.label}</span>
+                <span className={`text-sm flex-1 ${step.done ? 'text-gray-500 line-through' : 'text-white'}`}>{l(step.label)}</span>
                 {!step.done && <ArrowRight className="w-3.5 h-3.5 text-gray-600" />}
               </button>
             ))}

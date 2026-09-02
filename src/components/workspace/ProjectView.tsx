@@ -166,7 +166,7 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
           onClick={() => setShowAdd(!showAdd)}
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95"
         >
-          <Plus className="w-4 h-4" /> Add Item
+          <Plus className="w-4 h-4" /> {l('Add Item')}
         </button>
       </div>
 
@@ -185,7 +185,7 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
                 <div className={`w-10 h-10 rounded-xl ${meta.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                   <Icon className={`w-5 h-5 ${meta.color}`} />
                 </div>
-                <span className="text-white text-xs font-medium">{opt.label}</span>
+                <span className="text-white text-xs font-medium">{l(opt.label)}</span>
               </button>
             );
           })}
@@ -196,9 +196,9 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
       {items.length === 0 ? (
         <EmptyState
           icon={Folder}
-          title="No items in this project"
-          description="Add resumes, cover letters, notes, AI chats and more to organize your work."
-          actionLabel="Add First Item"
+          title={l('No items in this project')}
+          description={l('Add resumes, cover letters, notes, AI chats and more to organize your work.')}
+          actionLabel={l('Add First Item')}
           onAction={() => setShowAdd(true)}
           variant="projects"
         />

@@ -165,7 +165,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
           onClick={() => onNavigate('login')}
           className="text-violet-400 font-medium hover:text-violet-300 transition-colors"
         >
-          Sign in
+          {l('Sign in')}
         </button>
       </p>
 

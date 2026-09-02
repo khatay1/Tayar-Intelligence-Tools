@@ -15,6 +15,7 @@ import { getFileMeta, timeAgo, ViewId } from './workspace-config';
 import { useToast } from '@/components/ui/Toast';
 import { StorageIndicator } from './StorageIndicator';
 import { useTranslation } from '@/lib/i18n';
+import { useLocalizer } from '@/lib/ui-localization';
 
 interface MyWorkspaceProps {
   onNavigate: (view: ViewId, projectId?: string) => void;
@@ -49,6 +50,7 @@ const TYPE_ICONS: Record<string, typeof FileText> = {
 
 export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
   const { t } = useTranslation();
+  const l = useLocalizer();
   const { user, profile } = useAuth();
   const { isAdmin } = useAdmin();
   const { createProject } = useProjects();
@@ -127,7 +129,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
             onClick={() => setShowNewProject(true)}
             className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-violet-500/30 active:scale-95 whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" /> New Project
+            <Plus className="w-4 h-4" /> {l('New Project')}
           </button>
         </div>
       </div>
@@ -147,7 +149,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
                 <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                   <Icon className={`w-5 h-5 ${action.color}`} />
                 </div>
-                <span className="text-white text-xs font-medium">{action.label}</span>
+                <span className="text-white text-xs font-medium">{l(action.label)}</span>
               </button>
             );
           })}
@@ -257,7 +259,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
                 onClick={() => onNavigate('subscription')}
                 className="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
               >
-                Upgrade Now
+                {l('Upgrade Now')}
               </button>
             </div>
           </div>}

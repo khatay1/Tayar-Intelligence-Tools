@@ -361,7 +361,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
                 onClick={() => handleMove(movingItem.id, null)}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left"
               >
-                <FolderOpen className="w-4 h-4 text-gray-500" /> Root (no project)
+                <FolderOpen className="w-4 h-4 text-gray-500" /> {l('Root (no project)')}
               </button>
               {parentProjects.filter(p => p.id !== movingItem.id).map(p => (
                 <button
@@ -400,6 +400,7 @@ interface FileCardProps {
 }
 
 function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, menuOpen, setMenuOpen, onDelete, onDuplicate, onRename, onToggleFavorite, onTogglePin, onMove }: FileCardProps) {
+  const l = useLocalizer();
   const meta = getFileMeta(project.type);
   const isFavorite = (project as Project & { favorite?: boolean }).favorite;
   const isPinned = (project as Project & { pinned?: boolean }).pinned;
@@ -444,7 +445,7 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
               className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
               title={liveUrl}
             >
-              Open live ↗
+              {l('Open live ↗')}
             </button>
           )}
           <FileMenu isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={() => onDelete(project.id)} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} />
@@ -486,7 +487,7 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
           className="mt-3 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
           title={liveUrl}
         >
-          Open live site ↗
+          {l('Open live site ↗')}
         </button>
       )}
     </div>
@@ -505,6 +506,8 @@ function FileMenu({
   onTogglePin: () => void;
   onMove: () => void;
 }) {
+  const l = useLocalizer();
+
   return (
     <div className="relative flex-shrink-0">
       <button
@@ -516,24 +519,24 @@ function FileMenu({
       {isOpen && (
         <div className="fixed z-[99999] bg-[#12122a] border border-white/10 rounded-xl p-1.5 w-44 shadow-2xl shadow-black/50" onClick={e => e.stopPropagation()}>
           <button onClick={onRename} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Edit2 className="w-3.5 h-3.5" /> Rename
+            <Edit2 className="w-3.5 h-3.5" /> {l('Rename')}
           </button>
           <button onClick={onDuplicate} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Copy className="w-3.5 h-3.5" /> Duplicate
+            <Copy className="w-3.5 h-3.5" /> {l('Duplicate')}
           </button>
           <button onClick={onMove} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Folder className="w-3.5 h-3.5" /> Move
+            <Folder className="w-3.5 h-3.5" /> {l('Move')}
           </button>
           <div className="h-px bg-white/5 my-1" />
           <button onClick={onToggleFavorite} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Star className="w-3.5 h-3.5" /> Favorite
+            <Star className="w-3.5 h-3.5" /> {l('Favorite')}
           </button>
           <button onClick={onTogglePin} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Pin className="w-3.5 h-3.5" /> Pin
+            <Pin className="w-3.5 h-3.5" /> {l('Pin')}
           </button>
           <div className="h-px bg-white/5 my-1" />
           <button onClick={onDelete} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-            <Trash2 className="w-3.5 h-3.5" /> Delete
+            <Trash2 className="w-3.5 h-3.5" /> {l('Delete')}
           </button>
         </div>
       )}

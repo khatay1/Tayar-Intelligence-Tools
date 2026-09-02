@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useLocalizer } from '@/lib/ui-localization';
 import AstronautLogo from '@/components/ui/AstronautLogo';
 
 interface AuthLayoutProps {
@@ -8,6 +9,8 @@ interface AuthLayoutProps {
 }
 
 export default function AuthLayout({ children, onBack }: AuthLayoutProps) {
+  const l = useLocalizer();
+
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 py-12 overflow-hidden bg-[#06060f]">
       {/* Starfield */}
@@ -40,7 +43,7 @@ export default function AuthLayout({ children, onBack }: AuthLayoutProps) {
             onClick={onBack}
             className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" /> {l('Back')}
           </button>
         </div>
 

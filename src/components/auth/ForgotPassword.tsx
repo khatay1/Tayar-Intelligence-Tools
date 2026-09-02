@@ -53,7 +53,7 @@ export default function ForgotPassword({ onBack, onNavigate }: ForgotPasswordPro
         <>
           <h1 className="text-2xl font-bold text-white mb-1">{l('Forgot password?')}</h1>
           <p className="text-gray-400 text-sm mb-6">
-            No worries — enter your email and we'll send you a reset link.
+            {l("No worries — enter your email and we'll send you a reset link.")}
           </p>
 
           {error && (
@@ -94,7 +94,7 @@ export default function ForgotPassword({ onBack, onNavigate }: ForgotPasswordPro
               onClick={() => onNavigate('login')}
               className="text-violet-400 font-medium hover:text-violet-300 transition-colors"
             >
-              Sign in
+              {l('Sign in')}
             </button>
           </p>
         </>

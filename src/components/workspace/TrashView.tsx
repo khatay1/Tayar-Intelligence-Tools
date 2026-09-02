@@ -100,7 +100,7 @@ export default function TrashView() {
             onClick={() => setConfirmPurge(true)}
             className="flex items-center gap-2 text-red-400 hover:text-red-300 text-sm font-medium px-4 py-2 rounded-xl hover:bg-red-500/10 transition-colors"
           >
-            <Trash2 className="w-4 h-4" /> Empty Trash
+            <Trash2 className="w-4 h-4" /> {l('Empty Trash')}
           </button>
         )}
       </div>
@@ -137,8 +137,7 @@ export default function TrashView() {
                     onClick={() => handleRestore(item.id)}
                     className="flex items-center gap-1.5 text-violet-400 hover:text-violet-300 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-violet-500/10 transition-colors"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" /> Restore
-                  </button>
+                    <RotateCcw className="w-3.5 h-3.5" />{l('Restore')}</button>
                   <button
                     onClick={() => handlePurge(item.id)}
                     className="text-red-400/60 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"

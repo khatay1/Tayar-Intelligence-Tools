@@ -27,11 +27,11 @@ export default function NotificationCenter({ darkMode }: NotificationCenterProps
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-violet-400" />
           <span className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('Notifications')}</span>
-          {unreadCount > 0 && <span className="text-violet-400 text-xs">{unreadCount} new</span>}
+          {unreadCount > 0 && <span className="text-violet-400 text-xs">{unreadCount} {l('new')}</span>}
         </div>
         {unreadCount > 0 && (
           <button onClick={markAllRead} className="text-violet-400 text-xs hover:text-violet-300 transition-colors flex items-center gap-1">
-            <Check className="w-3 h-3" /> Mark all read
+            <Check className="w-3 h-3" /> {l('Mark all read')}
           </button>
         )}
       </div>
@@ -57,11 +57,11 @@ export default function NotificationCenter({ darkMode }: NotificationCenterProps
               </div>
               <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {!n.read && (
-                  <button onClick={() => markAsRead(n.id)} className="text-gray-500 hover:text-violet-400" title="Mark as read">
+                  <button onClick={() => markAsRead(n.id)} className="text-gray-500 hover:text-violet-400" title={l('Mark as read')}>
                     <Check className="w-3.5 h-3.5" />
                   </button>
                 )}
-                <button onClick={() => deleteNotification(n.id)} className="text-gray-500 hover:text-red-400" title="Delete">
+                <button onClick={() => deleteNotification(n.id)} className="text-gray-500 hover:text-red-400" title={l('Delete')}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>

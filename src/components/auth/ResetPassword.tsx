@@ -49,7 +49,7 @@ export default function ResetPassword({ onBack, onNavigate }: ResetPasswordProps
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">{l('Password updated')}</h1>
           <p className="text-gray-400 text-sm mb-6">
-            Your password has been changed successfully. You can now sign in with your new password.
+            {l('Your password has been changed successfully. You can now sign in with your new password.')}
           </p>
           <button
             onClick={() => onNavigate('login')}

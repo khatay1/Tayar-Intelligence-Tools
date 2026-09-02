@@ -42,7 +42,7 @@ export default function EmailVerification({ onBack, onNavigate }: EmailVerificat
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">{l('Verify your email')}</h1>
         <p className="text-gray-400 text-sm mb-6 max-w-sm mx-auto">
-          We've sent a verification link to your email address. Click the link inside to activate your account.
+          {l("We've sent a verification link to your email address. Click the link inside to activate your account.")}
         </p>
       </div>
 

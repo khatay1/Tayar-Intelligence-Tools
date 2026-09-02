@@ -58,7 +58,11 @@
     }
   ],
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": {
+      "main": true,
+      "translation-batch-check-20260902": false,
+      "release/ai-patch-engine-v1": false
+    }
   },
   "rewrites": [
     {

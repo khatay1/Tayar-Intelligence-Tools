@@ -48,15 +48,15 @@ export default function AIScorePanel({ score, suggestions }: AIScorePanelProps) 
       <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-semibold text-sm">{l('Resume Score')}</h3>
-          <span className={`text-xs font-medium ${overallColor}`}>{overallLabel}</span>
+          <span className={`text-xs font-medium ${overallColor}`}>{l(overallLabel)}</span>
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           <ScoreRing score={score.ats} label="ATS" size={68} />
-          <ScoreRing score={score.grammar} label="Grammar" size={68} />
-          <ScoreRing score={score.completeness} label="Complete" size={68} />
-          <ScoreRing score={score.professionalism} label="Prof." size={68} />
-          <ScoreRing score={score.readability} label="Readable" size={68} />
-          <ScoreRing score={score.overall} label="Overall" size={68} />
+          <ScoreRing score={score.grammar} label={l('Grammar')} size={68} />
+          <ScoreRing score={score.completeness} label={l('Complete')} size={68} />
+          <ScoreRing score={score.professionalism} label={l('Prof.')} size={68} />
+          <ScoreRing score={score.readability} label={l('Readable')} size={68} />
+          <ScoreRing score={score.overall} label={l('Overall')} size={68} />
         </div>
       </div>
 
@@ -70,7 +70,7 @@ export default function AIScorePanel({ score, suggestions }: AIScorePanelProps) 
         {suggestions.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-emerald-400 py-2">
             <CheckCircle2 className="w-4 h-4" />
-            Your resume looks great! No issues found.
+            {l('Your resume looks great! No issues found.')}
           </div>
         ) : (
           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">

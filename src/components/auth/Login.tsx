@@ -94,7 +94,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
               onClick={() => onNavigate('forgot')}
               className="text-violet-400 text-xs hover:text-violet-300 transition-colors"
             >
-              Forgot password?
+              {l('Forgot password?')}
             </button>
           </div>
           <div className="relative">
@@ -133,7 +133,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
           onClick={() => onNavigate('register')}
           className="text-violet-400 font-medium hover:text-violet-300 transition-colors"
         >
-          Sign up free
+          {l('Sign up free')}
         </button>
       </p>
     </AuthLayout>

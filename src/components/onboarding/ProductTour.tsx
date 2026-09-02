@@ -140,17 +140,17 @@ export default function ProductTour({ onNavigate, onComplete }: ProductTourProps
           </button>
         </div>
 
-        <h3 className="text-white font-bold text-base mb-1.5">{step.title}</h3>
-        <p className="text-gray-400 text-sm leading-relaxed mb-4">{step.description}</p>
+        <h3 className="text-white font-bold text-base mb-1.5">{l(step.title)}</h3>
+        <p className="text-gray-400 text-sm leading-relaxed mb-4">{l(step.description)}</p>
 
         <div className="flex items-center justify-between">
           <button onClick={skip} className="flex items-center gap-1 text-gray-500 hover:text-white text-xs transition-colors">
-            <SkipForward className="w-3 h-3" /> Skip tour
+            <SkipForward className="w-3 h-3" /> {l('Skip tour')}
           </button>
           <div className="flex items-center gap-2">
             {stepIdx > 0 && (
               <button onClick={prev} className="flex items-center gap-1 text-gray-400 hover:text-white text-xs transition-colors">
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
+                <ArrowLeft className="w-3.5 h-3.5" /> {l('Back')}
               </button>
             )}
             <button

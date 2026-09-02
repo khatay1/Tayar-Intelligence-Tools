@@ -58,7 +58,7 @@ export default function CookieConsent() {
           <div className="flex-1">
             <h3 className="text-white text-sm font-semibold mb-1">{l('Cookie Consent')}</h3>
             <p className="text-gray-400 text-xs leading-relaxed">
-              We use cookies to improve your experience, analyze traffic, and personalize content. You can choose which cookies to accept. See our{' '}
+              {l('We use cookies to improve your experience, analyze traffic, and personalize content. You can choose which cookies to accept. See our')}{' '}
               <button onClick={() => window.location.hash = 'privacy'} className="text-violet-400 hover:text-violet-300 underline">{l('Privacy Policy')}</button>.
             </p>
           </div>
@@ -72,7 +72,7 @@ export default function CookieConsent() {
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-white text-xs font-medium">{l('Necessary')}</span>
-                <span className="text-gray-600 text-xs ml-1">(required)</span>
+                <span className="text-gray-600 text-xs ml-1">{l('(required)')}</span>
               </div>
               <div className="w-9 h-5 rounded-full bg-violet-600 flex items-center justify-end pr-0.5">
                 <span className="w-4 h-4 rounded-full bg-white" />
@@ -91,18 +91,18 @@ export default function CookieConsent() {
 
         <div className="flex gap-2 flex-wrap">
           <button onClick={handleAcceptAll} className="flex-1 flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
-            <Check className="w-3.5 h-3.5" /> Accept All
+            <Check className="w-3.5 h-3.5" /> {l('Accept All')}
           </button>
           <button onClick={handleDeclineAll} className="flex-1 text-gray-400 hover:text-white text-xs font-medium py-2 rounded-lg border border-white/10 hover:border-white/20 transition-colors">
-            Decline
+            {l('Decline')}
           </button>
           <button onClick={() => setShowSettings(s => !s)} className="flex items-center justify-center gap-1.5 text-gray-400 hover:text-white text-xs font-medium py-2 px-3 rounded-lg border border-white/10 hover:border-white/20 transition-colors" aria-label={l('Cookie settings')}>
-            <Settings className="w-3.5 h-3.5" /> {showSettings ? 'Hide' : 'Settings'}
+            <Settings className="w-3.5 h-3.5" /> {l(showSettings ? 'Hide' : 'Settings')}
           </button>
         </div>
         {showSettings && (
           <button onClick={handleSavePreferences} className="w-full mt-2 text-violet-400 hover:text-violet-300 text-xs font-semibold py-2 rounded-lg border border-violet-500/20 hover:bg-violet-600/10 transition-colors">
-            Save My Preferences
+            {l('Save My Preferences')}
           </button>
         )}
       </div>
