@@ -92,7 +92,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
         const recentResults: PaletteResult[] = (data || []).map((p: { id: string; title: string; type: string; updated_at: string }) => {
           const meta = getFileMeta(p.type);
           return {
-            id: `recent-${p.id}`, label: p.title, subtitle: `${meta.label} · ${timeAgo(p.updated_at)}`,
+            id: `recent-${p.id}`, label: p.title, subtitle: `${l(meta.label)} · ${timeAgo(p.updated_at)}`,
             icon: FileText, view: p.type as ViewId, projectId: p.id, group: 'recent',
           };
         });
@@ -158,7 +158,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
 
     setResults([...aiResults, ...navResults, ...searchResults]);
     setSelectedIndex(0);
-  }, [user]);
+  }, [user, l]);
 
   useEffect(() => {
     const timer = setTimeout(() => buildResults(query), 200);
