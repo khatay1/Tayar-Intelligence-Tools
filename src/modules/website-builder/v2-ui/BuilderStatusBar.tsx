@@ -8,9 +8,9 @@ export interface BuilderStatusBarProps {
 }
 
 export function BuilderStatusBar({
-  const l = useLocalizer();
-  shell,
+shell,
 }: BuilderStatusBarProps) {
+  const l = useLocalizer();
   const { view, status } =
     shell;
 
