@@ -250,8 +250,8 @@ function AdminNotifications() {
                   <Activity className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white">{n.title}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{n.message}</div>
+                  <div className="text-sm font-medium text-white">{l(n.title)}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{l(n.message)}</div>
                 </div>
               </div>
             </div>
