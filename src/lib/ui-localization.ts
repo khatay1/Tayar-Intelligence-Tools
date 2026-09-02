@@ -2251,6 +2251,9 @@ const ar: PhraseMap = {
   'Build an AI chat UI feature that reuses an existing AI service if present and otherwise exposes a clean adapter boundary without fake network logic.': 'أنشئ ميزة واجهة محادثة بالذكاء الاصطناعي تعيد استخدام خدمة AI الحالية إن وجدت، وإلا توفر حد محول نظيفاً دون منطق شبكة وهمي.',
   'Admin navigation, overview, tables, filters and management states.': 'تنقل الإدارة، نظرة عامة، جداول، فلاتر وحالات إدارة.',
   'Build a production-minded admin feature with responsive navigation, management tables/forms and no invented privileged backend actions.': 'أنشئ ميزة إدارة مناسبة للإنتاج مع تنقل متجاوب وجداول/نماذج إدارة دون اختراع إجراءات خلفية ذات صلاحيات.',
+  '5 AI requests/day\\nBasic CV builder': '5 طلبات AI يومياً\\nمنشئ CV أساسي',
+  'Unlimited AI requests\\nAll tools unlocked': 'طلبات AI غير محدودة\\nجميع الأدوات متاحة',
+  'text-gray-800 font-medium': 'text-gray-800 font-medium',
 };
 
 const sv: PhraseMap = {
@@ -4454,6 +4457,9 @@ const sv: PhraseMap = {
   'Build an AI chat UI feature that reuses an existing AI service if present and otherwise exposes a clean adapter boundary without fake network logic.': 'Bygg en AI-chattfunktion som återanvänder en befintlig AI-tjänst om den finns och annars exponerar en ren adaptergräns utan fejkad nätverkslogik.',
   'Admin navigation, overview, tables, filters and management states.': 'Adminnavigering, översikt, tabeller, filter och hanteringslägen.',
   'Build a production-minded admin feature with responsive navigation, management tables/forms and no invented privileged backend actions.': 'Bygg en produktionsanpassad adminfunktion med responsiv navigering, hanteringstabeller/-formulär och utan påhittade privilegierade backendåtgärder.',
+  '5 AI requests/day\\nBasic CV builder': '5 AI-begäranden/dag\\nGrundläggande CV-byggare',
+  'Unlimited AI requests\\nAll tools unlocked': 'Obegränsade AI-begäranden\\nAlla verktyg upplåsta',
+  'text-gray-800 font-medium': 'text-gray-800 font-medium',
 };
 
 const maps: Record<Language, PhraseMap> = { en: {}, ar, sv };
