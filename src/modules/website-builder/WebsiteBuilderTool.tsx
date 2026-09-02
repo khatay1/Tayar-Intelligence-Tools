@@ -2743,7 +2743,7 @@ function ElementPreview({
   }
   if (element.type === 'gallery') {
     const images = (element.content || '').split(/\r?\n/).map((item) => safeEmbedUrl(item)).filter(Boolean);
-    return <div {...dragProps} className={`${wrapper} grid w-full grid-cols-2 gap-2 md:grid-cols-3`} style={commonStyle}>{images.length ? images.map((src, index) => <img key={`${element.id}-gallery-${index}`} src={src} alt={`Gallery ${index + 1}`} className="aspect-[4/3] w-full rounded-lg object-cover" draggable={false} />) : <div className="col-span-full flex min-h-32 items-center justify-center border border-dashed border-white/20 text-xs text-gray-400">{l('Add one image URL per line')}</div>}</div>;
+    return <div {...dragProps} className={`${wrapper} grid w-full grid-cols-2 gap-2 md:grid-cols-3`} style={commonStyle}>{images.length ? images.map((src, index) => <img key={`${element.id}-gallery-${index}`} src={src} alt={l('Gallery {index}').replace('{index}', String(index + 1))} className="aspect-[4/3] w-full rounded-lg object-cover" draggable={false} />) : <div className="col-span-full flex min-h-32 items-center justify-center border border-dashed border-white/20 text-xs text-gray-400">{l('Add one image URL per line')}</div>}</div>;
   }
   if (element.type === 'embed') {
     const source = safeEmbedUrl(element.src || '');
@@ -2914,7 +2914,7 @@ function SectionPreview({
           <button
             type="button"
             onClick={() => {
-              const next = window.prompt('Button link', element.href || '#');
+              const next = window.prompt(l('Button link'), element.href || '#');
               if (next !== null) onQuickUpdateElement(element.id, { href: next.trim() || '#' });
             }}
             className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200"
@@ -3250,7 +3250,7 @@ function SectionPreview({
                   event.stopPropagation();
                   if (!contactSubmitElement) return;
                   onSelectElement(contactSubmitElement.id);
-                  const nextText = window.prompt('Button text', contactSubmitElement.content || '')?.trim();
+                  const nextText = window.prompt(l('Button text'), contactSubmitElement.content || '')?.trim();
                   if (nextText && nextText !== contactSubmitElement.content) onInlineContentChange(contactSubmitElement.id, nextText);
                 }}
                 title={l('Double-click to edit button text')}
@@ -4057,7 +4057,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function saveSelectedSectionAsReusable() {
     if (!selectedSection) return;
-    const title = window.prompt('Template name', selectedSection.title || SECTION_LABELS[selectedSection.type])?.trim();
+    const title = window.prompt(l('Template name'), selectedSection.title || SECTION_LABELS[selectedSection.type])?.trim();
     if (!title) return;
 
     setReusableError('');
@@ -4991,7 +4991,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       window.location.assign(url);
     } catch (error) {
       if (!operationIsCurrent()) return;
-      setBillingError(error instanceof Error ? error.message : 'Could not open Stripe Checkout.');
+      setBillingError(error instanceof Error ? l(error.message) : l('Could not open Stripe Checkout.'));
       setBillingBusy(false);
     }
   }
@@ -5018,7 +5018,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       window.location.assign(url);
     } catch (error) {
       if (!operationIsCurrent()) return;
-      setBillingError(error instanceof Error ? error.message : 'Could not open the billing portal.');
+      setBillingError(error instanceof Error ? l(error.message) : l('Could not open the billing portal.'));
       setBillingBusy(false);
     }
   }
@@ -7089,7 +7089,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      const message = error instanceof Error ? error.message : 'AI generation failed.';
+      const message = error instanceof Error ? l(error.message) : l('AI generation failed.');
       setAiError(message);
       setAiStage('error');
       setAiMessages((current) => [
@@ -10010,7 +10010,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      const message = error instanceof Error ? error.message : 'AI edit failed.';
+      const message = error instanceof Error ? l(error.message) : l('AI edit failed.');
       setAiError(message);
       setAiStage('error');
       setAiMessages((current) => [
@@ -10116,7 +10116,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      setAiError(error instanceof Error ? error.message : 'Image generation failed.');
+      setAiError(error instanceof Error ? l(error.message) : l('Image generation failed.'));
     } finally {
       if (operationIsLatest()) setAiBusy(false);
     }
@@ -10246,7 +10246,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return normalized;
     } catch (error) {
       if (!operationCanApply()) return null;
-      const message = error instanceof Error ? error.message : 'AI quality check failed.';
+      const message = error instanceof Error ? l(error.message) : l('AI quality check failed.');
       setAiError(message);
       aiQualityReviewContextRef.current = operationContext;
       setAiQualityReview({
@@ -10452,7 +10452,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       try { await navigator.clipboard.writeText(nextUrl); } catch { /* Clipboard access is optional. */ }
     } catch (error) {
       if (!previewIsCurrent()) return;
-      setPreviewError(error instanceof Error ? error.message : 'Could not create share preview.');
+      setPreviewError(error instanceof Error ? l(error.message) : l('Could not create share preview.'));
     } finally {
       if (previewOperationSequenceRef.current === previewSequence) {
         setPreviewBusy(false);
@@ -10487,7 +10487,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
     } catch (error) {
       if (!revokeIsCurrent()) return;
-      setPreviewError(error instanceof Error ? error.message : 'Could not revoke share preview.');
+      setPreviewError(error instanceof Error ? l(error.message) : l('Could not revoke share preview.'));
     } finally {
       if (updateBusy && previewOperationSequenceRef.current === revokeSequence) {
         setPreviewBusy(false);
@@ -10620,7 +10620,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       );
     } catch (error) {
       if (!rollbackIsCurrent()) return;
-      setPublishError(error instanceof Error ? error.message : 'Could not rollback this release.');
+      setPublishError(error instanceof Error ? l(error.message) : l('Could not rollback this release.'));
     } finally {
       if (publishOperationSequenceRef.current === rollbackSequence) {
         setPublishBusy(false);
@@ -10690,7 +10690,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishVersions((current) => current.filter((item) => item.id !== version.id));
     } catch (error) {
       if (!deleteIsCurrent()) return;
-      setPublishVersionsError(error instanceof Error ? error.message : 'Could not delete this release.');
+      setPublishVersionsError(error instanceof Error ? l(error.message) : l('Could not delete this release.'));
     } finally {
       if (deleteIsCurrent()) {
         setPublishVersionsLoading(false);
@@ -10872,7 +10872,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return durableSaved;
     } catch (error) {
       if (saveIsCurrent()) {
-        const message = error instanceof Error ? error.message : 'Unexpected save failure.';
+        const message = error instanceof Error ? l(error.message) : l('Unexpected save failure.');
         setCloudSyncFailed(Boolean(saveUserId));
         setCloudError(saveUserId ? `Save failed: ${message}` : message);
         setAutoSaveStatus('failed');
@@ -12129,7 +12129,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAutoSaveStatus('saved');
     } catch (error) {
       if (!unpublishIsCurrent()) return;
-      setPublishError(error instanceof Error ? error.message : 'Could not unpublish this website.');
+      setPublishError(error instanceof Error ? l(error.message) : l('Could not unpublish this website.'));
     } finally {
       if (publishOperationSequenceRef.current === unpublishSequence) {
         setPublishBusy(false);
@@ -14596,8 +14596,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <div className="flex flex-wrap gap-2">
                       {lead.status === 'new' && <button onClick={() => void updateLeadStatus(lead.id, 'read')} className="font-semibold text-emerald-400">{l('Mark read')}</button>}
                       {lead.status !== 'archived' && <button onClick={() => void updateLeadStatus(lead.id, 'archived')} className="font-semibold text-gray-400">{l('Archive')}</button>}
-                      <button onClick={() => { const value = window.prompt('Comma-separated tags', (lead.tags || []).join(', ')); if (value !== null) void updateLeadCrm(lead.id, { tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) }); }} className="font-semibold text-amber-400">{l('Tags')}</button>
-                      <button onClick={() => { const value = window.prompt('Lead notes', lead.notes || ''); if (value !== null) void updateLeadCrm(lead.id, { notes: value }); }} className="font-semibold text-violet-400">{l('Notes')}</button>
+                      <button onClick={() => { const value = window.prompt(l('Comma-separated tags'), (lead.tags || []).join(', ')); if (value !== null) void updateLeadCrm(lead.id, { tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) }); }} className="font-semibold text-amber-400">{l('Tags')}</button>
+                      <button onClick={() => { const value = window.prompt(l('Lead notes'), lead.notes || ''); if (value !== null) void updateLeadCrm(lead.id, { notes: value }); }} className="font-semibold text-violet-400">{l('Notes')}</button>
                       <button onClick={() => void copyLeadSummary(lead)} className="font-semibold text-sky-400">{l("Copy")}</button>
                       <button onClick={() => void deleteLead(lead.id)} className="font-semibold text-rose-400">{l('Delete')}</button>
                     </div>
