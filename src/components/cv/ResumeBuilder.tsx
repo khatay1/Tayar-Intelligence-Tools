@@ -140,7 +140,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
     });
     loadVersions();
     toast.success(l("Version saved"));
-  }, [cvId, user, cv, template, versions.length, loadVersions, toast]);
+  }, [cvId, user, cv, template, versions.length, loadVersions, toast, l]);
 
   function restoreVersion(version: ResumeVersion) {
     setCv(version.data);
