@@ -14703,7 +14703,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     className={`min-w-52 rounded-lg border px-3 py-2 text-left text-xs ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-100'}`}
                     title={l('Restore this version')}
                   >
-                    <span className="block font-semibold">{entry.label}</span>
+                    <span className="block font-semibold">{l(entry.label)}</span>
                     <span className={`mt-1 block text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{l('Restore version')}</span>
                   </button>
                 ))}
