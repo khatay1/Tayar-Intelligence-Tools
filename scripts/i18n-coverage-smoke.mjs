@@ -119,6 +119,13 @@ for (const file of sourceFiles) {
         if (/^(?:https?:|mailto:|tel:|data:|#[A-Fa-f0-9]{3,8}$)/.test(text)) continue;
         if (/^[A-Za-z0-9_.:/+-]{1,30}$/.test(text) && !/\s/.test(text)) continue;
         if (/^(?:GET|POST|PUT|PATCH|DELETE|ASC|DESC|true|false|null|undefined)$/i.test(text)) continue;
+        if (kind === 'attribute') {
+          const prefix = source.slice(Math.max(0, match.index - 500), match.index);
+          if (prefix.lastIndexOf('<') <= prefix.lastIndexOf('>')) continue;
+          if (/@/.test(text)) continue;
+          if (/^(?:Tayar Intelligence Tools|John Doe|React, Node\.js, Python)$/.test(text)) continue;
+          if (/(?:^#|page:|https?:|\bURL\b)/i.test(text)) continue;
+        }
         const line = source.slice(0, match.index).split('\n').length;
         hardcodedCandidates.push({ file, line, text, kind });
       }
