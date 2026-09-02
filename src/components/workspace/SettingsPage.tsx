@@ -136,9 +136,9 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
       a.download = `tayar-data-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.update(toastId, 'Data exported successfully', 'success');
+      toast.update(toastId, l("Data exported successfully"), 'success');
     } catch {
-      toast.update(toastId, 'Failed to export data', 'error');
+      toast.update(toastId, l("Failed to export data"), 'error');
     }
     setExporting(false);
   }
@@ -170,7 +170,7 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
       return;
     }
     setDeleting(true);
-    const toastId = toast.loading('Deleting account...');
+    const toastId = toast.loading(l("Deleting account..."));
     try {
       const { data: session } = await supabase.auth.getSession();
       const userId = session.session?.user?.id;
@@ -186,7 +186,7 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
         await supabase.from('profiles').delete().eq('id', userId);
       }
       await supabase.auth.signOut();
-      toast.update(toastId, 'Account deleted', 'success');
+      toast.update(toastId, l("Account deleted"), 'success');
       window.location.hash = '';
       window.location.reload();
     } catch {
