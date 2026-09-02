@@ -82,7 +82,7 @@ export default function AdminDashboard() {
                 <Sparkline data={card.spark.length > 1 ? card.spark : [0, 1]} color={c.spark} width={60} height={20} />
               </div>
               <div className="text-2xl font-bold text-white">{card.value}</div>
-              <div className="mt-1 text-xs text-gray-400">{card.label}</div>
+              <div className="mt-1 text-xs text-gray-400">{l(card.label)}</div>
             </div>
           );
         })}
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
             data={aiUsage.map(d => ({ label: d.date.slice(5), value: d.requests }))}
             color="#f472b6"
             height={220}
-            formatValue={(v) => `${v} requests`}
+            formatValue={(v) => `${v} ${l('requests')}`}
           />
         </div>
 
@@ -176,8 +176,8 @@ export default function AdminDashboard() {
             <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
               <div className="w-2 h-2 rounded-full bg-emerald-400" />
               <div>
-                <div className="text-xs text-gray-500">{item.label}</div>
-                <div className="text-sm font-medium text-white">{item.value}</div>
+                <div className="text-xs text-gray-500">{l(item.label)}</div>
+                <div className="text-sm font-medium text-white">{l(item.value)}</div>
               </div>
             </div>
           ))}
