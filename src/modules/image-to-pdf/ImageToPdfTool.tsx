@@ -109,7 +109,7 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
       icon={FileStack}
       title={l('Image to PDF')}
       description={l('Combine JPEG, PNG and WebP images into one PDF directly in your browser.')}
-      badge="Local PDF"
+      badge={l('Local PDF')}
     >
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
