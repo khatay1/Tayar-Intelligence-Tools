@@ -315,10 +315,10 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
           <div className="flex items-center gap-2 text-xs font-semibold text-red-300">
             <Trash2 className="h-4 w-4" />{l('Invalid template deletion completed')}</div>
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Metric label="Rows deleted" value={deletionResult.deletedRows} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
-            <Metric label="Storage deleted" value={deletionResult.storageDeleted} icon={<Trash2 className="h-4 w-4 text-red-400" />} />
-            <Metric label="Shared preserved" value={deletionResult.preservedSharedStorage} icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />} />
-            <Metric label="Storage failures" value={deletionResult.storageDeleteFailures} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
+            <Metric label={l("Rows deleted")} value={deletionResult.deletedRows} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
+            <Metric label={l("Storage deleted")} value={deletionResult.storageDeleted} icon={<Trash2 className="h-4 w-4 text-red-400" />} />
+            <Metric label={l("Shared preserved")} value={deletionResult.preservedSharedStorage} icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />} />
+            <Metric label={l("Storage failures")} value={deletionResult.storageDeleteFailures} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
           </div>
           <p className="mt-3 text-[11px] text-gray-500">{l('The previous audit snapshot was cleared. Run the audit again to verify the remaining library.')}</p>
         </div>
@@ -329,10 +329,10 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
             <Wrench className="h-4 w-4" />{l('Repair dry-run analysis')}</div>
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Metric label="Issues checked" value={repairAnalysis.requested} icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />} />
+            <Metric label={l("Issues checked")} value={repairAnalysis.requested} icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />} />
             <Metric label="Repairable" value={repairAnalysis.repairable} icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} />
-            <Metric label="Junk to hide" value={repairAnalysis.hideJunk} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
-            <Metric label="Needs review" value={repairAnalysis.failed} icon={<XCircle className="h-4 w-4 text-red-400" />} />
+            <Metric label={l("Junk to hide")} value={repairAnalysis.hideJunk} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
+            <Metric label={l("Needs review")} value={repairAnalysis.failed} icon={<XCircle className="h-4 w-4 text-red-400" />} />
           </div>
           <p className="mt-3 text-[11px] text-gray-500">{l('Analysis is read-only. No storage object or database row is changed by this button.')}</p>
         </div>
