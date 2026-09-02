@@ -1,14 +1,14 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Loader2, RefreshCw, ToggleRight, ToggleLeft, Users } from 'lucide-react';
 import { toolRegistry } from '@/modules/registry';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 import TemplateLibraryAuditCard from './TemplateLibraryAuditCard';
-import { useLocalizer } from '@/lib/ui-localization';
 
 export default function AdminTools() {
   const l = useLocalizer();
-  const { success, error: showError } = useToast();
+const { success, error: showError } = useToast();
   const [usage, setUsage] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
