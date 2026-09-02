@@ -1117,6 +1117,18 @@ const ar: PhraseMap = {
   'Section settings': 'إعدادات القسم',
   'collapsed while editing element': 'مطوي أثناء تعديل العنصر',
 
+  'Tools data unavailable': 'بيانات الأدوات غير متاحة',
+  'Live usage data': 'بيانات الاستخدام المباشرة',
+  'Analysis is read-only. No storage object or database row is changed by this button.': 'التحليل للقراءة فقط. لا يغيّر هذا الزر أي ملف تخزين أو صف في قاعدة البيانات.',
+  'Detected issues': 'المشكلات المكتشفة',
+  'Components': 'المكونات',
+  'changes': 'تغييرات',
+  'Restore this editor state': 'استعادة حالة المحرر هذه',
+  'Restore': 'استعادة',
+  'No changes yet.': 'لا توجد تغييرات بعد.',
+  'Redo queue': 'قائمة الإعادة',
+  'Template Library': 'مكتبة القوالب',
+
 };
 
 const sv: PhraseMap = {
@@ -2185,6 +2197,18 @@ const sv: PhraseMap = {
   'Drag freely on the canvas. Hold Shift while dragging to reorder instead.': 'Dra fritt på arbetsytan. Håll Shift medan du drar för att ändra ordning i stället.',
   'Section settings': 'Sektionsinställningar',
   'collapsed while editing element': 'ihopfälld under elementredigering',
+
+  'Tools data unavailable': 'Verktygsdata är inte tillgänglig',
+  'Live usage data': 'Live-användningsdata',
+  'Analysis is read-only. No storage object or database row is changed by this button.': 'Analysen är skrivskyddad. Ingen lagringsfil eller databasrad ändras av den här knappen.',
+  'Detected issues': 'Upptäckta problem',
+  'Components': 'Komponenter',
+  'changes': 'ändringar',
+  'Restore this editor state': 'Återställ detta redigerarläge',
+  'Restore': 'Återställ',
+  'No changes yet.': 'Inga ändringar ännu.',
+  'Redo queue': 'Gör om-kö',
+  'Template Library': 'Mallbibliotek',
 
 };
 
