@@ -473,8 +473,13 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
         setSourceFilter('private-session');
         setTab('preview');
       }
+      const skippedImportNotice = result.skipped.length
+        ? l('; skipped {count} unsafe/unsupported files').replace('{count}', String(result.skipped.length))
+        : '';
       setPrivateImportMessage(
-        `Loaded ${result.items.length} private components for this browser session${result.skipped.length ? `; skipped ${result.skipped.length} unsafe/unsupported files` : ''}.`,
+        l('Loaded {count} private components for this browser session{skipped}.')
+          .replace('{count}', String(result.items.length))
+          .replace('{skipped}', skippedImportNotice),
       );
     } catch (error) {
       setActionError(error instanceof Error ? error.message : l('Unable to import private component files.'));
