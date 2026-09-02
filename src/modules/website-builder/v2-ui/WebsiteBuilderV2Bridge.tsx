@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 ﻿import {
   useMemo,
   useState,
@@ -221,6 +222,7 @@ function createNativeId(
 }
 
 export function WebsiteBuilderV2Bridge({
+  const l = useLocalizer();
   canvas,
   aiPanel,
   topbarTrailingSlot,
