@@ -64,6 +64,7 @@ const svKeys = extractPhraseMapKeys(ui, 'const sv: PhraseMap', 'const maps:');
 const sourceFiles = collectFiles('src');
 const localizedUsage = new Map();
 const hardcodedCandidates = [];
+const dynamicUiCandidates = [];
 
 const hardcodedJsxRe = />\s*([A-Z][A-Za-z0-9][A-Za-z0-9 &+/.:'’(),!?–—·↗-]{2,110})\s*</g;
 const hardcodedAttrRe = /\b(?:placeholder|title|aria-label|alt|label)\s*=\s*["']([^"'{}\n]{2,180})["']/g;
@@ -99,6 +100,13 @@ for (const file of sourceFiles) {
   }
 
   if (file !== uiPath && !contentOnlyFiles.has(file)) {
+    for (const match of source.matchAll(/\{\s*([A-Za-z_$][\w$]*(?:\.(?:label|title|description|subtitle)))\s*\}/g)) {
+      const expression = match[1];
+      const before = source.slice(Math.max(0, match.index - 12), match.index);
+      if (/l\(\s*$/.test(before)) continue;
+      const line = source.slice(0, match.index).split('\n').length;
+      dynamicUiCandidates.push({ file, line, expression });
+    }
     for (const [kind, regex] of [
       ['attribute', hardcodedAttrRe],
       ['property', hardcodedPropRe],
@@ -153,6 +161,8 @@ if (unexpectedHardcoded.length) {
 }
 
 console.log(`\nI18N scan: ${sourceFiles.length} source files, ${localizedUsage.size} localized UI phrases.`);
+console.log(`Direct dynamic UI review candidates: ${dynamicUiCandidates.length}`);
+for (const item of dynamicUiCandidates) console.log(`  dynamic ${item.file}:${item.line}  ${item.expression}`);
 console.log(`Expected customer/template content candidates: ${expectedContentCandidates.length}`);
 for (const item of expectedContentCandidates) console.log(`  content ${item.file}:${item.line}  [${item.kind || 'jsx'}] ${item.text}`);
 
