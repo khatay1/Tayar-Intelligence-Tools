@@ -92,9 +92,9 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   async function handleDelete(id: string) {
     setMenuOpen(null);
     const { error: err } = await supabase.from('projects').update({ deleted_at: new Date().toISOString() }).eq('id', id);
-    if (err) { showError('Failed to delete'); return; }
+    if (err) { showError(l('Failed to delete')); return; }
     setProjects(prev => prev.filter(p => p.id !== id));
-    success('Moved to trash');
+    success(l('Moved to trash'));
   }
 
   async function handleDuplicate(project: Project) {
@@ -120,8 +120,8 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   async function handleMove(projectId: string, parentId: string | null) {
     setMenuOpen(null);
     const { error: err } = await supabase.from('projects').update({ parent_project_id: parentId }).eq('id', projectId);
-    if (err) { showError('Failed to move'); return; }
-    success('Moved successfully');
+    if (err) { showError(l('Failed to move')); return; }
+    success(l('Moved successfully'));
     setMovingItem(null);
     await refreshProjects();
   }
@@ -228,7 +228,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
             onChange={e => setFilter(e.target.value)}
             className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none cursor-pointer"
           >
-            {TYPE_FILTERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            {TYPE_FILTERS.map(t => <option key={t.value} value={t.value}>{l(t.label)}</option>)}
           </select>
           {/* Sort */}
           <div className="flex items-center bg-white/5 border border-white/10 rounded-xl">
@@ -237,7 +237,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
               onChange={e => setSortBy(e.target.value as SortBy)}
               className="bg-transparent px-3 py-2.5 text-white text-sm focus:outline-none cursor-pointer"
             >
-              {SORT_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {SORT_OPTIONS.map(s => <option key={s.value} value={s.value}>{l(s.label)}</option>)}
             </select>
             <button
               onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
@@ -279,8 +279,8 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={FolderOpen}
-          title={search ? 'No matching files' : 'No files yet'}
-          description={search ? 'Try a different search term.' : 'Create documents with any AI tool and they\'ll appear here automatically.'}
+          title={search ? l('No matching files') : l('No files yet')}
+          description={search ? l('Try a different search term.') : l("Create documents with any AI tool and they'll appear here automatically.")}
           variant="files"
         />
       ) : view === 'grid' ? (
@@ -355,7 +355,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
       {movingItem && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setMovingItem(null)}>
           <div className="bg-[#12122a] border border-white/10 rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-base mb-4">Move "{movingItem.title}" to...</h3>
+            <h3 className="text-white font-bold text-base mb-4">{l('Move "{title}" to...').replace('{title}', movingItem.title)}</h3>
             <div className="space-y-1 max-h-60 overflow-y-auto">
               <button
                 onClick={() => handleMove(movingItem.id, null)}
@@ -430,13 +430,13 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
               {project.title}
               {isPinned && <Pin className="w-3 h-3 text-violet-400 fill-violet-400" />}
             </div>
-            <div className="text-gray-500 text-xs">{meta.label} · {timeAgo(project.updated_at)}</div>
+            <div className="text-gray-500 text-xs">{l(meta.label)} · {timeAgo(project.updated_at)}</div>
           </div>
         </button>
         <div className="flex items-center gap-1 flex-shrink-0">
           {isFavorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
           <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
-            {statusLabel}
+            {l(statusLabel)}
           </span>
           {liveUrl && (
             <button
@@ -472,7 +472,7 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
       <button onClick={onOpen} className="block w-full text-left">
         <h3 className="text-white text-sm font-semibold truncate mb-1">{project.title}</h3>
         <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
-          <span className={meta.color}>{meta.label}</span>
+          <span className={meta.color}>{l(meta.label)}</span>
           <span>·</span>
           <span>{timeAgo(project.updated_at)}</span>
         </div>
