@@ -1,6 +1,6 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-import { useLocalizer } from '@/lib/ui-localization';
   Clock3,
   Download,
   FileArchive,
@@ -77,7 +77,7 @@ function formatBytes(bytes: number) {
 
 export function BuilderTemplateLibraryPanel() {
   const l = useLocalizer();
-  const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
+const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
