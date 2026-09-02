@@ -1,5 +1,5 @@
 import { useLocalizer } from '@/lib/ui-localization';
-﻿import type {
+import type {
   EditorShellContract,
 } from '../core/editor-shell-contract';
 
@@ -8,7 +8,7 @@ export interface BuilderStatusBarProps {
 }
 
 export function BuilderStatusBar({
-shell,
+  shell,
 }: BuilderStatusBarProps) {
   const l = useLocalizer();
   const { view, status } =
@@ -28,21 +28,21 @@ shell,
           >
             <strong>
               {status.liveVerification === 'checking'
-                ? 'VERIFYING'
+                ? l('VERIFYING')
                 : status.liveVerification === 'failed'
-                  ? 'CHECK FAILED'
+                  ? l('CHECK FAILED')
                   : status.liveVerification === 'healthy'
-                    ? 'LIVE'
-                    : 'PUBLISHED'}
+                    ? l('LIVE')
+                    : l('PUBLISHED')}
             </strong>
             <span>
               {status.publishedOutdated
-                ? 'Saved changes need republish · Open site ↗'
-                : 'Up to date · Open site ↗'}
+                ? l('Saved changes need republish · Open site ↗')
+                : l('Up to date · Open site ↗')}
             </span>
           </a>
         ) : (
-          <span className="tayar-v2-statusbar__draft">{l('DRAFT')}<span>
+          <span className="tayar-v2-statusbar__draft">{l('DRAFT')}</span>
         )}
 
         {typeof status.checkScore === 'number' && (
@@ -50,9 +50,9 @@ shell,
             className="tayar-v2-statusbar__check"
             data-errors={status.checkErrors ? 'true' : 'false'}
           >
-            Check {status.checkScore}/100
-            {status.checkErrors ? ` · ${status.checkErrors} critical` : ''}
-            {status.checkWarnings ? ` · ${status.checkWarnings} warnings` : ''}
+            {l('Check')} {status.checkScore}/100
+            {status.checkErrors ? ` · ${status.checkErrors} ${l('critical')}` : ''}
+            {status.checkWarnings ? ` · ${status.checkWarnings} ${l('warnings')}` : ''}
           </span>
         )}
       </div>
@@ -69,21 +69,20 @@ shell,
 
         {view.publish.blockers.length > 0 && (
           <span>
-            {view.publish.blockers.length} issue
-            {view.publish.blockers.length === 1 ? '' : 's'}
+            {view.publish.blockers.length} {view.publish.blockers.length === 1 ? l('issue') : l('issues')}
           </span>
         )}
 
         <span data-publish-outdated={status.publishedOutdated ? 'true' : 'false'}>
           {status.saving
-            ? 'Saving…'
+            ? l('Saving…')
             : view.dirty
-              ? 'Unsaved'
+              ? l('Unsaved')
               : status.publishedOutdated
-                ? 'Saved · Not live yet'
+                ? l('Saved · Not live yet')
                 : status.publishedUrl
-                  ? 'Saved · Live'
-                  : 'Saved'}
+                  ? l('Saved · Live')
+                  : l('Saved')}
         </span>
       </div>
     </footer>
