@@ -157,7 +157,7 @@ export default function AdminAI() {
 
   async function switchProvider(service: string) {
     if (service !== 'gemini') {
-      showError('This provider is not enabled in the production AI backend yet.');
+      showError(l("This provider is not enabled in the production AI backend yet."));
       return;
     }
 
@@ -166,17 +166,17 @@ export default function AdminAI() {
       .from('admin_settings')
       .upsert({ key: 'default_ai_provider', value: 'gemini', updated_at: new Date().toISOString() });
 
-    if (error) showError('Failed to save provider setting');
+    if (error) showError(l("Failed to save provider setting"));
     else {
       setActiveProvider('gemini');
-      success('Google Gemini is the active production provider');
+      success(l("Google Gemini is the active production provider"));
     }
     setSwitching(false);
   }
 
   async function saveDefaultModel() {
     if (!modelCatalog.some((model) => model.id === defaultModel)) {
-      showError('Choose a model from the managed model catalog.');
+      showError(l("Choose a model from the managed model catalog."));
       return;
     }
 
@@ -189,7 +189,7 @@ export default function AdminAI() {
         { key: 'default_ai_provider', value: 'gemini', updated_at: now },
       ], { onConflict: 'key' });
 
-    if (error) showError('Failed to save model setting');
+    if (error) showError(l("Failed to save model setting"));
     else {
       setActiveProvider('gemini');
       success(`Default model set to ${defaultModel}`);
