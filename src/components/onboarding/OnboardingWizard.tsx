@@ -299,8 +299,8 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
                           <Icon className="w-5 h-5 text-violet-400" />
                         </div>
                         <div className="flex-1">
-                          <div className="text-white text-sm font-medium">{tool.name}</div>
-                          <div className="text-gray-500 text-xs">{tool.description}</div>
+                          <div className="text-white text-sm font-medium">{l(tool.name)}</div>
+                          <div className="text-gray-500 text-xs">{l(tool.description)}</div>
                         </div>
                         <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                       </div>
