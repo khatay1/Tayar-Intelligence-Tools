@@ -117,7 +117,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
         <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
           {NAV_GROUPS.map(group => (
             <div key={group.label}>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-600 px-3 mb-2">{group.label}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-600 px-3 mb-2">{l(group.label)}</div>
               <div className="space-y-0.5">
                 {group.items.map(item => {
                   const Icon = item.icon;
@@ -129,7 +129,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-violet-600/15 text-violet-300 font-medium border border-violet-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
                     >
                       <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${active ? 'text-violet-400' : ''}`} />
-                      <span className="flex-1 text-left">{item.label}</span>
+                      <span className="flex-1 text-left">{l(item.label)}</span>
                       {active && <ChevronRight className="w-3.5 h-3.5 text-violet-400" />}
                     </button>
                   );
@@ -163,7 +163,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
           </button>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-white capitalize">
-              {NAV_GROUPS.flatMap(g => g.items).find(i => i.id === activeView)?.label || 'Admin'}
+              {l(NAV_GROUPS.flatMap(g => g.items).find(i => i.id === activeView)?.label || 'Admin')}
             </h1>
           </div>
           <div className="flex items-center gap-3">
