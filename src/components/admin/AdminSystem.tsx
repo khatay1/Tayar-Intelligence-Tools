@@ -29,8 +29,7 @@ function AdminTabError({ title, message, onRetry }: { title: string; message: st
       <h3 className="font-semibold text-white">{title}</h3>
       <p className="mt-1 text-sm text-gray-400">{message}</p>
       <button onClick={onRetry} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
-        <RefreshCw className="h-4 w-4" /> Retry
-      </button>
+        <RefreshCw className="h-4 w-4" />{l('Retry')}</button>
     </div>
   );
 }
@@ -531,8 +530,7 @@ function EmailTab() {
               </div>
               {isEditing ? (
                 <button onClick={() => saveTemplate(t)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-violet-600 hover:bg-violet-500 transition-colors">
-                  <Save className="w-3.5 h-3.5" /> Save
-                </button>
+                  <Save className="w-3.5 h-3.5" />{l('Save')}</button>
               ) : (
                 <button onClick={() => setEditing(t.id)} className="text-xs text-violet-400 hover:text-violet-300">{l('Edit')}</button>
               )}
