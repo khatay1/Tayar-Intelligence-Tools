@@ -77,7 +77,7 @@ export function BuilderInspector({
               )
             }
           >
-            {tab.label}
+            {l(tab.label)}
           </button>
         ))}
       </div>
