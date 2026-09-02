@@ -123,7 +123,7 @@ export default function SubscriptionView() {
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{l('Current plan')}</div>
-          <div className="text-lg font-bold capitalize text-white">{activePlan}</div>
+          <div className="text-lg font-bold capitalize text-white">{l(activePlan)}</div>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{l('Status')}</div>
@@ -151,7 +151,7 @@ export default function SubscriptionView() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-bold text-white">{plan.name}</h2>
+                    <h2 className="text-lg font-bold text-white">{l(plan.name)}</h2>
                     {current && <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-200">{l('Current')}</span>}
                   </div>
                   <p className="mt-1 text-xs leading-5 text-gray-500">{l(plan.description)}</p>
@@ -183,7 +183,7 @@ export default function SubscriptionView() {
                 ) : (
                   <button onClick={() => void startCheckout(plan.id)} disabled={busy !== null} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:opacity-60">
                     {busy === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                    {l(`Choose ${plan.name}`)}
+                    {l('Choose {plan}').replace('{plan}', l(plan.name))}
                   </button>
                 )}
               </div>
