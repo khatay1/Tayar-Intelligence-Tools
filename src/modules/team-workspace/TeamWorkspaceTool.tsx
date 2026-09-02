@@ -214,7 +214,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
       const { data, error: rpcError } = await supabase.rpc('create_team_workspace', { p_name: name });
       if (rpcError) throw rpcError;
       setNewWorkspaceName('');
-      setMessage('Team workspace created.');
+      setMessage(l("Team workspace created."));
       await loadWorkspaces(String(data));
     });
   }
@@ -227,17 +227,17 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
         p_name: renameValue.trim(),
       });
       if (rpcError) throw rpcError;
-      setMessage('Workspace renamed.');
+      setMessage(l("Workspace renamed."));
       await loadWorkspaces(selectedId);
     });
   }
 
   async function deleteWorkspace() {
-    if (!selectedId || !isOwner || !window.confirm('Delete this team workspace? Shared projects will become personal projects again.')) return;
+    if (!selectedId || !isOwner || !window.confirm(l("Delete this team workspace? Shared projects will become personal projects again."))) return;
     await run(async () => {
       const { error: rpcError } = await supabase.rpc('delete_team_workspace', { p_workspace_id: selectedId });
       if (rpcError) throw rpcError;
-      setMessage('Workspace deleted.');
+      setMessage(l("Workspace deleted."));
       await loadWorkspaces(null);
     });
   }
@@ -255,7 +255,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
       const link = `${window.location.origin}${window.location.pathname}#team-invite=${token}`;
       setLastInviteLink(link);
       setInviteEmail('');
-      setMessage('Invite created. Copy the secure link and send it to the teammate.');
+      setMessage(l("Invite created. Copy the secure link and send it to the teammate."));
       try { await navigator.clipboard.writeText(link); } catch { /* clipboard is optional */ }
       await loadWorkspace(selectedId);
     });
@@ -269,7 +269,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
       if (rpcError) throw rpcError;
       const workspaceId = String(data || '');
       setAcceptToken('');
-      setMessage('Invite accepted.');
+      setMessage(l("Invite accepted."));
       if (window.location.hash.startsWith('#team-invite=')) window.history.replaceState(null, '', window.location.pathname + window.location.search);
       await loadWorkspaces(workspaceId);
     });
@@ -280,7 +280,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
     await run(async () => {
       const { error: rpcError } = await supabase.rpc('revoke_team_workspace_invite', { p_invite_id: inviteId });
       if (rpcError) throw rpcError;
-      setMessage('Invite revoked.');
+      setMessage(l("Invite revoked."));
       await loadWorkspace(selectedId);
     });
   }
@@ -294,7 +294,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
         p_role: role,
       });
       if (rpcError) throw rpcError;
-      setMessage('Member role updated.');
+      setMessage(l("Member role updated."));
       await loadWorkspace(selectedId);
     });
   }
@@ -320,7 +320,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
         p_new_owner_id: member.userId,
       });
       if (rpcError) throw rpcError;
-      setMessage('Workspace ownership transferred.');
+      setMessage(l("Workspace ownership transferred."));
       await loadWorkspaces(selectedId);
     });
   }
@@ -334,7 +334,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
       });
       if (rpcError) throw rpcError;
       setAssignProjectId('');
-      setMessage('Project shared with the workspace.');
+      setMessage(l("Project shared with the workspace."));
       await loadWorkspaces(selectedId);
     });
   }
@@ -344,7 +344,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
     await run(async () => {
       const { error: rpcError } = await supabase.rpc('remove_project_from_team_workspace', { p_project_id: projectId });
       if (rpcError) throw rpcError;
-      setMessage('Project removed from the workspace.');
+      setMessage(l("Project removed from the workspace."));
       await loadWorkspaces(selectedId);
     });
   }
