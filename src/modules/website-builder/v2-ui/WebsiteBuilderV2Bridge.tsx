@@ -222,8 +222,7 @@ function createNativeId(
 }
 
 export function WebsiteBuilderV2Bridge({
-  const l = useLocalizer();
-  canvas,
+canvas,
   aiPanel,
   topbarTrailingSlot,
   sitePanel,
@@ -303,6 +302,7 @@ export function WebsiteBuilderV2Bridge({
   onSetDevice,
   onSelect,
 }: WebsiteBuilderV2BridgeProps) {
+  const l = useLocalizer();
   const [leftPanel, setLeftPanel] =
     useState<EditorLeftPanel>('pages');
 
