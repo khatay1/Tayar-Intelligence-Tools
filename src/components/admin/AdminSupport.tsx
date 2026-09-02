@@ -204,7 +204,7 @@ export default function AdminSupport() {
                 <textarea
                   value={response}
                   onChange={e => setResponse(e.target.value)}
-                  placeholder="Type your response..."
+                  placeholder={l("Type your response...")}
                   rows={4}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-violet-500/40 resize-none"
                 />
