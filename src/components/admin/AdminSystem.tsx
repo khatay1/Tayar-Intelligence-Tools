@@ -543,7 +543,7 @@ function EmailTab() {
                   defaultValue={t.subject}
                   onChange={e => { t.subject = e.target.value; }}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/40"
-                  placeholder="Email subject"
+                  placeholder={l("Email subject")}
                 />
                 <textarea
                   defaultValue={t.body}
