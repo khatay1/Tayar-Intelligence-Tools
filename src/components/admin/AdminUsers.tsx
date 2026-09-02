@@ -225,12 +225,10 @@ export default function AdminUsers() {
                   <td className="px-4 py-3">
                     {user.suspended ? (
                       <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 flex items-center gap-1 w-fit">
-                        <Ban className="w-3 h-3" /> Suspended
-                      </span>
+                        <Ban className="w-3 h-3" />{l('Suspended')}</span>
                     ) : (
                       <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center gap-1 w-fit">
-                        <CheckCircle className="w-3 h-3" /> Active
-                      </span>
+                        <CheckCircle className="w-3 h-3" />{l('Active')}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -314,16 +312,12 @@ export default function AdminUsers() {
                 type="button"
                 onClick={() => setDeleteMode('delete')}
                 className={`rounded-lg border px-3 py-2 text-xs ${deleteMode === 'delete' ? 'border-violet-500/40 bg-violet-500/10 text-violet-200' : 'border-white/10 text-gray-400'}`}
-              >
-                Delete only
-              </button>
+              >{l('Delete only')}</button>
               <button
                 type="button"
                 onClick={() => setDeleteMode('delete-block')}
                 className={`rounded-lg border px-3 py-2 text-xs ${deleteMode === 'delete-block' ? 'border-red-500/40 bg-red-500/10 text-red-200' : 'border-white/10 text-gray-400'}`}
-              >
-                Delete + block
-              </button>
+              >{l('Delete + block')}</button>
             </div>
             {deleteMode === 'delete-block' && (
               <>
@@ -334,7 +328,7 @@ export default function AdminUsers() {
                   className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none"
                 />
                 <div>
-                  <label className="mb-1 block text-[11px] text-gray-500">Block expires (optional)</label>
+                  <label className="mb-1 block text-[11px] text-gray-500">{l('Block expires (optional)')}</label>
                   <input
                     type="datetime-local"
                     value={deleteBlockExpiry}
