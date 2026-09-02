@@ -202,7 +202,7 @@ function LogsTab() {
     const { data, error: queryError } = await supabase.from('system_logs').select('id, level, category, message, metadata, created_at').order('created_at', { ascending: false }).limit(100);
     if (queryError) {
       setLogs([]);
-      setError(queryError.message || 'Failed to load system logs.');
+      setError(queryError.message || l('Failed to load system logs.'));
     } else {
       setLogs((data || []) as typeof logs);
     }
