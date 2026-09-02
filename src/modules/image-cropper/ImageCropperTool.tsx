@@ -145,7 +145,7 @@ export default function ImageCropperTool({ darkMode: _darkMode }: { darkMode: bo
       icon={Crop}
       title={l('Image Cropper')}
       description={l('Crop images locally with precise coordinates or common aspect ratios.')}
-      badge="Local processing"
+      badge={l('Local processing')}
     >
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
