@@ -3811,7 +3811,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return;
       }
 
-      if (!window.confirm(`Restore the recovery snapshot from ${parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : 'the previous edit'}?`)) return;
+      if (!window.confirm(l('Restore the recovery snapshot from {time}?').replace('{time}', parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : l('the previous edit')))) return;
       saveRecoverySnapshot('before recovery restore');
       prepareProjectStateRestore();
       applyProjectData(parsed.project);
@@ -4116,7 +4116,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function deleteReusableSection(template: ReusableSectionTemplate) {
-    if (!window.confirm(`Delete reusable section “${template.title}”?`)) return;
+    if (!window.confirm(l('Delete reusable section “{title}”?').replace('{title}', template.title))) return;
     setReusableError('');
 
     const operationUserId = user?.id ?? null;
@@ -4740,7 +4740,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function deleteMediaAsset(asset: WebsiteMediaAsset) {
     const deleteUserId = user?.id ?? null;
     if (!deleteUserId) return;
-    if (!window.confirm(`Delete ${asset.name} from your media library?`)) return;
+    if (!window.confirm(l('Delete {name} from your media library?').replace('{name}', asset.name))) return;
 
     const deleteSequence = ++mediaDeleteSequenceRef.current;
     const deleteProjectSequence = projectLoadSequenceRef.current;
@@ -5537,7 +5537,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (language === currentLanguage) return;
     const groupKey = activePage.translationKey?.trim() || `translation-${activePage.id}`;
     if (pages.some((page) => page.translationKey === groupKey && normalizePageLanguage(page.language, prefs.language) === language)) {
-      window.alert(`A ${PAGE_LANGUAGE_LABELS[language]} version already exists in this translation group.`);
+      window.alert(l('A {language} version already exists in this translation group.').replace('{language}', PAGE_LANGUAGE_LABELS[language]));
       return;
     }
     const used = new Set(pages.map((page) => normalizeSlug(page.slug)));
@@ -7415,7 +7415,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const removesPage = destructiveOperations.some((operation) => operation.action === 'remove_page');
       if (removesPage || destructiveOperations.length >= 3) {
         const confirmed = window.confirm(
-          `Tayar AI wants to run ${destructiveOperations.length} destructive change${destructiveOperations.length === 1 ? '' : 's'}. Continue?`
+          (destructiveOperations.length === 1 ? l('Tayar AI wants to run 1 destructive change. Continue?') : l('Tayar AI wants to run {count} destructive changes. Continue?').replace('{count}', String(destructiveOperations.length)))
         );
         if (!confirmed) {
           setAiStage('ready');
@@ -10500,7 +10500,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishError('Only the project owner can rollback a published release.');
       return;
     }
-    if (!window.confirm(`Rollback the live website to the release from ${new Date(version.created_at).toLocaleString()}? Your editor draft will stay unchanged.`)) return;
+    if (!window.confirm(l('Rollback the live website to the release from {time}? Your editor draft will stay unchanged.').replace('{time}', new Date(version.created_at).toLocaleString()))) return;
 
     const rollbackSequence = ++publishOperationSequenceRef.current;
     const rollbackLoadSequence = projectLoadSequenceRef.current;
@@ -11406,7 +11406,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!requireBillingFeature('clientDelivery', 'Client handoff ZIP')) return;
     const productionUrl = normalizeSiteUrl(siteUrl) || (publishedUrl ? publishedUrl.replace(/\/index\.html(?:[?#].*)?$/i, '') : '');
     if (!productionUrl) {
-      window.alert('Add a Production URL or publish the website before creating the client handoff package.');
+      window.alert(l('Add a Production URL or publish the website before creating the client handoff package.'));
       return;
     }
 
@@ -11580,7 +11580,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!requireBillingFeature('exportZip', 'Production ZIP export')) return;
     const productionUrl = normalizeSiteUrl(siteUrl);
     if (!productionUrl) {
-      window.alert('Add your production URL first, for example https://example.com. It is required for canonical URLs and sitemap.xml.');
+      window.alert(l('Add your production URL first, for example https://example.com. It is required for canonical URLs and sitemap.xml.'));
       return;
     }
 
@@ -14920,10 +14920,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="space-y-2">
                   <input value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} placeholder={l('Footer text (blank = automatic copyright)')} maxLength={300} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                   <div className="grid grid-cols-2 gap-2">
-                    <input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} placeholder="Instagram URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} placeholder="Facebook URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.linkedinUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, linkedinUrl: e.target.value })); setSaved(false); }} placeholder="LinkedIn URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.xUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, xUrl: e.target.value })); setSaved(false); }} placeholder="X URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                    <input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} placeholder={l('Instagram URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                    <input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} placeholder={l('Facebook URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                    <input value={footerConfig.linkedinUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, linkedinUrl: e.target.value })); setSaved(false); }} placeholder={l('LinkedIn URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                    <input value={footerConfig.xUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, xUrl: e.target.value })); setSaved(false); }} placeholder={l('X URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                   </div>
                 </div>
               </div>
@@ -15759,7 +15759,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               ) : selectedElement.type === 'video' ? (
                 <div className="space-y-2">
-                  <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder="YouTube, Vimeo or direct video URL" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder={l('YouTube, Vimeo or direct video URL')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                   <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder={l("Video title / accessibility label")} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
               ) : selectedElement.type === 'embed' ? (
@@ -15768,7 +15768,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder={l("Accessibility title")} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
               ) : selectedElement.type === 'gallery' ? (
-                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder="One image URL per line" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder={l('One image URL per line')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               ) : selectedElement.type === 'accordion' || selectedElement.type === 'tabs' ? (
                 <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={8} placeholder={l("Title | Content — one item per line")} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Use one line per item: Title | Content</p></div>
               ) : selectedElement.type === 'countdown' ? (
