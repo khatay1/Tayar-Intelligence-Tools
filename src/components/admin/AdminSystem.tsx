@@ -470,8 +470,8 @@ function NotificationsTab() {
                 <Bell className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-white">{n.title}</div>
-                <div className="text-xs text-gray-400 mt-0.5">{n.message}</div>
+                <div className="text-sm font-medium text-white">{l(n.title)}</div>
+                <div className="text-xs text-gray-400 mt-0.5">{l(n.message)}</div>
                 <div className="text-xs text-gray-600 mt-1">{new Date(n.created_at).toLocaleString()}</div>
               </div>
               {!n.read && <span className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0 mt-1" />}
