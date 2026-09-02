@@ -98,7 +98,7 @@ export default function AIUsageAnalytics() {
                 <div
                   className="w-full bg-gradient-to-t from-violet-600 to-fuchsia-500 rounded-t-lg transition-all hover:opacity-80"
                   style={{ height: `${(day.tokens / maxDayTokens) * 100}%`, minHeight: '4px' }}
-                  title={`${day.requests} requests, ${day.tokens} tokens`}
+                  title={l('{requests} requests, {tokens} tokens').replace('{requests}', String(day.requests)).replace('{tokens}', String(day.tokens))}
                 />
               </div>
               <span className="text-gray-500 text-xs">
