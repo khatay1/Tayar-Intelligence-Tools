@@ -139,7 +139,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
       cv_id: cvId, user_id: user.id, version_label: `v${versionNum}`, data: cv, template,
     });
     loadVersions();
-    toast.success('Version saved');
+    toast.success(l("Version saved"));
   }, [cvId, user, cv, template, versions.length, loadVersions, toast]);
 
   function restoreVersion(version: ResumeVersion) {
@@ -155,43 +155,43 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
     try {
       switch (action) {
         case 'rewrite-experience': {
-          if (cv.experience.length === 0) { toast.error('Add at least one experience entry first'); break; }
+          if (cv.experience.length === 0) { toast.error(l("Add at least one experience entry first")); break; }
           const res = await ai.complete({ action, experiences: cv.experience });
           const blocks = res.content.trim().split(/\n\s*\n/);
           setCv({ ...cv, experience: cv.experience.map((exp, i) => ({ ...exp, description: blocks[i]?.trim() || exp.description })) });
-          toast.success('Experience rewritten with stronger action verbs');
+          toast.success(l("Experience rewritten with stronger action verbs"));
           break;
         }
         case 'improve-grammar': {
           const text = [cv.summary, ...cv.experience.map(e => e.description)].join('\n\n');
-          if (!text.trim()) { toast.error('Add some content first'); break; }
+          if (!text.trim()) { toast.error(l("Add some content first")); break; }
           const res = await ai.complete({ action, text });
           const parts = res.content.trim().split(/\n\s*\n/);
           const newSummary = parts.shift() || cv.summary;
           setCv({ ...cv, summary: newSummary, experience: cv.experience.map((exp, i) => ({ ...exp, description: parts[i]?.trim() || exp.description })) });
-          toast.success('Grammar improved');
+          toast.success(l("Grammar improved"));
           break;
         }
         case 'shorten-text': {
-          if (cv.experience.length === 0) { toast.error('Add experience first'); break; }
+          if (cv.experience.length === 0) { toast.error(l("Add experience first")); break; }
           const text = cv.experience.map(e => e.description).join('\n\n');
           const res = await ai.complete({ action, text });
           const parts = res.content.trim().split(/\n\s*\n/);
           setCv({ ...cv, experience: cv.experience.map((exp, i) => ({ ...exp, description: parts[i]?.trim() || exp.description })) });
-          toast.success('Text shortened');
+          toast.success(l("Text shortened"));
           break;
         }
         case 'expand-text': {
-          if (cv.experience.length === 0) { toast.error('Add experience first'); break; }
+          if (cv.experience.length === 0) { toast.error(l("Add experience first")); break; }
           const text = cv.experience.map(e => e.description).join('\n\n');
           const res = await ai.complete({ action, text });
           const parts = res.content.trim().split(/\n\s*\n/);
           setCv({ ...cv, experience: cv.experience.map((exp, i) => ({ ...exp, description: parts[i]?.trim() || exp.description })) });
-          toast.success('Text expanded');
+          toast.success(l("Text expanded"));
           break;
         }
         case 'generate-achievements': {
-          if (cv.experience.length === 0) { toast.error('Add an experience entry first'); break; }
+          if (cv.experience.length === 0) { toast.error(l("Add an experience entry first")); break; }
           const res = await ai.complete({ action, jobTitle: cv.personal.jobTitle, company: cv.experience[0]?.company, description: cv.experience[0]?.description });
           const bullets = res.content.trim().split('\n').filter(l => l.trim().startsWith('•') || l.trim().startsWith('-'));
           if (cv.experience.length > 0) {
@@ -212,22 +212,22 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
         case 'optimize-ats': {
           const res = await ai.complete({ action, summary: cv.summary, jobTitle: cv.personal.jobTitle });
           setCv({ ...cv, summary: res.content.trim() });
-          toast.success('Summary optimized for ATS');
+          toast.success(l("Summary optimized for ATS"));
           break;
         }
         case 'match-job': {
-          if (!targetText || !targetText.trim()) { toast.error('Paste a job description first'); break; }
+          if (!targetText || !targetText.trim()) { toast.error(l("Paste a job description first")); break; }
           try {
             const res = await ai.complete({ action, cv, jobDescription: targetText });
             const parsed = JSON.parse(res.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
             setJobMatch(parsed);
             setJobDescription(targetText);
-            toast.success('Job match analyzed');
+            toast.success(l("Job match analyzed"));
           } catch {
             const result = matchJobDescription(cv, targetText);
             setJobMatch(result);
             setJobDescription(targetText);
-            toast.success('Job match analyzed');
+            toast.success(l("Job match analyzed"));
           }
           break;
         }
@@ -236,14 +236,14 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
           const res = await ai.complete({ action, cv, jobDescription: targetText || jobDescription, company: coverLetterCompany });
           setCoverLetter(res.content.trim());
           setShowCoverLetter(true);
-          toast.success('Cover letter generated');
+          toast.success(l("Cover letter generated"));
           setCoverLetterLoading(false);
           break;
         }
       }
     } catch (err) {
       if (err instanceof AIError) toast.error(err.message);
-      else toast.error('AI request failed. Please try again.');
+      else toast.error(l("AI request failed. Please try again."));
     }
     setAiLoading(null);
   }
@@ -534,7 +534,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Experience */}
                 {editSection === 'experience' && (
                   <div className="space-y-4">
-                    {cv.experience.length === 0 && <EmptyState icon={Briefcase} label="No experience yet" hint="Add your work history to get started" />}
+                    {cv.experience.length === 0 && <EmptyState icon={Briefcase} label={l("No experience yet")} hint="Add your work history to get started" />}
                     {cv.experience.map((exp, i) => (
                       <div key={exp.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -554,14 +554,14 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         <Field label={l('Description')}><textarea className={inputClass + ' min-h-[100px] resize-y'} value={exp.description} onChange={e => updateExperience(exp.id, 'description', e.target.value)} placeholder={l('Describe your achievements...')} /></Field>
                       </div>
                     ))}
-                    <AddButton label="Add Experience" onClick={addExperience} />
+                    <AddButton label={l("Add Experience")} onClick={addExperience} />
                   </div>
                 )}
 
                 {/* Education */}
                 {editSection === 'education' && (
                   <div className="space-y-4">
-                    {cv.education.length === 0 && <EmptyState icon={FileText} label="No education yet" hint="Add your academic background" />}
+                    {cv.education.length === 0 && <EmptyState icon={FileText} label={l("No education yet")} hint="Add your academic background" />}
                     {cv.education.map((edu, i) => (
                       <div key={edu.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -578,14 +578,14 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         <Field label={l('Description')}><input className={inputClass} value={edu.description} onChange={e => updateEducation(edu.id, 'description', e.target.value)} /></Field>
                       </div>
                     ))}
-                    <AddButton label="Add Education" onClick={addEducation} />
+                    <AddButton label={l("Add Education")} onClick={addEducation} />
                   </div>
                 )}
 
                 {/* Skills */}
                 {editSection === 'skills' && (
                   <div className="space-y-2">
-                    {cv.skills.length === 0 && <EmptyState icon={Zap} label="No skills yet" hint="Add your technical and soft skills" />}
+                    {cv.skills.length === 0 && <EmptyState icon={Zap} label={l("No skills yet")} hint="Add your technical and soft skills" />}
                     {cv.skills.map(skill => (
                       <div key={skill.id} className="flex gap-2 items-center">
                         <input className={inputClass + ' flex-1'} value={skill.name} onChange={e => updateSkill(skill.id, 'name', e.target.value)} placeholder={l('Skill name')} />
@@ -595,7 +595,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         <button onClick={() => deleteSkill(skill.id)} className="text-red-400/60 hover:text-red-400 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     ))}
-                    <AddButton label="Add Skill" onClick={addSkill} />
+                    <AddButton label={l("Add Skill")} onClick={addSkill} />
                     <button onClick={() => handleAIAction('suggest-skills')} disabled={aiLoading !== null} className="w-full flex items-center justify-center gap-1.5 text-xs text-violet-400 border border-violet-500/20 hover:bg-violet-600/10 py-2.5 rounded-xl transition-colors disabled:opacity-50 mt-2">
                       {aiLoading === 'suggest-skills' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                       Suggest Skills with AI
@@ -606,7 +606,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Languages */}
                 {editSection === 'languages' && (
                   <div className="space-y-2">
-                    {cv.languages.length === 0 && <EmptyState icon={Type} label="No languages yet" hint="Add languages you speak" />}
+                    {cv.languages.length === 0 && <EmptyState icon={Type} label={l("No languages yet")} hint="Add languages you speak" />}
                     {cv.languages.map(lang => (
                       <div key={lang.id} className="flex gap-2 items-center">
                         <input className={inputClass + ' flex-1'} value={lang.name} onChange={e => updateLanguage(lang.id, 'name', e.target.value)} placeholder={l('Language')} />
@@ -616,14 +616,14 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         <button onClick={() => deleteLanguage(lang.id)} className="text-red-400/60 hover:text-red-400 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     ))}
-                    <AddButton label="Add Language" onClick={addLanguage} />
+                    <AddButton label={l("Add Language")} onClick={addLanguage} />
                   </div>
                 )}
 
                 {/* Projects */}
                 {editSection === 'projects' && (
                   <div className="space-y-3">
-                    {cv.projects.length === 0 && <EmptyState icon={FolderOpen} label="No projects yet" hint="Showcase your work" />}
+                    {cv.projects.length === 0 && <EmptyState icon={FolderOpen} label={l("No projects yet")} hint="Showcase your work" />}
                     {cv.projects.map(proj => (
                       <div key={proj.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -635,14 +635,14 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         <Field label={l('Link')}><input className={inputClass} value={proj.link} onChange={e => updateProject(proj.id, 'link', e.target.value)} /></Field>
                       </div>
                     ))}
-                    <AddButton label="Add Project" onClick={addProject} />
+                    <AddButton label={l("Add Project")} onClick={addProject} />
                   </div>
                 )}
 
                 {/* Certificates */}
                 {editSection === 'certificates' && (
                   <div className="space-y-3">
-                    {cv.certificates.length === 0 && <EmptyState icon={Award} label="No certificates yet" hint="Add your certifications" />}
+                    {cv.certificates.length === 0 && <EmptyState icon={Award} label={l("No certificates yet")} hint="Add your certifications" />}
                     {cv.certificates.map(cert => (
                       <div key={cert.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -654,14 +654,14 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         <Field label={l('Date')}><input className={inputClass} value={cert.date} onChange={e => updateCertificate(cert.id, 'date', e.target.value)} /></Field>
                       </div>
                     ))}
-                    <AddButton label="Add Certificate" onClick={addCertificate} />
+                    <AddButton label={l("Add Certificate")} onClick={addCertificate} />
                   </div>
                 )}
 
                 {/* Awards */}
                 {editSection === 'awards' && (
                   <div className="space-y-3">
-                    {cv.awards.length === 0 && <EmptyState icon={Award} label="No awards yet" hint="Add your achievements" />}
+                    {cv.awards.length === 0 && <EmptyState icon={Award} label={l("No awards yet")} hint="Add your achievements" />}
                     {cv.awards.map(award => (
                       <div key={award.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -674,7 +674,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         <Field label={l('Description')}><input className={inputClass} value={award.description} onChange={e => updateAward(award.id, 'description', e.target.value)} /></Field>
                       </div>
                     ))}
-                    <AddButton label="Add Award" onClick={addAward} />
+                    <AddButton label={l("Add Award")} onClick={addAward} />
                   </div>
                 )}
               </div>
@@ -963,7 +963,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 </div>
 
                 {versions.length === 0 ? (
-                  <EmptyState icon={History} label="No versions yet" hint="Click 'Save Current' to create a snapshot you can restore later." />
+                  <EmptyState icon={History} label={l("No versions yet")} hint="Click 'Save Current' to create a snapshot you can restore later." />
                 ) : (
                   <div className="space-y-2">
                     {versions.map(v => (
@@ -1048,7 +1048,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => { navigator.clipboard.writeText(coverLetter); toast.success('Copied to clipboard'); }}
+                  onClick={() => { navigator.clipboard.writeText(coverLetter); toast.success(l("Copied to clipboard")); }}
                   className="flex items-center gap-1.5 text-gray-400 hover:text-white text-xs px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" /> {l('Copy')}
