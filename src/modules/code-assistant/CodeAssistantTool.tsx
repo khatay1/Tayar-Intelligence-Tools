@@ -1000,7 +1000,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       await refreshProjectContext();
       setApplyConfirmed(false);
       setPackageEditConfirmed(false);
-      setApplyMessage('Patch applied. A rollback checkpoint is available until the project files change again.');
+      setApplyMessage(l("Patch applied. A rollback checkpoint is available until the project files change again."));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Unable to apply the patch.');
     } finally {
@@ -1020,7 +1020,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       setPatchOwnerId('');
       setPackageEditConfirmed(false);
       setApplyConfirmed(false);
-      setApplyMessage('Last Coding Assistance patch was rolled back.');
+      setApplyMessage(l("Last Coding Assistance patch was rolled back."));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Unable to rollback the patch.');
     } finally {
