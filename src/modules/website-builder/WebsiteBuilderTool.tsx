@@ -7366,10 +7366,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const agentPlan: AIWebsiteAgentPlan = {
         summary: typeof rawAgentPlan?.summary === 'string' && rawAgentPlan.summary.trim()
           ? rawAgentPlan.summary.trim().slice(0, 240)
-          : 'Apply the requested website changes safely.',
+          : l('Apply the requested website changes safely.'),
         steps: plannedSteps.length
           ? plannedSteps
-          : [{ id: 'step-1', title: 'Apply the requested changes with native editable Tayar operations.', destructive: false }],
+          : [{ id: 'step-1', title: l('Apply the requested changes with native editable Tayar operations.'), destructive: false }],
         warnings: Array.isArray(rawAgentPlan?.warnings)
           ? rawAgentPlan.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
           : [],
@@ -7380,7 +7380,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-plan-${Date.now()}`,
           role: 'assistant' as const,
-          content: `Plan: ${planPreview}${agentPlan.warnings?.length ? ` · ${agentPlan.warnings.join(' · ')}` : ''}`,
+          content: `${l('Plan')}: ${planPreview}${agentPlan.warnings?.length ? ` · ${agentPlan.warnings.join(' · ')}` : ''}`,
         },
       ].slice(-30));
 
@@ -9995,7 +9995,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const confidence = Number.isFinite(Number(patch.confidence))
         ? Math.min(1, Math.max(0, Number(patch.confidence)))
         : null;
-      const summary = patch.summary?.trim() || `Applied ${applied} targeted AI change${applied === 1 ? '' : 's'}.`;
+      const summary = patch.summary?.trim() || l('Applied {count} targeted AI changes.').replace('{count}', String(applied));
       setAiPlan({
         summary,
         pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
