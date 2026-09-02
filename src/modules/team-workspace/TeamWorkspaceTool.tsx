@@ -176,7 +176,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
     ]);
 
     if (detailsResult.error) {
-      setError(detailsResult.error.message || 'Could not load workspace details.');
+      setError(detailsResult.error.message ? l(detailsResult.error.message) : l('Could not load workspace details.'));
       setBusy(false);
       return;
     }
