@@ -69,7 +69,8 @@ const dynamicUiCandidates = [];
 const hardcodedJsxRe = />\s*([A-Z][A-Za-z0-9][A-Za-z0-9 &+/.:'’(),!?–—·↗-]{2,110})\s*</g;
 const hardcodedAttrRe = /\b(?:placeholder|title|aria-label|alt|label)\s*=\s*["']([^"'{}\n]{2,180})["']/g;
 const hardcodedPropRe = /\b(?:label|title|description|placeholder|tooltip|helperText|emptyText|buttonText|ctaLabel|ariaLabel)\s*:\s*["'`]([^"'`\n]{2,220})["'`]/g;
-const hardcodedNotifyRe = /\b(?:toast\.(?:success|error|info|warning)|window\.confirm|confirm|alert|set(?:Message|Error|Status|Notice|Feedback))\(\s*["'`]([^"'`\n]{2,220})["'`]/g;
+const hardcodedNotifyRe = /\b(?:toast\.(?:success|error|info|warning)|window\.confirm|confirm|alert|showError|success|loading|set[A-Za-z0-9_]*(?:Message|Error|Status|Notice|Feedback))\(\s*["'`]([^"'`\n]{2,220})["'`]/g;
+const hardcodedToastUpdateRe = /\bupdate\(\s*[^,\n]+,\s*["'`]([^"'`\n]{2,220})["'`]/g;
 const ignoredHardcoded = new Set([
   'AI', 'API', 'CSV', 'CSS', 'HTML', 'ID', 'JS', 'JSON', 'PDF', 'PRO', 'SEO', 'TS', 'TSX', 'UI', 'URL',
   'V1.0', 'ZIP', 'PNG', 'JPG', 'Power BI', 'PowerPoint', 'Instagram', 'Facebook', 'LinkedIn',
@@ -111,6 +112,7 @@ for (const file of sourceFiles) {
       ['attribute', hardcodedAttrRe],
       ['property', hardcodedPropRe],
       ['notification', hardcodedNotifyRe],
+      ['notification', hardcodedToastUpdateRe],
     ]) {
       for (const match of source.matchAll(regex)) {
         const text = match[1].trim();
