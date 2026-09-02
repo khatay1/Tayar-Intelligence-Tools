@@ -229,7 +229,7 @@ check('Publish preflight blocks critical audit errors', builder.includes('Publis
 check('Publish preflight blocks offline deploys', builder.includes('Publish preflight blocked: you are offline'));
 check('V2 Publish button uses hard operational blockers', builder.includes("!user ? 'Sign in before publishing.'") && builder.includes("!networkOnline ? 'Reconnect before publishing.'"));
 check('Publish handler does not require non-essential launch checks', !builder.includes('Publish preflight blocked: ${v1LaunchStatus.blockers[0]') && builder.includes('Release history was skipped'));
-check('Launch blockers include production URL and SEO branding', builder.includes("!productionUrlReady ? 'Add a valid production URL.'") && builder.includes("!seoReady ? 'Complete the SEO title and favicon.'"));
+check('Launch blockers include production URL and SEO branding', builder.includes("!productionUrlReady ? l('Add a valid production URL.')") && builder.includes("!seoReady ? l('Complete the SEO title and favicon.')"));
 check('Generated pages use a referrer policy', builder.includes('strict-origin-when-cross-origin'));
 check('Generated pages include CSP', builder.includes('Content-Security-Policy'));
 check('Generated pages have keyboard skip navigation', builder.includes('tayar-skip-link'));
