@@ -80,6 +80,7 @@ const ignoredHardcoded = new Set([
   'V1.0', 'ZIP', 'PNG', 'JPG', 'Power BI', 'PowerPoint', 'Instagram', 'Facebook', 'LinkedIn',
   'Tayar Intelligence', 'Tayar AI', 'React · Supabase · Vite', 'Promise', 'PromiseLike',
   'Google Analytics 4', 'Google Tag Manager', 'Meta Pixel', 'Ctrl/Cmd+K',
+  '.my-class { ... }', 'Disallow: /private\\nCrawl-delay: 5',
 ]);
 const contentOnlyFiles = new Set([
   'src/modules/code-assistant/seed-components.ts',
