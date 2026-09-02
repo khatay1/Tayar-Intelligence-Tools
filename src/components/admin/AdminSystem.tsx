@@ -207,7 +207,7 @@ function LogsTab() {
       setLogs((data || []) as typeof logs);
     }
     setLoading(false);
-  }, []);
+  }, [l]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -358,12 +358,12 @@ function ReadinessTab() {
     const { data, error: invokeError } = await supabase.functions.invoke('billing-admin-status', { body: {} });
     if (invokeError) {
       setStatus(null);
-      setError(invokeError.message || 'Could not load production readiness.');
+      setError(invokeError.message || l('Could not load production readiness.'));
     } else {
       setStatus((data || null) as ReadinessStatus | null);
     }
     setLoading(false);
-  }, []);
+  }, [l]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -400,7 +400,7 @@ function ReadinessTab() {
             {item.ok ? <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5" /> : <XCircle className="w-5 h-5 text-amber-400 mt-0.5" />}
             <div className="min-w-0">
               <div className="text-sm font-medium text-white">{l(item.label)}</div>
-              <div className="text-xs text-gray-500 mt-1 break-all">{item.detail}</div>
+              <div className="text-xs text-gray-500 mt-1 break-all">{l(item.detail)}</div>
             </div>
           </div>
         ))}
@@ -432,7 +432,7 @@ function NotificationsTab() {
       setNotifications((data || []) as typeof notifications);
     }
     setLoading(false);
-  }, []);
+  }, [l]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -502,7 +502,7 @@ function EmailTab() {
       setTemplates((data || []) as typeof templates);
     }
     setLoading(false);
-  }, []);
+  }, [l]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -607,7 +607,7 @@ function ApiKeysTab() {
       setKeys((data || []) as typeof keys);
     }
     setLoading(false);
-  }, []);
+  }, [l]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -669,7 +669,7 @@ function FlagsTab() {
       setFlags((data || []) as typeof flags);
     }
     setLoading(false);
-  }, []);
+  }, [l]);
 
   useEffect(() => { void load(); }, [load]);
 
