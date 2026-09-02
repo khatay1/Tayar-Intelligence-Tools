@@ -174,10 +174,10 @@ export default function AdminSubscriptions() {
           };
           const Icon = s.icon;
           return (
-            <div key={s.label} className={`rounded-2xl border p-4 ${colors[s.color]}`}>
+            <div key={l(s.label)} className={`rounded-2xl border p-4 ${colors[s.color]}`}>
               <Icon className="w-5 h-5 mb-2" />
               <div className="text-2xl font-bold text-white">{s.value}</div>
-              <div className="text-xs text-gray-400">{s.label}</div>
+              <div className="text-xs text-gray-400">{l(s.label)}</div>
             </div>
           );
         })}
