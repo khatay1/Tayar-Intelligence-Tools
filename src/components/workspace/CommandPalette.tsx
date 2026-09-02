@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { useLocalizer } from '@/lib/ui-localization';
 import { getFileMeta, timeAgo, ViewId, NAV_ITEMS } from './workspace-config';
 import { AI_COMMANDS, matchCommand } from '@/lib/ai-commands';
 import { toolRegistry } from '@/modules/registry';
@@ -39,6 +40,7 @@ const NAV_ICONS: Record<string, typeof Search> = {
 };
 
 export default function CommandPalette({ open, onClose, onNavigate, darkMode: _darkMode }: CommandPaletteProps) {
+  const l = useLocalizer();
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PaletteResult[]>([]);
@@ -209,7 +211,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Type a command or search..."
+            placeholder={l('Type a command or search...')}
             className="flex-1 bg-transparent text-white text-sm placeholder:text-gray-600 focus:outline-none"
           />
           {loading && <Loader2 className="w-4 h-4 text-violet-500 animate-spin" />}
