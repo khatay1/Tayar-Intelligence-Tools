@@ -23,6 +23,8 @@ const TABS: { id: SystemTab; label: string; icon: typeof Settings }[] = [
 ];
 
 function AdminTabError({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  const l = useLocalizer();
+
   return (
     <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
       <AlertTriangle className="mx-auto mb-3 h-7 w-7 text-red-400" />
