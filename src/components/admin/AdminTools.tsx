@@ -56,7 +56,7 @@ const { success, error: showError } = useToast();
     }, { onConflict: 'key' });
     if (error) {
       setFlags(prev => ({ ...prev, [key]: !newVal }));
-      showError('Failed to toggle feature');
+      showError(l("Failed to toggle feature"));
     } else {
       success(`${key} ${newVal ? 'enabled' : 'disabled'}`);
     }
