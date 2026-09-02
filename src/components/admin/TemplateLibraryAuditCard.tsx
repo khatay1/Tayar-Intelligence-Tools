@@ -1,7 +1,7 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Download, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, Trash2, Wrench, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useLocalizer } from '@/lib/ui-localization';
 
 const STORAGE_KEY = 'tayar-admin-template-audit-v2';
 const PAGE_SIZE = 12;
@@ -75,7 +75,7 @@ function saveState(state: AuditState) {
 
 export default function TemplateLibraryAuditCard() {
   const l = useLocalizer();
-  const [state, setState] = useState<AuditState>(() => loadStoredState());
+const [state, setState] = useState<AuditState>(() => loadStoredState());
   const [running, setRunning] = useState(false);
   const [analyzingRepairs, setAnalyzingRepairs] = useState(false);
   const [deletingInvalid, setDeletingInvalid] = useState(false);
