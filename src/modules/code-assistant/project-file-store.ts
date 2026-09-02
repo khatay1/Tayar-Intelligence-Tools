@@ -167,7 +167,7 @@ export function restoreFileOperations(
     return { ...content, files: nextFiles };
   }
 
-  let nextFiles = (content.files as unknown[]).map((entry) => isRecord(entry) ? { ...entry } : entry);
+  const nextFiles = (content.files as unknown[]).map((entry) => isRecord(entry) ? { ...entry } : entry);
   for (const rollbackEntry of rollback) {
     const index = nextFiles.findIndex((entry) => isRecord(entry) && entryPath(entry) === rollbackEntry.path);
     if (rollbackEntry.existed) {
