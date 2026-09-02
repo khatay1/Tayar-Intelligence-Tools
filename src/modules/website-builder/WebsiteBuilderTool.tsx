@@ -12227,32 +12227,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const unpublished = Boolean(publishedUrl && lastPublishedFingerprint && buildEditableFingerprint() !== lastPublishedFingerprint);
 
     const checks = [
-      { label: 'Site content', detail: `${currentPages.length} page${currentPages.length === 1 ? '' : 's'} configured`, ok: contentReady, points: 8 },
-      { label: 'SEO & accessibility audit', detail: `${siteAudit.score}/100 · ${siteAudit.errors.length} critical`, ok: auditReady, points: 15 },
-      { label: 'Cloud project', detail: cloudProjectId ? 'Project is saved to Tayar cloud' : 'Save the project to cloud', ok: Boolean(cloudProjectId), points: 10 },
-      { label: 'Cloud sync', detail: !networkOnline ? 'Offline' : cloudSyncFailed || autoSaveStatus === 'failed' ? 'Sync needs retry' : 'Sync healthy', ok: syncHealthy, points: 10 },
-      { label: 'Production URL', detail: productionUrlReady ? normalizeSiteUrl(siteUrl) : 'Add your production URL', ok: productionUrlReady, points: 8 },
-      { label: 'SEO title + favicon', detail: seoReady ? 'Branding metadata is configured' : 'Complete SEO title and favicon', ok: seoReady, points: 7 },
-      { label: 'Billing backend', detail: billingVerified ? `${BILLING_PLAN_DETAILS[billingPlan].label} entitlements verified` : billingError || 'Sign in and refresh billing', ok: billingVerified, points: 7 },
-      { label: 'Publish permission', detail: projectTeamAccess.canPublish ? 'Owner may publish' : 'Only the project owner can publish', ok: publishPermission, points: 5 },
-      { label: 'Published website', detail: publishedRelease ? (lastPublishedVersionId ? `Live · archive ${lastPublishedVersionId.slice(0, 8)}` : 'Live website detected') : 'Publish the first release', ok: publishedRelease, points: 15 },
-      { label: 'Live verification', detail: liveVerification === 'healthy' ? 'Published index verified' : publishedRelease ? 'Run live verification' : 'Available after publishing', ok: liveHealthy, points: 15 },
+      { label: l('Site content'), detail: l('{count} pages configured').replace('{count}', String(currentPages.length)), ok: contentReady, points: 8 },
+      { label: l('SEO & accessibility audit'), detail: l('{score}/100 · {count} critical').replace('{score}', String(siteAudit.score)).replace('{count}', String(siteAudit.errors.length)), ok: auditReady, points: 15 },
+      { label: l('Cloud project'), detail: cloudProjectId ? l('Project is saved to Tayar cloud') : l('Save the project to cloud'), ok: Boolean(cloudProjectId), points: 10 },
+      { label: l('Cloud sync'), detail: !networkOnline ? l('Offline') : cloudSyncFailed || autoSaveStatus === 'failed' ? l('Sync needs retry') : l('Sync healthy'), ok: syncHealthy, points: 10 },
+      { label: l('Production URL'), detail: productionUrlReady ? normalizeSiteUrl(siteUrl) : l('Add your production URL'), ok: productionUrlReady, points: 8 },
+      { label: l('SEO title + favicon'), detail: seoReady ? l('Branding metadata is configured') : l('Complete SEO title and favicon'), ok: seoReady, points: 7 },
+      { label: l('Billing backend'), detail: billingVerified ? l('{plan} entitlements verified').replace('{plan}', l(BILLING_PLAN_DETAILS[billingPlan].label)) : billingError || l('Sign in and refresh billing'), ok: billingVerified, points: 7 },
+      { label: l('Publish permission'), detail: projectTeamAccess.canPublish ? l('Owner may publish') : l('Only the project owner can publish'), ok: publishPermission, points: 5 },
+      { label: l('Published website'), detail: publishedRelease ? (lastPublishedVersionId ? l('Live · archive {id}').replace('{id}', lastPublishedVersionId.slice(0, 8)) : l('Live website detected')) : l('Publish the first release'), ok: publishedRelease, points: 15 },
+      { label: l('Live verification'), detail: liveVerification === 'healthy' ? l('Published index verified') : publishedRelease ? l('Run live verification') : l('Available after publishing'), ok: liveHealthy, points: 15 },
     ];
     const score = Math.min(100, checks.reduce((total, check) => total + (check.ok ? check.points : 0), 0));
     const blockers = [
-      !user ? 'Sign in before production launch.' : '',
-      !cloudProjectId ? 'Save the project to cloud.' : '',
-      !networkOnline ? 'Reconnect to the internet.' : '',
-      cloudSyncFailed || autoSaveStatus === 'failed' ? 'Resolve cloud sync before publishing.' : '',
-      siteAudit.errors.length ? `Fix ${siteAudit.errors.length} critical audit error${siteAudit.errors.length === 1 ? '' : 's'}.` : '',
-      !siteAudit.errors.length && siteAudit.score < 80 ? 'Raise the SEO and accessibility audit score to at least 80.' : '',
-      !productionUrlReady ? 'Add a valid production URL.' : '',
-      !seoReady ? 'Complete the SEO title and favicon.' : '',
-      billingLoading ? 'Wait for billing entitlements to finish loading.' : '',
-      !billingVerified && !billingLoading && !billingError ? 'Refresh billing entitlements before publishing.' : '',
-      productionConfig.maintenanceMode ? 'Disable maintenance mode for public launch.' : '',
-      user && cloudProjectId && !projectTeamAccess.canPublish ? 'The project owner must perform the publish.' : '',
-      billingError ? 'Billing entitlements could not be verified.' : '',
+      !user ? l('Sign in before production launch.') : '',
+      !cloudProjectId ? l('Save the project to cloud.') : '',
+      !networkOnline ? l('Reconnect to the internet.') : '',
+      cloudSyncFailed || autoSaveStatus === 'failed' ? l('Resolve cloud sync before publishing.') : '',
+      siteAudit.errors.length ? l('Fix {count} critical audit errors.').replace('{count}', String(siteAudit.errors.length)) : '',
+      !siteAudit.errors.length && siteAudit.score < 80 ? l('Raise the SEO and accessibility audit score to at least 80.') : '',
+      !productionUrlReady ? l('Add a valid production URL.') : '',
+      !seoReady ? l('Complete the SEO title and favicon.') : '',
+      billingLoading ? l('Wait for billing entitlements to finish loading.') : '',
+      !billingVerified && !billingLoading && !billingError ? l('Refresh billing entitlements before publishing.') : '',
+      productionConfig.maintenanceMode ? l('Disable maintenance mode for public launch.') : '',
+      user && cloudProjectId && !projectTeamAccess.canPublish ? l('The project owner must perform the publish.') : '',
+      billingError ? l('Billing entitlements could not be verified.') : '',
     ].filter(Boolean) as string[];
     const preflightReady = blockers.length === 0 && productionUrlReady && seoReady && siteAudit.score >= 80;
     const status = !preflightReady
@@ -12265,7 +12265,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             ? 'V1 LIVE'
             : 'VERIFY LIVE';
     return { score, checks, blockers, preflightReady, publishedRelease, liveHealthy, status };
-  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, buildEditableFingerprint]);
+  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, buildEditableFingerprint, l]);
 
   function exportV1LaunchReport() {
     const manual = [
@@ -14098,10 +14098,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black text-gray-400">V1.0</span>
                 </div>
                 <p className="mt-1 text-[11px] text-gray-500">{l('One place to onboard a project, run production checks, publish the release and verify that the live site is healthy.')}</p>
-                {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">Last automated check: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
+                {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">{l('Last automated check')}: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? 'Checking…' : 'Run final checks'}</button>
+                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? l('Checking…') : l('Run final checks')}</button>
                 <button onClick={exportV1LaunchReport} className="rounded-lg border border-cyan-500/25 px-3 py-2 text-[10px] font-bold text-cyan-400">{l('Export launch report')}</button>
                 <button onClick={closeLaunchCenter} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
@@ -14113,9 +14113,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${v1LaunchStatus.score >= 90 ? 'bg-emerald-500' : v1LaunchStatus.score >= 70 ? 'bg-cyan-500' : 'bg-amber-500'}`} style={{ width: `${v1LaunchStatus.score}%` }} /></div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center">
                   <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Audit')}</p><p className="text-lg font-black">{siteAudit.score}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Health')}</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? 'GOOD' : 'CHECK'}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? 'OK' : 'FIX'}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? 'VERIFIED' : publishedUrl ? 'VERIFY' : 'NOT YET'}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Health')}</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? l('GOOD') : l('CHECK')}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? l('OK') : l('FIX')}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? l('VERIFIED') : publishedUrl ? l('VERIFY') : l('NOT YET')}</p></div>
                 </div>
                 {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">{l('Launch blockers')}</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">• {item}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">{l('✓ No critical production blockers detected.')}</div>}
               </div>
@@ -14159,12 +14159,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button onClick={() => { setBillingOpen(true); void refreshBilling(cloudProjectId); }} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Billing & limits')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Verify plan and Stripe state')}</div></button>
                   <button onClick={() => setOperationsOpen(true)} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Audit & backups')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Export backup and diagnostics')}</div></button>
-                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? 'Publish production changes' : 'Publish first release'}<div className="mt-1 text-[9px] font-normal text-sky-100">{l('Blocked until automated preflight is ready')}</div></button>
+                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? l('Publish production changes') : l('Publish first release')}<div className="mt-1 text-[9px] font-normal text-sky-100">{l('Blocked until automated preflight is ready')}</div></button>
                   <button onClick={() => void verifyLiveDeployment()} disabled={!publishedUrl || liveVerification === 'checking'} className="rounded-xl border border-emerald-500/20 p-3 text-left text-[10px] font-bold text-emerald-400 disabled:opacity-40">{l('Verify live release')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Confirm index.html is deployed')}</div></button>
                 </div>
                 <div className={`mt-3 rounded-xl border p-3 ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-black/10'}`}>
                   <p className="text-[10px] font-black">{l('V1 release decision')}</p>
-                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'GO — READY FOR FIRST PAYING CUSTOMERS' : v1LaunchStatus.preflightReady ? 'CODE READY — COMPLETE PUBLISH / MANUAL CHECKS' : 'NO-GO — FIX AUTOMATED BLOCKERS'}</p>
+                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? l('GO — READY FOR FIRST PAYING CUSTOMERS') : v1LaunchStatus.preflightReady ? l('CODE READY — COMPLETE PUBLISH / MANUAL CHECKS') : l('NO-GO — FIX AUTOMATED BLOCKERS')}</p>
                 </div>
               </div>
             </div>
@@ -14194,7 +14194,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {billingState.subscription?.stripeCustomerId && (
                   <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-[10px] font-bold text-emerald-400 disabled:opacity-50">{l('Manage subscription')}</button>
                 )}
-                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? 'Refreshing…' : 'Refresh'}</button>
+                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? l('Refreshing…') : l('Refresh')}</button>
                 <button onClick={() => setBillingOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
@@ -14212,19 +14212,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div key={plan} className={`rounded-2xl border p-4 ${current ? 'border-emerald-500/50 bg-emerald-500/10' : darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-black">{details.label}</p>
-                        <p className="mt-1 text-[10px] text-gray-500">{details.description}</p>
+                        <p className="text-sm font-black">{l(details.label)}</p>
+                        <p className="mt-1 text-[10px] text-gray-500">{l(details.description)}</p>
                       </div>
                       {current && <span className="rounded-full bg-emerald-500 px-2 py-1 text-[8px] font-black text-white">{l('CURRENT')}</span>}
                     </div>
                     <div className="mt-3 space-y-1.5">
-                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {bullet}</p>)}
+                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {l(bullet)}</p>)}
                     </div>
                     <div className="mt-4">
                       {current ? (
                         <div className="rounded-lg border border-emerald-500/20 px-3 py-2 text-center text-[10px] font-bold text-emerald-400">{l('Active plan')}</div>
                       ) : isPaid ? (
-                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? 'Opening Stripe…' : `Choose ${details.label}`}</button>
+                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? l('Opening Stripe…') : l('Choose {plan}').replace('{plan}', l(details.label))}</button>
                       ) : billingState.subscription?.stripeCustomerId ? (
                         <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="w-full rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{l('Manage downgrade in Stripe')}</button>
                       ) : (
@@ -14288,7 +14288,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <label className="text-[10px] text-gray-500">{l('Project code')}<input value={deliveryConfig.projectCode} onChange={(e) => setDeliveryConfig((current) => ({ ...current, projectCode: e.target.value.slice(0, 80) }))} placeholder="WEB-001" className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
                   <label className="text-[10px] text-gray-500">{l('Due date')}<input type="date" value={deliveryConfig.dueDate} onChange={(e) => setDeliveryConfig((current) => ({ ...current, dueDate: e.target.value }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
                   <label className="text-[10px] text-gray-500">{l('Delivery status')}<select value={deliveryConfig.status} onChange={(e) => setDeliveryConfig((current) => ({ ...current, status: e.target.value as DeliveryStatus }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white'}`}><option value="building">{l('Building')}</option><option value="review">{l('Ready for review')}</option><option value="approved">{l('Approved')}</option><option value="delivered">{l('Delivered')}</option></select></label>
-                  <label className="flex items-end gap-2 rounded-lg border border-fuchsia-500/15 px-3 py-2 text-[10px] text-gray-400"><input type="checkbox" checked={deliveryConfig.whiteLabel} disabled={!billingEntitlements.features.whiteLabel} onChange={(e) => { if (!requireBillingFeature('whiteLabel', 'White-label client delivery')) return; setDeliveryConfig((current) => ({ ...current, whiteLabel: e.target.checked })); }} /> White-label client handoff files {!billingEntitlements.features.whiteLabel && <span className="font-bold text-amber-400">BUSINESS</span>}</label>
+                  <label className="flex items-end gap-2 rounded-lg border border-fuchsia-500/15 px-3 py-2 text-[10px] text-gray-400"><input type="checkbox" checked={deliveryConfig.whiteLabel} disabled={!billingEntitlements.features.whiteLabel} onChange={(e) => { if (!requireBillingFeature('whiteLabel', 'White-label client delivery')) return; setDeliveryConfig((current) => ({ ...current, whiteLabel: e.target.checked })); }} /> {l('White-label client handoff files')} {!billingEntitlements.features.whiteLabel && <span className="font-bold text-amber-400">BUSINESS</span>}</label>
                 </div>
                 <label className="mt-2 block text-[10px] text-gray-500">{l('Handoff notes')}<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder={l("Hosting notes, DNS details, next steps, support terms…")} className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
               </div>
@@ -14299,14 +14299,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
                   {launchReadiness.checks.map((item) => <div key={l(item.label)} className={`rounded-lg border px-2 py-1.5 ${item.ok ? 'border-emerald-500/20 text-emerald-400' : 'border-white/10 text-gray-500'}`}>{item.ok ? '✓' : '○'} {l(item.label)}</div>)}
                 </div>
-                <p className="mt-2 text-[9px] text-gray-500">Audit contributes {launchReadiness.auditPoints}/40 points · current audit {siteAudit.score}/100.</p>
+                <p className="mt-2 text-[9px] text-gray-500">{l('Audit contributes {points}/40 points · current audit {score}/100.').replace('{points}', String(launchReadiness.auditPoints)).replace('{score}', String(siteAudit.score))}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
               {[
                 ['Pages', deliveryUsage.pages], ['Sections', deliveryUsage.sections], ['Elements', deliveryUsage.elements], ['Forms', deliveryUsage.forms], ['Symbols', deliveryUsage.symbols], ['Releases', deliveryUsage.releases], ['Leads', deliveryUsage.leads], ['Events', deliveryUsage.analyticsEvents], ['Media*', deliveryUsage.mediaLoaded],
-              ].map(([label, value]) => <div key={String(label)} className={`rounded-xl border p-2 text-center ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}><p className="text-[9px] uppercase text-gray-500">{label}</p><p className="mt-1 text-lg font-black">{value}</p></div>)}
+              ].map(([label, value]) => <div key={String(label)} className={`rounded-xl border p-2 text-center ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}><p className="text-[9px] uppercase text-gray-500">{l(String(label))}</p><p className="mt-1 text-lg font-black">{value}</p></div>)}
             </div>
             <p className="-mt-2 text-[9px] text-gray-500">*Media count reflects assets currently loaded into the Media Library panel.</p>
 
@@ -15050,7 +15050,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button type="button" onClick={applyThemeToCurrentPage} className="rounded-lg bg-violet-600 px-2 py-2 text-[10px] font-semibold text-white hover:bg-violet-500">{l('Apply to page')}</button>
               <button type="button" onClick={applyThemeToAllPages} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${darkMode ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10' : 'border-violet-300 text-violet-700 hover:bg-violet-100'}`}>{l('Apply all pages')}</button>
             </div>
-            <p className="mt-2 text-[9px] leading-4 text-gray-500">Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.</p>
+            <p className="mt-2 text-[9px] leading-4 text-gray-500">{l('Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.')}</p>
           </div>
 
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
@@ -15126,7 +15126,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div key={template.id} className={`flex items-center gap-1 rounded-lg border p-1.5 ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-100 bg-white'}`}>
                     <button type="button" onClick={() => insertReusableSection(template)} className="min-w-0 flex-1 text-left">
                       <span className="block truncate text-[10px] font-semibold">{template.title}</span>
-                      <span className="block text-[9px] text-gray-500">{SECTION_LABELS[template.section.type]} · Use template</span>
+                      <span className="block text-[9px] text-gray-500">{l(SECTION_LABELS[template.section.type])} · {l('Use template')}</span>
                     </button>
                     <button type="button" onClick={() => void deleteReusableSection(template)} className="rounded p-1 text-rose-400 hover:bg-rose-500/10" title={l('Delete template')}>
                       <Trash2 className="h-3 w-3" />
@@ -16056,7 +16056,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold">{l('Section settings')}</p>
-                  <p className="truncate text-[9px] text-gray-500">{SECTION_LABELS[selectedSection.type]}{selectedElement ? ` · ${l('collapsed while editing element')}` : ''}</p>
+                  <p className="truncate text-[9px] text-gray-500">{l(SECTION_LABELS[selectedSection.type])}{selectedElement ? ` · ${l('collapsed while editing element')}` : ''}</p>
                 </div>
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform ${sectionSettingsOpen ? 'rotate-180' : ''}`} />
               </summary>
@@ -16070,7 +16070,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       : 'border-gray-200 bg-gray-50 text-gray-700'
                   }`}
                 >
-                  {SECTION_LABELS[selectedSection.type]}
+                  {l(SECTION_LABELS[selectedSection.type])}
                 </div>
               </div>
 
@@ -16446,7 +16446,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   disabled={aiBusy}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {aiBusy ? 'Generating...' : '✨ Generate AI Prompt'}
+                  {aiBusy ? l('Generating...') : l('✨ Generate AI Prompt')}
                 </button>
 
                 <button
@@ -16454,7 +16454,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   disabled={aiBusy}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {aiBusy ? 'Generating Image...' : '🖼️ Generate Image'}
+                  {aiBusy ? l('Generating Image...') : l('🖼️ Generate Image')}
                 </button>
 
                 {selectedSection.image &&
@@ -16477,7 +16477,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   }`}
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
-                  Up
+                  {l('Up')}
                 </button>
 
                 <button
@@ -16521,7 +16521,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}
             title={publishedUrl}
           >
-            {liveVerification === 'healthy' ? 'LIVE ↗' : 'Open ↗'}
+            {liveVerification === 'healthy' ? l('LIVE ↗') : l('Open ↗')}
           </button>
         ) : null
       }
