@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Download, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, Trash2, Wrench, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useLocalizer } from '@/lib/ui-localization';
 
 const STORAGE_KEY = 'tayar-admin-template-audit-v2';
 const PAGE_SIZE = 12;
@@ -73,6 +74,7 @@ function saveState(state: AuditState) {
 }
 
 export default function TemplateLibraryAuditCard() {
+  const l = useLocalizer();
   const [state, setState] = useState<AuditState>(() => loadStoredState());
   const [running, setRunning] = useState(false);
   const [analyzingRepairs, setAnalyzingRepairs] = useState(false);
@@ -339,13 +341,13 @@ export default function TemplateLibraryAuditCard() {
             <Metric label="Junk to hide" value={repairAnalysis.hideJunk} icon={<AlertTriangle className="h-4 w-4 text-amber-400" />} />
             <Metric label="Needs review" value={repairAnalysis.failed} icon={<XCircle className="h-4 w-4 text-red-400" />} />
           </div>
-          <p className="mt-3 text-[11px] text-gray-500">Analysis is read-only. No storage object or database row is changed by this button.</p>
+          <p className="mt-3 text-[11px] text-gray-500">{l('Analysis is read-only. No storage object or database row is changed by this button.')}<p>
         </div>
       )}
 
       {issueSummary.length > 0 && (
         <div className="mt-5 rounded-xl border border-white/10 bg-black/10 p-4">
-          <div className="mb-3 text-xs font-semibold text-white">Detected issues</div>
+          <div className="mb-3 text-xs font-semibold text-white">{l('Detected issues')}</div>
           <div className="space-y-2">
             {issueSummary.slice(0, 8).map(([reason, count]) => (
               <div key={reason} className="flex items-start justify-between gap-4 text-xs">
