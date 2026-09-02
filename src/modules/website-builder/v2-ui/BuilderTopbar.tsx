@@ -1,6 +1,6 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import type { ReactNode } from 'react';
 import type { EditorShellContract } from '../core/editor-shell-contract';
-import { useLocalizer } from '@/lib/ui-localization';
 
 export interface BuilderTopbarProps {
   shell: EditorShellContract;
@@ -9,8 +9,8 @@ export interface BuilderTopbarProps {
   trailingSlot?: ReactNode;
 }
 
-export function BuilderTopbar({
-  const l = useLocalizer(); shell, brandSlot, centerSlot, trailingSlot }: BuilderTopbarProps) {
+export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: BuilderTopbarProps) {
+  const l = useLocalizer();
   const { view, status, actions } = shell;
   return (
     <header className="tayar-v2-topbar" data-dirty={view.dirty ? 'true' : 'false'}>
