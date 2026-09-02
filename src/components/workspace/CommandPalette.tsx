@@ -222,12 +222,12 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
           {grouped.length === 0 && !loading ? (
             <div className="py-10 text-center">
               <Search className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm">No results for "{query}"</p>
+              <p className="text-gray-500 text-sm">{l('No results for "{query}"').replace('{query}', query)}</p>
             </div>
           ) : (
             grouped.map(group => (
               <div key={group.group} className="mb-2">
-                <div className="text-xs font-semibold uppercase tracking-wider text-gray-600 px-3 py-1.5">{group.label}</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-600 px-3 py-1.5">{l(group.label)}</div>
                 {group.items.map(item => {
                   runningIndex++;
                   const idx = runningIndex;
@@ -244,8 +244,8 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
                         <Icon className="w-4 h-4 text-violet-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-white text-sm font-medium truncate">{item.label}</div>
-                        {item.subtitle && <div className="text-gray-500 text-xs truncate">{item.subtitle}</div>}
+                        <div className="text-white text-sm font-medium truncate">{item.group === 'navigation' || item.group === 'ai' ? l(item.label) : item.label}</div>
+                        {item.subtitle && <div className="text-gray-500 text-xs truncate">{item.group === 'ai' ? l(item.subtitle) : item.subtitle}</div>}
                       </div>
                       {active && <ArrowRight className="w-4 h-4 text-violet-400 flex-shrink-0" />}
                     </button>
@@ -258,10 +258,10 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
 
         <div className="px-4 py-2.5 border-t border-white/5 flex items-center justify-between text-xs text-gray-600">
           <span className="flex items-center gap-2">
-            <kbd className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5">↑↓</kbd> navigate
-            <kbd className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5">↵</kbd> open
+            <kbd className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5">↑↓</kbd> {l('navigate')}
+            <kbd className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5">↵</kbd> {l('open')}
           </span>
-          <span>{results.length} results</span>
+          <span>{l('{count} results').replace('{count}', String(results.length))}</span>
         </div>
       </div>
     </div>
