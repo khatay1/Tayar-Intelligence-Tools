@@ -1,5 +1,5 @@
-import type { EditorSymbolLike } from '../core/editor-model';
 import { useLocalizer } from '@/lib/ui-localization';
+import type { EditorSymbolLike } from '../core/editor-model';
 
 export interface BuilderComponentsPanelProps {
   symbols: EditorSymbolLike[];
@@ -13,8 +13,7 @@ export interface BuilderComponentsPanelProps {
 }
 
 export function BuilderComponentsPanel({
-  const l = useLocalizer();
-  symbols,
+symbols,
   canCreate,
   canInsert,
   canDetach,
@@ -23,6 +22,7 @@ export function BuilderComponentsPanel({
   onInsert,
   onDelete,
 }: BuilderComponentsPanelProps) {
+  const l = useLocalizer();
   return (
     <div className="tayar-v2-components-panel">
       <div className="tayar-v2-panel-heading">
