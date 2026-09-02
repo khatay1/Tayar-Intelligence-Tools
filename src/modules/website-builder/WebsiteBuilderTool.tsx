@@ -3496,7 +3496,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBillingBusy(false);
     setAiBusy(false);
     setAiQualityBusy(false);
-  }, [user?.id]);
+  }, [user?.id, l]);
 
   const cancelPendingProjectPersistence = useCallback(() => {
     if (autosaveTimerRef.current) {
@@ -3815,7 +3815,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saveRecoverySnapshot('before recovery restore');
       prepareProjectStateRestore();
       applyProjectData(parsed.project);
-      setAutoSaveStatus(l("saving"));
+      setAutoSaveStatus('saving');
       setSaved(false);
       setOperationsOpen(false);
     } catch {
@@ -3994,7 +3994,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setCloudProjectsLoaded(true);
       }
     }
-  }, [user, cancelPendingProjectPersistence]);
+  }, [user, cancelPendingProjectPersistence, l]);
 
   const loadLocalReusableSections = useCallback(() => {
     try {
@@ -4053,7 +4053,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setReusableSections(items);
     setReusableBusy(false);
-  }, [user?.id, loadLocalReusableSections]);
+  }, [user?.id, loadLocalReusableSections, l]);
 
   async function saveSelectedSectionAsReusable() {
     if (!selectedSection) return;
@@ -4415,7 +4415,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLeads(nextLeads);
     setSelectedLeadIds((current) => current.filter((id) => nextLeads.some((lead) => lead.id === id)));
     setLeadsLoading(false);
-  }, [user, cloudProjectId, projectTeamAccess.canManage]);
+  }, [user, cloudProjectId, projectTeamAccess.canManage, l]);
 
   async function updateLeadStatus(leadId: string, status: WebsiteLead['status']) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
@@ -4608,7 +4608,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setAnalyticsEvents((data || []) as WebsiteAnalyticsEvent[]);
     setAnalyticsLoading(false);
-  }, [user, cloudProjectId, projectTeamAccess.canEdit]);
+  }, [user, cloudProjectId, projectTeamAccess.canEdit, l]);
 
   const refreshMedia = useCallback(async (expectedUserId: string | null = user?.id ?? null) => {
     if (activeUserIdRef.current !== expectedUserId) {
@@ -4953,7 +4953,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       },
     });
     setBillingLoading(false);
-  }, [user?.id, pages.length, cloudProjectId]);
+  }, [user?.id, pages.length, cloudProjectId, l]);
   async function startBillingCheckout(plan: 'pro' | 'business') {
     const checkoutUserId = user?.id ?? null;
     if (!checkoutUserId) {
@@ -5083,7 +5083,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saveActiveWebsiteProjectId(fallbackProject.id);
       void loadCloudProjectRef.current(fallbackProject.id);
     }
-  }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId]);
+  }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId, l]);
 
   useEffect(() => {
     if (!user || !cloudProjectId) return;
@@ -5127,7 +5127,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return () => {
       if (syncTimer !== null) window.clearTimeout(syncTimer);
     };
-  }, [cloudProjectId, refreshBilling, user?.id]);
+  }, [cloudProjectId, refreshBilling, user?.id, l]);
 
   useEffect(() => {
     if (leadsOpen) void refreshLeads();
@@ -5256,7 +5256,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (decision === 'skip-once') {
       skipNextAutosaveRef.current = false;
       lastSavedSnapshotRef.current = fingerprint;
-      setAutoSaveStatus(l("saved"));
+      setAutoSaveStatus('saved');
       return;
     }
 
@@ -5265,7 +5265,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const autosaveLoadSequence = projectLoadSequenceRef.current;
     const autosaveUserId = user?.id ?? null;
 
-    setAutoSaveStatus(l("saving"));
+    setAutoSaveStatus('saving');
     autosaveTimerRef.current = window.setTimeout(() => {
       autosaveTimerRef.current = null;
 
@@ -5282,7 +5282,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return () => {
       if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     };
-  }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId]);
+  }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId, l]);
 
   const analyticsSummary = useMemo(
     () => summarizeWebsiteAnalytics(analyticsEvents),
@@ -10317,7 +10317,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setPublishVersions((data || []) as WebsitePublishVersion[]);
     setPublishVersionsLoading(false);
-  }, [user, cloudProjectId, activeProjectOwnerId]);
+  }, [user, cloudProjectId, activeProjectOwnerId, l]);
 
   useEffect(() => {
     if (releaseHistoryOpen) void refreshPublishVersions();
@@ -10611,7 +10611,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLastPublishedFingerprint(version.editor_fingerprint);
       saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
-      setAutoSaveStatus(l("saved"));
+      setAutoSaveStatus('saved');
 
       await verifyLiveDeployment(
         rollbackProjectId,
@@ -10648,7 +10648,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     prepareProjectStateRestore();
     applyProjectData(restored, false);
     setReleaseHistoryOpen(false);
-    setAutoSaveStatus(l("saving"));
+    setAutoSaveStatus('saving');
   }
 
   async function deletePublishVersion(version: WebsitePublishVersion) {
@@ -10709,7 +10709,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const preservedProjectId = projectId || loadActiveWebsiteProjectId();
       if (preservedProjectId) {
         setCloudError(l("Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available."));
-        setAutoSaveStatus(l("failed"));
+        setAutoSaveStatus('failed');
         return false;
       }
 
@@ -10720,7 +10720,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         saveActiveWebsiteProjectId(fallbackProject.id);
         setCloudError(l("Opening your most recent saved website before saving. No duplicate draft was created."));
-        setAutoSaveStatus(l("saving"));
+        setAutoSaveStatus('saving');
         void loadCloudProjectRef.current(fallbackProject.id);
         return false;
       }
@@ -10731,7 +10731,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     if (user && cloudProjectId && !projectTeamAccess.canEdit) {
       setCloudError(l("This shared project is read-only for your Viewer role."));
-      setAutoSaveStatus(l("failed"));
+      setAutoSaveStatus('failed');
       return false;
     }
 
@@ -10768,7 +10768,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (user) {
       setCloudBusy(true);
       setCloudError('');
-      setAutoSaveStatus(l("saving"));
+      setAutoSaveStatus('saving');
 
       if (!networkOnline) {
         setCloudSyncFailed(true);
@@ -10875,7 +10875,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         const message = error instanceof Error ? error.message : 'Unexpected save failure.';
         setCloudSyncFailed(Boolean(saveUserId));
         setCloudError(saveUserId ? `Save failed: ${message}` : message);
-        setAutoSaveStatus(l("failed"));
+        setAutoSaveStatus('failed');
         if (!automatic) setSaved(false);
       }
       return false;
@@ -11015,7 +11015,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     applyProjectData(entry.snapshot, false, false);
     setHistoryOpen(false);
     setSaved(false);
-    setAutoSaveStatus(l("saving"));
+    setAutoSaveStatus('saving');
   }
 
   function resetProject() {
@@ -11075,7 +11075,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAnalyticsError('');
     setHistoryOpen(false);
     lastSavedSnapshotRef.current = '';
-    setAutoSaveStatus(l("idle"));
+    setAutoSaveStatus('idle');
     setSaved(false);
   }
 
@@ -11254,7 +11254,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
         saveLocalWebsiteProject(importedProject);
         lastSavedSnapshotRef.current = '';
-        setAutoSaveStatus(l("saved"));
+        setAutoSaveStatus('saved');
         setOperationsOpen(false);
       } catch {
         window.alert(l("This JSON file is not a valid Tayar Website Builder backup."));
@@ -12013,7 +12013,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       lastSavedSnapshotRef.current = '';
 
       setAutoSaveStatus(
-        l("saved"),
+        'saved',
       );
 
       setCloudSyncFailed(
@@ -12126,7 +12126,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLiveVerification('idle');
       saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
-      setAutoSaveStatus(l("saved"));
+      setAutoSaveStatus('saved');
     } catch (error) {
       if (!unpublishIsCurrent()) return;
       setPublishError(error instanceof Error ? error.message : 'Could not unpublish this website.');
