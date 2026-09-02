@@ -141,7 +141,7 @@ export default function AdminUsers() {
               <Icon className="w-5 h-5" />
               <div>
                 <div className="text-xl font-bold text-white">{s.value}</div>
-                <div className="text-xs text-gray-400">{s.label}</div>
+                <div className="text-xs text-gray-400">{l(s.label)}</div>
               </div>
             </div>
           );
