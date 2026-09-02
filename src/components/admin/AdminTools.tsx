@@ -4,8 +4,10 @@ import { toolRegistry } from '@/modules/registry';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 import TemplateLibraryAuditCard from './TemplateLibraryAuditCard';
+import { useLocalizer } from '@/lib/ui-localization';
 
 export default function AdminTools() {
+  const l = useLocalizer();
   const { success, error: showError } = useToast();
   const [usage, setUsage] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -68,10 +70,10 @@ export default function AdminTools() {
     return (
       <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
         <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
-        <h2 className="text-white font-semibold mb-2">Tools data unavailable</h2>
+        <h2 className="text-white font-semibold mb-2">{l('Tools data unavailable')}</h2>
         <p className="text-sm text-gray-400 mb-4">{loadError}</p>
         <button onClick={() => window.location.reload()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
-          <RefreshCw className="w-4 h-4" /> Retry
+          <RefreshCw className="w-4 h-4" /> {l('Retry')}
         </button>
       </div>
     );
@@ -144,7 +146,7 @@ export default function AdminTools() {
                   <Users className="w-3.5 h-3.5" />
                   {usageCount.toLocaleString()} uses
                 </div>
-                <div className="text-xs text-gray-500">Live usage data</div>
+                <div className="text-xs text-gray-500">{l('Live usage data')}</div>
               </div>
             </div>
           );
