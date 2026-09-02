@@ -432,7 +432,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     setKitIds((current) => {
       if (current.includes(item.id)) return current.filter((id) => id !== item.id);
       if (current.length >= MAX_KIT_ITEMS) {
-        setActionError(`A component kit can contain up to ${MAX_KIT_ITEMS} items.`);
+        setActionError(l('A component kit can contain up to {count} items.').replace('{count}', String(MAX_KIT_ITEMS)));
         return current;
       }
       setActionError(null);
@@ -477,7 +477,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
         `Loaded ${result.items.length} private components for this browser session${result.skipped.length ? `; skipped ${result.skipped.length} unsafe/unsupported files` : ''}.`,
       );
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to import private component files.');
+      setActionError(error instanceof Error ? error.message : l('Unable to import private component files.'));
     }
   };
 
@@ -796,7 +796,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       setPatchOwnerId(`feature:${featureKind}`);
       setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to generate a safe feature pack.');
+      setActionError(error instanceof Error ? error.message : l('Unable to generate a safe feature pack.'));
     } finally {
       setFeatureLoading(false);
     }
@@ -805,7 +805,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
   const onPlanComponentKit = async () => {
     if (!projectContext || kitLoading || patchLoading || aiLoading || !kitItems.length) return;
     if (kitCompatibility.unresolvedRegistryDependencies.length) {
-      setActionError(`Resolve registry dependencies first: ${kitCompatibility.unresolvedRegistryDependencies.join(', ')}`);
+      setActionError(l('Resolve registry dependencies first: {dependencies}').replace('{dependencies}', kitCompatibility.unresolvedRegistryDependencies.join(', ')));
       return;
     }
     if (kitCompatibility.frameworkWarnings.length) {
@@ -1002,7 +1002,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       setPackageEditConfirmed(false);
       setApplyMessage(l("Patch applied. A rollback checkpoint is available until the project files change again."));
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to apply the patch.');
+      setActionError(error instanceof Error ? error.message : l('Unable to apply the patch.'));
     } finally {
       setApplyLoading(false);
     }
@@ -1022,7 +1022,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       setApplyConfirmed(false);
       setApplyMessage(l("Last Coding Assistance patch was rolled back."));
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to rollback the patch.');
+      setActionError(error instanceof Error ? error.message : l('Unable to rollback the patch.'));
     } finally {
       setApplyLoading(false);
     }
