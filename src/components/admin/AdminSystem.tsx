@@ -427,7 +427,7 @@ function NotificationsTab() {
     const { data, error } = await supabase.from('admin_notifications').select('*').order('created_at', { ascending: false }).limit(50);
     if (error) {
       setNotifications([]);
-      setLoadError(error.message || 'Failed to load notifications.');
+      setLoadError(error.message || l('Failed to load notifications.'));
     } else {
       setNotifications((data || []) as typeof notifications);
     }
@@ -439,10 +439,10 @@ function NotificationsTab() {
   async function markAllRead() {
     const { error } = await supabase.from('admin_notifications').update({ read: true }).eq('read', false);
     if (error) {
-      showError(error.message || 'Failed to mark notifications as read');
+      showError(error.message || l('Failed to mark notifications as read'));
       return;
     }
-    success('All notifications marked as read');
+    success(l('All notifications marked as read'));
     void load();
   }
 
@@ -497,7 +497,7 @@ function EmailTab() {
     const { data, error } = await supabase.from('email_templates').select('id, key, subject, body').order('key');
     if (error) {
       setTemplates([]);
-      setLoadError(error.message || 'Failed to load email templates.');
+      setLoadError(error.message || l('Failed to load email templates.'));
     } else {
       setTemplates((data || []) as typeof templates);
     }
@@ -508,8 +508,8 @@ function EmailTab() {
 
   async function saveTemplate(t: { id: string; subject: string; body: string }) {
     const { error } = await supabase.from('email_templates').update({ subject: t.subject, body: t.body, updated_at: new Date().toISOString() }).eq('id', t.id);
-    if (error) showError('Failed to save template');
-    else { success('Template saved'); setEditing(null); void load(); }
+    if (error) showError(l('Failed to save template'));
+    else { success(l('Template saved')); setEditing(null); void load(); }
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
@@ -528,7 +528,7 @@ function EmailTab() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-white capitalize">{t.key.replace(/_/g, ' ')}</div>
-                  <div className="text-xs text-gray-500">Template key: {t.key}</div>
+                  <div className="text-xs text-gray-500">{l('Template key')}: {t.key}</div>
                 </div>
               </div>
               {isEditing ? (
@@ -551,12 +551,12 @@ function EmailTab() {
                   onChange={e => { t.body = e.target.value; }}
                   rows={6}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/40 resize-none font-mono"
-                  placeholder="Email body (use {{name}}, {{reset_link}}, etc. for variables)"
+                  placeholder={l('Email body (use {{name}}, {{reset_link}}, etc. for variables)')}
                 />
               </div>
             ) : (
               <div>
-                <div className="text-sm text-gray-300 mb-1">Subject: {t.subject}</div>
+                <div className="text-sm text-gray-300 mb-1">{l('Subject')}: {t.subject}</div>
                 <div className="text-xs text-gray-500 whitespace-pre-wrap line-clamp-3">{t.body}</div>
               </div>
             )}
@@ -602,7 +602,7 @@ function ApiKeysTab() {
     const { data, error } = await supabase.from('api_keys').select('id, service, label, status, last_used, created_at').order('service');
     if (error) {
       setKeys([]);
-      setLoadError(error.message || 'Failed to load API key metadata.');
+      setLoadError(error.message || l('Failed to load API key metadata.'));
     } else {
       setKeys((data || []) as typeof keys);
     }
@@ -614,8 +614,8 @@ function ApiKeysTab() {
   async function toggleStatus(key: { id: string; status: string }) {
     const newStatus = key.status === 'active' ? 'inactive' : 'active';
     const { error } = await supabase.from('api_keys').update({ status: newStatus }).eq('id', key.id);
-    if (error) showError('Failed to update key');
-    else { success('API key updated'); void load(); }
+    if (error) showError(l('Failed to update key'));
+    else { success(l('API key updated')); void load(); }
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
@@ -642,7 +642,7 @@ function ApiKeysTab() {
             </div>
             {k.last_used && <span className="text-xs text-gray-600 hidden sm:block">{l('Last used')}: {new Date(k.last_used).toLocaleDateString()}</span>}
             <button onClick={() => toggleStatus(k)} className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors ${k.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
-              <Power className="w-3 h-3" /> {k.status}
+              <Power className="w-3 h-3" /> {l(k.status)}
             </button>
           </div>
         ))}
@@ -664,7 +664,7 @@ function FlagsTab() {
     const { data, error } = await supabase.from('feature_flags').select('id, key, label, enabled, description').order('key');
     if (error) {
       setFlags([]);
-      setLoadError(error.message || 'Failed to load feature flags.');
+      setLoadError(error.message || l('Failed to load feature flags.'));
     } else {
       setFlags((data || []) as typeof flags);
     }
@@ -679,9 +679,9 @@ function FlagsTab() {
     const { error } = await supabase.from('feature_flags').update({ enabled: newVal, updated_at: new Date().toISOString() }).eq('id', flag.id);
     if (error) {
       setFlags(prev => prev.map(f => f.id === flag.id ? { ...f, enabled: !newVal } : f));
-      showError('Failed to toggle flag');
+      showError(l('Failed to toggle flag'));
     } else {
-      success(`${flag.label} ${newVal ? 'enabled' : 'disabled'}`);
+      success(l('{flag} {state}').replace('{flag}', flag.label).replace('{state}', newVal ? l('enabled') : l('disabled')));
     }
   }
 
