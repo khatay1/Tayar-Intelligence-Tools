@@ -1,5 +1,5 @@
 import { useLocalizer } from '@/lib/ui-localization';
-﻿import type { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import type {
   EditorInsertCatalogItem,
@@ -169,16 +169,14 @@ export function BuilderPanelRouter(
   props: BuilderPanelRouterProps,
 ) {
   const l = useLocalizer();
-return function renderPanel(
+  return function renderPanel(
     panel: EditorLeftPanel,
   ): ReactNode {
     if (panel === 'ai') {
       return (
         <div className="tayar-v2-ai-panel-host">
           {props.aiPanel || (
-            <div className="tayar-v2-empty-panel">
-              Tayar AI is loading...
-            </div>
+            <div className="tayar-v2-empty-panel">{l('Tayar AI is loading...')}</div>
           )}
         </div>
       );
@@ -237,17 +235,13 @@ return function renderPanel(
 
     if (panel === 'site') {
       return props.sitePanel || (
-        <div className="tayar-v2-empty-panel">
-          Site controls are loading...
-        </div>
+        <div className="tayar-v2-empty-panel">{l('Site controls are loading...')}</div>
       );
     }
 
     if (panel === 'settings') {
       return props.settingsPanel || (
-        <div className="tayar-v2-empty-panel">
-          Settings are loading...
-        </div>
+        <div className="tayar-v2-empty-panel">{l('Settings are loading...')}</div>
       );
     }
 
@@ -312,9 +306,7 @@ return function renderPanel(
 
     return (
       props.aiPanel || (
-        <div className="tayar-v2-empty-panel">
-          Tayar AI
-        </div>
+        <div className="tayar-v2-empty-panel">{l('Tayar AI')}</div>
       )
     );
   };
