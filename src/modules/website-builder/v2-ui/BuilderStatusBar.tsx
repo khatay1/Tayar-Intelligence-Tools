@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 ﻿import type {
   EditorShellContract,
 } from '../core/editor-shell-contract';
@@ -7,6 +8,7 @@ export interface BuilderStatusBarProps {
 }
 
 export function BuilderStatusBar({
+  const l = useLocalizer();
   shell,
 }: BuilderStatusBarProps) {
   const { view, status } =
@@ -40,7 +42,7 @@ export function BuilderStatusBar({
             </span>
           </a>
         ) : (
-          <span className="tayar-v2-statusbar__draft">DRAFT</span>
+          <span className="tayar-v2-statusbar__draft">{l('DRAFT')}<span>
         )}
 
         {typeof status.checkScore === 'number' && (
