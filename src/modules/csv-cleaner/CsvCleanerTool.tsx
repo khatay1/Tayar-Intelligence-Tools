@@ -93,7 +93,7 @@ export default function CsvCleanerTool({ darkMode: _darkMode }: { darkMode: bool
       icon={FileSpreadsheet}
       title={l('CSV Cleaner')}
       description={l('Clean and prepare CSV data safely without uploading it.')}
-      badge="Local processing"
+      badge={l('Local processing')}
     >
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
