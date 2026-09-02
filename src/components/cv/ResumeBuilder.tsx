@@ -534,7 +534,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Experience */}
                 {editSection === 'experience' && (
                   <div className="space-y-4">
-                    {cv.experience.length === 0 && <EmptyState icon={Briefcase} label={l("No experience yet")} hint="Add your work history to get started" />}
+                    {cv.experience.length === 0 && <EmptyState icon={Briefcase} label={l("No experience yet")} hint={l('Add your work history to get started')} />}
                     {cv.experience.map((exp, i) => (
                       <div key={exp.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -561,7 +561,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Education */}
                 {editSection === 'education' && (
                   <div className="space-y-4">
-                    {cv.education.length === 0 && <EmptyState icon={FileText} label={l("No education yet")} hint="Add your academic background" />}
+                    {cv.education.length === 0 && <EmptyState icon={FileText} label={l("No education yet")} hint={l('Add your academic background')} />}
                     {cv.education.map((edu, i) => (
                       <div key={edu.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -585,7 +585,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Skills */}
                 {editSection === 'skills' && (
                   <div className="space-y-2">
-                    {cv.skills.length === 0 && <EmptyState icon={Zap} label={l("No skills yet")} hint="Add your technical and soft skills" />}
+                    {cv.skills.length === 0 && <EmptyState icon={Zap} label={l("No skills yet")} hint={l('Add your technical and soft skills')} />}
                     {cv.skills.map(skill => (
                       <div key={skill.id} className="flex gap-2 items-center">
                         <input className={inputClass + ' flex-1'} value={skill.name} onChange={e => updateSkill(skill.id, 'name', e.target.value)} placeholder={l('Skill name')} />
@@ -606,7 +606,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Languages */}
                 {editSection === 'languages' && (
                   <div className="space-y-2">
-                    {cv.languages.length === 0 && <EmptyState icon={Type} label={l("No languages yet")} hint="Add languages you speak" />}
+                    {cv.languages.length === 0 && <EmptyState icon={Type} label={l("No languages yet")} hint={l('Add languages you speak')} />}
                     {cv.languages.map(lang => (
                       <div key={lang.id} className="flex gap-2 items-center">
                         <input className={inputClass + ' flex-1'} value={lang.name} onChange={e => updateLanguage(lang.id, 'name', e.target.value)} placeholder={l('Language')} />
@@ -623,7 +623,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                 {/* Projects */}
                 {editSection === 'projects' && (
                   <div className="space-y-3">
-                    {cv.projects.length === 0 && <EmptyState icon={FolderOpen} label={l("No projects yet")} hint="Showcase your work" />}
+                    {cv.projects.length === 0 && <EmptyState icon={FolderOpen} label={l("No projects yet")} hint={l('Showcase your work')} />}
                     {cv.projects.map(proj => (
                       <div key={proj.id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
