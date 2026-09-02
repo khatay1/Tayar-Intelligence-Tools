@@ -213,7 +213,7 @@ export default function AdminAI() {
 
     setSavingCatalog(false);
     if (error) {
-      showError(error.message || 'Failed to save model catalog');
+      showError(error.message || l('Failed to save model catalog'));
       return false;
     }
     return true;
@@ -224,11 +224,11 @@ export default function AdminAI() {
     const label = newModelLabel.trim() || id;
 
     if (!GEMINI_MODEL_ID.test(id)) {
-      showError('Model ID must start with gemini- and contain only letters, numbers, dots, underscores, or hyphens.');
+      showError(l('Model ID must start with gemini- and contain only letters, numbers, dots, underscores, or hyphens.'));
       return;
     }
     if (modelCatalog.some((model) => model.id.toLowerCase() === id.toLowerCase())) {
-      showError('This model already exists in the catalog.');
+      showError(l('This model already exists in the catalog.'));
       return;
     }
 
@@ -238,20 +238,20 @@ export default function AdminAI() {
     setModelCatalog(nextCatalog);
     setNewModelId('');
     setNewModelLabel('');
-    success(`Added ${label}`);
+    success(l('Added {model}').replace('{model}', label));
   }
 
   async function removeModel(model: ManagedModel) {
     if (!model.custom) return;
     if (model.id === defaultModel) {
-      showError('Choose another default model before removing this one.');
+      showError(l('Choose another default model before removing this one.'));
       return;
     }
 
     const nextCatalog = modelCatalog.filter((item) => item.id !== model.id);
     if (!(await persistModelCatalog(nextCatalog))) return;
     setModelCatalog(nextCatalog);
-    success(`Removed ${model.label}`);
+    success(l('Removed {model}').replace('{model}', model.label));
   }
 
   if (loading) {
