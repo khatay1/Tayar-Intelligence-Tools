@@ -300,20 +300,20 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
   }
 
   async function removeMember(member: TeamMember) {
-    if (!selectedId || !window.confirm(`Remove ${member.fullName || member.email || 'this member'} from the workspace?`)) return;
+    if (!selectedId || !window.confirm(l('Remove {member} from the workspace?').replace('{member}', member.fullName || member.email || l('this member')))) return;
     await run(async () => {
       const { error: rpcError } = await supabase.rpc('remove_team_workspace_member', {
         p_workspace_id: selectedId,
         p_user_id: member.userId,
       });
       if (rpcError) throw rpcError;
-      setMessage(member.userId === user?.id ? 'You left the workspace.' : 'Member removed.');
+      setMessage(member.userId === user?.id ? l('You left the workspace.') : l('Member removed.'));
       await loadWorkspaces(member.userId === user?.id ? null : selectedId);
     });
   }
 
   async function transferOwnership(member: TeamMember) {
-    if (!selectedId || !isOwner || !window.confirm(`Transfer ownership to ${member.fullName || member.email}?`)) return;
+    if (!selectedId || !isOwner || !window.confirm(l('Transfer ownership to {member}?').replace('{member}', member.fullName || member.email))) return;
     await run(async () => {
       const { error: rpcError } = await supabase.rpc('transfer_team_workspace_ownership', {
         p_workspace_id: selectedId,
