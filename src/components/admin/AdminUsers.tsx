@@ -45,7 +45,7 @@ export default function AdminUsers() {
 
   async function toggleSuspend(user: AdminUser) {
     if (currentUser?.id === user.id) {
-      showError('You cannot suspend your own administrator account.');
+      showError(l("You cannot suspend your own administrator account."));
       return;
     }
     setActionLoading(true);
@@ -62,7 +62,7 @@ export default function AdminUsers() {
 
   async function deleteUser(user: AdminUser) {
     if (currentUser?.id === user.id) {
-      showError('You cannot delete your own administrator account.');
+      showError(l("You cannot delete your own administrator account."));
       return;
     }
 
@@ -97,7 +97,7 @@ export default function AdminUsers() {
       p_suspended: updated.suspended,
     });
     if (actionError) showError(actionError.message || 'Failed to save changes');
-    else { success('User updated'); void refresh(); setEditUser(null); }
+    else { success(l("User updated")); void refresh(); setEditUser(null); }
     setActionLoading(false);
   }
 
