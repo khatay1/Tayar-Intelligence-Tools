@@ -12,11 +12,12 @@
     "smoke:website-builder": "node scripts/website-builder-smoke.mjs",
     "launch:website-builder": "node scripts/website-builder-smoke.mjs && node scripts/website-builder-launch.mjs",
     "smoke:site-polish": "node scripts/site-polish-smoke.mjs",
-    "health:project": "npm run typecheck && node scripts/project-health.mjs && npm run launch:website-builder && npm run smoke:site-polish && npm run smoke:translator && npm run smoke:workspace-production && npm run smoke:i18n && npm run smoke:production",
+    "health:project": "npm run typecheck && node scripts/project-health.mjs && npm run launch:website-builder && npm run smoke:published-runtime && npm run smoke:site-polish && npm run smoke:translator && npm run smoke:workspace-production && npm run smoke:i18n && npm run smoke:production",
     "smoke:translator": "node scripts/translator-smoke.mjs",
     "smoke:i18n": "node scripts/i18n-coverage-smoke.mjs",
     "smoke:workspace-production": "node scripts/workspace-production-smoke.mjs",
-    "smoke:production": "node scripts/production-hardening-smoke.mjs"
+    "smoke:production": "node scripts/production-hardening-smoke.mjs",
+    "smoke:published-runtime": "node scripts/published-site-runtime-smoke.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

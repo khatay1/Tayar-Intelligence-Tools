@@ -51,6 +51,7 @@ export function applyEditorNativePatch<P extends EditorProjectLike>(
   const preflight = preflightEditorNativeOperations(operations, {
     maxOperations: options.maxOperations,
     maxDestructiveOperations: options.maxDestructiveOperations,
+    project: state.project,
   });
 
   if (!preflight.ok) {

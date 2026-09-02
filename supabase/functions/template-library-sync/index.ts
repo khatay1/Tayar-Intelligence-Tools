@@ -199,6 +199,89 @@ function inferExtensionFromBytes(bytes: Uint8Array) {
   return "";
 }
 
+function isZipContainer(bytes: Uint8Array) {
+  return hasBytes(bytes, [0x50, 0x4b, 0x03, 0x04])
+    || hasBytes(bytes, [0x50, 0x4b, 0x05, 0x06])
+    || hasBytes(bytes, [0x50, 0x4b, 0x07, 0x08]);
+}
+
+function isOleCompoundDocument(bytes: Uint8Array) {
+  return hasBytes(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+}
+
+function looksLikeHtml(bytes: Uint8Array) {
+  const sample = new TextDecoder()
+    .decode(bytes.slice(0, Math.min(bytes.byteLength, 4096)))
+    .trimStart()
+    .toLowerCase();
+
+  return sample.startsWith("<!doctype html")
+    || sample.startsWith("<html")
+    || sample.includes("<body")
+    || sample.includes("<head");
+}
+
+function assertFilenameMatchesContent(
+  filename: string,
+  downloaded: {
+    contentType: string;
+    bytes: Uint8Array;
+  },
+) {
+  const extension = filename.split(".").pop()?.toLowerCase() || "";
+  const inferred = inferExtensionFromBytes(downloaded.bytes);
+  let valid = true;
+
+  switch (extension) {
+    case "pdf":
+      valid = inferred === "pdf";
+      break;
+    case "png":
+      valid = inferred === "png";
+      break;
+    case "jpg":
+    case "jpeg":
+      valid = inferred === "jpg";
+      break;
+    case "xlsx":
+    case "docx":
+    case "pptx":
+    case "pbix":
+      valid = inferred === extension;
+      break;
+    case "zip":
+      valid = isZipContainer(downloaded.bytes);
+      break;
+    case "xls":
+    case "doc":
+    case "ppt":
+      valid = isOleCompoundDocument(downloaded.bytes);
+      break;
+    case "csv":
+    case "txt":
+      valid = !looksLikeHtml(downloaded.bytes);
+      break;
+    default:
+      valid = false;
+  }
+
+  if (!valid) {
+    const detected = inferred || (isOleCompoundDocument(downloaded.bytes) ? "ole-office" : "unknown");
+    throw new HttpError(
+      422,
+      `Template content does not match .${extension} filename (detected: ${detected})`,
+    );
+  }
+
+  if (
+    downloaded.contentType === "text/html"
+    || downloaded.contentType === "application/xhtml+xml"
+    || looksLikeHtml(downloaded.bytes)
+  ) {
+    throw new HttpError(422, "Template download contains HTML instead of a valid file");
+  }
+}
+
 function resolveFilename(
   requested: unknown,
   downloadUrl: string,
@@ -426,6 +509,7 @@ Deno.serve(async (req: Request) => {
         }
 
         const filename = resolveFilename(rawAsset.filename, downloadUrl, downloaded);
+        assertFilenameMatchesContent(filename, downloaded);
         const title = bounded(rawAsset.title, MAX_TITLE) || filename;
         const category = bounded(rawAsset.category, MAX_CATEGORY) || "uncategorized";
         const requestedFormat = bounded(rawAsset.format, MAX_FORMAT).toLowerCase();

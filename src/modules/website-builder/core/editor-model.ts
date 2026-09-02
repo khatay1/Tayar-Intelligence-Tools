@@ -179,6 +179,51 @@ export function findEditorSymbol<P extends EditorProjectLike>(project: P, symbol
   return index >= 0 ? { symbol: symbols[index], index } : undefined;
 }
 
+export type EditorIdentityKind =
+  | 'page'
+  | 'section'
+  | 'element'
+  | 'container'
+  | 'form-field'
+  | 'symbol';
+
+export function editorProjectIdentitySet<P extends EditorProjectLike>(
+  project: P,
+  kind: EditorIdentityKind,
+) {
+  const ids = new Set<string>();
+
+  for (const page of project.pages) {
+    if (kind === 'page') ids.add(page.id);
+    for (const section of page.sections || []) {
+      if (kind === 'section') ids.add(section.id);
+      for (const element of section.elements || []) {
+        if (kind === 'element') ids.add(element.id);
+      }
+      for (const container of section.containers || []) {
+        if (kind === 'container') ids.add(container.id);
+      }
+      for (const field of section.formFields || []) {
+        if (kind === 'form-field') ids.add(field.id);
+      }
+    }
+  }
+
+  if (kind === 'symbol') {
+    for (const symbol of project.symbols || []) ids.add(symbol.id);
+  }
+
+  return ids;
+}
+
+export function editorProjectHasIdentity<P extends EditorProjectLike>(
+  project: P,
+  kind: EditorIdentityKind,
+  id: string,
+) {
+  return editorProjectIdentitySet(project, kind).has(id);
+}
+
 export function editorIdSet(values: Array<{ id: string }>) {
   return new Set(values.map((value) => value.id));
 }

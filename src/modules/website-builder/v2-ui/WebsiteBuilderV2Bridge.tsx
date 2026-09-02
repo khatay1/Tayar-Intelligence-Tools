@@ -114,6 +114,7 @@ export interface WebsiteBuilderV2BridgeProps {
   lastCheckedAt?: number;
   publishedUrl?: string;
   publishedAt?: number;
+  publishedOutdated?: boolean;
   liveVerification?: 'idle' | 'checking' | 'healthy' | 'failed';
 
   publishBlockers?: string[];
@@ -172,6 +173,8 @@ export interface WebsiteBuilderV2BridgeProps {
     operations: EditorNativeOperation[],
     nextSelection?: EditorSelection,
   ): void;
+
+  onRestoreHistoryEntry?(entryId: string): void;
 
   onUndo(): void;
   onRedo(): void;
@@ -258,6 +261,7 @@ export function WebsiteBuilderV2Bridge({
   lastCheckedAt,
   publishedUrl,
   publishedAt,
+  publishedOutdated,
   liveVerification,
 
   publishBlockers = [],
@@ -285,6 +289,7 @@ export function WebsiteBuilderV2Bridge({
   onDeleteElement,
 
   onApplyOperations,
+  onRestoreHistoryEntry,
 
   onUndo,
   onRedo,
@@ -525,6 +530,7 @@ export function WebsiteBuilderV2Bridge({
             lastCheckedAt,
             publishedUrl,
             publishedAt,
+            publishedOutdated,
             liveVerification,
           },
         ),
@@ -542,6 +548,7 @@ export function WebsiteBuilderV2Bridge({
         lastCheckedAt,
         publishedUrl,
         publishedAt,
+        publishedOutdated,
         liveVerification,
       ],
     );
@@ -858,6 +865,10 @@ export function WebsiteBuilderV2Bridge({
 
       onApplyOperations={
         onApplyOperations
+      }
+
+      onRestoreHistoryEntry={
+        onRestoreHistoryEntry
       }
     />
   );

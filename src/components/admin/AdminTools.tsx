@@ -3,6 +3,7 @@ import { AlertTriangle, Loader2, RefreshCw, ToggleRight, ToggleLeft, Users } fro
 import { toolRegistry } from '@/modules/registry';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
+import TemplateLibraryAuditCard from './TemplateLibraryAuditCard';
 
 export default function AdminTools() {
   const { success, error: showError } = useToast();
@@ -80,6 +81,8 @@ export default function AdminTools() {
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
+      <TemplateLibraryAuditCard />
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: 'Total Tools', value: tools.length, color: 'violet' },

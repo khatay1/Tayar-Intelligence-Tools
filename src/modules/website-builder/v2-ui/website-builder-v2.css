@@ -252,8 +252,27 @@
 
 .tayar-v2-history-entry {
   display: grid;
+  width: 100%;
   gap: 2px;
   padding: 9px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  text-align: left;
+}
+
+button.tayar-v2-history-entry:not(:disabled) {
+  cursor: pointer;
+}
+
+button.tayar-v2-history-entry:not(:disabled):hover {
+  border-color: rgba(124, 58, 237, 0.42);
+  background: rgba(124, 58, 237, 0.08);
+}
+
+button.tayar-v2-history-entry:disabled {
+  cursor: default;
 }
 
 .tayar-v2-history-entry__meta {
@@ -2005,37 +2024,45 @@
 }
 
 
-/* V2 PANEL SCROLL / EXPANSION FIX */
+/* V2 PANEL SCROLL / EXPANSION FIX
+   Keep one scroll owner per side panel and let expanded details
+   participate in normal document flow. This prevents one open
+   group from painting over or hiding the groups below it. */
 .tayar-v2-left-sidebar__panel,
 .tayar-v2-inspector__body {
-  overscroll-behavior: contain;
-}
-
-.tayar-v2-manual-panel,
-.tayar-v2-components-panel,
-.tayar-v2-history-panel {
-  height: 100%;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
+.tayar-v2-manual-panel,
+.tayar-v2-components-panel,
+.tayar-v2-history-panel {
+  min-height: 100%;
+  height: auto;
+  overflow: visible;
+}
+
 .tayar-v2-manual-section,
 .tayar-v2-inspector-section {
-  flex: 0 0 auto;
-  min-height: max-content;
+  display: block;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .tayar-v2-manual-section[open],
 .tayar-v2-inspector-section[open] {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .tayar-v2-manual-section[open] > .tayar-v2-manual-fields,
-.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__body {
-  position: relative;
-  z-index: 1;
+.tayar-v2-inspector-section[open] > .tayar-v2-inspector-section__fields {
+  position: static;
+  z-index: auto;
 }
 
 .tayar-v2-component-row__insert:disabled {

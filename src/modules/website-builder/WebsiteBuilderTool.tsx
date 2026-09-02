@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createAIService } from '@/lib/ai/service';
 import { usePreferences, type Language } from '@/context/PreferencesContext';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
 import {
   buildPreviewSiteBaseUrl,
   buildPreviewSiteUrl,
@@ -64,26 +63,66 @@ import {
   type EditorProjectAccess,
 } from './core/editor-project-access';
 import {
-  listAllPublishedSiteFiles,
-  publishedSiteFilePaths,
-  removePublishedSiteFiles,
-} from './core/editor-published-storage';
-import {
   clearLocalWebsiteProjects,
   hasRecoveryWebsiteProject,
   loadActiveWebsiteProjectId,
   loadLocalWebsiteProject,
   loadRecoveryWebsiteProject,
-  retryCloudOperation,
   saveActiveWebsiteProjectId,
   saveLocalWebsiteProject,
   saveRecoveryWebsiteProject,
 } from './core/editor-project-lifecycle';
+import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud, updateWebsiteProjectPublicationState } from './services/projectCloudService';
+import {
+  archivePublishedWebsiteFiles,
+  downloadPublishedWebsiteFile,
+  removePublishedWebsiteFiles,
+  removeStalePublishedWebsiteFiles,
+  replacePublishedWebsiteFiles,
+  uploadPublishedWebsiteBlob,
+  uploadPublishedWebsiteFolderFiles,
+} from './services/publishedWebsiteService';
+import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
+import { createWebsitePublishVersion, deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
+import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
+import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
+import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
+import { buildProjectSnapshotDiffSummary } from './core/project-release-metrics';
+import { getWebsiteLeadPhone, getWebsiteLeadSource } from './core/website-lead-utils';
+import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles, uploadWebsiteMediaFile } from './services/websiteMediaService';
+import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
+import { createWebsiteCheckoutSession, getWebsiteBuilderBillingState, openWebsiteBillingPortalSession } from './services/websiteBillingService';
+import { normalizeWebsiteProjectLoad } from './core/project-normalization';
+import {
+  DEFAULT_DELIVERY_CONFIG,
+  normalizeDeliveryConfig,
+  type DeliveryStatus,
+  type WebsiteDeliveryConfig,
+} from './core/delivery-config';
+import { languageCodeLabel, normalizePageLanguage, normalizeSlug, PAGE_LANGUAGE_LABELS } from './core/project-identifiers';
+import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
+import {
+  editorAIContextMatches,
+  editorAIProjectIdentityMatches,
+  type EditorAIAsyncContext,
+} from './core/editor-ai-operation-context';
+import {
+  convertLegacyAIGlobalOperationToNative,
+  convertLegacyAIAddOperationToNative,
+  convertLegacyAIPageOperationToNative,
+  convertLegacyAIPageUpdateOperationToNative,
+  convertLegacyAIStructuralOperationToNative,
+  convertLegacyAIUpdateOperationToNative,
+  isLegacyAIGlobalNativeAction,
+  isLegacyAIPageNativeAction,
+  isLegacyAIStructuralNativeAction,
+  isLegacyAIUpdateNativeAction,
+} from './core/editor-ai-native-bridge';
+import { applyEditorAIWorkingNativeOperations } from './core/editor-ai-working-project';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
 const EDITOR_V2_FLAGS_STORAGE_KEY = 'tayar.website-builder.v2.flags';
-const publishedSiteStorage = supabase.storage.from('published-sites');
 
 function resolveWebsiteBuilderV2Flags() {
   if (typeof window === 'undefined') {
@@ -527,6 +566,7 @@ interface WebsiteSymbol {
 }
 
 interface PersistedWebsiteProject {
+  cloudProjectId?: string | null;
   pages?: Partial<WebsitePage>[];
   sections?: WebsiteSection[];
   language?: Language;
@@ -574,21 +614,6 @@ interface WebsitePublishVersion {
 }
 
 type LiveVerification = 'idle' | 'checking' | 'healthy' | 'failed';
-type DeliveryStatus = 'building' | 'review' | 'approved' | 'delivered';
-
-interface WebsiteDeliveryConfig {
-  clientName: string;
-  clientEmail: string;
-  projectCode: string;
-  status: DeliveryStatus;
-  dueDate: string;
-  handoffNotes: string;
-  whiteLabel: boolean;
-  approvedAt: string | null;
-  approvedFingerprint: string;
-  deliveredAt: string | null;
-}
-
 type BillingPlan = 'free' | 'pro' | 'business';
 type BillingFeature = 'publish' | 'exportZip' | 'multilingual' | 'analytics' | 'productionIntegrations' | 'customCss' | 'releaseHistory' | 'clientDelivery' | 'whiteLabel';
 
@@ -724,19 +749,6 @@ const DEFAULT_PRODUCTION_CONFIG: WebsiteProductionConfig = {
   maintenanceTitle: 'We’ll be back soon',
   maintenanceText: 'This website is temporarily unavailable while we make improvements.',
   customRobotsRules: '',
-};
-
-const DEFAULT_DELIVERY_CONFIG: WebsiteDeliveryConfig = {
-  clientName: '',
-  clientEmail: '',
-  projectCode: '',
-  status: 'building',
-  dueDate: '',
-  handoffNotes: '',
-  whiteLabel: true,
-  approvedAt: null,
-  approvedFingerprint: '',
-  deliveredAt: null,
 };
 
 const FREE_BILLING_ENTITLEMENTS: BillingEntitlements = {
@@ -1371,24 +1383,6 @@ function sectionElementsToHtml(section: WebsiteSection, homeSlug: string, exclud
   return `<div class="${containerClass}" ${containerAttrs}>${items.join('\n')}</div>`;
 }
 
-function normalizeDeliveryConfig(value: Partial<WebsiteDeliveryConfig> | null | undefined): WebsiteDeliveryConfig {
-  const status: DeliveryStatus = value?.status === 'review' || value?.status === 'approved' || value?.status === 'delivered'
-    ? value.status
-    : 'building';
-  return {
-    clientName: typeof value?.clientName === 'string' ? value.clientName.slice(0, 160) : '',
-    clientEmail: typeof value?.clientEmail === 'string' ? value.clientEmail.slice(0, 200) : '',
-    projectCode: typeof value?.projectCode === 'string' ? value.projectCode.slice(0, 80) : '',
-    status,
-    dueDate: typeof value?.dueDate === 'string' ? value.dueDate.slice(0, 20) : '',
-    handoffNotes: typeof value?.handoffNotes === 'string' ? value.handoffNotes.slice(0, 4000) : '',
-    whiteLabel: value?.whiteLabel !== false,
-    approvedAt: typeof value?.approvedAt === 'string' ? value.approvedAt : null,
-    approvedFingerprint: typeof value?.approvedFingerprint === 'string' ? value.approvedFingerprint.slice(0, 200000) : '',
-    deliveredAt: typeof value?.deliveredAt === 'string' ? value.deliveredAt : null,
-  };
-}
-
 function cloneSectionWithFreshIds(source: WebsiteSection): WebsiteSection {
   const cloned = JSON.parse(JSON.stringify(source)) as WebsiteSection;
   const containerIdMap = new Map<string, string>();
@@ -1429,20 +1423,6 @@ function createPage(name = 'New Page', slug = 'page'): WebsitePage {
     translationKey: '',
     noIndex: false,
   };
-}
-
-const PAGE_LANGUAGE_LABELS: Record<Language, string> = {
-  en: 'English',
-  sv: 'Svenska',
-  ar: 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©',
-};
-
-function normalizePageLanguage(value: unknown, fallback: Language = 'en'): Language {
-  return value === 'ar' || value === 'sv' || value === 'en' ? value : fallback;
-}
-
-function languageCodeLabel(language: Language): string {
-  return language.toUpperCase();
 }
 
 interface PageTemplateDefinition {
@@ -1502,14 +1482,6 @@ function createSectionFromTemplate(template: SectionTemplateDefinition): Website
     buttonText: template.buttonText ?? section.buttonText,
     elements,
   };
-}
-
-function normalizeSlug(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'page';
 }
 
 function normalizeAnchorId(value: string, fallback = 'section'): string {
@@ -3369,9 +3341,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [dragOverElementId, setDragOverElementId] = useState<string | null>(null);
   const [dragOverElementPosition, setDragOverElementPosition] = useState<'before' | 'after' | null>(null);
   const draggedSectionRef = useRef<string | null>(null);
+  const draggedSectionPageRef = useRef<string | null>(null);
   const draggedElementRef = useRef<string | null>(null);
   const draggedElementSectionRef = useRef<string | null>(null);
   const freeElementDragRef = useRef<{
+    pageId: string;
+    device: Device;
     sectionId: string;
     elementId: string;
     symbolId?: string;
@@ -3466,7 +3441,195 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const lastSavedSnapshotRef = useRef('');
   const autosaveTimerRef = useRef<number | null>(null);
   const skipNextAutosaveRef = useRef(false);
+  const saveInFlightRef = useRef(false);
+  const saveAbortControllerRef = useRef<AbortController | null>(null);
+  const newProjectIntentRef = useRef(false);
+  const projectLoadSequenceRef = useRef(0);
+  const savedFeedbackSequenceRef = useRef(0);
+  const aiOperationSequenceRef = useRef(0);
+  const aiQualityOperationSequenceRef = useRef(0);
+  const aiEditorContextRef = useRef<EditorAIAsyncContext | null>(null);
+  const aiUndoContextRef = useRef<EditorAIAsyncContext | null>(null);
+  const aiQualityReviewContextRef = useRef<EditorAIAsyncContext | null>(null);
+  const cloudProjectsRefreshSequenceRef = useRef(0);
+  const cloudProjectsRefreshAbortControllerRef = useRef<AbortController | null>(null);
+  const publishOperationSequenceRef = useRef(0);
+  const previewOperationSequenceRef = useRef(0);
+  const liveVerificationSequenceRef = useRef(0);
+  const activeUserIdRef = useRef<string | null>(user?.id ?? null);
+  const reusableRefreshSequenceRef = useRef(0);
+  const reusableOperationSequenceRef = useRef(0);
+  const mediaRefreshSequenceRef = useRef(0);
+  const mediaUploadSequenceRef = useRef(0);
+  const mediaDeleteSequenceRef = useRef(0);
+  const mediaGenerationSequenceRef = useRef(0);
+  const billingRefreshSequenceRef = useRef(0);
+  const billingOperationSequenceRef = useRef(0);
   const saveProjectRef = useRef<(options?: { automatic?: boolean; createHistory?: boolean }) => Promise<boolean>>(async () => false);
+
+  activeUserIdRef.current = user?.id ?? null;
+
+  useEffect(() => {
+    reusableOperationSequenceRef.current += 1;
+    mediaUploadSequenceRef.current += 1;
+    mediaDeleteSequenceRef.current += 1;
+    mediaGenerationSequenceRef.current += 1;
+    billingRefreshSequenceRef.current += 1;
+    billingOperationSequenceRef.current += 1;
+    aiOperationSequenceRef.current += 1;
+    aiQualityOperationSequenceRef.current += 1;
+    aiUndoContextRef.current = null;
+    aiQualityReviewContextRef.current = null;
+    setReusableBusy(false);
+    setMediaLoading(false);
+    setMediaUploading(false);
+    setBillingLoading(false);
+    setBillingBusy(false);
+    setAiBusy(false);
+    setAiQualityBusy(false);
+  }, [user?.id]);
+
+  const cancelPendingProjectPersistence = useCallback(() => {
+    if (autosaveTimerRef.current) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    if (saveAbortControllerRef.current) {
+      saveAbortControllerRef.current.abort();
+      saveAbortControllerRef.current = null;
+    }
+
+    saveInFlightRef.current = false;
+    draggedSectionRef.current = null;
+    draggedSectionPageRef.current = null;
+    draggedElementRef.current = null;
+    draggedElementSectionRef.current = null;
+    freeElementDragRef.current = null;
+    savedFeedbackSequenceRef.current += 1;
+    publishOperationSequenceRef.current += 1;
+    previewOperationSequenceRef.current += 1;
+    liveVerificationSequenceRef.current += 1;
+    aiOperationSequenceRef.current += 1;
+    aiQualityOperationSequenceRef.current += 1;
+    aiUndoContextRef.current = null;
+    aiQualityReviewContextRef.current = null;
+    setCloudBusy(false);
+    setSaved(false);
+    setDraggedId(null);
+    setDragOverId(null);
+    setDragOverSectionPosition(null);
+    setDraggedElementId(null);
+    setDragOverElementId(null);
+    setDragOverElementPosition(null);
+    setPublishBusy(false);
+    setPreviewBusy(false);
+    setPublishVersionsLoading(false);
+    setLeadsLoading(false);
+    setAnalyticsLoading(false);
+    setLaunchCheckBusy(false);
+    setLiveVerification('idle');
+    setAiBusy(false);
+    setAiQualityBusy(false);
+    setAiError('');
+    setAiStage('idle');
+    setAiPlan(null);
+    setAiUndoSnapshot(null);
+    setAiQualityReview(null);
+    setAiQualityOpen(false);
+    setAiMessages([
+      {
+        id: 'ai-welcome',
+        role: 'assistant',
+        content: 'Describe the website you want. I will plan the pages, build the structure and hand it to the visual editor.',
+      },
+    ]);
+  }, []);
+
+  function snapshotProjectIdentity(snapshot: unknown): {
+    hasIdentity: boolean;
+    projectId: string | null;
+  } {
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+      return { hasIdentity: false, projectId: null };
+    }
+
+    const record = snapshot as Record<string, unknown>;
+    const hasIdentity = Object.prototype.hasOwnProperty.call(record, 'cloudProjectId');
+    const rawProjectId = record.cloudProjectId;
+    const projectId =
+      typeof rawProjectId === 'string' && rawProjectId.trim()
+        ? rawProjectId.trim()
+        : null;
+
+    return { hasIdentity, projectId };
+  }
+
+  function snapshotConflictsWithActiveProject(
+    snapshot: unknown,
+    requireIdentity = false,
+  ): boolean {
+    const identity = snapshotProjectIdentity(snapshot);
+    const activeId = cloudProjectId?.trim() || null;
+
+    if (!identity.hasIdentity) {
+      return requireIdentity && activeId !== null;
+    }
+
+    return identity.projectId !== activeId;
+  }
+
+  function prepareProjectStateRestore() {
+    cancelPendingProjectPersistence();
+    projectLoadSequenceRef.current += 1;
+    skipNextAutosaveRef.current = true;
+  }
+
+  const selectEditorTarget = useCallback((
+    sectionId: string | null,
+    elementId: string | null = null,
+    containerId: string | null = null,
+    formFieldId: string | null = null,
+  ) => {
+    setSelectedId(sectionId);
+    setSelectedElementId(elementId);
+    setSelectedContainerId(elementId ? null : containerId);
+    setSelectedFormFieldId(elementId || containerId ? null : formFieldId);
+  }, []);
+
+  function clearEditorDragState() {
+    draggedSectionRef.current = null;
+    draggedSectionPageRef.current = null;
+    draggedElementRef.current = null;
+    draggedElementSectionRef.current = null;
+    freeElementDragRef.current = null;
+    setDraggedId(null);
+    setDragOverId(null);
+    setDragOverSectionPosition(null);
+    setDraggedElementId(null);
+    setDragOverElementId(null);
+    setDragOverElementPosition(null);
+  }
+
+  function showSavedFeedback(
+    expectedLoadSequence = projectLoadSequenceRef.current,
+    expectedUserId = user?.id ?? null,
+  ) {
+    const feedbackSequence = ++savedFeedbackSequenceRef.current;
+    setSaved(true);
+
+    window.setTimeout(() => {
+      if (
+        savedFeedbackSequenceRef.current !== feedbackSequence ||
+        projectLoadSequenceRef.current !== expectedLoadSequence ||
+        activeUserIdRef.current !== expectedUserId
+      ) {
+        return;
+      }
+
+      setSaved(false);
+    }, 2000);
+  }
 
   const getCurrentPages = useCallback(() => {
     return pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -3475,6 +3638,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const buildProjectSnapshot = useCallback(() => {
     return {
       version: 5,
+      cloudProjectId,
       siteName,
       siteUrl,
       faviconUrl,
@@ -3500,7 +3664,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       language: prefs.language,
       updatedAt: new Date().toISOString(),
     };
-  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  }, [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
   const buildProjectFingerprint = useCallback(() => {
     return JSON.stringify({
@@ -3549,23 +3713,70 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
   }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
 
+  const currentAIEditableFingerprint = useMemo(
+    () => buildEditableFingerprint(),
+    [buildEditableFingerprint],
+  );
+
+  const currentAIEditorContext: EditorAIAsyncContext = {
+    loadSequence: projectLoadSequenceRef.current,
+    userId: user?.id ?? null,
+    routeProjectId: projectId,
+    projectId: cloudProjectId,
+    ownerId: activeProjectOwnerId || null,
+    editableFingerprint: currentAIEditableFingerprint,
+    activePageId,
+    sectionId: selectedId,
+    elementId: selectedElementId,
+    containerId: selectedContainerId,
+    formFieldId: selectedFormFieldId,
+    device,
+  };
+  aiEditorContextRef.current = currentAIEditorContext;
+
+  function captureAIEditorContext() {
+    return { ...currentAIEditorContext };
+  }
+
+  function aiEditorContextIsCurrent(
+    expected: EditorAIAsyncContext,
+    requireSelection = false,
+  ) {
+    if (
+      projectLoadSequenceRef.current !== expected.loadSequence ||
+      activeUserIdRef.current !== expected.userId
+    ) {
+      return false;
+    }
+
+    return editorAIContextMatches(
+      expected,
+      aiEditorContextRef.current,
+      {
+        requireEditableFingerprint: true,
+        requireSelection,
+      },
+    );
+  }
+
+  function aiProjectIdentityIsCurrent(
+    expected: EditorAIAsyncContext,
+  ) {
+    if (
+      projectLoadSequenceRef.current !== expected.loadSequence ||
+      activeUserIdRef.current !== expected.userId
+    ) {
+      return false;
+    }
+
+    return editorAIProjectIdentityMatches(
+      expected,
+      aiEditorContextRef.current,
+    );
+  }
+
   function buildDeliveryFingerprint() {
-    return JSON.stringify({
-      siteName,
-      siteUrl,
-      faviconUrl,
-      homePageId,
-      pages: getCurrentPages(),
-      brand,
-      theme,
-      headerConfig,
-      footerConfig,
-      siteEnhancements,
-      productionConfig,
-      symbols,
-      seo,
-      language: prefs.language,
-    });
+    return buildEditableFingerprint();
   }
 
   const buildProjectData = useCallback((historyEntries: ProjectHistoryEntry[] = projectHistory) => {
@@ -3585,9 +3796,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try {
       const parsed = loadRecoveryWebsiteProject<PersistedWebsiteProject>();
       if (!parsed) { setRecoveryAvailable(false); return; }
+
+      if (snapshotConflictsWithActiveProject(parsed.project, true)) {
+        window.alert('This recovery snapshot belongs to a different project. Open that project before restoring it.');
+        return;
+      }
+
       if (!window.confirm(`Restore the recovery snapshot from ${parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : 'the previous edit'}?`)) return;
       saveRecoverySnapshot('before recovery restore');
-      skipNextAutosaveRef.current = true;
+      prepareProjectStateRestore();
       applyProjectData(parsed.project);
       setAutoSaveStatus('saving');
       setSaved(false);
@@ -3598,14 +3815,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function applyProjectData(input: unknown, loadHistory = true, resetEditHistory = true) {
-    if (Array.isArray(input) && input.length) {
-      const normalized = input.map(normalizeSection);
-      setSections(normalized);
-      setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: normalized, showInNavigation: true, language: 'en', translationKey: 'home' }]);
-      setActivePageId('page-home');
-      setHomePageId('page-home');
-      setSelectedId(normalized[0].id);
-      setSelectedElementId(normalized[0].elements[0]?.id ?? null);
+    const normalizedLoad = normalizeWebsiteProjectLoad(input);
+    if (normalizedLoad.kind === 'invalid') return;
+
+    const normalizedSections = normalizedLoad.sections;
+    const normalizedPages = normalizedLoad.pages as WebsitePage[];
+
+    if (normalizedLoad.kind === 'legacy-array') {
+      setSections(normalizedSections);
+      setPages(normalizedPages);
+      setActivePageId(normalizedLoad.activePageId);
+      setHomePageId(normalizedLoad.homePageId);
+      setSelectedId(normalizedSections[0].id);
+      setSelectedElementId(normalizedSections[0].elements[0]?.id ?? null);
       setFaviconUrl('');
       setTheme(DEFAULT_THEME);
       setHeaderConfig(DEFAULT_HEADER_CONFIG);
@@ -3633,152 +3855,137 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    if (!input || typeof input !== 'object') return;
-    const parsed = input as PersistedWebsiteProject;
+    const parsed = normalizedLoad.parsed as PersistedWebsiteProject;
 
-    if (Array.isArray(parsed.pages) && parsed.pages.length) {
-      const normalizedPages: WebsitePage[] = parsed.pages.map((page: Partial<WebsitePage>, index: number) => ({
-        id: page.id || `page-${index}-${Date.now()}`,
-        name: page.name || `Page ${index + 1}`,
-        slug: normalizeSlug(page.slug || page.name || `page-${index + 1}`),
-        sections: Array.isArray(page.sections) && page.sections.length
-          ? page.sections.map(normalizeSection)
-          : [createSection('hero')],
-        showInNavigation: page.showInNavigation !== false,
-        seoTitle: typeof page.seoTitle === 'string' ? page.seoTitle : '',
-        seoDescription: typeof page.seoDescription === 'string' ? page.seoDescription : '',
-        socialImage: typeof page.socialImage === 'string' ? page.socialImage : '',
-        canonicalUrl: typeof page.canonicalUrl === 'string' ? page.canonicalUrl : '',
-        language: normalizePageLanguage(page.language, normalizePageLanguage(parsed.language, 'en')),
-        translationKey: typeof page.translationKey === 'string' ? page.translationKey.slice(0, 120) : '',
-        noIndex: page.noIndex === true,
-      }));
-      const requestedPage = normalizedPages.find((page) => page.id === parsed.activePageId) || normalizedPages[0];
+    if (normalizedLoad.kind === 'pages') {
       setPages(normalizedPages);
-      setActivePageId(requestedPage.id);
-      setHomePageId(parsed.homePageId && normalizedPages.some((page) => page.id === parsed.homePageId) ? parsed.homePageId : normalizedPages[0].id);
-      setSections(requestedPage.sections);
-      setSelectedId(requestedPage.sections[0]?.id ?? null);
-      setSelectedElementId(requestedPage.sections[0]?.elements[0]?.id ?? null);
-      setSiteName(parsed.siteName || 'My Website');
-      setSiteUrl(parsed.siteUrl || '');
-      setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
-      setPublishedUrl(typeof parsed.publishedUrl === 'string' ? normalizePublishedSiteUrl(parsed.publishedUrl) : '');
-      setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
-      setPreviewUrl(typeof parsed.previewUrl === 'string' ? normalizePublishedSiteUrl(parsed.previewUrl) : '');
-      setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
-      setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
-      setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
-      setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
-      setLiveVerification('idle');
-      setPublishError('');
-      setPreviewError('');
-      if (parsed.brand) setBrand(parsed.brand);
-      setTheme(normalizeTheme(parsed.theme));
-      setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
-      setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
-      setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
-      setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
-      setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
-      setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
-      if (parsed.seo) setSeo(parsed.seo);
-      if (resetEditHistory) {
-        setHistory([]);
-        setFuture([]);
-      }
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
-      setSaved(false);
-      return;
+      setActivePageId(normalizedLoad.activePageId);
+      setHomePageId(normalizedLoad.homePageId);
+      setSections(normalizedSections);
+    } else {
+      setSections(normalizedSections);
+      setPages(normalizedPages);
+      setActivePageId(normalizedLoad.activePageId);
+      setHomePageId(normalizedLoad.homePageId);
     }
 
-    if (Array.isArray(parsed.sections) && parsed.sections.length) {
-      const normalized = parsed.sections.map(normalizeSection);
-      setSections(normalized);
-      setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: normalized, showInNavigation: true, language: 'en', translationKey: 'home' }]);
-      setActivePageId('page-home');
-      setHomePageId('page-home');
-      setSelectedId(normalized[0].id);
-      setSelectedElementId(normalized[0].elements[0]?.id ?? null);
-      setSiteName(parsed.siteName || 'My Website');
-      setSiteUrl(parsed.siteUrl || '');
-      setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
-      setPublishedUrl(typeof parsed.publishedUrl === 'string' ? normalizePublishedSiteUrl(parsed.publishedUrl) : '');
-      setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
-      setPreviewUrl(typeof parsed.previewUrl === 'string' ? normalizePublishedSiteUrl(parsed.previewUrl) : '');
-      setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
-      setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
-      setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
-      setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
-      setLiveVerification('idle');
-      setPublishError('');
-      setPreviewError('');
-      if (parsed.brand) setBrand(parsed.brand);
-      setTheme(normalizeTheme(parsed.theme));
-      setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
-      setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
-      setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
-      setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
-      setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
-      setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
-      if (parsed.seo) setSeo(parsed.seo);
-      if (resetEditHistory) {
-        setHistory([]);
-        setFuture([]);
-      }
-      if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
-      setSaved(false);
+    setSelectedId(normalizedSections[0]?.id ?? null);
+    setSelectedElementId(normalizedSections[0]?.elements[0]?.id ?? null);
+    setSiteName(parsed.siteName || 'My Website');
+    setSiteUrl(parsed.siteUrl || '');
+    setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
+    setPublishedUrl(typeof parsed.publishedUrl === 'string' ? normalizePublishedSiteUrl(parsed.publishedUrl) : '');
+    setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
+    setPreviewUrl(typeof parsed.previewUrl === 'string' ? normalizePublishedSiteUrl(parsed.previewUrl) : '');
+    setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
+    setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
+    setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
+    setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
+    setLiveVerification('idle');
+    setPublishError('');
+    setPreviewError('');
+    if (parsed.brand) setBrand(parsed.brand);
+    setTheme(normalizeTheme(parsed.theme));
+    setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
+    setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
+    setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
+    setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
+    setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
+    setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
+    if (parsed.seo) setSeo(parsed.seo);
+    if (resetEditHistory) {
+      setHistory([]);
+      setFuture([]);
     }
+    if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
+    setSaved(false);
   }
 
-  async function refreshProjectTeamAccess(projectId: string | null) {
-    if (!user || !projectId) {
-      setProjectTeamAccess(DEFAULT_EDITOR_PROJECT_ACCESS);
+  async function refreshProjectTeamAccess(projectId: string | null, expectedLoadSequence?: number) {
+    const accessUserId = user?.id ?? null;
+    const loadIsCurrent = () =>
+      (expectedLoadSequence === undefined ||
+        projectLoadSequenceRef.current === expectedLoadSequence) &&
+      activeUserIdRef.current === accessUserId;
+
+    if (!accessUserId || !projectId) {
+      if (loadIsCurrent()) setProjectTeamAccess(DEFAULT_EDITOR_PROJECT_ACCESS);
       return DEFAULT_EDITOR_PROJECT_ACCESS;
     }
 
     const project = cloudProjects.find((item) => item.id === projectId);
-    const fallback = createEditorProjectAccessFallback(project, user.id);
+    const fallback = createEditorProjectAccessFallback(project, accessUserId);
 
-    const { data, error } = await supabase.rpc('get_project_team_access', { p_project_id: projectId });
+    const { data, error } = await getWebsiteProjectTeamAccess(projectId);
     if (error || !data) {
-      setProjectTeamAccess(fallback);
+      if (loadIsCurrent()) setProjectTeamAccess(fallback);
       return fallback;
     }
 
     const next = normalizeEditorProjectAccess(data, fallback);
-    setProjectTeamAccess(next);
+    if (loadIsCurrent()) setProjectTeamAccess(next);
     return next;
   }
 
   const refreshCloudProjects = useCallback(async () => {
-    if (!user) {
-      setCloudProjects([]);
-      setCloudProjectId(null);
-      setCloudProjectsLoaded(true);
-      return;
+    cloudProjectsRefreshSequenceRef.current += 1;
+    const refreshSequence = cloudProjectsRefreshSequenceRef.current;
+    const refreshUserId = user?.id ?? null;
+
+    if (cloudProjectsRefreshAbortControllerRef.current) {
+      cloudProjectsRefreshAbortControllerRef.current.abort();
+      cloudProjectsRefreshAbortControllerRef.current = null;
     }
 
-    setCloudProjectsLoaded(false);
-    setCloudBusy(true);
-    setCloudError('');
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, user_id, workspace_id, title, content, status, updated_at')
-      .eq('type', 'website-builder')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false });
-
-    if (error) {
-      setCloudError('Could not load cloud projects.');
+    if (!user) {
+      cancelPendingProjectPersistence();
+      projectLoadSequenceRef.current += 1;
+      setCloudProjects([]);
+      setCloudProjectId(null);
+      setCloudError('');
       setCloudBusy(false);
       setCloudProjectsLoaded(true);
       return;
     }
 
-    setCloudProjects((data || []) as CloudWebsiteProject[]);
-    setCloudBusy(false);
-    setCloudProjectsLoaded(true);
-  }, [user]);
+    const refreshController = new AbortController();
+    cloudProjectsRefreshAbortControllerRef.current = refreshController;
+
+    const refreshIsCurrent = () =>
+      !refreshController.signal.aborted &&
+      cloudProjectsRefreshSequenceRef.current === refreshSequence &&
+      cloudProjectsRefreshAbortControllerRef.current === refreshController &&
+      activeUserIdRef.current === refreshUserId;
+
+    setCloudProjectsLoaded(false);
+    setCloudBusy(true);
+    setCloudError('');
+
+    try {
+      const { data, error } = await listWebsiteProjectsInCloud(refreshController.signal);
+
+      if (!refreshIsCurrent()) return;
+
+      if (error) {
+        setCloudError('Could not load cloud projects.');
+        return;
+      }
+
+      setCloudProjects((data || []) as CloudWebsiteProject[]);
+    } catch (error) {
+      if (!refreshIsCurrent()) return;
+      const message = error instanceof Error ? error.message : '';
+      if (!/abort|cancel/i.test(message)) {
+        setCloudError('Could not load cloud projects.');
+      }
+    } finally {
+      if (refreshIsCurrent()) {
+        cloudProjectsRefreshAbortControllerRef.current = null;
+        setCloudBusy(false);
+        setCloudProjectsLoaded(true);
+      }
+    }
+  }, [user, cancelPendingProjectPersistence]);
 
   const loadLocalReusableSections = useCallback(() => {
     try {
@@ -3793,22 +4000,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, []);
 
   const refreshReusableSections = useCallback(async () => {
+    const refreshUserId = user?.id ?? null;
+    const refreshSequence = ++reusableRefreshSequenceRef.current;
+    const refreshIsCurrent = () =>
+      reusableRefreshSequenceRef.current === refreshSequence &&
+      activeUserIdRef.current === refreshUserId;
+
     setReusableError('');
-    if (!user) {
-      setReusableSections(loadLocalReusableSections());
-      setReusableBusy(false);
+
+    if (!refreshUserId) {
+      if (refreshIsCurrent()) {
+        setReusableSections(loadLocalReusableSections());
+        setReusableBusy(false);
+      }
       return;
     }
 
     setReusableBusy(true);
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, title, content, updated_at')
-      .eq('user_id', user.id)
-      .eq('type', 'website-section-template')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false })
-      .limit(30);
+
+    const { data, error } = await listReusableSectionsInCloud(refreshUserId);
+
+    if (!refreshIsCurrent()) return;
 
     if (error) {
       setReusableError('Could not load reusable sections.');
@@ -3832,18 +4044,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setReusableSections(items);
     setReusableBusy(false);
-  }, [user, loadLocalReusableSections]);
+  }, [user?.id, loadLocalReusableSections]);
 
   async function saveSelectedSectionAsReusable() {
     if (!selectedSection) return;
     const title = window.prompt('Template name', selectedSection.title || SECTION_LABELS[selectedSection.type])?.trim();
     if (!title) return;
 
-    setReusableBusy(true);
     setReusableError('');
     const savedSection = JSON.parse(JSON.stringify(selectedSection)) as WebsiteSection;
+    const operationUserId = user?.id ?? null;
 
-    if (!user) {
+    if (!operationUserId) {
       const item: ReusableSectionTemplate = {
         id: `local-template-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         title,
@@ -3857,23 +4069,33 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const { error } = await supabase.from('projects').insert({
-      user_id: user.id,
-      title,
-      type: 'website-section-template',
-      content: { version: 1, section: savedSection },
-      status: 'completed',
-    });
+    const operationSequence = ++reusableOperationSequenceRef.current;
+    const operationIsCurrent = () =>
+      reusableOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
 
-    if (error) {
-      setReusableError('Could not save this reusable section.');
-      setReusableBusy(false);
-      return;
+    setReusableBusy(true);
+    let refreshStarted = false;
+
+    try {
+      const { error } = await saveReusableSectionInCloud(operationUserId, title, savedSection);
+
+      if (!operationIsCurrent()) return;
+
+      if (error) {
+        setReusableError('Could not save this reusable section.');
+        return;
+      }
+
+      refreshStarted = true;
+      await refreshReusableSections();
+    } finally {
+      if (operationIsCurrent() && !refreshStarted) {
+        setReusableBusy(false);
+      }
     }
-
-    await refreshReusableSections();
-    setReusableBusy(false);
   }
+
 
   function insertReusableSection(template: ReusableSectionTemplate) {
     remember(sections);
@@ -3888,31 +4110,41 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!window.confirm(`Delete reusable section “${template.title}”?`)) return;
     setReusableError('');
 
-    if (!user || !template.cloudId) {
+    const operationUserId = user?.id ?? null;
+
+    if (!operationUserId || !template.cloudId) {
       const next = reusableSections.filter((item) => item.id !== template.id);
       setReusableSections(next);
       localStorage.setItem(REUSABLE_SECTIONS_KEY, JSON.stringify(next));
       return;
     }
 
+    const operationSequence = ++reusableOperationSequenceRef.current;
+    const operationIsCurrent = () =>
+      reusableOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
+
     setReusableBusy(true);
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', template.cloudId)
-      .eq('user_id', user.id)
-      .eq('type', 'website-section-template');
+    let refreshStarted = false;
 
-    if (error) {
-      setReusableError('Could not delete this reusable section.');
-      setReusableBusy(false);
-      return;
+    try {
+      const { error } = await deleteReusableSectionInCloud(operationUserId, template.cloudId);
+
+      if (!operationIsCurrent()) return;
+
+      if (error) {
+        setReusableError('Could not delete this reusable section.');
+        return;
+      }
+
+      refreshStarted = true;
+      await refreshReusableSections();
+    } finally {
+      if (operationIsCurrent() && !refreshStarted) {
+        setReusableBusy(false);
+      }
     }
-
-    await refreshReusableSections();
-    setReusableBusy(false);
   }
-
   function applyThemeToSection(section: WebsiteSection, index: number): WebsiteSection {
     const background = section.type === 'footer'
       ? theme.secondaryColor
@@ -3997,14 +4229,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  async function recoverPublishedProjectState(project: CloudWebsiteProject) {
-    if (!user) return false;
+  async function recoverPublishedProjectState(project: CloudWebsiteProject, expectedLoadSequence?: number) {
+    const recoveryUserId = user?.id ?? null;
+    if (!recoveryUserId) return false;
 
-    const ownerId = project.user_id || user.id;
+    const loadIsCurrent = () =>
+      (expectedLoadSequence === undefined ||
+        projectLoadSequenceRef.current === expectedLoadSequence) &&
+      activeUserIdRef.current === recoveryUserId;
+
+    if (!loadIsCurrent()) return false;
+
+    const ownerId = project.user_id || recoveryUserId;
     const path = `${ownerId}/${project.id}/index.html`;
-    const { data, error } = await supabase.storage
-      .from('published-sites')
-      .download(path);
+    const { data, error } = await downloadPublishedWebsiteFile(path);
+
+    if (!loadIsCurrent()) return false;
 
     const storedUrl =
       typeof project.content?.publishedUrl === 'string'
@@ -4030,11 +4270,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const routeHealthy = await verifyPublishedRoute(recoveredUrl);
 
+    if (!loadIsCurrent()) return false;
+
     setPublishedUrl(recoveredUrl);
     setPublishedAt(recoveredAt);
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
-    if (project.user_id === user.id && routeHealthy && (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed')) {
+    if (project.user_id === recoveryUserId && routeHealthy && (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed')) {
       const recoveredContent = {
         ...project.content,
         publishedUrl: recoveredUrl,
@@ -4042,17 +4284,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: new Date().toISOString(),
       };
 
-      const { error: recoverError } = await supabase
-        .from('projects')
-        .update({
-          content: recoveredContent,
-          status: 'completed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', project.id)
-        .eq('user_id', user.id);
+      const recoverUpdatedAt = new Date().toISOString();
+      const { error: recoverError } = await updateWebsiteProjectPublicationState({
+        projectId: project.id,
+        userId: recoveryUserId,
+        content: recoveredContent,
+        published: true,
+        updatedAt: recoverUpdatedAt,
+      });
 
-      if (!recoverError) {
+      if (!recoverError && loadIsCurrent()) {
         setCloudProjects((current) =>
           current.map((item) =>
             item.id === project.id
@@ -4060,7 +4301,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               : item
           )
         );
-        saveLocalWebsiteProject(recoveredContent);
+        saveLocalWebsiteProject({
+          ...recoveredContent,
+          cloudProjectId: project.id,
+        });
       }
     }
 
@@ -4070,9 +4314,29 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function loadCloudProject(projectId: string) {
     const project = cloudProjects.find((item) => item.id === projectId);
     if (!project) return;
+
+    cancelPendingProjectPersistence();
+
+    const loadSequence = ++projectLoadSequenceRef.current;
+    const loadUserId = user?.id ?? null;
+    const loadIsCurrent = () =>
+      projectLoadSequenceRef.current === loadSequence &&
+      activeUserIdRef.current === loadUserId;
+
+    newProjectIntentRef.current = false;
     setCloudProjectId(project.id);
     saveActiveWebsiteProjectId(project.id);
-    await refreshProjectTeamAccess(project.id);
+
+    const identifiedContent = {
+      ...project.content,
+      cloudProjectId: project.id,
+    };
+
+    saveLocalWebsiteProject(identifiedContent);
+
+    await refreshProjectTeamAccess(project.id, loadSequence);
+    if (!loadIsCurrent()) return;
+
     setLeads([]);
     setLeadsOpen(false);
     setAnalyticsEvents([]);
@@ -4081,36 +4345,56 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setReleaseHistoryOpen(false);
     setLiveVerification('idle');
     skipNextAutosaveRef.current = true;
-    applyProjectData(project.content);
+
+    applyProjectData(identifiedContent);
     setSiteName(project.title || 'My Website');
-    saveLocalWebsiteProject(project.content);
-    await recoverPublishedProjectState(project);
+
+    await recoverPublishedProjectState(
+      {
+        ...project,
+        content: identifiedContent,
+      },
+      loadSequence,
+    );
+
+    if (!loadIsCurrent()) return;
   }
 
   const loadCloudProjectRef = useRef(loadCloudProject);
   loadCloudProjectRef.current = loadCloudProject;
 
   const refreshLeads = useCallback(async () => {
-    if (!user || !cloudProjectId) {
-      setLeads([]);
-      setLeadsError('');
+    const refreshLoadSequence = projectLoadSequenceRef.current;
+    const refreshProjectId = cloudProjectId;
+    const refreshUserId = user?.id ?? null;
+    const refreshIsCurrent = () =>
+      projectLoadSequenceRef.current === refreshLoadSequence &&
+      activeUserIdRef.current === refreshUserId;
+
+    if (!refreshUserId || !refreshProjectId) {
+      if (refreshIsCurrent()) {
+        setLeads([]);
+        setLeadsError('');
+        setLeadsLoading(false);
+      }
       return;
     }
 
     if (!projectTeamAccess.canManage) {
-      setLeads([]);
-      setLeadsError('Lead inbox is available to project owners and workspace admins.');
+      if (refreshIsCurrent()) {
+        setLeads([]);
+        setLeadsError('Lead inbox is available to project owners and workspace admins.');
+        setLeadsLoading(false);
+      }
       return;
     }
 
     setLeadsLoading(true);
     setLeadsError('');
-    const { data, error } = await supabase
-      .from('website_leads')
-      .select('id, project_id, user_id, name, email, message, form_data, page_path, status, stage, priority, tags, notes, updated_at, created_at')
-      .eq('project_id', cloudProjectId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+
+    const { data, error } = await listWebsiteLeads(refreshProjectId);
+
+    if (!refreshIsCurrent()) return;
 
     if (error) {
       setLeadsError('Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied.');
@@ -4126,13 +4410,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function updateLeadStatus(leadId: string, status: WebsiteLead['status']) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
+
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
     const updatedAt = new Date().toISOString();
-    const { error } = await supabase
-      .from('website_leads')
-      .update({ status, updated_at: updatedAt })
-      .eq('id', leadId)
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId);
+
+    const { error } = await updateWebsiteLeadStatus({
+      leadId,
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
+      status,
+      updatedAt,
+    });
+
+    if (!updateIsCurrent()) return;
 
     if (error) {
       setLeadsError('Could not update this lead.');
@@ -4144,18 +4440,29 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function updateLeadCrm(leadId: string, updates: Partial<Pick<WebsiteLead, 'stage' | 'priority' | 'tags' | 'notes'>>) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
+
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
     const sanitized = {
       ...updates,
       ...(updates.tags ? { tags: updates.tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 12) } : {}),
       ...(typeof updates.notes === 'string' ? { notes: updates.notes.slice(0, 4000) } : {}),
       updated_at: new Date().toISOString(),
     };
-    const { error } = await supabase
-      .from('website_leads')
-      .update(sanitized)
-      .eq('id', leadId)
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId);
+
+    const { error } = await updateWebsiteLeadCrm({
+      leadId,
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
+      updates: sanitized as Record<string, unknown>,
+    });
+
+    if (!updateIsCurrent()) return;
 
     if (error) {
       setLeadsError('Could not update CRM details for this lead.');
@@ -4167,14 +4474,26 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function bulkUpdateLeadStage(stage: LeadStage) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage || !selectedLeadIds.length) return;
+
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
     const ids = [...selectedLeadIds];
     const updatedAt = new Date().toISOString();
-    const { error } = await supabase
-      .from('website_leads')
-      .update({ stage, updated_at: updatedAt })
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId)
-      .in('id', ids);
+
+    const { error } = await bulkUpdateWebsiteLeadStage({
+      leadIds: ids,
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
+      stage,
+      updatedAt,
+    });
+
+    if (!updateIsCurrent()) return;
 
     if (error) {
       setLeadsError('Could not update the selected leads.');
@@ -4184,25 +4503,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLeads((current) => current.map((lead) => ids.includes(lead.id) ? { ...lead, stage, updated_at: updatedAt } : lead));
   }
 
-  function leadPhone(lead: WebsiteLead) {
-    const entry = Object.entries(lead.form_data || {}).find(([key, value]) =>
-      (key.toLowerCase().includes('phone') || key.toLowerCase().includes('tel')) && String(value || '').trim()
-    );
-    return entry ? String(entry[1] || '').trim() : '';
-  }
-
-  function leadSource(lead: WebsiteLead) {
-    const data = lead.form_data || {};
-    const source = String(data._utm_source || '').trim();
-    const medium = String(data._utm_medium || '').trim();
-    const campaign = String(data._utm_campaign || '').trim();
-    const referrer = String(data._referrer || '').trim();
-    return { source, medium, campaign, referrer };
-  }
 
   async function copyLeadSummary(lead: WebsiteLead) {
-    const meta = leadSource(lead);
-    const phone = leadPhone(lead);
+    const meta = getWebsiteLeadSource(lead);
+    const phone = getWebsiteLeadPhone(lead);
     const lines = [
       `Lead: ${lead.name}`,
       lead.email ? `Email: ${lead.email}` : '',
@@ -4229,12 +4533,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const confirmed = window.confirm('Delete this lead permanently?');
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from('website_leads')
-      .delete()
-      .eq('id', leadId)
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId);
+    const deleteLoadSequence = projectLoadSequenceRef.current;
+    const deleteUserId = user.id;
+    const deleteProjectId = cloudProjectId;
+    const deleteOwnerId = activeProjectOwnerId;
+    const deleteIsCurrent = () =>
+      projectLoadSequenceRef.current === deleteLoadSequence &&
+      activeUserIdRef.current === deleteUserId;
+
+    const { error } = await deleteWebsiteLead({
+      leadId,
+      projectId: deleteProjectId,
+      ownerId: deleteOwnerId,
+    });
+
+    if (!deleteIsCurrent()) return;
 
     if (error) {
       setLeadsError('Could not delete this lead.');
@@ -4246,28 +4559,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   const refreshAnalytics = useCallback(async () => {
-    if (!user || !cloudProjectId) {
-      setAnalyticsEvents([]);
-      setAnalyticsError('');
+    const refreshLoadSequence = projectLoadSequenceRef.current;
+    const refreshProjectId = cloudProjectId;
+    const refreshUserId = user?.id ?? null;
+    const refreshIsCurrent = () =>
+      projectLoadSequenceRef.current === refreshLoadSequence &&
+      activeUserIdRef.current === refreshUserId;
+
+    if (!refreshUserId || !refreshProjectId) {
+      if (refreshIsCurrent()) {
+        setAnalyticsEvents([]);
+        setAnalyticsError('');
+        setAnalyticsLoading(false);
+      }
       return;
     }
 
     if (!projectTeamAccess.canEdit) {
-      setAnalyticsEvents([]);
-      setAnalyticsError('Analytics is available to project owners, admins, and editors.');
+      if (refreshIsCurrent()) {
+        setAnalyticsEvents([]);
+        setAnalyticsError('Analytics is available to project owners, admins, and editors.');
+        setAnalyticsLoading(false);
+      }
       return;
     }
 
     setAnalyticsLoading(true);
     setAnalyticsError('');
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
-      .from('website_analytics_events')
-      .select('id, project_id, user_id, page_path, referrer, session_id, event_type, event_data, created_at')
-      .eq('project_id', cloudProjectId)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(5000);
+    const { data, error } = await listWebsiteAnalyticsEvents(refreshProjectId, since);
+
+    if (!refreshIsCurrent()) return;
 
     if (error) {
       setAnalyticsError('Analytics is unavailable. Make sure the Sprint 15 database migration is applied.');
@@ -4279,18 +4601,31 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAnalyticsLoading(false);
   }, [user, cloudProjectId, projectTeamAccess.canEdit]);
 
-  const refreshMedia = useCallback(async () => {
-    if (!user) {
-      setMediaAssets([]);
-      setMediaError('');
+  const refreshMedia = useCallback(async (expectedUserId: string | null = user?.id ?? null) => {
+    if (activeUserIdRef.current !== expectedUserId) {
+      return;
+    }
+
+    const refreshSequence = ++mediaRefreshSequenceRef.current;
+    const refreshIsCurrent = () =>
+      mediaRefreshSequenceRef.current === refreshSequence &&
+      activeUserIdRef.current === expectedUserId;
+
+    if (!expectedUserId) {
+      if (refreshIsCurrent()) {
+        setMediaAssets([]);
+        setMediaError('');
+        setMediaLoading(false);
+      }
       return;
     }
 
     setMediaLoading(true);
     setMediaError('');
-    const { data, error } = await supabase.storage
-      .from('website-media')
-      .list(user.id, { limit: 100, offset: 0, sortBy: { column: 'created_at', order: 'desc' } });
+
+    const { data, error } = await listWebsiteMediaFiles(expectedUserId);
+
+    if (!refreshIsCurrent()) return;
 
     if (error) {
       setMediaError('Media library is unavailable. Make sure the Sprint 12 storage migration is applied.');
@@ -4301,20 +4636,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const assets: WebsiteMediaAsset[] = (data || [])
       .filter((item) => Boolean(item.name) && item.name !== '.emptyFolderPlaceholder')
       .map((item) => {
-        const path = `${user.id}/${item.name}`;
-        const { data: publicData } = supabase.storage.from('website-media').getPublicUrl(path);
+        const path = `${expectedUserId}/${item.name}`;
         return {
           name: item.name,
           path,
-          url: publicData.publicUrl,
+          url: getWebsiteMediaPublicUrl(path),
           createdAt: item.created_at,
         };
       });
 
     setMediaAssets(assets);
     setMediaLoading(false);
-  }, [user]);
-
+  }, [user?.id]);
   function applyMediaAsset(asset: WebsiteMediaAsset) {
     if (!selectedSection) return;
 
@@ -4339,7 +4672,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function uploadMediaFile(file: File) {
-    if (!user) {
+    const uploadUserId = user?.id ?? null;
+    if (!uploadUserId) {
       setMediaError('Sign in before uploading media.');
       return;
     }
@@ -4352,47 +4686,82 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    const uploadSequence = ++mediaUploadSequenceRef.current;
+    const uploadProjectSequence = projectLoadSequenceRef.current;
+    const uploadEditorContext = captureAIEditorContext();
+    const uploadIsCurrentUser = () =>
+      mediaUploadSequenceRef.current === uploadSequence &&
+      activeUserIdRef.current === uploadUserId;
+
     setMediaUploading(true);
     setMediaError('');
+
     const extension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
     const base = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
-    const path = `${user.id}/${Date.now()}-${base}.${extension}`;
-    const { error } = await supabase.storage
-      .from('website-media')
-      .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+    const path = `${uploadUserId}/${Date.now()}-${base}.${extension}`;
 
-    if (error) {
-      setMediaError('Could not upload this image.');
-      setMediaUploading(false);
-      return;
-    }
+    try {
+      const { error } = await uploadWebsiteMediaFile(path, file);
 
-    const { data: publicData } = supabase.storage.from('website-media').getPublicUrl(path);
-    await refreshMedia();
-    setMediaUploading(false);
+      if (!uploadIsCurrentUser()) return;
 
-    if (selectedElement?.type === 'image') {
-      updateSelectedElement({ src: publicData.publicUrl, content: file.name });
+      if (error) {
+        setMediaError('Could not upload this image.');
+        return;
+      }
+
+      const publicUrl = getWebsiteMediaPublicUrl(path);
+      await refreshMedia(uploadUserId);
+
+      if (!uploadIsCurrentUser()) return;
+
+      if (
+        projectLoadSequenceRef.current === uploadProjectSequence &&
+        aiEditorContextIsCurrent(uploadEditorContext, true) &&
+        selectedElement?.type === 'image'
+      ) {
+        updateSelectedElement({ src: publicUrl, content: file.name });
+      }
+    } finally {
+      if (uploadIsCurrentUser()) {
+        setMediaUploading(false);
+      }
     }
   }
-
   async function deleteMediaAsset(asset: WebsiteMediaAsset) {
-    if (!user) return;
+    const deleteUserId = user?.id ?? null;
+    if (!deleteUserId) return;
     if (!window.confirm(`Delete ${asset.name} from your media library?`)) return;
 
+    const deleteSequence = ++mediaDeleteSequenceRef.current;
+    const deleteProjectSequence = projectLoadSequenceRef.current;
+    const deleteEditorContext = captureAIEditorContext();
+    const deleteIsCurrentUser = () =>
+      mediaDeleteSequenceRef.current === deleteSequence &&
+      activeUserIdRef.current === deleteUserId;
+
     setMediaError('');
-    const { error } = await supabase.storage.from('website-media').remove([asset.path]);
+
+    const { error } = await deleteWebsiteMediaFile(asset.path);
+
+    if (!deleteIsCurrentUser()) return;
+
     if (error) {
       setMediaError('Could not delete this image.');
       return;
     }
 
     setMediaAssets((current) => current.filter((item) => item.path !== asset.path));
-    if (selectedElement?.type === 'image' && selectedElement.src === asset.url) {
+
+    if (
+      projectLoadSequenceRef.current === deleteProjectSequence &&
+      aiEditorContextIsCurrent(deleteEditorContext, true) &&
+      selectedElement?.type === 'image' &&
+      selectedElement.src === asset.url
+    ) {
       updateSelectedElement({ src: '' });
     }
   }
-
   const selectedSection = useMemo(
     () => sections.find((section) => section.id === selectedId) ?? null,
     [sections, selectedId]
@@ -4500,25 +4869,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     };
   }
 
-  const refreshBilling = useCallback(async (projectId: string | null = cloudProjectId) => {
-    if (!user) {
-      setBillingState({
-        plan: 'free',
-        entitlements: FREE_BILLING_ENTITLEMENTS,
-        subscription: null,
-        usage: { websiteProjects: 0, pages: pages.length, releases: 0, leads: 0, analyticsEvents: 0 },
-      });
+  const refreshBilling = useCallback(async (
+    projectId: string | null = cloudProjectId,
+    expectedLoadSequence = projectLoadSequenceRef.current,
+  ) => {
+    const refreshSequence = ++billingRefreshSequenceRef.current;
+    const refreshUserId = user?.id ?? null;
+    const refreshIsCurrent = () =>
+      billingRefreshSequenceRef.current === refreshSequence &&
+      activeUserIdRef.current === refreshUserId &&
+      projectLoadSequenceRef.current === expectedLoadSequence;
+
+    if (!refreshUserId) {
+      if (refreshIsCurrent()) {
+        setBillingState({
+          plan: 'free',
+          entitlements: FREE_BILLING_ENTITLEMENTS,
+          subscription: null,
+          usage: { websiteProjects: 0, pages: pages.length, releases: 0, leads: 0, analyticsEvents: 0 },
+        });
+        setBillingLoading(false);
+      }
       return;
     }
 
     setBillingLoading(true);
     setBillingError('');
-    const { data, error } = await supabase.rpc('get_website_builder_billing_state', {
-      p_project_id: projectId,
-    });
+
+    const { data, error } = await getWebsiteBuilderBillingState(projectId);
+    if (!refreshIsCurrent()) return;
 
     if (error || !data || typeof data !== 'object') {
-      // Fail closed: never grant paid features from browser-editable profile data when billing cannot be verified.
       setBillingState((current) => ({
         ...current,
         plan: 'free',
@@ -4549,6 +4930,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       features: { ...local.features, ...rawFeatures },
     };
     const rawUsage = raw.usage && typeof raw.usage === 'object' ? raw.usage as Record<string, unknown> : {};
+
     setBillingState({
       plan: rawPlan,
       entitlements,
@@ -4562,57 +4944,92 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       },
     });
     setBillingLoading(false);
-  }, [user, pages.length, cloudProjectId]);
-
+  }, [user?.id, pages.length, cloudProjectId]);
   async function startBillingCheckout(plan: 'pro' | 'business') {
-    if (!user) {
+    const checkoutUserId = user?.id ?? null;
+    if (!checkoutUserId) {
       openBillingWithMessage('Sign in before upgrading your plan.');
       return;
     }
+
     const subscriptionStatus = billingState.subscription?.status || '';
     const hasManagedPaidSubscription = Boolean(
       billingState.subscription?.stripeCustomerId &&
       ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(subscriptionStatus),
     );
+
     if (hasManagedPaidSubscription) {
       await openBillingPortal();
       return;
     }
+
+    const operationSequence = ++billingOperationSequenceRef.current;
+    const operationIsCurrent = () =>
+      billingOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === checkoutUserId;
+
     setBillingBusy(true);
     setBillingError('');
+
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', { body: { plan } });
+      const { data, error } = await createWebsiteCheckoutSession(plan);
+      if (!operationIsCurrent()) return;
       if (error) throw error;
+
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Stripe Checkout is not configured yet.');
+
       window.location.assign(url);
     } catch (error) {
+      if (!operationIsCurrent()) return;
       setBillingError(error instanceof Error ? error.message : 'Could not open Stripe Checkout.');
       setBillingBusy(false);
     }
   }
-
   async function openBillingPortal() {
-    if (!user) return;
+    const portalUserId = user?.id ?? null;
+    if (!portalUserId) return;
+
+    const operationSequence = ++billingOperationSequenceRef.current;
+    const operationIsCurrent = () =>
+      billingOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === portalUserId;
+
     setBillingBusy(true);
     setBillingError('');
+
     try {
-      const { data, error } = await supabase.functions.invoke('billing-portal', { body: {} });
+      const { data, error } = await openWebsiteBillingPortalSession();
+      if (!operationIsCurrent()) return;
       if (error) throw error;
+
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Billing portal is not available yet.');
+
       window.location.assign(url);
     } catch (error) {
+      if (!operationIsCurrent()) return;
       setBillingError(error instanceof Error ? error.message : 'Could not open the billing portal.');
       setBillingBusy(false);
     }
   }
-
   useEffect(() => {
     if (projectId) return;
     try {
       const savedProject = loadLocalWebsiteProject();
       if (savedProject) {
+        const savedIdentity =
+          savedProject &&
+          typeof savedProject === 'object' &&
+          !Array.isArray(savedProject) &&
+          typeof (savedProject as PersistedWebsiteProject).cloudProjectId === 'string'
+            ? (savedProject as PersistedWebsiteProject).cloudProjectId?.trim() || null
+            : null;
+
+        if (savedIdentity) {
+          saveActiveWebsiteProjectId(savedIdentity);
+        }
+
         skipNextAutosaveRef.current = true;
         applyProjectData(savedProject);
       }
@@ -4627,20 +5044,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [refreshCloudProjects, refreshReusableSections]);
 
   useEffect(() => {
-    if (!user || !cloudProjectsLoaded) return;
-    let desiredProjectId = projectId;
-    if (!desiredProjectId) {
-      desiredProjectId = loadActiveWebsiteProjectId();
-    }
-    if (!desiredProjectId || cloudProjectId === desiredProjectId) return;
-    const exists = cloudProjects.some((project) => project.id === desiredProjectId);
-    if (!exists) {
-      if (!projectId) {
-        saveActiveWebsiteProjectId(null);
+    if (!user || !cloudProjectsLoaded || newProjectIntentRef.current) return;
+
+    let desiredProjectId = projectId || loadActiveWebsiteProjectId();
+
+    if (desiredProjectId) {
+      if (cloudProjectId === desiredProjectId) return;
+
+      const exists = cloudProjects.some((project) => project.id === desiredProjectId);
+      if (exists) {
+        void loadCloudProjectRef.current(desiredProjectId);
+        return;
       }
-      return;
+
+      if (projectId) {
+        setCloudError('The requested website is not visible in your current cloud projects.');
+        return;
+      }
+
+      saveActiveWebsiteProjectId(null);
+      desiredProjectId = null;
     }
-    void loadCloudProjectRef.current(desiredProjectId);
+
+    const fallbackProject =
+      cloudProjects.find((project) => project.user_id === user.id) ??
+      cloudProjects[0];
+
+    if (!desiredProjectId && fallbackProject && cloudProjectId !== fallbackProject.id) {
+      saveActiveWebsiteProjectId(fallbackProject.id);
+      void loadCloudProjectRef.current(fallbackProject.id);
+    }
   }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId]);
 
   useEffect(() => {
@@ -4656,17 +5089,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const params = new URLSearchParams(window.location.search);
     const billingResult = params.get('billing');
     if (!billingResult) return;
+
+    const billingLoadSequence = projectLoadSequenceRef.current;
+    const billingProjectId = cloudProjectId;
+    const billingUserId = user?.id ?? null;
+    let syncTimer: number | null = null;
+
     setBillingOpen(true);
     if (billingResult === 'success') {
       setBillingError('Payment completed. Stripe is syncing your subscription; refresh billing if the badge does not update immediately.');
-      window.setTimeout(() => void refreshBilling(cloudProjectId), 1200);
+      syncTimer = window.setTimeout(() => {
+        if (
+          projectLoadSequenceRef.current !== billingLoadSequence ||
+          activeUserIdRef.current !== billingUserId
+        ) {
+          return;
+        }
+
+        void refreshBilling(billingProjectId, billingLoadSequence);
+      }, 1200);
     } else if (billingResult === 'canceled') {
       setBillingError('Checkout was canceled. Your current plan was not changed.');
     }
     params.delete('billing');
     const query = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-  }, [cloudProjectId, refreshBilling]);
+
+    return () => {
+      if (syncTimer !== null) window.clearTimeout(syncTimer);
+    };
+  }, [cloudProjectId, refreshBilling, user?.id]);
 
   useEffect(() => {
     if (leadsOpen) void refreshLeads();
@@ -4692,9 +5144,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   useEffect(() => {
     if (!networkOnline || !cloudSyncFailed || !user?.id || !projectTeamAccess.canEdit) return;
-    const timer = window.setTimeout(() => { void saveProjectRef.current({ automatic: true, createHistory: false }); }, 600);
+
+    const retryLoadSequence = projectLoadSequenceRef.current;
+    const retryUserId = user.id;
+    const timer = window.setTimeout(() => {
+      if (
+        projectLoadSequenceRef.current !== retryLoadSequence ||
+        activeUserIdRef.current !== retryUserId
+      ) {
+        return;
+      }
+
+      void saveProjectRef.current({ automatic: true, createHistory: false });
+    }, 600);
+
     return () => window.clearTimeout(timer);
-  }, [networkOnline, cloudSyncFailed, user?.id, projectTeamAccess.canEdit]);
+  }, [networkOnline, cloudSyncFailed, user?.id, cloudProjectId, projectTeamAccess.canEdit]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -4723,27 +5188,85 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [sections, activePageId]);
 
   useEffect(() => {
-    if (user && !cloudProjectsLoaded) return;
-    if (projectId && cloudProjectId !== projectId) return;
-    const fingerprint = buildProjectFingerprint();
+    const scopedSection = selectedId
+      ? sections.find((section) => section.id === selectedId) ?? null
+      : null;
 
-    if (!lastSavedSnapshotRef.current) {
+    if (!scopedSection) {
+      const fallbackSection = sections[0] ?? null;
+      selectEditorTarget(
+        fallbackSection?.id ?? null,
+        fallbackSection?.elements[0]?.id ?? null,
+      );
+      return;
+    }
+
+    const elementValid = selectedElementId
+      ? scopedSection.elements.some((element) => element.id === selectedElementId)
+      : false;
+    const containerValid = selectedContainerId
+      ? (scopedSection.containers || []).some((container) => container.id === selectedContainerId)
+      : false;
+    const formFieldValid = selectedFormFieldId
+      ? (scopedSection.formFields || []).some((field) => field.id === selectedFormFieldId)
+      : false;
+
+    if (selectedElementId && !elementValid) setSelectedElementId(null);
+    if (selectedContainerId && (!containerValid || elementValid)) setSelectedContainerId(null);
+    if (selectedFormFieldId && (!formFieldValid || elementValid || containerValid)) {
+      setSelectedFormFieldId(null);
+    }
+  }, [
+    sections,
+    selectedId,
+    selectedElementId,
+    selectedContainerId,
+    selectedFormFieldId,
+    selectEditorTarget,
+  ]);
+
+  useEffect(() => {
+    const fingerprint = buildProjectFingerprint();
+    const decision = decideEditorAutosave({
+      fingerprint,
+      lastSavedFingerprint: lastSavedSnapshotRef.current,
+      skipNext: skipNextAutosaveRef.current,
+      signedIn: Boolean(user),
+      cloudProjectsLoaded,
+      requestedProjectId: projectId,
+      activeProjectId: cloudProjectId,
+    });
+
+    if (decision === 'blocked' || decision === 'unchanged') return;
+
+    if (decision === 'initialize') {
       lastSavedSnapshotRef.current = fingerprint;
       return;
     }
 
-    if (skipNextAutosaveRef.current) {
+    if (decision === 'skip-once') {
       skipNextAutosaveRef.current = false;
       lastSavedSnapshotRef.current = fingerprint;
       setAutoSaveStatus('saved');
       return;
     }
 
-    if (fingerprint === lastSavedSnapshotRef.current) return;
-
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+
+    const autosaveLoadSequence = projectLoadSequenceRef.current;
+    const autosaveUserId = user?.id ?? null;
+
     setAutoSaveStatus('saving');
     autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
+
+      if (
+        projectLoadSequenceRef.current !== autosaveLoadSequence ||
+        activeUserIdRef.current !== autosaveUserId
+      ) {
+        return;
+      }
+
       void saveProjectRef.current({ automatic: true, createHistory: false });
     }, 1800);
 
@@ -4752,54 +5275,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     };
   }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId]);
 
-  const analyticsSummary = useMemo(() => {
-    const pageViews = analyticsEvents.filter((event) => !event.event_type || event.event_type === 'page_view');
-    const conversions = analyticsEvents.filter((event) => event.event_type === 'cta_click' || event.event_type === 'form_submit');
-    const formSubmits = analyticsEvents.filter((event) => event.event_type === 'form_submit').length;
-    const ctaClicks = analyticsEvents.filter((event) => event.event_type === 'cta_click').length;
-    const sessions = new Set(pageViews.map((event) => event.session_id)).size;
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const today = new Date();
-    const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-    const last7Days = pageViews.filter((event) => new Date(event.created_at).getTime() >= sevenDaysAgo).length;
-    const todayViews = pageViews.filter((event) => {
-      const date = new Date(event.created_at);
-      return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}` === todayKey;
-    }).length;
-
-    const pageCounts = new Map<string, number>();
-    const referrerCounts = new Map<string, number>();
-    pageViews.forEach((event) => {
-      const page = event.page_path || '/';
-      pageCounts.set(page, (pageCounts.get(page) || 0) + 1);
-
-      let source = 'Direct';
-      if (event.referrer) {
-        try {
-          source = new URL(event.referrer).hostname.replace(/^www\./, '') || 'Direct';
-        } catch {
-          source = event.referrer.slice(0, 80);
-        }
-      }
-      referrerCounts.set(source, (referrerCounts.get(source) || 0) + 1);
-    });
-
-    const topPages = [...pageCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const topReferrers = [...referrerCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-    return {
-      views: pageViews.length,
-      sessions,
-      last7Days,
-      todayViews,
-      conversions: conversions.length,
-      ctaClicks,
-      formSubmits,
-      conversionRate: sessions ? Math.round((formSubmits / sessions) * 1000) / 10 : 0,
-      topPages,
-      topReferrers,
-    };
-  }, [analyticsEvents]);
+  const analyticsSummary = useMemo(
+    () => summarizeWebsiteAnalytics(analyticsEvents),
+    [analyticsEvents],
+  );
 
   const filteredLeads = useMemo(() => {
     const query = leadQuery.trim().toLowerCase();
@@ -4850,10 +5329,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     deliveryConfig.approvedFingerprint && deliveryConfig.approvedFingerprint === buildDeliveryFingerprint()
   );
 
-  const activePage = useMemo(
-    () => pages.find((page) => page.id === activePageId) ?? pages[0] ?? null,
-    [pages, activePageId]
-  );
+  const activePage = useMemo(() => {
+    const storedActivePage = pages.find((page) => page.id === activePageId);
+    if (storedActivePage) {
+      return {
+        ...storedActivePage,
+        sections,
+      };
+    }
+
+    return pages[0] ?? null;
+  }, [pages, activePageId, sections]);
 
   const siteAudit = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -4957,10 +5443,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function switchPage(pageId: string) {
     const target = pages.find((page) => page.id === pageId);
     if (!target || target.id === activePageId) return;
+    clearEditorDragState();
+    setPages((current) => current.map((page) =>
+      page.id === activePageId ? { ...page, sections } : page
+    ));
     setActivePageId(target.id);
     setSections(target.sections);
-    setSelectedId(target.sections[0]?.id ?? null);
-    setSelectedElementId(target.sections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      target.sections[0]?.id ?? null,
+      target.sections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -4973,11 +5465,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     let suffix = 2;
     while (used.has(slug)) slug = `${base}-${suffix++}`;
     const page = { ...createPage(`Page ${pages.length + 1}`, slug), language: prefs.language };
-    setPages((current) => [...current, page]);
+    clearEditorDragState();
+    setPages((current) => [
+      ...current.map((item) =>
+        item.id === activePageId
+          ? { ...item, sections }
+          : item
+      ),
+      page,
+    ]);
     setActivePageId(page.id);
     setSections(page.sections);
-    setSelectedId(page.sections[0]?.id ?? null);
-    setSelectedElementId(page.sections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      page.sections[0]?.id ?? null,
+      page.sections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5000,11 +5502,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       showInNavigation: false,
       canonicalUrl: '',
     };
-    setPages((current) => [...current, page]);
+    clearEditorDragState();
+    setPages((current) => [
+      ...current.map((item) =>
+        item.id === activePageId
+          ? { ...item, sections }
+          : item
+      ),
+      page,
+    ]);
     setActivePageId(page.id);
     setSections(clonedSections);
-    setSelectedId(clonedSections[0]?.id ?? null);
-    setSelectedElementId(clonedSections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      clonedSections[0]?.id ?? null,
+      clonedSections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5035,13 +5547,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       translationKey: groupKey,
       canonicalUrl: '',
     };
+    clearEditorDragState();
     setPages((current) => current
-      .map((item) => item.id === activePage.id ? { ...item, translationKey: groupKey } : item)
+      .map((item) =>
+        item.id === activePage.id
+          ? {
+              ...item,
+              sections,
+              translationKey: groupKey,
+            }
+          : item
+      )
       .concat(page));
     setActivePageId(page.id);
     setSections(clonedSections);
-    setSelectedId(clonedSections[0]?.id ?? null);
-    setSelectedElementId(clonedSections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      clonedSections[0]?.id ?? null,
+      clonedSections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5051,6 +5574,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (page.id !== activePageId) return page;
       return {
         ...page,
+        sections,
         ...changes,
         slug: changes.slug !== undefined ? normalizeSlug(changes.slug) : page.slug,
       };
@@ -5061,11 +5585,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function movePage(pageId: string, direction: 'up' | 'down') {
     remember(sections, 'Move page');
     setPages((current) => {
-      const index = current.findIndex((page) => page.id === pageId);
+      const withLiveActivePage = current.map((page) =>
+        page.id === activePageId
+          ? { ...page, sections }
+          : page
+      );
+      const index = withLiveActivePage.findIndex((page) => page.id === pageId);
       if (index === -1) return current;
       const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
+      if (target < 0 || target >= withLiveActivePage.length) {
+        return withLiveActivePage;
+      }
+      const next = [...withLiveActivePage];
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
@@ -5084,12 +5615,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections, 'Delete page');
     const remaining = pages.filter((page) => page.id !== activePageId);
     const next = remaining[0];
+    clearEditorDragState();
     setPages(remaining);
     if (activePageId === homePageId) setHomePageId(next.id);
     setActivePageId(next.id);
     setSections(next.sections);
-    setSelectedId(next.sections[0]?.id ?? null);
-    setSelectedElementId(next.sections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      next.sections[0]?.id ?? null,
+      next.sections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5112,7 +5646,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function undo() {
     if (!history.length) return;
     const previous = history[history.length - 1];
+    if (snapshotConflictsWithActiveProject(previous.snapshot)) return;
+
     const redoEntry = createEditHistoryEntry(previous.label);
+    prepareProjectStateRestore();
     setHistory((current) => current.slice(0, -1));
     setFuture((current) => [redoEntry, ...current].slice(0, 50));
     skipNextAutosaveRef.current = true;
@@ -5123,11 +5660,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function redo() {
     if (!future.length) return;
     const next = future[0];
+    if (snapshotConflictsWithActiveProject(next.snapshot)) return;
+
     const undoEntry = createEditHistoryEntry(next.label);
+    prepareProjectStateRestore();
     setFuture((current) => current.slice(1));
     setHistory((current) => [...current.slice(-49), undoEntry]);
     skipNextAutosaveRef.current = true;
     applyProjectData(next.snapshot, false, false);
+    setSaved(false);
+  }
+
+  function restoreEditHistoryEntry(entryId: string) {
+    const targetIndex = history.findIndex((entry) => entry.id === entryId);
+    if (targetIndex < 0) return;
+
+    const target = history[targetIndex];
+    if (snapshotConflictsWithActiveProject(target.snapshot)) return;
+
+    const currentEntry = createEditHistoryEntry('Current state before history restore');
+    prepareProjectStateRestore();
+    const redoPath = [
+      ...history.slice(targetIndex + 1),
+      currentEntry,
+      ...future,
+    ].slice(0, 50);
+
+    setHistory(history.slice(0, targetIndex));
+    setFuture(redoPath);
+    skipNextAutosaveRef.current = true;
+    applyProjectData(target.snapshot, false, false);
     setSaved(false);
   }
 
@@ -5258,8 +5820,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections((current) => current.map((section) =>
       section.id === sectionId ? { ...section, elements: [...section.elements, element] } : section
     ));
-    setSelectedId(sectionId);
-    setSelectedElementId(element.id);
+    selectEditorTarget(sectionId, element.id);
     setSaved(false);
   }
 
@@ -5322,8 +5883,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function beginElementResize(sectionId: string, elementId: string) {
-    setSelectedId(sectionId);
-    setSelectedElementId(elementId);
+    selectEditorTarget(sectionId, elementId);
     remember(sections);
   }
 
@@ -5550,7 +6110,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections((current) => current.map((section) =>
       section.id === selectedSection.id ? { ...section, elements: remaining } : section
     ));
-    setSelectedElementId(remaining[0]?.id ?? null);
+    selectEditorTarget(selectedSection.id, remaining[0]?.id ?? null);
     setSaved(false);
   }
 
@@ -5567,14 +6127,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           ) as WebsiteElement['responsive']
         : undefined,
     };
-    const index = selectedSection.elements.findIndex((element) => element.id === selectedElement.id);
     setSections((current) => current.map((section) => {
       if (section.id !== selectedSection.id) return section;
+
+      const index = section.elements.findIndex((element) => element.id === selectedElement.id);
+      if (index < 0) return section;
+
       const elements = [...section.elements];
       elements.splice(index + 1, 0, duplicate);
       return { ...section, elements };
     }));
-    setSelectedElementId(duplicate.id);
+    selectEditorTarget(selectedSection.id, duplicate.id);
     setSaved(false);
   }
 
@@ -5640,6 +6203,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function createSymbolFromSelected() {
     if (!selectedElement || !selectedSection || selectedElement.symbolId) return;
+
+    if (symbols.length >= 50) {
+      window.alert('You can keep up to 50 reusable components in one website. Delete an unused component before creating another.');
+      return;
+    }
+
     remember(sections, 'Create reusable component');
     const baseName = (selectedElement.content?.slice(0, 40) || ELEMENT_LABELS[selectedElement.type] || 'Component').trim();
     const matching = symbols.filter((symbol) => symbol.name === baseName || symbol.name.startsWith(`${baseName} `)).length;
@@ -5651,7 +6220,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       element: cloneSymbolElement(selectedElement),
       updatedAt: new Date().toISOString(),
     };
-    setSymbols((current) => [symbol, ...current].slice(0, 50));
+    setSymbols((current) => [symbol, ...current]);
     setSections((current) => current.map((section) => section.id === selectedSection.id ? {
       ...section,
       elements: section.elements.map((element) => element.id === selectedElement.id ? { ...element, symbolId } : element),
@@ -5662,16 +6231,41 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function insertSymbol(symbol: WebsiteSymbol) {
     if (!selectedSection) return;
     remember(sections, `Insert component: ${symbol.name}`);
+
     const columnCount = sectionColumnCount(selectedSection.layout);
+    const targetContainerId =
+      selectedElement?.containerId ||
+      selectedContainerId ||
+      undefined;
+
     const instance: WebsiteElement = {
       ...JSON.parse(JSON.stringify(symbol.element)) as WebsiteElement,
       id: `${symbol.element.type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       symbolId: symbol.id,
-      layoutColumn: columnCount > 1 ? 1 : undefined,
-      containerId: undefined,
+      layoutColumn: targetContainerId
+        ? undefined
+        : columnCount > 1
+          ? selectedElement?.layoutColumn || 1
+          : undefined,
+      containerId: targetContainerId,
     };
-    setSections((current) => current.map((section) => section.id === selectedSection.id ? { ...section, elements: [...section.elements, instance] } : section));
-    setSelectedElementId(instance.id);
+
+    setSections((current) => current.map((section) => {
+      if (section.id !== selectedSection.id) return section;
+
+      const elements = [...section.elements];
+      const selectedIndex = selectedElementId
+        ? elements.findIndex((element) => element.id === selectedElementId)
+        : -1;
+      const insertAt = selectedIndex >= 0
+        ? selectedIndex + 1
+        : elements.length;
+
+      elements.splice(insertAt, 0, instance);
+      return { ...section, elements };
+    }));
+
+    selectEditorTarget(selectedSection.id, instance.id);
     setSaved(false);
   }
 
@@ -5694,38 +6288,82 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       elements: section.elements.map((element) => element.symbolId === symbolId ? { ...element, symbolId: undefined } : element),
     });
     setSections((current) => current.map(detach));
-    setPages((current) => current.map((page) => ({ ...page, sections: page.sections.map(detach) })));
+    setPages((current) => current.map((page) =>
+      page.id === activePageId
+        ? page
+        : { ...page, sections: page.sections.map(detach) }
+    ));
     setSaved(false);
   }
 
   function resetSelectedElementResponsive() {
-    if (!selectedSection || !selectedElementId) return;
+    if (!selectedSection || !selectedElementId || !selectedElement) return;
+
     remember(sections);
-    setSections((current) => current.map((section) => {
-      if (section.id !== selectedSection.id) return section;
-      return {
-        ...section,
-        elements: section.elements.map((element) => {
-          if (element.id !== selectedElementId) return element;
-          const responsive = { ...(element.responsive || {}) };
-          delete responsive[device];
-          return { ...element, responsive };
-        }),
-      };
-    }));
+    const selectedSymbolId = selectedElement.symbolId;
+
+    const resetElement = (element: WebsiteElement): WebsiteElement => {
+      const responsive = { ...(element.responsive || {}) };
+      delete responsive[device];
+      return { ...element, responsive };
+    };
+
+    const resetSection = (section: WebsiteSection): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = selectedSymbolId
+          ? element.symbolId === selectedSymbolId
+          : element.id === selectedElementId;
+        return matches ? resetElement(element) : element;
+      }),
+    });
+
+    setSections((current) =>
+      current.map((section) =>
+        section.id === selectedSection.id || selectedSymbolId
+          ? resetSection(section)
+          : section
+      )
+    );
+
+    if (selectedSymbolId) {
+      setPages((current) => current.map((page) =>
+        page.id === activePageId
+          ? page
+          : {
+              ...page,
+              sections: page.sections.map(resetSection),
+            }
+      ));
+
+      setSymbols((current) => current.map((symbol) =>
+        symbol.id === selectedSymbolId
+          ? {
+              ...symbol,
+              element: cloneSymbolElement(resetElement(symbol.element)),
+              updatedAt: new Date().toISOString(),
+            }
+          : symbol
+      ));
+    }
+
     setSaved(false);
   }
 
   function moveSelectedElement(direction: 'up' | 'down') {
     if (!selectedSection || !selectedElementId) return;
-    const index = selectedSection.elements.findIndex((element) => element.id === selectedElementId);
-    if (index === -1) return;
-    const target = direction === 'up' ? index - 1 : index + 1;
-    if (target < 0 || target >= selectedSection.elements.length) return;
+    if (!selectedSection.elements.some((element) => element.id === selectedElementId)) return;
 
     remember(sections);
     setSections((current) => current.map((section) => {
       if (section.id !== selectedSection.id) return section;
+
+      const index = section.elements.findIndex((element) => element.id === selectedElementId);
+      if (index < 0) return section;
+
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= section.elements.length) return section;
+
       const elements = [...section.elements];
       [elements[index], elements[target]] = [elements[target], elements[index]];
       return { ...section, elements };
@@ -5742,6 +6380,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     draggedElementSectionRef.current = sectionId;
     const sourceStyle = effectiveStyle(sourceElement, device);
     freeElementDragRef.current = {
+      pageId: activePageId,
+      device,
       sectionId,
       elementId: id,
       symbolId: sourceElement.symbolId,
@@ -5755,8 +6395,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setDraggedElementId(id);
     setDragOverElementId(null);
     setDragOverElementPosition(null);
-    setSelectedId(sectionId);
-    setSelectedElementId(id);
+    selectEditorTarget(sectionId, id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/x-tayar-element', id);
     e.dataTransfer.setData('application/x-tayar-section', sectionId);
@@ -5764,7 +6403,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function handleElementDragMove(sectionId: string, id: string, e: React.DragEvent) {
     const drag = freeElementDragRef.current;
-    if (!drag || drag.sectionId !== sectionId || drag.elementId !== id) return;
+    if (
+      !drag ||
+      drag.pageId !== activePageId ||
+      drag.sectionId !== sectionId ||
+      drag.elementId !== id
+    ) {
+      return;
+    }
     if (!e.clientX && !e.clientY) return;
 
     const nextX = Math.max(-4000, Math.min(4000, Math.round(drag.startX + (e.clientX - drag.startClientX))));
@@ -5782,8 +6428,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           ...element,
           responsive: {
             ...element.responsive,
-            [device]: {
-              ...(element.responsive?.[device] || {}),
+            [drag.device]: {
+              ...(element.responsive?.[drag.device] || {}),
               positionX: nextX,
               positionY: nextY,
             },
@@ -5807,7 +6453,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const sourceId = draggedElementRef.current;
     const sourceSectionId = draggedElementSectionRef.current;
-    if (!sourceId || !sourceSectionId || sourceId === targetId) return;
+    const drag = freeElementDragRef.current;
+    if (
+      !sourceId ||
+      !sourceSectionId ||
+      !drag ||
+      drag.pageId !== activePageId ||
+      sourceId === targetId
+    ) {
+      return;
+    }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const position: 'before' | 'after' = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
@@ -5846,15 +6501,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       };
       const nextTargetElements = [...targetWithoutSource];
       nextTargetElements.splice(Math.min(insertAt, nextTargetElements.length), 0, movedElement);
-      draggedElementSectionRef.current = targetSectionId;
-      setSelectedId(targetSectionId);
-
       return current.map((section) => {
         if (section.id === sourceSectionId) return { ...section, elements: section.elements.filter((element) => element.id !== sourceId) };
         if (section.id === targetSectionId) return { ...section, elements: nextTargetElements };
         return section;
       });
     });
+
+    if (sourceSectionId !== targetSectionId) {
+      draggedElementSectionRef.current = targetSectionId;
+      drag.sectionId = targetSectionId;
+      selectEditorTarget(targetSectionId, sourceId);
+    }
+
     setSaved(false);
   }
 
@@ -5862,9 +6521,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.preventDefault();
     e.stopPropagation();
     const sourceId = draggedElementRef.current || e.dataTransfer.getData('application/x-tayar-element');
-    if (sourceId && e.shiftKey) {
-      setSelectedId(targetSectionId);
-      setSelectedElementId(sourceId);
+    const drag = freeElementDragRef.current;
+    if (
+      sourceId &&
+      e.shiftKey &&
+      drag?.pageId === activePageId
+    ) {
+      selectEditorTarget(targetSectionId, sourceId);
       setDragOverElementId(targetId);
     }
     handleElementDragEnd();
@@ -5872,32 +6535,39 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function handleElementDragEnd() {
     const drag = freeElementDragRef.current;
-    if (drag?.symbolId) {
-      setPages((current) => current.map((page) => ({
-        ...page,
-        sections: page.sections.map((section) => ({
-          ...section,
-          elements: section.elements.map((element) => element.symbolId === drag.symbolId ? {
-            ...element,
-            responsive: {
-              ...element.responsive,
-              [device]: {
-                ...(element.responsive?.[device] || {}),
-                positionX: drag.currentX,
-                positionY: drag.currentY,
-              },
-            },
-          } : element),
-        })),
-      })));
+    if (
+      drag?.symbolId &&
+      drag.pageId === activePageId
+    ) {
+      setPages((current) => current.map((page) =>
+        page.id === drag.pageId
+          ? page
+          : {
+              ...page,
+              sections: page.sections.map((section) => ({
+                ...section,
+                elements: section.elements.map((element) => element.symbolId === drag.symbolId ? {
+                  ...element,
+                  responsive: {
+                    ...element.responsive,
+                    [drag.device]: {
+                      ...(element.responsive?.[drag.device] || {}),
+                      positionX: drag.currentX,
+                      positionY: drag.currentY,
+                    },
+                  },
+                } : element),
+              })),
+            }
+      ));
       setSymbols((current) => current.map((symbol) => symbol.id === drag.symbolId ? {
         ...symbol,
         element: {
           ...symbol.element,
           responsive: {
             ...symbol.element.responsive,
-            [device]: {
-              ...(symbol.element.responsive?.[device] || {}),
+            [drag.device]: {
+              ...(symbol.element.responsive?.[drag.device] || {}),
               positionX: drag.currentX,
               positionY: drag.currentY,
             },
@@ -5918,8 +6588,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections);
     const section = createSection(type);
     setSections((current) => [...current, section]);
-    setSelectedId(section.id);
-    setSelectedElementId(section.elements[0]?.id ?? null);
+    selectEditorTarget(section.id, section.elements[0]?.id ?? null);
     setSaved(false);
   }
 
@@ -5933,8 +6602,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       next.splice(index + 1, 0, section);
       return next;
     });
-    setSelectedId(section.id);
-    setSelectedElementId(section.elements[0]?.id ?? null);
+    selectEditorTarget(section.id, section.elements[0]?.id ?? null);
     setSaved(false);
   }
 
@@ -5957,9 +6625,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }),
       };
     });
+    clearEditorDragState();
     setSections(nextSections);
-    setSelectedId(nextSections[0]?.id ?? null);
-    setSelectedElementId(nextSections[0]?.elements[0]?.id ?? null);
+    selectEditorTarget(
+      nextSections[0]?.id ?? null,
+      nextSections[0]?.elements[0]?.id ?? null,
+    );
     setSaved(false);
   }
 
@@ -5967,25 +6638,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections);
     const section = createSectionFromTemplate(template);
     setSections((current) => [...current, section]);
-    setSelectedId(section.id);
-    setSelectedElementId(section.elements[0]?.id ?? null);
+    selectEditorTarget(section.id, section.elements[0]?.id ?? null);
     setSaved(false);
   }
 
   function deleteSection(id: string) {
+    if (sections.length <= 1) return;
+
+    const index = sections.findIndex((section) => section.id === id);
+    if (index < 0) return;
+
     remember(sections);
-    setSections((current) => {
-      if (current.length <= 1) return current;
+    const next = sections.filter((section) => section.id !== id);
 
-      const index = current.findIndex((section) => section.id === id);
-      const next = current.filter((section) => section.id !== id);
+    setSections(next);
 
-      if (id === selectedId) {
-        setSelectedId(next[Math.max(0, index - 1)]?.id ?? next[0]?.id);
-      }
+    if (id === selectedId) {
+      const fallbackSection =
+        next[Math.min(Math.max(0, index - 1), next.length - 1)] ||
+        next[0] ||
+        null;
 
-      return next;
-    });
+      selectEditorTarget(
+        fallbackSection?.id ?? null,
+        fallbackSection?.elements[0]?.id ?? null,
+      );
+    }
 
     setSaved(false);
   }
@@ -6010,11 +6688,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function handleDragStart(id: string, e: React.DragEvent) {
     remember(sections);
     draggedSectionRef.current = id;
+    draggedSectionPageRef.current = activePageId;
     setDraggedId(id);
     setDragOverId(null);
     setDragOverSectionPosition(null);
-    setSelectedId(id);
-    setSelectedElementId(null);
+    selectEditorTarget(id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', id);
   }
@@ -6025,7 +6703,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     e.dataTransfer.dropEffect = 'move';
 
     const sourceId = draggedSectionRef.current;
-    if (!sourceId || sourceId === targetId) return;
+    if (
+      !sourceId ||
+      draggedSectionPageRef.current !== activePageId ||
+      sourceId === targetId
+    ) {
+      return;
+    }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const position: 'before' | 'after' = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
@@ -6048,17 +6732,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function handleDrop(e: React.DragEvent, targetId: string) {
+  function handleDrop(e: React.DragEvent, _targetId: string) {
     e.preventDefault();
     e.stopPropagation();
     const sourceId = draggedSectionRef.current || e.dataTransfer.getData('text/plain');
-    if (sourceId) setSelectedId(sourceId);
-    setDragOverId(targetId);
+    if (sourceId && draggedSectionPageRef.current === activePageId) {
+      selectEditorTarget(sourceId);
+    }
     handleDragEnd();
   }
 
   function handleDragEnd() {
     draggedSectionRef.current = null;
+    draggedSectionPageRef.current = null;
     setDraggedId(null);
     setDragOverId(null);
     setDragOverSectionPosition(null);
@@ -6077,6 +6763,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function requestGeneratedImage(prompt: string) {
     const cleanPrompt = prompt.trim();
     if (!cleanPrompt) throw new Error('Image prompt is required.');
+    const requestUserId = user?.id ?? null;
     const ai = createAIService('website-builder');
     const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean; persistenceError?: string }>(
       { action: 'generate-image', prompt: cleanPrompt },
@@ -6084,7 +6771,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       { temperature: 0.8, maxTokens: 1000 },
     );
     if (!response.json?.url) throw new Error('Image generation did not return an image.');
-    if (user) void refreshMedia();
+    if (requestUserId) void refreshMedia(requestUserId);
     return response.json;
   }
 
@@ -6100,7 +6787,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       );
     }
 
-    setMediaError('');
+    const generationSequence = ++mediaGenerationSequenceRef.current;
+    const generationUserId = user?.id ?? null;
+    const generationIsCurrent = () =>
+      mediaGenerationSequenceRef.current === generationSequence &&
+      activeUserIdRef.current === generationUserId;
+
+    if (generationIsCurrent()) {
+      setMediaError('');
+    }
 
     try {
       const generated =
@@ -6115,10 +6810,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
 
-      await refreshMedia();
+      if (generationIsCurrent()) {
+        await refreshMedia(generationUserId);
+      }
 
       return generated;
     } catch (error) {
+      if (!generationIsCurrent()) {
+        return undefined;
+      }
+
       const message =
         error instanceof Error
           ? error.message
@@ -6133,6 +6834,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function generateWithAI(agentMode = false) {
     const prompt = aiPrompt.trim();
     if (!prompt || aiBusy) return;
+
+    const operationSequence = ++aiOperationSequenceRef.current;
+    const operationUserId = user?.id ?? null;
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
+      aiOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, false);
 
     const requestId = `ai-request-${Date.now()}`;
     pushProjectCheckpoint(agentMode ? 'Before Tayar Agent build' : 'Before AI build');
@@ -6151,6 +6862,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         [],
         { temperature: 0.65, maxTokens: 9000 },
       );
+
+      if (!operationCanApply()) return;
 
       let generated = response.json;
       if (!generated && response.content) {
@@ -6250,6 +6963,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         for (const target of visualTargets) {
           try {
             const generatedImage = await requestGeneratedImage(target.prompt);
+            if (!operationCanApply()) return;
             const page = nextPages[target.pageIndex];
             const section = page?.sections[target.sectionIndex];
             if (!section) continue;
@@ -6277,6 +6991,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             );
             agentImagesGenerated += 1;
           } catch {
+            if (!operationCanApply()) return;
             // Agent image generation is best-effort; the site remains fully editable if the image provider is unavailable.
           }
         }
@@ -6285,6 +7000,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const firstPage = nextPages[0];
       const totalSections = nextPages.reduce((sum, page) => sum + page.sections.length, 0);
       const summary = generated.summary?.trim() || `${nextPages.length} page website with ${totalSections} structured sections.`;
+
+      if (!operationCanApply()) return;
 
       setAiPlan({
         summary,
@@ -6344,6 +7061,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         brand: generated.brand || brand,
         seo: nextGeneratedSeo,
       });
+      aiUndoContextRef.current = null;
+      aiQualityReviewContextRef.current = null;
       setAiUndoSnapshot(null);
       setAiQualityReview(null);
       setSaved(false);
@@ -6360,6 +7079,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         },
       ].slice(-12));
     } catch (error) {
+      if (!operationCanApply()) return;
       const message = error instanceof Error ? error.message : 'AI generation failed.';
       setAiError(message);
       setAiStage('error');
@@ -6368,7 +7088,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { id: `ai-error-${Date.now()}`, role: 'assistant' as const, content: message },
       ].slice(-12));
     } finally {
-      setAiBusy(false);
+      if (operationIsLatest()) {
+        setAiBusy(false);
+        if (!operationCanApply()) setAiStage('ready');
+      }
     }
   }
 
@@ -6514,6 +7237,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function undoLastAIChange() {
     if (!aiUndoSnapshot || aiBusy) return;
+
+    const undoContext = aiUndoContextRef.current;
+    if (
+      !undoContext ||
+      !aiProjectIdentityIsCurrent(undoContext)
+    ) {
+      aiUndoContextRef.current = null;
+      setAiUndoSnapshot(null);
+      return;
+    }
+
     const snapshot = aiUndoSnapshot;
     const restoredPages = JSON.parse(JSON.stringify(snapshot.pages)) as WebsitePage[];
     const restoredActive = restoredPages.find((page) => page.id === snapshot.activePageId) || restoredPages[0];
@@ -6529,6 +7263,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setTheme(snapshot.theme);
     setHeaderConfig(snapshot.headerConfig);
     setSymbols(JSON.parse(JSON.stringify(snapshot.symbols)) as WebsiteSymbol[]);
+    aiUndoContextRef.current = null;
     setAiUndoSnapshot(null);
     setAiStage('ready');
     setSaved(false);
@@ -6541,6 +7276,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function applyAIChange(requestedPrompt?: string) {
     const prompt = typeof requestedPrompt === 'string' ? requestedPrompt.trim() : aiPrompt.trim();
     if (!prompt || aiBusy) return;
+
+    const operationSequence = ++aiOperationSequenceRef.current;
+    const operationUserId = user?.id ?? null;
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
+      aiOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, true);
 
     const requestId = `ai-edit-${Date.now()}`;
     remember(sections, `AI change: ${prompt.slice(0, 60)}`);
@@ -6578,6 +7323,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         aiMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
         { temperature: 0.2, maxTokens: 3500 },
       );
+
+      if (!operationCanApply()) return;
 
       let rawAgentPlan = planResponse.json as AIWebsiteAgentPlan | null;
       if (!rawAgentPlan && planResponse.content) {
@@ -6638,6 +7385,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         aiMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
         { temperature: 0.25, maxTokens: 12000 },
       );
+
+      if (!operationCanApply()) return;
 
       let patch = response.json;
       if (!patch && response.content) {
@@ -6790,6 +7539,222 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       let nextHeaderConfig: WebsiteHeaderConfig = { ...headerConfig };
       let nextSymbols = JSON.parse(JSON.stringify(symbols)) as WebsiteSymbol[];
       let applied = 0;
+      const nativeBridgeWarnings: string[] = [];
+
+      const applyAIWorkingNativeOperations = (
+        nativeOperations: EditorNativeOperation[],
+        sourceAction: string,
+      ) => {
+        if (!nativeOperations.length) {
+          return 'unchanged' as const;
+        }
+
+        const nativeResult =
+          applyEditorAIWorkingNativeOperations(
+            {
+              pages:
+                nextPages as unknown as EditorPageLike[],
+              homePageId:
+                nextHomePageId,
+              theme: {
+                ...nextTheme,
+              },
+              seo: {
+                ...nextSeo,
+                keywords: [
+                  ...nextSeo.keywords,
+                ],
+              },
+              headerConfig: {
+                ...nextHeaderConfig,
+              },
+              symbols:
+                JSON.parse(
+                  JSON.stringify(nextSymbols),
+                ) as EditorSymbolLike[],
+            },
+            nativeOperations,
+            {
+              source: 'ai',
+              label:
+                `Apply AI ${sourceAction.replace(/_/g, ' ')}`,
+              limits: {
+                maxPages:
+                  BUSINESS_BILLING_ENTITLEMENTS.maxPages,
+                maxSymbols: 50,
+              },
+              validateProject: (
+                candidate,
+                previous,
+              ) => {
+                const pageCountIncreased =
+                  candidate.pages.length >
+                  previous.pages.length;
+
+                if (
+                  pageCountIncreased &&
+                  candidate.pages.length >
+                    billingEntitlements.maxPages
+                ) {
+                  return {
+                    ok: false,
+                    errors: [
+                      `Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports up to ${billingEntitlements.maxPages} pages.`,
+                    ],
+                  };
+                }
+
+                return {
+                  ok: true,
+                };
+              },
+            },
+          );
+
+        if (!nativeResult.ok) {
+          nativeBridgeWarnings.push(
+            ...nativeResult.errors
+              .map((error) =>
+                `${sourceAction}: ${error}`,
+              )
+              .slice(0, 3),
+          );
+          return 'rejected' as const;
+        }
+
+        if (!nativeResult.changed) {
+          return 'unchanged' as const;
+        }
+
+        const working =
+          nativeResult.working;
+
+        nextPages =
+          working.pages as unknown as WebsitePage[];
+
+        const requestedHomePageId =
+          typeof working.homePageId === 'string'
+            ? working.homePageId
+            : nextHomePageId;
+
+        if (
+          nextPages.some(
+            (page) =>
+              page.id ===
+              requestedHomePageId,
+          )
+        ) {
+          nextHomePageId =
+            requestedHomePageId;
+        }
+
+        if (
+          working.theme &&
+          typeof working.theme === 'object'
+        ) {
+          nextTheme =
+            normalizeTheme(
+              working.theme as Partial<WebsiteTheme>,
+            );
+        }
+
+        if (
+          working.seo &&
+          typeof working.seo === 'object'
+        ) {
+          const rawSeo =
+            working.seo as Partial<WebsiteSEO>;
+
+          nextSeo = {
+            title:
+              typeof rawSeo.title === 'string'
+                ? rawSeo.title
+                : nextSeo.title,
+            description:
+              typeof rawSeo.description === 'string'
+                ? rawSeo.description
+                : nextSeo.description,
+            keywords:
+              Array.isArray(rawSeo.keywords)
+                ? rawSeo.keywords
+                    .filter(
+                      (
+                        keyword,
+                      ): keyword is string =>
+                        typeof keyword === 'string',
+                    )
+                    .slice(0, 40)
+                : [
+                    ...nextSeo.keywords,
+                  ],
+          };
+        }
+
+        if (
+          working.headerConfig &&
+          typeof working.headerConfig ===
+            'object'
+        ) {
+          nextHeaderConfig =
+            normalizeHeaderConfig(
+              working.headerConfig as Partial<WebsiteHeaderConfig>,
+            );
+        }
+
+        if (
+          Array.isArray(
+            working.symbols,
+          )
+        ) {
+          nextSymbols =
+            working.symbols as unknown as WebsiteSymbol[];
+        }
+
+        applied += 1;
+        nativeBridgeWarnings.push(
+          ...nativeResult.warnings
+            .map((warning) =>
+              `${sourceAction}: ${warning}`,
+            )
+            .slice(0, 3),
+        );
+
+        return 'changed' as const;
+      };
+
+      const applyAIWorkingNativeOperation = (
+        nativeOperation: EditorNativeOperation,
+        sourceAction: string,
+      ) =>
+        applyAIWorkingNativeOperations(
+          [nativeOperation],
+          sourceAction,
+        );
+
+      const applyAIGlobalNativeOperation = (
+        operation: AIWebsitePatchOperation,
+      ) => {
+        if (!isLegacyAIGlobalNativeAction(operation.action)) {
+          return false;
+        }
+
+        const nativeOperation =
+          convertLegacyAIGlobalOperationToNative(
+            operation as unknown as {
+              action: string;
+              changes?: Record<string, unknown>;
+            },
+          );
+
+        if (nativeOperation) {
+          applyAIWorkingNativeOperation(
+            nativeOperation,
+            operation.action,
+          );
+        }
+
+        return true;
+      };
 
       const resolvePageIndex = (operation: AIWebsitePatchOperation) => {
         if (operation.pageId) {
@@ -6804,6 +7769,168 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return nextPages.findIndex((page) => page.id === activePageId);
       };
 
+      const applyAIPageNativeOperation = (
+        operation: AIWebsitePatchOperation,
+      ) => {
+        if (operation.action === 'duplicate_page') {
+          if (
+            nextPages.length >= billingEntitlements.maxPages ||
+            (!operation.pageId && !operation.pageSlug)
+          ) {
+            return true;
+          }
+
+          const sourceIndex = resolvePageIndex(operation);
+          if (sourceIndex < 0 || sourceIndex >= nextPages.length) {
+            return true;
+          }
+
+          const sourcePage = nextPages[sourceIndex];
+          const changes = operation.changes || {};
+          const requestedName =
+            typeof changes.name === 'string' && changes.name.trim()
+              ? changes.name.trim().slice(0, 60)
+              : `${sourcePage.name} Copy`;
+          const requestedSlug =
+            typeof changes.slug === 'string' && changes.slug.trim()
+              ? normalizeSlugValue(changes.slug)
+              : normalizeSlugValue(`${sourcePage.slug}-copy`);
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'duplicate_page',
+              source: 'ai',
+              pageId: sourcePage.id,
+              changes: {
+                name: requestedName,
+                slug: requestedSlug || `page-copy-${Date.now()}`,
+                translationKey: '',
+                canonicalUrl: '',
+              },
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
+        if (!isLegacyAIPageNativeAction(operation.action)) {
+          return false;
+        }
+
+        if (operation.action === 'move_page') {
+          if (
+            !operation.pageId ||
+            (!operation.beforePageId &&
+              !operation.afterPageId) ||
+            (operation.beforePageId &&
+              operation.afterPageId)
+          ) {
+            return true;
+          }
+
+          const sourceIndex =
+            nextPages.findIndex(
+              (page) =>
+                page.id === operation.pageId,
+            );
+
+          if (sourceIndex < 0) {
+            return true;
+          }
+
+          const destinationId =
+            operation.beforePageId ||
+            operation.afterPageId ||
+            '';
+
+          if (
+            destinationId ===
+            operation.pageId
+          ) {
+            return true;
+          }
+
+          const destinationExists =
+            nextPages.some(
+              (page) =>
+                page.id ===
+                destinationId,
+            );
+
+          if (!destinationExists) {
+            return true;
+          }
+
+          const nativeOperation =
+            convertLegacyAIPageOperationToNative(
+              operation,
+              operation.pageId,
+            );
+
+          if (nativeOperation) {
+            applyAIWorkingNativeOperation(
+              nativeOperation,
+              operation.action,
+            );
+          }
+
+          return true;
+        }
+
+        if (
+          !operation.pageId &&
+          !operation.pageSlug
+        ) {
+          return true;
+        }
+
+        const pageIndex =
+          resolvePageIndex(operation);
+
+        if (
+          pageIndex < 0 ||
+          pageIndex >= nextPages.length
+        ) {
+          return true;
+        }
+
+        const pageId =
+          nextPages[pageIndex].id;
+
+        if (
+          operation.action === 'remove_page' &&
+          (
+            nextPages.length <= 1 ||
+            pageId === nextHomePageId
+          )
+        ) {
+          return true;
+        }
+
+        if (
+          operation.action === 'set_home_page' &&
+          pageId === nextHomePageId
+        ) {
+          return true;
+        }
+
+        const nativeOperation =
+          convertLegacyAIPageOperationToNative(
+            operation,
+            pageId,
+          );
+
+        if (nativeOperation) {
+          applyAIWorkingNativeOperation(
+            nativeOperation,
+            operation.action,
+          );
+        }
+
+        return true;
+      };
+
       const resolveSectionIndex = (page: WebsitePage, operation: AIWebsitePatchOperation) => {
         if (operation.sectionId) {
           const index = page.sections.findIndex((section) => section.id === operation.sectionId);
@@ -6815,45 +7942,827 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return -1;
       };
 
-      const cloneElementForAI = (element: WebsiteElement, containerIdMap?: Map<string, string>): WebsiteElement => ({
-        ...element,
-        id: `${element.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        style: { ...element.style },
-        responsive: element.responsive
-          ? JSON.parse(JSON.stringify(element.responsive)) as WebsiteElement['responsive']
-          : undefined,
-        containerId: element.containerId
-          ? (containerIdMap ? containerIdMap.get(element.containerId) : element.containerId)
-          : undefined,
-        symbolId: undefined,
-      });
+      const applyAIPageScopedStructuralNativeOperation = (
+        operation: AIWebsitePatchOperation,
+        pageIndex: number,
+      ) => {
+        if (
+          operation.action !== 'remove_section' &&
+          operation.action !== 'move_section' &&
+          operation.action !== 'duplicate_section'
+        ) {
+          return false;
+        }
 
-      const cloneSectionForAI = (section: WebsiteSection): WebsiteSection => {
-        const containerIdMap = new Map<string, string>();
-        const clonedContainers = (section.containers || []).map((container, index) => {
-          const nextId = `container-ai-copy-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
-          containerIdMap.set(container.id, nextId);
-          return { ...container, id: nextId };
-        });
-        const clonedFields = Array.isArray(section.formFields)
-          ? section.formFields.map((field, index) => ({
-              ...field,
-              id: `field-ai-copy-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-              options: Array.isArray(field.options) ? [...field.options] : field.options,
-            }))
-          : section.formFields;
-        return normalizeSection({
-          ...section,
-          id: `${section.type}-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          anchorId: undefined,
-          containers: clonedContainers,
-          formFields: clonedFields,
-          elements: section.elements.map((element) => cloneElementForAI(element, containerIdMap)),
-        });
+        const page =
+          nextPages[pageIndex];
+
+        if (!page) {
+          return true;
+        }
+
+        if (
+          !operation.sectionId ||
+          !page.sections.some(
+            (section) =>
+              section.id ===
+              operation.sectionId,
+          )
+        ) {
+          return true;
+        }
+
+        if (
+          operation.action === 'remove_section' &&
+          page.sections.length <= 1
+        ) {
+          return true;
+        }
+
+        if (operation.action === 'duplicate_section') {
+          if (page.sections.length >= 20) {
+            return true;
+          }
+
+          const beforeCandidate =
+            typeof operation.beforeSectionId === 'string'
+              ? operation.beforeSectionId.trim()
+              : '';
+          const afterCandidate =
+            typeof operation.afterSectionId === 'string'
+              ? operation.afterSectionId.trim()
+              : '';
+          const beforeId =
+            beforeCandidate &&
+            page.sections.some((section) => section.id === beforeCandidate)
+              ? beforeCandidate
+              : '';
+          const afterId =
+            !beforeId &&
+            afterCandidate &&
+            page.sections.some((section) => section.id === afterCandidate)
+              ? afterCandidate
+              : '';
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'duplicate_section',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: operation.sectionId,
+              changes: {
+                anchorId: undefined,
+              },
+              ...(beforeId
+                ? { position: { beforeId } }
+                : afterId
+                  ? { position: { afterId } }
+                  : {}),
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
+        if (
+          operation.action === 'move_section'
+        ) {
+          if (
+            (!operation.beforeSectionId &&
+              !operation.afterSectionId) ||
+            (operation.beforeSectionId &&
+              operation.afterSectionId)
+          ) {
+            return true;
+          }
+
+          const destinationId =
+            operation.beforeSectionId ||
+            operation.afterSectionId ||
+            '';
+
+          if (
+            destinationId ===
+            operation.sectionId ||
+            !page.sections.some(
+              (section) =>
+                section.id === destinationId,
+            )
+          ) {
+            return true;
+          }
+        }
+
+        const nativeOperations =
+          convertLegacyAIStructuralOperationToNative(
+            operation,
+            {
+              pageId: page.id,
+              sectionId:
+                operation.sectionId,
+            },
+          );
+
+        if (nativeOperations.length) {
+          applyAIWorkingNativeOperations(
+            nativeOperations,
+            operation.action,
+          );
+        }
+
+        return true;
+      };
+
+      const applyAISectionScopedStructuralNativeOperation = (
+        operation: AIWebsitePatchOperation,
+        pageIndex: number,
+        sectionIndex: number,
+      ) => {
+        const page =
+          nextPages[pageIndex];
+        const section =
+          page?.sections[sectionIndex];
+
+        if (!page || !section) {
+          return true;
+        }
+
+        if (operation.action === 'duplicate_element') {
+          if (
+            !operation.elementId ||
+            section.elements.length >= 60 ||
+            !section.elements.some(
+              (element) => element.id === operation.elementId,
+            )
+          ) {
+            return true;
+          }
+
+          const beforeCandidate =
+            typeof operation.beforeElementId === 'string'
+              ? operation.beforeElementId.trim()
+              : '';
+          const afterCandidate =
+            typeof operation.afterElementId === 'string'
+              ? operation.afterElementId.trim()
+              : '';
+          const beforeId =
+            beforeCandidate &&
+            beforeCandidate !== operation.elementId &&
+            section.elements.some(
+              (element) => element.id === beforeCandidate,
+            )
+              ? beforeCandidate
+              : '';
+          const afterId =
+            !beforeId &&
+            afterCandidate &&
+            afterCandidate !== operation.elementId &&
+            section.elements.some(
+              (element) => element.id === afterCandidate,
+            )
+              ? afterCandidate
+              : '';
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'duplicate_element',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: section.id,
+              elementId: operation.elementId,
+              ...(beforeId
+                ? { position: { beforeId } }
+                : afterId
+                  ? { position: { afterId } }
+                  : {}),
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
+        if (operation.action === 'create_symbol') {
+          if (
+            !operation.elementId ||
+            nextSymbols.length >= 50
+          ) {
+            return true;
+          }
+
+          const targetElement =
+            section.elements.find(
+              (element) =>
+                element.id === operation.elementId,
+            );
+
+          if (!targetElement || targetElement.symbolId) {
+            return true;
+          }
+
+          const symbolName =
+            typeof operation.symbolName === 'string' &&
+            operation.symbolName.trim()
+              ? operation.symbolName.trim().slice(0, 80)
+              : (
+                  targetElement.content?.trim().slice(0, 60) ||
+                  ELEMENT_LABELS[targetElement.type] ||
+                  'Reusable component'
+                );
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'create_symbol',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: section.id,
+              elementId: targetElement.id,
+              symbolName,
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
+        if (operation.action === 'insert_symbol') {
+          if (
+            !operation.symbolId ||
+            section.elements.length >= 60 ||
+            !nextSymbols.some(
+              (symbol) => symbol.id === operation.symbolId,
+            )
+          ) {
+            return true;
+          }
+
+          const beforeCandidate =
+            typeof operation.beforeElementId === 'string'
+              ? operation.beforeElementId.trim()
+              : '';
+          const afterCandidate =
+            typeof operation.afterElementId === 'string'
+              ? operation.afterElementId.trim()
+              : '';
+          const beforeId =
+            beforeCandidate &&
+            section.elements.some(
+              (element) => element.id === beforeCandidate,
+            )
+              ? beforeCandidate
+              : '';
+          const afterId =
+            !beforeId &&
+            afterCandidate &&
+            section.elements.some(
+              (element) => element.id === afterCandidate,
+            )
+              ? afterCandidate
+              : '';
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'insert_symbol',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: section.id,
+              symbolId: operation.symbolId,
+              ...(beforeId
+                ? { position: { beforeId } }
+                : afterId
+                  ? { position: { afterId } }
+                  : {}),
+            },
+            operation.action,
+          );
+
+          return true;
+        }
+
+        if (
+          !isLegacyAIStructuralNativeAction(
+            operation.action,
+          ) ||
+          operation.action === 'remove_section' ||
+          operation.action === 'move_section'
+        ) {
+          return false;
+        }
+
+        if (
+          operation.action === 'remove_element'
+        ) {
+          if (
+            !operation.elementId ||
+            section.elements.length <= 1
+          ) {
+            return true;
+          }
+
+          const target =
+            section.elements.find(
+              (element) =>
+                element.id ===
+                operation.elementId,
+            );
+
+          if (!target || target.symbolId) {
+            return true;
+          }
+        }
+
+        if (
+          operation.action === 'move_element'
+        ) {
+          if (
+            !operation.elementId ||
+            (!operation.beforeElementId &&
+              !operation.afterElementId) ||
+            (operation.beforeElementId &&
+              operation.afterElementId)
+          ) {
+            return true;
+          }
+
+          const source =
+            section.elements.find(
+              (element) =>
+                element.id ===
+                operation.elementId,
+            );
+
+          if (!source || source.symbolId) {
+            return true;
+          }
+
+          const destinationId =
+            operation.beforeElementId ||
+            operation.afterElementId ||
+            '';
+
+          const destination =
+            section.elements.find(
+              (element) =>
+                element.id ===
+                destinationId,
+            );
+
+          if (
+            !destination ||
+            destination.id === source.id ||
+            destination.symbolId
+          ) {
+            return true;
+          }
+        }
+
+        if (
+          operation.action ===
+          'assign_element_container'
+        ) {
+          if (!operation.elementId) {
+            return true;
+          }
+
+          const element =
+            section.elements.find(
+              (candidate) =>
+                candidate.id ===
+                operation.elementId,
+            );
+
+          if (!element || element.symbolId) {
+            return true;
+          }
+
+          if (
+            operation.containerId &&
+            !(section.containers || []).some(
+              (container) =>
+                container.id ===
+                operation.containerId,
+            )
+          ) {
+            return true;
+          }
+        }
+
+        if (
+          operation.action ===
+          'detach_symbol'
+        ) {
+          if (!operation.elementId) {
+            return true;
+          }
+
+          const element =
+            section.elements.find(
+              (candidate) =>
+                candidate.id ===
+                operation.elementId,
+            );
+
+          if (!element?.symbolId) {
+            return true;
+          }
+        }
+
+        let detachElementIds:
+          | string[]
+          | undefined;
+
+        if (
+          operation.action === 'remove_container'
+        ) {
+          if (
+            !operation.containerId ||
+            !(section.containers || []).some(
+              (container) =>
+                container.id ===
+                operation.containerId,
+            )
+          ) {
+            return true;
+          }
+
+          detachElementIds =
+            section.elements
+              .filter(
+                (element) =>
+                  element.containerId ===
+                  operation.containerId,
+              )
+              .map(
+                (element) =>
+                  element.id,
+              );
+        }
+
+        if (
+          operation.action ===
+            'remove_form_field' ||
+          operation.action ===
+            'move_form_field'
+        ) {
+          if (
+            section.type !== 'contact' ||
+            !Array.isArray(
+              section.formFields,
+            )
+          ) {
+            return false;
+          }
+
+          const fields =
+            section.formFields;
+
+          if (
+            !operation.formFieldId ||
+            !fields.some(
+              (field) =>
+                field.id ===
+                operation.formFieldId,
+            )
+          ) {
+            return true;
+          }
+
+          if (
+            operation.action ===
+              'remove_form_field' &&
+            fields.length <= 1
+          ) {
+            return true;
+          }
+
+          if (
+            operation.action ===
+            'move_form_field'
+          ) {
+            if (
+              (!operation.beforeFormFieldId &&
+                !operation.afterFormFieldId) ||
+              (operation.beforeFormFieldId &&
+                operation.afterFormFieldId)
+            ) {
+              return true;
+            }
+
+            const destinationId =
+              operation.beforeFormFieldId ||
+              operation.afterFormFieldId ||
+              '';
+
+            if (
+              destinationId ===
+                operation.formFieldId ||
+              !fields.some(
+                (field) =>
+                  field.id ===
+                  destinationId,
+              )
+            ) {
+              return true;
+            }
+          }
+        }
+
+        const nativeOperations =
+          convertLegacyAIStructuralOperationToNative(
+            operation,
+            {
+              pageId: page.id,
+              sectionId: section.id,
+              detachElementIds,
+            },
+          );
+
+        if (nativeOperations.length) {
+          applyAIWorkingNativeOperations(
+            nativeOperations,
+            operation.action,
+          );
+        }
+
+        return true;
+      };
+
+      const applyAISectionScopedUpdateNativeOperation = (
+        operation: AIWebsitePatchOperation,
+        pageIndex: number,
+        sectionIndex: number,
+      ) => {
+        if (!isLegacyAIUpdateNativeAction(operation.action)) {
+          return false;
+        }
+
+        const page = nextPages[pageIndex];
+        const section = page?.sections[sectionIndex];
+        if (!page || !section) {
+          return true;
+        }
+
+        if (operation.action === 'update_form') {
+          if (section.type !== 'contact') {
+            return true;
+          }
+
+          const nativeOperation =
+            convertLegacyAIUpdateOperationToNative(
+              operation,
+              {
+                pageId: page.id,
+                sectionId: section.id,
+              },
+            );
+
+          if (!nativeOperation) {
+            applied += 1;
+            return true;
+          }
+
+          const status =
+            applyAIWorkingNativeOperation(
+              nativeOperation,
+              operation.action,
+            );
+
+          if (status === 'unchanged') {
+            applied += 1;
+          }
+
+          return true;
+        }
+
+        if (operation.action === 'update_container') {
+          if (
+            !operation.containerId ||
+            !(section.containers || []).some(
+              (container) =>
+                container.id === operation.containerId,
+            )
+          ) {
+            return true;
+          }
+
+          const nativeOperation =
+            convertLegacyAIUpdateOperationToNative(
+              operation,
+              {
+                pageId: page.id,
+                sectionId: section.id,
+                sectionColumns:
+                  sectionColumnCount(section.layout),
+                sectionIsStack:
+                  section.layout === 'stack',
+              },
+            );
+
+          if (!nativeOperation) {
+            applied += 1;
+            return true;
+          }
+
+          const status =
+            applyAIWorkingNativeOperation(
+              nativeOperation,
+              operation.action,
+            );
+
+          if (status === 'unchanged') {
+            applied += 1;
+          }
+
+          return true;
+        }
+
+        if (
+          section.type !== 'contact' ||
+          !Array.isArray(section.formFields)
+        ) {
+          return false;
+        }
+
+        if (!operation.formFieldId) {
+          return true;
+        }
+
+        const currentFormField =
+          section.formFields.find(
+            (field) =>
+              field.id === operation.formFieldId,
+          );
+
+        if (!currentFormField) {
+          return true;
+        }
+
+        const nativeOperation =
+          convertLegacyAIUpdateOperationToNative(
+            operation,
+            {
+              pageId: page.id,
+              sectionId: section.id,
+              currentFormField:
+                currentFormField as unknown as Record<string, unknown>,
+            },
+          );
+
+        if (!nativeOperation) {
+          return true;
+        }
+
+        const status =
+          applyAIWorkingNativeOperation(
+            nativeOperation,
+            operation.action,
+          );
+
+        if (status === 'unchanged') {
+          applied += 1;
+        }
+
+        return true;
+      };
+
+      const applyAISectionScopedAddNativeOperation = (
+        operation: AIWebsitePatchOperation,
+        pageIndex: number,
+        sectionIndex: number,
+      ) => {
+        if (
+          operation.action !== 'add_container' &&
+          operation.action !== 'add_form_field'
+        ) {
+          return false;
+        }
+
+        const page = nextPages[pageIndex];
+        const section = page?.sections[sectionIndex];
+        if (!page || !section) {
+          return true;
+        }
+
+        if (operation.action === 'add_container') {
+          const containers =
+            section.containers || [];
+
+          if (containers.length >= 30) {
+            return true;
+          }
+
+          const assignElement =
+            operation.elementId
+              ? section.elements.find(
+                  (element) =>
+                    element.id ===
+                    operation.elementId,
+                )
+              : undefined;
+
+          const assignElementId =
+            assignElement &&
+            !assignElement.symbolId
+              ? assignElement.id
+              : undefined;
+
+          const nativeOperations =
+            convertLegacyAIAddOperationToNative(
+              operation,
+              {
+                pageId: page.id,
+                sectionId: section.id,
+                generatedId:
+                  `container-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                sectionColumns:
+                  sectionColumnCount(section.layout),
+                sectionIsStack:
+                  section.layout === 'stack',
+                existingContainerCount:
+                  containers.length,
+                assignElementId,
+              },
+            );
+
+          if (nativeOperations.length) {
+            applyAIWorkingNativeOperations(
+              nativeOperations,
+              operation.action,
+            );
+          }
+
+          return true;
+        }
+
+        if (
+          section.type !== 'contact' ||
+          !Array.isArray(section.formFields)
+        ) {
+          return false;
+        }
+
+        if (
+          !operation.formFieldType ||
+          !allowedFormFieldTypes.has(
+            operation.formFieldType,
+          )
+        ) {
+          return true;
+        }
+
+        const fields =
+          section.formFields;
+
+        if (fields.length >= 20) {
+          return true;
+        }
+
+        const nativeOperations =
+          convertLegacyAIAddOperationToNative(
+            operation,
+            {
+              pageId: page.id,
+              sectionId: section.id,
+              generatedId:
+                `field-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              existingFormFieldNames:
+                fields.map(
+                  (field) =>
+                    field.name,
+                ),
+              existingFormFieldIds:
+                fields.map(
+                  (field) =>
+                    field.id,
+                ),
+            },
+          );
+
+        if (nativeOperations.length) {
+          applyAIWorkingNativeOperations(
+            nativeOperations,
+            operation.action,
+          );
+        }
+
+        return true;
       };
 
       for (const operation of operations) {
         if (!operation || typeof operation.action !== 'string') continue;
+
+        if (
+          applyAIGlobalNativeOperation(
+            operation,
+          ) ||
+          applyAIPageNativeOperation(
+            operation,
+          )
+        ) {
+          continue;
+        }
 
         if (operation.action === 'add_page') {
           const sourcePage = operation.page;
@@ -6878,7 +8787,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           if (!normalizedSections.length) continue;
           const pageName = sourcePage.name?.trim().slice(0, 60) || `Page ${nextPages.length + 1}`;
           const requestedSlug = normalizeSlugValue(sourcePage.slug || pageName) || `page-${nextPages.length + 1}`;
-          nextPages.push({
+          const createdPage: WebsitePage = {
             id: `page-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             name: pageName,
             slug: requestedSlug,
@@ -6890,96 +8799,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             seoDescription: '',
             canonicalUrl: '',
             noIndex: false,
-          });
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'duplicate_page') {
-          if (nextPages.length >= billingEntitlements.maxPages || (!operation.pageId && !operation.pageSlug)) continue;
-          const sourceIndex = resolvePageIndex(operation);
-          if (sourceIndex < 0 || sourceIndex >= nextPages.length) continue;
-          const sourcePage = nextPages[sourceIndex];
-          const changes = operation.changes || {};
-          const requestedName = typeof changes.name === 'string' && changes.name.trim()
-            ? changes.name.trim().slice(0, 60)
-            : `${sourcePage.name} Copy`;
-          const requestedSlug = typeof changes.slug === 'string' && changes.slug.trim()
-            ? normalizeSlugValue(changes.slug)
-            : normalizeSlugValue(`${sourcePage.slug}-copy`);
-          const clonedPage: WebsitePage = {
-            ...sourcePage,
-            id: `page-ai-copy-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: requestedName,
-            slug: requestedSlug || `page-copy-${Date.now()}`,
-            sections: sourcePage.sections.map((section) => cloneSectionForAI(section)),
-            translationKey: '',
-            canonicalUrl: '',
           };
-          nextPages.splice(sourceIndex + 1, 0, clonedPage);
-          applied += 1;
-          continue;
-        }
 
-        if (operation.action === 'remove_page') {
-          if (nextPages.length <= 1 || (!operation.pageId && !operation.pageSlug)) continue;
-          const pageIndex = resolvePageIndex(operation);
-          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
-          const targetPage = nextPages[pageIndex];
-          if (targetPage.id === nextHomePageId) continue;
-          nextPages.splice(pageIndex, 1);
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'set_home_page') {
-          if (!operation.pageId && !operation.pageSlug) continue;
-          const pageIndex = resolvePageIndex(operation);
-          if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
-          const targetPage = nextPages[pageIndex];
-          if (targetPage.id !== nextHomePageId) {
-            nextHomePageId = targetPage.id;
-            applied += 1;
-          }
-          continue;
-        }
-
-        if (operation.action === 'move_page') {
-          if (!operation.pageId || (!operation.beforePageId && !operation.afterPageId)) continue;
-          const sourceIndex = nextPages.findIndex((page) => page.id === operation.pageId);
-          if (sourceIndex < 0) continue;
-          const sourcePage = nextPages[sourceIndex];
-          const withoutSource = nextPages.filter((page) => page.id !== sourcePage.id);
-          const destinationId = operation.beforePageId || operation.afterPageId || '';
-          const destinationIndex = withoutSource.findIndex((page) => page.id === destinationId);
-          if (destinationIndex < 0) continue;
-          const insertAt = destinationIndex + (operation.afterPageId ? 1 : 0);
-          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourcePage);
-          nextPages = withoutSource;
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'update_theme') {
-          const changes = operation.changes || {};
-          const next = normalizeTheme({
-            ...nextTheme,
-            primaryColor: validHex(changes.primaryColor) ? changes.primaryColor : nextTheme.primaryColor,
-            secondaryColor: validHex(changes.secondaryColor) ? changes.secondaryColor : nextTheme.secondaryColor,
-            backgroundColor: validHex(changes.backgroundColor) ? changes.backgroundColor : nextTheme.backgroundColor,
-            textColor: validHex(changes.textColor) ? changes.textColor : nextTheme.textColor,
-            mutedTextColor: validHex(changes.mutedTextColor) ? changes.mutedTextColor : nextTheme.mutedTextColor,
-            fontFamily: typeof changes.fontFamily === 'string' && FONT_OPTIONS.includes(changes.fontFamily)
-              ? changes.fontFamily
-              : nextTheme.fontFamily,
-            contentWidth: finiteStyleNumber(changes.themeContentWidth, 720, 1440) ?? nextTheme.contentWidth,
-            buttonRadius: finiteStyleNumber(changes.themeButtonRadius, 0, 40) ?? nextTheme.buttonRadius,
-            sectionSpacing: finiteStyleNumber(changes.themeSectionSpacing, 40, 140) ?? nextTheme.sectionSpacing,
-          });
-          if (JSON.stringify(next) !== JSON.stringify(nextTheme)) {
-            nextTheme = next;
-            applied += 1;
-          }
+          applyAIWorkingNativeOperation(
+            {
+              action: 'add_page',
+              source: 'ai',
+              page:
+                createdPage as unknown as EditorPageLike,
+            },
+            operation.action,
+          );
           continue;
         }
 
@@ -6987,53 +8817,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const changes = operation.changes || {};
           if (typeof changes.name === 'string' && changes.name.trim()) {
             nextSiteName = changes.name.trim().slice(0, 100);
-            applied += 1;
-          }
-          continue;
-        }
-
-        if (operation.action === 'update_seo') {
-          const changes = operation.changes || {};
-          const nextTitle = typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : nextSeo.title;
-          const nextDescription = typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : nextSeo.description;
-          const nextKeywords = Array.isArray(changes.seoKeywords)
-            ? changes.seoKeywords.map((keyword) => String(keyword).trim()).filter(Boolean).slice(0, 20)
-            : nextSeo.keywords;
-          if (nextTitle !== nextSeo.title || nextDescription !== nextSeo.description || JSON.stringify(nextKeywords) !== JSON.stringify(nextSeo.keywords)) {
-            nextSeo = { title: nextTitle, description: nextDescription, keywords: nextKeywords };
-            applied += 1;
-          }
-          continue;
-        }
-
-        if (operation.action === 'update_header') {
-          const changes = operation.changes || {};
-          const requestedLogo = typeof changes.headerLogoUrl === 'string' ? changes.headerLogoUrl.trim().slice(0, 2000) : '';
-          const safeLogo = requestedLogo && /^(?:https?:\/\/|\/)/i.test(requestedLogo) ? requestedLogo : undefined;
-          const next: WebsiteHeaderConfig = {
-            ...nextHeaderConfig,
-            enabled: typeof changes.headerEnabled === 'boolean' ? changes.headerEnabled : nextHeaderConfig.enabled,
-            sticky: typeof changes.headerSticky === 'boolean' ? changes.headerSticky : nextHeaderConfig.sticky,
-            mobileMenu: typeof changes.headerMobileMenu === 'boolean' ? changes.headerMobileMenu : nextHeaderConfig.mobileMenu,
-            languageSwitcher: typeof changes.headerLanguageSwitcher === 'boolean' ? changes.headerLanguageSwitcher : nextHeaderConfig.languageSwitcher,
-            brandText: typeof changes.headerBrandText === 'string' ? changes.headerBrandText.trim().slice(0, 100) : nextHeaderConfig.brandText,
-            logoUrl: safeLogo !== undefined ? safeLogo : nextHeaderConfig.logoUrl,
-            showCta: typeof changes.showCta === 'boolean' ? changes.showCta : nextHeaderConfig.showCta,
-            ctaLabel: typeof changes.ctaLabel === 'string' ? changes.ctaLabel.trim().slice(0, 80) : nextHeaderConfig.ctaLabel,
-            ctaHref: typeof changes.ctaHref === 'string' ? changes.ctaHref.trim().slice(0, 500) : nextHeaderConfig.ctaHref,
-            backgroundColor: validHex(changes.headerBackgroundColor) ? changes.headerBackgroundColor! : nextHeaderConfig.backgroundColor,
-            textColor: validHex(changes.headerTextColor) ? changes.headerTextColor! : nextHeaderConfig.textColor,
-            activeColor: validHex(changes.headerActiveColor) ? changes.headerActiveColor! : nextHeaderConfig.activeColor,
-            hoverColor: validHex(changes.headerHoverColor) ? changes.headerHoverColor! : nextHeaderConfig.hoverColor,
-            ctaBackgroundColor: validHex(changes.headerCtaBackgroundColor) ? changes.headerCtaBackgroundColor! : nextHeaderConfig.ctaBackgroundColor,
-            ctaTextColor: validHex(changes.headerCtaTextColor) ? changes.headerCtaTextColor! : nextHeaderConfig.ctaTextColor,
-            navGap: finiteStyleNumber(changes.headerNavGap, 0, 64) ?? nextHeaderConfig.navGap,
-            brandSize: finiteStyleNumber(changes.headerBrandSize, 10, 42) ?? nextHeaderConfig.brandSize,
-            navSize: finiteStyleNumber(changes.headerNavSize, 10, 32) ?? nextHeaderConfig.navSize,
-            borderColor: validHex(changes.headerBorderColor) ? changes.headerBorderColor! : nextHeaderConfig.borderColor,
-          };
-          if (JSON.stringify(next) !== JSON.stringify(nextHeaderConfig)) {
-            nextHeaderConfig = next;
             applied += 1;
           }
           continue;
@@ -7261,66 +9044,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
         const page = nextPages[pageIndex];
 
+        if (
+          applyAIPageScopedStructuralNativeOperation(
+            operation,
+            pageIndex,
+          )
+        ) {
+          continue;
+        }
+
         if (operation.action === 'update_page') {
-          const changes = operation.changes || {};
-          const nextName = typeof changes.name === 'string' && changes.name.trim()
-            ? changes.name.trim().slice(0, 60)
-            : page.name;
-          const requestedSlug = typeof changes.slug === 'string' ? normalizeSlugValue(changes.slug) : '';
-          const nextSlug = requestedSlug || page.slug;
-          nextPages[pageIndex] = {
-            ...page,
-            name: nextName,
-            slug: nextSlug,
-            showInNavigation: typeof changes.showInNavigation === 'boolean'
-              ? changes.showInNavigation
-              : page.showInNavigation,
-            seoTitle: typeof changes.seoTitle === 'string' ? changes.seoTitle.trim().slice(0, 120) : page.seoTitle,
-            seoDescription: typeof changes.seoDescription === 'string' ? changes.seoDescription.trim().slice(0, 300) : page.seoDescription,
-            canonicalUrl: typeof changes.canonicalUrl === 'string' ? changes.canonicalUrl.trim().slice(0, 500) : page.canonicalUrl,
-            noIndex: typeof changes.noIndex === 'boolean' ? changes.noIndex : page.noIndex,
-          };
-          applied += 1;
-          continue;
-        }
+          const nativeOperation =
+            convertLegacyAIPageUpdateOperationToNative(
+              operation,
+              page.id,
+            );
 
-        if (operation.action === 'duplicate_section') {
-          if (!operation.sectionId || page.sections.length >= 20) continue;
-          const sourceIndex = page.sections.findIndex((section) => section.id === operation.sectionId);
-          if (sourceIndex < 0) continue;
-          const sourceSection = page.sections[sourceIndex];
-          const clonedSection = cloneSectionForAI(sourceSection);
-          const sectionList = [...page.sections];
-          const beforeIndex = operation.beforeSectionId
-            ? sectionList.findIndex((section) => section.id === operation.beforeSectionId)
-            : -1;
-          const afterIndex = operation.afterSectionId
-            ? sectionList.findIndex((section) => section.id === operation.afterSectionId)
-            : -1;
-          const insertAt = beforeIndex >= 0
-            ? beforeIndex
-            : afterIndex >= 0
-              ? afterIndex + 1
-              : sourceIndex + 1;
-          sectionList.splice(Math.min(Math.max(insertAt, 0), sectionList.length), 0, clonedSection);
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
+          if (!nativeOperation) {
+            applied += 1;
+            continue;
+          }
 
-        if (operation.action === 'move_section') {
-          if (!operation.sectionId || (!operation.beforeSectionId && !operation.afterSectionId)) continue;
-          const sourceIndex = page.sections.findIndex((section) => section.id === operation.sectionId);
-          if (sourceIndex < 0) continue;
-          const sourceSection = page.sections[sourceIndex];
-          const withoutSource = page.sections.filter((section) => section.id !== sourceSection.id);
-          const destinationId = operation.beforeSectionId || operation.afterSectionId || '';
-          const destinationIndex = withoutSource.findIndex((section) => section.id === destinationId);
-          if (destinationIndex < 0) continue;
-          const insertAt = destinationIndex + (operation.afterSectionId ? 1 : 0);
-          withoutSource.splice(Math.min(insertAt, withoutSource.length), 0, sourceSection);
-          nextPages[pageIndex] = { ...page, sections: withoutSource };
-          applied += 1;
+          const status =
+            applyAIWorkingNativeOperation(
+              nativeOperation,
+              operation.action,
+            );
+
+          if (status === 'unchanged') {
+            applied += 1;
+          }
+
           continue;
         }
 
@@ -7340,243 +9094,69 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             image: source.image?.trim() || undefined,
             imagePrompt: source.imagePrompt?.trim() || undefined,
           });
-          const sectionList = [...page.sections];
-          const requestedAfter = operation.afterSectionId
-            ? sectionList.findIndex((section) => section.id === operation.afterSectionId)
-            : -1;
-          const footerIndex = sectionList.findIndex((section) => section.type === 'footer');
-          const insertAt = requestedAfter >= 0
-            ? requestedAfter + 1
-            : footerIndex >= 0
-              ? footerIndex
-              : sectionList.length;
-          sectionList.splice(insertAt, 0, created);
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
+          const requestedAfter =
+            operation.afterSectionId &&
+            page.sections.some(
+              (section) =>
+                section.id === operation.afterSectionId,
+            )
+              ? operation.afterSectionId
+              : '';
+          const footer =
+            page.sections.find(
+              (section) =>
+                section.type === 'footer',
+            );
+          const position = requestedAfter
+            ? { afterId: requestedAfter }
+            : footer
+              ? { beforeId: footer.id }
+              : {};
+
+          applyAIWorkingNativeOperation(
+            {
+              action: 'add_section',
+              source: 'ai',
+              pageId: page.id,
+              section:
+                created as unknown as EditorPageLike['sections'][number],
+              position,
+            },
+            operation.action,
+          );
           continue;
         }
 
         const sectionIndex = resolveSectionIndex(page, operation);
         if (sectionIndex < 0 || sectionIndex >= page.sections.length) continue;
 
-        if (operation.action === 'add_container') {
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const existingContainers = targetSection.containers || [];
-          if (existingContainers.length >= 30) continue;
-
-          const changes = operation.changes || {};
-          const columns = sectionColumnCount(targetSection.layout);
-          const requestedColumn = finiteStyleNumber(changes.containerColumn, 1, columns);
-          const requestedSpan = finiteStyleNumber(changes.containerColumnSpan, 1, columns);
-          const container: WebsiteElementContainer = {
-            id: `container-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: typeof changes.containerName === 'string' && changes.containerName.trim()
-              ? changes.containerName.trim().slice(0, 80)
-              : `AI Container ${existingContainers.length + 1}`,
-            layout: changes.containerLayout === 'row' ? 'row' : 'stack',
-            gap: finiteStyleNumber(changes.containerGap, 0, 80) ?? 16,
-            align: changes.containerAlign === 'start' || changes.containerAlign === 'end' || changes.containerAlign === 'stretch'
-              ? changes.containerAlign
-              : 'center',
-            backgroundColor: validHex(changes.containerBackgroundColor) ? changes.containerBackgroundColor! : '#ffffff08',
-            padding: finiteStyleNumber(changes.containerPadding, 0, 120) ?? 20,
-            borderRadius: finiteStyleNumber(changes.containerBorderRadius, 0, 120) ?? 16,
-            borderWidth: finiteStyleNumber(changes.containerBorderWidth, 0, 16) ?? 1,
-            borderColor: validHex(changes.containerBorderColor) ? changes.containerBorderColor! : '#ffffff18',
-            shadow: changes.containerShadow && allowedShadows.has(changes.containerShadow) ? changes.containerShadow : 'none',
-            layoutColumn: targetSection.layout === 'stack' ? undefined : Math.round(requestedColumn ?? 1),
-            columnSpan: Math.round(requestedSpan ?? 1),
-          };
-
-          const nextElements = targetSection.elements.map((element) =>
-            operation.elementId && element.id === operation.elementId && !element.symbolId
-              ? { ...element, containerId: container.id }
-              : element
-          );
-
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            containers: [...existingContainers, container],
-            elements: nextElements,
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
+        if (
+          applyAISectionScopedStructuralNativeOperation(
+            operation,
+            pageIndex,
+            sectionIndex,
+          )
+        ) {
           continue;
         }
 
-        if (operation.action === 'update_container') {
-          if (!operation.containerId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const containers = [...(targetSection.containers || [])];
-          const containerIndex = containers.findIndex((container) => container.id === operation.containerId);
-          if (containerIndex < 0) continue;
-
-          const current = containers[containerIndex];
-          const changes = operation.changes || {};
-          const columns = sectionColumnCount(targetSection.layout);
-          const nextColumn = finiteStyleNumber(changes.containerColumn, 1, columns);
-          const nextSpan = finiteStyleNumber(changes.containerColumnSpan, 1, columns);
-
-          containers[containerIndex] = {
-            ...current,
-            name: typeof changes.containerName === 'string' && changes.containerName.trim() ? changes.containerName.trim().slice(0, 80) : current.name,
-            layout: changes.containerLayout === 'row' || changes.containerLayout === 'stack' ? changes.containerLayout : current.layout,
-            gap: finiteStyleNumber(changes.containerGap, 0, 80) ?? current.gap,
-            align: changes.containerAlign === 'start' || changes.containerAlign === 'center' || changes.containerAlign === 'end' || changes.containerAlign === 'stretch'
-              ? changes.containerAlign
-              : current.align,
-            backgroundColor: validHex(changes.containerBackgroundColor) ? changes.containerBackgroundColor! : current.backgroundColor,
-            padding: finiteStyleNumber(changes.containerPadding, 0, 120) ?? current.padding,
-            borderRadius: finiteStyleNumber(changes.containerBorderRadius, 0, 120) ?? current.borderRadius,
-            borderWidth: finiteStyleNumber(changes.containerBorderWidth, 0, 16) ?? current.borderWidth,
-            borderColor: validHex(changes.containerBorderColor) ? changes.containerBorderColor! : current.borderColor,
-            shadow: changes.containerShadow && allowedShadows.has(changes.containerShadow) ? changes.containerShadow : current.shadow,
-            layoutColumn: targetSection.layout === 'stack' ? undefined : nextColumn !== undefined ? Math.round(nextColumn) : current.layoutColumn,
-            columnSpan: nextSpan !== undefined ? Math.round(nextSpan) : current.columnSpan,
-          };
-
-          sectionList[sectionIndex] = { ...targetSection, containers };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
+        if (
+          applyAISectionScopedUpdateNativeOperation(
+            operation,
+            pageIndex,
+            sectionIndex,
+          )
+        ) {
           continue;
         }
 
-        if (operation.action === 'remove_container') {
-          if (!operation.containerId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (!(targetSection.containers || []).some((container) => container.id === operation.containerId)) continue;
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            containers: (targetSection.containers || []).filter((container) => container.id !== operation.containerId),
-            elements: targetSection.elements.map((element) =>
-              element.containerId === operation.containerId ? { ...element, containerId: undefined } : element
-            ),
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'assign_element_container') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0 || targetSection.elements[elementIndex].symbolId) continue;
-
-          const targetContainer = operation.containerId
-            ? (targetSection.containers || []).find((container) => container.id === operation.containerId)
-            : undefined;
-          if (operation.containerId && !targetContainer) continue;
-
-          const elements = [...targetSection.elements];
-          elements[elementIndex] = { ...elements[elementIndex], containerId: targetContainer?.id };
-          sectionList[sectionIndex] = { ...targetSection, elements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'create_symbol') {
-          if (!operation.elementId || nextSymbols.length >= 50) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0) continue;
-          const targetElement = targetSection.elements[elementIndex];
-          if (targetElement.symbolId) continue;
-
-          const symbolId = `symbol-ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          const symbolName = typeof operation.symbolName === 'string' && operation.symbolName.trim()
-            ? operation.symbolName.trim().slice(0, 80)
-            : (targetElement.content?.trim().slice(0, 60) || ELEMENT_LABELS[targetElement.type] || 'Reusable component');
-          const symbol: WebsiteSymbol = {
-            id: symbolId,
-            name: symbolName,
-            element: cloneSymbolElement(targetElement),
-            updatedAt: new Date().toISOString(),
-          };
-          nextSymbols = [symbol, ...nextSymbols].slice(0, 50);
-
-          const elements = [...targetSection.elements];
-          elements[elementIndex] = { ...targetElement, symbolId };
-          sectionList[sectionIndex] = { ...targetSection, elements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'insert_symbol') {
-          if (!operation.symbolId) continue;
-          const symbol = nextSymbols.find((item) => item.id === operation.symbolId);
-          if (!symbol) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.elements.length >= 60) continue;
-
-          const instance: WebsiteElement = {
-            ...JSON.parse(JSON.stringify(symbol.element)) as WebsiteElement,
-            id: `${symbol.element.type}-ai-symbol-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            symbolId: symbol.id,
-            containerId: undefined,
-            layoutColumn: targetSection.layout === 'stack' ? undefined : 1,
-          };
-          const elements = [...targetSection.elements];
-          const beforeIndex = operation.beforeElementId ? elements.findIndex((element) => element.id === operation.beforeElementId) : -1;
-          const afterIndex = operation.afterElementId ? elements.findIndex((element) => element.id === operation.afterElementId) : -1;
-          const insertAt = beforeIndex >= 0 ? beforeIndex : afterIndex >= 0 ? afterIndex + 1 : elements.length;
-          elements.splice(Math.min(Math.max(insertAt, 0), elements.length), 0, instance);
-          sectionList[sectionIndex] = { ...targetSection, elements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'detach_symbol') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0 || !targetSection.elements[elementIndex].symbolId) continue;
-          const elements = [...targetSection.elements];
-          elements[elementIndex] = { ...elements[elementIndex], symbolId: undefined };
-          sectionList[sectionIndex] = { ...targetSection, elements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'duplicate_element') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.elements.length >= 60) continue;
-          const sourceIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (sourceIndex < 0) continue;
-          const sourceElement = targetSection.elements[sourceIndex];
-          const clonedElement: WebsiteElement = {
-            ...cloneElementForAI(sourceElement),
-            containerId: sourceElement.containerId,
-          };
-          const nextElements = [...targetSection.elements];
-          const beforeIndex = operation.beforeElementId
-            ? nextElements.findIndex((element) => element.id === operation.beforeElementId)
-            : -1;
-          const afterIndex = operation.afterElementId
-            ? nextElements.findIndex((element) => element.id === operation.afterElementId)
-            : -1;
-          const insertAt = beforeIndex >= 0
-            ? beforeIndex
-            : afterIndex >= 0
-              ? afterIndex + 1
-              : sourceIndex + 1;
-          nextElements.splice(Math.min(Math.max(insertAt, 0), nextElements.length), 0, clonedElement);
-          sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
+        if (
+          applyAISectionScopedAddNativeOperation(
+            operation,
+            pageIndex,
+            sectionIndex,
+          )
+        ) {
           continue;
         }
 
@@ -7640,66 +9220,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             animationOnce: typeof changes.elementAnimationOnce === 'boolean' ? changes.elementAnimationOnce : created.animationOnce,
           };
 
-          const nextElements = [...targetSection.elements];
-          const beforeIndex = operation.beforeElementId
-            ? nextElements.findIndex((element) => element.id === operation.beforeElementId)
-            : -1;
-          const afterIndex = operation.afterElementId
-            ? nextElements.findIndex((element) => element.id === operation.afterElementId)
-            : -1;
-          const insertAt = beforeIndex >= 0
-            ? beforeIndex
-            : afterIndex >= 0
-              ? afterIndex + 1
-              : nextElements.length;
-          nextElements.splice(Math.min(Math.max(insertAt, 0), nextElements.length), 0, newElement);
+          const beforeId =
+            operation.beforeElementId &&
+            targetSection.elements.some(
+              (element) => element.id === operation.beforeElementId,
+            )
+              ? operation.beforeElementId
+              : '';
+          const afterId =
+            !beforeId &&
+            operation.afterElementId &&
+            targetSection.elements.some(
+              (element) => element.id === operation.afterElementId,
+            )
+              ? operation.afterElementId
+              : '';
 
-          sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'remove_element') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.elements.length <= 1) continue;
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0) continue;
-          const targetElement = targetSection.elements[elementIndex];
-          if (targetElement.symbolId) continue;
-
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            elements: targetSection.elements.filter((element) => element.id !== operation.elementId),
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'move_element') {
-          if (!operation.elementId || (!operation.beforeElementId && !operation.afterElementId)) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const sourceIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (sourceIndex < 0) continue;
-          const sourceElement = targetSection.elements[sourceIndex];
-          if (sourceElement.symbolId) continue;
-
-          const withoutSource = targetSection.elements.filter((element) => element.id !== sourceElement.id);
-          const destinationId = operation.beforeElementId || operation.afterElementId || '';
-          const destinationIndex = withoutSource.findIndex((element) => element.id === destinationId);
-          if (destinationIndex < 0) continue;
-          const destinationElement = withoutSource[destinationIndex];
-          if (destinationElement.symbolId) continue;
-
-          const insertAt = destinationIndex + (operation.afterElementId ? 1 : 0);
-          withoutSource.splice(Math.min(Math.max(insertAt, 0), withoutSource.length), 0, sourceElement);
-          sectionList[sectionIndex] = { ...targetSection, elements: withoutSource };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
+          applyAIWorkingNativeOperation(
+            {
+              action: 'add_element',
+              source: 'ai',
+              pageId: page.id,
+              sectionId: targetSection.id,
+              element:
+                newElement as unknown as EditorPageLike['sections'][number]['elements'][number],
+              ...(beforeId
+                ? { position: { beforeId } }
+                : afterId
+                  ? { position: { afterId } }
+                  : {}),
+            },
+            operation.action,
+          );
           continue;
         }
 
@@ -7819,27 +9371,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
             nextPages[pageIndex] = { ...page, sections: sectionList };
           }
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'update_form') {
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.type !== 'contact') continue;
-          const changes = operation.changes || {};
-
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            formSuccessMessage: typeof changes.formSuccessMessage === 'string'
-              ? changes.formSuccessMessage.trim().slice(0, 500)
-              : targetSection.formSuccessMessage,
-            formSuccessAction: changes.formSuccessAction === 'redirect' ? 'redirect' : changes.formSuccessAction === 'message' ? 'message' : targetSection.formSuccessAction,
-            formRedirectUrl: typeof changes.formRedirectUrl === 'string'
-              ? changes.formRedirectUrl.trim().slice(0, 1000)
-              : targetSection.formRedirectUrl,
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
           applied += 1;
           continue;
         }
@@ -8105,6 +9636,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const imagePrompt = operation.prompt?.trim() || targetSection.imagePrompt?.trim() || `${targetSection.title}. Professional website image for ${siteName}.`;
           try {
             const generatedImage = await requestGeneratedImage(imagePrompt);
+            if (!operationCanApply()) return;
             const placement = operation.placement || (targetSection.type === 'hero' ? 'section_background' : 'section_image');
             if (placement === 'section_background') {
               sectionList[sectionIndex] = {
@@ -8146,16 +9678,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           } catch {
             // A failed image provider should not discard other safe patch operations in the same request.
           }
-          continue;
-        }
-
-        if (operation.action === 'remove_section') {
-          if (page.sections.length <= 1) continue;
-          nextPages[pageIndex] = {
-            ...page,
-            sections: page.sections.filter((_, index) => index !== sectionIndex),
-          };
-          applied += 1;
           continue;
         }
 
@@ -8349,6 +9871,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           { temperature: 0.1, maxTokens: 3200 },
         );
 
+        if (!operationCanApply()) return;
+
         let rawReview = reviewResponse.json as AIWebsiteAgentReview | null;
         if (!rawReview && reviewResponse.content) {
           try {
@@ -8385,12 +9909,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         // Agent review is advisory. Deterministic project integrity remains the blocking safety gate.
       }
 
+      if (!operationCanApply()) return;
+
       const integrityErrors = validateAIProjectIntegrity(nextPages, nextHomePageId, nextSymbols);
       if (integrityErrors.length) {
         throw new Error(`AI change blocked by project safety validation: ${integrityErrors.join(' ')}`);
       }
 
       const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
+      if (!operationCanApply()) return;
+      aiUndoContextRef.current = operationContext;
       setAiUndoSnapshot(snapshot);
       setPages(nextPages);
       setSections(finalActive?.sections || []);
@@ -8428,6 +9956,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setInspectorOpen(true);
       setSaved(false);
       setAiPrompt('');
+      aiQualityReviewContextRef.current = null;
       setAiQualityReview(null);
       setAiStage('ready');
       pushProjectCheckpoint(`After AI change · ${prompt.slice(0, 60)}`, {
@@ -8443,9 +9972,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       });
 
       const skipped = Math.max(0, operations.length - applied);
-      const patchWarnings = Array.isArray(patch.warnings)
-        ? patch.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
-        : [];
+      const patchWarnings = [
+        ...(Array.isArray(patch.warnings)
+          ? patch.warnings
+              .map((warning) =>
+                String(warning).trim(),
+              )
+              .filter(Boolean)
+              .slice(0, 5)
+          : []),
+        ...nativeBridgeWarnings,
+      ].slice(0, 8);
       const confidence = Number.isFinite(Number(patch.confidence))
         ? Math.min(1, Math.max(0, Number(patch.confidence)))
         : null;
@@ -8463,6 +10000,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         },
       ].slice(-12));
     } catch (error) {
+      if (!operationCanApply()) return;
       const message = error instanceof Error ? error.message : 'AI edit failed.';
       setAiError(message);
       setAiStage('error');
@@ -8471,73 +10009,123 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { id: `ai-patch-error-${Date.now()}`, role: 'assistant' as const, content: message },
       ].slice(-12));
     } finally {
-      setAiBusy(false);
+      if (operationIsLatest()) {
+        setAiBusy(false);
+        if (!operationCanApply()) setAiStage('ready');
+      }
     }
   }
 
   async function generateRealImage() {
     if (!selectedSection || aiBusy) return;
 
+    const operationSequence = ++aiOperationSequenceRef.current;
+    const operationUserId = user?.id ?? null;
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
+      aiOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, true);
+    const targetSection = selectedSection;
+    const targetElementId = selectedElement?.type === 'image' ? selectedElement.id : null;
+    const existingImageId = targetElementId
+      ? null
+      : targetSection.elements.find((element) => element.type === 'image')?.id ?? null;
+
     setAiBusy(true);
     setAiError('');
-    pushProjectCheckpoint(`Before AI image · ${selectedSection.title || SECTION_LABELS[selectedSection.type]}`);
+    pushProjectCheckpoint(`Before AI image · ${targetSection.title || SECTION_LABELS[targetSection.type]}`);
 
     try {
       const generatedImage = await requestGeneratedImage(
-        selectedSection.imagePrompt || selectedSection.title || `Professional ${selectedSection.type} website image`,
+        targetSection.imagePrompt || targetSection.title || `Professional ${targetSection.type} website image`,
       );
+
+      if (!operationCanApply()) return;
 
       remember(sections);
 
-      if (selectedElement?.type === 'image') {
-        updateSelectedElement({
-          src: generatedImage.url,
-          content: selectedSection.title || 'Generated image',
-        });
-      } else if (selectedSection.type === 'hero') {
-        updateSelected({
-          image: generatedImage.url,
-          backgroundMode: 'image',
-          backgroundImage: generatedImage.url,
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-          overlayColor: '#000000',
-          overlayOpacity: 0.42,
-        });
-      } else {
-        const existingImage = selectedSection.elements.find((element) => element.type === 'image');
-        if (existingImage) {
-          setSelectedElementId(existingImage.id);
-          updateSelectedElement({ src: generatedImage.url, content: selectedSection.title || 'Generated image' });
-        } else {
-          const element: WebsiteElement = {
-            ...createElement('image', selectedSection.accent),
-            src: generatedImage.url,
-            content: selectedSection.title || 'Generated image',
-          };
-          setSections((current) => current.map((section) =>
-            section.id === selectedSection.id
-              ? { ...section, image: generatedImage.url, elements: [...section.elements, element] }
-              : section
-          ));
-          setSelectedElementId(element.id);
-          setSaved(false);
-        }
-      }
+      setSections((current) => current.map((section) => {
+        if (section.id !== targetSection.id) return section;
 
+        if (targetElementId) {
+          return {
+            ...section,
+            image: generatedImage.url,
+            elements: section.elements.map((element) =>
+              element.id === targetElementId
+                ? { ...element, src: generatedImage.url, content: targetSection.title || 'Generated image' }
+                : element
+            ),
+          };
+        }
+
+        if (targetSection.type === 'hero') {
+          return {
+            ...section,
+            image: generatedImage.url,
+            backgroundMode: 'image',
+            backgroundImage: generatedImage.url,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+            overlayColor: '#000000',
+            overlayOpacity: 0.42,
+          };
+        }
+
+        if (existingImageId) {
+          return {
+            ...section,
+            image: generatedImage.url,
+            elements: section.elements.map((element) =>
+              element.id === existingImageId
+                ? { ...element, src: generatedImage.url, content: targetSection.title || 'Generated image' }
+                : element
+            ),
+          };
+        }
+
+        const element: WebsiteElement = {
+          ...createElement('image', targetSection.accent),
+          src: generatedImage.url,
+          content: targetSection.title || 'Generated image',
+        };
+
+        return {
+          ...section,
+          image: generatedImage.url,
+          elements: [...section.elements, element],
+        };
+      }));
+
+      setSaved(false);
       setAiMessages((current) => [
         ...current,
         { id: `ai-image-${Date.now()}`, role: 'assistant' as const, content: 'Generated the image, saved it to Media Library and applied it to the selected section.' },
       ].slice(-12));
     } catch (error) {
+      if (!operationCanApply()) return;
       setAiError(error instanceof Error ? error.message : 'Image generation failed.');
     } finally {
-      setAiBusy(false);
+      if (operationIsLatest()) setAiBusy(false);
     }
   }
 
   async function generateImagePrompt() {
     if (!selectedSection || aiBusy) return;
+
+    const operationSequence = ++aiOperationSequenceRef.current;
+    const operationUserId = user?.id ?? null;
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
+      aiOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, true);
+    const targetSection = selectedSection;
 
     setAiBusy(true);
     setAiError('');
@@ -8550,33 +10138,61 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }>(
         {
           action: 'image-prompt',
-          section: selectedSection,
+          section: targetSection,
           brand,
         },
         [],
         { temperature: 0.8, maxTokens: 800 },
       );
 
+      if (!operationCanApply()) return;
+
       if (!response.json?.prompt) {
         throw new Error('AI could not create image prompt.');
       }
 
-      updateSelected({
-        imagePrompt: response.json.prompt,
-      });
-
+      setSections((current) => current.map((section) =>
+        section.id === targetSection.id
+          ? { ...section, imagePrompt: response.json!.prompt }
+          : section
+      ));
+      setSaved(false);
     } catch (error) {
+      if (!operationCanApply()) return;
       setAiError(
         error instanceof Error
           ? error.message
           : 'Image prompt generation failed.'
       );
     } finally {
-      setAiBusy(false);
+      if (operationIsLatest()) setAiBusy(false);
     }
   }
+
   async function runAIQualityCheck(): Promise<AIQualityReview | null> {
     if (aiQualityBusy || aiBusy) return aiQualityReview;
+
+    const operationSequence = ++aiQualityOperationSequenceRef.current;
+    const operationUserId = user?.id ?? null;
+    const operationContext = captureAIEditorContext();
+    const operationIsLatest = () =>
+      aiQualityOperationSequenceRef.current === operationSequence &&
+      activeUserIdRef.current === operationUserId;
+    const operationCanApply = () =>
+      operationIsLatest() &&
+      aiEditorContextIsCurrent(operationContext, false);
+    const currentSite = buildAIEditableSnapshot();
+    const qualityAudit = {
+      score: siteAudit.score,
+      errors: [...siteAudit.errors],
+      warnings: [...siteAudit.warnings],
+      diagnostics: {
+        ...qualityDiagnostics,
+        warnings: [...qualityDiagnostics.warnings],
+      },
+      deviceModes: ['desktop', 'tablet', 'mobile'],
+    };
+
     setAiQualityBusy(true);
     setAiQualityOpen(true);
     setAiError('');
@@ -8586,18 +10202,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const response = await ai.completeJSON<AIQualityReview>(
         {
           action: 'quality-check',
-          currentSite: buildAIEditableSnapshot(),
-          audit: {
-            score: siteAudit.score,
-            errors: siteAudit.errors,
-            warnings: siteAudit.warnings,
-            diagnostics: qualityDiagnostics,
-            deviceModes: ['desktop', 'tablet', 'mobile'],
-          },
+          currentSite,
+          audit: qualityAudit,
         },
         [],
         { temperature: 0.25, maxTokens: 5000 },
       );
+
+      if (!operationCanApply()) return null;
 
       let review = response.json;
       if (!review && response.content) {
@@ -8618,52 +10230,82 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           : [],
         fixPrompt: String(review.fixPrompt || '').slice(0, 5000),
       };
+
+      if (!operationCanApply()) return null;
+      aiQualityReviewContextRef.current = operationContext;
       setAiQualityReview(normalized);
       return normalized;
     } catch (error) {
+      if (!operationCanApply()) return null;
       const message = error instanceof Error ? error.message : 'AI quality check failed.';
       setAiError(message);
+      aiQualityReviewContextRef.current = operationContext;
       setAiQualityReview({
-        score: siteAudit.score,
+        score: qualityAudit.score,
         summary: 'Automated builder audit is available, but the AI review could not complete.',
         findings: [
-          ...siteAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: 'Publish blocker', detail })),
-          ...siteAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: 'Recommended improvement', detail })),
+          ...qualityAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: 'Publish blocker', detail })),
+          ...qualityAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: 'Recommended improvement', detail })),
         ].slice(0, 8),
         fixPrompt: '',
       });
       return null;
     } finally {
-      setAiQualityBusy(false);
+      if (operationIsLatest()) setAiQualityBusy(false);
     }
   }
 
   async function fixAIQualityIssues() {
     if (!aiQualityReview?.fixPrompt || aiBusy) return;
+
+    const reviewContext = aiQualityReviewContextRef.current;
+    if (
+      !reviewContext ||
+      !aiEditorContextIsCurrent(reviewContext, false)
+    ) {
+      aiQualityReviewContextRef.current = null;
+      setAiQualityReview(null);
+      setAiError(
+        'The website changed after this quality review. Run the quality check again before applying fixes.',
+      );
+      return;
+    }
+
     setAiQualityOpen(false);
     await applyAIChange(aiQualityReview.fixPrompt);
   }
 
-  const refreshPublishVersions = useCallback(async () => {
-    if (!user || !cloudProjectId) {
-      setPublishVersions([]);
-      setPublishVersionsError('');
+  const refreshPublishVersions = useCallback(async (
+    expectedProjectId: string | null = cloudProjectId,
+    expectedOwnerId = activeProjectOwnerId,
+    expectedLoadSequence = projectLoadSequenceRef.current,
+  ) => {
+    const refreshUserId = user?.id ?? null;
+    const refreshIsCurrent = () =>
+      projectLoadSequenceRef.current === expectedLoadSequence &&
+      activeUserIdRef.current === refreshUserId;
+
+    if (!refreshUserId || !expectedProjectId) {
+      if (refreshIsCurrent()) {
+        setPublishVersions([]);
+        setPublishVersionsError('');
+      }
       return;
     }
+
     setPublishVersionsLoading(true);
     setPublishVersionsError('');
-    const { data, error } = await supabase
-      .from('website_publish_versions')
-      .select('id, project_id, user_id, release_note, published_url, storage_prefix, editor_fingerprint, snapshot, file_manifest, created_at')
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId)
-      .order('created_at', { ascending: false })
-      .limit(30);
+
+    const { data, error } = await listWebsitePublishVersions(expectedProjectId, expectedOwnerId);
+
+    if (!refreshIsCurrent()) return;
+
     if (error) {
       setPublishVersionsError('Release history is unavailable. Apply the Sprint 97-108 database migration.');
       setPublishVersionsLoading(false);
       return;
     }
+
     setPublishVersions((data || []) as WebsitePublishVersion[]);
     setPublishVersionsLoading(false);
   }, [user, cloudProjectId, activeProjectOwnerId]);
@@ -8672,62 +10314,57 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (releaseHistoryOpen) void refreshPublishVersions();
   }, [releaseHistoryOpen, refreshPublishVersions]);
 
-  function projectSnapshotCounts(snapshot: Record<string, unknown>) {
-    const snapshotPages = Array.isArray(snapshot.pages) ? snapshot.pages : [];
-    const pageCount = snapshotPages.length;
-    const sectionCount = snapshotPages.reduce((sum: number, page: unknown) => {
-      if (!page || typeof page !== 'object') return sum;
-      const pageSections = (page as { sections?: unknown }).sections;
-      return sum + (Array.isArray(pageSections) ? pageSections.length : 0);
-    }, 0);
-    const elementCount = snapshotPages.reduce((sum: number, page: unknown) => {
-      if (!page || typeof page !== 'object') return sum;
-      const pageSections = (page as { sections?: unknown }).sections;
-      if (!Array.isArray(pageSections)) return sum;
-      return sum + pageSections.reduce((sectionSum: number, section: unknown) => {
-        if (!section || typeof section !== 'object') return sectionSum;
-        const elements = (section as { elements?: unknown }).elements;
-        return sectionSum + (Array.isArray(elements) ? elements.length : 0);
-      }, 0);
-    }, 0);
-    return { pageCount, sectionCount, elementCount };
-  }
-
   function releaseDiffSummary(version: WebsitePublishVersion) {
-    const currentSnapshot = buildProjectSnapshot();
-    const current = projectSnapshotCounts(currentSnapshot as unknown as Record<string, unknown>);
-    const previous = projectSnapshotCounts(version.snapshot || {});
-    const delta = (value: number) => value === 0 ? '0' : value > 0 ? `+${value}` : String(value);
-    return `${delta(current.pageCount - previous.pageCount)} pages · ${delta(current.sectionCount - previous.sectionCount)} sections · ${delta(current.elementCount - previous.elementCount)} elements`;
+    return buildProjectSnapshotDiffSummary(
+      buildProjectSnapshot() as unknown as Record<string, unknown>,
+      version.snapshot || {},
+    );
   }
 
-  async function verifyLiveDeployment() {
-    if (!user || !cloudProjectId) {
+  async function verifyLiveDeployment(
+    expectedProjectId: string | null = cloudProjectId,
+    expectedOwnerId = activeProjectOwnerId,
+    expectedLoadSequence = projectLoadSequenceRef.current,
+  ) {
+    const verificationSequence = ++liveVerificationSequenceRef.current;
+    const verificationUserId = user?.id ?? null;
+    const verificationIsCurrent = () =>
+      liveVerificationSequenceRef.current === verificationSequence &&
+      projectLoadSequenceRef.current === expectedLoadSequence &&
+      activeUserIdRef.current === verificationUserId;
+
+    if (!verificationIsCurrent()) return false;
+
+    if (!verificationUserId || !expectedProjectId) {
       setLiveVerification('idle');
-      return;
+      return false;
     }
 
     setLiveVerification('checking');
 
-    const path = `${activeProjectOwnerId}/${cloudProjectId}/index.html`;
-    const { data, error } = await supabase.storage
-      .from('published-sites')
-      .download(path);
+    const path = `${expectedOwnerId}/${expectedProjectId}/index.html`;
+    const { data, error } = await downloadPublishedWebsiteFile(path);
+
+    if (!verificationIsCurrent()) return false;
 
     if (error || !data || data.size <= 0) {
       setLiveVerification('failed');
-      return;
+      return false;
     }
 
-    const liveUrl = publicWebsiteUrl(cloudProjectId, activeProjectOwnerId);
+    const liveUrl = publicWebsiteUrl(expectedProjectId, expectedOwnerId);
     const routeHealthy = await verifyPublishedRoute(liveUrl);
+
+    if (!verificationIsCurrent()) return false;
+
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
     if (!routeHealthy && import.meta.env.PROD) {
       setPublishError('The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar.');
     }
-  }
 
+    return routeHealthy;
+  }
   async function createSharePreview() {
     if (cloudProjectId && !projectTeamAccess.canPublish) {
       setPreviewError('Only the project owner can create public share previews.');
@@ -8737,22 +10374,44 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPreviewError('Save this project to the cloud before creating a share preview.');
       return;
     }
-    const latestSaved = await saveProject({ automatic: true, createHistory: false });
-    if (!latestSaved) {
-      setPublishError('Publish preflight blocked: the latest changes could not be synchronized to cloud.');
-      return;
-    }
+
+    const previewSequence = ++previewOperationSequenceRef.current;
+    const previewLoadSequence = projectLoadSequenceRef.current;
+    const previewProjectId = cloudProjectId;
+    const previewUserId = user.id;
+    const existingPreviewToken = previewToken;
+    const previewIsCurrent = () =>
+      previewOperationSequenceRef.current === previewSequence &&
+      projectLoadSequenceRef.current === previewLoadSequence &&
+      activeUserIdRef.current === previewUserId;
 
     setPreviewBusy(true);
     setPreviewError('');
+
+    const latestSaved = await saveProject({ automatic: true, createHistory: false });
+
+    if (!previewIsCurrent()) return;
+
+    if (!latestSaved) {
+      setPreviewError('The latest editor changes could not be synchronized before creating the preview.');
+      setPreviewBusy(false);
+      return;
+    }
+
     try {
-      if (previewToken) await revokeSharePreview(false);
+      if (existingPreviewToken) {
+        const existingFolder = `${previewUserId}/${previewProjectId}/previews/${existingPreviewToken}`;
+        await removePublishedWebsiteFiles(existingFolder);
+        if (!previewIsCurrent()) return;
+      }
+
       const token = typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID().replace(/-/g, '')
         : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-      const folder = `${user.id}/${cloudProjectId}/previews/${token}`;
-      const publicBaseUrl = buildPreviewSiteBaseUrl(user.id, cloudProjectId, token);
+      const folder = `${previewUserId}/${previewProjectId}/previews/${token}`;
+      const publicBaseUrl = buildPreviewSiteBaseUrl(previewUserId, previewProjectId, token);
       if (!publicBaseUrl) throw new Error('Could not build the public preview URL.');
+
       const currentPages = getCurrentPages();
       const files: Array<{ name: string; content: string; contentType: string }> = currentPages.map((page) => ({
         name: page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`,
@@ -8760,18 +10419,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         contentType: 'text/html; charset=utf-8',
       }));
       files.push({ name: '404.html', content: get404Html(publicBaseUrl, true, false), contentType: 'text/html; charset=utf-8' });
-      for (const file of files) {
-        const { error } = await supabase.storage.from('published-sites').upload(
-          `${folder}/${file.name}`,
-          new Blob([file.content], { type: file.contentType }),
-          { upsert: true, contentType: file.contentType, cacheControl: '0' },
-        );
-        if (error) throw error;
-      }
-      const nextUrl = buildPreviewSiteUrl(user.id, cloudProjectId, token, 'index.html');
+
+      await uploadPublishedWebsiteFolderFiles(folder, files);
+
+      if (!previewIsCurrent()) return;
+
+      const nextUrl = buildPreviewSiteUrl(previewUserId, previewProjectId, token, 'index.html');
       if (!nextUrl) throw new Error('Could not build the public preview URL.');
 
       const routeHealthy = await verifyPublishedRoute(nextUrl);
+
+      if (!previewIsCurrent()) return;
+
       if (!routeHealthy) {
         throw new Error('Preview files were saved, but the public preview renderer did not return HTML.');
       }
@@ -8783,32 +10442,49 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
       try { await navigator.clipboard.writeText(nextUrl); } catch { /* Clipboard access is optional. */ }
     } catch (error) {
+      if (!previewIsCurrent()) return;
       setPreviewError(error instanceof Error ? error.message : 'Could not create share preview.');
     } finally {
-      setPreviewBusy(false);
+      if (previewOperationSequenceRef.current === previewSequence) {
+        setPreviewBusy(false);
+      }
     }
   }
-
   async function revokeSharePreview(updateBusy = true) {
     if (!user || !cloudProjectId || !previewToken) return;
+
+    const revokeSequence = ++previewOperationSequenceRef.current;
+    const revokeLoadSequence = projectLoadSequenceRef.current;
+    const revokeProjectId = cloudProjectId;
+    const revokeUserId = user.id;
+    const revokeToken = previewToken;
+    const revokeIsCurrent = () =>
+      previewOperationSequenceRef.current === revokeSequence &&
+      projectLoadSequenceRef.current === revokeLoadSequence &&
+      activeUserIdRef.current === revokeUserId;
+
     if (updateBusy) setPreviewBusy(true);
     setPreviewError('');
+
     try {
-      const folder = `${user.id}/${cloudProjectId}/previews/${previewToken}`;
-      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
-      const paths = publishedSiteFilePaths(folder, existing);
-      await removePublishedSiteFiles(publishedSiteStorage, paths);
+      const folder = `${revokeUserId}/${revokeProjectId}/previews/${revokeToken}`;
+      await removePublishedWebsiteFiles(folder);
+
+      if (!revokeIsCurrent()) return;
+
       setPreviewUrl('');
       setPreviewToken('');
       setPreviewCreatedAt(null);
       setSaved(false);
     } catch (error) {
+      if (!revokeIsCurrent()) return;
       setPreviewError(error instanceof Error ? error.message : 'Could not revoke share preview.');
     } finally {
-      if (updateBusy) setPreviewBusy(false);
+      if (updateBusy && previewOperationSequenceRef.current === revokeSequence) {
+        setPreviewBusy(false);
+      }
     }
   }
-
   async function rollbackPublishVersion(version: WebsitePublishVersion) {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
@@ -8816,18 +10492,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
     if (!window.confirm(`Rollback the live website to the release from ${new Date(version.created_at).toLocaleString()}? Your editor draft will stay unchanged.`)) return;
+
+    const rollbackSequence = ++publishOperationSequenceRef.current;
+    const rollbackLoadSequence = projectLoadSequenceRef.current;
+    const rollbackProjectId = cloudProjectId;
+    const rollbackUserId = user.id;
+    const rollbackBaseProjectData = buildProjectData();
+    const rollbackIsCurrent = () =>
+      publishOperationSequenceRef.current === rollbackSequence &&
+      projectLoadSequenceRef.current === rollbackLoadSequence &&
+      activeUserIdRef.current === rollbackUserId;
+
     setPublishBusy(true);
     setPublishError('');
+
     try {
-      const folder = `${user.id}/${cloudProjectId}`;
+      const folder = `${rollbackUserId}/${rollbackProjectId}`;
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
       if (!manifest.length) throw new Error('This release has no stored files.');
+
       const liveNames = new Set(manifest.map((item) => item.name));
-      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
-      const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
-      await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
-      const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(user.id, cloudProjectId);
-      const nextPublishedUrl = buildPublishedSiteUrl(user.id, cloudProjectId, 'index.html');
+      await removeStalePublishedWebsiteFiles(folder, liveNames);
+
+      if (!rollbackIsCurrent()) return;
+
+      const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(rollbackUserId, rollbackProjectId);
+      const nextPublishedUrl = buildPublishedSiteUrl(rollbackUserId, rollbackProjectId, 'index.html');
       if (!nextPublishedBaseUrl || !nextPublishedUrl) throw new Error('Could not build the live website URL.');
 
       const legacyVersionUrl = normalizePublishedSiteUrl(version.published_url || '');
@@ -8835,13 +10525,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const canonicalVersionBase = legacyVersionUrl.replace(/\/index\.html(?:[?#].*)?$/i, '');
 
       for (const file of manifest) {
-        const { data: blob, error: downloadError } = await supabase.storage.from('published-sites').download(`${version.storage_prefix}/${file.name}`);
+        if (!rollbackIsCurrent()) return;
+
+        const { data: blob, error: downloadError } = await downloadPublishedWebsiteFile(`${version.storage_prefix}/${file.name}`);
+        if (!rollbackIsCurrent()) return;
         if (downloadError || !blob) throw downloadError || new Error(`Could not restore ${file.name}`);
 
         let uploadBody: Blob = blob;
         const textual = /(?:text\/|application\/(?:json|xml))/i.test(file.contentType || blob.type || '') || /\.(?:html?|xml|txt|css|js|json)$/i.test(file.name);
         if (textual) {
           let text = await blob.text();
+          if (!rollbackIsCurrent()) return;
           if (legacyVersionBase && legacyVersionBase !== canonicalVersionBase) {
             text = text.split(legacyVersionBase).join(nextPublishedBaseUrl);
           }
@@ -8851,28 +10545,57 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           uploadBody = new Blob([text], { type: file.contentType || blob.type || 'text/plain; charset=utf-8' });
         }
 
-        const { error: uploadError } = await supabase.storage.from('published-sites').upload(`${folder}/${file.name}`, uploadBody, {
-          upsert: true,
+        if (!rollbackIsCurrent()) return;
+
+        const { error: uploadError } = await uploadPublishedWebsiteBlob({
+          path: `${folder}/${file.name}`,
+          body: uploadBody,
           contentType: file.contentType || blob.type || 'application/octet-stream',
           cacheControl: '0',
+          upsert: true,
         });
+
+        if (!rollbackIsCurrent()) return;
         if (uploadError) throw uploadError;
       }
+
+      if (!rollbackIsCurrent()) return;
+
       const nextPublishedAt = new Date().toISOString();
       const projectData = {
-        ...buildProjectData(),
+        ...rollbackBaseProjectData,
         publishedUrl: nextPublishedUrl,
         publishedAt: nextPublishedAt,
         lastPublishedVersionId: version.id,
         lastPublishedFingerprint: version.editor_fingerprint,
         updatedAt: nextPublishedAt,
       };
-      const { error: projectError } = await supabase.from('projects').update({
+
+      if (!rollbackIsCurrent()) return;
+
+      const { error: projectError } = await updateWebsiteProjectPublicationState({
+        projectId: rollbackProjectId,
+        userId: rollbackUserId,
         content: projectData,
-        status: 'completed',
-        updated_at: nextPublishedAt,
-      }).eq('id', cloudProjectId).eq('user_id', user.id);
+        published: true,
+        updatedAt: nextPublishedAt,
+      });
+
+      if (!rollbackIsCurrent()) return;
       if (projectError) throw projectError;
+
+      setCloudProjects((current) =>
+        current.map((project) =>
+          project.id === rollbackProjectId
+            ? {
+                ...project,
+                content: projectData,
+                status: 'completed',
+                updated_at: nextPublishedAt,
+              }
+            : project
+        )
+      );
       setPublishedUrl(nextPublishedUrl);
       setPublishedAt(nextPublishedAt);
       setLastPublishedVersionId(version.id);
@@ -8880,15 +10603,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
-      await verifyLiveDeployment();
+
+      await verifyLiveDeployment(
+        rollbackProjectId,
+        rollbackUserId,
+        rollbackLoadSequence,
+      );
     } catch (error) {
+      if (!rollbackIsCurrent()) return;
       setPublishError(error instanceof Error ? error.message : 'Could not rollback this release.');
     } finally {
-      setPublishBusy(false);
+      if (publishOperationSequenceRef.current === rollbackSequence) {
+        setPublishBusy(false);
+      }
     }
   }
-
   function restorePublishVersionToEditor(version: WebsitePublishVersion) {
+    if (snapshotConflictsWithActiveProject(version.snapshot)) {
+      setPublishVersionsError('This release snapshot does not belong to the active project.');
+      return;
+    }
+
     if (!window.confirm('Restore this release into the editor? The live website will not change until you publish again.')) return;
     const restored = {
       ...(version.snapshot || {}),
@@ -8901,7 +10636,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       lastPublishedFingerprint,
     };
     saveRecoverySnapshot('before restoring published release');
-    skipNextAutosaveRef.current = true;
+    prepareProjectStateRestore();
     applyProjectData(restored, false);
     setReleaseHistoryOpen(false);
     setAutoSaveStatus('saving');
@@ -8918,22 +10653,39 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
     if (!window.confirm('Delete this stored release archive? This cannot be undone.')) return;
+
+    const deleteLoadSequence = projectLoadSequenceRef.current;
+    const deleteProjectId = cloudProjectId;
+    const deleteOwnerId = activeProjectOwnerId;
+    const deleteUserId = user.id;
+    const deleteIsCurrent = () =>
+      projectLoadSequenceRef.current === deleteLoadSequence &&
+      activeUserIdRef.current === deleteUserId;
+
     setPublishVersionsLoading(true);
     setPublishVersionsError('');
+
     try {
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
-      const paths = manifest.map((item) => `${version.storage_prefix}/${item.name}`);
-      if (paths.length) {
-        const { error: removeError } = await supabase.storage.from('published-sites').remove(paths);
-        if (removeError) throw removeError;
-      }
-      const { error } = await supabase.from('website_publish_versions').delete().eq('id', version.id).eq('project_id', cloudProjectId).eq('user_id', activeProjectOwnerId);
+      const { error } = await deleteWebsitePublishVersionArchive({
+        versionId: version.id,
+        projectId: deleteProjectId,
+        ownerId: deleteOwnerId,
+        storagePrefix: version.storage_prefix,
+        fileManifest: manifest,
+      });
+
+      if (!deleteIsCurrent()) return;
       if (error) throw error;
+
       setPublishVersions((current) => current.filter((item) => item.id !== version.id));
     } catch (error) {
+      if (!deleteIsCurrent()) return;
       setPublishVersionsError(error instanceof Error ? error.message : 'Could not delete this release.');
     } finally {
-      setPublishVersionsLoading(false);
+      if (deleteIsCurrent()) {
+        setPublishVersionsLoading(false);
+      }
     }
   }
 
@@ -8943,6 +10695,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setCloudError('Opening your saved website. Save will continue when it is loaded.');
       return false;
     }
+
+    if (user && !cloudProjectId) {
+      const preservedProjectId = projectId || loadActiveWebsiteProjectId();
+      if (preservedProjectId) {
+        setCloudError('Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available.');
+        setAutoSaveStatus('failed');
+        return false;
+      }
+
+      if (!newProjectIntentRef.current && cloudProjectsLoaded && cloudProjects.length > 0) {
+        const fallbackProject =
+          cloudProjects.find((project) => project.user_id === user.id) ??
+          cloudProjects[0];
+
+        saveActiveWebsiteProjectId(fallbackProject.id);
+        setCloudError('Opening your most recent saved website before saving. No duplicate draft was created.');
+        setAutoSaveStatus('saving');
+        void loadCloudProjectRef.current(fallbackProject.id);
+        return false;
+      }
+    }
+
     const createHistory = options.createHistory ?? !automatic;
     const fingerprint = buildProjectFingerprint();
 
@@ -8952,20 +10726,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return false;
     }
 
-    let historyEntries = projectHistory;
-    if (createHistory) {
-      const snapshot = buildProjectSnapshot();
-      const entry: ProjectHistoryEntry = {
-        id: `history-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        savedAt: snapshot.updatedAt,
-        label: `Saved ${new Date(snapshot.updatedAt).toLocaleString()}`,
-        snapshot,
-      };
-      historyEntries = [entry, ...projectHistory].slice(0, 30);
-      setProjectHistory(historyEntries);
+    if (saveInFlightRef.current) {
+      return false;
     }
 
-    const projectData = buildProjectData(historyEntries);
+    const saveLoadSequence = projectLoadSequenceRef.current;
+    const saveUserId = user?.id ?? null;
+    const saveController = new AbortController();
+    const saveIsCurrent = () =>
+      !saveController.signal.aborted &&
+      projectLoadSequenceRef.current === saveLoadSequence &&
+      activeUserIdRef.current === saveUserId;
+
+    saveAbortControllerRef.current = saveController;
+    saveInFlightRef.current = true;
+
+    try {
+      let historyEntries = projectHistory;
+      if (createHistory) {
+        const snapshot = buildProjectSnapshot();
+        const entry = createProjectHistoryEntry(snapshot) as ProjectHistoryEntry;
+        historyEntries = [entry, ...projectHistory].slice(0, 30);
+      }
+
+      const projectData = buildProjectData(historyEntries);
     const localSaved = saveLocalWebsiteProject(projectData);
     if (!localSaved) {
       setCloudError('Local recovery storage is full. Cloud save will still be attempted.');
@@ -8981,15 +10765,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setCloudSyncFailed(true);
         setCloudError('You are offline. Changes are saved locally and will retry when the connection returns.');
       } else if (cloudProjectId) {
-        const result = await retryCloudOperation(() => supabase
-          .from('projects')
-          .update({
-            title: siteName.trim() || 'My Website',
-            content: projectData,
-            status: publishedUrl ? 'completed' : 'draft',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', cloudProjectId));
+        const result = await updateWebsiteProjectInCloud({
+          projectId: cloudProjectId,
+          title: siteName.trim() || 'My Website',
+          content: projectData,
+          published: Boolean(publishedUrl),
+          signal: saveController.signal,
+        });
+
+        if (!saveIsCurrent()) return false;
 
         if (result.error) {
           if (/limit reached/i.test(result.error.message || '')) openBillingWithMessage(result.error.message);
@@ -8998,35 +10782,71 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         } else {
           cloudSaved = true;
           setCloudSyncFailed(false);
+          setCloudProjects((current) =>
+            current.map((project) =>
+              project.id === cloudProjectId
+                ? {
+                    ...project,
+                    title: siteName.trim() || 'My Website',
+                    content: projectData,
+                    status: publishedUrl ? 'completed' : 'draft',
+                    updated_at: String(projectData.updatedAt || new Date().toISOString()),
+                  }
+                : project
+            )
+          );
         }
       } else {
-        const result = await retryCloudOperation(() => supabase
-          .from('projects')
-          .insert({
-            user_id: user.id,
-            title: siteName.trim() || 'My Website',
-            type: 'website-builder',
-            content: projectData,
-            status: publishedUrl ? 'completed' : 'draft',
-          })
-          .select('id, title, content, updated_at')
-          .single());
+        const result = await createWebsiteProjectInCloud({
+          userId: user.id,
+          title: siteName.trim() || 'My Website',
+          content: projectData,
+          published: Boolean(publishedUrl),
+          signal: saveController.signal,
+        });
+
+        if (!saveIsCurrent()) return false;
 
         if (result.error || !result.data) {
           if (result.error && /limit reached/i.test(result.error.message || '')) openBillingWithMessage(result.error.message);
           setCloudError(result.error?.message || (automatic ? 'Autosaved locally, but cloud autosave failed.' : 'Saved locally, but cloud save failed.'));
           setCloudSyncFailed(true);
         } else {
-          setCloudProjectId(result.data.id);
-          saveActiveWebsiteProjectId(result.data.id);
+          const createdProject = result.data;
+          newProjectIntentRef.current = false;
+          setCloudProjectId(createdProject.id);
+          saveActiveWebsiteProjectId(createdProject.id);
+          saveLocalWebsiteProject({
+            ...projectData,
+            cloudProjectId: createdProject.id,
+          });
           setProjectTeamAccess({ ...DEFAULT_EDITOR_PROJECT_ACCESS, ownerId: user.id });
+          setCloudProjects((current) => [
+            {
+              id: createdProject.id,
+              user_id: user.id,
+              workspace_id: null,
+              title: siteName.trim() || 'My Website',
+              content: projectData,
+              status: publishedUrl ? 'completed' : 'draft',
+              updated_at: typeof createdProject.updated_at === 'string'
+                ? createdProject.updated_at
+                : String(projectData.updatedAt || new Date().toISOString()),
+            },
+            ...current.filter((project) => project.id !== createdProject.id),
+          ]);
           cloudSaved = true;
           setCloudSyncFailed(false);
         }
       }
 
-      if (cloudSaved) await refreshCloudProjects();
-      setCloudBusy(false);
+      if (!saveIsCurrent()) return false;
+    }
+
+    if (!saveIsCurrent()) return false;
+
+    if (createHistory && (localSaved || cloudSaved)) {
+      setProjectHistory(historyEntries);
     }
 
     const durableSaved = user ? cloudSaved : localSaved;
@@ -9034,10 +10854,29 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAutoSaveStatus(durableSaved ? 'saved' : 'failed');
 
     if (!automatic) {
-      setSaved(durableSaved);
-      if (durableSaved) window.setTimeout(() => setSaved(false), 2000);
+      if (durableSaved) {
+        showSavedFeedback(saveLoadSequence, user?.id ?? null);
+      } else {
+        setSaved(false);
+      }
     }
     return durableSaved;
+    } catch (error) {
+      if (saveIsCurrent()) {
+        const message = error instanceof Error ? error.message : 'Unexpected save failure.';
+        setCloudSyncFailed(Boolean(saveUserId));
+        setCloudError(saveUserId ? `Save failed: ${message}` : message);
+        setAutoSaveStatus('failed');
+        if (!automatic) setSaved(false);
+      }
+      return false;
+    } finally {
+      if (saveAbortControllerRef.current === saveController) {
+        saveAbortControllerRef.current = null;
+        saveInFlightRef.current = false;
+        if (saveIsCurrent()) setCloudBusy(false);
+      }
+    }
   }
 
   saveProjectRef.current = saveProject;
@@ -9047,9 +10886,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       openBillingWithMessage(`Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports ${billingEntitlements.maxWebsiteProjects} Website Builder project${billingEntitlements.maxWebsiteProjects === 1 ? '' : 's'}. Upgrade before duplicating another project.`);
       return;
     }
+
+    cancelPendingProjectPersistence();
+    projectLoadSequenceRef.current += 1;
+    const duplicateLoadSequence = projectLoadSequenceRef.current;
+    const duplicateUserId = user?.id ?? null;
+    const duplicateIsCurrent = () =>
+      projectLoadSequenceRef.current === duplicateLoadSequence &&
+      activeUserIdRef.current === duplicateUserId;
+
     const duplicateTitle = `${siteName.trim() || 'My Website'} Copy`;
     const duplicateContent = {
       ...buildProjectSnapshot(),
+      cloudProjectId: null,
       siteName: duplicateTitle,
       publishedUrl: '',
       publishedAt: null,
@@ -9083,24 +10932,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setLiveVerification('idle');
       saveLocalWebsiteProject(duplicateContent);
       lastSavedSnapshotRef.current = '';
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
+      showSavedFeedback(duplicateLoadSequence, duplicateUserId);
       return;
     }
 
+    if (!duplicateUserId) return;
+
     setCloudBusy(true);
     setCloudError('');
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({
-        user_id: user.id,
-        title: duplicateTitle,
-        type: 'website-builder',
-        content: duplicateContent,
-        status: 'draft',
-      })
-      .select('id, title, content, updated_at')
-      .single();
+    const { data, error } = await createWebsiteProjectInCloud({
+      userId: duplicateUserId,
+      title: duplicateTitle,
+      content: duplicateContent,
+      published: false,
+    });
+
+    if (!duplicateIsCurrent()) return;
 
     if (error || !data) {
       if (error && /limit reached/i.test(error.message || '')) openBillingWithMessage(error.message);
@@ -9109,6 +10956,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    newProjectIntentRef.current = false;
     setCloudProjectId(data.id);
     saveActiveWebsiteProjectId(data.id);
     setProjectHistory([]);
@@ -9128,19 +10976,34 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPublishVersions([]);
     setReleaseHistoryOpen(false);
     setLiveVerification('idle');
-    saveLocalWebsiteProject(duplicateContent);
+    saveLocalWebsiteProject({
+      ...duplicateContent,
+      cloudProjectId: data.id,
+    });
     lastSavedSnapshotRef.current = '';
     await refreshCloudProjects();
+    if (!duplicateIsCurrent()) return;
     setCloudBusy(false);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
+    showSavedFeedback(duplicateLoadSequence, duplicateUserId);
   }
 
   function restoreHistoryEntry(entry: ProjectHistoryEntry) {
     const confirmed = window.confirm(`Restore "${entry.label}"? Your current unsaved changes will be replaced.`);
     if (!confirmed) return;
+
+    if (snapshotConflictsWithActiveProject(entry.snapshot)) {
+      setCloudError('This history snapshot does not belong to the active project.');
+      return;
+    }
+
     saveRecoverySnapshot('before restoring history entry');
-    applyProjectData(entry.snapshot, false);
+
+    const undoEntry = createEditHistoryEntry(`Before restoring ${entry.label}`);
+    prepareProjectStateRestore();
+    setHistory((current) => [...current.slice(-49), undoEntry]);
+    setFuture([]);
+
+    applyProjectData(entry.snapshot, false, false);
     setHistoryOpen(false);
     setSaved(false);
     setAutoSaveStatus('saving');
@@ -9154,6 +11017,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!confirmed) return;
 
     saveRecoverySnapshot('before reset');
+    cancelPendingProjectPersistence();
+    projectLoadSequenceRef.current += 1;
+    newProjectIntentRef.current = true;
     setSections(defaultSections);
     setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: defaultSections, showInNavigation: true }]);
     setActivePageId('page-home');
@@ -9322,12 +11188,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
+
+      const importLoadSequence = projectLoadSequenceRef.current;
+      const importUserId = user?.id ?? null;
+      const importIsCurrent = () =>
+        projectLoadSequenceRef.current === importLoadSequence &&
+        activeUserIdRef.current === importUserId;
+
+      let raw = '';
       try {
-        const parsed = JSON.parse(await file.text());
+        raw = await file.text();
+      } catch {
+        if (importIsCurrent()) {
+          window.alert('This JSON file could not be read.');
+        }
+        return;
+      }
+
+      if (!importIsCurrent()) return;
+
+      try {
+        const parsed = JSON.parse(raw);
         const project = parsed?.project ?? parsed;
         if (!project || (!Array.isArray(project.pages) && !Array.isArray(project.sections))) throw new Error('Invalid project backup');
         const importedProject = {
           ...project,
+          cloudProjectId: null,
           publishedUrl: '',
           publishedAt: null,
           previewUrl: '',
@@ -9345,9 +11231,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           history: [],
           updatedAt: new Date().toISOString(),
         };
+
+        if (!importIsCurrent()) return;
+
         saveRecoverySnapshot('before importing backup');
+        cancelPendingProjectPersistence();
+        projectLoadSequenceRef.current += 1;
         skipNextAutosaveRef.current = true;
         applyProjectData(importedProject);
+        newProjectIntentRef.current = true;
         setCloudProjectId(null);
         saveActiveWebsiteProjectId(null);
         setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
@@ -9365,8 +11257,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function exportLeadsCsv() {
     const rows: unknown[][] = [[ 'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'updated_at', 'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer', 'form_data' ]];
     leads.forEach((lead) => {
-      const meta = leadSource(lead);
-      rows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.updated_at || '', lead.name, lead.email, leadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer, lead.form_data || {}]);
+      const meta = getWebsiteLeadSource(lead);
+      rows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.updated_at || '', lead.name, lead.email, getWebsiteLeadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer, lead.form_data || {}]);
     });
     downloadTextFile(`${normalizeSlug(siteName || 'website')}-leads.csv`, `\uFEFF${buildCsv(rows)}`, 'text/csv;charset=utf-8');
   }
@@ -9535,8 +11427,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const leadRows: unknown[][] = [[ 'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer' ]];
     leads.forEach((lead) => {
-      const meta = leadSource(lead);
-      leadRows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.name, lead.email, leadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer]);
+      const meta = getWebsiteLeadSource(lead);
+      leadRows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.name, lead.email, getWebsiteLeadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer]);
     });
     files.push({ name: 'reports/leads.csv', content: `\uFEFF${buildCsv(leadRows)}` });
 
@@ -9591,30 +11483,66 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const newIds = leads.filter((lead) => lead.status === 'new').map((lead) => lead.id);
     if (!newIds.length) return;
-    const { error } = await supabase
-      .from('website_leads')
-      .update({ status: 'read', updated_at: new Date().toISOString() })
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId)
-      .eq('status', 'new');
-    if (error) { setLeadsError('Could not mark all leads as read.'); return; }
-    setLeads((current) => current.map((lead) => lead.status === 'new' ? { ...lead, status: 'read' } : lead));
-  }
 
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
+
+    const { error } = await updateWebsiteLeadsByStatus({
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
+      fromStatus: 'new',
+      toStatus: 'read',
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (!updateIsCurrent()) return;
+
+    if (error) {
+      setLeadsError('Could not mark all leads as read.');
+      return;
+    }
+
+    setLeads((current) => current.map((lead) =>
+      lead.status === 'new' ? { ...lead, status: 'read' } : lead
+    ));
+  }
   async function archiveReadLeads() {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
     const readCount = leads.filter((lead) => lead.status === 'read').length;
     if (!readCount) return;
-    const { error } = await supabase
-      .from('website_leads')
-      .update({ status: 'archived', updated_at: new Date().toISOString() })
-      .eq('project_id', cloudProjectId)
-      .eq('user_id', activeProjectOwnerId)
-      .eq('status', 'read');
-    if (error) { setLeadsError('Could not archive read leads.'); return; }
-    setLeads((current) => current.map((lead) => lead.status === 'read' ? { ...lead, status: 'archived' } : lead));
-  }
 
+    const updateLoadSequence = projectLoadSequenceRef.current;
+    const updateUserId = user.id;
+    const updateProjectId = cloudProjectId;
+    const updateOwnerId = activeProjectOwnerId;
+    const updateIsCurrent = () =>
+      projectLoadSequenceRef.current === updateLoadSequence &&
+      activeUserIdRef.current === updateUserId;
+
+    const { error } = await updateWebsiteLeadsByStatus({
+      projectId: updateProjectId,
+      ownerId: updateOwnerId,
+      fromStatus: 'read',
+      toStatus: 'archived',
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (!updateIsCurrent()) return;
+
+    if (error) {
+      setLeadsError('Could not archive read leads.');
+      return;
+    }
+
+    setLeads((current) => current.map((lead) =>
+      lead.status === 'read' ? { ...lead, status: 'archived' } : lead
+    ));
+  }
   async function copyProjectSummary() {
     const currentPages = getCurrentPages();
     const sectionCount = currentPages.reduce((sum, page) => sum + page.sections.length, 0);
@@ -9709,6 +11637,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    const publishSequence = ++publishOperationSequenceRef.current;
+    const publishLoadSequence = projectLoadSequenceRef.current;
+    const publishUserId = user.id;
+    const publishTitle = siteName.trim() || 'My Website';
+    const publishIsCurrent = () =>
+      publishOperationSequenceRef.current === publishSequence &&
+      projectLoadSequenceRef.current === publishLoadSequence &&
+      activeUserIdRef.current === publishUserId;
+
     setPublishBusy(true);
     setPublishError('');
     setPublishVersionsError('');
@@ -9723,24 +11660,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           createHistory: false,
         });
 
+        if (!publishIsCurrent()) return;
+
         if (!latestSaved) {
           throw new Error('The latest editor changes could not be synchronized before publishing.');
         }
       } else {
         const draftData = buildProjectData();
-        const createResult = await retryCloudOperation(() =>
-          supabase
-            .from('projects')
-            .insert({
-              user_id: user.id,
-              title: siteName.trim() || 'My Website',
-              type: 'website-builder',
-              content: draftData,
-              status: 'draft',
-            })
-            .select('id')
-            .single()
-        );
+        const createResult = await createWebsiteProjectInCloud({
+          userId: publishUserId,
+          title: publishTitle,
+          content: draftData,
+          published: false,
+        });
+
+        if (!publishIsCurrent()) return;
 
         if (createResult.error || !createResult.data) {
           if (createResult.error && /limit reached/i.test(createResult.error.message || '')) {
@@ -9758,7 +11692,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         saveActiveWebsiteProjectId(publishProjectId);
         setProjectTeamAccess({
           ...DEFAULT_EDITOR_PROJECT_ACCESS,
-          ownerId: user.id,
+          ownerId: publishUserId,
         });
         setCloudSyncFailed(false);
       }
@@ -9767,8 +11701,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('A cloud project ID is required to publish.');
       }
 
-      const folder = user.id + '/' + publishProjectId;
-      const publicBaseUrl = buildPublishedSiteBaseUrl(user.id, publishProjectId);
+      if (!publishIsCurrent()) return;
+
+      const folder = publishUserId + '/' + publishProjectId;
+      const publicBaseUrl = buildPublishedSiteBaseUrl(publishUserId, publishProjectId);
       if (!publicBaseUrl) {
         throw new Error('Could not build the public website URL.');
       }
@@ -9863,77 +11799,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         },
       );
 
-      const liveNames =
-        new Set(
-          files.map((file) => file.name),
-        );
+      const publishBaseProjectData = buildProjectData();
+      const publishEditableFingerprint = buildEditableFingerprint();
+      const publishReleaseNote = releaseNote.trim().slice(0, 500);
+      const publishReleaseHistoryEnabled =
+        billingEntitlements.features.releaseHistory;
 
-      let existing: Array<{ id?: string | null; name: string }>;
-      try {
-        existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
-      } catch (error) {
-        throw new Error(
-          'Published-sites storage is unavailable: ' +
-          (error instanceof Error ? error.message : 'unknown storage error')
-        );
-      }
+      await replacePublishedWebsiteFiles(folder, files);
 
-      const stalePaths = publishedSiteFilePaths(folder, existing, liveNames);
-      await removePublishedSiteFiles(publishedSiteStorage, stalePaths);
-
-      for (const file of files) {
-        const blob =
-          new Blob(
-            [file.content],
-            { type: file.contentType },
-          );
-
-        const {
-          error: liveError,
-        } = await supabase.storage
-          .from('published-sites')
-          .upload(
-            folder + '/' + file.name,
-            blob,
-            {
-              upsert: true,
-              contentType:
-                file.contentType,
-              cacheControl: '0',
-            },
-          );
-
-        if (liveError) {
-          throw new Error(
-            'Could not publish ' +
-            file.name +
-            ': ' +
-            liveError.message
-          );
-        }
-      }
-
-      const {
-        data: verifiedIndex,
-        error: verifyError,
-      } = await supabase.storage
-        .from('published-sites')
-        .download(
-          folder + '/index.html',
-        );
-
-      if (
-        verifyError ||
-        !verifiedIndex ||
-        verifiedIndex.size <= 0
-      ) {
-        throw new Error(
-          'Files were uploaded but the live index could not be verified' +
-          (verifyError?.message
-            ? ': ' + verifyError.message
-            : '.')
-        );
-      }
+      if (!publishIsCurrent()) return;
 
       const versionId =
         typeof crypto !== 'undefined' &&
@@ -9968,50 +11842,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       let archiveWarning = '';
 
-      if (
-        billingEntitlements
-          .features
-          .releaseHistory
-      ) {
+      if (publishReleaseHistoryEnabled) {
         try {
-          for (const file of files) {
-            const blob =
-              new Blob(
-                [file.content],
-                {
-                  type:
-                    file.contentType,
-                },
-              );
+          await archivePublishedWebsiteFiles(versionPrefix, files);
 
-            const {
-              error: archiveError,
-            } = await supabase.storage
-              .from('published-sites')
-              .upload(
-                versionPrefix +
-                  '/' +
-                  file.name,
-                blob,
-                {
-                  upsert: false,
-                  contentType:
-                    file.contentType,
-                  cacheControl:
-                    '31536000',
-                },
-              );
-
-            if (archiveError) {
-              throw archiveError;
-            }
-          }
-
-          const editableFingerprint =
-            buildEditableFingerprint();
+          if (!publishIsCurrent()) return;
 
           const provisionalData = {
-            ...buildProjectData(),
+            ...publishBaseProjectData,
             publishedUrl:
               publicBaseUrl +
               '/index.html',
@@ -10020,7 +11858,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             lastPublishedVersionId:
               versionId,
             lastPublishedFingerprint:
-              editableFingerprint,
+              publishEditableFingerprint,
           };
 
           const manifest =
@@ -10032,31 +11870,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           const {
             error: versionError,
-          } = await supabase
-            .from(
-              'website_publish_versions',
-            )
-            .insert({
-              id: versionId,
-              project_id:
-                publishProjectId,
-              user_id: user.id,
-              release_note:
-                releaseNote
-                  .trim()
-                  .slice(0, 500),
-              published_url:
-                publicBaseUrl +
-                '/index.html',
-              storage_prefix:
-                versionPrefix,
-              editor_fingerprint:
-                editableFingerprint,
-              snapshot:
-                provisionalData,
-              file_manifest:
-                manifest,
-            });
+          } = await createWebsitePublishVersion({
+            id: versionId,
+            projectId: publishProjectId,
+            ownerId: publishUserId,
+            releaseNote: publishReleaseNote,
+            publishedUrl: publicBaseUrl + '/index.html',
+            storagePrefix: versionPrefix,
+            editorFingerprint: publishEditableFingerprint,
+            snapshot: provisionalData,
+            fileManifest: manifest,
+          });
+
+          if (!publishIsCurrent()) return;
 
           if (versionError) {
             throw versionError;
@@ -10073,14 +11899,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       const nextPublishedUrl =
-        buildPublishedSiteUrl(user.id, publishProjectId, 'index.html');
+        buildPublishedSiteUrl(publishUserId, publishProjectId, 'index.html');
 
       if (!nextPublishedUrl) {
         throw new Error('Could not build the public website URL.');
       }
 
+      if (!publishIsCurrent()) return;
+
       const renderedRouteHealthy =
         await verifyPublishedRoute(nextPublishedUrl);
+
+      if (!publishIsCurrent()) return;
 
       if (!renderedRouteHealthy) {
         throw new Error(
@@ -10091,11 +11921,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const nextPublishedAt =
         new Date().toISOString();
 
-      const editableFingerprint =
-        buildEditableFingerprint();
-
       const projectData = {
-        ...buildProjectData(),
+        ...publishBaseProjectData,
         publishedUrl:
           nextPublishedUrl,
         publishedAt:
@@ -10103,31 +11930,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         lastPublishedVersionId:
           archivedReleaseId,
         lastPublishedFingerprint:
-          editableFingerprint,
+          publishEditableFingerprint,
         updatedAt:
           nextPublishedAt,
       };
 
+      if (!publishIsCurrent()) return;
+
       const {
         error: projectError,
-      } = await supabase
-        .from('projects')
-        .update({
-          content:
-            projectData,
-          status:
-            'completed',
-          updated_at:
-            nextPublishedAt,
-        })
-        .eq(
-          'id',
-          publishProjectId,
-        )
-        .eq(
-          'user_id',
-          user.id,
-        );
+      } = await updateWebsiteProjectPublicationState({
+        projectId: publishProjectId,
+        userId: publishUserId,
+        content: projectData,
+        published: true,
+        updatedAt: nextPublishedAt,
+      });
+
+      if (!publishIsCurrent()) return;
 
       if (projectError) {
         throw new Error(
@@ -10135,6 +11955,31 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           projectError.message
         );
       }
+
+      if (!publishIsCurrent()) return;
+
+      setCloudProjects((current) => {
+        const existing = current.find((project) => project.id === publishProjectId);
+        const updatedProject: CloudWebsiteProject = {
+          ...(existing || {
+            id: publishProjectId,
+            user_id: publishUserId,
+            workspace_id: null,
+            title: publishTitle,
+            content: projectData,
+            status: 'completed',
+            updated_at: nextPublishedAt,
+          }),
+          content: projectData,
+          status: 'completed',
+          updated_at: nextPublishedAt,
+        };
+
+        return [
+          updatedProject,
+          ...current.filter((project) => project.id !== publishProjectId),
+        ];
+      });
 
       setPublishedUrl(
         nextPublishedUrl,
@@ -10149,7 +11994,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       );
 
       setLastPublishedFingerprint(
-        editableFingerprint,
+        publishEditableFingerprint,
       );
 
       setReleaseNote('');
@@ -10177,16 +12022,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
 
-      await refreshCloudProjects();
-
-      if (
-        billingEntitlements
-          .features
-          .releaseHistory
-      ) {
-        await refreshPublishVersions();
+      if (publishReleaseHistoryEnabled) {
+        await refreshPublishVersions(
+          publishProjectId,
+          publishUserId,
+          publishLoadSequence,
+        );
       }
     } catch (error) {
+      if (!publishIsCurrent()) return;
+
       setPublishError(
         error instanceof Error
           ? error.message
@@ -10197,10 +12042,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         'failed',
       );
     } finally {
-      setPublishBusy(false);
+      if (publishOperationSequenceRef.current === publishSequence) {
+        setPublishBusy(false);
+      }
     }
   }
-
   async function unpublishWebsite() {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
@@ -10209,18 +12055,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
     if (!window.confirm('Remove the public version of this website?')) return;
 
+    const unpublishSequence = ++publishOperationSequenceRef.current;
+    const unpublishLoadSequence = projectLoadSequenceRef.current;
+    const unpublishProjectId = cloudProjectId;
+    const unpublishUserId = user.id;
+    const unpublishBaseProjectData = buildProjectData();
+    const unpublishIsCurrent = () =>
+      publishOperationSequenceRef.current === unpublishSequence &&
+      projectLoadSequenceRef.current === unpublishLoadSequence &&
+      activeUserIdRef.current === unpublishUserId;
+
     setPublishBusy(true);
     setPublishError('');
 
     try {
-      const folder = `${user.id}/${cloudProjectId}`;
-      const existing = await listAllPublishedSiteFiles(publishedSiteStorage, folder);
-      const paths = publishedSiteFilePaths(folder, existing);
-      await removePublishedSiteFiles(publishedSiteStorage, paths);
+      const folder = `${unpublishUserId}/${unpublishProjectId}`;
+      await removePublishedWebsiteFiles(folder);
+
+      if (!unpublishIsCurrent()) return;
 
       const nextUpdatedAt = new Date().toISOString();
       const projectData = {
-        ...buildProjectData(),
+        ...unpublishBaseProjectData,
         publishedUrl: '',
         publishedAt: null,
         lastPublishedVersionId: null,
@@ -10228,16 +12084,31 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: nextUpdatedAt,
       };
 
-      const { error: projectError } = await supabase
-        .from('projects')
-        .update({
-          content: projectData,
-          status: 'draft',
-          updated_at: nextUpdatedAt,
-        })
-        .eq('id', cloudProjectId)
-        .eq('user_id', user.id);
+      if (!unpublishIsCurrent()) return;
+
+      const { error: projectError } = await updateWebsiteProjectPublicationState({
+        projectId: unpublishProjectId,
+        userId: unpublishUserId,
+        content: projectData,
+        published: false,
+        updatedAt: nextUpdatedAt,
+      });
+
+      if (!unpublishIsCurrent()) return;
       if (projectError) throw projectError;
+
+      setCloudProjects((current) =>
+        current.map((project) =>
+          project.id === unpublishProjectId
+            ? {
+                ...project,
+                content: projectData,
+                status: 'draft',
+                updated_at: nextUpdatedAt,
+              }
+            : project
+        )
+      );
 
       setPublishedUrl('');
       setPublishedAt(null);
@@ -10247,14 +12118,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saveLocalWebsiteProject(projectData);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
-      await refreshCloudProjects();
     } catch (error) {
+      if (!unpublishIsCurrent()) return;
       setPublishError(error instanceof Error ? error.message : 'Could not unpublish this website.');
     } finally {
-      setPublishBusy(false);
+      if (publishOperationSequenceRef.current === unpublishSequence) {
+        setPublishBusy(false);
+      }
     }
   }
-
   async function copyHtml() {
     try {
       await navigator.clipboard.writeText(getHtml());
@@ -10279,22 +12151,42 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function runV1LaunchChecks() {
+    const launchLoadSequence = projectLoadSequenceRef.current;
+    const launchProjectId = cloudProjectId;
+    const launchOwnerId = activeProjectOwnerId;
+    const launchUserId = user?.id ?? null;
+    const launchIsCurrent = () =>
+      projectLoadSequenceRef.current === launchLoadSequence &&
+      activeUserIdRef.current === launchUserId;
+
     setLaunchCheckBusy(true);
     try {
-      if (user) await refreshBilling(cloudProjectId);
-      if (user && cloudProjectId) {
-        await refreshProjectTeamAccess(cloudProjectId);
+      if (user) await refreshBilling(launchProjectId);
+      if (!launchIsCurrent()) return;
+
+      if (user && launchProjectId) {
+        await refreshProjectTeamAccess(launchProjectId, launchLoadSequence);
+        if (!launchIsCurrent()) return;
 
         if (publishedUrl) {
-          await verifyLiveDeployment();
+          await verifyLiveDeployment(
+            launchProjectId,
+            launchOwnerId,
+            launchLoadSequence,
+          );
         } else {
-          const project = cloudProjects.find((item) => item.id === cloudProjectId);
-          if (project) await recoverPublishedProjectState(project);
+          const project = cloudProjects.find((item) => item.id === launchProjectId);
+          if (project) await recoverPublishedProjectState(project, launchLoadSequence);
         }
       }
-      setLaunchLastCheckedAt(new Date().toISOString());
+
+      if (launchIsCurrent()) {
+        setLaunchLastCheckedAt(new Date().toISOString());
+      }
     } finally {
-      setLaunchCheckBusy(false);
+      if (launchIsCurrent()) {
+        setLaunchCheckBusy(false);
+      }
     }
   }
 
@@ -10411,8 +12303,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   const hasUnpublishedChanges = Boolean(
     publishedUrl &&
-    lastPublishedFingerprint &&
-    buildEditableFingerprint() !== lastPublishedFingerprint
+    (
+      !lastPublishedFingerprint ||
+      buildEditableFingerprint() !== lastPublishedFingerprint
+    )
   );
 
   function openV2MediaUpload() {
@@ -10450,34 +12344,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         source,
       );
 
-    const index =
-      sections.findIndex(
-        (section) =>
-          section.id === sectionId,
-      );
-
     remember(sections);
 
     setSections((current) => {
-      const next =
-        [...current];
-
-      next.splice(
-        Math.max(0, index + 1),
-        0,
-        duplicate,
+      const index = current.findIndex(
+        (section) => section.id === sectionId,
       );
+      if (index < 0) return current;
 
+      const next = [...current];
+      next.splice(index + 1, 0, duplicate);
       return next;
     });
 
-    setSelectedId(
+    selectEditorTarget(
       duplicate.id,
-    );
-
-    setSelectedElementId(
-      duplicate.elements[0]
-        ?.id ?? null,
+      duplicate.elements[0]?.id ?? null,
     );
 
     setSaved(false);
@@ -10496,44 +12378,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     if (!targetSection) return;
 
-    const index =
-      targetSection.elements.findIndex(
-        (element) =>
-          element.id === elementId,
-      );
-
-    if (index < 0) return;
-
-    const targetIndex =
-      direction === 'up'
-        ? index - 1
-        : index + 1;
-
-    if (
-      targetIndex < 0 ||
-      targetIndex >=
-        targetSection.elements.length
-    ) {
-      return;
-    }
-
     remember(sections);
 
     setSections((current) =>
       current.map((section) => {
+        if (section.id !== sectionId) return section;
+
+        const index = section.elements.findIndex(
+          (element) => element.id === elementId,
+        );
+        if (index < 0) return section;
+
+        const targetIndex =
+          direction === 'up'
+            ? index - 1
+            : index + 1;
         if (
-          section.id !== sectionId
+          targetIndex < 0 ||
+          targetIndex >= section.elements.length
         ) {
           return section;
         }
 
-        const elements =
-          [...section.elements];
-
-        [
-          elements[index],
-          elements[targetIndex],
-        ] = [
+        const elements = [...section.elements];
+        [elements[index], elements[targetIndex]] = [
           elements[targetIndex],
           elements[index],
         ];
@@ -10545,8 +12413,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }),
     );
 
-    setSelectedId(sectionId);
-    setSelectedElementId(elementId);
+    selectEditorTarget(sectionId, elementId);
     setSaved(false);
   }
 
@@ -10598,12 +12465,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         undefined,
     };
 
-    const index =
-      targetSection.elements.findIndex(
-        (element) =>
-          element.id === elementId,
-      );
-
     remember(sections);
 
     setSections((current) =>
@@ -10614,14 +12475,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           return section;
         }
 
-        const elements =
-          [...section.elements];
-
-        elements.splice(
-          index + 1,
-          0,
-          duplicate,
+        const index = section.elements.findIndex(
+          (element) => element.id === elementId,
         );
+        if (index < 0) return section;
+
+        const elements = [...section.elements];
+        elements.splice(index + 1, 0, duplicate);
 
         return {
           ...section,
@@ -10630,9 +12490,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }),
     );
 
-    setSelectedId(sectionId);
-
-    setSelectedElementId(
+    selectEditorTarget(
+      sectionId,
       duplicate.id,
     );
 
@@ -10681,20 +12540,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     remember(sections);
 
     setSections((current) =>
-      current.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              elements:
-                remaining,
-            }
-          : section,
-      ),
+      current.map((section) => {
+        if (section.id !== sectionId) return section;
+        if (section.elements.length <= 1) return section;
+
+        const elements = section.elements.filter(
+          (element) => element.id !== elementId,
+        );
+        return elements.length === section.elements.length
+          ? section
+          : { ...section, elements };
+      }),
     );
 
-    setSelectedId(sectionId);
-
-    setSelectedElementId(
+    selectEditorTarget(
+      sectionId,
       nextElement?.id ?? null,
     );
 
@@ -10760,6 +12620,26 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             currentPages as unknown as EditorPageLike[],
 
           homePageId,
+
+          theme: {
+            ...theme,
+          },
+
+          seo: {
+            ...seo,
+            keywords: [
+              ...seo.keywords,
+            ],
+          },
+
+          headerConfig: {
+            ...headerConfig,
+          },
+
+          symbols:
+            JSON.parse(
+              JSON.stringify(symbols),
+            ) as EditorSymbolLike[],
         },
         {
           selection:
@@ -10770,6 +12650,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const result =
       store.applyNativePatch(
         operations,
+        {
+          limits: {
+            maxPages:
+              BUSINESS_BILLING_ENTITLEMENTS.maxPages,
+            maxSymbols: 50,
+          },
+          validateProject: (
+            candidate,
+            previous,
+          ) => {
+            const pageCountIncreased =
+              candidate.pages.length >
+              previous.pages.length;
+
+            if (
+              pageCountIncreased &&
+              candidate.pages.length >
+                billingEntitlements.maxPages
+            ) {
+              return {
+                ok: false,
+                errors: [
+                  `Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports up to ${billingEntitlements.maxPages} pages.`,
+                ],
+              };
+            }
+
+            return {
+              ok: true,
+            };
+          },
+        },
       );
 
     if (
@@ -10815,6 +12727,140 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const nextPages =
       nextProject.pages as unknown as WebsitePage[];
 
+    const rawTheme =
+      nextProject.theme &&
+      typeof nextProject.theme === 'object'
+        ? nextProject.theme as Partial<WebsiteTheme>
+        : theme;
+
+    const nextTheme =
+      normalizeTheme(rawTheme);
+
+    const rawHeaderConfig =
+      nextProject.headerConfig &&
+      typeof nextProject.headerConfig === 'object'
+        ? nextProject.headerConfig as Partial<WebsiteHeaderConfig>
+        : headerConfig;
+
+    const nextHeaderConfig =
+      normalizeHeaderConfig(
+        rawHeaderConfig,
+      );
+
+    const rawSeo =
+      nextProject.seo &&
+      typeof nextProject.seo === 'object'
+        ? nextProject.seo as Partial<WebsiteSEO>
+        : seo;
+
+    const nextSeo: WebsiteSEO = {
+      title:
+        typeof rawSeo.title === 'string'
+          ? rawSeo.title.trim().slice(0, 160)
+          : seo.title,
+      description:
+        typeof rawSeo.description === 'string'
+          ? rawSeo.description.trim().slice(0, 500)
+          : seo.description,
+      keywords:
+        Array.isArray(rawSeo.keywords)
+          ? rawSeo.keywords
+              .filter(
+                (keyword): keyword is string =>
+                  typeof keyword === 'string',
+              )
+              .map((keyword) =>
+                keyword.trim().slice(0, 80),
+              )
+              .filter(Boolean)
+              .slice(0, 40)
+          : [...seo.keywords],
+    };
+
+    const requestedHomePageId =
+      typeof nextProject.homePageId === 'string'
+        ? nextProject.homePageId.trim()
+        : '';
+
+    const nextHomePageId =
+      nextPages.some(
+        (page) =>
+          page.id === requestedHomePageId,
+      )
+        ? requestedHomePageId
+        : nextPages.some(
+            (page) =>
+              page.id === homePageId,
+          )
+          ? homePageId
+          : nextPages[0]?.id || '';
+
+    const previousSymbolsById =
+      new Map(
+        symbols.map((symbol) => [
+          symbol.id,
+          symbol,
+        ]),
+      );
+
+    const nextSymbols =
+      Array.isArray(nextProject.symbols)
+        ? nextProject.symbols
+            .slice(0, 50)
+            .map((rawSymbol) => {
+              const id =
+                typeof rawSymbol?.id === 'string'
+                  ? rawSymbol.id.trim()
+                  : '';
+
+              if (
+                !id ||
+                !rawSymbol?.element
+              ) {
+                return null;
+              }
+
+              const previous =
+                previousSymbolsById.get(id);
+
+              const name =
+                typeof rawSymbol.name === 'string' &&
+                rawSymbol.name.trim()
+                  ? rawSymbol.name
+                      .trim()
+                      .slice(0, 80)
+                  : previous?.name ||
+                    'Reusable component';
+
+              const element =
+                cloneSymbolElement(
+                  rawSymbol.element as unknown as WebsiteElement,
+                );
+
+              const unchanged =
+                Boolean(previous) &&
+                previous?.name === name &&
+                JSON.stringify(previous.element) ===
+                  JSON.stringify(element);
+
+              return {
+                id,
+                name,
+                element,
+                updatedAt:
+                  unchanged && previous
+                    ? previous.updatedAt
+                    : new Date().toISOString(),
+              } satisfies WebsiteSymbol;
+            })
+            .filter(
+              (
+                symbol,
+              ): symbol is WebsiteSymbol =>
+                Boolean(symbol),
+            )
+        : symbols;
+
     const requestedPageId =
       nextSelection?.pageId ||
       activePageId;
@@ -10831,7 +12877,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    clearEditorDragState();
     setPages(nextPages);
+    setHomePageId(nextHomePageId);
+    setTheme(nextTheme);
+    setSeo(nextSeo);
+    setHeaderConfig(nextHeaderConfig);
+    setSymbols(nextSymbols);
 
     setActivePageId(
       nextActivePage.id,
@@ -11455,8 +13507,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       section={section}
       selected={selectedId === section.id}
       selectedElementId={selectedId === section.id ? selectedElementId : null}
-      onSelect={() => { setSelectedId(section.id); setSelectedElementId(null); }}
-      onSelectElement={(elementId) => { setSelectedId(section.id); setSelectedElementId(elementId); }}
+      onSelect={() => selectEditorTarget(section.id)}
+      onSelectElement={(elementId) => selectEditorTarget(section.id, elementId)}
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
@@ -11469,7 +13521,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
       onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
       onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
-      onOpenMediaLibrary={() => { setSelectedId(section.id); setMediaOpen(true); }}
+      onOpenMediaLibrary={() => { selectEditorTarget(section.id); setMediaOpen(true); }}
       onOpenInspector={() => setInspectorOpen(true)}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
@@ -12520,8 +14572,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             ) : (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {filteredLeads.map((lead) => {
-                  const meta = leadSource(lead);
-                  const phone = leadPhone(lead);
+                  const meta = getWebsiteLeadSource(lead);
+                  const phone = getWebsiteLeadPhone(lead);
                   const stage = lead.stage || 'new';
                   const visibleFormData = Object.entries(lead.form_data || {}).filter(([key]) => !key.startsWith('_'));
                   return (
@@ -12777,7 +14829,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <input value={activePage.name} onChange={(e) => updateActivePageMeta({ name: e.target.value })} placeholder={l('Page name')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 <div className="grid grid-cols-[110px_1fr] gap-2">
                   <select value={normalizePageLanguage(activePage.language, prefs.language)} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ language: e.target.value as Language }); }} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}>
-                    <option value="en">{l('English')}</option><option value="sv">Svenska</option><option value="ar">Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©</option>
+                    <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option><option value="sv">{PAGE_LANGUAGE_LABELS.sv}</option><option value="ar">{PAGE_LANGUAGE_LABELS.ar}</option>
                   </select>
                   <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? 'Translation group (optional)' : 'Translation groups · Pro'} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
@@ -13543,8 +15595,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       section={section}
       selected={selectedId === section.id}
       selectedElementId={selectedId === section.id ? selectedElementId : null}
-      onSelect={() => { setSelectedId(section.id); setSelectedElementId(null); }}
-      onSelectElement={(elementId) => { setSelectedId(section.id); setSelectedElementId(elementId); }}
+      onSelect={() => selectEditorTarget(section.id)}
+      onSelectElement={(elementId) => selectEditorTarget(section.id, elementId)}
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
@@ -13557,7 +15609,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
       onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
       onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
-      onOpenMediaLibrary={() => { setSelectedId(section.id); setMediaOpen(true); }}
+      onOpenMediaLibrary={() => { selectEditorTarget(section.id); setMediaOpen(true); }}
       onOpenInspector={() => setInspectorOpen(true)}
       onDuplicateSelectedElement={duplicateSelectedElement}
       onDeleteSelectedElement={deleteSelectedElement}
@@ -14607,6 +16659,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       onApplyOperations={applyV2NativeOperations}
+      onRestoreHistoryEntry={restoreEditHistoryEntry}
 
       accent={
         selectedSection?.accent ||
@@ -14644,6 +16697,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       lastCheckedAt={launchLastCheckedAt ? Date.parse(launchLastCheckedAt) : undefined}
       publishedUrl={publishedUrl || undefined}
       publishedAt={publishedAt ? Date.parse(publishedAt) : undefined}
+      publishedOutdated={hasUnpublishedChanges}
       liveVerification={liveVerification}
       publishBlockers={[
         !user ? 'Sign in before publishing.' : '',
@@ -14657,39 +16711,53 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onPreview={previewWebsite}
       onPublish={() => void publishWebsite()}
       onRunCheck={() => void runV1LaunchChecks()}
-      onSetDevice={(nextDevice) =>
-        setDevice(nextDevice as Device)
-      }
+      onSetDevice={(nextDevice) => {
+        clearEditorDragState();
+        setDevice(nextDevice as Device);
+      }}
       onSelect={(selection) => {
-        if (
-          selection.pageId &&
-          selection.pageId !== activePageId
-        ) {
-          switchPage(selection.pageId);
+        const currentPages = getCurrentPages();
+        const targetPageId = selection.pageId || activePageId;
+        const targetPage = currentPages.find((page) => page.id === targetPageId);
+        if (!targetPage) return;
+
+        if (targetPage.id !== activePageId) {
+          switchPage(targetPage.id);
         }
 
-        if (selection.sectionId) {
-          setSelectedId(selection.sectionId);
+        if (!selection.sectionId) return;
 
-          setSelectedElementId(
-            selection.elementId ?? null
-          );
+        const targetSection = targetPage.sections.find(
+          (section) => section.id === selection.sectionId,
+        );
+        if (!targetSection) return;
 
-          setSelectedContainerId(
-            selection.elementId
-              ? null
-              : selection.containerId ?? null
-          );
+        const elementId =
+          selection.elementId &&
+          targetSection.elements.some((element) => element.id === selection.elementId)
+            ? selection.elementId
+            : null;
+        const containerId =
+          !elementId &&
+          selection.containerId &&
+          (targetSection.containers || []).some((container) => container.id === selection.containerId)
+            ? selection.containerId
+            : null;
+        const formFieldId =
+          !elementId &&
+          !containerId &&
+          selection.formFieldId &&
+          (targetSection.formFields || []).some((field) => field.id === selection.formFieldId)
+            ? selection.formFieldId
+            : null;
 
-          setSelectedFormFieldId(
-            selection.elementId ||
-            selection.containerId
-              ? null
-              : selection.formFieldId ?? null
-          );
-
-          setInspectorOpen(true);
-        }
+        selectEditorTarget(
+          targetSection.id,
+          elementId,
+          containerId,
+          formFieldId,
+        );
+        setInspectorOpen(true);
       }}
     />
   );

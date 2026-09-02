@@ -31,7 +31,13 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
           {status.saving ? 'Saving…' : view.dirty ? 'Save' : 'Saved'}
         </button>
         <button type="button" className="tayar-v2-publish-button" onClick={actions.onPublish} disabled={Boolean(status.publishing) || view.publish.blockers.length > 0}>
-          {status.publishing ? 'Publishing…' : 'Publish'}
+          {status.publishing
+            ? 'Publishing…'
+            : status.publishedUrl && status.publishedOutdated
+              ? 'Republish'
+              : status.publishedUrl
+                ? 'Publish again'
+                : 'Publish'}
         </button>
         {trailingSlot}
       </div>

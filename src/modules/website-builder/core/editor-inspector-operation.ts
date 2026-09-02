@@ -10,6 +10,7 @@ import {
   findEditorSection,
 } from './editor-model';
 import type { EditorSelection } from './editor-selection';
+import { editorPayloadHasForbiddenKey } from './editor-payload-safety';
 
 function setNestedClone(
   source: Record<string, unknown> | undefined,
@@ -98,7 +99,17 @@ export function buildEditorInspectorOperation<P extends EditorProjectLike>(
   if (!selection.pageId) return undefined;
 
   const parts = key.split('.').filter(Boolean);
-  if (!parts.length) return undefined;
+  if (
+    !parts.length ||
+    parts.length > 4 ||
+    parts.some(
+      (part) =>
+        part.length > 80 ||
+        editorPayloadHasForbiddenKey(part),
+    )
+  ) {
+    return undefined;
+  }
 
   const normalizedValue =
     normalizeInspectorValue(key, value);

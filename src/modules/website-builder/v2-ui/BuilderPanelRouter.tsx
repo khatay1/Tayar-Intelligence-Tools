@@ -46,6 +46,10 @@ import {
   BuilderPagesPanel,
 } from './BuilderPagesPanel';
 
+import {
+  BuilderTemplateLibraryPanel,
+} from './BuilderTemplateLibraryPanel';
+
 export interface BuilderPanelRouterProps {
   shell: EditorShellContract;
 
@@ -156,6 +160,8 @@ export interface BuilderPanelRouterProps {
   ): void;
 
   onResetForm?(sectionId: string): void;
+
+  onRestoreHistoryEntry?(entryId: string): void;
 }
 
 export function BuilderPanelRouter(
@@ -208,6 +214,10 @@ export function BuilderPanelRouter(
       );
     }
 
+    if (panel === 'templates') {
+      return <BuilderTemplateLibraryPanel />;
+    }
+
     if (panel === 'components') {
       return (
         <BuilderComponentsPanel
@@ -243,6 +253,7 @@ export function BuilderPanelRouter(
       return (
         <BuilderHistoryPanel
           shell={props.shell}
+          onRestoreEntry={props.onRestoreHistoryEntry}
         />
       );
     }

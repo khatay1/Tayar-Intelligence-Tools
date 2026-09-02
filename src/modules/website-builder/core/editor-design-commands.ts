@@ -10,6 +10,8 @@ import {
 } from './editor-model';
 import { cloneEditorValue } from './editor-transaction';
 import { syncEditorSymbolFromInstance } from './editor-symbols';
+import { safeEditorPayloadRecord } from './editor-payload-safety';
+import { assertEditorSemanticRecord } from './editor-value-safety';
 import type { EditorCommandAdapterOptions } from './editor-command-adapters';
 
 function commandOptions<P>(
@@ -244,11 +246,15 @@ export function commandRestyleSite<P extends EditorProjectLike>(
   options: EditorCommandAdapterOptions = {},
 ) {
   return commandOptions<P>('Restyle site', (draft) => {
-    const primary = changes.primaryColor ?? changes.accentColor;
-    const background = changes.backgroundColor;
-    const text = changes.textColor;
-    const muted = changes.mutedTextColor;
-    draft.theme = { ...(draft.theme || {}), ...cloneEditorValue(changes) };
+    const safeChanges = safeEditorPayloadRecord(changes, 'restyle changes');
+    assertEditorSemanticRecord('restyle', safeChanges, 'restyle changes');
+    const primary = safeChanges.primaryColor ?? safeChanges.accentColor;
+    const background = safeChanges.backgroundColor;
+    const text = safeChanges.textColor;
+    const muted = safeChanges.mutedTextColor;
+    const { accentColor: _accentColor, ...themeChanges } = safeChanges;
+    if (primary !== undefined) themeChanges.primaryColor = cloneEditorValue(primary);
+    draft.theme = { ...(draft.theme || {}), ...cloneEditorValue(themeChanges) };
 
     for (const page of draft.pages) {
       for (const section of page.sections) {
