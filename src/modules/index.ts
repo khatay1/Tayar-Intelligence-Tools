@@ -8,6 +8,7 @@ import './translator';
 import './document-ai';
 import './study-assistant';
 import './future-tools';
+import './code-assistant';
 import './website-builder';
 import './team-workspace';
 import './invoice-generator';
@@ -25,5 +26,3 @@ import './image-to-pdf';
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
 export type { ToolModule, ToolCategory, ToolStatus, ToolTier, CategoryMeta } from './types';
-
-
