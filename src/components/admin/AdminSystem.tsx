@@ -285,7 +285,7 @@ function BlocksTab() {
       showError(actionError.message || 'Failed to remove block');
       return;
     }
-    success('Email unblocked');
+    success(l("Email unblocked"));
     void load();
   }
 
