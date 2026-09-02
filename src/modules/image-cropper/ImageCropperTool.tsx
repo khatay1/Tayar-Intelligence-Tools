@@ -212,7 +212,7 @@ export default function ImageCropperTool({ darkMode: _darkMode }: { darkMode: bo
                   onChange={(event) => { setFormat(event.target.value as ImageOutputFormat); clearResult(); }}
                   className={toolInputClass}
                 >
-                  {OUTPUT_FORMATS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  {OUTPUT_FORMATS.map((item) => <option key={item.value} value={item.value}>{l(item.label)}</option>)}
                 </select>
               </ToolField>
 
