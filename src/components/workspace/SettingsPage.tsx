@@ -51,7 +51,7 @@ export default function SettingsPage({ darkMode }: { darkMode: boolean }) {
               }`}
             >
               <Icon className="w-4 h-4" />
-              {t.label}
+              {l(t.label)}
             </button>
           );
         })}
