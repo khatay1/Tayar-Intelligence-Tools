@@ -124,7 +124,6 @@ function compactDiff(before: string | null, after: string): string {
   }
 
   const contextStart = Math.max(0, prefix - 3);
-  const contextEndOld = Math.min(oldLines.length, oldSuffix + 4);
   const contextEndNew = Math.min(newLines.length, newSuffix + 4);
   const output: string[] = [];
 
