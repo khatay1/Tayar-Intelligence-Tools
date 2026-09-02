@@ -58,7 +58,7 @@ const { success, error: showError } = useToast();
       setFlags(prev => ({ ...prev, [key]: !newVal }));
       showError(l("Failed to toggle feature"));
     } else {
-      success(`${key} ${newVal ? l('enabled') : l('disabled')}`);
+      success(l('{feature} {state}').replace('{feature}', l(key)).replace('{state}', newVal ? l('enabled') : l('disabled')));
     }
   }
 
