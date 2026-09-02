@@ -11626,7 +11626,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     if (siteAudit.errors.length) {
-      setPublishError(`Publish preflight blocked: fix ${siteAudit.errors.length} critical audit error${siteAudit.errors.length === 1 ? '' : 's'} first.`);
+      setPublishError(l('Publish preflight blocked: fix {count} critical audit errors first.').replace('{count}', String(siteAudit.errors.length)));
       return;
     }
 
