@@ -168,7 +168,7 @@ export default function BatchImageTool({ darkMode: _darkMode }: { darkMode: bool
                   className={toolInputClass}
                 >
                   {OUTPUT_FORMATS.map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
+                    <option key={item.value} value={item.value}>{l(item.label)}</option>
                   ))}
                 </select>
               </ToolField>
