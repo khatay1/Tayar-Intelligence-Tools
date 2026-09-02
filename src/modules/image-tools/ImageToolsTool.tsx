@@ -290,7 +290,7 @@ export default function ImageToolsTool({ darkMode: _darkMode }: { darkMode: bool
                     <div className="text-white font-medium">{l(selectedFormat.label)} · {width} × {height}px</div>
                     <div className="text-xs text-gray-500 mt-0.5">
                       {formatBytes(outputBlob.size)}
-                      {source.size > 0 && ` · ${Math.round((1 - outputBlob.size / source.size) * 100)}% size change`}
+                      {source.size > 0 && ` · ${l('{percent}% size change').replace('{percent}', String(Math.round((1 - outputBlob.size / source.size) * 100)))}`}
                     </div>
                   </div>
                   <button
