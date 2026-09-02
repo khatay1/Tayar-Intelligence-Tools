@@ -105,7 +105,7 @@ export function BuilderInsertPanel({
             </span>
 
             <span className="tayar-v2-insert-card__title">
-              {item.label}
+              {l(item.label)}
             </span>
           </button>
         ))}
