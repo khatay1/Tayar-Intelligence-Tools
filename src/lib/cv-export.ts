@@ -1,5 +1,7 @@
 import { CVData, TemplateId, ColorTheme } from './cv-types';
 import { COLOR_THEMES } from './cv-types';
+import { localizeUi } from './ui-localization';
+import type { Language } from './i18n';
 
 function getTheme(themeId: ColorTheme) {
   return COLOR_THEMES.find(t => t.id === themeId) || COLOR_THEMES[0];
@@ -9,10 +11,11 @@ export function exportToPDF() {
   window.print();
 }
 
-export function exportToTXT(data: CVData): void {
+export function exportToTXT(data: CVData, language: Language = 'en'): void {
+  const tr = (text: string) => localizeUi(text, language);
   const lines: string[] = [];
   const p = data.personal;
-  lines.push(p.fullName || 'Your Name');
+  lines.push(p.fullName || tr('Your Name'));
   if (p.jobTitle) lines.push(p.jobTitle);
   lines.push('');
   const contacts: string[] = [];
@@ -27,26 +30,26 @@ export function exportToTXT(data: CVData): void {
   lines.push('');
 
   if (data.summary) {
-    lines.push('SUMMARY');
+    lines.push(tr('Summary').toUpperCase());
     lines.push('-'.repeat(8));
     lines.push(data.summary);
     lines.push('');
   }
 
   if (data.experience.length > 0) {
-    lines.push('EXPERIENCE');
+    lines.push(tr('Experience').toUpperCase());
     lines.push('-'.repeat(10));
     data.experience.forEach(exp => {
       lines.push(`${exp.jobTitle} | ${exp.company}`);
-      lines.push(`${exp.startDate} - ${exp.current ? 'Present' : exp.endDate}`);
-      if (exp.location) lines.push(`Location: ${exp.location}`);
+      lines.push(`${exp.startDate} - ${exp.current ? tr('Present') : exp.endDate}`);
+      if (exp.location) lines.push(`${tr('Location')}: ${exp.location}`);
       if (exp.description) lines.push(exp.description);
       lines.push('');
     });
   }
 
   if (data.education.length > 0) {
-    lines.push('EDUCATION');
+    lines.push(tr('Education').toUpperCase());
     lines.push('-'.repeat(9));
     data.education.forEach(edu => {
       lines.push(`${edu.degree} | ${edu.institution}`);
@@ -57,21 +60,21 @@ export function exportToTXT(data: CVData): void {
   }
 
   if (data.skills.length > 0) {
-    lines.push('SKILLS');
+    lines.push(tr('Skills').toUpperCase());
     lines.push('-'.repeat(6));
-    lines.push(data.skills.map(s => `${s.name}${s.level ? ` (${s.level})` : ''}`).join(', '));
+    lines.push(data.skills.map(s => `${s.name}${s.level ? ` (${tr(s.level)})` : ''}`).join(', '));
     lines.push('');
   }
 
   if (data.languages.length > 0) {
-    lines.push('LANGUAGES');
+    lines.push(tr('Languages').toUpperCase());
     lines.push('-'.repeat(9));
-    lines.push(data.languages.map(l => `${l.name} (${l.proficiency})`).join(', '));
+    lines.push(data.languages.map(l => `${l.name} (${tr(l.proficiency)})`).join(', '));
     lines.push('');
   }
 
   if (data.certificates.length > 0) {
-    lines.push('CERTIFICATES');
+    lines.push(tr('Certifications').toUpperCase());
     lines.push('-'.repeat(12));
     data.certificates.forEach(c => {
       lines.push(`${c.name} - ${c.issuer}${c.date ? ` (${c.date})` : ''}`);
@@ -80,7 +83,7 @@ export function exportToTXT(data: CVData): void {
   }
 
   if (data.projects.length > 0) {
-    lines.push('PROJECTS');
+    lines.push(tr('Projects').toUpperCase());
     lines.push('-'.repeat(8));
     data.projects.forEach(p => {
       lines.push(`${p.name}${p.link ? ` (${p.link})` : ''}`);
@@ -90,7 +93,7 @@ export function exportToTXT(data: CVData): void {
   }
 
   if (data.awards.length > 0) {
-    lines.push('AWARDS');
+    lines.push(tr('Awards').toUpperCase());
     lines.push('-'.repeat(6));
     data.awards.forEach(a => {
       lines.push(`${a.title} - ${a.issuer}${a.date ? ` (${a.date})` : ''}`);
@@ -103,7 +106,8 @@ export function exportToTXT(data: CVData): void {
   downloadBlob(blob, `${(data.personal.fullName || 'resume').replace(/\s+/g, '_')}.txt`);
 }
 
-export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: ColorTheme): void {
+export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: ColorTheme, language: Language = 'en'): void {
+  const tr = (text: string) => localizeUi(text, language);
   const theme = getTheme(colorTheme);
 
   const sections: string[] = [];
@@ -111,7 +115,7 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   // Header
   sections.push(`
     <div style="text-align:center; margin-bottom:20px; padding-bottom:10px; border-bottom:2px solid ${theme.primary};">
-      <h1 style="font-size:24px; font-weight:bold; margin:0; color:${theme.primaryDark};">${escapeXml(data.personal.fullName || 'Your Name')}</h1>
+      <h1 style="font-size:24px; font-weight:bold; margin:0; color:${theme.primaryDark};">${escapeXml(data.personal.fullName || tr('Your Name'))}</h1>
       <p style="font-size:14px; color:#666; margin:4px 0;">${escapeXml(data.personal.jobTitle || '')}</p>
       <p style="font-size:11px; color:#999; margin:4px 0;">
         ${[data.personal.email, data.personal.phone, data.personal.address, data.personal.linkedin, data.personal.portfolio].filter(Boolean).map(escapeXml).join(' | ')}
@@ -122,7 +126,7 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   if (data.summary) {
     sections.push(`
       <div style="margin-bottom:16px;">
-        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">Summary</h2>
+        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">${escapeXml(tr('Summary'))}</h2>
         <p style="font-size:11px; line-height:1.5; color:#444;">${escapeXml(data.summary)}</p>
       </div>
     `);
@@ -131,12 +135,12 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   if (data.experience.length > 0) {
     sections.push(`
       <div style="margin-bottom:16px;">
-        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">Experience</h2>
+        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">${escapeXml(tr('Experience'))}</h2>
         ${data.experience.map(exp => `
           <div style="margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between;">
               <span style="font-size:12px; font-weight:bold; color:${theme.primaryDark};">${escapeXml(exp.jobTitle)}</span>
-              <span style="font-size:10px; color:#999;">${escapeXml(exp.startDate)} - ${exp.current ? 'Present' : escapeXml(exp.endDate)}</span>
+              <span style="font-size:10px; color:#999;">${escapeXml(exp.startDate)} - ${exp.current ? escapeXml(tr('Present')) : escapeXml(exp.endDate)}</span>
             </div>
             <div style="font-size:11px; color:#666; font-style:italic; margin-bottom:3px;">${escapeXml(exp.company)}${exp.location ? ` · ${escapeXml(exp.location)}` : ''}</div>
             <p style="font-size:11px; line-height:1.5; color:#444; margin:0; white-space:pre-line;">${escapeXml(exp.description)}</p>
@@ -149,7 +153,7 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   if (data.education.length > 0) {
     sections.push(`
       <div style="margin-bottom:16px;">
-        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">Education</h2>
+        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">${escapeXml(tr('Education'))}</h2>
         ${data.education.map(edu => `
           <div style="margin-bottom:6px;">
             <div style="display:flex; justify-content:space-between;">
@@ -167,7 +171,7 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   if (data.skills.length > 0) {
     sections.push(`
       <div style="margin-bottom:16px;">
-        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">Skills</h2>
+        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">${escapeXml(tr('Skills'))}</h2>
         <p style="font-size:11px; color:#444;">${data.skills.map(s => escapeXml(s.name)).join(' · ')}</p>
       </div>
     `);
@@ -176,8 +180,8 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   if (data.languages.length > 0) {
     sections.push(`
       <div style="margin-bottom:16px;">
-        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">Languages</h2>
-        <p style="font-size:11px; color:#444;">${data.languages.map(l => `${escapeXml(l.name)} (${escapeXml(l.proficiency)})`).join(' · ')}</p>
+        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">${escapeXml(tr('Languages'))}</h2>
+        <p style="font-size:11px; color:#444;">${data.languages.map(l => `${escapeXml(l.name)} (${escapeXml(tr(l.proficiency))})`).join(' · ')}</p>
       </div>
     `);
   }
@@ -185,7 +189,7 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   if (data.certificates.length > 0) {
     sections.push(`
       <div style="margin-bottom:16px;">
-        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">Certifications</h2>
+        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">${escapeXml(tr('Certifications'))}</h2>
         ${data.certificates.map(c => `<div style="font-size:11px; color:#444; margin-bottom:3px;"><b>${escapeXml(c.name)}</b> - ${escapeXml(c.issuer)}${c.date ? ` (${escapeXml(c.date)})` : ''}</div>`).join('')}
       </div>
     `);
@@ -194,7 +198,7 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   if (data.projects.length > 0) {
     sections.push(`
       <div style="margin-bottom:16px;">
-        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">Projects</h2>
+        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">${escapeXml(tr('Projects'))}</h2>
         ${data.projects.map(p => `<div style="margin-bottom:6px;"><b style="font-size:12px;">${escapeXml(p.name)}</b><p style="font-size:11px; color:#444; margin:2px 0;">${escapeXml(p.description)}</p>${p.link ? `<span style="font-size:10px; color:${theme.primary};">${escapeXml(p.link)}</span>` : ''}</div>`).join('')}
       </div>
     `);
@@ -203,7 +207,7 @@ export function exportToDOCX(data: CVData, template: TemplateId, colorTheme: Col
   if (data.awards.length > 0) {
     sections.push(`
       <div style="margin-bottom:16px;">
-        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">Awards</h2>
+        <h2 style="font-size:13px; font-weight:bold; text-transform:uppercase; color:${theme.primary}; border-bottom:1px solid ${theme.primaryLight}; padding-bottom:3px; margin-bottom:6px;">${escapeXml(tr('Awards'))}</h2>
         ${data.awards.map(a => `<div style="font-size:11px; color:#444; margin-bottom:3px;"><b>${escapeXml(a.title)}</b> - ${escapeXml(a.issuer)}${a.date ? ` (${escapeXml(a.date)})` : ''}${a.description ? `<br/>${escapeXml(a.description)}` : ''}</div>`).join('')}
       </div>
     `);

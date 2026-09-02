@@ -69,6 +69,12 @@ const hardcodedJsxRe = />\s*([A-Z][A-Za-z0-9][A-Za-z0-9 &+/.:'’(),!?–—·�
 const ignoredHardcoded = new Set([
   'AI', 'API', 'CSV', 'CSS', 'HTML', 'ID', 'JS', 'JSON', 'PDF', 'PRO', 'SEO', 'TS', 'TSX', 'UI', 'URL',
   'V1.0', 'ZIP', 'PNG', 'JPG', 'Power BI', 'PowerPoint', 'Instagram', 'Facebook', 'LinkedIn',
+  'Tayar Intelligence', 'Tayar AI', 'React · Supabase · Vite', 'Promise', 'PromiseLike',
+  'Google Analytics 4', 'Google Tag Manager', 'Meta Pixel', 'Ctrl/Cmd+K',
+]);
+const contentOnlyFiles = new Set([
+  'src/modules/code-assistant/seed-components.ts',
+  'src/modules/website-builder/core/defaults.ts',
 ]);
 
 for (const file of sourceFiles) {
@@ -97,30 +103,33 @@ for (const [key, files] of localizedUsage) {
   if (!svKeys.has(key)) missingSwedish.push({ key, files: [...new Set(files)] });
 }
 
+const expectedContentCandidates = hardcodedCandidates.filter(({ file }) => contentOnlyFiles.has(file));
+const unexpectedHardcoded = hardcodedCandidates.filter(({ file, text }) => {
+  if (contentOnlyFiles.has(file)) return false;
+  if (file === 'src/modules/website-builder/WebsiteBuilderTool.tsx' && text.startsWith('JSON.stringify(')) return false;
+  return true;
+});
+
 check('Every useLocalizer phrase has an Arabic translation', missingArabic.length === 0);
 check('Every useLocalizer phrase has a Swedish translation', missingSwedish.length === 0);
+check('No unexpected hard-coded application UI remains', unexpectedHardcoded.length === 0);
 
 if (missingArabic.length) {
   console.log('\nMissing Arabic UI phrases:');
-  for (const item of missingArabic.slice(0, 100)) {
-    console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
-  }
+  for (const item of missingArabic) console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
 }
 if (missingSwedish.length) {
   console.log('\nMissing Swedish UI phrases:');
-  for (const item of missingSwedish.slice(0, 100)) {
-    console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
-  }
+  for (const item of missingSwedish) console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
+}
+if (unexpectedHardcoded.length) {
+  console.log('\nUnexpected hard-coded application UI:');
+  for (const item of unexpectedHardcoded) console.log(`  ! ${item.file}:${item.line}  ${item.text}`);
 }
 
 console.log(`\nI18N scan: ${sourceFiles.length} source files, ${localizedUsage.size} localized UI phrases.`);
-console.log(`Hard-coded JSX review candidates: ${hardcodedCandidates.length}`);
-for (const item of hardcodedCandidates.slice(0, 60)) {
-  console.log(`  ? ${item.file}:${item.line}  ${item.text}`);
-}
-if (hardcodedCandidates.length > 60) {
-  console.log(`  ... and ${hardcodedCandidates.length - 60} more candidate(s)`);
-}
+console.log(`Expected customer/template content candidates: ${expectedContentCandidates.length}`);
+for (const item of expectedContentCandidates) console.log(`  content ${item.file}:${item.line}  ${item.text}`);
 
 const failed = checks.filter(([, ok]) => !ok);
 for (const [name, ok] of checks) console.log(`${ok ? '✓' : '✗'} ${name}`);

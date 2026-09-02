@@ -1,6 +1,8 @@
 import { calculateInvoiceTotals, formatMoney, lineTotal, safeAmount } from './invoice-model';
 import { getInvoiceTheme } from './invoice-themes';
 import { InvoiceDraft } from './invoice-types';
+import { localizeUi } from '@/lib/ui-localization';
+import type { Language } from '@/lib/i18n';
 
 function escapeHtml(value: string) {
   return value
@@ -11,12 +13,14 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#039;');
 }
 
-export function printableInvoiceHtml(draft: InvoiceDraft) {
+export function printableInvoiceHtml(draft: InvoiceDraft, language: Language = 'en') {
+  const tr = (text: string) => localizeUi(text, language);
+  const t = (text: string) => escapeHtml(tr(text));
   const totals = calculateInvoiceTotals(draft);
   const theme = getInvoiceTheme(draft.theme);
   const rows = draft.items.map((item) => `
     <tr>
-      <td>${escapeHtml(item.description || 'Item')}</td>
+      <td>${escapeHtml(item.description || tr('Item'))}</td>
       <td class="num">${safeAmount(item.quantity)}</td>
       <td class="num">${escapeHtml(formatMoney(safeAmount(item.unitPrice), draft.currency))}</td>
       <td class="num">${safeAmount(item.vatRate)}%</td>
@@ -25,11 +29,11 @@ export function printableInvoiceHtml(draft: InvoiceDraft) {
   `).join('');
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${language}" dir="${language === 'ar' ? 'rtl' : 'ltr'}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>${escapeHtml(draft.invoiceNumber || 'Invoice')}</title>
+<title>${escapeHtml(draft.invoiceNumber || tr('Invoice'))}</title>
 <style>
 *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#151515;margin:0;background:#fff}
 .page{width:100%;max-width:900px;margin:0 auto;padding:48px;border-top:6px solid ${theme.printCss.topRule}}
@@ -50,24 +54,24 @@ td{padding:13px 10px;border-bottom:1px solid #e8e8eb;vertical-align:top}.num{tex
 </head>
 <body><div class="page">
   <div class="top">
-    <div><h1>Invoice</h1><div class="muted">${escapeHtml(draft.sellerName || 'Your company')}</div></div>
+    <div><h1>${t('Invoice')}</h1><div class="muted">${escapeHtml(draft.sellerName || tr('Your company'))}</div></div>
     <div class="meta">
-      <div class="meta-row"><strong>Invoice</strong><span>${escapeHtml(draft.invoiceNumber || '-')}</span></div>
-      <div class="meta-row"><strong>Issue date</strong><span>${escapeHtml(draft.issueDate || '-')}</span></div>
-      <div class="meta-row"><strong>Due date</strong><span>${escapeHtml(draft.dueDate || '-')}</span></div>
-      <div class="meta-row"><strong>Currency</strong><span>${escapeHtml(draft.currency)}</span></div>
+      <div class="meta-row"><strong>${t('Invoice')}</strong><span>${escapeHtml(draft.invoiceNumber || '-')}</span></div>
+      <div class="meta-row"><strong>${t('Issue date')}</strong><span>${escapeHtml(draft.issueDate || '-')}</span></div>
+      <div class="meta-row"><strong>${t('Due date')}</strong><span>${escapeHtml(draft.dueDate || '-')}</span></div>
+      <div class="meta-row"><strong>${t('Currency')}</strong><span>${escapeHtml(draft.currency)}</span></div>
     </div>
   </div>
   <div class="parties">
-    <div><div class="label">From</div><div class="name">${escapeHtml(draft.sellerName || 'Your company')}</div><div class="muted">${escapeHtml(draft.sellerDetails)}</div></div>
-    <div><div class="label">Bill to</div><div class="name">${escapeHtml(draft.customerName || 'Customer')}</div><div class="muted">${escapeHtml(draft.customerDetails)}</div></div>
+    <div><div class="label">${t('From')}</div><div class="name">${escapeHtml(draft.sellerName || 'Your company')}</div><div class="muted">${escapeHtml(draft.sellerDetails)}</div></div>
+    <div><div class="label">${t('Bill to')}</div><div class="name">${escapeHtml(draft.customerName || tr('Customer'))}</div><div class="muted">${escapeHtml(draft.customerDetails)}</div></div>
   </div>
-  <table><thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">VAT</th><th class="num">Total</th></tr></thead><tbody>${rows}</tbody></table>
+  <table><thead><tr><th>${t('Description')}</th><th class="num">${t('Qty')}</th><th class="num">${t('Unit price')}</th><th class="num">${t('VAT')}</th><th class="num">${t('Total')}</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="totals">
-    <div class="total-row"><span>Subtotal</span><strong>${escapeHtml(formatMoney(totals.subtotal,draft.currency))}</strong></div>
-    <div class="total-row"><span>VAT</span><strong>${escapeHtml(formatMoney(totals.vat,draft.currency))}</strong></div>
-    <div class="total-row grand"><span>Total</span><span>${escapeHtml(formatMoney(totals.total,draft.currency))}</span></div>
+    <div class="total-row"><span>${t('Subtotal')}</span><strong>${escapeHtml(formatMoney(totals.subtotal,draft.currency))}</strong></div>
+    <div class="total-row"><span>${t('VAT')}</span><strong>${escapeHtml(formatMoney(totals.vat,draft.currency))}</strong></div>
+    <div class="total-row grand"><span>${t('Total')}</span><span>${escapeHtml(formatMoney(totals.total,draft.currency))}</span></div>
   </div>
-  ${draft.notes ? `<div class="notes"><div class="label">Notes</div>${escapeHtml(draft.notes)}</div>` : ''}
+  ${draft.notes ? `<div class="notes"><div class="label">${t('Notes')}</div>${escapeHtml(draft.notes)}</div>` : ''}
 </div></body></html>`;
 }

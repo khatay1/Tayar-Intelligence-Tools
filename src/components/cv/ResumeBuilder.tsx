@@ -20,6 +20,7 @@ import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase';
 import { createAIService, AIError } from '@/lib/ai/service';
 import { useProjects } from '@/lib/use-projects';
+import { usePreferences } from '@/context/PreferencesContext';
 
 interface ResumeBuilderProps {
   onBack: () => void;
@@ -37,6 +38,7 @@ const labelClass = 'text-gray-400 text-xs font-medium mb-1 block';
 
 export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
   const l = useLocalizer();
+  const { prefs } = usePreferences();
   const { user } = useAuth();
   const toast = useToast();
   const { createProject, saveProject, createFileEntry, logActivity } = useProjects();
@@ -268,8 +270,8 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
     setExporting(true);
     try {
       if (format === 'pdf') await exportToPDF();
-      else if (format === 'docx') exportToDOCX(cv, template, colorTheme);
-      else exportToTXT(cv);
+      else if (format === 'docx') exportToDOCX(cv, template, colorTheme, prefs.language);
+      else exportToTXT(cv, prefs.language);
       toast.success(`Exported as ${format.toUpperCase()}`);
       if (user && projectId) {
         await logActivity(`Exported resume as ${format.toUpperCase()}`, 'cv-builder');

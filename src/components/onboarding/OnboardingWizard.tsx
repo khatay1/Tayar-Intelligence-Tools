@@ -333,10 +333,11 @@ function StepHeader({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 function StepNav({ onBack, onNext, nextLabel, disabled, loading }: { onBack: () => void; onNext: () => void; nextLabel: string; disabled?: boolean; loading?: boolean }) {
+  const l = useLocalizer();
   return (
     <div className="flex items-center justify-between">
       <button onClick={onBack} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Back
+        <ArrowLeft className="w-4 h-4" /> {l('Back')}
       </button>
       <button
         onClick={onNext}

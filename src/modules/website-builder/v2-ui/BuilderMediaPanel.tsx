@@ -1,4 +1,5 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
+import { useLocalizer } from '@/lib/ui-localization';
 
 import type {
   EditorMediaAsset,
@@ -36,6 +37,7 @@ export function BuilderMediaPanel({
   onUpload,
   onGenerateWithAI,
 }: BuilderMediaPanelProps) {
+  const l = useLocalizer();
   const visible =
     filterEditorMediaAssets(
       assets,
@@ -90,7 +92,7 @@ export function BuilderMediaPanel({
   return (
     <div className="tayar-v2-media-panel">
       <div className="tayar-v2-panel-heading">
-        <strong>Media</strong>
+        <strong>{l('Media')}</strong>
       </div>
 
       <div className="tayar-v2-panel-actions">
@@ -99,7 +101,7 @@ export function BuilderMediaPanel({
             type="button"
             onClick={onUpload}
           >
-            Upload
+            {l('Upload')}
           </button>
         )}
 
@@ -115,7 +117,7 @@ export function BuilderMediaPanel({
               setAiError('');
             }}
           >
-            AI image
+            {l('AI image')}
           </button>
         )}
       </div>
@@ -126,7 +128,7 @@ export function BuilderMediaPanel({
             autoFocus
             type="text"
             value={aiPrompt}
-            placeholder="Describe an image..."
+            placeholder={l('Describe an image...')}
             disabled={aiBusy}
             onChange={(event) =>
               setAiPrompt(
@@ -154,8 +156,8 @@ export function BuilderMediaPanel({
             }
           >
             {aiBusy
-              ? 'Generating…'
-              : 'Generate'}
+              ? l('Generating…')
+              : l('Generate')}
           </button>
 
           {aiError && (
@@ -167,7 +169,7 @@ export function BuilderMediaPanel({
                 disabled={aiBusy || !aiPrompt.trim()}
                 onClick={() => void generate()}
               >
-                Retry
+                {l('Retry')}
               </button>
             </div>
           )}
@@ -180,8 +182,8 @@ export function BuilderMediaPanel({
           value={
             filter.query || ''
           }
-          placeholder="Search"
-          aria-label="Search media"
+          placeholder={l('Search')}
+          aria-label={l('Search media')}
           onChange={(event) =>
             onFilterChange?.({
               ...filter,
@@ -234,7 +236,7 @@ export function BuilderMediaPanel({
 
         {!visible.length && (
           <div className="tayar-v2-empty-panel">
-            No media
+            {l('No media')}
           </div>
         )}
       </div>

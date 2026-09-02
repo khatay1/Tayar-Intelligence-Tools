@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import {
   useMemo,
   useState,
@@ -301,6 +302,7 @@ canvas,
   onSetDevice,
   onSelect,
 }: WebsiteBuilderV2BridgeProps) {
+  const l = useLocalizer();
   const [leftPanel, setLeftPanel] =
     useState<EditorLeftPanel>('pages');
 
@@ -764,7 +766,7 @@ canvas,
       brandSlot={
         <div>
           <strong>
-            Website Builder
+            {l('Website Builder')}
           </strong>
 
           <small

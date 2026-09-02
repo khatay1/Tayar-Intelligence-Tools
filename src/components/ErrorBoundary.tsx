@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { Component, ReactNode, ErrorInfo } from 'react';
 import { AlertTriangle, RefreshCw, Home, WifiOff, Lock, ServerCrash, Search } from 'lucide-react';
+import { useLocalizer } from '@/lib/ui-localization';
 
 interface Props {
   children: ReactNode;
@@ -51,6 +52,7 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 function ErrorPage({ error, errorType, onReset }: { error?: Error; errorType?: string; onReset: () => void }) {
+  const l = useLocalizer();
   const config = getErrorConfig(errorType);
 
   return (
@@ -67,8 +69,8 @@ function ErrorPage({ error, errorType, onReset }: { error?: Error; errorType?: s
         </div>
 
         <div className="text-xs font-mono text-gray-600 uppercase tracking-widest mb-2">{config.code}</div>
-        <h1 className="text-2xl font-bold text-white mb-3">{config.title}</h1>
-        <p className="text-gray-500 text-sm mb-6 leading-relaxed">{config.description}</p>
+        <h1 className="text-2xl font-bold text-white mb-3">{l(config.title)}</h1>
+        <p className="text-gray-500 text-sm mb-6 leading-relaxed">{l(config.description)}</p>
 
         {error && (
           <pre className="text-left text-xs text-gray-600 bg-white/[0.03] border border-white/10 rounded-xl p-3 mb-6 overflow-x-auto max-h-32">
@@ -81,18 +83,18 @@ function ErrorPage({ error, errorType, onReset }: { error?: Error; errorType?: s
             onClick={() => window.location.reload()}
             className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-violet-500/30 active:scale-95"
           >
-            <RefreshCw className="w-4 h-4" /> Reload
+            <RefreshCw className="w-4 h-4" /> {l('Reload')}
           </button>
           <button
             onClick={() => { onReset(); window.location.hash = ''; }}
             className="flex items-center gap-2 text-gray-300 border border-white/10 hover:border-white/20 text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
           >
-            <Home className="w-4 h-4" /> Home
+            <Home className="w-4 h-4" /> {l('Home')}
           </button>
         </div>
 
         <p className="text-gray-700 text-xs mt-6">
-          If this keeps happening, <a href="#contact" className="text-violet-500 hover:text-violet-400 underline">contact support</a>.
+          {l('If this keeps happening,')} <a href="#contact" className="text-violet-500 hover:text-violet-400 underline">{l('contact support')}</a>.
         </p>
       </div>
     </div>

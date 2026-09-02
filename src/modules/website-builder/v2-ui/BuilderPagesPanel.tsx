@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import type {
   EditorShellContract,
 } from '../core/editor-shell-contract';
@@ -27,19 +28,20 @@ export function BuilderPagesPanel({
   onDeletePage,
   onSetHomePage,
 }: BuilderPagesPanelProps) {
+  const l = useLocalizer();
   const { navigation } =
     shell.view;
 
   return (
     <div className="tayar-v2-pages-panel">
       <div className="tayar-v2-panel-heading">
-        <strong>Pages</strong>
+        <strong>{l('Pages')}</strong>
 
         <button
           type="button"
           className="tayar-v2-mini-action"
           onClick={onAddPage}
-          title="Add page"
+          title={l('Add page')}
         >
           +
         </button>
@@ -83,7 +85,7 @@ export function BuilderPagesPanel({
 
                 {page.home && (
                   <span className="tayar-v2-page-row__badge">
-                    Home
+                    {l('Home')}
                   </span>
                 )}
               </button>
@@ -93,7 +95,7 @@ export function BuilderPagesPanel({
                   <button
                     type="button"
                     disabled={index === 0}
-                    title="Move page up"
+                    title={l('Move page up')}
                     onClick={() =>
                       onMovePage?.(
                         page.id,
@@ -110,7 +112,7 @@ export function BuilderPagesPanel({
                       index ===
                       navigation.length - 1
                     }
-                    title="Move page down"
+                    title={l('Move page down')}
                     onClick={() =>
                       onMovePage?.(
                         page.id,
@@ -123,7 +125,7 @@ export function BuilderPagesPanel({
 
                   <button
                     type="button"
-                    title="Duplicate page"
+                    title={l('Duplicate page')}
                     onClick={
                       onDuplicatePage
                     }
@@ -134,7 +136,7 @@ export function BuilderPagesPanel({
                   {!page.home && (
                     <button
                       type="button"
-                      title="Set as home page"
+                      title={l('Set as home page')}
                       onClick={
                         onSetHomePage
                       }
@@ -149,7 +151,7 @@ export function BuilderPagesPanel({
                     disabled={
                       navigation.length <= 1
                     }
-                    title="Delete page"
+                    title={l('Delete page')}
                     onClick={
                       onDeletePage
                     }

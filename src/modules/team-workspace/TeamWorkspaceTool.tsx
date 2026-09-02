@@ -360,13 +360,13 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-violet-400">
-              <UsersRound className="h-4 w-4" /> Team Workspace
+              <UsersRound className="h-4 w-4" /> {l('Team Workspace')}
             </div>
             <h1 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l('Build websites together')}</h1>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">{l('Secure roles, invitations and shared projects. Pro supports 3 seats; Business supports 10 seats.')}</p>
           </div>
           <button onClick={() => void loadWorkspaces(selectedId)} disabled={loading || busy} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-gray-400 hover:text-white disabled:opacity-50">
-            <RefreshCw className={`h-4 w-4 ${loading || busy ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw className={`h-4 w-4 ${loading || busy ? 'animate-spin' : ''}`} /> {l('Refresh')}
           </button>
         </div>
       </div>
@@ -381,7 +381,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
         <div className="flex flex-col gap-3 md:flex-row">
           <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} className={`min-w-0 flex-1 rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-violet-500 ${input}`} placeholder={l('Paste a team invitation token or open an invitation link')} />
           <button onClick={() => void acceptInvite()} disabled={busy || !acceptToken.trim()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-40">
-            <KeyRound className="h-4 w-4" /> Accept invite
+            <KeyRound className="h-4 w-4" /> {l('Accept invite')}
           </button>
         </div>
       </div>
@@ -413,8 +413,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
           <div className="mt-4 border-t border-white/5 pt-4">
             <input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void createWorkspace()} className={`w-full rounded-xl border px-3 py-2 text-xs outline-none focus:border-violet-500 ${input}`} placeholder={l('New workspace name')} />
             <button onClick={() => void createWorkspace()} disabled={busy || !newWorkspaceName.trim()} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-500 disabled:opacity-40">
-              <Plus className="h-4 w-4" /> Create workspace
-            </button>
+              <Plus className="h-4 w-4" />{l('Create workspace')}</button>
           </div>
         </div>
 
@@ -491,7 +490,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         {member.role === 'owner' ? (
-                          <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs font-bold text-amber-400"><Crown className="h-3.5 w-3.5" /> Owner</span>
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs font-bold text-amber-400"><Crown className="h-3.5 w-3.5" /> {l('Owner')}</span>
                         ) : canEditMember ? (
                           <select value={member.role} onChange={(event) => void changeRole(member, event.target.value as Exclude<TeamRole, 'owner'>)} className={`rounded-lg border px-2 py-1.5 text-xs outline-none ${input}`}>
                             {isOwner && <option value="admin">{l('Admin')}</option>}

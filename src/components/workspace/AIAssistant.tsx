@@ -193,15 +193,15 @@ export default function AIAssistant({ darkMode: _darkMode, onNavigate: _onNaviga
             <div>
               <div className="text-white text-sm font-semibold">{l('AI Assistant')}</div>
               <div className="text-emerald-400 text-xs flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Online
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> {l('Online')}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setShowHistory(!showHistory)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title="History">
+            <button onClick={() => setShowHistory(!showHistory)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title={l('History')}>
               <MessageSquare className="w-4 h-4" />
             </button>
-            <button onClick={startNewConversation} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title="New conversation">
+            <button onClick={startNewConversation} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title={l('New conversation')}>
               <Plus className="w-4 h-4" />
             </button>
             <button onClick={() => setAssistantOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">

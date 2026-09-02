@@ -1,4 +1,4 @@
-﻿import { useLocalizer } from '@/lib/ui-localization';
+import { localizeUi, useLocalizer } from '@/lib/ui-localization';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createAIService } from '@/lib/ai/service';
 import { usePreferences, type Language } from '@/context/PreferencesContext';
@@ -1345,7 +1345,7 @@ function buildResponsiveElementCss(sections: WebsiteSection[]): string {
   return `@media(max-width:900px){\n${buildRules('tablet')}\n}\n@media(max-width:700px){\n${buildRules('mobile')}\n}`;
 }
 
-function sectionElementsToHtml(section: WebsiteSection, homeSlug: string, excludeButton = false): string {
+function sectionElementsToHtml(section: WebsiteSection, homeSlug: string, excludeButton = false, language: Language = 'en'): string {
   const elements = (section.elements || []).filter((element) => !excludeButton || element.type !== 'button');
   const columns = sectionColumnCount(section.layout);
   const gap = sectionLayoutGap(section);
@@ -1369,7 +1369,7 @@ function sectionElementsToHtml(section: WebsiteSection, homeSlug: string, exclud
       const span = containerColumnSpan(container, column, columns);
       const children = members.map((member) => {
         const style = effectiveStyle(member, 'desktop');
-        return `<div class="container-element-item" data-tayar-element="${escapeHtml(member.id)}" data-tayar-animated data-tayar-animation-once="${member.animationOnce === false ? 'false' : 'true'}" style="${elementSlotCss(style, 1, 1)}">${elementToHtml(member, homeSlug, 'desktop')}</div>`;
+        return `<div class="container-element-item" data-tayar-element="${escapeHtml(member.id)}" data-tayar-animated data-tayar-animation-once="${member.animationOnce === false ? 'false' : 'true'}" style="${elementSlotCss(style, 1, 1)}">${elementToHtml(member, homeSlug, 'desktop', language)}</div>`;
       }).join('\n');
       items.push(`<div class="layout-item container-slot" data-column="${column}" data-tayar-container="${escapeHtml(container.id)}" style="grid-column:${columns > 1 ? `${column} / span ${span}` : '1 / span 1'}"><div class="tayar-container" style="${containerVisualCss(container)}">${children}</div></div>`);
       return;
@@ -1377,7 +1377,7 @@ function sectionElementsToHtml(section: WebsiteSection, homeSlug: string, exclud
 
     const column = elementColumn(element, index, columns);
     const style = effectiveStyle(element, 'desktop');
-    items.push(`<div class="layout-item" data-tayar-element="${escapeHtml(element.id)}" data-tayar-animated data-tayar-animation-once="${element.animationOnce === false ? 'false' : 'true'}" data-column="${column}" style="${elementSlotCss(style, column, columns)}">${elementToHtml(element, homeSlug, 'desktop')}</div>`);
+    items.push(`<div class="layout-item" data-tayar-element="${escapeHtml(element.id)}" data-tayar-animated data-tayar-animation-once="${element.animationOnce === false ? 'false' : 'true'}" data-column="${column}" style="${elementSlotCss(style, column, columns)}">${elementToHtml(element, homeSlug, 'desktop', language)}</div>`);
   });
 
   return `<div class="${containerClass}" ${containerAttrs}>${items.join('\n')}</div>`;
@@ -1707,7 +1707,9 @@ function sanitizeCustomHtml(value: string): string {
     .replace(/(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, '$1="#"');
 }
 
-function elementToHtml(element: WebsiteElement, homeSlug: string, device: Device = 'desktop'): string {
+function elementToHtml(element: WebsiteElement, homeSlug: string, device: Device = 'desktop', language: Language = 'en'): string {
+  const tr = (text: string) => localizeUi(text, language);
+  const html = (text: string) => escapeHtml(tr(text));
   const style = effectiveStyle(element, device);
   const css = elementVisualCss(style);
   const value = escapeHtml(element.content || '');
@@ -1725,8 +1727,8 @@ function elementToHtml(element: WebsiteElement, homeSlug: string, device: Device
   }
   if (element.type === 'video') {
     const source = videoSource(element.src || '');
-    if (!source) return `<div class="builder-video-placeholder tayar-element" style="${css}">Add a YouTube, Vimeo or direct video URL</div>`;
-    if (source.kind === 'iframe') return `<div class="builder-video tayar-element" style="${css}"><iframe src="${escapeHtml(source.src)}" title="${value || 'Video'}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+    if (!source) return `<div class="builder-video-placeholder tayar-element" style="${css}">${html('Add a YouTube, Vimeo or direct video URL')}</div>`;
+    if (source.kind === 'iframe') return `<div class="builder-video tayar-element" style="${css}"><iframe src="${escapeHtml(source.src)}" title="${value || html('Video')}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
     return `<video class="builder-video-file tayar-element" src="${escapeHtml(source.src)}" controls preload="metadata" style="${css}"></video>`;
   }
   if (element.type === 'accordion') {
@@ -1744,18 +1746,18 @@ function elementToHtml(element: WebsiteElement, homeSlug: string, device: Device
   }
   if (element.type === 'gallery') {
     const images = (element.content || '').split(/\r?\n/).map((item) => safeEmbedUrl(item)).filter(Boolean);
-    return `<div class="builder-gallery tayar-element" style="${css}">${images.map((src, index) => `<img src="${escapeHtml(src)}" alt="Gallery image ${index + 1}" loading="lazy">`).join('')}</div>`;
+    return `<div class="builder-gallery tayar-element" style="${css}">${images.map((src, index) => `<img src="${escapeHtml(src)}" alt="${html('Gallery image')} ${index + 1}" loading="lazy">`).join('')}</div>`;
   }
   if (element.type === 'embed') {
     const source = safeEmbedUrl(element.src || '');
-    if (!source) return `<div class="builder-embed-placeholder tayar-element" style="${css}">Add a map or embed URL</div>`;
-    return `<div class="builder-embed tayar-element" style="${css}"><iframe src="${escapeHtml(source)}" title="${value || 'Embedded content'}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>`;
+    if (!source) return `<div class="builder-embed-placeholder tayar-element" style="${css}">${html('Add a map or embed URL')}</div>`;
+    return `<div class="builder-embed tayar-element" style="${css}"><iframe src="${escapeHtml(source)}" title="${value || html('Embedded content')}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>`;
   }
   if (element.type === 'countdown') {
     const [rawTarget, ...labelParts] = (element.content || '').split('|');
     const target = rawTarget.trim();
-    const label = labelParts.join('|').trim() || 'Countdown';
-    return `<div class="builder-countdown tayar-element" data-tayar-countdown data-target="${escapeHtml(target)}" style="${css}"><p class="countdown-label">${escapeHtml(label)}</p><div class="countdown-grid"><span><strong data-unit="days">00</strong><small>Days</small></span><span><strong data-unit="hours">00</strong><small>Hours</small></span><span><strong data-unit="minutes">00</strong><small>Minutes</small></span><span><strong data-unit="seconds">00</strong><small>Seconds</small></span></div></div>`;
+    const label = labelParts.join('|').trim() || tr('Countdown');
+    return `<div class="builder-countdown tayar-element" data-tayar-countdown data-target="${escapeHtml(target)}" style="${css}"><p class="countdown-label">${escapeHtml(label)}</p><div class="countdown-grid"><span><strong data-unit="days">00</strong><small>${html('Days')}</small></span><span><strong data-unit="hours">00</strong><small>${html('Hours')}</small></span><span><strong data-unit="minutes">00</strong><small>${html('Minutes')}</small></span><span><strong data-unit="seconds">00</strong><small>${html('Seconds')}</small></span></div></div>`;
   }
   if (element.type === 'stats') {
     const rows = parseRichRows(element.content);
@@ -1763,7 +1765,7 @@ function elementToHtml(element: WebsiteElement, homeSlug: string, device: Device
   }
   if (element.type === 'testimonials-slider') {
     const rows = parseRichRows(element.content);
-    return `<div class="builder-testimonials tayar-element" data-tayar-testimonials style="${css}"><div class="testimonial-track">${rows.map((row, index) => `<article class="testimonial-slide${index === 0 ? ' active' : ''}" data-slide="${index}"><p>“${escapeHtml(row.body)}”</p><strong>— ${escapeHtml(row.title)}</strong></article>`).join('')}</div><div class="testimonial-controls"><button type="button" data-testimonial-prev aria-label="Previous testimonial">←</button><span data-testimonial-position>1 / ${Math.max(rows.length, 1)}</span><button type="button" data-testimonial-next aria-label="Next testimonial">→</button></div></div>`;
+    return `<div class="builder-testimonials tayar-element" data-tayar-testimonials style="${css}"><div class="testimonial-track">${rows.map((row, index) => `<article class="testimonial-slide${index === 0 ? ' active' : ''}" data-slide="${index}"><p>“${escapeHtml(row.body)}”</p><strong>— ${escapeHtml(row.title)}</strong></article>`).join('')}</div><div class="testimonial-controls"><button type="button" data-testimonial-prev aria-label="${html('Previous testimonial')}">←</button><span data-testimonial-position>1 / ${Math.max(rows.length, 1)}</span><button type="button" data-testimonial-next aria-label="${html('Next testimonial')}">→</button></div></div>`;
   }
   if (element.type === 'code') {
     return `<div class="builder-custom-html tayar-element" style="${css}">${sanitizeCustomHtml(element.content)}</div>`;
@@ -1772,13 +1774,15 @@ function elementToHtml(element: WebsiteElement, homeSlug: string, device: Device
   return '';
 }
 
-function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: LeadCaptureConfig): string {
+function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: LeadCaptureConfig, language: Language = 'en'): string {
+  const tr = (text: string) => localizeUi(text, language);
+  const html = (text: string) => escapeHtml(tr(text));
   const sectionId = escapeHtml(sectionDomId(section));
   if (section.type === 'contact') {
     const submitElement = (section.elements || []).find((element) => element.type === 'button');
-    const submitLabel = escapeHtml(submitElement?.content || section.buttonText || 'Send Message');
+    const submitLabel = escapeHtml(submitElement?.content || section.buttonText || tr('Send Message'));
     const enabled = Boolean(leadCapture?.projectId && leadCapture?.supabaseUrl && leadCapture?.supabaseAnonKey);
-    const setupMessage = enabled ? '' : 'Lead capture is disabled in previews and activates on a published cloud website.';
+    const setupMessage = enabled ? '' : tr('Lead capture is disabled in previews and activates on a published cloud website.');
     const submitButton = submitElement
       ? (() => {
           const submitStyle = effectiveStyle(submitElement, 'desktop');
@@ -1789,9 +1793,9 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
     return `
 <section id="${sectionId}" data-tayar-section-id="${escapeHtml(section.id)}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
-    ${sectionElementsToHtml(section, homeSlug, true)}
-    <form class="contact-box" data-tayar-lead-form data-success-message="${escapeHtml(section.formSuccessMessage || 'Thanks! Your message has been sent.')}" data-success-action="${section.formSuccessAction === 'redirect' ? 'redirect' : 'message'}" data-redirect-url="${escapeHtml(section.formRedirectUrl ? safeFormRedirectHref(section.formRedirectUrl, homeSlug) : '')}">
-      <label class="tayar-honeypot" aria-hidden="true">Company<input name="_tayar_company" type="text" tabindex="-1" autocomplete="off"></label>
+    ${sectionElementsToHtml(section, homeSlug, true, language)}
+    <form class="contact-box" data-tayar-lead-form data-success-message="${escapeHtml(section.formSuccessMessage || tr('Thanks! Your message has been sent.'))}" data-success-action="${section.formSuccessAction === 'redirect' ? 'redirect' : 'message'}" data-redirect-url="${escapeHtml(section.formRedirectUrl ? safeFormRedirectHref(section.formRedirectUrl, homeSlug) : '')}">
+      <label class="tayar-honeypot" aria-hidden="true">${html('Company')}<input name="_tayar_company" type="text" tabindex="-1" autocomplete="off"></label>
       ${(section.formFields ?? createDefaultContactFormFields()).map(formFieldToHtml).join('\n      ')}
       ${submitButton}
       <p class="form-status" data-form-status aria-live="polite">${escapeHtml(setupMessage)}</p>
@@ -1823,13 +1827,13 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
     return `
 <section id="${sectionId}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
-    <span class="eyebrow">FEATURES</span>
+    <span class="eyebrow">${html('Features')}</span>
     <h2>${title}</h2>
     <p class="lead">${description}</p>
     <div class="cards">
-      <article class="card"><div class="icon">01</div><h3>Fast</h3><p>Built for speed and a smooth user experience.</p></article>
-      <article class="card"><div class="icon">02</div><h3>Powerful</h3><p>Flexible tools that help your business grow.</p></article>
-      <article class="card"><div class="icon">03</div><h3>Easy</h3><p>Simple experiences your customers understand.</p></article>
+      <article class="card"><div class="icon">01</div><h3>${html('Fast')}</h3><p>${html('Built for speed and a smooth user experience.')}</p></article>
+      <article class="card"><div class="icon">02</div><h3>${html('Powerful')}</h3><p>${html('Flexible tools that help your business grow.')}</p></article>
+      <article class="card"><div class="icon">03</div><h3>${html('Easy')}</h3><p>${html('Simple experiences your customers understand.')}</p></article>
     </div>
     ${button}
   </div>
@@ -1840,13 +1844,13 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
     return `
 <section id="${sectionId}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
-    <span class="eyebrow">SERVICES</span>
+    <span class="eyebrow">${html('Services')}</span>
     <h2>${title}</h2>
     <p class="lead">${description}</p>
     <div class="cards">
-      <article class="card"><h3>Consulting</h3><p>Professional guidance tailored to your goals.</p></article>
-      <article class="card"><h3>Development</h3><p>Modern digital solutions built for your business.</p></article>
-      <article class="card"><h3>Support</h3><p>Reliable help when you need it most.</p></article>
+      <article class="card"><h3>${html('Consulting')}</h3><p>${html('Professional guidance tailored to your goals.')}</p></article>
+      <article class="card"><h3>${html('Development')}</h3><p>${html('Modern digital solutions built for your business.')}</p></article>
+      <article class="card"><h3>${html('Support')}</h3><p>${html('Reliable help when you need it most.')}</p></article>
     </div>
     ${button}
   </div>
@@ -1857,13 +1861,13 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
     return `
 <section id="${sectionId}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
-    <span class="eyebrow">PRICING</span>
+    <span class="eyebrow">${html('Pricing')}</span>
     <h2>${title}</h2>
     <p class="lead">${description}</p>
     <div class="pricing">
-      <article class="price"><h3>Starter</h3><strong>$9</strong><p>For getting started.</p><a class="btn secondary" href="${escapeHtml(section.buttonUrl || '#')}">Choose</a></article>
-      <article class="price featured"><h3>Pro</h3><strong>$29</strong><p>For growing businesses.</p><a class="btn" href="${escapeHtml(section.buttonUrl || '#')}">Choose</a></article>
-      <article class="price"><h3>Business</h3><strong>$79</strong><p>For advanced needs.</p><a class="btn secondary" href="${escapeHtml(section.buttonUrl || '#')}">Choose</a></article>
+      <article class="price"><h3>${html('Starter')}</h3><strong>$9</strong><p>${html('For getting started.')}</p><a class="btn secondary" href="${escapeHtml(section.buttonUrl || '#')}">${html('Choose')}</a></article>
+      <article class="price featured"><h3>Pro</h3><strong>$29</strong><p>${html('For growing businesses.')}</p><a class="btn" href="${escapeHtml(section.buttonUrl || '#')}">${html('Choose')}</a></article>
+      <article class="price"><h3>${html('Business')}</h3><strong>$79</strong><p>${html('For advanced needs.')}</p><a class="btn secondary" href="${escapeHtml(section.buttonUrl || '#')}">${html('Choose')}</a></article>
     </div>
   </div>
 </section>`;
@@ -1873,13 +1877,13 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
     return `
 <section id="${sectionId}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
-    <span class="eyebrow">TESTIMONIALS</span>
+    <span class="eyebrow">${html('Testimonials')}</span>
     <h2>${title}</h2>
     <p class="lead">${description}</p>
     <div class="cards">
-      <article class="card"><p>“Amazing experience and excellent results.”</p><strong>— Alex</strong></article>
-      <article class="card"><p>“Professional, simple and exactly what we needed.”</p><strong>— Sarah</strong></article>
-      <article class="card"><p>“The easiest way to present our business online.”</p><strong>— Daniel</strong></article>
+      <article class="card"><p>“${html('Amazing experience and excellent results.')}”</p><strong>— Alex</strong></article>
+      <article class="card"><p>“${html('Professional, simple and exactly what we needed.')}”</p><strong>— Sarah</strong></article>
+      <article class="card"><p>“${html('The easiest way to present our business online.')}”</p><strong>— Daniel</strong></article>
     </div>
     ${button}
   </div>
@@ -1892,13 +1896,13 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
 <section id="${sectionId}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)} split">
     <div>
-      <span class="eyebrow">ABOUT</span>
+      <span class="eyebrow">${html('About')}</span>
       <h2>${title}</h2>
       <p class="lead">${description}</p>
       ${button}
     </div>
     <div class="visual" style="border-color:${section.accent}55">
-      <span style="background:${section.accent}">ABOUT</span>
+      <span style="background:${section.accent}">${html('About')}</span>
     </div>
   </div>
 </section>`;
@@ -1907,7 +1911,7 @@ function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCapture?: 
   return `
 <section id="${sectionId}" class="section hero" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
-    <span class="eyebrow">YOUR BRAND</span>
+    <span class="eyebrow">${html('Your Brand')}</span>
     <h1>${title}</h1>
     <p class="lead">${description}</p>
     ${button}
@@ -1952,6 +1956,9 @@ function buildFullHtml(
   const footerConfig = normalizeFooterConfig(options.footerConfig);
   const siteEnhancements = normalizeSiteEnhancements(options.siteEnhancements);
   const productionConfig = normalizeProductionConfig(options.productionConfig);
+  const runtimeText = (text: string) => localizeUi(text, options.language);
+  const runtimeHtml = (text: string) => escapeHtml(runtimeText(text));
+  const runtimeJs = (text: string) => JSON.stringify(runtimeText(text)).replace(/</g, '\\u003c');
   const homePage = options.pages.find((page) => page.id === options.homePageId) || options.pages[0];
   const homeSlug = homePage?.slug || 'home';
   const leadCapture: LeadCaptureConfig | undefined = options.leadProjectId && options.supabaseUrl && options.supabaseAnonKey
@@ -1961,7 +1968,7 @@ function buildFullHtml(
         supabaseAnonKey: options.supabaseAnonKey,
       }
     : undefined;
-  const body = sections.map((section) => sectionToHtml(section, homeSlug, leadCapture)).join('\n');
+  const body = sections.map((section) => sectionToHtml(section, homeSlug, leadCapture, options.language)).join('\n');
   const faqItems = sections.flatMap((section) => (section.elements || []).filter((element) => element.type === 'accordion').flatMap((element) => parseRichRows(element.content))).slice(0, 50);
   const faqSchema = faqItems.length ? `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqItems.map((item) => ({ '@type': 'Question', name: item.title, acceptedAnswer: { '@type': 'Answer', text: item.body } })) }).replace(/</g, '\\u003c')}</script>` : '';
   const direction = options.language === 'ar' ? 'rtl' : 'ltr';
@@ -1981,16 +1988,16 @@ function buildFullHtml(
     ? `<a class="site-cta" href="${escapeHtml(resolveBuilderHref(headerConfig.ctaHref, homeSlug))}">${escapeHtml(headerConfig.ctaLabel)}</a>`
     : '';
   const searchTrigger = siteEnhancements.siteSearch
-    ? '<button class="site-search-trigger" type="button" data-site-search-open aria-label="Search website">⌕ <span>Search</span></button>'
+    ? `<button class="site-search-trigger" type="button" data-site-search-open aria-label="${runtimeHtml('Search website')}">⌕ <span>${runtimeHtml('Search')}</span></button>`
     : '';
   const languageSwitcher = headerConfig.languageSwitcher && translationPages.length > 1
-    ? `<div class="site-language-switcher" aria-label="Language">${translationPages.map((page) => {
+    ? `<div class="site-language-switcher" aria-label="${runtimeHtml('Language')}">${translationPages.map((page) => {
         const lang = normalizePageLanguage(page.language, options.language);
         return `<a href="${escapeHtml(pageHref(page, options.homePageId))}" hreflang="${lang}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(languageCodeLabel(lang))}</a>`;
       }).join('')}</div>`
     : '';
   const navigation = headerConfig.enabled
-    ? `<nav class="site-nav${headerConfig.sticky ? ' sticky' : ''}${headerConfig.mobileMenu ? ' mobile-menu' : ''}" data-tayar-mobile-nav><a class="site-brand" href="${escapeHtml(pageHref(homePage, options.homePageId))}"><span class="site-brand-wrap">${headerLogo}<span>${escapeHtml(brandLabel)}</span></span></a>${headerConfig.mobileMenu ? '<button class="site-menu-toggle" type="button" aria-expanded="false" aria-label="Toggle navigation"><span aria-hidden="true">☰</span><span>Menu</span></button>' : ''}<div class="site-links">${navigationPages.map((page) => `<a href="${escapeHtml(pageHref(page, options.homePageId))}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(page.name)}</a>`).join('')}${languageSwitcher}${searchTrigger}${headerCta}</div></nav>`
+    ? `<nav class="site-nav${headerConfig.sticky ? ' sticky' : ''}${headerConfig.mobileMenu ? ' mobile-menu' : ''}" data-tayar-mobile-nav><a class="site-brand" href="${escapeHtml(pageHref(homePage, options.homePageId))}"><span class="site-brand-wrap">${headerLogo}<span>${escapeHtml(brandLabel)}</span></span></a>${headerConfig.mobileMenu ? `<button class="site-menu-toggle" type="button" aria-expanded="false" aria-label="${runtimeHtml('Toggle navigation')}"><span aria-hidden="true">☰</span><span>${runtimeHtml('Menu')}</span></button>` : ''}<div class="site-links">${navigationPages.map((page) => `<a href="${escapeHtml(pageHref(page, options.homePageId))}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(page.name)}</a>`).join('')}${languageSwitcher}${searchTrigger}${headerCta}</div></nav>`
     : '';
 
   const navigationScript = headerConfig.enabled && headerConfig.mobileMenu ? `<script>
@@ -2185,10 +2192,10 @@ function buildFullHtml(
     ? `<a class="tayar-floating-cta" href="${escapeHtml(resolveBuilderHref(siteEnhancements.floatingCtaHref, homeSlug))}">${escapeHtml(siteEnhancements.floatingCtaLabel)}</a>`
     : '';
   const shareButtons = siteEnhancements.shareButtons
-    ? '<div class="tayar-share-tools" data-share-tools><button type="button" data-share-native>Share</button><button type="button" data-share-copy>Copy link</button></div>'
+    ? `<div class="tayar-share-tools" data-share-tools><button type="button" data-share-native>${runtimeHtml('Share')}</button><button type="button" data-share-copy>${runtimeHtml('Copy link')}</button></div>`
     : '';
   const lightbox = siteEnhancements.galleryLightbox
-    ? '<div class="tayar-lightbox" data-tayar-lightbox hidden><button type="button" data-lightbox-close aria-label="Close image">×</button><img data-lightbox-image alt="Gallery preview"></div>'
+    ? `<div class="tayar-lightbox" data-tayar-lightbox hidden><button type="button" data-lightbox-close aria-label="${runtimeHtml('Close image')}">×</button><img data-lightbox-image alt="${runtimeHtml('Gallery preview')}"></div>`
     : '';
   const searchIndex = options.pages.map((page) => ({
     title: page.name,
@@ -2196,7 +2203,7 @@ function buildFullHtml(
     text: page.sections.flatMap((section) => [section.title, section.description, ...(section.elements || []).map((element) => element.content || '')]).join(' ').replace(/\s+/g, ' ').trim().slice(0, 6000),
   }));
   const searchOverlay = siteEnhancements.siteSearch
-    ? `<div class="tayar-search-overlay" data-site-search hidden><div class="tayar-search-dialog" role="dialog" aria-modal="true" aria-label="Search website"><div class="tayar-search-head"><strong>Search this site</strong><button type="button" data-site-search-close aria-label="Close search">×</button></div><input data-site-search-input type="search" placeholder="Search pages…" autocomplete="off"><div class="tayar-search-results" data-site-search-results><p>Start typing to search.</p></div></div></div>`
+    ? `<div class="tayar-search-overlay" data-site-search hidden><div class="tayar-search-dialog" role="dialog" aria-modal="true" aria-label="${runtimeHtml('Search website')}"><div class="tayar-search-head"><strong>${runtimeHtml('Search this site')}</strong><button type="button" data-site-search-close aria-label="${runtimeHtml('Close search')}">×</button></div><input data-site-search-input type="search" placeholder="${runtimeHtml('Search pages…')}" autocomplete="off"><div class="tayar-search-results" data-site-search-results><p>${runtimeHtml('Start typing to search.')}</p></div></div></div>`
     : '';
   const searchIndexJson = JSON.stringify(searchIndex).replace(/</g, '\\u003c');
 
@@ -2322,8 +2329,8 @@ function buildFullHtml(
   document.querySelector('[data-share-copy]')?.addEventListener('click', async (event) => {
     try {
       await navigator.clipboard.writeText(location.href);
-      event.currentTarget.textContent = 'Copied';
-      window.setTimeout(() => { event.currentTarget.textContent = 'Copy link'; }, 1600);
+      event.currentTarget.textContent = ${runtimeJs('Copied')};
+      window.setTimeout(() => { event.currentTarget.textContent = ${runtimeJs('Copy link')}; }, 1600);
     } catch {}
   });
 
@@ -2342,11 +2349,11 @@ function buildFullHtml(
   searchInput?.addEventListener('input', () => {
     if (!searchResults) return;
     const query = String(searchInput.value || '').trim().toLowerCase();
-    if (query.length < 2) { searchResults.innerHTML = '<p>Type at least 2 characters.</p>'; return; }
+    if (query.length < 2) { searchResults.innerHTML = '<p>' + ${runtimeJs('Type at least 2 characters.')} + '</p>'; return; }
     const matches = searchData.filter((item) => (item.title + ' ' + item.text).toLowerCase().includes(query)).slice(0, 8);
     searchResults.innerHTML = matches.length
       ? matches.map((item) => '<a href="' + item.href.replace(/"/g, '&quot;') + '"><strong>' + item.title.replace(/</g, '&lt;') + '</strong><span>' + item.text.slice(0, 150).replace(/</g, '&lt;') + '</span></a>').join('')
-      : '<p>No matching pages found.</p>';
+      : '<p>' + ${runtimeJs('No matching pages found.')} + '</p>';
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { closeSearch(); if (popup && !popup.hidden) popup.hidden = true; if (lightbox && !lightbox.hidden) lightbox.hidden = true; }
@@ -2429,7 +2436,7 @@ function buildFullHtml(
     ? `<script defer data-domain="${escapeHtml(productionConfig.plausibleDomain)}" src="https://plausible.io/js/script.js"></script>`
     : '';
   const maintenanceBody = productionConfig.maintenanceMode
-    ? `<main class="tayar-maintenance"><div><span>Maintenance</span><h1>${escapeHtml(productionConfig.maintenanceTitle)}</h1><p>${escapeHtml(productionConfig.maintenanceText)}</p></div></main>`
+    ? `<main class="tayar-maintenance"><div><span>${runtimeHtml('Maintenance')}</span><h1>${escapeHtml(productionConfig.maintenanceTitle)}</h1><p>${escapeHtml(productionConfig.maintenanceText)}</p></div></main>`
     : '';
 
   return `<!DOCTYPE html>
@@ -2535,7 +2542,7 @@ ${customCss}
 <body>
 ${gtmBody}
 ${metaPixelBody}
-${productionConfig.maintenanceMode ? maintenanceBody : `<a class="tayar-skip-link" href="#tayar-main-content">Skip to content</a>${scrollProgress}
+${productionConfig.maintenanceMode ? maintenanceBody : `<a class="tayar-skip-link" href="#tayar-main-content">${runtimeHtml('Skip to content')}</a>${scrollProgress}
 ${announcementBar}
 ${navigation}
 <main id="tayar-main-content">${body}</main>
@@ -2593,6 +2600,7 @@ function ElementPreview({
   onInlineContentChange: (content: string) => void;
   onInlineSourceChange: (src: string) => void;
 }) {
+  const l = useLocalizer();
   const style = effectiveStyle(element, device);
   const [hovered, setHovered] = useState(false);
   const [editingInline, setEditingInline] = useState(false);
@@ -2715,13 +2723,13 @@ function ElementPreview({
   }
   if (element.type === 'spacer') {
     const height = Math.max(8, Math.min(320, (clampElementNumber(style.padding, 24, 0, 160) || 24) * 2));
-    return <div {...dragProps} className={`${wrapper} flex w-full items-center justify-center border border-dashed border-white/10 text-[10px] text-gray-500`} style={{ ...commonStyle, height: `${height}px` }}>Spacer {height}px</div>;
+    return <div {...dragProps} className={`${wrapper} flex w-full items-center justify-center border border-dashed border-white/10 text-[10px] text-gray-500`} style={{ ...commonStyle, height: `${height}px` }}>{l('Spacer')} {height}px</div>;
   }
   if (element.type === 'video') {
     const source = videoSource(element.src || '');
     return (
-      <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle} title="Double-click to edit video URL">
-        {source?.kind === 'iframe' ? <iframe src={source.src} title={element.content || 'Video'} className="aspect-video w-full border-0" /> : source?.kind === 'video' ? <video src={source.src} controls className="h-auto w-full" /> : <div className="flex min-h-40 w-full items-center justify-center border border-dashed border-white/20 bg-black/20 px-6 text-center text-xs text-gray-400">Double-click to add a video URL</div>}
+      <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle} title={l('Double-click to edit video URL')}>
+        {source?.kind === 'iframe' ? <iframe src={source.src} title={element.content || l('Video')} className="aspect-video w-full border-0" /> : source?.kind === 'video' ? <video src={source.src} controls className="h-auto w-full" /> : <div className="flex min-h-40 w-full items-center justify-center border border-dashed border-white/20 bg-black/20 px-6 text-center text-xs text-gray-400">{l('Double-click to add a video URL')}</div>}
       </div>
     );
   }
@@ -2731,19 +2739,19 @@ function ElementPreview({
   }
   if (element.type === 'tabs') {
     const rows = parseRichRows(element.content);
-    return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><div className="mb-2 flex flex-wrap gap-2">{rows.map((row, index) => <span key={`${element.id}-tab-${index}`} className={`rounded-lg border px-3 py-2 text-xs font-bold ${index === 0 ? 'border-violet-400 bg-violet-500/15' : 'border-white/10 bg-white/5'}`}>{row.title}</span>)}</div><div className="rounded-lg border border-white/10 bg-white/5 p-4 text-left text-sm opacity-80">{rows[0]?.body || 'Add tab content'}</div></div>;
+    return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><div className="mb-2 flex flex-wrap gap-2">{rows.map((row, index) => <span key={`${element.id}-tab-${index}`} className={`rounded-lg border px-3 py-2 text-xs font-bold ${index === 0 ? 'border-violet-400 bg-violet-500/15' : 'border-white/10 bg-white/5'}`}>{row.title}</span>)}</div><div className="rounded-lg border border-white/10 bg-white/5 p-4 text-left text-sm opacity-80">{rows[0]?.body || l('Add tab content')}</div></div>;
   }
   if (element.type === 'gallery') {
     const images = (element.content || '').split(/\r?\n/).map((item) => safeEmbedUrl(item)).filter(Boolean);
-    return <div {...dragProps} className={`${wrapper} grid w-full grid-cols-2 gap-2 md:grid-cols-3`} style={commonStyle}>{images.length ? images.map((src, index) => <img key={`${element.id}-gallery-${index}`} src={src} alt={`Gallery ${index + 1}`} className="aspect-[4/3] w-full rounded-lg object-cover" draggable={false} />) : <div className="col-span-full flex min-h-32 items-center justify-center border border-dashed border-white/20 text-xs text-gray-400">Add one image URL per line</div>}</div>;
+    return <div {...dragProps} className={`${wrapper} grid w-full grid-cols-2 gap-2 md:grid-cols-3`} style={commonStyle}>{images.length ? images.map((src, index) => <img key={`${element.id}-gallery-${index}`} src={src} alt={`Gallery ${index + 1}`} className="aspect-[4/3] w-full rounded-lg object-cover" draggable={false} />) : <div className="col-span-full flex min-h-32 items-center justify-center border border-dashed border-white/20 text-xs text-gray-400">{l('Add one image URL per line')}</div>}</div>;
   }
   if (element.type === 'embed') {
     const source = safeEmbedUrl(element.src || '');
-    return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle} title="Double-click to edit embed URL">{source ? <iframe src={source} title={element.content || 'Embedded content'} className="aspect-video w-full border-0" /> : <div className="flex min-h-44 items-center justify-center border border-dashed border-white/20 px-6 text-center text-xs text-gray-400">Double-click to add an embeddable URL</div>}</div>;
+    return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle} title={l('Double-click to edit embed URL')}>{source ? <iframe src={source} title={element.content || l('Embedded content')} className="aspect-video w-full border-0" /> : <div className="flex min-h-44 items-center justify-center border border-dashed border-white/20 px-6 text-center text-xs text-gray-400">{l('Double-click to add an embeddable URL')}</div>}</div>;
   }
   if (element.type === 'countdown') {
     const [target, ...labelParts] = (element.content || '').split('|');
-    return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><p className="mb-3 text-xs font-semibold opacity-70">{labelParts.join('|').trim() || 'Countdown'}</p><div className="grid grid-cols-4 gap-2">{['Days','Hours','Minutes','Seconds'].map((label) => <div key={label} className="rounded-lg border border-white/10 bg-black/15 p-3"><strong className="block text-xl">00</strong><span className="text-[9px] uppercase opacity-60">{label}</span></div>)}</div><p className="mt-2 text-[9px] opacity-50">Target: {target.trim() || 'set date in inspector'}</p></div>;
+    return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><p className="mb-3 text-xs font-semibold opacity-70">{labelParts.join('|').trim() || l('Countdown')}</p><div className="grid grid-cols-4 gap-2">{['Days','Hours','Minutes','Seconds'].map((label) => <div key={label} className="rounded-lg border border-white/10 bg-black/15 p-3"><strong className="block text-xl">00</strong><span className="text-[9px] uppercase opacity-60">{l(label)}</span></div>)}</div><p className="mt-2 text-[9px] opacity-50">{l('Target:')} {target.trim() || l('set date in inspector')}</p></div>;
   }
   if (element.type === 'stats') {
     const rows = parseRichRows(element.content);
@@ -2752,18 +2760,18 @@ function ElementPreview({
   if (element.type === 'testimonials-slider') {
     const rows = parseRichRows(element.content);
     const first = rows[0];
-    return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><div className="rounded-xl border border-white/10 bg-black/10 p-5 text-center"><p className="text-sm italic opacity-85">“{first?.body || 'Add testimonial text'}”</p><strong className="mt-3 block text-xs">— {first?.title || 'Customer'}</strong></div><div className="mt-2 text-center text-[9px] opacity-50">Slider preview • {rows.length} testimonials</div></div>;
+    return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><div className="rounded-xl border border-white/10 bg-black/10 p-5 text-center"><p className="text-sm italic opacity-85">“{first?.body || l('Add testimonial text')}”</p><strong className="mt-3 block text-xs">— {first?.title || l('Customer')}</strong></div><div className="mt-2 text-center text-[9px] opacity-50">Slider preview • {rows.length} testimonials</div></div>;
   }
   if (element.type === 'code') {
     return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle}><div className="pointer-events-none" dangerouslySetInnerHTML={{ __html: sanitizeCustomHtml(element.content) }} /></div>;
   }
   if (element.type === 'image') {
     return (
-      <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle} title="Double-click to replace image">
+      <div {...dragProps} className={`${wrapper} overflow-hidden`} style={commonStyle} title={l('Double-click to replace image')}>
         {element.src ? (
-          <img src={element.src} alt={element.content || 'Website image'} className="h-auto w-full object-cover" draggable={false} />
+          <img src={element.src} alt={element.content || l('Website image')} className="h-auto w-full object-cover" draggable={false} />
         ) : (
-          <div className="flex min-h-32 w-full items-center justify-center border border-dashed border-white/20 bg-white/5 px-6 text-xs text-gray-400">Double-click to add image URL</div>
+          <div className="flex min-h-32 w-full items-center justify-center border border-dashed border-white/20 bg-white/5 px-6 text-xs text-gray-400">{l('Double-click to add image URL')}</div>
         )}
       </div>
     );
@@ -2836,6 +2844,7 @@ function SectionPreview({
   device: Device;
   theme: WebsiteTheme;
 }) {
+  const l = useLocalizer();
   const compact = device === 'mobile';
   const responsiveSection = effectiveSectionStyle(section, device);
   const configuredColumns = sectionColumnCount(section.layout);
@@ -2886,7 +2895,7 @@ function SectionPreview({
           right: `${Math.max(0, 100 - width)}%`,
           transform: `translate3d(${positionX}px, ${positionY}px, 0)`,
         }}
-        title="Drag to move · Arrows nudge · Shift+arrow 10px · Ctrl/Cmd+D duplicate · Delete remove · Esc deselect · Shift+drag reorder"
+        title={l('Drag to move · Arrows nudge · Shift+arrow 10px · Ctrl/Cmd+D duplicate · Delete remove · Esc deselect · Shift+drag reorder')}
         onDragStart={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
@@ -2909,28 +2918,28 @@ function SectionPreview({
               if (next !== null) onQuickUpdateElement(element.id, { href: next.trim() || '#' });
             }}
             className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200"
-            title="Edit button link"
+            title={l('Edit button link')}
           >
             <Link className="h-3.5 w-3.5" />
           </button>
         )}
         {element.type === 'image' && (
-          <button type="button" onClick={onOpenMediaLibrary} className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200" title="Open media library">
+          <button type="button" onClick={onOpenMediaLibrary} className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200" title={l('Open media library')}>
             <Images className="h-3.5 w-3.5" />
           </button>
         )}
-        <button type="button" onClick={onOpenInspector} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title="Open inspector">
+        <button type="button" onClick={onOpenInspector} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title={l('Open inspector')}>
           <Palette className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={onDuplicateSelectedElement} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title="Duplicate">
+        <button type="button" onClick={onDuplicateSelectedElement} className="rounded p-1 text-gray-300 hover:bg-white/10 hover:text-white" title={l('Duplicate')}>
           <Copy className="h-3.5 w-3.5" />
         </button>
         {hasFreePosition && (
-          <button type="button" onClick={() => onResetElementPosition(element.id)} className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200" title="Reset position">
+          <button type="button" onClick={() => onResetElementPosition(element.id)} className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200" title={l('Reset position')}>
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
         )}
-        <button type="button" onClick={onDeleteSelectedElement} className="rounded p-1 text-red-300 hover:bg-red-500/15 hover:text-red-200" title="Delete">
+        <button type="button" onClick={onDeleteSelectedElement} className="rounded p-1 text-red-300 hover:bg-red-500/15 hover:text-red-200" title={l('Delete')}>
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -2957,8 +2966,8 @@ function SectionPreview({
         <button
           type="button"
           draggable={false}
-          aria-label="Resize element"
-          title={`Drag to resize · ${Math.round(width)}%`}
+          aria-label={l('Resize element')}
+          title={`${l('Drag to resize')} · ${Math.round(width)}%`}
           className="absolute z-50 h-3.5 w-3.5 cursor-ew-resize rounded-full border-2 border-white bg-violet-500 shadow-[0_0_0_3px_rgba(139,92,246,0.18)] transition hover:scale-125"
           style={{
             left: `calc(${width}% + ${positionX}px - 7px)`,
@@ -3016,13 +3025,13 @@ function SectionPreview({
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
-            <button type="button" onClick={() => onMoveSection('up')} disabled={!canMoveSectionUp} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30" title="Move section up">
+            <button type="button" onClick={() => onMoveSection('up')} disabled={!canMoveSectionUp} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30" title={l('Move section up')}>
               <ChevronUp className="h-3.5 w-3.5" />
             </button>
-            <button type="button" onClick={() => onMoveSection('down')} disabled={!canMoveSectionDown} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30" title="Move section down">
+            <button type="button" onClick={() => onMoveSection('down')} disabled={!canMoveSectionDown} className="rounded-md p-1.5 text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30" title={l('Move section down')}>
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
-            <button type="button" onClick={onDeleteSection} disabled={!canDeleteSection} className="rounded-md p-1.5 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-30" title="Delete section">
+            <button type="button" onClick={onDeleteSection} disabled={!canDeleteSection} className="rounded-md p-1.5 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-30" title={l('Delete section')}>
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -3180,7 +3189,7 @@ function SectionPreview({
               onClick={(event) => event.stopPropagation()}
             >
               <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-violet-400/30 bg-[#111122]/90 px-3 py-1.5 text-[10px] font-bold text-violet-200 shadow-lg backdrop-blur hover:bg-violet-500/15 [&::-webkit-details-marker]:hidden">
-                <Plus className="h-3.5 w-3.5" /> Add element
+                <Plus className="h-3.5 w-3.5" /> {l('Add element')}
               </summary>
               <div className="absolute bottom-9 left-1/2 z-50 grid w-52 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#111122] p-2 shadow-2xl">
                 {(['heading', 'text', 'button', 'image'] as WebsiteElementType[]).map((type) => (
@@ -3244,7 +3253,7 @@ function SectionPreview({
                   const nextText = window.prompt('Button text', contactSubmitElement.content || '')?.trim();
                   if (nextText && nextText !== contactSubmitElement.content) onInlineContentChange(contactSubmitElement.id, nextText);
                 }}
-                title="Double-click to edit button text"
+                title={l('Double-click to edit button text')}
                 className={`font-semibold opacity-90 transition ${selectedElementId === contactSubmitElement?.id ? 'ring-2 ring-violet-400 ring-offset-2 ring-offset-transparent' : 'hover:ring-1 hover:ring-violet-400/40'}`}
                 style={{
                   color: contactSubmitStyle?.color || '#ffffff',
@@ -12996,9 +13005,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </strong>
             </div>
 
-            <p className="mt-1 text-[9px] leading-relaxed text-gray-500">
-              Build or edit your website with natural language.
-            </p>
+            <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{l("Build or edit your website with natural language.")}</p>
           </div>
 
           <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-violet-300">
@@ -13040,9 +13047,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         {aiPlan && (
           <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-            <p className="text-[8px] font-black uppercase tracking-wider text-gray-500">
-              Website plan
-            </p>
+            <p className="text-[8px] font-black uppercase tracking-wider text-gray-500">{l("Website plan")}</p>
 
             <p className="mt-1.5 text-[10px] leading-relaxed text-gray-300">
               {aiPlan.summary}
@@ -13064,9 +13069,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {aiQualityReview && (
           <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3">
             <div className="flex items-center justify-between gap-2">
-              <strong className="text-[10px] text-emerald-300">
-                Quality score
-              </strong>
+              <strong className="text-[10px] text-emerald-300">{l("Quality score")}</strong>
 
               <span className="text-sm font-black text-emerald-400">
                 {aiQualityReview.score}/100
@@ -13086,9 +13089,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         )}
 
         <div>
-          <p className="mb-2 text-[8px] font-black uppercase tracking-wider text-gray-500">
-            Quick actions
-          </p>
+          <p className="mb-2 text-[8px] font-black uppercase tracking-wider text-gray-500">{l("Quick actions")}</p>
 
           <div className="grid grid-cols-1 gap-1.5">
             {[
@@ -13154,9 +13155,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onClick={() => void generateWithAI(true)}
             disabled={!aiPrompt.trim() || aiBusy}
             className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-400 hover:bg-white/[0.04] disabled:opacity-40"
-          >
-            Rebuild
-          </button>
+          >{l("Rebuild")}</button>
 
           <button
             type="button"
@@ -13176,9 +13175,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onClick={undoLastAIChange}
             disabled={aiBusy}
             className="mt-2 w-full rounded-lg border border-amber-500/20 bg-amber-500/[0.05] px-2 py-2 text-[9px] font-bold text-amber-300 disabled:opacity-40"
-          >
-            Undo last AI change
-          </button>
+          >{l("Undo last AI change")}</button>
         )}
       </div>
     </div>
@@ -13187,79 +13184,79 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const v2SitePanel = (
     <div className="tayar-v2-manual-panel">
       <div className="tayar-v2-panel-heading">
-        <strong>Site</strong>
+        <strong>{l("Site")}</strong>
       </div>
 
       <details open className="tayar-v2-manual-section">
-        <summary>Identity</summary>
+        <summary>{l("Identity")}</summary>
         <div className="tayar-v2-manual-fields">
           <label>
-            <span>Site name</span>
+            <span>{l("Site name")}</span>
             <input value={siteName} onChange={(e) => { setSiteName(e.target.value); setSaved(false); }} />
           </label>
           <label>
-            <span>Production URL</span>
+            <span>{l("Production URL")}</span>
             <input value={siteUrl} placeholder="https://example.com" onChange={(e) => { setSiteUrl(e.target.value); setSaved(false); }} />
           </label>
           <label>
-            <span>Favicon URL</span>
+            <span>{l("Favicon URL")}</span>
             <input value={faviconUrl} placeholder="https://..." onChange={(e) => { setFaviconUrl(e.target.value); setSaved(false); }} />
           </label>
         </div>
       </details>
 
       <details open className="tayar-v2-manual-section">
-        <summary>Global theme</summary>
+        <summary>{l("Global theme")}</summary>
         <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
-          <label><span>Primary</span><input type="color" value={theme.primaryColor} onChange={(e) => { setTheme((current) => ({ ...current, primaryColor: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Secondary</span><input type="color" value={theme.secondaryColor} onChange={(e) => { setTheme((current) => ({ ...current, secondaryColor: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Background</span><input type="color" value={theme.backgroundColor} onChange={(e) => { setTheme((current) => ({ ...current, backgroundColor: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Text</span><input type="color" value={theme.textColor} onChange={(e) => { setTheme((current) => ({ ...current, textColor: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Muted text</span><input type="color" value={theme.mutedTextColor} onChange={(e) => { setTheme((current) => ({ ...current, mutedTextColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Primary")}</span><input type="color" value={theme.primaryColor} onChange={(e) => { setTheme((current) => ({ ...current, primaryColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Secondary")}</span><input type="color" value={theme.secondaryColor} onChange={(e) => { setTheme((current) => ({ ...current, secondaryColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Background")}</span><input type="color" value={theme.backgroundColor} onChange={(e) => { setTheme((current) => ({ ...current, backgroundColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Text")}</span><input type="color" value={theme.textColor} onChange={(e) => { setTheme((current) => ({ ...current, textColor: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Muted text")}</span><input type="color" value={theme.mutedTextColor} onChange={(e) => { setTheme((current) => ({ ...current, mutedTextColor: e.target.value })); setSaved(false); }} /></label>
           <label>
-            <span>Font</span>
+            <span>{l("Font")}</span>
             <select value={theme.fontFamily} onChange={(e) => { setTheme((current) => ({ ...current, fontFamily: e.target.value })); setSaved(false); }}>
               {FONT_OPTIONS.map((font) => <option key={font} value={font}>{font}</option>)}
             </select>
           </label>
-          <label><span>Content width</span><input type="number" min="720" max="1440" step="20" value={theme.contentWidth} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, contentWidth: Number(e.target.value) })); setSaved(false); }} /></label>
-          <label><span>Section spacing</span><input type="number" min="0" max="240" value={theme.sectionSpacing} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, sectionSpacing: Number(e.target.value) })); setSaved(false); }} /></label>
-          <label><span>Button radius</span><input type="number" min="0" max="80" value={theme.buttonRadius} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, buttonRadius: Number(e.target.value) })); setSaved(false); }} /></label>
+          <label><span>{l("Content width")}</span><input type="number" min="720" max="1440" step="20" value={theme.contentWidth} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, contentWidth: Number(e.target.value) })); setSaved(false); }} /></label>
+          <label><span>{l("Section spacing")}</span><input type="number" min="0" max="240" value={theme.sectionSpacing} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, sectionSpacing: Number(e.target.value) })); setSaved(false); }} /></label>
+          <label><span>{l("Button radius")}</span><input type="number" min="0" max="80" value={theme.buttonRadius} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, buttonRadius: Number(e.target.value) })); setSaved(false); }} /></label>
         </div>
       </details>
 
       <details className="tayar-v2-manual-section">
-        <summary>Header</summary>
+        <summary>{l("Header")}</summary>
         <div className="tayar-v2-manual-fields">
-          <label className="tayar-v2-manual-toggle"><span>Enable header</span><input type="checkbox" checked={headerConfig.enabled} onChange={(e) => { setHeaderConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>Sticky</span><input type="checkbox" checked={headerConfig.sticky} onChange={(e) => { setHeaderConfig((current) => ({ ...current, sticky: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>Mobile menu</span><input type="checkbox" checked={headerConfig.mobileMenu} onChange={(e) => { setHeaderConfig((current) => ({ ...current, mobileMenu: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>Language switcher</span><input type="checkbox" checked={headerConfig.languageSwitcher} onChange={(e) => { setHeaderConfig((current) => ({ ...current, languageSwitcher: e.target.checked })); setSaved(false); }} /></label>
-          <label><span>Brand text</span><input value={headerConfig.brandText} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandText: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Logo URL</span><input value={headerConfig.logoUrl} placeholder="https://..." onChange={(e) => { setHeaderConfig((current) => ({ ...current, logoUrl: e.target.value })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>Show CTA</span><input type="checkbox" checked={headerConfig.showCta} onChange={(e) => { setHeaderConfig((current) => ({ ...current, showCta: e.target.checked })); setSaved(false); }} /></label>
-          <label><span>CTA label</span><input value={headerConfig.ctaLabel} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaLabel: e.target.value })); setSaved(false); }} /></label>
-          <label><span>CTA link</span><input value={headerConfig.ctaHref} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaHref: e.target.value })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Enable header")}</span><input type="checkbox" checked={headerConfig.enabled} onChange={(e) => { setHeaderConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Sticky")}</span><input type="checkbox" checked={headerConfig.sticky} onChange={(e) => { setHeaderConfig((current) => ({ ...current, sticky: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Mobile menu")}</span><input type="checkbox" checked={headerConfig.mobileMenu} onChange={(e) => { setHeaderConfig((current) => ({ ...current, mobileMenu: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Language switcher")}</span><input type="checkbox" checked={headerConfig.languageSwitcher} onChange={(e) => { setHeaderConfig((current) => ({ ...current, languageSwitcher: e.target.checked })); setSaved(false); }} /></label>
+          <label><span>{l("Brand text")}</span><input value={headerConfig.brandText} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandText: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Logo URL")}</span><input value={headerConfig.logoUrl} placeholder="https://..." onChange={(e) => { setHeaderConfig((current) => ({ ...current, logoUrl: e.target.value })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Show CTA")}</span><input type="checkbox" checked={headerConfig.showCta} onChange={(e) => { setHeaderConfig((current) => ({ ...current, showCta: e.target.checked })); setSaved(false); }} /></label>
+          <label><span>{l("CTA label")}</span><input value={headerConfig.ctaLabel} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaLabel: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("CTA link")}</span><input value={headerConfig.ctaHref} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaHref: e.target.value })); setSaved(false); }} /></label>
           <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
-            <label><span>Background</span><input type="color" value={headerConfig.backgroundColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, backgroundColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Text</span><input type="color" value={headerConfig.textColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, textColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Active</span><input type="color" value={headerConfig.activeColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, activeColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Hover</span><input type="color" value={headerConfig.hoverColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, hoverColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>CTA background</span><input type="color" value={headerConfig.ctaBackgroundColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaBackgroundColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>CTA text</span><input type="color" value={headerConfig.ctaTextColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaTextColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Nav gap</span><input type="number" min="0" max="80" value={headerConfig.navGap} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navGap: Number(e.target.value) })); setSaved(false); }} /></label>
-            <label><span>Brand size</span><input type="number" min="10" max="60" value={headerConfig.brandSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandSize: Number(e.target.value) })); setSaved(false); }} /></label>
-            <label><span>Nav size</span><input type="number" min="8" max="40" value={headerConfig.navSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navSize: Number(e.target.value) })); setSaved(false); }} /></label>
+            <label><span>{l("Background")}</span><input type="color" value={headerConfig.backgroundColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, backgroundColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Text")}</span><input type="color" value={headerConfig.textColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, textColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Active")}</span><input type="color" value={headerConfig.activeColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, activeColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Hover")}</span><input type="color" value={headerConfig.hoverColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, hoverColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("CTA background")}</span><input type="color" value={headerConfig.ctaBackgroundColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaBackgroundColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("CTA text")}</span><input type="color" value={headerConfig.ctaTextColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaTextColor: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Nav gap")}</span><input type="number" min="0" max="80" value={headerConfig.navGap} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navGap: Number(e.target.value) })); setSaved(false); }} /></label>
+            <label><span>{l("Brand size")}</span><input type="number" min="10" max="60" value={headerConfig.brandSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandSize: Number(e.target.value) })); setSaved(false); }} /></label>
+            <label><span>{l("Nav size")}</span><input type="number" min="8" max="40" value={headerConfig.navSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navSize: Number(e.target.value) })); setSaved(false); }} /></label>
           </div>
         </div>
       </details>
 
       <details className="tayar-v2-manual-section">
-        <summary>Footer</summary>
+        <summary>{l("Footer")}</summary>
         <div className="tayar-v2-manual-fields">
-          <label className="tayar-v2-manual-toggle"><span>Enable footer</span><input type="checkbox" checked={footerConfig.enabled} onChange={(e) => { setFooterConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>Show navigation</span><input type="checkbox" checked={footerConfig.showNavigation} onChange={(e) => { setFooterConfig((current) => ({ ...current, showNavigation: e.target.checked })); setSaved(false); }} /></label>
-          <label><span>Footer text</span><textarea rows={3} value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Enable footer")}</span><input type="checkbox" checked={footerConfig.enabled} onChange={(e) => { setFooterConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Show navigation")}</span><input type="checkbox" checked={footerConfig.showNavigation} onChange={(e) => { setFooterConfig((current) => ({ ...current, showNavigation: e.target.checked })); setSaved(false); }} /></label>
+          <label><span>{l("Footer text")}</span><textarea rows={3} value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} /></label>
           <label><span>Instagram</span><input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} /></label>
           <label><span>Facebook</span><input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} /></label>
           <label><span>LinkedIn</span><input value={footerConfig.linkedinUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, linkedinUrl: e.target.value })); setSaved(false); }} /></label>
@@ -13268,7 +13265,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       </details>
 
       <details className="tayar-v2-manual-section">
-        <summary>Site features</summary>
+        <summary>{l("Site features")}</summary>
         <div className="tayar-v2-manual-fields">
           {([
             ['cookieBanner', 'Cookie banner'],
@@ -13282,17 +13279,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             ['shareButtons', 'Share buttons'],
           ] as const).map(([key, label]) => (
             <label key={key} className="tayar-v2-manual-toggle">
-              <span>{label}</span>
+              <span>{l(label)}</span>
               <input type="checkbox" checked={siteEnhancements[key]} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, [key]: e.target.checked })); setSaved(false); }} />
             </label>
           ))}
           {siteEnhancements.announcementBar && <>
-            <label><span>Announcement</span><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Announcement link</span><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Announcement")}</span><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Announcement link")}</span><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} /></label>
           </>}
           {siteEnhancements.floatingCta && <>
-            <label><span>Floating CTA label</span><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Floating CTA link</span><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Floating CTA label")}</span><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Floating CTA link")}</span><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} /></label>
           </>}
         </div>
       </details>
@@ -13302,11 +13299,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const v2SettingsPanel = (
     <div className="tayar-v2-manual-panel">
       <div className="tayar-v2-panel-heading">
-        <strong>Settings</strong>
+        <strong>{l("Settings")}</strong>
       </div>
 
       <details open className="tayar-v2-manual-section">
-        <summary>Site Check</summary>
+        <summary>{l("Site Check")}</summary>
         <div className="tayar-v2-manual-fields">
           <div className="tayar-v2-check-score" data-ok={siteAudit.errors.length === 0 ? 'true' : 'false'}>
             <strong>{siteAudit.score}/100</strong>
@@ -13330,7 +13327,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
           )}
           {!siteAudit.errors.length && !siteAudit.warnings.length && (
-            <div className="tayar-v2-manual-note">No site issues detected.</div>
+            <div className="tayar-v2-manual-note">{l("No site issues detected.")}</div>
           )}
           <button
             type="button"
@@ -13344,7 +13341,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       </details>
 
       <details open className="tayar-v2-manual-section">
-        <summary>Publishing</summary>
+        <summary>{l("Publishing")}</summary>
         <div className="tayar-v2-manual-fields">
           <div
             className="tayar-v2-publish-state"
@@ -13376,17 +13373,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           {publishedUrl && (
             <>
               <label>
-                <span>Live URL</span>
+                <span>{l("Live URL")}</span>
                 <input value={publishedUrl} readOnly />
               </label>
               {publishedAt && <div className="tayar-v2-manual-note">Published {new Date(publishedAt).toLocaleString()}</div>}
               <div className="tayar-v2-publish-actions">
-                <button type="button" className="tayar-v2-manual-action" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}>Open live site</button>
-                <button type="button" className="tayar-v2-manual-action" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>Copy URL</button>
+                <button type="button" className="tayar-v2-manual-action" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}>{l("Open live site")}</button>
+                <button type="button" className="tayar-v2-manual-action" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>{l("Copy URL")}</button>
                 <button type="button" className="tayar-v2-manual-action" disabled={liveVerification === 'checking'} onClick={() => void verifyLiveDeployment()}>
                   {liveVerification === 'checking' ? 'Verifying…' : 'Verify live'}
                 </button>
-                <button type="button" className="tayar-v2-manual-action is-danger" disabled={publishBusy} onClick={() => void unpublishWebsite()}>Unpublish</button>
+                <button type="button" className="tayar-v2-manual-action is-danger" disabled={publishBusy} onClick={() => void unpublishWebsite()}>{l("Unpublish")}</button>
               </div>
             </>
           )}
@@ -13407,53 +13404,53 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       <details className="tayar-v2-manual-section">
         <summary>SEO</summary>
         <div className="tayar-v2-manual-fields">
-          <label><span>Site title</span><input value={seo.title} onChange={(e) => { setSeo((current) => ({ ...current, title: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Description</span><textarea rows={4} value={seo.description} onChange={(e) => { setSeo((current) => ({ ...current, description: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Keywords</span><textarea rows={3} value={seo.keywords.join(', ')} onChange={(e) => { setSeo((current) => ({ ...current, keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 40) })); setSaved(false); }} /></label>
+          <label><span>{l("Site title")}</span><input value={seo.title} onChange={(e) => { setSeo((current) => ({ ...current, title: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Description")}</span><textarea rows={4} value={seo.description} onChange={(e) => { setSeo((current) => ({ ...current, description: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Keywords")}</span><textarea rows={3} value={seo.keywords.join(', ')} onChange={(e) => { setSeo((current) => ({ ...current, keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 40) })); setSaved(false); }} /></label>
           <div className="tayar-v2-manual-note">Audit: {siteAudit.score}/100 · {siteAudit.errors.length} critical · {siteAudit.warnings.length} warnings</div>
         </div>
       </details>
 
       <details className="tayar-v2-manual-section">
-        <summary>Analytics & verification</summary>
+        <summary>{l("Analytics & verification")}</summary>
         <div className="tayar-v2-manual-fields">
           <label><span>Google Analytics 4</span><input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} placeholder="G-XXXX" onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} /></label>
           <label><span>Google Tag Manager</span><input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} placeholder="GTM-XXXX" onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} /></label>
           <label><span>Meta Pixel</span><input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Plausible domain</span><input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Google verification</span><input value={productionConfig.googleVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, googleVerification: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Bing verification</span><input value={productionConfig.bingVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, bingVerification: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Plausible domain")}</span><input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Google verification")}</span><input value={productionConfig.googleVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, googleVerification: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Bing verification")}</span><input value={productionConfig.bingVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, bingVerification: e.target.value })); setSaved(false); }} /></label>
         </div>
       </details>
 
       <details className="tayar-v2-manual-section">
-        <summary>Structured data</summary>
+        <summary>{l("Structured data")}</summary>
         <div className="tayar-v2-manual-fields">
-          <label className="tayar-v2-manual-toggle"><span>Organization schema</span><input type="checkbox" checked={productionConfig.organizationSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationSchema: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>Local business schema</span><input type="checkbox" checked={productionConfig.localBusinessSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessSchema: e.target.checked })); setSaved(false); }} /></label>
-          <label><span>Organization name</span><input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Organization URL</span><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Organization logo</span><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Organization schema")}</span><input type="checkbox" checked={productionConfig.organizationSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationSchema: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Local business schema")}</span><input type="checkbox" checked={productionConfig.localBusinessSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessSchema: e.target.checked })); setSaved(false); }} /></label>
+          <label><span>{l("Organization name")}</span><input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Organization URL")}</span><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Organization logo")}</span><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} /></label>
           {productionConfig.localBusinessSchema && <>
-            <label><span>Business type</span><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Phone</span><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Address</span><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Business type")}</span><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Phone")}</span><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Address")}</span><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} /></label>
           </>}
         </div>
       </details>
 
       <details className="tayar-v2-manual-section">
-        <summary>Production</summary>
+        <summary>{l("Production")}</summary>
         <div className="tayar-v2-manual-fields">
-          <label className="tayar-v2-manual-toggle"><span>Maintenance mode</span><input type="checkbox" checked={productionConfig.maintenanceMode} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceMode: e.target.checked })); setSaved(false); }} /></label>
+          <label className="tayar-v2-manual-toggle"><span>{l("Maintenance mode")}</span><input type="checkbox" checked={productionConfig.maintenanceMode} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceMode: e.target.checked })); setSaved(false); }} /></label>
           {productionConfig.maintenanceMode && <>
-            <label><span>Maintenance title</span><input value={productionConfig.maintenanceTitle} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceTitle: e.target.value })); setSaved(false); }} /></label>
-            <label><span>Maintenance message</span><textarea rows={3} value={productionConfig.maintenanceText} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceText: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Maintenance title")}</span><input value={productionConfig.maintenanceTitle} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceTitle: e.target.value })); setSaved(false); }} /></label>
+            <label><span>{l("Maintenance message")}</span><textarea rows={3} value={productionConfig.maintenanceText} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceText: e.target.value })); setSaved(false); }} /></label>
           </>}
-          <label><span>Global custom CSS</span><textarea rows={7} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Extra robots.txt rules</span><textarea rows={5} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} /></label>
-          <button type="button" className="tayar-v2-manual-action" onClick={() => setReleaseHistoryOpen(true)}>Release history</button>
-          <button type="button" className="tayar-v2-manual-action" onClick={() => setDeliveryOpen(true)}>Client delivery</button>
+          <label><span>{l("Global custom CSS")}</span><textarea rows={7} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} /></label>
+          <label><span>{l("Extra robots.txt rules")}</span><textarea rows={5} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} /></label>
+          <button type="button" className="tayar-v2-manual-action" onClick={() => setReleaseHistoryOpen(true)}>{l("Release history")}</button>
+          <button type="button" className="tayar-v2-manual-action" onClick={() => setDeliveryOpen(true)}>{l("Client delivery")}</button>
         </div>
       </details>
     </div>
@@ -13733,9 +13730,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             }`}
             title={!user ? 'Sign in to use the media library' : 'Open media library'}
           >
-            <Images className="h-4 w-4" />
-            Media
-          </button>
+            <Images className="h-4 w-4" />{l("Media")}</button>
 
           <button
             onClick={() => setLeadsOpen((open) => !open)}
@@ -13785,9 +13780,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             }`}
             title={l('Website Builder V1 launch center')}
           >
-            <Check className="h-4 w-4" />
-            Launch
-            <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black ${v1LaunchStatus.status === 'V1 LIVE' ? 'bg-emerald-500 text-white' : v1LaunchStatus.preflightReady ? 'bg-cyan-500 text-white' : 'bg-amber-500/20 text-amber-400'}`}>{v1LaunchStatus.score}</span>
+            <Check className="h-4 w-4" />{l("Launch")}<span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black ${v1LaunchStatus.status === 'V1 LIVE' ? 'bg-emerald-500 text-white' : v1LaunchStatus.preflightReady ? 'bg-cyan-500 text-white' : 'bg-amber-500/20 text-amber-400'}`}>{v1LaunchStatus.score}</span>
           </button>
 
           <button
@@ -13815,9 +13808,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
             title={l('Operations, backups and exports')}
-          >
-            Tools
-          </button>
+          >{l("Tools")}</button>
 
           <button
             onClick={() => { if (requireBillingFeature('clientDelivery', 'Client delivery workspace')) setDeliveryOpen((open) => !open); }}
@@ -13829,9 +13820,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
             title={l('Client delivery, approval and handoff')}
-          >
-            Delivery
-            <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${
+          >{l("Delivery")}<span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${
               deliveryConfig.status === 'delivered' ? 'bg-emerald-500 text-white' : deliveryConfig.status === 'approved' ? 'bg-cyan-500 text-white' : 'bg-fuchsia-500/20 text-fuchsia-400'
             }`}>{deliveryConfig.status}</span>
           </button>
@@ -13847,9 +13836,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             }`}
             title={l('Project history')}
           >
-            <HistoryIcon className="h-4 w-4" />
-            History
-          </button>
+            <HistoryIcon className="h-4 w-4" />{l("History")}</button>
 
           <button
             onClick={() => { if (requireBillingFeature('releaseHistory', 'Release history and rollback')) setReleaseHistoryOpen((open) => !open); }}
@@ -13888,9 +13875,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onClick={downloadProductionZip}
             className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500"
           >
-            <Download className="h-4 w-4" />
-            Export ZIP
-          </button>
+            <Download className="h-4 w-4" />{l("Export ZIP")}</button>
 
           <button
             onClick={resetProject}
@@ -13941,9 +13926,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     : 'border-red-200 text-red-600 hover:bg-red-50'
                 }`}
                 title={l('Remove public website')}
-              >
-                Unpublish
-              </button>
+              >{l("Unpublish")}</button>
             </>
           )}
 
@@ -14167,7 +14150,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     ['stripe', 'Stripe test purchase + Customer Portal + webhook verified'],
                     ['domain', 'Production domain / DNS / HTTPS verified'],
                     ['support', 'Support contact + privacy / terms review completed'],
-                  ] as const).map(([key, label]) => <label key={key} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${launchManualChecks[key] ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10'}`}><input type="checkbox" checked={launchManualChecks[key]} onChange={(e) => setLaunchManualCheck(key, e.target.checked)} className="mt-0.5" /><span className={`text-[10px] ${launchManualChecks[key] ? 'font-bold text-emerald-400' : 'text-gray-400'}`}>{label}</span></label>)}
+                  ] as const).map(([key, label]) => <label key={key} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${launchManualChecks[key] ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10'}`}><input type="checkbox" checked={launchManualChecks[key]} onChange={(e) => setLaunchManualCheck(key, e.target.checked)} className="mt-0.5" /><span className={`text-[10px] ${launchManualChecks[key] ? 'font-bold text-emerald-400' : 'text-gray-400'}`}>{l(label)}</span></label>)}
                 </div>
               </div>
 
@@ -14201,8 +14184,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
                 <p className="mt-1 text-[11px] text-gray-500">{l('Secure entitlements, usage limits and Stripe subscription management.')}</p>
                 {billingState.subscription?.status && (
-                  <p className="mt-1 text-[10px] text-gray-500">
-                    Subscription: <span className="font-semibold text-gray-300">{billingState.subscription.status}</span>
+                  <p className="mt-1 text-[10px] text-gray-500">{l("Subscription:")}<span className="font-semibold text-gray-300">{billingState.subscription.status}</span>
                     {billingState.subscription.currentPeriodEnd ? ` · period ends ${new Date(billingState.subscription.currentPeriodEnd).toLocaleDateString()}` : ''}
                     {billingState.subscription.cancelAtPeriodEnd ? ' · cancels at period end' : ''}
                   </p>
@@ -14270,14 +14252,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   const value = Number(rawValue) || 0;
                   const limit = Number(rawLimit) || 1;
                   const percent = Math.min(100, Math.round((value / limit) * 100));
-                  return <div key={String(label)} className="rounded-xl border border-white/10 p-3"><div className="flex items-center justify-between text-[10px]"><span className="font-semibold">{label}</span><span className="text-gray-500">{value}/{limit.toLocaleString()}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/20"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${percent}%` }} /></div></div>;
+                  return <div key={String(label)} className="rounded-xl border border-white/10 p-3"><div className="flex items-center justify-between text-[10px]"><span className="font-semibold">{l(String(label))}</span><span className="text-gray-500">{value}/{limit.toLocaleString()}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/20"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${percent}%` }} /></div></div>;
                 })}
               </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 text-[9px] text-gray-500">
               <span>Paid prices are controlled by STRIPE_PRO_PRICE_ID and STRIPE_BUSINESS_PRICE_ID, so the app never trusts a browser-supplied amount.</span>
-              <span>Webhook is the source of truth for upgrades, renewals, cancellation and payment status.</span>
+              <span>{l("Webhook is the source of truth for upgrades, renewals, cancellation and payment status.")}</span>
             </div>
           </div>
         </div>
@@ -14413,9 +14395,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
 
             {!analyticsLoading && !analyticsEvents.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>
-                No page views yet. Publish or export the site with Sprint 15 tracking enabled, then visits will appear here.
-              </div>
+              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l("No page views yet. Publish or export the site with Sprint 15 tracking enabled, then visits will appear here.")}</div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
@@ -14452,9 +14432,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-bold">{l('Media Library')}</p>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                  Upload reusable images to your account and place them into any image element.
-                </p>
+                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l("Upload reusable images to your account and place them into any image element.")}</p>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-white ${mediaUploading ? 'pointer-events-none bg-fuchsia-400 opacity-60' : 'bg-fuchsia-600 hover:bg-fuchsia-500'}`}>
@@ -14482,9 +14460,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             {mediaError && <p className="text-xs text-amber-400">{mediaError}</p>}
 
             {!mediaLoading && !mediaAssets.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>
-                No images yet. Upload JPG, PNG, WebP or GIF files up to 5 MB.
-              </div>
+              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l("No images yet. Upload JPG, PNG, WebP or GIF files up to 5 MB.")}</div>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                 {mediaAssets.map((asset) => (
@@ -14622,7 +14598,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       {lead.status !== 'archived' && <button onClick={() => void updateLeadStatus(lead.id, 'archived')} className="font-semibold text-gray-400">{l('Archive')}</button>}
                       <button onClick={() => { const value = window.prompt('Comma-separated tags', (lead.tags || []).join(', ')); if (value !== null) void updateLeadCrm(lead.id, { tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) }); }} className="font-semibold text-amber-400">{l('Tags')}</button>
                       <button onClick={() => { const value = window.prompt('Lead notes', lead.notes || ''); if (value !== null) void updateLeadCrm(lead.id, { notes: value }); }} className="font-semibold text-violet-400">{l('Notes')}</button>
-                      <button onClick={() => void copyLeadSummary(lead)} className="font-semibold text-sky-400">Copy</button>
+                      <button onClick={() => void copyLeadSummary(lead)} className="font-semibold text-sky-400">{l("Copy")}</button>
                       <button onClick={() => void deleteLead(lead.id)} className="font-semibold text-rose-400">{l('Delete')}</button>
                     </div>
                   </article>
@@ -14666,7 +14642,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <p className="mt-1 text-[9px] text-gray-500">{l('Anyone with this URL can open it. Tracking integrations are disabled in preview.')}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')} className="text-xs font-semibold text-cyan-400">{l('Open')}</button>
-                      <button onClick={() => void navigator.clipboard.writeText(previewUrl)} className="text-xs font-semibold text-sky-400">Copy</button>
+                      <button onClick={() => void navigator.clipboard.writeText(previewUrl)} className="text-xs font-semibold text-sky-400">{l("Copy")}</button>
                       <button onClick={() => void createSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-indigo-400">{l('Regenerate')}</button>
                       <button onClick={() => void revokeSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-rose-400">{l('Revoke')}</button>
                     </div>
@@ -14819,9 +14795,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
                 <div className="flex items-center justify-between gap-2 text-[10px]">
                   <label className="flex items-center gap-1.5 text-gray-500">
-                    <input type="checkbox" checked={activePage.showInNavigation !== false} onChange={(e) => updateActivePageMeta({ showInNavigation: e.target.checked })} />
-                    Show in navigation
-                  </label>
+                    <input type="checkbox" checked={activePage.showInNavigation !== false} onChange={(e) => updateActivePageMeta({ showInNavigation: e.target.checked })} />{l("Show in navigation")}</label>
                   <button type="button" onClick={makeActivePageHome} disabled={activePage.id === homePageId} className="rounded px-2 py-1 font-semibold text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40">
                     {activePage.id === homePageId ? 'Home page' : 'Set home'}
                   </button>
@@ -14853,9 +14827,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">{l('Page SEO')}</span>
                     <label className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                      <input type="checkbox" checked={activePage.noIndex === true} onChange={(e) => updateActivePageMeta({ noIndex: e.target.checked })} />
-                      Hide from search
-                    </label>
+                      <input type="checkbox" checked={activePage.noIndex === true} onChange={(e) => updateActivePageMeta({ noIndex: e.target.checked })} />{l("Hide from search")}</label>
                   </div>
                   <input value={activePage.seoTitle || ''} onChange={(e) => updateActivePageMeta({ seoTitle: e.target.value })} placeholder={l('Custom SEO title (optional)')} maxLength={70} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                   <textarea value={activePage.seoDescription || ''} onChange={(e) => updateActivePageMeta({ seoDescription: e.target.value })} placeholder={l('Custom meta description (optional)')} maxLength={180} rows={3} className={`w-full resize-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
@@ -15091,7 +15063,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <textarea value={seo.description} onChange={(e) => { setSeo({ ...seo, description: e.target.value }); setSaved(false); }} placeholder={l('Default meta description')} maxLength={180} rows={3} className={`w-full resize-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               <input value={seo.keywords.join(', ')} onChange={(e) => { setSeo({ ...seo, keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20) }); setSaved(false); }} placeholder={l('Keywords, comma separated')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               <input value={faviconUrl} onChange={(e) => { setFaviconUrl(e.target.value); setSaved(false); }} placeholder={l('Favicon image URL')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              <p className="text-[9px] leading-4 text-gray-500">Page SEO overrides these defaults. Production export and Publish also include a no-index 404.html page.</p>
+              <p className="text-[9px] leading-4 text-gray-500">{l("Page SEO overrides these defaults. Production export and Publish also include a no-index 404.html page.")}</p>
             </div>
           </div>
 
@@ -15144,7 +15116,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </div>
               <button type="button" onClick={() => void saveSelectedSectionAsReusable()} disabled={!selectedSection || reusableBusy} className="rounded px-2 py-1 text-[9px] font-bold text-sky-400 hover:bg-sky-500/10 disabled:opacity-40">{l('Save selected')}</button>
             </div>
-            <p className="mb-2 text-[9px] leading-4 text-gray-500">Reusable section templates are saved to your account when signed in, or this browser when signed out.</p>
+            <p className="mb-2 text-[9px] leading-4 text-gray-500">{l("Reusable section templates are saved to your account when signed in, or this browser when signed out.")}</p>
             {reusableError && <p className="mb-2 text-[10px] text-amber-400">{reusableError}</p>}
             {reusableBusy && !reusableSections.length ? (
               <p className="text-[10px] text-gray-500">{l('Loading templates…')}</p>
@@ -15327,7 +15299,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </span>
                 <p className="mt-1 pl-9 text-[8px] leading-relaxed text-gray-500">{l('Build, refine and undo with natural language.')}</p>
               </div>
-              <span className="mt-0.5 rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-violet-400">Agent</span>
+              <span className="mt-0.5 rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-violet-400">{l("Agent")}</span>
             </div>
 
             <div className="space-y-3.5 p-3.5">
@@ -15700,7 +15672,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <span className="ml-1 text-[10px] uppercase text-gray-500">{device}</span>
                 </div>
               </div>
-              <p className="text-[10px] text-gray-500">Drag this element on the canvas to reorder it.</p>
+              <p className="text-[10px] text-gray-500">{l("Drag this element on the canvas to reorder it.")}</p>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={duplicateSelectedElement} className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
                   <Copy className="h-3.5 w-3.5" />{l('Duplicate')}</button>
@@ -15758,7 +15730,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <span className="text-[10px] font-bold uppercase tracking-wide text-amber-400">{l('Reusable Symbols')}</span>
                   {selectedElement.symbolId ? <button type="button" onClick={detachSelectedSymbol} className="text-[9px] font-semibold text-amber-400">{l('Detach')}</button> : <button type="button" onClick={createSymbolFromSelected} className="text-[9px] font-semibold text-amber-400">{l('Create symbol')}</button>}
                 </div>
-                {selectedElement.symbolId && <p className="text-[9px] text-amber-300">Linked symbol — edits sync across all pages automatically.</p>}
+                {selectedElement.symbolId && <p className="text-[9px] text-amber-300">{l("Linked symbol — edits sync across all pages automatically.")}</p>}
                 {!symbols.length ? <p className="text-[9px] text-gray-500">{l('No symbols yet. Create one from this element.')}</p> : (
                   <div className="max-h-40 space-y-1.5 overflow-auto">
                     {symbols.map((symbol) => (
@@ -15853,8 +15825,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
               {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
                 <div className={`rounded-lg border p-2 ${darkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50/60'}`}>
-                  <label className="block text-[10px] font-semibold text-indigo-400">Column
-                    <select value={Math.min(sectionColumnCount(selectedSection.layout), Math.max(1, Number(selectedElement.layoutColumn) || 1))} onChange={(e) => updateSelectedElement({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-indigo-200 bg-white'}`}>
+                  <label className="block text-[10px] font-semibold text-indigo-400">{l("Column")}<select value={Math.min(sectionColumnCount(selectedSection.layout), Math.max(1, Number(selectedElement.layoutColumn) || 1))} onChange={(e) => updateSelectedElement({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-indigo-200 bg-white'}`}>
                       {Array.from({ length: sectionColumnCount(selectedSection.layout) }, (_, index) => <option key={index + 1} value={index + 1}>Column {index + 1}</option>)}
                     </select>
                   </label>
@@ -16036,10 +16007,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     </label>
                   </div>
                   <label className="mt-2 flex items-center gap-2 text-[10px] text-gray-500">
-                    <input type="checkbox" checked={selectedElement.animationOnce !== false} onChange={(e) => updateSelectedElement({ animationOnce: e.target.checked })} />
-                    Play once per page view
-                  </label>
-                  <p className="mt-1 text-[9px] text-gray-500">Turn this off to replay when the element leaves and re-enters the viewport.</p>
+                    <input type="checkbox" checked={selectedElement.animationOnce !== false} onChange={(e) => updateSelectedElement({ animationOnce: e.target.checked })} />{l("Play once per page view")}</label>
+                  <p className="mt-1 text-[9px] text-gray-500">{l("Turn this off to replay when the element leaves and re-enters the viewport.")}</p>
                 </div>
 
                 <div className="border-t border-fuchsia-500/15 pt-3">
@@ -16077,9 +16046,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           )}
 
           {!selectedSection ? (
-            <div className="py-10 text-center text-xs text-gray-500">
-              Select a section to edit it.
-            </div>
+            <div className="py-10 text-center text-xs text-gray-500">{l("Select a section to edit it.")}</div>
           ) : (
             <details
               open={sectionSettingsOpen}
@@ -16095,9 +16062,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </summary>
               <div className="space-y-5 border-t border-white/10 p-3">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">
-                  Section
-                </label>
+                <label className="mb-1.5 block text-xs font-medium text-gray-400">{l("Section")}</label>
                 <div
                   className={`rounded-lg border px-3 py-2 text-xs ${
                     darkMode
@@ -16111,9 +16076,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                  <Type className="h-3.5 w-3.5" />
-                  Title
-                </label>
+                  <Type className="h-3.5 w-3.5" />{l("Title")}</label>
                 <input
                   value={selectedSection.title}
                   onChange={(e) => updateSelected({ title: e.target.value })}
@@ -16126,9 +16089,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">
-                  Description
-                </label>
+                <label className="mb-1.5 block text-xs font-medium text-gray-400">{l("Description")}</label>
                 <textarea
                   value={selectedSection.description}
                   onChange={(e) =>
@@ -16152,7 +16113,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50/60'}`}>
                 <div>
                   <p className="text-xs font-bold text-indigo-400">{l('Section Layout')}</p>
-                  <p className="mt-0.5 text-[10px] text-gray-500">Choose columns for this section. Mobile automatically collapses to one column.</p>
+                  <p className="mt-0.5 text-[10px] text-gray-500">{l("Choose columns for this section. Mobile automatically collapses to one column.")}</p>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {([['stack', 'Stack'], ['two-column', '2 Columns'], ['three-column', '3 Columns']] as const).map(([layout, label]) => (
@@ -16172,7 +16133,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-fuchsia-500/20 bg-fuchsia-500/5' : 'border-fuchsia-200 bg-fuchsia-50/60'}`}>
                 <div>
                   <p className="text-xs font-bold text-fuchsia-400">{l('Section Visuals')}</p>
-                  <p className="mt-0.5 text-[10px] text-gray-500">Control background, spacing, height and content width for this section.</p>
+                  <p className="mt-0.5 text-[10px] text-gray-500">{l("Control background, spacing, height and content width for this section.")}</p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-1.5">
@@ -16218,9 +16179,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       />
                     </label>
                     {selectedElement?.type === 'image' && selectedElement.src && (
-                      <button type="button" onClick={() => updateSelected({ backgroundImage: selectedElement.src, backgroundMode: 'image' })} className="w-full rounded-lg border border-fuchsia-500/30 px-2 py-1.5 text-[10px] font-semibold text-fuchsia-400">
-                        Use selected image as background
-                      </button>
+                      <button type="button" onClick={() => updateSelected({ backgroundImage: selectedElement.src, backgroundMode: 'image' })} className="w-full rounded-lg border border-fuchsia-500/30 px-2 py-1.5 text-[10px] font-semibold text-fuchsia-400">{l("Use selected image as background")}</button>
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       <label className="text-[10px] text-gray-500">{l('Position')}<select value={sectionBackgroundPosition(selectedSection)} onChange={(e) => updateSelected({ backgroundPosition: e.target.value as SectionBackgroundPosition })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
@@ -16265,7 +16224,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="text-xs font-bold text-cyan-400">{l('Form Builder')}</p>
-                      <p className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>Add, edit and reorder the fields visitors must fill in.</p>
+                      <p className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l("Add, edit and reorder the fields visitors must fill in.")}</p>
                     </div>
                     <button type="button" onClick={resetContactForm} className="text-[10px] font-semibold text-cyan-400">{l('Reset')}</button>
                   </div>
@@ -16325,9 +16284,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                           />
                         )}
                         <label className="mt-2 flex items-center gap-2 text-[10px] text-gray-400">
-                          <input type="checkbox" checked={field.required} onChange={(e) => updateFormField(field.id, { required: e.target.checked })} />
-                          Required field
-                        </label>
+                          <input type="checkbox" checked={field.required} onChange={(e) => updateFormField(field.id, { required: e.target.checked })} />{l("Required field")}</label>
                       </div>
                     ))}
                   </div>
@@ -16379,9 +16336,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               {selectedSection.type !== 'footer' && (
                 <>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-gray-400">
-                      Button Text
-                    </label>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-400">{l("Button Text")}</label>
                     <input
                       value={selectedSection.buttonText}
                       onChange={(e) =>
@@ -16397,9 +16352,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                      <Link className="h-3.5 w-3.5" />
-                      Button Link
-                    </label>
+                      <Link className="h-3.5 w-3.5" />{l("Button Link")}</label>
                     <input
                       value={selectedSection.buttonUrl}
                       onChange={(e) =>
@@ -16444,9 +16397,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">
-                  Accent
-                </label>
+                <label className="mb-1.5 block text-xs font-medium text-gray-400">{l("Accent")}</label>
 
                 <div className="flex gap-2">
                   <input
@@ -16473,9 +16424,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
               <div className="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
                 <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-violet-300">
-                    AI Image
-                  </label>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-violet-300">{l("AI Image")}</label>
 
                   <textarea
                     value={selectedSection.imagePrompt || ''}
@@ -16539,18 +16488,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       : 'border-gray-200 text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <ChevronDown className="h-3.5 w-3.5" />
-                  Down
-                </button>
+                  <ChevronDown className="h-3.5 w-3.5" />{l("Down")}</button>
               </div>
 
               <button
                 onClick={() => deleteSection(selectedSection.id)}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete Section
-              </button>
+                <Trash2 className="h-3.5 w-3.5" />{l("Delete Section")}</button>
               </div>
             </details>
           )}

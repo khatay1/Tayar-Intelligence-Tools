@@ -207,11 +207,11 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
         <div className="flex flex-wrap gap-3">
           <button onClick={handleExport} disabled={exporting} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all">
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Export All Data
+            {l('Export All Data')}
           </button>
           <button onClick={handleDownloadPersonalData} className="flex items-center gap-2 text-gray-300 border border-white/10 hover:border-white/20 text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors">
             <Eye className="w-4 h-4" />
-            Download Personal Data
+            {l('Download Personal Data')}
           </button>
         </div>
       </div>

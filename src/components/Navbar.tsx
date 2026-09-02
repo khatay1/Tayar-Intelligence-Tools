@@ -4,6 +4,7 @@ import AstronautLogo from '@/components/ui/AstronautLogo';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useTranslation } from '@/lib/i18n';
 import { useLandingCopy } from '@/lib/landing-copy';
+import { useLocalizer } from '@/lib/ui-localization';
 
 interface NavbarProps {
   onGetStarted?: () => void;
@@ -21,6 +22,7 @@ export default function Navbar({ onGetStarted, onLogin }: NavbarProps) {
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
+  const l = useLocalizer();
   const landing = useLandingCopy();
   const { prefs, setLanguage } = usePreferences();
 
@@ -54,15 +56,15 @@ export default function Navbar({ onGetStarted, onLogin }: NavbarProps) {
   ];
 
   return (
-    <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-[#070711]/85 backdrop-blur-2xl supports-[backdrop-filter]:bg-[#070711]/70" aria-label="Primary navigation">
+    <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-[#070711]/85 backdrop-blur-2xl supports-[backdrop-filter]:bg-[#070711]/70" aria-label={l('Primary navigation')}>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <a href="#top" onClick={closeMobile} className="group flex items-center gap-2.5 rounded-xl" aria-label="Tayar Intelligence home">
+        <a href="#top" onClick={closeMobile} className="group flex items-center gap-2.5 rounded-xl" aria-label={l('Tayar Intelligence home')}>
           <div className="grid h-9 w-9 place-items-center rounded-xl border border-violet-400/20 bg-violet-500/10 shadow-[0_0_30px_rgba(124,58,237,0.12)] transition-transform group-hover:scale-[1.03]">
             <AstronautLogo size={30} />
           </div>
           <div className="leading-none">
             <span className="block text-sm font-bold tracking-tight text-white sm:text-[15px]">Tayar Intelligence</span>
-            <span className="mt-1 hidden text-[10px] font-medium uppercase tracking-[0.2em] text-violet-300/70 sm:block">Build · Create · Ship</span>
+            <span className="mt-1 hidden text-[10px] font-medium uppercase tracking-[0.2em] text-violet-300/70 sm:block">{l('Build · Create · Ship')}</span>
           </div>
         </a>
 

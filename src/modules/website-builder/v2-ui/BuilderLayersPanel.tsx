@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import type {
   EditorShellContract,
 } from '../core/editor-shell-contract';
@@ -72,6 +73,7 @@ export function BuilderLayersPanel({
   onDeleteFormField,
   onResetForm,
 }: BuilderLayersPanelProps) {
+  const l = useLocalizer();
   const pages =
     shell.view.navigation;
 
@@ -85,7 +87,7 @@ export function BuilderLayersPanel({
   if (!page) {
     return (
       <div className="tayar-v2-empty-panel">
-        No page
+        {l('No page')}
       </div>
     );
   }
@@ -93,7 +95,7 @@ export function BuilderLayersPanel({
   return (
     <div className="tayar-v2-layers-panel">
       <div className="tayar-v2-panel-heading">
-        <strong>Layers</strong>
+        <strong>{l('Layers')}</strong>
       </div>
 
       <div className="tayar-v2-layer-tree">
@@ -190,7 +192,7 @@ export function BuilderLayersPanel({
               {section.containers.length > 0 && (
                 <div className="tayar-v2-layer-group">
                   <div className="tayar-v2-layer-group__title">
-                    Containers
+                    {l('Containers')}
                   </div>
 
                   {section.containers.map(
@@ -297,7 +299,7 @@ export function BuilderLayersPanel({
                         </span>
 
                         {element.symbolLinked && (
-                          <span title="Component">
+                          <span title={l('Component')}>
                             ◆
                           </span>
                         )}
@@ -375,12 +377,12 @@ export function BuilderLayersPanel({
               {section.type === 'contact' && (
                 <div className="tayar-v2-layer-group">
                   <div className="tayar-v2-layer-group__title tayar-v2-layer-group__title--actions">
-                    <span>Form fields</span>
+                    <span>{l('Form fields')}</span>
                     <button
                       type="button"
                       onClick={() => onResetForm?.(section.id)}
                     >
-                      Reset
+                      {l('Reset')}
                     </button>
                   </div>
 

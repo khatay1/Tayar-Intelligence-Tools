@@ -332,8 +332,8 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
                     <button
                       type="button"
                       onClick={() => toggleFavorite(asset.id)}
-                      aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
-                      title={favorite ? 'Remove from favorites' : 'Add to favorites'}
+                      aria-label={l(favorite ? 'Remove from favorites' : 'Add to favorites')}
+                      title={l(favorite ? 'Remove from favorites' : 'Add to favorites')}
                       className={`rounded-md p-1.5 ${favorite ? 'text-pink-300' : 'text-gray-600 hover:text-gray-300'}`}
                     >
                       <Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} />
@@ -342,7 +342,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
 
                   {recent.includes(asset.id) && (
                     <div className="mt-2 inline-flex items-center gap-1 text-[9px] text-gray-600">
-                      <Clock3 className="h-3 w-3" /> Recently used
+                      <Clock3 className="h-3 w-3" /> {l('Recently used')}
                     </div>
                   )}
 

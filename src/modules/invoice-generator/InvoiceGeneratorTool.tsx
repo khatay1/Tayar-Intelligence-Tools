@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Printer, ReceiptText, RotateCcw, Save } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization';
+import { usePreferences } from '@/context/PreferencesContext';
 import {
   ToolField,
   ToolInputPanel,
@@ -25,6 +26,7 @@ import { InvoiceCurrency, InvoiceDraft, InvoiceItem, InvoiceThemeId } from './in
 
 export default function InvoiceGeneratorTool({ darkMode: _darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
+  const { prefs } = usePreferences();
   const [draft, setDraft] = useState<InvoiceDraft>(loadDraft);
   const [message, setMessage] = useState('');
 
@@ -76,7 +78,7 @@ export default function InvoiceGeneratorTool({ darkMode: _darkMode }: { darkMode
   }
 
   function printInvoice() {
-    const html = printableInvoiceHtml(draft);
+    const html = printableInvoiceHtml(draft, prefs.language);
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const printWindow = window.open(url, '_blank');

@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import type { ChangeEvent } from 'react';
 import type {
   EditorInsertCatalogItem,
@@ -38,6 +39,7 @@ export function BuilderInsertPanel({
   onCategoryChange,
   onInsert,
 }: BuilderInsertPanelProps) {
+  const l = useLocalizer();
   const items =
     filterEditorInsertCatalog(
       query,
@@ -48,15 +50,15 @@ export function BuilderInsertPanel({
   return (
     <div className="tayar-v2-insert-panel">
       <div className="tayar-v2-panel-heading">
-        <strong>Insert</strong>
+        <strong>{l('Insert')}</strong>
       </div>
 
       <div className="tayar-v2-panel-search">
         <input
           type="search"
           value={query}
-          placeholder="Search"
-          aria-label="Search elements"
+          placeholder={l('Search')}
+          aria-label={l('Search elements')}
           onChange={(event: ChangeEvent<HTMLInputElement>) =>
             onQueryChange?.(
               event.currentTarget.value,
@@ -68,7 +70,7 @@ export function BuilderInsertPanel({
       <div
         className="tayar-v2-chip-row"
         role="group"
-        aria-label="Category"
+        aria-label={l('Category')}
       >
         {CATEGORIES.map((item) => (
           <button
@@ -84,7 +86,7 @@ export function BuilderInsertPanel({
               )
             }
           >
-            {item.label}
+            {l(item.label)}
           </button>
         ))}
       </div>
@@ -95,7 +97,7 @@ export function BuilderInsertPanel({
             key={item.id}
             type="button"
             className="tayar-v2-insert-card"
-            title={item.description}
+            title={l(item.description)}
             onClick={() => onInsert(item)}
           >
             <span className="tayar-v2-insert-card__icon">
@@ -110,7 +112,7 @@ export function BuilderInsertPanel({
 
         {!items.length && (
           <div className="tayar-v2-empty-panel">
-            No results
+            {l('No results')}
           </div>
         )}
       </div>

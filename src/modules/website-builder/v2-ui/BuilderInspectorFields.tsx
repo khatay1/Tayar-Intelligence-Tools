@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 import { useState, type ChangeEvent } from 'react';
 
 import type {
@@ -41,6 +42,7 @@ function renderFieldControl(
   field: EditorInspectorField,
   onChange:
     BuilderInspectorFieldsProps['onChange'],
+  l: (text: string) => string,
 ) {
   if (field.kind === 'toggle') {
     return (
@@ -82,7 +84,7 @@ function renderFieldControl(
               }
               value={option}
             >
-              {option || 'Default'}
+              {option ? l(option) : l('Default')}
             </option>
           ),
         )}
@@ -100,7 +102,7 @@ function renderFieldControl(
           )
         }
         placeholder={
-          field.placeholder
+          field.placeholder ? l(field.placeholder) : undefined
         }
         onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
           onChange(
@@ -129,7 +131,7 @@ function renderFieldControl(
             )
           }
           aria-label={
-            `${field.label} color picker`
+            `${l(field.label)} ${l('color picker')}`
           }
         />
 
@@ -141,8 +143,7 @@ function renderFieldControl(
             )
           }
           placeholder={
-            field.placeholder ||
-            '#000000 or transparent'
+            field.placeholder ? l(field.placeholder) : '#000000 or transparent'
           }
           onChange={(event: ChangeEvent<HTMLInputElement>) =>
             onChange(
@@ -171,7 +172,7 @@ function renderFieldControl(
       max={field.max}
       step={field.step}
       placeholder={
-        field.placeholder
+        field.placeholder ? l(field.placeholder) : undefined
       }
       onChange={(event: ChangeEvent<HTMLInputElement>) => {
         const raw =
@@ -195,6 +196,7 @@ export function BuilderInspectorFields({
   group,
   onChange,
 }: BuilderInspectorFieldsProps) {
+  const l = useLocalizer();
   const [openSections, setOpenSections] =
     useState<Record<string, boolean>>({});
 
@@ -207,7 +209,7 @@ export function BuilderInspectorFields({
   if (!visible.length) {
     return (
       <div className="tayar-v2-empty-panel">
-        No controls for this selection.
+        {l('No controls for this selection.')}
       </div>
     );
   }
@@ -294,12 +296,13 @@ export function BuilderInspectorFields({
                     key={field.key}
                   >
                     <span>
-                      {field.label}
+                      {l(field.label)}
                     </span>
 
                     {renderFieldControl(
                       field,
                       onChange,
+                      l,
                     )}
                   </label>
                 ),
