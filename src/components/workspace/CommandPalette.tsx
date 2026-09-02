@@ -105,7 +105,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
 
     // Filter nav items
     for (const item of NAV_ITEMS) {
-      if (item.label.toLowerCase().includes(trimmed)) {
+      if (item.label.toLowerCase().includes(trimmed) || l(item.label).toLowerCase().includes(trimmed)) {
         const Icon = NAV_ICONS[item.id] || item.icon;
         navResults.push({
           id: `nav-${item.id}`, label: item.label, icon: Icon,
@@ -150,7 +150,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
       searchResults = (data || []).map((p: { id: string; title: string; type: string; updated_at: string }) => {
         const meta = getFileMeta(p.type);
         return {
-          id: `search-${p.id}`, label: p.title, subtitle: `${meta.label} · ${timeAgo(p.updated_at)}`,
+          id: `search-${p.id}`, label: p.title, subtitle: `${l(meta.label)} · ${timeAgo(p.updated_at)}`,
           icon: FileText, view: p.type as ViewId, projectId: p.id, group: 'search',
         };
       });
