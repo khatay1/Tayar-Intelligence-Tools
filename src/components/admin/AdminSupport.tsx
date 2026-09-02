@@ -39,12 +39,12 @@ export default function AdminSupport() {
     if (error) {
       console.error('Failed to load admin support tickets:', error);
       setTickets([]);
-      setLoadError(error.message || 'Failed to load support tickets.');
+      setLoadError(error.message ? l(error.message) : l('Failed to load support tickets.'));
     } else {
       setTickets((data || []) as Ticket[]);
     }
     setLoading(false);
-  }, []);
+  }, [l]);
 
   useEffect(() => { void load(); }, [load]);
 
