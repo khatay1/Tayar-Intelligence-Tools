@@ -37,6 +37,7 @@ function AdminTabError({ title, message, onRetry }: { title: string; message: st
 }
 
 export default function AdminSystem() {
+  const l = useLocalizer();
   const [tab, setTab] = useState<SystemTab>('settings');
 
   return (
@@ -54,7 +55,7 @@ export default function AdminSystem() {
               }`}
             >
               <Icon className="w-4 h-4" />
-              {t.label}
+              {l(t.label)}
             </button>
           );
         })}
@@ -97,7 +98,7 @@ function SettingsTab() {
 
     if (error) {
       console.error('Failed to load admin settings:', error);
-      showError(error.message || 'Failed to load settings');
+      showError(error.message || l('Failed to load settings'));
       setLoading(false);
       return;
     }
@@ -128,13 +129,13 @@ function SettingsTab() {
       const { error } = await supabase.from('admin_settings').upsert(entry, { onConflict: 'key' });
       if (error) {
         setSaving(false);
-        showError(error.message || 'Failed to save settings');
+        showError(error.message || l('Failed to save settings'));
         return;
       }
     }
 
     setSaving(false);
-    success('Settings saved');
+    success(l('Settings saved'));
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
@@ -156,13 +157,13 @@ function SettingsTab() {
         </div>
         <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? l('Saving...') : l('Save')}
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map(f => (
           <div key={f.key}>
-            <label className="text-xs text-gray-400 mb-1.5 block font-medium">{f.label}</label>
+            <label className="text-xs text-gray-400 mb-1.5 block font-medium">{l(f.label)}</label>
             {f.type === 'toggle' ? (
               <button
                 onClick={() => setSettings(prev => ({ ...prev, [f.key]: prev[f.key] === 'true' ? 'false' : 'true' }))}
@@ -171,7 +172,7 @@ function SettingsTab() {
                 <div className={`w-11 h-6 rounded-full transition-colors ${settings[f.key] === 'true' ? 'bg-emerald-500' : 'bg-gray-700'}`}>
                   <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings[f.key] === 'true' ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </div>
-                <span className="text-sm text-gray-300">{settings[f.key] === 'true' ? 'Enabled' : 'Disabled'}</span>
+                <span className="text-sm text-gray-300">{settings[f.key] === 'true' ? l('Enabled') : l('Disabled')}</span>
               </button>
             ) : (
               <input
