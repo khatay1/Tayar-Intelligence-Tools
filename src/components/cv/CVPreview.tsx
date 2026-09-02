@@ -220,7 +220,7 @@ function MinimalTemplate({ data, theme, fontFamily, orderedSections, sectionMap:
       <div className="text-center mb-6 pb-4 border-b border-gray-200">
         <h1 className="text-2xl font-light tracking-tight">{data.personal.fullName || 'Your Name'}</h1>
         <p className="text-sm text-gray-500 mt-1">{data.personal.jobTitle || 'Job Title'}</p>
-        <ContactRow data={previewData} className="justify-center mt-2 text-gray-500" theme={theme} />
+        <ContactRow data={data} className="justify-center mt-2 text-gray-500" theme={theme} />
       </div>
       {orderedSections.map(s => renderSection(s.id, s.label, 'text-gray-400 text-center'))}
     </div>
@@ -234,7 +234,7 @@ function ExecutiveTemplate({ data, theme, fontFamily, orderedSections, sectionMa
       <div className="text-white p-6 text-center" style={{ background: theme.primaryDark }}>
         <h1 className="text-2xl font-bold tracking-wide">{data.personal.fullName || 'Your Name'}</h1>
         <p className="text-sm mt-1" style={{ color: theme.primaryLight }}>{data.personal.jobTitle || 'Job Title'}</p>
-        <ContactRow data={previewData} className="justify-center mt-3" theme={theme} />
+        <ContactRow data={data} className="justify-center mt-3" theme={theme} />
       </div>
       <div className="p-6">
         {orderedSections.map(s => renderSection(s.id, s.label, 'text-gray-900'))}
@@ -257,7 +257,7 @@ function CreativeTemplate({ data, theme, fontFamily, orderedSections, sectionMap
             <p className="text-sm" style={{ color: theme.primaryLight }}>{data.personal.jobTitle || 'Job Title'}</p>
           </div>
         </div>
-        <ContactRow data={previewData} className="mt-4" theme={theme} />
+        <ContactRow data={data} className="mt-4" theme={theme} />
       </div>
       <div className="p-6">
         {orderedSections.map(s => renderSection(s.id, s.label, '') )}
@@ -273,7 +273,7 @@ function ProfessionalTemplate({ data, theme, fontFamily, orderedSections, sectio
       <div className="mb-5 pb-4 border-b-2" style={{ borderColor: theme.primary }}>
         <h1 className="text-2xl font-bold">{data.personal.fullName || 'Your Name'}</h1>
         <p className="text-sm text-gray-600 mt-0.5">{data.personal.jobTitle || 'Job Title'}</p>
-        <ContactRow data={previewData} className="mt-2 text-gray-600" theme={theme} />
+        <ContactRow data={data} className="mt-2 text-gray-600" theme={theme} />
       </div>
       {orderedSections.map(s => renderSection(s.id, s.label, 'text-gray-800'))}
     </div>
@@ -361,7 +361,7 @@ function FinanceTemplate({ data, theme, fontFamily, orderedSections, sectionMap,
       <div className="mb-5 pb-3 border-b-2 border-double" style={{ borderColor: theme.primaryDark }}>
         <h1 className="text-2xl font-bold tracking-wide" style={{ color: theme.primaryDark }}>{data.personal.fullName || 'Your Name'}</h1>
         <p className="text-sm text-gray-600 mt-0.5">{data.personal.jobTitle || 'Job Title'}</p>
-        <ContactRow data={previewData} className="mt-2 text-gray-600" theme={theme} />
+        <ContactRow data={data} className="mt-2 text-gray-600" theme={theme} />
       </div>
       {orderedSections.map(s => {
         const content = sectionMap[s.id];
@@ -421,7 +421,7 @@ function AcademicTemplate({ data, theme, fontFamily, orderedSections, sectionMap
       <div className="text-center mb-5 pb-3 border-b border-gray-300">
         <h1 className="text-2xl font-bold">{data.personal.fullName || 'Your Name'}</h1>
         <p className="text-sm text-gray-600 mt-0.5">{data.personal.jobTitle || 'Job Title'}</p>
-        <ContactRow data={previewData} className="justify-center mt-2 text-gray-600" theme={theme} />
+        <ContactRow data={data} className="justify-center mt-2 text-gray-600" theme={theme} />
       </div>
       {orderedSections.map(s => {
         const content = sectionMap[s.id];
