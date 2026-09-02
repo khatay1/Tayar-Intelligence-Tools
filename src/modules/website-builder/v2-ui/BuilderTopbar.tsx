@@ -15,7 +15,7 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
   return (
     <header className="tayar-v2-topbar" data-dirty={view.dirty ? 'true' : 'false'}>
       <div className="tayar-v2-topbar__brand">{brandSlot}</div>
-      <div className="tayar-v2-topbar__history" aria-label="Editor history">
+      <div className="tayar-v2-topbar__history" aria-label={l('Editor history')}>
         <button type="button" onClick={actions.onUndo} disabled={!view.canUndo}>{l('Undo')}</button>
         <button type="button" onClick={actions.onRedo} disabled={!view.canRedo}>{l('Redo')}</button>
       </div>
@@ -24,22 +24,22 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
         <button type="button" className="tayar-v2-preview-button" onClick={actions.onPreview}>{l('Preview')}</button>
         <button type="button" className="tayar-v2-check-button" onClick={actions.onRunCheck} disabled={Boolean(status.checking)}>
           {status.checking
-            ? 'Checking…'
+            ? l('Checking…')
             : typeof status.checkScore === 'number'
               ? `Check ${status.checkScore}`
-              : 'Check'}
+               : l('Check')}
         </button>
         <button type="button" className="tayar-v2-save-button" onClick={actions.onSave} disabled={Boolean(status.saving) || !view.dirty}>
-          {status.saving ? 'Saving…' : view.dirty ? 'Save' : 'Saved'}
+          {status.saving ? l('Saving…') : view.dirty ? l('Save') : l('Saved')}
         </button>
         <button type="button" className="tayar-v2-publish-button" onClick={actions.onPublish} disabled={Boolean(status.publishing) || view.publish.blockers.length > 0}>
           {status.publishing
-            ? 'Publishing…'
+            ? l('Publishing…')
             : status.publishedUrl && status.publishedOutdated
-              ? 'Republish'
+              ? l('Republish')
               : status.publishedUrl
-                ? 'Publish again'
-                : 'Publish'}
+                ? l('Publish again')
+                : l('Publish')}
         </button>
         {trailingSlot}
       </div>
