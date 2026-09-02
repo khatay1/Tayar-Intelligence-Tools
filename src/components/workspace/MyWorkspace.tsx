@@ -91,16 +91,16 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
 
   async function handleCreateProject() {
     if (!user || !projectName.trim()) return;
-    const toastId = loading('Creating project...');
+    const toastId = loading(l('Creating project...'));
     const id = await createProject(user.id, projectName.trim(), 'project', {}, 'active');
     if (id) {
-      update(toastId, 'Project created', 'success');
+      update(toastId, l('Project created'), 'success');
       setProjectName('');
       setShowNewProject(false);
       onNavigate('my-files', id);
       load();
     } else {
-      update(toastId, 'Failed to create project', 'error');
+      update(toastId, l('Failed to create project'), 'error');
     }
   }
 
@@ -123,7 +123,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
               <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">{t('nav.myWorkspace')}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{t('workspace.welcome')}, {displayName}</h1>
-            <p className="text-gray-400 text-sm">{recentFiles.length} recent files · {favoriteFiles.length} favorites · {pinnedFiles.length} pinned</p>
+            <p className="text-gray-400 text-sm">{l('{recent} recent files · {favorites} favorites · {pinned} pinned').replace('{recent}', String(recentFiles.length)).replace('{favorites}', String(favoriteFiles.length)).replace('{pinned}', String(pinnedFiles.length))}</p>
           </div>
           <button
             onClick={() => setShowNewProject(true)}
@@ -299,6 +299,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
 }
 
 function FileRow({ project, onOpen, compact }: { project: Project; onOpen: () => void; compact?: boolean }) {
+  const l = useLocalizer();
   const meta = getFileMeta(project.type);
   const Icon = TYPE_ICONS[project.type] || FileText;
   const isFavorite = (project as Project & { favorite?: boolean }).favorite;
@@ -318,7 +319,7 @@ function FileRow({ project, onOpen, compact }: { project: Project; onOpen: () =>
           {isPinned && <Pin className="w-3 h-3 text-violet-400 fill-violet-400" />}
           {isFavorite && <Star className="w-3 h-3 text-amber-400 fill-amber-400" />}
         </div>
-        <div className="text-gray-500 text-xs">{meta.label} · {timeAgo(project.updated_at)}</div>
+        <div className="text-gray-500 text-xs">{l(meta.label)} · {timeAgo(project.updated_at)}</div>
       </div>
       <ArrowUpRight className="w-4 h-4 text-gray-600 flex-shrink-0" />
     </button>
