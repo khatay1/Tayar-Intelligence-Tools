@@ -1241,6 +1241,15 @@ const ar: PhraseMap = {
   'Registry styles': 'أنماط السجل',
   'AI adaptation instruction': 'تعليمات تكييف الذكاء الاصطناعي',
 
+  'Delete only': 'حذف فقط',
+  'Delete + block': 'حذف + حظر',
+  'Block expires (optional)': 'انتهاء الحظر (اختياري)',
+  'Template Library Integrity Audit': 'تدقيق سلامة مكتبة القوالب',
+  'Pause': 'إيقاف مؤقت',
+  'Invalid template deletion completed': 'اكتمل حذف القوالب غير الصالحة',
+  'The previous audit snapshot was cleared. Run the audit again to verify the remaining library.': 'تم مسح لقطة التدقيق السابقة. شغّل التدقيق مجددًا للتحقق من المكتبة المتبقية.',
+  'Repair dry-run analysis': 'تحليل تجريبي للإصلاح',
+
 };
 
 const sv: PhraseMap = {
@@ -2433,6 +2442,15 @@ const sv: PhraseMap = {
   'License gate': 'Licenskontroll',
   'Registry styles': 'Registerstilar',
   'AI adaptation instruction': 'Instruktion för AI-anpassning',
+
+  'Delete only': 'Radera endast',
+  'Delete + block': 'Radera + blockera',
+  'Block expires (optional)': 'Blockering går ut (valfritt)',
+  'Template Library Integrity Audit': 'Integritetsgranskning av mallbiblioteket',
+  'Pause': 'Pausa',
+  'Invalid template deletion completed': 'Radering av ogiltiga mallar slutförd',
+  'The previous audit snapshot was cleared. Run the audit again to verify the remaining library.': 'Den tidigare granskningsögonblicksbilden har rensats. Kör granskningen igen för att verifiera det återstående biblioteket.',
+  'Repair dry-run analysis': 'Testanalys av reparation',
 
 };
 
