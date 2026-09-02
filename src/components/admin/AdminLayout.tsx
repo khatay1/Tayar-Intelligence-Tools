@@ -146,7 +146,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
               <div className="text-sm font-medium truncate text-white">{profile?.full_name || 'Admin'}</div>
               <div className="text-xs text-violet-400">{l('Administrator')}</div>
             </div>
-            <button onClick={onExitToWorkspace} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Back to Workspace">
+            <button onClick={onExitToWorkspace} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title={l("Back to Workspace")}>
               <LogOut className="w-4 h-4" />
             </button>
           </div>
@@ -175,7 +175,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
               <button onClick={() => setNotifOpen(!notifOpen)} className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                 <Bell className="w-5 h-5" />
                 {notificationError ? (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-black text-[10px] font-bold flex items-center justify-center" title="Notifications unavailable">!</span>
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-black text-[10px] font-bold flex items-center justify-center" title={l("Notifications unavailable")}>!</span>
                 ) : unreadCount > 0 ? (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">{unreadCount}</span>
                 ) : null}
