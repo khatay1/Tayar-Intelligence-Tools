@@ -86,8 +86,8 @@ export default function AIScorePanel({ score, suggestions }: AIScorePanelProps) 
                 <div key={i} className={`flex items-start gap-2 p-3 rounded-xl ${c.bg} border ${c.border}`}>
                   <Icon className={`w-4 h-4 ${c.color} flex-shrink-0 mt-0.5`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-xs font-medium">{s.title}</p>
-                    <p className="text-gray-400 text-xs mt-0.5 leading-relaxed">{s.description}</p>
+                    <p className="text-white text-xs font-medium">{l(s.title)}</p>
+                    <p className="text-gray-400 text-xs mt-0.5 leading-relaxed">{l(s.description)}</p>
                   </div>
                 </div>
               );
