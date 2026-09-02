@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { usePreferences } from '@/context/PreferencesContext';
 import type { Language } from '@/lib/i18n';
 
@@ -4473,5 +4474,5 @@ export function localizeUi(text: string, language: Language): string {
 
 export function useLocalizer() {
   const { prefs } = usePreferences();
-  return (text: string) => localizeUi(text, prefs.language);
+  return useCallback((text: string) => localizeUi(text, prefs.language), [prefs.language]);
 }
