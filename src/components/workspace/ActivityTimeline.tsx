@@ -32,16 +32,16 @@ const TYPE_ICONS: Record<string, typeof FileText> = {
   'project': Folder,
 };
 
-function actionLabel(action: string, entityType: string, metadata: Record<string, unknown>): string {
+function actionLabel(action: string, entityType: string, metadata: Record<string, unknown>, l: (text: string) => string): string {
   const entityName = (metadata?.entity_title as string) || entityType || 'item';
   switch (action) {
-    case 'created': return `Created ${entityName}`;
-    case 'updated': return `Updated ${entityName}`;
-    case 'exported': return `Exported ${entityName}`;
-    case 'deleted': return `Deleted ${entityName}`;
-    case 'ai_generated': return `AI generated ${entityName}`;
-    case 'ai_analyzed': return `AI analyzed ${entityName}`;
-    case 'shared': return `Shared ${entityName}`;
+    case 'created': return `${l('Created')} ${entityName}`;
+    case 'updated': return `${l('Updated')} ${entityName}`;
+    case 'exported': return `${l('Exported')} ${entityName}`;
+    case 'deleted': return `${l('Deleted')} ${entityName}`;
+    case 'ai_generated': return `${l('AI generated')} ${entityName}`;
+    case 'ai_analyzed': return `${l('AI analyzed')} ${entityName}`;
+    case 'shared': return `${l('Shared')} ${entityName}`;
     default: return `${action} ${entityName}`;
   }
 }
@@ -84,9 +84,9 @@ export default function ActivityTimeline({ darkMode, onNavigate }: ActivityTimel
   for (const act of activities) {
     const d = new Date(act.created_at);
     let label: string;
-    if (d >= today) label = 'Today';
-    else if (d >= yesterday) label = 'Yesterday';
-    else if (d >= weekAgo) label = 'This Week';
+    if (d >= today) label = l('Today');
+    else if (d >= yesterday) label = l('Yesterday');
+    else if (d >= weekAgo) label = l('This Week');
     else label = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
 
     if (label !== currentGroup) {
@@ -133,7 +133,7 @@ export default function ActivityTimeline({ darkMode, onNavigate }: ActivityTimel
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
             }`}
           >
-            {f.label}
+            {l(f.label)}
           </button>
         ))}
       </div>
@@ -162,7 +162,7 @@ export default function ActivityTimeline({ darkMode, onNavigate }: ActivityTimel
                 {group.items.map((act, i) => {
                   const Icon = TYPE_ICONS[act.entity_type] || FileText;
                   const meta = getFileMeta(act.entity_type);
-                  const label = actionLabel(act.action, act.entity_type, act.metadata);
+                  const label = actionLabel(act.action, act.entity_type, act.metadata, l);
                   const isLast = i === group.items.length - 1;
                   return (
                     <button
