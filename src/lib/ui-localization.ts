@@ -2481,6 +2481,17 @@ const ar: PhraseMap = {
   'unknown storage error': 'خطأ تخزين غير معروف',
   'Published-site replacement failed.': 'فشل استبدال الموقع المنشور.',
   'Could not load template library.': 'تعذر تحميل مكتبة القوالب.',
+  'Restore "{label}"? Your current unsaved changes will be replaced.': 'استعادة "{label}"؟ سيتم استبدال تغييراتك الحالية غير المحفوظة.',
+  'Apply the requested website changes safely.': 'طبّق تغييرات الموقع المطلوبة بأمان.',
+  'Apply the requested changes with native editable Tayar operations.': 'طبّق التغييرات المطلوبة باستخدام عمليات Tayar الأصلية القابلة للتحرير.',
+  'Applied {count} targeted AI changes.': 'تم تطبيق {count} تغييرات مستهدفة بالذكاء الاصطناعي.',
+  'Planned {steps} steps and applied {operations} safe native operations without rebuilding unrelated content.': 'تم التخطيط لـ {steps} خطوات وتطبيق {operations} عمليات أصلية آمنة دون إعادة بناء المحتوى غير المرتبط.',
+  '{count} unsupported or unsafe operations were skipped.': 'تم تخطي {count} عمليات غير مدعومة أو غير آمنة.',
+  'Warnings': 'تحذيرات',
+  'Confidence': 'الثقة',
+  'Agent review': 'مراجعة الوكيل',
+  'Review complete.': 'اكتملت المراجعة.',
+  'Suggested follow-up': 'متابعة مقترحة',
 };
 
 const sv: PhraseMap = {
@@ -4913,6 +4924,17 @@ const sv: PhraseMap = {
   'unknown storage error': 'okänt lagringsfel',
   'Published-site replacement failed.': 'Ersättning av den publicerade webbplatsen misslyckades.',
   'Could not load template library.': 'Det gick inte att läsa in mallbiblioteket.',
+  'Restore "{label}"? Your current unsaved changes will be replaced.': 'Återställa "{label}"? Dina aktuella osparade ändringar kommer att ersättas.',
+  'Apply the requested website changes safely.': 'Tillämpa de begärda webbplatsändringarna säkert.',
+  'Apply the requested changes with native editable Tayar operations.': 'Tillämpa de begärda ändringarna med inbyggda redigerbara Tayar-operationer.',
+  'Applied {count} targeted AI changes.': 'Tillämpade {count} riktade AI-ändringar.',
+  'Planned {steps} steps and applied {operations} safe native operations without rebuilding unrelated content.': 'Planerade {steps} steg och tillämpade {operations} säkra inbyggda operationer utan att bygga om orelaterat innehåll.',
+  '{count} unsupported or unsafe operations were skipped.': '{count} ej stödda eller osäkra operationer hoppades över.',
+  'Warnings': 'Varningar',
+  'Confidence': 'Konfidens',
+  'Agent review': 'Agentgranskning',
+  'Review complete.': 'Granskningen är klar.',
+  'Suggested follow-up': 'Föreslagen uppföljning',
 };
 
 const maps: Record<Language, PhraseMap> = { en: {}, ar, sv };
