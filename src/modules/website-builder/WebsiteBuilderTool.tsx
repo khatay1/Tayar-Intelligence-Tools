@@ -10000,12 +10000,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         summary,
         pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
       });
+      const planResultStatus = l('Planned {steps} steps and applied {operations} safe native operations without rebuilding unrelated content.')
+        .replace('{steps}', String((agentPlan.steps || []).length))
+        .replace('{operations}', String(applied));
+      const skippedStatus = skipped
+        ? ` ${l('{count} unsupported or unsafe operations were skipped.').replace('{count}', String(skipped))}`
+        : '';
+      const warningStatus = patchWarnings.length ? ` ${l('Warnings')}: ${patchWarnings.join(' · ')}` : '';
+      const confidenceStatus = confidence !== null ? ` ${l('Confidence')}: ${Math.round(confidence * 100)}%.` : '';
+      const agentReviewStatus = agentReview
+        ? ` ${l('Agent review')}${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || l('Review complete.')}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${l(finding.severity)}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · ${l('Suggested follow-up')}: ${agentReview.followUpPrompt}` : ''}`
+        : '';
       setAiMessages((current) => [
         ...current,
         {
           id: `ai-patch-result-${Date.now()}`,
           role: 'assistant' as const,
-          content: `${summary} Planned ${(agentPlan.steps || []).length} step${(agentPlan.steps || []).length === 1 ? '' : 's'} and applied ${applied} safe native operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.${skipped ? ` ${skipped} unsupported or unsafe operation${skipped === 1 ? ' was' : 's were'} skipped.` : ''}${patchWarnings.length ? ` Warnings: ${patchWarnings.join(' · ')}` : ''}${confidence !== null ? ` Confidence: ${Math.round(confidence * 100)}%.` : ''}${agentReview ? ` Agent review${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || 'Review complete.'}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · Suggested follow-up: ${agentReview.followUpPrompt}` : ''}` : ''}`,
+          content: `${summary} ${planResultStatus}${skippedStatus}${warningStatus}${confidenceStatus}${agentReviewStatus}`,
         },
       ].slice(-12));
     } catch (error) {
@@ -10997,7 +11008,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function restoreHistoryEntry(entry: ProjectHistoryEntry) {
-    const confirmed = window.confirm(`Restore "${entry.label}"? Your current unsaved changes will be replaced.`);
+    const confirmed = window.confirm(l('Restore "{label}"? Your current unsaved changes will be replaced.').replace('{label}', entry.label));
     if (!confirmed) return;
 
     if (snapshotConflictsWithActiveProject(entry.snapshot)) {
