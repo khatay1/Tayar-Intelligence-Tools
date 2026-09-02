@@ -67,16 +67,14 @@ export default function AdminUsers() {
     }
 
     setActionLoading(true);
-    const rpc = deleteMode === 'delete-block' ? 'admin_delete_user_and_block' : 'admin_delete_user';
-    const args = deleteMode === 'delete-block'
-      ? {
+    const actionError = deleteMode === 'delete-block'
+      ? (await supabase.rpc('admin_delete_user_and_block', {
           p_user_id: user.id,
           p_reason: deleteReason,
           p_expires_at: deleteBlockExpiry ? new Date(deleteBlockExpiry).toISOString() : null,
-        }
-      : { p_user_id: user.id };
+        })).error
+      : (await supabase.rpc('admin_delete_user', { p_user_id: user.id })).error;
 
-    const { error: actionError } = await supabase.rpc(rpc, args);
     if (actionError) {
       showError(actionError.message || 'Failed to delete user');
     } else {
