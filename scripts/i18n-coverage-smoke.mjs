@@ -122,6 +122,7 @@ for (const file of sourceFiles) {
       ['fallback', hardcodedErrorFallbackRe],
     ]) {
       for (const match of source.matchAll(regex)) {
+        if (kind === 'attribute-expression' && /\b(?:l|localizeUi)\s*\(/.test(match[0])) continue;
         const text = match[1].trim();
         if (!/[A-Za-z]/.test(text)) continue;
         if (ignoredHardcoded.has(text)) continue;
