@@ -81,8 +81,8 @@ export function BuilderMediaPanel({
     } catch (error) {
       setAiError(
         error instanceof Error
-          ? error.message
-          : 'Image generation failed.',
+          ? l(error.message)
+          : l('Image generation failed.'),
       );
     } finally {
       setAiBusy(false);
