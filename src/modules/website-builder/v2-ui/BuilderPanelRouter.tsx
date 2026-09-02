@@ -1,3 +1,4 @@
+import { useLocalizer } from '@/lib/ui-localization';
 ﻿import type { ReactNode } from 'react';
 
 import type {
@@ -167,6 +168,7 @@ export interface BuilderPanelRouterProps {
 export function BuilderPanelRouter(
   props: BuilderPanelRouterProps,
 ) {
+  const l = useLocalizer();
   return function renderPanel(
     panel: EditorLeftPanel,
   ): ReactNode {
