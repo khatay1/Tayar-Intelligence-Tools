@@ -71,6 +71,9 @@ const hardcodedAttrRe = /\b(?:placeholder|title|aria-label|alt|label|hint|subtit
 const hardcodedPropRe = /\b(?:label|title|description|placeholder|tooltip|helperText|emptyText|buttonText|ctaLabel|ariaLabel)\s*:\s*["'`]([^"'`\n]{2,220})["'`]/g;
 const hardcodedNotifyRe = /\b(?:toast\.(?:success|error|info|warning)|window\.confirm|confirm|alert|showError|success|loading|set[A-Za-z0-9_]*(?:Message|Error|Status|Notice|Feedback))\(\s*["'`]([^"'`\n]{2,220})["'`]/g;
 const hardcodedToastUpdateRe = /\bupdate\(\s*[^,\n]+,\s*["'`]([^"'`\n]{2,220})["'`]/g;
+const hardcodedPromptRe = /\b(?:window\.)?prompt\(\s*["'`]([^"'`\n]{2,220})["'`]/g;
+const hardcodedAttrExpressionRe = /\b(?:placeholder|title|aria-label|alt|label|hint|subtitle|description|actionLabel|badge)\s*=\s*\{[^}\n]{0,180}?["'`]([^"'`\n]{2,220})["'`][^}\n]{0,180}?\}/g;
+const localizedInternalStateRe = /\b(set(?:AutoSaveStatus|LiveVerification|PublishStatus|SyncStatus|SaveStatus))\(\s*l\(\s*["'`]([^"'`]+)["'`]\s*\)\s*\)/g;
 const hardcodedErrorFallbackRe = /(?:\b(?:error|err|invokeError)\s+instanceof\s+Error\s*\?\s*(?:error|err|invokeError)\.message\s*:\s*|\b(?:error|err|invokeError)\.message\s*\|\|\s*)["'`]([^"'`\n]{2,260})["'`]/g;
 const ignoredHardcoded = new Set([
   'AI', 'API', 'CSV', 'CSS', 'HTML', 'ID', 'JS', 'JSON', 'PDF', 'PRO', 'SEO', 'TS', 'TSX', 'UI', 'URL',
@@ -114,6 +117,8 @@ for (const file of sourceFiles) {
       ['property', hardcodedPropRe],
       ['notification', hardcodedNotifyRe],
       ['notification', hardcodedToastUpdateRe],
+      ['prompt', hardcodedPromptRe],
+      ['attribute-expression', hardcodedAttrExpressionRe],
       ['fallback', hardcodedErrorFallbackRe],
     ]) {
       for (const match of source.matchAll(regex)) {
@@ -177,6 +182,14 @@ for (const file of sourceFiles) {
   if (/^src[/\\]modules[/\\][^/\\]+[/\\]index\.ts$/.test(file)) catalogFiles.add(file);
 }
 
+const localizedInternalStateViolations = [];
+for (const file of sourceFiles) {
+  const source = read(file);
+  for (const match of source.matchAll(localizedInternalStateRe)) {
+    localizedInternalStateViolations.push({ file, setter: match[1], state: match[2] });
+  }
+}
+
 const catalogPhrases = new Map();
 const catalogPropRe = /\b(?:label|name|description|title|desc|defaultGoal|placeholder)\s*:\s*(['"`])([^'"`\n]{2,220})\1/g;
 for (const file of catalogFiles) {
@@ -204,6 +217,7 @@ check('Every useLocalizer phrase has an Arabic translation', missingArabic.lengt
 check('Every useLocalizer phrase has a Swedish translation', missingSwedish.length === 0);
 check('Every dynamic UI catalog phrase has an Arabic translation', missingCatalogArabic.length === 0);
 check('Every dynamic UI catalog phrase has a Swedish translation', missingCatalogSwedish.length === 0);
+check('No internal machine state is passed through UI localization', localizedInternalStateViolations.length === 0);
 check('No unexpected hard-coded application UI remains', unexpectedHardcoded.length === 0);
 
 if (missingArabic.length) {
@@ -221,6 +235,10 @@ if (missingCatalogArabic.length) {
 if (missingCatalogSwedish.length) {
   console.log('\nMissing Swedish dynamic catalog phrases:');
   for (const item of missingCatalogSwedish) console.log(`  - ${item.key}  [${item.files.join(', ')}]`);
+}
+if (localizedInternalStateViolations.length) {
+  console.log('\nLocalized internal machine-state violations:');
+  for (const item of localizedInternalStateViolations) console.log(`  - ${item.file}  ${item.setter}(${item.state})`);
 }
 if (unexpectedHardcoded.length) {
   console.log('\nUnexpected hard-coded application UI:');
