@@ -12,7 +12,7 @@ export interface ProjectStyleProfile {
 }
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
-const RGB = /\brgba?\([^\)]{1,80}\)/g;
+const RGB = /\brgba?\([^)]{1,80}\)/g;
 const CSS_VAR = /--([a-zA-Z0-9-_]+)\s*:\s*([^;\n]{1,120})/g;
 const FONT_FAMILY = /font-family\s*:\s*([^;\n]{1,160})/gi;
 const RADIUS = /border-radius\s*:\s*([^;\n]{1,80})/gi;
