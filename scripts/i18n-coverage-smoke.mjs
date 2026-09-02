@@ -66,6 +66,9 @@ const localizedUsage = new Map();
 const hardcodedCandidates = [];
 
 const hardcodedJsxRe = />\s*([A-Z][A-Za-z0-9][A-Za-z0-9 &+/.:'’(),!?–—·↗-]{2,110})\s*</g;
+const hardcodedAttrRe = /\b(?:placeholder|title|aria-label|alt|label)\s*=\s*["']([^"'{}\n]{2,180})["']/g;
+const hardcodedPropRe = /\b(?:label|title|description|placeholder|tooltip|helperText|emptyText|buttonText|ctaLabel|ariaLabel)\s*:\s*["'`]([^"'`\n]{2,220})["'`]/g;
+const hardcodedNotifyRe = /\b(?:toast\.(?:success|error|info|warning)|window\.confirm|confirm|alert|set(?:Message|Error|Status|Notice|Feedback))\(\s*["'`]([^"'`\n]{2,220})["'`]/g;
 const ignoredHardcoded = new Set([
   'AI', 'API', 'CSV', 'CSS', 'HTML', 'ID', 'JS', 'JSON', 'PDF', 'PRO', 'SEO', 'TS', 'TSX', 'UI', 'URL',
   'V1.0', 'ZIP', 'PNG', 'JPG', 'Power BI', 'PowerPoint', 'Instagram', 'Facebook', 'LinkedIn',
@@ -94,6 +97,25 @@ for (const file of sourceFiles) {
     const line = source.slice(0, match.index).split('\n').length;
     hardcodedCandidates.push({ file, line, text });
   }
+
+  if (file !== uiPath && !contentOnlyFiles.has(file)) {
+    for (const [kind, regex] of [
+      ['attribute', hardcodedAttrRe],
+      ['property', hardcodedPropRe],
+      ['notification', hardcodedNotifyRe],
+    ]) {
+      for (const match of source.matchAll(regex)) {
+        const text = match[1].trim();
+        if (!/[A-Za-z]/.test(text)) continue;
+        if (ignoredHardcoded.has(text)) continue;
+        if (/^(?:https?:|mailto:|tel:|data:|#[A-Fa-f0-9]{3,8}$)/.test(text)) continue;
+        if (/^[A-Za-z0-9_.:/+-]{1,30}$/.test(text) && !/\s/.test(text)) continue;
+        if (/^(?:GET|POST|PUT|PATCH|DELETE|ASC|DESC|true|false|null|undefined)$/i.test(text)) continue;
+        const line = source.slice(0, match.index).split('\n').length;
+        hardcodedCandidates.push({ file, line, text, kind });
+      }
+    }
+  }
 }
 
 const missingArabic = [];
@@ -103,8 +125,11 @@ for (const [key, files] of localizedUsage) {
   if (!svKeys.has(key)) missingSwedish.push({ key, files: [...new Set(files)] });
 }
 
-const expectedContentCandidates = hardcodedCandidates.filter(({ file }) => contentOnlyFiles.has(file));
-const unexpectedHardcoded = hardcodedCandidates.filter(({ file, text }) => {
+const dedupedHardcodedCandidates = [...new Map(
+  hardcodedCandidates.map((item) => [`${item.file}:${item.line}:${item.text}`, item])
+).values()];
+const expectedContentCandidates = dedupedHardcodedCandidates.filter(({ file }) => contentOnlyFiles.has(file));
+const unexpectedHardcoded = dedupedHardcodedCandidates.filter(({ file, text }) => {
   if (contentOnlyFiles.has(file)) return false;
   if (file === 'src/modules/website-builder/WebsiteBuilderTool.tsx' && text.startsWith('JSON.stringify(')) return false;
   return true;
@@ -124,12 +149,12 @@ if (missingSwedish.length) {
 }
 if (unexpectedHardcoded.length) {
   console.log('\nUnexpected hard-coded application UI:');
-  for (const item of unexpectedHardcoded) console.log(`  ! ${item.file}:${item.line}  ${item.text}`);
+  for (const item of unexpectedHardcoded) console.log(`  ! ${item.file}:${item.line}  [${item.kind || 'jsx'}] ${item.text}`);
 }
 
 console.log(`\nI18N scan: ${sourceFiles.length} source files, ${localizedUsage.size} localized UI phrases.`);
 console.log(`Expected customer/template content candidates: ${expectedContentCandidates.length}`);
-for (const item of expectedContentCandidates) console.log(`  content ${item.file}:${item.line}  ${item.text}`);
+for (const item of expectedContentCandidates) console.log(`  content ${item.file}:${item.line}  [${item.kind || 'jsx'}] ${item.text}`);
 
 const failed = checks.filter(([, ok]) => !ok);
 for (const [name, ok] of checks) console.log(`${ok ? '✓' : '✗'} ${name}`);
