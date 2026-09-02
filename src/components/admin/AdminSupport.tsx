@@ -61,9 +61,9 @@ export default function AdminSupport() {
       .from('support_tickets')
       .update({ admin_response: response, status: 'closed', updated_at: new Date().toISOString() })
       .eq('id', selected.id);
-    if (error) showError('Failed to send response');
+    if (error) showError(l("Failed to send response"));
     else {
-      success('Response sent and ticket closed');
+      success(l("Response sent and ticket closed"));
       setSelected(null);
       setResponse('');
       void load();
@@ -73,8 +73,8 @@ export default function AdminSupport() {
 
   async function changeStatus(ticket: Ticket, status: string) {
     const { error } = await supabase.from('support_tickets').update({ status, updated_at: new Date().toISOString() }).eq('id', ticket.id);
-    if (error) showError('Failed to update ticket');
-    else { success('Ticket updated'); void load(); }
+    if (error) showError(l("Failed to update ticket"));
+    else { success(l("Ticket updated")); void load(); }
   }
 
   if (loading) {
