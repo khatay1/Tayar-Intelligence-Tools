@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { assertToolActionAvailable } from '@/lib/tool-usage';
 import {
   BACKGROUND_ALLOWED_TYPES,
   BackgroundRemovalResult,
@@ -32,6 +33,7 @@ export async function removeImageBackground(
   cropToBbox: boolean,
 ): Promise<BackgroundRemovalResult> {
   validateBackgroundFile(file);
+  await assertToolActionAvailable('background-remover');
   const imageDataUrl = await readAsDataUrl(file);
 
   const { data, error } = await supabase.functions.invoke('background-remover', {
