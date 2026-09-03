@@ -1,6 +1,7 @@
 import { CVData, TemplateId, ColorTheme, SectionConfig, FONT_OPTIONS } from '@/lib/cv-types';
 import { COLOR_THEMES } from '@/lib/cv-types';
 import { Mail, Phone, MapPin, Linkedin, Globe, Award } from 'lucide-react';
+import { useLocalizer } from '@/lib/ui-localization';
 
 interface CVPreviewProps {
   data: CVData;
@@ -11,22 +12,32 @@ interface CVPreviewProps {
 }
 
 export default function CVPreview({ data, template, colorTheme = 'violet', sections = [], fontId = 'inter' }: CVPreviewProps) {
+  const l = useLocalizer();
   const theme = COLOR_THEMES.find(t => t.id === colorTheme) || COLOR_THEMES[0];
   const font = FONT_OPTIONS.find(f => f.id === fontId) || FONT_OPTIONS[0];
   const fontFamily = font.family;
 
   const orderedSections = sections.length > 0
-    ? sections.filter(s => s.visible)
+    ? sections.filter(s => s.visible).map(section => ({ ...section, label: l(section.label) }))
     : [
-        { id: 'summary' as const, label: 'Summary', visible: true },
-        { id: 'experience' as const, label: 'Experience', visible: true },
-        { id: 'education' as const, label: 'Education', visible: true },
-        { id: 'skills' as const, label: 'Skills', visible: true },
-        { id: 'languages' as const, label: 'Languages', visible: true },
-        { id: 'projects' as const, label: 'Projects', visible: true },
-        { id: 'certificates' as const, label: 'Certifications', visible: true },
-        { id: 'awards' as const, label: 'Awards', visible: true },
+        { id: 'summary' as const, label: l('Summary'), visible: true },
+        { id: 'experience' as const, label: l('Experience'), visible: true },
+        { id: 'education' as const, label: l('Education'), visible: true },
+        { id: 'skills' as const, label: l('Skills'), visible: true },
+        { id: 'languages' as const, label: l('Languages'), visible: true },
+        { id: 'projects' as const, label: l('Projects'), visible: true },
+        { id: 'certificates' as const, label: l('Certifications'), visible: true },
+        { id: 'awards' as const, label: l('Awards'), visible: true },
       ];
+
+  const previewData: CVData = {
+    ...data,
+    personal: {
+      ...data.personal,
+      fullName: data.personal.fullName || l('Your Name'),
+      jobTitle: data.personal.jobTitle || l('Job Title'),
+    },
+  };
 
   const sectionMap: Record<string, React.ReactNode> = {
     summary: data.summary ? <p className="text-xs leading-relaxed text-gray-600">{data.summary}</p> : null,
@@ -36,7 +47,7 @@ export default function CVPreview({ data, template, colorTheme = 'violet', secti
           <div key={exp.id}>
             <div className="flex justify-between items-baseline">
               <h4 className="text-sm font-bold">{exp.jobTitle}</h4>
-              <span className="text-[10px] text-gray-500">{exp.startDate} — {exp.current ? 'Present' : exp.endDate}</span>
+              <span className="text-[10px] text-gray-500">{exp.startDate} — {exp.current ? l('Present') : exp.endDate}</span>
             </div>
             <div className="text-xs mb-1" style={{ color: theme.primary }}>{exp.company}{exp.location && ` · ${exp.location}`}</div>
             <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{exp.description}</p>
@@ -67,7 +78,7 @@ export default function CVPreview({ data, template, colorTheme = 'violet', secti
     ) : null,
     languages: data.languages.length > 0 ? (
       <div className="space-y-0.5 text-xs text-gray-600">
-        {data.languages.map(l => <div key={l.id}>{l.name} — {l.proficiency}</div>)}
+        {data.languages.map(lang => <div key={lang.id}>{lang.name} — {l(lang.proficiency)}</div>)}
       </div>
     ) : null,
     projects: data.projects.length > 0 ? (
@@ -115,29 +126,29 @@ export default function CVPreview({ data, template, colorTheme = 'violet', secti
 
   switch (template) {
     case 'modern':
-      return <ModernTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <ModernTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'minimal':
-      return <MinimalTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <MinimalTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'executive':
-      return <ExecutiveTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <ExecutiveTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'creative':
-      return <CreativeTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <CreativeTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'professional':
-      return <ProfessionalTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <ProfessionalTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'ats':
-      return <ATSTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <ATSTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'corporate':
-      return <CorporateTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <CorporateTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'tech':
-      return <TechTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <TechTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'finance':
-      return <FinanceTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <FinanceTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'healthcare':
-      return <HealthcareTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <HealthcareTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     case 'academic':
-      return <AcademicTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <AcademicTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
     default:
-      return <ModernTemplate data={data} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
+      return <ModernTemplate data={previewData} theme={theme} fontFamily={fontFamily} orderedSections={orderedSections} sectionMap={sectionMap} renderSection={renderSection} />;
   }
 }
 

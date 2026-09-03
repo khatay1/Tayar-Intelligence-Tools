@@ -165,7 +165,7 @@ export default function AIAssistant({ darkMode: _darkMode, onNavigate: _onNaviga
       <button
         onClick={() => { setAssistantOpen(true); loadConversations(); }}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/30 hover:scale-110 transition-transform active:scale-95"
-        aria-label="Open AI Assistant"
+        aria-label={l("Open AI Assistant")}
       >
         <Sparkles className="w-6 h-6" />
         <span className="absolute inset-0 rounded-full bg-violet-500/30 animate-ping opacity-20" />
@@ -273,7 +273,7 @@ export default function AIAssistant({ darkMode: _darkMode, onNavigate: _onNaviga
             </div>
           )}
 
-          {loading && !streamingContent && <AILoading label="AI is thinking" variant="inline" />}
+          {loading && !streamingContent && <AILoading label={l("AI is thinking")} variant="inline" />}
 
           {error && (
             <div className="flex justify-start">

@@ -69,18 +69,18 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
 
   async function addItem(type: string, label: string, view: ViewId) {
     if (!user) return;
-    const toastId = loading('Adding to project...');
+    const toastId = loading(l('Adding to project...'));
     const { error: err } = await supabase.from('project_items').insert({
       project_id: projectId,
       user_id: user.id,
       item_type: type,
-      title: `New ${label}`,
+      title: l('New {type}').replace('{type}', l(label)),
       sort_order: items.length,
     });
     if (err) {
-      update(toastId, 'Failed to add item', 'error');
+      update(toastId, l('Failed to add item'), 'error');
     } else {
-      update(toastId, 'Added to project', 'success');
+      update(toastId, l('Added to project'), 'success');
       setShowAdd(false);
       load();
       onNavigate(view);
@@ -89,9 +89,9 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
 
   async function deleteItem(id: string) {
     const { error: err } = await supabase.from('project_items').delete().eq('id', id);
-    if (err) { showError('Failed to remove item'); return; }
+    if (err) { showError(l('Failed to remove item')); return; }
     setItems(prev => prev.filter(i => i.id !== id));
-    success('Item removed');
+    success(l('Item removed'));
   }
 
   async function toggleFavorite() {
@@ -111,10 +111,10 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
   async function confirmRename() {
     if (!renameValue.trim() || !project) return;
     const { error: err } = await supabase.from('projects').update({ title: renameValue.trim() }).eq('id', projectId);
-    if (err) { showError('Failed to rename'); return; }
+    if (err) { showError(l('Failed to rename')); return; }
     setProject({ ...project, title: renameValue.trim() });
     setRenaming(false);
-    success('Project renamed');
+    success(l('Project renamed'));
   }
 
   if (loadingState) {
@@ -122,7 +122,7 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
   }
 
   if (!project) {
-    return <EmptyState icon={Folder} title="Project not found" description="This project may have been deleted." onAction={onBack} actionLabel="Go Back" />;
+    return <EmptyState icon={Folder} title={l("Project not found")} description={l('This project may have been deleted.')} onAction={onBack} actionLabel={l('Go Back')} />;
   }
 
   return (
@@ -150,7 +150,7 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
               {project.title}
             </h1>
           )}
-          <p className="text-gray-500 text-sm mt-0.5">{items.length} items · {getFileMeta(project.type).label}</p>
+          <p className="text-gray-500 text-sm mt-0.5">{items.length} {l('items')} · {l(getFileMeta(project.type).label)}</p>
         </div>
         <button onClick={togglePin} className={`p-2 rounded-lg transition-colors ${project.pinned ? 'text-amber-400' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
           <Pin className="w-5 h-5" />
@@ -217,7 +217,7 @@ export default function ProjectView({ projectId, onBack, onNavigate }: ProjectVi
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-white text-sm font-medium truncate">{item.title}</div>
-                  <div className="text-gray-500 text-xs">{meta.label} · {timeAgo(item.updated_at)}</div>
+                  <div className="text-gray-500 text-xs">{l(meta.label)} · {timeAgo(item.updated_at)}</div>
                 </div>
                 <button
                   onClick={() => deleteItem(item.id)}

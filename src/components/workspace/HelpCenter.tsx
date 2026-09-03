@@ -31,7 +31,7 @@ export default function HelpCenter() {
   async function handleSend() {
     if (!contactMsg) return;
     setSending(true);
-    const toastId = loading('Sending support request...');
+    const toastId = loading(l("Sending support request..."));
     const { error } = await supabase.from('support_tickets').insert({ subject: 'Help Center request', body: contactMsg, type: 'support', priority: 'medium' });
     if (error) {
       update(toastId, l('Failed to send support request. Please try again.'), 'error');

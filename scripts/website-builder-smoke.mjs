@@ -229,7 +229,7 @@ check('Publish preflight blocks critical audit errors', builder.includes('Publis
 check('Publish preflight blocks offline deploys', builder.includes('Publish preflight blocked: you are offline'));
 check('V2 Publish button uses hard operational blockers', builder.includes("!user ? 'Sign in before publishing.'") && builder.includes("!networkOnline ? 'Reconnect before publishing.'"));
 check('Publish handler does not require non-essential launch checks', !builder.includes('Publish preflight blocked: ${v1LaunchStatus.blockers[0]') && builder.includes('Release history was skipped'));
-check('Launch blockers include production URL and SEO branding', builder.includes("!productionUrlReady ? 'Add a valid production URL.'") && builder.includes("!seoReady ? 'Complete the SEO title and favicon.'"));
+check('Launch blockers include production URL and SEO branding', builder.includes("!productionUrlReady ? l('Add a valid production URL.')") && builder.includes("!seoReady ? l('Complete the SEO title and favicon.')"));
 check('Generated pages use a referrer policy', builder.includes('strict-origin-when-cross-origin'));
 check('Generated pages include CSP', builder.includes('Content-Security-Policy'));
 check('Generated pages have keyboard skip navigation', builder.includes('tayar-skip-link'));
@@ -391,7 +391,7 @@ check('AI builder keeps linked component instances synchronized', builder.includ
 check('AI builder can repair basic accessibility without opaque markup', builder.includes("repair_accessibility") && builder.includes('candidateSection.title || candidatePage.name') && builder.includes("content: 'Learn more'"));
 check('Manual symbol controls survive component Agent upgrade', builder.includes('function createSymbolFromSelected()') && builder.includes('function insertSymbol(') && builder.includes('function detachSelectedSymbol()') && builder.includes('function deleteSymbol('));
 check('Agent plans before generating mutation operations', builder.includes('completeJSON<AIWebsiteAgentPlan>') && builder.includes("action: 'plan-edit'") && builder.includes('executionPlan: agentPlan'));
-check('Agent plan is visible in chat before execution handoff', builder.includes('ai-plan-') && builder.includes('planPreview') && builder.includes('Planned ${(agentPlan.steps || []).length} step'));
+check('Agent plan is visible in chat before execution handoff', builder.includes('ai-plan-') && builder.includes('planPreview') && builder.includes("l('Planned {steps} steps and applied {operations} safe native operations without rebuilding unrelated content.')"));
 check('Plan-first Agent still uses native manual-builder transaction path', builder.includes('validateAIProjectIntegrity') && builder.includes('setPages(nextPages)') && builder.includes('setSections(finalActive?.sections || [])') && builder.includes('setSymbols(nextSymbols)'));
 check('Final Agent reviews its proposed result before canvas handoff', builder.includes('AIWebsiteAgentReview') && builder.includes("action: 'review-edit'") && builder.includes('proposedProject'));
 check('Final Agent can copy section and element visual styles natively', builder.includes("copy_section_style") && builder.includes("copy_element_style") && builder.includes('copyVisualStyle'));

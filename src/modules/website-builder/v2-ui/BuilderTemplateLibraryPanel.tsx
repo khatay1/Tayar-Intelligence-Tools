@@ -227,7 +227,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
         <input
           value={search}
           onChange={event => setSearch(event.target.value)}
-          placeholder="Search templates"
+          placeholder={l("Search templates")}
           className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-8 pr-3 text-xs text-white outline-none placeholder:text-gray-600 focus:border-cyan-500/50"
         />
       </label>
@@ -265,7 +265,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
           type="button"
           onClick={() => void loadPage(0, false)}
           disabled={loading || loadingMore}
-          title="Refresh library"
+          title={l("Refresh library")}
           className="rounded-lg border border-white/10 p-2 text-gray-400 hover:bg-white/5 hover:text-white disabled:opacity-40"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />

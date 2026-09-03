@@ -38,9 +38,9 @@ export function BuilderHistoryPanel({ shell, onRestoreEntry }: BuilderHistoryPan
             disabled={!onRestoreEntry}
             title={l('Restore this editor state')}
           >
-            <span className="tayar-v2-history-entry__label">{entry.label}</span>
+            <span className="tayar-v2-history-entry__label">{l(entry.label)}</span>
             <span className="tayar-v2-history-entry__meta">
-              {entry.source} · {formatTime(entry.createdAt)} · {l('Restore')}
+              {l(entry.source)} · {formatTime(entry.createdAt)} · {l('Restore')}
             </span>
           </button>
         ))}
@@ -50,8 +50,8 @@ export function BuilderHistoryPanel({ shell, onRestoreEntry }: BuilderHistoryPan
             <small>{l('Redo queue')}</small>
             {history.redo.map((entry) => (
               <div key={entry.id} className="tayar-v2-history-entry" data-redo="true">
-                <span className="tayar-v2-history-entry__label">{entry.label}</span>
-                <span className="tayar-v2-history-entry__meta">{entry.source}</span>
+                <span className="tayar-v2-history-entry__label">{l(entry.label)}</span>
+                <span className="tayar-v2-history-entry__meta">{l(entry.source)}</span>
               </div>
             ))}
           </div>

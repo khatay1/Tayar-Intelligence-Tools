@@ -2181,7 +2181,7 @@ function buildFullHtml(
     ? `<div class="tayar-cookie-banner" data-tayar-cookie hidden><p>${escapeHtml(siteEnhancements.cookieText)}</p><button type="button" data-cookie-accept>${escapeHtml(siteEnhancements.cookieButtonLabel)}</button></div>`
     : '';
   const scrollProgress = siteEnhancements.scrollProgress ? '<div class="tayar-scroll-progress" data-scroll-progress></div>' : '';
-  const backToTop = siteEnhancements.backToTop ? '<button class="tayar-back-to-top" type="button" data-back-to-top aria-label="Back to top">↑</button>' : '';
+  const backToTop = siteEnhancements.backToTop ? '<button class="tayar-back-to-top" type="button" data-back-to-top aria-label={l("Back to top")}>↑</button>' : '';
   const announcementBar = siteEnhancements.announcementBar
     ? `<aside class="tayar-announcement" role="status"><span>${escapeHtml(siteEnhancements.announcementText)}</span>${siteEnhancements.announcementHref && siteEnhancements.announcementHref !== '#' ? `<a href="${escapeHtml(resolveBuilderHref(siteEnhancements.announcementHref, homeSlug))}">${escapeHtml(siteEnhancements.announcementLinkLabel)}</a>` : ''}</aside>`
     : '';
@@ -2706,13 +2706,13 @@ function ElementPreview({
   };
 
   if (element.type === 'heading') {
-    return <h2 {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</h2>;
+    return <h2 {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? l('Press Enter to finish · Esc to cancel') : l('Double-click to edit text')}>{element.content}</h2>;
   }
   if (element.type === 'text') {
-    return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit text'}>{element.content}</p>;
+    return <p {...dragProps} ref={(node) => { inlineEditRef.current = node; }} contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? l('Press Enter to finish · Esc to cancel') : l('Double-click to edit text')}>{element.content}</p>;
   }
   if (element.type === 'button') {
-    return <button {...dragProps} ref={(node) => { inlineEditRef.current = node; }} type="button" contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? 'Press Enter to finish · Esc to cancel' : 'Double-click to edit button text'}>{element.content}</button>;
+    return <button {...dragProps} ref={(node) => { inlineEditRef.current = node; }} type="button" contentEditable={editingInline} suppressContentEditableWarning onBlur={commitInlineEdit} onKeyDown={handleInlineKeyDown} className={`${wrapper} ${editingInline ? 'ring-2 ring-cyan-400/80 bg-black/10' : ''}`} style={commonStyle} title={editingInline ? l('Press Enter to finish · Esc to cancel') : l('Double-click to edit button text')}>{element.content}</button>;
   }
   if (element.type === 'list') {
     const items = (element.content || '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
@@ -2743,7 +2743,7 @@ function ElementPreview({
   }
   if (element.type === 'gallery') {
     const images = (element.content || '').split(/\r?\n/).map((item) => safeEmbedUrl(item)).filter(Boolean);
-    return <div {...dragProps} className={`${wrapper} grid w-full grid-cols-2 gap-2 md:grid-cols-3`} style={commonStyle}>{images.length ? images.map((src, index) => <img key={`${element.id}-gallery-${index}`} src={src} alt={`Gallery ${index + 1}`} className="aspect-[4/3] w-full rounded-lg object-cover" draggable={false} />) : <div className="col-span-full flex min-h-32 items-center justify-center border border-dashed border-white/20 text-xs text-gray-400">{l('Add one image URL per line')}</div>}</div>;
+    return <div {...dragProps} className={`${wrapper} grid w-full grid-cols-2 gap-2 md:grid-cols-3`} style={commonStyle}>{images.length ? images.map((src, index) => <img key={`${element.id}-gallery-${index}`} src={src} alt={l('Gallery {index}').replace('{index}', String(index + 1))} className="aspect-[4/3] w-full rounded-lg object-cover" draggable={false} />) : <div className="col-span-full flex min-h-32 items-center justify-center border border-dashed border-white/20 text-xs text-gray-400">{l('Add one image URL per line')}</div>}</div>;
   }
   if (element.type === 'embed') {
     const source = safeEmbedUrl(element.src || '');
@@ -2914,7 +2914,7 @@ function SectionPreview({
           <button
             type="button"
             onClick={() => {
-              const next = window.prompt('Button link', element.href || '#');
+              const next = window.prompt(l('Button link'), element.href || '#');
               if (next !== null) onQuickUpdateElement(element.id, { href: next.trim() || '#' });
             }}
             className="rounded p-1 text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200"
@@ -3250,7 +3250,7 @@ function SectionPreview({
                   event.stopPropagation();
                   if (!contactSubmitElement) return;
                   onSelectElement(contactSubmitElement.id);
-                  const nextText = window.prompt('Button text', contactSubmitElement.content || '')?.trim();
+                  const nextText = window.prompt(l('Button text'), contactSubmitElement.content || '')?.trim();
                   if (nextText && nextText !== contactSubmitElement.content) onInlineContentChange(contactSubmitElement.id, nextText);
                 }}
                 title={l('Double-click to edit button text')}
@@ -3496,7 +3496,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBillingBusy(false);
     setAiBusy(false);
     setAiQualityBusy(false);
-  }, [user?.id]);
+  }, [user?.id, l]);
 
   const cancelPendingProjectPersistence = useCallback(() => {
     if (autosaveTimerRef.current) {
@@ -3807,11 +3807,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!parsed) { setRecoveryAvailable(false); return; }
 
       if (snapshotConflictsWithActiveProject(parsed.project, true)) {
-        window.alert('This recovery snapshot belongs to a different project. Open that project before restoring it.');
+        window.alert(l("This recovery snapshot belongs to a different project. Open that project before restoring it."));
         return;
       }
 
-      if (!window.confirm(`Restore the recovery snapshot from ${parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : 'the previous edit'}?`)) return;
+      if (!window.confirm(l('Restore the recovery snapshot from {time}?').replace('{time}', parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : l('the previous edit')))) return;
       saveRecoverySnapshot('before recovery restore');
       prepareProjectStateRestore();
       applyProjectData(parsed.project);
@@ -3819,7 +3819,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
       setOperationsOpen(false);
     } catch {
-      window.alert('The recovery snapshot could not be restored.');
+      window.alert(l("The recovery snapshot could not be restored."));
     }
   }
 
@@ -3976,7 +3976,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!refreshIsCurrent()) return;
 
       if (error) {
-        setCloudError('Could not load cloud projects.');
+        setCloudError(l("Could not load cloud projects."));
         return;
       }
 
@@ -3985,7 +3985,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!refreshIsCurrent()) return;
       const message = error instanceof Error ? error.message : '';
       if (!/abort|cancel/i.test(message)) {
-        setCloudError('Could not load cloud projects.');
+        setCloudError(l("Could not load cloud projects."));
       }
     } finally {
       if (refreshIsCurrent()) {
@@ -3994,7 +3994,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setCloudProjectsLoaded(true);
       }
     }
-  }, [user, cancelPendingProjectPersistence]);
+  }, [user, cancelPendingProjectPersistence, l]);
 
   const loadLocalReusableSections = useCallback(() => {
     try {
@@ -4032,7 +4032,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setReusableError('Could not load reusable sections.');
+      setReusableError(l("Could not load reusable sections."));
       setReusableBusy(false);
       return;
     }
@@ -4053,11 +4053,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setReusableSections(items);
     setReusableBusy(false);
-  }, [user?.id, loadLocalReusableSections]);
+  }, [user?.id, loadLocalReusableSections, l]);
 
   async function saveSelectedSectionAsReusable() {
     if (!selectedSection) return;
-    const title = window.prompt('Template name', selectedSection.title || SECTION_LABELS[selectedSection.type])?.trim();
+    const title = window.prompt(l('Template name'), selectedSection.title || SECTION_LABELS[selectedSection.type])?.trim();
     if (!title) return;
 
     setReusableError('');
@@ -4092,7 +4092,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!operationIsCurrent()) return;
 
       if (error) {
-        setReusableError('Could not save this reusable section.');
+        setReusableError(l("Could not save this reusable section."));
         return;
       }
 
@@ -4116,7 +4116,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function deleteReusableSection(template: ReusableSectionTemplate) {
-    if (!window.confirm(`Delete reusable section “${template.title}”?`)) return;
+    if (!window.confirm(l('Delete reusable section “{title}”?').replace('{title}', template.title))) return;
     setReusableError('');
 
     const operationUserId = user?.id ?? null;
@@ -4142,7 +4142,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!operationIsCurrent()) return;
 
       if (error) {
-        setReusableError('Could not delete this reusable section.');
+        setReusableError(l("Could not delete this reusable section."));
         return;
       }
 
@@ -4392,7 +4392,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!projectTeamAccess.canManage) {
       if (refreshIsCurrent()) {
         setLeads([]);
-        setLeadsError('Lead inbox is available to project owners and workspace admins.');
+        setLeadsError(l("Lead inbox is available to project owners and workspace admins."));
         setLeadsLoading(false);
       }
       return;
@@ -4406,7 +4406,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied.');
+      setLeadsError(l("Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied."));
       setLeadsLoading(false);
       return;
     }
@@ -4415,7 +4415,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLeads(nextLeads);
     setSelectedLeadIds((current) => current.filter((id) => nextLeads.some((lead) => lead.id === id)));
     setLeadsLoading(false);
-  }, [user, cloudProjectId, projectTeamAccess.canManage]);
+  }, [user, cloudProjectId, projectTeamAccess.canManage, l]);
 
   async function updateLeadStatus(leadId: string, status: WebsiteLead['status']) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
@@ -4440,7 +4440,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not update this lead.');
+      setLeadsError(l("Could not update this lead."));
       return;
     }
 
@@ -4474,7 +4474,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not update CRM details for this lead.');
+      setLeadsError(l("Could not update CRM details for this lead."));
       return;
     }
 
@@ -4505,7 +4505,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not update the selected leads.');
+      setLeadsError(l("Could not update the selected leads."));
       return;
     }
 
@@ -4539,7 +4539,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function deleteLead(leadId: string) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
-    const confirmed = window.confirm('Delete this lead permanently?');
+    const confirmed = window.confirm(l("Delete this lead permanently?"));
     if (!confirmed) return;
 
     const deleteLoadSequence = projectLoadSequenceRef.current;
@@ -4559,7 +4559,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!deleteIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not delete this lead.');
+      setLeadsError(l("Could not delete this lead."));
       return;
     }
 
@@ -4587,7 +4587,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!projectTeamAccess.canEdit) {
       if (refreshIsCurrent()) {
         setAnalyticsEvents([]);
-        setAnalyticsError('Analytics is available to project owners, admins, and editors.');
+        setAnalyticsError(l("Analytics is available to project owners, admins, and editors."));
         setAnalyticsLoading(false);
       }
       return;
@@ -4601,14 +4601,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setAnalyticsError('Analytics is unavailable. Make sure the Sprint 15 database migration is applied.');
+      setAnalyticsError(l("Analytics is unavailable. Make sure the Sprint 15 database migration is applied."));
       setAnalyticsLoading(false);
       return;
     }
 
     setAnalyticsEvents((data || []) as WebsiteAnalyticsEvent[]);
     setAnalyticsLoading(false);
-  }, [user, cloudProjectId, projectTeamAccess.canEdit]);
+  }, [user, cloudProjectId, projectTeamAccess.canEdit, l]);
 
   const refreshMedia = useCallback(async (expectedUserId: string | null = user?.id ?? null) => {
     if (activeUserIdRef.current !== expectedUserId) {
@@ -4637,7 +4637,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setMediaError('Media library is unavailable. Make sure the Sprint 12 storage migration is applied.');
+      setMediaError(l("Media library is unavailable. Make sure the Sprint 12 storage migration is applied."));
       setMediaLoading(false);
       return;
     }
@@ -4683,15 +4683,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function uploadMediaFile(file: File) {
     const uploadUserId = user?.id ?? null;
     if (!uploadUserId) {
-      setMediaError('Sign in before uploading media.');
+      setMediaError(l("Sign in before uploading media."));
       return;
     }
     if (!file.type.startsWith('image/')) {
-      setMediaError('Only image files are supported.');
+      setMediaError(l("Only image files are supported."));
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setMediaError('Images must be 5 MB or smaller.');
+      setMediaError(l("Images must be 5 MB or smaller."));
       return;
     }
 
@@ -4715,7 +4715,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!uploadIsCurrentUser()) return;
 
       if (error) {
-        setMediaError('Could not upload this image.');
+        setMediaError(l("Could not upload this image."));
         return;
       }
 
@@ -4740,7 +4740,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function deleteMediaAsset(asset: WebsiteMediaAsset) {
     const deleteUserId = user?.id ?? null;
     if (!deleteUserId) return;
-    if (!window.confirm(`Delete ${asset.name} from your media library?`)) return;
+    if (!window.confirm(l('Delete {name} from your media library?').replace('{name}', asset.name))) return;
 
     const deleteSequence = ++mediaDeleteSequenceRef.current;
     const deleteProjectSequence = projectLoadSequenceRef.current;
@@ -4756,7 +4756,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!deleteIsCurrentUser()) return;
 
     if (error) {
-      setMediaError('Could not delete this image.');
+      setMediaError(l("Could not delete this image."));
       return;
     }
 
@@ -4915,7 +4915,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         entitlements: FREE_BILLING_ENTITLEMENTS,
         usage: { ...current.usage, pages: pages.length },
       }));
-      setBillingError('Billing status could not be verified, so paid features are temporarily locked. Apply the Sprint 121–132 migration if this is a new install.');
+      setBillingError(l("Billing status could not be verified, so paid features are temporarily locked. Apply the Sprint 121–132 migration if this is a new install."));
       setBillingLoading(false);
       return;
     }
@@ -4953,7 +4953,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       },
     });
     setBillingLoading(false);
-  }, [user?.id, pages.length, cloudProjectId]);
+  }, [user?.id, pages.length, cloudProjectId, l]);
   async function startBillingCheckout(plan: 'pro' | 'business') {
     const checkoutUserId = user?.id ?? null;
     if (!checkoutUserId) {
@@ -4991,7 +4991,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       window.location.assign(url);
     } catch (error) {
       if (!operationIsCurrent()) return;
-      setBillingError(error instanceof Error ? error.message : 'Could not open Stripe Checkout.');
+      setBillingError(error instanceof Error ? l(error.message) : l('Could not open Stripe Checkout.'));
       setBillingBusy(false);
     }
   }
@@ -5018,7 +5018,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       window.location.assign(url);
     } catch (error) {
       if (!operationIsCurrent()) return;
-      setBillingError(error instanceof Error ? error.message : 'Could not open the billing portal.');
+      setBillingError(error instanceof Error ? l(error.message) : l('Could not open the billing portal.'));
       setBillingBusy(false);
     }
   }
@@ -5067,7 +5067,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       if (projectId) {
-        setCloudError('The requested website is not visible in your current cloud projects.');
+        setCloudError(l("The requested website is not visible in your current cloud projects."));
         return;
       }
 
@@ -5083,7 +5083,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saveActiveWebsiteProjectId(fallbackProject.id);
       void loadCloudProjectRef.current(fallbackProject.id);
     }
-  }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId]);
+  }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId, l]);
 
   useEffect(() => {
     if (!user || !cloudProjectId) return;
@@ -5106,7 +5106,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setBillingOpen(true);
     if (billingResult === 'success') {
-      setBillingError('Payment completed. Stripe is syncing your subscription; refresh billing if the badge does not update immediately.');
+      setBillingError(l("Payment completed. Stripe is syncing your subscription; refresh billing if the badge does not update immediately."));
       syncTimer = window.setTimeout(() => {
         if (
           projectLoadSequenceRef.current !== billingLoadSequence ||
@@ -5118,7 +5118,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         void refreshBilling(billingProjectId, billingLoadSequence);
       }, 1200);
     } else if (billingResult === 'canceled') {
-      setBillingError('Checkout was canceled. Your current plan was not changed.');
+      setBillingError(l("Checkout was canceled. Your current plan was not changed."));
     }
     params.delete('billing');
     const query = params.toString();
@@ -5127,7 +5127,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return () => {
       if (syncTimer !== null) window.clearTimeout(syncTimer);
     };
-  }, [cloudProjectId, refreshBilling, user?.id]);
+  }, [cloudProjectId, refreshBilling, user?.id, l]);
 
   useEffect(() => {
     if (leadsOpen) void refreshLeads();
@@ -5282,7 +5282,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return () => {
       if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     };
-  }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId]);
+  }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId, l]);
 
   const analyticsSummary = useMemo(
     () => summarizeWebsiteAnalytics(analyticsEvents),
@@ -5537,7 +5537,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (language === currentLanguage) return;
     const groupKey = activePage.translationKey?.trim() || `translation-${activePage.id}`;
     if (pages.some((page) => page.translationKey === groupKey && normalizePageLanguage(page.language, prefs.language) === language)) {
-      window.alert(`A ${PAGE_LANGUAGE_LABELS[language]} version already exists in this translation group.`);
+      window.alert(l('A {language} version already exists in this translation group.').replace('{language}', PAGE_LANGUAGE_LABELS[language]));
       return;
     }
     const used = new Set(pages.map((page) => normalizeSlug(page.slug)));
@@ -5646,8 +5646,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     };
   }
 
-  function remember(_current: WebsiteSection[], label = 'Manual edit') {
-    const entry = createEditHistoryEntry(label);
+  function remember(_current: WebsiteSection[], label?: string) {
+    const entry = createEditHistoryEntry(label ?? l('Manual edit'));
     setHistory((current) => [...current.slice(-49), entry]);
     setFuture([]);
   }
@@ -6214,7 +6214,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!selectedElement || !selectedSection || selectedElement.symbolId) return;
 
     if (symbols.length >= 50) {
-      window.alert('You can keep up to 50 reusable components in one website. Delete an unused component before creating another.');
+      window.alert(l("You can keep up to 50 reusable components in one website. Delete an unused component before creating another."));
       return;
     }
 
@@ -6289,7 +6289,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function deleteSymbol(symbolId: string) {
-    if (!window.confirm('Delete this component? Existing instances will become normal elements.')) return;
+    if (!window.confirm(l("Delete this component? Existing instances will become normal elements."))) return;
     remember(sections, 'Delete reusable component');
     setSymbols((current) => current.filter((symbol) => symbol.id !== symbolId));
     const detach = (section: WebsiteSection) => ({
@@ -6831,8 +6831,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       const message =
         error instanceof Error
-          ? error.message
-          : 'Could not generate image.';
+          ? l(error.message)
+          : l('Could not generate image.');
 
       setMediaError(message);
 
@@ -7089,7 +7089,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      const message = error instanceof Error ? error.message : 'AI generation failed.';
+      const message = error instanceof Error ? l(error.message) : l('AI generation failed.');
       setAiError(message);
       setAiStage('error');
       setAiMessages((current) => [
@@ -7366,10 +7366,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const agentPlan: AIWebsiteAgentPlan = {
         summary: typeof rawAgentPlan?.summary === 'string' && rawAgentPlan.summary.trim()
           ? rawAgentPlan.summary.trim().slice(0, 240)
-          : 'Apply the requested website changes safely.',
+          : l('Apply the requested website changes safely.'),
         steps: plannedSteps.length
           ? plannedSteps
-          : [{ id: 'step-1', title: 'Apply the requested changes with native editable Tayar operations.', destructive: false }],
+          : [{ id: 'step-1', title: l('Apply the requested changes with native editable Tayar operations.'), destructive: false }],
         warnings: Array.isArray(rawAgentPlan?.warnings)
           ? rawAgentPlan.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
           : [],
@@ -7380,7 +7380,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-plan-${Date.now()}`,
           role: 'assistant' as const,
-          content: `Plan: ${planPreview}${agentPlan.warnings?.length ? ` · ${agentPlan.warnings.join(' · ')}` : ''}`,
+          content: `${l('Plan')}: ${planPreview}${agentPlan.warnings?.length ? ` · ${agentPlan.warnings.join(' · ')}` : ''}`,
         },
       ].slice(-30));
 
@@ -7415,7 +7415,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const removesPage = destructiveOperations.some((operation) => operation.action === 'remove_page');
       if (removesPage || destructiveOperations.length >= 3) {
         const confirmed = window.confirm(
-          `Tayar AI wants to run ${destructiveOperations.length} destructive change${destructiveOperations.length === 1 ? '' : 's'}. Continue?`
+          (destructiveOperations.length === 1 ? l('Tayar AI wants to run 1 destructive change. Continue?') : l('Tayar AI wants to run {count} destructive changes. Continue?').replace('{count}', String(destructiveOperations.length)))
         );
         if (!confirmed) {
           setAiStage('ready');
@@ -9995,22 +9995,33 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const confidence = Number.isFinite(Number(patch.confidence))
         ? Math.min(1, Math.max(0, Number(patch.confidence)))
         : null;
-      const summary = patch.summary?.trim() || `Applied ${applied} targeted AI change${applied === 1 ? '' : 's'}.`;
+      const summary = patch.summary?.trim() || l('Applied {count} targeted AI changes.').replace('{count}', String(applied));
       setAiPlan({
         summary,
         pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
       });
+      const planResultStatus = l('Planned {steps} steps and applied {operations} safe native operations without rebuilding unrelated content.')
+        .replace('{steps}', String((agentPlan.steps || []).length))
+        .replace('{operations}', String(applied));
+      const skippedStatus = skipped
+        ? ` ${l('{count} unsupported or unsafe operations were skipped.').replace('{count}', String(skipped))}`
+        : '';
+      const warningStatus = patchWarnings.length ? ` ${l('Warnings')}: ${patchWarnings.join(' · ')}` : '';
+      const confidenceStatus = confidence !== null ? ` ${l('Confidence')}: ${Math.round(confidence * 100)}%.` : '';
+      const agentReviewStatus = agentReview
+        ? ` ${l('Agent review')}${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || l('Review complete.')}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${l(finding.severity)}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · ${l('Suggested follow-up')}: ${agentReview.followUpPrompt}` : ''}`
+        : '';
       setAiMessages((current) => [
         ...current,
         {
           id: `ai-patch-result-${Date.now()}`,
           role: 'assistant' as const,
-          content: `${summary} Planned ${(agentPlan.steps || []).length} step${(agentPlan.steps || []).length === 1 ? '' : 's'} and applied ${applied} safe native operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.${skipped ? ` ${skipped} unsupported or unsafe operation${skipped === 1 ? ' was' : 's were'} skipped.` : ''}${patchWarnings.length ? ` Warnings: ${patchWarnings.join(' · ')}` : ''}${confidence !== null ? ` Confidence: ${Math.round(confidence * 100)}%.` : ''}${agentReview ? ` Agent review${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || 'Review complete.'}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · Suggested follow-up: ${agentReview.followUpPrompt}` : ''}` : ''}`,
+          content: `${summary} ${planResultStatus}${skippedStatus}${warningStatus}${confidenceStatus}${agentReviewStatus}`,
         },
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      const message = error instanceof Error ? error.message : 'AI edit failed.';
+      const message = error instanceof Error ? l(error.message) : l('AI edit failed.');
       setAiError(message);
       setAiStage('error');
       setAiMessages((current) => [
@@ -10116,7 +10127,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      setAiError(error instanceof Error ? error.message : 'Image generation failed.');
+      setAiError(error instanceof Error ? l(error.message) : l('Image generation failed.'));
     } finally {
       if (operationIsLatest()) setAiBusy(false);
     }
@@ -10170,8 +10181,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!operationCanApply()) return;
       setAiError(
         error instanceof Error
-          ? error.message
-          : 'Image prompt generation failed.'
+          ? l(error.message)
+          : l('Image prompt generation failed.')
       );
     } finally {
       if (operationIsLatest()) setAiBusy(false);
@@ -10246,7 +10257,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return normalized;
     } catch (error) {
       if (!operationCanApply()) return null;
-      const message = error instanceof Error ? error.message : 'AI quality check failed.';
+      const message = error instanceof Error ? l(error.message) : l('AI quality check failed.');
       setAiError(message);
       aiQualityReviewContextRef.current = operationContext;
       setAiQualityReview({
@@ -10275,7 +10286,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       aiQualityReviewContextRef.current = null;
       setAiQualityReview(null);
       setAiError(
-        'The website changed after this quality review. Run the quality check again before applying fixes.',
+        l("The website changed after this quality review. Run the quality check again before applying fixes."),
       );
       return;
     }
@@ -10310,14 +10321,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshIsCurrent()) return;
 
     if (error) {
-      setPublishVersionsError('Release history is unavailable. Apply the Sprint 97-108 database migration.');
+      setPublishVersionsError(l("Release history is unavailable. Apply the Sprint 97-108 database migration."));
       setPublishVersionsLoading(false);
       return;
     }
 
     setPublishVersions((data || []) as WebsitePublishVersion[]);
     setPublishVersionsLoading(false);
-  }, [user, cloudProjectId, activeProjectOwnerId]);
+  }, [user, cloudProjectId, activeProjectOwnerId, l]);
 
   useEffect(() => {
     if (releaseHistoryOpen) void refreshPublishVersions();
@@ -10369,18 +10380,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLiveVerification(routeHealthy ? 'healthy' : 'failed');
 
     if (!routeHealthy && import.meta.env.PROD) {
-      setPublishError('The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar.');
+      setPublishError(l("The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar."));
     }
 
     return routeHealthy;
   }
   async function createSharePreview() {
     if (cloudProjectId && !projectTeamAccess.canPublish) {
-      setPreviewError('Only the project owner can create public share previews.');
+      setPreviewError(l("Only the project owner can create public share previews."));
       return;
     }
     if (!user || !cloudProjectId) {
-      setPreviewError('Save this project to the cloud before creating a share preview.');
+      setPreviewError(l("Save this project to the cloud before creating a share preview."));
       return;
     }
 
@@ -10402,7 +10413,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!previewIsCurrent()) return;
 
     if (!latestSaved) {
-      setPreviewError('The latest editor changes could not be synchronized before creating the preview.');
+      setPreviewError(l("The latest editor changes could not be synchronized before creating the preview."));
       setPreviewBusy(false);
       return;
     }
@@ -10452,7 +10463,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       try { await navigator.clipboard.writeText(nextUrl); } catch { /* Clipboard access is optional. */ }
     } catch (error) {
       if (!previewIsCurrent()) return;
-      setPreviewError(error instanceof Error ? error.message : 'Could not create share preview.');
+      setPreviewError(error instanceof Error ? l(error.message) : l('Could not create share preview.'));
     } finally {
       if (previewOperationSequenceRef.current === previewSequence) {
         setPreviewBusy(false);
@@ -10487,7 +10498,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
     } catch (error) {
       if (!revokeIsCurrent()) return;
-      setPreviewError(error instanceof Error ? error.message : 'Could not revoke share preview.');
+      setPreviewError(error instanceof Error ? l(error.message) : l('Could not revoke share preview.'));
     } finally {
       if (updateBusy && previewOperationSequenceRef.current === revokeSequence) {
         setPreviewBusy(false);
@@ -10497,10 +10508,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function rollbackPublishVersion(version: WebsitePublishVersion) {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can rollback a published release.');
+      setPublishError(l("Only the project owner can rollback a published release."));
       return;
     }
-    if (!window.confirm(`Rollback the live website to the release from ${new Date(version.created_at).toLocaleString()}? Your editor draft will stay unchanged.`)) return;
+    if (!window.confirm(l('Rollback the live website to the release from {time}? Your editor draft will stay unchanged.').replace('{time}', new Date(version.created_at).toLocaleString()))) return;
 
     const rollbackSequence = ++publishOperationSequenceRef.current;
     const rollbackLoadSequence = projectLoadSequenceRef.current;
@@ -10620,7 +10631,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       );
     } catch (error) {
       if (!rollbackIsCurrent()) return;
-      setPublishError(error instanceof Error ? error.message : 'Could not rollback this release.');
+      setPublishError(error instanceof Error ? l(error.message) : l('Could not rollback this release.'));
     } finally {
       if (publishOperationSequenceRef.current === rollbackSequence) {
         setPublishBusy(false);
@@ -10629,11 +10640,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
   function restorePublishVersionToEditor(version: WebsitePublishVersion) {
     if (snapshotConflictsWithActiveProject(version.snapshot)) {
-      setPublishVersionsError('This release snapshot does not belong to the active project.');
+      setPublishVersionsError(l("This release snapshot does not belong to the active project."));
       return;
     }
 
-    if (!window.confirm('Restore this release into the editor? The live website will not change until you publish again.')) return;
+    if (!window.confirm(l("Restore this release into the editor? The live website will not change until you publish again."))) return;
     const restored = {
       ...(version.snapshot || {}),
       publishedUrl,
@@ -10654,14 +10665,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function deletePublishVersion(version: WebsitePublishVersion) {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
-      setPublishVersionsError('Only the project owner can delete release archives.');
+      setPublishVersionsError(l("Only the project owner can delete release archives."));
       return;
     }
     if (version.id === lastPublishedVersionId) {
-      setPublishVersionsError('You cannot delete the release currently serving as the live rollback reference.');
+      setPublishVersionsError(l("You cannot delete the release currently serving as the live rollback reference."));
       return;
     }
-    if (!window.confirm('Delete this stored release archive? This cannot be undone.')) return;
+    if (!window.confirm(l("Delete this stored release archive? This cannot be undone."))) return;
 
     const deleteLoadSequence = projectLoadSequenceRef.current;
     const deleteProjectId = cloudProjectId;
@@ -10690,7 +10701,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishVersions((current) => current.filter((item) => item.id !== version.id));
     } catch (error) {
       if (!deleteIsCurrent()) return;
-      setPublishVersionsError(error instanceof Error ? error.message : 'Could not delete this release.');
+      setPublishVersionsError(error instanceof Error ? l(error.message) : l('Could not delete this release.'));
     } finally {
       if (deleteIsCurrent()) {
         setPublishVersionsLoading(false);
@@ -10701,14 +10712,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function saveProject(options: { automatic?: boolean; createHistory?: boolean } = {}): Promise<boolean> {
     const automatic = options.automatic === true;
     if (user && projectId && cloudProjectId !== projectId) {
-      setCloudError('Opening your saved website. Save will continue when it is loaded.');
+      setCloudError(l("Opening your saved website. Save will continue when it is loaded."));
       return false;
     }
 
     if (user && !cloudProjectId) {
       const preservedProjectId = projectId || loadActiveWebsiteProjectId();
       if (preservedProjectId) {
-        setCloudError('Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available.');
+        setCloudError(l("Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available."));
         setAutoSaveStatus('failed');
         return false;
       }
@@ -10719,7 +10730,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           cloudProjects[0];
 
         saveActiveWebsiteProjectId(fallbackProject.id);
-        setCloudError('Opening your most recent saved website before saving. No duplicate draft was created.');
+        setCloudError(l("Opening your most recent saved website before saving. No duplicate draft was created."));
         setAutoSaveStatus('saving');
         void loadCloudProjectRef.current(fallbackProject.id);
         return false;
@@ -10730,7 +10741,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const fingerprint = buildProjectFingerprint();
 
     if (user && cloudProjectId && !projectTeamAccess.canEdit) {
-      setCloudError('This shared project is read-only for your Viewer role.');
+      setCloudError(l("This shared project is read-only for your Viewer role."));
       setAutoSaveStatus('failed');
       return false;
     }
@@ -10761,7 +10772,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const projectData = buildProjectData(historyEntries);
     const localSaved = saveLocalWebsiteProject(projectData);
     if (!localSaved) {
-      setCloudError('Local recovery storage is full. Cloud save will still be attempted.');
+      setCloudError(l("Local recovery storage is full. Cloud save will still be attempted."));
     }
 
     let cloudSaved = !user;
@@ -10772,7 +10783,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (!networkOnline) {
         setCloudSyncFailed(true);
-        setCloudError('You are offline. Changes are saved locally and will retry when the connection returns.');
+        setCloudError(l("You are offline. Changes are saved locally and will retry when the connection returns."));
       } else if (cloudProjectId) {
         const result = await updateWebsiteProjectInCloud({
           projectId: cloudProjectId,
@@ -10872,7 +10883,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return durableSaved;
     } catch (error) {
       if (saveIsCurrent()) {
-        const message = error instanceof Error ? error.message : 'Unexpected save failure.';
+        const message = error instanceof Error ? l(error.message) : l('Unexpected save failure.');
         setCloudSyncFailed(Boolean(saveUserId));
         setCloudError(saveUserId ? `Save failed: ${message}` : message);
         setAutoSaveStatus('failed');
@@ -10997,11 +11008,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function restoreHistoryEntry(entry: ProjectHistoryEntry) {
-    const confirmed = window.confirm(`Restore "${entry.label}"? Your current unsaved changes will be replaced.`);
+    const confirmed = window.confirm(l('Restore "{label}"? Your current unsaved changes will be replaced.').replace('{label}', entry.label));
     if (!confirmed) return;
 
     if (snapshotConflictsWithActiveProject(entry.snapshot)) {
-      setCloudError('This history snapshot does not belong to the active project.');
+      setCloudError(l("This history snapshot does not belong to the active project."));
       return;
     }
 
@@ -11020,7 +11031,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function resetProject() {
     const confirmed = window.confirm(
-      'Reset the website builder to the default project?'
+      l("Reset the website builder to the default project?")
     );
 
     if (!confirmed) return;
@@ -11209,7 +11220,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         raw = await file.text();
       } catch {
         if (importIsCurrent()) {
-          window.alert('This JSON file could not be read.');
+          window.alert(l("This JSON file could not be read."));
         }
         return;
       }
@@ -11257,7 +11268,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setAutoSaveStatus('saved');
         setOperationsOpen(false);
       } catch {
-        window.alert('This JSON file is not a valid Tayar Website Builder backup.');
+        window.alert(l("This JSON file is not a valid Tayar Website Builder backup."));
       }
     };
     input.click();
@@ -11347,7 +11358,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function markProjectDelivered() {
-    if (!publishedUrl && !window.confirm('This project is not currently published. Mark it delivered anyway?')) return;
+    if (!publishedUrl && !window.confirm(l("This project is not currently published. Mark it delivered anyway?"))) return;
     setDeliveryConfig((current) => ({ ...current, status: 'delivered', deliveredAt: new Date().toISOString() }));
     setSaved(false);
   }
@@ -11406,7 +11417,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!requireBillingFeature('clientDelivery', 'Client handoff ZIP')) return;
     const productionUrl = normalizeSiteUrl(siteUrl) || (publishedUrl ? publishedUrl.replace(/\/index\.html(?:[?#].*)?$/i, '') : '');
     if (!productionUrl) {
-      window.alert('Add a Production URL or publish the website before creating the client handoff package.');
+      window.alert(l('Add a Production URL or publish the website before creating the client handoff package.'));
       return;
     }
 
@@ -11512,7 +11523,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not mark all leads as read.');
+      setLeadsError(l("Could not mark all leads as read."));
       return;
     }
 
@@ -11544,7 +11555,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!updateIsCurrent()) return;
 
     if (error) {
-      setLeadsError('Could not archive read leads.');
+      setLeadsError(l("Could not archive read leads."));
       return;
     }
 
@@ -11580,7 +11591,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!requireBillingFeature('exportZip', 'Production ZIP export')) return;
     const productionUrl = normalizeSiteUrl(siteUrl);
     if (!productionUrl) {
-      window.alert('Add your production URL first, for example https://example.com. It is required for canonical URLs and sitemap.xml.');
+      window.alert(l('Add your production URL first, for example https://example.com. It is required for canonical URLs and sitemap.xml.'));
       return;
     }
 
@@ -11621,28 +11632,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function publishWebsite() {
     if (!networkOnline) {
-      setPublishError('Publish preflight blocked: you are offline. Reconnect and try again.');
+      setPublishError(l("Publish preflight blocked: you are offline. Reconnect and try again."));
       return;
     }
 
     if (siteAudit.errors.length) {
-      setPublishError(`Publish preflight blocked: fix ${siteAudit.errors.length} critical audit error${siteAudit.errors.length === 1 ? '' : 's'} first.`);
+      setPublishError(l('Publish preflight blocked: fix {count} critical audit errors first.').replace('{count}', String(siteAudit.errors.length)));
       return;
     }
 
     if (!user) {
-      setPublishError('Sign in before publishing.');
+      setPublishError(l("Sign in before publishing."));
       return;
     }
 
     if (cloudProjectId && !projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can publish a shared website.');
+      setPublishError(l("Only the project owner can publish a shared website."));
       return;
     }
 
     const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
     if (!supabaseUrl) {
-      setPublishError('Supabase URL is not configured.');
+      setPublishError(l("Supabase URL is not configured."));
       return;
     }
 
@@ -11687,12 +11698,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         if (createResult.error || !createResult.data) {
           if (createResult.error && /limit reached/i.test(createResult.error.message || '')) {
-            openBillingWithMessage(createResult.error.message || 'Website project limit reached.');
+            openBillingWithMessage(createResult.error.message ? l(createResult.error.message) : l('Website project limit reached.'));
           }
 
           throw new Error(
-            createResult.error?.message ||
-            'The project could not be created in Tayar cloud before publishing.'
+            createResult.error?.message ? l(createResult.error.message) :
+            l('The project could not be created in Tayar cloud before publishing.')
           );
         }
 
@@ -11902,8 +11913,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         } catch (error) {
           archiveWarning =
             error instanceof Error
-              ? error.message
-              : 'Release history could not be archived.';
+              ? l(error.message)
+              : l('Release history could not be archived.');
         }
       }
 
@@ -12026,7 +12037,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (archiveWarning) {
         setPublishVersionsError(
-          'Website published successfully. Release history was skipped: ' +
+          l('Website published successfully. Release history was skipped:') + ' ' +
           archiveWarning
         );
       }
@@ -12043,8 +12054,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       setPublishError(
         error instanceof Error
-          ? error.message
-          : 'Could not publish this website.',
+          ? l(error.message)
+          : l('Could not publish this website.'),
       );
 
       setLiveVerification(
@@ -12059,10 +12070,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function unpublishWebsite() {
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can unpublish a shared website.');
+      setPublishError(l("Only the project owner can unpublish a shared website."));
       return;
     }
-    if (!window.confirm('Remove the public version of this website?')) return;
+    if (!window.confirm(l("Remove the public version of this website?"))) return;
 
     const unpublishSequence = ++publishOperationSequenceRef.current;
     const unpublishLoadSequence = projectLoadSequenceRef.current;
@@ -12129,7 +12140,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAutoSaveStatus('saved');
     } catch (error) {
       if (!unpublishIsCurrent()) return;
-      setPublishError(error instanceof Error ? error.message : 'Could not unpublish this website.');
+      setPublishError(error instanceof Error ? l(error.message) : l('Could not unpublish this website.'));
     } finally {
       if (publishOperationSequenceRef.current === unpublishSequence) {
         setPublishBusy(false);
@@ -12142,7 +12153,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      window.alert('Could not copy HTML. Please use Download Website instead.');
+      window.alert(l("Could not copy HTML. Please use Download Website instead."));
     }
   }
 
@@ -12227,32 +12238,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const unpublished = Boolean(publishedUrl && lastPublishedFingerprint && buildEditableFingerprint() !== lastPublishedFingerprint);
 
     const checks = [
-      { label: 'Site content', detail: `${currentPages.length} page${currentPages.length === 1 ? '' : 's'} configured`, ok: contentReady, points: 8 },
-      { label: 'SEO & accessibility audit', detail: `${siteAudit.score}/100 · ${siteAudit.errors.length} critical`, ok: auditReady, points: 15 },
-      { label: 'Cloud project', detail: cloudProjectId ? 'Project is saved to Tayar cloud' : 'Save the project to cloud', ok: Boolean(cloudProjectId), points: 10 },
-      { label: 'Cloud sync', detail: !networkOnline ? 'Offline' : cloudSyncFailed || autoSaveStatus === 'failed' ? 'Sync needs retry' : 'Sync healthy', ok: syncHealthy, points: 10 },
-      { label: 'Production URL', detail: productionUrlReady ? normalizeSiteUrl(siteUrl) : 'Add your production URL', ok: productionUrlReady, points: 8 },
-      { label: 'SEO title + favicon', detail: seoReady ? 'Branding metadata is configured' : 'Complete SEO title and favicon', ok: seoReady, points: 7 },
-      { label: 'Billing backend', detail: billingVerified ? `${BILLING_PLAN_DETAILS[billingPlan].label} entitlements verified` : billingError || 'Sign in and refresh billing', ok: billingVerified, points: 7 },
-      { label: 'Publish permission', detail: projectTeamAccess.canPublish ? 'Owner may publish' : 'Only the project owner can publish', ok: publishPermission, points: 5 },
-      { label: 'Published website', detail: publishedRelease ? (lastPublishedVersionId ? `Live · archive ${lastPublishedVersionId.slice(0, 8)}` : 'Live website detected') : 'Publish the first release', ok: publishedRelease, points: 15 },
-      { label: 'Live verification', detail: liveVerification === 'healthy' ? 'Published index verified' : publishedRelease ? 'Run live verification' : 'Available after publishing', ok: liveHealthy, points: 15 },
+      { label: l('Site content'), detail: l('{count} pages configured').replace('{count}', String(currentPages.length)), ok: contentReady, points: 8 },
+      { label: l('SEO & accessibility audit'), detail: l('{score}/100 · {count} critical').replace('{score}', String(siteAudit.score)).replace('{count}', String(siteAudit.errors.length)), ok: auditReady, points: 15 },
+      { label: l('Cloud project'), detail: cloudProjectId ? l('Project is saved to Tayar cloud') : l('Save the project to cloud'), ok: Boolean(cloudProjectId), points: 10 },
+      { label: l('Cloud sync'), detail: !networkOnline ? l('Offline') : cloudSyncFailed || autoSaveStatus === 'failed' ? l('Sync needs retry') : l('Sync healthy'), ok: syncHealthy, points: 10 },
+      { label: l('Production URL'), detail: productionUrlReady ? normalizeSiteUrl(siteUrl) : l('Add your production URL'), ok: productionUrlReady, points: 8 },
+      { label: l('SEO title + favicon'), detail: seoReady ? l('Branding metadata is configured') : l('Complete SEO title and favicon'), ok: seoReady, points: 7 },
+      { label: l('Billing backend'), detail: billingVerified ? l('{plan} entitlements verified').replace('{plan}', l(BILLING_PLAN_DETAILS[billingPlan].label)) : billingError || l('Sign in and refresh billing'), ok: billingVerified, points: 7 },
+      { label: l('Publish permission'), detail: projectTeamAccess.canPublish ? l('Owner may publish') : l('Only the project owner can publish'), ok: publishPermission, points: 5 },
+      { label: l('Published website'), detail: publishedRelease ? (lastPublishedVersionId ? l('Live · archive {id}').replace('{id}', lastPublishedVersionId.slice(0, 8)) : l('Live website detected')) : l('Publish the first release'), ok: publishedRelease, points: 15 },
+      { label: l('Live verification'), detail: liveVerification === 'healthy' ? l('Published index verified') : publishedRelease ? l('Run live verification') : l('Available after publishing'), ok: liveHealthy, points: 15 },
     ];
     const score = Math.min(100, checks.reduce((total, check) => total + (check.ok ? check.points : 0), 0));
     const blockers = [
-      !user ? 'Sign in before production launch.' : '',
-      !cloudProjectId ? 'Save the project to cloud.' : '',
-      !networkOnline ? 'Reconnect to the internet.' : '',
-      cloudSyncFailed || autoSaveStatus === 'failed' ? 'Resolve cloud sync before publishing.' : '',
-      siteAudit.errors.length ? `Fix ${siteAudit.errors.length} critical audit error${siteAudit.errors.length === 1 ? '' : 's'}.` : '',
-      !siteAudit.errors.length && siteAudit.score < 80 ? 'Raise the SEO and accessibility audit score to at least 80.' : '',
-      !productionUrlReady ? 'Add a valid production URL.' : '',
-      !seoReady ? 'Complete the SEO title and favicon.' : '',
-      billingLoading ? 'Wait for billing entitlements to finish loading.' : '',
-      !billingVerified && !billingLoading && !billingError ? 'Refresh billing entitlements before publishing.' : '',
-      productionConfig.maintenanceMode ? 'Disable maintenance mode for public launch.' : '',
-      user && cloudProjectId && !projectTeamAccess.canPublish ? 'The project owner must perform the publish.' : '',
-      billingError ? 'Billing entitlements could not be verified.' : '',
+      !user ? l('Sign in before production launch.') : '',
+      !cloudProjectId ? l('Save the project to cloud.') : '',
+      !networkOnline ? l('Reconnect to the internet.') : '',
+      cloudSyncFailed || autoSaveStatus === 'failed' ? l('Resolve cloud sync before publishing.') : '',
+      siteAudit.errors.length ? l('Fix {count} critical audit errors.').replace('{count}', String(siteAudit.errors.length)) : '',
+      !siteAudit.errors.length && siteAudit.score < 80 ? l('Raise the SEO and accessibility audit score to at least 80.') : '',
+      !productionUrlReady ? l('Add a valid production URL.') : '',
+      !seoReady ? l('Complete the SEO title and favicon.') : '',
+      billingLoading ? l('Wait for billing entitlements to finish loading.') : '',
+      !billingVerified && !billingLoading && !billingError ? l('Refresh billing entitlements before publishing.') : '',
+      productionConfig.maintenanceMode ? l('Disable maintenance mode for public launch.') : '',
+      user && cloudProjectId && !projectTeamAccess.canPublish ? l('The project owner must perform the publish.') : '',
+      billingError ? l('Billing entitlements could not be verified.') : '',
     ].filter(Boolean) as string[];
     const preflightReady = blockers.length === 0 && productionUrlReady && seoReady && siteAudit.score >= 80;
     const status = !preflightReady
@@ -12265,7 +12276,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             ? 'V1 LIVE'
             : 'VERIFY LIVE';
     return { score, checks, blockers, preflightReady, publishedRelease, liveHealthy, status };
-  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, buildEditableFingerprint]);
+  }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, buildEditableFingerprint, l]);
 
   function exportV1LaunchReport() {
     const manual = [
@@ -13728,7 +13739,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title={!user ? 'Sign in to use the media library' : 'Open media library'}
+            title={!user ? l('Sign in to use the media library') : l('Open media library')}
           >
             <Images className="h-4 w-4" />{l("Media")}</button>
 
@@ -13742,10 +13753,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title={!user ? 'Sign in to view leads' : !cloudProjectId ? 'Save this project to cloud first' : 'Open lead inbox'}
+            title={!user ? l('Sign in to view leads') : !cloudProjectId ? l('Save this project to cloud first') : l('Open lead inbox')}
           >
             <Inbox className="h-4 w-4" />
-            Leads
+            {l('Leads')}
             {leads.filter((lead) => lead.status === 'new').length > 0 && (
               <span className="rounded-full bg-cyan-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
                 {leads.filter((lead) => lead.status === 'new').length}
@@ -13763,7 +13774,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title={!user ? 'Sign in to view analytics' : !cloudProjectId ? 'Save this project to cloud first' : 'Open site analytics'}
+            title={!user ? l('Sign in to view analytics') : !cloudProjectId ? l('Save this project to cloud first') : l('Open site analytics')}
           >
             <BarChart3 className="h-4 w-4" />{l('Analytics')}</button>
 
@@ -13848,9 +13859,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   ? 'border-white/10 text-gray-300 hover:bg-white/5'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-100'
             }`}
-            title={!user ? 'Sign in to use release history' : !cloudProjectId ? 'Save this project to cloud first' : 'Publish releases, previews and rollback'}
+            title={!user ? l('Sign in to use release history') : !cloudProjectId ? l('Save this project to cloud first') : l('Publish releases, previews and rollback')}
           >
-            Releases
+            {l('Releases')}
             {publishVersions.length > 0 && <span className="rounded-full bg-indigo-500 px-1.5 py-0.5 text-[9px] font-bold text-white">{publishVersions.length}</span>}
           </button>
 
@@ -13900,7 +13911,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
                     : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'
                 }`}
-                title={publishedAt ? `Published ${new Date(publishedAt).toLocaleString()}` : 'Open published website'}
+                title={publishedAt ? l('Published {time}').replace('{time}', new Date(publishedAt).toLocaleString()) : l('Open published website')}
               >
                 <ExternalLink className="h-4 w-4" />{l('Live')}</button>
               <button
@@ -13975,20 +13986,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onClick={() => void saveProject()}
             disabled={cloudBusy}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${darkMode ? 'border-white/10 text-gray-200 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
-            title={user ? 'Save locally and to your account' : 'Save locally'}
+            title={user ? l('Save locally and to your account') : l('Save locally')}
           >
             {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            <span className="hidden 2xl:inline">{saved ? 'Saved' : 'Save'}</span>
+            <span className="hidden 2xl:inline">{saved ? l('Saved') : l('Save')}</span>
           </button>
 
           <button
             onClick={() => void publishWebsite()}
             disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
             className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
-            title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
+            title={!projectTeamAccess.canPublish ? l('Only the project owner can publish shared projects') : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || l('Complete the Launch Center checks before publishing') : l('Publish website')}
           >
             <Globe className="h-4 w-4" />
-            {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
+            {publishBusy ? l('Publishing…') : publishedUrl ? (hasUnpublishedChanges ? l('Publish Changes') : l('Republish')) : l('Publish')}
             {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
           </button>
 
@@ -14098,10 +14109,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black text-gray-400">V1.0</span>
                 </div>
                 <p className="mt-1 text-[11px] text-gray-500">{l('One place to onboard a project, run production checks, publish the release and verify that the live site is healthy.')}</p>
-                {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">Last automated check: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
+                {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">{l('Last automated check')}: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? 'Checking…' : 'Run final checks'}</button>
+                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? l('Checking…') : l('Run final checks')}</button>
                 <button onClick={exportV1LaunchReport} className="rounded-lg border border-cyan-500/25 px-3 py-2 text-[10px] font-bold text-cyan-400">{l('Export launch report')}</button>
                 <button onClick={closeLaunchCenter} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
@@ -14113,9 +14124,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${v1LaunchStatus.score >= 90 ? 'bg-emerald-500' : v1LaunchStatus.score >= 70 ? 'bg-cyan-500' : 'bg-amber-500'}`} style={{ width: `${v1LaunchStatus.score}%` }} /></div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center">
                   <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Audit')}</p><p className="text-lg font-black">{siteAudit.score}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Health')}</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? 'GOOD' : 'CHECK'}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? 'OK' : 'FIX'}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? 'VERIFIED' : publishedUrl ? 'VERIFY' : 'NOT YET'}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Health')}</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? l('GOOD') : l('CHECK')}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? l('OK') : l('FIX')}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? l('VERIFIED') : publishedUrl ? l('VERIFY') : l('NOT YET')}</p></div>
                 </div>
                 {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">{l('Launch blockers')}</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">• {item}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">{l('✓ No critical production blockers detected.')}</div>}
               </div>
@@ -14159,12 +14170,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button onClick={() => { setBillingOpen(true); void refreshBilling(cloudProjectId); }} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Billing & limits')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Verify plan and Stripe state')}</div></button>
                   <button onClick={() => setOperationsOpen(true)} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Audit & backups')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Export backup and diagnostics')}</div></button>
-                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? 'Publish production changes' : 'Publish first release'}<div className="mt-1 text-[9px] font-normal text-sky-100">{l('Blocked until automated preflight is ready')}</div></button>
+                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? l('Publish production changes') : l('Publish first release')}<div className="mt-1 text-[9px] font-normal text-sky-100">{l('Blocked until automated preflight is ready')}</div></button>
                   <button onClick={() => void verifyLiveDeployment()} disabled={!publishedUrl || liveVerification === 'checking'} className="rounded-xl border border-emerald-500/20 p-3 text-left text-[10px] font-bold text-emerald-400 disabled:opacity-40">{l('Verify live release')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Confirm index.html is deployed')}</div></button>
                 </div>
                 <div className={`mt-3 rounded-xl border p-3 ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-black/10'}`}>
                   <p className="text-[10px] font-black">{l('V1 release decision')}</p>
-                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'GO — READY FOR FIRST PAYING CUSTOMERS' : v1LaunchStatus.preflightReady ? 'CODE READY — COMPLETE PUBLISH / MANUAL CHECKS' : 'NO-GO — FIX AUTOMATED BLOCKERS'}</p>
+                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? l('GO — READY FOR FIRST PAYING CUSTOMERS') : v1LaunchStatus.preflightReady ? l('CODE READY — COMPLETE PUBLISH / MANUAL CHECKS') : l('NO-GO — FIX AUTOMATED BLOCKERS')}</p>
                 </div>
               </div>
             </div>
@@ -14194,7 +14205,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {billingState.subscription?.stripeCustomerId && (
                   <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-[10px] font-bold text-emerald-400 disabled:opacity-50">{l('Manage subscription')}</button>
                 )}
-                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? 'Refreshing…' : 'Refresh'}</button>
+                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? l('Refreshing…') : l('Refresh')}</button>
                 <button onClick={() => setBillingOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
@@ -14212,19 +14223,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div key={plan} className={`rounded-2xl border p-4 ${current ? 'border-emerald-500/50 bg-emerald-500/10' : darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-black">{details.label}</p>
-                        <p className="mt-1 text-[10px] text-gray-500">{details.description}</p>
+                        <p className="text-sm font-black">{l(details.label)}</p>
+                        <p className="mt-1 text-[10px] text-gray-500">{l(details.description)}</p>
                       </div>
                       {current && <span className="rounded-full bg-emerald-500 px-2 py-1 text-[8px] font-black text-white">{l('CURRENT')}</span>}
                     </div>
                     <div className="mt-3 space-y-1.5">
-                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {bullet}</p>)}
+                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {l(bullet)}</p>)}
                     </div>
                     <div className="mt-4">
                       {current ? (
                         <div className="rounded-lg border border-emerald-500/20 px-3 py-2 text-center text-[10px] font-bold text-emerald-400">{l('Active plan')}</div>
                       ) : isPaid ? (
-                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? 'Opening Stripe…' : `Choose ${details.label}`}</button>
+                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? l('Opening Stripe…') : l('Choose {plan}').replace('{plan}', l(details.label))}</button>
                       ) : billingState.subscription?.stripeCustomerId ? (
                         <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="w-full rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{l('Manage downgrade in Stripe')}</button>
                       ) : (
@@ -14288,9 +14299,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <label className="text-[10px] text-gray-500">{l('Project code')}<input value={deliveryConfig.projectCode} onChange={(e) => setDeliveryConfig((current) => ({ ...current, projectCode: e.target.value.slice(0, 80) }))} placeholder="WEB-001" className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
                   <label className="text-[10px] text-gray-500">{l('Due date')}<input type="date" value={deliveryConfig.dueDate} onChange={(e) => setDeliveryConfig((current) => ({ ...current, dueDate: e.target.value }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
                   <label className="text-[10px] text-gray-500">{l('Delivery status')}<select value={deliveryConfig.status} onChange={(e) => setDeliveryConfig((current) => ({ ...current, status: e.target.value as DeliveryStatus }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white'}`}><option value="building">{l('Building')}</option><option value="review">{l('Ready for review')}</option><option value="approved">{l('Approved')}</option><option value="delivered">{l('Delivered')}</option></select></label>
-                  <label className="flex items-end gap-2 rounded-lg border border-fuchsia-500/15 px-3 py-2 text-[10px] text-gray-400"><input type="checkbox" checked={deliveryConfig.whiteLabel} disabled={!billingEntitlements.features.whiteLabel} onChange={(e) => { if (!requireBillingFeature('whiteLabel', 'White-label client delivery')) return; setDeliveryConfig((current) => ({ ...current, whiteLabel: e.target.checked })); }} /> White-label client handoff files {!billingEntitlements.features.whiteLabel && <span className="font-bold text-amber-400">BUSINESS</span>}</label>
+                  <label className="flex items-end gap-2 rounded-lg border border-fuchsia-500/15 px-3 py-2 text-[10px] text-gray-400"><input type="checkbox" checked={deliveryConfig.whiteLabel} disabled={!billingEntitlements.features.whiteLabel} onChange={(e) => { if (!requireBillingFeature('whiteLabel', 'White-label client delivery')) return; setDeliveryConfig((current) => ({ ...current, whiteLabel: e.target.checked })); }} /> {l('White-label client handoff files')} {!billingEntitlements.features.whiteLabel && <span className="font-bold text-amber-400">BUSINESS</span>}</label>
                 </div>
-                <label className="mt-2 block text-[10px] text-gray-500">{l('Handoff notes')}<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder="Hosting notes, DNS details, next steps, support terms…" className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
+                <label className="mt-2 block text-[10px] text-gray-500">{l('Handoff notes')}<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder={l("Hosting notes, DNS details, next steps, support terms…")} className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
               </div>
 
               <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
@@ -14299,14 +14310,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
                   {launchReadiness.checks.map((item) => <div key={l(item.label)} className={`rounded-lg border px-2 py-1.5 ${item.ok ? 'border-emerald-500/20 text-emerald-400' : 'border-white/10 text-gray-500'}`}>{item.ok ? '✓' : '○'} {l(item.label)}</div>)}
                 </div>
-                <p className="mt-2 text-[9px] text-gray-500">Audit contributes {launchReadiness.auditPoints}/40 points · current audit {siteAudit.score}/100.</p>
+                <p className="mt-2 text-[9px] text-gray-500">{l('Audit contributes {points}/40 points · current audit {score}/100.').replace('{points}', String(launchReadiness.auditPoints)).replace('{score}', String(siteAudit.score))}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
               {[
                 ['Pages', deliveryUsage.pages], ['Sections', deliveryUsage.sections], ['Elements', deliveryUsage.elements], ['Forms', deliveryUsage.forms], ['Symbols', deliveryUsage.symbols], ['Releases', deliveryUsage.releases], ['Leads', deliveryUsage.leads], ['Events', deliveryUsage.analyticsEvents], ['Media*', deliveryUsage.mediaLoaded],
-              ].map(([label, value]) => <div key={String(label)} className={`rounded-xl border p-2 text-center ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}><p className="text-[9px] uppercase text-gray-500">{label}</p><p className="mt-1 text-lg font-black">{value}</p></div>)}
+              ].map(([label, value]) => <div key={String(label)} className={`rounded-xl border p-2 text-center ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}><p className="text-[9px] uppercase text-gray-500">{l(String(label))}</p><p className="mt-1 text-lg font-black">{value}</p></div>)}
             </div>
             <p className="-mt-2 text-[9px] text-gray-500">*Media count reflects assets currently loaded into the Media Library panel.</p>
 
@@ -14521,7 +14532,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <input value={leadQuery} onChange={(e) => setLeadQuery(e.target.value)} placeholder="Search name, email, message, tags…" className={`min-w-56 flex-1 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+              <input value={leadQuery} onChange={(e) => setLeadQuery(e.target.value)} placeholder={l("Search name, email, message, tags…")} className={`min-w-56 flex-1 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
               <select value={leadStatusFilter} onChange={(e) => setLeadStatusFilter(e.target.value as 'all' | WebsiteLead['status'])} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
                 <option value="all">{l('All inbox statuses')}</option><option value="new">{l('New')}</option><option value="read">{l('Read')}</option><option value="archived">{l('Archived')}</option>
               </select>
@@ -14596,8 +14607,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <div className="flex flex-wrap gap-2">
                       {lead.status === 'new' && <button onClick={() => void updateLeadStatus(lead.id, 'read')} className="font-semibold text-emerald-400">{l('Mark read')}</button>}
                       {lead.status !== 'archived' && <button onClick={() => void updateLeadStatus(lead.id, 'archived')} className="font-semibold text-gray-400">{l('Archive')}</button>}
-                      <button onClick={() => { const value = window.prompt('Comma-separated tags', (lead.tags || []).join(', ')); if (value !== null) void updateLeadCrm(lead.id, { tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) }); }} className="font-semibold text-amber-400">{l('Tags')}</button>
-                      <button onClick={() => { const value = window.prompt('Lead notes', lead.notes || ''); if (value !== null) void updateLeadCrm(lead.id, { notes: value }); }} className="font-semibold text-violet-400">{l('Notes')}</button>
+                      <button onClick={() => { const value = window.prompt(l('Comma-separated tags'), (lead.tags || []).join(', ')); if (value !== null) void updateLeadCrm(lead.id, { tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) }); }} className="font-semibold text-amber-400">{l('Tags')}</button>
+                      <button onClick={() => { const value = window.prompt(l('Lead notes'), lead.notes || ''); if (value !== null) void updateLeadCrm(lead.id, { notes: value }); }} className="font-semibold text-violet-400">{l('Notes')}</button>
                       <button onClick={() => void copyLeadSummary(lead)} className="font-semibold text-sky-400">{l("Copy")}</button>
                       <button onClick={() => void deleteLead(lead.id)} className="font-semibold text-rose-400">{l('Delete')}</button>
                     </div>
@@ -14703,7 +14714,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     className={`min-w-52 rounded-lg border px-3 py-2 text-left text-xs ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-100'}`}
                     title={l('Restore this version')}
                   >
-                    <span className="block font-semibold">{entry.label}</span>
+                    <span className="block font-semibold">{l(entry.label)}</span>
                     <span className={`mt-1 block text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{l('Restore version')}</span>
                   </button>
                 ))}
@@ -14797,21 +14808,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <label className="flex items-center gap-1.5 text-gray-500">
                     <input type="checkbox" checked={activePage.showInNavigation !== false} onChange={(e) => updateActivePageMeta({ showInNavigation: e.target.checked })} />{l("Show in navigation")}</label>
                   <button type="button" onClick={makeActivePageHome} disabled={activePage.id === homePageId} className="rounded px-2 py-1 font-semibold text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40">
-                    {activePage.id === homePageId ? 'Home page' : 'Set home'}
+                    {activePage.id === homePageId ? l('Home page') : l('Set home')}
                   </button>
                 </div>
                 <input value={activePage.name} onChange={(e) => updateActivePageMeta({ name: e.target.value })} placeholder={l('Page name')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 <div className="grid grid-cols-[110px_1fr] gap-2">
                   <select value={normalizePageLanguage(activePage.language, prefs.language)} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ language: e.target.value as Language }); }} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}>
-                    <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option><option value="sv">{PAGE_LANGUAGE_LABELS.sv}</option><option value="ar">{PAGE_LANGUAGE_LABELS.ar}</option>
+                    <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option><option value="sv">{l(PAGE_LANGUAGE_LABELS.sv)}</option><option value="ar">{l(PAGE_LANGUAGE_LABELS.ar)}</option>
                   </select>
-                  <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? 'Translation group (optional)' : 'Translation groups · Pro'} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? l('Translation group (optional)') : l('Translation groups · Pro')} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {(['en', 'sv', 'ar'] as Language[]).filter((language) => language !== normalizePageLanguage(activePage.language, prefs.language)).map((language) => (
-                    <button key={language} type="button" disabled={!billingEntitlements.features.multilingual} onClick={() => duplicatePageAsTranslation(language)} className="rounded-md border border-sky-500/20 px-2 py-1 text-[9px] font-semibold text-sky-400 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-40">+ {PAGE_LANGUAGE_LABELS[language]}</button>
+                    <button key={language} type="button" disabled={!billingEntitlements.features.multilingual} onClick={() => duplicatePageAsTranslation(language)} className="rounded-md border border-sky-500/20 px-2 py-1 text-[9px] font-semibold text-sky-400 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-40">+ {l(PAGE_LANGUAGE_LABELS[language])}</button>
                   ))}
-                  {!billingEntitlements.features.multilingual && <button type="button" onClick={() => openBillingWithMessage('Multilingual pages require the Pro plan or higher.')} className="rounded-md border border-amber-500/20 px-2 py-1 text-[9px] font-bold text-amber-400 hover:bg-amber-500/10">{l('Unlock multilingual')}</button>}
+                  {!billingEntitlements.features.multilingual && <button type="button" onClick={() => openBillingWithMessage(l('Multilingual pages require the Pro plan or higher.'))} className="rounded-md border border-amber-500/20 px-2 py-1 text-[9px] font-bold text-amber-400 hover:bg-amber-500/10">{l('Unlock multilingual')}</button>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500">/</span>
@@ -14920,10 +14931,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="space-y-2">
                   <input value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} placeholder={l('Footer text (blank = automatic copyright)')} maxLength={300} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                   <div className="grid grid-cols-2 gap-2">
-                    <input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} placeholder="Instagram URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} placeholder="Facebook URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.linkedinUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, linkedinUrl: e.target.value })); setSaved(false); }} placeholder="LinkedIn URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.xUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, xUrl: e.target.value })); setSaved(false); }} placeholder="X URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                    <input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} placeholder={l('Instagram URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                    <input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} placeholder={l('Facebook URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                    <input value={footerConfig.linkedinUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, linkedinUrl: e.target.value })); setSaved(false); }} placeholder={l('LinkedIn URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
+                    <input value={footerConfig.xUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, xUrl: e.target.value })); setSaved(false); }} placeholder={l('X URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
                   </div>
                 </div>
               </div>
@@ -14959,7 +14970,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.shareButtons} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, shareButtons: e.target.checked })); setSaved(false); }} />{l('Share tools')}</label>
                 </div>
                 {siteEnhancements.announcementBar && <div className="mt-2 grid gap-2"><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} placeholder={l('Announcement text')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-2 gap-2"><input value={siteEnhancements.announcementLinkLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementLinkLabel: e.target.value })); setSaved(false); }} placeholder={l('Link label')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} placeholder="#anchor / page:about / URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
-                {siteEnhancements.popupEnabled && <div className="mt-2 grid gap-2"><input value={siteEnhancements.popupTitle} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupTitle: e.target.value })); setSaved(false); }} placeholder={l('Popup title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><textarea rows={2} value={siteEnhancements.popupText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupText: e.target.value })); setSaved(false); }} placeholder={l('Popup message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-3 gap-2"><input value={siteEnhancements.popupButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonLabel: e.target.value })); setSaved(false); }} placeholder={l('Button')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.popupButtonHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonHref: e.target.value })); setSaved(false); }} placeholder={l('Button link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input type="number" min="0" max="60" value={siteEnhancements.popupDelaySeconds} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupDelaySeconds: Number(e.target.value) })); setSaved(false); }} title="Delay in seconds" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
+                {siteEnhancements.popupEnabled && <div className="mt-2 grid gap-2"><input value={siteEnhancements.popupTitle} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupTitle: e.target.value })); setSaved(false); }} placeholder={l('Popup title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><textarea rows={2} value={siteEnhancements.popupText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupText: e.target.value })); setSaved(false); }} placeholder={l('Popup message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-3 gap-2"><input value={siteEnhancements.popupButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonLabel: e.target.value })); setSaved(false); }} placeholder={l('Button')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.popupButtonHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonHref: e.target.value })); setSaved(false); }} placeholder={l('Button link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input type="number" min="0" max="60" value={siteEnhancements.popupDelaySeconds} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupDelaySeconds: Number(e.target.value) })); setSaved(false); }} title={l("Delay in seconds")} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
                 {siteEnhancements.floatingCta && <div className="mt-2 grid grid-cols-2 gap-2"><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} placeholder={l('Floating CTA label')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} placeholder={l('CTA link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div>}
               </div>
               <div className={`rounded-lg border p-2.5 ${siteAudit.errors.length ? 'border-red-500/30' : siteAudit.warnings.length ? 'border-amber-500/30' : 'border-emerald-500/30'}`}>
@@ -14981,9 +14992,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} placeholder="GA4 · G-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} placeholder="GTM · GTM-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} placeholder="Meta Pixel ID" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} placeholder={l("GA4 · G-XXXX")} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} placeholder={l("GTM · GTM-XXXX")} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} placeholder={l("Meta Pixel ID")} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                 <input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} placeholder={l('Plausible domain')} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -14998,7 +15009,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {(productionConfig.organizationSchema || productionConfig.localBusinessSchema) && <div className="grid gap-2">
                   <input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} placeholder={l('Organization / business name')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                   <div className="grid grid-cols-2 gap-2"><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} placeholder={l('Organization URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} placeholder={l('Logo URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div>
-                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder="Schema type · LocalBusiness" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder={l('Phone')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder={l('Business address')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
+                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder={l("Schema type · LocalBusiness")} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder={l('Phone')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder={l('Business address')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
                 </div>}
               </div>
               <div className={`rounded-lg border p-2.5 ${productionConfig.maintenanceMode ? 'border-amber-500/30' : darkMode ? 'border-white/10' : 'border-blue-100 bg-white/70'}`}>
@@ -15009,7 +15020,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </label>
               <label className="block text-[10px] text-gray-500">{l('Extra robots.txt rules')}<textarea rows={4} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} placeholder={'Disallow: /private\nCrawl-delay: 5'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </label>
-              <p className="text-[9px] leading-4 text-gray-500">Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.</p>
+              <p className="text-[9px] leading-4 text-gray-500">{l('Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.')}</p>
             </div>
           </div>
 
@@ -15050,7 +15061,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button type="button" onClick={applyThemeToCurrentPage} className="rounded-lg bg-violet-600 px-2 py-2 text-[10px] font-semibold text-white hover:bg-violet-500">{l('Apply to page')}</button>
               <button type="button" onClick={applyThemeToAllPages} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${darkMode ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10' : 'border-violet-300 text-violet-700 hover:bg-violet-100'}`}>{l('Apply all pages')}</button>
             </div>
-            <p className="mt-2 text-[9px] leading-4 text-gray-500">Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.</p>
+            <p className="mt-2 text-[9px] leading-4 text-gray-500">{l('Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.')}</p>
           </div>
 
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
@@ -15126,7 +15137,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div key={template.id} className={`flex items-center gap-1 rounded-lg border p-1.5 ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-100 bg-white'}`}>
                     <button type="button" onClick={() => insertReusableSection(template)} className="min-w-0 flex-1 text-left">
                       <span className="block truncate text-[10px] font-semibold">{template.title}</span>
-                      <span className="block text-[9px] text-gray-500">{SECTION_LABELS[template.section.type]} · Use template</span>
+                      <span className="block text-[9px] text-gray-500">{l(SECTION_LABELS[template.section.type])} · {l('Use template')}</span>
                     </button>
                     <button type="button" onClick={() => void deleteReusableSection(template)} className="rounded p-1 text-rose-400 hover:bg-rose-500/10" title={l('Delete template')}>
                       <Trash2 className="h-3 w-3" />
@@ -15759,24 +15770,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               ) : selectedElement.type === 'video' ? (
                 <div className="space-y-2">
-                  <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder="YouTube, Vimeo or direct video URL" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder="Video title / accessibility label" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder={l('YouTube, Vimeo or direct video URL')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder={l("Video title / accessibility label")} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
               ) : selectedElement.type === 'embed' ? (
                 <div className="space-y-2">
                   <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder="https://... map or embed URL" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder="Accessibility title" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder={l("Accessibility title")} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
               ) : selectedElement.type === 'gallery' ? (
-                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder="One image URL per line" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder={l('One image URL per line')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               ) : selectedElement.type === 'accordion' || selectedElement.type === 'tabs' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={8} placeholder="Title | Content — one item per line" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Use one line per item: Title | Content</p></div>
+                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={8} placeholder={l("Title | Content — one item per line")} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Use one line per item: Title | Content</p></div>
               ) : selectedElement.type === 'countdown' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={3} placeholder="2026-12-31T23:59:59 | Launching soon" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Format: ISO date/time | label</p></div>
+                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={3} placeholder={l("2026-12-31T23:59:59 | Launching soon")} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Format: ISO date/time | label</p></div>
               ) : selectedElement.type === 'stats' || selectedElement.type === 'testimonials-slider' ? (
                 <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder={selectedElement.type === 'stats' ? '120 | Projects completed\n98 | Satisfaction %' : 'Alex | Amazing experience\nSarah | Great service'} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">One item per line: {selectedElement.type === 'stats' ? 'value | label' : 'name | quote'}</p></div>
               ) : selectedElement.type === 'code' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={10} placeholder="Custom HTML (scripts and inline event handlers are stripped)" className={`w-full resize-none rounded-lg border px-3 py-2 font-mono text-[10px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-emerald-500">Safe HTML mode: script/object/embed tags and on* handlers are removed before preview/publish.</p></div>
+                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={10} placeholder={l("Custom HTML (scripts and inline event handlers are stripped)")} className={`w-full resize-none rounded-lg border px-3 py-2 font-mono text-[10px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-emerald-500">Safe HTML mode: script/object/embed tags and on* handlers are removed before preview/publish.</p></div>
               ) : selectedElement.type === 'divider' || selectedElement.type === 'spacer' ? (
                 <p className="text-[10px] text-gray-500">Use the styling controls below to adjust {selectedElement.type === 'divider' ? 'width, color and opacity' : 'height (Padding × 2)'}.</p>
               ) : (
@@ -16056,7 +16067,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold">{l('Section settings')}</p>
-                  <p className="truncate text-[9px] text-gray-500">{SECTION_LABELS[selectedSection.type]}{selectedElement ? ` · ${l('collapsed while editing element')}` : ''}</p>
+                  <p className="truncate text-[9px] text-gray-500">{l(SECTION_LABELS[selectedSection.type])}{selectedElement ? ` · ${l('collapsed while editing element')}` : ''}</p>
                 </div>
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform ${sectionSettingsOpen ? 'rotate-180' : ''}`} />
               </summary>
@@ -16070,7 +16081,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       : 'border-gray-200 bg-gray-50 text-gray-700'
                   }`}
                 >
-                  {SECTION_LABELS[selectedSection.type]}
+                  {l(SECTION_LABELS[selectedSection.type])}
                 </div>
               </div>
 
@@ -16279,7 +16290,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                             value={(field.options || []).join('\n')}
                             onChange={(e) => updateFormField(field.id, { options: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })}
                             rows={3}
-                            placeholder={'One option per line'}
+                            placeholder={l('One option per line')}
                             className={`mt-2 w-full resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
                           />
                         )}
@@ -16432,7 +16443,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       updateSelected({ imagePrompt: e.target.value })
                     }
                     rows={3}
-                    placeholder="Describe the image you want for this section..."
+                    placeholder={l("Describe the image you want for this section...")}
                     className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
                       darkMode
                         ? 'border-white/10 bg-white/5 text-white'
@@ -16446,7 +16457,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   disabled={aiBusy}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {aiBusy ? 'Generating...' : '✨ Generate AI Prompt'}
+                  {aiBusy ? l('Generating...') : l('✨ Generate AI Prompt')}
                 </button>
 
                 <button
@@ -16454,7 +16465,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   disabled={aiBusy}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {aiBusy ? 'Generating Image...' : '🖼️ Generate Image'}
+                  {aiBusy ? l('Generating Image...') : l('🖼️ Generate Image')}
                 </button>
 
                 {selectedSection.image &&
@@ -16477,7 +16488,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   }`}
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
-                  Up
+                  {l('Up')}
                 </button>
 
                 <button
@@ -16521,7 +16532,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}
             title={publishedUrl}
           >
-            {liveVerification === 'healthy' ? 'LIVE ↗' : 'Open ↗'}
+            {liveVerification === 'healthy' ? l('LIVE ↗') : l('Open ↗')}
           </button>
         ) : null
       }

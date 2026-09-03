@@ -68,7 +68,7 @@ export default function FeedbackPage() {
                 onClick={() => setRating(n)}
                 onMouseEnter={() => setHover(n)}
                 onMouseLeave={() => setHover(0)}
-                aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                aria-label={n === 1 ? l('1 star') : l('{count} stars').replace('{count}', String(n))}
                 aria-checked={rating === n}
                 role="radio"
                 className="p-1 transition-transform hover:scale-110"

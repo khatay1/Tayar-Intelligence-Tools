@@ -124,7 +124,7 @@ export function BuilderLayersPanel({
                 }
               >
                 <span>
-                  {section.label}
+                  {l(section.label)}
                 </span>
               </button>
 
@@ -232,7 +232,7 @@ export function BuilderLayersPanel({
                           </span>
 
                           <span>
-                            {container.label}
+                            {l(container.label)}
                           </span>
                         </button>
 
@@ -295,7 +295,7 @@ export function BuilderLayersPanel({
                         }
                       >
                         <span>
-                          {element.label}
+                          {l(element.label)}
                         </span>
 
                         {element.symbolLinked && (
@@ -423,7 +423,7 @@ export function BuilderLayersPanel({
                           </span>
 
                           <span>
-                            {formField.label}
+                            {l(formField.label)}
                           </span>
 
                           <small>

@@ -22,8 +22,8 @@ export default function AboutPage() {
         {values.map(({ icon: Icon, title, desc }) => (
           <article key={title} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
             <div className="grid h-9 w-9 place-items-center rounded-lg border border-violet-400/15 bg-violet-500/10"><Icon className="h-4 w-4 text-violet-300" /></div>
-            <h3 className="mt-3 text-sm font-bold text-white">{title}</h3>
-            <p className="mt-1 text-xs leading-5 text-gray-500">{desc}</p>
+            <h3 className="mt-3 text-sm font-bold text-white">{l(title)}</h3>
+            <p className="mt-1 text-xs leading-5 text-gray-500">{l(desc)}</p>
           </article>
         ))}
       </div>

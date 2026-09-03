@@ -157,7 +157,7 @@ export default function AdminAI() {
 
   async function switchProvider(service: string) {
     if (service !== 'gemini') {
-      showError('This provider is not enabled in the production AI backend yet.');
+      showError(l("This provider is not enabled in the production AI backend yet."));
       return;
     }
 
@@ -166,17 +166,17 @@ export default function AdminAI() {
       .from('admin_settings')
       .upsert({ key: 'default_ai_provider', value: 'gemini', updated_at: new Date().toISOString() });
 
-    if (error) showError('Failed to save provider setting');
+    if (error) showError(l("Failed to save provider setting"));
     else {
       setActiveProvider('gemini');
-      success('Google Gemini is the active production provider');
+      success(l("Google Gemini is the active production provider"));
     }
     setSwitching(false);
   }
 
   async function saveDefaultModel() {
     if (!modelCatalog.some((model) => model.id === defaultModel)) {
-      showError('Choose a model from the managed model catalog.');
+      showError(l("Choose a model from the managed model catalog."));
       return;
     }
 
@@ -189,10 +189,10 @@ export default function AdminAI() {
         { key: 'default_ai_provider', value: 'gemini', updated_at: now },
       ], { onConflict: 'key' });
 
-    if (error) showError('Failed to save model setting');
+    if (error) showError(l("Failed to save model setting"));
     else {
       setActiveProvider('gemini');
-      success(`Default model set to ${defaultModel}`);
+      success(l('Default model set to {model}').replace('{model}', defaultModel));
     }
     setSavingModel(false);
   }
@@ -213,7 +213,7 @@ export default function AdminAI() {
 
     setSavingCatalog(false);
     if (error) {
-      showError(error.message || 'Failed to save model catalog');
+      showError(error.message || l('Failed to save model catalog'));
       return false;
     }
     return true;
@@ -224,11 +224,11 @@ export default function AdminAI() {
     const label = newModelLabel.trim() || id;
 
     if (!GEMINI_MODEL_ID.test(id)) {
-      showError('Model ID must start with gemini- and contain only letters, numbers, dots, underscores, or hyphens.');
+      showError(l('Model ID must start with gemini- and contain only letters, numbers, dots, underscores, or hyphens.'));
       return;
     }
     if (modelCatalog.some((model) => model.id.toLowerCase() === id.toLowerCase())) {
-      showError('This model already exists in the catalog.');
+      showError(l('This model already exists in the catalog.'));
       return;
     }
 
@@ -238,20 +238,20 @@ export default function AdminAI() {
     setModelCatalog(nextCatalog);
     setNewModelId('');
     setNewModelLabel('');
-    success(`Added ${label}`);
+    success(l('Added {model}').replace('{model}', label));
   }
 
   async function removeModel(model: ManagedModel) {
     if (!model.custom) return;
     if (model.id === defaultModel) {
-      showError('Choose another default model before removing this one.');
+      showError(l('Choose another default model before removing this one.'));
       return;
     }
 
     const nextCatalog = modelCatalog.filter((item) => item.id !== model.id);
     if (!(await persistModelCatalog(nextCatalog))) return;
     setModelCatalog(nextCatalog);
-    success(`Removed ${model.label}`);
+    success(l('Removed {model}').replace('{model}', model.label));
   }
 
   if (loading) {
@@ -293,10 +293,10 @@ export default function AdminAI() {
           };
           const Icon = s.icon;
           return (
-            <div key={s.label} className={`rounded-2xl border p-4 ${colors[s.color]}`}>
+            <div key={l(s.label)} className={`rounded-2xl border p-4 ${colors[s.color]}`}>
               <Icon className="w-5 h-5 mb-2" />
               <div className="text-2xl font-bold text-white">{s.value}</div>
-              <div className="text-xs text-gray-400">{s.label}</div>
+              <div className="text-xs text-gray-400">{l(s.label)}</div>
             </div>
           );
         })}
@@ -464,7 +464,7 @@ export default function AdminAI() {
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`w-2 h-2 rounded-full ${p.status === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`} />
                   <span className="text-xs text-gray-400">
-                    {!backendEnabled ? 'Backend not enabled' : p.status === 'active' ? 'Active' : 'Inactive'}
+                    {!backendEnabled ? l('Backend not enabled') : p.status === 'active' ? l('Active') : l('Inactive')}
                   </span>
                   {p.last_used && <span className="text-xs text-gray-600 ml-auto">{new Date(p.last_used).toLocaleDateString()}</span>}
                 </div>

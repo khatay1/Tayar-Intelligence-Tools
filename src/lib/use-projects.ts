@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
+import { useLocalizer } from '@/lib/ui-localization';
 
 export interface Project {
   id: string;
@@ -49,6 +50,7 @@ function sanitizedDuplicateContent(project: Project): Record<string, unknown> {
 }
 
 export function useProjects() {
+  const l = useLocalizer();
   const { success, error, loading, update } = useToast();
   const [saving, setSaving] = useState(false);
 
@@ -66,11 +68,11 @@ export function useProjects() {
       .select('id')
       .single();
     if (err) {
-      error('Failed to create project');
+      error(l('Failed to create project'));
       return null;
     }
     return data?.id ?? null;
-  }, [error]);
+  }, [error, l]);
 
   // Auto-save: update an existing project's content + title.
   const saveProject = useCallback(async (
@@ -84,19 +86,19 @@ export function useProjects() {
       .eq('id', projectId);
     setSaving(false);
     if (err) {
-      error('Failed to save');
+      error(l('Failed to save'));
       return false;
     }
     return true;
-  }, [error]);
+  }, [error, l]);
 
   // Save with toast feedback (used by Save Draft buttons)
   const saveProjectWithToast = useCallback(async (
     projectId: string,
     updates: { title?: string; content?: Record<string, unknown>; status?: string },
-    successMsg = 'Draft saved successfully'
+    successMsg = l('Draft saved successfully')
   ): Promise<boolean> => {
-    const toastId = loading('Saving...');
+    const toastId = loading(l('Saving...'));
     const ok = await saveProject(projectId, updates);
     if (ok) {
       update(toastId, successMsg, 'success');
@@ -106,22 +108,22 @@ export function useProjects() {
         tool: updates.title || 'workspace',
       });
     } else {
-      update(toastId, 'Failed to save', 'error');
+      update(toastId, l('Failed to save'), 'error');
     }
     return ok;
-  }, [loading, saveProject, update]);
+  }, [loading, saveProject, update, l]);
 
   // Delete a project
   const deleteProject = useCallback(async (projectId: string): Promise<boolean> => {
-    const toastId = loading('Deleting...');
+    const toastId = loading(l('Deleting...'));
     const { error: err } = await supabase.from('projects').delete().eq('id', projectId);
     if (err) {
-      update(toastId, 'Failed to delete', 'error');
+      update(toastId, l('Failed to delete'), 'error');
       return false;
     }
-    update(toastId, 'Project deleted', 'success');
+    update(toastId, l('Project deleted'), 'success');
     return true;
-  }, [loading, update]);
+  }, [loading, update, l]);
 
   // Rename a project
   const renameProject = useCallback(async (projectId: string, newTitle: string): Promise<boolean> => {
@@ -130,21 +132,21 @@ export function useProjects() {
       .update({ title: newTitle, updated_at: new Date().toISOString() })
       .eq('id', projectId);
     if (err) {
-      error('Failed to rename');
+      error(l('Failed to rename'));
       return false;
     }
-    success('Project renamed');
+    success(l('Project renamed'));
     return true;
-  }, [success, error]);
+  }, [success, error, l]);
 
   // Duplicate a project
   const duplicateProject = useCallback(async (project: Project): Promise<string | null> => {
-    const toastId = loading('Duplicating...');
+    const toastId = loading(l('Duplicating...'));
     const { data, error: err } = await supabase
       .from('projects')
       .insert({
         user_id: project.user_id,
-        title: `${project.title} (Copy)`,
+        title: `${project.title} (${l('Copy')})`,
         type: project.type,
         content: sanitizedDuplicateContent(project),
         status: 'draft',
@@ -152,12 +154,12 @@ export function useProjects() {
       .select('id')
       .single();
     if (err || !data) {
-      update(toastId, 'Failed to duplicate', 'error');
+      update(toastId, l('Failed to duplicate'), 'error');
       return null;
     }
-    update(toastId, 'Project duplicated', 'success');
+    update(toastId, l('Project duplicated'), 'success');
     return data.id;
-  }, [loading, update]);
+  }, [loading, update, l]);
 
   // Create a file entry linked to a project (for "My Files")
   const createFileEntry = useCallback(async (

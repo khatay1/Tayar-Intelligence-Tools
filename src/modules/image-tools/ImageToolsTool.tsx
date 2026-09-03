@@ -135,7 +135,7 @@ export default function ImageToolsTool({ darkMode: _darkMode }: { darkMode: bool
       icon={ImageIcon}
       title={l('Image Tools')}
       description={l('Resize, compress and convert images directly in your browser.')}
-      badge="Local processing"
+      badge={l('Local processing')}
     >
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
@@ -211,7 +211,7 @@ export default function ImageToolsTool({ darkMode: _darkMode }: { darkMode: bool
                   className={toolInputClass}
                 >
                   {OUTPUT_FORMATS.map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
+                    <option key={item.value} value={item.value}>{l(item.label)}</option>
                   ))}
                 </select>
               </ToolField>
@@ -287,10 +287,10 @@ export default function ImageToolsTool({ darkMode: _darkMode }: { darkMode: bool
               {outputBlob && (
                 <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="text-sm">
-                    <div className="text-white font-medium">{selectedFormat.label} · {width} × {height}px</div>
+                    <div className="text-white font-medium">{l(selectedFormat.label)} · {width} × {height}px</div>
                     <div className="text-xs text-gray-500 mt-0.5">
                       {formatBytes(outputBlob.size)}
-                      {source.size > 0 && ` · ${Math.round((1 - outputBlob.size / source.size) * 100)}% size change`}
+                      {source.size > 0 && ` · ${l('{percent}% size change').replace('{percent}', String(Math.round((1 - outputBlob.size / source.size) * 100)))}`}
                     </div>
                   </div>
                   <button

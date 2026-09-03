@@ -112,7 +112,7 @@ const { t } = useTranslation();
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
   const initials = displayName.charAt(0).toUpperCase();
-  const planLabel = isAdmin ? 'Admin · Business access' : `${profile?.plan || 'free'} plan`;
+  const planLabel = isAdmin ? l('Admin · Business access') : l('{plan} plan').replace('{plan}', l(profile?.plan || 'free'));
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -285,7 +285,7 @@ const groups: { label: string; items: NavItem[] }[] = [
           {groups.map((group, gi) => (
             <div key={gi}>
               {group.label && (
-                <div className={`text-xs font-semibold uppercase tracking-wider px-3 mb-2 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>{group.label}</div>
+                <div className={`text-xs font-semibold uppercase tracking-wider px-3 mb-2 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>{l(group.label)}</div>
               )}
               <div className="space-y-0.5">
                 {group.items.map(item => {
@@ -300,7 +300,7 @@ const groups: { label: string; items: NavItem[] }[] = [
                     >
                       <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${active ? 'text-violet-400' : ''}`} />
                      <span className="flex-1 text-left">
-  {item.label}
+  {l(item.label)}
 </span>
                       {item.badge && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 font-medium">{item.badge}</span>}
                     </button>
@@ -430,7 +430,7 @@ const groups: { label: string; items: NavItem[] }[] = [
                   return <Component darkMode={darkMode} projectId={activeProjectId} />;
                 }
                 if (tool && tool.status === 'soon') {
-                  return <PlaceholderView title={tool.name} desc={tool.description} icon={Activity} darkMode={darkMode} badge="Coming Soon" />;
+                  return <PlaceholderView title={l(tool.name)} desc={l(tool.description)} icon={Activity} darkMode={darkMode} badge={l('Coming Soon')} />;
                 }
                 return null;
               })()}
@@ -476,7 +476,7 @@ const groups: { label: string; items: NavItem[] }[] = [
             <div className="space-y-2">
               {SHORTCUT_HINTS.map((hint, i) => (
                 <div key={i} className="flex items-center justify-between py-1.5">
-                  <span className="text-gray-400 text-sm">{hint.description}</span>
+                  <span className="text-gray-400 text-sm">{l(hint.description)}</span>
                   <kbd className="text-xs font-mono px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300">{hint.key}</kbd>
                 </div>
               ))}

@@ -145,7 +145,7 @@ export default function ImageCropperTool({ darkMode: _darkMode }: { darkMode: bo
       icon={Crop}
       title={l('Image Cropper')}
       description={l('Crop images locally with precise coordinates or common aspect ratios.')}
-      badge="Local processing"
+      badge={l('Local processing')}
     >
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
@@ -186,7 +186,7 @@ export default function ImageCropperTool({ darkMode: _darkMode }: { darkMode: bo
                           : 'border-white/10 bg-white/5 text-gray-400 hover:text-white'
                       }`}
                     >
-                      {item.label}
+                      {l(item.label)}
                     </button>
                   ))}
                 </div>
@@ -212,7 +212,7 @@ export default function ImageCropperTool({ darkMode: _darkMode }: { darkMode: bo
                   onChange={(event) => { setFormat(event.target.value as ImageOutputFormat); clearResult(); }}
                   className={toolInputClass}
                 >
-                  {OUTPUT_FORMATS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  {OUTPUT_FORMATS.map((item) => <option key={item.value} value={item.value}>{l(item.label)}</option>)}
                 </select>
               </ToolField>
 
@@ -279,7 +279,7 @@ export default function ImageCropperTool({ darkMode: _darkMode }: { darkMode: bo
                   </div>
                   <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.025] p-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="text-sm">
-                      <div className="text-white font-medium">{crop.width} × {crop.height}px · {selectedFormat.label}</div>
+                      <div className="text-white font-medium">{crop.width} × {crop.height}px · {l(selectedFormat.label)}</div>
                       <div className="text-xs text-gray-500 mt-0.5">{formatBytes(resultBlob.size)}</div>
                     </div>
                     <button

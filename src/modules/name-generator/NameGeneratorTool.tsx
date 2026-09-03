@@ -56,7 +56,7 @@ export default function NameGeneratorTool({ darkMode: _darkMode }: { darkMode: b
       icon={Wand2}
       title={l('Name Generator')}
       description={l('Generate original business, product, brand and social-name ideas locally.')}
-      badge="No API"
+      badge={l('No API')}
     >
       <div className="grid xl:grid-cols-[340px_minmax(0,1fr)] gap-6 items-start">
         <ToolInputPanel>

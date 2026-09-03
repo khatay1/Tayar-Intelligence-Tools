@@ -65,7 +65,7 @@ export default function LetterGeneratorTool({ darkMode: _darkMode }: { darkMode:
       icon={FilePenLine}
       title={l('Letter Generator')}
       description={l('Create practical letters from original Tayar templates and edit the result manually.')}
-      badge="No API"
+      badge={l('No API')}
     >
       <div className="grid xl:grid-cols-[390px_minmax(0,1fr)] gap-6 items-start">
         <ToolInputPanel>

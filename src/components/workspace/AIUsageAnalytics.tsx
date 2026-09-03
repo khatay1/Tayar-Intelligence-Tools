@@ -55,10 +55,10 @@ export default function AIUsageAnalytics() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard icon={Zap} label="Total Requests" value={String(stats.totalRequests)} color="text-violet-400" bg="bg-violet-500/10" />
-        <StatCard icon={TrendingUp} label="Input Tokens" value={stats.totalTokensIn.toLocaleString()} color="text-sky-400" bg="bg-sky-500/10" />
-        <StatCard icon={Cpu} label="Output Tokens" value={stats.totalTokensOut.toLocaleString()} color="text-emerald-400" bg="bg-emerald-500/10" />
-        <StatCard icon={DollarSign} label="Total Cost" value={`${stats.totalCostUsd.toFixed(4)}`} color="text-amber-400" bg="bg-amber-500/10" />
+        <StatCard icon={Zap} label={l("Total Requests")} value={String(stats.totalRequests)} color="text-violet-400" bg="bg-violet-500/10" />
+        <StatCard icon={TrendingUp} label={l("Input Tokens")} value={stats.totalTokensIn.toLocaleString()} color="text-sky-400" bg="bg-sky-500/10" />
+        <StatCard icon={Cpu} label={l("Output Tokens")} value={stats.totalTokensOut.toLocaleString()} color="text-emerald-400" bg="bg-emerald-500/10" />
+        <StatCard icon={DollarSign} label={l("Total Cost")} value={`${stats.totalCostUsd.toFixed(4)}`} color="text-amber-400" bg="bg-amber-500/10" />
         <StatCard icon={Calendar} label="Today" value={`${today?.requests || 0} reqs`} color="text-fuchsia-400" bg="bg-fuchsia-500/10" />
       </div>
 
@@ -98,7 +98,7 @@ export default function AIUsageAnalytics() {
                 <div
                   className="w-full bg-gradient-to-t from-violet-600 to-fuchsia-500 rounded-t-lg transition-all hover:opacity-80"
                   style={{ height: `${(day.tokens / maxDayTokens) * 100}%`, minHeight: '4px' }}
-                  title={`${day.requests} requests, ${day.tokens} tokens`}
+                  title={l('{requests} requests, {tokens} tokens').replace('{requests}', String(day.requests)).replace('{tokens}', String(day.tokens))}
                 />
               </div>
               <span className="text-gray-500 text-xs">

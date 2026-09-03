@@ -27,7 +27,7 @@ export default function ContactPage() {
 
     const newErrors: Record<string, string> = {};
     if (!nameCheck.valid) newErrors.name = nameCheck.error!;
-    if (!emailCheck) newErrors.email = 'Please enter a valid email address';
+    if (!emailCheck) newErrors.email = l('Please enter a valid email address');
     if (!subjectCheck.valid) newErrors.subject = subjectCheck.error!;
     if (!messageCheck.valid) newErrors.message = messageCheck.error!;
 
@@ -36,12 +36,12 @@ export default function ContactPage() {
 
     const rateLimit = checkRateLimit('contact', 3, 60_000);
     if (!rateLimit.allowed) {
-      toast.error(`Too many messages. Please wait ${Math.ceil(rateLimit.retryAfterMs / 1000)}s and try again.`);
+      toast.error(l('Too many messages. Please wait {seconds}s and try again.').replace('{seconds}', String(Math.ceil(rateLimit.retryAfterMs / 1000))));
       return;
     }
 
     setSending(true);
-    const toastId = toast.loading('Sending message...');
+    const toastId = toast.loading(l('Sending message...'));
     try {
       const cleanName = sanitizeText(name);
       const cleanEmail = sanitizeText(email);

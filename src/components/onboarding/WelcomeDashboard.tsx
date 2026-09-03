@@ -176,8 +176,8 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
                     {unlocked ? <Icon className="w-4 h-4 text-amber-400" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
                   </div>
                   <div className="min-w-0">
-                    <div className={`text-xs font-medium truncate ${unlocked ? 'text-white' : 'text-gray-500'}`}>{ach.label}</div>
-                    <div className="text-gray-600 text-[10px] truncate">{ach.description}</div>
+                    <div className={`text-xs font-medium truncate ${unlocked ? 'text-white' : 'text-gray-500'}`}>{l(ach.label)}</div>
+                    <div className="text-gray-600 text-[10px] truncate">{l(ach.description)}</div>
                   </div>
                 </div>
               );
@@ -206,8 +206,8 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
                 <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
                   <Icon className="w-5 h-5 text-violet-400" />
                 </div>
-                <h3 className="text-white text-sm font-semibold mb-0.5">{tool.name}</h3>
-                <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{tool.description}</p>
+                <h3 className="text-white text-sm font-semibold mb-0.5">{l(tool.name)}</h3>
+                <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{l(tool.description)}</p>
               </button>
             );
           })}

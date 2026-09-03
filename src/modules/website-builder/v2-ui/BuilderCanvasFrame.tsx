@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useLocalizer } from '@/lib/ui-localization';
 import type { EditorShellContract } from '../core/editor-shell-contract';
 import type { EditorPreviewDevice } from '../core/editor-layout';
 
@@ -15,11 +16,12 @@ export interface BuilderCanvasFrameProps {
 }
 
 export function BuilderCanvasFrame({ shell, children, overlaySlot }: BuilderCanvasFrameProps) {
+  const l = useLocalizer();
   const { view, actions } = shell;
   return (
     <main className="tayar-v2-canvas" data-device={view.previewDevice} data-focus={view.focusMode ? 'true' : 'false'}>
       <div className="tayar-v2-canvas__toolbar">
-        <div role="group" aria-label="Preview device">
+        <div role="group" aria-label={l('Preview device')}>
           {DEVICES.map((device) => (
             <button
               key={device.id}
@@ -27,12 +29,12 @@ export function BuilderCanvasFrame({ shell, children, overlaySlot }: BuilderCanv
               aria-pressed={view.previewDevice === device.id}
               onClick={() => actions.onSetPreviewDevice(device.id)}
             >
-              {device.label}
+              {l(device.label)}
             </button>
           ))}
         </div>
         <button type="button" onClick={actions.onToggleFocus}>
-          {view.focusMode ? 'Exit focus' : 'Focus on canvas'}
+          {view.focusMode ? l('Exit focus') : l('Focus on canvas')}
         </button>
       </div>
       <div className="tayar-v2-canvas__viewport" data-device={view.previewDevice}>

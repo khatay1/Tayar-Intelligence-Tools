@@ -45,7 +45,7 @@ export default function AdminUsers() {
 
   async function toggleSuspend(user: AdminUser) {
     if (currentUser?.id === user.id) {
-      showError('You cannot suspend your own administrator account.');
+      showError(l("You cannot suspend your own administrator account."));
       return;
     }
     setActionLoading(true);
@@ -62,7 +62,7 @@ export default function AdminUsers() {
 
   async function deleteUser(user: AdminUser) {
     if (currentUser?.id === user.id) {
-      showError('You cannot delete your own administrator account.');
+      showError(l("You cannot delete your own administrator account."));
       return;
     }
 
@@ -97,7 +97,7 @@ export default function AdminUsers() {
       p_suspended: updated.suspended,
     });
     if (actionError) showError(actionError.message || 'Failed to save changes');
-    else { success('User updated'); void refresh(); setEditUser(null); }
+    else { success(l("User updated")); void refresh(); setEditUser(null); }
     setActionLoading(false);
   }
 
@@ -141,7 +141,7 @@ export default function AdminUsers() {
               <Icon className="w-5 h-5" />
               <div>
                 <div className="text-xl font-bold text-white">{s.value}</div>
-                <div className="text-xs text-gray-400">{s.label}</div>
+                <div className="text-xs text-gray-400">{l(s.label)}</div>
               </div>
             </div>
           );
@@ -154,7 +154,7 @@ export default function AdminUsers() {
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Search by name, email or ID..."
+            placeholder={l("Search by name, email or ID...")}
             className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
           />
         </div>
@@ -233,13 +233,13 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setEditUser(user)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title="Edit">
+                      <button onClick={() => setEditUser(user)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title={l('Edit')}>
                         <Edit3 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => toggleSuspend(user)} disabled={actionLoading || currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? 'You cannot suspend yourself' : user.suspended ? 'Reinstate' : 'Suspend'}>
+                      <button onClick={() => toggleSuspend(user)} disabled={actionLoading || currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? l('You cannot suspend yourself') : user.suspended ? l('Reinstate') : l('Suspend')}>
                         <Ban className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setConfirmDelete(user)} disabled={currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? 'You cannot delete yourself' : 'Delete'}>
+                      <button onClick={() => setConfirmDelete(user)} disabled={currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? l('You cannot delete yourself') : l('Delete')}>
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -293,7 +293,7 @@ export default function AdminUsers() {
 
       {confirmDelete && (
         <ConfirmModal
-          title="Delete User"
+          title={l("Delete User")}
           message={`Choose whether to delete "${confirmDelete.full_name || 'this user'}" only, or also block this email from re-registering. This action permanently removes the account.`}
           confirmLabel={deleteMode === 'delete-block' ? 'Delete & Block' : 'Delete Permanently'}
           danger
@@ -324,7 +324,7 @@ export default function AdminUsers() {
                 <input
                   value={deleteReason}
                   onChange={e => setDeleteReason(e.target.value)}
-                  placeholder="Block reason (internal note)"
+                  placeholder={l("Block reason (internal note)")}
                   className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none"
                 />
                 <div>
@@ -373,11 +373,11 @@ function EditUserModal({ user, isSelf, onSave, onAccessChanged, onClose, loading
     setAccessSaving(false);
 
     if (error) {
-      showError(error.message || 'Failed to update complimentary access');
+      showError(error.message ? l(error.message) : l('Failed to update complimentary access'));
       return;
     }
 
-    success(accessOverride === 'none' ? 'Complimentary access removed' : 'Complimentary access saved');
+    success(accessOverride === 'none' ? l('Complimentary access removed') : l('Complimentary access saved'));
     onAccessChanged();
   }
 
@@ -424,7 +424,7 @@ function EditUserModal({ user, isSelf, onSave, onAccessChanged, onClose, loading
               <input
                 value={accessReason}
                 onChange={e => setAccessReason(e.target.value)}
-                placeholder="Reason (internal note)"
+                placeholder={l("Reason (internal note)")}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
               />
               <div>

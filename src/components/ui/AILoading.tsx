@@ -2,13 +2,16 @@
 // Displays animated loading states while AI is generating content.
 
 import { Sparkles } from 'lucide-react';
+import { useLocalizer } from '@/lib/ui-localization';
 
 interface AILoadingProps {
   label?: string;
   variant?: 'inline' | 'full' | 'minimal';
 }
 
-export function AILoading({ label = 'AI is thinking', variant = 'inline' }: AILoadingProps) {
+export function AILoading({ label, variant = 'inline' }: AILoadingProps) {
+  const l = useLocalizer();
+  const displayLabel = label ?? l('AI is thinking');
   if (variant === 'minimal') {
     return (
       <div className="flex items-center gap-2 text-violet-400 text-sm">
@@ -16,7 +19,7 @@ export function AILoading({ label = 'AI is thinking', variant = 'inline' }: AILo
           <div className="absolute inset-0 rounded-full border-2 border-violet-500/20" />
           <div className="absolute inset-0 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
         </div>
-        <span>{label}...</span>
+        <span>{displayLabel}...</span>
       </div>
     );
   }
@@ -33,7 +36,7 @@ export function AILoading({ label = 'AI is thinking', variant = 'inline' }: AILo
           </div>
         </div>
         <div className="text-center">
-          <p className="text-white text-sm font-medium">{label}...</p>
+          <p className="text-white text-sm font-medium">{displayLabel}...</p>
           <div className="flex items-center justify-center gap-1 mt-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -50,7 +53,7 @@ export function AILoading({ label = 'AI is thinking', variant = 'inline' }: AILo
         <div className="absolute inset-0 rounded-full border-2 border-violet-500/20" />
         <div className="absolute inset-0 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" style={{ animationDuration: '0.8s' }} />
       </div>
-      <span>{label}...</span>
+      <span>{displayLabel}...</span>
       <span className="flex gap-0.5">
         <span className="w-1 h-1 rounded-full bg-violet-400 animate-pulse" />
         <span className="w-1 h-1 rounded-full bg-violet-400 animate-pulse" style={{ animationDelay: '200ms' }} />
