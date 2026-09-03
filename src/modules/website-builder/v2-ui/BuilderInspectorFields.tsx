@@ -279,7 +279,7 @@ export function BuilderInspectorFields({
           >
             <summary>
               <span>
-                {section.name}
+                {l(section.name)}
               </span>
 
               <small>

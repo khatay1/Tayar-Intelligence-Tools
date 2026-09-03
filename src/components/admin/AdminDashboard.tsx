@@ -71,7 +71,7 @@ export default function AdminDashboard() {
           const Icon = card.icon;
           return (
             <div
-              key={card.label}
+              key={l(card.label)}
               className={`relative ${c.bg} border ${c.border} rounded-2xl p-4 overflow-hidden group hover:scale-[1.02] transition-transform cursor-default`}
               style={{ animation: 'fadeInUp 0.3s ease-out' }}
             >
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
                 <Sparkline data={card.spark.length > 1 ? card.spark : [0, 1]} color={c.spark} width={60} height={20} />
               </div>
               <div className="text-2xl font-bold text-white">{card.value}</div>
-              <div className="mt-1 text-xs text-gray-400">{card.label}</div>
+              <div className="mt-1 text-xs text-gray-400">{l(card.label)}</div>
             </div>
           );
         })}
@@ -98,14 +98,14 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
               <Users className="w-3.5 h-3.5 text-violet-400" />
-              <span className="text-xs text-violet-300 font-medium">{stats.totalUsers} total</span>
+              <span className="text-xs text-violet-300 font-medium">{stats.totalUsers} {l('total')}</span>
             </div>
           </div>
           <LineChart
             data={userGrowth.map(d => ({ label: d.date.slice(5), value: d.users }))}
             color="#a78bfa"
             height={220}
-            formatValue={(v) => `${v} users`}
+            formatValue={(v) => `${v} ${l('users')}`}
           />
         </div>
 
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
             data={aiUsage.map(d => ({ label: d.date.slice(5), value: d.requests }))}
             color="#f472b6"
             height={220}
-            formatValue={(v) => `${v} requests`}
+            formatValue={(v) => `${v} ${l('requests')}`}
           />
         </div>
 
@@ -173,11 +173,11 @@ export default function AdminDashboard() {
             { label: 'AI Usage', value: 'Connected' },
             { label: 'Projects', value: 'Connected' },
           ].map(item => (
-            <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+            <div key={l(item.label)} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
               <div className="w-2 h-2 rounded-full bg-emerald-400" />
               <div>
-                <div className="text-xs text-gray-500">{item.label}</div>
-                <div className="text-sm font-medium text-white">{item.value}</div>
+                <div className="text-xs text-gray-500">{l(item.label)}</div>
+                <div className="text-sm font-medium text-white">{l(item.value)}</div>
               </div>
             </div>
           ))}

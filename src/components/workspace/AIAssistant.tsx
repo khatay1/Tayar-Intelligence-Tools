@@ -165,7 +165,7 @@ export default function AIAssistant({ darkMode: _darkMode, onNavigate: _onNaviga
       <button
         onClick={() => { setAssistantOpen(true); loadConversations(); }}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/30 hover:scale-110 transition-transform active:scale-95"
-        aria-label="Open AI Assistant"
+        aria-label={l('Open AI Assistant')}
       >
         <Sparkles className="w-6 h-6" />
         <span className="absolute inset-0 rounded-full bg-violet-500/30 animate-ping opacity-20" />
@@ -214,7 +214,7 @@ export default function AIAssistant({ darkMode: _darkMode, onNavigate: _onNaviga
         {activeContext.type && (
           <div className="flex items-center gap-2 px-4 py-2 bg-violet-600/10 border-b border-violet-500/20">
             <FileText className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />
-            <span className="text-xs text-violet-300 font-medium flex-1 truncate">Context: {contextLabel(activeContext)}</span>
+            <span className="text-xs text-violet-300 font-medium flex-1 truncate">{l('Context')}: {contextLabel(activeContext)}</span>
             <button onClick={clearActiveContext} className="text-violet-400/60 hover:text-violet-400 transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -273,7 +273,7 @@ export default function AIAssistant({ darkMode: _darkMode, onNavigate: _onNaviga
             </div>
           )}
 
-          {loading && !streamingContent && <AILoading label="AI is thinking" variant="inline" />}
+          {loading && !streamingContent && <AILoading label={l('AI is thinking')} variant="inline" />}
 
           {error && (
             <div className="flex justify-start">

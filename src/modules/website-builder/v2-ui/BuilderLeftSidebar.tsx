@@ -1,4 +1,5 @@
 import type { KeyboardEvent, ReactNode } from 'react';
+import { useLocalizer } from '@/lib/ui-localization';
 import {
   Sparkles,
   FileText,
@@ -47,6 +48,7 @@ export function BuilderLeftSidebar({
   shell,
   renderPanel,
 }: BuilderLeftSidebarProps) {
+  const l = useLocalizer();
   const { view, actions } = shell;
 
   const onRailKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -75,7 +77,7 @@ export function BuilderLeftSidebar({
     >
       <nav
         className="tayar-v2-left-sidebar__rail"
-        aria-label="Builder tools"
+        aria-label={l('Builder tools')}
         onKeyDown={onRailKeyDown}
       >
         {EDITOR_LEFT_PANEL_REGISTRY.map((item) => {
@@ -87,9 +89,9 @@ export function BuilderLeftSidebar({
               key={item.id}
               type="button"
               data-panel-id={item.id}
-              aria-label={item.label}
+              aria-label={l(item.label)}
               aria-pressed={view.leftPanel === item.id}
-              title={item.label}
+              title={l(item.label)}
               onClick={() =>
                 actions.onOpenLeftPanel(
                   item.id as EditorLeftPanel,

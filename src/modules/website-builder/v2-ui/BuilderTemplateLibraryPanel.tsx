@@ -116,7 +116,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
       setTotal(page.total);
     } catch (loadError) {
       if (requestRef.current !== requestId) return;
-      setError(loadError instanceof Error ? loadError.message : 'Could not load templates.');
+      setError(loadError instanceof Error ? loadError.message : l('Could not load templates.'));
       if (!append) {
         setAssets([]);
         setTotal(0);
@@ -207,7 +207,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
       anchor.target = '_blank';
       anchor.click();
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : 'Could not download template.');
+      setError(downloadError instanceof Error ? downloadError.message : l('Could not download template.'));
     } finally {
       setDownloadId(null);
     }
@@ -218,7 +218,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
       <div>
         <div className="text-sm font-semibold text-white">{l('Template Library')}</div>
         <p className="mt-1 text-[11px] leading-4 text-gray-500">
-          Browse imported assets safely. Office, PDF and archive files download as references; Tayar-native website formats can be opened directly when available.
+          {l('Browse imported assets safely. Office, PDF and archive files download as references; Tayar-native website formats can be opened directly when available.')}
         </p>
       </div>
 
@@ -227,7 +227,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
         <input
           value={search}
           onChange={event => setSearch(event.target.value)}
-          placeholder="Search templates"
+          placeholder={l('Search templates')}
           className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-8 pr-3 text-xs text-white outline-none placeholder:text-gray-600 focus:border-cyan-500/50"
         />
       </label>
@@ -265,7 +265,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
           type="button"
           onClick={() => void loadPage(0, false)}
           disabled={loading || loadingMore}
-          title="Refresh library"
+          title={l('Refresh library')}
           className="rounded-lg border border-white/10 p-2 text-gray-400 hover:bg-white/5 hover:text-white disabled:opacity-40"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -274,27 +274,27 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
 
       <div className="flex items-center justify-between text-[10px] text-gray-600">
         <span>{summary}</span>
-        <span>{format === 'all' ? 'All formats' : format.toUpperCase()}</span>
+        <span>{format === 'all' ? l('All formats') : format.toUpperCase()}</span>
       </div>
 
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2 text-[11px] text-red-300">
-          {error}
+          {l(error)}
         </div>
       )}
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {loading && assets.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-10 text-xs text-gray-500">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading templates…
+            <Loader2 className="h-4 w-4 animate-spin" /> {l('Loading templates…')}
           </div>
         ) : visibleAssets.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 p-5 text-center text-xs text-gray-500">
             {view === 'favorites'
-              ? 'No favorites yet.'
+              ? l('No favorites yet.')
               : view === 'recent'
-                ? 'Templates you download will appear here.'
-                : 'No templates match this search.'}
+                ? l('Templates you download will appear here.')
+                : l('No templates match this search.')}
           </div>
         ) : (
           visibleAssets.map(asset => {
@@ -326,7 +326,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
                       <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-gray-600">
                         <span>{asset.format.toUpperCase() || 'FILE'}</span>
                         <span>{formatBytes(asset.fileSizeBytes)}</span>
-                        <span>{asset.category}</span>
+                        <span>{l(asset.category)}</span>
                       </div>
                     </div>
                     <button
@@ -353,7 +353,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
                     className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] font-medium text-gray-300 hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
                   >
                     {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    {asset.usageMode === 'builder-native' ? 'Open template' : 'Download template'}
+                    {asset.usageMode === 'builder-native' ? l('Open template') : l('Download template')}
                   </button>
                 </div>
               </article>
@@ -369,7 +369,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-400 hover:bg-white/5 hover:text-white disabled:opacity-40"
           >
             {loadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Load more
+            {l('Load more')}
           </button>
         )}
       </div>

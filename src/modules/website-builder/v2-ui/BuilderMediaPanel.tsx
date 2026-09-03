@@ -82,7 +82,7 @@ export function BuilderMediaPanel({
       setAiError(
         error instanceof Error
           ? error.message
-          : 'Image generation failed.',
+          : l('Image generation failed.'),
       );
     } finally {
       setAiBusy(false);
@@ -162,7 +162,7 @@ export function BuilderMediaPanel({
 
           {aiError && (
             <div className="tayar-v2-media-ai__error">
-              <span>{aiError}</span>
+              <span>{l(aiError)}</span>
 
               <button
                 type="button"

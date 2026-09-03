@@ -79,7 +79,7 @@ export default function AdminContent() {
 
       if (error) {
         console.error('Failed to load admin content draft:', error);
-        showError('Failed to load saved content draft');
+        showError(l('Failed to load saved content draft'));
       } else if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
         setContent((current) => ({ ...current, ...(data.value as Partial<typeof CONTENT>) }));
       }
@@ -112,11 +112,11 @@ export default function AdminContent() {
     setSaving(false);
 
     if (error) {
-      showError(error.message || 'Failed to save content draft');
+      showError(error.message || l('Failed to save content draft'));
       return;
     }
 
-    success('Content draft saved');
+    success(l('Content draft saved'));
   }
 
   const current = content[activeType];
@@ -141,7 +141,7 @@ export default function AdminContent() {
               }`}
             >
               <Icon className="w-4 h-4" />
-              {content[type].title}
+              {l(content[type].title)}
             </button>
           );
         })}
@@ -151,8 +151,8 @@ export default function AdminContent() {
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h3 className="text-white font-semibold">{current.title}</h3>
-            <p className="text-gray-500 text-sm mt-0.5">{current.description}</p>
+            <h3 className="text-white font-semibold">{l(current.title)}</h3>
+            <p className="text-gray-500 text-sm mt-0.5">{l(current.description)}</p>
           </div>
           <button
             onClick={save}
@@ -160,19 +160,19 @@ export default function AdminContent() {
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? l('Saving...') : l('Save Changes')}
           </button>
         </div>
 
         <div className="space-y-4">
           {current.sections.map(section => (
             <div key={section.id}>
-              <label className="text-xs text-gray-400 mb-1.5 block font-medium">{section.label}</label>
+              <label className="text-xs text-gray-400 mb-1.5 block font-medium">{l(section.label)}</label>
               {section.value.length > 80 || section.value.includes('\n') ? (
                 <textarea
                   value={section.value}
                   onChange={e => updateValue(activeType, section.id, e.target.value)}
-                  placeholder={section.placeholder}
+                  placeholder={l(section.placeholder)}
                   rows={4}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500/40 resize-none"
                 />
@@ -180,7 +180,7 @@ export default function AdminContent() {
                 <input
                   value={section.value}
                   onChange={e => updateValue(activeType, section.id, e.target.value)}
-                  placeholder={section.placeholder}
+                  placeholder={l(section.placeholder)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-violet-500/40"
                 />
               )}

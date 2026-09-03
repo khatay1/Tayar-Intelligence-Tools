@@ -248,7 +248,7 @@ export function BuilderLayersPanel({
                                 )
                               }
                             >
-                              UNGROUP
+                              {l('UNGROUP')}
                             </button>
                           </div>
                         )}
@@ -320,7 +320,7 @@ export function BuilderLayersPanel({
                               )
                             }
                           >
-                            UP
+                            {l('UP')}
                           </button>
 
                           <button
@@ -337,7 +337,7 @@ export function BuilderLayersPanel({
                               )
                             }
                           >
-                            DN
+                            {l('DN')}
                           </button>
 
                           <button
@@ -349,7 +349,7 @@ export function BuilderLayersPanel({
                               )
                             }
                           >
-                            COPY
+                            {l('COPY')}
                           </button>
 
                           <button
@@ -365,7 +365,7 @@ export function BuilderLayersPanel({
                               )
                             }
                           >
-                            DEL
+                            {l('DEL')}
                           </button>
                         </div>
                       )}
@@ -427,7 +427,7 @@ export function BuilderLayersPanel({
                           </span>
 
                           <small>
-                            {formField.type}
+                            {l(formField.type)}
                           </small>
                         </button>
 
@@ -488,7 +488,7 @@ export function BuilderLayersPanel({
                         key={type}
                         onClick={() => onAddFormField?.(section.id, type)}
                       >
-                        + {type === 'tel' ? 'Phone' : type}
+                        + {type === 'tel' ? l('Phone') : l(type)}
                       </button>
                     ))}
                   </div>

@@ -26,7 +26,7 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
           {status.checking
             ? l('Checking…')
             : typeof status.checkScore === 'number'
-              ? `Check ${status.checkScore}`
+              ? `${l('Check')} ${status.checkScore}`
                : l('Check')}
         </button>
         <button type="button" className="tayar-v2-save-button" onClick={actions.onSave} disabled={Boolean(status.saving) || !view.dirty}>

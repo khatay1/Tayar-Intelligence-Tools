@@ -1,6 +1,7 @@
 import { CVData, TemplateId, ColorTheme, SectionConfig, FONT_OPTIONS } from '@/lib/cv-types';
 import { COLOR_THEMES } from '@/lib/cv-types';
 import { Mail, Phone, MapPin, Linkedin, Globe, Award } from 'lucide-react';
+import { useLocalizer } from '@/lib/ui-localization';
 
 interface CVPreviewProps {
   data: CVData;
@@ -11,11 +12,12 @@ interface CVPreviewProps {
 }
 
 export default function CVPreview({ data, template, colorTheme = 'violet', sections = [], fontId = 'inter' }: CVPreviewProps) {
+  const l = useLocalizer();
   const theme = COLOR_THEMES.find(t => t.id === colorTheme) || COLOR_THEMES[0];
   const font = FONT_OPTIONS.find(f => f.id === fontId) || FONT_OPTIONS[0];
   const fontFamily = font.family;
 
-  const orderedSections = sections.length > 0
+  const orderedSections = (sections.length > 0
     ? sections.filter(s => s.visible)
     : [
         { id: 'summary' as const, label: 'Summary', visible: true },
@@ -26,7 +28,7 @@ export default function CVPreview({ data, template, colorTheme = 'violet', secti
         { id: 'projects' as const, label: 'Projects', visible: true },
         { id: 'certificates' as const, label: 'Certifications', visible: true },
         { id: 'awards' as const, label: 'Awards', visible: true },
-      ];
+      ]).map((section) => ({ ...section, label: l(section.label) }));
 
   const sectionMap: Record<string, React.ReactNode> = {
     summary: data.summary ? <p className="text-xs leading-relaxed text-gray-600">{data.summary}</p> : null,
@@ -36,7 +38,7 @@ export default function CVPreview({ data, template, colorTheme = 'violet', secti
           <div key={exp.id}>
             <div className="flex justify-between items-baseline">
               <h4 className="text-sm font-bold">{exp.jobTitle}</h4>
-              <span className="text-[10px] text-gray-500">{exp.startDate} — {exp.current ? 'Present' : exp.endDate}</span>
+              <span className="text-[10px] text-gray-500">{exp.startDate} — {exp.current ? l('Present') : exp.endDate}</span>
             </div>
             <div className="text-xs mb-1" style={{ color: theme.primary }}>{exp.company}{exp.location && ` · ${exp.location}`}</div>
             <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{exp.description}</p>

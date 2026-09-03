@@ -500,7 +500,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         editSection === s.id ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
                       }`}
                     >
-                      {s.label}
+                      {l(s.label)}
                     </button>
                   ))}
                 </div>
@@ -761,7 +761,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
                         }`}
                       >
                         <GripVertical className="w-4 h-4 text-gray-500" />
-                        <span className="text-white text-xs flex-1">{sec.label}</span>
+                        <span className="text-white text-xs flex-1">{l(sec.label)}</span>
                         <button
                           onClick={() => toggleSectionVisible(sec.id)}
                           className={`w-7 h-4 rounded-full transition-colors ${sec.visible ? 'bg-violet-600' : 'bg-white/10'}`}

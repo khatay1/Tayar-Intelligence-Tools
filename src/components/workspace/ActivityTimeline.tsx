@@ -133,7 +133,7 @@ export default function ActivityTimeline({ darkMode, onNavigate }: ActivityTimel
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
             }`}
           >
-            {f.label}
+            {l(f.label)}
           </button>
         ))}
       </div>

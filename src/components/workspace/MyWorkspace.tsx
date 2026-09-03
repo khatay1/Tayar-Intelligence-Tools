@@ -318,7 +318,7 @@ function FileRow({ project, onOpen, compact }: { project: Project; onOpen: () =>
           {isPinned && <Pin className="w-3 h-3 text-violet-400 fill-violet-400" />}
           {isFavorite && <Star className="w-3 h-3 text-amber-400 fill-amber-400" />}
         </div>
-        <div className="text-gray-500 text-xs">{meta.label} · {timeAgo(project.updated_at)}</div>
+        <div className="text-gray-500 text-xs">{l(meta.label)} · {timeAgo(project.updated_at)}</div>
       </div>
       <ArrowUpRight className="w-4 h-4 text-gray-600 flex-shrink-0" />
     </button>

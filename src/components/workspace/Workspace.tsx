@@ -430,7 +430,7 @@ const groups: { label: string; items: NavItem[] }[] = [
                   return <Component darkMode={darkMode} projectId={activeProjectId} />;
                 }
                 if (tool && tool.status === 'soon') {
-                  return <PlaceholderView title={tool.name} desc={tool.description} icon={Activity} darkMode={darkMode} badge="Coming Soon" />;
+                  return <PlaceholderView title={l(tool.name)} desc={l(tool.description)} icon={Activity} darkMode={darkMode} badge={l('Coming Soon')} />;
                 }
                 return null;
               })()}

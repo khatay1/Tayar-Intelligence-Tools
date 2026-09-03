@@ -120,10 +120,10 @@ export default function AdminSupport() {
           };
           const Icon = s.icon;
           return (
-            <button key={s.label} onClick={() => setFilter(s.filter)} className={`rounded-xl border p-3 text-left hover:scale-[1.02] transition-transform ${colors[s.color]} ${filter === s.filter ? 'ring-2 ring-white/20' : ''}`}>
+            <button key={l(s.label)} onClick={() => setFilter(s.filter)} className={`rounded-xl border p-3 text-left hover:scale-[1.02] transition-transform ${colors[s.color]} ${filter === s.filter ? 'ring-2 ring-white/20' : ''}`}>
               <Icon className="w-5 h-5 mb-1" />
               <div className="text-2xl font-bold text-white">{s.value}</div>
-              <div className="text-xs text-gray-400">{s.label}</div>
+              <div className="text-xs text-gray-400">{l(s.label)}</div>
             </button>
           );
         })}
@@ -154,12 +154,12 @@ export default function AdminSupport() {
                         <span className="text-sm font-medium text-white truncate">{t.subject}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                           t.status === 'open' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-500'
-                        }`}>{t.status}</span>
+                        }`}>{l(t.status)}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                           t.priority === 'high' ? 'bg-red-500/10 text-red-400' :
                           t.priority === 'medium' ? 'bg-amber-500/10 text-amber-400' :
                           'bg-gray-500/10 text-gray-400'
-                        }`}>{t.priority}</span>
+                        }`}>{l(t.priority)}</span>
                       </div>
                       <p className="text-xs text-gray-400 mt-1 line-clamp-1">{t.body}</p>
                       <div className="flex items-center gap-1.5 text-xs text-gray-600 mt-1.5">
@@ -185,9 +185,9 @@ export default function AdminSupport() {
             </div>
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-xs">
-                <span className="px-2 py-0.5 rounded-full bg-white/5 text-gray-400 capitalize">{selected.type}</span>
-                <span className={`px-2 py-0.5 rounded-full ${selected.status === 'open' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-500'}`}>{selected.status}</span>
-                <span className="px-2 py-0.5 rounded-full bg-white/5 text-gray-400 capitalize">{selected.priority}</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/5 text-gray-400 capitalize">{l(selected.type)}</span>
+                <span className={`px-2 py-0.5 rounded-full ${selected.status === 'open' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-500'}`}>{l(selected.status)}</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/5 text-gray-400 capitalize">{l(selected.priority)}</span>
                 <span className="text-gray-600 ml-auto">{new Date(selected.created_at).toLocaleString()}</span>
               </div>
               <div className="bg-white/[0.02] rounded-xl p-4 border border-white/5">
@@ -204,18 +204,18 @@ export default function AdminSupport() {
                 <textarea
                   value={response}
                   onChange={e => setResponse(e.target.value)}
-                  placeholder="Type your response..."
+                  placeholder={l('Type your response...')}
                   rows={4}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-violet-500/40 resize-none"
                 />
               </div>
               <div className="flex gap-3">
                 <button onClick={() => changeStatus(selected, selected.status === 'open' ? 'closed' : 'open')} className="px-4 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border border-white/10 hover:bg-white/5 transition-colors">
-                  {selected.status === 'open' ? 'Close Ticket' : 'Reopen'}
+                  {selected.status === 'open' ? l('Close Ticket') : l('Reopen')}
                 </button>
                 <button onClick={respond} disabled={responding || !response.trim()} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                   <Send className="w-4 h-4" />
-                  {responding ? 'Sending...' : 'Send & Close'}
+                  {responding ? l('Sending...') : l('Send & Close')}
                 </button>
               </div>
             </div>

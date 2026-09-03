@@ -1,4 +1,5 @@
-﻿import type {
+﻿import { useLocalizer } from '@/lib/ui-localization';
+import type {
   ReactNode,
 } from 'react';
 
@@ -47,6 +48,7 @@ export function BuilderInspector({
   shell,
   renderInspector,
 }: BuilderInspectorProps) {
+  const l = useLocalizer();
   const { view, actions } =
     shell;
 
@@ -60,7 +62,7 @@ export function BuilderInspector({
       <div
         className="tayar-v2-inspector__tabs"
         role="tablist"
-        aria-label="Inspector"
+        aria-label={l('Inspector')}
       >
         {TABS.map((tab) => (
           <button
@@ -77,7 +79,7 @@ export function BuilderInspector({
               )
             }
           >
-            {tab.label}
+            {l(tab.label)}
           </button>
         ))}
       </div>

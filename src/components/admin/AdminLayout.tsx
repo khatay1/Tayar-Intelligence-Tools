@@ -116,8 +116,8 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
 
         <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
           {NAV_GROUPS.map(group => (
-            <div key={group.label}>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-600 px-3 mb-2">{group.label}</div>
+            <div key={l(group.label)}>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-600 px-3 mb-2">{l(group.label)}</div>
               <div className="space-y-0.5">
                 {group.items.map(item => {
                   const Icon = item.icon;
@@ -129,7 +129,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-violet-600/15 text-violet-300 font-medium border border-violet-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
                     >
                       <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${active ? 'text-violet-400' : ''}`} />
-                      <span className="flex-1 text-left">{item.label}</span>
+                      <span className="flex-1 text-left">{l(item.label)}</span>
                       {active && <ChevronRight className="w-3.5 h-3.5 text-violet-400" />}
                     </button>
                   );
@@ -146,7 +146,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
               <div className="text-sm font-medium truncate text-white">{profile?.full_name || 'Admin'}</div>
               <div className="text-xs text-violet-400">{l('Administrator')}</div>
             </div>
-            <button onClick={onExitToWorkspace} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Back to Workspace">
+            <button onClick={onExitToWorkspace} className="text-gray-400 hover:text-white transition-colors flex-shrink-0" title={l('Back to Workspace')}>
               <LogOut className="w-4 h-4" />
             </button>
           </div>
@@ -163,7 +163,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
           </button>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-white capitalize">
-              {NAV_GROUPS.flatMap(g => g.items).find(i => i.id === activeView)?.label || 'Admin'}
+              {l(NAV_GROUPS.flatMap(g => g.items).find(i => i.id === activeView)?.label || 'Admin')}
             </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -175,7 +175,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
               <button onClick={() => setNotifOpen(!notifOpen)} className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                 <Bell className="w-5 h-5" />
                 {notificationError ? (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-black text-[10px] font-bold flex items-center justify-center" title="Notifications unavailable">!</span>
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-black text-[10px] font-bold flex items-center justify-center" title={l('Notifications unavailable')}>!</span>
                 ) : unreadCount > 0 ? (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">{unreadCount}</span>
                 ) : null}

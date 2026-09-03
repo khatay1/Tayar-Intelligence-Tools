@@ -61,9 +61,9 @@ export function BuilderStatusBar({
         {(status.publishError || status.saveError) && (
           <span
             className="tayar-v2-statusbar__error"
-            title={status.publishError || status.saveError}
+            title={l(status.publishError || status.saveError || '')}
           >
-            {status.publishError || status.saveError}
+            {l(status.publishError || status.saveError || '')}
           </span>
         )}
 

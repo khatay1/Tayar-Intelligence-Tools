@@ -119,7 +119,7 @@ export default function Navbar({ onGetStarted, onLogin }: NavbarProps) {
           type="button"
           className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-white md:hidden"
           onClick={() => setMobileOpen(v => !v)}
-          aria-label="Toggle navigation menu"
+          aria-label={l('Toggle navigation menu')}
           aria-expanded={mobileOpen}
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

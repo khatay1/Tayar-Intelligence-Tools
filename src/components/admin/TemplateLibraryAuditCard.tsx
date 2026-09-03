@@ -264,23 +264,23 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
           <div className="flex items-center gap-2 text-white font-semibold">
             <ShieldCheck className="h-5 w-5 text-cyan-400" />{l('Template Library Integrity Audit')}</div>
           <p className="mt-1 max-w-3xl text-xs text-gray-400">
-            Read-only validation of stored 24Billions templates. Progress is saved in this browser and can be paused or resumed safely.
+            {l('Read-only validation of stored 24Billions templates. Progress is saved in this browser and can be paused or resumed safely.')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {!running ? (
             <button onClick={() => runAudit(state.scanned === 0 || state.completed)} disabled={analyzingRepairs || deletingInvalid} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-40">
-              <Play className="h-4 w-4" /> {state.scanned > 0 && !state.completed ? 'Resume Audit' : state.completed ? 'Run Again' : 'Start Audit'}
+              <Play className="h-4 w-4" /> {state.scanned > 0 && !state.completed ? l('Resume Audit') : state.completed ? l('Run Again') : l('Start Audit')}
             </button>
           ) : (
             <button onClick={pauseAudit} className="inline-flex items-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/25">
               <Pause className="h-4 w-4" />{l('Pause')}</button>
           )}
           <button onClick={analyzeRepairs} disabled={busy || !state.completed || uniqueIssueIds.length === 0} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40">
-            <Wrench className={`h-4 w-4 ${analyzingRepairs ? 'animate-pulse' : ''}`} /> {analyzingRepairs ? 'Analyzing…' : 'Analyze Repairs'}
+            <Wrench className={`h-4 w-4 ${analyzingRepairs ? 'animate-pulse' : ''}`} /> {analyzingRepairs ? l('Analyzing…') : l('Analyze Repairs')}
           </button>
           <button onClick={deleteInvalidAssets} disabled={busy || !state.completed || uniqueIssueIds.length === 0} className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-40">
-            <Trash2 className={`h-4 w-4 ${deletingInvalid ? 'animate-pulse' : ''}`} /> {deletingInvalid ? 'Deleting…' : `Delete ${uniqueIssueIds.length || ''} Invalid`}
+            <Trash2 className={`h-4 w-4 ${deletingInvalid ? 'animate-pulse' : ''}`} /> {deletingInvalid ? l('Deleting…') : l('Delete invalid templates')}
           </button>
           <button onClick={resetAudit} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-40">
             <RotateCcw className="h-4 w-4" />{l('Reset')}</button>
@@ -293,7 +293,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
         <div className="h-full bg-cyan-400 transition-all" style={{ width: `${progress}%` }} />
       </div>
       <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
-        <span>{state.scanned.toLocaleString()} / {(state.total ?? 0).toLocaleString()} scanned</span>
+        <span>{state.scanned.toLocaleString()} / {(state.total ?? 0).toLocaleString()} {l('scanned')}</span>
         <span>{progress}%</span>
       </div>
 
@@ -306,7 +306,7 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
 
       {error && (
         <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">
-          {error} Audit progress is still saved unless deletion completed.
+          {error} {l('Audit progress is still saved unless deletion completed.')}
         </div>
       )}
 
@@ -356,10 +356,11 @@ const [state, setState] = useState<AuditState>(() => loadStoredState());
 }
 
 function Metric({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
+  const l = useLocalizer();
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-      <div className="flex items-center gap-2 text-[11px] text-gray-500">{icon}{label}</div>
-      <div className="mt-1 text-lg font-bold text-white">{typeof value === 'number' ? value.toLocaleString() : value}</div>
+      <div className="flex items-center gap-2 text-[11px] text-gray-500">{icon}{l(label)}</div>
+      <div className="mt-1 text-lg font-bold text-white">{typeof value === 'number' ? value.toLocaleString() : l(String(value))}</div>
     </div>
   );
 }

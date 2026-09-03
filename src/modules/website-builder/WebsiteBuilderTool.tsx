@@ -2181,12 +2181,12 @@ function buildFullHtml(
     ? `<div class="tayar-cookie-banner" data-tayar-cookie hidden><p>${escapeHtml(siteEnhancements.cookieText)}</p><button type="button" data-cookie-accept>${escapeHtml(siteEnhancements.cookieButtonLabel)}</button></div>`
     : '';
   const scrollProgress = siteEnhancements.scrollProgress ? '<div class="tayar-scroll-progress" data-scroll-progress></div>' : '';
-  const backToTop = siteEnhancements.backToTop ? '<button class="tayar-back-to-top" type="button" data-back-to-top aria-label="Back to top">↑</button>' : '';
+  const backToTop = siteEnhancements.backToTop ? `<button class="tayar-back-to-top" type="button" data-back-to-top aria-label="${runtimeHtml('Back to top')}">↑</button>` : '';
   const announcementBar = siteEnhancements.announcementBar
     ? `<aside class="tayar-announcement" role="status"><span>${escapeHtml(siteEnhancements.announcementText)}</span>${siteEnhancements.announcementHref && siteEnhancements.announcementHref !== '#' ? `<a href="${escapeHtml(resolveBuilderHref(siteEnhancements.announcementHref, homeSlug))}">${escapeHtml(siteEnhancements.announcementLinkLabel)}</a>` : ''}</aside>`
     : '';
   const popupModal = siteEnhancements.popupEnabled
-    ? `<div class="tayar-popup-backdrop" data-tayar-popup hidden><div class="tayar-popup" role="dialog" aria-modal="true" aria-label="${escapeHtml(siteEnhancements.popupTitle)}"><button class="tayar-popup-close" type="button" data-popup-close aria-label="Close">×</button><h2>${escapeHtml(siteEnhancements.popupTitle)}</h2><p>${escapeHtml(siteEnhancements.popupText)}</p><a class="btn" href="${escapeHtml(resolveBuilderHref(siteEnhancements.popupButtonHref, homeSlug))}">${escapeHtml(siteEnhancements.popupButtonLabel)}</a></div></div>`
+    ? `<div class="tayar-popup-backdrop" data-tayar-popup hidden><div class="tayar-popup" role="dialog" aria-modal="true" aria-label="${escapeHtml(siteEnhancements.popupTitle)}"><button class="tayar-popup-close" type="button" data-popup-close aria-label="${runtimeHtml('Close')}">×</button><h2>${escapeHtml(siteEnhancements.popupTitle)}</h2><p>${escapeHtml(siteEnhancements.popupText)}</p><a class="btn" href="${escapeHtml(resolveBuilderHref(siteEnhancements.popupButtonHref, homeSlug))}">${escapeHtml(siteEnhancements.popupButtonLabel)}</a></div></div>`
     : '';
   const floatingCta = siteEnhancements.floatingCta
     ? `<a class="tayar-floating-cta" href="${escapeHtml(resolveBuilderHref(siteEnhancements.floatingCtaHref, homeSlug))}">${escapeHtml(siteEnhancements.floatingCtaLabel)}</a>`
@@ -3807,11 +3807,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!parsed) { setRecoveryAvailable(false); return; }
 
       if (snapshotConflictsWithActiveProject(parsed.project, true)) {
-        window.alert('This recovery snapshot belongs to a different project. Open that project before restoring it.');
+        window.alert(l('This recovery snapshot belongs to a different project. Open that project before restoring it.'));
         return;
       }
 
-      if (!window.confirm(`Restore the recovery snapshot from ${parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : 'the previous edit'}?`)) return;
+      if (!window.confirm(`${l('Restore the recovery snapshot from')} ${parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : l('the previous edit')}?`)) return;
       saveRecoverySnapshot('before recovery restore');
       prepareProjectStateRestore();
       applyProjectData(parsed.project);
@@ -3819,7 +3819,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
       setOperationsOpen(false);
     } catch {
-      window.alert('The recovery snapshot could not be restored.');
+      window.alert(l('The recovery snapshot could not be restored.'));
     }
   }
 
@@ -4116,7 +4116,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function deleteReusableSection(template: ReusableSectionTemplate) {
-    if (!window.confirm(`Delete reusable section “${template.title}”?`)) return;
+    if (!window.confirm(`${l('Delete reusable section')} “${template.title}”?`)) return;
     setReusableError('');
 
     const operationUserId = user?.id ?? null;
@@ -4539,7 +4539,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function deleteLead(leadId: string) {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
-    const confirmed = window.confirm('Delete this lead permanently?');
+    const confirmed = window.confirm(l('Delete this lead permanently?'));
     if (!confirmed) return;
 
     const deleteLoadSequence = projectLoadSequenceRef.current;
@@ -4740,7 +4740,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   async function deleteMediaAsset(asset: WebsiteMediaAsset) {
     const deleteUserId = user?.id ?? null;
     if (!deleteUserId) return;
-    if (!window.confirm(`Delete ${asset.name} from your media library?`)) return;
+    if (!window.confirm(`${l('Delete')} ${asset.name} ${l('from your media library?')}`)) return;
 
     const deleteSequence = ++mediaDeleteSequenceRef.current;
     const deleteProjectSequence = projectLoadSequenceRef.current;
@@ -5537,7 +5537,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (language === currentLanguage) return;
     const groupKey = activePage.translationKey?.trim() || `translation-${activePage.id}`;
     if (pages.some((page) => page.translationKey === groupKey && normalizePageLanguage(page.language, prefs.language) === language)) {
-      window.alert(`A ${PAGE_LANGUAGE_LABELS[language]} version already exists in this translation group.`);
+      window.alert(`${l('A')} ${l(PAGE_LANGUAGE_LABELS[language])} ${l('version already exists in this translation group.')}`);
       return;
     }
     const used = new Set(pages.map((page) => normalizeSlug(page.slug)));
@@ -6214,7 +6214,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!selectedElement || !selectedSection || selectedElement.symbolId) return;
 
     if (symbols.length >= 50) {
-      window.alert('You can keep up to 50 reusable components in one website. Delete an unused component before creating another.');
+      window.alert(l('You can keep up to 50 reusable components in one website. Delete an unused component before creating another.'));
       return;
     }
 
@@ -6289,7 +6289,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function deleteSymbol(symbolId: string) {
-    if (!window.confirm('Delete this component? Existing instances will become normal elements.')) return;
+    if (!window.confirm(l('Delete this component? Existing instances will become normal elements.'))) return;
     remember(sections, 'Delete reusable component');
     setSymbols((current) => current.filter((symbol) => symbol.id !== symbolId));
     const detach = (section: WebsiteSection) => ({
@@ -6832,7 +6832,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const message =
         error instanceof Error
           ? error.message
-          : 'Could not generate image.';
+          : l('Could not generate image.');
 
       setMediaError(message);
 
@@ -7089,7 +7089,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      const message = error instanceof Error ? error.message : 'AI generation failed.';
+      const message = error instanceof Error ? error.message : l('AI generation failed.');
       setAiError(message);
       setAiStage('error');
       setAiMessages((current) => [
@@ -7415,7 +7415,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const removesPage = destructiveOperations.some((operation) => operation.action === 'remove_page');
       if (removesPage || destructiveOperations.length >= 3) {
         const confirmed = window.confirm(
-          `Tayar AI wants to run ${destructiveOperations.length} destructive change${destructiveOperations.length === 1 ? '' : 's'}. Continue?`
+          `${l('Tayar AI wants to run')} ${destructiveOperations.length} ${l(destructiveOperations.length === 1 ? 'destructive change' : 'destructive changes')}. ${l('Continue?')}`
         );
         if (!confirmed) {
           setAiStage('ready');
@@ -10010,7 +10010,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      const message = error instanceof Error ? error.message : 'AI edit failed.';
+      const message = error instanceof Error ? error.message : l('AI edit failed.');
       setAiError(message);
       setAiStage('error');
       setAiMessages((current) => [
@@ -10251,10 +10251,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       aiQualityReviewContextRef.current = operationContext;
       setAiQualityReview({
         score: qualityAudit.score,
-        summary: 'Automated builder audit is available, but the AI review could not complete.',
+        summary: l('Automated builder audit is available, but the AI review could not complete.'),
         findings: [
-          ...qualityAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: 'Publish blocker', detail })),
-          ...qualityAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: 'Recommended improvement', detail })),
+          ...qualityAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: l('Publish blocker'), detail })),
+          ...qualityAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: l('Recommended improvement'), detail })),
         ].slice(0, 8),
         fixPrompt: '',
       });
@@ -10500,7 +10500,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishError('Only the project owner can rollback a published release.');
       return;
     }
-    if (!window.confirm(`Rollback the live website to the release from ${new Date(version.created_at).toLocaleString()}? Your editor draft will stay unchanged.`)) return;
+    if (!window.confirm(`${l('Rollback the live website to the release from')} ${new Date(version.created_at).toLocaleString()}? ${l('Your editor draft will stay unchanged.')}`)) return;
 
     const rollbackSequence = ++publishOperationSequenceRef.current;
     const rollbackLoadSequence = projectLoadSequenceRef.current;
@@ -10633,7 +10633,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    if (!window.confirm('Restore this release into the editor? The live website will not change until you publish again.')) return;
+    if (!window.confirm(l('Restore this release into the editor? The live website will not change until you publish again.'))) return;
     const restored = {
       ...(version.snapshot || {}),
       publishedUrl,
@@ -10661,7 +10661,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishVersionsError('You cannot delete the release currently serving as the live rollback reference.');
       return;
     }
-    if (!window.confirm('Delete this stored release archive? This cannot be undone.')) return;
+    if (!window.confirm(l('Delete this stored release archive? This cannot be undone.'))) return;
 
     const deleteLoadSequence = projectLoadSequenceRef.current;
     const deleteProjectId = cloudProjectId;
@@ -10872,9 +10872,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return durableSaved;
     } catch (error) {
       if (saveIsCurrent()) {
-        const message = error instanceof Error ? error.message : 'Unexpected save failure.';
+        const message = error instanceof Error ? error.message : l('Unexpected save failure.');
         setCloudSyncFailed(Boolean(saveUserId));
-        setCloudError(saveUserId ? `Save failed: ${message}` : message);
+        setCloudError(saveUserId ? `${l('Save failed')}: ${l(message)}` : l(message));
         setAutoSaveStatus('failed');
         if (!automatic) setSaved(false);
       }
@@ -10997,7 +10997,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function restoreHistoryEntry(entry: ProjectHistoryEntry) {
-    const confirmed = window.confirm(`Restore "${entry.label}"? Your current unsaved changes will be replaced.`);
+    const confirmed = window.confirm(`${l('Restore')} "${entry.label}"? ${l('Your current unsaved changes will be replaced.')}`);
     if (!confirmed) return;
 
     if (snapshotConflictsWithActiveProject(entry.snapshot)) {
@@ -11020,7 +11020,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function resetProject() {
     const confirmed = window.confirm(
-      'Reset the website builder to the default project?'
+      l('Reset the website builder to the default project?')
     );
 
     if (!confirmed) return;
@@ -11209,7 +11209,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         raw = await file.text();
       } catch {
         if (importIsCurrent()) {
-          window.alert('This JSON file could not be read.');
+          window.alert(l('This JSON file could not be read.'));
         }
         return;
       }
@@ -11257,7 +11257,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setAutoSaveStatus('saved');
         setOperationsOpen(false);
       } catch {
-        window.alert('This JSON file is not a valid Tayar Website Builder backup.');
+        window.alert(l('This JSON file is not a valid Tayar Website Builder backup.'));
       }
     };
     input.click();
@@ -11347,7 +11347,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function markProjectDelivered() {
-    if (!publishedUrl && !window.confirm('This project is not currently published. Mark it delivered anyway?')) return;
+    if (!publishedUrl && !window.confirm(l('This project is not currently published. Mark it delivered anyway?'))) return;
     setDeliveryConfig((current) => ({ ...current, status: 'delivered', deliveredAt: new Date().toISOString() }));
     setSaved(false);
   }
@@ -11406,7 +11406,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!requireBillingFeature('clientDelivery', 'Client handoff ZIP')) return;
     const productionUrl = normalizeSiteUrl(siteUrl) || (publishedUrl ? publishedUrl.replace(/\/index\.html(?:[?#].*)?$/i, '') : '');
     if (!productionUrl) {
-      window.alert('Add a Production URL or publish the website before creating the client handoff package.');
+      window.alert(l('Add a Production URL or publish the website before creating the client handoff package.'));
       return;
     }
 
@@ -11580,7 +11580,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!requireBillingFeature('exportZip', 'Production ZIP export')) return;
     const productionUrl = normalizeSiteUrl(siteUrl);
     if (!productionUrl) {
-      window.alert('Add your production URL first, for example https://example.com. It is required for canonical URLs and sitemap.xml.');
+      window.alert(l('Add your production URL first, for example https://example.com. It is required for canonical URLs and sitemap.xml.'));
       return;
     }
 
@@ -12026,8 +12026,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (archiveWarning) {
         setPublishVersionsError(
-          'Website published successfully. Release history was skipped: ' +
-          archiveWarning
+          `${l('Website published successfully. Release history was skipped:')} ${l(archiveWarning)}`
         );
       }
 
@@ -12062,7 +12061,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishError('Only the project owner can unpublish a shared website.');
       return;
     }
-    if (!window.confirm('Remove the public version of this website?')) return;
+    if (!window.confirm(l('Remove the public version of this website?'))) return;
 
     const unpublishSequence = ++publishOperationSequenceRef.current;
     const unpublishLoadSequence = projectLoadSequenceRef.current;
@@ -12142,7 +12141,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      window.alert('Could not copy HTML. Please use Download Website instead.');
+      window.alert(l('Could not copy HTML. Please use Download Website instead.'));
     }
   }
 
@@ -14006,7 +14005,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       {cloudError && (
         <div className={`border-b px-4 py-2 text-xs ${darkMode ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-          {cloudError}
+          {l(cloudError)}
         </div>
       )}
 
@@ -14020,7 +14019,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   {l('AI Quality Check')}
                   {aiQualityReview && <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${aiQualityReview.score >= 80 ? 'bg-emerald-500/10 text-emerald-400' : aiQualityReview.score >= 60 ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'}`}>{aiQualityReview.score}/100</span>}
                 </p>
-                <p className="mt-1 text-[10px] text-gray-500">{aiQualityReview?.summary || (aiQualityBusy ? l('Reviewing design, content, SEO, accessibility and publish readiness…') : l('Run the final AI review before publishing.'))}</p>
+                <p className="mt-1 text-[10px] text-gray-500">{aiQualityReview?.summary ? l(aiQualityReview.summary) : (aiQualityBusy ? l('Reviewing design, content, SEO, accessibility and publish readiness…') : l('Run the final AI review before publishing.'))}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => void runAIQualityCheck()} disabled={aiQualityBusy || aiBusy} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{aiQualityBusy ? l('Checking…') : l('Run again')}</button>
@@ -14033,9 +14032,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                   {aiQualityReview.findings.map((finding, index) => (
                     <article key={`${finding.title}-${index}`} className={`rounded-xl border p-3 ${darkMode ? 'border-white/[0.07] bg-white/[0.025]' : 'border-gray-200 bg-white'}`}>
-                      <span className={`text-[8px] font-black uppercase tracking-wider ${finding.severity === 'critical' ? 'text-rose-400' : finding.severity === 'warning' ? 'text-amber-400' : 'text-sky-400'}`}>{finding.severity}</span>
-                      <p className="mt-1 text-[10px] font-bold">{finding.title}</p>
-                      <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{finding.detail}</p>
+                      <span className={`text-[8px] font-black uppercase tracking-wider ${finding.severity === 'critical' ? 'text-rose-400' : finding.severity === 'warning' ? 'text-amber-400' : 'text-sky-400'}`}>{l(finding.severity)}</span>
+                      <p className="mt-1 text-[10px] font-bold">{l(finding.title)}</p>
+                      <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{l(finding.detail)}</p>
                     </article>
                   ))}
                 </div>
@@ -14094,14 +14093,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="flex flex-wrap items-center gap-2">
                   <Check className="h-4 w-4 text-cyan-400" />
                   <p className="text-sm font-black">{l('Website Builder V1 Launch Center')}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${v1LaunchStatus.status === 'V1 LIVE' ? 'bg-emerald-500 text-white' : v1LaunchStatus.preflightReady ? 'bg-cyan-500 text-white' : 'bg-amber-500/15 text-amber-400'}`}>{v1LaunchStatus.status}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${v1LaunchStatus.status === 'V1 LIVE' ? 'bg-emerald-500 text-white' : v1LaunchStatus.preflightReady ? 'bg-cyan-500 text-white' : 'bg-amber-500/15 text-amber-400'}`}>{l(v1LaunchStatus.status)}</span>
                   <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black text-gray-400">V1.0</span>
                 </div>
                 <p className="mt-1 text-[11px] text-gray-500">{l('One place to onboard a project, run production checks, publish the release and verify that the live site is healthy.')}</p>
-                {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">Last automated check: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
+                {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">{l('Last automated check')}: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? 'Checking…' : 'Run final checks'}</button>
+                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? l('Checking…') : l('Run final checks')}</button>
                 <button onClick={exportV1LaunchReport} className="rounded-lg border border-cyan-500/25 px-3 py-2 text-[10px] font-bold text-cyan-400">{l('Export launch report')}</button>
                 <button onClick={closeLaunchCenter} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
@@ -14113,17 +14112,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${v1LaunchStatus.score >= 90 ? 'bg-emerald-500' : v1LaunchStatus.score >= 70 ? 'bg-cyan-500' : 'bg-amber-500'}`} style={{ width: `${v1LaunchStatus.score}%` }} /></div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center">
                   <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Audit')}</p><p className="text-lg font-black">{siteAudit.score}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Health')}</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? 'GOOD' : 'CHECK'}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? 'OK' : 'FIX'}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? 'VERIFIED' : publishedUrl ? 'VERIFY' : 'NOT YET'}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Health')}</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? l('GOOD') : l('CHECK')}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? l('OK') : l('FIX')}</p></div>
+                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? l('VERIFIED') : publishedUrl ? l('VERIFY') : l('NOT YET')}</p></div>
                 </div>
-                {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">{l('Launch blockers')}</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">• {item}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">{l('✓ No critical production blockers detected.')}</div>}
+                {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">{l('Launch blockers')}</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">• {l(item)}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">{l('✓ No critical production blockers detected.')}</div>}
               </div>
 
               <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
                 <div className="flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-wider text-violet-400">{l('Automated launch checks')}</p><p className="mt-1 text-[10px] text-gray-500">{l('Publish only after the preflight items are green.')}</p></div><span className="text-[10px] font-bold text-gray-500">{v1LaunchStatus.checks.filter((item) => item.ok).length}/{v1LaunchStatus.checks.length}</span></div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {v1LaunchStatus.checks.map((check) => <div key={check.label} className={`rounded-xl border p-2.5 ${check.ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10 bg-black/10'}`}><div className="flex items-center gap-2"><span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${check.ok ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-500'}`}>{check.ok ? '✓' : '○'}</span><p className={`text-[10px] font-bold ${check.ok ? 'text-emerald-400' : 'text-gray-300'}`}>{check.label}</p></div><p className="mt-1 pl-7 text-[9px] text-gray-500">{check.detail}</p></div>)}
+                  {v1LaunchStatus.checks.map((check) => <div key={check.label} className={`rounded-xl border p-2.5 ${check.ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10 bg-black/10'}`}><div className="flex items-center gap-2"><span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${check.ok ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-500'}`}>{check.ok ? '✓' : '○'}</span><p className={`text-[10px] font-bold ${check.ok ? 'text-emerald-400' : 'text-gray-300'}`}>{l(check.label)}</p></div><p className="mt-1 pl-7 text-[9px] text-gray-500">{l(check.detail)}</p></div>)}
                 </div>
               </div>
             </div>
@@ -14159,12 +14158,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button onClick={() => { setBillingOpen(true); void refreshBilling(cloudProjectId); }} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Billing & limits')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Verify plan and Stripe state')}</div></button>
                   <button onClick={() => setOperationsOpen(true)} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Audit & backups')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Export backup and diagnostics')}</div></button>
-                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? 'Publish production changes' : 'Publish first release'}<div className="mt-1 text-[9px] font-normal text-sky-100">{l('Blocked until automated preflight is ready')}</div></button>
+                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? l('Publish production changes') : l('Publish first release')}<div className="mt-1 text-[9px] font-normal text-sky-100">{l('Blocked until automated preflight is ready')}</div></button>
                   <button onClick={() => void verifyLiveDeployment()} disabled={!publishedUrl || liveVerification === 'checking'} className="rounded-xl border border-emerald-500/20 p-3 text-left text-[10px] font-bold text-emerald-400 disabled:opacity-40">{l('Verify live release')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Confirm index.html is deployed')}</div></button>
                 </div>
                 <div className={`mt-3 rounded-xl border p-3 ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-black/10'}`}>
                   <p className="text-[10px] font-black">{l('V1 release decision')}</p>
-                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'GO — READY FOR FIRST PAYING CUSTOMERS' : v1LaunchStatus.preflightReady ? 'CODE READY — COMPLETE PUBLISH / MANUAL CHECKS' : 'NO-GO — FIX AUTOMATED BLOCKERS'}</p>
+                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? l('GO — READY FOR FIRST PAYING CUSTOMERS') : v1LaunchStatus.preflightReady ? l('CODE READY — COMPLETE PUBLISH / MANUAL CHECKS') : l('NO-GO — FIX AUTOMATED BLOCKERS')}</p>
                 </div>
               </div>
             </div>
@@ -14184,9 +14183,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
                 <p className="mt-1 text-[11px] text-gray-500">{l('Secure entitlements, usage limits and Stripe subscription management.')}</p>
                 {billingState.subscription?.status && (
-                  <p className="mt-1 text-[10px] text-gray-500">{l("Subscription:")}<span className="font-semibold text-gray-300">{billingState.subscription.status}</span>
-                    {billingState.subscription.currentPeriodEnd ? ` · period ends ${new Date(billingState.subscription.currentPeriodEnd).toLocaleDateString()}` : ''}
-                    {billingState.subscription.cancelAtPeriodEnd ? ' · cancels at period end' : ''}
+                  <p className="mt-1 text-[10px] text-gray-500">{l("Subscription:")}<span className="font-semibold text-gray-300">{l(billingState.subscription.status)}</span>
+                    {billingState.subscription.currentPeriodEnd ? ` · ${l('period ends')} ${new Date(billingState.subscription.currentPeriodEnd).toLocaleDateString()}` : ''}
+                    {billingState.subscription.cancelAtPeriodEnd ? ` · ${l('cancels at period end')}` : ''}
                   </p>
                 )}
               </div>
@@ -14194,13 +14193,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {billingState.subscription?.stripeCustomerId && (
                   <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-[10px] font-bold text-emerald-400 disabled:opacity-50">{l('Manage subscription')}</button>
                 )}
-                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? 'Refreshing…' : 'Refresh'}</button>
+                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? l('Refreshing…') : l('Refresh')}</button>
                 <button onClick={() => setBillingOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
             {billingError && (
-              <div className={`rounded-xl border px-3 py-2 text-[11px] ${darkMode ? 'border-amber-500/25 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>{billingError}</div>
+              <div className={`rounded-xl border px-3 py-2 text-[11px] ${darkMode ? 'border-amber-500/25 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>{l(billingError)}</div>
             )}
 
             <div className="grid gap-3 md:grid-cols-3">
@@ -14212,19 +14211,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <div key={plan} className={`rounded-2xl border p-4 ${current ? 'border-emerald-500/50 bg-emerald-500/10' : darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-black">{details.label}</p>
-                        <p className="mt-1 text-[10px] text-gray-500">{details.description}</p>
+                        <p className="text-sm font-black">{l(details.label)}</p>
+                        <p className="mt-1 text-[10px] text-gray-500">{l(details.description)}</p>
                       </div>
                       {current && <span className="rounded-full bg-emerald-500 px-2 py-1 text-[8px] font-black text-white">{l('CURRENT')}</span>}
                     </div>
                     <div className="mt-3 space-y-1.5">
-                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {bullet}</p>)}
+                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {l(bullet)}</p>)}
                     </div>
                     <div className="mt-4">
                       {current ? (
                         <div className="rounded-lg border border-emerald-500/20 px-3 py-2 text-center text-[10px] font-bold text-emerald-400">{l('Active plan')}</div>
                       ) : isPaid ? (
-                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? 'Opening Stripe…' : `Choose ${details.label}`}</button>
+                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? l('Opening Stripe…') : `${l('Choose')} ${l(details.label)}`}</button>
                       ) : billingState.subscription?.stripeCustomerId ? (
                         <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="w-full rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{l('Manage downgrade in Stripe')}</button>
                       ) : (
@@ -14258,7 +14257,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 text-[9px] text-gray-500">
-              <span>Paid prices are controlled by STRIPE_PRO_PRICE_ID and STRIPE_BUSINESS_PRICE_ID, so the app never trusts a browser-supplied amount.</span>
+              <span>{l('Paid prices are controlled by STRIPE_PRO_PRICE_ID and STRIPE_BUSINESS_PRICE_ID, so the app never trusts a browser-supplied amount.')}</span>
               <span>{l("Webhook is the source of truth for upgrades, renewals, cancellation and payment status.")}</span>
             </div>
           </div>
@@ -14288,9 +14287,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <label className="text-[10px] text-gray-500">{l('Project code')}<input value={deliveryConfig.projectCode} onChange={(e) => setDeliveryConfig((current) => ({ ...current, projectCode: e.target.value.slice(0, 80) }))} placeholder="WEB-001" className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
                   <label className="text-[10px] text-gray-500">{l('Due date')}<input type="date" value={deliveryConfig.dueDate} onChange={(e) => setDeliveryConfig((current) => ({ ...current, dueDate: e.target.value }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
                   <label className="text-[10px] text-gray-500">{l('Delivery status')}<select value={deliveryConfig.status} onChange={(e) => setDeliveryConfig((current) => ({ ...current, status: e.target.value as DeliveryStatus }))} className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white'}`}><option value="building">{l('Building')}</option><option value="review">{l('Ready for review')}</option><option value="approved">{l('Approved')}</option><option value="delivered">{l('Delivered')}</option></select></label>
-                  <label className="flex items-end gap-2 rounded-lg border border-fuchsia-500/15 px-3 py-2 text-[10px] text-gray-400"><input type="checkbox" checked={deliveryConfig.whiteLabel} disabled={!billingEntitlements.features.whiteLabel} onChange={(e) => { if (!requireBillingFeature('whiteLabel', 'White-label client delivery')) return; setDeliveryConfig((current) => ({ ...current, whiteLabel: e.target.checked })); }} /> White-label client handoff files {!billingEntitlements.features.whiteLabel && <span className="font-bold text-amber-400">BUSINESS</span>}</label>
+                  <label className="flex items-end gap-2 rounded-lg border border-fuchsia-500/15 px-3 py-2 text-[10px] text-gray-400"><input type="checkbox" checked={deliveryConfig.whiteLabel} disabled={!billingEntitlements.features.whiteLabel} onChange={(e) => { if (!requireBillingFeature('whiteLabel', 'White-label client delivery')) return; setDeliveryConfig((current) => ({ ...current, whiteLabel: e.target.checked })); }} /> {l('White-label client handoff files')} {!billingEntitlements.features.whiteLabel && <span className="font-bold text-amber-400">BUSINESS</span>}</label>
                 </div>
-                <label className="mt-2 block text-[10px] text-gray-500">{l('Handoff notes')}<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder="Hosting notes, DNS details, next steps, support terms…" className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
+                <label className="mt-2 block text-[10px] text-gray-500">{l('Handoff notes')}<textarea value={deliveryConfig.handoffNotes} onChange={(e) => setDeliveryConfig((current) => ({ ...current, handoffNotes: e.target.value.slice(0, 4000) }))} rows={4} placeholder={l('Hosting notes, DNS details, next steps, support terms…')} className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} /></label>
               </div>
 
               <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
@@ -14299,22 +14298,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
                   {launchReadiness.checks.map((item) => <div key={l(item.label)} className={`rounded-lg border px-2 py-1.5 ${item.ok ? 'border-emerald-500/20 text-emerald-400' : 'border-white/10 text-gray-500'}`}>{item.ok ? '✓' : '○'} {l(item.label)}</div>)}
                 </div>
-                <p className="mt-2 text-[9px] text-gray-500">Audit contributes {launchReadiness.auditPoints}/40 points · current audit {siteAudit.score}/100.</p>
+                <p className="mt-2 text-[9px] text-gray-500">{l('Audit contributes')} {launchReadiness.auditPoints}/40 {l('points · current audit')} {siteAudit.score}/100.</p>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
               {[
                 ['Pages', deliveryUsage.pages], ['Sections', deliveryUsage.sections], ['Elements', deliveryUsage.elements], ['Forms', deliveryUsage.forms], ['Symbols', deliveryUsage.symbols], ['Releases', deliveryUsage.releases], ['Leads', deliveryUsage.leads], ['Events', deliveryUsage.analyticsEvents], ['Media*', deliveryUsage.mediaLoaded],
-              ].map(([label, value]) => <div key={String(label)} className={`rounded-xl border p-2 text-center ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}><p className="text-[9px] uppercase text-gray-500">{label}</p><p className="mt-1 text-lg font-black">{value}</p></div>)}
+              ].map(([label, value]) => <div key={String(label)} className={`rounded-xl border p-2 text-center ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}><p className="text-[9px] uppercase text-gray-500">{l(String(label))}</p><p className="mt-1 text-lg font-black">{value}</p></div>)}
             </div>
-            <p className="-mt-2 text-[9px] text-gray-500">*Media count reflects assets currently loaded into the Media Library panel.</p>
+            <p className="-mt-2 text-[9px] text-gray-500">{l('*Media count reflects assets currently loaded into the Media Library panel.')}</p>
 
             <div className={`rounded-xl border p-3 ${approvalCurrent ? 'border-emerald-500/25 bg-emerald-500/5' : deliveryConfig.approvedAt ? 'border-amber-500/25 bg-amber-500/5' : darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold">{l('Client approval fingerprint')}</p>
-                  <p className={`mt-1 text-[10px] ${approvalCurrent ? 'text-emerald-400' : deliveryConfig.approvedAt ? 'text-amber-400' : 'text-gray-500'}`}>{deliveryConfig.approvedAt ? (approvalCurrent ? `Approved ${new Date(deliveryConfig.approvedAt).toLocaleString()} — current build still matches` : `Approved ${new Date(deliveryConfig.approvedAt).toLocaleString()} — website changed after approval`) : 'No approval snapshot recorded yet.'}</p>
+                  <p className={`mt-1 text-[10px] ${approvalCurrent ? 'text-emerald-400' : deliveryConfig.approvedAt ? 'text-amber-400' : 'text-gray-500'}`}>{deliveryConfig.approvedAt ? (approvalCurrent ? `${l('Approved')} ${new Date(deliveryConfig.approvedAt).toLocaleString()} — ${l('current build still matches')}` : `${l('Approved')} ${new Date(deliveryConfig.approvedAt).toLocaleString()} — ${l('website changed after approval')}`) : l('No approval snapshot recorded yet.')}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={approveForDelivery} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">{l('Approve current build')}</button>
@@ -14327,8 +14326,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <button onClick={downloadClientHandoffZip} className="rounded-xl bg-fuchsia-600 p-3 text-left text-xs font-bold text-white hover:bg-fuchsia-500">{l('Download client handoff ZIP')}<div className="mt-1 text-[10px] font-normal text-fuchsia-100">{l('Site + backup + reports + checksums')}</div></button>
               <button onClick={exportDeliveryReport} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{l('Export delivery report')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Approval, readiness, usage and audit')}</div></button>
-              <button onClick={() => setReleaseHistoryOpen(true)} disabled={!user || !cloudProjectId} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{l('Open releases')}<div className="mt-1 text-[10px] font-normal text-gray-500">{publishVersions.length} loaded releases</div></button>
-              <button onClick={() => previewUrl ? window.open(previewUrl, '_blank', 'noopener,noreferrer') : setReleaseHistoryOpen(true)} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{previewUrl ? 'Open client preview' : 'Create client preview'}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Unlisted review link')}</div></button>
+              <button onClick={() => setReleaseHistoryOpen(true)} disabled={!user || !cloudProjectId} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{l('Open releases')}<div className="mt-1 text-[10px] font-normal text-gray-500">{publishVersions.length} {l('loaded releases')}</div></button>
+              <button onClick={() => previewUrl ? window.open(previewUrl, '_blank', 'noopener,noreferrer') : setReleaseHistoryOpen(true)} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>{previewUrl ? l('Open client preview') : l('Create client preview')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Unlisted review link')}</div></button>
             </div>
           </div>
         </div>
@@ -14344,14 +14343,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <button onClick={exportProjectBackup} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export project backup')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Portable JSON snapshot')}</div></button>
               <button onClick={importProjectBackup} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Import project backup')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Restore JSON as local draft')}</div></button>
-              <button onClick={exportAuditReport} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export audit report')}<div className="mt-1 text-[10px] font-normal text-gray-500">Score {siteAudit.score}/100</div></button>
-              <button onClick={() => void copyProjectSummary()} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{copied ? 'Summary copied' : 'Copy project summary'}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Pages, elements and health')}</div></button>
-              <button onClick={exportLeadsCsv} disabled={!leads.length} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export leads CSV')}<div className="mt-1 text-[10px] font-normal text-gray-500">{leads.length} loaded leads</div></button>
-              <button onClick={exportAnalyticsCsv} disabled={!analyticsEvents.length} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export analytics CSV')}<div className="mt-1 text-[10px] font-normal text-gray-500">{analyticsEvents.length} loaded events</div></button>
+              <button onClick={exportAuditReport} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export audit report')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Score')} {siteAudit.score}/100</div></button>
+              <button onClick={() => void copyProjectSummary()} className={`rounded-xl border p-3 text-left text-xs font-semibold ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{copied ? l('Summary copied') : l('Copy project summary')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Pages, elements and health')}</div></button>
+              <button onClick={exportLeadsCsv} disabled={!leads.length} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export leads CSV')}<div className="mt-1 text-[10px] font-normal text-gray-500">{leads.length} {l('loaded leads')}</div></button>
+              <button onClick={exportAnalyticsCsv} disabled={!analyticsEvents.length} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Export analytics CSV')}<div className="mt-1 text-[10px] font-normal text-gray-500">{analyticsEvents.length} {l('loaded events')}</div></button>
               <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Mark all leads read')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Bulk inbox cleanup')}</div></button>
               <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Archive read leads')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Keep inbox focused')}</div></button>
             </div>
-            <p className="text-[10px] text-gray-500">Shortcuts: Ctrl/Cmd+K commands · Ctrl/Cmd+S save · Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo · Ctrl/Cmd+Shift+P preview.</p>
+            <p className="text-[10px] text-gray-500">{l('Shortcuts: Ctrl/Cmd+K commands · Ctrl/Cmd+S save · Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo · Ctrl/Cmd+Shift+P preview.')}</p>
           </div>
         </div>
       )}
@@ -14363,19 +14362,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div>
                 <p className="text-xs font-bold">{l('Site Analytics')}</p>
                 <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                  Last 30 days. Anonymous session IDs only; no IP addresses are stored.
+                  {l('Last 30 days. Anonymous session IDs only; no IP addresses are stored.')}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={exportAnalyticsCsv} disabled={!analyticsEvents.length} className="text-xs font-semibold text-sky-400 disabled:opacity-40">CSV</button>
                 <button onClick={() => void refreshAnalytics()} disabled={analyticsLoading} className="text-xs font-semibold text-amber-400 disabled:opacity-50">
-                  {analyticsLoading ? 'Refreshing…' : 'Refresh'}
+                  {analyticsLoading ? l('Refreshing…') : l('Refresh')}
                 </button>
                 <button onClick={() => setAnalyticsOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
 
-            {analyticsError && <p className="text-xs text-amber-400">{analyticsError}</p>}
+            {analyticsError && <p className="text-xs text-amber-400">{l(analyticsError)}</p>}
 
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
               {[
@@ -14388,7 +14387,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ['Form CVR', `${analyticsSummary.conversionRate}%`],
               ].map(([label, value]) => (
                 <div key={String(label)} className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{label}</p>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{l(String(label))}</p>
                   <p className="mt-1 text-xl font-black">{value}</p>
                 </div>
               ))}
@@ -14457,7 +14456,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </div>
             </div>
 
-            {mediaError && <p className="text-xs text-amber-400">{mediaError}</p>}
+            {mediaError && <p className="text-xs text-amber-400">{l(mediaError)}</p>}
 
             {!mediaLoading && !mediaAssets.length ? (
               <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l("No images yet. Upload JPG, PNG, WebP or GIF files up to 5 MB.")}</div>
@@ -14521,7 +14520,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <input value={leadQuery} onChange={(e) => setLeadQuery(e.target.value)} placeholder="Search name, email, message, tags…" className={`min-w-56 flex-1 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+              <input value={leadQuery} onChange={(e) => setLeadQuery(e.target.value)} placeholder={l('Search name, email, message, tags…')} className={`min-w-56 flex-1 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
               <select value={leadStatusFilter} onChange={(e) => setLeadStatusFilter(e.target.value as 'all' | WebsiteLead['status'])} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
                 <option value="all">{l('All inbox statuses')}</option><option value="new">{l('New')}</option><option value="read">{l('Read')}</option><option value="archived">{l('Archived')}</option>
               </select>
@@ -14535,11 +14534,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             {!!selectedLeadIds.length && (
               <div className={`flex flex-wrap items-center gap-2 rounded-xl border p-2 ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
                 <span className="text-[10px] font-bold text-violet-400">{l('Bulk stage:')}</span>
-                {(['qualified', 'contacted', 'won', 'lost'] as LeadStage[]).map((stage) => <button key={stage} type="button" onClick={() => void bulkUpdateLeadStage(stage)} className="rounded border border-violet-500/20 px-2 py-1 text-[10px] font-semibold capitalize text-violet-400">{stage}</button>)}
+                {(['qualified', 'contacted', 'won', 'lost'] as LeadStage[]).map((stage) => <button key={stage} type="button" onClick={() => void bulkUpdateLeadStage(stage)} className="rounded border border-violet-500/20 px-2 py-1 text-[10px] font-semibold capitalize text-violet-400">{l(stage)}</button>)}
               </div>
             )}
 
-            {leadsError && <p className="text-xs text-amber-400">{leadsError}</p>}
+            {leadsError && <p className="text-xs text-amber-400">{l(leadsError)}</p>}
 
             {!leadsLoading && !leads.length ? (
               <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l('No leads yet. Publish a website with a Contact section, then submissions will appear here.')}</div>
@@ -14563,7 +14562,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                           {phone && <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="block truncate text-emerald-400">{phone}</a>}
                         </div>
                       </div>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${lead.status === 'new' ? 'bg-cyan-500/15 text-cyan-400' : lead.status === 'archived' ? 'bg-gray-500/15 text-gray-400' : 'bg-emerald-500/15 text-emerald-400'}`}>{lead.status}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${lead.status === 'new' ? 'bg-cyan-500/15 text-cyan-400' : lead.status === 'archived' ? 'bg-gray-500/15 text-gray-400' : 'bg-emerald-500/15 text-emerald-400'}`}>{l(lead.status)}</span>
                     </div>
 
                     <div className="mb-2 grid grid-cols-2 gap-2">
@@ -14651,11 +14650,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <button onClick={() => void createSharePreview()} disabled={previewBusy || !user || !cloudProjectId} className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{previewBusy ? 'Creating…' : 'Create share preview'}</button>
                 )}
                 {previewCreatedAt && <p className="mt-2 text-[9px] text-gray-500">Created {new Date(previewCreatedAt).toLocaleString()}</p>}
-                {previewError && <p className="mt-2 text-[10px] text-rose-400">{previewError}</p>}
+                {previewError && <p className="mt-2 text-[10px] text-rose-400">{l(previewError)}</p>}
               </div>
             </div>
 
-            {publishVersionsError && <p className="text-xs text-rose-400">{publishVersionsError}</p>}
+            {publishVersionsError && <p className="text-xs text-rose-400">{l(publishVersionsError)}</p>}
             {!publishVersionsLoading && !publishVersions.length ? (
               <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l('No releases yet. Add an optional release note and click Publish.')}</div>
             ) : (
@@ -14959,7 +14958,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.shareButtons} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, shareButtons: e.target.checked })); setSaved(false); }} />{l('Share tools')}</label>
                 </div>
                 {siteEnhancements.announcementBar && <div className="mt-2 grid gap-2"><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} placeholder={l('Announcement text')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-2 gap-2"><input value={siteEnhancements.announcementLinkLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementLinkLabel: e.target.value })); setSaved(false); }} placeholder={l('Link label')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} placeholder="#anchor / page:about / URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
-                {siteEnhancements.popupEnabled && <div className="mt-2 grid gap-2"><input value={siteEnhancements.popupTitle} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupTitle: e.target.value })); setSaved(false); }} placeholder={l('Popup title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><textarea rows={2} value={siteEnhancements.popupText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupText: e.target.value })); setSaved(false); }} placeholder={l('Popup message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-3 gap-2"><input value={siteEnhancements.popupButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonLabel: e.target.value })); setSaved(false); }} placeholder={l('Button')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.popupButtonHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonHref: e.target.value })); setSaved(false); }} placeholder={l('Button link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input type="number" min="0" max="60" value={siteEnhancements.popupDelaySeconds} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupDelaySeconds: Number(e.target.value) })); setSaved(false); }} title="Delay in seconds" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
+                {siteEnhancements.popupEnabled && <div className="mt-2 grid gap-2"><input value={siteEnhancements.popupTitle} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupTitle: e.target.value })); setSaved(false); }} placeholder={l('Popup title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><textarea rows={2} value={siteEnhancements.popupText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupText: e.target.value })); setSaved(false); }} placeholder={l('Popup message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-3 gap-2"><input value={siteEnhancements.popupButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonLabel: e.target.value })); setSaved(false); }} placeholder={l('Button')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.popupButtonHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonHref: e.target.value })); setSaved(false); }} placeholder={l('Button link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input type="number" min="0" max="60" value={siteEnhancements.popupDelaySeconds} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupDelaySeconds: Number(e.target.value) })); setSaved(false); }} title={l('Delay in seconds')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
                 {siteEnhancements.floatingCta && <div className="mt-2 grid grid-cols-2 gap-2"><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} placeholder={l('Floating CTA label')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} placeholder={l('CTA link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div>}
               </div>
               <div className={`rounded-lg border p-2.5 ${siteAudit.errors.length ? 'border-red-500/30' : siteAudit.warnings.length ? 'border-amber-500/30' : 'border-emerald-500/30'}`}>
@@ -14983,7 +14982,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className="grid grid-cols-2 gap-2">
                 <input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} placeholder="GA4 · G-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                 <input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} placeholder="GTM · GTM-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} placeholder="Meta Pixel ID" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
+                <input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} placeholder={l('Meta Pixel ID')} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                 <input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} placeholder={l('Plausible domain')} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -14998,7 +14997,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {(productionConfig.organizationSchema || productionConfig.localBusinessSchema) && <div className="grid gap-2">
                   <input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} placeholder={l('Organization / business name')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
                   <div className="grid grid-cols-2 gap-2"><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} placeholder={l('Organization URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} placeholder={l('Logo URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div>
-                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder="Schema type · LocalBusiness" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder={l('Phone')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder={l('Business address')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
+                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder={l('Schema type · LocalBusiness')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder={l('Phone')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder={l('Business address')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
                 </div>}
               </div>
               <div className={`rounded-lg border p-2.5 ${productionConfig.maintenanceMode ? 'border-amber-500/30' : darkMode ? 'border-white/10' : 'border-blue-100 bg-white/70'}`}>
@@ -15009,7 +15008,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </label>
               <label className="block text-[10px] text-gray-500">{l('Extra robots.txt rules')}<textarea rows={4} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} placeholder={'Disallow: /private\nCrawl-delay: 5'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
               </label>
-              <p className="text-[9px] leading-4 text-gray-500">Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.</p>
+              <p className="text-[9px] leading-4 text-gray-500">{l('Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.')}</p>
             </div>
           </div>
 
@@ -15026,7 +15025,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ['Text', 'textColor'],
                 ['Muted', 'mutedTextColor'],
               ] as const).map(([label, key]) => (
-                <label key={key} className="text-[10px] text-gray-500">{label}
+                <label key={key} className="text-[10px] text-gray-500">{l(String(label))}
                   <div className="mt-1 flex items-center gap-1.5">
                     <input type="color" value={theme[key]} onChange={(e) => { setTheme((current) => ({ ...current, [key]: e.target.value })); setSaved(false); }} className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent" />
                     <span className="truncate text-[9px]">{theme[key]}</span>
@@ -15050,7 +15049,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button type="button" onClick={applyThemeToCurrentPage} className="rounded-lg bg-violet-600 px-2 py-2 text-[10px] font-semibold text-white hover:bg-violet-500">{l('Apply to page')}</button>
               <button type="button" onClick={applyThemeToAllPages} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${darkMode ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10' : 'border-violet-300 text-violet-700 hover:bg-violet-100'}`}>{l('Apply all pages')}</button>
             </div>
-            <p className="mt-2 text-[9px] leading-4 text-gray-500">Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.</p>
+            <p className="mt-2 text-[9px] leading-4 text-gray-500">{l('Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.')}</p>
           </div>
 
           <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
@@ -15117,7 +15116,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button type="button" onClick={() => void saveSelectedSectionAsReusable()} disabled={!selectedSection || reusableBusy} className="rounded px-2 py-1 text-[9px] font-bold text-sky-400 hover:bg-sky-500/10 disabled:opacity-40">{l('Save selected')}</button>
             </div>
             <p className="mb-2 text-[9px] leading-4 text-gray-500">{l("Reusable section templates are saved to your account when signed in, or this browser when signed out.")}</p>
-            {reusableError && <p className="mb-2 text-[10px] text-amber-400">{reusableError}</p>}
+            {reusableError && <p className="mb-2 text-[10px] text-amber-400">{l(reusableError)}</p>}
             {reusableBusy && !reusableSections.length ? (
               <p className="text-[10px] text-gray-500">{l('Loading templates…')}</p>
             ) : reusableSections.length ? (
@@ -15495,7 +15494,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
 
-              {aiError && <p className={`rounded-lg border px-2.5 py-2 text-[9px] leading-relaxed ${darkMode ? 'border-red-500/15 bg-red-500/[0.04] text-red-300' : 'border-red-100 bg-red-50 text-red-600'}`}>{aiError}</p>}
+              {aiError && <p className={`rounded-lg border px-2.5 py-2 text-[9px] leading-relaxed ${darkMode ? 'border-red-500/15 bg-red-500/[0.04] text-red-300' : 'border-red-100 bg-red-50 text-red-600'}`}>{l(aiError)}</p>}
               <p className="px-1 text-[8px] leading-relaxed text-gray-600">{l('AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.')}</p>
             </div>
           </div>
@@ -15759,28 +15758,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               ) : selectedElement.type === 'video' ? (
                 <div className="space-y-2">
-                  <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder="YouTube, Vimeo or direct video URL" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder="Video title / accessibility label" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder={l('YouTube, Vimeo or direct video URL')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder={l('Video title / accessibility label')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
               ) : selectedElement.type === 'embed' ? (
                 <div className="space-y-2">
                   <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder="https://... map or embed URL" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder="Accessibility title" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder={l('Accessibility title')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
                 </div>
               ) : selectedElement.type === 'gallery' ? (
-                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder="One image URL per line" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder={l('One image URL per line')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               ) : selectedElement.type === 'accordion' || selectedElement.type === 'tabs' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={8} placeholder="Title | Content — one item per line" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Use one line per item: Title | Content</p></div>
+                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={8} placeholder={l('Title | Content — one item per line')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">{l('Use one line per item: Title | Content')}</p></div>
               ) : selectedElement.type === 'countdown' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={3} placeholder="2026-12-31T23:59:59 | Launching soon" className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">Format: ISO date/time | label</p></div>
+                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={3} placeholder={l('2026-12-31T23:59:59 | Launching soon')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">{l('Format: ISO date/time | label')}</p></div>
               ) : selectedElement.type === 'stats' || selectedElement.type === 'testimonials-slider' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder={selectedElement.type === 'stats' ? '120 | Projects completed\n98 | Satisfaction %' : 'Alex | Amazing experience\nSarah | Great service'} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">One item per line: {selectedElement.type === 'stats' ? 'value | label' : 'name | quote'}</p></div>
+                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder={selectedElement.type === 'stats' ? '120 | Projects completed\n98 | Satisfaction %' : 'Alex | Amazing experience\nSarah | Great service'} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">{l('One item per line')}: {selectedElement.type === 'stats' ? l('value | label') : l('name | quote')}</p></div>
               ) : selectedElement.type === 'code' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={10} placeholder="Custom HTML (scripts and inline event handlers are stripped)" className={`w-full resize-none rounded-lg border px-3 py-2 font-mono text-[10px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-emerald-500">Safe HTML mode: script/object/embed tags and on* handlers are removed before preview/publish.</p></div>
+                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={10} placeholder={l('Custom HTML (scripts and inline event handlers are stripped)')} className={`w-full resize-none rounded-lg border px-3 py-2 font-mono text-[10px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-emerald-500">{l('Safe HTML mode: script/object/embed tags and on* handlers are removed before preview/publish.')}</p></div>
               ) : selectedElement.type === 'divider' || selectedElement.type === 'spacer' ? (
-                <p className="text-[10px] text-gray-500">Use the styling controls below to adjust {selectedElement.type === 'divider' ? 'width, color and opacity' : 'height (Padding × 2)'}.</p>
+                <p className="text-[10px] text-gray-500">{l('Use the styling controls below to adjust')} {selectedElement.type === 'divider' ? l('width, color and opacity') : l('height (Padding × 2)')}.</p>
               ) : (
-                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={selectedElement.type === 'text' || selectedElement.type === 'list' ? 4 : 2} placeholder={selectedElement.type === 'list' ? 'One list item per line' : undefined} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
+                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={selectedElement.type === 'text' || selectedElement.type === 'list' ? 4 : 2} placeholder={selectedElement.type === 'list' ? l('One list item per line') : undefined} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
               )}
               {selectedElement.type === 'button' && (
                 <div className="space-y-2">
@@ -15795,7 +15794,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     onChange={(e) => e.target.value && updateSelectedElement({ href: e.target.value })}
                     className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                   >
-                    <option value="">Link to internal page…</option>
+                    <option value="">{l('Link to internal page…')}</option>
                     {pages.map((page) => <option key={page.id} value={`page:${page.slug}`}>{page.name} (/{page.slug})</option>)}
                   </select>
                 </div>
@@ -15803,7 +15802,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className={`space-y-2 rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">{l('Quick style')}</span>
-                  <span className="text-[9px] uppercase text-gray-500">{device}</span>
+                  <span className="text-[9px] uppercase text-gray-500">{l(device)}</span>
                 </div>
                 {(selectedElement.type === 'heading' || selectedElement.type === 'text' || selectedElement.type === 'button' || selectedElement.type === 'list') && (
                   <>
@@ -15844,7 +15843,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-400">{l('Responsive layout')}</span>
-                  <span className="text-[9px] uppercase text-gray-500">{device}</span>
+                  <span className="text-[9px] uppercase text-gray-500">{l(device)}</span>
                 </div>
                 <label className="flex items-center justify-between gap-3 text-[10px] text-gray-500">
                   Visible on {device}
@@ -15958,7 +15957,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-fuchsia-500/20 bg-fuchsia-500/5' : 'border-fuchsia-200 bg-fuchsia-50/60'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-400">{l('Effects')}</span>
-                  <span className="text-[9px] uppercase text-gray-500">{device}</span>
+                  <span className="text-[9px] uppercase text-gray-500">{l(device)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="text-[10px] text-gray-500">{l('Opacity %')}<input type="number" min="0" max="100" value={Math.round((effectiveStyle(selectedElement, device).opacity ?? 1) * 100)} onChange={(e) => updateSelectedElement({ style: { opacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
@@ -16432,7 +16431,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       updateSelected({ imagePrompt: e.target.value })
                     }
                     rows={3}
-                    placeholder="Describe the image you want for this section..."
+                    placeholder={l('Describe the image you want for this section...')}
                     className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
                       darkMode
                         ? 'border-white/10 bg-white/5 text-white'

@@ -97,13 +97,15 @@ export function getFileMeta(type: string) {
 }
 
 export function timeAgo(dateStr: string): string {
+  const locale = typeof document !== 'undefined' ? (document.documentElement.lang || 'en') : 'en';
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  if (mins < 1) return rtf.format(0, 'minute');
+  if (mins < 60) return rtf.format(-mins, 'minute');
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return rtf.format(-hours, 'hour');
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+  if (days < 7) return rtf.format(-days, 'day');
+  return new Date(dateStr).toLocaleDateString(locale);
 }

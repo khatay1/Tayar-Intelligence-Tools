@@ -99,8 +99,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <Sparkles className="w-4 h-4 text-violet-400" />
               <span className="text-violet-400 text-xs font-medium uppercase tracking-wider">{l('AI Workspace')}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Welcome back, {displayName}</h1>
-            <p className="text-gray-400 text-sm">{allTools.length} tools available · {availableTools.length} ready to use</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{l('Welcome back')}, {displayName}</h1>
+            <p className="text-gray-400 text-sm">{allTools.length} {l('tools available')} · {availableTools.length} {l('ready to use')}</p>
           </div>
           <button
             onClick={() => onNavigate('ai-chat')}
@@ -157,7 +157,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
-              {cat.label}
+              {l(cat.label)}
               <span className="text-xs opacity-60">{count}</span>
             </button>
           );
@@ -187,7 +187,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           </h2>
         ) : (
           <h2 className="text-white font-bold text-base mb-3">
-            {activeCategory === 'all' ? 'All Tools' : getCategory(activeCategory)?.label}
+            {activeCategory === 'all' ? l('All Tools') : l(getCategory(activeCategory)?.label || '')}
           </h2>
         )}
         {filteredTools.length === 0 ? (
@@ -284,7 +284,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-white text-sm font-medium truncate">{project.title}</div>
-                      <div className="text-gray-500 text-xs">{meta.label} · Updated {timeAgo(project.updated_at)}</div>
+                      <div className="text-gray-500 text-xs">{l(meta.label)} · {l('Updated')} {timeAgo(project.updated_at)}</div>
                     </div>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">{l('Draft')}</span>
                   </button>
@@ -440,13 +440,13 @@ function ToolCard({
       </div>
       <button onClick={onClick} disabled={isSoon} className="block w-full text-left">
         <h3 className="text-white text-sm font-semibold mb-0.5 flex items-center gap-1.5">
-          {tool.name}
+          {l(tool.name)}
           {tool.tier === 'premium' && !compact && <Lock className="w-3 h-3 text-amber-400/60" />}
         </h3>
-        <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{tool.description}</p>
+        <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{l(tool.description)}</p>
         {!compact && (
           <div className="flex items-center gap-2 mt-3 text-xs text-gray-600">
-            <span>{cat?.label}</span>
+            <span>{cat?.label ? l(cat.label) : ''}</span>
             <span>·</span>
             <span>v{tool.version}</span>
             {tool.status === 'beta' && <span className="text-sky-400">{l('Beta')}</span>}
@@ -465,6 +465,7 @@ function ToolRow({
   onClick: () => void;
   showUsage?: boolean;
 }) {
+  const l = useLocalizer();
   const Icon = tool.icon;
   const cat = getCategory(tool.category);
   const isFav = prefs.favorites.has(tool.id);
@@ -477,10 +478,10 @@ function ToolRow({
           <Icon className={`w-4 h-4 ${cat?.color || 'text-gray-400'}`} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-white text-sm font-medium truncate">{tool.name}</div>
+          <div className="text-white text-sm font-medium truncate">{l(tool.name)}</div>
           <div className="text-gray-500 text-xs">
-            {cat?.label}
-            {showUsage && usageCount > 0 && ` · Used ${usageCount}x`}
+            {cat?.label ? l(cat.label) : ''}
+            {showUsage && usageCount > 0 && ` · ${l('Used')} ${usageCount}x`}
           </div>
         </div>
       </button>

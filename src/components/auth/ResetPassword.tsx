@@ -27,7 +27,7 @@ export default function ResetPassword({ onBack, onNavigate }: ResetPasswordProps
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(l('Passwords do not match.'));
       return;
     }
     setLoading(true);

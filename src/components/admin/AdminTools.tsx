@@ -99,9 +99,9 @@ const { success, error: showError } = useToast();
             fuchsia: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20',
           };
           return (
-            <div key={s.label} className={`rounded-xl border p-3 ${colors[s.color]}`}>
+            <div key={l(s.label)} className={`rounded-xl border p-3 ${colors[s.color]}`}>
               <div className="text-2xl font-bold text-white">{s.value}</div>
-              <div className="text-xs text-gray-400">{s.label}</div>
+              <div className="text-xs text-gray-400">{l(s.label)}</div>
             </div>
           );
         })}
@@ -121,30 +121,30 @@ const { success, error: showError } = useToast();
                     <Icon className="w-5 h-5 text-violet-400" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-white">{tool.name}</div>
-                    <div className="text-xs text-gray-500 capitalize">{tool.category}</div>
+                    <div className="text-sm font-semibold text-white">{l(tool.name)}</div>
+                    <div className="text-xs text-gray-500 capitalize">{l(tool.category)}</div>
                   </div>
                 </div>
                 <button onClick={() => toggleFlag(flagKey)} className="transition-transform hover:scale-110">
                   {isEnabled ? <ToggleRight className="w-8 h-8 text-emerald-400" /> : <ToggleLeft className="w-8 h-8 text-gray-600" />}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mb-3 line-clamp-2">{tool.description}</p>
+              <p className="text-xs text-gray-400 mb-3 line-clamp-2">{l(tool.description)}</p>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                   tool.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' :
                   tool.status === 'beta' ? 'bg-amber-500/10 text-amber-400' :
                   'bg-gray-500/10 text-gray-500'
-                }`}>{tool.status}</span>
+                }`}>{l(tool.status)}</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                   tool.tier === 'premium' ? 'bg-fuchsia-500/10 text-fuchsia-400' : 'bg-gray-500/10 text-gray-400'
-                }`}>{tool.tier}</span>
+                }`}>{l(tool.tier)}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400 font-mono">v{tool.version}</span>
               </div>
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/5">
                 <div className="flex items-center gap-1.5 text-xs text-gray-400">
                   <Users className="w-3.5 h-3.5" />
-                  {usageCount.toLocaleString()} uses
+                  {usageCount.toLocaleString()} {l('uses')}
                 </div>
                 <div className="text-xs text-gray-500">{l('Live usage data')}</div>
               </div>

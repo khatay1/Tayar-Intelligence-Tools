@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { CheckCircle2, XCircle, Info, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { useLocalizer } from '@/lib/ui-localization';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning' | 'loading';
 
@@ -71,9 +72,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
+  const l = useLocalizer();
   if (toasts.length === 0) return null;
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[100] flex flex-col gap-2 w-[calc(100vw-3rem)] sm:w-96" role="region" aria-label="Notifications" aria-live="polite">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[100] flex flex-col gap-2 w-[calc(100vw-3rem)] sm:w-96" role="region" aria-label={l('Notifications')} aria-live="polite">
       {toasts.map(t => (
         <ToastItem key={t.id} toast={t} onDismiss={() => onDismiss(t.id)} />
       ))}
@@ -82,6 +84,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 }
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+  const l = useLocalizer();
   const config = {
     success: { icon: CheckCircle2, color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5' },
     error: { icon: XCircle, color: 'text-red-400', border: 'border-red-500/30', bg: 'bg-red-500/5' },
@@ -108,7 +111,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         </button>
       )}
       {toast.type !== 'loading' && (
-        <button onClick={onDismiss} className="text-gray-500 hover:text-white transition-colors flex-shrink-0" aria-label="Dismiss notification">
+        <button onClick={onDismiss} className="text-gray-500 hover:text-white transition-colors flex-shrink-0" aria-label={l('Dismiss notification')}>
           <X className="w-4 h-4" />
         </button>
       )}

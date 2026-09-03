@@ -174,10 +174,10 @@ export default function AdminSubscriptions() {
           };
           const Icon = s.icon;
           return (
-            <div key={s.label} className={`rounded-2xl border p-4 ${colors[s.color]}`}>
+            <div key={l(s.label)} className={`rounded-2xl border p-4 ${colors[s.color]}`}>
               <Icon className="w-5 h-5 mb-2" />
               <div className="text-2xl font-bold text-white">{s.value}</div>
-              <div className="text-xs text-gray-400">{s.label}</div>
+              <div className="text-xs text-gray-400">{l(s.label)}</div>
             </div>
           );
         })}
@@ -191,13 +191,13 @@ export default function AdminSubscriptions() {
       <div className="flex gap-2 flex-wrap">
         {['all', 'active', 'past_due', 'renewals', 'failed'].map(f => (
           <button
-            key={f}
+            key={l(f === 'all' ? 'All' : f === 'active' ? 'Active' : f === 'past_due' ? 'Past Due' : f === 'renewals' ? 'Renewals' : 'Failed')}
             onClick={() => setFilter(f)}
             className={`text-xs font-medium px-3 py-1.5 rounded-full capitalize transition-colors ${
               filter === f ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
             }`}
           >
-            {f}
+            {l(f === 'all' ? 'All' : f === 'active' ? 'Active' : f === 'past_due' ? 'Past Due' : f === 'renewals' ? 'Renewals' : 'Failed')}
           </button>
         ))}
       </div>
@@ -226,14 +226,14 @@ export default function AdminSubscriptions() {
                       s.plan === 'pro' ? 'bg-fuchsia-500/10 text-fuchsia-400' :
                       s.plan === 'business' ? 'bg-cyan-500/10 text-cyan-400' :
                       'bg-gray-500/10 text-gray-400'
-                    }`}>{s.plan}</span>
+                    }`}>{l(s.plan)}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`flex items-center gap-1 text-xs font-medium ${
                       s.status === 'active' || s.status === 'trialing' ? 'text-emerald-400' : 'text-red-400'
                     }`}>
                       {s.status === 'active' || s.status === 'trialing' ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                      {s.status === 'past_due' ? l('past_due · 3-day grace') : s.status}
+                      {s.status === 'past_due' ? l('past_due · 3-day grace') : l(s.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-400 hidden sm:table-cell">

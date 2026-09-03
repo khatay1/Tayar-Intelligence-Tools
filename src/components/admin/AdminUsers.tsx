@@ -137,11 +137,11 @@ export default function AdminUsers() {
             red: 'bg-red-500/10 text-red-400 border-red-500/20',
           };
           return (
-            <div key={s.label} className={`rounded-xl border p-3 flex items-center gap-3 ${colors[s.color]}`}>
+            <div key={l(s.label)} className={`rounded-xl border p-3 flex items-center gap-3 ${colors[s.color]}`}>
               <Icon className="w-5 h-5" />
               <div>
                 <div className="text-xl font-bold text-white">{s.value}</div>
-                <div className="text-xs text-gray-400">{s.label}</div>
+                <div className="text-xs text-gray-400">{l(s.label)}</div>
               </div>
             </div>
           );
@@ -154,7 +154,7 @@ export default function AdminUsers() {
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Search by name, email or ID..."
+            placeholder={l('Search by name, email or ID...')}
             className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
           />
         </div>
@@ -203,7 +203,7 @@ export default function AdminUsers() {
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-white truncate flex items-center gap-1.5">
-                          {user.full_name || 'Unnamed'}
+                          {user.full_name || l('Unnamed')}
                           {user.role === 'admin' && <Shield className="w-3 h-3 text-amber-400" />}
                         </div>
                         <div className="text-xs text-gray-500 truncate">{user.email || user.id}</div>
@@ -217,7 +217,7 @@ export default function AdminUsers() {
                       user.plan === 'business' ? 'bg-cyan-500/10 text-cyan-400' :
                       'bg-gray-500/10 text-gray-400'
                     }`}>
-                      {user.plan === 'admin' ? l('Admin Access') : user.plan}
+                      {user.plan === 'admin' ? l('Admin Access') : l(user.plan)}
                     </span>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-sm text-gray-300">{user.project_count}</td>
@@ -233,13 +233,13 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setEditUser(user)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title="Edit">
+                      <button onClick={() => setEditUser(user)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" title={l('Edit')}>
                         <Edit3 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => toggleSuspend(user)} disabled={actionLoading || currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? 'You cannot suspend yourself' : user.suspended ? 'Reinstate' : 'Suspend'}>
+                      <button onClick={() => toggleSuspend(user)} disabled={actionLoading || currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? l('You cannot suspend yourself') : user.suspended ? l('Reinstate') : l('Suspend')}>
                         <Ban className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setConfirmDelete(user)} disabled={currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? 'You cannot delete yourself' : 'Delete'}>
+                      <button onClick={() => setConfirmDelete(user)} disabled={currentUser?.id === user.id} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title={currentUser?.id === user.id ? l('You cannot delete yourself') : l('Delete')}>
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -293,9 +293,9 @@ export default function AdminUsers() {
 
       {confirmDelete && (
         <ConfirmModal
-          title="Delete User"
+          title={l('Delete User')}
           message={`Choose whether to delete "${confirmDelete.full_name || 'this user'}" only, or also block this email from re-registering. This action permanently removes the account.`}
-          confirmLabel={deleteMode === 'delete-block' ? 'Delete & Block' : 'Delete Permanently'}
+          confirmLabel={deleteMode === 'delete-block' ? l('Delete & Block') : l('Delete Permanently')}
           danger
           loading={actionLoading}
           onConfirm={() => deleteUser(confirmDelete)}
@@ -324,7 +324,7 @@ export default function AdminUsers() {
                 <input
                   value={deleteReason}
                   onChange={e => setDeleteReason(e.target.value)}
-                  placeholder="Block reason (internal note)"
+                  placeholder={l('Block reason (internal note)')}
                   className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none"
                 />
                 <div>
@@ -396,7 +396,7 @@ function EditUserModal({ user, isSelf, onSave, onAccessChanged, onClose, loading
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">{l('Subscription Plan')}</label>
             <div className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-gray-300 flex items-center justify-between">
-              <span className="capitalize">{user.plan === 'admin' ? l('Admin Access') : user.plan}</span>
+              <span className="capitalize">{user.plan === 'admin' ? l('Admin Access') : l(user.plan)}</span>
               <span className="text-[10px] text-gray-500">{l('Managed by Billing')}</span>
             </div>
           </div>
@@ -424,7 +424,7 @@ function EditUserModal({ user, isSelf, onSave, onAccessChanged, onClose, loading
               <input
                 value={accessReason}
                 onChange={e => setAccessReason(e.target.value)}
-                placeholder="Reason (internal note)"
+                placeholder={l('Reason (internal note)')}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
               />
               <div>
@@ -452,7 +452,7 @@ function EditUserModal({ user, isSelf, onSave, onAccessChanged, onClose, loading
               <Mail className="w-3 h-3" />
               <span className="font-mono">{user.id.slice(0, 12)}...</span>
             </div>
-            <div>Documents: {user.project_count} | AI Requests: {user.ai_request_count}</div>
+            <div>{l('Documents')}: {user.project_count} | {l('AI Requests')}: {user.ai_request_count}</div>
           </div>
         </div>
         <div className="flex gap-3 mt-6">

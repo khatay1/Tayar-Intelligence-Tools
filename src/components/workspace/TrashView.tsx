@@ -42,26 +42,26 @@ export default function TrashView() {
   }, [user]);
 
   async function handleRestore(id: string) {
-    const toastId = loading('Restoring...');
+    const toastId = loading(l('Restoring...'));
     const { error: err } = await supabase
       .from('projects')
       .update({ deleted_at: null })
       .eq('id', id);
     if (err) {
-      update(toastId, 'Failed to restore', 'error');
+      update(toastId, l('Failed to restore'), 'error');
     } else {
-      update(toastId, 'Restored successfully', 'success');
+      update(toastId, l('Restored successfully'), 'success');
       setItems(prev => prev.filter(i => i.id !== id));
     }
   }
 
   async function handlePurge(id: string) {
-    const toastId = loading('Permanently deleting...');
+    const toastId = loading(l('Permanently deleting...'));
     const { error: err } = await supabase.from('projects').delete().eq('id', id);
     if (err) {
-      update(toastId, 'Failed to delete permanently', 'error');
+      update(toastId, l('Failed to delete permanently'), 'error');
     } else {
-      update(toastId, 'Permanently deleted', 'success');
+      update(toastId, l('Permanently deleted'), 'success');
       setItems(prev => prev.filter(i => i.id !== id));
     }
   }
@@ -69,12 +69,12 @@ export default function TrashView() {
   async function handleEmptyTrash() {
     if (!user) return;
     setConfirmPurge(false);
-    const toastId = loading('Emptying trash...');
+    const toastId = loading(l('Emptying trash...'));
     const { error: err } = await supabase.from('projects').delete().not('deleted_at', 'is', null).eq('user_id', user.id);
     if (err) {
-      update(toastId, 'Failed to empty trash', 'error');
+      update(toastId, l('Failed to empty trash'), 'error');
     } else {
-      update(toastId, 'Trash emptied', 'success');
+      update(toastId, l('Trash emptied'), 'success');
       setItems([]);
     }
   }
@@ -108,8 +108,8 @@ export default function TrashView() {
       {items.length === 0 ? (
         <EmptyState
           icon={Trash2}
-          title="Trash is empty"
-          description="When you delete files or projects, they'll appear here for 30 days before being permanently removed."
+          title={l('Trash is empty')}
+          description={l("When you delete files or projects, they'll appear here for 30 days before being permanently removed.")}
           variant="trash"
         />
       ) : (
@@ -127,11 +127,11 @@ export default function TrashView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-white text-sm font-medium truncate">{item.title}</div>
-                  <div className="text-gray-500 text-xs">{meta.label} · Deleted {timeAgo(item.deleted_at)}</div>
+                  <div className="text-gray-500 text-xs">{l(meta.label)} · {l('Deleted')} {timeAgo(item.deleted_at)}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className={`text-xs px-2 py-1 rounded-full ${days < 7 ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                    {days} days left
+                    {days} {l('days left')}
                   </span>
                   <button
                     onClick={() => handleRestore(item.id)}

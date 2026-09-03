@@ -103,7 +103,7 @@ export function BuilderPagesPanel({
                       )
                     }
                   >
-                    UP
+                    {l('UP')}
                   </button>
 
                   <button
@@ -120,7 +120,7 @@ export function BuilderPagesPanel({
                       )
                     }
                   >
-                    DN
+                    {l('DN')}
                   </button>
 
                   <button
@@ -130,7 +130,7 @@ export function BuilderPagesPanel({
                       onDuplicatePage
                     }
                   >
-                    COPY
+                    {l('COPY')}
                   </button>
 
                   {!page.home && (
@@ -141,7 +141,7 @@ export function BuilderPagesPanel({
                         onSetHomePage
                       }
                     >
-                      HOME
+                      {l('HOME')}
                     </button>
                   )}
 
@@ -156,7 +156,7 @@ export function BuilderPagesPanel({
                       onDeletePage
                     }
                   >
-                    DEL
+                    {l('DEL')}
                   </button>
                 </div>
               )}
