@@ -1,3 +1,4 @@
+import { completeMeteredLocalAction } from '@/lib/tool-usage';
 import { inspectImage, processImage, safeOutputName } from '../image-tools/image-processing';
 import { OUTPUT_FORMATS } from '../image-tools/image-types';
 import {
@@ -44,34 +45,36 @@ export async function processBatch(
   const outputFormat = OUTPUT_FORMATS.find((item) => item.value === options.format);
   if (!outputFormat) throw new Error('Unsupported output format.');
 
-  const results: BatchImageResult[] = [];
-  let totalOutputBytes = 0;
+  return completeMeteredLocalAction('batch-image-tools', 'process-batch', async () => {
+    const results: BatchImageResult[] = [];
+    let totalOutputBytes = 0;
 
-  for (let index = 0; index < files.length; index += 1) {
-    const file = files[index];
-    const info = await inspectImage(file);
-    const size = targetSize(info.width, info.height, Math.round(options.maxSide));
-    const blob = await processImage(file, {
-      width: size.width,
-      height: size.height,
-      format: options.format,
-      quality: options.quality,
-    });
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const info = await inspectImage(file);
+      const size = targetSize(info.width, info.height, Math.round(options.maxSide));
+      const blob = await processImage(file, {
+        width: size.width,
+        height: size.height,
+        format: options.format,
+        quality: options.quality,
+      });
 
-    totalOutputBytes += blob.size;
-    if (totalOutputBytes > MAX_BATCH_OUTPUT_BYTES) {
-      throw new Error('Processed images exceed the 120 MB batch output safety limit.');
+      totalOutputBytes += blob.size;
+      if (totalOutputBytes > MAX_BATCH_OUTPUT_BYTES) {
+        throw new Error('Processed images exceed the 120 MB batch output safety limit.');
+      }
+
+      results.push({
+        sourceName: file.name,
+        outputName: `${String(index + 1).padStart(2, '0')}-${safeOutputName(file.name, outputFormat.extension)}`,
+        blob,
+        width: size.width,
+        height: size.height,
+      });
+      onProgress?.(index + 1, files.length);
     }
 
-    results.push({
-      sourceName: file.name,
-      outputName: `${String(index + 1).padStart(2, '0')}-${safeOutputName(file.name, outputFormat.extension)}`,
-      blob,
-      width: size.width,
-      height: size.height,
-    });
-    onProgress?.(index + 1, files.length);
-  }
-
-  return results;
+    return results;
+  });
 }
