@@ -4,6 +4,7 @@
 // All AI requests go through the edge function — API keys are never exposed to the frontend.
 
 import { supabase } from '@/lib/supabase';
+import { assertToolActionAvailable } from '@/lib/tool-usage';
 import { promptManager, ToolId } from './prompts';
 import { getDefaultModel } from './types';
 
@@ -181,6 +182,7 @@ export class AIService {
     options?: { temperature?: number; maxTokens?: number },
   ): Promise<AIResponse> {
     await this.loadSettings();
+    await assertToolActionAvailable(this.tool);
     const messages = this.buildMessages(input, history);
     const temperature = options?.temperature ?? this.temperature;
     const maxTokens = options?.maxTokens ?? this.maxTokens;
@@ -402,6 +404,7 @@ export class AIService {
     options?: { temperature?: number; maxTokens?: number },
   ): Promise<AIResponse> {
     await this.loadSettings();
+    await assertToolActionAvailable(this.tool);
     const messages = this.buildMessages(input, history);
     const temperature = options?.temperature ?? this.temperature;
     const maxTokens = options?.maxTokens ?? this.maxTokens;
@@ -462,6 +465,7 @@ export class AIService {
     options?: { temperature?: number; maxTokens?: number },
   ): Promise<AIJSONResponse<T>> {
     await this.loadSettings();
+    await assertToolActionAvailable(this.tool);
     const messages = this.buildMessages(input, history);
     const temperature = options?.temperature ?? this.temperature;
     const maxTokens = options?.maxTokens ?? this.maxTokens;
@@ -658,7 +662,6 @@ export async function getUsageStats(): Promise<UsageStats> {
 export function createAIService(tool: ToolId, options?: string | AIServiceOptions): AIService {
   return new AIService(tool, options);
 }
-
 
 
 
