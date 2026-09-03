@@ -1,6 +1,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Download, FileStack, Loader2, ShieldCheck } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization';
+import { completeMeteredLocalAction } from '@/lib/tool-usage';
 import {
   ToolField,
   ToolInputPanel,
@@ -30,14 +31,9 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const [error, setError] = useState('');
 
-  const totalBytes = useMemo(
-    () => files.reduce((sum, file) => sum + file.size, 0),
-    [files],
-  );
+  const totalBytes = useMemo(() => files.reduce((sum, file) => sum + file.size, 0), [files]);
 
-  useEffect(() => () => {
-    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-  }, [pdfUrl]);
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
 
   function clearPdf() {
     setPdf(null);
@@ -48,7 +44,6 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   function addFiles(nextFiles: File[]) {
     setError('');
     clearPdf();
-
     const combined = [...files, ...nextFiles].slice(0, MAX_PDF_IMAGES);
     try {
       validatePdfImages(combined);
@@ -72,7 +67,6 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   function moveFile(index: number, direction: -1 | 1) {
     const target = index + direction;
     if (target < 0 || target >= files.length) return;
-
     setFiles((current) => {
       const next = [...current];
       const currentFile = next[index];
@@ -84,17 +78,16 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   async function createPdf() {
-    if (!files.length) return;
+    if (!files.length || processing) return;
     setProcessing(true);
     setError('');
     clearPdf();
-
     try {
-      const nextPdf = await imagesToPdf(
+      const nextPdf = await completeMeteredLocalAction('image-to-pdf', 'create-pdf', () => imagesToPdf(
         files,
         { pageSize, marginPt, jpegQuality },
         (completed, total) => setProgress({ completed, total }),
-      );
+      ));
       setPdf(nextPdf);
       setPdfUrl(URL.createObjectURL(nextPdf));
     } catch (caught) {
@@ -105,155 +98,42 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   return (
-    <ToolShell
-      icon={FileStack}
-      title={l('Image to PDF')}
-      description={l('Combine JPEG, PNG and WebP images into one PDF directly in your browser.')}
-      badge="Local PDF"
-    >
+    <ToolShell icon={FileStack} title={l('Image to PDF')} description={l('Combine JPEG, PNG and WebP images into one PDF directly in your browser.')} badge="Local PDF">
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <div className="font-medium">{l('Processed locally')}</div>
-          <div className="text-emerald-200/60 text-xs mt-0.5">
-            {l('Images stay in your browser. Tayar creates a new PDF and never parses an uploaded PDF in this tool.')}
-          </div>
-        </div>
+        <div className="min-w-0"><div className="font-medium">{l('Processed locally')}</div><div className="text-emerald-200/60 text-xs mt-0.5">{l('Images stay in your browser. Tayar creates a new PDF and never parses an uploaded PDF in this tool.')}</div></div>
       </div>
 
-      <div className="grid xl:grid-cols-[390px_minmax(0,1fr)] gap-6 items-start">
+      <div className="grid min-w-0 xl:grid-cols-[390px_minmax(0,1fr)] gap-4 sm:gap-6 items-start">
         <ToolInputPanel>
-          <label className="block rounded-xl border border-dashed border-white/15 bg-white/[0.025] hover:bg-white/[0.05] p-5 text-center cursor-pointer transition-colors">
+          <label className="block rounded-xl border border-dashed border-white/15 bg-white/[0.025] hover:bg-white/[0.05] p-4 sm:p-5 text-center cursor-pointer transition-colors">
             <FileStack className="w-7 h-7 text-violet-400 mx-auto mb-2" />
             <div className="text-sm text-white font-medium">{l('Add JPEG, PNG or WebP images')}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {l('Up to 20 images · 80 MB combined source limit')}
-            </div>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              onChange={handleFiles}
-              className="hidden"
-            />
+            <div className="text-xs text-gray-500 mt-1">{l('Up to 20 images · 80 MB combined source limit')}</div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleFiles} className="hidden" />
           </label>
 
-          {files.length > 0 && (
-            <>
-              <div className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-gray-400">
-                {files.length} / {MAX_PDF_IMAGES} {l('pages')} · {formatBytes(totalBytes)}
-              </div>
-
-              <ToolField label={l('Page size')}>
-                <select
-                  value={pageSize}
-                  onChange={(event) => { setPageSize(event.target.value as PdfPageSize); clearPdf(); }}
-                  className={toolInputClass}
-                >
-                  <option value="a4">{l('A4 · auto orientation')}</option>
-                  <option value="letter">{l('Letter · auto orientation')}</option>
-                  <option value="auto">{l('Fit page to image')}</option>
-                </select>
-              </ToolField>
-
-              {pageSize !== 'auto' && (
-                <ToolField label={l('Margin')}>
-                  <select
-                    value={marginPt}
-                    onChange={(event) => { setMarginPt(Number(event.target.value)); clearPdf(); }}
-                    className={toolInputClass}
-                  >
-                    <option value={0}>{l('None')}</option>
-                    <option value={18}>{l('Small')}</option>
-                    <option value={36}>{l('Normal')}</option>
-                  </select>
-                </ToolField>
-              )}
-
-              <ToolField label={`${l('Image quality')} · ${Math.round(jpegQuality * 100)}%`}>
-                <input
-                  type="range"
-                  min="0.6"
-                  max="1"
-                  step="0.01"
-                  value={jpegQuality}
-                  onChange={(event) => { setJpegQuality(Number(event.target.value)); clearPdf(); }}
-                  className="w-full accent-violet-500"
-                />
-              </ToolField>
-
-              <div className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-gray-500">
-                {l('Transparent PNG/WebP pixels are flattened onto white when embedded as JPEG inside the PDF.')}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void createPdf()}
-                disabled={processing}
-                className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-              >
-                {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileStack className="w-4 h-4" />}
-                {l(processing ? 'Creating PDF...' : 'Create PDF')}
-              </button>
-
-              {processing && progress.total > 0 && (
-                <div className="text-xs text-gray-500 text-center">
-                  {progress.completed} / {progress.total}
-                </div>
-              )}
-            </>
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-200">
-              {error}
-            </div>
-          )}
+          {files.length > 0 && <>
+            <div className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-gray-400 break-words">{files.length} / {MAX_PDF_IMAGES} {l('pages')} · {formatBytes(totalBytes)}</div>
+            <ToolField label={l('Page size')}><select value={pageSize} onChange={(event) => { setPageSize(event.target.value as PdfPageSize); clearPdf(); }} className={toolInputClass}><option value="a4">{l('A4 · auto orientation')}</option><option value="letter">{l('Letter · auto orientation')}</option><option value="auto">{l('Fit page to image')}</option></select></ToolField>
+            {pageSize !== 'auto' && <ToolField label={l('Margin')}><select value={marginPt} onChange={(event) => { setMarginPt(Number(event.target.value)); clearPdf(); }} className={toolInputClass}><option value={0}>{l('None')}</option><option value={18}>{l('Small')}</option><option value={36}>{l('Normal')}</option></select></ToolField>}
+            <ToolField label={`${l('Image quality')} · ${Math.round(jpegQuality * 100)}%`}><input type="range" min="0.6" max="1" step="0.01" value={jpegQuality} onChange={(event) => { setJpegQuality(Number(event.target.value)); clearPdf(); }} className="w-full accent-violet-500" /></ToolField>
+            <div className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-gray-500 break-words">{l('Transparent PNG/WebP pixels are flattened onto white when embedded as JPEG inside the PDF.')}</div>
+            <button type="button" onClick={() => void createPdf()} disabled={processing} className="w-full min-h-11 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">{processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileStack className="w-4 h-4" />}{l(processing ? 'Creating PDF...' : 'Create PDF')}</button>
+            {processing && progress.total > 0 && <div className="text-xs text-gray-500 text-center">{progress.completed} / {progress.total}</div>}
+          </>}
+          {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-200 break-words">{error}</div>}
         </ToolInputPanel>
 
-        <ToolOutputPanel
-          loading={processing}
-          hasContent={files.length > 0}
-          empty={<div className="py-16 text-center text-sm text-gray-600">{l('Add images to build a PDF.')}</div>}
-        >
-          {files.length > 0 && (
-            <div className="space-y-5">
-              <div>
-                <div className="text-white font-semibold">{l(pdf ? 'PDF ready' : 'Page order')}</div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {l(pdf ? `${files.length} pages · ${formatBytes(pdf.size)}` : 'Use the arrows to arrange pages before creating the PDF.')}
-                </div>
-              </div>
-
-              {!pdf && (
-                <ImageQueue
-                  files={files}
-                  onMove={moveFile}
-                  onRemove={removeFile}
-                  disabled={processing}
-                  formatBytes={formatBytes}
-                  label={l}
-                />
-              )}
-
-              {pdf && pdfUrl && (
-                <>
-                  <div className="rounded-xl overflow-hidden border border-white/10 bg-white min-h-[520px]">
-                    <iframe src={pdfUrl} title={l('Generated PDF preview')} className="w-full h-[620px] border-0" />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => downloadPdf(pdf)}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-4 py-2.5 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    {l('Download PDF')}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+        <ToolOutputPanel loading={processing} hasContent={files.length > 0} empty={<div className="py-16 text-center text-sm text-gray-600">{l('Add images to build a PDF.')}</div>}>
+          {files.length > 0 && <div className="space-y-5 min-w-0">
+            <div><div className="text-white font-semibold">{l(pdf ? 'PDF ready' : 'Page order')}</div><div className="text-xs text-gray-500 mt-0.5 break-words">{l(pdf ? `${files.length} pages · ${formatBytes(pdf.size)}` : 'Use the arrows to arrange pages before creating the PDF.')}</div></div>
+            {!pdf && <ImageQueue files={files} onMove={moveFile} onRemove={removeFile} disabled={processing} formatBytes={formatBytes} label={l} />}
+            {pdf && pdfUrl && <>
+              <div className="rounded-xl overflow-hidden border border-white/10 bg-white min-h-[360px] sm:min-h-[520px]"><iframe src={pdfUrl} title={l('Generated PDF preview')} className="w-full h-[420px] sm:h-[620px] border-0" /></div>
+              <button type="button" onClick={() => downloadPdf(pdf)} className="w-full min-h-11 flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-4 py-2.5 transition-colors"><Download className="w-4 h-4" />{l('Download PDF')}</button>
+            </>}
+          </div>}
         </ToolOutputPanel>
       </div>
     </ToolShell>
