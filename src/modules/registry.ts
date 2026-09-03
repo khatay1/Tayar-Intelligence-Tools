@@ -1,15 +1,36 @@
+import { createElement } from 'react';
 import { ToolModule } from './types';
+import ToolAccessGate from './shared/ToolAccessGate';
 
 class ToolRegistryImpl {
   private tools = new Map<string, ToolModule>();
-  private registered = false;
 
   register(module: ToolModule): void {
     if (this.tools.has(module.id)) {
       console.warn(`[ToolRegistry] Tool "${module.id}" is already registered, skipping.`);
       return;
     }
-    this.tools.set(module.id, module);
+
+    const OriginalComponent = module.component;
+    const fallbackPlan = module.id === 'team-workspace'
+      ? 'business'
+      : module.tier === 'premium'
+        ? 'pro'
+        : 'free';
+
+    const GuardedComponent: ToolModule['component'] = (props) =>
+      createElement(
+        ToolAccessGate,
+        { toolId: module.id, fallbackPlan },
+        createElement(OriginalComponent, props),
+      );
+
+    GuardedComponent.displayName = `ToolAccessGate(${module.id})`;
+
+    this.tools.set(module.id, {
+      ...module,
+      component: GuardedComponent,
+    });
   }
 
   get(id: string): ToolModule | undefined {
