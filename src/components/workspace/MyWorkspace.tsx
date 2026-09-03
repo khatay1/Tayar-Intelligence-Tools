@@ -299,6 +299,7 @@ export default function MyWorkspace({ onNavigate }: MyWorkspaceProps) {
 }
 
 function FileRow({ project, onOpen, compact }: { project: Project; onOpen: () => void; compact?: boolean }) {
+  const l = useLocalizer();
   const meta = getFileMeta(project.type);
   const Icon = TYPE_ICONS[project.type] || FileText;
   const isFavorite = (project as Project & { favorite?: boolean }).favorite;
