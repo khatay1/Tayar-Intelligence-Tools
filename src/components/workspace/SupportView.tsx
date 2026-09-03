@@ -2,6 +2,7 @@ import { Bug, HelpCircle, LifeBuoy, Mail, MessageSquare } from 'lucide-react';
 import { PageShell } from './PageShell';
 import type { ViewId } from './workspace-config';
 import { useLocalizer } from '@/lib/ui-localization';
+import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support-contact';
 
 interface SupportViewProps {
   onNavigate: (view: ViewId) => void;
@@ -18,7 +19,12 @@ export default function SupportView({ onNavigate }: SupportViewProps) {
   const l = useLocalizer();
 
   return (
-    <PageShell icon={LifeBuoy} title={l('Support')} subtitle={l('Get help, report a problem or send feedback from one place.')}> 
+    <PageShell icon={LifeBuoy} title={l('Support')} subtitle={l('Get help, report a problem or send feedback from one place.')}>
+      <div className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-violet-400/15 bg-violet-500/[0.06] px-4 py-3 text-xs text-violet-100/90">
+        <Mail className="h-4 w-4 text-violet-300" />
+        <span>{l('Email support')}:</span>
+        <a href={SUPPORT_EMAIL_HREF} className="font-semibold text-violet-200 hover:text-white hover:underline">{SUPPORT_EMAIL}</a>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {options.map(option => {
           const Icon = option.icon;
