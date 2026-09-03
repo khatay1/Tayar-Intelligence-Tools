@@ -55,6 +55,94 @@ export function createAdminClient() {
   });
 }
 
+function planRank(plan: string): number {
+  return plan === "business" ? 2 : plan === "pro" ? 1 : 0;
+}
+
+function usageWindowStart(period: string): string | null {
+  const now = new Date();
+  if (period === "daily") {
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  }
+  if (period === "monthly") {
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  }
+  return null;
+}
+
+/**
+ * Server-side plan/quota guard for paid provider calls. This is intentionally
+ * independent of browser UI state so every Edge Function request is checked.
+ * Successful AI/provider requests are counted by ai_usage after completion.
+ */
+export async function assertServerToolAvailable(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  toolId: string,
+): Promise<void> {
+  const normalizedTool = toolId.trim().slice(0, 100);
+  if (!normalizedTool) throw new HttpError(400, "Tool id is required");
+
+  const [{ data: rule, error: ruleError }, { data: planData, error: planError }] = await Promise.all([
+    admin.from("tool_access_rules").select("minimum_plan,enabled").eq("tool_id", normalizedTool).maybeSingle(),
+    admin.rpc("team_effective_plan", { p_user_id: userId }),
+  ]);
+
+  if (ruleError || planError) {
+    console.error("[TOOL ACCESS] Failed to load plan access state");
+    throw new HttpError(503, "Tool access could not be verified");
+  }
+
+  const effectivePlan = typeof planData === "string" ? planData : "free";
+  const requiredPlan = typeof rule?.minimum_plan === "string" ? rule.minimum_plan : "free";
+  if (rule?.enabled === false) throw new HttpError(503, "This tool is temporarily unavailable");
+  if (planRank(effectivePlan) < planRank(requiredPlan)) {
+    throw new HttpError(403, "Your current plan does not include this tool");
+  }
+
+  const { data: limits, error: limitError } = await admin
+    .from("tool_plan_limits")
+    .select("period,free_limit,pro_limit,business_limit")
+    .eq("tool_id", normalizedTool)
+    .maybeSingle();
+
+  if (limitError) {
+    console.error("[TOOL ACCESS] Failed to load tool quota");
+    throw new HttpError(503, "Tool limits could not be verified");
+  }
+  if (!limits) return;
+
+  const rawLimit = effectivePlan === "business"
+    ? limits.business_limit
+    : effectivePlan === "pro"
+      ? limits.pro_limit
+      : limits.free_limit;
+  if (rawLimit === null || rawLimit === undefined) return;
+
+  const limit = Number(rawLimit);
+  if (!Number.isFinite(limit) || limit < 0) {
+    throw new HttpError(503, "Tool limit configuration is invalid");
+  }
+  if (limit === 0) throw new HttpError(429, "Usage limit reached for this tool");
+
+  let usageQuery = admin
+    .from("ai_usage")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("tool", normalizedTool)
+    .eq("status", "success");
+
+  const windowStart = usageWindowStart(typeof limits.period === "string" ? limits.period : "monthly");
+  if (windowStart) usageQuery = usageQuery.gte("created_at", windowStart);
+
+  const { count, error: usageError } = await usageQuery;
+  if (usageError) {
+    console.error("[TOOL ACCESS] Failed to count tool usage");
+    throw new HttpError(503, "Tool usage could not be verified");
+  }
+  if ((count || 0) >= limit) throw new HttpError(429, "Usage limit reached for this tool");
+}
+
 export async function requireUser(req: Request): Promise<User> {
   const authorization = req.headers.get("Authorization") || "";
   if (!authorization.toLowerCase().startsWith("bearer ")) {
