@@ -191,15 +191,15 @@ function AppContent() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <AuthProvider>
-          <PreferencesProvider>
+      <AuthProvider>
+        <PreferencesProvider>
+          <ToastProvider>
             <OnboardingProvider>
               <AdminProvider><AppContent /></AdminProvider>
             </OnboardingProvider>
-          </PreferencesProvider>
-        </AuthProvider>
-      </ToastProvider>
+          </ToastProvider>
+        </PreferencesProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
