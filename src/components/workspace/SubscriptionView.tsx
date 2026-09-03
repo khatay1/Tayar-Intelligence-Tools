@@ -51,6 +51,7 @@ export default function SubscriptionView() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<'pro' | 'business' | 'portal' | null>(null);
   const [error, setError] = useState('');
+  const [billingMessage, setBillingMessage] = useState<'success' | 'canceled' | null>(null);
 
   const activePlan = isAdmin ? 'business' : (subscription?.plan || profile?.plan || 'free').toLowerCase();
   const statusLabel = isAdmin ? 'admin access' : (subscription?.status || (activePlan === 'free' ? 'active' : 'unknown'));
@@ -84,6 +85,23 @@ export default function SubscriptionView() {
     void loadSubscription();
   }, [loadSubscription]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const billing = params.get('billing');
+    if (billing !== 'success' && billing !== 'canceled') return;
+
+    setBillingMessage(billing);
+    params.delete('billing');
+    const nextSearch = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`);
+
+    if (billing === 'success') {
+      void loadSubscription();
+      const retry = window.setTimeout(() => void loadSubscription(), 2200);
+      return () => window.clearTimeout(retry);
+    }
+  }, [loadSubscription]);
+
   async function startCheckout(plan: 'pro' | 'business') {
     if (hasManagedSubscription) {
       await openPortal();
@@ -91,6 +109,7 @@ export default function SubscriptionView() {
     }
     setBusy(plan);
     setError('');
+    setBillingMessage(null);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', { body: { plan } });
       if (invokeError) throw invokeError;
@@ -106,6 +125,7 @@ export default function SubscriptionView() {
   async function openPortal() {
     setBusy('portal');
     setError('');
+    setBillingMessage(null);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('billing-portal', { body: {} });
       if (invokeError) throw invokeError;
@@ -119,19 +139,30 @@ export default function SubscriptionView() {
   }
 
   return (
-    <PageShell icon={CreditCard} title={l('Subscription')} subtitle={l('Manage your plan, limits and Stripe billing from one place.')}> 
+    <PageShell icon={CreditCard} title={l('Subscription')} subtitle={l('Manage your plan, limits and Stripe billing from one place.')}>
+      {billingMessage === 'success' && (
+        <div className="mb-5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          {l('Payment completed. We are syncing your subscription now. Your plan will refresh automatically.')}
+        </div>
+      )}
+      {billingMessage === 'canceled' && (
+        <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-gray-300">
+          {l('Checkout was canceled. No plan change was made.')}
+        </div>
+      )}
+
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{l('Current plan')}</div>
-          <div className="text-lg font-bold capitalize text-white">{activePlan}</div>
+          <div className="truncate text-lg font-bold capitalize text-white">{activePlan}</div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{l('Status')}</div>
-          <div className="text-lg font-bold capitalize text-white">{loading ? l('Loading...') : l(statusLabel)}</div>
+          <div className="truncate text-lg font-bold capitalize text-white">{loading ? l('Loading...') : l(statusLabel)}</div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{l('Next billing date')}</div>
-          <div className="text-lg font-bold text-white">{loading ? '—' : isAdmin ? l('Not required') : formatDate(periodEnd)}</div>
+          <div className="truncate text-lg font-bold text-white">{loading ? '—' : isAdmin ? l('Not required') : formatDate(periodEnd)}</div>
         </div>
       </div>
 
@@ -141,22 +172,22 @@ export default function SubscriptionView() {
         </div>
       )}
 
-      {error && <div className="mb-5 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
+      {error && <div className="mb-5 break-words rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {plans.map(plan => {
           const current = activePlan === plan.id;
           return (
-            <div key={plan.id} className={`rounded-2xl border p-5 ${current ? 'border-violet-400/40 bg-violet-500/[0.08]' : 'border-white/10 bg-white/[0.02]'}`}>
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
+            <div key={plan.id} className={`min-w-0 rounded-2xl border p-4 sm:p-5 ${current ? 'border-violet-400/40 bg-violet-500/[0.08]' : 'border-white/10 bg-white/[0.02]'}`}>
+              <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-bold text-white">{plan.name}</h2>
                     {current && <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-200">{l('Current')}</span>}
                   </div>
                   <p className="mt-1 text-xs leading-5 text-gray-500">{l(plan.description)}</p>
                 </div>
-                {plan.id === 'business' ? <ShieldCheck className="h-5 w-5 text-violet-300" /> : <Sparkles className="h-5 w-5 text-violet-300" />}
+                {plan.id === 'business' ? <ShieldCheck className="h-5 w-5 shrink-0 text-violet-300" /> : <Sparkles className="h-5 w-5 shrink-0 text-violet-300" />}
               </div>
 
               <div className="space-y-2.5">
@@ -176,12 +207,12 @@ export default function SubscriptionView() {
                 ) : plan.id === 'free' ? (
                   <div className="rounded-xl border border-white/10 px-3 py-2.5 text-center text-xs font-semibold text-gray-400">{current ? l('Your current plan') : l('Free plan')}</div>
                 ) : current || hasManagedSubscription ? (
-                  <button onClick={() => void openPortal()} disabled={busy !== null} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60">
+                  <button onClick={() => void openPortal()} disabled={busy !== null} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60">
                     {busy === 'portal' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                     {l('Manage in Stripe')}
                   </button>
                 ) : (
-                  <button onClick={() => void startCheckout(plan.id)} disabled={busy !== null} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:opacity-60">
+                  <button onClick={() => void startCheckout(plan.id)} disabled={busy !== null} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:opacity-60">
                     {busy === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                     {l(`Choose ${plan.name}`)}
                   </button>
@@ -192,9 +223,9 @@ export default function SubscriptionView() {
         })}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5">
-        <p className="text-xs leading-5 text-gray-500">{l('Billing changes are completed securely through Stripe. Your plan badge is synchronized by the billing backend.')}</p>
-        <button onClick={() => void loadSubscription()} disabled={loading} className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-gray-300 transition hover:bg-white/5 disabled:opacity-60">
+      <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="min-w-0 text-xs leading-5 text-gray-500">{l('Billing changes are completed securely through Stripe. Your plan badge is synchronized by the billing backend.')}</p>
+        <button onClick={() => void loadSubscription()} disabled={loading} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-gray-300 transition hover:bg-white/5 disabled:opacity-60">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           {l('Refresh')}
         </button>
