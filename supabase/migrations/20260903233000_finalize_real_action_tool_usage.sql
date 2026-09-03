@@ -1,4 +1,6 @@
 -- Tool usage is charged only for completed actions, never for opening/viewing a tool.
+-- Older databases may not yet have the action column, so add it safely first.
+alter table public.tool_usage_events add column if not exists action text;
 
 create or replace function public.tool_access_state(p_tool_id text)
 returns jsonb
@@ -59,7 +61,7 @@ begin
   v_period := coalesce(v_period, 'monthly');
   v_is_ai := v_tool_id in (
     'ai-chat','cv-builder','cover-letter','ai-writer','translator','document-ai',
-    'study-assistant','website-builder','code-assistant'
+    'study-assistant','website-builder','code-assistant','background-remover'
   );
 
   if v_limit is not null then
@@ -108,14 +110,16 @@ declare
   v_action text := left(trim(coalesce(p_action, 'action')), 100);
 begin
   if v_user_id is null then raise exception 'Authentication required'; end if;
+  if v_tool_id = '' then raise exception 'Tool id is required'; end if;
 
   if v_tool_id in (
     'ai-chat','cv-builder','cover-letter','ai-writer','translator','document-ai',
-    'study-assistant','website-builder','code-assistant'
+    'study-assistant','website-builder','code-assistant','background-remover'
   ) then
     raise exception 'AI tools are metered by successful AI requests';
   end if;
 
+  perform pg_advisory_xact_lock(hashtextextended(v_user_id::text || ':' || v_tool_id, 0));
   v_state := public.tool_access_state(v_tool_id);
   if coalesce((v_state->>'allowed')::boolean, false) is not true then
     if v_state->>'reason' = 'limit_reached' then
