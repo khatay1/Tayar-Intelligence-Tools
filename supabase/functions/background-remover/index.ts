@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createAdminClient, HttpError, requireUser } from "../_shared/billing.ts";
+import { assertServerToolAvailable, createAdminClient, HttpError, requireUser } from "../_shared/billing.ts";
 
 const rawFalKey = Deno.env.get("FAL_KEY") || "";
 const FAL_KEY = rawFalKey.trim().replace(/^["']|["']$/g, "").trim();
@@ -156,6 +156,8 @@ Deno.serve(async (req: Request) => {
     if (!FAL_KEY) throw new HttpError(503, "Background removal is not configured");
 
     const body = await parseBody(req);
+    await assertServerToolAvailable(admin, user.id, "background-remover");
+
     const falHeaders = {
       "Authorization": `Key ${FAL_KEY}`,
       "Content-Type": "application/json",
