@@ -1,9 +1,10 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import { useState } from 'react';
-import { Mail, MapPin, Phone, Send, Loader2 } from 'lucide-react';
+import { Mail, ShieldCheck, Send, Loader2 } from 'lucide-react';
 import { PageShell } from './PageShell';
 import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase';
+import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support-contact';
 import { sanitizeText, validateEmail, validateName, validateMessage, validateSubject, checkRateLimit } from '@/lib/security';
 
 export default function ContactPage() {
@@ -72,67 +73,34 @@ export default function ContactPage() {
 
   return (
     <PageShell icon={Mail} title={l('Contact Us')} subtitle={l("We'd love to hear from you. Reach out with any questions or feedback.")}>
-      <div className="grid sm:grid-cols-3 gap-4 mb-8">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+      <div className="grid sm:grid-cols-2 gap-4 mb-8">
+        <a href={SUPPORT_EMAIL_HREF} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 transition hover:border-violet-400/30 hover:bg-violet-500/[0.06]">
           <div className="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center"><Mail className="w-4 h-4 text-violet-400" /></div>
-          <div><div className="text-white text-sm font-medium">{l('Account Support')}</div><div className="text-gray-500 text-xs">{l('Use the secure form below')}</div></div>
-        </div>
+          <div><div className="text-white text-sm font-medium">{l('Email Support')}</div><div className="text-violet-300 text-xs">{SUPPORT_EMAIL}</div></div>
+        </a>
         <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-          <div className="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center"><Phone className="w-4 h-4 text-violet-400" /></div>
-          <div><div className="text-white text-sm font-medium">{l('Product Help')}</div><div className="text-gray-500 text-xs">{l('Help Center and troubleshooting')}</div></div>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-          <div className="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center"><MapPin className="w-4 h-4 text-violet-400" /></div>
-          <div><div className="text-white text-sm font-medium">{l('Privacy Requests')}</div><div className="text-gray-500 text-xs">{l('Access, correction or deletion requests')}</div></div>
+          <div className="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center"><ShieldCheck className="w-4 h-4 text-violet-400" /></div>
+          <div><div className="text-white text-sm font-medium">{l('Account & Privacy Support')}</div><div className="text-gray-500 text-xs">{l('Use email or the secure form below')}</div></div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder={l('Your Name')}
-              aria-label={l('Your name')}
-              aria-invalid={!!errors.name}
-              className={inputClass}
-            />
+            <input value={name} onChange={e => setName(e.target.value)} placeholder={l('Your Name')} aria-label={l('Your name')} aria-invalid={!!errors.name} className={inputClass} />
             {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
           </div>
           <div>
-            <input
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder={l('Your Email')}
-              type="email"
-              aria-label={l('Your email')}
-              aria-invalid={!!errors.email}
-              className={inputClass}
-            />
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder={l('Your Email')} type="email" aria-label={l('Your email')} aria-invalid={!!errors.email} className={inputClass} />
             {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
           </div>
         </div>
         <div>
-          <input
-            value={subject}
-            onChange={e => setSubject(e.target.value)}
-            placeholder={l('Subject')}
-            aria-label={l('Subject')}
-            aria-invalid={!!errors.subject}
-            className={inputClass}
-          />
+          <input value={subject} onChange={e => setSubject(e.target.value)} placeholder={l('Subject')} aria-label={l('Subject')} aria-invalid={!!errors.subject} className={inputClass} />
           {errors.subject && <p className="text-red-400 text-xs mt-1">{errors.subject}</p>}
         </div>
         <div>
-          <textarea
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            placeholder={l('Message')}
-            aria-label={l('Your message')}
-            aria-invalid={!!errors.message}
-            className={`${inputClass} min-h-[140px] resize-y`}
-          />
+          <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder={l('Message')} aria-label={l('Your message')} aria-invalid={!!errors.message} className={`${inputClass} min-h-[140px] resize-y`} />
           {errors.message && <p className="text-red-400 text-xs mt-1">{errors.message}</p>}
         </div>
         <button type="submit" disabled={sending} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all">
