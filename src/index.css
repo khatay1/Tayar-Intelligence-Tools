@@ -3,277 +3,89 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    color-scheme: dark;
-    background: #06060e;
-  }
-
-  * {
-    box-sizing: border-box;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
-
-  html {
-    min-width: 320px;
-    scroll-behavior: smooth;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    background: #06060e;
-  }
-
-  body {
-    margin: 0;
-    min-width: 320px;
-    min-height: 100vh;
-    overflow-x: hidden;
-    background: #06060e;
-  }
-
-  button,
-  a,
-  input,
-  textarea,
-  select {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  button:not(:disabled),
-  a {
-    cursor: pointer;
-  }
-
-  button:disabled {
-    cursor: not-allowed;
-  }
-
-  ::selection {
-    background: rgba(139, 92, 246, 0.32);
-    color: #fff;
-  }
-
+  :root { color-scheme: dark; background: #06060e; }
+  * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  html { min-width: 320px; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; background: #06060e; }
+  body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: hidden; background: #06060e; }
+  button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), a { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  ::selection { background: rgba(139, 92, 246, 0.32); color: #fff; }
   html.dark { color-scheme: dark; }
   html:not(.dark) { color-scheme: light; }
-
-  *:focus-visible {
-    outline: 2px solid rgb(167, 139, 250);
-    outline-offset: 3px;
-    border-radius: 8px;
-  }
-
-  section[id] {
-    scroll-margin-top: 76px;
-  }
+  *:focus-visible { outline: 2px solid rgb(167, 139, 250); outline-offset: 3px; border-radius: 8px; }
+  section[id] { scroll-margin-top: 76px; }
 }
 
 @layer components {
-  .site-container {
-    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
-  }
-
-  .site-section {
-    @apply py-20 sm:py-24 lg:py-28;
-  }
-
-  .section-heading {
-    @apply mx-auto mb-10 max-w-3xl text-center sm:mb-14;
-  }
-
-  .section-heading h2 {
-    @apply mt-4 text-3xl font-black tracking-[-0.035em] text-white sm:text-4xl;
-  }
-
-  .section-heading p {
-    @apply mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-500 sm:text-base;
-  }
-
-  .eyebrow {
-    @apply inline-flex items-center rounded-full border border-violet-400/20 bg-violet-500/[0.08] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-violet-200;
-  }
-
-  .site-public-page {
-    @apply mx-auto min-h-[70vh] max-w-5xl px-4 pb-20 pt-28 sm:px-6 sm:pt-32 lg:px-8;
-  }
+  .site-container { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
+  .site-section { @apply py-20 sm:py-24 lg:py-28; }
+  .section-heading { @apply mx-auto mb-10 max-w-3xl text-center sm:mb-14; }
+  .section-heading h2 { @apply mt-4 text-3xl font-black tracking-[-0.035em] text-white sm:text-4xl; }
+  .section-heading p { @apply mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-500 sm:text-base; }
+  .eyebrow { @apply inline-flex items-center rounded-full border border-violet-400/20 bg-violet-500/[0.08] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-violet-200; }
+  .site-public-page { @apply mx-auto min-h-[70vh] max-w-5xl px-4 pb-20 pt-28 sm:px-6 sm:pt-32 lg:px-8; }
 }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+.shimmer { background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.11); border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-
-.skip-link {
-  position: fixed;
-  z-index: 9999;
-  inset-inline-start: 12px;
-  top: -60px;
-  border-radius: 0 0 10px 10px;
-  background: rgb(124, 58, 237);
-  color: white;
-  padding: 10px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  transition: top 0.2s ease;
-}
+.skip-link { position: fixed; z-index: 9999; inset-inline-start: 12px; top: -60px; border-radius: 0 0 10px 10px; background: rgb(124, 58, 237); color: white; padding: 10px 16px; font-size: 13px; font-weight: 700; transition: top 0.2s ease; }
 .skip-link:focus { top: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
+@media print { @page { size: A4; margin: 0; } body { background: white; } .print\:hidden { display: none !important; } .print\:block { display: block !important; } }
 
-@media (max-width: 640px) {
-  html { scroll-padding-top: 72px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto !important; }
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-@media print {
-  @page { size: A4; margin: 0; }
-  body { background: white; }
-  .print\:hidden { display: none !important; }
-  .print\:block { display: block !important; }
-}
-.tayar-space-bg {
-  background-color: #06060e;
-  background-image:
-    linear-gradient(rgba(6, 6, 14, 0.82), rgba(6, 6, 14, 0.92)),
-    url('/brand/tayar-space-background.png');
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-}
-
-.tayar-space-bg-soft {
-  background-color: #06060f;
-  background-image:
-    linear-gradient(rgba(6, 6, 15, 0.72), rgba(6, 6, 15, 0.92)),
-    url('/brand/tayar-space-background.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-}
-
-@media (max-width: 768px) {
-  .tayar-space-bg,
-  .tayar-space-bg-soft {
-    background-attachment: scroll;
-    background-position: 55% top;
-  }
-}
+.tayar-space-bg { background-color: #06060e; background-image: linear-gradient(rgba(6, 6, 14, 0.82), rgba(6, 6, 14, 0.92)), url('/brand/tayar-space-background.png'); background-size: cover; background-position: center top; background-repeat: no-repeat; background-attachment: fixed; }
+.tayar-space-bg-soft { background-color: #06060f; background-image: linear-gradient(rgba(6, 6, 15, 0.72), rgba(6, 6, 15, 0.92)), url('/brand/tayar-space-background.png'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; }
 html, body, #root { min-height: 100%; background: transparent !important; }
 body { background-color:#06060e !important; background-image:linear-gradient(rgba(6,6,14,.72),rgba(6,6,14,.9)),url('/brand/tayar-space-background.png') !important; background-size:cover !important; background-position:center top !important; background-repeat:no-repeat !important; background-attachment:fixed !important; }
-
-/* TAYAR COSMIC BACKGROUND � temporary visual test */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    linear-gradient(rgba(6, 6, 14, 0.35), rgba(6, 6, 14, 0.72)),
-    url("/brand/tayar-space-background.png") center top / cover no-repeat;
-}
-
-html,
-body,
-#root {
-  min-height: 100%;
-  background-color: transparent !important;
-}
-
-#root > div {
-  background-color: transparent !important;
-}
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: linear-gradient(rgba(6, 6, 14, 0.35), rgba(6, 6, 14, 0.72)), url("/brand/tayar-space-background.png") center top / cover no-repeat; }
+#root > div { background-color: transparent !important; }
 
 /* TAYAR — responsive production polish */
-html {
-  scroll-behavior: smooth;
-  overflow-x: hidden;
-}
-
-body,
-#root {
-  width: 100%;
-  min-width: 0;
-  overflow-x: hidden;
-}
-
-img,
-svg,
-video {
-  max-width: 100%;
-}
+html { scroll-behavior: smooth; overflow-x: hidden; }
+body, #root { width: 100%; min-width: 0; overflow-x: hidden; }
+img, svg, video, canvas { max-width: 100%; }
+pre, code { max-width: 100%; }
+pre { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+input, textarea, select, button { max-width: 100%; }
 
 @media (max-width: 768px) {
-  .tayar-space-bg,
-  .tayar-space-bg-soft {
-    background-attachment: scroll !important;
-    background-position: 58% top !important;
-  }
+  html { scroll-padding-top: 72px; }
+  .tayar-space-bg, .tayar-space-bg-soft { background-attachment: scroll !important; background-position: 58% top !important; }
+  body::before { background-attachment: scroll !important; background-position: 58% top !important; }
 
-  body::before {
-    background-attachment: scroll !important;
-    background-position: 58% top !important;
-  }
+  /* Prevent fixed-width workspace/admin children from disappearing off-screen. */
+  main, header, nav, section, article, aside, form, [role='dialog'] { min-width: 0; }
+  main > *, section > *, article > * { min-width: 0; max-width: 100%; }
+  .overflow-x-auto { -webkit-overflow-scrolling: touch; overscroll-behavior-inline: contain; }
+
+  /* Touch devices cannot depend on hover to reveal important controls. */
+  .group button.opacity-0, .group a.opacity-0 { opacity: 1; }
+
+  /* Keep popovers/dropdowns inside the phone viewport. */
+  .fixed, .absolute { --tayar-mobile-safe-width: calc(100vw - 1rem); }
+  [class*='w-80'], [class*='w-96'] { max-width: var(--tayar-mobile-safe-width, calc(100vw - 1rem)); }
+
+  /* Comfortable iOS/Android tap targets and no accidental text zoom. */
+  input, textarea, select { font-size: 16px; }
+  button, a, select { touch-action: manipulation; }
+}
+
+@media (max-width: 420px) {
+  .site-container { padding-left: 0.875rem; padding-right: 0.875rem; }
+  table { font-size: 0.75rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
