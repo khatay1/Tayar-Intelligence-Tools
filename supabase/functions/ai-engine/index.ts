@@ -244,7 +244,7 @@ async function callOpenAICompatible(baseUrl: string, apiSecret: string, model: s
     model,
     messages: messages.map((message) => ({ role: message.role, content: message.content })),
     max_tokens: Math.floor(clampNumber(body.maxTokens, 4096, 1, MAX_OUTPUT_TOKENS)),
-    temperature: clampNumber(body.temperature, 0.7, 0, 2),
+    temperature: (clampNumber(body.temperature, 0.7, 0, 2)),
   };
   if (body.jsonMode) requestBody.response_format = { type: "json_object" };
   const upstream = await fetch(url, {
@@ -272,7 +272,7 @@ async function callAnthropic(baseUrl: string, apiSecret: string, model: string, 
   const requestBody: Record<string, unknown> = {
     model,
     max_tokens: Math.floor(clampNumber(body.maxTokens, 4096, 1, MAX_OUTPUT_TOKENS)),
-    temperature: clampNumber(body.temperature, 0.7, 0, 1),
+    temperature: (clampNumber(body.temperature, 0.7, 0, 1)),
     messages: chatMessages.map((message) => ({ role: message.role === "assistant" ? "assistant" : "user", content: message.content })),
   };
   if (system) requestBody.system = system;
