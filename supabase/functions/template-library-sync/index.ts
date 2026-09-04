@@ -539,17 +539,12 @@ Deno.serve(async (req: Request) => {
         assetId = queued.id;
 
         const checksum = await sha256Hex(downloaded.bytes);
-        const safeCategory = category
-          .toLowerCase()
-          .replace(/[^a-z0-9_-]+/g, "-")
-          .replace(/^-+|-+$/g, "")
-          .slice(0, 60) || "uncategorized";
-        const storagePath = `24billions/${safeCategory}/${checksum.slice(0, 16)}-${filename}`;
+        const storagePath = `24billions/objects/${checksum}.${filenameFormat}`;
 
         const { data: duplicate, error: duplicateError } = await admin
           .from("template_assets")
           .select("id,storage_path")
-          .eq("storage_path", storagePath)
+          .eq("sha256", checksum)
           .eq("status", "ready")
           .neq("id", assetId)
           .limit(1)
@@ -595,6 +590,7 @@ Deno.serve(async (req: Request) => {
           .from("template-library")
           .upload(storagePath, downloaded.bytes, {
             contentType: downloaded.contentType,
+            cacheControl: "31536000",
             upsert: true,
           });
 
