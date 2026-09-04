@@ -70,15 +70,23 @@ export default function SubscriptionView() {
     }
     setLoading(true);
     setError('');
-    const { data, error: queryError } = await supabase
-      .from('subscriptions')
-      .select('plan, status, renewal_date, current_period_end, cancel_at_period_end, stripe_customer_id')
-      .eq('user_id', userId)
-      .maybeSingle();
+    try {
+      const { data, error: queryError } = await supabase
+        .from('subscriptions')
+        .select('plan, status, renewal_date, current_period_end, cancel_at_period_end, stripe_customer_id')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    if (queryError) setError(l('Could not load subscription details.'));
-    setSubscription((data as SubscriptionRow | null) ?? null);
-    setLoading(false);
+      if (queryError) {
+        setError(l('Could not load subscription details.'));
+        return;
+      }
+      setSubscription((data as SubscriptionRow | null) ?? null);
+    } catch {
+      setError(l('Could not load subscription details.'));
+    } finally {
+      setLoading(false);
+    }
   }, [l, userId]);
 
   useEffect(() => {
@@ -161,7 +169,7 @@ export default function SubscriptionView() {
           <div className="truncate text-lg font-bold capitalize text-white">{loading ? l('Loading...') : l(statusLabel)}</div>
         </div>
         <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{l('Next billing date')}</div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{l(subscription?.cancel_at_period_end ? 'Access until' : 'Next billing date')}</div>
           <div className="truncate text-lg font-bold text-white">{loading ? '—' : isAdmin ? l('Not required') : formatDate(periodEnd)}</div>
         </div>
       </div>
