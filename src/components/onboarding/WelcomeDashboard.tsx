@@ -1,9 +1,9 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect } from 'react';
 import {
-  FileText, Upload, MessageSquare, Sparkles, Rocket,
+  FileText, LayoutGrid, Sparkles, Rocket,
   Trophy, Lock, CheckCircle2, ArrowRight, TrendingUp,
-  Zap, Target,
+  Zap, Target, CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useOnboarding, ACHIEVEMENTS } from '@/context/OnboardingContext';
@@ -15,12 +15,6 @@ interface WelcomeDashboardProps {
   onNavigate: (view: ViewId) => void;
   onStartTour: () => void;
 }
-
-const QUICK_ACTIONS = [
-  { id: 'create-cv', label: 'Create My First CV', description: 'Build an ATS-friendly resume with AI', icon: FileText, action: 'cv-builder' as ViewId, color: 'from-blue-500/20 to-blue-600/5', iconColor: 'text-blue-400' },
-  { id: 'upload-doc', label: 'Upload a Document', description: 'Analyze, summarize, or translate any file', icon: Upload, action: 'document-ai' as ViewId, color: 'from-emerald-500/20 to-emerald-600/5', iconColor: 'text-emerald-400' },
-  { id: 'start-chat', label: 'Start AI Chat', description: 'Ask anything — your AI assistant is ready', icon: MessageSquare, action: 'ai-chat' as ViewId, color: 'from-violet-500/20 to-violet-600/5', iconColor: 'text-violet-400' },
-];
 
 const ACHIEVEMENT_ICONS: Record<string, typeof FileText> = {
   LogIn: Rocket, Sparkles: Sparkles, FileText: FileText, Download: FileText,
@@ -46,21 +40,60 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
   const unlockedCount = Object.keys(state.achievements).length;
   const achievementsProgress = (unlockedCount / ACHIEVEMENTS.length) * 100;
 
-  const nextSteps = [
-    { label: 'Take the product tour', done: state.tour_completed, action: onStartTour },
-    { label: 'Create your first CV', done: hasAchievement('first_resume'), action: () => onNavigate('cv-builder') },
-    { label: 'Try the AI Chat', done: false, action: () => onNavigate('ai-chat') },
-    { label: 'Explore all AI tools', done: false, action: () => onNavigate('dashboard') },
-  ];
-
   const recommendedTools = state.recommended_tools
     .map(id => toolRegistry.get(id))
     .filter(Boolean)
     .slice(0, 4);
 
+  const primaryTool = recommendedTools[0] || toolRegistry.get('website-builder');
+
+  const quickActions = [
+    primaryTool ? {
+      id: `recommended-${primaryTool.id}`,
+      label: primaryTool.name,
+      description: primaryTool.description,
+      icon: primaryTool.icon,
+      action: () => onNavigate(primaryTool.id as ViewId),
+      color: 'from-violet-500/20 to-violet-600/5',
+      iconColor: 'text-violet-400',
+    } : null,
+    {
+      id: 'explore-tools',
+      label: 'Explore all tools',
+      description: 'Browse every available tool and choose what you need.',
+      icon: LayoutGrid,
+      action: () => onNavigate('dashboard'),
+      color: 'from-blue-500/20 to-blue-600/5',
+      iconColor: 'text-blue-400',
+    },
+    {
+      id: 'product-tour',
+      label: 'Take the product tour',
+      description: 'See where projects, tools and plan controls live.',
+      icon: Rocket,
+      action: onStartTour,
+      color: 'from-emerald-500/20 to-emerald-600/5',
+      iconColor: 'text-emerald-400',
+    },
+  ].filter(Boolean) as Array<{
+    id: string;
+    label: string;
+    description: string;
+    icon: typeof FileText;
+    action: () => void;
+    color: string;
+    iconColor: string;
+  }>;
+
+  const nextSteps = [
+    { label: 'Take the product tour', done: state.tour_completed, action: onStartTour },
+    { label: 'Start with your recommended tool', done: projectCount > 0, action: () => primaryTool && onNavigate(primaryTool.id as ViewId) },
+    { label: 'Review your plan and limits', done: false, action: () => onNavigate('subscription') },
+    { label: 'Explore all tools', done: false, action: () => onNavigate('dashboard') },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Welcome hero */}
       <div className="relative bg-gradient-to-br from-violet-600/15 via-fuchsia-600/8 to-transparent border border-violet-500/20 rounded-3xl p-6 sm:p-8 overflow-hidden">
         <div className="absolute -top-12 -right-12 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-fuchsia-500/8 rounded-full blur-2xl" />
@@ -72,18 +105,18 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
             {l('Welcome')}, {displayName}! 👋
           </h1>
-          <p className="text-gray-400 text-sm max-w-lg leading-relaxed">
-            {l("Your AI workspace is ready. We've added some sample content to get you started. Pick a quick action below, or explore the tools we recommended for you.")}
+          <p className="text-gray-400 text-sm max-w-2xl leading-relaxed">
+            {l('Your Tayar workspace is ready. Start with the recommendation below or explore everything at your own pace.')}
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-4">
             <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
-              {projectCount} {l(projectCount === 1 ? 'file' : 'files')} {l('ready')}
+              {projectCount} {l(projectCount === 1 ? 'project' : 'projects')}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
               {recommendedTools.length} {l('recommended tools')}
             </span>
             {!state.tour_completed && (
-              <button onClick={onStartTour} className="text-xs px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:bg-violet-500/30 transition-colors flex items-center gap-1">
+              <button onClick={onStartTour} className="min-h-9 text-xs px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:bg-violet-500/30 transition-colors flex items-center gap-1">
                 <Rocket className="w-3 h-3" /> {l('Take tour')}
               </button>
             )}
@@ -91,22 +124,21 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
         </div>
       </div>
 
-      {/* Quick actions */}
       <div>
         <h2 className="text-white font-bold text-base mb-3 flex items-center gap-2">
           <Zap className="w-4 h-4 text-violet-400" /> {l('Quick Start')}
         </h2>
         <div className="grid sm:grid-cols-3 gap-4">
-          {QUICK_ACTIONS.map((qa, i) => {
+          {quickActions.map((qa, i) => {
             const Icon = qa.icon;
             return (
               <button
                 key={qa.id}
-                onClick={() => onNavigate(qa.action)}
-                className={`group relative bg-gradient-to-br ${qa.color} border border-white/10 hover:border-violet-500/30 rounded-2xl p-5 text-left transition-all hover:scale-[1.02] active:scale-95 overflow-hidden`}
+                onClick={qa.action}
+                className={`min-h-11 group relative bg-gradient-to-br ${qa.color} border border-white/10 hover:border-violet-500/30 rounded-2xl p-5 text-left transition-all hover:scale-[1.02] active:scale-95 overflow-hidden`}
                 style={{ animation: 'fadeInUp 0.3s ease-out both', animationDelay: `${i * 0.08}s` }}
               >
-                <div className={`w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                <div className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                   <Icon className={`w-5 h-5 ${qa.iconColor}`} />
                 </div>
                 <h3 className="text-white text-sm font-semibold mb-1">{l(qa.label)}</h3>
@@ -118,9 +150,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
         </div>
       </div>
 
-      {/* Two-column: Progress + Achievements */}
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Progress tracker */}
         <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <Target className="w-4 h-4 text-violet-400" />
@@ -131,7 +161,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
               <button
                 key={i}
                 onClick={step.action}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                className="min-h-11 w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
               >
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
                   step.done ? 'bg-emerald-500/20' : 'bg-white/5 border border-white/10'
@@ -145,7 +175,6 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
           </div>
         </div>
 
-        {/* Achievements */}
         <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -186,11 +215,15 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
         </div>
       </div>
 
-      {/* Recommended tools */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp className="w-4 h-4 text-violet-400" />
-          <h2 className="text-white font-bold text-sm">{l('Recommended For You')}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-violet-400" />
+            <h2 className="text-white font-bold text-sm">{l('Recommended For You')}</h2>
+          </div>
+          <button onClick={() => onNavigate('subscription')} className="min-h-9 flex items-center gap-1.5 text-xs text-gray-500 hover:text-violet-300 transition-colors">
+            <CreditCard className="w-3.5 h-3.5" /> {l('Review your plan and limits')}
+          </button>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {recommendedTools.map((tool, i) => {
@@ -200,7 +233,7 @@ export default function WelcomeDashboard({ onNavigate, onStartTour }: WelcomeDas
               <button
                 key={tool.id}
                 onClick={() => onNavigate(tool.id as ViewId)}
-                className="group bg-white/[0.03] border border-white/10 hover:border-violet-500/30 rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-95"
+                className="min-h-11 group bg-white/[0.03] border border-white/10 hover:border-violet-500/30 rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-95"
                 style={{ animation: 'fadeInUp 0.3s ease-out both', animationDelay: `${i * 0.06}s` }}
               >
                 <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">

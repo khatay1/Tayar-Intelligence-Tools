@@ -49,7 +49,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
   return (
     <AuthLayout onBack={onBack}>
       <h1 className="text-2xl font-bold text-white mb-1">{l('Create your account')}</h1>
-      <p className="text-gray-400 text-sm mb-6">{l('Start with core AI tools and Website Builder for free')}</p>
+      <p className="text-gray-400 text-sm mb-6">{l('Start free with your Tayar workspace, Website Builder and included tools.')}</p>
 
       {error && (
         <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg px-4 py-3">
@@ -72,7 +72,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
         )}
-        Continue with Google
+        {l('Continue with Google')}
       </button>
 
       <div className="flex items-center gap-3 mb-4">
@@ -171,9 +171,9 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
 
       <div className="mt-6 pt-6 border-t border-white/5">
         <ul className="space-y-2">
-          {['No credit card required', 'Access 5 basic AI tools', '10 documents per month'].map(b => (
-            <li key={b} className="flex items-center gap-2 text-gray-400 text-xs">
-              <Check className="w-3.5 h-3.5 text-violet-400" /> {l(b)}
+          {['No credit card required', '1 Website Builder project with up to 3 pages', 'Free-access tools with Free plan usage limits'].map(b => (
+            <li key={b} className="flex items-start gap-2 text-gray-400 text-xs leading-5">
+              <Check className="mt-0.5 w-3.5 h-3.5 shrink-0 text-violet-400" /> {l(b)}
             </li>
           ))}
         </ul>

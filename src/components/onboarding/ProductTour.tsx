@@ -59,32 +59,34 @@ export default function ProductTour({ onNavigate, onComplete }: ProductTourProps
     onComplete();
   }
 
-  // Navigate to the view where the tour element lives
   useEffect(() => {
     const viewMap: Record<string, string> = {
-      'dashboard': 'dashboard',
-      'workspace': 'my-workspace',
-      'files': 'my-files',
-      'ai-chat': 'ai-chat',
-      'cv-builder': 'cv-builder',
+      dashboard: 'dashboard',
+      workspace: 'my-workspace',
+      'website-builder': 'website-builder',
+      files: 'my-files',
+      subscription: 'subscription',
     };
     onNavigate(viewMap[step.id] || 'dashboard');
   }, [stepIdx, step.id, onNavigate]);
 
   const padding = 8;
+  const tooltipWidth = Math.min(360, Math.max(280, window.innerWidth - 32));
   const tooltipPos = targetRect
     ? {
-        top: targetRect.bottom + window.scrollY + padding,
+        top: Math.min(targetRect.bottom + window.scrollY + padding, window.scrollY + window.innerHeight - 260),
         left: Math.max(16, Math.min(
-          targetRect.left + window.scrollX + targetRect.width / 2 - 180,
-          window.innerWidth - 380
+          targetRect.left + window.scrollX + targetRect.width / 2 - tooltipWidth / 2,
+          window.innerWidth - tooltipWidth - 16,
         )),
       }
-    : { top: window.innerHeight / 2, left: window.innerWidth / 2 - 180 };
+    : {
+        top: Math.max(24, window.scrollY + window.innerHeight / 2 - 120),
+        left: Math.max(16, (window.innerWidth - tooltipWidth) / 2),
+      };
 
   return (
     <div className="fixed inset-0 z-[200]" ref={overlayRef}>
-      {/* Spotlight overlay */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'hidden' }}>
         <defs>
           <mask id="tour-mask">
@@ -104,7 +106,6 @@ export default function ProductTour({ onNavigate, onComplete }: ProductTourProps
         <rect width="100%" height="100%" fill="rgba(6,6,15,0.85)" mask="url(#tour-mask)" />
       </svg>
 
-      {/* Highlight border around target */}
       {targetRect && (
         <div
           className="absolute pointer-events-none border-2 border-violet-500 rounded-xl transition-all duration-300"
@@ -118,12 +119,10 @@ export default function ProductTour({ onNavigate, onComplete }: ProductTourProps
         />
       )}
 
-      {/* Tooltip */}
       <div
-        className="absolute w-[360px] bg-[#12122a] border border-white/10 rounded-2xl shadow-2xl p-5"
-        style={{ ...tooltipPos, animation: 'fadeInUp 0.3s ease-out' }}
+        className="absolute max-h-[calc(100dvh-2rem)] overflow-y-auto bg-[#12122a] border border-white/10 rounded-2xl shadow-2xl p-5"
+        style={{ ...tooltipPos, width: tooltipWidth, animation: 'fadeInUp 0.3s ease-out' }}
       >
-        {/* Step indicator */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1.5">
             {TOUR_STEPS.map((s, i) => (
@@ -135,7 +134,7 @@ export default function ProductTour({ onNavigate, onComplete }: ProductTourProps
               />
             ))}
           </div>
-          <button onClick={skip} className="text-gray-500 hover:text-white transition-colors">
+          <button onClick={skip} className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-white/5 hover:text-white transition-colors" aria-label={l('Skip tour')}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -143,19 +142,19 @@ export default function ProductTour({ onNavigate, onComplete }: ProductTourProps
         <h3 className="text-white font-bold text-base mb-1.5">{l(step.title)}</h3>
         <p className="text-gray-400 text-sm leading-relaxed mb-4">{l(step.description)}</p>
 
-        <div className="flex items-center justify-between">
-          <button onClick={skip} className="flex items-center gap-1 text-gray-500 hover:text-white text-xs transition-colors">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button onClick={skip} className="flex min-h-10 items-center gap-1 text-gray-500 hover:text-white text-xs transition-colors">
             <SkipForward className="w-3 h-3" /> {l('Skip tour')}
           </button>
           <div className="flex items-center gap-2">
             {stepIdx > 0 && (
-              <button onClick={prev} className="flex items-center gap-1 text-gray-400 hover:text-white text-xs transition-colors">
+              <button onClick={prev} className="flex min-h-10 items-center gap-1 text-gray-400 hover:text-white text-xs transition-colors">
                 <ArrowLeft className="w-3.5 h-3.5" /> {l('Back')}
               </button>
             )}
             <button
               onClick={next}
-              className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="flex min-h-10 items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
             >
               {stepIdx === TOUR_STEPS.length - 1 ? <><Check className="w-3.5 h-3.5" /> {l('Finish')}</> : <>{l('Next')} <ArrowRight className="w-3.5 h-3.5" /></>}
             </button>
