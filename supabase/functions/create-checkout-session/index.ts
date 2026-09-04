@@ -12,11 +12,14 @@ import {
 
 type PaidPlan = "pro" | "business";
 
+const LIVE_PRICE_IDS: Record<PaidPlan, string> = {
+  pro: "price_1UBuNbPf8BnXUBSOvSHBpzC6",
+  business: "price_1UBuNgPf8BnXUBSOLH3TM9ms",
+};
+
 function priceForPlan(plan: PaidPlan): string {
   const key = plan === "pro" ? "STRIPE_PRO_PRICE_ID" : "STRIPE_BUSINESS_PRICE_ID";
-  const value = Deno.env.get(key)?.trim();
-  if (!value) throw new HttpError(503, `${key} is not configured`);
-  return value;
+  return Deno.env.get(key)?.trim() || LIVE_PRICE_IDS[plan];
 }
 
 Deno.serve(async (req: Request) => {
