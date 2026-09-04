@@ -6,7 +6,9 @@ const check = (name, ok) => checks.push([name, Boolean(ok)]);
 const read = (p) => fs.readFileSync(p, 'utf8');
 
 const uiPath = 'src/lib/ui-localization.ts';
+const uiSupplementPath = 'src/lib/ui-localization-complete.ts';
 const ui = read(uiPath);
+const uiSupplement = read(uiSupplementPath);
 const onboarding = read('src/components/onboarding/OnboardingWizard.tsx');
 const settings = read('src/components/workspace/SettingsPage.tsx');
 const workspace = read('src/components/workspace/Workspace.tsx');
@@ -17,6 +19,7 @@ const admin = read('src/components/admin/AdminLayout.tsx');
 check('UI localization layer exists', ui.includes('export function useLocalizer'));
 check('Arabic UI map exists', ui.includes('const ar: PhraseMap'));
 check('Swedish UI map exists', ui.includes('const sv: PhraseMap'));
+check('Supplemental UI localization layer exists', uiSupplement.includes('export function useLocalizer'));
 check('Onboarding uses UI localizer', onboarding.includes('const l = useLocalizer()'));
 check('Settings uses UI localizer', settings.includes('const l = useLocalizer()'));
 check('Workspace uses UI localizer', workspace.includes('const l = useLocalizer()'));
@@ -60,8 +63,18 @@ function extractPhraseMapKeys(source, startMarker, endMarker) {
   return keys;
 }
 
-const arKeys = extractPhraseMapKeys(ui, 'const ar: PhraseMap', 'const sv: PhraseMap');
-const svKeys = extractPhraseMapKeys(ui, 'const sv: PhraseMap', 'const maps:');
+function unionKeys(...sets) {
+  return new Set(sets.flatMap((set) => [...set]));
+}
+
+const arKeys = unionKeys(
+  extractPhraseMapKeys(ui, 'const ar: PhraseMap', 'const sv: PhraseMap'),
+  extractPhraseMapKeys(uiSupplement, 'export const arSupplement: PhraseMap', 'export const svSupplement: PhraseMap'),
+);
+const svKeys = unionKeys(
+  extractPhraseMapKeys(ui, 'const sv: PhraseMap', 'const maps:'),
+  extractPhraseMapKeys(uiSupplement, 'export const svSupplement: PhraseMap', 'const supplementalMaps:'),
+);
 
 const sourceFiles = collectFiles('src');
 const localizedUsage = new Map();
