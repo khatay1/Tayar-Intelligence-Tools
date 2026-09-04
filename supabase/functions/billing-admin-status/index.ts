@@ -37,6 +37,17 @@ interface StripeWebhookEndpoint {
   livemode?: boolean;
 }
 
+interface StripePortalConfiguration {
+  id?: string;
+  active?: boolean;
+  features?: {
+    invoice_history?: { enabled?: boolean } | null;
+    payment_method_update?: { enabled?: boolean } | null;
+    subscription_cancel?: { enabled?: boolean } | null;
+    subscription_update?: { enabled?: boolean } | null;
+  } | null;
+}
+
 function env(name: string): string {
   return Deno.env.get(name)?.trim() || "";
 }
@@ -88,6 +99,13 @@ Deno.serve(async (req: Request) => {
           business: { configured: Boolean(businessPriceId), priceId: businessPriceId || null, valid: false },
         },
         webhook: { secretConfigured: Boolean(webhookSecret), endpointConfigured: false, endpointUrl: null },
+        portal: {
+          configurationId: null,
+          paymentMethodUpdate: false,
+          subscriptionCancel: false,
+          subscriptionUpdate: false,
+          invoiceHistory: false,
+        },
         checkoutReady: false,
         portalReady: false,
       });
@@ -99,11 +117,13 @@ Deno.serve(async (req: Request) => {
         ? "test"
         : "unknown";
 
-    const [account, proPrice, businessPrice, webhookList] = await Promise.all([
+    const [account, proPrice, businessPrice, webhookList, portalList] = await Promise.all([
       stripeRequest<StripeAccount>("/v1/account", { method: "GET" }),
       loadPrice(proPriceId),
       loadPrice(businessPriceId),
       stripeRequest<{ data?: StripeWebhookEndpoint[] }>("/v1/webhook_endpoints?limit=100", { method: "GET" })
+        .catch(() => ({ data: [] })),
+      stripeRequest<{ data?: StripePortalConfiguration[] }>("/v1/billing_portal/configurations?active=true&is_default=true&limit=1", { method: "GET" })
         .catch(() => ({ data: [] })),
     ]);
 
@@ -117,10 +137,18 @@ Deno.serve(async (req: Request) => {
       "customer.subscription.updated",
       "customer.subscription.deleted",
       "invoice.payment_failed",
+      "invoice.paid",
     ];
     const enabledEvents = webhookEndpoint?.enabled_events || [];
     const receivesRequiredEvents = enabledEvents.includes("*")
       || requiredEvents.every((event) => enabledEvents.includes(event));
+
+    const portalConfiguration = (portalList.data || [])[0] || null;
+    const portalFeatures = portalConfiguration?.features || null;
+    const paymentMethodUpdate = portalFeatures?.payment_method_update?.enabled === true;
+    const subscriptionCancel = portalFeatures?.subscription_cancel?.enabled === true;
+    const subscriptionUpdate = portalFeatures?.subscription_update?.enabled === true;
+    const invoiceHistory = portalFeatures?.invoice_history?.enabled === true;
 
     const planState = (priceId: string, price: StripePrice | null) => ({
       configured: Boolean(priceId),
@@ -159,8 +187,20 @@ Deno.serve(async (req: Request) => {
         status: webhookEndpoint?.status || null,
         receivesRequiredEvents,
       },
+      portal: {
+        configurationId: portalConfiguration?.id || null,
+        paymentMethodUpdate,
+        subscriptionCancel,
+        subscriptionUpdate,
+        invoiceHistory,
+      },
       checkoutReady: Boolean(pro.valid && business.valid && account.charges_enabled && modeMatchesPrices),
-      portalReady: Boolean(account.id),
+      portalReady: Boolean(
+        portalConfiguration?.id
+        && paymentMethodUpdate
+        && subscriptionCancel
+        && subscriptionUpdate
+      ),
       modeMatchesPrices,
     });
   } catch (error) {
