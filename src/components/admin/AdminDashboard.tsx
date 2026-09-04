@@ -39,12 +39,12 @@ export default function AdminDashboard() {
 
   const statCards = [
     { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'violet', spark: recentGrowth.map(d => d.users) },
-    { label: 'Active Users', value: stats.activeUsers, icon: Activity, color: 'emerald', spark: aiUsage.slice(-7).map(d => d.requests) },
+    { label: 'AI Active (7d)', value: stats.activeUsers, icon: Activity, color: 'emerald', spark: aiUsage.slice(-7).map(d => d.requests) },
     { label: 'New Today', value: stats.newUsersToday, icon: TrendingUp, color: 'blue', spark: newUserSpark },
     { label: 'AI Requests', value: stats.totalAIRequests, icon: Cpu, color: 'fuchsia', spark: aiUsage.slice(-7).map(d => d.requests) },
-    { label: 'Documents', value: stats.totalDocuments, icon: FileText, color: 'amber', spark: [0, stats.totalDocuments] },
+    { label: 'Projects', value: stats.totalDocuments, icon: FileText, color: 'amber', spark: [0, stats.totalDocuments] },
     { label: 'Active Subs', value: stats.activeSubscriptions, icon: CreditCard, color: 'cyan', spark: [0, stats.activeSubscriptions] },
-    { label: 'Monthly Revenue', value: `$${stats.monthlyRevenue}`, icon: DollarSign, color: 'emerald', spark: revenueData.map(d => d.revenue) },
+    { label: 'Est. MRR', value: `$${stats.monthlyRevenue}`, icon: DollarSign, color: 'emerald', spark: revenueData.map(d => d.revenue) },
     { label: 'Data Status', value: stats.serverStatus === 'online' ? 'Connected' : 'Unavailable', icon: Server, color: stats.serverStatus === 'online' ? 'emerald' : 'red', spark: [1, 1] },
   ];
 
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 sm:p-5 min-w-0 overflow-hidden">
-          <ChartHeader title="Revenue" subtitle="Monthly subscription revenue" badge={<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20"><DollarSign className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs text-emerald-300 font-medium whitespace-nowrap">${stats.monthlyRevenue}/mo</span></div>} />
+          <ChartHeader title="MRR by Subscription Start" subtitle="Estimated run-rate from active or trialing subscriptions grouped by start month" badge={<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20"><DollarSign className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs text-emerald-300 font-medium whitespace-nowrap">${stats.monthlyRevenue}/mo</span></div>} />
           <div className="w-full min-w-0 overflow-hidden"><BarChart data={revenueData.map(d => ({ label: d.month, value: d.revenue }))} color="#34d399" height={220} formatValue={(v) => `$${v}`} /></div>
         </div>
       </div>
