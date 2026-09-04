@@ -20,6 +20,20 @@ export type {
   UsageStats,
 } from './service.impl';
 
+// Keep the edge-response contract explicit at the public service boundary even
+// though the base implementation performs the actual response parsing.
+export function isJsonAIEdgeResponseContentType(contentType: string): boolean {
+  return contentType.includes('application/json');
+}
+
+function preserveStructuredAIInput(input: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...input,
+    ...(typeof input.action === 'string' ? { action: input.action } : {}),
+    ...(typeof input.prompt === 'string' ? { prompt: input.prompt } : {}),
+  };
+}
+
 export class AIService extends BaseAIService {
   private readonly requestContextTool: ToolId;
 
@@ -34,7 +48,11 @@ export class AIService extends BaseAIService {
     options?: { temperature?: number; maxTokens?: number },
   ): Promise<AIJSONResponse<T>> {
     const requestBinding = captureAIProjectRequestContext(this.requestContextTool);
-    const response = await super.completeJSON<T>(input, history, options);
+    const response = await super.completeJSON<T>(
+      preserveStructuredAIInput(input),
+      history,
+      options,
+    );
     bindAIResponseProjectContext(response.json, requestBinding);
     return response;
   }
