@@ -1,7 +1,9 @@
+import { lazy } from 'react';
 import { Code2 } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import CodeAssistantTool from './CodeAssistantTool';
+
+const CodeAssistantTool = lazy(() => import('./CodeAssistantTool'));
 
 const codeAssistantModule: ToolModule = {
   id: 'code-assistant',
