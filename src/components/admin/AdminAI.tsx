@@ -1,7 +1,7 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Cpu, Loader2, Zap, AlertCircle, CheckCircle, Activity,
+  Cpu, Loader2, Zap, AlertCircle, Activity,
   RefreshCw, Server, Clock, Save, Plus, Trash2, Check,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
