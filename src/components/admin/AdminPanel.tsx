@@ -7,6 +7,7 @@ import AdminDashboard from './AdminDashboard';
 import AdminConfigurationCenter from './AdminConfigurationCenter';
 import AdminUsers from './AdminUsers';
 import AdminAI from './AdminAI';
+import AdminAIRoutingV2 from './AdminAIRoutingV2';
 import AdminTools from './AdminTools';
 import AdminPlansV2 from './AdminPlansV2';
 import AdminSubscriptions from './AdminSubscriptions';
@@ -77,7 +78,7 @@ export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
     <AdminLayout activeView={view} onViewChange={setView} onExitToWorkspace={onExitToWorkspace}>
       {view === 'dashboard' && <div className="space-y-6"><AdminConfigurationCenter onNavigate={setView} /><AdminDashboard /></div>}
       {view === 'users' && <AdminUsers />}
-      {view === 'ai' && <AdminAI />}
+      {view === 'ai' && <div className="space-y-6"><AdminAIRoutingV2 /><AdminAI /></div>}
       {view === 'tools' && <AdminTools />}
       {view === 'subscriptions' && <div className="space-y-6"><AdminPlansV2 onOpenTools={() => setView('tools')} /><AdminSubscriptions /></div>}
       {view === 'support' && <AdminSupport />}

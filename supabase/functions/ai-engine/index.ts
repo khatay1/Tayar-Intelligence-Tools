@@ -16,6 +16,8 @@ const AI_TOOL_IDS = new Set([
   "study-assistant", "translator", "website-builder", "code-assistant",
 ]);
 const GEMINI_MODEL_ID = /^gemini-[a-z0-9][a-z0-9._-]{1,80}$/i;
+const ROUTE_MODEL_ID = /^[a-z0-9][a-z0-9._:/-]{0,120}$/i;
+const PROVIDER_KEY = /^[a-z0-9][a-z0-9_-]{1,49}$/i;
 
 type ProviderAdapter = "gemini" | "openai_compatible" | "anthropic";
 interface IncomingMessage { role: "user" | "assistant" | "system"; content: string; }
@@ -35,6 +37,12 @@ interface RuntimeProvider {
   base_url: string;
   default_model: string;
   api_secret: string | null;
+}
+interface ToolRouteV2 {
+  primaryProviderKey: string;
+  primaryModel: string;
+  fallbackProviderKey: string;
+  fallbackModel: string;
 }
 interface TextResult {
   content: string;
@@ -123,6 +131,16 @@ function normalizeManagedModelId(value: unknown): string | null {
   return model && GEMINI_MODEL_ID.test(model) ? model : null;
 }
 
+function normalizeRouteModelId(value: unknown): string {
+  const model = typeof value === "string" ? value.trim() : "";
+  return model && ROUTE_MODEL_ID.test(model) ? model : "";
+}
+
+function normalizeProviderKey(value: unknown): string {
+  const providerKey = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return providerKey && PROVIDER_KEY.test(providerKey) ? providerKey : "";
+}
+
 async function loadAllowedTextModels(admin: ReturnType<typeof createAdminClient>): Promise<Set<string>> {
   const allowed = new Set(BUILTIN_TEXT_MODELS);
   const { data, error } = await admin.from("admin_settings").select("value").eq("key", "ai_model_catalog").maybeSingle();
@@ -158,8 +176,8 @@ async function resolveTextModel(admin: ReturnType<typeof createAdminClient>, use
   return FALLBACK_TEXT_MODEL;
 }
 
-async function loadManagedDefaultProvider(admin: ReturnType<typeof createAdminClient>): Promise<RuntimeProvider | null> {
-  const { data, error } = await admin.rpc("ai_provider_runtime", { p_provider_key: null });
+async function loadManagedProvider(admin: ReturnType<typeof createAdminClient>, providerKey: string | null): Promise<RuntimeProvider | null> {
+  const { data, error } = await admin.rpc("ai_provider_runtime", { p_provider_key: providerKey });
   if (error) {
     const message = String(error.message || "");
     if (!/ai_provider_runtime|does not exist|schema cache/i.test(message)) console.error("[AI ENGINE] Failed to read managed provider runtime");
@@ -170,6 +188,32 @@ async function loadManagedDefaultProvider(admin: ReturnType<typeof createAdminCl
   const provider = row as RuntimeProvider;
   if (!provider.provider_key || !provider.base_url || !provider.default_model || !provider.api_secret) return null;
   return provider;
+}
+
+async function loadManagedDefaultProvider(admin: ReturnType<typeof createAdminClient>): Promise<RuntimeProvider | null> {
+  return loadManagedProvider(admin, null);
+}
+
+async function loadToolRouteV2(admin: ReturnType<typeof createAdminClient>, tool: string): Promise<ToolRouteV2 | null> {
+  const { data, error } = await admin.from("admin_settings").select("value").eq("key", "ai_tool_routes_v2").maybeSingle();
+  if (error) {
+    console.error("[AI ENGINE] Failed to read AI routing configuration");
+    return null;
+  }
+  const root = data?.value;
+  if (!root || typeof root !== "object" || Array.isArray(root)) return null;
+  const routes = (root as Record<string, unknown>).routes;
+  if (!routes || typeof routes !== "object" || Array.isArray(routes)) return null;
+  const raw = (routes as Record<string, unknown>)[tool];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const source = raw as Record<string, unknown>;
+  const route: ToolRouteV2 = {
+    primaryProviderKey: normalizeProviderKey(source.primaryProviderKey),
+    primaryModel: normalizeRouteModelId(source.primaryModel),
+    fallbackProviderKey: normalizeProviderKey(source.fallbackProviderKey),
+    fallbackModel: normalizeRouteModelId(source.fallbackModel),
+  };
+  return route.primaryProviderKey || route.primaryModel || route.fallbackProviderKey || route.fallbackModel ? route : null;
 }
 
 async function enforceRateLimit(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<void> {
@@ -208,6 +252,10 @@ function providerFailure(status: number): HttpError {
   if (status === 401 || status === 403) return new HttpError(502, "AI provider authentication failed");
   if (status === 429) return new HttpError(429, "AI quota exceeded. Please try again later.");
   return new HttpError(502, "AI provider is temporarily unavailable");
+}
+
+function canFailOver(error: unknown): boolean {
+  return error instanceof HttpError && (error.status === 429 || error.status >= 500);
 }
 
 async function callGemini(baseUrl: string, apiSecret: string, model: string, messages: IncomingMessage[], body: AIRequestBody, providerKey: string): Promise<TextResult> {
@@ -292,17 +340,50 @@ async function callAnthropic(baseUrl: string, apiSecret: string, model: string, 
   return { content: text, tokensIn: Math.max(0, Number(usage.input_tokens) || 0), tokensOut: Math.max(0, Number(usage.output_tokens) || 0), model, provider: providerKey };
 }
 
+async function callRuntimeProvider(provider: RuntimeProvider, modelOverride: string, messages: IncomingMessage[], body: AIRequestBody): Promise<TextResult> {
+  if (!provider.api_secret) throw new HttpError(503, "Managed AI provider secret is missing");
+  const model = modelOverride || provider.default_model;
+  if (provider.adapter === "gemini") return callGemini(provider.base_url, provider.api_secret, model, messages, body, provider.provider_key);
+  if (provider.adapter === "anthropic") return callAnthropic(provider.base_url, provider.api_secret, model, messages, body, provider.provider_key);
+  return callOpenAICompatible(provider.base_url, provider.api_secret, model, messages, body, provider.provider_key);
+}
+
 async function runTextProvider(admin: ReturnType<typeof createAdminClient>, userId: string, tool: string, messages: IncomingMessage[], body: AIRequestBody): Promise<TextResult> {
-  const managed = await loadManagedDefaultProvider(admin);
-  if (managed) {
-    if (!managed.api_secret) throw new HttpError(503, "Managed AI provider secret is missing");
-    if (managed.adapter === "gemini") return callGemini(managed.base_url, managed.api_secret, managed.default_model, messages, body, managed.provider_key);
-    if (managed.adapter === "anthropic") return callAnthropic(managed.base_url, managed.api_secret, managed.default_model, messages, body, managed.provider_key);
-    return callOpenAICompatible(managed.base_url, managed.api_secret, managed.default_model, messages, body, managed.provider_key);
+  const route = await loadToolRouteV2(admin, tool);
+  const attempts: { provider: RuntimeProvider; model: string }[] = [];
+  const seen = new Set<string>();
+  const addAttempt = (provider: RuntimeProvider | null, model: string) => {
+    if (!provider) return;
+    const resolvedModel = model || provider.default_model;
+    const key = `${provider.provider_key}:${resolvedModel}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    attempts.push({ provider, model });
+  };
+
+  if (route?.primaryProviderKey) addAttempt(await loadManagedProvider(admin, route.primaryProviderKey), route.primaryModel);
+  else addAttempt(await loadManagedDefaultProvider(admin), route?.primaryModel || "");
+
+  if (route?.fallbackProviderKey) addAttempt(await loadManagedProvider(admin, route.fallbackProviderKey), route.fallbackModel);
+  addAttempt(await loadManagedDefaultProvider(admin), "");
+
+  let lastRetryableError: unknown = null;
+  for (const attempt of attempts) {
+    try {
+      return await callRuntimeProvider(attempt.provider, attempt.model, messages, body);
+    } catch (error) {
+      if (!canFailOver(error)) throw error;
+      lastRetryableError = error;
+      console.warn(`[AI ENGINE] Provider ${attempt.provider.provider_key} failed; trying configured fallback`);
+    }
   }
-  if (!GEMINI_API_KEY) throw new HttpError(503, "AI provider is not configured");
-  const model = await resolveTextModel(admin, userId, tool);
-  return callGemini("https://generativelanguage.googleapis.com", GEMINI_API_KEY, model, messages, body, "gemini");
+
+  if (GEMINI_API_KEY) {
+    const model = await resolveTextModel(admin, userId, tool);
+    return callGemini("https://generativelanguage.googleapis.com", GEMINI_API_KEY, model, messages, body, "gemini");
+  }
+  if (lastRetryableError) throw lastRetryableError;
+  throw new HttpError(503, "AI provider is not configured");
 }
 
 async function generateImage(admin: ReturnType<typeof createAdminClient>, userId: string, prompt: string): Promise<{ content: string; json: Record<string, unknown> }> {
