@@ -89,6 +89,13 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
       .then(({ data }) => setParentProjects((data as Project[]) || []));
   }, [refreshProjects, userId]);
 
+  useEffect(() => {
+    if (!renaming && !movingItem) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [renaming, movingItem]);
+
   async function handleDelete(id: string) {
     setMenuOpen(null);
     const { error: err } = await supabase.from('projects').update({ deleted_at: new Date().toISOString() }).eq('id', id);
@@ -135,9 +142,7 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   async function confirmRename() {
     if (!renaming || !renameValue.trim()) return;
     const ok = await renameProject(renaming, renameValue.trim());
-    if (ok) {
-      setProjects(prev => prev.map(p => p.id === renaming ? { ...p, title: renameValue.trim() } : p));
-    }
+    if (ok) setProjects(prev => prev.map(p => p.id === renaming ? { ...p, title: renameValue.trim() } : p));
     setRenaming(null);
   }
 
@@ -165,215 +170,95 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   const favoriteCount = projects.filter(p => (p as Project & { favorite?: boolean }).favorite).length;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-1">{l('My Files')}</h1>
-        <p className="text-gray-500 text-sm">{l('All your generated documents, CVs, translations, chats and projects in one place.')}</p>
+    <div className="min-w-0 space-y-6 overflow-x-hidden">
+      <div className="min-w-0">
+        <h1 className="mb-1 break-words text-2xl font-bold text-white">{l('My Files')}</h1>
+        <p className="break-words text-sm leading-6 text-gray-500">{l('All your generated documents, CVs, translations, chats and projects in one place.')}</p>
       </div>
 
-      {/* Stats + Storage */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-          <div className="text-2xl font-bold text-white">{projects.length}</div>
-          <div className="text-gray-500 text-xs mt-0.5">{l('Total Files')}</div>
-        </div>
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-          <div className="text-2xl font-bold text-emerald-400">{projects.filter(p => p.status === 'completed').length}</div>
-          <div className="text-gray-500 text-xs mt-0.5">{l('Completed')}</div>
-        </div>
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-          <div className="text-2xl font-bold text-amber-400">{projects.filter(p => p.status === 'draft').length}</div>
-          <div className="text-gray-500 text-xs mt-0.5">{l('Drafts')}</div>
-        </div>
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-          <div className="text-2xl font-bold text-violet-400">{favoriteCount}</div>
-          <div className="text-gray-500 text-xs mt-0.5">{l('Favorites')}</div>
-        </div>
+      <div className="grid min-w-0 grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+        {[
+          { value: projects.length, label: 'Total Files', color: 'text-white' },
+          { value: projects.filter(p => p.status === 'completed').length, label: 'Completed', color: 'text-emerald-400' },
+          { value: projects.filter(p => p.status === 'draft').length, label: 'Drafts', color: 'text-amber-400' },
+          { value: favoriteCount, label: 'Favorites', color: 'text-violet-400' },
+        ].map(item => (
+          <div key={item.label} className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-3 backdrop-blur-xl sm:p-4">
+            <div className={`truncate text-xl font-bold sm:text-2xl ${item.color}`}>{item.value}</div>
+            <div className="mt-0.5 break-words text-xs text-gray-500">{l(item.label)}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={l('Search files...')}
-            className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none transition-all"
+            className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-4 text-sm text-white transition-all placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none"
           />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Favorites toggle */}
-          <button
-            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-              showFavoritesOnly ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-            }`}
-          >
-            <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-amber-400' : ''}`} /> <span className="hidden sm:inline">{l('Favorites')}</span>
-          </button>
-          {/* Pinned toggle */}
-          <button
-            onClick={() => setShowPinnedOnly(!showPinnedOnly)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-              showPinnedOnly ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-            }`}
-          >
-            <Pin className={`w-4 h-4 ${showPinnedOnly ? 'fill-violet-400' : ''}`} /> <span className="hidden sm:inline">{l('Pinned')}</span>
-          </button>
-          {/* Type filter */}
-          <select
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none cursor-pointer"
-          >
-            {TYPE_FILTERS.map(t => <option key={t.value} value={t.value}>{l(t.label)}</option>)}
-          </select>
-          {/* Sort */}
-          <div className="flex items-center bg-white/5 border border-white/10 rounded-xl">
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as SortBy)}
-              className="bg-transparent px-3 py-2.5 text-white text-sm focus:outline-none cursor-pointer"
-            >
-              {SORT_OPTIONS.map(s => <option key={s.value} value={s.value}>{l(s.label)}</option>)}
-            </select>
-            <button
-              onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-              className="px-2 py-2.5 text-gray-400 hover:text-white transition-colors"
-            >
-              <ArrowUpDown className="w-4 h-4" />
-            </button>
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <button onClick={() => setShowFavoritesOnly(!showFavoritesOnly)} className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${showFavoritesOnly ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}><Heart className={`h-4 w-4 shrink-0 ${showFavoritesOnly ? 'fill-amber-400' : ''}`} /><span className="truncate">{l('Favorites')}</span></button>
+          <button onClick={() => setShowPinnedOnly(!showPinnedOnly)} className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${showPinnedOnly ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}><Pin className={`h-4 w-4 shrink-0 ${showPinnedOnly ? 'fill-violet-400' : ''}`} /><span className="truncate">{l('Pinned')}</span></button>
+          <select value={filter} onChange={e => setFilter(e.target.value)} className="min-h-11 min-w-0 w-full rounded-xl border border-white/10 bg-[#111122] px-3 py-2.5 text-sm text-white focus:outline-none sm:w-auto">{TYPE_FILTERS.map(t => <option key={t.value} value={t.value}>{l(t.label)}</option>)}</select>
+          <div className="col-span-2 flex min-w-0 items-center rounded-xl border border-white/10 bg-white/5 sm:col-span-1">
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} className="min-h-11 min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-white focus:outline-none sm:flex-none"><option value="updated">{l('Last Updated')}</option><option value="created">{l('Date Created')}</option><option value="name">{l('Name (A-Z)')}</option><option value="size">{l('Size')}</option></select>
+            <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="flex h-11 w-11 shrink-0 items-center justify-center text-gray-400 transition-colors hover:text-white" aria-label={l('Change sort direction')}><ArrowUpDown className="w-4 h-4" /></button>
           </div>
-          {/* View toggle */}
-          <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-0.5">
-            <button onClick={() => setView('grid')} className={`p-2 rounded-lg transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-              <Grid3x3 className="w-4 h-4" />
-            </button>
-            <button onClick={() => setView('list')} className={`p-2 rounded-lg transition-colors ${view === 'list' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-              <List className="w-4 h-4" />
-            </button>
+          <div className="col-span-2 grid min-h-11 grid-cols-2 items-center rounded-xl border border-white/10 bg-white/5 p-0.5 sm:col-span-1 sm:flex">
+            <button onClick={() => setView('grid')} className={`flex min-h-10 items-center justify-center rounded-lg px-3 transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'}`} aria-label={l('Grid view')}><Grid3x3 className="w-4 h-4" /></button>
+            <button onClick={() => setView('list')} className={`flex min-h-10 items-center justify-center rounded-lg px-3 transition-colors ${view === 'list' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'}`} aria-label={l('List view')}><List className="w-4 h-4" /></button>
           </div>
         </div>
       </div>
 
-      {/* Pinned section */}
       {pinnedCount > 0 && !showPinnedOnly && !search && filter === 'all' && !showFavoritesOnly && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Pin className="w-4 h-4 text-violet-400" />
-            <h2 className="text-white font-bold text-base">{l('Pinned')}</h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {projects.filter(p => (p as Project & { pinned?: boolean }).pinned).map((project, i) => (
-              <FileCard key={project.id} project={project} view="grid" index={i} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={handleDelete} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />
-            ))}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-3"><Pin className="w-4 h-4 text-violet-400" /><h2 className="text-white font-bold text-base">{l('Pinned')}</h2></div>
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {projects.filter(p => (p as Project & { pinned?: boolean }).pinned).map((project, i) => <FileCard key={project.id} project={project} view="grid" index={i} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={handleDelete} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
           </div>
         </div>
       )}
 
-      {/* Files */}
       {loading ? (
         <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>
       ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={FolderOpen}
-          title={search ? l('No matching files') : l('No files yet')}
-          description={search ? l('Try a different search term.') : l("Create documents with any AI tool and they'll appear here automatically.")}
-          variant="files"
-        />
+        <EmptyState icon={FolderOpen} title={search ? l('No matching files') : l('No files yet')} description={search ? l('Try a different search term.') : l("Create documents with any AI tool and they'll appear here automatically.")} variant="files" />
       ) : view === 'grid' ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((project, i) => (
-            <FileCard
-              key={project.id}
-              project={project}
-              view="grid"
-              index={i}
-              onOpen={() => onNavigate(project.type as ViewId, project.id)}
-              menuOpen={menuOpen}
-              setMenuOpen={setMenuOpen}
-              onDelete={handleDelete}
-              onDuplicate={handleDuplicate}
-              onRename={startRename}
-              onToggleFavorite={handleToggleFavorite}
-              onTogglePin={handleTogglePin}
-              onMove={setMovingItem}
-            />
-          ))}
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((project, i) => <FileCard key={project.id} project={project} view="grid" index={i} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={handleDelete} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
         </div>
       ) : (
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl">
-          {filtered.map((project, i) => (
-            <FileCard
-              key={project.id}
-              project={project}
-              view="list"
-              index={i}
-              isFirst={i === 0}
-              isLast={i === filtered.length - 1}
-              onOpen={() => onNavigate(project.type as ViewId, project.id)}
-              menuOpen={menuOpen}
-              setMenuOpen={setMenuOpen}
-              onDelete={handleDelete}
-              onDuplicate={handleDuplicate}
-              onRename={startRename}
-              onToggleFavorite={handleToggleFavorite}
-              onTogglePin={handleTogglePin}
-              onMove={setMovingItem}
-            />
-          ))}
+        <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl">
+          {filtered.map((project, i) => <FileCard key={project.id} project={project} view="list" index={i} isFirst={i === 0} isLast={i === filtered.length - 1} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={handleDelete} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
         </div>
       )}
 
-      {/* Storage */}
       <StorageIndicator />
 
-      {/* Rename modal */}
       {renaming && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setRenaming(null)}>
-          <div className="bg-[#12122a] border border-white/10 rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-base mb-4">{l('Rename')}</h3>
-            <input
-              autoFocus
-              value={renameValue}
-              onChange={e => setRenameValue(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && confirmRename()}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-violet-500/50 focus:outline-none transition-all"
-              placeholder={l('File name')}
-            />
-            <div className="flex gap-2 mt-4">
-              <button onClick={() => setRenaming(null)} className="flex-1 text-gray-400 hover:text-white text-sm py-2 rounded-lg hover:bg-white/5 transition-colors">{l('Cancel')}</button>
-              <button onClick={confirmRename} className="flex-1 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium py-2 rounded-lg transition-colors">{l('Rename')}</button>
-            </div>
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setRenaming(null)}>
+          <div className="w-full max-w-sm rounded-t-2xl border border-white/10 bg-[#12122a] p-4 sm:rounded-2xl sm:p-6" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+            <h3 className="mb-4 break-words text-base font-bold text-white">{l('Rename')}</h3>
+            <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && void confirmRename()} className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white transition-all focus:border-violet-500/50 focus:outline-none" placeholder={l('File name')} />
+            <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => setRenaming(null)} className="min-h-11 rounded-lg text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white">{l('Cancel')}</button><button onClick={() => void confirmRename()} className="min-h-11 rounded-lg bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500">{l('Rename')}</button></div>
           </div>
         </div>
       )}
 
-      {/* Move modal */}
       {movingItem && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setMovingItem(null)}>
-          <div className="bg-[#12122a] border border-white/10 rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-base mb-4">{l('Move')} "{movingItem.title}" {l('to...')}</h3>
-            <div className="space-y-1 max-h-60 overflow-y-auto">
-              <button
-                onClick={() => handleMove(movingItem.id, null)}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left"
-              >
-                <FolderOpen className="w-4 h-4 text-gray-500" /> {l('Root (no project)')}
-              </button>
-              {parentProjects.filter(p => p.id !== movingItem.id).map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => handleMove(movingItem.id, p.id)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left"
-                >
-                  <Folder className="w-4 h-4 text-amber-400" /> {p.title}
-                </button>
-              ))}
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setMovingItem(null)}>
+          <div className="w-full max-w-sm max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#12122a] p-4 sm:rounded-2xl sm:p-6" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+            <h3 className="mb-4 break-words text-base font-bold text-white">{l('Move')} "{movingItem.title}" {l('to...')}</h3>
+            <div className="max-h-[50dvh] space-y-1 overflow-y-auto overscroll-contain">
+              <button onClick={() => void handleMove(movingItem.id, null)} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-gray-300 transition-colors hover:bg-white/5"><FolderOpen className="w-4 h-4 shrink-0 text-gray-500" /> <span className="min-w-0 break-words">{l('Root (no project)')}</span></button>
+              {parentProjects.filter(p => p.id !== movingItem.id).map(p => <button key={p.id} onClick={() => void handleMove(movingItem.id, p.id)} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-gray-300 transition-colors hover:bg-white/5"><Folder className="w-4 h-4 shrink-0 text-amber-400" /><span className="min-w-0 break-words">{p.title}</span></button>)}
             </div>
-            <button onClick={() => setMovingItem(null)} className="w-full mt-4 text-gray-400 hover:text-white text-sm py-2 rounded-lg hover:bg-white/5 transition-colors">{l('Cancel')}</button>
+            <button onClick={() => setMovingItem(null)} className="mt-4 min-h-11 w-full rounded-lg py-2 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white">{l('Cancel')}</button>
           </div>
         </div>
       )}
@@ -381,7 +266,6 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   );
 }
 
-// File Card component
 interface FileCardProps {
   project: Project;
   view: 'grid' | 'list';
@@ -406,48 +290,21 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
   const isPinned = (project as Project & { pinned?: boolean }).pinned;
   const isWebsite = project.type === 'website-builder';
   const websiteLive = isWebsite && project.status === 'completed' && Boolean((project.content as { publishedUrl?: unknown } | null)?.publishedUrl);
-  const statusLabel = isWebsite
-    ? (websiteLive ? 'Live Website' : 'Website Draft')
-    : (project.status === 'completed' ? 'Completed' : 'Draft');
-  const statusClass = websiteLive || (!isWebsite && project.status === 'completed')
-    ? 'bg-emerald-500/10 text-emerald-400'
-    : 'bg-amber-500/10 text-amber-400';
-  const liveUrl = websiteLive
-    ? normalizePublishedSiteUrl(
-        String((project.content as { publishedUrl?: unknown } | null)?.publishedUrl || '')
-      )
-    : '';
+  const statusLabel = isWebsite ? (websiteLive ? 'Live Website' : 'Website Draft') : (project.status === 'completed' ? 'Completed' : 'Draft');
+  const statusClass = websiteLive || (!isWebsite && project.status === 'completed') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400';
+  const liveUrl = websiteLive ? normalizePublishedSiteUrl(String((project.content as { publishedUrl?: unknown } | null)?.publishedUrl || '')) : '';
 
   if (view === 'list') {
     return (
-      <div className={`relative flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors group ${!isLast ? 'border-b border-white/5' : ''}`}>
-        <button onClick={onOpen} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-          <div className={`w-9 h-9 rounded-lg ${meta.bg} flex items-center justify-center flex-shrink-0`}>
-            <FileText className={`w-4 h-4 ${meta.color}`} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-white text-sm font-medium truncate flex items-center gap-1.5">
-              {project.title}
-              {isPinned && <Pin className="w-3 h-3 text-violet-400 fill-violet-400" />}
-            </div>
-            <div className="text-gray-500 text-xs">{l(meta.label)} · {timeAgo(project.updated_at)}</div>
-          </div>
+      <div className={`relative flex min-w-0 flex-wrap items-center gap-3 px-3 py-3 transition-colors hover:bg-white/5 sm:flex-nowrap sm:px-4 ${!isLast ? 'border-b border-white/5' : ''} ${menuOpen === project.id ? 'z-[100]' : 'z-10'}`}>
+        <button onClick={onOpen} className="flex min-w-0 flex-[1_1_14rem] items-center gap-3 text-left">
+          <div className={`w-9 h-9 rounded-lg ${meta.bg} flex items-center justify-center flex-shrink-0`}><FileText className={`w-4 h-4 ${meta.color}`} /></div>
+          <div className="min-w-0 flex-1"><div className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-white"><span className="min-w-0 truncate">{project.title}</span>{isPinned && <Pin className="w-3 h-3 shrink-0 text-violet-400 fill-violet-400" />}</div><div className="truncate text-xs text-gray-500">{l(meta.label)} · {timeAgo(project.updated_at)}</div></div>
         </button>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {isFavorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
-          <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
-            {l(statusLabel)}
-          </span>
-          {liveUrl && (
-            <button
-              type="button"
-              onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')}
-              className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
-              title={liveUrl}
-            >
-              {l('Open live ↗')}
-            </button>
-          )}
+        <div className="flex min-w-0 flex-[1_1_100%] items-center justify-end gap-1 sm:flex-[0_0_auto]">
+          {isFavorite && <Star className="w-3.5 h-3.5 shrink-0 text-amber-400 fill-amber-400" />}
+          <span className={`max-w-[9rem] truncate rounded-full px-2 py-0.5 text-xs ${statusClass}`}>{l(statusLabel)}</span>
+          {liveUrl && <button type="button" onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')} className="hidden text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 sm:inline" title={liveUrl}>{l('Open live ↗')}</button>}
           <FileMenu isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={() => onDelete(project.id)} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} />
         </div>
       </div>
@@ -455,98 +312,34 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
   }
 
   return (
-    <div
-      className={`group relative ${menuOpen === project.id ? "z-[100]" : "z-10"} bg-white/[0.03] border border-white/10 rounded-2xl p-5 hover:border-violet-500/30 transition-all duration-300`}
-      style={{ animation: 'fadeInUp 0.3s ease-out both', animationDelay: `${index * 0.04}s` }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <button onClick={onOpen} className={`w-11 h-11 rounded-xl ${meta.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-          <FileText className={`w-5 h-5 ${meta.color}`} />
-        </button>
-        <div className="flex items-center gap-1">
-          {isFavorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
-          {isPinned && <Pin className="w-3.5 h-3.5 text-violet-400 fill-violet-400" />}
-          <FileMenu isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={() => onDelete(project.id)} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} />
-        </div>
+    <div className={`group relative min-w-0 ${menuOpen === project.id ? 'z-[100]' : 'z-10'} rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:border-violet-500/30 sm:p-5`} style={{ animation: 'fadeInUp 0.3s ease-out both', animationDelay: `${index * 0.04}s` }}>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <button onClick={onOpen} className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${meta.bg} transition-transform group-hover:scale-105`}><FileText className={`w-5 h-5 ${meta.color}`} /></button>
+        <div className="flex min-w-0 items-center gap-1">{isFavorite && <Star className="w-3.5 h-3.5 shrink-0 text-amber-400 fill-amber-400" />}{isPinned && <Pin className="w-3.5 h-3.5 shrink-0 text-violet-400 fill-violet-400" />}<FileMenu isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={() => onDelete(project.id)} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} /></div>
       </div>
-      <button onClick={onOpen} className="block w-full text-left">
-        <h3 className="text-white text-sm font-semibold truncate mb-1">{project.title}</h3>
-        <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
-          <span className={meta.color}>{l(meta.label)}</span>
-          <span>·</span>
-          <span>{timeAgo(project.updated_at)}</span>
-        </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
-          {l(statusLabel)}
-        </span>
-      </button>
-      {liveUrl && (
-        <button
-          type="button"
-          onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')}
-          className="mt-3 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
-          title={liveUrl}
-        >
-          {l('Open live site ↗')}
-        </button>
-      )}
+      <button onClick={onOpen} className="block min-w-0 w-full text-left"><h3 className="mb-1 truncate text-sm font-semibold text-white">{project.title}</h3><div className="mb-3 flex min-w-0 items-center gap-2 text-xs text-gray-500"><span className={`min-w-0 truncate ${meta.color}`}>{l(meta.label)}</span><span className="shrink-0">·</span><span className="shrink-0">{timeAgo(project.updated_at)}</span></div><span className={`inline-block max-w-full truncate rounded-full px-2 py-0.5 text-xs ${statusClass}`}>{l(statusLabel)}</span></button>
+      {liveUrl && <button type="button" onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')} className="mt-3 min-h-11 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300" title={liveUrl}>{l('Open live site ↗')}</button>}
     </div>
   );
 }
 
-function FileMenu({
-  isOpen, onToggle, onDelete, onDuplicate, onRename, onToggleFavorite, onTogglePin, onMove,
-}: {
-  isOpen: boolean;
-  onToggle: () => void;
-  onDelete: () => void;
-  onDuplicate: () => void;
-  onRename: () => void;
-  onToggleFavorite: () => void;
-  onTogglePin: () => void;
-  onMove: () => void;
-}) {
+function FileMenu({ isOpen, onToggle, onDelete, onDuplicate, onRename, onToggleFavorite, onTogglePin, onMove }: { isOpen: boolean; onToggle: () => void; onDelete: () => void; onDuplicate: () => void; onRename: () => void; onToggleFavorite: () => void; onTogglePin: () => void; onMove: () => void; }) {
   const l = useLocalizer();
-
   return (
     <div className="relative flex-shrink-0">
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggle(); }}
-        className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-      >
-        <MoreVertical className="w-4 h-4" />
-      </button>
+      <button onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white/10 hover:text-white" aria-label={l('File actions')}><MoreVertical className="w-4 h-4" /></button>
       {isOpen && (
-        <div className="fixed z-[99999] bg-[#12122a] border border-white/10 rounded-xl p-1.5 w-44 shadow-2xl shadow-black/50" onClick={e => e.stopPropagation()}>
-          <button onClick={onRename} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Edit2 className="w-3.5 h-3.5" /> {l('Rename')}
-          </button>
-          <button onClick={onDuplicate} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Copy className="w-3.5 h-3.5" /> {l('Duplicate')}
-          </button>
-          <button onClick={onMove} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Folder className="w-3.5 h-3.5" /> {l('Move')}
-          </button>
+        <div className="absolute right-0 top-full z-[99999] mt-1 w-44 max-w-[calc(100vw-1rem)] rounded-xl border border-white/10 bg-[#12122a] p-1.5 shadow-2xl shadow-black/50" onClick={e => e.stopPropagation()}>
+          <button onClick={onRename} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Edit2 className="w-3.5 h-3.5" /> {l('Rename')}</button>
+          <button onClick={onDuplicate} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Copy className="w-3.5 h-3.5" /> {l('Duplicate')}</button>
+          <button onClick={onMove} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Folder className="w-3.5 h-3.5" /> {l('Move')}</button>
           <div className="h-px bg-white/5 my-1" />
-          <button onClick={onToggleFavorite} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Star className="w-3.5 h-3.5" /> {l('Favorite')}
-          </button>
-          <button onClick={onTogglePin} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors">
-            <Pin className="w-3.5 h-3.5" /> {l('Pin')}
-          </button>
+          <button onClick={onToggleFavorite} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Star className="w-3.5 h-3.5" /> {l('Favorite')}</button>
+          <button onClick={onTogglePin} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Pin className="w-3.5 h-3.5" /> {l('Pin')}</button>
           <div className="h-px bg-white/5 my-1" />
-          <button onClick={onDelete} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-            <Trash2 className="w-3.5 h-3.5" /> {l('Delete')}
-          </button>
+          <button onClick={onDelete} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" /> {l('Delete')}</button>
         </div>
       )}
     </div>
   );
 }
-
-
-
-
-
-
-
