@@ -10,6 +10,7 @@ type ToolPlan = 'free' | 'pro' | 'business';
 type LimitPeriod = 'daily' | 'monthly' | 'lifetime';
 interface ToolAccessRule { tool_id: string; minimum_plan: ToolPlan; enabled: boolean; }
 interface ToolPlanLimit { tool_id: string; free_limit: number | null; pro_limit: number | null; business_limit: number | null; period: LimitPeriod; }
+interface ToolUsageSummary { tool_id: string; usage_count: number | string; }
 
 export default function AdminTools() {
   const l = useLocalizer();
@@ -17,9 +18,9 @@ export default function AdminTools() {
   const [usage, setUsage] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [accessRules, setAccessRules] = useState<Record<string, ToolAccessRule>>({});
   const [limits, setLimits] = useState<Record<string, ToolPlanLimit>>({});
+  const [savingEnabled, setSavingEnabled] = useState<string | null>(null);
   const [savingPlan, setSavingPlan] = useState<string | null>(null);
   const [savingLimit, setSavingLimit] = useState<string | null>(null);
 
@@ -29,15 +30,14 @@ export default function AdminTools() {
       setLoading(true);
       setLoadError(null);
 
-      const [usageRes, flagRes, accessRes, limitRes] = await Promise.all([
-        supabase.from('tool_usage_events').select('tool_id').limit(10000),
-        supabase.from('feature_flags').select('key, enabled'),
+      const [usageRes, accessRes, limitRes] = await Promise.all([
+        supabase.rpc('admin_tool_usage_summary'),
         supabase.from('tool_access_rules').select('tool_id, minimum_plan, enabled'),
         supabase.from('tool_plan_limits').select('tool_id, free_limit, pro_limit, business_limit, period'),
       ]);
 
       if (!active) return;
-      const queryError = usageRes.error || flagRes.error || accessRes.error || limitRes.error;
+      const queryError = usageRes.error || accessRes.error || limitRes.error;
       if (queryError) {
         console.error('Failed to load admin tools data:', queryError);
         setLoadError(queryError.message || 'Failed to load tools administration data.');
@@ -46,12 +46,10 @@ export default function AdminTools() {
       }
 
       const counts: Record<string, number> = {};
-      for (const u of (usageRes.data || []) as { tool_id: string }[]) counts[u.tool_id] = (counts[u.tool_id] || 0) + 1;
+      for (const row of (usageRes.data || []) as ToolUsageSummary[]) {
+        counts[row.tool_id] = Number(row.usage_count) || 0;
+      }
       setUsage(counts);
-
-      const flagMap: Record<string, boolean> = {};
-      for (const f of (flagRes.data || []) as { key: string; enabled: boolean }[]) flagMap[f.key] = f.enabled;
-      setFlags(flagMap);
 
       const ruleMap: Record<string, ToolAccessRule> = {};
       for (const rule of (accessRes.data || []) as ToolAccessRule[]) ruleMap[rule.tool_id] = rule;
@@ -66,14 +64,33 @@ export default function AdminTools() {
     return () => { active = false; };
   }, []);
 
-  async function toggleFlag(key: string) {
-    const newVal = !flags[key];
-    setFlags(prev => ({ ...prev, [key]: newVal }));
-    const { error } = await supabase.from('feature_flags').upsert({ key, enabled: newVal, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  async function toggleToolEnabled(toolId: string, minimumPlan: ToolPlan, currentEnabled: boolean) {
+    setSavingEnabled(toolId);
+    const previous = accessRules[toolId];
+    const enabled = !currentEnabled;
+    setAccessRules(prev => ({ ...prev, [toolId]: { tool_id: toolId, minimum_plan: minimumPlan, enabled } }));
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from('tool_access_rules').upsert({
+      tool_id: toolId,
+      minimum_plan: minimumPlan,
+      enabled,
+      updated_at: new Date().toISOString(),
+      updated_by: user?.id || null,
+    }, { onConflict: 'tool_id' });
+
     if (error) {
-      setFlags(prev => ({ ...prev, [key]: !newVal }));
-      showError('Failed to toggle feature');
-    } else success(`${key} ${newVal ? 'enabled' : 'disabled'}`);
+      setAccessRules(prev => {
+        const next = { ...prev };
+        if (previous) next[toolId] = previous;
+        else delete next[toolId];
+        return next;
+      });
+      showError(l('Failed to toggle tool'));
+    } else {
+      success(`${toolId} ${enabled ? l('enabled') : l('disabled')}`);
+    }
+    setSavingEnabled(null);
   }
 
   function defaultPlanFor(tool: ReturnType<typeof toolRegistry.all>[number]): ToolPlan {
@@ -85,12 +102,13 @@ export default function AdminTools() {
     return { tool_id: toolId, free_limit: 25, pro_limit: 250, business_limit: 1000, period: 'monthly' };
   }
 
-  async function setToolPlan(toolId: string, plan: ToolPlan, fallbackEnabled: boolean) {
+  async function setToolPlan(toolId: string, plan: ToolPlan) {
     setSavingPlan(toolId);
     const previous = accessRules[toolId];
-    setAccessRules(prev => ({ ...prev, [toolId]: { tool_id: toolId, minimum_plan: plan, enabled: previous?.enabled ?? fallbackEnabled } }));
+    const enabled = previous?.enabled ?? true;
+    setAccessRules(prev => ({ ...prev, [toolId]: { tool_id: toolId, minimum_plan: plan, enabled } }));
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('tool_access_rules').upsert({ tool_id: toolId, minimum_plan: plan, enabled: previous?.enabled ?? fallbackEnabled, updated_at: new Date().toISOString(), updated_by: user?.id || null }, { onConflict: 'tool_id' });
+    const { error } = await supabase.from('tool_access_rules').upsert({ tool_id: toolId, minimum_plan: plan, enabled, updated_at: new Date().toISOString(), updated_by: user?.id || null }, { onConflict: 'tool_id' });
     if (error) {
       setAccessRules(prev => { const next = { ...prev }; if (previous) next[toolId] = previous; else delete next[toolId]; return next; });
       showError(l('Failed to update tool plan'));
@@ -161,18 +179,17 @@ export default function AdminTools() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {tools.map(tool => {
           const Icon = tool.icon;
-          const flagKey = tool.id.replace(/-/g, '_');
-          const isEnabled = flags[flagKey] !== false;
-          const usageCount = usage[tool.id] || 0;
           const selectedPlan = accessRules[tool.id]?.minimum_plan || defaultPlanFor(tool);
+          const isEnabled = accessRules[tool.id]?.enabled ?? true;
+          const usageCount = usage[tool.id] || 0;
           const limit = limits[tool.id] || defaultLimitFor(tool.id);
           return (
             <div key={tool.id} className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 sm:p-5 hover:border-white/20 transition-colors min-w-0">
-              <div className="flex items-start justify-between gap-3 mb-3"><div className="flex items-center gap-3 min-w-0"><div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0"><Icon className="w-5 h-5 text-violet-400" /></div><div className="min-w-0"><div className="text-sm font-semibold text-white truncate">{l(tool.name)}</div><div className="text-xs text-gray-500 capitalize truncate">{l(tool.category)}</div></div></div><button onClick={() => toggleFlag(flagKey)} className="transition-transform hover:scale-110 shrink-0" aria-label={l(isEnabled ? 'Disable tool' : 'Enable tool')}>{isEnabled ? <ToggleRight className="w-8 h-8 text-emerald-400" /> : <ToggleLeft className="w-8 h-8 text-gray-600" />}</button></div>
+              <div className="flex items-start justify-between gap-3 mb-3"><div className="flex items-center gap-3 min-w-0"><div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0"><Icon className="w-5 h-5 text-violet-400" /></div><div className="min-w-0"><div className="text-sm font-semibold text-white truncate">{l(tool.name)}</div><div className="text-xs text-gray-500 capitalize truncate">{l(tool.category)}</div></div></div><button onClick={() => void toggleToolEnabled(tool.id, selectedPlan, isEnabled)} disabled={savingEnabled === tool.id} className="transition-transform hover:scale-110 shrink-0 disabled:opacity-50 disabled:hover:scale-100" aria-label={l(isEnabled ? 'Disable tool' : 'Enable tool')}>{savingEnabled === tool.id ? <Loader2 className="w-7 h-7 text-violet-400 animate-spin" /> : isEnabled ? <ToggleRight className="w-8 h-8 text-emerald-400" /> : <ToggleLeft className="w-8 h-8 text-gray-600" />}</button></div>
               <p className="text-xs text-gray-400 mb-4 line-clamp-2">{l(tool.description)}</p>
 
               <div className="grid sm:grid-cols-[1fr_auto] gap-3 mb-4">
-                <div><label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">{l('Minimum plan')}</label><select value={selectedPlan} disabled={savingPlan === tool.id} onChange={e => void setToolPlan(tool.id, e.target.value as ToolPlan, isEnabled)} className="w-full min-h-11 rounded-xl border border-white/10 bg-[#101020] px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-violet-500/50 disabled:opacity-60"><option value="free">Free</option><option value="pro">Pro</option><option value="business">Business</option></select></div>
+                <div><label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">{l('Minimum plan')}</label><select value={selectedPlan} disabled={savingPlan === tool.id || savingEnabled === tool.id} onChange={e => void setToolPlan(tool.id, e.target.value as ToolPlan)} className="w-full min-h-11 rounded-xl border border-white/10 bg-[#101020] px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-violet-500/50 disabled:opacity-60"><option value="free">Free</option><option value="pro">Pro</option><option value="business">Business</option></select></div>
                 <div><label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">{l('Reset period')}</label><select value={limit.period} onChange={e => patchLimit(tool.id, { period: e.target.value as LimitPeriod })} className="min-h-11 w-full sm:w-32 rounded-xl border border-white/10 bg-[#101020] px-3 py-2.5 text-sm text-white"><option value="daily">Daily</option><option value="monthly">Monthly</option><option value="lifetime">Lifetime</option></select></div>
               </div>
 
