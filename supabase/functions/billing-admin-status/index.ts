@@ -14,17 +14,21 @@ interface StripePrice { id?: string; active?: boolean; currency?: string; unit_a
 interface StripeWebhookEndpoint { id?: string; url?: string; status?: string; enabled_events?: string[]; livemode?: boolean; }
 interface StripePortalConfiguration { id?: string; active?: boolean; features?: { invoice_history?: { enabled?: boolean } | null; payment_method_update?: { enabled?: boolean } | null; subscription_cancel?: { enabled?: boolean } | null; subscription_update?: { enabled?: boolean } | null; } | null; }
 
-const LIVE_PRO_PRICE_ID = "price_1UBuNbPf8BnXUBSOvSHBpzC6";
-const LIVE_BUSINESS_PRICE_ID = "price_1UBuNgPf8BnXUBSOLH3TM9ms";
+type PaidPlan = "pro" | "business";
+const LIVE_PRICE_IDS: Record<PaidPlan, string> = {
+  pro: "price_1UBuNbPf8BnXUBSOvSHBpzC6",
+  business: "price_1UBuNgPf8BnXUBSOLH3TM9ms",
+};
 
 function env(name: string): string { return Deno.env.get(name)?.trim() || ""; }
 
-async function requireAdmin(req: Request): Promise<void> {
+async function requireAdmin(req: Request) {
   const user = await requireUser(req);
   const admin = createAdminClient();
   const { data, error } = await admin.from("profiles").select("role,suspended").eq("id", user.id).maybeSingle();
   if (error) throw new HttpError(503, "Administrator status could not be verified");
   if (!data || data.role !== "admin" || data.suspended === true) throw new HttpError(403, "Administrator access required");
+  return admin;
 }
 
 async function loadPrice(priceId: string): Promise<StripePrice | null> {
@@ -32,15 +36,25 @@ async function loadPrice(priceId: string): Promise<StripePrice | null> {
   try { return await stripeRequest<StripePrice>(`/v1/prices/${encodeURIComponent(priceId)}`, { method: "GET" }); } catch { return null; }
 }
 
+async function configuredPriceId(admin: ReturnType<typeof createAdminClient>, plan: PaidPlan): Promise<string> {
+  const key = plan === "pro" ? "stripe_pro_price_id" : "stripe_business_price_id";
+  const { data } = await admin.from("admin_settings").select("value").eq("key", key).maybeSingle();
+  const stored = typeof data?.value === "string" ? data.value.replace(/^"|"$/g, "").trim() : "";
+  const envPrice = plan === "pro" ? env("STRIPE_PRO_PRICE_ID") : env("STRIPE_BUSINESS_PRICE_ID");
+  return stored || envPrice || LIVE_PRICE_IDS[plan];
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
   try {
-    await requireAdmin(req);
+    const admin = await requireAdmin(req);
     const stripeSecret = env("STRIPE_SECRET_KEY");
     const webhookSecret = env("STRIPE_WEBHOOK_SECRET");
-    const proPriceId = env("STRIPE_PRO_PRICE_ID") || LIVE_PRO_PRICE_ID;
-    const businessPriceId = env("STRIPE_BUSINESS_PRICE_ID") || LIVE_BUSINESS_PRICE_ID;
+    const [proPriceId, businessPriceId] = await Promise.all([
+      configuredPriceId(admin, "pro"),
+      configuredPriceId(admin, "business"),
+    ]);
     const supabaseUrl = env("SUPABASE_URL");
 
     if (!stripeSecret) {
