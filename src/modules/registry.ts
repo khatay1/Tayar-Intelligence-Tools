@@ -19,11 +19,11 @@ class ToolRegistryImpl {
         : 'free';
 
     const GuardedComponent: ToolModule['component'] = (props) =>
-      createElement(
-        ToolAccessGate,
-        { toolId: module.id, fallbackPlan },
-        createElement(OriginalComponent, props),
-      );
+      createElement(ToolAccessGate, {
+        toolId: module.id,
+        fallbackPlan,
+        children: createElement(OriginalComponent, props),
+      });
 
     GuardedComponent.displayName = `ToolAccessGate(${module.id})`;
 
