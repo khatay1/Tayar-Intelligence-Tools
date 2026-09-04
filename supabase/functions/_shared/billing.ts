@@ -70,6 +70,38 @@ function usageWindowStart(period: string): string | null {
   return null;
 }
 
+export type RuntimeOperation = "ai" | "checkout";
+
+/**
+ * Runtime emergency switch. Missing/unreadable configuration intentionally
+ * fails open so a settings-table incident cannot create a second outage.
+ * An explicit false value is authoritative and blocks new work immediately.
+ */
+export async function assertOperationEnabled(
+  admin: ReturnType<typeof createAdminClient>,
+  operation: RuntimeOperation,
+): Promise<void> {
+  const { data, error } = await admin
+    .from("admin_settings")
+    .select("value")
+    .eq("key", "operations_v2")
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[OPERATIONS] Could not read ${operation} kill switch; preserving current behavior`);
+    return;
+  }
+  if (!data?.value || typeof data.value !== "object" || Array.isArray(data.value)) return;
+
+  const config = data.value as Record<string, unknown>;
+  const enabled = operation === "ai" ? config.aiEnabled !== false : config.checkoutEnabled !== false;
+  if (!enabled) {
+    throw new HttpError(503, operation === "ai"
+      ? "AI is temporarily unavailable"
+      : "Checkout is temporarily unavailable");
+  }
+}
+
 /**
  * Server-side plan/quota guard for paid provider calls. This is intentionally
  * independent of browser UI state so every Edge Function request is checked.
@@ -80,6 +112,8 @@ export async function assertServerToolAvailable(
   userId: string,
   toolId: string,
 ): Promise<void> {
+  await assertOperationEnabled(admin, "ai");
+
   const normalizedTool = toolId.trim().slice(0, 100);
   if (!normalizedTool) throw new HttpError(400, "Tool id is required");
 

@@ -13,6 +13,7 @@ import AdminPlansV2 from './AdminPlansV2';
 import AdminSubscriptions from './AdminSubscriptions';
 import AdminSupport from './AdminSupport';
 import AdminContent from './AdminContent';
+import AdminOperationsV2 from './AdminOperationsV2';
 import AdminSystem from './AdminSystem';
 
 interface AdminPanelProps {
@@ -83,7 +84,7 @@ export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
       {view === 'subscriptions' && <div className="space-y-6"><AdminPlansV2 onOpenTools={() => setView('tools')} /><AdminSubscriptions /></div>}
       {view === 'support' && <AdminSupport />}
       {view === 'content' && <AdminContent />}
-      {view === 'system' && <AdminSystem />}
+      {view === 'system' && <div className="space-y-6"><AdminOperationsV2 /><AdminSystem /></div>}
     </AdminLayout>
   );
 }
