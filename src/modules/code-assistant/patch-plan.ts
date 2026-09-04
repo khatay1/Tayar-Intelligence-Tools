@@ -1,3 +1,7 @@
+import {
+  assertAIResponseProjectContextCurrent,
+  carryAIResponseProjectContext,
+} from '@/lib/ai/request-context';
 import { CodeProjectContext } from './project-context';
 
 export interface CodePatchOperation {
@@ -63,6 +67,7 @@ function stringList(value: unknown, max = 50): string[] {
 }
 
 export function validatePatchPlan(value: unknown): CodePatchPlan {
+  assertAIResponseProjectContextCurrent(value, 'code-assistant');
   if (!isRecord(value)) throw new Error('AI patch plan is not a JSON object.');
 
   const rawOperations = Array.isArray(value.operations) ? value.operations : [];
@@ -92,13 +97,16 @@ export function validatePatchPlan(value: unknown): CodePatchPlan {
 
   if (!operations.length) throw new Error('AI patch plan did not include any safe file operations.');
 
-  return {
+  const plan: CodePatchPlan = {
     summary: typeof value.summary === 'string' ? value.summary.trim().slice(0, 2_000) : 'Proposed component integration',
     dependenciesToInstall: stringList(value.dependenciesToInstall),
     registryDependencies: stringList(value.registryDependencies),
     operations,
     warnings: stringList(value.warnings, 20).map((entry) => entry.slice(0, 1_000)),
   };
+
+  carryAIResponseProjectContext(value, plan);
+  return plan;
 }
 
 function findExistingFile(project: CodeProjectContext | null, path: string): string | null {

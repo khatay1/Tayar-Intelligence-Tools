@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { assertAIResponseProjectContextMatches } from '@/lib/ai/request-context';
 import { CodePatchPlan } from './patch-plan';
 import { validateControlledPackageOperation } from './package-editor';
 import {
@@ -65,6 +66,13 @@ export async function applyCodePatch(
   componentId: string,
   controlledPackageOperation: FileWriteOperation | null = null,
 ): Promise<{ applyId: string; fingerprintAfter: string }> {
+  assertAIResponseProjectContextMatches(
+    plan,
+    'code-assistant',
+    projectId,
+    expectedFingerprint,
+  );
+
   const data = await loadProject(projectId);
   const currentContent = data.content as Record<string, unknown>;
   const currentStore = inspectProjectFileStore(currentContent);

@@ -109,7 +109,11 @@ html,body,#root{min-height:100%;margin:0}body{font-family:Inter,ui-sans-serif,sy
       filename:'component.tsx',
       sourceType:'script'
     }).code;
-    (0,eval)(transformed);
+    const execution=document.createElement('script');
+    execution.type='text/javascript';
+    execution.textContent=transformed;
+    document.body.appendChild(execution);
+    execution.remove();
     const Component=globalThis.__TAYAR_COMPONENT__;
     if(typeof Component!=='function') throw new Error('Preview component is not renderable.');
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Component));
