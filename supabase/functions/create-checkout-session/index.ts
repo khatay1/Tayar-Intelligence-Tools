@@ -17,9 +17,21 @@ const LIVE_PRICE_IDS: Record<PaidPlan, string> = {
   business: "price_1UBuNgPf8BnXUBSOLH3TM9ms",
 };
 
-function priceForPlan(plan: PaidPlan): string {
-  const key = plan === "pro" ? "STRIPE_PRO_PRICE_ID" : "STRIPE_BUSINESS_PRICE_ID";
-  return Deno.env.get(key)?.trim() || LIVE_PRICE_IDS[plan];
+function settingKeyForPlan(plan: PaidPlan): string {
+  return plan === "pro" ? "stripe_pro_price_id" : "stripe_business_price_id";
+}
+
+async function priceForPlan(admin: ReturnType<typeof createAdminClient>, plan: PaidPlan): Promise<string> {
+  const { data, error } = await admin
+    .from("admin_settings")
+    .select("value")
+    .eq("key", settingKeyForPlan(plan))
+    .maybeSingle();
+  if (error) console.warn("[BILLING] Could not load admin-managed Stripe price; using fallback", error.message);
+
+  const stored = typeof data?.value === "string" ? data.value.replace(/^"|"$/g, "").trim() : "";
+  const envKey = plan === "pro" ? "STRIPE_PRO_PRICE_ID" : "STRIPE_BUSINESS_PRICE_ID";
+  return stored || Deno.env.get(envKey)?.trim() || LIVE_PRICE_IDS[plan];
 }
 
 Deno.serve(async (req: Request) => {
@@ -33,11 +45,14 @@ Deno.serve(async (req: Request) => {
     if (plan !== "pro" && plan !== "business") throw new HttpError(400, "Choose Pro or Business");
 
     const admin = createAdminClient();
-    const { data: existing, error } = await admin
-      .from("subscriptions")
-      .select("plan,status,stripe_customer_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const [{ data: existing, error }, priceId] = await Promise.all([
+      admin
+        .from("subscriptions")
+        .select("plan,status,stripe_customer_id")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      priceForPlan(admin, plan),
+    ]);
     if (error) throw new HttpError(500, "Could not load billing account");
 
     const managedPaidStatuses = ["active", "trialing", "past_due", "unpaid", "incomplete", "paused"];
@@ -51,7 +66,7 @@ Deno.serve(async (req: Request) => {
     const origin = safeAppOrigin(req);
     const params = new URLSearchParams();
     params.set("mode", "subscription");
-    params.set("line_items[0][price]", priceForPlan(plan));
+    params.set("line_items[0][price]", priceId);
     params.set("line_items[0][quantity]", "1");
     params.set("success_url", `${origin}/?billing=success`);
     params.set("cancel_url", `${origin}/?billing=canceled`);
