@@ -22,6 +22,15 @@ type AuditRow = {
   created_at: string;
 };
 
+type AuditCopyLabels = {
+  insert: string;
+  update: string;
+  delete: string;
+  access: string;
+  limits: string;
+  settings: string;
+};
+
 const COPY = {
   en: {
     eyebrow: 'ADMIN V2', title: 'Audit History', description: 'Read-only history of important Admin configuration changes. Entries are written automatically by the database.',
@@ -43,13 +52,13 @@ const COPY = {
   },
 } as const;
 
-function actionLabel(action: string | undefined, copy: typeof COPY.en): string {
+function actionLabel(action: string | undefined, copy: AuditCopyLabels): string {
   if (action === 'insert') return copy.insert;
   if (action === 'delete') return copy.delete;
   return copy.update;
 }
 
-function surfaceLabel(surface: string | undefined, copy: typeof COPY.en): string {
+function surfaceLabel(surface: string | undefined, copy: AuditCopyLabels): string {
   if (surface === 'tool_access_rules') return copy.access;
   if (surface === 'tool_plan_limits') return copy.limits;
   return copy.settings;
