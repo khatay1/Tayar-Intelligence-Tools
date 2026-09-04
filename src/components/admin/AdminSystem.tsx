@@ -111,11 +111,12 @@ function SettingsTab() {
 
   async function save() {
     setSaving(true);
-    const { error } = await supabase.from('admin_settings').upsert({
-      key: 'signup_enabled',
-      value: settings.signup_enabled === 'true',
+    const entries = SYSTEM_SETTING_KEYS.map((key) => ({
+      key,
+      value: settings[key] === 'true',
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'key' });
+    }));
+    const { error } = await supabase.from('admin_settings').upsert(entries, { onConflict: 'key' });
 
     setSaving(false);
     if (error) {
