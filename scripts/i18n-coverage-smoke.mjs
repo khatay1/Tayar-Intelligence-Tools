@@ -13,7 +13,9 @@ const onboarding = read('src/components/onboarding/OnboardingWizard.tsx');
 const settings = read('src/components/workspace/SettingsPage.tsx');
 const workspace = read('src/components/workspace/Workspace.tsx');
 const builder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');
-const resume = read('src/components/cv/ResumeBuilder.tsx');
+const resumeEntry = read('src/components/cv/ResumeBuilder.tsx');
+const resumeImplPath = 'src/components/cv/ResumeBuilder.impl.tsx';
+const resume = `${resumeEntry}\n${fs.existsSync(resumeImplPath) ? read(resumeImplPath) : ''}`;
 const admin = read('src/components/admin/AdminLayout.tsx');
 
 check('UI localization layer exists', ui.includes('export function useLocalizer'));
