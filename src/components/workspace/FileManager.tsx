@@ -32,13 +32,6 @@ const TYPE_FILTERS = [
   { value: 'website-builder', label: 'Websites' },
 ];
 
-const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-  { value: 'updated', label: 'Last Updated' },
-  { value: 'created', label: 'Date Created' },
-  { value: 'name', label: 'Name (A-Z)' },
-  { value: 'size', label: 'Size' },
-];
-
 interface FileManagerProps {
   onNavigate: (view: ViewId, projectId?: string) => void;
 }
