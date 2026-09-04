@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useLocalizer } from '@/lib/ui-localization';
+import { getFileMeta } from '@/components/workspace/workspace-config';
 
 type TeamRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
@@ -478,7 +479,7 @@ export default function TeamWorkspaceTool({ darkMode }: { darkMode: boolean }) {
               <div className="space-y-2">
                 {details.members.map((member) => {
                   const self = member.userId === user?.id;
-                  const canEditMember = canManage && member.role !== 'owner' && (! (myRole === 'admin' && member.role === 'admin'));
+                  const canEditMember = canManage && member.role !== 'owner' && (!(myRole === 'admin' && member.role === 'admin'));
                   return (
                     <div key={member.userId} className="flex flex-col gap-3 rounded-2xl border border-white/5 p-3 md:flex-row md:items-center">
                       <div className="flex min-w-0 flex-1 items-center gap-3">

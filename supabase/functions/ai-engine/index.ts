@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createAdminClient, HttpError, requireUser } from "../_shared/billing.ts";
+import { assertServerToolAvailable, createAdminClient, HttpError, requireUser } from "../_shared/billing.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const rawFalKey = Deno.env.get("FAL_KEY") || "";
@@ -18,6 +18,17 @@ const BUILTIN_TEXT_MODELS = new Set([
   "gemini-3.7-flash",
   "gemini-3.6-flash",
   "gemini-3.5-flash",
+]);
+const AI_TOOL_IDS = new Set([
+  "ai-chat",
+  "cv-builder",
+  "cover-letter",
+  "ai-writer",
+  "document-ai",
+  "study-assistant",
+  "translator",
+  "website-builder",
+  "code-assistant",
 ]);
 
 const GEMINI_MODEL_ID = /^gemini-[a-z0-9][a-z0-9._-]{1,80}$/i;
@@ -242,8 +253,11 @@ Deno.serve(async (req: Request) => {
 
     const body = await parseBody(req);
     tool = String(body.tool || "ai-chat").trim().slice(0, 100) || "ai-chat";
+    if (!AI_TOOL_IDS.has(tool)) throw new HttpError(400, "Unsupported AI tool");
+    await assertServerToolAvailable(admin, user.id, tool);
 
     if (body.action === "generate-image") {
+      if (tool !== "website-builder") throw new HttpError(403, "Image generation is not available for this tool");
       if (!FAL_KEY) throw new HttpError(503, "Image generation is not configured");
       const prompt = String(body.prompt || "").trim();
       if (!prompt) throw new HttpError(400, "Image prompt is required");

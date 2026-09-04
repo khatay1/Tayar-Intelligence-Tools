@@ -35,7 +35,7 @@ const checks = [
   ['Admin upgrade prompt is hidden in sidebar', workspace.includes('!isAdmin && <div className="px-3 pb-3">')],
   ['Admin panel link is only rendered for admins', workspace.includes('{isAdmin && <a href="#admin"')],
   ['Admin upgrade recommendations are hidden', dashboard.includes("!isAdmin || rec.action !== 'subscription'")],
-  ['Admin workspace upgrade card is hidden', myWorkspace.includes('!isAdmin && <div className="mt-4 relative')],
+  ['Admin workspace upgrade card is hidden', myWorkspace.includes('{!isAdmin && <div className="relative mt-4')],
   ['Settings identifies admin Business access', settings.includes("isAdmin ? l('Admin · Business access')")],
 ];
 

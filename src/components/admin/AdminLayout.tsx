@@ -21,12 +21,7 @@ interface AdminLayoutProps {
 }
 
 const NAV_GROUPS: { label: string; items: { id: AdminView; label: string; icon: typeof Users }[] }[] = [
-  {
-    label: 'Overview',
-    items: [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    ],
-  },
+  { label: 'Overview', items: [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
   {
     label: 'Management',
     items: [
@@ -72,7 +67,6 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
         setUnreadCount(count || 0);
         setNotificationError(false);
       });
-
     return () => { active = false; };
   }, [activeView]);
 
@@ -84,37 +78,42 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [sidebarOpen]);
+
   const initials = (profile?.full_name || 'A').charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#06060f] text-white flex">
-      {/* Background glow */}
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-[#06060f] text-white flex">
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-violet-600/8 rounded-full blur-[140px]" />
         <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-fuchsia-600/6 rounded-full blur-[120px]" />
       </div>
 
-      {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-[#0a0a1a]/80 backdrop-blur-xl border-r border-white/5 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-[100dvh] w-[min(16rem,88vw)] lg:w-64 bg-[#0a0a1a]/95 lg:bg-[#0a0a1a]/80 backdrop-blur-xl border-r border-white/5 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="flex items-center justify-between px-5 h-16 border-b border-white/5">
-          <button onClick={onExitToWorkspace} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-            <div className="relative">
+          <button onClick={onExitToWorkspace} className="flex min-w-0 items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <div className="relative shrink-0">
               <AstronautLogo size={32} />
               <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-violet-600 border-2 border-[#0a0a1a] flex items-center justify-center">
                 <Shield className="w-2.5 h-2.5 text-white" />
               </div>
             </div>
-            <div>
-              <div className="font-bold text-sm text-white">{l('Tayar Admin')}</div>
-              <div className="text-[10px] text-violet-400 font-medium">{l('Control Panel')}</div>
+            <div className="min-w-0 text-left">
+              <div className="font-bold text-sm text-white truncate">{l('Tayar Admin')}</div>
+              <div className="text-[10px] text-violet-400 font-medium truncate">{l('Control Panel')}</div>
             </div>
           </button>
-          <button className="lg:hidden text-gray-400" onClick={() => setSidebarOpen(false)}>
+          <button className="lg:hidden shrink-0 text-gray-400" onClick={() => setSidebarOpen(false)} aria-label={l('Close menu')}>
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto overscroll-contain">
           {NAV_GROUPS.map(group => (
             <div key={l(group.label)}>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-600 px-3 mb-2">{l(group.label)}</div>
@@ -139,7 +138,7 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
           ))}
         </nav>
 
-        <div className="px-3 pb-4 border-t border-white/5 pt-3">
+        <div className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/5 pt-3">
           <div className="flex items-center gap-3 px-2">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">{initials}</div>
             <div className="flex-1 min-w-0">
@@ -155,18 +154,17 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
 
       {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 relative z-10">
-        <header className="sticky top-0 z-30 bg-[#0a0a1a]/70 backdrop-blur-xl border-b border-white/5 h-16 flex items-center px-4 sm:px-6 gap-4">
-          <button className="lg:hidden text-gray-400 hover:text-white" onClick={() => setSidebarOpen(true)}>
+      <div className="flex-1 flex flex-col min-w-0 max-w-full relative z-10">
+        <header className="sticky top-0 z-30 bg-[#0a0a1a]/70 backdrop-blur-xl border-b border-white/5 min-h-16 flex items-center px-3 sm:px-6 gap-2 sm:gap-4 pt-[env(safe-area-inset-top)]">
+          <button className="lg:hidden shrink-0 p-2 -ml-2 text-gray-400 hover:text-white" onClick={() => setSidebarOpen(true)} aria-label={l('Open menu')}>
             <Menu className="w-5 h-5" />
           </button>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold text-white capitalize">
+          <div className="flex-1 min-w-0">
+            <h1 className="truncate text-base sm:text-lg font-bold text-white capitalize">
               {l(NAV_GROUPS.flatMap(g => g.items).find(i => i.id === activeView)?.label || 'Admin')}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-xs font-medium text-emerald-400">{l('Admin Verified')}</span>
@@ -182,14 +180,14 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
               </button>
               {notifOpen && <AdminNotifications />}
             </div>
-            <button onClick={onExitToWorkspace} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5">
+            <button onClick={onExitToWorkspace} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors p-2 sm:px-3 sm:py-1.5 rounded-lg hover:bg-white/5">
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">{l('Exit Admin')}</span>
             </button>
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <main className="flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto p-3 sm:p-6 lg:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {children}
         </main>
       </div>
@@ -230,16 +228,16 @@ function AdminNotifications() {
   };
 
   return (
-    <div className="absolute top-full right-0 mt-2 w-80 bg-[#12122a] border border-white/10 rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden">
-      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-        <span className="text-sm font-semibold text-white">{l('Notifications')}</span>
-        <span className="text-xs text-gray-500">{notifications.filter(n => !n.read).length} unread</span>
+    <div className="absolute top-full right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-[#12122a] border border-white/10 rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
+        <span className="truncate text-sm font-semibold text-white">{l('Notifications')}</span>
+        <span className="shrink-0 text-xs text-gray-500">{notifications.filter(n => !n.read).length} {l('unread')}</span>
       </div>
-      <div className="max-h-80 overflow-y-auto">
+      <div className="max-h-[min(20rem,60dvh)] overflow-y-auto overscroll-contain">
         {loading ? (
           <div className="p-4 text-center text-gray-500 text-sm">{l('Loading...')}</div>
         ) : loadError ? (
-          <div className="p-6 text-center text-amber-400 text-sm">{loadError}</div>
+          <div className="p-6 break-words text-center text-amber-400 text-sm">{loadError}</div>
         ) : notifications.length === 0 ? (
           <div className="p-6 text-center text-gray-500 text-sm">{l('No notifications')}</div>
         ) : (
@@ -250,8 +248,8 @@ function AdminNotifications() {
                   <Activity className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white">{n.title}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{n.message}</div>
+                  <div className="break-words text-sm font-medium text-white">{n.title}</div>
+                  <div className="break-words text-xs text-gray-400 mt-0.5">{n.message}</div>
                 </div>
               </div>
             </div>

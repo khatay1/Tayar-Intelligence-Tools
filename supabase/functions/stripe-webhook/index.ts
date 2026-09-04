@@ -8,16 +8,8 @@ import {
   stripeRequest,
 } from "../_shared/billing.ts";
 
-interface StripeReference {
-  id?: string | null;
-}
-
-interface StripeSubscriptionItem {
-  current_period_end?: unknown;
-  price?: StripeReference | null;
-  plan?: StripeReference | null;
-}
-
+interface StripeReference { id?: string | null; }
+interface StripeSubscriptionItem { current_period_end?: unknown; price?: StripeReference | null; plan?: StripeReference | null; }
 interface StripeSubscription {
   customer?: string | StripeReference | null;
   id?: string | null;
@@ -27,6 +19,13 @@ interface StripeSubscription {
   status?: unknown;
   cancel_at_period_end?: boolean | null;
 }
+interface StripeInvoice {
+  subscription?: string | StripeReference | null;
+  parent?: { subscription_details?: { subscription?: string | StripeReference | null } | null } | null;
+}
+
+const LIVE_PRO_PRICE_ID = "price_1UBuNbPf8BnXUBSOvSHBpzC6";
+const LIVE_BUSINESS_PRICE_ID = "price_1UBuNgPf8BnXUBSOLH3TM9ms";
 
 function hex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -65,8 +64,8 @@ async function verifyStripeSignature(payload: string, header: string, secret: st
 }
 
 function planFromPrice(priceId: string | null | undefined, metadataPlan?: unknown): "free" | "pro" | "business" {
-  const pro = Deno.env.get("STRIPE_PRO_PRICE_ID")?.trim();
-  const business = Deno.env.get("STRIPE_BUSINESS_PRICE_ID")?.trim();
+  const pro = Deno.env.get("STRIPE_PRO_PRICE_ID")?.trim() || LIVE_PRO_PRICE_ID;
+  const business = Deno.env.get("STRIPE_BUSINESS_PRICE_ID")?.trim() || LIVE_BUSINESS_PRICE_ID;
   if (priceId && business && priceId === business) return "business";
   if (priceId && pro && priceId === pro) return "pro";
   const meta = String(metadataPlan || "").toLowerCase();
@@ -76,6 +75,15 @@ function planFromPrice(priceId: string | null | undefined, metadataPlan?: unknow
 function isoFromUnix(value: unknown): string | null {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? new Date(numeric * 1000).toISOString() : null;
+}
+
+function referenceId(value: string | StripeReference | null | undefined): string | null {
+  if (typeof value === "string") return value;
+  return value?.id || null;
+}
+
+function invoiceSubscriptionId(invoice: StripeInvoice | null | undefined): string | null {
+  return referenceId(invoice?.subscription) || referenceId(invoice?.parent?.subscription_details?.subscription);
 }
 
 async function syncSubscription(subscription: StripeSubscription, fallbackUserId?: string | null): Promise<void> {
@@ -113,14 +121,12 @@ async function syncSubscription(subscription: StripeSubscription, fallbackUserId
 }
 
 async function retrieveSubscription(id: string): Promise<StripeSubscription> {
-  // GET requests still authenticate with the server-side Stripe secret.
   getStripeSecret();
   return await stripeRequest<StripeSubscription>(`/v1/subscriptions/${encodeURIComponent(id)}`, { method: "GET" });
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
-
   try {
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim();
     if (!webhookSecret) throw new HttpError(503, "STRIPE_WEBHOOK_SECRET is not configured");
@@ -136,20 +142,15 @@ Deno.serve(async (req: Request) => {
         const subscription = await retrieveSubscription(subscriptionId);
         await syncSubscription(subscription, object?.metadata?.user_id || object?.client_reference_id || null);
       }
-    } else if ([
-      "customer.subscription.created",
-      "customer.subscription.updated",
-      "customer.subscription.deleted",
-    ].includes(event?.type)) {
+    } else if (["customer.subscription.created","customer.subscription.updated","customer.subscription.deleted"].includes(event?.type)) {
       await syncSubscription(object);
-    } else if (event?.type === "invoice.payment_failed") {
-      const subscriptionId = typeof object?.subscription === "string" ? object.subscription : object?.subscription?.id;
+    } else if (["invoice.payment_failed", "invoice.paid"].includes(event?.type)) {
+      const subscriptionId = invoiceSubscriptionId(object as StripeInvoice);
       if (subscriptionId) {
         const subscription = await retrieveSubscription(subscriptionId);
         await syncSubscription(subscription);
       }
     }
-
     return jsonResponse({ received: true });
   } catch (error) {
     return handleError(error);
