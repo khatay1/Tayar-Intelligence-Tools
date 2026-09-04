@@ -1,6 +1,8 @@
-﻿import { Globe } from 'lucide-react';
+import { lazy } from 'react';
+import { Globe } from 'lucide-react';
 import { toolRegistry } from '../registry';
-import WebsiteBuilderTool from './WebsiteBuilderTool';
+
+const WebsiteBuilderTool = lazy(() => import('./WebsiteBuilderTool'));
 
 toolRegistry.register({
   id: 'website-builder',
@@ -13,5 +15,3 @@ toolRegistry.register({
   icon: Globe,
   component: WebsiteBuilderTool,
 });
-
-
