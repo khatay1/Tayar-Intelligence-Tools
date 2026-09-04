@@ -35,6 +35,10 @@ function planSettingKey(plan: PaidPlan) {
   return plan === "pro" ? "stripe_pro_price_id" : "stripe_business_price_id";
 }
 
+function publicPriceSettingKey(plan: PaidPlan) {
+  return `stripe_${plan}_price_public`;
+}
+
 async function currentPriceId(admin: ReturnType<typeof createAdminClient>, plan: PaidPlan): Promise<string> {
   const key = planSettingKey(plan);
   const { data } = await admin.from("admin_settings").select("value").eq("key", key).maybeSingle();
@@ -93,14 +97,20 @@ Deno.serve(async (req: Request) => {
       const price = await stripeRequest<{ id: string; active?: boolean; currency?: string; unit_amount?: number; recurring?: { interval?: string }; livemode?: boolean }>("/v1/prices", { params });
       if (!price.id) throw new HttpError(502, "Stripe did not return a new price ID");
 
-      const { error } = await admin.from("admin_settings").upsert({
-        key: planSettingKey(plan),
-        value: price.id,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "key" });
+      const publicPrice = {
+        priceId: price.id,
+        unitAmount: price.unit_amount ?? unitAmount,
+        currency: price.currency || currency,
+        interval: price.recurring?.interval === "year" ? "year" : "month",
+      };
+      const updatedAt = new Date().toISOString();
+      const { error } = await admin.from("admin_settings").upsert([
+        { key: planSettingKey(plan), value: price.id, updated_at: updatedAt },
+        { key: publicPriceSettingKey(plan), value: publicPrice, updated_at: updatedAt },
+      ], { onConflict: "key" });
       if (error) throw new HttpError(500, "The Stripe price was created but Tayar could not activate it");
 
-      return jsonResponse({ ok: true, plan, previousPriceId, price });
+      return jsonResponse({ ok: true, plan, previousPriceId, price, publicPrice });
     }
 
     if (action === "create_coupon") {
