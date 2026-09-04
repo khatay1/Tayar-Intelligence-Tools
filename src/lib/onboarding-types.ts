@@ -43,11 +43,11 @@ export const ACHIEVEMENTS = [
 ] as const;
 
 export const USER_TYPES: { id: UserType; label: string; labelAr: string; labelSv: string; icon: string; description: string }[] = [
-  { id: 'student', label: 'Student', labelAr: 'طالب', labelSv: 'Student', icon: 'GraduationCap', description: 'Study smarter with AI-powered tools' },
-  { id: 'job-seeker', label: 'Job Seeker', labelAr: 'باحث عن عمل', labelSv: 'Jobbsökande', icon: 'Briefcase', description: 'Create standout CVs and cover letters' },
-  { id: 'professional', label: 'Professional', labelAr: 'محترف', labelSv: 'Professionell', icon: 'User', description: 'Boost productivity with AI automation' },
-  { id: 'business-owner', label: 'Business Owner', labelAr: 'صاحب عمل', labelSv: 'Företagare', icon: 'Building2', description: 'Scale your business with AI solutions' },
-  { id: 'freelancer', label: 'Freelancer', labelAr: 'مستقل', labelSv: 'Freelancer', icon: 'Laptop', description: 'Deliver more for clients, faster' },
+  { id: 'student', label: 'Student', labelAr: 'طالب', labelSv: 'Student', icon: 'GraduationCap', description: 'Study, write and organize work with focused tools' },
+  { id: 'job-seeker', label: 'Job Seeker', labelAr: 'باحث عن عمل', labelSv: 'Jobbsökande', icon: 'Briefcase', description: 'Build CVs, cover letters and job-ready documents' },
+  { id: 'professional', label: 'Professional', labelAr: 'محترف', labelSv: 'Professionell', icon: 'User', description: 'Create documents and everyday work from one workspace' },
+  { id: 'business-owner', label: 'Business Owner', labelAr: 'صاحب عمل', labelSv: 'Företagare', icon: 'Building2', description: 'Build your web presence and manage business workflows' },
+  { id: 'freelancer', label: 'Freelancer', labelAr: 'مستقل', labelSv: 'Freelancer', icon: 'Laptop', description: 'Build, write and deliver client work from one workspace' },
 ];
 
 export const LANGUAGES: { code: Language; label: string; labelNative: string; flag: string }[] = [
@@ -64,6 +64,7 @@ export const COUNTRIES = [
 ];
 
 export const GOALS = [
+  { id: 'build-website', label: 'Build and publish a website', icon: 'Rocket' },
   { id: 'create-cv', label: 'Create a professional CV', icon: 'FileText' },
   { id: 'write-content', label: 'Write articles and content', icon: 'PenLine' },
   { id: 'translate-docs', label: 'Translate documents', icon: 'Languages' },
@@ -74,30 +75,38 @@ export const GOALS = [
   { id: 'cover-letters', label: 'Write cover letters', icon: 'Mail' },
 ] as const;
 
-// Tool recommendations based on user type
+// Tool recommendations based on user type and primary goal.
 export function getRecommendedTools(userType: UserType, goal: string): string[] {
   const base: Record<UserType, string[]> = {
-    'student': ['study-assistant', 'cv-builder', 'translator', 'ai-writer', 'document-ai'],
+    'student': ['study-assistant', 'translator', 'document-ai', 'ai-writer', 'cv-builder'],
     'job-seeker': ['cv-builder', 'cover-letter', 'document-ai', 'ai-writer', 'translator'],
-    'professional': ['document-ai', 'ai-writer', 'translator', 'cv-builder', 'cover-letter'],
-    'business-owner': ['ai-writer', 'document-ai', 'translator', 'cover-letter', 'cv-builder'],
-    'freelancer': ['cv-builder', 'cover-letter', 'ai-writer', 'translator', 'document-ai'],
+    'professional': ['document-ai', 'website-builder', 'ai-writer', 'translator', 'cv-builder'],
+    'business-owner': ['website-builder', 'ai-writer', 'document-ai', 'translator', 'invoice-generator'],
+    'freelancer': ['website-builder', 'cv-builder', 'cover-letter', 'ai-writer', 'translator'],
   };
   const tools = [...base[userType]];
-  // Adjust based on goal
-  if (goal === 'create-cv' && !tools.includes('cv-builder')) tools.unshift('cv-builder');
-  if (goal === 'write-content' && !tools.includes('ai-writer')) tools.unshift('ai-writer');
-  if (goal === 'translate-docs' && !tools.includes('translator')) tools.unshift('translator');
-  if (goal === 'study-better' && !tools.includes('study-assistant')) tools.unshift('study-assistant');
-  if (goal === 'analyze-documents' && !tools.includes('document-ai')) tools.unshift('document-ai');
-  if (goal === 'cover-letters' && !tools.includes('cover-letter')) tools.unshift('cover-letter');
+
+  const prioritize = (toolId: string) => {
+    const index = tools.indexOf(toolId);
+    if (index >= 0) tools.splice(index, 1);
+    tools.unshift(toolId);
+  };
+
+  if (goal === 'build-website' || goal === 'grow-business') prioritize('website-builder');
+  if (goal === 'create-cv') prioritize('cv-builder');
+  if (goal === 'write-content') prioritize('ai-writer');
+  if (goal === 'translate-docs') prioritize('translator');
+  if (goal === 'study-better') prioritize('study-assistant');
+  if (goal === 'analyze-documents') prioritize('document-ai');
+  if (goal === 'cover-letters') prioritize('cover-letter');
+
   return tools.slice(0, 5);
 }
 
 export const TOUR_STEPS = [
-  { id: 'dashboard', title: 'Dashboard', description: 'Your command center. Browse all AI tools, see recommendations, and track your activity.', target: '[data-tour="dashboard"]' },
-  { id: 'workspace', title: 'AI Workspace', description: 'Your personal workspace where all your tools and projects live.', target: '[data-tour="workspace"]' },
-  { id: 'files', title: 'My Files', description: 'All your documents, resumes, and exports are saved here automatically.', target: '[data-tour="files"]' },
-  { id: 'ai-chat', title: 'AI Chat', description: 'Chat with your AI assistant anytime. Ask questions, get suggestions, and more.', target: '[data-tour="ai-chat"]' },
-  { id: 'cv-builder', title: 'CV Builder', description: 'Create ATS-friendly resumes with AI-powered writing assistance.', target: '[data-tour="cv-builder"]' },
+  { id: 'dashboard', title: 'Dashboard', description: 'Browse your tools, recommendations and recent activity from one place.', target: '[data-tour="dashboard"]' },
+  { id: 'workspace', title: 'My Workspace', description: 'Your projects, files and everyday work stay together here.', target: '[data-tour="my-workspace"]' },
+  { id: 'website-builder', title: 'Website Builder', description: 'Build and publish a responsive website with manual controls and guided workflows.', target: '[data-tour="website-builder"]' },
+  { id: 'files', title: 'My Files', description: 'Find saved documents, exports and project files without hunting across tools.', target: '[data-tour="my-files"]' },
+  { id: 'subscription', title: 'Subscription', description: 'See your current plan, included limits and billing options in one place.', target: '[data-tour="subscription"]' },
 ] as const;
