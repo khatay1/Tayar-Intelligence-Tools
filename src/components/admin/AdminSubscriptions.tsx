@@ -38,7 +38,21 @@ interface SubRow {
   plan: string;
   status: string;
   renewal_date: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
   created_at: string;
+}
+
+function isPaidPlan(plan: string) {
+  return plan === 'pro' || plan === 'business';
+}
+
+function isLiveSubscriptionStatus(status: string) {
+  return status === 'active' || status === 'trialing';
+}
+
+function rowDate(row: SubRow) {
+  return row.current_period_end || row.renewal_date;
 }
 
 export default function AdminSubscriptions() {
@@ -59,7 +73,7 @@ export default function AdminSubscriptions() {
     const [subscriptionsRes, usersRes] = await Promise.all([
       supabase
         .from('subscriptions')
-        .select('id, user_id, plan, status, renewal_date, created_at')
+        .select('id, user_id, plan, status, renewal_date, current_period_end, cancel_at_period_end, created_at')
         .order('created_at', { ascending: false }),
       supabase.rpc('admin_list_users'),
     ]);
@@ -120,18 +134,32 @@ export default function AdminSubscriptions() {
     );
   }
 
+  const now = new Date();
   const planPrices: Record<string, number> = { pro: 19, business: 49, free: 0 };
-  const active = subs.filter(s => s.status === 'active' || s.status === 'trialing');
-  const revenue = active.reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0);
-  const renewals = active.filter(s => s.renewal_date && new Date(s.renewal_date) > new Date());
-  const failed = subs.filter(s => ['expired', 'canceled', 'unpaid'].includes(s.status));
-  const pastDue = subs.filter(s => s.status === 'past_due');
+  const activePaid = subs.filter(s => isPaidPlan(s.plan) && isLiveSubscriptionStatus(s.status));
+  const revenue = activePaid.reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0);
+  const renewals = activePaid.filter(s => !s.cancel_at_period_end && rowDate(s) && new Date(rowDate(s) as string) > now);
+  const scheduledCancellations = activePaid.filter(s => s.cancel_at_period_end && rowDate(s) && new Date(rowDate(s) as string) > now);
+  const pastDue = subs.filter(s => isPaidPlan(s.plan) && s.status === 'past_due');
+  const failed = subs.filter(s => isPaidPlan(s.plan) && ['unpaid', 'incomplete_expired'].includes(s.status));
+  const currentRows = subs.filter(s => !['canceled', 'incomplete_expired'].includes(s.status));
 
   const byPlan = ['free', 'pro', 'business'].map(p => ({
-    label: p, value: subs.filter(s => s.plan === p).length,
+    label: p,
+    value: currentRows.filter(s => s.plan === p).length,
   }));
 
-  const filtered = filter === 'all' ? subs : filter === 'active' ? active : filter === 'past_due' ? pastDue : filter === 'failed' ? failed : renewals;
+  const filtered = filter === 'all'
+    ? subs
+    : filter === 'active'
+      ? activePaid
+      : filter === 'past_due'
+        ? pastDue
+        : filter === 'failed'
+          ? failed
+          : filter === 'cancellations'
+            ? scheduledCancellations
+            : renewals;
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
@@ -158,11 +186,12 @@ export default function AdminSubscriptions() {
           onRefresh={() => void loadBillingStatus()}
         />
       ) : <>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
           { label: 'Est. MRR', value: `${revenue}`, icon: TrendingUp, color: 'emerald' },
-          { label: 'Active Subs', value: active.length, icon: CheckCircle, color: 'violet' },
+          { label: 'Paid Active', value: activePaid.length, icon: CheckCircle, color: 'violet' },
           { label: 'Upcoming Renewals', value: renewals.length, icon: RefreshCw, color: 'blue' },
+          { label: 'Scheduled Cancellations', value: scheduledCancellations.length, icon: XCircle, color: 'amber' },
           { label: 'Past Due / Grace', value: pastDue.length, icon: AlertCircle, color: 'blue' },
           { label: 'Failed Payments', value: failed.length, icon: AlertCircle, color: 'red' },
         ].map(s => {
@@ -170,6 +199,7 @@ export default function AdminSubscriptions() {
             emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
             violet: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
             blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+            amber: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
             red: 'bg-red-500/10 text-red-400 border-red-500/20',
           };
           const Icon = s.icon;
@@ -184,22 +214,25 @@ export default function AdminSubscriptions() {
       </div>
 
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-        <h3 className="text-white font-semibold text-sm mb-4">{l('Subscriptions by Plan')}</h3>
+        <h3 className="text-white font-semibold text-sm mb-4">{l('Current subscriptions by plan')}</h3>
         <BarChart data={byPlan} color="#a78bfa" height={180} />
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {['all', 'active', 'past_due', 'renewals', 'failed'].map(f => (
-          <button
-            key={l(f === 'all' ? 'All' : f === 'active' ? 'Active' : f === 'past_due' ? 'Past Due' : f === 'renewals' ? 'Renewals' : 'Failed')}
-            onClick={() => setFilter(f)}
-            className={`text-xs font-medium px-3 py-1.5 rounded-full capitalize transition-colors ${
-              filter === f ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
-            }`}
-          >
-            {l(f === 'all' ? 'All' : f === 'active' ? 'Active' : f === 'past_due' ? 'Past Due' : f === 'renewals' ? 'Renewals' : 'Failed')}
-          </button>
-        ))}
+        {['all', 'active', 'past_due', 'renewals', 'cancellations', 'failed'].map(f => {
+          const label = f === 'all' ? 'All' : f === 'active' ? 'Paid Active' : f === 'past_due' ? 'Past Due' : f === 'renewals' ? 'Renewals' : f === 'cancellations' ? 'Cancellations' : 'Failed';
+          return (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`text-xs font-medium px-3 py-1.5 rounded-full capitalize transition-colors ${
+                filter === f ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+              }`}
+            >
+              {l(label)}
+            </button>
+          );
+        })}
       </div>
 
       <div className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
@@ -210,40 +243,54 @@ export default function AdminSubscriptions() {
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('User')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('Plan')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{l('Status')}</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden sm:table-cell">{l('Renewal Date')}</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden sm:table-cell">{l('Billing / Access Date')}</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3 hidden md:table-cell">{l('Created')}</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(s => (
-                <tr key={s.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="max-w-[260px] truncate text-sm text-gray-300">{userLabels[s.user_id] || s.user_id}</div>
-                    <div className="text-[10px] font-mono text-gray-600">{s.user_id.slice(0, 8)}...</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                      s.plan === 'pro' ? 'bg-fuchsia-500/10 text-fuchsia-400' :
-                      s.plan === 'business' ? 'bg-cyan-500/10 text-cyan-400' :
-                      'bg-gray-500/10 text-gray-400'
-                    }`}>{l(s.plan)}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`flex items-center gap-1 text-xs font-medium ${
-                      s.status === 'active' || s.status === 'trialing' ? 'text-emerald-400' : 'text-red-400'
-                    }`}>
-                      {s.status === 'active' || s.status === 'trialing' ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                      {s.status === 'past_due' ? l('past_due · 3-day grace') : l(s.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-400 hidden sm:table-cell">
-                    {s.renewal_date ? new Date(s.renewal_date).toLocaleDateString() : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">
-                    {new Date(s.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
+              {filtered.map(s => {
+                const live = isLiveSubscriptionStatus(s.status);
+                const scheduled = live && s.cancel_at_period_end;
+                const date = rowDate(s);
+                const statusText = scheduled
+                  ? l('Active · cancels at period end')
+                  : s.status === 'past_due'
+                    ? l('past_due · 3-day grace')
+                    : l(s.status);
+                const statusClass = scheduled ? 'text-amber-300' : live ? 'text-emerald-400' : s.status === 'past_due' ? 'text-amber-300' : 'text-red-400';
+                return (
+                  <tr key={s.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="max-w-[260px] truncate text-sm text-gray-300">{userLabels[s.user_id] || s.user_id}</div>
+                      <div className="text-[10px] font-mono text-gray-600">{s.user_id.slice(0, 8)}...</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                        s.plan === 'pro' ? 'bg-fuchsia-500/10 text-fuchsia-400' :
+                        s.plan === 'business' ? 'bg-cyan-500/10 text-cyan-400' :
+                        'bg-gray-500/10 text-gray-400'
+                      }`}>{l(s.plan)}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`flex items-center gap-1 text-xs font-medium ${statusClass}`}>
+                        {live && !scheduled ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                        {statusText}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-400 hidden sm:table-cell">
+                      {date ? (
+                        <div>
+                          <div>{new Date(date).toLocaleDateString()}</div>
+                          {isPaidPlan(s.plan) && live && <div className="text-[10px] text-gray-600">{l(scheduled ? 'Access until' : 'Renews on')}</div>}
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">
+                      {new Date(s.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
