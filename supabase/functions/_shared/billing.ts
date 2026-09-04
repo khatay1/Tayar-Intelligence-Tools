@@ -92,10 +92,11 @@ export async function assertServerToolAvailable(
     console.error("[TOOL ACCESS] Failed to load plan access state");
     throw new HttpError(503, "Tool access could not be verified");
   }
+  if (!rule) throw new HttpError(503, "Tool access is not configured");
 
   const effectivePlan = typeof planData === "string" ? planData : "free";
-  const requiredPlan = typeof rule?.minimum_plan === "string" ? rule.minimum_plan : "free";
-  if (rule?.enabled === false) throw new HttpError(503, "This tool is temporarily unavailable");
+  const requiredPlan = typeof rule.minimum_plan === "string" ? rule.minimum_plan : "free";
+  if (rule.enabled === false) throw new HttpError(503, "This tool is temporarily unavailable");
   if (planRank(effectivePlan) < planRank(requiredPlan)) {
     throw new HttpError(403, "Your current plan does not include this tool");
   }
@@ -110,7 +111,7 @@ export async function assertServerToolAvailable(
     console.error("[TOOL ACCESS] Failed to load tool quota");
     throw new HttpError(503, "Tool limits could not be verified");
   }
-  if (!limits) return;
+  if (!limits) throw new HttpError(503, "Tool limits are not configured");
 
   const rawLimit = effectivePlan === "business"
     ? limits.business_limit
