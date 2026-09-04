@@ -141,7 +141,7 @@ async function loadAllowedTextModels(admin: ReturnType<typeof createAdminClient>
   return allowed;
 }
 
-async function resolveFallbackGeminiModel(admin: ReturnType<typeof createAdminClient>, userId: string, tool: string): Promise<string> {
+async function resolveTextModel(admin: ReturnType<typeof createAdminClient>, userId: string, tool: string): Promise<string> {
   const allowedModels = await loadAllowedTextModels(admin);
   const { data: toolSetting, error: toolError } = await admin.from("ai_settings").select("model").eq("user_id", userId).eq("tool", tool).maybeSingle();
   if (toolError) console.error("[AI ENGINE] Failed to read per-tool model setting");
@@ -218,7 +218,6 @@ async function callGemini(baseUrl: string, apiSecret: string, model: string, mes
     contents: chatMessages.map((message) => ({ role: message.role === "assistant" ? "model" : "user", parts: [{ text: message.content }] })),
     generationConfig: {
       maxOutputTokens: Math.floor(clampNumber(body.maxTokens, 4096, 1, MAX_OUTPUT_TOKENS)),
-      temperature: clampNumber(body.temperature, 0.7, 0, 2),
       ...(body.jsonMode ? { responseMimeType: "application/json" } : {}),
     },
   };
@@ -302,7 +301,7 @@ async function runTextProvider(admin: ReturnType<typeof createAdminClient>, user
     return callOpenAICompatible(managed.base_url, managed.api_secret, managed.default_model, messages, body, managed.provider_key);
   }
   if (!GEMINI_API_KEY) throw new HttpError(503, "AI provider is not configured");
-  const model = await resolveFallbackGeminiModel(admin, userId, tool);
+  const model = await resolveTextModel(admin, userId, tool);
   return callGemini("https://generativelanguage.googleapis.com", GEMINI_API_KEY, model, messages, body, "gemini");
 }
 
