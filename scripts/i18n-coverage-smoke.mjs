@@ -52,8 +52,10 @@ function extractPhraseMapKeys(source, startMarker, endMarker) {
   if (start < 0 || end < 0) return new Set();
   const section = source.slice(start, end);
   const keys = new Set();
-  for (const match of section.matchAll(/'((?:\\'|[^'])+)'\s*:/g)) {
-    keys.add(match[1].replace(/\\'/g, "'"));
+  const keyPattern = /(?:'((?:\\'|[^'])+)'|"((?:\\"|[^"])+)")\s*:/g;
+  for (const match of section.matchAll(keyPattern)) {
+    const raw = match[1] ?? match[2];
+    keys.add(raw.replace(/\\'/g, "'").replace(/\\"/g, '"'));
   }
   return keys;
 }
