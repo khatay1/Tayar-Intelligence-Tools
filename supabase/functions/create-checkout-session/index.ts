@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
+  assertOperationEnabled,
   corsHeaders,
   createAdminClient,
   handleError,
@@ -45,6 +46,8 @@ Deno.serve(async (req: Request) => {
     if (plan !== "pro" && plan !== "business") throw new HttpError(400, "Choose Pro or Business");
 
     const admin = createAdminClient();
+    await assertOperationEnabled(admin, "checkout");
+
     const [{ data: existing, error }, priceId] = await Promise.all([
       admin
         .from("subscriptions")
