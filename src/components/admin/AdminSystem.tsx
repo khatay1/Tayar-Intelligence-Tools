@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Settings, Bell, Mail, Database, Key, Flag, FileText,
   Loader2, Save, RefreshCw, AlertTriangle,
-  Power, ShieldBan, Activity, CheckCircle, XCircle,
+  ShieldBan, Activity, CheckCircle, XCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -74,13 +74,7 @@ export default function AdminSystem() {
   );
 }
 
-const SYSTEM_SETTING_KEYS = [
-  'platform_name',
-  'default_ai_provider',
-  'max_free_requests',
-  'maintenance_mode',
-  'signup_enabled',
-] as const;
+const SYSTEM_SETTING_KEYS = ['signup_enabled'] as const;
 
 function SettingsTab() {
   const l = useLocalizer();
@@ -117,73 +111,52 @@ function SettingsTab() {
 
   async function save() {
     setSaving(true);
-    const entries = SYSTEM_SETTING_KEYS.map((key) => {
-      const value = settings[key] ?? '';
-      let storedValue: string | number | boolean = value;
-      if (key === 'maintenance_mode' || key === 'signup_enabled') storedValue = value === 'true';
-      if (key === 'max_free_requests') storedValue = Math.max(0, Number(value) || 0);
-      return { key, value: storedValue, updated_at: new Date().toISOString() };
-    });
-
-    for (const entry of entries) {
-      const { error } = await supabase.from('admin_settings').upsert(entry, { onConflict: 'key' });
-      if (error) {
-        setSaving(false);
-        showError(error.message || l('Failed to save settings'));
-        return;
-      }
-    }
+    const { error } = await supabase.from('admin_settings').upsert({
+      key: 'signup_enabled',
+      value: settings.signup_enabled === 'true',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' });
 
     setSaving(false);
+    if (error) {
+      showError(error.message || l('Failed to save settings'));
+      return;
+    }
     success(l('Settings saved'));
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
 
-  const fields = [
-    { key: 'platform_name', label: 'Platform Name', type: 'text' },
-    { key: 'default_ai_provider', label: 'Default AI Provider', type: 'text' },
-    { key: 'max_free_requests', label: 'Max Free Requests/day', type: 'number' },
-    { key: 'maintenance_mode', label: 'Maintenance Mode', type: 'toggle' },
-    { key: 'signup_enabled', label: 'Signup Enabled', type: 'toggle' },
-  ];
-
   return (
-    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h3 className="text-white font-semibold">{l('Platform Settings')}</h3>
-          <p className="text-gray-500 text-sm">{l('Configure global platform behavior')}</p>
-        </div>
-        <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? l('Saving...') : l('Save')}
-        </button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {fields.map(f => (
-          <div key={f.key}>
-            <label className="text-xs text-gray-400 mb-1.5 block font-medium">{l(f.label)}</label>
-            {f.type === 'toggle' ? (
-              <button
-                onClick={() => setSettings(prev => ({ ...prev, [f.key]: prev[f.key] === 'true' ? 'false' : 'true' }))}
-                className="flex items-center gap-2"
-              >
-                <div className={`w-11 h-6 rounded-full transition-colors ${settings[f.key] === 'true' ? 'bg-emerald-500' : 'bg-gray-700'}`}>
-                  <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings[f.key] === 'true' ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </div>
-                <span className="text-sm text-gray-300">{settings[f.key] === 'true' ? l('Enabled') : l('Disabled')}</span>
-              </button>
-            ) : (
-              <input
-                type={f.type}
-                value={settings[f.key] || ''}
-                onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/40"
-              />
-            )}
+    <div className="space-y-4">
+      <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-5">
+          <div className="min-w-0">
+            <h3 className="text-white font-semibold">{l('Platform Settings')}</h3>
+            <p className="text-gray-500 text-sm">{l('Only runtime-enforced platform settings are editable here.')}</p>
           </div>
-        ))}
+          <button onClick={save} disabled={saving} className="inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-50 transition-colors">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? l('Saving...') : l('Save')}
+          </button>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+          <label className="text-xs text-gray-400 mb-2 block font-medium">{l('Signup Enabled')}</label>
+          <button
+            onClick={() => setSettings(prev => ({ ...prev, signup_enabled: prev.signup_enabled === 'true' ? 'false' : 'true' }))}
+            className="flex min-h-11 items-center gap-3"
+          >
+            <div className={`w-11 h-6 rounded-full transition-colors ${settings.signup_enabled === 'true' ? 'bg-emerald-500' : 'bg-gray-700'}`}>
+              <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings.signup_enabled === 'true' ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </div>
+            <span className="text-sm text-gray-300">{settings.signup_enabled === 'true' ? l('Enabled') : l('Disabled')}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/[0.05] p-4 text-sm text-gray-300">
+        <div className="font-medium text-blue-200">{l('Authoritative controls')}</div>
+        <p className="mt-1 text-xs leading-5 text-gray-400">{l('Tool access and quotas are managed in Tools. AI provider and model controls are managed in AI Management. Legacy settings that do not enforce runtime behavior are intentionally hidden here.')}</p>
       </div>
     </div>
   );
@@ -255,7 +228,6 @@ function LogsTab() {
     </div>
   );
 }
-
 
 function BlocksTab() {
   const l = useLocalizer();
@@ -589,9 +561,9 @@ function BackupsTab() {
     </div>
   );
 }
+
 function ApiKeysTab() {
   const l = useLocalizer();
-  const { success, error: showError } = useToast();
   const [keys, setKeys] = useState<{ id: string; service: string; label: string; status: string; last_used: string | null; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -611,41 +583,44 @@ function ApiKeysTab() {
 
   useEffect(() => { void load(); }, [load]);
 
-  async function toggleStatus(key: { id: string; status: string }) {
-    const newStatus = key.status === 'active' ? 'inactive' : 'active';
-    const { error } = await supabase.from('api_keys').update({ status: newStatus }).eq('id', key.id);
-    if (error) showError('Failed to update key');
-    else { success('API key updated'); void load(); }
-  }
-
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
   if (loadError) return <AdminTabError title={l('API key metadata unavailable')} message={loadError} onRetry={() => void load()} />;
 
   return (
-    <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-white font-semibold text-sm">{l('API Keys')}</h3>
-          <p className="text-gray-500 text-xs">{l('Manage external service API keys')}</p>
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.05] p-4 flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-white">{l('API key inventory only')}</div>
+          <p className="mt-1 text-xs leading-5 text-gray-400">{l('These rows are metadata and do not enable or disable the production secrets used by Edge Functions. Rotate or remove live secrets in Supabase project secrets.')}</p>
         </div>
-        <span className="text-[10px] text-gray-500 text-right">{l('Metadata only — secrets stay server-side')}</span>
       </div>
-      <div className="space-y-2">
-        {keys.map(k => (
-          <div key={k.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${k.status === 'active' ? 'bg-emerald-500/10' : 'bg-gray-500/10'}`}>
-              <Key className={`w-4.5 h-4.5 ${k.status === 'active' ? 'text-emerald-400' : 'text-gray-500'}`} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white">{k.label}</div>
-              <div className="text-xs text-gray-500 capitalize">{k.service} · Added {new Date(k.created_at).toLocaleDateString()}</div>
-            </div>
-            {k.last_used && <span className="text-xs text-gray-600 hidden sm:block">Last used: {new Date(k.last_used).toLocaleDateString()}</span>}
-            <button onClick={() => toggleStatus(k)} className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors ${k.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
-              <Power className="w-3 h-3" /> {k.status}
-            </button>
+
+      <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <div className="min-w-0">
+            <h3 className="text-white font-semibold text-sm">{l('API Keys')}</h3>
+            <p className="text-gray-500 text-xs">{l('Read-only service metadata')}</p>
           </div>
-        ))}
+          <span className="text-[10px] text-gray-500 text-right">{l('Metadata only — secrets stay server-side')}</span>
+        </div>
+        <div className="space-y-2">
+          {keys.map(k => (
+            <div key={k.id} className="flex flex-col gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 sm:flex-row sm:items-center">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${k.status === 'active' ? 'bg-emerald-500/10' : 'bg-gray-500/10'}`}>
+                <Key className={`w-4.5 h-4.5 ${k.status === 'active' ? 'text-emerald-400' : 'text-gray-500'}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-white">{k.label}</div>
+                <div className="text-xs text-gray-500 capitalize">{k.service} · Added {new Date(k.created_at).toLocaleDateString()}</div>
+              </div>
+              {k.last_used && <span className="text-xs text-gray-600">Last used: {new Date(k.last_used).toLocaleDateString()}</span>}
+              <span className={`inline-flex w-fit items-center gap-1.5 text-xs px-2.5 py-1 rounded-full ${k.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
+                <Key className="w-3 h-3" /> {k.status} metadata
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

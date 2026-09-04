@@ -29,6 +29,8 @@ export interface RevenuePoint { month: string; revenue: number; }
 export interface AIUsagePoint { date: string; requests: number; tokens: number; }
 export interface ToolPopularityPoint { tool: string; count: number; }
 
+const BILLING_ACTIVE_STATUSES = new Set(['active', 'trialing']);
+
 export function useDashboardStats() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,14 +57,16 @@ export function useDashboardStats() {
 
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const newUsersToday = profiles.filter(p => new Date(p.created_at) >= today).length;
-      const activeSubscriptions = subs.filter(s => s.status === 'active' && s.plan !== 'free').length;
+      const activeSubscriptions = subs.filter(s => BILLING_ACTIVE_STATUSES.has(s.status) && s.plan !== 'free').length;
 
+      // Estimated MRR at the current public plan prices. This is intentionally
+      // a run-rate estimate, not recognized revenue from Stripe invoices.
       const planPrices: Record<string, number> = { pro: 19, business: 49, enterprise: 99 };
       const monthlyRevenue = subs
-        .filter(s => s.status === 'active')
+        .filter(s => BILLING_ACTIVE_STATUSES.has(s.status))
         .reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0);
 
-      // Active users: users with AI requests in last 7 days
+      // AI-active users: users with AI requests in the last 7 days.
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
       const activeUserIds = new Set(aiUsage.filter(u => new Date(u.created_at) >= weekAgo).map(u => u.user_id).filter(Boolean));
 
@@ -147,21 +151,22 @@ export function useRevenueData() {
       const subsData = (subs || []) as { plan: string; status: string; created_at: string }[];
       const planPrices: Record<string, number> = { pro: 19, business: 49, enterprise: 99, free: 0 };
 
-      // Last 6 months
-      const months: Record<string, number> = {};
+      // Last six subscription-start cohorts. Use a year-month key so an old
+      // subscription from the same month name cannot leak into the current year.
+      const months: Record<string, { month: string; revenue: number }> = {};
       const now = new Date();
       for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const key = d.toLocaleString('en', { month: 'short' });
-        months[key] = 0;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        months[key] = { month: d.toLocaleString('en', { month: 'short' }), revenue: 0 };
       }
       for (const s of subsData) {
-        if (s.status !== 'active') continue;
+        if (!BILLING_ACTIVE_STATUSES.has(s.status)) continue;
         const d = new Date(s.created_at);
-        const key = d.toLocaleString('en', { month: 'short' });
-        if (key in months) months[key] += planPrices[s.plan] || 0;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (months[key]) months[key].revenue += planPrices[s.plan] || 0;
       }
-      setData(Object.entries(months).map(([month, revenue]) => ({ month, revenue })));
+      setData(Object.values(months));
       setLoading(false);
     })();
   }, []);
