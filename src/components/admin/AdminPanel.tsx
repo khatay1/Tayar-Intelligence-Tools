@@ -4,6 +4,7 @@ import { Loader2, ShieldAlert } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import AdminLayout, { AdminView } from './AdminLayout';
 import AdminDashboard from './AdminDashboard';
+import AdminConfigurationCenter from './AdminConfigurationCenter';
 import AdminUsers from './AdminUsers';
 import AdminAI from './AdminAI';
 import AdminTools from './AdminTools';
@@ -73,7 +74,7 @@ export default function AdminPanel({ onExitToWorkspace }: AdminPanelProps) {
 
   return (
     <AdminLayout activeView={view} onViewChange={setView} onExitToWorkspace={onExitToWorkspace}>
-      {view === 'dashboard' && <AdminDashboard />}
+      {view === 'dashboard' && <div className="space-y-6"><AdminConfigurationCenter onNavigate={setView} /><AdminDashboard /></div>}
       {view === 'users' && <AdminUsers />}
       {view === 'ai' && <AdminAI />}
       {view === 'tools' && <AdminTools />}
