@@ -52,7 +52,7 @@ export const arSupplement: PhraseMap = {
   'This tool has been disabled by the administrator.': 'تم تعطيل هذه الأداة بواسطة المسؤول.',
   'Usage limit reached': 'تم بلوغ حد الاستخدام',
   'View plans': 'عرض الخطط',
-  'Website published successfully. Release history was skipped: ': 'تم نشر الموقع بنجاح. تم تخطي سجل الإصدارات: ',
+  'Website published successfully. Release history was skipped:': 'تم نشر الموقع بنجاح. تم تخطي سجل الإصدارات:',
 };
 
 export const svSupplement: PhraseMap = {
@@ -103,7 +103,7 @@ export const svSupplement: PhraseMap = {
   'This tool has been disabled by the administrator.': 'Det här verktyget har inaktiverats av administratören.',
   'Usage limit reached': 'Användningsgränsen har nåtts',
   'View plans': 'Visa planer',
-  'Website published successfully. Release history was skipped: ': 'Webbplatsen publicerades. Versionshistoriken hoppades över: ',
+  'Website published successfully. Release history was skipped:': 'Webbplatsen publicerades. Versionshistoriken hoppades över:',
 };
 
 const supplementalMaps: Record<Language, PhraseMap> = { en: {}, ar: arSupplement, sv: svSupplement };
