@@ -28,6 +28,15 @@ interface StripeSubscription {
   cancel_at_period_end?: boolean | null;
 }
 
+interface StripeInvoice {
+  subscription?: string | StripeReference | null;
+  parent?: {
+    subscription_details?: {
+      subscription?: string | StripeReference | null;
+    } | null;
+  } | null;
+}
+
 function hex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -76,6 +85,16 @@ function planFromPrice(priceId: string | null | undefined, metadataPlan?: unknow
 function isoFromUnix(value: unknown): string | null {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? new Date(numeric * 1000).toISOString() : null;
+}
+
+function referenceId(value: string | StripeReference | null | undefined): string | null {
+  if (typeof value === "string") return value;
+  return value?.id || null;
+}
+
+function invoiceSubscriptionId(invoice: StripeInvoice | null | undefined): string | null {
+  return referenceId(invoice?.subscription)
+    || referenceId(invoice?.parent?.subscription_details?.subscription);
 }
 
 async function syncSubscription(subscription: StripeSubscription, fallbackUserId?: string | null): Promise<void> {
@@ -142,8 +161,8 @@ Deno.serve(async (req: Request) => {
       "customer.subscription.deleted",
     ].includes(event?.type)) {
       await syncSubscription(object);
-    } else if (event?.type === "invoice.payment_failed") {
-      const subscriptionId = typeof object?.subscription === "string" ? object.subscription : object?.subscription?.id;
+    } else if (["invoice.payment_failed", "invoice.paid"].includes(event?.type)) {
+      const subscriptionId = invoiceSubscriptionId(object as StripeInvoice);
       if (subscriptionId) {
         const subscription = await retrieveSubscription(subscriptionId);
         await syncSubscription(subscription);
