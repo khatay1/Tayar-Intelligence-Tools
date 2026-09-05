@@ -7,6 +7,7 @@ import './writer';
 import './translator';
 import './document-ai';
 import './study-assistant';
+import './pdf-tools';
 import './future-tools';
 import './code-assistant';
 import './website-builder';

@@ -1,4 +1,4 @@
-import { FileStack, FileSignature, Mailbox, BarChart3 } from 'lucide-react';
+import { FileSignature, Mailbox, BarChart3 } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
 import FutureToolsView from './FutureToolsView';
@@ -7,17 +7,6 @@ import FutureToolsView from './FutureToolsView';
 // but display a "Coming Soon" badge and aren't clickable.
 
 const futureModules: ToolModule[] = [
-  {
-    id: 'pdf-tools',
-    name: 'PDF Tools',
-    description: 'Merge, split, convert, and edit PDF files with AI assistance.',
-    category: 'productivity',
-    status: 'soon',
-    tier: 'free',
-    version: '0.1.0',
-    icon: FileStack,
-    component: FutureToolsView,
-  },
   {
     id: 'email-writer',
     name: 'AI Email Writer',

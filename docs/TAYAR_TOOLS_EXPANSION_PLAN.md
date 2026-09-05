@@ -133,7 +133,7 @@ Shared engines should eventually live under areas such as:
 - Image Cropper: shipped with local crop presets, numeric positioning, preview overlay and safe JPEG/PNG/WebP export.
 - Background Remover: implemented as an authenticated server-side fal.ai workflow with explicit external-processing disclosure, bounded data-URI input and isolated Edge Function. Requires Edge Function deployment and FAL_KEY in Supabase secrets to become live. Initial upload limit is 2 MB to keep encoded requests conservative; larger-file support should move to private object storage rather than larger data URIs.
 - Image to PDF: shipped with local multi-image ordering, A4/Letter/auto page sizing and a dependency-free JPEG-embedding PDF writer. It creates PDFs only and does not parse untrusted PDF input.
-- PDF Toolkit: deferred after security review found an open ReDoS report in the original pdf-lib parser and a malicious similarly named package; no PDF dependency will be added until the implementation path is acceptable.
+- PDF Studio: shipped with 16 browser-local tools, bounded file/page processing, lazy PDF.js rendering, and the maintained `@pdfme/pdf-lib` fork that caps decoded streams. The original `pdf-lib` package and the malicious `pdf-lib-enhanced` package remain excluded.
 
 ## First implementation
 

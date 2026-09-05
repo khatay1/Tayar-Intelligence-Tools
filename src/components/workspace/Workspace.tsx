@@ -56,6 +56,7 @@ const LANGUAGES: { code: 'en' | 'ar' | 'sv'; label: string }[] = [
 ];
 
 const DEFAULT_WORKSPACE_VIEW: ViewId = 'my-workspace';
+const STATIC_NAV_IDS = new Set<string>(NAV_ITEMS.map((item) => item.id));
 
 function getWorkspaceViewFromHash(): ViewId {
   const route = window.location.hash.replace(/^#/, '');
@@ -189,14 +190,14 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
     );
   }
 
-  const registryToolItems: NavItem[] = toolRegistry.available().map(t => ({
+  const registryToolItems: NavItem[] = toolRegistry.available().filter((tool) => !STATIC_NAV_IDS.has(tool.id)).map(t => ({
     id: t.id as ViewId,
     label: t.name,
     icon: t.icon,
     group: 'tools' as const,
     badge: t.status === 'beta' ? 'Beta' : t.tier === 'premium' ? 'Pro' : undefined,
   }));
-  const soonItems: NavItem[] = toolRegistry.all().filter(t => t.status === 'soon').map(t => ({
+  const soonItems: NavItem[] = toolRegistry.all().filter(t => t.status === 'soon' && !STATIC_NAV_IDS.has(t.id)).map(t => ({
     id: t.id as ViewId,
     label: t.name,
     icon: t.icon,
@@ -237,7 +238,18 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
     return { ...item, label: translations[item.id] || item.label };
   };
 
-  const translatedNavItems = NAV_ITEMS.map(translateNavItem);
+  const translatedNavItems = NAV_ITEMS.map((item) => {
+    const registered = toolRegistry.get(item.id);
+    if (!registered) return translateNavItem(item);
+    const badge = registered.status === 'soon'
+      ? 'Soon'
+      : registered.status === 'beta'
+        ? 'Beta'
+        : registered.tier === 'premium'
+          ? 'Pro'
+          : undefined;
+    return translateNavItem({ ...item, badge });
+  });
   const translatedRegistryToolItems = registryToolItems.map(translateNavItem);
   const translatedSoonItems = soonItems.map(translateNavItem);
 

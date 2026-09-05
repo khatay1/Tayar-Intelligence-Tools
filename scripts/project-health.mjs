@@ -86,6 +86,8 @@ check('Background Remover module exists', exists('src/modules/background-remover
 check('Background Remover has isolated client and Edge Function', exists('src/modules/background-remover/background-remover-client.ts') && exists('supabase/functions/background-remover/index.ts'));
 check('Image to PDF module exists', exists('src/modules/image-to-pdf/ImageToPdfTool.tsx'));
 check('Image to PDF core is split by responsibility', exists('src/modules/image-to-pdf/jpeg-encoder.ts') && exists('src/modules/image-to-pdf/pdf-layout.ts') && exists('src/modules/image-to-pdf/simple-pdf-writer.ts') && exists('src/modules/image-to-pdf/image-to-pdf.ts'));
+check('PDF Studio module exists', exists('src/modules/pdf-tools/PdfToolsTool.tsx'));
+check('PDF Studio core is split by responsibility', exists('src/modules/pdf-tools/pdf-engine.ts') && exists('src/modules/pdf-tools/pdf-render.ts') && exists('src/modules/pdf-tools/pdf-utils.ts') && exists('src/modules/pdf-tools/pdf-types.ts'));
 check('Tayar Tools expansion plan exists', exists('docs/TAYAR_TOOLS_EXPANSION_PLAN.md'));
 check('Billing migration exists', exists('supabase/migrations/20260828154000_add_secure_billing_entitlements.sql'));
 check('Team workspace migration exists', exists('supabase/migrations/20260828155500_add_team_workspaces.sql'));
@@ -196,6 +198,12 @@ const backgroundRemoverEdge = read('supabase/functions/background-remover/index.
 const imageToPdfTool = read('src/modules/image-to-pdf/ImageToPdfTool.tsx');
 const imageToPdfCore = read('src/modules/image-to-pdf/image-to-pdf.ts');
 const simplePdfWriter = read('src/modules/image-to-pdf/simple-pdf-writer.ts');
+const pdfToolsIndex = read('src/modules/pdf-tools/index.ts');
+const pdfToolsUi = read('src/modules/pdf-tools/PdfToolsTool.tsx');
+const pdfToolsEngine = read('src/modules/pdf-tools/pdf-engine.ts');
+const pdfToolsRender = read('src/modules/pdf-tools/pdf-render.ts');
+const pdfToolsUtils = read('src/modules/pdf-tools/pdf-utils.ts');
+const pdfToolsTypes = read('src/modules/pdf-tools/pdf-types.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
@@ -266,7 +274,14 @@ check('Image Cropper is local and validates crop bounds', modulesIndex.includes(
 check('Background Remover keeps FAL key server-side and discloses external processing', modulesIndex.includes("import './background-remover'") && backgroundRemoverTool.includes('External processing') && !backgroundRemoverClient.includes('FAL_KEY') && backgroundRemoverEdge.includes('Deno.env.get("FAL_KEY")'));
 check('Background Remover stays gated until Edge Function deployment is confirmed', read('src/modules/background-remover/index.ts').includes("status: 'soon'"));
 check('Image to PDF is local bounded and dependency-free', modulesIndex.includes("import './image-to-pdf'") && imageToPdfTool.includes('Processed locally') && imageToPdfCore.includes('MAX_PDF_IMAGES') && imageToPdfCore.includes('MAX_PDF_INPUT_BYTES') && !imageToPdfCore.includes('fetch(') && !imageToPdfCore.includes('supabase'));
-check('Image to PDF writer embeds JPEG without PDF parsing libraries', simplePdfWriter.includes('/DCTDecode') && simplePdfWriter.includes('xref') && packageJson.dependencies?.['pdf-lib'] === undefined && packageJson.dependencies?.['pdfjs-dist'] === undefined);
+check('Image to PDF writer embeds JPEG without importing PDF parsing libraries', simplePdfWriter.includes('/DCTDecode') && simplePdfWriter.includes('xref') && !simplePdfWriter.includes("from 'pdf-lib'") && !simplePdfWriter.includes("from 'pdfjs-dist'"));
+check('PDF Studio is registered as an active local tool', modulesIndex.includes("import './pdf-tools'") && pdfToolsIndex.includes("status: 'active'") && pdfToolsUi.includes('Private browser processing'));
+check('PDF Studio exposes its complete 16-tool local suite', ['merge','split','extract','delete','reorder','rotate','crop','page-numbers','watermark','add-text','sign','create','to-images','extract-text','compress','flatten'].every((id) => pdfToolsTypes.includes(`'${id}'`)));
+check('PDF Studio validates signatures, files, totals and page bounds', pdfToolsUtils.includes('PDF_MAX_FILE_BYTES') && pdfToolsUtils.includes('PDF_MAX_TOTAL_BYTES') && pdfToolsUtils.includes('hasPdfHeader') && pdfToolsEngine.includes('25_000_000') && pdfToolsTypes.includes('PDF_MAX_PAGES = 150'));
+check('PDF Studio processing stays browser-local', ![pdfToolsEngine, pdfToolsRender, pdfToolsUtils].some((source) => source.includes('supabase') || source.includes('fetch(')));
+check('PDF rendering is lazy and ships its own worker', pdfToolsEngine.includes("import('./pdf-render')") && pdfToolsRender.includes("import('pdfjs-dist')") && pdfToolsRender.includes("pdf.worker.min.mjs?url"));
+check('PDF dependencies and licenses are pinned through the lockfile', packageJson.dependencies?.['@pdfme/pdf-lib'] === '^6.1.12' && packageJson.dependencies?.['pdfjs-dist'] === '^5.4.149' && packageLock.packages?.['node_modules/@pdfme/pdf-lib']?.version === '6.1.12' && packageLock.packages?.['node_modules/pdfjs-dist']?.version === '5.4.149' && !packageJson.dependencies?.['pdf-lib'] && !packageJson.dependencies?.['pdf-lib-enhanced'] && !packageLock.packages?.['node_modules/pdf-lib-enhanced']);
+check('Lossy PDF compression is disclosed before processing', pdfToolsUi.includes('Links and selectable text will be flattened'));
 check('Background Remover enforces auth rate MIME and body limits', backgroundRemoverEdge.includes('requireUser(req)') && backgroundRemoverEdge.includes('enforce_ai_rate_limit') && backgroundRemoverEdge.includes('MAX_BODY_CHARS') && backgroundRemoverEdge.includes('ALLOWED_DATA_URL'));
 check('Background Remover restricts provider tracking and media URLs', backgroundRemoverEdge.includes('validateFalQueueUrl') && backgroundRemoverEdge.includes('queue.fal.run') && backgroundRemoverEdge.includes('validateFalMediaUrl'));
 check('Website Builder project persistence is isolated from the monolith', websiteBuilder.includes("from './core/editor-project-lifecycle'") && !websiteBuilder.includes("const STORAGE_KEY = 'tayar.website-builder.project.v5'") && !websiteBuilder.includes('ACTIVE_PROJECT_STORAGE_KEY') && !websiteBuilder.includes('RECOVERY_STORAGE_KEY'));
