@@ -35,6 +35,12 @@ jobs:
       - name: Project health
         run: npm run health:project
 
+      - name: Code Assistant smoke
+        run: npm run smoke:code-assistant
+
+      - name: Launch hardening smoke
+        run: node scripts/launch-hardening-smoke.mjs
+
       - name: Production build
         run: npm run build
 

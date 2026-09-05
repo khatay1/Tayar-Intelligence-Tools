@@ -28,14 +28,18 @@ export interface WebsiteProjectCloudMutationResult<TData = unknown> {
   error: { message: string } | null;
 }
 
+function missingMutationResult<TData>(message: string): WebsiteProjectCloudMutationResult<TData> {
+  return { data: null, error: { message } };
+}
+
 export async function updateWebsiteProjectInCloud({
   projectId,
   title,
   content,
   published,
   signal,
-}: UpdateWebsiteProjectCloudInput) {
-  return retryCloudOperation(() => {
+}: UpdateWebsiteProjectCloudInput): Promise<WebsiteProjectCloudMutationResult<{ id: string; updated_at?: string | null }>> {
+  return retryCloudOperation(async () => {
     const query = supabase
       .from('projects')
       .update({
@@ -44,15 +48,26 @@ export async function updateWebsiteProjectInCloud({
         status: published ? 'completed' : 'draft',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', projectId);
+      .eq('id', projectId)
+      .select('id, updated_at')
+      .maybeSingle();
 
-    if (!signal) return query;
     const abortableQuery = query as typeof query & {
       abortSignal?: (abortSignal: AbortSignal) => typeof query;
     };
-    return typeof abortableQuery.abortSignal === 'function'
-      ? abortableQuery.abortSignal(signal)
-      : query;
+    const result = await (
+      signal && typeof abortableQuery.abortSignal === 'function'
+        ? abortableQuery.abortSignal(signal)
+        : query
+    );
+
+    if (!result.error && !result.data) {
+      return missingMutationResult<{ id: string; updated_at?: string | null }>(
+        'Cloud save did not match an accessible website project. Reopen the project before saving again.',
+      );
+    }
+
+    return result;
   });
 }
 
@@ -105,8 +120,8 @@ export async function updateWebsiteProjectPublicationState(input: {
   content: Record<string, unknown>;
   published: boolean;
   updatedAt: string;
-}) {
-  return supabase
+}): Promise<WebsiteProjectCloudMutationResult<{ id: string; updated_at?: string | null }>> {
+  const result = await supabase
     .from('projects')
     .update({
       content: input.content,
@@ -114,5 +129,15 @@ export async function updateWebsiteProjectPublicationState(input: {
       updated_at: input.updatedAt,
     })
     .eq('id', input.projectId)
-    .eq('user_id', input.userId);
+    .eq('user_id', input.userId)
+    .select('id, updated_at')
+    .maybeSingle();
+
+  if (!result.error && !result.data) {
+    return missingMutationResult<{ id: string; updated_at?: string | null }>(
+      'Publication state could not be verified for this website project.',
+    );
+  }
+
+  return result;
 }

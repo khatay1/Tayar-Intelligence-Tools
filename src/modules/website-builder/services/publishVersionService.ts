@@ -25,6 +25,24 @@ export async function deleteWebsitePublishVersionArchive(input: {
   storagePrefix: string;
   fileManifest: PublishVersionManifestItem[];
 }) {
+  const { data: deleted, error: deleteError } = await supabase
+    .from('website_publish_versions')
+    .delete()
+    .eq('id', input.versionId)
+    .eq('project_id', input.projectId)
+    .eq('user_id', input.ownerId)
+    .select('id')
+    .maybeSingle();
+
+  if (deleteError) return { error: deleteError };
+  if (!deleted) {
+    return {
+      error: {
+        message: 'Stored release no longer exists or is not accessible.',
+      },
+    };
+  }
+
   const paths = input.fileManifest.map(
     (item) => `${input.storagePrefix}/${item.name}`,
   );
@@ -33,17 +51,16 @@ export async function deleteWebsitePublishVersionArchive(input: {
     const { error: removeError } = await supabase.storage
       .from('published-sites')
       .remove(paths);
-    if (removeError) return { error: removeError };
+
+    if (removeError) {
+      console.warn(
+        '[WebsiteBuilder] Release row deleted, but archived storage cleanup was incomplete:',
+        removeError.message,
+      );
+    }
   }
 
-  const { error } = await supabase
-    .from('website_publish_versions')
-    .delete()
-    .eq('id', input.versionId)
-    .eq('project_id', input.projectId)
-    .eq('user_id', input.ownerId);
-
-  return { error };
+  return { error: null };
 }
 
 export async function createWebsitePublishVersion(input: {
