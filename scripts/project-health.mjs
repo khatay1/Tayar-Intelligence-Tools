@@ -207,6 +207,7 @@ const pdfToolsTypes = read('src/modules/pdf-tools/pdf-types.ts');
 const aiTypes = read('src/lib/ai/types.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
 const app = read('src/App.tsx');
+const suspendedAccount = read('src/components/auth/SuspendedAccount.tsx');
 const manifest = read('public/manifest.webmanifest');
 const sitemap = read('public/sitemap.xml');
 const allCore = [auth, onboarding, aiEngine, emailService].join('\n');
@@ -232,7 +233,11 @@ check('ws security override is pinned to 8.21.3+', packageJson.overrides?.ws ===
 check('Auth refreshes profile after auth state changes', auth.includes('void fetchProfile(nextSession.user.id)'));
 check('Admin access uses trusted is_admin RPC', adminContext.includes("supabase.rpc('is_admin')") && !adminContext.includes(".select('role')"));
 check('Admin role fields are not directly client-updatable', adminSecurityMigration.includes('REVOKE UPDATE ON public.profiles FROM authenticated') && adminSecurityMigration.includes('GRANT UPDATE (full_name, avatar_url, language)'));
-check('Admin user mutations use protected RPCs', adminUsers.includes("supabase.rpc('admin_update_user'") && adminUsers.includes("supabase.rpc('admin_delete_user'") && !adminUsers.includes(".from('profiles').update"));
+check('Admin user mutations use protected server paths',
+  adminUsers.includes("supabase.rpc('admin_update_user'") &&
+  adminUsers.includes("supabase.functions.invoke('delete-account'") &&
+  !adminUsers.includes("supabase.rpc('admin_delete_user'") &&
+  !adminUsers.includes(".from('profiles').update"));
 check('Admin user list uses server-side RPC', adminHooks.includes("supabase.rpc('admin_list_users')"));
 check('Admin self-lockout protections exist', adminSecurityMigration.includes('You cannot remove or suspend your own administrator access') && adminSecurityMigration.includes('You cannot delete your own administrator account'));
 check('Admin settings are admin-readable only', adminSecurityMigration.includes('DROP POLICY IF EXISTS "admin_settings_select"') && adminSecurityMigration.includes('CREATE POLICY "admin_settings_select"') && adminSecurityMigration.includes('USING (public.is_admin())'));
@@ -383,9 +388,13 @@ check('Selected canvas elements support keyboard nudging', websiteBuilder.includ
 check('Selected canvas elements support duplicate delete and escape shortcuts', websiteBuilder.includes("event.key.toLowerCase() === 'd'") && websiteBuilder.includes("event.key === 'Delete' || event.key === 'Backspace'") && websiteBuilder.includes("event.key === 'Escape'") && websiteBuilder.includes('setSelectedElementId(null)'));
 check('Canvas video and embeds support direct source editing', websiteBuilder.includes("element.type === 'image' || element.type === 'video' || element.type === 'embed'") && websiteBuilder.includes('Double-click to edit video URL') && websiteBuilder.includes('Double-click to edit embed URL'));
 check('Canvas selection toolbar avoids duplicate reorder controls', !websiteBuilder.includes('onMoveSelectedElement: (direction') && websiteBuilder.includes('Shift+drag reorder'));
-check('Suspended accounts are blocked from workspace UI', app.includes('profile?.suspended') && app.includes('Account suspended'));
+check('Suspended accounts are blocked from workspace UI but retain self-service deletion',
+  app.includes('profile?.suspended') &&
+  app.includes('<SuspendedAccount />') &&
+  suspendedAccount.includes('Account suspended') &&
+  suspendedAccount.includes("functions.invoke('delete-account'"));
 check('Profile updates whitelist ordinary fields', auth.includes("Partial<Pick<Profile, 'full_name' | 'avatar_url' | 'language'>>"));
-check('Suspended users are rejected by shared Edge Function auth', sharedBilling.includes('.select("suspended")') && sharedBilling.includes('throw new HttpError(403, "Account suspended")'));
+check('General shared Edge Function auth still rejects suspended users', sharedBilling.includes('.select("suspended")') && sharedBilling.includes('throw new HttpError(403, "Account suspended")'));
 check('Support admin-only fields are protected server-side', adminSecurityMigration.includes('protect_support_ticket_admin_fields') && adminSecurityMigration.includes('NEW.admin_response IS DISTINCT FROM OLD.admin_response'));
 check('Admin content save persists instead of simulating success', adminContent.includes(".eq('key', 'content_draft')") && adminContent.includes(".upsert({") && !adminContent.includes('setTimeout'));
 check('Admin system settings cannot overwrite content drafts', adminSystem.includes('SYSTEM_SETTING_KEYS') && adminSystem.includes(".in('key', [...SYSTEM_SETTING_KEYS])") && adminSystem.includes('SYSTEM_SETTING_KEYS.map'));

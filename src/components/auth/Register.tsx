@@ -3,6 +3,7 @@ import { useState, FormEvent } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, Loader2, Check } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { useAuth } from '@/context/AuthContext';
+import { validatePassword } from '@/lib/security';
 
 interface RegisterProps {
   onBack: () => void;
@@ -25,8 +26,9 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) {
-      setError(l('Password must be at least 6 characters.'));
+    const passwordState = validatePassword(password);
+    if (!passwordState.valid) {
+      setError(l(passwordState.error || 'Choose a stronger password.'));
       return;
     }
     setLoading(true);
@@ -121,7 +123,7 @@ export default function Register({ onBack, onNavigate }: RegisterProps) {
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder={l('At least 6 characters')}
+              placeholder={l('At least 8 characters')}
               className="w-full bg-[#0c0c20] border border-white/10 rounded-xl pl-10 pr-10 py-3 text-white text-sm placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-all"
             />
             <button

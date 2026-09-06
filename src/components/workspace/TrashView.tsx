@@ -1,3 +1,5 @@
 import { lazy } from 'react';
 
-export default lazy(() => import('./TrashView.impl'));
+const TrashView = lazy(() => import('./TrashView.impl'));
+
+export default TrashView;

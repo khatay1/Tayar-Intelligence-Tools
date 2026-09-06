@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { corsHeaders, createAdminClient, handleError, HttpError } from "../_shared/billing.ts";
+import { corsHeaders, createAdminClient, handleError, HttpError, stripeRequest } from "../_shared/billing.ts";
 
 type PlanId = "free" | "pro" | "business";
 type LimitPeriod = "daily" | "monthly" | "lifetime";
@@ -27,17 +27,21 @@ type ToolLimit = {
 
 type PublicPrice = {
   priceId: string | null;
-  unitAmount: number;
+  unitAmount: number | null;
   currency: string;
   interval: "month" | "year" | "forever";
 };
 
+type StripePrice = {
+  id?: string;
+  active?: boolean;
+  currency?: string;
+  unit_amount?: number | null;
+  recurring?: { interval?: string | null } | null;
+};
+
 const PLAN_IDS: PlanId[] = ["free", "pro", "business"];
 const PLAN_RANK: Record<PlanId, number> = { free: 0, pro: 1, business: 2 };
-const FALLBACK_PRICE_IDS: Record<Exclude<PlanId, "free">, string> = {
-  pro: "price_1UBuNbPf8BnXUBSOvSHBpzC6",
-  business: "price_1UBuNgPf8BnXUBSOLH3TM9ms",
-};
 
 const DEFAULT_PLAN_CATALOG: PlanAdminCatalog = {
   version: 2,
@@ -109,20 +113,42 @@ function settingValue(settings: Map<string, unknown>, key: string): unknown {
   try { return JSON.parse(trimmed); } catch { return value.replace(/^"|"$/g, ""); }
 }
 
-function readPrice(settings: Map<string, unknown>, plan: Exclude<PlanId, "free">): PublicPrice {
-  const fallbackAmount = plan === "pro" ? 1900 : 4900;
+async function readPrice(settings: Map<string, unknown>, plan: Exclude<PlanId, "free">): Promise<PublicPrice> {
   const raw = settingValue(settings, `stripe_${plan}_price_public`);
-  const currentPriceId = String(settingValue(settings, `stripe_${plan}_price_id`) || FALLBACK_PRICE_IDS[plan]);
-  if (!isRecord(raw)) {
-    return { priceId: currentPriceId, unitAmount: fallbackAmount, currency: "usd", interval: "month" };
+  const configuredPrice = settingValue(settings, `stripe_${plan}_price_id`);
+  const envPrice = Deno.env.get(plan === "pro" ? "STRIPE_PRO_PRICE_ID" : "STRIPE_BUSINESS_PRICE_ID")?.trim() || "";
+  const storedPrice = typeof configuredPrice === "string" ? configuredPrice.trim() : "";
+  const candidatePriceId = storedPrice || envPrice;
+  const currentPriceId = /^price_[A-Za-z0-9]+$/.test(candidatePriceId) ? candidatePriceId : null;
+
+  if (currentPriceId) {
+    try {
+      const live = await stripeRequest<StripePrice>(`/v1/prices/${encodeURIComponent(currentPriceId)}`, { method: "GET" });
+      const unitAmount = Number(live.unit_amount);
+      const currency = typeof live.currency === "string" && /^[a-z]{3}$/i.test(live.currency)
+        ? live.currency.toLowerCase()
+        : null;
+      const interval = live.recurring?.interval === "year" ? "year" : live.recurring?.interval === "month" ? "month" : null;
+      if (live.active !== false && Number.isInteger(unitAmount) && unitAmount > 0 && currency && interval) {
+        return { priceId: currentPriceId, unitAmount, currency, interval };
+      }
+      return { priceId: currentPriceId, unitAmount: null, currency: currency || "usd", interval: interval || "month" };
+    } catch (error) {
+      console.error(`[BILLING] Could not refresh the public ${plan} price from Stripe`, error);
+    }
   }
+
+  if (!isRecord(raw)) return { priceId: currentPriceId, unitAmount: null, currency: "usd", interval: "month" };
   const unitAmount = Number(raw.unitAmount);
   const interval = raw.interval === "year" ? "year" : "month";
   const currency = typeof raw.currency === "string" && /^[a-z]{3}$/i.test(raw.currency) ? raw.currency.toLowerCase() : "usd";
-  const priceId = typeof raw.priceId === "string" && raw.priceId.trim() ? raw.priceId.trim() : currentPriceId;
+  const priceId = typeof raw.priceId === "string" && /^price_[A-Za-z0-9]+$/.test(raw.priceId.trim())
+    ? raw.priceId.trim()
+    : currentPriceId;
+  const matchesCurrentPrice = Boolean(currentPriceId && priceId === currentPriceId);
   return {
     priceId,
-    unitAmount: Number.isFinite(unitAmount) && unitAmount > 0 ? Math.floor(unitAmount) : fallbackAmount,
+    unitAmount: matchesCurrentPrice && Number.isInteger(unitAmount) && unitAmount > 0 ? unitAmount : null,
     currency,
     interval,
   };
@@ -185,10 +211,14 @@ Deno.serve(async (req: Request) => {
     const limitMap = new Map<string, ToolLimit>();
     for (const row of (limitsRes.data || []) as ToolLimit[]) limitMap.set(row.tool_id, row);
 
+    const [proPrice, businessPrice] = await Promise.all([
+      readPrice(settings, "pro"),
+      readPrice(settings, "business"),
+    ]);
     const prices: Record<PlanId, PublicPrice> = {
       free: { priceId: null, unitAmount: 0, currency: "usd", interval: "forever" },
-      pro: readPrice(settings, "pro"),
-      business: readPrice(settings, "business"),
+      pro: proPrice,
+      business: businessPrice,
     };
 
     const plans = PLAN_IDS.map((planId) => {

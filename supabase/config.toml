@@ -2,3 +2,19 @@
 # This project_id is only a local CLI identifier; production linking is done
 # explicitly with: supabase link --project-ref <remote-project-ref>
 project_id = "tayar-intelligence-tools"
+
+[auth]
+minimum_password_length = 8
+password_requirements = "lower_upper_letters_digits"
+
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/hook_enforce_tayar_signup_policy"
+
+# These endpoints authenticate at the application layer: the catalog is public
+# by design, while Stripe webhooks are verified with Stripe's signature.
+[functions.public-plan-catalog]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

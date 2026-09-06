@@ -11,11 +11,6 @@ import {
 
 type PaidPlan = "pro" | "business";
 
-const FALLBACK_PRICE_IDS: Record<PaidPlan, string> = {
-  pro: "price_1UBuNbPf8BnXUBSOvSHBpzC6",
-  business: "price_1UBuNgPf8BnXUBSOLH3TM9ms",
-};
-
 async function requireAdmin(req: Request) {
   const user = await requireUser(req);
   const admin = createAdminClient();
@@ -44,7 +39,11 @@ async function currentPriceId(admin: ReturnType<typeof createAdminClient>, plan:
   const { data } = await admin.from("admin_settings").select("value").eq("key", key).maybeSingle();
   const stored = typeof data?.value === "string" ? data.value.replace(/^"|"$/g, "").trim() : "";
   const envKey = plan === "pro" ? Deno.env.get("STRIPE_PRO_PRICE_ID") : Deno.env.get("STRIPE_BUSINESS_PRICE_ID");
-  return stored || envKey?.trim() || FALLBACK_PRICE_IDS[plan];
+  const priceId = stored || envKey?.trim() || "";
+  if (!/^price_[A-Za-z0-9]+$/.test(priceId)) {
+    throw new HttpError(409, `Configure the current ${plan} Stripe Price before replacing it`);
+  }
+  return priceId;
 }
 
 function parsePlan(value: unknown): PaidPlan {
@@ -104,6 +103,16 @@ Deno.serve(async (req: Request) => {
         interval: price.recurring?.interval === "year" ? "year" : "month",
       };
       const updatedAt = new Date().toISOString();
+      const { error: mappingError } = await admin.from("stripe_price_plan_map").upsert({
+        price_id: price.id,
+        plan,
+        active: true,
+        updated_at: updatedAt,
+      }, { onConflict: "price_id" });
+      if (mappingError) {
+        throw new HttpError(500, "The Stripe price was created but its plan mapping could not be saved");
+      }
+
       const { error } = await admin.from("admin_settings").upsert([
         { key: planSettingKey(plan), value: price.id, updated_at: updatedAt },
         { key: publicPriceSettingKey(plan), value: publicPrice, updated_at: updatedAt },

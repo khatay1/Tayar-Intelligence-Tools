@@ -127,7 +127,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
         setLoadingMore(false);
       }
     }
-  }, [debouncedSearch, format]);
+  }, [debouncedSearch, format, l]);
 
   useEffect(() => {
     void loadPage(0, false);

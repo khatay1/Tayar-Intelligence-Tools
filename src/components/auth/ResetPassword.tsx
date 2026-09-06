@@ -3,6 +3,7 @@ import { useState, FormEvent } from 'react';
 import { Lock, Eye, EyeOff, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { useAuth } from '@/context/AuthContext';
+import { validatePassword } from '@/lib/security';
 
 interface ResetPasswordProps {
   onBack: () => void;
@@ -11,7 +12,7 @@ interface ResetPasswordProps {
 
 export default function ResetPassword({ onBack, onNavigate }: ResetPasswordProps) {
   const l = useLocalizer();
-  const { updatePassword } = useAuth();
+  const { updatePassword, signOut } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,8 +23,9 @@ export default function ResetPassword({ onBack, onNavigate }: ResetPasswordProps
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) {
-      setError(l('Password must be at least 6 characters.'));
+    const passwordState = validatePassword(password);
+    if (!passwordState.valid) {
+      setError(l(passwordState.error || 'Choose a stronger password.'));
       return;
     }
     if (password !== confirmPassword) {
@@ -36,6 +38,11 @@ export default function ResetPassword({ onBack, onNavigate }: ResetPasswordProps
     if (error) {
       setError(error);
     } else {
+      await signOut();
+      const params = new URLSearchParams(window.location.search);
+      params.delete('auth');
+      const nextSearch = params.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}#reset`);
       setSuccess(true);
     }
   }
@@ -83,7 +90,7 @@ export default function ResetPassword({ onBack, onNavigate }: ResetPasswordProps
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder={l('At least 6 characters')}
+              placeholder={l('At least 8 characters')}
               className="w-full bg-[#0c0c20] border border-white/10 rounded-xl pl-10 pr-10 py-3 text-white text-sm placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-all"
             />
             <button

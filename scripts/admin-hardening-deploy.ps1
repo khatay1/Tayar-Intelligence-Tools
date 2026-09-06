@@ -4,17 +4,25 @@ param(
 
   [switch]$Apply,
 
-  [switch]$ConfirmProduction
+  [switch]$ConfirmProduction,
+
+  [switch]$ConfirmAuthConfig
 )
 
 $ErrorActionPreference = 'Stop'
 $CliVersion = '2.116.0'
 $Migration = 'supabase/migrations/20260829144000_harden_admin_role_and_admin_access.sql'
+$LaunchMigration = 'supabase/migrations/20260906100643_launch_auth_and_billing_hardening.sql'
 $Functions = @(
   'ai-engine',
+  'billing-admin-control',
+  'billing-admin-status',
   'billing-portal',
   'create-checkout-session',
-  'email-service'
+  'delete-account',
+  'email-service',
+  'public-plan-catalog',
+  'stripe-webhook'
 )
 
 function Invoke-Supabase {
@@ -28,6 +36,9 @@ function Invoke-Supabase {
 
 if (-not (Test-Path $Migration)) {
   throw "Required admin hardening migration is missing: $Migration"
+}
+if (-not (Test-Path $LaunchMigration)) {
+  throw "Required launch hardening migration is missing: $LaunchMigration"
 }
 
 # Supabase CLI parses the repository .env file before commands run. Some Windows
@@ -69,12 +80,15 @@ if (-not $Apply) {
   Write-Host "Review the output above before applying production changes."
   Write-Host ""
   Write-Host "To apply after review:"
-  Write-Host ".\scripts\admin-hardening-deploy.ps1 -ProjectRef $ProjectRef -Apply -ConfirmProduction"
+  Write-Host ".\scripts\admin-hardening-deploy.ps1 -ProjectRef $ProjectRef -Apply -ConfirmProduction -ConfirmAuthConfig"
   exit 0
 }
 
 if (-not $ConfirmProduction) {
   throw "Refusing to deploy. -Apply requires -ConfirmProduction."
+}
+if (-not $ConfirmAuthConfig) {
+  throw "Refusing to push Auth settings. Review supabase/config.toml and the production Site URL/redirect allowlist, then pass -ConfirmAuthConfig."
 }
 
 Write-Host ""
@@ -82,9 +96,17 @@ Write-Host "Applying pending database migrations..." -ForegroundColor Yellow
 Invoke-Supabase db push
 
 Write-Host ""
+Write-Host "Applying Auth hook and password configuration..." -ForegroundColor Yellow
+Invoke-Supabase config push
+
+Write-Host ""
 Write-Host "Deploying Edge Functions that consume supabase/functions/_shared/billing.ts..." -ForegroundColor Yellow
 foreach ($FunctionName in $Functions) {
-  Invoke-Supabase functions deploy $FunctionName --project-ref $ProjectRef
+  if ($FunctionName -in @('public-plan-catalog', 'stripe-webhook')) {
+    Invoke-Supabase functions deploy $FunctionName --project-ref $ProjectRef --no-verify-jwt
+  } else {
+    Invoke-Supabase functions deploy $FunctionName --project-ref $ProjectRef
+  }
 }
 
 Write-Host ""

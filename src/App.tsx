@@ -26,6 +26,7 @@ const Register = lazy(() => import('@/components/auth/Register'));
 const ForgotPassword = lazy(() => import('@/components/auth/ForgotPassword'));
 const EmailVerification = lazy(() => import('@/components/auth/EmailVerification'));
 const ResetPassword = lazy(() => import('@/components/auth/ResetPassword'));
+const SuspendedAccount = lazy(() => import('@/components/auth/SuspendedAccount'));
 const Workspace = lazy(() => import('@/components/workspace/Workspace'));
 const AdminPanel = lazy(() => import('@/components/admin/AdminPanel'));
 const AboutPage = lazy(() => import('@/components/workspace/AboutPage'));
@@ -63,9 +64,12 @@ function useHashRoute() {
 
 function AppContent() {
   const l = useLocalizer();
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading } = useAuth();
   const hashRoute = useHashRoute();
-  const authPage = AUTH_PAGES.includes(hashRoute as AuthPage) ? hashRoute as AuthPage : null;
+  const recoveryRequested = new URLSearchParams(window.location.search).get('auth') === 'recovery';
+  const authPage = recoveryRequested
+    ? 'reset'
+    : (AUTH_PAGES.includes(hashRoute as AuthPage) ? hashRoute as AuthPage : null);
   const publicPage = PUBLIC_PAGES.includes(hashRoute as PublicPage) ? hashRoute as PublicPage : null;
 
   useEffect(() => { startAnalytics(); }, []);
@@ -80,21 +84,16 @@ function AppContent() {
     };
 
     if (user) {
-      if (hashRoute === 'admin' || hashRoute.startsWith('workspace/')) return;
+      if (hashRoute === 'admin' || hashRoute === 'reset' || recoveryRequested || publicPage || hashRoute.startsWith('workspace/')) return;
       replaceHash('#workspace/my-workspace');
       return;
     }
 
     if (hashRoute.startsWith('workspace/')) replaceHash('');
-  }, [user, loading, hashRoute]);
+  }, [user, loading, hashRoute, recoveryRequested, publicPage]);
 
   useEffect(() => {
     if (loading) return;
-    if (user) {
-      updateSEO(PAGE_SEO.workspace);
-      trackPageView('/workspace');
-      return;
-    }
     if (authPage) {
       updateSEO(PAGE_SEO[authPage] || PAGE_SEO.home);
       trackPageView(`/${authPage}`);
@@ -103,6 +102,11 @@ function AppContent() {
     if (publicPage) {
       updateSEO(PAGE_SEO[publicPage] || PAGE_SEO.home);
       trackPageView(`/${publicPage}`);
+      return;
+    }
+    if (user) {
+      updateSEO(PAGE_SEO.workspace);
+      trackPageView('/workspace');
       return;
     }
     updateSEO(PAGE_SEO.home);
@@ -115,37 +119,6 @@ function AppContent() {
 
   if (loading) return <FullScreenLoader />;
 
-  if (user && profile?.suspended) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#06060e] p-4 text-white">
-        <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
-          <h1 className="text-xl font-bold">{l('Account suspended')}</h1>
-          <p className="mt-2 text-sm text-gray-400">
-            {l('Your account is currently suspended. Contact support if you believe this is a mistake.')}
-          </p>
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="mt-5 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/15"
-          >
-            {l('Sign out')}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (user) {
-    if (hashRoute === 'admin') {
-      return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><AdminPanel onExitToWorkspace={goHome} /></Suspense></ErrorBoundary>;
-    }
-    return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><Workspace onExitToLanding={goHome} /></Suspense></ErrorBoundary>;
-  }
-
-  if (authPage === 'login') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><Login onBack={goHome} onNavigate={p => navigate(p)} /></Suspense></ErrorBoundary>;
-  if (authPage === 'register') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><Register onBack={goHome} onNavigate={p => navigate(p)} /></Suspense></ErrorBoundary>;
-  if (authPage === 'forgot') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><ForgotPassword onBack={goHome} onNavigate={() => navigate('login')} /></Suspense></ErrorBoundary>;
-  if (authPage === 'verify') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><EmailVerification onBack={goHome} onNavigate={() => navigate('login')} /></Suspense></ErrorBoundary>;
   if (authPage === 'reset') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><ResetPassword onBack={goHome} onNavigate={() => navigate('login')} /></Suspense></ErrorBoundary>;
 
   if (publicPage) {
@@ -164,6 +137,21 @@ function AppContent() {
     );
   }
 
+  if (user && profile?.suspended) {
+    return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><SuspendedAccount /></Suspense></ErrorBoundary>;
+  }
+
+  if (user) {
+    if (hashRoute === 'admin') {
+      return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><AdminPanel onExitToWorkspace={goHome} /></Suspense></ErrorBoundary>;
+    }
+    return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><Workspace onExitToLanding={goHome} /></Suspense></ErrorBoundary>;
+  }
+
+  if (authPage === 'login') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><Login onBack={goHome} onNavigate={p => navigate(p)} /></Suspense></ErrorBoundary>;
+  if (authPage === 'register') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><Register onBack={goHome} onNavigate={p => navigate(p)} /></Suspense></ErrorBoundary>;
+  if (authPage === 'forgot') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><ForgotPassword onBack={goHome} onNavigate={() => navigate('login')} /></Suspense></ErrorBoundary>;
+  if (authPage === 'verify') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><EmailVerification onBack={goHome} onNavigate={() => navigate('login')} /></Suspense></ErrorBoundary>;
   return (
     <ErrorBoundary>
       <div className="min-h-screen tayar-space-bg text-white antialiased">

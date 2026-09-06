@@ -158,8 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return;
+
+      if (event === 'PASSWORD_RECOVERY') {
+        window.location.hash = 'reset';
+      }
 
       if (!nextSession?.user) {
         setSession(null);
@@ -253,16 +257,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithGoogle() {
-    const signupState = await isSignupAllowed();
-    if (signupState.error) return { error: signupState.error };
-    if (!signupState.allowed) {
-      return { error: 'New registrations are temporarily disabled.' };
-    }
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: new URL(window.location.pathname, window.location.origin).toString(),
       },
     });
 
@@ -280,7 +278,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function resetPassword(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const redirectUrl = new URL(window.location.pathname, window.location.origin);
+    redirectUrl.searchParams.set('auth', 'recovery');
+
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      { redirectTo: redirectUrl.toString() },
+    );
 
     return {
       error: error?.message ?? null,

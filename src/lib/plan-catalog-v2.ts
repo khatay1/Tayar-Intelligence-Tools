@@ -25,7 +25,7 @@ export interface PublicPlanToolV2 {
 
 export interface PublicPlanPriceV2 {
   priceId: string | null;
-  unitAmount: number;
+  unitAmount: number | null;
   currency: string;
   interval: 'month' | 'year' | 'forever';
 }
@@ -128,6 +128,7 @@ export function languageLocale(language: Language): string {
 }
 
 export function formatPlanPrice(price: PublicPlanPriceV2, language: Language): string {
+  if (price.unitAmount == null) return '—';
   if (price.unitAmount === 0) return '$0';
   try {
     return new Intl.NumberFormat(languageLocale(language), {

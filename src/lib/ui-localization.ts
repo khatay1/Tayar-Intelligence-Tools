@@ -1,5 +1,6 @@
 import { usePreferences } from '@/context/PreferencesContext';
 import type { Language } from '@/lib/i18n';
+import { useCallback } from 'react';
 
 type PhraseMap = Record<string, string>;
 
@@ -53,6 +54,9 @@ const ar: PhraseMap = {
   'Settings': 'الإعدادات', 'Manage your account, security, and preferences.': 'أدر حسابك وأمانك وتفضيلاتك.',
   'Profile': 'الملف الشخصي', 'Security': 'الأمان', 'Preferences': 'التفضيلات', 'Privacy': 'الخصوصية',
   'Data Export (GDPR)': 'تصدير البيانات (GDPR)',
+  'Account Data Export': 'تصدير بيانات الحساب',
+  'Download a portable JSON export of your account records and stored-file inventory. Original file binaries remain available from their tools.': 'نزّل ملف JSON قابلاً للنقل يتضمن سجلات حسابك وقائمة الملفات المخزنة. تبقى الملفات الأصلية متاحة من أدواتها.',
+  'Sign in to export your account data.': 'سجّل الدخول لتصدير بيانات حسابك.',
   'Download a complete copy of all your data stored on Tayar Intelligence Tools. This includes your profile, projects, files, conversations, and activity log.': 'نزّل نسخة كاملة من بياناتك المخزنة في Tayar Intelligence Tools، بما في ذلك ملفك الشخصي ومشاريعك وملفاتك ومحادثاتك وسجل النشاط.',
   'Preparing your data...': 'جارٍ تجهيز بياناتك...', 'Data exported successfully': 'تم تصدير البيانات بنجاح', 'Failed to export data': 'فشل تصدير البيانات',
   'Personal data downloaded': 'تم تنزيل البيانات الشخصية', 'Export All Data': 'تصدير كل البيانات', 'Download Personal Data': 'تنزيل البيانات الشخصية',
@@ -61,9 +65,10 @@ const ar: PhraseMap = {
   'Prevent your content from being used to improve AI models': 'امنع استخدام محتواك لتحسين نماذج الذكاء الاصطناعي',
   'AI training opt-out enabled': 'تم تفعيل رفض تدريب الذكاء الاصطناعي', 'AI training opt-out disabled': 'تم تعطيل رفض تدريب الذكاء الاصطناعي',
   'Data Storage Location': 'موقع تخزين البيانات',
+  'Cloud storage location follows the active service configuration. See the Privacy Policy for current providers.': 'يتبع موقع التخزين السحابي إعداد الخدمة النشط. راجع سياسة الخصوصية لمعرفة المزوّدين الحاليين.',
   'Data Encryption': 'تشفير البيانات',
   'Delete Account': 'حذف الحساب',
-  'Permanently delete your account and all associated data — projects, files, conversations, and activity. This action cannot be undone.': 'احذف حسابك وكل البيانات المرتبطة به نهائياً — المشاريع والملفات والمحادثات والنشاط. لا يمكن التراجع عن هذا الإجراء.',
+  'Permanently delete your Tayar account, owned projects and stored files. An active subscription is canceled first. Payment providers may retain records required by law. This action cannot be undone.': 'احذف حساب Tayar والمشاريع التي تملكها والملفات المخزنة نهائياً. يُلغى الاشتراك النشط أولاً. قد يحتفظ مزودو الدفع بسجلات يفرضها القانون. لا يمكن التراجع عن هذا الإجراء.',
   'Type "DELETE" to confirm': 'اكتب "DELETE" للتأكيد', 'Deleting account...': 'جارٍ حذف الحساب...', 'Account deleted': 'تم حذف الحساب',
   'Failed to delete account. Please contact support.': 'فشل حذف الحساب. يرجى التواصل مع الدعم.',
   'Go to Workspace →': 'الذهاب إلى مساحة العمل ←', 'Upgrade to Pro': 'الترقية إلى Pro', 'Upgrade Now': 'الترقية الآن',
@@ -126,6 +131,12 @@ const ar: PhraseMap = {
   'Not verified': 'غير مؤكد',
 
   'Password must be at least 8 characters': 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل',
+  'Password is too long': 'كلمة المرور طويلة جدًا',
+  'Password must contain a lowercase letter': 'يجب أن تحتوي كلمة المرور على حرف إنجليزي صغير',
+  'Password must contain an uppercase letter': 'يجب أن تحتوي كلمة المرور على حرف إنجليزي كبير',
+  'Password must contain a number': 'يجب أن تحتوي كلمة المرور على رقم',
+  'At least 8 characters': '8 أحرف على الأقل',
+  'Choose a stronger password.': 'اختر كلمة مرور أقوى.',
   'plan': 'خطة',
 
   'Owner': 'المالك',
@@ -807,6 +818,8 @@ const ar: PhraseMap = {
   'Native': 'لغة أم',
   'Analytics Tracking': 'تتبع التحليلات',
   'Help us improve by sharing anonymous usage data': 'ساعدنا على التحسين بمشاركة بيانات استخدام مجهولة',
+  'AI data processing': 'معالجة البيانات بالذكاء الاصطناعي',
+  'AI requests are sent only when you choose an AI action. Provider details and data handling are explained in the Privacy Policy.': 'لا تُرسل طلبات الذكاء الاصطناعي إلا عندما تختار إجراءً يعتمد عليه. تفاصيل المزوّدين ومعالجة البيانات موضحة في سياسة الخصوصية.',
   'AI Training Opt-Out': 'رفض استخدام البيانات في تدريب الذكاء الاصطناعي',
   'Your data is stored in EU (Stockholm) servers': 'تُخزن بياناتك على خوادم الاتحاد الأوروبي (ستوكهولم)',
   'All data is encrypted in transit and at rest': 'كل البيانات مشفرة أثناء النقل وفي التخزين',
@@ -1033,6 +1046,8 @@ const ar: PhraseMap = {
   'Unblock': 'إلغاء الحظر',
   'Production readiness unavailable': 'حالة جاهزية الإنتاج غير متاحة',
   'Production Readiness': 'جاهزية الإنتاج',
+  'Legal operator identity': 'هوية المشغّل القانونية',
+  'Production app URL': 'رابط تطبيق الإنتاج',
   'Live service checks before launch. Secrets remain server-side.': 'فحوصات للخدمات الحية قبل الإطلاق. تبقى الأسرار على الخادم.',
   'ready': 'جاهز',
   'Notifications unavailable': 'الإشعارات غير متاحة',
@@ -2604,7 +2619,7 @@ const sv: PhraseMap = {
   'Document AI': 'Dokument-AI', 'Summarize, analyze, and extract from documents.': 'Sammanfatta, analysera och extrahera från dokument.', 'Action': 'Åtgärd', 'Document Content': 'Dokumentinnehåll', 'Question': 'Fråga', 'Summarize': 'Sammanfatta', 'Analyze': 'Analysera', 'Ask a Question': 'Ställ en fråga', 'Paste your document text here...': 'Klistra in dokumenttexten här...', 'What is the main conclusion?': 'Vad är huvudslutsatsen?', 'Analyzing document...': 'Analyserar dokument...', 'Analysis complete': 'Analysen är klar', 'Analyzing...': 'Analyserar...', 'Analyze Document': 'Analysera dokument',
   'Study Assistant': 'Studieassistent', 'Explain concepts, create quizzes, and study plans.': 'Förklara begrepp, skapa quiz och studieplaner.', 'What do you need?': 'Vad behöver du?', 'Topic / Subject': 'Ämne', 'Level': 'Nivå', 'Count': 'Antal', 'Explain a Concept': 'Förklara ett begrepp', 'Create a Quiz': 'Skapa ett quiz', 'Generate Flashcards': 'Skapa flashcards', 'Create Study Plan': 'Skapa studieplan', 'Quantum computing': 'Kvantberäkning', 'Generating study material...': 'Skapar studiematerial...', 'Study material generated': 'Studiematerial skapat', 'Generate': 'Skapa',
   'Team Workspace': 'Team Workspace', 'Build websites together': 'Bygg webbplatser tillsammans', 'Secure roles, invitations and shared projects. Pro supports 3 seats; Business supports 10 seats.': 'Säkra roller, inbjudningar och delade projekt. Pro stöder 3 platser och Business 10.', 'Paste a team invitation token or open an invitation link': 'Klistra in en teaminbjudningskod eller öppna en inbjudningslänk', 'Your teams': 'Dina team', 'No team workspaces yet.': 'Inga teamarbetsytor ännu.', 'New workspace name': 'Namn på ny arbetsyta', 'Create or select a team workspace to manage members and projects.': 'Skapa eller välj en teamarbetsyta för att hantera medlemmar och projekt.', 'Rename workspace': 'Byt namn på arbetsyta', 'Delete workspace': 'Ta bort arbetsyta', 'Invite teammate': 'Bjud in teammedlem', 'Invite': 'Bjud in', 'Members': 'Medlemmar', 'Editor': 'Redigerare', 'Viewer': 'Visare', 'Transfer ownership': 'Överför ägarskap', 'Leave workspace': 'Lämna arbetsyta', 'Remove member': 'Ta bort medlem', 'Pending invitations': 'Väntande inbjudningar', 'Shared projects': 'Delade projekt', 'Select one of your personal projects…': 'Välj ett av dina personliga projekt…', 'Share project': 'Dela projekt', 'Remove from workspace': 'Ta bort från arbetsytan', 'Open Website Builder from the Tools menu; this shared project will appear in the Cloud Projects selector.': 'Öppna Webbplatsbyggaren från Verktyg-menyn; det delade projektet visas i väljaren för molnprojekt.', 'No projects shared with this workspace yet.': 'Inga projekt har delats med den här arbetsytan ännu.',
-  'Settings': 'Inställningar', 'Manage your account, security, and preferences.': 'Hantera konto, säkerhet och inställningar.', 'Profile': 'Profil', 'Security': 'Säkerhet', 'Preferences': 'Inställningar', 'Privacy': 'Integritet', 'Data Export (GDPR)': 'Dataexport (GDPR)', 'Download a complete copy of all your data stored on Tayar Intelligence Tools. This includes your profile, projects, files, conversations, and activity log.': 'Ladda ner en komplett kopia av all data som lagras i Tayar Intelligence Tools, inklusive profil, projekt, filer, konversationer och aktivitetslogg.', 'Preparing your data...': 'Förbereder dina data...', 'Data exported successfully': 'Data exporterades', 'Failed to export data': 'Dataexport misslyckades', 'Personal data downloaded': 'Personliga data nedladdade', 'Export All Data': 'Exportera all data', 'Download Personal Data': 'Ladda ner personliga data', 'Privacy Controls': 'Integritetskontroller', 'Analytics enabled': 'Analys aktiverad', 'Analytics disabled': 'Analys inaktiverad', 'Prevent your content from being used to improve AI models': 'Förhindra att ditt innehåll används för att förbättra AI-modeller', 'AI training opt-out enabled': 'Avstående från AI-träning aktiverat', 'AI training opt-out disabled': 'Avstående från AI-träning inaktiverat', 'Data Storage Location': 'Datalagringsplats', 'Data Encryption': 'Datakryptering', 'Delete Account': 'Radera konto', 'Permanently delete your account and all associated data — projects, files, conversations, and activity. This action cannot be undone.': 'Radera kontot och all tillhörande data permanent — projekt, filer, konversationer och aktivitet. Åtgärden kan inte ångras.', 'Type "DELETE" to confirm': 'Skriv "DELETE" för att bekräfta', 'Deleting account...': 'Raderar konto...', 'Account deleted': 'Kontot raderades', 'Failed to delete account. Please contact support.': 'Det gick inte att radera kontot. Kontakta supporten.', 'Go to Workspace →': 'Gå till arbetsytan →', 'Upgrade to Pro': 'Uppgradera till Pro', 'Upgrade Now': 'Uppgradera nu', 'Unlock all 50+ AI tools and unlimited documents.': 'Lås upp högre gränser och fler professionella funktioner.', 'Soon': 'Snart', 'Beta': 'Beta',
+  'Settings': 'Inställningar', 'Manage your account, security, and preferences.': 'Hantera konto, säkerhet och inställningar.', 'Profile': 'Profil', 'Security': 'Säkerhet', 'Preferences': 'Inställningar', 'Privacy': 'Integritet', 'Data Export (GDPR)': 'Dataexport (GDPR)', 'Account Data Export': 'Export av kontodata', 'Download a portable JSON export of your account records and stored-file inventory. Original file binaries remain available from their tools.': 'Ladda ned en portabel JSON-export med dina kontoposter och en lista över lagrade filer. De ursprungliga filerna är fortsatt tillgängliga i respektive verktyg.', 'Sign in to export your account data.': 'Logga in för att exportera dina kontodata.', 'Download a complete copy of all your data stored on Tayar Intelligence Tools. This includes your profile, projects, files, conversations, and activity log.': 'Ladda ner en komplett kopia av all data som lagras i Tayar Intelligence Tools, inklusive profil, projekt, filer, konversationer och aktivitetslogg.', 'Preparing your data...': 'Förbereder dina data...', 'Data exported successfully': 'Data exporterades', 'Failed to export data': 'Dataexport misslyckades', 'Personal data downloaded': 'Personliga data nedladdade', 'Export All Data': 'Exportera all data', 'Download Personal Data': 'Ladda ner personliga data', 'Privacy Controls': 'Integritetskontroller', 'Analytics enabled': 'Analys aktiverad', 'Analytics disabled': 'Analys inaktiverad', 'Prevent your content from being used to improve AI models': 'Förhindra att ditt innehåll används för att förbättra AI-modeller', 'AI training opt-out enabled': 'Avstående från AI-träning aktiverat', 'AI training opt-out disabled': 'Avstående från AI-träning inaktiverat', 'Data Storage Location': 'Datalagringsplats', 'Cloud storage location follows the active service configuration. See the Privacy Policy for current providers.': 'Molnlagringens plats följer den aktiva tjänstekonfigurationen. Se integritetspolicyn för aktuella leverantörer.', 'Data Encryption': 'Datakryptering', 'Delete Account': 'Radera konto', 'Permanently delete your Tayar account, owned projects and stored files. An active subscription is canceled first. Payment providers may retain records required by law. This action cannot be undone.': 'Radera permanent ditt Tayar-konto, projekt som du äger och lagrade filer. En aktiv prenumeration sägs upp först. Betalningsleverantörer kan behålla uppgifter som krävs enligt lag. Åtgärden kan inte ångras.', 'Type "DELETE" to confirm': 'Skriv "DELETE" för att bekräfta', 'Deleting account...': 'Raderar konto...', 'Account deleted': 'Kontot raderades', 'Failed to delete account. Please contact support.': 'Det gick inte att radera kontot. Kontakta supporten.', 'Go to Workspace →': 'Gå till arbetsytan →', 'Upgrade to Pro': 'Uppgradera till Pro', 'Upgrade Now': 'Uppgradera nu', 'Unlock all 50+ AI tools and unlimited documents.': 'Lås upp högre gränser och fler professionella funktioner.', 'Soon': 'Snart', 'Beta': 'Beta',
   'Delete My Account': 'Radera mitt konto',
   'This will permanently delete:': 'Detta raderar permanent:',
   'Your profile and account credentials': 'Din profil och dina kontouppgifter',
@@ -2662,6 +2677,12 @@ const sv: PhraseMap = {
   'Not verified': 'Inte verifierad',
 
   'Password must be at least 8 characters': 'Lösenordet måste vara minst 8 tecken',
+  'Password is too long': 'Lösenordet är för långt',
+  'Password must contain a lowercase letter': 'Lösenordet måste innehålla en liten bokstav',
+  'Password must contain an uppercase letter': 'Lösenordet måste innehålla en stor bokstav',
+  'Password must contain a number': 'Lösenordet måste innehålla en siffra',
+  'At least 8 characters': 'Minst 8 tecken',
+  'Choose a stronger password.': 'Välj ett starkare lösenord.',
   'plan': 'plan',
 
   'Owner': 'Ägare',
@@ -3346,6 +3367,8 @@ const sv: PhraseMap = {
   'Native': 'Modersmål',
   'Analytics Tracking': 'Analysspårning',
   'Help us improve by sharing anonymous usage data': 'Hjälp oss förbättra genom att dela anonym användningsdata',
+  'AI data processing': 'AI-databehandling',
+  'AI requests are sent only when you choose an AI action. Provider details and data handling are explained in the Privacy Policy.': 'AI-förfrågningar skickas endast när du väljer en AI-åtgärd. Leverantörer och datahantering beskrivs i integritetspolicyn.',
   'AI Training Opt-Out': 'Avstå från AI-träning',
   'Your data is stored in EU (Stockholm) servers': 'Dina data lagras på servrar inom EU (Stockholm)',
   'All data is encrypted in transit and at rest': 'All data är krypterad under överföring och lagring',
@@ -3572,6 +3595,8 @@ const sv: PhraseMap = {
   'Unblock': 'Avblockera',
   'Production readiness unavailable': 'Produktionsberedskap är inte tillgänglig',
   'Production Readiness': 'Produktionsberedskap',
+  'Legal operator identity': 'Juridisk operatörsidentitet',
+  'Production app URL': 'Produktionsappens URL',
   'Live service checks before launch. Secrets remain server-side.': 'Kontroller av live-tjänster före lansering. Hemligheter stannar på serversidan.',
   'ready': 'klar',
   'Notifications unavailable': 'Aviseringar är inte tillgängliga',
@@ -5137,5 +5162,6 @@ export function localizeUi(text: string, language: Language): string {
 
 export function useLocalizer() {
   const { prefs } = usePreferences();
-  return (text: string) => localizeUi(text, prefs.language);
+  const language = prefs.language;
+  return useCallback((text: string) => localizeUi(text, language), [language]);
 }

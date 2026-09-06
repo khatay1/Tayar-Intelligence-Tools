@@ -309,6 +309,7 @@ function BlocksTab() {
 interface ReadinessStatus {
   connected?: boolean;
   mode?: string;
+  appUrlConfigured?: boolean;
   account?: { chargesEnabled?: boolean; payoutsEnabled?: boolean };
   plans?: {
     pro?: { valid?: boolean; priceId?: string | null };
@@ -344,14 +345,15 @@ function ReadinessTab() {
   if (error) return <AdminTabError title={l('Production readiness unavailable')} message={error} onRetry={() => void load()} />;
 
   const checks = [
-    { label: 'Stripe connection', ok: status?.connected === true, detail: status?.mode || 'unconfigured' },
-    { label: 'Stripe charges', ok: status?.account?.chargesEnabled === true, detail: status?.account?.chargesEnabled ? 'enabled' : 'needs attention' },
-    { label: 'Stripe payouts', ok: status?.account?.payoutsEnabled === true, detail: status?.account?.payoutsEnabled ? 'enabled' : 'needs attention' },
-    { label: 'Pro price', ok: status?.plans?.pro?.valid === true, detail: status?.plans?.pro?.priceId || 'missing' },
-    { label: 'Business price', ok: status?.plans?.business?.valid === true, detail: status?.plans?.business?.priceId || 'missing' },
-    { label: 'Stripe webhook', ok: status?.webhook?.endpointConfigured === true && status?.webhook?.receivesRequiredEvents === true, detail: status?.webhook?.status || 'not verified' },
-    { label: 'Checkout', ok: status?.checkoutReady === true, detail: status?.checkoutReady ? 'ready' : 'needs setup' },
-    { label: 'Billing portal', ok: status?.portalReady === true, detail: status?.portalReady ? 'ready' : 'needs setup' },
+    { label: 'Production app URL', ok: status?.appUrlConfigured === true, detail: status?.appUrlConfigured ? l('configured') : l('APP_URL missing or invalid') },
+    { label: 'Stripe connection', ok: status?.connected === true, detail: l(status?.mode || 'unconfigured') },
+    { label: 'Stripe charges', ok: status?.account?.chargesEnabled === true, detail: l(status?.account?.chargesEnabled ? 'enabled' : 'needs attention') },
+    { label: 'Stripe payouts', ok: status?.account?.payoutsEnabled === true, detail: l(status?.account?.payoutsEnabled ? 'enabled' : 'needs attention') },
+    { label: 'Pro price', ok: status?.plans?.pro?.valid === true, detail: status?.plans?.pro?.priceId || l('missing') },
+    { label: 'Business price', ok: status?.plans?.business?.valid === true, detail: status?.plans?.business?.priceId || l('missing') },
+    { label: 'Stripe webhook', ok: status?.webhook?.endpointConfigured === true && status?.webhook?.receivesRequiredEvents === true, detail: status?.webhook?.status ? l(status.webhook.status) : l('not verified') },
+    { label: 'Checkout', ok: status?.checkoutReady === true, detail: l(status?.checkoutReady ? 'ready' : 'needs setup') },
+    { label: 'Billing portal', ok: status?.portalReady === true, detail: l(status?.portalReady ? 'ready' : 'needs setup') },
   ];
 
   const readyCount = checks.filter(item => item.ok).length;
@@ -373,7 +375,7 @@ function ReadinessTab() {
             {item.ok ? <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5" /> : <XCircle className="w-5 h-5 text-amber-400 mt-0.5" />}
             <div className="min-w-0">
               <div className="text-sm font-medium text-white">{l(item.label)}</div>
-              <div className="text-xs text-gray-500 mt-1 break-all">{l(item.detail)}</div>
+              <div className="text-xs text-gray-500 mt-1 break-all">{item.detail}</div>
             </div>
           </div>
         ))}

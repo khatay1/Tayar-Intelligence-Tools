@@ -1,3 +1,5 @@
 import { lazy } from 'react';
 
-export default lazy(() => import('./AIUsageAnalytics.impl'));
+const AIUsageAnalytics = lazy(() => import('./AIUsageAnalytics.impl'));
+
+export default AIUsageAnalytics;

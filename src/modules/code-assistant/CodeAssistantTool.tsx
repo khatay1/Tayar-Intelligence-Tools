@@ -229,7 +229,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
         if (active) setProjectOptionsLoading(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [l]);
 
   useEffect(() => {
     let active = true;
@@ -256,7 +256,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
       });
 
     return () => { active = false; };
-  }, [targetProjectId]);
+  }, [l, targetProjectId]);
 
   useEffect(() => {
     let active = true;

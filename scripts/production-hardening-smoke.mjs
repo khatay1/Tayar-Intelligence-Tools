@@ -67,10 +67,12 @@ check('Analytics requires explicit consent',
 
 check('External monitoring requires analytics consent',
   monitoring.includes('hasAnalyticsConsent') &&
-  monitoring.includes('loadConsentedMonitoring'));
+  monitoring.includes('setConsentedMonitoringEnabled(hasAnalyticsConsent())') &&
+  monitoring.includes('opt_out_capturing') &&
+  monitoring.includes('beforeSend: (event: unknown) => hasAnalyticsConsent() ? event : null'));
 
 check('Consent changes are broadcast',
-  consent.includes("'tayar-cookie-consent-changed'") &&
+  consent.includes('window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_EVENT') &&
   analytics.includes("COOKIE_CONSENT_EVENT = 'tayar-cookie-consent-changed'"));
 
 check('Supabase browser configuration fails fast when missing',

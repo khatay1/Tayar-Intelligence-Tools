@@ -199,7 +199,7 @@ function PaymentSettings({ status, loading, error, onRefresh }: { status: Billin
   useEffect(() => {
     if (!status) return;
     setPriceInputs({ pro: status.plans.pro.unitAmount != null ? String(status.plans.pro.unitAmount / 100) : '', business: status.plans.business.unitAmount != null ? String(status.plans.business.unitAmount / 100) : '' });
-  }, [status?.plans.pro.unitAmount, status?.plans.business.unitAmount]);
+  }, [status]);
 
   const invokeControl = useCallback(async (body: Record<string, unknown>) => {
     const { data, error: invokeError } = await supabase.functions.invoke('billing-admin-control', { body });

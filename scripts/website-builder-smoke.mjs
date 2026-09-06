@@ -220,7 +220,11 @@ check('Lead parsing utilities are extracted', websiteLeadUtils.includes('getWebs
 check('Delivery config defaults and normalization are extracted', deliveryConfig.includes('DEFAULT_DELIVERY_CONFIG') && deliveryConfig.includes('normalizeDeliveryConfig') && builder.includes("from './core/delivery-config'"));
 check('Published, preview and release bundles validate index.html before storage writes', publishedSiteValidation.includes('assertValidPublishedWebsiteBundle') && publishedSiteValidation.includes('isValidPublishedHtml') && (publishedWebsiteService.match(/assertValidPublishedWebsiteBundle\(files\)/g) || []).length >= 3 && publishedWebsiteService.includes('const verifiedHtml = await verifiedIndex.text()') && publishedWebsiteService.includes('await removePublishedSiteFiles(publishedSiteStorage, stalePaths)'));
 check('Published-site replacement snapshots the previous live state before mutation', publishedWebsiteService.includes('const previousFiles = new Map<string, Blob>()') && publishedWebsiteService.includes('Could not create a safe pre-publish backup'));
-check('Partial published-site replacements rollback overwritten and newly created files', publishedWebsiteService.includes('restorePreviousLiveState') && publishedWebsiteService.includes('newlyCreatedPaths') && publishedWebsiteService.includes('The previous live website was restored automatically.'));
+check('Partial published-site replacements rollback overwritten and newly created files',
+  publishedWebsiteService.includes('restorePublishedWebsiteSnapshot') &&
+  publishedWebsiteService.includes('new Set(snapshot.files.keys())') &&
+  publishedWebsiteService.includes('await restorePublishedWebsiteSnapshot(folder, snapshot)') &&
+  publishedWebsiteService.includes('The previous live website was restored automatically.'));
 check('Builder has no direct Supabase calls', !builder.includes("from '@/lib/supabase'") && !/\bsupabase\b/.test(builder) && !builder.includes(".from('projects')") && !builder.includes(".from('website_leads')") && !builder.includes(".from('website_analytics_events')") && !builder.includes(".from('website_publish_versions')") && !builder.includes(".from('website-media')") && !builder.includes(".from('published-sites')"));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));

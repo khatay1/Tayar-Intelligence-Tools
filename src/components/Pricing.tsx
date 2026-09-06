@@ -27,11 +27,11 @@ const pricingCopy = {
     year: 'year',
     lifetime: 'lifetime',
     live: 'Live plan data',
-    fallback: 'Using safe pricing fallback',
+    fallback: 'Live pricing temporarily unavailable',
     plans: [
       { name: 'Free', price: '$0', period: 'forever', desc: 'For exploring Tayar with Free tool access and plan limits.', features: ['Free-access tools with Free usage limits', 'Personal workspace and project saving', 'No credit card required'] },
-      { name: 'Pro', price: '$19', period: 'month', desc: 'For professionals who need Pro tools and higher limits.', features: ['Free + Pro tool access', 'Higher usage limits than Free', 'Personal workspace and project saving'] },
-      { name: 'Business', price: '$49', period: 'month', desc: 'For teams and higher-volume work with Business-only tools.', features: ['Free + Pro + Business tool access', 'Highest plan usage limits', 'Business-only tools such as Team Workspace when enabled'] },
+      { name: 'Pro', price: '—', period: '', desc: 'For professionals who need Pro tools and higher limits.', features: ['Free + Pro tool access', 'Higher usage limits than Free', 'Personal workspace and project saving'] },
+      { name: 'Business', price: '—', period: '', desc: 'For teams and higher-volume work with Business-only tools.', features: ['Free + Pro + Business tool access', 'Highest plan usage limits', 'Business-only tools such as Team Workspace when enabled'] },
     ],
   },
   ar: {
@@ -52,11 +52,11 @@ const pricingCopy = {
     year: 'سنة',
     lifetime: 'مدى الحياة',
     live: 'بيانات الخطط المباشرة',
-    fallback: 'يتم استخدام القيم الاحتياطية الآمنة',
+    fallback: 'الأسعار المباشرة غير متاحة مؤقتاً',
     plans: [
       { name: 'Free', price: '$0', period: 'دائماً', desc: 'لاستكشاف Tayar باستخدام أدوات Free وحدود الخطة الفعلية.', features: ['أدوات Free ضمن حدود الخطة المجانية', 'مساحة شخصية وحفظ المشاريع', 'لا تحتاج بطاقة ائتمان'] },
-      { name: 'Pro', price: '$19', period: 'شهرياً', desc: 'للمحترفين الذين يحتاجون أدوات Pro وحدوداً أعلى.', features: ['أدوات Free + Pro', 'حدود استخدام أعلى من Free', 'مساحة شخصية وحفظ المشاريع'] },
-      { name: 'Business', price: '$49', period: 'شهرياً', desc: 'للفرق والعمل بحجم أكبر مع أدوات Business.', features: ['أدوات Free + Pro + Business', 'أعلى حدود استخدام للخطة', 'أدوات Business مثل Team Workspace عندما تكون مفعّلة'] },
+      { name: 'Pro', price: '—', period: '', desc: 'للمحترفين الذين يحتاجون أدوات Pro وحدوداً أعلى.', features: ['أدوات Free + Pro', 'حدود استخدام أعلى من Free', 'مساحة شخصية وحفظ المشاريع'] },
+      { name: 'Business', price: '—', period: '', desc: 'للفرق والعمل بحجم أكبر مع أدوات Business.', features: ['أدوات Free + Pro + Business', 'أعلى حدود استخدام للخطة', 'أدوات Business مثل Team Workspace عندما تكون مفعّلة'] },
     ],
   },
   sv: {
@@ -77,11 +77,11 @@ const pricingCopy = {
     year: 'år',
     lifetime: 'livstid',
     live: 'Live plandata',
-    fallback: 'Säkra reservvärden används',
+    fallback: 'Livepriser är tillfälligt otillgängliga',
     plans: [
       { name: 'Free', price: '$0', period: 'för alltid', desc: 'För att utforska Tayar med Free-verktyg och planens faktiska gränser.', features: ['Free-verktyg med Free-planens gränser', 'Personlig arbetsyta och projektsparning', 'Inget betalkort krävs'] },
-      { name: 'Pro', price: '$19', period: 'månad', desc: 'För professionella som behöver Pro-verktyg och högre gränser.', features: ['Free + Pro-verktyg', 'Högre användningsgränser än Free', 'Personlig arbetsyta och projektsparning'] },
-      { name: 'Business', price: '$49', period: 'månad', desc: 'För team och större arbetsvolymer med Business-verktyg.', features: ['Free + Pro + Business-verktyg', 'Planens högsta användningsgränser', 'Business-verktyg som Team Workspace när de är aktiverade'] },
+      { name: 'Pro', price: '—', period: '', desc: 'För professionella som behöver Pro-verktyg och högre gränser.', features: ['Free + Pro-verktyg', 'Högre användningsgränser än Free', 'Personlig arbetsyta och projektsparning'] },
+      { name: 'Business', price: '—', period: '', desc: 'För team och större arbetsvolymer med Business-verktyg.', features: ['Free + Pro + Business-verktyg', 'Planens högsta användningsgränser', 'Business-verktyg som Team Workspace när de är aktiverade'] },
     ],
   },
 } as const;
@@ -133,7 +133,7 @@ export default function Pricing({ onGetStarted }: PricingProps) {
         key: plan.id,
         name: planDisplayName(plan.id),
         price: formatPlanPrice(plan.price, prefs.language),
-        period: periodText(plan.price.interval, c),
+        period: plan.price.unitAmount == null ? '' : periodText(plan.price.interval, c),
         desc: plan.description[prefs.language] || plan.description.en,
         highlighted: plan.featured,
         features: [],
@@ -186,7 +186,7 @@ export default function Pricing({ onGetStarted }: PricingProps) {
                 {plan.highlighted && <div className="absolute -top-3 start-6 inline-flex items-center gap-1 rounded-full bg-violet-600 px-3 py-1 text-[11px] font-bold text-white"><Sparkles className="h-3 w-3" />{c.popular}</div>}
                 <h3 className="text-lg font-bold text-white">{plan.name}</h3>
                 <p className="mt-1.5 min-h-[44px] text-sm leading-6 text-gray-500">{plan.desc}</p>
-                <div className="mt-5 flex items-end gap-2"><span className="text-4xl font-black tracking-tight text-white">{plan.price}</span><span className="pb-1 text-sm text-gray-500">/ {plan.period}</span></div>
+                <div className="mt-5 flex items-end gap-2"><span className="text-4xl font-black tracking-tight text-white">{plan.price}</span>{plan.period && <span className="pb-1 text-sm text-gray-500">/ {plan.period}</span>}</div>
                 <button type="button" onClick={onGetStarted} className={`mt-6 min-h-11 w-full rounded-xl py-3 text-sm font-bold transition-all ${plan.highlighted ? 'bg-violet-600 text-white hover:bg-violet-500' : 'border border-white/10 bg-white/[0.035] text-white hover:bg-white/[0.06]'}`}>{c.cta}</button>
 
                 {plan.tools.length ? (

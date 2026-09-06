@@ -8,11 +8,95 @@ import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { usePreferences, Theme, Language } from '@/context/PreferencesContext';
 import { LANGUAGE_LABELS } from '@/lib/i18n';
+import { validatePassword } from '@/lib/security';
+import { functionErrorMessage } from '@/lib/function-errors';
 import { useLocalizer } from '@/lib/ui-localization';
 import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase';
+import {
+  COOKIE_CONSENT_EVENT,
+  COOKIE_CONSENT_KEY,
+  hasAnalyticsConsent,
+} from '@/lib/analytics';
 
 type Tab = 'profile' | 'security' | 'preferences' | 'notifications' | 'privacy';
+
+const ACCOUNT_EXPORT_SOURCES = [
+  ['profiles', 'id'],
+  ['subscriptions', 'user_id'],
+  ['projects', 'user_id'],
+  ['project_items', 'user_id'],
+  ['workspace_files', 'user_id'],
+  ['cvs', 'user_id'],
+  ['cv_versions', 'user_id'],
+  ['ai_conversations', 'user_id'],
+  ['ai_messages', 'user_id'],
+  ['ai_usage', 'user_id'],
+  ['tool_usage_events', 'user_id'],
+  ['activity_log', 'user_id'],
+  ['user_onboarding', 'user_id'],
+  ['user_preferences', 'user_id'],
+  ['tool_preferences', 'user_id'],
+  ['notifications', 'user_id'],
+  ['support_tickets', 'user_id'],
+  ['website_leads', 'user_id'],
+  ['website_analytics_events', 'user_id'],
+  ['website_publish_versions', 'user_id'],
+  ['team_workspaces', 'owner_id'],
+  ['team_workspace_members', 'user_id'],
+  ['team_workspace_invites', 'invited_by'],
+] as const;
+
+const ACCOUNT_EXPORT_PAGE_SIZE = 1000;
+const ACCOUNT_EXPORT_MAX_ROWS_PER_SOURCE = 50_000;
+
+async function loadAllAccountRows(table: string, ownerColumn: string, userId: string) {
+  const rows: unknown[] = [];
+  for (let offset = 0; offset < ACCOUNT_EXPORT_MAX_ROWS_PER_SOURCE; offset += ACCOUNT_EXPORT_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq(ownerColumn, userId)
+      .range(offset, offset + ACCOUNT_EXPORT_PAGE_SIZE - 1);
+    if (error) throw new Error(`Could not export ${table}: ${error.message}`);
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < ACCOUNT_EXPORT_PAGE_SIZE) return rows;
+  }
+  throw new Error(`The ${table} export is too large for an in-browser download. Contact support.`);
+}
+
+async function loadStorageManifest(bucket: string, userId: string) {
+  const files: Array<Record<string, unknown>> = [];
+  const pending = [userId];
+
+  while (pending.length) {
+    const folder = pending.pop() as string;
+    for (let offset = 0; ; offset += ACCOUNT_EXPORT_PAGE_SIZE) {
+      const { data, error } = await supabase.storage.from(bucket).list(folder, {
+        limit: ACCOUNT_EXPORT_PAGE_SIZE,
+        offset,
+        sortBy: { column: 'name', order: 'asc' },
+      });
+      if (error) throw new Error(`Could not export ${bucket} file inventory: ${error.message}`);
+      const page = data || [];
+      for (const entry of page) {
+        const path = `${folder}/${entry.name}`;
+        if (entry.id) {
+          files.push({ bucket, path, size: entry.metadata?.size ?? null, contentType: entry.metadata?.mimetype ?? null, updatedAt: entry.updated_at ?? null });
+        } else {
+          pending.push(path);
+        }
+        if (files.length + pending.length > ACCOUNT_EXPORT_MAX_ROWS_PER_SOURCE) {
+          throw new Error(`The ${bucket} file inventory is too large for an in-browser download. Contact support.`);
+        }
+      }
+      if (page.length < ACCOUNT_EXPORT_PAGE_SIZE) break;
+    }
+  }
+
+  return files;
+}
 
 export default function SettingsPage({ darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
@@ -107,61 +191,63 @@ export default function SettingsPage({ darkMode }: { darkMode: boolean }) {
 // --- Privacy Tab ---
 function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
   const l = useLocalizer();
+  const { user } = useAuth();
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(() => localStorage.getItem('tayar-analytics-opt-in') !== 'false');
-  const [aiTrainingOptOut, setAiTrainingOptOut] = useState(() => localStorage.getItem('tayar-ai-training-opt-out') === 'true');
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(hasAnalyticsConsent);
+
+  function setAnalyticsConsent(enabled: boolean) {
+    const nextConsent = { necessary: true, analytics: enabled };
+    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(nextConsent));
+    window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_EVENT, { detail: nextConsent }));
+    setAnalyticsEnabled(enabled);
+  }
 
   async function handleExport() {
+    if (!user) {
+      toast.error(l('Sign in to export your account data.'));
+      return;
+    }
     setExporting(true);
     const toastId = toast.loading(l('Preparing your data...'));
     try {
-      const { data: profile } = await supabase.from('profiles').select('*').single();
-      const { data: projects } = await supabase.from('projects').select('*');
-      const { data: files } = await supabase.from('workspace_files').select('*');
-      const { data: conversations } = await supabase.from('ai_conversations').select('*');
-      const { data: activity } = await supabase.from('activity_log').select('*');
-      const { data: onboarding } = await supabase.from('user_onboarding').select('*').single();
+      const entries = await Promise.all(ACCOUNT_EXPORT_SOURCES.map(async ([table, ownerColumn]) => [
+        table,
+        await loadAllAccountRows(table, ownerColumn, user.id),
+      ] as const));
+      const [websiteMedia, publishedSites] = await Promise.all([
+        loadStorageManifest('website-media', user.id),
+        loadStorageManifest('published-sites', user.id),
+      ]);
       const exportData = {
-        profile, projects, files, conversations, activity, onboarding,
+        account: {
+          id: user.id,
+          email: user.email || null,
+          createdAt: user.created_at,
+          lastSignInAt: user.last_sign_in_at || null,
+          providers: user.identities?.map(identity => identity.provider) || [],
+        },
+        records: Object.fromEntries(entries),
+        storageManifest: { websiteMedia, publishedSites },
         exported_at: new Date().toISOString(),
-        format: 'GDPR Data Portability',
+        format: 'Tayar Account Data Export v1',
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `tayar-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.update(toastId, 'Data exported successfully', 'success');
     } catch {
       toast.update(toastId, 'Failed to export data', 'error');
     }
     setExporting(false);
-  }
-
-  function handleDownloadPersonalData() {
-    const personalData = {
-      browser: navigator.userAgent,
-      language: navigator.language,
-      platform: navigator.platform,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      cookies_enabled: navigator.cookieEnabled,
-      online: navigator.onLine,
-      screen_resolution: `${screen.width}x${screen.height}`,
-      collected_at: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(personalData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tayar-personal-data.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(l('Personal data downloaded'));
   }
 
   async function handleDeleteAccount() {
@@ -170,27 +256,24 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
       return;
     }
     setDeleting(true);
-    const toastId = toast.loading('Deleting account...');
+    const toastId = toast.loading(l('Deleting account...'));
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session.session?.user?.id;
-      if (userId) {
-        await supabase.from('tool_preferences').delete().eq('user_id', userId);
-        await supabase.from('user_onboarding').delete().eq('user_id', userId);
-        await supabase.from('ai_messages').delete().eq('user_id', userId);
-        await supabase.from('ai_conversations').delete().eq('user_id', userId);
-        await supabase.from('ai_usage').delete().eq('user_id', userId);
-        await supabase.from('projects').delete().eq('user_id', userId);
-        await supabase.from('workspace_files').delete().eq('user_id', userId);
-        await supabase.from('activity_log').delete().eq('user_id', userId);
-        await supabase.from('profiles').delete().eq('id', userId);
-      }
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { confirmation: deleteConfirmText },
+      });
+      if (error) throw error;
+      if (data?.deleted !== true) throw new Error(data?.error || 'Account deletion was not confirmed.');
+
       await supabase.auth.signOut();
-      toast.update(toastId, 'Account deleted', 'success');
+      toast.update(toastId, l('Account deleted'), 'success');
       window.location.hash = '';
       window.location.reload();
-    } catch {
-      toast.update(toastId, l('Failed to delete account. Please contact support.'), 'error');
+    } catch (error) {
+      const message = await functionErrorMessage(
+        error,
+        l('Failed to delete account. Please contact support.'),
+      );
+      toast.update(toastId, message, 'error');
     }
     setDeleting(false);
   }
@@ -201,17 +284,13 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
       <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <Download className="w-5 h-5 text-violet-400" />
-          <h3 className="text-white font-semibold">{l('Data Export (GDPR)')}</h3>
+          <h3 className="text-white font-semibold">{l('Account Data Export')}</h3>
         </div>
-        <p className="text-gray-500 text-sm mb-4">{l('Download a complete copy of all your data stored on Tayar Intelligence Tools. This includes your profile, projects, files, conversations, and activity log.')}</p>
+        <p className="text-gray-500 text-sm mb-4">{l('Download a portable JSON export of your account records and stored-file inventory. Original file binaries remain available from their tools.')}</p>
         <div className="flex flex-wrap gap-3">
           <button onClick={handleExport} disabled={exporting} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all">
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {l('Export All Data')}
-          </button>
-          <button onClick={handleDownloadPersonalData} className="flex items-center gap-2 text-gray-300 border border-white/10 hover:border-white/20 text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors">
-            <Eye className="w-4 h-4" />
-            {l('Download Personal Data')}
+            {l('Export Account Records')}
           </button>
         </div>
       </div>
@@ -226,13 +305,16 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
           <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
             <div>
               <div className="text-white text-sm font-medium">{l('Analytics Tracking')}</div>
-              <div className="text-gray-500 text-xs">{l('Help us improve by sharing anonymous usage data')}</div>
+              <div className="text-gray-500 text-xs">{l('Help us improve by sharing optional product usage data')}</div>
             </div>
             <button
+              type="button"
+              role="switch"
+              aria-checked={analyticsEnabled}
+              aria-label={l('Analytics Tracking')}
               onClick={() => {
                 const newVal = !analyticsEnabled;
-                setAnalyticsEnabled(newVal);
-                localStorage.setItem('tayar-analytics-opt-in', String(newVal));
+                setAnalyticsConsent(newVal);
                 toast.success(l(newVal ? 'Analytics enabled' : 'Analytics disabled'));
               }}
               className={`relative w-11 h-6 rounded-full transition-colors ${analyticsEnabled ? 'bg-violet-600' : 'bg-white/10'}`}
@@ -240,34 +322,24 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
               <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${analyticsEnabled ? 'translate-x-5' : ''}`} />
             </button>
           </div>
-          <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+          <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/5">
             <div>
-              <div className="text-white text-sm font-medium">{l('AI Training Opt-Out')}</div>
-              <div className="text-gray-500 text-xs">{l('Prevent your content from being used to improve AI models')}</div>
+              <div className="text-white text-sm font-medium">{l('AI data processing')}</div>
+              <div className="text-gray-500 text-xs">{l('AI requests are sent only when you choose an AI action. Provider details and data handling are explained in the Privacy Policy.')}</div>
             </div>
-            <button
-              onClick={() => {
-                const newVal = !aiTrainingOptOut;
-                setAiTrainingOptOut(newVal);
-                localStorage.setItem('tayar-ai-training-opt-out', String(newVal));
-                toast.success(l(newVal ? 'AI training opt-out enabled' : 'AI training opt-out disabled'));
-              }}
-              className={`relative w-11 h-6 rounded-full transition-colors ${aiTrainingOptOut ? 'bg-violet-600' : 'bg-white/10'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${aiTrainingOptOut ? 'translate-x-5' : ''}`} />
-            </button>
+            <Shield className="h-4 w-4 shrink-0 text-violet-400" />
           </div>
           <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
             <div>
               <div className="text-white text-sm font-medium">{l('Data Storage Location')}</div>
-              <div className="text-gray-500 text-xs">{l('Your data is stored in EU (Stockholm) servers')}</div>
+              <div className="text-gray-500 text-xs">{l('Cloud storage location follows the active service configuration. See the Privacy Policy for current providers.')}</div>
             </div>
             <Check className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
             <div>
               <div className="text-white text-sm font-medium">{l('Data Encryption')}</div>
-              <div className="text-gray-500 text-xs">{l('All data is encrypted in transit and at rest')}</div>
+              <div className="text-gray-500 text-xs">{l('Data uses encrypted network connections; storage security follows the configured providers and access controls.')}</div>
             </div>
             <Check className="w-4 h-4 text-emerald-400" />
           </div>
@@ -280,7 +352,7 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
           <Trash2 className="w-5 h-5 text-red-400" />
           <h3 className="text-red-400 font-semibold">{l('Delete Account')}</h3>
         </div>
-        <p className="text-gray-500 text-sm mb-4">{l('Permanently delete your account and all associated data — projects, files, conversations, and activity. This action cannot be undone.')}</p>
+        <p className="text-gray-500 text-sm mb-4">{l('Permanently delete your Tayar account, owned projects and stored files. An active subscription is canceled first. Limited billing, security and audit records may remain where legally required or needed to protect the service. This action cannot be undone.')}</p>
         {!confirmDelete ? (
           <button onClick={() => setConfirmDelete(true)} className="text-sm text-red-400 border border-red-500/20 hover:bg-red-500/10 px-4 py-2 rounded-xl transition-colors">
             {l('Delete My Account')}
@@ -442,8 +514,9 @@ function SecurityTab({
       toast.error(l('Passwords do not match'));
       return;
     }
-    if (newPassword.length < 8) {
-      toast.error(l('Password must be at least 8 characters'));
+    const passwordState = validatePassword(newPassword);
+    if (!passwordState.valid) {
+      toast.error(l(passwordState.error || 'Choose a stronger password.'));
       return;
     }
     setSaving(true);

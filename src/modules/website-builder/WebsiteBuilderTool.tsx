@@ -79,11 +79,13 @@ import {
   removePublishedWebsiteFiles,
   removeStalePublishedWebsiteFiles,
   replacePublishedWebsiteFiles,
+  restorePublishedWebsiteSnapshot,
+  snapshotPublishedWebsiteFiles,
   uploadPublishedWebsiteBlob,
   uploadPublishedWebsiteFolderFiles,
 } from './services/publishedWebsiteService';
 import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
-import { createWebsitePublishVersion, deleteWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
+import { createWebsitePublishVersion, deleteWebsitePublishVersionArchive, discardWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
 import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
@@ -10676,7 +10678,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     try {
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
-      const { error } = await deleteWebsitePublishVersionArchive({
+      const { error, recordDeleted } = await deleteWebsitePublishVersionArchive({
         versionId: version.id,
         projectId: deleteProjectId,
         ownerId: deleteOwnerId,
@@ -10685,9 +10687,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       });
 
       if (!deleteIsCurrent()) return;
+      if (recordDeleted) {
+        setPublishVersions((current) => current.filter((item) => item.id !== version.id));
+      }
       if (error) throw error;
-
-      setPublishVersions((current) => current.filter((item) => item.id !== version.id));
     } catch (error) {
       if (!deleteIsCurrent()) return;
       setPublishVersionsError(error instanceof Error ? error.message : 'Could not delete this release.');
@@ -11654,6 +11657,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       publishOperationSequenceRef.current === publishSequence &&
       projectLoadSequenceRef.current === publishLoadSequence &&
       activeUserIdRef.current === publishUserId;
+    const assertPublishIsCurrent = () => {
+      if (!publishIsCurrent()) {
+        throw new Error('Publishing stopped because the active project changed.');
+      }
+    };
+
+    let liveRollback: {
+      folder: string;
+      snapshot: Awaited<ReturnType<typeof snapshotPublishedWebsiteFiles>>;
+    } | null = null;
+    let liveFilesReplaced = false;
+    let publicationStateCommitted = false;
+    let pendingArchiveCleanup: Parameters<typeof discardWebsitePublishVersionArchive>[0] | null = null;
 
     setPublishBusy(true);
     setPublishError('');
@@ -11669,7 +11685,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           createHistory: false,
         });
 
-        if (!publishIsCurrent()) return;
+        assertPublishIsCurrent();
 
         if (!latestSaved) {
           throw new Error('The latest editor changes could not be synchronized before publishing.');
@@ -11683,7 +11699,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           published: false,
         });
 
-        if (!publishIsCurrent()) return;
+        assertPublishIsCurrent();
 
         if (createResult.error || !createResult.data) {
           if (createResult.error && /limit reached/i.test(createResult.error.message || '')) {
@@ -11710,7 +11726,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('A cloud project ID is required to publish.');
       }
 
-      if (!publishIsCurrent()) return;
+      assertPublishIsCurrent();
 
       const folder = publishUserId + '/' + publishProjectId;
       const publicBaseUrl = buildPublishedSiteBaseUrl(publishUserId, publishProjectId);
@@ -11814,9 +11830,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const publishReleaseHistoryEnabled =
         billingEntitlements.features.releaseHistory;
 
-      await replacePublishedWebsiteFiles(folder, files);
-
-      if (!publishIsCurrent()) return;
+      const previousLiveSnapshot = await snapshotPublishedWebsiteFiles(folder);
+      assertPublishIsCurrent();
+      liveRollback = { folder, snapshot: previousLiveSnapshot };
+      await replacePublishedWebsiteFiles(folder, files, previousLiveSnapshot);
+      liveFilesReplaced = true;
+      assertPublishIsCurrent();
 
       const versionId =
         typeof crypto !== 'undefined' &&
@@ -11846,6 +11865,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         '/versions/' +
         versionId;
 
+      const manifest = files.map((file) => ({
+        name: file.name,
+        contentType: file.contentType,
+      }));
+
       let archivedReleaseId:
         string | null = null;
 
@@ -11854,8 +11878,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (publishReleaseHistoryEnabled) {
         try {
           await archivePublishedWebsiteFiles(versionPrefix, files);
+          pendingArchiveCleanup = {
+            versionId,
+            projectId: publishProjectId,
+            ownerId: publishUserId,
+            storagePrefix: versionPrefix,
+            fileManifest: manifest,
+          };
 
-          if (!publishIsCurrent()) return;
+          assertPublishIsCurrent();
 
           const provisionalData = {
             ...publishBaseProjectData,
@@ -11869,13 +11900,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             lastPublishedFingerprint:
               publishEditableFingerprint,
           };
-
-          const manifest =
-            files.map((file) => ({
-              name: file.name,
-              contentType:
-                file.contentType,
-            }));
 
           const {
             error: versionError,
@@ -11891,7 +11915,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             fileManifest: manifest,
           });
 
-          if (!publishIsCurrent()) return;
+          assertPublishIsCurrent();
 
           if (versionError) {
             throw versionError;
@@ -11900,10 +11924,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           archivedReleaseId =
             versionId;
         } catch (error) {
-          archiveWarning =
+          if (!publishIsCurrent()) throw error;
+          let archiveMessage =
             error instanceof Error
               ? error.message
               : 'Release history could not be archived.';
+
+          if (pendingArchiveCleanup) {
+            const cleanup = pendingArchiveCleanup;
+            pendingArchiveCleanup = null;
+            const { error: cleanupError } = await discardWebsitePublishVersionArchive(cleanup);
+            if (cleanupError) archiveMessage += ' Archive cleanup needs support review.';
+          }
+
+          archiveWarning = archiveMessage;
         }
       }
 
@@ -11914,12 +11948,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('Could not build the public website URL.');
       }
 
-      if (!publishIsCurrent()) return;
+      assertPublishIsCurrent();
 
       const renderedRouteHealthy =
         await verifyPublishedRoute(nextPublishedUrl);
 
-      if (!publishIsCurrent()) return;
+      assertPublishIsCurrent();
 
       if (!renderedRouteHealthy) {
         throw new Error(
@@ -11944,7 +11978,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           nextPublishedAt,
       };
 
-      if (!publishIsCurrent()) return;
+      assertPublishIsCurrent();
 
       const {
         error: projectError,
@@ -11956,8 +11990,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: nextPublishedAt,
       });
 
-      if (!publishIsCurrent()) return;
-
       if (projectError) {
         throw new Error(
           'The site is uploaded, but the project publish state could not be saved: ' +
@@ -11965,7 +11997,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
 
-      if (!publishIsCurrent()) return;
+      publicationStateCommitted = true;
+      liveRollback = null;
+      pendingArchiveCleanup = null;
+      assertPublishIsCurrent();
 
       setCloudProjects((current) => {
         const existing = current.find((project) => project.id === publishProjectId);
@@ -12038,13 +12073,34 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
     } catch (error) {
+      let message = error instanceof Error
+        ? error.message
+        : 'Could not publish this website.';
+
+      if (liveRollback && liveFilesReplaced && !publicationStateCommitted) {
+        try {
+          await restorePublishedWebsiteSnapshot(liveRollback.folder, liveRollback.snapshot);
+          message += ' The previous live website was restored automatically.';
+        } catch (rollbackError) {
+          message += ' Automatic rollback needs support review: ' +
+            (rollbackError instanceof Error ? rollbackError.message : 'unknown rollback error');
+        }
+      }
+
+      if (pendingArchiveCleanup && !publicationStateCommitted) {
+        const cleanup = pendingArchiveCleanup;
+        pendingArchiveCleanup = null;
+        try {
+          const { error: cleanupError } = await discardWebsitePublishVersionArchive(cleanup);
+          if (cleanupError) message += ' Release archive cleanup needs support review.';
+        } catch {
+          message += ' Release archive cleanup needs support review.';
+        }
+      }
+
       if (!publishIsCurrent()) return;
 
-      setPublishError(
-        error instanceof Error
-          ? error.message
-          : 'Could not publish this website.',
-      );
+      setPublishError(message);
 
       setLiveVerification(
         'failed',
@@ -12072,15 +12128,31 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       publishOperationSequenceRef.current === unpublishSequence &&
       projectLoadSequenceRef.current === unpublishLoadSequence &&
       activeUserIdRef.current === unpublishUserId;
+    const assertUnpublishIsCurrent = () => {
+      if (!unpublishIsCurrent()) {
+        throw new Error('Unpublishing stopped because the active project changed.');
+      }
+    };
+
+    let liveRollback: {
+      folder: string;
+      snapshot: Awaited<ReturnType<typeof snapshotPublishedWebsiteFiles>>;
+    } | null = null;
+    let removalStarted = false;
+    let publicationStateCommitted = false;
 
     setPublishBusy(true);
     setPublishError('');
 
     try {
       const folder = `${unpublishUserId}/${unpublishProjectId}`;
+      const previousLiveSnapshot = await snapshotPublishedWebsiteFiles(folder);
+      assertUnpublishIsCurrent();
+      liveRollback = { folder, snapshot: previousLiveSnapshot };
+      removalStarted = true;
       await removePublishedWebsiteFiles(folder);
 
-      if (!unpublishIsCurrent()) return;
+      assertUnpublishIsCurrent();
 
       const nextUpdatedAt = new Date().toISOString();
       const projectData = {
@@ -12092,7 +12164,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: nextUpdatedAt,
       };
 
-      if (!unpublishIsCurrent()) return;
+      assertUnpublishIsCurrent();
 
       const { error: projectError } = await updateWebsiteProjectPublicationState({
         projectId: unpublishProjectId,
@@ -12102,8 +12174,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: nextUpdatedAt,
       });
 
-      if (!unpublishIsCurrent()) return;
       if (projectError) throw projectError;
+      publicationStateCommitted = true;
+      liveRollback = null;
+      assertUnpublishIsCurrent();
 
       setCloudProjects((current) =>
         current.map((project) =>
@@ -12127,8 +12201,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
     } catch (error) {
+      let message = error instanceof Error ? error.message : 'Could not unpublish this website.';
+
+      if (liveRollback && removalStarted && !publicationStateCommitted) {
+        try {
+          await restorePublishedWebsiteSnapshot(liveRollback.folder, liveRollback.snapshot);
+          message += ' The public website was restored automatically.';
+        } catch (rollbackError) {
+          message += ' Automatic rollback needs support review: ' +
+            (rollbackError instanceof Error ? rollbackError.message : 'unknown rollback error');
+        }
+      }
+
       if (!unpublishIsCurrent()) return;
-      setPublishError(error instanceof Error ? error.message : 'Could not unpublish this website.');
+      setPublishError(message);
     } finally {
       if (publishOperationSequenceRef.current === unpublishSequence) {
         setPublishBusy(false);

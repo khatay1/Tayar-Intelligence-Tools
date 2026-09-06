@@ -87,7 +87,7 @@ export default function AdminContent() {
     })();
 
     return () => { active = false; };
-  }, [showError]);
+  }, [l, showError]);
 
   function updateValue(type: ContentType, sectionId: string, value: string) {
     setContent(prev => ({

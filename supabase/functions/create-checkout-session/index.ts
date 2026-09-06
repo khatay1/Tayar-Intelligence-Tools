@@ -13,11 +13,6 @@ import {
 
 type PaidPlan = "pro" | "business";
 
-const LIVE_PRICE_IDS: Record<PaidPlan, string> = {
-  pro: "price_1UBuNbPf8BnXUBSOvSHBpzC6",
-  business: "price_1UBuNgPf8BnXUBSOLH3TM9ms",
-};
-
 function settingKeyForPlan(plan: PaidPlan): string {
   return plan === "pro" ? "stripe_pro_price_id" : "stripe_business_price_id";
 }
@@ -28,11 +23,15 @@ async function priceForPlan(admin: ReturnType<typeof createAdminClient>, plan: P
     .select("value")
     .eq("key", settingKeyForPlan(plan))
     .maybeSingle();
-  if (error) console.warn("[BILLING] Could not load admin-managed Stripe price; using fallback", error.message);
+  if (error) console.warn("[BILLING] Could not load the admin-managed Stripe price; checking the environment configuration", error.message);
 
   const stored = typeof data?.value === "string" ? data.value.replace(/^"|"$/g, "").trim() : "";
   const envKey = plan === "pro" ? "STRIPE_PRO_PRICE_ID" : "STRIPE_BUSINESS_PRICE_ID";
-  return stored || Deno.env.get(envKey)?.trim() || LIVE_PRICE_IDS[plan];
+  const priceId = stored || Deno.env.get(envKey)?.trim() || "";
+  if (!/^price_[A-Za-z0-9]+$/.test(priceId)) {
+    throw new HttpError(503, `${plan} Checkout price is not configured`);
+  }
+  return priceId;
 }
 
 Deno.serve(async (req: Request) => {
@@ -44,6 +43,10 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const plan = String(body?.plan || "").toLowerCase() as PaidPlan;
     if (plan !== "pro" && plan !== "business") throw new HttpError(400, "Choose Pro or Business");
+    const requestId = String(body?.requestId || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) {
+      throw new HttpError(400, "A valid Checkout request ID is required");
+    }
 
     const admin = createAdminClient();
     await assertOperationEnabled(admin, "checkout");
@@ -83,7 +86,10 @@ Deno.serve(async (req: Request) => {
     if (existing?.stripe_customer_id) params.set("customer", existing.stripe_customer_id);
     else if (user.email) params.set("customer_email", user.email);
 
-    const session = await stripeRequest("/v1/checkout/sessions", { params });
+    const session = await stripeRequest("/v1/checkout/sessions", {
+      params,
+      idempotencyKey: `checkout:${user.id}:${requestId}`,
+    });
     if (!session?.url) throw new HttpError(502, "Stripe did not return a Checkout URL");
     return jsonResponse({ url: session.url, sessionId: session.id });
   } catch (error) {

@@ -1,3 +1,5 @@
 import { lazy } from 'react';
 
-export default lazy(() => import('./FileManager.impl'));
+const FileManager = lazy(() => import('./FileManager.impl'));
+
+export default FileManager;

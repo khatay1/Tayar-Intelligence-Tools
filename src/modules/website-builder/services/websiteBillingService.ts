@@ -12,7 +12,7 @@ export async function createWebsiteCheckoutSession(
   plan: 'pro' | 'business',
 ) {
   return supabase.functions.invoke('create-checkout-session', {
-    body: { plan },
+    body: { plan, requestId: crypto.randomUUID() },
   });
 }
 

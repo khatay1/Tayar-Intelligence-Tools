@@ -8,9 +8,11 @@ export const corsHeaders = {
 
 export class HttpError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code: string | null;
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -178,7 +180,7 @@ export async function assertServerToolAvailable(
   if ((count || 0) >= limit) throw new HttpError(429, "Usage limit reached for this tool");
 }
 
-export async function requireUser(req: Request): Promise<User> {
+async function authenticateRequest(req: Request) {
   const authorization = req.headers.get("Authorization") || "";
   if (!authorization.toLowerCase().startsWith("bearer ")) {
     throw new HttpError(401, "Missing authorization token");
@@ -191,10 +193,21 @@ export async function requireUser(req: Request): Promise<User> {
   const { data, error } = await userClient.auth.getUser();
   if (error || !data.user) throw new HttpError(401, "Invalid or expired session");
 
+  return { user: data.user, userClient };
+}
+
+export async function requireAuthenticatedUser(req: Request): Promise<User> {
+  const { user } = await authenticateRequest(req);
+  return user;
+}
+
+export async function requireUser(req: Request): Promise<User> {
+  const { user, userClient } = await authenticateRequest(req);
+
   const { data: profile, error: profileError } = await userClient
     .from("profiles")
     .select("suspended")
-    .eq("id", data.user.id)
+    .eq("id", user.id)
     .maybeSingle();
 
   if (profileError) {
@@ -204,7 +217,7 @@ export async function requireUser(req: Request): Promise<User> {
     throw new HttpError(403, "Account suspended");
   }
 
-  return data.user;
+  return user;
 }
 
 export function getStripeSecret(): string {
@@ -215,13 +228,14 @@ export function getStripeSecret(): string {
 
 export async function stripeRequest<T = Record<string, unknown>>(
   path: string,
-  init: { method?: string; params?: URLSearchParams } = {},
+  init: { method?: string; params?: URLSearchParams; idempotencyKey?: string } = {},
 ): Promise<T> {
   const response = await fetch(`https://api.stripe.com${path}`, {
     method: init.method || "POST",
     headers: {
       Authorization: `Bearer ${getStripeSecret()}`,
       ...(init.params ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...(init.idempotencyKey ? { "Idempotency-Key": init.idempotencyKey } : {}),
     },
     body: init.params?.toString(),
   });
@@ -231,12 +245,13 @@ export async function stripeRequest<T = Record<string, unknown>>(
   try { data = raw ? JSON.parse(raw) : null; } catch { data = { raw }; }
   if (!response.ok) {
     const stripeError = data && typeof data === "object"
-      ? (data as { error?: { message?: unknown } }).error
+      ? (data as { error?: { message?: unknown; code?: unknown } }).error
       : undefined;
     const message = typeof stripeError?.message === "string"
       ? stripeError.message
       : `Stripe request failed (${response.status})`;
-    throw new HttpError(response.status >= 500 ? 502 : 400, message);
+    const code = typeof stripeError?.code === "string" ? stripeError.code : null;
+    throw new HttpError(response.status >= 500 ? 502 : 400, message, code);
   }
   return data as T;
 }
@@ -244,12 +259,25 @@ export async function stripeRequest<T = Record<string, unknown>>(
 export function safeAppOrigin(req: Request): string {
   const configured = Deno.env.get("APP_URL")?.trim();
   if (configured) {
-    try { return new URL(configured).origin; } catch { /* fall through */ }
+    try {
+      const parsed = new URL(configured);
+      const local = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+      if (!parsed.username && !parsed.password && (parsed.protocol === "https:" || (local && parsed.protocol === "http:"))) {
+        return parsed.origin;
+      }
+    } catch { /* handled below */ }
+    throw new HttpError(500, "APP_URL must be an HTTPS origin");
   }
+
+  // Local development may use the request Origin. Production must configure
+  // APP_URL so an attacker-controlled Origin cannot become a Stripe redirect.
   const origin = req.headers.get("Origin") || "";
   try {
     const parsed = new URL(origin);
-    if (parsed.protocol === "https:" || parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+    if (
+      parsed.protocol === "http:" &&
+      (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
+    ) {
       return parsed.origin;
     }
   } catch { /* fall through */ }

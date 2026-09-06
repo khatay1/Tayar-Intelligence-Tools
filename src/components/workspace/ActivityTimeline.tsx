@@ -1,3 +1,5 @@
 import { lazy } from 'react';
 
-export default lazy(() => import('./ActivityTimeline.impl'));
+const ActivityTimeline = lazy(() => import('./ActivityTimeline.impl'));
+
+export default ActivityTimeline;

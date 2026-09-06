@@ -3,6 +3,8 @@ import { Check, CreditCard, ExternalLink, Loader2, RefreshCw, ShieldCheck, Spark
 import { PageShell } from './PageShell';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
+import { usePreferences } from '@/context/PreferencesContext';
+import { fetchPublicPlanCatalogV2, formatPlanPrice, type PublicPlanCatalogV2 } from '@/lib/plan-catalog-v2';
 import { useLocalizer } from '@/lib/ui-localization';
 import { supabase } from '@/lib/supabase';
 
@@ -45,6 +47,7 @@ function formatDate(value?: string | null) {
 export default function SubscriptionView() {
   const { user, profile } = useAuth();
   const { isAdmin } = useAdmin();
+  const { prefs } = usePreferences();
   const l = useLocalizer();
   const userId = user?.id;
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
@@ -52,6 +55,7 @@ export default function SubscriptionView() {
   const [busy, setBusy] = useState<'pro' | 'business' | 'portal' | null>(null);
   const [error, setError] = useState('');
   const [billingMessage, setBillingMessage] = useState<'success' | 'canceled' | null>(null);
+  const [catalog, setCatalog] = useState<PublicPlanCatalogV2 | null>(null);
 
   const activePlan = isAdmin ? 'business' : (subscription?.plan || profile?.plan || 'free').toLowerCase();
   const statusLabel = isAdmin ? 'admin access' : (subscription?.status || (activePlan === 'free' ? 'active' : 'unknown'));
@@ -94,6 +98,14 @@ export default function SubscriptionView() {
   }, [loadSubscription]);
 
   useEffect(() => {
+    let active = true;
+    void fetchPublicPlanCatalogV2()
+      .then(data => { if (active) setCatalog(data); })
+      .catch(() => { if (active) setCatalog(null); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const billing = params.get('billing');
     if (billing !== 'success' && billing !== 'canceled') return;
@@ -119,7 +131,9 @@ export default function SubscriptionView() {
     setError('');
     setBillingMessage(null);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', { body: { plan } });
+      const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', {
+        body: { plan, requestId: crypto.randomUUID() },
+      });
       if (invokeError) throw invokeError;
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Stripe Checkout is not configured yet.');
@@ -185,6 +199,13 @@ export default function SubscriptionView() {
       <div className="grid gap-4 lg:grid-cols-3">
         {plans.map(plan => {
           const current = activePlan === plan.id;
+          const catalogPlan = catalog?.plans.find(entry => entry.id === plan.id);
+          const price = catalogPlan ? formatPlanPrice(catalogPlan.price, prefs.language) : plan.id === 'free' ? '$0' : '—';
+          const interval = catalogPlan?.price.interval === 'year'
+            ? l('year')
+            : catalogPlan?.price.interval === 'month'
+              ? l('month')
+              : '';
           return (
             <div key={plan.id} className={`min-w-0 rounded-2xl border p-4 sm:p-5 ${current ? 'border-violet-400/40 bg-violet-500/[0.08]' : 'border-white/10 bg-white/[0.02]'}`}>
               <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
@@ -194,6 +215,9 @@ export default function SubscriptionView() {
                     {current && <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-200">{l('Current')}</span>}
                   </div>
                   <p className="mt-1 text-xs leading-5 text-gray-500">{l(plan.description)}</p>
+                  <div className="mt-3 text-xl font-bold text-white">
+                    {price}{interval && <span className="ms-1 text-xs font-normal text-gray-500">/ {interval}</span>}
+                  </div>
                 </div>
                 {plan.id === 'business' ? <ShieldCheck className="h-5 w-5 shrink-0 text-violet-300" /> : <Sparkles className="h-5 w-5 shrink-0 text-violet-300" />}
               </div>

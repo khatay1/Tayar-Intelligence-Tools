@@ -9,6 +9,7 @@ import { useAdminUsers, AdminUser } from '@/lib/admin-hooks';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/context/AuthContext';
+import { functionErrorMessage } from '@/lib/function-errors';
 
 export default function AdminUsers() {
   const l = useLocalizer();
@@ -67,25 +68,36 @@ export default function AdminUsers() {
     }
 
     setActionLoading(true);
-    const actionError = deleteMode === 'delete-block'
-      ? (await supabase.rpc('admin_delete_user_and_block', {
-          p_user_id: user.id,
-          p_reason: deleteReason,
-          p_expires_at: deleteBlockExpiry ? new Date(deleteBlockExpiry).toISOString() : null,
-        })).error
-      : (await supabase.rpc('admin_delete_user', { p_user_id: user.id })).error;
+    try {
+      const blockExpiresAt = deleteBlockExpiry
+        ? new Date(deleteBlockExpiry).toISOString()
+        : null;
+      const { data, error: actionError } = await supabase.functions.invoke('delete-account', {
+        body: {
+          confirmation: 'DELETE_USER',
+          targetUserId: user.id,
+          blockEmail: deleteMode === 'delete-block',
+          blockReason: deleteReason,
+          blockExpiresAt,
+        },
+      });
 
-    if (actionError) {
-      showError(actionError.message || 'Failed to delete user');
-    } else {
+      if (actionError || data?.deleted !== true) {
+        showError(await functionErrorMessage(actionError || new Error(data?.error || ''), 'Failed to delete user'));
+        return;
+      }
+
       success(deleteMode === 'delete-block' ? 'User deleted and re-registration blocked' : 'User account deleted');
       void refresh();
       setConfirmDelete(null);
       setDeleteMode('delete');
       setDeleteReason('');
       setDeleteBlockExpiry('');
+    } catch (error) {
+      showError(await functionErrorMessage(error, 'Failed to delete user'));
+    } finally {
+      setActionLoading(false);
     }
-    setActionLoading(false);
   }
 
   async function saveEdit(updated: AdminUser) {
@@ -209,7 +221,7 @@ export default function AdminUsers() {
       </div>
 
       {editUser && <EditUserModal user={editUser} isSelf={currentUser?.id === editUser.id} onSave={saveEdit} onAccessChanged={() => { void refresh(); setEditUser(null); }} onClose={() => setEditUser(null)} loading={actionLoading} />}
-      {confirmDelete && <ConfirmModal title={l('Delete User')} message={`Choose whether to delete "${confirmDelete.full_name || 'this user'}" only, or also block this email from re-registering. This action permanently removes the account.`} confirmLabel={deleteMode === 'delete-block' ? l('Delete & Block') : l('Delete Permanently')} danger loading={actionLoading} onConfirm={() => deleteUser(confirmDelete)} onClose={() => { setConfirmDelete(null); setDeleteMode('delete'); setDeleteReason(''); setDeleteBlockExpiry(''); }}><div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="grid grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-2"><button type="button" onClick={() => setDeleteMode('delete')} className={`min-h-11 rounded-lg border px-3 py-2 text-xs ${deleteMode === 'delete' ? 'border-violet-500/40 bg-violet-500/10 text-violet-200' : 'border-white/10 text-gray-400'}`}>{l('Delete only')}</button><button type="button" onClick={() => setDeleteMode('delete-block')} className={`min-h-11 rounded-lg border px-3 py-2 text-xs ${deleteMode === 'delete-block' ? 'border-red-500/40 bg-red-500/10 text-red-200' : 'border-white/10 text-gray-400'}`}>{l('Delete + block')}</button></div>{deleteMode === 'delete-block' && <><input value={deleteReason} onChange={e => setDeleteReason(e.target.value)} placeholder={l('Block reason (internal note)')} className="min-h-11 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none" /><div><label className="mb-1 block text-[11px] text-gray-500">{l('Block expires (optional)')}</label><input type="datetime-local" value={deleteBlockExpiry} onChange={e => setDeleteBlockExpiry(e.target.value)} className="min-h-11 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none" /></div></>}</div></ConfirmModal>}
+      {confirmDelete && <ConfirmModal title={l('Delete User')} message={`${l('Deleting a user cancels any active Stripe subscription, removes owned storage and then permanently removes the account.')} ${l('Choose whether to also block this email from re-registering.')} (${confirmDelete.full_name || l('Unnamed')})`} confirmLabel={deleteMode === 'delete-block' ? l('Delete & Block') : l('Delete Permanently')} danger loading={actionLoading} onConfirm={() => deleteUser(confirmDelete)} onClose={() => { setConfirmDelete(null); setDeleteMode('delete'); setDeleteReason(''); setDeleteBlockExpiry(''); }}><div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3"><div className="grid grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-2"><button type="button" onClick={() => setDeleteMode('delete')} className={`min-h-11 rounded-lg border px-3 py-2 text-xs ${deleteMode === 'delete' ? 'border-violet-500/40 bg-violet-500/10 text-violet-200' : 'border-white/10 text-gray-400'}`}>{l('Delete only')}</button><button type="button" onClick={() => setDeleteMode('delete-block')} className={`min-h-11 rounded-lg border px-3 py-2 text-xs ${deleteMode === 'delete-block' ? 'border-red-500/40 bg-red-500/10 text-red-200' : 'border-white/10 text-gray-400'}`}>{l('Delete + block')}</button></div>{deleteMode === 'delete-block' && <><input value={deleteReason} onChange={e => setDeleteReason(e.target.value)} placeholder={l('Block reason (internal note)')} className="min-h-11 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none" /><div><label className="mb-1 block text-[11px] text-gray-500">{l('Block expires (optional)')}</label><input type="datetime-local" value={deleteBlockExpiry} onChange={e => setDeleteBlockExpiry(e.target.value)} className="min-h-11 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none" /></div></>}</div></ConfirmModal>}
     </div>
   );
 }

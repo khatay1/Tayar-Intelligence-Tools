@@ -15,12 +15,17 @@ interface StripeWebhookEndpoint { id?: string; url?: string; status?: string; en
 interface StripePortalConfiguration { id?: string; active?: boolean; features?: { invoice_history?: { enabled?: boolean } | null; payment_method_update?: { enabled?: boolean } | null; subscription_cancel?: { enabled?: boolean } | null; subscription_update?: { enabled?: boolean } | null; } | null; }
 
 type PaidPlan = "pro" | "business";
-const LIVE_PRICE_IDS: Record<PaidPlan, string> = {
-  pro: "price_1UBuNbPf8BnXUBSOvSHBpzC6",
-  business: "price_1UBuNgPf8BnXUBSOLH3TM9ms",
-};
 
 function env(name: string): string { return Deno.env.get(name)?.trim() || ""; }
+
+function isProductionAppUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && !parsed.username && !parsed.password;
+  } catch {
+    return false;
+  }
+}
 
 async function requireAdmin(req: Request) {
   const user = await requireUser(req);
@@ -41,7 +46,7 @@ async function configuredPriceId(admin: ReturnType<typeof createAdminClient>, pl
   const { data } = await admin.from("admin_settings").select("value").eq("key", key).maybeSingle();
   const stored = typeof data?.value === "string" ? data.value.replace(/^"|"$/g, "").trim() : "";
   const envPrice = plan === "pro" ? env("STRIPE_PRO_PRICE_ID") : env("STRIPE_BUSINESS_PRICE_ID");
-  return stored || envPrice || LIVE_PRICE_IDS[plan];
+  return stored || envPrice;
 }
 
 Deno.serve(async (req: Request) => {
@@ -51,6 +56,7 @@ Deno.serve(async (req: Request) => {
     const admin = await requireAdmin(req);
     const stripeSecret = env("STRIPE_SECRET_KEY");
     const webhookSecret = env("STRIPE_WEBHOOK_SECRET");
+    const appUrlConfigured = isProductionAppUrl(env("APP_URL"));
     const [proPriceId, businessPriceId] = await Promise.all([
       configuredPriceId(admin, "pro"),
       configuredPriceId(admin, "business"),
@@ -58,7 +64,7 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = env("SUPABASE_URL");
 
     if (!stripeSecret) {
-      return jsonResponse({ connected: false, mode: "unconfigured", account: null, plans: { pro: { configured: Boolean(proPriceId), priceId: proPriceId || null, valid: false }, business: { configured: Boolean(businessPriceId), priceId: businessPriceId || null, valid: false } }, webhook: { secretConfigured: Boolean(webhookSecret), endpointConfigured: false, endpointUrl: null }, portal: { configurationId: null, paymentMethodUpdate: false, subscriptionCancel: false, subscriptionUpdate: false, invoiceHistory: false }, checkoutReady: false, portalReady: false });
+      return jsonResponse({ connected: false, mode: "unconfigured", appUrlConfigured, account: null, plans: { pro: { configured: Boolean(proPriceId), priceId: proPriceId || null, valid: false }, business: { configured: Boolean(businessPriceId), priceId: businessPriceId || null, valid: false } }, webhook: { secretConfigured: Boolean(webhookSecret), endpointConfigured: false, endpointUrl: null }, portal: { configurationId: null, paymentMethodUpdate: false, subscriptionCancel: false, subscriptionUpdate: false, invoiceHistory: false }, checkoutReady: false, portalReady: false });
     }
 
     const mode = stripeSecret.startsWith("sk_live_") ? "live" : stripeSecret.startsWith("sk_test_") ? "test" : "unknown";
@@ -83,20 +89,37 @@ Deno.serve(async (req: Request) => {
     const subscriptionUpdate = portalFeatures?.subscription_update?.enabled === true;
     const invoiceHistory = portalFeatures?.invoice_history?.enabled === true;
 
-    const planState = (priceId: string, price: StripePrice | null) => ({ configured: Boolean(priceId), priceId: priceId || null, valid: Boolean(price?.id && price.active), currency: price?.currency || null, unitAmount: typeof price?.unit_amount === "number" ? price.unit_amount : null, interval: price?.recurring?.interval || null, livemode: typeof price?.livemode === "boolean" ? price.livemode : null });
+    const planState = (priceId: string, price: StripePrice | null) => {
+      const interval = price?.recurring?.interval || null;
+      const unitAmount = typeof price?.unit_amount === "number" ? price.unit_amount : null;
+      return {
+        configured: Boolean(priceId),
+        priceId: priceId || null,
+        valid: Boolean(price?.id && price.active && unitAmount && unitAmount > 0 && (interval === "month" || interval === "year")),
+        currency: price?.currency || null,
+        unitAmount,
+        interval,
+        livemode: typeof price?.livemode === "boolean" ? price.livemode : null,
+      };
+    };
     const pro = planState(proPriceId, proPrice);
     const business = planState(businessPriceId, businessPrice);
-    const modeMatchesPrices = (mode === "live" && pro.livemode !== false && business.livemode !== false) || (mode === "test" && pro.livemode !== true && business.livemode !== true) || mode === "unknown";
+    const modeMatchesPrices = (
+      mode === "live" && pro.livemode === true && business.livemode === true
+    ) || (
+      mode === "test" && pro.livemode === false && business.livemode === false
+    );
 
     return jsonResponse({
       connected: true,
       mode,
+      appUrlConfigured,
       account: { id: account.id || null, name: account.settings?.dashboard?.display_name || account.business_profile?.name || null, country: account.country || null, defaultCurrency: account.default_currency || null, chargesEnabled: account.charges_enabled === true, payoutsEnabled: account.payouts_enabled === true, detailsSubmitted: account.details_submitted === true },
       plans: { pro, business },
       webhook: { secretConfigured: Boolean(webhookSecret), endpointConfigured: Boolean(webhookEndpoint), endpointUrl: expectedWebhookUrl, status: webhookEndpoint?.status || null, receivesRequiredEvents },
       portal: { configurationId: portalConfiguration?.id || null, paymentMethodUpdate, subscriptionCancel, subscriptionUpdate, invoiceHistory },
-      checkoutReady: Boolean(pro.valid && business.valid && account.charges_enabled && modeMatchesPrices),
-      portalReady: Boolean(portalConfiguration?.id && paymentMethodUpdate && subscriptionCancel && subscriptionUpdate),
+      checkoutReady: Boolean(appUrlConfigured && pro.valid && business.valid && account.charges_enabled && modeMatchesPrices),
+      portalReady: Boolean(appUrlConfigured && portalConfiguration?.id && paymentMethodUpdate && subscriptionCancel && subscriptionUpdate),
       modeMatchesPrices,
     });
   } catch (error) {

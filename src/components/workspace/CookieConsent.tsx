@@ -1,45 +1,45 @@
 import { useLocalizer } from '@/lib/ui-localization';
+import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY } from '@/lib/analytics';
 import { useState, useEffect } from 'react';
 import { Cookie, X, Check, Settings } from 'lucide-react';
 
 interface CookiePreferences {
   necessary: true;
   analytics: boolean;
-  marketing: boolean;
 }
 
 export default function CookieConsent() {
   const l = useLocalizer();
   const [visible, setVisible] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [prefs, setPrefs] = useState<CookiePreferences>({ necessary: true, analytics: false, marketing: false });
+  const [prefs, setPrefs] = useState<CookiePreferences>({ necessary: true, analytics: false });
 
   useEffect(() => {
-    const consent = localStorage.getItem('tayar-cookie-consent');
+    const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
     if (!consent) {
       const timer = setTimeout(() => setVisible(true), 1500);
       return () => clearTimeout(timer);
     }
     try {
       const saved = JSON.parse(consent);
-      setPrefs({ necessary: true, analytics: saved.analytics === true, marketing: saved.marketing === true });
+      setPrefs({ necessary: true, analytics: saved.analytics === true });
     } catch {
       // ignore
     }
   }, []);
 
   function save(p: CookiePreferences) {
-    localStorage.setItem('tayar-cookie-consent', JSON.stringify(p));
-    window.dispatchEvent(new CustomEvent('tayar-cookie-consent-changed', { detail: p }));
+    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(p));
+    window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_EVENT, { detail: p }));
     setVisible(false);
   }
 
   function handleAcceptAll() {
-    save({ necessary: true, analytics: true, marketing: true });
+    save({ necessary: true, analytics: true });
   }
 
   function handleDeclineAll() {
-    save({ necessary: true, analytics: false, marketing: false });
+    save({ necessary: true, analytics: false });
   }
 
   function handleSavePreferences() {
@@ -58,7 +58,7 @@ export default function CookieConsent() {
           <div className="flex-1">
             <h3 className="text-white text-sm font-semibold mb-1">{l('Cookie Consent')}</h3>
             <p className="text-gray-400 text-xs leading-relaxed">
-              {l('We use cookies to improve your experience, analyze traffic, and personalize content. You can choose which cookies to accept. See our')}{' '}
+              {l('We use necessary browser storage for sign-in and preferences. With your permission, we also record product analytics. See our')}{' '}
               <button onClick={() => window.location.hash = 'privacy'} className="text-violet-400 hover:text-violet-300 underline">{l('Privacy Policy')}</button>.
             </p>
           </div>
@@ -81,10 +81,6 @@ export default function CookieConsent() {
             <label className="flex items-center justify-between cursor-pointer">
               <span className="text-white text-xs font-medium">{l('Analytics')}</span>
               <input type="checkbox" checked={prefs.analytics} onChange={e => setPrefs(p => ({ ...p, analytics: e.target.checked }))} className="w-4 h-4 accent-violet-600" />
-            </label>
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-white text-xs font-medium">{l('Marketing')}</span>
-              <input type="checkbox" checked={prefs.marketing} onChange={e => setPrefs(p => ({ ...p, marketing: e.target.checked }))} className="w-4 h-4 accent-violet-600" />
             </label>
           </div>
         )}

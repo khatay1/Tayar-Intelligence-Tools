@@ -1,3 +1,5 @@
 import { lazy } from 'react';
 
-export default lazy(() => import('./ProjectView.impl'));
+const ProjectView = lazy(() => import('./ProjectView.impl'));
+
+export default ProjectView;
