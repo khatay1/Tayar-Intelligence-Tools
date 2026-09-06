@@ -8,6 +8,7 @@ interface EnvConfig {
   env: AppEnv;
   supabaseUrl: string;
   supabaseAnonKey: string;
+  templateLibraryBaseUrl: string;
   posthogKey: string;
   posthogHost: string;
   gaMeasurementId: string;
@@ -26,6 +27,7 @@ export const env: EnvConfig = {
   env: (getEnv('VITE_APP_ENV', 'development') as AppEnv),
   supabaseUrl: getEnv('VITE_SUPABASE_URL'),
   supabaseAnonKey: getEnv('VITE_SUPABASE_ANON_KEY'),
+  templateLibraryBaseUrl: getEnv('VITE_TEMPLATE_LIBRARY_BASE_URL'),
   posthogKey: getEnv('VITE_POSTHOG_KEY'),
   posthogHost: getEnv('VITE_POSTHOG_HOST', 'https://app.posthog.com'),
   gaMeasurementId: getEnv('VITE_GA_MEASUREMENT_ID'),

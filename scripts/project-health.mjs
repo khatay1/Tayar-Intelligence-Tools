@@ -179,6 +179,9 @@ const templateMirrorSync = read('supabase/functions/template-library-sync/index.
 const templateMirrorDiscover = read('supabase/functions/template-library-discover/index.ts');
 const templateSourceCatalog = read('src/modules/templates-hub/source-catalog.ts');
 const templateMirrorService = read('src/modules/templates-hub/library-service.ts');
+const templateStorageUrl = read('src/lib/template-storage-url.ts');
+const templateR2Migration = read('scripts/template-library-r2-migrate.mjs');
+const templateSupabasePurge = read('scripts/template-library-supabase-purge.mjs');
 const templateLibraryHook = read('src/modules/templates-hub/use-template-library.ts');
 const mirroredTemplateCard = read('src/modules/templates-hub/MirroredTemplateCard.tsx');
 const nameGeneratorTool = read('src/modules/name-generator/NameGeneratorTool.tsx');
@@ -263,6 +266,11 @@ check('Template discovery validates page and candidate hosts', templateMirrorDis
 check('24Billions catalog covers the major public library families', ['excel-templates-bundle','excel-ppt-word-power-bi-templates','modern-cv-template-word-free-download','letterhead-templates','weekly-planner','invoice'].some((value) => templateSourceCatalog.includes(value)));
 check('Template library service exposes only ready public assets', templateMirrorService.includes(".eq('status', 'ready')") && templateMirrorService.includes(".eq('is_public', true)"));
 check('Template library service paginates and bounds catalog requests', templateMirrorService.includes('MAX_PAGE_SIZE = 100') && templateMirrorService.includes('.range(from, to)') && templateMirrorService.includes("{ count: 'exact' }"));
+check('Template binaries cut over to the verified HTTPS R2 production domain', templateStorageUrl.includes("PRODUCTION_TEMPLATE_BASE_URL = 'https://templates.tayar.se'") && templateStorageUrl.includes('VITE_TEMPLATE_LIBRARY_BASE_URL') && templateStorageUrl.includes("parsed.protocol !== 'https:'") && templateMirrorService.includes('externalTemplateUrl'));
+check('R2 template paths remain locked to the 24Billions prefix', templateStorageUrl.includes("TEMPLATE_PREFIX = '24billions/'") && templateStorageUrl.includes("segment === '..'") && templateStorageUrl.includes("path.includes('\\\\')"));
+check('R2 migration reads originals and verifies SHA-256', templateR2Migration.includes('normalizeGoogleDriveUrl') && templateR2Migration.includes("crypto.createHash('sha256')") && templateR2Migration.includes('R2 HEAD verification failed after upload'));
+check('R2 migration is dry-run by default and resumable through object HEAD checks', templateR2Migration.includes("process.argv.includes('--execute')") && templateR2Migration.includes('r2ObjectMatches'));
+check('Supabase template purge is exact-prefix and audited-size guarded', templateSupabasePurge.includes("const PREFIX = '24billions'") && templateSupabasePurge.includes('EXPECTED_OBJECTS = 6124') && templateSupabasePurge.includes('EXPECTED_BYTES = 4232081544') && templateSupabasePurge.includes('Exact deletion confirmation is missing'));
 check('Template library hook ignores stale async results', templateLibraryHook.includes('requestId.current !== id') && templateLibraryHook.includes('window.setTimeout'));
 check('Mirrored template downloads use public storage URLs safely', mirroredTemplateCard.includes('publicTemplateUrl(asset.storagePath)') && mirroredTemplateCard.includes('rel="noopener noreferrer"'));
 check('Templates Hub exposes mirrored library with local originals fallback', templatesHub.includes("mode === 'library'") && templatesHub.includes('Tayar Originals') && templatesHub.includes('useTemplateLibrary'));

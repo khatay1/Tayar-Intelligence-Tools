@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { externalTemplateUrl, validateTemplateStoragePath } from '@/lib/template-storage-url';
 
 export const TEMPLATE_LIBRARY_PAGE_SIZE = 36;
 export const TEMPLATE_LIBRARY_MAX_PAGE_SIZE = 60;
@@ -93,11 +94,7 @@ function escapeLikePattern(value: string) {
 }
 
 function assertSafeTemplateStoragePath(storagePathInput: unknown) {
-  const storagePath = normalizeText(storagePathInput, 1200);
-  if (!storagePath || !storagePath.startsWith('24billions/')) {
-    throw new Error('Template storage path is invalid.');
-  }
-  return storagePath;
+  return validateTemplateStoragePath(normalizeText(storagePathInput, 1200));
 }
 
 function normalizeSignedUrlExpiry(value: unknown, fallback = 300) {
@@ -188,6 +185,9 @@ export async function createTemplateLibraryDownloadUrl(
   expiresInSeconds = 300,
 ) {
   const storagePath = assertSafeTemplateStoragePath(asset.storagePath);
+  const externalUrl = externalTemplateUrl(storagePath);
+  if (externalUrl) return externalUrl;
+
   const safeExpiry = normalizeSignedUrlExpiry(expiresInSeconds);
   const { data, error } = await supabase.storage
     .from('template-library')
@@ -207,6 +207,9 @@ export async function createTemplateLibraryPreviewUrl(
   if (asset.kind !== 'image') return null;
 
   const storagePath = assertSafeTemplateStoragePath(asset.storagePath);
+  const externalUrl = externalTemplateUrl(storagePath);
+  if (externalUrl) return externalUrl;
+
   const safeExpiry = normalizeSignedUrlExpiry(expiresInSeconds, 600);
   const { data, error } = await supabase.storage
     .from('template-library')

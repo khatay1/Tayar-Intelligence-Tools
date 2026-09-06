@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { externalTemplateUrl, validateTemplateStoragePath } from '@/lib/template-storage-url';
 
 export interface MirroredTemplateAsset {
   id: string;
@@ -102,13 +103,13 @@ export async function listMirroredTemplates(
 }
 
 export function publicTemplateUrl(storagePath: string) {
-  if (!storagePath || storagePath.includes('..') || storagePath.startsWith('/')) {
-    throw new Error('Invalid template storage path.');
-  }
+  const safePath = validateTemplateStoragePath(storagePath);
+  const externalUrl = externalTemplateUrl(safePath);
+  if (externalUrl) return externalUrl;
 
   const { data } = supabase.storage
     .from('template-library')
-    .getPublicUrl(storagePath);
+    .getPublicUrl(safePath);
 
   if (!data.publicUrl) throw new Error('Template URL is unavailable.');
   return data.publicUrl;

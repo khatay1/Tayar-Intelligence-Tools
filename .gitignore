@@ -29,6 +29,7 @@ coverage/
 
 .bolt/
 supabase/.temp/
+.r2-migration-state.json
 
 .vercel
 .env*

@@ -22,7 +22,11 @@
     "smoke:production": "node scripts/production-hardening-smoke.mjs",
     "smoke:published-runtime": "node scripts/published-site-runtime-smoke.mjs",
     "smoke:code-assistant": "node scripts/code-assistant-registry-smoke.mjs",
-    "health:code-assistant-registry": "node scripts/code-assistant-registry-health.mjs"
+    "health:code-assistant-registry": "node scripts/code-assistant-registry-health.mjs",
+    "templates:r2:plan": "node scripts/template-library-r2-migrate.mjs",
+    "templates:r2:migrate": "node scripts/template-library-r2-migrate.mjs --execute",
+    "templates:supabase:purge:plan": "node scripts/template-library-supabase-purge.mjs",
+    "templates:supabase:purge": "node scripts/template-library-supabase-purge.mjs --execute"
   },
   "dependencies": {
     "@pdfme/pdf-lib": "^6.1.12",
@@ -33,6 +37,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1127.0",
     "@eslint/js": "^9.9.1",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
