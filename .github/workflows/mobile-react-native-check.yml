@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
 
+# Release checkpoint: secure recovery deep link + lossy-publish preflight.
 concurrency:
   group: tayar-react-native-${{ github.ref }}
   cancel-in-progress: true
