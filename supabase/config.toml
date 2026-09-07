@@ -18,3 +18,26 @@ verify_jwt = false
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Retired/test endpoints remain JWT-protected even though they only return 410.
+# Keeping this explicit prevents a future CLI deploy from reopening them.
+[functions.stripe-webhook-test]
+verify_jwt = true
+
+[functions.template-library-discover]
+verify_jwt = true
+
+[functions.template-library-drive-discover]
+verify_jwt = true
+
+[functions.template-library-sync]
+verify_jwt = true
+
+[functions.template-library-audit]
+verify_jwt = true
+
+[functions.template-library-repair]
+verify_jwt = true
+
+[functions.template-library-delete-invalid]
+verify_jwt = true
