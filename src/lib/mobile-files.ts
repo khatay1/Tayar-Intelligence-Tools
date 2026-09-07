@@ -23,6 +23,25 @@ function nativePlugin(name: string): NativePlugin | undefined {
   return capacitorGlobal()?.Plugins?.[name];
 }
 
+export async function openNativeBrowserUrl(url: string): Promise<boolean> {
+  if (!isTayarNativeApp()) return false;
+  const browser = nativePlugin('Browser');
+  if (!browser?.open) return false;
+  await browser.open({ url });
+  return true;
+}
+
+export async function closeNativeBrowser(): Promise<void> {
+  if (!isTayarNativeApp()) return;
+  const browser = nativePlugin('Browser');
+  if (!browser?.close) return;
+  try {
+    await browser.close();
+  } catch {
+    // Browser may already be closed or the platform may not expose close for this session.
+  }
+}
+
 function safeFilename(value: string): string {
   const cleaned = String(value || 'tayar-export')
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-')
@@ -185,10 +204,10 @@ export function installNativeExternalLinkBridge(): void {
     const isTayar = url.hostname === 'tayar.se' || url.hostname === 'www.tayar.se';
     if (isTayar) return;
 
-    const browser = nativePlugin('Browser');
-    if (!browser?.open) return;
     event.preventDefault();
-    void browser.open({ url: url.toString() }).catch((error) => {
+    void openNativeBrowserUrl(url.toString()).then((opened) => {
+      if (!opened) window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    }).catch((error) => {
       console.warn('[mobile-links] Could not open native browser.', error);
       window.open(url.toString(), '_blank', 'noopener,noreferrer');
     });

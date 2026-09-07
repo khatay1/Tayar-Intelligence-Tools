@@ -1,4 +1,42 @@
-import { installNativeDownloadBridge, installNativeExternalLinkBridge } from './mobile-files';
+import { closeNativeBrowser, installNativeDownloadBridge, installNativeExternalLinkBridge } from './mobile-files';
+
+type TayarMobileWindow = Window & {
+  __TayarPendingAppUrl?: string;
+  __TayarLastAppUrl?: string;
+};
+
+function handleAppUrl(rawValue: unknown): void {
+  const raw = String(rawValue || '').trim();
+  if (!raw || typeof window === 'undefined') return;
+
+  const target = window as TayarMobileWindow;
+  if (target.__TayarLastAppUrl === raw) return;
+  target.__TayarLastAppUrl = raw;
+  target.__TayarPendingAppUrl = raw;
+
+  try {
+    const url = new URL(raw);
+    const isTayarWeb = (url.protocol === 'https:' || url.protocol === 'http:') &&
+      (url.hostname === 'tayar.se' || url.hostname === 'www.tayar.se');
+    const isTayarScheme = url.protocol === 'tayartools:';
+    if (!isTayarWeb && !isTayarScheme) return;
+
+    void closeNativeBrowser();
+
+    const isAuthCallback = isTayarScheme && url.hostname === 'auth';
+    if (!isAuthCallback) {
+      const nextPath = `${url.pathname || '/'}${url.search || ''}${url.hash || ''}`;
+      if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextPath) {
+        window.history.pushState({}, '', nextPath);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    }
+
+    window.dispatchEvent(new CustomEvent('tayar:app-url-open', { detail: { url: raw } }));
+  } catch {
+    // Ignore malformed external URLs.
+  }
+}
 
 export function initMobileRuntime(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -32,22 +70,12 @@ export function initMobileRuntime(): void {
   });
 
   void appPlugin.addListener('appUrlOpen', (event: { url?: string }) => {
-    const raw = String(event?.url || '').trim();
-    if (!raw) return;
-    try {
-      const url = new URL(raw);
-      const isTayarWeb = (url.protocol === 'https:' || url.protocol === 'http:') &&
-        (url.hostname === 'tayar.se' || url.hostname === 'www.tayar.se');
-      const isTayarScheme = url.protocol === 'tayartools:';
-      if (!isTayarWeb && !isTayarScheme) return;
-
-      const nextPath = `${url.pathname || '/'}${url.search || ''}${url.hash || ''}`;
-      if (`${window.location.pathname}${window.location.search}${window.location.hash}` === nextPath) return;
-      window.history.pushState({}, '', nextPath);
-      window.dispatchEvent(new PopStateEvent('popstate'));
-      window.dispatchEvent(new CustomEvent('tayar:app-url-open', { detail: { url: raw } }));
-    } catch {
-      // Ignore malformed external URLs.
-    }
+    handleAppUrl(event?.url);
   });
+
+  if (typeof appPlugin.getLaunchUrl === 'function') {
+    void appPlugin.getLaunchUrl()
+      .then((result: { url?: string } | null | undefined) => handleAppUrl(result?.url))
+      .catch((error: unknown) => console.warn('[mobile-runtime] Could not read launch URL.', error));
+  }
 }
