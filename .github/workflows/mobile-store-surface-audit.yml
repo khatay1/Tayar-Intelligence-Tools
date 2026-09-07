@@ -1,0 +1,30 @@
+name: Mobile Store Surface Audit
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-store-surface-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit native permission calls and external URLs
+        shell: bash
+        run: |
+          echo '=== CAMERA / MICROPHONE ==='
+          grep -RInE 'launchCamera|requestCamera|CameraView|expo-camera|microphone|Audio\.Recording|requestRecordingPermissions' apps/mobile \
+            --exclude='package-lock.json' --exclude='*.png' --exclude='*.b64' || true
+          echo '=== IMAGE LIBRARY ==='
+          grep -RInE 'launchImageLibrary|requestMediaLibraryPermissions' apps/mobile \
+            --exclude='package-lock.json' || true
+          echo '=== EXTERNAL URL OPENERS ==='
+          grep -RInE 'openBrowserAsync|Linking\.openURL|https://tayar\.se|www\.tayar\.se' apps/mobile \
+            --exclude='package-lock.json' || true
