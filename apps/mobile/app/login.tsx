@@ -2,12 +2,16 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { colors, radius, spacing } from '@/lib/theme';
 
 type Mode = 'signin' | 'signup';
+
+const PRIVACY_URL = 'https://tayar.se/#privacy';
+const TERMS_URL = 'https://tayar.se/#terms';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -24,6 +28,11 @@ export default function LoginScreen() {
     setMode(next);
     setError('');
     setNotice('');
+    void Haptics.selectionAsync();
+  }
+
+  async function openLegal(url: string) {
+    await WebBrowser.openBrowserAsync(url);
     void Haptics.selectionAsync();
   }
 
@@ -152,7 +161,22 @@ export default function LoginScreen() {
               {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Text>}
             </Pressable>
 
+            {mode === 'signup' ? (
+              <Text style={styles.legalText}>
+                By creating an account, you agree to the{' '}
+                <Text onPress={() => void openLegal(TERMS_URL)} style={styles.legalLink}>Terms of Service</Text>
+                {' '}and acknowledge the{' '}
+                <Text onPress={() => void openLegal(PRIVACY_URL)} style={styles.legalLink}>Privacy Policy</Text>.
+              </Text>
+            ) : null}
+
             <Text style={styles.securityNote}>Authentication is handled by the same secured Supabase account system used by Tayar.</Text>
+          </View>
+
+          <View style={styles.legalRow}>
+            <Pressable onPress={() => void openLegal(PRIVACY_URL)} hitSlop={10}><Text style={styles.footerLink}>Privacy Policy</Text></Pressable>
+            <Text style={styles.legalDot}>•</Text>
+            <Pressable onPress={() => void openLegal(TERMS_URL)} hitSlop={10}><Text style={styles.footerLink}>Terms of Service</Text></Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -186,5 +210,10 @@ const styles = StyleSheet.create({
   buttonPressed: { opacity: 0.86, transform: [{ scale: 0.995 }] },
   buttonDisabled: { opacity: 0.5 },
   buttonText: { color: colors.white, fontSize: 16, fontWeight: '800' },
+  legalText: { color: colors.muted, fontSize: 10.5, lineHeight: 16, textAlign: 'center' },
+  legalLink: { color: colors.violetBright, fontWeight: '800' },
   securityNote: { color: colors.muted, fontSize: 10.5, lineHeight: 16, textAlign: 'center', marginTop: 2 },
+  legalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 18 },
+  footerLink: { color: colors.violetBright, fontSize: 11.5, fontWeight: '800' },
+  legalDot: { color: colors.muted, fontSize: 12 },
 });
