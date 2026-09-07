@@ -1,28 +1,56 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ToolCard } from '@/components/ToolCard';
 import { mobileTools } from '@/data/tools';
+import { getToolAccessState, type ToolAccessState } from '@/lib/tool-access';
 import { colors, radius } from '@/lib/theme';
 
 export default function ToolsScreen() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
+  const [accessByTool, setAccessByTool] = useState<Record<string, ToolAccessState>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(mobileTools.map(async (tool) => {
+      try {
+        const state = await getToolAccessState(tool.id);
+        return [tool.id, state] as const;
+      } catch {
+        return [tool.id, null] as const;
+      }
+    })).then((entries) => {
+      if (cancelled) return;
+      const next: Record<string, ToolAccessState> = {};
+      for (const [toolId, state] of entries) if (state) next[toolId] = state;
+      setAccessByTool(next);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return mobileTools;
-    return mobileTools.filter(tool => `${tool.name} ${tool.description} ${tool.category}`.toLowerCase().includes(q));
+    return mobileTools.filter((tool) => `${tool.name} ${tool.description} ${tool.category}`.toLowerCase().includes(q));
   }, [query]);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18, paddingBottom: 110 }]} keyboardShouldPersistTaps="handled">
       <Text style={styles.kicker}>TOOLS</Text>
       <Text style={styles.title}>Everything in one mobile workspace.</Text>
-      <Text style={styles.subtitle}>Native tools open directly in the app. More tools are being converted from web workflows to mobile-first screens.</Text>
+      <Text style={styles.subtitle}>Native tools open directly in the app. Plan and availability badges follow your live Tayar Admin settings.</Text>
       <TextInput value={query} onChangeText={setQuery} placeholder="Search tools" placeholderTextColor={colors.muted} style={styles.search} />
       <View style={styles.list}>
-        {filtered.map(tool => <ToolCard key={tool.id} tool={tool} onPress={() => tool.route ? router.push(tool.route) : undefined} />)}
+        {filtered.map((tool) => (
+          <ToolCard
+            key={tool.id}
+            tool={tool}
+            access={accessByTool[tool.id]}
+            onPress={() => tool.route ? router.push(tool.route) : undefined}
+          />
+        ))}
       </View>
     </ScrollView>
   );
