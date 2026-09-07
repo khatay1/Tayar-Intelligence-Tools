@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assertToolAccess, recordLocalToolUsage } from '@/lib/tool-access';
@@ -33,8 +33,9 @@ export default function TemplatesHubScreen() {
   const [error, setError] = useState('');
   const canLoadMore = page < totalPages && !loadingMore;
 
-  async function load(nextPage: number, append: boolean) {
-    append ? setLoadingMore(true) : setBusy(true);
+  const load = useCallback(async (nextPage: number, append: boolean) => {
+    if (append) setLoadingMore(true);
+    else setBusy(true);
     setError('');
     try {
       const result = await listMobileTemplates({ query: submittedQuery, format, page: nextPage, pageSize: 24 });
@@ -49,9 +50,9 @@ export default function TemplatesHubScreen() {
       setBusy(false);
       setLoadingMore(false);
     }
-  }
+  }, [submittedQuery, format]);
 
-  useEffect(() => { void load(1, false); }, [submittedQuery, format]);
+  useEffect(() => { void load(1, false); }, [load]);
 
   function search() {
     setSubmittedQuery(query.trim());

@@ -32,9 +32,6 @@ function extension(format: OutputFormat) {
   return format === 'JPEG' ? 'jpg' : format.toLowerCase();
 }
 
-function mime(format: OutputFormat) {
-  return format === 'JPEG' ? 'image/jpeg' : format === 'PNG' ? 'image/png' : 'image/webp';
-}
 
 export default function BatchImageToolsScreen() {
   const insets = useSafeAreaInsets();

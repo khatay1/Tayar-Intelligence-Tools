@@ -7,6 +7,8 @@ import { supabase } from './supabase';
 
 const MODEL_SIZE = 320;
 const MAX_OUTPUT_EDGE = 1600;
+// Metro resolves the bundled TFLite file as a native asset module.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const MODEL_ASSET = require('../assets/models/u2netp_d0_320_fp16.tflite');
 const MEAN = [0.485, 0.456, 0.406] as const;
 const STD = [0.229, 0.224, 0.225] as const;

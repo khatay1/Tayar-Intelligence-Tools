@@ -10,6 +10,8 @@ import { mobileTools } from '@/data/tools';
 import { getToolAccessState, type ToolAccessState } from '@/lib/tool-access';
 import { colors, radius } from '@/lib/theme';
 
+const FEATURED_TOOLS = mobileTools.slice(0, 3);
+
 function displayPlan(value?: string) {
   const plan = String(value || '').toLowerCase();
   if (plan === 'business') return 'Business';
@@ -22,12 +24,11 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const firstName = String(user?.user_metadata?.full_name || user?.email || 'there').split(/[ @]/)[0];
-  const featured = mobileTools.slice(0, 3);
   const [accessByTool, setAccessByTool] = useState<Record<string, ToolAccessState>>({});
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all(featured.map(async (tool) => {
+    void Promise.all(FEATURED_TOOLS.map(async (tool) => {
       try {
         return [tool.id, await getToolAccessState(tool.id)] as const;
       } catch {
@@ -43,12 +44,12 @@ export default function HomeScreen() {
   }, []);
 
   const currentPlan = useMemo(() => {
-    for (const tool of featured) {
+    for (const tool of FEATURED_TOOLS) {
       const plan = accessByTool[tool.id]?.effective_plan;
       if (plan) return displayPlan(plan);
     }
     return '—';
-  }, [accessByTool, featured]);
+  }, [accessByTool]);
   const categoryCount = new Set(mobileTools.map((tool) => tool.category)).size;
 
   return (
@@ -84,7 +85,7 @@ export default function HomeScreen() {
         <Pressable onPress={() => router.push('/(tabs)/tools')}><Text style={styles.sectionLink}>See all</Text></Pressable>
       </View>
       <View style={styles.list}>
-        {featured.map((tool) => (
+        {FEATURED_TOOLS.map((tool) => (
           <ToolCard
             key={tool.id}
             tool={tool}
