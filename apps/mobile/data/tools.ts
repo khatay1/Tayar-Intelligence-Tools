@@ -2,7 +2,7 @@ export type MobileTool = {
   id: string;
   name: string;
   description: string;
-  category: 'AI' | 'Documents' | 'Images' | 'Business';
+  category: 'AI' | 'Documents' | 'Images' | 'Business' | 'Productivity';
   plan: 'Free' | 'Pro' | 'Business';
   icon: string;
   route?:
@@ -22,7 +22,8 @@ export type MobileTool = {
     | '/tools/image-to-pdf'
     | '/tools/name-generator'
     | '/tools/letter-generator'
-    | '/tools/image-cropper';
+    | '/tools/image-cropper'
+    | '/tools/prompt-library';
   status: 'native' | 'next';
 };
 
@@ -34,6 +35,7 @@ export const mobileTools: MobileTool[] = [
   { id: 'study-assistant', name: 'Study Assistant', description: 'Explain, summarize, quiz and create flashcards with AI.', category: 'AI', plan: 'Free', icon: 'school-outline', route: '/tools/study-assistant', status: 'native' },
   { id: 'translator', name: 'Translator', description: 'Translate text with context-aware Tayar AI.', category: 'AI', plan: 'Free', icon: 'translate', route: '/tools/translator', status: 'native' },
   { id: 'analytics-ai', name: 'AI Data Analytics', description: 'Analyze CSV data and surface trends and insights.', category: 'AI', plan: 'Pro', icon: 'chart-box-outline', route: '/tools/analytics-ai', status: 'native' },
+  { id: 'prompt-library', name: 'Prompt Library', description: 'Search and personalize original Tayar prompts locally without AI credits.', category: 'Productivity', plan: 'Free', icon: 'creation-outline', route: '/tools/prompt-library', status: 'native' },
   { id: 'background-remover', name: 'Background Remover', description: 'Remove backgrounds with on-device AI. Images never leave your phone.', category: 'Images', plan: 'Free', icon: 'image-filter-center-focus-strong-outline', route: '/tools/background-remover', status: 'native' },
   { id: 'image-cropper', name: 'Image Cropper', description: 'Crop and convert images locally with mobile aspect presets.', category: 'Images', plan: 'Free', icon: 'crop', route: '/tools/image-cropper', status: 'native' },
   { id: 'image-to-pdf', name: 'Image to PDF', description: 'Turn gallery photos into an A4 PDF entirely on-device.', category: 'Images', plan: 'Free', icon: 'image-multiple-outline', route: '/tools/image-to-pdf', status: 'native' },
