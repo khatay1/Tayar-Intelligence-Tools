@@ -282,6 +282,90 @@ function buildPageHtml(content: MobileWebsiteContent, page: MobileWebsitePage, p
 </style></head><body>${headerHtml}<main>${page.sections.map((section) => renderSection(section, projectId, content.pages, content.homePageId)).join('')}</main>${footerHtml}${buildLeadScript(projectId)}</body></html>`;
 }
 
+function hasMeaningfulObjectValues(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value as Record<string, unknown>).some((entry) => {
+    if (entry === undefined || entry === null || entry === '') return false;
+    if (typeof entry === 'object' && !Array.isArray(entry)) return hasMeaningfulObjectValues(entry);
+    return true;
+  });
+}
+
+function numericValue(value: unknown): number | null {
+  if (value === undefined || value === null || value === '' || typeof value === 'boolean') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function nonZeroNumber(value: unknown) {
+  const parsed = numericValue(value);
+  return parsed !== null && Math.abs(parsed) > 0.0001;
+}
+
+function unsupportedSectionFeature(section: MobileWebsiteSection) {
+  const source = section as Record<string, unknown>;
+  const backgroundMode = trimText(source.backgroundMode, 20).toLowerCase();
+  if (backgroundMode && backgroundMode !== 'color') return `${backgroundMode} section background`;
+  if (hasMeaningfulObjectValues(source.responsive)) return 'responsive section overrides';
+  if (section.layout !== 'stack') return `${section.layout} column layout`;
+  if (section.layoutAlign && section.layoutAlign !== 'center') return `${section.layoutAlign} layout alignment`;
+  if (source.contentWidth === 'full') return 'full-width section content';
+  if ((numericValue(source.minHeight) || 0) > 0) return 'custom section minimum height';
+  if (numericValue(source.sectionPaddingY) !== null) return 'custom vertical section padding';
+  if (numericValue(source.sectionPaddingX) !== null) return 'custom horizontal section padding';
+  if ((numericValue(source.sectionRadius) || 0) > 0) return 'section corner radius';
+  if (nonZeroNumber(source.overlayOpacity)) return 'section background overlay';
+  return '';
+}
+
+function unsupportedElementFeature(element: MobileWebsiteElement) {
+  const source = element as Record<string, unknown>;
+  const style = styleObject(element);
+  if (hasMeaningfulObjectValues(source.responsive)) return 'responsive element overrides';
+  if (nonZeroNumber(source.layoutColumn)) return 'explicit column placement';
+  if (trimText(source.containerId, 120)) return 'container placement';
+  if (trimText(source.symbolId, 120)) return 'symbol/component binding';
+  if (style.hidden === true) return 'hidden-state styling';
+  if (numericValue(style.maxWidth) !== null) return 'custom maximum width';
+  if ([style.marginTop, style.marginRight, style.marginBottom, style.marginLeft].some(nonZeroNumber)) return 'custom margins';
+  if ([style.positionX, style.positionY].some(nonZeroNumber)) return 'free-position coordinates';
+  if (nonZeroNumber(style.order)) return 'custom element ordering';
+  if (trimText(style.alignSelf, 20) && trimText(style.alignSelf, 20) !== 'auto') return 'custom self-alignment';
+  if ((numericValue(style.columnSpan) || 0) > 1) return 'multi-column span';
+  if (numericValue(style.lineHeight) !== null) return 'custom line height';
+  if (nonZeroNumber(style.letterSpacing)) return 'custom letter spacing';
+  if (nonZeroNumber(style.rotate)) return 'rotation';
+  if ((numericValue(style.borderWidth) || 0) > 0) return 'custom border';
+  if (trimText(style.shadow, 20) && trimText(style.shadow, 20) !== 'none') return 'box shadow';
+  const hoverScale = numericValue(style.hoverScale);
+  if (hoverScale !== null && Math.abs(hoverScale - 1) > 0.0001) return 'hover scale';
+  const hoverOpacity = numericValue(style.hoverOpacity);
+  if (hoverOpacity !== null && Math.abs(hoverOpacity - 1) > 0.0001) return 'hover opacity';
+  if (trimText(style.hoverBackgroundColor, 32) || trimText(style.hoverColor, 32)) return 'hover colors';
+  if (trimText(style.hoverShadow, 20) && trimText(style.hoverShadow, 20) !== 'none') return 'hover shadow';
+  if (trimText(style.animation, 30) && trimText(style.animation, 30) !== 'none') return 'element animation';
+
+  const width = numericValue(style.width);
+  if (width !== null && element.type !== 'image' && !(element.type === 'divider' && Math.abs(width - 100) < 0.0001)) return 'custom element width';
+  const padding = numericValue(style.padding);
+  if (padding !== null && Math.abs(padding) > 0.0001 && element.type !== 'button' && element.type !== 'spacer') return 'custom element padding';
+  const radius = numericValue(style.borderRadius);
+  if (radius !== null && radius > 0 && element.type !== 'button' && element.type !== 'image') return 'custom corner radius';
+  if (trimText(style.backgroundColor, 32) && element.type !== 'button' && element.type !== 'divider') return 'custom element background';
+  const opacity = numericValue(style.opacity);
+  if (element.type === 'divider' && opacity !== null && Math.abs(opacity - 0.35) > 0.0001) return 'custom divider opacity';
+  return '';
+}
+
+function unsupportedFormFeature(section: MobileWebsiteSection) {
+  if (!Array.isArray(section.formFields)) return '';
+  for (const field of section.formFields) {
+    const type = trimText(field?.type, 30).toLowerCase();
+    if (type === 'checkbox') return 'checkbox form fields';
+  }
+  return '';
+}
+
 function assertPublishReady(content: MobileWebsiteContent) {
   if (!content.pages.length) throw new Error('Add at least one page before publishing.');
   const slugs = new Set<string>();
@@ -298,11 +382,23 @@ function assertPublishReady(content: MobileWebsiteContent) {
       if (Array.isArray(section.containers) && section.containers.length) {
         throw new Error('This website uses advanced containers. Publish it from the web editor until native advanced-layout export is added.');
       }
+      const sectionFeature = unsupportedSectionFeature(section);
+      if (sectionFeature) {
+        throw new Error(`Mobile publish stopped to protect the live design: ${page.name || 'Page'} / ${section.type} uses ${sectionFeature}. Publish this version from the web editor.`);
+      }
+      const formFeature = unsupportedFormFeature(section);
+      if (formFeature) {
+        throw new Error(`Mobile publish stopped to protect the live design: ${page.name || 'Page'} / ${section.type} uses ${formFeature}. Publish this version from the web editor.`);
+      }
       for (const element of section.elements || []) {
         if (!SUPPORTED_ELEMENT_TYPES.has(element.type)) {
           throw new Error(`The ${element.type || 'unknown'} element needs the advanced web renderer. Mobile publish was blocked to protect the live design.`);
         }
         if (!element.id) throw new Error('An element has an invalid ID.');
+        const elementFeature = unsupportedElementFeature(element);
+        if (elementFeature) {
+          throw new Error(`Mobile publish stopped to protect the live design: ${page.name || 'Page'} / ${section.type} / ${element.type} uses ${elementFeature}. Publish this version from the web editor.`);
+        }
       }
     }
   }
