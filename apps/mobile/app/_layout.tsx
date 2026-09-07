@@ -28,6 +28,7 @@ export default function RootLayout() {
             <Stack.Screen name="tools/analytics-ai" options={{ title: 'AI Data Analytics' }} />
             <Stack.Screen name="tools/translator" options={{ title: 'Translator' }} />
             <Stack.Screen name="tools/pdf-tools" options={{ title: 'PDF Studio' }} />
+            <Stack.Screen name="tools/invoice-generator" options={{ title: 'Invoice Generator' }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
