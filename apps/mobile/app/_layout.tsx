@@ -27,6 +27,7 @@ export default function RootLayout() {
             <Stack.Screen name="tools/contract-writer" options={{ title: 'AI Contract' }} />
             <Stack.Screen name="tools/analytics-ai" options={{ title: 'AI Data Analytics' }} />
             <Stack.Screen name="tools/translator" options={{ title: 'Translator' }} />
+            <Stack.Screen name="tools/pdf-tools" options={{ title: 'PDF Studio' }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
