@@ -20,10 +20,14 @@ function accessError(state: ToolAccessState) {
   return 'This tool is not available for this account.';
 }
 
-export async function assertToolAccess(toolId: string) {
+export async function getToolAccessState(toolId: string) {
   const { data, error } = await supabase.rpc('tool_access_state', { p_tool_id: toolId });
   if (error) throw new Error(error.message || 'Could not verify tool access.');
-  const state = (data || {}) as ToolAccessState;
+  return (data || {}) as ToolAccessState;
+}
+
+export async function assertToolAccess(toolId: string) {
+  const state = await getToolAccessState(toolId);
   if (state.allowed !== true) throw new Error(accessError(state));
   return state;
 }
