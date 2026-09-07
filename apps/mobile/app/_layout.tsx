@@ -32,11 +32,14 @@ export default function RootLayout() {
             <Stack.Screen name="tools/analytics-ai" options={{ title: 'AI Data Analytics' }} />
             <Stack.Screen name="tools/translator" options={{ title: 'Translator' }} />
             <Stack.Screen name="tools/background-remover" options={{ title: 'Background Remover' }} />
+            <Stack.Screen name="tools/image-cropper" options={{ title: 'Image Cropper' }} />
             <Stack.Screen name="tools/image-to-pdf" options={{ title: 'Image to PDF' }} />
             <Stack.Screen name="tools/pdf-tools" options={{ title: 'PDF Studio' }} />
             <Stack.Screen name="tools/csv-cleaner" options={{ title: 'CSV Cleaner' }} />
             <Stack.Screen name="tools/invoice-generator" options={{ title: 'Invoice Generator' }} />
             <Stack.Screen name="tools/cv-builder" options={{ title: 'CV Builder' }} />
+            <Stack.Screen name="tools/name-generator" options={{ title: 'Name Generator' }} />
+            <Stack.Screen name="tools/letter-generator" options={{ title: 'Letter Generator' }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
