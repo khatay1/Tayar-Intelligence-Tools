@@ -1,9 +1,9 @@
 import { ChangeEvent, useEffect, useState } from 'react';
-import { Download, Eraser, Loader2, ShieldAlert } from 'lucide-react';
+import { Download, Eraser, Loader2, ShieldCheck } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization';
 import { ToolInputPanel, ToolOutputPanel, ToolShell } from '../shared/ToolShell';
 import {
-  downloadRemoteResult,
+  downloadLocalResult,
   removeImageBackground,
   validateBackgroundFile,
 } from './background-remover-client';
@@ -35,6 +35,10 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
   useEffect(() => () => {
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
   }, [sourceUrl]);
+
+  useEffect(() => () => {
+    if (result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
+  }, [result]);
 
   function loadFile(nextFile: File | null) {
     if (!nextFile) return;
@@ -76,15 +80,15 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
     <ToolShell
       icon={Eraser}
       title={l('Background Remover')}
-      description={l('Remove image backgrounds using Tayar’s secured server-side image service.')}
-      badge="AI image utility"
+      description={l('Remove image backgrounds privately with AI running directly in your browser.')}
+      badge="Private · Local AI"
     >
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 flex gap-3 text-sm text-amber-100">
-        <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
+        <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
         <div>
-          <div className="font-medium">{l('External processing')}</div>
-          <div className="text-amber-200/60 text-xs mt-0.5">
-            {l('For this tool, your selected image is sent through Tayar’s authenticated server to fal.ai for background removal. Your API key is never exposed in the browser.')}
+          <div className="font-medium">{l('Local processing')}</div>
+          <div className="text-emerald-200/60 text-xs mt-0.5">
+            {l('Your image stays on this device. The browser downloads a small AI model on first use, then removes the background locally. No image is sent to fal.ai, Gemini or Tayar servers.')}
           </div>
         </div>
       </div>
@@ -95,7 +99,7 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
             <Eraser className="w-7 h-7 text-violet-400 mx-auto mb-2" />
             <div className="text-sm text-white font-medium">{l('Choose JPEG, PNG or WebP')}</div>
             <div className="text-xs text-gray-500 mt-1">
-              {l(`Maximum ${Math.round(MAX_BACKGROUND_IMAGE_BYTES / 1024 / 1024)} MB for secured processing`)}
+              {l(`Maximum ${Math.round(MAX_BACKGROUND_IMAGE_BYTES / 1024 / 1024)} MB · processed on your device`)}
             </div>
             <input
               type="file"
@@ -115,7 +119,7 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
               <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 cursor-pointer">
                 <div>
                   <div className="text-sm text-gray-300">{l('Crop tightly around subject')}</div>
-                  <div className="text-[11px] text-gray-600 mt-0.5">{l('Optional provider bounding-box crop')}</div>
+                  <div className="text-[11px] text-gray-600 mt-0.5">{l('Trim transparent space around the detected subject')}</div>
                 </div>
                 <input
                   type="checkbox"
@@ -189,7 +193,7 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
                   </div>
                   <button
                     type="button"
-                    onClick={() => void downloadRemoteResult(result.url, safeName(file.name))}
+                    onClick={() => downloadLocalResult(result.url, safeName(file.name))}
                     className="inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-4 py-2.5 transition-colors"
                   >
                     <Download className="w-4 h-4" />
