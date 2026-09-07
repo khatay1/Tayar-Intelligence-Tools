@@ -14,6 +14,7 @@ const BUILTIN_TEXT_MODELS = new Set(["gemini-3.7-flash", "gemini-3.6-flash", "ge
 const AI_TOOL_IDS = new Set([
   "ai-chat", "cv-builder", "cover-letter", "ai-writer", "document-ai",
   "study-assistant", "translator", "website-builder", "code-assistant",
+  "email-writer", "contract-writer", "analytics-ai",
 ]);
 const GEMINI_MODEL_ID = /^gemini-[a-z0-9][a-z0-9._-]{1,80}$/i;
 const ROUTE_MODEL_ID = /^[a-z0-9][a-z0-9._:/-]{0,120}$/i;
