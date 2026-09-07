@@ -213,7 +213,10 @@ export async function requireUser(req: Request): Promise<User> {
   if (profileError) {
     throw new HttpError(503, "Account status could not be verified");
   }
-  if (profile?.suspended === true) {
+  if (!profile) {
+    throw new HttpError(403, "Account is unavailable");
+  }
+  if (profile.suspended === true) {
     throw new HttpError(403, "Account suspended");
   }
 
