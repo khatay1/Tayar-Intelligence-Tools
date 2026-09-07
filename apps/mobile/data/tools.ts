@@ -27,7 +27,8 @@ export type MobileTool = {
     | '/tools/batch-image-tools'
     | '/tools/code-assistant'
     | '/tools/templates-hub'
-    | '/tools/team-workspace';
+    | '/tools/team-workspace'
+    | '/tools/website-builder';
   status: 'native' | 'next';
 };
 
@@ -54,4 +55,5 @@ export const mobileTools: MobileTool[] = [
   { id: 'letter-generator', name: 'Letter Generator', description: 'Create editable recommendation, complaint, resignation and business letters locally.', category: 'Business', plan: 'Free', icon: 'file-document-edit-outline', route: '/tools/letter-generator', status: 'native' },
   { id: 'contract-writer', name: 'AI Contract', description: 'Draft and review agreements with AI assistance.', category: 'Business', plan: 'Pro', icon: 'file-sign', route: '/tools/contract-writer', status: 'native' },
   { id: 'team-workspace', name: 'Team Workspace', description: 'Create workspaces, invite teammates, manage roles and share Tayar projects.', category: 'Business', plan: 'Business', icon: 'account-group-outline', route: '/tools/team-workspace', status: 'native' },
+  { id: 'website-builder', name: 'Website Builder', description: 'Create and edit the same Tayar website projects with a mobile-first builder.', category: 'Business', plan: 'Free', icon: 'web', route: '/tools/website-builder', status: 'native' },
 ];
