@@ -47,13 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { allowed: data !== false, error: null };
   }
 
-  async function isBlockedEmail(email: string | null | undefined) {
-    const normalizedEmail = (email || '').trim().toLowerCase();
-    if (!normalizedEmail) return { blocked: false, error: null };
-
-    const { data, error } = await supabase.rpc('is_email_blocked', {
-      p_email: normalizedEmail,
-    });
+  async function isCurrentUserBlocked() {
+    const { data, error } = await supabase.rpc('is_current_user_email_blocked');
 
     if (error) {
       return {
@@ -128,10 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (initialSession?.user) {
-        const blockState = await isBlockedEmail(initialSession.user.email);
+        const blockState = await isCurrentUserBlocked();
         if (!mounted) return;
 
-        if (blockState.blocked) {
+        if (blockState.error || blockState.blocked) {
           await supabase.auth.signOut();
           if (!mounted) return;
           setSession(null);
@@ -173,10 +168,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       void (async () => {
-        const blockState = await isBlockedEmail(nextSession.user.email);
+        const blockState = await isCurrentUserBlocked();
         if (!mounted) return;
 
-        if (blockState.blocked) {
+        if (blockState.error || blockState.blocked) {
           await supabase.auth.signOut();
           if (!mounted) return;
           setSession(null);
@@ -199,23 +194,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(email: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
-    const blockState = await isBlockedEmail(normalizedEmail);
-
-    if (blockState.error) return { error: blockState.error };
-    if (blockState.blocked) {
-      return {
-        error: 'This account is blocked. Contact support if you believe this is a mistake.',
-      };
-    }
-
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
     });
 
-    return {
-      error: error?.message ?? null,
-    };
+    if (error) {
+      return { error: error.message };
+    }
+
+    if (data.session?.user) {
+      const blockState = await isCurrentUserBlocked();
+      if (blockState.error || blockState.blocked) {
+        await supabase.auth.signOut();
+        return {
+          error: blockState.blocked
+            ? 'This account is blocked. Contact support if you believe this is a mistake.'
+            : blockState.error,
+        };
+      }
+    }
+
+    return { error: null };
   }
 
   async function signUp(
@@ -230,15 +230,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    const blockState = await isBlockedEmail(normalizedEmail);
-
-    if (blockState.error) {
-      return { error: 'Could not verify account eligibility. Please try again.' };
-    }
-    if (blockState.blocked) {
-      return { error: 'Registration is not available for this email address.' };
-    }
-
     const { error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
