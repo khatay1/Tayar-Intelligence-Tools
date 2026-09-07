@@ -11,6 +11,8 @@ const FAL_ENDPOINT = "https://queue.fal.run/fal-ai/imageutils/rembg";
 
 function allowedOrigins(): Set<string> {
   const origins = new Set<string>([
+    "https://tayar.se",
+    "https://www.tayar.se",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
   ]);
