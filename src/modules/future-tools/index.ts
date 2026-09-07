@@ -20,7 +20,7 @@ const futureModules: ToolModule[] = [
   {
     id: 'contract-writer',
     name: 'AI Contract Writer',
-    description: 'Draft agreements, review risks, and improve contract clauses with AI.',
+    description: 'Draft agreements, review contract risks, and improve clauses with AI.',
     category: 'business',
     status: 'beta',
     tier: 'premium',
@@ -31,7 +31,7 @@ const futureModules: ToolModule[] = [
   {
     id: 'analytics-ai',
     name: 'AI Data Analytics',
-    description: 'Profile CSV data locally and turn statistics into actionable AI insights.',
+    description: 'Profile CSV data locally and turn statistics into AI business insights.',
     category: 'business',
     status: 'beta',
     tier: 'premium',
