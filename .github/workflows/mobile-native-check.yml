@@ -1,0 +1,82 @@
+name: Mobile Native Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - mobile-app-android-ios-20260907
+    paths:
+      - 'mobile/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/mobile-native-check.yml'
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install web dependencies
+        run: npm ci
+      - name: Build Tayar web assets
+        run: npm run build
+      - name: Install Capacitor workspace
+        working-directory: mobile
+        run: npm install --no-audit --no-fund
+      - name: Generate and sync Android project
+        working-directory: mobile
+        run: |
+          npx cap add android
+          npx cap sync android
+          npx cap doctor android
+      - name: Build Android debug APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tayar-android-debug
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install web dependencies
+        run: npm ci
+      - name: Build Tayar web assets
+        run: npm run build
+      - name: Install Capacitor workspace
+        working-directory: mobile
+        run: npm install --no-audit --no-fund
+      - name: Generate and sync iOS project
+        working-directory: mobile
+        run: |
+          npx cap add ios
+          npx cap sync ios
+          npx cap doctor ios
+      - name: Build iOS Simulator app without signing
+        working-directory: mobile
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

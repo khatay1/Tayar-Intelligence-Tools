@@ -1,0 +1,44 @@
+:root {
+  --tayar-safe-top: env(safe-area-inset-top, 0px);
+  --tayar-safe-right: env(safe-area-inset-right, 0px);
+  --tayar-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tayar-safe-left: env(safe-area-inset-left, 0px);
+}
+
+html.tayar-native,
+html.tayar-native body,
+html.tayar-native #root {
+  min-height: 100%;
+  overscroll-behavior-y: none;
+}
+
+html.tayar-native body {
+  padding-top: var(--tayar-safe-top);
+  padding-right: var(--tayar-safe-right);
+  padding-bottom: var(--tayar-safe-bottom);
+  padding-left: var(--tayar-safe-left);
+  background: #06060f;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html.tayar-native input,
+html.tayar-native textarea,
+html.tayar-native select,
+html.tayar-native button {
+  font-size: max(16px, 1em);
+}
+
+html.tayar-native button,
+html.tayar-native a,
+html.tayar-native [role='button'] {
+  touch-action: manipulation;
+}
+
+html.tayar-native .tayar-native-bottom-safe {
+  padding-bottom: max(0.75rem, var(--tayar-safe-bottom));
+}
+
+html.tayar-native .tayar-native-top-safe {
+  padding-top: max(0.5rem, var(--tayar-safe-top));
+}
