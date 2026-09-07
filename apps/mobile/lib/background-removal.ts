@@ -24,9 +24,7 @@ let modelPromise: Promise<Model> | null = null;
 let cpuModelPromise: Promise<Model> | null = null;
 
 function readableAccessError(state: ToolState) {
-  if (state.reason === 'plan_required') {
-    return `This tool requires the ${state.required_plan || 'required'} plan.`;
-  }
+  if (state.reason === 'plan_required') return `This tool requires the ${state.required_plan || 'required'} plan.`;
   if (state.reason === 'limit_reached') return 'Your Background Remover usage limit has been reached.';
   if (state.reason === 'disabled') return 'Background Remover is currently disabled.';
   return 'Background Remover is not available for this account.';
@@ -100,6 +98,12 @@ function buildInput(pixels: Uint8Array) {
   return input;
 }
 
+function toArrayBuffer(input: Float32Array) {
+  const buffer = new ArrayBuffer(input.byteLength);
+  new Float32Array(buffer).set(input);
+  return buffer;
+}
+
 function normalizeMask(raw: Float32Array) {
   const expected = MODEL_SIZE * MODEL_SIZE;
   if (raw.length < expected) throw new Error(`Background model returned an unexpected mask (${raw.length} values).`);
@@ -116,7 +120,6 @@ function normalizeMask(raw: Float32Array) {
   const mask = new Float32Array(expected);
   for (let i = 0; i < expected; i += 1) {
     const normalized = Math.max(0, Math.min(1, (raw[i] - min) / range));
-    // Preserve soft hair/fur edges while suppressing faint background haze.
     const shaped = Math.max(0, Math.min(1, (normalized - 0.035) / 0.93));
     mask[i] = shaped * shaped * (3 - 2 * shaped);
   }
@@ -160,9 +163,7 @@ async function prepareImage(uri: string, width: number, height: number) {
   const scale = maxEdge > MAX_OUTPUT_EDGE ? MAX_OUTPUT_EDGE / maxEdge : 1;
   const outputWidth = Math.max(1, Math.round(width * scale));
   const outputHeight = Math.max(1, Math.round(height * scale));
-  const actions: ImageManipulator.Action[] = scale < 1
-    ? [{ resize: { width: outputWidth, height: outputHeight } }]
-    : [];
+  const actions: ImageManipulator.Action[] = scale < 1 ? [{ resize: { width: outputWidth, height: outputHeight } }] : [];
   const working = await ImageManipulator.manipulateAsync(uri, actions, {
     format: ImageManipulator.SaveFormat.PNG,
     compress: 1,
@@ -171,15 +172,16 @@ async function prepareImage(uri: string, width: number, height: number) {
 }
 
 async function runMask(input: Float32Array) {
+  const inputBuffer = toArrayBuffer(input);
   const preferred = await loadPreferredModel();
   try {
-    const outputs = await preferred.run([input.buffer]);
+    const outputs = await preferred.run([inputBuffer]);
     if (!outputs[0]) throw new Error('Background model returned no output.');
     return normalizeMask(new Float32Array(outputs[0]));
   } catch (preferredError) {
     const cpu = await getCpuModel();
     if (cpu === preferred) throw preferredError;
-    const outputs = await cpu.run([input.buffer]);
+    const outputs = await cpu.run([inputBuffer]);
     if (!outputs[0]) throw new Error('Background model returned no output.');
     return normalizeMask(new Float32Array(outputs[0]));
   }
