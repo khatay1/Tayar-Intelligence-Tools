@@ -40,6 +40,9 @@
     "android": {
       "package": "se.tayar.tools",
       "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#07070F"
