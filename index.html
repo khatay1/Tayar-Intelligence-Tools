@@ -58,7 +58,8 @@
       </div>
     </noscript>
     <script>
-      if ('serviceWorker' in navigator) {
+      const isNativeTayar = Boolean(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if (!isNativeTayar && 'serviceWorker' in navigator) {
         window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
       }
     </script>

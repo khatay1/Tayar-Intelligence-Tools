@@ -11,9 +11,14 @@
   },
   "ios": {
     "contentInset": "automatic",
-    "scrollEnabled": true
+    "scrollEnabled": true,
+    "preferredContentMode": "mobile",
+    "webContentsDebuggingEnabled": false
   },
   "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
     "SplashScreen": {
       "launchShowDuration": 1200,
       "launchAutoHide": true,
@@ -21,7 +26,7 @@
       "showSpinner": false
     },
     "StatusBar": {
-      "style": "DARK",
+      "style": "LIGHT",
       "backgroundColor": "#06060f"
     },
     "Keyboard": {

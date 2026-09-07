@@ -9,6 +9,8 @@
     "sync": "cap sync",
     "sync:android": "cap sync android",
     "sync:ios": "cap sync ios",
+    "assets:android": "capacitor-assets generate --android --assetPath assets --iconBackgroundColor '#06060f' --splashBackgroundColor '#06060f'",
+    "assets:ios": "capacitor-assets generate --ios --assetPath assets --iconBackgroundColor '#06060f' --splashBackgroundColor '#06060f'",
     "open:android": "cap open android",
     "open:ios": "cap open ios",
     "doctor": "cap doctor"
@@ -26,6 +28,7 @@
     "@capacitor/status-bar": "8.0.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "3.0.5",
     "@capacitor/cli": "8.5.0"
   }
 }

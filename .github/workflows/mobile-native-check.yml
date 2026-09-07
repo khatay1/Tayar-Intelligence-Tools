@@ -9,6 +9,7 @@ on:
       - 'mobile/**'
       - 'src/**'
       - 'public/**'
+      - 'index.html'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-native-check.yml'
@@ -26,6 +27,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Load public mobile runtime config
+        run: cat mobile/mobile-build.env >> "$GITHUB_ENV"
       - name: Install web dependencies
         run: npm ci
       - name: Build Tayar web assets
@@ -33,10 +36,11 @@ jobs:
       - name: Install Capacitor workspace
         working-directory: mobile
         run: npm install --no-audit --no-fund
-      - name: Generate and sync Android project
+      - name: Generate, brand and sync Android project
         working-directory: mobile
         run: |
           npx cap add android
+          npm run assets:android
           npx cap sync android
           npx cap doctor android
       - name: Build Android debug APK
@@ -56,6 +60,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Load public mobile runtime config
+        run: cat mobile/mobile-build.env >> "$GITHUB_ENV"
       - name: Install web dependencies
         run: npm ci
       - name: Build Tayar web assets
@@ -63,10 +69,11 @@ jobs:
       - name: Install Capacitor workspace
         working-directory: mobile
         run: npm install --no-audit --no-fund
-      - name: Generate and sync iOS project
+      - name: Generate, brand and sync iOS project
         working-directory: mobile
         run: |
           npx cap add ios
+          npm run assets:ios
           npx cap sync ios
           npx cap doctor ios
       - name: Build iOS Simulator app without signing
