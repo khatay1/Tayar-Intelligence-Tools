@@ -31,6 +31,7 @@ export default function RootLayout() {
             <Stack.Screen name="tools/contract-writer" options={{ title: 'AI Contract' }} />
             <Stack.Screen name="tools/analytics-ai" options={{ title: 'AI Data Analytics' }} />
             <Stack.Screen name="tools/translator" options={{ title: 'Translator' }} />
+            <Stack.Screen name="tools/prompt-library" options={{ title: 'Prompt Library' }} />
             <Stack.Screen name="tools/background-remover" options={{ title: 'Background Remover' }} />
             <Stack.Screen name="tools/image-cropper" options={{ title: 'Image Cropper' }} />
             <Stack.Screen name="tools/image-to-pdf" options={{ title: 'Image to PDF' }} />
