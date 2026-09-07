@@ -35,6 +35,7 @@ export default function RootLayout() {
             <Stack.Screen name="tools/background-remover" options={{ title: 'Background Remover' }} />
             <Stack.Screen name="tools/image-cropper" options={{ title: 'Image Cropper' }} />
             <Stack.Screen name="tools/image-to-pdf" options={{ title: 'Image to PDF' }} />
+            <Stack.Screen name="tools/batch-image-tools" options={{ title: 'Batch Image Converter' }} />
             <Stack.Screen name="tools/pdf-tools" options={{ title: 'PDF Studio' }} />
             <Stack.Screen name="tools/csv-cleaner" options={{ title: 'CSV Cleaner' }} />
             <Stack.Screen name="tools/invoice-generator" options={{ title: 'Invoice Generator' }} />
