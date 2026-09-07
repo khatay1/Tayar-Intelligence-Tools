@@ -1,44 +1,43 @@
 import { FileSignature, Mailbox, BarChart3 } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import FutureToolsView from './FutureToolsView';
-
-// Future tools are registered with status 'soon' — they show in the dashboard
-// but display a "Coming Soon" badge and aren't clickable.
+import EmailWriterTool from './EmailWriterTool';
+import ContractWriterTool from './ContractWriterTool';
+import AnalyticsAITool from './AnalyticsAITool';
 
 const futureModules: ToolModule[] = [
   {
     id: 'email-writer',
     name: 'AI Email Writer',
-    description: 'Write professional emails, replies, and newsletters.',
+    description: 'Compose, reply to, and improve professional emails with AI.',
     category: 'business',
-    status: 'soon',
+    status: 'beta',
     tier: 'free',
-    version: '0.1.0',
+    version: '1.0.0-beta.1',
     icon: Mailbox,
-    component: FutureToolsView,
+    component: EmailWriterTool,
   },
   {
     id: 'contract-writer',
-    name: 'Contract Writer',
-    description: 'Generate legal contracts and agreements with AI.',
+    name: 'AI Contract Writer',
+    description: 'Draft agreements, review risks, and improve contract clauses with AI.',
     category: 'business',
-    status: 'soon',
+    status: 'beta',
     tier: 'premium',
-    version: '0.1.0',
+    version: '1.0.0-beta.1',
     icon: FileSignature,
-    component: FutureToolsView,
+    component: ContractWriterTool,
   },
   {
     id: 'analytics-ai',
-    name: 'Data Analytics AI',
-    description: 'Analyze data, generate insights, and create visualizations.',
+    name: 'AI Data Analytics',
+    description: 'Profile CSV data locally and turn statistics into actionable AI insights.',
     category: 'business',
-    status: 'soon',
+    status: 'beta',
     tier: 'premium',
-    version: '0.1.0',
+    version: '1.0.0-beta.1',
     icon: BarChart3,
-    component: FutureToolsView,
+    component: AnalyticsAITool,
   },
 ];
 
