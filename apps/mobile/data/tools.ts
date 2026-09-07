@@ -26,7 +26,8 @@ export type MobileTool = {
     | '/tools/prompt-library'
     | '/tools/batch-image-tools'
     | '/tools/code-assistant'
-    | '/tools/templates-hub';
+    | '/tools/templates-hub'
+    | '/tools/team-workspace';
   status: 'native' | 'next';
 };
 
@@ -52,4 +53,5 @@ export const mobileTools: MobileTool[] = [
   { id: 'name-generator', name: 'Name Generator', description: 'Generate business, product, brand and social-name ideas locally.', category: 'Business', plan: 'Free', icon: 'wand-outline', route: '/tools/name-generator', status: 'native' },
   { id: 'letter-generator', name: 'Letter Generator', description: 'Create editable recommendation, complaint, resignation and business letters locally.', category: 'Business', plan: 'Free', icon: 'file-document-edit-outline', route: '/tools/letter-generator', status: 'native' },
   { id: 'contract-writer', name: 'AI Contract', description: 'Draft and review agreements with AI assistance.', category: 'Business', plan: 'Pro', icon: 'file-sign', route: '/tools/contract-writer', status: 'native' },
+  { id: 'team-workspace', name: 'Team Workspace', description: 'Create workspaces, invite teammates, manage roles and share Tayar projects.', category: 'Business', plan: 'Business', icon: 'account-group-outline', route: '/tools/team-workspace', status: 'native' },
 ];
