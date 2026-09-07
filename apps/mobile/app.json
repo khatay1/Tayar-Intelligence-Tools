@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Tayar Tools",
+    "slug": "tayar-tools",
+    "scheme": "tayartools",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#07070F",
+    "ios": {
+      "bundleIdentifier": "se.tayar.tools",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "se.tayar.tools",
+      "adaptiveIcon": {
+        "backgroundColor": "#07070F"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-document-picker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
