@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { fetchPublicPlanCatalogV2, formatPlanPrice, type PublicPlanCatalogV2 } from '@/lib/plan-catalog-v2';
+import { isTayarNativeApp, openNativeBrowserUrl } from '@/lib/mobile-files';
 import { useLocalizer } from '@/lib/ui-localization';
 import { supabase } from '@/lib/supabase';
 
@@ -108,19 +109,28 @@ export default function SubscriptionView() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const billing = params.get('billing');
-    if (billing !== 'success' && billing !== 'canceled') return;
+    if (billing !== 'success' && billing !== 'canceled' && billing !== 'portal-return') return;
 
-    setBillingMessage(billing);
+    setBillingMessage(billing === 'portal-return' ? null : billing);
     params.delete('billing');
+    params.delete('native');
     const nextSearch = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`);
 
-    if (billing === 'success') {
+    if (billing === 'success' || billing === 'portal-return') {
       void loadSubscription();
       const retry = window.setTimeout(() => void loadSubscription(), 2200);
       return () => window.clearTimeout(retry);
     }
   }, [loadSubscription]);
+
+  async function openBillingDestination(url: string): Promise<void> {
+    if (await openNativeBrowserUrl(url)) {
+      setBusy(null);
+      return;
+    }
+    window.location.assign(url);
+  }
 
   async function startCheckout(plan: 'pro' | 'business') {
     if (hasManagedSubscription) {
@@ -132,12 +142,16 @@ export default function SubscriptionView() {
     setBillingMessage(null);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', {
-        body: { plan, requestId: crypto.randomUUID() },
+        body: {
+          plan,
+          requestId: crypto.randomUUID(),
+          client: isTayarNativeApp() ? 'native' : 'web',
+        },
       });
       if (invokeError) throw invokeError;
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Stripe Checkout is not configured yet.');
-      window.location.assign(url);
+      await openBillingDestination(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : l('Could not open Stripe Checkout.'));
       setBusy(null);
@@ -149,11 +163,13 @@ export default function SubscriptionView() {
     setError('');
     setBillingMessage(null);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('billing-portal', { body: {} });
+      const { data, error: invokeError } = await supabase.functions.invoke('billing-portal', {
+        body: { client: isTayarNativeApp() ? 'native' : 'web' },
+      });
       if (invokeError) throw invokeError;
       const url = typeof data?.url === 'string' ? data.url : '';
       if (!url) throw new Error(data?.error || 'Billing portal is not available yet.');
-      window.location.assign(url);
+      await openBillingDestination(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : l('Could not open the billing portal.'));
       setBusy(null);
