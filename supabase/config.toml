@@ -21,6 +21,9 @@ verify_jwt = false
 
 # Retired/test endpoints remain JWT-protected even though they only return 410.
 # Keeping this explicit prevents a future CLI deploy from reopening them.
+[functions.gemini-flash]
+verify_jwt = true
+
 [functions.stripe-webhook-test]
 verify_jwt = true
 
