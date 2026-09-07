@@ -8,7 +8,7 @@ export default function Footer({ onNavigate }: FooterProps) {
   const groups = [
     { title: c.product, links: [{ label: c.tools, href: '#tools' }, { label: c.business, href: '#business' }, { label: c.pricing, href: '#pricing' }, { label: c.faq, href: '#faq' }] },
     { title: c.company, links: [{ label: c.about, page: 'about' }, { label: c.help, href: '#faq' }] },
-    { title: c.legal, links: [{ label: c.privacy, page: 'privacy' }, { label: c.terms, page: 'terms' }] },
+    { title: c.legal, links: [{ label: c.privacy, page: 'privacy' }, { label: c.terms, page: 'terms' }, { label: 'Account deletion', page: 'account-deletion' }] },
   ];
   return (
     <footer className="border-t border-white/[0.06] bg-[#05050c] py-12 sm:py-14">
