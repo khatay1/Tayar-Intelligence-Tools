@@ -30,6 +30,8 @@ jobs:
           java-version: '21'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Prepare pinned mobile models
+        run: npm run models:prepare
       - name: Typecheck
         run: npm run typecheck
       - name: Expo doctor
@@ -56,6 +58,8 @@ jobs:
           node-version: 22.13.1
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Prepare pinned mobile models
+        run: npm run models:prepare
       - name: Typecheck
         run: npm run typecheck
       - name: Expo doctor
