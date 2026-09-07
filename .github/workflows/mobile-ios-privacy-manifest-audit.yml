@@ -26,41 +26,39 @@ jobs:
           cache-dependency-path: apps/mobile/package-lock.json
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
-      - name: Collect dependency privacy reasons
-        shell: bash
-        run: |
-          python - <<'PY'
-          import glob, plistlib
-          from collections import defaultdict
-          manifests = sorted(glob.glob('node_modules/**/PrivacyInfo.xcprivacy', recursive=True))
-          print(f'DEPENDENCY_PRIVACY_MANIFEST_COUNT={len(manifests)}')
-          reasons = defaultdict(set)
-          for path in manifests:
-              try:
-                  with open(path, 'rb') as fh:
-                      data = plistlib.load(fh)
-              except Exception as exc:
-                  print(f'UNREADABLE {path}: {exc}')
-                  continue
-              for item in data.get('NSPrivacyAccessedAPITypes', []) or []:
-                  category = item.get('NSPrivacyAccessedAPIType')
-                  if not category:
-                      continue
-                  for reason in item.get('NSPrivacyAccessedAPITypeReasons', []) or []:
-                      reasons[category].add(reason)
-          for category in sorted(reasons):
-              print(category + '=' + ','.join(sorted(reasons[category])))
-          if not reasons:
-              raise SystemExit('No required-reason API declarations found in dependency manifests')
-          PY
       - name: Generate iOS project
         run: npx expo prebuild --platform ios --clean
-      - name: Report generated app privacy manifest
+      - name: Verify generated app privacy manifest
         shell: bash
         run: |
           mapfile -t manifests < <(find ios -name 'PrivacyInfo.xcprivacy' -type f | sort)
           printf 'APP_PRIVACY_MANIFEST_COUNT=%s\n' "${#manifests[@]}"
-          for manifest in "${manifests[@]}"; do
-            echo "=== $manifest ==="
-            cat "$manifest"
-          done
+          test "${#manifests[@]}" -gt 0
+          python - "${manifests[@]}" <<'PY'
+          import plistlib, sys
+          expected = {
+              'NSPrivacyAccessedAPICategoryDiskSpace': {'85F4.1', 'E174.1'},
+              'NSPrivacyAccessedAPICategoryFileTimestamp': {'0A2A.1', '3B52.1', 'C617.1'},
+              'NSPrivacyAccessedAPICategorySystemBootTime': {'35F9.1'},
+              'NSPrivacyAccessedAPICategoryUserDefaults': {'CA92.1'},
+          }
+          actual = {}
+          tracking = None
+          for path in sys.argv[1:]:
+              with open(path, 'rb') as fh:
+                  data = plistlib.load(fh)
+              if 'NSPrivacyTracking' in data:
+                  tracking = data['NSPrivacyTracking']
+              for item in data.get('NSPrivacyAccessedAPITypes', []) or []:
+                  category = item.get('NSPrivacyAccessedAPIType')
+                  if category:
+                      actual.setdefault(category, set()).update(item.get('NSPrivacyAccessedAPITypeReasons', []) or [])
+          print('TRACKING=' + repr(tracking))
+          for category in sorted(actual):
+              print(category + '=' + ','.join(sorted(actual[category])))
+          missing = {category: sorted(reasons - actual.get(category, set())) for category, reasons in expected.items() if not reasons.issubset(actual.get(category, set()))}
+          if missing:
+              raise SystemExit('Missing privacy reasons: ' + repr(missing))
+          if tracking is not False:
+              raise SystemExit('NSPrivacyTracking must be false')
+          PY
