@@ -55,6 +55,15 @@ function parseNumeric(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function distributedSample<T>(rows: T[], count: number): T[] {
+  if (rows.length <= count) return rows.slice();
+  const indexes = new Set<number>();
+  for (let index = 0; index < count; index += 1) {
+    indexes.add(Math.floor((index * (rows.length - 1)) / Math.max(1, count - 1)));
+  }
+  return Array.from(indexes).sort((a, b) => a - b).map((index) => rows[index]);
+}
+
 export function profileCsv(document: CsvDocument): AnalyticsProfile {
   const sourceHeader = document.rows[0] || [];
   const dataRows = document.rows.slice(1);
@@ -109,7 +118,7 @@ export function profileCsv(document: CsvDocument): AnalyticsProfile {
     };
   });
 
-  const sampleRows = dataRows.slice(0, 12).map((row) =>
+  const sampleRows = distributedSample(dataRows, 12).map((row) =>
     headers.slice(0, 30).map((_, index) => String(row[index] ?? '').slice(0, 160)),
   );
 
@@ -147,8 +156,8 @@ export function analyticsPromptPayload(profile: AnalyticsProfile) {
     totalColumns: profile.columnCount,
     columns,
     sampleHeaders: profile.headers.slice(0, 30),
-    firstRowsSample: profile.sampleRows,
-    importantScopeNote: 'Statistics cover the parsed local dataset. Row samples contain only the first 12 rows and at most 30 columns; do not claim row-level findings beyond evidence supplied here.',
+    distributedRowsSample: profile.sampleRows,
+    importantScopeNote: 'Statistics cover the parsed local dataset. Row samples contain up to 12 rows distributed across the dataset and at most 30 columns; do not claim row-level findings beyond evidence supplied here.',
   });
 }
 
