@@ -5,6 +5,27 @@ type TayarMobileWindow = Window & {
   __TayarLastAppUrl?: string;
 };
 
+const BILLING_RETURN_STATUSES = new Set(['success', 'canceled', 'portal-return']);
+
+function handoffNativeBillingReturn(): void {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('native') !== '1') return;
+
+  const billing = params.get('billing') || '';
+  if (!BILLING_RETURN_STATUSES.has(billing)) return;
+
+  const target = new URL('tayartools://billing');
+  target.searchParams.set('billing', billing);
+  target.hash = 'workspace/subscription';
+
+  try {
+    window.location.replace(target.toString());
+  } catch (error) {
+    console.warn('[mobile-runtime] Could not hand billing return to the native app.', error);
+  }
+}
+
 function handleAppUrl(rawValue: unknown): void {
   const raw = String(rawValue || '').trim();
   if (!raw || typeof window === 'undefined') return;
@@ -29,6 +50,7 @@ function handleAppUrl(rawValue: unknown): void {
       if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextPath) {
         window.history.pushState({}, '', nextPath);
         window.dispatchEvent(new PopStateEvent('popstate'));
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
       }
     }
 
@@ -50,7 +72,10 @@ export function initMobileRuntime(): void {
   }).Capacitor;
 
   const native = Boolean(capacitor?.isNativePlatform?.());
-  if (!native) return;
+  if (!native) {
+    handoffNativeBillingReturn();
+    return;
+  }
 
   const platform = capacitor?.getPlatform?.() || 'native';
   document.documentElement.classList.add('tayar-native', `tayar-${platform}`);
