@@ -71,6 +71,11 @@ function pageFileName(page: MobileWebsitePage, homePageId: string) {
   return page.id === homePageId ? 'index.html' : `${safeSlug(page.slug, 'page')}.html`;
 }
 
+function safeHttpUrl(value: unknown) {
+  const url = trimText(value, 3000);
+  return /^https?:\/\/[^\s<>"']+$/i.test(url) ? url : '';
+}
+
 function safeHref(value: unknown, pages: MobileWebsitePage[], homePageId: string) {
   const href = trimText(value, 1000);
   if (!href) return '#';
@@ -86,8 +91,7 @@ function safeHref(value: unknown, pages: MobileWebsitePage[], homePageId: string
 }
 
 function safeImageSrc(value: unknown) {
-  const src = trimText(value, 3000);
-  return /^https?:\/\//i.test(src) ? src : '';
+  return safeHttpUrl(value);
 }
 
 function safeFont(value: unknown) {
@@ -199,12 +203,21 @@ function buildLeadScript(projectId: string) {
   return `<script>(()=>{const endpoint=${JSON.stringify(endpoint)};const key=${JSON.stringify(publishableKey)};const projectId=${JSON.stringify(projectId)};document.querySelectorAll('[data-tayar-lead-form]').forEach((form)=>{form.addEventListener('submit',async(event)=>{event.preventDefault();const status=form.querySelector('[data-form-status]');const button=form.querySelector('button[type="submit"]');const values={};new FormData(form).forEach((value,name)=>{if(typeof value==='string')values[name]=value.slice(0,2000)});if(button)button.disabled=true;if(status)status.textContent='Sending…';try{const response=await fetch(endpoint,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({p_project_id:projectId,p_form_data:values,p_page_path:(location.pathname+location.search).slice(0,500)})});if(!response.ok)throw new Error('Lead submission failed');if(status)status.textContent=form.dataset.successMessage||'Thanks! Your message has been sent.';form.reset();const redirect=form.dataset.redirectUrl||'';if(redirect&&redirect!=='#')setTimeout(()=>location.assign(redirect),500)}catch{if(status)status.textContent='Could not send your message. Please try again.'}finally{if(button)button.disabled=false}})})})();</script>`;
 }
 
-function buildPageHtml(content: MobileWebsiteContent, page: MobileWebsitePage, projectId: string) {
+function publishedPageUrl(page: MobileWebsitePage, homePageId: string, base: string) {
+  return `${base}/${pageFileName(page, homePageId)}`;
+}
+
+function canonicalPageUrl(page: MobileWebsitePage, homePageId: string, base: string) {
+  return safeHttpUrl(page.canonicalUrl) || publishedPageUrl(page, homePageId, base);
+}
+
+function buildPageHtml(content: MobileWebsiteContent, page: MobileWebsitePage, projectId: string, pageUrl: string) {
   const theme = content.theme && typeof content.theme === 'object' ? content.theme as Record<string, unknown> : {};
   const header = content.headerConfig && typeof content.headerConfig === 'object' ? content.headerConfig as Record<string, unknown> : {};
   const footer = content.footerConfig && typeof content.footerConfig === 'object' ? content.footerConfig as Record<string, unknown> : {};
   const title = trimText(page.seoTitle, 180) || trimText(content.seo.title, 180) || trimText(content.siteName, 120) || 'Website';
   const description = trimText(page.seoDescription, 500) || trimText(content.seo.description, 500);
+  const keywords = Array.isArray(content.seo.keywords) ? content.seo.keywords.map((value) => trimText(value, 80)).filter(Boolean).slice(0, 30) : [];
   const primary = safeColor(theme.primaryColor, safeColor(content.brand.colors.primary, '#7c3aed'));
   const background = safeColor(theme.backgroundColor, '#020617');
   const foreground = safeColor(theme.textColor, '#ffffff');
@@ -213,14 +226,59 @@ function buildPageHtml(content: MobileWebsiteContent, page: MobileWebsitePage, p
   const buttonRadius = safeNumber(theme.buttonRadius, 12, 0, 80);
   const font = safeFont(theme.fontFamily);
   const brand = trimText(header.brandText, 120) || trimText(content.brand.name, 120) || trimText(content.siteName, 120);
+  const logo = safeImageSrc(header.logoUrl);
+  const favicon = safeImageSrc(content.faviconUrl);
+  const socialImage = safeImageSrc(page.socialImage);
+  const canonical = safeHttpUrl(page.canonicalUrl) || pageUrl;
   const nav = content.pages.filter((candidate) => candidate.showInNavigation !== false).map((candidate) => `<a href="${escapeHtml(pageFileName(candidate, content.homePageId))}">${escapeHtml(candidate.name)}</a>`).join('');
-  const headerHtml = header.enabled === false ? '' : `<header><div class="topbar"><a class="brand" href="index.html">${escapeHtml(brand)}</a><nav>${nav}</nav></div></header>`;
+  const ctaLabel = trimText(header.ctaLabel, 120);
+  const ctaHref = safeHref(header.ctaHref, content.pages, content.homePageId);
+  const cta = header.showCta === false || !ctaLabel ? '' : `<a class="header-cta" href="${escapeHtml(ctaHref)}">${escapeHtml(ctaLabel)}</a>`;
+  const brandMarkup = `${logo ? `<img class="brand-logo" src="${escapeHtml(logo)}" alt="">` : ''}<span>${escapeHtml(brand)}</span>`;
+  const headerHtml = header.enabled === false ? '' : `<header class="site-header"><div class="topbar"><a class="brand" href="index.html">${brandMarkup}</a><div class="header-actions"><nav>${nav}</nav>${cta}</div></div></header>`;
   const footerText = trimText(footer.text, 500) || `© ${new Date().getFullYear()} ${brand}`;
-  const footerHtml = footer.enabled === false ? '' : `<footer><div class="footer-inner"><strong>${escapeHtml(brand)}</strong><span>${escapeHtml(footerText)}</span></div></footer>`;
+  const footerNav = footer.showNavigation === false ? '' : `<nav class="footer-nav">${nav}</nav>`;
+  const socialLinks = [
+    ['Facebook', footer.facebookUrl],
+    ['Instagram', footer.instagramUrl],
+    ['LinkedIn', footer.linkedinUrl],
+    ['X', footer.xUrl],
+  ].map(([label, raw]) => {
+    const url = safeHttpUrl(raw);
+    return url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>` : '';
+  }).filter(Boolean).join('');
+  const footerSocial = socialLinks ? `<div class="footer-social">${socialLinks}</div>` : '';
+  const footerHtml = footer.enabled === false ? '' : `<footer><div class="footer-inner"><div class="footer-brand"><strong>${escapeHtml(brand)}</strong><span>${escapeHtml(footerText)}</span></div><div class="footer-links">${footerNav}${footerSocial}</div></div></footer>`;
   const lang = trimText(page.language, 12) || trimText(content.language, 12) || 'en';
   const dir = lang.toLowerCase().startsWith('ar') ? 'rtl' : 'ltr';
-  return `<!doctype html><html lang="${escapeHtml(lang)}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><meta name="description" content="${escapeHtml(description)}"><style>
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:${background};color:${foreground};font-family:${font};line-height:1.55}a{color:inherit}.topbar,.section-inner,.footer-inner{width:min(${maxWidth}px,calc(100% - 32px));margin:auto}.topbar{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-weight:900;text-decoration:none}nav{display:flex;flex-wrap:wrap;gap:18px}nav a{text-decoration:none;color:${muted};font-size:14px}.section{padding:80px 0}.section-inner{display:grid;grid-template-columns:repeat(var(--columns),minmax(0,1fr));gap:var(--gap);align-items:center}.el{grid-column:1/-1;margin:0}.heading{line-height:1.08}.text{color:${muted}}.button{display:inline-block;justify-self:center;text-decoration:none;border:0}.image{display:block;max-width:100%;height:auto;margin:auto}.list{max-width:720px;margin:auto}.divider{height:1px;width:100%;opacity:.35}.contact-form{grid-column:1/-1;width:min(680px,100%);margin:20px auto 0;display:grid;gap:13px;padding:20px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.04)}.contact-form label{display:grid;gap:6px;font-size:13px;color:${muted}}.contact-form input,.contact-form textarea,.contact-form select{width:100%;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(0,0,0,.18);color:${foreground};padding:12px;font:inherit}.contact-form textarea{min-height:120px;resize:vertical}.contact-form button{border:0;border-radius:${buttonRadius}px;background:${primary};color:#fff;padding:13px 18px;font-weight:800}.honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}.form-status{min-height:20px;color:${muted};font-size:13px}footer{padding:28px 0;border-top:1px solid rgba(255,255,255,.1)}.footer-inner{display:flex;justify-content:space-between;gap:16px;color:${muted};font-size:13px}@media(max-width:720px){.topbar{align-items:flex-start;padding:16px 0;flex-direction:column}nav{gap:12px}.section{padding:52px 0}.section-inner{grid-template-columns:1fr!important}.footer-inner{flex-direction:column}}
+  const headerBackground = safeColor(header.backgroundColor, background);
+  const headerText = safeColor(header.textColor, foreground);
+  const headerBorder = safeColor(header.borderColor, '#ffffff18');
+  const headerCtaBackground = safeColor(header.ctaBackgroundColor, primary);
+  const headerCtaText = safeColor(header.ctaTextColor, '#ffffff');
+  const headerSticky = header.sticky === true ? 'position:sticky;top:0;z-index:20;' : '';
+  const navGap = safeNumber(header.navGap, 18, 4, 64);
+  const navSize = safeNumber(header.navSize, 14, 10, 28);
+  const brandSize = safeNumber(header.brandSize, 20, 12, 44);
+  const metadata = [
+    `<meta name="description" content="${escapeHtml(description)}">`,
+    keywords.length ? `<meta name="keywords" content="${escapeHtml(keywords.join(', '))}">` : '',
+    page.noIndex === true ? '<meta name="robots" content="noindex,follow">' : '',
+    `<link rel="canonical" href="${escapeHtml(canonical)}">`,
+    favicon ? `<link rel="icon" href="${escapeHtml(favicon)}">` : '',
+    '<meta property="og:type" content="website">',
+    `<meta property="og:title" content="${escapeHtml(title)}">`,
+    `<meta property="og:description" content="${escapeHtml(description)}">`,
+    `<meta property="og:url" content="${escapeHtml(canonical)}">`,
+    `<meta property="og:site_name" content="${escapeHtml(content.siteName || brand)}">`,
+    socialImage ? `<meta property="og:image" content="${escapeHtml(socialImage)}">` : '',
+    `<meta name="twitter:card" content="${socialImage ? 'summary_large_image' : 'summary'}">`,
+    `<meta name="twitter:title" content="${escapeHtml(title)}">`,
+    `<meta name="twitter:description" content="${escapeHtml(description)}">`,
+    socialImage ? `<meta name="twitter:image" content="${escapeHtml(socialImage)}">` : '',
+  ].filter(Boolean).join('');
+  return `<!doctype html><html lang="${escapeHtml(lang)}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title>${metadata}<style>
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:${background};color:${foreground};font-family:${font};line-height:1.55}a{color:inherit}.site-header{${headerSticky}background:${headerBackground};color:${headerText};border-bottom:1px solid ${headerBorder};backdrop-filter:blur(12px)}.topbar,.section-inner,.footer-inner{width:min(${maxWidth}px,calc(100% - 32px));margin:auto}.topbar{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:10px;font-size:${brandSize}px;font-weight:900;text-decoration:none}.brand-logo{width:34px;height:34px;object-fit:contain;border-radius:8px}.header-actions{display:flex;align-items:center;gap:18px}nav{display:flex;flex-wrap:wrap;gap:${navGap}px}nav a{text-decoration:none;color:${muted};font-size:${navSize}px}.header-cta{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border-radius:${buttonRadius}px;background:${headerCtaBackground};color:${headerCtaText};padding:10px 16px;font-weight:800;white-space:nowrap}.section{padding:80px 0}.section-inner{display:grid;grid-template-columns:repeat(var(--columns),minmax(0,1fr));gap:var(--gap);align-items:center}.el{grid-column:1/-1;margin:0}.heading{line-height:1.08}.text{color:${muted}}.button{display:inline-block;justify-self:center;text-decoration:none;border:0}.image{display:block;max-width:100%;height:auto;margin:auto}.list{max-width:720px;margin:auto}.divider{height:1px;width:100%;opacity:.35}.contact-form{grid-column:1/-1;width:min(680px,100%);margin:20px auto 0;display:grid;gap:13px;padding:20px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.04)}.contact-form label{display:grid;gap:6px;font-size:13px;color:${muted}}.contact-form input,.contact-form textarea,.contact-form select{width:100%;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(0,0,0,.18);color:${foreground};padding:12px;font:inherit}.contact-form textarea{min-height:120px;resize:vertical}.contact-form button{border:0;border-radius:${buttonRadius}px;background:${primary};color:#fff;padding:13px 18px;font-weight:800}.honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}.form-status{min-height:20px;color:${muted};font-size:13px}footer{padding:28px 0;border-top:1px solid rgba(255,255,255,.1)}.footer-inner{display:flex;justify-content:space-between;gap:24px;color:${muted};font-size:13px}.footer-brand,.footer-links{display:flex;flex-direction:column;gap:10px}.footer-nav,.footer-social{display:flex;flex-wrap:wrap;gap:14px}.footer-nav a,.footer-social a{text-decoration:none;color:${muted};font-size:13px}@media(max-width:720px){.topbar{align-items:flex-start;padding:16px 0;flex-direction:column}.header-actions{width:100%;align-items:flex-start;flex-direction:column}nav{gap:12px}.header-cta{width:100%}.section{padding:52px 0}.section-inner{grid-template-columns:1fr!important}.footer-inner{flex-direction:column}}
 </style></head><body>${headerHtml}<main>${page.sections.map((section) => renderSection(section, projectId, content.pages, content.homePageId)).join('')}</main>${footerHtml}${buildLeadScript(projectId)}</body></html>`;
 }
 
@@ -269,16 +327,16 @@ function assertValidBundle(files: PublishedFile[]) {
 
 function buildBundle(project: MobileWebsiteProjectRow) {
   assertPublishReady(project.content);
-  const files: PublishedFile[] = project.content.pages.map((page) => ({
-    name: pageFileName(page, project.content.homePageId),
-    content: buildPageHtml(project.content, page, project.id),
-    contentType: 'text/html; charset=utf-8',
-  }));
   const appOrigin = (process.env.EXPO_PUBLIC_APP_URL || 'https://tayar.se').replace(/\/+$/, '');
   const base = `${appOrigin}/site/${encodeURIComponent(project.user_id)}/${encodeURIComponent(project.id)}`;
-  const sitemap = project.content.pages.filter((page) => page.noIndex !== true).map((page) => `  <url><loc>${escapeHtml(`${base}/${pageFileName(page, project.content.homePageId)}`)}</loc></url>`).join('\n');
+  const files: PublishedFile[] = project.content.pages.map((page) => ({
+    name: pageFileName(page, project.content.homePageId),
+    content: buildPageHtml(project.content, page, project.id, canonicalPageUrl(page, project.content.homePageId, base)),
+    contentType: 'text/html; charset=utf-8',
+  }));
+  const sitemap = project.content.pages.filter((page) => page.noIndex !== true).map((page) => `  <url><loc>${escapeHtml(canonicalPageUrl(page, project.content.homePageId, base))}</loc></url>`).join('\n');
   files.push(
-    { name: '404.html', content: '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Page not found</title></head><body style="font-family:Arial;background:#07070f;color:#fff;display:grid;place-items:center;min-height:100vh"><main><h1>404</h1><p>Page not found.</p><a style="color:#c4b5fd" href="index.html">Back home</a></main></body></html>', contentType: 'text/html; charset=utf-8' },
+    { name: '404.html', content: '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Page not found</title></head><body style="font-family:Arial;background:#07070f;color:#fff;display:grid;place-items:center;min-height:100vh"><main><h1>404</h1><p>Page not found.</p><a style="color:#c4b5fd" href="index.html">Back home</a></main></body></html>', contentType: 'text/html; charset=utf-8' },
     { name: 'sitemap.xml', content: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemap}\n</urlset>`, contentType: 'application/xml; charset=utf-8' },
     { name: 'robots.txt', content: `User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`, contentType: 'text/plain; charset=utf-8' },
   );
