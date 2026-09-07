@@ -89,7 +89,7 @@ User question / extra context: ${question.trim() || 'None'}
 ${payload}
 </dataset-profile>
 
-Return a structured report with short headings and bullets. Cite column names and numeric values from the profile whenever possible. End with a short "Limits of this analysis" section explaining that only aggregate stats and the bounded first-row sample were provided to AI.`;
+Return a structured report with short headings and bullets. Cite column names and numeric values from the profile whenever possible. End with a short "Limits of this analysis" section explaining that only aggregate stats and the bounded distributed row sample were provided to AI.`;
 
       const response = await runBusinessAI('analytics-ai', system, prompt, {
         temperature: 0.2,
@@ -131,7 +131,7 @@ Return a structured report with short headings and bullets. Cite column names an
         <div>
           <div className="font-medium">{l('Privacy-aware analysis')}</div>
           <div className="mt-0.5 text-xs leading-5 text-emerald-200/65">
-            {l('The full file is parsed in your browser. AI receives computed column statistics plus only the first 12 rows (max 30 columns), not the complete dataset.')}
+            {l('The full file is parsed in your browser. AI receives computed column statistics plus up to 12 rows distributed across the dataset (max 30 columns), not the complete dataset.')}
           </div>
         </div>
       </div>
