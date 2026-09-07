@@ -10,6 +10,9 @@ import { getToolAccessState } from '@/lib/tool-access';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
 
+const PRIVACY_URL = 'https://tayar.se/#privacy';
+const TERMS_URL = 'https://tayar.se/#terms';
+
 function displayPlan(value?: string) {
   const plan = String(value || '').toLowerCase();
   if (plan === 'business') return 'Business';
@@ -24,8 +27,6 @@ export default function ProfileScreen() {
   const email = user?.email || '—';
   const name = String(user?.user_metadata?.full_name || email.split('@')[0] || 'Tayar user');
   const [plan, setPlan] = useState('');
-  const [billingBusy, setBillingBusy] = useState(false);
-  const [billingError, setBillingError] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
@@ -45,26 +46,9 @@ export default function ProfileScreen() {
     router.replace('/login');
   }
 
-  async function openBilling() {
-    if (billingBusy) return;
-    setBillingBusy(true);
-    setBillingError('');
-    try {
-      const { data, error } = await supabase.functions.invoke('billing-portal', { body: {} });
-      if (error) throw error;
-      const url = data && typeof data === 'object' && typeof (data as { url?: unknown }).url === 'string'
-        ? String((data as { url: string }).url)
-        : '';
-      if (!url) throw new Error('Billing portal is not available for this account yet.');
-      await WebBrowser.openBrowserAsync(url);
-      await loadPlan();
-      void Haptics.selectionAsync();
-    } catch (err) {
-      setBillingError(err instanceof Error ? err.message : 'Could not open billing.');
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setBillingBusy(false);
-    }
+  async function openLegal(url: string) {
+    await WebBrowser.openBrowserAsync(url);
+    void Haptics.selectionAsync();
   }
 
   async function deleteAccount() {
@@ -95,7 +79,7 @@ export default function ProfileScreen() {
     if (deleteBusy) return;
     Alert.alert(
       'Delete your Tayar account?',
-      'This permanently deletes your Tayar account and associated Tayar data. Active Stripe subscriptions are cancelled first. This action cannot be undone.',
+      'This permanently deletes your Tayar account and associated Tayar data. Active subscriptions are cancelled first. This action cannot be undone.',
       [
         { text: 'Keep account', style: 'cancel' },
         { text: 'Delete permanently', style: 'destructive', onPress: () => void deleteAccount() },
@@ -124,14 +108,13 @@ export default function ProfileScreen() {
           <View style={{ flex: 1 }}><Text style={styles.rowTitle}>Account</Text><Text style={styles.rowSub}>The same secure Tayar identity is used across web, Android and iOS.</Text></View>
         </View>
 
-        <Pressable onPress={() => void openBilling()} style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.panelSoft }]}>
-          <MaterialCommunityIcons name="credit-card-outline" size={21} color={colors.violetBright} />
+        <View style={styles.row}>
+          <MaterialCommunityIcons name="account-key-outline" size={21} color={colors.violetBright} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.rowTitle}>Manage subscription</Text>
-            <Text style={styles.rowSub}>{plan ? `${displayPlan(plan)} plan · Stripe billing portal` : 'Secure Stripe billing portal'}</Text>
+            <Text style={styles.rowTitle}>Plan access</Text>
+            <Text style={styles.rowSub}>{plan ? `${displayPlan(plan)} plan · your existing Tayar access syncs automatically.` : 'Your existing Tayar access syncs automatically.'}</Text>
           </View>
-          {billingBusy ? <ActivityIndicator color={colors.violetBright} /> : <MaterialCommunityIcons name="open-in-new" size={19} color={colors.muted} />}
-        </Pressable>
+        </View>
 
         <View style={[styles.row, styles.lastRow]}>
           <MaterialCommunityIcons name="cellphone-lock" size={21} color={colors.violetBright} />
@@ -139,7 +122,19 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {billingError ? <Text style={styles.error}>{billingError}</Text> : null}
+      <View style={styles.menu}>
+        <Pressable onPress={() => void openLegal(PRIVACY_URL)} style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.panelSoft }]}>
+          <MaterialCommunityIcons name="shield-lock-outline" size={21} color={colors.violetBright} />
+          <View style={{ flex: 1 }}><Text style={styles.rowTitle}>Privacy Policy</Text><Text style={styles.rowSub}>How Tayar handles account, tool and service data.</Text></View>
+          <MaterialCommunityIcons name="open-in-new" size={19} color={colors.muted} />
+        </Pressable>
+
+        <Pressable onPress={() => void openLegal(TERMS_URL)} style={({ pressed }) => [styles.row, styles.lastRow, pressed && { backgroundColor: colors.panelSoft }]}>
+          <MaterialCommunityIcons name="file-document-outline" size={21} color={colors.violetBright} />
+          <View style={{ flex: 1 }}><Text style={styles.rowTitle}>Terms of Service</Text><Text style={styles.rowSub}>The terms that apply when using Tayar Tools.</Text></View>
+          <MaterialCommunityIcons name="open-in-new" size={19} color={colors.muted} />
+        </Pressable>
+      </View>
 
       <Pressable onPress={() => void logout()} style={({ pressed }) => [styles.logout, pressed && { opacity: 0.82 }]}>
         <MaterialCommunityIcons name="logout" size={20} color={colors.danger} />
