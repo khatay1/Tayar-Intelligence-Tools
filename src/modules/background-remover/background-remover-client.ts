@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { functionErrorMessage } from '@/lib/function-errors';
 import { assertToolActionAvailable } from '@/lib/tool-usage';
 import {
   BACKGROUND_ALLOWED_TYPES,
@@ -24,7 +25,8 @@ export function validateBackgroundFile(file: File) {
     throw new Error('Use a JPEG, PNG or WebP image.');
   }
   if (file.size <= 0 || file.size > MAX_BACKGROUND_IMAGE_BYTES) {
-    throw new Error('Image must be larger than 0 bytes and no more than 3 MB.');
+    const maxMb = Math.round(MAX_BACKGROUND_IMAGE_BYTES / 1024 / 1024);
+    throw new Error(`Image must be larger than 0 bytes and no more than ${maxMb} MB.`);
   }
 }
 
@@ -44,7 +46,7 @@ export async function removeImageBackground(
   });
 
   if (error) {
-    throw new Error(error.message || 'Background removal request failed.');
+    throw new Error(await functionErrorMessage(error, 'Background removal request failed.'));
   }
 
   if (!data || typeof data !== 'object' || typeof data.url !== 'string') {
