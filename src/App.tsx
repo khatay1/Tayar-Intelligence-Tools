@@ -32,6 +32,7 @@ const AdminPanel = lazy(() => import('@/components/admin/AdminPanel'));
 const AboutPage = lazy(() => import('@/components/workspace/AboutPage'));
 const PrivacyPolicy = lazy(() => import('@/components/workspace/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/components/workspace/TermsOfService'));
+const AccountDeletionPage = lazy(() => import('@/components/workspace/AccountDeletionPage'));
 
 function FullScreenLoader() {
   const l = useLocalizer();
@@ -46,10 +47,10 @@ function FullScreenLoader() {
 }
 
 type AuthPage = 'login' | 'register' | 'forgot' | 'verify' | 'reset';
-type PublicPage = 'about' | 'privacy' | 'terms';
+type PublicPage = 'about' | 'privacy' | 'terms' | 'account-deletion';
 
 const AUTH_PAGES: AuthPage[] = ['login', 'register', 'forgot', 'verify', 'reset'];
-const PUBLIC_PAGES: PublicPage[] = ['about', 'privacy', 'terms'];
+const PUBLIC_PAGES: PublicPage[] = ['about', 'privacy', 'terms', 'account-deletion'];
 
 function useHashRoute() {
   const [hash, setHash] = useState('');
@@ -122,7 +123,13 @@ function AppContent() {
   if (authPage === 'reset') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><ResetPassword onBack={goHome} onNavigate={() => navigate('login')} /></Suspense></ErrorBoundary>;
 
   if (publicPage) {
-    const PublicComponent = publicPage === 'about' ? AboutPage : publicPage === 'privacy' ? PrivacyPolicy : TermsOfService;
+    const PublicComponent = publicPage === 'about'
+      ? AboutPage
+      : publicPage === 'privacy'
+        ? PrivacyPolicy
+        : publicPage === 'account-deletion'
+          ? AccountDeletionPage
+          : TermsOfService;
     return (
       <ErrorBoundary>
         <div className="min-h-screen bg-[#06060e] text-white antialiased">
