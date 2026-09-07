@@ -30,6 +30,7 @@ export default function RootLayout() {
             <Stack.Screen name="tools/pdf-tools" options={{ title: 'PDF Studio' }} />
             <Stack.Screen name="tools/invoice-generator" options={{ title: 'Invoice Generator' }} />
             <Stack.Screen name="tools/cv-builder" options={{ title: 'CV Builder' }} />
+            <Stack.Screen name="tools/background-remover" options={{ title: 'Background Remover' }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
