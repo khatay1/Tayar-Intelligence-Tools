@@ -31,84 +31,28 @@ jobs:
                   raise SystemExit(f'Expected text not found in {path}: {old[:100]!r}')
               p.write_text(s.replace(old, new))
 
-          # Remove an unused helper.
-          replace(
-              'apps/mobile/app/tools/batch-image-tools.tsx',
-              "\nfunction mime(format: OutputFormat) {\n  return format === 'JPEG' ? 'image/jpeg' : format === 'PNG' ? 'image/png' : 'image/webp';\n}\n",
-              "\n",
-          )
-
-          # Remove an unused React hook import.
-          replace(
-              'apps/mobile/app/tools/team-workspace.tsx',
-              "import { useEffect, useMemo, useState } from 'react';",
-              "import { useEffect, useState } from 'react';",
-          )
-
-          # Make template loading explicit and stabilize the effect dependency.
-          replace(
-              'apps/mobile/app/tools/templates-hub.tsx',
-              "import { useEffect, useMemo, useState } from 'react';",
-              "import { useCallback, useEffect, useMemo, useState } from 'react';",
-          )
-          replace(
-              'apps/mobile/app/tools/templates-hub.tsx',
-              "  async function load(nextPage: number, append: boolean) {\n    append ? setLoadingMore(true) : setBusy(true);",
-              "  const load = useCallback(async (nextPage: number, append: boolean) => {\n    if (append) setLoadingMore(true);\n    else setBusy(true);",
-          )
-          replace(
-              'apps/mobile/app/tools/templates-hub.tsx',
-              "    } finally {\n      setBusy(false);\n      setLoadingMore(false);\n    }\n  }\n\n  useEffect(() => { void load(1, false); }, [submittedQuery, format]);",
-              "    } finally {\n      setBusy(false);\n      setLoadingMore(false);\n    }\n  }, [submittedQuery, format]);\n\n  useEffect(() => { void load(1, false); }, [load]);",
-          )
-
-          # Metro asset require is intentional for a bundled .tflite asset.
-          replace(
-              'apps/mobile/lib/background-removal.ts',
-              "const MODEL_ASSET = require('../assets/models/u2netp_d0_320_fp16.tflite');",
-              "// Metro resolves the bundled TFLite file as a native asset module.\n// eslint-disable-next-line @typescript-eslint/no-require-imports\nconst MODEL_ASSET = require('../assets/models/u2netp_d0_320_fp16.tflite');",
-          )
-
-          # Keep featured tools stable so access loading does not depend on a per-render array.
-          replace(
-              'apps/mobile/app/(tabs)/home.tsx',
-              "function displayPlan(value?: string) {",
-              "const FEATURED_TOOLS = mobileTools.slice(0, 3);\n\nfunction displayPlan(value?: string) {",
-          )
-          replace(
-              'apps/mobile/app/(tabs)/home.tsx',
-              "  const featured = mobileTools.slice(0, 3);\n",
-              "",
-          )
+          replace('apps/mobile/app/tools/batch-image-tools.tsx', "\nfunction mime(format: OutputFormat) {\n  return format === 'JPEG' ? 'image/jpeg' : format === 'PNG' ? 'image/png' : 'image/webp';\n}\n", "\n")
+          replace('apps/mobile/app/tools/team-workspace.tsx', "import { useEffect, useMemo, useState } from 'react';", "import { useEffect, useState } from 'react';")
+          replace('apps/mobile/app/tools/templates-hub.tsx', "import { useEffect, useMemo, useState } from 'react';", "import { useCallback, useEffect, useMemo, useState } from 'react';")
+          replace('apps/mobile/app/tools/templates-hub.tsx', "  async function load(nextPage: number, append: boolean) {\n    append ? setLoadingMore(true) : setBusy(true);", "  const load = useCallback(async (nextPage: number, append: boolean) => {\n    if (append) setLoadingMore(true);\n    else setBusy(true);")
+          replace('apps/mobile/app/tools/templates-hub.tsx', "    } finally {\n      setBusy(false);\n      setLoadingMore(false);\n    }\n  }\n\n  useEffect(() => { void load(1, false); }, [submittedQuery, format]);", "    } finally {\n      setBusy(false);\n      setLoadingMore(false);\n    }\n  }, [submittedQuery, format]);\n\n  useEffect(() => { void load(1, false); }, [load]);")
+          replace('apps/mobile/lib/background-removal.ts', "const MODEL_ASSET = require('../assets/models/u2netp_d0_320_fp16.tflite');", "// Metro resolves the bundled TFLite file as a native asset module.\n// eslint-disable-next-line @typescript-eslint/no-require-imports\nconst MODEL_ASSET = require('../assets/models/u2netp_d0_320_fp16.tflite');")
+          replace('apps/mobile/app/(tabs)/home.tsx', "function displayPlan(value?: string) {", "const FEATURED_TOOLS = mobileTools.slice(0, 3);\n\nfunction displayPlan(value?: string) {")
+          replace('apps/mobile/app/(tabs)/home.tsx', "  const featured = mobileTools.slice(0, 3);\n", "")
           replace('apps/mobile/app/(tabs)/home.tsx', 'featured.map', 'FEATURED_TOOLS.map')
           replace('apps/mobile/app/(tabs)/home.tsx', 'for (const tool of featured)', 'for (const tool of FEATURED_TOOLS)')
           replace('apps/mobile/app/(tabs)/home.tsx', '}, [accessByTool, featured]);', '}, [accessByTool]);')
 
-          # Adopt EAS remote build-number management for production submissions.
           eas_path = Path('apps/mobile/eas.json')
           eas = json.loads(eas_path.read_text())
           eas.setdefault('cli', {})['appVersionSource'] = 'remote'
           eas.setdefault('build', {}).setdefault('production', {})['autoIncrement'] = True
           eas_path.write_text(json.dumps(eas, indent=2) + '\n')
-
-          # Make lint a first-class mobile CI gate using the root ESLint config.
-          wf_path = Path('.github/workflows/mobile-react-native-check.yml')
-          wf = wf_path.read_text()
-          if '\n  lint:\n' not in wf:
-              marker = '\njobs:\n'
-              lint_job = '''\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 22.13.1\n          cache: npm\n      - name: Install root lint dependencies\n        run: npm ci --no-audit --no-fund\n      - name: Lint mobile source\n        run: npx eslint apps/mobile\n\n'''
-              if marker not in wf:
-                  raise SystemExit('jobs marker missing from mobile workflow')
-              wf = wf.replace(marker, lint_job, 1)
-              wf_path.write_text(wf)
-
-          # This workflow is one-shot; remove it in the same commit that applies the patch.
-          Path('.github/workflows/mobile-release-hardening-patch.yml').unlink()
           PY
 
           git config user.name "khatay1"
           git config user.email "khaled.m.tayar@gmail.com"
-          git add -A
+          git add apps/mobile
           git diff --cached --check
           git commit -m "Harden mobile lint and release versioning"
           git push origin HEAD:mobile-native-react-native-20260907
