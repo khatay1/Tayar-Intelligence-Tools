@@ -200,6 +200,17 @@ Deno.serve(async (req: Request) => {
       await removeStoragePaths(admin, bucket, paths);
     }
 
+    // Team invites are addressed by normalized email rather than user_id. Clear
+    // any pending/expired invite rows for the deleted identity so personal data
+    // is not left behind when the Auth user disappears.
+    if (targetEmail) {
+      const { error: inviteDeleteError } = await admin
+        .from("team_workspace_invites")
+        .delete()
+        .eq("email", targetEmail);
+      if (inviteDeleteError) throw new HttpError(503, "Could not delete pending team invitations");
+    }
+
     if (shouldBlockEmail) {
       const { error: blockError } = await admin.from("account_blocks").upsert({
         email: targetEmail,
