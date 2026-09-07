@@ -4,7 +4,6 @@ import { AlertTriangle, Gauge, Loader2, RefreshCw, ToggleRight, ToggleLeft, User
 import { toolRegistry } from '@/modules/registry';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
-import TemplateLibraryAuditCard from './TemplateLibraryAuditCard';
 
 type ToolPlan = 'free' | 'pro' | 'business';
 type LimitPeriod = 'daily' | 'monthly' | 'lifetime';
@@ -116,7 +115,6 @@ export default function AdminTools() {
 
   return (
     <div className="mx-auto max-w-7xl min-w-0 space-y-5 overflow-x-hidden">
-      <TemplateLibraryAuditCard />
       <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
         {[
           { label: 'Total Tools', value: tools.length, color: 'violet' },
