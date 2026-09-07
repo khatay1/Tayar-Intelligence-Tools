@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { HttpError, requireUser } from "../_shared/billing.ts";
+import { createAdminClient, HttpError, requireUser } from "../_shared/billing.ts";
 
 type EmailTemplate =
   | "welcome"
@@ -107,6 +107,34 @@ function normalizeEmail(value: unknown): string {
   return email;
 }
 
+async function enforceEmailRateLimit(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  template: EmailTemplate,
+): Promise<void> {
+  const limits = [
+    { bucket: "email-service", limit: 20, windowSeconds: 600 },
+    ...(template === "contact-form"
+      ? [{ bucket: "email-service-contact", limit: 3, windowSeconds: 600 }]
+      : []),
+  ];
+
+  for (const item of limits) {
+    const { error } = await admin.rpc("enforce_ai_rate_limit", {
+      p_user_id: userId,
+      p_bucket: item.bucket,
+      p_limit: item.limit,
+      p_window_seconds: item.windowSeconds,
+    });
+    if (!error) continue;
+    if (/too many/i.test(error.message || "")) {
+      throw new HttpError(429, "Email rate limit reached. Please try again later.");
+    }
+    console.error("[EMAIL SERVICE] Rate-limit check failed");
+    throw new HttpError(503, "Email delivery limits could not be verified");
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     try { assertAllowedOrigin(req); return new Response(null, { status: 204, headers: corsHeaders(req) }); }
@@ -126,6 +154,9 @@ Deno.serve(async (req: Request) => {
 
     const template = String(body.template || "") as EmailTemplate;
     if (!ALLOWED_TEMPLATES.has(template)) throw new HttpError(400, "Unsupported email template");
+
+    const admin = createAdminClient();
+    await enforceEmailRateLimit(admin, user.id, template);
 
     const data = cleanData(body.data);
     let recipient: string;
