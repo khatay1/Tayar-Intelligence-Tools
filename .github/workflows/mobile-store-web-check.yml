@@ -1,0 +1,36 @@
+name: Mobile Store Web Check
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - 'src/App.tsx'
+      - 'src/components/Footer.tsx'
+      - 'src/components/workspace/AccountDeletionPage.tsx'
+      - 'src/lib/seo.ts'
+      - '.github/workflows/mobile-store-web-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Project health
+        run: npm run health:project
+      - name: Production build
+        run: npm run build
+      - name: Whitespace check
+        run: git diff --check
