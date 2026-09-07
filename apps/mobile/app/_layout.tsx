@@ -22,6 +22,7 @@ export default function RootLayout() {
           >
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ headerShown: false, presentation: 'modal' }} />
+            <Stack.Screen name="reset-password" options={{ title: 'Reset Password' }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="tools/email-writer" options={{ title: 'AI Email' }} />
             <Stack.Screen name="tools/ai-writer" options={{ title: 'AI Writer' }} />
