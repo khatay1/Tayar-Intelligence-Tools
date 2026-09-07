@@ -24,6 +24,7 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ headerShown: false, presentation: 'modal' }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="tools/email-writer" options={{ title: 'AI Email' }} />
+            <Stack.Screen name="tools/contract-writer" options={{ title: 'AI Contract' }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
