@@ -18,12 +18,22 @@ type AuthState = {
 };
 
 const AuthContext = createContext<AuthState | null>(null);
+const MOBILE_RECOVERY_REDIRECT = 'tayartools://auth/callback?type=recovery';
 
 function linkParam(url: URL, key: string) {
   const direct = url.searchParams.get(key);
   if (direct) return direct;
   const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
   return hash ? new URLSearchParams(hash).get(key) : null;
+}
+
+function isRedirectConfigurationError(error: unknown) {
+  const message = error instanceof Error
+    ? error.message.toLowerCase()
+    : String((error as { message?: unknown } | null)?.message || error || '').toLowerCase();
+  return message.includes('redirect')
+    || message.includes('redirect_to')
+    || (message.includes('url') && (message.includes('allow') || message.includes('invalid')));
 }
 
 async function handleIncomingUrl(rawUrl: string) {
@@ -116,8 +126,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { needsEmailConfirmation: !data.session };
     },
     resetPassword: async (email) => {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
-      if (error) throw error;
+      const normalizedEmail = email.trim();
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: MOBILE_RECOVERY_REDIRECT,
+      });
+      if (!error) return;
+      if (!isRedirectConfigurationError(error)) throw error;
+
+      console.warn('[mobile-auth] recovery deep link is not allow-listed; falling back to the default Supabase recovery redirect.');
+      const { error: fallbackError } = await supabase.auth.resetPasswordForEmail(normalizedEmail);
+      if (fallbackError) throw fallbackError;
     },
     updatePassword: async (password) => {
       const { error } = await supabase.auth.updateUser({ password });
