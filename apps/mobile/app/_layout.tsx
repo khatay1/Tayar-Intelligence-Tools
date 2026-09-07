@@ -45,6 +45,7 @@ export default function RootLayout() {
             <Stack.Screen name="tools/cv-builder" options={{ title: 'CV Builder' }} />
             <Stack.Screen name="tools/name-generator" options={{ title: 'Name Generator' }} />
             <Stack.Screen name="tools/letter-generator" options={{ title: 'Letter Generator' }} />
+            <Stack.Screen name="tools/team-workspace" options={{ title: 'Team Workspace' }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
