@@ -7,6 +7,7 @@ import { toolRegistry } from '@/modules/registry';
 const AI_TOOL_IDS = new Set([
   'ai-chat', 'cv-builder', 'cover-letter', 'ai-writer', 'document-ai',
   'study-assistant', 'translator', 'website-builder', 'code-assistant',
+  'email-writer', 'contract-writer', 'analytics-ai',
 ]);
 const MODEL_ID = /^[a-z0-9][a-z0-9._:/-]{0,120}$/i;
 
