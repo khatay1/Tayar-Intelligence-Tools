@@ -1,0 +1,45 @@
+name: Mobile Permission Manifest Check
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-permission-manifest-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android-permissions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean
+      - name: Verify camera and microphone stay blocked
+        shell: bash
+        run: |
+          manifest='android/app/src/main/AndroidManifest.xml'
+          test -f "$manifest"
+          echo '=== permission declarations ==='
+          grep -n 'uses-permission' "$manifest" || true
+          if grep -q 'android.permission.CAMERA' "$manifest"; then
+            echo 'Unexpected CAMERA permission' >&2
+            exit 1
+          fi
+          if grep -q 'android.permission.RECORD_AUDIO' "$manifest"; then
+            echo 'Unexpected RECORD_AUDIO permission' >&2
+            exit 1
+          fi
