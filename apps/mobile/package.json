@@ -9,8 +9,10 @@
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
     "doctor": "expo-doctor",
+    "assets:prepare": "node scripts/prepare-assets.mjs",
     "models:prepare": "node scripts/prepare-models.mjs",
-    "eas-build-post-install": "npm run models:prepare"
+    "postinstall": "npm run assets:prepare",
+    "eas-build-post-install": "npm run assets:prepare && npm run models:prepare"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -55,7 +57,9 @@
     "doctor": {
       "reactNativeDirectoryCheck": {
         "enabled": true,
-        "exclude": ["react-native-fast-tflite"],
+        "exclude": [
+          "react-native-fast-tflite"
+        ],
         "listUnknownPackages": true
       }
     }
