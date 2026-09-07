@@ -1,18 +1,55 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { ToolCard } from '@/components/ToolCard';
 import { mobileTools } from '@/data/tools';
+import { getToolAccessState, type ToolAccessState } from '@/lib/tool-access';
 import { colors, radius } from '@/lib/theme';
+
+function displayPlan(value?: string) {
+  const plan = String(value || '').toLowerCase();
+  if (plan === 'business') return 'Business';
+  if (plan === 'pro') return 'Pro';
+  if (plan === 'free') return 'Free';
+  return '—';
+}
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const firstName = String(user?.user_metadata?.full_name || user?.email || 'there').split(/[ @]/)[0];
   const featured = mobileTools.slice(0, 3);
+  const [accessByTool, setAccessByTool] = useState<Record<string, ToolAccessState>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(featured.map(async (tool) => {
+      try {
+        return [tool.id, await getToolAccessState(tool.id)] as const;
+      } catch {
+        return [tool.id, null] as const;
+      }
+    })).then((entries) => {
+      if (cancelled) return;
+      const next: Record<string, ToolAccessState> = {};
+      for (const [toolId, state] of entries) if (state) next[toolId] = state;
+      setAccessByTool(next);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const currentPlan = useMemo(() => {
+    for (const tool of featured) {
+      const plan = accessByTool[tool.id]?.effective_plan;
+      if (plan) return displayPlan(plan);
+    }
+    return '—';
+  }, [accessByTool, featured]);
+  const categoryCount = new Set(mobileTools.map((tool) => tool.category)).size;
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18, paddingBottom: 110 }]} showsVerticalScrollIndicator={false}>
@@ -29,7 +66,7 @@ export default function HomeScreen() {
       <LinearGradient colors={['#2B1760', '#16132A']} style={styles.hero}>
         <View style={styles.heroIcon}><MaterialCommunityIcons name="creation" size={28} color="#D8B4FE" /></View>
         <Text style={styles.heroTitle}>What do you want to get done?</Text>
-        <Text style={styles.heroText}>Jump into AI, documents and productivity tools built for quick mobile workflows.</Text>
+        <Text style={styles.heroText}>Jump into AI, documents, images and productivity tools built as native mobile workflows.</Text>
         <Pressable onPress={() => router.push('/(tabs)/tools')} style={styles.heroButton}>
           <Text style={styles.heroButtonText}>Browse all tools</Text>
           <MaterialCommunityIcons name="arrow-right" size={18} color={colors.white} />
@@ -37,9 +74,9 @@ export default function HomeScreen() {
       </LinearGradient>
 
       <View style={styles.statsRow}>
-        <View style={styles.stat}><Text style={styles.statValue}>Free</Text><Text style={styles.statLabel}>Current plan</Text></View>
-        <View style={styles.stat}><Text style={styles.statValue}>{mobileTools.length}</Text><Text style={styles.statLabel}>Mobile tools</Text></View>
-        <View style={styles.stat}><Text style={styles.statValue}>1</Text><Text style={styles.statLabel}>Native now</Text></View>
+        <View style={styles.stat}><Text style={styles.statValue}>{currentPlan}</Text><Text style={styles.statLabel}>Current plan</Text></View>
+        <View style={styles.stat}><Text style={styles.statValue}>{mobileTools.length}</Text><Text style={styles.statLabel}>Native tools</Text></View>
+        <View style={styles.stat}><Text style={styles.statValue}>{categoryCount}</Text><Text style={styles.statLabel}>Categories</Text></View>
       </View>
 
       <View style={styles.sectionHeader}>
@@ -48,7 +85,12 @@ export default function HomeScreen() {
       </View>
       <View style={styles.list}>
         {featured.map((tool) => (
-          <ToolCard key={tool.id} tool={tool} onPress={() => tool.route ? router.push(tool.route) : router.push('/(tabs)/tools')} />
+          <ToolCard
+            key={tool.id}
+            tool={tool}
+            access={accessByTool[tool.id]}
+            onPress={() => tool.route ? router.push(tool.route) : router.push('/(tabs)/tools')}
+          />
         ))}
       </View>
     </ScrollView>
