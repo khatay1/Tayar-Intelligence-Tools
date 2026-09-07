@@ -1,0 +1,29 @@
+name: Mobile Privacy Surface Audit
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-privacy-surface-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan mobile privacy-sensitive surfaces
+        shell: bash
+        run: |
+          echo '=== LOCATION / CONTACTS / CALENDAR / SENSORS ==='
+          grep -RInE 'expo-location|Location\.|Geolocation|expo-contacts|Contacts\.|expo-calendar|Calendar\.|Accelerometer|Gyroscope|Pedometer|DeviceMotion' apps/mobile --exclude='package-lock.json' || true
+          echo '=== ADS / TRACKING / ANALYTICS / CRASH ==='
+          grep -RInE 'advertisingId|AdMob|expo-tracking|TrackingTransparency|analytics|Amplitude|Mixpanel|Segment|Sentry|Crashlytics|FirebaseAnalytics|AppsFlyer|Adjust' apps/mobile --exclude='package-lock.json' || true
+          echo '=== IDENTIFIERS / DEVICE INFO ==='
+          grep -RInE 'expo-device|Device\.os|ANDROID_ID|identifierForVendor|deviceId|installationId' apps/mobile --exclude='package-lock.json' || true
+          echo '=== NETWORK / SERVER SENDS ==='
+          grep -RInE 'supabase\.|functions\.invoke|fetch\(|WebSocket|XMLHttpRequest' apps/mobile --exclude='package-lock.json' || true
