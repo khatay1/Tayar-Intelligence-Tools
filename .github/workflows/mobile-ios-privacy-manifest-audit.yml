@@ -1,0 +1,40 @@
+name: Mobile iOS Privacy Manifest Audit
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-ios-privacy-manifest-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  privacy-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Generate iOS project
+        run: npx expo prebuild --platform ios --clean
+      - name: Inspect privacy manifests
+        shell: bash
+        run: |
+          mapfile -t manifests < <(find ios -name 'PrivacyInfo.xcprivacy' -type f | sort)
+          printf 'PRIVACY_MANIFEST_COUNT=%s\n' "${#manifests[@]}"
+          test "${#manifests[@]}" -gt 0
+          for manifest in "${manifests[@]}"; do
+            echo "=== $manifest ==="
+            cat "$manifest"
+          done
