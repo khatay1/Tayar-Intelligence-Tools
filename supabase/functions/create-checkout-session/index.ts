@@ -17,6 +17,15 @@ function settingKeyForPlan(plan: PaidPlan): string {
   return plan === "pro" ? "stripe_pro_price_id" : "stripe_business_price_id";
 }
 
+function billingReturnUrl(origin: string, status: "success" | "canceled", nativeClient: boolean): string {
+  const url = new URL(origin);
+  url.pathname = "/";
+  url.searchParams.set("billing", status);
+  if (nativeClient) url.searchParams.set("native", "1");
+  url.hash = "workspace/subscription";
+  return url.toString();
+}
+
 async function priceForPlan(admin: ReturnType<typeof createAdminClient>, plan: PaidPlan): Promise<string> {
   const { data, error } = await admin
     .from("admin_settings")
@@ -47,6 +56,7 @@ Deno.serve(async (req: Request) => {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) {
       throw new HttpError(400, "A valid Checkout request ID is required");
     }
+    const nativeClient = String(body?.client || "web").trim().toLowerCase() === "native";
 
     const admin = createAdminClient();
     await assertOperationEnabled(admin, "checkout");
@@ -74,8 +84,8 @@ Deno.serve(async (req: Request) => {
     params.set("mode", "subscription");
     params.set("line_items[0][price]", priceId);
     params.set("line_items[0][quantity]", "1");
-    params.set("success_url", `${origin}/?billing=success`);
-    params.set("cancel_url", `${origin}/?billing=canceled`);
+    params.set("success_url", billingReturnUrl(origin, "success", nativeClient));
+    params.set("cancel_url", billingReturnUrl(origin, "canceled", nativeClient));
     params.set("allow_promotion_codes", "true");
     params.set("client_reference_id", user.id);
     params.set("metadata[user_id]", user.id);
