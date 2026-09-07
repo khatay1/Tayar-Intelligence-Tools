@@ -9,7 +9,9 @@ const VERSION_RE = /^[a-z0-9]{6,32}$/;
 let secureAvailablePromise: Promise<boolean> | null = null;
 
 function secureAvailable() {
-  if (!secureAvailablePromise) secureAvailablePromise = SecureStore.isAvailableAsync();
+  if (!secureAvailablePromise) {
+    secureAvailablePromise = SecureStore.isAvailableAsync().catch(() => false);
+  }
   return secureAvailablePromise;
 }
 
