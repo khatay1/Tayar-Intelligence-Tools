@@ -45,9 +45,14 @@ function handleAppUrl(rawValue: unknown): void {
     void closeNativeBrowser();
 
     const isAuthCallback = isTayarScheme && url.hostname === 'auth';
+    const isBillingCallback = isTayarScheme && url.hostname === 'billing';
     if (!isAuthCallback) {
       const nextPath = `${url.pathname || '/'}${url.search || ''}${url.hash || ''}`;
       if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextPath) {
+        if (isBillingCallback) {
+          window.location.replace(nextPath);
+          return;
+        }
         window.history.pushState({}, '', nextPath);
         window.dispatchEvent(new PopStateEvent('popstate'));
         window.dispatchEvent(new HashChangeEvent('hashchange'));
