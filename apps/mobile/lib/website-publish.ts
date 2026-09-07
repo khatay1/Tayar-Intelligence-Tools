@@ -67,7 +67,11 @@ function safeSlug(value: unknown, fallback = 'page') {
   return slug || fallback;
 }
 
-function safeHref(value: unknown, pages: MobileWebsitePage[]) {
+function pageFileName(page: MobileWebsitePage, homePageId: string) {
+  return page.id === homePageId ? 'index.html' : `${safeSlug(page.slug, 'page')}.html`;
+}
+
+function safeHref(value: unknown, pages: MobileWebsitePage[], homePageId: string) {
   const href = trimText(value, 1000);
   if (!href) return '#';
   if (href.startsWith('#')) return href.replace(/[^#a-zA-Z0-9_-]/g, '');
@@ -75,7 +79,7 @@ function safeHref(value: unknown, pages: MobileWebsitePage[]) {
     const slug = safeSlug(href.slice(5), 'home');
     const page = pages.find((candidate) => safeSlug(candidate.slug, 'home') === slug);
     if (!page) return '#';
-    return safeSlug(page.slug, 'home') === 'home' ? 'index.html' : `${safeSlug(page.slug)}.html`;
+    return pageFileName(page, homePageId);
   }
   if (/^(?:https?:\/\/|mailto:|tel:)/i.test(href)) return href;
   return '#';
@@ -121,12 +125,12 @@ function elementInlineStyle(element: MobileWebsiteElement, accent: string) {
   return parts.join(';');
 }
 
-function renderElement(element: MobileWebsiteElement, section: MobileWebsiteSection, pages: MobileWebsitePage[]) {
+function renderElement(element: MobileWebsiteElement, section: MobileWebsiteSection, pages: MobileWebsitePage[], homePageId: string) {
   const content = trimText(element.content, 10000);
   const style = elementInlineStyle(element, safeColor(section.accent, '#7c3aed'));
   if (element.type === 'heading') return `<h2 class="el heading" style="${style}">${escapeHtml(content)}</h2>`;
   if (element.type === 'text') return `<p class="el text" style="${style}">${escapeHtml(content)}</p>`;
-  if (element.type === 'button') return `<a class="el button" style="${style}" href="${escapeHtml(safeHref(element.href, pages))}">${escapeHtml(content || 'Learn More')}</a>`;
+  if (element.type === 'button') return `<a class="el button" style="${style}" href="${escapeHtml(safeHref(element.href, pages, homePageId))}">${escapeHtml(content || 'Learn More')}</a>`;
   if (element.type === 'image') {
     const src = safeImageSrc(element.src);
     return src ? `<img class="el image" style="${style}" src="${escapeHtml(src)}" alt="${escapeHtml(content || 'Image')}" loading="lazy">` : '';
@@ -156,7 +160,7 @@ function renderFormField(raw: Record<string, unknown>) {
   return `<label>${escapeHtml(label)}<input name="${escapeHtml(name)}" type="${type}" placeholder="${escapeHtml(placeholder)}" maxlength="500"${required}></label>`;
 }
 
-function renderContactForm(section: MobileWebsiteSection, projectId: string, pages: MobileWebsitePage[]) {
+function renderContactForm(section: MobileWebsiteSection, projectId: string, pages: MobileWebsitePage[], homePageId: string) {
   const fields = Array.isArray(section.formFields) && section.formFields.length
     ? section.formFields.filter((field): field is Record<string, unknown> => Boolean(field && typeof field === 'object' && !Array.isArray(field))).slice(0, 20)
     : [
@@ -166,7 +170,7 @@ function renderContactForm(section: MobileWebsiteSection, projectId: string, pag
       ];
   const submit = (section.elements || []).find((element) => element.type === 'button');
   const success = trimText(section.formSuccessMessage, 500) || 'Thanks! Your message has been sent.';
-  const redirect = section.formSuccessAction === 'redirect' ? safeHref(section.formRedirectUrl, pages) : '';
+  const redirect = section.formSuccessAction === 'redirect' ? safeHref(section.formRedirectUrl, pages, homePageId) : '';
   return `<form class="contact-form" data-tayar-lead-form data-success-message="${escapeHtml(success)}" data-redirect-url="${escapeHtml(redirect)}">
 <label class="honeypot" aria-hidden="true">Company<input name="_tayar_company" tabindex="-1" autocomplete="off"></label>
 ${fields.map(renderFormField).join('\n')}
@@ -175,13 +179,13 @@ ${fields.map(renderFormField).join('\n')}
 </form>`;
 }
 
-function renderSection(section: MobileWebsiteSection, projectId: string, pages: MobileWebsitePage[]) {
+function renderSection(section: MobileWebsiteSection, projectId: string, pages: MobileWebsitePage[], homePageId: string) {
   const background = safeColor(section.background, '#111827');
   const accent = safeColor(section.accent, '#7c3aed');
   const columns = section.layout === 'three-column' ? 3 : section.layout === 'two-column' ? 2 : 1;
   const elements = (section.elements || []).filter((element) => element.type !== 'button' || section.type !== 'contact');
-  const body = elements.map((element) => renderElement(element, section, pages)).join('\n');
-  const form = section.type === 'contact' ? renderContactForm(section, projectId, pages) : '';
+  const body = elements.map((element) => renderElement(element, section, pages, homePageId)).join('\n');
+  const form = section.type === 'contact' ? renderContactForm(section, projectId, pages, homePageId) : '';
   return `<section id="${escapeHtml(trimText(section.anchorId, 80) || section.type || section.id)}" class="section" style="background:${background};--accent:${accent};--columns:${columns};--gap:${safeNumber(section.layoutGap, 20, 0, 80)}px">
 <div class="section-inner">${body}${form}</div>
 </section>`;
@@ -193,10 +197,6 @@ function buildLeadScript(projectId: string) {
   if (!supabaseUrl || !publishableKey) return '';
   const endpoint = `${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/submit_website_form`;
   return `<script>(()=>{const endpoint=${JSON.stringify(endpoint)};const key=${JSON.stringify(publishableKey)};const projectId=${JSON.stringify(projectId)};document.querySelectorAll('[data-tayar-lead-form]').forEach((form)=>{form.addEventListener('submit',async(event)=>{event.preventDefault();const status=form.querySelector('[data-form-status]');const button=form.querySelector('button[type="submit"]');const values={};new FormData(form).forEach((value,name)=>{if(typeof value==='string')values[name]=value.slice(0,2000)});if(button)button.disabled=true;if(status)status.textContent='Sending…';try{const response=await fetch(endpoint,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({p_project_id:projectId,p_form_data:values,p_page_path:(location.pathname+location.search).slice(0,500)})});if(!response.ok)throw new Error('Lead submission failed');if(status)status.textContent=form.dataset.successMessage||'Thanks! Your message has been sent.';form.reset();const redirect=form.dataset.redirectUrl||'';if(redirect&&redirect!=='#')setTimeout(()=>location.assign(redirect),500)}catch{if(status)status.textContent='Could not send your message. Please try again.'}finally{if(button)button.disabled=false}})})})();</script>`;
-}
-
-function pageFileName(page: MobileWebsitePage, homePageId: string) {
-  return page.id === homePageId ? 'index.html' : `${safeSlug(page.slug, 'page')}.html`;
 }
 
 function buildPageHtml(content: MobileWebsiteContent, page: MobileWebsitePage, projectId: string) {
@@ -221,7 +221,7 @@ function buildPageHtml(content: MobileWebsiteContent, page: MobileWebsitePage, p
   const dir = lang.toLowerCase().startsWith('ar') ? 'rtl' : 'ltr';
   return `<!doctype html><html lang="${escapeHtml(lang)}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><meta name="description" content="${escapeHtml(description)}"><style>
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:${background};color:${foreground};font-family:${font};line-height:1.55}a{color:inherit}.topbar,.section-inner,.footer-inner{width:min(${maxWidth}px,calc(100% - 32px));margin:auto}.topbar{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-weight:900;text-decoration:none}nav{display:flex;flex-wrap:wrap;gap:18px}nav a{text-decoration:none;color:${muted};font-size:14px}.section{padding:80px 0}.section-inner{display:grid;grid-template-columns:repeat(var(--columns),minmax(0,1fr));gap:var(--gap);align-items:center}.el{grid-column:1/-1;margin:0}.heading{line-height:1.08}.text{color:${muted}}.button{display:inline-block;justify-self:center;text-decoration:none;border:0}.image{display:block;max-width:100%;height:auto;margin:auto}.list{max-width:720px;margin:auto}.divider{height:1px;width:100%;opacity:.35}.contact-form{grid-column:1/-1;width:min(680px,100%);margin:20px auto 0;display:grid;gap:13px;padding:20px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.04)}.contact-form label{display:grid;gap:6px;font-size:13px;color:${muted}}.contact-form input,.contact-form textarea,.contact-form select{width:100%;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(0,0,0,.18);color:${foreground};padding:12px;font:inherit}.contact-form textarea{min-height:120px;resize:vertical}.contact-form button{border:0;border-radius:${buttonRadius}px;background:${primary};color:#fff;padding:13px 18px;font-weight:800}.honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}.form-status{min-height:20px;color:${muted};font-size:13px}footer{padding:28px 0;border-top:1px solid rgba(255,255,255,.1)}.footer-inner{display:flex;justify-content:space-between;gap:16px;color:${muted};font-size:13px}@media(max-width:720px){.topbar{align-items:flex-start;padding:16px 0;flex-direction:column}nav{gap:12px}.section{padding:52px 0}.section-inner{grid-template-columns:1fr!important}.footer-inner{flex-direction:column}}
-</style></head><body>${headerHtml}<main>${page.sections.map((section) => renderSection(section, projectId, content.pages)).join('')}</main>${footerHtml}${buildLeadScript(projectId)}</body></html>`;
+</style></head><body>${headerHtml}<main>${page.sections.map((section) => renderSection(section, projectId, content.pages, content.homePageId)).join('')}</main>${footerHtml}${buildLeadScript(projectId)}</body></html>`;
 }
 
 function assertPublishReady(content: MobileWebsiteContent) {
@@ -371,14 +371,23 @@ async function verifyPublicRoute(url: string) {
   return false;
 }
 
-function fingerprint(content: MobileWebsiteContent) {
-  const raw = JSON.stringify(content);
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < raw.length; index += 1) {
-    hash ^= raw.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
+function editableFingerprint(content: MobileWebsiteContent) {
+  return JSON.stringify({
+    siteName: content.siteName,
+    siteUrl: content.siteUrl,
+    faviconUrl: content.faviconUrl,
+    homePageId: content.homePageId,
+    pages: content.pages,
+    brand: content.brand,
+    theme: content.theme,
+    headerConfig: content.headerConfig,
+    footerConfig: content.footerConfig,
+    siteEnhancements: content.siteEnhancements,
+    productionConfig: content.productionConfig,
+    symbols: content.symbols,
+    seo: content.seo,
+    language: content.language,
+  });
 }
 
 export async function publishMobileWebsiteProject(project: MobileWebsiteProjectRow, currentUserId: string) {
@@ -402,7 +411,7 @@ export async function publishMobileWebsiteProject(project: MobileWebsiteProjectR
       publishedUrl,
       publishedAt,
       lastPublishedVersionId: null,
-      lastPublishedFingerprint: fingerprint(preSaveContent),
+      lastPublishedFingerprint: editableFingerprint(preSaveContent),
       updatedAt: publishedAt,
     };
     const { error: projectError } = await supabase.from('projects').update({ content: projectContent, status: 'completed', updated_at: publishedAt }).eq('id', project.id).eq('user_id', currentUserId);
