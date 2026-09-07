@@ -41,6 +41,8 @@ jobs:
         run: |
           npx cap add android
           npm run assets:android
+          npm run native:configure:android
+          grep -q 'android:scheme="tayartools"' android/app/src/main/AndroidManifest.xml
           npx cap sync android
           npx cap doctor android
       - name: Build Android debug APK
@@ -74,6 +76,8 @@ jobs:
         run: |
           npx cap add ios
           npm run assets:ios
+          npm run native:configure:ios
+          grep -q '<string>tayartools</string>' ios/App/App/Info.plist
           npx cap sync ios
           npx cap doctor ios
       - name: Build iOS Simulator app without signing

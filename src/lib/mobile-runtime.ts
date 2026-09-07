@@ -1,3 +1,5 @@
+import { installNativeDownloadBridge, installNativeExternalLinkBridge } from './mobile-files';
+
 export function initMobileRuntime(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
@@ -15,6 +17,8 @@ export function initMobileRuntime(): void {
   const platform = capacitor?.getPlatform?.() || 'native';
   document.documentElement.classList.add('tayar-native', `tayar-${platform}`);
   document.documentElement.dataset.tayarPlatform = platform;
+  installNativeDownloadBridge();
+  installNativeExternalLinkBridge();
 
   const appPlugin = capacitor?.Plugins?.App;
   if (!appPlugin?.addListener) return;
@@ -41,6 +45,7 @@ export function initMobileRuntime(): void {
       if (`${window.location.pathname}${window.location.search}${window.location.hash}` === nextPath) return;
       window.history.pushState({}, '', nextPath);
       window.dispatchEvent(new PopStateEvent('popstate'));
+      window.dispatchEvent(new CustomEvent('tayar:app-url-open', { detail: { url: raw } }));
     } catch {
       // Ignore malformed external URLs.
     }
