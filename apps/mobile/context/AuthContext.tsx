@@ -2,11 +2,15 @@ import type { Session, User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
+type SignUpResult = { needsEmailConfirmation: boolean };
+
 type AuthState = {
   session: Session | null;
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<SignUpResult>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -41,6 +45,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signIn: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) throw error;
+    },
+    signUp: async (email, password, fullName) => {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: fullName?.trim() ? { full_name: fullName.trim() } : undefined,
+        },
+      });
+      if (error) throw error;
+      return { needsEmailConfirmation: !data.session };
+    },
+    resetPassword: async (email) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
       if (error) throw error;
     },
     signOut: async () => {
