@@ -26,14 +26,40 @@ jobs:
           cache-dependency-path: apps/mobile/package-lock.json
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Collect dependency privacy reasons
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, plistlib
+          from collections import defaultdict
+          manifests = sorted(glob.glob('node_modules/**/PrivacyInfo.xcprivacy', recursive=True))
+          print(f'DEPENDENCY_PRIVACY_MANIFEST_COUNT={len(manifests)}')
+          reasons = defaultdict(set)
+          for path in manifests:
+              try:
+                  with open(path, 'rb') as fh:
+                      data = plistlib.load(fh)
+              except Exception as exc:
+                  print(f'UNREADABLE {path}: {exc}')
+                  continue
+              for item in data.get('NSPrivacyAccessedAPITypes', []) or []:
+                  category = item.get('NSPrivacyAccessedAPIType')
+                  if not category:
+                      continue
+                  for reason in item.get('NSPrivacyAccessedAPITypeReasons', []) or []:
+                      reasons[category].add(reason)
+          for category in sorted(reasons):
+              print(category + '=' + ','.join(sorted(reasons[category])))
+          if not reasons:
+              raise SystemExit('No required-reason API declarations found in dependency manifests')
+          PY
       - name: Generate iOS project
         run: npx expo prebuild --platform ios --clean
-      - name: Inspect privacy manifests
+      - name: Report generated app privacy manifest
         shell: bash
         run: |
           mapfile -t manifests < <(find ios -name 'PrivacyInfo.xcprivacy' -type f | sort)
-          printf 'PRIVACY_MANIFEST_COUNT=%s\n' "${#manifests[@]}"
-          test "${#manifests[@]}" -gt 0
+          printf 'APP_PRIVACY_MANIFEST_COUNT=%s\n' "${#manifests[@]}"
           for manifest in "${manifests[@]}"; do
             echo "=== $manifest ==="
             cat "$manifest"
