@@ -5,10 +5,11 @@ export type MobileSectionType = 'hero' | 'features' | 'about' | 'services' | 'pr
 
 export type MobileWebsiteElement = {
   id: string;
-  type: 'heading' | 'text' | 'button';
+  type: string;
   content: string;
   href?: string;
   style: Record<string, unknown>;
+  [key: string]: unknown;
 };
 
 export type MobileWebsiteSection = {
@@ -95,6 +96,39 @@ function makeElements(section: Pick<MobileWebsiteSection, 'title' | 'description
     elements.push({ id: uid('button'), type: 'button', content: section.buttonText, href: section.buttonUrl, style: { color: '#ffffff', backgroundColor: section.accent, fontSize: 14, fontWeight: 700, textAlign: 'center', padding: 12, borderRadius: 12 } });
   }
   return elements;
+}
+
+function syncSectionCopyElements(section: MobileWebsiteSection): MobileWebsiteElement[] {
+  const source = Array.isArray(section.elements) ? section.elements : [];
+  const result = source.map((element) => ({ ...element }));
+
+  const updateFirst = (type: 'heading' | 'text' | 'button', content: string, href?: string) => {
+    const index = result.findIndex((element) => element?.type === type);
+    if (index < 0) return false;
+    result[index] = {
+      ...result[index],
+      content,
+      ...(type === 'button' ? { href: href || '' } : {}),
+    };
+    return true;
+  };
+
+  const hasHeading = updateFirst('heading', section.title);
+  const hasText = updateFirst('text', section.description);
+  const hasButton = updateFirst('button', section.buttonText, section.buttonUrl);
+
+  if (!hasHeading) {
+    result.unshift({ id: uid('heading'), type: 'heading', content: section.title, style: { color: '#ffffff', fontSize: 42, fontWeight: 800, textAlign: 'center' } });
+  }
+  if (!hasText) {
+    const headingIndex = result.findIndex((element) => element.type === 'heading');
+    result.splice(Math.max(0, headingIndex + 1), 0, { id: uid('text'), type: 'text', content: section.description, style: { color: '#cbd5e1', fontSize: 16, fontWeight: 400, textAlign: 'center' } });
+  }
+  if (!hasButton && section.buttonText) {
+    result.push({ id: uid('button'), type: 'button', content: section.buttonText, href: section.buttonUrl, style: { color: '#ffffff', backgroundColor: section.accent, fontSize: 14, fontWeight: 700, textAlign: 'center', padding: 12, borderRadius: 12 } });
+  }
+
+  return result;
 }
 
 const sectionDefaults: Record<MobileSectionType, { title: string; description: string; buttonText: string; buttonUrl: string; background: string; accent: string }> = {
@@ -293,8 +327,14 @@ export function replaceSectionCopy(content: MobileWebsiteContent, pageId: string
     ...page,
     sections: page.sections.map((section) => {
       if (section.id !== sectionId) return section;
-      const next = { ...section, title: values.title.slice(0, 180), description: values.description.slice(0, 2000), buttonText: values.buttonText.slice(0, 100), buttonUrl: values.buttonUrl.slice(0, 1000) };
-      next.elements = makeElements(next);
+      const next: MobileWebsiteSection = {
+        ...section,
+        title: values.title.slice(0, 180),
+        description: values.description.slice(0, 2000),
+        buttonText: values.buttonText.slice(0, 100),
+        buttonUrl: values.buttonUrl.slice(0, 1000),
+      };
+      next.elements = syncSectionCopyElements(next);
       return next;
     }),
   });
