@@ -34,7 +34,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Tayar Tools accesses your photos only when you choose an image to process.",
-          "cameraPermission": "Tayar Tools accesses the camera only when you choose to take a photo.",
+          "cameraPermission": false,
           "microphonePermission": false
         }
       ],
