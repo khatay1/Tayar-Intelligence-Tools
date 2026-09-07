@@ -255,7 +255,14 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
 
   const groups: { label: string; items: NavItem[] }[] = [
     { label: '', items: translatedNavItems.filter(i => i.group === 'main') },
-    { label: t('nav.toolsSection'), items: [...translatedRegistryToolItems, ...translatedSoonItems] },
+    {
+      label: t('nav.toolsSection'),
+      items: [
+        ...translatedNavItems.filter(i => i.group === 'tools'),
+        ...translatedRegistryToolItems,
+        ...translatedSoonItems,
+      ],
+    },
     { label: t('nav.accountSection'), items: translatedNavItems.filter(i => i.group === 'account') },
   ];
 
