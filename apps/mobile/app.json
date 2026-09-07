@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#07070F",
+    "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "se.tayar.tools",
       "buildNumber": "1",
@@ -19,6 +20,7 @@
       "package": "se.tayar.tools",
       "versionCode": 1,
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#07070F"
       }
     },
@@ -31,6 +33,15 @@
           "photosPermission": "Tayar Tools accesses your photos only when you choose an image to process.",
           "cameraPermission": "Tayar Tools accesses the camera only when you choose to take a photo.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#07070F",
+          "image": "./assets/icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
         }
       ],
       [
