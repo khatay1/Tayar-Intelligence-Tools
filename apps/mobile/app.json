@@ -65,6 +65,7 @@
           "configureAndroidBackup": true
         }
       ],
+      "expo-system-ui",
       [
         "expo-splash-screen",
         {
