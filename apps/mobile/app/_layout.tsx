@@ -25,6 +25,8 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="tools/email-writer" options={{ title: 'AI Email' }} />
             <Stack.Screen name="tools/contract-writer" options={{ title: 'AI Contract' }} />
+            <Stack.Screen name="tools/analytics-ai" options={{ title: 'AI Data Analytics' }} />
+            <Stack.Screen name="tools/translator" options={{ title: 'Translator' }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
