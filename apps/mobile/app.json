@@ -3,16 +3,21 @@
     "name": "Tayar Tools",
     "slug": "tayar-tools",
     "scheme": "tayartools",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#07070F",
     "ios": {
       "bundleIdentifier": "se.tayar.tools",
-      "supportsTablet": true
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "se.tayar.tools",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#07070F"
       }
