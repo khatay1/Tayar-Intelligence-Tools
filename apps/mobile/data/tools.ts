@@ -24,7 +24,9 @@ export type MobileTool = {
     | '/tools/letter-generator'
     | '/tools/image-cropper'
     | '/tools/prompt-library'
-    | '/tools/batch-image-tools';
+    | '/tools/batch-image-tools'
+    | '/tools/code-assistant'
+    | '/tools/templates-hub';
   status: 'native' | 'next';
 };
 
@@ -36,6 +38,8 @@ export const mobileTools: MobileTool[] = [
   { id: 'study-assistant', name: 'Study Assistant', description: 'Explain, summarize, quiz and create flashcards with AI.', category: 'AI', plan: 'Free', icon: 'school-outline', route: '/tools/study-assistant', status: 'native' },
   { id: 'translator', name: 'Translator', description: 'Translate text with context-aware Tayar AI.', category: 'AI', plan: 'Free', icon: 'translate', route: '/tools/translator', status: 'native' },
   { id: 'analytics-ai', name: 'AI Data Analytics', description: 'Analyze CSV data and surface trends and insights.', category: 'AI', plan: 'Pro', icon: 'chart-box-outline', route: '/tools/analytics-ai', status: 'native' },
+  { id: 'code-assistant', name: 'Coding Assistance', description: 'Build, fix, explain and review code with Tayar AI.', category: 'Productivity', plan: 'Pro', icon: 'code-braces', route: '/tools/code-assistant', status: 'native' },
+  { id: 'templates-hub', name: 'Templates Hub', description: 'Browse Tayar-hosted office templates and save them to your local workspace.', category: 'Productivity', plan: 'Free', icon: 'view-grid-plus-outline', route: '/tools/templates-hub', status: 'native' },
   { id: 'prompt-library', name: 'Prompt Library', description: 'Search and personalize original Tayar prompts locally without AI credits.', category: 'Productivity', plan: 'Free', icon: 'creation-outline', route: '/tools/prompt-library', status: 'native' },
   { id: 'background-remover', name: 'Background Remover', description: 'Remove backgrounds with on-device AI. Images never leave your phone.', category: 'Images', plan: 'Free', icon: 'image-filter-center-focus-strong-outline', route: '/tools/background-remover', status: 'native' },
   { id: 'image-cropper', name: 'Image Cropper', description: 'Crop and convert images locally with mobile aspect presets.', category: 'Images', plan: 'Free', icon: 'crop', route: '/tools/image-cropper', status: 'native' },
