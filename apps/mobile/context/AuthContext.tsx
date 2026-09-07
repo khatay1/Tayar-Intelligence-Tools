@@ -35,6 +35,13 @@ async function handleIncomingUrl(rawUrl: string) {
     return;
   }
 
+  if (url.hostname === 'team-invite') {
+    const token = linkParam(url, 'token')?.trim() || '';
+    if (!/^[a-f0-9]{16,256}$/i.test(token)) return;
+    router.replace({ pathname: '/tools/team-workspace', params: { token } });
+    return;
+  }
+
   if (url.hostname !== 'auth' || !url.pathname.includes('callback')) return;
 
   const errorDescription = linkParam(url, 'error_description');
