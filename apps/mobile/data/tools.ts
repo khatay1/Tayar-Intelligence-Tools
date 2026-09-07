@@ -23,7 +23,8 @@ export type MobileTool = {
     | '/tools/name-generator'
     | '/tools/letter-generator'
     | '/tools/image-cropper'
-    | '/tools/prompt-library';
+    | '/tools/prompt-library'
+    | '/tools/batch-image-tools';
   status: 'native' | 'next';
 };
 
@@ -39,6 +40,7 @@ export const mobileTools: MobileTool[] = [
   { id: 'background-remover', name: 'Background Remover', description: 'Remove backgrounds with on-device AI. Images never leave your phone.', category: 'Images', plan: 'Free', icon: 'image-filter-center-focus-strong-outline', route: '/tools/background-remover', status: 'native' },
   { id: 'image-cropper', name: 'Image Cropper', description: 'Crop and convert images locally with mobile aspect presets.', category: 'Images', plan: 'Free', icon: 'crop', route: '/tools/image-cropper', status: 'native' },
   { id: 'image-to-pdf', name: 'Image to PDF', description: 'Turn gallery photos into an A4 PDF entirely on-device.', category: 'Images', plan: 'Free', icon: 'image-multiple-outline', route: '/tools/image-to-pdf', status: 'native' },
+  { id: 'batch-image-tools', name: 'Batch Image Converter', description: 'Resize and convert up to 20 images locally, then save one ZIP.', category: 'Images', plan: 'Free', icon: 'folder-multiple-image', route: '/tools/batch-image-tools', status: 'native' },
   { id: 'pdf-tools', name: 'PDF Studio', description: 'Merge and extract PDF pages locally on your phone.', category: 'Documents', plan: 'Free', icon: 'file-pdf-box', route: '/tools/pdf-tools', status: 'native' },
   { id: 'csv-cleaner', name: 'CSV Cleaner', description: 'Trim, normalize and de-duplicate CSV data locally on-device.', category: 'Documents', plan: 'Free', icon: 'file-delimited-outline', route: '/tools/csv-cleaner', status: 'native' },
   { id: 'cv-builder', name: 'CV Builder', description: 'Build and export a polished CV PDF on your phone.', category: 'Documents', plan: 'Free', icon: 'account-box-outline', route: '/tools/cv-builder', status: 'native' },
