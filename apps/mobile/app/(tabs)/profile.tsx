@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { getToolAccessState } from '@/lib/tool-access';
@@ -26,6 +26,8 @@ export default function ProfileScreen() {
   const [plan, setPlan] = useState('');
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   async function loadPlan() {
     try {
@@ -63,6 +65,43 @@ export default function ProfileScreen() {
     } finally {
       setBillingBusy(false);
     }
+  }
+
+  async function deleteAccount() {
+    if (deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { confirmation: 'DELETE' },
+      });
+      if (error) throw error;
+      if (!data || typeof data !== 'object' || (data as { deleted?: unknown }).deleted !== true) {
+        throw new Error('Account deletion did not complete.');
+      }
+
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace('/login');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete your account.');
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
+  function confirmDeleteAccount() {
+    if (deleteBusy) return;
+    Alert.alert(
+      'Delete your Tayar account?',
+      'This permanently deletes your Tayar account and associated Tayar data. Active Stripe subscriptions are cancelled first. This action cannot be undone.',
+      [
+        { text: 'Keep account', style: 'cancel' },
+        { text: 'Delete permanently', style: 'destructive', onPress: () => void deleteAccount() },
+      ],
+      { cancelable: true },
+    );
   }
 
   return (
@@ -106,6 +145,26 @@ export default function ProfileScreen() {
         <MaterialCommunityIcons name="logout" size={20} color={colors.danger} />
         <Text style={styles.logoutText}>Sign out</Text>
       </Pressable>
+
+      <View style={styles.dangerZone}>
+        <View style={styles.dangerHeader}>
+          <MaterialCommunityIcons name="alert-octagon-outline" size={20} color={colors.danger} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dangerTitle}>Delete account</Text>
+            <Text style={styles.dangerSub}>Permanently remove your account and associated Tayar data.</Text>
+          </View>
+        </View>
+        <Pressable
+          disabled={deleteBusy}
+          onPress={confirmDeleteAccount}
+          style={({ pressed }) => [styles.deleteButton, pressed && !deleteBusy && { opacity: 0.82 }, deleteBusy && styles.disabled]}
+        >
+          {deleteBusy ? <ActivityIndicator color={colors.danger} /> : <MaterialCommunityIcons name="delete-forever-outline" size={20} color={colors.danger} />}
+          <Text style={styles.deleteText}>{deleteBusy ? 'Deleting account…' : 'Delete account permanently'}</Text>
+        </Pressable>
+      </View>
+
+      {deleteError ? <Text style={styles.error}>{deleteError}</Text> : null}
     </ScrollView>
   );
 }
@@ -130,4 +189,11 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 12, lineHeight: 18, marginTop: 12 },
   logout: { marginTop: 18, minHeight: 50, borderRadius: radius.md, borderWidth: 1, borderColor: '#4B2430', backgroundColor: '#1E1116', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
   logoutText: { color: colors.danger, fontSize: 14, fontWeight: '800' },
+  dangerZone: { marginTop: 18, borderRadius: radius.lg, borderWidth: 1, borderColor: '#4B2430', backgroundColor: '#140D11', padding: 16 },
+  dangerHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
+  dangerTitle: { color: colors.danger, fontSize: 14, fontWeight: '900' },
+  dangerSub: { color: colors.muted, fontSize: 11.5, lineHeight: 17, marginTop: 3 },
+  deleteButton: { minHeight: 48, marginTop: 14, borderRadius: radius.md, borderWidth: 1, borderColor: '#63313F', backgroundColor: '#1E1116', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 12 },
+  deleteText: { color: colors.danger, fontSize: 13.5, fontWeight: '900' },
+  disabled: { opacity: 0.48 },
 });
