@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AiContentReportFab from '@/components/AiContentReportFab';
 import { AuthProvider } from '@/context/AuthContext';
 import { colors } from '@/lib/theme';
 
@@ -48,6 +49,7 @@ export default function RootLayout() {
             <Stack.Screen name="tools/team-workspace" options={{ title: 'Team Workspace' }} />
             <Stack.Screen name="tools/website-builder" options={{ title: 'Website Builder' }} />
           </Stack>
+          <AiContentReportFab />
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
