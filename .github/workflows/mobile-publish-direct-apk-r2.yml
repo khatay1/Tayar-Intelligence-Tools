@@ -1,7 +1,11 @@
 name: Publish Tayar Android APK to R2
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-publish-direct-apk-r2.yml'
 
 permissions:
   contents: read
