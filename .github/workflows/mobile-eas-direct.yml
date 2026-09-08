@@ -1,0 +1,73 @@
+name: Tayar Mobile EAS Direct APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-eas-direct.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tayar-mobile-eas-direct-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Verify EAS direct APK prerequisites
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN repository secret is required."
+            exit 1
+          fi
+          node - <<'NODE'
+          const app = require('./app.json');
+          const projectId = app.expo?.extra?.eas?.projectId;
+          if (typeof projectId !== 'string' || !projectId.trim()) {
+            throw new Error('expo.extra.eas.projectId is missing.');
+          }
+          console.log(`Using EAS project ${projectId}.`);
+          NODE
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Prepare pinned mobile models
+        run: npm run models:prepare
+
+      - name: Verify Expo account and direct profile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@23.2.0 whoami
+          npx --yes eas-cli@23.2.0 project:info
+          npx --yes eas-cli@23.2.0 config --platform android --profile direct --json --non-interactive >/dev/null
+
+      - name: Queue signed direct APK build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@23.2.0 build \
+            --platform android \
+            --profile direct \
+            --non-interactive \
+            --no-wait
