@@ -1,9 +1,24 @@
 import fs from 'node:fs';
+import path from 'node:path';
 
-const read = path => fs.readFileSync(path, 'utf8');
-const json = path => JSON.parse(read(path));
+const read = filePath => fs.readFileSync(filePath, 'utf8');
+const json = filePath => JSON.parse(read(filePath));
 const checks = [];
 const check = (name, condition) => checks.push([name, Boolean(condition)]);
+
+function collectSourceFiles(root) {
+  const files = [];
+  const visit = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name === 'android' || entry.name === 'ios') continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) visit(full);
+      else if (/\.(?:ts|tsx|js|jsx)$/.test(entry.name)) files.push(full);
+    }
+  };
+  visit(root);
+  return files;
+}
 
 const appConfig = json('apps/mobile/app.json').expo;
 const eas = json('apps/mobile/eas.json');
@@ -13,6 +28,7 @@ const login = read('apps/mobile/app/login.tsx');
 const webApp = read('src/App.tsx');
 const deletionPage = read('src/components/workspace/AccountDeletionPage.tsx');
 const vercel = json('vercel.json');
+const mobileSource = collectSourceFiles('apps/mobile').map(read).join('\n');
 
 const rewrites = Array.isArray(vercel.rewrites) ? vercel.rewrites : [];
 const plugins = Array.isArray(appConfig.plugins) ? appConfig.plugins : [];
@@ -41,6 +57,12 @@ check('Mobile profile exposes permanent in-app account deletion',
   profile.includes('Delete account permanently'));
 check('Mobile profile does not expose an in-app Stripe purchase or billing portal',
   !profile.includes("functions.invoke('billing-portal'") && !profile.includes('Manage subscription'));
+check('Mobile source contains no alternate digital-purchase steering',
+  !mobileSource.includes("functions.invoke('create-checkout-session'") &&
+  !mobileSource.includes("functions.invoke('billing-portal'") &&
+  !mobileSource.includes('https://tayar.se/#pricing') &&
+  !mobileSource.includes('Upgrade now') &&
+  !mobileSource.includes('Subscribe now'));
 check('Privacy and Terms are reachable from the signed-in mobile profile',
   profile.includes("const PRIVACY_URL = 'https://tayar.se/#privacy'") &&
   profile.includes("const TERMS_URL = 'https://tayar.se/#terms'") &&
@@ -53,9 +75,9 @@ check('Privacy and Terms are reachable before mobile sign-in',
 check('Public account deletion route is rewritten to the SPA entry',
   rewrites.some(route => route?.source === '/account-deletion' && route?.destination === '/'));
 check('Web app resolves /account-deletion without authentication',
-  webApp.includes("directAccountDeletion") &&
+  webApp.includes('directAccountDeletion') &&
   webApp.includes("? 'account-deletion' : null") &&
-  webApp.includes("? AccountDeletionPage"));
+  webApp.includes('? AccountDeletionPage'));
 check('Public account deletion page documents mobile and web deletion',
   deletionPage.includes('Delete your account now') &&
   deletionPage.includes('Mobile app: open Profile') &&
