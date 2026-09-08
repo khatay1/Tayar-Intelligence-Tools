@@ -68,6 +68,10 @@
   },
   "rewrites": [
     {
+      "source": "/download/android",
+      "destination": "/download/android.html"
+    },
+    {
       "source": "/account-deletion",
       "destination": "/"
     },
