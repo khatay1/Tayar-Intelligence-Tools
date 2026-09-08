@@ -107,7 +107,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="android-v${APP_VERSION}-${BUILD_NUMBER}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $TAG already exists; refusing to overwrite an immutable Android release."
             exit 1
           fi
