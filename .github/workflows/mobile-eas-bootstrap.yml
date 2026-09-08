@@ -1,0 +1,60 @@
+name: Tayar Mobile EAS Bootstrap
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-eas-bootstrap.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tayar-mobile-eas-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eas-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Check Expo authentication
+        id: auth
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "token_present=false" >> "$GITHUB_OUTPUT"
+            echo "EAS bootstrap is blocked because the EXPO_TOKEN repository secret is not configured."
+            exit 0
+          fi
+          echo "token_present=true" >> "$GITHUB_OUTPUT"
+          npx --yes eas-cli@23.2.0 whoami
+
+      - name: Bootstrap or inspect EAS project
+        if: steps.auth.outputs.token_present == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if node -e "const c=require('./app.json'); process.exit(c.expo?.extra?.eas?.projectId ? 0 : 1)"; then
+            echo "EAS project is already linked in app.json."
+          else
+            echo "No EAS projectId is committed; initializing non-interactively."
+            npx --yes eas-cli@23.2.0 init --force --non-interactive
+          fi
+          npx --yes eas-cli@23.2.0 project:info
+          echo "Resolved app config:"
+          npx --yes eas-cli@23.2.0 config --platform android --profile production --json --non-interactive
