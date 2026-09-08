@@ -2,11 +2,6 @@ name: Tayar Mobile EAS Direct APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - mobile-native-react-native-20260907
-    paths:
-      - '.github/workflows/mobile-eas-direct.yml'
 
 permissions:
   contents: read
