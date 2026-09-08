@@ -15,7 +15,7 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
   return (
     <header className="tayar-v2-topbar" data-dirty={view.dirty ? 'true' : 'false'}>
       <div className="tayar-v2-topbar__brand">{brandSlot}</div>
-      <div className="tayar-v2-topbar__mobile-panels" aria-label={l('Editor panels')}>
+      <div className="tayar-v2-topbar__mobile-panels" aria-label={l('Builder tools')}>
         <button
           type="button"
           className="tayar-v2-mobile-panel-button"
