@@ -26,11 +26,19 @@ const mobilePackage = json('apps/mobile/package.json');
 const storeConfig = json('apps/mobile/store.config.json');
 const profile = read('apps/mobile/app/(tabs)/profile.tsx');
 const login = read('apps/mobile/app/login.tsx');
+const rootLayout = read('apps/mobile/app/_layout.tsx');
+const aiClient = read('apps/mobile/lib/ai.ts');
+const reportFab = read('apps/mobile/components/AiContentReportFab.tsx');
 const webApp = read('src/App.tsx');
 const deletionPage = read('src/components/workspace/AccountDeletionPage.tsx');
 const supportPage = read('public/support.html');
 const vercel = json('vercel.json');
-const mobileSource = collectSourceFiles('apps/mobile').map(read).join('\n');
+const mobileSourceFiles = collectSourceFiles('apps/mobile');
+const mobileSourceEntries = mobileSourceFiles.map(filePath => ({ filePath, source: read(filePath) }));
+const mobileSource = mobileSourceEntries.map(entry => entry.source).join('\n');
+const directAiEngineCallers = mobileSourceEntries
+  .filter(entry => entry.source.includes("functions.invoke('ai-engine'"))
+  .map(entry => entry.filePath.replace(/\\/g, '/'));
 
 const rewrites = Array.isArray(vercel.rewrites) ? vercel.rewrites : [];
 const plugins = Array.isArray(appConfig.plugins) ? appConfig.plugins : [];
@@ -54,9 +62,11 @@ const validAppleMetadata = appleLocales.every(locale => {
     && info.privacyPolicyUrl === 'https://tayar.se/#privacy'
     && info.privacyChoicesUrl === 'https://tayar.se/account-deletion';
 });
+const expoMajor = Number(String(mobilePackage.dependencies?.expo || '').match(/\d+/)?.[0] || 0);
 
 check('Mobile uses the production Tayar application identifiers',
   appConfig.ios?.bundleIdentifier === 'se.tayar.tools' && appConfig.android?.package === 'se.tayar.tools');
+check('Expo SDK baseline is API-36-capable for the 2026 Play target requirement', expoMajor >= 57);
 check('Android store builds are app bundles', eas.build?.production?.android?.buildType === 'app-bundle');
 check('First Android submission is limited to Play internal testing', eas.submit?.production?.android?.track === 'internal');
 check('Production builds auto-increment remote store versions',
@@ -90,6 +100,21 @@ check('Privacy and Terms are reachable before mobile sign-in',
   login.includes("const TERMS_URL = 'https://tayar.se/#terms'") &&
   login.includes('styles.legalRow'));
 
+check('All mobile ai-engine generation is routed through the shared reportable AI client',
+  directAiEngineCallers.length === 1 && directAiEngineCallers[0] === 'apps/mobile/lib/ai.ts');
+check('Shared mobile AI client records every generated output for in-app reporting',
+  aiClient.includes("import { recordAiOutput } from './ai-output-report'") &&
+  aiClient.includes('recordAiOutput(tool, content)'));
+check('In-app AI report control is mounted globally for tool routes',
+  rootLayout.includes("import AiContentReportFab from '@/components/AiContentReportFab'") &&
+  rootLayout.includes('<AiContentReportFab />') &&
+  reportFab.includes("pathname.startsWith('/tools/')"));
+check('AI report control sends a bounded output excerpt to support without prompt or source attachment',
+  reportFab.includes('const MAX_REPORT_EXCERPT = 2_000') &&
+  reportFab.includes("type: 'ai-content-report'") &&
+  reportFab.includes("supabase.from('support_tickets').insert") &&
+  reportFab.includes('Your prompt and source document are not included'));
+
 check('Public account deletion route is rewritten to the SPA entry',
   rewrites.some(route => route?.source === '/account-deletion' && route?.destination === '/'));
 check('Web app resolves /account-deletion without authentication',
@@ -114,6 +139,9 @@ check('Apple store metadata uses the supported EAS metadata schema and categorie
   storeConfig.apple.categories.includes('UTILITIES'));
 check('Apple store metadata is complete and within limits for English Swedish and Arabic', validAppleMetadata);
 check('Google Play listing draft is checked into release documentation', fs.existsSync('docs/mobile-google-play-listing.md'));
+check('Store reviewer notes and privacy worksheet are checked into release documentation',
+  fs.existsSync('docs/mobile-store-review-notes.md') && fs.existsSync('docs/mobile-store-privacy-worksheet.md'));
+check('Store screenshot capture plan covers iPhone iPad and Google Play', fs.existsSync('docs/mobile-store-screenshot-plan.md'));
 
 const projectId = appConfig.extra?.eas?.projectId;
 console.log(`EAS project link: ${projectId ? 'configured' : 'external setup pending (extra.eas.projectId not committed yet)'}`);
