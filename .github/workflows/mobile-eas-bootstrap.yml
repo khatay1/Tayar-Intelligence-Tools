@@ -1,6 +1,6 @@
 name: Tayar Mobile EAS Bootstrap
 
-# Manual bootstrap trigger after EXPO_TOKEN setup.
+# Verification trigger after persisting the EAS project link.
 on:
   workflow_dispatch:
   push:
