@@ -1,0 +1,92 @@
+name: Mobile iOS Config Audit
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-ios-config-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Generate iOS native project without installing pods
+        run: npx expo prebuild --platform ios --clean --no-install
+      - name: Audit Info.plist, privacy manifest, and entitlements
+        run: |
+          python3 - <<'PY'
+          import glob, plistlib, sys
+
+          infos = glob.glob('ios/**/Info.plist', recursive=True)
+          app_infos = [p for p in infos if '/Pods/' not in p and '.xcframework/' not in p]
+          if not app_infos:
+              raise SystemExit('APP_INFO_PLIST_NOT_FOUND')
+          info_path = min(app_infos, key=len)
+          with open(info_path, 'rb') as f:
+              info = plistlib.load(f)
+          print('INFO_PLIST=' + info_path)
+          print('ITSAppUsesNonExemptEncryption=' + repr(info.get('ITSAppUsesNonExemptEncryption')))
+          schemes = []
+          for item in info.get('CFBundleURLTypes', []) or []:
+              schemes.extend(item.get('CFBundleURLSchemes', []) or [])
+          print('URL_SCHEMES=' + ','.join(schemes))
+          usage = sorted(k for k in info if k.startswith('NS') and k.endswith('UsageDescription'))
+          print('USAGE_DESCRIPTIONS=' + ','.join(usage))
+          print('UIBackgroundModes=' + repr(info.get('UIBackgroundModes')))
+          if info.get('ITSAppUsesNonExemptEncryption') is not False:
+              raise SystemExit('ENCRYPTION_DECLARATION_NOT_FALSE')
+          if 'tayartools' not in schemes:
+              raise SystemExit('TAYARTOOLS_URL_SCHEME_MISSING')
+          forbidden_usage = {'NSCameraUsageDescription', 'NSMicrophoneUsageDescription', 'NSLocationWhenInUseUsageDescription', 'NSLocationAlwaysUsageDescription'}
+          bad_usage = sorted(forbidden_usage.intersection(usage))
+          if bad_usage:
+              raise SystemExit('UNEXPECTED_USAGE_DESCRIPTIONS=' + ','.join(bad_usage))
+          if info.get('UIBackgroundModes'):
+              raise SystemExit('UNEXPECTED_BACKGROUND_MODES=' + repr(info['UIBackgroundModes']))
+
+          privacy_files = [p for p in glob.glob('ios/**/PrivacyInfo.xcprivacy', recursive=True) if '/Pods/' not in p]
+          if not privacy_files:
+              raise SystemExit('PRIVACY_MANIFEST_NOT_FOUND')
+          privacy_path = min(privacy_files, key=len)
+          with open(privacy_path, 'rb') as f:
+              privacy = plistlib.load(f)
+          print('PRIVACY_MANIFEST=' + privacy_path)
+          print('NSPrivacyTracking=' + repr(privacy.get('NSPrivacyTracking')))
+          api_types = sorted(x.get('NSPrivacyAccessedAPIType', '') for x in privacy.get('NSPrivacyAccessedAPITypes', []) or [])
+          print('PRIVACY_API_TYPES=' + ','.join(api_types))
+          if privacy.get('NSPrivacyTracking') is not False:
+              raise SystemExit('PRIVACY_TRACKING_NOT_FALSE')
+
+          entitlement_files = [p for p in glob.glob('ios/**/*.entitlements', recursive=True) if '/Pods/' not in p]
+          print('ENTITLEMENTS_FILES=' + ','.join(entitlement_files))
+          forbidden_entitlements = {
+              'aps-environment',
+              'com.apple.developer.healthkit',
+              'com.apple.developer.homekit',
+              'com.apple.developer.location.push',
+          }
+          for path in entitlement_files:
+              with open(path, 'rb') as f:
+                  ent = plistlib.load(f)
+              print(path + '_KEYS=' + ','.join(sorted(ent)))
+              bad = forbidden_entitlements.intersection(ent)
+              if bad:
+                  raise SystemExit('UNEXPECTED_ENTITLEMENTS=' + ','.join(sorted(bad)))
+          print('IOS_STORE_CONFIG_CLEAN')
+          PY
