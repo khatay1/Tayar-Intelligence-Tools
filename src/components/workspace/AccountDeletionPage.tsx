@@ -1,5 +1,5 @@
 import { Mail, Trash2 } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-release';
 import { legalIdentity } from '@/lib/legal';
 import { PageSection, PageShell } from './PageShell';
 
