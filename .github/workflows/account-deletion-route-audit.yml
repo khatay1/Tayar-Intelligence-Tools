@@ -1,0 +1,41 @@
+name: Account Deletion Route Audit
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/account-deletion-route-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck web app
+        run: npm run typecheck
+      - name: Build web app
+        run: npm run build
+      - name: Verify direct deletion route configuration
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const vercel = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+          const route = (vercel.rewrites || []).find((entry) => entry.source === '/account-deletion');
+          if (!route || route.destination !== '/') throw new Error('Missing /account-deletion rewrite');
+          const app = fs.readFileSync('src/App.tsx', 'utf8');
+          if (!app.includes("directAccountDeletion")) throw new Error('Direct account deletion routing guard missing');
+          if (!app.includes("? 'account-deletion' : null")) throw new Error('Direct account deletion page resolution missing');
+          if (!fs.existsSync('dist/index.html')) throw new Error('Production index.html missing');
+          console.log('ACCOUNT_DELETION_ROUTE_CLEAN');
+          NODE
