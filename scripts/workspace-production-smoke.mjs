@@ -2,6 +2,8 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const workspace = read('src/components/workspace/Workspace.tsx');
+const workspaceConfig = read('src/components/workspace/workspace-config.ts');
+const adminAi = read('src/components/admin/AdminAI.tsx');
 const help = read('src/components/workspace/HelpCenter.tsx');
 const contact = read('src/components/workspace/ContactPage.tsx');
 const feedback = read('src/components/workspace/FeedbackPage.tsx');
@@ -28,6 +30,8 @@ const checks = [
   ['Register old 50+ claim removed', !register.includes('50+ AI tools')],
   ['Workspace billing placeholder removed', !workspace.includes("activeView === 'subscription' && <PlaceholderView")],
   ['Workspace support placeholder removed', !workspace.includes("activeView === 'support' && <PlaceholderView")],
+  ['Detailed AI usage is hidden from normal workspace navigation', !workspaceConfig.includes("{ id: 'ai-usage'")],
+  ['Admin AI panel retains protected platform usage analytics', adminAi.includes("from('ai_usage')")],
   ['Signed-in auth hashes normalize to a workspace route', app.includes("replaceHash('#workspace/my-workspace')")],
   ['Workspace navigation persists the active view in the URL', workspace.includes('const nextHash = `#workspace/${view}`')],
   ['Workspace restores the active view from the URL', workspace.includes('getWorkspaceViewFromHash') && workspace.includes("window.addEventListener('hashchange', syncViewFromHash)")],
