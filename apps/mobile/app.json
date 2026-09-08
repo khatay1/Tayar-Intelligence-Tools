@@ -41,7 +41,8 @@
       "package": "se.tayar.tools",
       "versionCode": 1,
       "blockedPermissions": [
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_PHONE_STATE"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
