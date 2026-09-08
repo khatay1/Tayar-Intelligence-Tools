@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, Check, Copy, FileSearch, FileSignature, Loader2, PenLine, Sparkles } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-release';
 import { useToast } from '@/components/ui/Toast';
 import {
   ToolField,
@@ -189,11 +189,11 @@ Do not invent facts or commercial terms.`;
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
             <ToolField label={l('Language')}>
               <select value={language} onChange={(event) => setLanguage(event.target.value)} className={toolInputClass}>
-                <option>English</option>
-                <option>Swedish</option>
-                <option>Arabic</option>
-                <option>German</option>
-                <option>French</option>
+                <option value="English">{l('English')}</option>
+                <option value="Swedish">{l('Swedish')}</option>
+                <option value="Arabic">{l('Arabic')}</option>
+                <option value="German">{l('German')}</option>
+                <option value="French">{l('French')}</option>
               </select>
             </ToolField>
             <ToolField label={l('Risk Style')}>
@@ -209,16 +209,16 @@ Do not invent facts or commercial terms.`;
             <>
               <ToolField label={l('Contract Type')}>
                 <select value={contractType} onChange={(event) => setContractType(event.target.value)} className={toolInputClass}>
-                  <option>Service Agreement</option>
-                  <option>Freelance Agreement</option>
-                  <option>Non-Disclosure Agreement (NDA)</option>
-                  <option>Consulting Agreement</option>
-                  <option>Sales Agreement</option>
-                  <option>Loan Agreement</option>
-                  <option>Employment Agreement</option>
-                  <option>Lease / Rental Agreement</option>
-                  <option>Partnership / Collaboration Agreement</option>
-                  <option>Custom Agreement</option>
+                  <option value="Service Agreement">{l('Service Agreement')}</option>
+                  <option value="Freelance Agreement">{l('Freelance Agreement')}</option>
+                  <option value="Non-Disclosure Agreement (NDA)">{l('Non-Disclosure Agreement (NDA)')}</option>
+                  <option value="Consulting Agreement">{l('Consulting Agreement')}</option>
+                  <option value="Sales Agreement">{l('Sales Agreement')}</option>
+                  <option value="Loan Agreement">{l('Loan Agreement')}</option>
+                  <option value="Employment Agreement">{l('Employment Agreement')}</option>
+                  <option value="Lease / Rental Agreement">{l('Lease / Rental Agreement')}</option>
+                  <option value="Partnership / Collaboration Agreement">{l('Partnership / Collaboration Agreement')}</option>
+                  <option value="Custom Agreement">{l('Custom Agreement')}</option>
                 </select>
               </ToolField>
 
