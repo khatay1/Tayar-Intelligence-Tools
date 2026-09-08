@@ -30,3 +30,5 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@23.2.0 build:view a41d39ee-cef5-4a6f-8967-a836c8b3336d --json
+
+# poll: 2
