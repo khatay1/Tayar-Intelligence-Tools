@@ -9,7 +9,7 @@ on:
       - '.github/workflows/mobile-eas-bootstrap.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: tayar-mobile-eas-bootstrap-${{ github.ref }}
@@ -44,17 +44,70 @@ jobs:
           echo "token_present=true" >> "$GITHUB_OUTPUT"
           npx --yes eas-cli@23.2.0 whoami
 
+      - name: Install locked dependencies
+        if: steps.auth.outputs.token_present == 'true'
+        run: npm ci --no-audit --no-fund
+
       - name: Bootstrap or inspect EAS project
         if: steps.auth.outputs.token_present == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          cp app.json /tmp/tayar-app-before-eas.json
+
           if node -e "const c=require('./app.json'); process.exit(c.expo?.extra?.eas?.projectId ? 0 : 1)"; then
             echo "EAS project is already linked in app.json."
           else
             echo "No EAS projectId is committed; initializing non-interactively."
             npx --yes eas-cli@23.2.0 init --force --non-interactive
           fi
+
+          node <<'NODE'
+          const fs = require('fs');
+          const before = JSON.parse(fs.readFileSync('/tmp/tayar-app-before-eas.json', 'utf8'));
+          const after = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          const projectId = after.expo?.extra?.eas?.projectId;
+          if (typeof projectId !== 'string' || !projectId.trim()) {
+            throw new Error('EAS init completed without writing expo.extra.eas.projectId.');
+          }
+
+          const clone = value => JSON.parse(JSON.stringify(value));
+          const expected = clone(before);
+          expected.expo ??= {};
+          expected.expo.extra ??= {};
+          expected.expo.extra.eas ??= {};
+          expected.expo.extra.eas.projectId = projectId;
+
+          const stable = value => {
+            if (Array.isArray(value)) return value.map(stable);
+            if (value && typeof value === 'object') {
+              return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])]));
+            }
+            return value;
+          };
+
+          if (JSON.stringify(stable(expected)) !== JSON.stringify(stable(after))) {
+            throw new Error('EAS init changed app.json beyond expo.extra.eas.projectId; refusing to auto-commit.');
+          }
+          console.log(`Verified EAS project link ${projectId}.`);
+          NODE
+
           npx --yes eas-cli@23.2.0 project:info
-          echo "Resolved app config:"
+          echo "Resolved Android production config:"
           npx --yes eas-cli@23.2.0 config --platform android --profile production --json --non-interactive
+          echo "Resolved iOS production config:"
+          npx --yes eas-cli@23.2.0 config --platform ios --profile production --json --non-interactive
+
+      - name: Persist EAS project link
+        if: steps.auth.outputs.token_present == 'true'
+        run: |
+          if git diff --quiet -- app.json; then
+            echo "No app.json link change to persist."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.json
+          git commit -m "Link mobile app to EAS project"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
