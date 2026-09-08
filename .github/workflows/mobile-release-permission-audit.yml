@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
 
+# Re-run after blocking READ_PHONE_STATE in the final release manifest.
 jobs:
   audit:
     runs-on: ubuntu-latest
