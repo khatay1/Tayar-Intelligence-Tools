@@ -20,6 +20,7 @@ concurrency:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,6 +34,7 @@ jobs:
 
   android:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: apps/mobile
@@ -59,7 +61,7 @@ jobs:
       - name: Generate Android native project
         run: npx expo prebuild --platform android --clean
       - name: Build Android debug APK
-        run: cd android && ./gradlew assembleDebug
+        run: cd android && ./gradlew assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: tayar-react-native-android-debug
@@ -68,6 +70,7 @@ jobs:
 
   ios:
     runs-on: macos-latest
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: apps/mobile
