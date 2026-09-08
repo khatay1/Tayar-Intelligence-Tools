@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { EditorShellContract } from '../core/editor-shell-contract';
 import type { EditorInspectorTab, EditorLeftPanel } from '../core/editor-layout';
 import { BuilderCanvasFrame } from './BuilderCanvasFrame';
@@ -6,6 +6,7 @@ import { BuilderInspector } from './BuilderInspector';
 import { BuilderLeftSidebar } from './BuilderLeftSidebar';
 import { BuilderStatusBar } from './BuilderStatusBar';
 import { BuilderTopbar } from './BuilderTopbar';
+import './website-builder-v2-mobile.css';
 
 export interface WebsiteBuilderV2ShellProps {
   shell: EditorShellContract;
@@ -20,6 +21,21 @@ export interface WebsiteBuilderV2ShellProps {
 
 export function WebsiteBuilderV2Shell(props: WebsiteBuilderV2ShellProps) {
   const { shell } = props;
+  const mobileInitialisedRef = useRef(false);
+
+  useEffect(() => {
+    if (mobileInitialisedRef.current || typeof window === 'undefined') return;
+    mobileInitialisedRef.current = true;
+    if (!window.matchMedia('(max-width: 850px)').matches) return;
+
+    if (shell.view.leftSidebarOpen) shell.actions.onToggleLeftSidebar();
+    if (shell.view.inspectorOpen) shell.actions.onToggleInspector();
+  }, [
+    shell.actions,
+    shell.view.inspectorOpen,
+    shell.view.leftSidebarOpen,
+  ]);
+
   return (
     <div
       className="tayar-v2-shell"
