@@ -1,6 +1,11 @@
+import { assertToolAccess } from './tool-access';
 import { supabase } from './supabase';
 
 export async function runTayarAI(tool: string, systemPrompt: string, userPrompt: string, options: { temperature?: number; maxTokens?: number } = {}) {
+  // Keep the official mobile client behind one access check. On iOS this also
+  // enforces the free-companion release contract before any paid provider call.
+  await assertToolAccess(tool);
+
   const { data, error } = await supabase.functions.invoke('ai-engine', {
     body: {
       tool,

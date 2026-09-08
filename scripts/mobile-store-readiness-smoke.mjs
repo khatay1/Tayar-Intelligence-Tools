@@ -25,10 +25,14 @@ const eas = json('apps/mobile/eas.json');
 const mobilePackage = json('apps/mobile/package.json');
 const storeConfig = json('apps/mobile/store.config.json');
 const profile = read('apps/mobile/app/(tabs)/profile.tsx');
+const toolsTab = read('apps/mobile/app/(tabs)/tools.tsx');
 const login = read('apps/mobile/app/login.tsx');
 const rootLayout = read('apps/mobile/app/_layout.tsx');
+const aiClient = read('apps/mobile/lib/ai.ts');
+const toolAccess = read('apps/mobile/lib/tool-access.ts');
 const supabaseClient = read('apps/mobile/lib/supabase.ts');
 const reportFab = read('apps/mobile/components/AiContentReportFab.tsx');
+const reviewNotes = read('docs/mobile-store-review-notes.md');
 const webApp = read('src/App.tsx');
 const deletionPage = read('src/components/workspace/AccountDeletionPage.tsx');
 const supportPage = read('public/support.html');
@@ -67,6 +71,10 @@ const validAppleMetadata = appleLocales.every(locale => {
     && info.privacyPolicyUrl === 'https://tayar.se/#privacy'
     && info.privacyChoicesUrl === 'https://tayar.se/account-deletion';
 });
+const appleMarketingCopy = appleLocales.map(locale => {
+  const info = appleInfo[locale] || {};
+  return `${info.description || ''}\n${info.promoText || ''}\n${(info.keywords || []).join(',')}`;
+}).join('\n').toLowerCase();
 const expoMajor = Number(String(mobilePackage.dependencies?.expo || '').match(/\d+/)?.[0] || 0);
 
 check('Mobile uses the production Tayar application identifiers',
@@ -106,6 +114,44 @@ check('Privacy and Terms are reachable before mobile sign-in',
   login.includes("const PRIVACY_URL = 'https://tayar.se/#privacy'") &&
   login.includes("const TERMS_URL = 'https://tayar.se/#terms'") &&
   login.includes('styles.legalRow'));
+
+check('iOS release is enforced as a free companion independent of web or Android paid plans',
+  toolAccess.includes("export const isIosFreeCompanion = Platform.OS === 'ios'") &&
+  toolAccess.includes('IOS_COMPANION_AI_LIMIT = 25') &&
+  toolAccess.includes("requiredPlan !== 'free'") &&
+  toolAccess.includes("reason: 'ios_companion_free'") &&
+  toolAccess.includes("effective_plan: 'free'") &&
+  toolAccess.includes('if (isIosFreeCompanion) return assertToolAccess(toolId)'));
+check('iOS tools catalog exposes only Free tools',
+  toolsTab.includes("Platform.OS === 'ios' ? mobileTools.filter((tool) => tool.plan === 'Free') : mobileTools") &&
+  toolsTab.includes('This iOS release includes the free Tayar companion toolset'));
+check('iOS paid-tool deep links are guarded centrally',
+  rootLayout.includes('IOS_COMPANION_BLOCKED_ROUTES') &&
+  rootLayout.includes("'/tools/document-ai'") &&
+  rootLayout.includes("'/tools/analytics-ai'") &&
+  rootLayout.includes("'/tools/code-assistant'") &&
+  rootLayout.includes("'/tools/contract-writer'") &&
+  rootLayout.includes("'/tools/team-workspace'") &&
+  rootLayout.includes("Platform.OS === 'ios'") &&
+  rootLayout.includes("router.replace('/(tabs)/tools')"));
+check('Shared AI client enforces tool access before every provider request',
+  aiClient.includes("import { assertToolAccess } from './tool-access'") &&
+  aiClient.includes('await assertToolAccess(tool)') &&
+  aiClient.indexOf('await assertToolAccess(tool)') < aiClient.indexOf("functions.invoke('ai-engine'"));
+check('iOS profile describes included access without purchase steering',
+  profile.includes("iosCompanion = Platform.OS === 'ios'") &&
+  profile.includes('Included mobile access') &&
+  profile.includes('same included companion toolset to every signed-in account') &&
+  profile.includes('No purchase is required in the app.'));
+check('Apple metadata matches the free iOS companion feature set',
+  appleLocales.every(locale => String(appleInfo[locale]?.description || '').includes('iOS') || locale === 'ar-SA') &&
+  !appleMarketingCopy.includes('code assistance') &&
+  !appleMarketingCopy.includes('kodassistans') &&
+  !appleMarketingCopy.includes('برمجة'));
+check('Reviewer notes document the iOS free-companion release contract',
+  reviewNotes.includes('free stand-alone companion') &&
+  reviewNotes.includes('Pro- and Business-only tools are not listed') &&
+  reviewNotes.includes('same fixed free mobile allowance'));
 
 check('Mobile Supabase transport records every successful ai-engine response for in-app reporting',
   supabaseClient.includes("url.includes('/functions/v1/ai-engine')") &&

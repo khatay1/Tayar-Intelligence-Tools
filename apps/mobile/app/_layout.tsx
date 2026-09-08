@@ -1,16 +1,39 @@
-import { Stack } from 'expo-router';
+import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AiContentReportFab from '@/components/AiContentReportFab';
 import { AuthProvider } from '@/context/AuthContext';
 import { colors } from '@/lib/theme';
 
+const IOS_COMPANION_BLOCKED_ROUTES = new Set([
+  '/tools/document-ai',
+  '/tools/analytics-ai',
+  '/tools/code-assistant',
+  '/tools/contract-writer',
+  '/tools/team-workspace',
+]);
+
+function IosCompanionRouteGuard() {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (Platform.OS === 'ios' && IOS_COMPANION_BLOCKED_ROUTES.has(pathname)) {
+      router.replace('/(tabs)/tools');
+    }
+  }, [pathname]);
+
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>
         <AuthProvider>
+          <IosCompanionRouteGuard />
           <StatusBar style="light" />
           <Stack
             screenOptions={{

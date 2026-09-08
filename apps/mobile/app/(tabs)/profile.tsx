@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { getToolAccessState } from '@/lib/tool-access';
@@ -26,11 +26,13 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const email = user?.email || '—';
   const name = String(user?.user_metadata?.full_name || email.split('@')[0] || 'Tayar user');
+  const iosCompanion = Platform.OS === 'ios';
   const [plan, setPlan] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
   async function loadPlan() {
+    if (iosCompanion) return;
     try {
       const state = await getToolAccessState('email-writer');
       setPlan(String(state.effective_plan || 'free'));
@@ -98,7 +100,7 @@ export default function ProfileScreen() {
         <View style={{ flex: 1 }}>
           <Text numberOfLines={1} style={styles.name}>{name}</Text>
           <Text numberOfLines={1} style={styles.email}>{email}</Text>
-          <View style={styles.planPill}><Text style={styles.planText}>{displayPlan(plan)} plan</Text></View>
+          <View style={styles.planPill}><Text style={styles.planText}>{iosCompanion ? 'Included mobile access' : `${displayPlan(plan)} plan`}</Text></View>
         </View>
       </View>
 
@@ -111,8 +113,10 @@ export default function ProfileScreen() {
         <View style={styles.row}>
           <MaterialCommunityIcons name="account-key-outline" size={21} color={colors.violetBright} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.rowTitle}>Plan access</Text>
-            <Text style={styles.rowSub}>{plan ? `${displayPlan(plan)} plan · your existing Tayar access syncs automatically.` : 'Your existing Tayar access syncs automatically.'}</Text>
+            <Text style={styles.rowTitle}>{iosCompanion ? 'Mobile access' : 'Plan access'}</Text>
+            <Text style={styles.rowSub}>{iosCompanion
+              ? 'This iOS release provides the same included companion toolset to every signed-in account. No purchase is required in the app.'
+              : plan ? `${displayPlan(plan)} plan · your Tayar account access is active on this device.` : 'Your Tayar account access is available on this device.'}</Text>
           </View>
         </View>
 

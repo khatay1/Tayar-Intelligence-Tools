@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ToolCard } from '@/components/ToolCard';
 import { mobileTools } from '@/data/tools';
@@ -11,10 +11,14 @@ export default function ToolsScreen() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [accessByTool, setAccessByTool] = useState<Record<string, ToolAccessState>>({});
+  const visibleTools = useMemo(
+    () => Platform.OS === 'ios' ? mobileTools.filter((tool) => tool.plan === 'Free') : mobileTools,
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all(mobileTools.map(async (tool) => {
+    void Promise.all(visibleTools.map(async (tool) => {
       try {
         const state = await getToolAccessState(tool.id);
         return [tool.id, state] as const;
@@ -28,19 +32,21 @@ export default function ToolsScreen() {
       setAccessByTool(next);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [visibleTools]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return mobileTools;
-    return mobileTools.filter((tool) => `${tool.name} ${tool.description} ${tool.category}`.toLowerCase().includes(q));
-  }, [query]);
+    if (!q) return visibleTools;
+    return visibleTools.filter((tool) => `${tool.name} ${tool.description} ${tool.category}`.toLowerCase().includes(q));
+  }, [query, visibleTools]);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18, paddingBottom: 110 }]} keyboardShouldPersistTaps="handled">
       <Text style={styles.kicker}>TOOLS</Text>
       <Text style={styles.title}>Everything in one mobile workspace.</Text>
-      <Text style={styles.subtitle}>Native tools open directly in the app. Plan and availability badges follow your live Tayar Admin settings.</Text>
+      <Text style={styles.subtitle}>{Platform.OS === 'ios'
+        ? 'This iOS release includes the free Tayar companion toolset for every signed-in account.'
+        : 'Native tools open directly in the app. Plan and availability badges follow your live Tayar Admin settings.'}</Text>
       <TextInput value={query} onChangeText={setQuery} placeholder="Search tools" placeholderTextColor={colors.muted} style={styles.search} />
       <View style={styles.list}>
         {filtered.map((tool) => (
