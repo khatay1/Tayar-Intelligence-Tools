@@ -1,0 +1,166 @@
+name: Publish Tayar Android APK to R2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BUILD_ID: a41d39ee-cef5-4a6f-8967-a836c8b3336d
+      APP_VERSION: 0.2.0
+      BUILD_NUMBER: '3'
+      SOURCE_COMMIT: 30c50270e7b0e30173561f4aab94294a1fc9752b
+      EXPECTED_SHA256: 3e5ed2d100ef8975181b44c2f414f9427e2b83d634bff10be1ab3b5c2f79f04c
+      R2_BUCKET: tayar-downloads
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_REGION: auto
+
+    steps:
+      - name: Checkout exact build source
+        uses: actions/checkout@v4
+        with:
+          ref: 30c50270e7b0e30173561f4aab94294a1fc9752b
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install locked mobile dependencies
+        working-directory: apps/mobile
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate required credentials
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$AWS_ACCESS_KEY_ID"
+          test -n "$AWS_SECRET_ACCESS_KEY"
+
+      - name: Resolve and validate EAS APK artifact
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          npx --yes eas-cli@23.2.0 build:view "$BUILD_ID" --json > /tmp/eas-build.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const build = JSON.parse(fs.readFileSync('/tmp/eas-build.json', 'utf8'));
+          const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl;
+          const checks = [
+            [build.status === 'FINISHED', `status=${build.status}`],
+            [build.platform === 'ANDROID', `platform=${build.platform}`],
+            [build.distribution === 'INTERNAL', `distribution=${build.distribution}`],
+            [build.buildProfile === 'direct', `buildProfile=${build.buildProfile}`],
+            [build.appIdentifier === 'se.tayar.tools', `appIdentifier=${build.appIdentifier}`],
+            [build.appVersion === '0.2.0', `appVersion=${build.appVersion}`],
+            [String(build.appBuildVersion) === '3', `appBuildVersion=${build.appBuildVersion}`],
+            [build.gitCommitHash === '30c50270e7b0e30173561f4aab94294a1fc9752b', `gitCommitHash=${build.gitCommitHash}`],
+            [typeof url === 'string' && url.includes('.apk'), `artifact=${url}`],
+          ];
+          const failed = checks.filter(([ok]) => !ok).map(([, detail]) => detail);
+          if (failed.length) throw new Error(`EAS build validation failed: ${failed.join(', ')}`);
+          fs.appendFileSync(process.env.GITHUB_ENV, `APK_URL=${url}\n`);
+          NODE
+
+      - name: Download and verify APK
+        run: |
+          set -euo pipefail
+          FILE="tayar-tools-v${APP_VERSION}-${BUILD_NUMBER}.apk"
+          curl --fail --location --retry 3 --output "$FILE" "$APK_URL"
+          test -s "$FILE"
+          unzip -t "$FILE" >/dev/null
+          ACTUAL_SHA256="$(sha256sum "$FILE" | cut -d' ' -f1)"
+          test "$ACTUAL_SHA256" = "$EXPECTED_SHA256"
+          printf '%s  %s\n' "$ACTUAL_SHA256" "$FILE" > "$FILE.sha256"
+          echo "APK_FILE=$FILE" >> "$GITHUB_ENV"
+
+      - name: Verify Android signature and 16 KB ZIP alignment
+        run: |
+          set -euo pipefail
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          test -x "$ZIPALIGN"
+          "$APKSIGNER" verify --verbose --print-certs "$APK_FILE"
+          "$ZIPALIGN" -c -P 16 -v 4 "$APK_FILE"
+
+      - name: Prepare latest metadata
+        run: |
+          set -euo pipefail
+          cat > latest.json <<EOF
+          {
+            "app": "Tayar Tools",
+            "package": "se.tayar.tools",
+            "version": "${APP_VERSION}",
+            "versionCode": ${BUILD_NUMBER},
+            "sha256": "${EXPECTED_SHA256}",
+            "easBuildId": "${BUILD_ID}",
+            "sourceCommit": "${SOURCE_COMMIT}",
+            "file": "tayar-tools-v${APP_VERSION}-${BUILD_NUMBER}.apk"
+          }
+          EOF
+
+      - name: Upload immutable and latest APK objects to Cloudflare R2
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          VERSIONED_KEY="android/releases/${APP_VERSION}/tayar-tools-v${APP_VERSION}-${BUILD_NUMBER}.apk"
+          VERSIONED_SUM_KEY="${VERSIONED_KEY}.sha256"
+          LATEST_KEY="android/latest.apk"
+          LATEST_SUM_KEY="android/latest.apk.sha256"
+          LATEST_JSON_KEY="android/latest.json"
+
+          aws s3 cp "$APK_FILE" "s3://${R2_BUCKET}/${VERSIONED_KEY}" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type application/vnd.android.package-archive \
+            --cache-control 'public,max-age=31536000,immutable'
+
+          aws s3 cp "$APK_FILE.sha256" "s3://${R2_BUCKET}/${VERSIONED_SUM_KEY}" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type text/plain \
+            --cache-control 'public,max-age=31536000,immutable'
+
+          aws s3 cp "$APK_FILE" "s3://${R2_BUCKET}/${LATEST_KEY}" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type application/vnd.android.package-archive \
+            --cache-control 'no-cache,max-age=0,must-revalidate'
+
+          cp "$APK_FILE.sha256" android-latest.apk.sha256
+          aws s3 cp android-latest.apk.sha256 "s3://${R2_BUCKET}/${LATEST_SUM_KEY}" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type text/plain \
+            --cache-control 'no-cache,max-age=0,must-revalidate'
+
+          aws s3 cp latest.json "s3://${R2_BUCKET}/${LATEST_JSON_KEY}" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type application/json \
+            --cache-control 'no-cache,max-age=0,must-revalidate'
+
+      - name: Verify uploaded objects exist
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3api head-object \
+            --bucket "$R2_BUCKET" \
+            --key "android/releases/${APP_VERSION}/tayar-tools-v${APP_VERSION}-${BUILD_NUMBER}.apk" \
+            --endpoint-url "$ENDPOINT" >/dev/null
+          aws s3api head-object \
+            --bucket "$R2_BUCKET" \
+            --key "android/latest.apk" \
+            --endpoint-url "$ENDPOINT" >/dev/null
+          aws s3api head-object \
+            --bucket "$R2_BUCKET" \
+            --key "android/latest.json" \
+            --endpoint-url "$ENDPOINT" >/dev/null
+          echo "R2 upload verified for Tayar Tools Android ${APP_VERSION} (${BUILD_NUMBER})."
