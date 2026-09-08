@@ -24,6 +24,7 @@ const imagePickerOptions = Array.isArray(imagePicker) && imagePicker[1] && typeo
 check('Mobile uses the production Tayar application identifiers',
   appConfig.ios?.bundleIdentifier === 'se.tayar.tools' && appConfig.android?.package === 'se.tayar.tools');
 check('Android store builds are app bundles', eas.build?.production?.android?.buildType === 'app-bundle');
+check('First Android submission is limited to Play internal testing', eas.submit?.production?.android?.track === 'internal');
 check('Production builds auto-increment remote store versions',
   eas.cli?.appVersionSource === 'remote' && eas.build?.production?.autoIncrement === true);
 check('iOS encryption declaration is explicit', appConfig.ios?.infoPlist?.ITSAppUsesNonExemptEncryption === false);
