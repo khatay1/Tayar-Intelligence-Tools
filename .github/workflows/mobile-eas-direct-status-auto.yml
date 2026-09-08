@@ -1,0 +1,32 @@
+name: Tayar Mobile Direct APK Status Auto
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-eas-direct-status-auto.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  apk-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check direct APK build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx --yes eas-cli@23.2.0 build:view a41d39ee-cef5-4a6f-8967-a836c8b3336d --json
