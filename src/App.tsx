@@ -67,11 +67,14 @@ function AppContent() {
   const l = useLocalizer();
   const { user, profile, loading } = useAuth();
   const hashRoute = useHashRoute();
+  const directAccountDeletion = window.location.pathname.replace(/^\/+|\/+$/g, '') === 'account-deletion';
   const recoveryRequested = new URLSearchParams(window.location.search).get('auth') === 'recovery';
   const authPage = recoveryRequested
     ? 'reset'
     : (AUTH_PAGES.includes(hashRoute as AuthPage) ? hashRoute as AuthPage : null);
-  const publicPage = PUBLIC_PAGES.includes(hashRoute as PublicPage) ? hashRoute as PublicPage : null;
+  const publicPage = PUBLIC_PAGES.includes(hashRoute as PublicPage)
+    ? hashRoute as PublicPage
+    : (directAccountDeletion ? 'account-deletion' : null);
 
   useEffect(() => { startAnalytics(); }, []);
 
@@ -114,7 +117,13 @@ function AppContent() {
     trackPageView('/');
   }, [user, loading, authPage, publicPage]);
 
-  const navigate = (page?: string | null) => { window.location.hash = page || ''; };
+  const navigate = (page?: string | null) => {
+    if (directAccountDeletion) {
+      window.location.assign(page ? `/#${page}` : '/');
+      return;
+    }
+    window.location.hash = page || '';
+  };
   const goHome = () => navigate(null);
   const startFree = () => { track('sign_up_click', 'user_action'); navigate('register'); };
 
