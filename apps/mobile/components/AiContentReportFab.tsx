@@ -19,11 +19,18 @@ export default function AiContentReportFab() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const pathnameRef = useRef(pathname);
+  const previousPathRef = useRef(pathname);
   const [snapshot, setSnapshot] = useState<ReportableAiOutput | null>(() => getReportableAiOutput());
   const [originPath, setOriginPath] = useState(() => getReportableAiOutput() ? pathname : '');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (previousPathRef.current !== pathname) {
+      previousPathRef.current = pathname;
+      clearReportableAiOutput();
+      setSnapshot(null);
+      setOriginPath('');
+    }
     pathnameRef.current = pathname;
   }, [pathname]);
 
