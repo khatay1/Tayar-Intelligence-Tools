@@ -68,6 +68,10 @@
   },
   "rewrites": [
     {
+      "source": "/account-deletion",
+      "destination": "/"
+    },
+    {
       "source": "/site/:ownerId/:projectId",
       "destination": "/api/published-site"
     },
