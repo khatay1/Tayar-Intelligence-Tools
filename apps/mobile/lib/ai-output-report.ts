@@ -35,7 +35,9 @@ export function getReportableAiOutput() {
 
 export function subscribeAiOutput(listener: Listener) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function clearReportableAiOutput(id?: string) {
