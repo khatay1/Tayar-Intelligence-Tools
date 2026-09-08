@@ -11,6 +11,50 @@ if (!supabaseUrl || !supabasePublishableKey) {
   console.warn('[mobile] Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.');
 }
 
+const nativeFetch = globalThis.fetch.bind(globalThis);
+
+function toolFromRequestBody(body: unknown) {
+  if (typeof body !== 'string') return 'ai';
+  try {
+    const payload = JSON.parse(body) as Record<string, unknown>;
+    return typeof payload.tool === 'string' && payload.tool.trim() ? payload.tool.trim() : 'ai';
+  } catch {
+    return 'ai';
+  }
+}
+
+function outputFromPayload(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.content === 'string') return payload.content;
+  if (payload.json && typeof payload.json === 'object') {
+    try {
+      return JSON.stringify(payload.json);
+    } catch {
+      return '';
+    }
+  }
+  return '';
+}
+
+const trackedFetch: typeof globalThis.fetch = async (input, init) => {
+  const response = await nativeFetch(input, init);
+  const url = typeof input === 'string'
+    ? input
+    : input instanceof URL
+      ? input.toString()
+      : input.url;
+
+  if (response.ok && url.includes('/functions/v1/ai-engine')) {
+    const tool = toolFromRequestBody(init?.body);
+    void response.clone().json()
+      .then((payload) => recordAiOutput(tool, outputFromPayload(payload)))
+      .catch(() => undefined);
+  }
+
+  return response;
+};
+
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
     ...(Platform.OS !== 'web' ? { storage: nativeAuthStorage } : {}),
@@ -18,35 +62,10 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: {
+    fetch: trackedFetch,
+  },
 });
-
-const invokeFunction = supabase.functions.invoke.bind(supabase.functions);
-supabase.functions.invoke = (async (functionName, options) => {
-  const response = await invokeFunction(functionName, options);
-
-  if (functionName === 'ai-engine' && !response.error) {
-    const body = options?.body && typeof options.body === 'object' && !Array.isArray(options.body)
-      ? options.body as Record<string, unknown>
-      : {};
-    const payload = response.data && typeof response.data === 'object' && !Array.isArray(response.data)
-      ? response.data as Record<string, unknown>
-      : {};
-    const tool = typeof body.tool === 'string' ? body.tool : 'ai';
-    let output = typeof payload.content === 'string' ? payload.content : '';
-
-    if (!output && payload.json && typeof payload.json === 'object') {
-      try {
-        output = JSON.stringify(payload.json);
-      } catch {
-        output = '';
-      }
-    }
-
-    recordAiOutput(tool, output);
-  }
-
-  return response;
-}) as typeof supabase.functions.invoke;
 
 if (Platform.OS !== 'web') {
   AppState.addEventListener('change', (state) => {
