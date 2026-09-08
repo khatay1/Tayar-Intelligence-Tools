@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import { Download, Eraser, Loader2, ShieldCheck } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-release';
 import { ToolInputPanel, ToolOutputPanel, ToolShell } from '../shared/ToolShell';
 import {
   downloadLocalResult,
