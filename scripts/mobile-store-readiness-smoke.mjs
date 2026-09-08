@@ -27,7 +27,7 @@ const storeConfig = json('apps/mobile/store.config.json');
 const profile = read('apps/mobile/app/(tabs)/profile.tsx');
 const login = read('apps/mobile/app/login.tsx');
 const rootLayout = read('apps/mobile/app/_layout.tsx');
-const aiClient = read('apps/mobile/lib/ai.ts');
+const supabaseClient = read('apps/mobile/lib/supabase.ts');
 const reportFab = read('apps/mobile/components/AiContentReportFab.tsx');
 const webApp = read('src/App.tsx');
 const deletionPage = read('src/components/workspace/AccountDeletionPage.tsx');
@@ -38,7 +38,12 @@ const mobileSourceEntries = mobileSourceFiles.map(filePath => ({ filePath, sourc
 const mobileSource = mobileSourceEntries.map(entry => entry.source).join('\n');
 const directAiEngineCallers = mobileSourceEntries
   .filter(entry => entry.source.includes("functions.invoke('ai-engine'"))
-  .map(entry => entry.filePath.replace(/\\/g, '/'));
+  .map(entry => entry.filePath.replace(/\\/g, '/'))
+  .sort();
+const auditedAiEngineCallers = [
+  'apps/mobile/lib/ai.ts',
+  'apps/mobile/lib/website-builder.ts',
+].sort();
 
 const rewrites = Array.isArray(vercel.rewrites) ? vercel.rewrites : [];
 const plugins = Array.isArray(appConfig.plugins) ? appConfig.plugins : [];
@@ -67,6 +72,8 @@ const expoMajor = Number(String(mobilePackage.dependencies?.expo || '').match(/\
 check('Mobile uses the production Tayar application identifiers',
   appConfig.ios?.bundleIdentifier === 'se.tayar.tools' && appConfig.android?.package === 'se.tayar.tools');
 check('Expo SDK baseline is API-36-capable for the 2026 Play target requirement', expoMajor >= 57);
+check('Mobile pins the latest currently published Expo SDK 57 patches',
+  mobilePackage.dependencies?.expo === '~57.0.20' && mobilePackage.dependencies?.['expo-router'] === '~57.0.19');
 check('Android store builds are app bundles', eas.build?.production?.android?.buildType === 'app-bundle');
 check('First Android submission is limited to Play internal testing', eas.submit?.production?.android?.track === 'internal');
 check('Production builds auto-increment remote store versions',
@@ -100,11 +107,15 @@ check('Privacy and Terms are reachable before mobile sign-in',
   login.includes("const TERMS_URL = 'https://tayar.se/#terms'") &&
   login.includes('styles.legalRow'));
 
-check('All mobile ai-engine generation is routed through the shared reportable AI client',
-  directAiEngineCallers.length === 1 && directAiEngineCallers[0] === 'apps/mobile/lib/ai.ts');
-check('Shared mobile AI client records every generated output for in-app reporting',
-  aiClient.includes("import { recordAiOutput } from './ai-output-report'") &&
-  aiClient.includes('recordAiOutput(tool, content)'));
+check('Mobile Supabase transport records every successful ai-engine response for in-app reporting',
+  supabaseClient.includes("url.includes('/functions/v1/ai-engine')") &&
+  supabaseClient.includes('toolFromRequestBody(init?.body)') &&
+  supabaseClient.includes('recordAiOutput(tool, outputFromPayload(payload))') &&
+  supabaseClient.includes('fetch: trackedFetch'));
+check('Structured mobile AI output remains reportable through the shared transport',
+  supabaseClient.includes('payload.json') && supabaseClient.includes('JSON.stringify(payload.json)'));
+check('Direct mobile ai-engine callers are limited to audited clients',
+  JSON.stringify(directAiEngineCallers) === JSON.stringify(auditedAiEngineCallers));
 check('In-app AI report control is mounted globally for tool routes',
   rootLayout.includes("import AiContentReportFab from '@/components/AiContentReportFab'") &&
   rootLayout.includes('<AiContentReportFab />') &&

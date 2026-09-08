@@ -1,4 +1,3 @@
-import { recordAiOutput } from './ai-output-report';
 import { supabase } from './supabase';
 
 export async function runTayarAI(tool: string, systemPrompt: string, userPrompt: string, options: { temperature?: number; maxTokens?: number } = {}) {
@@ -31,12 +30,6 @@ export async function runTayarAI(tool: string, systemPrompt: string, userPrompt:
   const payload = data as Record<string, unknown> | null;
   const content = typeof payload?.content === 'string' ? payload.content.trim() : '';
   if (!content) throw new Error('AI returned an empty response.');
-
-  // Keep the most recent generated output locally so every tool using the
-  // shared AI client can expose the in-app Report AI control required for
-  // content-safety feedback. The reporting flow sends only a bounded output
-  // excerpt; prompts and source documents are not attached to the report.
-  recordAiOutput(tool, content);
 
   return {
     content,
