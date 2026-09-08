@@ -12,12 +12,20 @@ on:
           - android
           - ios
           - all
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - '.github/workflows/mobile-eas-production.yml'
 
 permissions:
   contents: read
 
+env:
+  EAS_PLATFORM: ${{ inputs.platform || 'android' }}
+
 concurrency:
-  group: tayar-mobile-eas-production-${{ github.ref }}-${{ inputs.platform }}
+  group: tayar-mobile-eas-production-${{ github.ref }}-${{ inputs.platform || 'android' }}
   cancel-in-progress: false
 
 jobs:
@@ -65,11 +73,11 @@ jobs:
         run: |
           npx --yes eas-cli@23.2.0 whoami
           npx --yes eas-cli@23.2.0 project:info
-          if [ "${{ inputs.platform }}" = "all" ]; then
+          if [ "$EAS_PLATFORM" = "all" ]; then
             npx --yes eas-cli@23.2.0 config --platform android --profile production --json --non-interactive >/dev/null
             npx --yes eas-cli@23.2.0 config --platform ios --profile production --json --non-interactive >/dev/null
           else
-            npx --yes eas-cli@23.2.0 config --platform "${{ inputs.platform }}" --profile production --json --non-interactive >/dev/null
+            npx --yes eas-cli@23.2.0 config --platform "$EAS_PLATFORM" --profile production --json --non-interactive >/dev/null
           fi
 
       - name: Queue signed production build
@@ -77,7 +85,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           npx --yes eas-cli@23.2.0 build \
-            --platform "${{ inputs.platform }}" \
+            --platform "$EAS_PLATFORM" \
             --profile production \
             --non-interactive \
             --no-wait
