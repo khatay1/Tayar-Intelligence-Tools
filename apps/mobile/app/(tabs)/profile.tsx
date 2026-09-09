@@ -28,6 +28,8 @@ export default function ProfileScreen() {
   const name = String(user?.user_metadata?.full_name || email.split('@')[0] || 'Tayar user');
   const iosCompanion = Platform.OS === 'ios';
   const [plan, setPlan] = useState('');
+  const [aiUsageCount, setAiUsageCount] = useState<number | null>(null);
+  const [aiUsageError, setAiUsageError] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
@@ -41,7 +43,28 @@ export default function ProfileScreen() {
     }
   }
 
+  async function loadOwnAiUsage() {
+    if (!user?.id) return;
+    setAiUsageError('');
+    try {
+      const now = new Date();
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+      const { count, error } = await supabase
+        .from('ai_usage')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'success')
+        .gte('created_at', monthStart);
+      if (error) throw error;
+      setAiUsageCount(count || 0);
+    } catch {
+      setAiUsageCount(null);
+      setAiUsageError('Could not load your AI usage status.');
+    }
+  }
+
   useEffect(() => { void loadPlan(); }, []);
+  useEffect(() => { void loadOwnAiUsage(); }, [user?.id]);
 
   async function logout() {
     await signOut();
@@ -117,6 +140,18 @@ export default function ProfileScreen() {
             <Text style={styles.rowSub}>{iosCompanion
               ? 'This iOS release provides the same included companion toolset to every signed-in account. No purchase is required in the app.'
               : plan ? `${displayPlan(plan)} plan · your Tayar account access is active on this device.` : 'Your Tayar account access is available on this device.'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.row}>
+          <MaterialCommunityIcons name="chart-timeline-variant" size={21} color={colors.violetBright} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>AI usage</Text>
+            <Text style={styles.rowSub}>{aiUsageError
+              ? aiUsageError
+              : aiUsageCount === null
+                ? 'Loading your AI usage status…'
+                : `${aiUsageCount} successful AI requests this month · only your signed-in account is shown here.`}</Text>
           </View>
         </View>
 

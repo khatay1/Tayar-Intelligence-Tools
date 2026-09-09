@@ -3,7 +3,10 @@ import fs from 'node:fs';
 const read = (path) => fs.readFileSync(path, 'utf8');
 const workspace = read('src/components/workspace/Workspace.tsx');
 const workspaceConfig = read('src/components/workspace/workspace-config.ts');
+const aiUsage = read('src/components/workspace/AIUsageAnalytics.impl.tsx');
+const toolUsage = read('src/lib/tool-usage.ts');
 const adminAi = read('src/components/admin/AdminAI.tsx');
+const mobileProfile = read('apps/mobile/app/(tabs)/profile.tsx');
 const help = read('src/components/workspace/HelpCenter.tsx');
 const contact = read('src/components/workspace/ContactPage.tsx');
 const feedback = read('src/components/workspace/FeedbackPage.tsx');
@@ -30,7 +33,11 @@ const checks = [
   ['Register old 50+ claim removed', !register.includes('50+ AI tools')],
   ['Workspace billing placeholder removed', !workspace.includes("activeView === 'subscription' && <PlaceholderView")],
   ['Workspace support placeholder removed', !workspace.includes("activeView === 'support' && <PlaceholderView")],
-  ['Detailed AI usage is hidden from normal workspace navigation', !workspaceConfig.includes("{ id: 'ai-usage'")],
+  ['Normal workspace exposes signed-in AI usage status', workspaceConfig.includes("{ id: 'ai-usage'") && workspace.includes("activeView === 'ai-usage' && <AIUsageAnalytics")],
+  ['User AI usage uses auth-scoped server status', aiUsage.includes('getToolUsageState') && toolUsage.includes("supabase.rpc('tool_access_state'")],
+  ['User AI usage does not query platform analytics directly', !aiUsage.includes("from('ai_usage')") && !aiUsage.includes('AI_PROVIDERS')],
+  ['Mobile AI usage explicitly scopes to signed-in user', mobileProfile.includes(".eq('user_id', user.id)") && mobileProfile.includes("select('id', { count: 'exact', head: true })")],
+  ['Mobile user usage does not request detailed AI analytics', !mobileProfile.includes('tokens_in') && !mobileProfile.includes('tokens_out') && !mobileProfile.includes('cost_usd') && !mobileProfile.includes("select('provider")],
   ['Admin AI panel retains protected platform usage analytics', adminAi.includes("from('ai_usage')")],
   ['Signed-in auth hashes normalize to a workspace route', app.includes("replaceHash('#workspace/my-workspace')")],
   ['Workspace navigation persists the active view in the URL', workspace.includes('const nextHash = `#workspace/${view}`')],

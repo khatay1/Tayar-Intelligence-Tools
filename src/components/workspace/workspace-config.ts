@@ -38,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'my-projects', label: 'Projects', icon: Folder, group: 'main' },
   { id: 'trash', label: 'Trash', icon: Trash2, group: 'main' },
   { id: 'activity-timeline', label: 'Recent Activity', icon: Activity, group: 'main' },
+  { id: 'ai-usage', label: 'AI Usage', icon: Activity, group: 'account' },
   { id: 'subscription', label: 'Subscription', icon: CreditCard, group: 'account' },
   { id: 'settings', label: 'Settings', icon: Settings, group: 'account' },
   { id: 'support', label: 'Support', icon: LifeBuoy, group: 'account' },

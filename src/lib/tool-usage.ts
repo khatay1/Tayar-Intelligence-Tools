@@ -24,13 +24,22 @@ function usageErrorMessage(state?: ToolUsageState | null) {
 }
 
 /**
+ * Reads usage/access for the signed-in user only. The RPC derives the identity
+ * from auth.uid(), so even an admin opening the normal workspace gets only the
+ * status for their own account. Platform-wide analytics stay in Admin AI.
+ */
+export async function getToolUsageState(toolId: string): Promise<ToolUsageState> {
+  const { data, error } = await supabase.rpc('tool_access_state', { p_tool_id: toolId });
+  if (error) throw new Error(error.message || 'Could not verify tool usage limits.');
+  return (data || {}) as ToolUsageState;
+}
+
+/**
  * Checks whether a real tool action may run. This never consumes usage.
  * Opening or viewing a tool therefore never counts as usage.
  */
 export async function assertToolActionAvailable(toolId: string): Promise<ToolUsageState> {
-  const { data, error } = await supabase.rpc('tool_access_state', { p_tool_id: toolId });
-  if (error) throw new Error(error.message || 'Could not verify tool usage limits.');
-  const state = (data || {}) as ToolUsageState;
+  const state = await getToolUsageState(toolId);
   if (state.allowed === false) throw new Error(usageErrorMessage(state));
   return state;
 }

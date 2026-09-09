@@ -1,20 +1,79 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, Calendar, Loader2, RefreshCw, ShieldCheck, Zap } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization';
-import { useState, useEffect } from 'react';
-import { Activity, Cpu, Zap, TrendingUp, Loader2, DollarSign, Calendar } from 'lucide-react';
-import { getUsageStats, UsageStats } from '@/lib/ai/service';
-import { AI_PROVIDERS } from '@/lib/ai/types';
+import { getToolUsageState, ToolUsageState } from '@/lib/tool-usage';
+
+const AI_TOOLS = [
+  ['ai-chat', 'AI Chat'],
+  ['cv-builder', 'CV Builder'],
+  ['cover-letter', 'Cover Letter'],
+  ['ai-writer', 'AI Writer'],
+  ['translator', 'Translator'],
+  ['document-ai', 'Document AI'],
+  ['study-assistant', 'Study Assistant'],
+  ['website-builder', 'Website Builder'],
+  ['code-assistant', 'Code Assistant'],
+  ['email-writer', 'Email Writer'],
+  ['contract-writer', 'Contract Writer'],
+  ['analytics-ai', 'Analytics AI'],
+] as const;
+
+type UsageRow = {
+  id: string;
+  label: string;
+  state: ToolUsageState;
+};
+
+function safeNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+}
+
+function planLabel(value?: string) {
+  const normalized = String(value || 'free').toLowerCase();
+  if (normalized === 'business') return 'Business';
+  if (normalized === 'pro') return 'Pro';
+  return 'Free';
+}
 
 export default function AIUsageAnalytics() {
   const l = useLocalizer();
-  const [stats, setStats] = useState<UsageStats | null>(null);
+  const [rows, setRows] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadUsage = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const results = await Promise.allSettled(
+        AI_TOOLS.map(async ([id, label]) => ({ id, label, state: await getToolUsageState(id) })),
+      );
+      const nextRows = results
+        .filter((result): result is PromiseFulfilledResult<UsageRow> => result.status === 'fulfilled')
+        .map((result) => result.value);
+      if (nextRows.length === 0) throw new Error('Could not load AI usage.');
+      setRows(nextRows);
+    } catch (err) {
+      setRows([]);
+      setError(err instanceof Error ? err.message : 'Could not load AI usage.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    getUsageStats().then(data => {
-      setStats(data);
-      setLoading(false);
-    });
-  }, []);
+    void loadUsage();
+  }, [loadUsage]);
+
+  const summary = useMemo(() => {
+    const metered = rows.filter((row) => row.state.enabled !== false && row.state.reason !== 'plan_required');
+    const used = metered.reduce((sum, row) => sum + safeNumber(row.state.usage_count), 0);
+    const limited = metered.filter((row) => row.state.usage_limit !== null && row.state.usage_limit !== undefined);
+    const remaining = limited.reduce((sum, row) => sum + safeNumber(row.state.usage_remaining), 0);
+    const plan = rows.find((row) => row.state.effective_plan)?.state.effective_plan;
+    return { used, remaining, limitedCount: limited.length, plan: planLabel(plan) };
+  }, [rows]);
 
   if (loading) {
     return (
@@ -24,13 +83,38 @@ export default function AIUsageAnalytics() {
     );
   }
 
-  if (!stats || stats.totalRequests === 0) {
-    return (
-      <div className="space-y-6">
-        <div>
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-white mb-1">{l('AI Usage Analytics')}</h1>
           <p className="text-gray-500 text-sm">{l('Track your AI consumption across all tools.')}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => void loadUsage()}
+          className="min-h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-gray-300 hover:bg-white/[0.08]"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </button>
+      </div>
+
+      <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.08] p-4">
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-violet-400" />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-violet-100">Private account usage</div>
+            <p className="mt-1 text-xs leading-5 text-violet-200/70">
+              This page shows usage status for your signed-in account only. Detailed platform analytics are available only in Tayar Admin.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/[0.08] p-4 text-sm text-red-300">{error}</div>
+      ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
             <Activity className="w-8 h-8 text-gray-600" />
@@ -38,158 +122,73 @@ export default function AIUsageAnalytics() {
           <p className="text-gray-400 text-sm font-medium">{l('No AI usage yet')}</p>
           <p className="text-gray-600 text-xs mt-1">{l('Start using AI tools and your usage stats will appear here.')}</p>
         </div>
-      </div>
-    );
-  }
-
-  const maxDayTokens = Math.max(...stats.last7Days.map(d => d.tokens), 1);
-  const today = stats.last7Days[stats.last7Days.length - 1];
-  const monthCost = stats.last30Days.reduce((sum, d) => sum + d.cost, 0);
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-1">{l('AI Usage Analytics')}</h1>
-        <p className="text-gray-500 text-sm">{l('Track your AI consumption, token usage, and costs across all tools.')}</p>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard icon={Zap} label="Total Requests" value={String(stats.totalRequests)} color="text-violet-400" bg="bg-violet-500/10" />
-        <StatCard icon={TrendingUp} label="Input Tokens" value={stats.totalTokensIn.toLocaleString()} color="text-sky-400" bg="bg-sky-500/10" />
-        <StatCard icon={Cpu} label="Output Tokens" value={stats.totalTokensOut.toLocaleString()} color="text-emerald-400" bg="bg-emerald-500/10" />
-        <StatCard icon={DollarSign} label="Total Cost" value={`${stats.totalCostUsd.toFixed(4)}`} color="text-amber-400" bg="bg-amber-500/10" />
-        <StatCard icon={Calendar} label="Today" value={`${today?.requests || 0} reqs`} color="text-fuchsia-400" bg="bg-fuchsia-500/10" />
-      </div>
-
-      {/* Cost summary */}
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Calendar className="w-4 h-4 text-violet-400" />
-            <span className="text-gray-400 text-xs">{l("Today's Cost")}</span>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <StatusCard icon={ShieldCheck} label="Plan" value={summary.plan} />
+            <StatusCard icon={Zap} label="Used in current periods" value={String(summary.used)} />
+            <StatusCard
+              icon={Calendar}
+              label="Remaining metered uses"
+              value={summary.limitedCount > 0 ? String(summary.remaining) : 'Unlimited'}
+            />
           </div>
-          <div className="text-2xl font-bold text-white">${(today?.cost || 0).toFixed(4)}</div>
-          <div className="text-gray-500 text-xs mt-0.5">{(today?.requests || 0)} requests</div>
-        </div>
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <DollarSign className="w-4 h-4 text-emerald-400" />
-            <span className="text-gray-400 text-xs">30-Day Cost</span>
-          </div>
-          <div className="text-2xl font-bold text-white">${monthCost.toFixed(4)}</div>
-          <div className="text-gray-500 text-xs mt-0.5">{stats.last30Days.reduce((s, d) => s + d.requests, 0)} total requests</div>
-        </div>
-      </div>
 
-      {/* 7-day chart */}
-      <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white font-bold text-base">{l('Last 7 Days')}</h2>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1.5 text-gray-400"><span className="w-2.5 h-2.5 rounded-sm bg-violet-500" /> {l('Tokens')}</span>
-            <span className="flex items-center gap-1.5 text-gray-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> {l('Cost')}</span>
-          </div>
-        </div>
-        <div className="flex items-end justify-between gap-2 h-40">
-          {stats.last7Days.map((day, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-2">
-              <div className="w-full flex-1 flex items-end gap-1">
-                <div
-                  className="w-full bg-gradient-to-t from-violet-600 to-fuchsia-500 rounded-t-lg transition-all hover:opacity-80"
-                  style={{ height: `${(day.tokens / maxDayTokens) * 100}%`, minHeight: '4px' }}
-                  title={`${day.requests} requests, ${day.tokens} tokens`}
-                />
-              </div>
-              <span className="text-gray-500 text-xs">
-                {new Date(day.date).toLocaleDateString('en', { weekday: 'short' })}
-              </span>
-              <span className="text-gray-600 text-xs">{day.requests}</span>
-              <span className="text-emerald-500 text-xs">${day.cost.toFixed(3)}</span>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-6">
+            <h2 className="mb-4 text-base font-bold text-white">{l('By Tool')}</h2>
+            <div className="space-y-3">
+              {rows.map(({ id, label, state }) => {
+                const used = safeNumber(state.usage_count);
+                const limit = state.usage_limit;
+                const remaining = state.usage_remaining;
+                const blockedByPlan = state.reason === 'plan_required';
+                const disabled = state.enabled === false || state.reason === 'disabled';
+                const limited = limit !== null && limit !== undefined;
+                const pct = limited && Number(limit) > 0 ? Math.min(100, Math.round((used / Number(limit)) * 100)) : 0;
+
+                return (
+                  <div key={id} className="rounded-xl border border-white/[0.07] bg-black/10 p-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-white">{label}</div>
+                        <div className="mt-1 text-xs text-gray-500 capitalize">{state.period || 'monthly'}</div>
+                      </div>
+                      <div className="text-left text-xs sm:text-right">
+                        {disabled ? (
+                          <span className="text-gray-500">Unavailable</span>
+                        ) : blockedByPlan ? (
+                          <span className="text-amber-400">Requires {planLabel(state.required_plan)}</span>
+                        ) : limited ? (
+                          <span className="text-gray-300">{used} / {Number(limit)} used · {safeNumber(remaining)} remaining</span>
+                        ) : (
+                          <span className="text-emerald-400">Unlimited</span>
+                        )}
+                      </div>
+                    </div>
+                    {limited && !blockedByPlan && !disabled ? (
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
+                        <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* By Provider */}
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-          <h2 className="text-white font-bold text-base mb-4">{l('By Provider')}</h2>
-          <div className="space-y-3">
-            {Object.entries(stats.byProvider).map(([provider, data]) => {
-              const config = AI_PROVIDERS[provider as keyof typeof AI_PROVIDERS];
-              const label = config?.label || provider;
-              const total = data.tokensIn + data.tokensOut;
-              const maxTotal = Math.max(...Object.values(stats.byProvider).map(p => p.tokensIn + p.tokensOut), 1);
-              return (
-                <div key={provider}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-white text-sm font-medium">{label}</span>
-                    <span className="text-gray-500 text-xs">{total.toLocaleString()} tokens · ${data.costUsd.toFixed(4)}</span>
-                  </div>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-violet-600 to-fuchsia-500 rounded-full transition-all"
-                      style={{ width: `${(total / maxTotal) * 100}%` }}
-                    />
-                  </div>
-                  <div className="text-gray-600 text-xs mt-1">{data.requests} requests</div>
-                </div>
-              );
-            })}
           </div>
-        </div>
-
-        {/* By Tool */}
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-          <h2 className="text-white font-bold text-base mb-4">{l('By Tool')}</h2>
-          <div className="space-y-3">
-            {Object.entries(stats.byTool).map(([tool, data]) => {
-              const total = data.tokensIn + data.tokensOut;
-              const maxTotal = Math.max(...Object.values(stats.byTool).map(p => p.tokensIn + p.tokensOut), 1);
-              const toolCost = `${data.costUsd.toFixed(4)}`;
-              const toolLabels: Record<string, string> = {
-                'cv-builder': 'CV Builder',
-                'cover-letter': 'Cover Letter',
-                'ai-writer': 'AI Writer',
-                'document-ai': 'Document AI',
-                'study-assistant': 'Study Assistant',
-                'translator': 'Translator',
-                'ai-chat': 'AI Chat',
-              };
-              return (
-                <div key={tool}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-white text-sm font-medium">{toolLabels[tool] || tool}</span>
-                    <span className="text-gray-500 text-xs">{total.toLocaleString()} tokens · {toolCost}</span>
-                  </div>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-sky-500 to-cyan-400 rounded-full transition-all"
-                      style={{ width: `${(total / maxTotal) * 100}%` }}
-                    />
-                  </div>
-                  <div className="text-gray-600 text-xs mt-1">{data.requests} requests</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
 
-function StatCard({ icon: Icon, label, value, color, bg }: {
-  icon: typeof Zap; label: string; value: string; color: string; bg: string;
-}) {
+function StatusCard({ icon: Icon, label, value }: { icon: typeof Zap; label: string; value: string }) {
   return (
-    <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-      <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-3`}>
-        <Icon className={`w-5 h-5 ${color}`} />
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10">
+        <Icon className="h-5 w-5 text-violet-400" />
       </div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      <div className="text-gray-500 text-xs mt-0.5">{label}</div>
+      <div className="break-words text-2xl font-bold text-white">{value}</div>
+      <div className="mt-0.5 text-xs text-gray-500">{label}</div>
     </div>
   );
 }
