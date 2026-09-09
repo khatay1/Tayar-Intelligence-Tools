@@ -52,7 +52,7 @@ export default function InstallPrompt() {
 
   return (
     <aside
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[80] w-[calc(100%-2rem)] max-w-xs -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[80] w-[calc(100%_-_2rem)] max-w-xs -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0"
       aria-label={copy.title}
     >
       <div className="rounded-2xl border border-emerald-400/25 bg-[#101021]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
