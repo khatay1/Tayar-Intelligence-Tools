@@ -2,6 +2,12 @@ name: Tayar Mobile EAS Direct APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    types: [synchronize]
+    paths:
+      - '.github/workflows/mobile-eas-direct.yml'
 
 permissions:
   contents: read
@@ -19,6 +25,8 @@ jobs:
         working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: 5c20f0d7bf9c225b45e4fbddcf70b15ffc41e801
 
       - uses: actions/setup-node@v4
         with:
