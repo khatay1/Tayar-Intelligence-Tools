@@ -36,11 +36,31 @@ jobs:
           fi
           node - <<'NODE'
           const app = require('./app.json');
+          const eas = require('./eas.json');
           const projectId = app.expo?.extra?.eas?.projectId;
           if (typeof projectId !== 'string' || !projectId.trim()) {
             throw new Error('expo.extra.eas.projectId is missing.');
           }
+
+          const directEnv = eas.build?.direct?.env || {};
+          const required = [
+            'EXPO_PUBLIC_SUPABASE_URL',
+            'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+          ];
+          for (const key of required) {
+            if (typeof directEnv[key] !== 'string' || !directEnv[key].trim()) {
+              throw new Error(`${key} is missing from build.direct.env; refusing to queue a crash-prone APK.`);
+            }
+          }
+          try {
+            const url = new URL(directEnv.EXPO_PUBLIC_SUPABASE_URL);
+            if (url.protocol !== 'https:') throw new Error('Supabase URL must use HTTPS.');
+          } catch (error) {
+            throw new Error(`EXPO_PUBLIC_SUPABASE_URL is invalid: ${error.message}`);
+          }
+
           console.log(`Using EAS project ${projectId}.`);
+          console.log('Required public mobile runtime configuration is present in the direct EAS profile.');
           NODE
 
       - name: Install locked dependencies
