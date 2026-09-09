@@ -1,72 +1,89 @@
-import { useLocalizer } from '@/lib/ui-localization';
-import { useState, useEffect } from 'react';
-import { Download, X, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Download, Smartphone } from 'lucide-react';
+import { usePreferences } from '@/context/PreferencesContext';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const DISMISS_KEY = 'tayar-pwa-install-dismissed';
+const ANDROID_COPY = {
+  en: {
+    title: 'Tayar for Android',
+    download: 'Download Android',
+    help: 'How to download',
+    webInstall: 'Install web app',
+  },
+  ar: {
+    title: 'Tayar لأندرويد',
+    download: 'تنزيل Android',
+    help: 'كيفية التنزيل',
+    webInstall: 'تثبيت تطبيق الويب',
+  },
+  sv: {
+    title: 'Tayar för Android',
+    download: 'Ladda ner Android',
+    help: 'Så laddar du ner',
+    webInstall: 'Installera webbappen',
+  },
+} as const;
 
 export default function InstallPrompt() {
-  const l = useLocalizer();
+  const { prefs } = usePreferences();
+  const copy = ANDROID_COPY[prefs.language] || ANDROID_COPY.en;
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem(DISMISS_KEY)) return;
-
     function handler(e: Event) {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setVisible(true);
     }
 
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  async function handleInstall() {
+  async function handleWebInstall() {
     if (!deferredPrompt) return;
     await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted' || outcome === 'dismissed') {
-      setVisible(false);
-      setDeferredPrompt(null);
-      localStorage.setItem(DISMISS_KEY, '1');
-    }
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
   }
-
-  function handleDismiss() {
-    setVisible(false);
-    localStorage.setItem(DISMISS_KEY, '1');
-  }
-
-  if (!visible) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[90] w-80" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
-      <div className="bg-[#12122a] border border-violet-500/20 rounded-2xl shadow-2xl shadow-black/50 p-5">
-        <div className="flex items-start gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-violet-400" />
+    <aside
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[80] w-[calc(100%_-_2rem)] max-w-xs -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0"
+      aria-label={copy.title}
+    >
+      <div className="rounded-2xl border border-emerald-400/25 bg-[#101021]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/15">
+            <Smartphone className="h-5 w-5 text-emerald-300" />
           </div>
-          <div className="flex-1">
-            <h3 className="text-white text-sm font-semibold mb-1">{l('Install Tayar Intelligence')}</h3>
-            <p className="text-gray-500 text-xs leading-relaxed">{l('Add to your home screen for a faster, app-like experience.')}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-white">{copy.title}</p>
+            <a href="/download/android" className="text-xs font-medium text-emerald-300 hover:text-emerald-200 hover:underline">
+              {copy.help} →
+            </a>
           </div>
-          <button onClick={handleDismiss} className="text-gray-500 hover:text-white transition-colors flex-shrink-0">
-            <X className="w-4 h-4" />
-          </button>
+          <a
+            href="/download/android"
+            className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white transition-colors hover:bg-emerald-500"
+          >
+            <Download className="h-4 w-4" />
+            <span>{copy.download}</span>
+          </a>
         </div>
-        <button
-          onClick={handleInstall}
-          className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
-        >
-          <Download className="w-4 h-4" /> {l('Install App')}
-        </button>
+        {deferredPrompt && (
+          <button
+            type="button"
+            onClick={handleWebInstall}
+            className="mt-2.5 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white"
+          >
+            {copy.webInstall}
+          </button>
+        )}
       </div>
-    </div>
+    </aside>
   );
 }
