@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Calendar, Loader2, RefreshCw, ShieldCheck, Zap } from 'lucide-react';
+import { usePreferences } from '@/context/PreferencesContext';
 import { useLocalizer } from '@/lib/ui-localization';
 import { getToolUsageState, ToolUsageState } from '@/lib/tool-usage';
 
@@ -24,6 +25,27 @@ type UsageRow = {
   state: ToolUsageState;
 };
 
+const AI_USAGE_LABELS = {
+  en: {
+    refresh: 'Refresh',
+    privateUsage: 'Private account usage',
+    unavailable: 'Unavailable',
+    unlimited: 'Unlimited',
+  },
+  sv: {
+    refresh: 'Uppdatera',
+    privateUsage: 'Privat kontoanvändning',
+    unavailable: 'Inte tillgänglig',
+    unlimited: 'Obegränsat',
+  },
+  ar: {
+    refresh: 'تحديث',
+    privateUsage: 'استخدام الحساب الخاص',
+    unavailable: 'غير متاح',
+    unlimited: 'غير محدود',
+  },
+} as const;
+
 function safeNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
@@ -38,6 +60,8 @@ function planLabel(value?: string) {
 
 export default function AIUsageAnalytics() {
   const l = useLocalizer();
+  const { prefs } = usePreferences();
+  const usageLabels = AI_USAGE_LABELS[prefs.language];
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -97,7 +121,7 @@ export default function AIUsageAnalytics() {
           className="min-h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-gray-300 hover:bg-white/[0.08]"
         >
           <RefreshCw className="h-4 w-4" />
-          Refresh
+          {usageLabels.refresh}
         </button>
       </div>
 
@@ -105,7 +129,7 @@ export default function AIUsageAnalytics() {
         <div className="flex items-start gap-3">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-violet-400" />
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-violet-100">Private account usage</div>
+            <div className="text-sm font-semibold text-violet-100">{usageLabels.privateUsage}</div>
             <p className="mt-1 text-xs leading-5 text-violet-200/70">
               This page shows usage status for your signed-in account only. Detailed platform analytics are available only in Tayar Admin.
             </p>
@@ -131,7 +155,7 @@ export default function AIUsageAnalytics() {
             <StatusCard
               icon={Calendar}
               label="Remaining metered uses"
-              value={summary.limitedCount > 0 ? String(summary.remaining) : 'Unlimited'}
+              value={summary.limitedCount > 0 ? String(summary.remaining) : usageLabels.unlimited}
             />
           </div>
 
@@ -156,13 +180,13 @@ export default function AIUsageAnalytics() {
                       </div>
                       <div className="text-left text-xs sm:text-right">
                         {disabled ? (
-                          <span className="text-gray-500">Unavailable</span>
+                          <span className="text-gray-500">{usageLabels.unavailable}</span>
                         ) : blockedByPlan ? (
                           <span className="text-amber-400">Requires {planLabel(state.required_plan)}</span>
                         ) : limited ? (
                           <span className="text-gray-300">{used} / {Number(limit)} used · {safeNumber(remaining)} remaining</span>
                         ) : (
-                          <span className="text-emerald-400">Unlimited</span>
+                          <span className="text-emerald-400">{usageLabels.unlimited}</span>
                         )}
                       </div>
                     </div>
