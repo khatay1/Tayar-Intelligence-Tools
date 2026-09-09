@@ -18,9 +18,9 @@ const LANGUAGES = [
 ];
 
 const ANDROID_COPY = {
-  en: { download: 'Download Android', help: 'How to download' },
-  ar: { download: 'تنزيل Android', help: 'كيفية التنزيل' },
-  sv: { download: 'Ladda ner Android', help: 'Så laddar du ner' },
+  en: { download: 'Download Android', compact: 'Download', help: 'How to download' },
+  ar: { download: 'تنزيل Android', compact: 'تنزيل', help: 'كيفية التنزيل' },
+  sv: { download: 'Ladda ner Android', compact: 'Ladda ner', help: 'Så laddar du ner' },
 } as const;
 
 export default function Navbar({ onGetStarted, onLogin }: NavbarProps) {
@@ -141,7 +141,7 @@ export default function Navbar({ onGetStarted, onLogin }: NavbarProps) {
             aria-label={`${androidCopy.download} — ${androidCopy.help}`}
           >
             <Download className="h-4 w-4 text-emerald-300" />
-            <span>Android</span>
+            <span>{androidCopy.compact}</span>
           </a>
           <button
             type="button"
