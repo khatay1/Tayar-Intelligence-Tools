@@ -21,12 +21,21 @@
       "distribution": "internal",
       "environment": "production",
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://pnbllxdlskljcakyaylt.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_kCKtimarUOhn8sSGYhExtg_rPDOtUpo"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "environment": "production",
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://pnbllxdlskljcakyaylt.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_kCKtimarUOhn8sSGYhExtg_rPDOtUpo"
+      },
       "android": {
         "buildType": "app-bundle"
       }
