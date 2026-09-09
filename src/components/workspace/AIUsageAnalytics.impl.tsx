@@ -49,9 +49,10 @@ export default function AIUsageAnalytics() {
       const results = await Promise.allSettled(
         AI_TOOLS.map(async ([id, label]) => ({ id, label, state: await getToolUsageState(id) })),
       );
-      const nextRows = results
-        .filter((result): result is PromiseFulfilledResult<UsageRow> => result.status === 'fulfilled')
-        .map((result) => result.value);
+      const nextRows: UsageRow[] = [];
+      for (const result of results) {
+        if (result.status === 'fulfilled') nextRows.push(result.value);
+      }
       if (nextRows.length === 0) throw new Error('Could not load AI usage.');
       setRows(nextRows);
     } catch (err) {

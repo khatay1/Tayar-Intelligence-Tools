@@ -1,0 +1,40 @@
+name: Mobile lockfile sync
+
+on:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - apps/mobile/package.json
+      - .github/workflows/mobile-lock-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-native-react-native-20260907
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - name: Regenerate mobile npm lockfile
+        working-directory: apps/mobile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit synchronized lockfile
+        run: |
+          if git diff --quiet -- apps/mobile/package-lock.json; then
+            echo "Mobile lockfile is already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile/package-lock.json
+          git commit -m "Sync mobile Expo lockfile"
+          git push origin HEAD:mobile-native-react-native-20260907
