@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy, Loader2, Mailbox, Reply, Sparkles, Wand2 } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-release';
 import { useToast } from '@/components/ui/Toast';
 import {
   ToolField,
@@ -138,12 +138,12 @@ ${needsSource ? `Email to ${mode === 'reply' ? 'reply to' : 'improve'}:\n<email>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
             <ToolField label={l('Language')}>
               <select value={language} onChange={(event) => setLanguage(event.target.value)} className={toolInputClass}>
-                <option>English</option>
-                <option>Swedish</option>
-                <option>Arabic</option>
-                <option>German</option>
-                <option>French</option>
-                <option>Spanish</option>
+                <option value="English">{l('English')}</option>
+                <option value="Swedish">{l('Swedish')}</option>
+                <option value="Arabic">{l('Arabic')}</option>
+                <option value="German">{l('German')}</option>
+                <option value="French">{l('French')}</option>
+                <option value="Spanish">{l('Spanish')}</option>
                 <option value="Same as input">{l('Same as input')}</option>
               </select>
             </ToolField>

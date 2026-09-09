@@ -26,6 +26,24 @@
       ]
     },
     {
+      "source": "/download/android",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/download/android.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/sw.js",
       "headers": [
         {
@@ -61,10 +79,20 @@
     "deploymentEnabled": {
       "main": true,
       "translation-batch-check-20260902": false,
-      "release/ai-patch-engine-v1": false
+      "release/ai-patch-engine-v1": false,
+      "mobile-native-react-native-20260907": false,
+      "mobile-native-next-tools-20260907": false
     }
   },
   "rewrites": [
+    {
+      "source": "/download/android",
+      "destination": "/download/android.html"
+    },
+    {
+      "source": "/account-deletion",
+      "destination": "/"
+    },
     {
       "source": "/site/:ownerId/:projectId",
       "destination": "/api/published-site"

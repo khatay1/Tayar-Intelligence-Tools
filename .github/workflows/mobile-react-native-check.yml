@@ -1,0 +1,117 @@
+name: Tayar React Native Mobile
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - mobile-native-react-native-20260907
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/mobile-react-native-check.yml'
+
+permissions:
+  contents: read
+
+# Release checkpoint: secure recovery deep link + lossy-publish preflight.
+concurrency:
+  group: tayar-react-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+      - name: Install root lint dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Lint mobile source
+        run: npx eslint apps/mobile
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Prepare pinned mobile models
+        run: npm run models:prepare
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Verify published Expo SDK patch pins
+        run: node -e "const p=require('./package.json'); if (p.dependencies.expo !== '~57.0.20' || p.dependencies['expo-router'] !== '~57.0.19') throw new Error('Expo SDK patch pins changed; review upstream compatibility before native build.');"
+      # Expo Doctor currently expects SDK 57 patches that are not published on npm yet.
+      # Skip only that dependency-version check; all other Doctor checks still run.
+      - name: Expo doctor
+        env:
+          EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK: '1'
+        run: npx expo-doctor@1.20.4
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --clean
+      - name: Build Android debug APK
+        run: cd android && ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Verify Android 16 KB native page alignment
+        run: bash scripts/check-android-16kb.sh android/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tayar-react-native-android-debug
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Prepare pinned mobile models
+        run: npm run models:prepare
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Verify published Expo SDK patch pins
+        run: node -e "const p=require('./package.json'); if (p.dependencies.expo !== '~57.0.20' || p.dependencies['expo-router'] !== '~57.0.19') throw new Error('Expo SDK patch pins changed; review upstream compatibility before native build.');"
+      # Expo Doctor currently expects SDK 57 patches that are not published on npm yet.
+      # Skip only that dependency-version check; all other Doctor checks still run.
+      - name: Expo doctor
+        env:
+          EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK: '1'
+        run: npx expo-doctor@1.20.4
+      - name: Generate iOS native project
+        run: npx expo prebuild --platform ios --clean
+      - name: Build iOS Simulator app without signing
+        run: |
+          xcodebuild \
+            -workspace ios/TayarTools.xcworkspace \
+            -scheme TayarTools \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

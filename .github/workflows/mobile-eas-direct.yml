@@ -1,0 +1,88 @@
+name: Tayar Mobile EAS Direct APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tayar-mobile-eas-direct-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Verify EAS direct APK prerequisites
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN repository secret is required."
+            exit 1
+          fi
+          node - <<'NODE'
+          const app = require('./app.json');
+          const eas = require('./eas.json');
+          const projectId = app.expo?.extra?.eas?.projectId;
+          if (typeof projectId !== 'string' || !projectId.trim()) {
+            throw new Error('expo.extra.eas.projectId is missing.');
+          }
+
+          const directEnv = eas.build?.direct?.env || {};
+          const required = [
+            'EXPO_PUBLIC_SUPABASE_URL',
+            'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+          ];
+          for (const key of required) {
+            if (typeof directEnv[key] !== 'string' || !directEnv[key].trim()) {
+              throw new Error(`${key} is missing from build.direct.env; refusing to queue a crash-prone APK.`);
+            }
+          }
+          try {
+            const url = new URL(directEnv.EXPO_PUBLIC_SUPABASE_URL);
+            if (url.protocol !== 'https:') throw new Error('Supabase URL must use HTTPS.');
+          } catch (error) {
+            throw new Error(`EXPO_PUBLIC_SUPABASE_URL is invalid: ${error.message}`);
+          }
+
+          console.log(`Using EAS project ${projectId}.`);
+          console.log('Required public mobile runtime configuration is present in the direct EAS profile.');
+          NODE
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Prepare pinned mobile models
+        run: npm run models:prepare
+
+      - name: Verify Expo account and direct profile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@23.2.0 whoami
+          npx --yes eas-cli@23.2.0 project:info
+          npx --yes eas-cli@23.2.0 config --platform android --profile direct --json --non-interactive >/dev/null
+
+      - name: Queue signed direct APK build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@23.2.0 build \
+            --platform android \
+            --profile direct \
+            --non-interactive \
+            --no-wait

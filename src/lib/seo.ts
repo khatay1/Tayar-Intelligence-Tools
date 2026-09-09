@@ -80,4 +80,9 @@ export const PAGE_SEO: Record<string, SEOConfig> = {
   about: { title: 'About — Tayar Intelligence', description: 'Learn what Tayar Intelligence is building and how the workspace is designed.' },
   privacy: { title: 'Privacy Policy — Tayar Intelligence', description: 'Read the Tayar Intelligence privacy policy.' },
   terms: { title: 'Terms of Service — Tayar Intelligence', description: 'Read the Tayar Intelligence terms of service.' },
+  'account-deletion': {
+    title: 'Account & Data Deletion — Tayar Intelligence',
+    description: 'Delete your Tayar Intelligence account and associated data from the mobile app or signed-in web workspace, or request deletion assistance.',
+    url: `${BASE_URL}/#account-deletion`,
+  },
 };

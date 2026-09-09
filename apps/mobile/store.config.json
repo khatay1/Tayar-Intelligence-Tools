@@ -1,0 +1,41 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "categories": ["PRODUCTIVITY", "UTILITIES"],
+    "info": {
+      "en-US": {
+        "title": "Tayar Tools",
+        "subtitle": "AI productivity workspace",
+        "description": "Tayar Tools brings AI and practical productivity workflows into one mobile workspace.\n\nSign in with your Tayar account and use the included iOS companion toolset for writing and AI-assisted tasks, PDF and document utilities, image workflows, website projects and other practical productivity tasks from a mobile-first interface. The included iOS toolset is the same for every signed-in account.\n\nSelected file workflows are processed on-device whenever the tool supports local processing. Tayar also includes account controls, legal links and permanent account deletion from the mobile profile.\n\nHighlights:\n• Included AI-assisted writing and productivity workflows\n• PDF, document and image utilities\n• Mobile website project tools\n• Local processing for supported file workflows\n• Permanent in-app account deletion\n• Privacy Policy and Terms available before and after sign-in\n\nTayar Tools does not require camera or microphone access for its current workflows.",
+        "keywords": ["ai", "productivity", "pdf", "images", "writing", "website"],
+        "promoText": "Included AI and productivity tools for writing, files, websites and images in one mobile Tayar workspace.",
+        "marketingUrl": "https://tayar.se/",
+        "supportUrl": "https://tayar.se/support.html",
+        "privacyPolicyUrl": "https://tayar.se/#privacy",
+        "privacyChoicesUrl": "https://tayar.se/account-deletion"
+      },
+      "sv": {
+        "title": "Tayar Tools",
+        "subtitle": "AI-verktyg för produktivitet",
+        "description": "Tayar Tools samlar AI och praktiska produktivitetsflöden i en mobil arbetsyta.\n\nLogga in med ditt Tayar-konto och använd de inkluderade iOS-kompanjonverktygen för text och AI-assisterade uppgifter, PDF- och dokumentverktyg, bildflöden, webbprojekt och andra praktiska produktivitetsuppgifter i ett mobilanpassat gränssnitt. Den inkluderade iOS-verktygsuppsättningen är densamma för alla inloggade konton.\n\nUtvalda filflöden behandlas lokalt på enheten när verktyget stöder lokal bearbetning. Tayar innehåller även kontoinställningar, juridiska länkar och permanent kontoradering direkt från mobilprofilen.\n\nHöjdpunkter:\n• Inkluderade AI-assisterade text- och produktivitetsflöden\n• PDF-, dokument- och bildverktyg\n• Mobila verktyg för webbprojekt\n• Lokal bearbetning för filflöden som stöds\n• Permanent kontoradering i appen\n• Integritetspolicy och villkor före och efter inloggning\n\nTayar Tools behöver inte kamera- eller mikrofonåtkomst för de nuvarande arbetsflödena.",
+        "keywords": ["ai", "produktivitet", "pdf", "bilder", "skrivande", "webb"],
+        "promoText": "Inkluderade AI- och produktivitetsverktyg för text, filer, webb och bilder i en mobil Tayar-arbetsyta.",
+        "marketingUrl": "https://tayar.se/",
+        "supportUrl": "https://tayar.se/support.html",
+        "privacyPolicyUrl": "https://tayar.se/#privacy",
+        "privacyChoicesUrl": "https://tayar.se/account-deletion"
+      },
+      "ar-SA": {
+        "title": "Tayar Tools",
+        "subtitle": "مساحة للذكاء والإنتاجية",
+        "description": "يجمع Tayar Tools أدوات الذكاء الاصطناعي وسير العمل الإنتاجي العملي في مساحة عمل مخصصة للجوال.\n\nسجّل الدخول بحساب Tayar واستخدم مجموعة أدوات iOS المصاحبة والمضمنة للكتابة والمهام المدعومة بالذكاء الاصطناعي، وأدوات PDF والمستندات، ومعالجة الصور، ومشاريع المواقع، ومهام إنتاجية عملية أخرى من واجهة مناسبة للجوال. مجموعة أدوات iOS المضمنة هي نفسها لكل الحسابات المسجلة الدخول.\n\nتتم معالجة بعض مهام الملفات على الجهاز نفسه عندما تدعم الأداة المعالجة المحلية. كما يتضمن Tayar أدوات لإدارة الحساب، وروابط قانونية، وحذف الحساب نهائيًا من داخل ملف المستخدم في التطبيق.\n\nأبرز المزايا:\n• أدوات مضمنة للكتابة والإنتاجية بمساعدة الذكاء الاصطناعي\n• أدوات PDF والمستندات والصور\n• أدوات جوال لمشاريع المواقع\n• معالجة محلية للملفات في الأدوات التي تدعم ذلك\n• حذف الحساب نهائيًا من داخل التطبيق\n• سياسة الخصوصية وشروط الخدمة قبل وبعد تسجيل الدخول\n\nلا يحتاج Tayar Tools إلى صلاحية الكاميرا أو الميكروفون في سير العمل الحالي.",
+        "keywords": ["ذكاء", "إنتاجية", "PDF", "صور", "كتابة", "مواقع"],
+        "promoText": "أدوات ذكاء وإنتاجية مضمنة للكتابة والملفات والمواقع والصور ضمن مساحة عمل Tayar على الجوال.",
+        "marketingUrl": "https://tayar.se/",
+        "supportUrl": "https://tayar.se/support.html",
+        "privacyPolicyUrl": "https://tayar.se/#privacy",
+        "privacyChoicesUrl": "https://tayar.se/account-deletion"
+      }
+    }
+  }
+}

@@ -96,9 +96,16 @@ check('Checkout uses configured prices, trusted redirects and idempotency keys',
   billingStatus.includes('pro.livemode === true') &&
   billingStatus.includes('pro.livemode === false') &&
   !billingStatus.includes('mode === "unknown";'));
-check('Subscription screen displays the public live price catalog',
-  subscription.includes('fetchPublicPlanCatalogV2') && subscription.includes('formatPlanPrice') &&
-  publicCatalog.includes('/v1/prices/') && !publicCatalog.includes('fallbackAmount'));
+check('Subscription screen displays verified public snapshots for active Stripe prices',
+  subscription.includes('fetchPublicPlanCatalogV2') &&
+  subscription.includes('formatPlanPrice') &&
+  publicCatalog.includes('stripe_${plan}_price_public') &&
+  publicCatalog.includes('matchesCurrentPrice') &&
+  publicCatalog.includes('unitAmount: matchesCurrentPrice') &&
+  !publicCatalog.includes('fallbackAmount') &&
+  adminBilling.includes('/v1/prices/${encodeURIComponent(previousPriceId)}') &&
+  adminBilling.includes('publicPriceSettingKey(plan)') &&
+  adminBilling.includes('value: publicPrice'));
 check('New Stripe prices are retained in the plan mapping',
   adminBilling.includes('stripe_price_plan_map') && migration.includes('create table if not exists public.stripe_price_plan_map'));
 check('Stripe webhook events are claimed idempotently and reject stale updates',

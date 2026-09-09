@@ -1,6 +1,6 @@
 import { ChangeEvent, useState } from 'react';
 import { BarChart3, Check, Copy, FileSpreadsheet, Loader2, ShieldCheck, Sparkles, Upload } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-release';
 import { useToast } from '@/components/ui/Toast';
 import {
   ToolField,
