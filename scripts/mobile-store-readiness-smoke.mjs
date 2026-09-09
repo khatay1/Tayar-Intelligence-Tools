@@ -81,7 +81,7 @@ check('Mobile uses the production Tayar application identifiers',
   appConfig.ios?.bundleIdentifier === 'se.tayar.tools' && appConfig.android?.package === 'se.tayar.tools');
 check('Expo SDK baseline is API-36-capable for the 2026 Play target requirement', expoMajor >= 57);
 check('Mobile pins the latest currently published Expo SDK 57 patches',
-  mobilePackage.dependencies?.expo === '~57.0.20' && mobilePackage.dependencies?.['expo-router'] === '~57.0.19');
+  mobilePackage.dependencies?.expo === '~57.0.21' && mobilePackage.dependencies?.['expo-router'] === '~57.0.20');
 check('Android store builds are app bundles', eas.build?.production?.android?.buildType === 'app-bundle');
 check('First Android submission is limited to Play internal testing', eas.submit?.production?.android?.track === 'internal');
 check('Production builds auto-increment remote store versions',
