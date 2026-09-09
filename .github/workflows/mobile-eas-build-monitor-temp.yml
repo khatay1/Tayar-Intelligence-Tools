@@ -21,16 +21,27 @@ jobs:
       SOURCE_COMMIT: 5c20f0d7bf9c225b45e4fbddcf70b15ffc41e801
       EXPECTED_VERSION_CODE: '4'
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5c20f0d7bf9c225b45e4fbddcf70b15ffc41e801
+
       - name: Validate Expo credential
         run: |
           set -euo pipefail
           test -n "$EXPO_TOKEN"
+          test -f apps/mobile/app.json
+          test -f apps/mobile/eas.json
 
       - name: Wait for EAS build and validate metadata
+        working-directory: apps/mobile
         run: |
           set -euo pipefail
           for attempt in $(seq 1 120); do
-            npx --yes eas-cli@23.2.0 build:view "$BUILD_ID" --json > /tmp/eas-build.json
+            if ! npx --yes eas-cli@23.2.0 build:view "$BUILD_ID" --json > /tmp/eas-build.json; then
+              echo "EAS build:view not ready (attempt $attempt/120); retrying."
+              sleep 20
+              continue
+            fi
             STATUS="$(node -e "const b=require('/tmp/eas-build.json'); process.stdout.write(String(b.status||''))")"
             echo "EAS status: $STATUS (attempt $attempt/120)"
             if [ "$STATUS" = "FINISHED" ]; then
