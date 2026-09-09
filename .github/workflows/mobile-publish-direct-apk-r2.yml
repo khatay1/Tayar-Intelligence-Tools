@@ -2,6 +2,11 @@ name: Publish Tayar Android APK to R2
 
 on:
   workflow_dispatch:
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+    paths:
+      - .github/workflows/mobile-publish-direct-apk-r2.yml
 
 permissions:
   contents: read
@@ -11,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      BUILD_ID: a41d39ee-cef5-4a6f-8967-a836c8b3336d
+      BUILD_ID: f45a7566-48ac-415b-a913-d09ba6ce435f
       APP_VERSION: 0.2.0
-      BUILD_NUMBER: '3'
-      SOURCE_COMMIT: 30c50270e7b0e30173561f4aab94294a1fc9752b
-      EXPECTED_SHA256: 3e5ed2d100ef8975181b44c2f414f9427e2b83d634bff10be1ab3b5c2f79f04c
+      BUILD_NUMBER: '4'
+      SOURCE_COMMIT: 5c20f0d7bf9c225b45e4fbddcf70b15ffc41e801
+      EXPECTED_SHA256: 5117df42cfd6910a1c0f47b8dc76bce7d984b8503588cf19e5fd2d4b91c44c99
       R2_BUCKET: tayar-downloads
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -28,7 +33,7 @@ jobs:
       - name: Checkout exact build source
         uses: actions/checkout@v4
         with:
-          ref: 30c50270e7b0e30173561f4aab94294a1fc9752b
+          ref: 5c20f0d7bf9c225b45e4fbddcf70b15ffc41e801
 
       - uses: actions/setup-node@v4
         with:
@@ -58,19 +63,21 @@ jobs:
           const build = JSON.parse(fs.readFileSync('/tmp/eas-build.json', 'utf8'));
           const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl;
           const checks = [
+            [build.id === process.env.BUILD_ID, `id=${build.id}`],
             [build.status === 'FINISHED', `status=${build.status}`],
             [build.platform === 'ANDROID', `platform=${build.platform}`],
             [build.distribution === 'INTERNAL', `distribution=${build.distribution}`],
             [build.buildProfile === 'direct', `buildProfile=${build.buildProfile}`],
             [build.appIdentifier === 'se.tayar.tools', `appIdentifier=${build.appIdentifier}`],
-            [build.appVersion === '0.2.0', `appVersion=${build.appVersion}`],
-            [String(build.appBuildVersion) === '3', `appBuildVersion=${build.appBuildVersion}`],
-            [build.gitCommitHash === '30c50270e7b0e30173561f4aab94294a1fc9752b', `gitCommitHash=${build.gitCommitHash}`],
+            [build.appVersion === process.env.APP_VERSION, `appVersion=${build.appVersion}`],
+            [String(build.appBuildVersion) === process.env.BUILD_NUMBER, `appBuildVersion=${build.appBuildVersion}`],
+            [build.gitCommitHash === process.env.SOURCE_COMMIT, `gitCommitHash=${build.gitCommitHash}`],
             [typeof url === 'string' && url.includes('.apk'), `artifact=${url}`],
           ];
           const failed = checks.filter(([ok]) => !ok).map(([, detail]) => detail);
           if (failed.length) throw new Error(`EAS build validation failed: ${failed.join(', ')}`);
           fs.appendFileSync(process.env.GITHUB_ENV, `APK_URL=${url}\n`);
+          console.log(`Validated exact APK build ${build.id}: ${build.appIdentifier} ${build.appVersion} (${build.appBuildVersion})`);
           NODE
 
       - name: Download and verify APK
@@ -158,6 +165,10 @@ jobs:
           aws s3api head-object \
             --bucket "$R2_BUCKET" \
             --key "android/latest.apk" \
+            --endpoint-url "$ENDPOINT" >/dev/null
+          aws s3api head-object \
+            --bucket "$R2_BUCKET" \
+            --key "android/latest.apk.sha256" \
             --endpoint-url "$ENDPOINT" >/dev/null
           aws s3api head-object \
             --bucket "$R2_BUCKET" \
