@@ -56,6 +56,7 @@ const editorAIOperationContextPath = resolve(root, 'src/modules/website-builder/
 const editorAINativeBridgePath = resolve(root, 'src/modules/website-builder/core/editor-ai-native-bridge.ts');
 const editorNativeProjectPatchPath = resolve(root, 'src/modules/website-builder/core/editor-native-project-patch.ts');
 const editorAIWorkingProjectPath = resolve(root, 'src/modules/website-builder/core/editor-ai-working-project.ts');
+const editorCanvasGeometryPath = resolve(root, 'src/modules/website-builder/core/editor-canvas-geometry.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -120,12 +121,14 @@ for (const [label, path] of [
   ['AI native operation bridge exists', editorAINativeBridgePath],
   ['Plain native project patch executor exists', editorNativeProjectPatchPath],
   ['AI working native project executor exists', editorAIWorkingProjectPath],
+  ['Canvas geometry helper exists', editorCanvasGeometryPath],
 ]) {
   check(label, existsSync(path));
 }
 
 const builder = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
+const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 check('All editor AI entry points lock synchronously before React updates', (builder.match(/if \(aiAbortControllerRef\.current \|\| aiQualityAbortControllerRef\.current\) return/g) || []).length === 5);
 check('Cancelled structured requests stop during preparation', (aiService.match(/options\?\.signal\?\.throwIfAborted\(\)/g) || []).length >= 3);
 check('Cancelled structured requests stop during retry backoff', aiService.includes('async function waitForRetry') && aiService.includes("addEventListener('abort', handleAbort") && aiService.includes('await waitForRetry(delay, signal)') && aiService.includes('}, options?.signal);'));
@@ -136,8 +139,19 @@ check('AI composer submits on Enter while preserving multiline prompts', builder
 check('AI conversation follows the latest response', builder.includes("scrollIntoView({ block: 'nearest' })") && builder.includes('ref={v2AiMessagesEndRef}'));
 check('AI status is localized and old plans clear before a new request', (builder.match(/setAiPlan\(null\);/g) || []).length >= 3 && builder.includes("? l('Planning…')") && builder.includes("? l('Building…')") && builder.includes("? l('Finishing…')") && builder.includes("{aiBusy ? aiStageStatus : l('Agent')}"));
 check('Targeted AI edits pause for explicit plan approval before execution', builder.includes('const planApproved = await requestAIPlanReview') && builder.indexOf('const planApproved = await requestAIPlanReview') < builder.indexOf('const response = await ai.completeJSON<AIWebsitePatch>') && builder.includes("l('Approve and continue')") && builder.includes("l('Discard plan')"));
-check('AI plan review resolves safely when stopped or project lifecycle changes', builder.includes('aiPlanReviewResolverRef.current?.(false)') && builder.includes('resolveAIPlanReview(false);\n    aiAbortControllerRef.current?.abort()') && builder.includes("signal.addEventListener('abort', handleAbort, { once: true })"));
+check('AI plan review resolves safely when stopped or project lifecycle changes', builder.includes('aiPlanReviewResolverRef.current?.(false)') && builder.includes('resolveAIPlanReview(false);') && builder.indexOf('resolveAIPlanReview(false);', builder.indexOf('function stopAIRequest()')) < builder.indexOf('aiAbortControllerRef.current?.abort()', builder.indexOf('function stopAIRequest()')) && builder.includes("signal.addEventListener('abort', handleAbort, { once: true })"));
 check('AI plan review is keyboard accessible and receives focus', builder.includes('aiPlanApproveButtonRef.current?.focus()') && builder.includes("event.key !== 'Escape'") && builder.includes('aria-keyshortcuts="Escape"') && builder.includes('aria-describedby="tayar-ai-plan-review-description"'));
+const patchReviewRequestIndex = builder.indexOf('const patchApproved = await requestAIPatchReview');
+const patchExecutionIndex = builder.indexOf("const allowedTypes = new Set<SectionType>", patchReviewRequestIndex);
+const patchCommitIndex = builder.indexOf('pushProjectCheckpoint(`After AI change', patchExecutionIndex);
+check('AI patches pause for exact operation review before any application', patchReviewRequestIndex > -1 && patchReviewRequestIndex < patchExecutionIndex && patchExecutionIndex < patchCommitIndex && builder.includes("l('Apply changes')") && builder.includes("l('Discard changes')"));
+check('Exact patch review resolves safely when stopped or project lifecycle changes', builder.includes('aiPatchReviewResolverRef.current?.(false)') && builder.includes('resolveAIPatchReview(false);\n    aiAbortControllerRef.current?.abort()') && builder.includes('function requestAIPatchReview'));
+check('Exact patch review is keyboard accessible and receives focus', builder.includes('aiPatchApproveButtonRef.current?.focus()') && builder.includes('aria-describedby="tayar-ai-patch-review-description"') && builder.includes('aria-labelledby="tayar-ai-patch-review-title"'));
+check('Exact patch review replaces the destructive-only AI confirmation', !builder.includes("l('Tayar AI wants to run')") && builder.includes('destructiveCount: destructiveOperations.length'));
+check('Exact AI patch targets are projected onto both visual canvases', builder.includes('const aiCanvasPreview = useMemo<AIWebsiteCanvasPreview | null>') && (builder.match(/aiPreview=\{aiCanvasPreview\}/g) || []).length === 2 && builder.includes('data-tayar-ai-preview-kind={sectionPreviewKind}') && builder.includes('data-tayar-ai-preview-kind={aiPreview?.elementKinds[element.id]}'));
+check('Canvas AI preview distinguishes add update and remove without mutating draft state', builder.includes("if (kind === 'remove')") && builder.includes("if (kind === 'add')") && builder.includes("if (kind === 'update')") && builder.includes("l('AI preview only')") && builder.includes('preview.sectionKinds[operation.sectionId]'));
+check('Canvas editing and keyboard focus pause during exact AI review', (builder.match(/aria-disabled=\{aiCanvasPreview \? true : undefined\}/g) || []).length === 2 && (builder.match(/pointer-events-none select-none/g) || []).length === 2 && (builder.match(/onFocusCapture=/g) || []).length >= 2);
+check('Canvas AI preview reveals the first visible target with reduced-motion support', builder.includes("document.querySelector<HTMLElement>('[data-tayar-ai-preview-kind]')") && builder.includes("matchMedia('(prefers-reduced-motion: reduce)')") && builder.includes("block: 'center'"));
 check('V2 AI prompts and status are localized', builder.includes("l('Tell Tayar AI what to change...')") && builder.includes("l('Build with Tayar AI')") && builder.includes("l('Working…')"));
 check('AI requests can be stopped at the network boundary', aiService.includes('signal?: AbortSignal') && aiService.includes('AbortSignal.any([options.signal') && builder.includes('aiAbortControllerRef.current?.abort()'));
 check('Stopping AI invalidates pending edits before application', builder.includes('function stopAIRequest()') && builder.includes('aiOperationSequenceRef.current += 1') && builder.includes("l('Stop AI')"));
@@ -278,6 +292,14 @@ check('Section drag and drop reorders live while dragging', builder.includes("dr
 check('Canvas shows before/after drop indicators', builder.includes("dragOverElementPosition === 'before'") && builder.includes("dragOverSectionPosition === 'before'"));
 check('Canvas elements support free X/Y positioning', builder.includes("positionX") && builder.includes("positionY") && builder.includes("handleElementDragMove"));
 check('Free positioning is device-aware and published', builder.includes("translate3d(${positionX}px,${positionY}px,0)") && builder.includes("responsive") && builder.includes("[device]"));
+check('Canvas free dragging snaps to an 8px grid with Alt precision override', builder.includes('resolveCanvasDragPosition') && builder.includes('precisionMode: e.altKey') && builder.includes('data-tayar-canvas-grid="true"') && canvasGeometry.includes('CANVAS_GRID_SIZE = 8'));
+check('Canvas smart alignment snaps element centers and renders guides', canvasGeometry.includes('CANVAS_ALIGNMENT_THRESHOLD = 6') && canvasGeometry.includes('sectionCenterX') && canvasGeometry.includes('closestAlignment') && builder.includes('data-tayar-snap-guide="vertical"') && builder.includes('data-tayar-snap-guide="horizontal"'));
+check('Canvas smart alignment includes sibling edges and centers', builder.includes("querySelectorAll<HTMLElement>('[data-tayar-canvas-element-id]')") && builder.includes('bounds.left + (bounds.width / 2)') && canvasGeometry.includes('closestAlignment(movingX') && canvasGeometry.includes('alignmentTargets?.x'));
+check('Canvas resizing supports anchored left and right handles', builder.includes("beginResize('left', event)") && builder.includes("beginResize('right', event)") && builder.includes("edge === 'left' ? frame") && canvasGeometry.includes("edge: 'left' | 'right'"));
+check('Canvas resize snaps to 5% with Alt 1% precision', canvasGeometry.includes('CANVAS_RESIZE_SNAP_STEP = 5') && canvasGeometry.includes('precisionMode ? 1 : CANVAS_RESIZE_SNAP_STEP') && builder.includes('precisionMode: moveEvent.altKey'));
+check('Canvas resize listeners clean up on pointer cancellation and window blur', builder.includes("window.addEventListener('pointercancel', finishResize") && builder.includes("window.addEventListener('blur', finishResize") && builder.includes("window.removeEventListener('pointercancel', finishResize)"));
+check('Keyboard nudging batches repeated arrows into one undo checkpoint', builder.includes('canvasNudgeSessionRef') && builder.includes("remember(sections, 'Move element')") && builder.includes("window.addEventListener('keyup', handleCanvasKeyUp)") && builder.includes("window.addEventListener('blur', handleCanvasBlur)"));
+check('Shift drag reorders without changing free-position offsets', builder.includes('if (e.shiftKey) {') && builder.includes('setCanvasSnapGuide(null);'));
 check('Shift drag preserves flow reordering', builder.includes("if (!e.shiftKey)") && builder.includes("Hold Shift while dragging to reorder instead."));
 check('Inspector exposes X/Y and reset position controls', builder.includes("Free position") && builder.includes("positionX") && builder.includes("positionY") && builder.includes("positionX: 0, positionY: 0"));
 check('Divider applies free-position transform like other elements', builder.includes("element.type === 'divider'") && builder.includes("style={{ ...commonStyle, backgroundColor: 'transparent'"));

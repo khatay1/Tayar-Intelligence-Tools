@@ -104,6 +104,14 @@ import {
 import { languageCodeLabel, normalizePageLanguage, normalizeSlug, PAGE_LANGUAGE_LABELS } from './core/project-identifiers';
 import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
 import {
+  CANVAS_GRID_SIZE,
+  resolveCanvasDragPosition,
+  resolveCanvasResize,
+  type CanvasAlignmentTargets,
+  type CanvasBounds,
+  type CanvasSnapGuides,
+} from './core/editor-canvas-geometry';
+import {
   editorAIContextMatches,
   editorAIProjectIdentityMatches,
   type EditorAIAsyncContext,
@@ -354,6 +362,90 @@ interface AIWebsitePlanReview {
   summary: string;
   steps: AIWebsiteAgentPlanStep[];
   warnings: string[];
+}
+
+interface AIWebsitePatchReviewItem {
+  id: string;
+  label: string;
+  target: string;
+  fields: string[];
+  kind: AIWebsitePatchReviewKind;
+  pageId?: string;
+  pageSlug?: string;
+  sectionId?: string;
+  elementId?: string;
+  containerId?: string;
+}
+
+type AIWebsitePatchReviewKind = 'add' | 'update' | 'remove';
+
+interface AIWebsiteCanvasPreview {
+  global: boolean;
+  sectionKinds: Record<string, AIWebsitePatchReviewKind>;
+  elementKinds: Record<string, AIWebsitePatchReviewKind>;
+  containerKinds: Record<string, AIWebsitePatchReviewKind>;
+}
+
+interface AIWebsitePatchReview {
+  summary: string;
+  operations: AIWebsitePatchReviewItem[];
+  warnings: string[];
+  confidence: number | null;
+  destructiveCount: number;
+}
+
+function humanizeAIWebsitePatchAction(action: AIWebsitePatchOperation['action']): string {
+  return action
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function aiWebsitePatchReviewKind(action: string): AIWebsitePatchReviewKind {
+  if (action.startsWith('remove_')) return 'remove';
+  if (action.startsWith('add_') || action.startsWith('duplicate_') || action.startsWith('create_') || action.startsWith('insert_')) return 'add';
+  return 'update';
+}
+
+function mergeAIWebsitePatchReviewKind(
+  current: AIWebsitePatchReviewKind | undefined,
+  next: AIWebsitePatchReviewKind,
+): AIWebsitePatchReviewKind {
+  if (current === 'remove' || next === 'remove') return 'remove';
+  if (current === 'add' || next === 'add') return 'add';
+  return 'update';
+}
+
+function aiWebsitePatchPreviewClass(kind?: AIWebsitePatchReviewKind): string {
+  if (kind === 'remove') return 'ring-2 ring-red-400 ring-inset shadow-[inset_0_0_0_1px_rgba(248,113,113,0.35),0_0_24px_rgba(248,113,113,0.20)]';
+  if (kind === 'add') return 'ring-2 ring-emerald-400 ring-inset shadow-[inset_0_0_0_1px_rgba(52,211,153,0.35),0_0_24px_rgba(52,211,153,0.20)]';
+  if (kind === 'update') return 'ring-2 ring-violet-400 ring-inset shadow-[inset_0_0_0_1px_rgba(167,139,250,0.35),0_0_24px_rgba(167,139,250,0.20)]';
+  return '';
+}
+
+function describeAIWebsitePatchTarget(operation: AIWebsitePatchOperation): string {
+  const page = operation.pageSlug || operation.pageId;
+  const section = operation.sectionId || operation.sectionType;
+  const element = operation.elementId || operation.elementType;
+  const target = element
+    ? `${page ? `${page} / ` : ''}${section ? `${section} / ` : ''}${element}`
+    : section
+      ? `${page ? `${page} / ` : ''}${section}`
+      : operation.containerId || operation.formFieldId || operation.symbolId || page || 'Site-wide';
+  return String(target).slice(0, 180);
+}
+
+function describeAIWebsitePatchFields(operation: AIWebsitePatchOperation): string[] {
+  const fields = operation.changes && typeof operation.changes === 'object'
+    ? Object.keys(operation.changes)
+    : operation.page
+      ? ['page']
+      : operation.section
+        ? ['section']
+        : operation.prompt
+          ? ['prompt']
+          : [];
+  return fields.slice(0, 8);
 }
 
 interface AIWebsiteAgentReviewFinding {
@@ -2679,6 +2771,7 @@ function ElementPreview({
   };
 
   const dragProps = {
+    'data-tayar-canvas-element-id': element.id,
     draggable: !editingInline,
     onDragStart: (e: React.DragEvent) => {
       if (editingInline) { e.preventDefault(); return; }
@@ -2796,13 +2889,14 @@ function SectionPreview({
   draggedElementId,
   dragOverElementId,
   dragOverElementPosition,
+  snapGuides,
   onElementDragStart,
   onElementDragMove,
   onElementDragOver,
   onElementDrop,
   onElementDragEnd,
   onResizeElementStart,
-  onResizeElementWidth,
+  onResizeElementFrame,
   onResetElementPosition,
   onQuickUpdateElement,
   onOpenMediaLibrary,
@@ -2819,6 +2913,7 @@ function SectionPreview({
   canDeleteSection,
   device,
   theme,
+  aiPreview,
 }: {
   section: WebsiteSection;
   selected: boolean;
@@ -2828,13 +2923,14 @@ function SectionPreview({
   draggedElementId: string | null;
   dragOverElementId: string | null;
   dragOverElementPosition: 'before' | 'after' | null;
+  snapGuides: CanvasSnapGuides | null;
   onElementDragStart: (id: string, e: React.DragEvent) => void;
   onElementDragMove: (id: string, e: React.DragEvent) => void;
   onElementDragOver: (id: string, e: React.DragEvent) => void;
   onElementDrop: (id: string, e: React.DragEvent) => void;
   onElementDragEnd: () => void;
   onResizeElementStart: (id: string) => void;
-  onResizeElementWidth: (id: string, width: number) => void;
+  onResizeElementFrame: (id: string, frame: { width: number; positionX?: number }) => void;
   onResetElementPosition: (id: string) => void;
   onQuickUpdateElement: (id: string, changes: Partial<WebsiteElement>) => void;
   onOpenMediaLibrary: () => void;
@@ -2851,6 +2947,7 @@ function SectionPreview({
   canDeleteSection: boolean;
   device: Device;
   theme: WebsiteTheme;
+  aiPreview: AIWebsiteCanvasPreview | null;
 }) {
   const l = useLocalizer();
   const compact = device === 'mobile';
@@ -2880,6 +2977,10 @@ function SectionPreview({
   const sectionPaddingX = sectionVisualNumber(responsiveSection.sectionPaddingX, compact ? 20 : 40, 0, 160);
   const sectionRadius = sectionVisualNumber(section.sectionRadius, 0, 0, 80);
   const sectionFullWidth = sectionContentWidth(section) === 'full';
+  const draggingElementInSection = Boolean(
+    draggedElementId && section.elements.some((element) => element.id === draggedElementId),
+  );
+  const sectionPreviewKind = aiPreview?.sectionKinds[section.id];
 
   const renderSelectedElementToolbar = (element: WebsiteElement) => {
     if (selectedElementId !== element.id) return null;
@@ -2903,7 +3004,7 @@ function SectionPreview({
           right: `${Math.max(0, 100 - width)}%`,
           transform: `translate3d(${positionX}px, ${positionY}px, 0)`,
         }}
-        title={l('Drag to move · Arrows nudge · Shift+arrow 10px · Ctrl/Cmd+D duplicate · Delete remove · Esc deselect · Shift+drag reorder')}
+        title={l('Drag with smart element and center guides · Hold Alt for 1px precision · Arrows nudge · Shift+arrow 10px · Ctrl/Cmd+D duplicate · Delete remove · Esc deselect · Shift+drag reorder')}
         onDragStart={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
@@ -2913,9 +3014,9 @@ function SectionPreview({
         {directEditHint && (
           <span className="rounded bg-cyan-500/10 px-1 py-0.5 text-[7px] font-semibold text-cyan-300">{directEditHint}</span>
         )}
-        {hasFreePosition && (
+        {(hasFreePosition || draggedElementId === element.id) && (
           <span className="max-w-24 truncate rounded bg-white/5 px-1 py-0.5 text-[7px] font-semibold text-gray-400">
-            X {positionX} · Y {positionY}
+            X {positionX} · Y {positionY}{draggedElementId === element.id ? ` · ${CANVAS_GRID_SIZE}px` : ''}
           </span>
         )}
         {element.type === 'button' && (
@@ -2961,8 +3062,49 @@ function SectionPreview({
     const positionX = clampElementNumber(elementStyle.positionX, 0, -4000, 4000);
     const positionY = clampElementNumber(elementStyle.positionY, 0, -4000, 4000);
 
+    const beginResize = (edge: 'left' | 'right', event: React.PointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const host = event.currentTarget.parentElement;
+      if (!host) return;
+      const hostWidth = Math.max(1, host.getBoundingClientRect().width);
+      const startClientX = event.clientX;
+      onResizeElementStart(element.id);
+
+      const finishResize = () => {
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', finishResize);
+        window.removeEventListener('pointercancel', finishResize);
+        window.removeEventListener('blur', finishResize);
+      };
+      const handleMove = (moveEvent: PointerEvent) => {
+        const frame = resolveCanvasResize({
+          startWidth: width,
+          startPositionX: positionX,
+          deltaX: moveEvent.clientX - startClientX,
+          hostWidth,
+          edge,
+          precisionMode: moveEvent.altKey,
+        });
+        onResizeElementFrame(element.id, edge === 'left' ? frame : { width: frame.width });
+      };
+
+      window.addEventListener('pointermove', handleMove);
+      window.addEventListener('pointerup', finishResize, { once: true });
+      window.addEventListener('pointercancel', finishResize, { once: true });
+      window.addEventListener('blur', finishResize, { once: true });
+    };
+
     return (
       <>
+        <div
+          className="pointer-events-none absolute z-30 border-l-2 border-violet-400/80"
+          style={{
+            left: `${positionX}px`,
+            top: `calc(8px + ${positionY}px)`,
+            bottom: `calc(8px - ${positionY}px)`,
+          }}
+        />
         <div
           className="pointer-events-none absolute z-30 border-r-2 border-violet-400/80"
           style={{
@@ -2975,35 +3117,27 @@ function SectionPreview({
           type="button"
           draggable={false}
           aria-label={l('Resize element')}
-          title={`${l('Drag to resize')} · ${Math.round(width)}%`}
+          title={`${l('Drag to resize')} · ${Math.round(width)}% · ${l('Hold Alt for 1% precision')}`}
+          className="absolute z-50 h-3.5 w-3.5 cursor-ew-resize rounded-full border-2 border-white bg-violet-500 shadow-[0_0_0_3px_rgba(139,92,246,0.18)] transition hover:scale-125"
+          style={{
+            left: `calc(${positionX}px - 7px)`,
+            top: `calc(50% + ${positionY}px - 7px)`,
+          }}
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => beginResize('left', event)}
+        />
+        <button
+          type="button"
+          draggable={false}
+          aria-label={l('Resize element')}
+          title={`${l('Drag to resize')} · ${Math.round(width)}% · ${l('Hold Alt for 1% precision')}`}
           className="absolute z-50 h-3.5 w-3.5 cursor-ew-resize rounded-full border-2 border-white bg-violet-500 shadow-[0_0_0_3px_rgba(139,92,246,0.18)] transition hover:scale-125"
           style={{
             left: `calc(${width}% + ${positionX}px - 7px)`,
             top: `calc(50% + ${positionY}px - 7px)`,
           }}
           onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const host = event.currentTarget.parentElement;
-            if (!host) return;
-            const hostWidth = Math.max(1, host.getBoundingClientRect().width);
-            const startClientX = event.clientX;
-            const startWidth = width;
-            onResizeElementStart(element.id);
-
-            const handleMove = (moveEvent: PointerEvent) => {
-              const deltaPercent = ((moveEvent.clientX - startClientX) / hostWidth) * 100;
-              const nextWidth = Math.max(10, Math.min(100, Math.round(startWidth + deltaPercent)));
-              onResizeElementWidth(element.id, nextWidth);
-            };
-            const handleUp = () => {
-              window.removeEventListener('pointermove', handleMove);
-              window.removeEventListener('pointerup', handleUp);
-            };
-            window.addEventListener('pointermove', handleMove);
-            window.addEventListener('pointerup', handleUp, { once: true });
-          }}
+          onPointerDown={(event) => beginResize('right', event)}
         />
       </>
     );
@@ -3012,8 +3146,10 @@ function SectionPreview({
   return (
     <section
       id={sectionDomId(section)}
+      data-tayar-section-canvas="true"
+      data-tayar-ai-preview-kind={sectionPreviewKind}
       onClick={onSelect}
-      className={`relative group cursor-pointer border border-transparent transition-all duration-150 ${selected ? 'ring-2 ring-violet-500/70 ring-inset' : 'hover:ring-1 hover:ring-violet-400/35 hover:ring-inset'}`}
+      className={`relative group cursor-pointer border border-transparent transition-all duration-150 ${sectionPreviewKind ? aiWebsitePatchPreviewClass(sectionPreviewKind) : selected ? 'ring-2 ring-violet-500/70 ring-inset' : 'hover:ring-1 hover:ring-violet-400/35 hover:ring-inset'}`}
       style={{
         background: sectionBackgroundCss(section),
         minHeight: sectionMinHeight ? `${sectionMinHeight}px` : undefined,
@@ -3021,6 +3157,35 @@ function SectionPreview({
         overflow: 'hidden',
       }}
     >
+      {sectionPreviewKind && (
+        <span className={`pointer-events-none absolute left-1/2 top-2 z-[65] -translate-x-1/2 rounded-full border px-2.5 py-1 text-[8px] font-black uppercase tracking-wide shadow-lg backdrop-blur ${sectionPreviewKind === 'remove' ? 'border-red-300/40 bg-red-500/90 text-white' : sectionPreviewKind === 'add' ? 'border-emerald-300/40 bg-emerald-500/90 text-white' : 'border-violet-300/40 bg-violet-500/90 text-white'}`}>
+          {l(sectionPreviewKind === 'remove' ? 'AI will remove' : sectionPreviewKind === 'add' ? 'AI will add here' : 'AI will update')}
+        </span>
+      )}
+      {draggingElementInSection && (
+        <div
+          data-tayar-canvas-grid="true"
+          className="pointer-events-none absolute inset-0 z-10 opacity-70"
+          style={{
+            backgroundImage: 'linear-gradient(to right, rgba(139,92,246,0.16) 1px, transparent 1px), linear-gradient(to bottom, rgba(139,92,246,0.16) 1px, transparent 1px)',
+            backgroundSize: `${CANVAS_GRID_SIZE}px ${CANVAS_GRID_SIZE}px`,
+          }}
+        />
+      )}
+      {snapGuides?.vertical && (
+        <span
+          data-tayar-snap-guide="vertical"
+          className="pointer-events-none absolute bottom-0 top-0 z-20 w-px -translate-x-1/2 bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.9)]"
+          style={{ left: snapGuides.verticalPosition === undefined ? '50%' : `${snapGuides.verticalPosition}px` }}
+        />
+      )}
+      {snapGuides?.horizontal && (
+        <span
+          data-tayar-snap-guide="horizontal"
+          className="pointer-events-none absolute left-0 right-0 z-20 h-px -translate-y-1/2 bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.9)]"
+          style={{ top: snapGuides.horizontalPosition === undefined ? '50%' : `${snapGuides.horizontalPosition}px` }}
+        />
+      )}
       {selected && !selectedElementId && (
         <>
           <div className="absolute left-2 top-2 z-30 flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-lg">
@@ -3071,7 +3236,8 @@ function SectionPreview({
               return (
                 <div
                   key={entry.container.id}
-                  className="relative flex min-w-0 w-full flex-col"
+                  data-tayar-ai-preview-kind={aiPreview?.containerKinds[entry.container.id]}
+                  className={`relative flex min-w-0 w-full flex-col rounded-lg transition ${aiWebsitePatchPreviewClass(aiPreview?.containerKinds[entry.container.id])}`}
                   style={{ gridColumn: previewColumns === 1 ? '1 / span 1' : `${column} / span ${span}` }}
                 >
                   <div className="absolute -top-2 left-2 z-20 rounded bg-cyan-600 px-1.5 py-0.5 text-[9px] font-bold text-white">{entry.container.name}</div>
@@ -3097,7 +3263,8 @@ function SectionPreview({
                       return (
                         <div
                           key={element.id}
-                          className="relative flex min-w-0 flex-col"
+                          data-tayar-ai-preview-kind={aiPreview?.elementKinds[element.id]}
+                          className={`relative flex min-w-0 flex-col rounded-md transition ${aiWebsitePatchPreviewClass(aiPreview?.elementKinds[element.id])}`}
                           style={{
                             flex: entry.container.layout === 'row' && device !== 'mobile' ? '1 1 180px' : '0 0 auto',
                             width: '100%',
@@ -3160,7 +3327,7 @@ function SectionPreview({
               opacity: hiddenOnDevice ? 0.32 : 1,
             };
             return (
-              <div key={element.id} className="relative flex min-w-0 w-full flex-col" style={wrapperStyle}>
+              <div key={element.id} data-tayar-ai-preview-kind={aiPreview?.elementKinds[element.id]} className={`relative flex min-w-0 w-full flex-col rounded-md transition ${aiWebsitePatchPreviewClass(aiPreview?.elementKinds[element.id])}`} style={wrapperStyle}>
                 {dragOverElementId === element.id && dragOverElementPosition && draggedElementId !== element.id && (
                   <span className={`pointer-events-none absolute left-0 right-0 z-50 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.75)] ${dragOverElementPosition === 'before' ? '-top-2' : '-bottom-2'}`} />
                 )}
@@ -3238,7 +3405,7 @@ function SectionPreview({
                 </label>
               )
             ))}
-            <div className="relative">
+            <div data-tayar-ai-preview-kind={contactSubmitElement ? aiPreview?.elementKinds[contactSubmitElement.id] : undefined} className={`relative rounded-md transition ${contactSubmitElement ? aiWebsitePatchPreviewClass(aiPreview?.elementKinds[contactSubmitElement.id]) : ''}`}>
               {contactSubmitElement && renderSelectedElementToolbar(contactSubmitElement)}
               {contactSubmitElement && renderSelectedElementResizeHandle(contactSubmitElement)}
             {contactSubmitStyle?.hidden ? (
@@ -3340,6 +3507,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [aiIntent, setAiIntent] = useState<'edit' | 'build'>('edit');
   const [aiPlan, setAiPlan] = useState<{ summary: string; pages: Array<{ name: string; sections: number }> } | null>(null);
   const [aiPlanReview, setAiPlanReview] = useState<AIWebsitePlanReview | null>(null);
+  const [aiPatchReview, setAiPatchReview] = useState<AIWebsitePatchReview | null>(null);
   const [aiMessages, setAiMessages] = useState<AIBuilderMessage[]>([
     {
       id: 'ai-welcome',
@@ -3349,6 +3517,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   ]);
   const v2AiMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const aiPlanApproveButtonRef = useRef<HTMLButtonElement | null>(null);
+  const aiPatchApproveButtonRef = useRef<HTMLButtonElement | null>(null);
   const [aiUndoSnapshot, setAiUndoSnapshot] = useState<AIWebsiteUndoSnapshot | null>(null);
   const [aiQualityReview, setAiQualityReview] = useState<AIQualityReview | null>(null);
   const [aiQualityBusy, setAiQualityBusy] = useState(false);
@@ -3361,6 +3530,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [draggedElementId, setDraggedElementId] = useState<string | null>(null);
   const [dragOverElementId, setDragOverElementId] = useState<string | null>(null);
   const [dragOverElementPosition, setDragOverElementPosition] = useState<'before' | 'after' | null>(null);
+  const [canvasSnapGuide, setCanvasSnapGuide] = useState<({ sectionId: string } & CanvasSnapGuides) | null>(null);
   const draggedSectionRef = useRef<string | null>(null);
   const draggedSectionPageRef = useRef<string | null>(null);
   const draggedElementRef = useRef<string | null>(null);
@@ -3377,7 +3547,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     startY: number;
     currentX: number;
     currentY: number;
+    elementBounds?: CanvasBounds;
+    sectionBounds?: CanvasBounds;
+    alignmentTargets?: CanvasAlignmentTargets;
+    snapHorizontal: boolean;
+    snapVertical: boolean;
+    snapHorizontalPosition?: number;
+    snapVerticalPosition?: number;
   } | null>(null);
+  const canvasNudgeSessionRef = useRef<string | null>(null);
   const [cloudProjects, setCloudProjects] = useState<CloudWebsiteProject[]>([]);
   const [cloudProjectsLoaded, setCloudProjectsLoaded] = useState(false);
   const [cloudProjectId, setCloudProjectId] = useState<string | null>(null);
@@ -3470,6 +3648,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const aiOperationSequenceRef = useRef(0);
   const aiAbortControllerRef = useRef<AbortController | null>(null);
   const aiPlanReviewResolverRef = useRef<((approved: boolean) => void) | null>(null);
+  const aiPatchReviewResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const aiQualityOperationSequenceRef = useRef(0);
   const aiQualityAbortControllerRef = useRef<AbortController | null>(null);
   const aiEditorContextRef = useRef<EditorAIAsyncContext | null>(null);
@@ -3505,6 +3684,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     aiAbortControllerRef.current = null;
     aiPlanReviewResolverRef.current?.(false);
     aiPlanReviewResolverRef.current = null;
+    aiPatchReviewResolverRef.current?.(false);
+    aiPatchReviewResolverRef.current = null;
     aiQualityOperationSequenceRef.current += 1;
     aiQualityAbortControllerRef.current?.abort();
     aiQualityAbortControllerRef.current = null;
@@ -3517,6 +3698,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBillingBusy(false);
     setAiBusy(false);
     setAiPlanReview(null);
+    setAiPatchReview(null);
     setAiQualityBusy(false);
   }, [user?.id]);
 
@@ -3537,6 +3719,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     draggedElementRef.current = null;
     draggedElementSectionRef.current = null;
     freeElementDragRef.current = null;
+    canvasNudgeSessionRef.current = null;
     savedFeedbackSequenceRef.current += 1;
     publishOperationSequenceRef.current += 1;
     previewOperationSequenceRef.current += 1;
@@ -3546,6 +3729,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     aiAbortControllerRef.current = null;
     aiPlanReviewResolverRef.current?.(false);
     aiPlanReviewResolverRef.current = null;
+    aiPatchReviewResolverRef.current?.(false);
+    aiPatchReviewResolverRef.current = null;
     aiQualityOperationSequenceRef.current += 1;
     aiQualityAbortControllerRef.current?.abort();
     aiQualityAbortControllerRef.current = null;
@@ -3554,12 +3739,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setCloudBusy(false);
     setSaved(false);
     setAiPlanReview(null);
+    setAiPatchReview(null);
     setDraggedId(null);
     setDragOverId(null);
     setDragOverSectionPosition(null);
     setDraggedElementId(null);
     setDragOverElementId(null);
     setDragOverElementPosition(null);
+    setCanvasSnapGuide(null);
     setPublishBusy(false);
     setPreviewBusy(false);
     setPublishVersionsLoading(false);
@@ -3641,12 +3828,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     draggedElementRef.current = null;
     draggedElementSectionRef.current = null;
     freeElementDragRef.current = null;
+    canvasNudgeSessionRef.current = null;
     setDraggedId(null);
     setDragOverId(null);
     setDragOverSectionPosition(null);
     setDraggedElementId(null);
     setDragOverElementId(null);
     setDragOverElementPosition(null);
+    setCanvasSnapGuide(null);
   }
 
   function showSavedFeedback(
@@ -4810,21 +4999,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     [selectedSection, selectedElementId]
   );
 
+  const canvasKeyboardSelectionRef = useRef(Boolean(selectedSection && selectedElement));
+  canvasKeyboardSelectionRef.current = Boolean(selectedSection && selectedElement);
   const canvasKeyboardActionsRef = useRef({
     duplicate: duplicateSelectedElement,
     remove: deleteSelectedElement,
     nudge: nudgeSelectedElement,
+    endNudge: () => { canvasNudgeSessionRef.current = null; },
   });
   canvasKeyboardActionsRef.current = {
     duplicate: duplicateSelectedElement,
     remove: deleteSelectedElement,
     nudge: nudgeSelectedElement,
+    endNudge: () => { canvasNudgeSessionRef.current = null; },
   };
 
   useEffect(() => {
-    if (!selectedSection || !selectedElement) return;
-
     const handleCanvasKeyDown = (event: KeyboardEvent) => {
+      if (!canvasKeyboardSelectionRef.current) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (target && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))) return;
 
@@ -4857,9 +5049,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (event.key === 'ArrowDown') canvasKeyboardActionsRef.current.nudge(0, step);
     };
 
+    const handleCanvasKeyUp = (event: KeyboardEvent) => {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        canvasKeyboardActionsRef.current.endNudge();
+      }
+    };
+
+    const handleCanvasBlur = () => canvasKeyboardActionsRef.current.endNudge();
+
     window.addEventListener('keydown', handleCanvasKeyDown);
-    return () => window.removeEventListener('keydown', handleCanvasKeyDown);
-  }, [selectedSection, selectedElement]);
+    window.addEventListener('keyup', handleCanvasKeyUp);
+    window.addEventListener('blur', handleCanvasBlur);
+    return () => {
+      window.removeEventListener('keydown', handleCanvasKeyDown);
+      window.removeEventListener('keyup', handleCanvasKeyUp);
+      window.removeEventListener('blur', handleCanvasBlur);
+    };
+  }, []);
 
   useEffect(() => {
     setSectionSettingsOpen(!selectedElementId);
@@ -5378,6 +5584,59 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     return pages[0] ?? null;
   }, [pages, activePageId, sections]);
+
+  const aiCanvasPreview = useMemo<AIWebsiteCanvasPreview | null>(() => {
+    if (!aiPatchReview) return null;
+    const preview: AIWebsiteCanvasPreview = {
+      global: false,
+      sectionKinds: {},
+      elementKinds: {},
+      containerKinds: {},
+    };
+    const activeSlug = normalizeSlug(activePage?.slug || '');
+
+    aiPatchReview.operations.forEach((operation) => {
+      const targetsPage = Boolean(operation.pageId || operation.pageSlug);
+      const targetsActivePage = !targetsPage || Boolean(
+        activePage && (
+          operation.pageId === activePage.id ||
+          normalizeSlug(operation.pageSlug || '') === activeSlug
+        ),
+      );
+      if (!targetsActivePage) return;
+
+      if (operation.elementId) {
+        preview.elementKinds[operation.elementId] = mergeAIWebsitePatchReviewKind(
+          preview.elementKinds[operation.elementId],
+          operation.kind,
+        );
+      }
+      if (operation.containerId) {
+        preview.containerKinds[operation.containerId] = mergeAIWebsitePatchReviewKind(
+          preview.containerKinds[operation.containerId],
+          operation.kind,
+        );
+      }
+
+      const highlightsParentSection = Boolean(
+        operation.sectionId && (
+          operation.kind === 'add' ||
+          (!operation.elementId && !operation.containerId)
+        ),
+      );
+      if (operation.sectionId && highlightsParentSection) {
+        preview.sectionKinds[operation.sectionId] = mergeAIWebsitePatchReviewKind(
+          preview.sectionKinds[operation.sectionId],
+          operation.kind,
+        );
+      }
+      if (!operation.sectionId && !operation.elementId && !operation.containerId) {
+        preview.global = true;
+      }
+    });
+
+    return preview;
+  }, [activePage, aiPatchReview]);
 
   const siteAudit = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -5922,15 +6181,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function beginElementResize(sectionId: string, elementId: string) {
     selectEditorTarget(sectionId, elementId);
-    remember(sections);
+    remember(sections, 'Resize element');
   }
 
-  function resizeElementWidth(sectionId: string, elementId: string, width: number) {
+  function resizeElementFrame(
+    sectionId: string,
+    elementId: string,
+    frame: { width: number; positionX?: number },
+  ) {
     const targetSection = sections.find((section) => section.id === sectionId);
     const targetElement = targetSection?.elements.find((element) => element.id === elementId);
     if (!targetSection || !targetElement) return;
     const symbolId = targetElement.symbolId;
-    const safeWidth = Math.max(10, Math.min(100, Math.round(width)));
+    const safeWidth = Math.max(10, Math.min(100, Math.round(frame.width)));
+    const safePositionX = frame.positionX === undefined
+      ? undefined
+      : Math.max(-4000, Math.min(4000, Math.round(frame.positionX)));
 
     const resizeElement = (element: WebsiteElement): WebsiteElement => ({
       ...element,
@@ -5939,6 +6205,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         [device]: {
           ...(element.responsive?.[device] || {}),
           width: safeWidth,
+          ...(safePositionX === undefined ? {} : { positionX: safePositionX }),
         },
       },
     });
@@ -6018,7 +6285,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const nextY = Math.max(-4000, Math.min(4000, currentY + deltaY));
     if (nextX === currentX && nextY === currentY) return;
 
-    remember(sections);
+    const nudgeSessionKey = `${activePageId}:${selectedSection.id}:${selectedElement.id}:${device}`;
+    if (canvasNudgeSessionRef.current !== nudgeSessionKey) {
+      remember(sections, 'Move element');
+      canvasNudgeSessionRef.current = nudgeSessionKey;
+    }
     const symbolId = selectedElement.symbolId;
     const moveElement = (element: WebsiteElement): WebsiteElement => ({
       ...element,
@@ -6417,6 +6688,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     draggedElementRef.current = id;
     draggedElementSectionRef.current = sectionId;
     const sourceStyle = effectiveStyle(sourceElement, device);
+    const elementRect = e.currentTarget.getBoundingClientRect();
+    const sectionHost = e.currentTarget.closest<HTMLElement>('[data-tayar-section-canvas="true"]');
+    const sectionRect = sectionHost?.getBoundingClientRect();
+    const siblingBounds = sectionHost
+      ? Array.from(sectionHost.querySelectorAll<HTMLElement>('[data-tayar-canvas-element-id]'))
+          .filter((node) => node.dataset.tayarCanvasElementId !== id)
+          .map((node) => node.getBoundingClientRect())
+      : [];
+    const alignmentTargets: CanvasAlignmentTargets = {
+      x: siblingBounds.flatMap((bounds) => [bounds.left, bounds.left + (bounds.width / 2), bounds.right]),
+      y: siblingBounds.flatMap((bounds) => [bounds.top, bounds.top + (bounds.height / 2), bounds.bottom]),
+    };
     freeElementDragRef.current = {
       pageId: activePageId,
       device,
@@ -6429,7 +6712,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       startY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
       currentX: clampElementNumber(sourceStyle.positionX, 0, -4000, 4000),
       currentY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
+      elementBounds: {
+        left: elementRect.left,
+        top: elementRect.top,
+        width: elementRect.width,
+        height: elementRect.height,
+      },
+      sectionBounds: sectionRect ? {
+        left: sectionRect.left,
+        top: sectionRect.top,
+        width: sectionRect.width,
+        height: sectionRect.height,
+      } : undefined,
+      alignmentTargets,
+      snapHorizontal: false,
+      snapVertical: false,
     };
+    setCanvasSnapGuide(null);
     setDraggedElementId(id);
     setDragOverElementId(null);
     setDragOverElementPosition(null);
@@ -6450,9 +6749,54 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
     if (!e.clientX && !e.clientY) return;
+    if (e.shiftKey) {
+      if (drag.snapHorizontal || drag.snapVertical) {
+        drag.snapHorizontal = false;
+        drag.snapVertical = false;
+        drag.snapHorizontalPosition = undefined;
+        drag.snapVerticalPosition = undefined;
+        setCanvasSnapGuide(null);
+      }
+      return;
+    }
 
-    const nextX = Math.max(-4000, Math.min(4000, Math.round(drag.startX + (e.clientX - drag.startClientX))));
-    const nextY = Math.max(-4000, Math.min(4000, Math.round(drag.startY + (e.clientY - drag.startClientY))));
+    const nextPosition = resolveCanvasDragPosition({
+      startX: drag.startX,
+      startY: drag.startY,
+      deltaX: e.clientX - drag.startClientX,
+      deltaY: e.clientY - drag.startClientY,
+      precisionMode: e.altKey,
+      elementBounds: drag.elementBounds,
+      sectionBounds: drag.sectionBounds,
+      alignmentTargets: drag.alignmentTargets,
+    });
+    const nextX = nextPosition.x;
+    const nextY = nextPosition.y;
+    if (
+      nextPosition.guides.horizontal !== drag.snapHorizontal ||
+      nextPosition.guides.vertical !== drag.snapVertical ||
+      nextPosition.guides.horizontalPosition !== drag.snapHorizontalPosition ||
+      nextPosition.guides.verticalPosition !== drag.snapVerticalPosition
+    ) {
+      drag.snapHorizontal = nextPosition.guides.horizontal;
+      drag.snapVertical = nextPosition.guides.vertical;
+      drag.snapHorizontalPosition = nextPosition.guides.horizontalPosition;
+      drag.snapVerticalPosition = nextPosition.guides.verticalPosition;
+      setCanvasSnapGuide(
+        nextPosition.guides.horizontal || nextPosition.guides.vertical
+          ? {
+              sectionId,
+              ...nextPosition.guides,
+              horizontalPosition: nextPosition.guides.horizontalPosition === undefined || !drag.sectionBounds
+                ? undefined
+                : nextPosition.guides.horizontalPosition - drag.sectionBounds.top,
+              verticalPosition: nextPosition.guides.verticalPosition === undefined || !drag.sectionBounds
+                ? undefined
+                : nextPosition.guides.verticalPosition - drag.sectionBounds.left,
+            }
+          : null,
+      );
+    }
     if (nextX === drag.currentX && nextY === drag.currentY) return;
     drag.currentX = nextX;
     drag.currentY = nextY;
@@ -6615,6 +6959,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       } : symbol));
     }
     freeElementDragRef.current = null;
+    setCanvasSnapGuide(null);
     draggedElementRef.current = null;
     draggedElementSectionRef.current = null;
     setDraggedElementId(null);
@@ -6834,10 +7179,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
   }
 
+  function resolveAIPatchReview(approved: boolean) {
+    aiPatchReviewResolverRef.current?.(approved);
+  }
+
+  function requestAIPatchReview(review: AIWebsitePatchReview, signal: AbortSignal): Promise<boolean> {
+    signal.throwIfAborted();
+
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const finish = (approved: boolean) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', handleAbort);
+        if (aiPatchReviewResolverRef.current === finish) aiPatchReviewResolverRef.current = null;
+        setAiPatchReview(null);
+        resolve(approved);
+      };
+      const handleAbort = () => finish(false);
+
+      aiPatchReviewResolverRef.current = finish;
+      setAiPatchReview(review);
+      signal.addEventListener('abort', handleAbort, { once: true });
+    });
+  }
+
   function stopAIRequest() {
     if (!aiBusy) return;
     aiOperationSequenceRef.current += 1;
     resolveAIPlanReview(false);
+    resolveAIPatchReview(false);
     aiAbortControllerRef.current?.abort();
     aiAbortControllerRef.current = null;
     setAiBusy(false);
@@ -6961,6 +7332,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAiBusy(true);
     setAiError('');
     setAiPlan(null);
+    setAiPatchReview(null);
     setAiStage('planning');
     setAiMessages((current) => [
       ...current,
@@ -7421,6 +7793,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAiBusy(true);
     setAiError('');
     setAiPlan(null);
+    setAiPatchReview(null);
     setAiStage('planning');
     setAiMessages((current) => [
       ...current,
@@ -7537,20 +7910,51 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         'remove_page', 'remove_section', 'remove_container', 'remove_element', 'remove_form_field',
       ]);
       const destructiveOperations = operations.filter((operation) => operation && destructiveActions.has(operation.action));
-      const removesPage = destructiveOperations.some((operation) => operation.action === 'remove_page');
-      if (removesPage || destructiveOperations.length >= 3) {
-        const confirmed = window.confirm(
-          `${l('Tayar AI wants to run')} ${destructiveOperations.length} ${l(destructiveOperations.length === 1 ? 'destructive change' : 'destructive changes')}. ${l('Continue?')}`
-        );
-        if (!confirmed) {
+      const patchWarnings = [
+        ...(Array.isArray(patch.warnings)
+          ? patch.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
+          : []),
+      ];
+      const confidence = Number.isFinite(Number(patch.confidence))
+        ? Math.min(1, Math.max(0, Number(patch.confidence)))
+        : null;
+      const summary = patch.summary?.trim().slice(0, 280) || `Apply ${operations.length} targeted AI change${operations.length === 1 ? '' : 's'}.`;
+      const patchApproved = await requestAIPatchReview({
+        summary,
+        operations: operations.map((operation, index) => {
+          const kind = aiWebsitePatchReviewKind(operation?.action || '');
+          return {
+            id: `operation-${index + 1}`,
+            label: operation && typeof operation.action === 'string'
+              ? humanizeAIWebsitePatchAction(operation.action)
+              : 'Unsupported operation',
+            target: operation ? describeAIWebsitePatchTarget(operation) : 'Site-wide',
+            fields: operation ? describeAIWebsitePatchFields(operation) : [],
+            kind,
+            pageId: operation?.pageId,
+            pageSlug: operation?.pageSlug,
+            sectionId: kind === 'add'
+              ? operation?.afterSectionId || operation?.beforeSectionId || operation?.sectionId
+              : operation?.sectionId,
+            elementId: operation?.elementId,
+            containerId: operation?.containerId,
+          };
+        }),
+        warnings: patchWarnings,
+        confidence,
+        destructiveCount: destructiveOperations.length,
+      }, abortController.signal);
+      if (!patchApproved) {
+        if (operationIsLatest() && !abortController.signal.aborted) {
           setAiStage('ready');
           setAiMessages((current) => [
             ...current,
-            { id: `ai-cancel-${Date.now()}`, role: 'assistant' as const, content: 'AI change cancelled before destructive operations were applied.' },
+            { id: `ai-patch-discarded-${Date.now()}`, role: 'assistant' as const, content: 'AI changes discarded. No changes were applied.' },
           ].slice(-20));
-          return;
         }
+        return;
       }
+      if (!operationCanApply()) return;
 
       setAiStage('building');
 
@@ -10108,21 +10512,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       });
 
       const skipped = Math.max(0, operations.length - applied);
-      const patchWarnings = [
-        ...(Array.isArray(patch.warnings)
-          ? patch.warnings
-              .map((warning) =>
-                String(warning).trim(),
-              )
-              .filter(Boolean)
-              .slice(0, 5)
-          : []),
+      const resultWarnings = [
+        ...patchWarnings,
         ...nativeBridgeWarnings,
       ].slice(0, 8);
-      const confidence = Number.isFinite(Number(patch.confidence))
-        ? Math.min(1, Math.max(0, Number(patch.confidence)))
-        : null;
-      const summary = patch.summary?.trim() || `Applied ${applied} targeted AI change${applied === 1 ? '' : 's'}.`;
       setAiPlan({
         summary,
         pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
@@ -10132,7 +10525,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-patch-result-${Date.now()}`,
           role: 'assistant' as const,
-          content: `${summary} Planned ${(agentPlan.steps || []).length} step${(agentPlan.steps || []).length === 1 ? '' : 's'} and applied ${applied} safe native operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.${skipped ? ` ${skipped} unsupported or unsafe operation${skipped === 1 ? ' was' : 's were'} skipped.` : ''}${patchWarnings.length ? ` Warnings: ${patchWarnings.join(' · ')}` : ''}${confidence !== null ? ` Confidence: ${Math.round(confidence * 100)}%.` : ''}${agentReview ? ` Agent review${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || 'Review complete.'}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · Suggested follow-up: ${agentReview.followUpPrompt}` : ''}` : ''}`,
+          content: `${summary} Planned ${(agentPlan.steps || []).length} step${(agentPlan.steps || []).length === 1 ? '' : 's'} and applied ${applied} safe native operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.${skipped ? ` ${skipped} unsupported or unsafe operation${skipped === 1 ? ' was' : 's were'} skipped.` : ''}${resultWarnings.length ? ` Warnings: ${resultWarnings.join(' · ')}` : ''}${confidence !== null ? ` Confidence: ${Math.round(confidence * 100)}%.` : ''}${agentReview ? ` Agent review${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || 'Review complete.'}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · Suggested follow-up: ${agentReview.followUpPrompt}` : ''}` : ''}`,
         },
       ].slice(-12));
     } catch (error) {
@@ -13219,8 +13612,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     else void generateWithAI(true);
   }
 
-  const aiStageStatus = aiStage === 'planning'
-    ? l('Planning…')
+  const aiStageStatus = aiPatchReview
+    ? l('Reviewing changes…')
+    : aiStage === 'planning'
+      ? l('Planning…')
     : aiStage === 'building'
       ? l('Building…')
       : aiStage === 'styling'
@@ -13237,6 +13632,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const focusFrame = window.requestAnimationFrame(() => aiPlanApproveButtonRef.current?.focus());
     return () => window.cancelAnimationFrame(focusFrame);
   }, [aiPlanReview]);
+
+  useEffect(() => {
+    if (!aiPatchReview) return;
+    const focusFrame = window.requestAnimationFrame(() => aiPatchApproveButtonRef.current?.focus());
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [aiPatchReview]);
+
+  useEffect(() => {
+    if (!aiCanvasPreview) return;
+    const scrollFrame = window.requestAnimationFrame(() => {
+      const firstTarget = document.querySelector<HTMLElement>('[data-tayar-ai-preview-kind]');
+      firstTarget?.scrollIntoView({
+        block: 'center',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      });
+    });
+    return () => window.cancelAnimationFrame(scrollFrame);
+  }, [aiCanvasPreview]);
 
   const v2AiPanel = (
     <div className="flex h-full min-h-0 flex-col">
@@ -13333,6 +13746,68 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </button>
               <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAIPlanReview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
                 {l('Discard plan')}
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[8px] text-gray-500">{l('Press Escape to discard')}</p>
+          </div>
+        )}
+
+        {aiPatchReview && (
+          <div
+            className="rounded-xl border border-violet-400/30 bg-violet-500/[0.07] p-3"
+            role="dialog"
+            aria-labelledby="tayar-ai-patch-review-title"
+            aria-describedby="tayar-ai-patch-review-description"
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              event.stopPropagation();
+              resolveAIPatchReview(false);
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <strong id="tayar-ai-patch-review-title" className="text-[10px] text-violet-200">{l('Review exact changes')}</strong>
+              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[8px] font-bold text-gray-300">
+                {aiPatchReview.operations.length} {l('Operations')}
+              </span>
+            </div>
+            <p className="mt-1 text-[9px] leading-relaxed text-gray-300">{aiPatchReview.summary}</p>
+            <p id="tayar-ai-patch-review-description" className="mt-2 text-[8px] font-semibold text-violet-300">{l('No website changes have been applied yet.')}</p>
+            {aiPatchReview.destructiveCount > 0 && (
+              <p className="mt-2 rounded-lg border border-red-400/20 bg-red-500/[0.08] px-2 py-1.5 text-[8px] font-bold text-red-300">
+                {aiPatchReview.destructiveCount} {l(aiPatchReview.destructiveCount === 1 ? 'destructive change' : 'destructive changes')}
+              </p>
+            )}
+            <ol className="mt-2 max-h-52 space-y-1.5 overflow-y-auto pr-1">
+              {aiPatchReview.operations.map((operation, index) => (
+                <li key={operation.id} className="rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2 text-[9px] text-gray-300">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-gray-100">{index + 1}. {operation.label}</span>
+                    <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wide ${operation.kind === 'remove' ? 'border-red-400/25 bg-red-500/10 text-red-300' : operation.kind === 'add' ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300' : 'border-violet-400/25 bg-violet-500/10 text-violet-300'}`}>
+                      {l(operation.kind === 'remove' ? 'Remove' : operation.kind === 'add' ? 'Add' : 'Update')}
+                    </span>
+                  </div>
+                  <span className="mt-0.5 block truncate text-[8px] text-gray-500" title={operation.target}>{operation.target}</span>
+                  {operation.fields.length > 0 && (
+                    <span className="mt-1 block text-[8px] text-gray-400">{l('Fields')}: {operation.fields.join(', ')}</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+            {aiPatchReview.warnings.length > 0 && (
+              <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-500/[0.06] px-2.5 py-2 text-[8px] leading-relaxed text-amber-300">
+                <span className="font-black">{l('Warnings')}:</span> {aiPatchReview.warnings.join(' · ')}
+              </div>
+            )}
+            {aiPatchReview.confidence !== null && (
+              <p className="mt-2 text-[8px] text-gray-400">{l('Confidence')}: {Math.round(aiPatchReview.confidence * 100)}%</p>
+            )}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button ref={aiPatchApproveButtonRef} type="button" onClick={() => resolveAIPatchReview(true)} className="rounded-lg bg-emerald-600 px-2 py-2 text-[9px] font-black text-white hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
+                {l('Apply changes')}
+              </button>
+              <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAIPatchReview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
+                {l('Discard changes')}
               </button>
             </div>
             <p className="mt-2 text-center text-[8px] text-gray-500">{l('Press Escape to discard')}</p>
@@ -13744,16 +14219,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     </div>
   );
 
+  const aiCanvasPreviewBanner = aiCanvasPreview ? (
+    <div
+      className="sticky top-2 z-[80] mx-auto mb-3 flex w-fit max-w-[calc(100%-1rem)] items-center gap-3 rounded-full border border-violet-300/30 bg-[#111122]/95 px-3 py-2 text-[9px] font-bold text-white shadow-2xl backdrop-blur"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="rounded-full bg-violet-500 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide">{l('AI preview only')}</span>
+      <span className="hidden text-gray-300 sm:inline">{l('Apply or discard from the AI panel')}</span>
+      <span className="flex items-center gap-1 text-violet-300"><i className="h-2 w-2 rounded-full bg-violet-400" />{l('Update')}</span>
+      <span className="flex items-center gap-1 text-emerald-300"><i className="h-2 w-2 rounded-full bg-emerald-400" />{l('Add')}</span>
+      <span className="flex items-center gap-1 text-red-300"><i className="h-2 w-2 rounded-full bg-red-400" />{l('Remove')}</span>
+    </div>
+  ) : null;
+
   const v2Canvas = (
         <div data-tayar-v2-canvas="true"
           className={`min-h-[600px] flex-1 overflow-auto p-3 lg:p-5 ${
             darkMode ? 'bg-[#050914]' : 'bg-[#f3f4f6]'
           }`}
         >
+          {aiCanvasPreviewBanner}
           <div
-            className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${
+            aria-disabled={aiCanvasPreview ? true : undefined}
+            onFocusCapture={(event) => {
+              if (!aiCanvasPreview) return;
+              event.stopPropagation();
+              aiPatchApproveButtonRef.current?.focus();
+            }}
+            className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${aiCanvasPreview ? 'pointer-events-none select-none' : ''} ${
               device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
-            } ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
+            } ${aiCanvasPreview?.global ? 'ring-2 ring-violet-400 shadow-[0_0_32px_rgba(139,92,246,0.25)]' : ''} ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
             style={{ fontFamily: `${theme.fontFamily}, Arial, sans-serif` }}
           >
             {headerConfig.enabled && (
@@ -13797,13 +14293,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
+      snapGuides={canvasSnapGuide?.sectionId === section.id ? canvasSnapGuide : null}
       onElementDragStart={(elementId, e) => handleElementDragStart(section.id, elementId, e)}
       onElementDragMove={(elementId, e) => handleElementDragMove(section.id, elementId, e)}
       onElementDragOver={(elementId, e) => handleElementDragOver(section.id, elementId, e)}
       onElementDrop={(elementId, e) => handleElementDrop(section.id, elementId, e)}
       onElementDragEnd={handleElementDragEnd}
       onResizeElementStart={(elementId) => beginElementResize(section.id, elementId)}
-      onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
+      onResizeElementFrame={(elementId, frame) => resizeElementFrame(section.id, elementId, frame)}
       onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
       onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
       onOpenMediaLibrary={() => { selectEditorTarget(section.id); setMediaOpen(true); }}
@@ -13820,6 +14317,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       canDeleteSection={sections.length > 1}
       device={device}
       theme={theme}
+      aiPreview={aiCanvasPreview}
     />
 
   </div>
@@ -15813,10 +16311,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             darkMode ? 'bg-[#050914]' : 'bg-[#f3f4f6]'
           }`}
         >
+          {aiCanvasPreviewBanner}
           <div
-            className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${
+            aria-disabled={aiCanvasPreview ? true : undefined}
+            onFocusCapture={(event) => {
+              if (!aiCanvasPreview) return;
+              event.stopPropagation();
+              aiPatchApproveButtonRef.current?.focus();
+            }}
+            className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${aiCanvasPreview ? 'pointer-events-none select-none' : ''} ${
               device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
-            } ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
+            } ${aiCanvasPreview?.global ? 'ring-2 ring-violet-400 shadow-[0_0_32px_rgba(139,92,246,0.25)]' : ''} ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
             style={{ fontFamily: `${theme.fontFamily}, Arial, sans-serif` }}
           >
             {headerConfig.enabled && (
@@ -15860,13 +16365,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
+      snapGuides={canvasSnapGuide?.sectionId === section.id ? canvasSnapGuide : null}
       onElementDragStart={(elementId, e) => handleElementDragStart(section.id, elementId, e)}
       onElementDragMove={(elementId, e) => handleElementDragMove(section.id, elementId, e)}
       onElementDragOver={(elementId, e) => handleElementDragOver(section.id, elementId, e)}
       onElementDrop={(elementId, e) => handleElementDrop(section.id, elementId, e)}
       onElementDragEnd={handleElementDragEnd}
       onResizeElementStart={(elementId) => beginElementResize(section.id, elementId)}
-      onResizeElementWidth={(elementId, width) => resizeElementWidth(section.id, elementId, width)}
+      onResizeElementFrame={(elementId, frame) => resizeElementFrame(section.id, elementId, frame)}
       onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
       onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
       onOpenMediaLibrary={() => { selectEditorTarget(section.id); setMediaOpen(true); }}
@@ -15883,6 +16389,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       canDeleteSection={sections.length > 1}
       device={device}
       theme={theme}
+      aiPreview={aiCanvasPreview}
     />
     <div data-tayar-v1-root="true"
       className="group/add-section relative flex h-8 items-center justify-center"
