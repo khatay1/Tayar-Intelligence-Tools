@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Sparkles } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import PromptLibraryTool from './PromptLibraryTool';
+const PromptLibraryTool = lazy(() => import('./PromptLibraryTool'));
 
 const module: ToolModule = {
   id: 'prompt-library',

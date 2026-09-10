@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { FileStack } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import PdfToolsTool from './PdfToolsTool';
+const PdfToolsTool = lazy(() => import('./PdfToolsTool'));
 
 const module: ToolModule = {
   id: 'pdf-tools',

@@ -56,6 +56,7 @@ const editorAIOperationContextPath = resolve(root, 'src/modules/website-builder/
 const editorAINativeBridgePath = resolve(root, 'src/modules/website-builder/core/editor-ai-native-bridge.ts');
 const editorNativeProjectPatchPath = resolve(root, 'src/modules/website-builder/core/editor-native-project-patch.ts');
 const editorAIWorkingProjectPath = resolve(root, 'src/modules/website-builder/core/editor-ai-working-project.ts');
+const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
 const passes = [];
@@ -124,6 +125,23 @@ for (const [label, path] of [
 }
 
 const builder = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
+const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
+check('All editor AI entry points lock synchronously before React updates', (builder.match(/if \(aiAbortControllerRef\.current \|\| aiQualityAbortControllerRef\.current\) return/g) || []).length === 5);
+check('Cancelled structured requests stop during preparation', (aiService.match(/options\?\.signal\?\.throwIfAborted\(\)/g) || []).length >= 3);
+check('Cancelled structured requests stop during retry backoff', aiService.includes('async function waitForRetry') && aiService.includes("addEventListener('abort', handleAbort") && aiService.includes('await waitForRetry(delay, signal)') && aiService.includes('}, options?.signal);'));
+check('Structured AI requests retry transient HTTP failures', aiService.includes('const TRANSIENT_AI_HTTP_STATUSES = new Set([500, 502, 504])') && aiService.includes('throwIfTransientAIResponse(response, options?.signal)') && aiService.includes("response.status === 502 ? 'PROVIDER_ERROR' : 'REQUEST_FAILED'"));
+check('AI intent is independent of transient request progress', builder.includes("useState<'edit' | 'build'>('edit')") && builder.includes("if (aiIntent === 'edit')") && builder.includes("setAiIntent('edit'); setAiPrompt(prompt)"));
+check('Whole-site AI generation asks before replacing pages', builder.includes("if (!window.confirm(l('Building a new website replaces the current pages. Continue?'))) return;"));
+check('AI composer submits on Enter while preserving multiline prompts', builder.includes("event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing") && builder.includes('submitV2AIRequest();'));
+check('AI conversation follows the latest response', builder.includes("scrollIntoView({ block: 'nearest' })") && builder.includes('ref={v2AiMessagesEndRef}'));
+check('V2 AI prompts and status are localized', builder.includes("l('Tell Tayar AI what to change...')") && builder.includes("l('Build with Tayar AI')") && builder.includes("l('Working…')"));
+check('AI requests can be stopped at the network boundary', aiService.includes('signal?: AbortSignal') && aiService.includes('AbortSignal.any([options.signal') && builder.includes('aiAbortControllerRef.current?.abort()'));
+check('Stopping AI invalidates pending edits before application', builder.includes('function stopAIRequest()') && builder.includes('aiOperationSequenceRef.current += 1') && builder.includes("l('Stop AI')"));
+check('AI edits do not start during a quality review', builder.includes('if (!aiPrompt.trim() || aiBusy || aiQualityBusy) return;') && builder.includes('if (!prompt || aiBusy || aiQualityBusy) return;'));
+check('AI quality reviews can be stopped at the network boundary', builder.includes('function stopAIQualityCheck()') && builder.includes('aiQualityAbortControllerRef.current?.abort()') && builder.includes('signal: abortController.signal') && builder.includes("l('Stop check')"));
+const mobileShell = readFileSync(resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Shell.tsx'), 'utf8');
+const mobileShellCss = readFileSync(resolve(root, 'src/modules/website-builder/v2-ui/website-builder-v2-mobile.css'), 'utf8');
+check('Mobile panels dismiss without removing manual tools', mobileShell.includes('tayar-v2-mobile-panel-scrim') && mobileShell.includes("event.key !== 'Escape'") && mobileShell.includes('event.defaultPrevented') && mobileShell.includes("window.removeEventListener('keydown', dismiss)") && mobileShell.includes('shell.actions.onToggleInspector()') && mobileShell.includes('shell.actions.onToggleLeftSidebar()') && mobileShellCss.includes('z-index: 44'));
 const migration = existsSync(qualityMigrationPath) ? readFileSync(qualityMigrationPath, 'utf8') : '';
 const adminEntitlementsMigration = existsSync(adminEntitlementsMigrationPath) ? readFileSync(adminEntitlementsMigrationPath, 'utf8') : '';
 const publishedUrlHelper = existsSync(publishedUrlHelperPath) ? readFileSync(publishedUrlHelperPath, 'utf8') : '';
@@ -341,7 +359,7 @@ check('Website Builder keeps a live memoized AI context snapshot', builder.inclu
 check('AI project-load race is closed with direct ref checks', builder.includes('projectLoadSequenceRef.current !== expected.loadSequence') && builder.includes('activeUserIdRef.current !== expected.userId'));
 check('Whole-site AI generation rejects stale editable project results', builder.includes('async function generateWithAI') && builder.includes('aiEditorContextIsCurrent(operationContext, false)'));
 check('Targeted AI edits reject stale selection and content results', builder.includes('async function applyAIChange') && builder.includes('aiEditorContextIsCurrent(operationContext, true)'));
-check('AI patch image generation rechecks context immediately after await', builder.includes('const generatedImage = await requestGeneratedImage(imagePrompt);\n            if (!operationCanApply()) return;'));
+check('AI patch image generation rechecks context immediately after await', builder.includes('const generatedImage = await requestGeneratedImage(imagePrompt, abortController.signal);\n            if (!operationCanApply()) return;'));
 check('AI image and image-prompt operations require the original selection context', builder.includes('async function generateRealImage') && builder.includes('async function generateImagePrompt') && builder.match(/aiEditorContextIsCurrent\(operationContext, true\)/g)?.length >= 3);
 check('AI quality reviews are invalidated when the editor changes before fixes', builder.includes('aiQualityReviewContextRef.current = operationContext') && builder.includes('The website changed after this quality review'));
 check('AI undo snapshots cannot restore into another project lifecycle', builder.includes('aiUndoContextRef.current = operationContext') && builder.includes('aiProjectIdentityIsCurrent(undoContext)'));

@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { PenLine } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import WriterTool from './WriterTool';
+const WriterTool = lazy(() => import('./WriterTool'));
 
 const module: ToolModule = {
   id: 'ai-writer',

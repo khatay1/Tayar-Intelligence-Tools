@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Image } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import ImageToolsTool from './ImageToolsTool';
+const ImageToolsTool = lazy(() => import('./ImageToolsTool'));
 
 const module: ToolModule = {
   id: 'image-tools',

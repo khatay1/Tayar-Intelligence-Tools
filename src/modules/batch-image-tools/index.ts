@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Images } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import BatchImageTool from './BatchImageTool';
+const BatchImageTool = lazy(() => import('./BatchImageTool'));
 
 const module: ToolModule = {
   id: 'batch-image-tools',

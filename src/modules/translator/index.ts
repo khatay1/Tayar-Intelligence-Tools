@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Languages } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import TranslatorTool from './TranslatorTool';
+const TranslatorTool = lazy(() => import('./TranslatorTool'));
 
 const module: ToolModule = {
   id: 'translator',

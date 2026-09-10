@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Crop } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import ImageCropperTool from './ImageCropperTool';
+const ImageCropperTool = lazy(() => import('./ImageCropperTool'));
 
 const module: ToolModule = {
   id: 'image-cropper',

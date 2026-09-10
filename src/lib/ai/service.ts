@@ -93,23 +93,62 @@ async function getAuthHeaders() {
 }
 
 // --- Retry with exponential backoff ---
+async function waitForRetry(delayMs: number, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener('abort', handleAbort);
+      resolve();
+    }, delayMs);
+    const handleAbort = () => {
+      clearTimeout(timeoutId);
+      reject(signal?.reason ?? new DOMException('The operation was aborted.', 'AbortError'));
+    };
+
+    signal?.addEventListener('abort', handleAbort, { once: true });
+  });
+}
+
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
   isRetryable: (err: unknown) => boolean = () => true,
+  signal?: AbortSignal,
 ): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
+    signal?.throwIfAborted();
     try {
       return await fn();
     } catch (err) {
+      signal?.throwIfAborted();
       lastError = err;
       if (!isRetryable(err) || attempt === maxRetries - 1) break;
       const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
-      await new Promise(r => setTimeout(r, delay));
+      await waitForRetry(delay, signal);
     }
   }
   throw lastError;
+}
+
+const TRANSIENT_AI_HTTP_STATUSES = new Set([500, 502, 504]);
+
+async function throwIfTransientAIResponse(response: Response, signal?: AbortSignal): Promise<Response> {
+  if (!TRANSIENT_AI_HTTP_STATUSES.has(response.status)) return response;
+
+  signal?.throwIfAborted();
+  const errorBody = await response.clone().json().catch(() => ({
+    error: `Request failed (${response.status})`,
+  }));
+  signal?.throwIfAborted();
+  const message = (errorBody as { error?: string }).error || `Request failed (${response.status})`;
+
+  throw new AIError(
+    message,
+    response.status === 502 ? 'PROVIDER_ERROR' : 'REQUEST_FAILED',
+    true,
+  );
 }
 
 // --- Load user's per-tool AI settings from database ---
@@ -462,17 +501,20 @@ export class AIService {
   async completeJSON<T = unknown>(
     input: Record<string, unknown>,
     history: ChatMessage[] = [],
-    options?: { temperature?: number; maxTokens?: number },
+    options?: { temperature?: number; maxTokens?: number; signal?: AbortSignal },
   ): Promise<AIJSONResponse<T>> {
+    options?.signal?.throwIfAborted();
     await this.loadSettings();
+    options?.signal?.throwIfAborted();
     await assertToolActionAvailable(this.tool);
+    options?.signal?.throwIfAborted();
     const messages = this.buildMessages(input, history);
     const temperature = options?.temperature ?? this.temperature;
     const maxTokens = options?.maxTokens ?? this.maxTokens;
 
     const doFetch = async () => {
       const headers = await getAuthHeaders();
-      return fetch(getFunctionUrl(), {
+      const response = await fetch(getFunctionUrl(), {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -486,8 +528,11 @@ export class AIService {
           ...(typeof input.action === 'string' ? { action: input.action } : {}),
           ...(typeof input.prompt === 'string' ? { prompt: input.prompt } : {}),
         }),
-        signal: AbortSignal.timeout(90_000),
+        signal: options?.signal
+          ? AbortSignal.any([options.signal, AbortSignal.timeout(90_000)])
+          : AbortSignal.timeout(90_000),
       });
+      return throwIfTransientAIResponse(response, options?.signal);
     };
 
     let response: Response;
@@ -498,7 +543,7 @@ export class AIService {
         if (err instanceof DOMException && err.name === 'TimeoutError') return true;
         if (err instanceof TypeError) return true;
         return false;
-      });
+      }, options?.signal);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'TimeoutError') {
         throw new AIError(
@@ -662,6 +707,3 @@ export async function getUsageStats(): Promise<UsageStats> {
 export function createAIService(tool: ToolId, options?: string | AIServiceOptions): AIService {
   return new AIService(tool, options);
 }
-
-
-

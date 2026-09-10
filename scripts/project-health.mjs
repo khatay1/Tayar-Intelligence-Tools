@@ -7,6 +7,15 @@ const check = (name, ok) => checks.push({ name, ok: Boolean(ok) });
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 const exists = (rel) => fs.existsSync(path.join(root, rel));
 
+for (const entry of fs.readdirSync(path.join(root, 'src/modules'), { withFileTypes: true })) {
+  const indexPath = `src/modules/${entry.name}/index.ts`;
+  if (!entry.isDirectory() || !exists(indexPath)) continue;
+  const source = read(indexPath);
+  if (!source.includes('toolRegistry.register')) continue;
+  check(`Tool catalog keeps ${entry.name} UI behind lazy loading`,
+    !/^import \w+ from ['"]\.\/[^'"]*Tool['"]/m.test(source));
+}
+
 function walkTextFiles(relDir) {
   const start = path.join(root, relDir);
   if (!fs.existsSync(start)) return [];
@@ -308,7 +317,7 @@ check('Website Builder AI applies generated palette to the full theme', websiteB
 check('Website Builder AI adapts spacing and radius to design tone', websiteBuilder.includes("tone === 'minimal' || tone === 'premium' ? 104 : 92") && websiteBuilder.includes("tone === 'premium' || tone === 'friendly' ? 16"));
 check('AI image requests are forwarded to the edge engine', aiService.includes("typeof input.action === 'string'") && aiService.includes("{ action: input.action }") && aiService.includes("{ prompt: input.prompt }"));
 check('AI engine persists generated images into Website Builder media', aiEngine.includes('from("website-media")') && aiEngine.includes('assetPath') && aiEngine.includes('persisted'));
-check('Website Builder AI patch engine can generate targeted images', websiteBuilder.includes("operation.action === 'generate_image'") && websiteBuilder.includes('requestGeneratedImage(imagePrompt)') && websiteBuilder.includes("placement === 'section_background'"));
+check('Website Builder AI patch engine can generate targeted images', websiteBuilder.includes("operation.action === 'generate_image'") && websiteBuilder.includes('requestGeneratedImage(imagePrompt, abortController.signal)') && websiteBuilder.includes("placement === 'section_background'"));
 check('Website Builder AI image tool applies generated media to the selected target', websiteBuilder.includes('async function generateRealImage()') && websiteBuilder.includes('saved it to Media Library') && websiteBuilder.includes("backgroundMode: 'image'"));
 check('Tayar Agent can generate a finished site with imagery and SEO fallback', websiteBuilder.includes('generateWithAI(agentMode = false)') && websiteBuilder.includes('Build with Tayar Agent') && websiteBuilder.includes('agentImagesGenerated') && websiteBuilder.includes('nextGeneratedSeo'));
 check('Website Builder AI quality review covers publish readiness', aiPrompts.includes("action === 'quality-check'") && websiteBuilder.includes('runAIQualityCheck') && websiteBuilder.includes('AI Quality Check') && websiteBuilder.includes('fixAIQualityIssues'));

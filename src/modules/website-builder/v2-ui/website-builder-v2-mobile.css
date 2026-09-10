@@ -3,7 +3,45 @@
   display: none;
 }
 
+.tayar-v2-mobile-panel-scrim {
+  display: none;
+}
+
+.tayar-v2-tools-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, .18);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tayar-v2-panel-close {
+  display: none;
+}
+
 @media (max-width: 850px) {
+  .tayar-v2-panel-close {
+    display: grid;
+    place-items: center;
+    min-width: 36px;
+    min-height: 36px;
+    color: inherit;
+    font-size: 22px;
+  }
+  .tayar-v2-mobile-panel-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 44;
+    border: 0;
+    padding: 0;
+    background: rgba(2, 6, 23, .42);
+    cursor: pointer;
+  }
+
   .tayar-v2-shell {
     position: relative;
     min-height: 0 !important;
@@ -124,9 +162,19 @@
     display: none;
   }
 
-  .tayar-v2-topbar__actions .tayar-v2-preview-button,
-  .tayar-v2-topbar__actions .tayar-v2-check-button {
-    display: none;
+  .tayar-v2-shell .tayar-v2-topbar__actions .tayar-v2-preview-button,
+  .tayar-v2-shell .tayar-v2-topbar__actions .tayar-v2-check-button {
+    display: inline-flex;
+  }
+
+  .tayar-v2-shell .tayar-v2-topbar {
+    flex-wrap: wrap;
+  }
+
+  .tayar-v2-shell .tayar-v2-topbar__actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    padding-block: 4px;
   }
 
   .tayar-v2-topbar__actions {

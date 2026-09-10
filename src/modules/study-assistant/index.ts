@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { GraduationCap } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import StudyAssistantTool from './StudyAssistantTool';
+const StudyAssistantTool = lazy(() => import('./StudyAssistantTool'));
 
 const module: ToolModule = {
   id: 'study-assistant',

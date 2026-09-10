@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { FilePenLine } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import LetterGeneratorTool from './LetterGeneratorTool';
+const LetterGeneratorTool = lazy(() => import('./LetterGeneratorTool'));
 
 const module: ToolModule = {
   id: 'letter-generator',

@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Mail } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import CoverLetterTool from './CoverLetterTool';
+const CoverLetterTool = lazy(() => import('./CoverLetterTool'));
 
 const module: ToolModule = {
   id: 'cover-letter',

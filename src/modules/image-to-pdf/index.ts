@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { FileStack } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import ImageToPdfTool from './ImageToPdfTool';
+const ImageToPdfTool = lazy(() => import('./ImageToPdfTool'));
 
 const module: ToolModule = {
   id: 'image-to-pdf',

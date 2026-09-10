@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { FileText } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import CVBuilderComponent from './CVBuilderTool';
+const CVBuilderComponent = lazy(() => import('./CVBuilderTool'));
 
 const module: ToolModule = {
   id: 'cv-builder',

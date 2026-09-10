@@ -6,6 +6,19 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'Stop AI': 'إيقاف الذكاء الاصطناعي',
+  'Stop check': 'إيقاف الفحص',
+  'AI request stopped. No pending changes were applied.': 'تم إيقاف طلب الذكاء الاصطناعي. لم تُطبّق أي تغييرات معلّقة.',
+  'You': 'أنت',
+  'Make this page look more premium': 'اجعل هذه الصفحة أكثر احترافية',
+  'Improve mobile and tablet layout': 'حسّن تخطيط الهاتف والجهاز اللوحي',
+  'Improve the hero and calls to action': 'حسّن الواجهة الرئيسية وأزرار الدعوة للإجراء',
+  'Review this website and fix safe issues': 'راجع هذا الموقع وأصلح المشكلات الآمنة',
+  'Tell Tayar AI what to change...': 'أخبر ذكاء طيار بما تريد تغييره...',
+  'Describe the website you want to build...': 'صف الموقع الذي تريد بناءه...',
+  'Build with Tayar AI': 'ابنِ باستخدام ذكاء طيار',
+  'Enter to send · Shift+Enter for a new line': 'Enter للإرسال · Shift+Enter لسطر جديد',
+  'Describe the website you want. I will plan the pages, build the structure and hand it to the visual editor.': 'صف الموقع الذي تريده. سأخطط الصفحات وأبني الهيكل ثم أسلّمه إلى المحرر المرئي.',
   'configured': 'مُعدّ',
   'unconfigured': 'غير مُعدّ',
   'enabled': 'مفعّل',
@@ -382,6 +395,19 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'Stop AI': 'Stoppa AI',
+  'Stop check': 'Stoppa kontrollen',
+  'AI request stopped. No pending changes were applied.': 'AI-begäran stoppades. Inga väntande ändringar tillämpades.',
+  'You': 'Du',
+  'Make this page look more premium': 'Gör den här sidan mer professionell',
+  'Improve mobile and tablet layout': 'Förbättra layouten för mobil och surfplatta',
+  'Improve the hero and calls to action': 'Förbättra hero-sektionen och uppmaningarna',
+  'Review this website and fix safe issues': 'Granska webbplatsen och åtgärda säkra problem',
+  'Tell Tayar AI what to change...': 'Berätta för Tayar AI vad som ska ändras...',
+  'Describe the website you want to build...': 'Beskriv webbplatsen du vill bygga...',
+  'Build with Tayar AI': 'Bygg med Tayar AI',
+  'Enter to send · Shift+Enter for a new line': 'Enter för att skicka · Shift+Enter för ny rad',
+  'Describe the website you want. I will plan the pages, build the structure and hand it to the visual editor.': 'Beskriv webbplatsen du vill ha. Jag planerar sidorna, bygger strukturen och lämnar över den till den visuella redigeraren.',
   'configured': 'konfigurerad',
   'unconfigured': 'inte konfigurerad',
   'enabled': 'aktiverad',

@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Wand2 } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import NameGeneratorTool from './NameGeneratorTool';
+const NameGeneratorTool = lazy(() => import('./NameGeneratorTool'));
 
 const module: ToolModule = {
   id: 'name-generator',

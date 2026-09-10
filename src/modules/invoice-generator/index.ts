@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { ReceiptText } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import InvoiceGeneratorTool from './InvoiceGeneratorTool';
+const InvoiceGeneratorTool = lazy(() => import('./InvoiceGeneratorTool'));
 
 const module: ToolModule = {
   id: 'invoice-generator',

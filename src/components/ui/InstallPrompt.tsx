@@ -15,7 +15,7 @@ export default function InstallPrompt() {
   const label = DOWNLOAD_COPY[prefs.language] || DOWNLOAD_COPY.en;
 
   useEffect(() => {
-    setNavTarget(document.querySelector('aside nav'));
+    setNavTarget(document.querySelector<HTMLElement>('aside nav'));
   }, []);
 
   if (!navTarget) return null;

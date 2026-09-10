@@ -502,6 +502,27 @@ button.tayar-v2-history-entry:disabled {
   transform: none;
 }
 
+.tayar-v2-desktop-workflow {
+  display: none;
+}
+
+@media (min-width: 851px) {
+  .tayar-v2-desktop-workflow {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid rgba(148, 163, 184, .18);
+    border-radius: 10px;
+  }
+
+  .tayar-v2-desktop-workflow button[aria-pressed='true'] {
+    background: rgba(124, 58, 237, .22);
+    border-color: rgba(167, 139, 250, .4);
+    color: #ede9fe;
+  }
+}
+
 .tayar-v2-topbar__history {
   padding-left: 4px;
 }

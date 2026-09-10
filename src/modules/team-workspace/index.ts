@@ -1,6 +1,7 @@
+import { lazy } from 'react';
 import { UsersRound } from 'lucide-react';
 import { toolRegistry } from '../registry';
-import TeamWorkspaceTool from './TeamWorkspaceTool';
+const TeamWorkspaceTool = lazy(() => import('./TeamWorkspaceTool'));
 
 toolRegistry.register({
   id: 'team-workspace',

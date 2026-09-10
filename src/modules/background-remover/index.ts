@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Eraser } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import BackgroundRemoverTool from './BackgroundRemoverTool';
+const BackgroundRemoverTool = lazy(() => import('./BackgroundRemoverTool'));
 
 const module: ToolModule = {
   id: 'background-remover',

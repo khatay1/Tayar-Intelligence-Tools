@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { BookOpen } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import DocumentAITool from './DocumentAITool';
+const DocumentAITool = lazy(() => import('./DocumentAITool'));
 
 const module: ToolModule = {
   id: 'document-ai',

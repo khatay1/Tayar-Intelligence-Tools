@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useLocalizer } from '@/lib/ui-localization';
 import type { EditorShellContract } from '../core/editor-shell-contract';
 import type { EditorInspectorTab, EditorLeftPanel } from '../core/editor-layout';
 import { BuilderCanvasFrame } from './BuilderCanvasFrame';
@@ -20,6 +21,7 @@ export interface WebsiteBuilderV2ShellProps {
 }
 
 export function WebsiteBuilderV2Shell(props: WebsiteBuilderV2ShellProps) {
+  const l = useLocalizer();
   const { shell } = props;
   const mobileInitialisedRef = useRef(false);
 
@@ -36,6 +38,18 @@ export function WebsiteBuilderV2Shell(props: WebsiteBuilderV2ShellProps) {
     shell.view.leftSidebarOpen,
   ]);
 
+  useEffect(() => {
+    if (shell.view.focusMode || (!shell.view.leftSidebarOpen && !shell.view.inspectorOpen)) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || !window.matchMedia('(max-width: 850px)').matches) return;
+      event.preventDefault();
+      if (shell.view.inspectorOpen) shell.actions.onToggleInspector();
+      else if (shell.view.leftSidebarOpen) shell.actions.onToggleLeftSidebar();
+    };
+    window.addEventListener('keydown', dismiss);
+    return () => window.removeEventListener('keydown', dismiss);
+  }, [shell.actions, shell.view.focusMode, shell.view.inspectorOpen, shell.view.leftSidebarOpen]);
+
   return (
     <div
       className="tayar-v2-shell"
@@ -50,6 +64,17 @@ export function WebsiteBuilderV2Shell(props: WebsiteBuilderV2ShellProps) {
         trailingSlot={props.topbarTrailingSlot}
       />
       <div className="tayar-v2-shell__workspace">
+        {!shell.view.focusMode && (shell.view.leftSidebarOpen || shell.view.inspectorOpen) && (
+          <button
+            type="button"
+            className="tayar-v2-mobile-panel-scrim"
+            aria-label={l('Close')}
+            onClick={() => {
+              if (shell.view.inspectorOpen) shell.actions.onToggleInspector();
+              else if (shell.view.leftSidebarOpen) shell.actions.onToggleLeftSidebar();
+            }}
+          />
+        )}
         {!shell.view.focusMode && shell.view.leftSidebarOpen && (
           <BuilderLeftSidebar shell={shell} renderPanel={props.renderLeftPanel} />
         )}

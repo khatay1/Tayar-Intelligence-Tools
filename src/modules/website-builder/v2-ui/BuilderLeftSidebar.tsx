@@ -108,6 +108,10 @@ export function BuilderLeftSidebar({
         className="tayar-v2-left-sidebar__panel"
         data-panel={view.leftPanel}
       >
+        <div className="tayar-v2-tools-heading">
+          <span>{l(EDITOR_LEFT_PANEL_REGISTRY.find((item) => item.id === view.leftPanel)?.label || 'Builder tools')}</span>
+          <button type="button" className="tayar-v2-panel-close" aria-label={l('Close')} onClick={actions.onToggleLeftSidebar}>×</button>
+        </div>
         {renderPanel(
           view.leftPanel as EditorLeftPanel,
         )}

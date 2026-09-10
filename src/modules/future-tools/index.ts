@@ -1,9 +1,10 @@
+import { lazy } from 'react';
 import { FileSignature, Mailbox, BarChart3 } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import EmailWriterTool from './EmailWriterTool';
-import ContractWriterTool from './ContractWriterTool';
-import AnalyticsAITool from './AnalyticsAITool';
+const EmailWriterTool = lazy(() => import('./EmailWriterTool'));
+const ContractWriterTool = lazy(() => import('./ContractWriterTool'));
+const AnalyticsAITool = lazy(() => import('./AnalyticsAITool'));
 
 const futureModules: ToolModule[] = [
   {

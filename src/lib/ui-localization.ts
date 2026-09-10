@@ -5,6 +5,10 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  'AI action': 'إجراء الذكاء الاصطناعي',
+  'Edit current website': 'تعديل الموقع الحالي',
+  'Build new website': 'بناء موقع جديد',
+  'Building a new website replaces the current pages. Continue?': 'بناء موقع جديد يستبدل الصفحات الحالية. هل تريد المتابعة؟',
   'Generating...': 'جارٍ الإنشاء...',
   'Your result will appear here.': 'ستظهر النتيجة هنا.',
   'Coming Soon': 'قريباً',
@@ -2605,6 +2609,10 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  'AI action': 'AI-åtgärd',
+  'Edit current website': 'Redigera aktuell webbplats',
+  'Build new website': 'Bygg ny webbplats',
+  'Building a new website replaces the current pages. Continue?': 'Om du bygger en ny webbplats ersätts de aktuella sidorna. Fortsätta?',
   'Generating...': 'Genererar...', 'Your result will appear here.': 'Ditt resultat visas här.', 'Coming Soon': 'Kommer snart',
   "This tool is under active development. You'll be notified when it's ready.": 'Det här verktyget utvecklas aktivt. Du får besked när det är klart.',
   'AI Writer': 'AI-skrivare', 'Write blogs, articles, and marketing copy.': 'Skriv blogginlägg, artiklar och marknadsföringstexter.',

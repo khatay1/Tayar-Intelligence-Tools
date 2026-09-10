@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import CsvCleanerTool from './CsvCleanerTool';
+const CsvCleanerTool = lazy(() => import('./CsvCleanerTool'));
 
 const module: ToolModule = {
   id: 'csv-cleaner',

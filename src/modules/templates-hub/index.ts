@@ -1,7 +1,8 @@
+import { lazy } from 'react';
 import { Table2 } from 'lucide-react';
 import { ToolModule } from '../types';
 import { toolRegistry } from '../registry';
-import TemplatesHubTool from './TemplatesHubTool';
+const TemplatesHubTool = lazy(() => import('./TemplatesHubTool'));
 
 const module: ToolModule = {
   id: 'templates-hub',

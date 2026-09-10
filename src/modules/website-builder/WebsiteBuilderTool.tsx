@@ -3331,6 +3331,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiStage, setAiStage] = useState<AIBuilderStage>('idle');
+  const [aiIntent, setAiIntent] = useState<'edit' | 'build'>('edit');
   const [aiPlan, setAiPlan] = useState<{ summary: string; pages: Array<{ name: string; sections: number }> } | null>(null);
   const [aiMessages, setAiMessages] = useState<AIBuilderMessage[]>([
     {
@@ -3339,6 +3340,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       content: 'Describe the website you want. I will plan the pages, build the structure and hand it to the visual editor.',
     },
   ]);
+  const v2AiMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const [aiUndoSnapshot, setAiUndoSnapshot] = useState<AIWebsiteUndoSnapshot | null>(null);
   const [aiQualityReview, setAiQualityReview] = useState<AIQualityReview | null>(null);
   const [aiQualityBusy, setAiQualityBusy] = useState(false);
@@ -3458,7 +3460,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const projectLoadSequenceRef = useRef(0);
   const savedFeedbackSequenceRef = useRef(0);
   const aiOperationSequenceRef = useRef(0);
+  const aiAbortControllerRef = useRef<AbortController | null>(null);
   const aiQualityOperationSequenceRef = useRef(0);
+  const aiQualityAbortControllerRef = useRef<AbortController | null>(null);
   const aiEditorContextRef = useRef<EditorAIAsyncContext | null>(null);
   const aiUndoContextRef = useRef<EditorAIAsyncContext | null>(null);
   const aiQualityReviewContextRef = useRef<EditorAIAsyncContext | null>(null);
@@ -3488,7 +3492,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     billingRefreshSequenceRef.current += 1;
     billingOperationSequenceRef.current += 1;
     aiOperationSequenceRef.current += 1;
+    aiAbortControllerRef.current?.abort();
+    aiAbortControllerRef.current = null;
     aiQualityOperationSequenceRef.current += 1;
+    aiQualityAbortControllerRef.current?.abort();
+    aiQualityAbortControllerRef.current = null;
     aiUndoContextRef.current = null;
     aiQualityReviewContextRef.current = null;
     setReusableBusy(false);
@@ -3522,7 +3530,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     previewOperationSequenceRef.current += 1;
     liveVerificationSequenceRef.current += 1;
     aiOperationSequenceRef.current += 1;
+    aiAbortControllerRef.current?.abort();
+    aiAbortControllerRef.current = null;
     aiQualityOperationSequenceRef.current += 1;
+    aiQualityAbortControllerRef.current?.abort();
+    aiQualityAbortControllerRef.current = null;
     aiUndoContextRef.current = null;
     aiQualityReviewContextRef.current = null;
     setCloudBusy(false);
@@ -6771,7 +6783,52 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setProjectHistory((current) => [entry, ...current].slice(0, 30));
   }
 
-  async function requestGeneratedImage(prompt: string) {
+  function beginAIRequest(): AbortController {
+    aiAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    aiAbortControllerRef.current = controller;
+    return controller;
+  }
+
+  function finishAIRequest(controller: AbortController) {
+    if (aiAbortControllerRef.current === controller) aiAbortControllerRef.current = null;
+  }
+
+  function stopAIRequest() {
+    if (!aiBusy) return;
+    aiOperationSequenceRef.current += 1;
+    aiAbortControllerRef.current?.abort();
+    aiAbortControllerRef.current = null;
+    setAiBusy(false);
+    setAiError('');
+    setAiStage('ready');
+    setAiMessages((current) => [
+      ...current,
+      { id: `ai-stopped-${Date.now()}`, role: 'assistant' as const, content: 'AI request stopped. No pending changes were applied.' },
+    ].slice(-12));
+  }
+
+  function beginAIQualityRequest(): AbortController {
+    aiQualityAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    aiQualityAbortControllerRef.current = controller;
+    return controller;
+  }
+
+  function finishAIQualityRequest(controller: AbortController) {
+    if (aiQualityAbortControllerRef.current === controller) aiQualityAbortControllerRef.current = null;
+  }
+
+  function stopAIQualityCheck() {
+    if (!aiQualityBusy) return;
+    aiQualityOperationSequenceRef.current += 1;
+    aiQualityAbortControllerRef.current?.abort();
+    aiQualityAbortControllerRef.current = null;
+    setAiQualityBusy(false);
+    setAiError('');
+  }
+
+  async function requestGeneratedImage(prompt: string, signal?: AbortSignal) {
     const cleanPrompt = prompt.trim();
     if (!cleanPrompt) throw new Error('Image prompt is required.');
     const requestUserId = user?.id ?? null;
@@ -6779,7 +6836,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean; persistenceError?: string }>(
       { action: 'generate-image', prompt: cleanPrompt },
       [],
-      { temperature: 0.8, maxTokens: 1000 },
+      { temperature: 0.8, maxTokens: 1000, signal },
     );
     if (!response.json?.url) throw new Error('Image generation did not return an image.');
     if (requestUserId) void refreshMedia(requestUserId);
@@ -6843,10 +6900,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function generateWithAI(agentMode = false) {
+    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return;
     const prompt = aiPrompt.trim();
-    if (!prompt || aiBusy) return;
+    if (!prompt || aiBusy || aiQualityBusy) return;
+    if (!window.confirm(l('Building a new website replaces the current pages. Continue?'))) return;
 
     const operationSequence = ++aiOperationSequenceRef.current;
+    const abortController = beginAIRequest();
     const operationUserId = user?.id ?? null;
     const operationContext = captureAIEditorContext();
     const operationIsLatest = () =>
@@ -6871,7 +6931,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const response = await ai.completeJSON<AIWebsiteGeneration>(
         { action: 'generate', prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
         [],
-        { temperature: 0.65, maxTokens: 9000 },
+        { temperature: 0.65, maxTokens: 9000, signal: abortController.signal },
       );
 
       if (!operationCanApply()) return;
@@ -6973,7 +7033,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
         for (const target of visualTargets) {
           try {
-            const generatedImage = await requestGeneratedImage(target.prompt);
+            const generatedImage = await requestGeneratedImage(target.prompt, abortController.signal);
             if (!operationCanApply()) return;
             const page = nextPages[target.pageIndex];
             const section = page?.sections[target.sectionIndex];
@@ -7079,6 +7139,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
       setAiPrompt('');
       setAiStage('ready');
+      setAiIntent('edit');
       setAiMessages((current) => [
         ...current,
         {
@@ -7099,6 +7160,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { id: `ai-error-${Date.now()}`, role: 'assistant' as const, content: message },
       ].slice(-12));
     } finally {
+      finishAIRequest(abortController);
       if (operationIsLatest()) {
         setAiBusy(false);
         if (!operationCanApply()) setAiStage('ready');
@@ -7285,10 +7347,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function applyAIChange(requestedPrompt?: string) {
+    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return;
     const prompt = typeof requestedPrompt === 'string' ? requestedPrompt.trim() : aiPrompt.trim();
-    if (!prompt || aiBusy) return;
+    if (!prompt || aiBusy || aiQualityBusy) return;
 
     const operationSequence = ++aiOperationSequenceRef.current;
+    const abortController = beginAIRequest();
     const operationUserId = user?.id ?? null;
     const operationContext = captureAIEditorContext();
     const operationIsLatest = () =>
@@ -7332,7 +7396,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           currentSite: editableSnapshot,
         },
         aiMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
-        { temperature: 0.2, maxTokens: 3500 },
+        { temperature: 0.2, maxTokens: 3500, signal: abortController.signal },
       );
 
       if (!operationCanApply()) return;
@@ -7394,7 +7458,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           executionPlan: agentPlan,
         },
         aiMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
-        { temperature: 0.25, maxTokens: 12000 },
+        { temperature: 0.25, maxTokens: 12000, signal: abortController.signal },
       );
 
       if (!operationCanApply()) return;
@@ -9646,7 +9710,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const targetSection = sectionList[sectionIndex];
           const imagePrompt = operation.prompt?.trim() || targetSection.imagePrompt?.trim() || `${targetSection.title}. Professional website image for ${siteName}.`;
           try {
-            const generatedImage = await requestGeneratedImage(imagePrompt);
+            const generatedImage = await requestGeneratedImage(imagePrompt, abortController.signal);
             if (!operationCanApply()) return;
             const placement = operation.placement || (targetSection.type === 'hero' ? 'section_background' : 'section_image');
             if (placement === 'section_background') {
@@ -9879,7 +9943,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             proposedProject,
           },
           [],
-          { temperature: 0.1, maxTokens: 3200 },
+          { temperature: 0.1, maxTokens: 3200, signal: abortController.signal },
         );
 
         if (!operationCanApply()) return;
@@ -10020,6 +10084,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         { id: `ai-patch-error-${Date.now()}`, role: 'assistant' as const, content: message },
       ].slice(-12));
     } finally {
+      finishAIRequest(abortController);
       if (operationIsLatest()) {
         setAiBusy(false);
         if (!operationCanApply()) setAiStage('ready');
@@ -10028,9 +10093,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   async function generateRealImage() {
-    if (!selectedSection || aiBusy) return;
+    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return;
+    if (!selectedSection || aiBusy || aiQualityBusy) return;
 
     const operationSequence = ++aiOperationSequenceRef.current;
+    const abortController = beginAIRequest();
     const operationUserId = user?.id ?? null;
     const operationContext = captureAIEditorContext();
     const operationIsLatest = () =>
@@ -10052,6 +10119,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     try {
       const generatedImage = await requestGeneratedImage(
         targetSection.imagePrompt || targetSection.title || `Professional ${targetSection.type} website image`,
+        abortController.signal,
       );
 
       if (!operationCanApply()) return;
@@ -10120,14 +10188,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!operationCanApply()) return;
       setAiError(error instanceof Error ? error.message : 'Image generation failed.');
     } finally {
+      finishAIRequest(abortController);
       if (operationIsLatest()) setAiBusy(false);
     }
   }
 
   async function generateImagePrompt() {
-    if (!selectedSection || aiBusy) return;
+    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return;
+    if (!selectedSection || aiBusy || aiQualityBusy) return;
 
     const operationSequence = ++aiOperationSequenceRef.current;
+    const abortController = beginAIRequest();
     const operationUserId = user?.id ?? null;
     const operationContext = captureAIEditorContext();
     const operationIsLatest = () =>
@@ -10153,7 +10224,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           brand,
         },
         [],
-        { temperature: 0.8, maxTokens: 800 },
+        { temperature: 0.8, maxTokens: 800, signal: abortController.signal },
       );
 
       if (!operationCanApply()) return;
@@ -10176,14 +10247,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           : 'Image prompt generation failed.'
       );
     } finally {
+      finishAIRequest(abortController);
       if (operationIsLatest()) setAiBusy(false);
     }
   }
 
   async function runAIQualityCheck(): Promise<AIQualityReview | null> {
+    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return null;
     if (aiQualityBusy || aiBusy) return aiQualityReview;
 
     const operationSequence = ++aiQualityOperationSequenceRef.current;
+    const abortController = beginAIQualityRequest();
     const operationUserId = user?.id ?? null;
     const operationContext = captureAIEditorContext();
     const operationIsLatest = () =>
@@ -10217,7 +10291,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           audit: qualityAudit,
         },
         [],
-        { temperature: 0.25, maxTokens: 5000 },
+        { temperature: 0.25, maxTokens: 5000, signal: abortController.signal },
       );
 
       if (!operationCanApply()) return null;
@@ -10262,12 +10336,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       });
       return null;
     } finally {
+      finishAIQualityRequest(abortController);
       if (operationIsLatest()) setAiQualityBusy(false);
     }
   }
 
   async function fixAIQualityIssues() {
-    if (!aiQualityReview?.fixPrompt || aiBusy) return;
+    if (!aiQualityReview?.fixPrompt || aiBusy || aiQualityBusy) return;
 
     const reviewContext = aiQualityReviewContextRef.current;
     if (
@@ -13077,6 +13152,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
+  function submitV2AIRequest() {
+    if (!aiPrompt.trim() || aiBusy || aiQualityBusy) return;
+    if (aiIntent === 'edit') void applyAIChange();
+    else void generateWithAI(true);
+  }
+
+  const latestAiMessageId = aiMessages[aiMessages.length - 1]?.id;
+  useEffect(() => {
+    v2AiMessagesEndRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [latestAiMessageId, aiBusy, aiStage]);
+
   const v2AiPanel = (
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-white/10 px-3 py-3">
@@ -13099,6 +13185,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-2 px-3 pt-3" role="group" aria-label={l('AI action')}>
+        {(['edit', 'build'] as const).map((intent) => (
+          <button key={intent} type="button" disabled={aiBusy || aiQualityBusy} aria-pressed={aiIntent === intent}
+            onClick={() => setAiIntent(intent)}
+            className={`rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${aiIntent === intent ? 'border-violet-400/40 bg-violet-500/20 text-violet-200' : 'border-white/10 text-gray-400'}`}>
+            {intent === 'edit' ? l('Edit current website') : l('Build new website')}
+          </button>
+        ))}
+      </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         <div className="space-y-2">
           {aiMessages.slice(-8).map((message) => (
@@ -13112,11 +13207,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             >
               <span className="mb-1 block text-[8px] font-black uppercase tracking-wider text-gray-500">
                 {message.role === 'user'
-                  ? 'You'
+                  ? l('You')
                   : 'Tayar AI'}
               </span>
 
-              {message.content}
+              {l(message.content)}
             </div>
           ))}
         </div>
@@ -13125,7 +13220,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.06] p-3">
             <div className="flex items-center gap-2 text-[10px] font-bold text-violet-300">
               <Sparkles className="h-3.5 w-3.5" />
-              Tayar AI is {aiStage}...
+              {l('Working…')}
             </div>
           </div>
         )}
@@ -13186,15 +13281,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button
                 key={prompt}
                 type="button"
-                onClick={() => setAiPrompt(prompt)}
-                disabled={aiBusy}
+                onClick={() => { setAiIntent('edit'); setAiPrompt(prompt); }}
+                disabled={aiBusy || aiQualityBusy}
                 className="rounded-lg border border-white/10 px-2.5 py-2 text-left text-[9px] text-gray-400 transition hover:bg-white/[0.04] hover:text-gray-200 disabled:opacity-40"
               >
-                {prompt}
+                {l(prompt)}
               </button>
             ))}
           </div>
         </div>
+        <div ref={v2AiMessagesEndRef} aria-hidden="true" />
       </div>
 
       <div className="border-t border-white/10 p-3">
@@ -13203,54 +13299,47 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           onChange={(event) =>
             setAiPrompt(event.target.value)
           }
-          disabled={aiBusy}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            submitV2AIRequest();
+          }}
+          disabled={aiBusy || aiQualityBusy}
           rows={4}
           placeholder={
-            aiStage === 'ready'
-              ? 'Tell Tayar AI what to change...'
-              : 'Describe the website you want to build...'
+            aiIntent === 'edit'
+              ? l('Tell Tayar AI what to change...')
+              : l('Describe the website you want to build...')
           }
           className="w-full resize-none rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-[11px] leading-relaxed text-white outline-none placeholder:text-gray-600 focus:border-violet-500/50 disabled:opacity-50"
         />
+        <p className="mt-1 text-[8px] text-gray-600">{l('Enter to send · Shift+Enter for a new line')}</p>
 
         <button
           type="button"
-          onClick={() => {
-            if (aiStage === 'ready') {
-              void applyAIChange();
-            } else {
-              void generateWithAI(true);
-            }
-          }}
-          disabled={!aiPrompt.trim() || aiBusy}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2.5 text-[10px] font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={aiBusy ? stopAIRequest : submitV2AIRequest}
+          disabled={aiQualityBusy || (!aiBusy && !aiPrompt.trim())}
+          className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[10px] font-black text-white transition disabled:cursor-not-allowed disabled:opacity-40 ${aiBusy ? 'bg-rose-600 hover:bg-rose-500' : 'bg-violet-600 hover:bg-violet-500'}`}
         >
           <Sparkles className="h-3.5 w-3.5" />
 
           {aiBusy
-            ? 'Tayar AI is working...'
-            : aiStage === 'ready'
-              ? 'Apply AI change'
-              : 'Build with Tayar AI'}
+            ? l('Stop AI')
+            : aiIntent === 'edit'
+              ? l('Apply AI change')
+              : l('Build with Tayar AI')}
         </button>
 
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2">
           <button
             type="button"
-            onClick={() => void generateWithAI(true)}
-            disabled={!aiPrompt.trim() || aiBusy}
-            className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-400 hover:bg-white/[0.04] disabled:opacity-40"
-          >{l("Rebuild")}</button>
-
-          <button
-            type="button"
-            onClick={() => void runAIQualityCheck()}
-            disabled={aiBusy || aiQualityBusy}
-            className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-400 hover:bg-white/[0.04] disabled:opacity-40"
+            onClick={aiQualityBusy ? stopAIQualityCheck : () => void runAIQualityCheck()}
+            disabled={aiBusy}
+            className={`w-full rounded-lg border px-2 py-2 text-[9px] font-bold disabled:opacity-40 ${aiQualityBusy ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10' : 'border-white/10 text-gray-400 hover:bg-white/[0.04]'}`}
           >
             {aiQualityBusy
-              ? 'Checking...'
-              : 'Quality check'}
+              ? l('Stop check')
+              : l('Quality check')}
           </button>
         </div>
 
@@ -14047,13 +14136,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <ExternalLink className="h-4 w-4" /><span className="hidden 2xl:inline">{l('Preview')}</span></button>
 
           <button
-            onClick={() => void runAIQualityCheck()}
-            disabled={aiQualityBusy || aiBusy}
+            onClick={aiQualityBusy ? stopAIQualityCheck : () => void runAIQualityCheck()}
+            disabled={aiBusy}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${aiQualityReview && aiQualityReview.score >= 80 ? 'border-emerald-500/30 text-emerald-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
             title={l('AI quality check before publishing')}
           >
             <Check className="h-4 w-4" />
-            <span className="hidden 2xl:inline">{aiQualityBusy ? l('Checking…') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}</span>
+            <span className="hidden 2xl:inline">{aiQualityBusy ? l('Stop check') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}</span>
           </button>
 
           <button
@@ -14108,7 +14197,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <p className="mt-1 text-[10px] text-gray-500">{aiQualityReview?.summary ? l(aiQualityReview.summary) : (aiQualityBusy ? l('Reviewing design, content, SEO, accessibility and publish readiness…') : l('Run the final AI review before publishing.'))}</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => void runAIQualityCheck()} disabled={aiQualityBusy || aiBusy} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{aiQualityBusy ? l('Checking…') : l('Run again')}</button>
+                <button onClick={aiQualityBusy ? stopAIQualityCheck : () => void runAIQualityCheck()} disabled={aiBusy} className={`text-xs font-semibold disabled:opacity-40 ${aiQualityBusy ? 'text-rose-400' : 'text-emerald-400'}`}>{aiQualityBusy ? l('Stop check') : l('Run again')}</button>
                 <button onClick={() => setAiQualityOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
               </div>
             </div>
@@ -14126,7 +14215,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {aiQualityReview.fixPrompt && (
-                    <button onClick={() => void fixAIQualityIssues()} disabled={aiBusy} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-50">{l('Fix safe issues with AI')}</button>
+                    <button onClick={() => void fixAIQualityIssues()} disabled={aiBusy || aiQualityBusy} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-50">{l('Fix safe issues with AI')}</button>
                   )}
                   <button onClick={previewWebsite} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${darkMode ? 'border-white/10 text-gray-300' : 'border-gray-200 bg-white text-gray-700'}`}>{l('Preview')}</button>
                   <span className="text-[9px] text-gray-500">{l('Publish remains blocked by critical deterministic audit errors and launch checks.')}</span>
@@ -15506,7 +15595,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <div className="space-y-2">
                   <button
                     onClick={() => void applyAIChange()}
-                    disabled={!aiPrompt.trim() || aiBusy}
+                    disabled={!aiPrompt.trim() || aiBusy || aiQualityBusy}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
@@ -15516,7 +15605,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <button
                       type="button"
                       onClick={() => void generateWithAI(false)}
-                      disabled={!aiPrompt.trim() || aiBusy}
+                      disabled={!aiPrompt.trim() || aiBusy || aiQualityBusy}
                       className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
                     >
                       {l('Rebuild from prompt')}
@@ -15533,18 +15622,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <button
                       type="button"
                       onClick={() => void generateRealImage()}
-                      disabled={aiBusy || !selectedSection}
+                      disabled={aiBusy || aiQualityBusy || !selectedSection}
                       className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-cyan-500/15 bg-cyan-500/[0.03] text-cyan-300 hover:bg-cyan-500/[0.07]' : 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100'} disabled:opacity-40`}
                     >
                       {l('Generate selected image')}
                     </button>
                     <button
                       type="button"
-                      onClick={() => void runAIQualityCheck()}
-                      disabled={aiQualityBusy || aiBusy}
+                      onClick={aiQualityBusy ? stopAIQualityCheck : () => void runAIQualityCheck()}
+                      disabled={aiBusy}
                       className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-emerald-500/15 bg-emerald-500/[0.03] text-emerald-300 hover:bg-emerald-500/[0.07]' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'} disabled:opacity-40`}
                     >
-                      {aiQualityBusy ? l('Checking…') : l('Quality check')}
+                      {aiQualityBusy ? l('Stop check') : l('Quality check')}
                     </button>
                   </div>
                   {aiUndoSnapshot && (
@@ -16528,7 +16617,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
                 <button
                   onClick={generateImagePrompt}
-                  disabled={aiBusy}
+                  disabled={aiBusy || aiQualityBusy}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {aiBusy ? 'Generating...' : '✨ Generate AI Prompt'}
@@ -16536,7 +16625,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
                 <button
                   onClick={generateRealImage}
-                  disabled={aiBusy}
+                  disabled={aiBusy || aiQualityBusy}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {aiBusy ? 'Generating Image...' : '🖼️ Generate Image'}

@@ -15,20 +15,49 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
   return (
     <header className="tayar-v2-topbar" data-dirty={view.dirty ? 'true' : 'false'}>
       <div className="tayar-v2-topbar__brand">{brandSlot}</div>
+      <div className="tayar-v2-desktop-workflow" role="group" aria-label={l('Builder tools')}>
+        <button
+          type="button"
+          aria-pressed={!view.focusMode && view.leftSidebarOpen && view.leftPanel === 'ai'}
+          onClick={() => {
+            if (view.focusMode) actions.onToggleFocus();
+            actions.onOpenLeftPanel('ai');
+          }}
+        >{l('Tayar AI')}</button>
+        <button
+          type="button"
+          aria-pressed={!view.focusMode && view.leftSidebarOpen && view.leftPanel !== 'ai'}
+          onClick={() => {
+            if (view.focusMode) actions.onToggleFocus();
+            actions.onOpenLeftPanel('layers');
+            if (!view.inspectorOpen) actions.onToggleInspector();
+          }}
+        >{l('Edit')}</button>
+      </div>
       <div className="tayar-v2-topbar__mobile-panels" aria-label={l('Builder tools')}>
         <button
           type="button"
           className="tayar-v2-mobile-panel-button"
-          aria-pressed={view.leftSidebarOpen}
-          onClick={actions.onToggleLeftSidebar}
+          aria-pressed={!view.focusMode && view.leftSidebarOpen}
+          onClick={() => {
+            if (view.focusMode) actions.onToggleFocus();
+            if (view.inspectorOpen) actions.onToggleInspector();
+            if (view.focusMode && view.leftSidebarOpen) return;
+            actions.onToggleLeftSidebar();
+          }}
         >
           {l('Tools')}
         </button>
         <button
           type="button"
           className="tayar-v2-mobile-panel-button"
-          aria-pressed={view.inspectorOpen}
-          onClick={actions.onToggleInspector}
+          aria-pressed={!view.focusMode && view.inspectorOpen}
+          onClick={() => {
+            if (view.focusMode) actions.onToggleFocus();
+            if (view.leftSidebarOpen) actions.onToggleLeftSidebar();
+            if (view.focusMode && view.inspectorOpen) return;
+            actions.onToggleInspector();
+          }}
         >
           {l('Edit')}
         </button>
