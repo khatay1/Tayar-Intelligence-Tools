@@ -350,6 +350,12 @@ interface AIWebsiteAgentPlan {
   warnings?: string[];
 }
 
+interface AIWebsitePlanReview {
+  summary: string;
+  steps: AIWebsiteAgentPlanStep[];
+  warnings: string[];
+}
+
 interface AIWebsiteAgentReviewFinding {
   severity: 'critical' | 'warning' | 'improvement';
   title: string;
@@ -3333,6 +3339,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [aiStage, setAiStage] = useState<AIBuilderStage>('idle');
   const [aiIntent, setAiIntent] = useState<'edit' | 'build'>('edit');
   const [aiPlan, setAiPlan] = useState<{ summary: string; pages: Array<{ name: string; sections: number }> } | null>(null);
+  const [aiPlanReview, setAiPlanReview] = useState<AIWebsitePlanReview | null>(null);
   const [aiMessages, setAiMessages] = useState<AIBuilderMessage[]>([
     {
       id: 'ai-welcome',
@@ -3341,6 +3348,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     },
   ]);
   const v2AiMessagesEndRef = useRef<HTMLDivElement | null>(null);
+  const aiPlanApproveButtonRef = useRef<HTMLButtonElement | null>(null);
   const [aiUndoSnapshot, setAiUndoSnapshot] = useState<AIWebsiteUndoSnapshot | null>(null);
   const [aiQualityReview, setAiQualityReview] = useState<AIQualityReview | null>(null);
   const [aiQualityBusy, setAiQualityBusy] = useState(false);
@@ -3461,6 +3469,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const savedFeedbackSequenceRef = useRef(0);
   const aiOperationSequenceRef = useRef(0);
   const aiAbortControllerRef = useRef<AbortController | null>(null);
+  const aiPlanReviewResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const aiQualityOperationSequenceRef = useRef(0);
   const aiQualityAbortControllerRef = useRef<AbortController | null>(null);
   const aiEditorContextRef = useRef<EditorAIAsyncContext | null>(null);
@@ -3494,6 +3503,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     aiOperationSequenceRef.current += 1;
     aiAbortControllerRef.current?.abort();
     aiAbortControllerRef.current = null;
+    aiPlanReviewResolverRef.current?.(false);
+    aiPlanReviewResolverRef.current = null;
     aiQualityOperationSequenceRef.current += 1;
     aiQualityAbortControllerRef.current?.abort();
     aiQualityAbortControllerRef.current = null;
@@ -3505,6 +3516,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBillingLoading(false);
     setBillingBusy(false);
     setAiBusy(false);
+    setAiPlanReview(null);
     setAiQualityBusy(false);
   }, [user?.id]);
 
@@ -3532,6 +3544,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     aiOperationSequenceRef.current += 1;
     aiAbortControllerRef.current?.abort();
     aiAbortControllerRef.current = null;
+    aiPlanReviewResolverRef.current?.(false);
+    aiPlanReviewResolverRef.current = null;
     aiQualityOperationSequenceRef.current += 1;
     aiQualityAbortControllerRef.current?.abort();
     aiQualityAbortControllerRef.current = null;
@@ -3539,6 +3553,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     aiQualityReviewContextRef.current = null;
     setCloudBusy(false);
     setSaved(false);
+    setAiPlanReview(null);
     setDraggedId(null);
     setDragOverId(null);
     setDragOverSectionPosition(null);
@@ -6794,9 +6809,35 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (aiAbortControllerRef.current === controller) aiAbortControllerRef.current = null;
   }
 
+  function resolveAIPlanReview(approved: boolean) {
+    aiPlanReviewResolverRef.current?.(approved);
+  }
+
+  function requestAIPlanReview(plan: AIWebsitePlanReview, signal: AbortSignal): Promise<boolean> {
+    signal.throwIfAborted();
+
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const finish = (approved: boolean) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', handleAbort);
+        if (aiPlanReviewResolverRef.current === finish) aiPlanReviewResolverRef.current = null;
+        setAiPlanReview(null);
+        resolve(approved);
+      };
+      const handleAbort = () => finish(false);
+
+      aiPlanReviewResolverRef.current = finish;
+      setAiPlanReview(plan);
+      signal.addEventListener('abort', handleAbort, { once: true });
+    });
+  }
+
   function stopAIRequest() {
     if (!aiBusy) return;
     aiOperationSequenceRef.current += 1;
+    resolveAIPlanReview(false);
     aiAbortControllerRef.current?.abort();
     aiAbortControllerRef.current = null;
     setAiBusy(false);
@@ -6917,9 +6958,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       aiEditorContextIsCurrent(operationContext, false);
 
     const requestId = `ai-request-${Date.now()}`;
-    pushProjectCheckpoint(agentMode ? 'Before Tayar Agent build' : 'Before AI build');
     setAiBusy(true);
     setAiError('');
+    setAiPlan(null);
     setAiStage('planning');
     setAiMessages((current) => [
       ...current,
@@ -7074,6 +7115,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (!operationCanApply()) return;
 
+      pushProjectCheckpoint(agentMode ? 'Before Tayar Agent build' : 'Before AI build');
       setAiPlan({
         summary,
         pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
@@ -7363,8 +7405,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       aiEditorContextIsCurrent(operationContext, true);
 
     const requestId = `ai-edit-${Date.now()}`;
-    remember(sections, `AI change: ${prompt.slice(0, 60)}`);
-    pushProjectCheckpoint(`Before AI change · ${prompt.slice(0, 60)}`);
     const currentPages = getCurrentPages();
     const snapshot: AIWebsiteUndoSnapshot = {
       pages: JSON.parse(JSON.stringify(currentPages)) as WebsitePage[],
@@ -7380,6 +7420,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setAiBusy(true);
     setAiError('');
+    setAiPlan(null);
     setAiStage('planning');
     setAiMessages((current) => [
       ...current,
@@ -7449,6 +7490,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           content: `Plan: ${planPreview}${agentPlan.warnings?.length ? ` · ${agentPlan.warnings.join(' · ')}` : ''}`,
         },
       ].slice(-30));
+
+      const planApproved = await requestAIPlanReview({
+        summary: agentPlan.summary || 'Apply the requested website changes safely.',
+        steps: agentPlan.steps || [],
+        warnings: agentPlan.warnings || [],
+      }, abortController.signal);
+      if (!planApproved) {
+        if (operationIsLatest() && !abortController.signal.aborted) {
+          setAiStage('ready');
+          setAiMessages((current) => [
+            ...current,
+            { id: `ai-plan-discarded-${Date.now()}`, role: 'assistant' as const, content: 'AI plan discarded. No changes were applied.' },
+          ].slice(-20));
+        }
+        return;
+      }
+      if (!operationCanApply()) return;
+      setAiStage('building');
 
       const response = await ai.completeJSON<AIWebsitePatch>(
         {
@@ -9993,6 +10052,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
       if (!operationCanApply()) return;
+      remember(sections, `AI change: ${prompt.slice(0, 60)}`);
+      pushProjectCheckpoint(`Before AI change · ${prompt.slice(0, 60)}`);
       aiUndoContextRef.current = operationContext;
       setAiUndoSnapshot(snapshot);
       setPages(nextPages);
@@ -13158,10 +13219,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     else void generateWithAI(true);
   }
 
+  const aiStageStatus = aiStage === 'planning'
+    ? l('Planning…')
+    : aiStage === 'building'
+      ? l('Building…')
+      : aiStage === 'styling'
+        ? l('Finishing…')
+        : l('Working…');
+
   const latestAiMessageId = aiMessages[aiMessages.length - 1]?.id;
   useEffect(() => {
     v2AiMessagesEndRef.current?.scrollIntoView({ block: 'nearest' });
   }, [latestAiMessageId, aiBusy, aiStage]);
+
+  useEffect(() => {
+    if (!aiPlanReview) return;
+    const focusFrame = window.requestAnimationFrame(() => aiPlanApproveButtonRef.current?.focus());
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [aiPlanReview]);
 
   const v2AiPanel = (
     <div className="flex h-full min-h-0 flex-col">
@@ -13180,7 +13255,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           </div>
 
           <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-violet-300">
-            {aiBusy ? aiStage : 'Agent'}
+            {aiBusy ? aiStageStatus : l('Agent')}
           </span>
         </div>
       </div>
@@ -13220,8 +13295,47 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.06] p-3">
             <div className="flex items-center gap-2 text-[10px] font-bold text-violet-300">
               <Sparkles className="h-3.5 w-3.5" />
-              {l('Working…')}
+              {aiStageStatus}
             </div>
+          </div>
+        )}
+
+        {aiPlanReview && (
+          <div
+            className="rounded-xl border border-amber-400/25 bg-amber-500/[0.06] p-3"
+            role="dialog"
+            aria-labelledby="tayar-ai-plan-review-title"
+            aria-describedby="tayar-ai-plan-review-description"
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              event.stopPropagation();
+              resolveAIPlanReview(false);
+            }}
+          >
+            <strong id="tayar-ai-plan-review-title" className="text-[10px] text-amber-200">{l('Review AI plan')}</strong>
+            <p className="mt-1 text-[9px] leading-relaxed text-gray-400">{aiPlanReview.summary}</p>
+            <p id="tayar-ai-plan-review-description" className="mt-2 text-[8px] font-semibold text-amber-300">{l('No website changes have been applied yet.')}</p>
+            <ol className="mt-2 space-y-1.5">
+              {aiPlanReview.steps.map((step, index) => (
+                <li key={step.id} className="rounded-lg border border-white/[0.07] bg-black/10 px-2.5 py-2 text-[9px] text-gray-300">
+                  <span className="font-bold text-gray-200">{index + 1}. {step.title}</span>
+                  {step.target && <span className="mt-0.5 block text-[8px] text-gray-500">{step.target}</span>}
+                </li>
+              ))}
+            </ol>
+            {aiPlanReview.warnings.length > 0 && (
+              <p className="mt-2 text-[8px] leading-relaxed text-amber-300">{aiPlanReview.warnings.join(' · ')}</p>
+            )}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button ref={aiPlanApproveButtonRef} type="button" onClick={() => resolveAIPlanReview(true)} className="rounded-lg bg-emerald-600 px-2 py-2 text-[9px] font-black text-white hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
+                {l('Approve and continue')}
+              </button>
+              <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAIPlanReview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
+                {l('Discard plan')}
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[8px] text-gray-500">{l('Press Escape to discard')}</p>
           </div>
         )}
 
@@ -15480,8 +15594,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <div className="max-h-36 space-y-2 overflow-auto pr-1">
                 {aiMessages.slice(-4).map((message) => (
                   <div key={message.id} className={`rounded-xl border px-3 py-2.5 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-7 border-violet-500/10 bg-violet-500/[0.09] text-violet-50' : 'ml-7 border-violet-100 bg-violet-50 text-violet-900') : (darkMode ? 'mr-2 border-white/[0.06] bg-white/[0.025] text-gray-300' : 'mr-2 border-gray-100 bg-gray-50/80 text-gray-700')}`}>
-                    <span className={`mb-1.5 block text-[7px] font-black uppercase tracking-[0.14em] ${message.role === 'user' ? 'text-violet-400' : 'text-gray-500'}`}>{message.role === 'user' ? 'You' : 'Tayar AI'}</span>
-                    {message.content}
+                    <span className={`mb-1.5 block text-[7px] font-black uppercase tracking-[0.14em] ${message.role === 'user' ? 'text-violet-400' : 'text-gray-500'}`}>{message.role === 'user' ? l('You') : 'Tayar AI'}</span>
+                    {l(message.content)}
                   </div>
                 ))}
               </div>
@@ -15494,7 +15608,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     const active = aiStage === stage && aiStage !== 'ready';
                     return (
                       <div key={stage} className={`rounded-lg border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/15 bg-emerald-500/[0.07] text-emerald-400' : active ? 'border-violet-500/20 bg-violet-500/[0.08] text-violet-300' : darkMode ? 'border-white/[0.06] text-gray-600' : 'border-gray-100 text-gray-400'}`}>
-                        {complete ? '✓ ' : ''}{stage}
+                        {complete ? '✓ ' : ''}{l(stage === 'planning' ? 'Planning' : stage === 'building' ? 'Building' : stage === 'styling' ? 'Styling' : 'Ready')}
                       </div>
                     );
                   })}
@@ -15656,7 +15770,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    {aiBusy ? `${aiStage === 'planning' ? 'Planning' : aiStage === 'building' ? 'Building' : 'Finishing'}...` : l('Build with Tayar Agent')}
+                    {aiBusy ? aiStageStatus : l('Build with Tayar Agent')}
                   </button>
                   <button
                     type="button"

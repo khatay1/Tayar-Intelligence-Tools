@@ -6,6 +6,18 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'Review AI plan': 'مراجعة خطة الذكاء الاصطناعي',
+  'No website changes have been applied yet.': 'لم يتم تطبيق أي تغييرات على الموقع بعد.',
+  'Approve and continue': 'موافقة ومتابعة',
+  'Discard plan': 'رفض الخطة',
+  'AI plan discarded. No changes were applied.': 'تم رفض خطة الذكاء الاصطناعي. لم تُطبّق أي تغييرات.',
+  'Press Escape to discard': 'اضغط Escape لرفض الخطة',
+  'Agent': 'الوكيل',
+  'Planning': 'التخطيط',
+  'Styling': 'التنسيق',
+  'Planning…': 'جارٍ التخطيط…',
+  'Building…': 'جارٍ البناء…',
+  'Finishing…': 'جارٍ الإنهاء…',
   'Stop AI': 'إيقاف الذكاء الاصطناعي',
   'Stop check': 'إيقاف الفحص',
   'AI request stopped. No pending changes were applied.': 'تم إيقاف طلب الذكاء الاصطناعي. لم تُطبّق أي تغييرات معلّقة.',
@@ -395,6 +407,18 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'Review AI plan': 'Granska AI-planen',
+  'No website changes have been applied yet.': 'Inga webbplatsändringar har tillämpats ännu.',
+  'Approve and continue': 'Godkänn och fortsätt',
+  'Discard plan': 'Avvisa planen',
+  'AI plan discarded. No changes were applied.': 'AI-planen avvisades. Inga ändringar tillämpades.',
+  'Press Escape to discard': 'Tryck Escape för att avvisa',
+  'Agent': 'Agent',
+  'Planning': 'Planering',
+  'Styling': 'Design',
+  'Planning…': 'Planerar…',
+  'Building…': 'Bygger…',
+  'Finishing…': 'Slutför…',
   'Stop AI': 'Stoppa AI',
   'Stop check': 'Stoppa kontrollen',
   'AI request stopped. No pending changes were applied.': 'AI-begäran stoppades. Inga väntande ändringar tillämpades.',
