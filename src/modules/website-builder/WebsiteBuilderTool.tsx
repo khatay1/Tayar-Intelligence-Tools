@@ -494,6 +494,22 @@ interface WebsitePage {
   noIndex?: boolean;
 }
 
+function aiWebsitePatchReviewItemIsGlobal(operation: AIWebsitePatchReviewItem): boolean {
+  return !operation.pageId && !operation.pageSlug && !operation.sectionId && !operation.elementId && !operation.containerId;
+}
+
+function aiWebsitePatchReviewItemTargetsPage(
+  operation: AIWebsitePatchReviewItem,
+  page: WebsitePage,
+): boolean {
+  if (operation.pageId) return operation.pageId === page.id;
+  if (operation.pageSlug) return normalizeSlug(operation.pageSlug) === normalizeSlug(page.slug);
+  if (operation.sectionId && page.sections.some((section) => section.id === operation.sectionId)) return true;
+  if (operation.elementId && page.sections.some((section) => section.elements.some((element) => element.id === operation.elementId))) return true;
+  if (operation.containerId && page.sections.some((section) => (section.containers || []).some((container) => container.id === operation.containerId))) return true;
+  return false;
+}
+
 interface AIWebsiteUndoSnapshot {
   pages: WebsitePage[];
   activePageId: string;
@@ -684,6 +700,8 @@ interface AIWebsiteCandidatePreview {
   changedPageIds: string[];
   addedPageIds: string[];
   removedPageIds: string[];
+  reviewedPageIds: string[];
+  focusedOperationId: string | null;
   applied: number;
   skipped: number;
   warnings: string[];
@@ -3173,7 +3191,9 @@ function SectionPreview({
     <section
       id={sectionDomId(section)}
       data-tayar-section-canvas="true"
+      data-tayar-ai-target-section={section.id}
       data-tayar-ai-preview-kind={sectionPreviewKind}
+      tabIndex={-1}
       onClick={onSelect}
       className={`relative group cursor-pointer border border-transparent transition-all duration-150 ${sectionPreviewKind ? aiWebsitePatchPreviewClass(sectionPreviewKind) : selected ? 'ring-2 ring-violet-500/70 ring-inset' : 'hover:ring-1 hover:ring-violet-400/35 hover:ring-inset'}`}
       style={{
@@ -3262,7 +3282,9 @@ function SectionPreview({
               return (
                 <div
                   key={entry.container.id}
+                  data-tayar-ai-target-container={entry.container.id}
                   data-tayar-ai-preview-kind={aiPreview?.containerKinds[entry.container.id]}
+                  tabIndex={-1}
                   className={`relative flex min-w-0 w-full flex-col rounded-lg transition ${aiWebsitePatchPreviewClass(aiPreview?.containerKinds[entry.container.id])}`}
                   style={{ gridColumn: previewColumns === 1 ? '1 / span 1' : `${column} / span ${span}` }}
                 >
@@ -3289,7 +3311,9 @@ function SectionPreview({
                       return (
                         <div
                           key={element.id}
+                          data-tayar-ai-target-element={element.id}
                           data-tayar-ai-preview-kind={aiPreview?.elementKinds[element.id]}
+                          tabIndex={-1}
                           className={`relative flex min-w-0 flex-col rounded-md transition ${aiWebsitePatchPreviewClass(aiPreview?.elementKinds[element.id])}`}
                           style={{
                             flex: entry.container.layout === 'row' && device !== 'mobile' ? '1 1 180px' : '0 0 auto',
@@ -3353,7 +3377,7 @@ function SectionPreview({
               opacity: hiddenOnDevice ? 0.32 : 1,
             };
             return (
-              <div key={element.id} data-tayar-ai-preview-kind={aiPreview?.elementKinds[element.id]} className={`relative flex min-w-0 w-full flex-col rounded-md transition ${aiWebsitePatchPreviewClass(aiPreview?.elementKinds[element.id])}`} style={wrapperStyle}>
+              <div key={element.id} data-tayar-ai-target-element={element.id} data-tayar-ai-preview-kind={aiPreview?.elementKinds[element.id]} tabIndex={-1} className={`relative flex min-w-0 w-full flex-col rounded-md transition ${aiWebsitePatchPreviewClass(aiPreview?.elementKinds[element.id])}`} style={wrapperStyle}>
                 {dragOverElementId === element.id && dragOverElementPosition && draggedElementId !== element.id && (
                   <span className={`pointer-events-none absolute left-0 right-0 z-50 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.75)] ${dragOverElementPosition === 'before' ? '-top-2' : '-bottom-2'}`} />
                 )}
@@ -3431,7 +3455,7 @@ function SectionPreview({
                 </label>
               )
             ))}
-            <div data-tayar-ai-preview-kind={contactSubmitElement ? aiPreview?.elementKinds[contactSubmitElement.id] : undefined} className={`relative rounded-md transition ${contactSubmitElement ? aiWebsitePatchPreviewClass(aiPreview?.elementKinds[contactSubmitElement.id]) : ''}`}>
+            <div data-tayar-ai-target-element={contactSubmitElement?.id} data-tayar-ai-preview-kind={contactSubmitElement ? aiPreview?.elementKinds[contactSubmitElement.id] : undefined} tabIndex={-1} className={`relative rounded-md transition ${contactSubmitElement ? aiWebsitePatchPreviewClass(aiPreview?.elementKinds[contactSubmitElement.id]) : ''}`}>
               {contactSubmitElement && renderSelectedElementToolbar(contactSubmitElement)}
               {contactSubmitElement && renderSelectedElementResizeHandle(contactSubmitElement)}
             {contactSubmitStyle?.hidden ? (
@@ -5646,14 +5670,44 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const removedIds = new Set(aiCandidatePreview.removedPageIds);
     const surviving = aiCandidatePreview.pages
       .filter((page) => changedIds.has(page.id) || page.id === aiCandidatePreview.activePageId)
-      .map((page) => ({ page, status: addedIds.has(page.id) ? 'added' as const : changedIds.has(page.id) ? 'changed' as const : 'current' as const }));
+      .map((page) => ({
+        page,
+        status: addedIds.has(page.id) ? 'added' as const : changedIds.has(page.id) ? 'changed' as const : 'current' as const,
+        operationCount: aiCandidatePreview.review.operations.filter((operation) => aiWebsitePatchReviewItemTargetsPage(operation, page)).length,
+      }));
     const removed = aiCandidatePreview.baselinePages
       .filter((page) => removedIds.has(page.id))
-      .map((page) => ({ page, status: 'removed' as const }));
+      .map((page) => ({
+        page,
+        status: 'removed' as const,
+        operationCount: aiCandidatePreview.review.operations.filter((operation) => aiWebsitePatchReviewItemTargetsPage(operation, page)).length,
+      }));
     return [...surviving, ...removed];
   }, [aiCandidatePreview]);
   const aiCandidateCanShowBefore = Boolean(aiCandidatePreview?.baselinePages.some((page) => page.id === aiCandidatePreview.activePageId));
   const aiCandidateCanShowAfter = Boolean(aiCandidatePreview?.pages.some((page) => page.id === aiCandidatePreview.activePageId));
+  const aiCandidateReviewedPageCount = useMemo(() => {
+    if (!aiCandidatePreview) return 0;
+    const reviewedIds = new Set(aiCandidatePreview.reviewedPageIds);
+    return aiCandidateReviewPages.reduce((count, item) => count + (reviewedIds.has(item.page.id) ? 1 : 0), 0);
+  }, [aiCandidatePreview, aiCandidateReviewPages]);
+  const aiCandidateGlobalOperations = useMemo(
+    () => aiCandidatePreview?.review.operations.filter(aiWebsitePatchReviewItemIsGlobal) ?? [],
+    [aiCandidatePreview],
+  );
+  const aiCandidateActiveOperations = useMemo(() => {
+    if (!aiCandidatePreview) return [];
+    const activePage = aiCandidatePreview.pages.find((page) => page.id === aiCandidatePreview.activePageId)
+      ?? aiCandidatePreview.baselinePages.find((page) => page.id === aiCandidatePreview.activePageId);
+    if (!activePage) return aiCandidateGlobalOperations;
+    return aiCandidatePreview.review.operations.filter((operation) =>
+      aiWebsitePatchReviewItemIsGlobal(operation) || aiWebsitePatchReviewItemTargetsPage(operation, activePage),
+    );
+  }, [aiCandidatePreview, aiCandidateGlobalOperations]);
+  const aiCandidateTargetableOperations = useMemo(
+    () => aiCandidateActiveOperations.filter((operation) => operation.sectionId || operation.elementId || operation.containerId),
+    [aiCandidateActiveOperations],
+  );
 
   const aiCanvasPreview = useMemo<AIWebsiteCanvasPreview | null>(() => {
     const review = aiCandidatePreview?.review ?? aiPatchReview;
@@ -7282,16 +7336,96 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function previewAICandidatePage(pageId: string) {
     setAiCandidatePreview((current) => {
-      if (!current || current.activePageId === pageId) return current;
+      if (!current) return current;
       const existsAfter = current.pages.some((page) => page.id === pageId);
       const existsBefore = current.baselinePages.some((page) => page.id === pageId);
       if (!existsAfter && !existsBefore) return current;
+      const reviewedPageIds = current.reviewedPageIds.includes(pageId)
+        ? current.reviewedPageIds
+        : [...current.reviewedPageIds, pageId];
       return {
         ...current,
         activePageId: pageId,
         viewMode: existsAfter ? (existsBefore ? current.viewMode : 'after') : 'before',
+        reviewedPageIds,
+        focusedOperationId: null,
       };
     });
+  }
+
+  function previewNextUnreviewedAICandidatePage() {
+    const current = aiCandidatePreview;
+    if (!current) return;
+    const reviewedIds = new Set(current.reviewedPageIds);
+    const activeIndex = Math.max(0, aiCandidateReviewPages.findIndex((item) => item.page.id === current.activePageId));
+    const orderedPages = [
+      ...aiCandidateReviewPages.slice(activeIndex + 1),
+      ...aiCandidateReviewPages.slice(0, activeIndex + 1),
+    ];
+    const nextPage = orderedPages.find((item) => !reviewedIds.has(item.page.id));
+    if (nextPage) previewAICandidatePage(nextPage.page.id);
+  }
+
+  function approveAICandidatePreview() {
+    const unreviewedCount = aiCandidateReviewPages.length - aiCandidateReviewedPageCount;
+    if (
+      unreviewedCount > 0 &&
+      !window.confirm(`${unreviewedCount} ${l('affected pages have not been reviewed. Keep result anyway?')}`)
+    ) {
+      previewNextUnreviewedAICandidatePage();
+      return;
+    }
+    resolveAICandidatePreview(true);
+  }
+
+  function revealAICandidateOperation(operation: AIWebsitePatchReviewItem) {
+    const targets: Array<{ attribute: string; id: string }> = [];
+    if (operation.elementId) targets.push({ attribute: 'data-tayar-ai-target-element', id: operation.elementId });
+    if (operation.containerId) targets.push({ attribute: 'data-tayar-ai-target-container', id: operation.containerId });
+    if (operation.sectionId) targets.push({ attribute: 'data-tayar-ai-target-section', id: operation.sectionId });
+    if (targets.length === 0) return;
+
+    setAiCandidatePreview((current) => current ? { ...current, focusedOperationId: operation.id } : current);
+    if (operation.kind === 'remove') setAICandidatePreviewMode('before');
+    if (operation.kind === 'add') setAICandidatePreviewMode('after');
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        let canvasTarget: HTMLElement | undefined;
+        for (const target of targets) {
+          const matches = Array.from(document.querySelectorAll<HTMLElement>(`[${target.attribute}]`));
+          canvasTarget = matches.find((element) => element.getAttribute(target.attribute) === target.id && element.getClientRects().length > 0)
+            ?? matches.find((element) => element.getAttribute(target.attribute) === target.id);
+          if (canvasTarget) break;
+        }
+        if (!canvasTarget) return;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        canvasTarget.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' });
+        canvasTarget.focus({ preventScroll: true });
+        if (!reducedMotion) {
+          canvasTarget.animate(
+            [
+              { filter: 'brightness(1)' },
+              { filter: 'brightness(1.35)' },
+              { filter: 'brightness(1)' },
+            ],
+            { duration: 700, easing: 'ease-out' },
+          );
+        }
+      });
+    });
+  }
+
+  function revealAdjacentAICandidateOperation(direction: -1 | 1) {
+    if (!aiCandidatePreview || aiCandidateTargetableOperations.length === 0) return;
+    const currentIndex = aiCandidateTargetableOperations.findIndex(
+      (operation) => operation.id === aiCandidatePreview.focusedOperationId,
+    );
+    const nextIndex = currentIndex < 0
+      ? direction === 1 ? 0 : aiCandidateTargetableOperations.length - 1
+      : (currentIndex + direction + aiCandidateTargetableOperations.length) % aiCandidateTargetableOperations.length;
+    const nextOperation = aiCandidateTargetableOperations[nextIndex];
+    if (nextOperation) revealAICandidateOperation(nextOperation);
   }
 
   function setAICandidatePreviewMode(viewMode: 'before' | 'after') {
@@ -7322,6 +7456,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ...current,
         activePageId: nextPageId,
         viewMode: existsAfter ? (existsBefore ? current.viewMode : 'after') : 'before',
+        reviewedPageIds: current.reviewedPageIds.includes(nextPageId)
+          ? current.reviewedPageIds
+          : [...current.reviewedPageIds, nextPageId],
+        focusedOperationId: null,
       };
     });
   }
@@ -10641,6 +10779,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         changedPageIds,
         addedPageIds,
         removedPageIds,
+        reviewedPageIds: finalActive?.id ? [finalActive.id] : [],
+        focusedOperationId: null,
         applied,
         skipped,
         warnings: resultWarnings,
@@ -14026,7 +14166,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             role="dialog"
             aria-labelledby="tayar-ai-result-review-title"
             aria-describedby="tayar-ai-result-review-description"
-            aria-keyshortcuts="Escape Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown"
+            aria-keyshortcuts="Escape Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown Alt+PageUp Alt+PageDown"
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
                 event.preventDefault();
@@ -14041,6 +14181,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
                 event.preventDefault();
                 moveAICandidatePreviewPage(event.key === 'ArrowUp' ? -1 : 1);
+              } else if (event.key === 'PageUp' || event.key === 'PageDown') {
+                event.preventDefault();
+                revealAdjacentAICandidateOperation(event.key === 'PageUp' ? -1 : 1);
               }
             }}
           >
@@ -14074,28 +14217,50 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               })}
             </div>
             <div className="mt-2">
-              <span className="text-[8px] font-black uppercase tracking-wide text-gray-500">{l('Preview pages')}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[8px] font-black uppercase tracking-wide text-gray-500">{l('Preview pages')}</span>
+                <span className="text-[8px] font-semibold text-gray-400" aria-live="polite">
+                  {l('Reviewed pages')}: {aiCandidateReviewedPageCount}/{aiCandidateReviewPages.length}
+                </span>
+              </div>
               <div className="mt-1.5 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto pr-1" role="group" aria-label={l('Preview pages')}>
-                {aiCandidateReviewPages.map(({ page, status }) => {
+                {aiCandidateReviewPages.map(({ page, status, operationCount }) => {
                     const active = page.id === aiCandidatePreview.activePageId;
+                    const reviewed = aiCandidatePreview.reviewedPageIds.includes(page.id);
                     return (
                       <button
                         key={page.id}
                         type="button"
                         aria-pressed={active}
+                        aria-label={`${page.name}, ${l(status === 'added' ? 'Added' : status === 'removed' ? 'Removed' : status === 'changed' ? 'Changed' : 'Current')}, ${l(reviewed ? 'Reviewed' : 'Not reviewed')}`}
                         onClick={() => previewAICandidatePage(page.id)}
                         className={`rounded-lg border px-2 py-1.5 text-left text-[8px] font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 ${active ? 'border-emerald-300/40 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-black/10 text-gray-300 hover:bg-white/[0.05]'}`}
                       >
+                        {reviewed && <span className="mr-1 text-emerald-300" aria-hidden="true">✓</span>}
                         <span>{page.name}</span>
                         {status !== 'current' && (
                           <span className={`ml-1.5 text-[7px] uppercase tracking-wide ${status === 'added' ? 'text-cyan-300' : status === 'removed' ? 'text-red-300' : 'text-violet-300'}`}>
                             {l(status === 'added' ? 'Added' : status === 'removed' ? 'Removed' : 'Changed')}
                           </span>
                         )}
+                        {operationCount > 0 && (
+                          <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[7px] text-gray-300" aria-hidden="true">
+                            {operationCount}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
               </div>
+              {aiCandidateReviewedPageCount < aiCandidateReviewPages.length && (
+                <button
+                  type="button"
+                  onClick={previewNextUnreviewedAICandidatePage}
+                  className="mt-1.5 w-full rounded-lg border border-emerald-400/20 bg-emerald-500/[0.06] px-2 py-1.5 text-[8px] font-bold text-emerald-200 transition hover:bg-emerald-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                >
+                  {l('Review next page')}
+                </button>
+              )}
               {aiCandidateReviewPages.length > 1 && (
                 <div className="mt-1.5 flex items-center justify-between gap-2 text-[8px] text-gray-500">
                   <span>{l('Alt + Up/Down switches pages')}</span>
@@ -14103,6 +14268,65 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
             </div>
+            {aiCandidateActiveOperations.length > 0 && (
+              <details className="mt-2 rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2 text-[8px] text-gray-300">
+                <summary className="cursor-pointer font-black text-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
+                  {l('Changes affecting this page')} · {aiCandidateActiveOperations.length}
+                  {aiCandidateGlobalOperations.length > 0 && (
+                    <span className="ml-1.5 font-semibold text-violet-300">
+                      ({aiCandidateGlobalOperations.length} {l(aiCandidateGlobalOperations.length === 1 ? 'site-wide change' : 'site-wide changes')})
+                    </span>
+                  )}
+                </summary>
+                <ol className="mt-2 space-y-1.5">
+                  {aiCandidateActiveOperations.map((operation) => (
+                    <li key={operation.id}>
+                      <button
+                        type="button"
+                        disabled={!operation.sectionId && !operation.elementId && !operation.containerId}
+                        onClick={() => revealAICandidateOperation(operation)}
+                        aria-pressed={operation.id === aiCandidatePreview.focusedOperationId}
+                        className={`flex w-full items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-left transition disabled:cursor-default disabled:hover:border-white/[0.06] disabled:hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 ${operation.id === aiCandidatePreview.focusedOperationId ? 'border-emerald-400/35 bg-emerald-500/10' : 'border-white/[0.06] hover:border-emerald-400/20 hover:bg-emerald-500/[0.05]'}`}
+                      >
+                        <span>
+                          <span className="block font-bold text-gray-200">{operation.label}</span>
+                          <span className="mt-0.5 block text-[7px] text-gray-500">{operation.target}</span>
+                          {(operation.sectionId || operation.elementId || operation.containerId) && (
+                            <span className="mt-1 block text-[7px] font-bold text-emerald-300">{l('Show on canvas')}</span>
+                          )}
+                        </span>
+                        <span className={`shrink-0 text-[7px] font-black uppercase tracking-wide ${operation.kind === 'remove' ? 'text-red-300' : operation.kind === 'add' ? 'text-emerald-300' : 'text-violet-300'}`}>
+                          {l(operation.kind === 'remove' ? 'Remove' : operation.kind === 'add' ? 'Add' : 'Update')}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                {aiCandidateTargetableOperations.length > 1 && (
+                  <div className="mt-2 grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      aria-keyshortcuts="Alt+PageUp"
+                      onClick={() => revealAdjacentAICandidateOperation(-1)}
+                      className="rounded-md border border-white/10 px-2 py-1.5 font-bold text-gray-300 transition hover:bg-white/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                    >
+                      ← {l('Previous change')}
+                    </button>
+                    <button
+                      type="button"
+                      aria-keyshortcuts="Alt+PageDown"
+                      onClick={() => revealAdjacentAICandidateOperation(1)}
+                      className="rounded-md border border-white/10 px-2 py-1.5 font-bold text-gray-300 transition hover:bg-white/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                    >
+                      {l('Next change')} →
+                    </button>
+                  </div>
+                )}
+                {aiCandidateTargetableOperations.length > 1 && (
+                  <p className="mt-1.5 text-center text-[7px] text-gray-500">{l('Alt + Page Up/Down switches changes')}</p>
+                )}
+              </details>
+            )}
             {aiCandidatePreview.agentReview && (
               <div className="mt-2 rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2 text-[8px] text-gray-300">
                 <div className="flex items-center justify-between gap-2">
@@ -14130,7 +14354,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <p className="mt-2 text-[8px] text-gray-400">{l('Confidence')}: {Math.round(aiCandidatePreview.confidence * 100)}%</p>
             )}
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button ref={aiCandidateApproveButtonRef} type="button" onClick={() => resolveAICandidatePreview(true)} className="rounded-lg bg-emerald-600 px-2 py-2 text-[9px] font-black text-white hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
+              <button ref={aiCandidateApproveButtonRef} type="button" onClick={approveAICandidatePreview} className="rounded-lg bg-emerald-600 px-2 py-2 text-[9px] font-black text-white hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
                 {l('Keep result')}
               </button>
               <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAICandidatePreview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
