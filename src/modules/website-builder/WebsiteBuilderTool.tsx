@@ -665,6 +665,32 @@ interface WebsiteSymbol {
   updatedAt: string;
 }
 
+interface AIWebsiteCandidatePreview {
+  review: AIWebsitePatchReview;
+  summary: string;
+  viewMode: 'before' | 'after';
+  pages: WebsitePage[];
+  baselinePages: WebsitePage[];
+  activePageId: string;
+  homePageId: string;
+  siteName: string;
+  theme: WebsiteTheme;
+  seo: WebsiteSEO;
+  headerConfig: WebsiteHeaderConfig;
+  symbols: WebsiteSymbol[];
+  baselineSiteName: string;
+  baselineTheme: WebsiteTheme;
+  baselineHeaderConfig: WebsiteHeaderConfig;
+  changedPageIds: string[];
+  addedPageIds: string[];
+  removedPageIds: string[];
+  applied: number;
+  skipped: number;
+  warnings: string[];
+  confidence: number | null;
+  agentReview: AIWebsiteAgentReview | null;
+}
+
 interface PersistedWebsiteProject {
   cloudProjectId?: string | null;
   pages?: Partial<WebsitePage>[];
@@ -3508,6 +3534,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [aiPlan, setAiPlan] = useState<{ summary: string; pages: Array<{ name: string; sections: number }> } | null>(null);
   const [aiPlanReview, setAiPlanReview] = useState<AIWebsitePlanReview | null>(null);
   const [aiPatchReview, setAiPatchReview] = useState<AIWebsitePatchReview | null>(null);
+  const [aiCandidatePreview, setAiCandidatePreview] = useState<AIWebsiteCandidatePreview | null>(null);
   const [aiMessages, setAiMessages] = useState<AIBuilderMessage[]>([
     {
       id: 'ai-welcome',
@@ -3518,6 +3545,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const v2AiMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const aiPlanApproveButtonRef = useRef<HTMLButtonElement | null>(null);
   const aiPatchApproveButtonRef = useRef<HTMLButtonElement | null>(null);
+  const aiCandidateApproveButtonRef = useRef<HTMLButtonElement | null>(null);
   const [aiUndoSnapshot, setAiUndoSnapshot] = useState<AIWebsiteUndoSnapshot | null>(null);
   const [aiQualityReview, setAiQualityReview] = useState<AIQualityReview | null>(null);
   const [aiQualityBusy, setAiQualityBusy] = useState(false);
@@ -3649,6 +3677,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const aiAbortControllerRef = useRef<AbortController | null>(null);
   const aiPlanReviewResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const aiPatchReviewResolverRef = useRef<((approved: boolean) => void) | null>(null);
+  const aiCandidatePreviewResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const aiQualityOperationSequenceRef = useRef(0);
   const aiQualityAbortControllerRef = useRef<AbortController | null>(null);
   const aiEditorContextRef = useRef<EditorAIAsyncContext | null>(null);
@@ -3686,6 +3715,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     aiPlanReviewResolverRef.current = null;
     aiPatchReviewResolverRef.current?.(false);
     aiPatchReviewResolverRef.current = null;
+    aiCandidatePreviewResolverRef.current?.(false);
+    aiCandidatePreviewResolverRef.current = null;
     aiQualityOperationSequenceRef.current += 1;
     aiQualityAbortControllerRef.current?.abort();
     aiQualityAbortControllerRef.current = null;
@@ -3699,6 +3730,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAiBusy(false);
     setAiPlanReview(null);
     setAiPatchReview(null);
+    setAiCandidatePreview(null);
     setAiQualityBusy(false);
   }, [user?.id]);
 
@@ -3731,6 +3763,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     aiPlanReviewResolverRef.current = null;
     aiPatchReviewResolverRef.current?.(false);
     aiPatchReviewResolverRef.current = null;
+    aiCandidatePreviewResolverRef.current?.(false);
+    aiCandidatePreviewResolverRef.current = null;
     aiQualityOperationSequenceRef.current += 1;
     aiQualityAbortControllerRef.current?.abort();
     aiQualityAbortControllerRef.current = null;
@@ -3740,6 +3774,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
     setAiPlanReview(null);
     setAiPatchReview(null);
+    setAiCandidatePreview(null);
     setDraggedId(null);
     setDragOverId(null);
     setDragOverSectionPosition(null);
@@ -5585,21 +5620,57 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return pages[0] ?? null;
   }, [pages, activePageId, sections]);
 
+  const aiCandidateShowingBefore = aiCandidatePreview?.viewMode === 'before';
+  const canvasPages = aiCandidatePreview
+    ? aiCandidateShowingBefore ? aiCandidatePreview.baselinePages : aiCandidatePreview.pages
+    : pages;
+  const canvasActivePageId = aiCandidatePreview?.activePageId ?? activePageId;
+  const canvasActivePage = aiCandidatePreview
+    ? canvasPages.find((page) => page.id === canvasActivePageId) ?? canvasPages[0] ?? null
+    : activePage;
+  const canvasSections = aiCandidatePreview ? canvasActivePage?.sections ?? [] : sections;
+  const canvasSiteName = aiCandidatePreview
+    ? aiCandidateShowingBefore ? aiCandidatePreview.baselineSiteName : aiCandidatePreview.siteName
+    : siteName;
+  const canvasTheme = aiCandidatePreview
+    ? aiCandidateShowingBefore ? aiCandidatePreview.baselineTheme : aiCandidatePreview.theme
+    : theme;
+  const canvasHeaderConfig = aiCandidatePreview
+    ? aiCandidateShowingBefore ? aiCandidatePreview.baselineHeaderConfig : aiCandidatePreview.headerConfig
+    : headerConfig;
+
+  const aiCandidateReviewPages = useMemo(() => {
+    if (!aiCandidatePreview) return [];
+    const changedIds = new Set(aiCandidatePreview.changedPageIds);
+    const addedIds = new Set(aiCandidatePreview.addedPageIds);
+    const removedIds = new Set(aiCandidatePreview.removedPageIds);
+    const surviving = aiCandidatePreview.pages
+      .filter((page) => changedIds.has(page.id) || page.id === aiCandidatePreview.activePageId)
+      .map((page) => ({ page, status: addedIds.has(page.id) ? 'added' as const : changedIds.has(page.id) ? 'changed' as const : 'current' as const }));
+    const removed = aiCandidatePreview.baselinePages
+      .filter((page) => removedIds.has(page.id))
+      .map((page) => ({ page, status: 'removed' as const }));
+    return [...surviving, ...removed];
+  }, [aiCandidatePreview]);
+  const aiCandidateCanShowBefore = Boolean(aiCandidatePreview?.baselinePages.some((page) => page.id === aiCandidatePreview.activePageId));
+  const aiCandidateCanShowAfter = Boolean(aiCandidatePreview?.pages.some((page) => page.id === aiCandidatePreview.activePageId));
+
   const aiCanvasPreview = useMemo<AIWebsiteCanvasPreview | null>(() => {
-    if (!aiPatchReview) return null;
+    const review = aiCandidatePreview?.review ?? aiPatchReview;
+    if (!review) return null;
     const preview: AIWebsiteCanvasPreview = {
       global: false,
       sectionKinds: {},
       elementKinds: {},
       containerKinds: {},
     };
-    const activeSlug = normalizeSlug(activePage?.slug || '');
+    const activeSlug = normalizeSlug(canvasActivePage?.slug || '');
 
-    aiPatchReview.operations.forEach((operation) => {
+    review.operations.forEach((operation) => {
       const targetsPage = Boolean(operation.pageId || operation.pageSlug);
       const targetsActivePage = !targetsPage || Boolean(
-        activePage && (
-          operation.pageId === activePage.id ||
+        canvasActivePage && (
+          operation.pageId === canvasActivePage.id ||
           normalizeSlug(operation.pageSlug || '') === activeSlug
         ),
       );
@@ -5621,6 +5692,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const highlightsParentSection = Boolean(
         operation.sectionId && (
           operation.kind === 'add' ||
+          (Boolean(aiCandidatePreview) && operation.kind === 'remove') ||
           (!operation.elementId && !operation.containerId)
         ),
       );
@@ -5636,7 +5708,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
 
     return preview;
-  }, [activePage, aiPatchReview]);
+  }, [aiCandidatePreview, aiPatchReview, canvasActivePage]);
 
   const siteAudit = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -7204,11 +7276,83 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
   }
 
+  function resolveAICandidatePreview(approved: boolean) {
+    aiCandidatePreviewResolverRef.current?.(approved);
+  }
+
+  function previewAICandidatePage(pageId: string) {
+    setAiCandidatePreview((current) => {
+      if (!current || current.activePageId === pageId) return current;
+      const existsAfter = current.pages.some((page) => page.id === pageId);
+      const existsBefore = current.baselinePages.some((page) => page.id === pageId);
+      if (!existsAfter && !existsBefore) return current;
+      return {
+        ...current,
+        activePageId: pageId,
+        viewMode: existsAfter ? (existsBefore ? current.viewMode : 'after') : 'before',
+      };
+    });
+  }
+
+  function setAICandidatePreviewMode(viewMode: 'before' | 'after') {
+    setAiCandidatePreview((current) => {
+      if (!current || current.viewMode === viewMode) return current;
+      const availablePages = viewMode === 'before' ? current.baselinePages : current.pages;
+      if (!availablePages.some((page) => page.id === current.activePageId)) return current;
+      return { ...current, viewMode };
+    });
+  }
+
+  function moveAICandidatePreviewPage(direction: -1 | 1) {
+    setAiCandidatePreview((current) => {
+      if (!current) return current;
+      const changedIds = new Set(current.changedPageIds);
+      const removedIds = new Set(current.removedPageIds);
+      const pageIds = [
+        ...current.pages.filter((page) => changedIds.has(page.id) || page.id === current.activePageId).map((page) => page.id),
+        ...current.baselinePages.filter((page) => removedIds.has(page.id)).map((page) => page.id),
+      ];
+      const uniquePageIds = [...new Set(pageIds)];
+      if (uniquePageIds.length < 2) return current;
+      const activeIndex = Math.max(0, uniquePageIds.indexOf(current.activePageId));
+      const nextPageId = uniquePageIds[(activeIndex + direction + uniquePageIds.length) % uniquePageIds.length];
+      const existsAfter = current.pages.some((page) => page.id === nextPageId);
+      const existsBefore = current.baselinePages.some((page) => page.id === nextPageId);
+      return {
+        ...current,
+        activePageId: nextPageId,
+        viewMode: existsAfter ? (existsBefore ? current.viewMode : 'after') : 'before',
+      };
+    });
+  }
+
+  function requestAICandidatePreview(preview: AIWebsiteCandidatePreview, signal: AbortSignal): Promise<boolean> {
+    signal.throwIfAborted();
+
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const finish = (approved: boolean) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', handleAbort);
+        if (aiCandidatePreviewResolverRef.current === finish) aiCandidatePreviewResolverRef.current = null;
+        setAiCandidatePreview(null);
+        resolve(approved);
+      };
+      const handleAbort = () => finish(false);
+
+      aiCandidatePreviewResolverRef.current = finish;
+      setAiCandidatePreview(preview);
+      signal.addEventListener('abort', handleAbort, { once: true });
+    });
+  }
+
   function stopAIRequest() {
     if (!aiBusy) return;
     aiOperationSequenceRef.current += 1;
     resolveAIPlanReview(false);
     resolveAIPatchReview(false);
+    resolveAICandidatePreview(false);
     aiAbortControllerRef.current?.abort();
     aiAbortControllerRef.current = null;
     setAiBusy(false);
@@ -7333,6 +7477,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAiError('');
     setAiPlan(null);
     setAiPatchReview(null);
+    setAiCandidatePreview(null);
     setAiStage('planning');
     setAiMessages((current) => [
       ...current,
@@ -7794,6 +7939,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAiError('');
     setAiPlan(null);
     setAiPatchReview(null);
+    setAiCandidatePreview(null);
     setAiStage('planning');
     setAiMessages((current) => [
       ...current,
@@ -7919,7 +8065,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ? Math.min(1, Math.max(0, Number(patch.confidence)))
         : null;
       const summary = patch.summary?.trim().slice(0, 280) || `Apply ${operations.length} targeted AI change${operations.length === 1 ? '' : 's'}.`;
-      const patchApproved = await requestAIPatchReview({
+      const exactPatchReview: AIWebsitePatchReview = {
         summary,
         operations: operations.map((operation, index) => {
           const kind = aiWebsitePatchReviewKind(operation?.action || '');
@@ -7943,7 +8089,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         warnings: patchWarnings,
         confidence,
         destructiveCount: destructiveOperations.length,
-      }, abortController.signal);
+      };
+      const patchApproved = await requestAIPatchReview(exactPatchReview, abortController.signal);
       if (!patchApproved) {
         if (operationIsLatest() && !abortController.signal.aborted) {
           setAiStage('ready');
@@ -10455,6 +10602,61 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
+      const previousPagesById = new Map(snapshot.pages.map((page) => [page.id, page]));
+      const visualGlobalsChanged =
+        snapshot.siteName !== nextSiteName ||
+        JSON.stringify(snapshot.theme) !== JSON.stringify(nextTheme) ||
+        JSON.stringify(snapshot.headerConfig) !== JSON.stringify(nextHeaderConfig);
+      const changedPageIds = nextPages
+        .filter((page) => visualGlobalsChanged || JSON.stringify(previousPagesById.get(page.id)) !== JSON.stringify(page))
+        .map((page) => page.id);
+      const addedPageIds = nextPages
+        .filter((page) => !previousPagesById.has(page.id))
+        .map((page) => page.id);
+      const nextPageIds = new Set(nextPages.map((page) => page.id));
+      const removedPageIds = snapshot.pages
+        .filter((page) => !nextPageIds.has(page.id))
+        .map((page) => page.id);
+      const skipped = Math.max(0, operations.length - applied);
+      const resultWarnings = [
+        ...patchWarnings,
+        ...nativeBridgeWarnings,
+      ].slice(0, 8);
+      const candidateApproved = await requestAICandidatePreview({
+        review: exactPatchReview,
+        summary,
+        viewMode: 'after',
+        pages: nextPages,
+        baselinePages: snapshot.pages,
+        activePageId: finalActive?.id || activePageId,
+        homePageId: nextHomePageId,
+        siteName: nextSiteName,
+        theme: nextTheme,
+        seo: nextSeo,
+        headerConfig: nextHeaderConfig,
+        symbols: nextSymbols,
+        baselineSiteName: snapshot.siteName,
+        baselineTheme: snapshot.theme,
+        baselineHeaderConfig: snapshot.headerConfig,
+        changedPageIds,
+        addedPageIds,
+        removedPageIds,
+        applied,
+        skipped,
+        warnings: resultWarnings,
+        confidence,
+        agentReview,
+      }, abortController.signal);
+      if (!candidateApproved) {
+        if (operationIsLatest() && !abortController.signal.aborted) {
+          setAiStage('ready');
+          setAiMessages((current) => [
+            ...current,
+            { id: `ai-result-discarded-${Date.now()}`, role: 'assistant' as const, content: 'AI result discarded. No changes were applied.' },
+          ].slice(-20));
+        }
+        return;
+      }
       if (!operationCanApply()) return;
       remember(sections, `AI change: ${prompt.slice(0, 60)}`);
       pushProjectCheckpoint(`Before AI change · ${prompt.slice(0, 60)}`);
@@ -10511,11 +10713,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         symbols: nextSymbols,
       });
 
-      const skipped = Math.max(0, operations.length - applied);
-      const resultWarnings = [
-        ...patchWarnings,
-        ...nativeBridgeWarnings,
-      ].slice(0, 8);
       setAiPlan({
         summary,
         pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
@@ -13612,8 +13809,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     else void generateWithAI(true);
   }
 
-  const aiStageStatus = aiPatchReview
-    ? l('Reviewing changes…')
+  const aiStageStatus = aiCandidatePreview
+    ? l('Reviewing rendered result…')
+    : aiPatchReview
+      ? l('Reviewing changes…')
     : aiStage === 'planning'
       ? l('Planning…')
     : aiStage === 'building'
@@ -13638,6 +13837,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const focusFrame = window.requestAnimationFrame(() => aiPatchApproveButtonRef.current?.focus());
     return () => window.cancelAnimationFrame(focusFrame);
   }, [aiPatchReview]);
+
+  const aiCandidatePreviewVisible = aiCandidatePreview !== null;
+  useEffect(() => {
+    if (!aiCandidatePreviewVisible) return;
+    const focusFrame = window.requestAnimationFrame(() => aiCandidateApproveButtonRef.current?.focus());
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [aiCandidatePreviewVisible]);
 
   useEffect(() => {
     if (!aiCanvasPreview) return;
@@ -13808,6 +14014,127 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               </button>
               <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAIPatchReview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
                 {l('Discard changes')}
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[8px] text-gray-500">{l('Press Escape to discard')}</p>
+          </div>
+        )}
+
+        {aiCandidatePreview && (
+          <div
+            className="rounded-xl border border-emerald-400/30 bg-emerald-500/[0.07] p-3"
+            role="dialog"
+            aria-labelledby="tayar-ai-result-review-title"
+            aria-describedby="tayar-ai-result-review-description"
+            aria-keyshortcuts="Escape Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                resolveAICandidatePreview(false);
+                return;
+              }
+              if (!event.altKey) return;
+              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                setAICandidatePreviewMode(event.key === 'ArrowLeft' ? 'before' : 'after');
+              } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                moveAICandidatePreviewPage(event.key === 'ArrowUp' ? -1 : 1);
+              }
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <strong id="tayar-ai-result-review-title" className="text-[10px] text-emerald-200">{l('Review rendered result')}</strong>
+              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[8px] font-bold text-gray-300">
+                {aiCandidatePreview.applied} {l('applied')} · {aiCandidatePreview.skipped} {l('skipped')}
+              </span>
+            </div>
+            <p className="mt-1 text-[9px] leading-relaxed text-gray-300">{aiCandidatePreview.summary}</p>
+            <p id="tayar-ai-result-review-description" className="mt-2 text-[8px] font-semibold text-emerald-300">
+              {l('This is a temporary preview. Your saved project is unchanged.')}
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-1.5" role="group" aria-label={l('Compare result')}>
+              {(['before', 'after'] as const).map((viewMode) => {
+                const selected = aiCandidatePreview.viewMode === viewMode;
+                const available = viewMode === 'before' ? aiCandidateCanShowBefore : aiCandidateCanShowAfter;
+                return (
+                  <button
+                    key={viewMode}
+                    type="button"
+                    aria-pressed={selected}
+                    aria-keyshortcuts={viewMode === 'before' ? 'Alt+ArrowLeft' : 'Alt+ArrowRight'}
+                    disabled={!available}
+                    onClick={() => setAICandidatePreviewMode(viewMode)}
+                    className={`rounded-lg border px-2 py-1.5 text-[8px] font-black transition disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-emerald-300/40 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-black/10 text-gray-400 hover:bg-white/[0.05]'}`}
+                  >
+                    {l(viewMode === 'before' ? 'Before' : 'After')}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2">
+              <span className="text-[8px] font-black uppercase tracking-wide text-gray-500">{l('Preview pages')}</span>
+              <div className="mt-1.5 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto pr-1" role="group" aria-label={l('Preview pages')}>
+                {aiCandidateReviewPages.map(({ page, status }) => {
+                    const active = page.id === aiCandidatePreview.activePageId;
+                    return (
+                      <button
+                        key={page.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => previewAICandidatePage(page.id)}
+                        className={`rounded-lg border px-2 py-1.5 text-left text-[8px] font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 ${active ? 'border-emerald-300/40 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-black/10 text-gray-300 hover:bg-white/[0.05]'}`}
+                      >
+                        <span>{page.name}</span>
+                        {status !== 'current' && (
+                          <span className={`ml-1.5 text-[7px] uppercase tracking-wide ${status === 'added' ? 'text-cyan-300' : status === 'removed' ? 'text-red-300' : 'text-violet-300'}`}>
+                            {l(status === 'added' ? 'Added' : status === 'removed' ? 'Removed' : 'Changed')}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+              {aiCandidateReviewPages.length > 1 && (
+                <div className="mt-1.5 flex items-center justify-between gap-2 text-[8px] text-gray-500">
+                  <span>{l('Alt + Up/Down switches pages')}</span>
+                  <span>{l('Alt + Left/Right compares before and after')}</span>
+                </div>
+              )}
+            </div>
+            {aiCandidatePreview.agentReview && (
+              <div className="mt-2 rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2 text-[8px] text-gray-300">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-black text-gray-200">{l('Agent review')}</span>
+                  {typeof aiCandidatePreview.agentReview.score === 'number' && (
+                    <span className="font-black text-emerald-300">{aiCandidatePreview.agentReview.score}/100</span>
+                  )}
+                </div>
+                {aiCandidatePreview.agentReview.summary && <p className="mt-1 leading-relaxed text-gray-400">{aiCandidatePreview.agentReview.summary}</p>}
+                {(aiCandidatePreview.agentReview.findings?.length ?? 0) > 0 && (
+                  <ul className="mt-1.5 space-y-1">
+                    {(aiCandidatePreview.agentReview.findings ?? []).map((finding, index) => (
+                      <li key={`${finding.title}-${index}`}><span className="font-bold text-gray-300">{finding.title}</span>{finding.detail ? ` · ${finding.detail}` : ''}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {aiCandidatePreview.warnings.length > 0 && (
+              <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-500/[0.06] px-2.5 py-2 text-[8px] leading-relaxed text-amber-300">
+                <span className="font-black">{l('Warnings')}:</span> {aiCandidatePreview.warnings.join(' · ')}
+              </div>
+            )}
+            {aiCandidatePreview.confidence !== null && (
+              <p className="mt-2 text-[8px] text-gray-400">{l('Confidence')}: {Math.round(aiCandidatePreview.confidence * 100)}%</p>
+            )}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button ref={aiCandidateApproveButtonRef} type="button" onClick={() => resolveAICandidatePreview(true)} className="rounded-lg bg-emerald-600 px-2 py-2 text-[9px] font-black text-white hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
+                {l('Keep result')}
+              </button>
+              <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAICandidatePreview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
+                {l('Discard result')}
               </button>
             </div>
             <p className="mt-2 text-center text-[8px] text-gray-500">{l('Press Escape to discard')}</p>
@@ -14225,8 +14552,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       role="status"
       aria-live="polite"
     >
-      <span className="rounded-full bg-violet-500 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide">{l('AI preview only')}</span>
-      <span className="hidden text-gray-300 sm:inline">{l('Apply or discard from the AI panel')}</span>
+      <span className="rounded-full bg-violet-500 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide">{l(aiCandidatePreview ? (aiCandidateShowingBefore ? 'Original before AI' : 'Rendered AI result') : 'AI preview only')}</span>
+      <span className="hidden text-gray-300 sm:inline">{l(aiCandidatePreview ? 'Compare before and after, then keep or discard from the AI panel' : 'Apply or discard from the AI panel')}</span>
       <span className="flex items-center gap-1 text-violet-300"><i className="h-2 w-2 rounded-full bg-violet-400" />{l('Update')}</span>
       <span className="flex items-center gap-1 text-emerald-300"><i className="h-2 w-2 rounded-full bg-emerald-400" />{l('Add')}</span>
       <span className="flex items-center gap-1 text-red-300"><i className="h-2 w-2 rounded-full bg-red-400" />{l('Remove')}</span>
@@ -14245,30 +14572,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onFocusCapture={(event) => {
               if (!aiCanvasPreview) return;
               event.stopPropagation();
-              aiPatchApproveButtonRef.current?.focus();
+              (aiCandidatePreview ? aiCandidateApproveButtonRef : aiPatchApproveButtonRef).current?.focus();
             }}
             className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${aiCanvasPreview ? 'pointer-events-none select-none' : ''} ${
               device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
             } ${aiCanvasPreview?.global ? 'ring-2 ring-violet-400 shadow-[0_0_32px_rgba(139,92,246,0.25)]' : ''} ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
-            style={{ fontFamily: `${theme.fontFamily}, Arial, sans-serif` }}
+            style={{ fontFamily: `${canvasTheme.fontFamily}, Arial, sans-serif` }}
           >
-            {headerConfig.enabled && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3" style={{ background: headerConfig.backgroundColor, color: headerConfig.textColor, borderColor: headerConfig.borderColor }}>
-                <div className="flex min-w-0 items-center gap-2 font-bold" style={{ fontSize: `${headerConfig.brandSize}px` }}>
-                  {headerConfig.logoUrl && <img src={headerConfig.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
-                  <span className="truncate">{headerConfig.brandText.trim() || siteName}</span>
+            {canvasHeaderConfig.enabled && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3" style={{ background: canvasHeaderConfig.backgroundColor, color: canvasHeaderConfig.textColor, borderColor: canvasHeaderConfig.borderColor }}>
+                <div className="flex min-w-0 items-center gap-2 font-bold" style={{ fontSize: `${canvasHeaderConfig.brandSize}px` }}>
+                  {canvasHeaderConfig.logoUrl && <img src={canvasHeaderConfig.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
+                  <span className="truncate">{canvasHeaderConfig.brandText.trim() || canvasSiteName}</span>
                 </div>
-                {device === 'mobile' && headerConfig.mobileMenu ? (
-                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: headerConfig.textColor, borderColor: headerConfig.borderColor }}>☰ Menu</div>
+                {device === 'mobile' && canvasHeaderConfig.mobileMenu ? (
+                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: canvasHeaderConfig.textColor, borderColor: canvasHeaderConfig.borderColor }}>☰ Menu</div>
                 ) : (
-                  <div className="flex flex-wrap items-center justify-end text-[10px]" style={{ color: headerConfig.textColor, gap: `${headerConfig.navGap}px`, fontSize: `${headerConfig.navSize}px` }}>
-                    {pages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id} className={page.id === activePageId ? 'font-bold' : ''} style={{ color: page.id === activePageId ? headerConfig.activeColor : headerConfig.textColor }}>{page.name}</span>)}
-                    {headerConfig.showCta && <span className="px-2.5 py-1.5 font-bold" style={{ background: headerConfig.ctaBackgroundColor, color: headerConfig.ctaTextColor, borderRadius: `${theme.buttonRadius}px` }}>{headerConfig.ctaLabel}</span>}
+                  <div className="flex flex-wrap items-center justify-end text-[10px]" style={{ color: canvasHeaderConfig.textColor, gap: `${canvasHeaderConfig.navGap}px`, fontSize: `${canvasHeaderConfig.navSize}px` }}>
+                    {canvasPages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id} className={page.id === canvasActivePageId ? 'font-bold' : ''} style={{ color: page.id === canvasActivePageId ? canvasHeaderConfig.activeColor : canvasHeaderConfig.textColor }}>{page.name}</span>)}
+                    {canvasHeaderConfig.showCta && <span className="px-2.5 py-1.5 font-bold" style={{ background: canvasHeaderConfig.ctaBackgroundColor, color: canvasHeaderConfig.ctaTextColor, borderRadius: `${canvasTheme.buttonRadius}px` }}>{canvasHeaderConfig.ctaLabel}</span>}
                   </div>
                 )}
               </div>
             )}
-            {sections.map((section, sectionIndex) => (
+            {canvasSections.map((section, sectionIndex) => (
   <div
     key={section.id}
     onDragStart={(e) => handleDragStart(section.id, e)}
@@ -14313,21 +14640,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onMoveSection={(direction) => moveSection(section.id, direction)}
       onDeleteSection={() => deleteSection(section.id)}
       canMoveSectionUp={sectionIndex > 0}
-      canMoveSectionDown={sectionIndex < sections.length - 1}
-      canDeleteSection={sections.length > 1}
+      canMoveSectionDown={sectionIndex < canvasSections.length - 1}
+      canDeleteSection={canvasSections.length > 1}
       device={device}
-      theme={theme}
+      theme={canvasTheme}
       aiPreview={aiCanvasPreview}
     />
 
   </div>
 ))}
             {footerConfig.enabled && (
-              <div className="border-t border-white/10 px-5 py-5" style={{ background: theme.secondaryColor, color: theme.textColor }}>
+              <div className="border-t border-white/10 px-5 py-5" style={{ background: canvasTheme.secondaryColor, color: canvasTheme.textColor }}>
                 <div className="flex flex-wrap items-start justify-between gap-4 text-[10px]">
-                  <div><p className="font-bold">{headerConfig.brandText.trim() || siteName}</p><p className="mt-1" style={{ color: theme.mutedTextColor }}>{footerConfig.text.trim() || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`}</p></div>
-                  {footerConfig.showNavigation && <div className="flex flex-wrap gap-3" style={{ color: theme.mutedTextColor }}>{pages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id}>{page.name}</span>)}</div>}
-                  <div className="flex flex-wrap gap-3" style={{ color: theme.mutedTextColor }}>{footerConfig.instagramUrl && <span>Instagram</span>}{footerConfig.facebookUrl && <span>Facebook</span>}{footerConfig.linkedinUrl && <span>LinkedIn</span>}{footerConfig.xUrl && <span>X</span>}</div>
+                  <div><p className="font-bold">{canvasHeaderConfig.brandText.trim() || canvasSiteName}</p><p className="mt-1" style={{ color: canvasTheme.mutedTextColor }}>{footerConfig.text.trim() || `© ${new Date().getFullYear()} ${canvasSiteName}. All rights reserved.`}</p></div>
+                  {footerConfig.showNavigation && <div className="flex flex-wrap gap-3" style={{ color: canvasTheme.mutedTextColor }}>{canvasPages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id}>{page.name}</span>)}</div>}
+                  <div className="flex flex-wrap gap-3" style={{ color: canvasTheme.mutedTextColor }}>{footerConfig.instagramUrl && <span>Instagram</span>}{footerConfig.facebookUrl && <span>Facebook</span>}{footerConfig.linkedinUrl && <span>LinkedIn</span>}{footerConfig.xUrl && <span>X</span>}</div>
                 </div>
               </div>
             )}
@@ -16317,30 +16644,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             onFocusCapture={(event) => {
               if (!aiCanvasPreview) return;
               event.stopPropagation();
-              aiPatchApproveButtonRef.current?.focus();
+              (aiCandidatePreview ? aiCandidateApproveButtonRef : aiPatchApproveButtonRef).current?.focus();
             }}
             className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${aiCanvasPreview ? 'pointer-events-none select-none' : ''} ${
               device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
             } ${aiCanvasPreview?.global ? 'ring-2 ring-violet-400 shadow-[0_0_32px_rgba(139,92,246,0.25)]' : ''} ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
-            style={{ fontFamily: `${theme.fontFamily}, Arial, sans-serif` }}
+            style={{ fontFamily: `${canvasTheme.fontFamily}, Arial, sans-serif` }}
           >
-            {headerConfig.enabled && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3" style={{ background: headerConfig.backgroundColor, color: headerConfig.textColor, borderColor: headerConfig.borderColor }}>
-                <div className="flex min-w-0 items-center gap-2 font-bold" style={{ fontSize: `${headerConfig.brandSize}px` }}>
-                  {headerConfig.logoUrl && <img src={headerConfig.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
-                  <span className="truncate">{headerConfig.brandText.trim() || siteName}</span>
+            {canvasHeaderConfig.enabled && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3" style={{ background: canvasHeaderConfig.backgroundColor, color: canvasHeaderConfig.textColor, borderColor: canvasHeaderConfig.borderColor }}>
+                <div className="flex min-w-0 items-center gap-2 font-bold" style={{ fontSize: `${canvasHeaderConfig.brandSize}px` }}>
+                  {canvasHeaderConfig.logoUrl && <img src={canvasHeaderConfig.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
+                  <span className="truncate">{canvasHeaderConfig.brandText.trim() || canvasSiteName}</span>
                 </div>
-                {device === 'mobile' && headerConfig.mobileMenu ? (
-                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: headerConfig.textColor, borderColor: headerConfig.borderColor }}>☰ Menu</div>
+                {device === 'mobile' && canvasHeaderConfig.mobileMenu ? (
+                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: canvasHeaderConfig.textColor, borderColor: canvasHeaderConfig.borderColor }}>☰ Menu</div>
                 ) : (
-                  <div className="flex flex-wrap items-center justify-end text-[10px]" style={{ color: headerConfig.textColor, gap: `${headerConfig.navGap}px`, fontSize: `${headerConfig.navSize}px` }}>
-                    {pages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id} className={page.id === activePageId ? 'font-bold' : ''} style={{ color: page.id === activePageId ? headerConfig.activeColor : headerConfig.textColor }}>{page.name}</span>)}
-                    {headerConfig.showCta && <span className="px-2.5 py-1.5 font-bold" style={{ background: headerConfig.ctaBackgroundColor, color: headerConfig.ctaTextColor, borderRadius: `${theme.buttonRadius}px` }}>{headerConfig.ctaLabel}</span>}
+                  <div className="flex flex-wrap items-center justify-end text-[10px]" style={{ color: canvasHeaderConfig.textColor, gap: `${canvasHeaderConfig.navGap}px`, fontSize: `${canvasHeaderConfig.navSize}px` }}>
+                    {canvasPages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id} className={page.id === canvasActivePageId ? 'font-bold' : ''} style={{ color: page.id === canvasActivePageId ? canvasHeaderConfig.activeColor : canvasHeaderConfig.textColor }}>{page.name}</span>)}
+                    {canvasHeaderConfig.showCta && <span className="px-2.5 py-1.5 font-bold" style={{ background: canvasHeaderConfig.ctaBackgroundColor, color: canvasHeaderConfig.ctaTextColor, borderRadius: `${canvasTheme.buttonRadius}px` }}>{canvasHeaderConfig.ctaLabel}</span>}
                   </div>
                 )}
               </div>
             )}
-            {sections.map((section, sectionIndex) => (
+            {canvasSections.map((section, sectionIndex) => (
   <div
     key={section.id}
     onDragStart={(e) => handleDragStart(section.id, e)}
@@ -16385,10 +16712,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onMoveSection={(direction) => moveSection(section.id, direction)}
       onDeleteSection={() => deleteSection(section.id)}
       canMoveSectionUp={sectionIndex > 0}
-      canMoveSectionDown={sectionIndex < sections.length - 1}
-      canDeleteSection={sections.length > 1}
+      canMoveSectionDown={sectionIndex < canvasSections.length - 1}
+      canDeleteSection={canvasSections.length > 1}
       device={device}
-      theme={theme}
+      theme={canvasTheme}
       aiPreview={aiCanvasPreview}
     />
     <div data-tayar-v1-root="true"
@@ -16414,11 +16741,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   </div>
 ))}
             {footerConfig.enabled && (
-              <div className="border-t border-white/10 px-5 py-5" style={{ background: theme.secondaryColor, color: theme.textColor }}>
+              <div className="border-t border-white/10 px-5 py-5" style={{ background: canvasTheme.secondaryColor, color: canvasTheme.textColor }}>
                 <div className="flex flex-wrap items-start justify-between gap-4 text-[10px]">
-                  <div><p className="font-bold">{headerConfig.brandText.trim() || siteName}</p><p className="mt-1" style={{ color: theme.mutedTextColor }}>{footerConfig.text.trim() || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`}</p></div>
-                  {footerConfig.showNavigation && <div className="flex flex-wrap gap-3" style={{ color: theme.mutedTextColor }}>{pages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id}>{page.name}</span>)}</div>}
-                  <div className="flex flex-wrap gap-3" style={{ color: theme.mutedTextColor }}>{footerConfig.instagramUrl && <span>Instagram</span>}{footerConfig.facebookUrl && <span>Facebook</span>}{footerConfig.linkedinUrl && <span>LinkedIn</span>}{footerConfig.xUrl && <span>X</span>}</div>
+                  <div><p className="font-bold">{canvasHeaderConfig.brandText.trim() || canvasSiteName}</p><p className="mt-1" style={{ color: canvasTheme.mutedTextColor }}>{footerConfig.text.trim() || `© ${new Date().getFullYear()} ${canvasSiteName}. All rights reserved.`}</p></div>
+                  {footerConfig.showNavigation && <div className="flex flex-wrap gap-3" style={{ color: canvasTheme.mutedTextColor }}>{canvasPages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id}>{page.name}</span>)}</div>}
+                  <div className="flex flex-wrap gap-3" style={{ color: canvasTheme.mutedTextColor }}>{footerConfig.instagramUrl && <span>Instagram</span>}{footerConfig.facebookUrl && <span>Facebook</span>}{footerConfig.linkedinUrl && <span>LinkedIn</span>}{footerConfig.xUrl && <span>X</span>}</div>
                 </div>
               </div>
             )}
