@@ -510,6 +510,22 @@ function aiWebsitePatchReviewItemTargetsPage(
   return false;
 }
 
+function aiWebsitePatchReviewItemTargetPage(
+  operation: AIWebsitePatchReviewItem,
+  pages: WebsitePage[],
+): WebsitePage | undefined {
+  if (operation.pageId) {
+    const page = pages.find((candidate) => candidate.id === operation.pageId);
+    if (page) return page;
+  }
+  if (operation.pageSlug) {
+    const slug = normalizeSlug(operation.pageSlug);
+    const page = pages.find((candidate) => normalizeSlug(candidate.slug) === slug);
+    if (page) return page;
+  }
+  return pages.find((page) => aiWebsitePatchReviewItemTargetsPage(operation, page));
+}
+
 interface AIWebsiteUndoSnapshot {
   pages: WebsitePage[];
   activePageId: string;
@@ -701,6 +717,7 @@ interface AIWebsiteCandidatePreview {
   addedPageIds: string[];
   removedPageIds: string[];
   reviewedPageIds: string[];
+  reviewedOperationIds: string[];
   focusedOperationId: string | null;
   applied: number;
   skipped: number;
@@ -5705,9 +5722,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     );
   }, [aiCandidatePreview, aiCandidateGlobalOperations]);
   const aiCandidateTargetableOperations = useMemo(
-    () => aiCandidateActiveOperations.filter((operation) => operation.sectionId || operation.elementId || operation.containerId),
-    [aiCandidateActiveOperations],
+    () => aiCandidatePreview?.review.operations.filter((operation) => operation.sectionId || operation.elementId || operation.containerId) ?? [],
+    [aiCandidatePreview],
   );
+  const aiCandidateReviewedOperationCount = useMemo(() => {
+    if (!aiCandidatePreview) return 0;
+    const reviewedIds = new Set(aiCandidatePreview.reviewedOperationIds);
+    return aiCandidateTargetableOperations.reduce((count, operation) => count + (reviewedIds.has(operation.id) ? 1 : 0), 0);
+  }, [aiCandidatePreview, aiCandidateTargetableOperations]);
 
   const aiCanvasPreview = useMemo<AIWebsiteCanvasPreview | null>(() => {
     const review = aiCandidatePreview?.review ?? aiPatchReview;
@@ -7367,27 +7389,74 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function approveAICandidatePreview() {
-    const unreviewedCount = aiCandidateReviewPages.length - aiCandidateReviewedPageCount;
-    if (
-      unreviewedCount > 0 &&
-      !window.confirm(`${unreviewedCount} ${l('affected pages have not been reviewed. Keep result anyway?')}`)
-    ) {
-      previewNextUnreviewedAICandidatePage();
-      return;
+    const unreviewedPageCount = aiCandidateReviewPages.length - aiCandidateReviewedPageCount;
+    const unreviewedOperationCount = aiCandidateTargetableOperations.length - aiCandidateReviewedOperationCount;
+    if (unreviewedPageCount > 0 || unreviewedOperationCount > 0) {
+      const pendingReview = [
+        unreviewedPageCount > 0 ? `${unreviewedPageCount} ${l('affected pages have not been reviewed.')}` : '',
+        unreviewedOperationCount > 0 ? `${unreviewedOperationCount} ${l('targeted changes have not been reviewed.')}` : '',
+      ].filter(Boolean).join('\n');
+      if (!window.confirm(`${pendingReview}\n${l('Keep result anyway?')}`)) {
+        if (unreviewedOperationCount > 0) previewNextUnreviewedAICandidateOperation();
+        else previewNextUnreviewedAICandidatePage();
+        return;
+      }
     }
     resolveAICandidatePreview(true);
   }
 
+  function previewNextUnreviewedAICandidateOperation() {
+    const current = aiCandidatePreview;
+    if (!current) return;
+    const reviewedIds = new Set(current.reviewedOperationIds);
+    const activeIndex = Math.max(0, aiCandidateTargetableOperations.findIndex(
+      (operation) => operation.id === current.focusedOperationId,
+    ));
+    const orderedOperations = [
+      ...aiCandidateTargetableOperations.slice(activeIndex + 1),
+      ...aiCandidateTargetableOperations.slice(0, activeIndex + 1),
+    ];
+    const nextOperation = orderedOperations.find((operation) => !reviewedIds.has(operation.id));
+    if (nextOperation) revealAICandidateOperation(nextOperation);
+  }
+
   function revealAICandidateOperation(operation: AIWebsitePatchReviewItem) {
+    const current = aiCandidatePreview;
+    if (!current) return;
+    const preferredPages = operation.kind === 'remove' ? current.baselinePages : current.pages;
+    const fallbackPages = operation.kind === 'remove' ? current.pages : current.baselinePages;
+    const targetPage = aiWebsitePatchReviewItemTargetPage(operation, preferredPages)
+      ?? aiWebsitePatchReviewItemTargetPage(operation, fallbackPages);
+    const nextPageId = targetPage?.id ?? current.activePageId;
+    const existsAfter = current.pages.some((page) => page.id === nextPageId);
+    const existsBefore = current.baselinePages.some((page) => page.id === nextPageId);
+    const nextViewMode = operation.kind === 'remove' && existsBefore
+      ? 'before'
+      : operation.kind === 'add' && existsAfter
+        ? 'after'
+        : current.viewMode;
+
+    setAiCandidatePreview((latest) => {
+      if (!latest) return latest;
+      return {
+        ...latest,
+        activePageId: nextPageId,
+        viewMode: nextViewMode,
+        reviewedPageIds: latest.reviewedPageIds.includes(nextPageId)
+          ? latest.reviewedPageIds
+          : [...latest.reviewedPageIds, nextPageId],
+        reviewedOperationIds: latest.reviewedOperationIds.includes(operation.id)
+          ? latest.reviewedOperationIds
+          : [...latest.reviewedOperationIds, operation.id],
+        focusedOperationId: operation.id,
+      };
+    });
+
     const targets: Array<{ attribute: string; id: string }> = [];
     if (operation.elementId) targets.push({ attribute: 'data-tayar-ai-target-element', id: operation.elementId });
     if (operation.containerId) targets.push({ attribute: 'data-tayar-ai-target-container', id: operation.containerId });
     if (operation.sectionId) targets.push({ attribute: 'data-tayar-ai-target-section', id: operation.sectionId });
     if (targets.length === 0) return;
-
-    setAiCandidatePreview((current) => current ? { ...current, focusedOperationId: operation.id } : current);
-    if (operation.kind === 'remove') setAICandidatePreviewMode('before');
-    if (operation.kind === 'add') setAICandidatePreviewMode('after');
 
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
@@ -10780,6 +10849,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         addedPageIds,
         removedPageIds,
         reviewedPageIds: finalActive?.id ? [finalActive.id] : [],
+        reviewedOperationIds: [],
         focusedOperationId: null,
         applied,
         skipped,
@@ -14268,6 +14338,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 </div>
               )}
             </div>
+            {aiCandidateTargetableOperations.length > 0 && (
+              <div className="mt-2 rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[8px] font-black uppercase tracking-wide text-gray-500">{l('Reviewed changes')}</span>
+                  <span className="text-[8px] font-semibold text-gray-400" aria-live="polite">
+                    {aiCandidateReviewedOperationCount}/{aiCandidateTargetableOperations.length}
+                  </span>
+                </div>
+                {aiCandidateReviewedOperationCount < aiCandidateTargetableOperations.length && (
+                  <button
+                    type="button"
+                    onClick={previewNextUnreviewedAICandidateOperation}
+                    className="mt-1.5 w-full rounded-md border border-violet-400/20 bg-violet-500/[0.06] px-2 py-1.5 text-[8px] font-bold text-violet-200 transition hover:bg-violet-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                  >
+                    {l('Review next change')}
+                  </button>
+                )}
+              </div>
+            )}
             {aiCandidateActiveOperations.length > 0 && (
               <details className="mt-2 rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2 text-[8px] text-gray-300">
                 <summary className="cursor-pointer font-black text-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
@@ -14279,17 +14368,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   )}
                 </summary>
                 <ol className="mt-2 space-y-1.5">
-                  {aiCandidateActiveOperations.map((operation) => (
+                  {aiCandidateActiveOperations.map((operation) => {
+                    const reviewed = aiCandidatePreview.reviewedOperationIds.includes(operation.id);
+                    return (
                     <li key={operation.id}>
                       <button
                         type="button"
                         disabled={!operation.sectionId && !operation.elementId && !operation.containerId}
                         onClick={() => revealAICandidateOperation(operation)}
                         aria-pressed={operation.id === aiCandidatePreview.focusedOperationId}
+                        aria-label={`${operation.label}, ${l(reviewed ? 'Reviewed' : 'Not reviewed')}`}
                         className={`flex w-full items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-left transition disabled:cursor-default disabled:hover:border-white/[0.06] disabled:hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 ${operation.id === aiCandidatePreview.focusedOperationId ? 'border-emerald-400/35 bg-emerald-500/10' : 'border-white/[0.06] hover:border-emerald-400/20 hover:bg-emerald-500/[0.05]'}`}
                       >
                         <span>
-                          <span className="block font-bold text-gray-200">{operation.label}</span>
+                          <span className="block font-bold text-gray-200">
+                            {reviewed && <span className="mr-1 text-emerald-300" aria-hidden="true">✓</span>}
+                            {operation.label}
+                          </span>
                           <span className="mt-0.5 block text-[7px] text-gray-500">{operation.target}</span>
                           {(operation.sectionId || operation.elementId || operation.containerId) && (
                             <span className="mt-1 block text-[7px] font-bold text-emerald-300">{l('Show on canvas')}</span>
@@ -14300,7 +14395,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                         </span>
                       </button>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ol>
                 {aiCandidateTargetableOperations.length > 1 && (
                   <div className="mt-2 grid grid-cols-2 gap-1.5">
