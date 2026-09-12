@@ -231,7 +231,6 @@ const publishedSiteValidation = existsSync(publishedSiteValidationPath) ? readFi
 const builderHistoryPanel = existsSync(builderHistoryPanelPath) ? readFileSync(builderHistoryPanelPath, 'utf8') : '';
 const builderPanelRouter = existsSync(builderPanelRouterPath) ? readFileSync(builderPanelRouterPath, 'utf8') : '';
 const builderV2NativeBridge = existsSync(builderV2NativeBridgePath) ? readFileSync(builderV2NativeBridgePath, 'utf8') : '';
-const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
 const builderComponentsPanel = existsSync(builderComponentsPanelPath) ? readFileSync(builderComponentsPanelPath, 'utf8') : '';
 const websiteBuilderV2Css = existsSync(websiteBuilderV2CssPath) ? readFileSync(websiteBuilderV2CssPath, 'utf8') : '';
 const editorNativePatch = existsSync(editorNativePatchPath) ? readFileSync(editorNativePatchPath, 'utf8') : '';
