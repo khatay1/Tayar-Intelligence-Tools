@@ -73,7 +73,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
         const Icon = NAV_ICONS[item.id] || item.icon;
         navResults.push({ id: `nav-${item.id}`, label: item.label, icon: Icon, view: item.id, group: 'navigation' });
       }
-      const staticNavIds = new Set(NAV_ITEMS.map(item => item.id));
+      const staticNavIds = new Set<string>(NAV_ITEMS.map(item => item.id));
       for (const tool of toolRegistry.available()) {
         if (staticNavIds.has(tool.id)) continue;
         navResults.push({
