@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { colors, radius } from '@/lib/theme';
 
 export default function ResetPasswordScreen() {

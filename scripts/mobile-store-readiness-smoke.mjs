@@ -28,6 +28,10 @@ const profile = read('apps/mobile/app/(tabs)/profile.tsx');
 const toolsTab = read('apps/mobile/app/(tabs)/tools.tsx');
 const login = read('apps/mobile/app/login.tsx');
 const rootLayout = read('apps/mobile/app/_layout.tsx');
+const teamWorkspace = read('apps/mobile/app/tools/team-workspace.tsx');
+const authProvider = read('apps/mobile/context/AuthContext.tsx');
+const authContextValue = read('apps/mobile/context/auth-context-value.ts');
+const authHook = read('apps/mobile/context/useAuth.ts');
 const aiClient = read('apps/mobile/lib/ai.ts');
 const toolAccess = read('apps/mobile/lib/tool-access.ts');
 const supabaseClient = read('apps/mobile/lib/supabase.ts');
@@ -98,6 +102,12 @@ check('Mobile profile exposes permanent in-app account deletion',
   profile.includes("functions.invoke('delete-account'") &&
   profile.includes("confirmation: 'DELETE'") &&
   profile.includes('Delete account permanently'));
+check('Mobile profile ignores stale plan and usage responses after account changes',
+  profile.includes('let active = true') &&
+  profile.includes('if (active) setAiUsageCount(count || 0)') &&
+  profile.includes('return () => { active = false; }') &&
+  profile.includes(".eq('user_id', userId)") &&
+  profile.includes('}, [iosCompanion, userId])'));
 check('Mobile profile does not expose an in-app Stripe purchase or billing portal',
   !profile.includes("functions.invoke('billing-portal'") && !profile.includes('Manage subscription'));
 check('Mobile source contains no alternate digital-purchase steering',
@@ -162,6 +172,21 @@ check('Structured mobile AI output remains reportable through the shared transpo
   supabaseClient.includes('payload.json') && supabaseClient.includes('JSON.stringify(payload.json)'));
 check('Direct mobile ai-engine callers are limited to audited clients',
   JSON.stringify(directAiEngineCallers) === JSON.stringify(auditedAiEngineCallers));
+check('Team workspace ignores stale account list and detail responses',
+  teamWorkspace.includes('workspaceListSequenceRef') &&
+  teamWorkspace.includes('workspaceDetailSequenceRef') &&
+  teamWorkspace.includes('activeUserIdRef.current !== requestUserId') &&
+  teamWorkspace.includes('selectedIdRef.current'));
+check('Team workspace surfaces failures from every parallel data request',
+  teamWorkspace.includes('if (detailResult.error) throw detailResult.error') &&
+  teamWorkspace.includes('if (projectResult.error) throw projectResult.error') &&
+  teamWorkspace.includes('if (personalResult.error) throw personalResult.error'));
+check('Mobile auth separates provider and hook exports for reliable Fast Refresh',
+  authProvider.includes('export function AuthProvider') &&
+  !authProvider.includes('export function useAuth') &&
+  authContextValue.includes('export const AuthContext = createContext') &&
+  authHook.includes('export function useAuth') &&
+  !mobileSource.includes("useAuth } from '@/context/AuthContext'"));
 check('In-app AI report control is mounted globally for tool routes',
   rootLayout.includes("import AiContentReportFab from '@/components/AiContentReportFab'") &&
   rootLayout.includes('<AiContentReportFab />') &&

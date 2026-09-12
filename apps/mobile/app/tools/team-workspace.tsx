@@ -2,10 +2,10 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { assertToolAccess } from '@/lib/tool-access';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
@@ -29,6 +29,7 @@ function errMessage(error: unknown) {
 export default function TeamWorkspaceScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const params = useLocalSearchParams<{ token?: string }>();
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -44,46 +45,96 @@ export default function TeamWorkspaceScreen() {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const activeUserIdRef = useRef(userId);
+  const selectedIdRef = useRef(selectedId);
+  const guardedSequenceRef = useRef(0);
+  const workspaceListSequenceRef = useRef(0);
+  const workspaceDetailSequenceRef = useRef(0);
+
+  activeUserIdRef.current = userId;
+  selectedIdRef.current = selectedId;
 
   const myRole = details?.workspace.myRole || workspaces.find((item) => item.id === selectedId)?.my_role || null;
   const canManage = myRole === 'owner' || myRole === 'admin';
   const isOwner = myRole === 'owner';
 
   async function guarded(action: () => Promise<void>) {
+    const sequence = ++guardedSequenceRef.current;
     setBusy(true); setError(''); setMessage('');
     try { await action(); }
-    catch (err) { setError(errMessage(err)); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); }
-    finally { setBusy(false); }
+    catch (err) {
+      if (sequence === guardedSequenceRef.current) {
+        setError(errMessage(err));
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    }
+    finally { if (sequence === guardedSequenceRef.current) setBusy(false); }
   }
 
-  async function loadWorkspace(workspaceId: string) {
-    if (!user || !workspaceId) return;
+  const loadWorkspace = useCallback(async (workspaceId: string) => {
+    if (!userId || !workspaceId) return;
+    const sequence = ++workspaceDetailSequenceRef.current;
+    const requestUserId = userId;
     const [detailResult, projectResult, personalResult] = await Promise.all([
       supabase.rpc('get_team_workspace_details', { p_workspace_id: workspaceId }),
       supabase.from('projects').select('id,title,type,status,user_id,workspace_id,updated_at').eq('workspace_id', workspaceId).is('deleted_at', null).order('updated_at', { ascending: false }),
-      supabase.from('projects').select('id,title,type,status,user_id,workspace_id,updated_at').eq('user_id', user.id).is('workspace_id', null).is('deleted_at', null).order('updated_at', { ascending: false }).limit(100),
+      supabase.from('projects').select('id,title,type,status,user_id,workspace_id,updated_at').eq('user_id', requestUserId).is('workspace_id', null).is('deleted_at', null).order('updated_at', { ascending: false }).limit(100),
     ]);
     if (detailResult.error) throw detailResult.error;
+    if (projectResult.error) throw projectResult.error;
+    if (personalResult.error) throw personalResult.error;
+    if (sequence !== workspaceDetailSequenceRef.current || activeUserIdRef.current !== requestUserId) return;
     const nextDetails = detailResult.data as WorkspaceDetails;
     setDetails(nextDetails);
     setRenameValue(nextDetails?.workspace?.name || '');
     setProjects((projectResult.data || []) as WorkspaceProject[]);
     setAssignable((personalResult.data || []) as WorkspaceProject[]);
-  }
+  }, [userId]);
 
-  async function loadWorkspaces(preferred?: string) {
-    if (!user) return;
+  const loadWorkspaces = useCallback(async (preferred?: string) => {
+    if (!userId) return;
+    const sequence = ++workspaceListSequenceRef.current;
+    const requestUserId = userId;
     await assertToolAccess('team-workspace');
     const { data, error: rpcError } = await supabase.rpc('list_team_workspaces');
     if (rpcError) throw rpcError;
+    if (sequence !== workspaceListSequenceRef.current || activeUserIdRef.current !== requestUserId) return;
     const rows = ((data || []) as WorkspaceSummary[]).map((row) => ({ ...row, member_count: Number(row.member_count || 0), project_count: Number(row.project_count || 0) }));
     setWorkspaces(rows);
-    const nextId = preferred && rows.some((item) => item.id === preferred) ? preferred : selectedId && rows.some((item) => item.id === selectedId) ? selectedId : rows[0]?.id || '';
+    const currentId = selectedIdRef.current;
+    const nextId = preferred && rows.some((item) => item.id === preferred) ? preferred : currentId && rows.some((item) => item.id === currentId) ? currentId : rows[0]?.id || '';
     setSelectedId(nextId);
     if (nextId) await loadWorkspace(nextId); else { setDetails(null); setProjects([]); setAssignable([]); }
-  }
+  }, [loadWorkspace, userId]);
 
-  useEffect(() => { void guarded(async () => loadWorkspaces()); }, [user?.id]);
+  useEffect(() => {
+    workspaceListSequenceRef.current += 1;
+    workspaceDetailSequenceRef.current += 1;
+    const sequence = ++guardedSequenceRef.current;
+    setWorkspaces([]); setSelectedId(''); setDetails(null); setProjects([]); setAssignable([]);
+    setError(''); setMessage('');
+
+    if (!userId) {
+      setBusy(false);
+      return;
+    }
+
+    setBusy(true);
+    void loadWorkspaces()
+      .catch((err) => {
+        if (sequence === guardedSequenceRef.current) {
+          setError(errMessage(err));
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+      })
+      .finally(() => { if (sequence === guardedSequenceRef.current) setBusy(false); });
+
+    return () => {
+      workspaceListSequenceRef.current += 1;
+      workspaceDetailSequenceRef.current += 1;
+      guardedSequenceRef.current += 1;
+    };
+  }, [loadWorkspaces, userId]);
   useEffect(() => { if (params.token) setInviteToken(String(params.token)); }, [params.token]);
 
   async function createWorkspace() {

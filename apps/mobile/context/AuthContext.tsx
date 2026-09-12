@@ -1,23 +1,9 @@
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import { router } from 'expo-router';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Linking } from 'react-native';
 import { supabase } from '@/lib/supabase';
-
-type SignUpResult = { needsEmailConfirmation: boolean };
-
-type AuthState = {
-  session: Session | null;
-  user: User | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<SignUpResult>;
-  resetPassword: (email: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthState | null>(null);
+import { AuthContext, type AuthState } from './auth-context-value';
 const MOBILE_RECOVERY_REDIRECT = 'tayartools://auth/callback?type=recovery';
 
 function linkParam(url: URL, key: string) {
@@ -148,10 +134,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }), [session, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const value = useContext(AuthContext);
-  if (!value) throw new Error('useAuth must be used inside AuthProvider');
-  return value;
 }

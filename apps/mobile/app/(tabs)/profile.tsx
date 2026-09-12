@@ -5,7 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 import { getToolAccessState } from '@/lib/tool-access';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
@@ -24,6 +24,7 @@ function displayPlan(value?: string) {
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
+  const userId = user?.id ?? null;
   const email = user?.email || '—';
   const name = String(user?.user_metadata?.full_name || email.split('@')[0] || 'Tayar user');
   const iosCompanion = Platform.OS === 'ios';
@@ -33,38 +34,46 @@ export default function ProfileScreen() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
-  async function loadPlan() {
-    if (iosCompanion) return;
-    try {
-      const state = await getToolAccessState('email-writer');
-      setPlan(String(state.effective_plan || 'free'));
-    } catch {
-      setPlan('');
-    }
-  }
-
-  async function loadOwnAiUsage() {
-    if (!user?.id) return;
+  useEffect(() => {
+    let active = true;
+    setPlan('');
+    setAiUsageCount(null);
     setAiUsageError('');
-    try {
-      const now = new Date();
-      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-      const { count, error } = await supabase
-        .from('ai_usage')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'success')
-        .gte('created_at', monthStart);
-      if (error) throw error;
-      setAiUsageCount(count || 0);
-    } catch {
-      setAiUsageCount(null);
-      setAiUsageError('Could not load your AI usage status.');
-    }
-  }
 
-  useEffect(() => { void loadPlan(); }, []);
-  useEffect(() => { void loadOwnAiUsage(); }, [user?.id]);
+    async function loadPlanStatus() {
+      if (iosCompanion) return;
+      try {
+        const state = await getToolAccessState('email-writer');
+        if (active) setPlan(String(state.effective_plan || 'free'));
+      } catch {
+        if (active) setPlan('');
+      }
+    }
+
+    async function loadAiUsageStatus() {
+      if (!userId) return;
+      try {
+        const now = new Date();
+        const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+        const { count, error } = await supabase
+          .from('ai_usage')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'success')
+          .gte('created_at', monthStart);
+        if (error) throw error;
+        if (active) setAiUsageCount(count || 0);
+      } catch {
+        if (active) {
+          setAiUsageCount(null);
+          setAiUsageError('Could not load your AI usage status.');
+        }
+      }
+    }
+
+    void Promise.all([loadPlanStatus(), loadAiUsageStatus()]);
+    return () => { active = false; };
+  }, [iosCompanion, userId]);
 
   async function logout() {
     await signOut();
