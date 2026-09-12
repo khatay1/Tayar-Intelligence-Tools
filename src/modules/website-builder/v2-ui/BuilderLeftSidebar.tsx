@@ -91,7 +91,9 @@ export function BuilderLeftSidebar({
               data-panel-id={item.id}
               aria-label={l(item.label)}
               aria-pressed={view.leftPanel === item.id}
-              title={l(item.label)}
+              aria-keyshortcuts={item.shortcut}
+              tabIndex={view.leftPanel === item.id ? 0 : -1}
+              title={`${l(item.label)} · ${item.shortcut}`}
               onClick={() =>
                 actions.onOpenLeftPanel(
                   item.id as EditorLeftPanel,
@@ -107,6 +109,8 @@ export function BuilderLeftSidebar({
       <section
         className="tayar-v2-left-sidebar__panel"
         data-panel={view.leftPanel}
+        role="region"
+        aria-label={l(EDITOR_LEFT_PANEL_REGISTRY.find((item) => item.id === view.leftPanel)?.label || 'Builder tools')}
       >
         <div className="tayar-v2-tools-heading">
           <span>{l(EDITOR_LEFT_PANEL_REGISTRY.find((item) => item.id === view.leftPanel)?.label || 'Builder tools')}</span>

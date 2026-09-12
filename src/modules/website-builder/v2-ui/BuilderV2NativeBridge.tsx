@@ -824,6 +824,9 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
         fields={inspectorFields}
         group={tab}
         onChange={handleInspectorChange}
+        disabled={Boolean(
+          shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking,
+        )}
       />
     );
   }

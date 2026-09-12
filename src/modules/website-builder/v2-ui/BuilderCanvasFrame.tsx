@@ -33,7 +33,12 @@ export function BuilderCanvasFrame({ shell, children, overlaySlot }: BuilderCanv
             </button>
           ))}
         </div>
-        <button type="button" onClick={actions.onToggleFocus}>
+        <button
+          type="button"
+          onClick={actions.onToggleFocus}
+          aria-keyshortcuts="Escape"
+          title={view.focusMode ? l('Exit focus') : l('Focus on canvas')}
+        >
           {view.focusMode ? l('Exit focus') : l('Focus on canvas')}
         </button>
       </div>

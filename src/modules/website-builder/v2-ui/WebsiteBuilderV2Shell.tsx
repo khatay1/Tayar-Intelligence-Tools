@@ -39,9 +39,17 @@ export function WebsiteBuilderV2Shell(props: WebsiteBuilderV2ShellProps) {
   ]);
 
   useEffect(() => {
-    if (shell.view.focusMode || (!shell.view.leftSidebarOpen && !shell.view.inspectorOpen)) return;
+    if (!shell.view.focusMode && !shell.view.leftSidebarOpen && !shell.view.inspectorOpen) return;
     const dismiss = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || !window.matchMedia('(max-width: 850px)').matches) return;
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+
+      if (shell.view.focusMode) {
+        event.preventDefault();
+        shell.actions.onToggleFocus();
+        return;
+      }
+
+      if (!window.matchMedia('(max-width: 850px)').matches) return;
       event.preventDefault();
       if (shell.view.inspectorOpen) shell.actions.onToggleInspector();
       else if (shell.view.leftSidebarOpen) shell.actions.onToggleLeftSidebar();

@@ -1,5 +1,5 @@
 import { localizeUi, useLocalizer } from '@/lib/ui-localization';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createAIService } from '@/lib/ai/service';
 import { usePreferences, type Language } from '@/context/PreferencesContext';
 import { useAuth } from '@/context/AuthContext';
@@ -5625,6 +5625,72 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
+  function closeCommandPalette() {
+    setCommandOpen(false);
+    setCommandQuery('');
+  }
+
+  function commandFocusable(container: HTMLElement) {
+    return Array.from(
+      container.querySelectorAll<HTMLElement>('[data-command-focus]:not(:disabled)'),
+    );
+  }
+
+  function handleCommandDialogKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeCommandPalette();
+      return;
+    }
+
+    if (event.key !== 'Tab') return;
+    const focusable = commandFocusable(event.currentTarget);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function handleCommandInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key !== 'ArrowDown' && event.key !== 'Enter') return;
+    const firstCommand = event.currentTarget
+      .closest<HTMLElement>('[role="dialog"]')
+      ?.querySelector<HTMLButtonElement>('[data-command-item]:not(:disabled)');
+    if (!firstCommand) return;
+    event.preventDefault();
+    if (event.key === 'Enter') firstCommand.click();
+    else firstCommand.focus();
+  }
+
+  function handleCommandItemKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const dialog = event.currentTarget.closest<HTMLElement>('[role="dialog"]');
+    if (!dialog) return;
+    const items = Array.from(
+      dialog.querySelectorAll<HTMLButtonElement>('[data-command-item]:not(:disabled)'),
+    );
+    const currentIndex = items.indexOf(event.currentTarget);
+    if (currentIndex < 0 || !items.length) return;
+    const nextIndex =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : event.key === 'ArrowDown'
+            ? (currentIndex + 1) % items.length
+            : (currentIndex - 1 + items.length) % items.length;
+    event.preventDefault();
+    items[nextIndex]?.focus();
+  }
 
   useEffect(() => {
     setPages((current) => current.map((page) =>
@@ -15640,20 +15706,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       )}
 
       {commandOpen && (
-        <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) setCommandOpen(false); }}>
-          <div className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}>
+        <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) closeCommandPalette(); }}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={l('Command palette')}
+            aria-busy={desktopShortcutActionsRef.current.busy}
+            onKeyDown={handleCommandDialogKeyDown}
+            className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}
+          >
             <div className="border-b border-white/10 p-3">
-              <input autoFocus value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setCommandOpen(false); }} placeholder={l('Type a command, page or section…')} className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-sky-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} />
+              <input autoFocus type="search" data-command-focus value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} onKeyDown={handleCommandInputKeyDown} aria-label={l('Type a command, page or section…')} placeholder={l('Type a command, page or section…')} className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-sky-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} />
             </div>
             <div className="max-h-[60vh] overflow-auto p-2">
               {[
-                { label: 'Save project', keywords: 'save cloud', run: () => void saveProject() },
+                { label: 'Save project', keywords: 'save cloud', mutates: true, run: () => void saveProject() },
                 { label: 'Preview website', keywords: 'preview open', run: previewWebsite },
-                { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', run: () => void runAIQualityCheck() },
-                { label: 'Duplicate current page', keywords: 'copy page duplicate', run: duplicateActivePage },
+                { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', mutates: true, run: () => void runAIQualityCheck() },
+                { label: 'Duplicate current page', keywords: 'copy page duplicate', mutates: true, run: duplicateActivePage },
                 { label: 'Export project backup', keywords: 'backup json export', run: exportProjectBackup },
-                { label: 'Import project backup', keywords: 'backup json import restore', run: importProjectBackup },
-                ...(recoveryAvailable ? [{ label: 'Restore recovery snapshot', keywords: 'recovery crash restore safety', run: restoreRecoverySnapshot }] : []),
+                { label: 'Import project backup', keywords: 'backup json import restore', mutates: true, run: importProjectBackup },
+                ...(recoveryAvailable ? [{ label: 'Restore recovery snapshot', keywords: 'recovery crash restore safety', mutates: true, run: restoreRecoverySnapshot }] : []),
                 { label: 'Export audit report', keywords: 'audit seo accessibility', run: exportAuditReport },
                 { label: 'Open V1 launch center', keywords: 'launch production go live checklist onboarding readiness', run: () => { setLaunchCenterOpen(true); void runV1LaunchChecks(); } },
                 { label: 'Export V1 launch report', keywords: 'launch report final production', run: exportV1LaunchReport },
@@ -15665,10 +15738,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ...pages.map((page) => ({ label: `Go to page: ${page.name}`, keywords: `page ${page.slug}`, run: () => switchPage(page.id) })),
                 ...sections.map((section) => ({ label: `Select section: ${section.title || SECTION_LABELS[section.type]}`, keywords: `section ${section.type} ${section.anchorId || ''}`, run: () => { setSelectedId(section.id); setSelectedElementId(section.elements[0]?.id ?? null); } })),
               ].filter((item) => !commandQuery.trim() || `${l(item.label)} ${item.keywords}`.toLowerCase().includes(commandQuery.trim().toLowerCase())).slice(0, 24).map((item) => (
-                <button key={`${l(item.label)}-${item.keywords}`} onClick={() => { item.run(); setCommandOpen(false); setCommandQuery(''); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{l(item.label)}</span><span className="text-[9px] text-gray-500">↵</span></button>
+                <button
+                  key={`${l(item.label)}-${item.keywords}`}
+                  type="button"
+                  data-command-item
+                  data-command-focus
+                  disabled={'mutates' in item && item.mutates === true && desktopShortcutActionsRef.current.busy}
+                  onKeyDown={handleCommandItemKeyDown}
+                  onClick={() => { item.run(); closeCommandPalette(); }}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{l(item.label)}</span><span className="text-[9px] text-gray-500">↵</span></button>
               ))}
             </div>
-            <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>Ctrl/Cmd+K</span><button onClick={() => setCommandOpen(false)} className="font-semibold text-violet-400">{l('Close')}</button></div>
+            <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>Ctrl/Cmd+K</span><button type="button" data-command-focus onClick={closeCommandPalette} className="font-semibold text-violet-400">{l('Close')}</button></div>
           </div>
         </div>
       )}

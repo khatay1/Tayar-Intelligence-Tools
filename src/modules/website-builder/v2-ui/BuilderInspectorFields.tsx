@@ -14,6 +14,8 @@ export interface BuilderInspectorFieldsProps {
     key: string,
     value: unknown,
   ): void;
+
+  disabled?: boolean;
 }
 
 function fieldValue(
@@ -43,11 +45,13 @@ function renderFieldControl(
   onChange:
     BuilderInspectorFieldsProps['onChange'],
   l: (text: string) => string,
+  disabled: boolean,
 ) {
   if (field.kind === 'toggle') {
     return (
       <input
         type="checkbox"
+        disabled={disabled}
         checked={
           Boolean(field.value)
         }
@@ -64,6 +68,7 @@ function renderFieldControl(
   if (field.kind === 'select') {
     return (
       <select
+        disabled={disabled}
         value={
           fieldValue(
             field.value,
@@ -96,6 +101,7 @@ function renderFieldControl(
     return (
       <textarea
         rows={4}
+        disabled={disabled}
         value={
           fieldValue(
             field.value,
@@ -119,6 +125,7 @@ function renderFieldControl(
       <div className="tayar-v2-color-control">
         <input
           type="color"
+          disabled={disabled}
           value={
             validColorValue(
               field.value,
@@ -137,6 +144,7 @@ function renderFieldControl(
 
         <input
           type="text"
+          disabled={disabled}
           value={
             fieldValue(
               field.value,
@@ -158,6 +166,7 @@ function renderFieldControl(
 
   return (
     <input
+      disabled={disabled}
       type={
         field.kind === 'number'
           ? 'number'
@@ -195,6 +204,7 @@ export function BuilderInspectorFields({
   fields,
   group,
   onChange,
+  disabled = false,
 }: BuilderInspectorFieldsProps) {
   const l = useLocalizer();
   const [openSections, setOpenSections] =
@@ -250,6 +260,7 @@ export function BuilderInspectorFields({
     <div
       className="tayar-v2-inspector-fields"
       data-group={group}
+      aria-busy={disabled}
     >
       {sections.map(
         (section, index) => (
@@ -303,6 +314,7 @@ export function BuilderInspectorFields({
                       field,
                       onChange,
                       l,
+                      disabled,
                     )}
                   </label>
                 ),

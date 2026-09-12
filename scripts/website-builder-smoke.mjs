@@ -38,6 +38,11 @@ const builderHistoryPanelPath = resolve(root, 'src/modules/website-builder/v2-ui
 const builderPanelRouterPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderPanelRouter.tsx');
 const builderV2NativeBridgePath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderV2NativeBridge.tsx');
 const websiteBuilderV2BridgePath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
+const websiteBuilderV2ShellPath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Shell.tsx');
+const builderCanvasFramePath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderCanvasFrame.tsx');
+const builderInspectorPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderInspector.tsx');
+const builderInspectorFieldsPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderInspectorFields.tsx');
+const builderLeftSidebarPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderLeftSidebar.tsx');
 const builderTopbarPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderTopbar.tsx');
 const builderPagesPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderPagesPanel.tsx');
 const builderLayersPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderLayersPanel.tsx');
@@ -111,6 +116,11 @@ for (const [label, path] of [
   ['V2 panel router exists', builderPanelRouterPath],
   ['V2 native bridge exists', builderV2NativeBridgePath],
   ['V2 bridge exists', websiteBuilderV2BridgePath],
+  ['V2 shell exists', websiteBuilderV2ShellPath],
+  ['V2 canvas frame exists', builderCanvasFramePath],
+  ['V2 inspector exists', builderInspectorPath],
+  ['V2 inspector fields exist', builderInspectorFieldsPath],
+  ['V2 left sidebar exists', builderLeftSidebarPath],
   ['V2 topbar exists', builderTopbarPath],
   ['V2 Pages panel exists', builderPagesPanelPath],
   ['V2 Layers panel exists', builderLayersPanelPath],
@@ -146,6 +156,11 @@ const builder = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : ''
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
+const websiteBuilderV2Shell = existsSync(websiteBuilderV2ShellPath) ? readFileSync(websiteBuilderV2ShellPath, 'utf8') : '';
+const builderCanvasFrame = existsSync(builderCanvasFramePath) ? readFileSync(builderCanvasFramePath, 'utf8') : '';
+const builderInspector = existsSync(builderInspectorPath) ? readFileSync(builderInspectorPath, 'utf8') : '';
+const builderInspectorFields = existsSync(builderInspectorFieldsPath) ? readFileSync(builderInspectorFieldsPath, 'utf8') : '';
+const builderLeftSidebar = existsSync(builderLeftSidebarPath) ? readFileSync(builderLeftSidebarPath, 'utf8') : '';
 const builderTopbar = existsSync(builderTopbarPath) ? readFileSync(builderTopbarPath, 'utf8') : '';
 const builderPagesPanel = existsSync(builderPagesPanelPath) ? readFileSync(builderPagesPanelPath, 'utf8') : '';
 const builderLayersPanel = existsSync(builderLayersPanelPath) ? readFileSync(builderLayersPanelPath, 'utf8') : '';
@@ -595,6 +610,32 @@ check('Desktop Template Library contains preview failures and exposes accessible
   builderTemplateLibraryPanel.includes('aria-busy={loading || loadingMore || downloadId !== null}') &&
   builderTemplateLibraryPanel.includes('aria-pressed={view === value}') &&
   builderTemplateLibraryPanel.includes('role="alert"'));
+check('Desktop canvas focus mode always exits with Escape',
+  websiteBuilderV2Shell.includes('if (shell.view.focusMode) {') &&
+  websiteBuilderV2Shell.includes('shell.actions.onToggleFocus();') &&
+  builderCanvasFrame.includes('aria-keyshortcuts="Escape"'));
+check('Desktop inspector uses roving keyboard tabs and a labelled tab panel',
+  builderInspector.includes("event.key === 'ArrowRight' || event.key === 'ArrowDown'") &&
+  builderInspector.includes("event.key === 'Home'") &&
+  builderInspector.includes('role="tabpanel"') &&
+  builderInspector.includes('aria-labelledby={`tayar-v2-inspector-tab-${view.inspectorTab}`}'));
+check('Desktop inspector fields obey the global mutation lock',
+  builderInspectorFields.includes('disabled?: boolean') &&
+  builderInspectorFields.includes('aria-busy={disabled}') &&
+  (builderInspectorFields.match(/disabled=\{disabled\}/g) || []).length >= 6 &&
+  builderV2NativeBridge.includes('shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking'));
+check('Desktop sidebar uses one roving tab stop and exposes panel semantics',
+  builderLeftSidebar.includes('tabIndex={view.leftPanel === item.id ? 0 : -1}') &&
+  builderLeftSidebar.includes('aria-keyshortcuts={item.shortcut}') &&
+  builderLeftSidebar.includes('role="region"'));
+check('Desktop command palette traps focus and supports full keyboard execution',
+  builder.includes('role="dialog"') &&
+  builder.includes('aria-modal="true"') &&
+  builder.includes('handleCommandDialogKeyDown') &&
+  builder.includes('handleCommandItemKeyDown') &&
+  builder.includes('event.nativeEvent.isComposing') &&
+  builder.includes("'[data-command-focus]:not(:disabled)'") &&
+  builder.includes("'mutates' in item && item.mutates === true"));
 
 console.log(`Website Builder smoke test: ${passes.length} passed, ${failures.length} failed`);
 for (const label of passes) console.log(`  ✓ ${label}`);
