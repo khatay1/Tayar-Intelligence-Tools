@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -61,6 +61,7 @@ function sectionIcon(type: MobileSectionType) {
 export default function WebsiteBuilderScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [projects, setProjects] = useState<MobileWebsiteProjectRow[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [draft, setDraft] = useState<MobileWebsiteProjectRow | null>(null);
@@ -73,6 +74,14 @@ export default function WebsiteBuilderScreen() {
   const [message, setMessage] = useState('');
   const [dirty, setDirty] = useState(false);
   const [addingSection, setAddingSection] = useState(false);
+  const activeUserIdRef = useRef(userId);
+  const selectedIdRef = useRef(selectedId);
+  const lifecycleSequenceRef = useRef(0);
+  const loadSequenceRef = useRef(0);
+  const operationLockRef = useRef(false);
+
+  activeUserIdRef.current = userId;
+  selectedIdRef.current = selectedId;
 
   const activePage = useMemo(() => {
     if (!draft) return null;
@@ -81,32 +90,71 @@ export default function WebsiteBuilderScreen() {
 
   const canPublish = Boolean(user && draft && draft.user_id === user.id);
   const isPublished = Boolean(draft?.content.publishedUrl && draft.status === 'completed');
+  const operationBusy = busy || aiBusy || publishBusy;
 
-  async function loadProjects(preferredId?: string) {
+  const loadProjects = useCallback(async (preferredId?: string) => {
+    const sequence = ++loadSequenceRef.current;
+    const requestUserId = userId;
     setBusy(true);
     setError('');
     try {
+      if (!requestUserId) return;
       const rows = await listMobileWebsiteProjects();
+      if (sequence !== loadSequenceRef.current || activeUserIdRef.current !== requestUserId) return;
       setProjects(rows);
+      const currentId = selectedIdRef.current;
       const nextId = preferredId && rows.some((row) => row.id === preferredId)
         ? preferredId
-        : selectedId && rows.some((row) => row.id === selectedId)
-          ? selectedId
+        : currentId && rows.some((row) => row.id === currentId)
+          ? currentId
           : rows[0]?.id || '';
       setSelectedId(nextId);
       setDraft(nextId ? rows.find((row) => row.id === nextId) || null : null);
       setDirty(false);
     } catch (caught) {
-      setError(errorText(caught));
+      if (sequence === loadSequenceRef.current && activeUserIdRef.current === requestUserId) {
+        setError(errorText(caught));
+      }
     } finally {
-      setBusy(false);
+      if (sequence === loadSequenceRef.current && activeUserIdRef.current === requestUserId) {
+        setBusy(false);
+      }
     }
-  }
+  }, [userId]);
 
   useEffect(() => {
+    lifecycleSequenceRef.current += 1;
+    loadSequenceRef.current += 1;
+    operationLockRef.current = false;
+    setProjects([]);
+    setSelectedId('');
+    setDraft(null);
+    setDirty(false);
+    setAiBusy(false);
+    setPublishBusy(false);
+    setError('');
+    setMessage('');
+
+    if (!userId) {
+      setBusy(false);
+      return;
+    }
+
     void loadProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    return () => {
+      lifecycleSequenceRef.current += 1;
+      loadSequenceRef.current += 1;
+      operationLockRef.current = false;
+    };
+  }, [loadProjects, userId]);
+
+  function isCurrentAccount(sequence: number, requestUserId: string) {
+    return lifecycleSequenceRef.current === sequence && activeUserIdRef.current === requestUserId;
+  }
+
+  function isCurrentProject(sequence: number, requestUserId: string, projectId: string) {
+    return isCurrentAccount(sequence, requestUserId) && selectedIdRef.current === projectId;
+  }
 
   function mutateContent(update: (content: MobileWebsiteContent) => MobileWebsiteContent) {
     setDraft((current) => current ? { ...current, content: update(current.content) } : current);
@@ -131,73 +179,114 @@ export default function WebsiteBuilderScreen() {
   }
 
   async function createProject() {
-    if (!user || !newProjectName.trim() || busy) return;
+    if (!userId || !newProjectName.trim() || operationLockRef.current) return;
+    const sequence = lifecycleSequenceRef.current;
+    const requestUserId = userId;
+    const projectName = newProjectName.trim();
+    operationLockRef.current = true;
     setBusy(true);
     setError('');
     setMessage('');
     try {
-      const row = await createMobileWebsiteProject(user.id, newProjectName.trim());
+      const row = await createMobileWebsiteProject(requestUserId, projectName);
+      if (!isCurrentAccount(sequence, requestUserId)) return;
       setNewProjectName('');
       await loadProjects(row.id);
+      if (!isCurrentAccount(sequence, requestUserId)) return;
       setMessage('Website project created.');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (caught) {
-      setError(errorText(caught));
-      setBusy(false);
+      if (isCurrentAccount(sequence, requestUserId)) setError(errorText(caught));
+    } finally {
+      if (isCurrentAccount(sequence, requestUserId)) {
+        operationLockRef.current = false;
+        setBusy(false);
+      }
     }
   }
 
   async function saveProject() {
-    if (!draft || busy || publishBusy) return;
+    if (!draft || !userId || operationLockRef.current) return;
+    const sequence = lifecycleSequenceRef.current;
+    const requestUserId = userId;
+    const draftSnapshot = draft;
+    operationLockRef.current = true;
     setBusy(true);
     setError('');
     setMessage('');
     try {
-      const savedContent = await saveMobileWebsiteProject(draft);
-      const next = { ...draft, content: savedContent, updated_at: new Date().toISOString() };
+      const savedContent = await saveMobileWebsiteProject(draftSnapshot);
+      if (!isCurrentProject(sequence, requestUserId, draftSnapshot.id)) return;
+      const next = { ...draftSnapshot, content: savedContent, updated_at: new Date().toISOString() };
       applyProjectRow(next, 'Saved to Tayar Cloud.');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (caught) {
-      setError(errorText(caught));
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (isCurrentProject(sequence, requestUserId, draftSnapshot.id)) {
+        setError(errorText(caught));
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentAccount(sequence, requestUserId)) {
+        operationLockRef.current = false;
+        setBusy(false);
+      }
     }
   }
 
   async function runAI() {
-    if (!draft || !brief.trim() || aiBusy || publishBusy) return;
+    if (!draft || !userId || !brief.trim() || operationLockRef.current) return;
+    const sequence = lifecycleSequenceRef.current;
+    const requestUserId = userId;
+    const draftSnapshot = draft;
+    const briefSnapshot = brief.trim();
+    operationLockRef.current = true;
     setAiBusy(true);
     setError('');
     setMessage('');
     try {
-      const content = await generateMobileWebsiteCopy(brief, draft.content);
-      setDraft({ ...draft, title: content.siteName || draft.title, content });
+      const content = await generateMobileWebsiteCopy(briefSnapshot, draftSnapshot.content);
+      if (!isCurrentProject(sequence, requestUserId, draftSnapshot.id)) return;
+      setDraft({ ...draftSnapshot, title: content.siteName || draftSnapshot.title, content });
       setDirty(true);
       setMessage('AI draft applied. Review it, then tap Save or Publish.');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (caught) {
-      setError(errorText(caught));
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (isCurrentProject(sequence, requestUserId, draftSnapshot.id)) {
+        setError(errorText(caught));
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
-      setAiBusy(false);
+      if (isCurrentAccount(sequence, requestUserId)) {
+        operationLockRef.current = false;
+        setAiBusy(false);
+      }
     }
   }
 
   async function publishProject() {
-    if (!draft || !user || publishBusy) return;
+    if (!draft || !userId || operationLockRef.current) return;
+    const sequence = lifecycleSequenceRef.current;
+    const requestUserId = userId;
+    const draftSnapshot = draft;
+    operationLockRef.current = true;
     setPublishBusy(true);
     setError('');
     setMessage('');
     try {
-      const next = await publishMobileWebsiteProject(draft, user.id);
+      const next = await publishMobileWebsiteProject(draftSnapshot, requestUserId);
+      if (!isCurrentProject(sequence, requestUserId, draftSnapshot.id)) return;
       applyProjectRow(next, 'Website published and live route verified.');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (caught) {
-      setError(errorText(caught));
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (isCurrentProject(sequence, requestUserId, draftSnapshot.id)) {
+        setError(errorText(caught));
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
-      setPublishBusy(false);
+      if (isCurrentAccount(sequence, requestUserId)) {
+        operationLockRef.current = false;
+        setPublishBusy(false);
+      }
     }
   }
 
@@ -214,19 +303,29 @@ export default function WebsiteBuilderScreen() {
   }
 
   async function unpublishProject() {
-    if (!draft || !user || publishBusy) return;
+    if (!draft || !userId || operationLockRef.current) return;
+    const sequence = lifecycleSequenceRef.current;
+    const requestUserId = userId;
+    const draftSnapshot = draft;
+    operationLockRef.current = true;
     setPublishBusy(true);
     setError('');
     setMessage('');
     try {
-      const next = await unpublishMobileWebsiteProject(draft, user.id);
+      const next = await unpublishMobileWebsiteProject(draftSnapshot, requestUserId);
+      if (!isCurrentProject(sequence, requestUserId, draftSnapshot.id)) return;
       applyProjectRow(next, 'Website unpublished. The cloud project remains saved.');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (caught) {
-      setError(errorText(caught));
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (isCurrentProject(sequence, requestUserId, draftSnapshot.id)) {
+        setError(errorText(caught));
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
-      setPublishBusy(false);
+      if (isCurrentAccount(sequence, requestUserId)) {
+        operationLockRef.current = false;
+        setPublishBusy(false);
+      }
     }
   }
 
@@ -239,7 +338,7 @@ export default function WebsiteBuilderScreen() {
   }
 
   function selectProject(row: MobileWebsiteProjectRow) {
-    if (publishBusy) return;
+    if (operationBusy) return;
     if (dirty && draft?.id !== row.id) {
       Alert.alert('Unsaved changes', 'Save or discard your current changes before switching projects.', [
         { text: 'Stay', style: 'cancel' },
@@ -285,21 +384,52 @@ export default function WebsiteBuilderScreen() {
     ]);
   }
 
+  async function archiveProject() {
+    if (!draft || !userId || operationLockRef.current) return;
+    const sequence = lifecycleSequenceRef.current;
+    const requestUserId = userId;
+    const projectId = draft.id;
+    operationLockRef.current = true;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await archiveMobileWebsiteProject(projectId);
+      if (!isCurrentProject(sequence, requestUserId, projectId)) return;
+      await loadProjects();
+      if (!isCurrentAccount(sequence, requestUserId)) return;
+      setMessage('Website archived.');
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (caught) {
+      if (isCurrentAccount(sequence, requestUserId)) {
+        setError(errorText(caught));
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } finally {
+      if (isCurrentAccount(sequence, requestUserId)) {
+        operationLockRef.current = false;
+        setBusy(false);
+      }
+    }
+  }
+
   function confirmArchive() {
-    if (!draft || publishBusy) return;
+    if (!draft || operationBusy) return;
     Alert.alert('Archive website?', 'The project will disappear from your active projects. This does not delete an already published site.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Archive', style: 'destructive', onPress: () => void (async () => {
-        try {
-          setBusy(true);
-          await archiveMobileWebsiteProject(draft.id);
-          await loadProjects();
-          setMessage('Website archived.');
-        } catch (caught) {
-          setError(errorText(caught));
-          setBusy(false);
-        }
-      })() },
+      { text: 'Archive', style: 'destructive', onPress: () => void archiveProject() },
+    ]);
+  }
+
+  function refreshProjects() {
+    if (operationBusy) return;
+    if (!dirty) {
+      void loadProjects(selectedIdRef.current);
+      return;
+    }
+    Alert.alert('Discard unsaved changes?', 'Reloading websites will replace your current unsaved edits with the cloud version.', [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Reload and discard', style: 'destructive', onPress: () => void loadProjects(selectedIdRef.current) },
     ]);
   }
 
@@ -333,8 +463,8 @@ export default function WebsiteBuilderScreen() {
 
       <View style={styles.createCard}>
         <Text style={styles.sectionHeading}>New website</Text>
-        <TextInput value={newProjectName} onChangeText={setNewProjectName} placeholder="Business or website name" placeholderTextColor={colors.muted} style={styles.input} maxLength={120} />
-        <Pressable disabled={!newProjectName.trim() || busy || publishBusy} onPress={() => void createProject()} style={[styles.primaryButton, (!newProjectName.trim() || busy || publishBusy) && styles.disabled]}>
+        <TextInput editable={!operationBusy} value={newProjectName} onChangeText={setNewProjectName} placeholder="Business or website name" placeholderTextColor={colors.muted} style={styles.input} maxLength={120} />
+        <Pressable disabled={!newProjectName.trim() || operationBusy} onPress={() => void createProject()} style={[styles.primaryButton, (!newProjectName.trim() || operationBusy) && styles.disabled]}>
           {busy && !draft ? <ActivityIndicator color={colors.white} /> : <MaterialCommunityIcons name="plus" size={20} color={colors.white} />}
           <Text style={styles.primaryText}>Create website</Text>
         </Pressable>
@@ -342,12 +472,12 @@ export default function WebsiteBuilderScreen() {
 
       <View style={styles.headerRow}>
         <Text style={styles.sectionHeading}>Your websites</Text>
-        <Pressable disabled={busy || publishBusy} onPress={() => void loadProjects(selectedId)} style={styles.iconButton}><MaterialCommunityIcons name="refresh" size={19} color={colors.text} /></Pressable>
+        <Pressable disabled={operationBusy} onPress={refreshProjects} style={[styles.iconButton, operationBusy && styles.disabled]}><MaterialCommunityIcons name="refresh" size={19} color={colors.text} /></Pressable>
       </View>
       {busy && !projects.length ? <View style={styles.loading}><ActivityIndicator color={colors.violetBright} /><Text style={styles.muted}>Loading websites…</Text></View> : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.projectStrip}>
         {projects.map((row) => (
-          <Pressable key={row.id} onPress={() => selectProject(row)} style={[styles.projectCard, selectedId === row.id && styles.projectActive]}>
+          <Pressable key={row.id} disabled={operationBusy} onPress={() => selectProject(row)} style={[styles.projectCard, selectedId === row.id && styles.projectActive, operationBusy && styles.disabled]}>
             <View style={styles.projectTop}><MaterialCommunityIcons name="web-box" size={21} color={selectedId === row.id ? '#DDD6FE' : colors.violetBright} /><View style={[styles.statusDot, row.status === 'completed' && styles.statusLive]} /></View>
             <Text numberOfLines={1} style={[styles.projectName, selectedId === row.id && styles.projectNameActive]}>{row.title}</Text>
             <Text style={styles.projectMeta}>{row.status === 'completed' ? 'Published' : 'Draft'} · {shortDate(row.updated_at)}</Text>
@@ -362,43 +492,43 @@ export default function WebsiteBuilderScreen() {
             {dirty ? <View style={styles.unsavedBadge}><Text style={styles.unsavedText}>Unsaved</Text></View> : null}
           </View>
           <Text style={styles.label}>Project title</Text>
-          <TextInput value={draft.title} onChangeText={(value) => mutateProject((project) => ({ ...project, title: value.slice(0, 120), content: { ...project.content, siteName: value.slice(0, 100), brand: { ...project.content.brand, name: value.slice(0, 100) }, updatedAt: new Date().toISOString() } }))} style={styles.input} />
+          <TextInput editable={!operationBusy} value={draft.title} onChangeText={(value) => mutateProject((project) => ({ ...project, title: value.slice(0, 120), content: { ...project.content, siteName: value.slice(0, 100), brand: { ...project.content.brand, name: value.slice(0, 100) }, updatedAt: new Date().toISOString() } }))} style={styles.input} />
           <Text style={styles.label}>Brand name</Text>
-          <TextInput value={draft.content.brand.name} onChangeText={(value) => mutateContent((content) => ({ ...content, brand: { ...content.brand, name: value.slice(0, 120) }, updatedAt: new Date().toISOString() }))} style={styles.input} />
+          <TextInput editable={!operationBusy} value={draft.content.brand.name} onChangeText={(value) => mutateContent((content) => ({ ...content, brand: { ...content.brand, name: value.slice(0, 120) }, updatedAt: new Date().toISOString() }))} style={styles.input} />
           <Text style={styles.label}>Primary color</Text>
-          <View style={styles.colorRow}><View style={[styles.colorSwatch, { backgroundColor: draft.content.brand.colors.primary }]} /><TextInput autoCapitalize="none" value={draft.content.brand.colors.primary} onChangeText={(value) => mutateContent((content) => ({ ...content, brand: { ...content.brand, colors: { ...content.brand.colors, primary: value.slice(0, 30) } }, updatedAt: new Date().toISOString() }))} style={[styles.input, { flex: 1, marginTop: 0 }]} /></View>
+          <View style={styles.colorRow}><View style={[styles.colorSwatch, { backgroundColor: draft.content.brand.colors.primary }]} /><TextInput editable={!operationBusy} autoCapitalize="none" value={draft.content.brand.colors.primary} onChangeText={(value) => mutateContent((content) => ({ ...content, brand: { ...content.brand, colors: { ...content.brand.colors, primary: value.slice(0, 30) } }, updatedAt: new Date().toISOString() }))} style={[styles.input, { flex: 1, marginTop: 0 }]} /></View>
           <Text style={styles.label}>SEO title</Text>
-          <TextInput value={draft.content.seo.title} onChangeText={(value) => mutateContent((content) => ({ ...content, seo: { ...content.seo, title: value.slice(0, 180) }, updatedAt: new Date().toISOString() }))} style={styles.input} />
+          <TextInput editable={!operationBusy} value={draft.content.seo.title} onChangeText={(value) => mutateContent((content) => ({ ...content, seo: { ...content.seo, title: value.slice(0, 180) }, updatedAt: new Date().toISOString() }))} style={styles.input} />
           <Text style={styles.label}>SEO description</Text>
-          <TextInput value={draft.content.seo.description} onChangeText={(value) => mutateContent((content) => ({ ...content, seo: { ...content.seo, description: value.slice(0, 500) }, updatedAt: new Date().toISOString() }))} style={[styles.input, styles.multiline]} multiline textAlignVertical="top" />
+          <TextInput editable={!operationBusy} value={draft.content.seo.description} onChangeText={(value) => mutateContent((content) => ({ ...content, seo: { ...content.seo, description: value.slice(0, 500) }, updatedAt: new Date().toISOString() }))} style={[styles.input, styles.multiline]} multiline textAlignVertical="top" />
         </View>
 
         <View style={styles.aiCard}>
           <View style={styles.aiTitleRow}><View style={styles.sparkIcon}><MaterialCommunityIcons name="creation" size={20} color="#E9D5FF" /></View><View style={{ flex: 1 }}><Text style={styles.sectionHeading}>Build with Tayar AI</Text><Text style={styles.muted}>AI writes controlled copy; Tayar constructs the project schema locally.</Text></View></View>
-          <TextInput value={brief} onChangeText={setBrief} placeholder="Example: Modern Swedish cleaning company in Falköping, trustworthy, clear pricing, booking CTA…" placeholderTextColor={colors.muted} style={[styles.input, styles.briefInput]} multiline textAlignVertical="top" maxLength={6000} />
-          <Pressable disabled={!brief.trim() || aiBusy || publishBusy} onPress={() => void runAI()} style={[styles.aiButton, (!brief.trim() || aiBusy || publishBusy) && styles.disabled]}>{aiBusy ? <ActivityIndicator color={colors.white} /> : <MaterialCommunityIcons name="creation" size={20} color={colors.white} />}<Text style={styles.primaryText}>{aiBusy ? 'Building draft…' : 'Generate mobile draft'}</Text></Pressable>
+          <TextInput editable={!operationBusy} value={brief} onChangeText={setBrief} placeholder="Example: Modern Swedish cleaning company in Falköping, trustworthy, clear pricing, booking CTA…" placeholderTextColor={colors.muted} style={[styles.input, styles.briefInput]} multiline textAlignVertical="top" maxLength={6000} />
+          <Pressable disabled={!brief.trim() || operationBusy} onPress={() => void runAI()} style={[styles.aiButton, (!brief.trim() || operationBusy) && styles.disabled]}>{aiBusy ? <ActivityIndicator color={colors.white} /> : <MaterialCommunityIcons name="creation" size={20} color={colors.white} />}<Text style={styles.primaryText}>{aiBusy ? 'Building draft…' : 'Generate mobile draft'}</Text></Pressable>
         </View>
 
         <Text style={styles.sectionHeading}>Pages</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pageStrip}>
-          {draft.content.pages.map((page) => <Pressable key={page.id} onPress={() => selectPage(page.id)} style={[styles.pageChip, page.id === activePage?.id && styles.pageActive]}><MaterialCommunityIcons name="file-document-outline" size={16} color={page.id === activePage?.id ? '#E9D5FF' : colors.muted} /><Text style={[styles.pageText, page.id === activePage?.id && styles.pageTextActive]}>{page.name}</Text></Pressable>)}
+          {draft.content.pages.map((page) => <Pressable key={page.id} disabled={operationBusy} onPress={() => selectPage(page.id)} style={[styles.pageChip, page.id === activePage?.id && styles.pageActive]}><MaterialCommunityIcons name="file-document-outline" size={16} color={page.id === activePage?.id ? '#E9D5FF' : colors.muted} /><Text style={[styles.pageText, page.id === activePage?.id && styles.pageTextActive]}>{page.name}</Text></Pressable>)}
         </ScrollView>
 
         {activePage ? <>
-          <View style={styles.headerRow}><View><Text style={styles.sectionHeading}>{activePage.name} sections</Text><Text style={styles.muted}>{activePage.sections.length} sections</Text></View><Pressable disabled={publishBusy} onPress={() => setAddingSection((value) => !value)} style={[styles.addButton, publishBusy && styles.disabled]}><MaterialCommunityIcons name={addingSection ? 'close' : 'plus'} size={18} color="#DDD6FE" /><Text style={styles.addText}>{addingSection ? 'Close' : 'Add'}</Text></Pressable></View>
-          {addingSection ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeStrip}>{sectionTypes.map((type) => <Pressable key={type} onPress={() => addSection(type)} style={styles.typeChip}><MaterialCommunityIcons name={sectionIcon(type) as never} size={17} color={colors.violetBright} /><Text style={styles.typeText}>{type}</Text></Pressable>)}</ScrollView> : null}
+          <View style={styles.headerRow}><View><Text style={styles.sectionHeading}>{activePage.name} sections</Text><Text style={styles.muted}>{activePage.sections.length} sections</Text></View><Pressable disabled={operationBusy} onPress={() => setAddingSection((value) => !value)} style={[styles.addButton, operationBusy && styles.disabled]}><MaterialCommunityIcons name={addingSection ? 'close' : 'plus'} size={18} color="#DDD6FE" /><Text style={styles.addText}>{addingSection ? 'Close' : 'Add'}</Text></Pressable></View>
+          {addingSection ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeStrip}>{sectionTypes.map((type) => <Pressable key={type} disabled={operationBusy} onPress={() => addSection(type)} style={styles.typeChip}><MaterialCommunityIcons name={sectionIcon(type) as never} size={17} color={colors.violetBright} /><Text style={styles.typeText}>{type}</Text></Pressable>)}</ScrollView> : null}
 
           <View style={styles.sectionList}>{activePage.sections.map((section, index) => <View key={section.id} style={styles.sectionCard}>
-            <View style={styles.sectionCardHeader}><View style={styles.sectionNumber}><Text style={styles.sectionNumberText}>{index + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.sectionType}>{section.type.toUpperCase()}</Text><Text numberOfLines={1} style={styles.sectionTitle}>{section.title || 'Untitled section'}</Text></View>{activePage.sections.length > 1 ? <Pressable disabled={publishBusy} onPress={() => confirmRemoveSection(section)} style={[styles.iconButton, publishBusy && styles.disabled]}><MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.danger} /></Pressable> : null}</View>
-            <Text style={styles.label}>Heading</Text><TextInput editable={!publishBusy} value={section.title} onChangeText={(value) => updateSection(section, 'title', value)} style={styles.input} maxLength={180} />
-            <Text style={styles.label}>Description</Text><TextInput editable={!publishBusy} value={section.description} onChangeText={(value) => updateSection(section, 'description', value)} style={[styles.input, styles.multiline]} multiline textAlignVertical="top" maxLength={2000} />
-            <View style={styles.twoCol}><View style={{ flex: 1 }}><Text style={styles.label}>Button text</Text><TextInput editable={!publishBusy} value={section.buttonText} onChangeText={(value) => updateSection(section, 'buttonText', value)} style={styles.input} maxLength={100} /></View><View style={{ flex: 1 }}><Text style={styles.label}>Button link</Text><TextInput editable={!publishBusy} value={section.buttonUrl} onChangeText={(value) => updateSection(section, 'buttonUrl', value)} style={styles.input} autoCapitalize="none" maxLength={1000} /></View></View>
+            <View style={styles.sectionCardHeader}><View style={styles.sectionNumber}><Text style={styles.sectionNumberText}>{index + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.sectionType}>{section.type.toUpperCase()}</Text><Text numberOfLines={1} style={styles.sectionTitle}>{section.title || 'Untitled section'}</Text></View>{activePage.sections.length > 1 ? <Pressable disabled={operationBusy} onPress={() => confirmRemoveSection(section)} style={[styles.iconButton, operationBusy && styles.disabled]}><MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.danger} /></Pressable> : null}</View>
+            <Text style={styles.label}>Heading</Text><TextInput editable={!operationBusy} value={section.title} onChangeText={(value) => updateSection(section, 'title', value)} style={styles.input} maxLength={180} />
+            <Text style={styles.label}>Description</Text><TextInput editable={!operationBusy} value={section.description} onChangeText={(value) => updateSection(section, 'description', value)} style={[styles.input, styles.multiline]} multiline textAlignVertical="top" maxLength={2000} />
+            <View style={styles.twoCol}><View style={{ flex: 1 }}><Text style={styles.label}>Button text</Text><TextInput editable={!operationBusy} value={section.buttonText} onChangeText={(value) => updateSection(section, 'buttonText', value)} style={styles.input} maxLength={100} /></View><View style={{ flex: 1 }}><Text style={styles.label}>Button link</Text><TextInput editable={!operationBusy} value={section.buttonUrl} onChangeText={(value) => updateSection(section, 'buttonUrl', value)} style={styles.input} autoCapitalize="none" maxLength={1000} /></View></View>
             <View style={[styles.previewSection, { backgroundColor: section.background || '#111827' }]}><Text style={[styles.previewHeading, { color: '#ffffff' }]}>{section.title || section.type}</Text><Text style={styles.previewText}>{section.description}</Text>{section.buttonText ? <View style={[styles.previewButton, { backgroundColor: section.accent || draft.content.brand.colors.primary }]}><Text style={styles.previewButtonText}>{section.buttonText}</Text></View> : null}</View>
           </View>)}</View>
         </> : null}
 
         <View style={styles.actionsCard}>
-          <Pressable disabled={!dirty || busy || publishBusy} onPress={() => void saveProject()} style={[styles.primaryButton, (!dirty || busy || publishBusy) && styles.disabled]}>{busy ? <ActivityIndicator color={colors.white} /> : <MaterialCommunityIcons name="cloud-upload-outline" size={20} color={colors.white} />}<Text style={styles.primaryText}>{busy ? 'Saving…' : 'Save to Tayar Cloud'}</Text></Pressable>
+          <Pressable disabled={!dirty || operationBusy} onPress={() => void saveProject()} style={[styles.primaryButton, (!dirty || operationBusy) && styles.disabled]}>{busy ? <ActivityIndicator color={colors.white} /> : <MaterialCommunityIcons name="cloud-upload-outline" size={20} color={colors.white} />}<Text style={styles.primaryText}>{busy ? 'Saving…' : 'Save to Tayar Cloud'}</Text></Pressable>
 
           <View style={styles.publishState}>
             <View style={[styles.statusDot, isPublished ? styles.statusLive : styles.statusDraft]} />
@@ -407,15 +537,15 @@ export default function WebsiteBuilderScreen() {
 
           {!canPublish ? <View style={styles.publishNote}><MaterialCommunityIcons name="lock-outline" size={18} color={colors.muted} /><Text style={styles.publishNoteText}>Only the project owner can publish or unpublish a shared website.</Text></View> : null}
 
-          <Pressable disabled={!canPublish || publishBusy || busy} onPress={confirmPublish} style={[styles.publishButton, (!canPublish || publishBusy || busy) && styles.disabled]}>{publishBusy ? <ActivityIndicator color={colors.white} /> : <MaterialCommunityIcons name="earth" size={20} color={colors.white} />}<Text style={styles.primaryText}>{publishBusy ? 'Publishing safely…' : isPublished ? 'Publish changes' : 'Publish website'}</Text></Pressable>
+          <Pressable disabled={!canPublish || operationBusy} onPress={confirmPublish} style={[styles.publishButton, (!canPublish || operationBusy) && styles.disabled]}>{publishBusy ? <ActivityIndicator color={colors.white} /> : <MaterialCommunityIcons name="earth" size={20} color={colors.white} />}<Text style={styles.primaryText}>{publishBusy ? 'Publishing safely…' : isPublished ? 'Publish changes' : 'Publish website'}</Text></Pressable>
 
-          {draft.content.publishedUrl ? <Pressable disabled={publishBusy} onPress={() => void openPublishedSite()} style={[styles.secondaryButton, publishBusy && styles.disabled]}><MaterialCommunityIcons name="open-in-new" size={19} color="#DDD6FE" /><Text style={styles.secondaryText}>Open published site</Text></Pressable> : null}
+          {draft.content.publishedUrl ? <Pressable disabled={operationBusy} onPress={() => void openPublishedSite()} style={[styles.secondaryButton, operationBusy && styles.disabled]}><MaterialCommunityIcons name="open-in-new" size={19} color="#DDD6FE" /><Text style={styles.secondaryText}>Open published site</Text></Pressable> : null}
 
-          {isPublished ? <Pressable disabled={!canPublish || publishBusy} onPress={confirmUnpublish} style={[styles.unpublishButton, (!canPublish || publishBusy) && styles.disabled]}><MaterialCommunityIcons name="web-off" size={19} color="#FCA5A5" /><Text style={styles.unpublishText}>Unpublish website</Text></Pressable> : null}
+          {isPublished ? <Pressable disabled={!canPublish || operationBusy} onPress={confirmUnpublish} style={[styles.unpublishButton, (!canPublish || operationBusy) && styles.disabled]}><MaterialCommunityIcons name="web-off" size={19} color="#FCA5A5" /><Text style={styles.unpublishText}>Unpublish website</Text></Pressable> : null}
 
           <View style={styles.publishNote}><MaterialCommunityIcons name="shield-check-outline" size={18} color="#86EFAC" /><Text style={styles.publishSafeText}>If a site contains advanced web-only elements or containers, mobile publish stops before touching live storage. Use the web builder for those releases.</Text></View>
 
-          <Pressable disabled={busy || publishBusy} onPress={confirmArchive} style={[styles.dangerButton, (busy || publishBusy) && styles.disabled]}><MaterialCommunityIcons name="archive-outline" size={19} color={colors.danger} /><Text style={styles.dangerText}>Archive project</Text></Pressable>
+          <Pressable disabled={operationBusy} onPress={confirmArchive} style={[styles.dangerButton, operationBusy && styles.disabled]}><MaterialCommunityIcons name="archive-outline" size={19} color={colors.danger} /><Text style={styles.dangerText}>Archive project</Text></Pressable>
         </View>
       </> : projects.length === 0 && !busy ? <View style={styles.empty}><MaterialCommunityIcons name="web-plus" size={34} color={colors.muted} /><Text style={styles.emptyTitle}>Create your first website</Text><Text style={styles.emptyText}>Start with the form above, then build the copy manually or with Tayar AI.</Text></View> : null}
     </ScrollView>

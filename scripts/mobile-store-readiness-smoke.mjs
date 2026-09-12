@@ -29,6 +29,7 @@ const toolsTab = read('apps/mobile/app/(tabs)/tools.tsx');
 const login = read('apps/mobile/app/login.tsx');
 const rootLayout = read('apps/mobile/app/_layout.tsx');
 const teamWorkspace = read('apps/mobile/app/tools/team-workspace.tsx');
+const mobileWebsiteBuilder = read('apps/mobile/app/tools/website-builder.tsx');
 const authProvider = read('apps/mobile/context/AuthContext.tsx');
 const authContextValue = read('apps/mobile/context/auth-context-value.ts');
 const authHook = read('apps/mobile/context/useAuth.ts');
@@ -181,6 +182,28 @@ check('Team workspace surfaces failures from every parallel data request',
   teamWorkspace.includes('if (detailResult.error) throw detailResult.error') &&
   teamWorkspace.includes('if (projectResult.error) throw projectResult.error') &&
   teamWorkspace.includes('if (personalResult.error) throw personalResult.error'));
+check('Mobile Website Builder ignores stale account and project responses',
+  mobileWebsiteBuilder.includes('lifecycleSequenceRef') &&
+  mobileWebsiteBuilder.includes('loadSequenceRef') &&
+  mobileWebsiteBuilder.includes('activeUserIdRef.current !== requestUserId') &&
+  mobileWebsiteBuilder.includes('selectedIdRef.current === projectId'));
+check('Mobile Website Builder snapshots every long-running project operation',
+  mobileWebsiteBuilder.includes('const draftSnapshot = draft') &&
+  mobileWebsiteBuilder.includes('const briefSnapshot = brief.trim()') &&
+  mobileWebsiteBuilder.includes('generateMobileWebsiteCopy(briefSnapshot, draftSnapshot.content)') &&
+  mobileWebsiteBuilder.includes('publishMobileWebsiteProject(draftSnapshot, requestUserId)') &&
+  mobileWebsiteBuilder.includes('unpublishMobileWebsiteProject(draftSnapshot, requestUserId)'));
+check('Mobile Website Builder serializes destructive cloud and AI operations',
+  mobileWebsiteBuilder.includes('operationLockRef.current = true') &&
+  mobileWebsiteBuilder.includes('if (!draft || !userId || operationLockRef.current) return') &&
+  mobileWebsiteBuilder.includes('const operationBusy = busy || aiBusy || publishBusy'));
+check('Mobile Website Builder protects unsaved edits before cloud refresh',
+  mobileWebsiteBuilder.includes('function refreshProjects()') &&
+  mobileWebsiteBuilder.includes('Discard unsaved changes?') &&
+  mobileWebsiteBuilder.includes('Reload and discard'));
+check('Mobile Website Builder no longer suppresses hook dependency checks',
+  !mobileWebsiteBuilder.includes('eslint-disable-next-line react-hooks/exhaustive-deps') &&
+  mobileWebsiteBuilder.includes('}, [loadProjects, userId])'));
 check('Mobile auth separates provider and hook exports for reliable Fast Refresh',
   authProvider.includes('export function AuthProvider') &&
   !authProvider.includes('export function useAuth') &&
