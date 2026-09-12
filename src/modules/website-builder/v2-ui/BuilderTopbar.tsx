@@ -12,8 +12,15 @@ export interface BuilderTopbarProps {
 export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: BuilderTopbarProps) {
   const l = useLocalizer();
   const { view, status, actions } = shell;
+  const operationBusy = Boolean(status.saving || status.publishing || status.checking);
+  const operation = status.publishing ? 'publishing' : status.saving ? 'saving' : status.checking ? 'checking' : 'idle';
   return (
-    <header className="tayar-v2-topbar" data-dirty={view.dirty ? 'true' : 'false'}>
+    <header
+      className="tayar-v2-topbar"
+      data-dirty={view.dirty ? 'true' : 'false'}
+      data-operation={operation}
+      aria-busy={operationBusy}
+    >
       <div className="tayar-v2-topbar__brand">{brandSlot}</div>
       <div className="tayar-v2-desktop-workflow" role="group" aria-label={l('Builder tools')}>
         <button
@@ -63,23 +70,23 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
         </button>
       </div>
       <div className="tayar-v2-topbar__history" aria-label={l('Editor history')}>
-        <button type="button" onClick={actions.onUndo} disabled={!view.canUndo}>{l('Undo')}</button>
-        <button type="button" onClick={actions.onRedo} disabled={!view.canRedo}>{l('Redo')}</button>
+        <button type="button" onClick={actions.onUndo} disabled={operationBusy || !view.canUndo}>{l('Undo')}</button>
+        <button type="button" onClick={actions.onRedo} disabled={operationBusy || !view.canRedo}>{l('Redo')}</button>
       </div>
       <div className="tayar-v2-topbar__center">{centerSlot}</div>
       <div className="tayar-v2-topbar__actions">
-        <button type="button" className="tayar-v2-preview-button" onClick={actions.onPreview}>{l('Preview')}</button>
-        <button type="button" className="tayar-v2-check-button" onClick={actions.onRunCheck} disabled={Boolean(status.checking)}>
+        <button type="button" className="tayar-v2-preview-button" onClick={actions.onPreview} disabled={operationBusy}>{l('Preview')}</button>
+        <button type="button" className="tayar-v2-check-button" onClick={actions.onRunCheck} disabled={operationBusy}>
           {status.checking
             ? l('Checking…')
             : typeof status.checkScore === 'number'
               ? `${l('Check')} ${status.checkScore}`
                : l('Check')}
         </button>
-        <button type="button" className="tayar-v2-save-button" onClick={actions.onSave} disabled={Boolean(status.saving) || !view.dirty}>
+        <button type="button" className="tayar-v2-save-button" onClick={actions.onSave} disabled={operationBusy || !view.dirty}>
           {status.saving ? l('Saving…') : view.dirty ? l('Save') : l('Saved')}
         </button>
-        <button type="button" className="tayar-v2-publish-button" onClick={actions.onPublish} disabled={Boolean(status.publishing) || view.publish.blockers.length > 0}>
+        <button type="button" className="tayar-v2-publish-button" onClick={actions.onPublish} disabled={operationBusy || view.publish.blockers.length > 0}>
           {status.publishing
             ? l('Publishing…')
             : status.publishedUrl && status.publishedOutdated

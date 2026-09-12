@@ -5569,25 +5569,52 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return () => window.clearTimeout(timer);
   }, [networkOnline, cloudSyncFailed, user?.id, cloudProjectId, projectTeamAccess.canEdit]);
 
+  const desktopShortcutActionsRef = useRef({
+    busy: false,
+    save: () => saveProject(),
+    undo: () => undo(),
+    redo: () => redo(),
+    preview: () => previewWebsite(),
+  });
+  desktopShortcutActionsRef.current = {
+    busy: cloudBusy || publishBusy || aiBusy || aiQualityBusy,
+    save: () => saveProject(),
+    undo: () => undo(),
+    redo: () => redo(),
+    preview: () => previewWebsite(),
+  };
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const mod = event.ctrlKey || event.metaKey;
-      if (mod && event.key.toLowerCase() === 'k') {
+      const key = event.key.toLowerCase();
+      if (mod && key === 'k') {
         event.preventDefault();
         setCommandOpen((open) => !open);
         setCommandQuery('');
         return;
       }
       if (!mod) return;
-      const key = event.key.toLowerCase();
-      if (key === 's') { event.preventDefault(); void saveProject(); }
-      else if (key === 'z' && event.shiftKey) { event.preventDefault(); redo(); }
-      else if (key === 'z') { event.preventDefault(); undo(); }
-      else if (key === 'p' && event.shiftKey) { event.preventDefault(); previewWebsite(); }
+
+      const action =
+        key === 's' ? 'save'
+          : key === 'z' && event.shiftKey ? 'redo'
+            : key === 'z' ? 'undo'
+              : key === 'p' && event.shiftKey ? 'preview'
+                : null;
+      if (!action) return;
+
+      event.preventDefault();
+      const actions = desktopShortcutActionsRef.current;
+      if (actions.busy) return;
+      if (action === 'save') void actions.save();
+      else if (action === 'redo') actions.redo();
+      else if (action === 'undo') actions.undo();
+      else actions.preview();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  });
+  }, []);
 
   useEffect(() => {
     setPages((current) => current.map((page) =>
@@ -6210,7 +6237,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const target = history[targetIndex];
     if (snapshotConflictsWithActiveProject(target.snapshot)) return;
+    if (!window.confirm(l('Restore this history state? Your current unsaved changes will move to the Redo queue.'))) return;
 
+    saveRecoverySnapshot('before restoring edit history entry');
     const currentEntry = createEditHistoryEntry('Current state before history restore');
     prepareProjectStateRestore();
     const redoPath = [

@@ -1,5 +1,6 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import {
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -305,6 +306,54 @@ canvas,
   const l = useLocalizer();
   const [leftPanel, setLeftPanel] =
     useState<EditorLeftPanel>('pages');
+
+  const unsavedExitMessage =
+    l('You have unsaved website changes. Leave without saving?');
+
+  useEffect(() => {
+    if (!dirty || typeof window === 'undefined') return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = unsavedExitMessage;
+    };
+
+    const handleSameDocumentNavigation = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !(event.target instanceof Element)
+      ) {
+        return;
+      }
+
+      const anchor = event.target.closest<HTMLAnchorElement>('a[href]');
+      if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+
+      const destination = new URL(anchor.href, window.location.href);
+      const current = new URL(window.location.href);
+      const sameDocumentRoute =
+        destination.origin === current.origin &&
+        destination.pathname === current.pathname &&
+        destination.search === current.search &&
+        destination.hash !== current.hash;
+
+      if (!sameDocumentRoute || window.confirm(unsavedExitMessage)) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleSameDocumentNavigation, true);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleSameDocumentNavigation, true);
+    };
+  }, [dirty, unsavedExitMessage]);
 
   const [
     inspectorTab,

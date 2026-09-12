@@ -38,6 +38,7 @@ const builderHistoryPanelPath = resolve(root, 'src/modules/website-builder/v2-ui
 const builderPanelRouterPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderPanelRouter.tsx');
 const builderV2NativeBridgePath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderV2NativeBridge.tsx');
 const websiteBuilderV2BridgePath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
+const builderTopbarPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderTopbar.tsx');
 const builderComponentsPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderComponentsPanel.tsx');
 const websiteBuilderV2CssPath = resolve(root, 'src/modules/website-builder/v2-ui/website-builder-v2.css');
 const editorNativePatchPath = resolve(root, 'src/modules/website-builder/core/editor-native-patch.ts');
@@ -103,6 +104,7 @@ for (const [label, path] of [
   ['V2 panel router exists', builderPanelRouterPath],
   ['V2 native bridge exists', builderV2NativeBridgePath],
   ['V2 bridge exists', websiteBuilderV2BridgePath],
+  ['V2 topbar exists', builderTopbarPath],
   ['V2 Components panel exists', builderComponentsPanelPath],
   ['V2 stylesheet exists', websiteBuilderV2CssPath],
   ['Native patch transaction core exists', editorNativePatchPath],
@@ -129,6 +131,8 @@ for (const [label, path] of [
 const builder = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
+const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
+const builderTopbar = existsSync(builderTopbarPath) ? readFileSync(builderTopbarPath, 'utf8') : '';
 check('All editor AI entry points lock synchronously before React updates', (builder.match(/if \(aiAbortControllerRef\.current \|\| aiQualityAbortControllerRef\.current\) return/g) || []).length === 5);
 check('Cancelled structured requests stop during preparation', (aiService.match(/options\?\.signal\?\.throwIfAborted\(\)/g) || []).length >= 3);
 check('Cancelled structured requests stop during retry backoff', aiService.includes('async function waitForRetry') && aiService.includes("addEventListener('abort', handleAbort") && aiService.includes('await waitForRetry(delay, signal)') && aiService.includes('}, options?.signal);'));
@@ -506,6 +510,30 @@ check('Admin entitlement does not mutate subscription records', !/UPDATE\s+publi
 check('Server-side email validation exists', migration.includes('Invalid email address'));
 check('Rate-limit table is not directly exposed to anon users', migration.includes('REVOKE ALL ON public.website_public_rate_limits'));
 check('No Stripe live secret literal appears in changed source', !/sk_live_[A-Za-z0-9]+/.test(builder + migration));
+check('Desktop Builder warns before closing with unsaved changes',
+  websiteBuilderV2Bridge.includes("window.addEventListener('beforeunload', handleBeforeUnload)") &&
+  websiteBuilderV2Bridge.includes("window.removeEventListener('beforeunload', handleBeforeUnload)") &&
+  websiteBuilderV2Bridge.includes('event.returnValue = unsavedExitMessage'));
+check('Desktop Builder protects unsaved work during same-document navigation',
+  websiteBuilderV2Bridge.includes('handleSameDocumentNavigation') &&
+  websiteBuilderV2Bridge.includes('destination.hash !== current.hash') &&
+  websiteBuilderV2Bridge.includes('window.confirm(unsavedExitMessage)'));
+check('Desktop Builder topbar serializes save check publish and history actions',
+  builderTopbar.includes('const operationBusy = Boolean(status.saving || status.publishing || status.checking)') &&
+  builderTopbar.includes('disabled={operationBusy || !view.canUndo}') &&
+  builderTopbar.includes('disabled={operationBusy || !view.dirty}') &&
+  builderTopbar.includes('disabled={operationBusy || view.publish.blockers.length > 0}'));
+check('Desktop keyboard shortcuts use a stable current action ref',
+  builder.includes('const desktopShortcutActionsRef = useRef') &&
+  builder.includes('desktopShortcutActionsRef.current =') &&
+  builder.includes("window.removeEventListener('keydown', handler)") &&
+  builder.includes('}, []);'));
+check('Desktop keyboard shortcuts cannot mutate the project during cloud or AI operations',
+  builder.includes('busy: cloudBusy || publishBusy || aiBusy || aiQualityBusy') &&
+  builder.includes('if (actions.busy) return'));
+check('V2 history restoration confirms replacement and saves recovery state',
+  builder.includes('Restore this history state? Your current unsaved changes will move to the Redo queue.') &&
+  builder.includes("saveRecoverySnapshot('before restoring edit history entry')"));
 
 console.log(`Website Builder smoke test: ${passes.length} passed, ${failures.length} failed`);
 for (const label of passes) console.log(`  ✓ ${label}`);
