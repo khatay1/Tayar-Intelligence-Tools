@@ -17,15 +17,18 @@ export interface BuilderHistoryPanelProps {
 export function BuilderHistoryPanel({ shell, onRestoreEntry }: BuilderHistoryPanelProps) {
   const l = useLocalizer();
   const { history } = shell.view;
+  const mutationBusy = Boolean(
+    shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking,
+  );
   return (
-    <div className="tayar-v2-history-panel">
+    <div className="tayar-v2-history-panel" aria-busy={mutationBusy}>
       <div className="tayar-v2-panel-heading">
         <strong>{l('History')}</strong>
         <span>{history.total} {l('changes')}</span>
       </div>
       <div className="tayar-v2-panel-actions">
-        <button type="button" disabled={!shell.view.canUndo} onClick={shell.actions.onUndo}>{l('Undo')}</button>
-        <button type="button" disabled={!shell.view.canRedo} onClick={shell.actions.onRedo}>{l('Redo')}</button>
+        <button type="button" disabled={mutationBusy || !shell.view.canUndo} onClick={shell.actions.onUndo}>{l('Undo')}</button>
+        <button type="button" disabled={mutationBusy || !shell.view.canRedo} onClick={shell.actions.onRedo}>{l('Redo')}</button>
       </div>
       <div className="tayar-v2-history-list">
         {history.undo.map((entry, index) => (
@@ -35,7 +38,7 @@ export function BuilderHistoryPanel({ shell, onRestoreEntry }: BuilderHistoryPan
             className="tayar-v2-history-entry"
             data-current={index === 0 ? 'true' : 'false'}
             onClick={() => onRestoreEntry?.(entry.id)}
-            disabled={!onRestoreEntry}
+            disabled={mutationBusy || !onRestoreEntry}
             title={l('Restore this editor state')}
           >
             <span className="tayar-v2-history-entry__label">{l(entry.label)}</span>

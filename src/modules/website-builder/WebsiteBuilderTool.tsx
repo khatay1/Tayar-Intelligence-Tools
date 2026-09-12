@@ -5586,8 +5586,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat) return;
+
       const mod = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
+      const target = event.target;
+      const editingText =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          Boolean(target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')));
+
+      if (editingText && key === 'z') return;
       if (mod && key === 'k') {
         event.preventDefault();
         setCommandOpen((open) => !open);
@@ -5599,7 +5608,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const action =
         key === 's' ? 'save'
           : key === 'z' && event.shiftKey ? 'redo'
-            : key === 'z' ? 'undo'
+            : key === 'y' ? 'redo'
+              : key === 'z' ? 'undo'
               : key === 'p' && event.shiftKey ? 'preview'
                 : null;
       if (!action) return;
@@ -18220,6 +18230,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       saving={cloudBusy || autoSaveStatus === 'saving'}
       publishing={publishBusy}
       checking={launchCheckBusy}
+      mutating={cloudBusy || publishBusy || launchCheckBusy || aiBusy || aiQualityBusy}
       saveError={cloudError || (autoSaveStatus === 'failed' ? 'Autosave needs attention.' : undefined)}
       publishError={publishError || undefined}
       checkScore={siteAudit.score}

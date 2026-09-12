@@ -76,6 +76,9 @@ export function BuilderLayersPanel({
   const l = useLocalizer();
   const pages =
     shell.view.navigation;
+  const mutationBusy = Boolean(
+    shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking,
+  );
 
   const page =
     pages.find(
@@ -93,7 +96,7 @@ export function BuilderLayersPanel({
   }
 
   return (
-    <div className="tayar-v2-layers-panel">
+    <div className="tayar-v2-layers-panel" aria-busy={mutationBusy}>
       <div className="tayar-v2-panel-heading">
         <strong>{l('Layers')}</strong>
       </div>
@@ -132,9 +135,9 @@ export function BuilderLayersPanel({
                 <div className="tayar-v2-direct-actions tayar-v2-direct-actions--section">
                   <button
                     type="button"
-                    disabled={
-                      sectionIndex === 0
-                    }
+                    disabled={mutationBusy || !onMoveSection || sectionIndex === 0}
+                    aria-label={l('Move up')}
+                    title={l('Move up')}
                     onClick={() =>
                       onMoveSection?.(
                         section.id,
@@ -148,9 +151,12 @@ export function BuilderLayersPanel({
                   <button
                     type="button"
                     disabled={
-                      sectionIndex ===
-                      page.sections.length - 1
+                      mutationBusy ||
+                      !onMoveSection ||
+                      sectionIndex === page.sections.length - 1
                     }
+                    aria-label={l('Move down')}
+                    title={l('Move down')}
                     onClick={() =>
                       onMoveSection?.(
                         section.id,
@@ -163,6 +169,9 @@ export function BuilderLayersPanel({
 
                   <button
                     type="button"
+                    disabled={mutationBusy || !onDuplicateSection}
+                    aria-label={l('Copy')}
+                    title={l('Copy')}
                     onClick={() =>
                       onDuplicateSection?.(
                         section.id,
@@ -175,9 +184,9 @@ export function BuilderLayersPanel({
                   <button
                     type="button"
                     className="is-danger"
-                    disabled={
-                      page.sections.length <= 1
-                    }
+                    disabled={mutationBusy || !onDeleteSection || page.sections.length <= 1}
+                    aria-label={l('Delete')}
+                    title={l('Delete')}
                     onClick={() =>
                       onDeleteSection?.(
                         section.id,
@@ -241,6 +250,8 @@ export function BuilderLayersPanel({
                             <button
                               type="button"
                               className="is-danger"
+                              disabled={mutationBusy || !onUngroupContainer}
+                              title={l('UNGROUP')}
                               onClick={() =>
                                 onUngroupContainer?.(
                                   section.id,
@@ -309,9 +320,9 @@ export function BuilderLayersPanel({
                         <div className="tayar-v2-direct-actions tayar-v2-direct-actions--element">
                           <button
                             type="button"
-                            disabled={
-                              elementIndex === 0
-                            }
+                            disabled={mutationBusy || !onMoveElement || elementIndex === 0}
+                            aria-label={l('Move up')}
+                            title={l('Move up')}
                             onClick={() =>
                               onMoveElement?.(
                                 section.id,
@@ -326,9 +337,12 @@ export function BuilderLayersPanel({
                           <button
                             type="button"
                             disabled={
-                              elementIndex ===
-                              section.elements.length - 1
+                              mutationBusy ||
+                              !onMoveElement ||
+                              elementIndex === section.elements.length - 1
                             }
+                            aria-label={l('Move down')}
+                            title={l('Move down')}
                             onClick={() =>
                               onMoveElement?.(
                                 section.id,
@@ -342,6 +356,9 @@ export function BuilderLayersPanel({
 
                           <button
                             type="button"
+                            disabled={mutationBusy || !onDuplicateElement}
+                            aria-label={l('Copy')}
+                            title={l('Copy')}
                             onClick={() =>
                               onDuplicateElement?.(
                                 section.id,
@@ -355,9 +372,9 @@ export function BuilderLayersPanel({
                           <button
                             type="button"
                             className="is-danger"
-                            disabled={
-                              section.elements.length <= 1
-                            }
+                            disabled={mutationBusy || !onDeleteElement || section.elements.length <= 1}
+                            aria-label={l('Delete')}
+                            title={l('Delete')}
                             onClick={() =>
                               onDeleteElement?.(
                                 section.id,
@@ -380,6 +397,8 @@ export function BuilderLayersPanel({
                     <span>{l('Form fields')}</span>
                     <button
                       type="button"
+                      disabled={mutationBusy || !onResetForm}
+                      title={l('Reset')}
                       onClick={() => onResetForm?.(section.id)}
                     >
                       {l('Reset')}
@@ -435,7 +454,9 @@ export function BuilderLayersPanel({
                           <div className="tayar-v2-direct-actions tayar-v2-direct-actions--element">
                             <button
                               type="button"
-                              disabled={formFieldIndex === 0}
+                              disabled={mutationBusy || !onMoveFormField || formFieldIndex === 0}
+                              aria-label={l('Move up')}
+                              title={l('Move up')}
                               onClick={() =>
                                 onMoveFormField?.(
                                   section.id,
@@ -449,9 +470,12 @@ export function BuilderLayersPanel({
                             <button
                               type="button"
                               disabled={
-                                formFieldIndex ===
-                                section.formFields.length - 1
+                                mutationBusy ||
+                                !onMoveFormField ||
+                                formFieldIndex === section.formFields.length - 1
                               }
+                              aria-label={l('Move down')}
+                              title={l('Move down')}
                               onClick={() =>
                                 onMoveFormField?.(
                                   section.id,
@@ -465,7 +489,9 @@ export function BuilderLayersPanel({
                             <button
                               type="button"
                               className="is-danger"
-                              disabled={section.formFields.length <= 1}
+                              disabled={mutationBusy || !onDeleteFormField || section.formFields.length <= 1}
+                              aria-label={l('Delete')}
+                              title={l('Delete')}
                               onClick={() =>
                                 onDeleteFormField?.(
                                   section.id,
@@ -486,6 +512,7 @@ export function BuilderLayersPanel({
                       <button
                         type="button"
                         key={type}
+                        disabled={mutationBusy || !onAddFormField}
                         onClick={() => onAddFormField?.(section.id, type)}
                       >
                         + {type === 'tel' ? l('Phone') : l(type)}

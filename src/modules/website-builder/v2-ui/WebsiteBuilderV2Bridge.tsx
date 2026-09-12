@@ -108,6 +108,7 @@ export interface WebsiteBuilderV2BridgeProps {
   saving?: boolean;
   publishing?: boolean;
   checking?: boolean;
+  mutating?: boolean;
   saveError?: string;
   publishError?: string;
   checkScore?: number;
@@ -255,6 +256,7 @@ canvas,
   saving,
   publishing,
   checking,
+  mutating,
   saveError,
   publishError,
   checkScore,
@@ -573,6 +575,7 @@ canvas,
             saving,
             publishing,
             checking,
+            mutating,
             saveError,
             publishError,
             checkScore,
@@ -591,6 +594,7 @@ canvas,
         saving,
         publishing,
         checking,
+        mutating,
         saveError,
         publishError,
         checkScore,

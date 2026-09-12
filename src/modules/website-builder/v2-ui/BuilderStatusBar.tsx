@@ -15,7 +15,7 @@ export function BuilderStatusBar({
     shell;
 
   return (
-    <footer className="tayar-v2-statusbar">
+    <footer className="tayar-v2-statusbar" role="status" aria-live="polite" aria-atomic="true">
       <div className="tayar-v2-statusbar__left">
         {status.publishedUrl ? (
           <a
@@ -61,6 +61,7 @@ export function BuilderStatusBar({
         {(status.publishError || status.saveError) && (
           <span
             className="tayar-v2-statusbar__error"
+            role="alert"
             title={l(status.publishError || status.saveError || '')}
           >
             {l(status.publishError || status.saveError || '')}

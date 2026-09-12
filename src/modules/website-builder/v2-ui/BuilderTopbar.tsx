@@ -12,8 +12,8 @@ export interface BuilderTopbarProps {
 export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: BuilderTopbarProps) {
   const l = useLocalizer();
   const { view, status, actions } = shell;
-  const operationBusy = Boolean(status.saving || status.publishing || status.checking);
-  const operation = status.publishing ? 'publishing' : status.saving ? 'saving' : status.checking ? 'checking' : 'idle';
+  const operationBusy = Boolean(status.mutating || status.saving || status.publishing || status.checking);
+  const operation = status.publishing ? 'publishing' : status.saving ? 'saving' : status.checking ? 'checking' : status.mutating ? 'working' : 'idle';
   return (
     <header
       className="tayar-v2-topbar"

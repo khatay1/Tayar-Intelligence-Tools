@@ -39,6 +39,10 @@ const builderPanelRouterPath = resolve(root, 'src/modules/website-builder/v2-ui/
 const builderV2NativeBridgePath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderV2NativeBridge.tsx');
 const websiteBuilderV2BridgePath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
 const builderTopbarPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderTopbar.tsx');
+const builderPagesPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderPagesPanel.tsx');
+const builderLayersPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderLayersPanel.tsx');
+const builderStatusBarPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderStatusBar.tsx');
+const editorShellContractPath = resolve(root, 'src/modules/website-builder/core/editor-shell-contract.ts');
 const builderComponentsPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderComponentsPanel.tsx');
 const websiteBuilderV2CssPath = resolve(root, 'src/modules/website-builder/v2-ui/website-builder-v2.css');
 const editorNativePatchPath = resolve(root, 'src/modules/website-builder/core/editor-native-patch.ts');
@@ -105,6 +109,10 @@ for (const [label, path] of [
   ['V2 native bridge exists', builderV2NativeBridgePath],
   ['V2 bridge exists', websiteBuilderV2BridgePath],
   ['V2 topbar exists', builderTopbarPath],
+  ['V2 Pages panel exists', builderPagesPanelPath],
+  ['V2 Layers panel exists', builderLayersPanelPath],
+  ['V2 status bar exists', builderStatusBarPath],
+  ['Editor shell contract exists', editorShellContractPath],
   ['V2 Components panel exists', builderComponentsPanelPath],
   ['V2 stylesheet exists', websiteBuilderV2CssPath],
   ['Native patch transaction core exists', editorNativePatchPath],
@@ -133,6 +141,10 @@ const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8'
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
 const builderTopbar = existsSync(builderTopbarPath) ? readFileSync(builderTopbarPath, 'utf8') : '';
+const builderPagesPanel = existsSync(builderPagesPanelPath) ? readFileSync(builderPagesPanelPath, 'utf8') : '';
+const builderLayersPanel = existsSync(builderLayersPanelPath) ? readFileSync(builderLayersPanelPath, 'utf8') : '';
+const builderStatusBar = existsSync(builderStatusBarPath) ? readFileSync(builderStatusBarPath, 'utf8') : '';
+const editorShellContract = existsSync(editorShellContractPath) ? readFileSync(editorShellContractPath, 'utf8') : '';
 check('All editor AI entry points lock synchronously before React updates', (builder.match(/if \(aiAbortControllerRef\.current \|\| aiQualityAbortControllerRef\.current\) return/g) || []).length === 5);
 check('Cancelled structured requests stop during preparation', (aiService.match(/options\?\.signal\?\.throwIfAborted\(\)/g) || []).length >= 3);
 check('Cancelled structured requests stop during retry backoff', aiService.includes('async function waitForRetry') && aiService.includes("addEventListener('abort', handleAbort") && aiService.includes('await waitForRetry(delay, signal)') && aiService.includes('}, options?.signal);'));
@@ -518,7 +530,7 @@ check('Desktop Builder protects unsaved work during same-document navigation',
   websiteBuilderV2Bridge.includes('destination.hash !== current.hash') &&
   websiteBuilderV2Bridge.includes('window.confirm(unsavedExitMessage)'));
 check('Desktop Builder topbar serializes save check publish and history actions',
-  builderTopbar.includes('const operationBusy = Boolean(status.saving || status.publishing || status.checking)') &&
+  builderTopbar.includes('const operationBusy = Boolean(status.mutating || status.saving || status.publishing || status.checking)') &&
   builderTopbar.includes('disabled={operationBusy || !view.canUndo}') &&
   builderTopbar.includes('disabled={operationBusy || !view.dirty}') &&
   builderTopbar.includes('disabled={operationBusy || view.publish.blockers.length > 0}'));
@@ -533,6 +545,21 @@ check('Desktop keyboard shortcuts cannot mutate the project during cloud or AI o
 check('V2 history restoration confirms replacement and saves recovery state',
   builder.includes('Restore this history state? Your current unsaved changes will move to the Redo queue.') &&
   builder.includes("saveRecoverySnapshot('before restoring edit history entry')"));
+check('Desktop shell exposes one mutation lock across cloud AI quality and publish work',
+  editorShellContract.includes('mutating?: boolean') &&
+  websiteBuilderV2Bridge.includes('mutating,') &&
+  builder.includes('mutating={cloudBusy || publishBusy || launchCheckBusy || aiBusy || aiQualityBusy}'));
+check('Desktop page layer and history controls lock during background mutations',
+  builderPagesPanel.includes('aria-busy={mutationBusy}') &&
+  builderLayersPanel.includes('aria-busy={mutationBusy}') &&
+  builderHistoryPanel.includes('disabled={mutationBusy || !onRestoreEntry}'));
+check('Desktop shortcuts preserve native field undo and support Windows redo',
+  builder.includes('if (editingText && key === \'z\') return') &&
+  builder.includes("key === 'y' ? 'redo'") &&
+  builder.includes('if (event.defaultPrevented || event.repeat) return'));
+check('Desktop status feedback is announced accessibly',
+  builderStatusBar.includes('role="status" aria-live="polite" aria-atomic="true"') &&
+  builderStatusBar.includes('role="alert"'));
 
 console.log(`Website Builder smoke test: ${passes.length} passed, ${failures.length} failed`);
 for (const label of passes) console.log(`  ✓ ${label}`);

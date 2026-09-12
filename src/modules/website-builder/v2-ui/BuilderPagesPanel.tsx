@@ -31,9 +31,12 @@ export function BuilderPagesPanel({
   const l = useLocalizer();
   const { navigation } =
     shell.view;
+  const mutationBusy = Boolean(
+    shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking,
+  );
 
   return (
-    <div className="tayar-v2-pages-panel">
+    <div className="tayar-v2-pages-panel" aria-busy={mutationBusy}>
       <div className="tayar-v2-panel-heading">
         <strong>{l('Pages')}</strong>
 
@@ -41,6 +44,8 @@ export function BuilderPagesPanel({
           type="button"
           className="tayar-v2-mini-action"
           onClick={onAddPage}
+          disabled={mutationBusy || !onAddPage}
+          aria-label={l('Add page')}
           title={l('Add page')}
         >
           +
@@ -94,7 +99,8 @@ export function BuilderPagesPanel({
                 <div className="tayar-v2-direct-actions">
                   <button
                     type="button"
-                    disabled={index === 0}
+                    disabled={mutationBusy || !onMovePage || index === 0}
+                    aria-label={l('Move page up')}
                     title={l('Move page up')}
                     onClick={() =>
                       onMovePage?.(
@@ -109,9 +115,11 @@ export function BuilderPagesPanel({
                   <button
                     type="button"
                     disabled={
-                      index ===
-                      navigation.length - 1
+                      mutationBusy ||
+                      !onMovePage ||
+                      index === navigation.length - 1
                     }
+                    aria-label={l('Move page down')}
                     title={l('Move page down')}
                     onClick={() =>
                       onMovePage?.(
@@ -125,6 +133,8 @@ export function BuilderPagesPanel({
 
                   <button
                     type="button"
+                    disabled={mutationBusy || !onDuplicatePage}
+                    aria-label={l('Duplicate page')}
                     title={l('Duplicate page')}
                     onClick={
                       onDuplicatePage
@@ -136,6 +146,8 @@ export function BuilderPagesPanel({
                   {!page.home && (
                     <button
                       type="button"
+                      disabled={mutationBusy || !onSetHomePage}
+                      aria-label={l('Set as home page')}
                       title={l('Set as home page')}
                       onClick={
                         onSetHomePage
@@ -148,9 +160,8 @@ export function BuilderPagesPanel({
                   <button
                     type="button"
                     className="is-danger"
-                    disabled={
-                      navigation.length <= 1
-                    }
+                    disabled={mutationBusy || !onDeletePage || navigation.length <= 1}
+                    aria-label={l('Delete page')}
                     title={l('Delete page')}
                     onClick={
                       onDeletePage

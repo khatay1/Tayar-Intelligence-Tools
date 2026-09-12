@@ -22,6 +22,7 @@ export interface EditorShellStatus {
   saving?: boolean;
   publishing?: boolean;
   checking?: boolean;
+  mutating?: boolean;
   saveError?: string;
   publishError?: string;
   lastSavedAt?: number;
