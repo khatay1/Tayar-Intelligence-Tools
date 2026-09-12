@@ -44,6 +44,9 @@ const builderLayersPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/
 const builderStatusBarPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderStatusBar.tsx');
 const editorShellContractPath = resolve(root, 'src/modules/website-builder/core/editor-shell-contract.ts');
 const builderComponentsPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderComponentsPanel.tsx');
+const builderInsertPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderInsertPanel.tsx');
+const builderMediaPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderMediaPanel.tsx');
+const builderTemplateLibraryPanelPath = resolve(root, 'src/modules/website-builder/v2-ui/BuilderTemplateLibraryPanel.tsx');
 const websiteBuilderV2CssPath = resolve(root, 'src/modules/website-builder/v2-ui/website-builder-v2.css');
 const editorNativePatchPath = resolve(root, 'src/modules/website-builder/core/editor-native-patch.ts');
 const editorBatchPath = resolve(root, 'src/modules/website-builder/core/editor-batch.ts');
@@ -114,6 +117,9 @@ for (const [label, path] of [
   ['V2 status bar exists', builderStatusBarPath],
   ['Editor shell contract exists', editorShellContractPath],
   ['V2 Components panel exists', builderComponentsPanelPath],
+  ['V2 Insert panel exists', builderInsertPanelPath],
+  ['V2 Media panel exists', builderMediaPanelPath],
+  ['V2 Template Library panel exists', builderTemplateLibraryPanelPath],
   ['V2 stylesheet exists', websiteBuilderV2CssPath],
   ['Native patch transaction core exists', editorNativePatchPath],
   ['Editor batch transaction core exists', editorBatchPath],
@@ -244,6 +250,9 @@ const builderHistoryPanel = existsSync(builderHistoryPanelPath) ? readFileSync(b
 const builderPanelRouter = existsSync(builderPanelRouterPath) ? readFileSync(builderPanelRouterPath, 'utf8') : '';
 const builderV2NativeBridge = existsSync(builderV2NativeBridgePath) ? readFileSync(builderV2NativeBridgePath, 'utf8') : '';
 const builderComponentsPanel = existsSync(builderComponentsPanelPath) ? readFileSync(builderComponentsPanelPath, 'utf8') : '';
+const builderInsertPanel = existsSync(builderInsertPanelPath) ? readFileSync(builderInsertPanelPath, 'utf8') : '';
+const builderMediaPanel = existsSync(builderMediaPanelPath) ? readFileSync(builderMediaPanelPath, 'utf8') : '';
+const builderTemplateLibraryPanel = existsSync(builderTemplateLibraryPanelPath) ? readFileSync(builderTemplateLibraryPanelPath, 'utf8') : '';
 const websiteBuilderV2Css = existsSync(websiteBuilderV2CssPath) ? readFileSync(websiteBuilderV2CssPath, 'utf8') : '';
 const editorNativePatch = existsSync(editorNativePatchPath) ? readFileSync(editorNativePatchPath, 'utf8') : '';
 const editorBatch = existsSync(editorBatchPath) ? readFileSync(editorBatchPath, 'utf8') : '';
@@ -560,6 +569,32 @@ check('Desktop shortcuts preserve native field undo and support Windows redo',
 check('Desktop status feedback is announced accessibly',
   builderStatusBar.includes('role="status" aria-live="polite" aria-atomic="true"') &&
   builderStatusBar.includes('role="alert"'));
+check('Desktop mutation lock reaches insert media and reusable components',
+  builderPanelRouter.includes('const mutationBusy = Boolean(') &&
+  (builderPanelRouter.match(/disabled=\{mutationBusy\}/g) || []).length >= 3 &&
+  builderInsertPanel.includes('disabled={disabled || !onInsert}') &&
+  builderMediaPanel.includes('disabled={disabled || !onSelect}') &&
+  builderComponentsPanel.includes('disabled={disabled || !onDelete}'));
+check('Desktop panels disable actions that have no implementation',
+  builderInsertPanel.includes('onInsert?.(item)') &&
+  builderMediaPanel.includes('onSelect?.(asset)') &&
+  builderComponentsPanel.includes('disabled={disabled || !canCreate || !onCreate}') &&
+  builderComponentsPanel.includes('disabled={disabled || !canInsert || !onInsert}'));
+check('Desktop media AI composer is keyboard and IME safe',
+  builderMediaPanel.includes("event.key === 'Escape' && !aiBusy") &&
+  builderMediaPanel.includes('!event.nativeEvent.isComposing') &&
+  builderMediaPanel.includes("aria-label={l('Describe an image...')}") &&
+  builderMediaPanel.includes('role="alert"'));
+check('Desktop Template Library localizes visible navigation and summaries',
+  builderTemplateLibraryPanel.includes('{l(label)}') &&
+  builderTemplateLibraryPanel.includes("l('Loading library…')") &&
+  builderTemplateLibraryPanel.includes("l('No matching templates')") &&
+  builderTemplateLibraryPanel.includes("l('Unknown size')"));
+check('Desktop Template Library contains preview failures and exposes accessible states',
+  builderTemplateLibraryPanel.includes("return [asset.id, ''] as const") &&
+  builderTemplateLibraryPanel.includes('aria-busy={loading || loadingMore || downloadId !== null}') &&
+  builderTemplateLibraryPanel.includes('aria-pressed={view === value}') &&
+  builderTemplateLibraryPanel.includes('role="alert"'));
 
 console.log(`Website Builder smoke test: ${passes.length} passed, ${failures.length} failed`);
 for (const label of passes) console.log(`  ✓ ${label}`);

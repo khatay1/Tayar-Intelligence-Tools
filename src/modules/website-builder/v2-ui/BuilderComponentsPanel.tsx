@@ -10,6 +10,7 @@ export interface BuilderComponentsPanelProps {
   onDetach?(): void;
   onInsert?(symbolId: string): void;
   onDelete?(symbolId: string): void;
+  disabled?: boolean;
 }
 
 export function BuilderComponentsPanel({
@@ -21,10 +22,11 @@ export function BuilderComponentsPanel({
   onDetach,
   onInsert,
   onDelete,
+  disabled = false,
 }: BuilderComponentsPanelProps) {
   const l = useLocalizer();
   return (
-    <div className="tayar-v2-components-panel">
+    <div className="tayar-v2-components-panel" aria-busy={disabled}>
       <div className="tayar-v2-panel-heading">
         <strong>{l('Components')}</strong>
         <span>{symbols.length}</span>
@@ -35,13 +37,13 @@ export function BuilderComponentsPanel({
       <div className="tayar-v2-panel-actions">
         <button
           type="button"
-          disabled={!canCreate}
+          disabled={disabled || !canCreate || !onCreate}
           onClick={onCreate}
           title={canCreate ? l('Create a reusable linked component from the selected element') : l('Select a normal element first')}
         >{l('Create component')}</button>
         <button
           type="button"
-          disabled={!canDetach}
+          disabled={disabled || !canDetach || !onDetach}
           onClick={onDetach}
           title={canDetach ? l('Detach the selected linked instance') : l('Select a linked component instance first')}
         >{l('Detach selected')}</button>
@@ -53,7 +55,7 @@ export function BuilderComponentsPanel({
             <button
               type="button"
               className="tayar-v2-component-row__insert"
-              disabled={!canInsert}
+              disabled={disabled || !canInsert || !onInsert}
               onClick={() => onInsert?.(symbol.id)}
               title={canInsert ? l('Insert component into the selected section') : l('Select a section or element first')}
             >
@@ -63,6 +65,7 @@ export function BuilderComponentsPanel({
             <button
               type="button"
               className="is-danger"
+              disabled={disabled || !onDelete}
               onClick={() => onDelete?.(symbol.id)}
               title={l('Delete component')}
             >{l('DEL')}</button>

@@ -68,8 +68,8 @@ function iconForKind(kind: TemplateLibraryAssetKind) {
   return FileText;
 }
 
-function formatBytes(bytes: number) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return 'Unknown size';
+function formatBytes(bytes: number, unknownSize: string) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return unknownSize;
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
@@ -77,7 +77,7 @@ function formatBytes(bytes: number) {
 
 export function BuilderTemplateLibraryPanel() {
   const l = useLocalizer();
-const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
+  const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -142,7 +142,13 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
     if (!imageAssets.length) return undefined;
 
     void Promise.all(
-      imageAssets.map(async asset => [asset.id, await createTemplateLibraryPreviewUrl(asset)] as const),
+      imageAssets.map(async asset => {
+        try {
+          return [asset.id, await createTemplateLibraryPreviewUrl(asset)] as const;
+        } catch {
+          return [asset.id, ''] as const;
+        }
+      }),
     ).then(entries => {
       if (cancelled) return;
       const resolved = entries.reduce<Record<string, string>>((next, [id, url]) => {
@@ -168,12 +174,12 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
 
   const hasMore = view === 'all' && assets.length < total;
   const summary = useMemo(() => {
-    if (loading && assets.length === 0) return 'Loading library…';
-    if (view === 'favorites') return `${visibleAssets.length} saved favorite${visibleAssets.length === 1 ? '' : 's'}`;
-    if (view === 'recent') return `${visibleAssets.length} recent template${visibleAssets.length === 1 ? '' : 's'}`;
-    if (!total) return 'No matching templates';
-    return `${assets.length.toLocaleString()} of ${total.toLocaleString()} templates`;
-  }, [assets.length, loading, total, view, visibleAssets.length]);
+    if (loading && assets.length === 0) return l('Loading library…');
+    if (view === 'favorites') return `${visibleAssets.length.toLocaleString()} · ${l('Favorites')}`;
+    if (view === 'recent') return `${visibleAssets.length.toLocaleString()} · ${l('Recent')}`;
+    if (!total) return l('No matching templates');
+    return `${assets.length.toLocaleString()} / ${total.toLocaleString()}`;
+  }, [assets.length, l, loading, total, view, visibleAssets.length]);
 
   function toggleFavorite(assetId: string) {
     setFavorites(current => {
@@ -214,7 +220,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 p-3">
+    <div className="flex h-full min-h-0 flex-col gap-3 p-3" aria-busy={loading || loadingMore || downloadId !== null}>
       <div>
         <div className="text-sm font-semibold text-white">{l('Template Library')}</div>
         <p className="mt-1 text-[11px] leading-4 text-gray-500">
@@ -225,9 +231,11 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
       <label className="relative block">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
         <input
+          type="search"
           value={search}
           onChange={event => setSearch(event.target.value)}
           placeholder={l('Search templates')}
+          aria-label={l('Search templates')}
           className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-8 pr-3 text-xs text-white outline-none placeholder:text-gray-600 focus:border-cyan-500/50"
         />
       </label>
@@ -242,11 +250,12 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
             key={value}
             type="button"
             onClick={() => setView(value)}
+            aria-pressed={view === value}
             className={`rounded-md px-2 py-1.5 text-[10px] font-medium ${
               view === value ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
             }`}
           >
-            {label}
+            {l(label)}
           </button>
         ))}
       </div>
@@ -254,17 +263,19 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
       <div className="flex items-center gap-2">
         <select
           value={format}
+          aria-label={l('Format')}
           onChange={event => setFormat(event.target.value)}
           className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-gray-300 outline-none"
         >
           {FORMAT_OPTIONS.map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
+            <option key={value} value={value}>{l(label)}</option>
           ))}
         </select>
         <button
           type="button"
           onClick={() => void loadPage(0, false)}
           disabled={loading || loadingMore}
+          aria-label={l('Refresh library')}
           title={l('Refresh library')}
           className="rounded-lg border border-white/10 p-2 text-gray-400 hover:bg-white/5 hover:text-white disabled:opacity-40"
         >
@@ -278,14 +289,14 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2 text-[11px] text-red-300">
+        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2 text-[11px] text-red-300" role="alert">
           {l(error)}
         </div>
       )}
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {loading && assets.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-xs text-gray-500">
+          <div className="flex items-center justify-center gap-2 py-10 text-xs text-gray-500" role="status" aria-live="polite">
             <Loader2 className="h-4 w-4 animate-spin" /> {l('Loading templates…')}
           </div>
         ) : visibleAssets.length === 0 ? (
@@ -325,7 +336,7 @@ const [assets, setAssets] = useState<TemplateLibraryAsset[]>([]);
                       <div className="truncate text-xs font-medium text-gray-200" title={asset.title}>{asset.title}</div>
                       <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-gray-600">
                         <span>{asset.format.toUpperCase() || 'FILE'}</span>
-                        <span>{formatBytes(asset.fileSizeBytes)}</span>
+                        <span>{formatBytes(asset.fileSizeBytes, l('Unknown size'))}</span>
                         <span>{l(asset.category)}</span>
                       </div>
                     </div>

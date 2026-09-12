@@ -16,7 +16,8 @@ export interface BuilderInsertPanelProps {
   catalog?: EditorInsertCatalogItem[];
   onQueryChange?(query: string): void;
   onCategoryChange?(category?: EditorInsertCategory): void;
-  onInsert(item: EditorInsertCatalogItem): void;
+  onInsert?(item: EditorInsertCatalogItem): void;
+  disabled?: boolean;
 }
 
 const CATEGORIES: Array<{
@@ -38,6 +39,7 @@ export function BuilderInsertPanel({
   onQueryChange,
   onCategoryChange,
   onInsert,
+  disabled = false,
 }: BuilderInsertPanelProps) {
   const l = useLocalizer();
   const items =
@@ -48,7 +50,7 @@ export function BuilderInsertPanel({
     );
 
   return (
-    <div className="tayar-v2-insert-panel">
+    <div className="tayar-v2-insert-panel" aria-busy={disabled}>
       <div className="tayar-v2-panel-heading">
         <strong>{l('Insert')}</strong>
       </div>
@@ -98,7 +100,8 @@ export function BuilderInsertPanel({
             type="button"
             className="tayar-v2-insert-card"
             title={l(item.description)}
-            onClick={() => onInsert(item)}
+            disabled={disabled || !onInsert}
+            onClick={() => onInsert?.(item)}
           >
             <span className="tayar-v2-insert-card__icon">
               +

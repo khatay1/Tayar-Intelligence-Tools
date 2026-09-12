@@ -169,6 +169,13 @@ export function BuilderPanelRouter(
   props: BuilderPanelRouterProps,
 ) {
   const l = useLocalizer();
+  const mutationBusy = Boolean(
+    props.shell.status.mutating ||
+    props.shell.status.saving ||
+    props.shell.status.publishing ||
+    props.shell.status.checking,
+  );
+
   return function renderPanel(
     panel: EditorLeftPanel,
   ): ReactNode {
@@ -225,6 +232,7 @@ export function BuilderPanelRouter(
           canCreate={props.canCreateSymbol}
           canInsert={props.canInsertSymbol}
           canDetach={props.canDetachSymbol}
+          disabled={mutationBusy}
           onCreate={props.onCreateSymbol}
           onDetach={props.onDetachSymbol}
           onInsert={props.onInsertSymbol}
@@ -269,10 +277,8 @@ export function BuilderPanelRouter(
           onCategoryChange={
             props.onInsertCategoryChange
           }
-          onInsert={
-            props.onInsert ||
-            (() => undefined)
-          }
+          onInsert={props.onInsert}
+          disabled={mutationBusy}
         />
       );
     }
@@ -290,10 +296,8 @@ export function BuilderPanelRouter(
           onFilterChange={
             props.onMediaFilterChange
           }
-          onSelect={
-            props.onMediaSelect ||
-            (() => undefined)
-          }
+          onSelect={props.onMediaSelect}
+          disabled={mutationBusy}
           onUpload={
             props.onMediaUpload
           }

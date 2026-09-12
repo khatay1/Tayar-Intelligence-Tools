@@ -18,7 +18,7 @@ export interface BuilderMediaPanelProps {
     filter: EditorMediaFilter,
   ): void;
 
-  onSelect(
+  onSelect?(
     asset: EditorMediaAsset,
   ): void;
 
@@ -27,6 +27,8 @@ export interface BuilderMediaPanelProps {
   onGenerateWithAI?(
     prompt: string,
   ): void | Promise<void>;
+
+  disabled?: boolean;
 }
 
 export function BuilderMediaPanel({
@@ -36,6 +38,7 @@ export function BuilderMediaPanel({
   onSelect,
   onUpload,
   onGenerateWithAI,
+  disabled = false,
 }: BuilderMediaPanelProps) {
   const l = useLocalizer();
   const visible =
@@ -63,6 +66,7 @@ export function BuilderMediaPanel({
     if (
       !prompt ||
       !onGenerateWithAI ||
+      disabled ||
       aiBusy
     ) {
       return;
@@ -90,7 +94,7 @@ export function BuilderMediaPanel({
   }
 
   return (
-    <div className="tayar-v2-media-panel">
+    <div className="tayar-v2-media-panel" aria-busy={disabled || aiBusy}>
       <div className="tayar-v2-panel-heading">
         <strong>{l('Media')}</strong>
       </div>
@@ -99,6 +103,7 @@ export function BuilderMediaPanel({
         {onUpload && (
           <button
             type="button"
+            disabled={disabled}
             onClick={onUpload}
           >
             {l('Upload')}
@@ -109,6 +114,7 @@ export function BuilderMediaPanel({
           <button
             type="button"
             aria-pressed={aiOpen}
+            disabled={disabled || aiBusy}
             onClick={() => {
               setAiOpen(
                 (current) => !current,
@@ -129,15 +135,23 @@ export function BuilderMediaPanel({
             type="text"
             value={aiPrompt}
             placeholder={l('Describe an image...')}
-            disabled={aiBusy}
+            aria-label={l('Describe an image...')}
+            disabled={disabled || aiBusy}
             onChange={(event) =>
               setAiPrompt(
                 event.target.value,
               )
             }
             onKeyDown={(event) => {
+              if (event.key === 'Escape' && !aiBusy) {
+                setAiOpen(false);
+                setAiError('');
+                return;
+              }
+
               if (
-                event.key === 'Enter'
+                event.key === 'Enter' &&
+                !event.nativeEvent.isComposing
               ) {
                 event.preventDefault();
                 void generate();
@@ -148,6 +162,7 @@ export function BuilderMediaPanel({
           <button
             type="button"
             disabled={
+              disabled ||
               aiBusy ||
               !aiPrompt.trim()
             }
@@ -161,12 +176,12 @@ export function BuilderMediaPanel({
           </button>
 
           {aiError && (
-            <div className="tayar-v2-media-ai__error">
+            <div className="tayar-v2-media-ai__error" role="alert">
               <span>{l(aiError)}</span>
 
               <button
                 type="button"
-                disabled={aiBusy || !aiPrompt.trim()}
+                disabled={disabled || aiBusy || !aiPrompt.trim()}
                 onClick={() => void generate()}
               >
                 {l('Retry')}
@@ -201,8 +216,9 @@ export function BuilderMediaPanel({
             type="button"
             className="tayar-v2-media-card"
             title={asset.name}
+            disabled={disabled || !onSelect}
             onClick={() =>
-              onSelect(asset)
+              onSelect?.(asset)
             }
           >
             <span

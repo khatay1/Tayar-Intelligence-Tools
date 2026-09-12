@@ -5,6 +5,11 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  'Recent': 'الأخيرة',
+  'Loading library…': 'جارٍ تحميل المكتبة…',
+  'No matching templates': 'لا توجد قوالب مطابقة',
+  'Unknown size': 'حجم غير معروف',
+  'Format': 'التنسيق',
   'Restore this history state? Your current unsaved changes will move to the Redo queue.': 'هل تريد استعادة حالة السجل هذه؟ ستُنقل تغييراتك الحالية غير المحفوظة إلى قائمة الإعادة.',
   'You have unsaved website changes. Leave without saving?': 'لديك تغييرات غير محفوظة في الموقع. هل تريد المغادرة من دون حفظ؟',
   'AI action': 'إجراء الذكاء الاصطناعي',
@@ -2613,6 +2618,11 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  'Recent': 'Senaste',
+  'Loading library…': 'Biblioteket läses in…',
+  'No matching templates': 'Inga matchande mallar',
+  'Unknown size': 'Okänd storlek',
+  'Format': 'Format',
   'Restore this history state? Your current unsaved changes will move to the Redo queue.': 'Återställa det här historikläget? Dina aktuella osparade ändringar flyttas till kön för Gör om.',
   'You have unsaved website changes. Leave without saving?': 'Du har osparade ändringar på webbplatsen. Vill du lämna utan att spara?',
   'AI action': 'AI-åtgärd',
