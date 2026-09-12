@@ -366,6 +366,7 @@ interface AIWebsitePlanReview {
 
 interface AIWebsitePatchReviewItem {
   id: string;
+  action?: AIWebsitePatchOperation['action'];
   label: string;
   target: string;
   fields: string[];
@@ -524,6 +525,93 @@ function aiWebsitePatchReviewItemTargetPage(
     if (page) return page;
   }
   return pages.find((page) => aiWebsitePatchReviewItemTargetsPage(operation, page));
+}
+
+function reconcileAIWebsitePatchReviewTargets(
+  review: AIWebsitePatchReview,
+  baselinePages: WebsitePage[],
+  candidatePages: WebsitePage[],
+): AIWebsitePatchReview {
+  const baselinePageIds = new Set(baselinePages.map((page) => page.id));
+  const baselineSectionIds = new Set(baselinePages.flatMap((page) => page.sections.map((section) => section.id)));
+  const baselineElementIds = new Set(baselinePages.flatMap((page) => page.sections.flatMap((section) => section.elements.map((element) => element.id))));
+  const baselineContainerIds = new Set(baselinePages.flatMap((page) => page.sections.flatMap((section) => (section.containers || []).map((container) => container.id))));
+  const claimedPageIds = new Set<string>();
+  const claimedSectionIds = new Set<string>();
+  const claimedElementIds = new Set<string>();
+  const claimedContainerIds = new Set<string>();
+
+  const nextUnclaimed = <T extends { id: string },>(items: T[], claimed: Set<string>) => {
+    const match = items.find((item) => !claimed.has(item.id));
+    if (match) claimed.add(match.id);
+    return match;
+  };
+
+  const operations = review.operations.map((operation) => {
+    if (operation.kind !== 'add') return operation;
+
+    if (operation.action === 'add_page' || operation.action === 'duplicate_page') {
+      const addedPage = nextUnclaimed(
+        candidatePages.filter((page) => !baselinePageIds.has(page.id)),
+        claimedPageIds,
+      );
+      return addedPage
+        ? { ...operation, pageId: addedPage.id, pageSlug: addedPage.slug, sectionId: undefined, elementId: undefined, containerId: undefined }
+        : operation;
+    }
+
+    const targetPage = aiWebsitePatchReviewItemTargetPage(operation, candidatePages);
+    const pageCandidates = targetPage ? [targetPage] : candidatePages;
+
+    if (operation.action === 'add_section' || operation.action === 'duplicate_section') {
+      const addedSection = nextUnclaimed(
+        pageCandidates.flatMap((page) => page.sections).filter((section) => !baselineSectionIds.has(section.id)),
+        claimedSectionIds,
+      );
+      const ownerPage = addedSection
+        ? candidatePages.find((page) => page.sections.some((section) => section.id === addedSection.id))
+        : undefined;
+      return addedSection
+        ? { ...operation, pageId: ownerPage?.id ?? operation.pageId, pageSlug: ownerPage?.slug ?? operation.pageSlug, sectionId: addedSection.id, elementId: undefined, containerId: undefined }
+        : operation;
+    }
+
+    if (operation.action === 'add_element' || operation.action === 'duplicate_element' || operation.action === 'insert_symbol') {
+      const addedElement = nextUnclaimed(
+        pageCandidates.flatMap((page) => page.sections.flatMap((section) => section.elements)).filter((element) => !baselineElementIds.has(element.id)),
+        claimedElementIds,
+      );
+      const ownerPage = addedElement
+        ? candidatePages.find((page) => page.sections.some((section) => section.elements.some((element) => element.id === addedElement.id)))
+        : undefined;
+      const ownerSection = ownerPage?.sections.find((section) => section.elements.some((element) => element.id === addedElement?.id));
+      return addedElement
+        ? { ...operation, pageId: ownerPage?.id ?? operation.pageId, pageSlug: ownerPage?.slug ?? operation.pageSlug, sectionId: ownerSection?.id ?? operation.sectionId, elementId: addedElement.id, containerId: addedElement.containerId }
+        : operation;
+    }
+
+    if (operation.action === 'add_container') {
+      const addedContainer = nextUnclaimed(
+        pageCandidates.flatMap((page) => page.sections.flatMap((section) => section.containers || [])).filter((container) => !baselineContainerIds.has(container.id)),
+        claimedContainerIds,
+      );
+      const ownerPage = addedContainer
+        ? candidatePages.find((page) => page.sections.some((section) => (section.containers || []).some((container) => container.id === addedContainer.id)))
+        : undefined;
+      const ownerSection = ownerPage?.sections.find((section) => (section.containers || []).some((container) => container.id === addedContainer?.id));
+      return addedContainer
+        ? { ...operation, pageId: ownerPage?.id ?? operation.pageId, pageSlug: ownerPage?.slug ?? operation.pageSlug, sectionId: ownerSection?.id ?? operation.sectionId, elementId: undefined, containerId: addedContainer.id }
+        : operation;
+    }
+
+    return operation;
+  });
+
+  return {
+    ...review,
+    operations,
+    destructiveCount: operations.filter((operation) => operation.kind === 'remove').length,
+  };
 }
 
 interface AIWebsiteUndoSnapshot {
@@ -7567,7 +7655,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAiStage('ready');
     setAiMessages((current) => [
       ...current,
-      { id: `ai-stopped-${Date.now()}`, role: 'assistant' as const, content: 'AI request stopped. No pending changes were applied.' },
+      { id: `ai-stopped-${Date.now()}`, role: 'assistant' as const, content: l('AI request stopped. No pending changes were applied.') },
     ].slice(-12));
   }
 
@@ -7593,7 +7681,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   async function requestGeneratedImage(prompt: string, signal?: AbortSignal) {
     const cleanPrompt = prompt.trim();
-    if (!cleanPrompt) throw new Error('Image prompt is required.');
+    if (!cleanPrompt) throw new Error(l('Image prompt is required.'));
     const requestUserId = user?.id ?? null;
     const ai = createAIService('website-builder');
     const response = await ai.completeJSON<{ url: string; assetPath?: string; persisted?: boolean; persistenceError?: string }>(
@@ -7601,7 +7689,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       [],
       { temperature: 0.8, maxTokens: 1000, signal },
     );
-    if (!response.json?.url) throw new Error('Image generation did not return an image.');
+    if (!response.json?.url) throw new Error(l('Image generation did not return an image.'));
     if (requestUserId) void refreshMedia(requestUserId);
     return response.json;
   }
@@ -7614,7 +7702,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     if (!cleanPrompt) {
       throw new Error(
-        'Describe the image first.'
+        l('Describe the image first.')
       );
     }
 
@@ -7637,7 +7725,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!generated.persisted) {
         throw new Error(
           generated.persistenceError ||
-          'Image was generated but could not be saved to Media.'
+          l('Image was generated but could not be saved to Media.')
         );
       }
 
@@ -7714,7 +7802,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           : [];
 
       if (!generated || pageCandidates.length === 0) {
-        throw new Error('AI returned an invalid website plan. Please try a more specific description.');
+        throw new Error(l('AI returned an invalid website plan. Please try a more specific description.'));
       }
 
       setAiStage('building');
@@ -7780,7 +7868,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }).filter((page) => page.sections.length > 0);
 
       if (nextPages.length === 0) {
-        throw new Error('AI did not return usable pages or sections. Please try again.');
+        throw new Error(l('AI did not return usable pages or sections. Please try again.'));
       }
 
       let agentImagesGenerated = 0;
@@ -8108,7 +8196,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
     setAiMessages((current) => [
       ...current,
-      { id: `ai-undo-${Date.now()}`, role: 'assistant' as const, content: 'Reverted the last AI change.' },
+      { id: `ai-undo-${Date.now()}`, role: 'assistant' as const, content: l('Reverted the last AI change.') },
     ].slice(-12));
   }
 
@@ -8213,7 +8301,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-plan-${Date.now()}`,
           role: 'assistant' as const,
-          content: `Plan: ${planPreview}${agentPlan.warnings?.length ? ` · ${agentPlan.warnings.join(' · ')}` : ''}`,
+          content: `${l('Plan')}: ${planPreview}${agentPlan.warnings?.length ? ` · ${l('Warnings')}: ${agentPlan.warnings.join(' · ')}` : ''}`,
         },
       ].slice(-30));
 
@@ -8227,7 +8315,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setAiStage('ready');
           setAiMessages((current) => [
             ...current,
-            { id: `ai-plan-discarded-${Date.now()}`, role: 'assistant' as const, content: 'AI plan discarded. No changes were applied.' },
+            { id: `ai-plan-discarded-${Date.now()}`, role: 'assistant' as const, content: l('AI plan discarded. No changes were applied.') },
           ].slice(-20));
         }
         return;
@@ -8256,7 +8344,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       const operations = Array.isArray(patch?.operations) ? patch.operations.slice(0, 60) : [];
       if (!patch || operations.length === 0) {
-        throw new Error('AI did not return any safe website changes. Try a more specific request.');
+        throw new Error(l('AI did not return any safe website changes. Try a more specific request.'));
       }
 
       const destructiveActions = new Set([
@@ -8278,6 +8366,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           const kind = aiWebsitePatchReviewKind(operation?.action || '');
           return {
             id: `operation-${index + 1}`,
+            action: operation?.action,
             label: operation && typeof operation.action === 'string'
               ? humanizeAIWebsitePatchAction(operation.action)
               : 'Unsupported operation',
@@ -8303,7 +8392,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setAiStage('ready');
           setAiMessages((current) => [
             ...current,
-            { id: `ai-patch-discarded-${Date.now()}`, role: 'assistant' as const, content: 'AI changes discarded. No changes were applied.' },
+            { id: `ai-patch-discarded-${Date.now()}`, role: 'assistant' as const, content: l('AI changes discarded. No changes were applied.') },
           ].slice(-20));
         }
         return;
@@ -8431,6 +8520,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       let nextHeaderConfig: WebsiteHeaderConfig = { ...headerConfig };
       let nextSymbols = JSON.parse(JSON.stringify(symbols)) as WebsiteSymbol[];
       let applied = 0;
+      const appliedOperationIds = new Set<string>();
       const nativeBridgeWarnings: string[] = [];
 
       const applyAIWorkingNativeOperations = (
@@ -9642,8 +9732,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return true;
       };
 
-      for (const operation of operations) {
+      for (const [operationIndex, operation] of operations.entries()) {
         if (!operation || typeof operation.action !== 'string') continue;
+        const appliedBeforeOperation = applied;
+        try {
 
         if (
           applyAIGlobalNativeOperation(
@@ -10673,10 +10765,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           nextPages[pageIndex] = { ...page, sections: sectionList };
           applied += 1;
         }
+        } finally {
+          if (applied > appliedBeforeOperation) appliedOperationIds.add(`operation-${operationIndex + 1}`);
+        }
       }
 
       if (applied === 0) {
-        throw new Error('AI changes could not be matched safely to this website. Try naming the page or section more clearly.');
+        throw new Error(l('AI changes could not be matched safely to this website. Try naming the page or section more clearly.'));
       }
 
       setAiStage('styling');
@@ -10829,8 +10924,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ...patchWarnings,
         ...nativeBridgeWarnings,
       ].slice(0, 8);
+      const candidateReview = reconcileAIWebsitePatchReviewTargets(
+        {
+          ...exactPatchReview,
+          operations: exactPatchReview.operations.filter((operation) => appliedOperationIds.has(operation.id)),
+        },
+        snapshot.pages,
+        nextPages,
+      );
       const candidateApproved = await requestAICandidatePreview({
-        review: exactPatchReview,
+        review: candidateReview,
         summary,
         viewMode: 'after',
         pages: nextPages,
@@ -10862,7 +10965,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setAiStage('ready');
           setAiMessages((current) => [
             ...current,
-            { id: `ai-result-discarded-${Date.now()}`, role: 'assistant' as const, content: 'AI result discarded. No changes were applied.' },
+            { id: `ai-result-discarded-${Date.now()}`, role: 'assistant' as const, content: l('AI result discarded. No changes were applied.') },
           ].slice(-20));
         }
         return;
@@ -10882,20 +10985,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setHeaderConfig(nextHeaderConfig);
       setSymbols(nextSymbols);
 
-      const handoffOperation = [...operations].reverse().find((operation) =>
-        operation && typeof operation.action === 'string' &&
+      const handoffOperation = [...candidateReview.operations].reverse().find((operation) =>
+        operation.action &&
         !['repair_accessibility', 'repair_responsive', 'update_theme', 'restyle_site', 'update_site', 'update_seo', 'update_header'].includes(operation.action)
       );
-      const handoffPage = handoffOperation?.pageId
-        ? nextPages.find((candidatePage) => candidatePage.id === handoffOperation.pageId)
-        : handoffOperation?.pageSlug
-          ? nextPages.find((candidatePage) => normalizeSlugValue(candidatePage.slug) === normalizeSlugValue(handoffOperation.pageSlug || ''))
-          : finalActive;
+      const handoffPage = handoffOperation
+        ? aiWebsitePatchReviewItemTargetPage(handoffOperation, nextPages) ?? finalActive
+        : finalActive;
       const handoffSection = handoffOperation?.sectionId
         ? handoffPage?.sections.find((candidateSection) => candidateSection.id === handoffOperation.sectionId)
-        : handoffPage?.sections[0];
+        : handoffOperation?.elementId
+          ? handoffPage?.sections.find((candidateSection) => candidateSection.elements.some((candidateElement) => candidateElement.id === handoffOperation.elementId))
+          : handoffOperation?.containerId
+            ? handoffPage?.sections.find((candidateSection) => (candidateSection.containers || []).some((candidateContainer) => candidateContainer.id === handoffOperation.containerId))
+            : handoffPage?.sections[0];
       const handoffElement = handoffOperation?.elementId
-        ? handoffSection?.elements.find((candidateElement) => candidateElement.id === handoffOperation.elementId)
+        ? handoffPage?.sections.flatMap((candidateSection) => candidateSection.elements).find((candidateElement) => candidateElement.id === handoffOperation.elementId)
         : handoffSection?.elements[0];
 
       if (handoffPage) {
@@ -10932,7 +11037,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           id: `ai-patch-result-${Date.now()}`,
           role: 'assistant' as const,
-          content: `${summary} Planned ${(agentPlan.steps || []).length} step${(agentPlan.steps || []).length === 1 ? '' : 's'} and applied ${applied} safe native operation${applied === 1 ? '' : 's'} without rebuilding unrelated content.${skipped ? ` ${skipped} unsupported or unsafe operation${skipped === 1 ? ' was' : 's were'} skipped.` : ''}${resultWarnings.length ? ` Warnings: ${resultWarnings.join(' · ')}` : ''}${confidence !== null ? ` Confidence: ${Math.round(confidence * 100)}%.` : ''}${agentReview ? ` Agent review${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || 'Review complete.'}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · Suggested follow-up: ${agentReview.followUpPrompt}` : ''}` : ''}`,
+          content: [
+            summary,
+            `${l('Planned steps')}: ${(agentPlan.steps || []).length}`,
+            `${l('Applied safe changes')}: ${applied}`,
+            skipped ? `${l('Skipped unsafe changes')}: ${skipped}` : '',
+            resultWarnings.length ? `${l('Warnings')}: ${resultWarnings.join(' · ')}` : '',
+            confidence !== null ? `${l('Confidence')}: ${Math.round(confidence * 100)}%` : '',
+            agentReview
+              ? `${l('Agent review')}${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || l('Review complete.')}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · ${l('Suggested follow-up')}: ${agentReview.followUpPrompt}` : ''}`
+              : '',
+          ].filter(Boolean).join(' · '),
         },
       ].slice(-12));
     } catch (error) {
@@ -11043,11 +11158,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
       setAiMessages((current) => [
         ...current,
-        { id: `ai-image-${Date.now()}`, role: 'assistant' as const, content: 'Generated the image, saved it to Media Library and applied it to the selected section.' },
+        { id: `ai-image-${Date.now()}`, role: 'assistant' as const, content: l('Generated the image, saved it to Media Library and applied it to the selected section.') },
       ].slice(-12));
     } catch (error) {
       if (!operationCanApply()) return;
-      setAiError(error instanceof Error ? error.message : 'Image generation failed.');
+      setAiError(error instanceof Error ? error.message : l('Image generation failed.'));
     } finally {
       finishAIRequest(abortController);
       if (operationIsLatest()) setAiBusy(false);
@@ -11091,7 +11206,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!operationCanApply()) return;
 
       if (!response.json?.prompt) {
-        throw new Error('AI could not create image prompt.');
+        throw new Error(l('AI could not create image prompt.'));
       }
 
       setSections((current) => current.map((section) =>
@@ -11105,7 +11220,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAiError(
         error instanceof Error
           ? error.message
-          : 'Image prompt generation failed.'
+          : l('Image prompt generation failed.')
       );
     } finally {
       finishAIRequest(abortController);
