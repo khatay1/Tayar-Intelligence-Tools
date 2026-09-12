@@ -47,6 +47,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const requestSequenceRef = useRef(0);
 
   useEffect(() => {
     if (open) {
@@ -62,6 +63,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
   }, [open]);
 
   const buildResults = useCallback(async (q: string) => {
+    const requestSequence = ++requestSequenceRef.current;
     const trimmed = q.toLowerCase().trim();
     const navResults: PaletteResult[] = [];
     const aiResults: PaletteResult[] = [];
@@ -71,10 +73,23 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
         const Icon = NAV_ICONS[item.id] || item.icon;
         navResults.push({ id: `nav-${item.id}`, label: item.label, icon: Icon, view: item.id, group: 'navigation' });
       }
+      const staticNavIds = new Set(NAV_ITEMS.map(item => item.id));
+      for (const tool of toolRegistry.available()) {
+        if (staticNavIds.has(tool.id)) continue;
+        navResults.push({
+          id: `tool-${tool.id}`,
+          label: tool.name,
+          subtitle: tool.description,
+          icon: tool.icon,
+          view: tool.id as ViewId,
+          group: 'navigation',
+        });
+      }
       for (const cmd of AI_COMMANDS) aiResults.push({ id: `ai-${cmd.id}`, label: cmd.label, subtitle: cmd.description, icon: cmd.icon, view: cmd.view, group: 'ai' });
       if (user) {
         setLoading(true);
         const { data } = await supabase.from('projects').select('id, title, type, updated_at').eq('user_id', user.id).is('deleted_at', null).order('updated_at', { ascending: false }).limit(5);
+        if (requestSequenceRef.current !== requestSequence) return;
         setLoading(false);
         const recentResults: PaletteResult[] = (data || []).map((p: { id: string; title: string; type: string; updated_at: string }) => {
           const meta = getFileMeta(p.type);
@@ -104,6 +119,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
     if (user && trimmed.length >= 1) {
       setLoading(true);
       const { data } = await supabase.from('projects').select('id, title, type, updated_at').eq('user_id', user.id).is('deleted_at', null).ilike('title', `%${trimmed}%`).order('updated_at', { ascending: false }).limit(8);
+      if (requestSequenceRef.current !== requestSequence) return;
       setLoading(false);
       searchResults = (data || []).map((p: { id: string; title: string; type: string; updated_at: string }) => {
         const meta = getFileMeta(p.type);

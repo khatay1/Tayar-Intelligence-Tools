@@ -59,7 +59,7 @@ function setMeta(attr: 'name' | 'property', key: string, value: string) {
 export const PAGE_SEO: Record<string, SEOConfig> = {
   home: {
     title: 'Tayar Intelligence — Build, Create & Ship from One Workspace',
-    description: 'Build websites, create documents, translate, study and collaborate from one workspace. Website Builder V1 supports publishing, releases, analytics, leads and team roles.',
+    description: 'Build websites, create documents, translate, study and collaborate from one workspace. Website Builder supports publishing, releases, analytics, leads and team roles.',
     url: BASE_URL,
     structuredData: {
       '@context': 'https://schema.org',

@@ -16,9 +16,9 @@ export default function Hero({ onGetStarted }: HeroProps) {
   const c = useLandingCopy().hero;
 
   const cards = [
-    { icon: Globe2, title: c.builder, desc: c.builderDesc, badge: 'V1' },
-    { icon: Users, title: c.team, desc: c.teamDesc, badge: 'Roles' },
-    { icon: FileText, title: c.documents, desc: c.documentsDesc, badge: 'Workspace' },
+    { icon: Globe2, title: c.builder, desc: c.builderDesc, badge: c.badges.builder },
+    { icon: Users, title: c.team, desc: c.teamDesc, badge: c.badges.team },
+    { icon: FileText, title: c.documents, desc: c.documentsDesc, badge: c.badges.documents },
   ];
 
   return (

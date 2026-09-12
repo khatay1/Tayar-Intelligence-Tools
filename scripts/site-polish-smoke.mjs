@@ -36,7 +36,7 @@ check('Fake trusted-user social proof removed', !/Trusted by\s+[\d,]+|Loved by T
 check('Landing copy contains English', /\ben:\s*\{/.test(copy));
 check('Landing copy contains Arabic', /\bar:\s*\{/.test(copy));
 check('Landing copy contains Swedish', /\bsv:\s*\{/.test(copy));
-check('Arabic copy keeps V1 Website Builder messaging', /Website Builder V1/.test(copy));
+check('Landing removes stale V1 product messaging', !/Website Builder V1|V1\.0|الإصدار V1|Produktionsklar V1/.test(copy));
 check('Pricing reflects Free 1 website and 3 pages', /1 Website Builder project/.test(copy) && /Up to 3 pages/.test(copy));
 check('Pricing reflects Pro 10 websites and 25 pages', /Up to 10 websites/.test(copy) && /Up to 25 pages per site/.test(copy));
 check('Pricing reflects Business 50 websites and 100 pages', /Up to 50 websites/.test(copy) && /Up to 100 pages per site/.test(copy));
@@ -48,7 +48,7 @@ check('FAQ buttons expose aria-expanded', /aria-expanded/.test(read(files.faq)))
 check('Navbar exposes language control', /setLanguage/.test(navbar) && /Globe2/.test(navbar));
 check('SEO avoids old 50+ tool claim', !/50\+ tools/.test(seo + index));
 check('SEO avoids old 100+ language claim', !/100\+ languages/.test(seo + index));
-check('SEO describes Website Builder V1', /Website Builder V1/.test(seo + index));
+check('SEO removes stale Website Builder V1 messaging', !/Website Builder V1/.test(seo + index));
 check('SEO supports configurable public site URL', /VITE_PUBLIC_SITE_URL/.test(seo));
 check('Auth and workspace SEO are noindex', (seo.match(/noindex, nofollow/g) || []).length >= 6);
 check('Global CSS includes reduced-motion handling', /prefers-reduced-motion/.test(read(files.css)));
