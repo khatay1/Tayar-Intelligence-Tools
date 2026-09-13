@@ -1,4 +1,4 @@
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-workspace';
 // Upgraded File Manager — search, filter, sort, rename, duplicate, move, delete,
 // favorites, pin, grid/list views, storage indicator, beautiful empty states.
 
@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, Grid3x3, List, Star, Trash2, FileText, Loader2, FolderOpen,
   MoreVertical, Copy, Edit2, Pin, ArrowUpDown, Folder, Heart,
+  AlertCircle, RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -55,17 +56,26 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [movingItem, setMovingItem] = useState<Project | null>(null);
+  const [deletingItem, setDeletingItem] = useState<Project | null>(null);
   const [parentProjects, setParentProjects] = useState<Project[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   const refreshProjects = useCallback(async () => {
-    if (!userId) return;
-    const { data } = await supabase
+    if (!userId) {
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(false);
+    const { data, error } = await supabase
       .from('projects')
       .select('*')
       .eq('user_id', userId)
       .is('deleted_at', null)
       .order('updated_at', { ascending: false });
-    setProjects((data as Project[]) || []);
+    if (error) setLoadError(true);
+    else setProjects((data as Project[]) || []);
     setLoading(false);
   }, [userId]);
 
@@ -83,18 +93,37 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   }, [refreshProjects, userId]);
 
   useEffect(() => {
-    if (!renaming && !movingItem) return;
+    if (!renaming && !movingItem && !deletingItem) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previousOverflow; };
-  }, [renaming, movingItem]);
+  }, [deletingItem, renaming, movingItem]);
+
+  useEffect(() => {
+    if (!menuOpen && !renaming && !movingItem && !deletingItem) return undefined;
+    const closeMenu = () => setMenuOpen(null);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(null);
+      setRenaming(null);
+      setMovingItem(null);
+      setDeletingItem(null);
+    };
+    document.addEventListener('click', closeMenu);
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('click', closeMenu);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [deletingItem, menuOpen, movingItem, renaming]);
 
   async function handleDelete(id: string) {
     setMenuOpen(null);
     const { error: err } = await supabase.from('projects').update({ deleted_at: new Date().toISOString() }).eq('id', id);
-    if (err) { showError('Failed to delete'); return; }
+    if (err) { showError(l('Failed to delete')); return; }
     setProjects(prev => prev.filter(p => p.id !== id));
-    success('Moved to trash');
+    setDeletingItem(null);
+    success(l('Moved to trash'));
   }
 
   async function handleDuplicate(project: Project) {
@@ -106,22 +135,24 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
   async function handleToggleFavorite(project: Project) {
     setMenuOpen(null);
     const newVal = !((project as Project & { favorite?: boolean }).favorite);
-    await supabase.from('projects').update({ favorite: newVal }).eq('id', project.id);
+    const { error } = await supabase.from('projects').update({ favorite: newVal }).eq('id', project.id);
+    if (error) { showError(l('Failed to update favorite')); return; }
     setProjects(prev => prev.map(p => p.id === project.id ? { ...p, favorite: newVal } as Project : p));
   }
 
   async function handleTogglePin(project: Project) {
     setMenuOpen(null);
     const newVal = !((project as Project & { pinned?: boolean }).pinned);
-    await supabase.from('projects').update({ pinned: newVal }).eq('id', project.id);
+    const { error } = await supabase.from('projects').update({ pinned: newVal }).eq('id', project.id);
+    if (error) { showError(l('Failed to update pin')); return; }
     setProjects(prev => prev.map(p => p.id === project.id ? { ...p, pinned: newVal } as Project : p));
   }
 
   async function handleMove(projectId: string, parentId: string | null) {
     setMenuOpen(null);
     const { error: err } = await supabase.from('projects').update({ parent_project_id: parentId }).eq('id', projectId);
-    if (err) { showError('Failed to move'); return; }
-    success('Moved successfully');
+    if (err) { showError(l('Failed to move')); return; }
+    success(l('Moved successfully'));
     setMovingItem(null);
     await refreshProjects();
   }
@@ -185,25 +216,26 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
 
       <div className="flex min-w-0 flex-col gap-3">
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={l('Search files...')}
-            className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-4 text-sm text-white transition-all placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none"
+            aria-label={l('Search files...')}
+            className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 py-2.5 ps-9 pe-4 text-sm text-white transition-all placeholder:text-gray-600 focus:border-violet-500/50 focus:outline-none"
           />
         </div>
         <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <button onClick={() => setShowFavoritesOnly(!showFavoritesOnly)} className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${showFavoritesOnly ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}><Heart className={`h-4 w-4 shrink-0 ${showFavoritesOnly ? 'fill-amber-400' : ''}`} /><span className="truncate">{l('Favorites')}</span></button>
-          <button onClick={() => setShowPinnedOnly(!showPinnedOnly)} className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${showPinnedOnly ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}><Pin className={`h-4 w-4 shrink-0 ${showPinnedOnly ? 'fill-violet-400' : ''}`} /><span className="truncate">{l('Pinned')}</span></button>
-          <select value={filter} onChange={e => setFilter(e.target.value)} className="min-h-11 min-w-0 w-full rounded-xl border border-white/10 bg-[#111122] px-3 py-2.5 text-sm text-white focus:outline-none sm:w-auto">{TYPE_FILTERS.map(t => <option key={t.value} value={t.value}>{l(t.label)}</option>)}</select>
+          <button onClick={() => setShowFavoritesOnly(!showFavoritesOnly)} aria-pressed={showFavoritesOnly} className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${showFavoritesOnly ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}><Heart className={`h-4 w-4 shrink-0 ${showFavoritesOnly ? 'fill-amber-400' : ''}`} /><span className="truncate">{l('Favorites')}</span></button>
+          <button onClick={() => setShowPinnedOnly(!showPinnedOnly)} aria-pressed={showPinnedOnly} className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${showPinnedOnly ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}><Pin className={`h-4 w-4 shrink-0 ${showPinnedOnly ? 'fill-violet-400' : ''}`} /><span className="truncate">{l('Pinned')}</span></button>
+          <select value={filter} onChange={e => setFilter(e.target.value)} aria-label={l('File type')} className="min-h-11 min-w-0 w-full rounded-xl border border-white/10 bg-[#111122] px-3 py-2.5 text-sm text-white focus:outline-none sm:w-auto">{TYPE_FILTERS.map(t => <option key={t.value} value={t.value}>{l(t.label)}</option>)}</select>
           <div className="col-span-2 flex min-w-0 items-center rounded-xl border border-white/10 bg-white/5 sm:col-span-1">
-            <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} className="min-h-11 min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-white focus:outline-none sm:flex-none"><option value="updated">{l('Last Updated')}</option><option value="created">{l('Date Created')}</option><option value="name">{l('Name (A-Z)')}</option><option value="size">{l('Size')}</option></select>
-            <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="flex h-11 w-11 shrink-0 items-center justify-center text-gray-400 transition-colors hover:text-white" aria-label={l('Change sort direction')}><ArrowUpDown className="w-4 h-4" /></button>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} aria-label={l('Sort files')} className="min-h-11 min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-white focus:outline-none sm:flex-none"><option value="updated">{l('Last Updated')}</option><option value="created">{l('Date Created')}</option><option value="name">{l('Name (A-Z)')}</option><option value="size">{l('Size')}</option></select>
+            <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="flex h-11 w-11 shrink-0 items-center justify-center text-gray-400 transition-colors hover:text-white" aria-label={`${l('Change sort direction')}: ${sortDir === 'asc' ? l('Ascending') : l('Descending')}`}><ArrowUpDown className="w-4 h-4" /></button>
           </div>
           <div className="col-span-2 grid min-h-11 grid-cols-2 items-center rounded-xl border border-white/10 bg-white/5 p-0.5 sm:col-span-1 sm:flex">
-            <button onClick={() => setView('grid')} className={`flex min-h-10 items-center justify-center rounded-lg px-3 transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'}`} aria-label={l('Grid view')}><Grid3x3 className="w-4 h-4" /></button>
-            <button onClick={() => setView('list')} className={`flex min-h-10 items-center justify-center rounded-lg px-3 transition-colors ${view === 'list' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'}`} aria-label={l('List view')}><List className="w-4 h-4" /></button>
+            <button onClick={() => setView('grid')} aria-pressed={view === 'grid'} className={`flex min-h-10 items-center justify-center rounded-lg px-3 transition-colors ${view === 'grid' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'}`} aria-label={l('Grid view')}><Grid3x3 className="w-4 h-4" /></button>
+            <button onClick={() => setView('list')} aria-pressed={view === 'list'} className={`flex min-h-10 items-center justify-center rounded-lg px-3 transition-colors ${view === 'list' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'}`} aria-label={l('List view')}><List className="w-4 h-4" /></button>
           </div>
         </div>
       </div>
@@ -212,22 +244,28 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-3"><Pin className="w-4 h-4 text-violet-400" /><h2 className="text-white font-bold text-base">{l('Pinned')}</h2></div>
           <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {projects.filter(p => (p as Project & { pinned?: boolean }).pinned).map((project, i) => <FileCard key={project.id} project={project} view="grid" index={i} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={handleDelete} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
+            {projects.filter(p => (p as Project & { pinned?: boolean }).pinned).map((project, i) => <FileCard key={project.id} project={project} view="grid" index={i} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={() => { setMenuOpen(null); setDeletingItem(project); }} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
           </div>
         </div>
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>
+        <div className="flex items-center justify-center py-20" role="status" aria-label={l('Loading...')}><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>
+      ) : loadError ? (
+        <div className="flex min-w-0 flex-col items-center rounded-2xl border border-red-400/15 bg-red-400/[0.05] px-4 py-12 text-center" role="alert">
+          <AlertCircle className="mb-3 h-8 w-8 text-red-400" aria-hidden="true" />
+          <p className="text-sm text-red-200">{l('Files could not be loaded.')}</p>
+          <button type="button" onClick={() => void refreshProjects()} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition-colors hover:bg-white/10"><RotateCcw className="h-4 w-4" />{l('Try again')}</button>
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={FolderOpen} title={search ? l('No matching files') : l('No files yet')} description={search ? l('Try a different search term.') : l("Create documents with any AI tool and they'll appear here automatically.")} variant="files" />
       ) : view === 'grid' ? (
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((project, i) => <FileCard key={project.id} project={project} view="grid" index={i} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={handleDelete} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
+          {filtered.map((project, i) => <FileCard key={project.id} project={project} view="grid" index={i} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={() => { setMenuOpen(null); setDeletingItem(project); }} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
         </div>
       ) : (
         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl">
-          {filtered.map((project, i) => <FileCard key={project.id} project={project} view="list" index={i} isFirst={i === 0} isLast={i === filtered.length - 1} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={handleDelete} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
+          {filtered.map((project, i) => <FileCard key={project.id} project={project} view="list" index={i} isFirst={i === 0} isLast={i === filtered.length - 1} onOpen={() => onNavigate(project.type as ViewId, project.id)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onDelete={() => { setMenuOpen(null); setDeletingItem(project); }} onDuplicate={handleDuplicate} onRename={startRename} onToggleFavorite={handleToggleFavorite} onTogglePin={handleTogglePin} onMove={setMovingItem} />)}
         </div>
       )}
 
@@ -235,9 +273,9 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
 
       {renaming && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setRenaming(null)}>
-          <div className="w-full max-w-sm rounded-t-2xl border border-white/10 bg-[#12122a] p-4 sm:rounded-2xl sm:p-6" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-            <h3 className="mb-4 break-words text-base font-bold text-white">{l('Rename')}</h3>
-            <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && void confirmRename()} className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white transition-all focus:border-violet-500/50 focus:outline-none" placeholder={l('File name')} />
+          <div role="dialog" aria-modal="true" aria-labelledby="rename-file-title" className="w-full max-w-sm rounded-t-2xl border border-white/10 bg-[#12122a] p-4 sm:rounded-2xl sm:p-6" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+            <h3 id="rename-file-title" className="mb-4 break-words text-base font-bold text-white">{l('Rename')}</h3>
+            <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && void confirmRename()} className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white transition-all focus:border-violet-500/50 focus:outline-none" placeholder={l('File name')} aria-label={l('File name')} />
             <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => setRenaming(null)} className="min-h-11 rounded-lg text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white">{l('Cancel')}</button><button onClick={() => void confirmRename()} className="min-h-11 rounded-lg bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500">{l('Rename')}</button></div>
           </div>
         </div>
@@ -245,13 +283,27 @@ export default function FileManager({ onNavigate }: FileManagerProps) {
 
       {movingItem && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setMovingItem(null)}>
-          <div className="w-full max-w-sm max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#12122a] p-4 sm:rounded-2xl sm:p-6" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-            <h3 className="mb-4 break-words text-base font-bold text-white">{l('Move')} "{movingItem.title}" {l('to...')}</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="move-file-title" className="w-full max-w-sm max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#12122a] p-4 sm:rounded-2xl sm:p-6" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+            <h3 id="move-file-title" className="mb-4 break-words text-base font-bold text-white">{l('Move')} "{movingItem.title}" {l('to...')}</h3>
             <div className="max-h-[50dvh] space-y-1 overflow-y-auto overscroll-contain">
               <button onClick={() => void handleMove(movingItem.id, null)} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-gray-300 transition-colors hover:bg-white/5"><FolderOpen className="w-4 h-4 shrink-0 text-gray-500" /> <span className="min-w-0 break-words">{l('Root (no project)')}</span></button>
               {parentProjects.filter(p => p.id !== movingItem.id).map(p => <button key={p.id} onClick={() => void handleMove(movingItem.id, p.id)} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-gray-300 transition-colors hover:bg-white/5"><Folder className="w-4 h-4 shrink-0 text-amber-400" /><span className="min-w-0 break-words">{p.title}</span></button>)}
             </div>
             <button onClick={() => setMovingItem(null)} className="mt-4 min-h-11 w-full rounded-lg py-2 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white">{l('Cancel')}</button>
+          </div>
+        </div>
+      )}
+
+      {deletingItem && (
+        <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setDeletingItem(null)}>
+          <div role="alertdialog" aria-modal="true" aria-labelledby="delete-file-title" aria-describedby="delete-file-description" className="w-full max-w-sm rounded-t-2xl border border-red-400/20 bg-[#12122a] p-4 shadow-2xl sm:rounded-2xl sm:p-6" onClick={event => event.stopPropagation()} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/10"><Trash2 className="h-5 w-5 text-red-400" /></div>
+            <h3 id="delete-file-title" className="break-words text-lg font-bold text-white">{l('Move file to Trash?')}</h3>
+            <p id="delete-file-description" className="mt-2 break-words text-sm leading-6 text-gray-400">{l('You can restore it later from Trash.')} <span className="font-medium text-gray-200">{deletingItem.title}</span></p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button autoFocus type="button" onClick={() => setDeletingItem(null)} className="min-h-11 rounded-xl border border-white/10 text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white">{l('Cancel')}</button>
+              <button type="button" onClick={() => void handleDelete(deletingItem.id)} className="min-h-11 rounded-xl bg-red-500/15 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/25">{l('Move to Trash')}</button>
+            </div>
           </div>
         </div>
       )}
@@ -268,7 +320,7 @@ interface FileCardProps {
   onOpen: () => void;
   menuOpen: string | null;
   setMenuOpen: (id: string | null) => void;
-  onDelete: (id: string) => void;
+  onDelete: () => void;
   onDuplicate: (p: Project) => void;
   onRename: (p: Project) => void;
   onToggleFavorite: (p: Project) => void;
@@ -298,7 +350,7 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
           {isFavorite && <Star className="w-3.5 h-3.5 shrink-0 text-amber-400 fill-amber-400" />}
           <span className={`max-w-[9rem] truncate rounded-full px-2 py-0.5 text-xs ${statusClass}`}>{l(statusLabel)}</span>
           {liveUrl && <button type="button" onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')} className="hidden text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 sm:inline" title={liveUrl}>{l('Open live ↗')}</button>}
-          <FileMenu isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={() => onDelete(project.id)} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} />
+          <FileMenu menuId={`file-actions-${project.id}`} isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={onDelete} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} />
         </div>
       </div>
     );
@@ -308,7 +360,7 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
     <div className={`group relative min-w-0 ${menuOpen === project.id ? 'z-[100]' : 'z-10'} rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:border-violet-500/30 sm:p-5`} style={{ animation: 'fadeInUp 0.3s ease-out both', animationDelay: `${index * 0.04}s` }}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <button onClick={onOpen} className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${meta.bg} transition-transform group-hover:scale-105`}><FileText className={`w-5 h-5 ${meta.color}`} /></button>
-        <div className="flex min-w-0 items-center gap-1">{isFavorite && <Star className="w-3.5 h-3.5 shrink-0 text-amber-400 fill-amber-400" />}{isPinned && <Pin className="w-3.5 h-3.5 shrink-0 text-violet-400 fill-violet-400" />}<FileMenu isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={() => onDelete(project.id)} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} /></div>
+        <div className="flex min-w-0 items-center gap-1">{isFavorite && <Star className="w-3.5 h-3.5 shrink-0 text-amber-400 fill-amber-400" />}{isPinned && <Pin className="w-3.5 h-3.5 shrink-0 text-violet-400 fill-violet-400" />}<FileMenu menuId={`file-actions-${project.id}`} isOpen={menuOpen === project.id} onToggle={() => setMenuOpen(menuOpen === project.id ? null : project.id)} onDelete={onDelete} onDuplicate={() => onDuplicate(project)} onRename={() => onRename(project)} onToggleFavorite={() => onToggleFavorite(project)} onTogglePin={() => onTogglePin(project)} onMove={() => onMove(project)} /></div>
       </div>
       <button onClick={onOpen} className="block min-w-0 w-full text-left"><h3 className="mb-1 truncate text-sm font-semibold text-white">{project.title}</h3><div className="mb-3 flex min-w-0 items-center gap-2 text-xs text-gray-500"><span className={`min-w-0 truncate ${meta.color}`}>{l(meta.label)}</span><span className="shrink-0">·</span><span className="shrink-0">{timeAgo(project.updated_at)}</span></div><span className={`inline-block max-w-full truncate rounded-full px-2 py-0.5 text-xs ${statusClass}`}>{l(statusLabel)}</span></button>
       {liveUrl && <button type="button" onClick={() => window.open(liveUrl, '_blank', 'noopener,noreferrer')} className="mt-3 min-h-11 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300" title={liveUrl}>{l('Open live site ↗')}</button>}
@@ -316,21 +368,21 @@ function FileCard({ project, view, index, isFirst: _isFirst, isLast, onOpen, men
   );
 }
 
-function FileMenu({ isOpen, onToggle, onDelete, onDuplicate, onRename, onToggleFavorite, onTogglePin, onMove }: { isOpen: boolean; onToggle: () => void; onDelete: () => void; onDuplicate: () => void; onRename: () => void; onToggleFavorite: () => void; onTogglePin: () => void; onMove: () => void; }) {
+function FileMenu({ menuId, isOpen, onToggle, onDelete, onDuplicate, onRename, onToggleFavorite, onTogglePin, onMove }: { menuId: string; isOpen: boolean; onToggle: () => void; onDelete: () => void; onDuplicate: () => void; onRename: () => void; onToggleFavorite: () => void; onTogglePin: () => void; onMove: () => void; }) {
   const l = useLocalizer();
   return (
     <div className="relative flex-shrink-0">
-      <button onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white/10 hover:text-white" aria-label={l('File actions')}><MoreVertical className="w-4 h-4" /></button>
+      <button onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white/10 hover:text-white" aria-label={l('File actions')} aria-expanded={isOpen} aria-controls={menuId} aria-haspopup="menu"><MoreVertical className="w-4 h-4" /></button>
       {isOpen && (
-        <div className="absolute right-0 top-full z-[99999] mt-1 w-44 max-w-[calc(100vw-1rem)] rounded-xl border border-white/10 bg-[#12122a] p-1.5 shadow-2xl shadow-black/50" onClick={e => e.stopPropagation()}>
-          <button onClick={onRename} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Edit2 className="w-3.5 h-3.5" /> {l('Rename')}</button>
-          <button onClick={onDuplicate} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Copy className="w-3.5 h-3.5" /> {l('Duplicate')}</button>
-          <button onClick={onMove} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Folder className="w-3.5 h-3.5" /> {l('Move')}</button>
+        <div id={menuId} role="menu" aria-label={l('File actions')} className="absolute right-0 top-full z-[99999] mt-1 w-44 max-w-[calc(100vw-1rem)] rounded-xl border border-white/10 bg-[#12122a] p-1.5 shadow-2xl shadow-black/50" onClick={e => e.stopPropagation()}>
+          <button role="menuitem" onClick={onRename} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Edit2 className="w-3.5 h-3.5" /> {l('Rename')}</button>
+          <button role="menuitem" onClick={onDuplicate} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Copy className="w-3.5 h-3.5" /> {l('Duplicate')}</button>
+          <button role="menuitem" onClick={onMove} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Folder className="w-3.5 h-3.5" /> {l('Move')}</button>
           <div className="h-px bg-white/5 my-1" />
-          <button onClick={onToggleFavorite} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Star className="w-3.5 h-3.5" /> {l('Favorite')}</button>
-          <button onClick={onTogglePin} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Pin className="w-3.5 h-3.5" /> {l('Pin')}</button>
+          <button role="menuitem" onClick={onToggleFavorite} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Star className="w-3.5 h-3.5" /> {l('Favorite')}</button>
+          <button role="menuitem" onClick={onTogglePin} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5"><Pin className="w-3.5 h-3.5" /> {l('Pin')}</button>
           <div className="h-px bg-white/5 my-1" />
-          <button onClick={onDelete} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" /> {l('Delete')}</button>
+          <button role="menuitem" onClick={onDelete} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" /> {l('Delete')}</button>
         </div>
       )}
     </div>

@@ -21,6 +21,9 @@ const app = read('src/App.tsx');
 const dashboard = read('src/components/workspace/DashboardView.tsx');
 const myWorkspace = read('src/components/workspace/MyWorkspace.tsx');
 const settings = read('src/components/workspace/SettingsPage.tsx');
+const fileManager = read('src/components/workspace/FileManager.impl.tsx');
+const notificationCenter = read('src/components/workspace/NotificationCenter.tsx');
+const notificationsHook = read('src/lib/use-notifications.ts');
 
 const checks = [
   ['Subscription view exists', subscription.includes('create-checkout-session') && subscription.includes('billing-portal')],
@@ -61,6 +64,14 @@ const checks = [
   ['Desktop command bar searches and renders localized AI commands', commandBar.includes("from '@/lib/ui-localization-workspace'") && commandBar.includes('localizedText.includes(normalizedQuery)') && commandBar.includes('{l(cmd.label)}') && commandBar.includes('{l(cmd.description)}')],
   ['Desktop command bar exposes combobox and listbox semantics', commandBar.includes('role="combobox"') && commandBar.includes('role="listbox"') && commandBar.includes('role="option"') && commandBar.includes('aria-activedescendant')],
   ['Command palette traps and restores keyboard focus', commandPalette.includes("if (e.key === 'Tab')") && commandPalette.includes('previousFocusRef.current?.focus()') && commandPalette.includes('ref={dialogRef}')],
+  ['File Manager contains load failures and exposes retry', fileManager.includes('setLoadError(true)') && fileManager.includes("l('Files could not be loaded.')") && fileManager.includes('void refreshProjects()')],
+  ['File actions require confirmation before moving to Trash', fileManager.includes('setDeletingItem(project)') && fileManager.includes('role="alertdialog"') && fileManager.includes('void handleDelete(deletingItem.id)')],
+  ['File mutations fail closed before local optimistic updates', fileManager.includes("showError(l('Failed to update favorite'))") && fileManager.includes("showError(l('Failed to update pin'))") && fileManager.includes("showError(l('Failed to move'))")],
+  ['File menus and filters expose desktop accessibility state', fileManager.includes('aria-haspopup="menu"') && fileManager.includes('role="menuitem"') && fileManager.includes('aria-pressed={showFavoritesOnly}') && fileManager.includes("aria-label={l('Sort files')}")],
+  ['File overlays and action menus close with Escape or outside click', fileManager.includes("document.addEventListener('click', closeMenu)") && fileManager.includes("if (event.key !== 'Escape') return") && fileManager.includes('setDeletingItem(null)')],
+  ['Notification mutations only update UI after server success', notificationsHook.includes('if (updateError)') && notificationsHook.includes('if (deleteError)') && notificationsHook.includes('setError(true)')],
+  ['Notification center localizes relative time and contains failures', notificationCenter.includes('Intl.RelativeTimeFormat') && notificationCenter.includes("l('Notifications could not be updated.')") && notificationCenter.includes('void refresh()')],
+  ['Notification icon actions have accessible names', notificationCenter.includes("aria-label={l('Mark as read')}") && notificationCenter.includes("aria-label={l('Delete notification')}")],
   ['Admin upgrade prompt is hidden in sidebar', workspace.includes('!isAdmin && <div className="px-3 pb-3">')],
   ['Admin panel link is only rendered for admins', workspace.includes('{isAdmin && <a role="menuitem" href="#admin"')],
   ['Admin upgrade recommendations are hidden', dashboard.includes("!isAdmin || rec.action !== 'subscription'")],

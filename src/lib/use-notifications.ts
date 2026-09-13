@@ -17,20 +17,29 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
       setLoading(false);
+      setError(false);
       return;
     }
-    const { data } = await supabase
+    setLoading(true);
+    setError(false);
+    const { data, error: fetchError } = await supabase
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20);
+    if (fetchError) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
     const rows = (data as Notification[]) || [];
     setNotifications(rows);
     setUnreadCount(rows.filter(n => !n.read).length);
@@ -42,27 +51,33 @@ export function useNotifications() {
   }, [fetchNotifications]);
 
   const markAsRead = useCallback(async (id: string) => {
-    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    const { error: updateError } = await supabase.from('notifications').update({ read: true }).eq('id', id);
+    if (updateError) { setError(true); return; }
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     setUnreadCount(prev => Math.max(0, prev - 1));
   }, []);
 
   const markAllRead = useCallback(async () => {
     if (!user) return;
-    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    const { error: updateError } = await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    if (updateError) { setError(true); return; }
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
   }, [user]);
 
   const deleteNotification = useCallback(async (id: string) => {
-    await supabase.from('notifications').delete().eq('id', id);
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
+    const removed = notifications.find(notification => notification.id === id);
+    const { error: deleteError } = await supabase.from('notifications').delete().eq('id', id);
+    if (deleteError) { setError(true); return; }
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+    if (removed && !removed.read) setUnreadCount(count => Math.max(0, count - 1));
+  }, [notifications]);
 
   return {
     notifications,
     unreadCount,
     loading,
+    error,
     markAsRead,
     markAllRead,
     deleteNotification,
