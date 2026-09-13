@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search, FileText, Folder, ArrowRight, Loader2, Command, Settings, Bell,
-  CreditCard, LayoutDashboard, FolderOpen, Trash2, FileBarChart,
+  CreditCard, LayoutDashboard, FolderOpen, Trash2, FileBarChart, AlertCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -46,6 +46,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
   const [results, setResults] = useState<PaletteResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [projectSearchError, setProjectSearchError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const requestSequenceRef = useRef(0);
 
@@ -61,6 +62,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
     }
     requestSequenceRef.current += 1;
     setLoading(false);
+    setProjectSearchError(false);
     setQuery('');
     setResults([]);
     setSelectedIndex(0);
@@ -69,36 +71,42 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
 
   const buildResults = useCallback(async (q: string) => {
     const requestSequence = ++requestSequenceRef.current;
-    const trimmed = q.toLowerCase().trim();
+    const trimmed = q.toLocaleLowerCase().trim();
     const navResults: PaletteResult[] = [];
     const aiResults: PaletteResult[] = [];
+    setProjectSearchError(false);
+
+    const matchesLocalizedText = (...values: string[]) => values.some((value) =>
+      value.toLocaleLowerCase().includes(trimmed) || l(value).toLocaleLowerCase().includes(trimmed),
+    );
 
     if (!trimmed) {
       for (const item of NAV_ITEMS) {
         const Icon = NAV_ICONS[item.id] || item.icon;
-        navResults.push({ id: `nav-${item.id}`, label: item.label, icon: Icon, view: item.id, group: 'navigation' });
+        navResults.push({ id: `nav-${item.id}`, label: l(item.label), icon: Icon, view: item.id, group: 'navigation' });
       }
       const staticNavIds = new Set<string>(NAV_ITEMS.map(item => item.id));
       for (const tool of toolRegistry.available()) {
         if (staticNavIds.has(tool.id)) continue;
         navResults.push({
           id: `tool-${tool.id}`,
-          label: tool.name,
-          subtitle: tool.description,
+          label: l(tool.name),
+          subtitle: l(tool.description),
           icon: tool.icon,
           view: tool.id as ViewId,
           group: 'navigation',
         });
       }
-      for (const cmd of AI_COMMANDS) aiResults.push({ id: `ai-${cmd.id}`, label: cmd.label, subtitle: cmd.description, icon: cmd.icon, view: cmd.view, group: 'ai' });
+      for (const cmd of AI_COMMANDS) aiResults.push({ id: `ai-${cmd.id}`, label: l(cmd.label), subtitle: l(cmd.description), icon: cmd.icon, view: cmd.view, group: 'ai' });
       if (user) {
         setLoading(true);
-        const { data } = await supabase.from('projects').select('id, title, type, updated_at').eq('user_id', user.id).is('deleted_at', null).order('updated_at', { ascending: false }).limit(5);
+        const { data, error } = await supabase.from('projects').select('id, title, type, updated_at').eq('user_id', user.id).is('deleted_at', null).order('updated_at', { ascending: false }).limit(5);
         if (requestSequenceRef.current !== requestSequence) return;
         setLoading(false);
+        setProjectSearchError(Boolean(error));
         const recentResults: PaletteResult[] = (data || []).map((p: { id: string; title: string; type: string; updated_at: string }) => {
           const meta = getFileMeta(p.type);
-          return { id: `recent-${p.id}`, label: p.title, subtitle: `${meta.label} · ${timeAgo(p.updated_at)}`, icon: FileText, view: p.type as ViewId, projectId: p.id, group: 'recent' };
+          return { id: `recent-${p.id}`, label: p.title, subtitle: `${l(meta.label)} · ${timeAgo(p.updated_at)}`, icon: FileText, view: p.type as ViewId, projectId: p.id, group: 'recent' };
         });
         setResults([...navResults, ...aiResults, ...recentResults]);
         return;
@@ -108,32 +116,43 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
     }
 
     for (const item of NAV_ITEMS) {
-      if (item.label.toLowerCase().includes(trimmed)) {
+      if (matchesLocalizedText(item.label)) {
         const Icon = NAV_ICONS[item.id] || item.icon;
-        navResults.push({ id: `nav-${item.id}`, label: item.label, icon: Icon, view: item.id, group: 'navigation' });
+        navResults.push({ id: `nav-${item.id}`, label: l(item.label), icon: Icon, view: item.id, group: 'navigation' });
       }
     }
 
-    for (const cmd of matchCommand(trimmed)) aiResults.push({ id: `ai-${cmd.id}`, label: cmd.label, subtitle: cmd.description, icon: cmd.icon, view: cmd.view, group: 'ai' });
-    const tools = toolRegistry.search(trimmed).filter(t => t.status !== 'soon');
+    const matchedCommands = new Map(
+      [...matchCommand(trimmed), ...AI_COMMANDS.filter((cmd) => matchesLocalizedText(cmd.label, cmd.description))]
+        .map((cmd) => [cmd.id, cmd]),
+    );
+    for (const cmd of [...matchedCommands.values()].slice(0, 5)) {
+      aiResults.push({ id: `ai-${cmd.id}`, label: l(cmd.label), subtitle: l(cmd.description), icon: cmd.icon, view: cmd.view, group: 'ai' });
+    }
+    const englishToolMatches = new Set(toolRegistry.search(trimmed).map((tool) => tool.id));
+    const tools = toolRegistry.available().filter((tool) =>
+      englishToolMatches.has(tool.id) ||
+      matchesLocalizedText(tool.name, tool.description, tool.category),
+    );
     for (const tool of tools) {
-      if (!aiResults.find(r => r.view === tool.id)) aiResults.push({ id: `tool-${tool.id}`, label: tool.name, subtitle: tool.description, icon: tool.icon, view: tool.id as ViewId, group: 'ai' });
+      if (!aiResults.find(r => r.view === tool.id)) aiResults.push({ id: `tool-${tool.id}`, label: l(tool.name), subtitle: l(tool.description), icon: tool.icon, view: tool.id as ViewId, group: 'ai' });
     }
 
     let searchResults: PaletteResult[] = [];
     if (user && trimmed.length >= 1) {
       setLoading(true);
-      const { data } = await supabase.from('projects').select('id, title, type, updated_at').eq('user_id', user.id).is('deleted_at', null).ilike('title', `%${trimmed}%`).order('updated_at', { ascending: false }).limit(8);
+      const { data, error } = await supabase.from('projects').select('id, title, type, updated_at').eq('user_id', user.id).is('deleted_at', null).ilike('title', `%${q.trim()}%`).order('updated_at', { ascending: false }).limit(8);
       if (requestSequenceRef.current !== requestSequence) return;
       setLoading(false);
+      setProjectSearchError(Boolean(error));
       searchResults = (data || []).map((p: { id: string; title: string; type: string; updated_at: string }) => {
         const meta = getFileMeta(p.type);
-        return { id: `search-${p.id}`, label: p.title, subtitle: `${meta.label} · ${timeAgo(p.updated_at)}`, icon: FileText, view: p.type as ViewId, projectId: p.id, group: 'search' };
+        return { id: `search-${p.id}`, label: p.title, subtitle: `${l(meta.label)} · ${timeAgo(p.updated_at)}`, icon: FileText, view: p.type as ViewId, projectId: p.id, group: 'search' };
       });
     }
     setResults([...aiResults, ...navResults, ...searchResults]);
     setSelectedIndex(0);
-  }, [user]);
+  }, [l, user]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -144,6 +163,11 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
   useEffect(() => {
     setSelectedIndex((index) => Math.max(0, Math.min(index, results.length - 1)));
   }, [results.length]);
+
+  useEffect(() => {
+    if (!open || !results[selectedIndex]) return;
+    document.getElementById(`command-option-${results[selectedIndex].id}`)?.scrollIntoView({ block: 'nearest' });
+  }, [open, results, selectedIndex]);
 
   useEffect(() => {
     if (!open) return;
@@ -178,6 +202,12 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
         </div>
 
         <div id="command-palette-results" role="listbox" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-2">
+          {projectSearchError && (
+            <div className="mx-1 mb-2 flex items-start gap-2 rounded-lg border border-amber-400/15 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-amber-200" role="status">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>{l('Projects could not be loaded. Tool results are still available.')}</span>
+            </div>
+          )}
           {grouped.length === 0 && !loading ? (
             <div className="py-10 text-center">
               <Search className="mx-auto mb-2 h-8 w-8 text-gray-700" />

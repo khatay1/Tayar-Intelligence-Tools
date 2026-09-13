@@ -7,7 +7,7 @@ const CodeAssistantTool = lazy(() => import('./CodeAssistantTool'));
 
 const codeAssistantModule: ToolModule = {
   id: 'code-assistant',
-  name: 'Coding Assistance',
+  name: 'Code Assistant',
   description: 'Build, inspect, adapt, and reuse UI components with AI-assisted workflows.',
   category: 'productivity',
   status: 'beta',

@@ -225,7 +225,11 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
       profile: t('nav.profile'),
     };
 
-    return { ...item, label: translations[item.id] || item.label };
+    return {
+      ...item,
+      label: translations[item.id] || l(item.label),
+      badge: item.badge ? l(item.badge) : undefined,
+    };
   };
 
   const translatedNavItems = NAV_ITEMS.map((item) => {
