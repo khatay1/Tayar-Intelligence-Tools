@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useTranslation } from '@/lib/i18n';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-workspace';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import AstronautLogo from '@/components/ui/AstronautLogo';

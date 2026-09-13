@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getFileMeta, timeAgo, ViewId, NAV_ITEMS } from './workspace-config';
 import { AI_COMMANDS, matchCommand } from '@/lib/ai-commands';
 import { toolRegistry } from '@/modules/registry';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-workspace';
 
 interface PaletteResult {
   id: string;

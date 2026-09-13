@@ -1,4 +1,4 @@
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-workspace';
 import { ArrowDown, ArrowUp, Copy, Trash2, Ungroup } from 'lucide-react';
 import type {
   EditorShellContract,
