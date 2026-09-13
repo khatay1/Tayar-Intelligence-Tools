@@ -1,4 +1,5 @@
 import { useLocalizer } from '@/lib/ui-localization';
+import { ArrowDown, ArrowUp, Copy, Trash2, Ungroup } from 'lucide-react';
 import type {
   EditorShellContract,
 } from '../core/editor-shell-contract';
@@ -145,7 +146,7 @@ export function BuilderLayersPanel({
                       )
                     }
                   >
-                    UP
+                    <ArrowUp aria-hidden="true" />
                   </button>
 
                   <button
@@ -164,7 +165,7 @@ export function BuilderLayersPanel({
                       )
                     }
                   >
-                    DN
+                    <ArrowDown aria-hidden="true" />
                   </button>
 
                   <button
@@ -178,7 +179,7 @@ export function BuilderLayersPanel({
                       )
                     }
                   >
-                    COPY
+                    <Copy aria-hidden="true" />
                   </button>
 
                   <button
@@ -193,7 +194,7 @@ export function BuilderLayersPanel({
                       )
                     }
                   >
-                    DEL
+                    <Trash2 aria-hidden="true" />
                   </button>
                 </div>
               )}
@@ -251,6 +252,7 @@ export function BuilderLayersPanel({
                               type="button"
                               className="is-danger"
                               disabled={mutationBusy || !onUngroupContainer}
+                              aria-label={l('Ungroup container')}
                               title={l('UNGROUP')}
                               onClick={() =>
                                 onUngroupContainer?.(
@@ -259,7 +261,7 @@ export function BuilderLayersPanel({
                                 )
                               }
                             >
-                              {l('UNGROUP')}
+                              <Ungroup aria-hidden="true" />
                             </button>
                           </div>
                         )}
@@ -331,7 +333,7 @@ export function BuilderLayersPanel({
                               )
                             }
                           >
-                            {l('UP')}
+                            <ArrowUp aria-hidden="true" />
                           </button>
 
                           <button
@@ -351,7 +353,7 @@ export function BuilderLayersPanel({
                               )
                             }
                           >
-                            {l('DN')}
+                            <ArrowDown aria-hidden="true" />
                           </button>
 
                           <button
@@ -366,7 +368,7 @@ export function BuilderLayersPanel({
                               )
                             }
                           >
-                            {l('COPY')}
+                            <Copy aria-hidden="true" />
                           </button>
 
                           <button
@@ -382,7 +384,7 @@ export function BuilderLayersPanel({
                               )
                             }
                           >
-                            {l('DEL')}
+                            <Trash2 aria-hidden="true" />
                           </button>
                         </div>
                       )}
@@ -465,7 +467,7 @@ export function BuilderLayersPanel({
                                 )
                               }
                             >
-                              UP
+                              <ArrowUp aria-hidden="true" />
                             </button>
                             <button
                               type="button"
@@ -484,7 +486,7 @@ export function BuilderLayersPanel({
                                 )
                               }
                             >
-                              DN
+                              <ArrowDown aria-hidden="true" />
                             </button>
                             <button
                               type="button"
@@ -499,7 +501,7 @@ export function BuilderLayersPanel({
                                 )
                               }
                             >
-                              DEL
+                              <Trash2 aria-hidden="true" />
                             </button>
                           </div>
                         )}

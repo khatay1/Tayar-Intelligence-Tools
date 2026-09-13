@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const workspace = read('src/components/workspace/Workspace.tsx');
+const commandPalette = read('src/components/workspace/CommandPalette.tsx');
 const workspaceConfig = read('src/components/workspace/workspace-config.ts');
 const aiUsage = read('src/components/workspace/AIUsageAnalytics.impl.tsx');
 const toolUsage = read('src/lib/tool-usage.ts');
@@ -43,6 +44,10 @@ const checks = [
   ['Workspace navigation persists the active view in the URL', workspace.includes('const nextHash = `#workspace/${view}`')],
   ['Workspace restores the active view from the URL', workspace.includes('getWorkspaceViewFromHash') && workspace.includes("window.addEventListener('hashchange', syncViewFromHash)")],
   ['Workspace labels admin Business access', workspace.includes("isAdmin ? 'Admin · Business access'")],
+  ['Workspace registers command palette shortcut once', workspace.match(/key: 'k', ctrl: true/g)?.length === 1 && !workspace.includes("window.addEventListener('keydown', handleKey)")],
+  ['Desktop sidebar supports localized tool filtering', workspace.includes("type=\"search\"") && workspace.includes('visibleGroups') && workspace.includes("l('No tools found')")],
+  ['Command palette ignores closed-state searches and stale requests', commandPalette.includes('if (!open) return undefined') && commandPalette.includes('requestSequenceRef.current += 1')],
+  ['Command palette exposes accessible dialog and listbox semantics', commandPalette.includes('role="dialog"') && commandPalette.includes('role="combobox"') && commandPalette.includes('role="listbox"') && commandPalette.includes('role="option"')],
   ['Admin upgrade prompt is hidden in sidebar', workspace.includes('!isAdmin && <div className="px-3 pb-3">')],
   ['Admin panel link is only rendered for admins', workspace.includes('{isAdmin && <a href="#admin"')],
   ['Admin upgrade recommendations are hidden', dashboard.includes("!isAdmin || rec.action !== 'subscription'")],

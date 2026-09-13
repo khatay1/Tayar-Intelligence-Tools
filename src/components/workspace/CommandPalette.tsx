@@ -53,9 +53,14 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
     if (open) {
       const previousOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
-      setTimeout(() => inputRef.current?.focus(), 100);
-      return () => { document.body.style.overflow = previousOverflow; };
+      const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 100);
+      return () => {
+        window.clearTimeout(focusTimer);
+        document.body.style.overflow = previousOverflow;
+      };
     }
+    requestSequenceRef.current += 1;
+    setLoading(false);
     setQuery('');
     setResults([]);
     setSelectedIndex(0);
@@ -131,9 +136,14 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
   }, [user]);
 
   useEffect(() => {
+    if (!open) return undefined;
     const timer = setTimeout(() => void buildResults(query), 200);
     return () => clearTimeout(timer);
-  }, [query, buildResults]);
+  }, [open, query, buildResults]);
+
+  useEffect(() => {
+    setSelectedIndex((index) => Math.max(0, Math.min(index, results.length - 1)));
+  }, [results.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -159,15 +169,15 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
 
   return (
     <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-start sm:px-4 sm:pt-[12vh]" onClick={onClose}>
-      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-xl min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a1a]/95 shadow-2xl shadow-black/50 backdrop-blur-2xl sm:max-h-[76dvh]" onClick={e => e.stopPropagation()} style={{ animation: 'fadeInUp 0.2s ease-out' }}>
+      <div role="dialog" aria-modal="true" aria-label={l('Command palette')} className="flex max-h-[calc(100dvh-1rem)] w-full max-w-xl min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a1a]/95 shadow-2xl shadow-black/50 backdrop-blur-2xl sm:max-h-[76dvh]" onClick={e => e.stopPropagation()} style={{ animation: 'fadeInUp 0.2s ease-out' }}>
         <div className="flex min-w-0 items-center gap-2.5 border-b border-white/5 px-3 py-3.5 sm:gap-3 sm:px-4">
           <Command className="h-5 w-5 shrink-0 text-violet-400" />
-          <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)} placeholder={l('Type a command or search...')} className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-gray-600 focus:outline-none" />
+          <input ref={inputRef} role="combobox" aria-expanded="true" aria-controls="command-palette-results" aria-activedescendant={results[selectedIndex] ? `command-option-${results[selectedIndex].id}` : undefined} value={query} onChange={e => setQuery(e.target.value)} placeholder={l('Type a command or search...')} className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-gray-600 focus:outline-none" />
           {loading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-violet-500" />}
           <kbd className="hidden rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-600 sm:block">ESC</kbd>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-2">
+        <div id="command-palette-results" role="listbox" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-2">
           {grouped.length === 0 && !loading ? (
             <div className="py-10 text-center">
               <Search className="mx-auto mb-2 h-8 w-8 text-gray-700" />
@@ -182,7 +192,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
                 const Icon = item.icon;
                 const active = idx === selectedIndex;
                 return (
-                  <button key={item.id} onClick={() => { onNavigate(item.view, item.projectId); onClose(); }} onMouseEnter={() => setSelectedIndex(idx)} className={`flex min-h-12 w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${active ? 'bg-violet-600/15' : 'hover:bg-white/5'}`}>
+                  <button id={`command-option-${item.id}`} role="option" aria-selected={active} key={item.id} onClick={() => { onNavigate(item.view, item.projectId); onClose(); }} onMouseEnter={() => setSelectedIndex(idx)} className={`flex min-h-12 w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${active ? 'bg-violet-600/15' : 'hover:bg-white/5'}`}>
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5"><Icon className="h-4 w-4 text-violet-400" /></div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium text-white">{l(item.label)}</div>

@@ -1,4 +1,5 @@
 import { useLocalizer } from '@/lib/ui-localization';
+import { ArrowDown, ArrowUp, Copy, Home, Plus, Trash2 } from 'lucide-react';
 import type {
   EditorShellContract,
 } from '../core/editor-shell-contract';
@@ -48,7 +49,7 @@ export function BuilderPagesPanel({
           aria-label={l('Add page')}
           title={l('Add page')}
         >
-          +
+          <Plus aria-hidden="true" />
         </button>
       </div>
 
@@ -109,7 +110,7 @@ export function BuilderPagesPanel({
                       )
                     }
                   >
-                    {l('UP')}
+                    <ArrowUp aria-hidden="true" />
                   </button>
 
                   <button
@@ -128,7 +129,7 @@ export function BuilderPagesPanel({
                       )
                     }
                   >
-                    {l('DN')}
+                    <ArrowDown aria-hidden="true" />
                   </button>
 
                   <button
@@ -140,7 +141,7 @@ export function BuilderPagesPanel({
                       onDuplicatePage
                     }
                   >
-                    {l('COPY')}
+                    <Copy aria-hidden="true" />
                   </button>
 
                   {!page.home && (
@@ -153,7 +154,7 @@ export function BuilderPagesPanel({
                         onSetHomePage
                       }
                     >
-                      {l('HOME')}
+                      <Home aria-hidden="true" />
                     </button>
                   )}
 
@@ -167,7 +168,7 @@ export function BuilderPagesPanel({
                       onDeletePage
                     }
                   >
-                    {l('DEL')}
+                    <Trash2 aria-hidden="true" />
                   </button>
                 </div>
               )}

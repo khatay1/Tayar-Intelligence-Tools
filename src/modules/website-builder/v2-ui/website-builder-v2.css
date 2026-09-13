@@ -1603,12 +1603,23 @@ button.tayar-v2-history-entry:disabled {
 
 .tayar-v2-direct-actions button,
 .tayar-v2-mini-action {
-  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
   border-radius: 6px;
-  padding: 3px 6px;
+  padding: 4px;
   font-size: 9px;
   font-weight: 700;
   opacity: .72;
+}
+
+.tayar-v2-direct-actions button svg,
+.tayar-v2-mini-action svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.9;
 }
 
 .tayar-v2-direct-actions button:hover:not(:disabled),

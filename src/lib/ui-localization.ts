@@ -1,5193 +1,273 @@
-import { usePreferences } from '@/context/PreferencesContext';
-import type { Language } from '@/lib/i18n';
-import { useCallback } from 'react';
-
-type PhraseMap = Record<string, string>;
-
-const ar: PhraseMap = {
-  'Recent': 'Ø§Ù„Ø£Ø®ÙŠØ±Ø©',
-  'Loading libraryâ€¦': 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…ÙƒØªØ¨Ø©â€¦',
-  'No matching templates': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚ÙˆØ§Ù„Ø¨ Ù…Ø·Ø§Ø¨Ù‚Ø©',
-  'Unknown size': 'Ø­Ø¬Ù… ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ',
-  'Format': 'Ø§Ù„ØªÙ†Ø³ÙŠÙ‚',
-  'Restore this history state? Your current unsaved changes will move to the Redo queue.': 'Ù‡Ù„ ØªØ±ÙŠØ¯ Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø­Ø§Ù„Ø© Ø§Ù„Ø³Ø¬Ù„ Ù‡Ø°Ù‡ØŸ Ø³ØªÙÙ†Ù‚Ù„ ØªØºÙŠÙŠØ±Ø§ØªÙƒ Ø§Ù„Ø­Ø§Ù„ÙŠØ© ØºÙŠØ± Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø© Ø¥Ù„Ù‰ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ø¥Ø¹Ø§Ø¯Ø©.',
-  'You have unsaved website changes. Leave without saving?': 'Ù„Ø¯ÙŠÙƒ ØªØºÙŠÙŠØ±Ø§Øª ØºÙŠØ± Ù…Ø­ÙÙˆØ¸Ø© ÙÙŠ Ø§Ù„Ù…ÙˆÙ‚Ø¹. Ù‡Ù„ ØªØ±ÙŠØ¯ Ø§Ù„Ù…ØºØ§Ø¯Ø±Ø© Ù…Ù† Ø¯ÙˆÙ† Ø­ÙØ¸ØŸ',
-  'AI action': 'Ø¥Ø¬Ø±Ø§Ø¡ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Edit current website': 'ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø­Ø§Ù„ÙŠ',
-  'Build new website': 'Ø¨Ù†Ø§Ø¡ Ù…ÙˆÙ‚Ø¹ Ø¬Ø¯ÙŠØ¯',
-  'Building a new website replaces the current pages. Continue?': 'Ø¨Ù†Ø§Ø¡ Ù…ÙˆÙ‚Ø¹ Ø¬Ø¯ÙŠØ¯ ÙŠØ³ØªØ¨Ø¯Ù„ Ø§Ù„ØµÙØ­Ø§Øª Ø§Ù„Ø­Ø§Ù„ÙŠØ©. Ù‡Ù„ ØªØ±ÙŠØ¯ Ø§Ù„Ù…ØªØ§Ø¨Ø¹Ø©ØŸ',
-  'Generating...': 'Ø¬Ø§Ø±Ù Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡...',
-  'Your result will appear here.': 'Ø³ØªØ¸Ù‡Ø± Ø§Ù„Ù†ØªÙŠØ¬Ø© Ù‡Ù†Ø§.',
-  'Coming Soon': 'Ù‚Ø±ÙŠØ¨Ø§Ù‹',
-  "This tool is under active development. You'll be notified when it's ready.": 'Ù‡Ø°Ù‡ Ø§Ù„Ø£Ø¯Ø§Ø© Ù‚ÙŠØ¯ Ø§Ù„ØªØ·ÙˆÙŠØ± Ø­Ø§Ù„ÙŠØ§Ù‹. Ø³Ù†Ø®Ø¨Ø±Ùƒ Ø¹Ù†Ø¯Ù…Ø§ ØªØµØ¨Ø­ Ø¬Ø§Ù‡Ø²Ø©.',
-  'AI Writer': 'Ø§Ù„ÙƒØ§ØªØ¨ Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Write blogs, articles, and marketing copy.': 'Ø§ÙƒØªØ¨ Ø§Ù„Ù…Ø¯ÙˆÙ†Ø§Øª ÙˆØ§Ù„Ù…Ù‚Ø§Ù„Ø§Øª ÙˆØ§Ù„Ù†ØµÙˆØµ Ø§Ù„ØªØ³ÙˆÙŠÙ‚ÙŠØ©.',
-  'Content Type': 'Ù†ÙˆØ¹ Ø§Ù„Ù…Ø­ØªÙˆÙ‰', 'Topic': 'Ø§Ù„Ù…ÙˆØ¶ÙˆØ¹', 'Tone': 'Ø§Ù„Ù†Ø¨Ø±Ø©', 'Length': 'Ø§Ù„Ø·ÙˆÙ„',
-  'Target Audience': 'Ø§Ù„Ø¬Ù…Ù‡ÙˆØ± Ø§Ù„Ù…Ø³ØªÙ‡Ø¯Ù', 'Key Points (optional)': 'Ø§Ù„Ù†Ù‚Ø§Ø· Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'The future of AI in healthcare': 'Ù…Ø³ØªÙ‚Ø¨Ù„ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙÙŠ Ø§Ù„Ø±Ø¹Ø§ÙŠØ© Ø§Ù„ØµØ­ÙŠØ©',
-  'Healthcare professionals': 'Ù…ØªØ®ØµØµÙˆ Ø§Ù„Ø±Ø¹Ø§ÙŠØ© Ø§Ù„ØµØ­ÙŠØ©', 'One point per line': 'Ù†Ù‚Ø·Ø© ÙˆØ§Ø­Ø¯Ø© ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±',
-  'Blog Post': 'Ù…Ù†Ø´ÙˆØ± Ù…Ø¯ÙˆÙ†Ø©', 'Article': 'Ù…Ù‚Ø§Ù„', 'Marketing Copy': 'Ù†Øµ ØªØ³ÙˆÙŠÙ‚ÙŠ',
-  'Social Media Post': 'Ù…Ù†Ø´ÙˆØ± ÙˆØ³Ø§Ø¦Ù„ Ø§Ù„ØªÙˆØ§ØµÙ„', 'Product Description': 'ÙˆØµÙ Ù…Ù†ØªØ¬',
-  'Professional': 'Ø§Ø­ØªØ±Ø§ÙÙŠØ©', 'Casual': 'Ø¹ÙÙˆÙŠØ©', 'Persuasive': 'Ø¥Ù‚Ù†Ø§Ø¹ÙŠØ©', 'Informative': 'Ù…Ø¹Ù„ÙˆÙ…Ø§ØªÙŠØ©',
-  'Humorous': 'Ù…Ø±Ø­Ø©', 'Inspirational': 'Ù…Ù„Ù‡Ù…Ø©', 'Short': 'Ù‚ØµÙŠØ±', 'Long': 'Ø·ÙˆÙŠÙ„',
-  'Writing content...': 'Ø¬Ø§Ø±Ù ÙƒØªØ§Ø¨Ø© Ø§Ù„Ù…Ø­ØªÙˆÙ‰...', 'Content generated': 'ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙˆÙ‰', 'Writing...': 'Ø¬Ø§Ø±Ù Ø§Ù„ÙƒØªØ§Ø¨Ø©...',
-  'Generate Content': 'Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙˆÙ‰', 'Copy': 'Ù†Ø³Ø®', 'Copied': 'ØªÙ… Ø§Ù„Ù†Ø³Ø®',
-  'Cover Letter Writer': 'ÙƒØ§ØªØ¨ Ø®Ø·Ø§Ø¨ Ø§Ù„ØªØºØ·ÙŠØ©', 'Craft personalized cover letters for any job.': 'Ø£Ù†Ø´Ø¦ Ø®Ø·Ø§Ø¨Ø§Øª ØªØºØ·ÙŠØ© Ù…Ø®ØµØµØ© Ù„Ø£ÙŠ ÙˆØ¸ÙŠÙØ©.',
-  'Your Name': 'Ø§Ø³Ù…Ùƒ', 'Job Title': 'Ø§Ù„Ù…Ø³Ù…Ù‰ Ø§Ù„ÙˆØ¸ÙŠÙÙŠ', 'Company': 'Ø§Ù„Ø´Ø±ÙƒØ©', 'Key Qualifications': 'Ø§Ù„Ù…Ø¤Ù‡Ù„Ø§Øª Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©',
-  'Why this job?': 'Ù„Ù…Ø§Ø°Ø§ Ù‡Ø°Ù‡ Ø§Ù„ÙˆØ¸ÙŠÙØ©ØŸ', 'Software Engineer': 'Ù…Ù‡Ù†Ø¯Ø³ Ø¨Ø±Ù…Ø¬ÙŠØ§Øª', '5 years React, led team of 4...': '5 Ø³Ù†ÙˆØ§Øª ReactØŒ ÙˆÙ‚Ø¯Øª ÙØ±ÙŠÙ‚Ø§Ù‹ Ù…Ù† 4 Ø£Ø´Ø®Ø§Øµ...',
-  'Passionate about...': 'Ø´ØºÙˆÙ Ø¨Ù€...', 'Writing cover letter...': 'Ø¬Ø§Ø±Ù ÙƒØªØ§Ø¨Ø© Ø®Ø·Ø§Ø¨ Ø§Ù„ØªØºØ·ÙŠØ©...', 'Cover letter written': 'ØªÙ…Øª ÙƒØªØ§Ø¨Ø© Ø®Ø·Ø§Ø¨ Ø§Ù„ØªØºØ·ÙŠØ©',
-  'Write Cover Letter': 'Ø§ÙƒØªØ¨ Ø®Ø·Ø§Ø¨ Ø§Ù„ØªØºØ·ÙŠØ©',
-  'AI CV Builder': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ', 'Create ATS-friendly resumes with AI.': 'Ø£Ù†Ø´Ø¦ Ø³ÙŠØ±Ø§Ù‹ Ø°Ø§ØªÙŠØ© Ù…ØªÙˆØ§ÙÙ‚Ø© Ù…Ø¹ Ø£Ù†Ø¸Ù…Ø© ATS Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.',
-  'Full Name': 'Ø§Ù„Ø§Ø³Ù… Ø§Ù„ÙƒØ§Ù…Ù„', 'Years of Experience': 'Ø³Ù†ÙˆØ§Øª Ø§Ù„Ø®Ø¨Ø±Ø©', 'Key Skills (comma separated)': 'Ø§Ù„Ù…Ù‡Ø§Ø±Ø§Øª Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© (Ù…ÙØµÙˆÙ„Ø© Ø¨ÙÙˆØ§ØµÙ„)',
-  'Target Industry': 'Ø§Ù„Ù‚Ø·Ø§Ø¹ Ø§Ù„Ù…Ø³ØªÙ‡Ø¯Ù', 'Technology': 'Ø§Ù„ØªÙ‚Ù†ÙŠØ©', 'Generating CV...': 'Ø¬Ø§Ø±Ù Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©...', 'CV generated successfully': 'ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø¨Ù†Ø¬Ø§Ø­',
-  'Generate CV': 'Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©',
-  'Document AI': 'Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ù„Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª', 'Summarize, analyze, and extract from documents.': 'Ù„Ø®Ù‘Øµ Ø§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª ÙˆØ­Ù„Ù„Ù‡Ø§ ÙˆØ§Ø³ØªØ®Ø±Ø¬ Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ù…Ù†Ù‡Ø§.',
-  'Action': 'Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡', 'Document Content': 'Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø³ØªÙ†Ø¯', 'Question': 'Ø§Ù„Ø³Ø¤Ø§Ù„', 'Summarize': 'ØªÙ„Ø®ÙŠØµ', 'Analyze': 'ØªØ­Ù„ÙŠÙ„', 'Ask a Question': 'Ø§Ø·Ø±Ø­ Ø³Ø¤Ø§Ù„Ø§Ù‹',
-  'Paste your document text here...': 'Ø£Ù„ØµÙ‚ Ù†Øµ Ø§Ù„Ù…Ø³ØªÙ†Ø¯ Ù‡Ù†Ø§...', 'What is the main conclusion?': 'Ù…Ø§ Ø§Ù„Ø§Ø³ØªÙ†ØªØ§Ø¬ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØŸ',
-  'Analyzing document...': 'Ø¬Ø§Ø±Ù ØªØ­Ù„ÙŠÙ„ Ø§Ù„Ù…Ø³ØªÙ†Ø¯...', 'Analysis complete': 'Ø§ÙƒØªÙ…Ù„ Ø§Ù„ØªØ­Ù„ÙŠÙ„', 'Analyzing...': 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù„ÙŠÙ„...', 'Analyze Document': 'ØªØ­Ù„ÙŠÙ„ Ø§Ù„Ù…Ø³ØªÙ†Ø¯',
-  'Study Assistant': 'Ù…Ø³Ø§Ø¹Ø¯ Ø§Ù„Ø¯Ø±Ø§Ø³Ø©', 'Explain concepts, create quizzes, and study plans.': 'Ø§Ø´Ø±Ø­ Ø§Ù„Ù…ÙØ§Ù‡ÙŠÙ… ÙˆØ£Ù†Ø´Ø¦ Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª ÙˆØ®Ø·Ø· Ø¯Ø±Ø§Ø³Ø©.',
-  'What do you need?': 'Ù…Ø§Ø°Ø§ ØªØ­ØªØ§Ø¬ØŸ', 'Topic / Subject': 'Ø§Ù„Ù…ÙˆØ¶ÙˆØ¹ / Ø§Ù„Ù…Ø§Ø¯Ø©', 'Level': 'Ø§Ù„Ù…Ø³ØªÙˆÙ‰', 'Count': 'Ø§Ù„Ø¹Ø¯Ø¯',
-  'Explain a Concept': 'Ø´Ø±Ø­ Ù…ÙÙ‡ÙˆÙ…', 'Create a Quiz': 'Ø¥Ù†Ø´Ø§Ø¡ Ø§Ø®ØªØ¨Ø§Ø±', 'Generate Flashcards': 'Ø¥Ù†Ø´Ø§Ø¡ Ø¨Ø·Ø§Ù‚Ø§Øª ØªØ¹Ù„ÙŠÙ…ÙŠØ©', 'Create Study Plan': 'Ø¥Ù†Ø´Ø§Ø¡ Ø®Ø·Ø© Ø¯Ø±Ø§Ø³Ø©',
-  'Beginner': 'Ù…Ø¨ØªØ¯Ø¦', 'Quantum computing': 'Ø§Ù„Ø­ÙˆØ³Ø¨Ø© Ø§Ù„ÙƒÙ…ÙŠØ©',
-  'Generating study material...': 'Ø¬Ø§Ø±Ù Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø§Ø¯Ø© Ø§Ù„Ø¯Ø±Ø§Ø³Ø©...', 'Study material generated': 'ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø§Ø¯Ø© Ø§Ù„Ø¯Ø±Ø§Ø³Ø©', 'Generate': 'Ø¥Ù†Ø´Ø§Ø¡',
-  'Team Workspace': 'Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ø§Ù„ÙØ±ÙŠÙ‚', 'Build websites together': 'Ø§Ø¨Ù†ÙˆØ§ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ Ù…Ø¹Ø§Ù‹',
-  'Secure roles, invitations and shared projects. Pro supports 3 seats; Business supports 10 seats.': 'Ø£Ø¯ÙˆØ§Ø± ÙˆØ¯Ø¹ÙˆØ§Øª ÙˆÙ…Ø´Ø§Ø±ÙŠØ¹ Ù…Ø´ØªØ±ÙƒØ© Ø¢Ù…Ù†Ø©. ØªØ¯Ø¹Ù… Pro Ø«Ù„Ø§Ø«Ø© Ø£Ø¹Ø¶Ø§Ø¡ ÙˆBusiness Ø¹Ø´Ø±Ø© Ø£Ø¹Ø¶Ø§Ø¡.',
-  'Paste a team invitation token or open an invitation link': 'Ø£Ù„ØµÙ‚ Ø±Ù…Ø² Ø¯Ø¹ÙˆØ© Ø§Ù„ÙØ±ÙŠÙ‚ Ø£Ùˆ Ø§ÙØªØ­ Ø±Ø§Ø¨Ø· Ø§Ù„Ø¯Ø¹ÙˆØ©',
-  'Your teams': 'ÙØ±Ù‚Ùƒ', 'No team workspaces yet.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø³Ø§Ø­Ø§Øª Ø¹Ù…Ù„ Ù„Ù„ÙØ±ÙŠÙ‚ Ø¨Ø¹Ø¯.', 'New workspace name': 'Ø§Ø³Ù… Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„ Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©',
-  'Create or select a team workspace to manage members and projects.': 'Ø£Ù†Ø´Ø¦ Ø£Ùˆ Ø§Ø®ØªØ± Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ ÙØ±ÙŠÙ‚ Ù„Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø£Ø¹Ø¶Ø§Ø¡ ÙˆØ§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹.',
-  'Rename workspace': 'Ø¥Ø¹Ø§Ø¯Ø© ØªØ³Ù…ÙŠØ© Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„', 'Delete workspace': 'Ø­Ø°Ù Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„', 'Invite teammate': 'Ø¯Ø¹ÙˆØ© Ø²Ù…ÙŠÙ„', 'Invite': 'Ø¯Ø¹ÙˆØ©',
-  'Members': 'Ø§Ù„Ø£Ø¹Ø¶Ø§Ø¡', 'Editor': 'Ù…Ø­Ø±Ø±', 'Viewer': 'Ù…Ø´Ø§Ù‡Ø¯', 'Transfer ownership': 'Ù†Ù‚Ù„ Ø§Ù„Ù…Ù„ÙƒÙŠØ©',
-  'Leave workspace': 'Ù…ØºØ§Ø¯Ø±Ø© Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„', 'Remove member': 'Ø¥Ø²Ø§Ù„Ø© Ø¹Ø¶Ùˆ', 'Pending invitations': 'Ø§Ù„Ø¯Ø¹ÙˆØ§Øª Ø§Ù„Ù…Ø¹Ù„Ù‚Ø©',
-  'Shared projects': 'Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ù…Ø´ØªØ±ÙƒØ©', 'Select one of your personal projectsâ€¦': 'Ø§Ø®ØªØ± Ø£Ø­Ø¯ Ù…Ø´Ø§Ø±ÙŠØ¹Ùƒ Ø§Ù„Ø´Ø®ØµÙŠØ©â€¦', 'Share project': 'Ù…Ø´Ø§Ø±ÙƒØ© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Remove from workspace': 'Ø¥Ø²Ø§Ù„Ø© Ù…Ù† Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„',
-  'Open Website Builder from the Tools menu; this shared project will appear in the Cloud Projects selector.': 'Ø§ÙØªØ­ Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ Ù…Ù† Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ø£Ø¯ÙˆØ§ØªØ› Ø³ÙŠØ¸Ù‡Ø± Ù‡Ø°Ø§ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù…Ø´ØªØ±Ùƒ ÙÙŠ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠØ©.',
-  'No projects shared with this workspace yet.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø´Ø§Ø±ÙŠØ¹ Ù…Ø´ØªØ±ÙƒØ© Ù…Ø¹ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„ Ù‡Ø°Ù‡ Ø¨Ø¹Ø¯.',
-  'Settings': 'Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª', 'Manage your account, security, and preferences.': 'Ø£Ø¯Ø± Ø­Ø³Ø§Ø¨Ùƒ ÙˆØ£Ù…Ø§Ù†Ùƒ ÙˆØªÙØ¶ÙŠÙ„Ø§ØªÙƒ.',
-  'Profile': 'Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ', 'Security': 'Ø§Ù„Ø£Ù…Ø§Ù†', 'Preferences': 'Ø§Ù„ØªÙØ¶ÙŠÙ„Ø§Øª', 'Privacy': 'Ø§Ù„Ø®ØµÙˆØµÙŠØ©',
-  'Data Export (GDPR)': 'ØªØµØ¯ÙŠØ± Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª (GDPR)',
-  'Account Data Export': 'ØªØµØ¯ÙŠØ± Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø­Ø³Ø§Ø¨',
-  'Download a portable JSON export of your account records and stored-file inventory. Original file binaries remain available from their tools.': 'Ù†Ø²Ù‘Ù„ Ù…Ù„Ù JSON Ù‚Ø§Ø¨Ù„Ø§Ù‹ Ù„Ù„Ù†Ù‚Ù„ ÙŠØªØ¶Ù…Ù† Ø³Ø¬Ù„Ø§Øª Ø­Ø³Ø§Ø¨Ùƒ ÙˆÙ‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ù…Ø®Ø²Ù†Ø©. ØªØ¨Ù‚Ù‰ Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù…ØªØ§Ø­Ø© Ù…Ù† Ø£Ø¯ÙˆØ§ØªÙ‡Ø§.',
-  'Sign in to export your account data.': 'Ø³Ø¬Ù‘Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ù„ØªØµØ¯ÙŠØ± Ø¨ÙŠØ§Ù†Ø§Øª Ø­Ø³Ø§Ø¨Ùƒ.',
-  'Download a complete copy of all your data stored on Tayar Intelligence Tools. This includes your profile, projects, files, conversations, and activity log.': 'Ù†Ø²Ù‘Ù„ Ù†Ø³Ø®Ø© ÙƒØ§Ù…Ù„Ø© Ù…Ù† Ø¨ÙŠØ§Ù†Ø§ØªÙƒ Ø§Ù„Ù…Ø®Ø²Ù†Ø© ÙÙŠ Tayar Intelligence ToolsØŒ Ø¨Ù…Ø§ ÙÙŠ Ø°Ù„Ùƒ Ù…Ù„ÙÙƒ Ø§Ù„Ø´Ø®ØµÙŠ ÙˆÙ…Ø´Ø§Ø±ÙŠØ¹Ùƒ ÙˆÙ…Ù„ÙØ§ØªÙƒ ÙˆÙ…Ø­Ø§Ø¯Ø«Ø§ØªÙƒ ÙˆØ³Ø¬Ù„ Ø§Ù„Ù†Ø´Ø§Ø·.',
-  'Preparing your data...': 'Ø¬Ø§Ø±Ù ØªØ¬Ù‡ÙŠØ² Ø¨ÙŠØ§Ù†Ø§ØªÙƒ...', 'Data exported successfully': 'ØªÙ… ØªØµØ¯ÙŠØ± Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ù†Ø¬Ø§Ø­', 'Failed to export data': 'ÙØ´Ù„ ØªØµØ¯ÙŠØ± Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª',
-  'Personal data downloaded': 'ØªÙ… ØªÙ†Ø²ÙŠÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø´Ø®ØµÙŠØ©', 'Export All Data': 'ØªØµØ¯ÙŠØ± ÙƒÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª', 'Download Personal Data': 'ØªÙ†Ø²ÙŠÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø´Ø®ØµÙŠØ©',
-  'Privacy Controls': 'Ø¹Ù†Ø§ØµØ± Ø§Ù„ØªØ­ÙƒÙ… Ø¨Ø§Ù„Ø®ØµÙˆØµÙŠØ©',
-  'Analytics enabled': 'ØªÙ… ØªÙØ¹ÙŠÙ„ Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª', 'Analytics disabled': 'ØªÙ… ØªØ¹Ø·ÙŠÙ„ Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª',
-  'Prevent your content from being used to improve AI models': 'Ø§Ù…Ù†Ø¹ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù…Ø­ØªÙˆØ§Ùƒ Ù„ØªØ­Ø³ÙŠÙ† Ù†Ù…Ø§Ø°Ø¬ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'AI training opt-out enabled': 'ØªÙ… ØªÙØ¹ÙŠÙ„ Ø±ÙØ¶ ØªØ¯Ø±ÙŠØ¨ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ', 'AI training opt-out disabled': 'ØªÙ… ØªØ¹Ø·ÙŠÙ„ Ø±ÙØ¶ ØªØ¯Ø±ÙŠØ¨ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Data Storage Location': 'Ù…ÙˆÙ‚Ø¹ ØªØ®Ø²ÙŠÙ† Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª',
-  'Cloud storage location follows the active service configuration. See the Privacy Policy for current providers.': 'ÙŠØªØ¨Ø¹ Ù…ÙˆÙ‚Ø¹ Ø§Ù„ØªØ®Ø²ÙŠÙ† Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠ Ø¥Ø¹Ø¯Ø§Ø¯ Ø§Ù„Ø®Ø¯Ù…Ø© Ø§Ù„Ù†Ø´Ø·. Ø±Ø§Ø¬Ø¹ Ø³ÙŠØ§Ø³Ø© Ø§Ù„Ø®ØµÙˆØµÙŠØ© Ù„Ù…Ø¹Ø±ÙØ© Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ÙŠÙ† Ø§Ù„Ø­Ø§Ù„ÙŠÙŠÙ†.',
-  'Data Encryption': 'ØªØ´ÙÙŠØ± Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª',
-  'Delete Account': 'Ø­Ø°Ù Ø§Ù„Ø­Ø³Ø§Ø¨',
-  'Permanently delete your Tayar account, owned projects and stored files. An active subscription is canceled first. Payment providers may retain records required by law. This action cannot be undone.': 'Ø§Ø­Ø°Ù Ø­Ø³Ø§Ø¨ Tayar ÙˆØ§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„ØªÙŠ ØªÙ…Ù„ÙƒÙ‡Ø§ ÙˆØ§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ù…Ø®Ø²Ù†Ø© Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹. ÙŠÙÙ„ØºÙ‰ Ø§Ù„Ø§Ø´ØªØ±Ø§Ùƒ Ø§Ù„Ù†Ø´Ø· Ø£ÙˆÙ„Ø§Ù‹. Ù‚Ø¯ ÙŠØ­ØªÙØ¸ Ù…Ø²ÙˆØ¯Ùˆ Ø§Ù„Ø¯ÙØ¹ Ø¨Ø³Ø¬Ù„Ø§Øª ÙŠÙØ±Ø¶Ù‡Ø§ Ø§Ù„Ù‚Ø§Ù†ÙˆÙ†. Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ù‡Ø°Ø§ Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡.',
-  'Type "DELETE" to confirm': 'Ø§ÙƒØªØ¨ "DELETE" Ù„Ù„ØªØ£ÙƒÙŠØ¯', 'Deleting account...': 'Ø¬Ø§Ø±Ù Ø­Ø°Ù Ø§Ù„Ø­Ø³Ø§Ø¨...', 'Account deleted': 'ØªÙ… Ø­Ø°Ù Ø§Ù„Ø­Ø³Ø§Ø¨',
-  'Failed to delete account. Please contact support.': 'ÙØ´Ù„ Ø­Ø°Ù Ø§Ù„Ø­Ø³Ø§Ø¨. ÙŠØ±Ø¬Ù‰ Ø§Ù„ØªÙˆØ§ØµÙ„ Ù…Ø¹ Ø§Ù„Ø¯Ø¹Ù….',
-  'Go to Workspace â†’': 'Ø§Ù„Ø°Ù‡Ø§Ø¨ Ø¥Ù„Ù‰ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„ â†', 'Upgrade to Pro': 'Ø§Ù„ØªØ±Ù‚ÙŠØ© Ø¥Ù„Ù‰ Pro', 'Upgrade Now': 'Ø§Ù„ØªØ±Ù‚ÙŠØ© Ø§Ù„Ø¢Ù†',
-  'Unlock all 50+ AI tools and unlimited documents.': 'Ø§ÙØªØ­ Ø­Ø¯ÙˆØ¯Ø§Ù‹ Ø£Ø¹Ù„Ù‰ ÙˆÙ…ÙŠØ²Ø§Øª Ø§Ø­ØªØ±Ø§ÙÙŠØ© Ø¥Ø¶Ø§ÙÙŠØ©.',
-  'User': 'Ù…Ø³ØªØ®Ø¯Ù…', 'Soon': 'Ù‚Ø±ÙŠØ¨Ø§Ù‹', 'Beta': 'ØªØ¬Ø±ÙŠØ¨ÙŠ',
-  'Delete My Account': 'Ø­Ø°Ù Ø­Ø³Ø§Ø¨ÙŠ',
-  'This will permanently delete:': 'Ø³ÙŠØ¤Ø¯ÙŠ Ù‡Ø°Ø§ Ø¥Ù„Ù‰ Ø­Ø°Ù Ù…Ø§ ÙŠÙ„ÙŠ Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹:',
-  'Your profile and account credentials': 'Ù…Ù„ÙÙƒ Ø§Ù„Ø´Ø®ØµÙŠ ÙˆØ¨ÙŠØ§Ù†Ø§Øª Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ø­Ø³Ø§Ø¨',
-  'All projects (CVs, cover letters, documents)': 'ÙƒÙ„ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ (Ø§Ù„Ø³ÙŠØ± Ø§Ù„Ø°Ø§ØªÙŠØ© ÙˆØ®Ø·Ø§Ø¨Ø§Øª Ø§Ù„ØªØºØ·ÙŠØ© ÙˆØ§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª)',
-  'All files and exports': 'ÙƒÙ„ Ø§Ù„Ù…Ù„ÙØ§Øª ÙˆØ§Ù„ØªØµØ¯ÙŠØ±Ø§Øª',
-  'All AI conversations and usage history': 'ÙƒÙ„ Ù…Ø­Ø§Ø¯Ø«Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙˆØ³Ø¬Ù„ Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…',
-  'All activity logs and preferences': 'ÙƒÙ„ Ø³Ø¬Ù„Ø§Øª Ø§Ù„Ù†Ø´Ø§Ø· ÙˆØ§Ù„ØªÙØ¶ÙŠÙ„Ø§Øª',
-  'Type': 'Ø§ÙƒØªØ¨',
-  'to confirm': 'Ù„Ù„ØªØ£ÙƒÙŠØ¯',
-  'Yes, Delete Everything': 'Ù†Ø¹Ù…ØŒ Ø§Ø­Ø°Ù ÙƒÙ„ Ø´ÙŠØ¡',
-  'Cancel': 'Ø¥Ù„ØºØ§Ø¡',
-  'Saving profile...': 'Ø¬Ø§Ø±Ù Ø­ÙØ¸ Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ...',
-  'Profile saved': 'ØªÙ… Ø­ÙØ¸ Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ',
-  'Your name': 'Ø§Ø³Ù…Ùƒ',
-  'Email Address': 'Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  'Bio': 'Ù†Ø¨Ø°Ø©',
-  'Tell us about yourself...': 'Ø£Ø®Ø¨Ø±Ù†Ø§ Ø¹Ù† Ù†ÙØ³Ùƒ...',
-  'Save Changes': 'Ø­ÙØ¸ Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª',
-  'Updating password...': 'Ø¬Ø§Ø±Ù ØªØ­Ø¯ÙŠØ« ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±...',
-  'Password updated successfully': 'ØªÙ… ØªØ­Ø¯ÙŠØ« ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø¨Ù†Ø¬Ø§Ø­',
-  'Passwords do not match': 'ÙƒÙ„Ù…ØªØ§ Ø§Ù„Ù…Ø±ÙˆØ± ØºÙŠØ± Ù…ØªØ·Ø§Ø¨Ù‚ØªÙŠÙ†',
-  'Password must be at least 6 characters': 'ÙŠØ¬Ø¨ Ø£Ù† ØªØªÙƒÙˆÙ† ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ù…Ù† 6 Ø£Ø­Ø±Ù Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„',
-  'Email Verification': 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  'Email verified': 'ØªÙ… ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  'Your email address has been confirmed.': 'ØªÙ… ØªØ£ÙƒÙŠØ¯ Ø¹Ù†ÙˆØ§Ù† Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ.',
-  'Email not verified': 'Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ ØºÙŠØ± Ù…Ø¤ÙƒØ¯',
-  'Please verify your email address to secure your account.': 'ÙŠØ±Ø¬Ù‰ ØªØ£ÙƒÙŠØ¯ Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ Ù„ØªØ£Ù…ÙŠÙ† Ø­Ø³Ø§Ø¨Ùƒ.',
-  'Sending verification email...': 'Ø¬Ø§Ø±Ù Ø¥Ø±Ø³Ø§Ù„ Ø±Ø³Ø§Ù„Ø© Ø§Ù„ØªØ£ÙƒÙŠØ¯...',
-  'Verification email sent': 'ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø±Ø³Ø§Ù„Ø© Ø§Ù„ØªØ£ÙƒÙŠØ¯',
-  'Verify Now': 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø¢Ù†',
-  'Change Password': 'ØªØºÙŠÙŠØ± ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±',
-  'New Password': 'ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©',
-  'Enter new password': 'Ø£Ø¯Ø®Ù„ ÙƒÙ„Ù…Ø© Ù…Ø±ÙˆØ± Ø¬Ø¯ÙŠØ¯Ø©',
-  'Confirm New Password': 'ØªØ£ÙƒÙŠØ¯ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©',
-  'Confirm new password': 'Ø£ÙƒØ¯ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©',
-  'Update Password': 'ØªØ­Ø¯ÙŠØ« ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±',
-  'Danger Zone': 'Ù…Ù†Ø·Ù‚Ø© Ø§Ù„Ø®Ø·Ø±',
-  'Sign out from all devices or permanently delete your account.': 'Ø³Ø¬Ù‘Ù„ Ø§Ù„Ø®Ø±ÙˆØ¬ Ù…Ù† Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø£Ø¬Ù‡Ø²Ø© Ø£Ùˆ Ø§Ø­Ø°Ù Ø­Ø³Ø§Ø¨Ùƒ Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹.',
-  'Sign Out': 'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø®Ø±ÙˆØ¬',
-  'Theme': 'Ø§Ù„Ù…Ø¸Ù‡Ø±',
-  'Language': 'Ø§Ù„Ù„ØºØ©',
-  'Dark Mode': 'Ø§Ù„ÙˆØ¶Ø¹ Ø§Ù„Ø¯Ø§ÙƒÙ†',
-  'Light Mode': 'Ø§Ù„ÙˆØ¶Ø¹ Ø§Ù„ÙØ§ØªØ­',
-  'Easy on the eyes': 'Ù…Ø±ÙŠØ­ Ù„Ù„Ø¹ÙŠÙ†ÙŠÙ†',
-  'Bright and clean': 'ÙØ§ØªØ­ ÙˆÙˆØ§Ø¶Ø­',
-  'Email Notifications': 'Ø¥Ø´Ø¹Ø§Ø±Ø§Øª Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  'Important account and security emails': 'Ø±Ø³Ø§Ø¦Ù„ Ù…Ù‡Ù…Ø© Ø¹Ù† Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆØ§Ù„Ø£Ù…Ø§Ù†',
-  'Push Notifications': 'Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±Ø§Øª Ø§Ù„ÙÙˆØ±ÙŠØ©',
-  'Real-time updates in your browser': 'ØªØ­Ø¯ÙŠØ«Ø§Øª ÙÙˆØ±ÙŠØ© ÙÙŠ Ø§Ù„Ù…ØªØµÙØ­',
-  'Marketing Emails': 'Ø±Ø³Ø§Ø¦Ù„ ØªØ³ÙˆÙŠÙ‚ÙŠØ©',
-  'Product updates, tips, and special offers': 'ØªØ­Ø¯ÙŠØ«Ø§Øª Ø§Ù„Ù…Ù†ØªØ¬ ÙˆØ§Ù„Ù†ØµØ§Ø¦Ø­ ÙˆØ§Ù„Ø¹Ø±ÙˆØ¶ Ø§Ù„Ø®Ø§ØµØ©',
-  'Notification Preferences': 'ØªÙØ¶ÙŠÙ„Ø§Øª Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±Ø§Øª',
-  'free plan': 'Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ù…Ø¬Ø§Ù†ÙŠØ©',
-  'Verified': 'Ù…Ø¤ÙƒØ¯',
-  'Not verified': 'ØºÙŠØ± Ù…Ø¤ÙƒØ¯',
-
-  'Password must be at least 8 characters': 'ÙŠØ¬Ø¨ Ø£Ù† ØªØªÙƒÙˆÙ† ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ù…Ù† 8 Ø£Ø­Ø±Ù Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„',
-  'Password is too long': 'ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø·ÙˆÙŠÙ„Ø© Ø¬Ø¯Ù‹Ø§',
-  'Password must contain a lowercase letter': 'ÙŠØ¬Ø¨ Ø£Ù† ØªØ­ØªÙˆÙŠ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø¹Ù„Ù‰ Ø­Ø±Ù Ø¥Ù†Ø¬Ù„ÙŠØ²ÙŠ ØµØºÙŠØ±',
-  'Password must contain an uppercase letter': 'ÙŠØ¬Ø¨ Ø£Ù† ØªØ­ØªÙˆÙŠ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø¹Ù„Ù‰ Ø­Ø±Ù Ø¥Ù†Ø¬Ù„ÙŠØ²ÙŠ ÙƒØ¨ÙŠØ±',
-  'Password must contain a number': 'ÙŠØ¬Ø¨ Ø£Ù† ØªØ­ØªÙˆÙŠ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø¹Ù„Ù‰ Ø±Ù‚Ù…',
-  'At least 8 characters': '8 Ø£Ø­Ø±Ù Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„',
-  'Choose a stronger password.': 'Ø§Ø®ØªØ± ÙƒÙ„Ù…Ø© Ù…Ø±ÙˆØ± Ø£Ù‚ÙˆÙ‰.',
-  'plan': 'Ø®Ø·Ø©',
-
-  'Owner': 'Ø§Ù„Ù…Ø§Ù„Ùƒ',
-  'Full control, billing and publishing.': 'ØªØ­ÙƒÙ… ÙƒØ§Ù…Ù„ ÙˆØ§Ù„ÙÙˆØªØ±Ø© ÙˆØ§Ù„Ù†Ø´Ø±.',
-  'Manage members and shared projects.': 'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø£Ø¹Ø¶Ø§Ø¡ ÙˆØ§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ù…Ø´ØªØ±ÙƒØ©.',
-  'Edit shared project content.': 'ØªØ¹Ø¯ÙŠÙ„ Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ù…Ø´ØªØ±ÙƒØ©.',
-  'Read-only access.': 'ØµÙ„Ø§Ø­ÙŠØ© Ø¹Ø±Ø¶ ÙÙ‚Ø·.',
-  'Unexpected error': 'Ø®Ø·Ø£ ØºÙŠØ± Ù…ØªÙˆÙ‚Ø¹',
-  'Create team': 'Ø¥Ù†Ø´Ø§Ø¡ ÙØ±ÙŠÙ‚',
-  'Creating...': 'Ø¬Ø§Ø±Ù Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡...',
-  'Accept invite': 'Ù‚Ø¨ÙˆÙ„ Ø§Ù„Ø¯Ø¹ÙˆØ©',
-  'Accepting...': 'Ø¬Ø§Ø±Ù Ø§Ù„Ù‚Ø¨ÙˆÙ„...',
-  'Refresh': 'ØªØ­Ø¯ÙŠØ«',
-  'Rename': 'Ø¥Ø¹Ø§Ø¯Ø© ØªØ³Ù…ÙŠØ©',
-  'Delete': 'Ø­Ø°Ù',
-  'Copy invite link': 'Ù†Ø³Ø® Ø±Ø§Ø¨Ø· Ø§Ù„Ø¯Ø¹ÙˆØ©',
-  'Revoke': 'Ø¥Ù„ØºØ§Ø¡',
-  'Role': 'Ø§Ù„Ø¯ÙˆØ±',
-  'Seats': 'Ø§Ù„Ù…Ù‚Ø§Ø¹Ø¯',
-  'Projects': 'Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹',
-  'Project': 'Ù…Ø´Ø±ÙˆØ¹',
-  'No pending invitations.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¯Ø¹ÙˆØ§Øª Ù…Ø¹Ù„Ù‚Ø©.',
-
-  'Command palette': 'Ù„ÙˆØ­Ø© Ø§Ù„Ø£ÙˆØ§Ù…Ø±',
-  'Command palette (Ctrl+K)': 'Ù„ÙˆØ­Ø© Ø§Ù„Ø£ÙˆØ§Ù…Ø± (Ctrl+K)',
-  'Toggle theme': 'ØªØ¨Ø¯ÙŠÙ„ Ø§Ù„Ù…Ø¸Ù‡Ø±',
-  'Change language': 'ØªØºÙŠÙŠØ± Ø§Ù„Ù„ØºØ©',
-  'AI Chat': 'Ù…Ø­Ø§Ø¯Ø«Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Use the AI Assistant panel on the right to chat!': 'Ø§Ø³ØªØ®Ø¯Ù… Ù„ÙˆØ­Ø© Ù…Ø³Ø§Ø¹Ø¯ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø¹Ù„Ù‰ Ø§Ù„ÙŠÙ…ÙŠÙ† Ù„Ù„Ø¯Ø±Ø¯Ø´Ø©!',
-  'Subscription': 'Ø§Ù„Ø§Ø´ØªØ±Ø§Ùƒ',
-  'Manage your plan and billing.': 'Ø£Ø¯Ø± Ø®Ø·ØªÙƒ ÙˆØ§Ù„ÙÙˆØªØ±Ø©.',
-  'Support': 'Ø§Ù„Ø¯Ø¹Ù…',
-  'Get help, browse docs, or contact our team.': 'Ø§Ø­ØµÙ„ Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø³Ø§Ø¹Ø¯Ø© Ø£Ùˆ ØªØµÙØ­ Ø§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª Ø£Ùˆ ØªÙˆØ§ØµÙ„ Ù…Ø¹ ÙØ±ÙŠÙ‚Ù†Ø§.',
-  'Keyboard Shortcuts': 'Ø§Ø®ØªØµØ§Ø±Ø§Øª Ù„ÙˆØ­Ø© Ø§Ù„Ù…ÙØ§ØªÙŠØ­',
-
-  'About Tayar Intelligence': 'Ø­ÙˆÙ„ Tayar Intelligence',
-  'A focused workspace for building, creating, collaborating and shipping finished work.': 'Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ù…Ø±ÙƒØ²Ø© Ù„Ù„Ø¨Ù†Ø§Ø¡ ÙˆØ§Ù„Ø¥Ù†Ø´Ø§Ø¡ ÙˆØ§Ù„ØªØ¹Ø§ÙˆÙ† ÙˆØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…Ù„ Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠ.',
-  'Tayar Intelligence brings practical productivity tools into one workspace. The current product includes Website Builder V1, team workspaces, document and writing tools, translation, study workflows, project management and account-level preferences.': 'ÙŠØ¬Ù…Ø¹ Tayar Intelligence Ø£Ø¯ÙˆØ§Øª Ø¥Ù†ØªØ§Ø¬ÙŠØ© Ø¹Ù…Ù„ÙŠØ© ÙÙŠ Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ ÙˆØ§Ø­Ø¯Ø©. ÙŠØªØ¶Ù…Ù† Ø§Ù„Ù…Ù†ØªØ¬ Ø§Ù„Ø­Ø§Ù„ÙŠ Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ V1 ÙˆÙ…Ø³Ø§Ø­Ø§Øª Ø¹Ù…Ù„ Ø§Ù„ÙØ±Ù‚ ÙˆØ£Ø¯ÙˆØ§Øª Ø§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª ÙˆØ§Ù„ÙƒØªØ§Ø¨Ø© ÙˆØ§Ù„ØªØ±Ø¬Ù…Ø© ÙˆØ³ÙŠØ± Ø§Ù„Ø¯Ø±Ø§Ø³Ø© ÙˆØ¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ ÙˆØªÙØ¶ÙŠÙ„Ø§Øª Ø§Ù„Ø­Ø³Ø§Ø¨.',
-  'The goal is simple: reduce tool switching while keeping the important parts of a project â€” content, versions, permissions and delivery â€” connected.': 'Ø§Ù„Ù‡Ø¯Ù Ø¨Ø³ÙŠØ·: ØªÙ‚Ù„ÙŠÙ„ Ø§Ù„ØªÙ†Ù‚Ù„ Ø¨ÙŠÙ† Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ù…Ø¹ Ø¥Ø¨Ù‚Ø§Ø¡ Ø§Ù„Ø£Ø¬Ø²Ø§Ø¡ Ø§Ù„Ù…Ù‡Ù…Ø© Ù…Ù† Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ â€” Ø§Ù„Ù…Ø­ØªÙˆÙ‰ ÙˆØ§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª ÙˆØ§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª ÙˆØ§Ù„ØªØ³Ù„ÙŠÙ… â€” Ù…ØªØ±Ø§Ø¨Ø·Ø©.',
-  'Website Builder V1': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ V1',
-  'Website Builder V1 is active and supports responsive pages, forms, publishing, release history and rollback, multilingual pages, analytics, conversion tracking, lead management, team collaboration and client handoff workflows.': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ V1 ÙØ¹Ø§Ù„ ÙˆÙŠØ¯Ø¹Ù… Ø§Ù„ØµÙØ­Ø§Øª Ø§Ù„Ù…ØªØ¬Ø§ÙˆØ¨Ø© ÙˆØ§Ù„Ù†Ù…Ø§Ø°Ø¬ ÙˆØ§Ù„Ù†Ø´Ø± ÙˆØ³Ø¬Ù„ Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª ÙˆØ§Ù„Ø§Ø³ØªØ±Ø¬Ø§Ø¹ ÙˆØ§Ù„ØµÙØ­Ø§Øª Ù…ØªØ¹Ø¯Ø¯Ø© Ø§Ù„Ù„ØºØ§Øª ÙˆØ§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª ÙˆØªØªØ¨Ø¹ Ø§Ù„ØªØ­ÙˆÙŠÙ„Ø§Øª ÙˆØ¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† ÙˆØªØ¹Ø§ÙˆÙ† Ø§Ù„ÙØ±Ù‚ ÙˆØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡.',
-  'What comes next': 'Ù…Ø§ Ø§Ù„ØªØ§Ù„ÙŠ',
-  'The next major product phase is AI-assisted website generation. It is intentionally separate from V1 so the core builder can remain useful and production-ready without depending on AI generation.': 'Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© Ø§Ù„ØªØ§Ù„ÙŠØ© Ù‡ÙŠ Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ Ø¨Ù…Ø³Ø§Ø¹Ø¯Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ. ÙˆÙ‡ÙŠ Ù…Ù†ÙØµÙ„Ø© Ø¹Ù…Ø¯Ø§Ù‹ Ø¹Ù† V1 Ù„ÙŠØ¨Ù‚Ù‰ Ø§Ù„Ù…Ù†Ø´Ø¦ Ø§Ù„Ø£Ø³Ø§Ø³ÙŠ Ù…ÙÙŠØ¯Ø§Ù‹ ÙˆØ¬Ø§Ù‡Ø²Ø§Ù‹ Ù„Ù„Ø¥Ù†ØªØ§Ø¬ Ø¯ÙˆÙ† Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯ Ø¹Ù„Ù‰ Ø§Ù„ØªÙˆÙ„ÙŠØ¯ Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.',
-  'Contact Us': 'Ø§ØªØµÙ„ Ø¨Ù†Ø§',
-  "We'd love to hear from you. Reach out with any questions or feedback.": 'ÙŠØ³Ø¹Ø¯Ù†Ø§ Ø³Ù…Ø§Ø¹Ùƒ. ØªÙˆØ§ØµÙ„ Ù…Ø¹Ù†Ø§ Ø¨Ø£ÙŠ Ø£Ø³Ø¦Ù„Ø© Ø£Ùˆ Ù…Ù„Ø§Ø­Ø¸Ø§Øª.',
-  'Phone': 'Ø§Ù„Ù‡Ø§ØªÙ',
-  'Office': 'Ø§Ù„Ù…ÙƒØªØ¨',
-  'Stockholm, Sweden': 'Ø³ØªÙˆÙƒÙ‡ÙˆÙ„Ù…ØŒ Ø§Ù„Ø³ÙˆÙŠØ¯',
-  'Your Email': 'Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  'Subject': 'Ø§Ù„Ù…ÙˆØ¶ÙˆØ¹',
-  'Message': 'Ø§Ù„Ø±Ø³Ø§Ù„Ø©',
-  'Your email': 'Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  'Your message': 'Ø±Ø³Ø§Ù„ØªÙƒ',
-  'Send Feedback': 'Ø¥Ø±Ø³Ø§Ù„ Ù…Ù„Ø§Ø­Ø¸Ø§Øª',
-  'Help us improve Tayar Intelligence Tools. Share your thoughts, ideas, and suggestions.': 'Ø³Ø§Ø¹Ø¯Ù†Ø§ Ø¹Ù„Ù‰ ØªØ­Ø³ÙŠÙ† Tayar Intelligence Tools. Ø´Ø§Ø±Ùƒ Ø£ÙÙƒØ§Ø±Ùƒ ÙˆÙ…Ù„Ø§Ø­Ø¸Ø§ØªÙƒ ÙˆØ§Ù‚ØªØ±Ø§Ø­Ø§ØªÙƒ.',
-  'How would you rate your experience?': 'ÙƒÙŠÙ ØªÙ‚ÙŠÙ‘Ù… ØªØ¬Ø±Ø¨ØªÙƒØŸ',
-  'Rating': 'Ø§Ù„ØªÙ‚ÙŠÙŠÙ…',
-  'Category': 'Ø§Ù„ÙØ¦Ø©',
-  'General': 'Ø¹Ø§Ù…',
-  'Feature Request': 'Ø·Ù„Ø¨ Ù…ÙŠØ²Ø©',
-  'UI / Design': 'Ø§Ù„ÙˆØ§Ø¬Ù‡Ø© / Ø§Ù„ØªØµÙ…ÙŠÙ…',
-  'Performance': 'Ø§Ù„Ø£Ø¯Ø§Ø¡',
-  'Praise': 'Ø¥Ø´Ø§Ø¯Ø©',
-  'Your Feedback': 'Ù…Ù„Ø§Ø­Ø¸Ø§ØªÙƒ',
-  'Tell us what you think...': 'Ø£Ø®Ø¨Ø±Ù†Ø§ Ø¨Ø±Ø£ÙŠÙƒ...',
-  'Your feedback': 'Ù…Ù„Ø§Ø­Ø¸Ø§ØªÙƒ',
-  'Report a Bug': 'Ø§Ù„Ø¥Ø¨Ù„Ø§Øº Ø¹Ù† Ø®Ø·Ø£',
-  'Found a bug? Help us fix it. Provide as much detail as possible.': 'ÙˆØ¬Ø¯Øª Ø®Ø·Ø£ØŸ Ø³Ø§Ø¹Ø¯Ù†Ø§ Ø¹Ù„Ù‰ Ø¥ØµÙ„Ø§Ø­Ù‡ ÙˆÙ‚Ø¯Ù‘Ù… Ø£ÙƒØ¨Ø± Ù‚Ø¯Ø± Ù…Ù…ÙƒÙ† Ù…Ù† Ø§Ù„ØªÙØ§ØµÙŠÙ„.',
-  'Severity': 'Ø§Ù„Ø®Ø·ÙˆØ±Ø©',
-  'Bug severity': 'Ø®Ø·ÙˆØ±Ø© Ø§Ù„Ø®Ø·Ø£',
-  'Low - Minor issue, not blocking': 'Ù…Ù†Ø®ÙØ¶ - Ù…Ø´ÙƒÙ„Ø© Ø¨Ø³ÙŠØ·Ø© Ù„Ø§ ØªØ¹ÙŠÙ‚ Ø§Ù„Ø¹Ù…Ù„',
-  'Medium - Affects workflow': 'Ù…ØªÙˆØ³Ø· - ØªØ¤Ø«Ø± Ø¹Ù„Ù‰ Ø³ÙŠØ± Ø§Ù„Ø¹Ù…Ù„',
-  'High - Major feature broken': 'Ù…Ø±ØªÙØ¹ - Ù…ÙŠØ²Ø© Ø±Ø¦ÙŠØ³ÙŠØ© Ù…Ø¹Ø·Ù„Ø©',
-  'Critical - App unusable': 'Ø­Ø±Ø¬ - Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ ØºÙŠØ± Ù‚Ø§Ø¨Ù„ Ù„Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…',
-  'Affected Tool': 'Ø§Ù„Ø£Ø¯Ø§Ø© Ø§Ù„Ù…ØªØ£Ø«Ø±Ø©',
-  'Affected tool': 'Ø§Ù„Ø£Ø¯Ø§Ø© Ø§Ù„Ù…ØªØ£Ø«Ø±Ø©',
-  'General / Platform': 'Ø¹Ø§Ù… / Ø§Ù„Ù…Ù†ØµØ©',
-  'CV Builder': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©',
-  'Cover Letter': 'Ø®Ø·Ø§Ø¨ Ø§Ù„ØªØºØ·ÙŠØ©',
-  'Translator': 'Ø§Ù„Ù…ØªØ±Ø¬Ù…',
-  'Login / Signup': 'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„ / Ø§Ù„ØªØ³Ø¬ÙŠÙ„',
-  'Steps to Reproduce': 'Ø®Ø·ÙˆØ§Øª Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø´ÙƒÙ„Ø©',
-  'Expected Behavior': 'Ø§Ù„Ø³Ù„ÙˆÙƒ Ø§Ù„Ù…ØªÙˆÙ‚Ø¹',
-  'Actual Behavior': 'Ø§Ù„Ø³Ù„ÙˆÙƒ Ø§Ù„ÙØ¹Ù„ÙŠ',
-  'Help Center': 'Ù…Ø±ÙƒØ² Ø§Ù„Ù…Ø³Ø§Ø¹Ø¯Ø©',
-  'Find answers to common questions and get support.': 'Ø§Ø¹Ø«Ø± Ø¹Ù„Ù‰ Ø¥Ø¬Ø§Ø¨Ø§Øª Ù„Ù„Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø´Ø§Ø¦Ø¹Ø© ÙˆØ§Ø­ØµÙ„ Ø¹Ù„Ù‰ Ø§Ù„Ø¯Ø¹Ù….',
-  'No results found. Try a different search.': 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù†ØªØ§Ø¦Ø¬. Ø¬Ø±Ù‘Ø¨ Ø¨Ø­Ø«Ø§Ù‹ Ù…Ø®ØªÙ„ÙØ§Ù‹.',
-  'Still need help?': 'Ù…Ø§ Ø²Ù„Øª ØªØ­ØªØ§Ø¬ Ù„Ù„Ù…Ø³Ø§Ø¹Ø¯Ø©ØŸ',
-  "Send us a message and we'll get back to you within 24 hours.": 'Ø£Ø±Ø³Ù„ Ù„Ù†Ø§ Ø±Ø³Ø§Ù„Ø© ÙˆØ³Ù†Ø±Ø¯ Ø¹Ù„ÙŠÙƒ Ø®Ù„Ø§Ù„ 24 Ø³Ø§Ø¹Ø©.',
-  'Search help articles...': 'Ø§Ø¨Ø­Ø« ÙÙŠ Ù…Ù‚Ø§Ù„Ø§Øª Ø§Ù„Ù…Ø³Ø§Ø¹Ø¯Ø©...',
-  'Describe your issue...': 'ØµÙ Ù…Ø´ÙƒÙ„ØªÙƒ...',
-  'Cookie Consent': 'Ù…ÙˆØ§ÙÙ‚Ø© Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø·',
-  'Privacy Policy': 'Ø³ÙŠØ§Ø³Ø© Ø§Ù„Ø®ØµÙˆØµÙŠØ©',
-  'Necessary': 'Ø¶Ø±ÙˆØ±ÙŠØ©',
-  'Analytics': 'Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª',
-  'Marketing': 'Ø§Ù„ØªØ³ÙˆÙŠÙ‚',
-  'Cookie consent': 'Ù…ÙˆØ§ÙÙ‚Ø© Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø·',
-  'Close cookie consent': 'Ø¥ØºÙ„Ø§Ù‚ Ù†Ø§ÙØ°Ø© Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø·',
-  'Cookie settings': 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø·',
-  'Last updated: August 28, 2026': 'Ø¢Ø®Ø± ØªØ­Ø¯ÙŠØ«: 28 Ø£ØºØ³Ø·Ø³ 2026',
-  'Terms of Service': 'Ø´Ø±ÙˆØ· Ø§Ù„Ø®Ø¯Ù…Ø©',
-  'This page describes the main categories of information Tayar Intelligence may process when you use the product. The exact data involved depends on the features you choose to use.': 'ØªÙˆØ¶Ø­ Ù‡Ø°Ù‡ Ø§Ù„ØµÙØ­Ø© Ø§Ù„ÙØ¦Ø§Øª Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© Ù„Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„ØªÙŠ Ù‚Ø¯ ÙŠØ¹Ø§Ù„Ø¬Ù‡Ø§ Tayar Intelligence Ø¹Ù†Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù…Ùƒ Ù„Ù„Ù…Ù†ØªØ¬. ØªØ¹ØªÙ…Ø¯ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„ÙØ¹Ù„ÙŠØ© Ø¹Ù„Ù‰ Ø§Ù„Ù…ÙŠØ²Ø§Øª Ø§Ù„ØªÙŠ ØªØ®ØªØ§Ø± Ø§Ø³ØªØ®Ø¯Ø§Ù…Ù‡Ø§.',
-  'Account details, profile settings, projects, files, preferences and collaboration data may be stored so the service can authenticate you, save your work and enforce access permissions.': 'Ù‚Ø¯ ØªÙØ®Ø²Ù† ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆØ¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ ÙˆØ§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ ÙˆØ§Ù„Ù…Ù„ÙØ§Øª ÙˆØ§Ù„ØªÙØ¶ÙŠÙ„Ø§Øª ÙˆØ¨ÙŠØ§Ù†Ø§Øª Ø§Ù„ØªØ¹Ø§ÙˆÙ† Ù„ØªÙ…ÙƒÙŠÙ† Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© ÙˆØ­ÙØ¸ Ø¹Ù…Ù„Ùƒ ÙˆØªØ·Ø¨ÙŠÙ‚ ØµÙ„Ø§Ø­ÙŠØ§Øª Ø§Ù„ÙˆØµÙˆÙ„.',
-  'Website Builder projects can include pages, media references, form submissions, leads, analytics events, release history, publishing settings and team permissions. Public website forms and analytics use dedicated server-side controls and rate limits.': 'Ù‚Ø¯ ØªØªØ¶Ù…Ù† Ù…Ø´Ø§Ø±ÙŠØ¹ Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ ØµÙØ­Ø§Øª ÙˆÙ…Ø±Ø§Ø¬Ø¹ ÙˆØ³Ø§Ø¦Ø· ÙˆØ¥Ø±Ø³Ø§Ù„Ø§Øª Ù†Ù…Ø§Ø°Ø¬ ÙˆØ¹Ù…Ù„Ø§Ø¡ Ù…Ø­ØªÙ…Ù„ÙŠÙ† ÙˆØ£Ø­Ø¯Ø§Ø« ØªØ­Ù„ÙŠÙ„Ø§Øª ÙˆØ³Ø¬Ù„ Ø¥ØµØ¯Ø§Ø±Ø§Øª ÙˆØ¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ù†Ø´Ø± ÙˆØµÙ„Ø§Ø­ÙŠØ§Øª ÙØ±ÙŠÙ‚. ØªØ³ØªØ®Ø¯Ù… Ù†Ù…Ø§Ø°Ø¬ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ Ø§Ù„Ø¹Ø§Ù…Ø© ÙˆØ§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª Ø¶ÙˆØ§Ø¨Ø· Ù…Ø®ØµØµØ© Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù… ÙˆØ­Ø¯ÙˆØ¯ Ù…Ø¹Ø¯Ù„.',
-  'The application uses third-party infrastructure such as Supabase for authentication, database and storage capabilities. Features that use external AI or payment services may send the information required to complete that specific request to the configured provider.': 'ÙŠØ³ØªØ®Ø¯Ù… Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ø¨Ù†ÙŠØ© ØªØ­ØªÙŠØ© Ø®Ø§Ø±Ø¬ÙŠØ© Ù…Ø«Ù„ Supabase Ù„Ù„Ù…ØµØ§Ø¯Ù‚Ø© ÙˆÙ‚ÙˆØ§Ø¹Ø¯ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ§Ù„ØªØ®Ø²ÙŠÙ†. Ù‚Ø¯ ØªØ±Ø³Ù„ Ø§Ù„Ù…ÙŠØ²Ø§Øª Ø§Ù„ØªÙŠ ØªØ³ØªØ®Ø¯Ù… Ø®Ø¯Ù…Ø§Øª Ø°ÙƒØ§Ø¡ Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø£Ùˆ Ø¯ÙØ¹ Ø®Ø§Ø±Ø¬ÙŠØ© Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„Ù„Ø§Ø²Ù…Ø© Ù„Ø¥ØªÙ…Ø§Ù… Ø§Ù„Ø·Ù„Ø¨ Ø§Ù„Ù…Ø­Ø¯Ø¯ Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø²ÙˆØ¯ Ø§Ù„Ù…Ù‡ÙŠØ£.',
-  'The application uses encrypted network connections and database access controls, including Row Level Security for user and workspace data. Authentication credentials are handled through the authentication provider rather than being stored as plaintext application data.': 'ÙŠØ³ØªØ®Ø¯Ù… Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ø§ØªØµØ§Ù„Ø§Øª Ø´Ø¨ÙƒØ© Ù…Ø´ÙØ±Ø© ÙˆØ¶ÙˆØ§Ø¨Ø· ÙˆØµÙˆÙ„ Ù„Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§ØªØŒ Ø¨Ù…Ø§ ÙÙŠ Ø°Ù„Ùƒ Ø£Ù…Ø§Ù† Ù…Ø³ØªÙˆÙ‰ Ø§Ù„ØµÙ Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙˆÙ…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„. ØªØªÙ… Ù…Ø¹Ø§Ù„Ø¬Ø© Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© Ø¹Ø¨Ø± Ù…Ø²ÙˆØ¯ Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© ÙˆÙ„Ø§ ØªÙØ®Ø²Ù† ÙƒÙ†Øµ ØµØ±ÙŠØ­ ÙÙŠ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚.',
-  'Browser storage may be used for authentication sessions, interface preferences, recovery data and consent choices. Analytics or production integrations are controlled by the relevant product and website settings.': 'Ù‚Ø¯ ÙŠÙØ³ØªØ®Ø¯Ù… ØªØ®Ø²ÙŠÙ† Ø§Ù„Ù…ØªØµÙØ­ Ù„Ø¬Ù„Ø³Ø§Øª Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© ÙˆØªÙØ¶ÙŠÙ„Ø§Øª Ø§Ù„ÙˆØ§Ø¬Ù‡Ø© ÙˆØ¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø© ÙˆØ®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø©. ØªØªØ­ÙƒÙ… Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…Ù†ØªØ¬ ÙˆØ§Ù„Ù…ÙˆÙ‚Ø¹ Ø°Ø§Øª Ø§Ù„ØµÙ„Ø© ÙÙŠ Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª Ø£Ùˆ ØªÙƒØ§Ù…Ù„Ø§Øª Ø§Ù„Ø¥Ù†ØªØ§Ø¬.',
-  'You can manage account preferences and many stored project settings inside the product. Requests relating to access, correction or deletion of personal data should be made through the support options available in your account.': 'ÙŠÙ…ÙƒÙ†Ùƒ Ø¥Ø¯Ø§Ø±Ø© ØªÙØ¶ÙŠÙ„Ø§Øª Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆØ§Ù„Ø¹Ø¯ÙŠØ¯ Ù…Ù† Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ù…Ø®Ø²Ù†Ø© Ø¯Ø§Ø®Ù„ Ø§Ù„Ù…Ù†ØªØ¬. ÙŠØ¬Ø¨ ØªÙ‚Ø¯ÙŠÙ… Ø·Ù„Ø¨Ø§Øª Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø´Ø®ØµÙŠØ© Ø£Ùˆ ØªØµØ­ÙŠØ­Ù‡Ø§ Ø£Ùˆ Ø­Ø°ÙÙ‡Ø§ Ø¹Ø¨Ø± Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ø¯Ø¹Ù… Ø§Ù„Ù…ØªØ§Ø­Ø© ÙÙŠ Ø­Ø³Ø§Ø¨Ùƒ.',
-  'This policy may be updated as the product, infrastructure or legal requirements change. The date at the top of this page shows the latest published revision.': 'Ù‚Ø¯ ØªÙØ­Ø¯Ù‘Ø« Ù‡Ø°Ù‡ Ø§Ù„Ø³ÙŠØ§Ø³Ø© Ù…Ø¹ ØªØºÙŠØ± Ø§Ù„Ù…Ù†ØªØ¬ Ø£Ùˆ Ø§Ù„Ø¨Ù†ÙŠØ© Ø§Ù„ØªØ­ØªÙŠØ© Ø£Ùˆ Ø§Ù„Ù…ØªØ·Ù„Ø¨Ø§Øª Ø§Ù„Ù‚Ø§Ù†ÙˆÙ†ÙŠØ©. ÙŠØ¹Ø±Ø¶ Ø§Ù„ØªØ§Ø±ÙŠØ® Ø£Ø¹Ù„Ù‰ Ø§Ù„ØµÙØ­Ø© Ø£Ø­Ø¯Ø« Ù…Ø±Ø§Ø¬Ø¹Ø© Ù…Ù†Ø´ÙˆØ±Ø©.',
-  'By using Tayar Intelligence, you agree to use the service lawfully and in a way that does not interfere with other users, the platform or its infrastructure.': 'Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Tayar IntelligenceØŒ ØªÙˆØ§ÙÙ‚ Ø¹Ù„Ù‰ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø®Ø¯Ù…Ø© Ø¨Ø´ÙƒÙ„ Ù‚Ø§Ù†ÙˆÙ†ÙŠ ÙˆØ¨Ø·Ø±ÙŠÙ‚Ø© Ù„Ø§ ØªØªØ¯Ø§Ø®Ù„ Ù…Ø¹ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ† Ø§Ù„Ø¢Ø®Ø±ÙŠÙ† Ø£Ùˆ Ø§Ù„Ù…Ù†ØµØ© Ø£Ùˆ Ø¨Ù†ÙŠØªÙ‡Ø§ Ø§Ù„ØªØ­ØªÙŠØ©.',
-  'You are responsible for the accuracy of information submitted through your account and for keeping access to your account secure. Team and shared-project permissions should only be granted to people you intend to collaborate with.': 'Ø£Ù†Øª Ù…Ø³Ø¤ÙˆÙ„ Ø¹Ù† Ø¯Ù‚Ø© Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„Ù…Ù‚Ø¯Ù…Ø© Ø¹Ø¨Ø± Ø­Ø³Ø§Ø¨Ùƒ ÙˆØ¹Ù† Ø§Ù„Ø­ÙØ§Ø¸ Ø¹Ù„Ù‰ Ø£Ù…Ø§Ù† Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„ÙŠÙ‡. ÙŠØ¬Ø¨ Ù…Ù†Ø­ ØµÙ„Ø§Ø­ÙŠØ§Øª Ø§Ù„ÙØ±Ù‚ ÙˆØ§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ù…Ø´ØªØ±ÙƒØ© ÙÙ‚Ø· Ù„Ù„Ø£Ø´Ø®Ø§Øµ Ø§Ù„Ø°ÙŠÙ† ØªÙ†ÙˆÙŠ Ø§Ù„ØªØ¹Ø§ÙˆÙ† Ù…Ø¹Ù‡Ù….',
-  'You remain responsible for reviewing the content, websites, documents and other outputs you create or publish through the platform. Automated or AI-assisted output should be checked before it is relied on or published.': 'ØªØ¨Ù‚Ù‰ Ù…Ø³Ø¤ÙˆÙ„Ø§Ù‹ Ø¹Ù† Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ù…Ø­ØªÙˆÙ‰ ÙˆØ§Ù„Ù…ÙˆØ§Ù‚Ø¹ ÙˆØ§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª ÙˆØ§Ù„Ù…Ø®Ø±Ø¬Ø§Øª Ø§Ù„Ø£Ø®Ø±Ù‰ Ø§Ù„ØªÙŠ ØªÙ†Ø´Ø¦Ù‡Ø§ Ø£Ùˆ ØªÙ†Ø´Ø±Ù‡Ø§ Ø¹Ø¨Ø± Ø§Ù„Ù…Ù†ØµØ©. ÙŠØ¬Ø¨ Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ù…Ø®Ø±Ø¬Ø§Øª Ø§Ù„Ø¢Ù„ÙŠØ© Ø£Ùˆ Ø§Ù„Ù…Ø¯Ø¹ÙˆÙ…Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ù‚Ø¨Ù„ Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯ Ø¹Ù„ÙŠÙ‡Ø§ Ø£Ùˆ Ù†Ø´Ø±Ù‡Ø§.',
-  'You may not use the service to break the law, abuse public forms or APIs, bypass product limits or access controls, distribute malicious content, interfere with the service, or attempt unauthorized access to other accounts or projects.': 'Ù„Ø§ ÙŠØ¬ÙˆØ² Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø®Ø¯Ù…Ø© Ù„Ø®Ø±Ù‚ Ø§Ù„Ù‚Ø§Ù†ÙˆÙ† Ø£Ùˆ Ø¥Ø³Ø§Ø¡Ø© Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ù†Ù…Ø§Ø°Ø¬ Ø§Ù„Ø¹Ø§Ù…Ø© Ø£Ùˆ ÙˆØ§Ø¬Ù‡Ø§Øª API Ø£Ùˆ ØªØ¬Ø§ÙˆØ² Ø­Ø¯ÙˆØ¯ Ø§Ù„Ù…Ù†ØªØ¬ Ø£Ùˆ Ø¶ÙˆØ§Ø¨Ø· Ø§Ù„ÙˆØµÙˆÙ„ Ø£Ùˆ ØªÙˆØ²ÙŠØ¹ Ù…Ø­ØªÙˆÙ‰ Ø¶Ø§Ø± Ø£Ùˆ ØªØ¹Ø·ÙŠÙ„ Ø§Ù„Ø®Ø¯Ù…Ø© Ø£Ùˆ Ù…Ø­Ø§ÙˆÙ„Ø© Ø§Ù„ÙˆØµÙˆÙ„ ØºÙŠØ± Ø§Ù„Ù…ØµØ±Ø­ Ø¨Ù‡ Ø¥Ù„Ù‰ Ø­Ø³Ø§Ø¨Ø§Øª Ø£Ùˆ Ù…Ø´Ø§Ø±ÙŠØ¹ Ø£Ø®Ø±Ù‰.',
-  'Free, Pro and Business features and usage limits are displayed in the product. Paid pricing, renewal details, cancellation options and any applicable billing terms are presented through the configured checkout and billing portal. Applicable consumer rights remain unaffected.': 'ØªØ¸Ù‡Ø± Ù…ÙŠØ²Ø§Øª ÙˆØ­Ø¯ÙˆØ¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø®Ø·Ø· Free ÙˆPro ÙˆBusiness Ø¯Ø§Ø®Ù„ Ø§Ù„Ù…Ù†ØªØ¬. ØªÙØ¹Ø±Ø¶ Ø§Ù„Ø£Ø³Ø¹Ø§Ø± Ø§Ù„Ù…Ø¯ÙÙˆØ¹Ø© ÙˆØªÙØ§ØµÙŠÙ„ Ø§Ù„ØªØ¬Ø¯ÙŠØ¯ ÙˆØ®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ø¥Ù„ØºØ§Ø¡ ÙˆØ´Ø±ÙˆØ· Ø§Ù„ÙÙˆØªØ±Ø© Ø§Ù„Ù…Ø¹Ù…ÙˆÙ„ Ø¨Ù‡Ø§ Ø¹Ø¨Ø± ØµÙØ­Ø© Ø§Ù„Ø¯ÙØ¹ ÙˆØ¨ÙˆØ§Ø¨Ø© Ø§Ù„ÙÙˆØªØ±Ø© Ø§Ù„Ù…Ù‡ÙŠØ£Ø©. ÙˆÙ„Ø§ ØªØªØ£Ø«Ø± Ø­Ù‚ÙˆÙ‚ Ø§Ù„Ù…Ø³ØªÙ‡Ù„Ùƒ Ø§Ù„Ù…Ø¹Ù…ÙˆÙ„ Ø¨Ù‡Ø§.',
-  'Features may evolve as the product is improved. We may change, add or retire features when needed for security, reliability or product development. Important changes should be reflected in the product or these terms.': 'Ù‚Ø¯ ØªØªØ·ÙˆØ± Ø§Ù„Ù…ÙŠØ²Ø§Øª Ù…Ø¹ ØªØ­Ø³ÙŠÙ† Ø§Ù„Ù…Ù†ØªØ¬. Ù‚Ø¯ Ù†ØºÙŠØ± Ø£Ùˆ Ù†Ø¶ÙŠÙ Ø£Ùˆ Ù†ÙˆÙ‚Ù Ù…ÙŠØ²Ø§Øª Ø¹Ù†Ø¯ Ø§Ù„Ø­Ø§Ø¬Ø© Ù„Ù„Ø£Ù…Ø§Ù† Ø£Ùˆ Ø§Ù„Ù…ÙˆØ«ÙˆÙ‚ÙŠØ© Ø£Ùˆ ØªØ·ÙˆÙŠØ± Ø§Ù„Ù…Ù†ØªØ¬. ÙŠØ¬Ø¨ Ø£Ù† ØªÙ†Ø¹ÙƒØ³ Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª Ø§Ù„Ù…Ù‡Ù…Ø© ÙÙŠ Ø§Ù„Ù…Ù†ØªØ¬ Ø£Ùˆ Ù‡Ø°Ù‡ Ø§Ù„Ø´Ø±ÙˆØ·.',
-  'The service is provided as a productivity platform. You are responsible for the final decisions, publications and actions taken using the outputs of the service, including websites published to third-party or configured hosting destinations.': 'ØªÙÙ‚Ø¯Ù‘ÙŽÙ… Ø§Ù„Ø®Ø¯Ù…Ø© ÙƒÙ…Ù†ØµØ© Ø¥Ù†ØªØ§Ø¬ÙŠØ©. Ø£Ù†Øª Ù…Ø³Ø¤ÙˆÙ„ Ø¹Ù† Ø§Ù„Ù‚Ø±Ø§Ø±Ø§Øª ÙˆØ§Ù„Ù…Ù†Ø´ÙˆØ±Ø§Øª ÙˆØ§Ù„Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠØ© Ø§Ù„Ù…ØªØ®Ø°Ø© Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù…Ø®Ø±Ø¬Ø§Øª Ø§Ù„Ø®Ø¯Ù…Ø©ØŒ Ø¨Ù…Ø§ ÙÙŠ Ø°Ù„Ùƒ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ Ø§Ù„Ù…Ù†Ø´ÙˆØ±Ø© Ø¥Ù„Ù‰ Ø¬Ù‡Ø§Øª Ø®Ø§Ø±Ø¬ÙŠØ© Ø£Ùˆ ÙˆØ¬Ù‡Ø§Øª Ø§Ø³ØªØ¶Ø§ÙØ© Ù…Ù‡ÙŠØ£Ø©.',
-  'Questions about these terms can be submitted through the support options available in the product.': 'ÙŠÙ…ÙƒÙ† Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø£Ø³Ø¦Ù„Ø© Ø­ÙˆÙ„ Ù‡Ø°Ù‡ Ø§Ù„Ø´Ø±ÙˆØ· Ø¹Ø¨Ø± Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ø¯Ø¹Ù… Ø§Ù„Ù…ØªØ§Ø­Ø© ÙÙŠ Ø§Ù„Ù…Ù†ØªØ¬.',
-
-  'Welcome back': 'Ù…Ø±Ø­Ø¨Ø§Ù‹ Ø¨Ø¹ÙˆØ¯ØªÙƒ',
-  'Sign in to your account to continue': 'Ø³Ø¬Ù‘Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ø¥Ù„Ù‰ Ø­Ø³Ø§Ø¨Ùƒ Ù„Ù„Ù…ØªØ§Ø¨Ø¹Ø©',
-  'or': 'Ø£Ùˆ',
-  'Password': 'ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±',
-  'Enter your password': 'Ø£Ø¯Ø®Ù„ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±',
-  'Signing in...': 'Ø¬Ø§Ø±Ù ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„...',
-  'Sign In': 'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„',
-  "Don't have an account?": 'Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ Ø­Ø³Ø§Ø¨ØŸ',
-  'Create your account': 'Ø£Ù†Ø´Ø¦ Ø­Ø³Ø§Ø¨Ùƒ',
-  'Start using 50+ AI tools for free': 'Ø§Ø¨Ø¯Ø£ Ù…Ø¬Ø§Ù†Ø§Ù‹ Ø¨Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ© ÙˆÙ…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹',
-  'At least 6 characters': '6 Ø£Ø­Ø±Ù Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„',
-  'Creating account...': 'Ø¬Ø§Ø±Ù Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø­Ø³Ø§Ø¨...',
-  'Create Free Account': 'Ø¥Ù†Ø´Ø§Ø¡ Ø­Ø³Ø§Ø¨ Ù…Ø¬Ø§Ù†ÙŠ',
-  'No credit card required': 'Ù„Ø§ ØªØ­ØªØ§Ø¬ Ø¨Ø·Ø§Ù‚Ø© Ø§Ø¦ØªÙ…Ø§Ù†',
-  'Access 5 basic AI tools': 'Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ 5 Ø£Ø¯ÙˆØ§Øª Ø°ÙƒØ§Ø¡ Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø£Ø³Ø§Ø³ÙŠØ©',
-  '10 documents per month': '10 Ù…Ø³ØªÙ†Ø¯Ø§Øª Ø´Ù‡Ø±ÙŠØ§Ù‹',
-  'Password must be at least 6 characters.': 'ÙŠØ¬Ø¨ Ø£Ù† ØªØªÙƒÙˆÙ† ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ù…Ù† 6 Ø£Ø­Ø±Ù Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„.',
-  'Check your email': 'ØªØ­Ù‚Ù‚ Ù…Ù† Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  "We've sent a password reset link to": 'Ø£Ø±Ø³Ù„Ù†Ø§ Ø±Ø§Ø¨Ø· Ø¥Ø¹Ø§Ø¯Ø© ØªØ¹ÙŠÙŠÙ† ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø¥Ù„Ù‰',
-  'Back to login': 'Ø§Ù„Ø¹ÙˆØ¯Ø© Ø¥Ù„Ù‰ ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„',
-  'Forgot password?': 'Ù†Ø³ÙŠØª ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±ØŸ',
-  'Sending...': 'Ø¬Ø§Ø±Ù Ø§Ù„Ø¥Ø±Ø³Ø§Ù„...',
-  'Send Reset Link': 'Ø¥Ø±Ø³Ø§Ù„ Ø±Ø§Ø¨Ø· Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ¹ÙŠÙŠÙ†',
-  'Password updated': 'ØªÙ… ØªØ­Ø¯ÙŠØ« ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±',
-  'Set a new password': 'ØªØ¹ÙŠÙŠÙ† ÙƒÙ„Ù…Ø© Ù…Ø±ÙˆØ± Ø¬Ø¯ÙŠØ¯Ø©',
-  'Choose a strong password for your account': 'Ø§Ø®ØªØ± ÙƒÙ„Ù…Ø© Ù…Ø±ÙˆØ± Ù‚ÙˆÙŠØ© Ù„Ø­Ø³Ø§Ø¨Ùƒ',
-  'Confirm Password': 'ØªØ£ÙƒÙŠØ¯ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±',
-  'Re-enter your password': 'Ø£Ø¹Ø¯ Ø¥Ø¯Ø®Ø§Ù„ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±',
-  'Updating...': 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ø¯ÙŠØ«...',
-  'Verify your email': 'ØªØ­Ù‚Ù‚ Ù…Ù† Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  "Didn't get it? Enter your email": 'Ù„Ù… ØªØµÙ„Ùƒ Ø§Ù„Ø±Ø³Ø§Ù„Ø©ØŸ Ø£Ø¯Ø®Ù„ Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  'Email sent!': 'ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø¨Ø±ÙŠØ¯!',
-  'Resend Verification Email': 'Ø¥Ø¹Ø§Ø¯Ø© Ø¥Ø±Ø³Ø§Ù„ Ø±Ø³Ø§Ù„Ø© Ø§Ù„ØªØ£ÙƒÙŠØ¯',
-  'Enter your email first.': 'Ø£Ø¯Ø®Ù„ Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ Ø£ÙˆÙ„Ø§Ù‹.',
-  'Forgot password': 'Ù†Ø³ÙŠØª ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±',
-  'Create account': 'Ø¥Ù†Ø´Ø§Ø¡ Ø­Ø³Ø§Ø¨',
-  'Already have an account?': 'Ù„Ø¯ÙŠÙƒ Ø­Ø³Ø§Ø¨ Ø¨Ø§Ù„ÙØ¹Ù„ØŸ',
-  'Sign up': 'Ø§Ù„ØªØ³Ø¬ÙŠÙ„',
-
-  'Continue with Google': 'Ø§Ù„Ù…ØªØ§Ø¨Ø¹Ø© Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Google',
-  'Email': 'Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ',
-  'Sign up free': 'Ø³Ø¬Ù‘Ù„ Ù…Ø¬Ø§Ù†Ø§Ù‹',
-  'Sign in': 'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„',
-  'Weak': 'Ø¶Ø¹ÙŠÙØ©',
-  'Fair': 'Ù…Ù‚Ø¨ÙˆÙ„Ø©',
-  'Good': 'Ø¬ÙŠØ¯Ø©',
-  'Strong': 'Ù‚ÙˆÙŠØ©',
-
-  'Onboarding': 'Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯ Ø§Ù„Ø£ÙˆÙ„ÙŠ',
-  "Already have an account? Just wait â€” we'll personalize everything.": 'Ù„Ø¯ÙŠÙƒ Ø­Ø³Ø§Ø¨ Ø¨Ø§Ù„ÙØ¹Ù„ØŸ Ø³Ù†Ø®ØµØµ ÙƒÙ„ Ø´ÙŠØ¡ Ù„Ùƒ ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹.',
-  'Choose your language': 'Ø§Ø®ØªØ± Ù„ØºØªÙƒ',
-  'You can change this anytime in settings': 'ÙŠÙ…ÙƒÙ†Ùƒ ØªØºÙŠÙŠØ± Ø°Ù„Ùƒ ÙÙŠ Ø£ÙŠ ÙˆÙ‚Øª Ù…Ù† Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª',
-  'What best describes you?': 'Ù…Ø§ Ø§Ù„ÙˆØµÙ Ø§Ù„Ø£Ù†Ø³Ø¨ Ù„ÙƒØŸ',
-  "We'll tailor your experience based on this": 'Ø³Ù†Ø®ØµØµ ØªØ¬Ø±Ø¨ØªÙƒ Ø¨Ù†Ø§Ø¡Ù‹ Ø¹Ù„Ù‰ Ø°Ù„Ùƒ',
-  'Tell us about you': 'Ø£Ø®Ø¨Ø±Ù†Ø§ Ø¹Ù†Ùƒ',
-  "Just the basics â€” we'll use this to personalize your workspace": 'ÙÙ‚Ø· Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ© â€” Ø³Ù†Ø³ØªØ®Ø¯Ù…Ù‡Ø§ Ù„ØªØ®ØµÙŠØµ Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„Ùƒ',
-  'Country': 'Ø§Ù„Ø¯ÙˆÙ„Ø©',
-  'Select your country': 'Ø§Ø®ØªØ± Ø¯ÙˆÙ„ØªÙƒ',
-  'Profession': 'Ø§Ù„Ù…Ù‡Ù†Ø©',
-  'e.g. Software Engineer, Student, Designer': 'Ù…Ø«Ù„Ø§Ù‹: Ù…Ù‡Ù†Ø¯Ø³ Ø¨Ø±Ù…Ø¬ÙŠØ§ØªØŒ Ø·Ø§Ù„Ø¨ØŒ Ù…ØµÙ…Ù…',
-  "What's your main goal?": 'Ù…Ø§ Ù‡Ø¯ÙÙƒ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØŸ',
-  "Pick one â€” we'll recommend the best tools for it": 'Ø§Ø®ØªØ± ÙˆØ§Ø­Ø¯Ø§Ù‹ ÙˆØ³Ù†Ù‚ØªØ±Ø­ Ø£ÙØ¶Ù„ Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ù„Ù‡',
-  'Your recommended tools': 'Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ù…Ù‚ØªØ±Ø­Ø© Ù„Ùƒ',
-  'Based on your profile, these will help you get started fast': 'Ø¨Ù†Ø§Ø¡Ù‹ Ø¹Ù„Ù‰ Ù…Ù„ÙÙƒØŒ Ø³ØªØ³Ø§Ø¹Ø¯Ùƒ Ù‡Ø°Ù‡ Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø¹Ù„Ù‰ Ø§Ù„Ø¨Ø¯Ø¡ Ø¨Ø³Ø±Ø¹Ø©',
-  "You're all set": 'ÙƒÙ„ Ø´ÙŠØ¡ Ø¬Ø§Ù‡Ø²',
-  'Take tour': 'Ø§Ø¨Ø¯Ø£ Ø§Ù„Ø¬ÙˆÙ„Ø©',
-  'Quick Start': 'Ø¨Ø¯Ø¡ Ø³Ø±ÙŠØ¹',
-  'Your Progress': 'ØªÙ‚Ø¯Ù…Ùƒ',
-  'Achievements': 'Ø§Ù„Ø¥Ù†Ø¬Ø§Ø²Ø§Øª',
-  'Recommended For You': 'Ù…Ù‚ØªØ±Ø­ Ù„Ùƒ',
-  'Finish': 'Ø¥Ù†Ù‡Ø§Ø¡',
-  'Next': 'Ø§Ù„ØªØ§Ù„ÙŠ',
-
-  'AI Workspace': 'Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Search tools... (e.g. CV, translate, quiz)': 'Ø§Ø¨Ø­Ø« Ø¹Ù† Ø§Ù„Ø£Ø¯ÙˆØ§Øª... (Ù…Ø«Ù„Ø§Ù‹ CVØŒ ØªØ±Ø¬Ù…Ø©ØŒ Ø§Ø®ØªØ¨Ø§Ø±)',
-  'Pinned': 'Ø§Ù„Ù…Ø«Ø¨ØªØ©',
-  'No tools found': 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø£Ø¯ÙˆØ§Øª',
-  'Try a different search or category.': 'Ø¬Ø±Ù‘Ø¨ Ø¨Ø­Ø«Ø§Ù‹ Ø£Ùˆ ÙØ¦Ø© Ù…Ø®ØªÙ„ÙØ©.',
-  'Favorites': 'Ø§Ù„Ù…ÙØ¶Ù„Ø©',
-  'Click the star on any tool to add it here.': 'Ø§Ø¶ØºØ· Ø§Ù„Ù†Ø¬Ù…Ø© Ø¹Ù„Ù‰ Ø£ÙŠ Ø£Ø¯Ø§Ø© Ù„Ø¥Ø¶Ø§ÙØªÙ‡Ø§ Ù‡Ù†Ø§.',
-  'Recently Used': 'Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…Ø© Ù…Ø¤Ø®Ø±Ø§Ù‹',
-  'Tools you use will appear here for quick access.': 'Ø³ØªØ¸Ù‡Ø± Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø§Ù„ØªÙŠ ØªØ³ØªØ®Ø¯Ù…Ù‡Ø§ Ù‡Ù†Ø§ Ù„Ù„ÙˆØµÙˆÙ„ Ø§Ù„Ø³Ø±ÙŠØ¹.',
-  'Continue Working': 'Ù…ØªØ§Ø¨Ø¹Ø© Ø§Ù„Ø¹Ù…Ù„',
-  "No drafts in progress. Start a new document and it'll show up here.": 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø³ÙˆØ¯Ø§Øª Ù‚ÙŠØ¯ Ø§Ù„Ø¹Ù…Ù„. Ø§Ø¨Ø¯Ø£ Ù…Ø³ØªÙ†Ø¯Ø§Ù‹ Ø¬Ø¯ÙŠØ¯Ø§Ù‹ ÙˆØ³ÙŠØ¸Ù‡Ø± Ù‡Ù†Ø§.',
-  'Draft': 'Ù…Ø³ÙˆØ¯Ø©',
-  'AI Recommendations': 'Ø§Ù‚ØªØ±Ø§Ø­Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Recent Activity': 'Ø§Ù„Ù†Ø´Ø§Ø· Ø§Ù„Ø£Ø®ÙŠØ±',
-  'No recent activity': 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù†Ø´Ø§Ø· Ø­Ø¯ÙŠØ«',
-  'My Files': 'Ù…Ù„ÙØ§ØªÙŠ',
-  'All your generated documents, CVs, translations, chats and projects in one place.': 'ÙƒÙ„ Ù…Ø³ØªÙ†Ø¯Ø§ØªÙƒ ÙˆØ³ÙŠØ±Ùƒ Ø§Ù„Ø°Ø§ØªÙŠØ© ÙˆØªØ±Ø¬Ù…Ø§ØªÙƒ ÙˆÙ…Ø­Ø§Ø¯Ø«Ø§ØªÙƒ ÙˆÙ…Ø´Ø§Ø±ÙŠØ¹Ùƒ ÙÙŠ Ù…ÙƒØ§Ù† ÙˆØ§Ø­Ø¯.',
-  'Total Files': 'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ù„ÙØ§Øª',
-  'Completed': 'Ù…ÙƒØªÙ…Ù„',
-  'Drafts': 'Ø§Ù„Ù…Ø³ÙˆØ¯Ø§Øª',
-  'Search files...': 'Ø§Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ù…Ù„ÙØ§Øª...',
-  'File name': 'Ø§Ø³Ù… Ø§Ù„Ù…Ù„Ù',
-
-  'Website Builder': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹',
-  'New cloud project': 'Ù…Ø´Ø±ÙˆØ¹ Ø³Ø­Ø§Ø¨ÙŠ Ø¬Ø¯ÙŠØ¯',
-  'DRAFT': 'Ù…Ø³ÙˆØ¯Ø©',
-  'Close': 'Ø¥ØºÙ„Ø§Ù‚',
-  'Website Builder V1 Launch Center': 'Ù…Ø±ÙƒØ² Ø¥Ø·Ù„Ø§Ù‚ Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ V1',
-  'One place to onboard a project, run production checks, publish the release and verify that the live site is healthy.': 'Ù…ÙƒØ§Ù† ÙˆØ§Ø­Ø¯ Ù„ØªÙ‡ÙŠØ¦Ø© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙˆØªØ´ØºÙŠÙ„ ÙØ­ÙˆØµØ§Øª Ø§Ù„Ø¥Ù†ØªØ§Ø¬ ÙˆÙ†Ø´Ø± Ø§Ù„Ø¥ØµØ¯Ø§Ø± ÙˆØ§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø³Ù„Ø§Ù…Ø© Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ø¨Ø§Ø´Ø±.',
-  'Export launch report': 'ØªØµØ¯ÙŠØ± ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚',
-  'Final readiness': 'Ø§Ù„Ø¬Ø§Ù‡Ø²ÙŠØ© Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠØ©',
-  'Automated release gate for this project.': 'Ø¨ÙˆØ§Ø¨Ø© Ø¥ØµØ¯Ø§Ø± Ø¢Ù„ÙŠØ© Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹.',
-  'Audit': 'Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚',
-  'Health': 'Ø§Ù„Ø­Ø§Ù„Ø©',
-  'Sync': 'Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø©',
-  'Live': 'Ù…Ø¨Ø§Ø´Ø±',
-  'Launch blockers': 'Ù…Ø¹ÙˆÙ‚Ø§Øª Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚',
-  'âœ“ No critical production blockers detected.': 'âœ“ Ù„Ù… ÙŠØªÙ… Ø§ÙƒØªØ´Ø§Ù Ù…Ø¹ÙˆÙ‚Ø§Øª Ø¥Ù†ØªØ§Ø¬ Ø­Ø±Ø¬Ø©.',
-  'Automated launch checks': 'ÙØ­ÙˆØµØ§Øª Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚ Ø§Ù„Ø¢Ù„ÙŠØ©',
-  'Publish only after the preflight items are green.': 'Ø§Ù†Ø´Ø± ÙÙ‚Ø· Ø¨Ø¹Ø¯ Ù†Ø¬Ø§Ø­ Ø¬Ù…ÙŠØ¹ ÙØ­ÙˆØµØ§Øª Ù…Ø§ Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚.',
-  'Quick-start onboarding': 'Ø¥Ø¹Ø¯Ø§Ø¯ Ø³Ø±ÙŠØ¹',
-  'Start from a proven page structure, then complete the production URL and cloud save.': 'Ø§Ø¨Ø¯Ø£ Ø¨Ù‡ÙŠÙƒÙ„ ØµÙØ­Ø© Ù…Ø¬Ø±Ø¨ Ø«Ù… Ø£ÙƒÙ…Ù„ Ø±Ø§Ø¨Ø· Ø§Ù„Ø¥Ù†ØªØ§Ø¬ ÙˆØ§Ù„Ø­ÙØ¸ Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠ.',
-  'FIRST PROJECT': 'Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ø£ÙˆÙ„',
-  'Save project': 'Ø­ÙØ¸ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø©',
-  'Manual production sign-off': 'Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ø¥Ù†ØªØ§Ø¬ Ø§Ù„ÙŠØ¯ÙˆÙŠ',
-  'These checks involve external services and must be confirmed by a human before accepting paid customers.': 'ØªØªØ¶Ù…Ù† Ù‡Ø°Ù‡ Ø§Ù„ÙØ­ÙˆØµØ§Øª Ø®Ø¯Ù…Ø§Øª Ø®Ø§Ø±Ø¬ÙŠØ© ÙˆÙŠØ¬Ø¨ ØªØ£ÙƒÙŠØ¯Ù‡Ø§ ÙŠØ¯ÙˆÙŠØ§Ù‹ Ù‚Ø¨Ù„ Ø§Ø³ØªÙ‚Ø¨Ø§Ù„ Ø¹Ù…Ù„Ø§Ø¡ Ù…Ø¯ÙÙˆØ¹ÙŠÙ†.',
-  'Release actions': 'Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø§Ù„Ø¥ØµØ¯Ø§Ø±',
-  'Billing & limits': 'Ø§Ù„ÙÙˆØªØ±Ø© ÙˆØ§Ù„Ø­Ø¯ÙˆØ¯',
-  'Verify plan and Stripe state': 'ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø®Ø·Ø© ÙˆØ­Ø§Ù„Ø© Stripe',
-  'Audit & backups': 'Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚ ÙˆØ§Ù„Ù†Ø³Ø® Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠØ©',
-  'Export backup and diagnostics': 'ØªØµØ¯ÙŠØ± Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© ÙˆØ§Ù„ØªØ´Ø®ÙŠØµØ§Øª',
-  'Blocked until automated preflight is ready': 'Ù…Ø­Ø¸ÙˆØ± Ø­ØªÙ‰ ØªØ¬Ù‡Ø² ÙØ­ÙˆØµØ§Øª Ù…Ø§ Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚',
-  'Verify live release': 'ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ø§Ù„Ù…Ø¨Ø§Ø´Ø±',
-  'Confirm index.html is deployed': 'ØªØ£ÙƒØ¯ Ù…Ù† Ù†Ø´Ø± index.html',
-  'V1 release decision': 'Ù‚Ø±Ø§Ø± Ø¥ØµØ¯Ø§Ø± V1',
-  'Plans & Billing': 'Ø§Ù„Ø®Ø·Ø· ÙˆØ§Ù„ÙÙˆØªØ±Ø©',
-  'Secure entitlements, usage limits and Stripe subscription management.': 'ØµÙ„Ø§Ø­ÙŠØ§Øª Ø¢Ù…Ù†Ø© ÙˆØ­Ø¯ÙˆØ¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… ÙˆØ¥Ø¯Ø§Ø±Ø© Ø§Ø´ØªØ±Ø§Ùƒ Stripe.',
-  'Manage subscription': 'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø§Ø´ØªØ±Ø§Ùƒ',
-  'CURRENT': 'Ø§Ù„Ø­Ø§Ù„ÙŠ',
-  'Active plan': 'Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ù†Ø´Ø·Ø©',
-  'Manage downgrade in Stripe': 'Ø¥Ø¯Ø§Ø±Ø© Ø®ÙØ¶ Ø§Ù„Ø®Ø·Ø© ÙÙŠ Stripe',
-  'Default plan': 'Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠØ©',
-  'Website Builder Usage': 'Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹',
-  'Limits are also enforced by Supabase for project/page growth.': 'ØªÙØ·Ø¨Ù‚ Ø§Ù„Ø­Ø¯ÙˆØ¯ Ø£ÙŠØ¶Ø§Ù‹ Ø¹Ø¨Ø± Supabase Ù„Ù†Ù…Ùˆ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ ÙˆØ§Ù„ØµÙØ­Ø§Øª.',
-  'Client Delivery Workspace': 'Ù…Ø³Ø§Ø­Ø© ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…ÙŠÙ„',
-  'Approval, launch readiness, usage and one-click client handoff.': 'Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø© ÙˆØ¬Ø§Ù‡Ø²ÙŠØ© Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚ ÙˆØ§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… ÙˆØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø¨Ù†Ù‚Ø±Ø© ÙˆØ§Ø­Ø¯Ø©.',
-  'Copy preview': 'Ù†Ø³Ø® Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø©',
-  'Client & project': 'Ø§Ù„Ø¹Ù…ÙŠÙ„ ÙˆØ§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Client name': 'Ø§Ø³Ù… Ø§Ù„Ø¹Ù…ÙŠÙ„',
-  'Client email': 'Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¹Ù…ÙŠÙ„',
-  'Project code': 'Ø±Ù…Ø² Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Due date': 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚',
-  'Delivery status': 'Ø­Ø§Ù„Ø© Ø§Ù„ØªØ³Ù„ÙŠÙ…',
-  'Building': 'Ù‚ÙŠØ¯ Ø§Ù„Ø¨Ù†Ø§Ø¡',
-  'Ready for review': 'Ø¬Ø§Ù‡Ø² Ù„Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©',
-  'Approved': 'Ù…Ø¹ØªÙ…Ø¯',
-  'Delivered': 'ØªÙ… Ø§Ù„ØªØ³Ù„ÙŠÙ…',
-  'Handoff notes': 'Ù…Ù„Ø§Ø­Ø¸Ø§Øª Ø§Ù„ØªØ³Ù„ÙŠÙ…',
-  'Launch readiness': 'Ø¬Ø§Ù‡Ø²ÙŠØ© Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚',
-  'Client approval fingerprint': 'Ø¨ØµÙ…Ø© Ù…ÙˆØ§ÙÙ‚Ø© Ø§Ù„Ø¹Ù…ÙŠÙ„',
-  'Approve current build': 'Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ø¨Ù†Ø§Ø¡ Ø§Ù„Ø­Ø§Ù„ÙŠ',
-  'Clear approval': 'Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø©',
-  'Mark delivered': 'ÙˆØ¶Ø¹ Ø¹Ù„Ø§Ù…Ø© ØªÙ… Ø§Ù„ØªØ³Ù„ÙŠÙ…',
-  'Download client handoff ZIP': 'ØªÙ†Ø²ÙŠÙ„ Ø­Ø²Ù…Ø© ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…ÙŠÙ„ ZIP',
-  'Site + backup + reports + checksums': 'Ø§Ù„Ù…ÙˆÙ‚Ø¹ + Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© + Ø§Ù„ØªÙ‚Ø§Ø±ÙŠØ± + Ù‚ÙŠÙ… Ø§Ù„ØªØ­Ù‚Ù‚',
-  'Export delivery report': 'ØªØµØ¯ÙŠØ± ØªÙ‚Ø±ÙŠØ± Ø§Ù„ØªØ³Ù„ÙŠÙ…',
-  'Approval, readiness, usage and audit': 'Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø© ÙˆØ§Ù„Ø¬Ø§Ù‡Ø²ÙŠØ© ÙˆØ§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… ÙˆØ§Ù„ØªØ¯Ù‚ÙŠÙ‚',
-  'Open releases': 'ÙØªØ­ Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª',
-  'Unlisted review link': 'Ø±Ø§Ø¨Ø· Ù…Ø±Ø§Ø¬Ø¹Ø© ØºÙŠØ± Ù…Ø¯Ø±Ø¬',
-  'Operations & Reliability': 'Ø§Ù„Ø¹Ù…Ù„ÙŠØ§Øª ÙˆØ§Ù„Ù…ÙˆØ«ÙˆÙ‚ÙŠØ©',
-  'Backup, restore, exports and bulk operations.': 'Ø§Ù„Ù†Ø³Ø® Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠ ÙˆØ§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø© ÙˆØ§Ù„ØªØµØ¯ÙŠØ± ÙˆØ§Ù„Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ù…Ø¬Ù…Ø¹Ø©.',
-  'Export project backup': 'ØªØµØ¯ÙŠØ± Ù†Ø³Ø®Ø© Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© Ù„Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Portable JSON snapshot': 'Ù„Ù‚Ø·Ø© JSON Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ù†Ù‚Ù„',
-  'Import project backup': 'Ø§Ø³ØªÙŠØ±Ø§Ø¯ Ù†Ø³Ø®Ø© Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© Ù„Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Restore JSON as local draft': 'Ø§Ø³ØªØ¹Ø§Ø¯Ø© JSON ÙƒÙ…Ø³ÙˆØ¯Ø© Ù…Ø­Ù„ÙŠØ©',
-  'Export audit report': 'ØªØµØ¯ÙŠØ± ØªÙ‚Ø±ÙŠØ± Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚',
-  'Pages, elements and health': 'Ø§Ù„ØµÙØ­Ø§Øª ÙˆØ§Ù„Ø¹Ù†Ø§ØµØ± ÙˆØ§Ù„Ø­Ø§Ù„Ø©',
-  'Export leads CSV': 'ØªØµØ¯ÙŠØ± Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† CSV',
-  'Export analytics CSV': 'ØªØµØ¯ÙŠØ± Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª CSV',
-  'Mark all leads read': 'ÙˆØ¶Ø¹ Ø¹Ù„Ø§Ù…Ø© Ù…Ù‚Ø±ÙˆØ¡ Ø¹Ù„Ù‰ ÙƒÙ„ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ†',
-  'Bulk inbox cleanup': 'ØªÙ†Ø¸ÙŠÙ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„ÙˆØ§Ø±Ø¯ Ø¬Ù…Ø§Ø¹ÙŠØ§Ù‹',
-  'Archive read leads': 'Ø£Ø±Ø´ÙØ© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ù‚Ø±ÙˆØ¡ÙŠÙ†',
-  'Keep inbox focused': 'Ø­Ø§ÙØ¸ Ø¹Ù„Ù‰ ØµÙ†Ø¯ÙˆÙ‚ ÙˆØ§Ø±Ø¯ Ù…Ù†Ø¸Ù…',
-  'Site Analytics': 'ØªØ­Ù„ÙŠÙ„Ø§Øª Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Top pages': 'Ø£Ù‡Ù… Ø§Ù„ØµÙØ­Ø§Øª',
-  'Traffic sources': 'Ù…ØµØ§Ø¯Ø± Ø§Ù„Ø²ÙŠØ§Ø±Ø§Øª',
-  'Media Library': 'Ù…ÙƒØªØ¨Ø© Ø§Ù„ÙˆØ³Ø§Ø¦Ø·',
-  'Use': 'Ø§Ø³ØªØ®Ø¯Ø§Ù…',
-  'Favicon': 'Ø£ÙŠÙ‚ÙˆÙ†Ø© Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Social': 'Ø§Ø¬ØªÙ…Ø§Ø¹ÙŠ',
-  'Lead CRM': 'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ†',
-  'Search, qualify, prioritize and follow up with website leads.': 'Ø§Ø¨Ø­Ø« Ø¹Ù† Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† ÙˆØµÙ†Ù‘ÙÙ‡Ù… ÙˆØ­Ø¯Ø¯ Ø£ÙˆÙ„ÙˆÙŠØ§ØªÙ‡Ù… ÙˆØªØ§Ø¨Ø¹Ù‡Ù….',
-  'Read all': 'Ù‚Ø±Ø§Ø¡Ø© Ø§Ù„ÙƒÙ„',
-  'Archive read': 'Ø£Ø±Ø´ÙØ© Ø§Ù„Ù…Ù‚Ø±ÙˆØ¡',
-  'All inbox statuses': 'ÙƒÙ„ Ø­Ø§Ù„Ø§Øª Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„ÙˆØ§Ø±Ø¯',
-  'New': 'Ø¬Ø¯ÙŠØ¯',
-  'Read': 'Ù…Ù‚Ø±ÙˆØ¡',
-  'Archived': 'Ù…Ø¤Ø±Ø´Ù',
-  'All CRM stages': 'ÙƒÙ„ Ù…Ø±Ø§Ø­Ù„ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡',
-  'Qualified': 'Ù…Ø¤Ù‡Ù„',
-  'Contacted': 'ØªÙ… Ø§Ù„ØªÙˆØ§ØµÙ„',
-  'Won': 'ØªÙ… Ø§Ù„ÙÙˆØ²',
-  'Lost': 'Ù…ÙÙ‚ÙˆØ¯',
-  'Select shown': 'ØªØ­Ø¯ÙŠØ¯ Ø§Ù„Ø¸Ø§Ù‡Ø±',
-  'Bulk stage:': 'Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø¬Ù…Ø§Ø¹ÙŠØ©:',
-  'No leads yet. Publish a website with a Contact section, then submissions will appear here.': 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø¹Ù…Ù„Ø§Ø¡ Ù…Ø­ØªÙ…Ù„ÙˆÙ† Ø¨Ø¹Ø¯. Ø§Ù†Ø´Ø± Ù…ÙˆÙ‚Ø¹Ø§Ù‹ ÙŠØ­ØªÙˆÙŠ Ù‚Ø³Ù… ØªÙˆØ§ØµÙ„ ÙˆØ³ØªØ¸Ù‡Ø± Ø§Ù„Ø¥Ø±Ø³Ø§Ù„Ø§Øª Ù‡Ù†Ø§.',
-  'No leads match the current search and filters.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬ ØªØ·Ø§Ø¨Ù‚ Ø§Ù„Ø¨Ø­Ø« ÙˆØ§Ù„ÙÙ„Ø§ØªØ± Ø§Ù„Ø­Ø§Ù„ÙŠØ©.',
-  'Normal priority': 'Ø£ÙˆÙ„ÙˆÙŠØ© Ø¹Ø§Ø¯ÙŠØ©',
-  'â˜… Priority': 'â˜… Ø£ÙˆÙ„ÙˆÙŠØ©',
-  'â˜…â˜… High priority': 'â˜…â˜… Ø£ÙˆÙ„ÙˆÙŠØ© Ø¹Ø§Ù„ÙŠØ©',
-  'Notes:': 'Ù…Ù„Ø§Ø­Ø¸Ø§Øª:',
-  'Mark read': 'ÙˆØ¶Ø¹ Ø¹Ù„Ø§Ù…Ø© Ù…Ù‚Ø±ÙˆØ¡',
-  'Archive': 'Ø£Ø±Ø´ÙØ©',
-  'Tags': 'ÙˆØ³ÙˆÙ…',
-  'Notes': 'Ù…Ù„Ø§Ø­Ø¸Ø§Øª',
-  'Release Management': 'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª',
-  'Immutable publish archives, live rollback and unlisted draft previews.': 'Ø£Ø±Ø´ÙŠÙØ§Øª Ù†Ø´Ø± ØºÙŠØ± Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„ØªØºÙŠÙŠØ± ÙˆØ§Ø³ØªØ±Ø¬Ø§Ø¹ Ù…Ø¨Ø§Ø´Ø± ÙˆÙ…Ø¹Ø§ÙŠÙ†Ø§Øª Ù…Ø³ÙˆØ¯Ø§Øª ØºÙŠØ± Ù…Ø¯Ø±Ø¬Ø©.',
-  'Next release': 'Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ø§Ù„ØªØ§Ù„ÙŠ',
-  'Unlisted share preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ù…Ø´Ø§Ø±ÙƒØ© ØºÙŠØ± Ù…Ø¯Ø±Ø¬Ø©',
-  'Anyone with this URL can open it. Tracking integrations are disabled in preview.': 'Ø£ÙŠ Ø´Ø®Øµ Ù„Ø¯ÙŠÙ‡ Ù‡Ø°Ø§ Ø§Ù„Ø±Ø§Ø¨Ø· ÙŠÙ…ÙƒÙ†Ù‡ ÙØªØ­Ù‡. ØªÙƒØ§Ù…Ù„Ø§Øª Ø§Ù„ØªØªØ¨Ø¹ Ù…Ø¹Ø·Ù„Ø© ÙÙŠ Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø©.',
-  'Open': 'ÙØªØ­',
-  'Regenerate': 'Ø¥Ø¹Ø§Ø¯Ø© Ø¥Ù†Ø´Ø§Ø¡',
-  'No releases yet. Add an optional release note and click Publish.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥ØµØ¯Ø§Ø±Ø§Øª Ø¨Ø¹Ø¯. Ø£Ø¶Ù Ù…Ù„Ø§Ø­Ø¸Ø© Ø¥ØµØ¯Ø§Ø± Ø§Ø®ØªÙŠØ§Ø±ÙŠØ© Ø«Ù… Ø§Ø¶ØºØ· Ù†Ø´Ø±.',
-  'LIVE REF': 'Ù…Ø±Ø¬Ø¹ Ù…Ø¨Ø§Ø´Ø±',
-  'Rollback live': 'Ø§Ø³ØªØ±Ø¬Ø§Ø¹ Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø©',
-  'Restore editor': 'Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø­Ø±Ø±',
-  'Delete archive': 'Ø­Ø°Ù Ø§Ù„Ø£Ø±Ø´ÙŠÙ',
-  'Project History': 'Ø³Ø¬Ù„ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Last 10 manual saves. Autosave does not create history entries.': 'Ø¢Ø®Ø± 10 Ø¹Ù…Ù„ÙŠØ§Øª Ø­ÙØ¸ ÙŠØ¯ÙˆÙŠØ©. Ø§Ù„Ø­ÙØ¸ Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ Ù„Ø§ ÙŠÙ†Ø´Ø¦ Ø³Ø¬Ù„Ø§Ù‹.',
-  'Restore version': 'Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø§Ù„Ø¥ØµØ¯Ø§Ø±',
-  'No manual save history yet. Click Save to create the first restore point.': 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø³Ø¬Ù„ Ø­ÙØ¸ ÙŠØ¯ÙˆÙŠ Ø¨Ø¹Ø¯. Ø§Ø¶ØºØ· Ø­ÙØ¸ Ù„Ø¥Ù†Ø´Ø§Ø¡ Ø£ÙˆÙ„ Ù†Ù‚Ø·Ø© Ø§Ø³ØªØ¹Ø§Ø¯Ø©.',
-  'Pages': 'Ø§Ù„ØµÙØ­Ø§Øª',
-  'HOME': 'Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©',
-  'HIDDEN': 'Ù…Ø®ÙÙŠ',
-  'English': 'Ø§Ù„Ø¥Ù†Ø¬Ù„ÙŠØ²ÙŠØ©',
-  'Unlock multilingual': 'ÙØªØ­ ØªØ¹Ø¯Ø¯ Ø§Ù„Ù„ØºØ§Øª',
-  'Page SEO': 'SEO Ø§Ù„ØµÙØ­Ø©',
-  'Global Header & Footer': 'Ø§Ù„Ø±Ø£Ø³ ÙˆØ§Ù„ØªØ°ÙŠÙŠÙ„ Ø§Ù„Ø¹Ø§Ù…Ø§Ù†',
-  'Header': 'Ø§Ù„Ø±Ø£Ø³',
-  'Enabled': 'Ù…ÙØ¹Ù‘Ù„',
-  'Sticky': 'Ø«Ø§Ø¨Øª',
-  'Mobile menu': 'Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ø¬ÙˆØ§Ù„',
-  'Show CTA button': 'Ø¥Ø¸Ù‡Ø§Ø± Ø²Ø± Ø§Ù„Ø¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡',
-  'Navigation style': 'Ù†Ù…Ø· Ø§Ù„ØªÙ†Ù‚Ù„',
-  'Link gap': 'ØªØ¨Ø§Ø¹Ø¯ Ø§Ù„Ø±ÙˆØ§Ø¨Ø·',
-  'Brand px': 'Ø­Ø¬Ù… Ø§Ù„Ø¹Ù„Ø§Ù…Ø©',
-  'Links px': 'Ø­Ø¬Ù… Ø§Ù„Ø±ÙˆØ§Ø¨Ø·',
-  'Footer': 'Ø§Ù„ØªØ°ÙŠÙŠÙ„',
-  'Page links': 'Ø±ÙˆØ§Ø¨Ø· Ø§Ù„ØµÙØ­Ø§Øª',
-  'Header and footer are global across every page and are included in Preview, ZIP Export and Publish.': 'Ø§Ù„Ø±Ø£Ø³ ÙˆØ§Ù„ØªØ°ÙŠÙŠÙ„ Ø¹Ø§Ù…Ø§Ù† Ù„ÙƒÙ„ Ø§Ù„ØµÙØ­Ø§Øª ÙˆÙŠØ¸Ù‡Ø±Ø§Ù† ÙÙŠ Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø© ÙˆØªØµØ¯ÙŠØ± ZIP ÙˆØ§Ù„Ù†Ø´Ø±.',
-  'Site Experience': 'ØªØ¬Ø±Ø¨Ø© Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Scroll progress': 'ØªÙ‚Ø¯Ù… Ø§Ù„ØªÙ…Ø±ÙŠØ±',
-  'Back to top': 'Ø§Ù„Ø¹ÙˆØ¯Ø© Ù„Ù„Ø£Ø¹Ù„Ù‰',
-  'Cookie / privacy notice': 'Ø¥Ø´Ø¹Ø§Ø± Ù…Ù„ÙØ§Øª Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø· / Ø§Ù„Ø®ØµÙˆØµÙŠØ©',
-  'Marketing & discovery': 'Ø§Ù„ØªØ³ÙˆÙŠÙ‚ ÙˆØ§Ù„Ø§ÙƒØªØ´Ø§Ù',
-  'Announcement': 'Ø¥Ø¹Ù„Ø§Ù†',
-  'Popup': 'Ù†Ø§ÙØ°Ø© Ù…Ù†Ø¨Ø«Ù‚Ø©',
-  'Site search': 'Ø¨Ø­Ø« Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Gallery lightbox': 'Ø¹Ø§Ø±Ø¶ Ù…Ø¹Ø±Ø¶ Ø§Ù„ØµÙˆØ±',
-  'Floating CTA': 'Ø²Ø± Ø¯Ø¹ÙˆØ© Ø¹Ø§Ø¦Ù…',
-  'Share tools': 'Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ù…Ø´Ø§Ø±ÙƒØ©',
-  'Pre-publish audit': 'ØªØ¯Ù‚ÙŠÙ‚ Ù‚Ø¨Ù„ Ø§Ù„Ù†Ø´Ø±',
-  'Restore recovery snapshot': 'Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù„Ù‚Ø·Ø© Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯',
-  'FAQ structured data is generated automatically from Accordion elements during Preview, Export and Publish.': 'ÙŠØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø¨ÙŠØ§Ù†Ø§Øª FAQ Ø§Ù„Ù…Ù†Ø¸Ù…Ø© ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹ Ù…Ù† Ø¹Ù†Ø§ØµØ± Accordion Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø© ÙˆØ§Ù„ØªØµØ¯ÙŠØ± ÙˆØ§Ù„Ù†Ø´Ø±.',
-  'Production Integrations': 'ØªÙƒØ§Ù…Ù„Ø§Øª Ø§Ù„Ø¥Ù†ØªØ§Ø¬',
-  'Organization schema': 'Ù…Ø®Ø·Ø· Ø§Ù„Ù…Ø¤Ø³Ø³Ø©',
-  'Local Business schema': 'Ù…Ø®Ø·Ø· Ø§Ù„Ù†Ø´Ø§Ø· Ø§Ù„Ù…Ø­Ù„ÙŠ',
-  'Maintenance mode': 'ÙˆØ¶Ø¹ Ø§Ù„ØµÙŠØ§Ù†Ø©',
-  'Global custom CSS': 'CSS Ù…Ø®ØµØµ Ø¹Ø§Ù…',
-  'Extra robots.txt rules': 'Ù‚ÙˆØ§Ø¹Ø¯ robots.txt Ø¥Ø¶Ø§ÙÙŠØ©',
-  'Global Theme': 'Ø§Ù„Ù…Ø¸Ù‡Ø± Ø§Ù„Ø¹Ø§Ù…',
-  'Font': 'Ø§Ù„Ø®Ø·',
-  'Width': 'Ø§Ù„Ø¹Ø±Ø¶',
-  'Radius': 'Ø§Ù„Ø§Ø³ØªØ¯Ø§Ø±Ø©',
-  'Spacing': 'Ø§Ù„ØªØ¨Ø§Ø¹Ø¯',
-  'Apply to page': 'ØªØ·Ø¨ÙŠÙ‚ Ø¹Ù„Ù‰ Ø§Ù„ØµÙØ­Ø©',
-  'Apply all pages': 'ØªØ·Ø¨ÙŠÙ‚ Ø¹Ù„Ù‰ ÙƒÙ„ Ø§Ù„ØµÙØ­Ø§Øª',
-  'Site SEO & Branding': 'SEO Ø§Ù„Ù…ÙˆÙ‚Ø¹ ÙˆØ§Ù„Ø¹Ù„Ø§Ù…Ø©',
-  'Page Templates': 'Ù‚ÙˆØ§Ù„Ø¨ Ø§Ù„ØµÙØ­Ø§Øª',
-  'Use template': 'Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ù‚Ø§Ù„Ø¨',
-  'Section Templates': 'Ù‚ÙˆØ§Ù„Ø¨ Ø§Ù„Ø£Ù‚Ø³Ø§Ù…',
-  'My Sections': 'Ø£Ù‚Ø³Ø§Ù…ÙŠ',
-  'Save selected': 'Ø­ÙØ¸ Ø§Ù„Ù…Ø­Ø¯Ø¯',
-  'Loading templatesâ€¦': 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨â€¦',
-  'No saved sections yet.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø£Ù‚Ø³Ø§Ù… Ù…Ø­ÙÙˆØ¸Ø© Ø¨Ø¹Ø¯.',
-  'Add Element': 'Ø¥Ø¶Ø§ÙØ© Ø¹Ù†ØµØ±',
-  'Layers': 'Ø§Ù„Ø·Ø¨Ù‚Ø§Øª',
-  'AI Website Builder': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Export': 'ØªØµØ¯ÙŠØ±',
-  'Duplicate': 'ØªÙƒØ±Ø§Ø±',
-  'Container / Group': 'Ø­Ø§ÙˆÙŠØ© / Ù…Ø¬Ù…ÙˆØ¹Ø©',
-  '+ New container': '+ Ø­Ø§ÙˆÙŠØ© Ø¬Ø¯ÙŠØ¯Ø©',
-  'No container': 'Ø¨Ø¯ÙˆÙ† Ø­Ø§ÙˆÙŠØ©',
-  'Layout': 'Ø§Ù„ØªØ®Ø·ÙŠØ·',
-  'Stack': 'ØªÙƒØ¯ÙŠØ³',
-  'Row': 'ØµÙ',
-  'Align': 'Ø§Ù„Ù…Ø­Ø§Ø°Ø§Ø©',
-  'Start': 'Ø§Ù„Ø¨Ø¯Ø§ÙŠØ©',
-  'Center': 'Ø§Ù„ÙˆØ³Ø·',
-  'End': 'Ø§Ù„Ù†Ù‡Ø§ÙŠØ©',
-  'Stretch': 'ØªÙ…Ø¯ÙŠØ¯',
-  'Gap': 'Ø§Ù„ÙØ¬ÙˆØ©',
-  'Padding': 'Ø§Ù„Ø­Ø´Ùˆ',
-  'Background': 'Ø§Ù„Ø®Ù„ÙÙŠØ©',
-  'Border': 'Ø§Ù„Ø­Ø¯',
-  'No shadow': 'Ø¨Ø¯ÙˆÙ† Ø¸Ù„',
-  'Small shadow': 'Ø¸Ù„ ØµØºÙŠØ±',
-  'Medium shadow': 'Ø¸Ù„ Ù…ØªÙˆØ³Ø·',
-  'Large shadow': 'Ø¸Ù„ ÙƒØ¨ÙŠØ±',
-  'XL shadow': 'Ø¸Ù„ ÙƒØ¨ÙŠØ± Ø¬Ø¯Ø§Ù‹',
-  'Container column': 'Ø¹Ù…ÙˆØ¯ Ø§Ù„Ø­Ø§ÙˆÙŠØ©',
-  'Span': 'Ø§Ù„Ø§Ù…ØªØ¯Ø§Ø¯',
-  'Delete container & ungroup': 'Ø­Ø°Ù Ø§Ù„Ø­Ø§ÙˆÙŠØ© ÙˆÙÙƒ Ø§Ù„ØªØ¬Ù…ÙŠØ¹',
-  'Reusable Symbols': 'Ø±Ù…ÙˆØ² Ù‚Ø§Ø¨Ù„Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…',
-  'Detach': 'ÙØµÙ„',
-  'Create symbol': 'Ø¥Ù†Ø´Ø§Ø¡ Ø±Ù…Ø²',
-  'No symbols yet. Create one from this element.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø±Ù…ÙˆØ² Ø¨Ø¹Ø¯. Ø£Ù†Ø´Ø¦ ÙˆØ§Ø­Ø¯Ø§Ù‹ Ù…Ù† Ù‡Ø°Ø§ Ø§Ù„Ø¹Ù†ØµØ±.',
-  'Library': 'Ø§Ù„Ù…ÙƒØªØ¨Ø©',
-  'Upload': 'Ø±ÙØ¹',
-  'Responsive layout': 'ØªØ®Ø·ÙŠØ· Ù…ØªØ¬Ø§ÙˆØ¨',
-  'Max width px': 'Ø£Ù‚ØµÙ‰ Ø¹Ø±Ø¶ px',
-  'Order': 'Ø§Ù„ØªØ±ØªÙŠØ¨',
-  'Element position': 'Ù…ÙˆØ¶Ø¹ Ø§Ù„Ø¹Ù†ØµØ±',
-  'Auto': 'ØªÙ„Ù‚Ø§Ø¦ÙŠ',
-  'Column span': 'Ø§Ù…ØªØ¯Ø§Ø¯ Ø§Ù„Ø¹Ù…ÙˆØ¯',
-  'Size': 'Ø§Ù„Ø­Ø¬Ù…',
-  'Weight': 'Ø§Ù„ÙˆØ²Ù†',
-  'Text color': 'Ù„ÙˆÙ† Ø§Ù„Ù†Øµ',
-  'Alignment': 'Ø§Ù„Ù…Ø­Ø§Ø°Ø§Ø©',
-  'Left': 'ÙŠØ³Ø§Ø±',
-  'Right': 'ÙŠÙ…ÙŠÙ†',
-  'Line height': 'Ø§Ø±ØªÙØ§Ø¹ Ø§Ù„Ø³Ø·Ø±',
-  'Letter spacing': 'ØªØ¨Ø§Ø¹Ø¯ Ø§Ù„Ø£Ø­Ø±Ù',
-  'Effects': 'Ø§Ù„ØªØ£Ø«ÙŠØ±Ø§Øª',
-  'Opacity %': 'Ø§Ù„Ø´ÙØ§ÙÙŠØ© %',
-  'Rotate Â°': 'Ø§Ù„ØªØ¯ÙˆÙŠØ± Â°',
-  'Border width': 'Ø¹Ø±Ø¶ Ø§Ù„Ø­Ø¯',
-  'Border style': 'Ù†Ù…Ø· Ø§Ù„Ø­Ø¯',
-  'Solid': 'Ù…ØªØµÙ„',
-  'Dashed': 'Ù…ØªÙ‚Ø·Ø¹',
-  'Dotted': 'Ù…Ù†Ù‚Ø·',
-  'Border color': 'Ù„ÙˆÙ† Ø§Ù„Ø­Ø¯',
-  'Shadow': 'Ø§Ù„Ø¸Ù„',
-  'None': 'Ù„Ø§ Ø´ÙŠØ¡',
-  'Small': 'ØµØºÙŠØ±',
-  'Medium': 'Ù…ØªÙˆØ³Ø·',
-  'Large': 'ÙƒØ¨ÙŠØ±',
-  'XL': 'ÙƒØ¨ÙŠØ± Ø¬Ø¯Ø§Ù‹',
-  'Entrance Animation': 'Ø­Ø±ÙƒØ© Ø§Ù„Ø¯Ø®ÙˆÙ„',
-  'Animation': 'Ø§Ù„Ø­Ø±ÙƒØ©',
-  'Fade': 'ØªÙ„Ø§Ø´ÙŠ',
-  'Fade Up': 'ØªÙ„Ø§Ø´ÙŠ Ù„Ù„Ø£Ø¹Ù„Ù‰',
-  'Fade Down': 'ØªÙ„Ø§Ø´ÙŠ Ù„Ù„Ø£Ø³ÙÙ„',
-  'Fade Left': 'ØªÙ„Ø§Ø´ÙŠ Ù„Ù„ÙŠØ³Ø§Ø±',
-  'Fade Right': 'ØªÙ„Ø§Ø´ÙŠ Ù„Ù„ÙŠÙ…ÙŠÙ†',
-  'Zoom In': 'ØªÙƒØ¨ÙŠØ± Ù„Ù„Ø¯Ø§Ø®Ù„',
-  'Zoom Out': 'ØªØµØºÙŠØ± Ù„Ù„Ø®Ø§Ø±Ø¬',
-  'Duration ms': 'Ø§Ù„Ù…Ø¯Ø© ms',
-  'Delay ms': 'Ø§Ù„ØªØ£Ø®ÙŠØ± ms',
-  'Distance px': 'Ø§Ù„Ù…Ø³Ø§ÙØ© px',
-  'Hover': 'Ø§Ù„ØªØ­ÙˆÙŠÙ…',
-  'Scale': 'Ø§Ù„Ù…Ù‚ÙŠØ§Ø³',
-  'Text': 'Ø§Ù„Ù†Øµ',
-  'Width %': 'Ø§Ù„Ø¹Ø±Ø¶ %',
-  'Delete Element': 'Ø­Ø°Ù Ø§Ù„Ø¹Ù†ØµØ±',
-  'Section Anchor / ID': 'Ù…Ø±Ø³Ø§Ø© Ø§Ù„Ù‚Ø³Ù… / ID',
-  'Section Layout': 'ØªØ®Ø·ÙŠØ· Ø§Ù„Ù‚Ø³Ù…',
-  'Section Visuals': 'Ù…Ø¸Ù‡Ø± Ø§Ù„Ù‚Ø³Ù…',
-  'From': 'Ù…Ù†',
-  'To': 'Ø¥Ù„Ù‰',
-  'Gradient angle': 'Ø²Ø§ÙˆÙŠØ© Ø§Ù„ØªØ¯Ø±Ø¬',
-  'Background image URL': 'Ø±Ø§Ø¨Ø· ØµÙˆØ±Ø© Ø§Ù„Ø®Ù„ÙÙŠØ©',
-  'Position': 'Ø§Ù„Ù…ÙˆØ¶Ø¹',
-  'Top': 'Ø£Ø¹Ù„Ù‰',
-  'Bottom': 'Ø£Ø³ÙÙ„',
-  'Cover': 'ØªØºØ·ÙŠØ©',
-  'Contain': 'Ø§Ø­ØªÙˆØ§Ø¡',
-  'Overlay': 'Ø·Ø¨Ù‚Ø© ØªØºØ·ÙŠØ©',
-  'Opacity': 'Ø§Ù„Ø´ÙØ§ÙÙŠØ©',
-  'Min height': 'Ø£Ù‚Ù„ Ø§Ø±ØªÙØ§Ø¹',
-  'Corner radius': 'Ø§Ø³ØªØ¯Ø§Ø±Ø© Ø§Ù„Ø²ÙˆØ§ÙŠØ§',
-  'Vertical padding': 'Ø­Ø´Ùˆ Ø¹Ù…ÙˆØ¯ÙŠ',
-  'Horizontal padding': 'Ø­Ø´Ùˆ Ø£ÙÙ‚ÙŠ',
-  'Form Builder': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ù†Ù…Ø§Ø°Ø¬',
-  'Reset': 'Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø·',
-  'Textarea': 'Ù…Ù†Ø·Ù‚Ø© Ù†Øµ',
-  'Select': 'Ù‚Ø§Ø¦Ù…Ø© Ø§Ø®ØªÙŠØ§Ø±',
-  'Checkbox': 'Ù…Ø±Ø¨Ø¹ Ø§Ø®ØªÙŠØ§Ø±',
-  'After submit': 'Ø¨Ø¹Ø¯ Ø§Ù„Ø¥Ø±Ø³Ø§Ù„',
-  'Show success message': 'Ø¥Ø¸Ù‡Ø§Ø± Ø±Ø³Ø§Ù„Ø© Ù†Ø¬Ø§Ø­',
-  'Redirect to thank-you page / URL': 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªÙˆØ¬ÙŠÙ‡ Ù„ØµÙØ­Ø© Ø§Ù„Ø´ÙƒØ± / Ø±Ø§Ø¨Ø·',
-  'Redirect target': 'Ù‡Ø¯Ù Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªÙˆØ¬ÙŠÙ‡',
-  'Success message': 'Ø±Ø³Ø§Ù„Ø© Ø§Ù„Ù†Ø¬Ø§Ø­',
-  'Website name': 'Ø§Ø³Ù… Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Type a command, page or sectionâ€¦': 'Ø§ÙƒØªØ¨ Ø£Ù…Ø±Ø§Ù‹ Ø£Ùˆ ØµÙØ­Ø© Ø£Ùˆ Ù‚Ø³Ù…Ø§Ù‹â€¦',
-  'Client or company': 'Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø£Ùˆ Ø§Ù„Ø´Ø±ÙƒØ©',
-  'Release note (optional): what changed?': 'Ù…Ù„Ø§Ø­Ø¸Ø© Ø§Ù„Ø¥ØµØ¯Ø§Ø± (Ø§Ø®ØªÙŠØ§Ø±ÙŠ): Ù…Ø§ Ø§Ù„Ø°ÙŠ ØªØºÙŠØ±ØŸ',
-  'Page name': 'Ø§Ø³Ù… Ø§Ù„ØµÙØ­Ø©',
-  'Custom SEO title (optional)': 'Ø¹Ù†ÙˆØ§Ù† SEO Ù…Ø®ØµØµ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'Custom meta description (optional)': 'ÙˆØµÙ Ù…ÙŠØªØ§ Ù…Ø®ØµØµ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'Social share image URL': 'Ø±Ø§Ø¨Ø· ØµÙˆØ±Ø© Ø§Ù„Ù…Ø´Ø§Ø±ÙƒØ© Ø§Ù„Ø§Ø¬ØªÙ…Ø§Ø¹ÙŠØ©',
-  'Canonical URL override (optional)': 'ØªØ¬Ø§ÙˆØ² Ø§Ù„Ø±Ø§Ø¨Ø· Ø§Ù„Ø£Ø³Ø§Ø³ÙŠ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'Brand text (blank = site name)': 'Ù†Øµ Ø§Ù„Ø¹Ù„Ø§Ù…Ø© (ÙØ§Ø±Øº = Ø§Ø³Ù… Ø§Ù„Ù…ÙˆÙ‚Ø¹)',
-  'Logo image URL (optional)': 'Ø±Ø§Ø¨Ø· ØµÙˆØ±Ø© Ø§Ù„Ø´Ø¹Ø§Ø± (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'CTA label': 'ØªØ³Ù…ÙŠØ© CTA',
-  'Footer text (blank = automatic copyright)': 'Ù†Øµ Ø§Ù„ØªØ°ÙŠÙŠÙ„ (ÙØ§Ø±Øº = Ø­Ù‚ÙˆÙ‚ ØªÙ„Ù‚Ø§Ø¦ÙŠØ©)',
-  'Privacy notice text': 'Ù†Øµ Ø¥Ø´Ø¹Ø§Ø± Ø§Ù„Ø®ØµÙˆØµÙŠØ©',
-  'Accept button label': 'ØªØ³Ù…ÙŠØ© Ø²Ø± Ø§Ù„Ù‚Ø¨ÙˆÙ„',
-  'Announcement text': 'Ù†Øµ Ø§Ù„Ø¥Ø¹Ù„Ø§Ù†',
-  'Link label': 'ØªØ³Ù…ÙŠØ© Ø§Ù„Ø±Ø§Ø¨Ø·',
-  'Popup title': 'Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù†Ø§ÙØ°Ø© Ø§Ù„Ù…Ù†Ø¨Ø«Ù‚Ø©',
-  'Popup message': 'Ø±Ø³Ø§Ù„Ø© Ø§Ù„Ù†Ø§ÙØ°Ø© Ø§Ù„Ù…Ù†Ø¨Ø«Ù‚Ø©',
-  'Button': 'Ø²Ø±',
-  'Button link': 'Ø±Ø§Ø¨Ø· Ø§Ù„Ø²Ø±',
-  'Floating CTA label': 'ØªØ³Ù…ÙŠØ© CTA Ø§Ù„Ø¹Ø§Ø¦Ù…',
-  'CTA link': 'Ø±Ø§Ø¨Ø· CTA',
-  'Plausible domain': 'Ù†Ø·Ø§Ù‚ Plausible',
-  'Google verification token': 'Ø±Ù…Ø² ØªØ­Ù‚Ù‚ Google',
-  'Bing verification token': 'Ø±Ù…Ø² ØªØ­Ù‚Ù‚ Bing',
-  'Organization / business name': 'Ø§Ø³Ù… Ø§Ù„Ù…Ø¤Ø³Ø³Ø© / Ø§Ù„Ù†Ø´Ø§Ø·',
-  'Organization URL': 'Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ø¤Ø³Ø³Ø©',
-  'Logo URL': 'Ø±Ø§Ø¨Ø· Ø§Ù„Ø´Ø¹Ø§Ø±',
-  'Business address': 'Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù†Ø´Ø§Ø·',
-  'Maintenance title': 'Ø¹Ù†ÙˆØ§Ù† Ø§Ù„ØµÙŠØ§Ù†Ø©',
-  'Maintenance message': 'Ø±Ø³Ø§Ù„Ø© Ø§Ù„ØµÙŠØ§Ù†Ø©',
-  'Default SEO title': 'Ø¹Ù†ÙˆØ§Ù† SEO Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ',
-  'Default meta description': 'ÙˆØµÙ Ø§Ù„Ù…ÙŠØªØ§ Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ',
-  'Keywords, comma separated': 'Ø§Ù„ÙƒÙ„Ù…Ø§Øª Ø§Ù„Ù…ÙØªØ§Ø­ÙŠØ©ØŒ Ù…ÙØµÙˆÙ„Ø© Ø¨ÙÙˆØ§ØµÙ„',
-  'Favicon image URL': 'Ø±Ø§Ø¨Ø· Ø£ÙŠÙ‚ÙˆÙ†Ø© Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Label': 'Ø§Ù„ØªØ³Ù…ÙŠØ©',
-  'Placeholder': 'Ø§Ù„Ù†Øµ Ø§Ù„Ù…Ø¤Ù‚Øª',
-  'Cloud projects': 'Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠØ©',
-  'Desktop preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø³Ø·Ø­ Ø§Ù„Ù…ÙƒØªØ¨',
-  'Tablet preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ø¬Ù‡Ø§Ø² Ø§Ù„Ù„ÙˆØ­ÙŠ',
-  'Mobile preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ø¬ÙˆØ§Ù„',
-  'Undo': 'ØªØ±Ø§Ø¬Ø¹',
-  'Redo': 'Ø¥Ø¹Ø§Ø¯Ø©',
-  'Website Builder V1 launch center': 'Ù…Ø±ÙƒØ² Ø¥Ø·Ù„Ø§Ù‚ Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ V1',
-  'Plans, usage and billing': 'Ø§Ù„Ø®Ø·Ø· ÙˆØ§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… ÙˆØ§Ù„ÙÙˆØªØ±Ø©',
-  'Operations, backups and exports': 'Ø§Ù„Ø¹Ù…Ù„ÙŠØ§Øª ÙˆØ§Ù„Ù†Ø³Ø® Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© ÙˆØ§Ù„ØªØµØ¯ÙŠØ±',
-  'Client delivery, approval and handoff': 'ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…ÙŠÙ„ ÙˆØ§Ù„Ù…ÙˆØ§ÙÙ‚Ø© ÙˆØ§Ù„ØªØ³Ù„ÙŠÙ… Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠ',
-  'Project history': 'Ø³Ø¬Ù„ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Duplicate project': 'ØªÙƒØ±Ø§Ø± Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Verify that index.html exists in published storage': 'ØªØ­Ù‚Ù‚ Ù…Ù† ÙˆØ¬ÙˆØ¯ index.html ÙÙŠ Ø§Ù„ØªØ®Ø²ÙŠÙ† Ø§Ù„Ù…Ù†Ø´ÙˆØ±',
-  'Remove public website': 'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø¹Ø§Ù…',
-  'Use image': 'Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„ØµÙˆØ±Ø©',
-  'Restore this version': 'Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù‡Ø°Ø§ Ø§Ù„Ø¥ØµØ¯Ø§Ø±',
-  'Add page': 'Ø¥Ø¶Ø§ÙØ© ØµÙØ­Ø©',
-  'Move page up': 'ØªØ­Ø±ÙŠÙƒ Ø§Ù„ØµÙØ­Ø© Ù„Ù„Ø£Ø¹Ù„Ù‰',
-  'Move page down': 'ØªØ­Ø±ÙŠÙƒ Ø§Ù„ØµÙØ­Ø© Ù„Ù„Ø£Ø³ÙÙ„',
-  'Duplicate page': 'ØªÙƒØ±Ø§Ø± Ø§Ù„ØµÙØ­Ø©',
-  'Delete page': 'Ø­Ø°Ù Ø§Ù„ØµÙØ­Ø©',
-  'Delete template': 'Ø­Ø°Ù Ø§Ù„Ù‚Ø§Ù„Ø¨',
-  'Move element up': 'ØªØ­Ø±ÙŠÙƒ Ø§Ù„Ø¹Ù†ØµØ± Ù„Ù„Ø£Ø¹Ù„Ù‰',
-  'Move element down': 'ØªØ­Ø±ÙŠÙƒ Ø§Ù„Ø¹Ù†ØµØ± Ù„Ù„Ø£Ø³ÙÙ„',
-  'Delete symbol': 'Ø­Ø°Ù Ø§Ù„Ø±Ù…Ø²',
-  'Move up': 'ØªØ­Ø±ÙŠÙƒ Ù„Ø£Ø¹Ù„Ù‰',
-  'Move down': 'ØªØ­Ø±ÙŠÙƒ Ù„Ø£Ø³ÙÙ„',
-  'Delete field': 'Ø­Ø°Ù Ø§Ù„Ø­Ù‚Ù„',
-
-  'Continue': 'Ù…ØªØ§Ø¨Ø¹Ø©',
-  'Arabic': 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©', 'Swedish': 'Ø§Ù„Ø³ÙˆÙŠØ¯ÙŠØ©',
-  'Study smarter with AI-powered tools': 'Ø§Ø¯Ø±Ø³ Ø¨Ø°ÙƒØ§Ø¡ Ø£ÙƒØ¨Ø± Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø£Ø¯ÙˆØ§Øª Ù…Ø¯Ø¹ÙˆÙ…Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Create standout CVs and cover letters': 'Ø£Ù†Ø´Ø¦ Ø³ÙŠØ±Ø§Ù‹ Ø°Ø§ØªÙŠØ© ÙˆØ®Ø·Ø§Ø¨Ø§Øª ØªØºØ·ÙŠØ© Ù…Ù…ÙŠØ²Ø©',
-  'Boost productivity with AI automation': 'Ø¹Ø²Ù‘Ø² Ø§Ù„Ø¥Ù†ØªØ§Ø¬ÙŠØ© Ø¨Ø£ØªÙ…ØªØ© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Scale your business with AI solutions': 'Ø·ÙˆÙ‘Ø± Ø£Ø¹Ù…Ø§Ù„Ùƒ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø­Ù„ÙˆÙ„ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Deliver more for clients, faster': 'Ø£Ù†Ø¬Ø² Ø§Ù„Ù…Ø²ÙŠØ¯ Ù„Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø¨Ø³Ø±Ø¹Ø© Ø£ÙƒØ¨Ø±',
-  'Create a professional CV': 'Ø¥Ù†Ø´Ø§Ø¡ Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ© Ø§Ø­ØªØ±Ø§ÙÙŠØ©',
-  'Write articles and content': 'ÙƒØªØ§Ø¨Ø© Ø§Ù„Ù…Ù‚Ø§Ù„Ø§Øª ÙˆØ§Ù„Ù…Ø­ØªÙˆÙ‰',
-  'Translate documents': 'ØªØ±Ø¬Ù…Ø© Ø§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª',
-  'Study more effectively': 'Ø§Ù„Ø¯Ø±Ø§Ø³Ø© Ø¨ÙØ¹Ø§Ù„ÙŠØ© Ø£ÙƒØ¨Ø±',
-  'Analyze and summarize documents': 'ØªØ­Ù„ÙŠÙ„ Ø§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª ÙˆØªÙ„Ø®ÙŠØµÙ‡Ø§',
-  'Grow my business': 'ØªÙ†Ù…ÙŠØ© Ø£Ø¹Ù…Ø§Ù„ÙŠ',
-  'Chat with an AI assistant': 'Ø§Ù„Ø¯Ø±Ø¯Ø´Ø© Ù…Ø¹ Ù…Ø³Ø§Ø¹Ø¯ Ø°ÙƒØ§Ø¡ Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Write cover letters': 'ÙƒØªØ§Ø¨Ø© Ø®Ø·Ø§Ø¨Ø§Øª Ø§Ù„ØªØºØ·ÙŠØ©',
-  'AI Usage Analytics': 'ØªØ­Ù„ÙŠÙ„Ø§Øª Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Track your AI consumption across all tools.': 'ØªØ§Ø¨Ø¹ Ø§Ø³ØªÙ‡Ù„Ø§ÙƒÙƒ Ù„Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø¹Ø¨Ø± Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø£Ø¯ÙˆØ§Øª.',
-  'No AI usage yet': 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù„Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø¨Ø¹Ø¯',
-  'Start using AI tools and your usage stats will appear here.': 'Ø§Ø¨Ø¯Ø£ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙˆØ³ØªØ¸Ù‡Ø± Ø¥Ø­ØµØ§Ø¡Ø§Øª Ø§Ø³ØªØ®Ø¯Ø§Ù…Ùƒ Ù‡Ù†Ø§.',
-  'Track your AI consumption, token usage, and costs across all tools.': 'ØªØ§Ø¨Ø¹ Ø§Ø³ØªÙ‡Ù„Ø§Ùƒ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙˆØ§Ù„Ø±Ù…ÙˆØ² ÙˆØ§Ù„ØªÙƒØ§Ù„ÙŠÙ Ø¹Ø¨Ø± Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø£Ø¯ÙˆØ§Øª.',
-  "Today's Cost": 'ØªÙƒÙ„ÙØ© Ø§Ù„ÙŠÙˆÙ…', 'Last 7 Days': 'Ø¢Ø®Ø± 7 Ø£ÙŠØ§Ù…', 'By Provider': 'Ø­Ø³Ø¨ Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯', 'By Tool': 'Ø­Ø³Ø¨ Ø§Ù„Ø£Ø¯Ø§Ø©',
-  'Install Tayar Intelligence': 'ØªØ«Ø¨ÙŠØª Tayar Intelligence',
-  'Add to your home screen for a faster, app-like experience.': 'Ø£Ø¶ÙÙ‡ Ø¥Ù„Ù‰ Ø´Ø§Ø´ØªÙƒ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© Ù„ØªØ¬Ø±Ø¨Ø© Ø£Ø³Ø±Ø¹ ØªØ´Ø¨Ù‡ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚Ø§Øª.',
-  'Everything you\'ve done across all tools': 'ÙƒÙ„ Ù…Ø§ Ù‚Ù…Øª Ø¨Ù‡ Ø¹Ø¨Ø± Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø£Ø¯ÙˆØ§Øª',
-  'No activity yet': 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù†Ø´Ø§Ø· Ø¨Ø¹Ø¯',
-  'Start using a tool to see your activity here': 'Ø§Ø¨Ø¯Ø£ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø£Ø¯Ø§Ø© Ù„ØªØ¸Ù‡Ø± Ø£Ù†Ø´Ø·ØªÙƒ Ù‡Ù†Ø§',
-  'Notifications': 'Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±Ø§Øª',
-  'Loading...': 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù…ÙŠÙ„...',
-  'No notifications yet': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø´Ø¹Ø§Ø±Ø§Øª Ø¨Ø¹Ø¯',
-  'AI Assistant': 'Ù…Ø³Ø§Ø¹Ø¯ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'No conversations yet': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø­Ø§Ø¯Ø«Ø§Øª Ø¨Ø¹Ø¯',
-  'How can I help you?': 'ÙƒÙŠÙ ÙŠÙ…ÙƒÙ†Ù†ÙŠ Ù…Ø³Ø§Ø¹Ø¯ØªÙƒØŸ',
-  'Ask me anything about your tools or documents.': 'Ø§Ø³Ø£Ù„Ù†ÙŠ Ø£ÙŠ Ø´ÙŠØ¡ Ø¹Ù† Ø£Ø¯ÙˆØ§ØªÙƒ Ø£Ùˆ Ù…Ø³ØªÙ†Ø¯Ø§ØªÙƒ.',
-  'Replay Tour': 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø¬ÙˆÙ„Ø©',
-  'Admin Panel': 'Ù„ÙˆØ­Ø© Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©',
-  'Sign out': 'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø®Ø±ÙˆØ¬',
-  'Enter to open': 'Ø§Ø¶ØºØ· Enter Ù„Ù„ÙØªØ­',
-  'AI Commands': 'Ø£ÙˆØ§Ù…Ø± Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Trash': 'Ø³Ù„Ø© Ø§Ù„Ù…Ø­Ø°ÙˆÙØ§Øª',
-  'Deleted items are kept for 30 days before being permanently removed.': 'ØªÙØ­ÙØ¸ Ø§Ù„Ø¹Ù†Ø§ØµØ± Ø§Ù„Ù…Ø­Ø°ÙˆÙØ© Ù„Ù…Ø¯Ø© 30 ÙŠÙˆÙ…Ù‹Ø§ Ù‚Ø¨Ù„ Ø¥Ø²Ø§Ù„ØªÙ‡Ø§ Ù†Ù‡Ø§Ø¦ÙŠÙ‹Ø§.',
-  'Empty Trash?': 'Ø¥ÙØ±Ø§Øº Ø³Ù„Ø© Ø§Ù„Ù…Ø­Ø°ÙˆÙØ§ØªØŸ',
-  'This cannot be undone.': 'Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ù‡Ø°Ø§ Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡.',
-  'Delete All': 'Ø­Ø°Ù Ø§Ù„ÙƒÙ„',
-  'Storage': 'Ø§Ù„ØªØ®Ø²ÙŠÙ†',
-  'Tokens': 'Ø§Ù„Ø±Ù…ÙˆØ²',
-  'Cost': 'Ø§Ù„ØªÙƒÙ„ÙØ©',
-  'Resume Score': 'ØªÙ‚ÙŠÙŠÙ… Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©',
-  'AI Suggestions': 'Ø§Ù‚ØªØ±Ø§Ø­Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Choose a Template': 'Ø§Ø®ØªØ± Ù‚Ø§Ù„Ø¨Ù‹Ø§',
-  'Pick a design â€” you can change it anytime': 'Ø§Ø®ØªØ± ØªØµÙ…ÙŠÙ…Ù‹Ø§ â€” ÙŠÙ…ÙƒÙ†Ùƒ ØªØºÙŠÙŠØ±Ù‡ ÙÙŠ Ø£ÙŠ ÙˆÙ‚Øª',
-  'Resume Builder': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©',
-  'Saving...': 'Ø¬Ø§Ø±Ù Ø§Ù„Ø­ÙØ¸...',
-  'All changes saved': 'ØªÙ… Ø­ÙØ¸ Ø¬Ù…ÙŠØ¹ Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª',
-  'Auto-save on': 'Ø§Ù„Ø­ÙØ¸ Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ Ù…ÙØ¹Ù‘Ù„',
-  'Save Version': 'Ø­ÙØ¸ Ø¥ØµØ¯Ø§Ø±',
-  'Edit': 'ØªØ­Ø±ÙŠØ±',
-  'Design': 'Ø§Ù„ØªØµÙ…ÙŠÙ…',
-  'Job Match': 'Ù…Ø·Ø§Ø¨Ù‚Ø© Ø§Ù„ÙˆØ¸ÙŠÙØ©',
-  'History': 'Ø§Ù„Ø³Ø¬Ù„',
-  'Personal Info': 'Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„Ø´Ø®ØµÙŠØ©',
-  'Summary': 'Ø§Ù„Ù…Ù„Ø®Øµ',
-  'Experience': 'Ø§Ù„Ø®Ø¨Ø±Ø©',
-  'Education': 'Ø§Ù„ØªØ¹Ù„ÙŠÙ…',
-  'Skills': 'Ø§Ù„Ù…Ù‡Ø§Ø±Ø§Øª',
-  'Languages': 'Ø§Ù„Ù„ØºØ§Øª',
-  'Certifications': 'Ø§Ù„Ø´Ù‡Ø§Ø¯Ø§Øª',
-  'Awards': 'Ø§Ù„Ø¬ÙˆØ§Ø¦Ø²',
-  'Address': 'Ø§Ù„Ø¹Ù†ÙˆØ§Ù†',
-  'LinkedIn': 'LinkedIn',
-  'Portfolio': 'Ù…Ø¹Ø±Ø¶ Ø§Ù„Ø£Ø¹Ù…Ø§Ù„',
-  'Professional Summary': 'Ø§Ù„Ù…Ù„Ø®Øµ Ø§Ù„Ù…Ù‡Ù†ÙŠ',
-  'Location': 'Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Present': 'Ø­ØªÙ‰ Ø§Ù„Ø¢Ù†',
-  'Description': 'Ø§Ù„ÙˆØµÙ',
-  'Degree': 'Ø§Ù„Ø¯Ø±Ø¬Ø© Ø§Ù„Ø¹Ù„Ù…ÙŠØ©',
-  'Institution': 'Ø§Ù„Ù…Ø¤Ø³Ø³Ø©',
-  'Skill name': 'Ø§Ø³Ù… Ø§Ù„Ù…Ù‡Ø§Ø±Ø©',
-  'Certificate': 'Ø§Ù„Ø´Ù‡Ø§Ø¯Ø©',
-  'Award': 'Ø§Ù„Ø¬Ø§Ø¦Ø²Ø©',
-  'Name': 'Ø§Ù„Ø§Ø³Ù…',
-  'Link': 'Ø§Ù„Ø±Ø§Ø¨Ø·',
-  'Issuer': 'Ø§Ù„Ø¬Ù‡Ø© Ø§Ù„Ù…Ø§Ù†Ø­Ø©',
-  'Date': 'Ø§Ù„ØªØ§Ø±ÙŠØ®',
-  'Title': 'Ø§Ù„Ø¹Ù†ÙˆØ§Ù†',
-  'Resume Template': 'Ù‚Ø§Ù„Ø¨ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©',
-  'Color Theme': 'Ø³Ù…Ø© Ø§Ù„Ø£Ù„ÙˆØ§Ù†',
-  'Drag to reorder sections. Toggle to show/hide.': 'Ø§Ø³Ø­Ø¨ Ù„Ø¥Ø¹Ø§Ø¯Ø© ØªØ±ØªÙŠØ¨ Ø§Ù„Ø£Ù‚Ø³Ø§Ù…ØŒ ÙˆØ§Ø³ØªØ®Ø¯Ù… Ø§Ù„Ù…ÙØªØ§Ø­ Ù„Ø¥Ø¸Ù‡Ø§Ø±Ù‡Ø§ Ø£Ùˆ Ø¥Ø®ÙØ§Ø¦Ù‡Ø§.',
-  'Select an action to improve your resume with AI.': 'Ø§Ø®ØªØ± Ø¥Ø¬Ø±Ø§Ø¡Ù‹ Ù„ØªØ­Ø³ÙŠÙ† Ø³ÙŠØ±ØªÙƒ Ø§Ù„Ø°Ø§ØªÙŠØ© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.',
-  'Job Match Analysis': 'ØªØ­Ù„ÙŠÙ„ Ù…Ø·Ø§Ø¨Ù‚Ø© Ø§Ù„ÙˆØ¸ÙŠÙØ©',
-  'Paste a job description to see how well your resume matches.': 'Ø£Ù„ØµÙ‚ ÙˆØµÙ Ø§Ù„ÙˆØ¸ÙŠÙØ© Ù„Ù…Ø¹Ø±ÙØ© Ù…Ø¯Ù‰ ØªØ·Ø§Ø¨Ù‚ Ø³ÙŠØ±ØªÙƒ Ø§Ù„Ø°Ø§ØªÙŠØ©.',
-  'Match Score': 'Ø¯Ø±Ø¬Ø© Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©',
-  'Paste a job description and click "Analyze Match" to see your results.': 'Ø£Ù„ØµÙ‚ ÙˆØµÙ Ø§Ù„ÙˆØ¸ÙŠÙØ© ÙˆØ§Ø¶ØºØ· Â«ØªØ­Ù„ÙŠÙ„ Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©Â» Ù„Ø±Ø¤ÙŠØ© Ø§Ù„Ù†ØªØ§Ø¦Ø¬.',
-  'Version History': 'Ø³Ø¬Ù„ Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª',
-  'A4 Preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© A4',
-  'Company name (optional)': 'Ø§Ø³Ù… Ø§Ù„Ø´Ø±ÙƒØ© (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'Paste the job description here...': 'Ø£Ù„ØµÙ‚ ÙˆØµÙ Ø§Ù„ÙˆØ¸ÙŠÙØ© Ù‡Ù†Ø§...',
-  'Write a 2-3 sentence summary highlighting your experience, key skills, and career goals...': 'Ø§ÙƒØªØ¨ Ù…Ù„Ø®ØµÙ‹Ø§ Ù…Ù† 2-3 Ø¬Ù…Ù„ ÙŠØ¨Ø±Ø² Ø®Ø¨Ø±ØªÙƒ ÙˆÙ…Ù‡Ø§Ø±Ø§ØªÙƒ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© ÙˆØ£Ù‡Ø¯Ø§ÙÙƒ Ø§Ù„Ù…Ù‡Ù†ÙŠØ©...',
-  'Describe your achievements...': 'ØµÙ Ø¥Ù†Ø¬Ø§Ø²Ø§ØªÙƒ...',
-  'John Doe': 'Ø§Ù„Ø§Ø³Ù… Ø§Ù„ÙƒØ§Ù…Ù„',
-  'Jan 2022': 'ÙŠÙ†Ø§ÙŠØ± 2022',
-  'Intermediate': 'Ù…ØªÙˆØ³Ø·',
-  'Advanced': 'Ù…ØªÙ‚Ø¯Ù…',
-  'Expert': 'Ø®Ø¨ÙŠØ±',
-  'Basic': 'Ø£Ø³Ø§Ø³ÙŠ',
-  'Conversational': 'Ù…Ø­Ø§Ø¯Ø«Ø©',
-  'Fluent': 'Ø·Ù„ÙŠÙ‚',
-  'Native': 'Ù„ØºØ© Ø£Ù…',
-  'Analytics Tracking': 'ØªØªØ¨Ø¹ Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª',
-  'Help us improve by sharing anonymous usage data': 'Ø³Ø§Ø¹Ø¯Ù†Ø§ Ø¹Ù„Ù‰ Ø§Ù„ØªØ­Ø³ÙŠÙ† Ø¨Ù…Ø´Ø§Ø±ÙƒØ© Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù…Ø¬Ù‡ÙˆÙ„Ø©',
-  'AI data processing': 'Ù…Ø¹Ø§Ù„Ø¬Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'AI requests are sent only when you choose an AI action. Provider details and data handling are explained in the Privacy Policy.': 'Ù„Ø§ ØªÙØ±Ø³Ù„ Ø·Ù„Ø¨Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø¥Ù„Ø§ Ø¹Ù†Ø¯Ù…Ø§ ØªØ®ØªØ§Ø± Ø¥Ø¬Ø±Ø§Ø¡Ù‹ ÙŠØ¹ØªÙ…Ø¯ Ø¹Ù„ÙŠÙ‡. ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ÙŠÙ† ÙˆÙ…Ø¹Ø§Ù„Ø¬Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ù…ÙˆØ¶Ø­Ø© ÙÙŠ Ø³ÙŠØ§Ø³Ø© Ø§Ù„Ø®ØµÙˆØµÙŠØ©.',
-  'AI Training Opt-Out': 'Ø±ÙØ¶ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙÙŠ ØªØ¯Ø±ÙŠØ¨ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Your data is stored in EU (Stockholm) servers': 'ØªÙØ®Ø²Ù† Ø¨ÙŠØ§Ù†Ø§ØªÙƒ Ø¹Ù„Ù‰ Ø®ÙˆØ§Ø¯Ù… Ø§Ù„Ø§ØªØ­Ø§Ø¯ Ø§Ù„Ø£ÙˆØ±ÙˆØ¨ÙŠ (Ø³ØªÙˆÙƒÙ‡ÙˆÙ„Ù…)',
-  'All data is encrypted in transit and at rest': 'ÙƒÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ù…Ø´ÙØ±Ø© Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ù†Ù‚Ù„ ÙˆÙÙŠ Ø§Ù„ØªØ®Ø²ÙŠÙ†',
-  'Save': 'Ø­ÙØ¸',
-  'AI Providers & Model Selection': 'Ù…Ø²ÙˆØ¯Ùˆ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙˆØ§Ø®ØªÙŠØ§Ø± Ø§Ù„Ù†Ù…ÙˆØ°Ø¬',
-  'AI Requests': 'Ø·Ù„Ø¨Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'AI Usage': 'Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'API Keys': 'Ù…ÙØ§ØªÙŠØ­ API',
-  'Access Denied': 'ØªÙ… Ø±ÙØ¶ Ø§Ù„ÙˆØµÙˆÙ„',
-  'Actions': 'Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª',
-  'Active': 'Ù†Ø´Ø·',
-  'Add Key': 'Ø¥Ø¶Ø§ÙØ© Ù…ÙØªØ§Ø­',
-  'Admin': 'Ù…Ø¯ÙŠØ±',
-  'Admin Notifications': 'Ø¥Ø´Ø¹Ø§Ø±Ø§Øª Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©',
-  'Admin Response': 'Ø±Ø¯ Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©',
-  'Administrator': 'Ù…Ø³Ø¤ÙˆÙ„ Ø§Ù„Ù†Ø¸Ø§Ù…',
-  'All': 'Ø§Ù„ÙƒÙ„',
-  'All Plans': 'ÙƒÙ„ Ø§Ù„Ø®Ø·Ø·',
-  'All Status': 'ÙƒÙ„ Ø§Ù„Ø­Ø§Ù„Ø§Øª',
-  'Automatic daily backups at 09:00 UTC': 'Ù†Ø³Ø® Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© ÙŠÙˆÙ…ÙŠØ© ØªÙ„Ù‚Ø§Ø¦ÙŠØ© Ø§Ù„Ø³Ø§Ø¹Ø© 09:00 UTC',
-  'Back to Workspace': 'Ø§Ù„Ø¹ÙˆØ¯Ø© Ø¥Ù„Ù‰ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„',
-  'Business': 'Ø§Ù„Ø£Ø¹Ù…Ø§Ù„',
-  'Changes will be reflected on the live site after saving.': 'Ø³ØªØ¸Ù‡Ø± Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª Ø¹Ù„Ù‰ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ø¨Ø§Ø´Ø± Ø¨Ø¹Ø¯ Ø§Ù„Ø­ÙØ¸.',
-  'Checking admin access...': 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† ØµÙ„Ø§Ø­ÙŠØ© Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©...',
-  'Configure global platform behavior': 'Ø§Ø¶Ø¨Ø· Ø³Ù„ÙˆÙƒ Ø§Ù„Ù…Ù†ØµØ© Ø§Ù„Ø¹Ø§Ù…',
-  'Control Panel': 'Ù„ÙˆØ­Ø© Ø§Ù„ØªØ­ÙƒÙ…',
-  'Created': 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡',
-  'Cumulative users over last 30 days': 'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ† Ø®Ù„Ø§Ù„ Ø¢Ø®Ø± 30 ÙŠÙˆÙ…Ù‹Ø§',
-  'Daily Requests': 'Ø§Ù„Ø·Ù„Ø¨Ø§Øª Ø§Ù„ÙŠÙˆÙ…ÙŠØ©',
-  'Daily requests and token consumption': 'Ø§Ù„Ø·Ù„Ø¨Ø§Øª Ø§Ù„ÙŠÙˆÙ…ÙŠØ© ÙˆØ§Ø³ØªÙ‡Ù„Ø§Ùƒ Ø§Ù„Ø±Ù…ÙˆØ²',
-  'Database Backups': 'Ù†Ø³Ø® Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠØ©',
-  'Default': 'Ø§ÙØªØ±Ø§Ø¶ÙŠ',
-  'Default Model (used when no per-tool model is set)': 'Ø§Ù„Ù†Ù…ÙˆØ°Ø¬ Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ (ÙŠØ³ØªØ®Ø¯Ù… Ø¹Ù†Ø¯ Ø¹Ø¯Ù… ØªØ¹ÙŠÙŠÙ† Ù†Ù…ÙˆØ°Ø¬ Ø®Ø§Øµ Ø¨Ø§Ù„Ø£Ø¯Ø§Ø©)',
-  'Documents': 'Ø§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª',
-  'Edit User': 'ØªØ­Ø±ÙŠØ± Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…',
-  'Exit Admin': 'Ø§Ù„Ø®Ø±ÙˆØ¬ Ù…Ù† Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©',
-  'Feature Flags': 'Ù…ÙØ§ØªÙŠØ­ Ø§Ù„Ù…ÙŠØ²Ø§Øª',
-  'Free': 'Ù…Ø¬Ø§Ù†ÙŠ',
-  'Last 14 days': 'Ø¢Ø®Ø± 14 ÙŠÙˆÙ…Ù‹Ø§',
-  'Manage external service API keys': 'Ø¥Ø¯Ø§Ø±Ø© Ù…ÙØ§ØªÙŠØ­ API Ù„Ù„Ø®Ø¯Ù…Ø§Øª Ø§Ù„Ø®Ø§Ø±Ø¬ÙŠØ©',
-  'Manage providers and set the default model for all AI tools': 'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø²ÙˆØ¯ÙŠÙ† ÙˆØªØ¹ÙŠÙŠÙ† Ø§Ù„Ù†Ù…ÙˆØ°Ø¬ Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ Ù„ÙƒÙ„ Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Mark all read': 'ØªØ­Ø¯ÙŠØ¯ Ø§Ù„ÙƒÙ„ ÙƒÙ…Ù‚Ø±ÙˆØ¡',
-  'Monthly subscription revenue': 'Ø¥ÙŠØ±Ø§Ø¯Ø§Øª Ø§Ù„Ø§Ø´ØªØ±Ø§ÙƒØ§Øª Ø§Ù„Ø´Ù‡Ø±ÙŠØ©',
-  'New Flag': 'Ù…ÙŠØ²Ø© Ø¬Ø¯ÙŠØ¯Ø©',
-  'No data': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¨ÙŠØ§Ù†Ø§Øª',
-  'No data yet': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ø¹Ø¯',
-  'No logs found': 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø³Ø¬Ù„Ø§Øª',
-  'No logs yet': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø³Ø¬Ù„Ø§Øª Ø¨Ø¹Ø¯',
-  'No notifications': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø´Ø¹Ø§Ø±Ø§Øª',
-  'No subscriptions found': 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø§Ø´ØªØ±Ø§ÙƒØ§Øª',
-  'No tickets found': 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ ØªØ°Ø§ÙƒØ±',
-  'No users found': 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†',
-  'Plan': 'Ø§Ù„Ø®Ø·Ø©',
-  'Platform Settings': 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…Ù†ØµØ©',
-  'Pro': 'Pro',
-  'Provider:': 'Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯:',
-  'Recent System Logs': 'Ø£Ø­Ø¯Ø« Ø³Ø¬Ù„Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù…',
-  'Renewal Date': 'ØªØ§Ø±ÙŠØ® Ø§Ù„ØªØ¬Ø¯ÙŠØ¯',
-  'Requests by tool': 'Ø§Ù„Ø·Ù„Ø¨Ø§Øª Ø­Ø³Ø¨ Ø§Ù„Ø£Ø¯Ø§Ø©',
-  'Response': 'Ø§Ù„Ø±Ø¯',
-  'Revenue': 'Ø§Ù„Ø¥ÙŠØ±Ø§Ø¯Ø§Øª',
-  'Status': 'Ø§Ù„Ø­Ø§Ù„Ø©',
-  'Subscription Plan': 'Ø®Ø·Ø© Ø§Ù„Ø§Ø´ØªØ±Ø§Ùƒ',
-  'Subscriptions by Plan': 'Ø§Ù„Ø§Ø´ØªØ±Ø§ÙƒØ§Øª Ø­Ø³Ø¨ Ø§Ù„Ø®Ø·Ø©',
-  'Suspended': 'Ù…ÙˆÙ‚ÙˆÙ',
-  'System Health': 'Ø­Ø§Ù„Ø© Ø§Ù„Ù†Ø¸Ø§Ù…',
-  'System Logs': 'Ø³Ø¬Ù„Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù…',
-  'System Online': 'Ø§Ù„Ù†Ø¸Ø§Ù… Ù…ØªØµÙ„',
-  'Tayar Admin': 'Ø¥Ø¯Ø§Ø±Ø© Tayar',
-  'Toggle features on/off without deploying': 'ÙØ¹Ù‘Ù„ Ø£Ùˆ Ø¹Ø·Ù‘Ù„ Ø§Ù„Ù…ÙŠØ²Ø§Øª Ø¨Ø¯ÙˆÙ† Ù†Ø´Ø± Ø¬Ø¯ÙŠØ¯',
-  'Token Usage by Provider': 'Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø±Ù…ÙˆØ² Ø­Ø³Ø¨ Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯',
-  'Tool Popularity': 'Ø´Ø¹Ø¨ÙŠØ© Ø§Ù„Ø£Ø¯ÙˆØ§Øª',
-  'Total tokens consumed': 'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø±Ù…ÙˆØ² Ø§Ù„Ù…Ø³ØªÙ‡Ù„ÙƒØ©',
-  'User Growth': 'Ù†Ù…Ùˆ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†',
-  'User ID': 'Ù…Ø¹Ø±Ù‘Ù Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…',
-  'You don\'t have permission to access the admin panel. Only administrators can view this page.': 'Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ù„Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ù„ÙˆØ­Ø© Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©. ÙŠÙ…ÙƒÙ† Ù„Ù„Ù…Ø³Ø¤ÙˆÙ„ÙŠÙ† ÙÙ‚Ø· Ø¹Ø±Ø¶ Ù‡Ø°Ù‡ Ø§Ù„ØµÙØ­Ø©.',
-  'Install App': 'ØªØ«Ø¨ÙŠØª Ø§Ù„ØªØ·Ø¨ÙŠÙ‚',
-  'files': 'Ù…Ù„ÙØ§Øª',
-  'used': 'Ù…Ø³ØªØ®Ø¯Ù…',
-  'available': 'Ù…ØªØ§Ø­',
-  'Running low on storage. Upgrade to Pro for more space.': 'Ù…Ø³Ø§Ø­Ø© Ø§Ù„ØªØ®Ø²ÙŠÙ† Ù…Ù†Ø®ÙØ¶Ø©. Ù‚Ù… Ø¨Ø§Ù„ØªØ±Ù‚ÙŠØ© Ø¥Ù„Ù‰ Pro Ù„Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ Ù…Ø³Ø§Ø­Ø© Ø£ÙƒØ¨Ø±.',
-  'Welcome to Tayar Intelligence!': 'Ù…Ø±Ø­Ø¨Ù‹Ø§ Ø¨Ùƒ ÙÙŠ Tayar Intelligence!',
-  'Welcome to Tayar Intelligence': 'Ù…Ø±Ø­Ø¨Ù‹Ø§ Ø¨Ùƒ ÙÙŠ Tayar Intelligence',
-  'Your AI-powered workspace for creating, writing, and analyzing. Let\'s get you set up in less than 3 minutes.': 'Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ù…Ø¯Ø¹ÙˆÙ…Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ù„Ù„Ø¥Ù†Ø´Ø§Ø¡ ÙˆØ§Ù„ÙƒØªØ§Ø¨Ø© ÙˆØ§Ù„ØªØ­Ù„ÙŠÙ„. Ø³Ù†Ø¬Ù‡Ø²Ù‡Ø§ Ù„Ùƒ ÙÙŠ Ø£Ù‚Ù„ Ù…Ù† 3 Ø¯Ù‚Ø§Ø¦Ù‚.',
-  'Get Started': 'Ø§Ø¨Ø¯Ø£',
-  'Setting up...': 'Ø¬Ø§Ø±Ù Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯...',
-  'Enter Workspace': 'Ø¯Ø®ÙˆÙ„ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„',
-
-  'Manage your plan, limits and Stripe billing from one place.': 'Ø£Ø¯Ø± Ø®Ø·ØªÙƒ ÙˆØ­Ø¯ÙˆØ¯ Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… ÙˆÙÙˆØªØ±Ø© Stripe Ù…Ù† Ù…ÙƒØ§Ù† ÙˆØ§Ø­Ø¯.',
-  'Current plan': 'Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©',
-  'Next billing date': 'ØªØ§Ø±ÙŠØ® Ø§Ù„ÙÙˆØªØ±Ø© Ø§Ù„ØªØ§Ù„ÙŠ',
-  'Current': 'Ø§Ù„Ø­Ø§Ù„ÙŠØ©',
-  'Your current plan': 'Ø®Ø·ØªÙƒ Ø§Ù„Ø­Ø§Ù„ÙŠØ©',
-  'Free plan': 'Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ù…Ø¬Ø§Ù†ÙŠØ©',
-  'Manage in Stripe': 'Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© Ø¹Ø¨Ø± Stripe',
-  'Choose Pro': 'Ø§Ø®ØªØ± Pro',
-  'Choose Business': 'Ø§Ø®ØªØ± Business',
-  'active': 'Ù†Ø´Ø·',
-  'unknown': 'ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ',
-  'Could not load subscription details.': 'ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ø§Ø´ØªØ±Ø§Ùƒ.',
-  'Could not open Stripe Checkout.': 'ØªØ¹Ø°Ø± ÙØªØ­ Stripe Checkout.',
-  'Could not open the billing portal.': 'ØªØ¹Ø°Ø± ÙØªØ­ Ø¨ÙˆØ§Ø¨Ø© Ø§Ù„ÙÙˆØªØ±Ø©.',
-  'Your subscription is scheduled to cancel at the end of the current billing period.': 'ØªÙ…Øª Ø¬Ø¯ÙˆÙ„Ø© Ø¥Ù„ØºØ§Ø¡ Ø§Ø´ØªØ±Ø§ÙƒÙƒ ÙÙŠ Ù†Ù‡Ø§ÙŠØ© ÙØªØ±Ø© Ø§Ù„ÙÙˆØªØ±Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©.',
-  'Billing changes are completed securely through Stripe. Your plan badge is synchronized by the billing backend.': 'ØªØªÙ… ØªØºÙŠÙŠØ±Ø§Øª Ø§Ù„ÙÙˆØªØ±Ø© Ø¨Ø£Ù…Ø§Ù† Ø¹Ø¨Ø± StripeØŒ ÙˆØªØªÙ… Ù…Ø²Ø§Ù…Ù†Ø© Ø´Ø§Ø±Ø© Ø®Ø·ØªÙƒ Ø¨ÙˆØ§Ø³Ø·Ø© Ù†Ø¸Ø§Ù… Ø§Ù„ÙÙˆØªØ±Ø© Ø§Ù„Ø®Ù„ÙÙŠ.',
-  'Start with a small Website Builder project and core AI tools.': 'Ø§Ø¨Ø¯Ø£ Ø¨Ù…Ø´Ø±ÙˆØ¹ ØµØºÙŠØ± ÙÙŠ Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ ÙˆØ£Ø¯ÙˆØ§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ©.',
-  'Higher limits for individual creators and professionals.': 'Ø­Ø¯ÙˆØ¯ Ø£Ø¹Ù„Ù‰ Ù„Ù„Ù…Ø¨Ø¯Ø¹ÙŠÙ† Ø§Ù„Ø£ÙØ±Ø§Ø¯ ÙˆØ§Ù„Ù…Ø­ØªØ±ÙÙŠÙ†.',
-  'Expanded limits and collaboration for growing teams.': 'Ø­Ø¯ÙˆØ¯ Ù…ÙˆØ³Ø¹Ø© ÙˆØªØ¹Ø§ÙˆÙ† Ù„Ù„ÙØ±Ù‚ Ø§Ù„Ù†Ø§Ù…ÙŠØ©.',
-  '1 website project': 'Ù…Ø´Ø±ÙˆØ¹ Ù…ÙˆÙ‚Ø¹ ÙˆØ§Ø­Ø¯',
-  'Up to 3 pages per website': 'Ø­ØªÙ‰ 3 ØµÙØ­Ø§Øª Ù„ÙƒÙ„ Ù…ÙˆÙ‚Ø¹',
-  'Core AI tools': 'Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ©',
-  'Local project saving': 'Ø­ÙØ¸ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ù…Ø­Ù„ÙŠØ§Ù‹',
-  'Up to 10 website projects': 'Ø­ØªÙ‰ 10 Ù…Ø´Ø§Ø±ÙŠØ¹ Ù…ÙˆØ§Ù‚Ø¹',
-  'Up to 25 pages per website': 'Ø­ØªÙ‰ 25 ØµÙØ­Ø© Ù„ÙƒÙ„ Ù…ÙˆÙ‚Ø¹',
-  'Publishing and release history': 'Ø§Ù„Ù†Ø´Ø± ÙˆØ³Ø¬Ù„ Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª',
-  'Analytics, leads and multilingual pages': 'Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª ÙˆØ§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙˆÙ† ÙˆØ§Ù„ØµÙØ­Ø§Øª Ù…ØªØ¹Ø¯Ø¯Ø© Ø§Ù„Ù„ØºØ§Øª',
-  'Up to 50 website projects': 'Ø­ØªÙ‰ 50 Ù…Ø´Ø±ÙˆØ¹ Ù…ÙˆÙ‚Ø¹',
-  'Up to 100 pages per website': 'Ø­ØªÙ‰ 100 ØµÙØ­Ø© Ù„ÙƒÙ„ Ù…ÙˆÙ‚Ø¹',
-  'Team workspace and client handoff': 'Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ø§Ù„ÙØ±ÙŠÙ‚ ÙˆØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…ÙŠÙ„',
-  'Advanced production features and white-label support': 'Ù…ÙŠØ²Ø§Øª Ø¥Ù†ØªØ§Ø¬ Ù…ØªÙ‚Ø¯Ù…Ø© ÙˆØ¯Ø¹Ù… Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„Ø¨ÙŠØ¶Ø§Ø¡',
-  'Get help, report a problem or send feedback from one place.': 'Ø§Ø­ØµÙ„ Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø³Ø§Ø¹Ø¯Ø© Ø£Ùˆ Ø£Ø¨Ù„Øº Ø¹Ù† Ù…Ø´ÙƒÙ„Ø© Ø£Ùˆ Ø£Ø±Ø³Ù„ Ù…Ù„Ø§Ø­Ø¸Ø§ØªÙƒ Ù…Ù† Ù…ÙƒØ§Ù† ÙˆØ§Ø­Ø¯.',
-  'Browse common questions and practical product guidance.': 'ØªØµÙØ­ Ø§Ù„Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø´Ø§Ø¦Ø¹Ø© ÙˆØ¥Ø±Ø´Ø§Ø¯Ø§Øª Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ù…Ù†ØªØ¬.',
-  'Open Help Center': 'ÙØªØ­ Ù…Ø±ÙƒØ² Ø§Ù„Ù…Ø³Ø§Ø¹Ø¯Ø©',
-  'Send a direct support message from inside your account.': 'Ø£Ø±Ø³Ù„ Ø±Ø³Ø§Ù„Ø© Ø¯Ø¹Ù… Ù…Ø¨Ø§Ø´Ø±Ø© Ù…Ù† Ø¯Ø§Ø®Ù„ Ø­Ø³Ø§Ø¨Ùƒ.',
-  'Contact Support': 'Ø§Ù„ØªÙˆØ§ØµÙ„ Ù…Ø¹ Ø§Ù„Ø¯Ø¹Ù…',
-  'Share an idea or tell us what would make Tayar better.': 'Ø´Ø§Ø±Ùƒ ÙÙƒØ±Ø© Ø£Ùˆ Ø£Ø®Ø¨Ø±Ù†Ø§ ÙƒÙŠÙ ÙŠÙ…ÙƒÙ† ØªØ­Ø³ÙŠÙ† Tayar.',
-  'Report a reproducible problem with clear technical details.': 'Ø£Ø¨Ù„Øº Ø¹Ù† Ù…Ø´ÙƒÙ„Ø© Ù‚Ø§Ø¨Ù„Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø¥Ù†ØªØ§Ø¬ Ù…Ø¹ ØªÙØ§ØµÙŠÙ„ ØªÙ‚Ù†ÙŠØ© ÙˆØ§Ø¶Ø­Ø©.',
-  'For account-specific issues, use the in-app contact form so your request stays connected to your signed-in account.': 'Ù„Ù„Ù…Ø´ÙƒÙ„Ø§Øª Ø§Ù„Ø®Ø§ØµØ© Ø¨Ø­Ø³Ø§Ø¨ÙƒØŒ Ø§Ø³ØªØ®Ø¯Ù… Ù†Ù…ÙˆØ°Ø¬ Ø§Ù„ØªÙˆØ§ØµÙ„ Ø¯Ø§Ø®Ù„ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ù„ÙŠØ¨Ù‚Ù‰ Ø§Ù„Ø·Ù„Ø¨ Ù…Ø±ØªØ¨Ø·Ø§Ù‹ Ø¨Ø­Ø³Ø§Ø¨Ùƒ Ø§Ù„Ù…Ø³Ø¬Ù„.',
-  'How do I get started?': 'ÙƒÙŠÙ Ø£Ø¨Ø¯Ø£ØŸ',
-  'Open My Workspace or Dashboard, choose an available tool, and follow the inputs shown for that tool. Website Builder V1 is available for creating and publishing responsive websites.': 'Ø§ÙØªØ­ Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ÙŠ Ø£Ùˆ Ù„ÙˆØ­Ø© Ø§Ù„ØªØ­ÙƒÙ…ØŒ ÙˆØ§Ø®ØªØ± Ø£Ø¯Ø§Ø© Ù…ØªØ§Ø­Ø© ÙˆØ§ØªØ¨Ø¹ Ø§Ù„Ø­Ù‚ÙˆÙ„ Ø§Ù„Ù…Ø¹Ø±ÙˆØ¶Ø©. Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ V1 Ù…ØªØ§Ø­ Ù„Ø¥Ù†Ø´Ø§Ø¡ Ù…ÙˆØ§Ù‚Ø¹ Ù…ØªØ¬Ø§ÙˆØ¨Ø© ÙˆÙ†Ø´Ø±Ù‡Ø§.',
-  'Which interface languages are supported?': 'Ù…Ø§ Ù„ØºØ§Øª Ø§Ù„ÙˆØ§Ø¬Ù‡Ø© Ø§Ù„Ù…Ø¯Ø¹ÙˆÙ…Ø©ØŸ',
-  'The product interface supports English, Arabic, and Swedish. Arabic automatically uses right-to-left layout where appropriate.': 'ØªØ¯Ø¹Ù… ÙˆØ§Ø¬Ù‡Ø© Ø§Ù„Ù…Ù†ØªØ¬ Ø§Ù„Ø¥Ù†Ø¬Ù„ÙŠØ²ÙŠØ© ÙˆØ§Ù„Ø¹Ø±Ø¨ÙŠØ© ÙˆØ§Ù„Ø³ÙˆÙŠØ¯ÙŠØ©ØŒ ÙˆØªØ³ØªØ®Ø¯Ù… Ø§Ù„Ø¹Ø±Ø¨ÙŠØ© Ø§ØªØ¬Ø§Ù‡ Ø§Ù„ÙŠÙ…ÙŠÙ† Ø¥Ù„Ù‰ Ø§Ù„ÙŠØ³Ø§Ø± ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹ Ø­ÙŠØ« ÙŠÙ„Ø²Ù….',
-  'How does Website Builder billing work?': 'ÙƒÙŠÙ ØªØ¹Ù…Ù„ ÙÙˆØªØ±Ø© Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ØŸ',
-  'Free supports 1 website project with up to 3 pages. Pro supports up to 10 website projects and 25 pages per website. Business supports up to 50 website projects and 100 pages per website.': 'ØªØ¯Ø¹Ù… Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ù…Ø¬Ø§Ù†ÙŠØ© Ù…Ø´Ø±ÙˆØ¹ Ù…ÙˆÙ‚Ø¹ ÙˆØ§Ø­Ø¯ Ø­ØªÙ‰ 3 ØµÙØ­Ø§Øª. ØªØ¯Ø¹Ù… Pro Ø­ØªÙ‰ 10 Ù…Ø´Ø§Ø±ÙŠØ¹ Ùˆ25 ØµÙØ­Ø© Ù„ÙƒÙ„ Ù…ÙˆÙ‚Ø¹. ØªØ¯Ø¹Ù… Business Ø­ØªÙ‰ 50 Ù…Ø´Ø±ÙˆØ¹Ø§Ù‹ Ùˆ100 ØµÙØ­Ø© Ù„ÙƒÙ„ Ù…ÙˆÙ‚Ø¹.',
-  'Is my data protected?': 'Ù‡Ù„ Ø¨ÙŠØ§Ù†Ø§ØªÙŠ Ù…Ø­Ù…ÙŠØ©ØŸ',
-  'The application uses authenticated access and database row-level security for account-scoped data. Always keep your account credentials private and review sensitive AI output before sharing it.': 'ÙŠØ³ØªØ®Ø¯Ù… Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ ÙˆØµÙˆÙ„Ø§Ù‹ Ù…ÙˆØ«Ù‚Ø§Ù‹ ÙˆØ£Ù…Ø§Ù†Ø§Ù‹ Ø¹Ù„Ù‰ Ù…Ø³ØªÙˆÙ‰ Ø§Ù„ØµÙÙˆÙ Ù„Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© Ø¨Ø§Ù„Ø­Ø³Ø§Ø¨. Ø­Ø§ÙØ¸ Ø¹Ù„Ù‰ Ø¨ÙŠØ§Ù†Ø§Øª Ø¯Ø®ÙˆÙ„Ùƒ Ø®Ø§ØµØ© ÙˆØ±Ø§Ø¬Ø¹ Ù…Ø®Ø±Ø¬Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø§Ù„Ø­Ø³Ø§Ø³Ø© Ù‚Ø¨Ù„ Ù…Ø´Ø§Ø±ÙƒØªÙ‡Ø§.',
-  'How do I manage my subscription?': 'ÙƒÙŠÙ Ø£Ø¯ÙŠØ± Ø§Ø´ØªØ±Ø§ÙƒÙŠØŸ',
-  'Open Subscription from the workspace menu. New upgrades use Stripe Checkout, and existing paid subscriptions can be managed through the Stripe billing portal.': 'Ø§ÙØªØ­ Ø§Ù„Ø§Ø´ØªØ±Ø§Ùƒ Ù…Ù† Ù‚Ø§Ø¦Ù…Ø© Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„. ØªØ³ØªØ®Ø¯Ù… Ø§Ù„ØªØ±Ù‚ÙŠØ§Øª Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø© Stripe Checkout ÙˆÙŠÙ…ÙƒÙ† Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø§Ø´ØªØ±Ø§ÙƒØ§Øª Ø§Ù„Ù…Ø¯ÙÙˆØ¹Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ© Ù…Ù† Ø¨ÙˆØ§Ø¨Ø© Stripe.',
-  'How do I report a bug?': 'ÙƒÙŠÙ Ø£Ø¨Ù„Øº Ø¹Ù† Ø®Ø·Ø£ØŸ',
-  'Open Support and choose Report a Bug. Include the affected tool, severity, steps to reproduce, expected behavior, and actual behavior.': 'Ø§ÙØªØ­ Ø§Ù„Ø¯Ø¹Ù… ÙˆØ§Ø®ØªØ± Ø§Ù„Ø¥Ø¨Ù„Ø§Øº Ø¹Ù† Ø®Ø·Ø£ØŒ ÙˆØ£Ø¶Ù Ø§Ù„Ø£Ø¯Ø§Ø© Ø§Ù„Ù…ØªØ£Ø«Ø±Ø© ÙˆØ§Ù„Ø®Ø·ÙˆØ±Ø© ÙˆØ®Ø·ÙˆØ§Øª Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø´ÙƒÙ„Ø© ÙˆØ§Ù„Ø³Ù„ÙˆÙƒ Ø§Ù„Ù…ØªÙˆÙ‚Ø¹ ÙˆØ§Ù„ÙØ¹Ù„ÙŠ.',
-  'Failed to send support request. Please try again.': 'ÙØ´Ù„ Ø¥Ø±Ø³Ø§Ù„ Ø·Ù„Ø¨ Ø§Ù„Ø¯Ø¹Ù…. Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.',
-  'Send Support Request': 'Ø¥Ø±Ø³Ø§Ù„ Ø·Ù„Ø¨ Ø¯Ø¹Ù…',
-  'Please select a rating': 'ÙŠØ±Ø¬Ù‰ Ø§Ø®ØªÙŠØ§Ø± ØªÙ‚ÙŠÙŠÙ…',
-  'Too many submissions. Please try again shortly.': 'Ø¹Ø¯Ø¯ ÙƒØ¨ÙŠØ± Ù…Ù† Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø§Øª. Ø­Ø§ÙˆÙ„ Ø¨Ø¹Ø¯ Ù‚Ù„ÙŠÙ„.',
-  'Sending feedback...': 'Ø¬Ø§Ø±Ù Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ù…Ù„Ø§Ø­Ø¸Ø§Øª...',
-  'Thank you for your feedback!': 'Ø´ÙƒØ±Ø§Ù‹ Ù„Ù…Ù„Ø§Ø­Ø¸Ø§ØªÙƒ!',
-  'Failed to send feedback. Please try again.': 'ÙØ´Ù„ Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ù…Ù„Ø§Ø­Ø¸Ø§Øª. Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.',
-  'Please describe the steps to reproduce': 'ÙŠØ±Ø¬Ù‰ ÙˆØµÙ Ø®Ø·ÙˆØ§Øª Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø´ÙƒÙ„Ø©',
-  'Submitting bug report...': 'Ø¬Ø§Ø±Ù Ø¥Ø±Ø³Ø§Ù„ ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø®Ø·Ø£...',
-  'Bug report submitted. Thank you!': 'ØªÙ… Ø¥Ø±Ø³Ø§Ù„ ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø®Ø·Ø£. Ø´ÙƒØ±Ø§Ù‹ Ù„Ùƒ!',
-  'Failed to submit bug report. Please try again.': 'ÙØ´Ù„ Ø¥Ø±Ø³Ø§Ù„ ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø®Ø·Ø£. Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.',
-  '1. Go to...\n2. Click on...\n3. Enter...': '1. Ø§Ù†ØªÙ‚Ù„ Ø¥Ù„Ù‰...\n2. Ø§Ø¶ØºØ· Ø¹Ù„Ù‰...\n3. Ø£Ø¯Ø®Ù„...',
-  'Steps to reproduce': 'Ø®Ø·ÙˆØ§Øª Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø´ÙƒÙ„Ø©',
-  'What should have happened?': 'Ù…Ø§ Ø§Ù„Ø°ÙŠ ÙƒØ§Ù† ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ­Ø¯Ø«ØŸ',
-  'Expected behavior': 'Ø§Ù„Ø³Ù„ÙˆÙƒ Ø§Ù„Ù…ØªÙˆÙ‚Ø¹',
-  'What actually happened?': 'Ù…Ø§ Ø§Ù„Ø°ÙŠ Ø­Ø¯Ø« ÙØ¹Ù„ÙŠØ§Ù‹ØŸ',
-  'Actual behavior': 'Ø§Ù„Ø³Ù„ÙˆÙƒ Ø§Ù„ÙØ¹Ù„ÙŠ',
-  'Submit Bug Report': 'Ø¥Ø±Ø³Ø§Ù„ ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø®Ø·Ø£',
-  'Message sent successfully! We will get back to you soon.': 'ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø±Ø³Ø§Ù„Ø© Ø¨Ù†Ø¬Ø§Ø­. Ø³Ù†Ø¹ÙˆØ¯ Ø¥Ù„ÙŠÙƒ Ù‚Ø±ÙŠØ¨Ø§Ù‹.',
-  'Failed to send message. Please try again.': 'ÙØ´Ù„ Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø±Ø³Ø§Ù„Ø©. Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.',
-  'Send Message': 'Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø±Ø³Ø§Ù„Ø©',
-  'Account Support': 'Ø¯Ø¹Ù… Ø§Ù„Ø­Ø³Ø§Ø¨',
-  'Use the secure form below': 'Ø§Ø³ØªØ®Ø¯Ù… Ø§Ù„Ù†Ù…ÙˆØ°Ø¬ Ø§Ù„Ø¢Ù…Ù† Ø£Ø¯Ù†Ø§Ù‡',
-  'Product Help': 'Ù…Ø³Ø§Ø¹Ø¯Ø© Ø§Ù„Ù…Ù†ØªØ¬',
-  'Help Center and troubleshooting': 'Ù…Ø±ÙƒØ² Ø§Ù„Ù…Ø³Ø§Ø¹Ø¯Ø© ÙˆØ§Ø³ØªÙƒØ´Ø§Ù Ø§Ù„Ø£Ø®Ø·Ø§Ø¡',
-  'Privacy Requests': 'Ø·Ù„Ø¨Ø§Øª Ø§Ù„Ø®ØµÙˆØµÙŠØ©',
-  'Access, correction or deletion requests': 'Ø·Ù„Ø¨Ø§Øª Ø§Ù„ÙˆØµÙˆÙ„ Ø£Ùˆ Ø§Ù„ØªØµØ­ÙŠØ­ Ø£Ùˆ Ø§Ù„Ø­Ø°Ù',
-  'Unlock higher limits, publishing, analytics and collaboration features.': 'Ø§ÙØªØ­ Ø­Ø¯ÙˆØ¯Ø§Ù‹ Ø£Ø¹Ù„Ù‰ ÙˆÙ…ÙŠØ²Ø§Øª Ø§Ù„Ù†Ø´Ø± ÙˆØ§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª ÙˆØ§Ù„ØªØ¹Ø§ÙˆÙ†.',
-  'Start with core AI tools and Website Builder for free': 'Ø§Ø¨Ø¯Ø£ Ù…Ø¬Ø§Ù†Ø§Ù‹ Ø¨Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ© ÙˆÙ…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹',
-  "Ask AI to do anything... e.g. 'Create a CV', 'Analyze this PDF', 'Translate text'": 'Ø§Ø·Ù„Ø¨ Ù…Ù† Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø£ÙŠ Ø´ÙŠØ¡... Ù…Ø«Ù„ Ø¥Ù†Ø´Ø§Ø¡ Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ© Ø£Ùˆ ØªØ­Ù„ÙŠÙ„ PDF Ø£Ùˆ ØªØ±Ø¬Ù…Ø© Ù†Øµ',
-  'No matching AI command. Try Create a CV or Translate text.': 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø£Ù…Ø± Ù…Ø·Ø§Ø¨Ù‚. Ø¬Ø±Ù‘Ø¨ Ø¥Ù†Ø´Ø§Ø¡ Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ© Ø£Ùˆ ØªØ±Ø¬Ù…Ø© Ù†Øµ.',
-  'Ask anything...': 'Ø§Ø³Ø£Ù„ Ø£ÙŠ Ø´ÙŠØ¡...',
-  'How do I improve my CV?': 'ÙƒÙŠÙ Ø£Ø­Ø³Ù‘Ù† Ø³ÙŠØ±ØªÙŠ Ø§Ù„Ø°Ø§ØªÙŠØ©ØŸ',
-  'What tools are available?': 'Ù…Ø§ Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ù…ØªØ§Ø­Ø©ØŸ',
-  'Help me write a cover letter': 'Ø³Ø§Ø¹Ø¯Ù†ÙŠ ÙÙŠ ÙƒØªØ§Ø¨Ø© Ø®Ø·Ø§Ø¨ ØªØºØ·ÙŠØ©',
-  'Tips for ATS optimization': 'Ù†ØµØ§Ø¦Ø­ Ù„ØªØ­Ø³ÙŠÙ† Ø§Ù„ØªÙˆØ§ÙÙ‚ Ù…Ø¹ ATS',
-  'Could not load subscriptions': 'ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ø§Ø´ØªØ±Ø§ÙƒØ§Øª',
-  'Retry': 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©',
-  'Subscriptions Overview': 'Ù†Ø¸Ø±Ø© Ø¹Ø§Ù…Ø© Ø¹Ù„Ù‰ Ø§Ù„Ø§Ø´ØªØ±Ø§ÙƒØ§Øª',
-  'Payment Settings': 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ø¯ÙØ¹',
-  'past_due Â· 3-day grace': 'Ù…ØªØ£Ø®Ø± Ø§Ù„Ø¯ÙØ¹ Â· Ù…Ù‡Ù„Ø© 3 Ø£ÙŠØ§Ù…',
-  'Stripe status unavailable': 'Ø­Ø§Ù„Ø© Stripe ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Stripe Connection': 'Ø§ØªØµØ§Ù„ Stripe',
-  'Secrets stay server-side and are never exposed in this panel.': 'ØªØ¨Ù‚Ù‰ Ø§Ù„Ø£Ø³Ø±Ø§Ø± Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù… ÙˆÙ„Ø§ ØªØ¸Ù‡Ø± Ù…Ø·Ù„Ù‚Ù‹Ø§ ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ù„ÙˆØ­Ø©.',
-  'Connected': 'Ù…ØªØµÙ„',
-  'Not configured': 'ØºÙŠØ± Ù…ÙØ¹Ø¯Ù‘',
-  'Stripe Account': 'Ø­Ø³Ø§Ø¨ Stripe',
-  'Country / Currency': 'Ø§Ù„Ø¨Ù„Ø¯ / Ø§Ù„Ø¹Ù…Ù„Ø©',
-  'Charges': 'Ø§Ù„Ù…Ø¯ÙÙˆØ¹Ø§Øª',
-  'Needs attention': 'ÙŠØ­ØªØ§Ø¬ Ø¥Ù„Ù‰ Ù…ØªØ§Ø¨Ø¹Ø©',
-  'Payouts': 'Ø§Ù„ØªØ­ÙˆÙŠÙ„Ø§Øª',
-  'Price verified': 'ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø³Ø¹Ø±',
-  'Price missing / invalid': 'Ø§Ù„Ø³Ø¹Ø± Ù…ÙÙ‚ÙˆØ¯ / ØºÙŠØ± ØµØ§Ù„Ø­',
-  'Price ID': 'Ù…Ø¹Ø±Ù‘Ù Ø§Ù„Ø³Ø¹Ø±',
-  'Stripe Price': 'Ø³Ø¹Ø± Stripe',
-  'Webhook': 'Webhook',
-  'Secret configured': 'Ø§Ù„Ø³Ø± Ù…ÙØ¹Ø¯Ù‘',
-  'Secret missing': 'Ø§Ù„Ø³Ø± Ù…ÙÙ‚ÙˆØ¯',
-  'Endpoint found': 'ØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù†Ù‚Ø·Ø© Ø§Ù„Ù†Ù‡Ø§ÙŠØ©',
-  'Endpoint missing': 'Ù†Ù‚Ø·Ø© Ø§Ù„Ù†Ù‡Ø§ÙŠØ© Ù…ÙÙ‚ÙˆØ¯Ø©',
-  'Events configured': 'Ø§Ù„Ø£Ø­Ø¯Ø§Ø« Ù…ÙØ¹Ø¯Ù‘Ø©',
-  'Events need review': 'Ø§Ù„Ø£Ø­Ø¯Ø§Ø« ØªØ­ØªØ§Ø¬ Ù…Ø±Ø§Ø¬Ø¹Ø©',
-  'Checkout & Portal': 'Ø§Ù„Ø¯ÙØ¹ ÙˆØ§Ù„Ø¨ÙˆØ§Ø¨Ø©',
-  'Checkout ready': 'Ø§Ù„Ø¯ÙØ¹ Ø¬Ø§Ù‡Ø²',
-  'Checkout needs setup': 'Ø§Ù„Ø¯ÙØ¹ ÙŠØ­ØªØ§Ø¬ Ø¥Ø¹Ø¯Ø§Ø¯Ù‹Ø§',
-  'Billing Portal ready': 'Ø¨ÙˆØ§Ø¨Ø© Ø§Ù„ÙÙˆØªØ±Ø© Ø¬Ø§Ù‡Ø²Ø©',
-  'Portal needs setup': 'Ø§Ù„Ø¨ÙˆØ§Ø¨Ø© ØªØ­ØªØ§Ø¬ Ø¥Ø¹Ø¯Ø§Ø¯Ù‹Ø§',
-  'Mode matches prices': 'Ø§Ù„ÙˆØ¶Ø¹ Ù…ØªØ·Ø§Ø¨Ù‚ Ù…Ø¹ Ø§Ù„Ø£Ø³Ø¹Ø§Ø±',
-  'Live/Test mismatch': 'Ø¹Ø¯Ù… ØªØ·Ø§Ø¨Ù‚ Live/Test',
-  'Payout Destination': 'ÙˆØ¬Ù‡Ø© Ø§Ù„ØªØ­ÙˆÙŠÙ„Ø§Øª',
-  'Bank accounts, payout schedule, identity and tax details are managed only inside Stripe.': 'ØªÙØ¯Ø§Ø± Ø§Ù„Ø­Ø³Ø§Ø¨Ø§Øª Ø§Ù„Ø¨Ù†ÙƒÙŠØ© ÙˆØ¬Ø¯ÙˆÙ„ Ø§Ù„ØªØ­ÙˆÙŠÙ„Ø§Øª ÙˆØ¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù‡ÙˆÙŠØ© ÙˆØ§Ù„Ø¶Ø±Ø§Ø¦Ø¨ Ø¯Ø§Ø®Ù„ Stripe ÙÙ‚Ø·.',
-  'Open Stripe Dashboard': 'ÙØªØ­ Ù„ÙˆØ­Ø© Stripe',
-  'Refresh Stripe Status': 'ØªØ­Ø¯ÙŠØ« Ø­Ø§Ù„Ø© Stripe',
-  'System logs unavailable': 'Ø³Ø¬Ù„Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù… ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Account blocks unavailable': 'Ø­Ø¸Ø± Ø§Ù„Ø­Ø³Ø§Ø¨Ø§Øª ØºÙŠØ± Ù…ØªØ§Ø­',
-  'Account Block List': 'Ù‚Ø§Ø¦Ù…Ø© Ø­Ø¸Ø± Ø§Ù„Ø­Ø³Ø§Ø¨Ø§Øª',
-  'Blocks survive account deletion and prevent re-registration while active.': 'ÙŠØ¨Ù‚Ù‰ Ø§Ù„Ø­Ø¸Ø± Ø¨Ø¹Ø¯ Ø­Ø°Ù Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆÙŠÙ…Ù†Ø¹ Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ³Ø¬ÙŠÙ„ Ù…Ø§ Ø¯Ø§Ù… ÙØ¹Ø§Ù„Ù‹Ø§.',
-  'No blocked emails': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¹Ù†Ø§ÙˆÙŠÙ† Ø¨Ø±ÙŠØ¯ Ù…Ø­Ø¸ÙˆØ±Ø©',
-  'Blocked': 'Ù…Ø­Ø¸ÙˆØ±',
-  'Expired': 'Ù…Ù†ØªÙ‡ÙŠ',
-  'No reason provided': 'Ù„Ù… ÙŠØªÙ… ØªØ­Ø¯ÙŠØ¯ Ø³Ø¨Ø¨',
-  'By': 'Ø¨ÙˆØ§Ø³Ø·Ø©',
-  'Expires': 'ÙŠÙ†ØªÙ‡ÙŠ',
-  'Permanent': 'Ø¯Ø§Ø¦Ù…',
-  'Unblock': 'Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ø­Ø¸Ø±',
-  'Production readiness unavailable': 'Ø­Ø§Ù„Ø© Ø¬Ø§Ù‡Ø²ÙŠØ© Ø§Ù„Ø¥Ù†ØªØ§Ø¬ ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Production Readiness': 'Ø¬Ø§Ù‡Ø²ÙŠØ© Ø§Ù„Ø¥Ù†ØªØ§Ø¬',
-  'Legal operator identity': 'Ù‡ÙˆÙŠØ© Ø§Ù„Ù…Ø´ØºÙ‘Ù„ Ø§Ù„Ù‚Ø§Ù†ÙˆÙ†ÙŠØ©',
-  'Production app URL': 'Ø±Ø§Ø¨Ø· ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„Ø¥Ù†ØªØ§Ø¬',
-  'Live service checks before launch. Secrets remain server-side.': 'ÙØ­ÙˆØµØ§Øª Ù„Ù„Ø®Ø¯Ù…Ø§Øª Ø§Ù„Ø­ÙŠØ© Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚. ØªØ¨Ù‚Ù‰ Ø§Ù„Ø£Ø³Ø±Ø§Ø± Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù….',
-  'ready': 'Ø¬Ø§Ù‡Ø²',
-  'Notifications unavailable': 'Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±Ø§Øª ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Email templates unavailable': 'Ù‚ÙˆØ§Ù„Ø¨ Ø§Ù„Ø¨Ø±ÙŠØ¯ ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Backups are managed by the database hosting provider. No in-app backup API is configured, so this panel will not pretend to create or download backups.': 'ØªÙØ¯Ø§Ø± Ø§Ù„Ù†Ø³Ø® Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© Ø¨ÙˆØ§Ø³Ø·Ø© Ù…Ø²ÙˆØ¯ Ø§Ø³ØªØ¶Ø§ÙØ© Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª. Ù„Ø§ ØªÙˆØ¬Ø¯ ÙˆØ§Ø¬Ù‡Ø© Ù†Ø³Ø® Ø§Ø­ØªÙŠØ§Ø·ÙŠ Ù…Ù‡ÙŠØ£Ø© Ø¯Ø§Ø®Ù„ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ØŒ Ù„Ø°Ù„Ùƒ Ù„Ù† ØªØ¯Ù‘Ø¹ÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ù„ÙˆØ­Ø© Ø¥Ù†Ø´Ø§Ø¡ Ù†Ø³Ø® Ø£Ùˆ ØªÙ†Ø²ÙŠÙ„Ù‡Ø§.',
-  'Use the Supabase project backup controls for real backup and restore operations.': 'Ø§Ø³ØªØ®Ø¯Ù… Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ù†Ø³Ø® Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠ ÙÙŠ Ù…Ø´Ø±ÙˆØ¹ Supabase Ù„Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ù†Ø³Ø® ÙˆØ§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø§Ù„ÙØ¹Ù„ÙŠØ©.',
-  'API key metadata unavailable': 'Ø¨ÙŠØ§Ù†Ø§Øª Ù…ÙØ§ØªÙŠØ­ API ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Metadata only â€” secrets stay server-side': 'Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØµÙÙŠØ© ÙÙ‚Ø· â€” ØªØ¨Ù‚Ù‰ Ø§Ù„Ø£Ø³Ø±Ø§Ø± Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù…',
-  'Feature flags unavailable': 'Ø£Ø¹Ù„Ø§Ù… Ø§Ù„Ù…ÙŠØ²Ø§Øª ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Existing flags only': 'Ø§Ù„Ø£Ø¹Ù„Ø§Ù… Ø§Ù„Ù…ÙˆØ¬ÙˆØ¯Ø© ÙÙ‚Ø·',
-  'Could not load users': 'ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†',
-  'Admin Access': 'ØµÙ„Ø§Ø­ÙŠØ© Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„',
-  'Managed by Billing': 'ØªÙØ¯Ø§Ø± Ø¹Ø¨Ø± Ø§Ù„ÙÙˆØªØ±Ø©',
-  'Complimentary Access': 'ÙˆØµÙˆÙ„ Ù…Ø¬Ø§Ù†ÙŠ',
-  'Current billing only': 'Ø§Ù„ÙÙˆØªØ±Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ© ÙÙ‚Ø·',
-  'Complimentary Pro': 'Pro Ù…Ø¬Ø§Ù†ÙŠ',
-  'Complimentary Business': 'Business Ù…Ø¬Ø§Ù†ÙŠ',
-  'Expires (optional)': 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ù†ØªÙ‡Ø§Ø¡ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'Save Complimentary Access': 'Ø­ÙØ¸ Ø§Ù„ÙˆØµÙˆÙ„ Ø§Ù„Ù…Ø¬Ø§Ù†ÙŠ',
-  'This changes product access only. It does not create a Stripe subscription or affect MRR.': 'Ù‡Ø°Ø§ ÙŠØºÙŠÙ‘Ø± ØµÙ„Ø§Ø­ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ø§Ù„Ù…Ù†ØªØ¬ ÙÙ‚Ø·. Ù„Ø§ ÙŠÙ†Ø´Ø¦ Ø§Ø´ØªØ±Ø§Ùƒ Stripe ÙˆÙ„Ø§ ÙŠØ¤Ø«Ø± Ø¹Ù„Ù‰ Ø§Ù„Ø¥ÙŠØ±Ø§Ø¯ Ø§Ù„Ø´Ù‡Ø±ÙŠ Ø§Ù„Ù…ØªÙƒØ±Ø±.',
-  'Build, preview and publish': 'Ø£Ù†Ø´Ø¦ ÙˆØ¹Ø§ÙŠÙ† ÙˆØ§Ù†Ø´Ø±',
-  'More website tools': 'Ø§Ù„Ù…Ø²ÙŠØ¯ Ù…Ù† Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'More': 'Ø§Ù„Ù…Ø²ÙŠØ¯',
-  'Website tools': 'Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Advanced tools stay here until you need them.': 'ØªØ¨Ù‚Ù‰ Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ù…ØªÙ‚Ø¯Ù…Ø© Ù‡Ù†Ø§ Ø­ØªÙ‰ ØªØ­ØªØ§Ø¬Ù‡Ø§.',
-  'Project & domain': 'Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙˆØ§Ù„Ù†Ø·Ø§Ù‚',
-  'Start a new websiteâ€¦': 'Ø§Ø¨Ø¯Ø£ Ù…ÙˆÙ‚Ø¹Ù‹Ø§ Ø¬Ø¯ÙŠØ¯Ù‹Ø§â€¦',
-  'Project actions': 'Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'AI quality check before publishing': 'ÙØ­Øµ Ø¬ÙˆØ¯Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ù‚Ø¨Ù„ Ø§Ù„Ù†Ø´Ø±',
-  'Checkingâ€¦': 'Ø¬Ø§Ø±Ù Ø§Ù„ÙØ­Øµâ€¦',
-  'Check': 'ÙØ­Øµ',
-  'AI Quality Check': 'ÙØ­Øµ Ø¬ÙˆØ¯Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Reviewing design, content, SEO, accessibility and publish readinessâ€¦': 'Ø¬Ø§Ø±Ù Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„ØªØµÙ…ÙŠÙ… ÙˆØ§Ù„Ù…Ø­ØªÙˆÙ‰ ÙˆSEO ÙˆØ¥Ù…ÙƒØ§Ù†ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„ ÙˆØ¬Ø§Ù‡Ø²ÙŠØ© Ø§Ù„Ù†Ø´Ø±â€¦',
-  'Run the final AI review before publishing.': 'Ø´ØºÙ‘Ù„ Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠØ© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ù‚Ø¨Ù„ Ø§Ù„Ù†Ø´Ø±.',
-  'Run again': 'ØªØ´ØºÙŠÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰',
-  'Fix safe issues with AI': 'Ø¥ØµÙ„Ø§Ø­ Ø§Ù„Ù…Ø´ÙƒÙ„Ø§Øª Ø§Ù„Ø¢Ù…Ù†Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Publish remains blocked by critical deterministic audit errors and launch checks.': 'ÙŠØ¨Ù‚Ù‰ Ø§Ù„Ù†Ø´Ø± Ù…Ø­Ø¸ÙˆØ±Ù‹Ø§ Ø¹Ù†Ø¯ ÙˆØ¬ÙˆØ¯ Ø£Ø®Ø·Ø§Ø¡ ØªØ¯Ù‚ÙŠÙ‚ Ø­Ø±Ø¬Ø© Ø£Ùˆ ÙØ­ÙˆØµØ§Øª Ø¥Ø·Ù„Ø§Ù‚ ÙØ§Ø´Ù„Ø©.',
-  'Up to 30 manual and AI checkpoints. Autosave stays lightweight.': 'Ø­ØªÙ‰ 30 Ù†Ù‚Ø·Ø© Ø­ÙØ¸ ÙŠØ¯ÙˆÙŠØ© ÙˆØ¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ. ÙŠØ¨Ù‚Ù‰ Ø§Ù„Ø­ÙØ¸ Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ Ø®ÙÙŠÙÙ‹Ø§.',
-  'No restore points yet. Save or use Tayar AI to create the first checkpoint.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†Ù‚Ø§Ø· Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø¨Ø¹Ø¯. Ø§Ø­ÙØ¸ Ø£Ùˆ Ø§Ø³ØªØ®Ø¯Ù… Tayar AI Ù„Ø¥Ù†Ø´Ø§Ø¡ Ø£ÙˆÙ„ Ù†Ù‚Ø·Ø©.',
-  'Add': 'Ø¥Ø¶Ø§ÙØ©',
-  'Page settings': 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„ØµÙØ­Ø©',
-  'Site settings': 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Header, footer, theme, SEO and advanced options': 'Ø§Ù„Ø±Ø£Ø³ ÙˆØ§Ù„ØªØ°ÙŠÙŠÙ„ ÙˆØ§Ù„Ù…Ø¸Ù‡Ø± ÙˆSEO ÙˆØ§Ù„Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ù…ØªÙ‚Ø¯Ù…Ø©',
-  'Sections & elements': 'Ø§Ù„Ø£Ù‚Ø³Ø§Ù… ÙˆØ§Ù„Ø¹Ù†Ø§ØµØ±',
-  'Popular sections': 'Ø§Ù„Ø£Ù‚Ø³Ø§Ù… Ø§Ù„Ø´Ø§Ø¦Ø¹Ø©',
-  'Start simple': 'Ø§Ø¨Ø¯Ø£ Ø¨Ø¨Ø³Ø§Ø·Ø©',
-  'More sections': 'Ø§Ù„Ù…Ø²ÙŠØ¯ Ù…Ù† Ø§Ù„Ø£Ù‚Ø³Ø§Ù…',
-  'Add element': 'Ø¥Ø¶Ø§ÙØ© Ø¹Ù†ØµØ±',
-  'Common first': 'Ø§Ù„Ø£ÙƒØ«Ø± Ø§Ø³ØªØ®Ø¯Ø§Ù…Ù‹Ø§ Ø£ÙˆÙ„Ù‹Ø§',
-  'Advanced elements': 'Ø¹Ù†Ø§ØµØ± Ù…ØªÙ‚Ø¯Ù…Ø©',
-  'Choose a section first. Add individual elements only when you need more control.': 'Ø§Ø®ØªØ± Ù‚Ø³Ù…Ù‹Ø§ Ø£ÙˆÙ„Ù‹Ø§. Ø£Ø¶Ù Ø¹Ù†Ø§ØµØ± Ù…Ù†ÙØ±Ø¯Ø© ÙÙ‚Ø· Ø¹Ù†Ø¯Ù…Ø§ ØªØ­ØªØ§Ø¬ ØªØ­ÙƒÙ…Ù‹Ø§ Ø£ÙƒØ¨Ø±.',
-  'Select a section to see its elements.': 'Ø§Ø®ØªØ± Ù‚Ø³Ù…Ù‹Ø§ Ù„Ø¹Ø±Ø¶ Ø¹Ù†Ø§ØµØ±Ù‡.',
-  'sections': 'Ø£Ù‚Ø³Ø§Ù…',
-  'No elements in this section.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¹Ù†Ø§ØµØ± ÙÙŠ Ù‡Ø°Ø§ Ø§Ù„Ù‚Ø³Ù….',
-  'Tayar AI Builder': 'Ù…Ù†Ø´Ø¦ Tayar Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Build, refine and undo with natural language.': 'Ø£Ù†Ø´Ø¦ ÙˆØ­Ø³Ù‘Ù† ÙˆØªØ±Ø§Ø¬Ø¹ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ù„ØºØ© Ø§Ù„Ø·Ø¨ÙŠØ¹ÙŠØ©.',
-  'Safe patch mode': 'ÙˆØ¶Ø¹ Ø§Ù„ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¢Ù…Ù†',
-  'Unrelated content stays intact': 'ÙŠØ¨Ù‚Ù‰ Ø§Ù„Ù…Ø­ØªÙˆÙ‰ ØºÙŠØ± Ø§Ù„Ù…Ø±ØªØ¨Ø· Ø¯ÙˆÙ† ØªØºÙŠÙŠØ±',
-  'Website plan': 'Ø®Ø·Ø© Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Apply AI change': 'ØªØ·Ø¨ÙŠÙ‚ ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Rebuild from prompt': 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø¨Ù†Ø§Ø¡ Ù…Ù† Ø§Ù„ÙˆØµÙ',
-  'Edit manually': 'ØªØ¹Ø¯ÙŠÙ„ ÙŠØ¯ÙˆÙŠ',
-  'Generate selected image': 'Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„ØµÙˆØ±Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø©',
-  'Quality check': 'ÙØ­Øµ Ø§Ù„Ø¬ÙˆØ¯Ø©',
-  'Undo AI change': 'Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Build with Tayar Agent': 'Ø§Ù„Ø¨Ù†Ø§Ø¡ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Tayar Agent',
-  'Fast build Â· no generated images': 'Ø¨Ù†Ø§Ø¡ Ø³Ø±ÙŠØ¹ Â· Ø¨Ø¯ÙˆÙ† ØµÙˆØ± Ù…ÙˆÙ„Ø¯Ø©',
-  'AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.': 'ÙŠÙ†Ø´Ø¦ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ØµÙØ­Ø§Øª ÙˆØ£Ù‚Ø³Ø§Ù… Tayar Ø­Ù‚ÙŠÙ‚ÙŠØ© ÙˆÙŠØ¹Ø¯Ù„Ù‡Ø§. ØªØ­Ø§ÙØ¸ Ø§Ù„ØªØ¹Ø¯ÙŠÙ„Ø§Øª Ø§Ù„Ù„Ø§Ø­Ù‚Ø© Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø­ØªÙˆÙ‰ ØºÙŠØ± Ø§Ù„Ù…Ø±ØªØ¨Ø· ÙˆØªØ¨Ù‚Ù‰ Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„ØªØ­Ø±ÙŠØ± ÙÙŠ Ø§Ù„Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…Ø±Ø¦ÙŠ.',
-  'Developer export': 'ØªØµØ¯ÙŠØ± Ù„Ù„Ù…Ø·ÙˆØ±',
-  'Add section': 'Ø¥Ø¶Ø§ÙØ© Ù‚Ø³Ù…',
-  'Inspector': 'Ù„ÙˆØ­Ø© Ø§Ù„Ø®ØµØ§Ø¦Øµ',
-  'Double-click the text on the page for quick editing, or use the controls here.': 'Ø§Ù†Ù‚Ø± Ù†Ù‚Ø±Ù‹Ø§ Ù…Ø²Ø¯ÙˆØ¬Ù‹Ø§ Ø¹Ù„Ù‰ Ø§Ù„Ù†Øµ ÙÙŠ Ø§Ù„ØµÙØ­Ø© Ù„Ù„ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø³Ø±ÙŠØ¹ØŒ Ø£Ùˆ Ø§Ø³ØªØ®Ø¯Ù… Ø¹Ù†Ø§ØµØ± Ø§Ù„ØªØ­ÙƒÙ… Ù‡Ù†Ø§.',
-  'Change the basics here. Open Advanced only when you need it.': 'ØºÙŠÙ‘Ø± Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ§Øª Ù‡Ù†Ø§. Ø§ÙØªØ­ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…ØªÙ‚Ø¯Ù…Ø© ÙÙ‚Ø· Ø¹Ù†Ø¯ Ø§Ù„Ø­Ø§Ø¬Ø©.',
-  'Select something on the page to start editing.': 'Ø§Ø®ØªØ± Ø´ÙŠØ¦Ù‹Ø§ ÙÙŠ Ø§Ù„ØµÙØ­Ø© Ù„Ø¨Ø¯Ø¡ Ø§Ù„ØªØ¹Ø¯ÙŠÙ„.',
-  'Structure': 'Ø§Ù„Ø¨Ù†ÙŠØ©',
-  'Structure & reusable components': 'Ø§Ù„Ø¨Ù†ÙŠØ© ÙˆØ§Ù„Ù…ÙƒÙˆÙ†Ø§Øª Ø§Ù„Ù‚Ø§Ø¨Ù„Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…',
-  'Quick style': 'ØªÙ†Ø³ÙŠÙ‚ Ø³Ø±ÙŠØ¹',
-  'Advanced design & responsive': 'ØªØµÙ…ÙŠÙ… Ù…ØªÙ‚Ø¯Ù… ÙˆØ§Ø³ØªØ¬Ø§Ø¨Ø©',
-  'styles': 'Ø£Ù†Ù…Ø§Ø·',
-  'Free position': 'Ù…ÙˆØ¶Ø¹ Ø­Ø±',
-  'Drag freely on the canvas. Hold Shift while dragging to reorder instead.': 'Ø§Ø³Ø­Ø¨ Ø¨Ø­Ø±ÙŠØ© Ø¹Ù„Ù‰ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„. Ø§Ø¶ØºØ· Shift Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ø³Ø­Ø¨ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ±ØªÙŠØ¨ Ø¨Ø¯Ù„Ù‹Ø§ Ù…Ù† Ø°Ù„Ùƒ.',
-  'Section settings': 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù‚Ø³Ù…',
-  'collapsed while editing element': 'Ù…Ø·ÙˆÙŠ Ø£Ø«Ù†Ø§Ø¡ ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¹Ù†ØµØ±',
-
-  'Tools data unavailable': 'Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø£Ø¯ÙˆØ§Øª ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Live usage data': 'Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø©',
-  'Analysis is read-only. No storage object or database row is changed by this button.': 'Ø§Ù„ØªØ­Ù„ÙŠÙ„ Ù„Ù„Ù‚Ø±Ø§Ø¡Ø© ÙÙ‚Ø·. Ù„Ø§ ÙŠØºÙŠÙ‘Ø± Ù‡Ø°Ø§ Ø§Ù„Ø²Ø± Ø£ÙŠ Ù…Ù„Ù ØªØ®Ø²ÙŠÙ† Ø£Ùˆ ØµÙ ÙÙŠ Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª.',
-  'Detected issues': 'Ø§Ù„Ù…Ø´ÙƒÙ„Ø§Øª Ø§Ù„Ù…ÙƒØªØ´ÙØ©',
-  'Components': 'Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª',
-  'changes': 'ØªØºÙŠÙŠØ±Ø§Øª',
-  'Restore this editor state': 'Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø­Ø§Ù„Ø© Ø§Ù„Ù…Ø­Ø±Ø± Ù‡Ø°Ù‡',
-  'Restore': 'Ø§Ø³ØªØ¹Ø§Ø¯Ø©',
-  'No changes yet.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ ØªØºÙŠÙŠØ±Ø§Øª Ø¨Ø¹Ø¯.',
-  'Redo queue': 'Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ø¥Ø¹Ø§Ø¯Ø©',
-  'Template Library': 'Ù…ÙƒØªØ¨Ø© Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨',
-
-  'Components are reusable linked elements. Create one from the selected element, insert it anywhere, and linked copies stay in sync. Detach makes only the selected copy independent.': 'Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª Ù‡ÙŠ Ø¹Ù†Ø§ØµØ± Ù…Ø±ØªØ¨Ø·Ø© Ù‚Ø§Ø¨Ù„Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…. Ø£Ù†Ø´Ø¦ Ù…ÙƒÙˆÙ†Ù‹Ø§ Ù…Ù† Ø§Ù„Ø¹Ù†ØµØ± Ø§Ù„Ù…Ø­Ø¯Ø¯ ÙˆØ£Ø¯Ø±Ø¬Ù‡ ÙÙŠ Ø£ÙŠ Ù…ÙƒØ§Ù† Ù„ØªØ¨Ù‚Ù‰ Ø§Ù„Ù†Ø³Ø® Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© Ù…ØªØ²Ø§Ù…Ù†Ø©. ÙŠØ¤Ø¯ÙŠ Ø§Ù„ÙØµÙ„ Ø¥Ù„Ù‰ Ø¬Ø¹Ù„ Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© Ù…Ø³ØªÙ‚Ù„Ø© ÙÙ‚Ø·.',
-  'Create a reusable linked component from the selected element': 'Ø¥Ù†Ø´Ø§Ø¡ Ù…ÙƒÙˆÙ† Ù…Ø±ØªØ¨Ø· Ù‚Ø§Ø¨Ù„ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù…Ù† Ø§Ù„Ø¹Ù†ØµØ± Ø§Ù„Ù…Ø­Ø¯Ø¯',
-  'Select a normal element first': 'Ø§Ø®ØªØ± Ø¹Ù†ØµØ±Ù‹Ø§ Ø¹Ø§Ø¯ÙŠÙ‹Ø§ Ø£ÙˆÙ„Ù‹Ø§',
-  'Create component': 'Ø¥Ù†Ø´Ø§Ø¡ Ù…ÙƒÙˆÙ†',
-  'Detach the selected linked instance': 'ÙØµÙ„ Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø©',
-  'Select a linked component instance first': 'Ø§Ø®ØªØ± Ù†Ø³Ø®Ø© Ù…ÙƒÙˆÙ† Ù…Ø±ØªØ¨Ø·Ø© Ø£ÙˆÙ„Ù‹Ø§',
-  'Detach selected': 'ÙØµÙ„ Ø§Ù„Ù…Ø­Ø¯Ø¯',
-  'Insert component into the selected section': 'Ø¥Ø¯Ø±Ø§Ø¬ Ø§Ù„Ù…ÙƒÙˆÙ† ÙÙŠ Ø§Ù„Ù‚Ø³Ù… Ø§Ù„Ù…Ø­Ø¯Ø¯',
-  'Select a section or element first': 'Ø§Ø®ØªØ± Ù‚Ø³Ù…Ù‹Ø§ Ø£Ùˆ Ø¹Ù†ØµØ±Ù‹Ø§ Ø£ÙˆÙ„Ù‹Ø§',
-  'Component': 'Ù…ÙƒÙˆÙ†',
-  'Delete component': 'Ø­Ø°Ù Ø§Ù„Ù…ÙƒÙˆÙ†',
-  'DEL': 'Ø­Ø°Ù',
-  'Select an element on the canvas, then choose â€œCreate componentâ€.': 'Ø§Ø®ØªØ± Ø¹Ù†ØµØ±Ù‹Ø§ Ø¹Ù„Ù‰ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„ØŒ Ø«Ù… Ø§Ø®ØªØ± Â«Ø¥Ù†Ø´Ø§Ø¡ Ù…ÙƒÙˆÙ†Â».',
-  'Select a section or an element on the canvas before inserting a component.': 'Ø§Ø®ØªØ± Ù‚Ø³Ù…Ù‹Ø§ Ø£Ùˆ Ø¹Ù†ØµØ±Ù‹Ø§ Ø¹Ù„Ù‰ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„ Ù‚Ø¨Ù„ Ø¥Ø¯Ø±Ø§Ø¬ Ù…ÙƒÙˆÙ†.',
-  'Tayar AI is loading...': 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Tayar AI...',
-  'Site controls are loading...': 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø¹Ù†Ø§ØµØ± ØªØ­ÙƒÙ… Ø§Ù„Ù…ÙˆÙ‚Ø¹...',
-  'Settings are loading...': 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª...',
-  'Tayar AI': 'Tayar AI',
-  'VERIFYING': 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù‚Ù‚',
-  'CHECK FAILED': 'ÙØ´Ù„ Ø§Ù„ÙØ­Øµ',
-  'LIVE': 'Ù…Ø¨Ø§Ø´Ø±',
-  'PUBLISHED': 'Ù…Ù†Ø´ÙˆØ±',
-  'Saved changes need republish Â· Open site â†—': 'Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø© ØªØ­ØªØ§Ø¬ Ø¥Ø¹Ø§Ø¯Ø© Ù†Ø´Ø± Â· Ø§ÙØªØ­ Ø§Ù„Ù…ÙˆÙ‚Ø¹ â†—',
-  'Up to date Â· Open site â†—': 'Ù…Ø­Ø¯Ù‘Ø« Â· Ø§ÙØªØ­ Ø§Ù„Ù…ÙˆÙ‚Ø¹ â†—',
-  'critical': 'Ø­Ø±Ø¬',
-  'warnings': 'ØªØ­Ø°ÙŠØ±Ø§Øª',
-  'issue': 'Ù…Ø´ÙƒÙ„Ø©',
-  'issues': 'Ù…Ø´ÙƒÙ„Ø§Øª',
-  'Savingâ€¦': 'Ø¬Ø§Ø±Ù Ø§Ù„Ø­ÙØ¸â€¦',
-  'Unsaved': 'ØºÙŠØ± Ù…Ø­ÙÙˆØ¸',
-  'Saved Â· Not live yet': 'Ù…Ø­ÙÙˆØ¸ Â· Ù„Ù… ÙŠØµØ¨Ø­ Ù…Ø¨Ø§Ø´Ø±Ù‹Ø§ Ø¨Ø¹Ø¯',
-  'Saved Â· Live': 'Ù…Ø­ÙÙˆØ¸ Â· Ù…Ø¨Ø§Ø´Ø±',
-  'Saved': 'Ù…Ø­ÙÙˆØ¸',
-  'Editor history': 'Ø³Ø¬Ù„ Ø§Ù„Ù…Ø­Ø±Ø±',
-  'Publishingâ€¦': 'Ø¬Ø§Ø±Ù Ø§Ù„Ù†Ø´Ø±â€¦',
-  'Republish': 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù†Ø´Ø±',
-  'Publish again': 'Ø§Ù„Ù†Ø´Ø± Ù…Ø±Ø© Ø£Ø®Ø±Ù‰',
-  'Publish': 'Ù†Ø´Ø±',
-
-  'Tayar Coding Assistance': 'Ù…Ø³Ø§Ø¹Ø¯Ø© Tayar Ø§Ù„Ø¨Ø±Ù…Ø¬ÙŠØ©',
-  'UI Registry': 'Ø³Ø¬Ù„ ÙˆØ§Ø¬Ù‡Ø© Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…',
-  'Reading active project': 'Ø¬Ø§Ø±Ù Ù‚Ø±Ø§Ø¡Ø© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù†Ø´Ø·',
-  'Project context unavailable': 'Ø³ÙŠØ§Ù‚ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ØºÙŠØ± Ù…ØªØ§Ø­',
-  'Loading open-source registries': 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø³Ø¬Ù„Ø§Øª Ø§Ù„Ù…ØµØ§Ø¯Ø± Ø§Ù„Ù…ÙØªÙˆØ­Ø©',
-  'Target project': 'Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù…Ø³ØªÙ‡Ø¯Ù',
-  'Source policy': 'Ø³ÙŠØ§Ø³Ø© Ø§Ù„Ù…ØµØ¯Ø±',
-  'Files': 'Ø§Ù„Ù…Ù„ÙØ§Øª',
-  'Folder': 'Ù…Ø¬Ù„Ø¯',
-  'Clear private session files': 'Ù…Ø³Ø­ Ù…Ù„ÙØ§Øª Ø§Ù„Ø¬Ù„Ø³Ø© Ø§Ù„Ø®Ø§ØµØ©',
-  'Full Feature Generator': 'Ù…ÙˆÙ„Ù‘Ø¯ Ø§Ù„Ù…ÙŠØ²Ø§Øª Ø§Ù„ÙƒØ§Ù…Ù„',
-  'Registry anchors': 'Ù…Ø±Ø§Ø¬Ø¹ Ø§Ù„Ø³Ø¬Ù„',
-  'Choose a target project to generate a feature pack.': 'Ø§Ø®ØªØ± Ù…Ø´Ø±ÙˆØ¹Ù‹Ø§ Ù…Ø³ØªÙ‡Ø¯ÙÙ‹Ø§ Ù„Ø¥Ù†Ø´Ø§Ø¡ Ø­Ø²Ù…Ø© Ù…ÙŠØ²Ø§Øª.',
-  'Component Kit Composer': 'Ù…ÙÙ†Ø´Ø¦ Ø­Ø²Ù…Ø© Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª',
-  'Kit is empty. Load a preset or add selected components.': 'Ø§Ù„Ø­Ø²Ù…Ø© ÙØ§Ø±ØºØ©. Ø­Ù…Ù‘Ù„ Ø¥Ø¹Ø¯Ø§Ø¯Ù‹Ø§ Ù…Ø³Ø¨Ù‚Ù‹Ø§ Ø£Ùˆ Ø£Ø¶Ù Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª Ø§Ù„Ù…Ø­Ø¯Ø¯Ø©.',
-  'Clear kit': 'Ù…Ø³Ø­ Ø§Ù„Ø­Ø²Ù…Ø©',
-  'Items': 'Ø§Ù„Ø¹Ù†Ø§ØµØ±',
-  'Registry deps': 'Ø§Ø¹ØªÙ…Ø§Ø¯ÙŠØ§Øª Ø§Ù„Ø³Ø¬Ù„',
-  'Compatibility': 'Ø§Ù„ØªÙˆØ§ÙÙ‚',
-  'Page Composer + Themes': 'Ù…ÙÙ†Ø´Ø¦ Ø§Ù„ØµÙØ­Ø§Øª + Ø§Ù„Ø³Ù…Ø§Øª',
-  'Section anchors': 'Ù…Ø±Ø§Ø¬Ø¹ Ø§Ù„Ø£Ù‚Ø³Ø§Ù…',
-  'No strong registry anchors found for this page preset.': 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ø±Ø§Ø¬Ø¹ Ù‚ÙˆÙŠØ© ÙÙŠ Ø§Ù„Ø³Ø¬Ù„ Ù„Ù‡Ø°Ø§ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯ Ø§Ù„Ù…Ø³Ø¨Ù‚ Ù„Ù„ØµÙØ­Ø©.',
-  'Project UI Audit': 'ØªØ¯Ù‚ÙŠÙ‚ ÙˆØ§Ø¬Ù‡Ø© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Choose a target project to run the UI audit.': 'Ø§Ø®ØªØ± Ù…Ø´Ø±ÙˆØ¹Ù‹Ø§ Ù…Ø³ØªÙ‡Ø¯ÙÙ‹Ø§ Ù„ØªØ´ØºÙŠÙ„ ØªØ¯Ù‚ÙŠÙ‚ Ø§Ù„ÙˆØ§Ø¬Ù‡Ø©.',
-  'Score': 'Ø§Ù„Ù†ØªÙŠØ¬Ø©',
-  'High': 'Ù…Ø±ØªÙØ¹',
-  'Coverage': 'Ø§Ù„ØªØºØ·ÙŠØ©',
-  'No issues matched the current deterministic audit rules.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø´ÙƒÙ„Ø§Øª ØªØ·Ø§Ø¨Ù‚ Ù‚ÙˆØ§Ø¹Ø¯ Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚ Ø§Ù„Ø­Ø§Ù„ÙŠØ©.',
-  'All sources': 'ÙƒÙ„ Ø§Ù„Ù…ØµØ§Ø¯Ø±',
-  'Private Session': 'Ø¬Ù„Ø³Ø© Ø®Ø§ØµØ©',
-  'Animated only': 'Ø§Ù„Ù…ØªØ­Ø±ÙƒØ© ÙÙ‚Ø·',
-  'No matching components.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…ÙƒÙˆÙ†Ø§Øª Ù…Ø·Ø§Ø¨Ù‚Ø©.',
-  'Show 80 more': 'Ø¹Ø±Ø¶ 80 Ø¥Ø¶Ø§ÙÙŠØ©',
-  'Open source': 'Ù…ÙØªÙˆØ­ Ø§Ù„Ù…ØµØ¯Ø±',
-  'Private session': 'Ø¬Ù„Ø³Ø© Ø®Ø§ØµØ©',
-  'Isolated live preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ù…Ø¨Ø§Ø´Ø±Ø© Ù…Ø¹Ø²ÙˆÙ„Ø©',
-  'Stop preview': 'Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø©',
-  'Dependencies': 'Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯ÙŠØ§Øª',
-  'AI ready': 'Ø¬Ø§Ù‡Ø² Ù„Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Similar components': 'Ù…ÙƒÙˆÙ†Ø§Øª Ù…Ø´Ø§Ø¨Ù‡Ø©',
-  'Find similar / Replace project component': 'Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ø´Ø§Ø¨Ù‡ / Ø§Ø³ØªØ¨Ø¯Ø§Ù„ Ù…ÙƒÙˆÙ† Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Suggested replacements': 'Ø§Ù„Ø¨Ø¯Ø§Ø¦Ù„ Ø§Ù„Ù…Ù‚ØªØ±Ø­Ø©',
-  'No strong registry match yet. Pick a registry component manually, then use the button below.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø·Ø§Ø¨Ù‚Ø© Ù‚ÙˆÙŠØ© ÙÙŠ Ø§Ù„Ø³Ø¬Ù„ Ø¨Ø¹Ø¯. Ø§Ø®ØªØ± Ù…ÙƒÙˆÙ†Ù‹Ø§ Ù…Ù† Ø§Ù„Ø³Ø¬Ù„ ÙŠØ¯ÙˆÙŠÙ‹Ø§ Ø«Ù… Ø§Ø³ØªØ®Ø¯Ù… Ø§Ù„Ø²Ø± Ø£Ø¯Ù†Ø§Ù‡.',
-  'Active project compatibility': 'ØªÙˆØ§ÙÙ‚ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù†Ø´Ø·',
-  'Framework': 'Ø¥Ø·Ø§Ø± Ø§Ù„Ø¹Ù…Ù„',
-  'Detected project style': 'Ù†Ù…Ø· Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù…ÙƒØªØ´Ù',
-  'No strong style tokens detected yet.': 'Ù„Ù… ÙŠØªÙ… Ø§ÙƒØªØ´Ø§Ù Ø±Ù…ÙˆØ² ØªÙ†Ø³ÙŠÙ‚ Ù‚ÙˆÙŠØ© Ø¨Ø¹Ø¯.',
-  'Context files': 'Ù…Ù„ÙØ§Øª Ø§Ù„Ø³ÙŠØ§Ù‚',
-  'Missing npm deps': 'Ø§Ø¹ØªÙ…Ø§Ø¯ÙŠØ§Øª npm Ø§Ù„Ù…ÙÙ‚ÙˆØ¯Ø©',
-  'Source code loads on demand': 'ÙŠØªÙ… ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ø´ÙŠÙØ±Ø© Ø§Ù„Ù…ØµØ¯Ø±ÙŠØ© Ø¹Ù†Ø¯ Ø§Ù„Ø­Ø§Ø¬Ø©',
-  'AI adaptation': 'ØªÙƒÙŠÙŠÙ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Constraints': 'Ø§Ù„Ù‚ÙŠÙˆØ¯',
-  'Project style matching active': 'Ù…Ø·Ø§Ø¨Ù‚Ø© Ù†Ù…Ø· Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ù…ÙØ¹Ù„Ø©',
-  'Use this direction': 'Ø§Ø³ØªØ®Ø¯Ù… Ù‡Ø°Ø§ Ø§Ù„Ø§ØªØ¬Ø§Ù‡',
-  'Reviewable patch plan': 'Ø®Ø·Ø© ØªØ¹Ø¯ÙŠÙ„ Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©',
-  'NPM to install': 'Ø­Ø²Ù… NPM Ù„Ù„ØªØ«Ø¨ÙŠØª',
-  'Registry dependencies': 'Ø§Ø¹ØªÙ…Ø§Ø¯ÙŠØ§Øª Ø§Ù„Ø³Ø¬Ù„',
-  'Feature Pack Preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø­Ø²Ù…Ø© Ø§Ù„Ù…ÙŠØ²Ø§Øª',
-  'Preview primary file': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ',
-  'Create': 'Ø¥Ù†Ø´Ø§Ø¡',
-  'Replace': 'Ø§Ø³ØªØ¨Ø¯Ø§Ù„',
-  'Primary': 'Ø±Ø¦ÙŠØ³ÙŠ',
-  'Controlled Dependency Editor': 'Ù…Ø­Ø±Ø± Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯ÙŠØ§Øª Ø§Ù„Ù…ØªØ­ÙƒÙ… Ø¨Ù‡',
-  'Rollback checkpoint available': 'Ù†Ù‚Ø·Ø© Ø§Ø³ØªØ±Ø¬Ø§Ø¹ Ù…ØªØ§Ø­Ø©',
-  'Safe Apply blocked': 'Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„Ø¢Ù…Ù† Ù…Ø­Ø¸ÙˆØ±',
-  'No AI adaptation or patch plan generated yet.': 'Ù„Ù… ÙŠØªÙ… Ø¥Ù†Ø´Ø§Ø¡ ØªÙƒÙŠÙŠÙ Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø£Ùˆ Ø®Ø·Ø© ØªØ¹Ø¯ÙŠÙ„ Ø¨Ø¹Ø¯.',
-  'Active project': 'Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù†Ø´Ø·',
-  'Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.': 'Ø³ÙŠØ§Ù‚ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ù„Ù„Ù‚Ø±Ø§Ø¡Ø© ÙÙ‚Ø· ÙˆÙ…Ø­Ø¯ÙˆØ¯ Ù‚Ø¨Ù„ Ø§Ø³ØªØ®Ø¯Ø§Ù…Ù‡ Ø¨ÙˆØ§Ø³Ø·Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ. Ù„Ø§ ÙŠØªÙ… ØªØºÙŠÙŠØ± Ø£ÙŠ Ù…Ù„Ù Ù…Ø´Ø±ÙˆØ¹ Ù…Ù† Ù‡Ø°Ù‡ Ø§Ù„Ø´Ø§Ø´Ø©.',
-  'Source': 'Ø§Ù„Ù…ØµØ¯Ø±',
-  'License gate': 'Ø¨ÙˆØ§Ø¨Ø© Ø§Ù„ØªØ±Ø®ÙŠØµ',
-  'Registry styles': 'Ø£Ù†Ù…Ø§Ø· Ø§Ù„Ø³Ø¬Ù„',
-  'AI adaptation instruction': 'ØªØ¹Ù„ÙŠÙ…Ø§Øª ØªÙƒÙŠÙŠÙ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-
-  'Delete only': 'Ø­Ø°Ù ÙÙ‚Ø·',
-  'Delete + block': 'Ø­Ø°Ù + Ø­Ø¸Ø±',
-  'Block expires (optional)': 'Ø§Ù†ØªÙ‡Ø§Ø¡ Ø§Ù„Ø­Ø¸Ø± (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'Template Library Integrity Audit': 'ØªØ¯Ù‚ÙŠÙ‚ Ø³Ù„Ø§Ù…Ø© Ù…ÙƒØªØ¨Ø© Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨',
-  'Pause': 'Ø¥ÙŠÙ‚Ø§Ù Ù…Ø¤Ù‚Øª',
-  'Invalid template deletion completed': 'Ø§ÙƒØªÙ…Ù„ Ø­Ø°Ù Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨ ØºÙŠØ± Ø§Ù„ØµØ§Ù„Ø­Ø©',
-  'The previous audit snapshot was cleared. Run the audit again to verify the remaining library.': 'ØªÙ… Ù…Ø³Ø­ Ù„Ù‚Ø·Ø© Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚ Ø§Ù„Ø³Ø§Ø¨Ù‚Ø©. Ø´ØºÙ‘Ù„ Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚ Ù…Ø¬Ø¯Ø¯Ù‹Ø§ Ù„Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ù…ÙƒØªØ¨Ø© Ø§Ù„Ù…ØªØ¨Ù‚ÙŠØ©.',
-  'Repair dry-run analysis': 'ØªØ­Ù„ÙŠÙ„ ØªØ¬Ø±ÙŠØ¨ÙŠ Ù„Ù„Ø¥ØµÙ„Ø§Ø­',
-
-  'AI admin data unavailable': 'Ø¨ÙŠØ§Ù†Ø§Øª Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Set the production default model. Per-tool user settings override this value.': 'Ø¹ÙŠÙ‘Ù† Ø§Ù„Ù†Ù…ÙˆØ°Ø¬ Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ Ù„Ù„Ø¥Ù†ØªØ§Ø¬. ØªØªØ¬Ø§ÙˆØ² Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ø§Ù„Ø®Ø§ØµØ© Ø¨ÙƒÙ„ Ø£Ø¯Ø§Ø© Ù‡Ø°Ù‡ Ø§Ù„Ù‚ÙŠÙ…Ø©.',
-  'Choose a managed model below, or add a new Gemini model ID manually when Google releases one.': 'Ø§Ø®ØªØ± Ù†Ù…ÙˆØ°Ø¬Ù‹Ø§ Ù…ÙØ¯Ø§Ø±Ù‹Ø§ Ø£Ø¯Ù†Ø§Ù‡ØŒ Ø£Ùˆ Ø£Ø¶Ù Ù…Ø¹Ø±Ù‘Ù Ù†Ù…ÙˆØ°Ø¬ Gemini Ø¬Ø¯ÙŠØ¯Ù‹Ø§ ÙŠØ¯ÙˆÙŠÙ‹Ø§ Ø¹Ù†Ø¯ Ø·Ø±Ø­ Google Ù„Ù‡.',
-  'Gemini backend': 'ÙˆØ§Ø¬Ù‡Ø© Gemini Ø§Ù„Ø®Ù„ÙÙŠØ©',
-  'Save default': 'Ø­ÙØ¸ Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ',
-  'Custom': 'Ù…Ø®ØµØµ',
-  'Built-in': 'Ù…Ø¯Ù…Ø¬',
-  'Remove model': 'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ù†Ù…ÙˆØ°Ø¬',
-  'Add model manually': 'Ø¥Ø¶Ø§ÙØ© Ù†Ù…ÙˆØ°Ø¬ ÙŠØ¯ÙˆÙŠÙ‹Ø§',
-  'Use the exact Gemini API model ID, for example gemini-3.x-flash.': 'Ø§Ø³ØªØ®Ø¯Ù… Ù…Ø¹Ø±Ù‘Ù Ù†Ù…ÙˆØ°Ø¬ Gemini API Ø§Ù„Ø¯Ù‚ÙŠÙ‚ØŒ Ù…Ø«Ù„ gemini-3.x-flash.',
-  'Display name (optional)': 'Ø§Ø³Ù… Ø§Ù„Ø¹Ø±Ø¶ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)',
-  'Add model': 'Ø¥Ø¶Ø§ÙØ© Ù†Ù…ÙˆØ°Ø¬',
-  'Selected': 'Ù…Ø­Ø¯Ø¯',
-  'Provider': 'Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯',
-  'Saved here as an admin content draft. Public pages are not changed until live-content wiring is enabled.': 'Ù…Ø­ÙÙˆØ¸ Ù‡Ù†Ø§ ÙƒÙ…Ø³ÙˆØ¯Ø© Ù…Ø­ØªÙˆÙ‰ Ù„Ù„Ø¥Ø¯Ø§Ø±Ø©. Ù„Ø§ ØªØªØºÙŠØ± Ø§Ù„ØµÙØ­Ø§Øª Ø§Ù„Ø¹Ø§Ù…Ø© Ø­ØªÙ‰ ÙŠØªÙ… ØªÙØ¹ÙŠÙ„ Ø±Ø¨Ø· Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø¨Ø§Ø´Ø±.',
-  'Dashboard data unavailable': 'Ø¨ÙŠØ§Ù†Ø§Øª Ù„ÙˆØ­Ø© Ø§Ù„ØªØ­ÙƒÙ… ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'The admin data source could not be loaded.': 'ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ù…ØµØ¯Ø± Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©.',
-  'Admin Data Status': 'Ø­Ø§Ù„Ø© Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©',
-  'Only verified live data is shown here; placeholder health metrics have been removed.': 'ÙŠØªÙ… Ø¹Ø±Ø¶ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø© Ø§Ù„ØªÙŠ ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù†Ù‡Ø§ ÙÙ‚Ø· Ù‡Ù†Ø§Ø› ÙˆÙ‚Ø¯ ØªÙ…Øª Ø¥Ø²Ø§Ù„Ø© Ù…Ù‚Ø§ÙŠÙŠØ³ Ø§Ù„ØµØ­Ø© Ø§Ù„ÙˆÙ‡Ù…ÙŠØ©.',
-  'Admin Verified': 'ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ù…Ø´Ø±Ù',
-  'Admin access check failed': 'ÙØ´Ù„ Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† ØµÙ„Ø§Ø­ÙŠØ© Ø§Ù„Ù…Ø´Ø±Ù',
-  'Support data unavailable': 'Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¯Ø¹Ù… ØºÙŠØ± Ù…ØªØ§Ø­Ø©',
-  'Support request sent': 'ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø·Ù„Ø¨ Ø§Ù„Ø¯Ø¹Ù…',
-  'Admin Â· Business access': 'Ø§Ù„Ù…Ø´Ø±Ù Â· ÙˆØµÙˆÙ„ Business',
-  'Not required': 'ØºÙŠØ± Ù…Ø·Ù„ÙˆØ¨',
-  'Included with admin access': 'Ù…Ø´Ù…ÙˆÙ„ Ù…Ø¹ ÙˆØµÙˆÙ„ Ø§Ù„Ù…Ø´Ø±Ù',
-  'Could not use this image.': 'ØªØ¹Ø°Ø± Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù‡Ø°Ù‡ Ø§Ù„ØµÙˆØ±Ø©.',
-  'Background removal failed.': 'ÙØ´Ù„Øª Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ø®Ù„ÙÙŠØ©.',
-  'Background Remover': 'Ù…Ø²ÙŠÙ„ Ø§Ù„Ø®Ù„ÙÙŠØ©',
-  'Remove image backgrounds using Tayarâ€™s secured server-side image service.': 'Ø£Ø²Ù„ Ø®Ù„ÙÙŠØ§Øª Ø§Ù„ØµÙˆØ± Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø®Ø¯Ù…Ø© Ø§Ù„ØµÙˆØ± Ø§Ù„Ø¢Ù…Ù†Ø© Ù…Ù† Tayar Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù….',
-  'External processing': 'Ù…Ø¹Ø§Ù„Ø¬Ø© Ø®Ø§Ø±Ø¬ÙŠØ©',
-  'For this tool, your selected image is sent through Tayarâ€™s authenticated server to fal.ai for background removal. Your API key is never exposed in the browser.': 'ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ø£Ø¯Ø§Ø©ØŒ ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„ØµÙˆØ±Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© Ø¹Ø¨Ø± Ø®Ø§Ø¯Ù… Tayar Ø§Ù„Ù…ÙˆØ«Ù‚ Ø¥Ù„Ù‰ fal.ai Ù„Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ø®Ù„ÙÙŠØ©. Ù„Ø§ ÙŠØªÙ… ÙƒØ´Ù Ù…ÙØªØ§Ø­ API Ø§Ù„Ø®Ø§Øµ Ø¨Ùƒ ÙÙŠ Ø§Ù„Ù…ØªØµÙØ­ Ø£Ø¨Ø¯Ù‹Ø§.',
-  'Choose JPEG, PNG or WebP': 'Ø§Ø®ØªØ± JPEG Ø£Ùˆ PNG Ø£Ùˆ WebP',
-  'Crop tightly around subject': 'Ù‚Øµ Ø¨Ø¥Ø­ÙƒØ§Ù… Ø­ÙˆÙ„ Ø§Ù„Ø¹Ù†ØµØ±',
-  'Optional provider bounding-box crop': 'Ù‚Øµ Ø§Ø®ØªÙŠØ§Ø±ÙŠ Ø­Ø³Ø¨ Ø§Ù„Ø¥Ø·Ø§Ø± Ø§Ù„Ù…Ø­ÙŠØ· Ù…Ù† Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯',
-  'Choose an image to remove its background.': 'Ø§Ø®ØªØ± ØµÙˆØ±Ø© Ù„Ø¥Ø²Ø§Ù„Ø© Ø®Ù„ÙÙŠØªÙ‡Ø§.',
-  'Original': 'Ø§Ù„Ø£ØµÙ„ÙŠØ©',
-  'Transparent result': 'Ø§Ù„Ù†ØªÙŠØ¬Ø© Ø§Ù„Ø´ÙØ§ÙØ©',
-  'Background removed': 'ØªÙ…Øª Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ø®Ù„ÙÙŠØ©',
-  'Your result will appear here after processing.': 'Ø³ØªØ¸Ù‡Ø± Ù†ØªÙŠØ¬ØªÙƒ Ù‡Ù†Ø§ Ø¨Ø¹Ø¯ Ø§Ù„Ù…Ø¹Ø§Ù„Ø¬Ø©.',
-  'Transparent output': 'Ø¥Ø®Ø±Ø§Ø¬ Ø´ÙØ§Ù',
-  'Download PNG': 'ØªÙ†Ø²ÙŠÙ„ PNG',
-  'Could not add these images.': 'ØªØ¹Ø°Ø± Ø¥Ø¶Ø§ÙØ© Ù‡Ø°Ù‡ Ø§Ù„ØµÙˆØ±.',
-  'Batch processing failed.': 'ÙØ´Ù„Øª Ø§Ù„Ù…Ø¹Ø§Ù„Ø¬Ø© Ø§Ù„Ù…Ø¬Ù…Ø¹Ø©.',
-  'Could not create the ZIP file.': 'ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù ZIP.',
-  'Batch Image Converter': 'Ù…Ø­ÙˆÙ„ Ø§Ù„ØµÙˆØ± Ø§Ù„Ù…Ø¬Ù…Ø¹',
-  'Convert and resize multiple images locally, then download them individually or as one ZIP.': 'Ø­ÙˆÙ‘Ù„ ÙˆØºÙŠÙ‘Ø± Ø­Ø¬Ù… Ø¹Ø¯Ø© ØµÙˆØ± Ù…Ø­Ù„ÙŠÙ‹Ø§ØŒ Ø«Ù… Ù†Ø²Ù‘Ù„Ù‡Ø§ Ù…Ù†ÙØ±Ø¯Ø© Ø£Ùˆ ÙƒÙ…Ù„Ù ZIP ÙˆØ§Ø­Ø¯.',
-  'Processed locally': 'ØªØªÙ… Ø§Ù„Ù…Ø¹Ø§Ù„Ø¬Ø© Ù…Ø­Ù„ÙŠÙ‹Ø§',
-  'Images and ZIP creation stay in your browser. Tayar does not upload files for this tool.': 'ØªØ¨Ù‚Ù‰ Ø§Ù„ØµÙˆØ± ÙˆØ¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù ZIP Ø¯Ø§Ø®Ù„ Ù…ØªØµÙØ­Ùƒ. Ù„Ø§ ÙŠØ±ÙØ¹ Tayar Ø§Ù„Ù…Ù„ÙØ§Øª Ù„Ù‡Ø°Ù‡ Ø§Ù„Ø£Ø¯Ø§Ø©.',
-  'Add JPEG, PNG or WebP images': 'Ø£Ø¶Ù ØµÙˆØ± JPEG Ø£Ùˆ PNG Ø£Ùˆ WebP',
-  'Up to 20 files Â· 80 MB combined source limit': 'Ø­ØªÙ‰ 20 Ù…Ù„ÙÙ‹Ø§ Â· Ø­Ø¯ Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ù„Ù„Ù…ØµØ¯Ø± 80 MB',
-  'Output format': 'ØµÙŠØºØ© Ø§Ù„Ø¥Ø®Ø±Ø§Ø¬',
-  'Maximum side (0 keeps original size)': 'Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ Ù„Ù„Ø¶Ù„Ø¹ (0 ÙŠØ¨Ù‚ÙŠ Ø§Ù„Ø­Ø¬Ù… Ø§Ù„Ø£ØµÙ„ÙŠ)',
-  'Quality': 'Ø§Ù„Ø¬ÙˆØ¯Ø©',
-  'Add multiple images to start.': 'Ø£Ø¶Ù Ø¹Ø¯Ø© ØµÙˆØ± Ù„Ù„Ø¨Ø¯Ø¡.',
-  'Download': 'ØªÙ†Ø²ÙŠÙ„',
-  'Remove': 'Ø¥Ø²Ø§Ù„Ø©',
-  'Could not read this file.': 'ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù‡Ø°Ø§ Ø§Ù„Ù…Ù„Ù.',
-  'CSV Cleaner': 'Ù…Ù†Ø¸Ù CSV',
-  'Clean and prepare CSV data safely without uploading it.': 'Ù†Ø¸Ù‘Ù ÙˆØ¬Ù‡Ù‘Ø² Ø¨ÙŠØ§Ù†Ø§Øª CSV Ø¨Ø£Ù…Ø§Ù† Ø¯ÙˆÙ† Ø±ÙØ¹Ù‡Ø§.',
-  'Your CSV stays in this browser. Spreadsheet-safe export is enabled by default.': 'ÙŠØ¨Ù‚Ù‰ Ù…Ù„Ù CSV ÙÙŠ Ù‡Ø°Ø§ Ø§Ù„Ù…ØªØµÙØ­. Ø§Ù„ØªØµØ¯ÙŠØ± Ø§Ù„Ø¢Ù…Ù† Ù„Ø¬Ø¯Ø§ÙˆÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ù…ÙØ¹Ù‘Ù„ Ø§ÙØªØ±Ø§Ø¶ÙŠÙ‹Ø§.',
-  'Choose CSV, TSV or text data': 'Ø§Ø®ØªØ± Ø¨ÙŠØ§Ù†Ø§Øª CSV Ø£Ùˆ TSV Ø£Ùˆ Ù†ØµÙŠØ©',
-  'Maximum 10 MB Â· bounded rows, columns and cells': 'Ø­Ø¯ Ø£Ù‚ØµÙ‰ 10 MB Â· ØµÙÙˆÙ ÙˆØ£Ø¹Ù…Ø¯Ø© ÙˆØ®Ù„Ø§ÙŠØ§ Ø¶Ù…Ù† Ø­Ø¯ÙˆØ¯',
-  'rows': 'ØµÙÙˆÙ',
-  'columns': 'Ø£Ø¹Ù…Ø¯Ø©',
-  'Detected delimiter': 'Ø§Ù„ÙØ§ØµÙ„ Ø§Ù„Ù…ÙƒØªØ´Ù',
-  'Tab': 'Ø¹Ù„Ø§Ù…Ø© ØªØ¨ÙˆÙŠØ¨',
-  'Clean CSV': 'ØªÙ†Ø¸ÙŠÙ CSV',
-  'Cleaned result': 'Ø§Ù„Ù†ØªÙŠØ¬Ø© Ø§Ù„Ù…Ù†Ø¸ÙØ©',
-  'rows removed': 'ØµÙÙˆÙ ØªÙ…Øª Ø¥Ø²Ø§Ù„ØªÙ‡Ø§',
-  'Download Clean CSV': 'ØªÙ†Ø²ÙŠÙ„ CSV Ø§Ù„Ù…Ù†Ø¸Ù',
-  'Choose a file to preview its data.': 'Ø§Ø®ØªØ± Ù…Ù„ÙÙ‹Ø§ Ù„Ù…Ø¹Ø§ÙŠÙ†Ø© Ø¨ÙŠØ§Ù†Ø§ØªÙ‡.',
-  'Showing up to 25 rows and 12 columns': 'Ø¹Ø±Ø¶ Ø­ØªÙ‰ 25 ØµÙÙ‹Ø§ Ùˆ12 Ø¹Ù…ÙˆØ¯Ù‹Ø§',
-  'No rows remain after cleaning.': 'Ù„Ù… ØªØªØ¨Ù‚ÙŽ ØµÙÙˆÙ Ø¨Ø¹Ø¯ Ø§Ù„ØªÙ†Ø¸ÙŠÙ.',
-  'Could not read this image.': 'ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù‡Ø°Ù‡ Ø§Ù„ØµÙˆØ±Ø©.',
-  'Invalid crop area.': 'Ù…Ù†Ø·Ù‚Ø© Ø§Ù„Ù‚Øµ ØºÙŠØ± ØµØ§Ù„Ø­Ø©.',
-  'Could not crop this image.': 'ØªØ¹Ø°Ø± Ù‚Øµ Ù‡Ø°Ù‡ Ø§Ù„ØµÙˆØ±Ø©.',
-  'Image Cropper': 'Ø£Ø¯Ø§Ø© Ù‚Øµ Ø§Ù„ØµÙˆØ±',
-  'Crop images locally with precise coordinates or common aspect ratios.': 'Ù‚Øµ Ø§Ù„ØµÙˆØ± Ù…Ø­Ù„ÙŠÙ‹Ø§ Ø¨Ø¥Ø­Ø¯Ø§Ø«ÙŠØ§Øª Ø¯Ù‚ÙŠÙ‚Ø© Ø£Ùˆ Ù†Ø³Ø¨ Ø£Ø¨Ø¹Ø§Ø¯ Ø´Ø§Ø¦Ø¹Ø©.',
-  'The source image and crop result stay inside your browser.': 'ØªØ¨Ù‚Ù‰ Ø§Ù„ØµÙˆØ±Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ© ÙˆÙ†ØªÙŠØ¬Ø© Ø§Ù„Ù‚Øµ Ø¯Ø§Ø®Ù„ Ù…ØªØµÙØ­Ùƒ.',
-  'Maximum 20 MB': 'Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ 20 MB',
-  'Aspect ratio': 'Ù†Ø³Ø¨Ø© Ø§Ù„Ø£Ø¨Ø¹Ø§Ø¯',
-  'Choose an image to start cropping.': 'Ø§Ø®ØªØ± ØµÙˆØ±Ø© Ù„Ø¨Ø¯Ø¡ Ø§Ù„Ù‚Øµ.',
-  'Crop preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù‚Øµ',
-  'Result': 'Ø§Ù„Ù†ØªÙŠØ¬Ø©',
-  'Cropped result': 'Ù†ØªÙŠØ¬Ø© Ø§Ù„Ù‚Øµ',
-  'Could not create this PDF.': 'ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù PDF Ù‡Ø°Ø§.',
-  'Image to PDF': 'ØµÙˆØ±Ø© Ø¥Ù„Ù‰ PDF',
-  'Combine JPEG, PNG and WebP images into one PDF directly in your browser.': 'Ø§Ø¯Ù…Ø¬ ØµÙˆØ± JPEG ÙˆPNG ÙˆWebP ÙÙŠ Ù…Ù„Ù PDF ÙˆØ§Ø­Ø¯ Ù…Ø¨Ø§Ø´Ø±Ø© Ø¯Ø§Ø®Ù„ Ù…ØªØµÙØ­Ùƒ.',
-  'Images stay in your browser. Tayar creates a new PDF and never parses an uploaded PDF in this tool.': 'ØªØ¨Ù‚Ù‰ Ø§Ù„ØµÙˆØ± ÙÙŠ Ù…ØªØµÙØ­Ùƒ. ÙŠÙ†Ø´Ø¦ Tayar Ù…Ù„Ù PDF Ø¬Ø¯ÙŠØ¯Ù‹Ø§ ÙˆÙ„Ø§ ÙŠØ­Ù„Ù„ Ø£Ø¨Ø¯Ù‹Ø§ Ù…Ù„Ù PDF Ù…Ø±ÙÙˆØ¹Ù‹Ø§ ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ø£Ø¯Ø§Ø©.',
-  'Up to 20 images Â· 80 MB combined source limit': 'Ø­ØªÙ‰ 20 ØµÙˆØ±Ø© Â· Ø­Ø¯ Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ù„Ù„Ù…ØµØ¯Ø± 80 MB',
-  'pages': 'ØµÙØ­Ø§Øª',
-  'Page size': 'Ø­Ø¬Ù… Ø§Ù„ØµÙØ­Ø©',
-  'A4 Â· auto orientation': 'A4 Â· Ø§ØªØ¬Ø§Ù‡ ØªÙ„Ù‚Ø§Ø¦ÙŠ',
-  'Letter Â· auto orientation': 'Letter Â· Ø§ØªØ¬Ø§Ù‡ ØªÙ„Ù‚Ø§Ø¦ÙŠ',
-  'Fit page to image': 'Ù…Ù„Ø§Ø¡Ù…Ø© Ø§Ù„ØµÙØ­Ø© Ù„Ù„ØµÙˆØ±Ø©',
-  'Margin': 'Ø§Ù„Ù‡Ø§Ù…Ø´',
-  'Normal': 'Ø¹Ø§Ø¯ÙŠ',
-  'Image quality': 'Ø¬ÙˆØ¯Ø© Ø§Ù„ØµÙˆØ±Ø©',
-  'Transparent PNG/WebP pixels are flattened onto white when embedded as JPEG inside the PDF.': 'ÙŠØªÙ… Ø¯Ù…Ø¬ Ø¨ÙƒØ³Ù„Ø§Øª PNG/WebP Ø§Ù„Ø´ÙØ§ÙØ© Ø¹Ù„Ù‰ Ø®Ù„ÙÙŠØ© Ø¨ÙŠØ¶Ø§Ø¡ Ø¹Ù†Ø¯ ØªØ¶Ù…ÙŠÙ†Ù‡Ø§ ÙƒÙ€JPEG Ø¯Ø§Ø®Ù„ PDF.',
-  'Add images to build a PDF.': 'Ø£Ø¶Ù ØµÙˆØ±Ù‹Ø§ Ù„Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù PDF.',
-  'Generated PDF preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ù…Ù„Ù PDF Ø§Ù„Ù…ÙÙ†Ø´Ø£',
-  'Download PDF': 'ØªÙ†Ø²ÙŠÙ„ PDF',
-  'Image processing failed.': 'ÙØ´Ù„Øª Ù…Ø¹Ø§Ù„Ø¬Ø© Ø§Ù„ØµÙˆØ±Ø©.',
-  'Image Tools': 'Ø£Ø¯ÙˆØ§Øª Ø§Ù„ØµÙˆØ±',
-  'Resize, compress and convert images directly in your browser.': 'ØºÙŠÙ‘Ø± Ø­Ø¬Ù… Ø§Ù„ØµÙˆØ± ÙˆØ§Ø¶ØºØ·Ù‡Ø§ ÙˆØ­ÙˆÙ‘Ù„Ù‡Ø§ Ù…Ø¨Ø§Ø´Ø±Ø© ÙÙŠ Ù…ØªØµÙØ­Ùƒ.',
-  'Your image stays in this browser. Tayar does not upload it for these operations.': 'ØªØ¨Ù‚Ù‰ ØµÙˆØ±ØªÙƒ ÙÙŠ Ù‡Ø°Ø§ Ø§Ù„Ù…ØªØµÙØ­. Ù„Ø§ ÙŠØ±ÙØ¹Ù‡Ø§ Tayar Ù„Ù‡Ø°Ù‡ Ø§Ù„Ø¹Ù…Ù„ÙŠØ§Øª.',
-  'Source image': 'Ø§Ù„ØµÙˆØ±Ø© Ø§Ù„Ù…ØµØ¯Ø±',
-  'Maximum 20 MB Â· bounded pixel processing': 'Ø­Ø¯ Ø£Ù‚ØµÙ‰ 20 MB Â· Ù…Ø¹Ø§Ù„Ø¬Ø© Ø¨ÙƒØ³Ù„Ø§Øª Ø¶Ù…Ù† Ø­Ø¯ÙˆØ¯',
-  'Height': 'Ø§Ù„Ø§Ø±ØªÙØ§Ø¹',
-  'Choose an image to start.': 'Ø§Ø®ØªØ± ØµÙˆØ±Ø© Ù„Ù„Ø¨Ø¯Ø¡.',
-  'Original preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ø£ØµÙ„',
-  'Processed preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù…Ø¹Ø§Ù„Ø¬Ø©',
-  'Process the image to preview the result.': 'Ø¹Ø§Ù„Ø¬ Ø§Ù„ØµÙˆØ±Ø© Ù„Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù†ØªÙŠØ¬Ø©.',
-  'Draft saved on this device.': 'ØªÙ… Ø­ÙØ¸ Ø§Ù„Ù…Ø³ÙˆØ¯Ø© Ø¹Ù„Ù‰ Ù‡Ø°Ø§ Ø§Ù„Ø¬Ù‡Ø§Ø².',
-  'Could not save this draft in browser storage.': 'ØªØ¹Ø°Ø± Ø­ÙØ¸ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø³ÙˆØ¯Ø© ÙÙŠ ØªØ®Ø²ÙŠÙ† Ø§Ù„Ù…ØªØµÙØ­.',
-  'Clear the current invoice draft?': 'Ù‡Ù„ ØªØ±ÙŠØ¯ Ù…Ø³Ø­ Ù…Ø³ÙˆØ¯Ø© Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©ØŸ',
-  'Pop-up blocked. Allow pop-ups and try Print / Save PDF again.': 'ØªÙ… Ø­Ø¸Ø± Ø§Ù„Ù†Ø§ÙØ°Ø© Ø§Ù„Ù…Ù†Ø¨Ø«Ù‚Ø©. Ø§Ø³Ù…Ø­ Ø¨Ø§Ù„Ù†ÙˆØ§ÙØ° Ø§Ù„Ù…Ù†Ø¨Ø«Ù‚Ø© ÙˆØ­Ø§ÙˆÙ„ Ø§Ù„Ø·Ø¨Ø§Ø¹Ø© / Ø­ÙØ¸ PDF Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.',
-  'Invoice Generator': 'Ù…Ù†Ø´Ø¦ Ø§Ù„ÙÙˆØ§ØªÙŠØ±',
-  'Create a professional invoice, choose a design, calculate VAT, save a draft and print or save as PDF.': 'Ø£Ù†Ø´Ø¦ ÙØ§ØªÙˆØ±Ø© Ø§Ø­ØªØ±Ø§ÙÙŠØ©ØŒ Ø§Ø®ØªØ± ØªØµÙ…ÙŠÙ…Ù‹Ø§ØŒ Ø§Ø­Ø³Ø¨ Ø¶Ø±ÙŠØ¨Ø© Ø§Ù„Ù‚ÙŠÙ…Ø© Ø§Ù„Ù…Ø¶Ø§ÙØ©ØŒ Ø§Ø­ÙØ¸ Ù…Ø³ÙˆØ¯Ø© ÙˆØ§Ø·Ø¨Ø¹Ù‡Ø§ Ø£Ùˆ Ø§Ø­ÙØ¸Ù‡Ø§ ÙƒÙ€PDF.',
-  'Invoice design': 'ØªØµÙ…ÙŠÙ… Ø§Ù„ÙØ§ØªÙˆØ±Ø©',
-  'Your company': 'Ø´Ø±ÙƒØªÙƒ',
-  'Tayar AB': 'Tayar AB',
-  'Customer': 'Ø§Ù„Ø¹Ù…ÙŠÙ„',
-  'Customer name': 'Ø§Ø³Ù… Ø§Ù„Ø¹Ù…ÙŠÙ„',
-  'Company details': 'Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø´Ø±ÙƒØ©',
-  'Address, organization number, email, payment details': 'Ø§Ù„Ø¹Ù†ÙˆØ§Ù†ØŒ Ø±Ù‚Ù… Ø§Ù„Ù…Ù†Ø¸Ù…Ø©ØŒ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠØŒ ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ø¯ÙØ¹',
-  'Customer details': 'Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¹Ù…ÙŠÙ„',
-  'Address, email or reference': 'Ø§Ù„Ø¹Ù†ÙˆØ§Ù†ØŒ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ Ø£Ùˆ Ø§Ù„Ù…Ø±Ø¬Ø¹',
-  'Invoice number': 'Ø±Ù‚Ù… Ø§Ù„ÙØ§ØªÙˆØ±Ø©',
-  'Issue date': 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥ØµØ¯Ø§Ø±',
-  'Currency': 'Ø§Ù„Ø¹Ù…Ù„Ø©',
-  'Payment terms, thank-you note or bank details': 'Ø´Ø±ÙˆØ· Ø§Ù„Ø¯ÙØ¹ØŒ Ø±Ø³Ø§Ù„Ø© Ø´ÙƒØ± Ø£Ùˆ ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ø¨Ù†Ùƒ',
-  'Save Draft': 'Ø­ÙØ¸ Ø§Ù„Ù…Ø³ÙˆØ¯Ø©',
-  'Print / Save PDF': 'Ø·Ø¨Ø§Ø¹Ø© / Ø­ÙØ¸ PDF',
-  'Letter Generator': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ø±Ø³Ø§Ø¦Ù„',
-  'Create practical letters from original Tayar templates and edit the result manually.': 'Ø£Ù†Ø´Ø¦ Ø±Ø³Ø§Ø¦Ù„ Ø¹Ù…Ù„ÙŠØ© Ù…Ù† Ù‚ÙˆØ§Ù„Ø¨ Tayar Ø§Ù„Ø£ØµÙ„ÙŠØ© ÙˆØ¹Ø¯Ù‘Ù„ Ø§Ù„Ù†ØªÙŠØ¬Ø© ÙŠØ¯ÙˆÙŠÙ‹Ø§.',
-  'Letter type': 'Ù†ÙˆØ¹ Ø§Ù„Ø±Ø³Ø§Ù„Ø©',
-  'Recipient': 'Ø§Ù„Ù…Ø³ØªÙ„Ù…',
-  'Organization': 'Ø§Ù„Ù…Ù†Ø¸Ù…Ø©',
-  'Subject or purpose': 'Ø§Ù„Ù…ÙˆØ¶ÙˆØ¹ Ø£Ùˆ Ø§Ù„ØºØ±Ø¶',
-  'What is this letter about?': 'Ù…Ø§ Ù…ÙˆØ¶ÙˆØ¹ Ù‡Ø°Ù‡ Ø§Ù„Ø±Ø³Ø§Ù„Ø©ØŸ',
-  'Important details': 'ØªÙØ§ØµÙŠÙ„ Ù…Ù‡Ù…Ø©',
-  'Add facts, dates, context or the outcome you want.': 'Ø£Ø¶Ù Ø§Ù„Ø­Ù‚Ø§Ø¦Ù‚ ÙˆØ§Ù„ØªÙˆØ§Ø±ÙŠØ® ÙˆØ§Ù„Ø³ÙŠØ§Ù‚ Ø£Ùˆ Ø§Ù„Ù†ØªÙŠØ¬Ø© Ø§Ù„ØªÙŠ ØªØ±ÙŠØ¯Ù‡Ø§.',
-  'Choose a letter type and add your details.': 'Ø§Ø®ØªØ± Ù†ÙˆØ¹ Ø§Ù„Ø±Ø³Ø§Ù„Ø© ÙˆØ£Ø¶Ù Ø¨ÙŠØ§Ù†Ø§ØªÙƒ.',
-  'Edit the result': 'ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù†ØªÙŠØ¬Ø©',
-  'The generated text is fully editable before you copy or download it.': 'Ø§Ù„Ù†Øµ Ø§Ù„Ù…ÙÙ†Ø´Ø£ Ù‚Ø§Ø¨Ù„ Ù„Ù„ØªØ­Ø±ÙŠØ± Ø¨Ø§Ù„ÙƒØ§Ù…Ù„ Ù‚Ø¨Ù„ Ù†Ø³Ø®Ù‡ Ø£Ùˆ ØªÙ†Ø²ÙŠÙ„Ù‡.',
-  'TXT': 'TXT',
-  'Name Generator': 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ø£Ø³Ù…Ø§Ø¡',
-  'Generate original business, product, brand and social-name ideas locally.': 'Ø£Ù†Ø´Ø¦ Ø£ÙÙƒØ§Ø±Ù‹Ø§ Ø£ØµÙ„ÙŠØ© Ù„Ø£Ø³Ù…Ø§Ø¡ Ø§Ù„Ø£Ø¹Ù…Ø§Ù„ ÙˆØ§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø¹Ù„Ø§Ù…Ø§Øª Ø§Ù„ØªØ¬Ø§Ø±ÙŠØ© ÙˆØ­Ø³Ø§Ø¨Ø§Øª Ø§Ù„ØªÙˆØ§ØµÙ„ Ù…Ø­Ù„ÙŠÙ‹Ø§.',
-  'Keyword or idea': 'ÙƒÙ„Ù…Ø© Ù…ÙØªØ§Ø­ÙŠØ© Ø£Ùˆ ÙÙƒØ±Ø©',
-  'Example: coffee, fitness, design': 'Ù…Ø«Ø§Ù„: Ù‚Ù‡ÙˆØ©ØŒ Ù„ÙŠØ§Ù‚Ø©ØŒ ØªØµÙ…ÙŠÙ…',
-  'Name type': 'Ù†ÙˆØ¹ Ø§Ù„Ø§Ø³Ù…',
-  'Ideas': 'Ø£ÙÙƒØ§Ø±',
-  'Availability is not checked. Verify trademarks, domains and social handles before using a name commercially.': 'Ù„Ø§ ÙŠØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„ØªÙˆÙØ±. ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø¹Ù„Ø§Ù…Ø§Øª Ø§Ù„ØªØ¬Ø§Ø±ÙŠØ© ÙˆØ§Ù„Ù†Ø·Ø§Ù‚Ø§Øª ÙˆØ£Ø³Ù…Ø§Ø¡ Ø§Ù„Ø­Ø³Ø§Ø¨Ø§Øª Ø§Ù„Ø§Ø¬ØªÙ…Ø§Ø¹ÙŠØ© Ù‚Ø¨Ù„ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø§Ø³Ù… ØªØ¬Ø§Ø±ÙŠÙ‹Ø§.',
-  'Enter an idea and generate names.': 'Ø£Ø¯Ø®Ù„ ÙÙƒØ±Ø© ÙˆØ£Ù†Ø´Ø¦ Ø£Ø³Ù…Ø§Ø¡.',
-  'Name ideas': 'Ø£ÙÙƒØ§Ø± Ø£Ø³Ù…Ø§Ø¡',
-  'original combinations': 'ØªØ±ÙƒÙŠØ¨Ø§Øª Ø£ØµÙ„ÙŠØ©',
-  'Copy name': 'Ù†Ø³Ø® Ø§Ù„Ø§Ø³Ù…',
-  'Prompt Library': 'Ù…ÙƒØªØ¨Ø© Ø§Ù„Ù…Ø·Ø§Ù„Ø¨Ø§Øª',
-  'Search original Tayar prompt templates and personalize them for your task.': 'Ø§Ø¨Ø­Ø« ÙÙŠ Ù‚ÙˆØ§Ù„Ø¨ Ù…Ø·Ø§Ù„Ø¨Ø§Øª Tayar Ø§Ù„Ø£ØµÙ„ÙŠØ© ÙˆØ®ØµØµÙ‡Ø§ Ù„Ù…Ù‡Ù…ØªÙƒ.',
-  'Original Tayar prompts': 'Ù…Ø·Ø§Ù„Ø¨Ø§Øª Tayar Ø§Ù„Ø£ØµÙ„ÙŠØ©',
-  'Prompt structures are written for Tayar and organized by workflow. They are not copied prompt packs.': 'Ù‡ÙŠØ§ÙƒÙ„ Ø§Ù„Ù…Ø·Ø§Ù„Ø¨Ø§Øª Ù…ÙƒØªÙˆØ¨Ø© Ù„Ù€Tayar ÙˆÙ…Ù†Ø¸Ù…Ø© Ø­Ø³Ø¨ Ø³ÙŠØ± Ø§Ù„Ø¹Ù…Ù„. ÙˆÙ„ÙŠØ³Øª Ø­Ø²Ù… Ù…Ø·Ø§Ù„Ø¨Ø§Øª Ù…Ù†Ø³ÙˆØ®Ø©.',
-  'Search prompts': 'Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ù…Ø·Ø§Ù„Ø¨Ø§Øª',
-  'Fill what you know. Empty fields remain as placeholders.': 'Ø§Ù…Ù„Ø£ Ù…Ø§ ØªØ¹Ø±ÙÙ‡. ØªØ¨Ù‚Ù‰ Ø§Ù„Ø­Ù‚ÙˆÙ„ Ø§Ù„ÙØ§Ø±ØºØ© ÙƒØ¹Ù†Ø§ØµØ± Ù†Ø§Ø¦Ø¨Ø©.',
-  'Audience': 'Ø§Ù„Ø¬Ù…Ù‡ÙˆØ±',
-  'Goal': 'Ø§Ù„Ù‡Ø¯Ù',
-  'Select a prompt to personalize it.': 'Ø§Ø®ØªØ± Ù…Ø·Ø§Ù„Ø¨Ø© Ù„ØªØ®ØµÙŠØµÙ‡Ø§.',
-  'Open / Download': 'ÙØªØ­ / ØªÙ†Ø²ÙŠÙ„',
-  'Templates Hub': 'Ù…Ø±ÙƒØ² Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨',
-  'Browse Tayar-hosted office templates or use original Tayar starter files.': 'ØªØµÙØ­ Ù‚ÙˆØ§Ù„Ø¨ Office Ø§Ù„Ù…Ø³ØªØ¶Ø§ÙØ© Ù„Ø¯Ù‰ Tayar Ø£Ùˆ Ø§Ø³ØªØ®Ø¯Ù… Ù…Ù„ÙØ§Øª Ø§Ù„Ø¨Ø¯Ø§ÙŠØ© Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù…Ù† Tayar.',
-  'Tayar Library': 'Ù…ÙƒØªØ¨Ø© Tayar',
-  'Originals': 'Ø§Ù„Ø£ØµÙˆÙ„',
-  'Templates mirrored into Tayar storage for independent access.': 'Ù‚ÙˆØ§Ù„Ø¨ Ù…Ù†Ø³ÙˆØ®Ø© Ø¥Ù„Ù‰ ØªØ®Ø²ÙŠÙ† Tayar Ù„Ù„ÙˆØµÙˆÙ„ Ø§Ù„Ù…Ø³ØªÙ‚Ù„.',
-  'Tayar Originals': 'Ø£ØµÙˆÙ„ Tayar',
-  'Small starter templates created directly by Tayar.': 'Ù‚ÙˆØ§Ù„Ø¨ Ø¨Ø¯Ø§ÙŠØ© ØµØºÙŠØ±Ø© Ø£Ù†Ø´Ø£Ù‡Ø§ Tayar Ù…Ø¨Ø§Ø´Ø±Ø©.',
-  'Search templates': 'Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨',
-  'File format': 'ØµÙŠØºØ© Ø§Ù„Ù…Ù„Ù',
-  'All formats': 'ÙƒÙ„ Ø§Ù„ØµÙŠØº',
-  'Sort templates': 'ØªØ±ØªÙŠØ¨ Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨',
-  'Name Aâ€“Z': 'Ø§Ù„Ø§Ø³Ù… Aâ€“Z',
-  'Newest': 'Ø§Ù„Ø£Ø­Ø¯Ø«',
-  'Largest files': 'Ø£ÙƒØ¨Ø± Ø§Ù„Ù…Ù„ÙØ§Øª',
-  'Loading Tayar Libraryâ€¦': 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ù…ÙƒØªØ¨Ø© Tayarâ€¦',
-  'Tayar Library is temporarily unavailable': 'Ù…ÙƒØªØ¨Ø© Tayar ØºÙŠØ± Ù…ØªØ§Ø­Ø© Ù…Ø¤Ù‚ØªÙ‹Ø§',
-  'Original Tayar templates remain available from the Originals tab.': 'ØªØ¨Ù‚Ù‰ Ù‚ÙˆØ§Ù„Ø¨ Tayar Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù…ØªØ§Ø­Ø© Ù…Ù† ØªØ¨ÙˆÙŠØ¨ Ø§Ù„Ø£ØµÙˆÙ„.',
-  'No mirrored templates match this search.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚ÙˆØ§Ù„Ø¨ Ù…Ù†Ø³ÙˆØ®Ø© ØªØ·Ø§Ø¨Ù‚ Ù‡Ø°Ø§ Ø§Ù„Ø¨Ø­Ø«.',
-  'Previous': 'Ø§Ù„Ø³Ø§Ø¨Ù‚',
-  'Original Tayar templates': 'Ù‚ÙˆØ§Ù„Ø¨ Tayar Ø§Ù„Ø£ØµÙ„ÙŠØ©',
-  'These starter files are built by Tayar and generated locally as CSV files.': 'Ù…Ù„ÙØ§Øª Ø§Ù„Ø¨Ø¯Ø§ÙŠØ© Ù‡Ø°Ù‡ Ù…Ø¨Ù†ÙŠØ© Ø¨ÙˆØ§Ø³Ø·Ø© Tayar ÙˆÙŠØªÙ… Ø¥Ù†Ø´Ø§Ø¤Ù‡Ø§ Ù…Ø­Ù„ÙŠÙ‹Ø§ ÙƒÙ…Ù„ÙØ§Øª CSV.',
-  'Download CSV': 'ØªÙ†Ø²ÙŠÙ„ CSV',
-  'No templates match this search.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚ÙˆØ§Ù„Ø¨ ØªØ·Ø§Ø¨Ù‚ Ù‡Ø°Ø§ Ø§Ù„Ø¨Ø­Ø«.',
-  'Back': 'Ø±Ø¬ÙˆØ¹',
-  'We\'ve sent a verification link to your email address. Click the link inside to activate your account.': 'Ø£Ø±Ø³Ù„Ù†Ø§ Ø±Ø§Ø¨Ø· ØªØ­Ù‚Ù‚ Ø¥Ù„Ù‰ Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ. Ø§Ø¶ØºØ· Ø¹Ù„Ù‰ Ø§Ù„Ø±Ø§Ø¨Ø· Ø¯Ø§Ø®Ù„Ù‡ Ù„ØªÙØ¹ÙŠÙ„ Ø­Ø³Ø§Ø¨Ùƒ.',
-  'No worries â€” enter your email and we\'ll send you a reset link.': 'Ù„Ø§ Ù…Ø´ÙƒÙ„Ø© â€” Ø£Ø¯Ø®Ù„ Ø¨Ø±ÙŠØ¯Ùƒ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ ÙˆØ³Ù†Ø±Ø³Ù„ Ù„Ùƒ Ø±Ø§Ø¨Ø· Ø¥Ø¹Ø§Ø¯Ø© ØªØ¹ÙŠÙŠÙ†.',
-  'Your password has been changed successfully. You can now sign in with your new password.': 'ØªÙ… ØªØºÙŠÙŠØ± ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø¨Ù†Ø¬Ø§Ø­. ÙŠÙ…ÙƒÙ†Ùƒ Ø§Ù„Ø¢Ù† ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©.',
-  'Skip tour': 'ØªØ®Ø·ÙŠ Ø§Ù„Ø¬ÙˆÙ„Ø©',
-  'Dashboard': 'Ù„ÙˆØ­Ø© Ø§Ù„ØªØ­ÙƒÙ…',
-  'Your command center. Browse all AI tools, see recommendations, and track your activity.': 'Ù…Ø±ÙƒØ² Ø§Ù„ØªØ­ÙƒÙ… Ø§Ù„Ø®Ø§Øµ Ø¨Ùƒ. ØªØµÙØ­ Ø¬Ù…ÙŠØ¹ Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠØŒ ÙˆØ´Ø§Ù‡Ø¯ Ø§Ù„ØªÙˆØµÙŠØ§ØªØŒ ÙˆØªØ§Ø¨Ø¹ Ù†Ø´Ø§Ø·Ùƒ.',
-  'Your personal workspace where all your tools and projects live.': 'Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„Ùƒ Ø§Ù„Ø´Ø®ØµÙŠØ© Ø§Ù„ØªÙŠ ØªØ¶Ù… Ø¬Ù…ÙŠØ¹ Ø£Ø¯ÙˆØ§ØªÙƒ ÙˆÙ…Ø´Ø§Ø±ÙŠØ¹Ùƒ.',
-  'All your documents, resumes, and exports are saved here automatically.': 'ÙŠØªÙ… Ø­ÙØ¸ Ø¬Ù…ÙŠØ¹ Ù…Ø³ØªÙ†Ø¯Ø§ØªÙƒ ÙˆØ³ÙŠØ±Ùƒ Ø§Ù„Ø°Ø§ØªÙŠØ© ÙˆØªØµØ¯ÙŠØ±Ø§ØªÙƒ Ù‡Ù†Ø§ ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§.',
-  'Chat with your AI assistant anytime. Ask questions, get suggestions, and more.': 'ØªØ­Ø¯Ø« Ù…Ø¹ Ù…Ø³Ø§Ø¹Ø¯ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙÙŠ Ø£ÙŠ ÙˆÙ‚Øª. Ø§Ø·Ø±Ø­ Ø§Ù„Ø£Ø³Ø¦Ù„Ø© ÙˆØ§Ø­ØµÙ„ Ø¹Ù„Ù‰ Ø§Ù„Ø§Ù‚ØªØ±Ø§Ø­Ø§Øª ÙˆØ§Ù„Ù…Ø²ÙŠØ¯.',
-  'Create ATS-friendly resumes with AI-powered writing assistance.': 'Ø£Ù†Ø´Ø¦ Ø³ÙŠØ±Ù‹Ø§ Ø°Ø§ØªÙŠØ© Ù…ØªÙˆØ§ÙÙ‚Ø© Ù…Ø¹ ATS Ø¨Ù…Ø³Ø§Ø¹Ø¯Ø© Ø§Ù„ÙƒØªØ§Ø¨Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.',
-  'Welcome': 'Ù…Ø±Ø­Ø¨Ù‹Ø§',
-  'Your AI workspace is ready. We\'ve added some sample content to get you started. Pick a quick action below, or explore the tools we recommended for you.': 'Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø¬Ø§Ù‡Ø²Ø©. Ø£Ø¶ÙÙ†Ø§ Ø¨Ø¹Ø¶ Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ø§Ù„ØªØ¬Ø±ÙŠØ¨ÙŠ Ù„ØªØ¨Ø¯Ø£. Ø§Ø®ØªØ± Ø¥Ø¬Ø±Ø§Ø¡Ù‹ Ø³Ø±ÙŠØ¹Ù‹Ø§ Ø£Ø¯Ù†Ø§Ù‡ Ø£Ùˆ Ø§Ø³ØªÙƒØ´Ù Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø§Ù„ØªÙŠ Ø£ÙˆØµÙŠÙ†Ø§ Ø¨Ù‡Ø§ Ù„Ùƒ.',
-  'file': 'Ù…Ù„Ù',
-  'recommended tools': 'Ø£Ø¯ÙˆØ§Øª Ù…ÙˆØµÙ‰ Ø¨Ù‡Ø§',
-  'Create My First CV': 'Ø£Ù†Ø´Ø¦ Ø£ÙˆÙ„ Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ©',
-  'Build an ATS-friendly resume with AI': 'Ø£Ù†Ø´Ø¦ Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ© Ù…ØªÙˆØ§ÙÙ‚Ø© Ù…Ø¹ ATS Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Upload a Document': 'Ø§Ø±ÙØ¹ Ù…Ø³ØªÙ†Ø¯Ù‹Ø§',
-  'Analyze, summarize, or translate any file': 'Ø­Ù„Ù‘Ù„ Ø£Ùˆ Ù„Ø®Ù‘Øµ Ø£Ùˆ ØªØ±Ø¬Ù… Ø£ÙŠ Ù…Ù„Ù',
-  'Start AI Chat': 'Ø§Ø¨Ø¯Ø£ Ù…Ø­Ø§Ø¯Ø«Ø© AI',
-  'Ask anything â€” your AI assistant is ready': 'Ø§Ø³Ø£Ù„ Ø£ÙŠ Ø´ÙŠØ¡ â€” Ù…Ø³Ø§Ø¹Ø¯ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø¬Ø§Ù‡Ø²',
-  'Take the product tour': 'Ø§Ø¨Ø¯Ø£ Ø¬ÙˆÙ„Ø© Ø§Ù„Ù…Ù†ØªØ¬',
-  'Create your first CV': 'Ø£Ù†Ø´Ø¦ Ø£ÙˆÙ„ Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ© Ù„Ùƒ',
-  'Try the AI Chat': 'Ø¬Ø±Ù‘Ø¨ Ù…Ø­Ø§Ø¯Ø«Ø© AI',
-  'Explore all AI tools': 'Ø§Ø³ØªÙƒØ´Ù Ø¬Ù…ÙŠØ¹ Ø£Ø¯ÙˆØ§Øª AI',
-  'We use cookies to improve your experience, analyze traffic, and personalize content. You can choose which cookies to accept. See our': 'Ù†Ø³ØªØ®Ø¯Ù… Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø· Ù„ØªØ­Ø³ÙŠÙ† ØªØ¬Ø±Ø¨ØªÙƒ ÙˆØªØ­Ù„ÙŠÙ„ Ø§Ù„Ø²ÙŠØ§Ø±Ø§Øª ÙˆØªØ®ØµÙŠØµ Ø§Ù„Ù…Ø­ØªÙˆÙ‰. ÙŠÙ…ÙƒÙ†Ùƒ Ø§Ø®ØªÙŠØ§Ø± Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø· Ø§Ù„ØªÙŠ ØªÙ‚Ø¨Ù„Ù‡Ø§. Ø±Ø§Ø¬Ø¹',
-  '(required)': '(Ù…Ø·Ù„ÙˆØ¨)',
-  'Accept All': 'Ù‚Ø¨ÙˆÙ„ Ø§Ù„ÙƒÙ„',
-  'Decline': 'Ø±ÙØ¶',
-  'Hide': 'Ø¥Ø®ÙØ§Ø¡',
-  'Save My Preferences': 'Ø­ÙØ¸ ØªÙØ¶ÙŠÙ„Ø§ØªÙŠ',
-  'new': 'Ø¬Ø¯ÙŠØ¯',
-  'Mark as read': 'ØªØ­Ø¯ÙŠØ¯ ÙƒÙ…Ù‚Ø±ÙˆØ¡',
-  'Ask AI': 'Ø§Ø³Ø£Ù„ AI',
-  'Clear': 'Ù…Ø³Ø­',
-  'All Tools': 'ÙƒÙ„ Ø§Ù„Ø£Ø¯ÙˆØ§Øª',
-  'Add more skills to your CV': 'Ø£Ø¶Ù Ø§Ù„Ù…Ø²ÙŠØ¯ Ù…Ù† Ø§Ù„Ù…Ù‡Ø§Ø±Ø§Øª Ø¥Ù„Ù‰ Ø³ÙŠØ±ØªÙƒ Ø§Ù„Ø°Ø§ØªÙŠØ©',
-  'ATS systems look for 8+ relevant skills. You currently have 5.': 'ØªØ¨Ø­Ø« Ø£Ù†Ø¸Ù…Ø© ATS Ø¹Ù† 8 Ù…Ù‡Ø§Ø±Ø§Øª Ø°Ø§Øª ØµÙ„Ø© Ø£Ùˆ Ø£ÙƒØ«Ø±. Ù„Ø¯ÙŠÙƒ Ø­Ø§Ù„ÙŠÙ‹Ø§ 5.',
-  'Open CV Builder': 'Ø§ÙØªØ­ Ù…Ù†Ø´Ø¦ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©',
-  'Try the AI Writer': 'Ø¬Ø±Ù‘Ø¨ ÙƒØ§ØªØ¨ AI',
-  'You haven\'t used the AI Writer yet. It\'s great for creating blog posts and articles.': 'Ù„Ù… ØªØ³ØªØ®Ø¯Ù… ÙƒØ§ØªØ¨ AI Ø¨Ø¹Ø¯. Ø¥Ù†Ù‡ Ù…Ù†Ø§Ø³Ø¨ Ù„Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù†Ø´ÙˆØ±Ø§Øª Ø§Ù„Ù…Ø¯ÙˆÙ†Ø§Øª ÙˆØ§Ù„Ù…Ù‚Ø§Ù„Ø§Øª.',
-  'Try AI Writer': 'Ø¬Ø±Ù‘Ø¨ ÙƒØ§ØªØ¨ AI',
-  'View Plans': 'Ø¹Ø±Ø¶ Ø§Ù„Ø®Ø·Ø·',
-  'Root (no project)': 'Ø§Ù„Ø¬Ø°Ø± (Ø¨Ø¯ÙˆÙ† Ù…Ø´Ø±ÙˆØ¹)',
-  'Open live â†—': 'ÙØªØ­ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ø¨Ø§Ø´Ø± â†—',
-  'Open live site â†—': 'ÙØªØ­ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ø¨Ø§Ø´Ø± â†—',
-  'Move': 'Ù†Ù‚Ù„',
-  'Favorite': 'Ù…ÙØ¶Ù„Ø©',
-  'Pin': 'ØªØ«Ø¨ÙŠØª',
-  'New Project': 'Ù…Ø´Ø±ÙˆØ¹ Ø¬Ø¯ÙŠØ¯',
-  'New Resume': 'Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ© Ø¬Ø¯ÙŠØ¯Ø©',
-  'Translate': 'ØªØ±Ø¬Ù…Ø©',
-  'Study Notes': 'Ù…Ù„Ø§Ø­Ø¸Ø§Øª Ø¯Ø±Ø§Ø³Ø©',
-  'Add Item': 'Ø¥Ø¶Ø§ÙØ© Ø¹Ù†ØµØ±',
-  'Resume': 'Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ©',
-  'Document': 'Ù…Ø³ØªÙ†Ø¯',
-  'Translation': 'ØªØ±Ø¬Ù…Ø©',
-  'No items in this project': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¹Ù†Ø§ØµØ± ÙÙŠ Ù‡Ø°Ø§ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹',
-  'Add resumes, cover letters, notes, AI chats and more to organize your work.': 'Ø£Ø¶Ù Ø§Ù„Ø³ÙŠØ± Ø§Ù„Ø°Ø§ØªÙŠØ© ÙˆØ®Ø·Ø§Ø¨Ø§Øª Ø§Ù„ØªØºØ·ÙŠØ© ÙˆØ§Ù„Ù…Ù„Ø§Ø­Ø¸Ø§Øª ÙˆÙ…Ø­Ø§Ø¯Ø«Ø§Øª AI ÙˆØºÙŠØ±Ù‡Ø§ Ù„ØªÙ†Ø¸ÙŠÙ… Ø¹Ù…Ù„Ùƒ.',
-  'Add First Item': 'Ø¥Ø¶Ø§ÙØ© Ø£ÙˆÙ„ Ø¹Ù†ØµØ±',
-  'Empty Trash': 'Ø¥ÙØ±Ø§Øº Ø³Ù„Ø© Ø§Ù„Ù…Ø­Ø°ÙˆÙØ§Øª',
-  'Current role': 'Ø§Ù„ÙˆØ¸ÙŠÙØ© Ø§Ù„Ø­Ø§Ù„ÙŠØ©',
-  'Font Family': 'Ù†ÙˆØ¹ Ø§Ù„Ø®Ø·',
-  'Section Order': 'ØªØ±ØªÙŠØ¨ Ø§Ù„Ø£Ù‚Ø³Ø§Ù…',
-  'Processing with AI...': 'Ø¬Ø§Ø±Ù Ø§Ù„Ù…Ø¹Ø§Ù„Ø¬Ø© Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… AI...',
-  'View Cover Letter': 'Ø¹Ø±Ø¶ Ø®Ø·Ø§Ø¨ Ø§Ù„ØªØºØ·ÙŠØ©',
-  'Analyzing your resume against the job description...': 'Ø¬Ø§Ø±Ù ØªØ­Ù„ÙŠÙ„ Ø³ÙŠØ±ØªÙƒ Ø§Ù„Ø°Ø§ØªÙŠØ© Ù…Ù‚Ø§Ø±Ù†Ø© Ø¨ÙˆØµÙ Ø§Ù„ÙˆØ¸ÙŠÙØ©...',
-  'Suggestions': 'Ø§Ù‚ØªØ±Ø§Ø­Ø§Øª',
-  'Save Current': 'Ø­ÙØ¸ Ø§Ù„Ø­Ø§Ù„ÙŠ',
-  'Your resume looks great! No issues found.': 'Ø³ÙŠØ±ØªÙƒ Ø§Ù„Ø°Ø§ØªÙŠØ© ØªØ¨Ø¯Ùˆ Ù…Ù…ØªØ§Ø²Ø©! Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ø´ÙƒÙ„Ø§Øª.',
-  'Excellent': 'Ù…Ù…ØªØ§Ø²',
-  'Needs Work': 'ÙŠØ­ØªØ§Ø¬ ØªØ­Ø³ÙŠÙ†Ù‹Ø§',
-  'Poor': 'Ø¶Ø¹ÙŠÙ',
-  'Grammar': 'Ø§Ù„Ù‚ÙˆØ§Ø¹Ø¯',
-  'Complete': 'Ø§Ù„Ø§ÙƒØªÙ…Ø§Ù„',
-  'Prof.': 'Ø§Ù„Ø§Ø­ØªØ±Ø§ÙÙŠØ©',
-  'Readable': 'Ø³Ù‡ÙˆÙ„Ø© Ø§Ù„Ù‚Ø±Ø§Ø¡Ø©',
-  'Overall': 'Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ',
-  'Loading Tayar Intelligenceâ€¦': 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Tayar Intelligenceâ€¦',
-  'Account suspended': 'Ø§Ù„Ø­Ø³Ø§Ø¨ Ù…ÙˆÙ‚ÙˆÙ',
-  'Your account is currently suspended. Contact support if you believe this is a mistake.': 'Ø­Ø³Ø§Ø¨Ùƒ Ù…ÙˆÙ‚ÙˆÙ Ø­Ø§Ù„ÙŠÙ‹Ø§. ØªÙˆØ§ØµÙ„ Ù…Ø¹ Ø§Ù„Ø¯Ø¹Ù… Ø¥Ø°Ø§ ÙƒÙ†Øª ØªØ¹ØªÙ‚Ø¯ Ø£Ù† Ù‡Ø°Ø§ Ø®Ø·Ø£.',
-  'Skip to content': 'Ø§Ù„Ø§Ù†ØªÙ‚Ø§Ù„ Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø­ØªÙˆÙ‰',
-  'Reload': 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ­Ù…ÙŠÙ„',
-  'Home': 'Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©',
-  'If this keeps happening,': 'Ø¥Ø°Ø§ Ø§Ø³ØªÙ…Ø±Øª Ø§Ù„Ù…Ø´ÙƒÙ„Ø©ØŒ',
-  'contact support': 'ØªÙˆØ§ØµÙ„ Ù…Ø¹ Ø§Ù„Ø¯Ø¹Ù…',
-  'Primary navigation': 'Ø§Ù„ØªÙ†Ù‚Ù„ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ',
-  'Tayar Intelligence home': 'Ø§Ù„ØµÙØ­Ø© Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© Ù„Ù€ Tayar Intelligence',
-  'Build Â· Create Â· Ship': 'Ø§Ø¨Ù†Ù Â· Ø£Ù†Ø´Ø¦ Â· Ø£Ø·Ù„Ù‚',
-  'Online': 'Ù…ØªØµÙ„',
-  'New conversation': 'Ù…Ø­Ø§Ø¯Ø«Ø© Ø¬Ø¯ÙŠØ¯Ø©',
-  'Create workspace': 'Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„',
-  'Spacer': 'Ù…Ø³Ø§ÙØ©',
-  'Double-click to edit video URL': 'Ø§Ù†Ù‚Ø± Ù†Ù‚Ø±Ù‹Ø§ Ù…Ø²Ø¯ÙˆØ¬Ù‹Ø§ Ù„ØªØ¹Ø¯ÙŠÙ„ Ø±Ø§Ø¨Ø· Ø§Ù„ÙÙŠØ¯ÙŠÙˆ',
-  'Video': 'ÙÙŠØ¯ÙŠÙˆ',
-  'Double-click to add a video URL': 'Ø§Ù†Ù‚Ø± Ù†Ù‚Ø±Ù‹Ø§ Ù…Ø²Ø¯ÙˆØ¬Ù‹Ø§ Ù„Ø¥Ø¶Ø§ÙØ© Ø±Ø§Ø¨Ø· ÙÙŠØ¯ÙŠÙˆ',
-  'Add tab content': 'Ø£Ø¶Ù Ù…Ø­ØªÙˆÙ‰ Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¨ÙˆÙŠØ¨',
-  'Add one image URL per line': 'Ø£Ø¶Ù Ø±Ø§Ø¨Ø· ØµÙˆØ±Ø© ÙˆØ§Ø­Ø¯Ù‹Ø§ ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±',
-  'Double-click to edit embed URL': 'Ø§Ù†Ù‚Ø± Ù†Ù‚Ø±Ù‹Ø§ Ù…Ø²Ø¯ÙˆØ¬Ù‹Ø§ Ù„ØªØ¹Ø¯ÙŠÙ„ Ø±Ø§Ø¨Ø· Ø§Ù„ØªØ¶Ù…ÙŠÙ†',
-  'Embedded content': 'Ù…Ø­ØªÙˆÙ‰ Ù…Ø¶Ù…Ù‘Ù†',
-  'Double-click to add an embeddable URL': 'Ø§Ù†Ù‚Ø± Ù†Ù‚Ø±Ù‹Ø§ Ù…Ø²Ø¯ÙˆØ¬Ù‹Ø§ Ù„Ø¥Ø¶Ø§ÙØ© Ø±Ø§Ø¨Ø· Ù‚Ø§Ø¨Ù„ Ù„Ù„ØªØ¶Ù…ÙŠÙ†',
-  'Countdown': 'Ø§Ù„Ø¹Ø¯ Ø§Ù„ØªÙ†Ø§Ø²Ù„ÙŠ',
-  'Target:': 'Ø§Ù„Ù‡Ø¯Ù:',
-  'set date in inspector': 'Ø¹ÙŠÙ‘Ù† Ø§Ù„ØªØ§Ø±ÙŠØ® ÙÙŠ Ù„ÙˆØ­Ø© Ø§Ù„Ø®ØµØ§Ø¦Øµ',
-  'Add testimonial text': 'Ø£Ø¶Ù Ù†Øµ Ø§Ù„Ø´Ù‡Ø§Ø¯Ø©',
-  'Double-click to replace image': 'Ø§Ù†Ù‚Ø± Ù†Ù‚Ø±Ù‹Ø§ Ù…Ø²Ø¯ÙˆØ¬Ù‹Ø§ Ù„Ø§Ø³ØªØ¨Ø¯Ø§Ù„ Ø§Ù„ØµÙˆØ±Ø©',
-  'Website image': 'ØµÙˆØ±Ø© Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Double-click to add image URL': 'Ø§Ù†Ù‚Ø± Ù†Ù‚Ø±Ù‹Ø§ Ù…Ø²Ø¯ÙˆØ¬Ù‹Ø§ Ù„Ø¥Ø¶Ø§ÙØ© Ø±Ø§Ø¨Ø· ØµÙˆØ±Ø©',
-  'Drag to move Â· Arrows nudge Â· Shift+arrow 10px Â· Ctrl/Cmd+D duplicate Â· Delete remove Â· Esc deselect Â· Shift+drag reorder': 'Ø§Ø³Ø­Ø¨ Ù„Ù„ØªØ­Ø±ÙŠÙƒ Â· Ø§Ù„Ø£Ø³Ù‡Ù… Ù„Ù„ØªØ­Ø±ÙŠÙƒ Ø§Ù„Ø¯Ù‚ÙŠÙ‚ Â· Shift+Ø³Ù‡Ù… Ø¨Ù…Ù‚Ø¯Ø§Ø± 10px Â· Ctrl/Cmd+D Ù„Ù„ØªÙƒØ±Ø§Ø± Â· Delete Ù„Ù„Ø­Ø°Ù Â· Esc Ù„Ø¥Ù„ØºØ§Ø¡ Ø§Ù„ØªØ­Ø¯ÙŠØ¯ Â· Shift+Ø³Ø­Ø¨ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ±ØªÙŠØ¨',
-  'Hold Alt for 1% precision': 'Ø§Ø¶ØºØ· Alt Ù„Ø¯Ù‚Ø© 1%',
-  'Drag with smart element and center guides Â· Hold Alt for 1px precision Â· Arrows nudge Â· Shift+arrow 10px Â· Ctrl/Cmd+D duplicate Â· Delete remove Â· Esc deselect Â· Shift+drag reorder': 'Ø§Ø³Ø­Ø¨ Ù…Ø¹ Ø®Ø·ÙˆØ· Ù…Ø­Ø§Ø°Ø§Ø© Ø°ÙƒÙŠØ© Ù„Ù„Ø¹Ù†Ø§ØµØ± ÙˆØ§Ù„Ù…Ø±ÙƒØ² Â· Ø§Ø¶ØºØ· Alt Ù„Ø¯Ù‚Ø© 1px Â· Ø§Ù„Ø£Ø³Ù‡Ù… Ù„Ù„ØªØ­Ø±ÙŠÙƒ Ø§Ù„Ø¯Ù‚ÙŠÙ‚ Â· Shift+Ø³Ù‡Ù… Ø¨Ù…Ù‚Ø¯Ø§Ø± 10px Â· Ctrl/Cmd+D Ù„Ù„ØªÙƒØ±Ø§Ø± Â· Delete Ù„Ù„Ø­Ø°Ù Â· Esc Ù„Ø¥Ù„ØºØ§Ø¡ Ø§Ù„ØªØ­Ø¯ÙŠØ¯ Â· Shift+Ø³Ø­Ø¨ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ±ØªÙŠØ¨',
-  'Edit button link': 'ØªØ¹Ø¯ÙŠÙ„ Ø±Ø§Ø¨Ø· Ø§Ù„Ø²Ø±',
-  'Open media library': 'ÙØªØ­ Ù…ÙƒØªØ¨Ø© Ø§Ù„ÙˆØ³Ø§Ø¦Ø·',
-  'Open inspector': 'ÙØªØ­ Ù„ÙˆØ­Ø© Ø§Ù„Ø®ØµØ§Ø¦Øµ',
-  'Reset position': 'Ø¥Ø¹Ø§Ø¯Ø© ØªØ¹ÙŠÙŠÙ† Ø§Ù„Ù…ÙˆØ¶Ø¹',
-  'Resize element': 'ØªØºÙŠÙŠØ± Ø­Ø¬Ù… Ø§Ù„Ø¹Ù†ØµØ±',
-  'Drag to resize': 'Ø§Ø³Ø­Ø¨ Ù„ØªØºÙŠÙŠØ± Ø§Ù„Ø­Ø¬Ù…',
-  'Move section up': 'Ù†Ù‚Ù„ Ø§Ù„Ù‚Ø³Ù… Ù„Ø£Ø¹Ù„Ù‰',
-  'Move section down': 'Ù†Ù‚Ù„ Ø§Ù„Ù‚Ø³Ù… Ù„Ø£Ø³ÙÙ„',
-  'Delete section': 'Ø­Ø°Ù Ø§Ù„Ù‚Ø³Ù…',
-  'Double-click to edit button text': 'Ø§Ù†Ù‚Ø± Ù†Ù‚Ø±Ù‹Ø§ Ù…Ø²Ø¯ÙˆØ¬Ù‹Ø§ Ù„ØªØ¹Ø¯ÙŠÙ„ Ù†Øµ Ø§Ù„Ø²Ø±',
-  'Insert': 'Ø¥Ø¯Ø±Ø§Ø¬',
-  'Search': 'Ø¨Ø­Ø«',
-  'Search elements': 'Ø§Ù„Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ø¹Ù†Ø§ØµØ±',
-  'No results': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬',
-  'color picker': 'Ù…Ù†ØªÙ‚ÙŠ Ø§Ù„Ø£Ù„ÙˆØ§Ù†',
-  'No controls for this selection.': 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¹Ù†Ø§ØµØ± ØªØ­ÙƒÙ… Ù„Ù‡Ø°Ø§ Ø§Ù„ØªØ­Ø¯ÙŠØ¯.',
-  'No page': 'Ù„Ø§ ØªÙˆØ¬Ø¯ ØµÙØ­Ø©',
-  'Containers': 'Ø§Ù„Ø­Ø§ÙˆÙŠØ§Øª',
-  'Form fields': 'Ø­Ù‚ÙˆÙ„ Ø§Ù„Ù†Ù…ÙˆØ°Ø¬',
-  'Media': 'Ø§Ù„ÙˆØ³Ø§Ø¦Ø·',
-  'AI image': 'ØµÙˆØ±Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-  'Describe an image...': 'ØµÙ Ø§Ù„ØµÙˆØ±Ø©...',
-  'Generatingâ€¦': 'Ø¬Ø§Ø±Ù Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡â€¦',
-  'Search media': 'Ø§Ù„Ø¨Ø­Ø« ÙÙŠ Ø§Ù„ÙˆØ³Ø§Ø¦Ø·',
-  'No media': 'Ù„Ø§ ØªÙˆØ¬Ø¯ ÙˆØ³Ø§Ø¦Ø·',
-  'Set as home page': 'ØªØ¹ÙŠÙŠÙ† ÙƒØµÙØ­Ø© Ø±Ø¦ÙŠØ³ÙŠØ©',
-  'Recently used': 'Ø§Ø³ØªÙØ®Ø¯Ù… Ù…Ø¤Ø®Ø±Ù‹Ø§',
-  'Search website': 'Ø§Ù„Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Toggle navigation': 'Ø¥Ø¸Ù‡Ø§Ø±/Ø¥Ø®ÙØ§Ø¡ Ø§Ù„ØªÙ†Ù‚Ù„',
-  'Menu': 'Ø§Ù„Ù‚Ø§Ø¦Ù…Ø©',
-  'Share': 'Ù…Ø´Ø§Ø±ÙƒØ©',
-  'Copy link': 'Ù†Ø³Ø® Ø§Ù„Ø±Ø§Ø¨Ø·',
-  'Close image': 'Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„ØµÙˆØ±Ø©',
-  'Gallery preview': 'Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù…Ø¹Ø±Ø¶',
-  'Search this site': 'Ø§Ø¨Ø­Ø« ÙÙŠ Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆÙ‚Ø¹',
-  'Close search': 'Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„Ø¨Ø­Ø«',
-  'Search pagesâ€¦': 'Ø§Ù„Ø¨Ø­Ø« ÙÙŠ Ø§Ù„ØµÙØ­Ø§Øªâ€¦',
-  'Start typing to search.': 'Ø§Ø¨Ø¯Ø£ Ø¨Ø§Ù„ÙƒØªØ§Ø¨Ø© Ù„Ù„Ø¨Ø­Ø«.',
-  'Type at least 2 characters.': 'Ø§ÙƒØªØ¨ Ø­Ø±ÙÙŠÙ† Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„.',
-  'No matching pages found.': 'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ ØµÙØ­Ø§Øª Ù…Ø·Ø§Ø¨Ù‚Ø©.',
-  'Maintenance': 'ØµÙŠØ§Ù†Ø©',
-  'Item': 'Ø¹Ù†ØµØ±',
-  'Invoice': 'ÙØ§ØªÙˆØ±Ø©',
-  'Bill to': 'Ø¥Ù„Ù‰',
-  'Qty': 'Ø§Ù„ÙƒÙ…ÙŠØ©',
-  'Unit price': 'Ø³Ø¹Ø± Ø§Ù„ÙˆØ­Ø¯Ø©',
-  'VAT': 'Ø¶Ø±ÙŠØ¨Ø© Ø§Ù„Ù‚ÙŠÙ…Ø© Ø§Ù„Ù…Ø¶Ø§ÙØ©',
-  'Total': 'Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ',
-  'Subtotal': 'Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹ Ø§Ù„ÙØ±Ø¹ÙŠ',
-  'Add a YouTube, Vimeo or direct video URL': 'Ø£Ø¶Ù Ø±Ø§Ø¨Ø· YouTube Ø£Ùˆ Vimeo Ø£Ùˆ Ø±Ø§Ø¨Ø· ÙÙŠØ¯ÙŠÙˆ Ù…Ø¨Ø§Ø´Ø±',
-  'Gallery image': 'ØµÙˆØ±Ø© Ø§Ù„Ù…Ø¹Ø±Ø¶',
-  'Add a map or embed URL': 'Ø£Ø¶Ù Ø±Ø§Ø¨Ø· Ø®Ø±ÙŠØ·Ø© Ø£Ùˆ Ø±Ø§Ø¨Ø· ØªØ¶Ù…ÙŠÙ†',
-  'Days': 'Ø£ÙŠØ§Ù…',
-  'Hours': 'Ø³Ø§Ø¹Ø§Øª',
-  'Minutes': 'Ø¯Ù‚Ø§Ø¦Ù‚',
-  'Seconds': 'Ø«ÙˆØ§Ù†Ù',
-  'Previous testimonial': 'Ø§Ù„Ø´Ù‡Ø§Ø¯Ø© Ø§Ù„Ø³Ø§Ø¨Ù‚Ø©',
-  'Next testimonial': 'Ø§Ù„Ø´Ù‡Ø§Ø¯Ø© Ø§Ù„ØªØ§Ù„ÙŠØ©',
-  'Lead capture is disabled in previews and activates on a published cloud website.': 'Ø§Ù„ØªÙ‚Ø§Ø· Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† Ù…Ø¹Ø·Ù‘Ù„ ÙÙŠ Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø§Øª ÙˆÙŠØªÙ… ØªÙØ¹ÙŠÙ„Ù‡ Ø¹Ù„Ù‰ Ù…ÙˆÙ‚Ø¹ Ø³Ø­Ø§Ø¨ÙŠ Ù…Ù†Ø´ÙˆØ±.',
-  'Thanks! Your message has been sent.': 'Ø´ÙƒØ±Ù‹Ø§! ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø±Ø³Ø§Ù„ØªÙƒ.',
-  'Features': 'Ø§Ù„Ù…ÙŠØ²Ø§Øª',
-  'Fast': 'Ø³Ø±ÙŠØ¹',
-  'Built for speed and a smooth user experience.': 'Ù…ØµÙ…Ù… Ù„Ù„Ø³Ø±Ø¹Ø© ÙˆØªØ¬Ø±Ø¨Ø© Ù…Ø³ØªØ®Ø¯Ù… Ø³Ù„Ø³Ø©.',
-  'Powerful': 'Ù‚ÙˆÙŠ',
-  'Flexible tools that help your business grow.': 'Ø£Ø¯ÙˆØ§Øª Ù…Ø±Ù†Ø© ØªØ³Ø§Ø¹Ø¯ Ø¹Ù…Ù„Ùƒ Ø¹Ù„Ù‰ Ø§Ù„Ù†Ù…Ùˆ.',
-  'Easy': 'Ø³Ù‡Ù„',
-  'Simple experiences your customers understand.': 'ØªØ¬Ø§Ø±Ø¨ Ø¨Ø³ÙŠØ·Ø© ÙŠÙÙ‡Ù…Ù‡Ø§ Ø¹Ù…Ù„Ø§Ø¤Ùƒ.',
-  'Services': 'Ø§Ù„Ø®Ø¯Ù…Ø§Øª',
-  'Consulting': 'Ø§Ù„Ø§Ø³ØªØ´Ø§Ø±Ø§Øª',
-  'Professional guidance tailored to your goals.': 'Ø¥Ø±Ø´Ø§Ø¯ Ø§Ø­ØªØ±Ø§ÙÙŠ Ù…Ø®ØµØµ Ù„Ø£Ù‡Ø¯Ø§ÙÙƒ.',
-  'Development': 'Ø§Ù„ØªØ·ÙˆÙŠØ±',
-  'Modern digital solutions built for your business.': 'Ø­Ù„ÙˆÙ„ Ø±Ù‚Ù…ÙŠØ© Ø­Ø¯ÙŠØ«Ø© Ù…ØµÙ…Ù…Ø© Ù„Ø£Ø¹Ù…Ø§Ù„Ùƒ.',
-  'Reliable help when you need it most.': 'Ø¯Ø¹Ù… Ù…ÙˆØ«ÙˆÙ‚ Ø¹Ù†Ø¯Ù…Ø§ ØªØ­ØªØ§Ø¬ Ø¥Ù„ÙŠÙ‡.',
-  'Pricing': 'Ø§Ù„Ø£Ø³Ø¹Ø§Ø±',
-  'Starter': 'Ø£Ø³Ø§Ø³ÙŠ',
-  'For getting started.': 'Ù„Ù„Ø¨Ø¯Ø¡.',
-  'Choose': 'Ø§Ø®ØªØ±',
-  'For growing businesses.': 'Ù„Ù„Ø£Ø¹Ù…Ø§Ù„ Ø§Ù„Ù†Ø§Ù…ÙŠØ©.',
-  'For advanced needs.': 'Ù„Ù„Ø§Ø­ØªÙŠØ§Ø¬Ø§Øª Ø§Ù„Ù…ØªÙ‚Ø¯Ù…Ø©.',
-  'Testimonials': 'Ø¢Ø±Ø§Ø¡ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡',
-  'Amazing experience and excellent results.': 'ØªØ¬Ø±Ø¨Ø© Ø±Ø§Ø¦Ø¹Ø© ÙˆÙ†ØªØ§Ø¦Ø¬ Ù…Ù…ØªØ§Ø²Ø©.',
-  'Professional, simple and exactly what we needed.': 'Ø§Ø­ØªØ±Ø§ÙÙŠ ÙˆØ¨Ø³ÙŠØ· ÙˆØ¨Ø§Ù„Ø¶Ø¨Ø· Ù…Ø§ ÙƒÙ†Ø§ Ù†Ø­ØªØ§Ø¬Ù‡.',
-  'The easiest way to present our business online.': 'Ø£Ø³Ù‡Ù„ Ø·Ø±ÙŠÙ‚Ø© Ù„Ø¹Ø±Ø¶ Ø£Ø¹Ù…Ø§Ù„Ù†Ø§ Ø¹Ù„Ù‰ Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª.',
-  'About': 'Ù…Ù† Ù†Ø­Ù†',
-  'Your Brand': 'Ø¹Ù„Ø§Ù…ØªÙƒ Ø§Ù„ØªØ¬Ø§Ø±ÙŠØ©',
-  "Landing Page": "Ø§Ù„ØµÙØ­Ø© Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©",
-  "Edit the hero section and key messaging on your homepage.": "Ø¹Ø¯Ù‘Ù„ Ø§Ù„Ù‚Ø³Ù… Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ ÙˆØ§Ù„Ø±Ø³Ø§Ø¦Ù„ Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ© ÙÙŠ ØµÙØ­ØªÙƒ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©.",
-  "Hero Title": "Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù‚Ø³Ù… Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ",
-  "AI-Powered Career Intelligence": "Ø°ÙƒØ§Ø¡ Ù…Ù‡Ù†ÙŠ Ù…Ø¯Ø¹ÙˆÙ… Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "Hero Subtitle": "Ø§Ù„Ù†Øµ Ø§Ù„ÙØ±Ø¹ÙŠ Ù„Ù„Ù‚Ø³Ù… Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ",
-  "Build, optimize, and manage...": "Ø£Ù†Ø´Ø¦ ÙˆØ­Ø³Ù‘Ù† ÙˆØ£Ø¯Ø±...",
-  "Call to Action Text": "Ù†Øµ Ø²Ø± Ø§Ù„Ø¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡",
-  "Get Started Free": "Ø§Ø¨Ø¯Ø£ Ù…Ø¬Ø§Ù†Ù‹Ø§",
-  "Users Stat": "Ø¥Ø­ØµØ§Ø¦ÙŠØ© Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†",
-  "Pricing Page": "ØµÙØ­Ø© Ø§Ù„Ø£Ø³Ø¹Ø§Ø±",
-  "Manage pricing tiers and features displayed to users.": "Ø£Ø¯Ø± Ø®Ø·Ø· Ø§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ§Ù„Ù…ÙŠØ²Ø§Øª Ø§Ù„Ù…Ø¹Ø±ÙˆØ¶Ø© Ù„Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†.",
-  "Free Plan Price": "Ø³Ø¹Ø± Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ù…Ø¬Ø§Ù†ÙŠØ©",
-  "Pro Plan Price": "Ø³Ø¹Ø± Ø®Ø·Ø© Pro",
-  "Business Plan Price": "Ø³Ø¹Ø± Ø®Ø·Ø© Business",
-  "Free Plan Features (one per line)": "Ù…ÙŠØ²Ø§Øª Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ù…Ø¬Ø§Ù†ÙŠØ© (Ù…ÙŠØ²Ø© ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±)",
-  "5 AI requests/day\nBasic CV builder": "5 Ø·Ù„Ø¨Ø§Øª Ø°ÙƒØ§Ø¡ Ø§ØµØ·Ù†Ø§Ø¹ÙŠ/Ø§Ù„ÙŠÙˆÙ…\nÙ…Ù†Ø´Ø¦ Ø³ÙŠØ±Ø© Ø°Ø§ØªÙŠØ© Ø£Ø³Ø§Ø³ÙŠ",
-  "Pro Plan Features (one per line)": "Ù…ÙŠØ²Ø§Øª Ø®Ø·Ø© Pro (Ù…ÙŠØ²Ø© ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±)",
-  "Unlimited AI requests\nAll tools unlocked": "Ø·Ù„Ø¨Ø§Øª Ø°ÙƒØ§Ø¡ Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ØºÙŠØ± Ù…Ø­Ø¯ÙˆØ¯Ø©\nØ¬Ù…ÙŠØ¹ Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ù…ÙØªÙˆØ­Ø©",
-  "FAQ Section": "Ù‚Ø³Ù… Ø§Ù„Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø´Ø§Ø¦Ø¹Ø©",
-  "Frequently asked questions shown on the landing page.": "Ø§Ù„Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø´Ø§Ø¦Ø¹Ø© Ø§Ù„Ù…Ø¹Ø±ÙˆØ¶Ø© ÙÙŠ Ø§Ù„ØµÙØ­Ø© Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©.",
-  "Question 1": "Ø§Ù„Ø³Ø¤Ø§Ù„ 1",
-  "What is Tayar Intelligence?": "Ù…Ø§ Ù‡Ùˆ Tayar IntelligenceØŸ",
-  "Answer 1": "Ø§Ù„Ø¥Ø¬Ø§Ø¨Ø© 1",
-  "Tayar Intelligence is...": "Tayar Intelligence Ù‡Ùˆ...",
-  "Question 2": "Ø§Ù„Ø³Ø¤Ø§Ù„ 2",
-  "Is there a free plan?": "Ù‡Ù„ ØªÙˆØ¬Ø¯ Ø®Ø·Ø© Ù…Ø¬Ø§Ù†ÙŠØ©ØŸ",
-  "Answer 2": "Ø§Ù„Ø¥Ø¬Ø§Ø¨Ø© 2",
-  "Yes! We offer...": "Ù†Ø¹Ù…! Ù†Ø­Ù† Ù†Ù‚Ø¯Ù…...",
-  "Legal terms and conditions for using the platform.": "Ø§Ù„Ø´Ø±ÙˆØ· ÙˆØ§Ù„Ø£Ø­ÙƒØ§Ù… Ø§Ù„Ù‚Ø§Ù†ÙˆÙ†ÙŠØ© Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ù…Ù†ØµØ©.",
-  "Introduction": "Ù…Ù‚Ø¯Ù…Ø©",
-  "By using Tayar Intelligence...": "Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Tayar Intelligence...",
-  "Usage Terms": "Ø´Ø±ÙˆØ· Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…",
-  "You may use...": "ÙŠÙ…ÙƒÙ†Ùƒ Ø§Ø³ØªØ®Ø¯Ø§Ù…...",
-  "Liability": "Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙŠØ©",
-  "Tayar Intelligence is not liable...": "Ù„Ø§ ÙŠØªØ­Ù…Ù„ Tayar Intelligence Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙŠØ©...",
-  "How user data is collected, used, and protected.": "ÙƒÙŠÙÙŠØ© Ø¬Ù…Ø¹ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙˆØ§Ø³ØªØ®Ø¯Ø§Ù…Ù‡Ø§ ÙˆØ­Ù…Ø§ÙŠØªÙ‡Ø§.",
-  "We take your privacy seriously...": "Ù†Ø­Ù† Ù†Ø£Ø®Ø° Ø®ØµÙˆØµÙŠØªÙƒ Ø¹Ù„Ù‰ Ù…Ø­Ù…Ù„ Ø§Ù„Ø¬Ø¯...",
-  "Data Collection": "Ø¬Ù…Ø¹ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª",
-  "We collect...": "Ù†Ø­Ù† Ù†Ø¬Ù…Ø¹...",
-  "Your Rights": "Ø­Ù‚ÙˆÙ‚Ùƒ",
-  "You have the right to...": "Ù„Ø¯ÙŠÙƒ Ø§Ù„Ø­Ù‚ ÙÙŠ...",
-  "Failed to load saved content draft": "ÙØ´Ù„ ØªØ­Ù…ÙŠÙ„ Ù…Ø³ÙˆØ¯Ø© Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø©",
-  "Failed to save content draft": "ÙØ´Ù„ Ø­ÙØ¸ Ù…Ø³ÙˆØ¯Ø© Ø§Ù„Ù…Ø­ØªÙˆÙ‰",
-  "Content draft saved": "ØªÙ… Ø­ÙØ¸ Ù…Ø³ÙˆØ¯Ø© Ø§Ù„Ù…Ø­ØªÙˆÙ‰",
-  "Total Users": "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†",
-  "Active Users": "Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙˆÙ† Ø§Ù„Ù†Ø´Ø·ÙˆÙ†",
-  "New Today": "Ø§Ù„Ø¬Ø¯Ø¯ Ø§Ù„ÙŠÙˆÙ…",
-  "Active Subs": "Ø§Ù„Ø§Ø´ØªØ±Ø§ÙƒØ§Øª Ø§Ù„Ù†Ø´Ø·Ø©",
-  "Monthly Revenue": "Ø§Ù„Ø¥ÙŠØ±Ø§Ø¯ Ø§Ù„Ø´Ù‡Ø±ÙŠ",
-  "Data Status": "Ø­Ø§Ù„Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª",
-  "Unavailable": "ØºÙŠØ± Ù…ØªØ§Ø­",
-  "Profiles": "Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ø´Ø®ØµÙŠØ©",
-  "Subscriptions": "Ø§Ù„Ø§Ø´ØªØ±Ø§ÙƒØ§Øª",
-  "total": "Ø¥Ø¬Ù…Ø§Ù„ÙŠ",
-  "users": "Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†",
-  "requests": "Ø·Ù„Ø¨Ø§Øª",
-  "Overview": "Ù†Ø¸Ø±Ø© Ø¹Ø§Ù…Ø©",
-  "Management": "Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©",
-  "Users": "Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙˆÙ†",
-  "AI Management": "Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "Tools": "Ø§Ù„Ø£Ø¯ÙˆØ§Øª",
-  "Platform": "Ø§Ù„Ù…Ù†ØµØ©",
-  "Content": "Ø§Ù„Ù…Ø­ØªÙˆÙ‰",
-  "System": "Ø§Ù„Ù†Ø¸Ø§Ù…",
-  "14d Requests": "Ø·Ù„Ø¨Ø§Øª Ø¢Ø®Ø± 14 ÙŠÙˆÙ…Ù‹Ø§",
-  "Total Tokens": "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø±Ù…ÙˆØ²",
-  "Backend Providers": "Ù…Ø²ÙˆØ¯Ùˆ Ø§Ù„Ø®Ù„ÙÙŠØ©",
-  "Recent Error Rate": "Ù…Ø¹Ø¯Ù„ Ø§Ù„Ø£Ø®Ø·Ø§Ø¡ Ø§Ù„Ø£Ø®ÙŠØ±",
-  "One connected workspace": "Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ù…ØªØ±Ø§Ø¨Ø·Ø© ÙˆØ§Ø­Ø¯Ø©",
-  "Projects, files, website releases, collaboration and settings are designed to stay connected.": "ØµÙÙ…Ù…Øª Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ ÙˆØ§Ù„Ù…Ù„ÙØ§Øª ÙˆØ¥ØµØ¯Ø§Ø±Ø§Øª Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ ÙˆØ§Ù„ØªØ¹Ø§ÙˆÙ† ÙˆØ§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ù„ØªØ¨Ù‚Ù‰ Ù…ØªØ±Ø§Ø¨Ø·Ø©.",
-  "Ship finished work": "Ø³Ù„Ù‘Ù… Ø£Ø¹Ù…Ø§Ù„Ù‹Ø§ Ù…ÙƒØªÙ…Ù„Ø©",
-  "The product is built around moving from draft to delivery, not just generating a one-off output.": "Ø§Ù„Ù…Ù†ØªØ¬ Ù…ØµÙ…Ù… Ù„Ù„Ø§Ù†ØªÙ‚Ø§Ù„ Ù…Ù† Ø§Ù„Ù…Ø³ÙˆØ¯Ø© Ø¥Ù„Ù‰ Ø§Ù„ØªØ³Ù„ÙŠÙ…ØŒ ÙˆÙ„ÙŠØ³ ÙÙ‚Ø· Ù„Ø¥Ù†Ø´Ø§Ø¡ Ù†ØªÙŠØ¬Ø© Ù„Ù…Ø±Ø© ÙˆØ§Ø­Ø¯Ø©.",
-  "Control by default": "Ø§Ù„ØªØ­ÙƒÙ… Ø§ÙØªØ±Ø§Ø¶ÙŠÙ‹Ø§",
-  "Recovery, roles, audits, version history and row-level access controls are part of the workflow.": "Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø© ÙˆØ§Ù„Ø£Ø¯ÙˆØ§Ø± ÙˆØ§Ù„ØªØ¯Ù‚ÙŠÙ‚ ÙˆØ³Ø¬Ù„ Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª ÙˆØ§Ù„ØªØ­ÙƒÙ… Ø¨Ø§Ù„ÙˆØµÙˆÙ„ Ø¹Ù„Ù‰ Ù…Ø³ØªÙˆÙ‰ Ø§Ù„ØµÙ Ø¬Ø²Ø¡ Ù…Ù† Ø³ÙŠØ± Ø§Ù„Ø¹Ù…Ù„.",
-  "Accessible workflows": "Ø³ÙŠØ± Ø¹Ù…Ù„ Ø³Ù‡Ù„ Ø§Ù„ÙˆØµÙˆÙ„",
-  "English, Arabic and Swedish are supported, including right-to-left interface behavior for Arabic.": "ÙŠØªÙ… Ø¯Ø¹Ù… Ø§Ù„Ø¥Ù†Ø¬Ù„ÙŠØ²ÙŠØ© ÙˆØ§Ù„Ø¹Ø±Ø¨ÙŠØ© ÙˆØ§Ù„Ø³ÙˆÙŠØ¯ÙŠØ©ØŒ Ø¨Ù…Ø§ ÙÙŠ Ø°Ù„Ùƒ ÙˆØ§Ø¬Ù‡Ø© Ù…Ù† Ø§Ù„ÙŠÙ…ÙŠÙ† Ø¥Ù„Ù‰ Ø§Ù„ÙŠØ³Ø§Ø± Ù„Ù„Ø¹Ø±Ø¨ÙŠØ©.",
-  "CVs": "Ø§Ù„Ø³ÙŠØ± Ø§Ù„Ø°Ø§ØªÙŠØ©",
-  "Cover Letters": "Ø®Ø·Ø§Ø¨Ø§Øª Ø§Ù„ØªØºØ·ÙŠØ©",
-  "Writing": "Ø§Ù„ÙƒØªØ§Ø¨Ø©",
-  "Translations": "Ø§Ù„ØªØ±Ø¬Ù…Ø§Øª",
-  "Study": "Ø§Ù„Ø¯Ø±Ø§Ø³Ø©",
-  "Page not found": "Ø§Ù„ØµÙØ­Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©",
-  "Page not found.": "Ø§Ù„ØµÙØ­Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©.",
-  "404 â€” Page not found": "404 â€” Ø§Ù„ØµÙØ­Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©",
-  "The page you are looking for does not exist or may have moved.": "Ø§Ù„ØµÙØ­Ø© Ø§Ù„ØªÙŠ ØªØ¨Ø­Ø« Ø¹Ù†Ù‡Ø§ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø© Ø£Ùˆ Ø±Ø¨Ù…Ø§ ØªÙ… Ù†Ù‚Ù„Ù‡Ø§.",
-  "Back to Home": "Ø§Ù„Ø¹ÙˆØ¯Ø© Ø¥Ù„Ù‰ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©",
-  "Hosting notes, DNS details, next steps, support termsâ€¦": "Ù…Ù„Ø§Ø­Ø¸Ø§Øª Ø§Ù„Ø§Ø³ØªØ¶Ø§ÙØ©ØŒ ØªÙØ§ØµÙŠÙ„ DNSØŒ Ø§Ù„Ø®Ø·ÙˆØ§Øª Ø§Ù„ØªØ§Ù„ÙŠØ©ØŒ Ø´Ø±ÙˆØ· Ø§Ù„Ø¯Ø¹Ù…â€¦",
-  "Search name, email, message, tagsâ€¦": "Ø§Ø¨Ø­Ø« Ø¨Ø§Ù„Ø§Ø³Ù… Ø£Ùˆ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø£Ùˆ Ø§Ù„Ø±Ø³Ø§Ù„Ø© Ø£Ùˆ Ø§Ù„ÙˆØ³ÙˆÙ…â€¦",
-  "Delay in seconds": "Ø§Ù„ØªØ£Ø®ÙŠØ± Ø¨Ø§Ù„Ø«ÙˆØ§Ù†ÙŠ",
-  "Meta Pixel ID": "Ù…Ø¹Ø±Ù‘Ù Meta Pixel",
-  "Schema type Â· LocalBusiness": "Ù†ÙˆØ¹ Schema Â· LocalBusiness",
-  "YouTube, Vimeo or direct video URL": "Ø±Ø§Ø¨Ø· YouTube Ø£Ùˆ Vimeo Ø£Ùˆ Ø±Ø§Ø¨Ø· ÙÙŠØ¯ÙŠÙˆ Ù…Ø¨Ø§Ø´Ø±",
-  "Video title / accessibility label": "Ø¹Ù†ÙˆØ§Ù† Ø§Ù„ÙÙŠØ¯ÙŠÙˆ / ØªØ³Ù…ÙŠØ© Ø¥Ù…ÙƒØ§Ù†ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„",
-  "Accessibility title": "Ø¹Ù†ÙˆØ§Ù† Ø¥Ù…ÙƒØ§Ù†ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„",
-  "One image URL per line": "Ø±Ø§Ø¨Ø· ØµÙˆØ±Ø© ÙˆØ§Ø­Ø¯ ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±",
-  "Title | Content â€” one item per line": "Ø§Ù„Ø¹Ù†ÙˆØ§Ù† | Ø§Ù„Ù…Ø­ØªÙˆÙ‰ â€” Ø¹Ù†ØµØ± ÙˆØ§Ø­Ø¯ ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±",
-  "2026-12-31T23:59:59 | Launching soon": "2026-12-31T23:59:59 | Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚ Ù‚Ø±ÙŠØ¨Ù‹Ø§",
-  "Custom HTML (scripts and inline event handlers are stripped)": "HTML Ù…Ø®ØµØµ (ØªØªÙ… Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ø³ÙƒØ±Ø¨ØªØ§Øª ÙˆÙ…Ø¹Ø§Ù„Ø¬Ø§Øª Ø§Ù„Ø£Ø­Ø¯Ø§Ø« Ø§Ù„Ù…Ø¶Ù…Ù†Ø©)",
-  "Describe the image you want for this section...": "ØµÙ Ø§Ù„ØµÙˆØ±Ø© Ø§Ù„ØªÙŠ ØªØ±ÙŠØ¯Ù‡Ø§ Ù„Ù‡Ø°Ø§ Ø§Ù„Ù‚Ø³Ù…...",
-  "Paid prices are controlled by STRIPE_PRO_PRICE_ID and STRIPE_BUSINESS_PRICE_ID, so the app never trusts a browser-supplied amount.": "ØªØªÙ… Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø£Ø³Ø¹Ø§Ø± Ø§Ù„Ù…Ø¯ÙÙˆØ¹Ø© Ø¹Ø¨Ø± STRIPE_PRO_PRICE_ID ÙˆSTRIPE_BUSINESS_PRICE_IDØŒ Ù„Ø°Ù„Ùƒ Ù„Ø§ ÙŠØ«Ù‚ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ø¨Ø£ÙŠ Ù…Ø¨Ù„Øº ÙŠØ±Ø³Ù„Ù‡ Ø§Ù„Ù…ØªØµÙØ­.",
-  "Shortcuts: Ctrl/Cmd+K commands Â· Ctrl/Cmd+S save Â· Ctrl/Cmd+Z undo Â· Ctrl/Cmd+Shift+Z redo Â· Ctrl/Cmd+Shift+P preview.": "Ø§Ù„Ø§Ø®ØªØµØ§Ø±Ø§Øª: Ctrl/Cmd+K Ù„Ù„Ø£ÙˆØ§Ù…Ø± Â· Ctrl/Cmd+S Ù„Ù„Ø­ÙØ¸ Â· Ctrl/Cmd+Z Ù„Ù„ØªØ±Ø§Ø¬Ø¹ Â· Ctrl/Cmd+Shift+Z Ù„Ù„Ø¥Ø¹Ø§Ø¯Ø© Â· Ctrl/Cmd+Shift+P Ù„Ù„Ù…Ø¹Ø§ÙŠÙ†Ø©.",
-  "Last 30 days. Anonymous session IDs only; no IP addresses are stored.": "Ø¢Ø®Ø± 30 ÙŠÙˆÙ…Ù‹Ø§. ÙŠØªÙ… Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù…Ø¹Ø±Ù‘ÙØ§Øª Ø¬Ù„Ø³Ø§Øª Ù…Ø¬Ù‡ÙˆÙ„Ø© ÙÙ‚Ø·Ø› ÙˆÙ„Ø§ ÙŠØªÙ… ØªØ®Ø²ÙŠÙ† Ø¹Ù†Ø§ÙˆÙŠÙ† IP.",
-  "Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.": "ÙŠØªÙ… Ø¥Ù†Ø´Ø§Ø¡ ØªÙƒØ§Ù…Ù„Ø§Øª Ø§Ù„ØªØªØ¨Ø¹ Ù…Ù† Ù…Ø¹Ø±Ù‘ÙØ§Øª ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù†Ù‡Ø§. ÙŠØªÙ… ØªØ¶Ù…ÙŠÙ† CSS Ø§Ù„Ù…Ø®ØµØµ ÙÙŠ Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø© ÙˆØ§Ù„ØªØµØ¯ÙŠØ± ÙˆØ§Ù„Ù†Ø´Ø±Ø› ÙˆÙ„Ø§ ÙŠÙØ³Ù…Ø­ Ø¹Ù…Ø¯Ù‹Ø§ Ø¨Ø­Ù‚Ù† Ø³ÙƒØ±Ø¨ØªØ§Øª Ø®Ø§Ù… Ù‡Ù†Ø§.",
-  "Font, width and spacing apply globally. â€œApplyâ€ also recolors existing sections and buttons.": "ÙŠØªÙ… ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„Ø®Ø· ÙˆØ§Ù„Ø¹Ø±Ø¶ ÙˆØ§Ù„ØªØ¨Ø§Ø¹Ø¯ Ø¹Ø§Ù„Ù…ÙŠÙ‹Ø§. Ø²Ø± â€œØªØ·Ø¨ÙŠÙ‚â€ ÙŠØ¹ÙŠØ¯ Ø£ÙŠØ¶Ù‹Ø§ ØªÙ„ÙˆÙŠÙ† Ø§Ù„Ø£Ù‚Ø³Ø§Ù… ÙˆØ§Ù„Ø£Ø²Ø±Ø§Ø± Ø§Ù„Ù…ÙˆØ¬ÙˆØ¯Ø©.",
-  "Use one line per item: Title | Content": "Ø§Ø³ØªØ®Ø¯Ù… Ø³Ø·Ø±Ù‹Ø§ ÙˆØ§Ø­Ø¯Ù‹Ø§ Ù„ÙƒÙ„ Ø¹Ù†ØµØ±: Ø§Ù„Ø¹Ù†ÙˆØ§Ù† | Ø§Ù„Ù…Ø­ØªÙˆÙ‰",
-  "Format: ISO date/time | label": "Ø§Ù„ØªÙ†Ø³ÙŠÙ‚: ØªØ§Ø±ÙŠØ®/ÙˆÙ‚Øª ISO | Ø§Ù„ØªØ³Ù…ÙŠØ©",
-  "Safe HTML mode: script/object/embed tags and on* handlers are removed before preview/publish.": "ÙˆØ¶Ø¹ HTML Ø§Ù„Ø¢Ù…Ù†: ØªØªÙ… Ø¥Ø²Ø§Ù„Ø© ÙˆØ³ÙˆÙ… script/object/embed ÙˆÙ…Ø¹Ø§Ù„Ø¬Ø§Øª on* Ù‚Ø¨Ù„ Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø©/Ø§Ù„Ù†Ø´Ø±.",
-  "Link to internal pageâ€¦": "Ø±Ø¨Ø· Ø¨ØµÙØ­Ø© Ø¯Ø§Ø®Ù„ÙŠØ©â€¦",
-  "Could not load cloud projects.": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠØ©.",
-  "Could not load reusable sections.": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ø£Ù‚Ø³Ø§Ù… Ø§Ù„Ù‚Ø§Ø¨Ù„Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù….",
-  "Could not save this reusable section.": "ØªØ¹Ø°Ø± Ø­ÙØ¸ Ù‡Ø°Ø§ Ø§Ù„Ù‚Ø³Ù… Ø§Ù„Ù‚Ø§Ø¨Ù„ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù….",
-  "Could not delete this reusable section.": "ØªØ¹Ø°Ø± Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ù‚Ø³Ù… Ø§Ù„Ù‚Ø§Ø¨Ù„ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù….",
-  "Lead inbox is available to project owners and workspace admins.": "ØµÙ†Ø¯ÙˆÙ‚ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† Ù…ØªØ§Ø­ Ù„Ù…Ø§Ù„ÙƒÙŠ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙˆÙ…Ø´Ø±ÙÙŠ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.",
-  "Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied.": "ØµÙ†Ø¯ÙˆÙ‚ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† ØºÙŠØ± Ù…ØªØ§Ø­. ØªØ£ÙƒØ¯ Ù…Ù† ØªØ·Ø¨ÙŠÙ‚ ØªØ±Ø­ÙŠÙ„ Ù‚Ø§Ø¹Ø¯Ø© Ø¨ÙŠØ§Ù†Ø§Øª Sprint 11.",
-  "Could not update this lead.": "ØªØ¹Ø°Ø± ØªØ­Ø¯ÙŠØ« Ù‡Ø°Ø§ Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø§Ù„Ù…Ø­ØªÙ…Ù„.",
-  "Could not update CRM details for this lead.": "ØªØ¹Ø°Ø± ØªØ­Ø¯ÙŠØ« ØªÙØ§ØµÙŠÙ„ CRM Ù„Ù‡Ø°Ø§ Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø§Ù„Ù…Ø­ØªÙ…Ù„.",
-  "Could not update the selected leads.": "ØªØ¹Ø°Ø± ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† Ø§Ù„Ù…Ø­Ø¯Ø¯ÙŠÙ†.",
-  "Could not delete this lead.": "ØªØ¹Ø°Ø± Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø§Ù„Ù…Ø­ØªÙ…Ù„.",
-  "Analytics is available to project owners, admins, and editors.": "Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª Ù…ØªØ§Ø­Ø© Ù„Ù…Ø§Ù„ÙƒÙŠ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙˆØ§Ù„Ù…Ø´Ø±ÙÙŠÙ† ÙˆØ§Ù„Ù…Ø­Ø±Ø±ÙŠÙ†.",
-  "Analytics is unavailable. Make sure the Sprint 15 database migration is applied.": "Ø§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª ØºÙŠØ± Ù…ØªØ§Ø­Ø©. ØªØ£ÙƒØ¯ Ù…Ù† ØªØ·Ø¨ÙŠÙ‚ ØªØ±Ø­ÙŠÙ„ Ù‚Ø§Ø¹Ø¯Ø© Ø¨ÙŠØ§Ù†Ø§Øª Sprint 15.",
-  "Media library is unavailable. Make sure the Sprint 12 storage migration is applied.": "Ù…ÙƒØªØ¨Ø© Ø§Ù„ÙˆØ³Ø§Ø¦Ø· ØºÙŠØ± Ù…ØªØ§Ø­Ø©. ØªØ£ÙƒØ¯ Ù…Ù† ØªØ·Ø¨ÙŠÙ‚ ØªØ±Ø­ÙŠÙ„ Ø§Ù„ØªØ®Ø²ÙŠÙ† Sprint 12.",
-  "Sign in before uploading media.": "Ø³Ø¬Ù‘Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ù‚Ø¨Ù„ Ø±ÙØ¹ Ø§Ù„ÙˆØ³Ø§Ø¦Ø·.",
-  "Only image files are supported.": "ÙŠØªÙ… Ø¯Ø¹Ù… Ù…Ù„ÙØ§Øª Ø§Ù„ØµÙˆØ± ÙÙ‚Ø·.",
-  "Images must be 5 MB or smaller.": "ÙŠØ¬Ø¨ Ø£Ù† ÙŠÙƒÙˆÙ† Ø­Ø¬Ù… Ø§Ù„ØµÙˆØ± 5 Ù…ÙŠØºØ§Ø¨Ø§ÙŠØª Ø£Ùˆ Ø£Ù‚Ù„.",
-  "Could not upload this image.": "ØªØ¹Ø°Ø± Ø±ÙØ¹ Ù‡Ø°Ù‡ Ø§Ù„ØµÙˆØ±Ø©.",
-  "Could not delete this image.": "ØªØ¹Ø°Ø± Ø­Ø°Ù Ù‡Ø°Ù‡ Ø§Ù„ØµÙˆØ±Ø©.",
-  "Billing status could not be verified, so paid features are temporarily locked. Apply the Sprint 121â€“132 migration if this is a new install.": "ØªØ¹Ø°Ø± Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø­Ø§Ù„Ø© Ø§Ù„ÙÙˆØªØ±Ø©ØŒ Ù„Ø°Ù„Ùƒ ØªÙ… Ù‚ÙÙ„ Ø§Ù„Ù…ÙŠØ²Ø§Øª Ø§Ù„Ù…Ø¯ÙÙˆØ¹Ø© Ù…Ø¤Ù‚ØªÙ‹Ø§. Ø·Ø¨Ù‘Ù‚ ØªØ±Ø­ÙŠÙ„ Sprint 121â€“132 Ø¥Ø°Ø§ ÙƒØ§Ù† Ù‡Ø°Ø§ ØªØ«Ø¨ÙŠØªÙ‹Ø§ Ø¬Ø¯ÙŠØ¯Ù‹Ø§.",
-  "The requested website is not visible in your current cloud projects.": "Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ø·Ù„ÙˆØ¨ ØºÙŠØ± Ø¸Ø§Ù‡Ø± Ø¶Ù…Ù† Ù…Ø´Ø§Ø±ÙŠØ¹Ùƒ Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠØ© Ø§Ù„Ø­Ø§Ù„ÙŠØ©.",
-  "Payment completed. Stripe is syncing your subscription; refresh billing if the badge does not update immediately.": "Ø§ÙƒØªÙ…Ù„ Ø§Ù„Ø¯ÙØ¹. ÙŠÙ‚ÙˆÙ… Stripe Ø¨Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ø´ØªØ±Ø§ÙƒÙƒØ› Ø­Ø¯Ù‘Ø« Ø§Ù„ÙÙˆØªØ±Ø© Ø¥Ø°Ø§ Ù„Ù… ØªØªØºÙŠØ± Ø§Ù„Ø´Ø§Ø±Ø© ÙÙˆØ±Ù‹Ø§.",
-  "Checkout was canceled. Your current plan was not changed.": "ØªÙ… Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ø¯ÙØ¹. Ù„Ù… ØªØªØºÙŠØ± Ø®Ø·ØªÙƒ Ø§Ù„Ø­Ø§Ù„ÙŠØ©.",
-  "The website changed after this quality review. Run the quality check again before applying fixes.": "ØªÙ… ØªØºÙŠÙŠØ± Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø¨Ø¹Ø¯ Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ø¬ÙˆØ¯Ø© Ù‡Ø°Ù‡. Ø´ØºÙ‘Ù„ ÙØ­Øµ Ø§Ù„Ø¬ÙˆØ¯Ø© Ù…Ø±Ø© Ø£Ø®Ø±Ù‰ Ù‚Ø¨Ù„ ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„Ø¥ØµÙ„Ø§Ø­Ø§Øª.",
-  "Release history is unavailable. Apply the Sprint 97-108 database migration.": "Ø³Ø¬Ù„ Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª ØºÙŠØ± Ù…ØªØ§Ø­. Ø·Ø¨Ù‘Ù‚ ØªØ±Ø­ÙŠÙ„ Ù‚Ø§Ø¹Ø¯Ø© Ø¨ÙŠØ§Ù†Ø§Øª Sprint 97-108.",
-  "The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar.": "Ù…Ù„ÙØ§Øª Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ù…ÙˆØ¬ÙˆØ¯Ø©ØŒ Ù„ÙƒÙ† Ø¹Ø§Ø±Ø¶ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø¹Ø§Ù… Ù„Ù… ÙŠÙØ±Ø¬Ø¹ HTML. Ø¬Ø±Ù‘Ø¨ Ø§Ù„Ù†Ø´Ø± Ù…Ø¬Ø¯Ø¯Ù‹Ø§ Ø¨Ø¹Ø¯ ØªØ­Ø¯ÙŠØ« Tayar.",
-  "Only the project owner can create public share previews.": "Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙ‚Ø· ÙŠÙ…ÙƒÙ†Ù‡ Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø¹Ø§ÙŠÙ†Ø§Øª Ù…Ø´Ø§Ø±ÙƒØ© Ø¹Ø§Ù…Ø©.",
-  "Save this project to the cloud before creating a share preview.": "Ø§Ø­ÙØ¸ Ù‡Ø°Ø§ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙŠ Ø§Ù„Ø³Ø­Ø§Ø¨Ø© Ù‚Ø¨Ù„ Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø¹Ø§ÙŠÙ†Ø© Ù…Ø´Ø§Ø±ÙƒØ©.",
-  "The latest editor changes could not be synchronized before creating the preview.": "ØªØ¹Ø°Ø± Ù…Ø²Ø§Ù…Ù†Ø© Ø£Ø­Ø¯Ø« ØªØºÙŠÙŠØ±Ø§Øª Ø§Ù„Ù…Ø­Ø±Ø± Ù‚Ø¨Ù„ Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø©.",
-  "Only the project owner can rollback a published release.": "Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙ‚Ø· ÙŠÙ…ÙƒÙ†Ù‡ Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø¥ØµØ¯Ø§Ø± Ù…Ù†Ø´ÙˆØ±.",
-  "This release snapshot does not belong to the active project.": "Ù„Ù‚Ø·Ø© Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ù‡Ø°Ù‡ Ù„Ø§ ØªØ®Øµ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù†Ø´Ø·.",
-  "Only the project owner can delete release archives.": "Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙ‚Ø· ÙŠÙ…ÙƒÙ†Ù‡ Ø­Ø°Ù Ø£Ø±Ø´ÙŠÙØ§Øª Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª.",
-  "You cannot delete the release currently serving as the live rollback reference.": "Ù„Ø§ ÙŠÙ…ÙƒÙ†Ùƒ Ø­Ø°Ù Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ø­Ø§Ù„ÙŠÙ‹Ø§ ÙƒÙ…Ø±Ø¬Ø¹ Ù„Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø­ÙŠØ©.",
-  "Opening your saved website. Save will continue when it is loaded.": "ÙŠØªÙ… ÙØªØ­ Ù…ÙˆÙ‚Ø¹Ùƒ Ø§Ù„Ù…Ø­ÙÙˆØ¸. Ø³ÙŠØ³ØªÙ…Ø± Ø§Ù„Ø­ÙØ¸ Ø¨Ø¹Ø¯ ØªØ­Ù…ÙŠÙ„Ù‡.",
-  "Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available.": "Ù…ÙˆÙ‚Ø¹Ùƒ Ø§Ù„Ø­Ø§Ù„ÙŠ Ù…Ø§ Ø²Ø§Ù„ ÙŠØ¹ÙŠØ¯ Ø§Ù„Ø§ØªØµØ§Ù„. Ù„Ù† ÙŠÙ†Ø´Ø¦ Tayar Ù…Ø³ÙˆØ¯Ø© Ù…ÙƒØ±Ø±Ø© Ø·Ø§Ù„Ù…Ø§ Ø£Ù† Ù‡ÙˆÙŠØªÙ‡ Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø© Ù…ØªØ§Ø­Ø©.",
-  "Opening your most recent saved website before saving. No duplicate draft was created.": "ÙŠØªÙ… ÙØªØ­ Ø£Ø­Ø¯Ø« Ù…ÙˆÙ‚Ø¹ Ù…Ø­ÙÙˆØ¸ Ù‚Ø¨Ù„ Ø§Ù„Ø­ÙØ¸. Ù„Ù… ÙŠØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø³ÙˆØ¯Ø© Ù…ÙƒØ±Ø±Ø©.",
-  "This shared project is read-only for your Viewer role.": "Ù‡Ø°Ø§ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù…Ø´ØªØ±Ùƒ Ù„Ù„Ù‚Ø±Ø§Ø¡Ø© ÙÙ‚Ø· Ù„Ø¯ÙˆØ± Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯ Ø§Ù„Ø®Ø§Øµ Ø¨Ùƒ.",
-  "Local recovery storage is full. Cloud save will still be attempted.": "Ù…Ø³Ø§Ø­Ø© Ø§Ù„ØªØ®Ø²ÙŠÙ† Ø§Ù„Ù…Ø­Ù„ÙŠØ© Ù„Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ù…Ù…ØªÙ„Ø¦Ø©. Ø³ØªØªÙ… Ù…Ø­Ø§ÙˆÙ„Ø© Ø§Ù„Ø­ÙØ¸ Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠ Ø±ØºÙ… Ø°Ù„Ùƒ.",
-  "You are offline. Changes are saved locally and will retry when the connection returns.": "Ø£Ù†Øª ØºÙŠØ± Ù…ØªØµÙ„. ØªÙ… Ø­ÙØ¸ Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª Ù…Ø­Ù„ÙŠÙ‹Ø§ ÙˆØ³ØªØªÙ… Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© Ø¹Ù†Ø¯ Ø¹ÙˆØ¯Ø© Ø§Ù„Ø§ØªØµØ§Ù„.",
-  "This history snapshot does not belong to the active project.": "Ù„Ù‚Ø·Ø© Ø§Ù„Ø³Ø¬Ù„ Ù‡Ø°Ù‡ Ù„Ø§ ØªØ®Øµ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù†Ø´Ø·.",
-  "Could not mark all leads as read.": "ØªØ¹Ø°Ø± ØªØ¹Ù„ÙŠÙ… ÙƒÙ„ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† ÙƒÙ…Ù‚Ø±ÙˆØ¡ÙŠÙ†.",
-  "Could not archive read leads.": "ØªØ¹Ø°Ø± Ø£Ø±Ø´ÙØ© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ† Ø§Ù„Ù…Ù‚Ø±ÙˆØ¡ÙŠÙ†.",
-  "Publish preflight blocked: you are offline. Reconnect and try again.": "ØªÙ… Ø­Ø¸Ø± ÙØ­Øµ Ù…Ø§ Ù‚Ø¨Ù„ Ø§Ù„Ù†Ø´Ø±: Ø£Ù†Øª ØºÙŠØ± Ù…ØªØµÙ„. Ø£Ø¹Ø¯ Ø§Ù„Ø§ØªØµØ§Ù„ ÙˆØ­Ø§ÙˆÙ„ Ù…Ø¬Ø¯Ø¯Ù‹Ø§.",
-  "Sign in before publishing.": "Ø³Ø¬Ù‘Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ù‚Ø¨Ù„ Ø§Ù„Ù†Ø´Ø±.",
-  "Only the project owner can publish a shared website.": "Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙ‚Ø· ÙŠÙ…ÙƒÙ†Ù‡ Ù†Ø´Ø± Ù…ÙˆÙ‚Ø¹ Ù…Ø´ØªØ±Ùƒ.",
-  "Supabase URL is not configured.": "Ø±Ø§Ø¨Ø· Supabase ØºÙŠØ± Ù…ÙØ¹Ø¯Ù‘.",
-  "Website published successfully. Release history was skipped: ": "ØªÙ… Ù†Ø´Ø± Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø¨Ù†Ø¬Ø§Ø­. ØªÙ… ØªØ¬Ø§ÙˆØ² Ø³Ø¬Ù„ Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª: ",
-  "Only the project owner can unpublish a shared website.": "Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙ‚Ø· ÙŠÙ…ÙƒÙ†Ù‡ Ø¥Ù„ØºØ§Ø¡ Ù†Ø´Ø± Ù…ÙˆÙ‚Ø¹ Ù…Ø´ØªØ±Ùƒ.",
-  "Delete this lead permanently?": "Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø§Ù„Ù…Ø­ØªÙ…Ù„ Ù†Ù‡Ø§Ø¦ÙŠÙ‹Ø§ØŸ",
-  "Delete this component? Existing instances will become normal elements.": "Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ù…ÙƒÙˆÙ‘Ù†ØŸ Ø³ØªØªØ­ÙˆÙ„ Ø§Ù„Ù†Ø³Ø® Ø§Ù„Ù…ÙˆØ¬ÙˆØ¯Ø© Ø¥Ù„Ù‰ Ø¹Ù†Ø§ØµØ± Ø¹Ø§Ø¯ÙŠØ©.",
-  "Restore this release into the editor? The live website will not change until you publish again.": "Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù‡Ø°Ø§ Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø­Ø±Ø±ØŸ Ù„Ù† ÙŠØªØºÙŠØ± Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø­ÙŠ Ø­ØªÙ‰ ØªÙ†Ø´Ø± Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.",
-  "Delete this stored release archive? This cannot be undone.": "Ø­Ø°Ù Ø£Ø±Ø´ÙŠÙ Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ø§Ù„Ù…Ø­ÙÙˆØ¸ØŸ Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø°Ù„Ùƒ.",
-  "Reset the website builder to the default project?": "Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹ Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠØŸ",
-  "This project is not currently published. Mark it delivered anyway?": "Ù‡Ø°Ø§ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ØºÙŠØ± Ù…Ù†Ø´ÙˆØ± Ø­Ø§Ù„ÙŠÙ‹Ø§. Ù‡Ù„ ØªØ±ÙŠØ¯ Ø§Ø¹ØªØ¨Ø§Ø±Ù‡ Ù…ÙØ³Ù„Ù‘Ù…Ù‹Ø§ Ø±ØºÙ… Ø°Ù„ÙƒØŸ",
-  "Remove the public version of this website?": "Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø§Ù…Ø© Ù…Ù† Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆÙ‚Ø¹ØŸ",
-  "GOOD": "Ø¬ÙŠØ¯",
-  "CHECK": "ØªØ­Ù‚Ù‚",
-  "OK": "Ø³Ù„ÙŠÙ…",
-  "FIX": "Ø¥ØµÙ„Ø§Ø­",
-  "VERIFIED": "ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚",
-  "VERIFY": "ØªØ­Ù‚Ù‚",
-  "NOT YET": "Ù„ÙŠØ³ Ø¨Ø¹Ø¯",
-  "Publish production changes": "Ù†Ø´Ø± ØªØºÙŠÙŠØ±Ø§Øª Ø§Ù„Ø¥Ù†ØªØ§Ø¬",
-  "Publish first release": "Ù†Ø´Ø± Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ø§Ù„Ø£ÙˆÙ„",
-  "GO â€” READY FOR FIRST PAYING CUSTOMERS": "Ø¬Ø§Ù‡Ø² â€” Ù„Ø§Ø³ØªÙ‚Ø¨Ø§Ù„ Ø£ÙˆÙ„ Ø¹Ù…Ù„Ø§Ø¡ Ø¯Ø§ÙØ¹ÙŠÙ†",
-  "CODE READY â€” COMPLETE PUBLISH / MANUAL CHECKS": "Ø§Ù„ÙƒÙˆØ¯ Ø¬Ø§Ù‡Ø² â€” Ø£ÙƒÙ…Ù„ Ø§Ù„Ù†Ø´Ø± / Ø§Ù„ÙØ­ÙˆØµØ§Øª Ø§Ù„ÙŠØ¯ÙˆÙŠØ©",
-  "NO-GO â€” FIX AUTOMATED BLOCKERS": "ØºÙŠØ± Ø¬Ø§Ù‡Ø² â€” Ø£ØµÙ„Ø­ Ø§Ù„Ø¹ÙˆØ§Ø¦Ù‚ Ø§Ù„Ø¢Ù„ÙŠØ©",
-  "Refreshingâ€¦": "Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ø¯ÙŠØ«â€¦",
-  "Opening Stripeâ€¦": "Ø¬Ø§Ø±Ù ÙØªØ­ Stripeâ€¦",
-  "White-label client handoff files": "Ù…Ù„ÙØ§Øª ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø¨Ø¯ÙˆÙ† Ø¹Ù„Ø§Ù…Ø© Tayar",
-  "Audit contributes": "ÙŠØ³Ø§Ù‡Ù… Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚ Ø¨Ù€",
-  "points Â· current audit": "Ù†Ù‚Ø·Ø© Â· Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚ Ø§Ù„Ø­Ø§Ù„ÙŠ",
-  "Open client preview": "ÙØªØ­ Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ø¹Ù…ÙŠÙ„",
-  "Create client preview": "Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø¹Ø§ÙŠÙ†Ø© Ù„Ù„Ø¹Ù…ÙŠÙ„",
-  "Summary copied": "ØªÙ… Ù†Ø³Ø® Ø§Ù„Ù…Ù„Ø®Øµ",
-  "Copy project summary": "Ù†Ø³Ø® Ù…Ù„Ø®Øµ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹",
-  "loaded leads": "Ø¹Ù…Ù„Ø§Ø¡ Ù…Ø­ØªÙ…Ù„ÙˆÙ† Ù…Ø­Ù…Ù‘Ù„ÙˆÙ†",
-  "loaded events": "Ø£Ø­Ø¯Ø§Ø« Ù…Ø­Ù…Ù‘Ù„Ø©",
-  "Build and publish one small website.": "Ø£Ù†Ø´Ø¦ ÙˆØ§Ù†Ø´Ø± Ù…ÙˆÙ‚Ø¹Ù‹Ø§ ØµØºÙŠØ±Ù‹Ø§ ÙˆØ§Ø­Ø¯Ù‹Ø§.",
-  "Up to 3 pages": "Ø­ØªÙ‰ 3 ØµÙØ­Ø§Øª",
-  "Publishing included": "Ø§Ù„Ù†Ø´Ø± Ù…Ø´Ù…ÙˆÙ„",
-  "50 lead records": "50 Ø³Ø¬Ù„ Ø¹Ù…ÙŠÙ„ Ù…Ø­ØªÙ…Ù„",
-  "For freelancers and serious websites.": "Ù„Ù„Ù…Ø³ØªÙ‚Ù„ÙŠÙ† ÙˆØ§Ù„Ù…ÙˆØ§Ù‚Ø¹ Ø§Ù„Ø§Ø­ØªØ±Ø§ÙÙŠØ©.",
-  "10 website projects": "10 Ù…Ø´Ø§Ø±ÙŠØ¹ Ù…ÙˆØ§Ù‚Ø¹",
-  "Up to 25 pages each": "Ø­ØªÙ‰ 25 ØµÙØ­Ø© Ù„ÙƒÙ„ Ù…ÙˆÙ‚Ø¹",
-  "ZIP export + multilingual": "ØªØµØ¯ÙŠØ± ZIP + Ù…ØªØ¹Ø¯Ø¯ Ø§Ù„Ù„ØºØ§Øª",
-  "Analytics + integrations + release history": "ØªØ­Ù„ÙŠÙ„Ø§Øª + ØªÙƒØ§Ù…Ù„Ø§Øª + Ø³Ø¬Ù„ Ø¥ØµØ¯Ø§Ø±Ø§Øª",
-  "For agencies, client delivery and white-label work.": "Ù„Ù„ÙˆÙƒØ§Ù„Ø§Øª ÙˆØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ ÙˆØ§Ù„Ø¹Ù…Ù„ Ø¨Ø¯ÙˆÙ† Ø¹Ù„Ø§Ù…Ø© Tayar.",
-  "50 website projects": "50 Ù…Ø´Ø±ÙˆØ¹ Ù…ÙˆÙ‚Ø¹",
-  "Up to 100 pages each": "Ø­ØªÙ‰ 100 ØµÙØ­Ø© Ù„ÙƒÙ„ Ù…ÙˆÙ‚Ø¹",
-  "Client delivery workspace": "Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ù„ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡",
-  "White-label handoff + larger limits": "ØªØ³Ù„ÙŠÙ… Ø¨Ø¯ÙˆÙ† Ø¹Ù„Ø§Ù…Ø© + Ø­Ø¯ÙˆØ¯ Ø£ÙƒØ¨Ø±",
-  "We use essential browser storage to improve this website experience.": "Ù†Ø³ØªØ®Ø¯Ù… ØªØ®Ø²ÙŠÙ† Ø§Ù„Ù…ØªØµÙØ­ Ø§Ù„Ø¶Ø±ÙˆØ±ÙŠ Ù„ØªØ­Ø³ÙŠÙ† ØªØ¬Ø±Ø¨Ø© Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆÙ‚Ø¹.",
-  "Got it": "Ø­Ø³Ù†Ù‹Ø§",
-  "New: discover our latest update.": "Ø¬Ø¯ÙŠØ¯: Ø§ÙƒØªØ´Ù Ø¢Ø®Ø± ØªØ­Ø¯ÙŠØ« Ù„Ø¯ÙŠÙ†Ø§.",
-  "Learn more": "Ø§Ø¹Ø±Ù Ø§Ù„Ù…Ø²ÙŠØ¯",
-  "Stay in the loop": "Ø§Ø¨Ù‚ÙŽ Ø¹Ù„Ù‰ Ø§Ø·Ù„Ø§Ø¹",
-  "Add a focused offer, newsletter message or important call to action.": "Ø£Ø¶Ù Ø¹Ø±Ø¶Ù‹Ø§ Ù…Ø±ÙƒØ²Ù‹Ø§ Ø£Ùˆ Ø±Ø³Ø§Ù„Ø© Ù†Ø´Ø±Ø© Ø£Ùˆ Ø¯Ø¹ÙˆØ© Ù…Ù‡Ù…Ø© Ù„Ø§ØªØ®Ø§Ø° Ø¥Ø¬Ø±Ø§Ø¡.",
-  "Weâ€™ll be back soon": "Ø³Ù†Ø¹ÙˆØ¯ Ù‚Ø±ÙŠØ¨Ù‹Ø§",
-  "This website is temporarily unavailable while we make improvements.": "Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆÙ‚Ø¹ ØºÙŠØ± Ù…ØªØ§Ø­ Ù…Ø¤Ù‚ØªÙ‹Ø§ Ø¨ÙŠÙ†Ù…Ø§ Ù†Ø¬Ø±ÙŠ ØªØ­Ø³ÙŠÙ†Ø§Øª.",
-  "Production URL": "Ø±Ø§Ø¨Ø· Ø§Ù„Ø¥Ù†ØªØ§Ø¬",
-  "Cloud project": "Ù…Ø´Ø±ÙˆØ¹ Ø³Ø­Ø§Ø¨ÙŠ",
-  "Share preview": "Ù…Ø¹Ø§ÙŠÙ†Ø© Ù…Ø´Ø§Ø±ÙƒØ©",
-  "Client approval": "Ù…ÙˆØ§ÙÙ‚Ø© Ø§Ù„Ø¹Ù…ÙŠÙ„",
-  "Published website": "Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ù†Ø´ÙˆØ±",
-  "Site content": "Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…ÙˆÙ‚Ø¹",
-  "SEO & accessibility audit": "ØªØ¯Ù‚ÙŠÙ‚ SEO ÙˆØ¥Ù…ÙƒØ§Ù†ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„",
-  "Cloud sync": "Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„Ø³Ø­Ø§Ø¨Ø©",
-  "SEO title + favicon": "Ø¹Ù†ÙˆØ§Ù† SEO + Ø§Ù„Ø£ÙŠÙ‚ÙˆÙ†Ø©",
-  "Billing backend": "Ù†Ø¸Ø§Ù… Ø§Ù„ÙÙˆØªØ±Ø© Ø§Ù„Ø®Ù„ÙÙŠ",
-  "Publish permission": "ØµÙ„Ø§Ø­ÙŠØ© Ø§Ù„Ù†Ø´Ø±",
-  "Live verification": "Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø­ÙŠØ©",
-  "Project is saved to Tayar cloud": "Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ù…Ø­ÙÙˆØ¸ ÙÙŠ Ø³Ø­Ø§Ø¨Ø© Tayar",
-  "Save the project to cloud": "Ø§Ø­ÙØ¸ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙŠ Ø§Ù„Ø³Ø­Ø§Ø¨Ø©",
-  "Offline": "ØºÙŠØ± Ù…ØªØµÙ„",
-  "Sync needs retry": "Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø© ØªØ­ØªØ§Ø¬ Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø­Ø§ÙˆÙ„Ø©",
-  "Sync healthy": "Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø© Ø³Ù„ÙŠÙ…Ø©",
-  "Add your production URL": "Ø£Ø¶Ù Ø±Ø§Ø¨Ø· Ø§Ù„Ø¥Ù†ØªØ§Ø¬",
-  "Branding metadata is configured": "Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ù…Ø¶Ø¨ÙˆØ·Ø©",
-  "Complete SEO title and favicon": "Ø£ÙƒÙ…Ù„ Ø¹Ù†ÙˆØ§Ù† SEO ÙˆØ§Ù„Ø£ÙŠÙ‚ÙˆÙ†Ø©",
-  "entitlements verified": "ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª",
-  "Sign in and refresh billing": "Ø³Ø¬Ù‘Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ ÙˆØ­Ø¯Ù‘Ø« Ø§Ù„ÙÙˆØªØ±Ø©",
-  "Owner may publish": "ÙŠÙ…ÙƒÙ† Ù„Ù„Ù…Ø§Ù„Ùƒ Ø§Ù„Ù†Ø´Ø±",
-  "Only the project owner can publish": "Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙ‚Ø· ÙŠÙ…ÙƒÙ†Ù‡ Ø§Ù„Ù†Ø´Ø±",
-  "Live website detected": "ØªÙ… Ø§ÙƒØªØ´Ø§Ù Ù…ÙˆÙ‚Ø¹ Ø­ÙŠ",
-  "Publish the first release": "Ø§Ù†Ø´Ø± Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ø§Ù„Ø£ÙˆÙ„",
-  "Published index verified": "ØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† index Ø§Ù„Ù…Ù†Ø´ÙˆØ±",
-  "Run live verification": "Ø´ØºÙ‘Ù„ Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø­ÙŠØ©",
-  "Available after publishing": "Ù…ØªØ§Ø­ Ø¨Ø¹Ø¯ Ø§Ù„Ù†Ø´Ø±",
-  "Sign in before production launch.": "Ø³Ø¬Ù‘Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ù‚Ø¨Ù„ Ø¥Ø·Ù„Ø§Ù‚ Ø§Ù„Ø¥Ù†ØªØ§Ø¬.",
-  "Save the project to cloud.": "Ø§Ø­ÙØ¸ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙÙŠ Ø§Ù„Ø³Ø­Ø§Ø¨Ø©.",
-  "Reconnect to the internet.": "Ø£Ø¹Ø¯ Ø§Ù„Ø§ØªØµØ§Ù„ Ø¨Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª.",
-  "Resolve cloud sync before publishing.": "Ø­Ù„ Ù…Ø´ÙƒÙ„Ø© Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„Ø³Ø­Ø§Ø¨Ø© Ù‚Ø¨Ù„ Ø§Ù„Ù†Ø´Ø±.",
-  "Raise the SEO and accessibility audit score to at least 80.": "Ø§Ø±ÙØ¹ Ù†ØªÙŠØ¬Ø© ØªØ¯Ù‚ÙŠÙ‚ SEO ÙˆØ¥Ù…ÙƒØ§Ù†ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ 80 Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„.",
-  "Add a valid production URL.": "Ø£Ø¶Ù Ø±Ø§Ø¨Ø· Ø¥Ù†ØªØ§Ø¬ ØµØ§Ù„Ø­Ù‹Ø§.",
-  "Complete the SEO title and favicon.": "Ø£ÙƒÙ…Ù„ Ø¹Ù†ÙˆØ§Ù† SEO ÙˆØ§Ù„Ø£ÙŠÙ‚ÙˆÙ†Ø©.",
-  "Wait for billing entitlements to finish loading.": "Ø§Ù†ØªØ¸Ø± Ø­ØªÙ‰ ÙŠÙƒØªÙ…Ù„ ØªØ­Ù…ÙŠÙ„ ØµÙ„Ø§Ø­ÙŠØ§Øª Ø§Ù„ÙÙˆØªØ±Ø©.",
-  "Refresh billing entitlements before publishing.": "Ø­Ø¯Ù‘Ø« ØµÙ„Ø§Ø­ÙŠØ§Øª Ø§Ù„ÙÙˆØªØ±Ø© Ù‚Ø¨Ù„ Ø§Ù„Ù†Ø´Ø±.",
-  "Disable maintenance mode for public launch.": "Ø¹Ø·Ù‘Ù„ ÙˆØ¶Ø¹ Ø§Ù„ØµÙŠØ§Ù†Ø© Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø·Ù„Ø§Ù‚ Ø§Ù„Ø¹Ø§Ù….",
-  "The project owner must perform the publish.": "ÙŠØ¬Ø¨ Ø¹Ù„Ù‰ Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ØªÙ†ÙÙŠØ° Ø§Ù„Ù†Ø´Ø±.",
-  "Billing entitlements could not be verified.": "ØªØ¹Ø°Ø± Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† ØµÙ„Ø§Ø­ÙŠØ§Øª Ø§Ù„ÙÙˆØªØ±Ø©.",
-  "NO-GO": "ØºÙŠØ± Ø¬Ø§Ù‡Ø²",
-  "READY TO PUBLISH": "Ø¬Ø§Ù‡Ø² Ù„Ù„Ù†Ø´Ø±",
-  "CHANGES WAITING": "ØªØºÙŠÙŠØ±Ø§Øª Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ø§Ù„Ù†Ø´Ø±",
-  "V1 LIVE": "V1 Ù…Ø¨Ø§Ø´Ø±",
-  "VERIFY LIVE": "ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ù†Ø³Ø®Ø© Ø§Ù„Ø­ÙŠØ©",
-  "Quality review completed.": "Ø§ÙƒØªÙ…Ù„Øª Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ø¬ÙˆØ¯Ø©.",
-  "Website improvement": "ØªØ­Ø³ÙŠÙ† Ø§Ù„Ù…ÙˆÙ‚Ø¹",
-  "AI quality check failed.": "ÙØ´Ù„ ÙØ­Øµ Ø§Ù„Ø¬ÙˆØ¯Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.",
-  "Automated builder audit is available, but the AI review could not complete.": "ØªØ¯Ù‚ÙŠÙ‚ Ø§Ù„Ù…Ù†Ø´Ø¦ Ø§Ù„Ø¢Ù„ÙŠ Ù…ØªØ§Ø­ØŒ Ù„ÙƒÙ† Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ù„Ù… ØªÙƒØªÙ…Ù„.",
-  "Publish blocker": "Ø¹Ø§Ø¦Ù‚ Ù„Ù„Ù†Ø´Ø±",
-  "Recommended improvement": "ØªØ­Ø³ÙŠÙ† Ù…ÙˆØµÙ‰ Ø¨Ù‡",
-  "Sections": "Ø§Ù„Ø£Ù‚Ø³Ø§Ù…",
-  "Elements": "Ø§Ù„Ø¹Ù†Ø§ØµØ±",
-  "Forms": "Ø§Ù„Ù†Ù…Ø§Ø°Ø¬",
-  "Symbols": "Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø©",
-  "Releases": "Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª",
-  "Leads": "Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙˆÙ†",
-  "Events": "Ø§Ù„Ø£Ø­Ø¯Ø§Ø«",
-  "Media*": "Ø§Ù„ÙˆØ³Ø§Ø¦Ø·*",
-  "Secondary": "Ø«Ø§Ù†ÙˆÙŠ",
-  "Muted": "Ø®Ø§ÙØª",
-  "Autosave needs attention.": "Ø§Ù„Ø­ÙØ¸ Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ ÙŠØ­ØªØ§Ø¬ Ø§Ù†ØªØ¨Ø§Ù‡Ù‹Ø§.",
-  "This recovery snapshot belongs to a different project. Open that project before restoring it.": "Ù„Ù‚Ø·Ø© Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ù‡Ø°Ù‡ ØªØ®Øµ Ù…Ø´Ø±ÙˆØ¹Ù‹Ø§ Ù…Ø®ØªÙ„ÙÙ‹Ø§. Ø§ÙØªØ­ Ø°Ù„Ùƒ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ù‚Ø¨Ù„ Ø§Ø³ØªØ¹Ø§Ø¯ØªÙ‡Ø§.",
-  "The recovery snapshot could not be restored.": "ØªØ¹Ø°Ø± Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù„Ù‚Ø·Ø© Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯.",
-  "You can keep up to 50 reusable components in one website. Delete an unused component before creating another.": "ÙŠÙ…ÙƒÙ†Ùƒ Ø§Ù„Ø§Ø­ØªÙØ§Ø¸ Ø¨Ù…Ø§ ÙŠØµÙ„ Ø¥Ù„Ù‰ 50 Ù…ÙƒÙˆÙ‘Ù†Ù‹Ø§ Ù‚Ø§Ø¨Ù„Ù‹Ø§ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… ÙÙŠ Ù…ÙˆÙ‚Ø¹ ÙˆØ§Ø­Ø¯. Ø§Ø­Ø°Ù Ù…ÙƒÙˆÙ‘Ù†Ù‹Ø§ ØºÙŠØ± Ù…Ø³ØªØ®Ø¯Ù… Ù‚Ø¨Ù„ Ø¥Ù†Ø´Ø§Ø¡ Ø¢Ø®Ø±.",
-  "This JSON file could not be read.": "ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ù…Ù„Ù JSON Ù‡Ø°Ø§.",
-  "This JSON file is not a valid Tayar Website Builder backup.": "Ù…Ù„Ù JSON Ù‡Ø°Ø§ Ù„ÙŠØ³ Ù†Ø³Ø®Ø© Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© ØµØ§Ù„Ø­Ø© Ù„Ù€ Tayar Website Builder.",
-  "Add a Production URL or publish the website before creating the client handoff package.": "Ø£Ø¶Ù Ø±Ø§Ø¨Ø· Ø¥Ù†ØªØ§Ø¬ Ø£Ùˆ Ø§Ù†Ø´Ø± Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ù‚Ø¨Ù„ Ø¥Ù†Ø´Ø§Ø¡ Ø­Ø²Ù…Ø© ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø¹Ù…ÙŠÙ„.",
-  "Add your production URL first, for example https://example.com. It is required for canonical URLs and sitemap.xml.": "Ø£Ø¶Ù Ø±Ø§Ø¨Ø· Ø§Ù„Ø¥Ù†ØªØ§Ø¬ Ø£ÙˆÙ„Ù‹Ø§ØŒ Ù…Ø«Ù„ https://example.com. ÙÙ‡Ùˆ Ù…Ø·Ù„ÙˆØ¨ Ù„Ù„Ø±ÙˆØ§Ø¨Ø· Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ© ÙˆÙ…Ù„Ù sitemap.xml.",
-  "Could not copy HTML. Please use Download Website instead.": "ØªØ¹Ø°Ø± Ù†Ø³Ø® HTML. Ø§Ø³ØªØ®Ø¯Ù… ØªÙ†Ø²ÙŠÙ„ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø¨Ø¯Ù„Ù‹Ø§ Ù…Ù† Ø°Ù„Ùƒ.",
-  "Restore the recovery snapshot from": "Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù„Ù‚Ø·Ø© Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ù…Ù†",
-  "the previous edit": "Ø§Ù„ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø³Ø§Ø¨Ù‚",
-  "Delete reusable section": "Ø­Ø°Ù Ø§Ù„Ù‚Ø³Ù… Ø§Ù„Ù‚Ø§Ø¨Ù„ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…",
-  "from your media library?": "Ù…Ù† Ù…ÙƒØªØ¨Ø© Ø§Ù„ÙˆØ³Ø§Ø¦Ø· Ù„Ø¯ÙŠÙƒØŸ",
-  "A": "Ù†Ø³Ø®Ø©",
-  "version already exists in this translation group.": "Ù…ÙˆØ¬ÙˆØ¯Ø© Ø¨Ø§Ù„ÙØ¹Ù„ ÙÙŠ Ù…Ø¬Ù…ÙˆØ¹Ø© Ø§Ù„ØªØ±Ø¬Ù…Ø© Ù‡Ø°Ù‡.",
-  "Tayar AI wants to run": "ÙŠØ±ÙŠØ¯ Tayar AI ØªÙ†ÙÙŠØ°",
-  "destructive change": "ØªØºÙŠÙŠØ± Ù…Ø¯Ù…Ù‘Ø±",
-  "destructive changes": "ØªØºÙŠÙŠØ±Ø§Øª Ù…Ø¯Ù…Ù‘Ø±Ø©",
-  "Continue?": "Ù…ØªØ§Ø¨Ø¹Ø©ØŸ",
-  "AI change cancelled before destructive operations were applied.": "ØªÙ… Ø¥Ù„ØºØ§Ø¡ ØªØºÙŠÙŠØ± Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ù‚Ø¨Ù„ ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ù…Ø¯Ù…Ù‘Ø±Ø©.",
-  "Rollback the live website to the release from": "Ø¥Ø±Ø¬Ø§Ø¹ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø­ÙŠ Ø¥Ù„Ù‰ Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ù…Ù†",
-  "Your editor draft will stay unchanged.": "Ø³ØªØ¨Ù‚Ù‰ Ù…Ø³ÙˆØ¯Ø© Ø§Ù„Ù…Ø­Ø±Ø± Ø¯ÙˆÙ† ØªØºÙŠÙŠØ±.",
-  "Your current unsaved changes will be replaced.": "Ø³ÙŠØªÙ… Ø§Ø³ØªØ¨Ø¯Ø§Ù„ ØªØºÙŠÙŠØ±Ø§ØªÙƒ Ø§Ù„Ø­Ø§Ù„ÙŠØ© ØºÙŠØ± Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø©.",
-  "Could not generate image.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„ØµÙˆØ±Ø©.",
-  "AI generation failed.": "ÙØ´Ù„ Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.",
-  "AI edit failed.": "ÙØ´Ù„ ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.",
-  "Image generation failed.": "ÙØ´Ù„ Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„ØµÙˆØ±Ø©.",
-  "Image prompt generation failed.": "ÙØ´Ù„ Ø¥Ù†Ø´Ø§Ø¡ ÙˆØµÙ Ø§Ù„ØµÙˆØ±Ø©.",
-  "Could not create share preview.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù…Ø´Ø§Ø±ÙƒØ©.",
-  "Could not revoke share preview.": "ØªØ¹Ø°Ø± Ø¥Ù„ØºØ§Ø¡ Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù…Ø´Ø§Ø±ÙƒØ©.",
-  "Could not rollback this release.": "ØªØ¹Ø°Ø± Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ù‡Ø°Ø§ Ø§Ù„Ø¥ØµØ¯Ø§Ø±.",
-  "Could not delete this release.": "ØªØ¹Ø°Ø± Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ø¥ØµØ¯Ø§Ø±.",
-  "Unexpected save failure.": "Ø­Ø¯Ø« ÙØ´Ù„ ØºÙŠØ± Ù…ØªÙˆÙ‚Ø¹ Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ø­ÙØ¸.",
-  "Save failed": "ÙØ´Ù„ Ø§Ù„Ø­ÙØ¸",
-  "Release history could not be archived.": "ØªØ¹Ø°Ø± Ø£Ø±Ø´ÙØ© Ø³Ø¬Ù„ Ø§Ù„Ø¥ØµØ¯Ø§Ø±Ø§Øª.",
-  "Could not publish this website.": "ØªØ¹Ø°Ø± Ù†Ø´Ø± Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆÙ‚Ø¹.",
-  "Could not unpublish this website.": "ØªØ¹Ø°Ø± Ø¥Ù„ØºØ§Ø¡ Ù†Ø´Ø± Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆÙ‚Ø¹.",
-  "Could not build the public website URL.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ø±Ø§Ø¨Ø· Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø¹Ø§Ù….",
-  "The website files were uploaded, but the public renderer did not return a valid HTML page.": "ØªÙ… Ø±ÙØ¹ Ù…Ù„ÙØ§Øª Ø§Ù„Ù…ÙˆÙ‚Ø¹ØŒ Ù„ÙƒÙ† Ø§Ù„Ø¹Ø§Ø±Ø¶ Ø§Ù„Ø¹Ø§Ù… Ù„Ù… ÙŠÙØ±Ø¬Ø¹ ØµÙØ­Ø© HTML ØµØ§Ù„Ø­Ø©.",
-  "The site is uploaded, but the project publish state could not be saved:": "ØªÙ… Ø±ÙØ¹ Ø§Ù„Ù…ÙˆÙ‚Ø¹ØŒ Ù„ÙƒÙ† ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø­Ø§Ù„Ø© Ù†Ø´Ø± Ø§Ù„Ù…Ø´Ø±ÙˆØ¹:",
-  "Agency": "ÙˆÙƒØ§Ù„Ø©",
-  "E-commerce": "ØªØ¬Ø§Ø±Ø© Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠØ©",
-  "Event": "ÙØ¹Ø§Ù„ÙŠØ©",
-  "Fitness / Coach": "Ù„ÙŠØ§Ù‚Ø© / Ù…Ø¯Ø±Ø¨",
-  "Local Services": "Ø®Ø¯Ù…Ø§Øª Ù…Ø­Ù„ÙŠØ©",
-  "Real Estate": "Ø¹Ù‚Ø§Ø±Ø§Øª",
-  "Restaurant": "Ù…Ø·Ø¹Ù…",
-  "SaaS / Software": "SaaS / Ø¨Ø±Ù…Ø¬ÙŠØ§Øª",
-  "Professional company page with services and trust sections.": "ØµÙØ­Ø© Ø´Ø±ÙƒØ© Ø§Ø­ØªØ±Ø§ÙÙŠØ© ØªØªØ¶Ù…Ù† Ø§Ù„Ø®Ø¯Ù…Ø§Øª ÙˆØ£Ù‚Ø³Ø§Ù… ØªØ¹Ø²ÙŠØ² Ø§Ù„Ø«Ù‚Ø©.",
-  "Conversion-focused page for a product, offer or campaign.": "ØµÙØ­Ø© ØªØ±ÙƒØ² Ø¹Ù„Ù‰ Ø§Ù„ØªØ­ÙˆÙŠÙ„ Ù„Ù…Ù†ØªØ¬ Ø£Ùˆ Ø¹Ø±Ø¶ Ø£Ùˆ Ø­Ù…Ù„Ø©.",
-  "Personal or studio page focused on work, credibility and contact.": "ØµÙØ­Ø© Ø´Ø®ØµÙŠØ© Ø£Ùˆ Ø§Ø³ØªÙˆØ¯ÙŠÙˆ ØªØ±ÙƒØ² Ø¹Ù„Ù‰ Ø§Ù„Ø£Ø¹Ù…Ø§Ù„ ÙˆØ§Ù„Ù…ØµØ¯Ø§Ù‚ÙŠØ© ÙˆØ§Ù„ØªÙˆØ§ØµÙ„.",
-  "Storefront-style page for products, offers and customer trust.": "ØµÙØ­Ø© Ø¨Ø£Ø³Ù„ÙˆØ¨ Ù…ØªØ¬Ø± Ù„Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø¹Ø±ÙˆØ¶ ÙˆØªØ¹Ø²ÙŠØ² Ø«Ù‚Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡.",
-  "Restaurant page for menu highlights, story, reviews and reservations.": "ØµÙØ­Ø© Ù…Ø·Ø¹Ù… Ù„Ø¹Ø±Ø¶ Ø£Ø¨Ø±Ø² Ø§Ù„Ù‚Ø§Ø¦Ù…Ø© ÙˆØ§Ù„Ù‚ØµØ© ÙˆØ§Ù„ØªÙ‚ÙŠÙŠÙ…Ø§Øª ÙˆØ§Ù„Ø­Ø¬ÙˆØ²Ø§Øª.",
-  "Software product page with features, plans and social proof.": "ØµÙØ­Ø© Ù…Ù†ØªØ¬ Ø¨Ø±Ù…Ø¬ÙŠ ØªØªØ¶Ù…Ù† Ø§Ù„Ù…ÙŠØ²Ø§Øª ÙˆØ§Ù„Ø®Ø·Ø· ÙˆØ§Ù„Ø¯Ù„ÙŠÙ„ Ø§Ù„Ø§Ø¬ØªÙ…Ø§Ø¹ÙŠ.",
-  "Creative or digital agency page built around services and results.": "ØµÙØ­Ø© ÙˆÙƒØ§Ù„Ø© Ø¥Ø¨Ø¯Ø§Ø¹ÙŠØ© Ø£Ùˆ Ø±Ù‚Ù…ÙŠØ© Ù…Ø¨Ù†ÙŠØ© Ø­ÙˆÙ„ Ø§Ù„Ø®Ø¯Ù…Ø§Øª ÙˆØ§Ù„Ù†ØªØ§Ø¦Ø¬.",
-  "Property-focused page for listings, expertise and lead generation.": "ØµÙØ­Ø© Ø¹Ù‚Ø§Ø±ÙŠØ© ØªØ±ÙƒØ² Ø¹Ù„Ù‰ Ø§Ù„Ù‚ÙˆØ§Ø¦Ù… ÙˆØ§Ù„Ø®Ø¨Ø±Ø© ÙˆØ¬Ø°Ø¨ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªÙ…Ù„ÙŠÙ†.",
-  "Professional personal site for experience, skills and opportunities.": "Ù…ÙˆÙ‚Ø¹ Ø´Ø®ØµÙŠ Ø§Ø­ØªØ±Ø§ÙÙŠ Ù„Ù„Ø®Ø¨Ø±Ø© ÙˆØ§Ù„Ù…Ù‡Ø§Ø±Ø§Øª ÙˆØ§Ù„ÙØ±Øµ.",
-  "Lead-focused page for trades, repair, cleaning and local professionals.": "ØµÙØ­Ø© ØªØ±ÙƒØ² Ø¹Ù„Ù‰ Ø¬Ø°Ø¨ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ù„Ù„Ø­Ø±Ù ÙˆØ§Ù„Ø¥ØµÙ„Ø§Ø­ ÙˆØ§Ù„ØªÙ†Ø¸ÙŠÙ ÙˆØ§Ù„Ø®Ø¯Ù…Ø§Øª Ø§Ù„Ù…Ø­Ù„ÙŠØ©.",
-  "Event or conference page for agenda, value and registration.": "ØµÙØ­Ø© ÙØ¹Ø§Ù„ÙŠØ© Ø£Ùˆ Ù…Ø¤ØªÙ…Ø± Ù„Ù„Ø¨Ø±Ù†Ø§Ù…Ø¬ ÙˆØ§Ù„Ù‚ÙŠÙ…Ø© ÙˆØ§Ù„ØªØ³Ø¬ÙŠÙ„.",
-  "Coach, gym or trainer page for programs, proof and enquiries.": "ØµÙØ­Ø© Ù…Ø¯Ø±Ø¨ Ø£Ùˆ Ù†Ø§Ø¯Ù Ø£Ùˆ Ù…Ø¯Ø±Ø¨ Ø´Ø®ØµÙŠ Ù„Ù„Ø¨Ø±Ø§Ù…Ø¬ ÙˆØ§Ù„Ù†ØªØ§Ø¦Ø¬ ÙˆØ§Ù„Ø§Ø³ØªÙØ³Ø§Ø±Ø§Øª.",
-  "Launch Hero": "Ù‚Ø³Ù… Ø¥Ø·Ù„Ø§Ù‚ Ø±Ø¦ÙŠØ³ÙŠ",
-  "Strong opening section for a product or service launch.": "Ù‚Ø³Ù… Ø§ÙØªØªØ§Ø­ÙŠ Ù‚ÙˆÙŠ Ù„Ø¥Ø·Ù„Ø§Ù‚ Ù…Ù†ØªØ¬ Ø£Ùˆ Ø®Ø¯Ù…Ø©.",
-  "Services Showcase": "Ø¹Ø±Ø¶ Ø§Ù„Ø®Ø¯Ù…Ø§Øª",
-  "Professional services section for agencies and local businesses.": "Ù‚Ø³Ù… Ø®Ø¯Ù…Ø§Øª Ø§Ø­ØªØ±Ø§ÙÙŠ Ù„Ù„ÙˆÙƒØ§Ù„Ø§Øª ÙˆØ§Ù„Ø´Ø±ÙƒØ§Øª Ø§Ù„Ù…Ø­Ù„ÙŠØ©.",
-  "Social Proof": "Ø¯Ù„ÙŠÙ„ Ø§Ø¬ØªÙ…Ø§Ø¹ÙŠ",
-  "Trust-building testimonial section.": "Ù‚Ø³Ù… Ø´Ù‡Ø§Ø¯Ø§Øª Ù„Ø¨Ù†Ø§Ø¡ Ø§Ù„Ø«Ù‚Ø©.",
-  "Contact CTA": "Ø¯Ø¹ÙˆØ© ØªÙˆØ§ØµÙ„",
-  "Focused contact section for turning interest into leads.": "Ù‚Ø³Ù… ØªÙˆØ§ØµÙ„ Ù…Ø±ÙƒØ² Ù„ØªØ­ÙˆÙŠÙ„ Ø§Ù„Ø§Ù‡ØªÙ…Ø§Ù… Ø¥Ù„Ù‰ Ø¹Ù…Ù„Ø§Ø¡ Ù…Ø­ØªÙ…Ù„ÙŠÙ†.",
-  "warning": "ØªØ­Ø°ÙŠØ±",
-  "improvement": "ØªØ­Ø³ÙŠÙ†",
-  "Last automated check": "Ø¢Ø®Ø± ÙØ­Øµ Ø¢Ù„ÙŠ",
-  "Run final checks": "ØªØ´ØºÙŠÙ„ Ø§Ù„ÙØ­ÙˆØµØ§Øª Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠØ©",
-  "period ends": "ØªÙ†ØªÙ‡ÙŠ Ø§Ù„ÙØªØ±Ø© ÙÙŠ",
-  "cancels at period end": "ÙŠÙÙ„ØºÙ‰ Ø¹Ù†Ø¯ Ù†Ù‡Ø§ÙŠØ© Ø§Ù„ÙØªØ±Ø©",
-  "*Media count reflects assets currently loaded into the Media Library panel.": "*Ø¹Ø¯Ø¯ Ø§Ù„ÙˆØ³Ø§Ø¦Ø· ÙŠØ¹ÙƒØ³ Ø§Ù„Ø£ØµÙˆÙ„ Ø§Ù„Ù…Ø­Ù…Ù‘Ù„Ø© Ø­Ø§Ù„ÙŠÙ‹Ø§ ÙÙŠ Ù„ÙˆØ­Ø© Ù…ÙƒØªØ¨Ø© Ø§Ù„ÙˆØ³Ø§Ø¦Ø·.",
-  "current build still matches": "Ø§Ù„Ø¥ØµØ¯Ø§Ø± Ø§Ù„Ø­Ø§Ù„ÙŠ Ù…Ø§ Ø²Ø§Ù„ Ù…Ø·Ø§Ø¨Ù‚Ù‹Ø§",
-  "website changed after approval": "ØªÙ… ØªØºÙŠÙŠØ± Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø¨Ø¹Ø¯ Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø©",
-  "No approval snapshot recorded yet.": "Ù„Ù… ÙŠØªÙ… ØªØ³Ø¬ÙŠÙ„ Ù„Ù‚Ø·Ø© Ù…ÙˆØ§ÙÙ‚Ø© Ø¨Ø¹Ø¯.",
-  "loaded releases": "Ø¥ØµØ¯Ø§Ø±Ø§Øª Ù…Ø­Ù…Ù‘Ù„Ø©",
-  "Views Â· 30d": "Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø§Øª Â· 30 ÙŠÙˆÙ…Ù‹Ø§",
-  "Visitors Â· 30d": "Ø§Ù„Ø²ÙˆØ§Ø± Â· 30 ÙŠÙˆÙ…Ù‹Ø§",
-  "Views Â· 7d": "Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø§Øª Â· 7 Ø£ÙŠØ§Ù…",
-  "Views Â· Today": "Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø§Øª Â· Ø§Ù„ÙŠÙˆÙ…",
-  "CTA clicks": "Ù†Ù‚Ø±Ø§Øª Ø§Ù„Ø¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡",
-  "Form submits": "Ø¥Ø±Ø³Ø§Ù„Ø§Øª Ø§Ù„Ù†Ù…Ø§Ø°Ø¬",
-  "Form CVR": "Ù…Ø¹Ø¯Ù„ ØªØ­ÙˆÙŠÙ„ Ø§Ù„Ù†Ù…ÙˆØ°Ø¬",
-  "One item per line": "Ø¹Ù†ØµØ± ÙˆØ§Ø­Ø¯ ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±",
-  "value | label": "Ø§Ù„Ù‚ÙŠÙ…Ø© | Ø§Ù„ØªØ³Ù…ÙŠØ©",
-  "name | quote": "Ø§Ù„Ø§Ø³Ù… | Ø§Ù„Ø§Ù‚ØªØ¨Ø§Ø³",
-  "Use the styling controls below to adjust": "Ø§Ø³ØªØ®Ø¯Ù… Ø¹Ù†Ø§ØµØ± Ø§Ù„ØªØ­ÙƒÙ… Ø¨Ø§Ù„ØªÙ†Ø³ÙŠÙ‚ Ø£Ø¯Ù†Ø§Ù‡ Ù„Ø¶Ø¨Ø·",
-  "width, color and opacity": "Ø§Ù„Ø¹Ø±Ø¶ ÙˆØ§Ù„Ù„ÙˆÙ† ÙˆØ§Ù„Ø´ÙØ§ÙÙŠØ©",
-  "height (Padding Ã— 2)": "Ø§Ù„Ø§Ø±ØªÙØ§Ø¹ (Ø§Ù„Ø­Ø´Ùˆ Ã— 2)",
-  "One list item per line": "Ø¹Ù†ØµØ± Ù‚Ø§Ø¦Ù…Ø© ÙˆØ§Ø­Ø¯ ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±",
-  "desktop": "Ø³Ø·Ø­ Ø§Ù„Ù…ÙƒØªØ¨",
-  "tablet": "Ø¬Ù‡Ø§Ø² Ù„ÙˆØ­ÙŠ",
-  "mobile": "Ù‡Ø§ØªÙ",
-  "qualified": "Ù…Ø¤Ù‡Ù„",
-  "contacted": "ØªÙ… Ø§Ù„ØªÙˆØ§ØµÙ„",
-  "won": "Ù†Ø§Ø¬Ø­",
-  "lost": "Ù…ÙÙ‚ÙˆØ¯",
-  "read": "Ù…Ù‚Ø±ÙˆØ¡",
-  "archived": "Ù…Ø¤Ø±Ø´Ù",
-  "Last automated check:": "Ø¢Ø®Ø± ÙØ­Øµ ØªÙ„Ù‚Ø§Ø¦ÙŠ:",
-  "One item per line:": "Ø¹Ù†ØµØ± ÙˆØ§Ø­Ø¯ ÙÙŠ ÙƒÙ„ Ø³Ø·Ø±:",
-  "Very strong": "Ù‚ÙˆÙŠØ© Ø¬Ø¯Ù‹Ø§",
-  "Product": "Ù…Ù†ØªØ¬",
-  "Brand": "Ø¹Ù„Ø§Ù…Ø© ØªØ¬Ø§Ø±ÙŠØ©",
-  "Modern": "Ø¹ØµØ±ÙŠ",
-  "Friendly": "ÙˆØ¯ÙˆØ¯",
-  "Bold": "Ø¬Ø±ÙŠØ¡",
-  "Minimal": "Ø¨Ø³ÙŠØ·",
-  "Career": "Ø§Ù„Ù…Ø³Ø§Ø± Ø§Ù„Ù…Ù‡Ù†ÙŠ",
-  "Finance": "Ø§Ù„Ù…Ø§Ù„ÙŠØ©",
-  "Productivity": "Ø§Ù„Ø¥Ù†ØªØ§Ø¬ÙŠØ©",
-  "Spreadsheets": "Ø¬Ø¯Ø§ÙˆÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª",
-  "Presentations": "Ø§Ù„Ø¹Ø±ÙˆØ¶ Ø§Ù„ØªÙ‚Ø¯ÙŠÙ…ÙŠØ©",
-  "Bundles": "Ø­Ø²Ù…",
-  "Images": "Ø§Ù„ØµÙˆØ±",
-  "Office bundle": "Ø­Ø²Ù…Ø© Office",
-  "tools available": "Ø£Ø¯Ø§Ø© Ù…ØªØ§Ø­Ø©",
-  "ready to use": "Ø¬Ø§Ù‡Ø²Ø© Ù„Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…",
-  "Updated": "ØªÙ… Ø§Ù„ØªØ­Ø¯ÙŠØ«",
-  "Used": "Ø§Ø³ØªÙØ®Ø¯Ù…Øª",
-  "Remove image backgrounds through Tayarâ€™s secured server-side image utility.": "Ø£Ø²Ù„ Ø®Ù„ÙÙŠØ§Øª Ø§Ù„ØµÙˆØ± Ø¹Ø¨Ø± Ø£Ø¯Ø§Ø© Tayar Ø§Ù„Ø¢Ù…Ù†Ø© Ù„Ù…Ø¹Ø§Ù„Ø¬Ø© Ø§Ù„ØµÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø§Ø¯Ù….",
-  "Resize and convert multiple images locally, with individual downloads or one ZIP.": "ØºÙŠÙ‘Ø± Ø­Ø¬Ù… ÙˆØ­ÙˆÙ‘Ù„ Ø¹Ø¯Ø© ØµÙˆØ± Ù…Ø­Ù„ÙŠÙ‹Ø§ Ù…Ø¹ ØªÙ†Ø²ÙŠÙ„Ø§Øª Ù…Ù†ÙØµÙ„Ø© Ø£Ùˆ Ù…Ù„Ù ZIP ÙˆØ§Ø­Ø¯.",
-  "Craft personalized, compelling cover letters for any job.": "Ø£Ù†Ø´Ø¦ Ø®Ø·Ø§Ø¨Ø§Øª ØªÙ‚Ø¯ÙŠÙ… Ø´Ø®ØµÙŠØ© ÙˆÙ…Ù‚Ù†Ø¹Ø© Ù„Ø£ÙŠ ÙˆØ¸ÙŠÙØ©.",
-  "Clean, normalize and safely export CSV data directly in your browser.": "Ù†Ø¸Ù‘Ù ÙˆÙˆØ­Ù‘Ø¯ ÙˆØµØ¯Ù‘Ø± Ø¨ÙŠØ§Ù†Ø§Øª CSV Ø¨Ø£Ù…Ø§Ù† Ù…Ø¨Ø§Ø´Ø±Ø© ÙÙŠ Ù…ØªØµÙØ­Ùƒ.",
-  "Create ATS-friendly resumes with AI-powered optimization.": "Ø£Ù†Ø´Ø¦ Ø³ÙŠØ±Ù‹Ø§ Ø°Ø§ØªÙŠØ© Ù…ØªÙˆØ§ÙÙ‚Ø© Ù…Ø¹ ATS Ù…Ø¹ ØªØ­Ø³ÙŠÙ† Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.",
-  "Summarize, analyze, extract data, and answer questions about any document.": "Ù„Ø®Ù‘Øµ ÙˆØ­Ù„Ù‘Ù„ ÙˆØ§Ø³ØªØ®Ø±Ø¬ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ£Ø¬Ø¨ Ø¹Ù† Ø§Ù„Ø£Ø³Ø¦Ù„Ø© Ø­ÙˆÙ„ Ø£ÙŠ Ù…Ø³ØªÙ†Ø¯.",
-  "PDF Tools": "Ø£Ø¯ÙˆØ§Øª PDF",
-  "Merge, split, convert, and edit PDF files with AI assistance.": "Ø§Ø¯Ù…Ø¬ ÙˆÙ‚Ø³Ù‘Ù… ÙˆØ­ÙˆÙ‘Ù„ ÙˆØ¹Ø¯Ù‘Ù„ Ù…Ù„ÙØ§Øª PDF Ø¨Ù…Ø³Ø§Ø¹Ø¯Ø© AI.",
-  "AI Email Writer": "ÙƒØ§ØªØ¨ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "Write professional emails, replies, and newsletters.": "Ø§ÙƒØªØ¨ Ø±Ø³Ø§Ø¦Ù„ Ø¨Ø±ÙŠØ¯ Ø§Ø­ØªØ±Ø§ÙÙŠØ© ÙˆØ±Ø¯ÙˆØ¯Ù‹Ø§ ÙˆÙ†Ø´Ø±Ø§Øª Ø¥Ø®Ø¨Ø§Ø±ÙŠØ©.",
-  "Contract Writer": "ÙƒØ§ØªØ¨ Ø§Ù„Ø¹Ù‚ÙˆØ¯",
-  "Generate legal contracts and agreements with AI.": "Ø£Ù†Ø´Ø¦ Ø¹Ù‚ÙˆØ¯Ù‹Ø§ ÙˆØ§ØªÙØ§Ù‚ÙŠØ§Øª Ù‚Ø§Ù†ÙˆÙ†ÙŠØ© Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… AI.",
-  "Data Analytics AI": "ØªØ­Ù„ÙŠÙ„Ø§Øª Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "Analyze data, generate insights, and create visualizations.": "Ø­Ù„Ù‘Ù„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ§Ø³ØªØ®Ø±Ø¬ Ø§Ù„Ø±Ø¤Ù‰ ÙˆØ£Ù†Ø´Ø¦ ØªØµÙˆØ±Ø§Øª Ø¨ÙŠØ§Ù†ÙŠØ©.",
-  "Crop JPEG, PNG and WebP images locally with precise controls and aspect presets.": "Ø§Ù‚ØªØµØµ ØµÙˆØ± JPEG ÙˆPNG ÙˆWebP Ù…Ø­Ù„ÙŠÙ‹Ø§ Ø¨ØªØ­ÙƒÙ… Ø¯Ù‚ÙŠÙ‚ ÙˆÙ†Ø³Ø¨ Ø¬Ø§Ù‡Ø²Ø©.",
-  "Combine JPEG, PNG and WebP images into one local PDF with page ordering and size controls.": "Ø§Ø¯Ù…Ø¬ ØµÙˆØ± JPEG ÙˆPNG ÙˆWebP ÙÙŠ Ù…Ù„Ù PDF Ù…Ø­Ù„ÙŠ ÙˆØ§Ø­Ø¯ Ù…Ø¹ ØªØ±ØªÙŠØ¨ Ø§Ù„ØµÙØ­Ø§Øª ÙˆØ§Ù„ØªØ­ÙƒÙ… Ø¨Ø§Ù„Ø­Ø¬Ù….",
-  "Resize, compress and convert JPEG, PNG and WebP images locally in your browser.": "ØºÙŠÙ‘Ø± Ø­Ø¬Ù… ÙˆØ§Ø¶ØºØ· ÙˆØ­ÙˆÙ‘Ù„ ØµÙˆØ± JPEG ÙˆPNG ÙˆWebP Ù…Ø­Ù„ÙŠÙ‹Ø§ ÙÙŠ Ù…ØªØµÙØ­Ùƒ.",
-  "Create professional invoices with automatic totals, VAT, draft saving and PDF printing.": "Ø£Ù†Ø´Ø¦ ÙÙˆØ§ØªÙŠØ± Ø§Ø­ØªØ±Ø§ÙÙŠØ© Ù…Ø¹ Ø­Ø³Ø§Ø¨ Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠØ§Øª ÙˆØ§Ù„Ø¶Ø±ÙŠØ¨Ø© ÙˆØ­ÙØ¸ Ø§Ù„Ù…Ø³ÙˆØ¯Ø§Øª ÙˆØ§Ù„Ø·Ø¨Ø§Ø¹Ø© Ø¥Ù„Ù‰ PDF.",
-  "Create recommendation, authorization, business, complaint, resignation and thank-you letters.": "Ø£Ù†Ø´Ø¦ Ø±Ø³Ø§Ø¦Ù„ ØªÙˆØµÙŠØ© ÙˆØªÙÙˆÙŠØ¶ ÙˆØ£Ø¹Ù…Ø§Ù„ ÙˆØ´ÙƒØ§ÙˆÙ‰ ÙˆØ§Ø³ØªÙ‚Ø§Ù„Ø© ÙˆØ´ÙƒØ±.",
-  "Generate original business, product, brand, YouTube and Instagram name ideas.": "Ø£Ù†Ø´Ø¦ Ø£ÙÙƒØ§Ø± Ø£Ø³Ù…Ø§Ø¡ Ø£ØµÙ„ÙŠØ© Ù„Ù„Ø£Ø¹Ù…Ø§Ù„ ÙˆØ§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø¹Ù„Ø§Ù…Ø§Øª ÙˆYouTube ÙˆInstagram.",
-  "Search and personalize original Tayar prompts for business, career, writing and social workflows.": "Ø§Ø¨Ø­Ø« ÙˆØ®ØµØµ ØªØ¹Ù„ÙŠÙ…Ø§Øª Tayar Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù„Ù„Ø£Ø¹Ù…Ø§Ù„ ÙˆØ§Ù„Ù…Ù‡Ù†Ø© ÙˆØ§Ù„ÙƒØªØ§Ø¨Ø© ÙˆØ§Ù„ØªÙˆØ§ØµÙ„ Ø§Ù„Ø§Ø¬ØªÙ…Ø§Ø¹ÙŠ.",
-  "Explain concepts, create quizzes, flashcards, and personalized study plans.": "Ø§Ø´Ø±Ø­ Ø§Ù„Ù…ÙØ§Ù‡ÙŠÙ… ÙˆØ£Ù†Ø´Ø¦ Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª ÙˆØ¨Ø·Ø§Ù‚Ø§Øª ÙˆØ®Ø·Ø· Ø¯Ø±Ø§Ø³Ø© Ù…Ø®ØµØµØ©.",
-  "Browse Tayar-hosted office templates and original starter files.": "ØªØµÙØ­ Ù‚ÙˆØ§Ù„Ø¨ Office Ø§Ù„Ù…Ø³ØªØ¶Ø§ÙØ© Ù„Ø¯Ù‰ Tayar ÙˆÙ…Ù„ÙØ§Øª Ø§Ù„Ø¨Ø¯Ø§ÙŠØ© Ø§Ù„Ø£ØµÙ„ÙŠØ©.",
-  "AI Translator": "Ù…ØªØ±Ø¬Ù… AI",
-  "Translate between 100+ languages with natural, context-aware results.": "ØªØ±Ø¬Ù… Ø¨ÙŠÙ† Ø£ÙƒØ«Ø± Ù…Ù† 100 Ù„ØºØ© Ø¨Ù†ØªØ§Ø¦Ø¬ Ø·Ø¨ÙŠØ¹ÙŠØ© ØªØ±Ø§Ø¹ÙŠ Ø§Ù„Ø³ÙŠØ§Ù‚.",
-  "Write blogs, articles, marketing copy, and social media content.": "Ø§ÙƒØªØ¨ Ù…Ø¯ÙˆÙ†Ø§Øª ÙˆÙ…Ù‚Ø§Ù„Ø§Øª ÙˆÙ†ØµÙˆØµÙ‹Ø§ ØªØ³ÙˆÙŠÙ‚ÙŠØ© ÙˆÙ…Ø­ØªÙˆÙ‰ Ù„Ù„Ø´Ø¨ÙƒØ§Øª Ø§Ù„Ø§Ø¬ØªÙ…Ø§Ø¹ÙŠØ©.",
-  "Est. MRR": "Ø§Ù„Ø¥ÙŠØ±Ø§Ø¯ Ø§Ù„Ø´Ù‡Ø±ÙŠ Ø§Ù„ØªÙ‚Ø¯ÙŠØ±ÙŠ",
-  "Upcoming Renewals": "Ø§Ù„ØªØ¬Ø¯ÙŠØ¯Ø§Øª Ø§Ù„Ù‚Ø§Ø¯Ù…Ø©",
-  "Past Due / Grace": "Ù…ØªØ£Ø®Ø± / ÙØªØ±Ø© Ø³Ù…Ø§Ø­",
-  "Failed Payments": "Ø§Ù„Ù…Ø¯ÙÙˆØ¹Ø§Øª Ø§Ù„ÙØ§Ø´Ù„Ø©",
-  "Past Due": "Ù…ØªØ£Ø®Ø±",
-  "Renewals": "Ø§Ù„ØªØ¬Ø¯ÙŠØ¯Ø§Øª",
-  "Failed": "ÙØ´Ù„",
-  "trialing": "ÙØªØ±Ø© ØªØ¬Ø±ÙŠØ¨ÙŠØ©",
-  "pro": "Ø§Ø­ØªØ±Ø§ÙÙŠ",
-  "business": "Ø£Ø¹Ù…Ø§Ù„",
-  "free": "Ù…Ø¬Ø§Ù†ÙŠ",
-  "Open Tickets": "Ø§Ù„ØªØ°Ø§ÙƒØ± Ø§Ù„Ù…ÙØªÙˆØ­Ø©",
-  "Closed": "Ù…ØºÙ„Ù‚",
-  "Bug Reports": "Ø¨Ù„Ø§ØºØ§Øª Ø§Ù„Ø£Ø®Ø·Ø§Ø¡",
-  "Feature Requests": "Ø·Ù„Ø¨Ø§Øª Ø§Ù„Ù…ÙŠØ²Ø§Øª",
-  "open": "Ù…ÙØªÙˆØ­",
-  "closed": "Ù…ØºÙ„Ù‚",
-  "bug": "Ø®Ø·Ø£",
-  "feature": "Ù…ÙŠØ²Ø©",
-  "ticket": "ØªØ°ÙƒØ±Ø©",
-  "high": "Ø¹Ø§Ù„ÙŠØ©",
-  "medium": "Ù…ØªÙˆØ³Ø·Ø©",
-  "low": "Ù…Ù†Ø®ÙØ¶Ø©",
-  "Type your response...": "Ø§ÙƒØªØ¨ Ø±Ø¯Ùƒ...",
-  "Close Ticket": "Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„ØªØ°ÙƒØ±Ø©",
-  "Reopen": "Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ÙØªØ­",
-  "Send & Close": "Ø¥Ø±Ø³Ø§Ù„ ÙˆØ¥ØºÙ„Ø§Ù‚",
-  "System Settings": "Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù…",
-  "Account Blocks": "Ø­Ø¸Ø± Ø§Ù„Ø­Ø³Ø§Ø¨Ø§Øª",
-  "Readiness": "Ø§Ù„Ø¬Ø§Ù‡Ø²ÙŠØ©",
-  "Email Templates": "Ù‚ÙˆØ§Ù„Ø¨ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ",
-  "Backups": "Ø§Ù„Ù†Ø³Ø® Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠØ©",
-  "Platform Name": "Ø§Ø³Ù… Ø§Ù„Ù…Ù†ØµØ©",
-  "Default AI Provider": "Ù…Ø²ÙˆØ¯ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ",
-  "Max Free Requests/day": "Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ Ù„Ù„Ø·Ù„Ø¨Ø§Øª Ø§Ù„Ù…Ø¬Ø§Ù†ÙŠØ©/Ø§Ù„ÙŠÙˆÙ…",
-  "Maintenance Mode": "ÙˆØ¶Ø¹ Ø§Ù„ØµÙŠØ§Ù†Ø©",
-  "Signup Enabled": "Ø§Ù„ØªØ³Ø¬ÙŠÙ„ Ù…ÙØ¹Ù‘Ù„",
-  "Disabled": "Ù…Ø¹Ø·Ù‘Ù„",
-  "Failed to save settings": "ÙØ´Ù„ Ø­ÙØ¸ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª",
-  "Settings saved": "ØªÙ… Ø­ÙØ¸ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª",
-  "Email subject": "Ù…ÙˆØ¶ÙˆØ¹ Ø§Ù„Ø¨Ø±ÙŠØ¯",
-  "Stripe connection": "Ø§ØªØµØ§Ù„ Stripe",
-  "Stripe charges": "Ù…Ø¯ÙÙˆØ¹Ø§Øª Stripe",
-  "Stripe payouts": "ØªØ­ÙˆÙŠÙ„Ø§Øª Stripe",
-  "Pro price": "Ø³Ø¹Ø± Pro",
-  "Business price": "Ø³Ø¹Ø± Business",
-  "Stripe webhook": "Webhook Ù„Ù€Stripe",
-  "Checkout": "Ø§Ù„Ø¯ÙØ¹",
-  "Billing portal": "Ø¨ÙˆØ§Ø¨Ø© Ø§Ù„ÙÙˆØªØ±Ø©",
-  "unconfigured": "ØºÙŠØ± Ù…ÙØ¹Ø¯",
-  "enabled": "Ù…ÙØ¹Ù‘Ù„",
-  "needs attention": "ÙŠØ­ØªØ§Ø¬ Ù…Ø±Ø§Ø¬Ø¹Ø©",
-  "missing": "Ù…ÙÙ‚ÙˆØ¯",
-  "not verified": "ØºÙŠØ± Ù…ØªØ­Ù‚Ù‚",
-  "needs setup": "ÙŠØ­ØªØ§Ø¬ Ø¥Ø¹Ø¯Ø§Ø¯Ù‹Ø§",
-  "Admins": "Ø§Ù„Ù…Ø´Ø±ÙÙˆÙ†",
-  "Pro Users": "Ù…Ø³ØªØ®Ø¯Ù…Ùˆ Pro",
-  "Search by name, email or ID...": "Ø§Ø¨Ø­Ø« Ø¨Ø§Ù„Ø§Ø³Ù… Ø£Ùˆ Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø£Ùˆ Ø§Ù„Ù…Ø¹Ø±Ù‘Ù...",
-  "Unnamed": "Ø¨Ø¯ÙˆÙ† Ø§Ø³Ù…",
-  "You cannot suspend yourself": "Ù„Ø§ ÙŠÙ…ÙƒÙ†Ùƒ Ø¥ÙŠÙ‚Ø§Ù Ø­Ø³Ø§Ø¨Ùƒ Ø¨Ù†ÙØ³Ùƒ",
-  "Reinstate": "Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªÙØ¹ÙŠÙ„",
-  "Suspend": "Ø¥ÙŠÙ‚Ø§Ù",
-  "You cannot delete yourself": "Ù„Ø§ ÙŠÙ…ÙƒÙ†Ùƒ Ø­Ø°Ù Ø­Ø³Ø§Ø¨Ùƒ Ø¨Ù†ÙØ³Ùƒ",
-  "Delete User": "Ø­Ø°Ù Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…",
-  "Delete & Block": "Ø­Ø°Ù ÙˆØ­Ø¸Ø±",
-  "Delete Permanently": "Ø­Ø°Ù Ù†Ù‡Ø§Ø¦ÙŠÙ‹Ø§",
-  "Block reason (internal note)": "Ø³Ø¨Ø¨ Ø§Ù„Ø­Ø¸Ø± (Ù…Ù„Ø§Ø­Ø¸Ø© Ø¯Ø§Ø®Ù„ÙŠØ©)",
-  "Reason (internal note)": "Ø§Ù„Ø³Ø¨Ø¨ (Ù…Ù„Ø§Ø­Ø¸Ø© Ø¯Ø§Ø®Ù„ÙŠØ©)",
-  "Total Tools": "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø£Ø¯ÙˆØ§Øª",
-  "Premium": "Ù…Ù…ÙŠØ²",
-  "uses": "Ø§Ø³ØªØ®Ø¯Ø§Ù…Ø§Øª",
-  "Read-only validation of stored 24Billions templates. Progress is saved in this browser and can be paused or resumed safely.": "ØªØ­Ù‚Ù‚ Ù„Ù„Ù‚Ø±Ø§Ø¡Ø© ÙÙ‚Ø· Ù…Ù† Ù‚ÙˆØ§Ù„Ø¨ 24Billions Ø§Ù„Ù…Ø®Ø²Ù†Ø©. ÙŠØªÙ… Ø­ÙØ¸ Ø§Ù„ØªÙ‚Ø¯Ù… ÙÙŠ Ù‡Ø°Ø§ Ø§Ù„Ù…ØªØµÙØ­ ÙˆÙŠÙ…ÙƒÙ† Ø¥ÙŠÙ‚Ø§ÙÙ‡ Ù…Ø¤Ù‚ØªÙ‹Ø§ Ø£Ùˆ Ø§Ø³ØªØ¦Ù†Ø§ÙÙ‡ Ø¨Ø£Ù…Ø§Ù†.",
-  "Resume Audit": "Ø§Ø³ØªØ¦Ù†Ø§Ù Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚",
-  "Run Again": "ØªØ´ØºÙŠÙ„ Ù…Ø¬Ø¯Ø¯Ù‹Ø§",
-  "Start Audit": "Ø¨Ø¯Ø¡ Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚",
-  "Analyzingâ€¦": "Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù„ÙŠÙ„â€¦",
-  "Analyze Repairs": "ØªØ­Ù„ÙŠÙ„ Ø§Ù„Ø¥ØµÙ„Ø§Ø­Ø§Øª",
-  "Deletingâ€¦": "Ø¬Ø§Ø±Ù Ø§Ù„Ø­Ø°Ùâ€¦",
-  "Delete invalid templates": "Ø­Ø°Ù Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨ ØºÙŠØ± Ø§Ù„ØµØ§Ù„Ø­Ø©",
-  "scanned": "ØªÙ… ÙØ­ØµÙ‡Ø§",
-  "Audit progress is still saved unless deletion completed.": "ÙŠØ¨Ù‚Ù‰ ØªÙ‚Ø¯Ù… Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚ Ù…Ø­ÙÙˆØ¸Ù‹Ø§ Ù…Ø§ Ù„Ù… ÙŠÙƒØªÙ…Ù„ Ø§Ù„Ø­Ø°Ù.",
-  "Valid": "ØµØ§Ù„Ø­",
-  "Invalid": "ØºÙŠØ± ØµØ§Ù„Ø­",
-  "Missing": "Ù…ÙÙ‚ÙˆØ¯",
-  "Running": "Ù‚ÙŠØ¯ Ø§Ù„ØªØ´ØºÙŠÙ„",
-  "Analyzing": "Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù„ÙŠÙ„",
-  "Deleting": "Ø¬Ø§Ø±Ù Ø§Ù„Ø­Ø°Ù",
-  "Paused": "Ù…ØªÙˆÙ‚Ù Ù…Ø¤Ù‚ØªÙ‹Ø§",
-  "Idle": "Ø®Ø§Ù…Ù„",
-  "Rows deleted": "Ø§Ù„ØµÙÙˆÙ Ø§Ù„Ù…Ø­Ø°ÙˆÙØ©",
-  "Storage deleted": "Ø§Ù„Ù…Ø­Ø°ÙˆÙ Ù…Ù† Ø§Ù„ØªØ®Ø²ÙŠÙ†",
-  "Shared preserved": "ØªÙ… Ø§Ù„Ø­ÙØ§Ø¸ Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø´ØªØ±ÙƒØ©",
-  "Storage failures": "Ø£Ø®Ø·Ø§Ø¡ Ø§Ù„ØªØ®Ø²ÙŠÙ†",
-  "Issues checked": "Ø§Ù„Ù…Ø´ÙƒÙ„Ø§Øª Ø§Ù„Ù…ÙØ­ÙˆØµØ©",
-  "Repairable": "Ù‚Ø§Ø¨Ù„ Ù„Ù„Ø¥ØµÙ„Ø§Ø­",
-  "Junk to hide": "Ù…Ø®Ù„ÙØ§Øª Ù„Ù„Ø¥Ø®ÙØ§Ø¡",
-  "Needs review": "ÙŠØ­ØªØ§Ø¬ Ù…Ø±Ø§Ø¬Ø¹Ø©",
-  "All Files": "ÙƒÙ„ Ø§Ù„Ù…Ù„ÙØ§Øª",
-  "Articles": "Ø§Ù„Ù…Ù‚Ø§Ù„Ø§Øª",
-  "AI Chats": "Ù…Ø­Ø§Ø¯Ø«Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "Websites": "Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹",
-  "Last Updated": "Ø¢Ø®Ø± ØªØ­Ø¯ÙŠØ«",
-  "Date Created": "ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡",
-  "Name (A-Z)": "Ø§Ù„Ø§Ø³Ù… (Ø£-ÙŠ)",
-  "No matching files": "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ù„ÙØ§Øª Ù…Ø·Ø§Ø¨Ù‚Ø©",
-  "No files yet": "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ù„ÙØ§Øª Ø¨Ø¹Ø¯",
-  "Try a different search term.": "Ø¬Ø±Ù‘Ø¨ Ø¹Ø¨Ø§Ø±Ø© Ø¨Ø­Ø« Ù…Ø®ØªÙ„ÙØ©.",
-  "Create documents with any AI tool and they'll appear here automatically.": "Ø£Ù†Ø´Ø¦ Ù…Ø³ØªÙ†Ø¯Ø§Øª Ø¨Ø£ÙŠ Ø£Ø¯Ø§Ø© Ø°ÙƒØ§Ø¡ Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙˆØ³ØªØ¸Ù‡Ø± Ù‡Ù†Ø§ ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§.",
-  "to...": "Ø¥Ù„Ù‰...",
-  "Live Website": "Ù…ÙˆÙ‚Ø¹ Ù…Ø¨Ø§Ø´Ø±",
-  "Website Draft": "Ù…Ø³ÙˆØ¯Ø© Ù…ÙˆÙ‚Ø¹",
-  "Email support": "Ø¯Ø¹Ù… Ø¹Ø¨Ø± Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ",
-  "Email Support": "Ø§Ù„Ø¯Ø¹Ù… Ø¹Ø¨Ø± Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ",
-  "Account & Privacy Support": "Ø¯Ø¹Ù… Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆØ§Ù„Ø®ØµÙˆØµÙŠØ©",
-  "Use email or the secure form below": "Ø§Ø³ØªØ®Ø¯Ù… Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ Ø£Ùˆ Ø§Ù„Ù†Ù…ÙˆØ°Ø¬ Ø§Ù„Ø¢Ù…Ù† Ø£Ø¯Ù†Ø§Ù‡",
-  "1. Overview": "1. Ù†Ø¸Ø±Ø© Ø¹Ø§Ù…Ø©",
-  "2. Account and workspace data": "2. Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆÙ…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„",
-  "3. Website Builder data": "3. Ø¨ÙŠØ§Ù†Ø§Øª Ù…Ù†Ø´Ø¦ Ø§Ù„Ù…ÙˆØ§Ù‚Ø¹",
-  "4. Infrastructure and processors": "4. Ø§Ù„Ø¨Ù†ÙŠØ© Ø§Ù„ØªØ­ØªÙŠØ© ÙˆØ§Ù„Ù…Ø¹Ø§Ù„ÙØ¬ÙˆÙ†",
-  "5. Security": "5. Ø§Ù„Ø£Ù…Ø§Ù†",
-  "6. Cookies and local storage": "6. Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø· ÙˆØ§Ù„ØªØ®Ø²ÙŠÙ† Ø§Ù„Ù…Ø­Ù„ÙŠ",
-  "7. Your choices": "7. Ø®ÙŠØ§Ø±Ø§ØªÙƒ",
-  "8. Changes": "8. Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª",
-  "1. Using the service": "1. Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø®Ø¯Ù…Ø©",
-  "2. Accounts": "2. Ø§Ù„Ø­Ø³Ø§Ø¨Ø§Øª",
-  "3. Projects and generated content": "3. Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ ÙˆØ§Ù„Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…ÙÙ†Ø´Ø£",
-  "4. Acceptable use": "4. Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ù…Ù‚Ø¨ÙˆÙ„",
-  "5. Plans and billing": "5. Ø§Ù„Ø®Ø·Ø· ÙˆØ§Ù„ÙÙˆØªØ±Ø©",
-  "6. Availability and changes": "6. Ø§Ù„ØªÙˆÙØ± ÙˆØ§Ù„ØªØºÙŠÙŠØ±Ø§Øª",
-  "7. Responsibility": "7. Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙŠØ©",
-  "8. Support": "8. Ø§Ù„Ø¯Ø¹Ù…",
-  "Type a command or search...": "Ø§ÙƒØªØ¨ Ø£Ù…Ø±Ù‹Ø§ Ø£Ùˆ Ø§Ø¨Ø­Ø«...",
-  "No results for": "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬ Ù„Ù€",
-  "AI Actions": "Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "Navigation": "Ø§Ù„ØªÙ†Ù‚Ù„",
-  "Recent Projects": "Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ø£Ø®ÙŠØ±Ø©",
-  "Search Results": "Ù†ØªØ§Ø¦Ø¬ Ø§Ù„Ø¨Ø­Ø«",
-  "navigate": "ØªÙ†Ù‚Ù„",
-  "results": "Ù†ØªØ§Ø¦Ø¬",
-  "Dismiss notification": "Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±",
-  "Open AI Assistant": "ÙØªØ­ Ù…Ø³Ø§Ø¹Ø¯ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "Context": "Ø§Ù„Ø³ÙŠØ§Ù‚",
-  "AI is thinking": "Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙŠÙÙƒØ±",
-  "Could not load team workspaces. Apply the Sprint 133-144 migration.": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ù…Ø³Ø§Ø­Ø§Øª Ø¹Ù…Ù„ Ø§Ù„ÙØ±ÙŠÙ‚. Ø·Ø¨Ù‘Ù‚ ØªØ±Ø­ÙŠÙ„ Sprint 133-144.",
-  "Could not load workspace details.": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ ØªÙØ§ØµÙŠÙ„ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.",
-  "Team workspace created.": "ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ø§Ù„ÙØ±ÙŠÙ‚.",
-  "Workspace renamed.": "ØªÙ…Øª Ø¥Ø¹Ø§Ø¯Ø© ØªØ³Ù…ÙŠØ© Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.",
-  "Delete this team workspace? Shared projects will become personal projects again.": "Ø­Ø°Ù Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ø§Ù„ÙØ±ÙŠÙ‚ Ù‡Ø°Ù‡ØŸ Ø³ØªØ¹ÙˆØ¯ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ Ø§Ù„Ù…Ø´ØªØ±ÙƒØ© Ø¥Ù„Ù‰ Ù…Ø´Ø§Ø±ÙŠØ¹ Ø´Ø®ØµÙŠØ©.",
-  "Workspace deleted.": "ØªÙ… Ø­Ø°Ù Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.",
-  "Invite created. Copy the secure link and send it to the teammate.": "ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø¯Ø¹ÙˆØ©. Ø§Ù†Ø³Ø® Ø§Ù„Ø±Ø§Ø¨Ø· Ø§Ù„Ø¢Ù…Ù† ÙˆØ£Ø±Ø³Ù„Ù‡ Ø¥Ù„Ù‰ Ø²Ù…ÙŠÙ„ Ø§Ù„ÙØ±ÙŠÙ‚.",
-  "Invite accepted.": "ØªÙ… Ù‚Ø¨ÙˆÙ„ Ø§Ù„Ø¯Ø¹ÙˆØ©.",
-  "Invite revoked.": "ØªÙ… Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ø¯Ø¹ÙˆØ©.",
-  "Member role updated.": "ØªÙ… ØªØ­Ø¯ÙŠØ« Ø¯ÙˆØ± Ø§Ù„Ø¹Ø¶Ùˆ.",
-  "this member": "Ù‡Ø°Ø§ Ø§Ù„Ø¹Ø¶Ùˆ",
-  "from the workspace?": "Ù…Ù† Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„ØŸ",
-  "You left the workspace.": "ØºØ§Ø¯Ø±Øª Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.",
-  "Member removed.": "ØªÙ…Øª Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ø¹Ø¶Ùˆ.",
-  "Transfer ownership to": "Ù†Ù‚Ù„ Ø§Ù„Ù…Ù„ÙƒÙŠØ© Ø¥Ù„Ù‰",
-  "Workspace ownership transferred.": "ØªÙ… Ù†Ù‚Ù„ Ù…Ù„ÙƒÙŠØ© Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.",
-  "Project shared with the workspace.": "ØªÙ…Øª Ù…Ø´Ø§Ø±ÙƒØ© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ù…Ø¹ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.",
-  "Project removed from the workspace.": "ØªÙ…Øª Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ù…Ù† Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.",
-  "owner": "Ø§Ù„Ù…Ø§Ù„Ùƒ",
-  "admin": "Ù…Ø´Ø±Ù",
-  "editor": "Ù…Ø­Ø±Ø±",
-  "viewer": "Ù…Ø´Ø§Ù‡Ø¯",
-  "members": "Ø£Ø¹Ø¶Ø§Ø¡",
-  "projects": "Ù…Ø´Ø§Ø±ÙŠØ¹",
-  "seats used": "Ù…Ù‚Ø§Ø¹Ø¯ Ù…Ø³ØªØ®Ø¯Ù…Ø©",
-  "Member": "Ø¹Ø¶Ùˆ",
-  "you": "Ø£Ù†Øª",
-  "expires": "ØªÙ†ØªÙ‡ÙŠ",
-  "owned by you": "Ù…Ù…Ù„ÙˆÙƒ Ù„Ùƒ",
-  "shared with you": "Ù…Ø´ØªØ±Ùƒ Ù…Ø¹Ùƒ",
-  "Passwords do not match.": "ÙƒÙ„Ù…ØªØ§ Ø§Ù„Ù…Ø±ÙˆØ± ØºÙŠØ± Ù…ØªØ·Ø§Ø¨Ù‚ØªÙŠÙ†.",
-  "Adding to project...": "Ø¬Ø§Ø±Ù Ø§Ù„Ø¥Ø¶Ø§ÙØ© Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹...",
-  "Failed to add item": "ÙØ´Ù„ Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ø¹Ù†ØµØ±",
-  "Added to project": "ØªÙ…Øª Ø§Ù„Ø¥Ø¶Ø§ÙØ© Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹",
-  "Failed to remove item": "ÙØ´Ù„ Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ø¹Ù†ØµØ±",
-  "Item removed": "ØªÙ…Øª Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ø¹Ù†ØµØ±",
-  "Failed to rename": "ÙØ´Ù„Øª Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ³Ù…ÙŠØ©",
-  "Project renamed": "ØªÙ…Øª Ø¥Ø¹Ø§Ø¯Ø© ØªØ³Ù…ÙŠØ© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹",
-  "Project not found": "Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯",
-  "This project may have been deleted.": "Ø±Ø¨Ù…Ø§ ØªÙ… Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹.",
-  "Go Back": "Ø±Ø¬ÙˆØ¹",
-  "items": "Ø¹Ù†Ø§ØµØ±",
-  "Restoring...": "Ø¬Ø§Ø±Ù Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø©...",
-  "Failed to restore": "ÙØ´Ù„Øª Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø©",
-  "Restored successfully": "ØªÙ…Øª Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø¨Ù†Ø¬Ø§Ø­",
-  "Permanently deleting...": "Ø¬Ø§Ø±Ù Ø§Ù„Ø­Ø°Ù Ù†Ù‡Ø§Ø¦ÙŠÙ‹Ø§...",
-  "Failed to delete permanently": "ÙØ´Ù„ Ø§Ù„Ø­Ø°Ù Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠ",
-  "Permanently deleted": "ØªÙ… Ø§Ù„Ø­Ø°Ù Ù†Ù‡Ø§Ø¦ÙŠÙ‹Ø§",
-  "Emptying trash...": "Ø¬Ø§Ø±Ù Ø¥ÙØ±Ø§Øº Ø³Ù„Ø© Ø§Ù„Ù…Ø­Ø°ÙˆÙØ§Øª...",
-  "Failed to empty trash": "ÙØ´Ù„ Ø¥ÙØ±Ø§Øº Ø³Ù„Ø© Ø§Ù„Ù…Ø­Ø°ÙˆÙØ§Øª",
-  "Trash emptied": "ØªÙ… Ø¥ÙØ±Ø§Øº Ø³Ù„Ø© Ø§Ù„Ù…Ø­Ø°ÙˆÙØ§Øª",
-  "Trash is empty": "Ø³Ù„Ø© Ø§Ù„Ù…Ø­Ø°ÙˆÙØ§Øª ÙØ§Ø±ØºØ©",
-  "When you delete files or projects, they'll appear here for 30 days before being permanently removed.": "Ø¹Ù†Ø¯ Ø­Ø°Ù Ù…Ù„ÙØ§Øª Ø£Ùˆ Ù…Ø´Ø§Ø±ÙŠØ¹ Ø³ØªØ¸Ù‡Ø± Ù‡Ù†Ø§ Ù„Ù…Ø¯Ø© 30 ÙŠÙˆÙ…Ù‹Ø§ Ù‚Ø¨Ù„ Ø­Ø°ÙÙ‡Ø§ Ù†Ù‡Ø§Ø¦ÙŠÙ‹Ø§.",
-  "Deleted": "Ù…Ø­Ø°ÙˆÙ",
-  "days left": "Ø£ÙŠØ§Ù… Ù…ØªØ¨Ù‚ÙŠØ©",
-  "Toggle navigation menu": "ØªØ¨Ø¯ÙŠÙ„ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„ØªÙ†Ù‚Ù„",
-  "Product facts": "Ø­Ù‚Ø§Ø¦Ù‚ Ø§Ù„Ù…Ù†ØªØ¬",
-  "A component kit can contain up to": "ÙŠÙ…ÙƒÙ† Ø£Ù† ØªØ­ØªÙˆÙŠ Ø­Ø²Ù…Ø© Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª Ø¹Ù„Ù‰ Ù…Ø§ ÙŠØµÙ„ Ø¥Ù„Ù‰",
-  "AI": "Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "AI / action": "Ø°ÙƒØ§Ø¡ Ø§ØµØ·Ù†Ø§Ø¹ÙŠ / Ø¥Ø¬Ø±Ø§Ø¡",
-  "AI Chat Shell": "ÙˆØ§Ø¬Ù‡Ø© Ù…Ø­Ø§Ø¯Ø«Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "AI adaptation failed.": "ÙØ´Ù„ ØªÙƒÙŠÙŠÙ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.",
-  "AI did not return a structured UI audit fix plan.": "Ù„Ù… ÙŠÙØ±Ø¬Ø¹ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø®Ø·Ø© Ø¥ØµÙ„Ø§Ø­ Ù…Ù†Ø¸Ù…Ø© Ù„ØªØ¯Ù‚ÙŠÙ‚ Ø§Ù„ÙˆØ§Ø¬Ù‡Ø©.",
-  "AI did not return a structured component kit patch.": "Ù„Ù… ÙŠÙØ±Ø¬Ø¹ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ØªØµØ­ÙŠØ­Ù‹Ø§ Ù…Ù†Ø¸Ù…Ù‹Ø§ Ù„Ø­Ø²Ù…Ø© Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª.",
-  "AI did not return a structured feature patch plan.": "Ù„Ù… ÙŠÙØ±Ø¬Ø¹ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø®Ø·Ø© ØªØµØ­ÙŠØ­ Ù…Ù†Ø¸Ù…Ø© Ù„Ù„Ù…ÙŠØ²Ø©.",
-  "AI did not return a structured page composition patch.": "Ù„Ù… ÙŠÙØ±Ø¬Ø¹ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ØªØµØ­ÙŠØ­Ù‹Ø§ Ù…Ù†Ø¸Ù…Ù‹Ø§ Ù„ØªØ±ÙƒÙŠØ¨ Ø§Ù„ØµÙØ­Ø©.",
-  "AI did not return a structured patch plan.": "Ù„Ù… ÙŠÙØ±Ø¬Ø¹ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø®Ø·Ø© ØªØµØ­ÙŠØ­ Ù…Ù†Ø¸Ù…Ø©.",
-  "AI did not return a structured replacement patch.": "Ù„Ù… ÙŠÙØ±Ø¬Ø¹ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ØªØµØ­ÙŠØ­ Ø§Ø³ØªØ¨Ø¯Ø§Ù„ Ù…Ù†Ø¸Ù…Ù‹Ø§.",
-  "AI did not return structured variant options.": "Ù„Ù… ÙŠÙØ±Ø¬Ø¹ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø®ÙŠØ§Ø±Ø§Øª Ø¨Ø¯Ø§Ø¦Ù„ Ù…Ù†Ø¸Ù…Ø©.",
-  "Accessible": "Ø³Ù‡Ù„ Ø§Ù„ÙˆØµÙˆÙ„",
-  "Action form": "Ù†Ù…ÙˆØ°Ø¬ Ø¥Ø¬Ø±Ø§Ø¡",
-  "Adapt the pricing cards to the existing product plans and currency, preserve billing logic, and only change presentation.": "ÙƒÙŠÙ‘Ù Ø¨Ø·Ø§Ù‚Ø§Øª Ø§Ù„Ø£Ø³Ø¹Ø§Ø± Ù…Ø¹ Ø®Ø·Ø· Ø§Ù„Ù…Ù†ØªØ¬ ÙˆØ§Ù„Ø¹Ù…Ù„Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©ØŒ ÙˆØ­Ø§ÙØ¸ Ø¹Ù„Ù‰ Ù…Ù†Ø·Ù‚ Ø§Ù„ÙÙˆØªØ±Ø© ÙˆØºÙŠÙ‘Ø± Ø§Ù„Ø¹Ø±Ø¶ ÙÙ‚Ø·.",
-  "Adapt this CTA to the current page goal, reuse existing actions, and keep copy concise.": "ÙƒÙŠÙ‘Ù Ø¯Ø¹ÙˆØ© Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡ Ù…Ø¹ Ù‡Ø¯Ù Ø§Ù„ØµÙØ­Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØŒ ÙˆØ£Ø¹Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø§Ù„Ù…ÙˆØ¬ÙˆØ¯Ø©ØŒ ÙˆØ§Ø¬Ø¹Ù„ Ø§Ù„Ù†Øµ Ù…ÙˆØ¬Ø²Ù‹Ø§.",
-  "Adapt this hero to the project theme, reuse existing Button primitives, keep it responsive, and preserve the project typography.": "ÙƒÙŠÙ‘Ù Ù‚Ø³Ù… Ø§Ù„Ø¨Ø·Ù„ Ù…Ø¹ Ø³Ù…Ø© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ØŒ ÙˆØ£Ø¹Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø£Ø²Ø±Ø§Ø± Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ØŒ ÙˆØ­Ø§ÙØ¸ Ø¹Ù„Ù‰ Ø§Ù„Ø§Ø³ØªØ¬Ø§Ø¨Ø© ÙˆØ§Ù„Ø·Ø¨Ø§Ø¹Ø©.",
-  "Add to favorites": "Ø¥Ø¶Ø§ÙØ© Ø¥Ù„Ù‰ Ø§Ù„Ù…ÙØ¶Ù„Ø©",
-  "Add to kit": "Ø¥Ø¶Ø§ÙØ© Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø²Ù…Ø©",
-  "Build a responsive dashboard shell that reuses project navigation and data boundaries without inventing backend behavior.": "Ø§Ø¨Ù†Ù Ù‡ÙŠÙƒÙ„ Ù„ÙˆØ­Ø© Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ù…ØªØ¬Ø§ÙˆØ¨Ù‹Ø§ ÙŠØ¹ÙŠØ¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… ØªÙ†Ù‚Ù„ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙˆØ­Ø¯ÙˆØ¯ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¯ÙˆÙ† Ø§Ø®ØªØ±Ø§Ø¹ Ø³Ù„ÙˆÙƒ Ø®Ù„ÙÙŠ.",
-  "Build a responsive settings feature with clear sections, accessible controls and existing project persistence boundaries.": "Ø§Ø¨Ù†Ù Ù…ÙŠØ²Ø© Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ù…ØªØ¬Ø§ÙˆØ¨Ø© Ø¨Ø£Ù‚Ø³Ø§Ù… ÙˆØ§Ø¶Ø­Ø© ÙˆØ¹Ù†Ø§ØµØ± ØªØ­ÙƒÙ… Ø³Ù‡Ù„Ø© Ø§Ù„ÙˆØµÙˆÙ„ ÙˆØ­Ø¯ÙˆØ¯ Ø­ÙØ¸ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ø­Ø§Ù„ÙŠØ©.",
-  "Build a trustworthy pricing page with clear plan differences, responsive comparison and conversion CTA.": "Ø§Ø¨Ù†Ù ØµÙØ­Ø© Ø£Ø³Ø¹Ø§Ø± Ù…ÙˆØ«ÙˆÙ‚Ø© Ø¨ÙØ±ÙˆÙ‚Ø§Øª ÙˆØ§Ø¶Ø­Ø© Ø¨ÙŠÙ† Ø§Ù„Ø®Ø·Ø· ÙˆÙ…Ù‚Ø§Ø±Ù†Ø© Ù…ØªØ¬Ø§ÙˆØ¨Ø© ÙˆØ¯Ø¹ÙˆØ© ØªØ­ÙˆÙŠÙ„.",
-  "Build an AI chat UI feature that reuses an existing AI service if present and otherwise exposes a clean adapter boundary without fake network logic.": "Ø§Ø¨Ù†Ù ÙˆØ§Ø¬Ù‡Ø© Ù…Ø­Ø§Ø¯Ø«Ø© AI ØªØ¹ÙŠØ¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø®Ø¯Ù…Ø© AI Ù…ÙˆØ¬ÙˆØ¯Ø©ØŒ ÙˆØ¥Ù„Ø§ ÙØªÙˆÙÙ‘Ø± Ø­Ø¯ Ù…Ø­ÙˆÙ„ Ù†Ø¸ÙŠÙÙ‹Ø§ Ø¯ÙˆÙ† Ù…Ù†Ø·Ù‚ Ø´Ø¨ÙƒØ© ÙˆÙ‡Ù…ÙŠ.",
-  "CTA": "Ø¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡",
-  "CTA Banner": "Ø´Ø±ÙŠØ· Ø¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡",
-  "Cards": "Ø¨Ø·Ø§Ù‚Ø§Øª",
-  "Choose project component fileâ€¦": "Ø§Ø®ØªØ± Ù…Ù„Ù Ù…ÙƒÙˆÙ‘Ù† ÙƒØ§Ù…Ù„ Ù…Ù† Ø§Ù„Ù…Ø´Ø±ÙˆØ¹â€¦",
-  "Compact floating navigation shell for landing pages.": "Ù‡ÙŠÙƒÙ„ ØªÙ†Ù‚Ù„ Ø¹Ø§Ø¦Ù… Ù…Ø¯Ù…Ø¬ Ù„ØµÙØ­Ø§Øª Ø§Ù„Ù‡Ø¨ÙˆØ·.",
-  "Comparison": "Ù…Ù‚Ø§Ø±Ù†Ø©",
-  "Connect this UI to the project existing authentication handlers. Do not replace auth logic or credentials handling.": "Ø§Ø±Ø¨Ø· Ù‡Ø°Ù‡ Ø§Ù„ÙˆØ§Ø¬Ù‡Ø© Ø¨Ù…Ø¹Ø§Ù„Ø¬Ø§Øª Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ© Ù„Ù„Ù…Ø´Ø±ÙˆØ¹. Ù„Ø§ ØªØ³ØªØ¨Ø¯Ù„ Ù…Ù†Ø·Ù‚ Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© Ø£Ùˆ Ù…Ø¹Ø§Ù„Ø¬Ø© Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯.",
-  "Connect this shell to the existing AI service and streaming state. Preserve authentication, rate-limit, and error handling.": "Ø§Ø±Ø¨Ø· Ù‡Ø°Ø§ Ø§Ù„Ù‡ÙŠÙƒÙ„ Ø¨Ø®Ø¯Ù…Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙˆØ­Ø§Ù„Ø© Ø§Ù„Ø¨Ø« Ø§Ù„Ø­Ø§Ù„ÙŠØ©. Ø­Ø§ÙØ¸ Ø¹Ù„Ù‰ Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© ÙˆØ­Ø¯ÙˆØ¯ Ø§Ù„Ù…Ø¹Ø¯Ù„ ÙˆÙ…Ø¹Ø§Ù„Ø¬Ø© Ø§Ù„Ø£Ø®Ø·Ø§Ø¡.",
-  "Content / FAQ": "Ø§Ù„Ù…Ø­ØªÙˆÙ‰ / Ø§Ù„Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø´Ø§Ø¦Ø¹Ø©",
-  "Conversation shell, composer, empty/loading/error states and service boundary.": "Ù‡ÙŠÙƒÙ„ Ù…Ø­Ø§Ø¯Ø«Ø© ÙˆÙ…Ø­Ø±Ø± ÙˆØ­Ø§Ù„Ø§Øª ÙØ§Ø±ØºØ©/ØªØ­Ù…ÙŠÙ„/Ø®Ø·Ø£ ÙˆØ­Ø¯ Ø®Ø¯Ù…Ø©.",
-  "Conversion-focused call-to-action block with two actions.": "ÙƒØªÙ„Ø© Ø¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡ ØªØ±ÙƒØ² Ø¹Ù„Ù‰ Ø§Ù„ØªØ­ÙˆÙŠÙ„ Ù…Ø¹ Ø¥Ø¬Ø±Ø§Ø¡ÙŠÙ†.",
-  "Copy result": "Ù†Ø³Ø® Ø§Ù„Ù†ØªÙŠØ¬Ø©",
-  "Current Commons Clause terms prohibit redistributing the components themselves. Keep blocked from the Tayar component registry.": "Ø´Ø±ÙˆØ· Commons Clause Ø§Ù„Ø­Ø§Ù„ÙŠØ© ØªÙ…Ù†Ø¹ Ø¥Ø¹Ø§Ø¯Ø© ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª Ù†ÙØ³Ù‡Ø§. Ø£Ø¨Ù‚Ù‡Ø§ Ù…Ø­Ø¸ÙˆØ±Ø© Ù…Ù† Ø³Ø¬Ù„ Ù…ÙƒÙˆÙ†Ø§Øª Tayar.",
-  "Dashboard Shell": "Ù‡ÙŠÙƒÙ„ Ù„ÙˆØ­Ø© Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª",
-  "Dashboard content shell with summary cards and activity area.": "Ù‡ÙŠÙƒÙ„ Ù…Ø­ØªÙˆÙ‰ Ù„ÙˆØ­Ø© Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ù…Ø¹ Ø¨Ø·Ø§Ù‚Ø§Øª Ù…Ù„Ø®Øµ ÙˆÙ…Ù†Ø·Ù‚Ø© Ù†Ø´Ø§Ø·.",
-  "Dashboard shell": "Ù‡ÙŠÙƒÙ„ Ù„ÙˆØ­Ø© Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª",
-  "Dashboards": "Ù„ÙˆØ­Ø§Øª Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª",
-  "Data": "Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª",
-  "Example: Build these into a compact onboarding flow, reuse existing project buttons and keep mobile layout simple.": "Ù…Ø«Ø§Ù„: Ø§Ø¬Ù…Ø¹ Ù‡Ø°Ù‡ ÙÙŠ Ù…Ø³Ø§Ø± Ø¥Ø¹Ø¯Ø§Ø¯ Ù…Ø¯Ù…Ø¬ØŒ ÙˆØ£Ø¹Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø£Ø²Ø±Ø§Ø± Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ø­Ø§Ù„ÙŠØ©ØŒ ÙˆØ§Ø¬Ø¹Ù„ ØªØ®Ø·ÙŠØ· Ø§Ù„Ù‡Ø§ØªÙ Ø¨Ø³ÙŠØ·Ù‹Ø§.",
-  "Example: Make this fit a dark SaaS dashboard, use our existing buttons, reduce motion on mobile, and keep it accessible.": "Ù…Ø«Ø§Ù„: Ø§Ø¬Ø¹Ù„ Ù‡Ø°Ø§ Ù…Ù†Ø§Ø³Ø¨Ù‹Ø§ Ù„Ù„ÙˆØ­Ø© SaaS Ø¯Ø§ÙƒÙ†Ø©ØŒ ÙˆØ§Ø³ØªØ®Ø¯Ù… Ø£Ø²Ø±Ø§Ø±Ù†Ø§ Ø§Ù„Ø­Ø§Ù„ÙŠØ©ØŒ ÙˆÙ‚Ù„Ù‘Ù„ Ø§Ù„Ø­Ø±ÙƒØ© Ø¹Ù„Ù‰ Ø§Ù„Ù‡Ø§ØªÙØŒ ÙˆØ­Ø§ÙØ¸ Ø¹Ù„Ù‰ Ø³Ù‡ÙˆÙ„Ø© Ø§Ù„ÙˆØµÙˆÙ„.",
-  "Feature primary isolated preview": "Ù…Ø¹Ø§ÙŠÙ†Ø© Ù…Ø¹Ø²ÙˆÙ„Ø© Ù„Ù„Ù…ÙŠØ²Ø© Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ©",
-  "Fit this dashboard shell into the existing application layout and route structure. Reuse current navigation and data services.": "Ø§Ø¯Ù…Ø¬ Ù‡ÙŠÙƒÙ„ Ù„ÙˆØ­Ø© Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ù‡Ø°Ø§ ÙÙŠ ØªØ®Ø·ÙŠØ· Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ ÙˆÙ…Ø³Ø§Ø±Ø§ØªÙ‡ Ø§Ù„Ø­Ø§Ù„ÙŠØ©. Ø£Ø¹Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„ØªÙ†Ù‚Ù„ ÙˆØ®Ø¯Ù…Ø§Øª Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø­Ø§Ù„ÙŠØ©.",
-  "Floating Navigation": "ØªÙ†Ù‚Ù„ Ø¹Ø§Ø¦Ù…",
-  "Focused pricing experience with plan comparison, FAQ/supporting proof and CTA.": "ØªØ¬Ø±Ø¨Ø© Ø£Ø³Ø¹Ø§Ø± Ù…Ø±ÙƒØ²Ø© Ù…Ø¹ Ù…Ù‚Ø§Ø±Ù†Ø© Ø§Ù„Ø®Ø·Ø· ÙˆØ§Ù„Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø´Ø§Ø¦Ø¹Ø©/Ø§Ù„Ø¥Ø«Ø¨Ø§Øª Ø§Ù„Ø¯Ø§Ø¹Ù… ÙˆØ¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡.",
-  "Follow the active project style profile as closely as possible. Reuse its tokens, spacing, radii, typography and component conventions.": "Ø§ØªØ¨Ø¹ Ù…Ù„Ù Ù†Ù…Ø· Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù†Ø´Ø· Ù‚Ø¯Ø± Ø§Ù„Ø¥Ù…ÙƒØ§Ù†. Ø£Ø¹Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø±Ù…ÙˆØ² ÙˆØ§Ù„Ù…Ø³Ø§ÙØ§Øª ÙˆØ§Ù„Ø­ÙˆØ§Ù ÙˆØ§Ù„Ø·Ø¨Ø§Ø¹Ø© ÙˆÙ‚ÙˆØ§Ø¹Ø¯ Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª.",
-  "Form": "Ù†Ù…ÙˆØ°Ø¬",
-  "Generate 3 options": "Ø¥Ù†Ø´Ø§Ø¡ 3 Ø®ÙŠØ§Ø±Ø§Øª",
-  "Generate adaptation": "Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„ØªÙƒÙŠÙŠÙ",
-  "Glass": "Ø²Ø¬Ø§Ø¬ÙŠ",
-  "Gradient Hero": "Ø¨Ø·Ù„ Ù…ØªØ¯Ø±Ø¬",
-  "Hero": "Ù‚Ø³Ù… Ø¨Ø·Ù„",
-  "Heroes": "Ø£Ù‚Ø³Ø§Ù… Ø§Ù„Ø¨Ø·Ù„",
-  "I confirm I have the right/license to use the private files I select.": "Ø£Ø¤ÙƒØ¯ Ø£Ù† Ù„Ø¯ÙŠ Ø§Ù„Ø­Ù‚/Ø§Ù„ØªØ±Ø®ÙŠØµ Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ø®Ø§ØµØ© Ø§Ù„ØªÙŠ Ø£Ø®ØªØ§Ø±Ù‡Ø§.",
-  "Input tokens": "Ø±Ù…ÙˆØ² Ø§Ù„Ø¥Ø¯Ø®Ø§Ù„",
-  "Integrate this navigation into the existing layout, map links to the project routes, and reuse the current logo and button system.": "Ø§Ø¯Ù…Ø¬ Ù‡Ø°Ø§ Ø§Ù„ØªÙ†Ù‚Ù„ ÙÙŠ Ø§Ù„ØªØ®Ø·ÙŠØ· Ø§Ù„Ø­Ø§Ù„ÙŠØŒ ÙˆØ§Ø±Ø¨Ø· Ø§Ù„Ø±ÙˆØ§Ø¨Ø· Ø¨Ù…Ø³Ø§Ø±Ø§Øª Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ØŒ ÙˆØ£Ø¹Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø´Ø¹Ø§Ø± ÙˆÙ†Ø¸Ø§Ù… Ø§Ù„Ø£Ø²Ø±Ø§Ø± Ø§Ù„Ø­Ø§Ù„ÙŠ.",
-  "Landing": "ØµÙØ­Ø© Ù‡Ø¨ÙˆØ·",
-  "Landing starter": "Ø¨Ø¯Ø§ÙŠØ© ØµÙØ­Ø© Ù‡Ø¨ÙˆØ·",
-  "Last Coding Assistance patch was rolled back.": "ØªÙ… Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø¢Ø®Ø± ØªØµØ­ÙŠØ­ Ù„Ù…Ø³Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨Ø±Ù…Ø¬Ø©.",
-  "Live preview is not available for this component.": "Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ø­ÙŠØ© ØºÙŠØ± Ù…ØªØ§Ø­Ø© Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…ÙƒÙˆÙ†.",
-  "Load source code": "ØªØ­Ù…ÙŠÙ„ Ø§Ù„ÙƒÙˆØ¯ Ø§Ù„Ù…ØµØ¯Ø±ÙŠ",
-  "Loading projects...": "Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹...",
-  "Login": "ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„",
-  "MIT + Commons Clause. May be used as part of an application/product but must not be redistributed as a competing component library; keep blocked from Tayar public registry.": "MIT + Commons Clause. ÙŠÙ…ÙƒÙ† Ø§Ø³ØªØ®Ø¯Ø§Ù…Ù‡ Ø¶Ù…Ù† ØªØ·Ø¨ÙŠÙ‚/Ù…Ù†ØªØ¬ Ù„ÙƒÙ† Ù„Ø§ ÙŠØ¬ÙˆØ² Ø¥Ø¹Ø§Ø¯Ø© ØªÙˆØ²ÙŠØ¹Ù‡ ÙƒÙ…ÙƒØªØ¨Ø© Ù…ÙƒÙˆÙ†Ø§Øª Ù…Ù†Ø§ÙØ³Ø©Ø› Ø£Ø¨Ù‚Ù‡ Ù…Ø­Ø¸ÙˆØ±Ù‹Ø§ Ù…Ù† Ø³Ø¬Ù„ Tayar Ø§Ù„Ø¹Ø§Ù….",
-  "MIT source with a public shadcn-style registry. Preserve the upstream copyright and permission notice when substantial code is imported.": "Ù…ØµØ¯Ø± MIT Ù…Ø¹ Ø³Ø¬Ù„ Ø¹Ø§Ù… Ø¨Ø£Ø³Ù„ÙˆØ¨ shadcn. Ø§Ø­ØªÙØ¸ Ø¨Ø¥Ø´Ø¹Ø§Ø± Ø­Ù‚ÙˆÙ‚ Ø§Ù„Ù†Ø´Ø± ÙˆØ§Ù„Ø¥Ø°Ù† Ø§Ù„Ø£ØµÙ„ÙŠ Ø¹Ù†Ø¯ Ø§Ø³ØªÙŠØ±Ø§Ø¯ ÙƒÙˆØ¯ ÙƒØ¨ÙŠØ±.",
-  "MIT source. Animata publishes copy-paste animated React/Tailwind components and shadcn registry items. Preserve the upstream license notice.": "Ù…ØµØ¯Ø± MIT. ØªÙ†Ø´Ø± Animata Ù…ÙƒÙˆÙ†Ø§Øª React/Tailwind Ù…ØªØ­Ø±ÙƒØ© Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ù†Ø³Ø® ÙˆØ¹Ù†Ø§ØµØ± Ø³Ø¬Ù„ shadcn. Ø§Ø­ØªÙØ¸ Ø¨Ø¥Ø´Ø¹Ø§Ø± Ø§Ù„ØªØ±Ø®ÙŠØµ Ø§Ù„Ø£ØµÙ„ÙŠ.",
-  "MIT source. Preserve the upstream copyright and permission notice when substantial code is imported.": "Ù…ØµØ¯Ø± MIT. Ø§Ø­ØªÙØ¸ Ø¨Ø¥Ø´Ø¹Ø§Ø± Ø­Ù‚ÙˆÙ‚ Ø§Ù„Ù†Ø´Ø± ÙˆØ§Ù„Ø¥Ø°Ù† Ø§Ù„Ø£ØµÙ„ÙŠ Ø¹Ù†Ø¯ Ø§Ø³ØªÙŠØ±Ø§Ø¯ ÙƒÙˆØ¯ ÙƒØ¨ÙŠØ±.",
-  "Map these cards to real project metrics and reuse existing number formatting. Do not invent backend data.": "Ø§Ø±Ø¨Ø· Ù‡Ø°Ù‡ Ø§Ù„Ø¨Ø·Ø§Ù‚Ø§Øª Ø¨Ù…Ù‚Ø§ÙŠÙŠØ³ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ø­Ù‚ÙŠÙ‚ÙŠØ© ÙˆØ£Ø¹Ø¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… ØªÙ†Ø³ÙŠÙ‚ Ø§Ù„Ø£Ø±Ù‚Ø§Ù… Ø§Ù„Ø­Ø§Ù„ÙŠ. Ù„Ø§ ØªØ®ØªØ±Ø¹ Ø¨ÙŠØ§Ù†Ø§Øª Ø®Ù„ÙÙŠØ©.",
-  "Metric Cards": "Ø¨Ø·Ø§Ù‚Ø§Øª Ø§Ù„Ù…Ù‚Ø§ÙŠÙŠØ³",
-  "Model": "Ø§Ù„Ù†Ù…ÙˆØ°Ø¬",
-  "Navigation, hero, feature/value block, pricing, FAQ/content and CTA.": "ØªÙ†Ù‚Ù„ ÙˆÙ‚Ø³Ù… Ø¨Ø·Ù„ ÙˆÙƒØªÙ„Ø© Ù…ÙŠØ²Ø©/Ù‚ÙŠÙ…Ø© ÙˆØ£Ø³Ø¹Ø§Ø± ÙˆØ£Ø³Ø¦Ù„Ø© Ø´Ø§Ø¦Ø¹Ø©/Ù…Ø­ØªÙˆÙ‰ ÙˆØ¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡.",
-  "Navigation, hero, trust/value sections, CTA and footer-ready structure.": "ØªÙ†Ù‚Ù„ ÙˆÙ‚Ø³Ù… Ø¨Ø·Ù„ ÙˆØ£Ù‚Ø³Ø§Ù… Ø«Ù‚Ø©/Ù‚ÙŠÙ…Ø© ÙˆØ¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡ ÙˆØ¨Ù†ÙŠØ© Ø¬Ø§Ù‡Ø²Ø© Ù„Ù„ØªØ°ÙŠÙŠÙ„.",
-  "No animation lib": "Ø¨Ø¯ÙˆÙ† Ù…ÙƒØªØ¨Ø© Ø­Ø±ÙƒØ§Øª",
-  "Not detected": "ØºÙŠØ± Ù…ÙƒØªØ´Ù",
-  "Original components authored for the Tayar registry.": "Ù…ÙƒÙˆÙ†Ø§Øª Ø£ØµÙ„ÙŠØ© ØµÙÙ…Ù…Øª Ù„Ø³Ø¬Ù„ Tayar.",
-  "Output tokens": "Ø±Ù…ÙˆØ² Ø§Ù„Ø¥Ø®Ø±Ø§Ø¬",
-  "Overview shell, metrics, navigation and responsive content states.": "Ù‡ÙŠÙƒÙ„ Ù†Ø¸Ø±Ø© Ø¹Ø§Ù…Ø© ÙˆÙ…Ù‚Ø§ÙŠÙŠØ³ ÙˆØªÙ†Ù‚Ù„ ÙˆØ­Ø§Ù„Ø§Øª Ù…Ø­ØªÙˆÙ‰ Ù…ØªØ¬Ø§ÙˆØ¨Ø©.",
-  "Paid component pack delivered privately after purchase. No public redistribution license was found, so Tayar must not bundle or mirror its code. Future support should use private user-provided licensed imports only.": "Ø­Ø²Ù…Ø© Ù…ÙƒÙˆÙ†Ø§Øª Ù…Ø¯ÙÙˆØ¹Ø© ØªÙØ³Ù„Ù‘Ù… Ø¨Ø´ÙƒÙ„ Ø®Ø§Øµ Ø¨Ø¹Ø¯ Ø§Ù„Ø´Ø±Ø§Ø¡. Ù„Ù… ÙŠÙØ¹Ø«Ø± Ø¹Ù„Ù‰ ØªØ±Ø®ÙŠØµ Ø¥Ø¹Ø§Ø¯Ø© ØªÙˆØ²ÙŠØ¹ Ø¹Ø§Ù…ØŒ Ù„Ø°Ù„Ùƒ ÙŠØ¬Ø¨ Ø£Ù„Ø§ ÙŠØ­Ø²Ù… Tayar Ø§Ù„ÙƒÙˆØ¯ Ø£Ùˆ ÙŠØ¹ÙƒØ³Ù‡. ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ³ØªØ®Ø¯Ù… Ø§Ù„Ø¯Ø¹Ù… Ø§Ù„Ù…Ø³ØªÙ‚Ø¨Ù„ÙŠ Ø§Ø³ØªÙŠØ±Ø§Ø¯Ø§Øª Ø®Ø§ØµØ© Ù…Ø±Ø®ØµØ© ÙŠÙˆÙÙ‘Ø±Ù‡Ø§ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙÙ‚Ø·.",
-  "Patch applied. A rollback checkpoint is available until the project files change again.": "ØªÙ… ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„ØªØµØ­ÙŠØ­. ØªØªÙˆÙØ± Ù†Ù‚Ø·Ø© ØªØ±Ø§Ø¬Ø¹ Ø­ØªÙ‰ ØªØªØºÙŠØ± Ù…Ù„ÙØ§Øª Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ù…Ø¬Ø¯Ø¯Ù‹Ø§.",
-  "Plan file patch": "ØªØ®Ø·ÙŠØ· ØªØµØ­ÙŠØ­ Ø§Ù„Ù…Ù„Ù",
-  "Plan replacement": "ØªØ®Ø·ÙŠØ· Ø§Ù„Ø§Ø³ØªØ¨Ø¯Ø§Ù„",
-  "Planningâ€¦": "Ø¬Ø§Ø±Ù Ø§Ù„ØªØ®Ø·ÙŠØ·â€¦",
-  "Pricing Grid": "Ø´Ø¨ÙƒØ© Ø§Ù„Ø£Ø³Ø¹Ø§Ø±",
-  "Primary feature preview is not available for this pack.": "Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù…ÙŠØ²Ø© Ø§Ù„Ø£Ø³Ø§Ø³ÙŠØ© ØºÙŠØ± Ù…ØªØ§Ø­Ø© Ù„Ù‡Ø°Ù‡ Ø§Ù„Ø­Ø²Ù…Ø©.",
-  "Product proof": "Ø¥Ø«Ø¨Ø§Øª Ø§Ù„Ù…Ù†ØªØ¬",
-  "Product-first SaaS page with hero, feature proof, product UI, pricing and CTA.": "ØµÙØ­Ø© SaaS ØªØ¶Ø¹ Ø§Ù„Ù…Ù†ØªØ¬ Ø£ÙˆÙ„Ù‹Ø§ Ù…Ø¹ Ù‚Ø³Ù… Ø¨Ø·Ù„ ÙˆØ¥Ø«Ø¨Ø§Øª Ù…ÙŠØ²Ø§Øª ÙˆÙˆØ§Ø¬Ù‡Ø© Ø§Ù„Ù…Ù†ØªØ¬ ÙˆØ£Ø³Ø¹Ø§Ø± ÙˆØ¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡.",
-  "Project native": "Ù…ØªÙˆØ§ÙÙ‚ Ø£ØµÙ„ÙŠÙ‹Ø§ Ù…Ø¹ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹",
-  "Proof": "Ø¥Ø«Ø¨Ø§Øª",
-  "Reduced motion": "Ø­Ø±ÙƒØ© Ù…Ø®ÙÙØ©",
-  "Remove from favorites": "Ø¥Ø²Ø§Ù„Ø© Ù…Ù† Ø§Ù„Ù…ÙØ¶Ù„Ø©",
-  "Remove from kit": "Ø¥Ø²Ø§Ù„Ø© Ù…Ù† Ø§Ù„Ø­Ø²Ù…Ø©",
-  "Repository": "Ø§Ù„Ù…Ø³ØªÙˆØ¯Ø¹",
-  "Responsive SaaS hero with clear hierarchy and two actions.": "Ù‚Ø³Ù… Ø¨Ø·Ù„ SaaS Ù…ØªØ¬Ø§ÙˆØ¨ Ø¨Ù‡ÙŠÙƒÙ„ ÙˆØ§Ø¶Ø­ ÙˆØ¥Ø¬Ø±Ø§Ø¡Ø§Ù†.",
-  "Responsive metric row for analytics and dashboards.": "ØµÙ Ù…Ù‚Ø§ÙŠÙŠØ³ Ù…ØªØ¬Ø§ÙˆØ¨ Ù„Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª ÙˆÙ„ÙˆØ­Ø§Øª Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª.",
-  "Reuse tokens": "Ø¥Ø¹Ø§Ø¯Ø© Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø±Ù…ÙˆØ²",
-  "Review only â€” no project selected": "Ù„Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© ÙÙ‚Ø· â€” Ù„Ù… ÙŠØªÙ… Ø§Ø®ØªÙŠØ§Ø± Ù…Ø´Ø±ÙˆØ¹",
-  "Rollback last patch": "Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø¢Ø®Ø± ØªØµØ­ÙŠØ­",
-  "SaaS": "SaaS",
-  "SaaS dashboard": "Ù„ÙˆØ­Ø© Ù…Ø¹Ù„ÙˆÙ…Ø§Øª SaaS",
-  "Search components...": "Ø§Ù„Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª...",
-  "Server compatible": "Ù…ØªÙˆØ§ÙÙ‚ Ù…Ø¹ Ø§Ù„Ø®Ø§Ø¯Ù…",
-  "Settings shell, sections, form controls and save-state UX.": "Ù‡ÙŠÙƒÙ„ Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª ÙˆØ£Ù‚Ø³Ø§Ù… ÙˆØ¹Ù†Ø§ØµØ± ØªØ­ÙƒÙ… ÙˆÙ†Ù…Ø· ØªØ¬Ø±Ø¨Ø© Ù„Ø­Ø§Ù„Ø© Ø§Ù„Ø­ÙØ¸.",
-  "Showing": "Ø¹Ø±Ø¶",
-  "Sign-in UI, validation states and existing-auth integration boundary.": "ÙˆØ§Ø¬Ù‡Ø© ØªØ³Ø¬ÙŠÙ„ Ø¯Ø®ÙˆÙ„ ÙˆØ­Ø§Ù„Ø§Øª ØªØ­Ù‚Ù‚ ÙˆØ­Ø¯ ØªÙƒØ§Ù…Ù„ Ù…Ø¹ Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©.",
-  "Simple sign-in surface with accessible labels and actions.": "ÙˆØ§Ø¬Ù‡Ø© ØªØ³Ø¬ÙŠÙ„ Ø¯Ø®ÙˆÙ„ Ø¨Ø³ÙŠØ·Ø© Ø¨Ø¹Ù†Ø§ÙˆÙŠÙ† ÙˆØ¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø³Ù‡Ù„Ø© Ø§Ù„ÙˆØµÙˆÙ„.",
-  "Social proof": "Ø¥Ø«Ø¨Ø§Øª Ø§Ø¬ØªÙ…Ø§Ø¹ÙŠ",
-  "Some registries could not be loaded": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø¨Ø¹Ø¶ Ø§Ù„Ø³Ø¬Ù„Ø§Øª",
-  "Support card": "Ø¨Ø·Ø§Ù‚Ø© Ø¯Ø¹Ù…",
-  "Three-tier pricing layout with a highlighted recommended plan.": "ØªØ®Ø·ÙŠØ· Ø£Ø³Ø¹Ø§Ø± Ø¨Ø«Ù„Ø§Ø« ÙØ¦Ø§Øª Ù…Ø¹ Ø¥Ø¨Ø±Ø§Ø² Ø§Ù„Ø®Ø·Ø© Ø§Ù„Ù…ÙˆØµÙ‰ Ø¨Ù‡Ø§.",
-  "Unable to apply the patch.": "ØªØ¹Ø°Ø± ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„ØªØµØ­ÙŠØ­.",
-  "Unable to generate a safe UI audit fix plan.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ø®Ø·Ø© Ø¥ØµÙ„Ø§Ø­ Ø¢Ù…Ù†Ø© Ù„ØªØ¯Ù‚ÙŠÙ‚ Ø§Ù„ÙˆØ§Ø¬Ù‡Ø©.",
-  "Unable to generate a safe component kit patch.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ ØªØµØ­ÙŠØ­ Ø¢Ù…Ù† Ù„Ø­Ø²Ù…Ø© Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª.",
-  "Unable to generate a safe feature pack.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ø­Ø²Ù…Ø© Ù…ÙŠØ²Ø§Øª Ø¢Ù…Ù†Ø©.",
-  "Unable to generate a safe page composition.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ ØªØ±ÙƒÙŠØ¨ ØµÙØ­Ø© Ø¢Ù…Ù†.",
-  "Unable to generate a safe patch plan.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ø®Ø·Ø© ØªØµØ­ÙŠØ­ Ø¢Ù…Ù†Ø©.",
-  "Unable to generate a safe replacement patch.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ ØªØµØ­ÙŠØ­ Ø§Ø³ØªØ¨Ø¯Ø§Ù„ Ø¢Ù…Ù†.",
-  "Unable to generate component options.": "ØªØ¹Ø°Ø± Ø¥Ù†Ø´Ø§Ø¡ Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª.",
-  "Unable to import private component files.": "ØªØ¹Ø°Ø± Ø§Ø³ØªÙŠØ±Ø§Ø¯ Ù…Ù„ÙØ§Øª Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª Ø§Ù„Ø®Ø§ØµØ©.",
-  "Unable to load component code.": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ ÙƒÙˆØ¯ Ø§Ù„Ù…ÙƒÙˆÙ†.",
-  "Unable to load project choices.": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ù…Ø´Ø±ÙˆØ¹.",
-  "Unable to load project context.": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø³ÙŠØ§Ù‚ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹.",
-  "Unable to prepare live preview.": "ØªØ¹Ø°Ø± ØªØ¬Ù‡ÙŠØ² Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ø­ÙŠØ©.",
-  "Unable to rollback the patch.": "ØªØ¹Ø°Ø± Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø§Ù„ØªØµØ­ÙŠØ­.",
-  "Use layered translucent surfaces and subtle depth only where they fit the existing project; preserve contrast, readability and reduced-motion behavior.": "Ø§Ø³ØªØ®Ø¯Ù… Ø£Ø³Ø·Ø­Ù‹Ø§ Ø´ÙØ§ÙØ© Ù…ØªØ¹Ø¯Ø¯Ø© Ø§Ù„Ø·Ø¨Ù‚Ø§Øª ÙˆØ¹Ù…Ù‚Ù‹Ø§ Ø®ÙÙŠÙÙ‹Ø§ ÙÙ‚Ø· Ø­ÙŠØ« ÙŠÙ†Ø§Ø³Ø¨ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ØŒ Ù…Ø¹ Ø§Ù„Ø­ÙØ§Ø¸ Ø¹Ù„Ù‰ Ø§Ù„ØªØ¨Ø§ÙŠÙ† ÙˆØ§Ù„Ù‚Ø±Ø§Ø¡Ø© ÙˆØ§Ù„Ø­Ø±ÙƒØ© Ø§Ù„Ù…Ø®ÙÙØ©.",
-  "Use restrained surfaces, generous whitespace, simple hierarchy and subtle interaction while still reusing project tokens.": "Ø§Ø³ØªØ®Ø¯Ù… Ø£Ø³Ø·Ø­Ù‹Ø§ Ù‡Ø§Ø¯Ø¦Ø© ÙˆÙ…Ø³Ø§Ø­Ø§Øª Ø¨ÙŠØ¶Ø§Ø¡ ÙˆØ§Ø³Ø¹Ø© ÙˆØªØ³Ù„Ø³Ù„Ù‹Ø§ Ø¨Ø³ÙŠØ·Ù‹Ø§ ÙˆØªÙØ§Ø¹Ù„Ù‹Ø§ Ø®ÙÙŠÙÙ‹Ø§ Ù…Ø¹ Ø¥Ø¹Ø§Ø¯Ø© Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø±Ù…ÙˆØ² Ø§Ù„Ù…Ø´Ø±ÙˆØ¹.",
-  "Use stronger type hierarchy, larger visual contrast and confident section separation while staying consistent with project tokens and accessibility.": "Ø§Ø³ØªØ®Ø¯Ù… ØªØ³Ù„Ø³Ù„Ù‹Ø§ Ø·Ø¨Ø§Ø¹ÙŠÙ‹Ø§ Ø£Ù‚ÙˆÙ‰ ÙˆØªØ¨Ø§ÙŠÙ†Ù‹Ø§ Ø¨ØµØ±ÙŠÙ‹Ø§ Ø£ÙƒØ¨Ø± ÙˆÙØµÙ„Ù‹Ø§ Ø£ÙˆØ¶Ø­ Ù„Ù„Ø£Ù‚Ø³Ø§Ù… Ù…Ø¹ Ø§Ù„Ø§Ù„ØªØ²Ø§Ù… Ø¨Ø±Ù…ÙˆØ² Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙˆØ³Ù‡ÙˆÙ„Ø© Ø§Ù„ÙˆØµÙˆÙ„.",
-  "User-selected licensed source kept only in the current browser session. Tayar may adapt it for the user but must never publish it into the public registry.": "Ù…ØµØ¯Ø± Ù…Ø±Ø®Ù‘Øµ Ø§Ø®ØªØ§Ø±Ù‡ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙˆÙŠÙØ­ÙØ¸ ÙÙ‚Ø· ÙÙŠ Ø¬Ù„Ø³Ø© Ø§Ù„Ù…ØªØµÙØ­ Ø§Ù„Ø­Ø§Ù„ÙŠØ©. ÙŠÙ…ÙƒÙ† Ù„Ù€Tayar ØªÙƒÙŠÙŠÙÙ‡ Ù„Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù„ÙƒÙ† Ù„Ø§ ÙŠØ¬ÙˆØ² Ù†Ø´Ø±Ù‡ ÙÙŠ Ø§Ù„Ø³Ø¬Ù„ Ø§Ù„Ø¹Ø§Ù….",
-  "Website": "Ù…ÙˆÙ‚Ø¹",
-  "Workspace": "Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„",
-  "components": "Ù…ÙƒÙˆÙ†Ø§Øª",
-  "items.": "Ø¹Ù†Ø§ØµØ±.",
-  "matches": "Ù…Ø·Ø§Ø¨Ù‚Ø§Øª",
-  "private session items": "Ø¹Ù†Ø§ØµØ± Ø¬Ù„Ø³Ø© Ø®Ø§ØµØ©",
-  "upstream items loaded": "Ø¹Ù†Ø§ØµØ± Ù…ØµØ¯Ø±ÙŠØ© ØªÙ… ØªØ­Ù…ÙŠÙ„Ù‡Ø§",
-  "/about": "/Ø­ÙˆÙ„",
-  "AI & media": "Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ ÙˆØ§Ù„ÙˆØ³Ø§Ø¦Ø·",
-  "AI image prompt": "ÙˆØµÙ ØµÙˆØ±Ø© Ù„Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ",
-  "Accent color": "Ù„ÙˆÙ† Ø§Ù„ØªÙ…ÙŠÙŠØ²",
-  "Accordion": "Ø£ÙƒÙˆØ±Ø¯ÙŠÙˆÙ†",
-  "Add a call-to-action button.": "Ø£Ø¶Ù Ø²Ø± Ø¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡.",
-  "Add a contact section and form.": "Ø£Ø¶Ù Ù‚Ø³Ù… Ø§ØªØµØ§Ù„ ÙˆÙ†Ù…ÙˆØ°Ø¬Ù‹Ø§.",
-  "Add a countdown timer.": "Ø£Ø¶Ù Ø¹Ø¯Ø§Ø¯Ù‹Ø§ ØªÙ†Ø§Ø²Ù„ÙŠÙ‹Ø§.",
-  "Add a features section.": "Ø£Ø¶Ù Ù‚Ø³Ù… Ø§Ù„Ù…ÙŠØ²Ø§Øª.",
-  "Add a flexible section you can fully restyle and replace with your own elements.": "Ø£Ø¶Ù Ù‚Ø³Ù…Ù‹Ø§ Ù…Ø±Ù†Ù‹Ø§ ÙŠÙ…ÙƒÙ†Ùƒ Ø¥Ø¹Ø§Ø¯Ø© ØªÙ†Ø³ÙŠÙ‚Ù‡ Ø¨Ø§Ù„ÙƒØ§Ù…Ù„ ÙˆØ§Ø³ØªØ¨Ø¯Ø§Ù„Ù‡ Ø¨Ø¹Ù†Ø§ØµØ±Ùƒ.",
-  "Add a footer section.": "Ø£Ø¶Ù Ù‚Ø³Ù… ØªØ°ÙŠÙŠÙ„.",
-  "Add a hero section.": "Ø£Ø¶Ù Ù‚Ø³Ù… Ø¨Ø·Ù„.",
-  "Add a pricing section.": "Ø£Ø¶Ù Ù‚Ø³Ù… Ø£Ø³Ø¹Ø§Ø±.",
-  "Add a services section.": "Ø£Ø¶Ù Ù‚Ø³Ù… Ø®Ø¯Ù…Ø§Øª.",
-  "Add a structured list of items.": "Ø£Ø¶Ù Ù‚Ø§Ø¦Ù…Ø© Ù…Ù†Ø¸Ù…Ø© Ù…Ù† Ø§Ù„Ø¹Ù†Ø§ØµØ±.",
-  "Add a testimonials section.": "Ø£Ø¶Ù Ù‚Ø³Ù… Ø´Ù‡Ø§Ø¯Ø§Øª Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡.",
-  "Add a title or section heading.": "Ø£Ø¶Ù Ø¹Ù†ÙˆØ§Ù†Ù‹Ø§ Ø£Ùˆ ØªØ±ÙˆÙŠØ³Ø© Ù‚Ø³Ù….",
-  "Add an about section.": "Ø£Ø¶Ù Ù‚Ø³Ù… Ù†Ø¨Ø°Ø©.",
-  "Add an image from uploads or AI.": "Ø£Ø¶Ù ØµÙˆØ±Ø© Ù…Ù† Ø§Ù„Ø±ÙØ¹ Ø£Ùˆ Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ.",
-  "Add controlled visual spacing.": "Ø£Ø¶Ù Ù…Ø³Ø§ÙØ© Ø¨ØµØ±ÙŠØ© Ù…Ø¶Ø¨ÙˆØ·Ø©.",
-  "Add paragraph or supporting copy.": "Ø£Ø¶Ù ÙÙ‚Ø±Ø© Ø£Ùˆ Ù†ØµÙ‹Ø§ Ø¯Ø§Ø¹Ù…Ù‹Ø§.",
-  "Add sanitized custom HTML.": "Ø£Ø¶Ù HTML Ù…Ø®ØµØµÙ‹Ø§ ÙˆÙ…Ø¹Ù‚Ù…Ù‹Ø§.",
-  "Align self": "Ù…Ø­Ø§Ø°Ø§Ø© Ø°Ø§ØªÙŠØ©",
-  "Alt text": "Ø§Ù„Ù†Øµ Ø§Ù„Ø¨Ø¯ÙŠÙ„",
-  "Anchor ID": "Ù…Ø¹Ø±Ù‘Ù Ø§Ù„Ù…Ø±Ø³Ø§Ø©",
-  "Animate once": "ØªØ­Ø±ÙŠÙƒ Ù…Ø±Ø© ÙˆØ§Ø­Ø¯Ø©",
-  "Background color": "Ù„ÙˆÙ† Ø§Ù„Ø®Ù„ÙÙŠØ©",
-  "Background image": "ØµÙˆØ±Ø© Ø§Ù„Ø®Ù„ÙÙŠØ©",
-  "Background mode": "ÙˆØ¶Ø¹ Ø§Ù„Ø®Ù„ÙÙŠØ©",
-  "Border & shadow": "Ø§Ù„Ø­Ø¯ ÙˆØ§Ù„Ø¸Ù„",
-  "Border radius": "Ø§Ø³ØªØ¯Ø§Ø±Ø© Ø§Ù„Ø­ÙˆØ§Ù",
-  "Browse imported assets safely. Office, PDF and archive files download as references; Tayar-native website formats can be opened directly when available.": "ØªØµÙØ­ Ø§Ù„Ø£ØµÙˆÙ„ Ø§Ù„Ù…Ø³ØªÙˆØ±Ø¯Ø© Ø¨Ø£Ù…Ø§Ù†. ØªÙÙ†Ø²Ù‘Ù„ Ù…Ù„ÙØ§Øª Office ÙˆPDF ÙˆØ§Ù„Ø£Ø±Ø´ÙŠÙ ÙƒÙ…Ø±Ø§Ø¬Ø¹ØŒ ÙˆÙŠÙ…ÙƒÙ† ÙØªØ­ ØµÙŠØº Ù…ÙˆØ§Ù‚Ø¹ Tayar Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù…Ø¨Ø§Ø´Ø±Ø© Ø¹Ù†Ø¯ ØªÙˆÙØ±Ù‡Ø§.",
-  "Builder tools": "Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ù…Ù†Ø´Ø¦",
-  "Button text": "Ù†Øµ Ø§Ù„Ø²Ø±",
-  "COPY": "Ù†Ø³Ø®",
-  "Call to action": "Ø¯Ø¹ÙˆØ© Ù„Ù„Ø¥Ø¬Ø±Ø§Ø¡",
-  "Canonical URL": "Ø§Ù„Ø±Ø§Ø¨Ø· Ø§Ù„Ø£Ø³Ø§Ø³ÙŠ",
-  "Collect visitor messages safely.": "Ø§Ø¬Ù…Ø¹ Ø±Ø³Ø§Ø¦Ù„ Ø§Ù„Ø²ÙˆØ§Ø± Ø¨Ø£Ù…Ø§Ù†.",
-  "Contact": "Ø§ØªØµØ§Ù„",
-  "Contact Form": "Ù†Ù…ÙˆØ°Ø¬ Ø§ØªØµØ§Ù„",
-  "Container": "Ø­Ø§ÙˆÙŠØ©",
-  "Container ID": "Ù…Ø¹Ø±Ù‘Ù Ø§Ù„Ø­Ø§ÙˆÙŠØ©",
-  "Container name": "Ø§Ø³Ù… Ø§Ù„Ø­Ø§ÙˆÙŠØ©",
-  "Content width": "Ø¹Ø±Ø¶ Ø§Ù„Ù…Ø­ØªÙˆÙ‰",
-  "Could not download template.": "ØªØ¹Ø°Ø± ØªÙ†Ø²ÙŠÙ„ Ø§Ù„Ù‚Ø§Ù„Ø¨.",
-  "Could not load templates.": "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨.",
-  "Create visual separation.": "Ø£Ù†Ø´Ø¦ ÙØµÙ„Ù‹Ø§ Ø¨ØµØ±ÙŠÙ‹Ø§.",
-  "Custom HTML": "HTML Ù…Ø®ØµØµ",
-  "DN": "Ø£Ø³ÙÙ„",
-  "Describe the image": "ØµÙ Ø§Ù„ØµÙˆØ±Ø©",
-  "Desktop": "Ø³Ø·Ø­ Ø§Ù„Ù…ÙƒØªØ¨",
-  "Device": "Ø§Ù„Ø¬Ù‡Ø§Ø²",
-  "Distance": "Ø§Ù„Ù…Ø³Ø§ÙØ©",
-  "Divider": "ÙØ§ØµÙ„",
-  "Download template": "ØªÙ†Ø²ÙŠÙ„ Ø§Ù„Ù‚Ø§Ù„Ø¨",
-  "Embed a map or external page.": "Ø¶Ù…Ù‘Ù† Ø®Ø±ÙŠØ·Ø© Ø£Ùˆ ØµÙØ­Ø© Ø®Ø§Ø±Ø¬ÙŠØ©.",
-  "Embed or display a video.": "Ø¶Ù…Ù‘Ù† Ø£Ùˆ Ø§Ø¹Ø±Ø¶ ÙÙŠØ¯ÙŠÙˆ.",
-  "Exit focus": "Ø§Ù„Ø®Ø±ÙˆØ¬ Ù…Ù† Ø§Ù„ØªØ±ÙƒÙŠØ²",
-  "Expandable content for FAQs.": "Ù…Ø­ØªÙˆÙ‰ Ù‚Ø§Ø¨Ù„ Ù„Ù„ØªÙˆØ³ÙŠØ¹ Ù„Ù„Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø´Ø§Ø¦Ø¹Ø©.",
-  "Field": "Ø­Ù‚Ù„",
-  "Field name": "Ø§Ø³Ù… Ø§Ù„Ø­Ù‚Ù„",
-  "Flexible Section": "Ù‚Ø³Ù… Ù…Ø±Ù†",
-  "Focus on canvas": "Ø§Ù„ØªØ±ÙƒÙŠØ² Ø¹Ù„Ù‰ Ø§Ù„Ù„ÙˆØ­Ø©",
-  "Font size": "Ø­Ø¬Ù… Ø§Ù„Ø®Ø·",
-  "Font weight": "Ø³ÙÙ…Ùƒ Ø§Ù„Ø®Ø·",
-  "Form response": "Ø§Ø³ØªØ¬Ø§Ø¨Ø© Ø§Ù„Ù†Ù…ÙˆØ°Ø¬",
-  "Gallery": "Ù…Ø¹Ø±Ø¶",
-  "Gradient": "ØªØ¯Ø±Ø¬",
-  "Gradient from": "Ø¨Ø¯Ø§ÙŠØ© Ø§Ù„ØªØ¯Ø±Ø¬",
-  "Gradient to": "Ù†Ù‡Ø§ÙŠØ© Ø§Ù„ØªØ¯Ø±Ø¬",
-  "Grid": "Ø´Ø¨ÙƒØ©",
-  "Group elements in a reusable layout.": "Ø§Ø¬Ù…Ø¹ Ø§Ù„Ø¹Ù†Ø§ØµØ± ÙÙŠ ØªØ®Ø·ÙŠØ· Ù‚Ø§Ø¨Ù„ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù….",
-  "Heading": "Ø¹Ù†ÙˆØ§Ù†",
-  "Hide element": "Ø¥Ø®ÙØ§Ø¡ Ø§Ù„Ø¹Ù†ØµØ±",
-  "Hide from search engines": "Ø¥Ø®ÙØ§Ø¡ Ù…Ù† Ù…Ø­Ø±ÙƒØ§Øª Ø§Ù„Ø¨Ø­Ø«",
-  "Hide on device": "Ø¥Ø®ÙØ§Ø¡ Ø¹Ù„Ù‰ Ø§Ù„Ø¬Ù‡Ø§Ø²",
-  "Hide section": "Ø¥Ø®ÙØ§Ø¡ Ø§Ù„Ù‚Ø³Ù…",
-  "Hover background": "Ø®Ù„ÙÙŠØ© Ø¹Ù†Ø¯ Ø§Ù„Ù…Ø±ÙˆØ±",
-  "Hover opacity": "Ø´ÙØ§ÙÙŠØ© Ø¹Ù†Ø¯ Ø§Ù„Ù…Ø±ÙˆØ±",
-  "Hover scale": "ØªÙƒØ¨ÙŠØ± Ø¹Ù†Ø¯ Ø§Ù„Ù…Ø±ÙˆØ±",
-  "Hover shadow": "Ø¸Ù„ Ø¹Ù†Ø¯ Ø§Ù„Ù…Ø±ÙˆØ±",
-  "Hover text color": "Ù„ÙˆÙ† Ø§Ù„Ù†Øµ Ø¹Ù†Ø¯ Ø§Ù„Ù…Ø±ÙˆØ±",
-  "Image": "ØµÙˆØ±Ø©",
-  "Image position": "Ù…ÙˆØ¶Ø¹ Ø§Ù„ØµÙˆØ±Ø©",
-  "Image size": "Ø­Ø¬Ù… Ø§Ù„ØµÙˆØ±Ø©",
-  "Layout column": "Ø¹Ù…ÙˆØ¯ Ø§Ù„ØªØ®Ø·ÙŠØ·",
-  "Leave empty for section root": "Ø§ØªØ±ÙƒÙ‡ ÙØ§Ø±ØºÙ‹Ø§ Ù„Ø¬Ø°Ø± Ø§Ù„Ù‚Ø³Ù…",
-  "List": "Ù‚Ø§Ø¦Ù…Ø©",
-  "Load more": "ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ø²ÙŠØ¯",
-  "Localization": "Ø§Ù„ØªÙˆØ·ÙŠÙ†",
-  "Map / Embed": "Ø®Ø±ÙŠØ·Ø© / ØªØ¶Ù…ÙŠÙ†",
-  "Margin bottom": "Ø§Ù„Ù‡Ø§Ù…Ø´ Ø§Ù„Ø³ÙÙ„ÙŠ",
-  "Margin left": "Ø§Ù„Ù‡Ø§Ù…Ø´ Ø§Ù„Ø£ÙŠØ³Ø±",
-  "Margin right": "Ø§Ù„Ù‡Ø§Ù…Ø´ Ø§Ù„Ø£ÙŠÙ…Ù†",
-  "Margin top": "Ø§Ù„Ù‡Ø§Ù…Ø´ Ø§Ù„Ø¹Ù„ÙˆÙŠ",
-  "Max width": "Ø£Ù‚ØµÙ‰ Ø¹Ø±Ø¶",
-  "Minimum height": "Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ø¯Ù†Ù‰ Ù„Ù„Ø§Ø±ØªÙØ§Ø¹",
-  "Mobile": "Ø§Ù„Ù‡Ø§ØªÙ",
-  "Mobile overrides": "ØªØ¬Ø§ÙˆØ²Ø§Øª Ø§Ù„Ù‡Ø§ØªÙ",
-  "Mobile section": "Ù‚Ø³Ù… Ø§Ù„Ù‡Ø§ØªÙ",
-  "No favorites yet.": "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…ÙØ¶Ù„Ø§Øª Ø¨Ø¹Ø¯.",
-  "Open template": "ÙØªØ­ Ø§Ù„Ù‚Ø§Ù„Ø¨",
-  "Option 1, Option 2, Option 3": "Ø§Ù„Ø®ÙŠØ§Ø± 1ØŒ Ø§Ù„Ø®ÙŠØ§Ø± 2ØŒ Ø§Ù„Ø®ÙŠØ§Ø± 3",
-  "Options": "Ø§Ù„Ø®ÙŠØ§Ø±Ø§Øª",
-  "Organize related content in tabs.": "Ù†Ø¸Ù‘Ù… Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù…Ø±ØªØ¨Ø· ÙÙŠ Ø¹Ù„Ø§Ù…Ø§Øª ØªØ¨ÙˆÙŠØ¨.",
-  "Overlay color": "Ù„ÙˆÙ† Ø§Ù„Ø·Ø¨Ù‚Ø©",
-  "Overlay opacity": "Ø´ÙØ§ÙÙŠØ© Ø§Ù„Ø·Ø¨Ù‚Ø©",
-  "Page": "ØµÙØ­Ø©",
-  "Page language": "Ù„ØºØ© Ø§Ù„ØµÙØ­Ø©",
-  "Position X": "Ø§Ù„Ù…ÙˆØ¶Ø¹ X",
-  "Position Y": "Ø§Ù„Ù…ÙˆØ¶Ø¹ Y",
-  "Preview device": "Ø¬Ù‡Ø§Ø² Ø§Ù„Ù…Ø¹Ø§ÙŠÙ†Ø©",
-  "Redirect URL": "Ø±Ø§Ø¨Ø· Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªÙˆØ¬ÙŠÙ‡",
-  "Refresh library": "ØªØ­Ø¯ÙŠØ« Ø§Ù„Ù…ÙƒØªØ¨Ø©",
-  "Required": "Ù…Ø·Ù„ÙˆØ¨",
-  "Reusable component": "Ù…ÙƒÙˆÙ‘Ù† Ù‚Ø§Ø¨Ù„ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù…",
-  "SEO": "SEO",
-  "SEO description": "ÙˆØµÙ SEO",
-  "SEO title": "Ø¹Ù†ÙˆØ§Ù† SEO",
-  "Section image": "ØµÙˆØ±Ø© Ø§Ù„Ù‚Ø³Ù…",
-  "Section radius": "Ø§Ø³ØªØ¯Ø§Ø±Ø© Ø§Ù„Ù‚Ø³Ù…",
-  "Section title": "Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù‚Ø³Ù…",
-  "Show customer testimonials in a slider.": "Ø§Ø¹Ø±Ø¶ Ø´Ù‡Ø§Ø¯Ø§Øª Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ ÙÙŠ Ø´Ø±ÙŠØ· ØªÙ…Ø±ÙŠØ±.",
-  "Show in navigation": "Ø¥Ø¸Ù‡Ø§Ø± ÙÙŠ Ø§Ù„ØªÙ†Ù‚Ù„",
-  "Show multiple images together.": "Ø§Ø¹Ø±Ø¶ Ø¹Ø¯Ø© ØµÙˆØ± Ù…Ø¹Ù‹Ø§.",
-  "Show numbers and counters.": "Ø§Ø¹Ø±Ø¶ Ø§Ù„Ø£Ø±Ù‚Ø§Ù… ÙˆØ§Ù„Ø¹Ø¯Ø§Ø¯Ø§Øª.",
-  "Site": "Ø§Ù„Ù…ÙˆÙ‚Ø¹",
-  "Size & spacing": "Ø§Ù„Ø­Ø¬Ù… ÙˆØ§Ù„Ù…Ø³Ø§ÙØ§Øª",
-  "Slug": "Ø§Ù„Ù…Ø³Ø§Ø± Ø§Ù„Ù…Ø®ØªØµØ±",
-  "Social image URL": "Ø±Ø§Ø¨Ø· ØµÙˆØ±Ø© Ø§Ù„Ù…Ø´Ø§Ø±ÙƒØ©",
-  "Source URL": "Ø±Ø§Ø¨Ø· Ø§Ù„Ù…ØµØ¯Ø±",
-  "Stats": "Ø¥Ø­ØµØ§Ø¡Ø§Øª",
-  "Style": "Ø§Ù„Ù†Ù…Ø·",
-  "Surface": "Ø§Ù„Ø³Ø·Ø­",
-  "Tablet": "Ø¬Ù‡Ø§Ø² Ù„ÙˆØ­ÙŠ",
-  "Tablet overrides": "ØªØ¬Ø§ÙˆØ²Ø§Øª Ø§Ù„Ø¬Ù‡Ø§Ø² Ø§Ù„Ù„ÙˆØ­ÙŠ",
-  "Tablet section": "Ù‚Ø³Ù… Ø§Ù„Ø¬Ù‡Ø§Ø² Ø§Ù„Ù„ÙˆØ­ÙŠ",
-  "Tabs": "Ø¹Ù„Ø§Ù…Ø§Øª ØªØ¨ÙˆÙŠØ¨",
-  "Templates": "Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨",
-  "Templates you download will appear here.": "Ø³ØªØ¸Ù‡Ø± Ø§Ù„Ù‚ÙˆØ§Ù„Ø¨ Ø§Ù„ØªÙŠ ØªÙ†Ø²Ù„Ù‡Ø§ Ù‡Ù†Ø§.",
-  "Testimonials Slider": "Ø´Ø±ÙŠØ· Ø´Ù‡Ø§Ø¯Ø§Øª Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡",
-  "Text align": "Ù…Ø­Ø§Ø°Ø§Ø© Ø§Ù„Ù†Øµ",
-  "Translation group": "Ù…Ø¬Ù…ÙˆØ¹Ø© Ø§Ù„ØªØ±Ø¬Ù…Ø©",
-  "Typography": "Ø§Ù„Ø·Ø¨Ø§Ø¹Ø©",
-  "UNGROUP": "ÙÙƒ Ø§Ù„ØªØ¬Ù…ÙŠØ¹",
-  "UP": "Ø£Ø¹Ù„Ù‰",
-  "URL": "Ø§Ù„Ø±Ø§Ø¨Ø·",
-  "Validation": "Ø§Ù„ØªØ­Ù‚Ù‚",
-  "Visibility": "Ø§Ù„Ø¸Ù‡ÙˆØ±",
-  "auto": "ØªÙ„Ù‚Ø§Ø¦ÙŠ",
-  "bottom": "Ø£Ø³ÙÙ„",
-  "boxed": "Ù…Ø­ØµÙˆØ±",
-  "center": "ÙˆØ³Ø·",
-  "checkbox": "Ù…Ø±Ø¨Ø¹ Ø§Ø®ØªÙŠØ§Ø±",
-  "color": "Ù„ÙˆÙ†",
-  "contain": "Ø§Ø­ØªÙˆØ§Ø¡",
-  "cover": "ØªØºØ·ÙŠØ©",
-  "dashed": "Ù…ØªÙ‚Ø·Ø¹",
-  "dotted": "Ù…Ù†Ù‚Ù‘Ø·",
-  "email": "Ø¨Ø±ÙŠØ¯ Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ",
-  "en, sv, ar...": "enØŒ svØŒ ar...",
-  "end": "Ù†Ù‡Ø§ÙŠØ©",
-  "full": "ÙƒØ§Ù…Ù„",
-  "gradient": "ØªØ¯Ø±Ø¬",
-  "image": "ØµÙˆØ±Ø©",
-  "left": "ÙŠØ³Ø§Ø±",
-  "Admin navigation, overview, tables, filters and management states.": "ØªÙ†Ù‚Ù„ Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© ÙˆÙ†Ø¸Ø±Ø© Ø¹Ø§Ù…Ø© ÙˆØ¬Ø¯Ø§ÙˆÙ„ ÙˆÙÙ„Ø§ØªØ± ÙˆØ­Ø§Ù„Ø§Øª Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©.",
-  "Apache-2.0 source. Preserve the upstream license and attribution notices when code is imported.": "Ù…ØµØ¯Ø± Apache-2.0. Ø§Ø­ØªÙØ¸ Ø¨Ø§Ù„ØªØ±Ø®ÙŠØµ ÙˆØ¥Ø´Ø¹Ø§Ø±Ø§Øª Ø§Ù„Ù†Ø³Ø¨Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ© Ø¹Ù†Ø¯ Ø§Ø³ØªÙŠØ±Ø§Ø¯ Ø§Ù„ÙƒÙˆØ¯.",
-  "App navigation, overview metrics, dashboard content, data table/filter and AI/action panel.": "ØªÙ†Ù‚Ù„ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ ÙˆÙ…Ù‚Ø§ÙŠÙŠØ³ Ø§Ù„Ù†Ø¸Ø±Ø© Ø§Ù„Ø¹Ø§Ù…Ø© ÙˆÙ…Ø­ØªÙˆÙ‰ Ù„ÙˆØ­Ø© Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª ÙˆØ¬Ø¯ÙˆÙ„/ÙÙ„ØªØ± Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆÙ„ÙˆØ­Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ/Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª.",
-  "Application shell with navigation, overview cards/data and responsive workspace structure.": "Ù‡ÙŠÙƒÙ„ ØªØ·Ø¨ÙŠÙ‚ Ù…Ø¹ ØªÙ†Ù‚Ù„ ÙˆØ¨Ø·Ø§Ù‚Ø§Øª/Ø¨ÙŠØ§Ù†Ø§Øª Ù†Ø¸Ø±Ø© Ø¹Ø§Ù…Ø© ÙˆØ¨Ù†ÙŠØ© Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ù…ØªØ¬Ø§ÙˆØ¨Ø©.",
-  "Apply reviewed patch": "ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„ØªØµØ­ÙŠØ­ Ø§Ù„Ù…ÙØ±Ø§Ø¬Ø¹",
-  "Assistant conversation surface with prompt input and status.": "ÙˆØ§Ø¬Ù‡Ø© Ù…Ø­Ø§Ø¯Ø«Ø© Ø§Ù„Ù…Ø³Ø§Ø¹Ø¯ Ù…Ø¹ Ø¥Ø¯Ø®Ø§Ù„ Ø§Ù„Ø·Ù„Ø¨ ÙˆØ§Ù„Ø­Ø§Ù„Ø©.",
-  "Auth": "Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø©",
-  "Auth shell": "Ù‡ÙŠÙƒÙ„ Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø©",
-  "Auth starter": "Ø¨Ø¯Ø§ÙŠØ© Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø©",
-  "Authentication Card": "Ø¨Ø·Ø§Ù‚Ø© Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø©",
-  "Authentication shell, login form, secondary auth state and supporting CTA/content.": "Ù‡ÙŠÙƒÙ„ Ù…ØµØ§Ø¯Ù‚Ø© ÙˆÙ†Ù…ÙˆØ°Ø¬ ØªØ³Ø¬ÙŠÙ„ Ø¯Ø®ÙˆÙ„ ÙˆØ­Ø§Ù„Ø© Ù…ØµØ§Ø¯Ù‚Ø© Ø«Ø§Ù†ÙˆÙŠØ© ÙˆÙ…Ø­ØªÙˆÙ‰/Ø¯Ø¹ÙˆØ© Ø¯Ø§Ø¹Ù…Ø©.",
-  "Browse reusable UI, inspect code and dependencies, then hand source-aware adaptation instructions to AI. Only approved redistributable sources are loaded.": "ØªØµÙØ­ ÙˆØ§Ø¬Ù‡Ø§Øª Ù‚Ø§Ø¨Ù„Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… ÙˆØ§ÙØ­Øµ Ø§Ù„ÙƒÙˆØ¯ ÙˆØ§Ù„ØªØ¨Ø¹ÙŠØ§Øª Ø«Ù… Ø£Ø±Ø³Ù„ ØªØ¹Ù„ÙŠÙ…Ø§Øª ØªÙƒÙŠÙŠÙ ÙˆØ§Ø¹ÙŠØ© Ø¨Ø§Ù„Ù…ØµØ¯Ø± Ù„Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ. ÙŠØªÙ… ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…ØµØ§Ø¯Ø± Ø§Ù„Ù…Ø³Ù…ÙˆØ­ Ø¨Ø¥Ø¹Ø§Ø¯Ø© ØªÙˆØ²ÙŠØ¹Ù‡Ø§ ÙÙ‚Ø·.",
-  "Build a complete conversion-focused landing page that feels native to the active project.": "Ø§Ø¨Ù†Ù ØµÙØ­Ø© Ù‡Ø¨ÙˆØ· ÙƒØ§Ù…Ù„Ø© ØªØ±ÙƒØ² Ø¹Ù„Ù‰ Ø§Ù„ØªØ­ÙˆÙŠÙ„ ÙˆØªØ¨Ø¯Ùˆ Ø£ØµÙ„ÙŠØ© Ø¶Ù…Ù† Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ Ø§Ù„Ù†Ø´Ø·.",
-  "Build a complete sign-in feature that reuses existing authentication services when present and never invents a backend.": "Ø§Ø¨Ù†Ù Ù…ÙŠØ²Ø© ØªØ³Ø¬ÙŠÙ„ Ø¯Ø®ÙˆÙ„ ÙƒØ§Ù…Ù„Ø© ØªØ¹ÙŠØ¯ Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø®Ø¯Ù…Ø§Øª Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ© Ø¹Ù†Ø¯ ÙˆØ¬ÙˆØ¯Ù‡Ø§ ÙˆÙ„Ø§ ØªØ®ØªØ±Ø¹ Ø®Ù„ÙÙŠØ©.",
-  "Build a polished SaaS marketing page with strong hierarchy, product proof and clear conversion flow.": "Ø§Ø¨Ù†Ù ØµÙØ­Ø© ØªØ³ÙˆÙŠÙ‚ SaaS Ù…ØµÙ‚ÙˆÙ„Ø© Ø¨Ù‡ÙŠÙƒÙ„ Ù‚ÙˆÙŠ ÙˆØ¥Ø«Ø¨Ø§Øª Ù„Ù„Ù…Ù†ØªØ¬ ÙˆÙ…Ø³Ø§Ø± ØªØ­ÙˆÙŠÙ„ ÙˆØ§Ø¶Ø­.",
-  "Build a polished responsive dashboard feature using existing project data boundaries and style tokens.": "Ø§Ø¨Ù†Ù Ù…ÙŠØ²Ø© Ù„ÙˆØ­Ø© Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ù…ØªØ¬Ø§ÙˆØ¨Ø© ÙˆÙ…ØµÙ‚ÙˆÙ„Ø© Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø­Ø¯ÙˆØ¯ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ ÙˆØ±Ù…ÙˆØ² Ø§Ù„Ù†Ù…Ø· Ø§Ù„Ø­Ø§Ù„ÙŠØ©.",
-  "Build a production-minded admin feature with responsive navigation, management tables/forms and no invented privileged backend actions.": "Ø§Ø¨Ù†Ù Ù…ÙŠØ²Ø© Ø¥Ø¯Ø§Ø±Ø© Ø¬Ø§Ù‡Ø²Ø© Ù„Ù„Ø¥Ù†ØªØ§Ø¬ Ù…Ø¹ ØªÙ†Ù‚Ù„ Ù…ØªØ¬Ø§ÙˆØ¨ ÙˆØ¬Ø¯Ø§ÙˆÙ„/Ù†Ù…Ø§Ø°Ø¬ Ø¥Ø¯Ø§Ø±Ø© Ø¯ÙˆÙ† Ø§Ø®ØªØ±Ø§Ø¹ Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø®Ù„ÙÙŠØ© Ù…Ù…ÙŠÙ‘Ø²Ø©.",
-  "message": "Ø±Ø³Ø§Ù„Ø©",
-  "redirect": "Ø¥Ø¹Ø§Ø¯Ø© ØªÙˆØ¬ÙŠÙ‡",
-  "right": "ÙŠÙ…ÙŠÙ†",
-  "row": "ØµÙ",
-  "select": "Ù‚Ø§Ø¦Ù…Ø© Ø§Ø®ØªÙŠØ§Ø±",
-  "solid": "Ù…ØªØµÙ„",
-  "stack": "ØªÙƒØ¯ÙŠØ³",
-  "start": "Ø¨Ø¯Ø§ÙŠØ©",
-  "stretch": "ØªÙ…Ø¯ÙŠØ¯",
-  "tel": "Ù‡Ø§ØªÙ",
-  "text": "Ù†Øµ",
-  "textarea": "Ù…Ù†Ø·Ù‚Ø© Ù†Øµ",
-  "three-column": "Ø«Ù„Ø§Ø«Ø© Ø£Ø¹Ù…Ø¯Ø©",
-  "top": "Ø£Ø¹Ù„Ù‰",
-  "two-column": "Ø¹Ù…ÙˆØ¯Ø§Ù†",
-};
-const sv: PhraseMap = {
-  'Recent': 'Senaste',
-  'Loading libraryâ€¦': 'Biblioteket lÃ¤ses inâ€¦',
-  'No matching templates': 'Inga matchande mallar',
-  'Unknown size': 'OkÃ¤nd storlek',
-  'Format': 'Format',
-  'Restore this history state? Your current unsaved changes will move to the Redo queue.': 'Ã…terstÃ¤lla det hÃ¤r historiklÃ¤get? Dina aktuella osparade Ã¤ndringar flyttas till kÃ¶n fÃ¶r GÃ¶r om.',
-  'You have unsaved website changes. Leave without saving?': 'Du har osparade Ã¤ndringar pÃ¥ webbplatsen. Vill du lÃ¤mna utan att spara?',
-  'AI action': 'AI-Ã¥tgÃ¤rd',
-  'Edit current website': 'Redigera aktuell webbplats',
-  'Build new website': 'Bygg ny webbplats',
-  'Building a new website replaces the current pages. Continue?': 'Om du bygger en ny webbplats ersÃ¤tts de aktuella sidorna. FortsÃ¤tta?',
-  'Generating...': 'Genererar...', 'Your result will appear here.': 'Ditt resultat visas hÃ¤r.', 'Coming Soon': 'Kommer snart',
-  "This tool is under active development. You'll be notified when it's ready.": 'Det hÃ¤r verktyget utvecklas aktivt. Du fÃ¥r besked nÃ¤r det Ã¤r klart.',
-  'AI Writer': 'AI-skrivare', 'Write blogs, articles, and marketing copy.': 'Skriv blogginlÃ¤gg, artiklar och marknadsfÃ¶ringstexter.',
-  'Content Type': 'InnehÃ¥llstyp', 'Topic': 'Ã„mne', 'Tone': 'Ton', 'Length': 'LÃ¤ngd', 'Target Audience': 'MÃ¥lgrupp', 'Key Points (optional)': 'Viktiga punkter (valfritt)',
-  'The future of AI in healthcare': 'Framtiden fÃ¶r AI inom vÃ¥rden', 'Healthcare professionals': 'VÃ¥rdpersonal', 'One point per line': 'En punkt per rad',
-  'Blog Post': 'BlogginlÃ¤gg', 'Article': 'Artikel', 'Marketing Copy': 'MarknadsfÃ¶ringstext', 'Social Media Post': 'InlÃ¤gg pÃ¥ sociala medier', 'Product Description': 'Produktbeskrivning',
-  'Professional': 'Professionell', 'Casual': 'Avslappnad', 'Persuasive': 'Ã–vertygande', 'Informative': 'Informativ', 'Humorous': 'Humoristisk', 'Inspirational': 'Inspirerande',
-  'Short': 'Kort', 'Long': 'LÃ¥ng', 'Writing content...': 'Skriver innehÃ¥ll...', 'Content generated': 'InnehÃ¥llet har skapats', 'Writing...': 'Skriver...', 'Generate Content': 'Skapa innehÃ¥ll', 'Copy': 'Kopiera', 'Copied': 'Kopierad',
-  'Cover Letter Writer': 'Skriv personligt brev', 'Craft personalized cover letters for any job.': 'Skapa anpassade personliga brev fÃ¶r alla jobb.', 'Your Name': 'Ditt namn', 'Job Title': 'Jobbtitel', 'Company': 'FÃ¶retag', 'Key Qualifications': 'Viktiga kvalifikationer', 'Why this job?': 'VarfÃ¶r det hÃ¤r jobbet?',
-  'Software Engineer': 'MjukvaruingenjÃ¶r', '5 years React, led team of 4...': '5 Ã¥r med React, ledde ett team pÃ¥ 4...', 'Passionate about...': 'Brinner fÃ¶r...', 'Writing cover letter...': 'Skriver personligt brev...', 'Cover letter written': 'Personligt brev klart', 'Write Cover Letter': 'Skriv personligt brev',
-  'AI CV Builder': 'AI CV-byggare', 'Create ATS-friendly resumes with AI.': 'Skapa ATS-vÃ¤nliga CV:n med AI.', 'Years of Experience': 'Ã…rs erfarenhet', 'Key Skills (comma separated)': 'Viktiga fÃ¤rdigheter (kommaseparerade)', 'Target Industry': 'MÃ¥lbransch', 'Technology': 'Teknik', 'Generating CV...': 'Skapar CV...', 'CV generated successfully': 'CV skapat', 'Generate CV': 'Skapa CV',
-  'Document AI': 'Dokument-AI', 'Summarize, analyze, and extract from documents.': 'Sammanfatta, analysera och extrahera frÃ¥n dokument.', 'Action': 'Ã…tgÃ¤rd', 'Document Content': 'DokumentinnehÃ¥ll', 'Question': 'FrÃ¥ga', 'Summarize': 'Sammanfatta', 'Analyze': 'Analysera', 'Ask a Question': 'StÃ¤ll en frÃ¥ga', 'Paste your document text here...': 'Klistra in dokumenttexten hÃ¤r...', 'What is the main conclusion?': 'Vad Ã¤r huvudslutsatsen?', 'Analyzing document...': 'Analyserar dokument...', 'Analysis complete': 'Analysen Ã¤r klar', 'Analyzing...': 'Analyserar...', 'Analyze Document': 'Analysera dokument',
-  'Study Assistant': 'Studieassistent', 'Explain concepts, create quizzes, and study plans.': 'FÃ¶rklara begrepp, skapa quiz och studieplaner.', 'What do you need?': 'Vad behÃ¶ver du?', 'Topic / Subject': 'Ã„mne', 'Level': 'NivÃ¥', 'Count': 'Antal', 'Explain a Concept': 'FÃ¶rklara ett begrepp', 'Create a Quiz': 'Skapa ett quiz', 'Generate Flashcards': 'Skapa flashcards', 'Create Study Plan': 'Skapa studieplan', 'Quantum computing': 'KvantberÃ¤kning', 'Generating study material...': 'Skapar studiematerial...', 'Study material generated': 'Studiematerial skapat', 'Generate': 'Skapa',
-  'Team Workspace': 'Team Workspace', 'Build websites together': 'Bygg webbplatser tillsammans', 'Secure roles, invitations and shared projects. Pro supports 3 seats; Business supports 10 seats.': 'SÃ¤kra roller, inbjudningar och delade projekt. Pro stÃ¶der 3 platser och Business 10.', 'Paste a team invitation token or open an invitation link': 'Klistra in en teaminbjudningskod eller Ã¶ppna en inbjudningslÃ¤nk', 'Your teams': 'Dina team', 'No team workspaces yet.': 'Inga teamarbetsytor Ã¤nnu.', 'New workspace name': 'Namn pÃ¥ ny arbetsyta', 'Create or select a team workspace to manage members and projects.': 'Skapa eller vÃ¤lj en teamarbetsyta fÃ¶r att hantera medlemmar och projekt.', 'Rename workspace': 'Byt namn pÃ¥ arbetsyta', 'Delete workspace': 'Ta bort arbetsyta', 'Invite teammate': 'Bjud in teammedlem', 'Invite': 'Bjud in', 'Members': 'Medlemmar', 'Editor': 'Redigerare', 'Viewer': 'Visare', 'Transfer ownership': 'Ã–verfÃ¶r Ã¤garskap', 'Leave workspace': 'LÃ¤mna arbetsyta', 'Remove member': 'Ta bort medlem', 'Pending invitations': 'VÃ¤ntande inbjudningar', 'Shared projects': 'Delade projekt', 'Select one of your personal projectsâ€¦': 'VÃ¤lj ett av dina personliga projektâ€¦', 'Share project': 'Dela projekt', 'Remove from workspace': 'Ta bort frÃ¥n arbetsytan', 'Open Website Builder from the Tools menu; this shared project will appear in the Cloud Projects selector.': 'Ã–ppna Webbplatsbyggaren frÃ¥n Verktyg-menyn; det delade projektet visas i vÃ¤ljaren fÃ¶r molnprojekt.', 'No projects shared with this workspace yet.': 'Inga projekt har delats med den hÃ¤r arbetsytan Ã¤nnu.',
-  'Settings': 'InstÃ¤llningar', 'Manage your account, security, and preferences.': 'Hantera konto, sÃ¤kerhet och instÃ¤llningar.', 'Profile': 'Profil', 'Security': 'SÃ¤kerhet', 'Preferences': 'InstÃ¤llningar', 'Privacy': 'Integritet', 'Data Export (GDPR)': 'Dataexport (GDPR)', 'Account Data Export': 'Export av kontodata', 'Download a portable JSON export of your account records and stored-file inventory. Original file binaries remain available from their tools.': 'Ladda ned en portabel JSON-export med dina kontoposter och en lista Ã¶ver lagrade filer. De ursprungliga filerna Ã¤r fortsatt tillgÃ¤ngliga i respektive verktyg.', 'Sign in to export your account data.': 'Logga in fÃ¶r att exportera dina kontodata.', 'Download a complete copy of all your data stored on Tayar Intelligence Tools. This includes your profile, projects, files, conversations, and activity log.': 'Ladda ner en komplett kopia av all data som lagras i Tayar Intelligence Tools, inklusive profil, projekt, filer, konversationer och aktivitetslogg.', 'Preparing your data...': 'FÃ¶rbereder dina data...', 'Data exported successfully': 'Data exporterades', 'Failed to export data': 'Dataexport misslyckades', 'Personal data downloaded': 'Personliga data nedladdade', 'Export All Data': 'Exportera all data', 'Download Personal Data': 'Ladda ner personliga data', 'Privacy Controls': 'Integritetskontroller', 'Analytics enabled': 'Analys aktiverad', 'Analytics disabled': 'Analys inaktiverad', 'Prevent your content from being used to improve AI models': 'FÃ¶rhindra att ditt innehÃ¥ll anvÃ¤nds fÃ¶r att fÃ¶rbÃ¤ttra AI-modeller', 'AI training opt-out enabled': 'AvstÃ¥ende frÃ¥n AI-trÃ¤ning aktiverat', 'AI training opt-out disabled': 'AvstÃ¥ende frÃ¥n AI-trÃ¤ning inaktiverat', 'Data Storage Location': 'Datalagringsplats', 'Cloud storage location follows the active service configuration. See the Privacy Policy for current providers.': 'Molnlagringens plats fÃ¶ljer den aktiva tjÃ¤nstekonfigurationen. Se integritetspolicyn fÃ¶r aktuella leverantÃ¶rer.', 'Data Encryption': 'Datakryptering', 'Delete Account': 'Radera konto', 'Permanently delete your Tayar account, owned projects and stored files. An active subscription is canceled first. Payment providers may retain records required by law. This action cannot be undone.': 'Radera permanent ditt Tayar-konto, projekt som du Ã¤ger och lagrade filer. En aktiv prenumeration sÃ¤gs upp fÃ¶rst. BetalningsleverantÃ¶rer kan behÃ¥lla uppgifter som krÃ¤vs enligt lag. Ã…tgÃ¤rden kan inte Ã¥ngras.', 'Type "DELETE" to confirm': 'Skriv "DELETE" fÃ¶r att bekrÃ¤fta', 'Deleting account...': 'Raderar konto...', 'Account deleted': 'Kontot raderades', 'Failed to delete account. Please contact support.': 'Det gick inte att radera kontot. Kontakta supporten.', 'Go to Workspace â†’': 'GÃ¥ till arbetsytan â†’', 'Upgrade to Pro': 'Uppgradera till Pro', 'Upgrade Now': 'Uppgradera nu', 'Unlock all 50+ AI tools and unlimited documents.': 'LÃ¥s upp hÃ¶gre grÃ¤nser och fler professionella funktioner.', 'Soon': 'Snart', 'Beta': 'Beta',
-  'Delete My Account': 'Radera mitt konto',
-  'This will permanently delete:': 'Detta raderar permanent:',
-  'Your profile and account credentials': 'Din profil och dina kontouppgifter',
-  'All projects (CVs, cover letters, documents)': 'Alla projekt (CV:n, personliga brev, dokument)',
-  'All files and exports': 'Alla filer och exporter',
-  'All AI conversations and usage history': 'Alla AI-konversationer och anvÃ¤ndningshistorik',
-  'All activity logs and preferences': 'Alla aktivitetsloggar och instÃ¤llningar',
-  'Type': 'Skriv',
-  'to confirm': 'fÃ¶r att bekrÃ¤fta',
-  'Yes, Delete Everything': 'Ja, radera allt',
-  'Cancel': 'Avbryt',
-  'Saving profile...': 'Sparar profil...',
-  'Profile saved': 'Profil sparad',
-  'Your name': 'Ditt namn',
-  'Email Address': 'E-postadress',
-  'Bio': 'Bio',
-  'Tell us about yourself...': 'BerÃ¤tta om dig sjÃ¤lv...',
-  'Save Changes': 'Spara Ã¤ndringar',
-  'Updating password...': 'Uppdaterar lÃ¶senord...',
-  'Password updated successfully': 'LÃ¶senordet uppdaterades',
-  'Passwords do not match': 'LÃ¶senorden matchar inte',
-  'Password must be at least 6 characters': 'LÃ¶senordet mÃ¥ste vara minst 6 tecken',
-  'Email Verification': 'E-postverifiering',
-  'Email verified': 'E-post verifierad',
-  'Your email address has been confirmed.': 'Din e-postadress har bekrÃ¤ftats.',
-  'Email not verified': 'E-post inte verifierad',
-  'Please verify your email address to secure your account.': 'Verifiera din e-postadress fÃ¶r att sÃ¤kra kontot.',
-  'Sending verification email...': 'Skickar verifieringsmail...',
-  'Verification email sent': 'Verifieringsmail skickat',
-  'Verify Now': 'Verifiera nu',
-  'Change Password': 'Ã„ndra lÃ¶senord',
-  'New Password': 'Nytt lÃ¶senord',
-  'Enter new password': 'Ange nytt lÃ¶senord',
-  'Confirm New Password': 'BekrÃ¤fta nytt lÃ¶senord',
-  'Confirm new password': 'BekrÃ¤fta nytt lÃ¶senord',
-  'Update Password': 'Uppdatera lÃ¶senord',
-  'Danger Zone': 'Riskzon',
-  'Sign out from all devices or permanently delete your account.': 'Logga ut frÃ¥n alla enheter eller radera kontot permanent.',
-  'Sign Out': 'Logga ut',
-  'Theme': 'Tema',
-  'Language': 'SprÃ¥k',
-  'Dark Mode': 'MÃ¶rkt lÃ¤ge',
-  'Light Mode': 'Ljust lÃ¤ge',
-  'Easy on the eyes': 'Skonsamt fÃ¶r Ã¶gonen',
-  'Bright and clean': 'Ljust och rent',
-  'Email Notifications': 'E-postaviseringar',
-  'Important account and security emails': 'Viktiga konto- och sÃ¤kerhetsmail',
-  'Push Notifications': 'Push-aviseringar',
-  'Real-time updates in your browser': 'Realtidsuppdateringar i webblÃ¤saren',
-  'Marketing Emails': 'MarknadsfÃ¶ringsmail',
-  'Product updates, tips, and special offers': 'Produktnyheter, tips och specialerbjudanden',
-  'Notification Preferences': 'AviseringsinstÃ¤llningar',
-  'free plan': 'gratisplan',
-  'Verified': 'Verifierad',
-  'Not verified': 'Inte verifierad',
-
-  'Password must be at least 8 characters': 'LÃ¶senordet mÃ¥ste vara minst 8 tecken',
-  'Password is too long': 'LÃ¶senordet Ã¤r fÃ¶r lÃ¥ngt',
-  'Password must contain a lowercase letter': 'LÃ¶senordet mÃ¥ste innehÃ¥lla en liten bokstav',
-  'Password must contain an uppercase letter': 'LÃ¶senordet mÃ¥ste innehÃ¥lla en stor bokstav',
-  'Password must contain a number': 'LÃ¶senordet mÃ¥ste innehÃ¥lla en siffra',
-  'At least 8 characters': 'Minst 8 tecken',
-  'Choose a stronger password.': 'VÃ¤lj ett starkare lÃ¶senord.',
-  'plan': 'plan',
-
-  'Owner': 'Ã„gare',
-  'Full control, billing and publishing.': 'Full kontroll, fakturering och publicering.',
-  'Manage members and shared projects.': 'Hantera medlemmar och delade projekt.',
-  'Edit shared project content.': 'Redigera innehÃ¥ll i delade projekt.',
-  'Read-only access.': 'Endast lÃ¤sbehÃ¶righet.',
-  'Unexpected error': 'OvÃ¤ntat fel',
-  'Create team': 'Skapa team',
-  'Creating...': 'Skapar...',
-  'Accept invite': 'Acceptera inbjudan',
-  'Accepting...': 'Accepterar...',
-  'Refresh': 'Uppdatera',
-  'Rename': 'Byt namn',
-  'Delete': 'Ta bort',
-  'Copy invite link': 'Kopiera inbjudningslÃ¤nk',
-  'Revoke': 'Ã…terkalla',
-  'Role': 'Roll',
-  'Seats': 'Platser',
-  'Projects': 'Projekt',
-  'Project': 'Projekt',
-  'No pending invitations.': 'Inga vÃ¤ntande inbjudningar.',
-
-  'Command palette': 'Kommandopalett',
-  'Command palette (Ctrl+K)': 'Kommandopalett (Ctrl+K)',
-  'Toggle theme': 'Byt tema',
-  'Change language': 'Byt sprÃ¥k',
-  'AI Chat': 'AI-chatt',
-  'Use the AI Assistant panel on the right to chat!': 'AnvÃ¤nd AI-assistentpanelen till hÃ¶ger fÃ¶r att chatta!',
-  'Subscription': 'Prenumeration',
-  'Manage your plan and billing.': 'Hantera din plan och fakturering.',
-  'Support': 'Support',
-  'Get help, browse docs, or contact our team.': 'FÃ¥ hjÃ¤lp, lÃ¤s dokumentation eller kontakta vÃ¥rt team.',
-  'Keyboard Shortcuts': 'Kortkommandon',
-
-  'About Tayar Intelligence': 'Om Tayar Intelligence',
-  'A focused workspace for building, creating, collaborating and shipping finished work.': 'En fokuserad arbetsyta fÃ¶r att bygga, skapa, samarbeta och leverera fÃ¤rdigt arbete.',
-  'Tayar Intelligence brings practical productivity tools into one workspace. The current product includes Website Builder V1, team workspaces, document and writing tools, translation, study workflows, project management and account-level preferences.': 'Tayar Intelligence samlar praktiska produktivitetsverktyg i en arbetsyta. Produkten innehÃ¥ller Webbplatsbyggare V1, teamarbetsytor, dokument- och skrivverktyg, Ã¶versÃ¤ttning, studieflÃ¶den, projekthantering och kontoinstÃ¤llningar.',
-  'The goal is simple: reduce tool switching while keeping the important parts of a project â€” content, versions, permissions and delivery â€” connected.': 'MÃ¥let Ã¤r enkelt: minska vÃ¤xlingen mellan verktyg och samtidigt hÃ¥lla viktiga projektdelar â€” innehÃ¥ll, versioner, behÃ¶righeter och leverans â€” sammanlÃ¤nkade.',
-  'Website Builder V1': 'Webbplatsbyggare V1',
-  'Website Builder V1 is active and supports responsive pages, forms, publishing, release history and rollback, multilingual pages, analytics, conversion tracking, lead management, team collaboration and client handoff workflows.': 'Webbplatsbyggare V1 Ã¤r aktiv och stÃ¶der responsiva sidor, formulÃ¤r, publicering, versionshistorik och Ã¥terstÃ¤llning, flersprÃ¥kiga sidor, analys, konverteringsspÃ¥rning, leadshantering, teamsamarbete och kundleverans.',
-  'What comes next': 'Vad kommer hÃ¤rnÃ¤st',
-  'The next major product phase is AI-assisted website generation. It is intentionally separate from V1 so the core builder can remain useful and production-ready without depending on AI generation.': 'NÃ¤sta stÃ¶rre fas Ã¤r AI-assisterad webbplatsgenerering. Den hÃ¥lls avsiktligt separat frÃ¥n V1 sÃ¥ att kÃ¤rnbyggaren fÃ¶rblir anvÃ¤ndbar och produktionsklar utan beroende av AI-generering.',
-  'Contact Us': 'Kontakta oss',
-  "We'd love to hear from you. Reach out with any questions or feedback.": 'Vi hÃ¶r gÃ¤rna frÃ¥n dig. Kontakta oss med frÃ¥gor eller feedback.',
-  'Phone': 'Telefon',
-  'Office': 'Kontor',
-  'Stockholm, Sweden': 'Stockholm, Sverige',
-  'Your Email': 'Din e-post',
-  'Subject': 'Ã„mne',
-  'Message': 'Meddelande',
-  'Your email': 'Din e-post',
-  'Your message': 'Ditt meddelande',
-  'Send Feedback': 'Skicka feedback',
-  'Help us improve Tayar Intelligence Tools. Share your thoughts, ideas, and suggestions.': 'HjÃ¤lp oss fÃ¶rbÃ¤ttra Tayar Intelligence Tools. Dela dina tankar, idÃ©er och fÃ¶rslag.',
-  'How would you rate your experience?': 'Hur skulle du betygsÃ¤tta din upplevelse?',
-  'Rating': 'Betyg',
-  'Category': 'Kategori',
-  'General': 'AllmÃ¤nt',
-  'Feature Request': 'FunktionsÃ¶nskemÃ¥l',
-  'UI / Design': 'UI / Design',
-  'Performance': 'Prestanda',
-  'Praise': 'BerÃ¶m',
-  'Your Feedback': 'Din feedback',
-  'Tell us what you think...': 'BerÃ¤tta vad du tycker...',
-  'Your feedback': 'Din feedback',
-  'Report a Bug': 'Rapportera en bugg',
-  'Found a bug? Help us fix it. Provide as much detail as possible.': 'Hittat en bugg? HjÃ¤lp oss fixa den och ge sÃ¥ mycket information som mÃ¶jligt.',
-  'Severity': 'Allvarlighetsgrad',
-  'Bug severity': 'Buggens allvarlighetsgrad',
-  'Low - Minor issue, not blocking': 'LÃ¥g - Mindre problem, blockerar inte',
-  'Medium - Affects workflow': 'Medel - PÃ¥verkar arbetsflÃ¶det',
-  'High - Major feature broken': 'HÃ¶g - Viktig funktion trasig',
-  'Critical - App unusable': 'Kritisk - Appen gÃ¥r inte att anvÃ¤nda',
-  'Affected Tool': 'BerÃ¶rt verktyg',
-  'Affected tool': 'BerÃ¶rt verktyg',
-  'General / Platform': 'AllmÃ¤nt / Plattform',
-  'CV Builder': 'CV-byggare',
-  'Cover Letter': 'Personligt brev',
-  'Translator': 'Ã–versÃ¤ttare',
-  'Login / Signup': 'Inloggning / Registrering',
-  'Steps to Reproduce': 'Steg fÃ¶r att Ã¥terskapa',
-  'Expected Behavior': 'FÃ¶rvÃ¤ntat beteende',
-  'Actual Behavior': 'Faktiskt beteende',
-  'Help Center': 'HjÃ¤lpcenter',
-  'Find answers to common questions and get support.': 'Hitta svar pÃ¥ vanliga frÃ¥gor och fÃ¥ support.',
-  'No results found. Try a different search.': 'Inga resultat hittades. Prova en annan sÃ¶kning.',
-  'Still need help?': 'BehÃ¶ver du fortfarande hjÃ¤lp?',
-  "Send us a message and we'll get back to you within 24 hours.": 'Skicka ett meddelande sÃ¥ Ã¥terkommer vi inom 24 timmar.',
-  'Search help articles...': 'SÃ¶k i hjÃ¤lpartiklar...',
-  'Describe your issue...': 'Beskriv ditt problem...',
-  'Cookie Consent': 'Cookie-samtycke',
-  'Privacy Policy': 'Integritetspolicy',
-  'Necessary': 'NÃ¶dvÃ¤ndiga',
-  'Analytics': 'Analys',
-  'Marketing': 'MarknadsfÃ¶ring',
-  'Cookie consent': 'Cookie-samtycke',
-  'Close cookie consent': 'StÃ¤ng cookie-samtycke',
-  'Cookie settings': 'Cookie-instÃ¤llningar',
-  'Last updated: August 28, 2026': 'Senast uppdaterad: 28 augusti 2026',
-  'Terms of Service': 'AnvÃ¤ndarvillkor',
-  'This page describes the main categories of information Tayar Intelligence may process when you use the product. The exact data involved depends on the features you choose to use.': 'Den hÃ¤r sidan beskriver huvudkategorierna av information som Tayar Intelligence kan behandla nÃ¤r du anvÃ¤nder produkten. Exakta data beror pÃ¥ vilka funktioner du anvÃ¤nder.',
-  'Account details, profile settings, projects, files, preferences and collaboration data may be stored so the service can authenticate you, save your work and enforce access permissions.': 'Kontouppgifter, profilinstÃ¤llningar, projekt, filer, preferenser och samarbetsdata kan lagras fÃ¶r autentisering, sparande av arbete och Ã¥tkomstkontroll.',
-  'Website Builder projects can include pages, media references, form submissions, leads, analytics events, release history, publishing settings and team permissions. Public website forms and analytics use dedicated server-side controls and rate limits.': 'Projekt i Webbplatsbyggaren kan innehÃ¥lla sidor, mediereferenser, formulÃ¤rsvar, leads, analyshÃ¤ndelser, versionshistorik, publiceringsinstÃ¤llningar och teambehÃ¶righeter. Publika formulÃ¤r och analys anvÃ¤nder sÃ¤rskilda serverkontroller och hastighetsgrÃ¤nser.',
-  'The application uses third-party infrastructure such as Supabase for authentication, database and storage capabilities. Features that use external AI or payment services may send the information required to complete that specific request to the configured provider.': 'Applikationen anvÃ¤nder tredjepartsinfrastruktur som Supabase fÃ¶r autentisering, databas och lagring. Funktioner som anvÃ¤nder externa AI- eller betaltjÃ¤nster kan skicka den information som krÃ¤vs fÃ¶r den specifika begÃ¤ran till konfigurerad leverantÃ¶r.',
-  'The application uses encrypted network connections and database access controls, including Row Level Security for user and workspace data. Authentication credentials are handled through the authentication provider rather than being stored as plaintext application data.': 'Applikationen anvÃ¤nder krypterade nÃ¤tverksanslutningar och databasÃ¥tkomstkontroller, inklusive Row Level Security fÃ¶r anvÃ¤ndar- och arbetsytedata. Autentiseringsuppgifter hanteras av autentiseringsleverantÃ¶ren och lagras inte som klartext i appen.',
-  'Browser storage may be used for authentication sessions, interface preferences, recovery data and consent choices. Analytics or production integrations are controlled by the relevant product and website settings.': 'WebblÃ¤sarlagring kan anvÃ¤ndas fÃ¶r autentiseringssessioner, grÃ¤nssnittsinstÃ¤llningar, Ã¥terstÃ¤llningsdata och samtyckesval. Analys- och produktionsintegrationer styrs av relevanta produkt- och webbplatsinstÃ¤llningar.',
-  'You can manage account preferences and many stored project settings inside the product. Requests relating to access, correction or deletion of personal data should be made through the support options available in your account.': 'Du kan hantera kontoinstÃ¤llningar och mÃ¥nga lagrade projektinstÃ¤llningar i produkten. BegÃ¤ran om Ã¥tkomst, rÃ¤ttelse eller radering av personuppgifter ska gÃ¶ras via supportalternativen i ditt konto.',
-  'This policy may be updated as the product, infrastructure or legal requirements change. The date at the top of this page shows the latest published revision.': 'Policyn kan uppdateras nÃ¤r produkten, infrastrukturen eller juridiska krav fÃ¶rÃ¤ndras. Datumet hÃ¶gst upp visar senaste publicerade revision.',
-  'By using Tayar Intelligence, you agree to use the service lawfully and in a way that does not interfere with other users, the platform or its infrastructure.': 'Genom att anvÃ¤nda Tayar Intelligence godkÃ¤nner du att anvÃ¤nda tjÃ¤nsten lagligt och utan att stÃ¶ra andra anvÃ¤ndare, plattformen eller infrastrukturen.',
-  'You are responsible for the accuracy of information submitted through your account and for keeping access to your account secure. Team and shared-project permissions should only be granted to people you intend to collaborate with.': 'Du ansvarar fÃ¶r riktigheten i information som skickas via ditt konto och fÃ¶r att hÃ¥lla kontot sÃ¤kert. Team- och projektbehÃ¶righeter ska bara ges till personer du avser att samarbeta med.',
-  'You remain responsible for reviewing the content, websites, documents and other outputs you create or publish through the platform. Automated or AI-assisted output should be checked before it is relied on or published.': 'Du ansvarar fortsatt fÃ¶r att granska innehÃ¥ll, webbplatser, dokument och andra resultat som du skapar eller publicerar via plattformen. Automatiskt eller AI-assisterat material ska kontrolleras innan det anvÃ¤nds eller publiceras.',
-  'You may not use the service to break the law, abuse public forms or APIs, bypass product limits or access controls, distribute malicious content, interfere with the service, or attempt unauthorized access to other accounts or projects.': 'Du fÃ¥r inte anvÃ¤nda tjÃ¤nsten fÃ¶r att bryta mot lagen, missbruka publika formulÃ¤r eller API:er, kringgÃ¥ produktgrÃ¤nser eller Ã¥tkomstkontroller, sprida skadligt innehÃ¥ll, stÃ¶ra tjÃ¤nsten eller fÃ¶rsÃ¶ka fÃ¥ obehÃ¶rig Ã¥tkomst till andra konton eller projekt.',
-  'Free, Pro and Business features and usage limits are displayed in the product. Paid pricing, renewal details, cancellation options and any applicable billing terms are presented through the configured checkout and billing portal. Applicable consumer rights remain unaffected.': 'Funktioner och anvÃ¤ndningsgrÃ¤nser fÃ¶r Free, Pro och Business visas i produkten. Betald prissÃ¤ttning, fÃ¶rnyelse, uppsÃ¤gning och tillÃ¤mpliga faktureringsvillkor visas via konfigurerad checkout och faktureringsportal. TillÃ¤mpliga konsumentrÃ¤ttigheter pÃ¥verkas inte.',
-  'Features may evolve as the product is improved. We may change, add or retire features when needed for security, reliability or product development. Important changes should be reflected in the product or these terms.': 'Funktioner kan utvecklas nÃ¤r produkten fÃ¶rbÃ¤ttras. Vi kan Ã¤ndra, lÃ¤gga till eller ta bort funktioner nÃ¤r det behÃ¶vs fÃ¶r sÃ¤kerhet, tillfÃ¶rlitlighet eller produktutveckling. Viktiga Ã¤ndringar ska Ã¥terspeglas i produkten eller villkoren.',
-  'The service is provided as a productivity platform. You are responsible for the final decisions, publications and actions taken using the outputs of the service, including websites published to third-party or configured hosting destinations.': 'TjÃ¤nsten tillhandahÃ¥lls som en produktivitetsplattform. Du ansvarar fÃ¶r slutliga beslut, publiceringar och Ã¥tgÃ¤rder som gÃ¶rs med tjÃ¤nstens resultat, inklusive webbplatser som publiceras till tredje part eller konfigurerade hostingmÃ¥l.',
-  'Questions about these terms can be submitted through the support options available in the product.': 'FrÃ¥gor om villkoren kan skickas via supportalternativen i produkten.',
-
-  'Welcome back': 'VÃ¤lkommen tillbaka',
-  'Sign in to your account to continue': 'Logga in pÃ¥ ditt konto fÃ¶r att fortsÃ¤tta',
-  'or': 'eller',
-  'Password': 'LÃ¶senord',
-  'Enter your password': 'Ange ditt lÃ¶senord',
-  'Signing in...': 'Loggar in...',
-  'Sign In': 'Logga in',
-  "Don't have an account?": 'Har du inget konto?',
-  'Create your account': 'Skapa ditt konto',
-  'Start using 50+ AI tools for free': 'BÃ¶rja gratis med grundlÃ¤ggande AI-verktyg och Webbplatsbyggaren',
-  'At least 6 characters': 'Minst 6 tecken',
-  'Creating account...': 'Skapar konto...',
-  'Create Free Account': 'Skapa gratiskonto',
-  'No credit card required': 'Inget betalkort krÃ¤vs',
-  'Access 5 basic AI tools': 'TillgÃ¥ng till 5 grundlÃ¤ggande AI-verktyg',
-  '10 documents per month': '10 dokument per mÃ¥nad',
-  'Password must be at least 6 characters.': 'LÃ¶senordet mÃ¥ste vara minst 6 tecken.',
-  'Check your email': 'Kontrollera din e-post',
-  "We've sent a password reset link to": 'Vi har skickat en Ã¥terstÃ¤llningslÃ¤nk till',
-  'Back to login': 'Tillbaka till inloggning',
-  'Forgot password?': 'GlÃ¶mt lÃ¶senord?',
-  'Sending...': 'Skickar...',
-  'Send Reset Link': 'Skicka Ã¥terstÃ¤llningslÃ¤nk',
-  'Password updated': 'LÃ¶senordet uppdaterades',
-  'Set a new password': 'Ange ett nytt lÃ¶senord',
-  'Choose a strong password for your account': 'VÃ¤lj ett starkt lÃ¶senord fÃ¶r ditt konto',
-  'Confirm Password': 'BekrÃ¤fta lÃ¶senord',
-  'Re-enter your password': 'Ange lÃ¶senordet igen',
-  'Updating...': 'Uppdaterar...',
-  'Verify your email': 'Verifiera din e-post',
-  "Didn't get it? Enter your email": 'Fick du inget mail? Ange din e-post',
-  'Email sent!': 'Mail skickat!',
-  'Resend Verification Email': 'Skicka verifieringsmail igen',
-  'Enter your email first.': 'Ange din e-post fÃ¶rst.',
-  'Forgot password': 'GlÃ¶mt lÃ¶senord',
-  'Create account': 'Skapa konto',
-  'Already have an account?': 'Har du redan ett konto?',
-  'Sign up': 'Registrera dig',
-
-  'Continue with Google': 'FortsÃ¤tt med Google',
-  'Email': 'E-post',
-  'Sign up free': 'Registrera dig gratis',
-  'Sign in': 'Logga in',
-  'Weak': 'Svagt',
-  'Fair': 'Okej',
-  'Good': 'Bra',
-  'Strong': 'Starkt',
-
-  'Onboarding': 'Introduktion',
-  "Already have an account? Just wait â€” we'll personalize everything.": 'Har du redan ett konto? Vi anpassar allt Ã¥t dig.',
-  'Choose your language': 'VÃ¤lj sprÃ¥k',
-  'You can change this anytime in settings': 'Du kan Ã¤ndra detta nÃ¤r som helst i instÃ¤llningarna',
-  'What best describes you?': 'Vad beskriver dig bÃ¤st?',
-  "We'll tailor your experience based on this": 'Vi anpassar upplevelsen efter detta',
-  'Tell us about you': 'BerÃ¤tta om dig',
-  "Just the basics â€” we'll use this to personalize your workspace": 'Bara grunderna â€” vi anvÃ¤nder detta fÃ¶r att anpassa din arbetsyta',
-  'Country': 'Land',
-  'Select your country': 'VÃ¤lj land',
-  'Profession': 'Yrke',
-  'e.g. Software Engineer, Student, Designer': 't.ex. mjukvaruingenjÃ¶r, student, designer',
-  "What's your main goal?": 'Vad Ã¤r ditt huvudmÃ¥l?',
-  "Pick one â€” we'll recommend the best tools for it": 'VÃ¤lj ett sÃ¥ rekommenderar vi de bÃ¤sta verktygen',
-  'Your recommended tools': 'Dina rekommenderade verktyg',
-  'Based on your profile, these will help you get started fast': 'Baserat pÃ¥ din profil hjÃ¤lper de hÃ¤r verktygen dig att komma igÃ¥ng snabbt',
-  "You're all set": 'Allt Ã¤r klart',
-  'Take tour': 'Ta en rundtur',
-  'Quick Start': 'Snabbstart',
-  'Your Progress': 'Dina framsteg',
-  'Achievements': 'Prestationer',
-  'Recommended For You': 'Rekommenderat fÃ¶r dig',
-  'Finish': 'SlutfÃ¶r',
-  'Next': 'NÃ¤sta',
-
-  'AI Workspace': 'AI-arbetsyta',
-  'Search tools... (e.g. CV, translate, quiz)': 'SÃ¶k verktyg... (t.ex. CV, Ã¶versÃ¤tt, quiz)',
-  'Pinned': 'FÃ¤sta',
-  'No tools found': 'Inga verktyg hittades',
-  'Try a different search or category.': 'Prova en annan sÃ¶kning eller kategori.',
-  'Favorites': 'Favoriter',
-  'Click the star on any tool to add it here.': 'Klicka pÃ¥ stjÃ¤rnan pÃ¥ ett verktyg fÃ¶r att lÃ¤gga till det hÃ¤r.',
-  'Recently Used': 'Senast anvÃ¤nda',
-  'Tools you use will appear here for quick access.': 'Verktyg du anvÃ¤nder visas hÃ¤r fÃ¶r snabb Ã¥tkomst.',
-  'Continue Working': 'FortsÃ¤tt arbeta',
-  "No drafts in progress. Start a new document and it'll show up here.": 'Inga utkast pÃ¥gÃ¥r. Starta ett nytt dokument sÃ¥ visas det hÃ¤r.',
-  'Draft': 'Utkast',
-  'AI Recommendations': 'AI-rekommendationer',
-  'Recent Activity': 'Senaste aktivitet',
-  'No recent activity': 'Ingen senaste aktivitet',
-  'My Files': 'Mina filer',
-  'All your generated documents, CVs, translations, chats and projects in one place.': 'Alla dina genererade dokument, CV:n, Ã¶versÃ¤ttningar, chattar och projekt pÃ¥ ett stÃ¤lle.',
-  'Total Files': 'Totalt antal filer',
-  'Completed': 'SlutfÃ¶rda',
-  'Drafts': 'Utkast',
-  'Search files...': 'SÃ¶k filer...',
-  'File name': 'Filnamn',
-
-  'Website Builder': 'Webbplatsbyggare',
-  'New cloud project': 'Nytt molnprojekt',
-  'DRAFT': 'UTKAST',
-  'Close': 'StÃ¤ng',
-  'Website Builder V1 Launch Center': 'Lanseringscenter fÃ¶r Webbplatsbyggare V1',
-  'One place to onboard a project, run production checks, publish the release and verify that the live site is healthy.': 'En plats fÃ¶r att starta projektet, kÃ¶ra produktionskontroller, publicera releasen och verifiera att sajten fungerar.',
-  'Export launch report': 'Exportera lanseringsrapport',
-  'Final readiness': 'Slutlig beredskap',
-  'Automated release gate for this project.': 'Automatisk releasekontroll fÃ¶r projektet.',
-  'Audit': 'Granskning',
-  'Health': 'Status',
-  'Sync': 'Synk',
-  'Live': 'Live',
-  'Launch blockers': 'Lanseringshinder',
-  'âœ“ No critical production blockers detected.': 'âœ“ Inga kritiska produktionshinder upptÃ¤cktes.',
-  'Automated launch checks': 'Automatiska lanseringskontroller',
-  'Publish only after the preflight items are green.': 'Publicera fÃ¶rst nÃ¤r alla fÃ¶rkontroller Ã¤r grÃ¶na.',
-  'Quick-start onboarding': 'Snabbstart',
-  'Start from a proven page structure, then complete the production URL and cloud save.': 'BÃ¶rja med en beprÃ¶vad sidstruktur och slutfÃ¶r sedan produktions-URL och molnsparning.',
-  'FIRST PROJECT': 'FÃ–RSTA PROJEKTET',
-  'Save project': 'Spara projekt',
-  'Preview': 'FÃ¶rhandsgranska',
-  'Manual production sign-off': 'Manuellt produktionsgodkÃ¤nnande',
-  'These checks involve external services and must be confirmed by a human before accepting paid customers.': 'Kontrollerna omfattar externa tjÃ¤nster och mÃ¥ste bekrÃ¤ftas manuellt innan betalande kunder tas emot.',
-  'Release actions': 'ReleaseÃ¥tgÃ¤rder',
-  'Billing & limits': 'Fakturering och grÃ¤nser',
-  'Verify plan and Stripe state': 'Verifiera plan och Stripe-status',
-  'Audit & backups': 'Granskning och sÃ¤kerhetskopior',
-  'Export backup and diagnostics': 'Exportera sÃ¤kerhetskopia och diagnostik',
-  'Blocked until automated preflight is ready': 'Blockerat tills automatisk fÃ¶rkontroll Ã¤r klar',
-  'Verify live release': 'Verifiera live-release',
-  'Confirm index.html is deployed': 'BekrÃ¤fta att index.html Ã¤r publicerad',
-  'V1 release decision': 'V1-releasebeslut',
-  'Plans & Billing': 'Planer och fakturering',
-  'Secure entitlements, usage limits and Stripe subscription management.': 'SÃ¤kra behÃ¶righeter, anvÃ¤ndningsgrÃ¤nser och Stripe-prenumerationer.',
-  'Manage subscription': 'Hantera prenumeration',
-  'CURRENT': 'AKTUELL',
-  'Active plan': 'Aktiv plan',
-  'Manage downgrade in Stripe': 'Hantera nedgradering i Stripe',
-  'Default plan': 'Standardplan',
-  'Website Builder Usage': 'AnvÃ¤ndning av Webbplatsbyggaren',
-  'Limits are also enforced by Supabase for project/page growth.': 'GrÃ¤nser tillÃ¤mpas Ã¤ven av Supabase fÃ¶r projekt- och sidtillvÃ¤xt.',
-  'Client Delivery Workspace': 'Arbetsyta fÃ¶r kundleverans',
-  'Approval, launch readiness, usage and one-click client handoff.': 'GodkÃ¤nnande, lanseringsberedskap, anvÃ¤ndning och kundleverans med ett klick.',
-  'Copy preview': 'Kopiera fÃ¶rhandsgranskning',
-  'Client & project': 'Kund och projekt',
-  'Client name': 'Kundnamn',
-  'Client email': 'Kundens e-post',
-  'Project code': 'Projektkod',
-  'Due date': 'FÃ¶rfallodatum',
-  'Delivery status': 'Leveransstatus',
-  'Building': 'Bygger',
-  'Ready for review': 'Redo fÃ¶r granskning',
-  'Approved': 'GodkÃ¤nd',
-  'Delivered': 'Levererad',
-  'Handoff notes': 'Leveransanteckningar',
-  'Launch readiness': 'Lanseringsberedskap',
-  'Client approval fingerprint': 'KundgodkÃ¤nnandets fingeravtryck',
-  'Approve current build': 'GodkÃ¤nn aktuell version',
-  'Clear approval': 'Rensa godkÃ¤nnande',
-  'Mark delivered': 'Markera levererad',
-  'Download client handoff ZIP': 'Ladda ner kundleverans-ZIP',
-  'Site + backup + reports + checksums': 'Sajt + backup + rapporter + checksummor',
-  'Export delivery report': 'Exportera leveransrapport',
-  'Approval, readiness, usage and audit': 'GodkÃ¤nnande, beredskap, anvÃ¤ndning och granskning',
-  'Open releases': 'Ã–ppna releaser',
-  'Unlisted review link': 'Olistad granskningslÃ¤nk',
-  'Operations & Reliability': 'Drift och tillfÃ¶rlitlighet',
-  'Backup, restore, exports and bulk operations.': 'Backup, Ã¥terstÃ¤llning, exporter och massÃ¥tgÃ¤rder.',
-  'Export project backup': 'Exportera projektbackup',
-  'Portable JSON snapshot': 'Portabel JSON-Ã¶gonblicksbild',
-  'Import project backup': 'Importera projektbackup',
-  'Restore JSON as local draft': 'Ã…terstÃ¤ll JSON som lokalt utkast',
-  'Export audit report': 'Exportera granskningsrapport',
-  'Pages, elements and health': 'Sidor, element och status',
-  'Export leads CSV': 'Exportera leads CSV',
-  'Export analytics CSV': 'Exportera analys CSV',
-  'Mark all leads read': 'Markera alla leads som lÃ¤sta',
-  'Bulk inbox cleanup': 'Massrensning av inkorg',
-  'Archive read leads': 'Arkivera lÃ¤sta leads',
-  'Keep inbox focused': 'HÃ¥ll inkorgen fokuserad',
-  'Site Analytics': 'Webbplatsanalys',
-  'Top pages': 'Toppsidor',
-  'Traffic sources': 'TrafikkÃ¤llor',
-  'Media Library': 'Mediebibliotek',
-  'Use': 'AnvÃ¤nd',
-  'Favicon': 'Favicon',
-  'Social': 'Socialt',
-  'Lead CRM': 'Lead-CRM',
-  'Search, qualify, prioritize and follow up with website leads.': 'SÃ¶k, kvalificera, prioritera och fÃ¶lj upp webbplatsleads.',
-  'Read all': 'LÃ¤s alla',
-  'Archive read': 'Arkivera lÃ¤sta',
-  'All inbox statuses': 'Alla inkorgsstatusar',
-  'New': 'Ny',
-  'Read': 'LÃ¤st',
-  'Archived': 'Arkiverad',
-  'All CRM stages': 'Alla CRM-steg',
-  'Qualified': 'Kvalificerad',
-  'Contacted': 'Kontaktad',
-  'Won': 'Vunnen',
-  'Lost': 'FÃ¶rlorad',
-  'Select shown': 'VÃ¤lj visade',
-  'Bulk stage:': 'Masssteg:',
-  'No leads yet. Publish a website with a Contact section, then submissions will appear here.': 'Inga leads Ã¤nnu. Publicera en webbplats med en kontaktsektion sÃ¥ visas inskick hÃ¤r.',
-  'No leads match the current search and filters.': 'Inga leads matchar aktuell sÃ¶kning och filter.',
-  'Normal priority': 'Normal prioritet',
-  'â˜… Priority': 'â˜… Prioritet',
-  'â˜…â˜… High priority': 'â˜…â˜… HÃ¶g prioritet',
-  'Notes:': 'Anteckningar:',
-  'Mark read': 'Markera lÃ¤st',
-  'Archive': 'Arkivera',
-  'Tags': 'Taggar',
-  'Notes': 'Anteckningar',
-  'Release Management': 'Releasehantering',
-  'Immutable publish archives, live rollback and unlisted draft previews.': 'OfÃ¶rÃ¤nderliga publiceringsarkiv, live-rollback och olistade utkastfÃ¶rhandsvisningar.',
-  'Next release': 'NÃ¤sta release',
-  'Unlisted share preview': 'Olistad delningsfÃ¶rhandsvisning',
-  'Anyone with this URL can open it. Tracking integrations are disabled in preview.': 'Alla med lÃ¤nken kan Ã¶ppna den. SpÃ¥rningsintegrationer Ã¤r avstÃ¤ngda i fÃ¶rhandsvisningen.',
-  'Open': 'Ã–ppna',
-  'Regenerate': 'Generera om',
-  'No releases yet. Add an optional release note and click Publish.': 'Inga releaser Ã¤nnu. LÃ¤gg till en valfri releaseanteckning och klicka Publicera.',
-  'LIVE REF': 'LIVE-REF',
-  'Rollback live': 'Ã…terstÃ¤ll live',
-  'Restore editor': 'Ã…terstÃ¤ll redigeraren',
-  'Delete archive': 'Ta bort arkiv',
-  'Project History': 'Projekthistorik',
-  'Last 10 manual saves. Autosave does not create history entries.': 'De 10 senaste manuella sparningarna. Autosparande skapar inte historikposter.',
-  'Restore version': 'Ã…terstÃ¤ll version',
-  'No manual save history yet. Click Save to create the first restore point.': 'Ingen manuell sparhistorik Ã¤nnu. Klicka Spara fÃ¶r att skapa fÃ¶rsta Ã¥terstÃ¤llningspunkten.',
-  'Pages': 'Sidor',
-  'HOME': 'HEM',
-  'HIDDEN': 'DOLD',
-  'English': 'Engelska',
-  'Unlock multilingual': 'LÃ¥s upp flersprÃ¥kighet',
-  'Page SEO': 'Sid-SEO',
-  'Global Header & Footer': 'Globalt sidhuvud och sidfot',
-  'Header': 'Sidhuvud',
-  'Enabled': 'Aktiverad',
-  'Sticky': 'FÃ¤st',
-  'Mobile menu': 'Mobilmeny',
-  'Show CTA button': 'Visa CTA-knapp',
-  'Navigation style': 'Navigeringsstil',
-  'Link gap': 'LÃ¤nkavstÃ¥nd',
-  'Brand px': 'VarumÃ¤rkesstorlek',
-  'Links px': 'LÃ¤nkstorlek',
-  'Footer': 'Sidfot',
-  'Page links': 'SidlÃ¤nkar',
-  'Header and footer are global across every page and are included in Preview, ZIP Export and Publish.': 'Sidhuvud och sidfot Ã¤r globala fÃ¶r alla sidor och ingÃ¥r i fÃ¶rhandsvisning, ZIP-export och publicering.',
-  'Site Experience': 'Webbplatsupplevelse',
-  'Scroll progress': 'RullningsfÃ¶rlopp',
-  'Back to top': 'Till toppen',
-  'Cookie / privacy notice': 'Cookie-/integritetsmeddelande',
-  'Marketing & discovery': 'MarknadsfÃ¶ring och upptÃ¤ckt',
-  'Announcement': 'Meddelande',
-  'Popup': 'Popup',
-  'Site search': 'WebbplatssÃ¶kning',
-  'Gallery lightbox': 'Galleri-lightbox',
-  'Floating CTA': 'Flytande CTA',
-  'Share tools': 'Delningsverktyg',
-  'Pre-publish audit': 'Granskning fÃ¶re publicering',
-  'Restore recovery snapshot': 'Ã…terstÃ¤ll Ã¥terhÃ¤mtningssnapshot',
-  'FAQ structured data is generated automatically from Accordion elements during Preview, Export and Publish.': 'Strukturerad FAQ-data skapas automatiskt frÃ¥n Accordion-element vid fÃ¶rhandsvisning, export och publicering.',
-  'Production Integrations': 'Produktionsintegrationer',
-  'Organization schema': 'Organisationsschema',
-  'Local Business schema': 'Lokalt fÃ¶retag-schema',
-  'Maintenance mode': 'UnderhÃ¥llslÃ¤ge',
-  'Global custom CSS': 'Global anpassad CSS',
-  'Extra robots.txt rules': 'Extra robots.txt-regler',
-  'Global Theme': 'Globalt tema',
-  'Font': 'Typsnitt',
-  'Width': 'Bredd',
-  'Radius': 'Radie',
-  'Spacing': 'AvstÃ¥nd',
-  'Apply to page': 'TillÃ¤mpa pÃ¥ sidan',
-  'Apply all pages': 'TillÃ¤mpa pÃ¥ alla sidor',
-  'Site SEO & Branding': 'Webbplats-SEO och varumÃ¤rke',
-  'Page Templates': 'Sidmallar',
-  'Use template': 'AnvÃ¤nd mall',
-  'Section Templates': 'Sektionsmallar',
-  'My Sections': 'Mina sektioner',
-  'Save selected': 'Spara vald',
-  'Loading templatesâ€¦': 'Laddar mallarâ€¦',
-  'No saved sections yet.': 'Inga sparade sektioner Ã¤nnu.',
-  'Add Element': 'LÃ¤gg till element',
-  'Layers': 'Lager',
-  'AI Website Builder': 'AI-webbplatsbyggare',
-  'Export': 'Exportera',
-  'Duplicate': 'Duplicera',
-  'Container / Group': 'BehÃ¥llare / Grupp',
-  '+ New container': '+ Ny behÃ¥llare',
-  'No container': 'Ingen behÃ¥llare',
-  'Layout': 'Layout',
-  'Stack': 'Stapla',
-  'Row': 'Rad',
-  'Align': 'Justering',
-  'Start': 'Start',
-  'Center': 'Centrera',
-  'End': 'Slut',
-  'Stretch': 'StrÃ¤ck',
-  'Gap': 'Mellanrum',
-  'Padding': 'Utfyllnad',
-  'Background': 'Bakgrund',
-  'Border': 'Kant',
-  'No shadow': 'Ingen skugga',
-  'Small shadow': 'Liten skugga',
-  'Medium shadow': 'Medelstor skugga',
-  'Large shadow': 'Stor skugga',
-  'XL shadow': 'XL-skugga',
-  'Container column': 'BehÃ¥llarkolumn',
-  'Span': 'Spann',
-  'Delete container & ungroup': 'Ta bort behÃ¥llare och avgruppera',
-  'Reusable Symbols': 'Ã…teranvÃ¤ndbara symboler',
-  'Detach': 'Koppla loss',
-  'Create symbol': 'Skapa symbol',
-  'No symbols yet. Create one from this element.': 'Inga symboler Ã¤nnu. Skapa en frÃ¥n det hÃ¤r elementet.',
-  'Library': 'Bibliotek',
-  'Upload': 'Ladda upp',
-  'Responsive layout': 'Responsiv layout',
-  'Max width px': 'Maxbredd px',
-  'Order': 'Ordning',
-  'Element position': 'Elementposition',
-  'Auto': 'Auto',
-  'Column span': 'Kolumnspann',
-  'Size': 'Storlek',
-  'Weight': 'Vikt',
-  'Text color': 'TextfÃ¤rg',
-  'Alignment': 'Justering',
-  'Left': 'VÃ¤nster',
-  'Right': 'HÃ¶ger',
-  'Line height': 'RadhÃ¶jd',
-  'Letter spacing': 'TeckenavstÃ¥nd',
-  'Effects': 'Effekter',
-  'Opacity %': 'Opacitet %',
-  'Rotate Â°': 'Rotera Â°',
-  'Border width': 'Kantbredd',
-  'Border style': 'Kantstil',
-  'Solid': 'Heldragen',
-  'Dashed': 'Streckad',
-  'Dotted': 'Punktad',
-  'Border color': 'KantfÃ¤rg',
-  'Shadow': 'Skugga',
-  'None': 'Ingen',
-  'Small': 'Liten',
-  'Medium': 'Medel',
-  'Large': 'Stor',
-  'XL': 'XL',
-  'Entrance Animation': 'IngÃ¥ngsanimation',
-  'Animation': 'Animation',
-  'Fade': 'Tona',
-  'Fade Up': 'Tona upp',
-  'Fade Down': 'Tona ned',
-  'Fade Left': 'Tona vÃ¤nster',
-  'Fade Right': 'Tona hÃ¶ger',
-  'Zoom In': 'Zooma in',
-  'Zoom Out': 'Zooma ut',
-  'Duration ms': 'Varaktighet ms',
-  'Delay ms': 'FÃ¶rdrÃ¶jning ms',
-  'Distance px': 'AvstÃ¥nd px',
-  'Hover': 'Hover',
-  'Scale': 'Skala',
-  'Text': 'Text',
-  'Width %': 'Bredd %',
-  'Delete Element': 'Ta bort element',
-  'Section Anchor / ID': 'Sektionsankare / ID',
-  'Section Layout': 'Sektionslayout',
-  'Section Visuals': 'Sektionsutseende',
-  'From': 'FrÃ¥n',
-  'To': 'Till',
-  'Gradient angle': 'Gradientvinkel',
-  'Background image URL': 'URL till bakgrundsbild',
-  'Position': 'Position',
-  'Top': 'Topp',
-  'Bottom': 'Botten',
-  'Cover': 'TÃ¤ck',
-  'Contain': 'Rym',
-  'Overlay': 'Ã–verlÃ¤gg',
-  'Opacity': 'Opacitet',
-  'Min height': 'MinhÃ¶jd',
-  'Corner radius': 'HÃ¶rnradie',
-  'Vertical padding': 'Vertikal utfyllnad',
-  'Horizontal padding': 'Horisontell utfyllnad',
-  'Form Builder': 'FormulÃ¤rbyggare',
-  'Reset': 'Ã…terstÃ¤ll',
-  'Textarea': 'TextomrÃ¥de',
-  'Select': 'VÃ¤lj',
-  'Checkbox': 'Kryssruta',
-  'After submit': 'Efter inskick',
-  'Show success message': 'Visa framgÃ¥ngsmeddelande',
-  'Redirect to thank-you page / URL': 'Omdirigera till tacksida / URL',
-  'Redirect target': 'OmdirigeringsmÃ¥l',
-  'Success message': 'FramgÃ¥ngsmeddelande',
-  'Website name': 'Webbplatsnamn',
-  'Type a command, page or sectionâ€¦': 'Skriv ett kommando, en sida eller sektionâ€¦',
-  'Client or company': 'Kund eller fÃ¶retag',
-  'Release note (optional): what changed?': 'Releaseanteckning (valfritt): vad Ã¤ndrades?',
-  'Page name': 'Sidnamn',
-  'Custom SEO title (optional)': 'Anpassad SEO-titel (valfritt)',
-  'Custom meta description (optional)': 'Anpassad metabeskrivning (valfritt)',
-  'Social share image URL': 'URL till delningsbild',
-  'Canonical URL override (optional)': 'Ã…sidosÃ¤tt canonical-URL (valfritt)',
-  'Brand text (blank = site name)': 'VarumÃ¤rkestext (tomt = webbplatsnamn)',
-  'Logo image URL (optional)': 'URL till logotyp (valfritt)',
-  'CTA label': 'CTA-etikett',
-  'Footer text (blank = automatic copyright)': 'Sidfotstext (tomt = automatisk copyright)',
-  'Privacy notice text': 'Integritetsmeddelande',
-  'Accept button label': 'Etikett pÃ¥ acceptera-knapp',
-  'Announcement text': 'Meddelandetext',
-  'Link label': 'LÃ¤nketikett',
-  'Popup title': 'Popup-titel',
-  'Popup message': 'Popup-meddelande',
-  'Button': 'Knapp',
-  'Button link': 'KnapplÃ¤nk',
-  'Floating CTA label': 'Etikett fÃ¶r flytande CTA',
-  'CTA link': 'CTA-lÃ¤nk',
-  'Plausible domain': 'Plausible-domÃ¤n',
-  'Google verification token': 'Google-verifieringstoken',
-  'Bing verification token': 'Bing-verifieringstoken',
-  'Organization / business name': 'Organisation / fÃ¶retagsnamn',
-  'Organization URL': 'Organisations-URL',
-  'Logo URL': 'Logotyp-URL',
-  'Business address': 'FÃ¶retagsadress',
-  'Maintenance title': 'UnderhÃ¥llstitel',
-  'Maintenance message': 'UnderhÃ¥llsmeddelande',
-  'Default SEO title': 'Standard SEO-titel',
-  'Default meta description': 'Standard metabeskrivning',
-  'Keywords, comma separated': 'Nyckelord, kommaseparerade',
-  'Favicon image URL': 'URL till favicon',
-  'Label': 'Etikett',
-  'Placeholder': 'PlatshÃ¥llare',
-  'Cloud projects': 'Molnprojekt',
-  'Desktop preview': 'SkrivbordsfÃ¶rhandsvisning',
-  'Tablet preview': 'SurfplattefÃ¶rhandsvisning',
-  'Mobile preview': 'MobilfÃ¶rhandsvisning',
-  'Undo': 'Ã…ngra',
-  'Redo': 'GÃ¶r om',
-  'Website Builder V1 launch center': 'Lanseringscenter fÃ¶r Webbplatsbyggare V1',
-  'Plans, usage and billing': 'Planer, anvÃ¤ndning och fakturering',
-  'Operations, backups and exports': 'Drift, sÃ¤kerhetskopior och exporter',
-  'Client delivery, approval and handoff': 'Kundleverans, godkÃ¤nnande och Ã¶verlÃ¤mning',
-  'Project history': 'Projekthistorik',
-  'Duplicate project': 'Duplicera projekt',
-  'Verify that index.html exists in published storage': 'Verifiera att index.html finns i publicerad lagring',
-  'Remove public website': 'Ta bort offentlig webbplats',
-  'Use image': 'AnvÃ¤nd bild',
-  'Restore this version': 'Ã…terstÃ¤ll den hÃ¤r versionen',
-  'Add page': 'LÃ¤gg till sida',
-  'Move page up': 'Flytta sidan upp',
-  'Move page down': 'Flytta sidan ned',
-  'Duplicate page': 'Duplicera sida',
-  'Delete page': 'Ta bort sida',
-  'Delete template': 'Ta bort mall',
-  'Move element up': 'Flytta element upp',
-  'Move element down': 'Flytta element ned',
-  'Delete symbol': 'Ta bort symbol',
-  'Move up': 'Flytta upp',
-  'Move down': 'Flytta ned',
-  'Delete field': 'Ta bort fÃ¤lt',
-
-  'Continue': 'FortsÃ¤tt',
-  'Arabic': 'Arabiska', 'Swedish': 'Svenska',
-  'Study smarter with AI-powered tools': 'Studera smartare med AI-drivna verktyg',
-  'Create standout CVs and cover letters': 'Skapa utmÃ¤rkande CV:n och personliga brev',
-  'Boost productivity with AI automation': 'Ã–ka produktiviteten med AI-automatisering',
-  'Scale your business with AI solutions': 'Skala ditt fÃ¶retag med AI-lÃ¶sningar',
-  'Deliver more for clients, faster': 'Leverera mer till kunder, snabbare',
-  'Create a professional CV': 'Skapa ett professionellt CV',
-  'Write articles and content': 'Skriv artiklar och innehÃ¥ll',
-  'Translate documents': 'Ã–versÃ¤tt dokument',
-  'Study more effectively': 'Studera mer effektivt',
-  'Analyze and summarize documents': 'Analysera och sammanfatta dokument',
-  'Grow my business': 'Utveckla mitt fÃ¶retag',
-  'Chat with an AI assistant': 'Chatta med en AI-assistent',
-  'Write cover letters': 'Skriv personliga brev',
-  'AI Usage Analytics': 'AI-anvÃ¤ndningsanalys',
-  'Track your AI consumption across all tools.': 'FÃ¶lj din AI-anvÃ¤ndning i alla verktyg.',
-  'No AI usage yet': 'Ingen AI-anvÃ¤ndning Ã¤nnu',
-  'Start using AI tools and your usage stats will appear here.': 'BÃ¶rja anvÃ¤nda AI-verktyg sÃ¥ visas din anvÃ¤ndningsstatistik hÃ¤r.',
-  'Track your AI consumption, token usage, and costs across all tools.': 'FÃ¶lj AI-anvÃ¤ndning, tokenfÃ¶rbrukning och kostnader i alla verktyg.',
-  "Today's Cost": 'Dagens kostnad', 'Last 7 Days': 'Senaste 7 dagarna', 'By Provider': 'Per leverantÃ¶r', 'By Tool': 'Per verktyg',
-  'Everything you\'ve done across all tools': 'Allt du har gjort i alla verktyg',
-  'You don\'t have permission to access the admin panel. Only administrators can view this page.': 'Du har inte behÃ¶righet till administratÃ¶rspanelen. Endast administratÃ¶rer kan visa den hÃ¤r sidan.',
-  'Your AI-powered workspace for creating, writing, and analyzing. Let\'s get you set up in less than 3 minutes.': 'Din AI-drivna arbetsyta fÃ¶r att skapa, skriva och analysera. Vi gÃ¶r dig redo pÃ¥ mindre Ã¤n 3 minuter.',
-  'Install Tayar Intelligence': 'Installera Tayar Intelligence',
-  'Add to your home screen for a faster, app-like experience.': 'LÃ¤gg till pÃ¥ hemskÃ¤rmen fÃ¶r en snabbare, appliknande upplevelse.',
-  'No activity yet': 'Ingen aktivitet Ã¤nnu',
-  'Start using a tool to see your activity here': 'BÃ¶rja anvÃ¤nda ett verktyg sÃ¥ visas din aktivitet hÃ¤r',
-  'Notifications': 'Aviseringar',
-  'Loading...': 'Laddar...',
-  'No notifications yet': 'Inga aviseringar Ã¤nnu',
-  'AI Assistant': 'AI-assistent',
-  'No conversations yet': 'Inga konversationer Ã¤nnu',
-  'How can I help you?': 'Hur kan jag hjÃ¤lpa dig?',
-  'Ask me anything about your tools or documents.': 'FrÃ¥ga mig vad som helst om dina verktyg eller dokument.',
-  'Replay Tour': 'Spela upp rundtur igen',
-  'Admin Panel': 'Administrationspanel',
-  'Sign out': 'Logga ut',
-  'Enter to open': 'Tryck Enter fÃ¶r att Ã¶ppna',
-  'AI Commands': 'AI-kommandon',
-  'Trash': 'Papperskorg',
-  'Deleted items are kept for 30 days before being permanently removed.': 'Raderade objekt sparas i 30 dagar innan de tas bort permanent.',
-  'Empty Trash?': 'TÃ¶m papperskorgen?',
-  'This cannot be undone.': 'Det gÃ¥r inte att Ã¥ngra.',
-  'Delete All': 'Radera alla',
-  'Storage': 'Lagring',
-  'Tokens': 'Tokens',
-  'Cost': 'Kostnad',
-  'Resume Score': 'CV-poÃ¤ng',
-  'AI Suggestions': 'AI-fÃ¶rslag',
-  'Choose a Template': 'VÃ¤lj en mall',
-  'Pick a design â€” you can change it anytime': 'VÃ¤lj en design â€” du kan Ã¤ndra den nÃ¤r som helst',
-  'Resume Builder': 'CV-byggare',
-  'Saving...': 'Sparar...',
-  'All changes saved': 'Alla Ã¤ndringar sparade',
-  'Auto-save on': 'Autosparning pÃ¥',
-  'Save Version': 'Spara version',
-  'Edit': 'Redigera',
-  'Design': 'Design',
-  'Job Match': 'Jobbmatchning',
-  'History': 'Historik',
-  'Personal Info': 'Personuppgifter',
-  'Summary': 'Sammanfattning',
-  'Experience': 'Erfarenhet',
-  'Education': 'Utbildning',
-  'Skills': 'Kompetenser',
-  'Languages': 'SprÃ¥k',
-  'Certifications': 'Certifieringar',
-  'Awards': 'UtmÃ¤rkelser',
-  'Address': 'Adress',
-  'LinkedIn': 'LinkedIn',
-  'Portfolio': 'Portfolio',
-  'Professional Summary': 'Professionell sammanfattning',
-  'Location': 'Plats',
-  'Present': 'Nuvarande',
-  'Description': 'Beskrivning',
-  'Degree': 'Examen',
-  'Institution': 'LÃ¤rosÃ¤te',
-  'Skill name': 'Kompetens',
-  'Certificate': 'Certifikat',
-  'Award': 'UtmÃ¤rkelse',
-  'Name': 'Namn',
-  'Link': 'LÃ¤nk',
-  'Issuer': 'UtfÃ¤rdare',
-  'Date': 'Datum',
-  'Title': 'Titel',
-  'Resume Template': 'CV-mall',
-  'Color Theme': 'FÃ¤rgtema',
-  'Drag to reorder sections. Toggle to show/hide.': 'Dra fÃ¶r att Ã¤ndra ordning pÃ¥ avsnitt. VÃ¤xla fÃ¶r att visa eller dÃ¶lja.',
-  'Select an action to improve your resume with AI.': 'VÃ¤lj en Ã¥tgÃ¤rd fÃ¶r att fÃ¶rbÃ¤ttra ditt CV med AI.',
-  'Job Match Analysis': 'Analys av jobbmatchning',
-  'Paste a job description to see how well your resume matches.': 'Klistra in en jobbannons fÃ¶r att se hur vÃ¤l ditt CV matchar.',
-  'Match Score': 'MatchningspoÃ¤ng',
-  'Paste a job description and click "Analyze Match" to see your results.': 'Klistra in en jobbannons och klicka pÃ¥ â€Analysera matchningâ€ fÃ¶r att se resultatet.',
-  'Version History': 'Versionshistorik',
-  'A4 Preview': 'A4-fÃ¶rhandsvisning',
-  'Company name (optional)': 'FÃ¶retagsnamn (valfritt)',
-  'Paste the job description here...': 'Klistra in jobbannonsen hÃ¤r...',
-  'Write a 2-3 sentence summary highlighting your experience, key skills, and career goals...': 'Skriv en sammanfattning pÃ¥ 2â€“3 meningar som lyfter din erfarenhet, viktigaste kompetenser och karriÃ¤rmÃ¥l...',
-  'Describe your achievements...': 'Beskriv dina prestationer...',
-  'John Doe': 'FullstÃ¤ndigt namn',
-  'Jan 2022': 'Jan 2022',
-  'Beginner': 'NybÃ¶rjare',
-  'Intermediate': 'Medel',
-  'Advanced': 'Avancerad',
-  'Expert': 'Expert',
-  'Basic': 'GrundlÃ¤ggande',
-  'Conversational': 'KonversationsnivÃ¥',
-  'Fluent': 'Flytande',
-  'Native': 'ModersmÃ¥l',
-  'Analytics Tracking': 'AnalysspÃ¥rning',
-  'Help us improve by sharing anonymous usage data': 'HjÃ¤lp oss fÃ¶rbÃ¤ttra genom att dela anonym anvÃ¤ndningsdata',
-  'AI data processing': 'AI-databehandling',
-  'AI requests are sent only when you choose an AI action. Provider details and data handling are explained in the Privacy Policy.': 'AI-fÃ¶rfrÃ¥gningar skickas endast nÃ¤r du vÃ¤ljer en AI-Ã¥tgÃ¤rd. LeverantÃ¶rer och datahantering beskrivs i integritetspolicyn.',
-  'AI Training Opt-Out': 'AvstÃ¥ frÃ¥n AI-trÃ¤ning',
-  'Your data is stored in EU (Stockholm) servers': 'Dina data lagras pÃ¥ servrar inom EU (Stockholm)',
-  'All data is encrypted in transit and at rest': 'All data Ã¤r krypterad under Ã¶verfÃ¶ring och lagring',
-  'Save': 'Spara',
-  'AI Providers & Model Selection': 'AI-leverantÃ¶rer och modellval',
-  'AI Requests': 'AI-fÃ¶rfrÃ¥gningar',
-  'AI Usage': 'AI-anvÃ¤ndning',
-  'API Keys': 'API-nycklar',
-  'Access Denied': 'Ã…tkomst nekad',
-  'Actions': 'Ã…tgÃ¤rder',
-  'Active': 'Aktiv',
-  'Add Key': 'LÃ¤gg till nyckel',
-  'Admin': 'Admin',
-  'Admin Notifications': 'Adminaviseringar',
-  'Admin Response': 'Adminsvar',
-  'Administrator': 'AdministratÃ¶r',
-  'All': 'Alla',
-  'All Plans': 'Alla planer',
-  'All Status': 'Alla statusar',
-  'Automatic daily backups at 09:00 UTC': 'Automatiska dagliga sÃ¤kerhetskopior kl. 09:00 UTC',
-  'Back to Workspace': 'Tillbaka till arbetsyta',
-  'Business': 'FÃ¶retag',
-  'Changes will be reflected on the live site after saving.': 'Ã„ndringarna visas pÃ¥ den publicerade webbplatsen efter att du sparat.',
-  'Checking admin access...': 'Kontrollerar administratÃ¶rsbehÃ¶righet...',
-  'Configure global platform behavior': 'Konfigurera plattformens globala beteende',
-  'Control Panel': 'Kontrollpanel',
-  'Created': 'Skapad',
-  'Cumulative users over last 30 days': 'Kumulativa anvÃ¤ndare under de senaste 30 dagarna',
-  'Daily Requests': 'Dagliga fÃ¶rfrÃ¥gningar',
-  'Daily requests and token consumption': 'Dagliga fÃ¶rfrÃ¥gningar och tokenfÃ¶rbrukning',
-  'Database Backups': 'DatabassÃ¤kerhetskopior',
-  'Default': 'Standard',
-  'Default Model (used when no per-tool model is set)': 'Standardmodell (anvÃ¤nds nÃ¤r ingen modell Ã¤r vald per verktyg)',
-  'Documents': 'Dokument',
-  'Edit User': 'Redigera anvÃ¤ndare',
-  'Exit Admin': 'LÃ¤mna admin',
-  'Feature Flags': 'Funktionsflaggor',
-  'Free': 'Gratis',
-  'Full Name': 'FullstÃ¤ndigt namn',
-  'Last 14 days': 'Senaste 14 dagarna',
-  'Manage external service API keys': 'Hantera API-nycklar fÃ¶r externa tjÃ¤nster',
-  'Manage providers and set the default model for all AI tools': 'Hantera leverantÃ¶rer och vÃ¤lj standardmodell fÃ¶r alla AI-verktyg',
-  'Mark all read': 'Markera alla som lÃ¤sta',
-  'Monthly subscription revenue': 'MÃ¥natliga prenumerationsintÃ¤kter',
-  'New Flag': 'Ny flagga',
-  'No data': 'Ingen data',
-  'No data yet': 'Ingen data Ã¤nnu',
-  'No logs found': 'Inga loggar hittades',
-  'No logs yet': 'Inga loggar Ã¤nnu',
-  'No notifications': 'Inga aviseringar',
-  'No subscriptions found': 'Inga prenumerationer hittades',
-  'No tickets found': 'Inga Ã¤renden hittades',
-  'No users found': 'Inga anvÃ¤ndare hittades',
-  'Plan': 'Plan',
-  'Platform Settings': 'PlattformsinstÃ¤llningar',
-  'Pro': 'Pro',
-  'Provider:': 'LeverantÃ¶r:',
-  'Recent System Logs': 'Senaste systemloggar',
-  'Renewal Date': 'FÃ¶rnyelsedatum',
-  'Requests by tool': 'FÃ¶rfrÃ¥gningar per verktyg',
-  'Response': 'Svar',
-  'Revenue': 'IntÃ¤kter',
-  'Status': 'Status',
-  'Subscription Plan': 'Prenumerationsplan',
-  'Subscriptions by Plan': 'Prenumerationer per plan',
-  'Suspended': 'AvstÃ¤ngd',
-  'System Health': 'Systemstatus',
-  'System Logs': 'Systemloggar',
-  'System Online': 'Systemet Ã¤r online',
-  'Tayar Admin': 'Tayar Admin',
-  'Toggle features on/off without deploying': 'SlÃ¥ pÃ¥ eller av funktioner utan ny driftsÃ¤ttning',
-  'Token Usage by Provider': 'TokenanvÃ¤ndning per leverantÃ¶r',
-  'Tool Popularity': 'Verktygspopularitet',
-  'Total tokens consumed': 'Totalt fÃ¶rbrukade tokens',
-  'User': 'AnvÃ¤ndare',
-  'User Growth': 'AnvÃ¤ndartillvÃ¤xt',
-  'User ID': 'AnvÃ¤ndar-ID',
-  'Install App': 'Installera app',
-  'files': 'filer',
-  'used': 'anvÃ¤nt',
-  'available': 'tillgÃ¤ngligt',
-  'Running low on storage. Upgrade to Pro for more space.': 'Lagringsutrymmet bÃ¶rjar ta slut. Uppgradera till Pro fÃ¶r mer utrymme.',
-  'Welcome to Tayar Intelligence!': 'VÃ¤lkommen till Tayar Intelligence!',
-  'Welcome to Tayar Intelligence': 'VÃ¤lkommen till Tayar Intelligence',
-  'Get Started': 'Kom igÃ¥ng',
-  'Setting up...': 'Konfigurerar...',
-  'Enter Workspace': 'GÃ¥ till arbetsytan',
-
-  'Manage your plan, limits and Stripe billing from one place.': 'Hantera plan, grÃ¤nser och Stripe-betalning pÃ¥ ett stÃ¤lle.',
-  'Current plan': 'Nuvarande plan',
-  'Next billing date': 'NÃ¤sta faktureringsdatum',
-  'Current': 'Nuvarande',
-  'Your current plan': 'Din nuvarande plan',
-  'Free plan': 'Gratisplan',
-  'Manage in Stripe': 'Hantera i Stripe',
-  'Choose Pro': 'VÃ¤lj Pro',
-  'Choose Business': 'VÃ¤lj Business',
-  'active': 'aktiv',
-  'unknown': 'okÃ¤nd',
-  'Could not load subscription details.': 'Kunde inte lÃ¤sa in prenumerationsdetaljer.',
-  'Could not open Stripe Checkout.': 'Kunde inte Ã¶ppna Stripe Checkout.',
-  'Could not open the billing portal.': 'Kunde inte Ã¶ppna betalningsportalen.',
-  'Your subscription is scheduled to cancel at the end of the current billing period.': 'Din prenumeration avslutas vid slutet av den aktuella faktureringsperioden.',
-  'Billing changes are completed securely through Stripe. Your plan badge is synchronized by the billing backend.': 'BetalningsÃ¤ndringar genomfÃ¶rs sÃ¤kert via Stripe och planstatus synkroniseras av backend.',
-  'Start with a small Website Builder project and core AI tools.': 'BÃ¶rja med ett litet webbplatsbyggarprojekt och grundlÃ¤ggande AI-verktyg.',
-  'Higher limits for individual creators and professionals.': 'HÃ¶gre grÃ¤nser fÃ¶r kreatÃ¶rer och yrkesanvÃ¤ndare.',
-  'Expanded limits and collaboration for growing teams.': 'UtÃ¶kade grÃ¤nser och samarbete fÃ¶r vÃ¤xande team.',
-  '1 website project': '1 webbplatsprojekt',
-  'Up to 3 pages per website': 'Upp till 3 sidor per webbplats',
-  'Core AI tools': 'GrundlÃ¤ggande AI-verktyg',
-  'Local project saving': 'Lokal projektsparning',
-  'Up to 10 website projects': 'Upp till 10 webbplatsprojekt',
-  'Up to 25 pages per website': 'Upp till 25 sidor per webbplats',
-  'Publishing and release history': 'Publicering och versionshistorik',
-  'Analytics, leads and multilingual pages': 'Analys, leads och flersprÃ¥kiga sidor',
-  'Up to 50 website projects': 'Upp till 50 webbplatsprojekt',
-  'Up to 100 pages per website': 'Upp till 100 sidor per webbplats',
-  'Team workspace and client handoff': 'Teamarbetsyta och kundleverans',
-  'Advanced production features and white-label support': 'Avancerade produktionsfunktioner och white-label-stÃ¶d',
-  'Get help, report a problem or send feedback from one place.': 'FÃ¥ hjÃ¤lp, rapportera problem eller skicka feedback pÃ¥ ett stÃ¤lle.',
-  'Browse common questions and practical product guidance.': 'Se vanliga frÃ¥gor och praktisk produktvÃ¤gledning.',
-  'Open Help Center': 'Ã–ppna hjÃ¤lpcenter',
-  'Send a direct support message from inside your account.': 'Skicka ett supportmeddelande direkt frÃ¥n ditt konto.',
-  'Contact Support': 'Kontakta support',
-  'Share an idea or tell us what would make Tayar better.': 'Dela en idÃ© eller berÃ¤tta hur Tayar kan bli bÃ¤ttre.',
-  'Report a reproducible problem with clear technical details.': 'Rapportera ett reproducerbart problem med tydliga tekniska detaljer.',
-  'For account-specific issues, use the in-app contact form so your request stays connected to your signed-in account.': 'FÃ¶r kontospecifika problem, anvÃ¤nd formulÃ¤ret i appen sÃ¥ att Ã¤rendet kopplas till ditt inloggade konto.',
-  'How do I get started?': 'Hur kommer jag igÃ¥ng?',
-  'Open My Workspace or Dashboard, choose an available tool, and follow the inputs shown for that tool. Website Builder V1 is available for creating and publishing responsive websites.': 'Ã–ppna Min arbetsyta eller Dashboard, vÃ¤lj ett tillgÃ¤ngligt verktyg och fÃ¶lj fÃ¤lten som visas. Webbplatsbyggare V1 kan skapa och publicera responsiva webbplatser.',
-  'Which interface languages are supported?': 'Vilka grÃ¤nssnittssprÃ¥k stÃ¶ds?',
-  'The product interface supports English, Arabic, and Swedish. Arabic automatically uses right-to-left layout where appropriate.': 'ProduktgrÃ¤nssnittet stÃ¶der engelska, arabiska och svenska. Arabiska anvÃ¤nder automatiskt hÃ¶ger-till-vÃ¤nster-layout dÃ¤r det behÃ¶vs.',
-  'How does Website Builder billing work?': 'Hur fungerar betalning fÃ¶r Webbplatsbyggaren?',
-  'Free supports 1 website project with up to 3 pages. Pro supports up to 10 website projects and 25 pages per website. Business supports up to 50 website projects and 100 pages per website.': 'Free stÃ¶der 1 webbplatsprojekt med upp till 3 sidor. Pro stÃ¶der upp till 10 projekt och 25 sidor per webbplats. Business stÃ¶der upp till 50 projekt och 100 sidor per webbplats.',
-  'Is my data protected?': 'Ã„r mina data skyddade?',
-  'The application uses authenticated access and database row-level security for account-scoped data. Always keep your account credentials private and review sensitive AI output before sharing it.': 'Appen anvÃ¤nder autentiserad Ã¥tkomst och radnivÃ¥sÃ¤kerhet fÃ¶r kontodata. HÃ¥ll alltid dina inloggningsuppgifter privata och granska kÃ¤nsligt AI-innehÃ¥ll innan du delar det.',
-  'How do I manage my subscription?': 'Hur hanterar jag min prenumeration?',
-  'Open Subscription from the workspace menu. New upgrades use Stripe Checkout, and existing paid subscriptions can be managed through the Stripe billing portal.': 'Ã–ppna Prenumeration i arbetsytans meny. Nya uppgraderingar anvÃ¤nder Stripe Checkout och befintliga betalda prenumerationer hanteras i Stripes betalningsportal.',
-  'How do I report a bug?': 'Hur rapporterar jag ett fel?',
-  'Open Support and choose Report a Bug. Include the affected tool, severity, steps to reproduce, expected behavior, and actual behavior.': 'Ã–ppna Support och vÃ¤lj Rapportera ett fel. Ange berÃ¶rt verktyg, allvarlighetsgrad, steg fÃ¶r att Ã¥terskapa felet samt fÃ¶rvÃ¤ntat och faktiskt beteende.',
-  'Failed to send support request. Please try again.': 'Kunde inte skicka supportÃ¤rendet. FÃ¶rsÃ¶k igen.',
-  'Send Support Request': 'Skicka supportÃ¤rende',
-  'Please select a rating': 'VÃ¤lj ett betyg',
-  'Too many submissions. Please try again shortly.': 'FÃ¶r mÃ¥nga fÃ¶rsÃ¶k. FÃ¶rsÃ¶k igen om en stund.',
-  'Sending feedback...': 'Skickar feedback...',
-  'Thank you for your feedback!': 'Tack fÃ¶r din feedback!',
-  'Failed to send feedback. Please try again.': 'Kunde inte skicka feedback. FÃ¶rsÃ¶k igen.',
-  'Please describe the steps to reproduce': 'Beskriv stegen fÃ¶r att Ã¥terskapa problemet',
-  'Submitting bug report...': 'Skickar felrapport...',
-  'Bug report submitted. Thank you!': 'Felrapporten skickades. Tack!',
-  'Failed to submit bug report. Please try again.': 'Kunde inte skicka felrapporten. FÃ¶rsÃ¶k igen.',
-  '1. Go to...\n2. Click on...\n3. Enter...': '1. GÃ¥ till...\n2. Klicka pÃ¥...\n3. Ange...',
-  'Steps to reproduce': 'Steg fÃ¶r att Ã¥terskapa',
-  'What should have happened?': 'Vad borde ha hÃ¤nt?',
-  'Expected behavior': 'FÃ¶rvÃ¤ntat beteende',
-  'What actually happened?': 'Vad hÃ¤nde faktiskt?',
-  'Actual behavior': 'Faktiskt beteende',
-  'Submit Bug Report': 'Skicka felrapport',
-  'Message sent successfully! We will get back to you soon.': 'Meddelandet skickades. Vi Ã¥terkommer snart.',
-  'Failed to send message. Please try again.': 'Kunde inte skicka meddelandet. FÃ¶rsÃ¶k igen.',
-  'Send Message': 'Skicka meddelande',
-  'Account Support': 'Kontosupport',
-  'Use the secure form below': 'AnvÃ¤nd det sÃ¤kra formulÃ¤ret nedan',
-  'Product Help': 'ProdukthjÃ¤lp',
-  'Help Center and troubleshooting': 'HjÃ¤lpcenter och felsÃ¶kning',
-  'Privacy Requests': 'IntegritetsÃ¤renden',
-  'Access, correction or deletion requests': 'BegÃ¤ran om Ã¥tkomst, rÃ¤ttelse eller radering',
-  'Unlock higher limits, publishing, analytics and collaboration features.': 'LÃ¥s upp hÃ¶gre grÃ¤nser, publicering, analys och samarbetsfunktioner.',
-  'Start with core AI tools and Website Builder for free': 'BÃ¶rja gratis med grundlÃ¤ggande AI-verktyg och Webbplatsbyggaren',
-  "Ask AI to do anything... e.g. 'Create a CV', 'Analyze this PDF', 'Translate text'": 'Be AI gÃ¶ra nÃ¥got, till exempel skapa ett CV, analysera en PDF eller Ã¶versÃ¤tta text',
-  'No matching AI command. Try Create a CV or Translate text.': 'Inget matchande AI-kommando. Prova Skapa ett CV eller Ã–versÃ¤tt text.',
-  'Ask anything...': 'FrÃ¥ga vad som helst...',
-  'How do I improve my CV?': 'Hur fÃ¶rbÃ¤ttrar jag mitt CV?',
-  'What tools are available?': 'Vilka verktyg finns?',
-  'Help me write a cover letter': 'HjÃ¤lp mig skriva ett personligt brev',
-  'Tips for ATS optimization': 'Tips fÃ¶r ATS-optimering',
-  'Could not load subscriptions': 'Kunde inte lÃ¤sa in prenumerationer',
-  'Retry': 'FÃ¶rsÃ¶k igen',
-  'Subscriptions Overview': 'PrenumerationsÃ¶versikt',
-  'Payment Settings': 'BetalningsinstÃ¤llningar',
-  'past_due Â· 3-day grace': 'fÃ¶rfallen Â· 3 dagars respit',
-  'Stripe status unavailable': 'Stripe-status Ã¤r inte tillgÃ¤nglig',
-  'Stripe Connection': 'Stripe-anslutning',
-  'Secrets stay server-side and are never exposed in this panel.': 'Hemligheter stannar pÃ¥ serversidan och visas aldrig i den hÃ¤r panelen.',
-  'Connected': 'Ansluten',
-  'Not configured': 'Inte konfigurerad',
-  'Stripe Account': 'Stripe-konto',
-  'Country / Currency': 'Land / valuta',
-  'Charges': 'Debiteringar',
-  'Needs attention': 'BehÃ¶ver Ã¥tgÃ¤rdas',
-  'Payouts': 'Utbetalningar',
-  'Price verified': 'Pris verifierat',
-  'Price missing / invalid': 'Pris saknas / ogiltigt',
-  'Price ID': 'Pris-ID',
-  'Stripe Price': 'Stripe-pris',
-  'Webhook': 'Webhook',
-  'Secret configured': 'Hemlighet konfigurerad',
-  'Secret missing': 'Hemlighet saknas',
-  'Endpoint found': 'Endpoint hittad',
-  'Endpoint missing': 'Endpoint saknas',
-  'Events configured': 'HÃ¤ndelser konfigurerade',
-  'Events need review': 'HÃ¤ndelser behÃ¶ver granskas',
-  'Checkout & Portal': 'Checkout och portal',
-  'Checkout ready': 'Checkout klar',
-  'Checkout needs setup': 'Checkout behÃ¶ver konfigureras',
-  'Billing Portal ready': 'Faktureringsportal klar',
-  'Portal needs setup': 'Portalen behÃ¶ver konfigureras',
-  'Mode matches prices': 'LÃ¤get matchar priserna',
-  'Live/Test mismatch': 'Live/Test stÃ¤mmer inte Ã¶verens',
-  'Payout Destination': 'Utbetalningsdestination',
-  'Bank accounts, payout schedule, identity and tax details are managed only inside Stripe.': 'Bankkonton, utbetalningsschema, identitets- och skatteuppgifter hanteras endast i Stripe.',
-  'Open Stripe Dashboard': 'Ã–ppna Stripe Dashboard',
-  'Refresh Stripe Status': 'Uppdatera Stripe-status',
-  'System logs unavailable': 'Systemloggar Ã¤r inte tillgÃ¤ngliga',
-  'Account blocks unavailable': 'Kontoblockeringar Ã¤r inte tillgÃ¤ngliga',
-  'Account Block List': 'Lista Ã¶ver blockerade konton',
-  'Blocks survive account deletion and prevent re-registration while active.': 'Blockeringar finns kvar efter att kontot raderats och fÃ¶rhindrar ny registrering sÃ¥ lÃ¤nge de Ã¤r aktiva.',
-  'No blocked emails': 'Inga blockerade e-postadresser',
-  'Blocked': 'Blockerad',
-  'Expired': 'UtgÃ¥ngen',
-  'No reason provided': 'Ingen orsak angiven',
-  'By': 'Av',
-  'Expires': 'GÃ¥r ut',
-  'Permanent': 'Permanent',
-  'Unblock': 'Avblockera',
-  'Production readiness unavailable': 'Produktionsberedskap Ã¤r inte tillgÃ¤nglig',
-  'Production Readiness': 'Produktionsberedskap',
-  'Legal operator identity': 'Juridisk operatÃ¶rsidentitet',
-  'Production app URL': 'Produktionsappens URL',
-  'Live service checks before launch. Secrets remain server-side.': 'Kontroller av live-tjÃ¤nster fÃ¶re lansering. Hemligheter stannar pÃ¥ serversidan.',
-  'ready': 'klar',
-  'Notifications unavailable': 'Aviseringar Ã¤r inte tillgÃ¤ngliga',
-  'Email templates unavailable': 'E-postmallar Ã¤r inte tillgÃ¤ngliga',
-  'Backups are managed by the database hosting provider. No in-app backup API is configured, so this panel will not pretend to create or download backups.': 'SÃ¤kerhetskopior hanteras av databasens driftleverantÃ¶r. Inget backup-API Ã¤r konfigurerat i appen, sÃ¥ panelen lÃ¥tsas inte skapa eller ladda ner sÃ¤kerhetskopior.',
-  'Use the Supabase project backup controls for real backup and restore operations.': 'AnvÃ¤nd backupfunktionerna i Supabase-projektet fÃ¶r riktiga sÃ¤kerhetskopierings- och Ã¥terstÃ¤llningsÃ¥tgÃ¤rder.',
-  'API key metadata unavailable': 'Metadata fÃ¶r API-nycklar Ã¤r inte tillgÃ¤nglig',
-  'Metadata only â€” secrets stay server-side': 'Endast metadata â€” hemligheter stannar pÃ¥ serversidan',
-  'Feature flags unavailable': 'Funktionsflaggor Ã¤r inte tillgÃ¤ngliga',
-  'Existing flags only': 'Endast befintliga flaggor',
-  'Could not load users': 'Kunde inte lÃ¤sa in anvÃ¤ndare',
-  'Admin Access': 'AdminÃ¥tkomst',
-  'Managed by Billing': 'Hanteras av fakturering',
-  'Complimentary Access': 'Kostnadsfri Ã¥tkomst',
-  'Current billing only': 'Endast aktuell fakturering',
-  'Complimentary Pro': 'Kostnadsfri Pro',
-  'Complimentary Business': 'Kostnadsfri Business',
-  'Expires (optional)': 'GÃ¥r ut (valfritt)',
-  'Save Complimentary Access': 'Spara kostnadsfri Ã¥tkomst',
-  'This changes product access only. It does not create a Stripe subscription or affect MRR.': 'Detta Ã¤ndrar endast produktÃ¥tkomsten. Det skapar ingen Stripe-prenumeration och pÃ¥verkar inte MRR.',
-  'Build, preview and publish': 'Bygg, fÃ¶rhandsgranska och publicera',
-  'More website tools': 'Fler webbplatsverktyg',
-  'More': 'Mer',
-  'Website tools': 'Webbplatsverktyg',
-  'Advanced tools stay here until you need them.': 'Avancerade verktyg stannar hÃ¤r tills du behÃ¶ver dem.',
-  'Project & domain': 'Projekt och domÃ¤n',
-  'Start a new websiteâ€¦': 'Starta en ny webbplatsâ€¦',
-  'Project actions': 'ProjektÃ¥tgÃ¤rder',
-  'AI quality check before publishing': 'AI-kvalitetskontroll fÃ¶re publicering',
-  'Checkingâ€¦': 'Kontrollerarâ€¦',
-  'Check': 'Kontrollera',
-  'AI Quality Check': 'AI-kvalitetskontroll',
-  'Reviewing design, content, SEO, accessibility and publish readinessâ€¦': 'Granskar design, innehÃ¥ll, SEO, tillgÃ¤nglighet och publiceringsberedskapâ€¦',
-  'Run the final AI review before publishing.': 'KÃ¶r den sista AI-granskningen fÃ¶re publicering.',
-  'Run again': 'KÃ¶r igen',
-  'Fix safe issues with AI': 'Ã…tgÃ¤rda sÃ¤kra problem med AI',
-  'Publish remains blocked by critical deterministic audit errors and launch checks.': 'Publicering fÃ¶rblir blockerad av kritiska deterministiska granskningsfel och lanseringskontroller.',
-  'Up to 30 manual and AI checkpoints. Autosave stays lightweight.': 'Upp till 30 manuella och AI-kontrollpunkter. Autosparandet fÃ¶rblir lÃ¤ttviktigt.',
-  'No restore points yet. Save or use Tayar AI to create the first checkpoint.': 'Inga Ã¥terstÃ¤llningspunkter Ã¤nnu. Spara eller anvÃ¤nd Tayar AI fÃ¶r att skapa den fÃ¶rsta kontrollpunkten.',
-  'Add': 'LÃ¤gg till',
-  'Page settings': 'SidinstÃ¤llningar',
-  'Site settings': 'WebbplatsinstÃ¤llningar',
-  'Header, footer, theme, SEO and advanced options': 'Sidhuvud, sidfot, tema, SEO och avancerade alternativ',
-  'Sections & elements': 'Sektioner och element',
-  'Popular sections': 'PopulÃ¤ra sektioner',
-  'Start simple': 'BÃ¶rja enkelt',
-  'More sections': 'Fler sektioner',
-  'Add element': 'LÃ¤gg till element',
-  'Common first': 'Vanliga fÃ¶rst',
-  'Advanced elements': 'Avancerade element',
-  'Choose a section first. Add individual elements only when you need more control.': 'VÃ¤lj fÃ¶rst en sektion. LÃ¤gg bara till enskilda element nÃ¤r du behÃ¶ver mer kontroll.',
-  'Select a section to see its elements.': 'VÃ¤lj en sektion fÃ¶r att se dess element.',
-  'sections': 'sektioner',
-  'No elements in this section.': 'Inga element i den hÃ¤r sektionen.',
-  'Tayar AI Builder': 'Tayar AI-byggare',
-  'Build, refine and undo with natural language.': 'Bygg, fÃ¶rfina och Ã¥ngra med naturligt sprÃ¥k.',
-  'Safe patch mode': 'SÃ¤kert patchlÃ¤ge',
-  'Unrelated content stays intact': 'Orelaterat innehÃ¥ll lÃ¤mnas orÃ¶rt',
-  'Website plan': 'Webbplatsplan',
-  'Apply AI change': 'TillÃ¤mpa AI-Ã¤ndring',
-  'Rebuild from prompt': 'Bygg om frÃ¥n prompt',
-  'Edit manually': 'Redigera manuellt',
-  'Generate selected image': 'Generera vald bild',
-  'Quality check': 'Kvalitetskontroll',
-  'Undo AI change': 'Ã…ngra AI-Ã¤ndring',
-  'Build with Tayar Agent': 'Bygg med Tayar Agent',
-  'Fast build Â· no generated images': 'Snabb byggning Â· inga genererade bilder',
-  'AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.': 'AI skapar och uppdaterar riktiga Tayar-sidor och sektioner. FÃ¶ljdÃ¤ndringar bevarar orelaterat innehÃ¥ll och fÃ¶rblir redigerbara i den visuella byggaren.',
-  'Developer export': 'Utvecklarexport',
-  'Add section': 'LÃ¤gg till sektion',
-  'Inspector': 'InspektÃ¶r',
-  'Double-click the text on the page for quick editing, or use the controls here.': 'Dubbelklicka pÃ¥ texten pÃ¥ sidan fÃ¶r snabb redigering, eller anvÃ¤nd kontrollerna hÃ¤r.',
-  'Change the basics here. Open Advanced only when you need it.': 'Ã„ndra grunderna hÃ¤r. Ã–ppna Avancerat bara nÃ¤r du behÃ¶ver det.',
-  'Select something on the page to start editing.': 'VÃ¤lj nÃ¥got pÃ¥ sidan fÃ¶r att bÃ¶rja redigera.',
-  'Structure': 'Struktur',
-  'Structure & reusable components': 'Struktur och Ã¥teranvÃ¤ndbara komponenter',
-  'Quick style': 'Snabb stil',
-  'Advanced design & responsive': 'Avancerad design och responsivitet',
-  'styles': 'stilar',
-  'Free position': 'Fri position',
-  'Drag freely on the canvas. Hold Shift while dragging to reorder instead.': 'Dra fritt pÃ¥ arbetsytan. HÃ¥ll Shift medan du drar fÃ¶r att Ã¤ndra ordning i stÃ¤llet.',
-  'Section settings': 'SektionsinstÃ¤llningar',
-  'collapsed while editing element': 'ihopfÃ¤lld under elementredigering',
-
-  'Tools data unavailable': 'Verktygsdata Ã¤r inte tillgÃ¤nglig',
-  'Live usage data': 'Live-anvÃ¤ndningsdata',
-  'Analysis is read-only. No storage object or database row is changed by this button.': 'Analysen Ã¤r skrivskyddad. Ingen lagringsfil eller databasrad Ã¤ndras av den hÃ¤r knappen.',
-  'Detected issues': 'UpptÃ¤ckta problem',
-  'Components': 'Komponenter',
-  'changes': 'Ã¤ndringar',
-  'Restore this editor state': 'Ã…terstÃ¤ll detta redigerarlÃ¤ge',
-  'Restore': 'Ã…terstÃ¤ll',
-  'No changes yet.': 'Inga Ã¤ndringar Ã¤nnu.',
-  'Redo queue': 'GÃ¶r om-kÃ¶',
-  'Template Library': 'Mallbibliotek',
-
-  'Components are reusable linked elements. Create one from the selected element, insert it anywhere, and linked copies stay in sync. Detach makes only the selected copy independent.': 'Komponenter Ã¤r Ã¥teranvÃ¤ndbara lÃ¤nkade element. Skapa en frÃ¥n det valda elementet och infoga den var som helst sÃ¥ hÃ¥lls lÃ¤nkade kopior synkroniserade. Frikoppling gÃ¶r bara den valda kopian oberoende.',
-  'Create a reusable linked component from the selected element': 'Skapa en Ã¥teranvÃ¤ndbar lÃ¤nkad komponent frÃ¥n det valda elementet',
-  'Select a normal element first': 'VÃ¤lj ett vanligt element fÃ¶rst',
-  'Create component': 'Skapa komponent',
-  'Detach the selected linked instance': 'Frikoppla den valda lÃ¤nkade instansen',
-  'Select a linked component instance first': 'VÃ¤lj en lÃ¤nkad komponentinstans fÃ¶rst',
-  'Detach selected': 'Frikoppla vald',
-  'Insert component into the selected section': 'Infoga komponent i den valda sektionen',
-  'Select a section or element first': 'VÃ¤lj en sektion eller ett element fÃ¶rst',
-  'Component': 'Komponent',
-  'Delete component': 'Radera komponent',
-  'DEL': 'Radera',
-  'Select an element on the canvas, then choose â€œCreate componentâ€.': 'VÃ¤lj ett element pÃ¥ arbetsytan och vÃ¤lj sedan â€Skapa komponentâ€.',
-  'Select a section or an element on the canvas before inserting a component.': 'VÃ¤lj en sektion eller ett element pÃ¥ arbetsytan innan du infogar en komponent.',
-  'Tayar AI is loading...': 'Tayar AI laddas...',
-  'Site controls are loading...': 'Webbplatskontroller laddas...',
-  'Settings are loading...': 'InstÃ¤llningar laddas...',
-  'Tayar AI': 'Tayar AI',
-  'VERIFYING': 'VERIFIERAR',
-  'CHECK FAILED': 'KONTROLL MISSLYCKADES',
-  'LIVE': 'LIVE',
-  'PUBLISHED': 'PUBLICERAD',
-  'Saved changes need republish Â· Open site â†—': 'Sparade Ã¤ndringar behÃ¶ver publiceras igen Â· Ã–ppna webbplats â†—',
-  'Up to date Â· Open site â†—': 'Uppdaterad Â· Ã–ppna webbplats â†—',
-  'critical': 'kritiska',
-  'warnings': 'varningar',
-  'issue': 'problem',
-  'issues': 'problem',
-  'Savingâ€¦': 'Spararâ€¦',
-  'Unsaved': 'Osparat',
-  'Saved Â· Not live yet': 'Sparat Â· Inte live Ã¤nnu',
-  'Saved Â· Live': 'Sparat Â· Live',
-  'Saved': 'Sparat',
-  'Editor history': 'Redigerarhistorik',
-  'Publishingâ€¦': 'Publicerarâ€¦',
-  'Republish': 'Publicera igen',
-  'Publish again': 'Publicera igen',
-  'Publish': 'Publicera',
-
-  'Tayar Coding Assistance': 'Tayar kodassistans',
-  'UI Registry': 'UI-register',
-  'Reading active project': 'LÃ¤ser aktivt projekt',
-  'Project context unavailable': 'Projektkontext Ã¤r inte tillgÃ¤nglig',
-  'Loading open-source registries': 'Laddar register med Ã¶ppen kÃ¤llkod',
-  'Target project': 'MÃ¥lprojekt',
-  'Source policy': 'KÃ¤llpolicy',
-  'Files': 'Filer',
-  'Folder': 'Mapp',
-  'Clear private session files': 'Rensa privata sessionsfiler',
-  'Full Feature Generator': 'Komplett funktionsgenerator',
-  'Registry anchors': 'Registerankare',
-  'Choose a target project to generate a feature pack.': 'VÃ¤lj ett mÃ¥lprojekt fÃ¶r att generera ett funktionspaket.',
-  'Component Kit Composer': 'Komponentpaketsbyggare',
-  'Kit is empty. Load a preset or add selected components.': 'Paketet Ã¤r tomt. Ladda en fÃ¶rinstÃ¤llning eller lÃ¤gg till valda komponenter.',
-  'Clear kit': 'Rensa paket',
-  'Items': 'Objekt',
-  'Registry deps': 'Registerberoenden',
-  'Compatibility': 'Kompatibilitet',
-  'Page Composer + Themes': 'Sidbyggare + teman',
-  'Section anchors': 'Sektionsankare',
-  'No strong registry anchors found for this page preset.': 'Inga starka registerankare hittades fÃ¶r den hÃ¤r sidfÃ¶rinstÃ¤llningen.',
-  'Project UI Audit': 'Projektets UI-granskning',
-  'Choose a target project to run the UI audit.': 'VÃ¤lj ett mÃ¥lprojekt fÃ¶r att kÃ¶ra UI-granskningen.',
-  'Score': 'PoÃ¤ng',
-  'High': 'HÃ¶g',
-  'Coverage': 'TÃ¤ckning',
-  'No issues matched the current deterministic audit rules.': 'Inga problem matchade de aktuella deterministiska granskningsreglerna.',
-  'All sources': 'Alla kÃ¤llor',
-  'Private Session': 'Privat session',
-  'Animated only': 'Endast animerade',
-  'No matching components.': 'Inga matchande komponenter.',
-  'Show 80 more': 'Visa 80 till',
-  'Open source': 'Ã–ppen kÃ¤llkod',
-  'Private session': 'Privat session',
-  'Isolated live preview': 'Isolerad livefÃ¶rhandsvisning',
-  'Stop preview': 'Stoppa fÃ¶rhandsvisning',
-  'Dependencies': 'Beroenden',
-  'AI ready': 'AI-klar',
-  'Similar components': 'Liknande komponenter',
-  'Find similar / Replace project component': 'Hitta liknande / ErsÃ¤tt projektkomponent',
-  'Suggested replacements': 'FÃ¶reslagna ersÃ¤ttningar',
-  'No strong registry match yet. Pick a registry component manually, then use the button below.': 'Ingen stark registermatchning Ã¤nnu. VÃ¤lj en registerkomponent manuellt och anvÃ¤nd sedan knappen nedan.',
-  'Active project compatibility': 'Aktivt projekt â€“ kompatibilitet',
-  'Framework': 'Ramverk',
-  'Detected project style': 'Identifierad projektstil',
-  'No strong style tokens detected yet.': 'Inga tydliga stiltokens har identifierats Ã¤nnu.',
-  'Context files': 'Kontextfiler',
-  'Missing npm deps': 'Saknade npm-beroenden',
-  'Source code loads on demand': 'KÃ¤llkod laddas vid behov',
-  'AI adaptation': 'AI-anpassning',
-  'Constraints': 'BegrÃ¤nsningar',
-  'Project style matching active': 'Matchning mot projektstil Ã¤r aktiv',
-  'Use this direction': 'AnvÃ¤nd denna riktning',
-  'Reviewable patch plan': 'Granskningsbar patchplan',
-  'NPM to install': 'NPM att installera',
-  'Registry dependencies': 'Registerberoenden',
-  'Feature Pack Preview': 'FÃ¶rhandsvisning av funktionspaket',
-  'Preview primary file': 'FÃ¶rhandsvisa primÃ¤r fil',
-  'Create': 'Skapa',
-  'Replace': 'ErsÃ¤tt',
-  'Primary': 'PrimÃ¤r',
-  'Controlled Dependency Editor': 'Kontrollerad beroenderedigerare',
-  'Rollback checkpoint available': 'Ã…terstÃ¤llningspunkt tillgÃ¤nglig',
-  'Safe Apply blocked': 'SÃ¤ker tillÃ¤mpning blockerad',
-  'No AI adaptation or patch plan generated yet.': 'Ingen AI-anpassning eller patchplan har genererats Ã¤nnu.',
-  'Active project': 'Aktivt projekt',
-  'Project context is read-only and bounded before it is used by AI. No project file is changed by this screen.': 'Projektkontexten Ã¤r skrivskyddad och begrÃ¤nsad innan den anvÃ¤nds av AI. Ingen projektfil Ã¤ndras frÃ¥n den hÃ¤r skÃ¤rmen.',
-  'Source': 'KÃ¤lla',
-  'License gate': 'Licenskontroll',
-  'Registry styles': 'Registerstilar',
-  'AI adaptation instruction': 'Instruktion fÃ¶r AI-anpassning',
-
-  'Delete only': 'Radera endast',
-  'Delete + block': 'Radera + blockera',
-  'Block expires (optional)': 'Blockering gÃ¥r ut (valfritt)',
-  'Template Library Integrity Audit': 'Integritetsgranskning av mallbiblioteket',
-  'Pause': 'Pausa',
-  'Invalid template deletion completed': 'Radering av ogiltiga mallar slutfÃ¶rd',
-  'The previous audit snapshot was cleared. Run the audit again to verify the remaining library.': 'Den tidigare granskningsÃ¶gonblicksbilden har rensats. KÃ¶r granskningen igen fÃ¶r att verifiera det Ã¥terstÃ¥ende biblioteket.',
-  'Repair dry-run analysis': 'Testanalys av reparation',
-
-  'AI admin data unavailable': 'AI-admindata Ã¤r inte tillgÃ¤ngliga',
-  'Set the production default model. Per-tool user settings override this value.': 'Ange standardmodellen fÃ¶r produktion. AnvÃ¤ndarinstÃ¤llningar per verktyg Ã¥sidosÃ¤tter detta vÃ¤rde.',
-  'Choose a managed model below, or add a new Gemini model ID manually when Google releases one.': 'VÃ¤lj en hanterad modell nedan, eller lÃ¤gg till ett nytt Gemini-modell-ID manuellt nÃ¤r Google slÃ¤pper ett.',
-  'Gemini backend': 'Gemini-backend',
-  'Save default': 'Spara standard',
-  'Custom': 'Anpassad',
-  'Built-in': 'Inbyggd',
-  'Remove model': 'Ta bort modell',
-  'Add model manually': 'LÃ¤gg till modell manuellt',
-  'Use the exact Gemini API model ID, for example gemini-3.x-flash.': 'AnvÃ¤nd det exakta modell-ID:t fÃ¶r Gemini API, till exempel gemini-3.x-flash.',
-  'Display name (optional)': 'Visningsnamn (valfritt)',
-  'Add model': 'LÃ¤gg till modell',
-  'Selected': 'Vald',
-  'Provider': 'LeverantÃ¶r',
-  'Saved here as an admin content draft. Public pages are not changed until live-content wiring is enabled.': 'Sparas hÃ¤r som ett administrativt innehÃ¥llsutkast. Offentliga sidor Ã¤ndras inte fÃ¶rrÃ¤n koppling till liveinnehÃ¥ll Ã¤r aktiverad.',
-  'Dashboard data unavailable': 'Instrumentpanelsdata Ã¤r inte tillgÃ¤ngliga',
-  'The admin data source could not be loaded.': 'AdministrationsdatakÃ¤llan kunde inte lÃ¤sas in.',
-  'Admin Data Status': 'Status fÃ¶r administrationsdata',
-  'Only verified live data is shown here; placeholder health metrics have been removed.': 'Endast verifierade livedata visas hÃ¤r; platshÃ¥llarmÃ¥tt fÃ¶r hÃ¤lsa har tagits bort.',
-  'Admin Verified': 'Admin verifierad',
-  'Admin access check failed': 'Kontroll av adminÃ¥tkomst misslyckades',
-  'Support data unavailable': 'Supportdata Ã¤r inte tillgÃ¤ngliga',
-  'Support request sent': 'SupportfÃ¶rfrÃ¥gan skickades',
-  'Admin Â· Business access': 'Admin Â· Business-Ã¥tkomst',
-  'Not required': 'KrÃ¤vs inte',
-  'Included with admin access': 'IngÃ¥r med adminÃ¥tkomst',
-  'Could not use this image.': 'Det gick inte att anvÃ¤nda den hÃ¤r bilden.',
-  'Background removal failed.': 'Borttagning av bakgrund misslyckades.',
-  'Background Remover': 'Bakgrundsborttagare',
-  'Remove image backgrounds using Tayarâ€™s secured server-side image service.': 'Ta bort bildbakgrunder med Tayars sÃ¤kra bildtjÃ¤nst pÃ¥ serversidan.',
-  'External processing': 'Extern bearbetning',
-  'For this tool, your selected image is sent through Tayarâ€™s authenticated server to fal.ai for background removal. Your API key is never exposed in the browser.': 'FÃ¶r det hÃ¤r verktyget skickas den valda bilden via Tayars autentiserade server till fal.ai fÃ¶r bakgrundsborttagning. Din API-nyckel exponeras aldrig i webblÃ¤saren.',
-  'Choose JPEG, PNG or WebP': 'VÃ¤lj JPEG, PNG eller WebP',
-  'Crop tightly around subject': 'BeskÃ¤r tÃ¤tt runt motivet',
-  'Optional provider bounding-box crop': 'Valfri beskÃ¤rning efter leverantÃ¶rens begrÃ¤nsningsruta',
-  'Choose an image to remove its background.': 'VÃ¤lj en bild fÃ¶r att ta bort bakgrunden.',
-  'Original': 'Original',
-  'Transparent result': 'Transparent resultat',
-  'Background removed': 'Bakgrunden borttagen',
-  'Your result will appear here after processing.': 'Ditt resultat visas hÃ¤r efter bearbetningen.',
-  'Transparent output': 'Transparent utdata',
-  'Download PNG': 'Ladda ner PNG',
-  'Could not add these images.': 'Det gick inte att lÃ¤gga till de hÃ¤r bilderna.',
-  'Batch processing failed.': 'Batchbearbetningen misslyckades.',
-  'Could not create the ZIP file.': 'Det gick inte att skapa ZIP-filen.',
-  'Batch Image Converter': 'Batchbildkonverterare',
-  'Convert and resize multiple images locally, then download them individually or as one ZIP.': 'Konvertera och Ã¤ndra storlek pÃ¥ flera bilder lokalt och ladda sedan ner dem individuellt eller som en ZIP-fil.',
-  'Processed locally': 'Bearbetas lokalt',
-  'Images and ZIP creation stay in your browser. Tayar does not upload files for this tool.': 'Bilder och skapandet av ZIP-filen stannar i webblÃ¤saren. Tayar laddar inte upp filer fÃ¶r det hÃ¤r verktyget.',
-  'Add JPEG, PNG or WebP images': 'LÃ¤gg till JPEG-, PNG- eller WebP-bilder',
-  'Up to 20 files Â· 80 MB combined source limit': 'Upp till 20 filer Â· 80 MB sammanlagd kÃ¤llgrÃ¤ns',
-  'Output format': 'Utdataformat',
-  'Maximum side (0 keeps original size)': 'Maximal sida (0 behÃ¥ller originalstorleken)',
-  'Quality': 'Kvalitet',
-  'Add multiple images to start.': 'LÃ¤gg till flera bilder fÃ¶r att bÃ¶rja.',
-  'Download': 'Ladda ner',
-  'Remove': 'Ta bort',
-  'Could not read this file.': 'Det gick inte att lÃ¤sa den hÃ¤r filen.',
-  'CSV Cleaner': 'CSV-rensare',
-  'Clean and prepare CSV data safely without uploading it.': 'Rensa och fÃ¶rbered CSV-data sÃ¤kert utan att ladda upp dem.',
-  'Your CSV stays in this browser. Spreadsheet-safe export is enabled by default.': 'Din CSV-fil stannar i webblÃ¤saren. KalkylbladssÃ¤ker export Ã¤r aktiverad som standard.',
-  'Choose CSV, TSV or text data': 'VÃ¤lj CSV-, TSV- eller textdata',
-  'Maximum 10 MB Â· bounded rows, columns and cells': 'Max 10 MB Â· begrÃ¤nsat antal rader, kolumner och celler',
-  'rows': 'rader',
-  'columns': 'kolumner',
-  'Detected delimiter': 'Identifierad avgrÃ¤nsare',
-  'Tab': 'Tabb',
-  'Clean CSV': 'Rensa CSV',
-  'Cleaned result': 'Rensat resultat',
-  'rows removed': 'rader borttagna',
-  'Download Clean CSV': 'Ladda ner rensad CSV',
-  'Choose a file to preview its data.': 'VÃ¤lj en fil fÃ¶r att fÃ¶rhandsvisa dess data.',
-  'Showing up to 25 rows and 12 columns': 'Visar upp till 25 rader och 12 kolumner',
-  'No rows remain after cleaning.': 'Inga rader Ã¥terstÃ¥r efter rensningen.',
-  'Could not read this image.': 'Det gick inte att lÃ¤sa den hÃ¤r bilden.',
-  'Invalid crop area.': 'Ogiltigt beskÃ¤rningsomrÃ¥de.',
-  'Could not crop this image.': 'Det gick inte att beskÃ¤ra den hÃ¤r bilden.',
-  'Image Cropper': 'BildbeskÃ¤rare',
-  'Crop images locally with precise coordinates or common aspect ratios.': 'BeskÃ¤r bilder lokalt med exakta koordinater eller vanliga bildfÃ¶rhÃ¥llanden.',
-  'The source image and crop result stay inside your browser.': 'KÃ¤llbilden och beskÃ¤rningsresultatet stannar i webblÃ¤saren.',
-  'Maximum 20 MB': 'Max 20 MB',
-  'Aspect ratio': 'BildfÃ¶rhÃ¥llande',
-  'Choose an image to start cropping.': 'VÃ¤lj en bild fÃ¶r att bÃ¶rja beskÃ¤ra.',
-  'Crop preview': 'FÃ¶rhandsvisning av beskÃ¤rning',
-  'Result': 'Resultat',
-  'Cropped result': 'Beskuret resultat',
-  'Could not create this PDF.': 'Det gick inte att skapa den hÃ¤r PDF-filen.',
-  'Image to PDF': 'Bild till PDF',
-  'Combine JPEG, PNG and WebP images into one PDF directly in your browser.': 'Kombinera JPEG-, PNG- och WebP-bilder till en PDF direkt i webblÃ¤saren.',
-  'Images stay in your browser. Tayar creates a new PDF and never parses an uploaded PDF in this tool.': 'Bilderna stannar i webblÃ¤saren. Tayar skapar en ny PDF och analyserar aldrig en uppladdad PDF i det hÃ¤r verktyget.',
-  'Up to 20 images Â· 80 MB combined source limit': 'Upp till 20 bilder Â· 80 MB sammanlagd kÃ¤llgrÃ¤ns',
-  'pages': 'sidor',
-  'Page size': 'Sidstorlek',
-  'A4 Â· auto orientation': 'A4 Â· automatisk orientering',
-  'Letter Â· auto orientation': 'Letter Â· automatisk orientering',
-  'Fit page to image': 'Anpassa sidan till bilden',
-  'Margin': 'Marginal',
-  'Normal': 'Normal',
-  'Image quality': 'Bildkvalitet',
-  'Transparent PNG/WebP pixels are flattened onto white when embedded as JPEG inside the PDF.': 'Transparenta PNG-/WebP-pixlar lÃ¤ggs mot vitt nÃ¤r de bÃ¤ddas in som JPEG i PDF-filen.',
-  'Add images to build a PDF.': 'LÃ¤gg till bilder fÃ¶r att skapa en PDF.',
-  'Generated PDF preview': 'FÃ¶rhandsvisning av skapad PDF',
-  'Download PDF': 'Ladda ner PDF',
-  'Image processing failed.': 'Bildbearbetningen misslyckades.',
-  'Image Tools': 'Bildverktyg',
-  'Resize, compress and convert images directly in your browser.': 'Ã„ndra storlek, komprimera och konvertera bilder direkt i webblÃ¤saren.',
-  'Your image stays in this browser. Tayar does not upload it for these operations.': 'Din bild stannar i webblÃ¤saren. Tayar laddar inte upp den fÃ¶r de hÃ¤r Ã¥tgÃ¤rderna.',
-  'Source image': 'KÃ¤llbild',
-  'Maximum 20 MB Â· bounded pixel processing': 'Max 20 MB Â· begrÃ¤nsad pixelbearbetning',
-  'Height': 'HÃ¶jd',
-  'Choose an image to start.': 'VÃ¤lj en bild fÃ¶r att bÃ¶rja.',
-  'Original preview': 'FÃ¶rhandsvisning av original',
-  'Processed preview': 'FÃ¶rhandsvisning av bearbetad bild',
-  'Process the image to preview the result.': 'Bearbeta bilden fÃ¶r att fÃ¶rhandsvisa resultatet.',
-  'Draft saved on this device.': 'Utkastet sparades pÃ¥ den hÃ¤r enheten.',
-  'Could not save this draft in browser storage.': 'Det gick inte att spara utkastet i webblÃ¤sarens lagring.',
-  'Clear the current invoice draft?': 'Rensa det aktuella fakturautkastet?',
-  'Pop-up blocked. Allow pop-ups and try Print / Save PDF again.': 'Popup-fÃ¶nstret blockerades. TillÃ¥t popup-fÃ¶nster och fÃ¶rsÃ¶k med Skriv ut / Spara PDF igen.',
-  'Invoice Generator': 'Fakturagenerator',
-  'Create a professional invoice, choose a design, calculate VAT, save a draft and print or save as PDF.': 'Skapa en professionell faktura, vÃ¤lj en design, berÃ¤kna moms, spara ett utkast och skriv ut eller spara som PDF.',
-  'Invoice design': 'Fakturadesign',
-  'Your company': 'Ditt fÃ¶retag',
-  'Tayar AB': 'Tayar AB',
-  'Customer': 'Kund',
-  'Customer name': 'Kundnamn',
-  'Company details': 'FÃ¶retagsuppgifter',
-  'Address, organization number, email, payment details': 'Adress, organisationsnummer, e-post, betalningsuppgifter',
-  'Customer details': 'Kunduppgifter',
-  'Address, email or reference': 'Adress, e-post eller referens',
-  'Invoice number': 'Fakturanummer',
-  'Issue date': 'UtstÃ¤llningsdatum',
-  'Currency': 'Valuta',
-  'Payment terms, thank-you note or bank details': 'Betalningsvillkor, tackmeddelande eller bankuppgifter',
-  'Save Draft': 'Spara utkast',
-  'Print / Save PDF': 'Skriv ut / Spara PDF',
-  'Letter Generator': 'Brevgenerator',
-  'Create practical letters from original Tayar templates and edit the result manually.': 'Skapa praktiska brev frÃ¥n Tayars originalmallar och redigera resultatet manuellt.',
-  'Letter type': 'Brevtyp',
-  'Recipient': 'Mottagare',
-  'Organization': 'Organisation',
-  'Subject or purpose': 'Ã„mne eller syfte',
-  'What is this letter about?': 'Vad handlar brevet om?',
-  'Important details': 'Viktiga detaljer',
-  'Add facts, dates, context or the outcome you want.': 'LÃ¤gg till fakta, datum, sammanhang eller Ã¶nskat resultat.',
-  'Choose a letter type and add your details.': 'VÃ¤lj en brevtyp och lÃ¤gg till dina uppgifter.',
-  'Edit the result': 'Redigera resultatet',
-  'The generated text is fully editable before you copy or download it.': 'Den genererade texten kan redigeras helt innan du kopierar eller laddar ner den.',
-  'TXT': 'TXT',
-  'Name Generator': 'Namngenerator',
-  'Generate original business, product, brand and social-name ideas locally.': 'Generera originella namnidÃ©er fÃ¶r fÃ¶retag, produkter, varumÃ¤rken och sociala medier lokalt.',
-  'Keyword or idea': 'Nyckelord eller idÃ©',
-  'Example: coffee, fitness, design': 'Exempel: kaffe, trÃ¤ning, design',
-  'Name type': 'Namntyp',
-  'Ideas': 'IdÃ©er',
-  'Availability is not checked. Verify trademarks, domains and social handles before using a name commercially.': 'TillgÃ¤nglighet kontrolleras inte. Kontrollera varumÃ¤rken, domÃ¤ner och kontonamn i sociala medier innan du anvÃ¤nder ett namn kommersiellt.',
-  'Enter an idea and generate names.': 'Ange en idÃ© och generera namn.',
-  'Name ideas': 'NamnidÃ©er',
-  'original combinations': 'originella kombinationer',
-  'Copy name': 'Kopiera namn',
-  'Prompt Library': 'Promptbibliotek',
-  'Search original Tayar prompt templates and personalize them for your task.': 'SÃ¶k bland Tayars originalmallar fÃ¶r prompts och anpassa dem till din uppgift.',
-  'Original Tayar prompts': 'Tayars originalprompts',
-  'Prompt structures are written for Tayar and organized by workflow. They are not copied prompt packs.': 'Promptstrukturerna Ã¤r skrivna fÃ¶r Tayar och organiserade efter arbetsflÃ¶de. De Ã¤r inte kopierade promptpaket.',
-  'Search prompts': 'SÃ¶k prompts',
-  'Fill what you know. Empty fields remain as placeholders.': 'Fyll i det du vet. Tomma fÃ¤lt lÃ¤mnas som platshÃ¥llare.',
-  'Audience': 'MÃ¥lgrupp',
-  'Goal': 'MÃ¥l',
-  'Select a prompt to personalize it.': 'VÃ¤lj en prompt fÃ¶r att anpassa den.',
-  'Open / Download': 'Ã–ppna / Ladda ner',
-  'Templates Hub': 'Mallcenter',
-  'Browse Tayar-hosted office templates or use original Tayar starter files.': 'BlÃ¤ddra bland kontorsmallar som Tayar Ã¤r vÃ¤rd fÃ¶r eller anvÃ¤nd Tayars egna startfiler.',
-  'Tayar Library': 'Tayar-biblioteket',
-  'Originals': 'Original',
-  'Templates mirrored into Tayar storage for independent access.': 'Mallar som speglas till Tayars lagring fÃ¶r oberoende Ã¥tkomst.',
-  'Tayar Originals': 'Tayar-original',
-  'Small starter templates created directly by Tayar.': 'SmÃ¥ startmallar skapade direkt av Tayar.',
-  'Search templates': 'SÃ¶k mallar',
-  'File format': 'Filformat',
-  'All formats': 'Alla format',
-  'Sort templates': 'Sortera mallar',
-  'Name Aâ€“Z': 'Namn Aâ€“Ã–',
-  'Newest': 'Nyaste',
-  'Largest files': 'StÃ¶rsta filer',
-  'Loading Tayar Libraryâ€¦': 'Laddar Tayar-biblioteketâ€¦',
-  'Tayar Library is temporarily unavailable': 'Tayar-biblioteket Ã¤r tillfÃ¤lligt otillgÃ¤ngligt',
-  'Original Tayar templates remain available from the Originals tab.': 'Tayars originalmallar finns fortfarande tillgÃ¤ngliga under fliken Original.',
-  'No mirrored templates match this search.': 'Inga speglade mallar matchar sÃ¶kningen.',
-  'Previous': 'FÃ¶regÃ¥ende',
-  'Original Tayar templates': 'Tayars originalmallar',
-  'These starter files are built by Tayar and generated locally as CSV files.': 'Dessa startfiler Ã¤r skapade av Tayar och genereras lokalt som CSV-filer.',
-  'Download CSV': 'Ladda ner CSV',
-  'No templates match this search.': 'Inga mallar matchar sÃ¶kningen.',
-  'Back': 'Tillbaka',
-  'We\'ve sent a verification link to your email address. Click the link inside to activate your account.': 'Vi har skickat en verifieringslÃ¤nk till din e-postadress. Klicka pÃ¥ lÃ¤nken fÃ¶r att aktivera ditt konto.',
-  'No worries â€” enter your email and we\'ll send you a reset link.': 'Ingen fara â€” ange din e-postadress sÃ¥ skickar vi en Ã¥terstÃ¤llningslÃ¤nk.',
-  'Your password has been changed successfully. You can now sign in with your new password.': 'Ditt lÃ¶senord har Ã¤ndrats. Du kan nu logga in med ditt nya lÃ¶senord.',
-  'Skip tour': 'Hoppa Ã¶ver rundturen',
-  'Dashboard': 'Instrumentpanel',
-  'Your command center. Browse all AI tools, see recommendations, and track your activity.': 'Din kontrollcentral. BlÃ¤ddra bland alla AI-verktyg, se rekommendationer och fÃ¶lj din aktivitet.',
-  'Your personal workspace where all your tools and projects live.': 'Din personliga arbetsyta dÃ¤r alla dina verktyg och projekt finns.',
-  'All your documents, resumes, and exports are saved here automatically.': 'Alla dina dokument, CV:n och exporter sparas automatiskt hÃ¤r.',
-  'Chat with your AI assistant anytime. Ask questions, get suggestions, and more.': 'Chatta med din AI-assistent nÃ¤r som helst. StÃ¤ll frÃ¥gor, fÃ¥ fÃ¶rslag och mycket mer.',
-  'Create ATS-friendly resumes with AI-powered writing assistance.': 'Skapa ATS-vÃ¤nliga CV:n med AI-driven skrivhjÃ¤lp.',
-  'Welcome': 'VÃ¤lkommen',
-  'Your AI workspace is ready. We\'ve added some sample content to get you started. Pick a quick action below, or explore the tools we recommended for you.': 'Din AI-arbetsyta Ã¤r klar. Vi har lagt till exempelinnehÃ¥ll sÃ¥ att du kan komma igÃ¥ng. VÃ¤lj en snabbÃ¥tgÃ¤rd nedan eller utforska verktygen vi rekommenderar.',
-  'file': 'fil',
-  'recommended tools': 'rekommenderade verktyg',
-  'Create My First CV': 'Skapa mitt fÃ¶rsta CV',
-  'Build an ATS-friendly resume with AI': 'Skapa ett ATS-vÃ¤nligt CV med AI',
-  'Upload a Document': 'Ladda upp ett dokument',
-  'Analyze, summarize, or translate any file': 'Analysera, sammanfatta eller Ã¶versÃ¤tt valfri fil',
-  'Start AI Chat': 'Starta AI-chatt',
-  'Ask anything â€” your AI assistant is ready': 'FrÃ¥ga vad som helst â€” din AI-assistent Ã¤r redo',
-  'Take the product tour': 'Starta produktrundturen',
-  'Create your first CV': 'Skapa ditt fÃ¶rsta CV',
-  'Try the AI Chat': 'Prova AI-chatten',
-  'Explore all AI tools': 'Utforska alla AI-verktyg',
-  'We use cookies to improve your experience, analyze traffic, and personalize content. You can choose which cookies to accept. See our': 'Vi anvÃ¤nder cookies fÃ¶r att fÃ¶rbÃ¤ttra din upplevelse, analysera trafik och anpassa innehÃ¥ll. Du kan vÃ¤lja vilka cookies du vill acceptera. Se vÃ¥r',
-  '(required)': '(krÃ¤vs)',
-  'Accept All': 'Acceptera alla',
-  'Decline': 'AvbÃ¶j',
-  'Hide': 'DÃ¶lj',
-  'Save My Preferences': 'Spara mina instÃ¤llningar',
-  'new': 'nya',
-  'Mark as read': 'Markera som lÃ¤st',
-  'Ask AI': 'FrÃ¥ga AI',
-  'Clear': 'Rensa',
-  'All Tools': 'Alla verktyg',
-  'Add more skills to your CV': 'LÃ¤gg till fler fÃ¤rdigheter i ditt CV',
-  'ATS systems look for 8+ relevant skills. You currently have 5.': 'ATS-system letar efter minst 8 relevanta fÃ¤rdigheter. Du har fÃ¶r nÃ¤rvarande 5.',
-  'Open CV Builder': 'Ã–ppna CV-byggaren',
-  'Try the AI Writer': 'Prova AI-skrivaren',
-  'You haven\'t used the AI Writer yet. It\'s great for creating blog posts and articles.': 'Du har inte anvÃ¤nt AI-skrivaren Ã¤nnu. Den passar bra fÃ¶r blogginlÃ¤gg och artiklar.',
-  'Try AI Writer': 'Prova AI-skrivaren',
-  'View Plans': 'Visa planer',
-  'Root (no project)': 'Rot (inget projekt)',
-  'Open live â†—': 'Ã–ppna live â†—',
-  'Open live site â†—': 'Ã–ppna livewebbplats â†—',
-  'Move': 'Flytta',
-  'Favorite': 'Favorit',
-  'Pin': 'FÃ¤st',
-  'New Project': 'Nytt projekt',
-  'New Resume': 'Nytt CV',
-  'Translate': 'Ã–versÃ¤tt',
-  'Study Notes': 'Studieanteckningar',
-  'Add Item': 'LÃ¤gg till objekt',
-  'Resume': 'CV',
-  'Document': 'Dokument',
-  'Translation': 'Ã–versÃ¤ttning',
-  'No items in this project': 'Inga objekt i det hÃ¤r projektet',
-  'Add resumes, cover letters, notes, AI chats and more to organize your work.': 'LÃ¤gg till CV:n, personliga brev, anteckningar, AI-chattar och mer fÃ¶r att organisera ditt arbete.',
-  'Add First Item': 'LÃ¤gg till fÃ¶rsta objektet',
-  'Empty Trash': 'TÃ¶m papperskorgen',
-  'Current role': 'Nuvarande roll',
-  'Font Family': 'Typsnitt',
-  'Section Order': 'Avsnittsordning',
-  'Processing with AI...': 'Bearbetar med AI...',
-  'View Cover Letter': 'Visa personligt brev',
-  'Analyzing your resume against the job description...': 'Analyserar ditt CV mot jobbannonsen...',
-  'Suggestions': 'FÃ¶rslag',
-  'Save Current': 'Spara aktuell',
-  'Your resume looks great! No issues found.': 'Ditt CV ser bra ut! Inga problem hittades.',
-  'Excellent': 'UtmÃ¤rkt',
-  'Needs Work': 'BehÃ¶ver fÃ¶rbÃ¤ttras',
-  'Poor': 'Svagt',
-  'Grammar': 'Grammatik',
-  'Complete': 'Komplett',
-  'Prof.': 'Proffs.',
-  'Readable': 'LÃ¤sbar',
-  'Overall': 'Totalt',
-  'Loading Tayar Intelligenceâ€¦': 'Laddar Tayar Intelligenceâ€¦',
-  'Account suspended': 'Kontot Ã¤r avstÃ¤ngt',
-  'Your account is currently suspended. Contact support if you believe this is a mistake.': 'Ditt konto Ã¤r fÃ¶r nÃ¤rvarande avstÃ¤ngt. Kontakta supporten om du tror att detta Ã¤r ett misstag.',
-  'Skip to content': 'Hoppa till innehÃ¥llet',
-  'Reload': 'Ladda om',
-  'Home': 'Hem',
-  'If this keeps happening,': 'Om detta fortsÃ¤tter,',
-  'contact support': 'kontakta supporten',
-  'Primary navigation': 'Huvudnavigering',
-  'Tayar Intelligence home': 'Tayar Intelligence startsida',
-  'Build Â· Create Â· Ship': 'Bygg Â· Skapa Â· Lansera',
-  'Online': 'Online',
-  'New conversation': 'Ny konversation',
-  'Create workspace': 'Skapa arbetsyta',
-  'Spacer': 'Mellanrum',
-  'Double-click to edit video URL': 'Dubbelklicka fÃ¶r att redigera videoadressen',
-  'Video': 'Video',
-  'Double-click to add a video URL': 'Dubbelklicka fÃ¶r att lÃ¤gga till en videoadress',
-  'Add tab content': 'LÃ¤gg till flikinnehÃ¥ll',
-  'Add one image URL per line': 'LÃ¤gg till en bildadress per rad',
-  'Double-click to edit embed URL': 'Dubbelklicka fÃ¶r att redigera inbÃ¤ddningsadressen',
-  'Embedded content': 'InbÃ¤ddat innehÃ¥ll',
-  'Double-click to add an embeddable URL': 'Dubbelklicka fÃ¶r att lÃ¤gga till en inbÃ¤ddningsbar adress',
-  'Countdown': 'NedrÃ¤kning',
-  'Target:': 'MÃ¥l:',
-  'set date in inspector': 'stÃ¤ll in datum i inspektÃ¶ren',
-  'Add testimonial text': 'LÃ¤gg till omdÃ¶mestext',
-  'Double-click to replace image': 'Dubbelklicka fÃ¶r att ersÃ¤tta bilden',
-  'Website image': 'Webbplatsbild',
-  'Double-click to add image URL': 'Dubbelklicka fÃ¶r att lÃ¤gga till en bildadress',
-  'Drag to move Â· Arrows nudge Â· Shift+arrow 10px Â· Ctrl/Cmd+D duplicate Â· Delete remove Â· Esc deselect Â· Shift+drag reorder': 'Dra fÃ¶r att flytta Â· Pilar finjusterar Â· Shift+pil 10px Â· Ctrl/Cmd+D duplicerar Â· Delete tar bort Â· Esc avmarkerar Â· Shift+dra Ã¤ndrar ordning',
-  'Hold Alt for 1% precision': 'HÃ¥ll Alt fÃ¶r 1% precision',
-  'Drag with smart element and center guides Â· Hold Alt for 1px precision Â· Arrows nudge Â· Shift+arrow 10px Â· Ctrl/Cmd+D duplicate Â· Delete remove Â· Esc deselect Â· Shift+drag reorder': 'Dra med smarta riktlinjer fÃ¶r element och centrum Â· HÃ¥ll Alt fÃ¶r 1px-precision Â· Pilar finjusterar Â· Shift+pil 10px Â· Ctrl/Cmd+D duplicerar Â· Delete tar bort Â· Esc avmarkerar Â· Shift+dra Ã¤ndrar ordning',
-  'Edit button link': 'Redigera knapplÃ¤nk',
-  'Open media library': 'Ã–ppna mediebibliotek',
-  'Open inspector': 'Ã–ppna inspektÃ¶ren',
-  'Reset position': 'Ã…terstÃ¤ll position',
-  'Resize element': 'Ã„ndra elementets storlek',
-  'Drag to resize': 'Dra fÃ¶r att Ã¤ndra storlek',
-  'Move section up': 'Flytta avsnitt upp',
-  'Move section down': 'Flytta avsnitt ner',
-  'Delete section': 'Ta bort avsnitt',
-  'Double-click to edit button text': 'Dubbelklicka fÃ¶r att redigera knapptexten',
-  'Insert': 'Infoga',
-  'Search': 'SÃ¶k',
-  'Search elements': 'SÃ¶k element',
-  'No results': 'Inga resultat',
-  'color picker': 'fÃ¤rgvÃ¤ljare',
-  'No controls for this selection.': 'Inga kontroller fÃ¶r den hÃ¤r markeringen.',
-  'No page': 'Ingen sida',
-  'Containers': 'BehÃ¥llare',
-  'Form fields': 'FormulÃ¤rfÃ¤lt',
-  'Media': 'Media',
-  'AI image': 'AI-bild',
-  'Describe an image...': 'Beskriv en bild...',
-  'Generatingâ€¦': 'Genererarâ€¦',
-  'Search media': 'SÃ¶k media',
-  'No media': 'Ingen media',
-  'Set as home page': 'Ange som startsida',
-  'Recently used': 'Nyligen anvÃ¤nd',
-  'Search website': 'SÃ¶k pÃ¥ webbplatsen',
-  'Toggle navigation': 'Visa/dÃ¶lj navigering',
-  'Menu': 'Meny',
-  'Share': 'Dela',
-  'Copy link': 'Kopiera lÃ¤nk',
-  'Close image': 'StÃ¤ng bild',
-  'Gallery preview': 'FÃ¶rhandsvisning av galleri',
-  'Search this site': 'SÃ¶k pÃ¥ den hÃ¤r webbplatsen',
-  'Close search': 'StÃ¤ng sÃ¶kning',
-  'Search pagesâ€¦': 'SÃ¶k sidorâ€¦',
-  'Start typing to search.': 'BÃ¶rja skriva fÃ¶r att sÃ¶ka.',
-  'Type at least 2 characters.': 'Skriv minst 2 tecken.',
-  'No matching pages found.': 'Inga matchande sidor hittades.',
-  'Maintenance': 'UnderhÃ¥ll',
-  'Item': 'Artikel',
-  'Invoice': 'Faktura',
-  'Bill to': 'Faktureras till',
-  'Qty': 'Antal',
-  'Unit price': 'Styckpris',
-  'VAT': 'Moms',
-  'Total': 'Totalt',
-  'Subtotal': 'Delsumma',
-  'Add a YouTube, Vimeo or direct video URL': 'LÃ¤gg till en YouTube-, Vimeo- eller direkt videoadress',
-  'Gallery image': 'Galleribild',
-  'Add a map or embed URL': 'LÃ¤gg till en kart- eller inbÃ¤ddningsadress',
-  'Days': 'Dagar',
-  'Hours': 'Timmar',
-  'Minutes': 'Minuter',
-  'Seconds': 'Sekunder',
-  'Previous testimonial': 'FÃ¶regÃ¥ende omdÃ¶me',
-  'Next testimonial': 'NÃ¤sta omdÃ¶me',
-  'Lead capture is disabled in previews and activates on a published cloud website.': 'Insamling av leads Ã¤r inaktiverad i fÃ¶rhandsvisningar och aktiveras pÃ¥ en publicerad molnwebbplats.',
-  'Thanks! Your message has been sent.': 'Tack! Ditt meddelande har skickats.',
-  'Features': 'Funktioner',
-  'Fast': 'Snabb',
-  'Built for speed and a smooth user experience.': 'Byggd fÃ¶r snabbhet och en smidig anvÃ¤ndarupplevelse.',
-  'Powerful': 'Kraftfull',
-  'Flexible tools that help your business grow.': 'Flexibla verktyg som hjÃ¤lper ditt fÃ¶retag att vÃ¤xa.',
-  'Easy': 'Enkel',
-  'Simple experiences your customers understand.': 'Enkla upplevelser som dina kunder fÃ¶rstÃ¥r.',
-  'Services': 'TjÃ¤nster',
-  'Consulting': 'RÃ¥dgivning',
-  'Professional guidance tailored to your goals.': 'Professionell vÃ¤gledning anpassad efter dina mÃ¥l.',
-  'Development': 'Utveckling',
-  'Modern digital solutions built for your business.': 'Moderna digitala lÃ¶sningar byggda fÃ¶r ditt fÃ¶retag.',
-  'Reliable help when you need it most.': 'PÃ¥litlig hjÃ¤lp nÃ¤r du behÃ¶ver den som mest.',
-  'Pricing': 'Priser',
-  'Starter': 'Start',
-  'For getting started.': 'FÃ¶r att komma igÃ¥ng.',
-  'Choose': 'VÃ¤lj',
-  'For growing businesses.': 'FÃ¶r vÃ¤xande fÃ¶retag.',
-  'For advanced needs.': 'FÃ¶r avancerade behov.',
-  'Testimonials': 'OmdÃ¶men',
-  'Amazing experience and excellent results.': 'Fantastisk upplevelse och utmÃ¤rkta resultat.',
-  'Professional, simple and exactly what we needed.': 'Professionellt, enkelt och precis vad vi behÃ¶vde.',
-  'The easiest way to present our business online.': 'Det enklaste sÃ¤ttet att presentera vÃ¥rt fÃ¶retag online.',
-  'About': 'Om oss',
-  'Your Brand': 'Ditt varumÃ¤rke',
-  "Landing Page": "Landningssida",
-  "Edit the hero section and key messaging on your homepage.": "Redigera hero-sektionen och huvudbudskapen pÃ¥ din startsida.",
-  "Hero Title": "Hero-rubrik",
-  "AI-Powered Career Intelligence": "AI-driven karriÃ¤rintelligens",
-  "Hero Subtitle": "Hero-underrubrik",
-  "Build, optimize, and manage...": "Skapa, optimera och hantera...",
-  "Call to Action Text": "Text fÃ¶r uppmaning",
-  "Get Started Free": "Kom igÃ¥ng gratis",
-  "Users Stat": "AnvÃ¤ndarstatistik",
-  "Pricing Page": "Prissida",
-  "Manage pricing tiers and features displayed to users.": "Hantera prisnivÃ¥er och funktioner som visas fÃ¶r anvÃ¤ndarna.",
-  "Free Plan Price": "Pris fÃ¶r gratisplan",
-  "Pro Plan Price": "Pris fÃ¶r Pro-plan",
-  "Business Plan Price": "Pris fÃ¶r Business-plan",
-  "Free Plan Features (one per line)": "Gratisplanens funktioner (en per rad)",
-  "5 AI requests/day\nBasic CV builder": "5 AI-fÃ¶rfrÃ¥gningar/dag\nGrundlÃ¤ggande CV-byggare",
-  "Pro Plan Features (one per line)": "Pro-planens funktioner (en per rad)",
-  "Unlimited AI requests\nAll tools unlocked": "ObegrÃ¤nsade AI-fÃ¶rfrÃ¥gningar\nAlla verktyg upplÃ¥sta",
-  "FAQ Section": "FAQ-sektion",
-  "Frequently asked questions shown on the landing page.": "Vanliga frÃ¥gor som visas pÃ¥ landningssidan.",
-  "Question 1": "FrÃ¥ga 1",
-  "What is Tayar Intelligence?": "Vad Ã¤r Tayar Intelligence?",
-  "Answer 1": "Svar 1",
-  "Tayar Intelligence is...": "Tayar Intelligence Ã¤r...",
-  "Question 2": "FrÃ¥ga 2",
-  "Is there a free plan?": "Finns det en gratisplan?",
-  "Answer 2": "Svar 2",
-  "Yes! We offer...": "Ja! Vi erbjuder...",
-  "Legal terms and conditions for using the platform.": "Juridiska villkor fÃ¶r att anvÃ¤nda plattformen.",
-  "Introduction": "Introduktion",
-  "By using Tayar Intelligence...": "Genom att anvÃ¤nda Tayar Intelligence...",
-  "Usage Terms": "AnvÃ¤ndningsvillkor",
-  "You may use...": "Du fÃ¥r anvÃ¤nda...",
-  "Liability": "Ansvar",
-  "Tayar Intelligence is not liable...": "Tayar Intelligence ansvarar inte...",
-  "How user data is collected, used, and protected.": "Hur anvÃ¤ndardata samlas in, anvÃ¤nds och skyddas.",
-  "We take your privacy seriously...": "Vi tar din integritet pÃ¥ allvar...",
-  "Data Collection": "Datainsamling",
-  "We collect...": "Vi samlar in...",
-  "Your Rights": "Dina rÃ¤ttigheter",
-  "You have the right to...": "Du har rÃ¤tt att...",
-  "Failed to load saved content draft": "Det gick inte att lÃ¤sa in det sparade innehÃ¥llsutkastet",
-  "Failed to save content draft": "Det gick inte att spara innehÃ¥llsutkastet",
-  "Content draft saved": "InnehÃ¥llsutkast sparat",
-  "Total Users": "Totalt antal anvÃ¤ndare",
-  "Active Users": "Aktiva anvÃ¤ndare",
-  "New Today": "Nya idag",
-  "Active Subs": "Aktiva abonnemang",
-  "Monthly Revenue": "MÃ¥nadsintÃ¤kt",
-  "Data Status": "Datastatus",
-  "Unavailable": "OtillgÃ¤nglig",
-  "Profiles": "Profiler",
-  "Subscriptions": "Abonnemang",
-  "total": "totalt",
-  "users": "anvÃ¤ndare",
-  "requests": "fÃ¶rfrÃ¥gningar",
-  "Overview": "Ã–versikt",
-  "Management": "Hantering",
-  "Users": "AnvÃ¤ndare",
-  "AI Management": "AI-hantering",
-  "Tools": "Verktyg",
-  "Platform": "Plattform",
-  "Content": "InnehÃ¥ll",
-  "System": "System",
-  "14d Requests": "FÃ¶rfrÃ¥gningar 14 dagar",
-  "Total Tokens": "Totalt antal tokens",
-  "Backend Providers": "Backend-leverantÃ¶rer",
-  "Recent Error Rate": "Senaste felfrekvens",
-  "One connected workspace": "En sammanhÃ¤ngande arbetsyta",
-  "Projects, files, website releases, collaboration and settings are designed to stay connected.": "Projekt, filer, webbplatsversioner, samarbete och instÃ¤llningar Ã¤r utformade fÃ¶r att hÃ¤nga ihop.",
-  "Ship finished work": "Leverera fÃ¤rdigt arbete",
-  "The product is built around moving from draft to delivery, not just generating a one-off output.": "Produkten Ã¤r byggd fÃ¶r att ta arbetet frÃ¥n utkast till leverans, inte bara skapa ett engÃ¥ngsresultat.",
-  "Control by default": "Kontroll som standard",
-  "Recovery, roles, audits, version history and row-level access controls are part of the workflow.": "Ã…terstÃ¤llning, roller, granskningar, versionshistorik och Ã¥tkomstkontroller pÃ¥ radnivÃ¥ ingÃ¥r i arbetsflÃ¶det.",
-  "Accessible workflows": "TillgÃ¤ngliga arbetsflÃ¶den",
-  "English, Arabic and Swedish are supported, including right-to-left interface behavior for Arabic.": "Engelska, arabiska och svenska stÃ¶ds, inklusive hÃ¶ger-till-vÃ¤nster-lÃ¤ge fÃ¶r arabiska.",
-  "CVs": "CV:n",
-  "Cover Letters": "Personliga brev",
-  "Writing": "Skrivande",
-  "Translations": "Ã–versÃ¤ttningar",
-  "Study": "Studier",
-  "Page not found": "Sidan hittades inte",
-  "Page not found.": "Sidan hittades inte.",
-  "404 â€” Page not found": "404 â€” Sidan hittades inte",
-  "The page you are looking for does not exist or may have moved.": "Sidan du sÃ¶ker finns inte eller kan ha flyttats.",
-  "Back to Home": "Tillbaka till startsidan",
-  "Hosting notes, DNS details, next steps, support termsâ€¦": "Hostinganteckningar, DNS-detaljer, nÃ¤sta steg, supportvillkorâ€¦",
-  "Search name, email, message, tagsâ€¦": "SÃ¶k namn, e-post, meddelande eller taggarâ€¦",
-  "Delay in seconds": "FÃ¶rdrÃ¶jning i sekunder",
-  "Meta Pixel ID": "Meta Pixel-ID",
-  "Schema type Â· LocalBusiness": "Schematyp Â· LocalBusiness",
-  "YouTube, Vimeo or direct video URL": "YouTube-, Vimeo- eller direkt videolÃ¤nk",
-  "Video title / accessibility label": "Videotitel / tillgÃ¤nglighetsetikett",
-  "Accessibility title": "TillgÃ¤nglighetstitel",
-  "One image URL per line": "En bild-URL per rad",
-  "Title | Content â€” one item per line": "Titel | InnehÃ¥ll â€” ett objekt per rad",
-  "2026-12-31T23:59:59 | Launching soon": "2026-12-31T23:59:59 | Lanseras snart",
-  "Custom HTML (scripts and inline event handlers are stripped)": "Anpassad HTML (skript och inbyggda hÃ¤ndelsehanterare tas bort)",
-  "Describe the image you want for this section...": "Beskriv bilden du vill ha fÃ¶r den hÃ¤r sektionen...",
-  "Paid prices are controlled by STRIPE_PRO_PRICE_ID and STRIPE_BUSINESS_PRICE_ID, so the app never trusts a browser-supplied amount.": "Betalda priser styrs av STRIPE_PRO_PRICE_ID och STRIPE_BUSINESS_PRICE_ID, sÃ¥ appen litar aldrig pÃ¥ ett belopp som skickas frÃ¥n webblÃ¤saren.",
-  "Shortcuts: Ctrl/Cmd+K commands Â· Ctrl/Cmd+S save Â· Ctrl/Cmd+Z undo Â· Ctrl/Cmd+Shift+Z redo Â· Ctrl/Cmd+Shift+P preview.": "GenvÃ¤gar: Ctrl/Cmd+K kommandon Â· Ctrl/Cmd+S spara Â· Ctrl/Cmd+Z Ã¥ngra Â· Ctrl/Cmd+Shift+Z gÃ¶r om Â· Ctrl/Cmd+Shift+P fÃ¶rhandsgranska.",
-  "Last 30 days. Anonymous session IDs only; no IP addresses are stored.": "Senaste 30 dagarna. Endast anonyma sessions-ID:n; inga IP-adresser lagras.",
-  "Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.": "SpÃ¥rningsintegrationer skapas frÃ¥n validerade ID:n. Anpassad CSS ingÃ¥r i FÃ¶rhandsgranska, Exportera och Publicera; rÃ¥ skriptinjektion tillÃ¥ts avsiktligt inte hÃ¤r.",
-  "Font, width and spacing apply globally. â€œApplyâ€ also recolors existing sections and buttons.": "Typsnitt, bredd och avstÃ¥nd gÃ¤ller globalt. â€TillÃ¤mpaâ€ fÃ¤rgar Ã¤ven om befintliga sektioner och knappar.",
-  "Use one line per item: Title | Content": "AnvÃ¤nd en rad per objekt: Titel | InnehÃ¥ll",
-  "Format: ISO date/time | label": "Format: ISO-datum/tid | etikett",
-  "Safe HTML mode: script/object/embed tags and on* handlers are removed before preview/publish.": "SÃ¤kert HTML-lÃ¤ge: script/object/embed-taggar och on*-hanterare tas bort fÃ¶re fÃ¶rhandsgranskning/publicering.",
-  "Link to internal pageâ€¦": "LÃ¤nka till intern sidaâ€¦",
-  "Could not load cloud projects.": "Kunde inte lÃ¤sa in molnprojekt.",
-  "Could not load reusable sections.": "Kunde inte lÃ¤sa in Ã¥teranvÃ¤ndbara sektioner.",
-  "Could not save this reusable section.": "Kunde inte spara den hÃ¤r Ã¥teranvÃ¤ndbara sektionen.",
-  "Could not delete this reusable section.": "Kunde inte ta bort den hÃ¤r Ã¥teranvÃ¤ndbara sektionen.",
-  "Lead inbox is available to project owners and workspace admins.": "Lead-inkorgen Ã¤r tillgÃ¤nglig fÃ¶r projektÃ¤gare och arbetsyteadministratÃ¶rer.",
-  "Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied.": "Lead-inkorgen Ã¤r inte tillgÃ¤nglig. Kontrollera att databasÃ¤ndringen fÃ¶r Sprint 11 har tillÃ¤mpats.",
-  "Could not update this lead.": "Kunde inte uppdatera detta lead.",
-  "Could not update CRM details for this lead.": "Kunde inte uppdatera CRM-uppgifterna fÃ¶r detta lead.",
-  "Could not update the selected leads.": "Kunde inte uppdatera de valda leadsen.",
-  "Could not delete this lead.": "Kunde inte ta bort detta lead.",
-  "Analytics is available to project owners, admins, and editors.": "Analys Ã¤r tillgÃ¤nglig fÃ¶r projektÃ¤gare, administratÃ¶rer och redigerare.",
-  "Analytics is unavailable. Make sure the Sprint 15 database migration is applied.": "Analys Ã¤r inte tillgÃ¤nglig. Kontrollera att databasÃ¤ndringen fÃ¶r Sprint 15 har tillÃ¤mpats.",
-  "Media library is unavailable. Make sure the Sprint 12 storage migration is applied.": "Mediebiblioteket Ã¤r inte tillgÃ¤ngligt. Kontrollera att lagringsÃ¤ndringen fÃ¶r Sprint 12 har tillÃ¤mpats.",
-  "Sign in before uploading media.": "Logga in innan du laddar upp media.",
-  "Only image files are supported.": "Endast bildfiler stÃ¶ds.",
-  "Images must be 5 MB or smaller.": "Bilder mÃ¥ste vara 5 MB eller mindre.",
-  "Could not upload this image.": "Kunde inte ladda upp bilden.",
-  "Could not delete this image.": "Kunde inte ta bort bilden.",
-  "Billing status could not be verified, so paid features are temporarily locked. Apply the Sprint 121â€“132 migration if this is a new install.": "Faktureringsstatus kunde inte verifieras, sÃ¥ betalfunktioner Ã¤r tillfÃ¤lligt lÃ¥sta. TillÃ¤mpa migreringen fÃ¶r Sprint 121â€“132 om detta Ã¤r en ny installation.",
-  "The requested website is not visible in your current cloud projects.": "Den begÃ¤rda webbplatsen syns inte bland dina aktuella molnprojekt.",
-  "Payment completed. Stripe is syncing your subscription; refresh billing if the badge does not update immediately.": "Betalningen Ã¤r klar. Stripe synkroniserar din prenumeration; uppdatera faktureringen om mÃ¤rket inte Ã¤ndras direkt.",
-  "Checkout was canceled. Your current plan was not changed.": "Kassan avbrÃ¶ts. Din nuvarande plan Ã¤ndrades inte.",
-  "The website changed after this quality review. Run the quality check again before applying fixes.": "Webbplatsen Ã¤ndrades efter den hÃ¤r kvalitetsgranskningen. KÃ¶r kvalitetskontrollen igen innan du tillÃ¤mpar korrigeringar.",
-  "Release history is unavailable. Apply the Sprint 97-108 database migration.": "Versionshistoriken Ã¤r inte tillgÃ¤nglig. TillÃ¤mpa databasÃ¤ndringen fÃ¶r Sprint 97-108.",
-  "The site files exist, but the public website renderer did not return HTML. Try Publish again after refreshing Tayar.": "Webbplatsfilerna finns, men den publika webbplatsrenderaren returnerade inte HTML. FÃ¶rsÃ¶k publicera igen efter att du har uppdaterat Tayar.",
-  "Only the project owner can create public share previews.": "Endast projektÃ¤garen kan skapa publika delningsfÃ¶rhandsvisningar.",
-  "Save this project to the cloud before creating a share preview.": "Spara projektet i molnet innan du skapar en delningsfÃ¶rhandsvisning.",
-  "The latest editor changes could not be synchronized before creating the preview.": "De senaste redigeringsÃ¤ndringarna kunde inte synkroniseras innan fÃ¶rhandsvisningen skapades.",
-  "Only the project owner can rollback a published release.": "Endast projektÃ¤garen kan Ã¥terstÃ¤lla en publicerad version.",
-  "This release snapshot does not belong to the active project.": "Den hÃ¤r versionsÃ¶gonblicksbilden tillhÃ¶r inte det aktiva projektet.",
-  "Only the project owner can delete release archives.": "Endast projektÃ¤garen kan ta bort versionsarkiv.",
-  "You cannot delete the release currently serving as the live rollback reference.": "Du kan inte ta bort versionen som just nu anvÃ¤nds som Ã¥terstÃ¤llningsreferens fÃ¶r den live-publicerade versionen.",
-  "Opening your saved website. Save will continue when it is loaded.": "Din sparade webbplats Ã¶ppnas. Sparandet fortsÃ¤tter nÃ¤r den har lÃ¤sts in.",
-  "Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available.": "Din befintliga webbplats Ã¥teransluter fortfarande. Tayar skapar inte ett dubblettutkast sÃ¥ lÃ¤nge den sparade identiteten finns tillgÃ¤nglig.",
-  "Opening your most recent saved website before saving. No duplicate draft was created.": "Den senast sparade webbplatsen Ã¶ppnas fÃ¶re sparning. Inget dubblettutkast skapades.",
-  "This shared project is read-only for your Viewer role.": "Det hÃ¤r delade projektet Ã¤r skrivskyddat fÃ¶r din Viewer-roll.",
-  "Local recovery storage is full. Cloud save will still be attempted.": "Det lokala Ã¥terstÃ¤llningslagret Ã¤r fullt. Molnsparning kommer fortfarande att fÃ¶rsÃ¶ka kÃ¶ras.",
-  "You are offline. Changes are saved locally and will retry when the connection returns.": "Du Ã¤r offline. Ã„ndringar sparas lokalt och fÃ¶rsÃ¶ks igen nÃ¤r anslutningen Ã¥terkommer.",
-  "This history snapshot does not belong to the active project.": "Den hÃ¤r historikÃ¶gonblicksbilden tillhÃ¶r inte det aktiva projektet.",
-  "Could not mark all leads as read.": "Kunde inte markera alla leads som lÃ¤sta.",
-  "Could not archive read leads.": "Kunde inte arkivera lÃ¤sta leads.",
-  "Publish preflight blocked: you are offline. Reconnect and try again.": "FÃ¶rkontrollen fÃ¶r publicering blockerades: du Ã¤r offline. Anslut igen och fÃ¶rsÃ¶k pÃ¥ nytt.",
-  "Sign in before publishing.": "Logga in innan du publicerar.",
-  "Only the project owner can publish a shared website.": "Endast projektÃ¤garen kan publicera en delad webbplats.",
-  "Supabase URL is not configured.": "Supabase-URL Ã¤r inte konfigurerad.",
-  "Website published successfully. Release history was skipped: ": "Webbplatsen publicerades. Versionshistoriken hoppades Ã¶ver: ",
-  "Only the project owner can unpublish a shared website.": "Endast projektÃ¤garen kan avpublicera en delad webbplats.",
-  "Delete this lead permanently?": "Ta bort detta lead permanent?",
-  "Delete this component? Existing instances will become normal elements.": "Ta bort den hÃ¤r komponenten? Befintliga instanser blir vanliga element.",
-  "Restore this release into the editor? The live website will not change until you publish again.": "Ã…terstÃ¤ll den hÃ¤r versionen i redigeraren? Live-webbplatsen Ã¤ndras inte fÃ¶rrÃ¤n du publicerar igen.",
-  "Delete this stored release archive? This cannot be undone.": "Ta bort det sparade versionsarkivet? Detta gÃ¥r inte att Ã¥ngra.",
-  "Reset the website builder to the default project?": "Ã…terstÃ¤ll webbplatsbyggaren till standardprojektet?",
-  "This project is not currently published. Mark it delivered anyway?": "Projektet Ã¤r inte publicerat just nu. Markera det som levererat Ã¤ndÃ¥?",
-  "Remove the public version of this website?": "Ta bort den publika versionen av webbplatsen?",
-  "GOOD": "BRA",
-  "CHECK": "KONTROLLERA",
-  "OK": "OK",
-  "FIX": "Ã…TGÃ„RDA",
-  "VERIFIED": "VERIFIERAD",
-  "VERIFY": "VERIFIERA",
-  "NOT YET": "INTE Ã„N",
-  "Publish production changes": "Publicera produktionsÃ¤ndringar",
-  "Publish first release": "Publicera fÃ¶rsta versionen",
-  "GO â€” READY FOR FIRST PAYING CUSTOMERS": "KÃ–R â€” REDO FÃ–R DE FÃ–RSTA BETALANDE KUNDERNA",
-  "CODE READY â€” COMPLETE PUBLISH / MANUAL CHECKS": "KODEN Ã„R REDO â€” SLUTFÃ–R PUBLICERING / MANUELLA KONTROLLER",
-  "NO-GO â€” FIX AUTOMATED BLOCKERS": "STOPP â€” Ã…TGÃ„RDA AUTOMATISKA BLOCKERINGAR",
-  "Refreshingâ€¦": "Uppdaterarâ€¦",
-  "Opening Stripeâ€¦": "Ã–ppnar Stripeâ€¦",
-  "White-label client handoff files": "White-label-filer fÃ¶r kundleverans",
-  "Audit contributes": "Granskningen bidrar med",
-  "points Â· current audit": "poÃ¤ng Â· aktuell granskning",
-  "Open client preview": "Ã–ppna kundfÃ¶rhandsvisning",
-  "Create client preview": "Skapa kundfÃ¶rhandsvisning",
-  "Summary copied": "Sammanfattning kopierad",
-  "Copy project summary": "Kopiera projektsammanfattning",
-  "loaded leads": "inlÃ¤sta leads",
-  "loaded events": "inlÃ¤sta hÃ¤ndelser",
-  "Build and publish one small website.": "Bygg och publicera en liten webbplats.",
-  "Up to 3 pages": "Upp till 3 sidor",
-  "Publishing included": "Publicering ingÃ¥r",
-  "50 lead records": "50 leadposter",
-  "For freelancers and serious websites.": "FÃ¶r frilansare och seriÃ¶sa webbplatser.",
-  "10 website projects": "10 webbplatsprojekt",
-  "Up to 25 pages each": "Upp till 25 sidor per webbplats",
-  "ZIP export + multilingual": "ZIP-export + flersprÃ¥kigt",
-  "Analytics + integrations + release history": "Analys + integrationer + versionshistorik",
-  "For agencies, client delivery and white-label work.": "FÃ¶r byrÃ¥er, kundleverans och white-label-arbete.",
-  "50 website projects": "50 webbplatsprojekt",
-  "Up to 100 pages each": "Upp till 100 sidor per webbplats",
-  "Client delivery workspace": "Arbetsyta fÃ¶r kundleverans",
-  "White-label handoff + larger limits": "White-label-leverans + hÃ¶gre grÃ¤nser",
-  "We use essential browser storage to improve this website experience.": "Vi anvÃ¤nder nÃ¶dvÃ¤ndig webblagring fÃ¶r att fÃ¶rbÃ¤ttra upplevelsen pÃ¥ webbplatsen.",
-  "Got it": "Jag fÃ¶rstÃ¥r",
-  "New: discover our latest update.": "Nytt: upptÃ¤ck vÃ¥r senaste uppdatering.",
-  "Learn more": "LÃ¤s mer",
-  "Stay in the loop": "HÃ¥ll dig uppdaterad",
-  "Add a focused offer, newsletter message or important call to action.": "LÃ¤gg till ett tydligt erbjudande, nyhetsbrevsbudskap eller viktig uppmaning.",
-  "Weâ€™ll be back soon": "Vi Ã¤r snart tillbaka",
-  "This website is temporarily unavailable while we make improvements.": "Webbplatsen Ã¤r tillfÃ¤lligt otillgÃ¤nglig medan vi gÃ¶r fÃ¶rbÃ¤ttringar.",
-  "Production URL": "Produktions-URL",
-  "Cloud project": "Molnprojekt",
-  "Share preview": "DelningsfÃ¶rhandsvisning",
-  "Client approval": "KundgodkÃ¤nnande",
-  "Published website": "Publicerad webbplats",
-  "Site content": "WebbplatsinnehÃ¥ll",
-  "SEO & accessibility audit": "SEO- och tillgÃ¤nglighetsgranskning",
-  "Cloud sync": "Molnsynkronisering",
-  "SEO title + favicon": "SEO-titel + favicon",
-  "Billing backend": "Faktureringsbackend",
-  "Publish permission": "PubliceringsbehÃ¶righet",
-  "Live verification": "Live-verifiering",
-  "Project is saved to Tayar cloud": "Projektet Ã¤r sparat i Tayar-molnet",
-  "Save the project to cloud": "Spara projektet i molnet",
-  "Offline": "Offline",
-  "Sync needs retry": "Synkroniseringen behÃ¶ver fÃ¶rsÃ¶kas igen",
-  "Sync healthy": "Synkroniseringen Ã¤r stabil",
-  "Add your production URL": "LÃ¤gg till din produktions-URL",
-  "Branding metadata is configured": "VarumÃ¤rkesmetadata Ã¤r konfigurerad",
-  "Complete SEO title and favicon": "SlutfÃ¶r SEO-titel och favicon",
-  "entitlements verified": "behÃ¶righeter verifierade",
-  "Sign in and refresh billing": "Logga in och uppdatera faktureringen",
-  "Owner may publish": "Ã„garen fÃ¥r publicera",
-  "Only the project owner can publish": "Endast projektÃ¤garen kan publicera",
-  "Live website detected": "Live-webbplats identifierad",
-  "Publish the first release": "Publicera den fÃ¶rsta versionen",
-  "Published index verified": "Publicerad index verifierad",
-  "Run live verification": "KÃ¶r live-verifiering",
-  "Available after publishing": "TillgÃ¤ngligt efter publicering",
-  "Sign in before production launch.": "Logga in fÃ¶re produktionslansering.",
-  "Save the project to cloud.": "Spara projektet i molnet.",
-  "Reconnect to the internet.": "Ã…teranslut till internet.",
-  "Resolve cloud sync before publishing.": "LÃ¶s molnsynkroniseringen fÃ¶re publicering.",
-  "Raise the SEO and accessibility audit score to at least 80.": "HÃ¶j poÃ¤ngen fÃ¶r SEO- och tillgÃ¤nglighetsgranskningen till minst 80.",
-  "Add a valid production URL.": "LÃ¤gg till en giltig produktions-URL.",
-  "Complete the SEO title and favicon.": "SlutfÃ¶r SEO-titel och favicon.",
-  "Wait for billing entitlements to finish loading.": "VÃ¤nta tills faktureringsbehÃ¶righeterna har lÃ¤sts in.",
-  "Refresh billing entitlements before publishing.": "Uppdatera faktureringsbehÃ¶righeterna fÃ¶re publicering.",
-  "Disable maintenance mode for public launch.": "Inaktivera underhÃ¥llslÃ¤ge fÃ¶re publik lansering.",
-  "The project owner must perform the publish.": "ProjektÃ¤garen mÃ¥ste utfÃ¶ra publiceringen.",
-  "Billing entitlements could not be verified.": "FaktureringsbehÃ¶righeterna kunde inte verifieras.",
-  "NO-GO": "STOPP",
-  "READY TO PUBLISH": "REDO ATT PUBLICERA",
-  "CHANGES WAITING": "Ã„NDRINGAR VÃ„NTAR",
-  "V1 LIVE": "V1 LIVE",
-  "VERIFY LIVE": "VERIFIERA LIVE",
-  "Quality review completed.": "Kvalitetsgranskningen Ã¤r klar.",
-  "Website improvement": "WebbplatsfÃ¶rbÃ¤ttring",
-  "AI quality check failed.": "AI-kvalitetskontrollen misslyckades.",
-  "Automated builder audit is available, but the AI review could not complete.": "Den automatiska byggargranskningen Ã¤r tillgÃ¤nglig, men AI-granskningen kunde inte slutfÃ¶ras.",
-  "Publish blocker": "Publiceringsblockerare",
-  "Recommended improvement": "Rekommenderad fÃ¶rbÃ¤ttring",
-  "Sections": "Sektioner",
-  "Elements": "Element",
-  "Forms": "FormulÃ¤r",
-  "Symbols": "Symboler",
-  "Releases": "Versioner",
-  "Leads": "Leads",
-  "Events": "HÃ¤ndelser",
-  "Media*": "Media*",
-  "Secondary": "SekundÃ¤r",
-  "Muted": "DÃ¤mpad",
-  "Autosave needs attention.": "Autosparningen behÃ¶ver Ã¥tgÃ¤rdas.",
-  "This recovery snapshot belongs to a different project. Open that project before restoring it.": "Den hÃ¤r Ã¥terstÃ¤llningsÃ¶gonblicksbilden tillhÃ¶r ett annat projekt. Ã–ppna det projektet innan du Ã¥terstÃ¤ller den.",
-  "The recovery snapshot could not be restored.": "Ã…terstÃ¤llningsÃ¶gonblicksbilden kunde inte Ã¥terstÃ¤llas.",
-  "You can keep up to 50 reusable components in one website. Delete an unused component before creating another.": "Du kan ha upp till 50 Ã¥teranvÃ¤ndbara komponenter pÃ¥ en webbplats. Ta bort en oanvÃ¤nd komponent innan du skapar en ny.",
-  "This JSON file could not be read.": "Den hÃ¤r JSON-filen kunde inte lÃ¤sas.",
-  "This JSON file is not a valid Tayar Website Builder backup.": "Den hÃ¤r JSON-filen Ã¤r inte en giltig sÃ¤kerhetskopia frÃ¥n Tayar Website Builder.",
-  "Add a Production URL or publish the website before creating the client handoff package.": "LÃ¤gg till en produktions-URL eller publicera webbplatsen innan du skapar kundleveranspaketet.",
-  "Add your production URL first, for example https://example.com. It is required for canonical URLs and sitemap.xml.": "LÃ¤gg fÃ¶rst till din produktions-URL, till exempel https://example.com. Den krÃ¤vs fÃ¶r kanoniska URL:er och sitemap.xml.",
-  "Could not copy HTML. Please use Download Website instead.": "Kunde inte kopiera HTML. AnvÃ¤nd Ladda ned webbplats i stÃ¤llet.",
-  "Restore the recovery snapshot from": "Ã…terstÃ¤ll Ã¥terstÃ¤llningsÃ¶gonblicksbilden frÃ¥n",
-  "the previous edit": "den fÃ¶regÃ¥ende redigeringen",
-  "Delete reusable section": "Ta bort Ã¥teranvÃ¤ndbar sektion",
-  "from your media library?": "frÃ¥n ditt mediebibliotek?",
-  "A": "En",
-  "version already exists in this translation group.": "version finns redan i den hÃ¤r Ã¶versÃ¤ttningsgruppen.",
-  "Tayar AI wants to run": "Tayar AI vill kÃ¶ra",
-  "destructive change": "destruktiv Ã¤ndring",
-  "destructive changes": "destruktiva Ã¤ndringar",
-  "Continue?": "FortsÃ¤tta?",
-  "AI change cancelled before destructive operations were applied.": "AI-Ã¤ndringen avbrÃ¶ts innan destruktiva Ã¥tgÃ¤rder tillÃ¤mpades.",
-  "Rollback the live website to the release from": "Ã…terstÃ¤ll live-webbplatsen till versionen frÃ¥n",
-  "Your editor draft will stay unchanged.": "Ditt redigeringsutkast fÃ¶rblir ofÃ¶rÃ¤ndrat.",
-  "Your current unsaved changes will be replaced.": "Dina nuvarande osparade Ã¤ndringar kommer att ersÃ¤ttas.",
-  "Could not generate image.": "Kunde inte generera bilden.",
-  "AI generation failed.": "AI-genereringen misslyckades.",
-  "AI edit failed.": "AI-redigeringen misslyckades.",
-  "Image generation failed.": "Bildgenereringen misslyckades.",
-  "Image prompt generation failed.": "Genereringen av bildprompt misslyckades.",
-  "Could not create share preview.": "Kunde inte skapa delningsfÃ¶rhandsvisningen.",
-  "Could not revoke share preview.": "Kunde inte Ã¥terkalla delningsfÃ¶rhandsvisningen.",
-  "Could not rollback this release.": "Kunde inte Ã¥terstÃ¤lla den hÃ¤r versionen.",
-  "Could not delete this release.": "Kunde inte ta bort den hÃ¤r versionen.",
-  "Unexpected save failure.": "Ett ovÃ¤ntat sparfel intrÃ¤ffade.",
-  "Save failed": "Sparningen misslyckades",
-  "Release history could not be archived.": "Versionshistoriken kunde inte arkiveras.",
-  "Could not publish this website.": "Kunde inte publicera webbplatsen.",
-  "Could not unpublish this website.": "Kunde inte avpublicera webbplatsen.",
-  "Could not build the public website URL.": "Kunde inte skapa den publika webbplatsens URL.",
-  "The website files were uploaded, but the public renderer did not return a valid HTML page.": "Webbplatsfilerna laddades upp, men den publika renderaren returnerade ingen giltig HTML-sida.",
-  "The site is uploaded, but the project publish state could not be saved:": "Webbplatsen Ã¤r uppladdad, men projektets publiceringsstatus kunde inte sparas:",
-  "Agency": "ByrÃ¥",
-  "E-commerce": "E-handel",
-  "Event": "Evenemang",
-  "Fitness / Coach": "Fitness / Coach",
-  "Local Services": "Lokala tjÃ¤nster",
-  "Real Estate": "Fastigheter",
-  "Restaurant": "Restaurang",
-  "SaaS / Software": "SaaS / Programvara",
-  "Professional company page with services and trust sections.": "Professionell fÃ¶retagssida med tjÃ¤nster och fÃ¶rtroendeskapande sektioner.",
-  "Conversion-focused page for a product, offer or campaign.": "Konverteringsfokuserad sida fÃ¶r en produkt, ett erbjudande eller en kampanj.",
-  "Personal or studio page focused on work, credibility and contact.": "Personlig sida eller studiosida med fokus pÃ¥ arbete, trovÃ¤rdighet och kontakt.",
-  "Storefront-style page for products, offers and customer trust.": "Butiksliknande sida fÃ¶r produkter, erbjudanden och kundfÃ¶rtroende.",
-  "Restaurant page for menu highlights, story, reviews and reservations.": "Restaurangsida fÃ¶r menyhÃ¶jdpunkter, berÃ¤ttelse, recensioner och bokningar.",
-  "Software product page with features, plans and social proof.": "Produktsida fÃ¶r programvara med funktioner, planer och socialt bevis.",
-  "Creative or digital agency page built around services and results.": "Sida fÃ¶r kreativ eller digital byrÃ¥ byggd kring tjÃ¤nster och resultat.",
-  "Property-focused page for listings, expertise and lead generation.": "Fastighetsfokuserad sida fÃ¶r objekt, expertis och leadgenerering.",
-  "Professional personal site for experience, skills and opportunities.": "Professionell personlig webbplats fÃ¶r erfarenhet, kompetens och mÃ¶jligheter.",
-  "Lead-focused page for trades, repair, cleaning and local professionals.": "Lead-fokuserad sida fÃ¶r hantverk, reparation, stÃ¤dning och lokala yrkespersoner.",
-  "Event or conference page for agenda, value and registration.": "Evenemangs- eller konferenssida fÃ¶r agenda, vÃ¤rde och registrering.",
-  "Coach, gym or trainer page for programs, proof and enquiries.": "Sida fÃ¶r coach, gym eller trÃ¤nare med program, bevis och fÃ¶rfrÃ¥gningar.",
-  "Launch Hero": "Lanseringshero",
-  "Strong opening section for a product or service launch.": "Stark Ã¶ppningssektion fÃ¶r lansering av produkt eller tjÃ¤nst.",
-  "Services Showcase": "TjÃ¤nstevisning",
-  "Professional services section for agencies and local businesses.": "Professionell tjÃ¤nstesektion fÃ¶r byrÃ¥er och lokala fÃ¶retag.",
-  "Social Proof": "Socialt bevis",
-  "Trust-building testimonial section.": "OmdÃ¶messektion som bygger fÃ¶rtroende.",
-  "Contact CTA": "Kontakt-CTA",
-  "Focused contact section for turning interest into leads.": "Fokuserad kontaktsektion fÃ¶r att omvandla intresse till leads.",
-  "warning": "varning",
-  "improvement": "fÃ¶rbÃ¤ttring",
-  "Last automated check": "Senaste automatiska kontroll",
-  "Run final checks": "KÃ¶r slutkontroller",
-  "period ends": "perioden slutar",
-  "cancels at period end": "avslutas vid periodens slut",
-  "*Media count reflects assets currently loaded into the Media Library panel.": "*Antalet medier avser tillgÃ¥ngar som fÃ¶r nÃ¤rvarande Ã¤r inlÃ¤sta i panelen Mediebibliotek.",
-  "current build still matches": "nuvarande version matchar fortfarande",
-  "website changed after approval": "webbplatsen Ã¤ndrades efter godkÃ¤nnandet",
-  "No approval snapshot recorded yet.": "Ingen godkÃ¤nnandesnapshot har registrerats Ã¤nnu.",
-  "loaded releases": "inlÃ¤sta versioner",
-  "Views Â· 30d": "Visningar Â· 30 d",
-  "Visitors Â· 30d": "BesÃ¶kare Â· 30 d",
-  "Views Â· 7d": "Visningar Â· 7 d",
-  "Views Â· Today": "Visningar Â· idag",
-  "CTA clicks": "CTA-klick",
-  "Form submits": "FormulÃ¤rinskick",
-  "Form CVR": "FormulÃ¤rkonvertering",
-  "One item per line": "Ett objekt per rad",
-  "value | label": "vÃ¤rde | etikett",
-  "name | quote": "namn | citat",
-  "Use the styling controls below to adjust": "AnvÃ¤nd stilkontrollerna nedan fÃ¶r att justera",
-  "width, color and opacity": "bredd, fÃ¤rg och opacitet",
-  "height (Padding Ã— 2)": "hÃ¶jd (utfyllnad Ã— 2)",
-  "One list item per line": "En listpost per rad",
-  "desktop": "skrivbord",
-  "tablet": "surfplatta",
-  "mobile": "mobil",
-  "qualified": "kvalificerad",
-  "contacted": "kontaktad",
-  "won": "vunnen",
-  "lost": "fÃ¶rlorad",
-  "read": "lÃ¤st",
-  "archived": "arkiverad",
-  "Last automated check:": "Senaste automatiska kontroll:",
-  "One item per line:": "En post per rad:",
-  "Very strong": "Mycket starkt",
-  "Product": "Produkt",
-  "Brand": "VarumÃ¤rke",
-  "Modern": "Modern",
-  "Friendly": "VÃ¤nlig",
-  "Bold": "DjÃ¤rv",
-  "Minimal": "Minimal",
-  "Career": "KarriÃ¤r",
-  "Finance": "Ekonomi",
-  "Productivity": "Produktivitet",
-  "Spreadsheets": "Kalkylblad",
-  "Presentations": "Presentationer",
-  "Bundles": "Paket",
-  "Images": "Bilder",
-  "Office bundle": "Office-paket",
-  "tools available": "verktyg tillgÃ¤ngliga",
-  "ready to use": "redo att anvÃ¤ndas",
-  "Updated": "Uppdaterad",
-  "Used": "AnvÃ¤nd",
-  "Remove image backgrounds through Tayarâ€™s secured server-side image utility.": "Ta bort bildbakgrunder via Tayars sÃ¤krade serverbaserade bildverktyg.",
-  "Resize and convert multiple images locally, with individual downloads or one ZIP.": "Ã„ndra storlek och konvertera flera bilder lokalt, med separata nedladdningar eller en ZIP-fil.",
-  "Craft personalized, compelling cover letters for any job.": "Skapa personliga och Ã¶vertygande personliga brev fÃ¶r vilket jobb som helst.",
-  "Clean, normalize and safely export CSV data directly in your browser.": "Rensa, normalisera och exportera CSV-data sÃ¤kert direkt i webblÃ¤saren.",
-  "Create ATS-friendly resumes with AI-powered optimization.": "Skapa ATS-vÃ¤nliga CV:n med AI-driven optimering.",
-  "Summarize, analyze, extract data, and answer questions about any document.": "Sammanfatta, analysera, extrahera data och svara pÃ¥ frÃ¥gor om valfritt dokument.",
-  "PDF Tools": "PDF-verktyg",
-  "Merge, split, convert, and edit PDF files with AI assistance.": "SlÃ¥ ihop, dela, konvertera och redigera PDF-filer med AI-hjÃ¤lp.",
-  "AI Email Writer": "AI e-postskrivare",
-  "Write professional emails, replies, and newsletters.": "Skriv professionella mejl, svar och nyhetsbrev.",
-  "Contract Writer": "Avtalsskrivare",
-  "Generate legal contracts and agreements with AI.": "Skapa juridiska avtal och Ã¶verenskommelser med AI.",
-  "Data Analytics AI": "Dataanalys AI",
-  "Analyze data, generate insights, and create visualizations.": "Analysera data, skapa insikter och visualiseringar.",
-  "Crop JPEG, PNG and WebP images locally with precise controls and aspect presets.": "BeskÃ¤r JPEG-, PNG- och WebP-bilder lokalt med precisa kontroller och bildfÃ¶rhÃ¥llanden.",
-  "Combine JPEG, PNG and WebP images into one local PDF with page ordering and size controls.": "Kombinera JPEG-, PNG- och WebP-bilder till en lokal PDF med sidordning och storlekskontroller.",
-  "Resize, compress and convert JPEG, PNG and WebP images locally in your browser.": "Ã„ndra storlek, komprimera och konvertera JPEG-, PNG- och WebP-bilder lokalt i webblÃ¤saren.",
-  "Create professional invoices with automatic totals, VAT, draft saving and PDF printing.": "Skapa professionella fakturor med automatiska totalsummor, moms, utkast och PDF-utskrift.",
-  "Create recommendation, authorization, business, complaint, resignation and thank-you letters.": "Skapa rekommendations-, fullmakts-, affÃ¤rs-, klagomÃ¥ls-, uppsÃ¤gnings- och tackbrev.",
-  "Generate original business, product, brand, YouTube and Instagram name ideas.": "Generera originella namnidÃ©er fÃ¶r fÃ¶retag, produkter, varumÃ¤rken, YouTube och Instagram.",
-  "Search and personalize original Tayar prompts for business, career, writing and social workflows.": "SÃ¶k och anpassa Tayars egna promptar fÃ¶r fÃ¶retag, karriÃ¤r, skrivande och sociala arbetsflÃ¶den.",
-  "Explain concepts, create quizzes, flashcards, and personalized study plans.": "FÃ¶rklara begrepp och skapa quiz, flashcards och personliga studieplaner.",
-  "Browse Tayar-hosted office templates and original starter files.": "BlÃ¤ddra bland Office-mallar som finns hos Tayar och egna startfiler.",
-  "AI Translator": "AI-Ã¶versÃ¤ttare",
-  "Translate between 100+ languages with natural, context-aware results.": "Ã–versÃ¤tt mellan Ã¶ver 100 sprÃ¥k med naturliga och kontextmedvetna resultat.",
-  "Write blogs, articles, marketing copy, and social media content.": "Skriv bloggar, artiklar, marknadsfÃ¶ringstexter och innehÃ¥ll fÃ¶r sociala medier.",
-  "Est. MRR": "BerÃ¤knad MRR",
-  "Upcoming Renewals": "Kommande fÃ¶rnyelser",
-  "Past Due / Grace": "FÃ¶rfallen / respit",
-  "Failed Payments": "Misslyckade betalningar",
-  "Past Due": "FÃ¶rfallen",
-  "Renewals": "FÃ¶rnyelser",
-  "Failed": "Misslyckad",
-  "trialing": "provperiod",
-  "pro": "Pro",
-  "business": "Business",
-  "free": "Gratis",
-  "Open Tickets": "Ã–ppna Ã¤renden",
-  "Closed": "StÃ¤ngda",
-  "Bug Reports": "Felrapporter",
-  "Feature Requests": "FunktionsfÃ¶rslag",
-  "open": "Ã¶ppen",
-  "closed": "stÃ¤ngd",
-  "bug": "fel",
-  "feature": "funktion",
-  "ticket": "Ã¤rende",
-  "high": "hÃ¶g",
-  "medium": "medel",
-  "low": "lÃ¥g",
-  "Type your response...": "Skriv ditt svar...",
-  "Close Ticket": "StÃ¤ng Ã¤rende",
-  "Reopen": "Ã–ppna igen",
-  "Send & Close": "Skicka och stÃ¤ng",
-  "System Settings": "SysteminstÃ¤llningar",
-  "Account Blocks": "Kontoblockeringar",
-  "Readiness": "Beredskap",
-  "Email Templates": "E-postmallar",
-  "Backups": "SÃ¤kerhetskopior",
-  "Platform Name": "Plattformsnamn",
-  "Default AI Provider": "StandardleverantÃ¶r fÃ¶r AI",
-  "Max Free Requests/day": "Max gratisfÃ¶rfrÃ¥gningar/dag",
-  "Maintenance Mode": "UnderhÃ¥llslÃ¤ge",
-  "Signup Enabled": "Registrering aktiverad",
-  "Disabled": "Inaktiverad",
-  "Failed to save settings": "Det gick inte att spara instÃ¤llningarna",
-  "Settings saved": "InstÃ¤llningarna sparades",
-  "Email subject": "E-postÃ¤mne",
-  "Stripe connection": "Stripe-anslutning",
-  "Stripe charges": "Stripe-debiteringar",
-  "Stripe payouts": "Stripe-utbetalningar",
-  "Pro price": "Pro-pris",
-  "Business price": "Business-pris",
-  "Stripe webhook": "Stripe-webhook",
-  "Checkout": "Kassa",
-  "Billing portal": "Faktureringsportal",
-  "unconfigured": "inte konfigurerad",
-  "enabled": "aktiverad",
-  "needs attention": "behÃ¶ver Ã¥tgÃ¤rdas",
-  "missing": "saknas",
-  "not verified": "inte verifierad",
-  "needs setup": "behÃ¶ver konfigureras",
-  "Admins": "AdministratÃ¶rer",
-  "Pro Users": "Pro-anvÃ¤ndare",
-  "Search by name, email or ID...": "SÃ¶k efter namn, e-post eller ID...",
-  "Unnamed": "NamnlÃ¶s",
-  "You cannot suspend yourself": "Du kan inte stÃ¤nga av dig sjÃ¤lv",
-  "Reinstate": "Ã…teraktivera",
-  "Suspend": "StÃ¤ng av",
-  "You cannot delete yourself": "Du kan inte ta bort dig sjÃ¤lv",
-  "Delete User": "Ta bort anvÃ¤ndare",
-  "Delete & Block": "Ta bort och blockera",
-  "Delete Permanently": "Ta bort permanent",
-  "Block reason (internal note)": "Orsak till blockering (intern anteckning)",
-  "Reason (internal note)": "Orsak (intern anteckning)",
-  "Total Tools": "Totalt antal verktyg",
-  "Premium": "Premium",
-  "uses": "anvÃ¤ndningar",
-  "Read-only validation of stored 24Billions templates. Progress is saved in this browser and can be paused or resumed safely.": "Skrivskyddad validering av lagrade 24Billions-mallar. FÃ¶rloppet sparas i webblÃ¤saren och kan pausas eller Ã¥terupptas sÃ¤kert.",
-  "Resume Audit": "Ã…teruppta granskning",
-  "Run Again": "KÃ¶r igen",
-  "Start Audit": "Starta granskning",
-  "Analyzingâ€¦": "Analyserarâ€¦",
-  "Analyze Repairs": "Analysera reparationer",
-  "Deletingâ€¦": "Tar bortâ€¦",
-  "Delete invalid templates": "Ta bort ogiltiga mallar",
-  "scanned": "skannade",
-  "Audit progress is still saved unless deletion completed.": "GranskningsfÃ¶rloppet Ã¤r fortfarande sparat om borttagningen inte slutfÃ¶rdes.",
-  "Valid": "Giltig",
-  "Invalid": "Ogiltig",
-  "Missing": "Saknas",
-  "Running": "KÃ¶rs",
-  "Analyzing": "Analyserar",
-  "Deleting": "Tar bort",
-  "Paused": "Pausad",
-  "Idle": "Inaktiv",
-  "Rows deleted": "Borttagna rader",
-  "Storage deleted": "Borttaget frÃ¥n lagring",
-  "Shared preserved": "Delade bevarade",
-  "Storage failures": "Lagringsfel",
-  "Issues checked": "Kontrollerade problem",
-  "Repairable": "Kan repareras",
-  "Junk to hide": "SkrÃ¤p att dÃ¶lja",
-  "Needs review": "BehÃ¶ver granskas",
-  "All Files": "Alla filer",
-  "Articles": "Artiklar",
-  "AI Chats": "AI-chattar",
-  "Websites": "Webbplatser",
-  "Last Updated": "Senast uppdaterad",
-  "Date Created": "Skapad datum",
-  "Name (A-Z)": "Namn (Aâ€“Ã–)",
-  "No matching files": "Inga matchande filer",
-  "No files yet": "Inga filer Ã¤nnu",
-  "Try a different search term.": "Prova en annan sÃ¶kterm.",
-  "Create documents with any AI tool and they'll appear here automatically.": "Skapa dokument med valfritt AI-verktyg sÃ¥ visas de hÃ¤r automatiskt.",
-  "to...": "till...",
-  "Live Website": "Livewebbplats",
-  "Website Draft": "Webbplatsutkast",
-  "Email support": "E-postsupport",
-  "Email Support": "E-postsupport",
-  "Account & Privacy Support": "Support fÃ¶r konto och integritet",
-  "Use email or the secure form below": "AnvÃ¤nd e-post eller det sÃ¤kra formulÃ¤ret nedan",
-  "1. Overview": "1. Ã–versikt",
-  "2. Account and workspace data": "2. Konto- och arbetsytedata",
-  "3. Website Builder data": "3. Data frÃ¥n Website Builder",
-  "4. Infrastructure and processors": "4. Infrastruktur och personuppgiftsbitrÃ¤den",
-  "5. Security": "5. SÃ¤kerhet",
-  "6. Cookies and local storage": "6. Cookies och lokal lagring",
-  "7. Your choices": "7. Dina val",
-  "8. Changes": "8. Ã„ndringar",
-  "1. Using the service": "1. AnvÃ¤ndning av tjÃ¤nsten",
-  "2. Accounts": "2. Konton",
-  "3. Projects and generated content": "3. Projekt och genererat innehÃ¥ll",
-  "4. Acceptable use": "4. TillÃ¥ten anvÃ¤ndning",
-  "5. Plans and billing": "5. Planer och fakturering",
-  "6. Availability and changes": "6. TillgÃ¤nglighet och Ã¤ndringar",
-  "7. Responsibility": "7. Ansvar",
-  "8. Support": "8. Support",
-  "Type a command or search...": "Skriv ett kommando eller sÃ¶k...",
-  "No results for": "Inga resultat fÃ¶r",
-  "AI Actions": "AI-Ã¥tgÃ¤rder",
-  "Navigation": "Navigering",
-  "Recent Projects": "Senaste projekt",
-  "Search Results": "SÃ¶kresultat",
-  "navigate": "navigera",
-  "results": "resultat",
-  "Dismiss notification": "StÃ¤ng avisering",
-  "Open AI Assistant": "Ã–ppna AI-assistent",
-  "Context": "Kontext",
-  "AI is thinking": "AI tÃ¤nker",
-  "Could not load team workspaces. Apply the Sprint 133-144 migration.": "Det gick inte att lÃ¤sa in teamarbetsytor. TillÃ¤mpa Sprint 133-144-migreringen.",
-  "Could not load workspace details.": "Det gick inte att lÃ¤sa in arbetsytans detaljer.",
-  "Team workspace created.": "Teamarbetsytan skapades.",
-  "Workspace renamed.": "Arbetsytan bytte namn.",
-  "Delete this team workspace? Shared projects will become personal projects again.": "Ta bort den hÃ¤r teamarbetsytan? Delade projekt blir personliga projekt igen.",
-  "Workspace deleted.": "Arbetsytan togs bort.",
-  "Invite created. Copy the secure link and send it to the teammate.": "Inbjudan skapades. Kopiera den sÃ¤kra lÃ¤nken och skicka den till teammedlemmen.",
-  "Invite accepted.": "Inbjudan accepterades.",
-  "Invite revoked.": "Inbjudan Ã¥terkallades.",
-  "Member role updated.": "Medlemmens roll uppdaterades.",
-  "this member": "den hÃ¤r medlemmen",
-  "from the workspace?": "frÃ¥n arbetsytan?",
-  "You left the workspace.": "Du lÃ¤mnade arbetsytan.",
-  "Member removed.": "Medlemmen togs bort.",
-  "Transfer ownership to": "Ã–verfÃ¶r Ã¤garskapet till",
-  "Workspace ownership transferred.": "Ã„garskapet fÃ¶r arbetsytan Ã¶verfÃ¶rdes.",
-  "Project shared with the workspace.": "Projektet delades med arbetsytan.",
-  "Project removed from the workspace.": "Projektet togs bort frÃ¥n arbetsytan.",
-  "owner": "Ã¤gare",
-  "admin": "admin",
-  "editor": "redigerare",
-  "viewer": "visare",
-  "members": "medlemmar",
-  "projects": "projekt",
-  "seats used": "platser anvÃ¤nda",
-  "Member": "Medlem",
-  "you": "du",
-  "expires": "upphÃ¶r",
-  "owned by you": "Ã¤gs av dig",
-  "shared with you": "delat med dig",
-  "Passwords do not match.": "LÃ¶senorden matchar inte.",
-  "Adding to project...": "LÃ¤gger till i projektet...",
-  "Failed to add item": "Det gick inte att lÃ¤gga till objektet",
-  "Added to project": "Tillagt i projektet",
-  "Failed to remove item": "Det gick inte att ta bort objektet",
-  "Item removed": "Objektet togs bort",
-  "Failed to rename": "Det gick inte att byta namn",
-  "Project renamed": "Projektet bytte namn",
-  "Project not found": "Projektet hittades inte",
-  "This project may have been deleted.": "Projektet kan ha tagits bort.",
-  "Go Back": "GÃ¥ tillbaka",
-  "items": "objekt",
-  "Restoring...": "Ã…terstÃ¤ller...",
-  "Failed to restore": "Det gick inte att Ã¥terstÃ¤lla",
-  "Restored successfully": "Ã…terstÃ¤lld",
-  "Permanently deleting...": "Tar bort permanent...",
-  "Failed to delete permanently": "Det gick inte att ta bort permanent",
-  "Permanently deleted": "Permanent borttagen",
-  "Emptying trash...": "TÃ¶mmer papperskorgen...",
-  "Failed to empty trash": "Det gick inte att tÃ¶mma papperskorgen",
-  "Trash emptied": "Papperskorgen tÃ¶mdes",
-  "Trash is empty": "Papperskorgen Ã¤r tom",
-  "When you delete files or projects, they'll appear here for 30 days before being permanently removed.": "NÃ¤r du tar bort filer eller projekt visas de hÃ¤r i 30 dagar innan de tas bort permanent.",
-  "Deleted": "Borttagen",
-  "days left": "dagar kvar",
-  "Toggle navigation menu": "VÃ¤xla navigeringsmeny",
-  "Product facts": "Produktfakta",
-  "A component kit can contain up to": "Ett komponentpaket kan innehÃ¥lla upp till",
-  "AI": "AI",
-  "AI / action": "AI / Ã¥tgÃ¤rd",
-  "AI Chat Shell": "AI-chattskal",
-  "AI adaptation failed.": "AI-anpassningen misslyckades.",
-  "AI did not return a structured UI audit fix plan.": "AI returnerade ingen strukturerad Ã¥tgÃ¤rdsplan fÃ¶r UI-granskningen.",
-  "AI did not return a structured component kit patch.": "AI returnerade ingen strukturerad patch fÃ¶r komponentpaketet.",
-  "AI did not return a structured feature patch plan.": "AI returnerade ingen strukturerad patchplan fÃ¶r funktionen.",
-  "AI did not return a structured page composition patch.": "AI returnerade ingen strukturerad patch fÃ¶r sidkompositionen.",
-  "AI did not return a structured patch plan.": "AI returnerade ingen strukturerad patchplan.",
-  "AI did not return a structured replacement patch.": "AI returnerade ingen strukturerad ersÃ¤ttningspatch.",
-  "AI did not return structured variant options.": "AI returnerade inga strukturerade variantalternativ.",
-  "Accessible": "TillgÃ¤nglig",
-  "Action form": "Ã…tgÃ¤rdsformulÃ¤r",
-  "Adapt the pricing cards to the existing product plans and currency, preserve billing logic, and only change presentation.": "Anpassa priskorten till befintliga produktplaner och valuta, bevara faktureringslogiken och Ã¤ndra endast presentationen.",
-  "Adapt this CTA to the current page goal, reuse existing actions, and keep copy concise.": "Anpassa denna CTA till sidans mÃ¥l, Ã¥teranvÃ¤nd befintliga Ã¥tgÃ¤rder och hÃ¥ll texten kort.",
-  "Adapt this hero to the project theme, reuse existing Button primitives, keep it responsive, and preserve the project typography.": "Anpassa hero-sektionen till projektets tema, Ã¥teranvÃ¤nd befintliga knappkomponenter, hÃ¥ll den responsiv och bevara typografin.",
-  "Add to favorites": "LÃ¤gg till i favoriter",
-  "Add to kit": "LÃ¤gg till i paket",
-  "Build a responsive dashboard shell that reuses project navigation and data boundaries without inventing backend behavior.": "Bygg ett responsivt dashboardskal som Ã¥teranvÃ¤nder projektets navigering och datagrÃ¤nser utan att hitta pÃ¥ backendbeteende.",
-  "Build a responsive settings feature with clear sections, accessible controls and existing project persistence boundaries.": "Bygg en responsiv instÃ¤llningsfunktion med tydliga sektioner, tillgÃ¤ngliga kontroller och projektets befintliga persistensgrÃ¤nser.",
-  "Build a trustworthy pricing page with clear plan differences, responsive comparison and conversion CTA.": "Bygg en trovÃ¤rdig prissida med tydliga planskillnader, responsiv jÃ¤mfÃ¶relse och konverterings-CTA.",
-  "Build an AI chat UI feature that reuses an existing AI service if present and otherwise exposes a clean adapter boundary without fake network logic.": "Bygg en AI-chattfunktion som Ã¥teranvÃ¤nder befintlig AI-tjÃ¤nst om den finns, annars en ren adaptergrÃ¤ns utan falsk nÃ¤tverkslogik.",
-  "CTA": "CTA",
-  "CTA Banner": "CTA-banner",
-  "Cards": "Kort",
-  "Choose project component fileâ€¦": "VÃ¤lj en komplett komponentfil i projektetâ€¦",
-  "Compact floating navigation shell for landing pages.": "Kompakt flytande navigeringsskal fÃ¶r landningssidor.",
-  "Comparison": "JÃ¤mfÃ¶relse",
-  "Connect this UI to the project existing authentication handlers. Do not replace auth logic or credentials handling.": "Anslut grÃ¤nssnittet till projektets befintliga autentiseringshanterare. ErsÃ¤tt inte autentiseringslogik eller hantering av inloggningsuppgifter.",
-  "Connect this shell to the existing AI service and streaming state. Preserve authentication, rate-limit, and error handling.": "Anslut skalet till befintlig AI-tjÃ¤nst och strÃ¶mningsstatus. Bevara autentisering, hastighetsgrÃ¤nser och felhantering.",
-  "Content / FAQ": "InnehÃ¥ll / FAQ",
-  "Conversation shell, composer, empty/loading/error states and service boundary.": "Konversationsskal, kompositÃ¶r, tom-/laddnings-/fellÃ¤ge och tjÃ¤nstegrÃ¤ns.",
-  "Conversion-focused call-to-action block with two actions.": "Konverteringsfokuserat CTA-block med tvÃ¥ Ã¥tgÃ¤rder.",
-  "Copy result": "Kopiera resultat",
-  "Current Commons Clause terms prohibit redistributing the components themselves. Keep blocked from the Tayar component registry.": "Nuvarande Commons Clause-villkor fÃ¶rbjuder omdistribution av sjÃ¤lva komponenterna. HÃ¥ll dem blockerade frÃ¥n Tayar-registret.",
-  "Dashboard Shell": "Dashboardskal",
-  "Dashboard content shell with summary cards and activity area.": "DashboardinnehÃ¥ll med sammanfattningskort och aktivitetsomrÃ¥de.",
-  "Dashboard shell": "Dashboardskal",
-  "Dashboards": "Dashboards",
-  "Data": "Data",
-  "Example: Build these into a compact onboarding flow, reuse existing project buttons and keep mobile layout simple.": "Exempel: Bygg ihop dessa till ett kompakt onboardingflÃ¶de, Ã¥teranvÃ¤nd projektets knappar och hÃ¥ll mobillayouten enkel.",
-  "Example: Make this fit a dark SaaS dashboard, use our existing buttons, reduce motion on mobile, and keep it accessible.": "Exempel: Anpassa detta till en mÃ¶rk SaaS-dashboard, anvÃ¤nd vÃ¥ra befintliga knappar, minska rÃ¶relse pÃ¥ mobil och behÃ¥ll tillgÃ¤ngligheten.",
-  "Feature primary isolated preview": "Isolerad fÃ¶rhandsvisning av primÃ¤r funktion",
-  "Fit this dashboard shell into the existing application layout and route structure. Reuse current navigation and data services.": "Passa in dashboardskalet i befintlig applayout och routstruktur. Ã…teranvÃ¤nd nuvarande navigering och datatjÃ¤nster.",
-  "Floating Navigation": "Flytande navigering",
-  "Focused pricing experience with plan comparison, FAQ/supporting proof and CTA.": "Fokuserad prisupplevelse med planjÃ¤mfÃ¶relse, FAQ/stÃ¶djande bevis och CTA.",
-  "Follow the active project style profile as closely as possible. Reuse its tokens, spacing, radii, typography and component conventions.": "FÃ¶lj det aktiva projektets stilprofil sÃ¥ nÃ¤ra som mÃ¶jligt. Ã…teranvÃ¤nd tokens, avstÃ¥nd, radier, typografi och komponentkonventioner.",
-  "Form": "FormulÃ¤r",
-  "Generate 3 options": "Generera 3 alternativ",
-  "Generate adaptation": "Generera anpassning",
-  "Glass": "Glas",
-  "Gradient Hero": "Gradient-hero",
-  "Hero": "Hero",
-  "Heroes": "Hero-sektioner",
-  "I confirm I have the right/license to use the private files I select.": "Jag bekrÃ¤ftar att jag har rÃ¤tt/licens att anvÃ¤nda de privata filer jag vÃ¤ljer.",
-  "Input tokens": "Indatatokens",
-  "Integrate this navigation into the existing layout, map links to the project routes, and reuse the current logo and button system.": "Integrera navigeringen i befintlig layout, mappa lÃ¤nkar till projektrutter och Ã¥teranvÃ¤nd nuvarande logotyp och knappsystem.",
-  "Landing": "Landning",
-  "Landing starter": "Landningsstart",
-  "Last Coding Assistance patch was rolled back.": "Den senaste Coding Assistance-patchen Ã¥terstÃ¤lldes.",
-  "Live preview is not available for this component.": "LivefÃ¶rhandsvisning Ã¤r inte tillgÃ¤nglig fÃ¶r den hÃ¤r komponenten.",
-  "Load source code": "Ladda kÃ¤llkod",
-  "Loading projects...": "Laddar projekt...",
-  "Login": "Inloggning",
-  "MIT + Commons Clause. May be used as part of an application/product but must not be redistributed as a competing component library; keep blocked from Tayar public registry.": "MIT + Commons Clause. FÃ¥r anvÃ¤ndas i en applikation/produkt men inte omdistribueras som konkurrerande komponentbibliotek; hÃ¥ll blockerad frÃ¥n Tayars offentliga register.",
-  "MIT source with a public shadcn-style registry. Preserve the upstream copyright and permission notice when substantial code is imported.": "MIT-kÃ¤lla med offentligt shadcn-liknande register. Bevara upstreams copyright- och tillstÃ¥ndsnotis vid betydande kodimport.",
-  "MIT source. Animata publishes copy-paste animated React/Tailwind components and shadcn registry items. Preserve the upstream license notice.": "MIT-kÃ¤lla. Animata publicerar kopierbara animerade React/Tailwind-komponenter och shadcn-registerposter. Bevara upstream-licensnotisen.",
-  "MIT source. Preserve the upstream copyright and permission notice when substantial code is imported.": "MIT-kÃ¤lla. Bevara upstreams copyright- och tillstÃ¥ndsnotis vid betydande kodimport.",
-  "Map these cards to real project metrics and reuse existing number formatting. Do not invent backend data.": "Koppla korten till verkliga projektmÃ¥tt och Ã¥teranvÃ¤nd befintlig talformatering. Hitta inte pÃ¥ backenddata.",
-  "Metric Cards": "MÃ¥ttkort",
-  "Model": "Modell",
-  "Navigation, hero, feature/value block, pricing, FAQ/content and CTA.": "Navigering, hero, funktions-/vÃ¤rdeblock, priser, FAQ/innehÃ¥ll och CTA.",
-  "Navigation, hero, trust/value sections, CTA and footer-ready structure.": "Navigering, hero, fÃ¶rtroende-/vÃ¤rdesektioner, CTA och footer-redo struktur.",
-  "No animation lib": "Inget animationsbibliotek",
-  "Not detected": "Inte upptÃ¤ckt",
-  "Original components authored for the Tayar registry.": "Originalkomponenter skapade fÃ¶r Tayar-registret.",
-  "Output tokens": "Utdatatokens",
-  "Overview shell, metrics, navigation and responsive content states.": "Ã–versiktsskal, mÃ¥tt, navigering och responsiva innehÃ¥llslÃ¤gen.",
-  "Paid component pack delivered privately after purchase. No public redistribution license was found, so Tayar must not bundle or mirror its code. Future support should use private user-provided licensed imports only.": "Betalt komponentpaket som levereras privat efter kÃ¶p. Ingen offentlig omdistributionslicens hittades, sÃ¥ Tayar fÃ¥r inte paketera eller spegla koden. Framtida stÃ¶d ska endast anvÃ¤nda privata licensierade importer som anvÃ¤ndaren tillhandahÃ¥ller.",
-  "Patch applied. A rollback checkpoint is available until the project files change again.": "Patchen tillÃ¤mpades. En Ã¥terstÃ¤llningspunkt finns tills projektfilerna Ã¤ndras igen.",
-  "Plan file patch": "Planera filpatch",
-  "Plan replacement": "Planera ersÃ¤ttning",
-  "Planningâ€¦": "Planerarâ€¦",
-  "Pricing Grid": "Prisgrid",
-  "Primary feature preview is not available for this pack.": "FÃ¶rhandsvisning av primÃ¤r funktion Ã¤r inte tillgÃ¤nglig fÃ¶r paketet.",
-  "Product proof": "Produktbevis",
-  "Product-first SaaS page with hero, feature proof, product UI, pricing and CTA.": "Produktfokuserad SaaS-sida med hero, funktionsbevis, produkt-UI, priser och CTA.",
-  "Project native": "Projektanpassad",
-  "Proof": "Bevis",
-  "Reduced motion": "Minskad rÃ¶relse",
-  "Remove from favorites": "Ta bort frÃ¥n favoriter",
-  "Remove from kit": "Ta bort frÃ¥n paket",
-  "Repository": "Repository",
-  "Responsive SaaS hero with clear hierarchy and two actions.": "Responsiv SaaS-hero med tydlig hierarki och tvÃ¥ Ã¥tgÃ¤rder.",
-  "Responsive metric row for analytics and dashboards.": "Responsiv mÃ¥ttrad fÃ¶r analys och dashboards.",
-  "Reuse tokens": "Ã…teranvÃ¤nd tokens",
-  "Review only â€” no project selected": "Endast granskning â€” inget projekt valt",
-  "Rollback last patch": "Ã…terstÃ¤ll senaste patch",
-  "SaaS": "SaaS",
-  "SaaS dashboard": "SaaS-dashboard",
-  "Search components...": "SÃ¶k komponenter...",
-  "Server compatible": "Serverkompatibel",
-  "Settings shell, sections, form controls and save-state UX.": "InstÃ¤llningsskal, sektioner, formulÃ¤rkontroller och UX fÃ¶r sparstatus.",
-  "Showing": "Visar",
-  "Sign-in UI, validation states and existing-auth integration boundary.": "Inloggnings-UI, valideringslÃ¤gen och integrationsgrÃ¤ns mot befintlig autentisering.",
-  "Simple sign-in surface with accessible labels and actions.": "Enkel inloggningsyta med tillgÃ¤ngliga etiketter och Ã¥tgÃ¤rder.",
-  "Social proof": "Socialt bevis",
-  "Some registries could not be loaded": "Vissa register kunde inte laddas",
-  "Support card": "Supportkort",
-  "Three-tier pricing layout with a highlighted recommended plan.": "Prislayout i tre nivÃ¥er med markerad rekommenderad plan.",
-  "Unable to apply the patch.": "Det gick inte att tillÃ¤mpa patchen.",
-  "Unable to generate a safe UI audit fix plan.": "Det gick inte att skapa en sÃ¤ker Ã¥tgÃ¤rdsplan fÃ¶r UI-granskningen.",
-  "Unable to generate a safe component kit patch.": "Det gick inte att skapa en sÃ¤ker patch fÃ¶r komponentpaketet.",
-  "Unable to generate a safe feature pack.": "Det gick inte att skapa ett sÃ¤kert funktionspaket.",
-  "Unable to generate a safe page composition.": "Det gick inte att skapa en sÃ¤ker sidkomposition.",
-  "Unable to generate a safe patch plan.": "Det gick inte att skapa en sÃ¤ker patchplan.",
-  "Unable to generate a safe replacement patch.": "Det gick inte att skapa en sÃ¤ker ersÃ¤ttningspatch.",
-  "Unable to generate component options.": "Det gick inte att generera komponentalternativ.",
-  "Unable to import private component files.": "Det gick inte att importera privata komponentfiler.",
-  "Unable to load component code.": "Det gick inte att lÃ¤sa in komponentkoden.",
-  "Unable to load project choices.": "Det gick inte att lÃ¤sa in projektalternativ.",
-  "Unable to load project context.": "Det gick inte att lÃ¤sa in projektkontexten.",
-  "Unable to prepare live preview.": "Det gick inte att fÃ¶rbereda livefÃ¶rhandsvisningen.",
-  "Unable to rollback the patch.": "Det gick inte att Ã¥terstÃ¤lla patchen.",
-  "Use layered translucent surfaces and subtle depth only where they fit the existing project; preserve contrast, readability and reduced-motion behavior.": "AnvÃ¤nd lager av halvtransparenta ytor och subtilt djup endast dÃ¤r det passar projektet; bevara kontrast, lÃ¤sbarhet och minskad rÃ¶relse.",
-  "Use restrained surfaces, generous whitespace, simple hierarchy and subtle interaction while still reusing project tokens.": "AnvÃ¤nd Ã¥terhÃ¥llna ytor, generÃ¶st tomrum, enkel hierarki och subtil interaktion samtidigt som projektets tokens Ã¥teranvÃ¤nds.",
-  "Use stronger type hierarchy, larger visual contrast and confident section separation while staying consistent with project tokens and accessibility.": "AnvÃ¤nd starkare typografisk hierarki, stÃ¶rre visuell kontrast och tydligare sektionsseparation samtidigt som projektets tokens och tillgÃ¤nglighet fÃ¶ljs.",
-  "User-selected licensed source kept only in the current browser session. Tayar may adapt it for the user but must never publish it into the public registry.": "AnvÃ¤ndarvald licensierad kÃ¤lla behÃ¥lls endast i aktuell webblÃ¤sarsession. Tayar fÃ¥r anpassa den fÃ¶r anvÃ¤ndaren men aldrig publicera den i det offentliga registret.",
-  "Website": "Webbplats",
-  "Workspace": "Arbetsyta",
-  "components": "komponenter",
-  "items.": "objekt.",
-  "matches": "trÃ¤ffar",
-  "private session items": "privata sessionsobjekt",
-  "upstream items loaded": "upstream-objekt laddade",
-  "/about": "/om",
-  "AI & media": "AI och media",
-  "AI image prompt": "AI-bildprompt",
-  "Accent color": "AccentfÃ¤rg",
-  "Accordion": "Dragspel",
-  "Add a call-to-action button.": "LÃ¤gg till en CTA-knapp.",
-  "Add a contact section and form.": "LÃ¤gg till en kontaktsektion och formulÃ¤r.",
-  "Add a countdown timer.": "LÃ¤gg till en nedrÃ¤kning.",
-  "Add a features section.": "LÃ¤gg till en funktionssektion.",
-  "Add a flexible section you can fully restyle and replace with your own elements.": "LÃ¤gg till en flexibel sektion som du kan formge om helt och ersÃ¤tta med egna element.",
-  "Add a footer section.": "LÃ¤gg till en sidfot.",
-  "Add a hero section.": "LÃ¤gg till en hero-sektion.",
-  "Add a pricing section.": "LÃ¤gg till en prissektion.",
-  "Add a services section.": "LÃ¤gg till en tjÃ¤nstesektion.",
-  "Add a structured list of items.": "LÃ¤gg till en strukturerad lista med objekt.",
-  "Add a testimonials section.": "LÃ¤gg till en omdÃ¶messektion.",
-  "Add a title or section heading.": "LÃ¤gg till en titel eller sektionsrubrik.",
-  "Add an about section.": "LÃ¤gg till en om-sektion.",
-  "Add an image from uploads or AI.": "LÃ¤gg till en bild frÃ¥n uppladdningar eller AI.",
-  "Add controlled visual spacing.": "LÃ¤gg till kontrollerat visuellt mellanrum.",
-  "Add paragraph or supporting copy.": "LÃ¤gg till ett stycke eller stÃ¶djande text.",
-  "Add sanitized custom HTML.": "LÃ¤gg till sanerad anpassad HTML.",
-  "Align self": "Egen justering",
-  "Alt text": "Alt-text",
-  "Anchor ID": "Ankar-ID",
-  "Animate once": "Animera en gÃ¥ng",
-  "Background color": "BakgrundsfÃ¤rg",
-  "Background image": "Bakgrundsbild",
-  "Background mode": "BakgrundslÃ¤ge",
-  "Border & shadow": "Ram och skugga",
-  "Border radius": "Kantradie",
-  "Browse imported assets safely. Office, PDF and archive files download as references; Tayar-native website formats can be opened directly when available.": "BlÃ¤ddra sÃ¤kert bland importerade resurser. Office-, PDF- och arkivfiler laddas ned som referenser; Tayar-native webbplatsformat kan Ã¶ppnas direkt nÃ¤r de finns.",
-  "Builder tools": "Byggverktyg",
-  "Button text": "Knapptext",
-  "COPY": "KOPIERA",
-  "Call to action": "Uppmaning",
-  "Canonical URL": "Kanonisk URL",
-  "Collect visitor messages safely.": "Samla in besÃ¶karmeddelanden sÃ¤kert.",
-  "Contact": "Kontakt",
-  "Contact Form": "KontaktformulÃ¤r",
-  "Container": "BehÃ¥llare",
-  "Container ID": "BehÃ¥llar-ID",
-  "Container name": "BehÃ¥llarnamn",
-  "Content width": "InnehÃ¥llsbredd",
-  "Could not download template.": "Det gick inte att ladda ned mallen.",
-  "Could not load templates.": "Det gick inte att lÃ¤sa in mallarna.",
-  "Create visual separation.": "Skapa visuell separation.",
-  "Custom HTML": "Anpassad HTML",
-  "DN": "NER",
-  "Describe the image": "Beskriv bilden",
-  "Desktop": "Dator",
-  "Device": "Enhet",
-  "Distance": "AvstÃ¥nd",
-  "Divider": "Avdelare",
-  "Download template": "Ladda ned mall",
-  "Embed a map or external page.": "BÃ¤dda in en karta eller extern sida.",
-  "Embed or display a video.": "BÃ¤dda in eller visa en video.",
-  "Exit focus": "Avsluta fokus",
-  "Expandable content for FAQs.": "Expanderbart innehÃ¥ll fÃ¶r FAQ.",
-  "Field": "FÃ¤lt",
-  "Field name": "FÃ¤ltnamn",
-  "Flexible Section": "Flexibel sektion",
-  "Focus on canvas": "Fokusera pÃ¥ arbetsytan",
-  "Font size": "Teckenstorlek",
-  "Font weight": "Teckenvikt",
-  "Form response": "FormulÃ¤rsvar",
-  "Gallery": "Galleri",
-  "Gradient": "Gradient",
-  "Gradient from": "Gradient frÃ¥n",
-  "Gradient to": "Gradient till",
-  "Grid": "RutnÃ¤t",
-  "Group elements in a reusable layout.": "Gruppera element i en Ã¥teranvÃ¤ndbar layout.",
-  "Heading": "Rubrik",
-  "Hide element": "DÃ¶lj element",
-  "Hide from search engines": "DÃ¶lj frÃ¥n sÃ¶kmotorer",
-  "Hide on device": "DÃ¶lj pÃ¥ enhet",
-  "Hide section": "DÃ¶lj sektion",
-  "Hover background": "Hover-bakgrund",
-  "Hover opacity": "Hover-opacitet",
-  "Hover scale": "Hover-skala",
-  "Hover shadow": "Hover-skugga",
-  "Hover text color": "Hover-textfÃ¤rg",
-  "Image": "Bild",
-  "Image position": "Bildposition",
-  "Image size": "Bildstorlek",
-  "Layout column": "Layoutkolumn",
-  "Leave empty for section root": "LÃ¤mna tomt fÃ¶r sektionens rot",
-  "List": "Lista",
-  "Load more": "Ladda fler",
-  "Localization": "Lokalisering",
-  "Map / Embed": "Karta / inbÃ¤ddning",
-  "Margin bottom": "Marginal nedtill",
-  "Margin left": "Marginal vÃ¤nster",
-  "Margin right": "Marginal hÃ¶ger",
-  "Margin top": "Marginal upptill",
-  "Max width": "Maxbredd",
-  "Minimum height": "MinimihÃ¶jd",
-  "Mobile": "Mobil",
-  "Mobile overrides": "MobilÃ¶verskrivningar",
-  "Mobile section": "Mobilsektion",
-  "No favorites yet.": "Inga favoriter Ã¤nnu.",
-  "Open template": "Ã–ppna mall",
-  "Option 1, Option 2, Option 3": "Alternativ 1, Alternativ 2, Alternativ 3",
-  "Options": "Alternativ",
-  "Organize related content in tabs.": "Organisera relaterat innehÃ¥ll i flikar.",
-  "Overlay color": "Ã–verlÃ¤ggsfÃ¤rg",
-  "Overlay opacity": "Ã–verlÃ¤ggsopacitet",
-  "Page": "Sida",
-  "Page language": "SidsprÃ¥k",
-  "Position X": "Position X",
-  "Position Y": "Position Y",
-  "Preview device": "FÃ¶rhandsvisningsenhet",
-  "Redirect URL": "Omdirigerings-URL",
-  "Refresh library": "Uppdatera bibliotek",
-  "Required": "Obligatoriskt",
-  "Reusable component": "Ã…teranvÃ¤ndbar komponent",
-  "SEO": "SEO",
-  "SEO description": "SEO-beskrivning",
-  "SEO title": "SEO-titel",
-  "Section image": "Sektionsbild",
-  "Section radius": "Sektionsradie",
-  "Section title": "Sektionstitel",
-  "Show customer testimonials in a slider.": "Visa kundomdÃ¶men i en slider.",
-  "Show in navigation": "Visa i navigering",
-  "Show multiple images together.": "Visa flera bilder tillsammans.",
-  "Show numbers and counters.": "Visa siffror och rÃ¤knare.",
-  "Site": "Webbplats",
-  "Size & spacing": "Storlek och avstÃ¥nd",
-  "Slug": "Slug",
-  "Social image URL": "URL till social bild",
-  "Source URL": "KÃ¤ll-URL",
-  "Stats": "Statistik",
-  "Style": "Stil",
-  "Surface": "Yta",
-  "Tablet": "Surfplatta",
-  "Tablet overrides": "SurfplatteÃ¶verskrivningar",
-  "Tablet section": "Surfplattesektion",
-  "Tabs": "Flikar",
-  "Templates": "Mallar",
-  "Templates you download will appear here.": "Mallar du laddar ned visas hÃ¤r.",
-  "Testimonials Slider": "OmdÃ¶messlider",
-  "Text align": "Textjustering",
-  "Translation group": "Ã–versÃ¤ttningsgrupp",
-  "Typography": "Typografi",
-  "UNGROUP": "AVGRUPPERA",
-  "UP": "UPP",
-  "URL": "URL",
-  "Validation": "Validering",
-  "Visibility": "Synlighet",
-  "auto": "auto",
-  "bottom": "nedtill",
-  "boxed": "boxad",
-  "center": "centrerad",
-  "checkbox": "kryssruta",
-  "color": "fÃ¤rg",
-  "contain": "anpassa",
-  "cover": "tÃ¤ck",
-  "dashed": "streckad",
-  "dotted": "prickad",
-  "email": "e-post",
-  "en, sv, ar...": "en, sv, ar...",
-  "end": "slut",
-  "full": "full",
-  "gradient": "gradient",
-  "image": "bild",
-  "left": "vÃ¤nster",
-  "Admin navigation, overview, tables, filters and management states.": "Adminnavigering, Ã¶versikt, tabeller, filter och hanteringslÃ¤gen.",
-  "Apache-2.0 source. Preserve the upstream license and attribution notices when code is imported.": "Apache-2.0-kÃ¤lla. Bevara upstream-licensen och attribueringsnotiser vid import.",
-  "App navigation, overview metrics, dashboard content, data table/filter and AI/action panel.": "Appnavigering, Ã¶versiktsmÃ¥tt, dashboardinnehÃ¥ll, datatabell/filter och AI-/Ã¥tgÃ¤rdspanel.",
-  "Application shell with navigation, overview cards/data and responsive workspace structure.": "Applikationsskal med navigering, Ã¶versiktskort/data och responsiv arbetsytestruktur.",
-  "Apply reviewed patch": "TillÃ¤mpa granskad patch",
-  "Assistant conversation surface with prompt input and status.": "Assistentens konversationsyta med promptinmatning och status.",
-  "Auth": "Autentisering",
-  "Auth shell": "Autentiseringsskal",
-  "Auth starter": "Autentiseringsstart",
-  "Authentication Card": "Autentiseringskort",
-  "Authentication shell, login form, secondary auth state and supporting CTA/content.": "Autentiseringsskal, inloggningsformulÃ¤r, sekundÃ¤rt autentiseringslÃ¤ge och stÃ¶djande CTA/innehÃ¥ll.",
-  "Browse reusable UI, inspect code and dependencies, then hand source-aware adaptation instructions to AI. Only approved redistributable sources are loaded.": "BlÃ¤ddra bland Ã¥teranvÃ¤ndbara UI-komponenter, granska kod och beroenden och skicka sedan kÃ¤llmedvetna anpassningsinstruktioner till AI. Endast godkÃ¤nda omdistribuerbara kÃ¤llor laddas.",
-  "Build a complete conversion-focused landing page that feels native to the active project.": "Bygg en komplett konverteringsfokuserad landningssida som kÃ¤nns naturlig i det aktiva projektet.",
-  "Build a complete sign-in feature that reuses existing authentication services when present and never invents a backend.": "Bygg en komplett inloggningsfunktion som Ã¥teranvÃ¤nder befintliga autentiseringstjÃ¤nster nÃ¤r de finns och aldrig hittar pÃ¥ en backend.",
-  "Build a polished SaaS marketing page with strong hierarchy, product proof and clear conversion flow.": "Bygg en polerad SaaS-marknadsfÃ¶ringssida med tydlig hierarki, produktbevis och klart konverteringsflÃ¶de.",
-  "Build a polished responsive dashboard feature using existing project data boundaries and style tokens.": "Bygg en polerad responsiv dashboardfunktion med projektets befintliga datagrÃ¤nser och stiltokens.",
-  "Build a production-minded admin feature with responsive navigation, management tables/forms and no invented privileged backend actions.": "Bygg en produktionsinriktad adminfunktion med responsiv navigering, hanteringstabeller/formulÃ¤r och utan pÃ¥hittade privilegierade backendÃ¥tgÃ¤rder.",
-  "message": "meddelande",
-  "redirect": "omdirigera",
-  "right": "hÃ¶ger",
-  "row": "rad",
-  "select": "vÃ¤lj",
-  "solid": "heldragen",
-  "stack": "stapel",
-  "start": "start",
-  "stretch": "strÃ¤ck",
-  "tel": "telefon",
-  "text": "text",
-  "textarea": "textomrÃ¥de",
-  "three-column": "tre kolumner",
-  "top": "upptill",
-  "two-column": "tvÃ¥ kolumner",
-};
-const maps: Record<Language, PhraseMap> = { en: {}, ar, sv };
-
-export function localizeUi(text: string, language: Language): string {
-  if (language === 'en') return text;
-  return maps[language][text] ?? text;
-}
-
-export function useLocalizer() {
-  const { prefs } = usePreferences();
-  const language = prefs.language;
-  return useCallback((text: string) => localizeUi(text, language), [language]);
-}
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×}8ß¤èµ©hºÚn¶X§zÍZ[\ÜÈ\ÙT™Y™\™[˜Ù\ÈHœ›ÛH	ÐØÛÛ^Ô™Y™\™[˜Ù\ÐÛÛ^	ÎÂš[\Ü\HÈ[™ÝXYÙHHœ›ÛH	ÐÛX‹ÚLN‰ÎÂš[\ÜÈ\ÙPØ[˜XÚÈHœ›ÛH	Ü™XXÝ	ÎÂ‚\H˜\ÙSX\H™XÛÜ™Ýš[™ËÝš[™ÏŽÂ‚˜ÛÛœÝ\Žˆ˜\ÙSX\HÂˆ	Ô™XÙ[	Îˆ	ö)öa6(ö+¶b¶,v*IËˆ	ÓØY[™ÈXœ˜\žx )‰Îˆ	ö+6)ö,vcH6*¶+vavb¶a6)öa6av`ö*¶*6*x )‰Ëˆ	Ó›ÈX]Ú[™È[\]\ÉÎˆ	öa6)È6*¶b6+6+È6`¶b6)öa6*6av-ö)ö*6`¶*IËˆ	Õ[šÛ›ÝÛˆÚ^™IÎˆ	ö+v+6aH6.¶b¶,H6av.v,vb6`IËˆ	Ñ›Ü›X]	Îˆ	ö)öa6*¶a¶,öb¶`‰Ëˆ	Ô™\ÝÜ™H\È\ÝÜžHÝ]OÈ[Ý\ˆÝ\œ™[[œØ]™YÚ[™Ù\ÈÚ[[Ý™HÈH™YÈ]Y]YK‰Îˆ	öaöa6*¶,vb¶+È6)ö,ö*¶.v)ö+ö*H6+v)öa6*H6)öa6,ö+6a6aö,6aö'È6,ö*¶cöa¶`¶a6*¶.¶b¶b¶,v)ö*¶`È6)öa6+v)öa6b¶*H6.¶b¶,H6)öa6av+v`vb6.6*H6)va6bH6`¶)ö)¶av*H6)öa6)v.v)ö+ö*K‰Ëˆ	Ö[ÝH]™H[œØ]™YÙXœÚ]HÚ[™Ù\ËˆX]™HÚ]Ý]Ø]š[™ÏÉÎˆ	öa6+öb¶`È6*¶.¶b¶b¶,v)ö*ˆ6.¶b¶,H6av+v`vb6.6*H6`vbˆ6)öa6avb6`¶.Kˆ6aöa6*¶,vb¶+È6)öa6av.¶)ö+ö,v*H6avaˆ6+öb6aˆ6+v`v.6'ÉËˆ	ÐRHXÝ[Û‰Îˆ	ö)v+6,v)ö(H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÑY]Ý\œ™[ÙXœÚ]IÎˆ	ö*¶.v+öb¶a6)öa6avb6`¶.H6)öa6+v)öa6b‰Ëˆ	ÐZ[™]ÈÙXœÚ]IÎˆ	ö*6a¶)ö(H6avb6`¶.H6+6+öb¶+ÉËˆ	ÐZ[[™ÈH™]ÈÙXœÚ]H™\XÙ\ÈHÝ\œ™[YÙ\ËˆÛÛ[YOÉÎˆ	ö*6a¶)ö(H6avb6`¶.H6+6+öb¶+È6b¶,ö*¶*6+öa6)öa6-v`v+v)ö*ˆ6)öa6+v)öa6b¶*Kˆ6aöa6*¶,vb¶+È6)öa6av*¶)ö*6.v*v'ÉËˆ	ÑÙ[™\˜][™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6)va¶-6)ö(K‹‹‰Ëˆ	Ö[Ý\ˆ™\Ý[Ú[\X\ˆ\™K‰Îˆ	ö,ö*¶.6aö,H6)öa6a¶*¶b¶+6*H6aöa¶)Ë‰Ëˆ	ÐÛÛZ[™ÈÛÛÛ‰Îˆ	ö`¶,vb¶*6)öbÉËˆ•\ÈÛÛ\È[™\ˆXÝ]™H]™[ÜY[ˆ[ÝIÛ™H›ÝYšYYÚ[ˆ]	ÜÈ™XYKˆŽˆ	öaö,6aÈ6)öa6(ö+ö)ö*H6`¶b¶+È6)öa6*¶-öb6b¶,H6+v)öa6b¶)öbËˆ6,öa¶+¶*6,v`È6.va¶+öav)È6*¶-v*6+H6+6)öaö,¶*K‰Ëˆ	ÐRHÜš]\‰Îˆ	ö)öa6`ö)ö*¶*6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÕÜš]H›ÙÜË\XÛ\Ë[™X\šÙ][™ÈÛÜK‰Îˆ	ö)ö`ö*¶*6)öa6av+öb6a¶)ö*ˆ6b6)öa6av`¶)öa6)ö*ˆ6b6)öa6a¶-vb6-H6)öa6*¶,öb6b¶`¶b¶*K‰Ëˆ	ÐÛÛ[\IÎˆ	öa¶b6.H6)öa6av+v*¶b6bIË	ÕÜXÉÎˆ	ö)öa6avb6-¶b6.IË	ÕÛ™IÎˆ	ö)öa6a¶*6,v*IË	Ó[™Ý	Îˆ	ö)öa6-öb6a	Ëˆ	Õ\™Ù]]YY[˜ÙIÎˆ	ö)öa6+6avaöb6,H6)öa6av,ö*¶aö+ö`IË	ÒÙ^HÚ[È
+Ü[Û˜[
+IÎˆ	ö)öa6a¶`¶)ö-È6)öa6,v)¶b¶,öb¶*H
+6)ö+¶*¶b¶)ö,vbŠIËˆ	ÕH]\™HÙˆRH[ˆX[Ø\™IÎˆ	öav,ö*¶`¶*6a6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6`vbˆ6)öa6,v.v)öb¶*H6)öa6-v+vb¶*IËˆ	ÒX[Ø\™H›Ù™\ÜÚ[Û˜[ÉÎˆ	öav*¶+¶-v-vb6)öa6,v.v)öb¶*H6)öa6-v+vb¶*IË	ÓÛ™HÚ[\ˆ[™IÎˆ	öa¶`¶-ö*H6b6)ö+v+ö*H6`vbˆ6`öa6,ö-ö,IËˆ	Ð›ÙÈÜÝ	Îˆ	öava¶-6b6,H6av+öb6a¶*IË	Ð\XÛIÎˆ	öav`¶)öa	Ë	ÓX\šÙ][™ÈÛÜIÎˆ	öa¶-H6*¶,öb6b¶`¶b‰Ëˆ	ÔÛØÚX[YYXHÜÝ	Îˆ	öava¶-6b6,H6b6,ö)ö)¶a6)öa6*¶b6)ö-va	Ë	Ô›ÙXÝ\ØÜš\[Û‰Îˆ	öb6-v`H6ava¶*¶+	Ëˆ	Ô›Ù™\ÜÚ[Û˜[	Îˆ	ö)ö+v*¶,v)ö`vb¶*IË	ÐØ\ÝX[	Îˆ	ö.v`vb6b¶*IË	Ô\œÝX\Ú]™IÎˆ	ö)v`¶a¶)ö.vb¶*IË	Ò[™›Ü›X]]™IÎˆ	öav.va6b6av)ö*¶b¶*IËˆ	Ò[[Ü›Ý\ÉÎˆ	öav,v+v*IË	Ò[œÜ\˜][Û˜[	Îˆ	öava6aöav*IË	ÔÚÜ	Îˆ	ö`¶-vb¶,IË	ÓÛ™ÉÎˆ	ö-öb6b¶a	Ëˆ	ÕÜš][™ÈÛÛ[‹‹‰Îˆ	ö+6)ö,vcH6`ö*¶)ö*6*H6)öa6av+v*¶b6bK‹‹‰Ë	ÐÛÛ[Ù[™\˜]Y	Îˆ	ö*¶aH6)va¶-6)ö(H6)öa6av+v*¶b6bIË	ÕÜš][™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6`ö*¶)ö*6*K‹‹‰Ëˆ	ÑÙ[™\˜]HÛÛ[	Îˆ	ö)va¶-6)ö(H6)öa6av+v*¶b6bIË	ÐÛÜIÎˆ	öa¶,ö+‰Ë	ÐÛÜYY	Îˆ	ö*¶aH6)öa6a¶,ö+‰Ëˆ	ÐÛÝ™\ˆ]\ˆÜš]\‰Îˆ	ö`ö)ö*¶*6+¶-ö)ö*6)öa6*¶.¶-öb¶*IË	ÐÜ˜Y\œÛÛ˜[^™YÛÝ™\ˆ]\œÈ›Üˆ[žH›Ø‹‰Îˆ	ö(öa¶-6)ˆ6+¶-ö)ö*6)ö*ˆ6*¶.¶-öb¶*H6av+¶-v-v*H6a6(öbˆ6b6.6b¶`v*K‰Ëˆ	Ö[Ý\ˆ˜[YIÎˆ	ö)ö,öav`ÉË	Ò›Øˆ]IÎˆ	ö)öa6av,öavbH6)öa6b6.6b¶`vb‰Ë	ÐÛÛ\[žIÎˆ	ö)öa6-6,v`ö*IË	ÒÙ^H]X[YšXØ][ÛœÉÎˆ	ö)öa6av)6aöa6)ö*ˆ6)öa6,v)¶b¶,öb¶*IËˆ	ÕÚH\È›ØÉÎˆ	öa6av)ö,6)È6aö,6aÈ6)öa6b6.6b¶`v*v'ÉË	ÔÛÙØ\™H[™Ú[™Y\‰Îˆ	öavaöa¶+ö,È6*6,vav+6b¶)ö*‰Ë	ÍHYX\œÈ™XXÝYX[HÙˆ‹‹‰Îˆ	ÍH6,öa¶b6)ö*ˆ™XXÝ6#6b6`¶+ö*ˆ6`v,vb¶`¶)öbÈ6avaˆ6(ö-6+¶)ö-K‹‹‰Ëˆ	Ô\ÜÚ[Û˜]HX›Ý]‹‹‰Îˆ	ö-6.¶b6`H6*6`‹‹‰Ë	ÕÜš][™ÈÛÝ™\ˆ]\‹‹‹‰Îˆ	ö+6)ö,vcH6`ö*¶)ö*6*H6+¶-ö)ö*6)öa6*¶.¶-öb¶*K‹‹‰Ë	ÐÛÝ™\ˆ]\ˆÜš][‰Îˆ	ö*¶av*ˆ6`ö*¶)ö*6*H6+¶-ö)ö*6)öa6*¶.¶-öb¶*IËˆ	ÕÜš]HÛÝ™\ˆ]\‰Îˆ	ö)ö`ö*¶*6+¶-ö)ö*6)öa6*¶.¶-öb¶*IËˆ	ÐRHÕˆZ[\‰Îˆ	öava¶-6)ˆ6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ë	ÐÜ™X]HUËYœšY[™H™\Ý[Y\ÈÚ]RK‰Îˆ	ö(öa¶-6)ˆ6,öb¶,v)öbÈ6,6)ö*¶b¶*H6av*¶b6)ö`v`¶*H6av.H6(öa¶.6av*HUÈ6*6)ö,ö*¶+¶+ö)öaH6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹‰Ëˆ	Ñ[˜[YIÎˆ	ö)öa6)ö,öaH6)öa6`ö)öava	Ë	ÖYX\œÈÙˆ^\šY[˜ÙIÎˆ	ö,öa¶b6)ö*ˆ6)öa6+¶*6,v*IË	ÒÙ^HÚÚ[È
+ÛÛ[XHÙ\\˜]Y
+IÎˆ	ö)öa6avaö)ö,v)ö*ˆ6)öa6,v)¶b¶,öb¶*H
+6av`v-vb6a6*H6*6`vb6)ö-va
+IËˆ	Õ\™Ù][™\ÝžIÎˆ	ö)öa6`¶-ö)ö.H6)öa6av,ö*¶aö+ö`IË	ÕXÚ›ÛÙÞIÎˆ	ö)öa6*¶`¶a¶b¶*IË	ÑÙ[™\˜][™ÈÕ‹‹‹‰Îˆ	ö+6)ö,vcH6)va¶-6)ö(H6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*K‹‹‰Ë	ÐÕˆÙ[™\˜]YÝXØÙ\ÜÙ[IÎˆ	ö*¶aH6)va¶-6)ö(H6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*H6*6a¶+6)ö+IËˆ	ÑÙ[™\˜]HÕ‰Îˆ	ö)va¶-6)ö(H6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*IËˆ	ÑØÝ[Y[RIÎˆ	ö)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6a6a6av,ö*¶a¶+ö)ö*‰Ë	ÔÝ[[X\š^™K[˜[^™K[™^˜XÝœ›ÛHØÝ[Y[Ë‰Îˆ	öa6+¶dv-H6)öa6av,ö*¶a¶+ö)ö*ˆ6b6+va6a6aö)È6b6)ö,ö*¶+¶,v+6)öa6av.va6b6av)ö*ˆ6ava¶aö)Ë‰Ëˆ	ÐXÝ[Û‰Îˆ	ö)öa6)v+6,v)ö(IË	ÑØÝ[Y[ÛÛ[	Îˆ	öav+v*¶b6bH6)öa6av,ö*¶a¶+ÉË	Ô]Y\Ý[Û‰Îˆ	ö)öa6,ö)6)öa	Ë	ÔÝ[[X\š^™IÎˆ	ö*¶a6+¶b¶-IË	Ð[˜[^™IÎˆ	ö*¶+va6b¶a	Ë	Ð\ÚÈH]Y\Ý[Û‰Îˆ	ö)ö-ö,v+H6,ö)6)öa6)öbÉËˆ	Ô\ÝH[Ý\ˆØÝ[Y[^\™K‹‹‰Îˆ	ö(öa6-v`ˆ6a¶-H6)öa6av,ö*¶a¶+È6aöa¶)Ë‹‹‰Ë	ÕÚ]\ÈHXZ[ˆÛÛ˜Û\Ú[ÛÉÎˆ	öav)È6)öa6)ö,ö*¶a¶*¶)ö+6)öa6,v)¶b¶,öb¶'ÉËˆ	Ð[˜[^š[™ÈØÝ[Y[‹‹‰Îˆ	ö+6)ö,vcH6*¶+va6b¶a6)öa6av,ö*¶a¶+Ë‹‹‰Ë	Ð[˜[\Ú\ÈÛÛ\]IÎˆ	ö)ö`ö*¶ava6)öa6*¶+va6b¶a	Ë	Ð[˜[^š[™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6*¶+va6b¶a‹‹‰Ë	Ð[˜[^™HØÝ[Y[	Îˆ	ö*¶+va6b¶a6)öa6av,ö*¶a¶+ÉËˆ	ÔÝYH\ÜÚ\Ý[	Îˆ	öav,ö)ö.v+È6)öa6+ö,v)ö,ö*IË	Ñ^Z[ˆÛÛ˜Ù\ËÜ™X]H]Z^ž™\Ë[™ÝYH[œË‰Îˆ	ö)ö-6,v+H6)öa6av`v)öaöb¶aH6b6(öa¶-6)ˆ6)ö+¶*¶*6)ö,v)ö*ˆ6b6+¶-ö-È6+ö,v)ö,ö*K‰Ëˆ	ÕÚ]È[ÝH™YYÉÎˆ	öav)ö,6)È6*¶+v*¶)ö+6'ÉË	ÕÜXÈÈÝXš™XÝ	Îˆ	ö)öa6avb6-¶b6.HÈ6)öa6av)ö+ö*IË	Ó]™[	Îˆ	ö)öa6av,ö*¶b6bIË	ÐÛÝ[	Îˆ	ö)öa6.v+ö+ÉËˆ	Ñ^Z[ˆHÛÛ˜Ù\	Îˆ	ö-6,v+H6av`vaöb6aIË	ÐÜ™X]HH]Z^‰Îˆ	ö)va¶-6)ö(H6)ö+¶*¶*6)ö,IË	ÑÙ[™\˜]H›\ÚØ\™ÉÎˆ	ö)va¶-6)ö(H6*6-ö)ö`¶)ö*ˆ6*¶.va6b¶avb¶*IË	ÐÜ™X]HÝYH[‰Îˆ	ö)va¶-6)ö(H6+¶-ö*H6+ö,v)ö,ö*IËˆ	Ð™YÚ[›™\‰Îˆ	öav*6*¶+ö)‰Ë	Ô]X[[HÛÛ\][™ÉÎˆ	ö)öa6+vb6,ö*6*H6)öa6`öavb¶*IËˆ	ÑÙ[™\˜][™ÈÝYHX]\šX[‹‹‰Îˆ	ö+6)ö,vcH6)va¶-6)ö(H6av)ö+ö*H6)öa6+ö,v)ö,ö*K‹‹‰Ë	ÔÝYHX]\šX[Ù[™\˜]Y	Îˆ	ö*¶aH6)va¶-6)ö(H6av)ö+ö*H6)öa6+ö,v)ö,ö*IË	ÑÙ[™\˜]IÎˆ	ö)va¶-6)ö(IËˆ	ÕX[HÛÜšÜÜXÙIÎˆ	öav,ö)ö+v*H6.vava6)öa6`v,vb¶`‰Ë	ÐZ[ÙXœÚ]\ÈÙÙ]\‰Îˆ	ö)ö*6a¶b6)È6)öa6avb6)ö`¶.H6av.v)öbÉËˆ	ÔÙXÝ\™H›Û\Ë[š]][ÛœÈ[™Ú\™Y›Ú™XÝËˆ›ÈÝ\ÜÈÈÙX]ÎÈ\Ú[™\ÜÈÝ\ÜÈLÙX]Ë‰Îˆ	ö(ö+öb6)ö,H6b6+ö.vb6)ö*ˆ6b6av-6)ö,vb¶.H6av-6*¶,v`ö*H6(¶ava¶*Kˆ6*¶+ö.vaH›È6*öa6)ö*ö*H6(ö.v-¶)ö(H6b\Ú[™\ÜÈ6.v-6,v*H6(ö.v-¶)ö(K‰Ëˆ	Ô\ÝHHX[H[š]][ÛˆÚÙ[ˆÜˆÜ[ˆ[ˆ[š]][Ûˆ[šÉÎˆ	ö(öa6-v`ˆ6,vav,ˆ6+ö.vb6*H6)öa6`v,vb¶`ˆ6(öb6)ö`v*¶+H6,v)ö*6-È6)öa6+ö.vb6*IËˆ	Ö[Ý\ˆX[\ÉÎˆ	ö`v,v`¶`ÉË	Ó›ÈX[HÛÜšÜÜXÙ\ÈY]‰Îˆ	öa6)È6*¶b6+6+È6av,ö)ö+v)ö*ˆ6.vava6a6a6`v,vb¶`ˆ6*6.v+Ë‰Ë	Ó™]ÈÛÜšÜÜXÙH˜[YIÎˆ	ö)ö,öaH6av,ö)ö+v*H6)öa6.vava6)öa6+6+öb¶+ö*IËˆ	ÐÜ™X]HÜˆÙ[XÝHX[HÛÜšÜÜXÙHÈX[˜YÙHY[X™\œÈ[™›Ú™XÝË‰Îˆ	ö(öa¶-6)ˆ6(öb6)ö+¶*¶,H6av,ö)ö+v*H6.vava6`v,vb¶`ˆ6a6)v+ö)ö,v*H6)öa6(ö.v-¶)ö(H6b6)öa6av-6)ö,vb¶.K‰Ëˆ	Ô™[˜[YHÛÜšÜÜXÙIÎˆ	ö)v.v)ö+ö*H6*¶,öavb¶*H6av,ö)ö+v*H6)öa6.vava	Ë	Ñ[]HÛÜšÜÜXÙIÎˆ	ö+v,6`H6av,ö)ö+v*H6)öa6.vava	Ë	Ò[š]HX[[X]IÎˆ	ö+ö.vb6*H6,¶avb¶a	Ë	Ò[š]IÎˆ	ö+ö.vb6*IËˆ	ÓY[X™\œÉÎˆ	ö)öa6(ö.v-¶)ö(IË	ÑY]Ü‰Îˆ	öav+v,v,IË	ÕšY]Ù\‰Îˆ	öav-6)öaö+ÉË	Õ˜[œÙ™\ˆÝÛ™\œÚ\	Îˆ	öa¶`¶a6)öa6ava6`öb¶*IËˆ	ÓX]™HÛÜšÜÜXÙIÎˆ	öav.¶)ö+ö,v*H6av,ö)ö+v*H6)öa6.vava	Ë	Ô™[[Ý™HY[X™\‰Îˆ	ö)v,¶)öa6*H6.v-¶b	Ë	Ô[™[™È[š]][ÛœÉÎˆ	ö)öa6+ö.vb6)ö*ˆ6)öa6av.va6`¶*IËˆ	ÔÚ\™Y›Ú™XÝÉÎˆ	ö)öa6av-6)ö,vb¶.H6)öa6av-6*¶,v`ö*IË	ÔÙ[XÝÛ™HÙˆ[Ý\ˆ\œÛÛ˜[›Ú™XÝø )‰Îˆ	ö)ö+¶*¶,H6(ö+v+È6av-6)ö,vb¶.v`È6)öa6-6+¶-vb¶*x )‰Ë	ÔÚ\™H›Ú™XÝ	Îˆ	öav-6)ö,v`ö*H6)öa6av-6,vb6.IËˆ	Ô™[[Ý™Hœ›ÛHÛÜšÜÜXÙIÎˆ	ö)v,¶)öa6*H6avaˆ6av,ö)ö+v*H6)öa6.vava	Ëˆ	ÓÜ[ˆÙXœÚ]HZ[\ˆœ›ÛHHÛÛÈY[NÈ\ÈÚ\™Y›Ú™XÝÚ[\X\ˆ[ˆHÛÝY›Ú™XÝÈÙ[XÝÜ‹‰Îˆ	ö)ö`v*¶+H6ava¶-6)ˆ6)öa6avb6)ö`¶.H6avaˆ6`¶)ö)¶av*H6)öa6(ö+öb6)ö*¶&È6,öb¶.6aö,H6aö,6)È6)öa6av-6,vb6.H6)öa6av-6*¶,v`È6`vbˆ6`¶)ö)¶av*H6)öa6av-6)ö,vb¶.H6)öa6,ö+v)ö*6b¶*K‰Ëˆ	Ó›È›Ú™XÝÈÚ\™YÚ]\ÈÛÜšÜÜXÙHY]‰Îˆ	öa6)È6*¶b6+6+È6av-6)ö,vb¶.H6av-6*¶,v`ö*H6av.H6av,ö)ö+v*H6)öa6.vava6aö,6aÈ6*6.v+Ë‰Ëˆ	ÔÙ][™ÜÉÎˆ	ö)öa6)v.v+ö)ö+ö)ö*‰Ë	ÓX[˜YÙH[Ý\ˆXØÛÝ[ÙXÝ\š]K[™™Y™\™[˜Ù\Ë‰Îˆ	ö(ö+ö,H6+v,ö)ö*6`È6b6(öav)öa¶`È6b6*¶`v-¶b¶a6)ö*¶`Ë‰Ëˆ	Ô›Ùš[IÎˆ	ö)öa6ava6`H6)öa6-6+¶-vb‰Ë	ÔÙXÝ\š]IÎˆ	ö)öa6(öav)öa‰Ë	Ô™Y™\™[˜Ù\ÉÎˆ	ö)öa6*¶`v-¶b¶a6)ö*‰Ë	Ôš]˜XÞIÎˆ	ö)öa6+¶-vb6-vb¶*IËˆ	Ñ]H^Ü
+ÑŠIÎˆ	ö*¶-v+öb¶,H6)öa6*6b¶)öa¶)ö*ˆ
+ÑŠIËˆ	ÐXØÛÝ[]H^Ü	Îˆ	ö*¶-v+öb¶,H6*6b¶)öa¶)ö*ˆ6)öa6+v,ö)ö*	Ëˆ	ÑÝÛ›ØYHÜX›H”ÓÓˆ^ÜÙˆ[Ý\ˆXØÛÝ[™XÛÜ™È[™ÝÜ™YYš[H[™[ÜžKˆÜšYÚ[˜[š[Hš[˜\šY\È™[XZ[ˆ]˜Z[X›Hœ›ÛHZ\ˆÛÛË‰Îˆ	öa¶,¶dva6ava6`H”ÓÓˆ6`¶)ö*6a6)öbÈ6a6a6a¶`¶a6b¶*¶-¶avaˆ6,ö+6a6)ö*ˆ6+v,ö)ö*6`È6b6`¶)ö)¶av*H6)öa6ava6`v)ö*ˆ6)öa6av+¶,¶a¶*Kˆ6*¶*6`¶bH6)öa6ava6`v)ö*ˆ6)öa6(ö-va6b¶*H6av*¶)ö+v*H6avaˆ6(ö+öb6)ö*¶aö)Ë‰Ëˆ	ÔÚYÛˆ[ˆÈ^Ü[Ý\ˆXØÛÝ[]K‰Îˆ	ö,ö+6dva6)öa6+ö+¶b6a6a6*¶-v+öb¶,H6*6b¶)öa¶)ö*ˆ6+v,ö)ö*6`Ë‰Ëˆ	ÑÝÛ›ØYHÛÛ\]HÛÜHÙˆ[[Ý\ˆ]HÝÜ™YÛˆ^X\ˆ[[YÙ[˜ÙHÛÛËˆ\È[˜ÛY\È[Ý\ˆ›Ùš[K›Ú™XÝËš[\ËÛÛ™\œØ][ÛœË[™XÝ]š]HÙË‰Îˆ	öa¶,¶dva6a¶,ö+¶*H6`ö)öava6*H6avaˆ6*6b¶)öa¶)ö*¶`È6)öa6av+¶,¶a¶*H6`vbˆ^X\ˆ[[YÙ[˜ÙHÛÛö#6*6av)È6`vbˆ6,6a6`È6ava6`v`È6)öa6-6+¶-vbˆ6b6av-6)ö,vb¶.v`È6b6ava6`v)ö*¶`È6b6av+v)ö+ö*ö)ö*¶`È6b6,ö+6a6)öa6a¶-6)ö-Ë‰Ëˆ	Ô™\\š[™È[Ý\ˆ]K‹‹‰Îˆ	ö+6)ö,vcH6*¶+6aöb¶,ˆ6*6b¶)öa¶)ö*¶`Ë‹‹‰Ë	Ñ]H^ÜYÝXØÙ\ÜÙ[IÎˆ	ö*¶aH6*¶-v+öb¶,H6)öa6*6b¶)öa¶)ö*ˆ6*6a¶+6)ö+IË	Ñ˜Z[YÈ^Ü]IÎˆ	ö`v-6a6*¶-v+öb¶,H6)öa6*6b¶)öa¶)ö*‰Ëˆ	Ô\œÛÛ˜[]HÝÛ›ØYY	Îˆ	ö*¶aH6*¶a¶,¶b¶a6)öa6*6b¶)öa¶)ö*ˆ6)öa6-6+¶-vb¶*IË	Ñ^Ü[]IÎˆ	ö*¶-v+öb¶,H6`öa6)öa6*6b¶)öa¶)ö*‰Ë	ÑÝÛ›ØY\œÛÛ˜[]IÎˆ	ö*¶a¶,¶b¶a6)öa6*6b¶)öa¶)ö*ˆ6)öa6-6+¶-vb¶*IËˆ	Ôš]˜XÞHÛÛ›ÛÉÎˆ	ö.va¶)ö-v,H6)öa6*¶+v`öaH6*6)öa6+¶-vb6-vb¶*IËˆ	Ð[˜[]XÜÈ[˜X›Y	Îˆ	ö*¶aH6*¶`v.vb¶a6)öa6*¶+va6b¶a6)ö*‰Ë	Ð[˜[]XÜÈ\ØX›Y	Îˆ	ö*¶aH6*¶.v-öb¶a6)öa6*¶+va6b¶a6)ö*‰Ëˆ	Ô™]™[[Ý\ˆÛÛ[œ›ÛH™Z[™È\ÙYÈ[\›Ý™HRH[Ù[ÉÎˆ	ö)öava¶.H6)ö,ö*¶+¶+ö)öaH6av+v*¶b6)ö`È6a6*¶+v,öb¶aˆ6a¶av)ö,6+6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐRH˜Z[š[™ÈÜ[Ý][˜X›Y	Îˆ	ö*¶aH6*¶`v.vb¶a6,v`v-ˆ6*¶+ö,vb¶*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ë	ÐRH˜Z[š[™ÈÜ[Ý]\ØX›Y	Îˆ	ö*¶aH6*¶.v-öb¶a6,v`v-ˆ6*¶+ö,vb¶*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ñ]HÝÜ˜YÙHØØ][Û‰Îˆ	öavb6`¶.H6*¶+¶,¶b¶aˆ6)öa6*6b¶)öa¶)ö*‰Ëˆ	ÐÛÝYÝÜ˜YÙHØØ][Ûˆ›ÛÝÜÈHXÝ]™HÙ\šXÙHÛÛ™šYÝ\˜][Û‹ˆÙYHHš]˜XÞHÛXÞH›ÜˆÝ\œ™[›ÝšY\œË‰Îˆ	öb¶*¶*6.H6avb6`¶.H6)öa6*¶+¶,¶b¶aˆ6)öa6,ö+v)ö*6bˆ6)v.v+ö)ö+È6)öa6+¶+öav*H6)öa6a¶-6-Ëˆ6,v)ö+6.H6,öb¶)ö,ö*H6)öa6+¶-vb6-vb¶*H6a6av.v,v`v*H6)öa6av,¶b6dv+öb¶aˆ6)öa6+v)öa6b¶b¶a‹‰Ëˆ	Ñ]H[˜Üž\[Û‰Îˆ	ö*¶-6`vb¶,H6)öa6*6b¶)öa¶)ö*‰Ëˆ	Ñ[]HXØÛÝ[	Îˆ	ö+v,6`H6)öa6+v,ö)ö*	Ëˆ	Ô\›X[™[H[]H[Ý\ˆ^X\ˆXØÛÝ[ÝÛ™Y›Ú™XÝÈ[™ÝÜ™Yš[\Ëˆ[ˆXÝ]™HÝXœØÜš\[Ûˆ\ÈØ[˜Ù[Yš\œÝˆ^[Y[›ÝšY\œÈX^H™]Z[ˆ™XÛÜ™È™\]Z\™YžH]Ëˆ\ÈXÝ[ÛˆØ[››Ý™H[™Û™K‰Îˆ	ö)ö+v,6`H6+v,ö)ö*^X\ˆ6b6)öa6av-6)ö,vb¶.H6)öa6*¶bˆ6*¶ava6`öaö)È6b6)öa6ava6`v)ö*ˆ6)öa6av+¶,¶a¶*H6a¶aö)ö)¶b¶)öbËˆ6b¶cöa6.¶bH6)öa6)ö-6*¶,v)ö`È6)öa6a¶-6-È6(öb6a6)öbËˆ6`¶+È6b¶+v*¶`v.6av,¶b6+öb6)öa6+ö`v.H6*6,ö+6a6)ö*ˆ6b¶`v,v-¶aö)È6)öa6`¶)öa¶b6a‹ˆ6a6)È6b¶av`öaˆ6)öa6*¶,v)ö+6.H6.vaˆ6aö,6)È6)öa6)v+6,v)ö(K‰Ëˆ	Õ\H‘SUHˆÈÛÛ™š\›IÎˆ	ö)ö`ö*¶*‘SUHˆ6a6a6*¶(ö`öb¶+ÉË	Ñ[][™ÈXØÛÝ[‹‹‰Îˆ	ö+6)ö,vcH6+v,6`H6)öa6+v,ö)ö*‹‹‰Ë	ÐXØÛÝ[[]Y	Îˆ	ö*¶aH6+v,6`H6)öa6+v,ö)ö*	Ëˆ	Ñ˜Z[YÈ[]HXØÛÝ[ˆX\ÙHÛÛXÝÝ\Ü‰Îˆ	ö`v-6a6+v,6`H6)öa6+v,ö)ö*ˆ6b¶,v+6bH6)öa6*¶b6)ö-va6av.H6)öa6+ö.vaK‰Ëˆ	ÑÛÈÈÛÜšÜÜXÙH8¡¤‰Îˆ	ö)öa6,6aö)ö*6)va6bH6av,ö)ö+v*H6)öa6.vava8¡¤	Ë	Õ\Ü˜YHÈ›ÉÎˆ	ö)öa6*¶,v`¶b¶*H6)va6bH›ÉË	Õ\Ü˜YH›ÝÉÎˆ	ö)öa6*¶,v`¶b¶*H6)öa6(¶a‰Ëˆ	Õ[›ØÚÈ[L
+ÈRHÛÛÈ[™[›[Z]YØÝ[Y[Ë‰Îˆ	ö)ö`v*¶+H6+v+öb6+ö)öbÈ6(ö.va6bH6b6avb¶,¶)ö*ˆ6)ö+v*¶,v)ö`vb¶*H6)v-¶)ö`vb¶*K‰Ëˆ	Õ\Ù\‰Îˆ	öav,ö*¶+¶+öaIË	ÔÛÛÛ‰Îˆ	ö`¶,vb¶*6)öbÉË	Ð™]IÎˆ	ö*¶+6,vb¶*6b‰Ëˆ	Ñ[]H^HXØÛÝ[	Îˆ	ö+v,6`H6+v,ö)ö*6b‰Ëˆ	Õ\ÈÚ[\›X[™[H[]N‰Îˆ	ö,öb¶)6+öbˆ6aö,6)È6)va6bH6+v,6`H6av)È6b¶a6bˆ6a¶aö)ö)¶b¶)öbÎ‰Ëˆ	Ö[Ý\ˆ›Ùš[H[™XØÛÝ[Ü™Y[X[ÉÎˆ	öava6`v`È6)öa6-6+¶-vbˆ6b6*6b¶)öa¶)ö*ˆ6)ö.v*¶av)ö+È6)öa6+v,ö)ö*	Ëˆ	Ð[›Ú™XÝÈ
+ÕœËÛÝ™\ˆ]\œËØÝ[Y[ÊIÎˆ	ö`öa6)öa6av-6)ö,vb¶.H
+6)öa6,öb¶,H6)öa6,6)ö*¶b¶*H6b6+¶-ö)ö*6)ö*ˆ6)öa6*¶.¶-öb¶*H6b6)öa6av,ö*¶a¶+ö)ö*ŠIËˆ	Ð[š[\È[™^ÜÉÎˆ	ö`öa6)öa6ava6`v)ö*ˆ6b6)öa6*¶-v+öb¶,v)ö*‰Ëˆ	Ð[RHÛÛ™\œØ][ÛœÈ[™\ØYÙH\ÝÜžIÎˆ	ö`öa6av+v)ö+ö*ö)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6b6,ö+6a6)öa6)ö,ö*¶+¶+ö)öaIËˆ	Ð[XÝ]š]HÙÜÈ[™™Y™\™[˜Ù\ÉÎˆ	ö`öa6,ö+6a6)ö*ˆ6)öa6a¶-6)ö-È6b6)öa6*¶`v-¶b¶a6)ö*‰Ëˆ	Õ\IÎˆ	ö)ö`ö*¶*	Ëˆ	ÝÈÛÛ™š\›IÎˆ	öa6a6*¶(ö`öb¶+ÉËˆ	ÖY\Ë[]H]™\ž][™ÉÎˆ	öa¶.vav#6)ö+v,6`H6`öa6-6b¶(IËˆ	ÐØ[˜Ù[	Îˆ	ö)va6.¶)ö(IËˆ	ÔØ]š[™È›Ùš[K‹‹‰Îˆ	ö+6)ö,vcH6+v`v.6)öa6ava6`H6)öa6-6+¶-vb‹‹‹‰Ëˆ	Ô›Ùš[HØ]™Y	Îˆ	ö*¶aH6+v`v.6)öa6ava6`H6)öa6-6+¶-vb‰Ëˆ	Ö[Ý\ˆ˜[YIÎˆ	ö)ö,öav`ÉËˆ	Ñ[XZ[Y™\ÜÉÎˆ	ö)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ	Ðš[ÉÎˆ	öa¶*6,6*IËˆ	Õ[\ÈX›Ý][Ý\œÙ[‹‹‹‰Îˆ	ö(ö+¶*6,va¶)È6.vaˆ6a¶`v,ö`Ë‹‹‰Ëˆ	ÔØ]™HÚ[™Ù\ÉÎˆ	ö+v`v.6)öa6*¶.¶b¶b¶,v)ö*‰Ëˆ	Õ\][™È\ÜÝÛÜ™‹‹‰Îˆ	ö+6)ö,vcH6*¶+v+öb¶*È6`öa6av*H6)öa6av,vb6,K‹‹‰Ëˆ	Ô\ÜÝÛÜ™\]YÝXØÙ\ÜÙ[IÎˆ	ö*¶aH6*¶+v+öb¶*È6`öa6av*H6)öa6av,vb6,H6*6a¶+6)ö+IËˆ	Ô\ÜÝÛÜ™ÈÈ›ÝX]Ú	Îˆ	ö`öa6av*¶)È6)öa6av,vb6,H6.¶b¶,H6av*¶-ö)ö*6`¶*¶b¶a‰Ëˆ	Ô\ÜÝÛÜ™]\Ý™H]X\ÝˆÚ\˜XÝ\œÉÎˆ	öb¶+6*6(öaˆ6*¶*¶`öb6aˆ6`öa6av*H6)öa6av,vb6,H6avaˆˆ6(ö+v,v`H6.va6bH6)öa6(ö`¶a	Ëˆ	Ñ[XZ[™\šYšXØ][Û‰Îˆ	ö*¶(ö`öb¶+È6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ	Ñ[XZ[™\šYšYY	Îˆ	ö*¶aH6*¶(ö`öb¶+È6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ	Ö[Ý\ˆ[XZ[Y™\ÜÈ\È™Y[ˆÛÛ™š\›YY‰Îˆ	ö*¶aH6*¶(ö`öb¶+È6.va¶b6)öaˆ6*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶b‹‰Ëˆ	Ñ[XZ[›Ý™\šYšYY	Îˆ	ö)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶bˆ6.¶b¶,H6av)6`ö+ÉËˆ	ÔX\ÙH™\šYžH[Ý\ˆ[XZ[Y™\ÜÈÈÙXÝ\™H[Ý\ˆXØÛÝ[‰Îˆ	öb¶,v+6bH6*¶(ö`öb¶+È6*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶bˆ6a6*¶(öavb¶aˆ6+v,ö)ö*6`Ë‰Ëˆ	ÔÙ[™[™È™\šYšXØ][Ûˆ[XZ[‹‹‰Îˆ	ö+6)ö,vcH6)v,v,ö)öa6,v,ö)öa6*H6)öa6*¶(ö`öb¶+Ë‹‹‰Ëˆ	Õ™\šYšXØ][Ûˆ[XZ[Ù[	Îˆ	ö*¶aH6)v,v,ö)öa6,v,ö)öa6*H6)öa6*¶(ö`öb¶+ÉËˆ	Õ™\šYžH›ÝÉÎˆ	ö*¶(ö`öb¶+È6)öa6(¶a‰Ëˆ	ÐÚ[™ÙH\ÜÝÛÜ™	Îˆ	ö*¶.¶b¶b¶,H6`öa6av*H6)öa6av,vb6,IËˆ	Ó™]È\ÜÝÛÜ™	Îˆ	ö`öa6av*H6)öa6av,vb6,H6)öa6+6+öb¶+ö*IËˆ	Ñ[\ˆ™]È\ÜÝÛÜ™	Îˆ	ö(ö+ö+¶a6`öa6av*H6av,vb6,H6+6+öb¶+ö*IËˆ	ÐÛÛ™š\›H™]È\ÜÝÛÜ™	Îˆ	ö*¶(ö`öb¶+È6`öa6av*H6)öa6av,vb6,H6)öa6+6+öb¶+ö*IËˆ	ÐÛÛ™š\›H™]È\ÜÝÛÜ™	Îˆ	ö(ö`ö+È6`öa6av*H6)öa6av,vb6,H6)öa6+6+öb¶+ö*IËˆ	Õ\]H\ÜÝÛÜ™	Îˆ	ö*¶+v+öb¶*È6`öa6av*H6)öa6av,vb6,IËˆ	Ñ[™Ù\ˆ›Û™IÎˆ	öava¶-ö`¶*H6)öa6+¶-ö,IËˆ	ÔÚYÛˆÝ]œ›ÛH[]šXÙ\ÈÜˆ\›X[™[H[]H[Ý\ˆXØÛÝ[‰Îˆ	ö,ö+6dva6)öa6+¶,vb6+6avaˆ6+6avb¶.H6)öa6(ö+6aö,¶*H6(öb6)ö+v,6`H6+v,ö)ö*6`È6a¶aö)ö)¶b¶)öbË‰Ëˆ	ÔÚYÛˆÝ]	Îˆ	ö*¶,ö+6b¶a6)öa6+¶,vb6+	Ëˆ	Õ[YIÎˆ	ö)öa6av.6aö,IËˆ	Ó[™ÝXYÙIÎˆ	ö)öa6a6.¶*IËˆ	Ñ\šÈ[ÙIÎˆ	ö)öa6b6-¶.H6)öa6+ö)ö`öa‰Ëˆ	ÓYÚ[ÙIÎˆ	ö)öa6b6-¶.H6)öa6`v)ö*¶+IËˆ	ÑX\ÞHÛˆH^Y\ÉÎˆ	öav,vb¶+H6a6a6.vb¶a¶b¶a‰Ëˆ	ÐœšYÚ[™ÛX[‰Îˆ	ö`v)ö*¶+H6b6b6)ö-¶+IËˆ	Ñ[XZ[›ÝYšXØ][ÛœÉÎˆ	ö)v-6.v)ö,v)ö*ˆ6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ	Ò[\Ü[XØÛÝ[[™ÙXÝ\š]H[XZ[ÉÎˆ	ö,v,ö)ö)¶a6avaöav*H6.vaˆ6)öa6+v,ö)ö*6b6)öa6(öav)öa‰Ëˆ	Ô\Ú›ÝYšXØ][ÛœÉÎˆ	ö)öa6)v-6.v)ö,v)ö*ˆ6)öa6`vb6,vb¶*IËˆ	Ô™X[][YH\]\È[ˆ[Ý\ˆœ›ÝÜÙ\‰Îˆ	ö*¶+v+öb¶*ö)ö*ˆ6`vb6,vb¶*H6`vbˆ6)öa6av*¶-v`v+IËˆ	ÓX\šÙ][™È[XZ[ÉÎˆ	ö,v,ö)ö)¶a6*¶,öb6b¶`¶b¶*IËˆ	Ô›ÙXÝ\]\Ë\Ë[™ÜXÚX[Ù™™\œÉÎˆ	ö*¶+v+öb¶*ö)ö*ˆ6)öa6ava¶*¶+6b6)öa6a¶-v)ö)¶+H6b6)öa6.v,vb6-ˆ6)öa6+¶)ö-v*IËˆ	Ó›ÝYšXØ][Ûˆ™Y™\™[˜Ù\ÉÎˆ	ö*¶`v-¶b¶a6)ö*ˆ6)öa6)v-6.v)ö,v)ö*‰Ëˆ	Ùœ™YH[‰Îˆ	ö)öa6+¶-ö*H6)öa6av+6)öa¶b¶*IËˆ	Õ™\šYšYY	Îˆ	öav)6`ö+ÉËˆ	Ó›Ý™\šYšYY	Îˆ	ö.¶b¶,H6av)6`ö+ÉË‚ˆ	Ô\ÜÝÛÜ™]\Ý™H]X\ÝÚ\˜XÝ\œÉÎˆ	öb¶+6*6(öaˆ6*¶*¶`öb6aˆ6`öa6av*H6)öa6av,vb6,H6avaˆ6(ö+v,v`H6.va6bH6)öa6(ö`¶a	Ëˆ	Ô\ÜÝÛÜ™\ÈÛÈÛ™ÉÎˆ	ö`öa6av*H6)öa6av,vb6,H6-öb6b¶a6*H6+6+öbö)ÉËˆ	Ô\ÜÝÛÜ™]\ÝÛÛZ[ˆHÝÙ\˜Ø\ÙH]\‰Îˆ	öb¶+6*6(öaˆ6*¶+v*¶b6bˆ6`öa6av*H6)öa6av,vb6,H6.va6bH6+v,v`H6)va¶+6a6b¶,¶bˆ6-v.¶b¶,IËˆ	Ô\ÜÝÛÜ™]\ÝÛÛZ[ˆ[ˆ\\˜Ø\ÙH]\‰Îˆ	öb¶+6*6(öaˆ6*¶+v*¶b6bˆ6`öa6av*H6)öa6av,vb6,H6.va6bH6+v,v`H6)va¶+6a6b¶,¶bˆ6`ö*6b¶,IËˆ	Ô\ÜÝÛÜ™]\ÝÛÛZ[ˆH[X™\‰Îˆ	öb¶+6*6(öaˆ6*¶+v*¶b6bˆ6`öa6av*H6)öa6av,vb6,H6.va6bH6,v`¶aIËˆ	Ð]X\ÝÚ\˜XÝ\œÉÎˆ	Î6(ö+v,v`H6.va6bH6)öa6(ö`¶a	Ëˆ	ÐÚÛÜÙHHÝ›Û™Ù\ˆ\ÜÝÛÜ™‰Îˆ	ö)ö+¶*¶,H6`öa6av*H6av,vb6,H6(ö`¶b6bK‰Ëˆ	Ü[‰Îˆ	ö+¶-ö*IË‚ˆ	ÓÝÛ™\‰Îˆ	ö)öa6av)öa6`ÉËˆ	Ñ[ÛÛ›Ûš[[™È[™X›\Ú[™Ë‰Îˆ	ö*¶+v`öaH6`ö)öava6b6)öa6`vb6*¶,v*H6b6)öa6a¶-6,K‰Ëˆ	ÓX[˜YÙHY[X™\œÈ[™Ú\™Y›Ú™XÝË‰Îˆ	ö)v+ö)ö,v*H6)öa6(ö.v-¶)ö(H6b6)öa6av-6)ö,vb¶.H6)öa6av-6*¶,v`ö*K‰Ëˆ	ÑY]Ú\™Y›Ú™XÝÛÛ[‰Îˆ	ö*¶.v+öb¶a6av+v*¶b6bH6)öa6av-6)ö,vb¶.H6)öa6av-6*¶,v`ö*K‰Ëˆ	Ô™XY[Û›HXØÙ\ÜË‰Îˆ	ö-va6)ö+vb¶*H6.v,v-ˆ6`v`¶-Ë‰Ëˆ	Õ[™^XÝY\œ›Ü‰Îˆ	ö+¶-ö(È6.¶b¶,H6av*¶b6`¶.IËˆ	ÐÜ™X]HX[IÎˆ	ö)va¶-6)ö(H6`v,vb¶`‰Ëˆ	ÐÜ™X][™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6)va¶-6)ö(K‹‹‰Ëˆ	ÐXØÙ\[š]IÎˆ	ö`¶*6b6a6)öa6+ö.vb6*IËˆ	ÐXØÙ\[™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6`¶*6b6a‹‹‰Ëˆ	Ô™Yœ™\Ú	Îˆ	ö*¶+v+öb¶*ÉËˆ	Ô™[˜[YIÎˆ	ö)v.v)ö+ö*H6*¶,öavb¶*IËˆ	Ñ[]IÎˆ	ö+v,6`IËˆ	ÐÛÜH[š]H[šÉÎˆ	öa¶,ö+ˆ6,v)ö*6-È6)öa6+ö.vb6*IËˆ	Ô™]›ÚÙIÎˆ	ö)va6.¶)ö(IËˆ	Ô›ÛIÎˆ	ö)öa6+öb6,IËˆ	ÔÙX]ÉÎˆ	ö)öa6av`¶)ö.v+ÉËˆ	Ô›Ú™XÝÉÎˆ	ö)öa6av-6)ö,vb¶.IËˆ	Ô›Ú™XÝ	Îˆ	öav-6,vb6.IËˆ	Ó›È[™[™È[š]][ÛœË‰Îˆ	öa6)È6*¶b6+6+È6+ö.vb6)ö*ˆ6av.va6`¶*K‰Ë‚ˆ	ÐÛÛ[X[™[]IÎˆ	öa6b6+v*H6)öa6(öb6)öav,IËˆ	ÐÛÛ[X[™[]H
+Ý›
+ÒÊIÎˆ	öa6b6+v*H6)öa6(öb6)öav,H
+Ý›
+ÒÊIËˆ	ÕÙÙÛH[YIÎˆ	ö*¶*6+öb¶a6)öa6av.6aö,IËˆ	ÐÚ[™ÙH[™ÝXYÙIÎˆ	ö*¶.¶b¶b¶,H6)öa6a6.¶*IËˆ	ÐRHÚ]	Îˆ	öav+v)ö+ö*ö*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Õ\ÙHHRH\ÜÚ\Ý[[™[ÛˆHšYÚÈÚ]IÎˆ	ö)ö,ö*¶+¶+öaH6a6b6+v*H6av,ö)ö.v+È6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6.va6bH6)öa6b¶avb¶aˆ6a6a6+ö,v+ö-6*HIËˆ	ÔÝXœØÜš\[Û‰Îˆ	ö)öa6)ö-6*¶,v)ö`ÉËˆ	ÓX[˜YÙH[Ý\ˆ[ˆ[™š[[™Ë‰Îˆ	ö(ö+ö,H6+¶-ö*¶`È6b6)öa6`vb6*¶,v*K‰Ëˆ	ÔÝ\Ü	Îˆ	ö)öa6+ö.vaIËˆ	ÑÙ][œ›ÝÜÙHØÜËÜˆÛÛXÝÝ\ˆX[K‰Îˆ	ö)ö+v-va6.va6bH6)öa6av,ö)ö.v+ö*H6(öb6*¶-v`v+H6)öa6av,ö*¶a¶+ö)ö*ˆ6(öb6*¶b6)ö-va6av.H6`v,vb¶`¶a¶)Ë‰Ëˆ	ÒÙ^X›Ø\™ÚÜÝ]ÉÎˆ	ö)ö+¶*¶-v)ö,v)ö*ˆ6a6b6+v*H6)öa6av`v)ö*¶b¶+IË‚ˆ	ÐX›Ý]^X\ˆ[[YÙ[˜ÙIÎˆ	ö+vb6a^X\ˆ[[YÙ[˜ÙIËˆ	ÐH›ØÝ\ÙYÛÜšÜÜXÙH›ÜˆZ[[™ËÜ™X][™ËÛÛX›Ü˜][™È[™Ú\[™Èš[š\ÚYÛÜšË‰Îˆ	öav,ö)ö+v*H6.vava6av,v`ö,¶*H6a6a6*6a¶)ö(H6b6)öa6)va¶-6)ö(H6b6)öa6*¶.v)öb6aˆ6b6*¶,öa6b¶aH6)öa6.vava6)öa6a¶aö)ö)¶b‹‰Ëˆ	Õ^X\ˆ[[YÙ[˜ÙHœš[™ÜÈ˜XÝXØ[›ÙXÝ]š]HÛÛÈ[ÈÛ™HÛÜšÜÜXÙKˆHÝ\œ™[›ÙXÝ[˜ÛY\ÈÙXœÚ]HZ[\ˆŒKX[HÛÜšÜÜXÙ\ËØÝ[Y[[™Üš][™ÈÛÛË˜[œÛ][Û‹ÝYHÛÜšÙ›ÝÜË›Ú™XÝX[˜YÙ[Y[[™XØÛÝ[[]™[™Y™\™[˜Ù\Ë‰Îˆ	öb¶+6av.H^X\ˆ[[YÙ[˜ÙH6(ö+öb6)ö*ˆ6)va¶*¶)ö+6b¶*H6.vava6b¶*H6`vbˆ6av,ö)ö+v*H6.vava6b6)ö+v+ö*Kˆ6b¶*¶-¶avaˆ6)öa6ava¶*¶+6)öa6+v)öa6bˆ6ava¶-6)ˆ6)öa6avb6)ö`¶.HŒH6b6av,ö)ö+v)ö*ˆ6.vava6)öa6`v,v`ˆ6b6(ö+öb6)ö*ˆ6)öa6av,ö*¶a¶+ö)ö*ˆ6b6)öa6`ö*¶)ö*6*H6b6)öa6*¶,v+6av*H6b6,öb¶,H6)öa6+ö,v)ö,ö*H6b6)v+ö)ö,v*H6)öa6av-6)ö,vb¶.H6b6*¶`v-¶b¶a6)ö*ˆ6)öa6+v,ö)ö*‰Ëˆ	ÕHÛØ[\ÈÚ[\Nˆ™YXÙHÛÛÝÚ]Ú[™ÈÚ[HÙY\[™ÈH[\Ü[\ÈÙˆH›Ú™XÝ8 %ÛÛ[™\œÚ[ÛœË\›Z\ÜÚ[ÛœÈ[™[]™\žH8 %ÛÛ›™XÝY‰Îˆ	ö)öa6aö+ö`H6*6,öb¶-Îˆ6*¶`¶a6b¶a6)öa6*¶a¶`¶a6*6b¶aˆ6)öa6(ö+öb6)ö*ˆ6av.H6)v*6`¶)ö(H6)öa6(ö+6,¶)ö(H6)öa6avaöav*H6avaˆ6)öa6av-6,vb6.H8 %6)öa6av+v*¶b6bH6b6)öa6)v-v+ö)ö,v)ö*ˆ6b6)öa6-va6)ö+vb¶)ö*ˆ6b6)öa6*¶,öa6b¶aH8 %6av*¶,v)ö*6-ö*K‰Ëˆ	ÕÙXœÚ]HZ[\ˆŒIÎˆ	öava¶-6)ˆ6)öa6avb6)ö`¶.HŒIËˆ	ÕÙXœÚ]HZ[\ˆŒH\ÈXÝ]™H[™Ý\ÜÈ™\ÜÛœÚ]™HYÙ\Ë›Ü›\ËX›\Ú[™Ë™[X\ÙH\ÝÜžH[™›Û˜XÚË][[[™ÝX[YÙ\Ë[˜[]XÜËÛÛ™\œÚ[Ûˆ˜XÚÚ[™ËXYX[˜YÙ[Y[X[HÛÛX›Ü˜][Ûˆ[™ÛY[[™Ù™ˆÛÜšÙ›ÝÜË‰Îˆ	öava¶-6)ˆ6)öa6avb6)ö`¶.HŒH6`v.v)öa6b6b¶+ö.vaH6)öa6-v`v+v)ö*ˆ6)öa6av*¶+6)öb6*6*H6b6)öa6a¶av)ö,6+6b6)öa6a¶-6,H6b6,ö+6a6)öa6)v-v+ö)ö,v)ö*ˆ6b6)öa6)ö,ö*¶,v+6)ö.H6b6)öa6-v`v+v)ö*ˆ6av*¶.v+ö+ö*H6)öa6a6.¶)ö*ˆ6b6)öa6*¶+va6b¶a6)ö*ˆ6b6*¶*¶*6.H6)öa6*¶+vb6b¶a6)ö*ˆ6b6)v+ö)ö,v*H6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶aˆ6b6*¶.v)öb6aˆ6)öa6`v,v`ˆ6b6*¶,öa6b¶aH6)öa6.vava6)ö(K‰Ëˆ	ÕÚ]ÛÛY\È™^	Îˆ	öav)È6)öa6*¶)öa6b‰Ëˆ	ÕH™^XZ›Üˆ›ÙXÝ\ÙH\ÈRKX\ÜÚ\ÝYÙXœÚ]HÙ[™\˜][Û‹ˆ]\È[[[Û˜[HÙ\\˜]Hœ›ÛHŒHÛÈHÛÜ™HZ[\ˆØ[ˆ™[XZ[ˆ\ÙY[[™›ÙXÝ[Û‹\™XYHÚ]Ý]\[™[™ÈÛˆRHÙ[™\˜][Û‹‰Îˆ	ö)öa6av,v+va6*H6)öa6,v)¶b¶,öb¶*H6)öa6*¶)öa6b¶*H6aöbˆ6)va¶-6)ö(H6)öa6avb6)ö`¶.H6*6av,ö)ö.v+ö*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ˆ6b6aöbˆ6ava¶`v-va6*H6.vav+ö)öbÈ6.vaˆŒH6a6b¶*6`¶bH6)öa6ava¶-6)ˆ6)öa6(ö,ö)ö,öbˆ6av`vb¶+ö)öbÈ6b6+6)öaö,¶)öbÈ6a6a6)va¶*¶)ö+6+öb6aˆ6)öa6)ö.v*¶av)ö+È6.va6bH6)öa6*¶b6a6b¶+È6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹‰Ëˆ	ÐÛÛXÝ\ÉÎˆ	ö)ö*¶-va6*6a¶)ÉËˆ•ÙIÙÝ™HÈX\ˆœ›ÛH[ÝKˆ™XXÚÝ]Ú][žH]Y\Ý[ÛœÈÜˆ™YY˜XÚËˆŽˆ	öb¶,ö.v+öa¶)È6,öav)ö.v`Ëˆ6*¶b6)ö-va6av.va¶)È6*6(öbˆ6(ö,ö)¶a6*H6(öb6ava6)ö+v.6)ö*‹‰Ëˆ	ÔÛ™IÎˆ	ö)öa6aö)ö*¶`IËˆ	ÓÙ™šXÙIÎˆ	ö)öa6av`ö*¶*	Ëˆ	ÔÝØÚÚÛKÝÙY[‰Îˆ	ö,ö*¶b6`öaöb6a6av#6)öa6,öb6b¶+ÉËˆ	Ö[Ý\ˆ[XZ[	Îˆ	ö*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ	ÔÝXš™XÝ	Îˆ	ö)öa6avb6-¶b6.IËˆ	ÓY\ÜØYÙIÎˆ	ö)öa6,v,ö)öa6*IËˆ	Ö[Ý\ˆ[XZ[	Îˆ	ö*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ	Ö[Ý\ˆY\ÜØYÙIÎˆ	ö,v,ö)öa6*¶`ÉËˆ	ÔÙ[™™YY˜XÚÉÎˆ	ö)v,v,ö)öa6ava6)ö+v.6)ö*‰Ëˆ	Ò[\È[\›Ý™H^X\ˆ[[YÙ[˜ÙHÛÛËˆÚ\™H[Ý\ˆÝYÚËYX\Ë[™ÝYÙÙ\Ý[ÛœË‰Îˆ	ö,ö)ö.v+öa¶)È6.va6bH6*¶+v,öb¶aˆ^X\ˆ[[YÙ[˜ÙHÛÛËˆ6-6)ö,v`È6(ö`v`ö)ö,v`È6b6ava6)ö+v.6)ö*¶`È6b6)ö`¶*¶,v)ö+v)ö*¶`Ë‰Ëˆ	ÒÝÈÛÝ[[ÝH˜]H[Ý\ˆ^\šY[˜ÙOÉÎˆ	ö`öb¶`H6*¶`¶b¶dvaH6*¶+6,v*6*¶`ö'ÉËˆ	Ô˜][™ÉÎˆ	ö)öa6*¶`¶b¶b¶aIËˆ	ÐØ]YÛÜžIÎˆ	ö)öa6`v)¶*IËˆ	ÑÙ[™\˜[	Îˆ	ö.v)öaIËˆ	Ñ™X]\™H™\]Y\Ý	Îˆ	ö-öa6*6avb¶,¶*IËˆ	ÕRHÈ\ÚYÛ‰Îˆ	ö)öa6b6)ö+6aö*HÈ6)öa6*¶-vavb¶aIËˆ	Ô\™›Ü›X[˜ÙIÎˆ	ö)öa6(ö+ö)ö(IËˆ	Ô˜Z\ÙIÎˆ	ö)v-6)ö+ö*IËˆ	Ö[Ý\ˆ™YY˜XÚÉÎˆ	öava6)ö+v.6)ö*¶`ÉËˆ	Õ[\ÈÚ][ÝH[šË‹‹‰Îˆ	ö(ö+¶*6,va¶)È6*6,v(öb¶`Ë‹‹‰Ëˆ	Ö[Ý\ˆ™YY˜XÚÉÎˆ	öava6)ö+v.6)ö*¶`ÉËˆ	Ô™\ÜHYÉÎˆ	ö)öa6)v*6a6)ö.ˆ6.vaˆ6+¶-ö(ÉËˆ	Ñ›Ý[™HYÏÈ[\Èš^]ˆ›ÝšYH\È]XÚ]Z[\ÈÜÜÚX›K‰Îˆ	öb6+6+ö*ˆ6+¶-ö(ö'È6,ö)ö.v+öa¶)È6.va6bH6)v-va6)ö+vaÈ6b6`¶+ödvaH6(ö`ö*6,H6`¶+ö,H6avav`öaˆ6avaˆ6)öa6*¶`v)ö-vb¶a‰Ëˆ	ÔÙ]™\š]IÎˆ	ö)öa6+¶-öb6,v*IËˆ	ÐYÈÙ]™\š]IÎˆ	ö+¶-öb6,v*H6)öa6+¶-ö(ÉËˆ	ÓÝÈHZ[›Üˆ\ÜÝYK›Ý›ØÚÚ[™ÉÎˆ	öava¶+¶`v-ˆH6av-6`öa6*H6*6,öb¶-ö*H6a6)È6*¶.vb¶`ˆ6)öa6.vava	Ëˆ	ÓYY][HHY™™XÝÈÛÜšÙ›ÝÉÎˆ	öav*¶b6,ö-ÈH6*¶)6*ö,H6.va6bH6,öb¶,H6)öa6.vava	Ëˆ	ÒYÚHXZ›Üˆ™X]\™Hœ›ÚÙ[‰Îˆ	öav,v*¶`v.HH6avb¶,¶*H6,v)¶b¶,öb¶*H6av.v-öa6*IËˆ	ÐÜš]XØ[H\[\ØX›IÎˆ	ö+v,v+H6)öa6*¶-ö*6b¶`ˆ6.¶b¶,H6`¶)ö*6a6a6a6)ö,ö*¶+¶+ö)öaIËˆ	ÐY™™XÝYÛÛ	Îˆ	ö)öa6(ö+ö)ö*H6)öa6av*¶(ö*ö,v*IËˆ	ÐY™™XÝYÛÛ	Îˆ	ö)öa6(ö+ö)ö*H6)öa6av*¶(ö*ö,v*IËˆ	ÑÙ[™\˜[È]›Ü›IÎˆ	ö.v)öaHÈ6)öa6ava¶-v*IËˆ	ÐÕˆZ[\‰Îˆ	öava¶-6)ˆ6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*IËˆ	ÐÛÝ™\ˆ]\‰Îˆ	ö+¶-ö)ö*6)öa6*¶.¶-öb¶*IËˆ	Õ˜[œÛ]Ü‰Îˆ	ö)öa6av*¶,v+6aIËˆ	ÓÙÚ[ˆÈÚYÛ\	Îˆ	ö*¶,ö+6b¶a6)öa6+ö+¶b6aÈ6)öa6*¶,ö+6b¶a	Ëˆ	ÔÝ\ÈÈ™\›ÙXÙIÎˆ	ö+¶-öb6)ö*ˆ6)v.v)ö+ö*H6)öa6av-6`öa6*IËˆ	Ñ^XÝY™Z]š[Ü‰Îˆ	ö)öa6,öa6b6`È6)öa6av*¶b6`¶.IËˆ	ÐXÝX[™Z]š[Ü‰Îˆ	ö)öa6,öa6b6`È6)öa6`v.va6b‰Ëˆ	Ò[Ù[\‰Îˆ	öav,v`ö,ˆ6)öa6av,ö)ö.v+ö*IËˆ	Ñš[™[œÝÙ\œÈÈÛÛ[[Ûˆ]Y\Ý[ÛœÈ[™Ù]Ý\Ü‰Îˆ	ö)ö.v*ö,H6.va6bH6)v+6)ö*6)ö*ˆ6a6a6(ö,ö)¶a6*H6)öa6-6)ö)¶.v*H6b6)ö+v-va6.va6bH6)öa6+ö.vaK‰Ëˆ	Ó›È™\Ý[È›Ý[™ˆžHHY™™\™[ÙX\˜Ú‰Îˆ	öa6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6a¶*¶)ö)¶+ˆ6+6,vdv*6*6+v*ö)öbÈ6av+¶*¶a6`v)öbË‰Ëˆ	ÔÝ[™YY[ÉÎˆ	öav)È6,¶a6*ˆ6*¶+v*¶)ö+6a6a6av,ö)ö.v+ö*v'ÉËˆ”Ù[™\ÈHY\ÜØYÙH[™ÙIÛÙ]˜XÚÈÈ[ÝHÚ][ˆÝ\œËˆŽˆ	ö(ö,v,öa6a6a¶)È6,v,ö)öa6*H6b6,öa¶,v+È6.va6b¶`È6+¶a6)öa6,ö)ö.v*K‰Ëˆ	ÔÙX\˜Ú[\XÛ\Ë‹‹‰Îˆ	ö)ö*6+v*È6`vbˆ6av`¶)öa6)ö*ˆ6)öa6av,ö)ö.v+ö*K‹‹‰Ëˆ	Ñ\ØÜšX™H[Ý\ˆ\ÜÝYK‹‹‰Îˆ	ö-v`H6av-6`öa6*¶`Ë‹‹‰Ëˆ	ÐÛÛÚÚYHÛÛœÙ[	Îˆ	öavb6)ö`v`¶*H6ava6`v)ö*ˆ6*¶.v,vb¶`H6)öa6)ö,v*¶*6)ö-ÉËˆ	Ôš]˜XÞHÛXÞIÎˆ	ö,öb¶)ö,ö*H6)öa6+¶-vb6-vb¶*IËˆ	Ó™XÙ\ÜØ\žIÎˆ	ö-¶,vb6,vb¶*IËˆ	Ð[˜[]XÜÉÎˆ	ö)öa6*¶+va6b¶a6)ö*‰Ëˆ	ÓX\šÙ][™ÉÎˆ	ö)öa6*¶,öb6b¶`‰Ëˆ	ÐÛÛÚÚYHÛÛœÙ[	Îˆ	öavb6)ö`v`¶*H6ava6`v)ö*ˆ6*¶.v,vb¶`H6)öa6)ö,v*¶*6)ö-ÉËˆ	ÐÛÜÙHÛÛÚÚYHÛÛœÙ[	Îˆ	ö)v.¶a6)ö`ˆ6a¶)ö`v,6*H6ava6`v)ö*ˆ6*¶.v,vb¶`H6)öa6)ö,v*¶*6)ö-ÉËˆ	ÐÛÛÚÚYHÙ][™ÜÉÎˆ	ö)v.v+ö)ö+ö)ö*ˆ6ava6`v)ö*ˆ6*¶.v,vb¶`H6)öa6)ö,v*¶*6)ö-ÉËˆ	Ó\Ý\]Yˆ]YÝ\ÝŽŒ‰Îˆ	ö(¶+¶,H6*¶+v+öb¶*ÎˆŽ6(ö.¶,ö-ö,ÈŒ‰Ëˆ	Õ\›\ÈÙˆÙ\šXÙIÎˆ	ö-6,vb6-È6)öa6+¶+öav*IËˆ	Õ\ÈYÙH\ØÜšX™\ÈHXZ[ˆØ]YÛÜšY\ÈÙˆ[™›Ü›X][Ûˆ^X\ˆ[[YÙ[˜ÙHX^H›ØÙ\ÜÈÚ[ˆ[ÝH\ÙHH›ÙXÝˆH^XÝ]H[›Û™Y\[™ÈÛˆH™X]\™\È[ÝHÚÛÜÙHÈ\ÙK‰Îˆ	ö*¶b6-¶+H6aö,6aÈ6)öa6-v`v+v*H6)öa6`v)¶)ö*ˆ6)öa6,v)¶b¶,öb¶*H6a6a6av.va6b6av)ö*ˆ6)öa6*¶bˆ6`¶+È6b¶.v)öa6+6aö)È^X\ˆ[[YÙ[˜ÙH6.va¶+È6)ö,ö*¶+¶+ö)öav`È6a6a6ava¶*¶+ˆ6*¶.v*¶av+È6)öa6*6b¶)öa¶)ö*ˆ6)öa6`v.va6b¶*H6.va6bH6)öa6avb¶,¶)ö*ˆ6)öa6*¶bˆ6*¶+¶*¶)ö,H6)ö,ö*¶+¶+ö)öavaö)Ë‰Ëˆ	ÐXØÛÝ[]Z[Ë›Ùš[HÙ][™ÜË›Ú™XÝËš[\Ë™Y™\™[˜Ù\È[™ÛÛX›Ü˜][Ûˆ]HX^H™HÝÜ™YÛÈHÙ\šXÙHØ[ˆ]][XØ]H[ÝKØ]™H[Ý\ˆÛÜšÈ[™[™›Ü˜ÙHXØÙ\ÜÈ\›Z\ÜÚ[ÛœË‰Îˆ	ö`¶+È6*¶cö+¶,¶aˆ6*¶`v)ö-vb¶a6)öa6+v,ö)ö*6b6)v.v+ö)ö+ö)ö*ˆ6)öa6ava6`H6)öa6-6+¶-vbˆ6b6)öa6av-6)ö,vb¶.H6b6)öa6ava6`v)ö*ˆ6b6)öa6*¶`v-¶b¶a6)ö*ˆ6b6*6b¶)öa¶)ö*ˆ6)öa6*¶.v)öb6aˆ6a6*¶av`öb¶aˆ6)öa6av-v)ö+ö`¶*H6b6+v`v.6.vava6`È6b6*¶-ö*6b¶`ˆ6-va6)ö+vb¶)ö*ˆ6)öa6b6-vb6a‰Ëˆ	ÕÙXœÚ]HZ[\ˆ›Ú™XÝÈØ[ˆ[˜ÛYHYÙ\ËYYXH™Y™\™[˜Ù\Ë›Ü›HÝX›Z\ÜÚ[ÛœËXYË[˜[]XÜÈ]™[Ë™[X\ÙH\ÝÜžKX›\Ú[™ÈÙ][™ÜÈ[™X[H\›Z\ÜÚ[ÛœËˆX›XÈÙXœÚ]H›Ü›\È[™[˜[]XÜÈ\ÙHYXØ]YÙ\™\‹\ÚYHÛÛ›ÛÈ[™˜]H[Z]Ë‰Îˆ	ö`¶+È6*¶*¶-¶avaˆ6av-6)ö,vb¶.H6ava¶-6)ˆ6)öa6avb6)ö`¶.H6-v`v+v)ö*ˆ6b6av,v)ö+6.H6b6,ö)ö)¶-È6b6)v,v,ö)öa6)ö*ˆ6a¶av)ö,6+6b6.vava6)ö(H6av+v*¶ava6b¶aˆ6b6(ö+v+ö)ö*È6*¶+va6b¶a6)ö*ˆ6b6,ö+6a6)v-v+ö)ö,v)ö*ˆ6b6)v.v+ö)ö+ö)ö*ˆ6a¶-6,H6b6-va6)ö+vb¶)ö*ˆ6`v,vb¶`‹ˆ6*¶,ö*¶+¶+öaH6a¶av)ö,6+6)öa6avb6)ö`¶.H6)öa6.v)öav*H6b6)öa6*¶+va6b¶a6)ö*ˆ6-¶b6)ö*6-È6av+¶-v-v*H6.va6bH6)öa6+¶)ö+öaH6b6+v+öb6+È6av.v+öa‰Ëˆ	ÕH\XØ][Ûˆ\Ù\È\™\\H[™œ˜\ÝXÝ\™HÝXÚ\ÈÝ\X˜\ÙH›Üˆ]][XØ][Û‹]X˜\ÙH[™ÝÜ˜YÙHØ\Xš[]Y\Ëˆ™X]\™\È]\ÙH^\›˜[RHÜˆ^[Y[Ù\šXÙ\ÈX^HÙ[™H[™›Ü›X][Ûˆ™\]Z\™YÈÛÛ\]H]ÜXÚYšXÈ™\]Y\ÝÈHÛÛ™šYÝ\™Y›ÝšY\‹‰Îˆ	öb¶,ö*¶+¶+öaH6)öa6*¶-ö*6b¶`ˆ6*6a¶b¶*H6*¶+v*¶b¶*H6+¶)ö,v+6b¶*H6av*öaÝ\X˜\ÙH6a6a6av-v)ö+ö`¶*H6b6`¶b6)ö.v+È6)öa6*6b¶)öa¶)ö*ˆ6b6)öa6*¶+¶,¶b¶a‹ˆ6`¶+È6*¶,v,öa6)öa6avb¶,¶)ö*ˆ6)öa6*¶bˆ6*¶,ö*¶+¶+öaH6+¶+öav)ö*ˆ6,6`ö)ö(H6)ö-v-öa¶)ö.vbˆ6(öb6+ö`v.H6+¶)ö,v+6b¶*H6)öa6av.va6b6av)ö*ˆ6)öa6a6)ö,¶av*H6a6)v*¶av)öaH6)öa6-öa6*6)öa6av+v+ö+È6)va6bH6)öa6av,¶b6+È6)öa6avaöb¶(Ë‰Ëˆ	ÕH\XØ][Ûˆ\Ù\È[˜Üž\Y™]ÛÜšÈÛÛ›™XÝ[ÛœÈ[™]X˜\ÙHXØÙ\ÜÈÛÛ›ÛË[˜ÛY[™È›ÝÈ]™[ÙXÝ\š]H›Üˆ\Ù\ˆ[™ÛÜšÜÜXÙH]Kˆ]][XØ][ÛˆÜ™Y[X[È\™H[™Y›ÝYÚH]][XØ][Ûˆ›ÝšY\ˆ˜]\ˆ[ˆ™Z[™ÈÝÜ™Y\ÈZ[^\XØ][Ûˆ]K‰Îˆ	öb¶,ö*¶+¶+öaH6)öa6*¶-ö*6b¶`ˆ6)ö*¶-v)öa6)ö*ˆ6-6*6`ö*H6av-6`v,v*H6b6-¶b6)ö*6-È6b6-vb6a6a6`¶)ö.v+ö*H6)öa6*6b¶)öa¶)ö*¶#6*6av)È6`vbˆ6,6a6`È6(öav)öaˆ6av,ö*¶b6bH6)öa6-v`H6a6*6b¶)öa¶)ö*ˆ6)öa6av,ö*¶+¶+öaH6b6av,ö)ö+v*H6)öa6.vavaˆ6*¶*¶aH6av.v)öa6+6*H6*6b¶)öa¶)ö*ˆ6)öa6av-v)ö+ö`¶*H6.v*6,H6av,¶b6+È6)öa6av-v)ö+ö`¶*H6b6a6)È6*¶cö+¶,¶aˆ6`öa¶-H6-v,vb¶+H6`vbˆ6)öa6*¶-ö*6b¶`‹‰Ëˆ	Ðœ›ÝÜÙ\ˆÝÜ˜YÙHX^H™H\ÙY›Üˆ]][XØ][ÛˆÙ\ÜÚ[ÛœË[\™˜XÙH™Y™\™[˜Ù\Ë™XÛÝ™\žH]H[™ÛÛœÙ[ÚÚXÙ\Ëˆ[˜[]XÜÈÜˆ›ÙXÝ[Ûˆ[YÜ˜][ÛœÈ\™HÛÛ›ÛYžHH™[]˜[›ÙXÝ[™ÙXœÚ]HÙ][™ÜË‰Îˆ	ö`¶+È6b¶cö,ö*¶+¶+öaH6*¶+¶,¶b¶aˆ6)öa6av*¶-v`v+H6a6+6a6,ö)ö*ˆ6)öa6av-v)ö+ö`¶*H6b6*¶`v-¶b¶a6)ö*ˆ6)öa6b6)ö+6aö*H6b6*6b¶)öa¶)ö*ˆ6)öa6)ö,ö*¶.v)ö+ö*H6b6+¶b¶)ö,v)ö*ˆ6)öa6avb6)ö`v`¶*Kˆ6*¶*¶+v`öaH6)v.v+ö)ö+ö)ö*ˆ6)öa6ava¶*¶+6b6)öa6avb6`¶.H6,6)ö*ˆ6)öa6-va6*H6`vbˆ6)öa6*¶+va6b¶a6)ö*ˆ6(öb6*¶`ö)öava6)ö*ˆ6)öa6)va¶*¶)ö+‰Ëˆ	Ö[ÝHØ[ˆX[˜YÙHXØÛÝ[™Y™\™[˜Ù\È[™X[žHÝÜ™Y›Ú™XÝÙ][™ÜÈ[œÚYHH›ÙXÝˆ™\]Y\ÝÈ™[][™ÈÈXØÙ\ÜËÛÜœ™XÝ[ÛˆÜˆ[][ÛˆÙˆ\œÛÛ˜[]HÚÝ[™HXYH›ÝYÚHÝ\ÜÜ[ÛœÈ]˜Z[X›H[ˆ[Ý\ˆXØÛÝ[‰Îˆ	öb¶av`öa¶`È6)v+ö)ö,v*H6*¶`v-¶b¶a6)ö*ˆ6)öa6+v,ö)ö*6b6)öa6.v+öb¶+È6avaˆ6)v.v+ö)ö+ö)ö*ˆ6)öa6av-6)ö,vb¶.H6)öa6av+¶,¶a¶*H6+ö)ö+¶a6)öa6ava¶*¶+ˆ6b¶+6*6*¶`¶+öb¶aH6-öa6*6)ö*ˆ6)öa6b6-vb6a6)va6bH6)öa6*6b¶)öa¶)ö*ˆ6)öa6-6+¶-vb¶*H6(öb6*¶-v+vb¶+vaö)È6(öb6+v,6`vaö)È6.v*6,H6+¶b¶)ö,v)ö*ˆ6)öa6+ö.vaH6)öa6av*¶)ö+v*H6`vbˆ6+v,ö)ö*6`Ë‰Ëˆ	Õ\ÈÛXÞHX^H™H\]Y\ÈH›ÙXÝ[™œ˜\ÝXÝ\™HÜˆYØ[™\]Z\™[Y[ÈÚ[™ÙKˆH]H]HÜÙˆ\ÈYÙHÚÝÜÈH]\ÝX›\ÚY™]š\Ú[Û‹‰Îˆ	ö`¶+È6*¶cö+v+ödv*È6aö,6aÈ6)öa6,öb¶)ö,ö*H6av.H6*¶.¶b¶,H6)öa6ava¶*¶+6(öb6)öa6*6a¶b¶*H6)öa6*¶+v*¶b¶*H6(öb6)öa6av*¶-öa6*6)ö*ˆ6)öa6`¶)öa¶b6a¶b¶*Kˆ6b¶.v,v-ˆ6)öa6*¶)ö,vb¶+ˆ6(ö.va6bH6)öa6-v`v+v*H6(ö+v+ö*È6av,v)ö+6.v*H6ava¶-6b6,v*K‰Ëˆ	ÐžH\Ú[™È^X\ˆ[[YÙ[˜ÙK[ÝHYÜ™YHÈ\ÙHHÙ\šXÙH]Ù[H[™[ˆHØ^H]Ù\È›Ý[\™™\™HÚ]Ý\ˆ\Ù\œËH]›Ü›HÜˆ]È[™œ˜\ÝXÝ\™K‰Îˆ	ö*6)ö,ö*¶+¶+ö)öaH^X\ˆ[[YÙ[˜Ùv#6*¶b6)ö`v`ˆ6.va6bH6)ö,ö*¶+¶+ö)öaH6)öa6+¶+öav*H6*6-6`öa6`¶)öa¶b6a¶bˆ6b6*6-ö,vb¶`¶*H6a6)È6*¶*¶+ö)ö+¶a6av.H6)öa6av,ö*¶+¶+öavb¶aˆ6)öa6(¶+¶,vb¶aˆ6(öb6)öa6ava¶-v*H6(öb6*6a¶b¶*¶aö)È6)öa6*¶+v*¶b¶*K‰Ëˆ	Ö[ÝH\™H™\ÜÛœÚX›H›ÜˆHXØÝ\˜XÞHÙˆ[™›Ü›X][ÛˆÝX›Z]Y›ÝYÚ[Ý\ˆXØÛÝ[[™›ÜˆÙY\[™ÈXØÙ\ÜÈÈ[Ý\ˆXØÛÝ[ÙXÝ\™KˆX[H[™Ú\™Y\›Ú™XÝ\›Z\ÜÚ[ÛœÈÚÝ[Û›H™HÜ˜[YÈ[ÜH[ÝH[[™ÈÛÛX›Ü˜]HÚ]‰Îˆ	ö(öa¶*ˆ6av,ö)6b6a6.vaˆ6+ö`¶*H6)öa6av.va6b6av)ö*ˆ6)öa6av`¶+öav*H6.v*6,H6+v,ö)ö*6`È6b6.vaˆ6)öa6+v`v)ö.6.va6bH6(öav)öaˆ6)öa6b6-vb6a6)va6b¶aËˆ6b¶+6*6ava¶+H6-va6)ö+vb¶)ö*ˆ6)öa6`v,v`ˆ6b6)öa6av-6)ö,vb¶.H6)öa6av-6*¶,v`ö*H6`v`¶-È6a6a6(ö-6+¶)ö-H6)öa6,6b¶aˆ6*¶a¶b6bˆ6)öa6*¶.v)öb6aˆ6av.vaöaK‰Ëˆ	Ö[ÝH™[XZ[ˆ™\ÜÛœÚX›H›Üˆ™]šY]Ú[™ÈHÛÛ[ÙXœÚ]\ËØÝ[Y[È[™Ý\ˆÝ]]È[ÝHÜ™X]HÜˆX›\Ú›ÝYÚH]›Ü›Kˆ]]ÛX]YÜˆRKX\ÜÚ\ÝYÝ]]ÚÝ[™HÚXÚÙY™Y›Ü™H]\È™[YYÛˆÜˆX›\ÚY‰Îˆ	ö*¶*6`¶bH6av,ö)6b6a6)öbÈ6.vaˆ6av,v)ö+6.v*H6)öa6av+v*¶b6bH6b6)öa6avb6)ö`¶.H6b6)öa6av,ö*¶a¶+ö)ö*ˆ6b6)öa6av+¶,v+6)ö*ˆ6)öa6(ö+¶,vbH6)öa6*¶bˆ6*¶a¶-6)¶aö)È6(öb6*¶a¶-6,vaö)È6.v*6,H6)öa6ava¶-v*Kˆ6b¶+6*6)öa6*¶+v`¶`ˆ6avaˆ6)öa6av+¶,v+6)ö*ˆ6)öa6(¶a6b¶*H6(öb6)öa6av+ö.vb6av*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6`¶*6a6)öa6)ö.v*¶av)ö+È6.va6b¶aö)È6(öb6a¶-6,vaö)Ë‰Ëˆ	Ö[ÝHX^H›Ý\ÙHHÙ\šXÙHÈœ™XZÈH]ËX\ÙHX›XÈ›Ü›\ÈÜˆT\Ëž\\ÜÈ›ÙXÝ[Z]ÈÜˆXØÙ\ÜÈÛÛ›ÛË\ÝšX]HX[XÚ[Ý\ÈÛÛ[[\™™\™HÚ]HÙ\šXÙKÜˆ][\[˜]]Üš^™YXØÙ\ÜÈÈÝ\ˆXØÛÝ[ÈÜˆ›Ú™XÝË‰Îˆ	öa6)È6b¶+6b6,ˆ6)ö,ö*¶+¶+ö)öaH6)öa6+¶+öav*H6a6+¶,v`ˆ6)öa6`¶)öa¶b6aˆ6(öb6)v,ö)ö(v*H6)ö,ö*¶+¶+ö)öaH6)öa6a¶av)ö,6+6)öa6.v)öav*H6(öb6b6)ö+6aö)ö*ˆTH6(öb6*¶+6)öb6,ˆ6+v+öb6+È6)öa6ava¶*¶+6(öb6-¶b6)ö*6-È6)öa6b6-vb6a6(öb6*¶b6,¶b¶.H6av+v*¶b6bH6-¶)ö,H6(öb6*¶.v-öb¶a6)öa6+¶+öav*H6(öb6av+v)öb6a6*H6)öa6b6-vb6a6.¶b¶,H6)öa6av-v,v+H6*6aÈ6)va6bH6+v,ö)ö*6)ö*ˆ6(öb6av-6)ö,vb¶.H6(ö+¶,vbK‰Ëˆ	Ñœ™YK›È[™\Ú[™\ÜÈ™X]\™\È[™\ØYÙH[Z]È\™H\Ü^YY[ˆH›ÙXÝˆZYšXÚ[™Ë™[™]Ø[]Z[ËØ[˜Ù[][ÛˆÜ[ÛœÈ[™[žH\XØX›Hš[[™È\›\È\™H™\Ù[Y›ÝYÚHÛÛ™šYÝ\™YÚXÚÛÝ][™š[[™ÈÜ[ˆ\XØX›HÛÛœÝ[Y\ˆšYÚÈ™[XZ[ˆ[˜Y™™XÝY‰Îˆ	ö*¶.6aö,H6avb¶,¶)ö*ˆ6b6+v+öb6+È6)ö,ö*¶+¶+ö)öaH6+¶-ö-Èœ™YH6b›È6b\Ú[™\ÜÈ6+ö)ö+¶a6)öa6ava¶*¶+ˆ6*¶cö.v,v-ˆ6)öa6(ö,ö.v)ö,H6)öa6av+ö`vb6.v*H6b6*¶`v)ö-vb¶a6)öa6*¶+6+öb¶+È6b6+¶b¶)ö,v)ö*ˆ6)öa6)va6.¶)ö(H6b6-6,vb6-È6)öa6`vb6*¶,v*H6)öa6av.vavb6a6*6aö)È6.v*6,H6-v`v+v*H6)öa6+ö`v.H6b6*6b6)ö*6*H6)öa6`vb6*¶,v*H6)öa6avaöb¶(ö*Kˆ6b6a6)È6*¶*¶(ö*ö,H6+v`¶b6`ˆ6)öa6av,ö*¶aöa6`È6)öa6av.vavb6a6*6aö)Ë‰Ëˆ	Ñ™X]\™\ÈX^H]›Û™H\ÈH›ÙXÝ\È[\›Ý™YˆÙHX^HÚ[™ÙKYÜˆ™]\™H™X]\™\ÈÚ[ˆ™YYY›ÜˆÙXÝ\š]K™[XXš[]HÜˆ›ÙXÝ]™[ÜY[ˆ[\Ü[Ú[™Ù\ÈÚÝ[™H™Y›XÝY[ˆH›ÙXÝÜˆ\ÙH\›\Ë‰Îˆ	ö`¶+È6*¶*¶-öb6,H6)öa6avb¶,¶)ö*ˆ6av.H6*¶+v,öb¶aˆ6)öa6ava¶*¶+ˆ6`¶+È6a¶.¶b¶,H6(öb6a¶-¶b¶`H6(öb6a¶b6`¶`H6avb¶,¶)ö*ˆ6.va¶+È6)öa6+v)ö+6*H6a6a6(öav)öaˆ6(öb6)öa6avb6*öb6`¶b¶*H6(öb6*¶-öb6b¶,H6)öa6ava¶*¶+ˆ6b¶+6*6(öaˆ6*¶a¶.v`ö,È6)öa6*¶.¶b¶b¶,v)ö*ˆ6)öa6avaöav*H6`vbˆ6)öa6ava¶*¶+6(öb6aö,6aÈ6)öa6-6,vb6-Ë‰Ëˆ	ÕHÙ\šXÙH\È›ÝšYY\ÈH›ÙXÝ]š]H]›Ü›Kˆ[ÝH\™H™\ÜÛœÚX›H›ÜˆHš[˜[XÚ\Ú[ÛœËX›XØ][ÛœÈ[™XÝ[ÛœÈZÙ[ˆ\Ú[™ÈHÝ]]ÈÙˆHÙ\šXÙK[˜ÛY[™ÈÙXœÚ]\ÈX›\ÚYÈ\™\\HÜˆÛÛ™šYÝ\™YÜÝ[™È\Ý[˜][ÛœË‰Îˆ	ö*¶cö`¶+ödvc¶aH6)öa6+¶+öav*H6`öava¶-v*H6)va¶*¶)ö+6b¶*Kˆ6(öa¶*ˆ6av,ö)6b6a6.vaˆ6)öa6`¶,v)ö,v)ö*ˆ6b6)öa6ava¶-6b6,v)ö*ˆ6b6)öa6)v+6,v)ö(v)ö*ˆ6)öa6a¶aö)ö)¶b¶*H6)öa6av*¶+¶,6*H6*6)ö,ö*¶+¶+ö)öaH6av+¶,v+6)ö*ˆ6)öa6+¶+öav*v#6*6av)È6`vbˆ6,6a6`È6)öa6avb6)ö`¶.H6)öa6ava¶-6b6,v*H6)va6bH6+6aö)ö*ˆ6+¶)ö,v+6b¶*H6(öb6b6+6aö)ö*ˆ6)ö,ö*¶-¶)ö`v*H6avaöb¶(ö*K‰Ëˆ	Ô]Y\Ý[ÛœÈX›Ý]\ÙH\›\ÈØ[ˆ™HÝX›Z]Y›ÝYÚHÝ\ÜÜ[ÛœÈ]˜Z[X›H[ˆH›ÙXÝ‰Îˆ	öb¶av`öaˆ6)v,v,ö)öa6)öa6(ö,ö)¶a6*H6+vb6a6aö,6aÈ6)öa6-6,vb6-È6.v*6,H6+¶b¶)ö,v)ö*ˆ6)öa6+ö.vaH6)öa6av*¶)ö+v*H6`vbˆ6)öa6ava¶*¶+‰Ë‚ˆ	ÕÙ[ÛÛYH˜XÚÉÎˆ	öav,v+v*6)öbÈ6*6.vb6+ö*¶`ÉËˆ	ÔÚYÛˆ[ˆÈ[Ý\ˆXØÛÝ[ÈÛÛ[YIÎˆ	ö,ö+6dva6)öa6+ö+¶b6a6)va6bH6+v,ö)ö*6`È6a6a6av*¶)ö*6.v*IËˆ	ÛÜ‰Îˆ	ö(öb	Ëˆ	Ô\ÜÝÛÜ™	Îˆ	ö`öa6av*H6)öa6av,vb6,IËˆ	Ñ[\ˆ[Ý\ˆ\ÜÝÛÜ™	Îˆ	ö(ö+ö+¶a6`öa6av*H6)öa6av,vb6,IËˆ	ÔÚYÛš[™È[‹‹‹‰Îˆ	ö+6)ö,vcH6*¶,ö+6b¶a6)öa6+ö+¶b6a‹‹‰Ëˆ	ÔÚYÛˆ[‰Îˆ	ö*¶,ö+6b¶a6)öa6+ö+¶b6a	Ëˆ‘Û‰Ý]™H[ˆXØÛÝ[ÈŽˆ	öa6b¶,È6a6+öb¶`È6+v,ö)ö*6'ÉËˆ	ÐÜ™X]H[Ý\ˆXØÛÝ[	Îˆ	ö(öa¶-6)ˆ6+v,ö)ö*6`ÉËˆ	ÔÝ\\Ú[™ÈL
+ÈRHÛÛÈ›Üˆœ™YIÎˆ	ö)ö*6+ö(È6av+6)öa¶)öbÈ6*6(ö+öb6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6)öa6(ö,ö)ö,öb¶*H6b6ava¶-6)ˆ6)öa6avb6)ö`¶.IËˆ	Ð]X\ÝˆÚ\˜XÝ\œÉÎˆ	Íˆ6(ö+v,v`H6.va6bH6)öa6(ö`¶a	Ëˆ	ÐÜ™X][™ÈXØÛÝ[‹‹‰Îˆ	ö+6)ö,vcH6)va¶-6)ö(H6)öa6+v,ö)ö*‹‹‰Ëˆ	ÐÜ™X]Hœ™YHXØÛÝ[	Îˆ	ö)va¶-6)ö(H6+v,ö)ö*6av+6)öa¶b‰Ëˆ	Ó›ÈÜ™Y]Ø\™™\]Z\™Y	Îˆ	öa6)È6*¶+v*¶)ö+6*6-ö)ö`¶*H6)ö)¶*¶av)öa‰Ëˆ	ÐXØÙ\ÜÈH˜\ÚXÈRHÛÛÉÎˆ	ö)öa6b6-vb6a6)va6bHH6(ö+öb6)ö*ˆ6,6`ö)ö(H6)ö-v-öa¶)ö.vbˆ6(ö,ö)ö,öb¶*IËˆ	ÌLØÝ[Y[È\ˆ[Û	Îˆ	ÌL6av,ö*¶a¶+ö)ö*ˆ6-6aö,vb¶)öbÉËˆ	Ô\ÜÝÛÜ™]\Ý™H]X\ÝˆÚ\˜XÝ\œË‰Îˆ	öb¶+6*6(öaˆ6*¶*¶`öb6aˆ6`öa6av*H6)öa6av,vb6,H6avaˆˆ6(ö+v,v`H6.va6bH6)öa6(ö`¶a‰Ëˆ	ÐÚXÚÈ[Ý\ˆ[XZ[	Îˆ	ö*¶+v`¶`ˆ6avaˆ6*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ•ÙIÝ™HÙ[H\ÜÝÛÜ™™\Ù][šÈÈŽˆ	ö(ö,v,öa6a¶)È6,v)ö*6-È6)v.v)ö+ö*H6*¶.vb¶b¶aˆ6`öa6av*H6)öa6av,vb6,H6)va6bIËˆ	Ð˜XÚÈÈÙÚ[‰Îˆ	ö)öa6.vb6+ö*H6)va6bH6*¶,ö+6b¶a6)öa6+ö+¶b6a	Ëˆ	Ñ›Ü™ÛÝ\ÜÝÛÜ™ÉÎˆ	öa¶,öb¶*ˆ6`öa6av*H6)öa6av,vb6,v'ÉËˆ	ÔÙ[™[™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6)v,v,ö)öa‹‹‰Ëˆ	ÔÙ[™™\Ù][šÉÎˆ	ö)v,v,ö)öa6,v)ö*6-È6)v.v)ö+ö*H6)öa6*¶.vb¶b¶a‰Ëˆ	Ô\ÜÝÛÜ™\]Y	Îˆ	ö*¶aH6*¶+v+öb¶*È6`öa6av*H6)öa6av,vb6,IËˆ	ÔÙ]H™]È\ÜÝÛÜ™	Îˆ	ö*¶.vb¶b¶aˆ6`öa6av*H6av,vb6,H6+6+öb¶+ö*IËˆ	ÐÚÛÜÙHHÝ›Û™È\ÜÝÛÜ™›Üˆ[Ý\ˆXØÛÝ[	Îˆ	ö)ö+¶*¶,H6`öa6av*H6av,vb6,H6`¶b6b¶*H6a6+v,ö)ö*6`ÉËˆ	ÐÛÛ™š\›H\ÜÝÛÜ™	Îˆ	ö*¶(ö`öb¶+È6`öa6av*H6)öa6av,vb6,IËˆ	Ô™KY[\ˆ[Ý\ˆ\ÜÝÛÜ™	Îˆ	ö(ö.v+È6)v+ö+¶)öa6`öa6av*H6)öa6av,vb6,IËˆ	Õ\][™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6*¶+v+öb¶*Ë‹‹‰Ëˆ	Õ™\šYžH[Ý\ˆ[XZ[	Îˆ	ö*¶+v`¶`ˆ6avaˆ6*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ‘Y‰ÝÙ]]È[\ˆ[Ý\ˆ[XZ[Žˆ	öa6aH6*¶-va6`È6)öa6,v,ö)öa6*v'È6(ö+ö+¶a6*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ	Ñ[XZ[Ù[IÎˆ	ö*¶aH6)v,v,ö)öa6)öa6*6,vb¶+ÈIËˆ	Ô™\Ù[™™\šYšXØ][Ûˆ[XZ[	Îˆ	ö)v.v)ö+ö*H6)v,v,ö)öa6,v,ö)öa6*H6)öa6*¶(ö`öb¶+ÉËˆ	Ñ[\ˆ[Ý\ˆ[XZ[š\œÝ‰Îˆ	ö(ö+ö+¶a6*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶bˆ6(öb6a6)öbË‰Ëˆ	Ñ›Ü™ÛÝ\ÜÝÛÜ™	Îˆ	öa¶,öb¶*ˆ6`öa6av*H6)öa6av,vb6,IËˆ	ÐÜ™X]HXØÛÝ[	Îˆ	ö)va¶-6)ö(H6+v,ö)ö*	Ëˆ	Ð[™XYH]™H[ˆXØÛÝ[ÉÎˆ	öa6+öb¶`È6+v,ö)ö*6*6)öa6`v.va6'ÉËˆ	ÔÚYÛˆ\	Îˆ	ö)öa6*¶,ö+6b¶a	Ë‚ˆ	ÐÛÛ[YHÚ]ÛÛÙÛIÎˆ	ö)öa6av*¶)ö*6.v*H6*6)ö,ö*¶+¶+ö)öaHÛÛÙÛIËˆ	Ñ[XZ[	Îˆ	ö)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶b‰Ëˆ	ÔÚYÛˆ\œ™YIÎˆ	ö,ö+6dva6av+6)öa¶)öbÉËˆ	ÔÚYÛˆ[‰Îˆ	ö*¶,ö+6b¶a6)öa6+ö+¶b6a	Ëˆ	ÕÙXZÉÎˆ	ö-¶.vb¶`v*IËˆ	Ñ˜Z\‰Îˆ	öav`¶*6b6a6*IËˆ	ÑÛÛÙ	Îˆ	ö+6b¶+ö*IËˆ	ÔÝ›Û™ÉÎˆ	ö`¶b6b¶*IË‚ˆ	ÓÛ˜›Ø\™[™ÉÎˆ	ö)öa6)v.v+ö)ö+È6)öa6(öb6a6b‰Ëˆ[™XYH]™H[ˆXØÛÝ[È\ÝØZ]8 %ÙIÛ\œÛÛ˜[^™H]™\ž][™ËˆŽˆ	öa6+öb¶`È6+v,ö)ö*6*6)öa6`v.va6'È6,öa¶+¶-v-H6`öa6-6b¶(H6a6`È6*¶a6`¶)ö)¶b¶)öbË‰Ëˆ	ÐÚÛÜÙH[Ý\ˆ[™ÝXYÙIÎˆ	ö)ö+¶*¶,H6a6.¶*¶`ÉËˆ	Ö[ÝHØ[ˆÚ[™ÙH\È[ž][YH[ˆÙ][™ÜÉÎˆ	öb¶av`öa¶`È6*¶.¶b¶b¶,H6,6a6`È6`vbˆ6(öbˆ6b6`¶*ˆ6avaˆ6)öa6)v.v+ö)ö+ö)ö*‰Ëˆ	ÕÚ]™\Ý\ØÜšX™\È[ÝOÉÎˆ	öav)È6)öa6b6-v`H6)öa6(öa¶,ö*6a6`ö'ÉËˆ•ÙIÛZ[Üˆ[Ý\ˆ^\šY[˜ÙH˜\ÙYÛˆ\ÈŽˆ	ö,öa¶+¶-v-H6*¶+6,v*6*¶`È6*6a¶)ö(vbÈ6.va6bH6,6a6`ÉËˆ	Õ[\ÈX›Ý][ÝIÎˆ	ö(ö+¶*6,va¶)È6.va¶`ÉËˆ’\ÝH˜\ÚXÜÈ8 %ÙIÛ\ÙH\ÈÈ\œÛÛ˜[^™H[Ý\ˆÛÜšÜÜXÙHŽˆ	ö`v`¶-È6)öa6av.va6b6av)ö*ˆ6)öa6(ö,ö)ö,öb¶*H8 %6,öa¶,ö*¶+¶+öavaö)È6a6*¶+¶-vb¶-H6av,ö)ö+v*H6.vava6`ÉËˆ	ÐÛÝ[žIÎˆ	ö)öa6+öb6a6*IËˆ	ÔÙ[XÝ[Ý\ˆÛÝ[žIÎˆ	ö)ö+¶*¶,H6+öb6a6*¶`ÉËˆ	Ô›Ù™\ÜÚ[Û‰Îˆ	ö)öa6avaöa¶*IËˆ	ÙK™ËˆÛÙØ\™H[™Ú[™Y\‹ÝY[\ÚYÛ™\‰Îˆ	öav*öa6)öbÎˆ6avaöa¶+ö,È6*6,vav+6b¶)ö*¶#6-ö)öa6*6#6av-vavaIËˆ•Ú]	ÜÈ[Ý\ˆXZ[ˆÛØ[ÈŽˆ	öav)È6aö+ö`v`È6)öa6,v)¶b¶,öb¶'ÉËˆ”XÚÈÛ™H8 %ÙIÛ™XÛÛ[Y[™H™\ÝÛÛÈ›Üˆ]Žˆ	ö)ö+¶*¶,H6b6)ö+v+ö)öbÈ6b6,öa¶`¶*¶,v+H6(ö`v-¶a6)öa6(ö+öb6)ö*ˆ6a6aÉËˆ	Ö[Ý\ˆ™XÛÛ[Y[™YÛÛÉÎˆ	ö)öa6(ö+öb6)ö*ˆ6)öa6av`¶*¶,v+v*H6a6`ÉËˆ	Ð˜\ÙYÛˆ[Ý\ˆ›Ùš[K\ÙHÚ[[[ÝHÙ]Ý\Y˜\Ý	Îˆ	ö*6a¶)ö(vbÈ6.va6bH6ava6`v`ö#6,ö*¶,ö)ö.v+ö`È6aö,6aÈ6)öa6(ö+öb6)ö*ˆ6.va6bH6)öa6*6+ö(H6*6,ö,v.v*IËˆ–[ÝIÜ™H[Ù]Žˆ	ö`öa6-6b¶(H6+6)öaö,‰Ëˆ	ÕZÙHÝ\‰Îˆ	ö)ö*6+ö(È6)öa6+6b6a6*IËˆ	Ô]ZXÚÈÝ\	Îˆ	ö*6+ö(H6,ö,vb¶.IËˆ	Ö[Ý\ˆ›ÙÜ™\ÜÉÎˆ	ö*¶`¶+öav`ÉËˆ	ÐXÚY]™[Y[ÉÎˆ	ö)öa6)va¶+6)ö,¶)ö*‰Ëˆ	Ô™XÛÛ[Y[™Y›Üˆ[ÝIÎˆ	öav`¶*¶,v+H6a6`ÉËˆ	Ñš[š\Ú	Îˆ	ö)va¶aö)ö(IËˆ	Ó™^	Îˆ	ö)öa6*¶)öa6b‰Ë‚ˆ	ÐRHÛÜšÜÜXÙIÎˆ	öav,ö)ö+v*H6.vava6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÔÙX\˜ÚÛÛË‹‹ˆ
+K™ËˆÕ‹˜[œÛ]K]Z^ŠIÎˆ	ö)ö*6+v*È6.vaˆ6)öa6(ö+öb6)ö*‹‹‹ˆ
+6av*öa6)öbÈÕ¶#6*¶,v+6av*v#6)ö+¶*¶*6)ö,JIËˆ	ÔÙX\˜ÚÛÛË‹‹‰Îˆ	ö)ö*6+v*È6.vaˆ6)öa6(ö+öb6)ö*‹‹‹‰Ëˆ	ÐÛX\ˆÙX\˜Ú	Îˆ	öav,ö+H6)öa6*6+v*ÉËˆ	Ô[›™Y	Îˆ	ö)öa6av*ö*6*¶*IËˆ	Ó›ÈÛÛÈ›Ý[™	Îˆ	öa6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6(ö+öb6)ö*‰Ëˆ	ÕžHHY™™\™[ÙX\˜ÚÜˆØ]YÛÜžK‰Îˆ	ö+6,vdv*6*6+v*ö)öbÈ6(öb6`v)¶*H6av+¶*¶a6`v*K‰Ëˆ	Ñ˜]›Üš]\ÉÎˆ	ö)öa6av`v-¶a6*IËˆ	ÐÛXÚÈHÝ\ˆÛˆ[žHÛÛÈY]\™K‰Îˆ	ö)ö-¶.¶-È6)öa6a¶+6av*H6.va6bH6(öbˆ6(ö+ö)ö*H6a6)v-¶)ö`v*¶aö)È6aöa¶)Ë‰Ëˆ	Ô™XÙ[H\ÙY	Îˆ	ö)öa6av,ö*¶+¶+öav*H6av)6+¶,v)öbÉËˆ	ÕÛÛÈ[ÝH\ÙHÚ[\X\ˆ\™H›Üˆ]ZXÚÈXØÙ\ÜË‰Îˆ	ö,ö*¶.6aö,H6)öa6(ö+öb6)ö*ˆ6)öa6*¶bˆ6*¶,ö*¶+¶+öavaö)È6aöa¶)È6a6a6b6-vb6a6)öa6,ö,vb¶.K‰Ëˆ	ÐÛÛ[YHÛÜšÚ[™ÉÎˆ	öav*¶)ö*6.v*H6)öa6.vava	Ëˆ“›È˜YÈ[ˆ›ÙÜ™\ÜËˆÝ\H™]ÈØÝ[Y[[™]	ÛÚÝÈ\\™KˆŽˆ	öa6)È6*¶b6+6+È6av,öb6+ö)ö*ˆ6`¶b¶+È6)öa6.vavaˆ6)ö*6+ö(È6av,ö*¶a¶+ö)öbÈ6+6+öb¶+ö)öbÈ6b6,öb¶.6aö,H6aöa¶)Ë‰Ëˆ	Ñ˜Y	Îˆ	öav,öb6+ö*IËˆ	ÐRH™XÛÛ[Y[™][ÛœÉÎˆ	ö)ö`¶*¶,v)ö+v)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ô™XÙ[XÝ]š]IÎˆ	ö)öa6a¶-6)ö-È6)öa6(ö+¶b¶,IËˆ	Ó›È™XÙ[XÝ]š]IÎˆ	öa6)È6b¶b6+6+È6a¶-6)ö-È6+v+öb¶*ÉËˆ	Ó^Hš[\ÉÎˆ	öava6`v)ö*¶b‰Ëˆ	Ð[[Ý\ˆÙ[™\˜]YØÝ[Y[ËÕœË˜[œÛ][ÛœËÚ]È[™›Ú™XÝÈ[ˆÛ™HXÙK‰Îˆ	ö`öa6av,ö*¶a¶+ö)ö*¶`È6b6,öb¶,v`È6)öa6,6)ö*¶b¶*H6b6*¶,v+6av)ö*¶`È6b6av+v)ö+ö*ö)ö*¶`È6b6av-6)ö,vb¶.v`È6`vbˆ6av`ö)öaˆ6b6)ö+v+Ë‰Ëˆ	ÕÝ[š[\ÉÎˆ	ö)v+6av)öa6bˆ6)öa6ava6`v)ö*‰Ëˆ	ÐÛÛ\]Y	Îˆ	öav`ö*¶ava	Ëˆ	Ñ˜YÉÎˆ	ö)öa6av,öb6+ö)ö*‰Ëˆ	ÔÙX\˜Úš[\Ë‹‹‰Îˆ	ö)ö*6+v*È6`vbˆ6)öa6ava6`v)ö*‹‹‹‰Ëˆ	Ñš[H˜[YIÎˆ	ö)ö,öaH6)öa6ava6`IË‚ˆ	ÕÙXœÚ]HZ[\‰Îˆ	öava¶-6)ˆ6)öa6avb6)ö`¶.IËˆ	Ó™]ÈÛÝY›Ú™XÝ	Îˆ	öav-6,vb6.H6,ö+v)ö*6bˆ6+6+öb¶+ÉËˆ	ÑQ•	Îˆ	öav,öb6+ö*IËˆ	ÐÛÜÙIÎˆ	ö)v.¶a6)ö`‰Ëˆ	ÕÙXœÚ]HZ[\ˆŒH][˜ÚÙ[\‰Îˆ	öav,v`ö,ˆ6)v-öa6)ö`ˆ6ava¶-6)ˆ6)öa6avb6)ö`¶.HŒIËˆ	ÓÛ™HXÙHÈÛ˜›Ø\™H›Ú™XÝ[ˆ›ÙXÝ[ÛˆÚXÚÜËX›\ÚH™[X\ÙH[™™\šYžH]H]™HÚ]H\ÈX[K‰Îˆ	öav`ö)öaˆ6b6)ö+v+È6a6*¶aöb¶)¶*H6)öa6av-6,vb6.H6b6*¶-6.¶b¶a6`v+vb6-v)ö*ˆ6)öa6)va¶*¶)ö+6b6a¶-6,H6)öa6)v-v+ö)ö,H6b6)öa6*¶+v`¶`ˆ6avaˆ6,öa6)öav*H6)öa6avb6`¶.H6)öa6av*6)ö-6,K‰Ëˆ	Ñ^Ü][˜Ú™\Ü	Îˆ	ö*¶-v+öb¶,H6*¶`¶,vb¶,H6)öa6)v-öa6)ö`‰Ëˆ	Ñš[˜[™XY[™\ÜÉÎˆ	ö)öa6+6)öaö,¶b¶*H6)öa6a¶aö)ö)¶b¶*IËˆ	Ð]]ÛX]Y™[X\ÙHØ]H›Üˆ\È›Ú™XÝ‰Îˆ	ö*6b6)ö*6*H6)v-v+ö)ö,H6(¶a6b¶*H6a6aö,6)È6)öa6av-6,vb6.K‰Ëˆ	Ð]Y]	Îˆ	ö)öa6*¶+ö`¶b¶`‰Ëˆ	ÒX[	Îˆ	ö)öa6+v)öa6*IËˆ	ÔÞ[˜ÉÎˆ	ö)öa6av,¶)öava¶*IËˆ	Ó]™IÎˆ	öav*6)ö-6,IËˆ	Ó][˜Ú›ØÚÙ\œÉÎˆ	öav.vb6`¶)ö*ˆ6)öa6)v-öa6)ö`‰Ëˆ	ø§$È›ÈÜš]XØ[›ÙXÝ[Ûˆ›ØÚÙ\œÈ]XÝY‰Îˆ	ø§$È6a6aH6b¶*¶aH6)ö`ö*¶-6)ö`H6av.vb6`¶)ö*ˆ6)va¶*¶)ö+6+v,v+6*K‰Ëˆ	Ð]]ÛX]Y][˜ÚÚXÚÜÉÎˆ	ö`v+vb6-v)ö*ˆ6)öa6)v-öa6)ö`ˆ6)öa6(¶a6b¶*IËˆ	ÔX›\ÚÛ›HY\ˆH™Y›YÚ][\È\™HÜ™Y[‹‰Îˆ	ö)öa¶-6,H6`v`¶-È6*6.v+È6a¶+6)ö+H6+6avb¶.H6`v+vb6-v)ö*ˆ6av)È6`¶*6a6)öa6)v-öa6)ö`‹‰Ëˆ	Ô]ZXÚË\Ý\Û˜›Ø\™[™ÉÎˆ	ö)v.v+ö)ö+È6,ö,vb¶.IËˆ	ÔÝ\œ›ÛHH›Ý™[ˆYÙHÝXÝ\™K[ˆÛÛ\]HH›ÙXÝ[ÛˆT“[™ÛÝYØ]™K‰Îˆ	ö)ö*6+ö(È6*6aöb¶`öa6-v`v+v*H6av+6,v*6*öaH6(ö`öava6,v)ö*6-È6)öa6)va¶*¶)ö+6b6)öa6+v`v.6)öa6,ö+v)ö*6b‹‰Ëˆ	Ñ’T”Õ“Ò‘PÕ	Îˆ	ö)öa6av-6,vb6.H6)öa6(öb6a	Ëˆ	ÔØ]™H›Ú™XÝ	Îˆ	ö+v`v.6)öa6av-6,vb6.IËˆ	Ô™]šY]ÉÎˆ	öav.v)öb¶a¶*IËˆ	ÓX[X[›ÙXÝ[ÛˆÚYÛ‹[Ù™‰Îˆ	ö)ö.v*¶av)ö+È6)öa6)va¶*¶)ö+6)öa6b¶+öb6b‰Ëˆ	Õ\ÙHÚXÚÜÈ[›Û™H^\›˜[Ù\šXÙ\È[™]\Ý™HÛÛ™š\›YYžHH[X[ˆ™Y›Ü™HXØÙ\[™ÈZYÝ\ÝÛY\œË‰Îˆ	ö*¶*¶-¶avaˆ6aö,6aÈ6)öa6`v+vb6-v)ö*ˆ6+¶+öav)ö*ˆ6+¶)ö,v+6b¶*H6b6b¶+6*6*¶(ö`öb¶+öaö)È6b¶+öb6b¶)öbÈ6`¶*6a6)ö,ö*¶`¶*6)öa6.vava6)ö(H6av+ö`vb6.vb¶a‹‰Ëˆ	Ô™[X\ÙHXÝ[ÛœÉÎˆ	ö)v+6,v)ö(v)ö*ˆ6)öa6)v-v+ö)ö,IËˆ	Ðš[[™È	ˆ[Z]ÉÎˆ	ö)öa6`vb6*¶,v*H6b6)öa6+v+öb6+ÉËˆ	Õ™\šYžH[ˆ[™Ýš\HÝ]IÎˆ	ö*¶+v`¶`ˆ6avaˆ6)öa6+¶-ö*H6b6+v)öa6*HÝš\IËˆ	Ð]Y]	ˆ˜XÚÝ\ÉÎˆ	ö)öa6*¶+ö`¶b¶`ˆ6b6)öa6a¶,ö+ˆ6)öa6)ö+v*¶b¶)ö-öb¶*IËˆ	Ñ^Ü˜XÚÝ\[™XYÛ›ÜÝXÜÉÎˆ	ö*¶-v+öb¶,H6)öa6a¶,ö+¶*H6)öa6)ö+v*¶b¶)ö-öb¶*H6b6)öa6*¶-6+¶b¶-v)ö*‰Ëˆ	Ð›ØÚÙY[[]]ÛX]Y™Y›YÚ\È™XYIÎˆ	öav+v.6b6,H6+v*¶bH6*¶+6aö,ˆ6`v+vb6-v)ö*ˆ6av)È6`¶*6a6)öa6)v-öa6)ö`‰Ëˆ	Õ™\šYžH]™H™[X\ÙIÎˆ	ö*¶+v`¶`ˆ6avaˆ6)öa6)v-v+ö)ö,H6)öa6av*6)ö-6,IËˆ	ÐÛÛ™š\›H[™^š[\È\ÞYY	Îˆ	ö*¶(ö`ö+È6avaˆ6a¶-6,H[™^š[	Ëˆ	ÕŒH™[X\ÙHXÚ\Ú[Û‰Îˆ	ö`¶,v)ö,H6)v-v+ö)ö,HŒIËˆ	Ô[œÈ	ˆš[[™ÉÎˆ	ö)öa6+¶-ö-È6b6)öa6`vb6*¶,v*IËˆ	ÔÙXÝ\™H[][Y[Ë\ØYÙH[Z]È[™Ýš\HÝXœØÜš\[ÛˆX[˜YÙ[Y[‰Îˆ	ö-va6)ö+vb¶)ö*ˆ6(¶ava¶*H6b6+v+öb6+È6)ö,ö*¶+¶+ö)öaH6b6)v+ö)ö,v*H6)ö-6*¶,v)ö`ÈÝš\K‰Ëˆ	ÓX[˜YÙHÝXœØÜš\[Û‰Îˆ	ö)v+ö)ö,v*H6)öa6)ö-6*¶,v)ö`ÉËˆ	ÐÕT”‘S•	Îˆ	ö)öa6+v)öa6b‰Ëˆ	ÐXÝ]™H[‰Îˆ	ö)öa6+¶-ö*H6)öa6a¶-6-ö*IËˆ	ÓX[˜YÙHÝÛ™Ü˜YH[ˆÝš\IÎˆ	ö)v+ö)ö,v*H6+¶`v-ˆ6)öa6+¶-ö*H6`vbˆÝš\IËˆ	ÑY˜][[‰Îˆ	ö)öa6+¶-ö*H6)öa6)ö`v*¶,v)ö-¶b¶*IËˆ	ÕÙXœÚ]HZ[\ˆ\ØYÙIÎˆ	ö)ö,ö*¶+¶+ö)öaH6ava¶-6)ˆ6)öa6avb6)ö`¶.IËˆ	Ó[Z]È\™H[ÛÈ[™›Ü˜ÙYžHÝ\X˜\ÙH›Üˆ›Ú™XÝÜYÙHÜ›ÝÝ‰Îˆ	ö*¶cö-ö*6`ˆ6)öa6+v+öb6+È6(öb¶-¶)öbÈ6.v*6,HÝ\X˜\ÙH6a6a¶avb6)öa6av-6)ö,vb¶.H6b6)öa6-v`v+v)ö*‹‰Ëˆ	ÐÛY[[]™\žHÛÜšÜÜXÙIÎˆ	öav,ö)ö+v*H6*¶,öa6b¶aH6)öa6.vavb¶a	Ëˆ	Ð\›Ý˜[][˜Ú™XY[™\ÜË\ØYÙH[™Û™KXÛXÚÈÛY[[™Ù™‹‰Îˆ	ö)öa6avb6)ö`v`¶*H6b6+6)öaö,¶b¶*H6)öa6)v-öa6)ö`ˆ6b6)öa6)ö,ö*¶+¶+ö)öaH6b6*¶,öa6b¶aH6)öa6.vavb¶a6*6a¶`¶,v*H6b6)ö+v+ö*K‰Ëˆ	ÐÛÜH™]šY]ÉÎˆ	öa¶,ö+ˆ6,v)ö*6-È6)öa6av.v)öb¶a¶*IËˆ	ÐÛY[	ˆ›Ú™XÝ	Îˆ	ö)öa6.vavb¶a6b6)öa6av-6,vb6.IËˆ	ÐÛY[˜[YIÎˆ	ö)ö,öaH6)öa6.vavb¶a	Ëˆ	ÐÛY[[XZ[	Îˆ	ö*6,vb¶+È6)öa6.vavb¶a	Ëˆ	Ô›Ú™XÝÛÙIÎˆ	ö,vav,ˆ6)öa6av-6,vb6.IËˆ	ÑYH]IÎˆ	ö*¶)ö,vb¶+ˆ6)öa6)ö,ö*¶+v`¶)ö`‰Ëˆ	Ñ[]™\žHÝ]\ÉÎˆ	ö+v)öa6*H6)öa6*¶,öa6b¶aIËˆ	ÐZ[[™ÉÎˆ	ö`¶b¶+È6)öa6*6a¶)ö(IËˆ	Ô™XYH›Üˆ™]šY]ÉÎˆ	ö+6)öaö,ˆ6a6a6av,v)ö+6.v*IËˆ	Ð\›Ý™Y	Îˆ	öav.v*¶av+ÉËˆ	Ñ[]™\™Y	Îˆ	ö*¶aH6)öa6*¶,öa6b¶aIËˆ	Ò[™Ù™ˆ›Ý\ÉÎˆ	öava6)ö+v.6)ö*ˆ6)öa6*¶,öa6b¶aIËˆ	Ó][˜Ú™XY[™\ÜÉÎˆ	ö+6)öaö,¶b¶*H6)öa6)v-öa6)ö`‰Ëˆ	ÐÛY[\›Ý˜[š[™Ù\œš[	Îˆ	ö*6-vav*H6avb6)ö`v`¶*H6)öa6.vavb¶a	Ëˆ	Ð\›Ý™HÝ\œ™[Z[	Îˆ	ö)ö.v*¶av)ö+È6)öa6*6a¶)ö(H6)öa6+v)öa6b‰Ëˆ	ÐÛX\ˆ\›Ý˜[	Îˆ	ö)va6.¶)ö(H6)öa6avb6)ö`v`¶*IËˆ	ÓX\šÈ[]™\™Y	Îˆ	öb6-¶.H6.va6)öav*H6*¶aH6)öa6*¶,öa6b¶aIËˆ	ÑÝÛ›ØYÛY[[™Ù™ˆ’T	Îˆ	ö*¶a¶,¶b¶a6+v,¶av*H6*¶,öa6b¶aH6)öa6.vavb¶a’T	Ëˆ	ÔÚ]H
+È˜XÚÝ\
+È™\ÜÈ
+ÈÚXÚÜÝ[\ÉÎˆ	ö)öa6avb6`¶.H
+È6)öa6a¶,ö+¶*H6)öa6)ö+v*¶b¶)ö-öb¶*H
+È6)öa6*¶`¶)ö,vb¶,H
+È6`¶b¶aH6)öa6*¶+v`¶`‰Ëˆ	Ñ^Ü[]™\žH™\Ü	Îˆ	ö*¶-v+öb¶,H6*¶`¶,vb¶,H6)öa6*¶,öa6b¶aIËˆ	Ð\›Ý˜[™XY[™\ÜË\ØYÙH[™]Y]	Îˆ	ö)öa6avb6)ö`v`¶*H6b6)öa6+6)öaö,¶b¶*H6b6)öa6)ö,ö*¶+¶+ö)öaH6b6)öa6*¶+ö`¶b¶`‰Ëˆ	ÓÜ[ˆ™[X\Ù\ÉÎˆ	ö`v*¶+H6)öa6)v-v+ö)ö,v)ö*‰Ëˆ	Õ[›\ÝY™]šY]È[šÉÎˆ	ö,v)ö*6-È6av,v)ö+6.v*H6.¶b¶,H6av+ö,v+	Ëˆ	ÓÜ\˜][ÛœÈ	ˆ™[XXš[]IÎˆ	ö)öa6.vava6b¶)ö*ˆ6b6)öa6avb6*öb6`¶b¶*IËˆ	Ð˜XÚÝ\™\ÝÜ™K^ÜÈ[™[ÈÜ\˜][ÛœË‰Îˆ	ö)öa6a¶,ö+ˆ6)öa6)ö+v*¶b¶)ö-öbˆ6b6)öa6)ö,ö*¶.v)ö+ö*H6b6)öa6*¶-v+öb¶,H6b6)öa6.vava6b¶)ö*ˆ6)öa6av+6av.v*K‰Ëˆ	Ñ^Ü›Ú™XÝ˜XÚÝ\	Îˆ	ö*¶-v+öb¶,H6a¶,ö+¶*H6)ö+v*¶b¶)ö-öb¶*H6a6a6av-6,vb6.IËˆ	ÔÜX›H”ÓÓˆÛ˜\ÚÝ	Îˆ	öa6`¶-ö*H”ÓÓˆ6`¶)ö*6a6*H6a6a6a¶`¶a	Ëˆ	Ò[\Ü›Ú™XÝ˜XÚÝ\	Îˆ	ö)ö,ö*¶b¶,v)ö+È6a¶,ö+¶*H6)ö+v*¶b¶)ö-öb¶*H6a6a6av-6,vb6.IËˆ	Ô™\ÝÜ™H”ÓÓˆ\ÈØØ[˜Y	Îˆ	ö)ö,ö*¶.v)ö+ö*H”ÓÓˆ6`öav,öb6+ö*H6av+va6b¶*IËˆ	Ñ^Ü]Y]™\Ü	Îˆ	ö*¶-v+öb¶,H6*¶`¶,vb¶,H6)öa6*¶+ö`¶b¶`‰Ëˆ	ÔYÙ\Ë[[Y[È[™X[	Îˆ	ö)öa6-v`v+v)ö*ˆ6b6)öa6.va¶)ö-v,H6b6)öa6+v)öa6*IËˆ	Ñ^ÜXYÈÔÕ‰Îˆ	ö*¶-v+öb¶,H6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶aˆÔÕ‰Ëˆ	Ñ^Ü[˜[]XÜÈÔÕ‰Îˆ	ö*¶-v+öb¶,H6)öa6*¶+va6b¶a6)ö*ˆÔÕ‰Ëˆ	ÓX\šÈ[XYÈ™XY	Îˆ	öb6-¶.H6.va6)öav*H6av`¶,vb6(H6.va6bH6`öa6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶a‰Ëˆ	Ð[È[˜›ÞÛX[\	Îˆ	ö*¶a¶.6b¶`H6)öa6*6,vb¶+È6)öa6b6)ö,v+È6+6av)ö.vb¶)öbÉËˆ	Ð\˜Ú]™H™XYXYÉÎˆ	ö(ö,v-6`v*H6)öa6.vava6)ö(H6)öa6av`¶,vb6(vb¶a‰Ëˆ	ÒÙY\[˜›Þ›ØÝ\ÙY	Îˆ	ö+v)ö`v.6.va6bH6-va¶+öb6`ˆ6b6)ö,v+È6ava¶.6aIËˆ	ÔÚ]H[˜[]XÜÉÎˆ	ö*¶+va6b¶a6)ö*ˆ6)öa6avb6`¶.IËˆ	ÕÜYÙ\ÉÎˆ	ö(öaöaH6)öa6-v`v+v)ö*‰Ëˆ	Õ˜Y™šXÈÛÝ\˜Ù\ÉÎˆ	öav-v)ö+ö,H6)öa6,¶b¶)ö,v)ö*‰Ëˆ	ÓYYXHXœ˜\žIÎˆ	öav`ö*¶*6*H6)öa6b6,ö)ö)¶-ÉËˆ	Õ\ÙIÎˆ	ö)ö,ö*¶+¶+ö)öaIËˆ	Ñ˜]šXÛÛ‰Îˆ	ö(öb¶`¶b6a¶*H6)öa6avb6`¶.IËˆ	ÔÛØÚX[	Îˆ	ö)ö+6*¶av)ö.vb‰Ëˆ	ÓXYÔ“IÎˆ	ö)v+ö)ö,v*H6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶a‰Ëˆ	ÔÙX\˜Ú]X[YžKš[Üš]^™H[™›ÛÝÈ\Ú]ÙXœÚ]HXYË‰Îˆ	ö)ö*6+v*È6.vaˆ6.vava6)ö(H6)öa6avb6`¶.H6)öa6av+v*¶ava6b¶aˆ6b6-va¶dv`vaöaH6b6+v+ö+È6(öb6a6b6b¶)ö*¶aöaH6b6*¶)ö*6.vaöaK‰Ëˆ	Ô™XY[	Îˆ	ö`¶,v)ö(v*H6)öa6`öa	Ëˆ	Ð\˜Ú]™H™XY	Îˆ	ö(ö,v-6`v*H6)öa6av`¶,vb6(IËˆ	Ð[[˜›ÞÝ]\Ù\ÉÎˆ	ö`öa6+v)öa6)ö*ˆ6)öa6*6,vb¶+È6)öa6b6)ö,v+ÉËˆ	Ó™]ÉÎˆ	ö+6+öb¶+ÉËˆ	Ô™XY	Îˆ	öav`¶,vb6(IËˆ	Ð\˜Ú]™Y	Îˆ	öav)6,v-6`IËˆ	Ð[Ô“HÝYÙ\ÉÎˆ	ö`öa6av,v)ö+va6)öa6.vava6)ö(IËˆ	Ô]X[YšYY	Îˆ	öav)6aöa	Ëˆ	ÐÛÛXÝY	Îˆ	ö*¶aH6)öa6*¶b6)ö-va	Ëˆ	ÕÛÛ‰Îˆ	ö*¶aH6)öa6`vb6,‰Ëˆ	ÓÜÝ	Îˆ	öav`v`¶b6+ÉËˆ	ÔÙ[XÝÚÝÛ‰Îˆ	ö*¶+v+öb¶+È6)öa6.6)öaö,IËˆ	Ð[ÈÝYÙN‰Îˆ	ö)öa6av,v+va6*H6)öa6+6av)ö.vb¶*N‰Ëˆ	Ó›ÈXYÈY]ˆX›\ÚHÙXœÚ]HÚ]HÛÛXÝÙXÝ[Û‹[ˆÝX›Z\ÜÚ[ÛœÈÚ[\X\ˆ\™K‰Îˆ	öa6)È6b¶b6+6+È6.vava6)ö(H6av+v*¶ava6b6aˆ6*6.v+Ëˆ6)öa¶-6,H6avb6`¶.v)öbÈ6b¶+v*¶b6bˆ6`¶,öaH6*¶b6)ö-va6b6,ö*¶.6aö,H6)öa6)v,v,ö)öa6)ö*ˆ6aöa¶)Ë‰Ëˆ	Ó›ÈXYÈX]ÚHÝ\œ™[ÙX\˜Ú[™š[\œË‰Îˆ	öa6)È6*¶b6+6+È6a¶*¶)ö)¶+6*¶-ö)ö*6`ˆ6)öa6*6+v*È6b6)öa6`va6)ö*¶,H6)öa6+v)öa6b¶*K‰Ëˆ	Ó›Ü›X[š[Üš]IÎˆ	ö(öb6a6b6b¶*H6.v)ö+öb¶*IËˆ	ø¦!Hš[Üš]IÎˆ	ø¦!H6(öb6a6b6b¶*IËˆ	ø¦!x¦!HYÚš[Üš]IÎˆ	ø¦!x¦!H6(öb6a6b6b¶*H6.v)öa6b¶*IËˆ	Ó›Ý\Î‰Îˆ	öava6)ö+v.6)ö*Ž‰Ëˆ	ÓX\šÈ™XY	Îˆ	öb6-¶.H6.va6)öav*H6av`¶,vb6(IËˆ	Ð\˜Ú]™IÎˆ	ö(ö,v-6`v*IËˆ	ÕYÜÉÎˆ	öb6,öb6aIËˆ	Ó›Ý\ÉÎˆ	öava6)ö+v.6)ö*‰Ëˆ	Ô™[X\ÙHX[˜YÙ[Y[	Îˆ	ö)v+ö)ö,v*H6)öa6)v-v+ö)ö,v)ö*‰Ëˆ	Ò[[]]X›HX›\Ú\˜Ú]™\Ë]™H›Û˜XÚÈ[™[›\ÝY˜Y™]šY]ÜË‰Îˆ	ö(ö,v-6b¶`v)ö*ˆ6a¶-6,H6.¶b¶,H6`¶)ö*6a6*H6a6a6*¶.¶b¶b¶,H6b6)ö,ö*¶,v+6)ö.H6av*6)ö-6,H6b6av.v)öb¶a¶)ö*ˆ6av,öb6+ö)ö*ˆ6.¶b¶,H6av+ö,v+6*K‰Ëˆ	Ó™^™[X\ÙIÎˆ	ö)öa6)v-v+ö)ö,H6)öa6*¶)öa6b‰Ëˆ	Õ[›\ÝYÚ\™H™]šY]ÉÎˆ	öav.v)öb¶a¶*H6av-6)ö,v`ö*H6.¶b¶,H6av+ö,v+6*IËˆ	Ð[ž[Û™HÚ]\ÈT“Ø[ˆÜ[ˆ]ˆ˜XÚÚ[™È[YÜ˜][ÛœÈ\™H\ØX›Y[ˆ™]šY]Ë‰Îˆ	ö(öbˆ6-6+¶-H6a6+öb¶aÈ6aö,6)È6)öa6,v)ö*6-È6b¶av`öa¶aÈ6`v*¶+vaËˆ6*¶`ö)öava6)ö*ˆ6)öa6*¶*¶*6.H6av.v-öa6*H6`vbˆ6)öa6av.v)öb¶a¶*K‰Ëˆ	ÓÜ[‰Îˆ	ö`v*¶+IËˆ	Ô™YÙ[™\˜]IÎˆ	ö)v.v)ö+ö*H6)va¶-6)ö(IËˆ	Ó›È™[X\Ù\ÈY]ˆY[ˆÜ[Û˜[™[X\ÙH›ÝH[™ÛXÚÈX›\Ú‰Îˆ	öa6)È6*¶b6+6+È6)v-v+ö)ö,v)ö*ˆ6*6.v+Ëˆ6(ö-¶`H6ava6)ö+v.6*H6)v-v+ö)ö,H6)ö+¶*¶b¶)ö,vb¶*H6*öaH6)ö-¶.¶-È6a¶-6,K‰Ëˆ	ÓU‘H‘Q‰Îˆ	öav,v+6.H6av*6)ö-6,IËˆ	Ô›Û˜XÚÈ]™IÎˆ	ö)ö,ö*¶,v+6)ö.H6)öa6a¶,ö+¶*H6)öa6av*6)ö-6,v*IËˆ	Ô™\ÝÜ™HY]Ü‰Îˆ	ö)ö,ö*¶.v)ö+ö*H6)va6bH6)öa6av+v,v,IËˆ	Ñ[]H\˜Ú]™IÎˆ	ö+v,6`H6)öa6(ö,v-6b¶`IËˆ	Ô›Ú™XÝ\ÝÜžIÎˆ	ö,ö+6a6)öa6av-6,vb6.IËˆ	Ó\ÝLX[X[Ø]™\Ëˆ]]ÜØ]™HÙ\È›ÝÜ™X]H\ÝÜžH[šY\Ë‰Îˆ	ö(¶+¶,HL6.vava6b¶)ö*ˆ6+v`v.6b¶+öb6b¶*Kˆ6)öa6+v`v.6)öa6*¶a6`¶)ö)¶bˆ6a6)È6b¶a¶-6)ˆ6,ö+6a6)öbË‰Ëˆ	Ô™\ÝÜ™H™\œÚ[Û‰Îˆ	ö)ö,ö*¶.v)ö+ö*H6)öa6)v-v+ö)ö,IËˆ	Ó›ÈX[X[Ø]™H\ÝÜžHY]ˆÛXÚÈØ]™HÈÜ™X]HHš\œÝ™\ÝÜ™HÚ[‰Îˆ	öa6)È6b¶b6+6+È6,ö+6a6+v`v.6b¶+öb6bˆ6*6.v+Ëˆ6)ö-¶.¶-È6+v`v.6a6)va¶-6)ö(H6(öb6a6a¶`¶-ö*H6)ö,ö*¶.v)ö+ö*K‰Ëˆ	ÔYÙ\ÉÎˆ	ö)öa6-v`v+v)ö*‰Ëˆ	ÒÓQIÎˆ	ö)öa6,v)¶b¶,öb¶*IËˆ	ÒQS‰Îˆ	öav+¶`vb‰Ëˆ	Ñ[™Û\Ú	Îˆ	ö)öa6)va¶+6a6b¶,¶b¶*IËˆ	Õ[›ØÚÈ][[[™ÝX[	Îˆ	ö`v*¶+H6*¶.v+ö+È6)öa6a6.¶)ö*‰Ëˆ	ÔYÙHÑSÉÎˆ	ÔÑSÈ6)öa6-v`v+v*IËˆ	ÑÛØ˜[XY\ˆ	ˆ›ÛÝ\‰Îˆ	ö)öa6,v(ö,È6b6)öa6*¶,6b¶b¶a6)öa6.v)öav)öa‰Ëˆ	ÒXY\‰Îˆ	ö)öa6,v(ö,ÉËˆ	Ñ[˜X›Y	Îˆ	öav`v.vdva	Ëˆ	ÔÝXÚÞIÎˆ	ö*ö)ö*6*‰Ëˆ	Ó[Øš[HY[IÎˆ	ö`¶)ö)¶av*H6)öa6+6b6)öa	Ëˆ	ÔÚÝÈÕH]Û‰Îˆ	ö)v.6aö)ö,H6,¶,H6)öa6+ö.vb6*H6a6a6)v+6,v)ö(IËˆ	Ó˜]šYØ][ÛˆÝ[IÎˆ	öa¶av-È6)öa6*¶a¶`¶a	Ëˆ	Ó[šÈØ\	Îˆ	ö*¶*6)ö.v+È6)öa6,vb6)ö*6-ÉËˆ	Ðœ˜[™	Îˆ	ö+v+6aH6)öa6.va6)öav*IËˆ	Ó[šÜÈ	Îˆ	ö+v+6aH6)öa6,vb6)ö*6-ÉËˆ	Ñ›ÛÝ\‰Îˆ	ö)öa6*¶,6b¶b¶a	Ëˆ	ÔYÙH[šÜÉÎˆ	ö,vb6)ö*6-È6)öa6-v`v+v)ö*‰Ëˆ	ÒXY\ˆ[™›ÛÝ\ˆ\™HÛØ˜[XÜ›ÜÜÈ]™\žHYÙH[™\™H[˜ÛYY[ˆ™]šY]Ë’T^Ü[™X›\Ú‰Îˆ	ö)öa6,v(ö,È6b6)öa6*¶,6b¶b¶a6.v)öav)öaˆ6a6`öa6)öa6-v`v+v)ö*ˆ6b6b¶.6aö,v)öaˆ6`vbˆ6)öa6av.v)öb¶a¶*H6b6*¶-v+öb¶,H’T6b6)öa6a¶-6,K‰Ëˆ	ÔÚ]H^\šY[˜ÙIÎˆ	ö*¶+6,v*6*H6)öa6avb6`¶.IËˆ	ÔØÜ›Û›ÙÜ™\ÜÉÎˆ	ö*¶`¶+öaH6)öa6*¶av,vb¶,IËˆ	Ð˜XÚÈÈÜ	Îˆ	ö)öa6.vb6+ö*H6a6a6(ö.va6bIËˆ	ÐÛÛÚÚYHÈš]˜XÞH›ÝXÙIÎˆ	ö)v-6.v)ö,H6ava6`v)ö*ˆ6)öa6)ö,v*¶*6)ö-ÈÈ6)öa6+¶-vb6-vb¶*IËˆ	ÓX\šÙ][™È	ˆ\ØÛÝ™\žIÎˆ	ö)öa6*¶,öb6b¶`ˆ6b6)öa6)ö`ö*¶-6)ö`IËˆ	Ð[››Ý[˜Ù[Y[	Îˆ	ö)v.va6)öa‰Ëˆ	ÔÜ\	Îˆ	öa¶)ö`v,6*H6ava¶*6*ö`¶*IËˆ	ÔÚ]HÙX\˜Ú	Îˆ	ö*6+v*È6)öa6avb6`¶.IËˆ	ÑØ[\žHYÚ›Þ	Îˆ	ö.v)ö,v-ˆ6av.v,v-ˆ6)öa6-vb6,IËˆ	Ñ›Ø][™ÈÕIÎˆ	ö,¶,H6+ö.vb6*H6.v)ö)¶aIËˆ	ÔÚ\™HÛÛÉÎˆ	ö(ö+öb6)ö*ˆ6)öa6av-6)ö,v`ö*IËˆ	Ô™K\X›\Ú]Y]	Îˆ	ö*¶+ö`¶b¶`ˆ6`¶*6a6)öa6a¶-6,IËˆ	Ô™\ÝÜ™H™XÛÝ™\žHÛ˜\ÚÝ	Îˆ	ö)ö,ö*¶.v)ö+ö*H6a6`¶-ö*H6)öa6)ö,ö*¶,v+ö)ö+ÉËˆ	ÑTHÝXÝ\™Y]H\ÈÙ[™\˜]Y]]ÛX]XØ[Hœ›ÛHXØÛÜ™[Ûˆ[[Y[È\š[™È™]šY]Ë^Ü[™X›\Ú‰Îˆ	öb¶*¶aH6)va¶-6)ö(H6*6b¶)öa¶)ö*ˆTH6)öa6ava¶.6av*H6*¶a6`¶)ö)¶b¶)öbÈ6avaˆ6.va¶)ö-v,HXØÛÜ™[Ûˆ6(ö*öa¶)ö(H6)öa6av.v)öb¶a¶*H6b6)öa6*¶-v+öb¶,H6b6)öa6a¶-6,K‰Ëˆ	Ô›ÙXÝ[Ûˆ[YÜ˜][ÛœÉÎˆ	ö*¶`ö)öava6)ö*ˆ6)öa6)va¶*¶)ö+	Ëˆ	ÓÜ™Ø[š^˜][ÛˆØÚ[XIÎˆ	öav+¶-ö-È6)öa6av)6,ö,ö*IËˆ	ÓØØ[\Ú[™\ÜÈØÚ[XIÎˆ	öav+¶-ö-È6)öa6a¶-6)ö-È6)öa6av+va6b‰Ëˆ	ÓXZ[[˜[˜ÙH[ÙIÎˆ	öb6-¶.H6)öa6-vb¶)öa¶*IËˆ	ÑÛØ˜[Ý\ÝÛHÔÔÉÎˆ	ÐÔÔÈ6av+¶-v-H6.v)öaIËˆ	Ñ^˜H›Ø›ÝË[\ÉÎˆ	ö`¶b6)ö.v+È›Ø›ÝË6)v-¶)ö`vb¶*IËˆ	ÑÛØ˜[[YIÎˆ	ö)öa6av.6aö,H6)öa6.v)öaIËˆ	Ñ›Û	Îˆ	ö)öa6+¶-ÉËˆ	ÕÚY	Îˆ	ö)öa6.v,v-‰Ëˆ	Ô˜Y]\ÉÎˆ	ö)öa6)ö,ö*¶+ö)ö,v*IËˆ	ÔÜXÚ[™ÉÎˆ	ö)öa6*¶*6)ö.v+ÉËˆ	Ð\HÈYÙIÎˆ	ö*¶-ö*6b¶`ˆ6.va6bH6)öa6-v`v+v*IËˆ	Ð\H[YÙ\ÉÎˆ	ö*¶-ö*6b¶`ˆ6.va6bH6`öa6)öa6-v`v+v)ö*‰Ëˆ	ÔÚ]HÑSÈ	ˆœ˜[™[™ÉÎˆ	ÔÑSÈ6)öa6avb6`¶.H6b6)öa6.va6)öav*IËˆ	ÔYÙH[\]\ÉÎˆ	ö`¶b6)öa6*6)öa6-v`v+v)ö*‰Ëˆ	Õ\ÙH[\]IÎˆ	ö)ö,ö*¶+¶+ö)öaH6)öa6`¶)öa6*	Ëˆ	ÔÙXÝ[Ûˆ[\]\ÉÎˆ	ö`¶b6)öa6*6)öa6(ö`¶,ö)öaIËˆ	Ó^HÙXÝ[ÛœÉÎˆ	ö(ö`¶,ö)öavb‰Ëˆ	ÔØ]™HÙ[XÝY	Îˆ	ö+v`v.6)öa6av+v+ö+ÉËˆ	ÓØY[™È[\]\ø )‰Îˆ	ö+6)ö,vcH6*¶+vavb¶a6)öa6`¶b6)öa6*8 )‰Ëˆ	Ó›ÈØ]™YÙXÝ[ÛœÈY]‰Îˆ	öa6)È6*¶b6+6+È6(ö`¶,ö)öaH6av+v`vb6.6*H6*6.v+Ë‰Ëˆ	ÐY[[Y[	Îˆ	ö)v-¶)ö`v*H6.va¶-v,IËˆ	Ó^Y\œÉÎˆ	ö)öa6-ö*6`¶)ö*‰Ëˆ	ÐRHÙXœÚ]HZ[\‰Îˆ	öava¶-6)ˆ6)öa6avb6)ö`¶.H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ñ^Ü	Îˆ	ö*¶-v+öb¶,IËˆ	Ñ\XØ]IÎˆ	ö*¶`ö,v)ö,IËˆ	ÐÛÛZ[™\ˆÈÜ›Ý\	Îˆ	ö+v)öb6b¶*HÈ6av+6avb6.v*IËˆ	ÊÈ™]ÈÛÛZ[™\‰Îˆ	ÊÈ6+v)öb6b¶*H6+6+öb¶+ö*IËˆ	Ó›ÈÛÛZ[™\‰Îˆ	ö*6+öb6aˆ6+v)öb6b¶*IËˆ	Ó^[Ý]	Îˆ	ö)öa6*¶+¶-öb¶-ÉËˆ	ÔÝXÚÉÎˆ	ö*¶`ö+öb¶,ÉËˆ	Ô›ÝÉÎˆ	ö-v`IËˆ	Ð[YÛ‰Îˆ	ö)öa6av+v)ö,6)ö*IËˆ	ÔÝ\	Îˆ	ö)öa6*6+ö)öb¶*IËˆ	ÐÙ[\‰Îˆ	ö)öa6b6,ö-ÉËˆ	Ñ[™	Îˆ	ö)öa6a¶aö)öb¶*IËˆ	ÔÝ™]Ú	Îˆ	ö*¶av+öb¶+ÉËˆ	ÑØ\	Îˆ	ö)öa6`v+6b6*IËˆ	ÔY[™ÉÎˆ	ö)öa6+v-6b	Ëˆ	Ð˜XÚÙÜ›Ý[™	Îˆ	ö)öa6+¶a6`vb¶*IËˆ	Ð›Ü™\‰Îˆ	ö)öa6+v+ÉËˆ	Ó›ÈÚYÝÉÎˆ	ö*6+öb6aˆ6.6a	Ëˆ	ÔÛX[ÚYÝÉÎˆ	ö.6a6-v.¶b¶,IËˆ	ÓYY][HÚYÝÉÎˆ	ö.6a6av*¶b6,ö-ÉËˆ	Ó\™ÙHÚYÝÉÎˆ	ö.6a6`ö*6b¶,IËˆ	ÖÚYÝÉÎˆ	ö.6a6`ö*6b¶,H6+6+ö)öbÉËˆ	ÐÛÛZ[™\ˆÛÛ[[‰Îˆ	ö.vavb6+È6)öa6+v)öb6b¶*IËˆ	ÔÜ[‰Îˆ	ö)öa6)öav*¶+ö)ö+ÉËˆ	Ñ[]HÛÛZ[™\ˆ	ˆ[™Ü›Ý\	Îˆ	ö+v,6`H6)öa6+v)öb6b¶*H6b6`v`È6)öa6*¶+6avb¶.IËˆ	Ô™]\ØX›HÞ[X›ÛÉÎˆ	ö,vavb6,ˆ6`¶)ö*6a6*H6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaIËˆ	Ñ]XÚ	Îˆ	ö`v-va	Ëˆ	ÐÜ™X]HÞ[X›Û	Îˆ	ö)va¶-6)ö(H6,vav,‰Ëˆ	Ó›ÈÞ[X›ÛÈY]ˆÜ™X]HÛ™Hœ›ÛH\È[[Y[‰Îˆ	öa6)È6*¶b6+6+È6,vavb6,ˆ6*6.v+Ëˆ6(öa¶-6)ˆ6b6)ö+v+ö)öbÈ6avaˆ6aö,6)È6)öa6.va¶-v,K‰Ëˆ	ÓXœ˜\žIÎˆ	ö)öa6av`ö*¶*6*IËˆ	Õ\ØY	Îˆ	ö,v`v.IËˆ	Ô™\ÜÛœÚ]™H^[Ý]	Îˆ	ö*¶+¶-öb¶-È6av*¶+6)öb6*	Ëˆ	ÓX^ÚY	Îˆ	ö(ö`¶-vbH6.v,v-ˆ	Ëˆ	ÓÜ™\‰Îˆ	ö)öa6*¶,v*¶b¶*	Ëˆ	Ñ[[Y[ÜÚ][Û‰Îˆ	öavb6-¶.H6)öa6.va¶-v,IËˆ	Ð]]ÉÎˆ	ö*¶a6`¶)ö)¶b‰Ëˆ	ÐÛÛ[[ˆÜ[‰Îˆ	ö)öav*¶+ö)ö+È6)öa6.vavb6+ÉËˆ	ÔÚ^™IÎˆ	ö)öa6+v+6aIËˆ	ÕÙZYÚ	Îˆ	ö)öa6b6,¶a‰Ëˆ	Õ^ÛÛÜ‰Îˆ	öa6b6aˆ6)öa6a¶-IËˆ	Ð[YÛ›Y[	Îˆ	ö)öa6av+v)ö,6)ö*IËˆ	ÓY	Îˆ	öb¶,ö)ö,IËˆ	ÔšYÚ	Îˆ	öb¶avb¶a‰Ëˆ	Ó[™HZYÚ	Îˆ	ö)ö,v*¶`v)ö.H6)öa6,ö-ö,IËˆ	Ó]\ˆÜXÚ[™ÉÎˆ	ö*¶*6)ö.v+È6)öa6(ö+v,v`IËˆ	ÑY™™XÝÉÎˆ	ö)öa6*¶(ö*öb¶,v)ö*‰Ëˆ	ÓÜXÚ]H	IÎˆ	ö)öa6-6`v)ö`vb¶*H	IËˆ	Ô›Ý]H0¬	Îˆ	ö)öa6*¶+öb6b¶,H0¬	Ëˆ	Ð›Ü™\ˆÚY	Îˆ	ö.v,v-ˆ6)öa6+v+ÉËˆ	Ð›Ü™\ˆÝ[IÎˆ	öa¶av-È6)öa6+v+ÉËˆ	ÔÛÛY	Îˆ	öav*¶-va	Ëˆ	Ñ\ÚY	Îˆ	öav*¶`¶-ö.IËˆ	ÑÝY	Îˆ	öava¶`¶-ÉËˆ	Ð›Ü™\ˆÛÛÜ‰Îˆ	öa6b6aˆ6)öa6+v+ÉËˆ	ÔÚYÝÉÎˆ	ö)öa6.6a	Ëˆ	Ó›Û™IÎˆ	öa6)È6-6b¶(IËˆ	ÔÛX[	Îˆ	ö-v.¶b¶,IËˆ	ÓYY][IÎˆ	öav*¶b6,ö-ÉËˆ	Ó\™ÙIÎˆ	ö`ö*6b¶,IËˆ	Ö	Îˆ	ö`ö*6b¶,H6+6+ö)öbÉËˆ	Ñ[˜[˜ÙH[š[X][Û‰Îˆ	ö+v,v`ö*H6)öa6+ö+¶b6a	Ëˆ	Ð[š[X][Û‰Îˆ	ö)öa6+v,v`ö*IËˆ	Ñ˜YIÎˆ	ö*¶a6)ö-6b‰Ëˆ	Ñ˜YH\	Îˆ	ö*¶a6)ö-6bˆ6a6a6(ö.va6bIËˆ	Ñ˜YHÝÛ‰Îˆ	ö*¶a6)ö-6bˆ6a6a6(ö,ö`va	Ëˆ	Ñ˜YHY	Îˆ	ö*¶a6)ö-6bˆ6a6a6b¶,ö)ö,IËˆ	Ñ˜YHšYÚ	Îˆ	ö*¶a6)ö-6bˆ6a6a6b¶avb¶a‰Ëˆ	Ö›ÛÛH[‰Îˆ	ö*¶`ö*6b¶,H6a6a6+ö)ö+¶a	Ëˆ	Ö›ÛÛHÝ]	Îˆ	ö*¶-v.¶b¶,H6a6a6+¶)ö,v+	Ëˆ	Ñ\˜][Ûˆ\ÉÎˆ	ö)öa6av+ö*H\ÉËˆ	Ñ[^H\ÉÎˆ	ö)öa6*¶(ö+¶b¶,H\ÉËˆ	Ñ\Ý[˜ÙH	Îˆ	ö)öa6av,ö)ö`v*H	Ëˆ	ÒÝ™\‰Îˆ	ö)öa6*¶+vb6b¶aIËˆ	ÔØØ[IÎˆ	ö)öa6av`¶b¶)ö,ÉËˆ	Õ^	Îˆ	ö)öa6a¶-IËˆ	ÕÚY	IÎˆ	ö)öa6.v,v-ˆ	IËˆ	Ñ[]H[[Y[	Îˆ	ö+v,6`H6)öa6.va¶-v,IËˆ	ÔÙXÝ[Ûˆ[˜ÚÜˆÈQ	Îˆ	öav,v,ö)ö*H6)öa6`¶,öaHÈQ	Ëˆ	ÔÙXÝ[Ûˆ^[Ý]	Îˆ	ö*¶+¶-öb¶-È6)öa6`¶,öaIËˆ	ÔÙXÝ[Ûˆš\ÝX[ÉÎˆ	öav.6aö,H6)öa6`¶,öaIËˆ	Ñœ›ÛIÎˆ	öava‰Ëˆ	ÕÉÎˆ	ö)va6bIËˆ	ÑÜ˜YY[[™ÛIÎˆ	ö,¶)öb6b¶*H6)öa6*¶+ö,v+	Ëˆ	Ð˜XÚÙÜ›Ý[™[XYÙHT“	Îˆ	ö,v)ö*6-È6-vb6,v*H6)öa6+¶a6`vb¶*IËˆ	ÔÜÚ][Û‰Îˆ	ö)öa6avb6-¶.IËˆ	ÕÜ	Îˆ	ö(ö.va6bIËˆ	Ð›ÝÛIÎˆ	ö(ö,ö`va	Ëˆ	ÐÛÝ™\‰Îˆ	ö*¶.¶-öb¶*IËˆ	ÐÛÛZ[‰Îˆ	ö)ö+v*¶b6)ö(IËˆ	ÓÝ™\›^IÎˆ	ö-ö*6`¶*H6*¶.¶-öb¶*IËˆ	ÓÜXÚ]IÎˆ	ö)öa6-6`v)ö`vb¶*IËˆ	ÓZ[ˆZYÚ	Îˆ	ö(ö`¶a6)ö,v*¶`v)ö.IËˆ	ÐÛÜ›™\ˆ˜Y]\ÉÎˆ	ö)ö,ö*¶+ö)ö,v*H6)öa6,¶b6)öb¶)ÉËˆ	Õ™\XØ[Y[™ÉÎˆ	ö+v-6b6.vavb6+öb‰Ëˆ	ÒÜš^›Û[Y[™ÉÎˆ	ö+v-6b6(ö`v`¶b‰Ëˆ	Ñ›Ü›HZ[\‰Îˆ	öava¶-6)ˆ6)öa6a¶av)ö,6+	Ëˆ	Ô™\Ù]	Îˆ	ö)v.v)ö+ö*H6-¶*6-ÉËˆ	Õ^\™XIÎˆ	öava¶-ö`¶*H6a¶-IËˆ	ÔÙ[XÝ	Îˆ	ö`¶)ö)¶av*H6)ö+¶*¶b¶)ö,IËˆ	ÐÚXÚØ›Þ	Îˆ	öav,v*6.H6)ö+¶*¶b¶)ö,IËˆ	ÐY\ˆÝX›Z]	Îˆ	ö*6.v+È6)öa6)v,v,ö)öa	Ëˆ	ÔÚÝÈÝXØÙ\ÜÈY\ÜØYÙIÎˆ	ö)v.6aö)ö,H6,v,ö)öa6*H6a¶+6)ö+IËˆ	Ô™Y\™XÝÈ[šË^[ÝHYÙHÈT“	Îˆ	ö)v.v)ö+ö*H6)öa6*¶b6+6b¶aÈ6a6-v`v+v*H6)öa6-6`ö,HÈ6,v)ö*6-ÉËˆ	Ô™Y\™XÝ\™Ù]	Îˆ	öaö+ö`H6)v.v)ö+ö*H6)öa6*¶b6+6b¶aÉËˆ	ÔÝXØÙ\ÜÈY\ÜØYÙIÎˆ	ö,v,ö)öa6*H6)öa6a¶+6)ö+IËˆ	ÕÙXœÚ]H˜[YIÎˆ	ö)ö,öaH6)öa6avb6`¶.IËˆ	Õ\HHÛÛ[X[™YÙHÜˆÙXÝ[Û¸ )‰Îˆ	ö)ö`ö*¶*6(öav,v)öbÈ6(öb6-v`v+v*H6(öb6`¶,öav)öbø )‰Ëˆ	ÐÛY[ÜˆÛÛ\[žIÎˆ	ö)öa6.vavb¶a6(öb6)öa6-6,v`ö*IËˆ	Ô™[X\ÙH›ÝH
+Ü[Û˜[
+NˆÚ]Ú[™ÙYÉÎˆ	öava6)ö+v.6*H6)öa6)v-v+ö)ö,H
+6)ö+¶*¶b¶)ö,vbŠNˆ6av)È6)öa6,6bˆ6*¶.¶b¶,v'ÉËˆ	ÔYÙH˜[YIÎˆ	ö)ö,öaH6)öa6-v`v+v*IËˆ	ÐÝ\ÝÛHÑSÈ]H
+Ü[Û˜[
+IÎˆ	ö.va¶b6)öaˆÑSÈ6av+¶-v-H
+6)ö+¶*¶b¶)ö,vbŠIËˆ	ÐÝ\ÝÛHY]H\ØÜš\[Ûˆ
+Ü[Û˜[
+IÎˆ	öb6-v`H6avb¶*¶)È6av+¶-v-H
+6)ö+¶*¶b¶)ö,vbŠIËˆ	ÔÛØÚX[Ú\™H[XYÙHT“	Îˆ	ö,v)ö*6-È6-vb6,v*H6)öa6av-6)ö,v`ö*H6)öa6)ö+6*¶av)ö.vb¶*IËˆ	ÐØ[›ÛšXØ[T“Ý™\œšYH
+Ü[Û˜[
+IÎˆ	ö*¶+6)öb6,ˆ6)öa6,v)ö*6-È6)öa6(ö,ö)ö,öbˆ
+6)ö+¶*¶b¶)ö,vbŠIËˆ	Ðœ˜[™^
+›[šÈHÚ]H˜[YJIÎˆ	öa¶-H6)öa6.va6)öav*H
+6`v)ö,v.ˆH6)ö,öaH6)öa6avb6`¶.JIËˆ	ÓÙÛÈ[XYÙHT“
+Ü[Û˜[
+IÎˆ	ö,v)ö*6-È6-vb6,v*H6)öa6-6.v)ö,H
+6)ö+¶*¶b¶)ö,vbŠIËˆ	ÐÕHX™[	Îˆ	ö*¶,öavb¶*HÕIËˆ	Ñ›ÛÝ\ˆ^
+›[šÈH]]ÛX]XÈÛÜ\šYÚ
+IÎˆ	öa¶-H6)öa6*¶,6b¶b¶a
+6`v)ö,v.ˆH6+v`¶b6`ˆ6*¶a6`¶)ö)¶b¶*JIËˆ	Ôš]˜XÞH›ÝXÙH^	Îˆ	öa¶-H6)v-6.v)ö,H6)öa6+¶-vb6-vb¶*IËˆ	ÐXØÙ\]ÛˆX™[	Îˆ	ö*¶,öavb¶*H6,¶,H6)öa6`¶*6b6a	Ëˆ	Ð[››Ý[˜Ù[Y[^	Îˆ	öa¶-H6)öa6)v.va6)öa‰Ëˆ	Ó[šÈX™[	Îˆ	ö*¶,öavb¶*H6)öa6,v)ö*6-ÉËˆ	ÔÜ\]IÎˆ	ö.va¶b6)öaˆ6)öa6a¶)ö`v,6*H6)öa6ava¶*6*ö`¶*IËˆ	ÔÜ\Y\ÜØYÙIÎˆ	ö,v,ö)öa6*H6)öa6a¶)ö`v,6*H6)öa6ava¶*6*ö`¶*IËˆ	Ð]Û‰Îˆ	ö,¶,IËˆ	Ð]Ûˆ[šÉÎˆ	ö,v)ö*6-È6)öa6,¶,IËˆ	Ñ›Ø][™ÈÕHX™[	Îˆ	ö*¶,öavb¶*HÕH6)öa6.v)ö)¶aIËˆ	ÐÕH[šÉÎˆ	ö,v)ö*6-ÈÕIËˆ	Ô]\ÚX›HÛXZ[‰Îˆ	öa¶-ö)ö`ˆ]\ÚX›IËˆ	ÑÛÛÙÛH™\šYšXØ][ÛˆÚÙ[‰Îˆ	ö,vav,ˆ6*¶+v`¶`ˆÛÛÙÛIËˆ	Ðš[™È™\šYšXØ][ÛˆÚÙ[‰Îˆ	ö,vav,ˆ6*¶+v`¶`ˆš[™ÉËˆ	ÓÜ™Ø[š^˜][ÛˆÈ\Ú[™\ÜÈ˜[YIÎˆ	ö)ö,öaH6)öa6av)6,ö,ö*HÈ6)öa6a¶-6)ö-ÉËˆ	ÓÜ™Ø[š^˜][ÛˆT“	Îˆ	ö,v)ö*6-È6)öa6av)6,ö,ö*IËˆ	ÓÙÛÈT“	Îˆ	ö,v)ö*6-È6)öa6-6.v)ö,IËˆ	Ð\Ú[™\ÜÈY™\ÜÉÎˆ	ö.va¶b6)öaˆ6)öa6a¶-6)ö-ÉËˆ	ÓXZ[[˜[˜ÙH]IÎˆ	ö.va¶b6)öaˆ6)öa6-vb¶)öa¶*IËˆ	ÓXZ[[˜[˜ÙHY\ÜØYÙIÎˆ	ö,v,ö)öa6*H6)öa6-vb¶)öa¶*IËˆ	ÑY˜][ÑSÈ]IÎˆ	ö.va¶b6)öaˆÑSÈ6)öa6)ö`v*¶,v)ö-¶b‰Ëˆ	ÑY˜][Y]H\ØÜš\[Û‰Îˆ	öb6-v`H6)öa6avb¶*¶)È6)öa6)ö`v*¶,v)ö-¶b‰Ëˆ	ÒÙ^]ÛÜ™ËÛÛ[XHÙ\\˜]Y	Îˆ	ö)öa6`öa6av)ö*ˆ6)öa6av`v*¶)ö+vb¶*v#6av`v-vb6a6*H6*6`vb6)ö-va	Ëˆ	Ñ˜]šXÛÛˆ[XYÙHT“	Îˆ	ö,v)ö*6-È6(öb¶`¶b6a¶*H6)öa6avb6`¶.IËˆ	ÓX™[	Îˆ	ö)öa6*¶,öavb¶*IËˆ	ÔXÙZÛ\‰Îˆ	ö)öa6a¶-H6)öa6av)6`¶*‰Ëˆ	ÐÛÝY›Ú™XÝÉÎˆ	ö)öa6av-6)ö,vb¶.H6)öa6,ö+v)ö*6b¶*IËˆ	Ñ\ÚÝÜ™]šY]ÉÎˆ	öav.v)öb¶a¶*H6,ö-ö+H6)öa6av`ö*¶*	Ëˆ	ÕX›]™]šY]ÉÎˆ	öav.v)öb¶a¶*H6)öa6+6aö)ö,ˆ6)öa6a6b6+vb‰Ëˆ	Ó[Øš[H™]šY]ÉÎˆ	öav.v)öb¶a¶*H6)öa6+6b6)öa	Ëˆ	Õ[™ÉÎˆ	ö*¶,v)ö+6.IËˆ	Ô™YÉÎˆ	ö)v.v)ö+ö*IËˆ	ÕÙXœÚ]HZ[\ˆŒH][˜ÚÙ[\‰Îˆ	öav,v`ö,ˆ6)v-öa6)ö`ˆ6ava¶-6)ˆ6)öa6avb6)ö`¶.HŒIËˆ	Ô[œË\ØYÙH[™š[[™ÉÎˆ	ö)öa6+¶-ö-È6b6)öa6)ö,ö*¶+¶+ö)öaH6b6)öa6`vb6*¶,v*IËˆ	ÓÜ\˜][ÛœË˜XÚÝ\È[™^ÜÉÎˆ	ö)öa6.vava6b¶)ö*ˆ6b6)öa6a¶,ö+ˆ6)öa6)ö+v*¶b¶)ö-öb¶*H6b6)öa6*¶-v+öb¶,IËˆ	ÐÛY[[]™\žK\›Ý˜[[™[™Ù™‰Îˆ	ö*¶,öa6b¶aH6)öa6.vavb¶a6b6)öa6avb6)ö`v`¶*H6b6)öa6*¶,öa6b¶aH6)öa6a¶aö)ö)¶b‰Ëˆ	Ô›Ú™XÝ\ÝÜžIÎˆ	ö,ö+6a6)öa6av-6,vb6.IËˆ	Ñ\XØ]H›Ú™XÝ	Îˆ	ö*¶`ö,v)ö,H6)öa6av-6,vb6.IËˆ	Õ™\šYžH][™^š[^\ÝÈ[ˆX›\ÚYÝÜ˜YÙIÎˆ	ö*¶+v`¶`ˆ6avaˆ6b6+6b6+È[™^š[6`vbˆ6)öa6*¶+¶,¶b¶aˆ6)öa6ava¶-6b6,IËˆ	Ô™[[Ý™HX›XÈÙXœÚ]IÎˆ	ö)v,¶)öa6*H6)öa6avb6`¶.H6)öa6.v)öaIËˆ	Õ\ÙH[XYÙIÎˆ	ö)ö,ö*¶+¶+ö)öaH6)öa6-vb6,v*IËˆ	Ô™\ÝÜ™H\È™\œÚ[Û‰Îˆ	ö)ö,ö*¶.v)ö+ö*H6aö,6)È6)öa6)v-v+ö)ö,IËˆ	ÐYYÙIÎˆ	ö)v-¶)ö`v*H6-v`v+v*IËˆ	Ó[Ý™HYÙH\	Îˆ	ö*¶+v,vb¶`È6)öa6-v`v+v*H6a6a6(ö.va6bIËˆ	Õ[™Ü›Ý\ÛÛZ[™\‰Îˆ	ö`v`È6*¶+6avb¶.H6)öa6+v)öb6b¶*IËˆ	Ó[Ý™HYÙHÝÛ‰Îˆ	ö*¶+v,vb¶`È6)öa6-v`v+v*H6a6a6(ö,ö`va	Ëˆ	Ñ\XØ]HYÙIÎˆ	ö*¶`ö,v)ö,H6)öa6-v`v+v*IËˆ	Ñ[]HYÙIÎˆ	ö+v,6`H6)öa6-v`v+v*IËˆ	Ñ[]H[\]IÎˆ	ö+v,6`H6)öa6`¶)öa6*	Ëˆ	Ó[Ý™H[[Y[\	Îˆ	ö*¶+v,vb¶`È6)öa6.va¶-v,H6a6a6(ö.va6bIËˆ	Ó[Ý™H[[Y[ÝÛ‰Îˆ	ö*¶+v,vb¶`È6)öa6.va¶-v,H6a6a6(ö,ö`va	Ëˆ	Ñ[]HÞ[X›Û	Îˆ	ö+v,6`H6)öa6,vav,‰Ëˆ	Ó[Ý™H\	Îˆ	ö*¶+v,vb¶`È6a6(ö.va6bIËˆ	Ó[Ý™HÝÛ‰Îˆ	ö*¶+v,vb¶`È6a6(ö,ö`va	Ëˆ	Ñ[]HšY[	Îˆ	ö+v,6`H6)öa6+v`¶a	Ë‚ˆ	ÐÛÛ[YIÎˆ	öav*¶)ö*6.v*IËˆ	Ð\˜XšXÉÎˆ	ö)öa6.v,v*6b¶*IË	ÔÝÙY\Ú	Îˆ	ö)öa6,öb6b¶+öb¶*IËˆ	ÔÝYHÛX\\ˆÚ]RK\ÝÙ\™YÛÛÉÎˆ	ö)ö+ö,v,È6*6,6`ö)ö(H6(ö`ö*6,H6*6)ö,ö*¶+¶+ö)öaH6(ö+öb6)ö*ˆ6av+ö.vb6av*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐÜ™X]HÝ[™Ý]ÕœÈ[™ÛÝ™\ˆ]\œÉÎˆ	ö(öa¶-6)ˆ6,öb¶,v)öbÈ6,6)ö*¶b¶*H6b6+¶-ö)ö*6)ö*ˆ6*¶.¶-öb¶*H6avavb¶,¶*IËˆ	Ð›ÛÜÝ›ÙXÝ]š]HÚ]RH]]ÛX][Û‰Îˆ	ö.v,¶dv,ˆ6)öa6)va¶*¶)ö+6b¶*H6*6(ö*¶av*¶*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÔØØ[H[Ý\ˆ\Ú[™\ÜÈÚ]RHÛÛ][ÛœÉÎˆ	ö-öb6dv,H6(ö.vav)öa6`È6*6)ö,ö*¶+¶+ö)öaH6+va6b6a6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ñ[]™\ˆ[Ü™H›ÜˆÛY[Ë˜\Ý\‰Îˆ	ö(öa¶+6,ˆ6)öa6av,¶b¶+È6a6a6.vava6)ö(H6*6,ö,v.v*H6(ö`ö*6,IËˆ	ÐÜ™X]HH›Ù™\ÜÚ[Û˜[Õ‰Îˆ	ö)va¶-6)ö(H6,öb¶,v*H6,6)ö*¶b¶*H6)ö+v*¶,v)ö`vb¶*IËˆ	ÕÜš]H\XÛ\È[™ÛÛ[	Îˆ	ö`ö*¶)ö*6*H6)öa6av`¶)öa6)ö*ˆ6b6)öa6av+v*¶b6bIËˆ	Õ˜[œÛ]HØÝ[Y[ÉÎˆ	ö*¶,v+6av*H6)öa6av,ö*¶a¶+ö)ö*‰Ëˆ	ÔÝYH[Ü™HY™™XÝ]™[IÎˆ	ö)öa6+ö,v)ö,ö*H6*6`v.v)öa6b¶*H6(ö`ö*6,IËˆ	Ð[˜[^™H[™Ý[[X\š^™HØÝ[Y[ÉÎˆ	ö*¶+va6b¶a6)öa6av,ö*¶a¶+ö)ö*ˆ6b6*¶a6+¶b¶-vaö)ÉËˆ	ÑÜ›ÝÈ^H\Ú[™\ÜÉÎˆ	ö*¶a¶avb¶*H6(ö.vav)öa6b‰Ëˆ	ÐÚ]Ú][ˆRH\ÜÚ\Ý[	Îˆ	ö)öa6+ö,v+ö-6*H6av.H6av,ö)ö.v+È6,6`ö)ö(H6)ö-v-öa¶)ö.vb‰Ëˆ	ÕÜš]HÛÝ™\ˆ]\œÉÎˆ	ö`ö*¶)ö*6*H6+¶-ö)ö*6)ö*ˆ6)öa6*¶.¶-öb¶*IËˆ	ÐRH\ØYÙH[˜[]XÜÉÎˆ	ö*¶+va6b¶a6)ö*ˆ6)ö,ö*¶+¶+ö)öaH6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Õ˜XÚÈ[Ý\ˆRHÛÛœÝ[\[ÛˆXÜ›ÜÜÈ[ÛÛË‰Îˆ	ö*¶)ö*6.H6)ö,ö*¶aöa6)ö`ö`È6a6a6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6.v*6,H6+6avb¶.H6)öa6(ö+öb6)ö*‹‰Ëˆ	Ó›ÈRH\ØYÙHY]	Îˆ	öa6)È6b¶b6+6+È6)ö,ö*¶+¶+ö)öaH6a6a6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6*6.v+ÉËˆ	ÔÝ\\Ú[™ÈRHÛÛÈ[™[Ý\ˆ\ØYÙHÝ]ÈÚ[\X\ˆ\™K‰Îˆ	ö)ö*6+ö(È6*6)ö,ö*¶+¶+ö)öaH6(ö+öb6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6b6,ö*¶.6aö,H6)v+v-v)ö(v)ö*ˆ6)ö,ö*¶+¶+ö)öav`È6aöa¶)Ë‰Ëˆ	Õ˜XÚÈ[Ý\ˆRHÛÛœÝ[\[Û‹ÚÙ[ˆ\ØYÙK[™ÛÜÝÈXÜ›ÜÜÈ[ÛÛË‰Îˆ	ö*¶)ö*6.H6)ö,ö*¶aöa6)ö`È6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6b6)öa6,vavb6,ˆ6b6)öa6*¶`ö)öa6b¶`H6.v*6,H6+6avb¶.H6)öa6(ö+öb6)ö*‹‰Ëˆ•Ù^IÜÈÛÜÝŽˆ	ö*¶`öa6`v*H6)öa6b¶b6aIË	Ó\ÝÈ^\ÉÎˆ	ö(¶+¶,HÈ6(öb¶)öaIË	ÐžH›ÝšY\‰Îˆ	ö+v,ö*6)öa6av,¶b6dv+ÉË	ÐžHÛÛ	Îˆ	ö+v,ö*6)öa6(ö+ö)ö*IËˆ	Ò[œÝ[^X\ˆ[[YÙ[˜ÙIÎˆ	ö*¶*ö*6b¶*ˆ^X\ˆ[[YÙ[˜ÙIËˆ	ÐYÈ[Ý\ˆÛYHØÜ™Y[ˆ›ÜˆH˜\Ý\‹\[ZÙH^\šY[˜ÙK‰Îˆ	ö(ö-¶`vaÈ6)va6bH6-6)ö-6*¶`È6)öa6,v)¶b¶,öb¶*H6a6*¶+6,v*6*H6(ö,ö,v.H6*¶-6*6aÈ6)öa6*¶-ö*6b¶`¶)ö*‹‰Ëˆ	Ñ]™\ž][™È[ÝW	Ý™HÛ™HXÜ›ÜÜÈ[ÛÛÉÎˆ	ö`öa6av)È6`¶av*ˆ6*6aÈ6.v*6,H6+6avb¶.H6)öa6(ö+öb6)ö*‰Ëˆ	Ó›ÈXÝ]š]HY]	Îˆ	öa6)È6b¶b6+6+È6a¶-6)ö-È6*6.v+ÉËˆ	ÔÝ\\Ú[™ÈHÛÛÈÙYH[Ý\ˆXÝ]š]H\™IÎˆ	ö)ö*6+ö(È6*6)ö,ö*¶+¶+ö)öaH6(ö+ö)ö*H6a6*¶.6aö,H6(öa¶-6-ö*¶`È6aöa¶)ÉËˆ	Ó›ÝYšXØ][ÛœÉÎˆ	ö)öa6)v-6.v)ö,v)ö*‰Ëˆ	ÓØY[™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6*¶+vavb¶a‹‹‰Ëˆ	Ó›È›ÝYšXØ][ÛœÈY]	Îˆ	öa6)È6*¶b6+6+È6)v-6.v)ö,v)ö*ˆ6*6.v+ÉËˆ	ÐRH\ÜÚ\Ý[	Îˆ	öav,ö)ö.v+È6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ó›ÈÛÛ™\œØ][ÛœÈY]	Îˆ	öa6)È6*¶b6+6+È6av+v)ö+ö*ö)ö*ˆ6*6.v+ÉËˆ	ÒÝÈØ[ˆH[[ÝOÉÎˆ	ö`öb¶`H6b¶av`öa¶a¶bˆ6av,ö)ö.v+ö*¶`ö'ÉËˆ	Ð\ÚÈYH[ž][™ÈX›Ý][Ý\ˆÛÛÈÜˆØÝ[Y[Ë‰Îˆ	ö)ö,ö(öa6a¶bˆ6(öbˆ6-6b¶(H6.vaˆ6(ö+öb6)ö*¶`È6(öb6av,ö*¶a¶+ö)ö*¶`Ë‰Ëˆ	Ô™\^HÝ\‰Îˆ	ö)v.v)ö+ö*H6)öa6+6b6a6*IËˆ	ÐYZ[ˆ[™[	Îˆ	öa6b6+v*H6)öa6)v+ö)ö,v*IËˆ	ÔÚYÛˆÝ]	Îˆ	ö*¶,ö+6b¶a6)öa6+¶,vb6+	Ëˆ	Ñ[\ˆÈÜ[‰Îˆ	ö)ö-¶.¶-È[\ˆ6a6a6`v*¶+IËˆ	ÐRHÛÛ[X[™ÉÎˆ	ö(öb6)öav,H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Õ˜\Ú	Îˆ	ö,öa6*H6)öa6av+v,6b6`v)ö*‰Ëˆ	Ñ[]Y][\È\™HÙ\›ÜˆÌ^\È™Y›Ü™H™Z[™È\›X[™[H™[[Ý™Y‰Îˆ	ö*¶cö+v`v.6)öa6.va¶)ö-v,H6)öa6av+v,6b6`v*H6a6av+ö*HÌ6b¶b6avbö)È6`¶*6a6)v,¶)öa6*¶aö)È6a¶aö)ö)¶b¶bö)Ë‰Ëˆ	Ñ[\H˜\ÚÉÎˆ	ö)v`v,v)ö.ˆ6,öa6*H6)öa6av+v,6b6`v)ö*¶'ÉËˆ	Õ\ÈØ[››Ý™H[™Û™K‰Îˆ	öa6)È6b¶av`öaˆ6)öa6*¶,v)ö+6.H6.vaˆ6aö,6)È6)öa6)v+6,v)ö(K‰Ëˆ	Ñ[]H[	Îˆ	ö+v,6`H6)öa6`öa	Ëˆ	ÔÝÜ˜YÙIÎˆ	ö)öa6*¶+¶,¶b¶a‰Ëˆ	ÕÚÙ[œÉÎˆ	ö)öa6,vavb6,‰Ëˆ	ÐÛÜÝ	Îˆ	ö)öa6*¶`öa6`v*IËˆ	Ô™\Ý[YHØÛÜ™IÎˆ	ö*¶`¶b¶b¶aH6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*IËˆ	ÐRHÝYÙÙ\Ý[ÛœÉÎˆ	ö)ö`¶*¶,v)ö+v)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐÚÛÜÙHH[\]IÎˆ	ö)ö+¶*¶,H6`¶)öa6*6bö)ÉËˆ	ÔXÚÈH\ÚYÛˆ8 %[ÝHØ[ˆÚ[™ÙH][ž][YIÎˆ	ö)ö+¶*¶,H6*¶-vavb¶avbö)È8 %6b¶av`öa¶`È6*¶.¶b¶b¶,vaÈ6`vbˆ6(öbˆ6b6`¶*‰Ëˆ	Ô™\Ý[YHZ[\‰Îˆ	öava¶-6)ˆ6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*IËˆ	ÔØ]š[™Ë‹‹‰Îˆ	ö+6)ö,vcH6)öa6+v`v.‹‹‰Ëˆ	Ð[Ú[™Ù\ÈØ]™Y	Îˆ	ö*¶aH6+v`v.6+6avb¶.H6)öa6*¶.¶b¶b¶,v)ö*‰Ëˆ	Ð]]Ë\Ø]™HÛ‰Îˆ	ö)öa6+v`v.6)öa6*¶a6`¶)ö)¶bˆ6av`v.vdva	Ëˆ	ÔØ]™H™\œÚ[Û‰Îˆ	ö+v`v.6)v-v+ö)ö,IËˆ	ÑY]	Îˆ	ö*¶+v,vb¶,IËˆ	Ñ\ÚYÛ‰Îˆ	ö)öa6*¶-vavb¶aIËˆ	Ò›ØˆX]Ú	Îˆ	öav-ö)ö*6`¶*H6)öa6b6.6b¶`v*IËˆ	Ò\ÝÜžIÎˆ	ö)öa6,ö+6a	Ëˆ	Ô\œÛÛ˜[[™›ÉÎˆ	ö)öa6av.va6b6av)ö*ˆ6)öa6-6+¶-vb¶*IËˆ	ÔÝ[[X\žIÎˆ	ö)öa6ava6+¶-IËˆ	Ñ^\šY[˜ÙIÎˆ	ö)öa6+¶*6,v*IËˆ	ÑYXØ][Û‰Îˆ	ö)öa6*¶.va6b¶aIËˆ	ÔÚÚ[ÉÎˆ	ö)öa6avaö)ö,v)ö*‰Ëˆ	Ó[™ÝXYÙ\ÉÎˆ	ö)öa6a6.¶)ö*‰Ëˆ	ÐÙ\YšXØ][ÛœÉÎˆ	ö)öa6-6aö)ö+ö)ö*‰Ëˆ	Ð]Ø\™ÉÎˆ	ö)öa6+6b6)ö)¶,‰Ëˆ	ÐY™\ÜÉÎˆ	ö)öa6.va¶b6)öa‰Ëˆ	Ó[šÙY[‰Îˆ	Ó[šÙY[‰Ëˆ	ÔÜ›Û[ÉÎˆ	öav.v,v-ˆ6)öa6(ö.vav)öa	Ëˆ	Ô›Ù™\ÜÚ[Û˜[Ý[[X\žIÎˆ	ö)öa6ava6+¶-H6)öa6avaöa¶b‰Ëˆ	ÓØØ][Û‰Îˆ	ö)öa6avb6`¶.IËˆ	Ô™\Ù[	Îˆ	ö+v*¶bH6)öa6(¶a‰Ëˆ	Ñ\ØÜš\[Û‰Îˆ	ö)öa6b6-v`IËˆ	ÑYÜ™YIÎˆ	ö)öa6+ö,v+6*H6)öa6.va6avb¶*IËˆ	Ò[œÝ]][Û‰Îˆ	ö)öa6av)6,ö,ö*IËˆ	ÔÚÚ[˜[YIÎˆ	ö)ö,öaH6)öa6avaö)ö,v*IËˆ	ÐÙ\YšXØ]IÎˆ	ö)öa6-6aö)ö+ö*IËˆ	Ð]Ø\™	Îˆ	ö)öa6+6)ö)¶,¶*IËˆ	Ó˜[YIÎˆ	ö)öa6)ö,öaIËˆ	Ó[šÉÎˆ	ö)öa6,v)ö*6-ÉËˆ	Ò\ÜÝY\‰Îˆ	ö)öa6+6aö*H6)öa6av)öa¶+v*IËˆ	Ñ]IÎˆ	ö)öa6*¶)ö,vb¶+‰Ëˆ	Õ]IÎˆ	ö)öa6.va¶b6)öa‰Ëˆ	Ô™\Ý[YH[\]IÎˆ	ö`¶)öa6*6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*IËˆ	ÐÛÛÜˆ[YIÎˆ	ö,öav*H6)öa6(öa6b6)öa‰Ëˆ	Ñ˜YÈÈ™[Ü™\ˆÙXÝ[ÛœËˆÙÙÛHÈÚÝËÚYK‰Îˆ	ö)ö,ö+v*6a6)v.v)ö+ö*H6*¶,v*¶b¶*6)öa6(ö`¶,ö)öav#6b6)ö,ö*¶+¶+öaH6)öa6av`v*¶)ö+H6a6)v.6aö)ö,vaö)È6(öb6)v+¶`v)ö)¶aö)Ë‰Ëˆ	ÔÙ[XÝ[ˆXÝ[ÛˆÈ[\›Ý™H[Ý\ˆ™\Ý[YHÚ]RK‰Îˆ	ö)ö+¶*¶,H6)v+6,v)ö(vbÈ6a6*¶+v,öb¶aˆ6,öb¶,v*¶`È6)öa6,6)ö*¶b¶*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹‰Ëˆ	Ò›ØˆX]Ú[˜[\Ú\ÉÎˆ	ö*¶+va6b¶a6av-ö)ö*6`¶*H6)öa6b6.6b¶`v*IËˆ	Ô\ÝHH›Øˆ\ØÜš\[ÛˆÈÙYHÝÈÙ[[Ý\ˆ™\Ý[YHX]Ú\Ë‰Îˆ	ö(öa6-v`ˆ6b6-v`H6)öa6b6.6b¶`v*H6a6av.v,v`v*H6av+öbH6*¶-ö)ö*6`ˆ6,öb¶,v*¶`È6)öa6,6)ö*¶b¶*K‰Ëˆ	ÓX]ÚØÛÜ™IÎˆ	ö+ö,v+6*H6)öa6av-ö)ö*6`¶*IËˆ	Ô\ÝHH›Øˆ\ØÜš\[Ûˆ[™ÛXÚÈ[˜[^™HX]ÚˆÈÙYH[Ý\ˆ™\Ý[Ë‰Îˆ	ö(öa6-v`ˆ6b6-v`H6)öa6b6.6b¶`v*H6b6)ö-¶.¶-È0ªö*¶+va6b¶a6)öa6av-ö)ö*6`¶*p®È6a6,v)6b¶*H6)öa6a¶*¶)ö)¶+‰Ëˆ	Õ™\œÚ[Ûˆ\ÝÜžIÎˆ	ö,ö+6a6)öa6)v-v+ö)ö,v)ö*‰Ëˆ	ÐM™]šY]ÉÎˆ	öav.v)öb¶a¶*HM	Ëˆ	ÐÛÛ\[žH˜[YH
+Ü[Û˜[
+IÎˆ	ö)ö,öaH6)öa6-6,v`ö*H
+6)ö+¶*¶b¶)ö,vbŠIËˆ	Ô\ÝHH›Øˆ\ØÜš\[Ûˆ\™K‹‹‰Îˆ	ö(öa6-v`ˆ6b6-v`H6)öa6b6.6b¶`v*H6aöa¶)Ë‹‹‰Ëˆ	ÕÜš]HH‹LÈÙ[[˜ÙHÝ[[X\žHYÚYÚ[™È[Ý\ˆ^\šY[˜ÙKÙ^HÚÚ[Ë[™Ø\™Y\ˆÛØ[Ë‹‹‰Îˆ	ö)ö`ö*¶*6ava6+¶-vbö)È6avaˆ‹LÈ6+6ava6b¶*6,v,ˆ6+¶*6,v*¶`È6b6avaö)ö,v)ö*¶`È6)öa6,v)¶b¶,öb¶*H6b6(öaö+ö)ö`v`È6)öa6avaöa¶b¶*K‹‹‰Ëˆ	Ñ\ØÜšX™H[Ý\ˆXÚY]™[Y[Ë‹‹‰Îˆ	ö-v`H6)va¶+6)ö,¶)ö*¶`Ë‹‹‰Ëˆ	Ò›ÚˆÙIÎˆ	ö)öa6)ö,öaH6)öa6`ö)öava	Ëˆ	Ò˜[ˆŒŒ‰Îˆ	öb¶a¶)öb¶,HŒŒ‰Ëˆ	Ò[\›YYX]IÎˆ	öav*¶b6,ö-ÉËˆ	ÐY˜[˜ÙY	Îˆ	öav*¶`¶+öaIËˆ	Ñ^\	Îˆ	ö+¶*6b¶,IËˆ	Ð˜\ÚXÉÎˆ	ö(ö,ö)ö,öb‰Ëˆ	ÐÛÛ™\œØ][Û˜[	Îˆ	öav+v)ö+ö*ö*IËˆ	Ñ›Y[	Îˆ	ö-öa6b¶`‰Ëˆ	Ó˜]]™IÎˆ	öa6.¶*H6(öaIËˆ	Ð[˜[]XÜÈ˜XÚÚ[™ÉÎˆ	ö*¶*¶*6.H6)öa6*¶+va6b¶a6)ö*‰Ëˆ	Ò[\È[\›Ý™HžHÚ\š[™È[›Ûž[[Ý\È\ØYÙH]IÎˆ	ö,ö)ö.v+öa¶)È6.va6bH6)öa6*¶+v,öb¶aˆ6*6av-6)ö,v`ö*H6*6b¶)öa¶)ö*ˆ6)ö,ö*¶+¶+ö)öaH6av+6aöb6a6*IËˆ	ÐRH]H›ØÙ\ÜÚ[™ÉÎˆ	öav.v)öa6+6*H6)öa6*6b¶)öa¶)ö*ˆ6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐRH™\]Y\ÝÈ\™HÙ[Û›HÚ[ˆ[ÝHÚÛÜÙH[ˆRHXÝ[Û‹ˆ›ÝšY\ˆ]Z[È[™]H[™[™È\™H^Z[™Y[ˆHš]˜XÞHÛXÞK‰Îˆ	öa6)È6*¶cö,v,öa6-öa6*6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6)va6)È6.va¶+öav)È6*¶+¶*¶)ö,H6)v+6,v)ö(vbÈ6b¶.v*¶av+È6.va6b¶aËˆ6*¶`v)ö-vb¶a6)öa6av,¶b6dv+öb¶aˆ6b6av.v)öa6+6*H6)öa6*6b¶)öa¶)ö*ˆ6avb6-¶+v*H6`vbˆ6,öb¶)ö,ö*H6)öa6+¶-vb6-vb¶*K‰Ëˆ	ÐRH˜Z[š[™ÈÜSÝ]	Îˆ	ö,v`v-ˆ6)ö,ö*¶+¶+ö)öaH6)öa6*6b¶)öa¶)ö*ˆ6`vbˆ6*¶+ö,vb¶*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ö[Ý\ˆ]H\ÈÝÜ™Y[ˆUH
+ÝØÚÚÛJHÙ\™\œÉÎˆ	ö*¶cö+¶,¶aˆ6*6b¶)öa¶)ö*¶`È6.va6bH6+¶b6)ö+öaH6)öa6)ö*¶+v)ö+È6)öa6(öb6,vb6*6bˆ
+6,ö*¶b6`öaöb6a6aJIËˆ	Ð[]H\È[˜Üž\Y[ˆ˜[œÚ][™]™\Ý	Îˆ	ö`öa6)öa6*6b¶)öa¶)ö*ˆ6av-6`v,v*H6(ö*öa¶)ö(H6)öa6a¶`¶a6b6`vbˆ6)öa6*¶+¶,¶b¶a‰Ëˆ	ÔØ]™IÎˆ	ö+v`v.	Ëˆ	ÐRH›ÝšY\œÈ	ˆ[Ù[Ù[XÝ[Û‰Îˆ	öav,¶b6+öb6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6b6)ö+¶*¶b¶)ö,H6)öa6a¶avb6,6+	Ëˆ	ÐRH™\]Y\ÝÉÎˆ	ö-öa6*6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐRH\ØYÙIÎˆ	ö)ö,ö*¶+¶+ö)öaH6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐTHÙ^\ÉÎˆ	öav`v)ö*¶b¶+HTIËˆ	ÐXØÙ\ÜÈ[šYY	Îˆ	ö*¶aH6,v`v-ˆ6)öa6b6-vb6a	Ëˆ	ÐXÝ[ÛœÉÎˆ	ö)öa6)v+6,v)ö(v)ö*‰Ëˆ	ÐXÝ]™IÎˆ	öa¶-6-ÉËˆ	ÐYÙ^IÎˆ	ö)v-¶)ö`v*H6av`v*¶)ö+IËˆ	ÐYZ[‰Îˆ	öav+öb¶,IËˆ	ÐYZ[ˆ›ÝYšXØ][ÛœÉÎˆ	ö)v-6.v)ö,v)ö*ˆ6)öa6)v+ö)ö,v*IËˆ	ÐYZ[ˆ™\ÜÛœÙIÎˆ	ö,v+È6)öa6)v+ö)ö,v*IËˆ	ÐYZ[š\Ý˜]Ü‰Îˆ	öav,ö)6b6a6)öa6a¶.6)öaIËˆ	Ð[	Îˆ	ö)öa6`öa	Ëˆ	Ð[[œÉÎˆ	ö`öa6)öa6+¶-ö-ÉËˆ	Ð[Ý]\ÉÎˆ	ö`öa6)öa6+v)öa6)ö*‰Ëˆ	Ð]]ÛX]XÈZ[H˜XÚÝ\È]NŒUÉÎˆ	öa¶,ö+ˆ6)ö+v*¶b¶)ö-öb¶*H6b¶b6avb¶*H6*¶a6`¶)ö)¶b¶*H6)öa6,ö)ö.v*HNŒUÉËˆ	Ð˜XÚÈÈÛÜšÜÜXÙIÎˆ	ö)öa6.vb6+ö*H6)va6bH6av,ö)ö+v*H6)öa6.vava	Ëˆ	Ð\Ú[™\ÜÉÎˆ	ö)öa6(ö.vav)öa	Ëˆ	ÐÚ[™Ù\ÈÚ[™H™Y›XÝYÛˆH]™HÚ]HY\ˆØ]š[™Ë‰Îˆ	ö,ö*¶.6aö,H6)öa6*¶.¶b¶b¶,v)ö*ˆ6.va6bH6)öa6avb6`¶.H6)öa6av*6)ö-6,H6*6.v+È6)öa6+v`v.‰Ëˆ	ÐÚXÚÚ[™ÈYZ[ˆXØÙ\ÜË‹‹‰Îˆ	ö+6)ö,vcH6)öa6*¶+v`¶`ˆ6avaˆ6-va6)ö+vb¶*H6)öa6)v+ö)ö,v*K‹‹‰Ëˆ	ÐÛÛ™šYÝ\™HÛØ˜[]›Ü›H™Z]š[Ü‰Îˆ	ö)ö-¶*6-È6,öa6b6`È6)öa6ava¶-v*H6)öa6.v)öaIËˆ	ÐÛÛ›Û[™[	Îˆ	öa6b6+v*H6)öa6*¶+v`öaIËˆ	ÐÜ™X]Y	Îˆ	ö*¶)ö,vb¶+ˆ6)öa6)va¶-6)ö(IËˆ	ÐÝ[][]]™H\Ù\œÈÝ™\ˆ\ÝÌ^\ÉÎˆ	ö)v+6av)öa6bˆ6)öa6av,ö*¶+¶+öavb¶aˆ6+¶a6)öa6(¶+¶,HÌ6b¶b6avbö)ÉËˆ	ÑZ[H™\]Y\ÝÉÎˆ	ö)öa6-öa6*6)ö*ˆ6)öa6b¶b6avb¶*IËˆ	ÑZ[H™\]Y\ÝÈ[™ÚÙ[ˆÛÛœÝ[\[Û‰Îˆ	ö)öa6-öa6*6)ö*ˆ6)öa6b¶b6avb¶*H6b6)ö,ö*¶aöa6)ö`È6)öa6,vavb6,‰Ëˆ	Ñ]X˜\ÙH˜XÚÝ\ÉÎˆ	öa¶,ö+ˆ6`¶)ö.v+ö*H6)öa6*6b¶)öa¶)ö*ˆ6)öa6)ö+v*¶b¶)ö-öb¶*IËˆ	ÑY˜][	Îˆ	ö)ö`v*¶,v)ö-¶b‰Ëˆ	ÑY˜][[Ù[
+\ÙYÚ[ˆ›È\‹]ÛÛ[Ù[\ÈÙ]
+IÎˆ	ö)öa6a¶avb6,6+6)öa6)ö`v*¶,v)ö-¶bˆ
+6b¶,ö*¶+¶+öaH6.va¶+È6.v+öaH6*¶.vb¶b¶aˆ6a¶avb6,6+6+¶)ö-H6*6)öa6(ö+ö)ö*JIËˆ	ÑØÝ[Y[ÉÎˆ	ö)öa6av,ö*¶a¶+ö)ö*‰Ëˆ	ÑY]\Ù\‰Îˆ	ö*¶+v,vb¶,H6)öa6av,ö*¶+¶+öaIËˆ	Ñ^]YZ[‰Îˆ	ö)öa6+¶,vb6+6avaˆ6)öa6)v+ö)ö,v*IËˆ	Ñ™X]\™H›YÜÉÎˆ	öav`v)ö*¶b¶+H6)öa6avb¶,¶)ö*‰Ëˆ	Ñœ™YIÎˆ	öav+6)öa¶b‰Ëˆ	Ó\ÝM^\ÉÎˆ	ö(¶+¶,HM6b¶b6avbö)ÉËˆ	ÓX[˜YÙH^\›˜[Ù\šXÙHTHÙ^\ÉÎˆ	ö)v+ö)ö,v*H6av`v)ö*¶b¶+HTH6a6a6+¶+öav)ö*ˆ6)öa6+¶)ö,v+6b¶*IËˆ	ÓX[˜YÙH›ÝšY\œÈ[™Ù]HY˜][[Ù[›Üˆ[RHÛÛÉÎˆ	ö)v+ö)ö,v*H6)öa6av,¶b6+öb¶aˆ6b6*¶.vb¶b¶aˆ6)öa6a¶avb6,6+6)öa6)ö`v*¶,v)ö-¶bˆ6a6`öa6(ö+öb6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÓX\šÈ[™XY	Îˆ	ö*¶+v+öb¶+È6)öa6`öa6`öav`¶,vb6(IËˆ	Ó[ÛHÝXœØÜš\[Ûˆ™]™[YIÎˆ	ö)vb¶,v)ö+ö)ö*ˆ6)öa6)ö-6*¶,v)ö`ö)ö*ˆ6)öa6-6aö,vb¶*IËˆ	Ó™]È›YÉÎˆ	öavb¶,¶*H6+6+öb¶+ö*IËˆ	Ó›È]IÎˆ	öa6)È6*¶b6+6+È6*6b¶)öa¶)ö*‰Ëˆ	Ó›È]HY]	Îˆ	öa6)È6*¶b6+6+È6*6b¶)öa¶)ö*ˆ6*6.v+ÉËˆ	Ó›ÈÙÜÈ›Ý[™	Îˆ	öa6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6,ö+6a6)ö*‰Ëˆ	Ó›ÈÙÜÈY]	Îˆ	öa6)È6*¶b6+6+È6,ö+6a6)ö*ˆ6*6.v+ÉËˆ	Ó›È›ÝYšXØ][ÛœÉÎˆ	öa6)È6*¶b6+6+È6)v-6.v)ö,v)ö*‰Ëˆ	Ó›ÈÝXœØÜš\[ÛœÈ›Ý[™	Îˆ	öa6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6)ö-6*¶,v)ö`ö)ö*‰Ëˆ	Ó›ÈXÚÙ]È›Ý[™	Îˆ	öa6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6*¶,6)ö`ö,IËˆ	Ó›È\Ù\œÈ›Ý[™	Îˆ	öa6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6av,ö*¶+¶+öavb¶a‰Ëˆ	Ô[‰Îˆ	ö)öa6+¶-ö*IËˆ	Ô]›Ü›HÙ][™ÜÉÎˆ	ö)v.v+ö)ö+ö)ö*ˆ6)öa6ava¶-v*IËˆ	Ô›ÉÎˆ	Ô›ÉËˆ	Ô›ÝšY\Ž‰Îˆ	ö)öa6av,¶b6dv+Î‰Ëˆ	Ô™XÙ[Þ\Ý[HÙÜÉÎˆ	ö(ö+v+ö*È6,ö+6a6)ö*ˆ6)öa6a¶.6)öaIËˆ	Ô™[™]Ø[]IÎˆ	ö*¶)ö,vb¶+ˆ6)öa6*¶+6+öb¶+ÉËˆ	Ô™\]Y\ÝÈžHÛÛ	Îˆ	ö)öa6-öa6*6)ö*ˆ6+v,ö*6)öa6(ö+ö)ö*IËˆ	Ô™\ÜÛœÙIÎˆ	ö)öa6,v+ÉËˆ	Ô™]™[YIÎˆ	ö)öa6)vb¶,v)ö+ö)ö*‰Ëˆ	ÔÝ]\ÉÎˆ	ö)öa6+v)öa6*IËˆ	ÔÝXœØÜš\[Ûˆ[‰Îˆ	ö+¶-ö*H6)öa6)ö-6*¶,v)ö`ÉËˆ	ÔÝXœØÜš\[ÛœÈžH[‰Îˆ	ö)öa6)ö-6*¶,v)ö`ö)ö*ˆ6+v,ö*6)öa6+¶-ö*IËˆ	ÔÝ\Ü[™Y	Îˆ	öavb6`¶b6`IËˆ	ÔÞ\Ý[HX[	Îˆ	ö+v)öa6*H6)öa6a¶.6)öaIËˆ	ÔÞ\Ý[HÙÜÉÎˆ	ö,ö+6a6)ö*ˆ6)öa6a¶.6)öaIËˆ	ÔÞ\Ý[HÛ›[™IÎˆ	ö)öa6a¶.6)öaH6av*¶-va	Ëˆ	Õ^X\ˆYZ[‰Îˆ	ö)v+ö)ö,v*H^X\‰Ëˆ	ÕÙÙÛH™X]\™\ÈÛ‹ÛÙ™ˆÚ]Ý]\ÞZ[™ÉÎˆ	ö`v.vdva6(öb6.v-ödva6)öa6avb¶,¶)ö*ˆ6*6+öb6aˆ6a¶-6,H6+6+öb¶+ÉËˆ	ÕÚÙ[ˆ\ØYÙHžH›ÝšY\‰Îˆ	ö)ö,ö*¶+¶+ö)öaH6)öa6,vavb6,ˆ6+v,ö*6)öa6av,¶b6dv+ÉËˆ	ÕÛÛÜ[\š]IÎˆ	ö-6.v*6b¶*H6)öa6(ö+öb6)ö*‰Ëˆ	ÕÝ[ÚÙ[œÈÛÛœÝ[YY	Îˆ	ö)v+6av)öa6bˆ6)öa6,vavb6,ˆ6)öa6av,ö*¶aöa6`ö*IËˆ	Õ\Ù\ˆÜ›ÝÝ	Îˆ	öa¶avb6)öa6av,ö*¶+¶+öavb¶a‰Ëˆ	Õ\Ù\ˆQ	Îˆ	öav.v,vdv`H6)öa6av,ö*¶+¶+öaIËˆ	Ö[ÝHÛ—	Ý]™H\›Z\ÜÚ[ÛˆÈXØÙ\ÜÈHYZ[ˆ[™[ˆÛ›HYZ[š\Ý˜]ÜœÈØ[ˆšY]È\ÈYÙK‰Îˆ	öa6b¶,È6a6+öb¶`È6-va6)ö+vb¶*H6a6a6b6-vb6a6)va6bH6a6b6+v*H6)öa6)v+ö)ö,v*Kˆ6b¶av`öaˆ6a6a6av,ö)6b6a6b¶aˆ6`v`¶-È6.v,v-ˆ6aö,6aÈ6)öa6-v`v+v*K‰Ëˆ	Ò[œÝ[\	Îˆ	ö*¶*ö*6b¶*ˆ6)öa6*¶-ö*6b¶`‰Ëˆ	Ùš[\ÉÎˆ	öava6`v)ö*‰Ëˆ	Ý\ÙY	Îˆ	öav,ö*¶+¶+öaIËˆ	Ø]˜Z[X›IÎˆ	öav*¶)ö+IËˆ	Ô[›š[™ÈÝÈÛˆÝÜ˜YÙKˆ\Ü˜YHÈ›È›Üˆ[Ü™HÜXÙK‰Îˆ	öav,ö)ö+v*H6)öa6*¶+¶,¶b¶aˆ6ava¶+¶`v-¶*Kˆ6`¶aH6*6)öa6*¶,v`¶b¶*H6)va6bH›È6a6a6+v-vb6a6.va6bH6av,ö)ö+v*H6(ö`ö*6,K‰Ëˆ	ÕÙ[ÛÛYHÈ^X\ˆ[[YÙ[˜ÙHIÎˆ	öav,v+v*6bö)È6*6`È6`vbˆ^X\ˆ[[YÙ[˜ÙHIËˆ	ÕÙ[ÛÛYHÈ^X\ˆ[[YÙ[˜ÙIÎˆ	öav,v+v*6bö)È6*6`È6`vbˆ^X\ˆ[[YÙ[˜ÙIËˆ	Ö[Ý\ˆRK\ÝÙ\™YÛÜšÜÜXÙH›ÜˆÜ™X][™ËÜš][™Ë[™[˜[^š[™Ëˆ]	ÜÈÙ][ÝHÙ]\[ˆ\ÜÈ[ˆÈZ[]\Ë‰Îˆ	öav,ö)ö+v*H6.vava6av+ö.vb6av*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6a6a6)va¶-6)ö(H6b6)öa6`ö*¶)ö*6*H6b6)öa6*¶+va6b¶aˆ6,öa¶+6aö,¶aö)È6a6`È6`vbˆ6(ö`¶a6avaˆÈ6+ö`¶)ö)¶`‹‰Ëˆ	ÑÙ]Ý\Y	Îˆ	ö)ö*6+ö(ÉËˆ	ÔÙ][™È\‹‹‰Îˆ	ö+6)ö,vcH6)öa6)v.v+ö)ö+Ë‹‹‰Ëˆ	Ñ[\ˆÛÜšÜÜXÙIÎˆ	ö+ö+¶b6a6av,ö)ö+v*H6)öa6.vava	Ë‚ˆ	ÓX[˜YÙH[Ý\ˆ[‹[Z]È[™Ýš\Hš[[™Èœ›ÛHÛ™HXÙK‰Îˆ	ö(ö+ö,H6+¶-ö*¶`È6b6+v+öb6+È6)öa6)ö,ö*¶+¶+ö)öaH6b6`vb6*¶,v*HÝš\H6avaˆ6av`ö)öaˆ6b6)ö+v+Ë‰Ëˆ	ÐÝ\œ™[[‰Îˆ	ö)öa6+¶-ö*H6)öa6+v)öa6b¶*IËˆ	Ó™^š[[™È]IÎˆ	ö*¶)ö,vb¶+ˆ6)öa6`vb6*¶,v*H6)öa6*¶)öa6b‰Ëˆ	ÐÝ\œ™[	Îˆ	ö)öa6+v)öa6b¶*IËˆ	Ö[Ý\ˆÝ\œ™[[‰Îˆ	ö+¶-ö*¶`È6)öa6+v)öa6b¶*IËˆ	Ñœ™YH[‰Îˆ	ö)öa6+¶-ö*H6)öa6av+6)öa¶b¶*IËˆ	ÓX[˜YÙH[ˆÝš\IÎˆ	ö)öa6)v+ö)ö,v*H6.v*6,HÝš\IËˆ	ÐÚÛÜÙH›ÉÎˆ	ö)ö+¶*¶,H›ÉËˆ	ÐÚÛÜÙH\Ú[™\ÜÉÎˆ	ö)ö+¶*¶,H\Ú[™\ÜÉËˆ	ØXÝ]™IÎˆ	öa¶-6-ÉËˆ	Ý[šÛ›ÝÛ‰Îˆ	ö.¶b¶,H6av.v,vb6`IËˆ	ÐÛÝ[›ÝØYÝXœØÜš\[Ûˆ]Z[Ë‰Îˆ	ö*¶.v,6,H6*¶+vavb¶a6*¶`v)ö-vb¶a6)öa6)ö-6*¶,v)ö`Ë‰Ëˆ	ÐÛÝ[›ÝÜ[ˆÝš\HÚXÚÛÝ]‰Îˆ	ö*¶.v,6,H6`v*¶+HÝš\HÚXÚÛÝ]‰Ëˆ	ÐÛÝ[›ÝÜ[ˆHš[[™ÈÜ[‰Îˆ	ö*¶.v,6,H6`v*¶+H6*6b6)ö*6*H6)öa6`vb6*¶,v*K‰Ëˆ	Ö[Ý\ˆÝXœØÜš\[Ûˆ\ÈØÚY[YÈØ[˜Ù[]H[™ÙˆHÝ\œ™[š[[™È\š[Ù‰Îˆ	ö*¶av*ˆ6+6+öb6a6*H6)va6.¶)ö(H6)ö-6*¶,v)ö`ö`È6`vbˆ6a¶aö)öb¶*H6`v*¶,v*H6)öa6`vb6*¶,v*H6)öa6+v)öa6b¶*K‰Ëˆ	Ðš[[™ÈÚ[™Ù\È\™HÛÛ\]YÙXÝ\™[H›ÝYÚÝš\Kˆ[Ý\ˆ[ˆ˜YÙH\ÈÞ[˜Ú›Ûš^™YžHHš[[™È˜XÚÙ[™‰Îˆ	ö*¶*¶aH6*¶.¶b¶b¶,v)ö*ˆ6)öa6`vb6*¶,v*H6*6(öav)öaˆ6.v*6,HÝš\v#6b6*¶*¶aH6av,¶)öava¶*H6-6)ö,v*H6+¶-ö*¶`È6*6b6)ö,ö-ö*H6a¶.6)öaH6)öa6`vb6*¶,v*H6)öa6+¶a6`vb‹‰Ëˆ	ÔÝ\Ú]HÛX[ÙXœÚ]HZ[\ˆ›Ú™XÝ[™ÛÜ™HRHÛÛË‰Îˆ	ö)ö*6+ö(È6*6av-6,vb6.H6-v.¶b¶,H6`vbˆ6ava¶-6)ˆ6)öa6avb6)ö`¶.H6b6(ö+öb6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6)öa6(ö,ö)ö,öb¶*K‰Ëˆ	ÒYÚ\ˆ[Z]È›Üˆ[™]šYX[Ü™X]ÜœÈ[™›Ù™\ÜÚ[Û˜[Ë‰Îˆ	ö+v+öb6+È6(ö.va6bH6a6a6av*6+ö.vb¶aˆ6)öa6(ö`v,v)ö+È6b6)öa6av+v*¶,v`vb¶a‹‰Ëˆ	Ñ^[™Y[Z]È[™ÛÛX›Ü˜][Ûˆ›ÜˆÜ›ÝÚ[™ÈX[\Ë‰Îˆ	ö+v+öb6+È6avb6,ö.v*H6b6*¶.v)öb6aˆ6a6a6`v,v`ˆ6)öa6a¶)öavb¶*K‰Ëˆ	ÌHÙXœÚ]H›Ú™XÝ	Îˆ	öav-6,vb6.H6avb6`¶.H6b6)ö+v+ÉËˆ	Õ\ÈÈYÙ\È\ˆÙXœÚ]IÎˆ	ö+v*¶bHÈ6-v`v+v)ö*ˆ6a6`öa6avb6`¶.IËˆ	ÐÛÜ™HRHÛÛÉÎˆ	ö(ö+öb6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6)öa6(ö,ö)ö,öb¶*IËˆ	ÓØØ[›Ú™XÝØ]š[™ÉÎˆ	ö+v`v.6)öa6av-6,vb6.H6av+va6b¶)öbÉËˆ	Õ\ÈLÙXœÚ]H›Ú™XÝÉÎˆ	ö+v*¶bHL6av-6)ö,vb¶.H6avb6)ö`¶.IËˆ	Õ\ÈHYÙ\È\ˆÙXœÚ]IÎˆ	ö+v*¶bHH6-v`v+v*H6a6`öa6avb6`¶.IËˆ	ÔX›\Ú[™È[™™[X\ÙH\ÝÜžIÎˆ	ö)öa6a¶-6,H6b6,ö+6a6)öa6)v-v+ö)ö,v)ö*‰Ëˆ	Ð[˜[]XÜËXYÈ[™][[[™ÝX[YÙ\ÉÎˆ	ö)öa6*¶+va6b¶a6)ö*ˆ6b6)öa6.vava6)ö(H6)öa6av+v*¶ava6b6aˆ6b6)öa6-v`v+v)ö*ˆ6av*¶.v+ö+ö*H6)öa6a6.¶)ö*‰Ëˆ	Õ\ÈLÙXœÚ]H›Ú™XÝÉÎˆ	ö+v*¶bHL6av-6,vb6.H6avb6`¶.IËˆ	Õ\ÈLYÙ\È\ˆÙXœÚ]IÎˆ	ö+v*¶bHL6-v`v+v*H6a6`öa6avb6`¶.IËˆ	ÕX[HÛÜšÜÜXÙH[™ÛY[[™Ù™‰Îˆ	öav,ö)ö+v*H6.vava6)öa6`v,vb¶`ˆ6b6*¶,öa6b¶aH6)öa6.vavb¶a	Ëˆ	ÐY˜[˜ÙY›ÙXÝ[Ûˆ™X]\™\È[™Ú]K[X™[Ý\Ü	Îˆ	öavb¶,¶)ö*ˆ6)va¶*¶)ö+6av*¶`¶+öav*H6b6+ö.vaH6)öa6.va6)öav*H6)öa6*6b¶-¶)ö(IËˆ	ÑÙ][™\ÜH›Ø›[HÜˆÙ[™™YY˜XÚÈœ›ÛHÛ™HXÙK‰Îˆ	ö)ö+v-va6.va6bH6)öa6av,ö)ö.v+ö*H6(öb6(ö*6a6.ˆ6.vaˆ6av-6`öa6*H6(öb6(ö,v,öa6ava6)ö+v.6)ö*¶`È6avaˆ6av`ö)öaˆ6b6)ö+v+Ë‰Ëˆ	Ðœ›ÝÜÙHÛÛ[[Ûˆ]Y\Ý[ÛœÈ[™˜XÝXØ[›ÙXÝÝZY[˜ÙK‰Îˆ	ö*¶-v`v+H6)öa6(ö,ö)¶a6*H6)öa6-6)ö)¶.v*H6b6)v,v-6)ö+ö)ö*ˆ6)ö,ö*¶+¶+ö)öaH6)öa6ava¶*¶+‰Ëˆ	ÓÜ[ˆ[Ù[\‰Îˆ	ö`v*¶+H6av,v`ö,ˆ6)öa6av,ö)ö.v+ö*IËˆ	ÔÙ[™H\™XÝÝ\ÜY\ÜØYÙHœ›ÛH[œÚYH[Ý\ˆXØÛÝ[‰Îˆ	ö(ö,v,öa6,v,ö)öa6*H6+ö.vaH6av*6)ö-6,v*H6avaˆ6+ö)ö+¶a6+v,ö)ö*6`Ë‰Ëˆ	ÐÛÛXÝÝ\Ü	Îˆ	ö)öa6*¶b6)ö-va6av.H6)öa6+ö.vaIËˆ	ÔÚ\™H[ˆYXHÜˆ[\ÈÚ]ÛÝ[XZÙH^X\ˆ™]\‹‰Îˆ	ö-6)ö,v`È6`v`ö,v*H6(öb6(ö+¶*6,va¶)È6`öb¶`H6b¶av`öaˆ6*¶+v,öb¶aˆ^X\‹‰Ëˆ	Ô™\ÜH™\›ÙXÚX›H›Ø›[HÚ]ÛX\ˆXÚšXØ[]Z[Ë‰Îˆ	ö(ö*6a6.ˆ6.vaˆ6av-6`öa6*H6`¶)ö*6a6*H6a6)v.v)ö+ö*H6)öa6)va¶*¶)ö+6av.H6*¶`v)ö-vb¶a6*¶`¶a¶b¶*H6b6)ö-¶+v*K‰Ëˆ	Ñ›ÜˆXØÛÝ[\ÜXÚYšXÈ\ÜÝY\Ë\ÙHH[‹X\ÛÛXÝ›Ü›HÛÈ[Ý\ˆ™\]Y\ÝÝ^\ÈÛÛ›™XÝYÈ[Ý\ˆÚYÛ™YZ[ˆXØÛÝ[‰Îˆ	öa6a6av-6`öa6)ö*ˆ6)öa6+¶)ö-v*H6*6+v,ö)ö*6`ö#6)ö,ö*¶+¶+öaH6a¶avb6,6+6)öa6*¶b6)ö-va6+ö)ö+¶a6)öa6*¶-ö*6b¶`ˆ6a6b¶*6`¶bH6)öa6-öa6*6av,v*¶*6-ö)öbÈ6*6+v,ö)ö*6`È6)öa6av,ö+6a‰Ëˆ	ÒÝÈÈHÙ]Ý\YÉÎˆ	ö`öb¶`H6(ö*6+ö(ö'ÉËˆ	ÓÜ[ˆ^HÛÜšÜÜXÙHÜˆ\Ú›Ø\™ÚÛÜÙH[ˆ]˜Z[X›HÛÛ[™›ÛÝÈH[œ]ÈÚÝÛˆ›Üˆ]ÛÛˆÙXœÚ]HZ[\ˆŒH\È]˜Z[X›H›ÜˆÜ™X][™È[™X›\Ú[™È™\ÜÛœÚ]™HÙXœÚ]\Ë‰Îˆ	ö)ö`v*¶+H6av,ö)ö+v*H6.vava6bˆ6(öb6a6b6+v*H6)öa6*¶+v`öav#6b6)ö+¶*¶,H6(ö+ö)ö*H6av*¶)ö+v*H6b6)ö*¶*6.H6)öa6+v`¶b6a6)öa6av.v,vb6-¶*Kˆ6ava¶-6)ˆ6)öa6avb6)ö`¶.HŒH6av*¶)ö+H6a6)va¶-6)ö(H6avb6)ö`¶.H6av*¶+6)öb6*6*H6b6a¶-6,vaö)Ë‰Ëˆ	ÕÚXÚ[\™˜XÙH[™ÝXYÙ\È\™HÝ\ÜYÉÎˆ	öav)È6a6.¶)ö*ˆ6)öa6b6)ö+6aö*H6)öa6av+ö.vb6av*v'ÉËˆ	ÕH›ÙXÝ[\™˜XÙHÝ\ÜÈ[™Û\Ú\˜XšXË[™ÝÙY\Úˆ\˜XšXÈ]]ÛX]XØ[H\Ù\ÈšYÚ]Ë[Y^[Ý]Ú\™H\›ÜšX]K‰Îˆ	ö*¶+ö.vaH6b6)ö+6aö*H6)öa6ava¶*¶+6)öa6)va¶+6a6b¶,¶b¶*H6b6)öa6.v,v*6b¶*H6b6)öa6,öb6b¶+öb¶*v#6b6*¶,ö*¶+¶+öaH6)öa6.v,v*6b¶*H6)ö*¶+6)öaÈ6)öa6b¶avb¶aˆ6)va6bH6)öa6b¶,ö)ö,H6*¶a6`¶)ö)¶b¶)öbÈ6+vb¶*È6b¶a6,¶aK‰Ëˆ	ÒÝÈÙ\ÈÙXœÚ]HZ[\ˆš[[™ÈÛÜšÏÉÎˆ	ö`öb¶`H6*¶.vava6`vb6*¶,v*H6ava¶-6)ˆ6)öa6avb6)ö`¶.v'ÉËˆ	Ñœ™YHÝ\ÜÈHÙXœÚ]H›Ú™XÝÚ]\ÈÈYÙ\Ëˆ›ÈÝ\ÜÈ\ÈLÙXœÚ]H›Ú™XÝÈ[™HYÙ\È\ˆÙXœÚ]Kˆ\Ú[™\ÜÈÝ\ÜÈ\ÈLÙXœÚ]H›Ú™XÝÈ[™LYÙ\È\ˆÙXœÚ]K‰Îˆ	ö*¶+ö.vaH6)öa6+¶-ö*H6)öa6av+6)öa¶b¶*H6av-6,vb6.H6avb6`¶.H6b6)ö+v+È6+v*¶bHÈ6-v`v+v)ö*‹ˆ6*¶+ö.vaH›È6+v*¶bHL6av-6)ö,vb¶.H6bH6-v`v+v*H6a6`öa6avb6`¶.Kˆ6*¶+ö.vaH\Ú[™\ÜÈ6+v*¶bHL6av-6,vb6.v)öbÈ6bL6-v`v+v*H6a6`öa6avb6`¶.K‰Ëˆ	Ò\È^H]H›ÝXÝYÉÎˆ	öaöa6*6b¶)öa¶)ö*¶bˆ6av+vavb¶*v'ÉËˆ	ÕH\XØ][Ûˆ\Ù\È]][XØ]YXØÙ\ÜÈ[™]X˜\ÙH›ÝË[]™[ÙXÝ\š]H›ÜˆXØÛÝ[\ØÛÜY]Kˆ[Ø^\ÈÙY\[Ý\ˆXØÛÝ[Ü™Y[X[Èš]˜]H[™™]šY]ÈÙ[œÚ]]™HRHÝ]]™Y›Ü™HÚ\š[™È]‰Îˆ	öb¶,ö*¶+¶+öaH6)öa6*¶-ö*6b¶`ˆ6b6-vb6a6)öbÈ6avb6*ö`¶)öbÈ6b6(öav)öa¶)öbÈ6.va6bH6av,ö*¶b6bH6)öa6-v`vb6`H6a6a6*6b¶)öa¶)ö*ˆ6)öa6av,v*¶*6-ö*H6*6)öa6+v,ö)ö*ˆ6+v)ö`v.6.va6bH6*6b¶)öa¶)ö*ˆ6+ö+¶b6a6`È6+¶)ö-v*H6b6,v)ö+6.H6av+¶,v+6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6)öa6+v,ö)ö,ö*H6`¶*6a6av-6)ö,v`ö*¶aö)Ë‰Ëˆ	ÒÝÈÈHX[˜YÙH^HÝXœØÜš\[ÛÉÎˆ	ö`öb¶`H6(ö+öb¶,H6)ö-6*¶,v)ö`öb¶'ÉËˆ	ÓÜ[ˆÝXœØÜš\[Ûˆœ›ÛHHÛÜšÜÜXÙHY[Kˆ™]È\Ü˜Y\È\ÙHÝš\HÚXÚÛÝ][™^\Ý[™ÈZYÝXœØÜš\[ÛœÈØ[ˆ™HX[˜YÙY›ÝYÚHÝš\Hš[[™ÈÜ[‰Îˆ	ö)ö`v*¶+H6)öa6)ö-6*¶,v)ö`È6avaˆ6`¶)ö)¶av*H6av,ö)ö+v*H6)öa6.vavaˆ6*¶,ö*¶+¶+öaH6)öa6*¶,v`¶b¶)ö*ˆ6)öa6+6+öb¶+ö*HÝš\HÚXÚÛÝ]6b6b¶av`öaˆ6)v+ö)ö,v*H6)öa6)ö-6*¶,v)ö`ö)ö*ˆ6)öa6av+ö`vb6.v*H6)öa6+v)öa6b¶*H6avaˆ6*6b6)ö*6*HÝš\K‰Ëˆ	ÒÝÈÈH™\ÜHYÏÉÎˆ	ö`öb¶`H6(ö*6a6.ˆ6.vaˆ6+¶-ö(ö'ÉËˆ	ÓÜ[ˆÝ\Ü[™ÚÛÜÙH™\ÜHYËˆ[˜ÛYHHY™™XÝYÛÛÙ]™\š]KÝ\ÈÈ™\›ÙXÙK^XÝY™Z]š[Ü‹[™XÝX[™Z]š[Ü‹‰Îˆ	ö)ö`v*¶+H6)öa6+ö.vaH6b6)ö+¶*¶,H6)öa6)v*6a6)ö.ˆ6.vaˆ6+¶-ö(ö#6b6(ö-¶`H6)öa6(ö+ö)ö*H6)öa6av*¶(ö*ö,v*H6b6)öa6+¶-öb6,v*H6b6+¶-öb6)ö*ˆ6)v.v)ö+ö*H6)öa6av-6`öa6*H6b6)öa6,öa6b6`È6)öa6av*¶b6`¶.H6b6)öa6`v.va6b‹‰Ëˆ	Ñ˜Z[YÈÙ[™Ý\Ü™\]Y\ÝˆX\ÙHžHYØZ[‹‰Îˆ	ö`v-6a6)v,v,ö)öa6-öa6*6)öa6+ö.vaKˆ6+v)öb6a6av,v*H6(ö+¶,vbK‰Ëˆ	ÔÙ[™Ý\Ü™\]Y\Ý	Îˆ	ö)v,v,ö)öa6-öa6*6+ö.vaIËˆ	ÔX\ÙHÙ[XÝH˜][™ÉÎˆ	öb¶,v+6bH6)ö+¶*¶b¶)ö,H6*¶`¶b¶b¶aIËˆ	ÕÛÈX[žHÝX›Z\ÜÚ[ÛœËˆX\ÙHžHYØZ[ˆÚÜK‰Îˆ	ö.v+ö+È6`ö*6b¶,H6avaˆ6)öa6av+v)öb6a6)ö*‹ˆ6+v)öb6a6*6.v+È6`¶a6b¶a‰Ëˆ	ÔÙ[™[™È™YY˜XÚË‹‹‰Îˆ	ö+6)ö,vcH6)v,v,ö)öa6)öa6ava6)ö+v.6)ö*‹‹‹‰Ëˆ	Õ[šÈ[ÝH›Üˆ[Ý\ˆ™YY˜XÚÈIÎˆ	ö-6`ö,v)öbÈ6a6ava6)ö+v.6)ö*¶`ÈIËˆ	Ñ˜Z[YÈÙ[™™YY˜XÚËˆX\ÙHžHYØZ[‹‰Îˆ	ö`v-6a6)v,v,ö)öa6)öa6ava6)ö+v.6)ö*‹ˆ6+v)öb6a6av,v*H6(ö+¶,vbK‰Ëˆ	ÔX\ÙH\ØÜšX™HHÝ\ÈÈ™\›ÙXÙIÎˆ	öb¶,v+6bH6b6-v`H6+¶-öb6)ö*ˆ6)v.v)ö+ö*H6)öa6av-6`öa6*IËˆ	ÔÝX›Z][™ÈYÈ™\Ü‹‹‰Îˆ	ö+6)ö,vcH6)v,v,ö)öa6*¶`¶,vb¶,H6)öa6+¶-ö(Ë‹‹‰Ëˆ	ÐYÈ™\ÜÝX›Z]Yˆ[šÈ[ÝHIÎˆ	ö*¶aH6)v,v,ö)öa6*¶`¶,vb¶,H6)öa6+¶-ö(Ëˆ6-6`ö,v)öbÈ6a6`ÈIËˆ	Ñ˜Z[YÈÝX›Z]YÈ™\ÜˆX\ÙHžHYØZ[‹‰Îˆ	ö`v-6a6)v,v,ö)öa6*¶`¶,vb¶,H6)öa6+¶-ö(Ëˆ6+v)öb6a6av,v*H6(ö+¶,vbK‰Ëˆ	ÌKˆÛÈË‹‹—Œ‹ˆÛXÚÈÛ‹‹‹—ŒËˆ[\‹‹‹‰Îˆ	ÌKˆ6)öa¶*¶`¶a6)va6bK‹‹—Œ‹ˆ6)ö-¶.¶-È6.va6bK‹‹—ŒËˆ6(ö+ö+¶a‹‹‰Ëˆ	ÔÝ\ÈÈ™\›ÙXÙIÎˆ	ö+¶-öb6)ö*ˆ6)v.v)ö+ö*H6)öa6av-6`öa6*IËˆ	ÕÚ]ÚÝ[]™H\[™YÉÎˆ	öav)È6)öa6,6bˆ6`ö)öaˆ6b¶+6*6(öaˆ6b¶+v+ö*ö'ÉËˆ	Ñ^XÝY™Z]š[Ü‰Îˆ	ö)öa6,öa6b6`È6)öa6av*¶b6`¶.IËˆ	ÕÚ]XÝX[H\[™YÉÎˆ	öav)È6)öa6,6bˆ6+v+ö*È6`v.va6b¶)öbö'ÉËˆ	ÐXÝX[™Z]š[Ü‰Îˆ	ö)öa6,öa6b6`È6)öa6`v.va6b‰Ëˆ	ÔÝX›Z]YÈ™\Ü	Îˆ	ö)v,v,ö)öa6*¶`¶,vb¶,H6)öa6+¶-ö(ÉËˆ	ÓY\ÜØYÙHÙ[ÝXØÙ\ÜÙ[HHÙHÚ[Ù]˜XÚÈÈ[ÝHÛÛÛ‹‰Îˆ	ö*¶aH6)v,v,ö)öa6)öa6,v,ö)öa6*H6*6a¶+6)ö+Kˆ6,öa¶.vb6+È6)va6b¶`È6`¶,vb¶*6)öbË‰Ëˆ	Ñ˜Z[YÈÙ[™Y\ÜØYÙKˆX\ÙHžHYØZ[‹‰Îˆ	ö`v-6a6)v,v,ö)öa6)öa6,v,ö)öa6*Kˆ6+v)öb6a6av,v*H6(ö+¶,vbK‰Ëˆ	ÔÙ[™Y\ÜØYÙIÎˆ	ö)v,v,ö)öa6)öa6,v,ö)öa6*IËˆ	ÐXØÛÝ[Ý\Ü	Îˆ	ö+ö.vaH6)öa6+v,ö)ö*	Ëˆ	Õ\ÙHHÙXÝ\™H›Ü›H™[ÝÉÎˆ	ö)ö,ö*¶+¶+öaH6)öa6a¶avb6,6+6)öa6(¶avaˆ6(ö+öa¶)öaÉËˆ	Ô›ÙXÝ[	Îˆ	öav,ö)ö.v+ö*H6)öa6ava¶*¶+	Ëˆ	Ò[Ù[\ˆ[™›ÝX›\ÚÛÝ[™ÉÎˆ	öav,v`ö,ˆ6)öa6av,ö)ö.v+ö*H6b6)ö,ö*¶`ö-6)ö`H6)öa6(ö+¶-ö)ö(IËˆ	Ôš]˜XÞH™\]Y\ÝÉÎˆ	ö-öa6*6)ö*ˆ6)öa6+¶-vb6-vb¶*IËˆ	ÐXØÙ\ÜËÛÜœ™XÝ[ÛˆÜˆ[][Ûˆ™\]Y\ÝÉÎˆ	ö-öa6*6)ö*ˆ6)öa6b6-vb6a6(öb6)öa6*¶-v+vb¶+H6(öb6)öa6+v,6`IËˆ	Õ[›ØÚÈYÚ\ˆ[Z]ËX›\Ú[™Ë[˜[]XÜÈ[™ÛÛX›Ü˜][Ûˆ™X]\™\Ë‰Îˆ	ö)ö`v*¶+H6+v+öb6+ö)öbÈ6(ö.va6bH6b6avb¶,¶)ö*ˆ6)öa6a¶-6,H6b6)öa6*¶+va6b¶a6)ö*ˆ6b6)öa6*¶.v)öb6a‹‰Ëˆ	ÔÝ\Ú]ÛÜ™HRHÛÛÈ[™ÙXœÚ]HZ[\ˆ›Üˆœ™YIÎˆ	ö)ö*6+ö(È6av+6)öa¶)öbÈ6*6(ö+öb6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6)öa6(ö,ö)ö,öb¶*H6b6ava¶-6)ˆ6)öa6avb6)ö`¶.IËˆ\ÚÈRHÈÈ[ž][™Ë‹‹ˆK™Ëˆ	ÐÜ™X]HHÕ‰Ë	Ð[˜[^™H\È‰Ë	Õ˜[œÛ]H^	ÈŽˆ	ö)ö-öa6*6avaˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6(öbˆ6-6b¶(K‹‹ˆ6av*öa6)va¶-6)ö(H6,öb¶,v*H6,6)ö*¶b¶*H6(öb6*¶+va6b¶aˆ6(öb6*¶,v+6av*H6a¶-IËˆ	Ó›ÈX]Ú[™ÈRHÛÛ[X[™ˆžHÜ™X]HHÕˆÜˆ˜[œÛ]H^‰Îˆ	öa6)È6b¶b6+6+È6(öav,H6av-ö)ö*6`‹ˆ6+6,vdv*6)va¶-6)ö(H6,öb¶,v*H6,6)ö*¶b¶*H6(öb6*¶,v+6av*H6a¶-K‰Ëˆ	Ð\ÚÈ[ž][™Ë‹‹‰Îˆ	ö)ö,ö(öa6(öbˆ6-6b¶(K‹‹‰Ëˆ	ÒÝÈÈH[\›Ý™H^HÕÉÎˆ	ö`öb¶`H6(ö+v,ödvaˆ6,öb¶,v*¶bˆ6)öa6,6)ö*¶b¶*v'ÉËˆ	ÕÚ]ÛÛÈ\™H]˜Z[X›OÉÎˆ	öav)È6)öa6(ö+öb6)ö*ˆ6)öa6av*¶)ö+v*v'ÉËˆ	Ò[YHÜš]HHÛÝ™\ˆ]\‰Îˆ	ö,ö)ö.v+öa¶bˆ6`vbˆ6`ö*¶)ö*6*H6+¶-ö)ö*6*¶.¶-öb¶*IËˆ	Õ\È›ÜˆUÈÜ[Z^˜][Û‰Îˆ	öa¶-v)ö)¶+H6a6*¶+v,öb¶aˆ6)öa6*¶b6)ö`v`ˆ6av.HUÉËˆ	ÐÛÝ[›ÝØYÝXœØÜš\[ÛœÉÎˆ	ö*¶.v,6,H6*¶+vavb¶a6)öa6)ö-6*¶,v)ö`ö)ö*‰Ëˆ	Ô™]žIÎˆ	ö)v.v)ö+ö*H6)öa6av+v)öb6a6*IËˆ	ÔÝXœØÜš\[ÛœÈÝ™\šY]ÉÎˆ	öa¶.6,v*H6.v)öav*H6.va6bH6)öa6)ö-6*¶,v)ö`ö)ö*‰Ëˆ	Ô^[Y[Ù][™ÜÉÎˆ	ö)v.v+ö)ö+ö)ö*ˆ6)öa6+ö`v.IËˆ	Ü\ÝÙYH0­ÈËY^HÜ˜XÙIÎˆ	öav*¶(ö+¶,H6)öa6+ö`v.H0­È6avaöa6*HÈ6(öb¶)öaIËˆ	ÔÝš\HÝ]\È[˜]˜Z[X›IÎˆ	ö+v)öa6*HÝš\H6.¶b¶,H6av*¶)ö+v*IËˆ	ÔÝš\HÛÛ›™XÝ[Û‰Îˆ	ö)ö*¶-v)öaÝš\IËˆ	ÔÙXÜ™]ÈÝ^HÙ\™\‹\ÚYH[™\™H™]™\ˆ^ÜÙY[ˆ\È[™[‰Îˆ	ö*¶*6`¶bH6)öa6(ö,ö,v)ö,H6.va6bH6)öa6+¶)ö+öaH6b6a6)È6*¶.6aö,H6av-öa6`¶bö)È6`vbˆ6aö,6aÈ6)öa6a6b6+v*K‰Ëˆ	ÐÛÛ›™XÝY	Îˆ	öav*¶-va	Ëˆ	Ó›ÝÛÛ™šYÝ\™Y	Îˆ	ö.¶b¶,H6avcö.v+ödIËˆ	ÔÝš\HXØÛÝ[	Îˆ	ö+v,ö)ö*Ýš\IËˆ	ÐÛÝ[žHÈÝ\œ™[˜ÞIÎˆ	ö)öa6*6a6+ÈÈ6)öa6.vava6*IËˆ	ÐÚ\™Ù\ÉÎˆ	ö)öa6av+ö`vb6.v)ö*‰Ëˆ	Ó™YYÈ][[Û‰Îˆ	öb¶+v*¶)ö+6)va6bH6av*¶)ö*6.v*IËˆ	Ô^[Ý]ÉÎˆ	ö)öa6*¶+vb6b¶a6)ö*‰Ëˆ	ÔšXÙH™\šYšYY	Îˆ	ö*¶aH6)öa6*¶+v`¶`ˆ6avaˆ6)öa6,ö.v,IËˆ	ÔšXÙHZ\ÜÚ[™ÈÈ[˜[Y	Îˆ	ö)öa6,ö.v,H6av`v`¶b6+ÈÈ6.¶b¶,H6-v)öa6+IËˆ	ÔšXÙHQ	Îˆ	öav.v,vdv`H6)öa6,ö.v,IËˆ	ÔÝš\HšXÙIÎˆ	ö,ö.v,HÝš\IËˆ	ÕÙXšÛÚÉÎˆ	ÕÙXšÛÚÉËˆ	ÔÙXÜ™]ÛÛ™šYÝ\™Y	Îˆ	ö)öa6,ö,H6avcö.v+ödIËˆ	ÔÙXÜ™]Z\ÜÚ[™ÉÎˆ	ö)öa6,ö,H6av`v`¶b6+ÉËˆ	Ñ[™Ú[›Ý[™	Îˆ	ö*¶aH6)öa6.v*öb6,H6.va6bH6a¶`¶-ö*H6)öa6a¶aö)öb¶*IËˆ	Ñ[™Ú[Z\ÜÚ[™ÉÎˆ	öa¶`¶-ö*H6)öa6a¶aö)öb¶*H6av`v`¶b6+ö*IËˆ	Ñ]™[ÈÛÛ™šYÝ\™Y	Îˆ	ö)öa6(ö+v+ö)ö*È6avcö.v+ödv*IËˆ	Ñ]™[È™YY™]šY]ÉÎˆ	ö)öa6(ö+v+ö)ö*È6*¶+v*¶)ö+6av,v)ö+6.v*IËˆ	ÐÚXÚÛÝ]	ˆÜ[	Îˆ	ö)öa6+ö`v.H6b6)öa6*6b6)ö*6*IËˆ	ÐÚXÚÛÝ]™XYIÎˆ	ö)öa6+ö`v.H6+6)öaö,‰Ëˆ	ÐÚXÚÛÝ]™YYÈÙ]\	Îˆ	ö)öa6+ö`v.H6b¶+v*¶)ö+6)v.v+ö)ö+öbö)ÉËˆ	Ðš[[™ÈÜ[™XYIÎˆ	ö*6b6)ö*6*H6)öa6`vb6*¶,v*H6+6)öaö,¶*IËˆ	ÔÜ[™YYÈÙ]\	Îˆ	ö)öa6*6b6)ö*6*H6*¶+v*¶)ö+6)v.v+ö)ö+öbö)ÉËˆ	Ó[ÙHX]Ú\ÈšXÙ\ÉÎˆ	ö)öa6b6-¶.H6av*¶-ö)ö*6`ˆ6av.H6)öa6(ö,ö.v)ö,IËˆ	Ó]™KÕ\ÝZ\ÛX]Ú	Îˆ	ö.v+öaH6*¶-ö)ö*6`ˆ]™KÕ\Ý	Ëˆ	Ô^[Ý]\Ý[˜][Û‰Îˆ	öb6+6aö*H6)öa6*¶+vb6b¶a6)ö*‰Ëˆ	Ð˜[šÈXØÛÝ[Ë^[Ý]ØÚY[KY[]H[™^]Z[È\™HX[˜YÙYÛ›H[œÚYHÝš\K‰Îˆ	ö*¶cö+ö)ö,H6)öa6+v,ö)ö*6)ö*ˆ6)öa6*6a¶`öb¶*H6b6+6+öb6a6)öa6*¶+vb6b¶a6)ö*ˆ6b6*6b¶)öa¶)ö*ˆ6)öa6aöb6b¶*H6b6)öa6-¶,v)ö)¶*6+ö)ö+¶aÝš\H6`v`¶-Ë‰Ëˆ	ÓÜ[ˆÝš\H\Ú›Ø\™	Îˆ	ö`v*¶+H6a6b6+v*HÝš\IËˆ	Ô™Yœ™\ÚÝš\HÝ]\ÉÎˆ	ö*¶+v+öb¶*È6+v)öa6*HÝš\IËˆ	ÔÞ\Ý[HÙÜÈ[˜]˜Z[X›IÎˆ	ö,ö+6a6)ö*ˆ6)öa6a¶.6)öaH6.¶b¶,H6av*¶)ö+v*IËˆ	ÐXØÛÝ[›ØÚÜÈ[˜]˜Z[X›IÎˆ	ö+v.6,H6)öa6+v,ö)ö*6)ö*ˆ6.¶b¶,H6av*¶)ö+IËˆ	ÐXØÛÝ[›ØÚÈ\Ý	Îˆ	ö`¶)ö)¶av*H6+v.6,H6)öa6+v,ö)ö*6)ö*‰Ëˆ	Ð›ØÚÜÈÝ\š]™HXØÛÝ[[][Ûˆ[™™]™[™K\™YÚ\Ý˜][ÛˆÚ[HXÝ]™K‰Îˆ	öb¶*6`¶bH6)öa6+v.6,H6*6.v+È6+v,6`H6)öa6+v,ö)ö*6b6b¶ava¶.H6)v.v)ö+ö*H6)öa6*¶,ö+6b¶a6av)È6+ö)öaH6`v.v)öa6bö)Ë‰Ëˆ	Ó›È›ØÚÙY[XZ[ÉÎˆ	öa6)È6*¶b6+6+È6.va¶)öb6b¶aˆ6*6,vb¶+È6av+v.6b6,v*IËˆ	Ð›ØÚÙY	Îˆ	öav+v.6b6,IËˆ	Ñ^\™Y	Îˆ	öava¶*¶aöb‰Ëˆ	Ó›È™X\ÛÛˆ›ÝšYY	Îˆ	öa6aH6b¶*¶aH6*¶+v+öb¶+È6,ö*6*	Ëˆ	ÐžIÎˆ	ö*6b6)ö,ö-ö*IËˆ	Ñ^\™\ÉÎˆ	öb¶a¶*¶aöb‰Ëˆ	Ô\›X[™[	Îˆ	ö+ö)ö)¶aIËˆ	Õ[˜›ØÚÉÎˆ	ö)va6.¶)ö(H6)öa6+v.6,IËˆ	Ô›ÙXÝ[Ûˆ™XY[™\ÜÈ[˜]˜Z[X›IÎˆ	ö+v)öa6*H6+6)öaö,¶b¶*H6)öa6)va¶*¶)ö+6.¶b¶,H6av*¶)ö+v*IËˆ	Ô›ÙXÝ[Ûˆ™XY[™\ÜÉÎˆ	ö+6)öaö,¶b¶*H6)öa6)va¶*¶)ö+	Ëˆ	ÓYØ[Ü\˜]ÜˆY[]IÎˆ	öaöb6b¶*H6)öa6av-6.¶dva6)öa6`¶)öa¶b6a¶b¶*IËˆ	Ô›ÙXÝ[Ûˆ\T“	Îˆ	ö,v)ö*6-È6*¶-ö*6b¶`ˆ6)öa6)va¶*¶)ö+	Ëˆ	Ó]™HÙ\šXÙHÚXÚÜÈ™Y›Ü™H][˜ÚˆÙXÜ™]È™[XZ[ˆÙ\™\‹\ÚYK‰Îˆ	ö`v+vb6-v)ö*ˆ6a6a6+¶+öav)ö*ˆ6)öa6+vb¶*H6`¶*6a6)öa6)v-öa6)ö`‹ˆ6*¶*6`¶bH6)öa6(ö,ö,v)ö,H6.va6bH6)öa6+¶)ö+öaK‰Ëˆ	Ü™XYIÎˆ	ö+6)öaö,‰Ëˆ	Ó›ÝYšXØ][ÛœÈ[˜]˜Z[X›IÎˆ	ö)öa6)v-6.v)ö,v)ö*ˆ6.¶b¶,H6av*¶)ö+v*IËˆ	Ñ[XZ[[\]\È[˜]˜Z[X›IÎˆ	ö`¶b6)öa6*6)öa6*6,vb¶+È6.¶b¶,H6av*¶)ö+v*IËˆ	Ð˜XÚÝ\È\™HX[˜YÙYžHH]X˜\ÙHÜÝ[™È›ÝšY\‹ˆ›È[‹X\˜XÚÝ\TH\ÈÛÛ™šYÝ\™YÛÈ\È[™[Ú[›Ý™][™ÈÜ™X]HÜˆÝÛ›ØY˜XÚÝ\Ë‰Îˆ	ö*¶cö+ö)ö,H6)öa6a¶,ö+ˆ6)öa6)ö+v*¶b¶)ö-öb¶*H6*6b6)ö,ö-ö*H6av,¶b6+È6)ö,ö*¶-¶)ö`v*H6`¶)ö.v+ö*H6)öa6*6b¶)öa¶)ö*‹ˆ6a6)È6*¶b6+6+È6b6)ö+6aö*H6a¶,ö+ˆ6)ö+v*¶b¶)ö-öbˆ6avaöb¶(ö*H6+ö)ö+¶a6)öa6*¶-ö*6b¶`¶#6a6,6a6`È6a6aˆ6*¶+ödv.vbˆ6aö,6aÈ6)öa6a6b6+v*H6)va¶-6)ö(H6a¶,ö+ˆ6(öb6*¶a¶,¶b¶a6aö)Ë‰Ëˆ	Õ\ÙHHÝ\X˜\ÙH›Ú™XÝ˜XÚÝ\ÛÛ›ÛÈ›Üˆ™X[˜XÚÝ\[™™\ÝÜ™HÜ\˜][ÛœË‰Îˆ	ö)ö,ö*¶+¶+öaH6(ö+öb6)ö*ˆ6)öa6a¶,ö+ˆ6)öa6)ö+v*¶b¶)ö-öbˆ6`vbˆ6av-6,vb6.HÝ\X˜\ÙH6a6.vava6b¶)ö*ˆ6)öa6a¶,ö+ˆ6b6)öa6)ö,ö*¶.v)ö+ö*H6)öa6`v.va6b¶*K‰Ëˆ	ÐTHÙ^HY]Y]H[˜]˜Z[X›IÎˆ	ö*6b¶)öa¶)ö*ˆ6av`v)ö*¶b¶+HTH6.¶b¶,H6av*¶)ö+v*IËˆ	ÓY]Y]HÛ›H8 %ÙXÜ™]ÈÝ^HÙ\™\‹\ÚYIÎˆ	ö*6b¶)öa¶)ö*ˆ6b6-v`vb¶*H6`v`¶-È8 %6*¶*6`¶bH6)öa6(ö,ö,v)ö,H6.va6bH6)öa6+¶)ö+öaIËˆ	Ñ™X]\™H›YÜÈ[˜]˜Z[X›IÎˆ	ö(ö.va6)öaH6)öa6avb¶,¶)ö*ˆ6.¶b¶,H6av*¶)ö+v*IËˆ	Ñ^\Ý[™È›YÜÈÛ›IÎˆ	ö)öa6(ö.va6)öaH6)öa6avb6+6b6+ö*H6`v`¶-ÉËˆ	ÐÛÝ[›ÝØY\Ù\œÉÎˆ	ö*¶.v,6,H6*¶+vavb¶a6)öa6av,ö*¶+¶+öavb¶a‰Ëˆ	ÐYZ[ˆXØÙ\ÜÉÎˆ	ö-va6)ö+vb¶*H6)öa6av,ö)6b6a	Ëˆ	ÓX[˜YÙYžHš[[™ÉÎˆ	ö*¶cö+ö)ö,H6.v*6,H6)öa6`vb6*¶,v*IËˆ	ÐÛÛ\[Y[\žHXØÙ\ÜÉÎˆ	öb6-vb6a6av+6)öa¶b‰Ëˆ	ÐÝ\œ™[š[[™ÈÛ›IÎˆ	ö)öa6`vb6*¶,v*H6)öa6+v)öa6b¶*H6`v`¶-ÉËˆ	ÐÛÛ\[Y[\žH›ÉÎˆ	Ô›È6av+6)öa¶b‰Ëˆ	ÐÛÛ\[Y[\žH\Ú[™\ÜÉÎˆ	Ð\Ú[™\ÜÈ6av+6)öa¶b‰Ëˆ	Ñ^\™\È
+Ü[Û˜[
+IÎˆ	ö*¶)ö,vb¶+ˆ6)öa6)öa¶*¶aö)ö(H
+6)ö+¶*¶b¶)ö,vbŠIËˆ	ÔØ]™HÛÛ\[Y[\žHXØÙ\ÜÉÎˆ	ö+v`v.6)öa6b6-vb6a6)öa6av+6)öa¶b‰Ëˆ	Õ\ÈÚ[™Ù\È›ÙXÝXØÙ\ÜÈÛ›Kˆ]Ù\È›ÝÜ™X]HHÝš\HÝXœØÜš\[ÛˆÜˆY™™XÝT”‹‰Îˆ	öaö,6)È6b¶.¶b¶dv,H6-va6)ö+vb¶*H6)öa6b6-vb6a6)va6bH6)öa6ava¶*¶+6`v`¶-Ëˆ6a6)È6b¶a¶-6)ˆ6)ö-6*¶,v)ö`ÈÝš\H6b6a6)È6b¶)6*ö,H6.va6bH6)öa6)vb¶,v)ö+È6)öa6-6aö,vbˆ6)öa6av*¶`ö,v,K‰Ëˆ	ÐZ[™]šY]È[™X›\Ú	Îˆ	ö(öa¶-6)ˆ6b6.v)öb¶aˆ6b6)öa¶-6,IËˆ	Ó[Ü™HÙXœÚ]HÛÛÉÎˆ	ö)öa6av,¶b¶+È6avaˆ6(ö+öb6)ö*ˆ6)öa6avb6`¶.IËˆ	Ó[Ü™IÎˆ	ö)öa6av,¶b¶+ÉËˆ	ÕÙXœÚ]HÛÛÉÎˆ	ö(ö+öb6)ö*ˆ6)öa6avb6`¶.IËˆ	ÐY˜[˜ÙYÛÛÈÝ^H\™H[[[ÝH™YY[K‰Îˆ	ö*¶*6`¶bH6)öa6(ö+öb6)ö*ˆ6)öa6av*¶`¶+öav*H6aöa¶)È6+v*¶bH6*¶+v*¶)ö+6aö)Ë‰Ëˆ	Ô›Ú™XÝ	ˆÛXZ[‰Îˆ	ö)öa6av-6,vb6.H6b6)öa6a¶-ö)ö`‰Ëˆ	ÔÝ\H™]ÈÙXœÚ]x )‰Îˆ	ö)ö*6+ö(È6avb6`¶.vbö)È6+6+öb¶+öbö)ø )‰Ëˆ	Ô›Ú™XÝXÝ[ÛœÉÎˆ	ö)v+6,v)ö(v)ö*ˆ6)öa6av-6,vb6.IËˆ	ÐRH]X[]HÚXÚÈ™Y›Ü™HX›\Ú[™ÉÎˆ	ö`v+v-H6+6b6+ö*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6`¶*6a6)öa6a¶-6,IËˆ	ÐÚXÚÚ[™ø )‰Îˆ	ö+6)ö,vcH6)öa6`v+v-x )‰Ëˆ	ÐÚXÚÉÎˆ	ö`v+v-IËˆ	ÐRH]X[]HÚXÚÉÎˆ	ö`v+v-H6+6b6+ö*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ô™]šY]Ú[™È\ÚYÛ‹ÛÛ[ÑSËXØÙ\ÜÚXš[]H[™X›\Ú™XY[™\Üø )‰Îˆ	ö+6)ö,vcH6av,v)ö+6.v*H6)öa6*¶-vavb¶aH6b6)öa6av+v*¶b6bH6bÑSÈ6b6)vav`ö)öa¶b¶*H6)öa6b6-vb6a6b6+6)öaö,¶b¶*H6)öa6a¶-6,x )‰Ëˆ	Ô[ˆHš[˜[RH™]šY]È™Y›Ü™HX›\Ú[™Ë‰Îˆ	ö-6.¶dva6)öa6av,v)ö+6.v*H6)öa6a¶aö)ö)¶b¶*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6`¶*6a6)öa6a¶-6,K‰Ëˆ	Ô[ˆYØZ[‰Îˆ	ö*¶-6.¶b¶a6av,v*H6(ö+¶,vbIËˆ	Ñš^ØY™H\ÜÝY\ÈÚ]RIÎˆ	ö)v-va6)ö+H6)öa6av-6`öa6)ö*ˆ6)öa6(¶ava¶*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÔX›\Ú™[XZ[œÈ›ØÚÙYžHÜš]XØ[]\›Z[š\ÝXÈ]Y]\œ›ÜœÈ[™][˜ÚÚXÚÜË‰Îˆ	öb¶*6`¶bH6)öa6a¶-6,H6av+v.6b6,vbö)È6.va¶+È6b6+6b6+È6(ö+¶-ö)ö(H6*¶+ö`¶b¶`ˆ6+v,v+6*H6(öb6`v+vb6-v)ö*ˆ6)v-öa6)ö`ˆ6`v)ö-6a6*K‰Ëˆ	Õ\ÈÌX[X[[™RHÚXÚÜÚ[Ëˆ]]ÜØ]™HÝ^\ÈYÚÙZYÚ‰Îˆ	ö+v*¶bHÌ6a¶`¶-ö*H6+v`v.6b¶+öb6b¶*H6b6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ˆ6b¶*6`¶bH6)öa6+v`v.6)öa6*¶a6`¶)ö)¶bˆ6+¶`vb¶`vbö)Ë‰Ëˆ	Ó›È™\ÝÜ™HÚ[ÈY]ˆØ]™HÜˆ\ÙH^X\ˆRHÈÜ™X]HHš\œÝÚXÚÜÚ[‰Îˆ	öa6)È6*¶b6+6+È6a¶`¶)ö-È6)ö,ö*¶.v)ö+ö*H6*6.v+Ëˆ6)ö+v`v.6(öb6)ö,ö*¶+¶+öaH^X\ˆRH6a6)va¶-6)ö(H6(öb6a6a¶`¶-ö*K‰Ëˆ	ÐY	Îˆ	ö)v-¶)ö`v*IËˆ	ÔYÙHÙ][™ÜÉÎˆ	ö)v.v+ö)ö+ö)ö*ˆ6)öa6-v`v+v*IËˆ	ÔÚ]HÙ][™ÜÉÎˆ	ö)v.v+ö)ö+ö)ö*ˆ6)öa6avb6`¶.IËˆ	ÒXY\‹›ÛÝ\‹[YKÑSÈ[™Y˜[˜ÙYÜ[ÛœÉÎˆ	ö)öa6,v(ö,È6b6)öa6*¶,6b¶b¶a6b6)öa6av.6aö,H6bÑSÈ6b6)öa6+¶b¶)ö,v)ö*ˆ6)öa6av*¶`¶+öav*IËˆ	ÔÙXÝ[ÛœÈ	ˆ[[Y[ÉÎˆ	ö)öa6(ö`¶,ö)öaH6b6)öa6.va¶)ö-v,IËˆ	ÔÜ[\ˆÙXÝ[ÛœÉÎˆ	ö)öa6(ö`¶,ö)öaH6)öa6-6)ö)¶.v*IËˆ	ÔÝ\Ú[\IÎˆ	ö)ö*6+ö(È6*6*6,ö)ö-ö*IËˆ	Ó[Ü™HÙXÝ[ÛœÉÎˆ	ö)öa6av,¶b¶+È6avaˆ6)öa6(ö`¶,ö)öaIËˆ	ÐY[[Y[	Îˆ	ö)v-¶)ö`v*H6.va¶-v,IËˆ	ÐÛÛ[[Ûˆš\œÝ	Îˆ	ö)öa6(ö`ö*ö,H6)ö,ö*¶+¶+ö)öavbö)È6(öb6a6bö)ÉËˆ	ÐY˜[˜ÙY[[Y[ÉÎˆ	ö.va¶)ö-v,H6av*¶`¶+öav*IËˆ	ÐÚÛÜÙHHÙXÝ[Ûˆš\œÝˆY[™]šYX[[[Y[ÈÛ›HÚ[ˆ[ÝH™YY[Ü™HÛÛ›Û‰Îˆ	ö)ö+¶*¶,H6`¶,öavbö)È6(öb6a6bö)Ëˆ6(ö-¶`H6.va¶)ö-v,H6ava¶`v,v+ö*H6`v`¶-È6.va¶+öav)È6*¶+v*¶)ö+6*¶+v`öavbö)È6(ö`ö*6,K‰Ëˆ	ÔÙ[XÝHÙXÝ[ÛˆÈÙYH]È[[Y[Ë‰Îˆ	ö)ö+¶*¶,H6`¶,öavbö)È6a6.v,v-ˆ6.va¶)ö-v,vaË‰Ëˆ	ÜÙXÝ[ÛœÉÎˆ	ö(ö`¶,ö)öaIËˆ	Ó›È[[Y[È[ˆ\ÈÙXÝ[Û‹‰Îˆ	öa6)È6*¶b6+6+È6.va¶)ö-v,H6`vbˆ6aö,6)È6)öa6`¶,öaK‰Ëˆ	Õ^X\ˆRHZ[\‰Îˆ	öava¶-6)ˆ^X\ˆ6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐZ[™Yš[™H[™[™ÈÚ]˜]\˜[[™ÝXYÙK‰Îˆ	ö(öa¶-6)ˆ6b6+v,ödvaˆ6b6*¶,v)ö+6.H6*6)ö,ö*¶+¶+ö)öaH6)öa6a6.¶*H6)öa6-ö*6b¶.vb¶*K‰Ëˆ	ÔØY™H]Ú[ÙIÎˆ	öb6-¶.H6)öa6*¶.v+öb¶a6)öa6(¶ava‰Ëˆ	Õ[œ™[]YÛÛ[Ý^\È[XÝ	Îˆ	öb¶*6`¶bH6)öa6av+v*¶b6bH6.¶b¶,H6)öa6av,v*¶*6-È6+öb6aˆ6*¶.¶b¶b¶,IËˆ	ÕÙXœÚ]H[‰Îˆ	ö+¶-ö*H6)öa6avb6`¶.IËˆ	Ð\HRHÚ[™ÙIÎˆ	ö*¶-ö*6b¶`ˆ6*¶.v+öb¶a6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ô™XZ[œ›ÛH›Û\	Îˆ	ö)v.v)ö+ö*H6)öa6*6a¶)ö(H6avaˆ6)öa6b6-v`IËˆ	ÑY]X[X[IÎˆ	ö*¶.v+öb¶a6b¶+öb6b‰Ëˆ	ÑÙ[™\˜]HÙ[XÝY[XYÙIÎˆ	ö)va¶-6)ö(H6)öa6-vb6,v*H6)öa6av+v+ö+ö*IËˆ	Ô]X[]HÚXÚÉÎˆ	ö`v+v-H6)öa6+6b6+ö*IËˆ	Õ[™ÈRHÚ[™ÙIÎˆ	ö)öa6*¶,v)ö+6.H6.vaˆ6*¶.v+öb¶a6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐZ[Ú]^X\ˆYÙ[	Îˆ	ö)öa6*6a¶)ö(H6*6)ö,ö*¶+¶+ö)öaH^X\ˆYÙ[	Ëˆ	Ñ˜\ÝZ[0­È›ÈÙ[™\˜]Y[XYÙ\ÉÎˆ	ö*6a¶)ö(H6,ö,vb¶.H0­È6*6+öb6aˆ6-vb6,H6avb6a6+ö*IËˆ	ÐRHÜ™X]\È[™]Ú\È™X[^X\ˆYÙ\È[™ÙXÝ[ÛœËˆ›ÛÝË]\Ú[™Ù\È™\Ù\™H[œ™[]YÛÛ[[™™[XZ[ˆY]X›H[ˆHš\ÝX[Z[\‹‰Îˆ	öb¶a¶-6)ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6-v`v+v)ö*ˆ6b6(ö`¶,ö)öaH^X\ˆ6+v`¶b¶`¶b¶*H6b6b¶.v+öa6aö)Ëˆ6*¶+v)ö`v.6)öa6*¶.v+öb¶a6)ö*ˆ6)öa6a6)ö+v`¶*H6.va6bH6)öa6av+v*¶b6bH6.¶b¶,H6)öa6av,v*¶*6-È6b6*¶*6`¶bH6`¶)ö*6a6*H6a6a6*¶+v,vb¶,H6`vbˆ6)öa6ava¶-6)ˆ6)öa6av,v)¶b‹‰Ëˆ	Ñ]™[Ü\ˆ^Ü	Îˆ	ö*¶-v+öb¶,H6a6a6av-öb6,IËˆ	ÐYÙXÝ[Û‰Îˆ	ö)v-¶)ö`v*H6`¶,öaIËˆ	Ò[œÜXÝÜ‰Îˆ	öa6b6+v*H6)öa6+¶-v)ö)¶-IËˆ	ÑÝX›KXÛXÚÈH^ÛˆHYÙH›Üˆ]ZXÚÈY][™ËÜˆ\ÙHHÛÛ›ÛÈ\™K‰Îˆ	ö)öa¶`¶,H6a¶`¶,vbö)È6av,¶+öb6+6bö)È6.va6bH6)öa6a¶-H6`vbˆ6)öa6-v`v+v*H6a6a6*¶.v+öb¶a6)öa6,ö,vb¶.v#6(öb6)ö,ö*¶+¶+öaH6.va¶)ö-v,H6)öa6*¶+v`öaH6aöa¶)Ë‰Ëˆ	ÐÚ[™ÙHH˜\ÚXÜÈ\™KˆÜ[ˆY˜[˜ÙYÛ›HÚ[ˆ[ÝH™YY]‰Îˆ	ö.¶b¶dv,H6)öa6(ö,ö)ö,öb¶)ö*ˆ6aöa¶)Ëˆ6)ö`v*¶+H6)öa6)v.v+ö)ö+ö)ö*ˆ6)öa6av*¶`¶+öav*H6`v`¶-È6.va¶+È6)öa6+v)ö+6*K‰Ëˆ	ÔÙ[XÝÛÛY][™ÈÛˆHYÙHÈÝ\Y][™Ë‰Îˆ	ö)ö+¶*¶,H6-6b¶)¶bö)È6`vbˆ6)öa6-v`v+v*H6a6*6+ö(H6)öa6*¶.v+öb¶a‰Ëˆ	ÔÝXÝ\™IÎˆ	ö)öa6*6a¶b¶*IËˆ	ÔÝXÝ\™H	ˆ™]\ØX›HÛÛ\Û™[ÉÎˆ	ö)öa6*6a¶b¶*H6b6)öa6av`öb6a¶)ö*ˆ6)öa6`¶)ö*6a6*H6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaIËˆ	Ô]ZXÚÈÝ[IÎˆ	ö*¶a¶,öb¶`ˆ6,ö,vb¶.IËˆ	ÐY˜[˜ÙY\ÚYÛˆ	ˆ™\ÜÛœÚ]™IÎˆ	ö*¶-vavb¶aH6av*¶`¶+öaH6b6)ö,ö*¶+6)ö*6*IËˆ	ÜÝ[\ÉÎˆ	ö(öa¶av)ö-ÉËˆ	Ñœ™YHÜÚ][Û‰Îˆ	öavb6-¶.H6+v,IËˆ	Ñ˜YÈœ™Y[HÛˆHØ[˜\ËˆÛÚYÚ[H˜YÙÚ[™ÈÈ™[Ü™\ˆ[œÝXY‰Îˆ	ö)ö,ö+v*6*6+v,vb¶*H6.va6bH6av,ö)ö+v*H6)öa6.vavaˆ6)ö-¶.¶-ÈÚY6(ö*öa¶)ö(H6)öa6,ö+v*6a6)v.v)ö+ö*H6)öa6*¶,v*¶b¶*6*6+öa6bö)È6avaˆ6,6a6`Ë‰Ëˆ	ÔÙXÝ[ÛˆÙ][™ÜÉÎˆ	ö)v.v+ö)ö+ö)ö*ˆ6)öa6`¶,öaIËˆ	ØÛÛ\ÙYÚ[HY][™È[[Y[	Îˆ	öav-öb6bˆ6(ö*öa¶)ö(H6*¶.v+öb¶a6)öa6.va¶-v,IË‚ˆ	ÕÛÛÈ]H[˜]˜Z[X›IÎˆ	ö*6b¶)öa¶)ö*ˆ6)öa6(ö+öb6)ö*ˆ6.¶b¶,H6av*¶)ö+v*IËˆ	Ó]™H\ØYÙH]IÎˆ	ö*6b¶)öa¶)ö*ˆ6)öa6)ö,ö*¶+¶+ö)öaH6)öa6av*6)ö-6,v*IËˆ	Ð[˜[\Ú\È\È™XY[Û›Kˆ›ÈÝÜ˜YÙHØš™XÝÜˆ]X˜\ÙH›ÝÈ\ÈÚ[™ÙYžH\È]Û‹‰Îˆ	ö)öa6*¶+va6b¶a6a6a6`¶,v)ö(v*H6`v`¶-Ëˆ6a6)È6b¶.¶b¶dv,H6aö,6)È6)öa6,¶,H6(öbˆ6ava6`H6*¶+¶,¶b¶aˆ6(öb6-v`H6`vbˆ6`¶)ö.v+ö*H6)öa6*6b¶)öa¶)ö*‹‰Ëˆ	Ñ]XÝY\ÜÝY\ÉÎˆ	ö)öa6av-6`öa6)ö*ˆ6)öa6av`ö*¶-6`v*IËˆ	ÐÛÛ\Û™[ÉÎˆ	ö)öa6av`öb6a¶)ö*‰Ëˆ	ØÚ[™Ù\ÉÎˆ	ö*¶.¶b¶b¶,v)ö*‰Ëˆ	Ô™\ÝÜ™H\ÈY]ÜˆÝ]IÎˆ	ö)ö,ö*¶.v)ö+ö*H6+v)öa6*H6)öa6av+v,v,H6aö,6aÉËˆ	Ô™\ÝÜ™IÎˆ	ö)ö,ö*¶.v)ö+ö*IËˆ	Ó›ÈÚ[™Ù\ÈY]‰Îˆ	öa6)È6*¶b6+6+È6*¶.¶b¶b¶,v)ö*ˆ6*6.v+Ë‰Ëˆ	Ô™YÈ]Y]YIÎˆ	ö`¶)ö)¶av*H6)öa6)v.v)ö+ö*IËˆ	Õ[\]HXœ˜\žIÎˆ	öav`ö*¶*6*H6)öa6`¶b6)öa6*	Ë‚ˆ	ÐÛÛ\Û™[È\™H™]\ØX›H[šÙY[[Y[ËˆÜ™X]HÛ™Hœ›ÛHHÙ[XÝY[[Y[[œÙ\][ž]Ú\™K[™[šÙYÛÜY\ÈÝ^H[ˆÞ[˜Ëˆ]XÚXZÙ\ÈÛ›HHÙ[XÝYÛÜH[™\[™[‰Îˆ	ö)öa6av`öb6a¶)ö*ˆ6aöbˆ6.va¶)ö-v,H6av,v*¶*6-ö*H6`¶)ö*6a6*H6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaKˆ6(öa¶-6)ˆ6av`öb6a¶bö)È6avaˆ6)öa6.va¶-v,H6)öa6av+v+ö+È6b6(ö+ö,v+6aÈ6`vbˆ6(öbˆ6av`ö)öaˆ6a6*¶*6`¶bH6)öa6a¶,ö+ˆ6)öa6av,v*¶*6-ö*H6av*¶,¶)öava¶*Kˆ6b¶)6+öbˆ6)öa6`v-va6)va6bH6+6.va6)öa6a¶,ö+¶*H6)öa6av+v+ö+ö*H6av,ö*¶`¶a6*H6`v`¶-Ë‰Ëˆ	ÐÜ™X]HH™]\ØX›H[šÙYÛÛ\Û™[œ›ÛHHÙ[XÝY[[Y[	Îˆ	ö)va¶-6)ö(H6av`öb6aˆ6av,v*¶*6-È6`¶)ö*6a6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaH6avaˆ6)öa6.va¶-v,H6)öa6av+v+ö+ÉËˆ	ÔÙ[XÝH›Ü›X[[[Y[š\œÝ	Îˆ	ö)ö+¶*¶,H6.va¶-v,vbö)È6.v)ö+öb¶bö)È6(öb6a6bö)ÉËˆ	ÐÜ™X]HÛÛ\Û™[	Îˆ	ö)va¶-6)ö(H6av`öb6a‰Ëˆ	Ñ]XÚHÙ[XÝY[šÙY[œÝ[˜ÙIÎˆ	ö`v-va6)öa6a¶,ö+¶*H6)öa6av,v*¶*6-ö*H6)öa6av+v+ö+ö*IËˆ	ÔÙ[XÝH[šÙYÛÛ\Û™[[œÝ[˜ÙHš\œÝ	Îˆ	ö)ö+¶*¶,H6a¶,ö+¶*H6av`öb6aˆ6av,v*¶*6-ö*H6(öb6a6bö)ÉËˆ	Ñ]XÚÙ[XÝY	Îˆ	ö`v-va6)öa6av+v+ö+ÉËˆ	Ò[œÙ\ÛÛ\Û™[[ÈHÙ[XÝYÙXÝ[Û‰Îˆ	ö)v+ö,v)ö+6)öa6av`öb6aˆ6`vbˆ6)öa6`¶,öaH6)öa6av+v+ö+ÉËˆ	ÔÙ[XÝHÙXÝ[ÛˆÜˆ[[Y[š\œÝ	Îˆ	ö)ö+¶*¶,H6`¶,öavbö)È6(öb6.va¶-v,vbö)È6(öb6a6bö)ÉËˆ	ÐÛÛ\Û™[	Îˆ	öav`öb6a‰Ëˆ	Ñ[]HÛÛ\Û™[	Îˆ	ö+v,6`H6)öa6av`öb6a‰Ëˆ	ÑS	Îˆ	ö+v,6`IËˆ	ÔÙ[XÝ[ˆ[[Y[ÛˆHØ[˜\Ë[ˆÚÛÜÙH8 'Ü™X]HÛÛ\Û™[8 'K‰Îˆ	ö)ö+¶*¶,H6.va¶-v,vbö)È6.va6bH6av,ö)ö+v*H6)öa6.vava6#6*öaH6)ö+¶*¶,H0ªö)va¶-6)ö(H6av`öb6a°®Ë‰Ëˆ	ÔÙ[XÝHÙXÝ[ÛˆÜˆ[ˆ[[Y[ÛˆHØ[˜\È™Y›Ü™H[œÙ\[™ÈHÛÛ\Û™[‰Îˆ	ö)ö+¶*¶,H6`¶,öavbö)È6(öb6.va¶-v,vbö)È6.va6bH6av,ö)ö+v*H6)öa6.vava6`¶*6a6)v+ö,v)ö+6av`öb6a‹‰Ëˆ	Õ^X\ˆRH\ÈØY[™Ë‹‹‰Îˆ	ö+6)ö,vcH6*¶+vavb¶a^X\ˆRK‹‹‰Ëˆ	ÔÚ]HÛÛ›ÛÈ\™HØY[™Ë‹‹‰Îˆ	ö+6)ö,vcH6*¶+vavb¶a6.va¶)ö-v,H6*¶+v`öaH6)öa6avb6`¶.K‹‹‰Ëˆ	ÔÙ][™ÜÈ\™HØY[™Ë‹‹‰Îˆ	ö+6)ö,vcH6*¶+vavb¶a6)öa6)v.v+ö)ö+ö)ö*‹‹‹‰Ëˆ	Õ^X\ˆRIÎˆ	Õ^X\ˆRIËˆ	Õ‘T’Q–RS‘ÉÎˆ	ö+6)ö,vcH6)öa6*¶+v`¶`‰Ëˆ	ÐÒPÒÈRSQ	Îˆ	ö`v-6a6)öa6`v+v-IËˆ	ÓU‘IÎˆ	öav*6)ö-6,IËˆ	ÔP“TÒQ	Îˆ	öava¶-6b6,IËˆ	ÔØ]™YÚ[™Ù\È™YY™\X›\Ú0­ÈÜ[ˆÚ]H8¡¥ÉÎˆ	ö)öa6*¶.¶b¶b¶,v)ö*ˆ6)öa6av+v`vb6.6*H6*¶+v*¶)ö+6)v.v)ö+ö*H6a¶-6,H0­È6)ö`v*¶+H6)öa6avb6`¶.H8¡¥ÉËˆ	Õ\È]H0­ÈÜ[ˆÚ]H8¡¥ÉÎˆ	öav+v+ödv*È0­È6)ö`v*¶+H6)öa6avb6`¶.H8¡¥ÉËˆ	ØÜš]XØ[	Îˆ	ö+v,v+	Ëˆ	ÝØ\›š[™ÜÉÎˆ	ö*¶+v,6b¶,v)ö*‰Ëˆ	Ú\ÜÝYIÎˆ	öav-6`öa6*IËˆ	Ú\ÜÝY\ÉÎˆ	öav-6`öa6)ö*‰Ëˆ	ÔØ]š[™ø )‰Îˆ	ö+6)ö,vcH6)öa6+v`v.8 )‰Ëˆ	Õ[œØ]™Y	Îˆ	ö.¶b¶,H6av+v`vb6.	Ëˆ	ÔØ]™Y0­È›Ý]™HY]	Îˆ	öav+v`vb6.0­È6a6aH6b¶-v*6+H6av*6)ö-6,vbö)È6*6.v+ÉËˆ	ÔØ]™Y0­È]™IÎˆ	öav+v`vb6.0­È6av*6)ö-6,IËˆ	ÔØ]™Y	Îˆ	öav+v`vb6.	Ëˆ	ÑY]Üˆ\ÝÜžIÎˆ	ö,ö+6a6)öa6av+v,v,IËˆ	ÔX›\Ú[™ø )‰Îˆ	ö+6)ö,vcH6)öa6a¶-6,x )‰Ëˆ	Ô™\X›\Ú	Îˆ	ö)v.v)ö+ö*H6)öa6a¶-6,IËˆ	ÔX›\ÚYØZ[‰Îˆ	ö)öa6a¶-6,H6av,v*H6(ö+¶,vbIËˆ	ÔX›\Ú	Îˆ	öa¶-6,IË‚ˆ	Õ^X\ˆÛÙ[™È\ÜÚ\Ý[˜ÙIÎˆ	öav,ö)ö.v+ö*H^X\ˆ6)öa6*6,vav+6b¶*IËˆ	ÕRH™YÚ\ÝžIÎˆ	ö,ö+6a6b6)ö+6aö*H6)öa6av,ö*¶+¶+öaIËˆ	Ô™XY[™ÈXÝ]™H›Ú™XÝ	Îˆ	ö+6)ö,vcH6`¶,v)ö(v*H6)öa6av-6,vb6.H6)öa6a¶-6-ÉËˆ	Ô›Ú™XÝÛÛ^[˜]˜Z[X›IÎˆ	ö,öb¶)ö`ˆ6)öa6av-6,vb6.H6.¶b¶,H6av*¶)ö+IËˆ	ÓØY[™ÈÜ[‹\ÛÝ\˜ÙH™YÚ\ÝšY\ÉÎˆ	ö+6)ö,vcH6*¶+vavb¶a6,ö+6a6)ö*ˆ6)öa6av-v)ö+ö,H6)öa6av`v*¶b6+v*IËˆ	Õ\™Ù]›Ú™XÝ	Îˆ	ö)öa6av-6,vb6.H6)öa6av,ö*¶aö+ö`IËˆ	ÔÛÝ\˜ÙHÛXÞIÎˆ	ö,öb¶)ö,ö*H6)öa6av-v+ö,IËˆ	Ñš[\ÉÎˆ	ö)öa6ava6`v)ö*‰Ëˆ	Ñ›Û\‰Îˆ	öav+6a6+ÉËˆ	ÐÛX\ˆš]˜]HÙ\ÜÚ[Ûˆš[\ÉÎˆ	öav,ö+H6ava6`v)ö*ˆ6)öa6+6a6,ö*H6)öa6+¶)ö-v*IËˆ	Ñ[™X]\™HÙ[™\˜]Ü‰Îˆ	öavb6a6dv+È6)öa6avb¶,¶)ö*ˆ6)öa6`ö)öava	Ëˆ	Ô™YÚ\ÝžH[˜ÚÜœÉÎˆ	öav,v)ö+6.H6)öa6,ö+6a	Ëˆ	ÐÚÛÜÙHH\™Ù]›Ú™XÝÈÙ[™\˜]HH™X]\™HXÚË‰Îˆ	ö)ö+¶*¶,H6av-6,vb6.vbö)È6av,ö*¶aö+ö`vbö)È6a6)va¶-6)ö(H6+v,¶av*H6avb¶,¶)ö*‹‰Ëˆ	ÐÛÛ\Û™[Ú]ÛÛ\ÜÙ\‰Îˆ	öavcöa¶-6)ˆ6+v,¶av*H6)öa6av`öb6a¶)ö*‰Ëˆ	ÒÚ]\È[\KˆØYH™\Ù]ÜˆYÙ[XÝYÛÛ\Û™[Ë‰Îˆ	ö)öa6+v,¶av*H6`v)ö,v.¶*Kˆ6+vavdva6)v.v+ö)ö+öbö)È6av,ö*6`¶bö)È6(öb6(ö-¶`H6)öa6av`öb6a¶)ö*ˆ6)öa6av+v+ö+ö*K‰Ëˆ	ÐÛX\ˆÚ]	Îˆ	öav,ö+H6)öa6+v,¶av*IËˆ	Ò][\ÉÎˆ	ö)öa6.va¶)ö-v,IËˆ	Ô™YÚ\ÝžH\ÉÎˆ	ö)ö.v*¶av)ö+öb¶)ö*ˆ6)öa6,ö+6a	Ëˆ	ÐÛÛ\]Xš[]IÎˆ	ö)öa6*¶b6)ö`v`‰Ëˆ	ÔYÙHÛÛ\ÜÙ\ˆ
+È[Y\ÉÎˆ	öavcöa¶-6)ˆ6)öa6-v`v+v)ö*ˆ
+È6)öa6,öav)ö*‰Ëˆ	ÔÙXÝ[Ûˆ[˜ÚÜœÉÎˆ	öav,v)ö+6.H6)öa6(ö`¶,ö)öaIËˆ	Ó›ÈÝ›Û™È™YÚ\ÝžH[˜ÚÜœÈ›Ý[™›Üˆ\ÈYÙH™\Ù]‰Îˆ	öa6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6av,v)ö+6.H6`¶b6b¶*H6`vbˆ6)öa6,ö+6a6a6aö,6)È6)öa6)v.v+ö)ö+È6)öa6av,ö*6`ˆ6a6a6-v`v+v*K‰Ëˆ	Ô›Ú™XÝRH]Y]	Îˆ	ö*¶+ö`¶b¶`ˆ6b6)ö+6aö*H6)öa6av-6,vb6.IËˆ	ÐÚÛÜÙHH\™Ù]›Ú™XÝÈ[ˆHRH]Y]‰Îˆ	ö)ö+¶*¶,H6av-6,vb6.vbö)È6av,ö*¶aö+ö`vbö)È6a6*¶-6.¶b¶a6*¶+ö`¶b¶`ˆ6)öa6b6)ö+6aö*K‰Ëˆ	ÔØÛÜ™IÎˆ	ö)öa6a¶*¶b¶+6*IËˆ	ÒYÚ	Îˆ	öav,v*¶`v.IËˆ	ÐÛÝ™\˜YÙIÎˆ	ö)öa6*¶.¶-öb¶*IËˆ	Ó›È\ÜÝY\ÈX]ÚYHÝ\œ™[]\›Z[š\ÝXÈ]Y][\Ë‰Îˆ	öa6)È6*¶b6+6+È6av-6`öa6)ö*ˆ6*¶-ö)ö*6`ˆ6`¶b6)ö.v+È6)öa6*¶+ö`¶b¶`ˆ6)öa6+v)öa6b¶*K‰Ëˆ	Ð[ÛÝ\˜Ù\ÉÎˆ	ö`öa6)öa6av-v)ö+ö,IËˆ	Ôš]˜]HÙ\ÜÚ[Û‰Îˆ	ö+6a6,ö*H6+¶)ö-v*IËˆ	Ð[š[X]YÛ›IÎˆ	ö)öa6av*¶+v,v`ö*H6`v`¶-ÉËˆ	Ó›ÈX]Ú[™ÈÛÛ\Û™[Ë‰Îˆ	öa6)È6*¶b6+6+È6av`öb6a¶)ö*ˆ6av-ö)ö*6`¶*K‰Ëˆ	ÔÚÝÈ[Ü™IÎˆ	ö.v,v-ˆ6)v-¶)ö`vb¶*IËˆ	ÓÜ[ˆÛÝ\˜ÙIÎˆ	öav`v*¶b6+H6)öa6av-v+ö,IËˆ	Ôš]˜]HÙ\ÜÚ[Û‰Îˆ	ö+6a6,ö*H6+¶)ö-v*IËˆ	Ò\ÛÛ]Y]™H™]šY]ÉÎˆ	öav.v)öb¶a¶*H6av*6)ö-6,v*H6av.v,¶b6a6*IËˆ	ÔÝÜ™]šY]ÉÎˆ	ö)vb¶`¶)ö`H6)öa6av.v)öb¶a¶*IËˆ	Ñ\[™[˜ÚY\ÉÎˆ	ö)öa6)ö.v*¶av)ö+öb¶)ö*‰Ëˆ	ÐRH™XYIÎˆ	ö+6)öaö,ˆ6a6a6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÔÚ[Z[\ˆÛÛ\Û™[ÉÎˆ	öav`öb6a¶)ö*ˆ6av-6)ö*6aö*IËˆ	Ñš[™Ú[Z[\ˆÈ™\XÙH›Ú™XÝÛÛ\Û™[	Îˆ	ö)öa6.v*öb6,H6.va6bH6av-6)ö*6aÈÈ6)ö,ö*¶*6+ö)öa6av`öb6aˆ6)öa6av-6,vb6.IËˆ	ÔÝYÙÙ\ÝY™\XÙ[Y[ÉÎˆ	ö)öa6*6+ö)ö)¶a6)öa6av`¶*¶,v+v*IËˆ	Ó›ÈÝ›Û™È™YÚ\ÝžHX]ÚY]ˆXÚÈH™YÚ\ÝžHÛÛ\Û™[X[X[K[ˆ\ÙHH]Ûˆ™[ÝË‰Îˆ	öa6)È6*¶b6+6+È6av-ö)ö*6`¶*H6`¶b6b¶*H6`vbˆ6)öa6,ö+6a6*6.v+Ëˆ6)ö+¶*¶,H6av`öb6a¶bö)È6avaˆ6)öa6,ö+6a6b¶+öb6b¶bö)È6*öaH6)ö,ö*¶+¶+öaH6)öa6,¶,H6(ö+öa¶)öaË‰Ëˆ	ÐXÝ]™H›Ú™XÝÛÛ\]Xš[]IÎˆ	ö*¶b6)ö`v`ˆ6)öa6av-6,vb6.H6)öa6a¶-6-ÉËˆ	Ñœ˜[Y]ÛÜšÉÎˆ	ö)v-ö)ö,H6)öa6.vava	Ëˆ	Ñ]XÝY›Ú™XÝÝ[IÎˆ	öa¶av-È6)öa6av-6,vb6.H6)öa6av`ö*¶-6`IËˆ	Ó›ÈÝ›Û™ÈÝ[HÚÙ[œÈ]XÝYY]‰Îˆ	öa6aH6b¶*¶aH6)ö`ö*¶-6)ö`H6,vavb6,ˆ6*¶a¶,öb¶`ˆ6`¶b6b¶*H6*6.v+Ë‰Ëˆ	ÐÛÛ^š[\ÉÎˆ	öava6`v)ö*ˆ6)öa6,öb¶)ö`‰Ëˆ	ÓZ\ÜÚ[™ÈœH\ÉÎˆ	ö)ö.v*¶av)ö+öb¶)ö*ˆœH6)öa6av`v`¶b6+ö*IËˆ	ÔÛÝ\˜ÙHÛÙHØYÈÛˆ[X[™	Îˆ	öb¶*¶aH6*¶+vavb¶a6)öa6-6b¶`v,v*H6)öa6av-v+ö,vb¶*H6.va¶+È6)öa6+v)ö+6*IËˆ	ÐRHY\][Û‰Îˆ	ö*¶`öb¶b¶`H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	ÐÛÛœÝ˜Z[ÉÎˆ	ö)öa6`¶b¶b6+ÉËˆ	Ô›Ú™XÝÝ[HX]Ú[™ÈXÝ]™IÎˆ	öav-ö)ö*6`¶*H6a¶av-È6)öa6av-6,vb6.H6av`v.va6*IËˆ	Õ\ÙH\È\™XÝ[Û‰Îˆ	ö)ö,ö*¶+¶+öaH6aö,6)È6)öa6)ö*¶+6)öaÉËˆ	Ô™]šY]ØX›H]Ú[‰Îˆ	ö+¶-ö*H6*¶.v+öb¶a6`¶)ö*6a6*H6a6a6av,v)ö+6.v*IËˆ	Ó”HÈ[œÝ[	Îˆ	ö+v,¶aH”H6a6a6*¶*ö*6b¶*‰Ëˆ	Ô™YÚ\ÝžH\[™[˜ÚY\ÉÎˆ	ö)ö.v*¶av)ö+öb¶)ö*ˆ6)öa6,ö+6a	Ëˆ	Ñ™X]\™HXÚÈ™]šY]ÉÎˆ	öav.v)öb¶a¶*H6+v,¶av*H6)öa6avb¶,¶)ö*‰Ëˆ	Ô™]šY]Èš[X\žHš[IÎˆ	öav.v)öb¶a¶*H6)öa6ava6`H6)öa6,v)¶b¶,öb‰Ëˆ	ÐÜ™X]IÎˆ	ö)va¶-6)ö(IËˆ	Ô™\XÙIÎˆ	ö)ö,ö*¶*6+ö)öa	Ëˆ	Ôš[X\žIÎˆ	ö,v)¶b¶,öb‰Ëˆ	ÐÛÛ›ÛY\[™[˜ÞHY]Ü‰Îˆ	öav+v,v,H6)öa6)ö.v*¶av)ö+öb¶)ö*ˆ6)öa6av*¶+v`öaH6*6aÉËˆ	Ô›Û˜XÚÈÚXÚÜÚ[]˜Z[X›IÎˆ	öa¶`¶-ö*H6)ö,ö*¶,v+6)ö.H6av*¶)ö+v*IËˆ	ÔØY™H\H›ØÚÙY	Îˆ	ö)öa6*¶-ö*6b¶`ˆ6)öa6(¶avaˆ6av+v.6b6,IËˆ	Ó›ÈRHY\][ÛˆÜˆ]Ú[ˆÙ[™\˜]YY]‰Îˆ	öa6aH6b¶*¶aH6)va¶-6)ö(H6*¶`öb¶b¶`H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6(öb6+¶-ö*H6*¶.v+öb¶a6*6.v+Ë‰Ëˆ	ÐXÝ]™H›Ú™XÝ	Îˆ	ö)öa6av-6,vb6.H6)öa6a¶-6-ÉËˆ	Ô›Ú™XÝÛÛ^\È™XY[Û›H[™›Ý[™Y™Y›Ü™H]\È\ÙYžHRKˆ›È›Ú™XÝš[H\ÈÚ[™ÙYžH\ÈØÜ™Y[‹‰Îˆ	ö,öb¶)ö`ˆ6)öa6av-6,vb6.H6a6a6`¶,v)ö(v*H6`v`¶-È6b6av+v+öb6+È6`¶*6a6)ö,ö*¶+¶+ö)öavaÈ6*6b6)ö,ö-ö*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ˆ6a6)È6b¶*¶aH6*¶.¶b¶b¶,H6(öbˆ6ava6`H6av-6,vb6.H6avaˆ6aö,6aÈ6)öa6-6)ö-6*K‰Ëˆ	ÔÛÝ\˜ÙIÎˆ	ö)öa6av-v+ö,IËˆ	ÓXÙ[œÙHØ]IÎˆ	ö*6b6)ö*6*H6)öa6*¶,v+¶b¶-IËˆ	Ô™YÚ\ÝžHÝ[\ÉÎˆ	ö(öa¶av)ö-È6)öa6,ö+6a	Ëˆ	ÐRHY\][Ûˆ[œÝXÝ[Û‰Îˆ	ö*¶.va6b¶av)ö*ˆ6*¶`öb¶b¶`H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ë‚ˆ	Ñ[]HÛ›IÎˆ	ö+v,6`H6`v`¶-ÉËˆ	Ñ[]H
+È›ØÚÉÎˆ	ö+v,6`H
+È6+v.6,IËˆ	Ð›ØÚÈ^\™\È
+Ü[Û˜[
+IÎˆ	ö)öa¶*¶aö)ö(H6)öa6+v.6,H
+6)ö+¶*¶b¶)ö,vbŠIËˆ	Õ[\]HXœ˜\žH[YÜš]H]Y]	Îˆ	ö*¶+ö`¶b¶`ˆ6,öa6)öav*H6av`ö*¶*6*H6)öa6`¶b6)öa6*	Ëˆ	Ô]\ÙIÎˆ	ö)vb¶`¶)ö`H6av)6`¶*‰Ëˆ	Ò[˜[Y[\]H[][ÛˆÛÛ\]Y	Îˆ	ö)ö`ö*¶ava6+v,6`H6)öa6`¶b6)öa6*6.¶b¶,H6)öa6-v)öa6+v*IËˆ	ÕH™]š[Ý\È]Y]Û˜\ÚÝØ\ÈÛX\™Yˆ[ˆH]Y]YØZ[ˆÈ™\šYžHH™[XZ[š[™ÈXœ˜\žK‰Îˆ	ö*¶aH6av,ö+H6a6`¶-ö*H6)öa6*¶+ö`¶b¶`ˆ6)öa6,ö)ö*6`¶*Kˆ6-6.¶dva6)öa6*¶+ö`¶b¶`ˆ6av+6+ö+öbö)È6a6a6*¶+v`¶`ˆ6avaˆ6)öa6av`ö*¶*6*H6)öa6av*¶*6`¶b¶*K‰Ëˆ	Ô™\Z\ˆžK\[ˆ[˜[\Ú\ÉÎˆ	ö*¶+va6b¶a6*¶+6,vb¶*6bˆ6a6a6)v-va6)ö+IË‚ˆ	ÐRHYZ[ˆ]H[˜]˜Z[X›IÎˆ	ö*6b¶)öa¶)ö*ˆ6)v+ö)ö,v*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6.¶b¶,H6av*¶)ö+v*IËˆ	ÔÙ]H›ÙXÝ[ÛˆY˜][[Ù[ˆ\‹]ÛÛ\Ù\ˆÙ][™ÜÈÝ™\œšYH\È˜[YK‰Îˆ	ö.vb¶dvaˆ6)öa6a¶avb6,6+6)öa6)ö`v*¶,v)ö-¶bˆ6a6a6)va¶*¶)ö+ˆ6*¶*¶+6)öb6,ˆ6)v.v+ö)ö+ö)ö*ˆ6)öa6av,ö*¶+¶+öaH6)öa6+¶)ö-v*H6*6`öa6(ö+ö)ö*H6aö,6aÈ6)öa6`¶b¶av*K‰Ëˆ	ÐÚÛÜÙHHX[˜YÙY[Ù[™[ÝËÜˆYH™]ÈÙ[Z[šH[Ù[QX[X[HÚ[ˆÛÛÙÛH™[X\Ù\ÈÛ™K‰Îˆ	ö)ö+¶*¶,H6a¶avb6,6+6bö)È6avcö+ö)ö,vbö)È6(ö+öa¶)öaö#6(öb6(ö-¶`H6av.v,vdv`H6a¶avb6,6+Ù[Z[šH6+6+öb¶+öbö)È6b¶+öb6b¶bö)È6.va¶+È6-ö,v+HÛÛÙÛH6a6aË‰Ëˆ	ÑÙ[Z[šH˜XÚÙ[™	Îˆ	öb6)ö+6aö*HÙ[Z[šH6)öa6+¶a6`vb¶*IËˆ	ÔØ]™HY˜][	Îˆ	ö+v`v.6)öa6)ö`v*¶,v)ö-¶b‰Ëˆ	ÐÝ\ÝÛIÎˆ	öav+¶-v-IËˆ	ÐZ[Z[‰Îˆ	öav+öav+	Ëˆ	Ô™[[Ý™H[Ù[	Îˆ	ö)v,¶)öa6*H6)öa6a¶avb6,6+	Ëˆ	ÐY[Ù[X[X[IÎˆ	ö)v-¶)ö`v*H6a¶avb6,6+6b¶+öb6b¶bö)ÉËˆ	Õ\ÙHH^XÝÙ[Z[šHTH[Ù[Q›Üˆ^[\HÙ[Z[šKLËžY›\Ú‰Îˆ	ö)ö,ö*¶+¶+öaH6av.v,vdv`H6a¶avb6,6+Ù[Z[šHTH6)öa6+ö`¶b¶`¶#6av*öaÙ[Z[šKLËžY›\Ú‰Ëˆ	Ñ\Ü^H˜[YH
+Ü[Û˜[
+IÎˆ	ö)ö,öaH6)öa6.v,v-ˆ
+6)ö+¶*¶b¶)ö,vbŠIËˆ	ÐY[Ù[	Îˆ	ö)v-¶)ö`v*H6a¶avb6,6+	Ëˆ	ÔÙ[XÝY	Îˆ	öav+v+ö+ÉËˆ	Ô›ÝšY\‰Îˆ	ö)öa6av,¶b6dv+ÉËˆ	ÔØ]™Y\™H\È[ˆYZ[ˆÛÛ[˜YˆX›XÈYÙ\È\™H›ÝÚ[™ÙY[[]™KXÛÛ[Ú\š[™È\È[˜X›Y‰Îˆ	öav+v`vb6.6aöa¶)È6`öav,öb6+ö*H6av+v*¶b6bH6a6a6)v+ö)ö,v*Kˆ6a6)È6*¶*¶.¶b¶,H6)öa6-v`v+v)ö*ˆ6)öa6.v)öav*H6+v*¶bH6b¶*¶aH6*¶`v.vb¶a6,v*6-È6)öa6av+v*¶b6bH6)öa6av*6)ö-6,K‰Ëˆ	Ñ\Ú›Ø\™]H[˜]˜Z[X›IÎˆ	ö*6b¶)öa¶)ö*ˆ6a6b6+v*H6)öa6*¶+v`öaH6.¶b¶,H6av*¶)ö+v*IËˆ	ÕHYZ[ˆ]HÛÝ\˜ÙHÛÝ[›Ý™HØYY‰Îˆ	ö*¶.v,6,H6*¶+vavb¶a6av-v+ö,H6*6b¶)öa¶)ö*ˆ6)öa6)v+ö)ö,v*K‰Ëˆ	ÐYZ[ˆ]HÝ]\ÉÎˆ	ö+v)öa6*H6*6b¶)öa¶)ö*ˆ6)öa6)v+ö)ö,v*IËˆ	ÓÛ›H™\šYšYY]™H]H\ÈÚÝÛˆ\™NÈXÙZÛ\ˆX[Y]šXÜÈ]™H™Y[ˆ™[[Ý™Y‰Îˆ	öb¶*¶aH6.v,v-ˆ6)öa6*6b¶)öa¶)ö*ˆ6)öa6av*6)ö-6,v*H6)öa6*¶bˆ6*¶aH6)öa6*¶+v`¶`ˆ6ava¶aö)È6`v`¶-È6aöa¶)ö&È6b6`¶+È6*¶av*ˆ6)v,¶)öa6*H6av`¶)öb¶b¶,È6)öa6-v+v*H6)öa6b6aöavb¶*K‰Ëˆ	ÐYZ[ˆ™\šYšYY	Îˆ	ö*¶aH6)öa6*¶+v`¶`ˆ6avaˆ6)öa6av-6,v`IËˆ	ÐYZ[ˆXØÙ\ÜÈÚXÚÈ˜Z[Y	Îˆ	ö`v-6a6)öa6*¶+v`¶`ˆ6avaˆ6-va6)ö+vb¶*H6)öa6av-6,v`IËˆ	ÔÝ\Ü]H[˜]˜Z[X›IÎˆ	ö*6b¶)öa¶)ö*ˆ6)öa6+ö.vaH6.¶b¶,H6av*¶)ö+v*IËˆ	ÔÝ\Ü™\]Y\ÝÙ[	Îˆ	ö*¶aH6)v,v,ö)öa6-öa6*6)öa6+ö.vaIËˆ	ÐYZ[ˆ0­È\Ú[™\ÜÈXØÙ\ÜÉÎˆ	ö)öa6av-6,v`H0­È6b6-vb6a\Ú[™\ÜÉËˆ	Ó›Ý™\]Z\™Y	Îˆ	ö.¶b¶,H6av-öa6b6*	Ëˆ	Ò[˜ÛYYÚ]YZ[ˆXØÙ\ÜÉÎˆ	öav-6avb6a6av.H6b6-vb6a6)öa6av-6,v`IËˆ	ÐÛÝ[›Ý\ÙH\È[XYÙK‰Îˆ	ö*¶.v,6,H6)ö,ö*¶+¶+ö)öaH6aö,6aÈ6)öa6-vb6,v*K‰Ëˆ	Ð˜XÚÙÜ›Ý[™™[[Ý˜[˜Z[Y‰Îˆ	ö`v-6a6*ˆ6)v,¶)öa6*H6)öa6+¶a6`vb¶*K‰Ëˆ	Ð˜XÚÙÜ›Ý[™™[[Ý™\‰Îˆ	öav,¶b¶a6)öa6+¶a6`vb¶*IËˆ	Ô™[[Ý™H[XYÙH˜XÚÙÜ›Ý[™È\Ú[™È^X\¸ &\ÈÙXÝ\™YÙ\™\‹\ÚYH[XYÙHÙ\šXÙK‰Îˆ	ö(ö,¶a6+¶a6`vb¶)ö*ˆ6)öa6-vb6,H6*6)ö,ö*¶+¶+ö)öaH6+¶+öav*H6)öa6-vb6,H6)öa6(¶ava¶*H6avaˆ^X\ˆ6.va6bH6)öa6+¶)ö+öaK‰Ëˆ	Ñ^\›˜[›ØÙ\ÜÚ[™ÉÎˆ	öav.v)öa6+6*H6+¶)ö,v+6b¶*IËˆ	Ñ›Üˆ\ÈÛÛ[Ý\ˆÙ[XÝY[XYÙH\ÈÙ[›ÝYÚ^X\¸ &\È]][XØ]YÙ\™\ˆÈ˜[˜ZH›Üˆ˜XÚÙÜ›Ý[™™[[Ý˜[ˆ[Ý\ˆTHÙ^H\È™]™\ˆ^ÜÙY[ˆHœ›ÝÜÙ\‹‰Îˆ	ö`vbˆ6aö,6aÈ6)öa6(ö+ö)ö*v#6b¶*¶aH6)v,v,ö)öa6)öa6-vb6,v*H6)öa6av+v+ö+ö*H6.v*6,H6+¶)ö+öaH^X\ˆ6)öa6avb6*ö`ˆ6)va6bH˜[˜ZH6a6)v,¶)öa6*H6)öa6+¶a6`vb¶*Kˆ6a6)È6b¶*¶aH6`ö-6`H6av`v*¶)ö+HTH6)öa6+¶)ö-H6*6`È6`vbˆ6)öa6av*¶-v`v+H6(ö*6+öbö)Ë‰Ëˆ	ÐÚÛÜÙH”QË‘ÈÜˆÙX”	Îˆ	ö)ö+¶*¶,H”QÈ6(öb‘È6(öbÙX”	Ëˆ	ÐÜ›ÜYÚH\›Ý[™ÝXš™XÝ	Îˆ	ö`¶-H6*6)v+v`ö)öaH6+vb6a6)öa6.va¶-v,IËˆ	ÓÜ[Û˜[›ÝšY\ˆ›Ý[™[™ËX›ÞÜ›Ü	Îˆ	ö`¶-H6)ö+¶*¶b¶)ö,vbˆ6+v,ö*6)öa6)v-ö)ö,H6)öa6av+vb¶-È6avaˆ6)öa6av,¶b6dv+ÉËˆ	ÐÚÛÜÙH[ˆ[XYÙHÈ™[[Ý™H]È˜XÚÙÜ›Ý[™‰Îˆ	ö)ö+¶*¶,H6-vb6,v*H6a6)v,¶)öa6*H6+¶a6`vb¶*¶aö)Ë‰Ëˆ	ÓÜšYÚ[˜[	Îˆ	ö)öa6(ö-va6b¶*IËˆ	Õ˜[œÜ\™[™\Ý[	Îˆ	ö)öa6a¶*¶b¶+6*H6)öa6-6`v)ö`v*IËˆ	Ð˜XÚÙÜ›Ý[™™[[Ý™Y	Îˆ	ö*¶av*ˆ6)v,¶)öa6*H6)öa6+¶a6`vb¶*IËˆ	Ö[Ý\ˆ™\Ý[Ú[\X\ˆ\™HY\ˆ›ØÙ\ÜÚ[™Ë‰Îˆ	ö,ö*¶.6aö,H6a¶*¶b¶+6*¶`È6aöa¶)È6*6.v+È6)öa6av.v)öa6+6*K‰Ëˆ	Õ˜[œÜ\™[Ý]]	Îˆ	ö)v+¶,v)ö+6-6`v)ö`IËˆ	ÑÝÛ›ØY‘ÉÎˆ	ö*¶a¶,¶b¶a‘ÉËˆ	ÐÛÝ[›ÝY\ÙH[XYÙ\Ë‰Îˆ	ö*¶.v,6,H6)v-¶)ö`v*H6aö,6aÈ6)öa6-vb6,K‰Ëˆ	Ð˜]Ú›ØÙ\ÜÚ[™È˜Z[Y‰Îˆ	ö`v-6a6*ˆ6)öa6av.v)öa6+6*H6)öa6av+6av.v*K‰Ëˆ	ÐÛÝ[›ÝÜ™X]HH’Tš[K‰Îˆ	ö*¶.v,6,H6)va¶-6)ö(H6ava6`H’T‰Ëˆ	Ð˜]Ú[XYÙHÛÛ™\\‰Îˆ	öav+vb6a6)öa6-vb6,H6)öa6av+6av.IËˆ	ÐÛÛ™\[™™\Ú^™H][\H[XYÙ\ÈØØ[K[ˆÝÛ›ØY[H[™]šYX[HÜˆ\ÈÛ™H’T‰Îˆ	ö+vb6dva6b6.¶b¶dv,H6+v+6aH6.v+ö*H6-vb6,H6av+va6b¶bö)ö#6*öaH6a¶,¶dva6aö)È6ava¶`v,v+ö*H6(öb6`öava6`H’T6b6)ö+v+Ë‰Ëˆ	Ô›ØÙ\ÜÙYØØ[IÎˆ	ö*¶*¶aH6)öa6av.v)öa6+6*H6av+va6b¶bö)ÉËˆ	Ò[XYÙ\È[™’TÜ™X][ÛˆÝ^H[ˆ[Ý\ˆœ›ÝÜÙ\‹ˆ^X\ˆÙ\È›Ý\ØYš[\È›Üˆ\ÈÛÛ‰Îˆ	ö*¶*6`¶bH6)öa6-vb6,H6b6)va¶-6)ö(H6ava6`H’T6+ö)ö+¶a6av*¶-v`v+v`Ëˆ6a6)È6b¶,v`v.H^X\ˆ6)öa6ava6`v)ö*ˆ6a6aö,6aÈ6)öa6(ö+ö)ö*K‰Ëˆ	ÐY”QË‘ÈÜˆÙX”[XYÙ\ÉÎˆ	ö(ö-¶`H6-vb6,H”QÈ6(öb‘È6(öbÙX”	Ëˆ	Õ\ÈŒš[\È0­ÈPˆÛÛXš[™YÛÝ\˜ÙH[Z]	Îˆ	ö+v*¶bHŒ6ava6`vbö)È0­È6+v+È6)v+6av)öa6bˆ6a6a6av-v+ö,HP‰Ëˆ	ÓÝ]]›Ü›X]	Îˆ	ö-vb¶.¶*H6)öa6)v+¶,v)ö+	Ëˆ	ÓX^[][HÚYH
+ÙY\ÈÜšYÚ[˜[Ú^™JIÎˆ	ö)öa6+v+È6)öa6(ö`¶-vbH6a6a6-¶a6.H
+6b¶*6`¶bˆ6)öa6+v+6aH6)öa6(ö-va6bŠIËˆ	Ô]X[]IÎˆ	ö)öa6+6b6+ö*IËˆ	ÐY][\H[XYÙ\ÈÈÝ\‰Îˆ	ö(ö-¶`H6.v+ö*H6-vb6,H6a6a6*6+ö(K‰Ëˆ	ÑÝÛ›ØY	Îˆ	ö*¶a¶,¶b¶a	Ëˆ	Ô™[[Ý™IÎˆ	ö)v,¶)öa6*IËˆ	ÐÛÝ[›Ý™XY\Èš[K‰Îˆ	ö*¶.v,6,H6`¶,v)ö(v*H6aö,6)È6)öa6ava6`K‰Ëˆ	ÐÔÕˆÛX[™\‰Îˆ	öava¶.6`HÔÕ‰Ëˆ	ÐÛX[ˆ[™™\\™HÔÕˆ]HØY™[HÚ]Ý]\ØY[™È]‰Îˆ	öa¶.6dv`H6b6+6aödv,ˆ6*6b¶)öa¶)ö*ˆÔÕˆ6*6(öav)öaˆ6+öb6aˆ6,v`v.vaö)Ë‰Ëˆ	Ö[Ý\ˆÔÕˆÝ^\È[ˆ\Èœ›ÝÜÙ\‹ˆÜ™XYÚY]\ØY™H^Ü\È[˜X›YžHY˜][‰Îˆ	öb¶*6`¶bH6ava6`HÔÕˆ6`vbˆ6aö,6)È6)öa6av*¶-v`v+Kˆ6)öa6*¶-v+öb¶,H6)öa6(¶avaˆ6a6+6+ö)öb6a6)öa6*6b¶)öa¶)ö*ˆ6av`v.vdva6)ö`v*¶,v)ö-¶b¶bö)Ë‰Ëˆ	ÐÚÛÜÙHÔÕ‹ÕˆÜˆ^]IÎˆ	ö)ö+¶*¶,H6*6b¶)öa¶)ö*ˆÔÕˆ6(öbÕˆ6(öb6a¶-vb¶*IËˆ	ÓX^[][HLPˆ0­È›Ý[™Y›ÝÜËÛÛ[[œÈ[™Ù[ÉÎˆ	ö+v+È6(ö`¶-vbHLPˆ0­È6-v`vb6`H6b6(ö.vav+ö*H6b6+¶a6)öb¶)È6-¶avaˆ6+v+öb6+ÉËˆ	Ü›ÝÜÉÎˆ	ö-v`vb6`IËˆ	ØÛÛ[[œÉÎˆ	ö(ö.vav+ö*IËˆ	Ñ]XÝY[[Z]\‰Îˆ	ö)öa6`v)ö-va6)öa6av`ö*¶-6`IËˆ	ÕX‰Îˆ	ö.va6)öav*H6*¶*6b6b¶*	Ëˆ	ÐÛX[ˆÔÕ‰Îˆ	ö*¶a¶.6b¶`HÔÕ‰Ëˆ	ÐÛX[™Y™\Ý[	Îˆ	ö)öa6a¶*¶b¶+6*H6)öa6ava¶.6`v*IËˆ	Ü›ÝÜÈ™[[Ý™Y	Îˆ	ö-v`vb6`H6*¶av*ˆ6)v,¶)öa6*¶aö)ÉËˆ	ÑÝÛ›ØYÛX[ˆÔÕ‰Îˆ	ö*¶a¶,¶b¶aÔÕˆ6)öa6ava¶.6`IËˆ	ÐÚÛÜÙHHš[HÈ™]šY]È]È]K‰Îˆ	ö)ö+¶*¶,H6ava6`vbö)È6a6av.v)öb¶a¶*H6*6b¶)öa¶)ö*¶aË‰Ëˆ	ÔÚÝÚ[™È\ÈH›ÝÜÈ[™LˆÛÛ[[œÉÎˆ	ö.v,v-ˆ6+v*¶bHH6-v`vbö)È6bLˆ6.vavb6+öbö)ÉËˆ	Ó›È›ÝÜÈ™[XZ[ˆY\ˆÛX[š[™Ë‰Îˆ	öa6aH6*¶*¶*6`¶cˆ6-v`vb6`H6*6.v+È6)öa6*¶a¶.6b¶`K‰Ëˆ	ÐÛÝ[›Ý™XY\È[XYÙK‰Îˆ	ö*¶.v,6,H6`¶,v)ö(v*H6aö,6aÈ6)öa6-vb6,v*K‰Ëˆ	Ò[˜[YÜ›Ü\™XK‰Îˆ	öava¶-ö`¶*H6)öa6`¶-H6.¶b¶,H6-v)öa6+v*K‰Ëˆ	ÐÛÝ[›ÝÜ›Ü\È[XYÙK‰Îˆ	ö*¶.v,6,H6`¶-H6aö,6aÈ6)öa6-vb6,v*K‰Ëˆ	Ò[XYÙHÜ›Ü\‰Îˆ	ö(ö+ö)ö*H6`¶-H6)öa6-vb6,IËˆ	ÐÜ›Ü[XYÙ\ÈØØ[HÚ]™XÚ\ÙHÛÛÜ™[˜]\ÈÜˆÛÛ[[Ûˆ\ÜXÝ˜][ÜË‰Îˆ	ö`¶-H6)öa6-vb6,H6av+va6b¶bö)È6*6)v+v+ö)ö*öb¶)ö*ˆ6+ö`¶b¶`¶*H6(öb6a¶,ö*6(ö*6.v)ö+È6-6)ö)¶.v*K‰Ëˆ	ÕHÛÝ\˜ÙH[XYÙH[™Ü›Ü™\Ý[Ý^H[œÚYH[Ý\ˆœ›ÝÜÙ\‹‰Îˆ	ö*¶*6`¶bH6)öa6-vb6,v*H6)öa6(ö-va6b¶*H6b6a¶*¶b¶+6*H6)öa6`¶-H6+ö)ö+¶a6av*¶-v`v+v`Ë‰Ëˆ	ÓX^[][HŒP‰Îˆ	ö)öa6+v+È6)öa6(ö`¶-vbHŒP‰Ëˆ	Ð\ÜXÝ˜][ÉÎˆ	öa¶,ö*6*H6)öa6(ö*6.v)ö+ÉËˆ	ÐÚÛÜÙH[ˆ[XYÙHÈÝ\Ü›Ü[™Ë‰Îˆ	ö)ö+¶*¶,H6-vb6,v*H6a6*6+ö(H6)öa6`¶-K‰Ëˆ	ÐÜ›Ü™]šY]ÉÎˆ	öav.v)öb¶a¶*H6)öa6`¶-IËˆ	Ô™\Ý[	Îˆ	ö)öa6a¶*¶b¶+6*IËˆ	ÐÜ›ÜY™\Ý[	Îˆ	öa¶*¶b¶+6*H6)öa6`¶-IËˆ	ÐÛÝ[›ÝÜ™X]H\È‹‰Îˆ	ö*¶.v,6,H6)va¶-6)ö(H6ava6`Hˆ6aö,6)Ë‰Ëˆ	Ò[XYÙHÈ‰Îˆ	ö-vb6,v*H6)va6bH‰Ëˆ	ÐÛÛXš[™H”QË‘È[™ÙX”[XYÙ\È[ÈÛ™Hˆ\™XÝH[ˆ[Ý\ˆœ›ÝÜÙ\‹‰Îˆ	ö)ö+öav+6-vb6,H”QÈ6b‘È6bÙX”6`vbˆ6ava6`Hˆ6b6)ö+v+È6av*6)ö-6,v*H6+ö)ö+¶a6av*¶-v`v+v`Ë‰Ëˆ	Ò[XYÙ\ÈÝ^H[ˆ[Ý\ˆœ›ÝÜÙ\‹ˆ^X\ˆÜ™X]\ÈH™]Èˆ[™™]™\ˆ\œÙ\È[ˆ\ØYYˆ[ˆ\ÈÛÛ‰Îˆ	ö*¶*6`¶bH6)öa6-vb6,H6`vbˆ6av*¶-v`v+v`Ëˆ6b¶a¶-6)ˆ^X\ˆ6ava6`Hˆ6+6+öb¶+öbö)È6b6a6)È6b¶+va6a6(ö*6+öbö)È6ava6`Hˆ6av,v`vb6.vbö)È6`vbˆ6aö,6aÈ6)öa6(ö+ö)ö*K‰Ëˆ	Õ\ÈŒ[XYÙ\È0­ÈPˆÛÛXš[™YÛÝ\˜ÙH[Z]	Îˆ	ö+v*¶bHŒ6-vb6,v*H0­È6+v+È6)v+6av)öa6bˆ6a6a6av-v+ö,HP‰Ëˆ	ÜYÙ\ÉÎˆ	ö-v`v+v)ö*‰Ëˆ	ÔYÙHÚ^™IÎˆ	ö+v+6aH6)öa6-v`v+v*IËˆ	ÐM0­È]]ÈÜšY[][Û‰Îˆ	ÐM0­È6)ö*¶+6)öaÈ6*¶a6`¶)ö)¶b‰Ëˆ	Ó]\ˆ0­È]]ÈÜšY[][Û‰Îˆ	Ó]\ˆ0­È6)ö*¶+6)öaÈ6*¶a6`¶)ö)¶b‰Ëˆ	Ñš]YÙHÈ[XYÙIÎˆ	öava6)ö(vav*H6)öa6-v`v+v*H6a6a6-vb6,v*IËˆ	ÓX\™Ú[‰Îˆ	ö)öa6aö)öav-	Ëˆ	Ó›Ü›X[	Îˆ	ö.v)ö+öb‰Ëˆ	Ò[XYÙH]X[]IÎˆ	ö+6b6+ö*H6)öa6-vb6,v*IËˆ	Õ˜[œÜ\™[‘ËÕÙX”^[È\™H›][™YÛÈÚ]HÚ[ˆ[X™YY\È”QÈ[œÚYHH‹‰Îˆ	öb¶*¶aH6+öav+6*6`ö,öa6)ö*ˆ‘ËÕÙX”6)öa6-6`v)ö`v*H6.va6bH6+¶a6`vb¶*H6*6b¶-¶)ö(H6.va¶+È6*¶-¶avb¶a¶aö)È6`ö`”QÈ6+ö)ö+¶a‹‰Ëˆ	ÐY[XYÙ\ÈÈZ[H‹‰Îˆ	ö(ö-¶`H6-vb6,vbö)È6a6)va¶-6)ö(H6ava6`H‹‰Ëˆ	ÑÙ[™\˜]Yˆ™]šY]ÉÎˆ	öav.v)öb¶a¶*H6ava6`Hˆ6)öa6avcöa¶-6(ÉËˆ	ÑÝÛ›ØY‰Îˆ	ö*¶a¶,¶b¶a‰Ëˆ	Ò[XYÙH›ØÙ\ÜÚ[™È˜Z[Y‰Îˆ	ö`v-6a6*ˆ6av.v)öa6+6*H6)öa6-vb6,v*K‰Ëˆ	Ò[XYÙHÛÛÉÎˆ	ö(ö+öb6)ö*ˆ6)öa6-vb6,IËˆ	Ô™\Ú^™KÛÛ\™\ÜÈ[™ÛÛ™\[XYÙ\È\™XÝH[ˆ[Ý\ˆœ›ÝÜÙ\‹‰Îˆ	ö.¶b¶dv,H6+v+6aH6)öa6-vb6,H6b6)ö-¶.¶-öaö)È6b6+vb6dva6aö)È6av*6)ö-6,v*H6`vbˆ6av*¶-v`v+v`Ë‰Ëˆ	Ö[Ý\ˆ[XYÙHÝ^\È[ˆ\Èœ›ÝÜÙ\‹ˆ^X\ˆÙ\È›Ý\ØY]›Üˆ\ÙHÜ\˜][ÛœË‰Îˆ	ö*¶*6`¶bH6-vb6,v*¶`È6`vbˆ6aö,6)È6)öa6av*¶-v`v+Kˆ6a6)È6b¶,v`v.vaö)È^X\ˆ6a6aö,6aÈ6)öa6.vava6b¶)ö*‹‰Ëˆ	ÔÛÝ\˜ÙH[XYÙIÎˆ	ö)öa6-vb6,v*H6)öa6av-v+ö,IËˆ	ÓX^[][HŒPˆ0­È›Ý[™Y^[›ØÙ\ÜÚ[™ÉÎˆ	ö+v+È6(ö`¶-vbHŒPˆ0­È6av.v)öa6+6*H6*6`ö,öa6)ö*ˆ6-¶avaˆ6+v+öb6+ÉËˆ	ÒZYÚ	Îˆ	ö)öa6)ö,v*¶`v)ö.IËˆ	ÐÚÛÜÙH[ˆ[XYÙHÈÝ\‰Îˆ	ö)ö+¶*¶,H6-vb6,v*H6a6a6*6+ö(K‰Ëˆ	ÓÜšYÚ[˜[™]šY]ÉÎˆ	öav.v)öb¶a¶*H6)öa6(ö-va	Ëˆ	Ô›ØÙ\ÜÙY™]šY]ÉÎˆ	öav.v)öb¶a¶*H6)öa6av.v)öa6+6*IËˆ	Ô›ØÙ\ÜÈH[XYÙHÈ™]šY]ÈH™\Ý[‰Îˆ	ö.v)öa6+6)öa6-vb6,v*H6a6av.v)öb¶a¶*H6)öa6a¶*¶b¶+6*K‰Ëˆ	Ñ˜YØ]™YÛˆ\È]šXÙK‰Îˆ	ö*¶aH6+v`v.6)öa6av,öb6+ö*H6.va6bH6aö,6)È6)öa6+6aö)ö,‹‰Ëˆ	ÐÛÝ[›ÝØ]™H\È˜Y[ˆœ›ÝÜÙ\ˆÝÜ˜YÙK‰Îˆ	ö*¶.v,6,H6+v`v.6aö,6aÈ6)öa6av,öb6+ö*H6`vbˆ6*¶+¶,¶b¶aˆ6)öa6av*¶-v`v+K‰Ëˆ	ÐÛX\ˆHÝ\œ™[[›ÚXÙH˜YÉÎˆ	öaöa6*¶,vb¶+È6av,ö+H6av,öb6+ö*H6)öa6`v)ö*¶b6,v*H6)öa6+v)öa6b¶*v'ÉËˆ	ÔÜ]\›ØÚÙYˆ[ÝÈÜ]\È[™žHš[ÈØ]™HˆYØZ[‹‰Îˆ	ö*¶aH6+v.6,H6)öa6a¶)ö`v,6*H6)öa6ava¶*6*ö`¶*Kˆ6)ö,öav+H6*6)öa6a¶b6)ö`v,6)öa6ava¶*6*ö`¶*H6b6+v)öb6a6)öa6-ö*6)ö.v*HÈ6+v`v.ˆ6av,v*H6(ö+¶,vbK‰Ëˆ	Ò[›ÚXÙHÙ[™\˜]Ü‰Îˆ	öava¶-6)ˆ6)öa6`vb6)ö*¶b¶,IËˆ	ÐÜ™X]HH›Ù™\ÜÚ[Û˜[[›ÚXÙKÚÛÜÙHH\ÚYÛ‹Ø[Ý[]HUØ]™HH˜Y[™š[ÜˆØ]™H\È‹‰Îˆ	ö(öa¶-6)ˆ6`v)ö*¶b6,v*H6)ö+v*¶,v)ö`vb¶*v#6)ö+¶*¶,H6*¶-vavb¶avbö)ö#6)ö+v,ö*6-¶,vb¶*6*H6)öa6`¶b¶av*H6)öa6av-¶)ö`v*v#6)ö+v`v.6av,öb6+ö*H6b6)ö-ö*6.vaö)È6(öb6)ö+v`v.6aö)È6`ö`‹‰Ëˆ	Ò[›ÚXÙH\ÚYÛ‰Îˆ	ö*¶-vavb¶aH6)öa6`v)ö*¶b6,v*IËˆ	Ö[Ý\ˆÛÛ\[žIÎˆ	ö-6,v`ö*¶`ÉËˆ	Õ^X\ˆP‰Îˆ	Õ^X\ˆP‰Ëˆ	ÐÝ\ÝÛY\‰Îˆ	ö)öa6.vavb¶a	Ëˆ	ÐÝ\ÝÛY\ˆ˜[YIÎˆ	ö)ö,öaH6)öa6.vavb¶a	Ëˆ	ÐÛÛ\[žH]Z[ÉÎˆ	ö*6b¶)öa¶)ö*ˆ6)öa6-6,v`ö*IËˆ	ÐY™\ÜËÜ™Ø[š^˜][Ûˆ[X™\‹[XZ[^[Y[]Z[ÉÎˆ	ö)öa6.va¶b6)öa¶#6,v`¶aH6)öa6ava¶.6av*v#6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶b¶#6*¶`v)ö-vb¶a6)öa6+ö`v.IËˆ	ÐÝ\ÝÛY\ˆ]Z[ÉÎˆ	ö*6b¶)öa¶)ö*ˆ6)öa6.vavb¶a	Ëˆ	ÐY™\ÜË[XZ[Üˆ™Y™\™[˜ÙIÎˆ	ö)öa6.va¶b6)öa¶#6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶bˆ6(öb6)öa6av,v+6.IËˆ	Ò[›ÚXÙH[X™\‰Îˆ	ö,v`¶aH6)öa6`v)ö*¶b6,v*IËˆ	Ò\ÜÝYH]IÎˆ	ö*¶)ö,vb¶+ˆ6)öa6)v-v+ö)ö,IËˆ	ÐÝ\œ™[˜ÞIÎˆ	ö)öa6.vava6*IËˆ	Ô^[Y[\›\Ë[šË^[ÝH›ÝHÜˆ˜[šÈ]Z[ÉÎˆ	ö-6,vb6-È6)öa6+ö`v.v#6,v,ö)öa6*H6-6`ö,H6(öb6*¶`v)ö-vb¶a6)öa6*6a¶`ÉËˆ	ÔØ]™H˜Y	Îˆ	ö+v`v.6)öa6av,öb6+ö*IËˆ	Ôš[ÈØ]™H‰Îˆ	ö-ö*6)ö.v*HÈ6+v`v.‰Ëˆ	Ó]\ˆÙ[™\˜]Ü‰Îˆ	öava¶-6)ˆ6)öa6,v,ö)ö)¶a	Ëˆ	ÐÜ™X]H˜XÝXØ[]\œÈœ›ÛHÜšYÚ[˜[^X\ˆ[\]\È[™Y]H™\Ý[X[X[K‰Îˆ	ö(öa¶-6)ˆ6,v,ö)ö)¶a6.vava6b¶*H6avaˆ6`¶b6)öa6*^X\ˆ6)öa6(ö-va6b¶*H6b6.v+ödva6)öa6a¶*¶b¶+6*H6b¶+öb6b¶bö)Ë‰Ëˆ	Ó]\ˆ\IÎˆ	öa¶b6.H6)öa6,v,ö)öa6*IËˆ	Ô™XÚ\Y[	Îˆ	ö)öa6av,ö*¶a6aIËˆ	ÓÜ™Ø[š^˜][Û‰Îˆ	ö)öa6ava¶.6av*IËˆ	ÔÝXš™XÝÜˆ\œÜÙIÎˆ	ö)öa6avb6-¶b6.H6(öb6)öa6.¶,v-‰Ëˆ	ÕÚ]\È\È]\ˆX›Ý]ÉÎˆ	öav)È6avb6-¶b6.H6aö,6aÈ6)öa6,v,ö)öa6*v'ÉËˆ	Ò[\Ü[]Z[ÉÎˆ	ö*¶`v)ö-vb¶a6avaöav*IËˆ	ÐY˜XÝË]\ËÛÛ^ÜˆHÝ]ÛÛYH[ÝHØ[‰Îˆ	ö(ö-¶`H6)öa6+v`¶)ö)¶`ˆ6b6)öa6*¶b6)ö,vb¶+ˆ6b6)öa6,öb¶)ö`ˆ6(öb6)öa6a¶*¶b¶+6*H6)öa6*¶bˆ6*¶,vb¶+öaö)Ë‰Ëˆ	ÐÚÛÜÙHH]\ˆ\H[™Y[Ý\ˆ]Z[Ë‰Îˆ	ö)ö+¶*¶,H6a¶b6.H6)öa6,v,ö)öa6*H6b6(ö-¶`H6*6b¶)öa¶)ö*¶`Ë‰Ëˆ	ÑY]H™\Ý[	Îˆ	ö*¶.v+öb¶a6)öa6a¶*¶b¶+6*IËˆ	ÕHÙ[™\˜]Y^\È[HY]X›H™Y›Ü™H[ÝHÛÜHÜˆÝÛ›ØY]‰Îˆ	ö)öa6a¶-H6)öa6avcöa¶-6(È6`¶)ö*6a6a6a6*¶+v,vb¶,H6*6)öa6`ö)öava6`¶*6a6a¶,ö+¶aÈ6(öb6*¶a¶,¶b¶a6aË‰Ëˆ	Õ	Îˆ	Õ	Ëˆ	Ó˜[YHÙ[™\˜]Ü‰Îˆ	öava¶-6)ˆ6)öa6(ö,öav)ö(IËˆ	ÑÙ[™\˜]HÜšYÚ[˜[\Ú[™\ÜË›ÙXÝœ˜[™[™ÛØÚX[[˜[YHYX\ÈØØ[K‰Îˆ	ö(öa¶-6)ˆ6(ö`v`ö)ö,vbö)È6(ö-va6b¶*H6a6(ö,öav)ö(H6)öa6(ö.vav)öa6b6)öa6ava¶*¶+6)ö*ˆ6b6)öa6.va6)öav)ö*ˆ6)öa6*¶+6)ö,vb¶*H6b6+v,ö)ö*6)ö*ˆ6)öa6*¶b6)ö-va6av+va6b¶bö)Ë‰Ëˆ	ÒÙ^]ÛÜ™ÜˆYXIÎˆ	ö`öa6av*H6av`v*¶)ö+vb¶*H6(öb6`v`ö,v*IËˆ	Ñ^[\NˆÛÙ™™YKš]™\ÜË\ÚYÛ‰Îˆ	öav*ö)öaˆ6`¶aöb6*v#6a6b¶)ö`¶*v#6*¶-vavb¶aIËˆ	Ó˜[YH\IÎˆ	öa¶b6.H6)öa6)ö,öaIËˆ	ÒYX\ÉÎˆ	ö(ö`v`ö)ö,IËˆ	Ð]˜Z[Xš[]H\È›ÝÚXÚÙYˆ™\šYžH˜Y[X\šÜËÛXZ[œÈ[™ÛØÚX[[™\È™Y›Ü™H\Ú[™ÈH˜[YHÛÛ[Y\˜ÚX[K‰Îˆ	öa6)È6b¶*¶aH6)öa6*¶+v`¶`ˆ6avaˆ6)öa6*¶b6`v,Kˆ6*¶+v`¶`ˆ6avaˆ6)öa6.va6)öav)ö*ˆ6)öa6*¶+6)ö,vb¶*H6b6)öa6a¶-ö)ö`¶)ö*ˆ6b6(ö,öav)ö(H6)öa6+v,ö)ö*6)ö*ˆ6)öa6)ö+6*¶av)ö.vb¶*H6`¶*6a6)ö,ö*¶+¶+ö)öaH6)öa6)ö,öaH6*¶+6)ö,vb¶bö)Ë‰Ëˆ	Ñ[\ˆ[ˆYXH[™Ù[™\˜]H˜[Y\Ë‰Îˆ	ö(ö+ö+¶a6`v`ö,v*H6b6(öa¶-6)ˆ6(ö,öav)ö(K‰Ëˆ	Ó˜[YHYX\ÉÎˆ	ö(ö`v`ö)ö,H6(ö,öav)ö(IËˆ	ÛÜšYÚ[˜[ÛÛXš[˜][ÛœÉÎˆ	ö*¶,v`öb¶*6)ö*ˆ6(ö-va6b¶*IËˆ	ÐÛÜH˜[YIÎˆ	öa¶,ö+ˆ6)öa6)ö,öaIËˆ	Ô›Û\Xœ˜\žIÎˆ	öav`ö*¶*6*H6)öa6av-ö)öa6*6)ö*‰Ëˆ	ÔÙX\˜ÚÜšYÚ[˜[^X\ˆ›Û\[\]\È[™\œÛÛ˜[^™H[H›Üˆ[Ý\ˆ\ÚË‰Îˆ	ö)ö*6+v*È6`vbˆ6`¶b6)öa6*6av-ö)öa6*6)ö*ˆ^X\ˆ6)öa6(ö-va6b¶*H6b6+¶-v-vaö)È6a6avaöav*¶`Ë‰Ëˆ	ÓÜšYÚ[˜[^X\ˆ›Û\ÉÎˆ	öav-ö)öa6*6)ö*ˆ^X\ˆ6)öa6(ö-va6b¶*IËˆ	Ô›Û\ÝXÝ\™\È\™HÜš][ˆ›Üˆ^X\ˆ[™Ü™Ø[š^™YžHÛÜšÙ›ÝËˆ^H\™H›ÝÛÜYY›Û\XÚÜË‰Îˆ	öaöb¶)ö`öa6)öa6av-ö)öa6*6)ö*ˆ6av`ö*¶b6*6*H6a6`^X\ˆ6b6ava¶.6av*H6+v,ö*6,öb¶,H6)öa6.vavaˆ6b6a6b¶,ö*ˆ6+v,¶aH6av-ö)öa6*6)ö*ˆ6ava¶,öb6+¶*K‰Ëˆ	ÔÙX\˜Ú›Û\ÉÎˆ	ö*6+v*È6`vbˆ6)öa6av-ö)öa6*6)ö*‰Ëˆ	Ñš[Ú][ÝHÛ›ÝËˆ[\HšY[È™[XZ[ˆ\ÈXÙZÛ\œË‰Îˆ	ö)öava6(È6av)È6*¶.v,v`vaËˆ6*¶*6`¶bH6)öa6+v`¶b6a6)öa6`v)ö,v.¶*H6`ö.va¶)ö-v,H6a¶)ö)¶*6*K‰Ëˆ	Ð]YY[˜ÙIÎˆ	ö)öa6+6avaöb6,IËˆ	ÑÛØ[	Îˆ	ö)öa6aö+ö`IËˆ	ÔÙ[XÝH›Û\È\œÛÛ˜[^™H]‰Îˆ	ö)ö+¶*¶,H6av-ö)öa6*6*H6a6*¶+¶-vb¶-vaö)Ë‰Ëˆ	ÓÜ[ˆÈÝÛ›ØY	Îˆ	ö`v*¶+HÈ6*¶a¶,¶b¶a	Ëˆ	Õ[\]\ÈX‰Îˆ	öav,v`ö,ˆ6)öa6`¶b6)öa6*	Ëˆ	Ðœ›ÝÜÙH^X\‹ZÜÝYÙ™šXÙH[\]\ÈÜˆ\ÙHÜšYÚ[˜[^X\ˆÝ\\ˆš[\Ë‰Îˆ	ö*¶-v`v+H6`¶b6)öa6*Ù™šXÙH6)öa6av,ö*¶-¶)ö`v*H6a6+öbH^X\ˆ6(öb6)ö,ö*¶+¶+öaH6ava6`v)ö*ˆ6)öa6*6+ö)öb¶*H6)öa6(ö-va6b¶*H6avaˆ^X\‹‰Ëˆ	Õ^X\ˆXœ˜\žIÎˆ	öav`ö*¶*6*H^X\‰Ëˆ	ÓÜšYÚ[˜[ÉÎˆ	ö)öa6(ö-vb6a	Ëˆ	Õ[\]\ÈZ\œ›Ü™Y[È^X\ˆÝÜ˜YÙH›Üˆ[™\[™[XØÙ\ÜË‰Îˆ	ö`¶b6)öa6*6ava¶,öb6+¶*H6)va6bH6*¶+¶,¶b¶aˆ^X\ˆ6a6a6b6-vb6a6)öa6av,ö*¶`¶a‰Ëˆ	Õ^X\ˆÜšYÚ[˜[ÉÎˆ	ö(ö-vb6a^X\‰Ëˆ	ÔÛX[Ý\\ˆ[\]\ÈÜ™X]Y\™XÝHžH^X\‹‰Îˆ	ö`¶b6)öa6*6*6+ö)öb¶*H6-v.¶b¶,v*H6(öa¶-6(öaö)È^X\ˆ6av*6)ö-6,v*K‰Ëˆ	ÔÙX\˜Ú[\]\ÉÎˆ	ö*6+v*È6`vbˆ6)öa6`¶b6)öa6*	Ëˆ	Ñš[H›Ü›X]	Îˆ	ö-vb¶.¶*H6)öa6ava6`IËˆ	Ð[›Ü›X]ÉÎˆ	ö`öa6)öa6-vb¶.‰Ëˆ	ÔÛÜ[\]\ÉÎˆ	ö*¶,v*¶b¶*6)öa6`¶b6)öa6*	Ëˆ	Ó˜[YHx $Ö‰Îˆ	ö)öa6)ö,öaHx $Ö‰Ëˆ	Ó™]Ù\Ý	Îˆ	ö)öa6(ö+v+ö*ÉËˆ	Ó\™Ù\Ýš[\ÉÎˆ	ö(ö`ö*6,H6)öa6ava6`v)ö*‰Ëˆ	ÓØY[™È^X\ˆXœ˜\žx )‰Îˆ	ö+6)ö,vcH6*¶+vavb¶a6av`ö*¶*6*H^X\¸ )‰Ëˆ	Õ^X\ˆXœ˜\žH\È[\Ü˜\š[H[˜]˜Z[X›IÎˆ	öav`ö*¶*6*H^X\ˆ6.¶b¶,H6av*¶)ö+v*H6av)6`¶*¶bö)ÉËˆ	ÓÜšYÚ[˜[^X\ˆ[\]\È™[XZ[ˆ]˜Z[X›Hœ›ÛHHÜšYÚ[˜[ÈX‹‰Îˆ	ö*¶*6`¶bH6`¶b6)öa6*^X\ˆ6)öa6(ö-va6b¶*H6av*¶)ö+v*H6avaˆ6*¶*6b6b¶*6)öa6(ö-vb6a‰Ëˆ	Ó›ÈZ\œ›Ü™Y[\]\ÈX]Ú\ÈÙX\˜Ú‰Îˆ	öa6)È6*¶b6+6+È6`¶b6)öa6*6ava¶,öb6+¶*H6*¶-ö)ö*6`ˆ6aö,6)È6)öa6*6+v*Ë‰Ëˆ	Ô™]š[Ý\ÉÎˆ	ö)öa6,ö)ö*6`‰Ëˆ	ÓÜšYÚ[˜[^X\ˆ[\]\ÉÎˆ	ö`¶b6)öa6*^X\ˆ6)öa6(ö-va6b¶*IËˆ	Õ\ÙHÝ\\ˆš[\È\™HZ[žH^X\ˆ[™Ù[™\˜]YØØ[H\ÈÔÕˆš[\Ë‰Îˆ	öava6`v)ö*ˆ6)öa6*6+ö)öb¶*H6aö,6aÈ6av*6a¶b¶*H6*6b6)ö,ö-ö*H^X\ˆ6b6b¶*¶aH6)va¶-6)ö)6aö)È6av+va6b¶bö)È6`öava6`v)ö*ˆÔÕ‹‰Ëˆ	ÑÝÛ›ØYÔÕ‰Îˆ	ö*¶a¶,¶b¶aÔÕ‰Ëˆ	Ó›È[\]\ÈX]Ú\ÈÙX\˜Ú‰Îˆ	öa6)È6*¶b6+6+È6`¶b6)öa6*6*¶-ö)ö*6`ˆ6aö,6)È6)öa6*6+v*Ë‰Ëˆ	Ð˜XÚÉÎˆ	ö,v+6b6.IËˆ	ÕÙW	Ý™HÙ[H™\šYšXØ][Ûˆ[šÈÈ[Ý\ˆ[XZ[Y™\ÜËˆÛXÚÈH[šÈ[œÚYHÈXÝ]˜]H[Ý\ˆXØÛÝ[‰Îˆ	ö(ö,v,öa6a¶)È6,v)ö*6-È6*¶+v`¶`ˆ6)va6bH6*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶b‹ˆ6)ö-¶.¶-È6.va6bH6)öa6,v)ö*6-È6+ö)ö+¶a6aÈ6a6*¶`v.vb¶a6+v,ö)ö*6`Ë‰Ëˆ	Ó›ÈÛÜœšY\È8 %[\ˆ[Ý\ˆ[XZ[[™ÙW	ÛÙ[™[ÝHH™\Ù][šË‰Îˆ	öa6)È6av-6`öa6*H8 %6(ö+ö+¶a6*6,vb¶+ö`È6)öa6)va6`ö*¶,vb6a¶bˆ6b6,öa¶,v,öa6a6`È6,v)ö*6-È6)v.v)ö+ö*H6*¶.vb¶b¶a‹‰Ëˆ	Ö[Ý\ˆ\ÜÝÛÜ™\È™Y[ˆÚ[™ÙYÝXØÙ\ÜÙ[Kˆ[ÝHØ[ˆ›ÝÈÚYÛˆ[ˆÚ][Ý\ˆ™]È\ÜÝÛÜ™‰Îˆ	ö*¶aH6*¶.¶b¶b¶,H6`öa6av*H6)öa6av,vb6,H6*6a¶+6)ö+Kˆ6b¶av`öa¶`È6)öa6(¶aˆ6*¶,ö+6b¶a6)öa6+ö+¶b6a6*6)ö,ö*¶+¶+ö)öaH6`öa6av*H6)öa6av,vb6,H6)öa6+6+öb¶+ö*K‰Ëˆ	ÔÚÚ\Ý\‰Îˆ	ö*¶+¶-öbˆ6)öa6+6b6a6*IËˆ	Ñ\Ú›Ø\™	Îˆ	öa6b6+v*H6)öa6*¶+v`öaIËˆ	Ö[Ý\ˆÛÛ[X[™Ù[\‹ˆœ›ÝÜÙH[RHÛÛËÙYH™XÛÛ[Y[™][ÛœË[™˜XÚÈ[Ý\ˆXÝ]š]K‰Îˆ	öav,v`ö,ˆ6)öa6*¶+v`öaH6)öa6+¶)ö-H6*6`Ëˆ6*¶-v`v+H6+6avb¶.H6(ö+öb6)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb¶#6b6-6)öaö+È6)öa6*¶b6-vb¶)ö*¶#6b6*¶)ö*6.H6a¶-6)ö-ö`Ë‰Ëˆ	Ö[Ý\ˆ\œÛÛ˜[ÛÜšÜÜXÙHÚ\™H[[Ý\ˆÛÛÈ[™›Ú™XÝÈ]™K‰Îˆ	öav,ö)ö+v*H6.vava6`È6)öa6-6+¶-vb¶*H6)öa6*¶bˆ6*¶-¶aH6+6avb¶.H6(ö+öb6)ö*¶`È6b6av-6)ö,vb¶.v`Ë‰Ëˆ	Ð[[Ý\ˆØÝ[Y[Ë™\Ý[Y\Ë[™^ÜÈ\™HØ]™Y\™H]]ÛX]XØ[K‰Îˆ	öb¶*¶aH6+v`v.6+6avb¶.H6av,ö*¶a¶+ö)ö*¶`È6b6,öb¶,v`È6)öa6,6)ö*¶b¶*H6b6*¶-v+öb¶,v)ö*¶`È6aöa¶)È6*¶a6`¶)ö)¶b¶bö)Ë‰Ëˆ	ÐÚ]Ú][Ý\ˆRH\ÜÚ\Ý[[ž][YKˆ\ÚÈ]Y\Ý[ÛœËÙ]ÝYÙÙ\Ý[ÛœË[™[Ü™K‰Îˆ	ö*¶+v+ö*È6av.H6av,ö)ö.v+È6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6`vbˆ6(öbˆ6b6`¶*‹ˆ6)ö-ö,v+H6)öa6(ö,ö)¶a6*H6b6)ö+v-va6.va6bH6)öa6)ö`¶*¶,v)ö+v)ö*ˆ6b6)öa6av,¶b¶+Ë‰Ëˆ	ÐÜ™X]HUËYœšY[™H™\Ý[Y\ÈÚ]RK\ÝÙ\™YÜš][™È\ÜÚ\Ý[˜ÙK‰Îˆ	ö(öa¶-6)ˆ6,öb¶,vbö)È6,6)ö*¶b¶*H6av*¶b6)ö`v`¶*H6av.HUÈ6*6av,ö)ö.v+ö*H6)öa6`ö*¶)ö*6*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹‰Ëˆ	ÕÙ[ÛÛYIÎˆ	öav,v+v*6bö)ÉËˆ	Ö[Ý\ˆRHÛÜšÜÜXÙH\È™XYKˆÙW	Ý™HYYÛÛYHØ[\HÛÛ[ÈÙ][ÝHÝ\YˆXÚÈH]ZXÚÈXÝ[Ûˆ™[ÝËÜˆ^Ü™HHÛÛÈÙH™XÛÛ[Y[™Y›Üˆ[ÝK‰Îˆ	öav,ö)ö+v*H6.vava6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6+6)öaö,¶*Kˆ6(ö-¶`va¶)È6*6.v-ˆ6)öa6av+v*¶b6bH6)öa6*¶+6,vb¶*6bˆ6a6*¶*6+ö(Ëˆ6)ö+¶*¶,H6)v+6,v)ö(vbÈ6,ö,vb¶.vbö)È6(ö+öa¶)öaÈ6(öb6)ö,ö*¶`ö-6`H6)öa6(ö+öb6)ö*ˆ6)öa6*¶bˆ6(öb6-vb¶a¶)È6*6aö)È6a6`Ë‰Ëˆ	Ùš[IÎˆ	öava6`IËˆ	Ü™XÛÛ[Y[™YÛÛÉÎˆ	ö(ö+öb6)ö*ˆ6avb6-vbH6*6aö)ÉËˆ	ÐÜ™X]H^Hš\œÝÕ‰Îˆ	ö(öa¶-6)ˆ6(öb6a6,öb¶,v*H6,6)ö*¶b¶*IËˆ	ÐZ[[ˆUËYœšY[™H™\Ý[YHÚ]RIÎˆ	ö(öa¶-6)ˆ6,öb¶,v*H6,6)ö*¶b¶*H6av*¶b6)ö`v`¶*H6av.HUÈ6*6)ö,ö*¶+¶+ö)öaH6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Õ\ØYHØÝ[Y[	Îˆ	ö)ö,v`v.H6av,ö*¶a¶+öbö)ÉËˆ	Ð[˜[^™KÝ[[X\š^™KÜˆ˜[œÛ]H[žHš[IÎˆ	ö+va6dva6(öb6a6+¶dv-H6(öb6*¶,v+6aH6(öbˆ6ava6`IËˆ	ÔÝ\RHÚ]	Îˆ	ö)ö*6+ö(È6av+v)ö+ö*ö*HRIËˆ	Ð\ÚÈ[ž][™È8 %[Ý\ˆRH\ÜÚ\Ý[\È™XYIÎˆ	ö)ö,ö(öa6(öbˆ6-6b¶(H8 %6av,ö)ö.v+È6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6+6)öaö,‰Ëˆ	ÕZÙHH›ÙXÝÝ\‰Îˆ	ö)ö*6+ö(È6+6b6a6*H6)öa6ava¶*¶+	Ëˆ	ÐÜ™X]H[Ý\ˆš\œÝÕ‰Îˆ	ö(öa¶-6)ˆ6(öb6a6,öb¶,v*H6,6)ö*¶b¶*H6a6`ÉËˆ	ÕžHHRHÚ]	Îˆ	ö+6,vdv*6av+v)ö+ö*ö*HRIËˆ	Ñ^Ü™H[RHÛÛÉÎˆ	ö)ö,ö*¶`ö-6`H6+6avb¶.H6(ö+öb6)ö*ˆRIËˆ	ÕÙH\ÙHÛÛÚÚY\ÈÈ[\›Ý™H[Ý\ˆ^\šY[˜ÙK[˜[^™H˜Y™šXË[™\œÛÛ˜[^™HÛÛ[ˆ[ÝHØ[ˆÚÛÜÙHÚXÚÛÛÚÚY\ÈÈXØÙ\ˆÙYHÝ\‰Îˆ	öa¶,ö*¶+¶+öaH6ava6`v)ö*ˆ6*¶.v,vb¶`H6)öa6)ö,v*¶*6)ö-È6a6*¶+v,öb¶aˆ6*¶+6,v*6*¶`È6b6*¶+va6b¶a6)öa6,¶b¶)ö,v)ö*ˆ6b6*¶+¶-vb¶-H6)öa6av+v*¶b6bKˆ6b¶av`öa¶`È6)ö+¶*¶b¶)ö,H6ava6`v)ö*ˆ6*¶.v,vb¶`H6)öa6)ö,v*¶*6)ö-È6)öa6*¶bˆ6*¶`¶*6a6aö)Ëˆ6,v)ö+6.IËˆ	Ê™\]Z\™Y
+IÎˆ	Ê6av-öa6b6*
+IËˆ	ÐXØÙ\[	Îˆ	ö`¶*6b6a6)öa6`öa	Ëˆ	ÑXÛ[™IÎˆ	ö,v`v-‰Ëˆ	ÒYIÎˆ	ö)v+¶`v)ö(IËˆ	ÔØ]™H^H™Y™\™[˜Ù\ÉÎˆ	ö+v`v.6*¶`v-¶b¶a6)ö*¶b‰Ëˆ	Û™]ÉÎˆ	ö+6+öb¶+ÉËˆ	ÓX\šÈ\È™XY	Îˆ	ö*¶+v+öb¶+È6`öav`¶,vb6(IËˆ	Ð\ÚÈRIÎˆ	ö)ö,ö(öaRIËˆ	ÐÛX\‰Îˆ	öav,ö+IËˆ	Ð[ÛÛÉÎˆ	ö`öa6)öa6(ö+öb6)ö*‰Ëˆ	ÐY[Ü™HÚÚ[ÈÈ[Ý\ˆÕ‰Îˆ	ö(ö-¶`H6)öa6av,¶b¶+È6avaˆ6)öa6avaö)ö,v)ö*ˆ6)va6bH6,öb¶,v*¶`È6)öa6,6)ö*¶b¶*IËˆ	ÐUÈÞ\Ý[\ÈÛÚÈ›Üˆ
+È™[]˜[ÚÚ[Ëˆ[ÝHÝ\œ™[H]™HK‰Îˆ	ö*¶*6+v*È6(öa¶.6av*HUÈ6.vaˆ6avaö)ö,v)ö*ˆ6,6)ö*ˆ6-va6*H6(öb6(ö`ö*ö,Kˆ6a6+öb¶`È6+v)öa6b¶bö)ÈK‰Ëˆ	ÓÜ[ˆÕˆZ[\‰Îˆ	ö)ö`v*¶+H6ava¶-6)ˆ6)öa6,öb¶,v*H6)öa6,6)ö*¶b¶*IËˆ	ÕžHHRHÜš]\‰Îˆ	ö+6,vdv*6`ö)ö*¶*RIËˆ	Ö[ÝH]™[—	Ý\ÙYHRHÜš]\ˆY]ˆ]	ÜÈÜ™X]›ÜˆÜ™X][™È›ÙÈÜÝÈ[™\XÛ\Ë‰Îˆ	öa6aH6*¶,ö*¶+¶+öaH6`ö)ö*¶*RH6*6.v+Ëˆ6)va¶aÈ6ava¶)ö,ö*6a6)va¶-6)ö(H6ava¶-6b6,v)ö*ˆ6)öa6av+öb6a¶)ö*ˆ6b6)öa6av`¶)öa6)ö*‹‰Ëˆ	ÕžHRHÜš]\‰Îˆ	ö+6,vdv*6`ö)ö*¶*RIËˆ	ÕšY]È[œÉÎˆ	ö.v,v-ˆ6)öa6+¶-ö-ÉËˆ	Ô›ÛÝ
+›È›Ú™XÝ
+IÎˆ	ö)öa6+6,6,H
+6*6+öb6aˆ6av-6,vb6.JIËˆ	ÓÜ[ˆ]™H8¡¥ÉÎˆ	ö`v*¶+H6)öa6avb6`¶.H6)öa6av*6)ö-6,H8¡¥ÉËˆ	ÓÜ[ˆ]™HÚ]H8¡¥ÉÎˆ	ö`v*¶+H6)öa6avb6`¶.H6)öa6av*6)ö-6,H8¡¥ÉËˆ	Ó[Ý™IÎˆ	öa¶`¶a	Ëˆ	Ñ˜]›Üš]IÎˆ	öav`v-¶a6*IËˆ	Ô[‰Îˆ	ö*¶*ö*6b¶*‰Ëˆ	Ó™]È›Ú™XÝ	Îˆ	öav-6,vb6.H6+6+öb¶+ÉËˆ	Ó™]È™\Ý[YIÎˆ	ö,öb¶,v*H6,6)ö*¶b¶*H6+6+öb¶+ö*IËˆ	Õ˜[œÛ]IÎˆ	ö*¶,v+6av*IËˆ	ÔÝYH›Ý\ÉÎˆ	öava6)ö+v.6)ö*ˆ6+ö,v)ö,ö*IËˆ	ÐY][IÎˆ	ö)v-¶)ö`v*H6.va¶-v,IËˆ	Ô™\Ý[YIÎˆ	ö,öb¶,v*H6,6)ö*¶b¶*IËˆ	ÑØÝ[Y[	Îˆ	öav,ö*¶a¶+ÉËˆ	Õ˜[œÛ][Û‰Îˆ	ö*¶,v+6av*IËˆ	Ó›È][\È[ˆ\È›Ú™XÝ	Îˆ	öa6)È6*¶b6+6+È6.va¶)ö-v,H6`vbˆ6aö,6)È6)öa6av-6,vb6.IËˆ	ÐY™\Ý[Y\ËÛÝ™\ˆ]\œË›Ý\ËRHÚ]È[™[Ü™HÈÜ™Ø[š^™H[Ý\ˆÛÜšË‰Îˆ	ö(ö-¶`H6)öa6,öb¶,H6)öa6,6)ö*¶b¶*H6b6+¶-ö)ö*6)ö*ˆ6)öa6*¶.¶-öb¶*H6b6)öa6ava6)ö+v.6)ö*ˆ6b6av+v)ö+ö*ö)ö*ˆRH6b6.¶b¶,vaö)È6a6*¶a¶.6b¶aH6.vava6`Ë‰Ëˆ	ÐYš\œÝ][IÎˆ	ö)v-¶)ö`v*H6(öb6a6.va¶-v,IËˆ	Ñ[\H˜\Ú	Îˆ	ö)v`v,v)ö.ˆ6,öa6*H6)öa6av+v,6b6`v)ö*‰Ëˆ	ÐÝ\œ™[›ÛIÎˆ	ö)öa6b6.6b¶`v*H6)öa6+v)öa6b¶*IËˆ	Ñ›Û˜[Z[IÎˆ	öa¶b6.H6)öa6+¶-ÉËˆ	ÔÙXÝ[ÛˆÜ™\‰Îˆ	ö*¶,v*¶b¶*6)öa6(ö`¶,ö)öaIËˆ	Ô›ØÙ\ÜÚ[™ÈÚ]RK‹‹‰Îˆ	ö+6)ö,vcH6)öa6av.v)öa6+6*H6*6)ö,ö*¶+¶+ö)öaHRK‹‹‰Ëˆ	ÕšY]ÈÛÝ™\ˆ]\‰Îˆ	ö.v,v-ˆ6+¶-ö)ö*6)öa6*¶.¶-öb¶*IËˆ	Ð[˜[^š[™È[Ý\ˆ™\Ý[YHYØZ[œÝH›Øˆ\ØÜš\[Û‹‹‹‰Îˆ	ö+6)ö,vcH6*¶+va6b¶a6,öb¶,v*¶`È6)öa6,6)ö*¶b¶*H6av`¶)ö,va¶*H6*6b6-v`H6)öa6b6.6b¶`v*K‹‹‰Ëˆ	ÔÝYÙÙ\Ý[ÛœÉÎˆ	ö)ö`¶*¶,v)ö+v)ö*‰Ëˆ	ÔØ]™HÝ\œ™[	Îˆ	ö+v`v.6)öa6+v)öa6b‰Ëˆ	Ö[Ý\ˆ™\Ý[YHÛÚÜÈÜ™X]H›È\ÜÝY\È›Ý[™‰Îˆ	ö,öb¶,v*¶`È6)öa6,6)ö*¶b¶*H6*¶*6+öb6avav*¶)ö,¶*HH6a6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6av-6`öa6)ö*‹‰Ëˆ	Ñ^Ù[[	Îˆ	öavav*¶)ö,‰Ëˆ	Ó™YYÈÛÜšÉÎˆ	öb¶+v*¶)ö+6*¶+v,öb¶a¶bö)ÉËˆ	ÔÛÜ‰Îˆ	ö-¶.vb¶`IËˆ	ÑÜ˜[[X\‰Îˆ	ö)öa6`¶b6)ö.v+ÉËˆ	ÐÛÛ\]IÎˆ	ö)öa6)ö`ö*¶av)öa	Ëˆ	Ô›Ù‹‰Îˆ	ö)öa6)ö+v*¶,v)ö`vb¶*IËˆ	Ô™XYX›IÎˆ	ö,öaöb6a6*H6)öa6`¶,v)ö(v*IËˆ	ÓÝ™\˜[	Îˆ	ö)öa6)v+6av)öa6b‰Ëˆ	ÓØY[™È^X\ˆ[[YÙ[˜Ùx )‰Îˆ	ö+6)ö,vcH6*¶+vavb¶a^X\ˆ[[YÙ[˜Ùx )‰Ëˆ	ÐXØÛÝ[Ý\Ü[™Y	Îˆ	ö)öa6+v,ö)ö*6avb6`¶b6`IËˆ	Ö[Ý\ˆXØÛÝ[\ÈÝ\œ™[HÝ\Ü[™YˆÛÛXÝÝ\ÜYˆ[ÝH™[Y]™H\È\ÈHZ\ÝZÙK‰Îˆ	ö+v,ö)ö*6`È6avb6`¶b6`H6+v)öa6b¶bö)Ëˆ6*¶b6)ö-va6av.H6)öa6+ö.vaH6)v,6)È6`öa¶*ˆ6*¶.v*¶`¶+È6(öaˆ6aö,6)È6+¶-ö(Ë‰Ëˆ	ÔÚÚ\ÈÛÛ[	Îˆ	ö)öa6)öa¶*¶`¶)öa6)va6bH6)öa6av+v*¶b6bIËˆ	Ô™[ØY	Îˆ	ö)v.v)ö+ö*H6)öa6*¶+vavb¶a	Ëˆ	ÒÛYIÎˆ	ö)öa6,v)¶b¶,öb¶*IËˆ	ÒYˆ\ÈÙY\È\[š[™Ë	Îˆ	ö)v,6)È6)ö,ö*¶av,v*ˆ6)öa6av-6`öa6*v#	Ëˆ	ØÛÛXÝÝ\Ü	Îˆ	ö*¶b6)ö-va6av.H6)öa6+ö.vaIËˆ	Ôš[X\žH˜]šYØ][Û‰Îˆ	ö)öa6*¶a¶`¶a6)öa6,v)¶b¶,öb‰Ëˆ	Õ^X\ˆ[[YÙ[˜ÙHÛYIÎˆ	ö)öa6-v`v+v*H6)öa6,v)¶b¶,öb¶*H6a6`^X\ˆ[[YÙ[˜ÙIËˆ	ÐZ[0­ÈÜ™X]H0­ÈÚ\	Îˆ	ö)ö*6a¶d0­È6(öa¶-6)ˆ0­È6(ö-öa6`‰Ëˆ	ÓÛ›[™IÎˆ	öav*¶-va	Ëˆ	Ó™]ÈÛÛ™\œØ][Û‰Îˆ	öav+v)ö+ö*ö*H6+6+öb¶+ö*IËˆ	ÐÜ™X]HÛÜšÜÜXÙIÎˆ	ö)va¶-6)ö(H6av,ö)ö+v*H6.vava	Ëˆ	ÔÜXÙ\‰Îˆ	öav,ö)ö`v*IËˆ	ÑÝX›KXÛXÚÈÈY]šY[ÈT“	Îˆ	ö)öa¶`¶,H6a¶`¶,vbö)È6av,¶+öb6+6bö)È6a6*¶.v+öb¶a6,v)ö*6-È6)öa6`vb¶+öb¶b	Ëˆ	ÕšY[ÉÎˆ	ö`vb¶+öb¶b	Ëˆ	ÑÝX›KXÛXÚÈÈYHšY[ÈT“	Îˆ	ö)öa¶`¶,H6a¶`¶,vbö)È6av,¶+öb6+6bö)È6a6)v-¶)ö`v*H6,v)ö*6-È6`vb¶+öb¶b	Ëˆ	ÐYXˆÛÛ[	Îˆ	ö(ö-¶`H6av+v*¶b6bH6.va6)öav*H6)öa6*¶*6b6b¶*	Ëˆ	ÐYÛ™H[XYÙHT“\ˆ[™IÎˆ	ö(ö-¶`H6,v)ö*6-È6-vb6,v*H6b6)ö+v+öbö)È6`vbˆ6`öa6,ö-ö,IËˆ	ÑÝX›KXÛXÚÈÈY][X™YT“	Îˆ	ö)öa¶`¶,H6a¶`¶,vbö)È6av,¶+öb6+6bö)È6a6*¶.v+öb¶a6,v)ö*6-È6)öa6*¶-¶avb¶a‰Ëˆ	Ñ[X™YYÛÛ[	Îˆ	öav+v*¶b6bH6av-¶avdva‰Ëˆ	ÑÝX›KXÛXÚÈÈY[ˆ[X™YX›HT“	Îˆ	ö)öa¶`¶,H6a¶`¶,vbö)È6av,¶+öb6+6bö)È6a6)v-¶)ö`v*H6,v)ö*6-È6`¶)ö*6a6a6a6*¶-¶avb¶a‰Ëˆ	ÐÛÝ[ÝÛ‰Îˆ	ö)öa6.v+È6)öa6*¶a¶)ö,¶a6b‰Ëˆ	Õ\™Ù]‰Îˆ	ö)öa6aö+ö`N‰Ëˆ	ÜÙ]]H[ˆ[œÜXÝÜ‰Îˆ	ö.vb¶dvaˆ6)öa6*¶)ö,vb¶+ˆ6`vbˆ6a6b6+v*H6)öa6+¶-v)ö)¶-IËˆ	ÐY\Ý[[ÛšX[^	Îˆ	ö(ö-¶`H6a¶-H6)öa6-6aö)ö+ö*IËˆ	ÑÝX›KXÛXÚÈÈ™\XÙH[XYÙIÎˆ	ö)öa¶`¶,H6a¶`¶,vbö)È6av,¶+öb6+6bö)È6a6)ö,ö*¶*6+ö)öa6)öa6-vb6,v*IËˆ	ÕÙXœÚ]H[XYÙIÎˆ	ö-vb6,v*H6)öa6avb6`¶.IËˆ	ÑÝX›KXÛXÚÈÈY[XYÙHT“	Îˆ	ö)öa¶`¶,H6a¶`¶,vbö)È6av,¶+öb6+6bö)È6a6)v-¶)ö`v*H6,v)ö*6-È6-vb6,v*IËˆ	Ñ˜YÈÈ[Ý™H0­È\œ›ÝÜÈYÙH0­ÈÚY
+Ø\œ›ÝÈL0­ÈÝ›ÐÛY
+Ñ\XØ]H0­È[]H™[[Ý™H0­È\ØÈ\Ù[XÝ0­ÈÚY
+Ù˜YÈ™[Ü™\‰Îˆ	ö)ö,ö+v*6a6a6*¶+v,vb¶`È0­È6)öa6(ö,öaöaH6a6a6*¶+v,vb¶`È6)öa6+ö`¶b¶`ˆ0­ÈÚY
+ö,öaöaH6*6av`¶+ö)ö,HL0­ÈÝ›ÐÛY
+Ñ6a6a6*¶`ö,v)ö,H0­È[]H6a6a6+v,6`H0­È\ØÈ6a6)va6.¶)ö(H6)öa6*¶+v+öb¶+È0­ÈÚY
+ö,ö+v*6a6)v.v)ö+ö*H6)öa6*¶,v*¶b¶*	Ëˆ	ÒÛ[›ÜˆIH™XÚ\Ú[Û‰Îˆ	ö)ö-¶.¶-È[6a6+ö`¶*HIIËˆ	Ñ˜YÈÚ]ÛX\[[Y[[™Ù[\ˆÝZY\È0­ÈÛ[›Üˆ\™XÚ\Ú[Ûˆ0­È\œ›ÝÜÈYÙH0­ÈÚY
+Ø\œ›ÝÈL0­ÈÝ›ÐÛY
+Ñ\XØ]H0­È[]H™[[Ý™H0­È\ØÈ\Ù[XÝ0­ÈÚY
+Ù˜YÈ™[Ü™\‰Îˆ	ö)ö,ö+v*6av.H6+¶-öb6-È6av+v)ö,6)ö*H6,6`öb¶*H6a6a6.va¶)ö-v,H6b6)öa6av,v`ö,ˆ0­È6)ö-¶.¶-È[6a6+ö`¶*H\0­È6)öa6(ö,öaöaH6a6a6*¶+v,vb¶`È6)öa6+ö`¶b¶`ˆ0­ÈÚY
+ö,öaöaH6*6av`¶+ö)ö,HL0­ÈÝ›ÐÛY
+Ñ6a6a6*¶`ö,v)ö,H0­È[]H6a6a6+v,6`H0­È\ØÈ6a6)va6.¶)ö(H6)öa6*¶+v+öb¶+È0­ÈÚY
+ö,ö+v*6a6)v.v)ö+ö*H6)öa6*¶,v*¶b¶*	Ëˆ	ÑY]]Ûˆ[šÉÎˆ	ö*¶.v+öb¶a6,v)ö*6-È6)öa6,¶,IËˆ	ÓÜ[ˆYYXHXœ˜\žIÎˆ	ö`v*¶+H6av`ö*¶*6*H6)öa6b6,ö)ö)¶-ÉËˆ	ÓÜ[ˆ[œÜXÝÜ‰Îˆ	ö`v*¶+H6a6b6+v*H6)öa6+¶-v)ö)¶-IËˆ	Ô™\Ù]ÜÚ][Û‰Îˆ	ö)v.v)ö+ö*H6*¶.vb¶b¶aˆ6)öa6avb6-¶.IËˆ	Ô™\Ú^™H[[Y[	Îˆ	ö*¶.¶b¶b¶,H6+v+6aH6)öa6.va¶-v,IËˆ	Ñ˜YÈÈ™\Ú^™IÎˆ	ö)ö,ö+v*6a6*¶.¶b¶b¶,H6)öa6+v+6aIËˆ	Ó[Ý™HÙXÝ[Ûˆ\	Îˆ	öa¶`¶a6)öa6`¶,öaH6a6(ö.va6bIËˆ	Ó[Ý™HÙXÝ[ÛˆÝÛ‰Îˆ	öa¶`¶a6)öa6`¶,öaH6a6(ö,ö`va	Ëˆ	Ñ[]HÙXÝ[Û‰Îˆ	ö+v,6`H6)öa6`¶,öaIËˆ	ÑÝX›KXÛXÚÈÈY]]Ûˆ^	Îˆ	ö)öa¶`¶,H6a¶`¶,vbö)È6av,¶+öb6+6bö)È6a6*¶.v+öb¶a6a¶-H6)öa6,¶,IËˆ	Ò[œÙ\	Îˆ	ö)v+ö,v)ö+	Ëˆ	ÔÙX\˜Ú	Îˆ	ö*6+v*ÉËˆ	ÔÙX\˜Ú[[Y[ÉÎˆ	ö)öa6*6+v*È6`vbˆ6)öa6.va¶)ö-v,IËˆ	Ó›È™\Ý[ÉÎˆ	öa6)È6*¶b6+6+È6a¶*¶)ö)¶+	Ëˆ	ØÛÛÜˆXÚÙ\‰Îˆ	öava¶*¶`¶bˆ6)öa6(öa6b6)öa‰Ëˆ	Ó›ÈÛÛ›ÛÈ›Üˆ\ÈÙ[XÝ[Û‹‰Îˆ	öa6)È6*¶b6+6+È6.va¶)ö-v,H6*¶+v`öaH6a6aö,6)È6)öa6*¶+v+öb¶+Ë‰Ëˆ	Ó›ÈYÙIÎˆ	öa6)È6*¶b6+6+È6-v`v+v*IËˆ	ÐÛÛZ[™\œÉÎˆ	ö)öa6+v)öb6b¶)ö*‰Ëˆ	Ñ›Ü›HšY[ÉÎˆ	ö+v`¶b6a6)öa6a¶avb6,6+	Ëˆ	ÓYYXIÎˆ	ö)öa6b6,ö)ö)¶-ÉËˆ	ÐRH[XYÙIÎˆ	ö-vb6,v*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‰Ëˆ	Ñ\ØÜšX™H[ˆ[XYÙK‹‹‰Îˆ	ö-v`H6)öa6-vb6,v*K‹‹‰Ëˆ	ÑÙ[™\˜][™ø )‰Îˆ	ö+6)ö,vcH6)öa6)va¶-6)ö(x )‰Ëˆ	ÔÙX\˜ÚYYXIÎˆ	ö)öa6*6+v*È6`vbˆ6)öa6b6,ö)ö)¶-ÉËˆ	Ó›ÈYYXIÎˆ	öa6)È6*¶b6+6+È6b6,ö)ö)¶-ÉËˆ	ÔÙ]\ÈÛYHYÙIÎˆ	ö*¶.vb¶b¶aˆ6`ö-v`v+v*H6,v)¶b¶,öb¶*IËˆ	Ô™XÙ[H\ÙY	Îˆ	ö)ö,ö*¶cö+¶+öaH6av)6+¶,vbö)ÉËˆ	ÔÙX\˜ÚÙXœÚ]IÎˆ	ö)öa6*6+v*È6`vbˆ6)öa6avb6`¶.IËˆ	ÕÙÙÛH˜]šYØ][Û‰Îˆ	ö)v.6aö)ö,Kö)v+¶`v)ö(H6)öa6*¶a¶`¶a	Ëˆ	ÓY[IÎˆ	ö)öa6`¶)ö)¶av*IËˆ	ÔÚ\™IÎˆ	öav-6)ö,v`ö*IËˆ	ÐÛÜH[šÉÎˆ	öa¶,ö+ˆ6)öa6,v)ö*6-ÉËˆ	ÐÛÜÙH[XYÙIÎˆ	ö)v.¶a6)ö`ˆ6)öa6-vb6,v*IËˆ	ÑØ[\žH™]šY]ÉÎˆ	öav.v)öb¶a¶*H6)öa6av.v,v-‰Ëˆ	ÔÙX\˜Ú\ÈÚ]IÎˆ	ö)ö*6+v*È6`vbˆ6aö,6)È6)öa6avb6`¶.IËˆ	ÐÛÜÙHÙX\˜Ú	Îˆ	ö)v.¶a6)ö`ˆ6)öa6*6+v*ÉËˆ	ÔÙX\˜ÚYÙ\ø )‰Îˆ	ö)öa6*6+v*È6`vbˆ6)öa6-v`v+v)ö*¸ )‰Ëˆ	ÔÝ\\[™ÈÈÙX\˜Ú‰Îˆ	ö)ö*6+ö(È6*6)öa6`ö*¶)ö*6*H6a6a6*6+v*Ë‰Ëˆ	Õ\H]X\ÝˆÚ\˜XÝ\œË‰Îˆ	ö)ö`ö*¶*6+v,v`vb¶aˆ6.va6bH6)öa6(ö`¶a‰Ëˆ	Ó›ÈX]Ú[™ÈYÙ\È›Ý[™‰Îˆ	öa6aH6b¶*¶aH6)öa6.v*öb6,H6.va6bH6-v`v+v)ö*ˆ6av-ö)ö*6`¶*K‰Ëˆ	ÓXZ[[˜[˜ÙIÎˆ	ö-vb¶)öa¶*IËˆ	Ò][IÎˆ	ö.va¶-v,IËˆ	Ò[›ÚXÙIÎˆ	ö`v)ö*¶b6,v*IËˆ	Ðš[ÉÎˆ	ö)va6bIËˆ	Ô]IÎˆ	ö)öa6`öavb¶*IËˆ	Õ[š]šXÙIÎˆ	ö,ö.v,H6)öa6b6+v+ö*IËˆ	ÕU	Îˆ	ö-¶,vb¶*6*H6)öa6`¶b¶av*H6)öa6av-¶)ö`v*IËˆ	ÕÝ[	Îˆ	ö)öa6)v+6av)öa6b‰Ëˆ	ÔÝXÝ[	Îˆ	ö)öa6av+6avb6.H6)öa6`v,v.vb‰Ëˆ	ÐYH[ÝUX™Kš[Y[ÈÜˆ\™XÝšY[ÈT“	Îˆ	ö(ö-¶`H6,v)ö*6-È[ÝUX™H6(öbš[Y[È6(öb6,v)ö*6-È6`vb¶+öb¶b6av*6)ö-6,IËˆ	ÑØ[\žH[XYÙIÎˆ	ö-vb6,v*H6)öa6av.v,v-‰Ëˆ	ÐYHX\Üˆ[X™YT“	Îˆ	ö(ö-¶`H6,v)ö*6-È6+¶,vb¶-ö*H6(öb6,v)ö*6-È6*¶-¶avb¶a‰Ëˆ	Ñ^\ÉÎˆ	ö(öb¶)öaIËˆ	ÒÝ\œÉÎˆ	ö,ö)ö.v)ö*‰Ëˆ	ÓZ[]\ÉÎˆ	ö+ö`¶)ö)¶`‰Ëˆ	ÔÙXÛÛ™ÉÎˆ	ö*öb6)öa¶cIËˆ	Ô™]š[Ý\È\Ý[[ÛšX[	Îˆ	ö)öa6-6aö)ö+ö*H6)öa6,ö)ö*6`¶*IËˆ	Ó™^\Ý[[ÛšX[	Îˆ	ö)öa6-6aö)ö+ö*H6)öa6*¶)öa6b¶*IËˆ	ÓXYØ\\™H\È\ØX›Y[ˆ™]šY]ÜÈ[™XÝ]˜]\ÈÛˆHX›\ÚYÛÝYÙXœÚ]K‰Îˆ	ö)öa6*¶`¶)ö-È6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶aˆ6av.v-ödva6`vbˆ6)öa6av.v)öb¶a¶)ö*ˆ6b6b¶*¶aH6*¶`v.vb¶a6aÈ6.va6bH6avb6`¶.H6,ö+v)ö*6bˆ6ava¶-6b6,K‰Ëˆ	Õ[šÜÈH[Ý\ˆY\ÜØYÙH\È™Y[ˆÙ[‰Îˆ	ö-6`ö,vbö)ÈH6*¶aH6)v,v,ö)öa6,v,ö)öa6*¶`Ë‰Ëˆ	Ñ™X]\™\ÉÎˆ	ö)öa6avb¶,¶)ö*‰Ëˆ	Ñ˜\Ý	Îˆ	ö,ö,vb¶.IËˆ	ÐZ[›ÜˆÜYY[™HÛ[ÛÝ\Ù\ˆ^\šY[˜ÙK‰Îˆ	öav-vavaH6a6a6,ö,v.v*H6b6*¶+6,v*6*H6av,ö*¶+¶+öaH6,öa6,ö*K‰Ëˆ	ÔÝÙ\™[	Îˆ	ö`¶b6b‰Ëˆ	Ñ›^X›HÛÛÈ][[Ý\ˆ\Ú[™\ÜÈÜ›ÝË‰Îˆ	ö(ö+öb6)ö*ˆ6av,va¶*H6*¶,ö)ö.v+È6.vava6`È6.va6bH6)öa6a¶avb‰Ëˆ	ÑX\ÞIÎˆ	ö,öaöa	Ëˆ	ÔÚ[\H^\šY[˜Ù\È[Ý\ˆÝ\ÝÛY\œÈ[™\œÝ[™‰Îˆ	ö*¶+6)ö,v*6*6,öb¶-ö*H6b¶`vaöavaö)È6.vava6)ö)6`Ë‰Ëˆ	ÔÙ\šXÙ\ÉÎˆ	ö)öa6+¶+öav)ö*‰Ëˆ	ÐÛÛœÝ[[™ÉÎˆ	ö)öa6)ö,ö*¶-6)ö,v)ö*‰Ëˆ	Ô›Ù™\ÜÚ[Û˜[ÝZY[˜ÙHZ[Ü™YÈ[Ý\ˆÛØ[Ë‰Îˆ	ö)v,v-6)ö+È6)ö+v*¶,v)ö`vbˆ6av+¶-v-H6a6(öaö+ö)ö`v`Ë‰Ëˆ	Ñ]™[ÜY[	Îˆ	ö)öa6*¶-öb6b¶,IËˆ	Ó[Ù\›ˆYÚ][ÛÛ][ÛœÈZ[›Üˆ[Ý\ˆ\Ú[™\ÜË‰Îˆ	ö+va6b6a6,v`¶avb¶*H6+v+öb¶*ö*H6av-vavav*H6a6(ö.vav)öa6`Ë‰Ëˆ	Ô™[XX›H[Ú[ˆ[ÝH™YY][ÜÝ‰Îˆ	ö+ö.vaH6avb6*öb6`ˆ6.va¶+öav)È6*¶+v*¶)ö+6)va6b¶aË‰Ëˆ	ÔšXÚ[™ÉÎˆ	ö)öa6(ö,ö.v)ö,IËˆ	ÔÝ\\‰Îˆ	ö(ö,ö)ö,öb‰Ëˆ	Ñ›ÜˆÙ][™ÈÝ\Y‰Îˆ	öa6a6*6+ö(K‰Ëˆ	ÐÚÛÜÙIÎˆ	ö)ö+¶*¶,IËˆ	Ñ›ÜˆÜ›ÝÚ[™È\Ú[™\ÜÙ\Ë‰Îˆ	öa6a6(ö.vav)öa6)öa6a¶)öavb¶*K‰Ëˆ	Ñ›ÜˆY˜[˜ÙY™YYË‰Îˆ	öa6a6)ö+v*¶b¶)ö+6)ö*ˆ6)öa6av*¶`¶+öav*K‰Ëˆ	Õ\Ý[[ÛšX[ÉÎˆ	ö(¶,v)ö(H6)öa6.vava6)ö(IËˆ	Ð[X^š[™È^\šY[˜ÙH[™^Ù[[™\Ý[Ë‰Îˆ	ö*¶+6,v*6*H6,v)ö)¶.v*H6b6a¶*¶)ö)¶+6avav*¶)ö,¶*K‰Ëˆ	Ô›Ù™\ÜÚ[Û˜[Ú[\H[™^XÝHÚ]ÙH™YYY‰Îˆ	ö)ö+v*¶,v)ö`vbˆ6b6*6,öb¶-È6b6*6)öa6-¶*6-È6av)È6`öa¶)È6a¶+v*¶)ö+6aË‰Ëˆ	ÕHX\ÚY\ÝØ^HÈ™\Ù[Ý\ˆ\Ú[™\ÜÈÛ›[™K‰Îˆ	ö(ö,öaöa6-ö,vb¶`¶*H6a6.v,v-ˆ6(ö.vav)öa6a¶)È6.va6bH6)öa6)va¶*¶,va¶*‹‰Ëˆ	ÐX›Ý]	Îˆ	öavaˆ6a¶+va‰Ëˆ	Ö[Ý\ˆœ˜[™	Îˆ	ö.va6)öav*¶`È6)öa6*¶+6)ö,vb¶*IËˆ“[™[™ÈYÙHŽˆ¶)öa6-v`v+v*H6)öa6,v)¶b¶,öb¶*H‹ˆ‘Y]H\›ÈÙXÝ[Ûˆ[™Ù^HY\ÜØYÚ[™ÈÛˆ[Ý\ˆÛY\YÙKˆŽˆ¶.v+ödva6)öa6`¶,öaH6)öa6,v)¶b¶,öbˆ6b6)öa6,v,ö)ö)¶a6)öa6(ö,ö)ö,öb¶*H6`vbˆ6-v`v+v*¶`È6)öa6,v)¶b¶,öb¶*Kˆ‹ˆ’\›È]HŽˆ¶.va¶b6)öaˆ6)öa6`¶,öaH6)öa6,v)¶b¶,öbˆ‹ˆRKTÝÙ\™YØ\™Y\ˆ[[YÙ[˜ÙHŽˆ¶,6`ö)ö(H6avaöa¶bˆ6av+ö.vb6aH6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ‹ˆ’\›ÈÝX]HŽˆ¶)öa6a¶-H6)öa6`v,v.vbˆ6a6a6`¶,öaH6)öa6,v)¶b¶,öbˆ‹ˆZ[Ü[Z^™K[™X[˜YÙK‹‹ˆŽˆ¶(öa¶-6)ˆ6b6+v,ödvaˆ6b6(ö+ö,K‹‹ˆ‹ˆØ[ÈXÝ[Ûˆ^Žˆ¶a¶-H6,¶,H6)öa6+ö.vb6*H6a6a6)v+6,v)ö(H‹ˆ‘Ù]Ý\Yœ™YHŽˆ¶)ö*6+ö(È6av+6)öa¶bö)È‹ˆ•\Ù\œÈÝ]Žˆ¶)v+v-v)ö)¶b¶*H6)öa6av,ö*¶+¶+öavb¶aˆ‹ˆ”šXÚ[™ÈYÙHŽˆ¶-v`v+v*H6)öa6(ö,ö.v)ö,H‹ˆ“X[˜YÙHšXÚ[™ÈY\œÈ[™™X]\™\È\Ü^YYÈ\Ù\œËˆŽˆ¶(ö+ö,H6+¶-ö-È6)öa6(ö,ö.v)ö,H6b6)öa6avb¶,¶)ö*ˆ6)öa6av.v,vb6-¶*H6a6a6av,ö*¶+¶+öavb¶a‹ˆ‹ˆ‘œ™YH[ˆšXÙHŽˆ¶,ö.v,H6)öa6+¶-ö*H6)öa6av+6)öa¶b¶*H‹ˆ”›È[ˆšXÙHŽˆ¶,ö.v,H6+¶-ö*H›È‹ˆ\Ú[™\ÜÈ[ˆšXÙHŽˆ¶,ö.v,H6+¶-ö*H\Ú[™\ÜÈ‹ˆ‘œ™YH[ˆ™X]\™\È
+Û™H\ˆ[™JHŽˆ¶avb¶,¶)ö*ˆ6)öa6+¶-ö*H6)öa6av+6)öa¶b¶*H
+6avb¶,¶*H6`vbˆ6`öa6,ö-ö,JH‹ˆHRH™\]Y\ÝËÙ^W˜\ÚXÈÕˆZ[\ˆŽˆH6-öa6*6)ö*ˆ6,6`ö)ö(H6)ö-v-öa¶)ö.vb‹ö)öa6b¶b6aW¶ava¶-6)ˆ6,öb¶,v*H6,6)ö*¶b¶*H6(ö,ö)ö,öbˆ‹ˆ”›È[ˆ™X]\™\È
+Û™H\ˆ[™JHŽˆ¶avb¶,¶)ö*ˆ6+¶-ö*H›È
+6avb¶,¶*H6`vbˆ6`öa6,ö-ö,JH‹ˆ•[›[Z]YRH™\]Y\Ý×[ÛÛÈ[›ØÚÙYŽˆ¶-öa6*6)ö*ˆ6,6`ö)ö(H6)ö-v-öa¶)ö.vbˆ6.¶b¶,H6av+v+öb6+ö*W¶+6avb¶.H6)öa6(ö+öb6)ö*ˆ6av`v*¶b6+v*H‹ˆ‘THÙXÝ[ÛˆŽˆ¶`¶,öaH6)öa6(ö,ö)¶a6*H6)öa6-6)ö)¶.v*H‹ˆ‘œ™\]Y[H\ÚÙY]Y\Ý[ÛœÈÚÝÛˆÛˆH[™[™ÈYÙKˆŽˆ¶)öa6(ö,ö)¶a6*H6)öa6-6)ö)¶.v*H6)öa6av.v,vb6-¶*H6`vbˆ6)öa6-v`v+v*H6)öa6,v)¶b¶,öb¶*Kˆ‹ˆ”]Y\Ý[ÛˆHŽˆ¶)öa6,ö)6)öaH‹ˆ•Ú]\È^X\ˆ[[YÙ[˜ÙOÈŽˆ¶av)È6aöb^X\ˆ[[YÙ[˜Ùv'È‹ˆ[œÝÙ\ˆHŽˆ¶)öa6)v+6)ö*6*HH‹ˆ•^X\ˆ[[YÙ[˜ÙH\Ë‹‹ˆŽˆ•^X\ˆ[[YÙ[˜ÙH6aöb‹‹ˆ‹ˆ”]Y\Ý[ÛˆˆŽˆ¶)öa6,ö)6)öaˆ‹ˆ’\È\™HHœ™YH[ÈŽˆ¶aöa6*¶b6+6+È6+¶-ö*H6av+6)öa¶b¶*v'È‹ˆ[œÝÙ\ˆˆŽˆ¶)öa6)v+6)ö*6*Hˆ‹ˆ–Y\ÈHÙHÙ™™\‹‹‹ˆŽˆ¶a¶.vaHH6a¶+vaˆ6a¶`¶+öaK‹‹ˆ‹ˆ“YØ[\›\È[™ÛÛ™][ÛœÈ›Üˆ\Ú[™ÈH]›Ü›KˆŽˆ¶)öa6-6,vb6-È6b6)öa6(ö+v`ö)öaH6)öa6`¶)öa¶b6a¶b¶*H6a6)ö,ö*¶+¶+ö)öaH6)öa6ava¶-v*Kˆ‹ˆ’[›ÙXÝ[ÛˆŽˆ¶av`¶+öav*H‹ˆžH\Ú[™È^X\ˆ[[YÙ[˜ÙK‹‹ˆŽˆ¶*6)ö,ö*¶+¶+ö)öaH^X\ˆ[[YÙ[˜ÙK‹‹ˆ‹ˆ•\ØYÙH\›\ÈŽˆ¶-6,vb6-È6)öa6)ö,ö*¶+¶+ö)öaH‹ˆ–[ÝHX^H\ÙK‹‹ˆŽˆ¶b¶av`öa¶`È6)ö,ö*¶+¶+ö)öaK‹‹ˆ‹ˆ“XXš[]HŽˆ¶)öa6av,ö)6b6a6b¶*H‹ˆ•^X\ˆ[[YÙ[˜ÙH\È›ÝXX›K‹‹ˆŽˆ¶a6)È6b¶*¶+vava^X\ˆ[[YÙ[˜ÙH6)öa6av,ö)6b6a6b¶*K‹‹ˆ‹ˆ’ÝÈ\Ù\ˆ]H\ÈÛÛXÝY\ÙY[™›ÝXÝYˆŽˆ¶`öb¶`vb¶*H6+6av.H6*6b¶)öa¶)ö*ˆ6)öa6av,ö*¶+¶+öaH6b6)ö,ö*¶+¶+ö)öavaö)È6b6+vav)öb¶*¶aö)Ëˆ‹ˆ•ÙHZÙH[Ý\ˆš]˜XÞHÙ\š[Ý\ÛK‹‹ˆŽˆ¶a¶+vaˆ6a¶(ö+¶,6+¶-vb6-vb¶*¶`È6.va6bH6av+vava6)öa6+6+Ë‹‹ˆ‹ˆ‘]HÛÛXÝ[ÛˆŽˆ¶+6av.H6)öa6*6b¶)öa¶)ö*ˆ‹ˆ•ÙHÛÛXÝ‹‹ˆŽˆ¶a¶+vaˆ6a¶+6av.K‹‹ˆ‹ˆ–[Ý\ˆšYÚÈŽˆ¶+v`¶b6`¶`È‹ˆ–[ÝH]™HHšYÚË‹‹ˆŽˆ¶a6+öb¶`È6)öa6+v`ˆ6`vb‹‹‹ˆ‹ˆ‘˜Z[YÈØYØ]™YÛÛ[˜YŽˆ¶`v-6a6*¶+vavb¶a6av,öb6+ö*H6)öa6av+v*¶b6bH6)öa6av+v`vb6.6*H‹ˆ‘˜Z[YÈØ]™HÛÛ[˜YŽˆ¶`v-6a6+v`v.6av,öb6+ö*H6)öa6av+v*¶b6bH‹ˆÛÛ[˜YØ]™YŽˆ¶*¶aH6+v`v.6av,öb6+ö*H6)öa6av+v*¶b6bH‹ˆ•Ý[\Ù\œÈŽˆ¶)v+6av)öa6bˆ6)öa6av,ö*¶+¶+öavb¶aˆ‹ˆXÝ]™H\Ù\œÈŽˆ¶)öa6av,ö*¶+¶+öavb6aˆ6)öa6a¶-6-öb6aˆ‹ˆ“™]ÈÙ^HŽˆ¶)öa6+6+ö+È6)öa6b¶b6aH‹ˆXÝ]™HÝXœÈŽˆ¶)öa6)ö-6*¶,v)ö`ö)ö*ˆ6)öa6a¶-6-ö*H‹ˆ“[ÛH™]™[YHŽˆ¶)öa6)vb¶,v)ö+È6)öa6-6aö,vbˆ‹ˆ‘]HÝ]\ÈŽˆ¶+v)öa6*H6)öa6*6b¶)öa¶)ö*ˆ‹ˆ•[˜]˜Z[X›HŽˆ¶.¶b¶,H6av*¶)ö+H‹ˆ”›Ùš[\ÈŽˆ¶)öa6ava6`v)ö*ˆ6)öa6-6+¶-vb¶*H‹ˆ”ÝXœØÜš\[ÛœÈŽˆ¶)öa6)ö-6*¶,v)ö`ö)ö*ˆ‹ˆÝ[Žˆ¶)v+6av)öa6bˆ‹ˆ\Ù\œÈŽˆ¶av,ö*¶+¶+öavb¶aˆ‹ˆœ™\]Y\ÝÈŽˆ¶-öa6*6)ö*ˆ‹ˆ“Ý™\šY]ÈŽˆ¶a¶.6,v*H6.v)öav*H‹ˆ“X[˜YÙ[Y[Žˆ¶)öa6)v+ö)ö,v*H‹ˆ•\Ù\œÈŽˆ¶)öa6av,ö*¶+¶+öavb6aˆ‹ˆRHX[˜YÙ[Y[Žˆ¶)v+ö)ö,v*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ‹ˆ•ÛÛÈŽˆ¶)öa6(ö+öb6)ö*ˆ‹ˆ”]›Ü›HŽˆ¶)öa6ava¶-v*H‹ˆÛÛ[Žˆ¶)öa6av+v*¶b6bH‹ˆ”Þ\Ý[HŽˆ¶)öa6a¶.6)öaH‹ˆŒM™\]Y\ÝÈŽˆ¶-öa6*6)ö*ˆ6(¶+¶,HM6b¶b6avbö)È‹ˆ•Ý[ÚÙ[œÈŽˆ¶)v+6av)öa6bˆ6)öa6,vavb6,ˆ‹ˆ˜XÚÙ[™›ÝšY\œÈŽˆ¶av,¶b6+öb6)öa6+¶a6`vb¶*H‹ˆ”™XÙ[\œ›Üˆ˜]HŽˆ¶av.v+öa6)öa6(ö+¶-ö)ö(H6)öa6(ö+¶b¶,H‹ˆ“Û™HÛÛ›™XÝYÛÜšÜÜXÙHŽˆ¶av,ö)ö+v*H6.vava6av*¶,v)ö*6-ö*H6b6)ö+v+ö*H‹ˆ”›Ú™XÝËš[\ËÙXœÚ]H™[X\Ù\ËÛÛX›Ü˜][Ûˆ[™Ù][™ÜÈ\™H\ÚYÛ™YÈÝ^HÛÛ›™XÝYˆŽˆ¶-vcöavav*ˆ6)öa6av-6)ö,vb¶.H6b6)öa6ava6`v)ö*ˆ6b6)v-v+ö)ö,v)ö*ˆ6)öa6avb6)ö`¶.H6b6)öa6*¶.v)öb6aˆ6b6)öa6)v.v+ö)ö+ö)ö*ˆ6a6*¶*6`¶bH6av*¶,v)ö*6-ö*Kˆ‹ˆ”Ú\š[š\ÚYÛÜšÈŽˆ¶,öa6dvaH6(ö.vav)öa6bö)È6av`ö*¶ava6*H‹ˆ•H›ÙXÝ\ÈZ[\›Ý[™[Ýš[™Èœ›ÛH˜YÈ[]™\žK›Ý\ÝÙ[™\˜][™ÈHÛ™K[Ù™ˆÝ]]ˆŽˆ¶)öa6ava¶*¶+6av-vavaH6a6a6)öa¶*¶`¶)öa6avaˆ6)öa6av,öb6+ö*H6)va6bH6)öa6*¶,öa6b¶av#6b6a6b¶,È6`v`¶-È6a6)va¶-6)ö(H6a¶*¶b¶+6*H6a6av,v*H6b6)ö+v+ö*Kˆ‹ˆÛÛ›ÛžHY˜][Žˆ¶)öa6*¶+v`öaH6)ö`v*¶,v)ö-¶b¶bö)È‹ˆ”™XÛÝ™\žK›Û\Ë]Y]Ë™\œÚ[Ûˆ\ÝÜžH[™›ÝË[]™[XØÙ\ÜÈÛÛ›ÛÈ\™H\ÙˆHÛÜšÙ›ÝËˆŽˆ¶)öa6)ö,ö*¶.v)ö+ö*H6b6)öa6(ö+öb6)ö,H6b6)öa6*¶+ö`¶b¶`ˆ6b6,ö+6a6)öa6)v-v+ö)ö,v)ö*ˆ6b6)öa6*¶+v`öaH6*6)öa6b6-vb6a6.va6bH6av,ö*¶b6bH6)öa6-v`H6+6,¶(H6avaˆ6,öb¶,H6)öa6.vavaˆ‹ˆXØÙ\ÜÚX›HÛÜšÙ›ÝÜÈŽˆ¶,öb¶,H6.vava6,öaöa6)öa6b6-vb6a‹ˆ‘[™Û\Ú\˜XšXÈ[™ÝÙY\Ú\™HÝ\ÜY[˜ÛY[™ÈšYÚ]Ë[Y[\™˜XÙH™Z]š[Üˆ›Üˆ\˜XšXËˆŽˆ¶b¶*¶aH6+ö.vaH6)öa6)va¶+6a6b¶,¶b¶*H6b6)öa6.v,v*6b¶*H6b6)öa6,öb6b¶+öb¶*v#6*6av)È6`vbˆ6,6a6`È6b6)ö+6aö*H6avaˆ6)öa6b¶avb¶aˆ6)va6bH6)öa6b¶,ö)ö,H6a6a6.v,v*6b¶*Kˆ‹ˆÕœÈŽˆ¶)öa6,öb¶,H6)öa6,6)ö*¶b¶*H‹ˆÛÝ™\ˆ]\œÈŽˆ¶+¶-ö)ö*6)ö*ˆ6)öa6*¶.¶-öb¶*H‹ˆ•Üš][™ÈŽˆ¶)öa6`ö*¶)ö*6*H‹ˆ•˜[œÛ][ÛœÈŽˆ¶)öa6*¶,v+6av)ö*ˆ‹ˆ”ÝYHŽˆ¶)öa6+ö,v)ö,ö*H‹ˆ”YÙH›Ý›Ý[™Žˆ¶)öa6-v`v+v*H6.¶b¶,H6avb6+6b6+ö*H‹ˆ”YÙH›Ý›Ý[™ˆŽˆ¶)öa6-v`v+v*H6.¶b¶,H6avb6+6b6+ö*Kˆ‹ˆ8 %YÙH›Ý›Ý[™Žˆ8 %6)öa6-v`v+v*H6.¶b¶,H6avb6+6b6+ö*H‹ˆ•HYÙH[ÝH\™HÛÚÚ[™È›ÜˆÙ\È›Ý^\ÝÜˆX^H]™H[Ý™YˆŽˆ¶)öa6-v`v+v*H6)öa6*¶bˆ6*¶*6+v*È6.va¶aö)È6.¶b¶,H6avb6+6b6+ö*H6(öb6,v*6av)È6*¶aH6a¶`¶a6aö)Ëˆ‹ˆ˜XÚÈÈÛYHŽˆ¶)öa6.vb6+ö*H6)va6bH6)öa6,v)¶b¶,öb¶*H‹ˆ’ÜÝ[™È›Ý\Ë”È]Z[Ë™^Ý\ËÝ\Ü\›\ø )ˆŽˆ¶ava6)ö+v.6)ö*ˆ6)öa6)ö,ö*¶-¶)ö`v*v#6*¶`v)ö-vb¶a”ö#6)öa6+¶-öb6)ö*ˆ6)öa6*¶)öa6b¶*v#6-6,vb6-È6)öa6+ö.vax )ˆ‹ˆ”ÙX\˜Ú˜[YK[XZ[Y\ÜØYÙKYÜø )ˆŽˆ¶)ö*6+v*È6*6)öa6)ö,öaH6(öb6)öa6*6,vb¶+È6(öb6)öa6,v,ö)öa6*H6(öb6)öa6b6,öb6ax )ˆ‹ˆ‘[^H[ˆÙXÛÛ™ÈŽˆ¶)öa6*¶(ö+¶b¶,H6*6)öa6*öb6)öa¶bˆ‹ˆ“Y]H^[QŽˆ¶av.v,vdv`HY]H^[‹ˆ”ØÚ[XH\H0­ÈØØ[\Ú[™\ÜÈŽˆ¶a¶b6.HØÚ[XH0­ÈØØ[\Ú[™\ÜÈ‹ˆ–[ÝUX™Kš[Y[ÈÜˆ\™XÝšY[ÈT“Žˆ¶,v)ö*6-È[ÝUX™H6(öbš[Y[È6(öb6,v)ö*6-È6`vb¶+öb¶b6av*6)ö-6,H‹ˆ•šY[È]HÈXØÙ\ÜÚXš[]HX™[Žˆ¶.va¶b6)öaˆ6)öa6`vb¶+öb¶bÈ6*¶,öavb¶*H6)vav`ö)öa¶b¶*H6)öa6b6-vb6a‹ˆXØÙ\ÜÚXš[]H]HŽˆ¶.va¶b6)öaˆ6)vav`ö)öa¶b¶*H6)öa6b6-vb6a‹ˆ“Û™H[XYÙHT“\ˆ[™HŽˆ¶,v)ö*6-È6-vb6,v*H6b6)ö+v+È6`vbˆ6`öa6,ö-ö,H‹ˆ•]HÛÛ[8 %Û™H][H\ˆ[™HŽˆ¶)öa6.va¶b6)öaˆ6)öa6av+v*¶b6bH8 %6.va¶-v,H6b6)ö+v+È6`vbˆ6`öa6,ö-ö,H‹ˆŒŒ‹LL‹LÌUŒÎNNNH][˜Ú[™ÈÛÛÛˆŽˆŒŒ‹LL‹LÌUŒÎNNNH6)öa6)v-öa6)ö`ˆ6`¶,vb¶*6bö)È‹ˆÝ\ÝÛHS
+ØÜš\È[™[›[™H]™[[™\œÈ\™HÝš\Y
+HŽˆ’S6av+¶-v-H
+6*¶*¶aH6)v,¶)öa6*H6)öa6,ö`ö,v*6*¶)ö*ˆ6b6av.v)öa6+6)ö*ˆ6)öa6(ö+v+ö)ö*È6)öa6av-¶ava¶*JH‹ˆ‘\ØÜšX™HH[XYÙH[ÝHØ[›Üˆ\ÈÙXÝ[Û‹‹‹ˆŽˆ¶-v`H6)öa6-vb6,v*H6)öa6*¶bˆ6*¶,vb¶+öaö)È6a6aö,6)È6)öa6`¶,öaK‹‹ˆ‹ˆ”ZYšXÙ\È\™HÛÛ›ÛYžHÕ’TWÔ“×Ô’PÑWÒQ[™Õ’TWÐ•TÒS‘TÔ×Ô’PÑWÒQÛÈH\™]™\ˆ\ÝÈHœ›ÝÜÙ\‹\Ý\YY[[Ý[ˆŽˆ¶*¶*¶aH6)v+ö)ö,v*H6)öa6(ö,ö.v)ö,H6)öa6av+ö`vb6.v*H6.v*6,HÕ’TWÔ“×Ô’PÑWÒQ6bÕ’TWÐ•TÒS‘TÔ×Ô’PÑWÒQ6#6a6,6a6`È6a6)È6b¶*ö`ˆ6)öa6*¶-ö*6b¶`ˆ6*6(öbˆ6av*6a6.ˆ6b¶,v,öa6aÈ6)öa6av*¶-v`v+Kˆ‹ˆ”ÚÜÝ]ÎˆÝ›ÐÛY
+ÒÈÛÛ[X[™È0­ÈÝ›ÐÛY
+ÔÈØ]™H0­ÈÝ›ÐÛY
+Öˆ[™È0­ÈÝ›ÐÛY
+ÔÚY
+Öˆ™YÈ0­ÈÝ›ÐÛY
+ÔÚY
+Ô™]šY]ËˆŽˆ¶)öa6)ö+¶*¶-v)ö,v)ö*ŽˆÝ›ÐÛY
+ÒÈ6a6a6(öb6)öav,H0­ÈÝ›ÐÛY
+ÔÈ6a6a6+v`v.0­ÈÝ›ÐÛY
+Öˆ6a6a6*¶,v)ö+6.H0­ÈÝ›ÐÛY
+ÔÚY
+Öˆ6a6a6)v.v)ö+ö*H0­ÈÝ›ÐÛY
+ÔÚY
+Ô6a6a6av.v)öb¶a¶*Kˆ‹ˆ“\ÝÌ^\Ëˆ[›Ûž[[Ý\ÈÙ\ÜÚ[ÛˆQÈÛ›NÈ›ÈTY™\ÜÙ\È\™HÝÜ™YˆŽˆ¶(¶+¶,HÌ6b¶b6avbö)Ëˆ6b¶*¶aH6)ö,ö*¶+¶+ö)öaH6av.v,vdv`v)ö*ˆ6+6a6,ö)ö*ˆ6av+6aöb6a6*H6`v`¶-ö&È6b6a6)È6b¶*¶aH6*¶+¶,¶b¶aˆ6.va¶)öb6b¶aˆTˆ‹ˆ•˜XÚÚ[™È[YÜ˜][ÛœÈ\™HÙ[™\˜]Yœ›ÛH˜[Y]YQËˆÝ\ÝÛHÔÔÈ\È[˜ÛYY[ˆ™]šY]Ë^Ü[™X›\ÚÈ˜]ÈØÜš\[š™XÝ[Ûˆ\È[[[Û˜[H›Ý[ÝÙY\™KˆŽˆ¶b¶*¶aH6)va¶-6)ö(H6*¶`ö)öava6)ö*ˆ6)öa6*¶*¶*6.H6avaˆ6av.v,vdv`v)ö*ˆ6*¶aH6)öa6*¶+v`¶`ˆ6ava¶aö)Ëˆ6b¶*¶aH6*¶-¶avb¶aˆÔÔÈ6)öa6av+¶-v-H6`vbˆ6)öa6av.v)öb¶a¶*H6b6)öa6*¶-v+öb¶,H6b6)öa6a¶-6,v&È6b6a6)È6b¶cö,öav+H6.vav+öbö)È6*6+v`¶aˆ6,ö`ö,v*6*¶)ö*ˆ6+¶)öaH6aöa¶)Ëˆ‹ˆ‘›ÛÚY[™ÜXÚ[™È\HÛØ˜[Kˆ8 '\x 'H[ÛÈ™XÛÛÜœÈ^\Ý[™ÈÙXÝ[ÛœÈ[™]ÛœËˆŽˆ¶b¶*¶aH6*¶-ö*6b¶`ˆ6)öa6+¶-È6b6)öa6.v,v-ˆ6b6)öa6*¶*6)ö.v+È6.v)öa6avb¶bö)Ëˆ6,¶,H8 '6*¶-ö*6b¶`¸ 'H6b¶.vb¶+È6(öb¶-¶bö)È6*¶a6b6b¶aˆ6)öa6(ö`¶,ö)öaH6b6)öa6(ö,¶,v)ö,H6)öa6avb6+6b6+ö*Kˆ‹ˆ•\ÙHÛ™H[™H\ˆ][Nˆ]HÛÛ[Žˆ¶)ö,ö*¶+¶+öaH6,ö-ö,vbö)È6b6)ö+v+öbö)È6a6`öa6.va¶-v,Nˆ6)öa6.va¶b6)öaˆ6)öa6av+v*¶b6bH‹ˆ‘›Ü›X]ˆTÓÈ]KÝ[YHX™[Žˆ¶)öa6*¶a¶,öb¶`Žˆ6*¶)ö,vb¶+‹öb6`¶*ˆTÓÈ6)öa6*¶,öavb¶*H‹ˆ”ØY™HS[ÙNˆØÜš\ÛØš™XÝÙ[X™YYÜÈ[™ÛŠˆ[™\œÈ\™H™[[Ý™Y™Y›Ü™H™]šY]ËÜX›\ÚˆŽˆ¶b6-¶.HS6)öa6(¶avaŽˆ6*¶*¶aH6)v,¶)öa6*H6b6,öb6aHØÜš\ÛØš™XÝÙ[X™Y6b6av.v)öa6+6)ö*ˆÛŠˆ6`¶*6a6)öa6av.v)öb¶a¶*Kö)öa6a¶-6,Kˆ‹ˆ“[šÈÈ[\›˜[YÙx )ˆŽˆ¶,v*6-È6*6-v`v+v*H6+ö)ö+¶a6b¶*x )ˆ‹ˆÛÝ[›ÝØYÛÝY›Ú™XÝËˆŽˆ¶*¶.v,6,H6*¶+vavb¶a6)öa6av-6)ö,vb¶.H6)öa6,ö+v)ö*6b¶*Kˆ‹ˆÛÝ[›ÝØY™]\ØX›HÙXÝ[ÛœËˆŽˆ¶*¶.v,6,H6*¶+vavb¶a6)öa6(ö`¶,ö)öaH6)öa6`¶)ö*6a6*H6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaKˆ‹ˆÛÝ[›ÝØ]™H\È™]\ØX›HÙXÝ[Û‹ˆŽˆ¶*¶.v,6,H6+v`v.6aö,6)È6)öa6`¶,öaH6)öa6`¶)ö*6a6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaKˆ‹ˆÛÝ[›Ý[]H\È™]\ØX›HÙXÝ[Û‹ˆŽˆ¶*¶.v,6,H6+v,6`H6aö,6)È6)öa6`¶,öaH6)öa6`¶)ö*6a6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaKˆ‹ˆ“XY[˜›Þ\È]˜Z[X›HÈ›Ú™XÝÝÛ™\œÈ[™ÛÜšÜÜXÙHYZ[œËˆŽˆ¶-va¶+öb6`ˆ6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶aˆ6av*¶)ö+H6a6av)öa6`öbˆ6)öa6av-6,vb6.H6b6av-6,v`vbˆ6av,ö)ö+v*H6)öa6.vavaˆ‹ˆ“XY[˜›Þ\È[˜]˜Z[X›KˆXZÙHÝ\™HHÜš[LH]X˜\ÙHZYÜ˜][Ûˆ\È\YYˆŽˆ¶-va¶+öb6`ˆ6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶aˆ6.¶b¶,H6av*¶)ö+Kˆ6*¶(ö`ö+È6avaˆ6*¶-ö*6b¶`ˆ6*¶,v+vb¶a6`¶)ö.v+ö*H6*6b¶)öa¶)ö*ˆÜš[LKˆ‹ˆÛÝ[›Ý\]H\ÈXYˆŽˆ¶*¶.v,6,H6*¶+v+öb¶*È6aö,6)È6)öa6.vavb¶a6)öa6av+v*¶avaˆ‹ˆÛÝ[›Ý\]HÔ“H]Z[È›Üˆ\ÈXYˆŽˆ¶*¶.v,6,H6*¶+v+öb¶*È6*¶`v)ö-vb¶aÔ“H6a6aö,6)È6)öa6.vavb¶a6)öa6av+v*¶avaˆ‹ˆÛÝ[›Ý\]HHÙ[XÝYXYËˆŽˆ¶*¶.v,6,H6*¶+v+öb¶*È6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶aˆ6)öa6av+v+ö+öb¶a‹ˆ‹ˆÛÝ[›Ý[]H\ÈXYˆŽˆ¶*¶.v,6,H6+v,6`H6aö,6)È6)öa6.vavb¶a6)öa6av+v*¶avaˆ‹ˆ[˜[]XÜÈ\È]˜Z[X›HÈ›Ú™XÝÝÛ™\œËYZ[œË[™Y]ÜœËˆŽˆ¶)öa6*¶+va6b¶a6)ö*ˆ6av*¶)ö+v*H6a6av)öa6`öbˆ6)öa6av-6,vb6.H6b6)öa6av-6,v`vb¶aˆ6b6)öa6av+v,v,vb¶a‹ˆ‹ˆ[˜[]XÜÈ\È[˜]˜Z[X›KˆXZÙHÝ\™HHÜš[MH]X˜\ÙHZYÜ˜][Ûˆ\È\YYˆŽˆ¶)öa6*¶+va6b¶a6)ö*ˆ6.¶b¶,H6av*¶)ö+v*Kˆ6*¶(ö`ö+È6avaˆ6*¶-ö*6b¶`ˆ6*¶,v+vb¶a6`¶)ö.v+ö*H6*6b¶)öa¶)ö*ˆÜš[MKˆ‹ˆ“YYXHXœ˜\žH\È[˜]˜Z[X›KˆXZÙHÝ\™HHÜš[LˆÝÜ˜YÙHZYÜ˜][Ûˆ\È\YYˆŽˆ¶av`ö*¶*6*H6)öa6b6,ö)ö)¶-È6.¶b¶,H6av*¶)ö+v*Kˆ6*¶(ö`ö+È6avaˆ6*¶-ö*6b¶`ˆ6*¶,v+vb¶a6)öa6*¶+¶,¶b¶aˆÜš[L‹ˆ‹ˆ”ÚYÛˆ[ˆ™Y›Ü™H\ØY[™ÈYYXKˆŽˆ¶,ö+6dva6)öa6+ö+¶b6a6`¶*6a6,v`v.H6)öa6b6,ö)ö)¶-Ëˆ‹ˆ“Û›H[XYÙHš[\È\™HÝ\ÜYˆŽˆ¶b¶*¶aH6+ö.vaH6ava6`v)ö*ˆ6)öa6-vb6,H6`v`¶-Ëˆ‹ˆ’[XYÙ\È]\Ý™HHPˆÜˆÛX[\‹ˆŽˆ¶b¶+6*6(öaˆ6b¶`öb6aˆ6+v+6aH6)öa6-vb6,HH6avb¶.¶)ö*6)öb¶*ˆ6(öb6(ö`¶aˆ‹ˆÛÝ[›Ý\ØY\È[XYÙKˆŽˆ¶*¶.v,6,H6,v`v.H6aö,6aÈ6)öa6-vb6,v*Kˆ‹ˆÛÝ[›Ý[]H\È[XYÙKˆŽˆ¶*¶.v,6,H6+v,6`H6aö,6aÈ6)öa6-vb6,v*Kˆ‹ˆš[[™ÈÝ]\ÈÛÝ[›Ý™H™\šYšYYÛÈZY™X]\™\È\™H[\Ü˜\š[HØÚÙYˆ\HHÜš[LŒx $ÌLÌˆZYÜ˜][ÛˆYˆ\È\ÈH™]È[œÝ[ˆŽˆ¶*¶.v,6,H6)öa6*¶+v`¶`ˆ6avaˆ6+v)öa6*H6)öa6`vb6*¶,v*v#6a6,6a6`È6*¶aH6`¶`va6)öa6avb¶,¶)ö*ˆ6)öa6av+ö`vb6.v*H6av)6`¶*¶bö)Ëˆ6-ö*6dv`ˆ6*¶,v+vb¶aÜš[LŒx $ÌLÌˆ6)v,6)È6`ö)öaˆ6aö,6)È6*¶*ö*6b¶*¶bö)È6+6+öb¶+öbö)Ëˆ‹ˆ•H™\]Y\ÝYÙXœÚ]H\È›Ýš\ÚX›H[ˆ[Ý\ˆÝ\œ™[ÛÝY›Ú™XÝËˆŽˆ¶)öa6avb6`¶.H6)öa6av-öa6b6*6.¶b¶,H6.6)öaö,H6-¶avaˆ6av-6)ö,vb¶.v`È6)öa6,ö+v)ö*6b¶*H6)öa6+v)öa6b¶*Kˆ‹ˆ”^[Y[ÛÛ\]YˆÝš\H\ÈÞ[˜Ú[™È[Ý\ˆÝXœØÜš\[ÛŽÈ™Yœ™\Úš[[™ÈYˆH˜YÙHÙ\È›Ý\]H[[YYX][KˆŽˆ¶)ö`ö*¶ava6)öa6+ö`v.Kˆ6b¶`¶b6aHÝš\H6*6av,¶)öava¶*H6)ö-6*¶,v)ö`ö`ö&È6+v+ödv*È6)öa6`vb6*¶,v*H6)v,6)È6a6aH6*¶*¶.¶b¶,H6)öa6-6)ö,v*H6`vb6,vbö)Ëˆ‹ˆÚXÚÛÝ]Ø\ÈØ[˜Ù[Yˆ[Ý\ˆÝ\œ™[[ˆØ\È›ÝÚ[™ÙYˆŽˆ¶*¶aH6)va6.¶)ö(H6)öa6+ö`v.Kˆ6a6aH6*¶*¶.¶b¶,H6+¶-ö*¶`È6)öa6+v)öa6b¶*Kˆ‹ˆ•HÙXœÚ]HÚ[™ÙYY\ˆ\È]X[]H™]šY]Ëˆ[ˆH]X[]HÚXÚÈYØZ[ˆ™Y›Ü™H\Z[™Èš^\ËˆŽˆ¶*¶aH6*¶.¶b¶b¶,H6)öa6avb6`¶.H6*6.v+È6av,v)ö+6.v*H6)öa6+6b6+ö*H6aö,6aËˆ6-6.¶dva6`v+v-H6)öa6+6b6+ö*H6av,v*H6(ö+¶,vbH6`¶*6a6*¶-ö*6b¶`ˆ6)öa6)v-va6)ö+v)ö*‹ˆ‹ˆ”™[X\ÙH\ÝÜžH\È[˜]˜Z[X›Kˆ\HHÜš[MËLL]X˜\ÙHZYÜ˜][Û‹ˆŽˆ¶,ö+6a6)öa6)v-v+ö)ö,v)ö*ˆ6.¶b¶,H6av*¶)ö+Kˆ6-ö*6dv`ˆ6*¶,v+vb¶a6`¶)ö.v+ö*H6*6b¶)öa¶)ö*ˆÜš[MËLLˆ‹ˆ•HÚ]Hš[\È^\Ý]HX›XÈÙXœÚ]H™[™\™\ˆY›Ý™]\›ˆSˆžHX›\ÚYØZ[ˆY\ˆ™Yœ™\Ú[™È^X\‹ˆŽˆ¶ava6`v)ö*ˆ6)öa6avb6`¶.H6avb6+6b6+ö*v#6a6`öaˆ6.v)ö,v-ˆ6)öa6avb6`¶.H6)öa6.v)öaH6a6aH6b¶cö,v+6.HSˆ6+6,vdv*6)öa6a¶-6,H6av+6+ö+öbö)È6*6.v+È6*¶+v+öb¶*È^X\‹ˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆÜ™X]HX›XÈÚ\™H™]šY]ÜËˆŽˆ¶av)öa6`È6)öa6av-6,vb6.H6`v`¶-È6b¶av`öa¶aÈ6)va¶-6)ö(H6av.v)öb¶a¶)ö*ˆ6av-6)ö,v`ö*H6.v)öav*Kˆ‹ˆ”Ø]™H\È›Ú™XÝÈHÛÝY™Y›Ü™HÜ™X][™ÈHÚ\™H™]šY]ËˆŽˆ¶)ö+v`v.6aö,6)È6)öa6av-6,vb6.H6`vbˆ6)öa6,ö+v)ö*6*H6`¶*6a6)va¶-6)ö(H6av.v)öb¶a¶*H6av-6)ö,v`ö*Kˆ‹ˆ•H]\ÝY]ÜˆÚ[™Ù\ÈÛÝ[›Ý™HÞ[˜Ú›Ûš^™Y™Y›Ü™HÜ™X][™ÈH™]šY]ËˆŽˆ¶*¶.v,6,H6av,¶)öava¶*H6(ö+v+ö*È6*¶.¶b¶b¶,v)ö*ˆ6)öa6av+v,v,H6`¶*6a6)va¶-6)ö(H6)öa6av.v)öb¶a¶*Kˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆ›Û˜XÚÈHX›\ÚY™[X\ÙKˆŽˆ¶av)öa6`È6)öa6av-6,vb6.H6`v`¶-È6b¶av`öa¶aÈ6)öa6*¶,v)ö+6.H6.vaˆ6)v-v+ö)ö,H6ava¶-6b6,Kˆ‹ˆ•\È™[X\ÙHÛ˜\ÚÝÙ\È›Ý™[Û™ÈÈHXÝ]™H›Ú™XÝˆŽˆ¶a6`¶-ö*H6)öa6)v-v+ö)ö,H6aö,6aÈ6a6)È6*¶+¶-H6)öa6av-6,vb6.H6)öa6a¶-6-Ëˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆ[]H™[X\ÙH\˜Ú]™\ËˆŽˆ¶av)öa6`È6)öa6av-6,vb6.H6`v`¶-È6b¶av`öa¶aÈ6+v,6`H6(ö,v-6b¶`v)ö*ˆ6)öa6)v-v+ö)ö,v)ö*‹ˆ‹ˆ–[ÝHØ[››Ý[]HH™[X\ÙHÝ\œ™[HÙ\š[™È\ÈH]™H›Û˜XÚÈ™Y™\™[˜ÙKˆŽˆ¶a6)È6b¶av`öa¶`È6+v,6`H6)öa6)v-v+ö)ö,H6)öa6av,ö*¶+¶+öaH6+v)öa6b¶bö)È6`öav,v+6.H6a6a6*¶,v)ö+6.H6.vaˆ6)öa6a¶,ö+¶*H6)öa6+vb¶*Kˆ‹ˆ“Ü[š[™È[Ý\ˆØ]™YÙXœÚ]KˆØ]™HÚ[ÛÛ[YHÚ[ˆ]\ÈØYYˆŽˆ¶b¶*¶aH6`v*¶+H6avb6`¶.v`È6)öa6av+v`vb6.ˆ6,öb¶,ö*¶av,H6)öa6+v`v.6*6.v+È6*¶+vavb¶a6aËˆ‹ˆ–[Ý\ˆ^\Ý[™ÈÙXœÚ]H\ÈÝ[™XÛÛ›™XÝ[™Ëˆ^X\ˆÚ[›ÝÜ™X]HH\XØ]H˜YÚ[H]ÈØ]™YY[]H\È]˜Z[X›KˆŽˆ¶avb6`¶.v`È6)öa6+v)öa6bˆ6av)È6,¶)öa6b¶.vb¶+È6)öa6)ö*¶-v)öaˆ6a6aˆ6b¶a¶-6)ˆ^X\ˆ6av,öb6+ö*H6av`ö,v,v*H6-ö)öa6av)È6(öaˆ6aöb6b¶*¶aÈ6)öa6av+v`vb6.6*H6av*¶)ö+v*Kˆ‹ˆ“Ü[š[™È[Ý\ˆ[ÜÝ™XÙ[Ø]™YÙXœÚ]H™Y›Ü™HØ]š[™Ëˆ›È\XØ]H˜YØ\ÈÜ™X]YˆŽˆ¶b¶*¶aH6`v*¶+H6(ö+v+ö*È6avb6`¶.H6av+v`vb6.6`¶*6a6)öa6+v`v.ˆ6a6aH6b¶*¶aH6)va¶-6)ö(H6av,öb6+ö*H6av`ö,v,v*Kˆ‹ˆ•\ÈÚ\™Y›Ú™XÝ\È™XY[Û›H›Üˆ[Ý\ˆšY]Ù\ˆ›ÛKˆŽˆ¶aö,6)È6)öa6av-6,vb6.H6)öa6av-6*¶,v`È6a6a6`¶,v)ö(v*H6`v`¶-È6a6+öb6,H6)öa6av-6)öaö+È6)öa6+¶)ö-H6*6`Ëˆ‹ˆ“ØØ[™XÛÝ™\žHÝÜ˜YÙH\È[ˆÛÝYØ]™HÚ[Ý[™H][\YˆŽˆ¶av,ö)ö+v*H6)öa6*¶+¶,¶b¶aˆ6)öa6av+va6b¶*H6a6a6)ö,ö*¶,v+ö)ö+È6avav*¶a6)¶*Kˆ6,ö*¶*¶aH6av+v)öb6a6*H6)öa6+v`v.6)öa6,ö+v)ö*6bˆ6,v.¶aH6,6a6`Ëˆ‹ˆ–[ÝH\™HÙ™›[™KˆÚ[™Ù\È\™HØ]™YØØ[H[™Ú[™]žHÚ[ˆHÛÛ›™XÝ[Ûˆ™]\›œËˆŽˆ¶(öa¶*ˆ6.¶b¶,H6av*¶-vaˆ6*¶aH6+v`v.6)öa6*¶.¶b¶b¶,v)ö*ˆ6av+va6b¶bö)È6b6,ö*¶*¶aH6)v.v)ö+ö*H6)öa6av+v)öb6a6*H6.va¶+È6.vb6+ö*H6)öa6)ö*¶-v)öaˆ‹ˆ•\È\ÝÜžHÛ˜\ÚÝÙ\È›Ý™[Û™ÈÈHXÝ]™H›Ú™XÝˆŽˆ¶a6`¶-ö*H6)öa6,ö+6a6aö,6aÈ6a6)È6*¶+¶-H6)öa6av-6,vb6.H6)öa6a¶-6-Ëˆ‹ˆÛÝ[›ÝX\šÈ[XYÈ\È™XYˆŽˆ¶*¶.v,6,H6*¶.va6b¶aH6`öa6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶aˆ6`öav`¶,vb6(vb¶a‹ˆ‹ˆÛÝ[›Ý\˜Ú]™H™XYXYËˆŽˆ¶*¶.v,6,H6(ö,v-6`v*H6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶aˆ6)öa6av`¶,vb6(vb¶a‹ˆ‹ˆ”X›\Ú™Y›YÚ›ØÚÙYˆ[ÝH\™HÙ™›[™Kˆ™XÛÛ›™XÝ[™žHYØZ[‹ˆŽˆ¶*¶aH6+v.6,H6`v+v-H6av)È6`¶*6a6)öa6a¶-6,Nˆ6(öa¶*ˆ6.¶b¶,H6av*¶-vaˆ6(ö.v+È6)öa6)ö*¶-v)öa6b6+v)öb6a6av+6+ö+öbö)Ëˆ‹ˆ”ÚYÛˆ[ˆ™Y›Ü™HX›\Ú[™ËˆŽˆ¶,ö+6dva6)öa6+ö+¶b6a6`¶*6a6)öa6a¶-6,Kˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆX›\ÚHÚ\™YÙXœÚ]KˆŽˆ¶av)öa6`È6)öa6av-6,vb6.H6`v`¶-È6b¶av`öa¶aÈ6a¶-6,H6avb6`¶.H6av-6*¶,v`Ëˆ‹ˆ”Ý\X˜\ÙHT“\È›ÝÛÛ™šYÝ\™YˆŽˆ¶,v)ö*6-ÈÝ\X˜\ÙH6.¶b¶,H6avcö.v+ödKˆ‹ˆ•ÙXœÚ]HX›\ÚYÝXØÙ\ÜÙ[Kˆ™[X\ÙH\ÝÜžHØ\ÈÚÚ\YˆŽˆ¶*¶aH6a¶-6,H6)öa6avb6`¶.H6*6a¶+6)ö+Kˆ6*¶aH6*¶+6)öb6,ˆ6,ö+6a6)öa6)v-v+ö)ö,v)ö*Žˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆ[œX›\ÚHÚ\™YÙXœÚ]KˆŽˆ¶av)öa6`È6)öa6av-6,vb6.H6`v`¶-È6b¶av`öa¶aÈ6)va6.¶)ö(H6a¶-6,H6avb6`¶.H6av-6*¶,v`Ëˆ‹ˆ‘[]H\ÈXY\›X[™[OÈŽˆ¶+v,6`H6aö,6)È6)öa6.vavb¶a6)öa6av+v*¶ava6a¶aö)ö)¶b¶bö)ö'È‹ˆ‘[]H\ÈÛÛ\Û™[È^\Ý[™È[œÝ[˜Ù\ÈÚ[™XÛÛYH›Ü›X[[[Y[ËˆŽˆ¶+v,6`H6aö,6)È6)öa6av`öb6dva¶'È6,ö*¶*¶+vb6a6)öa6a¶,ö+ˆ6)öa6avb6+6b6+ö*H6)va6bH6.va¶)ö-v,H6.v)ö+öb¶*Kˆ‹ˆ”™\ÝÜ™H\È™[X\ÙH[ÈHY]ÜÈH]™HÙXœÚ]HÚ[›ÝÚ[™ÙH[[[ÝHX›\ÚYØZ[‹ˆŽˆ¶)ö,ö*¶.v)ö+ö*H6aö,6)È6)öa6)v-v+ö)ö,H6)va6bH6)öa6av+v,v,v'È6a6aˆ6b¶*¶.¶b¶,H6)öa6avb6`¶.H6)öa6+vbˆ6+v*¶bH6*¶a¶-6,H6av,v*H6(ö+¶,vbKˆ‹ˆ‘[]H\ÈÝÜ™Y™[X\ÙH\˜Ú]™OÈ\ÈØ[››Ý™H[™Û™KˆŽˆ¶+v,6`H6(ö,v-6b¶`H6)öa6)v-v+ö)ö,H6)öa6av+v`vb6.6'È6a6)È6b¶av`öaˆ6)öa6*¶,v)ö+6.H6.vaˆ6,6a6`Ëˆ‹ˆ”™\Ù]HÙXœÚ]HZ[\ˆÈHY˜][›Ú™XÝÈŽˆ¶)v.v)ö+ö*H6-¶*6-È6ava¶-6)ˆ6)öa6avb6)ö`¶.H6)va6bH6)öa6av-6,vb6.H6)öa6)ö`v*¶,v)ö-¶b¶'È‹ˆ•\È›Ú™XÝ\È›ÝÝ\œ™[HX›\ÚYˆX\šÈ][]™\™Y[ž]Ø^OÈŽˆ¶aö,6)È6)öa6av-6,vb6.H6.¶b¶,H6ava¶-6b6,H6+v)öa6b¶bö)Ëˆ6aöa6*¶,vb¶+È6)ö.v*¶*6)ö,vaÈ6avcö,öa6dvavbö)È6,v.¶aH6,6a6`ö'È‹ˆ”™[[Ý™HHX›XÈ™\œÚ[ÛˆÙˆ\ÈÙXœÚ]OÈŽˆ¶)v,¶)öa6*H6)öa6a¶,ö+¶*H6)öa6.v)öav*H6avaˆ6aö,6)È6)öa6avb6`¶.v'È‹ˆ‘ÓÓÑŽˆ¶+6b¶+È‹ˆÒPÒÈŽˆ¶*¶+v`¶`ˆ‹ˆ“ÒÈŽˆ¶,öa6b¶aH‹ˆ‘’VŽˆ¶)v-va6)ö+H‹ˆ•‘T’Q’QQŽˆ¶*¶aH6)öa6*¶+v`¶`ˆ‹ˆ•‘T’Q–HŽˆ¶*¶+v`¶`ˆ‹ˆ““ÕQUŽˆ¶a6b¶,È6*6.v+È‹ˆ”X›\Ú›ÙXÝ[ÛˆÚ[™Ù\ÈŽˆ¶a¶-6,H6*¶.¶b¶b¶,v)ö*ˆ6)öa6)va¶*¶)ö+‹ˆ”X›\Úš\œÝ™[X\ÙHŽˆ¶a¶-6,H6)öa6)v-v+ö)ö,H6)öa6(öb6a‹ˆ‘ÓÈ8 %‘PQH“Ôˆ’T”ÕVRS‘ÈÕTÕÓQT”ÈŽˆ¶+6)öaö,ˆ8 %6a6)ö,ö*¶`¶*6)öa6(öb6a6.vava6)ö(H6+ö)ö`v.vb¶aˆ‹ˆÓÑH‘PQH8 %ÓÓTUHP“TÒÈPS•PSÒPÒÔÈŽˆ¶)öa6`öb6+È6+6)öaö,ˆ8 %6(ö`öava6)öa6a¶-6,HÈ6)öa6`v+vb6-v)ö*ˆ6)öa6b¶+öb6b¶*H‹ˆ““ËQÓÈ8 %’VUUÓPUQ“ÐÒÑT”ÈŽˆ¶.¶b¶,H6+6)öaö,ˆ8 %6(ö-va6+H6)öa6.vb6)ö)¶`ˆ6)öa6(¶a6b¶*H‹ˆ”™Yœ™\Ú[™ø )ˆŽˆ¶+6)ö,vcH6)öa6*¶+v+öb¶*ø )ˆ‹ˆ“Ü[š[™ÈÝš\x )ˆŽˆ¶+6)ö,vcH6`v*¶+HÝš\x )ˆ‹ˆ•Ú]K[X™[ÛY[[™Ù™ˆš[\ÈŽˆ¶ava6`v)ö*ˆ6*¶,öa6b¶aH6)öa6.vavb¶a6*6+öb6aˆ6.va6)öav*H^X\ˆ‹ˆ]Y]ÛÛšX]\ÈŽˆ¶b¶,ö)öaöaH6)öa6*¶+ö`¶b¶`ˆ6*6`‹ˆœÚ[È0­ÈÝ\œ™[]Y]Žˆ¶a¶`¶-ö*H0­È6)öa6*¶+ö`¶b¶`ˆ6)öa6+v)öa6bˆ‹ˆ“Ü[ˆÛY[™]šY]ÈŽˆ¶`v*¶+H6av.v)öb¶a¶*H6)öa6.vavb¶a‹ˆÜ™X]HÛY[™]šY]ÈŽˆ¶)va¶-6)ö(H6av.v)öb¶a¶*H6a6a6.vavb¶a‹ˆ”Ý[[X\žHÛÜYYŽˆ¶*¶aH6a¶,ö+ˆ6)öa6ava6+¶-H‹ˆÛÜH›Ú™XÝÝ[[X\žHŽˆ¶a¶,ö+ˆ6ava6+¶-H6)öa6av-6,vb6.H‹ˆ›ØYYXYÈŽˆ¶.vava6)ö(H6av+v*¶ava6b6aˆ6av+vavdva6b6aˆ‹ˆ›ØYY]™[ÈŽˆ¶(ö+v+ö)ö*È6av+vavdva6*H‹ˆZ[[™X›\ÚÛ™HÛX[ÙXœÚ]KˆŽˆ¶(öa¶-6)ˆ6b6)öa¶-6,H6avb6`¶.vbö)È6-v.¶b¶,vbö)È6b6)ö+v+öbö)Ëˆ‹ˆ•\ÈÈYÙ\ÈŽˆ¶+v*¶bHÈ6-v`v+v)ö*ˆ‹ˆ”X›\Ú[™È[˜ÛYYŽˆ¶)öa6a¶-6,H6av-6avb6a‹ˆLXY™XÛÜ™ÈŽˆL6,ö+6a6.vavb¶a6av+v*¶ava‹ˆ‘›Üˆœ™Y[[˜Ù\œÈ[™Ù\š[Ý\ÈÙXœÚ]\ËˆŽˆ¶a6a6av,ö*¶`¶a6b¶aˆ6b6)öa6avb6)ö`¶.H6)öa6)ö+v*¶,v)ö`vb¶*Kˆ‹ˆŒLÙXœÚ]H›Ú™XÝÈŽˆŒL6av-6)ö,vb¶.H6avb6)ö`¶.H‹ˆ•\ÈHYÙ\ÈXXÚŽˆ¶+v*¶bHH6-v`v+v*H6a6`öa6avb6`¶.H‹ˆ–’T^Ü
+È][[[™ÝX[Žˆ¶*¶-v+öb¶,H’T
+È6av*¶.v+ö+È6)öa6a6.¶)ö*ˆ‹ˆ[˜[]XÜÈ
+È[YÜ˜][ÛœÈ
+È™[X\ÙH\ÝÜžHŽˆ¶*¶+va6b¶a6)ö*ˆ
+È6*¶`ö)öava6)ö*ˆ
+È6,ö+6a6)v-v+ö)ö,v)ö*ˆ‹ˆ‘›ÜˆYÙ[˜ÚY\ËÛY[[]™\žH[™Ú]K[X™[ÛÜšËˆŽˆ¶a6a6b6`ö)öa6)ö*ˆ6b6*¶,öa6b¶aH6)öa6.vava6)ö(H6b6)öa6.vava6*6+öb6aˆ6.va6)öav*H^X\‹ˆ‹ˆLÙXœÚ]H›Ú™XÝÈŽˆL6av-6,vb6.H6avb6`¶.H‹ˆ•\ÈLYÙ\ÈXXÚŽˆ¶+v*¶bHL6-v`v+v*H6a6`öa6avb6`¶.H‹ˆÛY[[]™\žHÛÜšÜÜXÙHŽˆ¶av,ö)ö+v*H6.vava6a6*¶,öa6b¶aH6)öa6.vava6)ö(H‹ˆ•Ú]K[X™[[™Ù™ˆ
+È\™Ù\ˆ[Z]ÈŽˆ¶*¶,öa6b¶aH6*6+öb6aˆ6.va6)öav*H
+È6+v+öb6+È6(ö`ö*6,H‹ˆ•ÙH\ÙH\ÜÙ[X[œ›ÝÜÙ\ˆÝÜ˜YÙHÈ[\›Ý™H\ÈÙXœÚ]H^\šY[˜ÙKˆŽˆ¶a¶,ö*¶+¶+öaH6*¶+¶,¶b¶aˆ6)öa6av*¶-v`v+H6)öa6-¶,vb6,vbˆ6a6*¶+v,öb¶aˆ6*¶+6,v*6*H6aö,6)È6)öa6avb6`¶.Kˆ‹ˆ‘ÛÝ]Žˆ¶+v,öa¶bö)È‹ˆ“™]Îˆ\ØÛÝ™\ˆÝ\ˆ]\Ý\]KˆŽˆ¶+6+öb¶+Îˆ6)ö`ö*¶-6`H6(¶+¶,H6*¶+v+öb¶*È6a6+öb¶a¶)Ëˆ‹ˆ“X\›ˆ[Ü™HŽˆ¶)ö.v,v`H6)öa6av,¶b¶+È‹ˆ”Ý^H[ˆHÛÜŽˆ¶)ö*6`¶cˆ6.va6bH6)ö-öa6)ö.H‹ˆYH›ØÝ\ÙYÙ™™\‹™]ÜÛ]\ˆY\ÜØYÙHÜˆ[\Ü[Ø[ÈXÝ[Û‹ˆŽˆ¶(ö-¶`H6.v,v-¶bö)È6av,v`ö,¶bö)È6(öb6,v,ö)öa6*H6a¶-6,v*H6(öb6+ö.vb6*H6avaöav*H6a6)ö*¶+¶)ö,6)v+6,v)ö(Kˆ‹ˆ•Ùx &[™H˜XÚÈÛÛÛˆŽˆ¶,öa¶.vb6+È6`¶,vb¶*6bö)È‹ˆ•\ÈÙXœÚ]H\È[\Ü˜\š[H[˜]˜Z[X›HÚ[HÙHXZÙH[\›Ý™[Y[ËˆŽˆ¶aö,6)È6)öa6avb6`¶.H6.¶b¶,H6av*¶)ö+H6av)6`¶*¶bö)È6*6b¶a¶av)È6a¶+6,vbˆ6*¶+v,öb¶a¶)ö*‹ˆ‹ˆ”›ÙXÝ[ÛˆT“Žˆ¶,v)ö*6-È6)öa6)va¶*¶)ö+‹ˆÛÝY›Ú™XÝŽˆ¶av-6,vb6.H6,ö+v)ö*6bˆ‹ˆ”Ú\™H™]šY]ÈŽˆ¶av.v)öb¶a¶*H6av-6)ö,v`ö*H‹ˆÛY[\›Ý˜[Žˆ¶avb6)ö`v`¶*H6)öa6.vavb¶a‹ˆ”X›\ÚYÙXœÚ]HŽˆ¶)öa6avb6`¶.H6)öa6ava¶-6b6,H‹ˆ”Ú]HÛÛ[Žˆ¶av+v*¶b6bH6)öa6avb6`¶.H‹ˆ”ÑSÈ	ˆXØÙ\ÜÚXš[]H]Y]Žˆ¶*¶+ö`¶b¶`ˆÑSÈ6b6)vav`ö)öa¶b¶*H6)öa6b6-vb6a‹ˆÛÝYÞ[˜ÈŽˆ¶av,¶)öava¶*H6)öa6,ö+v)ö*6*H‹ˆ”ÑSÈ]H
+È˜]šXÛÛˆŽˆ¶.va¶b6)öaˆÑSÈ
+È6)öa6(öb¶`¶b6a¶*H‹ˆš[[™È˜XÚÙ[™Žˆ¶a¶.6)öaH6)öa6`vb6*¶,v*H6)öa6+¶a6`vbˆ‹ˆ”X›\Ú\›Z\ÜÚ[ÛˆŽˆ¶-va6)ö+vb¶*H6)öa6a¶-6,H‹ˆ“]™H™\šYšXØ][ÛˆŽˆ¶)öa6*¶+v`¶`ˆ6avaˆ6)öa6a¶,ö+¶*H6)öa6+vb¶*H‹ˆ”›Ú™XÝ\ÈØ]™YÈ^X\ˆÛÝYŽˆ¶)öa6av-6,vb6.H6av+v`vb6.6`vbˆ6,ö+v)ö*6*H^X\ˆ‹ˆ”Ø]™HH›Ú™XÝÈÛÝYŽˆ¶)ö+v`v.6)öa6av-6,vb6.H6`vbˆ6)öa6,ö+v)ö*6*H‹ˆ“Ù™›[™HŽˆ¶.¶b¶,H6av*¶-va‹ˆ”Þ[˜È™YYÈ™]žHŽˆ¶)öa6av,¶)öava¶*H6*¶+v*¶)ö+6)v.v)ö+ö*H6av+v)öb6a6*H‹ˆ”Þ[˜ÈX[HŽˆ¶)öa6av,¶)öava¶*H6,öa6b¶av*H‹ˆY[Ý\ˆ›ÙXÝ[ÛˆT“Žˆ¶(ö-¶`H6,v)ö*6-È6)öa6)va¶*¶)ö+‹ˆœ˜[™[™ÈY]Y]H\ÈÛÛ™šYÝ\™YŽˆ¶*6b¶)öa¶)ö*ˆ6)öa6.va6)öav*H6av-¶*6b6-ö*H‹ˆÛÛ\]HÑSÈ]H[™˜]šXÛÛˆŽˆ¶(ö`öava6.va¶b6)öaˆÑSÈ6b6)öa6(öb¶`¶b6a¶*H‹ˆ™[][Y[È™\šYšYYŽˆ¶*¶aH6)öa6*¶+v`¶`ˆ6avaˆ6)öa6-va6)ö+vb¶)ö*ˆ‹ˆ”ÚYÛˆ[ˆ[™™Yœ™\Úš[[™ÈŽˆ¶,ö+6dva6)öa6+ö+¶b6a6b6+v+ödv*È6)öa6`vb6*¶,v*H‹ˆ“ÝÛ™\ˆX^HX›\ÚŽˆ¶b¶av`öaˆ6a6a6av)öa6`È6)öa6a¶-6,H‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆX›\ÚŽˆ¶av)öa6`È6)öa6av-6,vb6.H6`v`¶-È6b¶av`öa¶aÈ6)öa6a¶-6,H‹ˆ“]™HÙXœÚ]H]XÝYŽˆ¶*¶aH6)ö`ö*¶-6)ö`H6avb6`¶.H6+vbˆ‹ˆ”X›\ÚHš\œÝ™[X\ÙHŽˆ¶)öa¶-6,H6)öa6)v-v+ö)ö,H6)öa6(öb6a‹ˆ”X›\ÚY[™^™\šYšYYŽˆ¶*¶aH6)öa6*¶+v`¶`ˆ6avaˆ[™^6)öa6ava¶-6b6,H‹ˆ”[ˆ]™H™\šYšXØ][ÛˆŽˆ¶-6.¶dva6)öa6*¶+v`¶`ˆ6avaˆ6)öa6a¶,ö+¶*H6)öa6+vb¶*H‹ˆ]˜Z[X›HY\ˆX›\Ú[™ÈŽˆ¶av*¶)ö+H6*6.v+È6)öa6a¶-6,H‹ˆ”ÚYÛˆ[ˆ™Y›Ü™H›ÙXÝ[Ûˆ][˜ÚˆŽˆ¶,ö+6dva6)öa6+ö+¶b6a6`¶*6a6)v-öa6)ö`ˆ6)öa6)va¶*¶)ö+ˆ‹ˆ”Ø]™HH›Ú™XÝÈÛÝYˆŽˆ¶)ö+v`v.6)öa6av-6,vb6.H6`vbˆ6)öa6,ö+v)ö*6*Kˆ‹ˆ”™XÛÛ›™XÝÈH[\›™]ˆŽˆ¶(ö.v+È6)öa6)ö*¶-v)öa6*6)öa6)va¶*¶,va¶*‹ˆ‹ˆ”™\ÛÛ™HÛÝYÞ[˜È™Y›Ü™HX›\Ú[™ËˆŽˆ¶+va6av-6`öa6*H6av,¶)öava¶*H6)öa6,ö+v)ö*6*H6`¶*6a6)öa6a¶-6,Kˆ‹ˆ”˜Z\ÙHHÑSÈ[™XØÙ\ÜÚXš[]H]Y]ØÛÜ™HÈ]X\ÝˆŽˆ¶)ö,v`v.H6a¶*¶b¶+6*H6*¶+ö`¶b¶`ˆÑSÈ6b6)vav`ö)öa¶b¶*H6)öa6b6-vb6a6)va6bH6.va6bH6)öa6(ö`¶aˆ‹ˆYH˜[Y›ÙXÝ[ÛˆT“ˆŽˆ¶(ö-¶`H6,v)ö*6-È6)va¶*¶)ö+6-v)öa6+vbö)Ëˆ‹ˆÛÛ\]HHÑSÈ]H[™˜]šXÛÛ‹ˆŽˆ¶(ö`öava6.va¶b6)öaˆÑSÈ6b6)öa6(öb¶`¶b6a¶*Kˆ‹ˆ•ØZ]›Üˆš[[™È[][Y[ÈÈš[š\ÚØY[™ËˆŽˆ¶)öa¶*¶.6,H6+v*¶bH6b¶`ö*¶ava6*¶+vavb¶a6-va6)ö+vb¶)ö*ˆ6)öa6`vb6*¶,v*Kˆ‹ˆ”™Yœ™\Úš[[™È[][Y[È™Y›Ü™HX›\Ú[™ËˆŽˆ¶+v+ödv*È6-va6)ö+vb¶)ö*ˆ6)öa6`vb6*¶,v*H6`¶*6a6)öa6a¶-6,Kˆ‹ˆ‘\ØX›HXZ[[˜[˜ÙH[ÙH›ÜˆX›XÈ][˜ÚˆŽˆ¶.v-ödva6b6-¶.H6)öa6-vb¶)öa¶*H6`¶*6a6)öa6)v-öa6)ö`ˆ6)öa6.v)öaKˆ‹ˆ•H›Ú™XÝÝÛ™\ˆ]\Ý\™›Ü›HHX›\ÚˆŽˆ¶b¶+6*6.va6bH6av)öa6`È6)öa6av-6,vb6.H6*¶a¶`vb¶,6)öa6a¶-6,Kˆ‹ˆš[[™È[][Y[ÈÛÝ[›Ý™H™\šYšYYˆŽˆ¶*¶.v,6,H6)öa6*¶+v`¶`ˆ6avaˆ6-va6)ö+vb¶)ö*ˆ6)öa6`vb6*¶,v*Kˆ‹ˆ““ËQÓÈŽˆ¶.¶b¶,H6+6)öaö,ˆ‹ˆ”‘PQHÈP“TÒŽˆ¶+6)öaö,ˆ6a6a6a¶-6,H‹ˆÒS‘ÑTÈÐRUS‘ÈŽˆ¶*¶.¶b¶b¶,v)ö*ˆ6*6)öa¶*¶.6)ö,H6)öa6a¶-6,H‹ˆ•ŒHU‘HŽˆ•ŒH6av*6)ö-6,H‹ˆ•‘T’Q–HU‘HŽˆ¶*¶+v`¶`ˆ6avaˆ6)öa6a¶,ö+¶*H6)öa6+vb¶*H‹ˆ”]X[]H™]šY]ÈÛÛ\]YˆŽˆ¶)ö`ö*¶ava6*ˆ6av,v)ö+6.v*H6)öa6+6b6+ö*Kˆ‹ˆ•ÙXœÚ]H[\›Ý™[Y[Žˆ¶*¶+v,öb¶aˆ6)öa6avb6`¶.H‹ˆRH]X[]HÚXÚÈ˜Z[YˆŽˆ¶`v-6a6`v+v-H6)öa6+6b6+ö*H6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ˆ‹ˆ]]ÛX]YZ[\ˆ]Y]\È]˜Z[X›K]HRH™]šY]ÈÛÝ[›ÝÛÛ\]KˆŽˆ¶*¶+ö`¶b¶`ˆ6)öa6ava¶-6)ˆ6)öa6(¶a6bˆ6av*¶)ö+v#6a6`öaˆ6av,v)ö+6.v*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6a6aH6*¶`ö*¶avaˆ‹ˆ”X›\Ú›ØÚÙ\ˆŽˆ¶.v)ö)¶`ˆ6a6a6a¶-6,H‹ˆ”™XÛÛ[Y[™Y[\›Ý™[Y[Žˆ¶*¶+v,öb¶aˆ6avb6-vbH6*6aÈ‹ˆ”ÙXÝ[ÛœÈŽˆ¶)öa6(ö`¶,ö)öaH‹ˆ‘[[Y[ÈŽˆ¶)öa6.va¶)ö-v,H‹ˆ‘›Ü›\ÈŽˆ¶)öa6a¶av)ö,6+‹ˆ”Þ[X›ÛÈŽˆ¶)öa6av`öb6a¶)ö*ˆ6)öa6av,v*¶*6-ö*H‹ˆ”™[X\Ù\ÈŽˆ¶)öa6)v-v+ö)ö,v)ö*ˆ‹ˆ“XYÈŽˆ¶)öa6.vava6)ö(H6)öa6av+v*¶ava6b6aˆ‹ˆ‘]™[ÈŽˆ¶)öa6(ö+v+ö)ö*È‹ˆ“YYXJˆŽˆ¶)öa6b6,ö)ö)¶-Êˆ‹ˆ”ÙXÛÛ™\žHŽˆ¶*ö)öa¶b6bˆ‹ˆ“]]YŽˆ¶+¶)ö`v*ˆ‹ˆ]]ÜØ]™H™YYÈ][[Û‹ˆŽˆ¶)öa6+v`v.6)öa6*¶a6`¶)ö)¶bˆ6b¶+v*¶)ö+6)öa¶*¶*6)öaöbö)Ëˆ‹ˆ•\È™XÛÝ™\žHÛ˜\ÚÝ™[Û™ÜÈÈHY™™\™[›Ú™XÝˆÜ[ˆ]›Ú™XÝ™Y›Ü™H™\ÝÜš[™È]ˆŽˆ¶a6`¶-ö*H6)öa6)ö,ö*¶,v+ö)ö+È6aö,6aÈ6*¶+¶-H6av-6,vb6.vbö)È6av+¶*¶a6`vbö)Ëˆ6)ö`v*¶+H6,6a6`È6)öa6av-6,vb6.H6`¶*6a6)ö,ö*¶.v)ö+ö*¶aö)Ëˆ‹ˆ•H™XÛÝ™\žHÛ˜\ÚÝÛÝ[›Ý™H™\ÝÜ™YˆŽˆ¶*¶.v,6,H6)ö,ö*¶.v)ö+ö*H6a6`¶-ö*H6)öa6)ö,ö*¶,v+ö)ö+Ëˆ‹ˆ–[ÝHØ[ˆÙY\\ÈL™]\ØX›HÛÛ\Û™[È[ˆÛ™HÙXœÚ]Kˆ[]H[ˆ[\ÙYÛÛ\Û™[™Y›Ü™HÜ™X][™È[›Ý\‹ˆŽˆ¶b¶av`öa¶`È6)öa6)ö+v*¶`v)ö.6*6av)È6b¶-va6)va6bHL6av`öb6dva¶bö)È6`¶)ö*6a6bö)È6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaH6`vbˆ6avb6`¶.H6b6)ö+v+Ëˆ6)ö+v,6`H6av`öb6dva¶bö)È6.¶b¶,H6av,ö*¶+¶+öaH6`¶*6a6)va¶-6)ö(H6(¶+¶,Kˆ‹ˆ•\È”ÓÓˆš[HÛÝ[›Ý™H™XYˆŽˆ¶*¶.v,6,H6`¶,v)ö(v*H6ava6`H”ÓÓˆ6aö,6)Ëˆ‹ˆ•\È”ÓÓˆš[H\È›ÝH˜[Y^X\ˆÙXœÚ]HZ[\ˆ˜XÚÝ\ˆŽˆ¶ava6`H”ÓÓˆ6aö,6)È6a6b¶,È6a¶,ö+¶*H6)ö+v*¶b¶)ö-öb¶*H6-v)öa6+v*H6a6`^X\ˆÙXœÚ]HZ[\‹ˆ‹ˆYH›ÙXÝ[ÛˆT“ÜˆX›\ÚHÙXœÚ]H™Y›Ü™HÜ™X][™ÈHÛY[[™Ù™ˆXÚØYÙKˆŽˆ¶(ö-¶`H6,v)ö*6-È6)va¶*¶)ö+6(öb6)öa¶-6,H6)öa6avb6`¶.H6`¶*6a6)va¶-6)ö(H6+v,¶av*H6*¶,öa6b¶aH6)öa6.vavb¶aˆ‹ˆY[Ý\ˆ›ÙXÝ[ÛˆT“š\œÝ›Üˆ^[\HÎ‹ËÙ^[\K˜ÛÛKˆ]\È™\]Z\™Y›ÜˆØ[›ÛšXØ[T“È[™Ú][X\ž[ˆŽˆ¶(ö-¶`H6,v)ö*6-È6)öa6)va¶*¶)ö+6(öb6a6bö)ö#6av*öaÎ‹ËÙ^[\K˜ÛÛKˆ6`vaöb6av-öa6b6*6a6a6,vb6)ö*6-È6)öa6(ö,ö)ö,öb¶*H6b6ava6`HÚ][X\ž[ˆ‹ˆÛÝ[›ÝÛÜHSˆX\ÙH\ÙHÝÛ›ØYÙXœÚ]H[œÝXYˆŽˆ¶*¶.v,6,H6a¶,ö+ˆSˆ6)ö,ö*¶+¶+öaH6*¶a¶,¶b¶a6)öa6avb6`¶.H6*6+öa6bö)È6avaˆ6,6a6`Ëˆ‹ˆ”™\ÝÜ™HH™XÛÝ™\žHÛ˜\ÚÝœ›ÛHŽˆ¶)ö,ö*¶.v)ö+ö*H6a6`¶-ö*H6)öa6)ö,ö*¶,v+ö)ö+È6avaˆ‹ˆH™]š[Ý\ÈY]Žˆ¶)öa6*¶.v+öb¶a6)öa6,ö)ö*6`ˆ‹ˆ‘[]H™]\ØX›HÙXÝ[ÛˆŽˆ¶+v,6`H6)öa6`¶,öaH6)öa6`¶)ö*6a6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaH‹ˆ™œ›ÛH[Ý\ˆYYXHXœ˜\žOÈŽˆ¶avaˆ6av`ö*¶*6*H6)öa6b6,ö)ö)¶-È6a6+öb¶`ö'È‹ˆHŽˆ¶a¶,ö+¶*H‹ˆ™\œÚ[Ûˆ[™XYH^\ÝÈ[ˆ\È˜[œÛ][ÛˆÜ›Ý\ˆŽˆ¶avb6+6b6+ö*H6*6)öa6`v.va6`vbˆ6av+6avb6.v*H6)öa6*¶,v+6av*H6aö,6aËˆ‹ˆ•^X\ˆRHØ[ÈÈ[ˆŽˆ¶b¶,vb¶+È^X\ˆRH6*¶a¶`vb¶,‹ˆ™\ÝXÝ]™HÚ[™ÙHŽˆ¶*¶.¶b¶b¶,H6av+öavdv,H‹ˆ™\ÝXÝ]™HÚ[™Ù\ÈŽˆ¶*¶.¶b¶b¶,v)ö*ˆ6av+öavdv,v*H‹ˆÛÛ[YOÈŽˆ¶av*¶)ö*6.v*v'È‹ˆRHÚ[™ÙHØ[˜Ù[Y™Y›Ü™H\ÝXÝ]™HÜ\˜][ÛœÈÙ\™H\YYˆŽˆ¶*¶aH6)va6.¶)ö(H6*¶.¶b¶b¶,H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6`¶*6a6*¶-ö*6b¶`ˆ6)öa6.vava6b¶)ö*ˆ6)öa6av+öavdv,v*Kˆ‹ˆ”›Û˜XÚÈH]™HÙXœÚ]HÈH™[X\ÙHœ›ÛHŽˆ¶)v,v+6)ö.H6)öa6avb6`¶.H6)öa6+vbˆ6)va6bH6)öa6)v-v+ö)ö,H6avaˆ‹ˆ–[Ý\ˆY]Üˆ˜YÚ[Ý^H[˜Ú[™ÙYˆŽˆ¶,ö*¶*6`¶bH6av,öb6+ö*H6)öa6av+v,v,H6+öb6aˆ6*¶.¶b¶b¶,Kˆ‹ˆ–[Ý\ˆÝ\œ™[[œØ]™YÚ[™Ù\ÈÚ[™H™\XÙYˆŽˆ¶,öb¶*¶aH6)ö,ö*¶*6+ö)öa6*¶.¶b¶b¶,v)ö*¶`È6)öa6+v)öa6b¶*H6.¶b¶,H6)öa6av+v`vb6.6*Kˆ‹ˆÛÝ[›ÝÙ[™\˜]H[XYÙKˆŽˆ¶*¶.v,6,H6)va¶-6)ö(H6)öa6-vb6,v*Kˆ‹ˆRHÙ[™\˜][Ûˆ˜Z[YˆŽˆ¶`v-6a6)va¶-6)ö(H6)öa6av+v*¶b6bH6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ˆ‹ˆRHY]˜Z[YˆŽˆ¶`v-6a6*¶.v+öb¶a6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ˆ‹ˆ’[XYÙHÙ[™\˜][Ûˆ˜Z[YˆŽˆ¶`v-6a6)va¶-6)ö(H6)öa6-vb6,v*Kˆ‹ˆ’[XYÙH›Û\Ù[™\˜][Ûˆ˜Z[YˆŽˆ¶`v-6a6)va¶-6)ö(H6b6-v`H6)öa6-vb6,v*Kˆ‹ˆÛÝ[›ÝÜ™X]HÚ\™H™]šY]ËˆŽˆ¶*¶.v,6,H6)va¶-6)ö(H6av.v)öb¶a¶*H6)öa6av-6)ö,v`ö*Kˆ‹ˆÛÝ[›Ý™]›ÚÙHÚ\™H™]šY]ËˆŽˆ¶*¶.v,6,H6)va6.¶)ö(H6av.v)öb¶a¶*H6)öa6av-6)ö,v`ö*Kˆ‹ˆÛÝ[›Ý›Û˜XÚÈ\È™[X\ÙKˆŽˆ¶*¶.v,6,H6)öa6*¶,v)ö+6.H6.vaˆ6aö,6)È6)öa6)v-v+ö)ö,Kˆ‹ˆÛÝ[›Ý[]H\È™[X\ÙKˆŽˆ¶*¶.v,6,H6+v,6`H6aö,6)È6)öa6)v-v+ö)ö,Kˆ‹ˆ•[™^XÝYØ]™H˜Z[\™KˆŽˆ¶+v+ö*È6`v-6a6.¶b¶,H6av*¶b6`¶.H6(ö*öa¶)ö(H6)öa6+v`v.ˆ‹ˆ”Ø]™H˜Z[YŽˆ¶`v-6a6)öa6+v`v.‹ˆ”™[X\ÙH\ÝÜžHÛÝ[›Ý™H\˜Ú]™YˆŽˆ¶*¶.v,6,H6(ö,v-6`v*H6,ö+6a6)öa6)v-v+ö)ö,v)ö*‹ˆ‹ˆÛÝ[›ÝX›\Ú\ÈÙXœÚ]KˆŽˆ¶*¶.v,6,H6a¶-6,H6aö,6)È6)öa6avb6`¶.Kˆ‹ˆÛÝ[›Ý[œX›\Ú\ÈÙXœÚ]KˆŽˆ¶*¶.v,6,H6)va6.¶)ö(H6a¶-6,H6aö,6)È6)öa6avb6`¶.Kˆ‹ˆÛÝ[›ÝZ[HX›XÈÙXœÚ]HT“ˆŽˆ¶*¶.v,6,H6)va¶-6)ö(H6,v)ö*6-È6)öa6avb6`¶.H6)öa6.v)öaKˆ‹ˆ•HÙXœÚ]Hš[\ÈÙ\™H\ØYY]HX›XÈ™[™\™\ˆY›Ý™]\›ˆH˜[YSYÙKˆŽˆ¶*¶aH6,v`v.H6ava6`v)ö*ˆ6)öa6avb6`¶.v#6a6`öaˆ6)öa6.v)ö,v-ˆ6)öa6.v)öaH6a6aH6b¶cö,v+6.H6-v`v+v*HS6-v)öa6+v*Kˆ‹ˆ•HÚ]H\È\ØYY]H›Ú™XÝX›\ÚÝ]HÛÝ[›Ý™HØ]™YˆŽˆ¶*¶aH6,v`v.H6)öa6avb6`¶.v#6a6`öaˆ6*¶.v,6,H6+v`v.6+v)öa6*H6a¶-6,H6)öa6av-6,vb6.Nˆ‹ˆYÙ[˜ÞHŽˆ¶b6`ö)öa6*H‹ˆ‘KXÛÛ[Y\˜ÙHŽˆ¶*¶+6)ö,v*H6)va6`ö*¶,vb6a¶b¶*H‹ˆ‘]™[Žˆ¶`v.v)öa6b¶*H‹ˆ‘š]™\ÜÈÈÛØXÚŽˆ¶a6b¶)ö`¶*HÈ6av+ö,v*‹ˆ“ØØ[Ù\šXÙ\ÈŽˆ¶+¶+öav)ö*ˆ6av+va6b¶*H‹ˆ”™X[\Ý]HŽˆ¶.v`¶)ö,v)ö*ˆ‹ˆ”™\Ý]\˜[Žˆ¶av-ö.vaH‹ˆ”ØXTÈÈÛÙØ\™HŽˆ”ØXTÈÈ6*6,vav+6b¶)ö*ˆ‹ˆ”›Ù™\ÜÚ[Û˜[ÛÛ\[žHYÙHÚ]Ù\šXÙ\È[™\ÝÙXÝ[ÛœËˆŽˆ¶-v`v+v*H6-6,v`ö*H6)ö+v*¶,v)ö`vb¶*H6*¶*¶-¶avaˆ6)öa6+¶+öav)ö*ˆ6b6(ö`¶,ö)öaH6*¶.v,¶b¶,ˆ6)öa6*ö`¶*Kˆ‹ˆÛÛ™\œÚ[Û‹Y›ØÝ\ÙYYÙH›ÜˆH›ÙXÝÙ™™\ˆÜˆØ[\ZYÛ‹ˆŽˆ¶-v`v+v*H6*¶,v`ö,ˆ6.va6bH6)öa6*¶+vb6b¶a6a6ava¶*¶+6(öb6.v,v-ˆ6(öb6+vava6*Kˆ‹ˆ”\œÛÛ˜[ÜˆÝY[ÈYÙH›ØÝ\ÙYÛˆÛÜšËÜ™YXš[]H[™ÛÛXÝˆŽˆ¶-v`v+v*H6-6+¶-vb¶*H6(öb6)ö,ö*¶b6+öb¶b6*¶,v`ö,ˆ6.va6bH6)öa6(ö.vav)öa6b6)öa6av-v+ö)ö`¶b¶*H6b6)öa6*¶b6)ö-vaˆ‹ˆ”ÝÜ™Yœ›Û\Ý[HYÙH›Üˆ›ÙXÝËÙ™™\œÈ[™Ý\ÝÛY\ˆ\ÝˆŽˆ¶-v`v+v*H6*6(ö,öa6b6*6av*¶+6,H6a6a6ava¶*¶+6)ö*ˆ6b6)öa6.v,vb6-ˆ6b6*¶.v,¶b¶,ˆ6*ö`¶*H6)öa6.vava6)ö(Kˆ‹ˆ”™\Ý]\˜[YÙH›ÜˆY[HYÚYÚËÝÜžK™]šY]ÜÈ[™™\Ù\˜][ÛœËˆŽˆ¶-v`v+v*H6av-ö.vaH6a6.v,v-ˆ6(ö*6,v,ˆ6)öa6`¶)ö)¶av*H6b6)öa6`¶-v*H6b6)öa6*¶`¶b¶b¶av)ö*ˆ6b6)öa6+v+6b6,¶)ö*‹ˆ‹ˆ”ÛÙØ\™H›ÙXÝYÙHÚ]™X]\™\Ë[œÈ[™ÛØÚX[›ÛÙ‹ˆŽˆ¶-v`v+v*H6ava¶*¶+6*6,vav+6bˆ6*¶*¶-¶avaˆ6)öa6avb¶,¶)ö*ˆ6b6)öa6+¶-ö-È6b6)öa6+öa6b¶a6)öa6)ö+6*¶av)ö.vb‹ˆ‹ˆÜ™X]]™HÜˆYÚ][YÙ[˜ÞHYÙHZ[\›Ý[™Ù\šXÙ\È[™™\Ý[ËˆŽˆ¶-v`v+v*H6b6`ö)öa6*H6)v*6+ö)ö.vb¶*H6(öb6,v`¶avb¶*H6av*6a¶b¶*H6+vb6a6)öa6+¶+öav)ö*ˆ6b6)öa6a¶*¶)ö)¶+ˆ‹ˆ”›Ü\KY›ØÝ\ÙYYÙH›Üˆ\Ý[™ÜË^\\ÙH[™XYÙ[™\˜][Û‹ˆŽˆ¶-v`v+v*H6.v`¶)ö,vb¶*H6*¶,v`ö,ˆ6.va6bH6)öa6`¶b6)ö)¶aH6b6)öa6+¶*6,v*H6b6+6,6*6)öa6.vava6)ö(H6)öa6av+v*¶ava6b¶a‹ˆ‹ˆ”›Ù™\ÜÚ[Û˜[\œÛÛ˜[Ú]H›Üˆ^\šY[˜ÙKÚÚ[È[™ÜÜ[š]Y\ËˆŽˆ¶avb6`¶.H6-6+¶-vbˆ6)ö+v*¶,v)ö`vbˆ6a6a6+¶*6,v*H6b6)öa6avaö)ö,v)ö*ˆ6b6)öa6`v,v-Kˆ‹ˆ“XYY›ØÝ\ÙYYÙH›Üˆ˜Y\Ë™\Z\‹ÛX[š[™È[™ØØ[›Ù™\ÜÚ[Û˜[ËˆŽˆ¶-v`v+v*H6*¶,v`ö,ˆ6.va6bH6+6,6*6)öa6.vava6)ö(H6a6a6+v,v`H6b6)öa6)v-va6)ö+H6b6)öa6*¶a¶.6b¶`H6b6)öa6+¶+öav)ö*ˆ6)öa6av+va6b¶*Kˆ‹ˆ‘]™[ÜˆÛÛ™™\™[˜ÙHYÙH›ÜˆYÙ[™K˜[YH[™™YÚ\Ý˜][Û‹ˆŽˆ¶-v`v+v*H6`v.v)öa6b¶*H6(öb6av)6*¶av,H6a6a6*6,va¶)öav+6b6)öa6`¶b¶av*H6b6)öa6*¶,ö+6b¶aˆ‹ˆÛØXÚÞ[HÜˆ˜Z[™\ˆYÙH›Üˆ›ÙÜ˜[\Ë›ÛÙˆ[™[œ]Z\šY\ËˆŽˆ¶-v`v+v*H6av+ö,v*6(öb6a¶)ö+öcH6(öb6av+ö,v*6-6+¶-vbˆ6a6a6*6,v)öav+6b6)öa6a¶*¶)ö)¶+6b6)öa6)ö,ö*¶`v,ö)ö,v)ö*‹ˆ‹ˆ“][˜Ú\›ÈŽˆ¶`¶,öaH6)v-öa6)ö`ˆ6,v)¶b¶,öbˆ‹ˆ”Ý›Û™ÈÜ[š[™ÈÙXÝ[Ûˆ›ÜˆH›ÙXÝÜˆÙ\šXÙH][˜ÚˆŽˆ¶`¶,öaH6)ö`v*¶*¶)ö+vbˆ6`¶b6bˆ6a6)v-öa6)ö`ˆ6ava¶*¶+6(öb6+¶+öav*Kˆ‹ˆ”Ù\šXÙ\ÈÚÝØØ\ÙHŽˆ¶.v,v-ˆ6)öa6+¶+öav)ö*ˆ‹ˆ”›Ù™\ÜÚ[Û˜[Ù\šXÙ\ÈÙXÝ[Ûˆ›ÜˆYÙ[˜ÚY\È[™ØØ[\Ú[™\ÜÙ\ËˆŽˆ¶`¶,öaH6+¶+öav)ö*ˆ6)ö+v*¶,v)ö`vbˆ6a6a6b6`ö)öa6)ö*ˆ6b6)öa6-6,v`ö)ö*ˆ6)öa6av+va6b¶*Kˆ‹ˆ”ÛØÚX[›ÛÙˆŽˆ¶+öa6b¶a6)ö+6*¶av)ö.vbˆ‹ˆ•\ÝXZ[[™È\Ý[[ÛšX[ÙXÝ[Û‹ˆŽˆ¶`¶,öaH6-6aö)ö+ö)ö*ˆ6a6*6a¶)ö(H6)öa6*ö`¶*Kˆ‹ˆÛÛXÝÕHŽˆ¶+ö.vb6*H6*¶b6)ö-va‹ˆ‘›ØÝ\ÙYÛÛXÝÙXÝ[Ûˆ›Üˆ\›š[™È[\™\Ý[ÈXYËˆŽˆ¶`¶,öaH6*¶b6)ö-va6av,v`ö,ˆ6a6*¶+vb6b¶a6)öa6)öaö*¶av)öaH6)va6bH6.vava6)ö(H6av+v*¶ava6b¶a‹ˆ‹ˆØ\›š[™ÈŽˆ¶*¶+v,6b¶,H‹ˆš[\›Ý™[Y[Žˆ¶*¶+v,öb¶aˆ‹ˆ“\Ý]]ÛX]YÚXÚÈŽˆ¶(¶+¶,H6`v+v-H6(¶a6bˆ‹ˆ”[ˆš[˜[ÚXÚÜÈŽˆ¶*¶-6.¶b¶a6)öa6`v+vb6-v)ö*ˆ6)öa6a¶aö)ö)¶b¶*H‹ˆœ\š[Ù[™ÈŽˆ¶*¶a¶*¶aöbˆ6)öa6`v*¶,v*H6`vbˆ‹ˆ˜Ø[˜Ù[È]\š[Ù[™Žˆ¶b¶cöa6.¶bH6.va¶+È6a¶aö)öb¶*H6)öa6`v*¶,v*H‹ˆŠ“YYXHÛÝ[™Y›XÝÈ\ÜÙ]ÈÝ\œ™[HØYY[ÈHYYXHXœ˜\žH[™[ˆŽˆŠ¶.v+ö+È6)öa6b6,ö)ö)¶-È6b¶.v`ö,È6)öa6(ö-vb6a6)öa6av+vavdva6*H6+v)öa6b¶bö)È6`vbˆ6a6b6+v*H6av`ö*¶*6*H6)öa6b6,ö)ö)¶-Ëˆ‹ˆ˜Ý\œ™[Z[Ý[X]Ú\ÈŽˆ¶)öa6)v-v+ö)ö,H6)öa6+v)öa6bˆ6av)È6,¶)öa6av-ö)ö*6`¶bö)È‹ˆÙXœÚ]HÚ[™ÙYY\ˆ\›Ý˜[Žˆ¶*¶aH6*¶.¶b¶b¶,H6)öa6avb6`¶.H6*6.v+È6)öa6avb6)ö`v`¶*H‹ˆ“›È\›Ý˜[Û˜\ÚÝ™XÛÜ™YY]ˆŽˆ¶a6aH6b¶*¶aH6*¶,ö+6b¶a6a6`¶-ö*H6avb6)ö`v`¶*H6*6.v+Ëˆ‹ˆ›ØYY™[X\Ù\ÈŽˆ¶)v-v+ö)ö,v)ö*ˆ6av+vavdva6*H‹ˆ•šY]ÜÈ0­ÈÌŽˆ¶)öa6av-6)öaö+ö)ö*ˆ0­ÈÌ6b¶b6avbö)È‹ˆ•š\Ú]ÜœÈ0­ÈÌŽˆ¶)öa6,¶b6)ö,H0­ÈÌ6b¶b6avbö)È‹ˆ•šY]ÜÈ0­ÈÙŽˆ¶)öa6av-6)öaö+ö)ö*ˆ0­ÈÈ6(öb¶)öaH‹ˆ•šY]ÜÈ0­ÈÙ^HŽˆ¶)öa6av-6)öaö+ö)ö*ˆ0­È6)öa6b¶b6aH‹ˆÕHÛXÚÜÈŽˆ¶a¶`¶,v)ö*ˆ6)öa6+ö.vb6*H6a6a6)v+6,v)ö(H‹ˆ‘›Ü›HÝX›Z]ÈŽˆ¶)v,v,ö)öa6)ö*ˆ6)öa6a¶av)ö,6+‹ˆ‘›Ü›HÕ”ˆŽˆ¶av.v+öa6*¶+vb6b¶a6)öa6a¶avb6,6+‹ˆ“Û™H][H\ˆ[™HŽˆ¶.va¶-v,H6b6)ö+v+È6`vbˆ6`öa6,ö-ö,H‹ˆ˜[YHX™[Žˆ¶)öa6`¶b¶av*H6)öa6*¶,öavb¶*H‹ˆ›˜[YH][ÝHŽˆ¶)öa6)ö,öaH6)öa6)ö`¶*¶*6)ö,È‹ˆ•\ÙHHÝ[[™ÈÛÛ›ÛÈ™[ÝÈÈY\ÝŽˆ¶)ö,ö*¶+¶+öaH6.va¶)ö-v,H6)öa6*¶+v`öaH6*6)öa6*¶a¶,öb¶`ˆ6(ö+öa¶)öaÈ6a6-¶*6-È‹ˆÚYÛÛÜˆ[™ÜXÚ]HŽˆ¶)öa6.v,v-ˆ6b6)öa6a6b6aˆ6b6)öa6-6`v)ö`vb¶*H‹ˆšZYÚ
+Y[™È0åÈŠHŽˆ¶)öa6)ö,v*¶`v)ö.H
+6)öa6+v-6b0åÈŠH‹ˆ“Û™H\Ý][H\ˆ[™HŽˆ¶.va¶-v,H6`¶)ö)¶av*H6b6)ö+v+È6`vbˆ6`öa6,ö-ö,H‹ˆ™\ÚÝÜŽˆ¶,ö-ö+H6)öa6av`ö*¶*‹ˆX›]Žˆ¶+6aö)ö,ˆ6a6b6+vbˆ‹ˆ›[Øš[HŽˆ¶aö)ö*¶`H‹ˆœ]X[YšYYŽˆ¶av)6aöa‹ˆ˜ÛÛXÝYŽˆ¶*¶aH6)öa6*¶b6)ö-va‹ˆÛÛˆŽˆ¶a¶)ö+6+H‹ˆ›ÜÝŽˆ¶av`v`¶b6+È‹ˆœ™XYŽˆ¶av`¶,vb6(H‹ˆ˜\˜Ú]™YŽˆ¶av)6,v-6`H‹ˆ“\Ý]]ÛX]YÚXÚÎˆŽˆ¶(¶+¶,H6`v+v-H6*¶a6`¶)ö)¶bŽˆ‹ˆ“Û™H][H\ˆ[™NˆŽˆ¶.va¶-v,H6b6)ö+v+È6`vbˆ6`öa6,ö-ö,Nˆ‹ˆ•™\žHÝ›Û™ÈŽˆ¶`¶b6b¶*H6+6+öbö)È‹ˆ”›ÙXÝŽˆ¶ava¶*¶+‹ˆœ˜[™Žˆ¶.va6)öav*H6*¶+6)ö,vb¶*H‹ˆ“[Ù\›ˆŽˆ¶.v-v,vbˆ‹ˆ‘œšY[™HŽˆ¶b6+öb6+È‹ˆ›ÛŽˆ¶+6,vb¶(H‹ˆ“Z[š[X[Žˆ¶*6,öb¶-È‹ˆØ\™Y\ˆŽˆ¶)öa6av,ö)ö,H6)öa6avaöa¶bˆ‹ˆ‘š[˜[˜ÙHŽˆ¶)öa6av)öa6b¶*H‹ˆ”›ÙXÝ]š]HŽˆ¶)öa6)va¶*¶)ö+6b¶*H‹ˆ”Ü™XYÚY]ÈŽˆ¶+6+ö)öb6a6)öa6*6b¶)öa¶)ö*ˆ‹ˆ”™\Ù[][ÛœÈŽˆ¶)öa6.v,vb6-ˆ6)öa6*¶`¶+öb¶avb¶*H‹ˆ[™\ÈŽˆ¶+v,¶aH‹ˆ’[XYÙ\ÈŽˆ¶)öa6-vb6,H‹ˆ“Ù™šXÙH[™HŽˆ¶+v,¶av*HÙ™šXÙH‹ˆÛÛÈ]˜Z[X›HŽˆ¶(ö+ö)ö*H6av*¶)ö+v*H‹ˆœ™XYHÈ\ÙHŽˆ¶+6)öaö,¶*H6a6a6)ö,ö*¶+¶+ö)öaH‹ˆ•\]YŽˆ¶*¶aH6)öa6*¶+v+öb¶*È‹ˆ•\ÙYŽˆ¶)ö,ö*¶cö+¶+öav*ˆ‹ˆ”™[[Ý™H[XYÙH˜XÚÙÜ›Ý[™È›ÝYÚ^X\¸ &\ÈÙXÝ\™YÙ\™\‹\ÚYH[XYÙH][]KˆŽˆ¶(ö,¶a6+¶a6`vb¶)ö*ˆ6)öa6-vb6,H6.v*6,H6(ö+ö)ö*H^X\ˆ6)öa6(¶ava¶*H6a6av.v)öa6+6*H6)öa6-vb6,H6.va6bH6)öa6+¶)ö+öaKˆ‹ˆ”™\Ú^™H[™ÛÛ™\][\H[XYÙ\ÈØØ[KÚ][™]šYX[ÝÛ›ØYÈÜˆÛ™H’TˆŽˆ¶.¶b¶dv,H6+v+6aH6b6+vb6dva6.v+ö*H6-vb6,H6av+va6b¶bö)È6av.H6*¶a¶,¶b¶a6)ö*ˆ6ava¶`v-va6*H6(öb6ava6`H’T6b6)ö+v+Ëˆ‹ˆÜ˜Y\œÛÛ˜[^™YÛÛ\[[™ÈÛÝ™\ˆ]\œÈ›Üˆ[žH›Ø‹ˆŽˆ¶(öa¶-6)ˆ6+¶-ö)ö*6)ö*ˆ6*¶`¶+öb¶aH6-6+¶-vb¶*H6b6av`¶a¶.v*H6a6(öbˆ6b6.6b¶`v*Kˆ‹ˆÛX[‹›Ü›X[^™H[™ØY™[H^ÜÔÕˆ]H\™XÝH[ˆ[Ý\ˆœ›ÝÜÙ\‹ˆŽˆ¶a¶.6dv`H6b6b6+vdv+È6b6-v+ödv,H6*6b¶)öa¶)ö*ˆÔÕˆ6*6(öav)öaˆ6av*6)ö-6,v*H6`vbˆ6av*¶-v`v+v`Ëˆ‹ˆÜ™X]HUËYœšY[™H™\Ý[Y\ÈÚ]RK\ÝÙ\™YÜ[Z^˜][Û‹ˆŽˆ¶(öa¶-6)ˆ6,öb¶,vbö)È6,6)ö*¶b¶*H6av*¶b6)ö`v`¶*H6av.HUÈ6av.H6*¶+v,öb¶aˆ6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ˆ‹ˆ”Ý[[X\š^™K[˜[^™K^˜XÝ]K[™[œÝÙ\ˆ]Y\Ý[ÛœÈX›Ý][žHØÝ[Y[ˆŽˆ¶a6+¶dv-H6b6+va6dva6b6)ö,ö*¶+¶,v+6)öa6*6b¶)öa¶)ö*ˆ6b6(ö+6*6.vaˆ6)öa6(ö,ö)¶a6*H6+vb6a6(öbˆ6av,ö*¶a¶+Ëˆ‹ˆ”ˆÛÛÈŽˆ¶(ö+öb6)ö*ˆˆ‹ˆ“Y\™ÙKÜ]ÛÛ™\[™Y]ˆš[\ÈÚ]RH\ÜÚ\Ý[˜ÙKˆŽˆ¶)ö+öav+6b6`¶,ödvaH6b6+vb6dva6b6.v+ödva6ava6`v)ö*ˆˆ6*6av,ö)ö.v+ö*HRKˆ‹ˆRH[XZ[Üš]\ˆŽˆ¶`ö)ö*¶*6)öa6*6,vb¶+È6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ‹ˆ•Üš]H›Ù™\ÜÚ[Û˜[[XZ[Ë™\Y\Ë[™™]ÜÛ]\œËˆŽˆ¶)ö`ö*¶*6,v,ö)ö)¶a6*6,vb¶+È6)ö+v*¶,v)ö`vb¶*H6b6,v+öb6+öbö)È6b6a¶-6,v)ö*ˆ6)v+¶*6)ö,vb¶*Kˆ‹ˆÛÛ˜XÝÜš]\ˆŽˆ¶`ö)ö*¶*6)öa6.v`¶b6+È‹ˆ‘Ù[™\˜]HYØ[ÛÛ˜XÝÈ[™YÜ™Y[Y[ÈÚ]RKˆŽˆ¶(öa¶-6)ˆ6.v`¶b6+öbö)È6b6)ö*¶`v)ö`¶b¶)ö*ˆ6`¶)öa¶b6a¶b¶*H6*6)ö,ö*¶+¶+ö)öaHRKˆ‹ˆ‘]H[˜[]XÜÈRHŽˆ¶*¶+va6b¶a6)ö*ˆ6)öa6*6b¶)öa¶)ö*ˆ6*6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ‹ˆ[˜[^™H]KÙ[™\˜]H[œÚYÚË[™Ü™X]Hš\ÝX[^˜][ÛœËˆŽˆ¶+va6dva6)öa6*6b¶)öa¶)ö*ˆ6b6)ö,ö*¶+¶,v+6)öa6,v)6bH6b6(öa¶-6)ˆ6*¶-vb6,v)ö*ˆ6*6b¶)öa¶b¶*Kˆ‹ˆÜ›Ü”QË‘È[™ÙX”[XYÙ\ÈØØ[HÚ]™XÚ\ÙHÛÛ›ÛÈ[™\ÜXÝ™\Ù]ËˆŽˆ¶)ö`¶*¶-v-H6-vb6,H”QÈ6b‘È6bÙX”6av+va6b¶bö)È6*6*¶+v`öaH6+ö`¶b¶`ˆ6b6a¶,ö*6+6)öaö,¶*Kˆ‹ˆÛÛXš[™H”QË‘È[™ÙX”[XYÙ\È[ÈÛ™HØØ[ˆÚ]YÙHÜ™\š[™È[™Ú^™HÛÛ›ÛËˆŽˆ¶)ö+öav+6-vb6,H”QÈ6b‘È6bÙX”6`vbˆ6ava6`Hˆ6av+va6bˆ6b6)ö+v+È6av.H6*¶,v*¶b¶*6)öa6-v`v+v)ö*ˆ6b6)öa6*¶+v`öaH6*6)öa6+v+6aKˆ‹ˆ”™\Ú^™KÛÛ\™\ÜÈ[™ÛÛ™\”QË‘È[™ÙX”[XYÙ\ÈØØ[H[ˆ[Ý\ˆœ›ÝÜÙ\‹ˆŽˆ¶.¶b¶dv,H6+v+6aH6b6)ö-¶.¶-È6b6+vb6dva6-vb6,H”QÈ6b‘È6bÙX”6av+va6b¶bö)È6`vbˆ6av*¶-v`v+v`Ëˆ‹ˆÜ™X]H›Ù™\ÜÚ[Û˜[[›ÚXÙ\ÈÚ]]]ÛX]XÈÝ[ËU˜YØ]š[™È[™ˆš[[™ËˆŽˆ¶(öa¶-6)ˆ6`vb6)ö*¶b¶,H6)ö+v*¶,v)ö`vb¶*H6av.H6+v,ö)ö*6)öa6)v+6av)öa6b¶)ö*ˆ6b6)öa6-¶,vb¶*6*H6b6+v`v.6)öa6av,öb6+ö)ö*ˆ6b6)öa6-ö*6)ö.v*H6)va6bH‹ˆ‹ˆÜ™X]H™XÛÛ[Y[™][Û‹]]Üš^˜][Û‹\Ú[™\ÜËÛÛ\Z[™\ÚYÛ˜][Ûˆ[™[šË^[ÝH]\œËˆŽˆ¶(öa¶-6)ˆ6,v,ö)ö)¶a6*¶b6-vb¶*H6b6*¶`vb6b¶-ˆ6b6(ö.vav)öa6b6-6`ö)öb6bH6b6)ö,ö*¶`¶)öa6*H6b6-6`ö,Kˆ‹ˆ‘Ù[™\˜]HÜšYÚ[˜[\Ú[™\ÜË›ÙXÝœ˜[™[ÝUX™H[™[œÝYÜ˜[H˜[YHYX\ËˆŽˆ¶(öa¶-6)ˆ6(ö`v`ö)ö,H6(ö,öav)ö(H6(ö-va6b¶*H6a6a6(ö.vav)öa6b6)öa6ava¶*¶+6)ö*ˆ6b6)öa6.va6)öav)ö*ˆ6b[ÝUX™H6b[œÝYÜ˜[Kˆ‹ˆ”ÙX\˜Ú[™\œÛÛ˜[^™HÜšYÚ[˜[^X\ˆ›Û\È›Üˆ\Ú[™\ÜËØ\™Y\‹Üš][™È[™ÛØÚX[ÛÜšÙ›ÝÜËˆŽˆ¶)ö*6+v*È6b6+¶-v-H6*¶.va6b¶av)ö*ˆ^X\ˆ6)öa6(ö-va6b¶*H6a6a6(ö.vav)öa6b6)öa6avaöa¶*H6b6)öa6`ö*¶)ö*6*H6b6)öa6*¶b6)ö-va6)öa6)ö+6*¶av)ö.vb‹ˆ‹ˆ‘^Z[ˆÛÛ˜Ù\ËÜ™X]H]Z^ž™\Ë›\ÚØ\™Ë[™\œÛÛ˜[^™YÝYH[œËˆŽˆ¶)ö-6,v+H6)öa6av`v)öaöb¶aH6b6(öa¶-6)ˆ6)ö+¶*¶*6)ö,v)ö*ˆ6b6*6-ö)ö`¶)ö*ˆ6b6+¶-ö-È6+ö,v)ö,ö*H6av+¶-v-v*Kˆ‹ˆœ›ÝÜÙH^X\‹ZÜÝYÙ™šXÙH[\]\È[™ÜšYÚ[˜[Ý\\ˆš[\ËˆŽˆ¶*¶-v`v+H6`¶b6)öa6*Ù™šXÙH6)öa6av,ö*¶-¶)ö`v*H6a6+öbH^X\ˆ6b6ava6`v)ö*ˆ6)öa6*6+ö)öb¶*H6)öa6(ö-va6b¶*Kˆ‹ˆRH˜[œÛ]ÜˆŽˆ¶av*¶,v+6aHRH‹ˆ•˜[œÛ]H™]ÙY[ˆL
+È[™ÝXYÙ\ÈÚ]˜]\˜[ÛÛ^X]Ø\™H™\Ý[ËˆŽˆ¶*¶,v+6aH6*6b¶aˆ6(ö`ö*ö,H6avaˆL6a6.¶*H6*6a¶*¶)ö)¶+6-ö*6b¶.vb¶*H6*¶,v)ö.vbˆ6)öa6,öb¶)ö`‹ˆ‹ˆ•Üš]H›ÙÜË\XÛ\ËX\šÙ][™ÈÛÜK[™ÛØÚX[YYXHÛÛ[ˆŽˆ¶)ö`ö*¶*6av+öb6a¶)ö*ˆ6b6av`¶)öa6)ö*ˆ6b6a¶-vb6-vbö)È6*¶,öb6b¶`¶b¶*H6b6av+v*¶b6bH6a6a6-6*6`ö)ö*ˆ6)öa6)ö+6*¶av)ö.vb¶*Kˆ‹ˆ‘\ÝˆT”ˆŽˆ¶)öa6)vb¶,v)ö+È6)öa6-6aö,vbˆ6)öa6*¶`¶+öb¶,vbˆ‹ˆ•\ÛÛZ[™È™[™]Ø[ÈŽˆ¶)öa6*¶+6+öb¶+ö)ö*ˆ6)öa6`¶)ö+öav*H‹ˆ”\ÝYHÈÜ˜XÙHŽˆ¶av*¶(ö+¶,HÈ6`v*¶,v*H6,öav)ö+H‹ˆ‘˜Z[Y^[Y[ÈŽˆ¶)öa6av+ö`vb6.v)ö*ˆ6)öa6`v)ö-6a6*H‹ˆ”\ÝYHŽˆ¶av*¶(ö+¶,H‹ˆ”™[™]Ø[ÈŽˆ¶)öa6*¶+6+öb¶+ö)ö*ˆ‹ˆ‘˜Z[YŽˆ¶`v-6a‹ˆšX[[™ÈŽˆ¶`v*¶,v*H6*¶+6,vb¶*6b¶*H‹ˆœ›ÈŽˆ¶)ö+v*¶,v)ö`vbˆ‹ˆ˜\Ú[™\ÜÈŽˆ¶(ö.vav)öa‹ˆ™œ™YHŽˆ¶av+6)öa¶bˆ‹ˆ“Ü[ˆXÚÙ]ÈŽˆ¶)öa6*¶,6)ö`ö,H6)öa6av`v*¶b6+v*H‹ˆÛÜÙYŽˆ¶av.¶a6`ˆ‹ˆYÈ™\ÜÈŽˆ¶*6a6)ö.¶)ö*ˆ6)öa6(ö+¶-ö)ö(H‹ˆ‘™X]\™H™\]Y\ÝÈŽˆ¶-öa6*6)ö*ˆ6)öa6avb¶,¶)ö*ˆ‹ˆ›Ü[ˆŽˆ¶av`v*¶b6+H‹ˆ˜ÛÜÙYŽˆ¶av.¶a6`ˆ‹ˆ˜YÈŽˆ¶+¶-ö(È‹ˆ™™X]\™HŽˆ¶avb¶,¶*H‹ˆXÚÙ]Žˆ¶*¶,6`ö,v*H‹ˆšYÚŽˆ¶.v)öa6b¶*H‹ˆ›YY][HŽˆ¶av*¶b6,ö-ö*H‹ˆ›ÝÈŽˆ¶ava¶+¶`v-¶*H‹ˆ•\H[Ý\ˆ™\ÜÛœÙK‹‹ˆŽˆ¶)ö`ö*¶*6,v+ö`Ë‹‹ˆ‹ˆÛÜÙHXÚÙ]Žˆ¶)v.¶a6)ö`ˆ6)öa6*¶,6`ö,v*H‹ˆ”™[Ü[ˆŽˆ¶)v.v)ö+ö*H6)öa6`v*¶+H‹ˆ”Ù[™	ˆÛÜÙHŽˆ¶)v,v,ö)öa6b6)v.¶a6)ö`ˆ‹ˆ”Þ\Ý[HÙ][™ÜÈŽˆ¶)v.v+ö)ö+ö)ö*ˆ6)öa6a¶.6)öaH‹ˆXØÛÝ[›ØÚÜÈŽˆ¶+v.6,H6)öa6+v,ö)ö*6)ö*ˆ‹ˆ”™XY[™\ÜÈŽˆ¶)öa6+6)öaö,¶b¶*H‹ˆ‘[XZ[[\]\ÈŽˆ¶`¶b6)öa6*6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶bˆ‹ˆ˜XÚÝ\ÈŽˆ¶)öa6a¶,ö+ˆ6)öa6)ö+v*¶b¶)ö-öb¶*H‹ˆ”]›Ü›H˜[YHŽˆ¶)ö,öaH6)öa6ava¶-v*H‹ˆ‘Y˜][RH›ÝšY\ˆŽˆ¶av,¶b6+È6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ6)öa6)ö`v*¶,v)ö-¶bˆ‹ˆ“X^œ™YH™\]Y\ÝËÙ^HŽˆ¶)öa6+v+È6)öa6(ö`¶-vbH6a6a6-öa6*6)ö*ˆ6)öa6av+6)öa¶b¶*Kö)öa6b¶b6aH‹ˆ“XZ[[˜[˜ÙH[ÙHŽˆ¶b6-¶.H6)öa6-vb¶)öa¶*H‹ˆ”ÚYÛ\[˜X›YŽˆ¶)öa6*¶,ö+6b¶a6av`v.vdva‹ˆ‘\ØX›YŽˆ¶av.v-ödva‹ˆ‘˜Z[YÈØ]™HÙ][™ÜÈŽˆ¶`v-6a6+v`v.6)öa6)v.v+ö)ö+ö)ö*ˆ‹ˆ”Ù][™ÜÈØ]™YŽˆ¶*¶aH6+v`v.6)öa6)v.v+ö)ö+ö)ö*ˆ‹ˆ‘[XZ[ÝXš™XÝŽˆ¶avb6-¶b6.H6)öa6*6,vb¶+È‹ˆ”Ýš\HÛÛ›™XÝ[ÛˆŽˆ¶)ö*¶-v)öaÝš\H‹ˆ”Ýš\HÚ\™Ù\ÈŽˆ¶av+ö`vb6.v)ö*ˆÝš\H‹ˆ”Ýš\H^[Ý]ÈŽˆ¶*¶+vb6b¶a6)ö*ˆÝš\H‹ˆ”›ÈšXÙHŽˆ¶,ö.v,H›È‹ˆ\Ú[™\ÜÈšXÙHŽˆ¶,ö.v,H\Ú[™\ÜÈ‹ˆ”Ýš\HÙXšÛÚÈŽˆ•ÙXšÛÚÈ6a6`Ýš\H‹ˆÚXÚÛÝ]Žˆ¶)öa6+ö`v.H‹ˆš[[™ÈÜ[Žˆ¶*6b6)ö*6*H6)öa6`vb6*¶,v*H‹ˆ[˜ÛÛ™šYÝ\™YŽˆ¶.¶b¶,H6avcö.v+È‹ˆ™[˜X›YŽˆ¶av`v.vdva‹ˆ›™YYÈ][[ÛˆŽˆ¶b¶+v*¶)ö+6av,v)ö+6.v*H‹ˆ›Z\ÜÚ[™ÈŽˆ¶av`v`¶b6+È‹ˆ››Ý™\šYšYYŽˆ¶.¶b¶,H6av*¶+v`¶`ˆ‹ˆ›™YYÈÙ]\Žˆ¶b¶+v*¶)ö+6)v.v+ö)ö+öbö)È‹ˆYZ[œÈŽˆ¶)öa6av-6,v`vb6aˆ‹ˆ”›È\Ù\œÈŽˆ¶av,ö*¶+¶+öavb›È‹ˆ”ÙX\˜ÚžH˜[YK[XZ[ÜˆQ‹‹ˆŽˆ¶)ö*6+v*È6*6)öa6)ö,öaH6(öb6)öa6*6,vb¶+È6(öb6)öa6av.v,vdv`K‹‹ˆ‹ˆ•[›˜[YYŽˆ¶*6+öb6aˆ6)ö,öaH‹ˆ–[ÝHØ[››ÝÝ\Ü[™[Ý\œÙ[ˆŽˆ¶a6)È6b¶av`öa¶`È6)vb¶`¶)ö`H6+v,ö)ö*6`È6*6a¶`v,ö`È‹ˆ”™Z[œÝ]HŽˆ¶)v.v)ö+ö*H6)öa6*¶`v.vb¶a‹ˆ”Ý\Ü[™Žˆ¶)vb¶`¶)ö`H‹ˆ–[ÝHØ[››Ý[]H[Ý\œÙ[ˆŽˆ¶a6)È6b¶av`öa¶`È6+v,6`H6+v,ö)ö*6`È6*6a¶`v,ö`È‹ˆ‘[]H\Ù\ˆŽˆ¶+v,6`H6)öa6av,ö*¶+¶+öaH‹ˆ‘[]H	ˆ›ØÚÈŽˆ¶+v,6`H6b6+v.6,H‹ˆ‘[]H\›X[™[HŽˆ¶+v,6`H6a¶aö)ö)¶b¶bö)È‹ˆ›ØÚÈ™X\ÛÛˆ
+[\›˜[›ÝJHŽˆ¶,ö*6*6)öa6+v.6,H
+6ava6)ö+v.6*H6+ö)ö+¶a6b¶*JH‹ˆ”™X\ÛÛˆ
+[\›˜[›ÝJHŽˆ¶)öa6,ö*6*
+6ava6)ö+v.6*H6+ö)ö+¶a6b¶*JH‹ˆ•Ý[ÛÛÈŽˆ¶)v+6av)öa6bˆ6)öa6(ö+öb6)ö*ˆ‹ˆ”™[Z][HŽˆ¶avavb¶,ˆ‹ˆ\Ù\ÈŽˆ¶)ö,ö*¶+¶+ö)öav)ö*ˆ‹ˆ”™XY[Û›H˜[Y][ÛˆÙˆÝÜ™Yš[[ÛœÈ[\]\Ëˆ›ÙÜ™\ÜÈ\ÈØ]™Y[ˆ\Èœ›ÝÜÙ\ˆ[™Ø[ˆ™H]\ÙYÜˆ™\Ý[YYØY™[KˆŽˆ¶*¶+v`¶`ˆ6a6a6`¶,v)ö(v*H6`v`¶-È6avaˆ6`¶b6)öa6*š[[ÛœÈ6)öa6av+¶,¶a¶*Kˆ6b¶*¶aH6+v`v.6)öa6*¶`¶+öaH6`vbˆ6aö,6)È6)öa6av*¶-v`v+H6b6b¶av`öaˆ6)vb¶`¶)ö`vaÈ6av)6`¶*¶bö)È6(öb6)ö,ö*¶)¶a¶)ö`vaÈ6*6(öav)öa‹ˆ‹ˆ”™\Ý[YH]Y]Žˆ¶)ö,ö*¶)¶a¶)ö`H6)öa6*¶+ö`¶b¶`ˆ‹ˆ”[ˆYØZ[ˆŽˆ¶*¶-6.¶b¶a6av+6+ö+öbö)È‹ˆ”Ý\]Y]Žˆ¶*6+ö(H6)öa6*¶+ö`¶b¶`ˆ‹ˆ[˜[^š[™ø )ˆŽˆ¶+6)ö,vcH6)öa6*¶+va6b¶a8 )ˆ‹ˆ[˜[^™H™\Z\œÈŽˆ¶*¶+va6b¶a6)öa6)v-va6)ö+v)ö*ˆ‹ˆ‘[][™ø )ˆŽˆ¶+6)ö,vcH6)öa6+v,6`x )ˆ‹ˆ‘[]H[˜[Y[\]\ÈŽˆ¶+v,6`H6)öa6`¶b6)öa6*6.¶b¶,H6)öa6-v)öa6+v*H‹ˆœØØ[›™YŽˆ¶*¶aH6`v+v-vaö)È‹ˆ]Y]›ÙÜ™\ÜÈ\ÈÝ[Ø]™Y[›\ÜÈ[][ÛˆÛÛ\]YˆŽˆ¶b¶*6`¶bH6*¶`¶+öaH6)öa6*¶+ö`¶b¶`ˆ6av+v`vb6.6bö)È6av)È6a6aH6b¶`ö*¶ava6)öa6+v,6`Kˆ‹ˆ•˜[YŽˆ¶-v)öa6+H‹ˆ’[˜[YŽˆ¶.¶b¶,H6-v)öa6+H‹ˆ“Z\ÜÚ[™ÈŽˆ¶av`v`¶b6+È‹ˆ”[›š[™ÈŽˆ¶`¶b¶+È6)öa6*¶-6.¶b¶a‹ˆ[˜[^š[™ÈŽˆ¶+6)ö,vcH6)öa6*¶+va6b¶a‹ˆ‘[][™ÈŽˆ¶+6)ö,vcH6)öa6+v,6`H‹ˆ”]\ÙYŽˆ¶av*¶b6`¶`H6av)6`¶*¶bö)È‹ˆ’YHŽˆ¶+¶)öava‹ˆ”›ÝÜÈ[]YŽˆ¶)öa6-v`vb6`H6)öa6av+v,6b6`v*H‹ˆ”ÝÜ˜YÙH[]YŽˆ¶)öa6av+v,6b6`H6avaˆ6)öa6*¶+¶,¶b¶aˆ‹ˆ”Ú\™Y™\Ù\™YŽˆ¶*¶aH6)öa6+v`v)ö.6.va6bH6)öa6av-6*¶,v`ö*H‹ˆ”ÝÜ˜YÙH˜Z[\™\ÈŽˆ¶(ö+¶-ö)ö(H6)öa6*¶+¶,¶b¶aˆ‹ˆ’\ÜÝY\ÈÚXÚÙYŽˆ¶)öa6av-6`öa6)ö*ˆ6)öa6av`v+vb6-v*H‹ˆ”™\Z\˜X›HŽˆ¶`¶)ö*6a6a6a6)v-va6)ö+H‹ˆ’[šÈÈYHŽˆ¶av+¶a6`v)ö*ˆ6a6a6)v+¶`v)ö(H‹ˆ“™YYÈ™]šY]ÈŽˆ¶b¶+v*¶)ö+6av,v)ö+6.v*H‹ˆ[š[\ÈŽˆ¶`öa6)öa6ava6`v)ö*ˆ‹ˆ\XÛ\ÈŽˆ¶)öa6av`¶)öa6)ö*ˆ‹ˆRHÚ]ÈŽˆ¶av+v)ö+ö*ö)ö*ˆ6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vbˆ‹ˆ•ÙXœÚ]\ÈŽˆ¶)öa6avb6)ö`¶.H‹ˆ“\Ý\]YŽˆ¶(¶+¶,H6*¶+v+öb¶*È‹ˆ‘]HÜ™X]YŽˆ¶*¶)ö,vb¶+ˆ6)öa6)va¶-6)ö(H‹ˆ“˜[YH
+KVŠHŽˆ¶)öa6)ö,öaH
+6(ËvbŠH‹ˆ“›ÈX]Ú[™Èš[\ÈŽˆ¶a6)È6*¶b6+6+È6ava6`v)ö*ˆ6av-ö)ö*6`¶*H‹ˆ“›Èš[\ÈY]Žˆ¶a6)È6*¶b6+6+È6ava6`v)ö*ˆ6*6.v+È‹ˆ•žHHY™™\™[ÙX\˜Ú\›KˆŽˆ¶+6,vdv*6.v*6)ö,v*H6*6+v*È6av+¶*¶a6`v*Kˆ‹ˆÜ™X]HØÝ[Y[ÈÚ][žHRHÛÛ[™^IÛ\X\ˆ\™H]]ÛX]XØ[KˆŽˆ¶(öa¶-6)ˆ6av,ö*¶a¶+ö)ö*ˆ6*6(öbˆ6(ö+ö)ö*H6,6`ö)ö(H6)ö-v-öa¶)ö.vbˆ6b6,ö*¶.6aö,H6aöa¶)È6*¶a6`¶)ö)¶b¶bö)Ëˆ‹ˆË‹‹ˆŽˆ¶)va6bK‹‹ˆ‹ˆ“]™HÙXœÚ]HŽˆ¶avb6`¶.H6av*6)ö-6,H‹ˆ•ÙXœÚ]H˜YŽˆ¶av,öb6+ö*H6avb6`¶.H‹ˆ‘[XZ[Ý\ÜŽˆ¶+ö.vaH6.v*6,H6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶bˆ‹ˆ‘[XZ[Ý\ÜŽˆ¶)öa6+ö.vaH6.v*6,H6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶bˆ‹ˆXØÛÝ[	ˆš]˜XÞHÝ\ÜŽˆ¶+ö.vaH6)öa6+v,ö)ö*6b6)öa6+¶-vb6-vb¶*H‹ˆ•\ÙH[XZ[ÜˆHÙXÝ\™H›Ü›H™[ÝÈŽˆ¶)ö,ö*¶+¶+öaH6)öa6*6,vb¶+È6)öa6)va6`ö*¶,vb6a¶bˆ6(öb6)öa6a¶avb6,6+6)öa6(¶avaˆ6(ö+öa¶)öaÈ‹ˆŒKˆÝ™\šY]ÈŽˆŒKˆ6a¶.6,v*H6.v)öav*H‹ˆŒ‹ˆXØÛÝ[[™ÛÜšÜÜXÙH]HŽˆŒ‹ˆ6*6b¶)öa¶)ö*ˆ6)öa6+v,ö)ö*6b6av,ö)ö+v*H6)öa6.vava‹ˆŒËˆÙXœÚ]HZ[\ˆ]HŽˆŒËˆ6*6b¶)öa¶)ö*ˆ6ava¶-6)ˆ6)öa6avb6)ö`¶.H‹ˆˆ[™œ˜\ÝXÝ\™H[™›ØÙ\ÜÛÜœÈŽˆˆ6)öa6*6a¶b¶*H6)öa6*¶+v*¶b¶*H6b6)öa6av.v)öa6d6+6b6aˆ‹ˆKˆÙXÝ\š]HŽˆKˆ6)öa6(öav)öaˆ‹ˆµÓú¶‰žËkºwµçv+ö,H\XÚKL‹Œˆ6)ö+v*¶`v.6*6)öa6*¶,v+¶b¶-H6b6)v-6.v)ö,v)ö*ˆ6)öa6a¶,ö*6*H6)öa6(ö-va6b¶*H6.va¶+È6)ö,ö*¶b¶,v)ö+È6)öa6`öb6+Ëˆ‹ˆ\˜]šYØ][Û‹Ý™\šY]ÈY]šXÜË\Ú›Ø\™ÛÛ[]HX›KÙš[\ˆ[™RKØXÝ[Ûˆ[™[ˆŽˆ¶*¶a¶`¶a6)öa6*¶-ö*6b¶`ˆ6b6av`¶)öb¶b¶,È6)öa6a¶.6,v*H6)öa6.v)öav*H6b6av+v*¶b6bH6a6b6+v*H6)öa6av.va6b6av)ö*ˆ6b6+6+öb6aö`va6*¶,H6)öa6*6b¶)öa¶)ö*ˆ6b6a6b6+v*H6)öa6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ö)öa6)v+6,v)ö(v)ö*‹ˆ‹ˆ\XØ][ÛˆÚ[Ú]˜]šYØ][Û‹Ý™\šY]ÈØ\™ËÙ]H[™™\ÜÛœÚ]™HÛÜšÜÜXÙHÝXÝ\™KˆŽˆ¶aöb¶`öa6*¶-ö*6b¶`ˆ6av.H6*¶a¶`¶a6b6*6-ö)ö`¶)ö*‹ö*6b¶)öa¶)ö*ˆ6a¶.6,v*H6.v)öav*H6b6*6a¶b¶*H6av,ö)ö+v*H6.vava6av*¶+6)öb6*6*Kˆ‹ˆ\H™]šY]ÙY]ÚŽˆ¶*¶-ö*6b¶`ˆ6)öa6*¶-v+vb¶+H6)öa6avcö,v)ö+6.H‹ˆ\ÜÚ\Ý[ÛÛ™\œØ][ÛˆÝ\™˜XÙHÚ]›Û\[œ][™Ý]\ËˆŽˆ¶b6)ö+6aö*H6av+v)ö+ö*ö*H6)öa6av,ö)ö.v+È6av.H6)v+ö+¶)öa6)öa6-öa6*6b6)öa6+v)öa6*Kˆ‹ˆ]]Žˆ¶)öa6av-v)ö+ö`¶*H‹ˆ]]Ú[Žˆ¶aöb¶`öa6)öa6av-v)ö+ö`¶*H‹ˆ]]Ý\\ˆŽˆ¶*6+ö)öb¶*H6)öa6av-v)ö+ö`¶*H‹ˆ]][XØ][ÛˆØ\™Žˆ¶*6-ö)ö`¶*H6)öa6av-v)ö+ö`¶*H‹ˆ]][XØ][ÛˆÚ[ÙÚ[ˆ›Ü›KÙXÛÛ™\žH]]Ý]H[™Ý\Ü[™ÈÕKØÛÛ[ˆŽˆ¶aöb¶`öa6av-v)ö+ö`¶*H6b6a¶avb6,6+6*¶,ö+6b¶a6+ö+¶b6a6b6+v)öa6*H6av-v)ö+ö`¶*H6*ö)öa¶b6b¶*H6b6av+v*¶b6bKö+ö.vb6*H6+ö)ö.vav*Kˆ‹ˆœ›ÝÜÙH™]\ØX›HRK[œÜXÝÛÙH[™\[™[˜ÚY\Ë[ˆ[™ÛÝ\˜ÙKX]Ø\™HY\][Ûˆ[œÝXÝ[ÛœÈÈRKˆÛ›H\›Ý™Y™Y\ÝšX]X›HÛÝ\˜Ù\È\™HØYYˆŽˆ¶*¶-v`v+H6b6)ö+6aö)ö*ˆ6`¶)ö*6a6*H6a6)v.v)ö+ö*H6)öa6)ö,ö*¶+¶+ö)öaH6b6)ö`v+v-H6)öa6`öb6+È6b6)öa6*¶*6.vb¶)ö*ˆ6*öaH6(ö,v,öa6*¶.va6b¶av)ö*ˆ6*¶`öb¶b¶`H6b6)ö.vb¶*H6*6)öa6av-v+ö,H6a6a6,6`ö)ö(H6)öa6)ö-v-öa¶)ö.vb‹ˆ6b¶*¶aH6*¶+vavb¶a6)öa6av-v)ö+ö,H6)öa6av,öavb6+H6*6)v.v)ö+ö*H6*¶b6,¶b¶.vaö)È6`v`¶-Ëˆ‹ˆZ[HÛÛ\]HÛÛ™\œÚ[Û‹Y›ØÝ\ÙY[™[™ÈYÙH]™Y[È˜]]™HÈHXÝ]™H›Ú™XÝˆŽˆ¶)ö*6a¶d6-v`v+v*H6aö*6b6-È6`ö)öava6*H6*¶,v`ö,ˆ6.va6bH6)öa6*¶+vb6b¶a6b6*¶*6+öb6(ö-va6b¶*H6-¶avaˆ6)öa6av-6,vb6.H6)öa6a¶-6-Ëˆ‹ˆZ[HÛÛ\]HÚYÛ‹Z[ˆ™X]\™H]™]\Ù\È^\Ý[™È]][XØ][ÛˆÙ\šXÙ\ÈÚ[ˆ™\Ù[[™™]™\ˆ[™[ÈH˜XÚÙ[™ˆŽˆ¶)ö*6a¶d6avb¶,¶*H6*¶,ö+6b¶a6+ö+¶b6a6`ö)öava6*H6*¶.vb¶+È6)ö,ö*¶+¶+ö)öaH6+¶+öav)ö*ˆ6)öa6av-v)ö+ö`¶*H6)öa6+v)öa6b¶*H6.va¶+È6b6+6b6+öaö)È6b6a6)È6*¶+¶*¶,v.H6+¶a6`vb¶*Kˆ‹ˆZ[HÛ\ÚYØXTÈX\šÙ][™ÈYÙHÚ]Ý›Û™ÈY\˜\˜ÚK›ÙXÝ›ÛÙˆ[™ÛX\ˆÛÛ™\œÚ[Ûˆ›ÝËˆŽˆ¶)ö*6a¶d6-v`v+v*H6*¶,öb6b¶`ˆØXTÈ6av-v`¶b6a6*H6*6aöb¶`öa6`¶b6bˆ6b6)v*ö*6)ö*ˆ6a6a6ava¶*¶+6b6av,ö)ö,H6*¶+vb6b¶a6b6)ö-¶+Kˆ‹ˆZ[HÛ\ÚY™\ÜÛœÚ]™H\Ú›Ø\™™X]\™H\Ú[™È^\Ý[™È›Ú™XÝ]H›Ý[™\šY\È[™Ý[HÚÙ[œËˆŽˆ¶)ö*6a¶d6avb¶,¶*H6a6b6+v*H6av.va6b6av)ö*ˆ6av*¶+6)öb6*6*H6b6av-v`¶b6a6*H6*6)ö,ö*¶+¶+ö)öaH6+v+öb6+È6*6b¶)öa¶)ö*ˆ6)öa6av-6,vb6.H6b6,vavb6,ˆ6)öa6a¶av-È6)öa6+v)öa6b¶*Kˆ‹ˆZ[H›ÙXÝ[Û‹[Z[™YYZ[ˆ™X]\™HÚ]™\ÜÛœÚ]™H˜]šYØ][Û‹X[˜YÙ[Y[X›\ËÙ›Ü›\È[™›È[™[Yš]š[YÙY˜XÚÙ[™XÝ[ÛœËˆŽˆ¶)ö*6a¶d6avb¶,¶*H6)v+ö)ö,v*H6+6)öaö,¶*H6a6a6)va¶*¶)ö+6av.H6*¶a¶`¶a6av*¶+6)öb6*6b6+6+ö)öb6aöa¶av)ö,6+6)v+ö)ö,v*H6+öb6aˆ6)ö+¶*¶,v)ö.H6)v+6,v)ö(v)ö*ˆ6+¶a6`vb¶*H6avavb¶dv,¶*Kˆ‹ˆ›Y\ÜØYÙHŽˆ¶,v,ö)öa6*H‹ˆœ™Y\™XÝŽˆ¶)v.v)ö+ö*H6*¶b6+6b¶aÈ‹ˆœšYÚŽˆ¶b¶avb¶aˆ‹ˆœ›ÝÈŽˆ¶-v`H‹ˆœÙ[XÝŽˆ¶`¶)ö)¶av*H6)ö+¶*¶b¶)ö,H‹ˆœÛÛYŽˆ¶av*¶-va‹ˆœÝXÚÈŽˆ¶*¶`ö+öb¶,È‹ˆœÝ\Žˆ¶*6+ö)öb¶*H‹ˆœÝ™]ÚŽˆ¶*¶av+öb¶+È‹ˆ[Žˆ¶aö)ö*¶`H‹ˆ^Žˆ¶a¶-H‹ˆ^\™XHŽˆ¶ava¶-ö`¶*H6a¶-H‹ˆ™YKXÛÛ[[ˆŽˆ¶*öa6)ö*ö*H6(ö.vav+ö*H‹ˆÜŽˆ¶(ö.va6bH‹ˆÛËXÛÛ[[ˆŽˆ¶.vavb6+ö)öaˆ‹ŸNÂ˜ÛÛœÝÝŽˆ˜\ÙSX\HÂˆ	Ô™XÙ[	Îˆ	ÔÙ[˜\ÝIËˆ	ÓØY[™ÈXœ˜\žx )‰Îˆ	ÐšX›[ÝZÙ]0éÙ\È[¸ )‰Ëˆ	Ó›ÈX]Ú[™È[\]\ÉÎˆ	Ò[™ØHX]Ú[™HX[\‰Ëˆ	Õ[šÛ›ÝÛˆÚ^™IÎˆ	ÓÚðé™ÝÜ›ZÉËˆ	Ñ›Ü›X]	Îˆ	Ñ›Ü›X]	Ëˆ	Ô™\ÝÜ™H\È\ÝÜžHÝ]OÈ[Ý\ˆÝ\œ™[[œØ]™YÚ[™Ù\ÈÚ[[Ý™HÈH™YÈ]Y]YK‰Îˆ	ðá]\œÝ0éH]0éˆ\ÝÜšZÛ0éÙ]È[˜HZÝY[HÜÜ\˜YH0é™š[™Ø\ˆ›]\È[ðí›ˆ°íœˆðíœˆÛK‰Ëˆ	Ö[ÝH]™H[œØ]™YÙXœÚ]HÚ[™Ù\ËˆX]™HÚ]Ý]Ø]š[™ÏÉÎˆ	ÑH\ˆÜÜ\˜YH0é™š[™Ø\ˆ0éHÙX˜œ]Ù[‹ˆš[H0é[˜H][ˆ]Ü\˜OÉËˆ	ÐRHXÝ[Û‰Îˆ	ÐRKpé]ðé™	Ëˆ	ÑY]Ý\œ™[ÙXœÚ]IÎˆ	Ô™YYÙ\˜HZÝY[ÙX˜œ]ÉËˆ	ÐZ[™]ÈÙXœÚ]IÎˆ	ÐžYÙÈžHÙX˜œ]ÉËˆ	ÐZ[[™ÈH™]ÈÙXœÚ]H™\XÙ\ÈHÝ\œ™[YÙ\ËˆÛÛ[YOÉÎˆ	ÓÛHHžYÙÙ\ˆ[ˆžHÙX˜œ]È\œðéÈHZÝY[HÚYÜ›˜Kˆ›ÜðéOÉËˆ	ÑÙ[™\˜][™Ë‹‹‰Îˆ	ÑÙ[™\™\˜\‹‹‹‰Ë	Ö[Ý\ˆ™\Ý[Ú[\X\ˆ\™K‰Îˆ	Ñ]™\Ý[]š\Ø\È0é‹‰Ë	ÐÛÛZ[™ÈÛÛÛ‰Îˆ	ÒÛÛ[Y\ˆÛ˜\	Ëˆ•\ÈÛÛ\È[™\ˆXÝ]™H]™[ÜY[ˆ[ÝIÛ™H›ÝYšYYÚ[ˆ]	ÜÈ™XYKˆŽˆ	Ñ]0éˆ™\šÝYÙ]]™XÚÛ\ÈZÝ]ˆH°é\ˆ™\ÚÙY°éˆ]0éˆÛ\‰Ëˆ	ÐRHÜš]\‰Îˆ	ÐRK\ÚÜš]˜\™IË	ÕÜš]H›ÙÜË\XÛ\Ë[™X\šÙ][™ÈÛÜK‰Îˆ	ÔÚÜš]ˆ›ÙÙÚ[›0éÙË\ZÛ\ˆØÚX\šÛ˜YÙ°íœš[™ÜÝ^\‹‰Ëˆ	ÐÛÛ[\IÎˆ	Ò[›™Z0é[Ý\	Ë	ÕÜXÉÎˆ	ðá[™IË	ÕÛ™IÎˆ	ÕÛ‰Ë	Ó[™Ý	Îˆ	Ó0é™Ù	Ë	Õ\™Ù]]YY[˜ÙIÎˆ	Ópé[Ü\	Ë	ÒÙ^HÚ[È
+Ü[Û˜[
+IÎˆ	ÕšZÝYØH[šÝ\ˆ
+˜[œš]
+IËˆ	ÕH]\™HÙˆRH[ˆX[Ø\™IÎˆ	Ñœ˜[]Y[ˆ°íœˆRH[›ÛH°é\™[‰Ë	ÒX[Ø\™H›Ù™\ÜÚ[Û˜[ÉÎˆ	Õ°é\™\œÛÛ˜[	Ë	ÓÛ™HÚ[\ˆ[™IÎˆ	Ñ[ˆ[šÝ\ˆ˜Y	Ëˆ	Ð›ÙÈÜÝ	Îˆ	Ð›ÙÙÚ[›0éÙÉË	Ð\XÛIÎˆ	Ð\ZÙ[	Ë	ÓX\šÙ][™ÈÛÜIÎˆ	ÓX\šÛ˜YÙ°íœš[™ÜÝ^	Ë	ÔÛØÚX[YYXHÜÝ	Îˆ	Ò[›0éÙÈ0éHÛØÚX[HYYY\‰Ë	Ô›ÙXÝ\ØÜš\[Û‰Îˆ	Ô›ÙZÝ™\ÚÜš]›š[™ÉËˆ	Ô›Ù™\ÜÚ[Û˜[	Îˆ	Ô›Ù™\ÜÚ[Û™[	Ë	ÐØ\ÝX[	Îˆ	Ð]œÛ\˜Y	Ë	Ô\œÝX\Ú]™IÎˆ	ðå™\YØ[™IË	Ò[™›Ü›X]]™IÎˆ	Ò[™›Ü›X]]‰Ë	Ò[[Ü›Ý\ÉÎˆ	Ò[[Üš\Ý\ÚÉË	Ò[œÜ\˜][Û˜[	Îˆ	Ò[œÜ\™\˜[™IËˆ	ÔÚÜ	Îˆ	ÒÛÜ	Ë	ÓÛ™ÉÎˆ	Ó0é[™ÉË	ÕÜš][™ÈÛÛ[‹‹‰Îˆ	ÔÚÜš]™\ˆ[›™Z0é[‹‹‰Ë	ÐÛÛ[Ù[™\˜]Y	Îˆ	Ò[›™Z0é[]\ˆÚØ\]ÉË	ÕÜš][™Ë‹‹‰Îˆ	ÔÚÜš]™\‹‹‹‰Ë	ÑÙ[™\˜]HÛÛ[	Îˆ	ÔÚØ\H[›™Z0é[	Ë	ÐÛÜIÎˆ	ÒÛÜY\˜IË	ÐÛÜYY	Îˆ	ÒÛÜY\˜Y	Ëˆ	ÐÛÝ™\ˆ]\ˆÜš]\‰Îˆ	ÔÚÜš]ˆ\œÛÛ›YÝœ™]‰Ë	ÐÜ˜Y\œÛÛ˜[^™YÛÝ™\ˆ]\œÈ›Üˆ[žH›Ø‹‰Îˆ	ÔÚØ\H[œ\ÜØYH\œÛÛ›YØHœ™]ˆ°íœˆ[H›Ø˜‹‰Ë	Ö[Ý\ˆ˜[YIÎˆ	Ñ]˜[[‰Ë	Ò›Øˆ]IÎˆ	Ò›Ø˜][	Ë	ÐÛÛ\[žIÎˆ	Ñ°íœ™]YÉË	ÒÙ^H]X[YšXØ][ÛœÉÎˆ	ÕšZÝYØHÝ˜[YšZØ][Û™\‰Ë	ÕÚH\È›ØÉÎˆ	Õ˜\™°íœˆ]0éˆ›Ø˜™]ÉËˆ	ÔÛÙØ\™H[™Ú[™Y\‰Îˆ	ÓZZÝ˜\Z[™Ù[š°íœ‰Ë	ÍHYX\œÈ™XXÝYX[HÙˆ‹‹‰Îˆ	ÍH0é\ˆYY™XXÝYH]X[H0éH‹‹‰Ë	Ô\ÜÚ[Û˜]HX›Ý]‹‹‰Îˆ	Ðœš[›™\ˆ°íœ‹‹‹‰Ë	ÕÜš][™ÈÛÝ™\ˆ]\‹‹‹‰Îˆ	ÔÚÜš]™\ˆ\œÛÛ›YÝœ™]‹‹‹‰Ë	ÐÛÝ™\ˆ]\ˆÜš][‰Îˆ	Ô\œÛÛ›YÝœ™]ˆÛ\	Ë	ÕÜš]HÛÝ™\ˆ]\‰Îˆ	ÔÚÜš]ˆ\œÛÛ›YÝœ™]‰Ëˆ	ÐRHÕˆZ[\‰Îˆ	ÐRHÕ‹XžYÙØ\™IË	ÐÜ™X]HUËYœšY[™H™\Ý[Y\ÈÚ]RK‰Îˆ	ÔÚØ\HUË]°é›YØHÕŽ›ˆYYRK‰Ë	ÖYX\œÈÙˆ^\šY[˜ÙIÎˆ	ðá\œÈ\™˜\™[š]	Ë	ÒÙ^HÚÚ[È
+ÛÛ[XHÙ\\˜]Y
+IÎˆ	ÕšZÝYØH°é™YÚ]\ˆ
+ÛÛ[X\Ù\\™\˜YJIË	Õ\™Ù][™\ÝžIÎˆ	Ópé[œ˜[œØÚ	Ë	ÕXÚ›ÛÙÞIÎˆ	ÕZÛšZÉË	ÑÙ[™\˜][™ÈÕ‹‹‹‰Îˆ	ÔÚØ\\ˆÕ‹‹‹‰Ë	ÐÕˆÙ[™\˜]YÝXØÙ\ÜÙ[IÎˆ	ÐÕˆÚØ\]	Ë	ÑÙ[™\˜]HÕ‰Îˆ	ÔÚØ\HÕ‰Ëˆ	ÑØÝ[Y[RIÎˆ	ÑÚÝ[Y[PRIË	ÔÝ[[X\š^™K[˜[^™K[™^˜XÝœ›ÛHØÝ[Y[Ë‰Îˆ	ÔØ[[X[™˜]K[˜[\Ù\˜HØÚ^˜Z\˜Hœ°é[ˆÚÝ[Y[‰Ë	ÐXÝ[Û‰Îˆ	ðá]ðé™	Ë	ÑØÝ[Y[ÛÛ[	Îˆ	ÑÚÝ[Y[[›™Z0é[	Ë	Ô]Y\Ý[Û‰Îˆ	Ñœ°éYØIË	ÔÝ[[X\š^™IÎˆ	ÔØ[[X[™˜]IË	Ð[˜[^™IÎˆ	Ð[˜[\Ù\˜IË	Ð\ÚÈH]Y\Ý[Û‰Îˆ	ÔÝ0é[ˆœ°éYØIË	Ô\ÝH[Ý\ˆØÝ[Y[^\™K‹‹‰Îˆ	ÒÛ\Ý˜H[ˆÚÝ[Y[^[ˆ0é‹‹‹‰Ë	ÕÚ]\ÈHXZ[ˆÛÛ˜Û\Ú[ÛÉÎˆ	Õ˜Y0éˆ]YÛ]Ø]Ù[ÉË	Ð[˜[^š[™ÈØÝ[Y[‹‹‰Îˆ	Ð[˜[\Ù\˜\ˆÚÝ[Y[‹‹‰Ë	Ð[˜[\Ú\ÈÛÛ\]IÎˆ	Ð[˜[\Ù[ˆ0éˆÛ\‰Ë	Ð[˜[^š[™Ë‹‹‰Îˆ	Ð[˜[\Ù\˜\‹‹‹‰Ë	Ð[˜[^™HØÝ[Y[	Îˆ	Ð[˜[\Ù\˜HÚÝ[Y[	Ëˆ	ÔÝYH\ÜÚ\Ý[	Îˆ	ÔÝYYX\ÜÚ\Ý[	Ë	Ñ^Z[ˆÛÛ˜Ù\ËÜ™X]H]Z^ž™\Ë[™ÝYH[œË‰Îˆ	Ñ°íœšÛ\˜H™YÜ™\ÚØ\H]Z^ˆØÚÝYY\[™\‹‰Ë	ÕÚ]È[ÝH™YYÉÎˆ	Õ˜Y™Z0í™\ˆOÉË	ÕÜXÈÈÝXš™XÝ	Îˆ	ðá[™IË	Ó]™[	Îˆ	Óš]°éIË	ÐÛÝ[	Îˆ	Ð[[	Ë	Ñ^Z[ˆHÛÛ˜Ù\	Îˆ	Ñ°íœšÛ\˜H]™YÜ™\	Ë	ÐÜ™X]HH]Z^‰Îˆ	ÔÚØ\H]]Z^‰Ë	ÑÙ[™\˜]H›\ÚØ\™ÉÎˆ	ÔÚØ\H›\ÚØ\™ÉË	ÐÜ™X]HÝYH[‰Îˆ	ÔÚØ\HÝYY\[‰Ë	Ô]X[[HÛÛ\][™ÉÎˆ	ÒÝ˜[™\°éÛš[™ÉË	ÑÙ[™\˜][™ÈÝYHX]\šX[‹‹‰Îˆ	ÔÚØ\\ˆÝYY[X]\šX[‹‹‰Ë	ÔÝYHX]\šX[Ù[™\˜]Y	Îˆ	ÔÝYY[X]\šX[ÚØ\]	Ë	ÑÙ[™\˜]IÎˆ	ÔÚØ\IËˆ	ÕX[HÛÜšÜÜXÙIÎˆ	ÕX[HÛÜšÜÜXÙIË	ÐZ[ÙXœÚ]\ÈÙÙ]\‰Îˆ	ÐžYÙÈÙX˜œ]Ù\ˆ[Ø[[X[œÉË	ÔÙXÝ\™H›Û\Ë[š]][ÛœÈ[™Ú\™Y›Ú™XÝËˆ›ÈÝ\ÜÈÈÙX]ÎÈ\Ú[™\ÜÈÝ\ÜÈLÙX]Ë‰Îˆ	ÔðéÜ˜H›Û\‹[˜šYš[™Ø\ˆØÚ[YH›Ú™ZÝˆ›ÈÝ0í™\ˆÈ]Ù\ˆØÚ\Ú[™\ÜÈL‰Ë	Ô\ÝHHX[H[š]][ÛˆÚÙ[ˆÜˆÜ[ˆ[ˆ[š]][Ûˆ[šÉÎˆ	ÒÛ\Ý˜H[ˆ[ˆX[Z[˜šYš[™ÜÚÛÙ[\ˆ0íœ˜H[ˆ[˜šYš[™ÜÛ0éšÉË	Ö[Ý\ˆX[\ÉÎˆ	Ñ[˜HX[IË	Ó›ÈX[HÛÜšÜÜXÙ\ÈY]‰Îˆ	Ò[™ØHX[X\˜™]Þ]Üˆ0é›K‰Ë	Ó™]ÈÛÜšÜÜXÙH˜[YIÎˆ	Ó˜[[ˆ0éHžH\˜™]Þ]IË	ÐÜ™X]HÜˆÙ[XÝHX[HÛÜšÜÜXÙHÈX[˜YÙHY[X™\œÈ[™›Ú™XÝË‰Îˆ	ÔÚØ\H[\ˆ°éˆ[ˆX[X\˜™]Þ]H°íœˆ][\˜HYY[[X\ˆØÚ›Ú™ZÝ‰Ë	Ô™[˜[YHÛÜšÜÜXÙIÎˆ	Ðž]˜[[ˆ0éH\˜™]Þ]IË	Ñ[]HÛÜšÜÜXÙIÎˆ	ÕH›Ü\˜™]Þ]IË	Ò[š]HX[[X]IÎˆ	ÐšY[ˆX[[YY[IË	Ò[š]IÎˆ	ÐšY[‰Ë	ÓY[X™\œÉÎˆ	ÓYY[[X\‰Ë	ÑY]Ü‰Îˆ	Ô™YYÙ\˜\™IË	ÕšY]Ù\‰Îˆ	Õš\Ø\™IË	Õ˜[œÙ™\ˆÝÛ™\œÚ\	Îˆ	ðå™\™°íœˆ0éØ\œÚØ\	Ë	ÓX]™HÛÜšÜÜXÙIÎˆ	Ó0é[˜H\˜™]Þ]IË	Ô™[[Ý™HY[X™\‰Îˆ	ÕH›ÜYY[IË	Ô[™[™È[š]][ÛœÉÎˆ	Õ°é[™H[˜šYš[™Ø\‰Ë	ÔÚ\™Y›Ú™XÝÉÎˆ	Ñ[YH›Ú™ZÝ	Ë	ÔÙ[XÝÛ™HÙˆ[Ý\ˆ\œÛÛ˜[›Ú™XÝø )‰Îˆ	Õ°éˆ]]ˆ[˜H\œÛÛ›YØH›Ú™ZÝ8 )‰Ë	ÔÚ\™H›Ú™XÝ	Îˆ	Ñ[H›Ú™ZÝ	Ë	Ô™[[Ý™Hœ›ÛHÛÜšÜÜXÙIÎˆ	ÕH›Üœ°é[ˆ\˜™]Þ][‰Ë	ÓÜ[ˆÙXœÚ]HZ[\ˆœ›ÛHHÛÛÈY[NÈ\ÈÚ\™Y›Ú™XÝÚ[\X\ˆ[ˆHÛÝY›Ú™XÝÈÙ[XÝÜ‹‰Îˆ	ðåœ˜HÙX˜œ]ØžYÙØ\™[ˆœ°é[ˆ™\šÝYË[Y[ž[ŽÈ][YH›Ú™ZÝ]š\Ø\ÈH°é˜\™[ˆ°íœˆ[Ûœ›Ú™ZÝ‰Ë	Ó›È›Ú™XÝÈÚ\™YÚ]\ÈÛÜšÜÜXÙHY]‰Îˆ	Ò[™ØH›Ú™ZÝ\ˆ[]ÈYY[ˆ0éˆ\˜™]Þ][ˆ0é›K‰Ëˆ	ÔÙ][™ÜÉÎˆ	Ò[œÝ0éš[™Ø\‰Ë	ÓX[˜YÙH[Ý\ˆXØÛÝ[ÙXÝ\š]K[™™Y™\™[˜Ù\Ë‰Îˆ	Ò[\˜HÛÛËðéÙ\š]ØÚ[œÝ0éš[™Ø\‹‰Ë	Ô›Ùš[IÎˆ	Ô›Ùš[	Ë	ÔÙXÝ\š]IÎˆ	ÔðéÙ\š]	Ë	Ô™Y™\™[˜Ù\ÉÎˆ	Ò[œÝ0éš[™Ø\‰Ë	Ôš]˜XÞIÎˆ	Ò[YÜš]]	Ë	Ñ]H^Ü
+ÑŠIÎˆ	Ñ]Y^Ü
+ÑŠIË	ÐXØÛÝ[]H^Ü	Îˆ	Ñ^Ü]ˆÛÛÙ]IË	ÑÝÛ›ØYHÜX›H”ÓÓˆ^ÜÙˆ[Ý\ˆXØÛÝ[™XÛÜ™È[™ÝÜ™YYš[H[™[ÜžKˆÜšYÚ[˜[š[Hš[˜\šY\È™[XZ[ˆ]˜Z[X›Hœ›ÛHZ\ˆÛÛË‰Îˆ	ÓYH™Y[ˆÜX™[”ÓÓ‹Y^ÜYY[˜HÛÛÜÜÝ\ˆØÚ[ˆ\ÝH0í™\ˆYÜ˜YHš[\‹ˆH\œÜ[™ÛYØHš[\›˜H0éˆ›ÜØ][ðé™ÛYØHH™\ÜZÝ]™H™\šÝYË‰Ë	ÔÚYÛˆ[ˆÈ^Ü[Ý\ˆXØÛÝ[]K‰Îˆ	ÓÙÙØH[ˆ°íœˆ]^Ü\˜H[˜HÛÛÙ]K‰Ë	ÑÝÛ›ØYHÛÛ\]HÛÜHÙˆ[[Ý\ˆ]HÝÜ™YÛˆ^X\ˆ[[YÙ[˜ÙHÛÛËˆ\È[˜ÛY\È[Ý\ˆ›Ùš[K›Ú™XÝËš[\ËÛÛ™\œØ][ÛœË[™XÝ]š]HÙË‰Îˆ	ÓYH™\ˆ[ˆÛÛ\]ÛÜXH]ˆ[]HÛÛHYÜ˜\ÈH^X\ˆ[[YÙ[˜ÙHÛÛË[šÛ\Ú]™H›Ùš[›Ú™ZÝš[\‹ÛÛ™\œØ][Û™\ˆØÚZÝ]š]]ÛÙÙË‰Ë	Ô™\\š[™È[Ý\ˆ]K‹‹‰Îˆ	Ñ°íœ˜™\™Y\ˆ[˜H]K‹‹‰Ë	Ñ]H^ÜYÝXØÙ\ÜÙ[IÎˆ	Ñ]H^Ü\˜Y\ÉË	Ñ˜Z[YÈ^Ü]IÎˆ	Ñ]Y^ÜZ\ÜÛXÚØY\ÉË	Ô\œÛÛ˜[]HÝÛ›ØYY	Îˆ	Ô\œÛÛ›YØH]H™YYYIË	Ñ^Ü[]IÎˆ	Ñ^Ü\˜H[]IË	ÑÝÛ›ØY\œÛÛ˜[]IÎˆ	ÓYH™\ˆ\œÛÛ›YØH]IË	Ôš]˜XÞHÛÛ›ÛÉÎˆ	Ò[YÜš]]ÚÛÛ›Û\‰Ë	Ð[˜[]XÜÈ[˜X›Y	Îˆ	Ð[˜[\ÈZÝ]™\˜Y	Ë	Ð[˜[]XÜÈ\ØX›Y	Îˆ	Ð[˜[\È[˜ZÝ]™\˜Y	Ë	Ô™]™[[Ý\ˆÛÛ[œ›ÛH™Z[™È\ÙYÈ[\›Ý™HRH[Ù[ÉÎˆ	Ñ°íœš[™˜H]][›™Z0é[[°é™È°íœˆ]°íœ˜°é˜HRK[[Ù[\‰Ë	ÐRH˜Z[š[™ÈÜ[Ý][˜X›Y	Îˆ	Ð]œÝ0éY[™Hœ°é[ˆRK]°éš[™ÈZÝ]™\˜]	Ë	ÐRH˜Z[š[™ÈÜ[Ý]\ØX›Y	Îˆ	Ð]œÝ0éY[™Hœ°é[ˆRK]°éš[™È[˜ZÝ]™\˜]	Ë	Ñ]HÝÜ˜YÙHØØ][Û‰Îˆ	Ñ][YÜš[™ÜÜ]ÉË	ÐÛÝYÝÜ˜YÙHØØ][Ûˆ›ÛÝÜÈHXÝ]™HÙ\šXÙHÛÛ™šYÝ\˜][Û‹ˆÙYHHš]˜XÞHÛXÞH›ÜˆÝ\œ™[›ÝšY\œË‰Îˆ	Ó[Û›YÜš[™Ù[œÈ]È°í›™\ˆ[ˆZÝ]˜H°éœÝZÛÛ™šYÝ\˜][Û™[‹ˆÙH[YÜš]]ÜÛXÞ[ˆ°íœˆZÝY[H]™\˜[0íœ™\‹‰Ë	Ñ]H[˜Üž\[Û‰Îˆ	Ñ]ZÜž\\š[™ÉË	Ñ[]HXØÛÝ[	Îˆ	Ô˜Y\˜HÛÛÉË	Ô\›X[™[H[]H[Ý\ˆ^X\ˆXØÛÝ[ÝÛ™Y›Ú™XÝÈ[™ÝÜ™Yš[\Ëˆ[ˆXÝ]™HÝXœØÜš\[Ûˆ\ÈØ[˜Ù[Yš\œÝˆ^[Y[›ÝšY\œÈX^H™]Z[ˆ™XÛÜ™È™\]Z\™YžH]Ëˆ\ÈXÝ[ÛˆØ[››Ý™H[™Û™K‰Îˆ	Ô˜Y\˜H\›X[™[]^X\‹ZÛÛË›Ú™ZÝÛÛHH0éÙ\ˆØÚYÜ˜YHš[\‹ˆ[ˆZÝ]ˆ™[[Y\˜][ÛˆðéÜÈ\°íœœÝˆ™][š[™ÜÛ]™\˜[0íœ™\ˆØ[ˆ™Z0é[H\ÚY\ˆÛÛHÜ°éœÈ[›YÝYËˆ0á]ðé™[ˆØ[ˆ[H0é[™Ü˜\Ë‰Ë	Õ\H‘SUHˆÈÛÛ™š\›IÎˆ	ÔÚÜš]ˆ‘SUHˆ°íœˆ]™ZÜ°éIË	Ñ[][™ÈXØÛÝ[‹‹‰Îˆ	Ô˜Y\˜\ˆÛÛË‹‹‰Ë	ÐXØÛÝ[[]Y	Îˆ	ÒÛÛÝ˜Y\˜Y\ÉË	Ñ˜Z[YÈ[]HXØÛÝ[ˆX\ÙHÛÛXÝÝ\Ü‰Îˆ	Ñ]ÚXÚÈ[H]˜Y\˜HÛÛÝˆÛÛZÝHÝ\Ü[‹‰Ë	ÑÛÈÈÛÜšÜÜXÙH8¡¤‰Îˆ	ÑðéH[\˜™]Þ][ˆ8¡¤‰Ë	Õ\Ü˜YHÈ›ÉÎˆ	Õ\Ü˜Y\˜H[›ÉË	Õ\Ü˜YH›ÝÉÎˆ	Õ\Ü˜Y\˜HIË	Õ[›ØÚÈ[L
+ÈRHÛÛÈ[™[›[Z]YØÝ[Y[Ë‰Îˆ	Ó0é\È\0í™Ü™HÜ°éœÙ\ˆØÚ›\ˆ›Ù™\ÜÚ[Û™[H[šÝ[Û™\‹‰Ë	ÔÛÛÛ‰Îˆ	ÔÛ˜\	Ë	Ð™]IÎˆ	Ð™]IËˆ	Ñ[]H^HXØÛÝ[	Îˆ	Ô˜Y\˜HZ]ÛÛÉËˆ	Õ\ÈÚ[\›X[™[H[]N‰Îˆ	Ñ]H˜Y\˜\ˆ\›X[™[‰Ëˆ	Ö[Ý\ˆ›Ùš[H[™XØÛÝ[Ü™Y[X[ÉÎˆ	Ñ[ˆ›Ùš[ØÚ[˜HÛÛÝ\ÚY\‰Ëˆ	Ð[›Ú™XÝÈ
+ÕœËÛÝ™\ˆ]\œËØÝ[Y[ÊIÎˆ	Ð[H›Ú™ZÝ
+ÕŽ›‹\œÛÛ›YØHœ™]‹ÚÝ[Y[
+IËˆ	Ð[š[\È[™^ÜÉÎˆ	Ð[Hš[\ˆØÚ^Ü\‰Ëˆ	Ð[RHÛÛ™\œØ][ÛœÈ[™\ØYÙH\ÝÜžIÎˆ	Ð[HRKZÛÛ™\œØ][Û™\ˆØÚ[°é™š[™ÜÚ\ÝÜšZÉËˆ	Ð[XÝ]š]HÙÜÈ[™™Y™\™[˜Ù\ÉÎˆ	Ð[HZÝ]š]]ÛÙÙØ\ˆØÚ[œÝ0éš[™Ø\‰Ëˆ	Õ\IÎˆ	ÔÚÜš]‰Ëˆ	ÝÈÛÛ™š\›IÎˆ	Ù°íœˆ]™ZÜ°éIËˆ	ÖY\Ë[]H]™\ž][™ÉÎˆ	Ò˜K˜Y\˜H[	Ëˆ	ÐØ[˜Ù[	Îˆ	Ð]˜œž]	Ëˆ	ÔØ]š[™È›Ùš[K‹‹‰Îˆ	ÔÜ\˜\ˆ›Ùš[‹‹‰Ëˆ	Ô›Ùš[HØ]™Y	Îˆ	Ô›Ùš[Ü\˜Y	Ëˆ	Ö[Ý\ˆ˜[YIÎˆ	Ñ]˜[[‰Ëˆ	Ñ[XZ[Y™\ÜÉÎˆ	ÑK\ÜÝY™\ÜÉËˆ	Ðš[ÉÎˆ	Ðš[ÉËˆ	Õ[\ÈX›Ý][Ý\œÙ[‹‹‹‰Îˆ	Ð™\°éHÛHYÈÚ°é‹‹‹‰Ëˆ	ÔØ]™HÚ[™Ù\ÉÎˆ	ÔÜ\˜H0é™š[™Ø\‰Ëˆ	Õ\][™È\ÜÝÛÜ™‹‹‰Îˆ	Õ\]\˜\ˆ0íœÙ[›Ü™‹‹‰Ëˆ	Ô\ÜÝÛÜ™\]YÝXØÙ\ÜÙ[IÎˆ	Ó0íœÙ[›Ü™]\]\˜Y\ÉËˆ	Ô\ÜÝÛÜ™ÈÈ›ÝX]Ú	Îˆ	Ó0íœÙ[›Ü™[ˆX]Ú\ˆ[IËˆ	Ô\ÜÝÛÜ™]\Ý™H]X\ÝˆÚ\˜XÝ\œÉÎˆ	Ó0íœÙ[›Ü™]pé\ÝH˜\˜HZ[œÝˆXÚÙ[‰Ëˆ	Ñ[XZ[™\šYšXØ][Û‰Îˆ	ÑK\ÜÝ™\šYšY\š[™ÉËˆ	Ñ[XZ[™\šYšYY	Îˆ	ÑK\ÜÝ™\šYšY\˜Y	Ëˆ	Ö[Ý\ˆ[XZ[Y™\ÜÈ\È™Y[ˆÛÛ™š\›YY‰Îˆ	Ñ[ˆK\ÜÝY™\ÜÈ\ˆ™ZÜ°é]Ë‰Ëˆ	Ñ[XZ[›Ý™\šYšYY	Îˆ	ÑK\ÜÝ[H™\šYšY\˜Y	Ëˆ	ÔX\ÙH™\šYžH[Ý\ˆ[XZ[Y™\ÜÈÈÙXÝ\™H[Ý\ˆXØÛÝ[‰Îˆ	Õ™\šYšY\˜H[ˆK\ÜÝY™\ÜÈ°íœˆ]ðéÜ˜HÛÛÝ‰Ëˆ	ÔÙ[™[™È™\šYšXØ][Ûˆ[XZ[‹‹‰Îˆ	ÔÚÚXÚØ\ˆ™\šYšY\š[™ÜÛXZ[‹‹‰Ëˆ	Õ™\šYšXØ][Ûˆ[XZ[Ù[	Îˆ	Õ™\šYšY\š[™ÜÛXZ[ÚÚXÚØ]	Ëˆ	Õ™\šYžH›ÝÉÎˆ	Õ™\šYšY\˜HIËˆ	ÐÚ[™ÙH\ÜÝÛÜ™	Îˆ	ðá™˜H0íœÙ[›Ü™	Ëˆ	Ó™]È\ÜÝÛÜ™	Îˆ	Óž]0íœÙ[›Ü™	Ëˆ	Ñ[\ˆ™]È\ÜÝÛÜ™	Îˆ	Ð[™ÙHž]0íœÙ[›Ü™	Ëˆ	ÐÛÛ™š\›H™]È\ÜÝÛÜ™	Îˆ	Ð™ZÜ°éHž]0íœÙ[›Ü™	Ëˆ	ÐÛÛ™š\›H™]È\ÜÝÛÜ™	Îˆ	Ð™ZÜ°éHž]0íœÙ[›Ü™	Ëˆ	Õ\]H\ÜÝÛÜ™	Îˆ	Õ\]\˜H0íœÙ[›Ü™	Ëˆ	Ñ[™Ù\ˆ›Û™IÎˆ	Ôš\ÚÞ›Û‰Ëˆ	ÔÚYÛˆÝ]œ›ÛH[]šXÙ\ÈÜˆ\›X[™[H[]H[Ý\ˆXØÛÝ[‰Îˆ	ÓÙÙØH]œ°é[ˆ[H[š]\ˆ[\ˆ˜Y\˜HÛÛÝ\›X[™[‰Ëˆ	ÔÚYÛˆÝ]	Îˆ	ÓÙÙØH]	Ëˆ	Õ[YIÎˆ	Õ[XIËˆ	Ó[™ÝXYÙIÎˆ	ÔÜ°éZÉËˆ	Ñ\šÈ[ÙIÎˆ	ÓpíœšÝ0éÙIËˆ	ÓYÚ[ÙIÎˆ	Ó\Ý0éÙIËˆ	ÑX\ÞHÛˆH^Y\ÉÎˆ	ÔÚÛÛœØ[]°íœˆ0í™ÛÛ™[‰Ëˆ	ÐœšYÚ[™ÛX[‰Îˆ	Ó\ÝØÚ™[	Ëˆ	Ñ[XZ[›ÝYšXØ][ÛœÉÎˆ	ÑK\ÜÝ]š\Ù\š[™Ø\‰Ëˆ	Ò[\Ü[XØÛÝ[[™ÙXÝ\š]H[XZ[ÉÎˆ	ÕšZÝYØHÛÛËHØÚðéÙ\š]ÛXZ[	Ëˆ	Ô\Ú›ÝYšXØ][ÛœÉÎˆ	Ô\ÚX]š\Ù\š[™Ø\‰Ëˆ	Ô™X[][YH\]\È[ˆ[Ý\ˆœ›ÝÜÙ\‰Îˆ	Ô™X[YÝ\]\š[™Ø\ˆHÙX˜›0éØ\™[‰Ëˆ	ÓX\šÙ][™È[XZ[ÉÎˆ	ÓX\šÛ˜YÙ°íœš[™ÜÛXZ[	Ëˆ	Ô›ÙXÝ\]\Ë\Ë[™ÜXÚX[Ù™™\œÉÎˆ	Ô›ÙZÝžZ]\‹\ÈØÚÜXÚX[\˜šY[™[‰Ëˆ	Ó›ÝYšXØ][Ûˆ™Y™\™[˜Ù\ÉÎˆ	Ð]š\Ù\š[™ÜÚ[œÝ0éš[™Ø\‰Ëˆ	Ùœ™YH[‰Îˆ	ÙÜ˜]\Ü[‰Ëˆ	Õ™\šYšYY	Îˆ	Õ™\šYšY\˜Y	Ëˆ	Ó›Ý™\šYšYY	Îˆ	Ò[H™\šYšY\˜Y	Ë‚ˆ	Ô\ÜÝÛÜ™]\Ý™H]X\ÝÚ\˜XÝ\œÉÎˆ	Ó0íœÙ[›Ü™]pé\ÝH˜\˜HZ[œÝXÚÙ[‰Ëˆ	Ô\ÜÝÛÜ™\ÈÛÈÛ™ÉÎˆ	Ó0íœÙ[›Ü™]0éˆ°íœˆ0é[™Ý	Ëˆ	Ô\ÜÝÛÜ™]\ÝÛÛZ[ˆHÝÙ\˜Ø\ÙH]\‰Îˆ	Ó0íœÙ[›Ü™]pé\ÝH[›™Z0é[H[ˆ][ˆ›ÚÜÝ]‰Ëˆ	Ô\ÜÝÛÜ™]\ÝÛÛZ[ˆ[ˆ\\˜Ø\ÙH]\‰Îˆ	Ó0íœÙ[›Ü™]pé\ÝH[›™Z0é[H[ˆÝÜˆ›ÚÜÝ]‰Ëˆ	Ô\ÜÝÛÜ™]\ÝÛÛZ[ˆH[X™\‰Îˆ	Ó0íœÙ[›Ü™]pé\ÝH[›™Z0é[H[ˆÚY™œ˜IËˆ	Ð]X\ÝÚ\˜XÝ\œÉÎˆ	ÓZ[œÝXÚÙ[‰Ëˆ	ÐÚÛÜÙHHÝ›Û™Ù\ˆ\ÜÝÛÜ™‰Îˆ	Õ°éˆ]Ý\šØ\™H0íœÙ[›Ü™‰Ëˆ	Ü[‰Îˆ	Ü[‰Ë‚ˆ	ÓÝÛ™\‰Îˆ	ðáØ\™IËˆ	Ñ[ÛÛ›Ûš[[™È[™X›\Ú[™Ë‰Îˆ	Ñ[ÛÛ›Û˜ZÝ\™\š[™ÈØÚX›XÙ\š[™Ë‰Ëˆ	ÓX[˜YÙHY[X™\œÈ[™Ú\™Y›Ú™XÝË‰Îˆ	Ò[\˜HYY[[X\ˆØÚ[YH›Ú™ZÝ‰Ëˆ	ÑY]Ú\™Y›Ú™XÝÛÛ[‰Îˆ	Ô™YYÙ\˜H[›™Z0é[H[YH›Ú™ZÝ‰Ëˆ	Ô™XY[Û›HXØÙ\ÜË‰Îˆ	Ñ[™\Ý0éØ™Z0íœšYÚ]‰Ëˆ	Õ[™^XÝY\œ›Ü‰Îˆ	ÓÝ°é]™[	Ëˆ	ÐÜ™X]HX[IÎˆ	ÔÚØ\HX[IËˆ	ÐÜ™X][™Ë‹‹‰Îˆ	ÔÚØ\\‹‹‹‰Ëˆ	ÐXØÙ\[š]IÎˆ	ÐXØÙ\\˜H[˜šY[‰Ëˆ	ÐXØÙ\[™Ë‹‹‰Îˆ	ÐXØÙ\\˜\‹‹‹‰Ëˆ	Ô™Yœ™\Ú	Îˆ	Õ\]\˜IËˆ	Ô™[˜[YIÎˆ	Ðž]˜[[‰Ëˆ	Ñ[]IÎˆ	ÕH›Ü	Ëˆ	ÐÛÜH[š]H[šÉÎˆ	ÒÛÜY\˜H[˜šYš[™ÜÛ0éšÉËˆ	Ô™]›ÚÙIÎˆ	ðá]\šØ[IËˆ	Ô›ÛIÎˆ	Ô›Û	Ëˆ	ÔÙX]ÉÎˆ	Ô]Ù\‰Ëˆ	Ô›Ú™XÝÉÎˆ	Ô›Ú™ZÝ	Ëˆ	Ô›Ú™XÝ	Îˆ	Ô›Ú™ZÝ	Ëˆ	Ó›È[™[™È[š]][ÛœË‰Îˆ	Ò[™ØH°é[™H[˜šYš[™Ø\‹‰Ë‚ˆ	ÐÛÛ[X[™[]IÎˆ	ÒÛÛ[X[™Ü[]	Ëˆ	ÐÛÛ[X[™[]H
+Ý›
+ÒÊIÎˆ	ÒÛÛ[X[™Ü[]
+Ý›
+ÒÊIËˆ	ÕÙÙÛH[YIÎˆ	Ðž][XIËˆ	ÐÚ[™ÙH[™ÝXYÙIÎˆ	Ðž]Ü°éZÉËˆ	ÐRHÚ]	Îˆ	ÐRKXÚ]	Ëˆ	Õ\ÙHHRH\ÜÚ\Ý[[™[ÛˆHšYÚÈÚ]IÎˆ	Ð[°é™RKX\ÜÚ\Ý[[™[[ˆ[0í™Ù\ˆ°íœˆ]Ú]HIËˆ	ÔÝXœØÜš\[Û‰Îˆ	Ô™[[Y\˜][Û‰Ëˆ	ÓX[˜YÙH[Ý\ˆ[ˆ[™š[[™Ë‰Îˆ	Ò[\˜H[ˆ[ˆØÚ˜ZÝ\™\š[™Ë‰Ëˆ	ÔÝ\Ü	Îˆ	ÔÝ\Ü	Ëˆ	ÑÙ][œ›ÝÜÙHØÜËÜˆÛÛXÝÝ\ˆX[K‰Îˆ	Ñ°éH°é0éÈÚÝ[Y[][Ûˆ[\ˆÛÛZÝH°é\X[K‰Ëˆ	ÒÙ^X›Ø\™ÚÜÝ]ÉÎˆ	ÒÛÜÛÛ[X[™Û‰Ë‚ˆ	ÐX›Ý]^X\ˆ[[YÙ[˜ÙIÎˆ	ÓÛH^X\ˆ[[YÙ[˜ÙIËˆ	ÐH›ØÝ\ÙYÛÜšÜÜXÙH›ÜˆZ[[™ËÜ™X][™ËÛÛX›Ü˜][™È[™Ú\[™Èš[š\ÚYÛÜšË‰Îˆ	Ñ[ˆ›ÚÝ\Ù\˜Y\˜™]Þ]H°íœˆ]žYÙØKÚØ\KØ[X\˜™]HØÚ]™\™\˜H°é™YÝ\˜™]K‰Ëˆ	Õ^X\ˆ[[YÙ[˜ÙHœš[™ÜÈ˜XÝXØ[›ÙXÝ]š]HÛÛÈ[ÈÛ™HÛÜšÜÜXÙKˆHÝ\œ™[›ÙXÝ[˜ÛY\ÈÙXœÚ]HZ[\ˆŒKX[HÛÜšÜÜXÙ\ËØÝ[Y[[™Üš][™ÈÛÛË˜[œÛ][Û‹ÝYHÛÜšÙ›ÝÜË›Ú™XÝX[˜YÙ[Y[[™XØÛÝ[[]™[™Y™\™[˜Ù\Ë‰Îˆ	Õ^X\ˆ[[YÙ[˜ÙHØ[[\ˆ˜ZÝ\ÚØH›ÙZÝ]š]]Ý™\šÝYÈH[ˆ\˜™]Þ]Kˆ›ÙZÝ[ˆ[›™Z0é[\ˆÙX˜œ]ØžYÙØ\™HŒKX[X\˜™]Þ]Ü‹ÚÝ[Y[HØÚÚÜš]™\šÝYË0í™\œðéš[™ËÝYYY›0í™[‹›Ú™ZÝ[\š[™ÈØÚÛÛÚ[œÝ0éš[™Ø\‹‰Ëˆ	ÕHÛØ[\ÈÚ[\Nˆ™YXÙHÛÛÝÚ]Ú[™ÈÚ[HÙY\[™ÈH[\Ü[\ÈÙˆH›Ú™XÝ8 %ÛÛ[™\œÚ[ÛœË\›Z\ÜÚ[ÛœÈ[™[]™\žH8 %ÛÛ›™XÝY‰Îˆ	Ópé[]0éˆ[šÙ[ˆZ[œÚØH°é[™Ù[ˆY[[ˆ™\šÝYÈØÚØ[]YYÝ0é[HšZÝYØH›Ú™ZÝ[\ˆ8 %[›™Z0é[™\œÚ[Û™\‹™Z0íœšYÚ]\ˆØÚ]™\˜[œÈ8 %Ø[[X[›0éšØYK‰Ëˆ	ÕÙXœÚ]HZ[\ˆŒIÎˆ	ÕÙX˜œ]ØžYÙØ\™HŒIËˆ	ÕÙXœÚ]HZ[\ˆŒH\ÈXÝ]™H[™Ý\ÜÈ™\ÜÛœÚ]™HYÙ\Ë›Ü›\ËX›\Ú[™Ë™[X\ÙH\ÝÜžH[™›Û˜XÚË][[[™ÝX[YÙ\Ë[˜[]XÜËÛÛ™\œÚ[Ûˆ˜XÚÚ[™ËXYX[˜YÙ[Y[X[HÛÛX›Ü˜][Ûˆ[™ÛY[[™Ù™ˆÛÜšÙ›ÝÜË‰Îˆ	ÕÙX˜œ]ØžYÙØ\™HŒH0éˆZÝ]ˆØÚÝ0í™\ˆ™\ÜÛœÚ]˜HÚYÜ‹›Ü›][0é‹X›XÙ\š[™Ë™\œÚ[ÛœÚ\ÝÜšZÈØÚ0é]\œÝ0éš[™Ë›\œÜ°éZÚYØHÚYÜ‹[˜[\ËÛÛ™\\š[™ÜÜÜ0é\›š[™ËXYÚ[\š[™ËX[\Ø[X\˜™]HØÚÝ[™]™\˜[œË‰Ëˆ	ÕÚ]ÛÛY\È™^	Îˆ	Õ˜YÛÛ[Y\ˆ0é›°éÝ	Ëˆ	ÕH™^XZ›Üˆ›ÙXÝ\ÙH\ÈRKX\ÜÚ\ÝYÙXœÚ]HÙ[™\˜][Û‹ˆ]\È[[[Û˜[HÙ\\˜]Hœ›ÛHŒHÛÈHÛÜ™HZ[\ˆØ[ˆ™[XZ[ˆ\ÙY[[™›ÙXÝ[Û‹\™XYHÚ]Ý]\[™[™ÈÛˆRHÙ[™\˜][Û‹‰Îˆ	Ó°éÝHÝ0íœœ™H˜\È0éˆRKX\ÜÚ\Ý\˜YÙX˜œ]ÙÙ[™\™\š[™Ëˆ[ˆ0é[È]œÚZÝYÝÙ\\˜]œ°é[ˆŒHðéH]ðé›˜žYÙØ\™[ˆ°íœ˜›\ˆ[°é™˜\ˆØÚ›ÙZÝ[ÛœÚÛ\ˆ][ˆ™\›Ù[™H]ˆRKYÙ[™\™\š[™Ë‰Ëˆ	ÐÛÛXÝ\ÉÎˆ	ÒÛÛZÝHÜÜÉËˆ•ÙIÙÝ™HÈX\ˆœ›ÛH[ÝKˆ™XXÚÝ]Ú][žH]Y\Ý[ÛœÈÜˆ™YY˜XÚËˆŽˆ	ÕšH0íœˆðé›˜Hœ°é[ˆYËˆÛÛZÝHÜÜÈYYœ°éYÛÜˆ[\ˆ™YY˜XÚË‰Ëˆ	ÔÛ™IÎˆ	Õ[Y›Û‰Ëˆ	ÓÙ™šXÙIÎˆ	ÒÛÛÜ‰Ëˆ	ÔÝØÚÚÛKÝÙY[‰Îˆ	ÔÝØÚÚÛKÝ™\šYÙIËˆ	Ö[Ý\ˆ[XZ[	Îˆ	Ñ[ˆK\ÜÝ	Ëˆ	ÔÝXš™XÝ	Îˆ	ðá[™IËˆ	ÓY\ÜØYÙIÎˆ	ÓYY[[™IËˆ	Ö[Ý\ˆ[XZ[	Îˆ	Ñ[ˆK\ÜÝ	Ëˆ	Ö[Ý\ˆY\ÜØYÙIÎˆ	Ñ]YY[[™IËˆ	ÔÙ[™™YY˜XÚÉÎˆ	ÔÚÚXÚØH™YY˜XÚÉËˆ	Ò[\È[\›Ý™H^X\ˆ[[YÙ[˜ÙHÛÛËˆÚ\™H[Ý\ˆÝYÚËYX\Ë[™ÝYÙÙ\Ý[ÛœË‰Îˆ	Ò°éÜÜÈ°íœ˜°é˜H^X\ˆ[[YÙ[˜ÙHÛÛËˆ[H[˜H[šØ\‹Y0êY\ˆØÚ°íœœÛYË‰Ëˆ	ÒÝÈÛÝ[[ÝH˜]H[Ý\ˆ^\šY[˜ÙOÉÎˆ	Ò\ˆÚÝ[HH™]YÜðéH[ˆ\]™[ÙOÉËˆ	Ô˜][™ÉÎˆ	Ð™]YÉËˆ	ÐØ]YÛÜžIÎˆ	ÒØ]YÛÜšIËˆ	ÑÙ[™\˜[	Îˆ	Ð[pé	Ëˆ	Ñ™X]\™H™\]Y\Ý	Îˆ	Ñ[šÝ[Ûœðí›œÚÙ[pé[	Ëˆ	ÕRHÈ\ÚYÛ‰Îˆ	ÕRHÈ\ÚYÛ‰Ëˆ	Ô\™›Ü›X[˜ÙIÎˆ	Ô™\Ý[™IËˆ	Ô˜Z\ÙIÎˆ	Ð™\°í›IËˆ	Ö[Ý\ˆ™YY˜XÚÉÎˆ	Ñ[ˆ™YY˜XÚÉËˆ	Õ[\ÈÚ][ÝH[šË‹‹‰Îˆ	Ð™\°éH˜YHXÚÙ\‹‹‹‰Ëˆ	Ö[Ý\ˆ™YY˜XÚÉÎˆ	Ñ[ˆ™YY˜XÚÉËˆ	Ô™\ÜHYÉÎˆ	Ô˜\Ü\˜H[ˆYÙÉËˆ	Ñ›Ý[™HYÏÈ[\Èš^]ˆ›ÝšYH\È]XÚ]Z[\ÈÜÜÚX›K‰Îˆ	Ò]][ˆYÙÏÈ°éÜÜÈš^H[ˆØÚÙHðéH^XÚÙ][™›Ü›X][ÛˆÛÛHpíš›YÝ‰Ëˆ	ÔÙ]™\š]IÎˆ	Ð[˜\›YÚ]ÙÜ˜Y	Ëˆ	ÐYÈÙ]™\š]IÎˆ	ÐYÙÙ[œÈ[˜\›YÚ]ÙÜ˜Y	Ëˆ	ÓÝÈHZ[›Üˆ\ÜÝYK›Ý›ØÚÚ[™ÉÎˆ	Ó0éYÈHZ[™™H›Ø›[K›ØÚÙ\˜\ˆ[IËˆ	ÓYY][HHY™™XÝÈÛÜšÙ›ÝÉÎˆ	ÓYY[H0é]™\šØ\ˆ\˜™]Ù›0í™]	Ëˆ	ÒYÚHXZ›Üˆ™X]\™Hœ›ÚÙ[‰Îˆ	Ò0í™ÈHšZÝYÈ[šÝ[Ûˆ˜\ÚYÉËˆ	ÐÜš]XØ[H\[\ØX›IÎˆ	ÒÜš]\ÚÈH\[ˆðé\ˆ[H][°é™IËˆ	ÐY™™XÝYÛÛ	Îˆ	Ð™\°íœ™\šÝYÉËˆ	ÐY™™XÝYÛÛ	Îˆ	Ð™\°íœ™\šÝYÉËˆ	ÑÙ[™\˜[È]›Ü›IÎˆ	Ð[péÈ]›Ü›IËˆ	ÐÕˆZ[\‰Îˆ	ÐÕ‹XžYÙØ\™IËˆ	ÐÛÝ™\ˆ]\‰Îˆ	Ô\œÛÛ›YÝœ™]‰Ëˆ	Õ˜[œÛ]Ü‰Îˆ	ðå™\œðé\™IËˆ	ÓÙÚ[ˆÈÚYÛ\	Îˆ	Ò[›ÙÙÛš[™ÈÈ™YÚ\Ý™\š[™ÉËˆ	ÔÝ\ÈÈ™\›ÙXÙIÎˆ	ÔÝYÈ°íœˆ]0é]\œÚØ\IËˆ	Ñ^XÝY™Z]š[Ü‰Îˆ	Ñ°íœ°é]™]Y[™IËˆ	ÐXÝX[™Z]š[Ü‰Îˆ	Ñ˜ZÝ\ÚÝ™]Y[™IËˆ	Ò[Ù[\‰Îˆ	Ò°éÙ[\‰Ëˆ	Ñš[™[œÝÙ\œÈÈÛÛ[[Ûˆ]Y\Ý[ÛœÈ[™Ù]Ý\Ü‰Îˆ	Ò]HÝ˜\ˆ0éH˜[›YØHœ°éYÛÜˆØÚ°éHÝ\Ü‰Ëˆ	Ó›È™\Ý[È›Ý[™ˆžHHY™™\™[ÙX\˜Ú‰Îˆ	Ò[™ØH™\Ý[]]Y\Ëˆ›Ý˜H[ˆ[›˜[ˆðíšÛš[™Ë‰Ëˆ	ÔÝ[™YY[ÉÎˆ	Ð™Z0í™\ˆH›Ü˜\˜[™H°éÉËˆ”Ù[™\ÈHY\ÜØYÙH[™ÙIÛÙ]˜XÚÈÈ[ÝHÚ][ˆÝ\œËˆŽˆ	ÔÚÚXÚØH]YY[[™HðéH0é]\šÛÛ[Y\ˆšH[›ÛH[[X\‹‰Ëˆ	ÔÙX\˜Ú[\XÛ\Ë‹‹‰Îˆ	ÔðíšÈH°é\ZÛ\‹‹‹‰Ëˆ	Ñ\ØÜšX™H[Ý\ˆ\ÜÝYK‹‹‰Îˆ	Ð™\ÚÜš]ˆ]›Ø›[K‹‹‰Ëˆ	ÐÛÛÚÚYHÛÛœÙ[	Îˆ	ÐÛÛÚÚYK\Ø[]XÚÙIËˆ	Ôš]˜XÞHÛXÞIÎˆ	Ò[YÜš]]ÜÛXÞIËˆ	Ó™XÙ\ÜØ\žIÎˆ	Ó°í™°é™YØIËˆ	Ð[˜[]XÜÉÎˆ	Ð[˜[\ÉËˆ	ÓX\šÙ][™ÉÎˆ	ÓX\šÛ˜YÙ°íœš[™ÉËˆ	ÐÛÛÚÚYHÛÛœÙ[	Îˆ	ÐÛÛÚÚYK\Ø[]XÚÙIËˆ	ÐÛÜÙHÛÛÚÚYHÛÛœÙ[	Îˆ	ÔÝ0é™ÈÛÛÚÚYK\Ø[]XÚÙIËˆ	ÐÛÛÚÚYHÙ][™ÜÉÎˆ	ÐÛÛÚÚYKZ[œÝ0éš[™Ø\‰Ëˆ	Ó\Ý\]Yˆ]YÝ\ÝŽŒ‰Îˆ	ÔÙ[˜\Ý\]\˜YˆŽ]YÝ\ÝHŒ‰Ëˆ	Õ\›\ÈÙˆÙ\šXÙIÎˆ	Ð[°é™\š[ÛÜ‰Ëˆ	Õ\ÈYÙH\ØÜšX™\ÈHXZ[ˆØ]YÛÜšY\ÈÙˆ[™›Ü›X][Ûˆ^X\ˆ[[YÙ[˜ÙHX^H›ØÙ\ÜÈÚ[ˆ[ÝH\ÙHH›ÙXÝˆH^XÝ]H[›Û™Y\[™ÈÛˆH™X]\™\È[ÝHÚÛÜÙHÈ\ÙK‰Îˆ	Ñ[ˆ0éˆÚY[ˆ™\ÚÜš]™\ˆ]YØ]YÛÜšY\›˜H]ˆ[™›Ü›X][ÛˆÛÛH^X\ˆ[[YÙ[˜ÙHØ[ˆ™Z[™H°éˆH[°é™\ˆ›ÙZÝ[‹ˆ^ZÝH]H™\›Üˆ0éHš[ØH[šÝ[Û™\ˆH[°é™\‹‰Ëˆ	ÐXØÛÝ[]Z[Ë›Ùš[HÙ][™ÜË›Ú™XÝËš[\Ë™Y™\™[˜Ù\È[™ÛÛX›Ü˜][Ûˆ]HX^H™HÝÜ™YÛÈHÙ\šXÙHØ[ˆ]][XØ]H[ÝKØ]™H[Ý\ˆÛÜšÈ[™[™›Ü˜ÙHXØÙ\ÜÈ\›Z\ÜÚ[ÛœË‰Îˆ	ÒÛÛÝ\ÚY\‹›Ùš[[œÝ0éš[™Ø\‹›Ú™ZÝš[\‹™Y™\™[œÙ\ˆØÚØ[X\˜™]Ù]HØ[ˆYÜ˜\È°íœˆ]][\Ù\š[™ËÜ\˜[™H]ˆ\˜™]HØÚ0é]ÛÛ\ÝÛÛ›Û‰Ëˆ	ÕÙXœÚ]HZ[\ˆ›Ú™XÝÈØ[ˆ[˜ÛYHYÙ\ËYYXH™Y™\™[˜Ù\Ë›Ü›HÝX›Z\ÜÚ[ÛœËXYË[˜[]XÜÈ]™[Ë™[X\ÙH\ÝÜžKX›\Ú[™ÈÙ][™ÜÈ[™X[H\›Z\ÜÚ[ÛœËˆX›XÈÙXœÚ]H›Ü›\È[™[˜[]XÜÈ\ÙHYXØ]YÙ\™\‹\ÚYHÛÛ›ÛÈ[™˜]H[Z]Ë‰Îˆ	Ô›Ú™ZÝHÙX˜œ]ØžYÙØ\™[ˆØ[ˆ[›™Z0é[HÚYÜ‹YYY\™Y™\™[œÙ\‹›Ü›][0éœÝ˜\‹XYË[˜[\Ú0é™[Ù\‹™\œÚ[ÛœÚ\ÝÜšZËX›XÙ\š[™ÜÚ[œÝ0éš[™Ø\ˆØÚX[X™Z0íœšYÚ]\‹ˆX›ZØH›Ü›][0éˆØÚ[˜[\È[°é™\ˆðéœÚÚ[HÙ\™\šÛÛ›Û\ˆØÚ\ÝYÚ]ÙÜ°éœÙ\‹‰Ëˆ	ÕH\XØ][Ûˆ\Ù\È\™\\H[™œ˜\ÝXÝ\™HÝXÚ\ÈÝ\X˜\ÙH›Üˆ]][XØ][Û‹]X˜\ÙH[™ÝÜ˜YÙHØ\Xš[]Y\Ëˆ™X]\™\È]\ÙH^\›˜[RHÜˆ^[Y[Ù\šXÙ\ÈX^HÙ[™H[™›Ü›X][Ûˆ™\]Z\™YÈÛÛ\]H]ÜXÚYšXÈ™\]Y\ÝÈHÛÛ™šYÝ\™Y›ÝšY\‹‰Îˆ	Ð\ZØ][Û™[ˆ[°é™\ˆ™Y™\\Ú[™œ˜\ÝZÝ\ˆÛÛHÝ\X˜\ÙH°íœˆ]][\Ù\š[™Ë]X˜\ÈØÚYÜš[™Ëˆ[šÝ[Û™\ˆÛÛH[°é™\ˆ^\›˜HRKH[\ˆ™][°éœÝ\ˆØ[ˆÚÚXÚØH[ˆ[™›Ü›X][ÛˆÛÛHÜ°éœÈ°íœˆ[ˆÜXÚYšZØH™Yðé˜[ˆ[ÛÛ™šYÝ\™\˜Y]™\˜[0íœ‹‰Ëˆ	ÕH\XØ][Ûˆ\Ù\È[˜Üž\Y™]ÛÜšÈÛÛ›™XÝ[ÛœÈ[™]X˜\ÙHXØÙ\ÜÈÛÛ›ÛË[˜ÛY[™È›ÝÈ]™[ÙXÝ\š]H›Üˆ\Ù\ˆ[™ÛÜšÜÜXÙH]Kˆ]][XØ][ÛˆÜ™Y[X[È\™H[™Y›ÝYÚH]][XØ][Ûˆ›ÝšY\ˆ˜]\ˆ[ˆ™Z[™ÈÝÜ™Y\ÈZ[^\XØ][Ûˆ]K‰Îˆ	Ð\ZØ][Û™[ˆ[°é™\ˆÜž\\˜YH°é™\šÜØ[œÛ]š[™Ø\ˆØÚ]X˜\ðé]ÛÛ\ÝÛÛ›Û\‹[šÛ\Ú]™H›ÝÈ]™[ÙXÝ\š]H°íœˆ[°é™\‹HØÚ\˜™]Þ]Y]Kˆ]][\Ù\š[™ÜÝ\ÚY\ˆ[\˜\È]ˆ]][\Ù\š[™ÜÛ]™\˜[0íœ™[ˆØÚYÜ˜\È[HÛÛHÛ\^H\[‹‰Ëˆ	Ðœ›ÝÜÙ\ˆÝÜ˜YÙHX^H™H\ÙY›Üˆ]][XØ][ÛˆÙ\ÜÚ[ÛœË[\™˜XÙH™Y™\™[˜Ù\Ë™XÛÝ™\žH]H[™ÛÛœÙ[ÚÚXÙ\Ëˆ[˜[]XÜÈÜˆ›ÙXÝ[Ûˆ[YÜ˜][ÛœÈ\™HÛÛ›ÛYžHH™[]˜[›ÙXÝ[™ÙXœÚ]HÙ][™ÜË‰Îˆ	ÕÙX˜›0éØ\›YÜš[™ÈØ[ˆ[°é™\È°íœˆ]][\Ù\š[™ÜÜÙ\ÜÚ[Û™\‹Ü°éœÜÛš]Ú[œÝ0éš[™Ø\‹0é]\œÝ0éš[™ÜÙ]HØÚØ[]XÚÙ\Ý˜[ˆ[˜[\ËHØÚ›ÙZÝ[ÛœÚ[YÜ˜][Û™\ˆÝ\œÈ]ˆ™[]˜[H›ÙZÝHØÚÙX˜œ]Ú[œÝ0éš[™Ø\‹‰Ëˆ	Ö[ÝHØ[ˆX[˜YÙHXØÛÝ[™Y™\™[˜Ù\È[™X[žHÝÜ™Y›Ú™XÝÙ][™ÜÈ[œÚYHH›ÙXÝˆ™\]Y\ÝÈ™[][™ÈÈXØÙ\ÜËÛÜœ™XÝ[ÛˆÜˆ[][ÛˆÙˆ\œÛÛ˜[]HÚÝ[™HXYH›ÝYÚHÝ\ÜÜ[ÛœÈ]˜Z[X›H[ˆ[Ý\ˆXØÛÝ[‰Îˆ	ÑHØ[ˆ[\˜HÛÛÚ[œÝ0éš[™Ø\ˆØÚpé[™ØHYÜ˜YH›Ú™ZÝ[œÝ0éš[™Ø\ˆH›ÙZÝ[‹ˆ™Yðé˜[ˆÛH0é]ÛÛ\Ý°é[ÙH[\ˆ˜Y\š[™È]ˆ\œÛÛ\ÚY\ˆÚØHðíœ˜\ÈšXHÝ\Ü[\›˜]]™[ˆH]ÛÛË‰Ëˆ	Õ\ÈÛXÞHX^H™H\]Y\ÈH›ÙXÝ[™œ˜\ÝXÝ\™HÜˆYØ[™\]Z\™[Y[ÈÚ[™ÙKˆH]H]HÜÙˆ\ÈYÙHÚÝÜÈH]\ÝX›\ÚY™]š\Ú[Û‹‰Îˆ	ÔÛXÞ[ˆØ[ˆ\]\˜\È°éˆ›ÙZÝ[‹[™œ˜\ÝZÝ\™[ˆ[\ˆ\šY\ÚØHÜ˜]ˆ°íœ°é™˜\Ëˆ][Y]0í™ÜÝ\š\Ø\ˆÙ[˜\ÝHX›XÙ\˜YH™]š\Ú[Û‹‰Ëˆ	ÐžH\Ú[™È^X\ˆ[[YÙ[˜ÙK[ÝHYÜ™YHÈ\ÙHHÙ\šXÙH]Ù[H[™[ˆHØ^H]Ù\È›Ý[\™™\™HÚ]Ý\ˆ\Ù\œËH]›Ü›HÜˆ]È[™œ˜\ÝXÝ\™K‰Îˆ	ÑÙ[›ÛH][°é™H^X\ˆ[[YÙ[˜ÙHÛÙðé›™\ˆH][°é™H°éœÝ[ˆYÛYÝØÚ][ˆ]Ý0íœ˜H[™˜H[°é™\™K]›Ü›Y[ˆ[\ˆ[™œ˜\ÝZÝ\™[‹‰Ëˆ	Ö[ÝH\™H™\ÜÛœÚX›H›ÜˆHXØÝ\˜XÞHÙˆ[™›Ü›X][ÛˆÝX›Z]Y›ÝYÚ[Ý\ˆXØÛÝ[[™›ÜˆÙY\[™ÈXØÙ\ÜÈÈ[Ý\ˆXØÛÝ[ÙXÝ\™KˆX[H[™Ú\™Y\›Ú™XÝ\›Z\ÜÚ[ÛœÈÚÝ[Û›H™HÜ˜[YÈ[ÜH[ÝH[[™ÈÛÛX›Ü˜]HÚ]‰Îˆ	ÑH[œÝ˜\˜\ˆ°íœˆšZÝYÚ][ˆH[™›Ü›X][ÛˆÛÛHÚÚXÚØ\ÈšXH]ÛÛÈØÚ°íœˆ]0é[HÛÛÝðéÙ\ˆX[KHØÚ›Ú™ZÝ™Z0íœšYÚ]\ˆÚØH˜\˜HÙ\È[\œÛÛ™\ˆH]œÙ\ˆ]Ø[X\˜™]HYY‰Ëˆ	Ö[ÝH™[XZ[ˆ™\ÜÛœÚX›H›Üˆ™]šY]Ú[™ÈHÛÛ[ÙXœÚ]\ËØÝ[Y[È[™Ý\ˆÝ]]È[ÝHÜ™X]HÜˆX›\Ú›ÝYÚH]›Ü›Kˆ]]ÛX]YÜˆRKX\ÜÚ\ÝYÝ]]ÚÝ[™HÚXÚÙY™Y›Ü™H]\È™[YYÛˆÜˆX›\ÚY‰Îˆ	ÑH[œÝ˜\˜\ˆ›ÜØ]°íœˆ]Ü˜[œÚØH[›™Z0é[ÙX˜œ]Ù\‹ÚÝ[Y[ØÚ[™˜H™\Ý[]ÛÛHHÚØ\\ˆ[\ˆX›XÙ\˜\ˆšXH]›Ü›Y[‹ˆ]]ÛX]\ÚÝ[\ˆRKX\ÜÚ\Ý\˜]X]\šX[ÚØHÛÛ›Û\˜\È[›˜[ˆ][°é™È[\ˆX›XÙ\˜\Ë‰Ëˆ	Ö[ÝHX^H›Ý\ÙHHÙ\šXÙHÈœ™XZÈH]ËX\ÙHX›XÈ›Ü›\ÈÜˆT\Ëž\\ÜÈ›ÙXÝ[Z]ÈÜˆXØÙ\ÜÈÛÛ›ÛË\ÝšX]HX[XÚ[Ý\ÈÛÛ[[\™™\™HÚ]HÙ\šXÙKÜˆ][\[˜]]Üš^™YXØÙ\ÜÈÈÝ\ˆXØÛÝ[ÈÜˆ›Ú™XÝË‰Îˆ	ÑH°é\ˆ[H[°é™H°éœÝ[ˆ°íœˆ]œž]H[ÝYÙ[‹Z\ÜØœZØHX›ZØH›Ü›][0éˆ[\ˆTN™\‹Üš[™ÙðéH›ÙZÝÜ°éœÙ\ˆ[\ˆ0é]ÛÛ\ÝÛÛ›Û\‹ÜšYHÚØYYÝ[›™Z0é[Ý0íœ˜H°éœÝ[ˆ[\ˆ°íœœðíšØH°éHØ™Z0íœšYÈ0é]ÛÛ\Ý[[™˜HÛÛÛˆ[\ˆ›Ú™ZÝ‰Ëˆ	Ñœ™YK›È[™\Ú[™\ÜÈ™X]\™\È[™\ØYÙH[Z]È\™H\Ü^YY[ˆH›ÙXÝˆZYšXÚ[™Ë™[™]Ø[]Z[ËØ[˜Ù[][ÛˆÜ[ÛœÈ[™[žH\XØX›Hš[[™È\›\È\™H™\Ù[Y›ÝYÚHÛÛ™šYÝ\™YÚXÚÛÝ][™š[[™ÈÜ[ˆ\XØX›HÛÛœÝ[Y\ˆšYÚÈ™[XZ[ˆ[˜Y™™XÝY‰Îˆ	Ñ[šÝ[Û™\ˆØÚ[°é™š[™ÜÙÜ°éœÙ\ˆ°íœˆœ™YK›ÈØÚ\Ú[™\ÜÈš\Ø\ÈH›ÙZÝ[‹ˆ™][š\Üðéš[™Ë°íœ›žY[ÙK\ðéÛš[™ÈØÚ[0é\YØH˜ZÝ\™\š[™ÜÝš[ÛÜˆš\Ø\ÈšXHÛÛ™šYÝ\™\˜YÚXÚÛÝ]ØÚ˜ZÝ\™\š[™ÜÜÜ[ˆ[0é\YØHÛÛœÝ[Y[°éYÚ]\ˆ0é]™\šØ\È[K‰Ëˆ	Ñ™X]\™\ÈX^H]›Û™H\ÈH›ÙXÝ\È[\›Ý™YˆÙHX^HÚ[™ÙKYÜˆ™]\™H™X]\™\ÈÚ[ˆ™YYY›ÜˆÙXÝ\š]K™[XXš[]HÜˆ›ÙXÝ]™[ÜY[ˆ[\Ü[Ú[™Ù\ÈÚÝ[™H™Y›XÝY[ˆH›ÙXÝÜˆ\ÙH\›\Ë‰Îˆ	Ñ[šÝ[Û™\ˆØ[ˆ]™XÚÛ\È°éˆ›ÙZÝ[ˆ°íœ˜°é˜\ËˆšHØ[ˆ0é™˜K0éÙØH[[\ˆH›Ü[šÝ[Û™\ˆ°éˆ]™Z0íœÈ°íœˆðéÙ\š][°íœ›]YÚ][\ˆ›ÙZÝ]™XÚÛ[™ËˆšZÝYØH0é™š[™Ø\ˆÚØH0é]\œÜYÛ\ÈH›ÙZÝ[ˆ[\ˆš[ÛÜ™[‹‰Ëˆ	ÕHÙ\šXÙH\È›ÝšYY\ÈH›ÙXÝ]š]H]›Ü›Kˆ[ÝH\™H™\ÜÛœÚX›H›ÜˆHš[˜[XÚ\Ú[ÛœËX›XØ][ÛœÈ[™XÝ[ÛœÈZÙ[ˆ\Ú[™ÈHÝ]]ÈÙˆHÙ\šXÙK[˜ÛY[™ÈÙXœÚ]\ÈX›\ÚYÈ\™\\HÜˆÛÛ™šYÝ\™YÜÝ[™È\Ý[˜][ÛœË‰Îˆ	Õ°éœÝ[ˆ[[™Z0é[ÈÛÛH[ˆ›ÙZÝ]š]]Ü]›Ü›KˆH[œÝ˜\˜\ˆ°íœˆÛ]YØH™\Û]X›XÙ\š[™Ø\ˆØÚ0é]ðé™\ˆÛÛHðíœœÈYY°éœÝ[œÈ™\Ý[][šÛ\Ú]™HÙX˜œ]Ù\ˆÛÛHX›XÙ\˜\È[™Y™H\[\ˆÛÛ™šYÝ\™\˜YHÜÝ[™Ûpé[‰Ëˆ	Ô]Y\Ý[ÛœÈX›Ý]\ÙH\›\ÈØ[ˆ™HÝX›Z]Y›ÝYÚHÝ\ÜÜ[ÛœÈ]˜Z[X›H[ˆH›ÙXÝ‰Îˆ	Ñœ°éYÛÜˆÛHš[ÛÜ™[ˆØ[ˆÚÚXÚØ\ÈšXHÝ\Ü[\›˜]]™[ˆH›ÙZÝ[‹‰Ë‚ˆ	ÕÙ[ÛÛYH˜XÚÉÎˆ	Õ°éÛÛ[Y[ˆ[˜ZØIËˆ	ÔÚYÛˆ[ˆÈ[Ý\ˆXØÛÝ[ÈÛÛ[YIÎˆ	ÓÙÙØH[ˆ0éH]ÛÛÈ°íœˆ]›ÜðéIËˆ	ÛÜ‰Îˆ	Ù[\‰Ëˆ	Ô\ÜÝÛÜ™	Îˆ	Ó0íœÙ[›Ü™	Ëˆ	Ñ[\ˆ[Ý\ˆ\ÜÝÛÜ™	Îˆ	Ð[™ÙH]0íœÙ[›Ü™	Ëˆ	ÔÚYÛš[™È[‹‹‹‰Îˆ	ÓÙÙØ\ˆ[‹‹‹‰Ëˆ	ÔÚYÛˆ[‰Îˆ	ÓÙÙØH[‰Ëˆ‘Û‰Ý]™H[ˆXØÛÝ[ÈŽˆ	Ò\ˆH[™Ù]ÛÛÏÉËˆ	ÐÜ™X]H[Ý\ˆXØÛÝ[	Îˆ	ÔÚØ\H]ÛÛÉËˆ	ÔÝ\\Ú[™ÈL
+ÈRHÛÛÈ›Üˆœ™YIÎˆ	Ð°íœš˜HÜ˜]\ÈYYÜ[™0éÙØ[™HRK]™\šÝYÈØÚÙX˜œ]ØžYÙØ\™[‰Ëˆ	Ð]X\ÝˆÚ\˜XÝ\œÉÎˆ	ÓZ[œÝˆXÚÙ[‰Ëˆ	ÐÜ™X][™ÈXØÛÝ[‹‹‰Îˆ	ÔÚØ\\ˆÛÛË‹‹‰Ëˆ	ÐÜ™X]Hœ™YHXØÛÝ[	Îˆ	ÔÚØ\HÜ˜]\ÚÛÛÉËˆ	Ó›ÈÜ™Y]Ø\™™\]Z\™Y	Îˆ	Ò[™Ù]™][ÛÜÜ°éœÉËˆ	ÐXØÙ\ÜÈH˜\ÚXÈRHÛÛÉÎˆ	Õ[ðé[™È[HÜ[™0éÙØ[™HRK]™\šÝYÉËˆ	ÌLØÝ[Y[È\ˆ[Û	Îˆ	ÌLÚÝ[Y[\ˆpé[˜Y	Ëˆ	Ô\ÜÝÛÜ™]\Ý™H]X\ÝˆÚ\˜XÝ\œË‰Îˆ	Ó0íœÙ[›Ü™]pé\ÝH˜\˜HZ[œÝˆXÚÙ[‹‰Ëˆ	ÐÚXÚÈ[Ý\ˆ[XZ[	Îˆ	ÒÛÛ›Û\˜H[ˆK\ÜÝ	Ëˆ•ÙIÝ™HÙ[H\ÜÝÛÜ™™\Ù][šÈÈŽˆ	ÕšH\ˆÚÚXÚØ][ˆ0é]\œÝ0éš[™ÜÛ0éšÈ[	Ëˆ	Ð˜XÚÈÈÙÚ[‰Îˆ	Õ[˜ZØH[[›ÙÙÛš[™ÉËˆ	Ñ›Ü™ÛÝ\ÜÝÛÜ™ÉÎˆ	ÑÛ0í›]0íœÙ[›Ü™ÉËˆ	ÔÙ[™[™Ë‹‹‰Îˆ	ÔÚÚXÚØ\‹‹‹‰Ëˆ	ÔÙ[™™\Ù][šÉÎˆ	ÔÚÚXÚØH0é]\œÝ0éš[™ÜÛ0éšÉËˆ	Ô\ÜÝÛÜ™\]Y	Îˆ	Ó0íœÙ[›Ü™]\]\˜Y\ÉËˆ	ÔÙ]H™]È\ÜÝÛÜ™	Îˆ	Ð[™ÙH]ž]0íœÙ[›Ü™	Ëˆ	ÐÚÛÜÙHHÝ›Û™È\ÜÝÛÜ™›Üˆ[Ý\ˆXØÛÝ[	Îˆ	Õ°éˆ]Ý\šÝ0íœÙ[›Ü™°íœˆ]ÛÛÉËˆ	ÐÛÛ™š\›H\ÜÝÛÜ™	Îˆ	Ð™ZÜ°éH0íœÙ[›Ü™	Ëˆ	Ô™KY[\ˆ[Ý\ˆ\ÜÝÛÜ™	Îˆ	Ð[™ÙH0íœÙ[›Ü™]YÙ[‰Ëˆ	Õ\][™Ë‹‹‰Îˆ	Õ\]\˜\‹‹‹‰Ëˆ	Õ™\šYžH[Ý\ˆ[XZ[	Îˆ	Õ™\šYšY\˜H[ˆK\ÜÝ	Ëˆ‘Y‰ÝÙ]]È[\ˆ[Ý\ˆ[XZ[Žˆ	ÑšXÚÈH[™Ù]XZ[È[™ÙH[ˆK\ÜÝ	Ëˆ	Ñ[XZ[Ù[IÎˆ	ÓXZ[ÚÚXÚØ]IËˆ	Ô™\Ù[™™\šYšXØ][Ûˆ[XZ[	Îˆ	ÔÚÚXÚØH™\šYšY\š[™ÜÛXZ[YÙ[‰Ëˆ	Ñ[\ˆ[Ý\ˆ[XZ[š\œÝ‰Îˆ	Ð[™ÙH[ˆK\ÜÝ°íœœÝ‰Ëˆ	Ñ›Ü™ÛÝ\ÜÝÛÜ™	Îˆ	ÑÛ0í›]0íœÙ[›Ü™	Ëˆ	ÐÜ™X]HXØÛÝ[	Îˆ	ÔÚØ\HÛÛÉËˆ	Ð[™XYH]™H[ˆXØÛÝ[ÉÎˆ	Ò\ˆH™Y[ˆ]ÛÛÏÉËˆ	ÔÚYÛˆ\	Îˆ	Ô™YÚ\Ý™\˜HYÉË‚ˆ	ÐÛÛ[YHÚ]ÛÛÙÛIÎˆ	Ñ›ÜðéYYÛÛÙÛIËˆ	Ñ[XZ[	Îˆ	ÑK\ÜÝ	Ëˆ	ÔÚYÛˆ\œ™YIÎˆ	Ô™YÚ\Ý™\˜HYÈÜ˜]\ÉËˆ	ÔÚYÛˆ[‰Îˆ	ÓÙÙØH[‰Ëˆ	ÕÙXZÉÎˆ	ÔÝ˜YÝ	Ëˆ	Ñ˜Z\‰Îˆ	ÓÚÙZ‰Ëˆ	ÑÛÛÙ	Îˆ	Ðœ˜IËˆ	ÔÝ›Û™ÉÎˆ	ÔÝ\šÝ	Ë‚ˆ	ÓÛ˜›Ø\™[™ÉÎˆ	Ò[›ÙZÝ[Û‰Ëˆ[™XYH]™H[ˆXØÛÝ[È\ÝØZ]8 %ÙIÛ\œÛÛ˜[^™H]™\ž][™ËˆŽˆ	Ò\ˆH™Y[ˆ]ÛÛÏÈšH[œ\ÜØ\ˆ[0é]YË‰Ëˆ	ÐÚÛÜÙH[Ý\ˆ[™ÝXYÙIÎˆ	Õ°éˆÜ°éZÉËˆ	Ö[ÝHØ[ˆÚ[™ÙH\È[ž][YH[ˆÙ][™ÜÉÎˆ	ÑHØ[ˆ0é™˜H]H°éˆÛÛH[ÝH[œÝ0éš[™Ø\›˜IËˆ	ÕÚ]™\Ý\ØÜšX™\È[ÝOÉÎˆ	Õ˜Y™\ÚÜš]™\ˆYÈ°éÝÉËˆ•ÙIÛZ[Üˆ[Ý\ˆ^\šY[˜ÙH˜\ÙYÛˆ\ÈŽˆ	ÕšH[œ\ÜØ\ˆ\]™[Ù[ˆY\ˆ]IËˆ	Õ[\ÈX›Ý][ÝIÎˆ	Ð™\°éHÛHYÉËˆ’\ÝH˜\ÚXÜÈ8 %ÙIÛ\ÙH\ÈÈ\œÛÛ˜[^™H[Ý\ˆÛÜšÜÜXÙHŽˆ	Ð˜\˜HÜ[™\›˜H8 %šH[°é™\ˆ]H°íœˆ][œ\ÜØH[ˆ\˜™]Þ]IËˆ	ÐÛÝ[žIÎˆ	Ó[™	Ëˆ	ÔÙ[XÝ[Ý\ˆÛÝ[žIÎˆ	Õ°éˆ[™	Ëˆ	Ô›Ù™\ÜÚ[Û‰Îˆ	Ö\šÙIËˆ	ÙK™ËˆÛÙØ\™H[™Ú[™Y\‹ÝY[\ÚYÛ™\‰Îˆ	Ý™^ˆZZÝ˜\Z[™Ù[š°íœ‹ÝY[\ÚYÛ™\‰Ëˆ•Ú]	ÜÈ[Ý\ˆXZ[ˆÛØ[ÈŽˆ	Õ˜Y0éˆ]]Ypé[ÉËˆ”XÚÈÛ™H8 %ÙIÛ™XÛÛ[Y[™H™\ÝÛÛÈ›Üˆ]Žˆ	Õ°éˆ]ðéH™ZÛÛ[Y[™\˜\ˆšHH°éÝH™\šÝYÙ[‰Ëˆ	Ö[Ý\ˆ™XÛÛ[Y[™YÛÛÉÎˆ	Ñ[˜H™ZÛÛ[Y[™\˜YH™\šÝYÉËˆ	Ð˜\ÙYÛˆ[Ý\ˆ›Ùš[K\ÙHÚ[[[ÝHÙ]Ý\Y˜\Ý	Îˆ	Ð˜\Ù\˜]0éH[ˆ›Ùš[°é\ˆH0éˆ™\šÝYÙ[ˆYÈ]ÛÛ[XHYðé[™ÈÛ˜X˜	Ëˆ–[ÝIÜ™H[Ù]Žˆ	Ð[0éˆÛ\	Ëˆ	ÕZÙHÝ\‰Îˆ	ÕH[ˆ[™\‰Ëˆ	Ô]ZXÚÈÝ\	Îˆ	ÔÛ˜X˜œÝ\	Ëˆ	Ö[Ý\ˆ›ÙÜ™\ÜÉÎˆ	Ñ[˜Hœ˜[\ÝYÉËˆ	ÐXÚY]™[Y[ÉÎˆ	Ô™\Ý][Û™\‰Ëˆ	Ô™XÛÛ[Y[™Y›Üˆ[ÝIÎˆ	Ô™ZÛÛ[Y[™\˜]°íœˆYÉËˆ	Ñš[š\Ú	Îˆ	ÔÛ]°íœ‰Ëˆ	Ó™^	Îˆ	Ó°éÝIË‚ˆ	ÐRHÛÜšÜÜXÙIÎˆ	ÐRKX\˜™]Þ]IËˆ	ÔÙX\˜ÚÛÛË‹‹ˆ
+K™ËˆÕ‹˜[œÛ]K]Z^ŠIÎˆ	ÔðíšÈ™\šÝYË‹‹ˆ
+™^ˆÕ‹0í™\œðé]Z^ŠIËˆ	ÔÙX\˜ÚÛÛË‹‹‰Îˆ	ÔðíšÈ™\šÝYË‹‹‰Ëˆ	ÐÛX\ˆÙX\˜Ú	Îˆ	Ô™[œØHðíšÛš[™ÉËˆ	Ô[›™Y	Îˆ	Ñ°éÝIËˆ	Ó›ÈÛÛÈ›Ý[™	Îˆ	Ò[™ØH™\šÝYÈ]Y\ÉËˆ	ÕžHHY™™\™[ÙX\˜ÚÜˆØ]YÛÜžK‰Îˆ	Ô›Ý˜H[ˆ[›˜[ˆðíšÛš[™È[\ˆØ]YÛÜšK‰Ëˆ	Ñ˜]›Üš]\ÉÎˆ	Ñ˜]›Üš]\‰Ëˆ	ÐÛXÚÈHÝ\ˆÛˆ[žHÛÛÈY]\™K‰Îˆ	ÒÛXÚØH0éHÝ°é›˜[ˆ0éH]™\šÝYÈ°íœˆ]0éÙØH[]0é‹‰Ëˆ	Ô™XÙ[H\ÙY	Îˆ	ÔÙ[˜\Ý[°é™IËˆ	ÕÛÛÈ[ÝH\ÙHÚ[\X\ˆ\™H›Üˆ]ZXÚÈXØÙ\ÜË‰Îˆ	Õ™\šÝYÈH[°é™\ˆš\Ø\È0éˆ°íœˆÛ˜X˜ˆ0é]ÛÛ\Ý‰Ëˆ	ÐÛÛ[YHÛÜšÚ[™ÉÎˆ	Ñ›Üðé\˜™]IËˆ“›È˜YÈ[ˆ›ÙÜ™\ÜËˆÝ\H™]ÈØÝ[Y[[™]	ÛÚÝÈ\\™KˆŽˆ	Ò[™ØH]Ø\Ý0éYðé\‹ˆÝ\H]ž]ÚÝ[Y[ðéHš\Ø\È]0é‹‰Ëˆ	Ñ˜Y	Îˆ	Õ]Ø\Ý	Ëˆ	ÐRH™XÛÛ[Y[™][ÛœÉÎˆ	ÐRK\™ZÛÛ[Y[™][Û™\‰Ëˆ	Ô™XÙ[XÝ]š]IÎˆ	ÔÙ[˜\ÝHZÝ]š]]	Ëˆ	Ó›È™XÙ[XÝ]š]IÎˆ	Ò[™Ù[ˆÙ[˜\ÝHZÝ]š]]	Ëˆ	Ó^Hš[\ÉÎˆ	ÓZ[˜Hš[\‰Ëˆ	Ð[[Ý\ˆÙ[™\˜]YØÝ[Y[ËÕœË˜[œÛ][ÛœËÚ]È[™›Ú™XÝÈ[ˆÛ™HXÙK‰Îˆ	Ð[H[˜HÙ[™\™\˜YHÚÝ[Y[ÕŽ›‹0í™\œðéš[™Ø\‹Ú]\ˆØÚ›Ú™ZÝ0éH]Ý0éK‰Ëˆ	ÕÝ[š[\ÉÎˆ	ÕÝ[[[š[\‰Ëˆ	ÐÛÛ\]Y	Îˆ	ÔÛ]°íœ™IËˆ	Ñ˜YÉÎˆ	Õ]Ø\Ý	Ëˆ	ÔÙX\˜Úš[\Ë‹‹‰Îˆ	ÔðíšÈš[\‹‹‹‰Ëˆ	Ñš[H˜[YIÎˆ	Ñš[˜[[‰Ë‚ˆ	ÕÙXœÚ]HZ[\‰Îˆ	ÕÙX˜œ]ØžYÙØ\™IËˆ	Ó™]ÈÛÝY›Ú™XÝ	Îˆ	Óž][Ûœ›Ú™ZÝ	Ëˆ	ÑQ•	Îˆ	ÕUÐTÕ	Ëˆ	ÐÛÜÙIÎˆ	ÔÝ0é™ÉËˆ	ÕÙXœÚ]HZ[\ˆŒH][˜ÚÙ[\‰Îˆ	Ó[œÙ\š[™ÜØÙ[\ˆ°íœˆÙX˜œ]ØžYÙØ\™HŒIËˆ	ÓÛ™HXÙHÈÛ˜›Ø\™H›Ú™XÝ[ˆ›ÙXÝ[ÛˆÚXÚÜËX›\ÚH™[X\ÙH[™™\šYžH]H]™HÚ]H\ÈX[K‰Îˆ	Ñ[ˆ]È°íœˆ]Ý\H›Ú™ZÝ]ðíœ˜H›ÙZÝ[ÛœÚÛÛ›Û\‹X›XÙ\˜H™[X\Ù[ˆØÚ™\šYšY\˜H]ØZ[ˆ[™Ù\˜\‹‰Ëˆ	Ñ^Ü][˜Ú™\Ü	Îˆ	Ñ^Ü\˜H[œÙ\š[™ÜÜ˜\Ü	Ëˆ	Ñš[˜[™XY[™\ÜÉÎˆ	ÔÛ]YÈ™\™YÚØ\	Ëˆ	Ð]]ÛX]Y™[X\ÙHØ]H›Üˆ\È›Ú™XÝ‰Îˆ	Ð]]ÛX]\ÚÈ™[X\ÙZÛÛ›Û°íœˆ›Ú™ZÝ]‰Ëˆ	Ð]Y]	Îˆ	ÑÜ˜[œÚÛš[™ÉËˆ	ÒX[	Îˆ	ÔÝ]\ÉËˆ	ÔÞ[˜ÉÎˆ	ÔÞ[šÉËˆ	Ó]™IÎˆ	Ó]™IËˆ	Ó][˜Ú›ØÚÙ\œÉÎˆ	Ó[œÙ\š[™ÜÚ[™\‰Ëˆ	ø§$È›ÈÜš]XØ[›ÙXÝ[Ûˆ›ØÚÙ\œÈ]XÝY‰Îˆ	ø§$È[™ØHÜš]\ÚØH›ÙZÝ[ÛœÚ[™\ˆ\0éÚÝ\Ë‰Ëˆ	Ð]]ÛX]Y][˜ÚÚXÚÜÉÎˆ	Ð]]ÛX]\ÚØH[œÙ\š[™ÜÚÛÛ›Û\‰Ëˆ	ÔX›\ÚÛ›HY\ˆH™Y›YÚ][\È\™HÜ™Y[‹‰Îˆ	ÔX›XÙ\˜H°íœœÝ°éˆ[H°íœšÛÛ›Û\ˆ0éˆÜ°í›˜K‰Ëˆ	Ô]ZXÚË\Ý\Û˜›Ø\™[™ÉÎˆ	ÔÛ˜X˜œÝ\	Ëˆ	ÔÝ\œ›ÛHH›Ý™[ˆYÙHÝXÝ\™K[ˆÛÛ\]HH›ÙXÝ[ÛˆT“[™ÛÝYØ]™K‰Îˆ	Ð°íœš˜HYY[ˆ™\°í˜YÚYÝZÝ\ˆØÚÛ]°íœˆÙY[ˆ›ÙZÝ[ÛœËUT“ØÚ[ÛœÜ\›š[™Ë‰Ëˆ	Ñ’T”Õ“Ò‘PÕ	Îˆ	Ñ°å””ÕH“Ò‘RÕU	Ëˆ	ÔØ]™H›Ú™XÝ	Îˆ	ÔÜ\˜H›Ú™ZÝ	Ëˆ	Ô™]šY]ÉÎˆ	Ñ°íœš[™ÙÜ˜[œÚØIËˆ	ÓX[X[›ÙXÝ[ÛˆÚYÛ‹[Ù™‰Îˆ	ÓX[Y[›ÙZÝ[ÛœÙÛÙðé›˜[™IËˆ	Õ\ÙHÚXÚÜÈ[›Û™H^\›˜[Ù\šXÙ\È[™]\Ý™HÛÛ™š\›YYžHH[X[ˆ™Y›Ü™HXØÙ\[™ÈZYÝ\ÝÛY\œË‰Îˆ	ÒÛÛ›Û\›˜HÛY˜]\ˆ^\›˜H°éœÝ\ˆØÚpé\ÝH™ZÜ°é\ÈX[Y[[›˜[ˆ™][[™HÝ[™\ˆ\È[[Ý‰Ëˆ	Ô™[X\ÙHXÝ[ÛœÉÎˆ	Ô™[X\Ùpé]ðé™\‰Ëˆ	Ðš[[™È	ˆ[Z]ÉÎˆ	Ñ˜ZÝ\™\š[™ÈØÚÜ°éœÙ\‰Ëˆ	Õ™\šYžH[ˆ[™Ýš\HÝ]IÎˆ	Õ™\šYšY\˜H[ˆØÚÝš\K\Ý]\ÉËˆ	Ð]Y]	ˆ˜XÚÝ\ÉÎˆ	ÑÜ˜[œÚÛš[™ÈØÚðéÙ\š]ÚÛÜ[Ü‰Ëˆ	Ñ^Ü˜XÚÝ\[™XYÛ›ÜÝXÜÉÎˆ	Ñ^Ü\˜HðéÙ\š]ÚÛÜXHØÚXYÛ›ÜÝZÉËˆ	Ð›ØÚÙY[[]]ÛX]Y™Y›YÚ\È™XYIÎˆ	Ð›ØÚÙ\˜][È]]ÛX]\ÚÈ°íœšÛÛ›Û0éˆÛ\‰Ëˆ	Õ™\šYžH]™H™[X\ÙIÎˆ	Õ™\šYšY\˜H]™K\™[X\ÙIËˆ	ÐÛÛ™š\›H[™^š[\È\ÞYY	Îˆ	Ð™ZÜ°éH][™^š[0éˆX›XÙ\˜Y	Ëˆ	ÕŒH™[X\ÙHXÚ\Ú[Û‰Îˆ	ÕŒK\™[X\ÙX™\Û]	Ëˆ	Ô[œÈ	ˆš[[™ÉÎˆ	Ô[™\ˆØÚ˜ZÝ\™\š[™ÉËˆ	ÔÙXÝ\™H[][Y[Ë\ØYÙH[Z]È[™Ýš\HÝXœØÜš\[ÛˆX[˜YÙ[Y[‰Îˆ	ÔðéÜ˜H™Z0íœšYÚ]\‹[°é™š[™ÜÙÜ°éœÙ\ˆØÚÝš\K\™[[Y\˜][Û™\‹‰Ëˆ	ÓX[˜YÙHÝXœØÜš\[Û‰Îˆ	Ò[\˜H™[[Y\˜][Û‰Ëˆ	ÐÕT”‘S•	Îˆ	ÐRÕQS	Ëˆ	ÐXÝ]™H[‰Îˆ	ÐZÝ]ˆ[‰Ëˆ	ÓX[˜YÙHÝÛ™Ü˜YH[ˆÝš\IÎˆ	Ò[\˜H™YÜ˜Y\š[™ÈHÝš\IËˆ	ÑY˜][[‰Îˆ	ÔÝ[™\™[‰Ëˆ	ÕÙXœÚ]HZ[\ˆ\ØYÙIÎˆ	Ð[°é™š[™È]ˆÙX˜œ]ØžYÙØ\™[‰Ëˆ	Ó[Z]È\™H[ÛÈ[™›Ü˜ÙYžHÝ\X˜\ÙH›Üˆ›Ú™XÝÜYÙHÜ›ÝÝ‰Îˆ	ÑÜ°éœÙ\ˆ[0é\\È0é™[ˆ]ˆÝ\X˜\ÙH°íœˆ›Ú™ZÝHØÚÚY[°é‰Ëˆ	ÐÛY[[]™\žHÛÜšÜÜXÙIÎˆ	Ð\˜™]Þ]H°íœˆÝ[™]™\˜[œÉËˆ	Ð\›Ý˜[][˜Ú™XY[™\ÜË\ØYÙH[™Û™KXÛXÚÈÛY[[™Ù™‹‰Îˆ	ÑÛÙðé›˜[™K[œÙ\š[™ÜØ™\™YÚØ\[°é™š[™ÈØÚÝ[™]™\˜[œÈYY]ÛXÚË‰Ëˆ	ÐÛÜH™]šY]ÉÎˆ	ÒÛÜY\˜H°íœš[™ÙÜ˜[œÚÛš[™ÉËˆ	ÐÛY[	ˆ›Ú™XÝ	Îˆ	ÒÝ[™ØÚ›Ú™ZÝ	Ëˆ	ÐÛY[˜[YIÎˆ	ÒÝ[™˜[[‰Ëˆ	ÐÛY[[XZ[	Îˆ	ÒÝ[™[œÈK\ÜÝ	Ëˆ	Ô›Ú™XÝÛÙIÎˆ	Ô›Ú™ZÝÛÙ	Ëˆ	ÑYH]IÎˆ	Ñ°íœ™˜[Ù][IËˆ	Ñ[]™\žHÝ]\ÉÎˆ	Ó]™\˜[œÜÝ]\ÉËˆ	ÐZ[[™ÉÎˆ	ÐžYÙÙ\‰Ëˆ	Ô™XYH›Üˆ™]šY]ÉÎˆ	Ô™YÈ°íœˆÜ˜[œÚÛš[™ÉËˆ	Ð\›Ý™Y	Îˆ	ÑÛÙðé™	Ëˆ	Ñ[]™\™Y	Îˆ	Ó]™\™\˜Y	Ëˆ	Ò[™Ù™ˆ›Ý\ÉÎˆ	Ó]™\˜[œØ[XÚÛš[™Ø\‰Ëˆ	Ó][˜Ú™XY[™\ÜÉÎˆ	Ó[œÙ\š[™ÜØ™\™YÚØ\	Ëˆ	ÐÛY[\›Ý˜[š[™Ù\œš[	Îˆ	ÒÝ[™ÛÙðé›˜[™]Èš[™Ù\˜]žXÚÉËˆ	Ð\›Ý™HÝ\œ™[Z[	Îˆ	ÑÛÙðé›ˆZÝY[™\œÚ[Û‰Ëˆ	ÐÛX\ˆ\›Ý˜[	Îˆ	Ô™[œØHÛÙðé›˜[™IËˆ	ÓX\šÈ[]™\™Y	Îˆ	ÓX\šÙ\˜H]™\™\˜Y	Ëˆ	ÑÝÛ›ØYÛY[[™Ù™ˆ’T	Îˆ	ÓYH™\ˆÝ[™]™\˜[œËV’T	Ëˆ	ÔÚ]H
+È˜XÚÝ\
+È™\ÜÈ
+ÈÚXÚÜÝ[\ÉÎˆ	ÔØZ
+È˜XÚÝ\
+È˜\Ü\ˆ
+ÈÚXÚÜÝ[[[Ü‰Ëˆ	Ñ^Ü[]™\žH™\Ü	Îˆ	Ñ^Ü\˜H]™\˜[œÜ˜\Ü	Ëˆ	Ð\›Ý˜[™XY[™\ÜË\ØYÙH[™]Y]	Îˆ	ÑÛÙðé›˜[™K™\™YÚØ\[°é™š[™ÈØÚÜ˜[œÚÛš[™ÉËˆ	ÓÜ[ˆ™[X\Ù\ÉÎˆ	ðåœ˜H™[X\Ù\‰Ëˆ	Õ[›\ÝY™]šY]È[šÉÎˆ	ÓÛ\ÝYÜ˜[œÚÛš[™ÜÛ0éšÉËˆ	ÓÜ\˜][ÛœÈ	ˆ™[XXš[]IÎˆ	ÑšYØÚ[°íœ›]YÚ]	Ëˆ	Ð˜XÚÝ\™\ÝÜ™K^ÜÈ[™[ÈÜ\˜][ÛœË‰Îˆ	Ð˜XÚÝ\0é]\œÝ0éš[™Ë^Ü\ˆØÚX\Üðé]ðé™\‹‰Ëˆ	Ñ^Ü›Ú™XÝ˜XÚÝ\	Îˆ	Ñ^Ü\˜H›Ú™ZÝ˜XÚÝ\	Ëˆ	ÔÜX›H”ÓÓˆÛ˜\ÚÝ	Îˆ	ÔÜX™[”ÓÓ‹pí™ÛÛ˜›XÚÜØš[	Ëˆ	Ò[\Ü›Ú™XÝ˜XÚÝ\	Îˆ	Ò[\Ü\˜H›Ú™ZÝ˜XÚÝ\	Ëˆ	Ô™\ÝÜ™H”ÓÓˆ\ÈØØ[˜Y	Îˆ	ðá]\œÝ0é”ÓÓˆÛÛHÚØ[]Ø\Ý	Ëˆ	Ñ^Ü]Y]™\Ü	Îˆ	Ñ^Ü\˜HÜ˜[œÚÛš[™ÜÜ˜\Ü	Ëˆ	ÔYÙ\Ë[[Y[È[™X[	Îˆ	ÔÚYÜ‹[[Y[ØÚÝ]\ÉËˆ	Ñ^ÜXYÈÔÕ‰Îˆ	Ñ^Ü\˜HXYÈÔÕ‰Ëˆ	Ñ^Ü[˜[]XÜÈÔÕ‰Îˆ	Ñ^Ü\˜H[˜[\ÈÔÕ‰Ëˆ	ÓX\šÈ[XYÈ™XY	Îˆ	ÓX\šÙ\˜H[HXYÈÛÛH0éÝIËˆ	Ð[È[˜›ÞÛX[\	Îˆ	ÓX\ÜÜ™[œÛš[™È]ˆ[šÛÜ™ÉËˆ	Ð\˜Ú]™H™XYXYÉÎˆ	Ð\šÚ]™\˜H0éÝHXYÉËˆ	ÒÙY\[˜›Þ›ØÝ\ÙY	Îˆ	Ò0é[[šÛÜ™Ù[ˆ›ÚÝ\Ù\˜Y	Ëˆ	ÔÚ]H[˜[]XÜÉÎˆ	ÕÙX˜œ]Ø[˜[\ÉËˆ	ÕÜYÙ\ÉÎˆ	ÕÜÚYÜ‰Ëˆ	Õ˜Y™šXÈÛÝ\˜Ù\ÉÎˆ	Õ˜YšZÚðéÜ‰Ëˆ	ÓYYXHXœ˜\žIÎˆ	ÓYYYXšX›[ÝZÉËˆ	Õ\ÙIÎˆ	Ð[°é™	Ëˆ	Ñ˜]šXÛÛ‰Îˆ	Ñ˜]šXÛÛ‰Ëˆ	ÔÛØÚX[	Îˆ	ÔÛØÚX[	Ëˆ	ÓXYÔ“IÎˆ	ÓXYPÔ“IËˆ	ÔÙX\˜Ú]X[YžKš[Üš]^™H[™›ÛÝÈ\Ú]ÙXœÚ]HXYË‰Îˆ	ÔðíšËÝ˜[YšXÙ\˜Kš[Üš]\˜HØÚ°í›ˆ\ÙX˜œ]ÛXYË‰Ëˆ	Ô™XY[	Îˆ	Ó0éÈ[IËˆ	Ð\˜Ú]™H™XY	Îˆ	Ð\šÚ]™\˜H0éÝIËˆ	Ð[[˜›ÞÝ]\Ù\ÉÎˆ	Ð[H[šÛÜ™ÜÜÝ]\Ø\‰Ëˆ	Ó™]ÉÎˆ	ÓžIËˆ	Ô™XY	Îˆ	Ó0éÝ	Ëˆ	Ð\˜Ú]™Y	Îˆ	Ð\šÚ]™\˜Y	Ëˆ	Ð[Ô“HÝYÙ\ÉÎˆ	Ð[HÔ“K\ÝYÉËˆ	Ô]X[YšYY	Îˆ	ÒÝ˜[YšXÙ\˜Y	Ëˆ	ÐÛÛXÝY	Îˆ	ÒÛÛZÝY	Ëˆ	ÕÛÛ‰Îˆ	Õ[›™[‰Ëˆ	ÓÜÝ	Îˆ	Ñ°íœ›Ü˜Y	Ëˆ	ÔÙ[XÝÚÝÛ‰Îˆ	Õ°éˆš\ØYIËˆ	Ð[ÈÝYÙN‰Îˆ	ÓX\ÜÜÝYÎ‰Ëˆ	Ó›ÈXYÈY]ˆX›\ÚHÙXœÚ]HÚ]HÛÛXÝÙXÝ[Û‹[ˆÝX›Z\ÜÚ[ÛœÈÚ[\X\ˆ\™K‰Îˆ	Ò[™ØHXYÈ0é›KˆX›XÙ\˜H[ˆÙX˜œ]ÈYY[ˆÛÛZÝÙZÝ[ÛˆðéHš\Ø\È[œÚÚXÚÈ0é‹‰Ëˆ	Ó›ÈXYÈX]ÚHÝ\œ™[ÙX\˜Ú[™š[\œË‰Îˆ	Ò[™ØHXYÈX]Ú\ˆZÝY[ðíšÛš[™ÈØÚš[\‹‰Ëˆ	Ó›Ü›X[š[Üš]IÎˆ	Ó›Ü›X[š[Üš]]	Ëˆ	ø¦!Hš[Üš]IÎˆ	ø¦!Hš[Üš]]	Ëˆ	ø¦!x¦!HYÚš[Üš]IÎˆ	ø¦!x¦!H0í™Èš[Üš]]	Ëˆ	Ó›Ý\Î‰Îˆ	Ð[XÚÛš[™Ø\Ž‰Ëˆ	ÓX\šÈ™XY	Îˆ	ÓX\šÙ\˜H0éÝ	Ëˆ	Ð\˜Ú]™IÎˆ	Ð\šÚ]™\˜IËˆ	ÕYÜÉÎˆ	ÕYÙØ\‰Ëˆ	Ó›Ý\ÉÎˆ	Ð[XÚÛš[™Ø\‰Ëˆ	Ô™[X\ÙHX[˜YÙ[Y[	Îˆ	Ô™[X\ÙZ[\š[™ÉËˆ	Ò[[]]X›HX›\Ú\˜Ú]™\Ë]™H›Û˜XÚÈ[™[›\ÝY˜Y™]šY]ÜË‰Îˆ	ÓÙ°íœ°é™\›YØHX›XÙ\š[™ÜØ\šÚ]‹]™K\›Û˜XÚÈØÚÛ\ÝYH]Ø\Ý°íœš[™Ýš\Ûš[™Ø\‹‰Ëˆ	Ó™^™[X\ÙIÎˆ	Ó°éÝH™[X\ÙIËˆ	Õ[›\ÝYÚ\™H™]šY]ÉÎˆ	ÓÛ\ÝY[š[™ÜÙ°íœš[™Ýš\Ûš[™ÉËˆ	Ð[ž[Û™HÚ]\ÈT“Ø[ˆÜ[ˆ]ˆ˜XÚÚ[™È[YÜ˜][ÛœÈ\™H\ØX›Y[ˆ™]šY]Ë‰Îˆ	Ð[HYY0éšÙ[ˆØ[ˆ0íœ˜H[‹ˆÜ0é\›š[™ÜÚ[YÜ˜][Û™\ˆ0éˆ]œÝ0é™ÙHH°íœš[™Ýš\Ûš[™Ù[‹‰Ëˆ	ÓÜ[‰Îˆ	ðåœ˜IËˆ	Ô™YÙ[™\˜]IÎˆ	ÑÙ[™\™\˜HÛIËˆ	Ó›È™[X\Ù\ÈY]ˆY[ˆÜ[Û˜[™[X\ÙH›ÝH[™ÛXÚÈX›\Ú‰Îˆ	Ò[™ØH™[X\Ù\ˆ0é›Kˆ0éÙÈ[[ˆ˜[œšH™[X\ÙX[XÚÛš[™ÈØÚÛXÚØHX›XÙ\˜K‰Ëˆ	ÓU‘H‘Q‰Îˆ	ÓU‘KT‘Q‰Ëˆ	Ô›Û˜XÚÈ]™IÎˆ	ðá]\œÝ0é]™IËˆ	Ô™\ÝÜ™HY]Ü‰Îˆ	ðá]\œÝ0é™YYÙ\˜\™[‰Ëˆ	Ñ[]H\˜Ú]™IÎˆ	ÕH›Ü\šÚ]‰Ëˆ	Ô›Ú™XÝ\ÝÜžIÎˆ	Ô›Ú™ZÝ\ÝÜšZÉËˆ	Ó\ÝLX[X[Ø]™\Ëˆ]]ÜØ]™HÙ\È›ÝÜ™X]H\ÝÜžH[šY\Ë‰Îˆ	ÑHLÙ[˜\ÝHX[Y[HÜ\›š[™Ø\›˜Kˆ]]ÜÜ\˜[™HÚØ\\ˆ[H\ÝÜšZÜÜÝ\‹‰Ëˆ	Ô™\ÝÜ™H™\œÚ[Û‰Îˆ	ðá]\œÝ0é™\œÚ[Û‰Ëˆ	Ó›ÈX[X[Ø]™H\ÝÜžHY]ˆÛXÚÈØ]™HÈÜ™X]HHš\œÝ™\ÝÜ™HÚ[‰Îˆ	Ò[™Ù[ˆX[Y[Ü\š\ÝÜšZÈ0é›KˆÛXÚØHÜ\˜H°íœˆ]ÚØ\H°íœœÝH0é]\œÝ0éš[™ÜÜ[šÝ[‹‰Ëˆ	ÔYÙ\ÉÎˆ	ÔÚYÜ‰Ëˆ	ÒÓQIÎˆ	ÒSIËˆ	ÒQS‰Îˆ	ÑÓ	Ëˆ	Ñ[™Û\Ú	Îˆ	Ñ[™Ù[ÚØIËˆ	Õ[›ØÚÈ][[[™ÝX[	Îˆ	Ó0é\È\›\œÜ°éZÚYÚ]	Ëˆ	ÔYÙHÑSÉÎˆ	ÔÚYTÑSÉËˆ	ÑÛØ˜[XY\ˆ	ˆ›ÛÝ\‰Îˆ	ÑÛØ˜[ÚY]YØÚÚY›Ý	Ëˆ	ÒXY\‰Îˆ	ÔÚY]Y	Ëˆ	Ñ[˜X›Y	Îˆ	ÐZÝ]™\˜Y	Ëˆ	ÔÝXÚÞIÎˆ	Ñ°éÝ	Ëˆ	Ó[Øš[HY[IÎˆ	Ó[Øš[Y[žIËˆ	ÔÚÝÈÕH]Û‰Îˆ	Õš\ØHÕKZÛ˜\	Ëˆ	Ó˜]šYØ][ÛˆÝ[IÎˆ	Ó˜]šYÙ\š[™ÜÜÝ[	Ëˆ	Ó[šÈØ\	Îˆ	Ó0éšØ]œÝ0é[™	Ëˆ	Ðœ˜[™	Îˆ	Õ˜\[péšÙ\ÜÝÜ›ZÉËˆ	Ó[šÜÈ	Îˆ	Ó0éšÜÝÜ›ZÉËˆ	Ñ›ÛÝ\‰Îˆ	ÔÚY›Ý	Ëˆ	ÔYÙH[šÜÉÎˆ	ÔÚY0éšØ\‰Ëˆ	ÒXY\ˆ[™›ÛÝ\ˆ\™HÛØ˜[XÜ›ÜÜÈ]™\žHYÙH[™\™H[˜ÛYY[ˆ™]šY]Ë’T^Ü[™X›\Ú‰Îˆ	ÔÚY]YØÚÚY›Ý0éˆÛØ˜[H°íœˆ[HÚYÜˆØÚ[™ðé\ˆH°íœš[™Ýš\Ûš[™Ë’TY^ÜØÚX›XÙ\š[™Ë‰Ëˆ	ÔÚ]H^\šY[˜ÙIÎˆ	ÕÙX˜œ]Ý\]™[ÙIËˆ	ÔØÜ›Û›ÙÜ™\ÜÉÎˆ	Ô[š[™ÜÙ°íœ›Ü	Ëˆ	Ð˜XÚÈÈÜ	Îˆ	Õ[Ü[‰Ëˆ	ÐÛÛÚÚYHÈš]˜XÞH›ÝXÙIÎˆ	ÐÛÛÚÚYKKÚ[YÜš]]ÛYY[[™IËˆ	ÓX\šÙ][™È	ˆ\ØÛÝ™\žIÎˆ	ÓX\šÛ˜YÙ°íœš[™ÈØÚ\0éÚÝ	Ëˆ	Ð[››Ý[˜Ù[Y[	Îˆ	ÓYY[[™IËˆ	ÔÜ\	Îˆ	ÔÜ\	Ëˆ	ÔÚ]HÙX\˜Ú	Îˆ	ÕÙX˜œ]ÜðíšÛš[™ÉËˆ	ÑØ[\žHYÚ›Þ	Îˆ	ÑØ[\šK[YÚ›Þ	Ëˆ	Ñ›Ø][™ÈÕIÎˆ	Ñ›][™HÕIËˆ	ÔÚ\™HÛÛÉÎˆ	Ñ[š[™ÜÝ™\šÝYÉËˆ	Ô™K\X›\Ú]Y]	Îˆ	ÑÜ˜[œÚÛš[™È°íœ™HX›XÙ\š[™ÉËˆ	Ô™\ÝÜ™H™XÛÝ™\žHÛ˜\ÚÝ	Îˆ	ðá]\œÝ0é0é]\š0é]š[™ÜÜÛ˜\ÚÝ	Ëˆ	ÑTHÝXÝ\™Y]H\ÈÙ[™\˜]Y]]ÛX]XØ[Hœ›ÛHXØÛÜ™[Ûˆ[[Y[È\š[™È™]šY]Ë^Ü[™X›\Ú‰Îˆ	ÔÝZÝ\™\˜YTKY]HÚØ\\È]]ÛX]\ÚÝœ°é[ˆXØÛÜ™[Û‹Y[[Y[šY°íœš[™Ýš\Ûš[™Ë^ÜØÚX›XÙ\š[™Ë‰Ëˆ	Ô›ÙXÝ[Ûˆ[YÜ˜][ÛœÉÎˆ	Ô›ÙZÝ[ÛœÚ[YÜ˜][Û™\‰Ëˆ	ÓÜ™Ø[š^˜][ÛˆØÚ[XIÎˆ	ÓÜ™Ø[š\Ø][ÛœÜØÚ[XIËˆ	ÓØØ[\Ú[™\ÜÈØÚ[XIÎˆ	ÓÚØ[°íœ™]YË\ØÚ[XIËˆ	ÓXZ[[˜[˜ÙH[ÙIÎˆ	Õ[™\š0é[Û0éÙIËˆ	ÑÛØ˜[Ý\ÝÛHÔÔÉÎˆ	ÑÛØ˜[[œ\ÜØYÔÔÉËˆ	Ñ^˜H›Ø›ÝË[\ÉÎˆ	Ñ^˜H›Ø›ÝË\™YÛ\‰Ëˆ	ÑÛØ˜[[YIÎˆ	ÑÛØ˜[[XIËˆ	Ñ›Û	Îˆ	Õ\Ûš]	Ëˆ	ÕÚY	Îˆ	Ðœ™Y	Ëˆ	Ô˜Y]\ÉÎˆ	Ô˜YYIËˆ	ÔÜXÚ[™ÉÎˆ	Ð]œÝ0é[™	Ëˆ	Ð\HÈYÙIÎˆ	Õ[0é\H0éHÚY[‰Ëˆ	Ð\H[YÙ\ÉÎˆ	Õ[0é\H0éH[HÚYÜ‰Ëˆ	ÔÚ]HÑSÈ	ˆœ˜[™[™ÉÎˆ	ÕÙX˜œ]ËTÑSÈØÚ˜\[péšÙIËˆ	ÔYÙH[\]\ÉÎˆ	ÔÚYX[\‰Ëˆ	Õ\ÙH[\]IÎˆ	Ð[°é™X[	Ëˆ	ÔÙXÝ[Ûˆ[\]\ÉÎˆ	ÔÙZÝ[ÛœÛX[\‰Ëˆ	Ó^HÙXÝ[ÛœÉÎˆ	ÓZ[˜HÙZÝ[Û™\‰Ëˆ	ÔØ]™HÙ[XÝY	Îˆ	ÔÜ\˜H˜[	Ëˆ	ÓØY[™È[\]\ø )‰Îˆ	ÓY\ˆX[\¸ )‰Ëˆ	Ó›ÈØ]™YÙXÝ[ÛœÈY]‰Îˆ	Ò[™ØHÜ\˜YHÙZÝ[Û™\ˆ0é›K‰Ëˆ	ÐY[[Y[	Îˆ	Ó0éÙÈ[[[Y[	Ëˆ	Ó^Y\œÉÎˆ	ÓYÙ\‰Ëˆ	ÐRHÙXœÚ]HZ[\‰Îˆ	ÐRK]ÙX˜œ]ØžYÙØ\™IËˆ	Ñ^Ü	Îˆ	Ñ^Ü\˜IËˆ	Ñ\XØ]IÎˆ	Ñ\XÙ\˜IËˆ	ÐÛÛZ[™\ˆÈÜ›Ý\	Îˆ	Ð™Z0é[\™HÈÜ\	Ëˆ	ÊÈ™]ÈÛÛZ[™\‰Îˆ	ÊÈžH™Z0é[\™IËˆ	Ó›ÈÛÛZ[™\‰Îˆ	Ò[™Ù[ˆ™Z0é[\™IËˆ	Ó^[Ý]	Îˆ	Ó^[Ý]	Ëˆ	ÔÝXÚÉÎˆ	ÔÝ\IËˆ	Ô›ÝÉÎˆ	Ô˜Y	Ëˆ	Ð[YÛ‰Îˆ	Ò\Ý\š[™ÉËˆ	ÔÝ\	Îˆ	ÔÝ\	Ëˆ	ÐÙ[\‰Îˆ	ÐÙ[™\˜IËˆ	Ñ[™	Îˆ	ÔÛ]	Ëˆ	ÔÝ™]Ú	Îˆ	ÔÝ°éÚÉËˆ	ÑØ\	Îˆ	ÓY[[œ[IËˆ	ÔY[™ÉÎˆ	Õ]ž[˜Y	Ëˆ	Ð˜XÚÙÜ›Ý[™	Îˆ	Ð˜ZÙÜ[™	Ëˆ	Ð›Ü™\‰Îˆ	ÒØ[	Ëˆ	Ó›ÈÚYÝÉÎˆ	Ò[™Ù[ˆÚÝYÙØIËˆ	ÔÛX[ÚYÝÉÎˆ	Ó][ˆÚÝYÙØIËˆ	ÓYY][HÚYÝÉÎˆ	ÓYY[ÝÜˆÚÝYÙØIËˆ	Ó\™ÙHÚYÝÉÎˆ	ÔÝÜˆÚÝYÙØIËˆ	ÖÚYÝÉÎˆ	Ö\ÚÝYÙØIËˆ	ÐÛÛZ[™\ˆÛÛ[[‰Îˆ	Ð™Z0é[\šÛÛ[[‰Ëˆ	ÔÜ[‰Îˆ	ÔÜ[›‰Ëˆ	Ñ[]HÛÛZ[™\ˆ	ˆ[™Ü›Ý\	Îˆ	ÕH›Ü™Z0é[\™HØÚ]™Ü\\˜IËˆ	Ô™]\ØX›HÞ[X›ÛÉÎˆ	ðá]\˜[°é™˜\˜HÞ[X›Û\‰Ëˆ	Ñ]XÚ	Îˆ	ÒÛÜHÜÜÉËˆ	ÐÜ™X]HÞ[X›Û	Îˆ	ÔÚØ\HÞ[X›Û	Ëˆ	Ó›ÈÞ[X›ÛÈY]ˆÜ™X]HÛ™Hœ›ÛH\È[[Y[‰Îˆ	Ò[™ØHÞ[X›Û\ˆ0é›KˆÚØ\H[ˆœ°é[ˆ]0éˆ[[Y[]‰Ëˆ	ÓXœ˜\žIÎˆ	ÐšX›[ÝZÉËˆ	Õ\ØY	Îˆ	ÓYH\	Ëˆ	Ô™\ÜÛœÚ]™H^[Ý]	Îˆ	Ô™\ÜÛœÚ]ˆ^[Ý]	Ëˆ	ÓX^ÚY	Îˆ	ÓX^œ™Y	Ëˆ	ÓÜ™\‰Îˆ	ÓÜ™š[™ÉËˆ	Ñ[[Y[ÜÚ][Û‰Îˆ	Ñ[[Y[ÜÚ][Û‰Ëˆ	Ð]]ÉÎˆ	Ð]]ÉËˆ	ÐÛÛ[[ˆÜ[‰Îˆ	ÒÛÛ[[œÜ[›‰Ëˆ	ÔÚ^™IÎˆ	ÔÝÜ›ZÉËˆ	ÕÙZYÚ	Îˆ	ÕšZÝ	Ëˆ	Õ^ÛÛÜ‰Îˆ	Õ^°é™ÉËˆ	Ð[YÛ›Y[	Îˆ	Ò\Ý\š[™ÉËˆ	ÓY	Îˆ	Õ°éœÝ\‰Ëˆ	ÔšYÚ	Îˆ	Ò0í™Ù\‰Ëˆ	Ó[™HZYÚ	Îˆ	Ô˜Y0íš™	Ëˆ	Ó]\ˆÜXÚ[™ÉÎˆ	ÕXÚÙ[˜]œÝ0é[™	Ëˆ	ÑY™™XÝÉÎˆ	ÑY™™ZÝ\‰Ëˆ	ÓÜXÚ]H	IÎˆ	ÓÜXÚ]]	IËˆ	Ô›Ý]H0¬	Îˆ	Ô›Ý\˜H0¬	Ëˆ	Ð›Ü™\ˆÚY	Îˆ	ÒØ[œ™Y	Ëˆ	Ð›Ü™\ˆÝ[IÎˆ	ÒØ[Ý[	Ëˆ	ÔÛÛY	Îˆ	Ò[˜YÙ[‰Ëˆ	Ñ\ÚY	Îˆ	ÔÝ™XÚØY	Ëˆ	ÑÝY	Îˆ	Ô[šÝY	Ëˆ	Ð›Ü™\ˆÛÛÜ‰Îˆ	ÒØ[°é™ÉËˆ	ÔÚYÝÉÎˆ	ÔÚÝYÙØIËˆ	Ó›Û™IÎˆ	Ò[™Ù[‰Ëˆ	ÔÛX[	Îˆ	Ó][‰Ëˆ	ÓYY][IÎˆ	ÓYY[	Ëˆ	Ó\™ÙIÎˆ	ÔÝÜ‰Ëˆ	Ö	Îˆ	Ö	Ëˆ	Ñ[˜[˜ÙH[š[X][Û‰Îˆ	Ò[™ðé[™ÜØ[š[X][Û‰Ëˆ	Ð[š[X][Û‰Îˆ	Ð[š[X][Û‰Ëˆ	Ñ˜YIÎˆ	ÕÛ˜IËˆ	Ñ˜YH\	Îˆ	ÕÛ˜H\	Ëˆ	Ñ˜YHÝÛ‰Îˆ	ÕÛ˜H™Y	Ëˆ	Ñ˜YHY	Îˆ	ÕÛ˜H°éœÝ\‰Ëˆ	Ñ˜YHšYÚ	Îˆ	ÕÛ˜H0í™Ù\‰Ëˆ	Ö›ÛÛH[‰Îˆ	Ö›ÛÛXH[‰Ëˆ	Ö›ÛÛHÝ]	Îˆ	Ö›ÛÛXH]	Ëˆ	Ñ\˜][Ûˆ\ÉÎˆ	Õ˜\˜ZÝYÚ]\ÉËˆ	Ñ[^H\ÉÎˆ	Ñ°íœ™°íš›š[™È\ÉËˆ	Ñ\Ý[˜ÙH	Îˆ	Ð]œÝ0é[™	Ëˆ	ÒÝ™\‰Îˆ	ÒÝ™\‰Ëˆ	ÔØØ[IÎˆ	ÔÚØ[IËˆ	Õ^	Îˆ	Õ^	Ëˆ	ÕÚY	IÎˆ	Ðœ™Y	IËˆ	Ñ[]H[[Y[	Îˆ	ÕH›Ü[[Y[	Ëˆ	ÔÙXÝ[Ûˆ[˜ÚÜˆÈQ	Îˆ	ÔÙZÝ[ÛœØ[šØ\™HÈQ	Ëˆ	ÔÙXÝ[Ûˆ^[Ý]	Îˆ	ÔÙZÝ[ÛœÛ^[Ý]	Ëˆ	ÔÙXÝ[Ûˆš\ÝX[ÉÎˆ	ÔÙZÝ[ÛœÝ]ÙY[™IËˆ	Ñœ›ÛIÎˆ	Ñœ°é[‰Ëˆ	ÕÉÎˆ	Õ[	Ëˆ	ÑÜ˜YY[[™ÛIÎˆ	ÑÜ˜YY[š[šÙ[	Ëˆ	Ð˜XÚÙÜ›Ý[™[XYÙHT“	Îˆ	ÕT“[˜ZÙÜ[™Øš[	Ëˆ	ÔÜÚ][Û‰Îˆ	ÔÜÚ][Û‰Ëˆ	ÕÜ	Îˆ	ÕÜ	Ëˆ	Ð›ÝÛIÎˆ	Ð›Ý[‰Ëˆ	ÐÛÝ™\‰Îˆ	Õ0éÚÉËˆ	ÐÛÛZ[‰Îˆ	Ôž[IËˆ	ÓÝ™\›^IÎˆ	ðå™\›0éÙÉËˆ	ÓÜXÚ]IÎˆ	ÓÜXÚ]]	Ëˆ	ÓZ[ˆZYÚ	Îˆ	ÓZ[š0íš™	Ëˆ	ÐÛÜ›™\ˆ˜Y]\ÉÎˆ	Ò0íœ›œ˜YYIËˆ	Õ™\XØ[Y[™ÉÎˆ	Õ™\ZØ[]ž[˜Y	Ëˆ	ÒÜš^›Û[Y[™ÉÎˆ	ÒÜš\ÛÛ[]ž[˜Y	Ëˆ	Ñ›Ü›HZ[\‰Îˆ	Ñ›Ü›][0é˜žYÙØ\™IËˆ	Ô™\Ù]	Îˆ	ðá]\œÝ0é	Ëˆ	Õ^\™XIÎˆ	Õ^Û\°éYIËˆ	ÔÙ[XÝ	Îˆ	Õ°é‰Ëˆ	ÐÚXÚØ›Þ	Îˆ	ÒÜž\ÜÜ]IËˆ	ÐY\ˆÝX›Z]	Îˆ	ÑY\ˆ[œÚÚXÚÉËˆ	ÔÚÝÈÝXØÙ\ÜÈY\ÜØYÙIÎˆ	Õš\ØHœ˜[Yðé[™ÜÛYY[[™IËˆ	Ô™Y\™XÝÈ[šË^[ÝHYÙHÈT“	Îˆ	ÓÛY\šYÙ\˜H[XÚÜÚYHÈT“	Ëˆ	Ô™Y\™XÝ\™Ù]	Îˆ	ÓÛY\šYÙ\š[™ÜÛpé[	Ëˆ	ÔÝXØÙ\ÜÈY\ÜØYÙIÎˆ	Ñœ˜[Yðé[™ÜÛYY[[™IËˆ	ÕÙXœÚ]H˜[YIÎˆ	ÕÙX˜œ]Û˜[[‰Ëˆ	Õ\HHÛÛ[X[™YÙHÜˆÙXÝ[Û¸ )‰Îˆ	ÔÚÜš]ˆ]ÛÛ[X[™Ë[ˆÚYH[\ˆÙZÝ[Û¸ )‰Ëˆ	ÐÛY[ÜˆÛÛ\[žIÎˆ	ÒÝ[™[\ˆ°íœ™]YÉËˆ	Ô™[X\ÙH›ÝH
+Ü[Û˜[
+NˆÚ]Ú[™ÙYÉÎˆ	Ô™[X\ÙX[XÚÛš[™È
+˜[œš]
+Nˆ˜Y0é™˜Y\ÏÉËˆ	ÔYÙH˜[YIÎˆ	ÔÚY˜[[‰Ëˆ	ÐÝ\ÝÛHÑSÈ]H
+Ü[Û˜[
+IÎˆ	Ð[œ\ÜØYÑSË]][
+˜[œš]
+IËˆ	ÐÝ\ÝÛHY]H\ØÜš\[Ûˆ
+Ü[Û˜[
+IÎˆ	Ð[œ\ÜØYY]X™\ÚÜš]›š[™È
+˜[œš]
+IËˆ	ÔÛØÚX[Ú\™H[XYÙHT“	Îˆ	ÕT“[[š[™ÜØš[	Ëˆ	ÐØ[›ÛšXØ[T“Ý™\œšYH
+Ü[Û˜[
+IÎˆ	ðá\ÚYÜðéØ[›ÛšXØ[UT“
+˜[œš]
+IËˆ	Ðœ˜[™^
+›[šÈHÚ]H˜[YJIÎˆ	Õ˜\[péšÙ\Ý^
+Û]HÙX˜œ]Û˜[[ŠIËˆ	ÓÙÛÈ[XYÙHT“
+Ü[Û˜[
+IÎˆ	ÕT“[ÙÛÝ\
+˜[œš]
+IËˆ	ÐÕHX™[	Îˆ	ÐÕKY]ZÙ]	Ëˆ	Ñ›ÛÝ\ˆ^
+›[šÈH]]ÛX]XÈÛÜ\šYÚ
+IÎˆ	ÔÚY›ÝÝ^
+Û]H]]ÛX]\ÚÈÛÜ\šYÚ
+IËˆ	Ôš]˜XÞH›ÝXÙH^	Îˆ	Ò[YÜš]]ÛYY[[™IËˆ	ÐXØÙ\]ÛˆX™[	Îˆ	Ñ]ZÙ]0éHXØÙ\\˜KZÛ˜\	Ëˆ	Ð[››Ý[˜Ù[Y[^	Îˆ	ÓYY[[™]^	Ëˆ	Ó[šÈX™[	Îˆ	Ó0éšÙ]ZÙ]	Ëˆ	ÔÜ\]IÎˆ	ÔÜ\]][	Ëˆ	ÔÜ\Y\ÜØYÙIÎˆ	ÔÜ\[YY[[™IËˆ	Ð]Û‰Îˆ	ÒÛ˜\	Ëˆ	Ð]Ûˆ[šÉÎˆ	ÒÛ˜\0éšÉËˆ	Ñ›Ø][™ÈÕHX™[	Îˆ	Ñ]ZÙ]°íœˆ›][™HÕIËˆ	ÐÕH[šÉÎˆ	ÐÕK[0éšÉËˆ	Ô]\ÚX›HÛXZ[‰Îˆ	Ô]\ÚX›KYÛpé‰Ëˆ	ÑÛÛÙÛH™\šYšXØ][ÛˆÚÙ[‰Îˆ	ÑÛÛÙÛK]™\šYšY\š[™ÜÝÚÙ[‰Ëˆ	Ðš[™È™\šYšXØ][ÛˆÚÙ[‰Îˆ	Ðš[™Ë]™\šYšY\š[™ÜÝÚÙ[‰Ëˆ	ÓÜ™Ø[š^˜][ÛˆÈ\Ú[™\ÜÈ˜[YIÎˆ	ÓÜ™Ø[š\Ø][ÛˆÈ°íœ™]YÜÛ˜[[‰Ëˆ	ÓÜ™Ø[š^˜][ÛˆT“	Îˆ	ÓÜ™Ø[š\Ø][ÛœËUT“	Ëˆ	ÓÙÛÈT“	Îˆ	ÓÙÛÝ\UT“	Ëˆ	Ð\Ú[™\ÜÈY™\ÜÉÎˆ	Ñ°íœ™]YÜØY™\ÜÉËˆ	ÓXZ[[˜[˜ÙH]IÎˆ	Õ[™\š0é[Ý][	Ëˆ	ÓXZ[[˜[˜ÙHY\ÜØYÙIÎˆ	Õ[™\š0é[ÛYY[[™IËˆ	ÑY˜][ÑSÈ]IÎˆ	ÔÝ[™\™ÑSË]][	Ëˆ	ÑY˜][Y]H\ØÜš\[Û‰Îˆ	ÔÝ[™\™Y]X™\ÚÜš]›š[™ÉËˆ	ÒÙ^]ÛÜ™ËÛÛ[XHÙ\\˜]Y	Îˆ	ÓžXÚÙ[Ü™ÛÛ[X\Ù\\™\˜YIËˆ	Ñ˜]šXÛÛˆ[XYÙHT“	Îˆ	ÕT“[˜]šXÛÛ‰Ëˆ	ÓX™[	Îˆ	Ñ]ZÙ]	Ëˆ	ÔXÙZÛ\‰Îˆ	Ô]Ú0é[\™IËˆ	ÐÛÝY›Ú™XÝÉÎˆ	Ó[Ûœ›Ú™ZÝ	Ëˆ	Ñ\ÚÝÜ™]šY]ÉÎˆ	ÔÚÜš]˜›Ü™Ù°íœš[™Ýš\Ûš[™ÉËˆ	ÕX›]™]šY]ÉÎˆ	ÔÝ\™œ]Y°íœš[™Ýš\Ûš[™ÉËˆ	Ó[Øš[H™]šY]ÉÎˆ	Ó[Øš[°íœš[™Ýš\Ûš[™ÉËˆ	Õ[™ÉÎˆ	ðá[™Ü˜IËˆ	Ô™YÉÎˆ	ÑðíœˆÛIËˆ	ÕÙXœÚ]HZ[\ˆŒH][˜ÚÙ[\‰Îˆ	Ó[œÙ\š[™ÜØÙ[\ˆ°íœˆÙX˜œ]ØžYÙØ\™HŒIËˆ	Ô[œË\ØYÙH[™š[[™ÉÎˆ	Ô[™\‹[°é™š[™ÈØÚ˜ZÝ\™\š[™ÉËˆ	ÓÜ\˜][ÛœË˜XÚÝ\È[™^ÜÉÎˆ	ÑšYðéÙ\š]ÚÛÜ[ÜˆØÚ^Ü\‰Ëˆ	ÐÛY[[]™\žK\›Ý˜[[™[™Ù™‰Îˆ	ÒÝ[™]™\˜[œËÛÙðé›˜[™HØÚ0í™\›0é[š[™ÉËˆ	Ô›Ú™XÝ\ÝÜžIÎˆ	Ô›Ú™ZÝ\ÝÜšZÉËˆ	Ñ\XØ]H›Ú™XÝ	Îˆ	Ñ\XÙ\˜H›Ú™ZÝ	Ëˆ	Õ™\šYžH][™^š[^\ÝÈ[ˆX›\ÚYÝÜ˜YÙIÎˆ	Õ™\šYšY\˜H][™^š[š[›œÈHX›XÙ\˜YYÜš[™ÉËˆ	Ô™[[Ý™HX›XÈÙXœÚ]IÎˆ	ÕH›ÜÙ™™[YÈÙX˜œ]ÉËˆ	Õ\ÙH[XYÙIÎˆ	Ð[°é™š[	Ëˆ	Ô™\ÝÜ™H\È™\œÚ[Û‰Îˆ	ðá]\œÝ0é[ˆ0éˆ™\œÚ[Û™[‰Ëˆ	ÐYYÙIÎˆ	Ó0éÙÈ[ÚYIËˆ	Ó[Ý™HYÙH\	Îˆ	Ñ›]HÚY[ˆ\	Ëˆ	Õ[™Ü›Ý\ÛÛZ[™\‰Îˆ	Ñ[H\™Z0é[\™IËˆ	Ó[Ý™HYÙHÝÛ‰Îˆ	Ñ›]HÚY[ˆ™Y	Ëˆ	Ñ\XØ]HYÙIÎˆ	Ñ\XÙ\˜HÚYIËˆ	Ñ[]HYÙIÎˆ	ÕH›ÜÚYIËˆ	Ñ[]H[\]IÎˆ	ÕH›ÜX[	Ëˆ	Ó[Ý™H[[Y[\	Îˆ	Ñ›]H[[Y[\	Ëˆ	Ó[Ý™H[[Y[ÝÛ‰Îˆ	Ñ›]H[[Y[™Y	Ëˆ	Ñ[]HÞ[X›Û	Îˆ	ÕH›ÜÞ[X›Û	Ëˆ	Ó[Ý™H\	Îˆ	Ñ›]H\	Ëˆ	Ó[Ý™HÝÛ‰Îˆ	Ñ›]H™Y	Ëˆ	Ñ[]HšY[	Îˆ	ÕH›Ü°é	Ë‚ˆ	ÐÛÛ[YIÎˆ	Ñ›Üðé	Ëˆ	Ð\˜XšXÉÎˆ	Ð\˜Xš\ÚØIË	ÔÝÙY\Ú	Îˆ	ÔÝ™[œÚØIËˆ	ÔÝYHÛX\\ˆÚ]RK\ÝÙ\™YÛÛÉÎˆ	ÔÝY\˜HÛX\\™HYYRKYš]›˜H™\šÝYÉËˆ	ÐÜ™X]HÝ[™Ý]ÕœÈ[™ÛÝ™\ˆ]\œÉÎˆ	ÔÚØ\H]péšØ[™HÕŽ›ˆØÚ\œÛÛ›YØHœ™]‰Ëˆ	Ð›ÛÜÝ›ÙXÝ]š]HÚ]RH]]ÛX][Û‰Îˆ	ðåšØH›ÙZÝ]š]][ˆYYRKX]]ÛX]\Ù\š[™ÉËˆ	ÔØØ[H[Ý\ˆ\Ú[™\ÜÈÚ]RHÛÛ][ÛœÉÎˆ	ÔÚØ[H]°íœ™]YÈYYRK[0íœÛš[™Ø\‰Ëˆ	Ñ[]™\ˆ[Ü™H›ÜˆÛY[Ë˜\Ý\‰Îˆ	Ó]™\™\˜HY\ˆ[Ý[™\‹Û˜X˜˜\™IËˆ	ÐÜ™X]HH›Ù™\ÜÚ[Û˜[Õ‰Îˆ	ÔÚØ\H]›Ù™\ÜÚ[Û™[Õ‰Ëˆ	ÕÜš]H\XÛ\È[™ÛÛ[	Îˆ	ÔÚÜš]ˆ\ZÛ\ˆØÚ[›™Z0é[	Ëˆ	Õ˜[œÛ]HØÝ[Y[ÉÎˆ	ðå™\œðéÚÝ[Y[	Ëˆ	ÔÝYH[Ü™HY™™XÝ]™[IÎˆ	ÔÝY\˜HY\ˆY™™ZÝ]	Ëˆ	Ð[˜[^™H[™Ý[[X\š^™HØÝ[Y[ÉÎˆ	Ð[˜[\Ù\˜HØÚØ[[X[™˜]HÚÝ[Y[	Ëˆ	ÑÜ›ÝÈ^H\Ú[™\ÜÉÎˆ	Õ]™XÚÛHZ]°íœ™]YÉËˆ	ÐÚ]Ú][ˆRH\ÜÚ\Ý[	Îˆ	ÐÚ]HYY[ˆRKX\ÜÚ\Ý[	Ëˆ	ÕÜš]HÛÝ™\ˆ]\œÉÎˆ	ÔÚÜš]ˆ\œÛÛ›YØHœ™]‰Ëˆ	ÐRH\ØYÙH[˜[]XÜÉÎˆ	ÐRKX[°é™š[™ÜØ[˜[\ÉËˆ	Õ˜XÚÈ[Ý\ˆRHÛÛœÝ[\[ÛˆXÜ›ÜÜÈ[ÛÛË‰Îˆ	Ñ°í›ˆ[ˆRKX[°é™š[™ÈH[H™\šÝYË‰Ëˆ	Ó›ÈRH\ØYÙHY]	Îˆ	Ò[™Ù[ˆRKX[°é™š[™È0é›IËˆ	ÔÝ\\Ú[™ÈRHÛÛÈ[™[Ý\ˆ\ØYÙHÝ]ÈÚ[\X\ˆ\™K‰Îˆ	Ð°íœš˜H[°é™HRK]™\šÝYÈðéHš\Ø\È[ˆ[°é™š[™ÜÜÝ]\ÝZÈ0é‹‰Ëˆ	Õ˜XÚÈ[Ý\ˆRHÛÛœÝ[\[Û‹ÚÙ[ˆ\ØYÙK[™ÛÜÝÈXÜ›ÜÜÈ[ÛÛË‰Îˆ	Ñ°í›ˆRKX[°é™š[™ËÚÙ[™°íœ˜œZÛš[™ÈØÚÛÜÝ˜Y\ˆH[H™\šÝYË‰Ëˆ•Ù^IÜÈÛÜÝŽˆ	ÑYÙ[œÈÛÜÝ˜Y	Ë	Ó\ÝÈ^\ÉÎˆ	ÔÙ[˜\ÝHÈYØ\›˜IË	ÐžH›ÝšY\‰Îˆ	Ô\ˆ]™\˜[0íœ‰Ë	ÐžHÛÛ	Îˆ	Ô\ˆ™\šÝYÉËˆ	Ñ]™\ž][™È[ÝW	Ý™HÛ™HXÜ›ÜÜÈ[ÛÛÉÎˆ	Ð[H\ˆÚ›ÜH[H™\šÝYÉËˆ	Ö[ÝHÛ—	Ý]™H\›Z\ÜÚ[ÛˆÈXØÙ\ÜÈHYZ[ˆ[™[ˆÛ›HYZ[š\Ý˜]ÜœÈØ[ˆšY]È\ÈYÙK‰Îˆ	ÑH\ˆ[H™Z0íœšYÚ][YZ[š\Ý˜]0íœœÜ[™[[‹ˆ[™\ÝYZ[š\Ý˜]0íœ™\ˆØ[ˆš\ØH[ˆ0éˆÚY[‹‰Ëˆ	Ö[Ý\ˆRK\ÝÙ\™YÛÜšÜÜXÙH›ÜˆÜ™X][™ËÜš][™Ë[™[˜[^š[™Ëˆ]	ÜÈÙ][ÝHÙ]\[ˆ\ÜÈ[ˆÈZ[]\Ë‰Îˆ	Ñ[ˆRKYš]›˜H\˜™]Þ]H°íœˆ]ÚØ\KÚÜš]˜HØÚ[˜[\Ù\˜KˆšHðíœˆYÈ™YÈ0éHZ[™™H0éˆÈZ[]\‹‰Ëˆ	Ò[œÝ[^X\ˆ[[YÙ[˜ÙIÎˆ	Ò[œÝ[\˜H^X\ˆ[[YÙ[˜ÙIËˆ	ÐYÈ[Ý\ˆÛYHØÜ™Y[ˆ›ÜˆH˜\Ý\‹\[ZÙH^\šY[˜ÙK‰Îˆ	Ó0éÙÈ[0éH[\Úðé›Y[ˆ°íœˆ[ˆÛ˜X˜˜\™K\ZÛ˜[™H\]™[ÙK‰Ëˆ	Ó›ÈXÝ]š]HY]	Îˆ	Ò[™Ù[ˆZÝ]š]]0é›IËˆ	ÔÝ\\Ú[™ÈHÛÛÈÙYH[Ý\ˆXÝ]š]H\™IÎˆ	Ð°íœš˜H[°é™H]™\šÝYÈðéHš\Ø\È[ˆZÝ]š]]0é‰Ëˆ	Ó›ÝYšXØ][ÛœÉÎˆ	Ð]š\Ù\š[™Ø\‰Ëˆ	ÓØY[™Ë‹‹‰Îˆ	ÓY\‹‹‹‰Ëˆ	Ó›È›ÝYšXØ][ÛœÈY]	Îˆ	Ò[™ØH]š\Ù\š[™Ø\ˆ0é›IËˆ	ÐRH\ÜÚ\Ý[	Îˆ	ÐRKX\ÜÚ\Ý[	Ëˆ	Ó›ÈÛÛ™\œØ][ÛœÈY]	Îˆ	Ò[™ØHÛÛ™\œØ][Û™\ˆ0é›IËˆ	ÒÝÈØ[ˆH[[ÝOÉÎˆ	Ò\ˆØ[ˆ˜YÈ°éHYÏÉËˆ	Ð\ÚÈYH[ž][™ÈX›Ý][Ý\ˆÛÛÈÜˆØÝ[Y[Ë‰Îˆ	Ñœ°éYØHZYÈ˜YÛÛH[ÝÛH[˜H™\šÝYÈ[\ˆÚÝ[Y[‰Ëˆ	Ô™\^HÝ\‰Îˆ	ÔÜ[H\[™\ˆYÙ[‰Ëˆ	ÐYZ[ˆ[™[	Îˆ	ÐYZ[š\Ý˜][ÛœÜ[™[	Ëˆ	ÔÚYÛˆÝ]	Îˆ	ÓÙÙØH]	Ëˆ	Ñ[\ˆÈÜ[‰Îˆ	ÕžXÚÈ[\ˆ°íœˆ]0íœ˜IËˆ	ÐRHÛÛ[X[™ÉÎˆ	ÐRKZÛÛ[X[™Û‰Ëˆ	Õ˜\Ú	Îˆ	Ô\\œÚÛÜ™ÉËˆ	Ñ[]Y][\È\™HÙ\›ÜˆÌ^\È™Y›Ü™H™Z[™È\›X[™[H™[[Ý™Y‰Îˆ	Ô˜Y\˜YHØš™ZÝÜ\˜\ÈHÌYØ\ˆ[›˜[ˆH\È›Ü\›X[™[‰Ëˆ	Ñ[\H˜\ÚÉÎˆ	Õ0í›H\\œÚÛÜ™Ù[ÉËˆ	Õ\ÈØ[››Ý™H[™Û™K‰Îˆ	Ñ]ðé\ˆ[H]0é[™Ü˜K‰Ëˆ	Ñ[]H[	Îˆ	Ô˜Y\˜H[IËˆ	ÔÝÜ˜YÙIÎˆ	ÓYÜš[™ÉËˆ	ÕÚÙ[œÉÎˆ	ÕÚÙ[œÉËˆ	ÐÛÜÝ	Îˆ	ÒÛÜÝ˜Y	Ëˆ	Ô™\Ý[YHØÛÜ™IÎˆ	ÐÕ‹\ðé™ÉËˆ	ÐRHÝYÙÙ\Ý[ÛœÉÎˆ	ÐRKY°íœœÛYÉËˆ	ÐÚÛÜÙHH[\]IÎˆ	Õ°éˆ[ˆX[	Ëˆ	ÔXÚÈH\ÚYÛˆ8 %[ÝHØ[ˆÚ[™ÙH][ž][YIÎˆ	Õ°éˆ[ˆ\ÚYÛˆ8 %HØ[ˆ0é™˜H[ˆ°éˆÛÛH[Ý	Ëˆ	Ô™\Ý[YHZ[\‰Îˆ	ÐÕ‹XžYÙØ\™IËˆ	ÔØ]š[™Ë‹‹‰Îˆ	ÔÜ\˜\‹‹‹‰Ëˆ	Ð[Ú[™Ù\ÈØ]™Y	Îˆ	Ð[H0é™š[™Ø\ˆÜ\˜YIËˆ	Ð]]Ë\Ø]™HÛ‰Îˆ	Ð]]ÜÜ\›š[™È0éIËˆ	ÔØ]™H™\œÚ[Û‰Îˆ	ÔÜ\˜H™\œÚ[Û‰Ëˆ	ÑY]	Îˆ	Ô™YYÙ\˜IËˆ	Ñ\ÚYÛ‰Îˆ	Ñ\ÚYÛ‰Ëˆ	Ò›ØˆX]Ú	Îˆ	Ò›Ø˜›X]Úš[™ÉËˆ	Ò\ÝÜžIÎˆ	Ò\ÝÜšZÉËˆ	Ô\œÛÛ˜[[™›ÉÎˆ	Ô\œÛÛ\ÚY\‰Ëˆ	ÔÝ[[X\žIÎˆ	ÔØ[[X[™˜]š[™ÉËˆ	Ñ^\šY[˜ÙIÎˆ	Ñ\™˜\™[š]	Ëˆ	ÑYXØ][Û‰Îˆ	Õ]š[š[™ÉËˆ	ÔÚÚ[ÉÎˆ	ÒÛÛ\][œÙ\‰Ëˆ	Ó[™ÝXYÙ\ÉÎˆ	ÔÜ°éZÉËˆ	ÐÙ\YšXØ][ÛœÉÎˆ	ÐÙ\YšY\š[™Ø\‰Ëˆ	Ð]Ø\™ÉÎˆ	Õ]péšÙ[Ù\‰Ëˆ	ÐY™\ÜÉÎˆ	ÐY™\ÜÉËˆ	Ó[šÙY[‰Îˆ	Ó[šÙY[‰Ëˆ	ÔÜ›Û[ÉÎˆ	ÔÜ›Û[ÉËˆ	Ô›Ù™\ÜÚ[Û˜[Ý[[X\žIÎˆ	Ô›Ù™\ÜÚ[Û™[Ø[[X[™˜]š[™ÉËˆ	ÓØØ][Û‰Îˆ	Ô]ÉËˆ	Ô™\Ù[	Îˆ	Ó]˜\˜[™IËˆ	Ñ\ØÜš\[Û‰Îˆ	Ð™\ÚÜš]›š[™ÉËˆ	ÑYÜ™YIÎˆ	Ñ^[Y[‰Ëˆ	Ò[œÝ]][Û‰Îˆ	Ó0é›ÜðéIËˆ	ÔÚÚ[˜[YIÎˆ	ÒÛÛ\][œÉËˆ	ÐÙ\YšXØ]IÎˆ	ÐÙ\YšZØ]	Ëˆ	Ð]Ø\™	Îˆ	Õ]péšÙ[ÙIËˆ	Ó˜[YIÎˆ	Ó˜[[‰Ëˆ	Ó[šÉÎˆ	Ó0éšÉËˆ	Ò\ÜÝY\‰Îˆ	Õ]°é™\™IËˆ	Ñ]IÎˆ	Ñ][IËˆ	Õ]IÎˆ	Õ][	Ëˆ	Ô™\Ý[YH[\]IÎˆ	ÐÕ‹[X[	Ëˆ	ÐÛÛÜˆ[YIÎˆ	Ñ°é™Ý[XIËˆ	Ñ˜YÈÈ™[Ü™\ˆÙXÝ[ÛœËˆÙÙÛHÈÚÝËÚYK‰Îˆ	Ñ˜H°íœˆ]0é™˜HÜ™š[™È0éH]œÛš]ˆ°éH°íœˆ]š\ØH[\ˆ0í›˜K‰Ëˆ	ÔÙ[XÝ[ˆXÝ[ÛˆÈ[\›Ý™H[Ý\ˆ™\Ý[YHÚ]RK‰Îˆ	Õ°éˆ[ˆ0é]ðé™°íœˆ]°íœ˜°é˜H]ÕˆYYRK‰Ëˆ	Ò›ØˆX]Ú[˜[\Ú\ÉÎˆ	Ð[˜[\È]ˆ›Ø˜›X]Úš[™ÉËˆ	Ô\ÝHH›Øˆ\ØÜš\[ÛˆÈÙYHÝÈÙ[[Ý\ˆ™\Ý[YHX]Ú\Ë‰Îˆ	ÒÛ\Ý˜H[ˆ[ˆ›Ø˜˜[››ÛœÈ°íœˆ]ÙH\ˆ°é]ÕˆX]Ú\‹‰Ëˆ	ÓX]ÚØÛÜ™IÎˆ	ÓX]Úš[™ÜÜðé™ÉËˆ	Ô\ÝHH›Øˆ\ØÜš\[Ûˆ[™ÛXÚÈ[˜[^™HX]ÚˆÈÙYH[Ý\ˆ™\Ý[Ë‰Îˆ	ÒÛ\Ý˜H[ˆ[ˆ›Ø˜˜[››ÛœÈØÚÛXÚØH0éH8 'P[˜[\Ù\˜HX]Úš[™ø 'H°íœˆ]ÙH™\Ý[]]‰Ëˆ	Õ™\œÚ[Ûˆ\ÝÜžIÎˆ	Õ™\œÚ[ÛœÚ\ÝÜšZÉËˆ	ÐM™]šY]ÉÎˆ	ÐMY°íœš[™Ýš\Ûš[™ÉËˆ	ÐÛÛ\[žH˜[YH
+Ü[Û˜[
+IÎˆ	Ñ°íœ™]YÜÛ˜[[ˆ
+˜[œš]
+IËˆ	Ô\ÝHH›Øˆ\ØÜš\[Ûˆ\™K‹‹‰Îˆ	ÒÛ\Ý˜H[ˆ›Ø˜˜[››ÛœÙ[ˆ0é‹‹‹‰Ëˆ	ÕÜš]HH‹LÈÙ[[˜ÙHÝ[[X\žHYÚYÚ[™È[Ý\ˆ^\šY[˜ÙKÙ^HÚÚ[Ë[™Ø\™Y\ˆÛØ[Ë‹‹‰Îˆ	ÔÚÜš]ˆ[ˆØ[[X[™˜]š[™È0éH¸ $ÌÈY[š[™Ø\ˆÛÛHY\ˆ[ˆ\™˜\™[š]šZÝYØ\ÝHÛÛ\][œÙ\ˆØÚØ\œšpé›pé[‹‹‰Ëˆ	Ñ\ØÜšX™H[Ý\ˆXÚY]™[Y[Ë‹‹‰Îˆ	Ð™\ÚÜš]ˆ[˜H™\Ý][Û™\‹‹‹‰Ëˆ	Ò›ÚˆÙIÎˆ	Ñ[Ý0é™YÝ˜[[‰Ëˆ	Ò˜[ˆŒŒ‰Îˆ	Ò˜[ˆŒŒ‰Ëˆ	Ð™YÚ[›™\‰Îˆ	ÓžX°íœš˜\™IËˆ	Ò[\›YYX]IÎˆ	ÓYY[	Ëˆ	ÐY˜[˜ÙY	Îˆ	Ð]˜[˜Ù\˜Y	Ëˆ	Ñ^\	Îˆ	Ñ^\	Ëˆ	Ð˜\ÚXÉÎˆ	ÑÜ[™0éÙØ[™IËˆ	ÐÛÛ™\œØ][Û˜[	Îˆ	ÒÛÛ™\œØ][ÛœÛš]°éIËˆ	Ñ›Y[	Îˆ	Ñ›][™IËˆ	Ó˜]]™IÎˆ	Ó[Ù\œÛpé[	Ëˆ	Ð[˜[]XÜÈ˜XÚÚ[™ÉÎˆ	Ð[˜[\ÜÜ0é\›š[™ÉËˆ	Ò[\È[\›Ý™HžHÚ\š[™È[›Ûž[[Ý\È\ØYÙH]IÎˆ	Ò°éÜÜÈ°íœ˜°é˜HÙ[›ÛH][H[›Ûž[H[°é™š[™ÜÙ]IËˆ	ÐRH]H›ØÙ\ÜÚ[™ÉÎˆ	ÐRKY]X™Z[™[™ÉËˆ	ÐRH™\]Y\ÝÈ\™HÙ[Û›HÚ[ˆ[ÝHÚÛÜÙH[ˆRHXÝ[Û‹ˆ›ÝšY\ˆ]Z[È[™]H[™[™È\™H^Z[™Y[ˆHš]˜XÞHÛXÞK‰Îˆ	ÐRKY°íœ™œ°éYÛš[™Ø\ˆÚÚXÚØ\È[™\Ý°éˆH°é™\ˆ[ˆRKpé]ðé™ˆ]™\˜[0íœ™\ˆØÚ]Z[\š[™È™\ÚÜš]œÈH[YÜš]]ÜÛXÞ[‹‰Ëˆ	ÐRH˜Z[š[™ÈÜSÝ]	Îˆ	Ð]œÝ0éHœ°é[ˆRK]°éš[™ÉËˆ	Ö[Ý\ˆ]H\ÈÝÜ™Y[ˆUH
+ÝØÚÚÛJHÙ\™\œÉÎˆ	Ñ[˜H]HYÜ˜\È0éHÙ\œ˜\ˆ[›ÛHUH
+ÝØÚÚÛJIËˆ	Ð[]H\È[˜Üž\Y[ˆ˜[œÚ][™]™\Ý	Îˆ	Ð[]H0éˆÜž\\˜Y[™\ˆ0í™\™°íœš[™ÈØÚYÜš[™ÉËˆ	ÔØ]™IÎˆ	ÔÜ\˜IËˆ	ÐRH›ÝšY\œÈ	ˆ[Ù[Ù[XÝ[Û‰Îˆ	ÐRK[]™\˜[0íœ™\ˆØÚ[Ù[˜[	Ëˆ	ÐRH™\]Y\ÝÉÎˆ	ÐRKY°íœ™œ°éYÛš[™Ø\‰Ëˆ	ÐRH\ØYÙIÎˆ	ÐRKX[°é™š[™ÉËˆ	ÐTHÙ^\ÉÎˆ	ÐTK[žXÚÛ\‰Ëˆ	ÐXØÙ\ÜÈ[šYY	Îˆ	ðá]ÛÛ\Ý™ZØY	Ëˆ	ÐXÝ[ÛœÉÎˆ	ðá]ðé™\‰Ëˆ	ÐXÝ]™IÎˆ	ÐZÝ]‰Ëˆ	ÐYÙ^IÎˆ	Ó0éÙÈ[žXÚÙ[	Ëˆ	ÐYZ[‰Îˆ	ÐYZ[‰Ëˆ	ÐYZ[ˆ›ÝYšXØ][ÛœÉÎˆ	ÐYZ[˜]š\Ù\š[™Ø\‰Ëˆ	ÐYZ[ˆ™\ÜÛœÙIÎˆ	ÐYZ[œÝ˜\‰Ëˆ	ÐYZ[š\Ý˜]Ü‰Îˆ	ÐYZ[š\Ý˜]0íœ‰Ëˆ	Ð[	Îˆ	Ð[IËˆ	Ð[[œÉÎˆ	Ð[H[™\‰Ëˆ	Ð[Ý]\ÉÎˆ	Ð[HÝ]\Ø\‰Ëˆ	Ð]]ÛX]XÈZ[H˜XÚÝ\È]NŒUÉÎˆ	Ð]]ÛX]\ÚØHYÛYØHðéÙ\š]ÚÛÜ[ÜˆÛˆNŒUÉËˆ	Ð˜XÚÈÈÛÜšÜÜXÙIÎˆ	Õ[˜ZØH[\˜™]Þ]IËˆ	Ð\Ú[™\ÜÉÎˆ	Ñ°íœ™]YÉËˆ	ÐÚ[™Ù\ÈÚ[™H™Y›XÝYÛˆH]™HÚ]HY\ˆØ]š[™Ë‰Îˆ	ðá™š[™Ø\›˜Hš\Ø\È0éH[ˆX›XÙ\˜YHÙX˜œ]Ù[ˆY\ˆ]HÜ\˜]‰Ëˆ	ÐÚXÚÚ[™ÈYZ[ˆXØÙ\ÜË‹‹‰Îˆ	ÒÛÛ›Û\˜\ˆYZ[š\Ý˜]0íœœØ™Z0íœšYÚ]‹‹‰Ëˆ	ÐÛÛ™šYÝ\™HÛØ˜[]›Ü›H™Z]š[Ü‰Îˆ	ÒÛÛ™šYÝ\™\˜H]›Ü›Y[œÈÛØ˜[H™]Y[™IËˆ	ÐÛÛ›Û[™[	Îˆ	ÒÛÛ›Û[™[	Ëˆ	ÐÜ™X]Y	Îˆ	ÔÚØ\Y	Ëˆ	ÐÝ[][]]™H\Ù\œÈÝ™\ˆ\ÝÌ^\ÉÎˆ	ÒÝ[][]]˜H[°é™\™H[™\ˆHÙ[˜\ÝHÌYØ\›˜IËˆ	ÑZ[H™\]Y\ÝÉÎˆ	ÑYÛYØH°íœ™œ°éYÛš[™Ø\‰Ëˆ	ÑZ[H™\]Y\ÝÈ[™ÚÙ[ˆÛÛœÝ[\[Û‰Îˆ	ÑYÛYØH°íœ™œ°éYÛš[™Ø\ˆØÚÚÙ[™°íœ˜œZÛš[™ÉËˆ	Ñ]X˜\ÙH˜XÚÝ\ÉÎˆ	Ñ]X˜\ÜðéÙ\š]ÚÛÜ[Ü‰Ëˆ	ÑY˜][	Îˆ	ÔÝ[™\™	Ëˆ	ÑY˜][[Ù[
+\ÙYÚ[ˆ›È\‹]ÛÛ[Ù[\ÈÙ]
+IÎˆ	ÔÝ[™\™[Ù[
+[°é™È°éˆ[™Ù[ˆ[Ù[0éˆ˜[\ˆ™\šÝYÊIËˆ	ÑØÝ[Y[ÉÎˆ	ÑÚÝ[Y[	Ëˆ	ÑY]\Ù\‰Îˆ	Ô™YYÙ\˜H[°é™\™IËˆ	Ñ^]YZ[‰Îˆ	Ó0é[˜HYZ[‰Ëˆ	Ñ™X]\™H›YÜÉÎˆ	Ñ[šÝ[ÛœÙ›YÙÛÜ‰Ëˆ	Ñœ™YIÎˆ	ÑÜ˜]\ÉËˆ	Ñ[˜[YIÎˆ	Ñ[Ý0é™YÝ˜[[‰Ëˆ	Ó\ÝM^\ÉÎˆ	ÔÙ[˜\ÝHMYØ\›˜IËˆ	ÓX[˜YÙH^\›˜[Ù\šXÙHTHÙ^\ÉÎˆ	Ò[\˜HTK[žXÚÛ\ˆ°íœˆ^\›˜H°éœÝ\‰Ëˆ	ÓX[˜YÙH›ÝšY\œÈ[™Ù]HY˜][[Ù[›Üˆ[RHÛÛÉÎˆ	Ò[\˜H]™\˜[0íœ™\ˆØÚ°éˆÝ[™\™[Ù[°íœˆ[HRK]™\šÝYÉËˆ	ÓX\šÈ[™XY	Îˆ	ÓX\šÙ\˜H[HÛÛH0éÝIËˆ	Ó[ÛHÝXœØÜš\[Ûˆ™]™[YIÎˆ	Ópé[˜]YØH™[[Y\˜][ÛœÚ[0éÝ\‰Ëˆ	Ó™]È›YÉÎˆ	ÓžH›YÙØIËˆ	Ó›È]IÎˆ	Ò[™Ù[ˆ]IËˆ	Ó›È]HY]	Îˆ	Ò[™Ù[ˆ]H0é›IËˆ	Ó›ÈÙÜÈ›Ý[™	Îˆ	Ò[™ØHÙÙØ\ˆ]Y\ÉËˆ	Ó›ÈÙÜÈY]	Îˆ	Ò[™ØHÙÙØ\ˆ0é›IËˆ	Ó›È›ÝYšXØ][ÛœÉÎˆ	Ò[™ØH]š\Ù\š[™Ø\‰Ëˆ	Ó›ÈÝXœØÜš\[ÛœÈ›Ý[™	Îˆ	Ò[™ØH™[[Y\˜][Û™\ˆ]Y\ÉËˆ	Ó›ÈXÚÙ]È›Ý[™	Îˆ	Ò[™ØH0é™[™[ˆ]Y\ÉËˆ	Ó›È\Ù\œÈ›Ý[™	Îˆ	Ò[™ØH[°é™\™H]Y\ÉËˆ	Ô[‰Îˆ	Ô[‰Ëˆ	Ô]›Ü›HÙ][™ÜÉÎˆ	Ô]›Ü›\Ú[œÝ0éš[™Ø\‰Ëˆ	Ô›ÉÎˆ	Ô›ÉËˆ	Ô›ÝšY\Ž‰Îˆ	Ó]™\˜[0íœŽ‰Ëˆ	Ô™XÙ[Þ\Ý[HÙÜÉÎˆ	ÔÙ[˜\ÝHÞ\Ý[[ÙÙØ\‰Ëˆ	Ô™[™]Ø[]IÎˆ	Ñ°íœ›žY[ÙY][IËˆ	Ô™\]Y\ÝÈžHÛÛ	Îˆ	Ñ°íœ™œ°éYÛš[™Ø\ˆ\ˆ™\šÝYÉËˆ	Ô™\ÜÛœÙIÎˆ	ÔÝ˜\‰Ëˆ	Ô™]™[YIÎˆ	Ò[0éÝ\‰Ëˆ	ÔÝ]\ÉÎˆ	ÔÝ]\ÉËˆ	ÔÝXœØÜš\[Ûˆ[‰Îˆ	Ô™[[Y\˜][ÛœÜ[‰Ëˆ	ÔÝXœØÜš\[ÛœÈžH[‰Îˆ	Ô™[[Y\˜][Û™\ˆ\ˆ[‰Ëˆ	ÔÝ\Ü[™Y	Îˆ	Ð]œÝ0é™Ù	Ëˆ	ÔÞ\Ý[HX[	Îˆ	ÔÞ\Ý[\Ý]\ÉËˆ	ÔÞ\Ý[HÙÜÉÎˆ	ÔÞ\Ý[[ÙÙØ\‰Ëˆ	ÔÞ\Ý[HÛ›[™IÎˆ	ÔÞ\Ý[Y]0éˆÛ›[™IËˆ	Õ^X\ˆYZ[‰Îˆ	Õ^X\ˆYZ[‰Ëˆ	ÕÙÙÛH™X]\™\ÈÛ‹ÛÙ™ˆÚ]Ý]\ÞZ[™ÉÎˆ	ÔÛ0éH0éH[\ˆ]ˆ[šÝ[Û™\ˆ][ˆžHšYðéš[™ÉËˆ	ÕÚÙ[ˆ\ØYÙHžH›ÝšY\‰Îˆ	ÕÚÙ[˜[°é™š[™È\ˆ]™\˜[0íœ‰Ëˆ	ÕÛÛÜ[\š]IÎˆ	Õ™\šÝYÜÜÜ[\š]]	Ëˆ	ÕÝ[ÚÙ[œÈÛÛœÝ[YY	Îˆ	ÕÝ[°íœ˜œZØYHÚÙ[œÉËˆ	Õ\Ù\‰Îˆ	Ð[°é™\™IËˆ	Õ\Ù\ˆÜ›ÝÝ	Îˆ	Ð[°é™\[°é	Ëˆ	Õ\Ù\ˆQ	Îˆ	Ð[°é™\‹RQ	Ëˆ	Ò[œÝ[\	Îˆ	Ò[œÝ[\˜H\	Ëˆ	Ùš[\ÉÎˆ	Ùš[\‰Ëˆ	Ý\ÙY	Îˆ	Ø[°é	Ëˆ	Ø]˜Z[X›IÎˆ	Ý[ðé™ÛYÝ	Ëˆ	Ô[›š[™ÈÝÈÛˆÝÜ˜YÙKˆ\Ü˜YHÈ›È›Üˆ[Ü™HÜXÙK‰Îˆ	ÓYÜš[™ÜÝ]ž[[Y]°íœš˜\ˆHÛ]ˆ\Ü˜Y\˜H[›È°íœˆY\ˆ]ž[[YK‰Ëˆ	ÕÙ[ÛÛYHÈ^X\ˆ[[YÙ[˜ÙHIÎˆ	Õ°éÛÛ[Y[ˆ[^X\ˆ[[YÙ[˜ÙHIËˆ	ÕÙ[ÛÛYHÈ^X\ˆ[[YÙ[˜ÙIÎˆ	Õ°éÛÛ[Y[ˆ[^X\ˆ[[YÙ[˜ÙIËˆ	ÑÙ]Ý\Y	Îˆ	ÒÛÛHYðé[™ÉËˆ	ÔÙ][™È\‹‹‰Îˆ	ÒÛÛ™šYÝ\™\˜\‹‹‹‰Ëˆ	Ñ[\ˆÛÜšÜÜXÙIÎˆ	ÑðéH[\˜™]Þ][‰Ë‚ˆ	ÓX[˜YÙH[Ý\ˆ[‹[Z]È[™Ýš\Hš[[™Èœ›ÛHÛ™HXÙK‰Îˆ	Ò[\˜H[‹Ü°éœÙ\ˆØÚÝš\KX™][š[™È0éH]Ý0éK‰Ëˆ	ÐÝ\œ™[[‰Îˆ	Ó]˜\˜[™H[‰Ëˆ	Ó™^š[[™È]IÎˆ	Ó°éÝH˜ZÝ\™\š[™ÜÙ][IËˆ	ÐÝ\œ™[	Îˆ	Ó]˜\˜[™IËˆ	Ö[Ý\ˆÝ\œ™[[‰Îˆ	Ñ[ˆ]˜\˜[™H[‰Ëˆ	Ñœ™YH[‰Îˆ	ÑÜ˜]\Ü[‰Ëˆ	ÓX[˜YÙH[ˆÝš\IÎˆ	Ò[\˜HHÝš\IËˆ	ÐÚÛÜÙH›ÉÎˆ	Õ°éˆ›ÉËˆ	ÐÚÛÜÙH\Ú[™\ÜÉÎˆ	Õ°éˆ\Ú[™\ÜÉËˆ	ØXÝ]™IÎˆ	ØZÝ]‰Ëˆ	Ý[šÛ›ÝÛ‰Îˆ	ÛÚðé™	Ëˆ	ÐÛÝ[›ÝØYÝXœØÜš\[Ûˆ]Z[Ë‰Îˆ	ÒÝ[™H[H0éØH[ˆ™[[Y\˜][ÛœÙ][™\‹‰Ëˆ	ÐÛÝ[›ÝÜ[ˆÝš\HÚXÚÛÝ]‰Îˆ	ÒÝ[™H[H0íœ˜HÝš\HÚXÚÛÝ]‰Ëˆ	ÐÛÝ[›ÝÜ[ˆHš[[™ÈÜ[‰Îˆ	ÒÝ[™H[H0íœ˜H™][š[™ÜÜÜ[[‹‰Ëˆ	Ö[Ý\ˆÝXœØÜš\[Ûˆ\ÈØÚY[YÈØ[˜Ù[]H[™ÙˆHÝ\œ™[š[[™È\š[Ù‰Îˆ	Ñ[ˆ™[[Y\˜][Ûˆ]œÛ]\ÈšYÛ]]]ˆ[ˆZÝY[H˜ZÝ\™\š[™ÜÜ\š[Ù[‹‰Ëˆ	Ðš[[™ÈÚ[™Ù\È\™HÛÛ\]YÙXÝ\™[H›ÝYÚÝš\Kˆ[Ý\ˆ[ˆ˜YÙH\ÈÞ[˜Ú›Ûš^™YžHHš[[™È˜XÚÙ[™‰Îˆ	Ð™][š[™Üðé™š[™Ø\ˆÙ[›ÛY°íœœÈðéÙ\šXHÝš\HØÚ[œÝ]\ÈÞ[šÜ›Ûš\Ù\˜\È]ˆ˜XÚÙ[™‰Ëˆ	ÔÝ\Ú]HÛX[ÙXœÚ]HZ[\ˆ›Ú™XÝ[™ÛÜ™HRHÛÛË‰Îˆ	Ð°íœš˜HYY]]]ÙX˜œ]ØžYÙØ\œ›Ú™ZÝØÚÜ[™0éÙØ[™HRK]™\šÝYË‰Ëˆ	ÒYÚ\ˆ[Z]È›Üˆ[™]šYX[Ü™X]ÜœÈ[™›Ù™\ÜÚ[Û˜[Ë‰Îˆ	Ò0í™Ü™HÜ°éœÙ\ˆ°íœˆÜ™X]0íœ™\ˆØÚ\šÙ\Ø[°é™\™K‰Ëˆ	Ñ^[™Y[Z]È[™ÛÛX›Ü˜][Ûˆ›ÜˆÜ›ÝÚ[™ÈX[\Ë‰Îˆ	Õ]0íšØYHÜ°éœÙ\ˆØÚØ[X\˜™]H°íœˆ°é[™HX[K‰Ëˆ	ÌHÙXœÚ]H›Ú™XÝ	Îˆ	ÌHÙX˜œ]Ü›Ú™ZÝ	Ëˆ	Õ\ÈÈYÙ\È\ˆÙXœÚ]IÎˆ	Õ\[ÈÚYÜˆ\ˆÙX˜œ]ÉËˆ	ÐÛÜ™HRHÛÛÉÎˆ	ÑÜ[™0éÙØ[™HRK]™\šÝYÉËˆ	ÓØØ[›Ú™XÝØ]š[™ÉÎˆ	ÓÚØ[›Ú™ZÝÜ\›š[™ÉËˆ	Õ\ÈLÙXœÚ]H›Ú™XÝÉÎˆ	Õ\[LÙX˜œ]Ü›Ú™ZÝ	Ëˆ	Õ\ÈHYÙ\È\ˆÙXœÚ]IÎˆ	Õ\[HÚYÜˆ\ˆÙX˜œ]ÉËˆ	ÔX›\Ú[™È[™™[X\ÙH\ÝÜžIÎˆ	ÔX›XÙ\š[™ÈØÚ™\œÚ[ÛœÚ\ÝÜšZÉËˆ	Ð[˜[]XÜËXYÈ[™][[[™ÝX[YÙ\ÉÎˆ	Ð[˜[\ËXYÈØÚ›\œÜ°éZÚYØHÚYÜ‰Ëˆ	Õ\ÈLÙXœÚ]H›Ú™XÝÉÎˆ	Õ\[LÙX˜œ]Ü›Ú™ZÝ	Ëˆ	Õ\ÈLYÙ\È\ˆÙXœÚ]IÎˆ	Õ\[LÚYÜˆ\ˆÙX˜œ]ÉËˆ	ÕX[HÛÜšÜÜXÙH[™ÛY[[™Ù™‰Îˆ	ÕX[X\˜™]Þ]HØÚÝ[™]™\˜[œÉËˆ	ÐY˜[˜ÙY›ÙXÝ[Ûˆ™X]\™\È[™Ú]K[X™[Ý\Ü	Îˆ	Ð]˜[˜Ù\˜YH›ÙZÝ[ÛœÙ[šÝ[Û™\ˆØÚÚ]K[X™[\Ý0í™	Ëˆ	ÑÙ][™\ÜH›Ø›[HÜˆÙ[™™YY˜XÚÈœ›ÛHÛ™HXÙK‰Îˆ	Ñ°éH°é˜\Ü\˜H›Ø›[H[\ˆÚÚXÚØH™YY˜XÚÈ0éH]Ý0éK‰Ëˆ	Ðœ›ÝÜÙHÛÛ[[Ûˆ]Y\Ý[ÛœÈ[™˜XÝXØ[›ÙXÝÝZY[˜ÙK‰Îˆ	ÔÙH˜[›YØHœ°éYÛÜˆØÚ˜ZÝ\ÚÈ›ÙZÝ°éÛYš[™Ë‰Ëˆ	ÓÜ[ˆ[Ù[\‰Îˆ	ðåœ˜H°éÙ[\‰Ëˆ	ÔÙ[™H\™XÝÝ\ÜY\ÜØYÙHœ›ÛH[œÚYH[Ý\ˆXØÛÝ[‰Îˆ	ÔÚÚXÚØH]Ý\ÜYY[[™H\™ZÝœ°é[ˆ]ÛÛË‰Ëˆ	ÐÛÛXÝÝ\Ü	Îˆ	ÒÛÛZÝHÝ\Ü	Ëˆ	ÔÚ\™H[ˆYXHÜˆ[\ÈÚ]ÛÝ[XZÙH^X\ˆ™]\‹‰Îˆ	Ñ[H[ˆY0êH[\ˆ™\°éH\ˆ^X\ˆØ[ˆ›H°é™K‰Ëˆ	Ô™\ÜH™\›ÙXÚX›H›Ø›[HÚ]ÛX\ˆXÚšXØ[]Z[Ë‰Îˆ	Ô˜\Ü\˜H]™\›ÙXÙ\˜˜\›Ø›[HYYYYØHZÛš\ÚØH][™\‹‰Ëˆ	Ñ›ÜˆXØÛÝ[\ÜXÚYšXÈ\ÜÝY\Ë\ÙHH[‹X\ÛÛXÝ›Ü›HÛÈ[Ý\ˆ™\]Y\ÝÝ^\ÈÛÛ›™XÝYÈ[Ý\ˆÚYÛ™YZ[ˆXØÛÝ[‰Îˆ	Ñ°íœˆÛÛÜÜXÚYšZØH›Ø›[K[°é™›Ü›][0é™]H\[ˆðéH]0é™[™]ÛÜ\È[][›ÙÙØYHÛÛË‰Ëˆ	ÒÝÈÈHÙ]Ý\YÉÎˆ	Ò\ˆÛÛ[Y\ˆ˜YÈYðé[™ÏÉËˆ	ÓÜ[ˆ^HÛÜšÜÜXÙHÜˆ\Ú›Ø\™ÚÛÜÙH[ˆ]˜Z[X›HÛÛ[™›ÛÝÈH[œ]ÈÚÝÛˆ›Üˆ]ÛÛˆÙXœÚ]HZ[\ˆŒH\È]˜Z[X›H›ÜˆÜ™X][™È[™X›\Ú[™È™\ÜÛœÚ]™HÙXœÚ]\Ë‰Îˆ	ðåœ˜HZ[ˆ\˜™]Þ]H[\ˆ\Ú›Ø\™°éˆ][ðé™ÛYÝ™\šÝYÈØÚ°í›ˆ°é[ˆÛÛHš\Ø\ËˆÙX˜œ]ØžYÙØ\™HŒHØ[ˆÚØ\HØÚX›XÙ\˜H™\ÜÛœÚ]˜HÙX˜œ]Ù\‹‰Ëˆ	ÕÚXÚ[\™˜XÙH[™ÝXYÙ\È\™HÝ\ÜYÉÎˆ	Õš[ØHÜ°éœÜÛš]ÜÜ°éZÈÝ0í™ÏÉËˆ	ÕH›ÙXÝ[\™˜XÙHÝ\ÜÈ[™Û\Ú\˜XšXË[™ÝÙY\Úˆ\˜XšXÈ]]ÛX]XØ[H\Ù\ÈšYÚ]Ë[Y^[Ý]Ú\™H\›ÜšX]K‰Îˆ	Ô›ÙZÝÜ°éœÜÛš]]Ý0í™\ˆ[™Ù[ÚØK\˜Xš\ÚØHØÚÝ™[œÚØKˆ\˜Xš\ÚØH[°é™\ˆ]]ÛX]\ÚÝ0í™Ù\‹][]°éœÝ\‹[^[Ý]0éˆ]™Z0íœË‰Ëˆ	ÒÝÈÙ\ÈÙXœÚ]HZ[\ˆš[[™ÈÛÜšÏÉÎˆ	Ò\ˆ[™Ù\˜\ˆ™][š[™È°íœˆÙX˜œ]ØžYÙØ\™[ÉËˆ	Ñœ™YHÝ\ÜÈHÙXœÚ]H›Ú™XÝÚ]\ÈÈYÙ\Ëˆ›ÈÝ\ÜÈ\ÈLÙXœÚ]H›Ú™XÝÈ[™HYÙ\È\ˆÙXœÚ]Kˆ\Ú[™\ÜÈÝ\ÜÈ\ÈLÙXœÚ]H›Ú™XÝÈ[™LYÙ\È\ˆÙXœÚ]K‰Îˆ	Ñœ™YHÝ0í™\ˆHÙX˜œ]Ü›Ú™ZÝYY\[ÈÚYÜ‹ˆ›ÈÝ0í™\ˆ\[L›Ú™ZÝØÚHÚYÜˆ\ˆÙX˜œ]Ëˆ\Ú[™\ÜÈÝ0í™\ˆ\[L›Ú™ZÝØÚLÚYÜˆ\ˆÙX˜œ]Ë‰Ëˆ	Ò\È^H]H›ÝXÝYÉÎˆ	ðáˆZ[˜H]HÚÞYYOÉËˆ	ÕH\XØ][Ûˆ\Ù\È]][XØ]YXØÙ\ÜÈ[™]X˜\ÙH›ÝË[]™[ÙXÝ\š]H›ÜˆXØÛÝ[\ØÛÜY]Kˆ[Ø^\ÈÙY\[Ý\ˆXØÛÝ[Ü™Y[X[Èš]˜]H[™™]šY]ÈÙ[œÚ]]™HRHÝ]]™Y›Ü™HÚ\š[™È]‰Îˆ	Ð\[ˆ[°é™\ˆ]][\Ù\˜Y0é]ÛÛ\ÝØÚ˜Yš]°é\ðéÙ\š]°íœˆÛÛÙ]Kˆ0é[[Y[˜H[›ÙÙÛš[™ÜÝ\ÚY\ˆš]˜]HØÚÜ˜[œÚØHðéœÛYÝRKZ[›™Z0é[[›˜[ˆH[\ˆ]‰Ëˆ	ÒÝÈÈHX[˜YÙH^HÝXœØÜš\[ÛÉÎˆ	Ò\ˆ[\˜\ˆ˜YÈZ[ˆ™[[Y\˜][ÛÉËˆ	ÓÜ[ˆÝXœØÜš\[Ûˆœ›ÛHHÛÜšÜÜXÙHY[Kˆ™]È\Ü˜Y\È\ÙHÝš\HÚXÚÛÝ][™^\Ý[™ÈZYÝXœØÜš\[ÛœÈØ[ˆ™HX[˜YÙY›ÝYÚHÝš\Hš[[™ÈÜ[‰Îˆ	ðåœ˜H™[[Y\˜][ÛˆH\˜™]Þ][œÈY[žKˆžXH\Ü˜Y\š[™Ø\ˆ[°é™\ˆÝš\HÚXÚÛÝ]ØÚ™Yš[YØH™][H™[[Y\˜][Û™\ˆ[\˜\ÈHÝš\\È™][š[™ÜÜÜ[‰Ëˆ	ÒÝÈÈH™\ÜHYÏÉÎˆ	Ò\ˆ˜\Ü\˜\ˆ˜YÈ]™[ÉËˆ	ÓÜ[ˆÝ\Ü[™ÚÛÜÙH™\ÜHYËˆ[˜ÛYHHY™™XÝYÛÛÙ]™\š]KÝ\ÈÈ™\›ÙXÙK^XÝY™Z]š[Ü‹[™XÝX[™Z]š[Ü‹‰Îˆ	ðåœ˜HÝ\ÜØÚ°éˆ˜\Ü\˜H]™[ˆ[™ÙH™\°íœ™\šÝYË[˜\›YÚ]ÙÜ˜YÝYÈ°íœˆ]0é]\œÚØ\H™[]Ø[]°íœ°é]ØÚ˜ZÝ\ÚÝ™]Y[™K‰Ëˆ	Ñ˜Z[YÈÙ[™Ý\Ü™\]Y\ÝˆX\ÙHžHYØZ[‹‰Îˆ	ÒÝ[™H[HÚÚXÚØHÝ\Ü0é™[™]ˆ°íœœðíšÈYÙ[‹‰Ëˆ	ÔÙ[™Ý\Ü™\]Y\Ý	Îˆ	ÔÚÚXÚØHÝ\Ü0é™[™IËˆ	ÔX\ÙHÙ[XÝH˜][™ÉÎˆ	Õ°éˆ]™]YÉËˆ	ÕÛÈX[žHÝX›Z\ÜÚ[ÛœËˆX\ÙHžHYØZ[ˆÚÜK‰Îˆ	Ñ°íœˆpé[™ØH°íœœðíšËˆ°íœœðíšÈYÙ[ˆÛH[ˆÝ[™‰Ëˆ	ÔÙ[™[™È™YY˜XÚË‹‹‰Îˆ	ÔÚÚXÚØ\ˆ™YY˜XÚË‹‹‰Ëˆ	Õ[šÈ[ÝH›Üˆ[Ý\ˆ™YY˜XÚÈIÎˆ	ÕXÚÈ°íœˆ[ˆ™YY˜XÚÈIËˆ	Ñ˜Z[YÈÙ[™™YY˜XÚËˆX\ÙHžHYØZ[‹‰Îˆ	ÒÝ[™H[HÚÚXÚØH™YY˜XÚËˆ°íœœðíšÈYÙ[‹‰Ëˆ	ÔX\ÙH\ØÜšX™HHÝ\ÈÈ™\›ÙXÙIÎˆ	Ð™\ÚÜš]ˆÝYÙ[ˆ°íœˆ]0é]\œÚØ\H›Ø›[Y]	Ëˆ	ÔÝX›Z][™ÈYÈ™\Ü‹‹‰Îˆ	ÔÚÚXÚØ\ˆ™[˜\Ü‹‹‰Ëˆ	ÐYÈ™\ÜÝX›Z]Yˆ[šÈ[ÝHIÎˆ	Ñ™[˜\Ü[ˆÚÚXÚØY\ËˆXÚÈIËˆ	Ñ˜Z[YÈÝX›Z]YÈ™\ÜˆX\ÙHžHYØZ[‹‰Îˆ	ÒÝ[™H[HÚÚXÚØH™[˜\Ü[‹ˆ°íœœðíšÈYÙ[‹‰Ëˆ	ÌKˆÛÈË‹‹—Œ‹ˆÛXÚÈÛ‹‹‹—ŒËˆ[\‹‹‹‰Îˆ	ÌKˆðéH[‹‹—Œ‹ˆÛXÚØH0éK‹‹—ŒËˆ[™ÙK‹‹‰Ëˆ	ÔÝ\ÈÈ™\›ÙXÙIÎˆ	ÔÝYÈ°íœˆ]0é]\œÚØ\IËˆ	ÕÚ]ÚÝ[]™H\[™YÉÎˆ	Õ˜Y›Ü™HH0éÉËˆ	Ñ^XÝY™Z]š[Ü‰Îˆ	Ñ°íœ°é]™]Y[™IËˆ	ÕÚ]XÝX[H\[™YÉÎˆ	Õ˜Y0é™H˜ZÝ\ÚÝÉËˆ	ÐXÝX[™Z]š[Ü‰Îˆ	Ñ˜ZÝ\ÚÝ™]Y[™IËˆ	ÔÝX›Z]YÈ™\Ü	Îˆ	ÔÚÚXÚØH™[˜\Ü	Ëˆ	ÓY\ÜØYÙHÙ[ÝXØÙ\ÜÙ[HHÙHÚ[Ù]˜XÚÈÈ[ÝHÛÛÛ‹‰Îˆ	ÓYY[[™]ÚÚXÚØY\ËˆšH0é]\šÛÛ[Y\ˆÛ˜\‰Ëˆ	Ñ˜Z[YÈÙ[™Y\ÜØYÙKˆX\ÙHžHYØZ[‹‰Îˆ	ÒÝ[™H[HÚÚXÚØHYY[[™]ˆ°íœœðíšÈYÙ[‹‰Ëˆ	ÔÙ[™Y\ÜØYÙIÎˆ	ÔÚÚXÚØHYY[[™IËˆ	ÐXØÛÝ[Ý\Ü	Îˆ	ÒÛÛÜÝ\Ü	Ëˆ	Õ\ÙHHÙXÝ\™H›Ü›H™[ÝÉÎˆ	Ð[°é™]ðéÜ˜H›Ü›][0é™]™Y[‰Ëˆ	Ô›ÙXÝ[	Îˆ	Ô›ÙZÝ°é	Ëˆ	Ò[Ù[\ˆ[™›ÝX›\ÚÛÝ[™ÉÎˆ	Ò°éÙ[\ˆØÚ™[ðíšÛš[™ÉËˆ	Ôš]˜XÞH™\]Y\ÝÉÎˆ	Ò[YÜš]]ðé™[™[‰Ëˆ	ÐXØÙ\ÜËÛÜœ™XÝ[ÛˆÜˆ[][Ûˆ™\]Y\ÝÉÎˆ	Ð™Yðé˜[ˆÛH0é]ÛÛ\Ý°é[ÙH[\ˆ˜Y\š[™ÉËˆ	Õ[›ØÚÈYÚ\ˆ[Z]ËX›\Ú[™Ë[˜[]XÜÈ[™ÛÛX›Ü˜][Ûˆ™X]\™\Ë‰Îˆ	Ó0é\È\0í™Ü™HÜ°éœÙ\‹X›XÙ\š[™Ë[˜[\ÈØÚØ[X\˜™]Ù[šÝ[Û™\‹‰Ëˆ	ÔÝ\Ú]ÛÜ™HRHÛÛÈ[™ÙXœÚ]HZ[\ˆ›Üˆœ™YIÎˆ	Ð°íœš˜HÜ˜]\ÈYYÜ[™0éÙØ[™HRK]™\šÝYÈØÚÙX˜œ]ØžYÙØ\™[‰Ëˆ\ÚÈRHÈÈ[ž][™Ë‹‹ˆK™Ëˆ	ÐÜ™X]HHÕ‰Ë	Ð[˜[^™H\È‰Ë	Õ˜[œÛ]H^	ÈŽˆ	Ð™HRHðíœ˜H°éYÛÝ[^[\[ÚØ\H]Õ‹[˜[\Ù\˜H[ˆˆ[\ˆ0í™\œðéH^	Ëˆ	Ó›ÈX]Ú[™ÈRHÛÛ[X[™ˆžHÜ™X]HHÕˆÜˆ˜[œÛ]H^‰Îˆ	Ò[™Ù]X]Ú[™HRKZÛÛ[X[™Ëˆ›Ý˜HÚØ\H]Õˆ[\ˆ0å™\œðé^‰Ëˆ	Ð\ÚÈ[ž][™Ë‹‹‰Îˆ	Ñœ°éYØH˜YÛÛH[Ý‹‹‰Ëˆ	ÒÝÈÈH[\›Ý™H^HÕÉÎˆ	Ò\ˆ°íœ˜°é˜\ˆ˜YÈZ]ÕÉËˆ	ÕÚ]ÛÛÈ\™H]˜Z[X›OÉÎˆ	Õš[ØH™\šÝYÈš[›œÏÉËˆ	Ò[YHÜš]HHÛÝ™\ˆ]\‰Îˆ	Ò°éZYÈÚÜš]˜H]\œÛÛ›YÝœ™]‰Ëˆ	Õ\È›ÜˆUÈÜ[Z^˜][Û‰Îˆ	Õ\È°íœˆUË[Ü[Y\š[™ÉËˆ	ÐÛÝ[›ÝØYÝXœØÜš\[ÛœÉÎˆ	ÒÝ[™H[H0éØH[ˆ™[[Y\˜][Û™\‰Ëˆ	Ô™]žIÎˆ	Ñ°íœœðíšÈYÙ[‰Ëˆ	ÔÝXœØÜš\[ÛœÈÝ™\šY]ÉÎˆ	Ô™[[Y\˜][Ûœðí™\œÚZÝ	Ëˆ	Ô^[Y[Ù][™ÜÉÎˆ	Ð™][š[™ÜÚ[œÝ0éš[™Ø\‰Ëˆ	Ü\ÝÙYH0­ÈËY^HÜ˜XÙIÎˆ	Ù°íœ™˜[[ˆ0­ÈÈYØ\œÈ™\Ü]	Ëˆ	ÔÝš\HÝ]\È[˜]˜Z[X›IÎˆ	ÔÝš\K\Ý]\È0éˆ[H[ðé™ÛYÉËˆ	ÔÝš\HÛÛ›™XÝ[Û‰Îˆ	ÔÝš\KX[œÛ]š[™ÉËˆ	ÔÙXÜ™]ÈÝ^HÙ\™\‹\ÚYH[™\™H™]™\ˆ^ÜÙY[ˆ\È[™[‰Îˆ	Ò[[YÚ]\ˆÝ[›˜\ˆ0éHÙ\™\œÚY[ˆØÚš\Ø\È[šYÈH[ˆ0éˆ[™[[‹‰Ëˆ	ÐÛÛ›™XÝY	Îˆ	Ð[œÛ][‰Ëˆ	Ó›ÝÛÛ™šYÝ\™Y	Îˆ	Ò[HÛÛ™šYÝ\™\˜Y	Ëˆ	ÔÝš\HXØÛÝ[	Îˆ	ÔÝš\KZÛÛÉËˆ	ÐÛÝ[žHÈÝ\œ™[˜ÞIÎˆ	Ó[™È˜[]IËˆ	ÐÚ\™Ù\ÉÎˆ	ÑXš]\š[™Ø\‰Ëˆ	Ó™YYÈ][[Û‰Îˆ	Ð™Z0í™\ˆ0é]ðé™\ÉËˆ	Ô^[Ý]ÉÎˆ	Õ]™][š[™Ø\‰Ëˆ	ÔšXÙH™\šYšYY	Îˆ	Ôš\È™\šYšY\˜]	Ëˆ	ÔšXÙHZ\ÜÚ[™ÈÈ[˜[Y	Îˆ	Ôš\ÈØZÛ˜\ÈÈÙÚ[YÝ	Ëˆ	ÔšXÙHQ	Îˆ	Ôš\ËRQ	Ëˆ	ÔÝš\HšXÙIÎˆ	ÔÝš\K\š\ÉËˆ	ÕÙXšÛÚÉÎˆ	ÕÙXšÛÚÉËˆ	ÔÙXÜ™]ÛÛ™šYÝ\™Y	Îˆ	Ò[[YÚ]ÛÛ™šYÝ\™\˜Y	Ëˆ	ÔÙXÜ™]Z\ÜÚ[™ÉÎˆ	Ò[[YÚ]ØZÛ˜\ÉËˆ	Ñ[™Ú[›Ý[™	Îˆ	Ñ[™Ú[]Y	Ëˆ	Ñ[™Ú[Z\ÜÚ[™ÉÎˆ	Ñ[™Ú[ØZÛ˜\ÉËˆ	Ñ]™[ÈÛÛ™šYÝ\™Y	Îˆ	Ò0é™[Ù\ˆÛÛ™šYÝ\™\˜YIËˆ	Ñ]™[È™YY™]šY]ÉÎˆ	Ò0é™[Ù\ˆ™Z0í™\ˆÜ˜[œÚØ\ÉËˆ	ÐÚXÚÛÝ]	ˆÜ[	Îˆ	ÐÚXÚÛÝ]ØÚÜ[	Ëˆ	ÐÚXÚÛÝ]™XYIÎˆ	ÐÚXÚÛÝ]Û\‰Ëˆ	ÐÚXÚÛÝ]™YYÈÙ]\	Îˆ	ÐÚXÚÛÝ]™Z0í™\ˆÛÛ™šYÝ\™\˜\ÉËˆ	Ðš[[™ÈÜ[™XYIÎˆ	Ñ˜ZÝ\™\š[™ÜÜÜ[Û\‰Ëˆ	ÔÜ[™YYÈÙ]\	Îˆ	ÔÜ[[ˆ™Z0í™\ˆÛÛ™šYÝ\™\˜\ÉËˆ	Ó[ÙHX]Ú\ÈšXÙ\ÉÎˆ	Ó0éÙ]X]Ú\ˆš\Ù\›˜IËˆ	Ó]™KÕ\ÝZ\ÛX]Ú	Îˆ	Ó]™KÕ\ÝÝ0é[Y\ˆ[H0í™\™[œÉËˆ	Ô^[Ý]\Ý[˜][Û‰Îˆ	Õ]™][š[™ÜÙ\Ý[˜][Û‰Ëˆ	Ð˜[šÈXØÛÝ[Ë^[Ý]ØÚY[KY[]H[™^]Z[È\™HX[˜YÙYÛ›H[œÚYHÝš\K‰Îˆ	Ð˜[šÚÛÛÛ‹]™][š[™ÜÜØÚ[XKY[]]ËHØÚÚØ]]\ÚY\ˆ[\˜\È[™\ÝHÝš\K‰Ëˆ	ÓÜ[ˆÝš\H\Ú›Ø\™	Îˆ	ðåœ˜HÝš\H\Ú›Ø\™	Ëˆ	Ô™Yœ™\ÚÝš\HÝ]\ÉÎˆ	Õ\]\˜HÝš\K\Ý]\ÉËˆ	ÔÞ\Ý[HÙÜÈ[˜]˜Z[X›IÎˆ	ÔÞ\Ý[[ÙÙØ\ˆ0éˆ[H[ðé™ÛYØIËˆ	ÐXØÛÝ[›ØÚÜÈ[˜]˜Z[X›IÎˆ	ÒÛÛØ›ØÚÙ\š[™Ø\ˆ0éˆ[H[ðé™ÛYØIËˆ	ÐXØÛÝ[›ØÚÈ\Ý	Îˆ	Ó\ÝH0í™\ˆ›ØÚÙ\˜YHÛÛÛ‰Ëˆ	Ð›ØÚÜÈÝ\š]™HXØÛÝ[[][Ûˆ[™™]™[™K\™YÚ\Ý˜][ÛˆÚ[HXÝ]™K‰Îˆ	Ð›ØÚÙ\š[™Ø\ˆš[›œÈÝ˜\ˆY\ˆ]ÛÛÝ˜Y\˜]ÈØÚ°íœš[™˜\ˆžH™YÚ\Ý™\š[™ÈðéH0é™ÙHH0éˆZÝ]˜K‰Ëˆ	Ó›È›ØÚÙY[XZ[ÉÎˆ	Ò[™ØH›ØÚÙ\˜YHK\ÜÝY™\ÜÙ\‰Ëˆ	Ð›ØÚÙY	Îˆ	Ð›ØÚÙ\˜Y	Ëˆ	Ñ^\™Y	Îˆ	Õ]ðé[™Ù[‰Ëˆ	Ó›È™X\ÛÛˆ›ÝšYY	Îˆ	Ò[™Ù[ˆÜœØZÈ[™Ú]™[‰Ëˆ	ÐžIÎˆ	Ð]‰Ëˆ	Ñ^\™\ÉÎˆ	Ñðé\ˆ]	Ëˆ	Ô\›X[™[	Îˆ	Ô\›X[™[	Ëˆ	Õ[˜›ØÚÉÎˆ	Ð]˜›ØÚÙ\˜IËˆ	Ô›ÙXÝ[Ûˆ™XY[™\ÜÈ[˜]˜Z[X›IÎˆ	Ô›ÙZÝ[ÛœØ™\™YÚØ\0éˆ[H[ðé™ÛYÉËˆ	Ô›ÙXÝ[Ûˆ™XY[™\ÜÉÎˆ	Ô›ÙZÝ[ÛœØ™\™YÚØ\	Ëˆ	ÓYØ[Ü\˜]ÜˆY[]IÎˆ	Ò\šY\ÚÈÜ\˜]0íœœÚY[]]	Ëˆ	Ô›ÙXÝ[Ûˆ\T“	Îˆ	Ô›ÙZÝ[ÛœØ\[œÈT“	Ëˆ	Ó]™HÙ\šXÙHÚXÚÜÈ™Y›Ü™H][˜ÚˆÙXÜ™]È™[XZ[ˆÙ\™\‹\ÚYK‰Îˆ	ÒÛÛ›Û\ˆ]ˆ]™K]°éœÝ\ˆ°íœ™H[œÙ\š[™Ëˆ[[YÚ]\ˆÝ[›˜\ˆ0éHÙ\™\œÚY[‹‰Ëˆ	Ü™XYIÎˆ	ÚÛ\‰Ëˆ	Ó›ÝYšXØ][ÛœÈ[˜]˜Z[X›IÎˆ	Ð]š\Ù\š[™Ø\ˆ0éˆ[H[ðé™ÛYØIËˆ	Ñ[XZ[[\]\È[˜]˜Z[X›IÎˆ	ÑK\ÜÝX[\ˆ0éˆ[H[ðé™ÛYØIËˆ	Ð˜XÚÝ\È\™HX[˜YÙYžHH]X˜\ÙHÜÝ[™È›ÝšY\‹ˆ›È[‹X\˜XÚÝ\TH\ÈÛÛ™šYÝ\™YÛÈ\È[™[Ú[›Ý™][™ÈÜ™X]HÜˆÝÛ›ØY˜XÚÝ\Ë‰Îˆ	ÔðéÙ\š]ÚÛÜ[Üˆ[\˜\È]ˆ]X˜\Ù[œÈšY]™\˜[0íœ‹ˆ[™Ù]˜XÚÝ\PTH0éˆÛÛ™šYÝ\™\˜]H\[‹ðéH[™[[ˆ0é]Ø\È[HÚØ\H[\ˆYH™\ˆðéÙ\š]ÚÛÜ[Ü‹‰Ëˆ	Õ\ÙHHÝ\X˜\ÙH›Ú™XÝ˜XÚÝ\ÛÛ›ÛÈ›Üˆ™X[˜XÚÝ\[™™\ÝÜ™HÜ\˜][ÛœË‰Îˆ	Ð[°é™˜XÚÝ\[šÝ[Û™\›˜HHÝ\X˜\ÙK\›Ú™ZÝ]°íœˆšZÝYØHðéÙ\š]ÚÛÜY\š[™ÜËHØÚ0é]\œÝ0éš[™Üðé]ðé™\‹‰Ëˆ	ÐTHÙ^HY]Y]H[˜]˜Z[X›IÎˆ	ÓY]Y]H°íœˆTK[žXÚÛ\ˆ0éˆ[H[ðé™ÛYÉËˆ	ÓY]Y]HÛ›H8 %ÙXÜ™]ÈÝ^HÙ\™\‹\ÚYIÎˆ	Ñ[™\ÝY]Y]H8 %[[YÚ]\ˆÝ[›˜\ˆ0éHÙ\™\œÚY[‰Ëˆ	Ñ™X]\™H›YÜÈ[˜]˜Z[X›IÎˆ	Ñ[šÝ[ÛœÙ›YÙÛÜˆ0éˆ[H[ðé™ÛYØIËˆ	Ñ^\Ý[™È›YÜÈÛ›IÎˆ	Ñ[™\Ý™Yš[YØH›YÙÛÜ‰Ëˆ	ÐÛÝ[›ÝØY\Ù\œÉÎˆ	ÒÝ[™H[H0éØH[ˆ[°é™\™IËˆ	ÐYZ[ˆXØÙ\ÜÉÎˆ	ÐYZ[°é]ÛÛ\Ý	Ëˆ	ÓX[˜YÙYžHš[[™ÉÎˆ	Ò[\˜\È]ˆ˜ZÝ\™\š[™ÉËˆ	ÐÛÛ\[Y[\žHXØÙ\ÜÉÎˆ	ÒÛÜÝ˜YÙœšH0é]ÛÛ\Ý	Ëˆ	ÐÝ\œ™[š[[™ÈÛ›IÎˆ	Ñ[™\ÝZÝY[˜ZÝ\™\š[™ÉËˆ	ÐÛÛ\[Y[\žH›ÉÎˆ	ÒÛÜÝ˜YÙœšH›ÉËˆ	ÐÛÛ\[Y[\žH\Ú[™\ÜÉÎˆ	ÒÛÜÝ˜YÙœšH\Ú[™\ÜÉËˆ	Ñ^\™\È
+Ü[Û˜[
+IÎˆ	Ñðé\ˆ]
+˜[œš]
+IËˆ	ÔØ]™HÛÛ\[Y[\žHXØÙ\ÜÉÎˆ	ÔÜ\˜HÛÜÝ˜YÙœšH0é]ÛÛ\Ý	Ëˆ	Õ\ÈÚ[™Ù\È›ÙXÝXØÙ\ÜÈÛ›Kˆ]Ù\È›ÝÜ™X]HHÝš\HÝXœØÜš\[ÛˆÜˆY™™XÝT”‹‰Îˆ	Ñ]H0é™˜\ˆ[™\Ý›ÙZÝ0é]ÛÛ\Ý[‹ˆ]ÚØ\\ˆ[™Ù[ˆÝš\K\™[[Y\˜][ÛˆØÚ0é]™\šØ\ˆ[HT”‹‰Ëˆ	ÐZ[™]šY]È[™X›\Ú	Îˆ	ÐžYÙË°íœš[™ÙÜ˜[œÚØHØÚX›XÙ\˜IËˆ	Ó[Ü™HÙXœÚ]HÛÛÉÎˆ	Ñ›\ˆÙX˜œ]Ý™\šÝYÉËˆ	Ó[Ü™IÎˆ	ÓY\‰Ëˆ	ÕÙXœÚ]HÛÛÉÎˆ	ÕÙX˜œ]Ý™\šÝYÉËˆ	ÐY˜[˜ÙYÛÛÈÝ^H\™H[[[ÝH™YY[K‰Îˆ	Ð]˜[˜Ù\˜YH™\šÝYÈÝ[›˜\ˆ0éˆ[ÈH™Z0í™\ˆ[K‰Ëˆ	Ô›Ú™XÝ	ˆÛXZ[‰Îˆ	Ô›Ú™ZÝØÚÛpé‰Ëˆ	ÔÝ\H™]ÈÙXœÚ]x )‰Îˆ	ÔÝ\H[ˆžHÙX˜œ]ø )‰Ëˆ	Ô›Ú™XÝXÝ[ÛœÉÎˆ	Ô›Ú™ZÝ0é]ðé™\‰Ëˆ	ÐRH]X[]HÚXÚÈ™Y›Ü™HX›\Ú[™ÉÎˆ	ÐRKZÝ˜[]]ÚÛÛ›Û°íœ™HX›XÙ\š[™ÉËˆ	ÐÚXÚÚ[™ø )‰Îˆ	ÒÛÛ›Û\˜\¸ )‰Ëˆ	ÐÚXÚÉÎˆ	ÒÛÛ›Û\˜IËˆ	ÐRH]X[]HÚXÚÉÎˆ	ÐRKZÝ˜[]]ÚÛÛ›Û	Ëˆ	Ô™]šY]Ú[™È\ÚYÛ‹ÛÛ[ÑSËXØÙ\ÜÚXš[]H[™X›\Ú™XY[™\Üø )‰Îˆ	ÑÜ˜[œÚØ\ˆ\ÚYÛ‹[›™Z0é[ÑSË[ðé™ÛYÚ]ØÚX›XÙ\š[™ÜØ™\™YÚØ\8 )‰Ëˆ	Ô[ˆHš[˜[RH™]šY]È™Y›Ü™HX›\Ú[™Ë‰Îˆ	Òðíœˆ[ˆÚ\ÝHRKYÜ˜[œÚÛš[™Ù[ˆ°íœ™HX›XÙ\š[™Ë‰Ëˆ	Ô[ˆYØZ[‰Îˆ	ÒðíœˆYÙ[‰Ëˆ	Ñš^ØY™H\ÜÝY\ÈÚ]RIÎˆ	ðá]ðé™HðéÜ˜H›Ø›[HYYRIËˆ	ÔX›\Ú™[XZ[œÈ›ØÚÙYžHÜš]XØ[]\›Z[š\ÝXÈ]Y]\œ›ÜœÈ[™][˜ÚÚXÚÜË‰Îˆ	ÔX›XÙ\š[™È°íœ˜›\ˆ›ØÚÙ\˜Y]ˆÜš]\ÚØH]\›Z[š\Ý\ÚØHÜ˜[œÚÛš[™ÜÙ™[ØÚ[œÙ\š[™ÜÚÛÛ›Û\‹‰Ëˆ	Õ\ÈÌX[X[[™RHÚXÚÜÚ[Ëˆ]]ÜØ]™HÝ^\ÈYÚÙZYÚ‰Îˆ	Õ\[ÌX[Y[HØÚRKZÛÛ›Û[šÝ\‹ˆ]]ÜÜ\˜[™]°íœ˜›\ˆ0éšZÝYÝ‰Ëˆ	Ó›È™\ÝÜ™HÚ[ÈY]ˆØ]™HÜˆ\ÙH^X\ˆRHÈÜ™X]HHš\œÝÚXÚÜÚ[‰Îˆ	Ò[™ØH0é]\œÝ0éš[™ÜÜ[šÝ\ˆ0é›KˆÜ\˜H[\ˆ[°é™^X\ˆRH°íœˆ]ÚØ\H[ˆ°íœœÝHÛÛ›Û[šÝ[‹‰Ëˆ	ÐY	Îˆ	Ó0éÙÈ[	Ëˆ	ÔYÙHÙ][™ÜÉÎˆ	ÔÚY[œÝ0éš[™Ø\‰Ëˆ	ÔÚ]HÙ][™ÜÉÎˆ	ÕÙX˜œ]Ú[œÝ0éš[™Ø\‰Ëˆ	ÒXY\‹›ÛÝ\‹[YKÑSÈ[™Y˜[˜ÙYÜ[ÛœÉÎˆ	ÔÚY]YÚY›Ý[XKÑSÈØÚ]˜[˜Ù\˜YH[\›˜]]‰Ëˆ	ÔÙXÝ[ÛœÈ	ˆ[[Y[ÉÎˆ	ÔÙZÝ[Û™\ˆØÚ[[Y[	Ëˆ	ÔÜ[\ˆÙXÝ[ÛœÉÎˆ	ÔÜ[0é˜HÙZÝ[Û™\‰Ëˆ	ÔÝ\Ú[\IÎˆ	Ð°íœš˜H[šÙ[	Ëˆ	Ó[Ü™HÙXÝ[ÛœÉÎˆ	Ñ›\ˆÙZÝ[Û™\‰Ëˆ	ÐY[[Y[	Îˆ	Ó0éÙÈ[[[Y[	Ëˆ	ÐÛÛ[[Ûˆš\œÝ	Îˆ	Õ˜[›YØH°íœœÝ	Ëˆ	ÐY˜[˜ÙY[[Y[ÉÎˆ	Ð]˜[˜Ù\˜YH[[Y[	Ëˆ	ÐÚÛÜÙHHÙXÝ[Ûˆš\œÝˆY[™]šYX[[[Y[ÈÛ›HÚ[ˆ[ÝH™YY[Ü™HÛÛ›Û‰Îˆ	Õ°éˆ°íœœÝ[ˆÙZÝ[Û‹ˆ0éÙÈ˜\˜H[[œÚÚ[H[[Y[°éˆH™Z0í™\ˆY\ˆÛÛ›Û‰Ëˆ	ÔÙ[XÝHÙXÝ[ÛˆÈÙYH]È[[Y[Ë‰Îˆ	Õ°éˆ[ˆÙZÝ[Ûˆ°íœˆ]ÙH\ÜÈ[[Y[‰Ëˆ	ÜÙXÝ[ÛœÉÎˆ	ÜÙZÝ[Û™\‰Ëˆ	Ó›È[[Y[È[ˆ\ÈÙXÝ[Û‹‰Îˆ	Ò[™ØH[[Y[H[ˆ0éˆÙZÝ[Û™[‹‰Ëˆ	Õ^X\ˆRHZ[\‰Îˆ	Õ^X\ˆRKXžYÙØ\™IËˆ	ÐZ[™Yš[™H[™[™ÈÚ]˜]\˜[[™ÝXYÙK‰Îˆ	ÐžYÙË°íœ™š[˜HØÚ0é[™Ü˜HYY˜]\›YÝÜ°éZË‰Ëˆ	ÔØY™H]Ú[ÙIÎˆ	ÔðéÙ\]Ú0éÙIËˆ	Õ[œ™[]YÛÛ[Ý^\È[XÝ	Îˆ	ÓÜ™[]\˜][›™Z0é[0é[˜\ÈÜ°íœ	Ëˆ	ÕÙXœÚ]H[‰Îˆ	ÕÙX˜œ]Ü[‰Ëˆ	Ð\HRHÚ[™ÙIÎˆ	Õ[0é\HRKpé™š[™ÉËˆ	Ô™XZ[œ›ÛH›Û\	Îˆ	ÐžYÙÈÛHœ°é[ˆ›Û\	Ëˆ	ÑY]X[X[IÎˆ	Ô™YYÙ\˜HX[Y[	Ëˆ	ÑÙ[™\˜]HÙ[XÝY[XYÙIÎˆ	ÑÙ[™\™\˜H˜[š[	Ëˆ	Ô]X[]HÚXÚÉÎˆ	ÒÝ˜[]]ÚÛÛ›Û	Ëˆ	Õ[™ÈRHÚ[™ÙIÎˆ	ðá[™Ü˜HRKpé™š[™ÉËˆ	ÐZ[Ú]^X\ˆYÙ[	Îˆ	ÐžYÙÈYY^X\ˆYÙ[	Ëˆ	Ñ˜\ÝZ[0­È›ÈÙ[™\˜]Y[XYÙ\ÉÎˆ	ÔÛ˜X˜ˆžYÙÛš[™È0­È[™ØHÙ[™\™\˜YHš[\‰Ëˆ	ÐRHÜ™X]\È[™]Ú\È™X[^X\ˆYÙ\È[™ÙXÝ[ÛœËˆ›ÛÝË]\Ú[™Ù\È™\Ù\™H[œ™[]YÛÛ[[™™[XZ[ˆY]X›H[ˆHš\ÝX[Z[\‹‰Îˆ	ÐRHÚØ\\ˆØÚ\]\˜\ˆšZÝYØH^X\‹\ÚYÜˆØÚÙZÝ[Û™\‹ˆ°í›™0é™š[™Ø\ˆ™]˜\˜\ˆÜ™[]\˜][›™Z0é[ØÚ°íœ˜›\ˆ™YYÙ\˜˜\˜HH[ˆš\ÝY[HžYÙØ\™[‹‰Ëˆ	Ñ]™[Ü\ˆ^Ü	Îˆ	Õ]™XÚÛ\™^Ü	Ëˆ	ÐYÙXÝ[Û‰Îˆ	Ó0éÙÈ[ÙZÝ[Û‰Ëˆ	Ò[œÜXÝÜ‰Îˆ	Ò[œÜZÝ0íœ‰Ëˆ	ÑÝX›KXÛXÚÈH^ÛˆHYÙH›Üˆ]ZXÚÈY][™ËÜˆ\ÙHHÛÛ›ÛÈ\™K‰Îˆ	ÑX˜™[ÛXÚØH0éH^[ˆ0éHÚY[ˆ°íœˆÛ˜X˜ˆ™YYÙ\š[™Ë[\ˆ[°é™ÛÛ›Û\›˜H0é‹‰Ëˆ	ÐÚ[™ÙHH˜\ÚXÜÈ\™KˆÜ[ˆY˜[˜ÙYÛ›HÚ[ˆ[ÝH™YY]‰Îˆ	ðá™˜HÜ[™\›˜H0é‹ˆ0åœ˜H]˜[˜Ù\˜]˜\˜H°éˆH™Z0í™\ˆ]‰Ëˆ	ÔÙ[XÝÛÛY][™ÈÛˆHYÙHÈÝ\Y][™Ë‰Îˆ	Õ°éˆ°éYÛÝ0éHÚY[ˆ°íœˆ]°íœš˜H™YYÙ\˜K‰Ëˆ	ÔÝXÝ\™IÎˆ	ÔÝZÝ\‰Ëˆ	ÔÝXÝ\™H	ˆ™]\ØX›HÛÛ\Û™[ÉÎˆ	ÔÝZÝ\ˆØÚ0é]\˜[°é™˜\˜HÛÛ\Û™[\‰Ëˆ	Ô]ZXÚÈÝ[IÎˆ	ÔÛ˜X˜ˆÝ[	Ëˆ	ÐY˜[˜ÙY\ÚYÛˆ	ˆ™\ÜÛœÚ]™IÎˆ	Ð]˜[˜Ù\˜Y\ÚYÛˆØÚ™\ÜÛœÚ]š]]	Ëˆ	ÜÝ[\ÉÎˆ	ÜÝ[\‰Ëˆ	Ñœ™YHÜÚ][Û‰Îˆ	ÑœšHÜÚ][Û‰Ëˆ	Ñ˜YÈœ™Y[HÛˆHØ[˜\ËˆÛÚYÚ[H˜YÙÚ[™ÈÈ™[Ü™\ˆ[œÝXY‰Îˆ	Ñ˜Hœš]0éH\˜™]Þ][‹ˆ0é[ÚYYY[ˆH˜\ˆ°íœˆ]0é™˜HÜ™š[™ÈHÝ0é]‰Ëˆ	ÔÙXÝ[ÛˆÙ][™ÜÉÎˆ	ÔÙZÝ[ÛœÚ[œÝ0éš[™Ø\‰Ëˆ	ØÛÛ\ÙYÚ[HY][™È[[Y[	Îˆ	ÚZÜ°é[™\ˆ[[Y[™YYÙ\š[™ÉË‚ˆ	ÕÛÛÈ]H[˜]˜Z[X›IÎˆ	Õ™\šÝYÜÙ]H0éˆ[H[ðé™ÛYÉËˆ	Ó]™H\ØYÙH]IÎˆ	Ó]™KX[°é™š[™ÜÙ]IËˆ	Ð[˜[\Ú\È\È™XY[Û›Kˆ›ÈÝÜ˜YÙHØš™XÝÜˆ]X˜\ÙH›ÝÈ\ÈÚ[™ÙYžH\È]Û‹‰Îˆ	Ð[˜[\Ù[ˆ0éˆÚÜš]œÚÞYYˆ[™Ù[ˆYÜš[™ÜÙš[[\ˆ]X˜\Ü˜Y0é™˜\È]ˆ[ˆ0éˆÛ˜\[‹‰Ëˆ	Ñ]XÝY\ÜÝY\ÉÎˆ	Õ\0éÚÝH›Ø›[IËˆ	ÐÛÛ\Û™[ÉÎˆ	ÒÛÛ\Û™[\‰Ëˆ	ØÚ[™Ù\ÉÎˆ	ðé™š[™Ø\‰Ëˆ	Ô™\ÝÜ™H\ÈY]ÜˆÝ]IÎˆ	ðá]\œÝ0é]H™YYÙ\˜\›0éÙIËˆ	Ô™\ÝÜ™IÎˆ	ðá]\œÝ0é	Ëˆ	Ó›ÈÚ[™Ù\ÈY]‰Îˆ	Ò[™ØH0é™š[™Ø\ˆ0é›K‰Ëˆ	Ô™YÈ]Y]YIÎˆ	ÑðíœˆÛKZðí‰Ëˆ	Õ[\]HXœ˜\žIÎˆ	ÓX[šX›[ÝZÉË‚ˆ	ÐÛÛ\Û™[È\™H™]\ØX›H[šÙY[[Y[ËˆÜ™X]HÛ™Hœ›ÛHHÙ[XÝY[[Y[[œÙ\][ž]Ú\™K[™[šÙYÛÜY\ÈÝ^H[ˆÞ[˜Ëˆ]XÚXZÙ\ÈÛ›HHÙ[XÝYÛÜH[™\[™[‰Îˆ	ÒÛÛ\Û™[\ˆ0éˆ0é]\˜[°é™˜\˜H0éšØYH[[Y[ˆÚØ\H[ˆœ°é[ˆ]˜[H[[Y[]ØÚ[™›ÙØH[ˆ˜\ˆÛÛH[ÝðéH0é[È0éšØYHÛÜ[ÜˆÞ[šÜ›Ûš\Ù\˜YKˆœšZÛÜ[™Èðíœˆ˜\˜H[ˆ˜[HÛÜX[ˆØ™\›Ù[™K‰Ëˆ	ÐÜ™X]HH™]\ØX›H[šÙYÛÛ\Û™[œ›ÛHHÙ[XÝY[[Y[	Îˆ	ÔÚØ\H[ˆ0é]\˜[°é™˜\ˆ0éšØYÛÛ\Û™[œ°é[ˆ]˜[H[[Y[]	Ëˆ	ÔÙ[XÝH›Ü›X[[[Y[š\œÝ	Îˆ	Õ°éˆ]˜[›YÝ[[Y[°íœœÝ	Ëˆ	ÐÜ™X]HÛÛ\Û™[	Îˆ	ÔÚØ\HÛÛ\Û™[	Ëˆ	Ñ]XÚHÙ[XÝY[šÙY[œÝ[˜ÙIÎˆ	ÑœšZÛÜH[ˆ˜[H0éšØYH[œÝ[œÙ[‰Ëˆ	ÔÙ[XÝH[šÙYÛÛ\Û™[[œÝ[˜ÙHš\œÝ	Îˆ	Õ°éˆ[ˆ0éšØYÛÛ\Û™[[œÝ[œÈ°íœœÝ	Ëˆ	Ñ]XÚÙ[XÝY	Îˆ	ÑœšZÛÜH˜[	Ëˆ	Ò[œÙ\ÛÛ\Û™[[ÈHÙ[XÝYÙXÝ[Û‰Îˆ	Ò[™›ÙØHÛÛ\Û™[H[ˆ˜[HÙZÝ[Û™[‰Ëˆ	ÔÙ[XÝHÙXÝ[ÛˆÜˆ[[Y[š\œÝ	Îˆ	Õ°éˆ[ˆÙZÝ[Ûˆ[\ˆ][[Y[°íœœÝ	Ëˆ	ÐÛÛ\Û™[	Îˆ	ÒÛÛ\Û™[	Ëˆ	Ñ[]HÛÛ\Û™[	Îˆ	Ô˜Y\˜HÛÛ\Û™[	Ëˆ	ÑS	Îˆ	Ô˜Y\˜IËˆ	ÔÙ[XÝ[ˆ[[Y[ÛˆHØ[˜\Ë[ˆÚÛÜÙH8 'Ü™X]HÛÛ\Û™[8 'K‰Îˆ	Õ°éˆ][[Y[0éH\˜™]Þ][ˆØÚ°éˆÙY[ˆ8 'TÚØ\HÛÛ\Û™[8 'K‰Ëˆ	ÔÙ[XÝHÙXÝ[ÛˆÜˆ[ˆ[[Y[ÛˆHØ[˜\È™Y›Ü™H[œÙ\[™ÈHÛÛ\Û™[‰Îˆ	Õ°éˆ[ˆÙZÝ[Ûˆ[\ˆ][[Y[0éH\˜™]Þ][ˆ[›˜[ˆH[™›ÙØ\ˆ[ˆÛÛ\Û™[‰Ëˆ	Õ^X\ˆRH\ÈØY[™Ë‹‹‰Îˆ	Õ^X\ˆRHY\Ë‹‹‰Ëˆ	ÔÚ]HÛÛ›ÛÈ\™HØY[™Ë‹‹‰Îˆ	ÕÙX˜œ]ÚÛÛ›Û\ˆY\Ë‹‹‰Ëˆ	ÔÙ][™ÜÈ\™HØY[™Ë‹‹‰Îˆ	Ò[œÝ0éš[™Ø\ˆY\Ë‹‹‰Ëˆ	Õ^X\ˆRIÎˆ	Õ^X\ˆRIËˆ	Õ‘T’Q–RS‘ÉÎˆ	Õ‘T’Q’QTT‰Ëˆ	ÐÒPÒÈRSQ	Îˆ	ÒÓÓ•“ÓRTÔÓPÒÐQTÉËˆ	ÓU‘IÎˆ	ÓU‘IËˆ	ÔP“TÒQ	Îˆ	ÔP“PÑTQ	Ëˆ	ÔØ]™YÚ[™Ù\È™YY™\X›\Ú0­ÈÜ[ˆÚ]H8¡¥ÉÎˆ	ÔÜ\˜YH0é™š[™Ø\ˆ™Z0í™\ˆX›XÙ\˜\ÈYÙ[ˆ0­È0åœ˜HÙX˜œ]È8¡¥ÉËˆ	Õ\È]H0­ÈÜ[ˆÚ]H8¡¥ÉÎˆ	Õ\]\˜Y0­È0åœ˜HÙX˜œ]È8¡¥ÉËˆ	ØÜš]XØ[	Îˆ	ÚÜš]\ÚØIËˆ	ÝØ\›š[™ÜÉÎˆ	Ý˜\›š[™Ø\‰Ëˆ	Ú\ÜÝYIÎˆ	Ü›Ø›[IËˆ	Ú\ÜÝY\ÉÎˆ	Ü›Ø›[IËˆ	ÔØ]š[™ø )‰Îˆ	ÔÜ\˜\¸ )‰Ëˆ	Õ[œØ]™Y	Îˆ	ÓÜÜ\˜]	Ëˆ	ÔØ]™Y0­È›Ý]™HY]	Îˆ	ÔÜ\˜]0­È[H]™H0é›IËˆ	ÔØ]™Y0­È]™IÎˆ	ÔÜ\˜]0­È]™IËˆ	ÔØ]™Y	Îˆ	ÔÜ\˜]	Ëˆ	ÑY]Üˆ\ÝÜžIÎˆ	Ô™YYÙ\˜\š\ÝÜšZÉËˆ	ÔX›\Ú[™ø )‰Îˆ	ÔX›XÙ\˜\¸ )‰Ëˆ	Ô™\X›\Ú	Îˆ	ÔX›XÙ\˜HYÙ[‰Ëˆ	ÔX›\ÚYØZ[‰Îˆ	ÔX›XÙ\˜HYÙ[‰Ëˆ	ÔX›\Ú	Îˆ	ÔX›XÙ\˜IË‚ˆ	Õ^X\ˆÛÙ[™È\ÜÚ\Ý[˜ÙIÎˆ	Õ^X\ˆÛÙ\ÜÚ\Ý[œÉËˆ	ÕRH™YÚ\ÝžIÎˆ	ÕRK\™YÚ\Ý\‰Ëˆ	Ô™XY[™ÈXÝ]™H›Ú™XÝ	Îˆ	Ó0éÙ\ˆZÝ]›Ú™ZÝ	Ëˆ	Ô›Ú™XÝÛÛ^[˜]˜Z[X›IÎˆ	Ô›Ú™ZÝÛÛ^0éˆ[H[ðé™ÛYÉËˆ	ÓØY[™ÈÜ[‹\ÛÝ\˜ÙH™YÚ\ÝšY\ÉÎˆ	ÓY\ˆ™YÚ\Ý\ˆYY0íœ[ˆðéÛÙ	Ëˆ	Õ\™Ù]›Ú™XÝ	Îˆ	Ópé[›Ú™ZÝ	Ëˆ	ÔÛÝ\˜ÙHÛXÞIÎˆ	ÒðéÛXÞIËˆ	Ñš[\ÉÎˆ	Ñš[\‰Ëˆ	Ñ›Û\‰Îˆ	ÓX\	Ëˆ	ÐÛX\ˆš]˜]HÙ\ÜÚ[Ûˆš[\ÉÎˆ	Ô™[œØHš]˜]HÙ\ÜÚ[ÛœÙš[\‰Ëˆ	Ñ[™X]\™HÙ[™\˜]Ü‰Îˆ	ÒÛÛ\][šÝ[ÛœÙÙ[™\˜]Ü‰Ëˆ	Ô™YÚ\ÝžH[˜ÚÜœÉÎˆ	Ô™YÚ\Ý\˜[šØ\™IËˆ	ÐÚÛÜÙHH\™Ù]›Ú™XÝÈÙ[™\˜]HH™X]\™HXÚË‰Îˆ	Õ°éˆ]pé[›Ú™ZÝ°íœˆ]Ù[™\™\˜H][šÝ[ÛœÜZÙ]‰Ëˆ	ÐÛÛ\Û™[Ú]ÛÛ\ÜÙ\‰Îˆ	ÒÛÛ\Û™[ZÙ]ØžYÙØ\™IËˆ	ÒÚ]\È[\KˆØYH™\Ù]ÜˆYÙ[XÝYÛÛ\Û™[Ë‰Îˆ	ÔZÙ]]0éˆÛ]ˆYH[ˆ°íœš[œÝ0éš[™È[\ˆ0éÙÈ[˜[HÛÛ\Û™[\‹‰Ëˆ	ÐÛX\ˆÚ]	Îˆ	Ô™[œØHZÙ]	Ëˆ	Ò][\ÉÎˆ	ÓØš™ZÝ	Ëˆ	Ô™YÚ\ÝžH\ÉÎˆ	Ô™YÚ\Ý\˜™\›Ù[™[‰Ëˆ	ÐÛÛ\]Xš[]IÎˆ	ÒÛÛ\]Xš[]]	Ëˆ	ÔYÙHÛÛ\ÜÙ\ˆ
+È[Y\ÉÎˆ	ÔÚYžYÙØ\™H
+È[X[‰Ëˆ	ÔÙXÝ[Ûˆ[˜ÚÜœÉÎˆ	ÔÙZÝ[ÛœØ[šØ\™IËˆ	Ó›ÈÝ›Û™È™YÚ\ÝžH[˜ÚÜœÈ›Ý[™›Üˆ\ÈYÙH™\Ù]‰Îˆ	Ò[™ØHÝ\šØH™YÚ\Ý\˜[šØ\™H]Y\È°íœˆ[ˆ0éˆÚY°íœš[œÝ0éš[™Ù[‹‰Ëˆ	Ô›Ú™XÝRH]Y]	Îˆ	Ô›Ú™ZÝ]ÈRKYÜ˜[œÚÛš[™ÉËˆ	ÐÚÛÜÙHH\™Ù]›Ú™XÝÈ[ˆHRH]Y]‰Îˆ	Õ°éˆ]pé[›Ú™ZÝ°íœˆ]ðíœ˜HRKYÜ˜[œÚÛš[™Ù[‹‰Ëˆ	ÔØÛÜ™IÎˆ	Ôðé™ÉËˆ	ÒYÚ	Îˆ	Ò0í™ÉËˆ	ÐÛÝ™\˜YÙIÎˆ	Õ0éÚÛš[™ÉËˆ	Ó›È\ÜÝY\ÈX]ÚYHÝ\œ™[]\›Z[š\ÝXÈ]Y][\Ë‰Îˆ	Ò[™ØH›Ø›[HX]ÚYHHZÝY[H]\›Z[š\Ý\ÚØHÜ˜[œÚÛš[™ÜÜ™YÛ\›˜K‰Ëˆ	Ð[ÛÝ\˜Ù\ÉÎˆ	Ð[HðéÜ‰Ëˆ	Ôš]˜]HÙ\ÜÚ[Û‰Îˆ	Ôš]˜]Ù\ÜÚ[Û‰Ëˆ	Ð[š[X]YÛ›IÎˆ	Ñ[™\Ý[š[Y\˜YIËˆ	Ó›ÈX]Ú[™ÈÛÛ\Û™[Ë‰Îˆ	Ò[™ØHX]Ú[™HÛÛ\Û™[\‹‰Ëˆ	ÔÚÝÈ[Ü™IÎˆ	Õš\ØH[	Ëˆ	ÓÜ[ˆÛÝ\˜ÙIÎˆ	ðåœ[ˆðéÛÙ	Ëˆ	Ôš]˜]HÙ\ÜÚ[Û‰Îˆ	Ôš]˜]Ù\ÜÚ[Û‰Ëˆ	Ò\ÛÛ]Y]™H™]šY]ÉÎˆ	Ò\ÛÛ\˜Y]™Y°íœš[™Ýš\Ûš[™ÉËˆ	ÔÝÜ™]šY]ÉÎˆ	ÔÝÜH°íœš[™Ýš\Ûš[™ÉËˆ	Ñ\[™[˜ÚY\ÉÎˆ	Ð™\›Ù[™[‰Ëˆ	ÐRH™XYIÎˆ	ÐRKZÛ\‰Ëˆ	ÔÚ[Z[\ˆÛÛ\Û™[ÉÎˆ	ÓZÛ˜[™HÛÛ\Û™[\‰Ëˆ	Ñš[™Ú[Z[\ˆÈ™\XÙH›Ú™XÝÛÛ\Û™[	Îˆ	Ò]HZÛ˜[™HÈ\œðé›Ú™ZÝÛÛ\Û™[	Ëˆ	ÔÝYÙÙ\ÝY™\XÙ[Y[ÉÎˆ	Ñ°íœ™\ÛYÛ˜H\œðéš[™Ø\‰Ëˆ	Ó›ÈÝ›Û™È™YÚ\ÝžHX]ÚY]ˆXÚÈH™YÚ\ÝžHÛÛ\Û™[X[X[K[ˆ\ÙHH]Ûˆ™[ÝË‰Îˆ	Ò[™Ù[ˆÝ\šÈ™YÚ\Ý\›X]Úš[™È0é›Kˆ°éˆ[ˆ™YÚ\Ý\šÛÛ\Û™[X[Y[ØÚ[°é™ÙY[ˆÛ˜\[ˆ™Y[‹‰Ëˆ	ÐXÝ]™H›Ú™XÝÛÛ\]Xš[]IÎˆ	ÐZÝ]›Ú™ZÝ8 $ÈÛÛ\]Xš[]]	Ëˆ	Ñœ˜[Y]ÛÜšÉÎˆ	Ô˜[]™\šÉËˆ	Ñ]XÝY›Ú™XÝÝ[IÎˆ	ÒY[YšY\˜Y›Ú™ZÝÝ[	Ëˆ	Ó›ÈÝ›Û™ÈÝ[HÚÙ[œÈ]XÝYY]‰Îˆ	Ò[™ØHYYØHÝ[ÚÙ[œÈ\ˆY[YšY\˜]È0é›K‰Ëˆ	ÐÛÛ^š[\ÉÎˆ	ÒÛÛ^š[\‰Ëˆ	ÓZ\ÜÚ[™ÈœH\ÉÎˆ	ÔØZÛ˜YHœKX™\›Ù[™[‰Ëˆ	ÔÛÝ\˜ÙHÛÙHØYÈÛˆ[X[™	Îˆ	ÒðéÛÙY\ÈšY™ZÝ‰Ëˆ	ÐRHY\][Û‰Îˆ	ÐRKX[œ\ÜÛš[™ÉËˆ	ÐÛÛœÝ˜Z[ÉÎˆ	Ð™YÜ°éœÛš[™Ø\‰Ëˆ	Ô›Ú™XÝÝ[HX]Ú[™ÈXÝ]™IÎˆ	ÓX]Úš[™È[Ý›Ú™ZÝÝ[0éˆZÝ]‰Ëˆ	Õ\ÙH\È\™XÝ[Û‰Îˆ	Ð[°é™[›˜HšZÝš[™ÉËˆ	Ô™]šY]ØX›H]Ú[‰Îˆ	ÑÜ˜[œÚÛš[™ÜØ˜\ˆ]Ú[‰Ëˆ	Ó”HÈ[œÝ[	Îˆ	Ó”H][œÝ[\˜IËˆ	Ô™YÚ\ÝžH\[™[˜ÚY\ÉÎˆ	Ô™YÚ\Ý\˜™\›Ù[™[‰Ëˆ	Ñ™X]\™HXÚÈ™]šY]ÉÎˆ	Ñ°íœš[™Ýš\Ûš[™È]ˆ[šÝ[ÛœÜZÙ]	Ëˆ	Ô™]šY]Èš[X\žHš[IÎˆ	Ñ°íœš[™Ýš\ØHš[péˆš[	Ëˆ	ÐÜ™X]IÎˆ	ÔÚØ\IËˆ	Ô™\XÙIÎˆ	Ñ\œðé	Ëˆ	Ôš[X\žIÎˆ	Ôš[pé‰Ëˆ	ÐÛÛ›ÛY\[™[˜ÞHY]Ü‰Îˆ	ÒÛÛ›Û\˜Y™\›Ù[™\™YYÙ\˜\™IËˆ	Ô›Û˜XÚÈÚXÚÜÚ[]˜Z[X›IÎˆ	ðá]\œÝ0éš[™ÜÜ[šÝ[ðé™ÛYÉËˆ	ÔØY™H\H›ØÚÙY	Îˆ	ÔðéÙ\ˆ[0é\š[™È›ØÚÙ\˜Y	Ëˆ	Ó›ÈRHY\][ÛˆÜˆ]Ú[ˆÙ[™\˜]YY]‰Îˆ	Ò[™Ù[ˆRKX[œ\ÜÛš[™È[\ˆ]Ú[ˆ\ˆÙ[™\™\˜]È0é›K‰Ëˆ	ÐXÝ]™H›Ú™XÝ	Îˆ	ÐZÝ]›Ú™ZÝ	Ëˆ	Ô›Ú™XÝÛÛ^\È™XY[Û›H[™›Ý[™Y™Y›Ü™H]\È\ÙYžHRKˆ›È›Ú™XÝš[H\ÈÚ[™ÙYžH\ÈØÜ™Y[‹‰Îˆ	Ô›Ú™ZÝÛÛ^[ˆ0éˆÚÜš]œÚÞYYØÚ™YÜ°éœØY[›˜[ˆ[ˆ[°é™È]ˆRKˆ[™Ù[ˆ›Ú™ZÝš[0é™˜\Èœ°é[ˆ[ˆ0éˆÚðé›Y[‹‰Ëˆ	ÔÛÝ\˜ÙIÎˆ	ÒðéIËˆ	ÓXÙ[œÙHØ]IÎˆ	ÓXÙ[œÚÛÛ›Û	Ëˆ	Ô™YÚ\ÝžHÝ[\ÉÎˆ	Ô™YÚ\Ý\œÝ[\‰Ëˆ	ÐRHY\][Ûˆ[œÝXÝ[Û‰Îˆ	Ò[œÝZÝ[Ûˆ°íœˆRKX[œ\ÜÛš[™ÉË‚ˆ	Ñ[]HÛ›IÎˆ	Ô˜Y\˜H[™\Ý	Ëˆ	Ñ[]H
+È›ØÚÉÎˆ	Ô˜Y\˜H
+È›ØÚÙ\˜IËˆ	Ð›ØÚÈ^\™\È
+Ü[Û˜[
+IÎˆ	Ð›ØÚÙ\š[™Èðé\ˆ]
+˜[œš]
+IËˆ	Õ[\]HXœ˜\žH[YÜš]H]Y]	Îˆ	Ò[YÜš]]ÙÜ˜[œÚÛš[™È]ˆX[šX›[ÝZÙ]	Ëˆ	Ô]\ÙIÎˆ	Ô]\ØIËˆ	Ò[˜[Y[\]H[][ÛˆÛÛ\]Y	Îˆ	Ô˜Y\š[™È]ˆÙÚ[YØHX[\ˆÛ]°íœ™	Ëˆ	ÕH™]š[Ý\È]Y]Û˜\ÚÝØ\ÈÛX\™Yˆ[ˆH]Y]YØZ[ˆÈ™\šYžHH™[XZ[š[™ÈXœ˜\žK‰Îˆ	Ñ[ˆYYØ\™HÜ˜[œÚÛš[™Üðí™ÛÛ˜›XÚÜØš[[ˆ\ˆ™[œØ]ËˆðíœˆÜ˜[œÚÛš[™Ù[ˆYÙ[ˆ°íœˆ]™\šYšY\˜H]0é]\œÝ0éY[™HšX›[ÝZÙ]‰Ëˆ	Ô™\Z\ˆžK\[ˆ[˜[\Ú\ÉÎˆ	Õ\Ý[˜[\È]ˆ™\\˜][Û‰Ë‚ˆ	ÐRHYZ[ˆ]H[˜]˜Z[X›IÎˆ	ÐRKXYZ[™]H0éˆ[H[ðé™ÛYØIËˆ	ÔÙ]H›ÙXÝ[ÛˆY˜][[Ù[ˆ\‹]ÛÛ\Ù\ˆÙ][™ÜÈÝ™\œšYH\È˜[YK‰Îˆ	Ð[™ÙHÝ[™\™[Ù[[ˆ°íœˆ›ÙZÝ[Û‹ˆ[°é™\š[œÝ0éš[™Ø\ˆ\ˆ™\šÝYÈ0é\ÚYÜðé\ˆ]H°é™K‰Ëˆ	ÐÚÛÜÙHHX[˜YÙY[Ù[™[ÝËÜˆYH™]ÈÙ[Z[šH[Ù[QX[X[HÚ[ˆÛÛÙÛH™[X\Ù\ÈÛ™K‰Îˆ	Õ°éˆ[ˆ[\˜Y[Ù[™Y[‹[\ˆ0éÙÈ[]ž]Ù[Z[šK[[Ù[RQX[Y[°éˆÛÛÙÛHÛ0é\ˆ]‰Ëˆ	ÑÙ[Z[šH˜XÚÙ[™	Îˆ	ÑÙ[Z[šKX˜XÚÙ[™	Ëˆ	ÔØ]™HY˜][	Îˆ	ÔÜ\˜HÝ[™\™	Ëˆ	ÐÝ\ÝÛIÎˆ	Ð[œ\ÜØY	Ëˆ	ÐZ[Z[‰Îˆ	Ò[˜žYÙÙ	Ëˆ	Ô™[[Ý™H[Ù[	Îˆ	ÕH›Ü[Ù[	Ëˆ	ÐY[Ù[X[X[IÎˆ	Ó0éÙÈ[[Ù[X[Y[	Ëˆ	Õ\ÙHH^XÝÙ[Z[šHTH[Ù[Q›Üˆ^[\HÙ[Z[šKLËžY›\Ú‰Îˆ	Ð[°é™]^ZÝH[Ù[RQ°íœˆÙ[Z[šHTK[^[\[Ù[Z[šKLËžY›\Ú‰Ëˆ	Ñ\Ü^H˜[YH
+Ü[Û˜[
+IÎˆ	Õš\Ûš[™ÜÛ˜[[ˆ
+˜[œš]
+IËˆ	ÐY[Ù[	Îˆ	Ó0éÙÈ[[Ù[	Ëˆ	ÔÙ[XÝY	Îˆ	Õ˜[	Ëˆ	Ô›ÝšY\‰Îˆ	Ó]™\˜[0íœ‰Ëˆ	ÔØ]™Y\™H\È[ˆYZ[ˆÛÛ[˜YˆX›XÈYÙ\È\™H›ÝÚ[™ÙY[[]™KXÛÛ[Ú\š[™È\È[˜X›Y‰Îˆ	ÔÜ\˜\È0éˆÛÛH]YZ[š\Ý˜]][›™Z0é[Ý]Ø\ÝˆÙ™™[YØHÚYÜˆ0é™˜\È[H°íœœ°éˆÛÜ[™È[]™Z[›™Z0é[0éˆZÝ]™\˜Y‰Ëˆ	Ñ\Ú›Ø\™]H[˜]˜Z[X›IÎˆ	Ò[œÝ[Y[[™[Ù]H0éˆ[H[ðé™ÛYØIËˆ	ÕHYZ[ˆ]HÛÝ\˜ÙHÛÝ[›Ý™HØYY‰Îˆ	ÐYZ[š\Ý˜][ÛœÙ]Zðé[ˆÝ[™H[H0éØ\È[‹‰Ëˆ	ÐYZ[ˆ]HÝ]\ÉÎˆ	ÔÝ]\È°íœˆYZ[š\Ý˜][ÛœÙ]IËˆ	ÓÛ›H™\šYšYY]™H]H\ÈÚÝÛˆ\™NÈXÙZÛ\ˆX[Y]šXÜÈ]™H™Y[ˆ™[[Ý™Y‰Îˆ	Ñ[™\Ý™\šYšY\˜YH]™Y]Hš\Ø\È0éŽÈ]Ú0é[\›pé]°íœˆ0éØH\ˆYÚ]È›Ü‰Ëˆ	ÐYZ[ˆ™\šYšYY	Îˆ	ÐYZ[ˆ™\šYšY\˜Y	Ëˆ	ÐYZ[ˆXØÙ\ÜÈÚXÚÈ˜Z[Y	Îˆ	ÒÛÛ›Û]ˆYZ[°é]ÛÛ\ÝZ\ÜÛXÚØY\ÉËˆ	ÔÝ\Ü]H[˜]˜Z[X›IÎˆ	ÔÝ\Ü]H0éˆ[H[ðé™ÛYØIËˆ	ÔÝ\Ü™\]Y\ÝÙ[	Îˆ	ÔÝ\Ü°íœ™œ°éYØ[ˆÚÚXÚØY\ÉËˆ	ÐYZ[ˆ0­È\Ú[™\ÜÈXØÙ\ÜÉÎˆ	ÐYZ[ˆ0­È\Ú[™\ÜËpé]ÛÛ\Ý	Ëˆ	Ó›Ý™\]Z\™Y	Îˆ	ÒÜ°éœÈ[IËˆ	Ò[˜ÛYYÚ]YZ[ˆXØÙ\ÜÉÎˆ	Ò[™ðé\ˆYYYZ[°é]ÛÛ\Ý	Ëˆ	ÐÛÝ[›Ý\ÙH\È[XYÙK‰Îˆ	Ñ]ÚXÚÈ[H][°é™H[ˆ0éˆš[[‹‰Ëˆ	Ð˜XÚÙÜ›Ý[™™[[Ý˜[˜Z[Y‰Îˆ	Ð›ÜYÛš[™È]ˆ˜ZÙÜ[™Z\ÜÛXÚØY\Ë‰Ëˆ	Ð˜XÚÙÜ›Ý[™™[[Ý™\‰Îˆ	Ð˜ZÙÜ[™Ø›ÜYØ\™IËˆ	Ô™[[Ý™H[XYÙH˜XÚÙÜ›Ý[™È\Ú[™È^X\¸ &\ÈÙXÝ\™YÙ\™\‹\ÚYH[XYÙHÙ\šXÙK‰Îˆ	ÕH›Üš[˜ZÙÜ[™\ˆYY^X\œÈðéÜ˜Hš[°éœÝ0éHÙ\™\œÚY[‹‰Ëˆ	Ñ^\›˜[›ØÙ\ÜÚ[™ÉÎˆ	Ñ^\›ˆ™X\˜™]š[™ÉËˆ	Ñ›Üˆ\ÈÛÛ[Ý\ˆÙ[XÝY[XYÙH\ÈÙ[›ÝYÚ^X\¸ &\È]][XØ]YÙ\™\ˆÈ˜[˜ZH›Üˆ˜XÚÙÜ›Ý[™™[[Ý˜[ˆ[Ý\ˆTHÙ^H\È™]™\ˆ^ÜÙY[ˆHœ›ÝÜÙ\‹‰Îˆ	Ñ°íœˆ]0éˆ™\šÝYÙ]ÚÚXÚØ\È[ˆ˜[Hš[[ˆšXH^X\œÈ]][\Ù\˜YHÙ\™\ˆ[˜[˜ZH°íœˆ˜ZÙÜ[™Ø›ÜYÛš[™Ëˆ[ˆTK[žXÚÙ[^Û™\˜\È[šYÈHÙX˜›0éØ\™[‹‰Ëˆ	ÐÚÛÜÙH”QË‘ÈÜˆÙX”	Îˆ	Õ°éˆ”QË‘È[\ˆÙX”	Ëˆ	ÐÜ›ÜYÚH\›Ý[™ÝXš™XÝ	Îˆ	Ð™\Úðéˆ0é[[Ý]™]	Ëˆ	ÓÜ[Û˜[›ÝšY\ˆ›Ý[™[™ËX›ÞÜ›Ü	Îˆ	Õ˜[œšH™\Úðé›š[™ÈY\ˆ]™\˜[0íœ™[œÈ™YÜ°éœÛš[™ÜÜ]IËˆ	ÐÚÛÜÙH[ˆ[XYÙHÈ™[[Ý™H]È˜XÚÙÜ›Ý[™‰Îˆ	Õ°éˆ[ˆš[°íœˆ]H›Ü˜ZÙÜ[™[‹‰Ëˆ	ÓÜšYÚ[˜[	Îˆ	ÓÜšYÚ[˜[	Ëˆ	Õ˜[œÜ\™[™\Ý[	Îˆ	Õ˜[œÜ\™[™\Ý[]	Ëˆ	Ð˜XÚÙÜ›Ý[™™[[Ý™Y	Îˆ	Ð˜ZÙÜ[™[ˆ›ÜYÙ[‰Ëˆ	Ö[Ý\ˆ™\Ý[Ú[\X\ˆ\™HY\ˆ›ØÙ\ÜÚ[™Ë‰Îˆ	Ñ]™\Ý[]š\Ø\È0éˆY\ˆ™X\˜™]š[™Ù[‹‰Ëˆ	Õ˜[œÜ\™[Ý]]	Îˆ	Õ˜[œÜ\™[]]IËˆ	ÑÝÛ›ØY‘ÉÎˆ	ÓYH™\ˆ‘ÉËˆ	ÐÛÝ[›ÝY\ÙH[XYÙ\Ë‰Îˆ	Ñ]ÚXÚÈ[H]0éÙØH[H0éˆš[\›˜K‰Ëˆ	Ð˜]Ú›ØÙ\ÜÚ[™È˜Z[Y‰Îˆ	Ð˜]Ú™X\˜™]š[™Ù[ˆZ\ÜÛXÚØY\Ë‰Ëˆ	ÐÛÝ[›ÝÜ™X]HH’Tš[K‰Îˆ	Ñ]ÚXÚÈ[H]ÚØ\H’TYš[[‹‰Ëˆ	Ð˜]Ú[XYÙHÛÛ™\\‰Îˆ	Ð˜]Úš[ÛÛ™\\˜\™IËˆ	ÐÛÛ™\[™™\Ú^™H][\H[XYÙ\ÈØØ[K[ˆÝÛ›ØY[H[™]šYX[HÜˆ\ÈÛ™H’T‰Îˆ	ÒÛÛ™\\˜HØÚ0é™˜HÝÜ›ZÈ0éH›\˜Hš[\ˆÚØ[ØÚYHÙY[ˆ™\ˆ[H[™]šYY[[\ˆÛÛH[ˆ’TYš[‰Ëˆ	Ô›ØÙ\ÜÙYØØ[IÎˆ	Ð™X\˜™]\ÈÚØ[	Ëˆ	Ò[XYÙ\È[™’TÜ™X][ÛˆÝ^H[ˆ[Ý\ˆœ›ÝÜÙ\‹ˆ^X\ˆÙ\È›Ý\ØYš[\È›Üˆ\ÈÛÛ‰Îˆ	Ðš[\ˆØÚÚØ\[™]]ˆ’TYš[[ˆÝ[›˜\ˆHÙX˜›0éØ\™[‹ˆ^X\ˆY\ˆ[H\š[\ˆ°íœˆ]0éˆ™\šÝYÙ]‰Ëˆ	ÐY”QË‘ÈÜˆÙX”[XYÙ\ÉÎˆ	Ó0éÙÈ[”QËK‘ËH[\ˆÙX”Xš[\‰Ëˆ	Õ\ÈŒš[\È0­ÈPˆÛÛXš[™YÛÝ\˜ÙH[Z]	Îˆ	Õ\[Œš[\ˆ0­ÈPˆØ[[X[›YÙðéÜ°éœÉËˆ	ÓÝ]]›Ü›X]	Îˆ	Õ]]Y›Ü›X]	Ëˆ	ÓX^[][HÚYH
+ÙY\ÈÜšYÚ[˜[Ú^™JIÎˆ	ÓX^[X[ÚYH
+™Z0é[\ˆÜšYÚ[˜[ÝÜ›ZÙ[ŠIËˆ	Ô]X[]IÎˆ	ÒÝ˜[]]	Ëˆ	ÐY][\H[XYÙ\ÈÈÝ\‰Îˆ	Ó0éÙÈ[›\˜Hš[\ˆ°íœˆ]°íœš˜K‰Ëˆ	ÑÝÛ›ØY	Îˆ	ÓYH™\‰Ëˆ	Ô™[[Ý™IÎˆ	ÕH›Ü	Ëˆ	ÐÛÝ[›Ý™XY\Èš[K‰Îˆ	Ñ]ÚXÚÈ[H]0éØH[ˆ0éˆš[[‹‰Ëˆ	ÐÔÕˆÛX[™\‰Îˆ	ÐÔÕ‹\™[œØ\™IËˆ	ÐÛX[ˆ[™™\\™HÔÕˆ]HØY™[HÚ]Ý]\ØY[™È]‰Îˆ	Ô™[œØHØÚ°íœ˜™\™YÔÕ‹Y]HðéÙ\][ˆ]YH\[K‰Ëˆ	Ö[Ý\ˆÔÕˆÝ^\È[ˆ\Èœ›ÝÜÙ\‹ˆÜ™XYÚY]\ØY™H^Ü\È[˜X›YžHY˜][‰Îˆ	Ñ[ˆÔÕ‹Yš[Ý[›˜\ˆHÙX˜›0éØ\™[‹ˆØ[Þ[›YÜðéÙ\ˆ^Ü0éˆZÝ]™\˜YÛÛHÝ[™\™‰Ëˆ	ÐÚÛÜÙHÔÕ‹ÕˆÜˆ^]IÎˆ	Õ°éˆÔÕ‹KÕ‹H[\ˆ^]IËˆ	ÓX^[][HLPˆ0­È›Ý[™Y›ÝÜËÛÛ[[œÈ[™Ù[ÉÎˆ	ÓX^LPˆ0­È™YÜ°éœØ][[˜Y\‹ÛÛ[[™\ˆØÚÙ[\‰Ëˆ	Ü›ÝÜÉÎˆ	Ü˜Y\‰Ëˆ	ØÛÛ[[œÉÎˆ	ÚÛÛ[[™\‰Ëˆ	Ñ]XÝY[[Z]\‰Îˆ	ÒY[YšY\˜Y]™Ü°éœØ\™IËˆ	ÕX‰Îˆ	ÕX˜‰Ëˆ	ÐÛX[ˆÔÕ‰Îˆ	Ô™[œØHÔÕ‰Ëˆ	ÐÛX[™Y™\Ý[	Îˆ	Ô™[œØ]™\Ý[]	Ëˆ	Ü›ÝÜÈ™[[Ý™Y	Îˆ	Ü˜Y\ˆ›ÜYÛ˜IËˆ	ÑÝÛ›ØYÛX[ˆÔÕ‰Îˆ	ÓYH™\ˆ™[œØYÔÕ‰Ëˆ	ÐÚÛÜÙHHš[HÈ™]šY]È]È]K‰Îˆ	Õ°éˆ[ˆš[°íœˆ]°íœš[™Ýš\ØH\ÜÈ]K‰Ëˆ	ÔÚÝÚ[™È\ÈH›ÝÜÈ[™LˆÛÛ[[œÉÎˆ	Õš\Ø\ˆ\[H˜Y\ˆØÚLˆÛÛ[[™\‰Ëˆ	Ó›È›ÝÜÈ™[XZ[ˆY\ˆÛX[š[™Ë‰Îˆ	Ò[™ØH˜Y\ˆ0é]\œÝ0é\ˆY\ˆ™[œÛš[™Ù[‹‰Ëˆ	ÐÛÝ[›Ý™XY\È[XYÙK‰Îˆ	Ñ]ÚXÚÈ[H]0éØH[ˆ0éˆš[[‹‰Ëˆ	Ò[˜[YÜ›Ü\™XK‰Îˆ	ÓÙÚ[YÝ™\Úðé›š[™ÜÛÛ\°éYK‰Ëˆ	ÐÛÝ[›ÝÜ›Ü\È[XYÙK‰Îˆ	Ñ]ÚXÚÈ[H]™\Úðé˜H[ˆ0éˆš[[‹‰Ëˆ	Ò[XYÙHÜ›Ü\‰Îˆ	Ðš[™\Úðé˜\™IËˆ	ÐÜ›Ü[XYÙ\ÈØØ[HÚ]™XÚ\ÙHÛÛÜ™[˜]\ÈÜˆÛÛ[[Ûˆ\ÜXÝ˜][ÜË‰Îˆ	Ð™\Úðéˆš[\ˆÚØ[YY^ZÝHÛÛÜ™[˜]\ˆ[\ˆ˜[›YØHš[°íœš0é[[™[‹‰Ëˆ	ÕHÛÝ\˜ÙH[XYÙH[™Ü›Ü™\Ý[Ý^H[œÚYH[Ý\ˆœ›ÝÜÙ\‹‰Îˆ	Òðéš[[ˆØÚ™\Úðé›š[™ÜÜ™\Ý[]]Ý[›˜\ˆHÙX˜›0éØ\™[‹‰Ëˆ	ÓX^[][HŒP‰Îˆ	ÓX^ŒP‰Ëˆ	Ð\ÜXÝ˜][ÉÎˆ	Ðš[°íœš0é[[™IËˆ	ÐÚÛÜÙH[ˆ[XYÙHÈÝ\Ü›Ü[™Ë‰Îˆ	Õ°éˆ[ˆš[°íœˆ]°íœš˜H™\Úðé˜K‰Ëˆ	ÐÜ›Ü™]šY]ÉÎˆ	Ñ°íœš[™Ýš\Ûš[™È]ˆ™\Úðé›š[™ÉËˆ	Ô™\Ý[	Îˆ	Ô™\Ý[]	Ëˆ	ÐÜ›ÜY™\Ý[	Îˆ	Ð™\ÚÝ\™]™\Ý[]	Ëˆ	ÐÛÝ[›ÝÜ™X]H\È‹‰Îˆ	Ñ]ÚXÚÈ[H]ÚØ\H[ˆ0éˆ‹Yš[[‹‰Ëˆ	Ò[XYÙHÈ‰Îˆ	Ðš[[‰Ëˆ	ÐÛÛXš[™H”QË‘È[™ÙX”[XYÙ\È[ÈÛ™Hˆ\™XÝH[ˆ[Ý\ˆœ›ÝÜÙ\‹‰Îˆ	ÒÛÛXš[™\˜H”QËK‘ËHØÚÙX”Xš[\ˆ[[ˆˆ\™ZÝHÙX˜›0éØ\™[‹‰Ëˆ	Ò[XYÙ\ÈÝ^H[ˆ[Ý\ˆœ›ÝÜÙ\‹ˆ^X\ˆÜ™X]\ÈH™]Èˆ[™™]™\ˆ\œÙ\È[ˆ\ØYYˆ[ˆ\ÈÛÛ‰Îˆ	Ðš[\›˜HÝ[›˜\ˆHÙX˜›0éØ\™[‹ˆ^X\ˆÚØ\\ˆ[ˆžHˆØÚ[˜[\Ù\˜\ˆ[šYÈ[ˆ\YYˆH]0éˆ™\šÝYÙ]‰Ëˆ	Õ\ÈŒ[XYÙ\È0­ÈPˆÛÛXš[™YÛÝ\˜ÙH[Z]	Îˆ	Õ\[Œš[\ˆ0­ÈPˆØ[[X[›YÙðéÜ°éœÉËˆ	ÜYÙ\ÉÎˆ	ÜÚYÜ‰Ëˆ	ÔYÙHÚ^™IÎˆ	ÔÚYÝÜ›ZÉËˆ	ÐM0­È]]ÈÜšY[][Û‰Îˆ	ÐM0­È]]ÛX]\ÚÈÜšY[\š[™ÉËˆ	Ó]\ˆ0­È]]ÈÜšY[][Û‰Îˆ	Ó]\ˆ0­È]]ÛX]\ÚÈÜšY[\š[™ÉËˆ	Ñš]YÙHÈ[XYÙIÎˆ	Ð[œ\ÜØHÚY[ˆ[š[[‰Ëˆ	ÓX\™Ú[‰Îˆ	ÓX\™Ú[˜[	Ëˆ	Ó›Ü›X[	Îˆ	Ó›Ü›X[	Ëˆ	Ò[XYÙH]X[]IÎˆ	Ðš[Ý˜[]]	Ëˆ	Õ˜[œÜ\™[‘ËÕÙX”^[È\™H›][™YÛÈÚ]HÚ[ˆ[X™YY\È”QÈ[œÚYHH‹‰Îˆ	Õ˜[œÜ\™[H‘ËKÕÙX”\^\ˆ0éÙÜÈ[Ýš]°éˆH°é\È[ˆÛÛH”QÈH‹Yš[[‹‰Ëˆ	ÐY[XYÙ\ÈÈZ[H‹‰Îˆ	Ó0éÙÈ[š[\ˆ°íœˆ]ÚØ\H[ˆ‹‰Ëˆ	ÑÙ[™\˜]Yˆ™]šY]ÉÎˆ	Ñ°íœš[™Ýš\Ûš[™È]ˆÚØ\Y‰Ëˆ	ÑÝÛ›ØY‰Îˆ	ÓYH™\ˆ‰Ëˆ	Ò[XYÙH›ØÙ\ÜÚ[™È˜Z[Y‰Îˆ	Ðš[™X\˜™]š[™Ù[ˆZ\ÜÛXÚØY\Ë‰Ëˆ	Ò[XYÙHÛÛÉÎˆ	Ðš[™\šÝYÉËˆ	Ô™\Ú^™KÛÛ\™\ÜÈ[™ÛÛ™\[XYÙ\È\™XÝH[ˆ[Ý\ˆœ›ÝÜÙ\‹‰Îˆ	ðá™˜HÝÜ›ZËÛÛ\š[Y\˜HØÚÛÛ™\\˜Hš[\ˆ\™ZÝHÙX˜›0éØ\™[‹‰Ëˆ	Ö[Ý\ˆ[XYÙHÝ^\È[ˆ\Èœ›ÝÜÙ\‹ˆ^X\ˆÙ\È›Ý\ØY]›Üˆ\ÙHÜ\˜][ÛœË‰Îˆ	Ñ[ˆš[Ý[›˜\ˆHÙX˜›0éØ\™[‹ˆ^X\ˆY\ˆ[H\[ˆ°íœˆH0éˆ0é]ðé™\›˜K‰Ëˆ	ÔÛÝ\˜ÙH[XYÙIÎˆ	Òðéš[	Ëˆ	ÓX^[][HŒPˆ0­È›Ý[™Y^[›ØÙ\ÜÚ[™ÉÎˆ	ÓX^ŒPˆ0­È™YÜ°éœØY^[™X\˜™]š[™ÉËˆ	ÒZYÚ	Îˆ	Ò0íš™	Ëˆ	ÐÚÛÜÙH[ˆ[XYÙHÈÝ\‰Îˆ	Õ°éˆ[ˆš[°íœˆ]°íœš˜K‰Ëˆ	ÓÜšYÚ[˜[™]šY]ÉÎˆ	Ñ°íœš[™Ýš\Ûš[™È]ˆÜšYÚ[˜[	Ëˆ	Ô›ØÙ\ÜÙY™]šY]ÉÎˆ	Ñ°íœš[™Ýš\Ûš[™È]ˆ™X\˜™]Yš[	Ëˆ	Ô›ØÙ\ÜÈH[XYÙHÈ™]šY]ÈH™\Ý[‰Îˆ	Ð™X\˜™]Hš[[ˆ°íœˆ]°íœš[™Ýš\ØH™\Ý[]]‰Ëˆ	Ñ˜YØ]™YÛˆ\È]šXÙK‰Îˆ	Õ]Ø\Ý]Ü\˜Y\È0éH[ˆ0éˆ[š][‹‰Ëˆ	ÐÛÝ[›ÝØ]™H\È˜Y[ˆœ›ÝÜÙ\ˆÝÜ˜YÙK‰Îˆ	Ñ]ÚXÚÈ[H]Ü\˜H]Ø\Ý]HÙX˜›0éØ\™[œÈYÜš[™Ë‰Ëˆ	ÐÛX\ˆHÝ\œ™[[›ÚXÙH˜YÉÎˆ	Ô™[œØH]ZÝY[H˜ZÝ\˜]]Ø\Ý]ÉËˆ	ÔÜ]\›ØÚÙYˆ[ÝÈÜ]\È[™žHš[ÈØ]™HˆYØZ[‹‰Îˆ	ÔÜ\Y°í›œÝ™]›ØÚÙ\˜Y\Ëˆ[0é]Ü\Y°í›œÝ\ˆØÚ°íœœðíšÈYYÚÜš]ˆ]ÈÜ\˜HˆYÙ[‹‰Ëˆ	Ò[›ÚXÙHÙ[™\˜]Ü‰Îˆ	Ñ˜ZÝ\˜YÙ[™\˜]Ü‰Ëˆ	ÐÜ™X]HH›Ù™\ÜÚ[Û˜[[›ÚXÙKÚÛÜÙHH\ÚYÛ‹Ø[Ý[]HUØ]™HH˜Y[™š[ÜˆØ]™H\È‹‰Îˆ	ÔÚØ\H[ˆ›Ù™\ÜÚ[Û™[˜ZÝ\˜K°éˆ[ˆ\ÚYÛ‹™\°éÛ˜H[Û\ËÜ\˜H]]Ø\ÝØÚÚÜš]ˆ][\ˆÜ\˜HÛÛH‹‰Ëˆ	Ò[›ÚXÙH\ÚYÛ‰Îˆ	Ñ˜ZÝ\˜Y\ÚYÛ‰Ëˆ	Ö[Ý\ˆÛÛ\[žIÎˆ	Ñ]°íœ™]YÉËˆ	Õ^X\ˆP‰Îˆ	Õ^X\ˆP‰Ëˆ	ÐÝ\ÝÛY\‰Îˆ	ÒÝ[™	Ëˆ	ÐÝ\ÝÛY\ˆ˜[YIÎˆ	ÒÝ[™˜[[‰Ëˆ	ÐÛÛ\[žH]Z[ÉÎˆ	Ñ°íœ™]YÜÝ\ÚY\‰Ëˆ	ÐY™\ÜËÜ™Ø[š^˜][Ûˆ[X™\‹[XZ[^[Y[]Z[ÉÎˆ	ÐY™\ÜËÜ™Ø[š\Ø][ÛœÛ[[Y\‹K\ÜÝ™][š[™ÜÝ\ÚY\‰Ëˆ	ÐÝ\ÝÛY\ˆ]Z[ÉÎˆ	ÒÝ[™\ÚY\‰Ëˆ	ÐY™\ÜË[XZ[Üˆ™Y™\™[˜ÙIÎˆ	ÐY™\ÜËK\ÜÝ[\ˆ™Y™\™[œÉËˆ	Ò[›ÚXÙH[X™\‰Îˆ	Ñ˜ZÝ\˜[[[Y\‰Ëˆ	Ò\ÜÝYH]IÎˆ	Õ]Ý0éš[™ÜÙ][IËˆ	ÐÝ\œ™[˜ÞIÎˆ	Õ˜[]IËˆ	Ô^[Y[\›\Ë[šË^[ÝH›ÝHÜˆ˜[šÈ]Z[ÉÎˆ	Ð™][š[™ÜÝš[ÛÜ‹XÚÛYY[[™H[\ˆ˜[šÝ\ÚY\‰Ëˆ	ÔØ]™H˜Y	Îˆ	ÔÜ\˜H]Ø\Ý	Ëˆ	Ôš[ÈØ]™H‰Îˆ	ÔÚÜš]ˆ]ÈÜ\˜H‰Ëˆ	Ó]\ˆÙ[™\˜]Ü‰Îˆ	Ðœ™]™Ù[™\˜]Ü‰Ëˆ	ÐÜ™X]H˜XÝXØ[]\œÈœ›ÛHÜšYÚ[˜[^X\ˆ[\]\È[™Y]H™\Ý[X[X[K‰Îˆ	ÔÚØ\H˜ZÝ\ÚØHœ™]ˆœ°é[ˆ^X\œÈÜšYÚ[˜[X[\ˆØÚ™YYÙ\˜H™\Ý[]]X[Y[‰Ëˆ	Ó]\ˆ\IÎˆ	Ðœ™]\	Ëˆ	Ô™XÚ\Y[	Îˆ	Ó[ÝYØ\™IËˆ	ÓÜ™Ø[š^˜][Û‰Îˆ	ÓÜ™Ø[š\Ø][Û‰Ëˆ	ÔÝXš™XÝÜˆ\œÜÙIÎˆ	ðá[™H[\ˆÞYIËˆ	ÕÚ]\È\È]\ˆX›Ý]ÉÎˆ	Õ˜Y[™\ˆœ™]™]ÛOÉËˆ	Ò[\Ü[]Z[ÉÎˆ	ÕšZÝYØH][™\‰Ëˆ	ÐY˜XÝË]\ËÛÛ^ÜˆHÝ]ÛÛYH[ÝHØ[‰Îˆ	Ó0éÙÈ[˜ZÝK][KØ[[X[š[™È[\ˆ0í›œÚØ]™\Ý[]‰Ëˆ	ÐÚÛÜÙHH]\ˆ\H[™Y[Ý\ˆ]Z[Ë‰Îˆ	Õ°éˆ[ˆœ™]\ØÚ0éÙÈ[[˜H\ÚY\‹‰Ëˆ	ÑY]H™\Ý[	Îˆ	Ô™YYÙ\˜H™\Ý[]]	Ëˆ	ÕHÙ[™\˜]Y^\È[HY]X›H™Y›Ü™H[ÝHÛÜHÜˆÝÛ›ØY]‰Îˆ	Ñ[ˆÙ[™\™\˜YH^[ˆØ[ˆ™YYÙ\˜\È[[›˜[ˆHÛÜY\˜\ˆ[\ˆY\ˆ™\ˆ[‹‰Ëˆ	Õ	Îˆ	Õ	Ëˆ	Ó˜[YHÙ[™\˜]Ü‰Îˆ	Ó˜[[™Ù[™\˜]Ü‰Ëˆ	ÑÙ[™\˜]HÜšYÚ[˜[\Ú[™\ÜË›ÙXÝœ˜[™[™ÛØÚX[[˜[YHYX\ÈØØ[K‰Îˆ	ÑÙ[™\™\˜HÜšYÚ[™[H˜[[šY0êY\ˆ°íœˆ°íœ™]YË›ÙZÝ\‹˜\[péšÙ[ˆØÚÛØÚX[HYYY\ˆÚØ[‰Ëˆ	ÒÙ^]ÛÜ™ÜˆYXIÎˆ	ÓžXÚÙ[Ü™[\ˆY0êIËˆ	Ñ^[\NˆÛÙ™™YKš]™\ÜË\ÚYÛ‰Îˆ	Ñ^[\[ˆØY™™K°éš[™Ë\ÚYÛ‰Ëˆ	Ó˜[YH\IÎˆ	Ó˜[[\	Ëˆ	ÒYX\ÉÎˆ	ÒY0êY\‰Ëˆ	Ð]˜Z[Xš[]H\È›ÝÚXÚÙYˆ™\šYžH˜Y[X\šÜËÛXZ[œÈ[™ÛØÚX[[™\È™Y›Ü™H\Ú[™ÈH˜[YHÛÛ[Y\˜ÚX[K‰Îˆ	Õ[ðé™ÛYÚ]ÛÛ›Û\˜\È[KˆÛÛ›Û\˜H˜\[péšÙ[‹Ûpé™\ˆØÚÛÛÛ˜[[ˆHÛØÚX[HYYY\ˆ[›˜[ˆH[°é™\ˆ]˜[[ˆÛÛ[Y\œÚY[‰Ëˆ	Ñ[\ˆ[ˆYXH[™Ù[™\˜]H˜[Y\Ë‰Îˆ	Ð[™ÙH[ˆY0êHØÚÙ[™\™\˜H˜[[‹‰Ëˆ	Ó˜[YHYX\ÉÎˆ	Ó˜[[šY0êY\‰Ëˆ	ÛÜšYÚ[˜[ÛÛXš[˜][ÛœÉÎˆ	ÛÜšYÚ[™[HÛÛXš[˜][Û™\‰Ëˆ	ÐÛÜH˜[YIÎˆ	ÒÛÜY\˜H˜[[‰Ëˆ	Ô›Û\Xœ˜\žIÎˆ	Ô›Û\šX›[ÝZÉËˆ	ÔÙX\˜ÚÜšYÚ[˜[^X\ˆ›Û\[\]\È[™\œÛÛ˜[^™H[H›Üˆ[Ý\ˆ\ÚË‰Îˆ	ÔðíšÈ›[™^X\œÈÜšYÚ[˜[X[\ˆ°íœˆ›Û\ÈØÚ[œ\ÜØH[H[[ˆ\ÚY‰Ëˆ	ÓÜšYÚ[˜[^X\ˆ›Û\ÉÎˆ	Õ^X\œÈÜšYÚ[˜[›Û\ÉËˆ	Ô›Û\ÝXÝ\™\È\™HÜš][ˆ›Üˆ^X\ˆ[™Ü™Ø[š^™YžHÛÜšÙ›ÝËˆ^H\™H›ÝÛÜYY›Û\XÚÜË‰Îˆ	Ô›Û\ÝZÝ\™\›˜H0éˆÚÜš]›˜H°íœˆ^X\ˆØÚÜ™Ø[š\Ù\˜YHY\ˆ\˜™]Ù›0í™KˆH0éˆ[HÛÜY\˜YH›Û\ZÙ]‰Ëˆ	ÔÙX\˜Ú›Û\ÉÎˆ	ÔðíšÈ›Û\ÉËˆ	Ñš[Ú][ÝHÛ›ÝËˆ[\HšY[È™[XZ[ˆ\ÈXÙZÛ\œË‰Îˆ	Ñž[H]H™]ˆÛ[XH°é0é[˜\ÈÛÛH]Ú0é[\™K‰Ëˆ	Ð]YY[˜ÙIÎˆ	Ópé[Ü\	Ëˆ	ÑÛØ[	Îˆ	Ópé[	Ëˆ	ÔÙ[XÝH›Û\È\œÛÛ˜[^™H]‰Îˆ	Õ°éˆ[ˆ›Û\°íœˆ][œ\ÜØH[‹‰Ëˆ	ÓÜ[ˆÈÝÛ›ØY	Îˆ	ðåœ˜HÈYH™\‰Ëˆ	Õ[\]\ÈX‰Îˆ	ÓX[Ù[\‰Ëˆ	Ðœ›ÝÜÙH^X\‹ZÜÝYÙ™šXÙH[\]\ÈÜˆ\ÙHÜšYÚ[˜[^X\ˆÝ\\ˆš[\Ë‰Îˆ	Ð›0é˜H›[™ÛÛÜœÛX[\ˆÛÛH^X\ˆ0éˆ°é™°íœˆ[\ˆ[°é™^X\œÈYÛ˜HÝ\š[\‹‰Ëˆ	Õ^X\ˆXœ˜\žIÎˆ	Õ^X\‹XšX›[ÝZÙ]	Ëˆ	ÓÜšYÚ[˜[ÉÎˆ	ÓÜšYÚ[˜[	Ëˆ	Õ[\]\ÈZ\œ›Ü™Y[È^X\ˆÝÜ˜YÙH›Üˆ[™\[™[XØÙ\ÜË‰Îˆ	ÓX[\ˆÛÛHÜYÛ\È[^X\œÈYÜš[™È°íœˆØ™\›Ù[™H0é]ÛÛ\Ý‰Ëˆ	Õ^X\ˆÜšYÚ[˜[ÉÎˆ	Õ^X\‹[ÜšYÚ[˜[	Ëˆ	ÔÛX[Ý\\ˆ[\]\ÈÜ™X]Y\™XÝHžH^X\‹‰Îˆ	ÔÛpéHÝ\X[\ˆÚØ\YH\™ZÝ]ˆ^X\‹‰Ëˆ	ÔÙX\˜Ú[\]\ÉÎˆ	ÔðíšÈX[\‰Ëˆ	Ñš[H›Ü›X]	Îˆ	Ñš[›Ü›X]	Ëˆ	Ð[›Ü›X]ÉÎˆ	Ð[H›Ü›X]	Ëˆ	ÔÛÜ[\]\ÉÎˆ	ÔÛÜ\˜HX[\‰Ëˆ	Ó˜[YHx $Ö‰Îˆ	Ó˜[[ˆx $ðå‰Ëˆ	Ó™]Ù\Ý	Îˆ	ÓžX\ÝIËˆ	Ó\™Ù\Ýš[\ÉÎˆ	ÔÝ0íœœÝHš[\‰Ëˆ	ÓØY[™È^X\ˆXœ˜\žx )‰Îˆ	ÓY\ˆ^X\‹XšX›[ÝZÙ]8 )‰Ëˆ	Õ^X\ˆXœ˜\žH\È[\Ü˜\š[H[˜]˜Z[X›IÎˆ	Õ^X\‹XšX›[ÝZÙ]0éˆ[°éYÝÝ[ðé™ÛYÝ	Ëˆ	ÓÜšYÚ[˜[^X\ˆ[\]\È™[XZ[ˆ]˜Z[X›Hœ›ÛHHÜšYÚ[˜[ÈX‹‰Îˆ	Õ^X\œÈÜšYÚ[˜[X[\ˆš[›œÈ›Ü˜\˜[™H[ðé™ÛYØH[™\ˆ›ZÙ[ˆÜšYÚ[˜[‰Ëˆ	Ó›ÈZ\œ›Ü™Y[\]\ÈX]Ú\ÈÙX\˜Ú‰Îˆ	Ò[™ØHÜYÛYHX[\ˆX]Ú\ˆðíšÛš[™Ù[‹‰Ëˆ	Ô™]š[Ý\ÉÎˆ	Ñ°íœ™YðéY[™IËˆ	ÓÜšYÚ[˜[^X\ˆ[\]\ÉÎˆ	Õ^X\œÈÜšYÚ[˜[X[\‰Ëˆ	Õ\ÙHÝ\\ˆš[\È\™HZ[žH^X\ˆ[™Ù[™\˜]YØØ[H\ÈÔÕˆš[\Ë‰Îˆ	Ñ\ÜØHÝ\š[\ˆ0éˆÚØ\YH]ˆ^X\ˆØÚÙ[™\™\˜\ÈÚØ[ÛÛHÔÕ‹Yš[\‹‰Ëˆ	ÑÝÛ›ØYÔÕ‰Îˆ	ÓYH™\ˆÔÕ‰Ëˆ	Ó›È[\]\ÈX]Ú\ÈÙX\˜Ú‰Îˆ	Ò[™ØHX[\ˆX]Ú\ˆðíšÛš[™Ù[‹‰Ëˆ	Ð˜XÚÉÎˆ	Õ[˜ZØIËˆ	ÕÙW	Ý™HÙ[H™\šYšXØ][Ûˆ[šÈÈ[Ý\ˆ[XZ[Y™\ÜËˆÛXÚÈH[šÈ[œÚYHÈXÝ]˜]H[Ý\ˆXØÛÝ[‰Îˆ	ÕšH\ˆÚÚXÚØ][ˆ™\šYšY\š[™ÜÛ0éšÈ[[ˆK\ÜÝY™\ÜËˆÛXÚØH0éH0éšÙ[ˆ°íœˆ]ZÝ]™\˜H]ÛÛË‰Ëˆ	Ó›ÈÛÜœšY\È8 %[\ˆ[Ý\ˆ[XZ[[™ÙW	ÛÙ[™[ÝHH™\Ù][šË‰Îˆ	Ò[™Ù[ˆ˜\˜H8 %[™ÙH[ˆK\ÜÝY™\ÜÈðéHÚÚXÚØ\ˆšH[ˆ0é]\œÝ0éš[™ÜÛ0éšË‰Ëˆ	Ö[Ý\ˆ\ÜÝÛÜ™\È™Y[ˆÚ[™ÙYÝXØÙ\ÜÙ[Kˆ[ÝHØ[ˆ›ÝÈÚYÛˆ[ˆÚ][Ý\ˆ™]È\ÜÝÛÜ™‰Îˆ	Ñ]0íœÙ[›Ü™\ˆ0é™˜]ËˆHØ[ˆHÙÙØH[ˆYY]žXH0íœÙ[›Ü™‰Ëˆ	ÔÚÚ\Ý\‰Îˆ	ÒÜH0í™\ˆ[™\™[‰Ëˆ	Ñ\Ú›Ø\™	Îˆ	Ò[œÝ[Y[[™[	Ëˆ	Ö[Ý\ˆÛÛ[X[™Ù[\‹ˆœ›ÝÜÙH[RHÛÛËÙYH™XÛÛ[Y[™][ÛœË[™˜XÚÈ[Ý\ˆXÝ]š]K‰Îˆ	Ñ[ˆÛÛ›ÛÙ[˜[ˆ›0é˜H›[™[HRK]™\šÝYËÙH™ZÛÛ[Y[™][Û™\ˆØÚ°í›ˆ[ˆZÝ]š]]‰Ëˆ	Ö[Ý\ˆ\œÛÛ˜[ÛÜšÜÜXÙHÚ\™H[[Ý\ˆÛÛÈ[™›Ú™XÝÈ]™K‰Îˆ	Ñ[ˆ\œÛÛ›YØH\˜™]Þ]H0éˆ[H[˜H™\šÝYÈØÚ›Ú™ZÝš[›œË‰Ëˆ	Ð[[Ý\ˆØÝ[Y[Ë™\Ý[Y\Ë[™^ÜÈ\™HØ]™Y\™H]]ÛX]XØ[K‰Îˆ	Ð[H[˜HÚÝ[Y[ÕŽ›ˆØÚ^Ü\ˆÜ\˜\È]]ÛX]\ÚÝ0é‹‰Ëˆ	ÐÚ]Ú][Ý\ˆRH\ÜÚ\Ý[[ž][YKˆ\ÚÈ]Y\Ý[ÛœËÙ]ÝYÙÙ\Ý[ÛœË[™[Ü™K‰Îˆ	ÐÚ]HYY[ˆRKX\ÜÚ\Ý[°éˆÛÛH[ÝˆÝ0éœ°éYÛÜ‹°éH°íœœÛYÈØÚ^XÚÙ]Y\‹‰Ëˆ	ÐÜ™X]HUËYœšY[™H™\Ý[Y\ÈÚ]RK\ÝÙ\™YÜš][™È\ÜÚ\Ý[˜ÙK‰Îˆ	ÔÚØ\HUË]°é›YØHÕŽ›ˆYYRKYš]™[ˆÚÜš]š°é‰Ëˆ	ÕÙ[ÛÛYIÎˆ	Õ°éÛÛ[Y[‰Ëˆ	Ö[Ý\ˆRHÛÜšÜÜXÙH\È™XYKˆÙW	Ý™HYYÛÛYHØ[\HÛÛ[ÈÙ][ÝHÝ\YˆXÚÈH]ZXÚÈXÝ[Ûˆ™[ÝËÜˆ^Ü™HHÛÛÈÙH™XÛÛ[Y[™Y›Üˆ[ÝK‰Îˆ	Ñ[ˆRKX\˜™]Þ]H0éˆÛ\‹ˆšH\ˆYÝ[^[\[[›™Z0é[ðéH]HØ[ˆÛÛ[XHYðé[™Ëˆ°éˆ[ˆÛ˜X˜°é]ðé™™Y[ˆ[\ˆ]›ÜœÚØH™\šÝYÙ[ˆšH™ZÛÛ[Y[™\˜\‹‰Ëˆ	Ùš[IÎˆ	Ùš[	Ëˆ	Ü™XÛÛ[Y[™YÛÛÉÎˆ	Ü™ZÛÛ[Y[™\˜YH™\šÝYÉËˆ	ÐÜ™X]H^Hš\œÝÕ‰Îˆ	ÔÚØ\HZ]°íœœÝHÕ‰Ëˆ	ÐZ[[ˆUËYœšY[™H™\Ý[YHÚ]RIÎˆ	ÔÚØ\H]UË]°é›YÝÕˆYYRIËˆ	Õ\ØYHØÝ[Y[	Îˆ	ÓYH\]ÚÝ[Y[	Ëˆ	Ð[˜[^™KÝ[[X\š^™KÜˆ˜[œÛ]H[žHš[IÎˆ	Ð[˜[\Ù\˜KØ[[X[™˜]H[\ˆ0í™\œðé˜[œšHš[	Ëˆ	ÔÝ\RHÚ]	Îˆ	ÔÝ\HRKXÚ]	Ëˆ	Ð\ÚÈ[ž][™È8 %[Ý\ˆRH\ÜÚ\Ý[\È™XYIÎˆ	Ñœ°éYØH˜YÛÛH[Ý8 %[ˆRKX\ÜÚ\Ý[0éˆ™YÉËˆ	ÕZÙHH›ÙXÝÝ\‰Îˆ	ÔÝ\H›ÙZÝ[™\™[‰Ëˆ	ÐÜ™X]H[Ý\ˆš\œÝÕ‰Îˆ	ÔÚØ\H]°íœœÝHÕ‰Ëˆ	ÕžHHRHÚ]	Îˆ	Ô›Ý˜HRKXÚ][‰Ëˆ	Ñ^Ü™H[RHÛÛÉÎˆ	Õ]›ÜœÚØH[HRK]™\šÝYÉËˆ	ÕÙH\ÙHÛÛÚÚY\ÈÈ[\›Ý™H[Ý\ˆ^\šY[˜ÙK[˜[^™H˜Y™šXË[™\œÛÛ˜[^™HÛÛ[ˆ[ÝHØ[ˆÚÛÜÙHÚXÚÛÛÚÚY\ÈÈXØÙ\ˆÙYHÝ\‰Îˆ	ÕšH[°é™\ˆÛÛÚÚY\È°íœˆ]°íœ˜°é˜H[ˆ\]™[ÙK[˜[\Ù\˜H˜YšZÈØÚ[œ\ÜØH[›™Z0é[ˆHØ[ˆ°é˜Hš[ØHÛÛÚÚY\ÈHš[XØÙ\\˜KˆÙH°é\‰Ëˆ	Ê™\]Z\™Y
+IÎˆ	ÊÜ°éœÊIËˆ	ÐXØÙ\[	Îˆ	ÐXØÙ\\˜H[IËˆ	ÑXÛ[™IÎˆ	Ð]˜°íš‰Ëˆ	ÒYIÎˆ	Ñ0í›‰Ëˆ	ÔØ]™H^H™Y™\™[˜Ù\ÉÎˆ	ÔÜ\˜HZ[˜H[œÝ0éš[™Ø\‰Ëˆ	Û™]ÉÎˆ	ÛžXIËˆ	ÓX\šÈ\È™XY	Îˆ	ÓX\šÙ\˜HÛÛH0éÝ	Ëˆ	Ð\ÚÈRIÎˆ	Ñœ°éYØHRIËˆ	ÐÛX\‰Îˆ	Ô™[œØIËˆ	Ð[ÛÛÉÎˆ	Ð[H™\šÝYÉËˆ	ÐY[Ü™HÚÚ[ÈÈ[Ý\ˆÕ‰Îˆ	Ó0éÙÈ[›\ˆ°é™YÚ]\ˆH]Õ‰Ëˆ	ÐUÈÞ\Ý[\ÈÛÚÈ›Üˆ
+È™[]˜[ÚÚ[Ëˆ[ÝHÝ\œ™[H]™HK‰Îˆ	ÐUË\Þ\Ý[H]\ˆY\ˆZ[œÝ™[]˜[H°é™YÚ]\‹ˆH\ˆ°íœˆ°é˜\˜[™HK‰Ëˆ	ÓÜ[ˆÕˆZ[\‰Îˆ	ðåœ˜HÕ‹XžYÙØ\™[‰Ëˆ	ÕžHHRHÜš]\‰Îˆ	Ô›Ý˜HRK\ÚÜš]˜\™[‰Ëˆ	Ö[ÝH]™[—	Ý\ÙYHRHÜš]\ˆY]ˆ]	ÜÈÜ™X]›ÜˆÜ™X][™È›ÙÈÜÝÈ[™\XÛ\Ë‰Îˆ	ÑH\ˆ[H[°éRK\ÚÜš]˜\™[ˆ0é›Kˆ[ˆ\ÜØ\ˆœ˜H°íœˆ›ÙÙÚ[›0éÙÈØÚ\ZÛ\‹‰Ëˆ	ÕžHRHÜš]\‰Îˆ	Ô›Ý˜HRK\ÚÜš]˜\™[‰Ëˆ	ÕšY]È[œÉÎˆ	Õš\ØH[™\‰Ëˆ	Ô›ÛÝ
+›È›Ú™XÝ
+IÎˆ	Ô›Ý
+[™Ù]›Ú™ZÝ
+IËˆ	ÓÜ[ˆ]™H8¡¥ÉÎˆ	ðåœ˜H]™H8¡¥ÉËˆ	ÓÜ[ˆ]™HÚ]H8¡¥ÉÎˆ	ðåœ˜H]™]ÙX˜œ]È8¡¥ÉËˆ	Ó[Ý™IÎˆ	Ñ›]IËˆ	Ñ˜]›Üš]IÎˆ	Ñ˜]›Üš]	Ëˆ	Ô[‰Îˆ	Ñ°éÝ	Ëˆ	Ó™]È›Ú™XÝ	Îˆ	Óž]›Ú™ZÝ	Ëˆ	Ó™]È™\Ý[YIÎˆ	Óž]Õ‰Ëˆ	Õ˜[œÛ]IÎˆ	ðå™\œðé	Ëˆ	ÔÝYH›Ý\ÉÎˆ	ÔÝYYX[XÚÛš[™Ø\‰Ëˆ	ÐY][IÎˆ	Ó0éÙÈ[Øš™ZÝ	Ëˆ	Ô™\Ý[YIÎˆ	ÐÕ‰Ëˆ	ÑØÝ[Y[	Îˆ	ÑÚÝ[Y[	Ëˆ	Õ˜[œÛ][Û‰Îˆ	ðå™\œðéš[™ÉËˆ	Ó›È][\È[ˆ\È›Ú™XÝ	Îˆ	Ò[™ØHØš™ZÝH]0éˆ›Ú™ZÝ]	Ëˆ	ÐY™\Ý[Y\ËÛÝ™\ˆ]\œË›Ý\ËRHÚ]È[™[Ü™HÈÜ™Ø[š^™H[Ý\ˆÛÜšË‰Îˆ	Ó0éÙÈ[ÕŽ›‹\œÛÛ›YØHœ™]‹[XÚÛš[™Ø\‹RKXÚ]\ˆØÚY\ˆ°íœˆ]Ü™Ø[š\Ù\˜H]\˜™]K‰Ëˆ	ÐYš\œÝ][IÎˆ	Ó0éÙÈ[°íœœÝHØš™ZÝ]	Ëˆ	Ñ[\H˜\Ú	Îˆ	Õ0í›H\\œÚÛÜ™Ù[‰Ëˆ	ÐÝ\œ™[›ÛIÎˆ	Ó]˜\˜[™H›Û	Ëˆ	Ñ›Û˜[Z[IÎˆ	Õ\Ûš]	Ëˆ	ÔÙXÝ[ÛˆÜ™\‰Îˆ	Ð]œÛš]ÛÜ™š[™ÉËˆ	Ô›ØÙ\ÜÚ[™ÈÚ]RK‹‹‰Îˆ	Ð™X\˜™]\ˆYYRK‹‹‰Ëˆ	ÕšY]ÈÛÝ™\ˆ]\‰Îˆ	Õš\ØH\œÛÛ›YÝœ™]‰Ëˆ	Ð[˜[^š[™È[Ý\ˆ™\Ý[YHYØZ[œÝH›Øˆ\ØÜš\[Û‹‹‹‰Îˆ	Ð[˜[\Ù\˜\ˆ]Õˆ[Ý›Ø˜˜[››ÛœÙ[‹‹‹‰Ëˆ	ÔÝYÙÙ\Ý[ÛœÉÎˆ	Ñ°íœœÛYÉËˆ	ÔØ]™HÝ\œ™[	Îˆ	ÔÜ\˜HZÝY[	Ëˆ	Ö[Ý\ˆ™\Ý[YHÛÚÜÈÜ™X]H›È\ÜÝY\È›Ý[™‰Îˆ	Ñ]ÕˆÙ\ˆœ˜H]H[™ØH›Ø›[H]Y\Ë‰Ëˆ	Ñ^Ù[[	Îˆ	Õ]péšÝ	Ëˆ	Ó™YYÈÛÜšÉÎˆ	Ð™Z0í™\ˆ°íœ˜°é˜\ÉËˆ	ÔÛÜ‰Îˆ	ÔÝ˜YÝ	Ëˆ	ÑÜ˜[[X\‰Îˆ	ÑÜ˜[[X]ZÉËˆ	ÐÛÛ\]IÎˆ	ÒÛÛ\]	Ëˆ	Ô›Ù‹‰Îˆ	Ô›Ù™œË‰Ëˆ	Ô™XYX›IÎˆ	Ó0éØ˜\‰Ëˆ	ÓÝ™\˜[	Îˆ	ÕÝ[	Ëˆ	ÓØY[™È^X\ˆ[[YÙ[˜Ùx )‰Îˆ	ÓY\ˆ^X\ˆ[[YÙ[˜Ùx )‰Ëˆ	ÐXØÛÝ[Ý\Ü[™Y	Îˆ	ÒÛÛÝ0éˆ]œÝ0é™Ý	Ëˆ	Ö[Ý\ˆXØÛÝ[\ÈÝ\œ™[HÝ\Ü[™YˆÛÛXÝÝ\ÜYˆ[ÝH™[Y]™H\È\ÈHZ\ÝZÙK‰Îˆ	Ñ]ÛÛÈ0éˆ°íœˆ°é˜\˜[™H]œÝ0é™ÝˆÛÛZÝHÝ\Ü[ˆÛHH›Üˆ]]H0éˆ]Z\ÜÝYË‰Ëˆ	ÔÚÚ\ÈÛÛ[	Îˆ	ÒÜH[[›™Z0é[]	Ëˆ	Ô™[ØY	Îˆ	ÓYHÛIËˆ	ÒÛYIÎˆ	Ò[IËˆ	ÒYˆ\ÈÙY\È\[š[™Ë	Îˆ	ÓÛH]H›Üðé\‹	Ëˆ	ØÛÛXÝÝ\Ü	Îˆ	ÚÛÛZÝHÝ\Ü[‰Ëˆ	Ôš[X\žH˜]šYØ][Û‰Îˆ	Ò]Y˜]šYÙ\š[™ÉËˆ	Õ^X\ˆ[[YÙ[˜ÙHÛYIÎˆ	Õ^X\ˆ[[YÙ[˜ÙHÝ\ÚYIËˆ	ÐZ[0­ÈÜ™X]H0­ÈÚ\	Îˆ	ÐžYÙÈ0­ÈÚØ\H0­È[œÙ\˜IËˆ	ÓÛ›[™IÎˆ	ÓÛ›[™IËˆ	Ó™]ÈÛÛ™\œØ][Û‰Îˆ	ÓžHÛÛ™\œØ][Û‰Ëˆ	ÐÜ™X]HÛÜšÜÜXÙIÎˆ	ÔÚØ\H\˜™]Þ]IËˆ	ÔÜXÙ\‰Îˆ	ÓY[[œ[IËˆ	ÑÝX›KXÛXÚÈÈY]šY[ÈT“	Îˆ	ÑX˜™[ÛXÚØH°íœˆ]™YYÙ\˜HšY[ØY™\ÜÙ[‰Ëˆ	ÕšY[ÉÎˆ	ÕšY[ÉËˆ	ÑÝX›KXÛXÚÈÈYHšY[ÈT“	Îˆ	ÑX˜™[ÛXÚØH°íœˆ]0éÙØH[[ˆšY[ØY™\ÜÉËˆ	ÐYXˆÛÛ[	Îˆ	Ó0éÙÈ[›ZÚ[›™Z0é[	Ëˆ	ÐYÛ™H[XYÙHT“\ˆ[™IÎˆ	Ó0éÙÈ[[ˆš[Y™\ÜÈ\ˆ˜Y	Ëˆ	ÑÝX›KXÛXÚÈÈY][X™YT“	Îˆ	ÑX˜™[ÛXÚØH°íœˆ]™YYÙ\˜H[˜°éš[™ÜØY™\ÜÙ[‰Ëˆ	Ñ[X™YYÛÛ[	Îˆ	Ò[˜°é][›™Z0é[	Ëˆ	ÑÝX›KXÛXÚÈÈY[ˆ[X™YX›HT“	Îˆ	ÑX˜™[ÛXÚØH°íœˆ]0éÙØH[[ˆ[˜°éš[™ÜØ˜\ˆY™\ÜÉËˆ	ÐÛÝ[ÝÛ‰Îˆ	Ó™Y°éÛš[™ÉËˆ	Õ\™Ù]‰Îˆ	Ópé[‰Ëˆ	ÜÙ]]H[ˆ[œÜXÝÜ‰Îˆ	ÜÝ0é[ˆ][HH[œÜZÝ0íœ™[‰Ëˆ	ÐY\Ý[[ÛšX[^	Îˆ	Ó0éÙÈ[ÛY0í›Y\Ý^	Ëˆ	ÑÝX›KXÛXÚÈÈ™\XÙH[XYÙIÎˆ	ÑX˜™[ÛXÚØH°íœˆ]\œðéHš[[‰Ëˆ	ÕÙXœÚ]H[XYÙIÎˆ	ÕÙX˜œ]Øš[	Ëˆ	ÑÝX›KXÛXÚÈÈY[XYÙHT“	Îˆ	ÑX˜™[ÛXÚØH°íœˆ]0éÙØH[[ˆš[Y™\ÜÉËˆ	Ñ˜YÈÈ[Ý™H0­È\œ›ÝÜÈYÙH0­ÈÚY
+Ø\œ›ÝÈL0­ÈÝ›ÐÛY
+Ñ\XØ]H0­È[]H™[[Ý™H0­È\ØÈ\Ù[XÝ0­ÈÚY
+Ù˜YÈ™[Ü™\‰Îˆ	Ñ˜H°íœˆ]›]H0­È[\ˆš[š\Ý\˜\ˆ0­ÈÚY
+Ü[L0­ÈÝ›ÐÛY
+Ñ\XÙ\˜\ˆ0­È[]H\ˆ›Ü0­È\ØÈ]›X\šÙ\˜\ˆ0­ÈÚY
+Ù˜H0é™˜\ˆÜ™š[™ÉËˆ	ÒÛ[›ÜˆIH™XÚ\Ú[Û‰Îˆ	Ò0é[[°íœˆIH™XÚ\Ú[Û‰Ëˆ	Ñ˜YÈÚ]ÛX\[[Y[[™Ù[\ˆÝZY\È0­ÈÛ[›Üˆ\™XÚ\Ú[Ûˆ0­È\œ›ÝÜÈYÙH0­ÈÚY
+Ø\œ›ÝÈL0­ÈÝ›ÐÛY
+Ñ\XØ]H0­È[]H™[[Ý™H0­È\ØÈ\Ù[XÝ0­ÈÚY
+Ù˜YÈ™[Ü™\‰Îˆ	Ñ˜HYYÛX\HšZÝ[š™\ˆ°íœˆ[[Y[ØÚÙ[[H0­È0é[[°íœˆ\\™XÚ\Ú[Ûˆ0­È[\ˆš[š\Ý\˜\ˆ0­ÈÚY
+Ü[L0­ÈÝ›ÐÛY
+Ñ\XÙ\˜\ˆ0­È[]H\ˆ›Ü0­È\ØÈ]›X\šÙ\˜\ˆ0­ÈÚY
+Ù˜H0é™˜\ˆÜ™š[™ÉËˆ	ÑY]]Ûˆ[šÉÎˆ	Ô™YYÙ\˜HÛ˜\0éšÉËˆ	ÓÜ[ˆYYXHXœ˜\žIÎˆ	ðåœ˜HYYYXšX›[ÝZÉËˆ	ÓÜ[ˆ[œÜXÝÜ‰Îˆ	ðåœ˜H[œÜZÝ0íœ™[‰Ëˆ	Ô™\Ù]ÜÚ][Û‰Îˆ	ðá]\œÝ0éÜÚ][Û‰Ëˆ	Ô™\Ú^™H[[Y[	Îˆ	ðá™˜H[[Y[]ÈÝÜ›ZÉËˆ	Ñ˜YÈÈ™\Ú^™IÎˆ	Ñ˜H°íœˆ]0é™˜HÝÜ›ZÉËˆ	Ó[Ý™HÙXÝ[Ûˆ\	Îˆ	Ñ›]H]œÛš]\	Ëˆ	Ó[Ý™HÙXÝ[ÛˆÝÛ‰Îˆ	Ñ›]H]œÛš]™\‰Ëˆ	Ñ[]HÙXÝ[Û‰Îˆ	ÕH›Ü]œÛš]	Ëˆ	ÑÝX›KXÛXÚÈÈY]]Ûˆ^	Îˆ	ÑX˜™[ÛXÚØH°íœˆ]™YYÙ\˜HÛ˜\^[‰Ëˆ	Ò[œÙ\	Îˆ	Ò[™›ÙØIËˆ	ÔÙX\˜Ú	Îˆ	ÔðíšÉËˆ	ÔÙX\˜Ú[[Y[ÉÎˆ	ÔðíšÈ[[Y[	Ëˆ	Ó›È™\Ý[ÉÎˆ	Ò[™ØH™\Ý[]	Ëˆ	ØÛÛÜˆXÚÙ\‰Îˆ	Ù°é™Ý°é˜\™IËˆ	Ó›ÈÛÛ›ÛÈ›Üˆ\ÈÙ[XÝ[Û‹‰Îˆ	Ò[™ØHÛÛ›Û\ˆ°íœˆ[ˆ0éˆX\šÙ\š[™Ù[‹‰Ëˆ	Ó›ÈYÙIÎˆ	Ò[™Ù[ˆÚYIËˆ	ÐÛÛZ[™\œÉÎˆ	Ð™Z0é[\™IËˆ	Ñ›Ü›HšY[ÉÎˆ	Ñ›Ü›][0é™°é	Ëˆ	ÓYYXIÎˆ	ÓYYXIËˆ	ÐRH[XYÙIÎˆ	ÐRKXš[	Ëˆ	Ñ\ØÜšX™H[ˆ[XYÙK‹‹‰Îˆ	Ð™\ÚÜš]ˆ[ˆš[‹‹‰Ëˆ	ÑÙ[™\˜][™ø )‰Îˆ	ÑÙ[™\™\˜\¸ )‰Ëˆ	ÔÙX\˜ÚYYXIÎˆ	ÔðíšÈYYXIËˆ	Ó›ÈYYXIÎˆ	Ò[™Ù[ˆYYXIËˆ	ÔÙ]\ÈÛYHYÙIÎˆ	Ð[™ÙHÛÛHÝ\ÚYIËˆ	Ô™XÙ[H\ÙY	Îˆ	Óž[YÙ[ˆ[°é™	Ëˆ	ÔÙX\˜ÚÙXœÚ]IÎˆ	ÔðíšÈ0éHÙX˜œ]Ù[‰Ëˆ	ÕÙÙÛH˜]šYØ][Û‰Îˆ	Õš\ØKÙ0í›ˆ˜]šYÙ\š[™ÉËˆ	ÓY[IÎˆ	ÓY[žIËˆ	ÔÚ\™IÎˆ	Ñ[IËˆ	ÐÛÜH[šÉÎˆ	ÒÛÜY\˜H0éšÉËˆ	ÐÛÜÙH[XYÙIÎˆ	ÔÝ0é™Èš[	Ëˆ	ÑØ[\žH™]šY]ÉÎˆ	Ñ°íœš[™Ýš\Ûš[™È]ˆØ[\šIËˆ	ÔÙX\˜Ú\ÈÚ]IÎˆ	ÔðíšÈ0éH[ˆ0éˆÙX˜œ]Ù[‰Ëˆ	ÐÛÜÙHÙX\˜Ú	Îˆ	ÔÝ0é™ÈðíšÛš[™ÉËˆ	ÔÙX\˜ÚYÙ\ø )‰Îˆ	ÔðíšÈÚYÜ¸ )‰Ëˆ	ÔÝ\\[™ÈÈÙX\˜Ú‰Îˆ	Ð°íœš˜HÚÜš]˜H°íœˆ]ðíšØK‰Ëˆ	Õ\H]X\ÝˆÚ\˜XÝ\œË‰Îˆ	ÔÚÜš]ˆZ[œÝˆXÚÙ[‹‰Ëˆ	Ó›ÈX]Ú[™ÈYÙ\È›Ý[™‰Îˆ	Ò[™ØHX]Ú[™HÚYÜˆ]Y\Ë‰Ëˆ	ÓXZ[[˜[˜ÙIÎˆ	Õ[™\š0é[	Ëˆ	Ò][IÎˆ	Ð\ZÙ[	Ëˆ	Ò[›ÚXÙIÎˆ	Ñ˜ZÝ\˜IËˆ	Ðš[ÉÎˆ	Ñ˜ZÝ\™\˜\È[	Ëˆ	Ô]IÎˆ	Ð[[	Ëˆ	Õ[š]šXÙIÎˆ	ÔÝXÚÜš\ÉËˆ	ÕU	Îˆ	Ó[Û\ÉËˆ	ÕÝ[	Îˆ	ÕÝ[	Ëˆ	ÔÝXÝ[	Îˆ	Ñ[Ý[[XIËˆ	ÐYH[ÝUX™Kš[Y[ÈÜˆ\™XÝšY[ÈT“	Îˆ	Ó0éÙÈ[[ˆ[ÝUX™KKš[Y[ËH[\ˆ\™ZÝšY[ØY™\ÜÉËˆ	ÑØ[\žH[XYÙIÎˆ	ÑØ[\šXš[	Ëˆ	ÐYHX\Üˆ[X™YT“	Îˆ	Ó0éÙÈ[[ˆØ\H[\ˆ[˜°éš[™ÜØY™\ÜÉËˆ	Ñ^\ÉÎˆ	ÑYØ\‰Ëˆ	ÒÝ\œÉÎˆ	Õ[[X\‰Ëˆ	ÓZ[]\ÉÎˆ	ÓZ[]\‰Ëˆ	ÔÙXÛÛ™ÉÎˆ	ÔÙZÝ[™\‰Ëˆ	Ô™]š[Ý\È\Ý[[ÛšX[	Îˆ	Ñ°íœ™YðéY[™HÛY0í›YIËˆ	Ó™^\Ý[[ÛšX[	Îˆ	Ó°éÝHÛY0í›YIËˆ	ÓXYØ\\™H\È\ØX›Y[ˆ™]šY]ÜÈ[™XÝ]˜]\ÈÛˆHX›\ÚYÛÝYÙXœÚ]K‰Îˆ	Ò[œØ[[[™È]ˆXYÈ0éˆ[˜ZÝ]™\˜YH°íœš[™Ýš\Ûš[™Ø\ˆØÚZÝ]™\˜\È0éH[ˆX›XÙ\˜Y[ÛÙX˜œ]Ë‰Ëˆ	Õ[šÜÈH[Ý\ˆY\ÜØYÙH\È™Y[ˆÙ[‰Îˆ	ÕXÚÈH]YY[[™H\ˆÚÚXÚØ]Ë‰Ëˆ	Ñ™X]\™\ÉÎˆ	Ñ[šÝ[Û™\‰Ëˆ	Ñ˜\Ý	Îˆ	ÔÛ˜X˜‰Ëˆ	ÐZ[›ÜˆÜYY[™HÛ[ÛÝ\Ù\ˆ^\šY[˜ÙK‰Îˆ	ÐžYÙÙ°íœˆÛ˜X˜š]ØÚ[ˆÛZYYÈ[°é™\\]™[ÙK‰Ëˆ	ÔÝÙ\™[	Îˆ	ÒÜ˜Y[	Ëˆ	Ñ›^X›HÛÛÈ][[Ý\ˆ\Ú[™\ÜÈÜ›ÝË‰Îˆ	Ñ›^X›H™\šÝYÈÛÛH°é\ˆ]°íœ™]YÈ]°éK‰Ëˆ	ÑX\ÞIÎˆ	Ñ[šÙ[	Ëˆ	ÔÚ[\H^\šY[˜Ù\È[Ý\ˆÝ\ÝÛY\œÈ[™\œÝ[™‰Îˆ	Ñ[šÛH\]™[Ù\ˆÛÛH[˜HÝ[™\ˆ°íœœÝ0é\‹‰Ëˆ	ÔÙ\šXÙ\ÉÎˆ	Õ°éœÝ\‰Ëˆ	ÐÛÛœÝ[[™ÉÎˆ	Ô°éYÚ]›š[™ÉËˆ	Ô›Ù™\ÜÚ[Û˜[ÝZY[˜ÙHZ[Ü™YÈ[Ý\ˆÛØ[Ë‰Îˆ	Ô›Ù™\ÜÚ[Û™[°éÛYš[™È[œ\ÜØYY\ˆ[˜Hpé[‰Ëˆ	Ñ]™[ÜY[	Îˆ	Õ]™XÚÛ[™ÉËˆ	Ó[Ù\›ˆYÚ][ÛÛ][ÛœÈZ[›Üˆ[Ý\ˆ\Ú[™\ÜË‰Îˆ	Ó[Ù\›˜HYÚ][H0íœÛš[™Ø\ˆžYÙÙH°íœˆ]°íœ™]YË‰Ëˆ	Ô™[XX›H[Ú[ˆ[ÝH™YY][ÜÝ‰Îˆ	Ô0é[]YÈ°é°éˆH™Z0í™\ˆ[ˆÛÛHY\Ý‰Ëˆ	ÔšXÚ[™ÉÎˆ	Ôš\Ù\‰Ëˆ	ÔÝ\\‰Îˆ	ÔÝ\	Ëˆ	Ñ›ÜˆÙ][™ÈÝ\Y‰Îˆ	Ñ°íœˆ]ÛÛ[XHYðé[™Ë‰Ëˆ	ÐÚÛÜÙIÎˆ	Õ°é‰Ëˆ	Ñ›ÜˆÜ›ÝÚ[™È\Ú[™\ÜÙ\Ë‰Îˆ	Ñ°íœˆ°é[™H°íœ™]YË‰Ëˆ	Ñ›ÜˆY˜[˜ÙY™YYË‰Îˆ	Ñ°íœˆ]˜[˜Ù\˜YH™ZÝ‹‰Ëˆ	Õ\Ý[[ÛšX[ÉÎˆ	ÓÛY0í›Y[‰Ëˆ	Ð[X^š[™È^\šY[˜ÙH[™^Ù[[™\Ý[Ë‰Îˆ	Ñ˜[\Ý\ÚÈ\]™[ÙHØÚ]péšÝH™\Ý[]‰Ëˆ	Ô›Ù™\ÜÚ[Û˜[Ú[\H[™^XÝHÚ]ÙH™YYY‰Îˆ	Ô›Ù™\ÜÚ[Û™[[šÙ[ØÚ™XÚ\È˜YšH™Z0í™K‰Ëˆ	ÕHX\ÚY\ÝØ^HÈ™\Ù[Ý\ˆ\Ú[™\ÜÈÛ›[™K‰Îˆ	Ñ][šÛ\ÝHðé]]™\Ù[\˜H°é\°íœ™]YÈÛ›[™K‰Ëˆ	ÐX›Ý]	Îˆ	ÓÛHÜÜÉËˆ	Ö[Ý\ˆœ˜[™	Îˆ	Ñ]˜\[péšÙIËˆ“[™[™ÈYÙHŽˆ“[™š[™ÜÜÚYH‹ˆ‘Y]H\›ÈÙXÝ[Ûˆ[™Ù^HY\ÜØYÚ[™ÈÛˆ[Ý\ˆÛY\YÙKˆŽˆ”™YYÙ\˜H\›Ë\ÙZÝ[Û™[ˆØÚ]YYÚØ\[ˆ0éH[ˆÝ\ÚYKˆ‹ˆ’\›È]HŽˆ’\›Ë\XœšZÈ‹ˆRKTÝÙ\™YØ\™Y\ˆ[[YÙ[˜ÙHŽˆRKYš]™[ˆØ\œšpéš[[YÙ[œÈ‹ˆ’\›ÈÝX]HŽˆ’\›Ë][™\œXœšZÈ‹ˆZ[Ü[Z^™K[™X[˜YÙK‹‹ˆŽˆ”ÚØ\KÜ[Y\˜HØÚ[\˜K‹‹ˆ‹ˆØ[ÈXÝ[Ûˆ^Žˆ•^°íœˆ\X[š[™È‹ˆ‘Ù]Ý\Yœ™YHŽˆ’ÛÛHYðé[™ÈÜ˜]\È‹ˆ•\Ù\œÈÝ]Žˆ[°é™\œÝ]\ÝZÈ‹ˆ”šXÚ[™ÈYÙHŽˆ”š\ÜÚYH‹ˆ“X[˜YÙHšXÚ[™ÈY\œÈ[™™X]\™\È\Ü^YYÈ\Ù\œËˆŽˆ’[\˜Hš\Ûš]°éY\ˆØÚ[šÝ[Û™\ˆÛÛHš\Ø\È°íœˆ[°é™\›˜Kˆ‹ˆ‘œ™YH[ˆšXÙHŽˆ”š\È°íœˆÜ˜]\Ü[ˆ‹ˆ”›È[ˆšXÙHŽˆ”š\È°íœˆ›Ë\[ˆ‹ˆ\Ú[™\ÜÈ[ˆšXÙHŽˆ”š\È°íœˆ\Ú[™\ÜË\[ˆ‹ˆ‘œ™YH[ˆ™X]\™\È
+Û™H\ˆ[™JHŽˆ‘Ü˜]\Ü[™[œÈ[šÝ[Û™\ˆ
+[ˆ\ˆ˜Y
+H‹ˆHRH™\]Y\ÝËÙ^W˜\ÚXÈÕˆZ[\ˆŽˆHRKY°íœ™œ°éYÛš[™Ø\‹ÙY×‘Ü[™0éÙØ[™HÕ‹XžYÙØ\™H‹ˆ”›È[ˆ™X]\™\È
+Û™H\ˆ[™JHŽˆ”›Ë\[™[œÈ[šÝ[Û™\ˆ
+[ˆ\ˆ˜Y
+H‹ˆ•[›[Z]YRH™\]Y\Ý×[ÛÛÈ[›ØÚÙYŽˆ“Ø™YÜ°éœØYHRKY°íœ™œ°éYÛš[™Ø\—[H™\šÝYÈ\0é\ÝH‹ˆ‘THÙXÝ[ÛˆŽˆ‘TK\ÙZÝ[Ûˆ‹ˆ‘œ™\]Y[H\ÚÙY]Y\Ý[ÛœÈÚÝÛˆÛˆH[™[™ÈYÙKˆŽˆ•˜[›YØHœ°éYÛÜˆÛÛHš\Ø\È0éH[™š[™ÜÜÚY[‹ˆ‹ˆ”]Y\Ý[ÛˆHŽˆ‘œ°éYØHH‹ˆ•Ú]\È^X\ˆ[[YÙ[˜ÙOÈŽˆ•˜Y0éˆ^X\ˆ[[YÙ[˜ÙOÈ‹ˆ[œÝÙ\ˆHŽˆ”Ý˜\ˆH‹ˆ•^X\ˆ[[YÙ[˜ÙH\Ë‹‹ˆŽˆ•^X\ˆ[[YÙ[˜ÙH0é‹‹‹ˆ‹ˆ”]Y\Ý[ÛˆˆŽˆ‘œ°éYØHˆ‹ˆ’\È\™HHœ™YH[ÈŽˆ‘š[›œÈ][ˆÜ˜]\Ü[È‹ˆ[œÝÙ\ˆˆŽˆ”Ý˜\ˆˆ‹ˆ–Y\ÈHÙHÙ™™\‹‹‹ˆŽˆ’˜HHšH\˜šY\‹‹‹ˆ‹ˆ“YØ[\›\È[™ÛÛ™][ÛœÈ›Üˆ\Ú[™ÈH]›Ü›KˆŽˆ’\šY\ÚØHš[ÛÜˆ°íœˆ][°é™H]›Ü›Y[‹ˆ‹ˆ’[›ÙXÝ[ÛˆŽˆ’[›ÙZÝ[Ûˆ‹ˆžH\Ú[™È^X\ˆ[[YÙ[˜ÙK‹‹ˆŽˆ‘Ù[›ÛH][°é™H^X\ˆ[[YÙ[˜ÙK‹‹ˆ‹ˆ•\ØYÙH\›\ÈŽˆ[°é™š[™ÜÝš[ÛÜˆ‹ˆ–[ÝHX^H\ÙK‹‹ˆŽˆ‘H°é\ˆ[°é™K‹‹ˆ‹ˆ“XXš[]HŽˆ[œÝ˜\ˆ‹ˆ•^X\ˆ[[YÙ[˜ÙH\È›ÝXX›K‹‹ˆŽˆ•^X\ˆ[[YÙ[˜ÙH[œÝ˜\˜\ˆ[K‹‹ˆ‹ˆ’ÝÈ\Ù\ˆ]H\ÈÛÛXÝY\ÙY[™›ÝXÝYˆŽˆ’\ˆ[°é™\™]HØ[[\È[‹[°é™ÈØÚÚÞY\Ëˆ‹ˆ•ÙHZÙH[Ý\ˆš]˜XÞHÙ\š[Ý\ÛK‹‹ˆŽˆ•šH\ˆ[ˆ[YÜš]]0éH[˜\‹‹‹ˆ‹ˆ‘]HÛÛXÝ[ÛˆŽˆ‘]Z[œØ[[[™È‹ˆ•ÙHÛÛXÝ‹‹ˆŽˆ•šHØ[[\ˆ[‹‹‹ˆ‹ˆ–[Ý\ˆšYÚÈŽˆ‘[˜H°éYÚ]\ˆ‹ˆ–[ÝH]™HHšYÚË‹‹ˆŽˆ‘H\ˆ°é]‹‹ˆ‹ˆ‘˜Z[YÈØYØ]™YÛÛ[˜YŽˆ‘]ÚXÚÈ[H]0éØH[ˆ]Ü\˜YH[›™Z0é[Ý]Ø\Ý]‹ˆ‘˜Z[YÈØ]™HÛÛ[˜YŽˆ‘]ÚXÚÈ[H]Ü\˜H[›™Z0é[Ý]Ø\Ý]‹ˆÛÛ[˜YØ]™YŽˆ’[›™Z0é[Ý]Ø\ÝÜ\˜]‹ˆ•Ý[\Ù\œÈŽˆ•Ý[[[[°é™\™H‹ˆXÝ]™H\Ù\œÈŽˆZÝ]˜H[°é™\™H‹ˆ“™]ÈÙ^HŽˆ“žXHYYÈ‹ˆXÝ]™HÝXœÈŽˆZÝ]˜HX›Û›™[X[™È‹ˆ“[ÛH™]™[YHŽˆ“pé[˜YÚ[0éÝ‹ˆ‘]HÝ]\ÈŽˆ‘]\Ý]\È‹ˆ•[˜]˜Z[X›HŽˆ“Ý[ðé™ÛYÈ‹ˆ”›Ùš[\ÈŽˆ”›Ùš[\ˆ‹ˆ”ÝXœØÜš\[ÛœÈŽˆX›Û›™[X[™È‹ˆÝ[ŽˆÝ[‹ˆ\Ù\œÈŽˆ˜[°é™\™H‹ˆœ™\]Y\ÝÈŽˆ™°íœ™œ°éYÛš[™Ø\ˆ‹ˆ“Ý™\šY]ÈŽˆ°å™\œÚZÝ‹ˆ“X[˜YÙ[Y[Žˆ’[\š[™È‹ˆ•\Ù\œÈŽˆ[°é™\™H‹ˆRHX[˜YÙ[Y[ŽˆRKZ[\š[™È‹ˆ•ÛÛÈŽˆ•™\šÝYÈ‹ˆ”]›Ü›HŽˆ”]›Ü›H‹ˆÛÛ[Žˆ’[›™Z0é[‹ˆ”Þ\Ý[HŽˆ”Þ\Ý[H‹ˆŒM™\]Y\ÝÈŽˆ‘°íœ™œ°éYÛš[™Ø\ˆMYØ\ˆ‹ˆ•Ý[ÚÙ[œÈŽˆ•Ý[[[ÚÙ[œÈ‹ˆ˜XÚÙ[™›ÝšY\œÈŽˆ˜XÚÙ[™[]™\˜[0íœ™\ˆ‹ˆ”™XÙ[\œ›Üˆ˜]HŽˆ”Ù[˜\ÝH™[œ™ZÝ™[œÈ‹ˆ“Û™HÛÛ›™XÝYÛÜšÜÜXÙHŽˆ‘[ˆØ[[X[š0é™Ø[™H\˜™]Þ]H‹ˆ”›Ú™XÝËš[\ËÙXœÚ]H™[X\Ù\ËÛÛX›Ü˜][Ûˆ[™Ù][™ÜÈ\™H\ÚYÛ™YÈÝ^HÛÛ›™XÝYˆŽˆ”›Ú™ZÝš[\‹ÙX˜œ]Ý™\œÚ[Û™\‹Ø[X\˜™]HØÚ[œÝ0éš[™Ø\ˆ0éˆ]›Ü›XYH°íœˆ]0é™ØHZÜˆ‹ˆ”Ú\š[š\ÚYÛÜšÈŽˆ“]™\™\˜H°é™YÝ\˜™]H‹ˆ•H›ÙXÝ\ÈZ[\›Ý[™[Ýš[™Èœ›ÛH˜YÈ[]™\žK›Ý\ÝÙ[™\˜][™ÈHÛ™K[Ù™ˆÝ]]ˆŽˆ”›ÙZÝ[ˆ0éˆžYÙÙ°íœˆ]H\˜™]]œ°é[ˆ]Ø\Ý[]™\˜[œË[H˜\˜HÚØ\H][™ðé[™ÜÜ™\Ý[]ˆ‹ˆÛÛ›ÛžHY˜][Žˆ’ÛÛ›ÛÛÛHÝ[™\™‹ˆ”™XÛÝ™\žK›Û\Ë]Y]Ë™\œÚ[Ûˆ\ÝÜžH[™›ÝË[]™[XØÙ\ÜÈÛÛ›ÛÈ\™H\ÙˆHÛÜšÙ›ÝËˆŽˆ°á]\œÝ0éš[™Ë›Û\‹Ü˜[œÚÛš[™Ø\‹™\œÚ[ÛœÚ\ÝÜšZÈØÚ0é]ÛÛ\ÝÛÛ›Û\ˆ0éH˜Yš]°éH[™ðé\ˆH\˜™]Ù›0í™]ˆ‹ˆXØÙ\ÜÚX›HÛÜšÙ›ÝÜÈŽˆ•[ðé™ÛYØH\˜™]Ù›0í™[ˆ‹ˆ‘[™Û\Ú\˜XšXÈ[™ÝÙY\Ú\™HÝ\ÜY[˜ÛY[™ÈšYÚ]Ë[Y[\™˜XÙH™Z]š[Üˆ›Üˆ\˜XšXËˆŽˆ‘[™Ù[ÚØK\˜Xš\ÚØHØÚÝ™[œÚØHÝ0í™Ë[šÛ\Ú]™H0í™Ù\‹][]°éœÝ\‹[0éÙH°íœˆ\˜Xš\ÚØKˆ‹ˆÕœÈŽˆÕŽ›ˆ‹ˆÛÝ™\ˆ]\œÈŽˆ”\œÛÛ›YØHœ™]ˆ‹ˆ•Üš][™ÈŽˆ”ÚÜš]˜[™H‹ˆ•˜[œÛ][ÛœÈŽˆ°å™\œðéš[™Ø\ˆ‹ˆ”ÝYHŽˆ”ÝYY\ˆ‹ˆ”YÙH›Ý›Ý[™Žˆ”ÚY[ˆ]Y\È[H‹ˆ”YÙH›Ý›Ý[™ˆŽˆ”ÚY[ˆ]Y\È[Kˆ‹ˆ8 %YÙH›Ý›Ý[™Žˆ8 %ÚY[ˆ]Y\È[H‹ˆ•HYÙH[ÝH\™HÛÚÚ[™È›ÜˆÙ\È›Ý^\ÝÜˆX^H]™H[Ý™YˆŽˆ”ÚY[ˆHðíšÙ\ˆš[›œÈ[H[\ˆØ[ˆH›]]Ëˆ‹ˆ˜XÚÈÈÛYHŽˆ•[˜ZØH[Ý\ÚY[ˆ‹ˆ’ÜÝ[™È›Ý\Ë”È]Z[Ë™^Ý\ËÝ\Ü\›\ø )ˆŽˆ’ÜÝ[™Ø[XÚÛš[™Ø\‹”ËY][™\‹°éÝHÝYËÝ\Üš[ÛÜ¸ )ˆ‹ˆ”ÙX\˜Ú˜[YK[XZ[Y\ÜØYÙKYÜø )ˆŽˆ”ðíšÈ˜[[‹K\ÜÝYY[[™H[\ˆYÙØ\¸ )ˆ‹ˆ‘[^H[ˆÙXÛÛ™ÈŽˆ‘°íœ™°íš›š[™ÈHÙZÝ[™\ˆ‹ˆ“Y]H^[QŽˆ“Y]H^[RQ‹ˆ”ØÚ[XH\H0­ÈØØ[\Ú[™\ÜÈŽˆ”ØÚ[X]\0­ÈØØ[\Ú[™\ÜÈ‹ˆ–[ÝUX™Kš[Y[ÈÜˆ\™XÝšY[ÈT“Žˆ–[ÝUX™KKš[Y[ËH[\ˆ\™ZÝšY[Û0éšÈ‹ˆ•šY[È]HÈXØÙ\ÜÚXš[]HX™[Žˆ•šY[Ý][È[ðé™ÛYÚ]Ù]ZÙ]‹ˆXØÙ\ÜÚXš[]H]HŽˆ•[ðé™ÛYÚ]Ý][‹ˆ“Û™H[XYÙHT“\ˆ[™HŽˆ‘[ˆš[UT“\ˆ˜Y‹ˆ•]HÛÛ[8 %Û™H][H\ˆ[™HŽˆ•][[›™Z0é[8 %]Øš™ZÝ\ˆ˜Y‹ˆŒŒ‹LL‹LÌUŒÎNNNH][˜Ú[™ÈÛÛÛˆŽˆŒŒ‹LL‹LÌUŒÎNNNH[œÙ\˜\ÈÛ˜\‹ˆÝ\ÝÛHS
+ØÜš\È[™[›[™H]™[[™\œÈ\™HÝš\Y
+HŽˆ[œ\ÜØYS
+ÚÜš\ØÚ[˜žYÙÙH0é™[ÙZ[\˜\™H\È›Ü
+H‹ˆ‘\ØÜšX™HH[XYÙH[ÝHØ[›Üˆ\ÈÙXÝ[Û‹‹‹ˆŽˆ™\ÚÜš]ˆš[[ˆHš[H°íœˆ[ˆ0éˆÙZÝ[Û™[‹‹‹ˆ‹ˆ”ZYšXÙ\È\™HÛÛ›ÛYžHÕ’TWÔ“×Ô’PÑWÒQ[™Õ’TWÐ•TÒS‘TÔ×Ô’PÑWÒQÛÈH\™]™\ˆ\ÝÈHœ›ÝÜÙ\‹\Ý\YY[[Ý[ˆŽˆ™][Hš\Ù\ˆÝ\œÈ]ˆÕ’TWÔ“×Ô’PÑWÒQØÚÕ’TWÐ•TÒS‘TÔ×Ô’PÑWÒQðéH\[ˆ]\ˆ[šYÈ0éH]™[ÜÛÛHÚÚXÚØ\Èœ°é[ˆÙX˜›0éØ\™[‹ˆ‹ˆ”ÚÜÝ]ÎˆÝ›ÐÛY
+ÒÈÛÛ[X[™È0­ÈÝ›ÐÛY
+ÔÈØ]™H0­ÈÝ›ÐÛY
+Öˆ[™È0­ÈÝ›ÐÛY
+ÔÚY
+Öˆ™YÈ0­ÈÝ›ÐÛY
+ÔÚY
+Ô™]šY]ËˆŽˆ‘Ù[°éØ\ŽˆÝ›ÐÛY
+ÒÈÛÛ[X[™Ûˆ0­ÈÝ›ÐÛY
+ÔÈÜ\˜H0­ÈÝ›ÐÛY
+Öˆ0é[™Ü˜H0­ÈÝ›ÐÛY
+ÔÚY
+ÖˆðíœˆÛH0­ÈÝ›ÐÛY
+ÔÚY
+Ô°íœš[™ÙÜ˜[œÚØKˆ‹ˆ“\ÝÌ^\Ëˆ[›Ûž[[Ý\ÈÙ\ÜÚ[ÛˆQÈÛ›NÈ›ÈTY™\ÜÙ\È\™HÝÜ™YˆŽˆ”Ù[˜\ÝHÌYØ\›˜Kˆ[™\Ý[›Ûž[XHÙ\ÜÚ[ÛœËRQ›ŽÈ[™ØHTXY™\ÜÙ\ˆYÜ˜\Ëˆ‹ˆ•˜XÚÚ[™È[YÜ˜][ÛœÈ\™HÙ[™\˜]Yœ›ÛH˜[Y]YQËˆÝ\ÝÛHÔÔÈ\È[˜ÛYY[ˆ™]šY]Ë^Ü[™X›\ÚÈ˜]ÈØÜš\[š™XÝ[Ûˆ\È[[[Û˜[H›Ý[ÝÙY\™KˆŽˆ”Ü0é\›š[™ÜÚ[YÜ˜][Û™\ˆÚØ\\Èœ°é[ˆ˜[Y\˜YHQ›‹ˆ[œ\ÜØYÔÔÈ[™ðé\ˆH°íœš[™ÙÜ˜[œÚØK^Ü\˜HØÚX›XÙ\˜NÈ°éHÚÜš\[š™ZÝ[Ûˆ[0é]È]œÚZÝYÝ[H0é‹ˆ‹ˆ‘›ÛÚY[™ÜXÚ[™È\HÛØ˜[Kˆ8 '\x 'H[ÛÈ™XÛÛÜœÈ^\Ý[™ÈÙXÝ[ÛœÈ[™]ÛœËˆŽˆ•\Ûš]œ™YØÚ]œÝ0é[™ðé\ˆÛØ˜[ˆ8 'U[0é\x 'H°é™Ø\ˆ0é™[ˆÛH™Yš[YØHÙZÝ[Û™\ˆØÚÛ˜\\‹ˆ‹ˆ•\ÙHÛ™H[™H\ˆ][Nˆ]HÛÛ[Žˆ[°é™[ˆ˜Y\ˆØš™ZÝˆ][[›™Z0é[‹ˆ‘›Ü›X]ˆTÓÈ]KÝ[YHX™[Žˆ‘›Ü›X]ˆTÓËY][KÝY]ZÙ]‹ˆ”ØY™HS[ÙNˆØÜš\ÛØš™XÝÙ[X™YYÜÈ[™ÛŠˆ[™\œÈ\™H™[[Ý™Y™Y›Ü™H™]šY]ËÜX›\ÚˆŽˆ”ðéÙ\S[0éÙNˆØÜš\ÛØš™XÝÙ[X™Y]YÙØ\ˆØÚÛŠ‹Z[\˜\™H\È›Ü°íœ™H°íœš[™ÙÜ˜[œÚÛš[™ËÜX›XÙ\š[™Ëˆ‹ˆ“[šÈÈ[\›˜[YÙx )ˆŽˆ“0éšØH[[\›ˆÚYx )ˆ‹ˆÛÝ[›ÝØYÛÝY›Ú™XÝËˆŽˆ’Ý[™H[H0éØH[ˆ[Ûœ›Ú™ZÝˆ‹ˆÛÝ[›ÝØY™]\ØX›HÙXÝ[ÛœËˆŽˆ’Ý[™H[H0éØH[ˆ0é]\˜[°é™˜\˜HÙZÝ[Û™\‹ˆ‹ˆÛÝ[›ÝØ]™H\È™]\ØX›HÙXÝ[Û‹ˆŽˆ’Ý[™H[HÜ\˜H[ˆ0éˆ0é]\˜[°é™˜\˜HÙZÝ[Û™[‹ˆ‹ˆÛÝ[›Ý[]H\È™]\ØX›HÙXÝ[Û‹ˆŽˆ’Ý[™H[HH›Ü[ˆ0éˆ0é]\˜[°é™˜\˜HÙZÝ[Û™[‹ˆ‹ˆ“XY[˜›Þ\È]˜Z[X›HÈ›Ú™XÝÝÛ™\œÈ[™ÛÜšÜÜXÙHYZ[œËˆŽˆ“XYZ[šÛÜ™Ù[ˆ0éˆ[ðé™ÛYÈ°íœˆ›Ú™ZÝ0éØ\™HØÚ\˜™]Þ]XYZ[š\Ý˜]0íœ™\‹ˆ‹ˆ“XY[˜›Þ\È[˜]˜Z[X›KˆXZÙHÝ\™HHÜš[LH]X˜\ÙHZYÜ˜][Ûˆ\È\YYˆŽˆ“XYZ[šÛÜ™Ù[ˆ0éˆ[H[ðé™ÛYËˆÛÛ›Û\˜H]]X˜\ðé™š[™Ù[ˆ°íœˆÜš[LH\ˆ[0é\]Ëˆ‹ˆÛÝ[›Ý\]H\ÈXYˆŽˆ’Ý[™H[H\]\˜H]HXYˆ‹ˆÛÝ[›Ý\]HÔ“H]Z[È›Üˆ\ÈXYˆŽˆ’Ý[™H[H\]\˜HÔ“K]\ÚY\›˜H°íœˆ]HXYˆ‹ˆÛÝ[›Ý\]HHÙ[XÝYXYËˆŽˆ’Ý[™H[H\]\˜HH˜[HXYÙ[‹ˆ‹ˆÛÝ[›Ý[]H\ÈXYˆŽˆ’Ý[™H[HH›Ü]HXYˆ‹ˆ[˜[]XÜÈ\È]˜Z[X›HÈ›Ú™XÝÝÛ™\œËYZ[œË[™Y]ÜœËˆŽˆ[˜[\È0éˆ[ðé™ÛYÈ°íœˆ›Ú™ZÝ0éØ\™KYZ[š\Ý˜]0íœ™\ˆØÚ™YYÙ\˜\™Kˆ‹ˆ[˜[]XÜÈ\È[˜]˜Z[X›KˆXZÙHÝ\™HHÜš[MH]X˜\ÙHZYÜ˜][Ûˆ\È\YYˆŽˆ[˜[\È0éˆ[H[ðé™ÛYËˆÛÛ›Û\˜H]]X˜\ðé™š[™Ù[ˆ°íœˆÜš[MH\ˆ[0é\]Ëˆ‹ˆ“YYXHXœ˜\žH\È[˜]˜Z[X›KˆXZÙHÝ\™HHÜš[LˆÝÜ˜YÙHZYÜ˜][Ûˆ\È\YYˆŽˆ“YYYXšX›[ÝZÙ]0éˆ[H[ðé™ÛYÝˆÛÛ›Û\˜H]YÜš[™Üðé™š[™Ù[ˆ°íœˆÜš[Lˆ\ˆ[0é\]Ëˆ‹ˆ”ÚYÛˆ[ˆ™Y›Ü™H\ØY[™ÈYYXKˆŽˆ“ÙÙØH[ˆ[›˜[ˆHY\ˆ\YYXKˆ‹ˆ“Û›H[XYÙHš[\È\™HÝ\ÜYˆŽˆ‘[™\Ýš[š[\ˆÝ0í™Ëˆ‹ˆ’[XYÙ\È]\Ý™HHPˆÜˆÛX[\‹ˆŽˆš[\ˆpé\ÝH˜\˜HHPˆ[\ˆZ[™™Kˆ‹ˆÛÝ[›Ý\ØY\È[XYÙKˆŽˆ’Ý[™H[HYH\š[[‹ˆ‹ˆÛÝ[›Ý[]H\È[XYÙKˆŽˆ’Ý[™H[HH›Üš[[‹ˆ‹ˆš[[™ÈÝ]\ÈÛÝ[›Ý™H™\šYšYYÛÈZY™X]\™\È\™H[\Ü˜\š[HØÚÙYˆ\HHÜš[LŒx $ÌLÌˆZYÜ˜][ÛˆYˆ\È\ÈH™]È[œÝ[ˆŽˆ‘˜ZÝ\™\š[™ÜÜÝ]\ÈÝ[™H[H™\šYšY\˜\ËðéH™][[šÝ[Û™\ˆ0éˆ[°éYÝ0é\ÝKˆ[0é\HZYÜ™\š[™Ù[ˆ°íœˆÜš[LŒx $ÌLÌˆÛH]H0éˆ[ˆžH[œÝ[][Û‹ˆ‹ˆ•H™\]Y\ÝYÙXœÚ]H\È›Ýš\ÚX›H[ˆ[Ý\ˆÝ\œ™[ÛÝY›Ú™XÝËˆŽˆ‘[ˆ™Yðé™HÙX˜œ]Ù[ˆÞ[œÈ[H›[™[˜HZÝY[H[Ûœ›Ú™ZÝˆ‹ˆ”^[Y[ÛÛ\]YˆÝš\H\ÈÞ[˜Ú[™È[Ý\ˆÝXœØÜš\[ÛŽÈ™Yœ™\Úš[[™ÈYˆH˜YÙHÙ\È›Ý\]H[[YYX][KˆŽˆ™][š[™Ù[ˆ0éˆÛ\‹ˆÝš\HÞ[šÜ›Ûš\Ù\˜\ˆ[ˆ™[[Y\˜][ÛŽÈ\]\˜H˜ZÝ\™\š[™Ù[ˆÛHpéšÙ][H0é™˜\È\™ZÝˆ‹ˆÚXÚÛÝ]Ø\ÈØ[˜Ù[Yˆ[Ý\ˆÝ\œ™[[ˆØ\È›ÝÚ[™ÙYˆŽˆ’Ø\ÜØ[ˆ]˜œ°íËˆ[ˆ]˜\˜[™H[ˆ0é™˜Y\È[Kˆ‹ˆ•HÙXœÚ]HÚ[™ÙYY\ˆ\È]X[]H™]šY]Ëˆ[ˆH]X[]HÚXÚÈYØZ[ˆ™Y›Ü™H\Z[™Èš^\ËˆŽˆ•ÙX˜œ]Ù[ˆ0é™˜Y\ÈY\ˆ[ˆ0éˆÝ˜[]]ÙÜ˜[œÚÛš[™Ù[‹ˆðíœˆÝ˜[]]ÚÛÛ›Û[ˆYÙ[ˆ[›˜[ˆH[0é\\ˆÛÜœšYÙ\š[™Ø\‹ˆ‹ˆ”™[X\ÙH\ÝÜžH\È[˜]˜Z[X›Kˆ\HHÜš[MËLL]X˜\ÙHZYÜ˜][Û‹ˆŽˆ•™\œÚ[ÛœÚ\ÝÜšZÙ[ˆ0éˆ[H[ðé™ÛYËˆ[0é\H]X˜\ðé™š[™Ù[ˆ°íœˆÜš[MËLLˆ‹ˆ•HÚ]Hš[\È^\Ý]HX›XÈÙXœÚ]H™[™\™\ˆY›Ý™]\›ˆSˆžHX›\ÚYØZ[ˆY\ˆ™Yœ™\Ú[™È^X\‹ˆŽˆ•ÙX˜œ]Ùš[\›˜Hš[›œËY[ˆ[ˆX›ZØHÙX˜œ]Ü™[™\˜\™[ˆ™]\›™\˜YH[HSˆ°íœœðíšÈX›XÙ\˜HYÙ[ˆY\ˆ]H\ˆ\]\˜]^X\‹ˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆÜ™X]HX›XÈÚ\™H™]šY]ÜËˆŽˆ‘[™\Ý›Ú™ZÝ0éØ\™[ˆØ[ˆÚØ\HX›ZØH[š[™ÜÙ°íœš[™Ýš\Ûš[™Ø\‹ˆ‹ˆ”Ø]™H\È›Ú™XÝÈHÛÝY™Y›Ü™HÜ™X][™ÈHÚ\™H™]šY]ËˆŽˆ”Ü\˜H›Ú™ZÝ]H[Û™][›˜[ˆHÚØ\\ˆ[ˆ[š[™ÜÙ°íœš[™Ýš\Ûš[™Ëˆ‹ˆ•H]\ÝY]ÜˆÚ[™Ù\ÈÛÝ[›Ý™HÞ[˜Ú›Ûš^™Y™Y›Ü™HÜ™X][™ÈH™]šY]ËˆŽˆ‘HÙ[˜\ÝH™YYÙ\š[™Üðé™š[™Ø\›˜HÝ[™H[HÞ[šÜ›Ûš\Ù\˜\È[›˜[ˆ°íœš[™Ýš\Ûš[™Ù[ˆÚØ\Y\Ëˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆ›Û˜XÚÈHX›\ÚY™[X\ÙKˆŽˆ‘[™\Ý›Ú™ZÝ0éØ\™[ˆØ[ˆ0é]\œÝ0éH[ˆX›XÙ\˜Y™\œÚ[Û‹ˆ‹ˆ•\È™[X\ÙHÛ˜\ÚÝÙ\È›Ý™[Û™ÈÈHXÝ]™H›Ú™XÝˆŽˆ‘[ˆ0éˆ™\œÚ[Ûœðí™ÛÛ˜›XÚÜØš[[ˆ[0íœˆ[H]ZÝ]˜H›Ú™ZÝ]ˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆ[]H™[X\ÙH\˜Ú]™\ËˆŽˆ‘[™\Ý›Ú™ZÝ0éØ\™[ˆØ[ˆH›Ü™\œÚ[ÛœØ\šÚ]‹ˆ‹ˆ–[ÝHØ[››Ý[]HH™[X\ÙHÝ\œ™[HÙ\š[™È\ÈH]™H›Û˜XÚÈ™Y™\™[˜ÙKˆŽˆ‘HØ[ˆ[HH›Ü™\œÚ[Û™[ˆÛÛH\ÝH[°é™ÈÛÛH0é]\œÝ0éš[™ÜÜ™Y™\™[œÈ°íœˆ[ˆ]™K\X›XÙ\˜YH™\œÚ[Û™[‹ˆ‹ˆ“Ü[š[™È[Ý\ˆØ]™YÙXœÚ]KˆØ]™HÚ[ÛÛ[YHÚ[ˆ]\ÈØYYˆŽˆ‘[ˆÜ\˜YHÙX˜œ]È0íœ˜\ËˆÜ\˜[™]›Üðé\ˆ°éˆ[ˆ\ˆ0éÝÈ[‹ˆ‹ˆ–[Ý\ˆ^\Ý[™ÈÙXœÚ]H\ÈÝ[™XÛÛ›™XÝ[™Ëˆ^X\ˆÚ[›ÝÜ™X]HH\XØ]H˜YÚ[H]ÈØ]™YY[]H\È]˜Z[X›KˆŽˆ‘[ˆ™Yš[YØHÙX˜œ]È0é]\˜[œÛ]\ˆ›Ü˜\˜[™Kˆ^X\ˆÚØ\\ˆ[H]X˜›]]Ø\ÝðéH0é™ÙH[ˆÜ\˜YHY[]][ˆš[›œÈ[ðé™ÛYËˆ‹ˆ“Ü[š[™È[Ý\ˆ[ÜÝ™XÙ[Ø]™YÙXœÚ]H™Y›Ü™HØ]š[™Ëˆ›È\XØ]H˜YØ\ÈÜ™X]YˆŽˆ‘[ˆÙ[˜\ÝÜ\˜YHÙX˜œ]Ù[ˆ0íœ˜\È°íœ™HÜ\›š[™Ëˆ[™Ù]X˜›]]Ø\ÝÚØ\Y\Ëˆ‹ˆ•\ÈÚ\™Y›Ú™XÝ\È™XY[Û›H›Üˆ[Ý\ˆšY]Ù\ˆ›ÛKˆŽˆ‘]0éˆ[YH›Ú™ZÝ]0éˆÚÜš]œÚÞY]°íœˆ[ˆšY]Ù\‹\›Ûˆ‹ˆ“ØØ[™XÛÝ™\žHÝÜ˜YÙH\È[ˆÛÝYØ]™HÚ[Ý[™H][\YˆŽˆ‘]ÚØ[H0é]\œÝ0éš[™ÜÛYÜ™]0éˆ[ˆ[ÛœÜ\›š[™ÈÛÛ[Y\ˆ›Ü˜\˜[™H]°íœœðíšØHðíœ˜\Ëˆ‹ˆ–[ÝH\™HÙ™›[™KˆÚ[™Ù\È\™HØ]™YØØ[H[™Ú[™]žHÚ[ˆHÛÛ›™XÝ[Ûˆ™]\›œËˆŽˆ‘H0éˆÙ™›[™Kˆ0á™š[™Ø\ˆÜ\˜\ÈÚØ[ØÚ°íœœðíšÜÈYÙ[ˆ°éˆ[œÛ]š[™Ù[ˆ0é]\šÛÛ[Y\‹ˆ‹ˆ•\È\ÝÜžHÛ˜\ÚÝÙ\È›Ý™[Û™ÈÈHXÝ]™H›Ú™XÝˆŽˆ‘[ˆ0éˆ\ÝÜšZðí™ÛÛ˜›XÚÜØš[[ˆ[0íœˆ[H]ZÝ]˜H›Ú™ZÝ]ˆ‹ˆÛÝ[›ÝX\šÈ[XYÈ\È™XYˆŽˆ’Ý[™H[HX\šÙ\˜H[HXYÈÛÛH0éÝKˆ‹ˆÛÝ[›Ý\˜Ú]™H™XYXYËˆŽˆ’Ý[™H[H\šÚ]™\˜H0éÝHXYËˆ‹ˆ”X›\Ú™Y›YÚ›ØÚÙYˆ[ÝH\™HÙ™›[™Kˆ™XÛÛ›™XÝ[™žHYØZ[‹ˆŽˆ‘°íœšÛÛ›Û[ˆ°íœˆX›XÙ\š[™È›ØÚÙ\˜Y\ÎˆH0éˆÙ™›[™Kˆ[œÛ]YÙ[ˆØÚ°íœœðíšÈ0éHž]ˆ‹ˆ”ÚYÛˆ[ˆ™Y›Ü™HX›\Ú[™ËˆŽˆ“ÙÙØH[ˆ[›˜[ˆHX›XÙ\˜\‹ˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆX›\ÚHÚ\™YÙXœÚ]KˆŽˆ‘[™\Ý›Ú™ZÝ0éØ\™[ˆØ[ˆX›XÙ\˜H[ˆ[YÙX˜œ]Ëˆ‹ˆ”Ý\X˜\ÙHT“\È›ÝÛÛ™šYÝ\™YˆŽˆ”Ý\X˜\ÙKUT“0éˆ[HÛÛ™šYÝ\™\˜Yˆ‹ˆ•ÙXœÚ]HX›\ÚYÝXØÙ\ÜÙ[Kˆ™[X\ÙH\ÝÜžHØ\ÈÚÚ\YˆŽˆ•ÙX˜œ]Ù[ˆX›XÙ\˜Y\Ëˆ™\œÚ[ÛœÚ\ÝÜšZÙ[ˆÜY\È0í™\Žˆ‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆ[œX›\ÚHÚ\™YÙXœÚ]KˆŽˆ‘[™\Ý›Ú™ZÝ0éØ\™[ˆØ[ˆ]œX›XÙ\˜H[ˆ[YÙX˜œ]Ëˆ‹ˆ‘[]H\ÈXY\›X[™[OÈŽˆ•H›Ü]HXY\›X[™[È‹ˆ‘[]H\ÈÛÛ\Û™[È^\Ý[™È[œÝ[˜Ù\ÈÚ[™XÛÛYH›Ü›X[[[Y[ËˆŽˆ•H›Ü[ˆ0éˆÛÛ\Û™[[È™Yš[YØH[œÝ[œÙ\ˆ›\ˆ˜[›YØH[[Y[ˆ‹ˆ”™\ÝÜ™H\È™[X\ÙH[ÈHY]ÜÈH]™HÙXœÚ]HÚ[›ÝÚ[™ÙH[[[ÝHX›\ÚYØZ[‹ˆŽˆ°á]\œÝ0é[ˆ0éˆ™\œÚ[Û™[ˆH™YYÙ\˜\™[È]™K]ÙX˜œ]Ù[ˆ0é™˜\È[H°íœœ°éˆHX›XÙ\˜\ˆYÙ[‹ˆ‹ˆ‘[]H\ÈÝÜ™Y™[X\ÙH\˜Ú]™OÈ\ÈØ[››Ý™H[™Û™KˆŽˆ•H›Ü]Ü\˜YH™\œÚ[ÛœØ\šÚ]™]È]Hðé\ˆ[H]0é[™Ü˜Kˆ‹ˆ”™\Ù]HÙXœÚ]HZ[\ˆÈHY˜][›Ú™XÝÈŽˆ°á]\œÝ0éÙX˜œ]ØžYÙØ\™[ˆ[Ý[™\™›Ú™ZÝ]È‹ˆ•\È›Ú™XÝ\È›ÝÝ\œ™[HX›\ÚYˆX\šÈ][]™\™Y[ž]Ø^OÈŽˆ”›Ú™ZÝ]0éˆ[HX›XÙ\˜]\ÝKˆX\šÙ\˜H]ÛÛH]™\™\˜]0é™0éOÈ‹ˆ”™[[Ý™HHX›XÈ™\œÚ[ÛˆÙˆ\ÈÙXœÚ]OÈŽˆ•H›Ü[ˆX›ZØH™\œÚ[Û™[ˆ]ˆÙX˜œ]Ù[È‹ˆ‘ÓÓÑŽˆ”H‹ˆÒPÒÈŽˆ’ÓÓ•“ÓTH‹ˆ“ÒÈŽˆ“ÒÈ‹ˆ‘’VŽˆ°áUðá‘H‹ˆ•‘T’Q’QQŽˆ•‘T’Q’QTQ‹ˆ•‘T’Q–HŽˆ•‘T’Q’QTH‹ˆ““ÕQUŽˆ’S•H0áˆ‹ˆ”X›\Ú›ÙXÝ[ÛˆÚ[™Ù\ÈŽˆ”X›XÙ\˜H›ÙZÝ[Ûœðé™š[™Ø\ˆ‹ˆ”X›\Úš\œÝ™[X\ÙHŽˆ”X›XÙ\˜H°íœœÝH™\œÚ[Û™[ˆ‹ˆ‘ÓÈ8 %‘PQH“Ôˆ’T”ÕVRS‘ÈÕTÕÓQT”ÈŽˆ’ðå”ˆ8 %‘QÈ°å”ˆH°å””ÕH‘USS‘HÕS‘T“H‹ˆÓÑH‘PQH8 %ÓÓTUHP“TÒÈPS•PSÒPÒÔÈŽˆ’ÓÑSˆ0áˆ‘QÈ8 %ÓU°å”ˆP“PÑT’S‘ÈÈPS•QSHÓÓ•“ÓTˆ‹ˆ““ËQÓÈ8 %’VUUÓPUQ“ÐÒÑT”ÈŽˆ”ÕÔ8 %0áUðá‘HUUÓPUTÒÐH“ÐÒÑT’S‘ÐTˆ‹ˆ”™Yœ™\Ú[™ø )ˆŽˆ•\]\˜\¸ )ˆ‹ˆ“Ü[š[™ÈÝš\x )ˆŽˆ°åœ˜\ˆÝš\x )ˆ‹ˆ•Ú]K[X™[ÛY[[™Ù™ˆš[\ÈŽˆ•Ú]K[X™[Yš[\ˆ°íœˆÝ[™]™\˜[œÈ‹ˆ]Y]ÛÛšX]\ÈŽˆ‘Ü˜[œÚÛš[™Ù[ˆšY˜\ˆYY‹ˆœÚ[È0­ÈÝ\œ™[]Y]Žˆœðé™È0­ÈZÝY[Ü˜[œÚÛš[™È‹ˆ“Ü[ˆÛY[™]šY]ÈŽˆ°åœ˜HÝ[™°íœš[™Ýš\Ûš[™È‹ˆÜ™X]HÛY[™]šY]ÈŽˆ”ÚØ\HÝ[™°íœš[™Ýš\Ûš[™È‹ˆ”Ý[[X\žHÛÜYYŽˆ”Ø[[X[™˜]š[™ÈÛÜY\˜Y‹ˆÛÜH›Ú™XÝÝ[[X\žHŽˆ’ÛÜY\˜H›Ú™ZÝØ[[X[™˜]š[™È‹ˆ›ØYYXYÈŽˆš[›0éÝHXYÈ‹ˆ›ØYY]™[ÈŽˆš[›0éÝH0é™[Ù\ˆ‹ˆZ[[™X›\ÚÛ™HÛX[ÙXœÚ]KˆŽˆžYÙÈØÚX›XÙ\˜H[ˆ][ˆÙX˜œ]Ëˆ‹ˆ•\ÈÈYÙ\ÈŽˆ•\[ÈÚYÜˆ‹ˆ”X›\Ú[™È[˜ÛYYŽˆ”X›XÙ\š[™È[™ðé\ˆ‹ˆLXY™XÛÜ™ÈŽˆLXYÜÝ\ˆ‹ˆ‘›Üˆœ™Y[[˜Ù\œÈ[™Ù\š[Ý\ÈÙXœÚ]\ËˆŽˆ‘°íœˆœš[[œØ\™HØÚÙ\špíœØHÙX˜œ]Ù\‹ˆ‹ˆŒLÙXœÚ]H›Ú™XÝÈŽˆŒLÙX˜œ]Ü›Ú™ZÝ‹ˆ•\ÈHYÙ\ÈXXÚŽˆ•\[HÚYÜˆ\ˆÙX˜œ]È‹ˆ–’T^Ü
+È][[[™ÝX[Žˆ–’TY^Ü
+È›\œÜ°éZÚYÝ‹ˆ[˜[]XÜÈ
+È[YÜ˜][ÛœÈ
+È™[X\ÙH\ÝÜžHŽˆ[˜[\È
+È[YÜ˜][Û™\ˆ
+È™\œÚ[ÛœÚ\ÝÜšZÈ‹ˆ‘›ÜˆYÙ[˜ÚY\ËÛY[[]™\žH[™Ú]K[X™[ÛÜšËˆŽˆ‘°íœˆž\°éY\‹Ý[™]™\˜[œÈØÚÚ]K[X™[X\˜™]Kˆ‹ˆLÙXœÚ]H›Ú™XÝÈŽˆLÙX˜œ]Ü›Ú™ZÝ‹ˆ•\ÈLYÙ\ÈXXÚŽˆ•\[LÚYÜˆ\ˆÙX˜œ]È‹ˆÛY[[]™\žHÛÜšÜÜXÙHŽˆ\˜™]Þ]H°íœˆÝ[™]™\˜[œÈ‹ˆ•Ú]K[X™[[™Ù™ˆ
+È\™Ù\ˆ[Z]ÈŽˆ•Ú]K[X™[[]™\˜[œÈ
+È0í™Ü™HÜ°éœÙ\ˆ‹ˆ•ÙH\ÙH\ÜÙ[X[œ›ÝÜÙ\ˆÝÜ˜YÙHÈ[\›Ý™H\ÈÙXœÚ]H^\šY[˜ÙKˆŽˆ•šH[°é™\ˆ°í™°é™YÈÙX˜›YÜš[™È°íœˆ]°íœ˜°é˜H\]™[Ù[ˆ0éHÙX˜œ]Ù[‹ˆ‹ˆ‘ÛÝ]Žˆ’˜YÈ°íœœÝ0é\ˆ‹ˆ“™]Îˆ\ØÛÝ™\ˆÝ\ˆ]\Ý\]KˆŽˆ“ž]ˆ\0éÚÈ°é\ˆÙ[˜\ÝH\]\š[™Ëˆ‹ˆ“X\›ˆ[Ü™HŽˆ“0éÈY\ˆ‹ˆ”Ý^H[ˆHÛÜŽˆ’0é[YÈ\]\˜Y‹ˆYH›ØÝ\ÙYÙ™™\‹™]ÜÛ]\ˆY\ÜØYÙHÜˆ[\Ü[Ø[ÈXÝ[Û‹ˆŽˆ“0éÙÈ[]YYÝ\˜šY[™KžZ]Øœ™]œØYÚØ\[\ˆšZÝYÈ\X[š[™Ëˆ‹ˆ•Ùx &[™H˜XÚÈÛÛÛˆŽˆ•šH0éˆÛ˜\[˜ZØH‹ˆ•\ÈÙXœÚ]H\È[\Ü˜\š[H[˜]˜Z[X›HÚ[HÙHXZÙH[\›Ý™[Y[ËˆŽˆ•ÙX˜œ]Ù[ˆ0éˆ[°éYÝÝ[ðé™ÛYÈYY[ˆšHðíœˆ°íœ˜°éš[™Ø\‹ˆ‹ˆ”›ÙXÝ[ÛˆT“Žˆ”›ÙZÝ[ÛœËUT“‹ˆÛÝY›Ú™XÝŽˆ“[Ûœ›Ú™ZÝ‹ˆ”Ú\™H™]šY]ÈŽˆ‘[š[™ÜÙ°íœš[™Ýš\Ûš[™È‹ˆÛY[\›Ý˜[Žˆ’Ý[™ÛÙðé›˜[™H‹ˆ”X›\ÚYÙXœÚ]HŽˆ”X›XÙ\˜YÙX˜œ]È‹ˆ”Ú]HÛÛ[Žˆ•ÙX˜œ]Ú[›™Z0é[‹ˆ”ÑSÈ	ˆXØÙ\ÜÚXš[]H]Y]Žˆ”ÑSËHØÚ[ðé™ÛYÚ]ÙÜ˜[œÚÛš[™È‹ˆÛÝYÞ[˜ÈŽˆ“[ÛœÞ[šÜ›Ûš\Ù\š[™È‹ˆ”ÑSÈ]H
+È˜]šXÛÛˆŽˆ”ÑSË]][
+È˜]šXÛÛˆ‹ˆš[[™È˜XÚÙ[™Žˆ‘˜ZÝ\™\š[™ÜØ˜XÚÙ[™‹ˆ”X›\Ú\›Z\ÜÚ[ÛˆŽˆ”X›XÙ\š[™ÜØ™Z0íœšYÚ]‹ˆ“]™H™\šYšXØ][ÛˆŽˆ“]™K]™\šYšY\š[™È‹ˆ”›Ú™XÝ\ÈØ]™YÈ^X\ˆÛÝYŽˆ”›Ú™ZÝ]0éˆÜ\˜]H^X\‹[[Û™]‹ˆ”Ø]™HH›Ú™XÝÈÛÝYŽˆ”Ü\˜H›Ú™ZÝ]H[Û™]‹ˆ“Ù™›[™HŽˆ“Ù™›[™H‹ˆ”Þ[˜È™YYÈ™]žHŽˆ”Þ[šÜ›Ûš\Ù\š[™Ù[ˆ™Z0í™\ˆ°íœœðíšØ\ÈYÙ[ˆ‹ˆ”Þ[˜ÈX[HŽˆ”Þ[šÜ›Ûš\Ù\š[™Ù[ˆ0éˆÝXš[‹ˆY[Ý\ˆ›ÙXÝ[ÛˆT“Žˆ“0éÙÈ[[ˆ›ÙZÝ[ÛœËUT“‹ˆœ˜[™[™ÈY]Y]H\ÈÛÛ™šYÝ\™YŽˆ•˜\[péšÙ\ÛY]Y]H0éˆÛÛ™šYÝ\™\˜Y‹ˆÛÛ\]HÑSÈ]H[™˜]šXÛÛˆŽˆ”Û]°íœˆÑSË]][ØÚ˜]šXÛÛˆ‹ˆ™[][Y[È™\šYšYYŽˆ˜™Z0íœšYÚ]\ˆ™\šYšY\˜YH‹ˆ”ÚYÛˆ[ˆ[™™Yœ™\Úš[[™ÈŽˆ“ÙÙØH[ˆØÚ\]\˜H˜ZÝ\™\š[™Ù[ˆ‹ˆ“ÝÛ™\ˆX^HX›\ÚŽˆ°áØ\™[ˆ°é\ˆX›XÙ\˜H‹ˆ“Û›HH›Ú™XÝÝÛ™\ˆØ[ˆX›\ÚŽˆ‘[™\Ý›Ú™ZÝ0éØ\™[ˆØ[ˆX›XÙ\˜H‹ˆ“]™HÙXœÚ]H]XÝYŽˆ“]™K]ÙX˜œ]ÈY[YšY\˜Y‹ˆ”X›\ÚHš\œÝ™[X\ÙHŽˆ”X›XÙ\˜H[ˆ°íœœÝH™\œÚ[Û™[ˆ‹ˆ”X›\ÚY[™^™\šYšYYŽˆ”X›XÙ\˜Y[™^™\šYšY\˜Y‹ˆ”[ˆ]™H™\šYšXØ][ÛˆŽˆ’ðíœˆ]™K]™\šYšY\š[™È‹ˆ]˜Z[X›HY\ˆX›\Ú[™ÈŽˆ•[ðé™ÛYÝY\ˆX›XÙ\š[™È‹ˆ”ÚYÛˆ[ˆ™Y›Ü™H›ÙXÝ[Ûˆ][˜ÚˆŽˆ“ÙÙØH[ˆ°íœ™H›ÙZÝ[ÛœÛ[œÙ\š[™Ëˆ‹ˆ”Ø]™HH›Ú™XÝÈÛÝYˆŽˆ”Ü\˜H›Ú™ZÝ]H[Û™]ˆ‹ˆ”™XÛÛ›™XÝÈH[\›™]ˆŽˆ°á]\˜[œÛ][[\›™]ˆ‹ˆ”™\ÛÛ™HÛÝYÞ[˜È™Y›Ü™HX›\Ú[™ËˆŽˆ“0íœÈ[ÛœÞ[šÜ›Ûš\Ù\š[™Ù[ˆ°íœ™HX›XÙ\š[™Ëˆ‹ˆ”˜Z\ÙHHÑSÈ[™XØÙ\ÜÚXš[]H]Y]ØÛÜ™HÈ]X\ÝˆŽˆ’0íšˆðé™Ù[ˆ°íœˆÑSËHØÚ[ðé™ÛYÚ]ÙÜ˜[œÚÛš[™Ù[ˆ[Z[œÝˆ‹ˆYH˜[Y›ÙXÝ[ÛˆT“ˆŽˆ“0éÙÈ[[ˆÚ[YÈ›ÙZÝ[ÛœËUT“ˆ‹ˆÛÛ\]HHÑSÈ]H[™˜]šXÛÛ‹ˆŽˆ”Û]°íœˆÑSË]][ØÚ˜]šXÛÛ‹ˆ‹ˆ•ØZ]›Üˆš[[™È[][Y[ÈÈš[š\ÚØY[™ËˆŽˆ•°éH[È˜ZÝ\™\š[™ÜØ™Z0íœšYÚ]\›˜H\ˆ0éÝÈ[‹ˆ‹ˆ”™Yœ™\Úš[[™È[][Y[È™Y›Ü™HX›\Ú[™ËˆŽˆ•\]\˜H˜ZÝ\™\š[™ÜØ™Z0íœšYÚ]\›˜H°íœ™HX›XÙ\š[™Ëˆ‹ˆ‘\ØX›HXZ[[˜[˜ÙH[ÙH›ÜˆX›XÈ][˜ÚˆŽˆ’[˜ZÝ]™\˜H[™\š0é[Û0éÙH°íœ™HX›ZÈ[œÙ\š[™Ëˆ‹ˆ•H›Ú™XÝÝÛ™\ˆ]\Ý\™›Ü›HHX›\ÚˆŽˆ”›Ú™ZÝ0éØ\™[ˆpé\ÝH]°íœ˜HX›XÙ\š[™Ù[‹ˆ‹ˆš[[™È[][Y[ÈÛÝ[›Ý™H™\šYšYYˆŽˆ‘˜ZÝ\™\š[™ÜØ™Z0íœšYÚ]\›˜HÝ[™H[H™\šYšY\˜\Ëˆ‹ˆ““ËQÓÈŽˆ”ÕÔ‹ˆ”‘PQHÈP“TÒŽˆ”‘QÈUP“PÑTH‹ˆÒS‘ÑTÈÐRUS‘ÈŽˆ°á‘’S‘ÐTˆ°á•Tˆ‹ˆ•ŒHU‘HŽˆ•ŒHU‘H‹ˆ•‘T’Q–HU‘HŽˆ•‘T’Q’QTHU‘H‹ˆ”]X[]H™]šY]ÈÛÛ\]YˆŽˆ’Ý˜[]]ÙÜ˜[œÚÛš[™Ù[ˆ0éˆÛ\‹ˆ‹ˆ•ÙXœÚ]H[\›Ý™[Y[Žˆ•ÙX˜œ]Ù°íœ˜°éš[™È‹ˆRH]X[]HÚXÚÈ˜Z[YˆŽˆRKZÝ˜[]]ÚÛÛ›Û[ˆZ\ÜÛXÚØY\Ëˆ‹ˆ]]ÛX]YZ[\ˆ]Y]\È]˜Z[X›K]HRH™]šY]ÈÛÝ[›ÝÛÛ\]KˆŽˆ‘[ˆ]]ÛX]\ÚØHžYÙØ\™Ü˜[œÚÛš[™Ù[ˆ0éˆ[ðé™ÛYËY[ˆRKYÜ˜[œÚÛš[™Ù[ˆÝ[™H[HÛ]°íœ˜\Ëˆ‹ˆ”X›\Ú›ØÚÙ\ˆŽˆ”X›XÙ\š[™ÜØ›ØÚÙ\˜\™H‹ˆ”™XÛÛ[Y[™Y[\›Ý™[Y[Žˆ”™ZÛÛ[Y[™\˜Y°íœ˜°éš[™È‹ˆ”ÙXÝ[ÛœÈŽˆ”ÙZÝ[Û™\ˆ‹ˆ‘[[Y[ÈŽˆ‘[[Y[‹ˆ‘›Ü›\ÈŽˆ‘›Ü›][0éˆ‹ˆ”Þ[X›ÛÈŽˆ”Þ[X›Û\ˆ‹ˆ”™[X\Ù\ÈŽˆ•™\œÚ[Û™\ˆ‹ˆ“XYÈŽˆ“XYÈ‹ˆ‘]™[ÈŽˆ’0é™[Ù\ˆ‹ˆ“YYXJˆŽˆ“YYXJˆ‹ˆ”ÙXÛÛ™\žHŽˆ”ÙZÝ[™0éˆ‹ˆ“]]YŽˆ‘0é\Y‹ˆ]]ÜØ]™H™YYÈ][[Û‹ˆŽˆ]]ÜÜ\›š[™Ù[ˆ™Z0í™\ˆ0é]ðé™\Ëˆ‹ˆ•\È™XÛÝ™\žHÛ˜\ÚÝ™[Û™ÜÈÈHY™™\™[›Ú™XÝˆÜ[ˆ]›Ú™XÝ™Y›Ü™H™\ÝÜš[™È]ˆŽˆ‘[ˆ0éˆ0é]\œÝ0éš[™Üðí™ÛÛ˜›XÚÜØš[[ˆ[0íœˆ][›˜]›Ú™ZÝˆ0åœ˜H]›Ú™ZÝ][›˜[ˆH0é]\œÝ0é\ˆ[‹ˆ‹ˆ•H™XÛÝ™\žHÛ˜\ÚÝÛÝ[›Ý™H™\ÝÜ™YˆŽˆ°á]\œÝ0éš[™Üðí™ÛÛ˜›XÚÜØš[[ˆÝ[™H[H0é]\œÝ0é\Ëˆ‹ˆ–[ÝHØ[ˆÙY\\ÈL™]\ØX›HÛÛ\Û™[È[ˆÛ™HÙXœÚ]Kˆ[]H[ˆ[\ÙYÛÛ\Û™[™Y›Ü™HÜ™X][™È[›Ý\‹ˆŽˆ‘HØ[ˆH\[L0é]\˜[°é™˜\˜HÛÛ\Û™[\ˆ0éH[ˆÙX˜œ]ËˆH›Ü[ˆØ[°é™ÛÛ\Û™[[›˜[ˆHÚØ\\ˆ[ˆžKˆ‹ˆ•\È”ÓÓˆš[HÛÝ[›Ý™H™XYˆŽˆ‘[ˆ0éˆ”ÓÓ‹Yš[[ˆÝ[™H[H0éØ\Ëˆ‹ˆ•\È”ÓÓˆš[H\È›ÝH˜[Y^X\ˆÙXœÚ]HZ[\ˆ˜XÚÝ\ˆŽˆ‘[ˆ0éˆ”ÓÓ‹Yš[[ˆ0éˆ[H[ˆÚ[YÈðéÙ\š]ÚÛÜXHœ°é[ˆ^X\ˆÙXœÚ]HZ[\‹ˆ‹ˆYH›ÙXÝ[ÛˆT“ÜˆX›\ÚHÙXœÚ]H™Y›Ü™HÜ™X][™ÈHÛY[[™Ù™ˆXÚØYÙKˆŽˆ“0éÙÈ[[ˆ›ÙZÝ[ÛœËUT“[\ˆX›XÙ\˜HÙX˜œ]Ù[ˆ[›˜[ˆHÚØ\\ˆÝ[™]™\˜[œÜZÙ]]ˆ‹ˆY[Ý\ˆ›ÙXÝ[ÛˆT“š\œÝ›Üˆ^[\HÎ‹ËÙ^[\K˜ÛÛKˆ]\È™\]Z\™Y›ÜˆØ[›ÛšXØ[T“È[™Ú][X\ž[ˆŽˆ“0éÙÈ°íœœÝ[[ˆ›ÙZÝ[ÛœËUT“[^[\[Î‹ËÙ^[\K˜ÛÛKˆ[ˆÜ°éœÈ°íœˆØ[›Ûš\ÚØHT“™\ˆØÚÚ][X\ž[ˆ‹ˆÛÝ[›ÝÛÜHSˆX\ÙH\ÙHÝÛ›ØYÙXœÚ]H[œÝXYˆŽˆ’Ý[™H[HÛÜY\˜HSˆ[°é™YH™YÙX˜œ]ÈHÝ0é]ˆ‹ˆ”™\ÝÜ™HH™XÛÝ™\žHÛ˜\ÚÝœ›ÛHŽˆ°á]\œÝ0é0é]\œÝ0éš[™Üðí™ÛÛ˜›XÚÜØš[[ˆœ°é[ˆ‹ˆH™]š[Ý\ÈY]Žˆ™[ˆ°íœ™YðéY[™H™YYÙ\š[™Ù[ˆ‹ˆ‘[]H™]\ØX›HÙXÝ[ÛˆŽˆ•H›Ü0é]\˜[°é™˜\ˆÙZÝ[Ûˆ‹ˆ™œ›ÛH[Ý\ˆYYXHXœ˜\žOÈŽˆ™œ°é[ˆ]YYYXšX›[ÝZÏÈ‹ˆHŽˆ‘[ˆ‹ˆ™\œÚ[Ûˆ[™XYH^\ÝÈ[ˆ\È˜[œÛ][ÛˆÜ›Ý\ˆŽˆ™\œÚ[Ûˆš[›œÈ™Y[ˆH[ˆ0éˆ0í™\œðéš[™ÜÙÜ\[‹ˆ‹ˆ•^X\ˆRHØ[ÈÈ[ˆŽˆ•^X\ˆRHš[ðíœ˜H‹ˆ™\ÝXÝ]™HÚ[™ÙHŽˆ™\ÝZÝ]ˆ0é™š[™È‹ˆ™\ÝXÝ]™HÚ[™Ù\ÈŽˆ™\ÝZÝ]˜H0é™š[™Ø\ˆ‹ˆÛÛ[YOÈŽˆ‘›ÜðéOÈ‹ˆRHÚ[™ÙHØ[˜Ù[Y™Y›Ü™H\ÝXÝ]™HÜ\˜][ÛœÈÙ\™H\YYˆŽˆRKpé™š[™Ù[ˆ]˜œ°íÈ[›˜[ˆ\ÝZÝ]˜H0é]ðé™\ˆ[0é\Y\Ëˆ‹ˆ”›Û˜XÚÈH]™HÙXœÚ]HÈH™[X\ÙHœ›ÛHŽˆ°á]\œÝ0é]™K]ÙX˜œ]Ù[ˆ[™\œÚ[Û™[ˆœ°é[ˆ‹ˆ–[Ý\ˆY]Üˆ˜YÚ[Ý^H[˜Ú[™ÙYˆŽˆ‘]™YYÙ\š[™ÜÝ]Ø\Ý°íœ˜›\ˆÙ°íœ°é™˜]ˆ‹ˆ–[Ý\ˆÝ\œ™[[œØ]™YÚ[™Ù\ÈÚ[™H™\XÙYˆŽˆ‘[˜H]˜\˜[™HÜÜ\˜YH0é™š[™Ø\ˆÛÛ[Y\ˆ]\œðé\Ëˆ‹ˆÛÝ[›ÝÙ[™\˜]H[XYÙKˆŽˆ’Ý[™H[HÙ[™\™\˜Hš[[‹ˆ‹ˆRHÙ[™\˜][Ûˆ˜Z[YˆŽˆRKYÙ[™\™\š[™Ù[ˆZ\ÜÛXÚØY\Ëˆ‹ˆRHY]˜Z[YˆŽˆRK\™YYÙ\š[™Ù[ˆZ\ÜÛXÚØY\Ëˆ‹ˆ’[XYÙHÙ[™\˜][Ûˆ˜Z[YˆŽˆš[Ù[™\™\š[™Ù[ˆZ\ÜÛXÚØY\Ëˆ‹ˆ’[XYÙH›Û\Ù[™\˜][Ûˆ˜Z[YˆŽˆ‘Ù[™\™\š[™Ù[ˆ]ˆš[›Û\Z\ÜÛXÚØY\Ëˆ‹ˆÛÝ[›ÝÜ™X]HÚ\™H™]šY]ËˆŽˆ’Ý[™H[HÚØ\H[š[™ÜÙ°íœš[™Ýš\Ûš[™Ù[‹ˆ‹ˆÛÝ[›Ý™]›ÚÙHÚ\™H™]šY]ËˆŽˆ’Ý[™H[H0é]\šØ[H[š[™ÜÙ°íœš[™Ýš\Ûš[™Ù[‹ˆ‹ˆÛÝ[›Ý›Û˜XÚÈ\È™[X\ÙKˆŽˆ’Ý[™H[H0é]\œÝ0éH[ˆ0éˆ™\œÚ[Û™[‹ˆ‹ˆÛÝ[›Ý[]H\È™[X\ÙKˆŽˆ’Ý[™H[HH›Ü[ˆ0éˆ™\œÚ[Û™[‹ˆ‹ˆ•[™^XÝYØ]™H˜Z[\™KˆŽˆ‘]Ý°é]Ü\™™[[°é™˜YKˆ‹ˆ”Ø]™H˜Z[YŽˆ”Ü\›š[™Ù[ˆZ\ÜÛXÚØY\È‹ˆ”™[X\ÙH\ÝÜžHÛÝ[›Ý™H\˜Ú]™YˆŽˆ•™\œÚ[ÛœÚ\ÝÜšZÙ[ˆÝ[™H[H\šÚ]™\˜\Ëˆ‹ˆÛÝ[›ÝX›\Ú\ÈÙXœÚ]KˆŽˆ’Ý[™H[HX›XÙ\˜HÙX˜œ]Ù[‹ˆ‹ˆÛÝ[›Ý[œX›\Ú\ÈÙXœÚ]KˆŽˆ’Ý[™H[H]œX›XÙ\˜HÙX˜œ]Ù[‹ˆ‹ˆÛÝ[›ÝZ[HX›XÈÙXœÚ]HT“ˆŽˆ’Ý[™H[HÚØ\H[ˆX›ZØHÙX˜œ]Ù[œÈT“ˆ‹ˆ•HÙXœÚ]Hš[\ÈÙ\™H\ØYY]HX›XÈ™[™\™\ˆY›Ý™]\›ˆH˜[YSYÙKˆŽˆ•ÙX˜œ]Ùš[\›˜HYY\È\Y[ˆ[ˆX›ZØH™[™\˜\™[ˆ™]\›™\˜YH[™Ù[ˆÚ[YÈS\ÚYKˆ‹ˆ•HÚ]H\È\ØYY]H›Ú™XÝX›\ÚÝ]HÛÝ[›Ý™HØ]™YˆŽˆ•ÙX˜œ]Ù[ˆ0éˆ\YYY[ˆ›Ú™ZÝ]ÈX›XÙ\š[™ÜÜÝ]\ÈÝ[™H[HÜ\˜\Îˆ‹ˆYÙ[˜ÞHŽˆž\°éH‹ˆ‘KXÛÛ[Y\˜ÙHŽˆ‘KZ[™[‹ˆ‘]™[Žˆ‘]™[™[X[™È‹ˆ‘š]™\ÜÈÈÛØXÚŽˆ‘š]™\ÜÈÈÛØXÚ‹ˆ“ØØ[Ù\šXÙ\ÈŽˆ“ÚØ[H°éœÝ\ˆ‹ˆ”™X[\Ý]HŽˆ‘˜\ÝYÚ]\ˆ‹ˆ”™\Ý]\˜[Žˆ”™\Ý]\˜[™È‹ˆ”ØXTÈÈÛÙØ\™HŽˆ”ØXTÈÈ›ÙÜ˜[]˜\˜H‹ˆ”›Ù™\ÜÚ[Û˜[ÛÛ\[žHYÙHÚ]Ù\šXÙ\È[™\ÝÙXÝ[ÛœËˆŽˆ”›Ù™\ÜÚ[Û™[°íœ™]YÜÜÚYHYY°éœÝ\ˆØÚ°íœ›Ù[™\ÚØ\[™HÙZÝ[Û™\‹ˆ‹ˆÛÛ™\œÚ[Û‹Y›ØÝ\ÙYYÙH›ÜˆH›ÙXÝÙ™™\ˆÜˆØ[\ZYÛ‹ˆŽˆ’ÛÛ™\\š[™ÜÙ›ÚÝ\Ù\˜YÚYH°íœˆ[ˆ›ÙZÝ]\˜šY[™H[\ˆ[ˆØ[\[š‹ˆ‹ˆ”\œÛÛ˜[ÜˆÝY[ÈYÙH›ØÝ\ÙYÛˆÛÜšËÜ™YXš[]H[™ÛÛXÝˆŽˆ”\œÛÛ›YÈÚYH[\ˆÝY[ÜÚYHYY›ÚÝ\È0éH\˜™]K›Ý°é™YÚ]ØÚÛÛZÝˆ‹ˆ”ÝÜ™Yœ›Û\Ý[HYÙH›Üˆ›ÙXÝËÙ™™\œÈ[™Ý\ÝÛY\ˆ\ÝˆŽˆ]ZÜÛZÛ˜[™HÚYH°íœˆ›ÙZÝ\‹\˜šY[™[ˆØÚÝ[™°íœ›Ù[™Kˆ‹ˆ”™\Ý]\˜[YÙH›ÜˆY[HYÚYÚËÝÜžK™]šY]ÜÈ[™™\Ù\˜][ÛœËˆŽˆ”™\Ý]\˜[™ÜÚYH°íœˆY[žZ0íš™[šÝ\‹™\°é[ÙK™XÙ[œÚ[Û™\ˆØÚ›ÚÛš[™Ø\‹ˆ‹ˆ”ÛÙØ\™H›ÙXÝYÙHÚ]™X]\™\Ë[œÈ[™ÛØÚX[›ÛÙ‹ˆŽˆ”›ÙZÝÚYH°íœˆ›ÙÜ˜[]˜\˜HYY[šÝ[Û™\‹[™\ˆØÚÛØÚX[™]š\Ëˆ‹ˆÜ™X]]™HÜˆYÚ][YÙ[˜ÞHYÙHZ[\›Ý[™Ù\šXÙ\È[™™\Ý[ËˆŽˆ”ÚYH°íœˆÜ™X]]ˆ[\ˆYÚ][ž\°éHžYÙÙÜš[™È°éœÝ\ˆØÚ™\Ý[]ˆ‹ˆ”›Ü\KY›ØÝ\ÙYYÙH›Üˆ\Ý[™ÜË^\\ÙH[™XYÙ[™\˜][Û‹ˆŽˆ‘˜\ÝYÚ]Ù›ÚÝ\Ù\˜YÚYH°íœˆØš™ZÝ^\\ÈØÚXYÙ[™\™\š[™Ëˆ‹ˆ”›Ù™\ÜÚ[Û˜[\œÛÛ˜[Ú]H›Üˆ^\šY[˜ÙKÚÚ[È[™ÜÜ[š]Y\ËˆŽˆ”›Ù™\ÜÚ[Û™[\œÛÛ›YÈÙX˜œ]È°íœˆ\™˜\™[š]ÛÛ\][œÈØÚpíš›YÚ]\‹ˆ‹ˆ“XYY›ØÝ\ÙYYÙH›Üˆ˜Y\Ë™\Z\‹ÛX[š[™È[™ØØ[›Ù™\ÜÚ[Û˜[ËˆŽˆ“XYY›ÚÝ\Ù\˜YÚYH°íœˆ[™\šË™\\˜][Û‹Ý0éš[™ÈØÚÚØ[H\šÙ\Ü\œÛÛ™\‹ˆ‹ˆ‘]™[ÜˆÛÛ™™\™[˜ÙHYÙH›ÜˆYÙ[™K˜[YH[™™YÚ\Ý˜][Û‹ˆŽˆ‘]™[™[X[™ÜËH[\ˆÛÛ™™\™[œÜÚYH°íœˆYÙ[™K°é™HØÚ™YÚ\Ý™\š[™Ëˆ‹ˆÛØXÚÞ[HÜˆ˜Z[™\ˆYÙH›Üˆ›ÙÜ˜[\Ë›ÛÙˆ[™[œ]Z\šY\ËˆŽˆ”ÚYH°íœˆÛØXÚÞ[H[\ˆ°é˜\™HYY›ÙÜ˜[K™]š\ÈØÚ°íœ™œ°éYÛš[™Ø\‹ˆ‹ˆ“][˜Ú\›ÈŽˆ“[œÙ\š[™ÜÚ\›È‹ˆ”Ý›Û™ÈÜ[š[™ÈÙXÝ[Ûˆ›ÜˆH›ÙXÝÜˆÙ\šXÙH][˜ÚˆŽˆ”Ý\šÈ0íœš[™ÜÜÙZÝ[Ûˆ°íœˆ[œÙ\š[™È]ˆ›ÙZÝ[\ˆ°éœÝˆ‹ˆ”Ù\šXÙ\ÈÚÝØØ\ÙHŽˆ•°éœÝ]š\Ûš[™È‹ˆ”›Ù™\ÜÚ[Û˜[Ù\šXÙ\ÈÙXÝ[Ûˆ›ÜˆYÙ[˜ÚY\È[™ØØ[\Ú[™\ÜÙ\ËˆŽˆ”›Ù™\ÜÚ[Û™[°éœÝ\ÙZÝ[Ûˆ°íœˆž\°éY\ˆØÚÚØ[H°íœ™]YËˆ‹ˆ”ÛØÚX[›ÛÙˆŽˆ”ÛØÚX[™]š\È‹ˆ•\ÝXZ[[™È\Ý[[ÛšX[ÙXÝ[Û‹ˆŽˆ“ÛY0í›Y\ÜÙZÝ[ÛˆÛÛHžYÙÙ\ˆ°íœ›Ù[™Kˆ‹ˆÛÛXÝÕHŽˆ’ÛÛZÝPÕH‹ˆ‘›ØÝ\ÙYÛÛXÝÙXÝ[Ûˆ›Üˆ\›š[™È[\™\Ý[ÈXYËˆŽˆ‘›ÚÝ\Ù\˜YÛÛZÝÙZÝ[Ûˆ°íœˆ]Û]˜[™H[™\ÜÙH[XYËˆ‹ˆØ\›š[™ÈŽˆ˜\›š[™È‹ˆš[\›Ý™[Y[Žˆ™°íœ˜°éš[™È‹ˆ“\Ý]]ÛX]YÚXÚÈŽˆ”Ù[˜\ÝH]]ÛX]\ÚØHÛÛ›Û‹ˆ”[ˆš[˜[ÚXÚÜÈŽˆ’ðíœˆÛ]ÛÛ›Û\ˆ‹ˆœ\š[Ù[™ÈŽˆœ\š[Ù[ˆÛ]\ˆ‹ˆ˜Ø[˜Ù[È]\š[Ù[™Žˆ˜]œÛ]\ÈšY\š[Ù[œÈÛ]‹ˆŠ“YYXHÛÝ[™Y›XÝÈ\ÜÙ]ÈÝ\œ™[HØYY[ÈHYYXHXœ˜\žH[™[ˆŽˆŠ[[]YYY\ˆ]œÙ\ˆ[ðé[™Ø\ˆÛÛH°íœˆ°é˜\˜[™H0éˆ[›0éÝHH[™[[ˆYYYXšX›[ÝZËˆ‹ˆ˜Ý\œ™[Z[Ý[X]Ú\ÈŽˆ›]˜\˜[™H™\œÚ[ÛˆX]Ú\ˆ›Ü˜\˜[™H‹ˆÙXœÚ]HÚ[™ÙYY\ˆ\›Ý˜[ŽˆÙX˜œ]Ù[ˆ0é™˜Y\ÈY\ˆÛÙðé›˜[™]‹ˆ“›È\›Ý˜[Û˜\ÚÝ™XÛÜ™YY]ˆŽˆ’[™Ù[ˆÛÙðé›˜[™\Û˜\ÚÝ\ˆ™YÚ\Ý™\˜]È0é›Kˆ‹ˆ›ØYY™[X\Ù\ÈŽˆš[›0éÝH™\œÚ[Û™\ˆ‹ˆ•šY]ÜÈ0­ÈÌŽˆ•š\Ûš[™Ø\ˆ0­ÈÌ‹ˆ•š\Ú]ÜœÈ0­ÈÌŽˆ™\ðíšØ\™H0­ÈÌ‹ˆ•šY]ÜÈ0­ÈÙŽˆ•š\Ûš[™Ø\ˆ0­ÈÈ‹ˆ•šY]ÜÈ0­ÈÙ^HŽˆ•š\Ûš[™Ø\ˆ0­ÈYYÈ‹ˆÕHÛXÚÜÈŽˆÕKZÛXÚÈ‹ˆ‘›Ü›HÝX›Z]ÈŽˆ‘›Ü›][0éš[œÚÚXÚÈ‹ˆ‘›Ü›HÕ”ˆŽˆ‘›Ü›][0éšÛÛ™\\š[™È‹ˆ“Û™H][H\ˆ[™HŽˆ‘]Øš™ZÝ\ˆ˜Y‹ˆ˜[YHX™[Žˆ°é™H]ZÙ]‹ˆ›˜[YH][ÝHŽˆ›˜[[ˆÚ]]‹ˆ•\ÙHHÝ[[™ÈÛÛ›ÛÈ™[ÝÈÈY\ÝŽˆ[°é™Ý[ÛÛ›Û\›˜H™Y[ˆ°íœˆ]\Ý\˜H‹ˆÚYÛÛÜˆ[™ÜXÚ]HŽˆ˜œ™Y°é™ÈØÚÜXÚ]]‹ˆšZYÚ
+Y[™È0åÈŠHŽˆš0íš™
+]ž[˜Y0åÈŠH‹ˆ“Û™H\Ý][H\ˆ[™HŽˆ‘[ˆ\ÝÜÝ\ˆ˜Y‹ˆ™\ÚÝÜŽˆœÚÜš]˜›Ü™‹ˆX›]ŽˆœÝ\™œ]H‹ˆ›[Øš[HŽˆ›[Øš[‹ˆœ]X[YšYYŽˆšÝ˜[YšXÙ\˜Y‹ˆ˜ÛÛXÝYŽˆšÛÛZÝY‹ˆÛÛˆŽˆ[›™[ˆ‹ˆ›ÜÝŽˆ™°íœ›Ü˜Y‹ˆœ™XYŽˆ›0éÝ‹ˆ˜\˜Ú]™YŽˆ˜\šÚ]™\˜Y‹ˆ“\Ý]]ÛX]YÚXÚÎˆŽˆ”Ù[˜\ÝH]]ÛX]\ÚØHÛÛ›Ûˆ‹ˆ“Û™H][H\ˆ[™NˆŽˆ‘[ˆÜÝ\ˆ˜Yˆ‹ˆ•™\žHÝ›Û™ÈŽˆ“^XÚÙ]Ý\šÝ‹ˆ”›ÙXÝŽˆ”›ÙZÝ‹ˆœ˜[™Žˆ•˜\[péšÙH‹ˆ“[Ù\›ˆŽˆ“[Ù\›ˆ‹ˆ‘œšY[™HŽˆ•°é›YÈ‹ˆ›ÛŽˆ‘°éˆ‹ˆ“Z[š[X[Žˆ“Z[š[X[‹ˆØ\™Y\ˆŽˆ’Ø\œšpéˆ‹ˆ‘š[˜[˜ÙHŽˆ‘ZÛÛ›ÛZH‹ˆ”›ÙXÝ]š]HŽˆ”›ÙZÝ]š]]‹ˆ”Ü™XYÚY]ÈŽˆ’Ø[Þ[›Y‹ˆ”™\Ù[][ÛœÈŽˆ”™\Ù[][Û™\ˆ‹ˆ[™\ÈŽˆ”ZÙ]‹ˆ’[XYÙ\ÈŽˆš[\ˆ‹ˆ“Ù™šXÙH[™HŽˆ“Ù™šXÙK\ZÙ]‹ˆÛÛÈ]˜Z[X›HŽˆ™\šÝYÈ[ðé™ÛYØH‹ˆœ™XYHÈ\ÙHŽˆœ™YÈ][°é™\È‹ˆ•\]YŽˆ•\]\˜Y‹ˆ•\ÙYŽˆ[°é™‹ˆ”™[[Ý™H[XYÙH˜XÚÙÜ›Ý[™È›ÝYÚ^X\¸ &\ÈÙXÝ\™YÙ\™\‹\ÚYH[XYÙH][]KˆŽˆ•H›Üš[˜ZÙÜ[™\ˆšXH^X\œÈðéÜ˜YHÙ\™\˜˜\Ù\˜YHš[™\šÝYËˆ‹ˆ”™\Ú^™H[™ÛÛ™\][\H[XYÙ\ÈØØ[KÚ][™]šYX[ÝÛ›ØYÈÜˆÛ™H’TˆŽˆ°á™˜HÝÜ›ZÈØÚÛÛ™\\˜H›\˜Hš[\ˆÚØ[YYÙ\\˜]H™YYš[™Ø\ˆ[\ˆ[ˆ’TYš[ˆ‹ˆÜ˜Y\œÛÛ˜[^™YÛÛ\[[™ÈÛÝ™\ˆ]\œÈ›Üˆ[žH›Ø‹ˆŽˆ”ÚØ\H\œÛÛ›YØHØÚ0í™\YØ[™H\œÛÛ›YØHœ™]ˆ°íœˆš[Ù]›Ø˜ˆÛÛH[Ýˆ‹ˆÛX[‹›Ü›X[^™H[™ØY™[H^ÜÔÕˆ]H\™XÝH[ˆ[Ý\ˆœ›ÝÜÙ\‹ˆŽˆ”™[œØK›Ü›X[\Ù\˜HØÚ^Ü\˜HÔÕ‹Y]HðéÙ\\™ZÝHÙX˜›0éØ\™[‹ˆ‹ˆÜ™X]HUËYœšY[™H™\Ý[Y\ÈÚ]RK\ÝÙ\™YÜ[Z^˜][Û‹ˆŽˆ”ÚØ\HUË]°é›YØHÕŽ›ˆYYRKYš]™[ˆÜ[Y\š[™Ëˆ‹ˆ”Ý[[X\š^™K[˜[^™K^˜XÝ]K[™[œÝÙ\ˆ]Y\Ý[ÛœÈX›Ý][žHØÝ[Y[ˆŽˆ”Ø[[X[™˜]K[˜[\Ù\˜K^˜Z\˜H]HØÚÝ˜\˜H0éHœ°éYÛÜˆÛH˜[œš]ÚÝ[Y[ˆ‹ˆ”ˆÛÛÈŽˆ”‹]™\šÝYÈ‹ˆ“Y\™ÙKÜ]ÛÛ™\[™Y]ˆš[\ÈÚ]RH\ÜÚ\Ý[˜ÙKˆŽˆ”Û0éHZÜ[KÛÛ™\\˜HØÚ™YYÙ\˜H‹Yš[\ˆYYRKZ°éˆ‹ˆRH[XZ[Üš]\ˆŽˆRHK\ÜÝÚÜš]˜\™H‹ˆ•Üš]H›Ù™\ÜÚ[Û˜[[XZ[Ë™\Y\Ë[™™]ÜÛ]\œËˆŽˆ”ÚÜš]ˆ›Ù™\ÜÚ[Û™[HYZ›Ý˜\ˆØÚžZ]Øœ™]‹ˆ‹ˆÛÛ˜XÝÜš]\ˆŽˆ][ÜÚÜš]˜\™H‹ˆ‘Ù[™\˜]HYØ[ÛÛ˜XÝÈ[™YÜ™Y[Y[ÈÚ]RKˆŽˆ”ÚØ\H\šY\ÚØH][ØÚ0í™\™[œÚÛÛ[Y[Ù\ˆYYRKˆ‹ˆ‘]H[˜[]XÜÈRHŽˆ‘]X[˜[\ÈRH‹ˆ[˜[^™H]KÙ[™\˜]H[œÚYÚË[™Ü™X]Hš\ÝX[^˜][ÛœËˆŽˆ[˜[\Ù\˜H]KÚØ\H[œÚZÝ\ˆØÚš\ÝX[\Ù\š[™Ø\‹ˆ‹ˆÜ›Ü”QË‘È[™ÙX”[XYÙ\ÈØØ[HÚ]™XÚ\ÙHÛÛ›ÛÈ[™\ÜXÝ™\Ù]ËˆŽˆ™\Úðéˆ”QËK‘ËHØÚÙX”Xš[\ˆÚØ[YY™XÚ\ØHÛÛ›Û\ˆØÚš[°íœš0é[[™[‹ˆ‹ˆÛÛXš[™H”QË‘È[™ÙX”[XYÙ\È[ÈÛ™HØØ[ˆÚ]YÙHÜ™\š[™È[™Ú^™HÛÛ›ÛËˆŽˆ’ÛÛXš[™\˜H”QËK‘ËHØÚÙX”Xš[\ˆ[[ˆÚØ[ˆYYÚYÜ™š[™ÈØÚÝÜ›ZÜÚÛÛ›Û\‹ˆ‹ˆ”™\Ú^™KÛÛ\™\ÜÈ[™ÛÛ™\”QË‘È[™ÙX”[XYÙ\ÈØØ[H[ˆ[Ý\ˆœ›ÝÜÙ\‹ˆŽˆ°á™˜HÝÜ›ZËÛÛ\š[Y\˜HØÚÛÛ™\\˜H”QËK‘ËHØÚÙX”Xš[\ˆÚØ[HÙX˜›0éØ\™[‹ˆ‹ˆÜ™X]H›Ù™\ÜÚ[Û˜[[›ÚXÙ\ÈÚ]]]ÛX]XÈÝ[ËU˜YØ]š[™È[™ˆš[[™ËˆŽˆ”ÚØ\H›Ù™\ÜÚ[Û™[H˜ZÝ\›ÜˆYY]]ÛX]\ÚØHÝ[Ý[[[Ü‹[Û\Ë]Ø\ÝØÚ‹]]ÚÜšYˆ‹ˆÜ™X]H™XÛÛ[Y[™][Û‹]]Üš^˜][Û‹\Ú[™\ÜËÛÛ\Z[™\ÚYÛ˜][Ûˆ[™[šË^[ÝH]\œËˆŽˆ”ÚØ\H™ZÛÛ[Y[™][ÛœËK[XZÝËKY™°éœËKÛYÛÛpé[ËK\ðéÛš[™ÜËHØÚXÚØœ™]‹ˆ‹ˆ‘Ù[™\˜]HÜšYÚ[˜[\Ú[™\ÜË›ÙXÝœ˜[™[ÝUX™H[™[œÝYÜ˜[H˜[YHYX\ËˆŽˆ‘Ù[™\™\˜HÜšYÚ[™[H˜[[šY0êY\ˆ°íœˆ°íœ™]YË›ÙZÝ\‹˜\[péšÙ[‹[ÝUX™HØÚ[œÝYÜ˜[Kˆ‹ˆ”ÙX\˜Ú[™\œÛÛ˜[^™HÜšYÚ[˜[^X\ˆ›Û\È›Üˆ\Ú[™\ÜËØ\™Y\‹Üš][™È[™ÛØÚX[ÛÜšÙ›ÝÜËˆŽˆ”ðíšÈØÚ[œ\ÜØH^X\œÈYÛ˜H›Û\\ˆ°íœˆ°íœ™]YËØ\œšpé‹ÚÜš]˜[™HØÚÛØÚX[H\˜™]Ù›0í™[‹ˆ‹ˆ‘^Z[ˆÛÛ˜Ù\ËÜ™X]H]Z^ž™\Ë›\ÚØ\™Ë[™\œÛÛ˜[^™YÝYH[œËˆŽˆ‘°íœšÛ\˜H™YÜ™\ØÚÚØ\H]Z^‹›\ÚØ\™ÈØÚ\œÛÛ›YØHÝYY\[™\‹ˆ‹ˆœ›ÝÜÙH^X\‹ZÜÝYÙ™šXÙH[\]\È[™ÜšYÚ[˜[Ý\\ˆš[\ËˆŽˆ›0é˜H›[™Ù™šXÙK[X[\ˆÛÛHš[›œÈÜÈ^X\ˆØÚYÛ˜HÝ\š[\‹ˆ‹ˆRH˜[œÛ]ÜˆŽˆRKpí™\œðé\™H‹ˆ•˜[œÛ]H™]ÙY[ˆL
+È[™ÝXYÙ\ÈÚ]˜]\˜[ÛÛ^X]Ø\™H™\Ý[ËˆŽˆ°å™\œðéY[[ˆ0í™\ˆLÜ°éZÈYY˜]\›YØHØÚÛÛ^YY™]˜H™\Ý[]ˆ‹ˆ•Üš]H›ÙÜË\XÛ\ËX\šÙ][™ÈÛÜK[™ÛØÚX[YYXHÛÛ[ˆŽˆ”ÚÜš]ˆ›ÙÙØ\‹\ZÛ\‹X\šÛ˜YÙ°íœš[™ÜÝ^\ˆØÚ[›™Z0é[°íœˆÛØÚX[HYYY\‹ˆ‹ˆ‘\ÝˆT”ˆŽˆ™\°éÛ˜YT”ˆ‹ˆ•\ÛÛZ[™È™[™]Ø[ÈŽˆ’ÛÛ[X[™H°íœ›žY[Ù\ˆ‹ˆ”\ÝYHÈÜ˜XÙHŽˆ‘°íœ™˜[[ˆÈ™\Ü]‹ˆ‘˜Z[Y^[Y[ÈŽˆ“Z\ÜÛXÚØYH™][š[™Ø\ˆ‹ˆ”\ÝYHŽˆ‘°íœ™˜[[ˆ‹ˆ”™[™]Ø[ÈŽˆ‘°íœ›žY[Ù\ˆ‹ˆ‘˜Z[YŽˆ“Z\ÜÛXÚØY‹ˆšX[[™ÈŽˆœ›Ýœ\š[Ù‹ˆœ›ÈŽˆ”›È‹ˆ˜\Ú[™\ÜÈŽˆ\Ú[™\ÜÈ‹ˆ™œ™YHŽˆ‘Ü˜]\È‹ˆ“Ü[ˆXÚÙ]ÈŽˆ°åœ˜H0é™[™[ˆ‹ˆÛÜÙYŽˆ”Ý0é™ÙH‹ˆYÈ™\ÜÈŽˆ‘™[˜\Ü\ˆ‹ˆ‘™X]\™H™\]Y\ÝÈŽˆ‘[šÝ[ÛœÙ°íœœÛYÈ‹ˆ›Ü[ˆŽˆ°íœ[ˆ‹ˆ˜ÛÜÙYŽˆœÝ0é™Ù‹ˆ˜YÈŽˆ™™[‹ˆ™™X]\™HŽˆ™[šÝ[Ûˆ‹ˆXÚÙ]Žˆ°é™[™H‹ˆšYÚŽˆš0í™È‹ˆ›YY][HŽˆ›YY[‹ˆ›ÝÈŽˆ›0éYÈ‹ˆ•\H[Ý\ˆ™\ÜÛœÙK‹‹ˆŽˆ”ÚÜš]ˆ]Ý˜\‹‹‹ˆ‹ˆÛÜÙHXÚÙ]Žˆ”Ý0é™È0é™[™H‹ˆ”™[Ü[ˆŽˆ°åœ˜HYÙ[ˆ‹ˆ”Ù[™	ˆÛÜÙHŽˆ”ÚÚXÚØHØÚÝ0é™È‹ˆ”Þ\Ý[HÙ][™ÜÈŽˆ”Þ\Ý[Z[œÝ0éš[™Ø\ˆ‹ˆXØÛÝ[›ØÚÜÈŽˆ’ÛÛØ›ØÚÙ\š[™Ø\ˆ‹ˆ”™XY[™\ÜÈŽˆ™\™YÚØ\‹ˆ‘[XZ[[\]\ÈŽˆ‘K\ÜÝX[\ˆ‹ˆ˜XÚÝ\ÈŽˆ”ðéÙ\š]ÚÛÜ[Üˆ‹ˆ”]›Ü›H˜[YHŽˆ”]›Ü›\Û˜[[ˆ‹ˆ‘Y˜][RH›ÝšY\ˆŽˆ”Ý[™\™]™\˜[0íœˆ°íœˆRH‹ˆ“X^œ™YH™\]Y\ÝËÙ^HŽˆ“X^Ü˜]\Ù°íœ™œ°éYÛš[™Ø\‹ÙYÈ‹ˆ“XZ[[˜[˜ÙH[ÙHŽˆ•[™\š0é[Û0éÙH‹ˆ”ÚYÛ\[˜X›YŽˆ”™YÚ\Ý™\š[™ÈZÝ]™\˜Y‹ˆ‘\ØX›YŽˆ’[˜ZÝ]™\˜Y‹ˆ‘˜Z[YÈØ]™HÙ][™ÜÈŽˆ‘]ÚXÚÈ[H]Ü\˜H[œÝ0éš[™Ø\›˜H‹ˆ”Ù][™ÜÈØ]™YŽˆ’[œÝ0éš[™Ø\›˜HÜ\˜Y\È‹ˆ‘[XZ[ÝXš™XÝŽˆ‘K\ÜÝ0é[™H‹ˆ”Ýš\HÛÛ›™XÝ[ÛˆŽˆ”Ýš\KX[œÛ]š[™È‹ˆ”Ýš\HÚ\™Ù\ÈŽˆ”Ýš\KYXš]\š[™Ø\ˆ‹ˆ”Ýš\H^[Ý]ÈŽˆ”Ýš\K]]™][š[™Ø\ˆ‹ˆ”›ÈšXÙHŽˆ”›Ë\š\È‹ˆ\Ú[™\ÜÈšXÙHŽˆ\Ú[™\ÜË\š\È‹ˆ”Ýš\HÙXšÛÚÈŽˆ”Ýš\K]ÙXšÛÚÈ‹ˆÚXÚÛÝ]Žˆ’Ø\ÜØH‹ˆš[[™ÈÜ[Žˆ‘˜ZÝ\™\š[™ÜÜÜ[‹ˆ[˜ÛÛ™šYÝ\™YŽˆš[HÛÛ™šYÝ\™\˜Y‹ˆ™[˜X›YŽˆ˜ZÝ]™\˜Y‹ˆ›™YYÈ][[ÛˆŽˆ˜™Z0í™\ˆ0é]ðé™\È‹ˆ›Z\ÜÚ[™ÈŽˆœØZÛ˜\È‹ˆ››Ý™\šYšYYŽˆš[H™\šYšY\˜Y‹ˆ›™YYÈÙ]\Žˆ˜™Z0í™\ˆÛÛ™šYÝ\™\˜\È‹ˆYZ[œÈŽˆYZ[š\Ý˜]0íœ™\ˆ‹ˆ”›È\Ù\œÈŽˆ”›ËX[°é™\™H‹ˆ”ÙX\˜ÚžH˜[YK[XZ[ÜˆQ‹‹ˆŽˆ”ðíšÈY\ˆ˜[[‹K\ÜÝ[\ˆQ‹‹ˆ‹ˆ•[›˜[YYŽˆ“˜[[›0íœÈ‹ˆ–[ÝHØ[››ÝÝ\Ü[™[Ý\œÙ[ˆŽˆ‘HØ[ˆ[HÝ0é™ØH]ˆYÈÚ°éˆ‹ˆ”™Z[œÝ]HŽˆ°á]\˜ZÝ]™\˜H‹ˆ”Ý\Ü[™Žˆ”Ý0é™È]ˆ‹ˆ–[ÝHØ[››Ý[]H[Ý\œÙ[ˆŽˆ‘HØ[ˆ[HH›ÜYÈÚ°éˆ‹ˆ‘[]H\Ù\ˆŽˆ•H›Ü[°é™\™H‹ˆ‘[]H	ˆ›ØÚÈŽˆ•H›ÜØÚ›ØÚÙ\˜H‹ˆ‘[]H\›X[™[HŽˆ•H›Ü\›X[™[‹ˆ›ØÚÈ™X\ÛÛˆ
+[\›˜[›ÝJHŽˆ“ÜœØZÈ[›ØÚÙ\š[™È
+[\›ˆ[XÚÛš[™ÊH‹ˆ”™X\ÛÛˆ
+[\›˜[›ÝJHŽˆ“ÜœØZÈ
+[\›ˆ[XÚÛš[™ÊH‹ˆ•Ý[ÛÛÈŽˆ•Ý[[[™\šÝYÈ‹ˆ”™[Z][HŽˆ”™[Z][H‹ˆ\Ù\ÈŽˆ˜[°é™š[™Ø\ˆ‹ˆ”™XY[Û›H˜[Y][ÛˆÙˆÝÜ™Yš[[ÛœÈ[\]\Ëˆ›ÙÜ™\ÜÈ\ÈØ]™Y[ˆ\Èœ›ÝÜÙ\ˆ[™Ø[ˆ™H]\ÙYÜˆ™\Ý[YYØY™[KˆŽˆ”ÚÜš]œÚÞYY˜[Y\š[™È]ˆYÜ˜YHš[[ÛœË[X[\‹ˆ°íœ›Ü]Ü\˜\ÈHÙX˜›0éØ\™[ˆØÚØ[ˆ]\Ø\È[\ˆ0é]\\\ÈðéÙ\ˆ‹ˆ”™\Ý[YH]Y]Žˆ°á]\\HÜ˜[œÚÛš[™È‹ˆ”[ˆYØZ[ˆŽˆ’ðíœˆYÙ[ˆ‹ˆ”Ý\]Y]Žˆ”Ý\HÜ˜[œÚÛš[™È‹ˆ[˜[^š[™ø )ˆŽˆ[˜[\Ù\˜\¸ )ˆ‹ˆ[˜[^™H™\Z\œÈŽˆ[˜[\Ù\˜H™\\˜][Û™\ˆ‹ˆ‘[][™ø )ˆŽˆ•\ˆ›Ü8 )ˆ‹ˆ‘[]H[˜[Y[\]\ÈŽˆ•H›ÜÙÚ[YØHX[\ˆ‹ˆœØØ[›™YŽˆœÚØ[›˜YH‹ˆ]Y]›ÙÜ™\ÜÈ\ÈÝ[Ø]™Y[›\ÜÈ[][ÛˆÛÛ\]YˆŽˆ‘Ü˜[œÚÛš[™ÜÙ°íœ›Ü]0éˆ›Ü˜\˜[™HÜ\˜]ÛH›ÜYÛš[™Ù[ˆ[HÛ]°íœ™\Ëˆ‹ˆ•˜[YŽˆ‘Ú[YÈ‹ˆ’[˜[YŽˆ“ÙÚ[YÈ‹ˆ“Z\ÜÚ[™ÈŽˆ”ØZÛ˜\È‹ˆ”[›š[™ÈŽˆ’ðíœœÈ‹ˆ[˜[^š[™ÈŽˆ[˜[\Ù\˜\ˆ‹ˆ‘[][™ÈŽˆ•\ˆ›Ü‹ˆ”]\ÙYŽˆ”]\ØY‹ˆ’YHŽˆ’[˜ZÝ]ˆ‹ˆ”›ÝÜÈ[]YŽˆ›ÜYÛ˜H˜Y\ˆ‹ˆ”ÝÜ˜YÙH[]YŽˆ›ÜYÙ]œ°é[ˆYÜš[™È‹ˆ”Ú\™Y™\Ù\™YŽˆ‘[YH™]˜\˜YH‹ˆ”ÝÜ˜YÙH˜Z[\™\ÈŽˆ“YÜš[™ÜÙ™[‹ˆ’\ÜÝY\ÈÚXÚÙYŽˆ’ÛÛ›Û\˜YH›Ø›[H‹ˆ”™\Z\˜X›HŽˆ’Ø[ˆ™\\™\˜\È‹ˆ’[šÈÈYHŽˆ”ÚÜ°é]0í›˜H‹ˆ“™YYÈ™]šY]ÈŽˆ™Z0í™\ˆÜ˜[œÚØ\È‹ˆ[š[\ÈŽˆ[Hš[\ˆ‹ˆ\XÛ\ÈŽˆ\ZÛ\ˆ‹ˆRHÚ]ÈŽˆRKXÚ]\ˆ‹ˆ•ÙXœÚ]\ÈŽˆ•ÙX˜œ]Ù\ˆ‹ˆ“\Ý\]YŽˆ”Ù[˜\Ý\]\˜Y‹ˆ‘]HÜ™X]YŽˆ”ÚØ\Y][H‹ˆ“˜[YH
+KVŠHŽˆ“˜[[ˆ
+x $ðåŠH‹ˆ“›ÈX]Ú[™Èš[\ÈŽˆ’[™ØHX]Ú[™Hš[\ˆ‹ˆ“›Èš[\ÈY]Žˆ’[™ØHš[\ˆ0é›H‹ˆ•žHHY™™\™[ÙX\˜Ú\›KˆŽˆ”›Ý˜H[ˆ[›˜[ˆðíšÝ\›Kˆ‹ˆÜ™X]HØÝ[Y[ÈÚ][žHRHÛÛ[™^IÛ\X\ˆ\™H]]ÛX]XØ[KˆŽˆ”ÚØ\HÚÝ[Y[YY˜[œš]RK]™\šÝYÈðéHš\Ø\ÈH0éˆ]]ÛX]\ÚÝˆ‹ˆË‹‹ˆŽˆ[‹‹ˆ‹ˆ“]™HÙXœÚ]HŽˆ“]™]ÙX˜œ]È‹ˆ•ÙXœÚ]H˜YŽˆ•ÙX˜œ]Ý]Ø\Ý‹ˆ‘[XZ[Ý\ÜŽˆ‘K\ÜÝÝ\Ü‹ˆ‘[XZ[Ý\ÜŽˆ‘K\ÜÝÝ\Ü‹ˆXØÛÝ[	ˆš]˜XÞHÝ\ÜŽˆ”Ý\Ü°íœˆÛÛÈØÚ[YÜš]]‹ˆ•\ÙH[XZ[ÜˆHÙXÝ\™H›Ü›H™[ÝÈŽˆ[°é™K\ÜÝ[\ˆ]ðéÜ˜H›Ü›][0é™]™Y[ˆ‹ˆŒKˆÝ™\šY]ÈŽˆŒKˆ0å™\œÚZÝ‹ˆŒ‹ˆXØÛÝ[[™ÛÜšÜÜXÙH]HŽˆŒ‹ˆÛÛËHØÚ\˜™]Þ]Y]H‹ˆŒËˆÙXœÚ]HZ[\ˆ]HŽˆŒËˆ]Hœ°é[ˆÙXœÚ]HZ[\ˆ‹ˆˆ[™œ˜\ÝXÝ\™H[™›ØÙ\ÜÛÜœÈŽˆˆ[™œ˜\ÝZÝ\ˆØÚ\œÛÛ\ÚYØš]°é[ˆ‹ˆKˆÙXÝ\š]HŽˆKˆðéÙ\š]‹ˆ‹ˆÛÛÚÚY\È[™ØØ[ÝÜ˜YÙHŽˆ‹ˆÛÛÚÚY\ÈØÚÚØ[YÜš[™È‹ˆËˆ[Ý\ˆÚÚXÙ\ÈŽˆËˆ[˜H˜[‹ˆŽˆÚ[™Ù\ÈŽˆŽˆ0á™š[™Ø\ˆ‹ˆŒKˆ\Ú[™ÈHÙ\šXÙHŽˆŒKˆ[°é™š[™È]ˆ°éœÝ[ˆ‹ˆŒ‹ˆXØÛÝ[ÈŽˆŒ‹ˆÛÛÛˆ‹ˆŒËˆ›Ú™XÝÈ[™Ù[™\˜]YÛÛ[ŽˆŒËˆ›Ú™ZÝØÚÙ[™\™\˜][›™Z0é[‹ˆˆXØÙ\X›H\ÙHŽˆˆ[0é][ˆ[°é™š[™È‹ˆKˆ[œÈ[™š[[™ÈŽˆKˆ[™\ˆØÚ˜ZÝ\™\š[™È‹ˆ‹ˆ]˜Z[Xš[]H[™Ú[™Ù\ÈŽˆ‹ˆ[ðé™ÛYÚ]ØÚ0é™š[™Ø\ˆ‹ˆËˆ™\ÜÛœÚXš[]HŽˆËˆ[œÝ˜\ˆ‹ˆŽˆÝ\ÜŽˆŽˆÝ\Ü‹ˆ•\HHÛÛ[X[™ÜˆÙX\˜Ú‹‹ˆŽˆ”ÚÜš]ˆ]ÛÛ[X[™È[\ˆðíšË‹‹ˆ‹ˆ“›È™\Ý[È›ÜˆŽˆ’[™ØH™\Ý[]°íœˆ‹ˆRHXÝ[ÛœÈŽˆRKpé]ðé™\ˆ‹ˆ“˜]šYØ][ÛˆŽˆ“˜]šYÙ\š[™È‹ˆ”™XÙ[›Ú™XÝÈŽˆ”Ù[˜\ÝH›Ú™ZÝ‹ˆ”ÙX\˜Ú™\Ý[ÈŽˆ”ðíšÜ™\Ý[]‹ˆ›˜]šYØ]HŽˆ›˜]šYÙ\˜H‹ˆœ™\Ý[ÈŽˆœ™\Ý[]‹ˆ‘\ÛZ\ÜÈ›ÝYšXØ][ÛˆŽˆ”Ý0é™È]š\Ù\š[™È‹ˆ“Ü[ˆRH\ÜÚ\Ý[Žˆ°åœ˜HRKX\ÜÚ\Ý[‹ˆÛÛ^Žˆ’ÛÛ^‹ˆRH\È[šÚ[™ÈŽˆRH0éšÙ\ˆ‹ˆÛÝ[›ÝØYX[HÛÜšÜÜXÙ\Ëˆ\HHÜš[LÌËLMZYÜ˜][Û‹ˆŽˆ‘]ÚXÚÈ[H]0éØH[ˆX[X\˜™]Þ]Ü‹ˆ[0é\HÜš[LÌËLM[ZYÜ™\š[™Ù[‹ˆ‹ˆÛÝ[›ÝØYÛÜšÜÜXÙH]Z[ËˆŽˆ‘]ÚXÚÈ[H]0éØH[ˆ\˜™]Þ][œÈ][™\‹ˆ‹ˆ•X[HÛÜšÜÜXÙHÜ™X]YˆŽˆ•X[X\˜™]Þ][ˆÚØ\Y\Ëˆ‹ˆ•ÛÜšÜÜXÙH™[˜[YYˆŽˆ\˜™]Þ][ˆž]H˜[[‹ˆ‹ˆ‘[]H\ÈX[HÛÜšÜÜXÙOÈÚ\™Y›Ú™XÝÈÚ[™XÛÛYH\œÛÛ˜[›Ú™XÝÈYØZ[‹ˆŽˆ•H›Ü[ˆ0éˆX[X\˜™]Þ][È[YH›Ú™ZÝ›\ˆ\œÛÛ›YØH›Ú™ZÝYÙ[‹ˆ‹ˆ•ÛÜšÜÜXÙH[]YˆŽˆ\˜™]Þ][ˆÙÜÈ›Üˆ‹ˆ’[š]HÜ™X]YˆÛÜHHÙXÝ\™H[šÈ[™Ù[™]ÈHX[[X]KˆŽˆ’[˜šY[ˆÚØ\Y\ËˆÛÜY\˜H[ˆðéÜ˜H0éšÙ[ˆØÚÚÚXÚØH[ˆ[X[[YY[[Y[‹ˆ‹ˆ’[š]HXØÙ\YˆŽˆ’[˜šY[ˆXØÙ\\˜Y\Ëˆ‹ˆ’[š]H™]›ÚÙYˆŽˆ’[˜šY[ˆ0é]\šØ[Y\Ëˆ‹ˆ“Y[X™\ˆ›ÛH\]YˆŽˆ“YY[[Y[œÈ›Û\]\˜Y\Ëˆ‹ˆ\ÈY[X™\ˆŽˆ™[ˆ0éˆYY[[Y[ˆ‹ˆ™œ›ÛHHÛÜšÜÜXÙOÈŽˆ™œ°é[ˆ\˜™]Þ][È‹ˆ–[ÝHYHÛÜšÜÜXÙKˆŽˆ‘H0é[˜YH\˜™]Þ][‹ˆ‹ˆ“Y[X™\ˆ™[[Ý™YˆŽˆ“YY[[Y[ˆÙÜÈ›Üˆ‹ˆ•˜[œÙ™\ˆÝÛ™\œÚ\ÈŽˆ°å™\™°íœˆ0éØ\œÚØ\][‹ˆ•ÛÜšÜÜXÙHÝÛ™\œÚ\˜[œÙ™\œ™YˆŽˆ°áØ\œÚØ\]°íœˆ\˜™]Þ][ˆ0í™\™°íœ™\Ëˆ‹ˆ”›Ú™XÝÚ\™YÚ]HÛÜšÜÜXÙKˆŽˆ”›Ú™ZÝ][Y\ÈYY\˜™]Þ][‹ˆ‹ˆ”›Ú™XÝ™[[Ý™Yœ›ÛHHÛÜšÜÜXÙKˆŽˆ”›Ú™ZÝ]ÙÜÈ›Üœ°é[ˆ\˜™]Þ][‹ˆ‹ˆ›ÝÛ™\ˆŽˆ°éØ\™H‹ˆ˜YZ[ˆŽˆ˜YZ[ˆ‹ˆ™Y]ÜˆŽˆœ™YYÙ\˜\™H‹ˆšY]Ù\ˆŽˆš\Ø\™H‹ˆ›Y[X™\œÈŽˆ›YY[[X\ˆ‹ˆœ›Ú™XÝÈŽˆœ›Ú™ZÝ‹ˆœÙX]È\ÙYŽˆœ]Ù\ˆ[°é™H‹ˆ“Y[X™\ˆŽˆ“YY[H‹ˆž[ÝHŽˆ™H‹ˆ™^\™\ÈŽˆ\0íœˆ‹ˆ›ÝÛ™YžH[ÝHŽˆ°éÜÈ]ˆYÈ‹ˆœÚ\™YÚ][ÝHŽˆ™[]YYYÈ‹ˆ”\ÜÝÛÜ™ÈÈ›ÝX]ÚˆŽˆ“0íœÙ[›Ü™[ˆX]Ú\ˆ[Kˆ‹ˆY[™ÈÈ›Ú™XÝ‹‹ˆŽˆ“0éÙÙ\ˆ[H›Ú™ZÝ]‹‹ˆ‹ˆ‘˜Z[YÈY][HŽˆ‘]ÚXÚÈ[H]0éÙØH[Øš™ZÝ]‹ˆYYÈ›Ú™XÝŽˆ•[YÝH›Ú™ZÝ]‹ˆ‘˜Z[YÈ™[[Ý™H][HŽˆ‘]ÚXÚÈ[H]H›ÜØš™ZÝ]‹ˆ’][H™[[Ý™YŽˆ“Øš™ZÝ]ÙÜÈ›Ü‹ˆ‘˜Z[YÈ™[˜[YHŽˆ‘]ÚXÚÈ[H]ž]H˜[[ˆ‹ˆ”›Ú™XÝ™[˜[YYŽˆ”›Ú™ZÝ]ž]H˜[[ˆ‹ˆ”›Ú™XÝ›Ý›Ý[™Žˆ”›Ú™ZÝ]]Y\È[H‹ˆ•\È›Ú™XÝX^H]™H™Y[ˆ[]YˆŽˆ”›Ú™ZÝ]Ø[ˆHYÚ]È›Üˆ‹ˆ‘ÛÈ˜XÚÈŽˆ‘ðéH[˜ZØH‹ˆš][\ÈŽˆ›Øš™ZÝ‹ˆ”™\ÝÜš[™Ë‹‹ˆŽˆ°á]\œÝ0é\‹‹‹ˆ‹ˆ‘˜Z[YÈ™\ÝÜ™HŽˆ‘]ÚXÚÈ[H]0é]\œÝ0éH‹ˆ”™\ÝÜ™YÝXØÙ\ÜÙ[HŽˆ°á]\œÝ0é‹ˆ”\›X[™[H[][™Ë‹‹ˆŽˆ•\ˆ›Ü\›X[™[‹‹ˆ‹ˆ‘˜Z[YÈ[]H\›X[™[HŽˆ‘]ÚXÚÈ[H]H›Ü\›X[™[‹ˆ”\›X[™[H[]YŽˆ”\›X[™[›ÜYÙ[ˆ‹ˆ‘[\Z[™È˜\Ú‹‹ˆŽˆ•0í›[Y\ˆ\\œÚÛÜ™Ù[‹‹‹ˆ‹ˆ‘˜Z[YÈ[\H˜\ÚŽˆ‘]ÚXÚÈ[H]0í›[XH\\œÚÛÜ™Ù[ˆ‹ˆ•˜\Ú[\YYŽˆ”\\œÚÛÜ™Ù[ˆ0í›Y\È‹ˆ•˜\Ú\È[\HŽˆ”\\œÚÛÜ™Ù[ˆ0éˆÛH‹ˆ•Ú[ˆ[ÝH[]Hš[\ÈÜˆ›Ú™XÝË^IÛ\X\ˆ\™H›ÜˆÌ^\È™Y›Ü™H™Z[™È\›X[™[H™[[Ý™YˆŽˆ“°éˆH\ˆ›Üš[\ˆ[\ˆ›Ú™ZÝš\Ø\ÈH0éˆHÌYØ\ˆ[›˜[ˆH\È›Ü\›X[™[ˆ‹ˆ‘[]YŽˆ›ÜYÙ[ˆ‹ˆ™^\ÈYŽˆ™YØ\ˆÝ˜\ˆ‹ˆ•ÙÙÛH˜]šYØ][ÛˆY[HŽˆ•°éH˜]šYÙ\š[™ÜÛY[žH‹ˆ”›ÙXÝ˜XÝÈŽˆ”›ÙZÝ˜ZÝH‹ˆHÛÛ\Û™[Ú]Ø[ˆÛÛZ[ˆ\ÈŽˆ‘]ÛÛ\Û™[ZÙ]Ø[ˆ[›™Z0é[H\[‹ˆRHŽˆRH‹ˆRHÈXÝ[ÛˆŽˆRHÈ0é]ðé™‹ˆRHÚ]Ú[ŽˆRKXÚ]ÚØ[‹ˆRHY\][Ûˆ˜Z[YˆŽˆRKX[œ\ÜÛš[™Ù[ˆZ\ÜÛXÚØY\Ëˆ‹ˆRHY›Ý™]\›ˆHÝXÝ\™YRH]Y]š^[‹ˆŽˆRH™]\›™\˜YH[™Ù[ˆÝZÝ\™\˜Y0é]ðé™Ü[ˆ°íœˆRKYÜ˜[œÚÛš[™Ù[‹ˆ‹ˆRHY›Ý™]\›ˆHÝXÝ\™YÛÛ\Û™[Ú]]ÚˆŽˆRH™]\›™\˜YH[™Ù[ˆÝZÝ\™\˜Y]Ú°íœˆÛÛ\Û™[ZÙ]]ˆ‹ˆRHY›Ý™]\›ˆHÝXÝ\™Y™X]\™H]Ú[‹ˆŽˆRH™]\›™\˜YH[™Ù[ˆÝZÝ\™\˜Y]Ú[ˆ°íœˆ[šÝ[Û™[‹ˆ‹ˆRHY›Ý™]\›ˆHÝXÝ\™YYÙHÛÛ\ÜÚ][Ûˆ]ÚˆŽˆRH™]\›™\˜YH[™Ù[ˆÝZÝ\™\˜Y]Ú°íœˆÚYÛÛ\ÜÚ][Û™[‹ˆ‹ˆRHY›Ý™]\›ˆHÝXÝ\™Y]Ú[‹ˆŽˆRH™]\›™\˜YH[™Ù[ˆÝZÝ\™\˜Y]Ú[‹ˆ‹ˆRHY›Ý™]\›ˆHÝXÝ\™Y™\XÙ[Y[]ÚˆŽˆRH™]\›™\˜YH[™Ù[ˆÝZÝ\™\˜Y\œðéš[™ÜÜ]Úˆ‹ˆRHY›Ý™]\›ˆÝXÝ\™Y˜\šX[Ü[ÛœËˆŽˆRH™]\›™\˜YH[™ØHÝZÝ\™\˜YH˜\šX[[\›˜]]‹ˆ‹ˆXØÙ\ÜÚX›HŽˆ•[ðé™ÛYÈ‹ˆXÝ[Ûˆ›Ü›HŽˆ°á]ðé™Ù›Ü›][0éˆ‹ˆY\HšXÚ[™ÈØ\™ÈÈH^\Ý[™È›ÙXÝ[œÈ[™Ý\œ™[˜ÞK™\Ù\™Hš[[™ÈÙÚXË[™Û›HÚ[™ÙH™\Ù[][Û‹ˆŽˆ[œ\ÜØHš\ÚÛÜ[ˆ[™Yš[YØH›ÙZÝ[™\ˆØÚ˜[]K™]˜\˜H˜ZÝ\™\š[™ÜÛÙÚZÙ[ˆØÚ0é™˜H[™\Ý™\Ù[][Û™[‹ˆ‹ˆY\\ÈÕHÈHÝ\œ™[YÙHÛØ[™]\ÙH^\Ý[™ÈXÝ[ÛœË[™ÙY\ÛÜHÛÛ˜Ú\ÙKˆŽˆ[œ\ÜØH[›˜HÕH[ÚY[œÈpé[0é]\˜[°é™™Yš[YØH0é]ðé™\ˆØÚ0é[^[ˆÛÜˆ‹ˆY\\È\›ÈÈH›Ú™XÝ[YK™]\ÙH^\Ý[™È]Ûˆš[Z]]™\ËÙY\]™\ÜÛœÚ]™K[™™\Ù\™HH›Ú™XÝ\ÙÜ˜\KˆŽˆ[œ\ÜØH\›Ë\ÙZÝ[Û™[ˆ[›Ú™ZÝ]È[XK0é]\˜[°é™™Yš[YØHÛ˜\ÛÛ\Û™[\‹0é[[ˆ™\ÜÛœÚ]ˆØÚ™]˜\˜H\ÙÜ˜Yš[‹ˆ‹ˆYÈ˜]›Üš]\ÈŽˆ“0éÙÈ[H˜]›Üš]\ˆ‹ˆYÈÚ]Žˆ“0éÙÈ[HZÙ]‹ˆZ[H™\ÜÛœÚ]™H\Ú›Ø\™Ú[]™]\Ù\È›Ú™XÝ˜]šYØ][Ûˆ[™]H›Ý[™\šY\ÈÚ]Ý][™[[™È˜XÚÙ[™™Z]š[Ü‹ˆŽˆžYÙÈ]™\ÜÛœÚ]\Ú›Ø\™ÚØ[ÛÛH0é]\˜[°é™\ˆ›Ú™ZÝ]È˜]šYÙ\š[™ÈØÚ]YÜ°éœÙ\ˆ][ˆ]]H0éH˜XÚÙ[™™]Y[™Kˆ‹ˆZ[H™\ÜÛœÚ]™HÙ][™ÜÈ™X]\™HÚ]ÛX\ˆÙXÝ[ÛœËXØÙ\ÜÚX›HÛÛ›ÛÈ[™^\Ý[™È›Ú™XÝ\œÚ\Ý[˜ÙH›Ý[™\šY\ËˆŽˆžYÙÈ[ˆ™\ÜÛœÚ]ˆ[œÝ0éš[™ÜÙ[šÝ[ÛˆYYYYØHÙZÝ[Û™\‹[ðé™ÛYØHÛÛ›Û\ˆØÚ›Ú™ZÝ]È™Yš[YØH\œÚ\Ý[œÙÜ°éœÙ\‹ˆ‹ˆZ[H\ÝÛÜHšXÚ[™ÈYÙHÚ]ÛX\ˆ[ˆY™™\™[˜Ù\Ë™\ÜÛœÚ]™HÛÛ\\š\ÛÛˆ[™ÛÛ™\œÚ[ÛˆÕKˆŽˆžYÙÈ[ˆ›Ý°é™YÈš\ÜÚYHYYYYØH[œÚÚ[˜Y\‹™\ÜÛœÚ]ˆ°éY°íœ™[ÙHØÚÛÛ™\\š[™ÜËPÕKˆ‹ˆZ[[ˆRHÚ]RH™X]\™H]™]\Ù\È[ˆ^\Ý[™ÈRHÙ\šXÙHYˆ™\Ù[[™Ý\Ú\ÙH^ÜÙ\ÈHÛX[ˆY\\ˆ›Ý[™\žHÚ]Ý]˜ZÙH™]ÛÜšÈÙÚXËˆŽˆžYÙÈ[ˆRKXÚ][šÝ[ÛˆÛÛH0é]\˜[°é™\ˆ™Yš[YÈRK]°éœÝÛH[ˆš[›œË[›˜\œÈ[ˆ™[ˆY\\™Ü°éœÈ][ˆ˜[ÚÈ°é™\šÜÛÙÚZËˆ‹ˆÕHŽˆÕH‹ˆÕH˜[›™\ˆŽˆÕKX˜[›™\ˆ‹ˆØ\™ÈŽˆ’ÛÜ‹ˆÚÛÜÙH›Ú™XÝÛÛ\Û™[š[x )ˆŽˆ•°éˆ[ˆÛÛ\]ÛÛ\Û™[š[H›Ú™ZÝ]8 )ˆ‹ˆÛÛ\XÝ›Ø][™È˜]šYØ][ÛˆÚ[›Üˆ[™[™ÈYÙ\ËˆŽˆ’ÛÛ\ZÝ›][™H˜]šYÙ\š[™ÜÜÚØ[°íœˆ[™š[™ÜÜÚYÜ‹ˆ‹ˆÛÛ\\š\ÛÛˆŽˆ’°éY°íœ™[ÙH‹ˆÛÛ›™XÝ\ÈRHÈH›Ú™XÝ^\Ý[™È]][XØ][Ûˆ[™\œËˆÈ›Ý™\XÙH]]ÙÚXÈÜˆÜ™Y[X[È[™[™ËˆŽˆ[œÛ]Ü°éœÜÛš]][›Ú™ZÝ]È™Yš[YØH]][\Ù\š[™ÜÚ[\˜\™Kˆ\œðé[H]][\Ù\š[™ÜÛÙÚZÈ[\ˆ[\š[™È]ˆ[›ÙÙÛš[™ÜÝ\ÚY\‹ˆ‹ˆÛÛ›™XÝ\ÈÚ[ÈH^\Ý[™ÈRHÙ\šXÙH[™Ý™X[Z[™ÈÝ]Kˆ™\Ù\™H]][XØ][Û‹˜]K[[Z][™\œ›Üˆ[™[™ËˆŽˆ[œÛ]ÚØ[][™Yš[YÈRK]°éœÝØÚÝ°í›[š[™ÜÜÝ]\Ëˆ™]˜\˜H]][\Ù\š[™Ë\ÝYÚ]ÙÜ°éœÙ\ˆØÚ™[[\š[™Ëˆ‹ˆÛÛ[ÈTHŽˆ’[›™Z0é[ÈTH‹ˆÛÛ™\œØ][ÛˆÚ[ÛÛ\ÜÙ\‹[\KÛØY[™ËÙ\œ›ÜˆÝ]\È[™Ù\šXÙH›Ý[™\žKˆŽˆ’ÛÛ™\œØ][ÛœÜÚØ[ÛÛ\ÜÚ]0íœ‹ÛKKÛYš[™ÜËKÙ™[0éÙHØÚ°éœÝYÜ°éœËˆ‹ˆÛÛ™\œÚ[Û‹Y›ØÝ\ÙYØ[]ËXXÝ[Ûˆ›ØÚÈÚ]ÛÈXÝ[ÛœËˆŽˆ’ÛÛ™\\š[™ÜÙ›ÚÝ\Ù\˜]ÕKX›ØÚÈYY°éH0é]ðé™\‹ˆ‹ˆÛÜH™\Ý[Žˆ’ÛÜY\˜H™\Ý[]‹ˆÝ\œ™[ÛÛ[[ÛœÈÛ]\ÙH\›\È›ÚXš]™Y\ÝšX][™ÈHÛÛ\Û™[È[\Ù[™\ËˆÙY\›ØÚÙYœ›ÛHH^X\ˆÛÛ\Û™[™YÚ\ÝžKˆŽˆ“]˜\˜[™HÛÛ[[ÛœÈÛ]\ÙK]š[ÛÜˆ°íœ˜šY\ˆÛY\ÝšX][Ûˆ]ˆÚ°é˜HÛÛ\Û™[\›˜Kˆ0é[[H›ØÚÙ\˜YHœ°é[ˆ^X\‹\™YÚ\Ý™]ˆ‹ˆ‘\Ú›Ø\™Ú[Žˆ‘\Ú›Ø\™ÚØ[‹ˆ‘\Ú›Ø\™ÛÛ[Ú[Ú]Ý[[X\žHØ\™È[™XÝ]š]H\™XKˆŽˆ‘\Ú›Ø\™[›™Z0é[YYØ[[X[™˜]š[™ÜÚÛÜØÚZÝ]š]]ÛÛ\°éYKˆ‹ˆ‘\Ú›Ø\™Ú[Žˆ‘\Ú›Ø\™ÚØ[‹ˆ‘\Ú›Ø\™ÈŽˆ‘\Ú›Ø\™È‹ˆ‘]HŽˆ‘]H‹ˆ‘^[\NˆZ[\ÙH[ÈHÛÛ\XÝÛ˜›Ø\™[™È›ÝË™]\ÙH^\Ý[™È›Ú™XÝ]ÛœÈ[™ÙY\[Øš[H^[Ý]Ú[\KˆŽˆ‘^[\[ˆžYÙÈZÜ\ÜØH[]ÛÛ\ZÝÛ˜›Ø\™[™Ù›0í™K0é]\˜[°é™›Ú™ZÝ]ÈÛ˜\\ˆØÚ0é[[Øš[^[Ý][ˆ[šÙ[ˆ‹ˆ‘^[\NˆXZÙH\Èš]H\šÈØXTÈ\Ú›Ø\™\ÙHÝ\ˆ^\Ý[™È]ÛœË™YXÙH[Ý[ÛˆÛˆ[Øš[K[™ÙY\]XØÙ\ÜÚX›KˆŽˆ‘^[\[ˆ[œ\ÜØH]H[[ˆpíœšÈØXTËY\Ú›Ø\™[°é™°é\˜H™Yš[YØHÛ˜\\‹Z[œÚØH°íœ™[ÙH0éH[Øš[ØÚ™Z0é[[ðé™ÛYÚ][‹ˆ‹ˆ‘™X]\™Hš[X\žH\ÛÛ]Y™]šY]ÈŽˆ’\ÛÛ\˜Y°íœš[™Ýš\Ûš[™È]ˆš[péˆ[šÝ[Ûˆ‹ˆ‘š]\È\Ú›Ø\™Ú[[ÈH^\Ý[™È\XØ][Ûˆ^[Ý][™›Ý]HÝXÝ\™Kˆ™]\ÙHÝ\œ™[˜]šYØ][Ûˆ[™]HÙ\šXÙ\ËˆŽˆ”\ÜØH[ˆ\Ú›Ø\™ÚØ[]H™Yš[YÈ\^[Ý]ØÚ›Ý]ÝZÝ\‹ˆ0á]\˜[°é™]˜\˜[™H˜]šYÙ\š[™ÈØÚ]]°éœÝ\‹ˆ‹ˆ‘›Ø][™È˜]šYØ][ÛˆŽˆ‘›][™H˜]šYÙ\š[™È‹ˆ‘›ØÝ\ÙYšXÚ[™È^\šY[˜ÙHÚ][ˆÛÛ\\š\ÛÛ‹TKÜÝ\Ü[™È›ÛÙˆ[™ÕKˆŽˆ‘›ÚÝ\Ù\˜Yš\Ý\]™[ÙHYY[š°éY°íœ™[ÙKTKÜÝ0í™˜[™H™]š\ÈØÚÕKˆ‹ˆ‘›ÛÝÈHXÝ]™H›Ú™XÝÝ[H›Ùš[H\ÈÛÜÙ[H\ÈÜÜÚX›Kˆ™]\ÙH]ÈÚÙ[œËÜXÚ[™Ë˜YZK\ÙÜ˜\H[™ÛÛ\Û™[ÛÛ™[[ÛœËˆŽˆ‘°í›ˆ]ZÝ]˜H›Ú™ZÝ]ÈÝ[›Ùš[ðéH°é˜HÛÛHpíš›YÝˆ0á]\˜[°é™ÚÙ[œË]œÝ0é[™˜YY\‹\ÙÜ˜YšHØÚÛÛ\Û™[ÛÛ™[[Û™\‹ˆ‹ˆ‘›Ü›HŽˆ‘›Ü›][0éˆ‹ˆ‘Ù[™\˜]HÈÜ[ÛœÈŽˆ‘Ù[™\™\˜HÈ[\›˜]]ˆ‹ˆ‘Ù[™\˜]HY\][ÛˆŽˆ‘Ù[™\™\˜H[œ\ÜÛš[™È‹ˆ‘Û\ÜÈŽˆ‘Û\È‹ˆ‘Ü˜YY[\›ÈŽˆ‘Ü˜YY[Z\›È‹ˆ’\›ÈŽˆ’\›È‹ˆ’\›Ù\ÈŽˆ’\›Ë\ÙZÝ[Û™\ˆ‹ˆ’HÛÛ™š\›HH]™HHšYÚÛXÙ[œÙHÈ\ÙHHš]˜]Hš[\ÈHÙ[XÝˆŽˆ’˜YÈ™ZÜ°é\ˆ]˜YÈ\ˆ°éÛXÙ[œÈ][°é™HHš]˜]Hš[\ˆ˜YÈ°é™\‹ˆ‹ˆ’[œ]ÚÙ[œÈŽˆ’[™]]ÚÙ[œÈ‹ˆ’[YÜ˜]H\È˜]šYØ][Ûˆ[ÈH^\Ý[™È^[Ý]X\[šÜÈÈH›Ú™XÝ›Ý]\Ë[™™]\ÙHHÝ\œ™[ÙÛÈ[™]ÛˆÞ\Ý[KˆŽˆ’[YÜ™\˜H˜]šYÙ\š[™Ù[ˆH™Yš[YÈ^[Ý]X\H0éšØ\ˆ[›Ú™ZÝ]\ˆØÚ0é]\˜[°é™]˜\˜[™HÙÛÝ\ØÚÛ˜\Þ\Ý[Kˆ‹ˆ“[™[™ÈŽˆ“[™š[™È‹ˆ“[™[™ÈÝ\\ˆŽˆ“[™š[™ÜÜÝ\‹ˆ“\ÝÛÙ[™È\ÜÚ\Ý[˜ÙH]ÚØ\È›ÛY˜XÚËˆŽˆ‘[ˆÙ[˜\ÝHÛÙ[™È\ÜÚ\Ý[˜ÙK\]Ú[ˆ0é]\œÝ0é\Ëˆ‹ˆ“]™H™]šY]È\È›Ý]˜Z[X›H›Üˆ\ÈÛÛ\Û™[ˆŽˆ“]™Y°íœš[™Ýš\Ûš[™È0éˆ[H[ðé™ÛYÈ°íœˆ[ˆ0éˆÛÛ\Û™[[‹ˆ‹ˆ“ØYÛÝ\˜ÙHÛÙHŽˆ“YHðéÛÙ‹ˆ“ØY[™È›Ú™XÝË‹‹ˆŽˆ“Y\ˆ›Ú™ZÝ‹‹ˆ‹ˆ“ÙÚ[ˆŽˆ’[›ÙÙÛš[™È‹ˆ“RU
+ÈÛÛ[[ÛœÈÛ]\ÙKˆX^H™H\ÙY\È\Ùˆ[ˆ\XØ][Û‹Ü›ÙXÝ]]\Ý›Ý™H™Y\ÝšX]Y\ÈHÛÛ\][™ÈÛÛ\Û™[Xœ˜\žNÈÙY\›ØÚÙYœ›ÛH^X\ˆX›XÈ™YÚ\ÝžKˆŽˆ“RU
+ÈÛÛ[[ÛœÈÛ]\ÙKˆ°é\ˆ[°é™\ÈH[ˆ\ZØ][Û‹Ü›ÙZÝY[ˆ[HÛY\ÝšXY\˜\ÈÛÛHÛÛšÝ\œ™\˜[™HÛÛ\Û™[šX›[ÝZÎÈ0é[›ØÚÙ\˜Yœ°é[ˆ^X\œÈÙ™™[YØH™YÚ\Ý\‹ˆ‹ˆ“RUÛÝ\˜ÙHÚ]HX›XÈÚYÛ‹\Ý[H™YÚ\ÝžKˆ™\Ù\™HH\Ý™X[HÛÜ\šYÚ[™\›Z\ÜÚ[Ûˆ›ÝXÙHÚ[ˆÝXœÝ[X[ÛÙH\È[\ÜYˆŽˆ“RUZðéHYYÙ™™[YÝÚYÛ‹[ZÛ˜[™H™YÚ\Ý\‹ˆ™]˜\˜H\Ý™X[\ÈÛÜ\šYÚHØÚ[Ý0é[™Û›Ý\ÈšY™]Y[™HÛÙ[\Üˆ‹ˆ“RUÛÝ\˜ÙKˆ[š[X]HX›\Ú\ÈÛÜK\\ÝH[š[X]Y™XXÝÕZ[Ú[™ÛÛ\Û™[È[™ÚYÛˆ™YÚ\ÝžH][\Ëˆ™\Ù\™HH\Ý™X[HXÙ[œÙH›ÝXÙKˆŽˆ“RUZðéKˆ[š[X]HX›XÙ\˜\ˆÛÜY\˜˜\˜H[š[Y\˜YH™XXÝÕZ[Ú[™ZÛÛ\Û™[\ˆØÚÚYÛ‹\™YÚ\Ý\œÜÝ\‹ˆ™]˜\˜H\Ý™X[K[XÙ[œÛ›Ý\Ù[‹ˆ‹ˆ“RUÛÝ\˜ÙKˆ™\Ù\™HH\Ý™X[HÛÜ\šYÚ[™\›Z\ÜÚ[Ûˆ›ÝXÙHÚ[ˆÝXœÝ[X[ÛÙH\È[\ÜYˆŽˆ“RUZðéKˆ™]˜\˜H\Ý™X[\ÈÛÜ\šYÚHØÚ[Ý0é[™Û›Ý\ÈšY™]Y[™HÛÙ[\Üˆ‹ˆ“X\\ÙHØ\™ÈÈ™X[›Ú™XÝY]šXÜÈ[™™]\ÙH^\Ý[™È[X™\ˆ›Ü›X][™ËˆÈ›Ý[™[˜XÚÙ[™]KˆŽˆ’ÛÜHÛÜ[ˆ[™\šÛYØH›Ú™ZÝpé]ØÚ0é]\˜[°é™™Yš[YÈ[›Ü›X]\š[™Ëˆ]H[H0éH˜XÚÙ[™]Kˆ‹ˆ“Y]šXÈØ\™ÈŽˆ“pé]ÛÜ‹ˆ“[Ù[Žˆ“[Ù[‹ˆ“˜]šYØ][Û‹\›Ë™X]\™KÝ˜[YH›ØÚËšXÚ[™ËTKØÛÛ[[™ÕKˆŽˆ“˜]šYÙ\š[™Ë\›Ë[šÝ[ÛœËKÝ°é™X›ØÚËš\Ù\‹TKÚ[›™Z0é[ØÚÕKˆ‹ˆ“˜]šYØ][Û‹\›Ë\ÝÝ˜[YHÙXÝ[ÛœËÕH[™›ÛÝ\‹\™XYHÝXÝ\™KˆŽˆ“˜]šYÙ\š[™Ë\›Ë°íœ›Ù[™KKÝ°é™\ÙZÝ[Û™\‹ÕHØÚ›ÛÝ\‹\™YÈÝZÝ\‹ˆ‹ˆ“›È[š[X][ÛˆXˆŽˆ’[™Ù][š[X][ÛœØšX›[ÝZÈ‹ˆ“›Ý]XÝYŽˆ’[H\0éÚÝ‹ˆ“ÜšYÚ[˜[ÛÛ\Û™[È]]Ü™Y›ÜˆH^X\ˆ™YÚ\ÝžKˆŽˆ“ÜšYÚ[˜[ÛÛ\Û™[\ˆÚØ\YH°íœˆ^X\‹\™YÚ\Ý™]ˆ‹ˆ“Ý]]ÚÙ[œÈŽˆ•]]]ÚÙ[œÈ‹ˆ“Ý™\šY]ÈÚ[Y]šXÜË˜]šYØ][Ûˆ[™™\ÜÛœÚ]™HÛÛ[Ý]\ËˆŽˆ°å™\œÚZÝÜÚØ[pé]˜]šYÙ\š[™ÈØÚ™\ÜÛœÚ]˜H[›™Z0é[Û0éÙ[‹ˆ‹ˆ”ZYÛÛ\Û™[XÚÈ[]™\™Yš]˜][HY\ˆ\˜Ú\ÙKˆ›ÈX›XÈ™Y\ÝšX][ÛˆXÙ[œÙHØ\È›Ý[™ÛÈ^X\ˆ]\Ý›Ý[™HÜˆZ\œ›Üˆ]ÈÛÙKˆ]\™HÝ\ÜÚÝ[\ÙHš]˜]H\Ù\‹\›ÝšYYXÙ[œÙY[\ÜÈÛ›KˆŽˆ™][ÛÛ\Û™[ZÙ]ÛÛH]™\™\˜\Èš]˜]Y\ˆðíœˆ[™Ù[ˆÙ™™[YÈÛY\ÝšX][ÛœÛXÙ[œÈ]Y\ËðéH^X\ˆ°é\ˆ[HZÙ]\˜H[\ˆÜYÛHÛÙ[‹ˆœ˜[]YHÝ0í™ÚØH[™\Ý[°é™Hš]˜]HXÙ[œÚY\˜YH[\Ü\ˆÛÛH[°é™\™[ˆ[[™Z0é[\‹ˆ‹ˆ”]Ú\YYˆH›Û˜XÚÈÚXÚÜÚ[\È]˜Z[X›H[[H›Ú™XÝš[\ÈÚ[™ÙHYØZ[‹ˆŽˆ”]Ú[ˆ[0é\Y\Ëˆ[ˆ0é]\œÝ0éš[™ÜÜ[šÝš[›œÈ[È›Ú™ZÝš[\›˜H0é™˜\ÈYÙ[‹ˆ‹ˆ”[ˆš[H]ÚŽˆ”[™\˜Hš[]Ú‹ˆ”[ˆ™\XÙ[Y[Žˆ”[™\˜H\œðéš[™È‹ˆ”[›š[™ø )ˆŽˆ”[™\˜\¸ )ˆ‹ˆ”šXÚ[™ÈÜšYŽˆ”š\ÙÜšY‹ˆ”š[X\žH™X]\™H™]šY]È\È›Ý]˜Z[X›H›Üˆ\ÈXÚËˆŽˆ‘°íœš[™Ýš\Ûš[™È]ˆš[péˆ[šÝ[Ûˆ0éˆ[H[ðé™ÛYÈ°íœˆZÙ]]ˆ‹ˆ”›ÙXÝ›ÛÙˆŽˆ”›ÙZÝ™]š\È‹ˆ”›ÙXÝYš\œÝØXTÈYÙHÚ]\›Ë™X]\™H›ÛÙ‹›ÙXÝRKšXÚ[™È[™ÕKˆŽˆ”›ÙZÝ›ÚÝ\Ù\˜YØXTË\ÚYHYY\›Ë[šÝ[ÛœØ™]š\Ë›ÙZÝURKš\Ù\ˆØÚÕKˆ‹ˆ”›Ú™XÝ˜]]™HŽˆ”›Ú™ZÝ[œ\ÜØY‹ˆ”›ÛÙˆŽˆ™]š\È‹ˆ”™YXÙY[Ý[ÛˆŽˆ“Z[œÚØY°íœ™[ÙH‹ˆ”™[[Ý™Hœ›ÛH˜]›Üš]\ÈŽˆ•H›Üœ°é[ˆ˜]›Üš]\ˆ‹ˆ”™[[Ý™Hœ›ÛHÚ]Žˆ•H›Üœ°é[ˆZÙ]‹ˆ”™\ÜÚ]ÜžHŽˆ”™\ÜÚ]ÜžH‹ˆ”™\ÜÛœÚ]™HØXTÈ\›ÈÚ]ÛX\ˆY\˜\˜ÚH[™ÛÈXÝ[ÛœËˆŽˆ”™\ÜÛœÚ]ˆØXTËZ\›ÈYYYYÈY\˜\šÚHØÚ°éH0é]ðé™\‹ˆ‹ˆ”™\ÜÛœÚ]™HY]šXÈ›ÝÈ›Üˆ[˜[]XÜÈ[™\Ú›Ø\™ËˆŽˆ”™\ÜÛœÚ]ˆpé]˜Y°íœˆ[˜[\ÈØÚ\Ú›Ø\™Ëˆ‹ˆ”™]\ÙHÚÙ[œÈŽˆ°á]\˜[°é™ÚÙ[œÈ‹ˆ”™]šY]ÈÛ›H8 %›È›Ú™XÝÙ[XÝYŽˆ‘[™\ÝÜ˜[œÚÛš[™È8 %[™Ù]›Ú™ZÝ˜[‹ˆ”›Û˜XÚÈ\Ý]ÚŽˆ°á]\œÝ0éÙ[˜\ÝH]Ú‹ˆ”ØXTÈŽˆ”ØXTÈ‹ˆ”ØXTÈ\Ú›Ø\™Žˆ”ØXTËY\Ú›Ø\™‹ˆ”ÙX\˜ÚÛÛ\Û™[Ë‹‹ˆŽˆ”ðíšÈÛÛ\Û™[\‹‹‹ˆ‹ˆ”Ù\™\ˆÛÛ\]X›HŽˆ”Ù\™\šÛÛ\]X™[‹ˆ”Ù][™ÜÈÚ[ÙXÝ[ÛœË›Ü›HÛÛ›ÛÈ[™Ø]™K\Ý]HVˆŽˆ’[œÝ0éš[™ÜÜÚØ[ÙZÝ[Û™\‹›Ü›][0éšÛÛ›Û\ˆØÚV°íœˆÜ\œÝ]\Ëˆ‹ˆ”ÚÝÚ[™ÈŽˆ•š\Ø\ˆ‹ˆ”ÚYÛ‹Z[ˆRK˜[Y][ÛˆÝ]\È[™^\Ý[™ËX]][YÜ˜][Ûˆ›Ý[™\žKˆŽˆ’[›ÙÙÛš[™ÜËURK˜[Y\š[™ÜÛ0éÙ[ˆØÚ[YÜ˜][ÛœÙÜ°éœÈ[Ý™Yš[YÈ]][\Ù\š[™Ëˆ‹ˆ”Ú[\HÚYÛ‹Z[ˆÝ\™˜XÙHÚ]XØÙ\ÜÚX›HX™[È[™XÝ[ÛœËˆŽˆ‘[šÙ[[›ÙÙÛš[™ÜÞ]HYY[ðé™ÛYØH]ZÙ]\ˆØÚ0é]ðé™\‹ˆ‹ˆ”ÛØÚX[›ÛÙˆŽˆ”ÛØÚX[™]š\È‹ˆ”ÛÛYH™YÚ\ÝšY\ÈÛÝ[›Ý™HØYYŽˆ•š\ÜØH™YÚ\Ý\ˆÝ[™H[HY\È‹ˆ”Ý\ÜØ\™Žˆ”Ý\ÜÛÜ‹ˆ•™YK]Y\ˆšXÚ[™È^[Ý]Ú]HYÚYÚY™XÛÛ[Y[™Y[‹ˆŽˆ”š\Û^[Ý]H™Hš]°éY\ˆYYX\šÙ\˜Y™ZÛÛ[Y[™\˜Y[‹ˆ‹ˆ•[˜X›HÈ\HH]ÚˆŽˆ‘]ÚXÚÈ[H][0é\H]Ú[‹ˆ‹ˆ•[˜X›HÈÙ[™\˜]HHØY™HRH]Y]š^[‹ˆŽˆ‘]ÚXÚÈ[H]ÚØ\H[ˆðéÙ\ˆ0é]ðé™Ü[ˆ°íœˆRKYÜ˜[œÚÛš[™Ù[‹ˆ‹ˆ•[˜X›HÈÙ[™\˜]HHØY™HÛÛ\Û™[Ú]]ÚˆŽˆ‘]ÚXÚÈ[H]ÚØ\H[ˆðéÙ\ˆ]Ú°íœˆÛÛ\Û™[ZÙ]]ˆ‹ˆ•[˜X›HÈÙ[™\˜]HHØY™H™X]\™HXÚËˆŽˆ‘]ÚXÚÈ[H]ÚØ\H]ðéÙ\[šÝ[ÛœÜZÙ]ˆ‹ˆ•[˜X›HÈÙ[™\˜]HHØY™HYÙHÛÛ\ÜÚ][Û‹ˆŽˆ‘]ÚXÚÈ[H]ÚØ\H[ˆðéÙ\ˆÚYÛÛ\ÜÚ][Û‹ˆ‹ˆ•[˜X›HÈÙ[™\˜]HHØY™H]Ú[‹ˆŽˆ‘]ÚXÚÈ[H]ÚØ\H[ˆðéÙ\ˆ]Ú[‹ˆ‹ˆ•[˜X›HÈÙ[™\˜]HHØY™H™\XÙ[Y[]ÚˆŽˆ‘]ÚXÚÈ[H]ÚØ\H[ˆðéÙ\ˆ\œðéš[™ÜÜ]Úˆ‹ˆ•[˜X›HÈÙ[™\˜]HÛÛ\Û™[Ü[ÛœËˆŽˆ‘]ÚXÚÈ[H]Ù[™\™\˜HÛÛ\Û™[[\›˜]]‹ˆ‹ˆ•[˜X›HÈ[\Üš]˜]HÛÛ\Û™[š[\ËˆŽˆ‘]ÚXÚÈ[H][\Ü\˜Hš]˜]HÛÛ\Û™[š[\‹ˆ‹ˆ•[˜X›HÈØYÛÛ\Û™[ÛÙKˆŽˆ‘]ÚXÚÈ[H]0éØH[ˆÛÛ\Û™[ÛÙ[‹ˆ‹ˆ•[˜X›HÈØY›Ú™XÝÚÚXÙ\ËˆŽˆ‘]ÚXÚÈ[H]0éØH[ˆ›Ú™ZÝ[\›˜]]‹ˆ‹ˆ•[˜X›HÈØY›Ú™XÝÛÛ^ˆŽˆ‘]ÚXÚÈ[H]0éØH[ˆ›Ú™ZÝÛÛ^[‹ˆ‹ˆ•[˜X›HÈ™\\™H]™H™]šY]ËˆŽˆ‘]ÚXÚÈ[H]°íœ˜™\™YH]™Y°íœš[™Ýš\Ûš[™Ù[‹ˆ‹ˆ•[˜X›HÈ›Û˜XÚÈH]ÚˆŽˆ‘]ÚXÚÈ[H]0é]\œÝ0éH]Ú[‹ˆ‹ˆ•\ÙH^Y\™Y˜[œÛXÙ[Ý\™˜XÙ\È[™ÝXH\Û›HÚ\™H^Hš]H^\Ý[™È›Ú™XÝÈ™\Ù\™HÛÛ˜\Ý™XYXš[]H[™™YXÙY[[Ý[Ûˆ™Z]š[Ü‹ˆŽˆ[°é™YÙ\ˆ]ˆ[˜[œÜ\™[H]ÜˆØÚÝX[\[™\Ý0éˆ]\ÜØ\ˆ›Ú™ZÝ]È™]˜\˜HÛÛ˜\Ý0éØ˜\š]ØÚZ[œÚØY°íœ™[ÙKˆ‹ˆ•\ÙH™\Ý˜Z[™YÝ\™˜XÙ\ËÙ[™\›Ý\ÈÚ]\ÜXÙKÚ[\HY\˜\˜ÚH[™ÝXH[\˜XÝ[ÛˆÚ[HÝ[™]\Ú[™È›Ú™XÝÚÙ[œËˆŽˆ[°é™0é]\š0é[˜H]Ü‹Ù[™\°íœÝÛ\[K[šÙ[Y\˜\šÚHØÚÝX[[\˜ZÝ[ÛˆØ[]YYÝÛÛH›Ú™ZÝ]ÈÚÙ[œÈ0é]\˜[°é™Ëˆ‹ˆ•\ÙHÝ›Û™Ù\ˆ\HY\˜\˜ÚK\™Ù\ˆš\ÝX[ÛÛ˜\Ý[™ÛÛ™šY[ÙXÝ[ÛˆÙ\\˜][ÛˆÚ[HÝ^Z[™ÈÛÛœÚ\Ý[Ú]›Ú™XÝÚÙ[œÈ[™XØÙ\ÜÚXš[]KˆŽˆ[°é™Ý\šØ\™H\ÙÜ˜Yš\ÚÈY\˜\šÚKÝ0íœœ™Hš\ÝY[ÛÛ˜\ÝØÚYYØ\™HÙZÝ[ÛœÜÙ\\˜][ÛˆØ[]YYÝÛÛH›Ú™ZÝ]ÈÚÙ[œÈØÚ[ðé™ÛYÚ]°í›œËˆ‹ˆ•\Ù\‹\Ù[XÝYXÙ[œÙYÛÝ\˜ÙHÙ\Û›H[ˆHÝ\œ™[œ›ÝÜÙ\ˆÙ\ÜÚ[Û‹ˆ^X\ˆX^HY\]›ÜˆH\Ù\ˆ]]\Ý™]™\ˆX›\Ú][ÈHX›XÈ™YÚ\ÝžKˆŽˆ[°é™\˜[XÙ[œÚY\˜YðéH™Z0é[È[™\ÝHZÝY[ÙX˜›0éØ\œÙ\ÜÚ[Û‹ˆ^X\ˆ°é\ˆ[œ\ÜØH[ˆ°íœˆ[°é™\™[ˆY[ˆ[šYÈX›XÙ\˜H[ˆH]Ù™™[YØH™YÚ\Ý™]ˆ‹ˆ•ÙXœÚ]HŽˆ•ÙX˜œ]È‹ˆ•ÛÜšÜÜXÙHŽˆ\˜™]Þ]H‹ˆ˜ÛÛ\Û™[ÈŽˆšÛÛ\Û™[\ˆ‹ˆš][\ËˆŽˆ›Øš™ZÝˆ‹ˆ›X]Ú\ÈŽˆ°é™˜\ˆ‹ˆœš]˜]HÙ\ÜÚ[Ûˆ][\ÈŽˆœš]˜]HÙ\ÜÚ[ÛœÛØš™ZÝ‹ˆ\Ý™X[H][\ÈØYYŽˆ\Ý™X[K[Øš™ZÝYYH‹ˆ‹ØX›Ý]Žˆ‹ÛÛH‹ˆRH	ˆYYXHŽˆRHØÚYYXH‹ˆRH[XYÙH›Û\ŽˆRKXš[›Û\‹ˆXØÙ[ÛÛÜˆŽˆXØÙ[°é™È‹ˆXØÛÜ™[ÛˆŽˆ‘˜YÜÜ[‹ˆYHØ[]ËXXÝ[Ûˆ]Û‹ˆŽˆ“0éÙÈ[[ˆÕKZÛ˜\ˆ‹ˆYHÛÛXÝÙXÝ[Ûˆ[™›Ü›KˆŽˆ“0éÙÈ[[ˆÛÛZÝÙZÝ[ÛˆØÚ›Ü›][0é‹ˆ‹ˆYHÛÝ[ÝÛˆ[Y\‹ˆŽˆ“0éÙÈ[[ˆ™Y°éÛš[™Ëˆ‹ˆYH™X]\™\ÈÙXÝ[Û‹ˆŽˆ“0éÙÈ[[ˆ[šÝ[ÛœÜÙZÝ[Û‹ˆ‹ˆYH›^X›HÙXÝ[Ûˆ[ÝHØ[ˆ[H™\Ý[H[™™\XÙHÚ][Ý\ˆÝÛˆ[[Y[ËˆŽˆ“0éÙÈ[[ˆ›^X™[ÙZÝ[ÛˆÛÛHHØ[ˆ›Ü›YÙHÛH[ØÚ\œðéHYYYÛ˜H[[Y[ˆ‹ˆYH›ÛÝ\ˆÙXÝ[Û‹ˆŽˆ“0éÙÈ[[ˆÚY›Ýˆ‹ˆYH\›ÈÙXÝ[Û‹ˆŽˆ“0éÙÈ[[ˆ\›Ë\ÙZÝ[Û‹ˆ‹ˆYHšXÚ[™ÈÙXÝ[Û‹ˆŽˆ“0éÙÈ[[ˆš\ÜÙZÝ[Û‹ˆ‹ˆYHÙ\šXÙ\ÈÙXÝ[Û‹ˆŽˆ“0éÙÈ[[ˆ°éœÝ\ÙZÝ[Û‹ˆ‹ˆYHÝXÝ\™Y\ÝÙˆ][\ËˆŽˆ“0éÙÈ[[ˆÝZÝ\™\˜Y\ÝHYYØš™ZÝˆ‹ˆYH\Ý[[ÛšX[ÈÙXÝ[Û‹ˆŽˆ“0éÙÈ[[ˆÛY0í›Y\ÜÙZÝ[Û‹ˆ‹ˆYH]HÜˆÙXÝ[ÛˆXY[™ËˆŽˆ“0éÙÈ[[ˆ][[\ˆÙZÝ[ÛœÜXœšZËˆ‹ˆY[ˆX›Ý]ÙXÝ[Û‹ˆŽˆ“0éÙÈ[[ˆÛK\ÙZÝ[Û‹ˆ‹ˆY[ˆ[XYÙHœ›ÛH\ØYÈÜˆRKˆŽˆ“0éÙÈ[[ˆš[œ°é[ˆ\Yš[™Ø\ˆ[\ˆRKˆ‹ˆYÛÛ›ÛYš\ÝX[ÜXÚ[™ËˆŽˆ“0éÙÈ[ÛÛ›Û\˜]š\ÝY[Y[[œ[Kˆ‹ˆY\˜YÜ˜\ÜˆÝ\Ü[™ÈÛÜKˆŽˆ“0éÙÈ[]ÝXÚÙH[\ˆÝ0í™˜[™H^ˆ‹ˆYØ[š]^™YÝ\ÝÛHSˆŽˆ“0éÙÈ[Ø[™\˜Y[œ\ÜØYSˆ‹ˆ[YÛˆÙ[ˆŽˆ‘YÙ[ˆ\Ý\š[™È‹ˆ[^Žˆ[]^‹ˆ[˜ÚÜˆQŽˆ[šØ\‹RQ‹ˆ[š[X]HÛ˜ÙHŽˆ[š[Y\˜H[ˆðé[™È‹ˆ˜XÚÙÜ›Ý[™ÛÛÜˆŽˆ˜ZÙÜ[™Ù°é™È‹ˆ˜XÚÙÜ›Ý[™[XYÙHŽˆ˜ZÙÜ[™Øš[‹ˆ˜XÚÙÜ›Ý[™[ÙHŽˆ˜ZÙÜ[™Û0éÙH‹ˆ›Ü™\ˆ	ˆÚYÝÈŽˆ”˜[HØÚÚÝYÙØH‹ˆ›Ü™\ˆ˜Y]\ÈŽˆ’Ø[˜YYH‹ˆœ›ÝÜÙH[\ÜY\ÜÙ]ÈØY™[KˆÙ™šXÙKˆ[™\˜Ú]™Hš[\ÈÝÛ›ØY\È™Y™\™[˜Ù\ÎÈ^X\‹[˜]]™HÙXœÚ]H›Ü›X]ÈØ[ˆ™HÜ[™Y\™XÝHÚ[ˆ]˜Z[X›KˆŽˆ›0é˜HðéÙ\›[™[\Ü\˜YH™\Ý\œÙ\‹ˆÙ™šXÙKK‹HØÚ\šÚ]™š[\ˆY\È™YÛÛH™Y™\™[œÙ\ŽÈ^X\‹[˜]]™HÙX˜œ]Ù›Ü›X]Ø[ˆ0íœ˜\È\™ZÝ°éˆHš[›œËˆ‹ˆZ[\ˆÛÛÈŽˆžYÙÝ™\šÝYÈ‹ˆ]Ûˆ^Žˆ’Û˜\^‹ˆÓÔHŽˆ’ÓÔQTH‹ˆØ[ÈXÝ[ÛˆŽˆ•\X[š[™È‹ˆØ[›ÛšXØ[T“Žˆ’Ø[›Ûš\ÚÈT“‹ˆÛÛXÝš\Ú]ÜˆY\ÜØYÙ\ÈØY™[KˆŽˆ”Ø[[H[ˆ™\ðíšØ\›YY[[™[ˆðéÙ\ˆ‹ˆÛÛXÝŽˆ’ÛÛZÝ‹ˆÛÛXÝ›Ü›HŽˆ’ÛÛZÝ›Ü›][0éˆ‹ˆÛÛZ[™\ˆŽˆ™Z0é[\™H‹ˆÛÛZ[™\ˆQŽˆ™Z0é[\‹RQ‹ˆÛÛZ[™\ˆ˜[YHŽˆ™Z0é[\›˜[[ˆ‹ˆÛÛ[ÚYŽˆ’[›™Z0é[Øœ™Y‹ˆÛÝ[›ÝÝÛ›ØY[\]KˆŽˆ‘]ÚXÚÈ[H]YH™YX[[‹ˆ‹ˆÛÝ[›ÝØY[\]\ËˆŽˆ‘]ÚXÚÈ[H]0éØH[ˆX[\›˜Kˆ‹ˆÜ™X]Hš\ÝX[Ù\\˜][Û‹ˆŽˆ”ÚØ\Hš\ÝY[Ù\\˜][Û‹ˆ‹ˆÝ\ÝÛHSŽˆ[œ\ÜØYS‹ˆ‘ˆŽˆ“‘Tˆ‹ˆ‘\ØÜšX™HH[XYÙHŽˆ™\ÚÜš]ˆš[[ˆ‹ˆ‘\ÚÝÜŽˆ‘]Üˆ‹ˆ‘]šXÙHŽˆ‘[š]‹ˆ‘\Ý[˜ÙHŽˆ]œÝ0é[™‹ˆ‘]šY\ˆŽˆ]™[\™H‹ˆ‘ÝÛ›ØY[\]HŽˆ“YH™YX[‹ˆ‘[X™YHX\Üˆ^\›˜[YÙKˆŽˆ°éH[ˆ[ˆØ\H[\ˆ^\›ˆÚYKˆ‹ˆ‘[X™YÜˆ\Ü^HHšY[ËˆŽˆ°éH[ˆ[\ˆš\ØH[ˆšY[Ëˆ‹ˆ‘^]›ØÝ\ÈŽˆ]œÛ]H›ÚÝ\È‹ˆ‘^[™X›HÛÛ[›ÜˆT\ËˆŽˆ‘^[™\˜˜\[›™Z0é[°íœˆTKˆ‹ˆ‘šY[Žˆ‘°é‹ˆ‘šY[˜[YHŽˆ‘°é˜[[ˆ‹ˆ‘›^X›HÙXÝ[ÛˆŽˆ‘›^X™[ÙZÝ[Ûˆ‹ˆ‘›ØÝ\ÈÛˆØ[˜\ÈŽˆ‘›ÚÝ\Ù\˜H0éH\˜™]Þ][ˆ‹ˆ‘›ÛÚ^™HŽˆ•XÚÙ[œÝÜ›ZÈ‹ˆ‘›ÛÙZYÚŽˆ•XÚÙ[šZÝ‹ˆ‘›Ü›H™\ÜÛœÙHŽˆ‘›Ü›][0éœÝ˜\ˆ‹ˆ‘Ø[\žHŽˆ‘Ø[\šH‹ˆ‘Ü˜YY[Žˆ‘Ü˜YY[‹ˆ‘Ü˜YY[œ›ÛHŽˆ‘Ü˜YY[œ°é[ˆ‹ˆ‘Ü˜YY[ÈŽˆ‘Ü˜YY[[‹ˆ‘ÜšYŽˆ”]°é‹ˆ‘Ü›Ý\[[Y[È[ˆH™]\ØX›H^[Ý]ˆŽˆ‘Ü\\˜H[[Y[H[ˆ0é]\˜[°é™˜\ˆ^[Ý]ˆ‹ˆ’XY[™ÈŽˆ”XœšZÈ‹ˆ’YH[[Y[Žˆ‘0í›ˆ[[Y[‹ˆ’YHœ›ÛHÙX\˜Ú[™Ú[™\ÈŽˆ‘0í›ˆœ°é[ˆðíšÛ[ÝÜ™\ˆ‹ˆ’YHÛˆ]šXÙHŽˆ‘0í›ˆ0éH[š]‹ˆ’YHÙXÝ[ÛˆŽˆ‘0í›ˆÙZÝ[Ûˆ‹ˆ’Ý™\ˆ˜XÚÙÜ›Ý[™Žˆ’Ý™\‹X˜ZÙÜ[™‹ˆ’Ý™\ˆÜXÚ]HŽˆ’Ý™\‹[ÜXÚ]]‹ˆ’Ý™\ˆØØ[HŽˆ’Ý™\‹\ÚØ[H‹ˆ’Ý™\ˆÚYÝÈŽˆ’Ý™\‹\ÚÝYÙØH‹ˆ’Ý™\ˆ^ÛÛÜˆŽˆ’Ý™\‹]^°é™È‹ˆ’[XYÙHŽˆš[‹ˆ’[XYÙHÜÚ][ÛˆŽˆš[ÜÚ][Ûˆ‹ˆ’[XYÙHÚ^™HŽˆš[ÝÜ›ZÈ‹ˆ“^[Ý]ÛÛ[[ˆŽˆ“^[Ý]ÛÛ[[ˆ‹ˆ“X]™H[\H›ÜˆÙXÝ[Ûˆ›ÛÝŽˆ“0é[˜HÛ]°íœˆÙZÝ[Û™[œÈ›Ý‹ˆ“\ÝŽˆ“\ÝH‹ˆ“ØY[Ü™HŽˆ“YH›\ˆ‹ˆ“ØØ[^˜][ÛˆŽˆ“ÚØ[\Ù\š[™È‹ˆ“X\È[X™YŽˆ’Ø\HÈ[˜°éš[™È‹ˆ“X\™Ú[ˆ›ÝÛHŽˆ“X\™Ú[˜[™Y[‹ˆ“X\™Ú[ˆYŽˆ“X\™Ú[˜[°éœÝ\ˆ‹ˆ“X\™Ú[ˆšYÚŽˆ“X\™Ú[˜[0í™Ù\ˆ‹ˆ“X\™Ú[ˆÜŽˆ“X\™Ú[˜[\[‹ˆ“X^ÚYŽˆ“X^œ™Y‹ˆ“Z[š[][HZYÚŽˆ“Z[š[ZZ0íš™‹ˆ“[Øš[HŽˆ“[Øš[‹ˆ“[Øš[HÝ™\œšY\ÈŽˆ“[Øš[0í™\œÚÜš]›š[™Ø\ˆ‹ˆ“[Øš[HÙXÝ[ÛˆŽˆ“[Øš[ÙZÝ[Ûˆ‹ˆ“›È˜]›Üš]\ÈY]ˆŽˆ’[™ØH˜]›Üš]\ˆ0é›Kˆ‹ˆ“Ü[ˆ[\]HŽˆ°åœ˜HX[‹ˆ“Ü[ÛˆKÜ[Ûˆ‹Ü[ÛˆÈŽˆ[\›˜]]ˆK[\›˜]]ˆ‹[\›˜]]ˆÈ‹ˆ“Ü[ÛœÈŽˆ[\›˜]]ˆ‹ˆ“Ü™Ø[š^™H™[]YÛÛ[[ˆXœËˆŽˆ“Ü™Ø[š\Ù\˜H™[]\˜][›™Z0é[H›ZØ\‹ˆ‹ˆ“Ý™\›^HÛÛÜˆŽˆ°å™\›0éÙÜÙ°é™È‹ˆ“Ý™\›^HÜXÚ]HŽˆ°å™\›0éÙÜÛÜXÚ]]‹ˆ”YÙHŽˆ”ÚYH‹ˆ”YÙH[™ÝXYÙHŽˆ”ÚYÜ°éZÈ‹ˆ”ÜÚ][ÛˆŽˆ”ÜÚ][Ûˆ‹ˆ”ÜÚ][ÛˆHŽˆ”ÜÚ][ÛˆH‹ˆ”™]šY]È]šXÙHŽˆ‘°íœš[™Ýš\Ûš[™ÜÙ[š]‹ˆ”™Y\™XÝT“Žˆ“ÛY\šYÙ\š[™ÜËUT“‹ˆ”™Yœ™\ÚXœ˜\žHŽˆ•\]\˜HšX›[ÝZÈ‹ˆ”™\]Z\™YŽˆ“Ø›YØ]Üš\ÚÝ‹ˆ”™]\ØX›HÛÛ\Û™[Žˆ°á]\˜[°é™˜\ˆÛÛ\Û™[‹ˆ”ÑSÈŽˆ”ÑSÈ‹ˆ”ÑSÈ\ØÜš\[ÛˆŽˆ”ÑSËX™\ÚÜš]›š[™È‹ˆ”ÑSÈ]HŽˆ”ÑSË]][‹ˆ”ÙXÝ[Ûˆ[XYÙHŽˆ”ÙZÝ[ÛœØš[‹ˆ”ÙXÝ[Ûˆ˜Y]\ÈŽˆ”ÙZÝ[ÛœÜ˜YYH‹ˆ”ÙXÝ[Ûˆ]HŽˆ”ÙZÝ[ÛœÝ][‹ˆ”ÚÝÈÝ\ÝÛY\ˆ\Ý[[ÛšX[È[ˆHÛY\‹ˆŽˆ•š\ØHÝ[™ÛY0í›Y[ˆH[ˆÛY\‹ˆ‹ˆ”ÚÝÈ[ˆ˜]šYØ][ÛˆŽˆ•š\ØHH˜]šYÙ\š[™È‹ˆ”ÚÝÈ][\H[XYÙ\ÈÙÙ]\‹ˆŽˆ•š\ØH›\˜Hš[\ˆ[Ø[[X[œËˆ‹ˆ”ÚÝÈ[X™\œÈ[™ÛÝ[\œËˆŽˆ•š\ØHÚY™œ›ÜˆØÚ°éÛ˜\™Kˆ‹ˆ”Ú]HŽˆ•ÙX˜œ]È‹ˆ”Ú^™H	ˆÜXÚ[™ÈŽˆ”ÝÜ›ZÈØÚ]œÝ0é[™‹ˆ”ÛYÈŽˆ”ÛYÈ‹ˆ”ÛØÚX[[XYÙHT“Žˆ•T“[ÛØÚX[š[‹ˆ”ÛÝ\˜ÙHT“Žˆ’ðéUT“‹ˆ”Ý]ÈŽˆ”Ý]\ÝZÈ‹ˆ”Ý[HŽˆ”Ý[‹ˆ”Ý\™˜XÙHŽˆ–]H‹ˆ•X›]Žˆ”Ý\™œ]H‹ˆ•X›]Ý™\œšY\ÈŽˆ”Ý\™œ]pí™\œÚÜš]›š[™Ø\ˆ‹ˆ•X›]ÙXÝ[ÛˆŽˆ”Ý\™œ]\ÙZÝ[Ûˆ‹ˆ•XœÈŽˆ‘›ZØ\ˆ‹ˆ•[\]\ÈŽˆ“X[\ˆ‹ˆ•[\]\È[ÝHÝÛ›ØYÚ[\X\ˆ\™KˆŽˆ“X[\ˆHY\ˆ™Yš\Ø\È0é‹ˆ‹ˆ•\Ý[[ÛšX[ÈÛY\ˆŽˆ“ÛY0í›Y\ÜÛY\ˆ‹ˆ•^[YÛˆŽˆ•^\Ý\š[™È‹ˆ•˜[œÛ][ÛˆÜ›Ý\Žˆ°å™\œðéš[™ÜÙÜ\‹ˆ•\ÙÜ˜\HŽˆ•\ÙÜ˜YšH‹ˆ•S‘Ô“ÕTŽˆU‘Ô•TTH‹ˆ•TŽˆ•T‹ˆ•T“Žˆ•T“‹ˆ•˜[Y][ÛˆŽˆ•˜[Y\š[™È‹ˆ•š\ÚXš[]HŽˆ”Þ[›YÚ]‹ˆ˜]]ÈŽˆ˜]]È‹ˆ˜›ÝÛHŽˆ›™Y[‹ˆ˜›ÞYŽˆ˜›ÞY‹ˆ˜Ù[\ˆŽˆ˜Ù[™\˜Y‹ˆ˜ÚXÚØ›ÞŽˆšÜž\ÜÜ]H‹ˆ˜ÛÛÜˆŽˆ™°é™È‹ˆ˜ÛÛZ[ˆŽˆ˜[œ\ÜØH‹ˆ˜ÛÝ™\ˆŽˆ0éÚÈ‹ˆ™\ÚYŽˆœÝ™XÚØY‹ˆ™ÝYŽˆœšXÚØY‹ˆ™[XZ[Žˆ™K\ÜÝ‹ˆ™[‹Ý‹\‹‹‹ˆŽˆ™[‹Ý‹\‹‹‹ˆ‹ˆ™[™ŽˆœÛ]‹ˆ™[Žˆ™[‹ˆ™Ü˜YY[Žˆ™Ü˜YY[‹ˆš[XYÙHŽˆ˜š[‹ˆ›YŽˆ°éœÝ\ˆ‹ˆYZ[ˆ˜]šYØ][Û‹Ý™\šY]ËX›\Ëš[\œÈ[™X[˜YÙ[Y[Ý]\ËˆŽˆYZ[›˜]šYÙ\š[™Ë0í™\œÚZÝX™[\‹š[\ˆØÚ[\š[™ÜÛ0éÙ[‹ˆ‹ˆ\XÚKL‹ŒÛÝ\˜ÙKˆ™\Ù\™HH\Ý™X[HXÙ[œÙH[™]šX][Ûˆ›ÝXÙ\ÈÚ[ˆÛÙH\È[\ÜYˆŽˆ\XÚKL‹ŒZðéKˆ™]˜\˜H\Ý™X[K[XÙ[œÙ[ˆØÚ]šXY\š[™ÜÛ›Ý\Ù\ˆšY[\Üˆ‹ˆ\˜]šYØ][Û‹Ý™\šY]ÈY]šXÜË\Ú›Ø\™ÛÛ[]HX›KÙš[\ˆ[™RKØXÝ[Ûˆ[™[ˆŽˆ\˜]šYÙ\š[™Ë0í™\œÚZÝÛpé]\Ú›Ø\™[›™Z0é[]]X™[Ùš[\ˆØÚRKKðé]ðé™Ü[™[ˆ‹ˆ\XØ][ÛˆÚ[Ú]˜]šYØ][Û‹Ý™\šY]ÈØ\™ËÙ]H[™™\ÜÛœÚ]™HÛÜšÜÜXÙHÝXÝ\™KˆŽˆ\ZØ][ÛœÜÚØ[YY˜]šYÙ\š[™Ë0í™\œÚZÝÚÛÜÙ]HØÚ™\ÜÛœÚ]ˆ\˜™]Þ]\ÝZÝ\‹ˆ‹ˆ\H™]šY]ÙY]ÚŽˆ•[0é\HÜ˜[œÚØY]Ú‹ˆ\ÜÚ\Ý[ÛÛ™\œØ][ÛˆÝ\™˜XÙHÚ]›Û\[œ][™Ý]\ËˆŽˆ\ÜÚ\Ý[[œÈÛÛ™\œØ][ÛœÞ]HYY›Û\[›X]š[™ÈØÚÝ]\Ëˆ‹ˆ]]Žˆ]][\Ù\š[™È‹ˆ]]Ú[Žˆ]][\Ù\š[™ÜÜÚØ[‹ˆ]]Ý\\ˆŽˆ]][\Ù\š[™ÜÜÝ\‹ˆ]][XØ][ÛˆØ\™Žˆ]][\Ù\š[™ÜÚÛÜ‹ˆ]][XØ][ÛˆÚ[ÙÚ[ˆ›Ü›KÙXÛÛ™\žH]]Ý]H[™Ý\Ü[™ÈÕKØÛÛ[ˆŽˆ]][\Ù\š[™ÜÜÚØ[[›ÙÙÛš[™ÜÙ›Ü›][0é‹ÙZÝ[™0é]][\Ù\š[™ÜÛ0éÙHØÚÝ0í™˜[™HÕKÚ[›™Z0é[ˆ‹ˆœ›ÝÜÙH™]\ØX›HRK[œÜXÝÛÙH[™\[™[˜ÚY\Ë[ˆ[™ÛÝ\˜ÙKX]Ø\™HY\][Ûˆ[œÝXÝ[ÛœÈÈRKˆÛ›H\›Ý™Y™Y\ÝšX]X›HÛÝ\˜Ù\È\™HØYYˆŽˆ›0é˜H›[™0é]\˜[°é™˜\˜HRKZÛÛ\Û™[\‹Ü˜[œÚØHÛÙØÚ™\›Ù[™[ˆØÚÚÚXÚØHÙY[ˆðéYY™]˜H[œ\ÜÛš[™ÜÚ[œÝZÝ[Û™\ˆ[RKˆ[™\ÝÛÙðé™HÛY\ÝšXY\˜˜\˜HðéÜˆY\Ëˆ‹ˆZ[HÛÛ\]HÛÛ™\œÚ[Û‹Y›ØÝ\ÙY[™[™ÈYÙH]™Y[È˜]]™HÈHXÝ]™H›Ú™XÝˆŽˆžYÙÈ[ˆÛÛ\]ÛÛ™\\š[™ÜÙ›ÚÝ\Ù\˜Y[™š[™ÜÜÚYHÛÛHðé›œÈ˜]\›YÈH]ZÝ]˜H›Ú™ZÝ]ˆ‹ˆZ[HÛÛ\]HÚYÛ‹Z[ˆ™X]\™H]™]\Ù\È^\Ý[™È]][XØ][ÛˆÙ\šXÙ\ÈÚ[ˆ™\Ù[[™™]™\ˆ[™[ÈH˜XÚÙ[™ˆŽˆžYÙÈ[ˆÛÛ\][›ÙÙÛš[™ÜÙ[šÝ[ÛˆÛÛH0é]\˜[°é™\ˆ™Yš[YØH]][\Ù\š[™ÜÝ°éœÝ\ˆ°éˆHš[›œÈØÚ[šYÈ]\ˆ0éH[ˆ˜XÚÙ[™ˆ‹ˆZ[HÛ\ÚYØXTÈX\šÙ][™ÈYÙHÚ]Ý›Û™ÈY\˜\˜ÚK›ÙXÝ›ÛÙˆ[™ÛX\ˆÛÛ™\œÚ[Ûˆ›ÝËˆŽˆžYÙÈ[ˆÛ\˜YØXTË[X\šÛ˜YÙ°íœš[™ÜÜÚYHYYYYÈY\˜\šÚK›ÙZÝ™]š\ÈØÚÛ\ÛÛ™\\š[™ÜÙ›0í™Kˆ‹ˆZ[HÛ\ÚY™\ÜÛœÚ]™H\Ú›Ø\™™X]\™H\Ú[™È^\Ý[™È›Ú™XÝ]H›Ý[™\šY\È[™Ý[HÚÙ[œËˆŽˆžYÙÈ[ˆÛ\˜Y™\ÜÛœÚ]ˆ\Ú›Ø\™[šÝ[ÛˆYY›Ú™ZÝ]È™Yš[YØH]YÜ°éœÙ\ˆØÚÝ[ÚÙ[œËˆ‹ˆZ[H›ÙXÝ[Û‹[Z[™YYZ[ˆ™X]\™HÚ]™\ÜÛœÚ]™H˜]šYØ][Û‹X[˜YÙ[Y[X›\ËÙ›Ü›\È[™›È[™[Yš]š[YÙY˜XÚÙ[™XÝ[ÛœËˆŽˆžYÙÈ[ˆ›ÙZÝ[ÛœÚ[œšZÝYYZ[™[šÝ[ÛˆYY™\ÜÛœÚ]ˆ˜]šYÙ\š[™Ë[\š[™ÜÝX™[\‹Ù›Ü›][0éˆØÚ][ˆ0éZ]YHš]š[YÚY\˜YH˜XÚÙ[™0é]ðé™\‹ˆ‹ˆ›Y\ÜØYÙHŽˆ›YY[[™H‹ˆœ™Y\™XÝŽˆ›ÛY\šYÙ\˜H‹ˆœšYÚŽˆš0í™Ù\ˆ‹ˆœ›ÝÈŽˆœ˜Y‹ˆœÙ[XÝŽˆ°éˆ‹ˆœÛÛYŽˆš[˜YÙ[ˆ‹ˆœÝXÚÈŽˆœÝ\[‹ˆœÝ\ŽˆœÝ\‹ˆœÝ™]ÚŽˆœÝ°éÚÈ‹ˆ[Žˆ[Y›Ûˆ‹ˆ^Žˆ^‹ˆ^\™XHŽˆ^Û\°éYH‹ˆ™YKXÛÛ[[ˆŽˆ™HÛÛ[[™\ˆ‹ˆÜŽˆ\[‹ˆÛËXÛÛ[[ˆŽˆ°éHÛÛ[[™\ˆ‹ŸNÂ˜ÛÛœÝX\Îˆ™XÛÜ™[™ÝXYÙK˜\ÙSX\ˆHÈ[ŽˆßK\‹ÝˆNÂ‚™^Ü[˜Ý[ÛˆØØ[^™UZJ^ˆÝš[™Ë[™ÝXYÙNˆ[™ÝXYÙJNˆÝš[™ÈÂˆYˆ
+[™ÝXYÙHOOH	Ù[‰ÊH™]\›ˆ^Âˆ™]\›ˆX\ÖÛ[™ÝXYÙWVÝ^HÏÈ^ÂŸB‚™^Ü[˜Ý[Ûˆ\ÙSØØ[^™\Š
+HÂˆÛÛœÝÈ™YœÈHH\ÙT™Y™\™[˜Ù\Ê
+NÂˆÛÛœÝ[™ÝXYÙHH™YœË›[™ÝXYÙNÂˆ™]\›ˆ\ÙPØ[˜XÚÊ
+^ˆÝš[™ÊHOˆØØ[^™UZJ^[™ÝXYÙJKÛ[™ÝXYÙWJNÂŸB

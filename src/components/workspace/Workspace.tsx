@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
 import {
   Bell, Menu, X, LogOut, ChevronDown, Globe, Sun, Moon,
-  Crown, Settings, CreditCard, Command, Activity, Shield, Sparkles,
+  Crown, Settings, CreditCard, Command, Activity, Shield, Sparkles, Search,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
@@ -96,6 +96,7 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
   const [tourActive, setTourActive] = useState(false);
   const [showWelcomeDash, setShowWelcomeDash] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [navQuery, setNavQuery] = useState('');
 
   useKeyboardShortcuts([
     { key: '/', ctrl: true, handler: () => setShortcutsOpen(o => !o), description: 'Toggle shortcuts help' },
@@ -140,17 +141,6 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
 
     window.addEventListener('hashchange', syncViewFromHash);
     return () => window.removeEventListener('hashchange', syncViewFromHash);
-  }, []);
-
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setPaletteOpen(true);
-      }
-    }
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
   function navigate(view: ViewId, projectId?: string) {
@@ -265,6 +255,17 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
     },
     { label: t('nav.accountSection'), items: translatedNavItems.filter(i => i.group === 'account') },
   ];
+  const normalizedNavQuery = navQuery.trim().toLocaleLowerCase(prefs.language);
+  const visibleGroups = normalizedNavQuery
+    ? groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          `${item.label} ${item.badge || ''}`.toLocaleLowerCase(prefs.language).includes(normalizedNavQuery),
+        ),
+      }))
+      .filter((group) => group.items.length > 0)
+    : groups;
 
   if (activeView === 'cv-builder') {
     return <ResumeBuilder onBack={() => navigate('my-workspace')} />;
@@ -290,9 +291,33 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
           </button>
         </div>
 
+        <div className={`border-b px-3 py-3 ${darkMode ? 'border-violet-400/10' : 'border-gray-200'}`}>
+          <label className="relative block">
+            <span className="sr-only">{l('Search tools...')}</span>
+            <Search className={`pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} aria-hidden="true" />
+            <input
+              type="search"
+              value={navQuery}
+              onChange={(event) => setNavQuery(event.target.value)}
+              placeholder={l('Search tools...')}
+              className={`h-10 w-full rounded-xl border bg-transparent ps-9 pe-9 text-sm outline-none transition-colors ${darkMode ? 'border-white/10 text-white placeholder:text-gray-600 focus:border-violet-400/50 focus:bg-white/[0.04]' : 'border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-violet-400 focus:bg-gray-50'}`}
+            />
+            {navQuery && (
+              <button
+                type="button"
+                onClick={() => setNavQuery('')}
+                className={`absolute end-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg ${darkMode ? 'text-gray-500 hover:bg-white/5 hover:text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-900'}`}
+                aria-label={l('Clear search')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </label>
+        </div>
+
         <nav className="flex-1 min-h-0 px-3 py-4 space-y-4 overflow-y-auto overscroll-contain" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-          {groups.map((group, gi) => (
-            <div key={gi}>
+          {visibleGroups.map((group) => (
+            <div key={group.label || 'main'}>
               {group.label && <div className={`text-xs font-semibold uppercase tracking-wider px-3 mb-2 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>{group.label}</div>}
               <div className="space-y-0.5">
                 {group.items.map(item => {
@@ -314,6 +339,12 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
               </div>
             </div>
           ))}
+          {visibleGroups.length === 0 && (
+            <div className="px-3 py-10 text-center" role="status">
+              <Search className={`mx-auto mb-3 h-7 w-7 ${darkMode ? 'text-gray-700' : 'text-gray-300'}`} aria-hidden="true" />
+              <p className="text-sm text-gray-500">{l('No tools found')}</p>
+            </div>
+          )}
         </nav>
 
         {!isAdmin && <div className="px-3 pb-3">

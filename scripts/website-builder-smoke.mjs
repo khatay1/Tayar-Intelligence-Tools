@@ -354,6 +354,16 @@ check('Page settings are collapsed by default', builder.includes('pageSettingsOp
 check('Site settings are collapsed by default', builder.includes('advancedSiteSettingsOpen') && builder.includes("Site settings"));
 check('Element palette uses progressive disclosure', builder.includes("Add element") && builder.includes("Sections & elements") && builder.includes("<details"));
 check('Builder sidebar uses focused Add/Pages/Layers modes', builder.includes("builderPanel") && builder.includes("setBuilderPanel") && builder.includes("['add', l('Add')]") && builder.includes("['pages', l('Pages')]") && builder.includes("['layers', l('Layers')]"));
+check('Builder page and layer actions use accessible icons instead of raw abbreviations',
+  builderPagesPanel.includes('ArrowUp') &&
+  builderPagesPanel.includes('aria-label={l(\'Move page up\')}') &&
+  !/\{l\(\'(?:UP|DN|COPY|DEL|HOME)\'\)\}/.test(builderPagesPanel) &&
+  builderLayersPanel.includes('Ungroup') &&
+  builderLayersPanel.includes('aria-label={l(\'Ungroup container\')}') &&
+  !/>\s*(?:UP|DN|COPY|DEL)\s*</.test(builderLayersPanel));
+check('Builder direct action icons have consistent desktop targets',
+  websiteBuilderV2Css.includes('min-width: 30px') &&
+  websiteBuilderV2Css.includes('.tayar-v2-direct-actions button svg'));
 check('Inspector exposes quick style before advanced controls', builder.includes("Quick style") && builder.includes("Advanced design & responsive"));
 check('Selected elements expose direct canvas actions', builder.includes("renderSelectedElementToolbar") && builder.includes("onDuplicateSelectedElement") && builder.includes("onDeleteSelectedElement"));
 check('Selected sections expose direct canvas actions', builder.includes("canMoveSectionUp") && builder.includes("onMoveSection") && builder.includes("onDeleteSection"));
