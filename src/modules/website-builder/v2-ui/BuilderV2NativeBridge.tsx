@@ -51,6 +51,9 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
   onDetachSymbol?(): void;
   onInsertSymbol?(symbolId: string): void;
   onDeleteSymbol?(symbolId: string): void;
+  onRenameSymbol?(symbolId: string, name: string): void;
+  onDuplicateSymbol?(symbolId: string): void;
+  onSelectSymbolInstance?(symbolId: string): void;
 
   mediaAssets?: EditorMediaAsset[];
 
@@ -700,6 +703,20 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
     );
   }
 
+  const activeSymbolId = project.pages
+    .find((page) => page.id === selection.pageId)
+    ?.sections.find((section) => section.id === selection.sectionId)
+    ?.elements.find((element) => element.id === selection.elementId)
+    ?.symbolId as string | undefined;
+  const symbolInstanceCounts = project.pages.reduce<Record<string, number>>((counts, page) => {
+    page.sections.forEach((section) => section.elements.forEach((element) => {
+      if (typeof element.symbolId === 'string' && element.symbolId) {
+        counts[element.symbolId] = (counts[element.symbolId] || 0) + 1;
+      }
+    }));
+    return counts;
+  }, {});
+
   const renderLeftPanel = BuilderPanelRouter({
         shell,
         aiPanel: props.aiPanel,
@@ -732,6 +749,11 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
         onDetachSymbol: props.onDetachSymbol,
         onInsertSymbol: props.onInsertSymbol,
         onDeleteSymbol: props.onDeleteSymbol,
+        onRenameSymbol: props.onRenameSymbol,
+        onDuplicateSymbol: props.onDuplicateSymbol,
+        onSelectSymbolInstance: props.onSelectSymbolInstance,
+        activeSymbolId,
+        symbolInstanceCounts,
 
         insertQuery,
         insertCategory,

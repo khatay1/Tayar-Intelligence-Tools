@@ -2,6 +2,7 @@ export const CANVAS_GRID_SIZE = 8;
 export const CANVAS_POSITION_LIMIT = 4000;
 export const CANVAS_ALIGNMENT_THRESHOLD = 6;
 export const CANVAS_RESIZE_SNAP_STEP = 5;
+export const CANVAS_MIN_VISIBLE_SIZE = 24;
 
 export interface CanvasBounds {
   left: number;
@@ -24,6 +25,32 @@ export interface CanvasAlignmentTargets {
 
 function clampCanvasCoordinate(value: number): number {
   return Math.max(-CANVAS_POSITION_LIMIT, Math.min(CANVAS_POSITION_LIMIT, value));
+}
+
+function containCanvasPosition({
+  position,
+  startPosition,
+  elementStart,
+  elementSize,
+  sectionStart,
+  sectionSize,
+}: {
+  position: number;
+  startPosition: number;
+  elementStart: number;
+  elementSize: number;
+  sectionStart: number;
+  sectionSize: number;
+}): number {
+  const minimumVisible = Math.min(CANVAS_MIN_VISIBLE_SIZE, Math.max(1, elementSize));
+  const minimumElementStart = sectionStart - elementSize + minimumVisible;
+  const maximumElementStart = sectionStart + sectionSize - minimumVisible;
+  const proposedElementStart = elementStart + (position - startPosition);
+  const containedElementStart = Math.max(
+    minimumElementStart,
+    Math.min(maximumElementStart, proposedElementStart),
+  );
+  return position + (containedElementStart - proposedElementStart);
 }
 
 export function resolveCanvasResize({
@@ -83,6 +110,7 @@ export function resolveCanvasDragPosition({
   elementBounds,
   sectionBounds,
   alignmentTargets,
+  containToSection = true,
 }: {
   startX: number;
   startY: number;
@@ -92,6 +120,7 @@ export function resolveCanvasDragPosition({
   elementBounds?: CanvasBounds;
   sectionBounds?: CanvasBounds;
   alignmentTargets?: CanvasAlignmentTargets;
+  containToSection?: boolean;
 }): { x: number; y: number; guides: CanvasSnapGuides } {
   let resolvedDeltaX = deltaX;
   let resolvedDeltaY = deltaY;
@@ -125,8 +154,27 @@ export function resolveCanvasDragPosition({
     }
   }
 
-  const rawX = clampCanvasCoordinate(Math.round(startX + resolvedDeltaX));
-  const rawY = clampCanvasCoordinate(Math.round(startY + resolvedDeltaY));
+  let rawX = clampCanvasCoordinate(Math.round(startX + resolvedDeltaX));
+  let rawY = clampCanvasCoordinate(Math.round(startY + resolvedDeltaY));
+
+  if (containToSection && elementBounds && sectionBounds) {
+    rawX = clampCanvasCoordinate(Math.round(containCanvasPosition({
+      position: rawX,
+      startPosition: startX,
+      elementStart: elementBounds.left,
+      elementSize: elementBounds.width,
+      sectionStart: sectionBounds.left,
+      sectionSize: sectionBounds.width,
+    })));
+    rawY = clampCanvasCoordinate(Math.round(containCanvasPosition({
+      position: rawY,
+      startPosition: startY,
+      elementStart: elementBounds.top,
+      elementSize: elementBounds.height,
+      sectionStart: sectionBounds.top,
+      sectionSize: sectionBounds.height,
+    })));
+  }
 
   if (precisionMode) return { x: rawX, y: rawY, guides };
 

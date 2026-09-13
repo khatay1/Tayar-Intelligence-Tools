@@ -66,6 +66,11 @@ export interface BuilderPanelRouterProps {
   onDetachSymbol?(): void;
   onInsertSymbol?(symbolId: string): void;
   onDeleteSymbol?(symbolId: string): void;
+  onRenameSymbol?(symbolId: string, name: string): void;
+  onDuplicateSymbol?(symbolId: string): void;
+  onSelectSymbolInstance?(symbolId: string): void;
+  activeSymbolId?: string;
+  symbolInstanceCounts?: Record<string, number>;
 
   insertQuery?: string;
   insertCategory?: EditorInsertCategory;
@@ -237,6 +242,11 @@ export function BuilderPanelRouter(
           onDetach={props.onDetachSymbol}
           onInsert={props.onInsertSymbol}
           onDelete={props.onDeleteSymbol}
+          onRename={props.onRenameSymbol}
+          onDuplicate={props.onDuplicateSymbol}
+          onSelectInstance={props.onSelectSymbolInstance}
+          activeSymbolId={props.activeSymbolId}
+          instanceCounts={props.symbolInstanceCounts}
         />
       );
     }

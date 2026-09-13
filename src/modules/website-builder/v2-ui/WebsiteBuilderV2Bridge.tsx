@@ -77,6 +77,9 @@ export interface WebsiteBuilderV2BridgeProps {
   onDetachSymbol?(): void;
   onInsertSymbol?(symbolId: string): void;
   onDeleteSymbol?(symbolId: string): void;
+  onRenameSymbol?(symbolId: string, name: string): void;
+  onDuplicateSymbol?(symbolId: string): void;
+  onSelectSymbolInstance?(symbolId: string): void;
 
   pages: EditorPageLike[];
   homePageId?: string;
@@ -235,6 +238,9 @@ canvas,
   onDetachSymbol,
   onInsertSymbol,
   onDeleteSymbol,
+  onRenameSymbol,
+  onDuplicateSymbol,
+  onSelectSymbolInstance,
 
   pages,
   homePageId,
@@ -878,6 +884,15 @@ canvas,
 
       onDeleteSymbol={
         onDeleteSymbol
+      }
+      onRenameSymbol={
+        onRenameSymbol
+      }
+      onDuplicateSymbol={
+        onDuplicateSymbol
+      }
+      onSelectSymbolInstance={
+        onSelectSymbolInstance
       }
 
       mediaAssets={
