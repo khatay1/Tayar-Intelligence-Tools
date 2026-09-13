@@ -2,7 +2,9 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const workspace = read('src/components/workspace/Workspace.tsx');
+const commandBar = read('src/components/workspace/CommandBar.tsx');
 const commandPalette = read('src/components/workspace/CommandPalette.tsx');
+const keyboardShortcuts = read('src/lib/use-keyboard-shortcuts.ts');
 const workspaceConfig = read('src/components/workspace/workspace-config.ts');
 const aiUsage = read('src/components/workspace/AIUsageAnalytics.impl.tsx');
 const toolUsage = read('src/lib/tool-usage.ts');
@@ -52,8 +54,15 @@ const checks = [
   ['Command palette searches localized navigation tools and AI commands', commandPalette.includes('matchesLocalizedText') && commandPalette.includes('matchedCommands') && commandPalette.includes('englishToolMatches')],
   ['Command palette preserves tool results when project search fails', commandPalette.includes('projectSearchError') && commandPalette.includes("l('Projects could not be loaded. Tool results are still available.')")],
   ['Command palette keeps keyboard selection visible', commandPalette.includes("scrollIntoView({ block: 'nearest' })")],
+  ['Desktop header popovers are mutually exclusive and expose ARIA state', workspace.includes('aria-controls="workspace-language-menu"') && workspace.includes('aria-controls="workspace-notifications-panel"') && workspace.includes('aria-controls="workspace-account-menu"') && workspace.includes('setNotifOpen(false); setProfileOpen(false)')],
+  ['Desktop overlays close consistently with Escape', workspace.includes("if (event.key !== 'Escape') return") && workspace.includes('setShortcutsOpen(false)') && workspace.includes('setSidebarOpen(false)')],
+  ['Keyboard shortcut help is a focus-contained accessible dialog', workspace.includes('aria-labelledby="workspace-shortcuts-title"') && workspace.includes('handleShortcutsKeyDown') && workspace.includes('shortcutsReturnFocusRef.current?.focus()')],
+  ['Advertised G navigation shortcuts are implemented', workspace.includes("sequence: ['g', 'd']") && workspace.includes("sequence: ['g', 'f']") && workspace.includes("sequence: ['g', 'c']") && keyboardShortcuts.includes('exactMatch.handler()')],
+  ['Desktop command bar searches and renders localized AI commands', commandBar.includes("from '@/lib/ui-localization-workspace'") && commandBar.includes('localizedText.includes(normalizedQuery)') && commandBar.includes('{l(cmd.label)}') && commandBar.includes('{l(cmd.description)}')],
+  ['Desktop command bar exposes combobox and listbox semantics', commandBar.includes('role="combobox"') && commandBar.includes('role="listbox"') && commandBar.includes('role="option"') && commandBar.includes('aria-activedescendant')],
+  ['Command palette traps and restores keyboard focus', commandPalette.includes("if (e.key === 'Tab')") && commandPalette.includes('previousFocusRef.current?.focus()') && commandPalette.includes('ref={dialogRef}')],
   ['Admin upgrade prompt is hidden in sidebar', workspace.includes('!isAdmin && <div className="px-3 pb-3">')],
-  ['Admin panel link is only rendered for admins', workspace.includes('{isAdmin && <a href="#admin"')],
+  ['Admin panel link is only rendered for admins', workspace.includes('{isAdmin && <a role="menuitem" href="#admin"')],
   ['Admin upgrade recommendations are hidden', dashboard.includes("!isAdmin || rec.action !== 'subscription'")],
   ['Admin workspace upgrade card is hidden', myWorkspace.includes('{!isAdmin && <div className="relative mt-4')],
   ['Settings identifies admin Business access', settings.includes("isAdmin ? l('Admin · Business access')")],

@@ -103,6 +103,9 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
     { key: 'b', ctrl: true, handler: () => setSidebarOpen(o => !o), description: 'Toggle sidebar' },
     { key: ',', ctrl: true, handler: () => navigate('settings'), description: 'Open settings' },
     { key: 'k', ctrl: true, handler: () => setPaletteOpen(o => !o), description: 'Command palette' },
+    { sequence: ['g', 'd'], handler: () => navigate('dashboard'), description: 'Go to Dashboard' },
+    { sequence: ['g', 'f'], handler: () => navigate('my-files'), description: 'Go to Files' },
+    { sequence: ['g', 'c'], handler: () => navigate('cv-builder'), description: 'Go to CV Builder' },
   ]);
 
   const darkMode = prefs.theme === 'dark';
@@ -110,6 +113,8 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
   const langRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const shortcutsCloseRef = useRef<HTMLButtonElement>(null);
+  const shortcutsReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
   const initials = displayName.charAt(0).toUpperCase();
@@ -124,6 +129,33 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      if (langOpen || notifOpen || profileOpen || shortcutsOpen || sidebarOpen) {
+        event.preventDefault();
+        setLangOpen(false);
+        setNotifOpen(false);
+        setProfileOpen(false);
+        setShortcutsOpen(false);
+        setSidebarOpen(false);
+      }
+    }
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [langOpen, notifOpen, profileOpen, shortcutsOpen, sidebarOpen]);
+
+  useEffect(() => {
+    if (!shortcutsOpen) return undefined;
+    shortcutsReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusTimer = window.setTimeout(() => shortcutsCloseRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(focusTimer);
+      shortcutsReturnFocusRef.current?.focus();
+      shortcutsReturnFocusRef.current = null;
+    };
+  }, [shortcutsOpen]);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -148,9 +180,28 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
     if (projectId) setActiveProjectId(projectId);
     else if (view !== 'my-projects') setActiveProjectId(null);
     setSidebarOpen(false);
+    setLangOpen(false);
+    setNotifOpen(false);
+    setProfileOpen(false);
     const nextHash = `#workspace/${view}`;
     if (window.location.hash !== nextHash) window.location.hash = nextHash;
     trackPageView(`/workspace/${view}`);
+  }
+
+  function handleShortcutsKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])'))
+      .filter((element) => !element.hasAttribute('disabled'));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   if (!onboardingLoading && needsOnboarding) {
@@ -383,28 +434,28 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
             <div className="hidden min-w-0 flex-1 sm:block"><CommandBar darkMode={darkMode} onNavigate={navigate} /></div>
 
             <div className="ml-auto flex min-w-0 items-center gap-0.5 sm:gap-2 flex-shrink-0">
-              <button onClick={() => setPaletteOpen(true)} className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Command palette')} title={l('Command palette (Ctrl+K)')}><Command className="w-5 h-5" /></button>
+              <button onClick={() => { setPaletteOpen(true); setLangOpen(false); setNotifOpen(false); setProfileOpen(false); }} className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Command palette')} title={l('Command palette (Ctrl+K)')}><Command className="w-5 h-5" /></button>
               <button onClick={() => setTheme(darkMode ? 'light' : 'dark')} className={`hidden sm:flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Toggle theme')}>{darkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}</button>
               <div className="relative" ref={langRef}>
-                <button onClick={() => setLangOpen(!langOpen)} className={`flex h-11 items-center gap-1.5 text-sm px-2 sm:px-2.5 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Change language')}><Globe className="w-4 h-4" /><span className="hidden md:inline">{LANGUAGES.find(lang => lang.code === prefs.language)?.label || 'English'}</span><ChevronDown className="hidden sm:block w-3.5 h-3.5" /></button>
-                {langOpen && <div className={`absolute top-full right-0 mt-2 ${darkMode ? 'bg-[#12122a]' : 'bg-white'} border ${darkMode ? 'border-white/10' : 'border-gray-200'} rounded-xl p-1.5 w-40 max-w-[calc(100vw-1rem)] shadow-2xl shadow-black/50 z-50`}>{LANGUAGES.map(lang => <button key={lang.code} onClick={() => { setLanguage(lang.code); setLangOpen(false); }} className={`min-h-11 w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${prefs.language === lang.code ? 'bg-violet-600/20 text-violet-300' : darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}>{lang.label}</button>)}</div>}
+                <button onClick={() => { setLangOpen(open => !open); setNotifOpen(false); setProfileOpen(false); }} className={`flex h-11 items-center gap-1.5 text-sm px-2 sm:px-2.5 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Change language')} aria-expanded={langOpen} aria-controls="workspace-language-menu" aria-haspopup="menu"><Globe className="w-4 h-4" /><span className="hidden md:inline">{LANGUAGES.find(lang => lang.code === prefs.language)?.label || 'English'}</span><ChevronDown className={`hidden h-3.5 w-3.5 transition-transform sm:block ${langOpen ? 'rotate-180' : ''}`} /></button>
+                {langOpen && <div id="workspace-language-menu" role="menu" aria-label={l('Change language')} className={`absolute top-full right-0 mt-2 ${darkMode ? 'bg-[#12122a]' : 'bg-white'} border ${darkMode ? 'border-white/10' : 'border-gray-200'} rounded-xl p-1.5 w-40 max-w-[calc(100vw-1rem)] shadow-2xl shadow-black/50 z-50`}>{LANGUAGES.map(lang => <button role="menuitemradio" aria-checked={prefs.language === lang.code} key={lang.code} onClick={() => { setLanguage(lang.code); setLangOpen(false); }} className={`min-h-11 w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${prefs.language === lang.code ? 'bg-violet-600/20 text-violet-300' : darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}>{lang.label}</button>)}</div>}
               </div>
               <div className="relative" ref={notifRef}>
-                <button onClick={() => setNotifOpen(!notifOpen)} className={`relative flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Notifications')}><Bell className="w-5 h-5" /></button>
-                {notifOpen && <div className={`absolute top-full right-0 mt-2 max-w-[calc(100vw-1rem)] ${darkMode ? 'bg-[#12122a]' : 'bg-white'} border ${darkMode ? 'border-white/10' : 'border-gray-200'} rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden`}><NotificationCenter darkMode={darkMode} /></div>}
+                <button onClick={() => { setNotifOpen(open => !open); setLangOpen(false); setProfileOpen(false); }} className={`relative flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} aria-label={l('Notifications')} aria-expanded={notifOpen} aria-controls="workspace-notifications-panel" aria-haspopup="dialog"><Bell className="w-5 h-5" /></button>
+                {notifOpen && <div id="workspace-notifications-panel" role="dialog" aria-label={l('Notifications')} className={`absolute top-full right-0 mt-2 max-w-[calc(100vw-1rem)] ${darkMode ? 'bg-[#12122a]' : 'bg-white'} border ${darkMode ? 'border-white/10' : 'border-gray-200'} rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden`}><NotificationCenter darkMode={darkMode} /></div>}
               </div>
               <div className="relative" ref={profileRef}>
-                <button onClick={() => setProfileOpen(!profileOpen)} className="flex h-11 items-center gap-1 sm:gap-2 px-1 sm:pr-2 rounded-xl hover:bg-white/5 transition-colors" aria-label={l('Account menu')}><div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-xs font-bold">{initials}</div><ChevronDown className={`hidden sm:block w-3.5 h-3.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} /></button>
+                <button onClick={() => { setProfileOpen(open => !open); setLangOpen(false); setNotifOpen(false); }} className="flex h-11 items-center gap-1 sm:gap-2 px-1 sm:pr-2 rounded-xl hover:bg-white/5 transition-colors" aria-label={l('Account menu')} aria-expanded={profileOpen} aria-controls="workspace-account-menu" aria-haspopup="menu"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-xs font-bold">{initials}</div><ChevronDown className={`hidden h-3.5 w-3.5 transition-transform sm:block ${profileOpen ? 'rotate-180' : ''} ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} /></button>
                 {profileOpen && (
-                  <div className={`absolute top-full right-0 mt-2 ${darkMode ? 'bg-[#12122a]' : 'bg-white'} border ${darkMode ? 'border-white/10' : 'border-gray-200'} rounded-xl w-56 max-w-[calc(100vw-1rem)] shadow-2xl shadow-black/50 z-50 overflow-hidden`}>
+                  <div id="workspace-account-menu" role="menu" aria-label={l('Account menu')} className={`absolute top-full right-0 mt-2 ${darkMode ? 'bg-[#12122a]' : 'bg-white'} border ${darkMode ? 'border-white/10' : 'border-gray-200'} rounded-xl w-56 max-w-[calc(100vw-1rem)] shadow-2xl shadow-black/50 z-50 overflow-hidden`}>
                     <div className={`px-4 py-3 border-b ${darkMode ? 'border-white/5' : 'border-gray-100'}`}><div className={`text-sm font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{displayName}</div><div className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user?.email}</div></div>
                     <div className="p-1.5">
-                      <button onClick={() => { navigate('settings'); setProfileOpen(false); }} className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Settings className="w-4 h-4" /> {l('Settings')}</button>
-                      <button onClick={() => { navigate('subscription'); setProfileOpen(false); }} className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><CreditCard className="w-4 h-4" /> {l('Subscription')}</button>
-                      <button onClick={() => { navigate('activity-timeline'); setProfileOpen(false); }} className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Activity className="w-4 h-4" /> {l('Recent Activity')}</button>
-                      <button onClick={() => { setProfileOpen(false); setTourActive(true); }} className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Sparkles className="w-4 h-4" /> {l('Replay Tour')}</button>
-                      {isAdmin && <a href="#admin" className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Shield className="w-4 h-4" /> {l('Admin Panel')}</a>}
-                      <button onClick={signOut} className="min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><LogOut className="w-4 h-4" /> {l('Sign out')}</button>
+                      <button role="menuitem" onClick={() => { navigate('settings'); setProfileOpen(false); }} className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Settings className="w-4 h-4" /> {l('Settings')}</button>
+                      <button role="menuitem" onClick={() => { navigate('subscription'); setProfileOpen(false); }} className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><CreditCard className="w-4 h-4" /> {l('Subscription')}</button>
+                      <button role="menuitem" onClick={() => { navigate('activity-timeline'); setProfileOpen(false); }} className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><Activity className="w-4 h-4" /> {l('Recent Activity')}</button>
+                      <button role="menuitem" onClick={() => { setProfileOpen(false); setTourActive(true); }} className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Sparkles className="w-4 h-4" /> {l('Replay Tour')}</button>
+                      {isAdmin && <a role="menuitem" href="#admin" className={`min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'text-violet-300 hover:bg-violet-500/10' : 'text-violet-600 hover:bg-violet-50'}`}><Shield className="w-4 h-4" /> {l('Admin Panel')}</a>}
+                      <button role="menuitem" onClick={signOut} className="min-h-11 w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><LogOut className="w-4 h-4" /> {l('Sign out')}</button>
                     </div>
                   </div>
                 )}
@@ -452,10 +503,10 @@ function WorkspaceInner({ onExitToLanding }: WorkspaceProps) {
 
       {shortcutsOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4" onClick={() => setShortcutsOpen(false)}>
-          <div className="relative w-full max-w-md max-h-[85dvh] overflow-y-auto bg-[#12122a] border border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl p-4 sm:p-6" onClick={e => e.stopPropagation()} style={{ animation: 'scaleIn 0.2s ease-out', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-            <div className="flex items-center justify-between gap-3 mb-4"><h2 className="min-w-0 truncate text-white font-bold text-lg">{l('Keyboard Shortcuts')}</h2><button onClick={() => setShortcutsOpen(false)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-white/5 transition-colors"><X className="w-5 h-5" /></button></div>
+          <div role="dialog" aria-modal="true" aria-labelledby="workspace-shortcuts-title" onKeyDown={handleShortcutsKeyDown} className="relative w-full max-w-md max-h-[85dvh] overflow-y-auto bg-[#12122a] border border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl p-4 sm:p-6" onClick={e => e.stopPropagation()} style={{ animation: 'scaleIn 0.2s ease-out', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+            <div className="flex items-center justify-between gap-3 mb-4"><h2 id="workspace-shortcuts-title" className="min-w-0 truncate text-white font-bold text-lg">{l('Keyboard Shortcuts')}</h2><button ref={shortcutsCloseRef} onClick={() => setShortcutsOpen(false)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-white/5 transition-colors" aria-label={l('Close')}><X className="w-5 h-5" /></button></div>
             <div className="space-y-2">
-              {SHORTCUT_HINTS.map((hint, i) => <div key={i} className="flex min-w-0 items-center justify-between gap-3 py-1.5"><span className="min-w-0 break-words text-gray-400 text-sm">{hint.description}</span><kbd className="shrink-0 text-xs font-mono px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300">{hint.key}</kbd></div>)}
+              {SHORTCUT_HINTS.map((hint) => <div key={hint.key} className="flex min-w-0 items-center justify-between gap-3 py-1.5"><span className="min-w-0 break-words text-gray-400 text-sm">{l(hint.description)}</span><kbd className="shrink-0 text-xs font-mono px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300">{hint.key}</kbd></div>)}
             </div>
           </div>
         </div>

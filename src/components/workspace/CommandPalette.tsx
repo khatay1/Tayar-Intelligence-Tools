@@ -48,16 +48,21 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
   const [loading, setLoading] = useState(false);
   const [projectSearchError, setProjectSearchError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const requestSequenceRef = useRef(0);
 
   useEffect(() => {
     if (open) {
+      previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       const previousOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 100);
       return () => {
         window.clearTimeout(focusTimer);
         document.body.style.overflow = previousOverflow;
+        previousFocusRef.current?.focus();
+        previousFocusRef.current = null;
       };
     }
     requestSequenceRef.current += 1;
@@ -173,6 +178,21 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
+      if (e.key === 'Tab') {
+        const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('input, button, [href], [tabindex]:not([tabindex="-1"])') || [])
+          .filter((element) => !element.hasAttribute('disabled'));
+        if (focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
       if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(i => Math.min(i + 1, results.length - 1)); }
       if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex(i => Math.max(i - 1, 0)); }
       if (e.key === 'Enter' && results[selectedIndex]) {
@@ -193,7 +213,7 @@ export default function CommandPalette({ open, onClose, onNavigate, darkMode: _d
 
   return (
     <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-start sm:px-4 sm:pt-[12vh]" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={l('Command palette')} className="flex max-h-[calc(100dvh-1rem)] w-full max-w-xl min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a1a]/95 shadow-2xl shadow-black/50 backdrop-blur-2xl sm:max-h-[76dvh]" onClick={e => e.stopPropagation()} style={{ animation: 'fadeInUp 0.2s ease-out' }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={l('Command palette')} className="flex max-h-[calc(100dvh-1rem)] w-full max-w-xl min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a1a]/95 shadow-2xl shadow-black/50 backdrop-blur-2xl sm:max-h-[76dvh]" onClick={e => e.stopPropagation()} style={{ animation: 'fadeInUp 0.2s ease-out' }}>
         <div className="flex min-w-0 items-center gap-2.5 border-b border-white/5 px-3 py-3.5 sm:gap-3 sm:px-4">
           <Command className="h-5 w-5 shrink-0 text-violet-400" />
           <input ref={inputRef} role="combobox" aria-expanded="true" aria-controls="command-palette-results" aria-activedescendant={results[selectedIndex] ? `command-option-${results[selectedIndex].id}` : undefined} value={query} onChange={e => setQuery(e.target.value)} placeholder={l('Type a command or search...')} className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-gray-600 focus:outline-none" />

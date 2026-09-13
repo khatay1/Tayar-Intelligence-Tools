@@ -1,7 +1,7 @@
-import { useLocalizer } from '@/lib/ui-localization';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocalizer } from '@/lib/ui-localization-workspace';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Sparkles, ArrowRight, Search } from 'lucide-react';
-import { matchCommand, AICommand } from '@/lib/ai-commands';
+import { AI_COMMANDS, matchCommand, AICommand } from '@/lib/ai-commands';
 import { ViewId } from './workspace-config';
 
 interface CommandBarProps {
@@ -16,9 +16,22 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const matches = matchCommand(query);
+  const matches = useMemo(() => {
+    const normalizedQuery = query.toLocaleLowerCase().trim();
+    if (!normalizedQuery) return [];
+    const matched = new Map(matchCommand(query).map((command) => [command.id, command]));
+    for (const command of AI_COMMANDS) {
+      const localizedText = `${l(command.label)} ${l(command.description)}`.toLocaleLowerCase();
+      if (localizedText.includes(normalizedQuery)) matched.set(command.id, command);
+    }
+    return [...matched.values()].slice(0, 5);
+  }, [l, query]);
 
   useEffect(() => { setSelectedIndex(0); }, [query]);
+  useEffect(() => {
+    if (!focused || !matches[selectedIndex]) return;
+    document.getElementById(`command-bar-option-${matches[selectedIndex].id}`)?.scrollIntoView({ block: 'nearest' });
+  }, [focused, matches, selectedIndex]);
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setFocused(false);
@@ -51,6 +64,11 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
           onChange={e => setQuery(e.target.value)}
           onFocus={() => setFocused(true)}
           onKeyDown={handleKey}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={focused && query.length > 0}
+          aria-controls="command-bar-results"
+          aria-activedescendant={focused && matches[selectedIndex] ? `command-bar-option-${matches[selectedIndex].id}` : undefined}
           placeholder={l("Ask AI to do anything... e.g. 'Create a CV', 'Analyze this PDF', 'Translate text'")}
           className={`min-w-0 flex-1 bg-transparent text-sm placeholder:text-gray-500 focus:outline-none ${darkMode ? 'text-white' : 'text-gray-900'}`}
         />
@@ -63,12 +81,15 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
             <Search className={`h-3 w-3 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
             <span className={`text-xs font-medium ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{l('AI Commands')}</span>
           </div>
-          <div className="max-h-[min(20rem,48dvh)] overflow-y-auto overflow-x-hidden overscroll-contain p-1.5">
+          <div id="command-bar-results" role="listbox" aria-label={l('AI Commands')} className="max-h-[min(20rem,48dvh)] overflow-y-auto overflow-x-hidden overscroll-contain p-1.5">
             {matches.map((cmd, i) => {
               const Icon = cmd.icon;
               const active = i === selectedIndex;
               return (
                 <button
+                  id={`command-bar-option-${cmd.id}`}
+                  role="option"
+                  aria-selected={active}
                   key={cmd.id}
                   onClick={() => executeCommand(cmd)}
                   onMouseEnter={() => setSelectedIndex(i)}
@@ -76,8 +97,8 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
                 >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10"><Icon className="h-4 w-4 text-violet-400" /></div>
                   <div className="min-w-0 flex-1">
-                    <div className={`truncate text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{cmd.label}</div>
-                    <div className="line-clamp-2 text-xs leading-5 text-gray-500">{cmd.description}</div>
+                    <div className={`truncate text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{l(cmd.label)}</div>
+                    <div className="line-clamp-2 text-xs leading-5 text-gray-500">{l(cmd.description)}</div>
                   </div>
                   <ArrowRight className={`h-4 w-4 shrink-0 transition-opacity ${active ? 'text-violet-400 opacity-100' : 'opacity-0 sm:opacity-0'}`} />
                 </button>
@@ -89,7 +110,7 @@ export default function CommandBar({ darkMode, onNavigate }: CommandBarProps) {
 
       {focused && query && matches.length === 0 && (
         <div className={`absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border p-4 shadow-2xl shadow-black/50 ${darkMode ? 'bg-[#12122a] border-white/10' : 'bg-white border-gray-200'}`} style={{ animation: 'fadeInUp 0.15s ease-out' }}>
-          <p className="break-words text-center text-sm text-gray-500">{l('No matching AI command. Try Create a CV or Translate text.')}</p>
+          <p className="break-words text-center text-sm text-gray-500" role="status">{l('No matching AI command. Try Create a CV or Translate text.')}</p>
         </div>
       )}
     </div>

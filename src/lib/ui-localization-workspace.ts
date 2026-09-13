@@ -32,6 +32,14 @@ export const arWorkspaceSupplement: PhraseMap = {
   'Summarize My Document': 'تلخيص مستندي',
   'Get a concise summary of any document': 'احصل على ملخص موجز لأي مستند',
   'Projects could not be loaded. Tool results are still available.': 'تعذر تحميل المشاريع، لكن نتائج الأدوات ما زالت متاحة.',
+  'Open command palette': 'فتح لوحة الأوامر',
+  'Show keyboard shortcuts': 'عرض اختصارات لوحة المفاتيح',
+  'Toggle sidebar': 'إظهار أو إخفاء الشريط الجانبي',
+  'Open settings': 'فتح الإعدادات',
+  'Close dialogs / blur input': 'إغلاق النوافذ أو إلغاء تركيز حقل الإدخال',
+  'Go to Dashboard': 'الانتقال إلى لوحة المعلومات',
+  'Go to Files': 'الانتقال إلى الملفات',
+  'Go to CV Builder': 'الانتقال إلى منشئ السيرة الذاتية',
 };
 
 export const svWorkspaceSupplement: PhraseMap = {
@@ -61,6 +69,14 @@ export const svWorkspaceSupplement: PhraseMap = {
   'Summarize My Document': 'Sammanfatta mitt dokument',
   'Get a concise summary of any document': 'Få en kort sammanfattning av valfritt dokument',
   'Projects could not be loaded. Tool results are still available.': 'Projekt kunde inte läsas in. Verktygsresultaten är fortfarande tillgängliga.',
+  'Open command palette': 'Öppna kommandopaletten',
+  'Show keyboard shortcuts': 'Visa kortkommandon',
+  'Toggle sidebar': 'Visa eller dölj sidofältet',
+  'Open settings': 'Öppna inställningar',
+  'Close dialogs / blur input': 'Stäng dialoger eller lämna inmatningsfältet',
+  'Go to Dashboard': 'Gå till instrumentpanelen',
+  'Go to Files': 'Gå till filer',
+  'Go to CV Builder': 'Gå till CV-byggaren',
 };
 
 const workspaceMaps: Record<Language, PhraseMap> = {
