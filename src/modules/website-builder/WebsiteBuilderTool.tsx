@@ -557,6 +557,18 @@ interface WebsitePage {
   noIndex?: boolean;
 }
 
+interface WebsiteClipboardContext {
+  projectId: string | null;
+  ownerId: string | null;
+  loadSequence: number;
+}
+
+type WebsiteClipboard = WebsiteClipboardContext & (
+  | { kind: 'element'; element: WebsiteElement }
+  | { kind: 'elements'; elements: WebsiteElement[] }
+  | { kind: 'section'; section: WebsiteSection }
+);
+
 function aiWebsitePatchReviewItemIsGlobal(operation: AIWebsitePatchReviewItem): boolean {
   return !operation.pageId && !operation.pageSlug && !operation.sectionId && !operation.elementId && !operation.containerId;
 }
@@ -1694,7 +1706,7 @@ function sectionElementsToHtml(section: WebsiteSection, homeSlug: string, exclud
   return `<div class="${containerClass}" ${containerAttrs}>${items.join('\n')}</div>`;
 }
 
-function cloneSectionWithFreshIds(source: WebsiteSection): WebsiteSection {
+function cloneSectionWithFreshIds(source: WebsiteSection, siblingSections: WebsiteSection[] = []): WebsiteSection {
   const cloned = JSON.parse(JSON.stringify(source)) as WebsiteSection;
   const containerIdMap = new Map<string, string>();
   const containers = (cloned.containers || []).map((container) => {
@@ -1702,9 +1714,18 @@ function cloneSectionWithFreshIds(source: WebsiteSection): WebsiteSection {
     containerIdMap.set(container.id, id);
     return { ...container, id };
   });
+  const sourceAnchor = cloned.anchorId?.trim() || '';
+  const usedAnchors = new Set(siblingSections.map((section) => section.anchorId?.trim().toLocaleLowerCase()).filter(Boolean));
+  let anchorId = sourceAnchor;
+  let anchorSuffix = 1;
+  while (anchorId && usedAnchors.has(anchorId.toLocaleLowerCase())) {
+    anchorId = `${sourceAnchor}-copy${anchorSuffix === 1 ? '' : `-${anchorSuffix}`}`;
+    anchorSuffix += 1;
+  }
   return {
     ...cloned,
     id: `${cloned.type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    anchorId: anchorId || undefined,
     containers,
     elements: (cloned.elements || []).map((element) => ({
       ...element,
@@ -2903,7 +2924,7 @@ function ElementPreview({
   dragging: boolean;
   dragOver: boolean;
   device: Device;
-  onSelect: () => void;
+  onSelect: (additive?: boolean) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragMove: (e: React.DragEvent) => void;
   onPointerDragStart: (e: React.PointerEvent<HTMLElement>) => void;
@@ -2996,23 +3017,27 @@ function ElementPreview({
       onDragMove(e);
     },
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
-      if (editingInline || e.button !== 0 || e.shiftKey) return;
+      if (editingInline || e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey) return;
       const interactiveTarget = (e.target as HTMLElement).closest<HTMLElement>('button, input, textarea, select, a, [contenteditable="true"]');
       if (interactiveTarget && interactiveTarget !== e.currentTarget) return;
       e.preventDefault();
       e.stopPropagation();
-      onSelect();
+      if (!selected) onSelect(false);
       onPointerDragStart(e);
     },
     onDragOver: (e: React.DragEvent) => { e.stopPropagation(); onDragOver(e); },
     onDrop: (e: React.DragEvent) => { e.stopPropagation(); onDrop(e); },
     onDragEnd: (e: React.DragEvent) => { e.stopPropagation(); onDragEnd(); },
-    onClick: (e: React.MouseEvent) => { e.stopPropagation(); onSelect(); },
+    onClick: (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+      if (additive || !selected) onSelect(additive);
+    },
     onDoubleClick: (e: React.MouseEvent) => {
       if (element.type === 'image' || element.type === 'video' || element.type === 'embed') {
         e.preventDefault();
         e.stopPropagation();
-        onSelect();
+        onSelect(false);
         const sourceLabel = element.type === 'image' ? 'Image URL' : element.type === 'video' ? 'Video URL' : 'Embed URL';
         const nextSource = window.prompt(sourceLabel, element.src || '')?.trim();
         if (nextSource && nextSource !== element.src) onInlineSourceChange(nextSource);
@@ -3021,7 +3046,7 @@ function ElementPreview({
       if (!inlineEditable) return;
       e.preventDefault();
       e.stopPropagation();
-      onSelect();
+      onSelect(false);
       setEditingInline(true);
     },
     onMouseEnter: () => setHovered(true),
@@ -3106,6 +3131,7 @@ function SectionPreview({
   section,
   selected,
   selectedElementId,
+  selectedElementIds,
   onSelect,
   onSelectElement,
   draggedElementId,
@@ -3142,8 +3168,9 @@ function SectionPreview({
   section: WebsiteSection;
   selected: boolean;
   selectedElementId: string | null;
+  selectedElementIds: string[];
   onSelect: () => void;
-  onSelectElement: (id: string) => void;
+  onSelectElement: (id: string, additive?: boolean) => void;
   draggedElementId: string | null;
   dragOverElementId: string | null;
   dragOverElementPosition: 'before' | 'after' | null;
@@ -3545,11 +3572,11 @@ function SectionPreview({
                           {renderSelectedElementResizeHandle(element)}
                           <ElementPreview
                             element={element}
-                            selected={selectedElementId === element.id}
+                            selected={selectedElementIds.includes(element.id)}
                             dragging={draggedElementId === element.id}
                             dragOver={dragOverElementId === element.id && draggedElementId !== element.id}
                             device={device}
-                            onSelect={() => onSelectElement(element.id)}
+                            onSelect={(additive) => onSelectElement(element.id, additive)}
                             onDragStart={(e) => onElementDragStart(element.id, e)}
                             onDragMove={(e) => onElementDragMove(element.id, e)}
                             onPointerDragStart={(e) => onElementPointerDragStart(element.id, e)}
@@ -3600,11 +3627,11 @@ function SectionPreview({
                 {renderSelectedElementResizeHandle(element)}
                 <ElementPreview
                   element={element}
-                  selected={selectedElementId === element.id}
+                  selected={selectedElementIds.includes(element.id)}
                   dragging={draggedElementId === element.id}
                   dragOver={dragOverElementId === element.id && draggedElementId !== element.id}
                   device={device}
-                  onSelect={() => onSelectElement(element.id)}
+                  onSelect={(additive) => onSelectElement(element.id, additive)}
                   onDragStart={(e) => onElementDragStart(element.id, e)}
                   onDragMove={(e) => onElementDragMove(element.id, e)}
                   onPointerDragStart={(e) => onElementPointerDragStart(element.id, e)}
@@ -3674,15 +3701,15 @@ function SectionPreview({
             {contactSubmitStyle?.hidden ? (
               <button
                 type="button"
-                onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id); }}
-                className={`rounded-lg border border-dashed border-amber-400/60 px-4 py-3 text-xs font-semibold text-amber-300 ${selectedElementId === contactSubmitElement?.id ? 'ring-2 ring-violet-400' : ''}`}
+                onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id, event.shiftKey || event.metaKey || event.ctrlKey); }}
+                className={`rounded-lg border border-dashed border-amber-400/60 px-4 py-3 text-xs font-semibold text-amber-300 ${contactSubmitElement && selectedElementIds.includes(contactSubmitElement.id) ? 'ring-2 ring-violet-400' : ''}`}
               >
                 Submit button hidden on {device}
               </button>
             ) : (
               <button
                 type="button"
-                onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id); }}
+                onClick={(event) => { event.stopPropagation(); if (contactSubmitElement) onSelectElement(contactSubmitElement.id, event.shiftKey || event.metaKey || event.ctrlKey); }}
                 onDoubleClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -3692,7 +3719,7 @@ function SectionPreview({
                   if (nextText && nextText !== contactSubmitElement.content) onInlineContentChange(contactSubmitElement.id, nextText);
                 }}
                 title={l('Double-click to edit button text')}
-                className={`font-semibold opacity-90 transition ${selectedElementId === contactSubmitElement?.id ? 'ring-2 ring-violet-400 ring-offset-2 ring-offset-transparent' : 'hover:ring-1 hover:ring-violet-400/40'}`}
+                className={`font-semibold opacity-90 transition ${contactSubmitElement && selectedElementIds.includes(contactSubmitElement.id) ? 'ring-2 ring-violet-400 ring-offset-2 ring-offset-transparent' : 'hover:ring-1 hover:ring-violet-400/40'}`}
                 style={{
                   color: contactSubmitStyle?.color || '#ffffff',
                   background: contactSubmitStyle?.backgroundColor || section.accent,
@@ -3749,6 +3776,8 @@ const [brand, setBrand] = useState<WebsiteBrand>(defaultBrand);
 const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [selectedId, setSelectedId] = useState<string | null>(defaultSections[0].id);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(defaultSections[0].elements[0]?.id ?? null);
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>(defaultSections[0].elements[0]?.id ? [defaultSections[0].elements[0].id] : []);
+  const [editorClipboard, setEditorClipboard] = useState<WebsiteClipboard | null>(null);
   const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
   const [selectedFormFieldId, setSelectedFormFieldId] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>('desktop');
@@ -3814,6 +3843,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     startY: number;
     currentX: number;
     currentY: number;
+    groupTargets: Array<{
+      id: string;
+      symbolId?: string;
+      startX: number;
+      startY: number;
+      currentX: number;
+      currentY: number;
+    }>;
     elementBounds?: CanvasBounds;
     sectionBounds?: CanvasBounds;
     alignmentTargets?: CanvasAlignmentTargets;
@@ -4098,6 +4135,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   ) => {
     setSelectedId(sectionId);
     setSelectedElementId(elementId);
+    setSelectedElementIds(elementId ? [elementId] : []);
     setSelectedContainerId(elementId ? null : containerId);
     setSelectedFormFieldId(elementId || containerId ? null : formFieldId);
   }, []);
@@ -4607,7 +4645,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function insertReusableSection(template: ReusableSectionTemplate) {
     remember(sections);
-    const section = cloneSectionWithFreshIds(template.section);
+    const section = cloneSectionWithFreshIds(template.section, sections);
     setSections((current) => [...current, section]);
     setSelectedId(section.id);
     setSelectedElementId(section.elements[0]?.id ?? null);
@@ -5280,17 +5318,56 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     [selectedSection, selectedElementId]
   );
 
-  const canvasKeyboardSelectionRef = useRef(Boolean(selectedSection && selectedElement));
-  canvasKeyboardSelectionRef.current = Boolean(selectedSection && selectedElement);
+  const selectedElements = useMemo(
+    () => selectedSection?.elements.filter((element) => selectedElementIds.includes(element.id)) ?? [],
+    [selectedSection, selectedElementIds],
+  );
+
+  function selectCanvasElement(sectionId: string, elementId: string, additive = false) {
+    if (!additive || selectedId !== sectionId) {
+      selectEditorTarget(sectionId, elementId);
+      return;
+    }
+
+    const exists = selectedElementIds.includes(elementId);
+    const next = exists
+      ? selectedElementIds.filter((id) => id !== elementId)
+      : [...selectedElementIds, elementId];
+    setSelectedId(sectionId);
+    setSelectedElementIds(next);
+    setSelectedElementId(exists && selectedElementId === elementId ? next[next.length - 1] ?? null : elementId);
+    setSelectedContainerId(null);
+    setSelectedFormFieldId(null);
+  }
+
+  useEffect(() => {
+    setSelectedElementIds((current) => {
+      const valid = selectedElementId
+        ? current.includes(selectedElementId) ? current : [selectedElementId]
+        : [];
+      return valid.length === current.length && valid.every((id, index) => id === current[index]) ? current : valid;
+    });
+  }, [selectedId, selectedElementId]);
+
+  const canvasKeyboardSelectionRef = useRef(Boolean(selectedSection));
+  canvasKeyboardSelectionRef.current = Boolean(selectedSection);
+  const canvasKeyboardBusyRef = useRef(false);
+  canvasKeyboardBusyRef.current = Boolean(cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy);
   const canvasKeyboardActionsRef = useRef({
-    duplicate: duplicateSelectedElement,
-    remove: deleteSelectedElement,
+    copy: copySelectedTarget,
+    cut: cutSelectedTarget,
+    paste: pasteCopiedTarget,
+    duplicate: duplicateSelectedTarget,
+    remove: deleteSelectedTarget,
     nudge: nudgeSelectedElement,
     endNudge: () => { canvasNudgeSessionRef.current = null; },
   });
   canvasKeyboardActionsRef.current = {
-    duplicate: duplicateSelectedElement,
-    remove: deleteSelectedElement,
+    copy: copySelectedTarget,
+    cut: cutSelectedTarget,
+    paste: pasteCopiedTarget,
+    duplicate: duplicateSelectedTarget,
+    remove: deleteSelectedTarget,
     nudge: nudgeSelectedElement,
     endNudge: () => { canvasNudgeSessionRef.current = null; },
   };
@@ -5300,6 +5377,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!canvasKeyboardSelectionRef.current) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (target && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'c') {
+        event.preventDefault();
+        canvasKeyboardActionsRef.current.copy();
+        return;
+      }
+
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'x') {
+        event.preventDefault();
+        if (!canvasKeyboardBusyRef.current) canvasKeyboardActionsRef.current.cut();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'v') {
+        event.preventDefault();
+        if (!canvasKeyboardBusyRef.current) canvasKeyboardActionsRef.current.paste();
+        return;
+      }
+
+      if (canvasKeyboardBusyRef.current) return;
 
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'd') {
         event.preventDefault();
@@ -5832,6 +5930,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const elementValid = selectedElementId
       ? scopedSection.elements.some((element) => element.id === selectedElementId)
       : false;
+    setSelectedElementIds((current) => {
+      const valid = current.filter((elementId) => scopedSection.elements.some((element) => element.id === elementId));
+      return valid.length === current.length ? current : valid;
+    });
     const containerValid = selectedContainerId
       ? (scopedSection.containers || []).some((container) => container.id === selectedContainerId)
       : false;
@@ -6248,7 +6350,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     let slug = base;
     let suffix = 2;
     while (used.has(slug)) slug = `${base}-${suffix++}`;
-    const clonedSections = activePage.sections.map(cloneSectionWithFreshIds);
+    const clonedSections = activePage.sections.map((section) => cloneSectionWithFreshIds(section));
     const page: WebsitePage = {
       ...activePage,
       id: `page-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -6292,7 +6394,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     let slug = base;
     let suffix = 2;
     while (used.has(slug)) slug = `${base}-${suffix++}`;
-    const clonedSections = activePage.sections.map(cloneSectionWithFreshIds);
+    const clonedSections = activePage.sections.map((section) => cloneSectionWithFreshIds(section));
     const page: WebsitePage = {
       ...activePage,
       id: `page-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -6789,49 +6891,157 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function nudgeSelectedElement(deltaX: number, deltaY: number) {
     if (!selectedSection || !selectedElement) return;
-    const currentStyle = effectiveStyle(selectedElement, device);
-    const currentX = clampElementNumber(currentStyle.positionX, 0, -4000, 4000);
-    const currentY = clampElementNumber(currentStyle.positionY, 0, -4000, 4000);
-    const nextX = Math.max(-4000, Math.min(4000, currentX + deltaX));
-    const nextY = Math.max(-4000, Math.min(4000, currentY + deltaY));
-    if (nextX === currentX && nextY === currentY) return;
+    const targets = selectedElements.length > 1 ? selectedElements : [selectedElement];
+    const directIds = new Set(targets.filter((element) => !element.symbolId).map((element) => element.id));
+    const symbolIds = new Set(targets.flatMap((element) => element.symbolId ? [element.symbolId] : []));
+    const canMove = targets.some((element) => {
+      const style = effectiveStyle(element, device);
+      const currentX = clampElementNumber(style.positionX, 0, -4000, 4000);
+      const currentY = clampElementNumber(style.positionY, 0, -4000, 4000);
+      return Math.max(-4000, Math.min(4000, currentX + deltaX)) !== currentX ||
+        Math.max(-4000, Math.min(4000, currentY + deltaY)) !== currentY;
+    });
+    if (!canMove) return;
 
-    const nudgeSessionKey = `${activePageId}:${selectedSection.id}:${selectedElement.id}:${device}`;
+    const selectionKey = targets.map((element) => element.id).sort().join(',');
+    const nudgeSessionKey = `${activePageId}:${selectedSection.id}:${selectionKey}:${device}`;
     if (canvasNudgeSessionRef.current !== nudgeSessionKey) {
-      remember(sections, 'Move element');
+      remember(sections, targets.length > 1 ? 'Move selected elements' : 'Move element');
       canvasNudgeSessionRef.current = nudgeSessionKey;
     }
-    const symbolId = selectedElement.symbolId;
     const moveElement = (element: WebsiteElement): WebsiteElement => ({
       ...element,
       responsive: {
         ...element.responsive,
         [device]: {
           ...(element.responsive?.[device] || {}),
-          positionX: nextX,
-          positionY: nextY,
+          positionX: Math.max(-4000, Math.min(4000, clampElementNumber(effectiveStyle(element, device).positionX, 0, -4000, 4000) + deltaX)),
+          positionY: Math.max(-4000, Math.min(4000, clampElementNumber(effectiveStyle(element, device).positionY, 0, -4000, 4000) + deltaY)),
         },
       },
     });
     const moveSection = (section: WebsiteSection): WebsiteSection => ({
       ...section,
       elements: section.elements.map((element) => {
-        const matches = symbolId ? element.symbolId === symbolId : element.id === selectedElement.id;
+        const matches = directIds.has(element.id) || Boolean(element.symbolId && symbolIds.has(element.symbolId));
         return matches ? moveElement(element) : element;
       }),
     });
 
-    setSections((current) => current.map((section) => section.id === selectedSection.id || symbolId ? moveSection(section) : section));
-    if (symbolId) {
+    setSections((current) => current.map(moveSection));
+    if (symbolIds.size) {
       setPages((current) => current.map((page) => page.id === activePageId ? page : {
         ...page,
         sections: page.sections.map(moveSection),
       }));
-      setSymbols((current) => current.map((symbol) => symbol.id === symbolId ? {
+      setSymbols((current) => current.map((symbol) => symbolIds.has(symbol.id) ? {
         ...symbol,
         element: moveElement(symbol.element),
         updatedAt: new Date().toISOString(),
       } : symbol));
+    }
+    setSaved(false);
+  }
+
+  function arrangeSelectedElements(action: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distribute-horizontal' | 'distribute-vertical') {
+    if (!selectedSection || selectedElements.length < 2) return;
+    if ((action === 'distribute-horizontal' || action === 'distribute-vertical') && selectedElements.length < 3) return;
+
+    const sectionHost = document.getElementById(sectionDomId(selectedSection));
+    if (!sectionHost) return;
+    const selectedIds = new Set(selectedElements.map((element) => element.id));
+    const measured = Array.from(sectionHost.querySelectorAll<HTMLElement>('[data-tayar-canvas-element-id]'))
+      .filter((node) => selectedIds.has(node.dataset.tayarCanvasElementId || ''))
+      .map((node) => ({ id: node.dataset.tayarCanvasElementId || '', rect: node.getBoundingClientRect() }));
+    if (measured.length !== selectedElements.length) return;
+
+    const zoomHost = sectionHost.closest<HTMLElement>('[data-zoom]');
+    const canvasScale = Math.min(1.5, Math.max(0.5, Number(zoomHost?.dataset.zoom || 100) / 100));
+    const elementById = new Map(selectedElements.map((element) => [element.id, element]));
+    const positions = new Map<string, { x?: number; y?: number }>();
+    const setPositionDelta = (id: string, deltaX?: number, deltaY?: number) => {
+      const element = elementById.get(id);
+      if (!element) return;
+      const style = effectiveStyle(element, device);
+      const currentX = clampElementNumber(style.positionX, 0, -4000, 4000);
+      const currentY = clampElementNumber(style.positionY, 0, -4000, 4000);
+      positions.set(id, {
+        ...(deltaX === undefined ? {} : { x: Math.max(-4000, Math.min(4000, Math.round(currentX + (deltaX / canvasScale)))) }),
+        ...(deltaY === undefined ? {} : { y: Math.max(-4000, Math.min(4000, Math.round(currentY + (deltaY / canvasScale)))) }),
+      });
+    };
+
+    const left = Math.min(...measured.map(({ rect }) => rect.left));
+    const right = Math.max(...measured.map(({ rect }) => rect.right));
+    const top = Math.min(...measured.map(({ rect }) => rect.top));
+    const bottom = Math.max(...measured.map(({ rect }) => rect.bottom));
+    if (action === 'left') measured.forEach(({ id, rect }) => setPositionDelta(id, left - rect.left));
+    if (action === 'center') measured.forEach(({ id, rect }) => setPositionDelta(id, ((left + right) / 2) - (rect.left + (rect.width / 2))));
+    if (action === 'right') measured.forEach(({ id, rect }) => setPositionDelta(id, right - rect.right));
+    if (action === 'top') measured.forEach(({ id, rect }) => setPositionDelta(id, undefined, top - rect.top));
+    if (action === 'middle') measured.forEach(({ id, rect }) => setPositionDelta(id, undefined, ((top + bottom) / 2) - (rect.top + (rect.height / 2))));
+    if (action === 'bottom') measured.forEach(({ id, rect }) => setPositionDelta(id, undefined, bottom - rect.bottom));
+    if (action === 'distribute-horizontal') {
+      const ordered = [...measured].sort((a, b) => a.rect.left - b.rect.left);
+      const totalWidth = ordered.reduce((sum, item) => sum + item.rect.width, 0);
+      const gap = (right - left - totalWidth) / (ordered.length - 1);
+      let cursor = left;
+      ordered.forEach(({ id, rect }) => {
+        setPositionDelta(id, cursor - rect.left);
+        cursor += rect.width + gap;
+      });
+    }
+    if (action === 'distribute-vertical') {
+      const ordered = [...measured].sort((a, b) => a.rect.top - b.rect.top);
+      const totalHeight = ordered.reduce((sum, item) => sum + item.rect.height, 0);
+      const gap = (bottom - top - totalHeight) / (ordered.length - 1);
+      let cursor = top;
+      ordered.forEach(({ id, rect }) => {
+        setPositionDelta(id, undefined, cursor - rect.top);
+        cursor += rect.height + gap;
+      });
+    }
+    if (!positions.size) return;
+
+    const symbolPositions = new Map<string, { x?: number; y?: number }>();
+    selectedElements.forEach((element) => {
+      const position = positions.get(element.id);
+      if (position && element.symbolId && !symbolPositions.has(element.symbolId)) symbolPositions.set(element.symbolId, position);
+    });
+    const updatePosition = (element: WebsiteElement, position: { x?: number; y?: number }): WebsiteElement => ({
+      ...element,
+      responsive: {
+        ...element.responsive,
+        [device]: {
+          ...(element.responsive?.[device] || {}),
+          ...(position.x === undefined ? {} : { positionX: position.x }),
+          ...(position.y === undefined ? {} : { positionY: position.y }),
+        },
+      },
+    });
+    const arrangeSection = (section: WebsiteSection, linkedOnly = false): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const position = element.symbolId ? symbolPositions.get(element.symbolId) : linkedOnly ? undefined : positions.get(element.id);
+        return position ? updatePosition(element, position) : element;
+      }),
+    });
+
+    remember(sections, action.startsWith('distribute') ? 'Distribute selected elements' : 'Align selected elements');
+    setSections((current) => current.map((section) => arrangeSection(section)));
+    if (symbolPositions.size) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : {
+        ...page,
+        sections: page.sections.map((section) => arrangeSection(section, true)),
+      }));
+      setSymbols((current) => current.map((symbol) => {
+        const position = symbolPositions.get(symbol.id);
+        return position ? {
+          ...symbol,
+          element: updatePosition(symbol.element, position),
+          updatedAt: new Date().toISOString(),
+        } : symbol;
+      }));
     }
     setSaved(false);
   }
@@ -6961,9 +7171,189 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
+  function cloneElementForInsertion(source: WebsiteElement, targetSection: WebsiteSection): WebsiteElement {
+    const copied = JSON.parse(JSON.stringify(source)) as WebsiteElement;
+    const targetHasContainer = Boolean(
+      copied.containerId && targetSection.containers?.some((container) => container.id === copied.containerId),
+    );
+    const targetHasSymbol = Boolean(copied.symbolId && symbols.some((symbol) => symbol.id === copied.symbolId));
+    const offsetPosition = (style: WebsiteElement['style']): WebsiteElement['style'] => ({
+      ...style,
+      ...(typeof style.positionX === 'number' ? { positionX: clampElementNumber(style.positionX + 16, 0, -4000, 4000) } : {}),
+      ...(typeof style.positionY === 'number' ? { positionY: clampElementNumber(style.positionY + 16, 0, -4000, 4000) } : {}),
+    });
+    const responsive = copied.responsive
+      ? JSON.parse(JSON.stringify(copied.responsive)) as NonNullable<WebsiteElement['responsive']>
+      : undefined;
+    if (responsive?.[device]) responsive[device] = offsetPosition(responsive[device] || {});
+
+    return {
+      ...copied,
+      id: `${copied.type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      style: offsetPosition(copied.style),
+      responsive,
+      containerId: targetHasContainer ? copied.containerId : undefined,
+      symbolId: targetHasSymbol ? copied.symbolId : undefined,
+    };
+  }
+
+  function duplicateSelectedTarget() {
+    if (selectedSection && selectedElements.length > 1) {
+      const duplicates = selectedElements.map((element) => cloneElementForInsertion(element, selectedSection));
+      const selectedIds = new Set(selectedElements.map((element) => element.id));
+      const insertAt = selectedSection.elements.reduce(
+        (last, element, index) => selectedIds.has(element.id) ? index + 1 : last,
+        selectedSection.elements.length,
+      );
+      remember(sections, 'Duplicate selected elements');
+      setSections((current) => current.map((section) => {
+        if (section.id !== selectedSection.id) return section;
+        const elements = [...section.elements];
+        elements.splice(insertAt, 0, ...duplicates);
+        return { ...section, elements };
+      }));
+      setSelectedElementIds(duplicates.map((element) => element.id));
+      setSelectedElementId(duplicates[duplicates.length - 1]?.id ?? null);
+      setSaved(false);
+      return;
+    }
+    if (selectedElement) {
+      duplicateSelectedElement();
+      return;
+    }
+    if (selectedSection) v2DuplicateSectionDirect(selectedSection.id);
+  }
+
+  function deleteSelectedTarget() {
+    if (selectedSection && selectedElements.length > 1) {
+      const selectedIds = new Set(selectedElements.map((element) => element.id));
+      const remaining = selectedSection.elements.filter((element) => !selectedIds.has(element.id));
+      remember(sections, 'Delete selected elements');
+      setSections((current) => current.map((section) =>
+        section.id === selectedSection.id ? { ...section, elements: remaining } : section
+      ));
+      selectEditorTarget(selectedSection.id, remaining[0]?.id ?? null);
+      setSaved(false);
+      return;
+    }
+    if (selectedElement) {
+      deleteSelectedElement();
+      return;
+    }
+    if (selectedSection) deleteSection(selectedSection.id);
+  }
+
+  function clipboardContext(): WebsiteClipboardContext {
+    return {
+      projectId: cloudProjectId,
+      ownerId: activeProjectOwnerId,
+      loadSequence: projectLoadSequenceRef.current,
+    };
+  }
+
+  function copySelectedTarget() {
+    if (selectedElements.length > 1) {
+      setEditorClipboard({
+        ...clipboardContext(),
+        kind: 'elements',
+        elements: JSON.parse(JSON.stringify(selectedElements)) as WebsiteElement[],
+      });
+      return;
+    }
+    if (selectedElement) {
+      setEditorClipboard({
+        ...clipboardContext(),
+        kind: 'element',
+        element: JSON.parse(JSON.stringify(selectedElement)) as WebsiteElement,
+      });
+      return;
+    }
+    if (!selectedSection) return;
+    setEditorClipboard({
+      ...clipboardContext(),
+      kind: 'section',
+      section: JSON.parse(JSON.stringify(selectedSection)) as WebsiteSection,
+    });
+  }
+
+  function canPasteCopiedTarget() {
+    if (!editorClipboard || !selectedSection) return false;
+    return editorClipboard.projectId === cloudProjectId &&
+      editorClipboard.ownerId === activeProjectOwnerId &&
+      editorClipboard.loadSequence === projectLoadSequenceRef.current;
+  }
+
+  function cutSelectedTarget() {
+    if (!selectedSection) return;
+    if (!selectedElement && sections.length <= 1) return;
+    copySelectedTarget();
+
+    if (selectedElements.length) {
+      const selectedIds = new Set(selectedElements.map((element) => element.id));
+      const remaining = selectedSection.elements.filter((element) => !selectedIds.has(element.id));
+      remember(sections, selectedElements.length > 1 ? 'Cut selected elements' : 'Cut element');
+      setSections((current) => current.map((section) =>
+        section.id === selectedSection.id ? { ...section, elements: remaining } : section
+      ));
+      selectEditorTarget(selectedSection.id, remaining[0]?.id ?? null);
+      setSaved(false);
+      return;
+    }
+
+    const sectionIndex = sections.findIndex((section) => section.id === selectedSection.id);
+    if (sectionIndex < 0) return;
+    const remaining = sections.filter((section) => section.id !== selectedSection.id);
+    const fallback = remaining[Math.min(sectionIndex, remaining.length - 1)] || remaining[0];
+    remember(sections, 'Cut section');
+    setSections(remaining);
+    selectEditorTarget(fallback?.id ?? null, null);
+    setSaved(false);
+  }
+
+  function pasteCopiedTarget() {
+    if (!canPasteCopiedTarget() || !editorClipboard || !selectedSection) return;
+
+    if (editorClipboard.kind === 'section') {
+      const pastedSection = cloneSectionWithFreshIds(editorClipboard.section, sections);
+      const selectedIndex = sections.findIndex((section) => section.id === selectedSection.id);
+      remember(sections, 'Paste section');
+      setSections((current) => {
+        const next = [...current];
+        next.splice(selectedIndex >= 0 ? selectedIndex + 1 : next.length, 0, pastedSection);
+        return next;
+      });
+      selectEditorTarget(pastedSection.id, pastedSection.elements[0]?.id ?? null);
+      setSaved(false);
+      return;
+    }
+
+    const sourceElements = editorClipboard.kind === 'elements'
+      ? editorClipboard.elements
+      : [editorClipboard.element];
+    const pasted = sourceElements.map((element) => cloneElementForInsertion(element, selectedSection));
+    remember(sections, pasted.length > 1 ? 'Paste selected elements' : 'Paste element');
+    setSections((current) => current.map((section) => {
+      if (section.id !== selectedSection.id) return section;
+      const elements = [...section.elements];
+      const selectedIndex = selectedElementId
+        ? elements.findIndex((element) => element.id === selectedElementId)
+        : -1;
+      elements.splice(selectedIndex >= 0 ? selectedIndex + 1 : elements.length, 0, ...pasted);
+      return { ...section, elements };
+    }));
+    setSelectedId(selectedSection.id);
+    setSelectedElementIds(pasted.map((element) => element.id));
+    setSelectedElementId(pasted[pasted.length - 1]?.id ?? null);
+    setSelectedContainerId(null);
+    setSelectedFormFieldId(null);
+    setSaved(false);
+  }
+
   function createContainerForSelected() {
     if (!selectedSection || !selectedElement) return;
-    remember(sections);
+    const targets = selectedElements.length > 1 ? selectedElements : [selectedElement];
+    const targetIds = new Set(targets.map((element) => element.id));
+    remember(sections, targets.length > 1 ? 'Group selected elements' : 'Create element container');
     const id = `container-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const name = `Container ${(selectedSection.containers?.length || 0) + 1}`;
     const container: WebsiteElementContainer = {
@@ -6984,8 +7374,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSections((current) => current.map((section) => section.id === selectedSection.id ? {
       ...section,
       containers: [...(section.containers || []), container],
-      elements: section.elements.map((element) => element.id === selectedElement.id ? { ...element, containerId: id } : element),
+      elements: section.elements.map((element) => targetIds.has(element.id) ? { ...element, containerId: id } : element),
     } : section));
+    setSelectedContainerId(id);
     setSaved(false);
   }
 
@@ -7273,18 +7664,36 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const sourceSection = sections.find((section) => section.id === sectionId);
     const sourceElement = sourceSection?.elements.find((element) => element.id === id);
     if (!sourceSection || !sourceElement) return false;
+    const groupElements = !started && selectedId === sectionId && selectedElementIds.includes(id) && selectedElements.length > 1
+      ? selectedElements
+      : [sourceElement];
+    const groupElementIds = new Set(groupElements.map((element) => element.id));
     if (started) remember(sections, 'Move element');
     draggedElementRef.current = id;
     draggedElementSectionRef.current = sectionId;
     const sourceStyle = effectiveStyle(sourceElement, device);
     const zoomHost = target.closest<HTMLElement>('[data-zoom]');
     const canvasScale = Math.min(1.5, Math.max(0.5, Number(zoomHost?.dataset.zoom || 100) / 100));
-    const elementRect = target.getBoundingClientRect();
     const sectionHost = target.closest<HTMLElement>('[data-tayar-section-canvas="true"]');
     const sectionRect = sectionHost?.getBoundingClientRect();
-    const siblingBounds = sectionHost
+    const canvasElementNodes = sectionHost
       ? Array.from(sectionHost.querySelectorAll<HTMLElement>('[data-tayar-canvas-element-id]'))
-          .filter((node) => node.dataset.tayarCanvasElementId !== id)
+      : [];
+    const movingBounds = canvasElementNodes
+      .filter((node) => groupElementIds.has(node.dataset.tayarCanvasElementId || ''))
+      .map((node) => node.getBoundingClientRect());
+    const targetRect = target.getBoundingClientRect();
+    const elementRect = movingBounds.length > 1
+      ? movingBounds.reduce((bounds, rect) => ({
+          left: Math.min(bounds.left, rect.left),
+          top: Math.min(bounds.top, rect.top),
+          right: Math.max(bounds.right, rect.right),
+          bottom: Math.max(bounds.bottom, rect.bottom),
+        }), { left: targetRect.left, top: targetRect.top, right: targetRect.right, bottom: targetRect.bottom })
+      : { left: targetRect.left, top: targetRect.top, right: targetRect.right, bottom: targetRect.bottom };
+    const siblingBounds = sectionHost
+      ? canvasElementNodes
+          .filter((node) => !groupElementIds.has(node.dataset.tayarCanvasElementId || ''))
           .map((node) => node.getBoundingClientRect())
       : [];
     const alignmentTargets: CanvasAlignmentTargets = {
@@ -7312,11 +7721,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       startY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
       currentX: clampElementNumber(sourceStyle.positionX, 0, -4000, 4000),
       currentY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
+      groupTargets: groupElements.map((element) => {
+        const style = effectiveStyle(element, device);
+        const startX = clampElementNumber(style.positionX, 0, -4000, 4000);
+        const startY = clampElementNumber(style.positionY, 0, -4000, 4000);
+        return { id: element.id, symbolId: element.symbolId, startX, startY, currentX: startX, currentY: startY };
+      }),
       elementBounds: {
         left: elementRect.left / canvasScale,
         top: elementRect.top / canvasScale,
-        width: elementRect.width / canvasScale,
-        height: elementRect.height / canvasScale,
+        width: (elementRect.right - elementRect.left) / canvasScale,
+        height: (elementRect.bottom - elementRect.top) / canvasScale,
       },
       sectionBounds: sectionRect ? {
         left: sectionRect.left / canvasScale,
@@ -7333,7 +7748,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setDraggedElementId(started ? id : null);
     setDragOverElementId(null);
     setDragOverElementPosition(null);
-    selectEditorTarget(sectionId, id);
+    if (groupElements.length === 1) selectEditorTarget(sectionId, id);
     return true;
   }
 
@@ -7395,20 +7810,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (nextX === drag.currentX && nextY === drag.currentY) return;
     drag.currentX = nextX;
     drag.currentY = nextY;
+    const deltaX = nextX - drag.startX;
+    const deltaY = nextY - drag.startY;
+    const targetById = new Map(drag.groupTargets.map((target) => {
+      target.currentX = Math.max(-4000, Math.min(4000, target.startX + deltaX));
+      target.currentY = Math.max(-4000, Math.min(4000, target.startY + deltaY));
+      return [target.id, target] as const;
+    }));
+    const targetBySymbol = new Map(drag.groupTargets.flatMap((target) => target.symbolId ? [[target.symbolId, target] as const] : []));
 
     setSections((current) => current.map((section) => ({
       ...section,
       elements: section.elements.map((element) => {
-        const matches = drag.symbolId ? element.symbolId === drag.symbolId : section.id === sectionId && element.id === id;
-        if (!matches) return element;
+        const groupTarget = element.symbolId
+          ? targetBySymbol.get(element.symbolId)
+          : section.id === sectionId ? targetById.get(element.id) : undefined;
+        if (!groupTarget) return element;
         return {
           ...element,
           responsive: {
             ...element.responsive,
             [drag.device]: {
               ...(element.responsive?.[drag.device] || {}),
-              positionX: nextX,
-              positionY: nextY,
+              positionX: groupTarget.currentX,
+              positionY: groupTarget.currentY,
             },
           },
         };
@@ -7477,7 +7902,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
         if (distance < 3) return;
         drag.started = true;
-        remember(sections, 'Move element');
+        remember(sections, drag.groupTargets.length > 1 ? 'Move selected elements' : 'Move element');
         setDraggedElementId(id);
       }
       moveEvent.preventDefault();
@@ -7586,47 +8011,52 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function handleElementDragEnd() {
     const drag = freeElementDragRef.current;
-    if (
-      drag?.started &&
-      drag.symbolId &&
-      drag.pageId === activePageId
-    ) {
-      setPages((current) => current.map((page) =>
-        page.id === drag.pageId
-          ? page
-          : {
-              ...page,
-              sections: page.sections.map((section) => ({
-                ...section,
-                elements: section.elements.map((element) => element.symbolId === drag.symbolId ? {
-                  ...element,
-                  responsive: {
-                    ...element.responsive,
-                    [drag.device]: {
-                      ...(element.responsive?.[drag.device] || {}),
-                      positionX: drag.currentX,
-                      positionY: drag.currentY,
-                    },
-                  },
-                } : element),
-              })),
-            }
-      ));
-      setSymbols((current) => current.map((symbol) => symbol.id === drag.symbolId ? {
-        ...symbol,
-        element: {
-          ...symbol.element,
-          responsive: {
-            ...symbol.element.responsive,
-            [drag.device]: {
-              ...(symbol.element.responsive?.[drag.device] || {}),
-              positionX: drag.currentX,
-              positionY: drag.currentY,
+    if (drag?.started && drag.pageId === activePageId) {
+      const symbolTargets = new Map(drag.groupTargets.flatMap((target) => target.symbolId ? [[target.symbolId, target] as const] : []));
+      if (symbolTargets.size) {
+        setPages((current) => current.map((page) =>
+          page.id === drag.pageId
+            ? page
+            : {
+                ...page,
+                sections: page.sections.map((section) => ({
+                  ...section,
+                  elements: section.elements.map((element) => {
+                    const groupTarget = element.symbolId ? symbolTargets.get(element.symbolId) : undefined;
+                    return groupTarget ? {
+                      ...element,
+                      responsive: {
+                        ...element.responsive,
+                        [drag.device]: {
+                          ...(element.responsive?.[drag.device] || {}),
+                          positionX: groupTarget.currentX,
+                          positionY: groupTarget.currentY,
+                        },
+                      },
+                    } : element;
+                  }),
+                })),
+              }
+        ));
+        setSymbols((current) => current.map((symbol) => {
+          const groupTarget = symbolTargets.get(symbol.id);
+          return groupTarget ? {
+            ...symbol,
+            element: {
+              ...symbol.element,
+              responsive: {
+                ...symbol.element.responsive,
+                [drag.device]: {
+                  ...(symbol.element.responsive?.[drag.device] || {}),
+                  positionX: groupTarget.currentX,
+                  positionY: groupTarget.currentY,
+                },
+              },
             },
-          },
-        },
-        updatedAt: new Date().toISOString(),
-      } : symbol));
+            updatedAt: new Date().toISOString(),
+          } : symbol;
+        }));
+      }
     }
     freeElementDragRef.current = null;
     setCanvasSnapGuide(null);
@@ -13160,26 +13590,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function publishOperationalBlocker(): string {
+    if (!networkOnline) return `${l('Publish preflight blocked')}: ${l('You are offline. Reconnect and try again.')}`;
+    if (cloudSyncFailed || autoSaveStatus === 'failed') return l('Resolve cloud sync before publishing.');
+    if (siteAudit.errors.length) return `${l('Publish preflight blocked')}: ${l('Fix critical audit errors first')} (${siteAudit.errors.length}).`;
+    if (!user) return l('Sign in before publishing.');
+    if (cloudProjectId && !projectTeamAccess.canPublish) return l('Only the project owner can publish a shared website.');
+    return '';
+  }
+
   async function publishWebsite() {
-    if (!networkOnline) {
-      setPublishError('Publish preflight blocked: you are offline. Reconnect and try again.');
+    const operationalBlocker = publishOperationalBlocker();
+    if (operationalBlocker) {
+      setPublishError(operationalBlocker);
       return;
     }
 
-    if (siteAudit.errors.length) {
-      setPublishError(`Publish preflight blocked: fix ${siteAudit.errors.length} critical audit error${siteAudit.errors.length === 1 ? '' : 's'} first.`);
-      return;
-    }
-
-    if (!user) {
-      setPublishError('Sign in before publishing.');
-      return;
-    }
-
-    if (cloudProjectId && !projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can publish a shared website.');
-      return;
-    }
+    if (!user) return;
 
     const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
     if (!supabaseUrl) {
@@ -13889,6 +14316,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             : 'VERIFY LIVE';
     return { score, checks, blockers, preflightReady, publishedRelease, liveHealthy, status };
   }, [pages, activePageId, sections, networkOnline, cloudSyncFailed, autoSaveStatus, user, billingLoading, billingError, billingPlan, siteUrl, seo.title, faviconUrl, siteAudit.score, siteAudit.errors.length, cloudProjectId, projectTeamAccess.canPublish, publishedUrl, lastPublishedVersionId, liveVerification, productionConfig.maintenanceMode, lastPublishedFingerprint, buildEditableFingerprint]);
+  const publishBlocker = publishOperationalBlocker();
 
   function exportV1LaunchReport() {
     const manual = [
@@ -13974,6 +14402,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const duplicate =
       cloneSectionWithFreshIds(
         source,
+        sections,
       );
 
     remember(sections);
@@ -15364,12 +15793,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           <div className="tayar-v2-check-score" data-ok={siteAudit.errors.length === 0 ? 'true' : 'false'}>
             <strong>{siteAudit.score}/100</strong>
             <span>
-              {siteAudit.errors.length} critical · {siteAudit.warnings.length} warnings
+              {siteAudit.errors.length} {l('critical')} · {siteAudit.warnings.length} {l('warnings')}
             </span>
           </div>
           {launchLastCheckedAt && (
             <div className="tayar-v2-manual-note">
-              Last checked {new Date(launchLastCheckedAt).toLocaleString()}
+              {l('Last checked')} {new Date(launchLastCheckedAt).toLocaleString()}
             </div>
           )}
           {siteAudit.errors.length > 0 && (
@@ -15391,7 +15820,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             disabled={launchCheckBusy}
             onClick={() => void runV1LaunchChecks()}
           >
-            {launchCheckBusy ? 'Checking…' : 'Run check again'}
+            {launchCheckBusy ? l('Checking…') : l('Run check again')}
           </button>
         </div>
       </details>
@@ -15405,25 +15834,29 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           >
             <strong>
               {!publishedUrl
-                ? 'DRAFT'
+                ? l('DRAFT')
+                : hasUnpublishedChanges
+                  ? l('CHANGES WAITING')
                 : liveVerification === 'checking'
-                  ? 'VERIFYING'
+                  ? l('VERIFYING')
                   : liveVerification === 'failed'
-                    ? 'CHECK FAILED'
+                    ? l('CHECK FAILED')
                     : liveVerification === 'healthy'
-                      ? 'LIVE'
-                      : 'PUBLISHED'}
+                      ? l('LIVE')
+                      : l('PUBLISHED')}
             </strong>
             <span>
               {!publishedUrl
-                ? 'Your website is saved but not public.'
+                ? l('Your website is saved but not public.')
+                : hasUnpublishedChanges
+                  ? l('Your latest editor changes are not live yet.')
                 : liveVerification === 'failed'
-                  ? 'A published URL is saved, but the live file could not be verified.'
+                  ? l('A published URL is saved, but the live file could not be verified.')
                   : liveVerification === 'checking'
-                    ? 'Checking the public website now…'
+                    ? l('Checking the public website now…')
                     : liveVerification === 'healthy'
-                      ? 'Your website is public.'
-                      : 'The website is published. Verify the live renderer before treating it as live.'}
+                      ? l('Your website is public.')
+                      : l('The website is published. Verify the live renderer before treating it as live.')}
             </span>
           </div>
           {publishedUrl && (
@@ -15432,13 +15865,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <span>{l("Live URL")}</span>
                 <input value={publishedUrl} readOnly />
               </label>
-              {publishedAt && <div className="tayar-v2-manual-note">Published {new Date(publishedAt).toLocaleString()}</div>}
+              {publishedAt && <div className="tayar-v2-manual-note">{l('Published')} {new Date(publishedAt).toLocaleString()}</div>}
               <div className="tayar-v2-publish-actions">
                 <button type="button" className="tayar-v2-manual-action" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}>{l("Open live site")}</button>
                 <button type="button" className="tayar-v2-manual-action" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>{l("Copy URL")}</button>
                 <button type="button" className="tayar-v2-manual-action" disabled={liveVerification === 'checking'} onClick={() => void verifyLiveDeployment()}>
-                  {liveVerification === 'checking' ? 'Verifying…' : 'Verify live'}
+                  {liveVerification === 'checking' ? l('Verifying…') : l('Verify live')}
                 </button>
+                {hasUnpublishedChanges && (
+                  <button type="button" className="tayar-v2-manual-action" disabled={Boolean(publishBlocker) || publishBusy} onClick={() => void publishWebsite()} title={publishBlocker || l('Publish production changes')}>
+                    {publishBusy ? l('Publishing…') : l('Publish production changes')}
+                  </button>
+                )}
                 <button type="button" className="tayar-v2-manual-action is-danger" disabled={publishBusy} onClick={() => void unpublishWebsite()}>{l("Unpublish")}</button>
               </div>
             </>
@@ -15450,15 +15888,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <div className="tayar-v2-publish-error">{cloudError}</div>
           )}
           {!publishedUrl && (
-            <button type="button" className="tayar-v2-manual-action" disabled={publishBusy || !projectTeamAccess.canPublish || siteAudit.errors.length > 0} onClick={() => void publishWebsite()}>
-              {publishBusy ? 'Publishing…' : siteAudit.errors.length ? 'Fix critical Check issues first' : 'Publish website'}
+            <button type="button" className="tayar-v2-manual-action" disabled={publishBusy || Boolean(publishBlocker)} onClick={() => void publishWebsite()} title={publishBlocker || l('Publish website')}>
+              {publishBusy ? l('Publishing…') : publishBlocker ? l('Resolve publish blockers first') : l('Publish website')}
             </button>
           )}
         </div>
       </details>
 
       <details className="tayar-v2-manual-section">
-        <summary>SEO</summary>
+        <summary>{l('SEO')}</summary>
         <div className="tayar-v2-manual-fields">
           <label><span>{l("Site title")}</span><input value={seo.title} onChange={(e) => { setSeo((current) => ({ ...current, title: e.target.value })); setSaved(false); }} /></label>
           <label><span>{l("Description")}</span><textarea rows={4} value={seo.description} onChange={(e) => { setSeo((current) => ({ ...current, description: e.target.value })); setSaved(false); }} /></label>
@@ -15581,8 +16019,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       section={section}
       selected={selectedId === section.id}
       selectedElementId={selectedId === section.id ? selectedElementId : null}
+      selectedElementIds={selectedId === section.id ? selectedElementIds : []}
       onSelect={() => selectEditorTarget(section.id)}
-      onSelectElement={(elementId) => selectEditorTarget(section.id, elementId)}
+      onSelectElement={(elementId, additive) => selectCanvasElement(section.id, elementId, additive)}
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
@@ -16151,6 +16590,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 { label: 'Save project', keywords: 'save cloud', mutates: true, run: () => void saveProject() },
                 { label: 'Preview website', keywords: 'preview open', run: previewWebsite },
                 { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', mutates: true, run: () => void runAIQualityCheck() },
+                ...(selectedSection ? [{ label: selectedElements.length > 1 ? 'Copy selected elements' : selectedElement ? 'Copy selected element' : 'Copy selected section', keywords: 'copy clipboard elements section', run: copySelectedTarget }] : []),
+                ...(selectedSection ? [{ label: selectedElements.length > 1 ? 'Cut selected elements' : selectedElement ? 'Cut selected element' : 'Cut selected section', keywords: 'cut clipboard elements section', mutates: true, run: cutSelectedTarget }] : []),
+                ...(selectedElements.length > 1 ? [{ label: 'Group selected elements', keywords: 'group container selected elements', mutates: true, run: createContainerForSelected }] : []),
+                ...(canPasteCopiedTarget() ? [{ label: editorClipboard?.kind === 'section' ? 'Paste copied section' : editorClipboard?.kind === 'elements' ? 'Paste copied elements' : 'Paste copied element', keywords: 'paste clipboard elements section', mutates: true, run: pasteCopiedTarget }] : []),
                 { label: 'Duplicate current page', keywords: 'copy page duplicate', mutates: true, run: duplicateActivePage },
                 { label: 'Export project backup', keywords: 'backup json export', run: exportProjectBackup },
                 { label: 'Import project backup', keywords: 'backup json import restore', mutates: true, run: importProjectBackup },
@@ -16177,7 +16620,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{l(item.label)}</span><span className="text-[9px] text-gray-500">↵</span></button>
               ))}
             </div>
-            <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>Ctrl/Cmd+K</span><button type="button" data-command-focus onClick={closeCommandPalette} className="font-semibold text-violet-400">{l('Close')}</button></div>
+            <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>{l('Ctrl/Cmd+K · Ctrl/Cmd+C/X/V')}</span><button type="button" data-command-focus onClick={closeCommandPalette} className="font-semibold text-violet-400">{l('Close')}</button></div>
           </div>
         </div>
       )}
@@ -16447,7 +16890,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Mark all leads read')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Bulk inbox cleanup')}</div></button>
               <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Archive read leads')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Keep inbox focused')}</div></button>
             </div>
-            <p className="text-[10px] text-gray-500">{l('Shortcuts: Ctrl/Cmd+K commands · Ctrl/Cmd+S save · Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo · Ctrl/Cmd+Shift+P preview.')}</p>
+            <p className="text-[10px] text-gray-500">{l('Shortcuts: Ctrl/Cmd+K commands · Ctrl/Cmd+C/X/V copy, cut and paste · Ctrl/Cmd+S save · Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo · Ctrl/Cmd+Shift+P preview.')}</p>
           </div>
         </div>
       )}
@@ -17670,8 +18113,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       section={section}
       selected={selectedId === section.id}
       selectedElementId={selectedId === section.id ? selectedElementId : null}
+      selectedElementIds={selectedId === section.id ? selectedElementIds : []}
       onSelect={() => selectEditorTarget(section.id)}
-      onSelectElement={(elementId) => selectEditorTarget(section.id, elementId)}
+      onSelectElement={(elementId, additive) => selectCanvasElement(section.id, elementId, additive)}
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
@@ -18651,7 +19095,72 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       canvas={v2Canvas}
       aiPanel={v2AiPanel}
       topbarTrailingSlot={
-        publishedUrl ? (
+        <>
+          {selectedElements.length > 1 && (
+            <div className="tayar-v2-multi-selection" role="group" aria-label={l('Selected elements actions')}>
+              <span>{l('Selected elements')}: {selectedElements.length}</span>
+              <select
+                value=""
+                onChange={(event) => {
+                  const action = event.target.value as Parameters<typeof arrangeSelectedElements>[0];
+                  if (action) arrangeSelectedElements(action);
+                }}
+                disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy}
+                aria-label={l('Arrange selected elements')}
+                title={l('Arrange selected elements')}
+              >
+                <option value="" disabled>{l('Arrange')}</option>
+                <optgroup label={l('Align')}>
+                  <option value="left">{l('Align left')}</option>
+                  <option value="center">{l('Align center')}</option>
+                  <option value="right">{l('Align right')}</option>
+                  <option value="top">{l('Align top')}</option>
+                  <option value="middle">{l('Align middle')}</option>
+                  <option value="bottom">{l('Align bottom')}</option>
+                </optgroup>
+                <optgroup label={l('Distribute')}>
+                  <option value="distribute-horizontal" disabled={selectedElements.length < 3}>{l('Distribute horizontally')}</option>
+                  <option value="distribute-vertical" disabled={selectedElements.length < 3}>{l('Distribute vertically')}</option>
+                </optgroup>
+              </select>
+              <button
+                type="button"
+                onClick={createContainerForSelected}
+                disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy}
+                title={l('Group selected elements')}
+              >
+                {l('Group')}
+              </button>
+              <button
+                type="button"
+                onClick={duplicateSelectedTarget}
+                disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy}
+                title={l('Duplicate selected elements')}
+              >
+                {l('Duplicate')}
+              </button>
+              <button
+                type="button"
+                onClick={deleteSelectedTarget}
+                disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy}
+                title={l('Delete selected elements')}
+              >
+                {l('Delete')}
+              </button>
+            </div>
+          )}
+          {canPasteCopiedTarget() && editorClipboard && (
+            <button
+              type="button"
+              className="tayar-v2-clipboard-button"
+              onClick={pasteCopiedTarget}
+              disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy}
+              title={l(editorClipboard.kind === 'section' ? 'Paste copied section' : editorClipboard.kind === 'elements' ? 'Paste copied elements' : 'Paste copied element')}
+            >
+              {l(editorClipboard.kind === 'section' ? 'SECTION READY' : editorClipboard.kind === 'elements' ? 'ELEMENTS READY' : 'ELEMENT READY')}
+            </button>
+          )}
+          {publishedUrl && (
           <button
             type="button"
             className="tayar-v2-live-button"
@@ -18660,7 +19169,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           >
             {liveVerification === 'healthy' ? 'LIVE ↗' : 'Open ↗'}
           </button>
-        ) : null
+          )}
+        </>
       }
       sitePanel={v2SitePanel}
       settingsPanel={v2SettingsPanel}
@@ -18738,6 +19248,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onDuplicateElement={
         v2DuplicateElementDirect
       }
+
+      onCopySelection={copySelectedTarget}
+      onCutSelection={cutSelectedTarget}
+      onPasteSelection={pasteCopiedTarget}
+      clipboardKind={canPasteCopiedTarget() ? editorClipboard?.kind : undefined}
 
       onDeleteElement={
         v2DeleteElementDirect

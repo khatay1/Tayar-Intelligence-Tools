@@ -7,6 +7,7 @@ import type {
   EditorSymbolLike,
 } from '../core/editor-model';
 import { findEditorElement } from '../core/editor-model';
+import { useLocalizer } from '@/lib/ui-localization';
 import {
   EDITOR_INSERT_CATALOG,
   type EditorInsertCatalogItem,
@@ -97,6 +98,11 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
     elementId: string,
   ): void;
 
+  onCopySelection?(): void;
+  onCutSelection?(): void;
+  onPasteSelection?(): void;
+  clipboardKind?: 'element' | 'elements' | 'section';
+
   onDeleteElement?(
     sectionId: string,
     elementId: string,
@@ -149,6 +155,7 @@ function withContainer(
 export function BuilderV2NativeBridge<P extends EditorProjectLike>(
   props: BuilderV2NativeBridgeProps<P>,
 ) {
+  const l = useLocalizer();
   const {
     shell,
     project,
@@ -835,21 +842,34 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
       });
 
   function renderInspector(
-    _target:
+    target:
       EditorShellContract['view']['inspectorTarget'],
 
     tab:
       EditorInspectorTab,
   ) {
+    const canCutTarget = target.kind === 'element' || (
+      target.kind === 'section' &&
+      (project.pages.find((page) => page.id === selection.pageId)?.sections.length || 0) > 1
+    );
     return (
-      <BuilderInspectorFields
-        fields={inspectorFields}
-        group={tab}
-        onChange={handleInspectorChange}
-        disabled={Boolean(
-          shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking,
+      <>
+        {(target.kind === 'element' || target.kind === 'section') && (
+          <div className="tayar-v2-inspector-actions" aria-label={l('Editor clipboard')}>
+            <button type="button" onClick={props.onCopySelection} disabled={!props.onCopySelection}>{l(target.kind === 'element' ? 'Copy element' : 'Copy section')}</button>
+            <button type="button" onClick={props.onCutSelection} disabled={!canCutTarget || !props.onCutSelection || Boolean(shell.status.mutating)}>{l(target.kind === 'element' ? 'Cut element' : 'Cut section')}</button>
+            <button type="button" onClick={props.onPasteSelection} disabled={!props.clipboardKind || !props.onPasteSelection || Boolean(shell.status.mutating)}>{l(props.clipboardKind === 'section' ? 'Paste section' : props.clipboardKind === 'elements' ? 'Paste elements' : 'Paste element')}</button>
+          </div>
         )}
-      />
+        <BuilderInspectorFields
+          fields={inspectorFields}
+          group={tab}
+          onChange={handleInspectorChange}
+          disabled={Boolean(
+            shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking,
+          )}
+        />
+      </>
     );
   }
 

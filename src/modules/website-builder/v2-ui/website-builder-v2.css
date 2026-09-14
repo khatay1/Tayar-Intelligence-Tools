@@ -350,6 +350,97 @@ button.tayar-v2-history-entry:disabled {
   padding: 12px;
 }
 
+.tayar-v2-inspector-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 3px 3px 12px;
+}
+
+.tayar-v2-inspector-actions button {
+  min-height: 34px;
+  border: 1px solid rgba(139, 92, 246, 0.24);
+  border-radius: 9px;
+  background: rgba(139, 92, 246, 0.08);
+  color: #c4b5fd;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tayar-v2-inspector-actions button:hover:not(:disabled) {
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(139, 92, 246, 0.16);
+}
+
+.tayar-v2-inspector-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.tayar-v2-topbar__actions .tayar-v2-clipboard-button {
+  min-height: 34px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 9px;
+  background: rgba(34, 211, 238, 0.08);
+  color: #67e8f9;
+  padding: 0 10px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.tayar-v2-topbar__actions .tayar-v2-clipboard-button:hover:not(:disabled) {
+  background: rgba(34, 211, 238, 0.15);
+}
+
+.tayar-v2-topbar__actions .tayar-v2-multi-selection {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 9px;
+  background: rgba(139, 92, 246, 0.09);
+  padding: 3px 4px 3px 9px;
+  color: #c4b5fd;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tayar-v2-topbar__actions .tayar-v2-multi-selection button,
+.tayar-v2-topbar__actions .tayar-v2-multi-selection select {
+  min-height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.14);
+  padding: 0 7px;
+  color: #ddd6fe;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.tayar-v2-topbar__actions .tayar-v2-multi-selection select {
+  max-width: 92px;
+  cursor: pointer;
+  outline: none;
+}
+
+.tayar-v2-topbar__actions .tayar-v2-multi-selection select option,
+.tayar-v2-topbar__actions .tayar-v2-multi-selection select optgroup {
+  background: #111122;
+  color: #ede9fe;
+}
+
+.tayar-v2-topbar__actions .tayar-v2-multi-selection button:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.28);
+}
+
+.tayar-v2-topbar__actions .tayar-v2-multi-selection button:disabled,
+.tayar-v2-topbar__actions .tayar-v2-multi-selection select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .tayar-v2-inspector-field {
   display: grid;
   gap: 6px;

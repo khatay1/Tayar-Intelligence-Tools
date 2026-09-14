@@ -170,6 +170,11 @@ export interface WebsiteBuilderV2BridgeProps {
     elementId: string,
   ): void;
 
+  onCopySelection?(): void;
+  onCutSelection?(): void;
+  onPasteSelection?(): void;
+  clipboardKind?: 'element' | 'elements' | 'section';
+
   onDeleteElement?(
     sectionId: string,
     elementId: string,
@@ -296,6 +301,10 @@ canvas,
 
   onMoveElement,
   onDuplicateElement,
+  onCopySelection,
+  onCutSelection,
+  onPasteSelection,
+  clipboardKind,
   onDeleteElement,
 
   onApplyOperations,
@@ -919,6 +928,10 @@ canvas,
 
       onMoveElement={onMoveElement}
       onDuplicateElement={onDuplicateElement}
+      onCopySelection={onCopySelection}
+      onCutSelection={onCutSelection}
+      onPasteSelection={onPasteSelection}
+      clipboardKind={clipboardKind}
       onDeleteElement={onDeleteElement}
 
       createSection={
