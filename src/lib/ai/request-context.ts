@@ -39,10 +39,18 @@ export function carryAIResponseProjectContext(source: unknown, target: unknown):
   if (binding) responseBindings.set(targetObject, binding);
 }
 
-export function assertAIResponseProjectContextCurrent(value: unknown, tool: string): void {
+function ensureResponseBinding(value: unknown, tool: string): AIProjectRequestBinding | null {
   const target = objectValue(value);
-  if (!target) return;
-  const binding = responseBindings.get(target);
+  if (!target) return null;
+  const existing = responseBindings.get(target);
+  if (existing) return existing;
+  const pending = captureAIProjectRequestContext(tool);
+  if (pending) responseBindings.set(target, pending);
+  return pending;
+}
+
+export function assertAIResponseProjectContextCurrent(value: unknown, tool: string): void {
+  const binding = ensureResponseBinding(value, tool);
   if (!binding) return;
   const active = activeBindings.get(tool);
   if (!active) return;
