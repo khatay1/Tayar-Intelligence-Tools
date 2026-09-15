@@ -57,6 +57,17 @@ export const arWorkspaceSupplement: PhraseMap = {
   'Move to Trash': 'نقل إلى سلة المحذوفات',
   'Notifications could not be updated.': 'تعذر تحديث الإشعارات.',
   'Delete notification': 'حذف الإشعار',
+  'No supported source files were found in this folder.': 'لم يتم العثور على ملفات مصدر مدعومة في هذا المجلد.',
+  'Could not create the code project.': 'تعذر إنشاء مشروع البرمجة.',
+  'Code project imported: {count} source files{skipped}.': 'تم استيراد مشروع البرمجة: {count} من ملفات المصدر{skipped}.',
+  ', {count} skipped': '، تم تخطي {count}',
+  'Could not import this code folder.': 'تعذر استيراد مجلد البرمجة هذا.',
+  'Code Project': 'مشروع برمجي',
+  'Import a real project for Safe Apply': 'استورد مشروعًا حقيقيًا للتطبيق الآمن',
+  'Choose a source folder. Tayar stores supported source files in My Files so Coding Assistance can review diffs, apply AI patches safely, and rollback changes.': 'اختر مجلد المصدر. يحفظ طيار ملفات المصدر المدعومة في ملفاتي لكي يتمكن مساعد البرمجة من مراجعة الفروقات وتطبيق تعديلات الذكاء الاصطناعي بأمان والتراجع عن التغييرات.',
+  'Secrets, .env files, node_modules, build output, and unsupported binaries are skipped automatically.': 'يتم تلقائيًا تخطي الأسرار وملفات .env ومجلد node_modules ومخرجات البناء والملفات الثنائية غير المدعومة.',
+  'Importing…': 'جارٍ الاستيراد…',
+  'Import Code Folder': 'استيراد مجلد البرمجة',
 };
 
 export const svWorkspaceSupplement: PhraseMap = {
@@ -111,6 +122,17 @@ export const svWorkspaceSupplement: PhraseMap = {
   'Move to Trash': 'Flytta till papperskorgen',
   'Notifications could not be updated.': 'Aviseringarna kunde inte uppdateras.',
   'Delete notification': 'Ta bort avisering',
+  'No supported source files were found in this folder.': 'Inga källfiler som stöds hittades i den här mappen.',
+  'Could not create the code project.': 'Det gick inte att skapa kodprojektet.',
+  'Code project imported: {count} source files{skipped}.': 'Kodprojekt importerat: {count} källfiler{skipped}.',
+  ', {count} skipped': ', {count} hoppades över',
+  'Could not import this code folder.': 'Det gick inte att importera den här kodmappen.',
+  'Code Project': 'Kodprojekt',
+  'Import a real project for Safe Apply': 'Importera ett riktigt projekt för säker tillämpning',
+  'Choose a source folder. Tayar stores supported source files in My Files so Coding Assistance can review diffs, apply AI patches safely, and rollback changes.': 'Välj en källmapp. Tayar sparar källfiler som stöds i Mina filer så att Kodassistenten kan granska ändringar, tillämpa AI-patchar säkert och återställa ändringar.',
+  'Secrets, .env files, node_modules, build output, and unsupported binaries are skipped automatically.': 'Hemligheter, .env-filer, node_modules, byggutdata och binärfiler som inte stöds hoppas över automatiskt.',
+  'Importing…': 'Importerar…',
+  'Import Code Folder': 'Importera kodmapp',
 };
 
 const workspaceMaps: Record<Language, PhraseMap> = {

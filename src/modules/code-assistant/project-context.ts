@@ -1,4 +1,8 @@
 import { supabase } from '@/lib/supabase';
+import {
+  prepareAIProjectRequestContext,
+  setActiveAIProjectContext,
+} from '@/lib/ai/request-context';
 import { inspectProjectFileStore, ProjectFileStoreKind } from './project-file-store';
 import { buildProjectStyleProfile, ProjectStyleProfile } from './project-style';
 
@@ -298,6 +302,7 @@ export async function listCodeProjects(): Promise<CodeProjectOption[]> {
 export async function loadCodeProjectContext(projectId: string): Promise<CodeProjectContext | null> {
   const normalizedId = projectId.trim();
   if (!normalizedId || normalizedId.length > 128) throw new Error('Invalid project id.');
+  setActiveAIProjectContext('code-assistant', normalizedId, null);
 
   const { data, error } = await supabase
     .from('projects')
@@ -331,7 +336,7 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
         }
       : null;
 
-  return {
+  const project: CodeProjectContext = {
     id: String(data.id),
     title: typeof data.title === 'string' ? data.title : 'Untitled project',
     type: typeof data.type === 'string' ? data.type : 'project',
@@ -353,6 +358,8 @@ export async function loadCodeProjectContext(projectId: string): Promise<CodePro
     canApply: fileStore.kind !== 'unsupported',
     lastApply,
   };
+  setActiveAIProjectContext('code-assistant', project.id, project.fileStoreFingerprint);
+  return project;
 }
 
 export function checkProjectDependencies(
@@ -369,6 +376,7 @@ export function checkProjectDependencies(
 }
 
 export function summarizeProjectForAI(project: CodeProjectContext | null): Record<string, unknown> | null {
+  prepareAIProjectRequestContext('code-assistant', project?.id ?? null, project?.fileStoreFingerprint ?? null);
   if (!project) return null;
   const boundedRecord = (value: Record<string, string>, maxEntries: number) =>
     Object.fromEntries(Object.entries(value).slice(0, maxEntries));
