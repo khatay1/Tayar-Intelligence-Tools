@@ -678,6 +678,59 @@ check('Desktop command palette traps focus and supports full keyboard execution'
   builder.includes('event.nativeEvent.isComposing') &&
   builder.includes("'[data-command-focus]:not(:disabled)'") &&
   builder.includes("'mutates' in item && item.mutates === true"));
+check('Canvas supports marquee multi-selection with additive modifier keys',
+  builder.includes('beginMarqueeSelection') &&
+  builder.includes('data-tayar-marquee-selection="true"') &&
+  builder.includes('onMarqueeSelect([...new Set(ids)], additive)') &&
+  builder.includes('event.shiftKey || event.metaKey || event.ctrlKey'));
+check('Website Builder AI keeps bounded edit context and guards critical review findings',
+  builder.includes('buildAIConversationContext') &&
+  builder.includes('conversationContext,') &&
+  builder.includes("finding.severity === 'critical'") &&
+  builder.includes("l('Prepare suggested follow-up')"));
+check('AI candidate review combines deterministic evidence with the model review',
+  builder.includes('auditAIWebsiteCandidate') &&
+  builder.includes('deterministicAudit: deterministicReview') &&
+  builder.includes('Math.min(score, deterministicReview.score)') &&
+  builder.includes('Button links to a missing page'));
+check('Desktop canvas supports design-tool panning and anchored wheel zoom',
+  builderCanvasFrame.includes('panSessionRef') &&
+  builderCanvasFrame.includes("event.code === 'Space'") &&
+  builderCanvasFrame.includes('event.button === 1') &&
+  builderCanvasFrame.includes('setZoomAroundPoint') &&
+  builderCanvasFrame.includes('event.ctrlKey') &&
+  websiteBuilderV2Css.includes("data-panning='true'"));
+check('Multi-selection supports range select all sizing layer order and ungroup',
+  builder.includes('rangeIds = section.elements.slice(start, end + 1)') &&
+  builder.includes("event.key.toLowerCase() === 'a'") &&
+  builder.includes('normalizeSelectedElementFrames') &&
+  builder.includes('moveSelectedElementsLayer') &&
+  builder.includes('ungroupSelectedElements'));
+check('Professional multi-selection supports appearance visibility precise layers and shortcuts',
+  builder.includes("'match-appearance'") &&
+  builder.includes("'bring-forward'") &&
+  builder.includes("'send-backward'") &&
+  builder.includes("event.code === 'BracketLeft'") &&
+  builder.includes("event.key.toLowerCase() === 'g'") &&
+  builder.includes('order: Math.max(-50, Math.min(50, index - orderOffset))'));
+check('V2 Layers supports additive and range multi-selection',
+  websiteBuilderV2Bridge.includes('selectedElementIds?: string[]') &&
+  builderV2NativeBridge.includes('selectedElementIds:') &&
+  builderPanelRouter.includes('selectedElementIds={props.selectedElementIds}') &&
+  builderLayersPanel.includes('event.metaKey || event.ctrlKey') &&
+  builderLayersPanel.includes('event.shiftKey') &&
+  builderLayersPanel.includes('aria-pressed={selected}'));
+check('V2 command palette renders and exposes precision selection actions',
+  builder.includes('const commandPaletteOverlay = commandOpen ?') &&
+  builder.includes('overlaySlot={commandPaletteOverlay}') &&
+  websiteBuilderV2Bridge.includes('canvasOverlaySlot=') &&
+  builder.includes("label: 'Select elements of same type'") &&
+  builder.includes("label: 'Match selected appearance'") &&
+  builder.includes("label: 'Bring selection forward'") &&
+  websiteBuilderV2Css.includes('.tayar-v2-command-button'));
+check('Manual cut and delete preserve the final editable section element',
+  builder.includes('selectedSection.elements.length <= 1') &&
+  (builder.match(/selectedElements\.length >= selectedSection\.elements\.length/g) || []).length >= 2);
 
 console.log(`Website Builder smoke test: ${passes.length} passed, ${failures.length} failed`);
 for (const label of passes) console.log(`  ✓ ${label}`);

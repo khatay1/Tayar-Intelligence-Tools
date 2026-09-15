@@ -366,7 +366,10 @@ check('Website Builder Agent performs a read-only post-execution review', websit
 check('Agent supports native visual style transfer without replacing content', websiteBuilder.includes("operation.action === 'copy_element_style'") && websiteBuilder.includes("operation.action === 'copy_section_style'") && aiPrompts.includes('copies visual style/responsive design only'));
 check('Agent can repair responsive overrides without changing desktop source style', websiteBuilder.includes("operation.action === 'repair_responsive'") && websiteBuilder.includes('mobile.fontSize') && websiteBuilder.includes('tablet.fontSize') && aiPrompts.includes('preserving desktop design'));
 check('Agent hands the last edited target back to the manual canvas', websiteBuilder.includes('handoffOperation') && websiteBuilder.includes("setBuilderPanel('layers')") && websiteBuilder.includes('setInspectorOpen(true)'));
-check('Final Agent keeps deterministic integrity as the blocking gate after advisory review', websiteBuilder.includes('Agent review is advisory') && websiteBuilder.indexOf('validateAIProjectIntegrity(nextPages, nextHomePageId, nextSymbols)') > websiteBuilder.indexOf("action: 'review-edit'"));
+check('Final Agent keeps deterministic integrity as the blocking gate after candidate review',
+  websiteBuilder.includes('deterministic candidate review remains available') &&
+  websiteBuilder.includes('AI change blocked by project safety validation') &&
+  websiteBuilder.indexOf('validateAIProjectIntegrity(nextPages, nextHomePageId, nextSymbols)') > websiteBuilder.indexOf("action: 'review-edit'"));
 
 check('Published websites include responsive section CSS', websiteBuilder.includes('buildResponsiveSectionCss') && websiteBuilder.includes('data-tayar-section-id') && websiteBuilder.includes('${responsiveSectionCss}'));
 check('AI element patch sanitizes layout and typography values', websiteBuilder.includes('finiteStyleNumber') && websiteBuilder.includes("setNumeric('fontSize'") && websiteBuilder.includes("setNumeric('width'") && websiteBuilder.includes("setNumeric('positionX'"));

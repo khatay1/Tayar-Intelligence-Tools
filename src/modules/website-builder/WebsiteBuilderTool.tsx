@@ -540,6 +540,16 @@ interface AIBuilderMessage {
   content: string;
 }
 
+function buildAIConversationContext(messages: AIBuilderMessage[]): Array<{ role: 'user' | 'assistant'; content: string }> {
+  return messages
+    .filter((message) => message.id !== 'ai-welcome' && message.content.trim())
+    .slice(-8)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim().slice(0, 900),
+    }));
+}
+
 const AI_BUILDER_STAGE_ORDER: Array<Exclude<AIBuilderStage, 'idle' | 'error'>> = ['planning', 'building', 'styling', 'ready'];
 
 interface WebsitePage {
@@ -2924,7 +2934,7 @@ function ElementPreview({
   dragging: boolean;
   dragOver: boolean;
   device: Device;
-  onSelect: (additive?: boolean) => void;
+  onSelect: (additive?: boolean, range?: boolean) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragMove: (e: React.DragEvent) => void;
   onPointerDragStart: (e: React.PointerEvent<HTMLElement>) => void;
@@ -3030,8 +3040,9 @@ function ElementPreview({
     onDragEnd: (e: React.DragEvent) => { e.stopPropagation(); onDragEnd(); },
     onClick: (e: React.MouseEvent) => {
       e.stopPropagation();
-      const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-      if (additive || !selected) onSelect(additive);
+      const additive = e.metaKey || e.ctrlKey;
+      const range = e.shiftKey;
+      if (additive || range || !selected) onSelect(additive, range);
     },
     onDoubleClick: (e: React.MouseEvent) => {
       if (element.type === 'image' || element.type === 'video' || element.type === 'embed') {
@@ -3134,6 +3145,7 @@ function SectionPreview({
   selectedElementIds,
   onSelect,
   onSelectElement,
+  onMarqueeSelect,
   draggedElementId,
   dragOverElementId,
   dragOverElementPosition,
@@ -3170,7 +3182,8 @@ function SectionPreview({
   selectedElementId: string | null;
   selectedElementIds: string[];
   onSelect: () => void;
-  onSelectElement: (id: string, additive?: boolean) => void;
+  onSelectElement: (id: string, additive?: boolean, range?: boolean) => void;
+  onMarqueeSelect: (ids: string[], additive?: boolean) => void;
   draggedElementId: string | null;
   dragOverElementId: string | null;
   dragOverElementPosition: 'before' | 'after' | null;
@@ -3203,6 +3216,9 @@ function SectionPreview({
   aiPreview: AIWebsiteCanvasPreview | null;
 }) {
   const l = useLocalizer();
+  const [marqueeRect, setMarqueeRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const marqueeCleanupRef = useRef<(() => void) | null>(null);
+  const marqueeDidDragRef = useRef(false);
   const compact = device === 'mobile';
   const responsiveSection = effectiveSectionStyle(section, device);
   const configuredColumns = sectionColumnCount(section.layout);
@@ -3234,6 +3250,90 @@ function SectionPreview({
     draggedElementId && section.elements.some((element) => element.id === draggedElementId),
   );
   const sectionPreviewKind = aiPreview?.sectionKinds[section.id];
+
+  useEffect(() => () => marqueeCleanupRef.current?.(), []);
+
+  const beginMarqueeSelection = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-tayar-canvas-element-id], button, input, textarea, select, a, [contenteditable="true"]')) return;
+    const sectionHost = event.currentTarget;
+    const sectionBounds = sectionHost.getBoundingClientRect();
+    const canvasScale = sectionHost.offsetWidth > 0 ? sectionBounds.width / sectionHost.offsetWidth : 1;
+    const pointerId = event.pointerId;
+    const startClientX = event.clientX;
+    const startClientY = event.clientY;
+    const additive = event.shiftKey || event.metaKey || event.ctrlKey;
+    let started = false;
+    let selectionBounds = { left: startClientX, right: startClientX, top: startClientY, bottom: startClientY };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('blur', cancel);
+      marqueeCleanupRef.current = null;
+    };
+    const handleMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      const distance = Math.hypot(moveEvent.clientX - startClientX, moveEvent.clientY - startClientY);
+      if (!started && distance < 4) return;
+      started = true;
+      moveEvent.preventDefault();
+      selectionBounds = {
+        left: Math.min(startClientX, moveEvent.clientX),
+        right: Math.max(startClientX, moveEvent.clientX),
+        top: Math.min(startClientY, moveEvent.clientY),
+        bottom: Math.max(startClientY, moveEvent.clientY),
+      };
+      setMarqueeRect({
+        left: (selectionBounds.left - sectionBounds.left) / canvasScale,
+        top: (selectionBounds.top - sectionBounds.top) / canvasScale,
+        width: (selectionBounds.right - selectionBounds.left) / canvasScale,
+        height: (selectionBounds.bottom - selectionBounds.top) / canvasScale,
+      });
+    };
+    const finish = (finishEvent: PointerEvent) => {
+      if (finishEvent.pointerId !== pointerId) return;
+      cleanup();
+      setMarqueeRect(null);
+      if (!started) return;
+      marqueeDidDragRef.current = true;
+      window.setTimeout(() => {
+        marqueeDidDragRef.current = false;
+      }, 0);
+      const ids = Array.from(sectionHost.querySelectorAll<HTMLElement>('[data-tayar-canvas-element-id]'))
+        .filter((node) => {
+          const bounds = node.getBoundingClientRect();
+          return bounds.right >= selectionBounds.left && bounds.left <= selectionBounds.right &&
+            bounds.bottom >= selectionBounds.top && bounds.top <= selectionBounds.bottom;
+        })
+        .map((node) => node.dataset.tayarCanvasElementId || '')
+        .filter(Boolean);
+      onMarqueeSelect([...new Set(ids)], additive);
+    };
+    const cancel = () => {
+      cleanup();
+      setMarqueeRect(null);
+    };
+
+    event.preventDefault();
+    event.stopPropagation();
+    marqueeCleanupRef.current?.();
+    marqueeCleanupRef.current = cleanup;
+    window.addEventListener('pointermove', handleMove, { passive: false });
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('blur', cancel, { once: true });
+  };
+
+  const handleSectionSelect = () => {
+    if (marqueeDidDragRef.current) {
+      marqueeDidDragRef.current = false;
+      return;
+    }
+    onSelect();
+  };
 
   const renderSelectedElementToolbar = (element: WebsiteElement) => {
     if (selectedElementId !== element.id) return null;
@@ -3432,7 +3532,8 @@ function SectionPreview({
       data-tayar-ai-target-section={section.id}
       data-tayar-ai-preview-kind={sectionPreviewKind}
       tabIndex={-1}
-      onClick={onSelect}
+      onPointerDown={beginMarqueeSelection}
+      onClick={handleSectionSelect}
       className={`relative group cursor-pointer border border-transparent transition-all duration-150 ${sectionPreviewKind ? aiWebsitePatchPreviewClass(sectionPreviewKind) : selected ? 'ring-2 ring-violet-500/70 ring-inset' : 'hover:ring-1 hover:ring-violet-400/35 hover:ring-inset'}`}
       style={{
         background: sectionBackgroundCss(section),
@@ -3468,6 +3569,13 @@ function SectionPreview({
           data-tayar-snap-guide="horizontal"
           className="pointer-events-none absolute left-0 right-0 z-20 h-px -translate-y-1/2 bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.9)]"
           style={{ top: snapGuides.horizontalPosition === undefined ? '50%' : `${snapGuides.horizontalPosition}px` }}
+        />
+      )}
+      {marqueeRect && (
+        <span
+          data-tayar-marquee-selection="true"
+          className="pointer-events-none absolute z-[55] border border-violet-300 bg-violet-500/15 shadow-[0_0_18px_rgba(139,92,246,0.28)]"
+          style={marqueeRect}
         />
       )}
       {selected && !selectedElementId && (
@@ -3576,7 +3684,7 @@ function SectionPreview({
                             dragging={draggedElementId === element.id}
                             dragOver={dragOverElementId === element.id && draggedElementId !== element.id}
                             device={device}
-                            onSelect={(additive) => onSelectElement(element.id, additive)}
+                            onSelect={(additive, range) => onSelectElement(element.id, additive, range)}
                             onDragStart={(e) => onElementDragStart(element.id, e)}
                             onDragMove={(e) => onElementDragMove(element.id, e)}
                             onPointerDragStart={(e) => onElementPointerDragStart(element.id, e)}
@@ -3631,7 +3739,7 @@ function SectionPreview({
                   dragging={draggedElementId === element.id}
                   dragOver={dragOverElementId === element.id && draggedElementId !== element.id}
                   device={device}
-                  onSelect={(additive) => onSelectElement(element.id, additive)}
+                  onSelect={(additive, range) => onSelectElement(element.id, additive, range)}
                   onDragStart={(e) => onElementDragStart(element.id, e)}
                   onDragMove={(e) => onElementDragMove(element.id, e)}
                   onPointerDragStart={(e) => onElementPointerDragStart(element.id, e)}
@@ -3957,6 +4065,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const aiPatchReviewResolverRef = useRef<((selectedOperationIds: string[] | null) => void) | null>(null);
   const aiPatchReviewSelectionRef = useRef<string[]>([]);
   const aiCandidatePreviewResolverRef = useRef<((approved: boolean) => void) | null>(null);
+  const aiPreparedFollowUpRef = useRef<string | null>(null);
   const aiQualityOperationSequenceRef = useRef(0);
   const aiQualityAbortControllerRef = useRef<AbortController | null>(null);
   const aiEditorContextRef = useRef<EditorAIAsyncContext | null>(null);
@@ -5323,7 +5432,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     [selectedSection, selectedElementIds],
   );
 
-  function selectCanvasElement(sectionId: string, elementId: string, additive = false) {
+  function selectCanvasElement(sectionId: string, elementId: string, additive = false, range = false) {
+    const section = sections.find((item) => item.id === sectionId);
+    if (range && section && selectedId === sectionId && selectedElementId) {
+      const anchorIndex = section.elements.findIndex((element) => element.id === selectedElementId);
+      const targetIndex = section.elements.findIndex((element) => element.id === elementId);
+      if (anchorIndex >= 0 && targetIndex >= 0) {
+        const start = Math.min(anchorIndex, targetIndex);
+        const end = Math.max(anchorIndex, targetIndex);
+        const rangeIds = section.elements.slice(start, end + 1).map((element) => element.id);
+        const requestedIds = additive ? new Set([...selectedElementIds, ...rangeIds]) : new Set(rangeIds);
+        const next = section.elements.filter((element) => requestedIds.has(element.id)).map((element) => element.id);
+        setSelectedElementIds(next);
+        setSelectedElementId(elementId);
+        setSelectedContainerId(null);
+        setSelectedFormFieldId(null);
+        return;
+      }
+    }
     if (!additive || selectedId !== sectionId) {
       selectEditorTarget(sectionId, elementId);
       return;
@@ -5336,6 +5462,42 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSelectedId(sectionId);
     setSelectedElementIds(next);
     setSelectedElementId(exists && selectedElementId === elementId ? next[next.length - 1] ?? null : elementId);
+    setSelectedContainerId(null);
+    setSelectedFormFieldId(null);
+  }
+
+  function selectCanvasElements(sectionId: string, elementIds: string[], additive = false) {
+    const section = sections.find((item) => item.id === sectionId);
+    if (!section) return;
+    const requestedIds = new Set(elementIds);
+    const currentIds = additive && selectedId === sectionId ? new Set(selectedElementIds) : new Set<string>();
+    requestedIds.forEach((id) => currentIds.add(id));
+    const next = section.elements.filter((element) => currentIds.has(element.id)).map((element) => element.id);
+    setSelectedId(sectionId);
+    setSelectedElementIds(next);
+    setSelectedElementId(next[next.length - 1] ?? null);
+    setSelectedContainerId(null);
+    setSelectedFormFieldId(null);
+  }
+
+  function selectAllCanvasElements() {
+    if (!selectedSection?.elements.length) return;
+    setSelectedElementIds(selectedSection.elements.map((element) => element.id));
+    setSelectedElementId(selectedSection.elements[selectedSection.elements.length - 1]?.id ?? null);
+    setSelectedContainerId(null);
+    setSelectedFormFieldId(null);
+  }
+
+  function selectRelatedCanvasElements(scope: 'type' | 'container') {
+    if (!selectedSection || !selectedElement) return;
+    const next = selectedSection.elements
+      .filter((element) => scope === 'type'
+        ? element.type === selectedElement.type
+        : Boolean(selectedElement.containerId) && element.containerId === selectedElement.containerId)
+      .map((element) => element.id);
+    if (next.length < 2) return;
+    setSelectedElementIds(next);
+    setSelectedElementId(selectedElement.id);
     setSelectedContainerId(null);
     setSelectedFormFieldId(null);
   }
@@ -5359,6 +5521,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     paste: pasteCopiedTarget,
     duplicate: duplicateSelectedTarget,
     remove: deleteSelectedTarget,
+    selectAll: selectAllCanvasElements,
+    group: createContainerForSelected,
+    ungroup: ungroupSelectedElements,
+    moveLayer: moveSelectedElementsLayer,
     nudge: nudgeSelectedElement,
     endNudge: () => { canvasNudgeSessionRef.current = null; },
   });
@@ -5368,6 +5534,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     paste: pasteCopiedTarget,
     duplicate: duplicateSelectedTarget,
     remove: deleteSelectedTarget,
+    selectAll: selectAllCanvasElements,
+    group: createContainerForSelected,
+    ungroup: ungroupSelectedElements,
+    moveLayer: moveSelectedElementsLayer,
     nudge: nudgeSelectedElement,
     endNudge: () => { canvasNudgeSessionRef.current = null; },
   };
@@ -5377,6 +5547,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!canvasKeyboardSelectionRef.current) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (target && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        canvasKeyboardActionsRef.current.selectAll();
+        return;
+      }
 
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'c') {
         event.preventDefault();
@@ -5398,6 +5574,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       if (canvasKeyboardBusyRef.current) return;
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'g') {
+        event.preventDefault();
+        if (event.shiftKey) canvasKeyboardActionsRef.current.ungroup();
+        else canvasKeyboardActionsRef.current.group();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.code === 'BracketLeft' || event.code === 'BracketRight')) {
+        event.preventDefault();
+        if (event.code === 'BracketRight') canvasKeyboardActionsRef.current.moveLayer(event.shiftKey ? 'front' : 'forward');
+        else canvasKeyboardActionsRef.current.moveLayer(event.shiftKey ? 'back' : 'backward');
+        return;
+      }
 
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'd') {
         event.preventDefault();
@@ -7046,6 +7236,133 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
+  function normalizeSelectedElementFrames(action: 'match-width' | 'match-appearance' | 'reset-position' | 'show' | 'hide') {
+    if (!selectedSection || !selectedElements.length || !selectedElement) return;
+    if ((action === 'match-width' || action === 'match-appearance' || action === 'reset-position') && selectedElements.length < 2) return;
+    const selectedIds = new Set(selectedElements.map((element) => element.id));
+    const selectedSymbolIds = new Set(selectedElements.flatMap((element) => element.symbolId ? [element.symbolId] : []));
+    const referenceStyle = effectiveStyle(selectedElement, device);
+    const referenceWidth = clampElementNumber(referenceStyle.width, 100, 10, 100);
+    const referenceAppearance = { ...referenceStyle };
+    (['width', 'maxWidth', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'positionX', 'positionY', 'order', 'hidden', 'alignSelf', 'columnSpan'] as const)
+      .forEach((key) => delete referenceAppearance[key]);
+    const styleChanges = action === 'match-width'
+      ? { width: referenceWidth }
+      : action === 'match-appearance'
+        ? referenceAppearance
+        : action === 'reset-position'
+          ? { positionX: 0, positionY: 0, rotate: 0 }
+          : { hidden: action === 'hide' };
+    const updateElement = (element: WebsiteElement): WebsiteElement => ({
+      ...element,
+      responsive: {
+        ...element.responsive,
+        [device]: {
+          ...(element.responsive?.[device] || {}),
+          ...styleChanges,
+        },
+      },
+    });
+    const updateSection = (section: WebsiteSection, linkedOnly = false): WebsiteSection => ({
+      ...section,
+      elements: section.elements.map((element) => {
+        const matches = element.symbolId
+          ? selectedSymbolIds.has(element.symbolId)
+          : !linkedOnly && selectedIds.has(element.id);
+        return matches ? updateElement(element) : element;
+      }),
+    });
+
+    const historyLabels = {
+      'match-width': 'Match selected element widths',
+      'match-appearance': 'Match selected element appearance',
+      'reset-position': 'Reset selected element transforms',
+      show: 'Show selected elements',
+      hide: 'Hide selected elements',
+    } as const;
+    remember(sections, historyLabels[action]);
+    setSections((current) => current.map((section) => updateSection(section)));
+    if (selectedSymbolIds.size) {
+      setPages((current) => current.map((page) => page.id === activePageId ? page : {
+        ...page,
+        sections: page.sections.map((section) => updateSection(section, true)),
+      }));
+      setSymbols((current) => current.map((symbol) => selectedSymbolIds.has(symbol.id) ? {
+        ...symbol,
+        element: updateElement(symbol.element),
+        updatedAt: new Date().toISOString(),
+      } : symbol));
+    }
+    setSaved(false);
+  }
+
+  function moveSelectedElementsLayer(destination: 'front' | 'forward' | 'backward' | 'back') {
+    if (!selectedSection || !selectedElements.length) return;
+    const selectedIds = new Set(selectedElements.map((element) => element.id));
+    const historyLabels = {
+      front: 'Bring selected elements to front',
+      forward: 'Bring selected elements forward',
+      backward: 'Send selected elements backward',
+      back: 'Send selected elements to back',
+    } as const;
+    remember(sections, historyLabels[destination]);
+    setSections((current) => current.map((section) => {
+      if (section.id !== selectedSection.id) return section;
+      const ordered = section.elements
+        .map((element, index) => ({ element, index, order: clampElementNumber(effectiveStyle(element, device).order, 0, -50, 50) }))
+        .sort((a, b) => a.order - b.order || a.index - b.index)
+        .map(({ element }) => element);
+      const moving = ordered.filter((element) => selectedIds.has(element.id));
+      const remaining = ordered.filter((element) => !selectedIds.has(element.id));
+      let next = destination === 'front' ? [...remaining, ...moving] : destination === 'back' ? [...moving, ...remaining] : [...ordered];
+      if (destination === 'forward') {
+        for (let index = next.length - 2; index >= 0; index -= 1) {
+          if (selectedIds.has(next[index].id) && !selectedIds.has(next[index + 1].id)) {
+            [next[index], next[index + 1]] = [next[index + 1], next[index]];
+          }
+        }
+      }
+      if (destination === 'backward') {
+        for (let index = 1; index < next.length; index += 1) {
+          if (selectedIds.has(next[index].id) && !selectedIds.has(next[index - 1].id)) {
+            [next[index - 1], next[index]] = [next[index], next[index - 1]];
+          }
+        }
+      }
+      const orderOffset = Math.floor(next.length / 2);
+      next = next.map((element, index) => ({
+        ...element,
+        responsive: {
+          ...element.responsive,
+          [device]: {
+            ...(element.responsive?.[device] || {}),
+            order: Math.max(-50, Math.min(50, index - orderOffset)),
+          },
+        },
+      }));
+      return { ...section, elements: next };
+    }));
+    setSaved(false);
+  }
+
+  function ungroupSelectedElements() {
+    if (!selectedSection || selectedElements.length < 2) return;
+    const selectedIds = new Set(selectedElements.map((element) => element.id));
+    const affectedContainerIds = new Set(selectedElements.flatMap((element) => element.containerId ? [element.containerId] : []));
+    if (!affectedContainerIds.size) return;
+    remember(sections, 'Ungroup selected elements');
+    setSections((current) => current.map((section) => {
+      if (section.id !== selectedSection.id) return section;
+      const elements = section.elements.map((element) => selectedIds.has(element.id) ? { ...element, containerId: undefined } : element);
+      const usedContainerIds = new Set(elements.flatMap((element) => element.containerId ? [element.containerId] : []));
+      const containers = (section.containers || []).filter((container) =>
+        !affectedContainerIds.has(container.id) || usedContainerIds.has(container.id));
+      return { ...section, elements, containers };
+    }));
+    setSelectedContainerId(null);
+    setSaved(false);
+  }
+
   function resetElementPosition(sectionId: string, elementId: string) {
     const targetSection = sections.find((section) => section.id === sectionId);
     const targetElement = targetSection?.elements.find((element) => element.id === elementId);
@@ -7135,6 +7452,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function deleteSelectedElement() {
     if (!selectedSection || !selectedElementId) return;
+    if (selectedSection.elements.length <= 1) return;
     remember(sections);
     const remaining = selectedSection.elements.filter((element) => element.id !== selectedElementId);
     setSections((current) => current.map((section) =>
@@ -7226,6 +7544,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   function deleteSelectedTarget() {
     if (selectedSection && selectedElements.length > 1) {
+      if (selectedElements.length >= selectedSection.elements.length) return;
       const selectedIds = new Set(selectedElements.map((element) => element.id));
       const remaining = selectedSection.elements.filter((element) => !selectedIds.has(element.id));
       remember(sections, 'Delete selected elements');
@@ -7286,6 +7605,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function cutSelectedTarget() {
     if (!selectedSection) return;
     if (!selectedElement && sections.length <= 1) return;
+    if (selectedElements.length && selectedElements.length >= selectedSection.elements.length) return;
     copySelectedTarget();
 
     if (selectedElements.length) {
@@ -8357,6 +8677,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function approveAICandidatePreview() {
+    const criticalFindings = aiCandidatePreview?.agentReview?.findings?.filter((finding) => finding.severity === 'critical') ?? [];
+    if (criticalFindings.length > 0) {
+      const issueSummary = criticalFindings.map((finding) => `• ${finding.title}`).join('\n');
+      if (!window.confirm(`${l('The AI review found critical issues:')}\n${issueSummary}\n\n${l('Keep result anyway?')}`)) return;
+    }
     const unreviewedPageCount = aiCandidateReviewPages.length - aiCandidateReviewedPageCount;
     const unreviewedOperationCount = aiCandidateTargetableOperations.length - aiCandidateReviewedOperationCount;
     if (unreviewedPageCount > 0 || unreviewedOperationCount > 0) {
@@ -9106,6 +9431,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       aiEditorContextIsCurrent(operationContext, true);
 
     const requestId = `ai-edit-${Date.now()}`;
+    const conversationContext = buildAIConversationContext(aiMessages);
+    aiPreparedFollowUpRef.current = null;
     const currentPages = getCurrentPages();
     const editScope: AIEditScopeTarget = {
       kind: aiEditScope,
@@ -9145,8 +9472,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           prompt,
           currentSite: editableSnapshot,
           editScope,
+          conversationContext,
         },
-        aiMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
+        [],
         { temperature: 0.2, maxTokens: 3500, signal: abortController.signal },
       );
 
@@ -9226,8 +9554,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           currentSite: editableSnapshot,
           executionPlan: agentPlan,
           editScope,
+          conversationContext,
         },
-        aiMessages.slice(-16).map((message) => ({ role: message.role, content: message.content })),
+        [],
         { temperature: 0.25, maxTokens: 12000, signal: abortController.signal },
       );
 
@@ -9426,6 +9755,128 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           }
         }
         return [...new Set(errors)].slice(0, 20);
+      };
+
+      const auditAIWebsiteCandidate = (
+        candidatePages: WebsitePage[],
+        candidateSeo: WebsiteSEO,
+        candidateHeader: WebsiteHeaderConfig,
+      ): { score: number; findings: AIWebsiteAgentReviewFinding[]; fixPrompt?: string } => {
+        const findings: AIWebsiteAgentReviewFinding[] = [];
+        const pageSlugs = new Set(candidatePages.map((page) => normalizeSlug(page.slug)));
+        const addFinding = (finding: AIWebsiteAgentReviewFinding) => {
+          const duplicate = findings.some((current) =>
+            current.title === finding.title && current.target === finding.target);
+          if (!duplicate && findings.length < 12) findings.push(finding);
+        };
+
+        candidatePages.forEach((page) => {
+          const pageTarget = page.id;
+          const hasHeading = page.sections.some((section) => section.elements.some((element) =>
+            element.type === 'heading' && element.content.trim()));
+          if (!hasHeading) {
+            addFinding({
+              severity: 'warning',
+              title: 'Page has no clear heading',
+              detail: `${page.name} needs an editable heading to establish content hierarchy.`,
+              target: pageTarget,
+            });
+          }
+          if (!(page.seoDescription?.trim() || candidateSeo.description.trim())) {
+            addFinding({
+              severity: 'warning',
+              title: 'SEO description is missing',
+              detail: `${page.name} has no page or global meta description.`,
+              target: pageTarget,
+            });
+          }
+
+          page.sections.forEach((section) => {
+            section.elements.forEach((element) => {
+              const target = element.id;
+              if (element.type === 'image' && !element.src?.trim()) {
+                addFinding({
+                  severity: 'warning',
+                  title: 'Image source is missing',
+                  detail: `${page.name} contains an image element without usable media.`,
+                  target,
+                });
+              } else if (element.type === 'image' && !element.content.trim()) {
+                addFinding({
+                  severity: 'warning',
+                  title: 'Image alt text is missing',
+                  detail: `${page.name} contains an image without an accessible description.`,
+                  target,
+                });
+              }
+              if (element.type === 'button' && !element.content.trim()) {
+                addFinding({
+                  severity: 'warning',
+                  title: 'Button label is missing',
+                  detail: `${page.name} contains a call to action without a readable label.`,
+                  target,
+                });
+              }
+              if (element.type === 'button' && element.href?.startsWith('page:')) {
+                const destination = normalizeSlug(element.href.slice(5));
+                if (!pageSlugs.has(destination)) {
+                  addFinding({
+                    severity: 'critical',
+                    title: 'Button links to a missing page',
+                    detail: `${page.name} links to page:${destination}, but that page does not exist.`,
+                    target,
+                  });
+                }
+              }
+              const desktopX = Math.abs(Number(element.style.positionX) || 0);
+              const desktopY = Math.abs(Number(element.style.positionY) || 0);
+              const mobileOverride = element.responsive?.mobile;
+              if ((desktopX > 320 || desktopY > 320) &&
+                mobileOverride?.positionX === undefined && mobileOverride?.positionY === undefined) {
+                addFinding({
+                  severity: 'warning',
+                  title: 'Large position offset lacks a mobile override',
+                  detail: `${page.name} contains a freely positioned element that may leave the mobile viewport.`,
+                  target,
+                });
+              }
+            });
+          });
+        });
+
+        if (candidateHeader.enabled && candidateHeader.showCta && !candidateHeader.ctaLabel.trim()) {
+          addFinding({
+            severity: 'warning',
+            title: 'Header CTA label is missing',
+            detail: 'The header call to action is enabled without a readable label.',
+            target: 'header',
+          });
+        }
+        if (candidateHeader.enabled && candidateHeader.showCta && !candidateHeader.ctaHref.trim()) {
+          addFinding({
+            severity: 'warning',
+            title: 'Header CTA destination is missing',
+            detail: 'The header call to action is enabled but does not lead anywhere.',
+            target: 'header',
+          });
+        }
+        if (!candidateSeo.title.trim()) {
+          addFinding({
+            severity: 'critical',
+            title: 'Global SEO title is missing',
+            detail: 'The website needs a global title before it is ready to publish.',
+            target: 'seo',
+          });
+        }
+
+        const criticalCount = findings.filter((finding) => finding.severity === 'critical').length;
+        const warningCount = findings.filter((finding) => finding.severity === 'warning').length;
+        const score = Math.max(0, 100 - (criticalCount * 25) - (warningCount * 6));
+        const visibleFindings = findings.slice(0, 6);
+        const fixPrompt = visibleFindings.length
+          ? `Fix these verified issues with targeted native edits while preserving unrelated work: ${visibleFindings.map((finding) => `${finding.title} (${finding.target || 'site'})`).join('; ')}.`.slice(0, 500)
+          : undefined;
+        return { score, findings: visibleFindings, fixPrompt };
       };
 
       let nextPages = JSON.parse(JSON.stringify(currentPages)) as WebsitePage[];
@@ -11707,7 +12158,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return { ...page, slug };
       });
 
-      let agentReview: AIWebsiteAgentReview | null = null;
+      const deterministicReview = auditAIWebsiteCandidate(nextPages, nextSeo, nextHeaderConfig);
+      let agentReview: AIWebsiteAgentReview | null = {
+        score: deterministicReview.score,
+        summary: deterministicReview.findings.length
+          ? 'Verified project checks found issues to review before keeping this result.'
+          : 'Verified project checks passed for structure, links, content basics and responsive risk.',
+        findings: deterministicReview.findings,
+        followUpPrompt: deterministicReview.fixPrompt,
+      };
       try {
         const proposedProject = {
           homePageId: nextHomePageId,
@@ -11770,6 +12229,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             originalPrompt: prompt,
             executionPlan: agentPlan,
             proposedProject,
+            deterministicAudit: deterministicReview,
           },
           [],
           { temperature: 0.1, maxTokens: 3200, signal: abortController.signal },
@@ -11802,15 +12262,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 }))
                 .slice(0, 6)
             : [];
+          const modelFindings = findings.filter((finding) => !deterministicReview.findings.some((verified) =>
+            verified.title === finding.title && verified.target === finding.target));
           agentReview = {
-            score,
-            summary: typeof rawReview.summary === 'string' ? rawReview.summary.trim().slice(0, 300) : undefined,
-            findings,
-            followUpPrompt: typeof rawReview.followUpPrompt === 'string' ? rawReview.followUpPrompt.trim().slice(0, 500) : undefined,
+            score: score === undefined ? deterministicReview.score : Math.min(score, deterministicReview.score),
+            summary: typeof rawReview.summary === 'string' && rawReview.summary.trim()
+              ? rawReview.summary.trim().slice(0, 300)
+              : agentReview.summary,
+            findings: [...deterministicReview.findings, ...modelFindings].slice(0, 6),
+            followUpPrompt: deterministicReview.fixPrompt ||
+              (typeof rawReview.followUpPrompt === 'string' ? rawReview.followUpPrompt.trim().slice(0, 500) : undefined),
           };
         }
       } catch {
-        // Agent review is advisory. Deterministic project integrity remains the blocking safety gate.
+        // The deterministic candidate review remains available when the advisory model review fails.
       }
 
       if (!operationCanApply()) return;
@@ -11929,7 +12394,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setBuilderPanel('layers');
       setInspectorOpen(true);
       setSaved(false);
-      setAiPrompt('');
+      setAiPrompt(aiPreparedFollowUpRef.current || '');
+      aiPreparedFollowUpRef.current = null;
       aiQualityReviewContextRef.current = null;
       setAiQualityReview(null);
       setAiStage('ready');
@@ -15510,9 +15976,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 {(aiCandidatePreview.agentReview.findings?.length ?? 0) > 0 && (
                   <ul className="mt-1.5 space-y-1">
                     {(aiCandidatePreview.agentReview.findings ?? []).map((finding, index) => (
-                      <li key={`${finding.title}-${index}`}><span className="font-bold text-gray-300">{finding.title}</span>{finding.detail ? ` · ${finding.detail}` : ''}</li>
+                      <li key={`${finding.title}-${index}`} className={finding.severity === 'critical' ? 'text-red-300' : finding.severity === 'warning' ? 'text-amber-300' : ''}>
+                        <span className="font-bold">{finding.title}</span>{finding.detail ? ` · ${finding.detail}` : ''}
+                      </li>
                     ))}
                   </ul>
+                )}
+                {aiCandidatePreview.agentReview.followUpPrompt && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const followUpPrompt = aiCandidatePreview.agentReview?.followUpPrompt || '';
+                      aiPreparedFollowUpRef.current = followUpPrompt;
+                      setAiIntent('edit');
+                      setAiPrompt(followUpPrompt);
+                    }}
+                    className="mt-2 w-full rounded-md border border-violet-400/20 bg-violet-500/[0.08] px-2 py-1.5 text-left font-bold text-violet-200 transition hover:bg-violet-500/[0.14]"
+                  >
+                    {l('Prepare suggested follow-up')}
+                  </button>
                 )}
               </div>
             )}
@@ -16021,7 +16503,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       selectedElementId={selectedId === section.id ? selectedElementId : null}
       selectedElementIds={selectedId === section.id ? selectedElementIds : []}
       onSelect={() => selectEditorTarget(section.id)}
-      onSelectElement={(elementId, additive) => selectCanvasElement(section.id, elementId, additive)}
+      onSelectElement={(elementId, additive, range) => selectCanvasElement(section.id, elementId, additive, range)}
+      onMarqueeSelect={(elementIds, additive) => selectCanvasElements(section.id, elementIds, additive)}
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
@@ -16068,6 +16551,85 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           </div>
         </div>
   );
+
+  const commandPaletteItems = [
+    { label: 'Save project', keywords: 'save cloud', mutates: true, run: () => void saveProject() },
+    { label: 'Preview website', keywords: 'preview open', run: previewWebsite },
+    { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', mutates: true, run: () => void runAIQualityCheck() },
+    ...(selectedSection ? [{ label: 'Select all elements in section', keywords: 'select all section elements', run: selectAllCanvasElements }] : []),
+    ...(selectedElement && selectedSection && selectedSection.elements.filter((element) => element.type === selectedElement.type).length > 1 ? [{ label: 'Select elements of same type', keywords: `select matching ${selectedElement.type}`, run: () => selectRelatedCanvasElements('type') }] : []),
+    ...(selectedElement?.containerId && selectedSection && selectedSection.elements.filter((element) => element.containerId === selectedElement.containerId).length > 1 ? [{ label: 'Select all elements in group', keywords: 'select container group members', run: () => selectRelatedCanvasElements('container') }] : []),
+    ...(selectedSection ? [{ label: selectedElements.length > 1 ? 'Copy selected elements' : selectedElement ? 'Copy selected element' : 'Copy selected section', keywords: 'copy clipboard elements section', run: copySelectedTarget }] : []),
+    ...(selectedSection ? [{ label: selectedElements.length > 1 ? 'Cut selected elements' : selectedElement ? 'Cut selected element' : 'Cut selected section', keywords: 'cut clipboard elements section', mutates: true, run: cutSelectedTarget }] : []),
+    ...(selectedElements.length > 1 ? [{ label: 'Group selected elements', keywords: 'group container selected elements', mutates: true, run: createContainerForSelected }] : []),
+    ...(selectedElements.length > 1 && selectedElements.some((element) => element.containerId) ? [{ label: 'Ungroup selected elements', keywords: 'ungroup detach container selected elements', mutates: true, run: ungroupSelectedElements }] : []),
+    ...(selectedElements.length > 1 ? [
+      { label: 'Match selected widths', keywords: 'size width equal match selection', mutates: true, run: () => normalizeSelectedElementFrames('match-width') },
+      { label: 'Match selected appearance', keywords: 'style appearance colors typography match selection', mutates: true, run: () => normalizeSelectedElementFrames('match-appearance') },
+      { label: 'Reset selected transforms', keywords: 'reset position rotate selection', mutates: true, run: () => normalizeSelectedElementFrames('reset-position') },
+      { label: 'Align selected left', keywords: 'align left selection', mutates: true, run: () => arrangeSelectedElements('left') },
+      { label: 'Align selected center', keywords: 'align horizontal center selection', mutates: true, run: () => arrangeSelectedElements('center') },
+      { label: 'Align selected top', keywords: 'align top selection', mutates: true, run: () => arrangeSelectedElements('top') },
+      { label: 'Align selected middle', keywords: 'align vertical middle selection', mutates: true, run: () => arrangeSelectedElements('middle') },
+    ] : []),
+    ...(selectedElements.length ? [
+      { label: 'Bring selection to front', keywords: 'layer order front selection', mutates: true, run: () => moveSelectedElementsLayer('front') },
+      { label: 'Bring selection forward', keywords: 'layer order forward selection', mutates: true, run: () => moveSelectedElementsLayer('forward') },
+      { label: 'Send selection backward', keywords: 'layer order backward selection', mutates: true, run: () => moveSelectedElementsLayer('backward') },
+      { label: 'Send selection to back', keywords: 'layer order back selection', mutates: true, run: () => moveSelectedElementsLayer('back') },
+      { label: 'Show selected elements', keywords: 'visibility show selection', mutates: true, run: () => normalizeSelectedElementFrames('show') },
+      { label: 'Hide selected elements', keywords: 'visibility hide selection', mutates: true, run: () => normalizeSelectedElementFrames('hide') },
+    ] : []),
+    ...(canPasteCopiedTarget() ? [{ label: editorClipboard?.kind === 'section' ? 'Paste copied section' : editorClipboard?.kind === 'elements' ? 'Paste copied elements' : 'Paste copied element', keywords: 'paste clipboard elements section', mutates: true, run: pasteCopiedTarget }] : []),
+    { label: 'Duplicate current page', keywords: 'copy page duplicate', mutates: true, run: duplicateActivePage },
+    { label: 'Export project backup', keywords: 'backup json export', run: exportProjectBackup },
+    { label: 'Import project backup', keywords: 'backup json import restore', mutates: true, run: importProjectBackup },
+    ...(recoveryAvailable ? [{ label: 'Restore recovery snapshot', keywords: 'recovery crash restore safety', mutates: true, run: restoreRecoverySnapshot }] : []),
+    { label: 'Export audit report', keywords: 'audit seo accessibility', run: exportAuditReport },
+    { label: 'Open V1 launch center', keywords: 'launch production go live checklist onboarding readiness', run: () => { setLaunchCenterOpen(true); void runV1LaunchChecks(); } },
+    { label: 'Export V1 launch report', keywords: 'launch report final production', run: exportV1LaunchReport },
+    { label: 'Open plans & billing', keywords: 'billing plan upgrade subscription usage stripe', run: () => { setBillingOpen(true); void refreshBilling(cloudProjectId); } },
+    { label: 'Open client delivery', keywords: 'client delivery handoff approval launch', run: () => { if (requireBillingFeature('clientDelivery', 'Client delivery workspace')) setDeliveryOpen(true); } },
+    { label: 'Download client handoff ZIP', keywords: 'client delivery handoff export zip', run: downloadClientHandoffZip },
+    { label: 'Open leads', keywords: 'leads inbox contacts', run: () => setLeadsOpen(true) },
+    { label: 'Open analytics', keywords: 'analytics stats traffic', run: () => { if (requireBillingFeature('analytics', 'Site analytics')) setAnalyticsOpen(true); } },
+    ...pages.map((page) => ({ label: `Go to page: ${page.name}`, keywords: `page ${page.slug}`, run: () => switchPage(page.id) })),
+    ...sections.map((section) => ({ label: `Select section: ${section.title || SECTION_LABELS[section.type]}`, keywords: `section ${section.type} ${section.anchorId || ''}`, run: () => { setSelectedId(section.id); setSelectedElementId(section.elements[0]?.id ?? null); } })),
+  ];
+  const filteredCommandPaletteItems = commandPaletteItems
+    .filter((item) => !commandQuery.trim() || `${l(item.label)} ${item.keywords}`.toLowerCase().includes(commandQuery.trim().toLowerCase()))
+    .slice(0, 30);
+  const commandPaletteOverlay = commandOpen ? (
+    <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) closeCommandPalette(); }}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={l('Command palette')}
+        aria-busy={desktopShortcutActionsRef.current.busy}
+        onKeyDown={handleCommandDialogKeyDown}
+        className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}
+      >
+        <div className="border-b border-white/10 p-3">
+          <input autoFocus type="search" data-command-focus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} onKeyDown={handleCommandInputKeyDown} aria-label={l('Type a command, page or section…')} placeholder={l('Type a command, page or section…')} className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-sky-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} />
+        </div>
+        <div className="max-h-[60vh] overflow-auto p-2">
+          {filteredCommandPaletteItems.map((item) => (
+            <button
+              key={`${l(item.label)}-${item.keywords}`}
+              type="button"
+              data-command-item
+              data-command-focus
+              disabled={'mutates' in item && item.mutates === true && desktopShortcutActionsRef.current.busy}
+              onKeyDown={handleCommandItemKeyDown}
+              onClick={() => { item.run(); closeCommandPalette(); }}
+              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{l(item.label)}</span><span className="text-[9px] text-gray-500">↵</span></button>
+          ))}
+          {!filteredCommandPaletteItems.length && <p className="px-3 py-6 text-center text-xs text-gray-500">{l('No matching commands')}</p>}
+        </div>
+        <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>{l('Ctrl/Cmd+K · Ctrl/Cmd+C/X/V')}</span><button type="button" data-command-focus onClick={closeCommandPalette} className="font-semibold text-violet-400">{l('Close')}</button></div>
+      </div>
+    </div>
+  ) : null;
 
   const legacyBuilder = (
     <div data-tayar-v1-root="true"
@@ -16590,9 +17152,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 { label: 'Save project', keywords: 'save cloud', mutates: true, run: () => void saveProject() },
                 { label: 'Preview website', keywords: 'preview open', run: previewWebsite },
                 { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', mutates: true, run: () => void runAIQualityCheck() },
+                ...(selectedSection ? [{ label: 'Select all elements in section', keywords: 'select all section elements', run: selectAllCanvasElements }] : []),
+                ...(selectedElement && selectedSection && selectedSection.elements.filter((element) => element.type === selectedElement.type).length > 1 ? [{ label: 'Select elements of same type', keywords: `select matching ${selectedElement.type}`, run: () => selectRelatedCanvasElements('type') }] : []),
+                ...(selectedElement?.containerId && selectedSection && selectedSection.elements.filter((element) => element.containerId === selectedElement.containerId).length > 1 ? [{ label: 'Select all elements in group', keywords: 'select container group members', run: () => selectRelatedCanvasElements('container') }] : []),
                 ...(selectedSection ? [{ label: selectedElements.length > 1 ? 'Copy selected elements' : selectedElement ? 'Copy selected element' : 'Copy selected section', keywords: 'copy clipboard elements section', run: copySelectedTarget }] : []),
                 ...(selectedSection ? [{ label: selectedElements.length > 1 ? 'Cut selected elements' : selectedElement ? 'Cut selected element' : 'Cut selected section', keywords: 'cut clipboard elements section', mutates: true, run: cutSelectedTarget }] : []),
                 ...(selectedElements.length > 1 ? [{ label: 'Group selected elements', keywords: 'group container selected elements', mutates: true, run: createContainerForSelected }] : []),
+                ...(selectedElements.length > 1 && selectedElements.some((element) => element.containerId) ? [{ label: 'Ungroup selected elements', keywords: 'ungroup detach container selected elements', mutates: true, run: ungroupSelectedElements }] : []),
+                ...(selectedElements.length > 1 ? [
+                  { label: 'Match selected widths', keywords: 'size width equal match selection', mutates: true, run: () => normalizeSelectedElementFrames('match-width') },
+                  { label: 'Match selected appearance', keywords: 'style appearance colors typography match selection', mutates: true, run: () => normalizeSelectedElementFrames('match-appearance') },
+                  { label: 'Reset selected transforms', keywords: 'reset position rotate selection', mutates: true, run: () => normalizeSelectedElementFrames('reset-position') },
+                  { label: 'Align selected left', keywords: 'align left selection', mutates: true, run: () => arrangeSelectedElements('left') },
+                  { label: 'Align selected center', keywords: 'align horizontal center selection', mutates: true, run: () => arrangeSelectedElements('center') },
+                  { label: 'Align selected top', keywords: 'align top selection', mutates: true, run: () => arrangeSelectedElements('top') },
+                  { label: 'Align selected middle', keywords: 'align vertical middle selection', mutates: true, run: () => arrangeSelectedElements('middle') },
+                ] : []),
+                ...(selectedElements.length ? [
+                  { label: 'Bring selection to front', keywords: 'layer order front selection', mutates: true, run: () => moveSelectedElementsLayer('front') },
+                  { label: 'Bring selection forward', keywords: 'layer order forward selection', mutates: true, run: () => moveSelectedElementsLayer('forward') },
+                  { label: 'Send selection backward', keywords: 'layer order backward selection', mutates: true, run: () => moveSelectedElementsLayer('backward') },
+                  { label: 'Send selection to back', keywords: 'layer order back selection', mutates: true, run: () => moveSelectedElementsLayer('back') },
+                  { label: 'Show selected elements', keywords: 'visibility show selection', mutates: true, run: () => normalizeSelectedElementFrames('show') },
+                  { label: 'Hide selected elements', keywords: 'visibility hide selection', mutates: true, run: () => normalizeSelectedElementFrames('hide') },
+                ] : []),
                 ...(canPasteCopiedTarget() ? [{ label: editorClipboard?.kind === 'section' ? 'Paste copied section' : editorClipboard?.kind === 'elements' ? 'Paste copied elements' : 'Paste copied element', keywords: 'paste clipboard elements section', mutates: true, run: pasteCopiedTarget }] : []),
                 { label: 'Duplicate current page', keywords: 'copy page duplicate', mutates: true, run: duplicateActivePage },
                 { label: 'Export project backup', keywords: 'backup json export', run: exportProjectBackup },
@@ -16890,7 +17473,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Mark all leads read')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Bulk inbox cleanup')}</div></button>
               <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className={`rounded-xl border p-3 text-left text-xs font-semibold disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{l('Archive read leads')}<div className="mt-1 text-[10px] font-normal text-gray-500">{l('Keep inbox focused')}</div></button>
             </div>
-            <p className="text-[10px] text-gray-500">{l('Shortcuts: Ctrl/Cmd+K commands · Ctrl/Cmd+C/X/V copy, cut and paste · Ctrl/Cmd+S save · Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo · Ctrl/Cmd+Shift+P preview.')}</p>
+            <p className="text-[10px] text-gray-500">{l('Shortcuts: Ctrl/Cmd+K commands · Ctrl/Cmd+C/X/V clipboard · Ctrl/Cmd+G group · Ctrl/Cmd+Shift+G ungroup · Ctrl/Cmd+[ or ] layers · arrows move · Shift+arrows move 10px.')}</p>
           </div>
         </div>
       )}
@@ -18115,7 +18698,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       selectedElementId={selectedId === section.id ? selectedElementId : null}
       selectedElementIds={selectedId === section.id ? selectedElementIds : []}
       onSelect={() => selectEditorTarget(section.id)}
-      onSelectElement={(elementId, additive) => selectCanvasElement(section.id, elementId, additive)}
+      onSelectElement={(elementId, additive, range) => selectCanvasElement(section.id, elementId, additive, range)}
+      onMarqueeSelect={(elementIds, additive) => selectCanvasElements(section.id, elementIds, additive)}
       draggedElementId={draggedElementId}
       dragOverElementId={dragOverElementId}
       dragOverElementPosition={dragOverElementPosition}
@@ -19093,17 +19677,32 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   return (
     <WebsiteBuilderV2Bridge
       canvas={v2Canvas}
+      overlaySlot={commandPaletteOverlay}
       aiPanel={v2AiPanel}
       topbarTrailingSlot={
         <>
+          <button
+            type="button"
+            className="tayar-v2-command-button"
+            onClick={() => setCommandOpen(true)}
+            aria-label={l('Open command palette')}
+            title={l('Open command palette')}
+          >
+            ⌘K
+          </button>
           {selectedElements.length > 1 && (
             <div className="tayar-v2-multi-selection" role="group" aria-label={l('Selected elements actions')}>
               <span>{l('Selected elements')}: {selectedElements.length}</span>
               <select
                 value=""
                 onChange={(event) => {
-                  const action = event.target.value as Parameters<typeof arrangeSelectedElements>[0];
-                  if (action) arrangeSelectedElements(action);
+                  const action = event.target.value;
+                  if (action === 'match-width' || action === 'match-appearance' || action === 'reset-position' || action === 'show' || action === 'hide') normalizeSelectedElementFrames(action);
+                  else if (action === 'bring-front') moveSelectedElementsLayer('front');
+                  else if (action === 'bring-forward') moveSelectedElementsLayer('forward');
+                  else if (action === 'send-backward') moveSelectedElementsLayer('backward');
+                  else if (action === 'send-back') moveSelectedElementsLayer('back');
+                  else if (action) arrangeSelectedElements(action as Parameters<typeof arrangeSelectedElements>[0]);
                 }}
                 disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy}
                 aria-label={l('Arrange selected elements')}
@@ -19122,6 +19721,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <option value="distribute-horizontal" disabled={selectedElements.length < 3}>{l('Distribute horizontally')}</option>
                   <option value="distribute-vertical" disabled={selectedElements.length < 3}>{l('Distribute vertically')}</option>
                 </optgroup>
+                <optgroup label={l('Size')}>
+                  <option value="match-width">{l('Match width')}</option>
+                  <option value="match-appearance">{l('Match appearance')}</option>
+                  <option value="reset-position">{l('Reset selected transforms')}</option>
+                </optgroup>
+                <optgroup label={l('Layer order')}>
+                  <option value="bring-front">{l('Bring to front')}</option>
+                  <option value="bring-forward">{l('Bring forward')}</option>
+                  <option value="send-backward">{l('Send backward')}</option>
+                  <option value="send-back">{l('Send to back')}</option>
+                </optgroup>
+                <optgroup label={l('Visibility')}>
+                  <option value="show">{l('Show selected')}</option>
+                  <option value="hide">{l('Hide selected')}</option>
+                </optgroup>
               </select>
               <button
                 type="button"
@@ -19131,6 +19745,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               >
                 {l('Group')}
               </button>
+              {selectedElements.some((element) => element.containerId) && (
+                <button
+                  type="button"
+                  onClick={ungroupSelectedElements}
+                  disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy}
+                  title={l('Ungroup selected elements')}
+                >
+                  {l('Ungroup')}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={duplicateSelectedTarget}
@@ -19142,7 +19766,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               <button
                 type="button"
                 onClick={deleteSelectedTarget}
-                disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy}
+                disabled={cloudBusy || publishBusy || aiBusy || aiQualityBusy || launchCheckBusy || selectedElements.length >= (selectedSection?.elements.length || 0)}
                 title={l('Delete selected elements')}
               >
                 {l('Delete')}
@@ -19268,6 +19892,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       activePageId={activePageId}
       selectedSectionId={selectedId}
       selectedElementId={selectedElementId}
+      selectedElementIds={selectedElementIds}
       selectedContainerId={selectedContainerId}
       selectedFormFieldId={selectedFormFieldId}
       device={device}
@@ -19358,6 +19983,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           containerId,
           formFieldId,
         );
+        setInspectorOpen(true);
+      }}
+      onSelectElement={(sectionId, elementId, additive, range) => {
+        selectCanvasElement(sectionId, elementId, additive, range);
         setInspectorOpen(true);
       }}
     />

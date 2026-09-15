@@ -6,6 +6,13 @@ import type {
 
 export interface BuilderLayersPanelProps {
   shell: EditorShellContract;
+  selectedElementIds?: string[];
+  onSelectElement?(
+    sectionId: string,
+    elementId: string,
+    additive?: boolean,
+    range?: boolean,
+  ): void;
 
   onMoveSection?(
     sectionId: string,
@@ -62,6 +69,8 @@ export interface BuilderLayersPanelProps {
 
 export function BuilderLayersPanel({
   shell,
+  selectedElementIds = [],
+  onSelectElement,
   onMoveSection,
   onDuplicateSection,
   onDeleteSection,
@@ -100,6 +109,9 @@ export function BuilderLayersPanel({
     <div className="tayar-v2-layers-panel" aria-busy={mutationBusy}>
       <div className="tayar-v2-panel-heading">
         <strong>{l('Layers')}</strong>
+        {selectedElementIds.length > 1 && (
+          <small aria-live="polite">{selectedElementIds.length} {l('Selected elements')}</small>
+        )}
       </div>
 
       <div className="tayar-v2-layer-tree">
@@ -276,12 +288,15 @@ export function BuilderLayersPanel({
                   (
                     element,
                     elementIndex,
-                  ) => (
+                  ) => {
+                    const multiSelected = selectedElementIds.includes(element.id);
+                    const selected = element.selected || multiSelected;
+                    return (
                     <div
                       key={element.id}
                       className="tayar-v2-layer-element-wrap"
                       data-selected={
-                        element.selected
+                        selected
                           ? 'true'
                           : 'false'
                       }
@@ -294,18 +309,23 @@ export function BuilderLayersPanel({
                             ? 'true'
                             : undefined
                         }
-                        onClick={() =>
-                          shell.actions.onSelect({
-                            pageId:
-                              page.id,
-
-                            sectionId:
+                        aria-pressed={selected}
+                        onClick={(event) => {
+                          if (onSelectElement) {
+                            onSelectElement(
                               section.id,
-
-                            elementId:
                               element.id,
-                          })
-                        }
+                              event.metaKey || event.ctrlKey,
+                              event.shiftKey,
+                            );
+                            return;
+                          }
+                          shell.actions.onSelect({
+                            pageId: page.id,
+                            sectionId: section.id,
+                            elementId: element.id,
+                          });
+                        }}
                       >
                         <span>
                           {element.label}
@@ -389,7 +409,8 @@ export function BuilderLayersPanel({
                         </div>
                       )}
                     </div>
-                  ),
+                    );
+                  },
                 )}
               </div>
 

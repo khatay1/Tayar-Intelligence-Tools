@@ -36,6 +36,13 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
   shell: EditorShellContract;
   project: P;
   selection?: EditorSelection;
+  selectedElementIds?: string[];
+  onSelectElement?(
+    sectionId: string,
+    elementId: string,
+    additive?: boolean,
+    range?: boolean,
+  ): void;
 
   brandSlot?: ReactNode;
   topbarCenterSlot?: ReactNode;
@@ -821,6 +828,12 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
 
         onDeleteElement:
           props.onDeleteElement,
+
+        selectedElementIds:
+          props.selectedElementIds,
+
+        onSelectElement:
+          props.onSelectElement,
 
         onUngroupContainer:
           handleUngroupContainer,

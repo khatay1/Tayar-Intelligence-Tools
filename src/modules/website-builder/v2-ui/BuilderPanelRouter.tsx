@@ -53,6 +53,13 @@ import {
 
 export interface BuilderPanelRouterProps {
   shell: EditorShellContract;
+  selectedElementIds?: string[];
+  onSelectElement?(
+    sectionId: string,
+    elementId: string,
+    additive?: boolean,
+    range?: boolean,
+  ): void;
 
   aiPanel?: ReactNode;
   sitePanel?: ReactNode;
@@ -211,6 +218,8 @@ export function BuilderPanelRouter(
       return (
         <BuilderLayersPanel
           shell={props.shell}
+          selectedElementIds={props.selectedElementIds}
+          onSelectElement={props.onSelectElement}
           onMoveSection={props.onMoveSection}
           onDuplicateSection={props.onDuplicateSection}
           onDeleteSection={props.onDeleteSection}

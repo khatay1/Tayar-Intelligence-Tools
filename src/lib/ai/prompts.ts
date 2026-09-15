@@ -794,6 +794,9 @@ Rules:
 SITE SNAPSHOT:
 ${JSON.stringify(input.currentSite || {}, null, 2)}
 
+RECENT EDIT CONTEXT:
+${JSON.stringify(input.conversationContext || [], null, 2)}
+
 USER REQUEST:
 ${input.prompt || ''}
 
@@ -819,6 +822,8 @@ Planning rules:
 - Preserve unrelated pages, sections, components, forms, responsive overrides and manual edits.
 - Mark destructive=true for any step that removes a page, section, container, element, form field or reusable component relationship.
 - Prefer native Tayar elements and reusable components. Never plan opaque generated HTML as a replacement for editable builder content.
+- Use recent edit context only to resolve follow-ups such as "this", "same style" or "make it stronger". The current site snapshot and latest user request always win.
+- Do not repeat changes that the recent context says were already completed unless the latest request explicitly asks for them again.
 - Include responsive/accessibility work only when requested or clearly required by the user's goal.
 - This response is a plan only. Do not return patch operations here.`;
       }
@@ -833,6 +838,9 @@ ${JSON.stringify(input.executionPlan || {}, null, 2)}
 
 PROPOSED PROJECT:
 ${JSON.stringify(input.proposedProject || {}, null, 2)}
+
+DETERMINISTIC CANDIDATE AUDIT:
+${JSON.stringify(input.deterministicAudit || {}, null, 2)}
 
 Return ONLY valid JSON:
 {
@@ -854,6 +862,7 @@ Review rules:
 - Review layout consistency, hierarchy, responsive readiness, accessibility, CTA clarity and manual editability.
 - Never claim a real browser, screenshot, network, device or publish test happened.
 - Never invent IDs or technical failures that are not visible in the supplied proposed project.
+- Treat deterministic audit findings as verified evidence. Include every verified critical finding and never score above the deterministic audit score.
 - Treat native Tayar elements/components as authoritative and preserve manual editability.
 - A critical finding must be a concrete structural or usability problem, not a subjective style preference.
 - followUpPrompt must request targeted native edits and must not rebuild unrelated content.
@@ -864,6 +873,9 @@ Review rules:
 
 CURRENT WEBSITE SNAPSHOT:
 ${JSON.stringify(input.currentSite || {}, null, 2)}
+
+RECENT EDIT CONTEXT:
+${JSON.stringify(input.conversationContext || [], null, 2)}
 
 EXECUTION PLAN:
 ${JSON.stringify(input.executionPlan || {}, null, 2)}
@@ -1101,6 +1113,8 @@ Patch rules:
 - update_theme may use primaryColor, secondaryColor, backgroundColor, textColor, mutedTextColor, fontFamily, themeContentWidth, themeButtonRadius and themeSectionSpacing.
 - update_header supports sticky/mobile menu/language switcher, brand text/logo, navigation typography/spacing, border and full header/CTA colors.
 - Follow the supplied EXECUTION PLAN in order. It is guidance, not permission to bypass safety rules; skip any planned step that cannot be represented safely by supported native operations.
+- Use RECENT EDIT CONTEXT only to resolve references and continuity. The current snapshot and latest USER REQUEST are authoritative.
+- Never redo a completed prior edit unless the latest request explicitly requires it.
 - Keep every result editable in the manual Tayar canvas and preserve unrelated manual work.
 - Treat reusable symbols as native components. Use create_symbol with exact pageId, sectionId and elementId to turn an ordinary element into a reusable component.
 - Use insert_symbol with exact pageId, sectionId and symbolId from CURRENT WEBSITE SNAPSHOT.symbols to add another linked instance.

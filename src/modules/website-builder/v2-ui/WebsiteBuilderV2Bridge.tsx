@@ -67,6 +67,7 @@ import './website-builder-v2.css';
 
 export interface WebsiteBuilderV2BridgeProps {
   canvas: ReactNode;
+  overlaySlot?: ReactNode;
   aiPanel?: ReactNode;
   topbarTrailingSlot?: ReactNode;
   sitePanel?: ReactNode;
@@ -87,6 +88,7 @@ export interface WebsiteBuilderV2BridgeProps {
   activePageId: string;
   selectedSectionId?: string | null;
   selectedElementId?: string | null;
+  selectedElementIds?: string[];
   selectedContainerId?: string | null;
   selectedFormFieldId?: string | null;
 
@@ -201,6 +203,13 @@ export interface WebsiteBuilderV2BridgeProps {
   onSelect(
     selection: EditorSelection,
   ): void;
+
+  onSelectElement?(
+    sectionId: string,
+    elementId: string,
+    additive?: boolean,
+    range?: boolean,
+  ): void;
 }
 
 const SECTION_TYPES =
@@ -233,6 +242,7 @@ function createNativeId(
 
 export function WebsiteBuilderV2Bridge({
 canvas,
+  overlaySlot,
   aiPanel,
   topbarTrailingSlot,
   sitePanel,
@@ -253,6 +263,7 @@ canvas,
   activePageId,
   selectedSectionId,
   selectedElementId,
+  selectedElementIds = [],
   selectedContainerId,
   selectedFormFieldId,
 
@@ -319,6 +330,7 @@ canvas,
 
   onSetDevice,
   onSelect,
+  onSelectElement,
 }: WebsiteBuilderV2BridgeProps) {
   const l = useLocalizer();
   const [leftPanel, setLeftPanel] =
@@ -831,6 +843,14 @@ canvas,
         selection
       }
 
+      selectedElementIds={
+        selectedElementIds
+      }
+
+      onSelectElement={
+        onSelectElement
+      }
+
       brandSlot={
         <div>
           <strong>
@@ -857,6 +877,10 @@ canvas,
 
       canvas={
         canvas
+      }
+
+      canvasOverlaySlot={
+        overlaySlot
       }
 
       topbarTrailingSlot={
