@@ -10,7 +10,13 @@ const forbidMatch = (source, pattern, message) => {
 
 const livePreview = read('src/modules/code-assistant/live-preview.ts');
 forbidMatch(livePreview, /\beval\s*\(/, 'Live Preview must not execute generated code with eval().');
-requireMatch(livePreview, /sandbox/i, 'Live Preview must preserve sandbox isolation.');
+requireMatch(livePreview, /Content-Security-Policy/, 'Live Preview must define an isolation CSP.');
+requireMatch(livePreview, /default-src 'none'/, 'Live Preview CSP must deny resources by default.');
+requireMatch(livePreview, /connect-src 'none'/, 'Live Preview CSP must block network connections.');
+requireMatch(livePreview, /frame-src 'none'/, 'Live Preview CSP must block nested frames.');
+requireMatch(livePreview, /object-src 'none'/, 'Live Preview CSP must block plugin/object content.');
+requireMatch(livePreview, /form-action 'none'/, 'Live Preview CSP must block form submission.');
+requireMatch(livePreview, /BLOCKED_RUNTIME/, 'Live Preview must retain runtime API blocking.');
 
 const requestContext = read('src/lib/ai/request-context.ts');
 requireMatch(requestContext, /projectId/, 'AI request binding must track projectId.');
