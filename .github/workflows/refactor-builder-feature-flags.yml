@@ -1,0 +1,100 @@
+name: Guarded Website Builder V2 flag split
+
+on:
+  push:
+    branches:
+      - refactor/website-builder-split-20260916
+    paths:
+      - .github/workflows/refactor-builder-feature-flags.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract-v2-flag-resolver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/website-builder-split-20260916
+          fetch-depth: 0
+
+      - name: Move V2 resolver into feature flags core
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
+          flags_path = Path('src/modules/website-builder/core/editor-feature-flags.ts')
+          source = source_path.read_text(encoding='utf-8')
+          flags = flags_path.read_text(encoding='utf-8')
+
+          start_marker = "const EDITOR_V2_FLAGS_STORAGE_KEY = 'tayar.website-builder.v2.flags';"
+          end_marker = '\n\nexport default function WebsiteBuilderTool('
+          if source.count(start_marker) != 1 or source.count(end_marker) != 1:
+              raise SystemExit('V2 flag resolver markers changed; refusing.')
+          start = source.index(start_marker)
+          end = source.index(end_marker, start)
+          block = source[start:end].rstrip() + '\n'
+          if not 500 <= len(block) <= 1600:
+              raise SystemExit(f'V2 flag resolver size unexpected ({len(block)} bytes); refusing.')
+          for required in ['URLSearchParams', "params.get('builderV2')", 'window.localStorage.getItem', "queryFlag === '1'", "queryFlag === '0'"]:
+              if required not in block:
+                  raise SystemExit(f'V2 flag behavior missing {required}; refusing.')
+          if any(token in block for token in ['useState(', 'setState(', 'await ']):
+              raise SystemExit('V2 flag resolver gained stateful behavior; refusing.')
+
+          exported = textwrap.dedent(block).replace(
+              'const EDITOR_V2_FLAGS_STORAGE_KEY =',
+              'export const EDITOR_V2_FLAGS_STORAGE_KEY =',
+              1,
+          ).replace(
+              'function resolveWebsiteBuilderV2Flags()',
+              'export function resolveWebsiteBuilderV2Flags()',
+              1,
+          )
+          if 'export function resolveWebsiteBuilderV2Flags()' in flags:
+              raise SystemExit('V2 flag resolver already exists in core; refusing.')
+          flags = flags.rstrip() + '\n\n' + exported
+
+          next_source = source[:start] + source[end:]
+          old_import = "import {\n  parseEditorV2FeatureFlags,\n  resolveEditorV2FeatureFlags,\n} from './core/editor-feature-flags';"
+          new_import = "import { resolveWebsiteBuilderV2Flags } from './core/editor-feature-flags';"
+          if next_source.count(old_import) != 1:
+              raise SystemExit('Feature flag import anchor changed; refusing.')
+          next_source = next_source.replace(old_import, new_import, 1)
+          if 'EDITOR_V2_FLAGS_STORAGE_KEY' in next_source or 'parseEditorV2FeatureFlags' in next_source or 'resolveEditorV2FeatureFlags' in next_source:
+              raise SystemExit('Old V2 flag implementation/imports remained; refusing.')
+          if len(next_source) >= len(source) - 450:
+              raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
+
+          source_path.write_text(next_source, encoding='utf-8')
+          flags_path.write_text(flags, encoding='utf-8')
+          print(f'V2 flag resolver extracted: {len(block)} bytes')
+          print(f'WebsiteBuilderTool.tsx: {len(source)} -> {len(next_source)} bytes')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Website Builder smoke
+        run: npm run smoke:website-builder
+
+      - name: Commit verified extraction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/editor-feature-flags.ts
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "[refactor-bot] Extract V2 feature flag resolver"
+          git push origin HEAD:refactor/website-builder-split-20260916
