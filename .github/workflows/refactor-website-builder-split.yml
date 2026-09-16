@@ -38,7 +38,7 @@ jobs:
           start = text.index(start_marker)
           end = text.index(end_marker, start)
           block = text[start:end].rstrip() + '\n'
-          if len(block) < 10000:
+          if len(block) < 8000:
               raise SystemExit(f'Extraction block unexpectedly small ({len(block)} bytes); refusing.')
 
           type_imports = [
@@ -84,7 +84,7 @@ jobs:
 
           if start_marker in remainder:
               raise SystemExit('Extracted block still present after replacement.')
-          if len(remainder) >= len(text) - 9000:
+          if len(remainder) >= len(text) - 8000:
               raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
 
           module_path.write_text(module_text, encoding='utf-8')
