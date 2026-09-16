@@ -78,6 +78,7 @@ const websiteBuilderConfigPath = resolve(root, 'src/modules/website-builder/core
 const websiteBuilderRenderingPath = resolve(root, 'src/modules/website-builder/core/website-builder-rendering.ts');
 const builderElementPreviewPath = resolve(root, 'src/modules/website-builder/components/ElementPreview.tsx');
 const builderSectionPreviewPath = resolve(root, 'src/modules/website-builder/components/SectionPreview.tsx');
+const editorAIEditableSnapshotPath = resolve(root, 'src/modules/website-builder/core/editor-ai-editable-snapshot.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -164,6 +165,7 @@ for (const [label, path] of [
   ['Website Builder rendering module exists', websiteBuilderRenderingPath],
   ['ElementPreview component exists', builderElementPreviewPath],
   ['SectionPreview component exists', builderSectionPreviewPath],
+  ['AI editable snapshot helper exists', editorAIEditableSnapshotPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -177,7 +179,8 @@ const websiteBuilderConfig = existsSync(websiteBuilderConfigPath) ? readFileSync
 const websiteBuilderRendering = existsSync(websiteBuilderRenderingPath) ? readFileSync(websiteBuilderRenderingPath, 'utf8') : '';
 const builderElementPreview = existsSync(builderElementPreviewPath) ? readFileSync(builderElementPreviewPath, 'utf8') : '';
 const builderSectionPreview = existsSync(builderSectionPreviewPath) ? readFileSync(builderSectionPreviewPath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}`;
+const editorAIEditableSnapshot = existsSync(editorAIEditableSnapshotPath) ? readFileSync(editorAIEditableSnapshotPath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}\n${editorAIEditableSnapshot}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
