@@ -21,19 +21,27 @@ function overlayStyle(item: EditorCanvasOverlayItem): CSSProperties {
   };
 }
 
+const snapGuideStyle: CSSProperties = {
+  position: 'absolute',
+  pointerEvents: 'none',
+  zIndex: 35,
+  background: '#22d3ee',
+  boxShadow: '0 0 0 1px rgba(34,211,238,.16)',
+};
+
 export function BuilderCanvasOverlay({ shell, items, guides, onHover }: BuilderCanvasOverlayProps) {
   return (
     <div className="tayar-v2-canvas-overlay" aria-hidden="true">
       {guides?.vertical && Number.isFinite(guides.verticalPosition) && (
         <span
           className="tayar-v2-canvas-overlay__snap-guide tayar-v2-canvas-overlay__snap-guide--vertical"
-          style={{ left: `${guides.verticalPosition}px` }}
+          style={{ ...snapGuideStyle, left: `${guides.verticalPosition}px`, top: 0, bottom: 0, width: 1 }}
         />
       )}
       {guides?.horizontal && Number.isFinite(guides.horizontalPosition) && (
         <span
           className="tayar-v2-canvas-overlay__snap-guide tayar-v2-canvas-overlay__snap-guide--horizontal"
-          style={{ top: `${guides.horizontalPosition}px` }}
+          style={{ ...snapGuideStyle, top: `${guides.horizontalPosition}px`, left: 0, right: 0, height: 1 }}
         />
       )}
       <CanvasSpacingGuide guide={guides?.spacing} />
