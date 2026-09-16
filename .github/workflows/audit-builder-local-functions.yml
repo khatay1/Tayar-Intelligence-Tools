@@ -1,0 +1,61 @@
+name: Audit Website Builder local functions
+
+on:
+  push:
+    branches:
+      - refactor/website-builder-split-20260916
+    paths:
+      - .github/workflows/audit-builder-local-functions.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/website-builder-split-20260916
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: List largest local functions
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const ts = require('typescript');
+          const path = 'src/modules/website-builder/WebsiteBuilderTool.tsx';
+          const text = fs.readFileSync(path, 'utf8');
+          const sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+          let root = null;
+          function walk(n) {
+            if (ts.isFunctionDeclaration(n) && n.name?.text === 'WebsiteBuilderTool') root = n;
+            ts.forEachChild(n, walk);
+          }
+          walk(sf);
+          if (!root?.body) throw new Error('WebsiteBuilderTool body not found');
+          const rows = [];
+          function visit(n) {
+            if (n !== root && (ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) || ts.isArrowFunction(n))) {
+              const parent = n.parent;
+              let name = n.name?.text;
+              if (!name && ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) name = parent.name.text;
+              if (!name && ts.isPropertyAssignment(parent) && ts.isIdentifier(parent.name)) name = parent.name.text;
+              if (name) {
+                const start = sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+                const end = sf.getLineAndCharacterOfPosition(n.end).line + 1;
+                rows.push({ name, start, end, lines: end - start + 1, kind: ts.SyntaxKind[n.kind] });
+              }
+            }
+            ts.forEachChild(n, visit);
+          }
+          ts.forEachChild(root.body, visit);
+          rows.sort((a,b) => b.lines - a.lines || a.start - b.start);
+          console.log('TOTAL_LOCAL_FUNCTIONS', rows.length);
+          console.log('TOP_LOCAL_FUNCTIONS');
+          for (const r of rows.slice(0, 80)) console.log(`${String(r.lines).padStart(4)} lines | ${String(r.start).padStart(5)}-${String(r.end).padEnd(5)} | ${r.kind} | ${r.name}`);
+          NODE
