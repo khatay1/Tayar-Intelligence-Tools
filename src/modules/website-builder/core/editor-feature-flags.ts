@@ -31,3 +31,26 @@ export function parseEditorV2FeatureFlags(value: string | null | undefined): Par
     ...(enabled.has('no-publish-readiness') ? { publishReadiness: false } : {}),
   };
 }
+
+export const EDITOR_V2_FLAGS_STORAGE_KEY = 'tayar.website-builder.v2.flags';
+
+export function resolveWebsiteBuilderV2Flags() {
+  if (typeof window === 'undefined') {
+    return resolveEditorV2FeatureFlags();
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const queryFlag = params.get('builderV2');
+
+  const overrides = parseEditorV2FeatureFlags(
+    window.localStorage.getItem(EDITOR_V2_FLAGS_STORAGE_KEY),
+  );
+
+  if (queryFlag === '1') {
+    overrides.shell = true;
+  } else if (queryFlag === '0') {
+    overrides.shell = false;
+  }
+
+  return resolveEditorV2FeatureFlags(overrides);
+}

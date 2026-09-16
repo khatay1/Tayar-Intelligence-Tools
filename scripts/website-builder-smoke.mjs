@@ -70,6 +70,18 @@ const editorAINativeBridgePath = resolve(root, 'src/modules/website-builder/core
 const editorNativeProjectPatchPath = resolve(root, 'src/modules/website-builder/core/editor-native-project-patch.ts');
 const editorAIWorkingProjectPath = resolve(root, 'src/modules/website-builder/core/editor-ai-working-project.ts');
 const editorCanvasGeometryPath = resolve(root, 'src/modules/website-builder/core/editor-canvas-geometry.ts');
+const editorAIPatchReviewPath = resolve(root, 'src/modules/website-builder/core/editor-ai-patch-review.ts');
+const editorAIScopePath = resolve(root, 'src/modules/website-builder/core/editor-ai-scope.ts');
+const editorAIReviewTargetsPath = resolve(root, 'src/modules/website-builder/core/editor-ai-review-targets.ts');
+const websiteBuilderModelPath = resolve(root, 'src/modules/website-builder/core/website-builder-model.ts');
+const websiteBuilderConfigPath = resolve(root, 'src/modules/website-builder/core/website-builder-config.ts');
+const websiteBuilderRenderingPath = resolve(root, 'src/modules/website-builder/core/website-builder-rendering.ts');
+const builderElementPreviewPath = resolve(root, 'src/modules/website-builder/components/ElementPreview.tsx');
+const builderSectionPreviewPath = resolve(root, 'src/modules/website-builder/components/SectionPreview.tsx');
+const editorAIEditableSnapshotPath = resolve(root, 'src/modules/website-builder/core/editor-ai-editable-snapshot.ts');
+const websiteBuilderOutputPath = resolve(root, 'src/modules/website-builder/core/website-builder-output.ts');
+const websiteBuilderReportsPath = resolve(root, 'src/modules/website-builder/core/website-builder-reports.ts');
+const websiteBuilderExportDataPath = resolve(root, 'src/modules/website-builder/core/website-builder-export-data.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -148,11 +160,36 @@ for (const [label, path] of [
   ['Plain native project patch executor exists', editorNativeProjectPatchPath],
   ['AI working native project executor exists', editorAIWorkingProjectPath],
   ['Canvas geometry helper exists', editorCanvasGeometryPath],
+  ['AI patch review module exists', editorAIPatchReviewPath],
+  ['AI edit scope module exists', editorAIScopePath],
+  ['AI review target module exists', editorAIReviewTargetsPath],
+  ['Website Builder model module exists', websiteBuilderModelPath],
+  ['Website Builder config module exists', websiteBuilderConfigPath],
+  ['Website Builder rendering module exists', websiteBuilderRenderingPath],
+  ['ElementPreview component exists', builderElementPreviewPath],
+  ['SectionPreview component exists', builderSectionPreviewPath],
+  ['AI editable snapshot helper exists', editorAIEditableSnapshotPath],
+  ['Website Builder output helper exists', websiteBuilderOutputPath],
+  ['Website Builder reports helper exists', websiteBuilderReportsPath],
+  ['Website Builder export data helper exists', websiteBuilderExportDataPath],
 ]) {
   check(label, existsSync(path));
 }
 
-const builder = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
+const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
+const editorAIPatchReview = existsSync(editorAIPatchReviewPath) ? readFileSync(editorAIPatchReviewPath, 'utf8') : '';
+const editorAIScope = existsSync(editorAIScopePath) ? readFileSync(editorAIScopePath, 'utf8') : '';
+const editorAIReviewTargets = existsSync(editorAIReviewTargetsPath) ? readFileSync(editorAIReviewTargetsPath, 'utf8') : '';
+const websiteBuilderModel = existsSync(websiteBuilderModelPath) ? readFileSync(websiteBuilderModelPath, 'utf8') : '';
+const websiteBuilderConfig = existsSync(websiteBuilderConfigPath) ? readFileSync(websiteBuilderConfigPath, 'utf8') : '';
+const websiteBuilderRendering = existsSync(websiteBuilderRenderingPath) ? readFileSync(websiteBuilderRenderingPath, 'utf8') : '';
+const builderElementPreview = existsSync(builderElementPreviewPath) ? readFileSync(builderElementPreviewPath, 'utf8') : '';
+const builderSectionPreview = existsSync(builderSectionPreviewPath) ? readFileSync(builderSectionPreviewPath, 'utf8') : '';
+const editorAIEditableSnapshot = existsSync(editorAIEditableSnapshotPath) ? readFileSync(editorAIEditableSnapshotPath, 'utf8') : '';
+const websiteBuilderOutput = existsSync(websiteBuilderOutputPath) ? readFileSync(websiteBuilderOutputPath, 'utf8') : '';
+const websiteBuilderReports = existsSync(websiteBuilderReportsPath) ? readFileSync(websiteBuilderReportsPath, 'utf8') : '';
+const websiteBuilderExportData = existsSync(websiteBuilderExportDataPath) ? readFileSync(websiteBuilderExportDataPath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}\n${editorAIEditableSnapshot}\n${websiteBuilderOutput}\n${websiteBuilderReports}\n${websiteBuilderExportData}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
@@ -218,7 +255,7 @@ check('Candidate exact changes support keyboard navigation with visible shortcut
 check('Candidate target reveal falls back from elements to containers and sections', builder.includes("targets.push({ attribute: 'data-tayar-ai-target-element'") && builder.includes("targets.push({ attribute: 'data-tayar-ai-target-container'") && builder.includes("targets.push({ attribute: 'data-tayar-ai-target-section'") && builder.includes('for (const target of targets)') && builder.includes('if (canvasTarget) break;'));
 check('Candidate review tracks exact targeted change coverage', builder.includes('reviewedOperationIds: string[]') && builder.includes('aiCandidateReviewedOperationCount') && builder.includes("l('Reviewed changes')") && builder.includes("l('Review next change')"));
 check('Candidate review can advance to the next unreviewed targeted change', builder.includes('function previewNextUnreviewedAICandidateOperation()') && builder.includes('orderedOperations.find((operation) => !reviewedIds.has(operation.id))') && builder.includes('revealAICandidateOperation(nextOperation)'));
-check('Candidate reveal navigates across pages and selects a valid comparison side', builder.includes('function aiWebsitePatchReviewItemTargetPage(') && builder.includes('const targetPage = aiWebsitePatchReviewItemTargetPage(operation, preferredPages)') && builder.includes('activePageId: nextPageId') && builder.includes('viewMode: nextViewMode'));
+check('Candidate reveal navigates across pages and selects a valid comparison side', builder.includes('function aiWebsitePatchReviewItemTargetPage') && builder.includes('const targetPage = aiWebsitePatchReviewItemTargetPage(operation, preferredPages)') && builder.includes('activePageId: nextPageId') && builder.includes('viewMode: nextViewMode'));
 check('Keeping a partially reviewed result covers pages and exact changes', builder.includes('unreviewedOperationCount') && builder.includes("l('targeted changes have not been reviewed.')") && builder.includes("l('Keep result anyway?')"));
 check('Rendered candidate review excludes operations that were not safely applied', builder.includes('const appliedOperationIds = new Set<string>()') && builder.includes('applied > appliedBeforeOperation') && builder.includes('exactPatchReview.operations.filter((operation) => appliedOperationIds.has(operation.id))'));
 check('Rendered candidate review reconciles generated canvas identities', builder.includes('function reconcileAIWebsitePatchReviewTargets(') && builder.includes("operation.action === 'add_page' || operation.action === 'duplicate_page'") && builder.includes("operation.action === 'add_section' || operation.action === 'duplicate_section'") && builder.includes("operation.action === 'add_element' || operation.action === 'duplicate_element' || operation.action === 'insert_symbol'") && builder.includes("operation.action === 'add_container'"));
@@ -290,7 +327,7 @@ check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
 check('Published HTML never exposes direct Supabase Storage URLs', !builder.includes('/storage/v1/object/public/published-sites'));
 check('Publish and preview use canonical Tayar renderer URLs', builder.includes('buildPublishedSiteBaseUrl') && builder.includes('buildPreviewSiteBaseUrl') && builder.includes('buildPublishedSiteUrl'));
-check('Live verification checks rendered HTML content type', builder.includes("contentType.includes('text/html')") && builder.includes('verifyPublishedRoute'));
+check('Live verification checks rendered HTML content type', publishedWebsiteService.includes("contentType.includes('text/html')") && publishedWebsiteService.includes('verifyPublishedRoute'));
 check('Legacy published URLs are normalized', publishedUrlHelper.includes('normalizePublishedSiteUrl') && publishedUrlHelper.includes('/storage/v1/object/public/published-sites/'));
 check('Published-site proxy forces inline HTML rendering', publishedProxy.includes("'text/html; charset=utf-8'") && publishedProxy.includes("'Content-Disposition', 'inline'"));
 check('Published-site proxy sandboxes customer HTML from Tayar auth origin', publishedProxy.includes('sandbox allow-scripts') && !publishedProxy.includes('allow-same-origin'));
@@ -572,7 +609,7 @@ check('Publish actions expose Preview Check Publish flow', builder.includes("AI 
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
 check('Layers show elements only for the selected section', builder.includes("Select a section to see its elements.") && builder.includes("selectedId === section.id && (") && builder.includes("setInspectorOpen(true)"));
 check('Legacy array backups use a valid default language', projectNormalization.includes('if (Array.isArray(input) && input.length)') && projectNormalization.includes("language: 'en'") && projectNormalization.includes("translationKey: 'home'"));
-check('Analytics CSV export uses the shared CSV serializer', builder.includes("-analytics.csv`, `\\uFEFF${buildCsv(rows)}`"));
+check('Analytics CSV export uses the shared CSV serializer', websiteBuilderExportData.includes('export function buildWebsiteAnalyticsCsv') && websiteBuilderExportData.includes('buildCsv(rows)') && builderSource.includes('buildWebsiteAnalyticsCsv(analyticsEvents)'));
 check('Container column controls are reachable', builder.includes('selectedSection && sectionColumnCount(selectedSection.layout) > 1'));
 check('Media insertion is not misclassified as a React hook', builder.includes('function applyMediaAsset') && !builder.includes('function useMediaAsset'));
 check('Generated counter regex preserves numeric escapes', builder.includes('raw.match(/-?\\\\d+(?:\\\\.\\\\d+)?/)'));

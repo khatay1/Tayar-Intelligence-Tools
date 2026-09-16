@@ -253,3 +253,31 @@ export async function archivePublishedWebsiteFiles(
     throw error;
   }
 }
+
+export async function verifyPublishedRoute(url: string): Promise<boolean> {
+  if (!url) return false;
+
+  // Vite dev does not run the Vercel /api proxy. Storage verification remains
+  // useful locally, while production verifies the exact URL customers open.
+  if (import.meta.env.DEV) return true;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { Accept: 'text/html' },
+    });
+
+    if (!response.ok) return false;
+
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('text/html')) return false;
+    if (response.headers.get('x-tayar-published-site') !== '1') return false;
+
+    const body = await response.text();
+    const head = body.slice(0, 4096);
+    return /<!doctype\s+html|<html(?:\s|>)/i.test(head);
+  } catch {
+    return false;
+  }
+}
