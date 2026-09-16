@@ -1,0 +1,151 @@
+name: Guarded Website Builder config split
+
+on:
+  push:
+    branches:
+      - refactor/website-builder-split-20260916
+    paths:
+      - .github/workflows/refactor-website-builder-config.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract-builder-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/website-builder-split-20260916
+          fetch-depth: 0
+
+      - name: Extract pure builder config
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
+          module_path = Path('src/modules/website-builder/core/website-builder-config.ts')
+          smoke_path = Path('scripts/website-builder-smoke.mjs')
+          text = source_path.read_text(encoding='utf-8')
+
+          start_marker = "const REUSABLE_SECTIONS_KEY = 'tayar.website-builder.reusable-sections.v1';"
+          end_marker = 'function sectionColumnCount('
+          if text.count(start_marker) != 1 or text.count(end_marker) != 1:
+              raise SystemExit('Builder config markers are not unique; refusing.')
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          block = text[start:end].rstrip() + '\n'
+          if not 7000 <= len(block) <= 20000:
+              raise SystemExit(f'Builder config block size unexpected ({len(block)} bytes); refusing.')
+
+          required = [
+              'const DEFAULT_THEME:',
+              'const DEFAULT_HEADER_CONFIG:',
+              'const DEFAULT_PRODUCTION_CONFIG:',
+              'const FREE_BILLING_ENTITLEMENTS:',
+              'const BILLING_PLAN_DETAILS:',
+              'function sanitizeCustomCss(',
+              'function normalizeProductionConfig(',
+              'function normalizeTheme(',
+          ]
+          missing = [marker for marker in required if marker not in block]
+          if missing:
+              raise SystemExit(f'Expected config declarations missing: {missing}')
+
+          header = (
+              "import type {\n"
+              "  BillingEntitlements, BillingPlan, WebsiteFooterConfig, WebsiteHeaderConfig,\n"
+              "  WebsiteProductionConfig, WebsiteSiteEnhancements, WebsiteTheme,\n"
+              "} from './website-builder-model';\n\n"
+          )
+          exported = re.sub(r'(?m)^(const|function) ', r'export \1 ', block)
+          module_text = header + exported
+
+          declarations = re.findall(r'(?m)^(?:const|function)\s+([A-Za-z0-9_]+)', block)
+          remainder = text[:start] + text[end:]
+          used = [name for name in declarations if re.search(rf'\b{re.escape(name)}\b', remainder)]
+          if len(used) < 10 or 'DEFAULT_THEME' not in used or 'normalizeTheme' not in used:
+              raise SystemExit(f'Unexpected remaining config references ({len(used)}): {used}')
+
+          import_lines = ['import {']
+          import_lines.extend(f'  {name},' for name in used)
+          import_lines.append("} from './core/website-builder-config';")
+          import_text = '\n'.join(import_lines) + '\n'
+
+          anchor = "} from './core/website-builder-model';\n"
+          if remainder.count(anchor) != 1:
+              raise SystemExit('Website Builder model import anchor changed; refusing.')
+          remainder = remainder.replace(anchor, anchor + import_text, 1)
+          if start_marker in remainder:
+              raise SystemExit('Builder config block remained after extraction.')
+          if len(remainder) >= len(text) - 6500:
+              raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
+
+          smoke = smoke_path.read_text(encoding='utf-8')
+          path_anchor = "const websiteBuilderModelPath = resolve(root, 'src/modules/website-builder/core/website-builder-model.ts');\n"
+          if smoke.count(path_anchor) != 1:
+              raise SystemExit('Smoke model path anchor changed; refusing.')
+          smoke = smoke.replace(
+              path_anchor,
+              path_anchor + "const websiteBuilderConfigPath = resolve(root, 'src/modules/website-builder/core/website-builder-config.ts');\n",
+              1,
+          )
+
+          existence_anchor = "  ['Website Builder model module exists', websiteBuilderModelPath],\n"
+          if smoke.count(existence_anchor) != 1:
+              raise SystemExit('Smoke model existence anchor changed; refusing.')
+          smoke = smoke.replace(
+              existence_anchor,
+              existence_anchor + "  ['Website Builder config module exists', websiteBuilderConfigPath],\n",
+              1,
+          )
+
+          read_anchor = "const websiteBuilderModel = existsSync(websiteBuilderModelPath) ? readFileSync(websiteBuilderModelPath, 'utf8') : '';\n"
+          if smoke.count(read_anchor) != 1:
+              raise SystemExit('Smoke model read anchor changed; refusing.')
+          smoke = smoke.replace(
+              read_anchor,
+              read_anchor + "const websiteBuilderConfig = existsSync(websiteBuilderConfigPath) ? readFileSync(websiteBuilderConfigPath, 'utf8') : '';\n",
+              1,
+          )
+
+          composite_old = "const builder = `${builderSource}\\n${editorAIPatchReview}\\n${editorAIScope}\\n${editorAIReviewTargets}\\n${websiteBuilderModel}`;\n"
+          composite_new = "const builder = `${builderSource}\\n${editorAIPatchReview}\\n${editorAIScope}\\n${editorAIReviewTargets}\\n${websiteBuilderModel}\\n${websiteBuilderConfig}`;\n"
+          if smoke.count(composite_old) != 1:
+              raise SystemExit('Smoke composite source anchor changed; refusing.')
+          smoke = smoke.replace(composite_old, composite_new, 1)
+
+          source_path.write_text(remainder, encoding='utf-8')
+          module_path.write_text(module_text, encoding='utf-8')
+          smoke_path.write_text(smoke, encoding='utf-8')
+
+          print(f'Builder config extracted: {len(block)} bytes, {len(declarations)} declarations')
+          print(f'WebsiteBuilderTool.tsx: {len(text)} -> {len(remainder)} bytes')
+          print('Re-imported:', ', '.join(used))
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Website Builder smoke
+        run: npm run smoke:website-builder
+
+      - name: Commit verified extraction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/website-builder-config.ts scripts/website-builder-smoke.mjs
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "[refactor-bot] Extract Website Builder config"
+          git push origin HEAD:refactor/website-builder-split-20260916
