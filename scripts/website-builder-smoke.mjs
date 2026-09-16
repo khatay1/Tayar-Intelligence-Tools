@@ -81,6 +81,7 @@ const builderSectionPreviewPath = resolve(root, 'src/modules/website-builder/com
 const editorAIEditableSnapshotPath = resolve(root, 'src/modules/website-builder/core/editor-ai-editable-snapshot.ts');
 const websiteBuilderOutputPath = resolve(root, 'src/modules/website-builder/core/website-builder-output.ts');
 const websiteBuilderReportsPath = resolve(root, 'src/modules/website-builder/core/website-builder-reports.ts');
+const websiteBuilderExportDataPath = resolve(root, 'src/modules/website-builder/core/website-builder-export-data.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -170,6 +171,7 @@ for (const [label, path] of [
   ['AI editable snapshot helper exists', editorAIEditableSnapshotPath],
   ['Website Builder output helper exists', websiteBuilderOutputPath],
   ['Website Builder reports helper exists', websiteBuilderReportsPath],
+  ['Website Builder export data helper exists', websiteBuilderExportDataPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -186,7 +188,8 @@ const builderSectionPreview = existsSync(builderSectionPreviewPath) ? readFileSy
 const editorAIEditableSnapshot = existsSync(editorAIEditableSnapshotPath) ? readFileSync(editorAIEditableSnapshotPath, 'utf8') : '';
 const websiteBuilderOutput = existsSync(websiteBuilderOutputPath) ? readFileSync(websiteBuilderOutputPath, 'utf8') : '';
 const websiteBuilderReports = existsSync(websiteBuilderReportsPath) ? readFileSync(websiteBuilderReportsPath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}\n${editorAIEditableSnapshot}\n${websiteBuilderOutput}\n${websiteBuilderReports}`;
+const websiteBuilderExportData = existsSync(websiteBuilderExportDataPath) ? readFileSync(websiteBuilderExportDataPath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}\n${editorAIEditableSnapshot}\n${websiteBuilderOutput}\n${websiteBuilderReports}\n${websiteBuilderExportData}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
@@ -606,7 +609,7 @@ check('Publish actions expose Preview Check Publish flow', builder.includes("AI 
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
 check('Layers show elements only for the selected section', builder.includes("Select a section to see its elements.") && builder.includes("selectedId === section.id && (") && builder.includes("setInspectorOpen(true)"));
 check('Legacy array backups use a valid default language', projectNormalization.includes('if (Array.isArray(input) && input.length)') && projectNormalization.includes("language: 'en'") && projectNormalization.includes("translationKey: 'home'"));
-check('Analytics CSV export uses the shared CSV serializer', builder.includes("-analytics.csv`, `\\uFEFF${buildCsv(rows)}`"));
+check('Analytics CSV export uses the shared CSV serializer', websiteBuilderExportData.includes('export function buildWebsiteAnalyticsCsv') && websiteBuilderExportData.includes('buildCsv(rows)') && builderSource.includes('buildWebsiteAnalyticsCsv(analyticsEvents)'));
 check('Container column controls are reachable', builder.includes('selectedSection && sectionColumnCount(selectedSection.layout) > 1'));
 check('Media insertion is not misclassified as a React hook', builder.includes('function applyMediaAsset') && !builder.includes('function useMediaAsset'));
 check('Generated counter regex preserves numeric escapes', builder.includes('raw.match(/-?\\\\d+(?:\\\\.\\\\d+)?/)'));

@@ -163,6 +163,7 @@ import {
 import { buildAIEditableSnapshotData } from './core/editor-ai-editable-snapshot';
 import { createWebsiteBuilderOutput } from './core/website-builder-output';
 import { buildAuditReportText, buildDeliveryReportText, buildV1LaunchReportText } from './core/website-builder-reports';
+import { buildWebsiteAnalyticsCsv, buildWebsiteLeadsCsv, buildWebsiteProjectBackupText } from './core/website-builder-export-data';
 import {
   type WebsitePage,
   type WebsiteClipboardContext,
@@ -9728,12 +9729,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function exportProjectBackup() {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      app: 'Tayar Website Builder',
-      project: buildProjectData(),
-    };
-    downloadTextFile(`${normalizeSlug(siteName || 'website')}-backup.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+    downloadTextFile(
+      `${normalizeSlug(siteName || 'website')}-backup.json`,
+      buildWebsiteProjectBackupText(buildProjectData()),
+      'application/json;charset=utf-8',
+    );
   }
 
   function importProjectBackup() {
@@ -9810,38 +9810,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function exportLeadsCsv() {
-    const rows: unknown[][] = [[ 'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'updated_at', 'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer', 'form_data' ]];
-    leads.forEach((lead) => {
-      const meta = getWebsiteLeadSource(lead);
-      rows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.updated_at || '', lead.name, lead.email, getWebsiteLeadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer, lead.form_data || {}]);
-    });
-    downloadTextFile(`${normalizeSlug(siteName || 'website')}-leads.csv`, `\uFEFF${buildCsv(rows)}`, 'text/csv;charset=utf-8');
+    downloadTextFile(
+      `${normalizeSlug(siteName || 'website')}-leads.csv`,
+      buildWebsiteLeadsCsv(leads),
+      'text/csv;charset=utf-8',
+    );
   }
 
   function exportAnalyticsCsv() {
-    const rows: unknown[][] = [[
-      'created_at',
-      'event_type',
-      'page_path',
-      'referrer',
-      'session_id',
-      'event_data',
-    ]];
-
-    analyticsEvents.forEach((event) => {
-      rows.push([
-        event.created_at,
-        event.event_type || 'page_view',
-        event.page_path,
-        event.referrer || '',
-        event.session_id,
-        event.event_data ? JSON.stringify(event.event_data) : '',
-      ]);
-    });
-
     downloadTextFile(
-      `${normalizeSlug(siteName || 'website')}-analytics.csv`, `\uFEFF${buildCsv(rows)}`,
-
+      `${normalizeSlug(siteName || 'website')}-analytics.csv`,
+      buildWebsiteAnalyticsCsv(analyticsEvents),
       'text/csv;charset=utf-8',
     );
   }
