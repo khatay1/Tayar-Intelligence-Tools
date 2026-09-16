@@ -73,6 +73,7 @@ const editorCanvasGeometryPath = resolve(root, 'src/modules/website-builder/core
 const editorAIPatchReviewPath = resolve(root, 'src/modules/website-builder/core/editor-ai-patch-review.ts');
 const editorAIScopePath = resolve(root, 'src/modules/website-builder/core/editor-ai-scope.ts');
 const editorAIReviewTargetsPath = resolve(root, 'src/modules/website-builder/core/editor-ai-review-targets.ts');
+const websiteBuilderModelPath = resolve(root, 'src/modules/website-builder/core/website-builder-model.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -154,6 +155,7 @@ for (const [label, path] of [
   ['AI patch review module exists', editorAIPatchReviewPath],
   ['AI edit scope module exists', editorAIScopePath],
   ['AI review target module exists', editorAIReviewTargetsPath],
+  ['Website Builder model module exists', websiteBuilderModelPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -162,7 +164,8 @@ const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8'
 const editorAIPatchReview = existsSync(editorAIPatchReviewPath) ? readFileSync(editorAIPatchReviewPath, 'utf8') : '';
 const editorAIScope = existsSync(editorAIScopePath) ? readFileSync(editorAIScopePath, 'utf8') : '';
 const editorAIReviewTargets = existsSync(editorAIReviewTargetsPath) ? readFileSync(editorAIReviewTargetsPath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}`;
+const websiteBuilderModel = existsSync(websiteBuilderModelPath) ? readFileSync(websiteBuilderModelPath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
