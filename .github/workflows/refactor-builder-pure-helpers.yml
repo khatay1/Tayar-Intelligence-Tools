@@ -29,10 +29,12 @@ jobs:
           source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
           config_path = Path('src/modules/website-builder/core/website-builder-config.ts')
           publish_service_path = Path('src/modules/website-builder/services/publishedWebsiteService.ts')
+          smoke_path = Path('scripts/website-builder-smoke.mjs')
 
           source = source_path.read_text(encoding='utf-8')
           config = config_path.read_text(encoding='utf-8')
           publish_service = publish_service_path.read_text(encoding='utf-8')
+          smoke = smoke_path.read_text(encoding='utf-8')
 
           theme_start_marker = '  function applyThemeToSection(section: WebsiteSection, index: number): WebsiteSection {'
           theme_end_marker = '  function applyThemeToCurrentPage() {'
@@ -116,6 +118,12 @@ jobs:
               1,
           )
 
+          old_smoke_check = "check('Live verification checks rendered HTML content type', builder.includes(\"contentType.includes('text/html')\") && builder.includes('verifyPublishedRoute'));"
+          new_smoke_check = "check('Live verification checks rendered HTML content type', publishedWebsiteService.includes(\"contentType.includes('text/html')\") && publishedWebsiteService.includes('verifyPublishedRoute'));"
+          if smoke.count(old_smoke_check) != 1:
+              raise SystemExit('Live verification smoke check changed; refusing.')
+          smoke = smoke.replace(old_smoke_check, new_smoke_check, 1)
+
           if theme_start_marker in next_source or verify_start_marker in next_source:
               raise SystemExit('Local helper implementation remained after extraction; refusing.')
           if len(next_source) >= len(source) - 1400:
@@ -124,6 +132,7 @@ jobs:
           source_path.write_text(next_source, encoding='utf-8')
           config_path.write_text(config, encoding='utf-8')
           publish_service_path.write_text(publish_service, encoding='utf-8')
+          smoke_path.write_text(smoke, encoding='utf-8')
 
           print(f'Theme helper extracted: {len(theme_block)} bytes')
           print(f'Publish verification helper extracted: {len(verify_block)} bytes')
@@ -147,7 +156,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/website-builder-config.ts src/modules/website-builder/services/publishedWebsiteService.ts
+          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/website-builder-config.ts src/modules/website-builder/services/publishedWebsiteService.ts scripts/website-builder-smoke.mjs
           git diff --cached --check
           git diff --cached --stat
           git commit -m "[refactor-bot] Extract builder theme and publish helpers"
