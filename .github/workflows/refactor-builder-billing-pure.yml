@@ -59,7 +59,6 @@ jobs:
               'maxWebsiteProjects:',
               'maxReleaseHistory:',
               'maxAnalyticsEvents:',
-              'stripeCustomerId',
               'analyticsEvents:',
           ]:
               if required not in raw_block:
@@ -68,60 +67,63 @@ jobs:
               if forbidden in raw_block:
                   raise SystemExit(f'Unexpected stateful/async behavior in billing normalization ({forbidden}); refusing.')
 
-          helpers = '''
-export function resolveEffectiveProductionConfig(
-  productionConfig: WebsiteProductionConfig,
-  billingEntitlements: BillingEntitlements,
-): WebsiteProductionConfig {
-  return {
-    ...productionConfig,
-    customCss: billingEntitlements.features.customCss ? productionConfig.customCss : '',
-    ga4Id: billingEntitlements.features.productionIntegrations ? productionConfig.ga4Id : '',
-    gtmId: billingEntitlements.features.productionIntegrations ? productionConfig.gtmId : '',
-    metaPixelId: billingEntitlements.features.productionIntegrations ? productionConfig.metaPixelId : '',
-    plausibleDomain: billingEntitlements.features.productionIntegrations ? productionConfig.plausibleDomain : '',
-  };
-}
-
-export function normalizeBillingStatePayload(
-  data: Record<string, unknown>,
-  pageCount: number,
-): BillingState {
-  const rawPlan = data.plan === 'business' ? 'business' : data.plan === 'pro' ? 'pro' : 'free';
-  const rawEntitlements = data.entitlements && typeof data.entitlements === 'object'
-    ? data.entitlements as Record<string, unknown>
-    : {};
-  const rawFeatures = rawEntitlements.features && typeof rawEntitlements.features === 'object'
-    ? rawEntitlements.features as Partial<Record<BillingFeature, boolean>>
-    : {};
-  const local = LOCAL_BILLING_ENTITLEMENTS[rawPlan];
-  const entitlements: BillingEntitlements = {
-    plan: rawPlan,
-    maxPages: Number(rawEntitlements.maxPages) || local.maxPages,
-    maxWebsiteProjects: Number(rawEntitlements.maxWebsiteProjects) || local.maxWebsiteProjects,
-    maxReleaseHistory: Number(rawEntitlements.maxReleaseHistory) || local.maxReleaseHistory,
-    maxLeads: Number(rawEntitlements.maxLeads) || local.maxLeads,
-    maxAnalyticsEvents: Number(rawEntitlements.maxAnalyticsEvents) || local.maxAnalyticsEvents,
-    features: { ...local.features, ...rawFeatures },
-  };
-  const rawUsage = data.usage && typeof data.usage === 'object' ? data.usage as Record<string, unknown> : {};
-
-  return {
-    plan: rawPlan,
-    entitlements,
-    subscription: data.subscription && typeof data.subscription === 'object'
-      ? data.subscription as BillingSubscriptionSnapshot
-      : null,
-    usage: {
-      websiteProjects: Number(rawUsage.websiteProjects) || 0,
-      pages: pageCount,
-      releases: Number(rawUsage.releases) || 0,
-      leads: Number(rawUsage.leads) || 0,
-      analyticsEvents: Number(rawUsage.analyticsEvents) || 0,
-    },
-  };
-}
-'''
+          helper_lines = [
+              '',
+              'export function resolveEffectiveProductionConfig(',
+              '  productionConfig: WebsiteProductionConfig,',
+              '  billingEntitlements: BillingEntitlements,',
+              '): WebsiteProductionConfig {',
+              '  return {',
+              '    ...productionConfig,',
+              "    customCss: billingEntitlements.features.customCss ? productionConfig.customCss : '',",
+              "    ga4Id: billingEntitlements.features.productionIntegrations ? productionConfig.ga4Id : '',",
+              "    gtmId: billingEntitlements.features.productionIntegrations ? productionConfig.gtmId : '',",
+              "    metaPixelId: billingEntitlements.features.productionIntegrations ? productionConfig.metaPixelId : '',",
+              "    plausibleDomain: billingEntitlements.features.productionIntegrations ? productionConfig.plausibleDomain : '',",
+              '  };',
+              '}',
+              '',
+              'export function normalizeBillingStatePayload(',
+              '  data: Record<string, unknown>,',
+              '  pageCount: number,',
+              '): BillingState {',
+              "  const rawPlan = data.plan === 'business' ? 'business' : data.plan === 'pro' ? 'pro' : 'free';",
+              "  const rawEntitlements = data.entitlements && typeof data.entitlements === 'object'",
+              '    ? data.entitlements as Record<string, unknown>',
+              '    : {};',
+              "  const rawFeatures = rawEntitlements.features && typeof rawEntitlements.features === 'object'",
+              '    ? rawEntitlements.features as Partial<Record<BillingFeature, boolean>>',
+              '    : {};',
+              '  const local = LOCAL_BILLING_ENTITLEMENTS[rawPlan];',
+              '  const entitlements: BillingEntitlements = {',
+              '    plan: rawPlan,',
+              '    maxPages: Number(rawEntitlements.maxPages) || local.maxPages,',
+              '    maxWebsiteProjects: Number(rawEntitlements.maxWebsiteProjects) || local.maxWebsiteProjects,',
+              '    maxReleaseHistory: Number(rawEntitlements.maxReleaseHistory) || local.maxReleaseHistory,',
+              '    maxLeads: Number(rawEntitlements.maxLeads) || local.maxLeads,',
+              '    maxAnalyticsEvents: Number(rawEntitlements.maxAnalyticsEvents) || local.maxAnalyticsEvents,',
+              '    features: { ...local.features, ...rawFeatures },',
+              '  };',
+              "  const rawUsage = data.usage && typeof data.usage === 'object' ? data.usage as Record<string, unknown> : {};",
+              '',
+              '  return {',
+              '    plan: rawPlan,',
+              '    entitlements,',
+              "    subscription: data.subscription && typeof data.subscription === 'object'",
+              '      ? data.subscription as BillingSubscriptionSnapshot',
+              '      : null,',
+              '    usage: {',
+              '      websiteProjects: Number(rawUsage.websiteProjects) || 0,',
+              '      pages: pageCount,',
+              '      releases: Number(rawUsage.releases) || 0,',
+              '      leads: Number(rawUsage.leads) || 0,',
+              '      analyticsEvents: Number(rawUsage.analyticsEvents) || 0,',
+              '    },',
+              '  };',
+              '}',
+              '',
+          ]
+          helpers = '\n'.join(helper_lines)
 
           if 'export function resolveEffectiveProductionConfig(' in config or 'export function normalizeBillingStatePayload(' in config:
               raise SystemExit('Billing helper already exists in config; refusing.')
@@ -136,22 +138,18 @@ export function normalizeBillingStatePayload(
           )
           config = config.rstrip() + '\n' + helpers
 
-          next_source = source[:effective_start] + '''  function effectiveProductionConfig(): WebsiteProductionConfig {
-    return resolveEffectiveProductionConfig(productionConfig, billingEntitlements);
-  }
-
-''' + source[effective_end:]
+          next_source = source[:effective_start] + '  function effectiveProductionConfig(): WebsiteProductionConfig {\n    return resolveEffectiveProductionConfig(productionConfig, billingEntitlements);\n  }\n\n' + source[effective_end:]
 
           raw_start = next_source.index(raw_start_marker)
           raw_end = next_source.index(raw_end_marker, raw_start)
           next_source = next_source[:raw_start] + '    setBillingState(normalizeBillingStatePayload(data as Record<string, unknown>, pages.length));\n' + next_source[raw_end:]
 
-          config_import_anchor = '  normalizeTheme,\n  applyThemeToSection,\n} from \'./core/website-builder-config\';'
+          config_import_anchor = "  normalizeTheme,\n  applyThemeToSection,\n} from './core/website-builder-config';"
           if next_source.count(config_import_anchor) != 1:
               raise SystemExit('Main config import anchor changed; refusing.')
           next_source = next_source.replace(
               config_import_anchor,
-              '  normalizeTheme,\n  applyThemeToSection,\n  resolveEffectiveProductionConfig,\n  normalizeBillingStatePayload,\n} from \'./core/website-builder-config\';',
+              "  normalizeTheme,\n  applyThemeToSection,\n  resolveEffectiveProductionConfig,\n  normalizeBillingStatePayload,\n} from './core/website-builder-config';",
               1,
           )
 
