@@ -74,6 +74,7 @@ const editorAIPatchReviewPath = resolve(root, 'src/modules/website-builder/core/
 const editorAIScopePath = resolve(root, 'src/modules/website-builder/core/editor-ai-scope.ts');
 const editorAIReviewTargetsPath = resolve(root, 'src/modules/website-builder/core/editor-ai-review-targets.ts');
 const websiteBuilderModelPath = resolve(root, 'src/modules/website-builder/core/website-builder-model.ts');
+const websiteBuilderConfigPath = resolve(root, 'src/modules/website-builder/core/website-builder-config.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -156,6 +157,7 @@ for (const [label, path] of [
   ['AI edit scope module exists', editorAIScopePath],
   ['AI review target module exists', editorAIReviewTargetsPath],
   ['Website Builder model module exists', websiteBuilderModelPath],
+  ['Website Builder config module exists', websiteBuilderConfigPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -165,7 +167,8 @@ const editorAIPatchReview = existsSync(editorAIPatchReviewPath) ? readFileSync(e
 const editorAIScope = existsSync(editorAIScopePath) ? readFileSync(editorAIScopePath, 'utf8') : '';
 const editorAIReviewTargets = existsSync(editorAIReviewTargetsPath) ? readFileSync(editorAIReviewTargetsPath, 'utf8') : '';
 const websiteBuilderModel = existsSync(websiteBuilderModelPath) ? readFileSync(websiteBuilderModelPath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}`;
+const websiteBuilderConfig = existsSync(websiteBuilderConfigPath) ? readFileSync(websiteBuilderConfigPath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
