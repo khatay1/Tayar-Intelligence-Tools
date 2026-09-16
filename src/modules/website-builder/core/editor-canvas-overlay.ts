@@ -9,6 +9,7 @@ export interface EditorCanvasTargetRect {
   sectionId?: string;
   elementId?: string;
   containerId?: string;
+  parentContainerId?: string;
   label?: string;
   rect: { x: number; y: number; width: number; height: number };
 }
