@@ -84,81 +84,108 @@ jobs:
               if any(token in block for token in ['setState(', 'setSections(', 'setPages(', 'await ']):
                   raise SystemExit('Export helper unexpectedly gained mutable/async behavior; refusing.')
 
-          module_text = '''import { getWebsiteLeadPhone, getWebsiteLeadSource } from './website-lead-utils';
-import { buildCsv } from './website-builder-rendering';
-import type { WebsiteAnalyticsEvent, WebsiteLead } from './website-builder-model';
-
-export function buildWebsiteProjectBackupText(project: unknown): string {
-  return JSON.stringify({
-    exportedAt: new Date().toISOString(),
-    app: 'Tayar Website Builder',
-    project,
-  }, null, 2);
-}
-
-export function buildWebsiteLeadsCsv(leads: WebsiteLead[]): string {
-  const rows: unknown[][] = [[
-    'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'updated_at',
-    'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium',
-    'utm_campaign', 'referrer', 'form_data',
-  ]];
-
-  leads.forEach((lead) => {
-    const meta = getWebsiteLeadSource(lead);
-    rows.push([
-      lead.id,
-      lead.status,
-      lead.stage || 'new',
-      Number(lead.priority || 0),
-      (lead.tags || []).join('|'),
-      lead.notes || '',
-      lead.created_at,
-      lead.updated_at || '',
-      lead.name,
-      lead.email,
-      getWebsiteLeadPhone(lead),
-      lead.message,
-      lead.page_path || '',
-      meta.source,
-      meta.medium,
-      meta.campaign,
-      meta.referrer,
-      lead.form_data || {},
-    ]);
-  });
-
-  return `\\uFEFF${buildCsv(rows)}`;
-}
-
-export function buildWebsiteAnalyticsCsv(events: WebsiteAnalyticsEvent[]): string {
-  const rows: unknown[][] = [[
-    'created_at',
-    'event_type',
-    'page_path',
-    'referrer',
-    'session_id',
-    'event_data',
-  ]];
-
-  events.forEach((event) => {
-    rows.push([
-      event.created_at,
-      event.event_type || 'page_view',
-      event.page_path,
-      event.referrer || '',
-      event.session_id,
-      event.event_data ? JSON.stringify(event.event_data) : '',
-    ]);
-  });
-
-  return `\\uFEFF${buildCsv(rows)}`;
-}
-'''
+          module_lines = [
+              "import { getWebsiteLeadPhone, getWebsiteLeadSource } from './website-lead-utils';",
+              "import { buildCsv } from './website-builder-rendering';",
+              "import type { WebsiteAnalyticsEvent, WebsiteLead } from './website-builder-model';",
+              '',
+              'export function buildWebsiteProjectBackupText(project: unknown): string {',
+              '  return JSON.stringify({',
+              '    exportedAt: new Date().toISOString(),',
+              "    app: 'Tayar Website Builder',",
+              '    project,',
+              '  }, null, 2);',
+              '}',
+              '',
+              'export function buildWebsiteLeadsCsv(leads: WebsiteLead[]): string {',
+              '  const rows: unknown[][] = [[',
+              "    'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'updated_at',",
+              "    'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium',",
+              "    'utm_campaign', 'referrer', 'form_data',",
+              '  ]];',
+              '',
+              '  leads.forEach((lead) => {',
+              '    const meta = getWebsiteLeadSource(lead);',
+              '    rows.push([',
+              '      lead.id,',
+              '      lead.status,',
+              "      lead.stage || 'new',",
+              '      Number(lead.priority || 0),',
+              "      (lead.tags || []).join('|'),",
+              "      lead.notes || '',",
+              '      lead.created_at,',
+              "      lead.updated_at || '',",
+              '      lead.name,',
+              '      lead.email,',
+              '      getWebsiteLeadPhone(lead),',
+              '      lead.message,',
+              "      lead.page_path || '',",
+              '      meta.source,',
+              '      meta.medium,',
+              '      meta.campaign,',
+              '      meta.referrer,',
+              '      lead.form_data || {},',
+              '    ]);',
+              '  });',
+              '',
+              '  return `\\uFEFF${buildCsv(rows)}`;',
+              '}',
+              '',
+              'export function buildWebsiteAnalyticsCsv(events: WebsiteAnalyticsEvent[]): string {',
+              '  const rows: unknown[][] = [[',
+              "    'created_at',",
+              "    'event_type',",
+              "    'page_path',",
+              "    'referrer',",
+              "    'session_id',",
+              "    'event_data',",
+              '  ]];',
+              '',
+              '  events.forEach((event) => {',
+              '    rows.push([',
+              '      event.created_at,',
+              "      event.event_type || 'page_view',",
+              '      event.page_path,',
+              "      event.referrer || '',",
+              '      event.session_id,',
+              "      event.event_data ? JSON.stringify(event.event_data) : '',",
+              '    ]);',
+              '  });',
+              '',
+              '  return `\\uFEFF${buildCsv(rows)}`;',
+              '}',
+              '',
+          ]
+          module_text = '\n'.join(module_lines)
 
           wrappers = {
-              'exportProjectBackup': '''  function exportProjectBackup() {\n    downloadTextFile(\n      `${normalizeSlug(siteName || 'website')}-backup.json`,\n      buildWebsiteProjectBackupText(buildProjectData()),\n      'application/json;charset=utf-8',\n    );\n  }''',
-              'exportLeadsCsv': '''  function exportLeadsCsv() {\n    downloadTextFile(\n      `${normalizeSlug(siteName || 'website')}-leads.csv`,\n      buildWebsiteLeadsCsv(leads),\n      'text/csv;charset=utf-8',\n    );\n  }''',
-              'exportAnalyticsCsv': '''  function exportAnalyticsCsv() {\n    downloadTextFile(\n      `${normalizeSlug(siteName || 'website')}-analytics.csv`,\n      buildWebsiteAnalyticsCsv(analyticsEvents),\n      'text/csv;charset=utf-8',\n    );\n  }''',
+              'exportProjectBackup': '\n'.join([
+                  '  function exportProjectBackup() {',
+                  '    downloadTextFile(',
+                  "      `${normalizeSlug(siteName || 'website')}-backup.json`,",
+                  '      buildWebsiteProjectBackupText(buildProjectData()),',
+                  "      'application/json;charset=utf-8',",
+                  '    );',
+                  '  }',
+              ]),
+              'exportLeadsCsv': '\n'.join([
+                  '  function exportLeadsCsv() {',
+                  '    downloadTextFile(',
+                  "      `${normalizeSlug(siteName || 'website')}-leads.csv`,",
+                  '      buildWebsiteLeadsCsv(leads),',
+                  "      'text/csv;charset=utf-8',",
+                  '    );',
+                  '  }',
+              ]),
+              'exportAnalyticsCsv': '\n'.join([
+                  '  function exportAnalyticsCsv() {',
+                  '    downloadTextFile(',
+                  "      `${normalizeSlug(siteName || 'website')}-analytics.csv`,",
+                  '      buildWebsiteAnalyticsCsv(analyticsEvents),',
+                  "      'text/csv;charset=utf-8',",
+                  '    );',
+                  '  }',
+              ]),
           }
 
           next_source = source
