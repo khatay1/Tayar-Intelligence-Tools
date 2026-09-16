@@ -24,6 +24,7 @@ jobs:
         run: |
           python3 <<'PY'
           from pathlib import Path
+          import textwrap
 
           source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
           module_path = Path('src/modules/website-builder/core/website-builder-output.ts')
@@ -54,207 +55,109 @@ jobs:
               if forbidden in block:
                   raise SystemExit(f'Stateful/async behavior found in output block ({forbidden}); refusing.')
 
-          module_text = """import type { Language } from '@/context/PreferencesContext';
-import { createSection } from './defaults';
-import { normalizePageLanguage, normalizeSlug } from './project-identifiers';
-import type { WebsiteSEO, WebsiteSection } from './types';
-import type {
-  WebsiteFooterConfig,
-  WebsiteHeaderConfig,
-  WebsitePage,
-  WebsiteProductionConfig,
-  WebsiteSiteEnhancements,
-  WebsiteTheme,
-} from './website-builder-model';
-import { buildFullHtml, normalizeSiteUrl } from './website-builder-rendering';
+          funcs = textwrap.dedent(block).rstrip()
+          replacements = [
+              ('prefs.language', 'preferredLanguage', 3),
+              ("import.meta.env.VITE_SUPABASE_URL || ''", 'supabaseUrl', 2),
+              ("import.meta.env.VITE_SUPABASE_ANON_KEY || ''", 'supabaseAnonKey', 2),
+              ('effectiveProductionConfig()', 'productionConfig', 2),
+          ]
+          for old, new, expected in replacements:
+              actual = funcs.count(old)
+              if actual != expected:
+                  raise SystemExit(f'Output dependency count changed for {old!r}: expected {expected}, got {actual}')
+              funcs = funcs.replace(old, new)
 
-export interface WebsiteBuilderOutputContext {
-  pages: WebsitePage[];
-  sections: WebsiteSection[];
-  activePageId: string;
-  homePageId: string;
-  siteUrl: string;
-  siteName: string;
-  faviconUrl: string;
-  seo: WebsiteSEO;
-  theme: WebsiteTheme;
-  headerConfig: WebsiteHeaderConfig;
-  footerConfig: WebsiteFooterConfig;
-  siteEnhancements: WebsiteSiteEnhancements;
-  productionConfig: WebsiteProductionConfig;
-  preferredLanguage: Language;
-  cloudProjectId: string | null;
-  supabaseUrl: string;
-  supabaseAnonKey: string;
-}
+          preamble = '\n'.join([
+              "import type { Language } from '@/context/PreferencesContext';",
+              "import { createSection } from './defaults';",
+              "import { normalizePageLanguage, normalizeSlug } from './project-identifiers';",
+              "import type { WebsiteSEO, WebsiteSection } from './types';",
+              "import type { WebsiteFooterConfig, WebsiteHeaderConfig, WebsitePage, WebsiteProductionConfig, WebsiteSiteEnhancements, WebsiteTheme } from './website-builder-model';",
+              "import { buildFullHtml, normalizeSiteUrl } from './website-builder-rendering';",
+              '',
+              'export interface WebsiteBuilderOutputDependencies {',
+              '  pages: WebsitePage[];',
+              '  sections: WebsiteSection[];',
+              '  activePageId: string;',
+              '  homePageId: string;',
+              '  siteUrl: string;',
+              '  siteName: string;',
+              '  faviconUrl: string;',
+              '  seo: WebsiteSEO;',
+              '  theme: WebsiteTheme;',
+              '  headerConfig: WebsiteHeaderConfig;',
+              '  footerConfig: WebsiteFooterConfig;',
+              '  siteEnhancements: WebsiteSiteEnhancements;',
+              '  productionConfig: WebsiteProductionConfig;',
+              '  preferredLanguage: Language;',
+              '  cloudProjectId: string | null;',
+              '  supabaseUrl: string;',
+              '  supabaseAnonKey: string;',
+              '}',
+              '',
+              'export function createWebsiteBuilderOutput({',
+              '  pages,',
+              '  sections,',
+              '  activePageId,',
+              '  homePageId,',
+              '  siteUrl,',
+              '  siteName,',
+              '  faviconUrl,',
+              '  seo,',
+              '  theme,',
+              '  headerConfig,',
+              '  footerConfig,',
+              '  siteEnhancements,',
+              '  productionConfig,',
+              '  preferredLanguage,',
+              '  cloudProjectId,',
+              '  supabaseUrl,',
+              '  supabaseAnonKey,',
+              '}: WebsiteBuilderOutputDependencies) {',
+          ])
+          indented_funcs = textwrap.indent(funcs, '  ')
+          module_text = preamble + '\n' + indented_funcs + '\n\n  return { getHtml, get404Html };\n}\n'
 
-export function buildWebsitePageHtml(
-  context: WebsiteBuilderOutputContext,
-  pageSections: WebsiteSection[],
-  pageId: string,
-  productionUrlOverride?: string,
-  homeUsesIndexFile = false,
-  trackAnalytics = false,
-) {
-  const currentPages = context.pages.map((page) => page.id === context.activePageId
-    ? { ...page, sections: context.sections }
-    : page);
-  const page = currentPages.find((item) => item.id === pageId) || currentPages[0];
-  const productionUrl = normalizeSiteUrl(productionUrlOverride ?? context.siteUrl);
-  const filename = page?.id === context.homePageId ? 'index.html' : `${normalizeSlug(page?.slug || 'page')}.html`;
-  const canonicalOverride = page?.canonicalUrl?.trim() ? normalizeSiteUrl(page.canonicalUrl) : '';
-  const canonicalUrl = canonicalOverride || (productionUrl
-    ? page?.id === context.homePageId
-      ? homeUsesIndexFile ? `${productionUrl}/index.html` : `${productionUrl}/`
-      : `${productionUrl}/${filename}`
-    : '');
-  const baseTitle = context.seo.title.trim() || context.siteName;
-  const defaultPageTitle = page?.id === context.homePageId ? baseTitle : `${page?.name || 'Page'} | ${baseTitle}`;
-  const pageTitle = page?.seoTitle?.trim() || defaultPageTitle;
-  const pageDescription = page?.seoDescription?.trim() || context.seo.description.trim();
-  const pageLanguage = normalizePageLanguage(page?.language, context.preferredLanguage);
-  const translationKey = page?.translationKey?.trim();
-  const translationPages = translationKey
-    ? currentPages.filter((item) => item.translationKey?.trim() === translationKey)
-    : [];
-  const alternateLinks = productionUrl && translationPages.length > 1
-    ? translationPages.map((item, index) => ({
-        language: normalizePageLanguage(item.language, context.preferredLanguage),
-        href: item.id === context.homePageId
-          ? homeUsesIndexFile ? `${productionUrl}/index.html` : `${productionUrl}/`
-          : `${productionUrl}/${normalizeSlug(item.slug)}.html`,
-        isDefault: index === 0,
-      }))
-    : [];
-
-  return buildFullHtml(pageSections, {
-    language: pageLanguage,
-    title: pageTitle,
-    description: pageDescription,
-    keywords: context.seo.keywords,
-    canonicalUrl,
-    faviconUrl: context.faviconUrl.trim(),
-    socialImageUrl: page?.socialImage?.trim() || '',
-    noIndex: page?.noIndex === true,
-    alternateLinks,
-    theme: context.theme,
-    headerConfig: context.headerConfig,
-    footerConfig: context.footerConfig,
-    siteEnhancements: context.siteEnhancements,
-    productionConfig: context.productionConfig,
-    pages: currentPages,
-    homePageId: context.homePageId,
-    currentPageId: pageId,
-    siteName: context.siteName,
-    leadProjectId: trackAnalytics ? context.cloudProjectId : null,
-    analyticsProjectId: context.cloudProjectId,
-    analyticsEnabled: trackAnalytics,
-    supabaseUrl: context.supabaseUrl,
-    supabaseAnonKey: context.supabaseAnonKey,
-  });
-}
-
-export function buildWebsite404Html(
-  context: WebsiteBuilderOutputContext,
-  productionUrlOverride?: string,
-  homeUsesIndexFile = false,
-  trackAnalytics = false,
-) {
-  const productionUrl = normalizeSiteUrl(productionUrlOverride ?? context.siteUrl);
-  const homeHref = productionUrl
-    ? homeUsesIndexFile ? `${productionUrl}/index.html` : `${productionUrl}/`
-    : 'index.html';
-  const notFoundSection = createSection('hero');
-  notFoundSection.title = 'Page not found';
-  notFoundSection.description = 'The page you are looking for does not exist or may have moved.';
-  notFoundSection.buttonText = 'Back to Home';
-  notFoundSection.buttonUrl = homeHref;
-  notFoundSection.elements = notFoundSection.elements.map((element) => {
-    if (element.type === 'heading') return { ...element, content: '404 — Page not found' };
-    if (element.type === 'text') return { ...element, content: 'The page you are looking for does not exist or may have moved.' };
-    if (element.type === 'button') return { ...element, content: 'Back to Home', href: homeHref };
-    return element;
-  });
-  const currentPages = context.pages.map((page) => page.id === context.activePageId
-    ? { ...page, sections: context.sections }
-    : page);
-  const homeLanguage = normalizePageLanguage(
-    currentPages.find((page) => page.id === context.homePageId)?.language,
-    context.preferredLanguage,
-  );
-  return buildFullHtml([notFoundSection], {
-    language: homeLanguage,
-    title: `404 | ${context.seo.title.trim() || context.siteName}`,
-    description: 'Page not found.',
-    keywords: [],
-    faviconUrl: context.faviconUrl.trim(),
-    noIndex: true,
-    theme: context.theme,
-    headerConfig: context.headerConfig,
-    footerConfig: context.footerConfig,
-    siteEnhancements: context.siteEnhancements,
-    productionConfig: context.productionConfig,
-    pages: currentPages,
-    homePageId: context.homePageId,
-    currentPageId: '__404__',
-    siteName: context.siteName,
-    analyticsProjectId: context.cloudProjectId,
-    analyticsEnabled: trackAnalytics,
-    supabaseUrl: context.supabaseUrl,
-    supabaseAnonKey: context.supabaseAnonKey,
-  });
-}
-"""
-
-          wrapper = """  function websiteOutputContext() {
-    return {
-      pages,
-      sections,
-      activePageId,
-      homePageId,
-      siteUrl,
-      siteName,
-      faviconUrl,
-      seo,
-      theme,
-      headerConfig,
-      footerConfig,
-      siteEnhancements,
-      productionConfig: effectiveProductionConfig(),
-      preferredLanguage: prefs.language,
-      cloudProjectId,
-      supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-    };
-  }
-
-  function getHtml(
-    pageSections: WebsiteSection[] = sections,
-    pageId = activePageId,
-    productionUrlOverride?: string,
-    homeUsesIndexFile = false,
-    trackAnalytics = false,
-  ) {
-    return buildWebsitePageHtml(
-      websiteOutputContext(),
-      pageSections,
-      pageId,
-      productionUrlOverride,
-      homeUsesIndexFile,
-      trackAnalytics,
-    );
-  }
-
-  function get404Html(productionUrlOverride?: string, homeUsesIndexFile = false, trackAnalytics = false) {
-    return buildWebsite404Html(
-      websiteOutputContext(),
-      productionUrlOverride,
-      homeUsesIndexFile,
-      trackAnalytics,
-    );
-  }
-
-"""
+          wrapper = '\n'.join([
+              '  function websiteOutputHelpers() {',
+              '    return createWebsiteBuilderOutput({',
+              '      pages,',
+              '      sections,',
+              '      activePageId,',
+              '      homePageId,',
+              '      siteUrl,',
+              '      siteName,',
+              '      faviconUrl,',
+              '      seo,',
+              '      theme,',
+              '      headerConfig,',
+              '      footerConfig,',
+              '      siteEnhancements,',
+              '      productionConfig: effectiveProductionConfig(),',
+              '      preferredLanguage: prefs.language,',
+              '      cloudProjectId,',
+              "      supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',",
+              "      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',",
+              '    });',
+              '  }',
+              '',
+              '  function getHtml(',
+              '    pageSections: WebsiteSection[] = sections,',
+              '    pageId = activePageId,',
+              '    productionUrlOverride?: string,',
+              '    homeUsesIndexFile = false,',
+              '    trackAnalytics = false,',
+              '  ) {',
+              '    return websiteOutputHelpers().getHtml(pageSections, pageId, productionUrlOverride, homeUsesIndexFile, trackAnalytics);',
+              '  }',
+              '',
+              '  function get404Html(productionUrlOverride?: string, homeUsesIndexFile = false, trackAnalytics = false) {',
+              '    return websiteOutputHelpers().get404Html(productionUrlOverride, homeUsesIndexFile, trackAnalytics);',
+              '  }',
+              '',
+              '',
+          ])
 
           remainder = text[:start] + wrapper + text[end:]
           if 'const canonicalUrl =' in remainder[start:start + len(wrapper) + 200]:
@@ -267,7 +170,7 @@ export function buildWebsite404Html(
               raise SystemExit('AI editable snapshot import anchor changed; refusing.')
           remainder = remainder.replace(
               import_anchor,
-              import_anchor + "import { buildWebsite404Html, buildWebsitePageHtml } from './core/website-builder-output';\n",
+              import_anchor + "import { createWebsiteBuilderOutput } from './core/website-builder-output';\n",
               1,
           )
 
@@ -309,7 +212,7 @@ export function buildWebsite404Html(
           source_path.write_text(remainder, encoding='utf-8')
           smoke_path.write_text(smoke, encoding='utf-8')
 
-          print(f'Output block replaced: {len(block)} bytes')
+          print(f'Output block extracted: {len(block)} bytes')
           print(f'WebsiteBuilderTool.tsx: {len(text)} -> {len(remainder)} bytes')
           PY
 
