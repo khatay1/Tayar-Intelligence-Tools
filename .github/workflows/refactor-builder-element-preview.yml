@@ -1,0 +1,152 @@
+name: Guarded ElementPreview split
+
+on:
+  push:
+    branches:
+      - refactor/website-builder-split-20260916
+    paths:
+      - .github/workflows/refactor-builder-element-preview.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract-element-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/website-builder-split-20260916
+          fetch-depth: 0
+
+      - name: Extract ElementPreview component
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
+          module_path = Path('src/modules/website-builder/components/ElementPreview.tsx')
+          smoke_path = Path('scripts/website-builder-smoke.mjs')
+          text = source_path.read_text(encoding='utf-8')
+
+          start_marker = 'function ElementPreview('
+          end_marker = 'function SectionPreview('
+          if text.count(start_marker) != 1 or text.count(end_marker) != 1:
+              raise SystemExit('ElementPreview markers are not unique; refusing.')
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          block = text[start:end].rstrip() + '\n'
+          if not 9000 <= len(block) <= 35000:
+              raise SystemExit(f'ElementPreview block size unexpected ({len(block)} bytes); refusing.')
+          if 'function SectionPreview(' in block:
+              raise SystemExit('SectionPreview leaked into ElementPreview extraction; refusing.')
+          for required in [
+              'const [hovered, setHovered] = useState(false)',
+              'const [editingInline, setEditingInline] = useState(false)',
+              "if (element.type === 'heading')",
+              "if (element.type === 'image')",
+          ]:
+              if required not in block:
+                  raise SystemExit(f'Expected ElementPreview behavior missing: {required}')
+
+          header = (
+              "import { useEffect, useRef, useState } from 'react';\n"
+              "import { useLocalizer } from '@/lib/ui-localization';\n"
+              "import type { Device, WebsiteElement } from '../core/types';\n"
+              "import {\n"
+              "  clampElementNumber, effectiveStyle, elementShadowCss, parseRichRows,\n"
+              "  safeEmbedUrl, sanitizeCustomHtml, videoSource,\n"
+              "} from '../core/website-builder-rendering';\n\n"
+          )
+          module_text = header + block.replace('function ElementPreview(', 'export function ElementPreview(', 1)
+
+          remainder = text[:start] + text[end:]
+          if start_marker in remainder:
+              raise SystemExit('ElementPreview remained after extraction.')
+          if len(remainder) >= len(text) - 8500:
+              raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
+
+          render_anchor = "} from './core/website-builder-rendering';\n"
+          if remainder.count(render_anchor) != 1:
+              raise SystemExit('Rendering import anchor changed; refusing.')
+          remainder = remainder.replace(
+              render_anchor,
+              render_anchor + "import { ElementPreview } from './components/ElementPreview';\n",
+              1,
+          )
+
+          # Remove only rendering imports whose sole remaining occurrence is the import itself.
+          for name in ['elementShadowCss', 'videoSource', 'parseRichRows', 'safeEmbedUrl', 'sanitizeCustomHtml']:
+              if len(re.findall(rf'\b{re.escape(name)}\b', remainder)) == 1:
+                  line = f'  {name},\n'
+                  if remainder.count(line) != 1:
+                      raise SystemExit(f'Expected rendering import line missing for cleanup: {name}')
+                  remainder = remainder.replace(line, '', 1)
+
+          smoke = smoke_path.read_text(encoding='utf-8')
+          path_anchor = "const websiteBuilderRenderingPath = resolve(root, 'src/modules/website-builder/core/website-builder-rendering.ts');\n"
+          if smoke.count(path_anchor) != 1:
+              raise SystemExit('Smoke rendering path anchor changed; refusing.')
+          smoke = smoke.replace(
+              path_anchor,
+              path_anchor + "const builderElementPreviewPath = resolve(root, 'src/modules/website-builder/components/ElementPreview.tsx');\n",
+              1,
+          )
+
+          existence_anchor = "  ['Website Builder rendering module exists', websiteBuilderRenderingPath],\n"
+          if smoke.count(existence_anchor) != 1:
+              raise SystemExit('Smoke rendering existence anchor changed; refusing.')
+          smoke = smoke.replace(
+              existence_anchor,
+              existence_anchor + "  ['ElementPreview component exists', builderElementPreviewPath],\n",
+              1,
+          )
+
+          read_anchor = "const websiteBuilderRendering = existsSync(websiteBuilderRenderingPath) ? readFileSync(websiteBuilderRenderingPath, 'utf8') : '';\n"
+          if smoke.count(read_anchor) != 1:
+              raise SystemExit('Smoke rendering read anchor changed; refusing.')
+          smoke = smoke.replace(
+              read_anchor,
+              read_anchor + "const builderElementPreview = existsSync(builderElementPreviewPath) ? readFileSync(builderElementPreviewPath, 'utf8') : '';\n",
+              1,
+          )
+
+          composite_old = "const builder = `${builderSource}\\n${editorAIPatchReview}\\n${editorAIScope}\\n${editorAIReviewTargets}\\n${websiteBuilderModel}\\n${websiteBuilderConfig}\\n${websiteBuilderRendering}`;\n"
+          composite_new = "const builder = `${builderSource}\\n${editorAIPatchReview}\\n${editorAIScope}\\n${editorAIReviewTargets}\\n${websiteBuilderModel}\\n${websiteBuilderConfig}\\n${websiteBuilderRendering}\\n${builderElementPreview}`;\n"
+          if smoke.count(composite_old) != 1:
+              raise SystemExit('Smoke logical builder anchor changed; refusing.')
+          smoke = smoke.replace(composite_old, composite_new, 1)
+
+          module_path.parent.mkdir(parents=True, exist_ok=True)
+          source_path.write_text(remainder, encoding='utf-8')
+          module_path.write_text(module_text, encoding='utf-8')
+          smoke_path.write_text(smoke, encoding='utf-8')
+
+          print(f'ElementPreview extracted: {len(block)} bytes')
+          print(f'WebsiteBuilderTool.tsx: {len(text)} -> {len(remainder)} bytes')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Website Builder smoke
+        run: npm run smoke:website-builder
+
+      - name: Commit verified extraction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/components/ElementPreview.tsx scripts/website-builder-smoke.mjs
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "[refactor-bot] Extract ElementPreview component"
+          git push origin HEAD:refactor/website-builder-split-20260916
