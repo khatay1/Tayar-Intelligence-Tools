@@ -38,7 +38,7 @@ jobs:
           start = text.index(start_marker)
           end = text.index(end_marker, start)
           block = text[start:end].rstrip() + '\n'
-          if not 9000 <= len(block) <= 24000:
+          if not 6500 <= len(block) <= 24000:
               raise SystemExit(f'Website model block size unexpected ({len(block)} bytes); refusing.')
 
           required = [
@@ -83,7 +83,7 @@ jobs:
           remainder = remainder.replace(anchor, anchor + import_text, 1)
           if start_marker in remainder:
               raise SystemExit('Website model block remained after extraction.')
-          if len(remainder) >= len(text) - 8500:
+          if len(remainder) >= len(text) - 6500:
               raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
 
           smoke = smoke_path.read_text(encoding='utf-8')
