@@ -6,20 +6,23 @@ const root = process.cwd();
 const sourcePath = path.join(root, 'scripts/project-health.mjs');
 const tempPath = path.join(root, 'scripts/.project-health-refactor-runtime.mjs');
 
-const contractFiles = [
-  'src/modules/website-builder/core/editor-ai-editable-snapshot.ts',
-  'src/modules/website-builder/core/editor-ai-native-bridge.ts',
-  'src/modules/website-builder/core/editor-ai-working-project.ts',
-  'src/modules/website-builder/core/editor-operation-policy.ts',
-  'src/modules/website-builder/core/editor-value-safety.ts',
-  'src/modules/website-builder/core/website-builder-rendering.ts',
-  'src/modules/website-builder/components/ElementPreview.tsx',
-  'src/modules/website-builder/components/SectionPreview.tsx',
-  'src/modules/website-builder/v2-ui/BuilderCanvasFrame.tsx',
-  'src/modules/website-builder/v2-ui/BuilderCanvasOverlay.tsx',
-  'src/modules/website-builder/v2-ui/BuilderV2NativeBridge.tsx',
-  'src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx',
-];
+// Feature contracts used to live almost entirely in WebsiteBuilderTool.tsx.
+// After the safe split, follow the extracted Website Builder implementation as a
+// whole so health checks validate behavior contracts instead of file location.
+const websiteBuilderRoot = path.join(root, 'src/modules/website-builder');
+const contractFiles = [];
+const collectContractFiles = (dir) => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      collectContractFiles(full);
+    } else if (/\.(?:ts|tsx)$/i.test(entry.name) && entry.name !== 'WebsiteBuilderTool.tsx') {
+      contractFiles.push(path.relative(root, full).split(path.sep).join('/'));
+    }
+  }
+};
+collectContractFiles(websiteBuilderRoot);
+contractFiles.sort();
 
 const declaration = "const websiteBuilder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');";
 const replacement = `${declaration}\nconst websiteBuilderContractSources = [websiteBuilder, ${contractFiles
@@ -32,9 +35,8 @@ if (!source.includes(declaration)) {
 }
 source = source.replace(declaration, replacement);
 
-// Only the feature-contract checks below this marker should follow code that was
-// intentionally extracted from WebsiteBuilderTool.tsx. Earlier architecture checks
-// must continue to inspect the monolith itself (for example persistence isolation).
+// Only feature-contract checks below this marker follow intentionally extracted
+// implementation. Earlier architecture checks continue to inspect the monolith.
 const marker = "check('Website Builder AI supports multi-page generation with legacy fallback'";
 const markerIndex = source.indexOf(marker);
 if (markerIndex < 0) throw new Error('Website Builder health marker not found.');
