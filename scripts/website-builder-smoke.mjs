@@ -77,6 +77,7 @@ const websiteBuilderModelPath = resolve(root, 'src/modules/website-builder/core/
 const websiteBuilderConfigPath = resolve(root, 'src/modules/website-builder/core/website-builder-config.ts');
 const websiteBuilderRenderingPath = resolve(root, 'src/modules/website-builder/core/website-builder-rendering.ts');
 const builderElementPreviewPath = resolve(root, 'src/modules/website-builder/components/ElementPreview.tsx');
+const builderSectionPreviewPath = resolve(root, 'src/modules/website-builder/components/SectionPreview.tsx');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -162,6 +163,7 @@ for (const [label, path] of [
   ['Website Builder config module exists', websiteBuilderConfigPath],
   ['Website Builder rendering module exists', websiteBuilderRenderingPath],
   ['ElementPreview component exists', builderElementPreviewPath],
+  ['SectionPreview component exists', builderSectionPreviewPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -174,7 +176,8 @@ const websiteBuilderModel = existsSync(websiteBuilderModelPath) ? readFileSync(w
 const websiteBuilderConfig = existsSync(websiteBuilderConfigPath) ? readFileSync(websiteBuilderConfigPath, 'utf8') : '';
 const websiteBuilderRendering = existsSync(websiteBuilderRenderingPath) ? readFileSync(websiteBuilderRenderingPath, 'utf8') : '';
 const builderElementPreview = existsSync(builderElementPreviewPath) ? readFileSync(builderElementPreviewPath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}`;
+const builderSectionPreview = existsSync(builderSectionPreviewPath) ? readFileSync(builderSectionPreviewPath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
