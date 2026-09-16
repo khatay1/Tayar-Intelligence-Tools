@@ -28,6 +28,7 @@ jobs:
 
           source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
           module_path = Path('src/modules/website-builder/core/editor-ai-patch-review.ts')
+          smoke_path = Path('scripts/website-builder-smoke.mjs')
           text = source_path.read_text(encoding='utf-8')
 
           start_marker = 'interface AIWebsitePageGeneration {'
@@ -87,8 +88,39 @@ jobs:
           if len(remainder) >= len(text) - 8000:
               raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
 
+          smoke = smoke_path.read_text(encoding='utf-8')
+          path_anchor = "const editorCanvasGeometryPath = resolve(root, 'src/modules/website-builder/core/editor-canvas-geometry.ts');\n"
+          if smoke.count(path_anchor) != 1:
+              raise SystemExit('Smoke path anchor changed; refusing.')
+          smoke = smoke.replace(
+              path_anchor,
+              path_anchor + "const editorAIPatchReviewPath = resolve(root, 'src/modules/website-builder/core/editor-ai-patch-review.ts');\n",
+              1,
+          )
+
+          existence_anchor = "  ['Canvas geometry helper exists', editorCanvasGeometryPath],\n"
+          if smoke.count(existence_anchor) != 1:
+              raise SystemExit('Smoke existence anchor changed; refusing.')
+          smoke = smoke.replace(
+              existence_anchor,
+              existence_anchor + "  ['AI patch review module exists', editorAIPatchReviewPath],\n",
+              1,
+          )
+
+          builder_anchor = "const builder = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';\n"
+          if smoke.count(builder_anchor) != 1:
+              raise SystemExit('Smoke builder anchor changed; refusing.')
+          smoke = smoke.replace(
+              builder_anchor,
+              "const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';\n"
+              "const editorAIPatchReview = existsSync(editorAIPatchReviewPath) ? readFileSync(editorAIPatchReviewPath, 'utf8') : '';\n"
+              "const builder = `${builderSource}\\n${editorAIPatchReview}`;\n",
+              1,
+          )
+
           module_path.write_text(module_text, encoding='utf-8')
           source_path.write_text(remainder, encoding='utf-8')
+          smoke_path.write_text(smoke, encoding='utf-8')
 
           print(f'WebsiteBuilderTool.tsx: {len(text)} -> {len(remainder)} bytes')
           print(f'Extracted module: {len(module_text)} bytes')
@@ -118,7 +150,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/editor-ai-patch-review.ts
+          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/editor-ai-patch-review.ts scripts/website-builder-smoke.mjs
           git diff --cached --check
           git diff --cached --stat
           git commit -m "[refactor-bot] Extract AI patch review model"
