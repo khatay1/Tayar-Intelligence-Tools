@@ -1,11 +1,14 @@
 import type { CSSProperties } from 'react';
+import type { CanvasSnapGuides } from '../core/editor-canvas-geometry';
 import type { EditorCanvasOverlayItem } from '../core/editor-canvas-overlay';
 import { selectionForEditorCanvasTarget } from '../core/editor-canvas-overlay';
 import type { EditorShellContract } from '../core/editor-shell-contract';
+import { CanvasSpacingGuide } from './CanvasSpacingGuide';
 
 export interface BuilderCanvasOverlayProps {
   shell: EditorShellContract;
   items: EditorCanvasOverlayItem[];
+  guides?: CanvasSnapGuides;
   onHover?(id?: string): void;
 }
 
@@ -18,9 +21,22 @@ function overlayStyle(item: EditorCanvasOverlayItem): CSSProperties {
   };
 }
 
-export function BuilderCanvasOverlay({ shell, items, onHover }: BuilderCanvasOverlayProps) {
+export function BuilderCanvasOverlay({ shell, items, guides, onHover }: BuilderCanvasOverlayProps) {
   return (
     <div className="tayar-v2-canvas-overlay" aria-hidden="true">
+      {guides?.vertical && Number.isFinite(guides.verticalPosition) && (
+        <span
+          className="tayar-v2-canvas-overlay__snap-guide tayar-v2-canvas-overlay__snap-guide--vertical"
+          style={{ left: `${guides.verticalPosition}px` }}
+        />
+      )}
+      {guides?.horizontal && Number.isFinite(guides.horizontalPosition) && (
+        <span
+          className="tayar-v2-canvas-overlay__snap-guide tayar-v2-canvas-overlay__snap-guide--horizontal"
+          style={{ top: `${guides.horizontalPosition}px` }}
+        />
+      )}
+      <CanvasSpacingGuide guide={guides?.spacing} />
       {items.map((item) => {
         const highlighted = item.selected || item.active;
         return (
