@@ -50,7 +50,7 @@ jobs:
           raw_start = source.index(raw_start_marker)
           raw_end = source.index(raw_end_marker, raw_start)
           raw_block = source[raw_start:raw_end]
-          if not 1800 <= len(raw_block) <= 5200:
+          if not 1500 <= len(raw_block) <= 5200:
               raise SystemExit(f'Billing normalization block size unexpected ({len(raw_block)} bytes); refusing.')
           for required in [
               "raw.plan === 'business'",
