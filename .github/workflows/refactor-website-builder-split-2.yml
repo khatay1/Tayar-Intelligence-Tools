@@ -43,17 +43,16 @@ jobs:
               raise SystemExit(f'AI scope block size unexpected ({len(block)} bytes); refusing.')
 
           block = block.replace('pages: WebsitePage[],', 'pages: AIEditScopePage[],')
-          module_header = """import type { WebsiteSection } from './types';
-import { normalizeSlug } from './project-identifiers';
-import type { AIWebsitePatchOperation } from './editor-ai-patch-review';
-
-export interface AIEditScopePage {
-  id: string;
-  slug: string;
-  sections: WebsiteSection[];
-}
-
-"""
+          module_header = (
+              "import type { WebsiteSection } from './types';\n"
+              "import { normalizeSlug } from './project-identifiers';\n"
+              "import type { AIWebsitePatchOperation } from './editor-ai-patch-review';\n\n"
+              "export interface AIEditScopePage {\n"
+              "  id: string;\n"
+              "  slug: string;\n"
+              "  sections: WebsiteSection[];\n"
+              "}\n\n"
+          )
           exported_block = re.sub(r'(?m)^(interface|type|function|const) ', r'export \1 ', block)
           module_text = module_header + exported_block
 
