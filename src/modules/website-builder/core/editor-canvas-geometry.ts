@@ -19,6 +19,7 @@ export interface CanvasSpacingGuide {
   beforeEnd: number;
   afterStart: number;
   afterEnd: number;
+  crossPosition: number;
 }
 
 export interface CanvasSnapGuides {
@@ -80,6 +81,9 @@ function boundsEnd(bounds: CanvasBounds, axis: 'x' | 'y'): number {
 }
 function boundsStart(bounds: CanvasBounds, axis: 'x' | 'y'): number { return axis === 'x' ? bounds.left : bounds.top; }
 function boundsSize(bounds: CanvasBounds, axis: 'x' | 'y'): number { return axis === 'x' ? bounds.width : bounds.height; }
+function boundsCrossCenter(bounds: CanvasBounds, axis: 'x' | 'y'): number {
+  return axis === 'x' ? bounds.top + (bounds.height / 2) : bounds.left + (bounds.width / 2);
+}
 
 function closestEqualSpacing(moving: CanvasBounds, siblings: CanvasBounds[], axis: 'x' | 'y'):
   { correction: number; guide: CanvasSpacingGuide } | null {
@@ -107,6 +111,7 @@ function closestEqualSpacing(moving: CanvasBounds, siblings: CanvasBounds[], axi
       beforeEnd: snappedStart,
       afterStart: snappedEnd,
       afterEnd: boundsStart(next, axis),
+      crossPosition: Math.round((boundsCrossCenter(previous, axis) + boundsCrossCenter(moving, axis) + boundsCrossCenter(next, axis)) / 3),
     },
   };
 }
