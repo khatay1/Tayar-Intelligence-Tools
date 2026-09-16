@@ -79,8 +79,9 @@ jobs:
                   'sectionColumnCount', 'sectionLayoutGap', 'sectionLayoutAlign',
                   'sectionBackgroundMode', 'sectionBackgroundPosition', 'sectionBackgroundSize',
                   'sectionContentWidth', 'sectionVisualNumber', 'safeSectionColor',
-                  'sectionBackgroundCss', 'effectiveStyle', 'effectiveSectionStyle',
-                  'clampElementNumber', 'containerColumn', 'containerColumnSpan',
+                  'sectionBackgroundCss', 'sectionDomId', 'effectiveStyle', 'effectiveSectionStyle',
+                  'clampElementNumber', 'elementColumn', 'elementColumnSpan', 'elementShadowCss',
+                  'containerColumn', 'containerColumnSpan',
               ]),
               ('./ElementPreview', False, ['ElementPreview']),
           ]
@@ -105,12 +106,12 @@ jobs:
               raise SystemExit('ElementPreview import anchor missing or duplicated; refusing.')
           remainder = remainder.replace(element_import, "import { SectionPreview } from './components/SectionPreview';\n", 1)
 
-          # Clean multiline imports only when their only remaining occurrence is the import itself.
           candidates = [
               'CANVAS_RESIZE_SNAP_STEP', 'resolveCanvasResize', 'aiWebsitePatchPreviewClass',
               'sectionColumnCount', 'sectionLayoutGap', 'sectionLayoutAlign', 'sectionBackgroundMode',
               'sectionBackgroundPosition', 'sectionBackgroundSize', 'sectionContentWidth',
-              'sectionVisualNumber', 'safeSectionColor', 'sectionBackgroundCss', 'effectiveSectionStyle',
+              'sectionVisualNumber', 'safeSectionColor', 'sectionBackgroundCss', 'sectionDomId',
+              'effectiveSectionStyle', 'elementColumn', 'elementColumnSpan', 'elementShadowCss',
               'containerColumn', 'containerColumnSpan',
           ]
           for name in candidates:
