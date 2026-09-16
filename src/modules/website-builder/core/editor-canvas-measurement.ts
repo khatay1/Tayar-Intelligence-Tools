@@ -1,3 +1,4 @@
+import type { CanvasAlignmentTargets, CanvasBounds } from './editor-canvas-geometry';
 import type { EditorCanvasTargetKind, EditorCanvasTargetRect } from './editor-canvas-overlay';
 
 export interface EditorCanvasMeasurementInput {
@@ -32,6 +33,7 @@ export function measureEditorCanvasTargets(input: EditorCanvasMeasurementInput):
       sectionId,
       elementId,
       containerId,
+      parentContainerId: node.dataset.tayarParentContainerId,
       label: node.dataset.tayarEditorLabel,
       rect: {
         x: rect.left - rootRect.left + sx,
@@ -44,11 +46,34 @@ export function measureEditorCanvasTargets(input: EditorCanvasMeasurementInput):
   return targets;
 }
 
+function targetBounds(target: EditorCanvasTargetRect): CanvasBounds {
+  return { left: target.rect.x, top: target.rect.y, width: target.rect.width, height: target.rect.height };
+}
+
+export function buildCanvasAlignmentTargets(targets: EditorCanvasTargetRect[], movingTargetId: string): CanvasAlignmentTargets {
+  const moving = targets.find((target) => target.id === movingTargetId);
+  if (!moving) return { x: [], y: [], bounds: [] };
+  const siblings = targets.filter((target) =>
+    target.id !== moving.id &&
+    target.kind === moving.kind &&
+    target.pageId === moving.pageId &&
+    target.sectionId === moving.sectionId &&
+    target.parentContainerId === moving.parentContainerId,
+  );
+  const bounds = siblings.map(targetBounds);
+  return {
+    x: bounds.flatMap((item) => [item.left, item.left + (item.width / 2), item.left + item.width]),
+    y: bounds.flatMap((item) => [item.top, item.top + (item.height / 2), item.top + item.height]),
+    bounds,
+  };
+}
+
 export function editorCanvasMeasurementAttributes(target: {
   kind: EditorCanvasTargetKind;
   id: string;
   pageId?: string;
   sectionId?: string;
+  parentContainerId?: string;
   label?: string;
 }) {
   return {
@@ -56,6 +81,7 @@ export function editorCanvasMeasurementAttributes(target: {
     'data-tayar-editor-id': target.id,
     'data-tayar-page-id': target.pageId,
     'data-tayar-section-id': target.sectionId,
+    'data-tayar-parent-container-id': target.parentContainerId,
     'data-tayar-editor-label': target.label,
   };
 }
