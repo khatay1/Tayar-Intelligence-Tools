@@ -58,68 +58,70 @@ jobs:
           original_signature = 'function buildAIEditableSnapshot(scope?: AIEditScopeTarget) {'
           if func.count(original_signature) != 1:
               raise SystemExit('Snapshot signature changed; refusing.')
-          func = func.replace(
-              original_signature,
-              '''export interface AIEditableSnapshotInput {
-  pages: WebsitePage[];
-  siteName: string;
-  activePageId: string;
-  homePageId: string;
-  selectedId: string | null;
-  selectedElementId: string | null;
-  device: Device;
-  seo: WebsiteSEO;
-  headerConfig: WebsiteHeaderConfig;
-  theme: WebsiteTheme;
-  symbols: WebsiteSymbol[];
-  scope?: AIEditScopeTarget;
-}
-
-export function buildAIEditableSnapshotData({
-  pages,
-  siteName,
-  activePageId,
-  homePageId,
-  selectedId,
-  selectedElementId,
-  device,
-  seo,
-  headerConfig,
-  theme,
-  symbols,
-  scope,
-}: AIEditableSnapshotInput) {''',
-              1,
-          )
+          replacement_signature = '\n'.join([
+              'export interface AIEditableSnapshotInput {',
+              '  pages: WebsitePage[];',
+              '  siteName: string;',
+              '  activePageId: string;',
+              '  homePageId: string;',
+              '  selectedId: string | null;',
+              '  selectedElementId: string | null;',
+              '  device: Device;',
+              '  seo: WebsiteSEO;',
+              '  headerConfig: WebsiteHeaderConfig;',
+              '  theme: WebsiteTheme;',
+              '  symbols: WebsiteSymbol[];',
+              '  scope?: AIEditScopeTarget;',
+              '}',
+              '',
+              'export function buildAIEditableSnapshotData({',
+              '  pages,',
+              '  siteName,',
+              '  activePageId,',
+              '  homePageId,',
+              '  selectedId,',
+              '  selectedElementId,',
+              '  device,',
+              '  seo,',
+              '  headerConfig,',
+              '  theme,',
+              '  symbols,',
+              '  scope,',
+              '}: AIEditableSnapshotInput) {',
+          ])
+          func = func.replace(original_signature, replacement_signature, 1)
           if func.count('const scopedPages = getCurrentPages()') != 1:
               raise SystemExit('Expected getCurrentPages snapshot source changed; refusing.')
           func = func.replace('const scopedPages = getCurrentPages()', 'const scopedPages = pages', 1)
 
-          module_text = '''import { createDefaultContactFormFields } from './defaults';
-import type { AIEditScopeTarget } from './editor-ai-scope';
-import type { Device, WebsiteSEO } from './types';
-import type { WebsiteHeaderConfig, WebsitePage, WebsiteSymbol, WebsiteTheme } from './website-builder-model';
+          module_text = '\n'.join([
+              "import { createDefaultContactFormFields } from './defaults';",
+              "import type { AIEditScopeTarget } from './editor-ai-scope';",
+              "import type { Device, WebsiteSEO } from './types';",
+              "import type { WebsiteHeaderConfig, WebsitePage, WebsiteSymbol, WebsiteTheme } from './website-builder-model';",
+              '',
+          ]) + func + '\n'
 
-''' + func + '\n'
-
-          wrapper = '''  function buildAIEditableSnapshot(scope?: AIEditScopeTarget) {
-    return buildAIEditableSnapshotData({
-      pages: getCurrentPages(),
-      siteName,
-      activePageId,
-      homePageId,
-      selectedId,
-      selectedElementId,
-      device,
-      seo,
-      headerConfig,
-      theme,
-      symbols,
-      scope,
-    });
-  }
-
-'''
+          wrapper = '\n'.join([
+              '  function buildAIEditableSnapshot(scope?: AIEditScopeTarget) {',
+              '    return buildAIEditableSnapshotData({',
+              '      pages: getCurrentPages(),',
+              '      siteName,',
+              '      activePageId,',
+              '      homePageId,',
+              '      selectedId,',
+              '      selectedElementId,',
+              '      device,',
+              '      seo,',
+              '      headerConfig,',
+              '      theme,',
+              '      symbols,',
+              '      scope,',
+              '    });',
+              '  }',
+              '',
+              '',
+          ])
           remainder = text[:start] + wrapper + text[end:]
           if 'symbols: symbols.slice(0, 50).map' in remainder:
               raise SystemExit('Snapshot implementation remained in WebsiteBuilderTool; refusing.')
