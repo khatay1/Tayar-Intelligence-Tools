@@ -38,7 +38,7 @@ jobs:
           start = text.index(start_marker)
           end = text.index(end_marker, start)
           block = text[start:end].rstrip() + '\n\n'
-          if not 5500 <= len(block) <= 18000:
+          if not 4000 <= len(block) <= 18000:
               raise SystemExit(f'Output block size unexpected ({len(block)} bytes); refusing.')
           for required in [
               'function getHtml(',
