@@ -15,6 +15,7 @@ export * from './BuilderCanvasOverlay';
 export * from './BuilderPanelRouter';
 export * from './BuilderInspectorFields';
 export * from './BuilderCanvasMeasurement';
+export * from './CanvasSpacingGuide';
 export * from './BuilderDropIndicator';
 
 export * from './WebsiteBuilderV2Bridge';
