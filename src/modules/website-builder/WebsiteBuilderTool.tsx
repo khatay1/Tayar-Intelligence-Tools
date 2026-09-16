@@ -163,6 +163,7 @@ import {
   reconcileAIWebsitePatchReviewTargets,
 } from './core/editor-ai-review-targets';
 import { buildAIEditableSnapshotData } from './core/editor-ai-editable-snapshot';
+import { createWebsiteBuilderOutput } from './core/website-builder-output';
 import {
   type WebsitePage,
   type WebsiteClipboardContext,
@@ -242,7 +243,6 @@ import {
   buildCsv,
   crc32,
   createZipBlob,
-  buildFullHtml,
   effectiveStyle,
   effectiveSectionStyle,
 } from './core/website-builder-rendering';
@@ -9802,6 +9802,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
+  function websiteOutputHelpers() {
+    return createWebsiteBuilderOutput({
+      pages,
+      sections,
+      activePageId,
+      homePageId,
+      siteUrl,
+      siteName,
+      faviconUrl,
+      seo,
+      theme,
+      headerConfig,
+      footerConfig,
+      siteEnhancements,
+      productionConfig: effectiveProductionConfig(),
+      preferredLanguage: prefs.language,
+      cloudProjectId,
+      supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
+      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+    });
+  }
+
   function getHtml(
     pageSections: WebsiteSection[] = sections,
     pageId = activePageId,
@@ -9809,99 +9831,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     homeUsesIndexFile = false,
     trackAnalytics = false,
   ) {
-    const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
-    const page = currentPages.find((item) => item.id === pageId) || currentPages[0];
-    const productionUrl = normalizeSiteUrl(productionUrlOverride ?? siteUrl);
-    const filename = page?.id === homePageId ? 'index.html' : `${normalizeSlug(page?.slug || 'page')}.html`;
-    const canonicalOverride = page?.canonicalUrl?.trim() ? normalizeSiteUrl(page.canonicalUrl) : '';
-    const canonicalUrl = canonicalOverride || (productionUrl
-      ? page?.id === homePageId
-        ? homeUsesIndexFile ? `${productionUrl}/index.html` : `${productionUrl}/`
-        : `${productionUrl}/${filename}`
-      : '');
-    const baseTitle = seo.title.trim() || siteName;
-    const defaultPageTitle = page?.id === homePageId ? baseTitle : `${page?.name || 'Page'} | ${baseTitle}`;
-    const pageTitle = page?.seoTitle?.trim() || defaultPageTitle;
-    const pageDescription = page?.seoDescription?.trim() || seo.description.trim();
-    const pageLanguage = normalizePageLanguage(page?.language, prefs.language);
-    const translationKey = page?.translationKey?.trim();
-    const translationPages = translationKey ? currentPages.filter((item) => item.translationKey?.trim() === translationKey) : [];
-    const alternateLinks = productionUrl && translationPages.length > 1
-      ? translationPages.map((item, index) => ({
-          language: normalizePageLanguage(item.language, prefs.language),
-          href: item.id === homePageId
-            ? homeUsesIndexFile ? `${productionUrl}/index.html` : `${productionUrl}/`
-            : `${productionUrl}/${normalizeSlug(item.slug)}.html`,
-          isDefault: index === 0,
-        }))
-      : [];
-
-    return buildFullHtml(pageSections, {
-      language: pageLanguage,
-      title: pageTitle,
-      description: pageDescription,
-      keywords: seo.keywords,
-      canonicalUrl,
-      faviconUrl: faviconUrl.trim(),
-      socialImageUrl: page?.socialImage?.trim() || '',
-      noIndex: page?.noIndex === true,
-      alternateLinks,
-      theme,
-      headerConfig,
-      footerConfig,
-      siteEnhancements,
-      productionConfig: effectiveProductionConfig(),
-      pages: currentPages,
-      homePageId,
-      currentPageId: pageId,
-      siteName,
-      leadProjectId: trackAnalytics ? cloudProjectId : null,
-      analyticsProjectId: cloudProjectId,
-      analyticsEnabled: trackAnalytics,
-      supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-    });
+    return websiteOutputHelpers().getHtml(pageSections, pageId, productionUrlOverride, homeUsesIndexFile, trackAnalytics);
   }
 
   function get404Html(productionUrlOverride?: string, homeUsesIndexFile = false, trackAnalytics = false) {
-    const productionUrl = normalizeSiteUrl(productionUrlOverride ?? siteUrl);
-    const homeHref = productionUrl
-      ? homeUsesIndexFile ? `${productionUrl}/index.html` : `${productionUrl}/`
-      : 'index.html';
-    const notFoundSection = createSection('hero');
-    notFoundSection.title = 'Page not found';
-    notFoundSection.description = 'The page you are looking for does not exist or may have moved.';
-    notFoundSection.buttonText = 'Back to Home';
-    notFoundSection.buttonUrl = homeHref;
-    notFoundSection.elements = notFoundSection.elements.map((element) => {
-      if (element.type === 'heading') return { ...element, content: '404 — Page not found' };
-      if (element.type === 'text') return { ...element, content: 'The page you are looking for does not exist or may have moved.' };
-      if (element.type === 'button') return { ...element, content: 'Back to Home', href: homeHref };
-      return element;
-    });
-    const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
-    const homeLanguage = normalizePageLanguage(currentPages.find((page) => page.id === homePageId)?.language, prefs.language);
-    return buildFullHtml([notFoundSection], {
-      language: homeLanguage,
-      title: `404 | ${seo.title.trim() || siteName}`,
-      description: 'Page not found.',
-      keywords: [],
-      faviconUrl: faviconUrl.trim(),
-      noIndex: true,
-      theme,
-      headerConfig,
-      footerConfig,
-      siteEnhancements,
-      productionConfig: effectiveProductionConfig(),
-      pages: currentPages,
-      homePageId,
-      currentPageId: '__404__',
-      siteName,
-      analyticsProjectId: cloudProjectId,
-      analyticsEnabled: trackAnalytics,
-      supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-    });
+    return websiteOutputHelpers().get404Html(productionUrlOverride, homeUsesIndexFile, trackAnalytics);
   }
 
   function exportProjectBackup() {
