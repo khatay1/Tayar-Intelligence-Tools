@@ -176,16 +176,25 @@ jobs:
               raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
 
           path_anchor = "const websiteBuilderReportsPath = resolve(root, 'src/modules/website-builder/core/website-builder-reports.ts');\n"
-          smoke = smoke.replace(path_anchor, path_anchor + "const websiteBuilderExportDataPath = resolve(root, 'src/modules/website-builder/core/website-builder-export-data.ts');\n", 1)
           existence_anchor = "  ['Website Builder reports helper exists', websiteBuilderReportsPath],\n"
-          smoke = smoke.replace(existence_anchor, existence_anchor + "  ['Website Builder export data helper exists', websiteBuilderExportDataPath],\n", 1)
           read_anchor = "const websiteBuilderReports = existsSync(websiteBuilderReportsPath) ? readFileSync(websiteBuilderReportsPath, 'utf8') : '';\n"
-          smoke = smoke.replace(read_anchor, read_anchor + "const websiteBuilderExportData = existsSync(websiteBuilderExportDataPath) ? readFileSync(websiteBuilderExportDataPath, 'utf8') : '';\n", 1)
           composite_old = "${websiteBuilderOutput}\\n${websiteBuilderReports}`;"
-          composite_new = "${websiteBuilderOutput}\\n${websiteBuilderReports}\\n${websiteBuilderExportData}`;"
           if not all(anchor in smoke for anchor in [path_anchor, existence_anchor, read_anchor, composite_old]):
-              raise SystemExit('Smoke anchors changed; refusing.')
-          smoke = smoke.replace(composite_old, composite_new, 1)
+              raise SystemExit('Smoke module anchors changed; refusing.')
+          smoke = smoke.replace(path_anchor, path_anchor + "const websiteBuilderExportDataPath = resolve(root, 'src/modules/website-builder/core/website-builder-export-data.ts');\n", 1)
+          smoke = smoke.replace(existence_anchor, existence_anchor + "  ['Website Builder export data helper exists', websiteBuilderExportDataPath],\n", 1)
+          smoke = smoke.replace(read_anchor, read_anchor + "const websiteBuilderExportData = existsSync(websiteBuilderExportDataPath) ? readFileSync(websiteBuilderExportDataPath, 'utf8') : '';\n", 1)
+          smoke = smoke.replace(composite_old, "${websiteBuilderOutput}\\n${websiteBuilderReports}\\n${websiteBuilderExportData}`;", 1)
+
+          analytics_check_pattern = re.compile(r"(?m)^check\('Analytics CSV export uses the shared CSV serializer'.*$")
+          analytics_check_matches = analytics_check_pattern.findall(smoke)
+          if len(analytics_check_matches) != 1:
+              raise SystemExit(f'Analytics CSV smoke check count changed ({len(analytics_check_matches)}); refusing.')
+          smoke = analytics_check_pattern.sub(
+              "check('Analytics CSV export uses the shared CSV serializer', websiteBuilderExportData.includes('export function buildWebsiteAnalyticsCsv') && websiteBuilderExportData.includes('buildCsv(rows)') && builderSource.includes('buildWebsiteAnalyticsCsv(analyticsEvents)'));",
+              smoke,
+              count=1,
+          )
 
           module_path.write_text(module_text, encoding='utf-8')
           source_path.write_text(next_source, encoding='utf-8')
