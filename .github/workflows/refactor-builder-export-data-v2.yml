@@ -1,0 +1,218 @@
+name: Guarded Website Builder export data split v2
+
+on:
+  push:
+    branches:
+      - refactor/website-builder-split-20260916
+    paths:
+      - .github/workflows/refactor-builder-export-data-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract-export-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/website-builder-split-20260916
+          fetch-depth: 0
+
+      - name: Extract backup and CSV builders
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
+          module_path = Path('src/modules/website-builder/core/website-builder-export-data.ts')
+          smoke_path = Path('scripts/website-builder-smoke.mjs')
+          source = source_path.read_text(encoding='utf-8')
+          smoke = smoke_path.read_text(encoding='utf-8')
+
+          def find_function(text, name):
+              match = re.search(rf'(?m)^  function\s+{re.escape(name)}\s*\(', text)
+              if not match:
+                  raise SystemExit(f'Function {name} not found; refusing.')
+              brace = text.find('{', match.start())
+              depth = 0
+              quote = None
+              escape = False
+              i = brace
+              while i < len(text):
+                  ch = text[i]
+                  if quote:
+                      if escape:
+                          escape = False
+                      elif ch == '\\':
+                          escape = True
+                      elif ch == quote:
+                          quote = None
+                      i += 1
+                      continue
+                  if ch in "'\"`": quote = ch
+                  elif ch == '{': depth += 1
+                  elif ch == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return match.start(), i + 1, text[match.start():i + 1]
+                  i += 1
+              raise SystemExit(f'Function {name} did not terminate; refusing.')
+
+          names = ['exportProjectBackup', 'exportLeadsCsv', 'exportAnalyticsCsv']
+          found = {name: find_function(source, name) for name in names}
+          blocks = {name: item[2] for name, item in found.items()}
+          checks = {
+              'exportProjectBackup': ['exportedAt: new Date().toISOString()', "app: 'Tayar Website Builder'", 'JSON.stringify(payload, null, 2)'],
+              'exportLeadsCsv': ["'utm_source'", 'getWebsiteLeadSource(lead)', 'getWebsiteLeadPhone(lead)', 'buildCsv(rows)'],
+              'exportAnalyticsCsv': ["'event_type'", 'JSON.stringify(event.event_data)', 'buildCsv(rows)'],
+          }
+          for name, tokens in checks.items():
+              for token in tokens:
+                  if token not in blocks[name]:
+                      raise SystemExit(f'{name} behavior token missing: {token}')
+          total_bytes = sum(len(block) for block in blocks.values())
+          if not 1700 <= total_bytes <= 5000:
+              raise SystemExit(f'Export helper total size changed ({total_bytes}); refusing.')
+
+          module_lines = [
+              "import { getWebsiteLeadPhone, getWebsiteLeadSource } from './website-lead-utils';",
+              "import { buildCsv } from './website-builder-rendering';",
+              "import type { WebsiteAnalyticsEvent, WebsiteLead } from './website-builder-model';",
+              '',
+              'export function buildWebsiteProjectBackupText(project: unknown): string {',
+              '  return JSON.stringify({',
+              '    exportedAt: new Date().toISOString(),',
+              "    app: 'Tayar Website Builder',",
+              '    project,',
+              '  }, null, 2);',
+              '}',
+              '',
+              'export function buildWebsiteLeadsCsv(leads: WebsiteLead[]): string {',
+              '  const rows: unknown[][] = [[',
+              "    'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'updated_at',",
+              "    'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium',",
+              "    'utm_campaign', 'referrer', 'form_data',",
+              '  ]];',
+              '  leads.forEach((lead) => {',
+              '    const meta = getWebsiteLeadSource(lead);',
+              '    rows.push([',
+              "      lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0),",
+              "      (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.updated_at || '',",
+              '      lead.name, lead.email, getWebsiteLeadPhone(lead), lead.message,',
+              "      lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer, lead.form_data || {},",
+              '    ]);',
+              '  });',
+              '  return `\\uFEFF${buildCsv(rows)}`;',
+              '}',
+              '',
+              'export function buildWebsiteAnalyticsCsv(events: WebsiteAnalyticsEvent[]): string {',
+              '  const rows: unknown[][] = [[',
+              "    'created_at', 'event_type', 'page_path', 'referrer', 'session_id', 'event_data',",
+              '  ]];',
+              '  events.forEach((event) => {',
+              '    rows.push([',
+              "      event.created_at, event.event_type || 'page_view', event.page_path, event.referrer || '',",
+              "      event.session_id, event.event_data ? JSON.stringify(event.event_data) : '',",
+              '    ]);',
+              '  });',
+              '  return `\\uFEFF${buildCsv(rows)}`;',
+              '}',
+              '',
+          ]
+          module_text = '\n'.join(module_lines)
+
+          wrappers = {
+              'exportProjectBackup': '\n'.join([
+                  '  function exportProjectBackup() {',
+                  '    downloadTextFile(',
+                  "      `${normalizeSlug(siteName || 'website')}-backup.json`,",
+                  '      buildWebsiteProjectBackupText(buildProjectData()),',
+                  "      'application/json;charset=utf-8',",
+                  '    );',
+                  '  }',
+              ]),
+              'exportLeadsCsv': '\n'.join([
+                  '  function exportLeadsCsv() {',
+                  '    downloadTextFile(',
+                  "      `${normalizeSlug(siteName || 'website')}-leads.csv`,",
+                  '      buildWebsiteLeadsCsv(leads),',
+                  "      'text/csv;charset=utf-8',",
+                  '    );',
+                  '  }',
+              ]),
+              'exportAnalyticsCsv': '\n'.join([
+                  '  function exportAnalyticsCsv() {',
+                  '    downloadTextFile(',
+                  "      `${normalizeSlug(siteName || 'website')}-analytics.csv`,",
+                  '      buildWebsiteAnalyticsCsv(analyticsEvents),',
+                  "      'text/csv;charset=utf-8',",
+                  '    );',
+                  '  }',
+              ]),
+          }
+
+          next_source = source
+          for start, end, replacement in sorted([
+              (found[name][0], found[name][1], wrappers[name]) for name in names
+          ], reverse=True):
+              next_source = next_source[:start] + replacement + next_source[end:]
+
+          import_anchor = "import { buildAuditReportText, buildDeliveryReportText, buildV1LaunchReportText } from './core/website-builder-reports';\n"
+          if next_source.count(import_anchor) != 1:
+              raise SystemExit('Export import anchor changed; refusing.')
+          next_source = next_source.replace(
+              import_anchor,
+              import_anchor + "import { buildWebsiteAnalyticsCsv, buildWebsiteLeadsCsv, buildWebsiteProjectBackupText } from './core/website-builder-export-data';\n",
+              1,
+          )
+
+          for name, wrapper in wrappers.items():
+              if next_source.count(wrapper) != 1:
+                  raise SystemExit(f'{name} wrapper replacement failed; refusing.')
+          if len(next_source) >= len(source) - 1000:
+              raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
+
+          path_anchor = "const websiteBuilderReportsPath = resolve(root, 'src/modules/website-builder/core/website-builder-reports.ts');\n"
+          smoke = smoke.replace(path_anchor, path_anchor + "const websiteBuilderExportDataPath = resolve(root, 'src/modules/website-builder/core/website-builder-export-data.ts');\n", 1)
+          existence_anchor = "  ['Website Builder reports helper exists', websiteBuilderReportsPath],\n"
+          smoke = smoke.replace(existence_anchor, existence_anchor + "  ['Website Builder export data helper exists', websiteBuilderExportDataPath],\n", 1)
+          read_anchor = "const websiteBuilderReports = existsSync(websiteBuilderReportsPath) ? readFileSync(websiteBuilderReportsPath, 'utf8') : '';\n"
+          smoke = smoke.replace(read_anchor, read_anchor + "const websiteBuilderExportData = existsSync(websiteBuilderExportDataPath) ? readFileSync(websiteBuilderExportDataPath, 'utf8') : '';\n", 1)
+          composite_old = "${websiteBuilderOutput}\\n${websiteBuilderReports}`;"
+          composite_new = "${websiteBuilderOutput}\\n${websiteBuilderReports}\\n${websiteBuilderExportData}`;"
+          if not all(anchor in smoke for anchor in [path_anchor, existence_anchor, read_anchor, composite_old]):
+              raise SystemExit('Smoke anchors changed; refusing.')
+          smoke = smoke.replace(composite_old, composite_new, 1)
+
+          module_path.write_text(module_text, encoding='utf-8')
+          source_path.write_text(next_source, encoding='utf-8')
+          smoke_path.write_text(smoke, encoding='utf-8')
+          print(f'Export helper blocks extracted: {total_bytes} bytes')
+          print(f'WebsiteBuilderTool.tsx: {len(source)} -> {len(next_source)} bytes')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Website Builder smoke
+        run: npm run smoke:website-builder
+
+      - name: Commit verified extraction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/website-builder-export-data.ts scripts/website-builder-smoke.mjs
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "[refactor-bot] Extract Website Builder export data"
+          git push origin HEAD:refactor/website-builder-split-20260916
