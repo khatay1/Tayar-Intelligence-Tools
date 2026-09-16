@@ -60,8 +60,8 @@ jobs:
               raise SystemExit('Publish verification helper gained state writes; refusing.')
 
           exported_theme = textwrap.dedent(theme_block).replace(
-              'function applyThemeToSection(',
-              'export function applyThemeToSection(',
+              'function applyThemeToSection(section: WebsiteSection, index: number): WebsiteSection {',
+              'export function applyThemeToSection(section: WebsiteSection, index: number, theme: WebsiteTheme): WebsiteSection {',
               1,
           ).rstrip() + '\n'
           exported_verify = textwrap.dedent(verify_block).replace(
@@ -74,6 +74,12 @@ jobs:
           theme_start = next_source.index(theme_start_marker)
           theme_end = next_source.index(theme_end_marker, theme_start)
           next_source = next_source[:theme_start] + next_source[theme_end:]
+
+          call_pattern = 'applyThemeToSection(section, index)'
+          call_count = next_source.count(call_pattern)
+          if call_count != 2:
+              raise SystemExit(f'Theme helper call count changed: expected 2, got {call_count}; refusing.')
+          next_source = next_source.replace(call_pattern, 'applyThemeToSection(section, index, theme)')
 
           config_import_anchor = "} from './website-builder-model';\n"
           if config.count(config_import_anchor) != 1:
