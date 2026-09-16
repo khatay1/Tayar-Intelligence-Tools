@@ -1,0 +1,79 @@
+name: Temporary Website Builder function audit
+
+on:
+  push:
+    branches:
+      - refactor/website-builder-split-20260916
+    paths:
+      - .github/workflows/audit-builder-functions.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/website-builder-split-20260916
+      - name: Audit local functions
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('src/modules/website-builder/WebsiteBuilderTool.tsx').read_text(encoding='utf-8')
+          pattern = re.compile(r'(?m)^  (?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\(')
+          state_tokens = [
+            'setState(', 'setSections(', 'setPages(', 'setSelected', 'setCloud', 'setPublish', 'setPreview',
+            'setAi', 'setBilling', 'setMedia', 'setLeads', 'setAnalytics', 'setHistory', 'setFuture',
+            '.current', 'useState(', 'useEffect(', 'useCallback(', 'await ', 'window.', 'document.',
+          ]
+
+          def find_end(start):
+            brace = text.find('{', start)
+            if brace < 0:
+              return None
+            depth = 0
+            quote = None
+            escape = False
+            i = brace
+            while i < len(text):
+              ch = text[i]
+              if quote:
+                if escape:
+                  escape = False
+                elif ch == '\\':
+                  escape = True
+                elif ch == quote:
+                  quote = None
+                i += 1
+                continue
+              if ch in "'\"`":
+                quote = ch
+              elif ch == '{':
+                depth += 1
+              elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                  return i + 1
+              i += 1
+            return None
+
+          rows = []
+          for match in pattern.finditer(text):
+            end = find_end(match.start())
+            if not end:
+              continue
+            block = text[match.start():end]
+            hits = [token for token in state_tokens if token in block]
+            rows.append((len(block), match.group(1), hits, block.count('\n') + 1))
+
+          print('TOP_LOCAL_FUNCTIONS')
+          for size, name, hits, lines in sorted(rows, reverse=True)[:80]:
+            print(f'{size:7d} bytes | {lines:4d} lines | {name:42s} | state={",".join(hits) if hits else "PURE"}')
+          print(f'TOTAL_FUNCTIONS={len(rows)}')
+          print(f'SOURCE_BYTES={len(text)}')
+          PY
