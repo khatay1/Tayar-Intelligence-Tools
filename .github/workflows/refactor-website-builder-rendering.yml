@@ -46,7 +46,7 @@ jobs:
               'function elementVisualCss(',
               'function buildResponsiveElementCss(',
               'function sectionElementsToHtml(',
-              'function buildWebsitePageHtml(',
+              'function buildFullHtml(',
               'function effectiveStyle(',
               'function effectiveSectionStyle(',
           ]
