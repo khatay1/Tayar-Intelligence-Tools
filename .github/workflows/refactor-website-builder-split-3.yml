@@ -116,6 +116,12 @@ jobs:
               raise SystemExit('Smoke composite source anchor changed; refusing.')
           smoke = smoke.replace(old, new, 1)
 
+          old_helper_check = "builder.includes('function aiWebsitePatchReviewItemTargetPage(')"
+          new_helper_check = "builder.includes('function aiWebsitePatchReviewItemTargetPage')"
+          if smoke.count(old_helper_check) != 1:
+              raise SystemExit('AI review target smoke helper anchor changed; refusing.')
+          smoke = smoke.replace(old_helper_check, new_helper_check, 1)
+
           source_path.write_text(remainder, encoding='utf-8')
           module_path.write_text(module_text, encoding='utf-8')
           smoke_path.write_text(smoke, encoding='utf-8')
