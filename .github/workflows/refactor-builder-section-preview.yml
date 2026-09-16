@@ -111,7 +111,7 @@ jobs:
               'sectionColumnCount', 'sectionLayoutGap', 'sectionLayoutAlign', 'sectionBackgroundMode',
               'sectionBackgroundPosition', 'sectionBackgroundSize', 'sectionContentWidth',
               'sectionVisualNumber', 'safeSectionColor', 'sectionBackgroundCss', 'sectionDomId',
-              'effectiveSectionStyle', 'elementColumn', 'elementColumnSpan', 'elementShadowCss',
+              'effectiveSectionStyle', 'elementColumn', 'elementShadowCss',
               'containerColumn', 'containerColumnSpan',
           ]
           for name in candidates:
@@ -120,6 +120,13 @@ jobs:
                   remainder, count = pattern.subn('', remainder, count=1)
                   if count != 1:
                       raise SystemExit(f'Expected import line missing for cleanup: {name}')
+
+          # These three are compiler-confirmed stale imports. Remove only their exact import lines.
+          for name in ['MousePointer2', 'CANVAS_GRID_SIZE', 'elementColumnSpan']:
+              line = f'  {name},\n'
+              if remainder.count(line) != 1:
+                  raise SystemExit(f'Expected stale import line missing or duplicated: {name}')
+              remainder = remainder.replace(line, '', 1)
 
           smoke = smoke_path.read_text(encoding='utf-8')
           path_anchor = "const builderElementPreviewPath = resolve(root, 'src/modules/website-builder/components/ElementPreview.tsx');\n"
