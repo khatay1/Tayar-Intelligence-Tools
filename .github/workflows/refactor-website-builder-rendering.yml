@@ -72,8 +72,7 @@ jobs:
               ]),
               ('./defaults', False, [
                   'ELEMENT_LABELS', 'SECTION_LABELS', 'createDefaultContactFormFields',
-                  'createElement', 'createSection', 'defaultBrand', 'defaultSEO', 'defaultSections',
-                  'normalizeSection',
+                  'createSection', 'defaultBrand', 'defaultSEO', 'defaultSections', 'normalizeSection',
               ]),
               ('./project-identifiers', False, [
                   'languageCodeLabel', 'normalizePageLanguage', 'normalizeSlug', 'PAGE_LANGUAGE_LABELS',
@@ -119,6 +118,17 @@ jobs:
           used_outside = [name for name in declarations if re.search(rf'\b{re.escape(name)}\b', remainder)]
           if len(used_outside) < 8 or 'effectiveStyle' not in used_outside or 'clampElementNumber' not in used_outside:
               raise SystemExit(f'Unexpected remaining rendering references ({len(used_outside)}): {used_outside}')
+
+          cleanup_pairs = [
+              ("import { localizeUi, useLocalizer } from '@/lib/ui-localization';", "import { useLocalizer } from '@/lib/ui-localization';"),
+              ('  type LeadCaptureConfig,\n', ''),
+              ('  sanitizeCustomCss,\n', ''),
+              ('  safeSocialUrl,\n', ''),
+          ]
+          for old, new in cleanup_pairs:
+              if remainder.count(old) != 1:
+                  raise SystemExit(f'Expected import cleanup anchor missing or duplicated: {old!r}')
+              remainder = remainder.replace(old, new, 1)
 
           import_lines = ['import {']
           for name in used_outside:
