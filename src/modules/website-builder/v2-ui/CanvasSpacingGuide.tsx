@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { CanvasSpacingGuide as CanvasSpacingGuideModel } from '../core/editor-canvas-geometry';
 
 export interface CanvasSpacingGuideProps {
@@ -12,7 +13,7 @@ export function CanvasSpacingGuide({ guide }: CanvasSpacingGuideProps) {
   const firstSize = Math.max(1, Math.abs(guide.beforeEnd - guide.beforeStart));
   const secondStart = Math.min(guide.afterStart, guide.afterEnd);
   const secondSize = Math.max(1, Math.abs(guide.afterEnd - guide.afterStart));
-  const commonLine: React.CSSProperties = {
+  const commonLine: CSSProperties = {
     position: 'absolute',
     pointerEvents: 'none',
     zIndex: 36,
@@ -24,21 +25,21 @@ export function CanvasSpacingGuide({ guide }: CanvasSpacingGuideProps) {
     <div className="tayar-v2-spacing-guide" aria-hidden="true">
       <span
         style={horizontal
-          ? { ...commonLine, left: firstStart, top: '50%', width: firstSize, height: 1 }
-          : { ...commonLine, top: firstStart, left: '50%', height: firstSize, width: 1 }}
+          ? { ...commonLine, left: firstStart, top: guide.crossPosition, width: firstSize, height: 1 }
+          : { ...commonLine, top: firstStart, left: guide.crossPosition, height: firstSize, width: 1 }}
       />
       <span
         style={horizontal
-          ? { ...commonLine, left: secondStart, top: '50%', width: secondSize, height: 1 }
-          : { ...commonLine, top: secondStart, left: '50%', height: secondSize, width: 1 }}
+          ? { ...commonLine, left: secondStart, top: guide.crossPosition, width: secondSize, height: 1 }
+          : { ...commonLine, top: secondStart, left: guide.crossPosition, height: secondSize, width: 1 }}
       />
       <strong
         style={{
           position: 'absolute',
           pointerEvents: 'none',
           zIndex: 37,
-          left: horizontal ? (firstStart + firstSize / 2) : '50%',
-          top: horizontal ? '50%' : (firstStart + firstSize / 2),
+          left: horizontal ? (firstStart + firstSize / 2) : guide.crossPosition,
+          top: horizontal ? guide.crossPosition : (firstStart + firstSize / 2),
           transform: 'translate(-50%, -50%)',
           padding: '2px 5px',
           borderRadius: 4,
