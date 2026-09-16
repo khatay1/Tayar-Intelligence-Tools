@@ -133,7 +133,9 @@ for (const [key, files] of localizedUsage) {
 const expectedContentCandidates = hardcodedCandidates.filter(({ file }) => contentOnlyFiles.has(file));
 const unexpectedHardcoded = hardcodedCandidates.filter(({ file, text }) => {
   if (contentOnlyFiles.has(file)) return false;
-  if (file === 'src/modules/website-builder/WebsiteBuilderTool.tsx' && text.startsWith('JSON.stringify(')) return false;
+  // Runtime serialization can resemble JSX text to the lightweight scanner. It is
+  // already localized before JSON serialization and is not hard-coded customer UI.
+  if (file.startsWith('src/modules/website-builder/') && text.startsWith('JSON.stringify(')) return false;
   return true;
 });
 
