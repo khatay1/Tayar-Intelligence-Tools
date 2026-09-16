@@ -1,0 +1,148 @@
+name: Guarded Website Builder pure helper split
+
+on:
+  push:
+    branches:
+      - refactor/website-builder-split-20260916
+    paths:
+      - .github/workflows/refactor-builder-pure-helpers.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract-pure-helpers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/website-builder-split-20260916
+          fetch-depth: 0
+
+      - name: Extract theme and publish verification helpers
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
+          config_path = Path('src/modules/website-builder/core/website-builder-config.ts')
+          publish_service_path = Path('src/modules/website-builder/services/publishedWebsiteService.ts')
+
+          source = source_path.read_text(encoding='utf-8')
+          config = config_path.read_text(encoding='utf-8')
+          publish_service = publish_service_path.read_text(encoding='utf-8')
+
+          theme_start_marker = '  function applyThemeToSection(section: WebsiteSection, index: number): WebsiteSection {'
+          theme_end_marker = '  function applyThemeToCurrentPage() {'
+          verify_start_marker = '  async function verifyPublishedRoute(url: string): Promise<boolean> {'
+          verify_end_marker = '  async function recoverPublishedProjectState('
+
+          for marker in [theme_start_marker, theme_end_marker, verify_start_marker, verify_end_marker]:
+              if source.count(marker) != 1:
+                  raise SystemExit(f'Marker count changed for {marker!r}; refusing.')
+
+          theme_start = source.index(theme_start_marker)
+          theme_end = source.index(theme_end_marker, theme_start)
+          theme_block = source[theme_start:theme_end].rstrip() + '\n'
+          if not 700 <= len(theme_block) <= 2200:
+              raise SystemExit(f'Theme helper size unexpected ({len(theme_block)} bytes); refusing.')
+          if any(token in theme_block for token in ['setState(', 'setSections(', 'await ', 'useState(', 'useEffect(']):
+              raise SystemExit('Theme helper is no longer pure; refusing.')
+
+          verify_start = source.index(verify_start_marker)
+          verify_end = source.index(verify_end_marker, verify_start)
+          verify_block = source[verify_start:verify_end].rstrip() + '\n'
+          if not 700 <= len(verify_block) <= 2600:
+              raise SystemExit(f'Publish verification helper size unexpected ({len(verify_block)} bytes); refusing.')
+          if any(token in verify_block for token in ['setPublishedUrl(', 'setLiveVerification(', 'setPublishError(', 'useState(', 'useEffect(']):
+              raise SystemExit('Publish verification helper gained state writes; refusing.')
+
+          exported_theme = textwrap.dedent(theme_block).replace(
+              'function applyThemeToSection(',
+              'export function applyThemeToSection(',
+              1,
+          ).rstrip() + '\n'
+          exported_verify = textwrap.dedent(verify_block).replace(
+              'async function verifyPublishedRoute(',
+              'export async function verifyPublishedRoute(',
+              1,
+          ).rstrip() + '\n'
+
+          next_source = source[:verify_start] + source[verify_end:]
+          theme_start = next_source.index(theme_start_marker)
+          theme_end = next_source.index(theme_end_marker, theme_start)
+          next_source = next_source[:theme_start] + next_source[theme_end:]
+
+          config_import_anchor = "} from './website-builder-model';\n"
+          if config.count(config_import_anchor) != 1:
+              raise SystemExit('Config model import anchor changed; refusing.')
+          if "import type { WebsiteSection } from './types';" not in config:
+              config = config.replace(
+                  config_import_anchor,
+                  config_import_anchor + "import type { WebsiteSection } from './types';\n",
+                  1,
+              )
+          if 'export function applyThemeToSection(' in config:
+              raise SystemExit('Theme helper already exists in config; refusing.')
+          config = config.rstrip() + '\n\n' + exported_theme
+
+          config_source_anchor = "  normalizeTheme,\n} from './core/website-builder-config';"
+          if next_source.count(config_source_anchor) != 1:
+              raise SystemExit('Website Builder config import anchor changed; refusing.')
+          next_source = next_source.replace(
+              config_source_anchor,
+              "  normalizeTheme,\n  applyThemeToSection,\n} from './core/website-builder-config';",
+              1,
+          )
+
+          if 'export async function verifyPublishedRoute(' in publish_service:
+              raise SystemExit('Publish verification helper already exists in service; refusing.')
+          publish_service = publish_service.rstrip() + '\n\n' + exported_verify
+
+          service_source_anchor = "  uploadPublishedWebsiteFolderFiles,\n} from './services/publishedWebsiteService';"
+          if next_source.count(service_source_anchor) != 1:
+              raise SystemExit('Published website service import anchor changed; refusing.')
+          next_source = next_source.replace(
+              service_source_anchor,
+              "  uploadPublishedWebsiteFolderFiles,\n  verifyPublishedRoute,\n} from './services/publishedWebsiteService';",
+              1,
+          )
+
+          if theme_start_marker in next_source or verify_start_marker in next_source:
+              raise SystemExit('Local helper implementation remained after extraction; refusing.')
+          if len(next_source) >= len(source) - 1400:
+              raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
+
+          source_path.write_text(next_source, encoding='utf-8')
+          config_path.write_text(config, encoding='utf-8')
+          publish_service_path.write_text(publish_service, encoding='utf-8')
+
+          print(f'Theme helper extracted: {len(theme_block)} bytes')
+          print(f'Publish verification helper extracted: {len(verify_block)} bytes')
+          print(f'WebsiteBuilderTool.tsx: {len(source)} -> {len(next_source)} bytes')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Website Builder smoke
+        run: npm run smoke:website-builder
+
+      - name: Commit verified extraction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/website-builder-config.ts src/modules/website-builder/services/publishedWebsiteService.ts
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "[refactor-bot] Extract builder theme and publish helpers"
+          git push origin HEAD:refactor/website-builder-split-20260916
