@@ -72,6 +72,7 @@ const editorAIWorkingProjectPath = resolve(root, 'src/modules/website-builder/co
 const editorCanvasGeometryPath = resolve(root, 'src/modules/website-builder/core/editor-canvas-geometry.ts');
 const editorAIPatchReviewPath = resolve(root, 'src/modules/website-builder/core/editor-ai-patch-review.ts');
 const editorAIScopePath = resolve(root, 'src/modules/website-builder/core/editor-ai-scope.ts');
+const editorAIReviewTargetsPath = resolve(root, 'src/modules/website-builder/core/editor-ai-review-targets.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -152,6 +153,7 @@ for (const [label, path] of [
   ['Canvas geometry helper exists', editorCanvasGeometryPath],
   ['AI patch review module exists', editorAIPatchReviewPath],
   ['AI edit scope module exists', editorAIScopePath],
+  ['AI review target module exists', editorAIReviewTargetsPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -159,7 +161,8 @@ for (const [label, path] of [
 const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
 const editorAIPatchReview = existsSync(editorAIPatchReviewPath) ? readFileSync(editorAIPatchReviewPath, 'utf8') : '';
 const editorAIScope = existsSync(editorAIScopePath) ? readFileSync(editorAIScopePath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}`;
+const editorAIReviewTargets = existsSync(editorAIReviewTargetsPath) ? readFileSync(editorAIReviewTargetsPath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
@@ -225,7 +228,7 @@ check('Candidate exact changes support keyboard navigation with visible shortcut
 check('Candidate target reveal falls back from elements to containers and sections', builder.includes("targets.push({ attribute: 'data-tayar-ai-target-element'") && builder.includes("targets.push({ attribute: 'data-tayar-ai-target-container'") && builder.includes("targets.push({ attribute: 'data-tayar-ai-target-section'") && builder.includes('for (const target of targets)') && builder.includes('if (canvasTarget) break;'));
 check('Candidate review tracks exact targeted change coverage', builder.includes('reviewedOperationIds: string[]') && builder.includes('aiCandidateReviewedOperationCount') && builder.includes("l('Reviewed changes')") && builder.includes("l('Review next change')"));
 check('Candidate review can advance to the next unreviewed targeted change', builder.includes('function previewNextUnreviewedAICandidateOperation()') && builder.includes('orderedOperations.find((operation) => !reviewedIds.has(operation.id))') && builder.includes('revealAICandidateOperation(nextOperation)'));
-check('Candidate reveal navigates across pages and selects a valid comparison side', builder.includes('function aiWebsitePatchReviewItemTargetPage(') && builder.includes('const targetPage = aiWebsitePatchReviewItemTargetPage(operation, preferredPages)') && builder.includes('activePageId: nextPageId') && builder.includes('viewMode: nextViewMode'));
+check('Candidate reveal navigates across pages and selects a valid comparison side', builder.includes('function aiWebsitePatchReviewItemTargetPage') && builder.includes('const targetPage = aiWebsitePatchReviewItemTargetPage(operation, preferredPages)') && builder.includes('activePageId: nextPageId') && builder.includes('viewMode: nextViewMode'));
 check('Keeping a partially reviewed result covers pages and exact changes', builder.includes('unreviewedOperationCount') && builder.includes("l('targeted changes have not been reviewed.')") && builder.includes("l('Keep result anyway?')"));
 check('Rendered candidate review excludes operations that were not safely applied', builder.includes('const appliedOperationIds = new Set<string>()') && builder.includes('applied > appliedBeforeOperation') && builder.includes('exactPatchReview.operations.filter((operation) => appliedOperationIds.has(operation.id))'));
 check('Rendered candidate review reconciles generated canvas identities', builder.includes('function reconcileAIWebsitePatchReviewTargets(') && builder.includes("operation.action === 'add_page' || operation.action === 'duplicate_page'") && builder.includes("operation.action === 'add_section' || operation.action === 'duplicate_section'") && builder.includes("operation.action === 'add_element' || operation.action === 'duplicate_element' || operation.action === 'insert_symbol'") && builder.includes("operation.action === 'add_container'"));
