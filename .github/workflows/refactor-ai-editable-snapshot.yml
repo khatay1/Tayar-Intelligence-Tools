@@ -1,0 +1,201 @@
+name: Guarded AI editable snapshot split
+
+on:
+  push:
+    branches:
+      - refactor/website-builder-split-20260916
+    paths:
+      - .github/workflows/refactor-ai-editable-snapshot.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract-ai-editable-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/website-builder-split-20260916
+          fetch-depth: 0
+
+      - name: Extract AI editable snapshot helper
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          source_path = Path('src/modules/website-builder/WebsiteBuilderTool.tsx')
+          module_path = Path('src/modules/website-builder/core/editor-ai-editable-snapshot.ts')
+          smoke_path = Path('scripts/website-builder-smoke.mjs')
+          text = source_path.read_text(encoding='utf-8')
+
+          start_marker = '  function buildAIEditableSnapshot(scope?: AIEditScopeTarget) {'
+          end_marker = '  function undoLastAIChange() {'
+          if text.count(start_marker) != 1 or text.count(end_marker) != 1:
+              raise SystemExit('AI editable snapshot markers are not unique; refusing.')
+
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          block = text[start:end].rstrip() + '\n\n'
+          if not 4500 <= len(block) <= 22000:
+              raise SystemExit(f'AI editable snapshot block size unexpected ({len(block)} bytes); refusing.')
+          for required in [
+              'const scopedPages = getCurrentPages()',
+              'keywords: seo.keywords.slice(0, 20)',
+              'symbols: symbols.slice(0, 50)',
+              "section.type === 'contact' ? {",
+              '.slice(0, 20)',
+          ]:
+              if required not in block:
+                  raise SystemExit(f'Expected snapshot behavior missing: {required}')
+          for forbidden in ['setPages(', 'setSections(', 'setSaved(', 'useState(', 'useEffect(']:
+              if forbidden in block:
+                  raise SystemExit(f'Mutating React behavior found in snapshot block ({forbidden}); refusing.')
+
+          func = textwrap.dedent(block).rstrip()
+          original_signature = 'function buildAIEditableSnapshot(scope?: AIEditScopeTarget) {'
+          if func.count(original_signature) != 1:
+              raise SystemExit('Snapshot signature changed; refusing.')
+          func = func.replace(
+              original_signature,
+              '''export interface AIEditableSnapshotInput {
+  pages: WebsitePage[];
+  siteName: string;
+  activePageId: string;
+  homePageId: string;
+  selectedId: string | null;
+  selectedElementId: string | null;
+  device: Device;
+  seo: WebsiteSEO;
+  headerConfig: WebsiteHeaderConfig;
+  theme: WebsiteTheme;
+  symbols: WebsiteSymbol[];
+  scope?: AIEditScopeTarget;
+}
+
+export function buildAIEditableSnapshotData({
+  pages,
+  siteName,
+  activePageId,
+  homePageId,
+  selectedId,
+  selectedElementId,
+  device,
+  seo,
+  headerConfig,
+  theme,
+  symbols,
+  scope,
+}: AIEditableSnapshotInput) {''',
+              1,
+          )
+          if func.count('const scopedPages = getCurrentPages()') != 1:
+              raise SystemExit('Expected getCurrentPages snapshot source changed; refusing.')
+          func = func.replace('const scopedPages = getCurrentPages()', 'const scopedPages = pages', 1)
+
+          module_text = '''import { createDefaultContactFormFields } from './defaults';
+import type { AIEditScopeTarget } from './editor-ai-scope';
+import type { Device, WebsiteSEO } from './types';
+import type { WebsiteHeaderConfig, WebsitePage, WebsiteSymbol, WebsiteTheme } from './website-builder-model';
+
+''' + func + '\n'
+
+          wrapper = '''  function buildAIEditableSnapshot(scope?: AIEditScopeTarget) {
+    return buildAIEditableSnapshotData({
+      pages: getCurrentPages(),
+      siteName,
+      activePageId,
+      homePageId,
+      selectedId,
+      selectedElementId,
+      device,
+      seo,
+      headerConfig,
+      theme,
+      symbols,
+      scope,
+    });
+  }
+
+'''
+          remainder = text[:start] + wrapper + text[end:]
+          if 'symbols: symbols.slice(0, 50).map' in remainder:
+              raise SystemExit('Snapshot implementation remained in WebsiteBuilderTool; refusing.')
+          if len(remainder) >= len(text) - 3500:
+              raise SystemExit('WebsiteBuilderTool.tsx did not shrink enough; refusing.')
+
+          import_anchor = "} from './core/editor-ai-review-targets';\n"
+          if remainder.count(import_anchor) != 1:
+              raise SystemExit('AI review-target import anchor changed; refusing.')
+          remainder = remainder.replace(
+              import_anchor,
+              import_anchor + "import { buildAIEditableSnapshotData } from './core/editor-ai-editable-snapshot';\n",
+              1,
+          )
+
+          smoke = smoke_path.read_text(encoding='utf-8')
+          path_anchor = "const builderSectionPreviewPath = resolve(root, 'src/modules/website-builder/components/SectionPreview.tsx');\n"
+          if smoke.count(path_anchor) != 1:
+              raise SystemExit('Smoke SectionPreview path anchor changed; refusing.')
+          smoke = smoke.replace(
+              path_anchor,
+              path_anchor + "const editorAIEditableSnapshotPath = resolve(root, 'src/modules/website-builder/core/editor-ai-editable-snapshot.ts');\n",
+              1,
+          )
+
+          existence_anchor = "  ['SectionPreview component exists', builderSectionPreviewPath],\n"
+          if smoke.count(existence_anchor) != 1:
+              raise SystemExit('Smoke SectionPreview existence anchor changed; refusing.')
+          smoke = smoke.replace(
+              existence_anchor,
+              existence_anchor + "  ['AI editable snapshot helper exists', editorAIEditableSnapshotPath],\n",
+              1,
+          )
+
+          read_anchor = "const builderSectionPreview = existsSync(builderSectionPreviewPath) ? readFileSync(builderSectionPreviewPath, 'utf8') : '';\n"
+          if smoke.count(read_anchor) != 1:
+              raise SystemExit('Smoke SectionPreview read anchor changed; refusing.')
+          smoke = smoke.replace(
+              read_anchor,
+              read_anchor + "const editorAIEditableSnapshot = existsSync(editorAIEditableSnapshotPath) ? readFileSync(editorAIEditableSnapshotPath, 'utf8') : '';\n",
+              1,
+          )
+
+          composite_old = "const builder = `${builderSource}\\n${editorAIPatchReview}\\n${editorAIScope}\\n${editorAIReviewTargets}\\n${websiteBuilderModel}\\n${websiteBuilderConfig}\\n${websiteBuilderRendering}\\n${builderElementPreview}\\n${builderSectionPreview}`;\n"
+          composite_new = "const builder = `${builderSource}\\n${editorAIPatchReview}\\n${editorAIScope}\\n${editorAIReviewTargets}\\n${websiteBuilderModel}\\n${websiteBuilderConfig}\\n${websiteBuilderRendering}\\n${builderElementPreview}\\n${builderSectionPreview}\\n${editorAIEditableSnapshot}`;\n"
+          if smoke.count(composite_old) != 1:
+              raise SystemExit('Smoke logical builder anchor changed; refusing.')
+          smoke = smoke.replace(composite_old, composite_new, 1)
+
+          module_path.write_text(module_text, encoding='utf-8')
+          source_path.write_text(remainder, encoding='utf-8')
+          smoke_path.write_text(smoke, encoding='utf-8')
+
+          print(f'AI editable snapshot extracted: {len(block)} bytes')
+          print(f'WebsiteBuilderTool.tsx: {len(text)} -> {len(remainder)} bytes')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Website Builder smoke
+        run: npm run smoke:website-builder
+
+      - name: Commit verified extraction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/website-builder/WebsiteBuilderTool.tsx src/modules/website-builder/core/editor-ai-editable-snapshot.ts scripts/website-builder-smoke.mjs
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "[refactor-bot] Extract AI editable snapshot"
+          git push origin HEAD:refactor/website-builder-split-20260916
