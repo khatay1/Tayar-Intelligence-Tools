@@ -162,6 +162,7 @@ import {
 } from './core/editor-ai-review-targets';
 import { buildAIEditableSnapshotData } from './core/editor-ai-editable-snapshot';
 import { createWebsiteBuilderOutput } from './core/website-builder-output';
+import { buildAuditReportText, buildDeliveryReportText, buildV1LaunchReportText } from './core/website-builder-reports';
 import {
   type WebsitePage,
   type WebsiteClipboardContext,
@@ -9846,26 +9847,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function exportAuditReport() {
-    const lines = [
-      'Tayar Website Builder — Pre-publish Audit',
-      `Site: ${siteName}`,
-      `Generated: ${new Date().toISOString()}`,
-      `Score: ${siteAudit.score}/100`,
-      `Pages: ${pages.length}`,
-      `Errors: ${siteAudit.errors.length}`,
-      `Warnings: ${siteAudit.warnings.length}`,
-      `Online: ${networkOnline ? 'yes' : 'no'}`,
-      `Cloud sync: ${cloudSyncFailed ? 'needs retry' : 'healthy'}`,
-      `Snapshot: ${qualityDiagnostics.snapshotKb} KB`,
-      `Elements: ${qualityDiagnostics.elements}`,
-      '',
-      'ERRORS',
-      ...(siteAudit.errors.length ? siteAudit.errors.map((item) => `- ${item}`) : ['- None']),
-      '',
-      'WARNINGS',
-      ...(siteAudit.warnings.length ? siteAudit.warnings.map((item) => `- ${item}`) : ['- None']),
-    ];
-    downloadTextFile(`${normalizeSlug(siteName || 'website')}-audit.txt`, lines.join('\n'));
+    const content = buildAuditReportText({
+      siteName,
+      siteAudit,
+      pageCount: pages.length,
+      networkOnline,
+      cloudSyncFailed,
+      qualityDiagnostics,
+    });
+    downloadTextFile(`${normalizeSlug(siteName || 'website')}-audit.txt`, content);
   }
 
   function approveForDelivery() {
@@ -9898,48 +9888,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function buildDeliveryReport() {
-    const due = deliveryConfig.dueDate || 'Not set';
-    const approval = deliveryConfig.approvedAt
-      ? `${new Date(deliveryConfig.approvedAt).toLocaleString()}${approvalCurrent ? ' (current build)' : ' (site changed after approval)'}`
-      : 'Not approved';
-    return [
-      deliveryConfig.whiteLabel ? 'Website Delivery Report' : 'Tayar Website Builder — Client Delivery Report',
-      '',
-      `Project: ${siteName}`,
-      `Project code: ${deliveryConfig.projectCode || '—'}`,
-      `Client: ${deliveryConfig.clientName || '—'}`,
-      `Client email: ${deliveryConfig.clientEmail || '—'}`,
-      `Status: ${deliveryConfig.status}`,
-      `Due date: ${due}`,
-      `Generated: ${new Date().toISOString()}`,
-      `Launch readiness: ${launchReadiness.score}/100`,
-      `Audit score: ${siteAudit.score}/100`,
-      `Approval: ${approval}`,
-      `Delivered: ${deliveryConfig.deliveredAt ? new Date(deliveryConfig.deliveredAt).toLocaleString() : 'No'}`,
-      `Live URL: ${publishedUrl || 'Not published'}`,
-      `Share preview: ${previewUrl || 'Not created'}`,
-      '',
-      'USAGE',
-      `Pages: ${deliveryUsage.pages}`,
-      `Sections: ${deliveryUsage.sections}`,
-      `Elements: ${deliveryUsage.elements}`,
-      `Forms: ${deliveryUsage.forms}`,
-      `Releases: ${deliveryUsage.releases}`,
-      `Leads loaded: ${deliveryUsage.leads}`,
-      `Analytics events loaded: ${deliveryUsage.analyticsEvents}`,
-      '',
-      'LAUNCH CHECKS',
-      ...launchReadiness.checks.map((item) => `- ${item.ok ? '[x]' : '[ ]'} ${l(item.label)}`),
-      '',
-      'AUDIT ERRORS',
-      ...(siteAudit.errors.length ? siteAudit.errors.map((item) => `- ${item}`) : ['- None']),
-      '',
-      'AUDIT WARNINGS',
-      ...(siteAudit.warnings.length ? siteAudit.warnings.map((item) => `- ${item}`) : ['- None']),
-      '',
-      'HANDOFF NOTES',
-      deliveryConfig.handoffNotes || '—',
-    ].join('\n');
+    return buildDeliveryReportText({
+      deliveryConfig,
+      approvalCurrent,
+      siteName,
+      launchReadiness,
+      siteAudit,
+      publishedUrl,
+      previewUrl,
+      deliveryUsage,
+      localize: l,
+    });
   }
 
   function exportDeliveryReport() {
@@ -10893,41 +10852,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const publishBlocker = publishOperationalBlocker();
 
   function exportV1LaunchReport() {
-    const manual = [
-      ['Stripe test payment + webhook', launchManualChecks.stripe],
-      ['Production domain / DNS', launchManualChecks.domain],
-      ['Support + legal contact review', launchManualChecks.support],
-    ] as const;
-    const lines = [
-      'Tayar Website Builder V1 — Final Launch Report',
-      `Generated: ${new Date().toISOString()}`,
-      `Project: ${siteName || 'Untitled website'}`,
-      `Cloud project: ${cloudProjectId || 'Not saved'}`,
-      `Plan: ${BILLING_PLAN_DETAILS[billingPlan].label}`,
-      `Launch status: ${v1LaunchStatus.status}`,
-      `Launch score: ${v1LaunchStatus.score}/100`,
-      `Audit score: ${siteAudit.score}/100`,
-      `Production URL: ${normalizeSiteUrl(siteUrl) || 'Not configured'}`,
-      `Published URL: ${publishedUrl || 'Not published'}`,
-      `Live verification: ${liveVerification}`,
-      `Cloud sync: ${cloudSyncFailed || autoSaveStatus === 'failed' ? 'needs attention' : networkOnline ? 'healthy' : 'offline'}`,
-      '',
-      'Automated launch checks',
-      ...v1LaunchStatus.checks.map((check) => `- ${check.ok ? '[x]' : '[ ]'} ${check.label}: ${check.detail}`),
-      '',
-      'Manual production checks',
-      ...manual.map(([label, ok]) => `- ${ok ? '[x]' : '[ ]'} ${label}`),
-      '',
-      'Blockers',
-      ...(v1LaunchStatus.blockers.length ? v1LaunchStatus.blockers.map((item) => `- ${item}`) : ['- None']),
-      '',
-      'Audit errors',
-      ...(siteAudit.errors.length ? siteAudit.errors.map((item) => `- ${item}`) : ['- None']),
-      '',
-      'Audit warnings',
-      ...(siteAudit.warnings.length ? siteAudit.warnings.map((item) => `- ${item}`) : ['- None']),
-    ];
-    downloadTextFile(`${normalizeSlug(siteName || 'website')}-v1-launch-report.txt`, lines.join('\n'));
+    const content = buildV1LaunchReportText({
+      launchManualChecks,
+      siteName,
+      cloudProjectId,
+      planLabel: BILLING_PLAN_DETAILS[billingPlan].label,
+      v1LaunchStatus,
+      siteAudit,
+      productionUrl: normalizeSiteUrl(siteUrl),
+      publishedUrl,
+      liveVerification,
+      cloudSyncFailed,
+      autoSaveStatus,
+      networkOnline,
+    });
+    downloadTextFile(`${normalizeSlug(siteName || 'website')}-v1-launch-report.txt`, content);
   }
 
   const hasUnsavedChanges = Boolean(
