@@ -321,7 +321,7 @@ check('No unresolved merge markers in Website Builder', !/(<<<<<<<|=======|>>>>>
 check('Website Builder source has no mojibake markers', !/[ÂÃØÙð]|â(?:€™|€œ|€|€”|†|€¢|€¦|œ|˜|Œ|ˆ|ž|™)/.test(builder));
 check('Published HTML never exposes direct Supabase Storage URLs', !builder.includes('/storage/v1/object/public/published-sites'));
 check('Publish and preview use canonical Tayar renderer URLs', builder.includes('buildPublishedSiteBaseUrl') && builder.includes('buildPreviewSiteBaseUrl') && builder.includes('buildPublishedSiteUrl'));
-check('Live verification checks rendered HTML content type', builder.includes("contentType.includes('text/html')") && builder.includes('verifyPublishedRoute'));
+check('Live verification checks rendered HTML content type', publishedWebsiteService.includes("contentType.includes('text/html')") && publishedWebsiteService.includes('verifyPublishedRoute'));
 check('Legacy published URLs are normalized', publishedUrlHelper.includes('normalizePublishedSiteUrl') && publishedUrlHelper.includes('/storage/v1/object/public/published-sites/'));
 check('Published-site proxy forces inline HTML rendering', publishedProxy.includes("'text/html; charset=utf-8'") && publishedProxy.includes("'Content-Disposition', 'inline'"));
 check('Published-site proxy sandboxes customer HTML from Tayar auth origin', publishedProxy.includes('sandbox allow-scripts') && !publishedProxy.includes('allow-same-origin'));

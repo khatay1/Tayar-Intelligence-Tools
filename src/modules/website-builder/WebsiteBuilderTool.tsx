@@ -82,6 +82,7 @@ import {
   snapshotPublishedWebsiteFiles,
   uploadPublishedWebsiteBlob,
   uploadPublishedWebsiteFolderFiles,
+  verifyPublishedRoute,
 } from './services/publishedWebsiteService';
 import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
 import { createWebsitePublishVersion, deleteWebsitePublishVersionArchive, discardWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
@@ -211,6 +212,7 @@ import {
   normalizeFooterConfig,
   normalizeSiteEnhancements,
   normalizeTheme,
+  applyThemeToSection,
 } from './core/website-builder-config';
 import {
   sectionColumnCount,
@@ -1218,32 +1220,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
     }
   }
-  function applyThemeToSection(section: WebsiteSection, index: number): WebsiteSection {
-    const background = section.type === 'footer'
-      ? theme.secondaryColor
-      : index % 2 === 0 ? theme.backgroundColor : theme.secondaryColor;
-    return {
-      ...section,
-      background,
-      accent: theme.primaryColor,
-      elements: section.elements.map((element) => {
-        if (element.type === 'heading') {
-          return { ...element, style: { ...element.style, color: theme.textColor } };
-        }
-        if (element.type === 'text') {
-          return { ...element, style: { ...element.style, color: theme.mutedTextColor } };
-        }
-        if (element.type === 'button') {
-          return { ...element, style: { ...element.style, backgroundColor: theme.primaryColor, borderRadius: theme.buttonRadius } };
-        }
-        return element;
-      }),
-    };
-  }
-
   function applyThemeToCurrentPage() {
     remember(sections);
-    setSections(sections.map((section, index) => applyThemeToSection(section, index)));
+    setSections(sections.map((section, index) => applyThemeToSection(section, index, theme)));
     setSaved(false);
   }
 
@@ -1252,7 +1231,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const currentPages = getCurrentPages();
     const nextPages = currentPages.map((page) => ({
       ...page,
-      sections: page.sections.map((section, index) => applyThemeToSection(section, index)),
+      sections: page.sections.map((section, index) => applyThemeToSection(section, index, theme)),
     }));
     const active = nextPages.find((page) => page.id === activePageId) || nextPages[0];
     setPages(nextPages);
@@ -1272,34 +1251,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
     if (!resolvedOwnerId) return '';
     return buildPublishedSiteUrl(resolvedOwnerId, projectId, 'index.html');
-  }
-
-  async function verifyPublishedRoute(url: string): Promise<boolean> {
-    if (!url) return false;
-
-    // Vite dev does not run the Vercel /api proxy. Storage verification remains
-    // useful locally, while production verifies the exact URL customers open.
-    if (import.meta.env.DEV) return true;
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: { Accept: 'text/html' },
-      });
-
-      if (!response.ok) return false;
-
-      const contentType = (response.headers.get('content-type') || '').toLowerCase();
-      if (!contentType.includes('text/html')) return false;
-      if (response.headers.get('x-tayar-published-site') !== '1') return false;
-
-      const body = await response.text();
-      const head = body.slice(0, 4096);
-      return /<!doctype\s+html|<html(?:\s|>)/i.test(head);
-    } catch {
-      return false;
-    }
   }
 
   async function recoverPublishedProjectState(project: CloudWebsiteProject, expectedLoadSequence?: number) {

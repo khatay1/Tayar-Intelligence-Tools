@@ -2,6 +2,7 @@ import type {
   BillingEntitlements, BillingPlan, WebsiteFooterConfig, WebsiteHeaderConfig,
   WebsiteProductionConfig, WebsiteSiteEnhancements, WebsiteTheme,
 } from './website-builder-model';
+import type { WebsiteSection } from './types';
 
 export const REUSABLE_SECTIONS_KEY = 'tayar.website-builder.reusable-sections.v1';
 export const FONT_OPTIONS = ['Inter', 'Arial', 'Georgia', 'Trebuchet MS', 'Courier New', 'system-ui'];
@@ -319,5 +320,28 @@ export function normalizeTheme(value: Partial<WebsiteTheme> | null | undefined):
     contentWidth: number(value?.contentWidth, DEFAULT_THEME.contentWidth, 720, 1440),
     buttonRadius: number(value?.buttonRadius, DEFAULT_THEME.buttonRadius, 0, 40),
     sectionSpacing: number(value?.sectionSpacing, DEFAULT_THEME.sectionSpacing, 40, 140),
+  };
+}
+
+export function applyThemeToSection(section: WebsiteSection, index: number, theme: WebsiteTheme): WebsiteSection {
+  const background = section.type === 'footer'
+    ? theme.secondaryColor
+    : index % 2 === 0 ? theme.backgroundColor : theme.secondaryColor;
+  return {
+    ...section,
+    background,
+    accent: theme.primaryColor,
+    elements: section.elements.map((element) => {
+      if (element.type === 'heading') {
+        return { ...element, style: { ...element.style, color: theme.textColor } };
+      }
+      if (element.type === 'text') {
+        return { ...element, style: { ...element.style, color: theme.mutedTextColor } };
+      }
+      if (element.type === 'button') {
+        return { ...element, style: { ...element.style, backgroundColor: theme.primaryColor, borderRadius: theme.buttonRadius } };
+      }
+      return element;
+    }),
   };
 }
