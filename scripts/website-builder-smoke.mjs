@@ -75,6 +75,7 @@ const editorAIScopePath = resolve(root, 'src/modules/website-builder/core/editor
 const editorAIReviewTargetsPath = resolve(root, 'src/modules/website-builder/core/editor-ai-review-targets.ts');
 const websiteBuilderModelPath = resolve(root, 'src/modules/website-builder/core/website-builder-model.ts');
 const websiteBuilderConfigPath = resolve(root, 'src/modules/website-builder/core/website-builder-config.ts');
+const websiteBuilderRenderingPath = resolve(root, 'src/modules/website-builder/core/website-builder-rendering.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -158,6 +159,7 @@ for (const [label, path] of [
   ['AI review target module exists', editorAIReviewTargetsPath],
   ['Website Builder model module exists', websiteBuilderModelPath],
   ['Website Builder config module exists', websiteBuilderConfigPath],
+  ['Website Builder rendering module exists', websiteBuilderRenderingPath],
 ]) {
   check(label, existsSync(path));
 }
@@ -168,7 +170,8 @@ const editorAIScope = existsSync(editorAIScopePath) ? readFileSync(editorAIScope
 const editorAIReviewTargets = existsSync(editorAIReviewTargetsPath) ? readFileSync(editorAIReviewTargetsPath, 'utf8') : '';
 const websiteBuilderModel = existsSync(websiteBuilderModelPath) ? readFileSync(websiteBuilderModelPath, 'utf8') : '';
 const websiteBuilderConfig = existsSync(websiteBuilderConfigPath) ? readFileSync(websiteBuilderConfigPath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}`;
+const websiteBuilderRendering = existsSync(websiteBuilderRenderingPath) ? readFileSync(websiteBuilderRenderingPath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
