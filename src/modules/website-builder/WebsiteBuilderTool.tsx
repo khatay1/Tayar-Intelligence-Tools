@@ -45,10 +45,7 @@ interface WebsiteBuilderToolProps {
 
 import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionResponsiveStyle, SectionType, WebsiteBrand, WebsiteElement, WebsiteElementContainer, WebsiteElementType, WebsiteFormField, WebsiteFormFieldType, WebsiteSEO, WebsiteSection } from './core/types';
 import { ELEMENT_LABELS, SECTION_LABELS, createDefaultContactFormFields, createElement, createSection, defaultBrand, defaultSEO, defaultSections, normalizeSection } from './core/defaults';
-import {
-  parseEditorV2FeatureFlags,
-  resolveEditorV2FeatureFlags,
-} from './core/editor-feature-flags';
+import { resolveWebsiteBuilderV2Flags } from './core/editor-feature-flags';
 import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
@@ -251,28 +248,7 @@ import { SectionPreview } from './components/SectionPreview';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
-const EDITOR_V2_FLAGS_STORAGE_KEY = 'tayar.website-builder.v2.flags';
 
-function resolveWebsiteBuilderV2Flags() {
-  if (typeof window === 'undefined') {
-    return resolveEditorV2FeatureFlags();
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  const queryFlag = params.get('builderV2');
-
-  const overrides = parseEditorV2FeatureFlags(
-    window.localStorage.getItem(EDITOR_V2_FLAGS_STORAGE_KEY),
-  );
-
-  if (queryFlag === '1') {
-    overrides.shell = true;
-  } else if (queryFlag === '0') {
-    overrides.shell = false;
-  }
-
-  return resolveEditorV2FeatureFlags(overrides);
-}
 
 export default function WebsiteBuilderTool({
   darkMode,
