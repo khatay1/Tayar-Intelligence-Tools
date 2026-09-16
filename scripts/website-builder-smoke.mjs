@@ -71,6 +71,7 @@ const editorNativeProjectPatchPath = resolve(root, 'src/modules/website-builder/
 const editorAIWorkingProjectPath = resolve(root, 'src/modules/website-builder/core/editor-ai-working-project.ts');
 const editorCanvasGeometryPath = resolve(root, 'src/modules/website-builder/core/editor-canvas-geometry.ts');
 const editorAIPatchReviewPath = resolve(root, 'src/modules/website-builder/core/editor-ai-patch-review.ts');
+const editorAIScopePath = resolve(root, 'src/modules/website-builder/core/editor-ai-scope.ts');
 const aiServicePath = resolve(root, 'src/lib/ai/service.ts');
 
 const failures = [];
@@ -150,13 +151,15 @@ for (const [label, path] of [
   ['AI working native project executor exists', editorAIWorkingProjectPath],
   ['Canvas geometry helper exists', editorCanvasGeometryPath],
   ['AI patch review module exists', editorAIPatchReviewPath],
+  ['AI edit scope module exists', editorAIScopePath],
 ]) {
   check(label, existsSync(path));
 }
 
 const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
 const editorAIPatchReview = existsSync(editorAIPatchReviewPath) ? readFileSync(editorAIPatchReviewPath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}`;
+const editorAIScope = existsSync(editorAIScopePath) ? readFileSync(editorAIScopePath, 'utf8') : '';
+const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}`;
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
