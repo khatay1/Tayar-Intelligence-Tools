@@ -1,5 +1,5 @@
 import type {
-  BillingEntitlements, BillingPlan, WebsiteFooterConfig, WebsiteHeaderConfig,
+  BillingEntitlements, BillingFeature, BillingPlan, BillingState, BillingSubscriptionSnapshot, WebsiteFooterConfig, WebsiteHeaderConfig,
   WebsiteProductionConfig, WebsiteSiteEnhancements, WebsiteTheme,
 } from './website-builder-model';
 import type { WebsiteSection } from './types';
@@ -343,5 +343,58 @@ export function applyThemeToSection(section: WebsiteSection, index: number, them
       }
       return element;
     }),
+  };
+}
+
+export function resolveEffectiveProductionConfig(
+  productionConfig: WebsiteProductionConfig,
+  billingEntitlements: BillingEntitlements,
+): WebsiteProductionConfig {
+  return {
+    ...productionConfig,
+    customCss: billingEntitlements.features.customCss ? productionConfig.customCss : '',
+    ga4Id: billingEntitlements.features.productionIntegrations ? productionConfig.ga4Id : '',
+    gtmId: billingEntitlements.features.productionIntegrations ? productionConfig.gtmId : '',
+    metaPixelId: billingEntitlements.features.productionIntegrations ? productionConfig.metaPixelId : '',
+    plausibleDomain: billingEntitlements.features.productionIntegrations ? productionConfig.plausibleDomain : '',
+  };
+}
+
+export function normalizeBillingStatePayload(
+  data: Record<string, unknown>,
+  pageCount: number,
+): BillingState {
+  const rawPlan = data.plan === 'business' ? 'business' : data.plan === 'pro' ? 'pro' : 'free';
+  const rawEntitlements = data.entitlements && typeof data.entitlements === 'object'
+    ? data.entitlements as Record<string, unknown>
+    : {};
+  const rawFeatures = rawEntitlements.features && typeof rawEntitlements.features === 'object'
+    ? rawEntitlements.features as Partial<Record<BillingFeature, boolean>>
+    : {};
+  const local = LOCAL_BILLING_ENTITLEMENTS[rawPlan];
+  const entitlements: BillingEntitlements = {
+    plan: rawPlan,
+    maxPages: Number(rawEntitlements.maxPages) || local.maxPages,
+    maxWebsiteProjects: Number(rawEntitlements.maxWebsiteProjects) || local.maxWebsiteProjects,
+    maxReleaseHistory: Number(rawEntitlements.maxReleaseHistory) || local.maxReleaseHistory,
+    maxLeads: Number(rawEntitlements.maxLeads) || local.maxLeads,
+    maxAnalyticsEvents: Number(rawEntitlements.maxAnalyticsEvents) || local.maxAnalyticsEvents,
+    features: { ...local.features, ...rawFeatures },
+  };
+  const rawUsage = data.usage && typeof data.usage === 'object' ? data.usage as Record<string, unknown> : {};
+
+  return {
+    plan: rawPlan,
+    entitlements,
+    subscription: data.subscription && typeof data.subscription === 'object'
+      ? data.subscription as BillingSubscriptionSnapshot
+      : null,
+    usage: {
+      websiteProjects: Number(rawUsage.websiteProjects) || 0,
+      pages: pageCount,
+      releases: Number(rawUsage.releases) || 0,
+      leads: Number(rawUsage.leads) || 0,
+      analyticsEvents: Number(rawUsage.analyticsEvents) || 0,
+    },
   };
 }

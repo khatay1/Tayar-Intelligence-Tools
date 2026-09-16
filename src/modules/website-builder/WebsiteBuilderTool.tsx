@@ -189,8 +189,6 @@ import {
   type LiveVerification,
   type BillingPlan,
   type BillingFeature,
-  type BillingEntitlements,
-  type BillingSubscriptionSnapshot,
   type BillingState,
   type ReusableSectionTemplate,
 } from './core/website-builder-model';
@@ -204,7 +202,6 @@ import {
   DEFAULT_PRODUCTION_CONFIG,
   FREE_BILLING_ENTITLEMENTS,
   BUSINESS_BILLING_ENTITLEMENTS,
-  LOCAL_BILLING_ENTITLEMENTS,
   BILLING_PLAN_DETAILS,
   sanitizeRobotsRules,
   normalizeProductionConfig,
@@ -213,6 +210,8 @@ import {
   normalizeSiteEnhancements,
   normalizeTheme,
   applyThemeToSection,
+  resolveEffectiveProductionConfig,
+  normalizeBillingStatePayload,
 } from './core/website-builder-config';
 import {
   sectionColumnCount,
@@ -2041,14 +2040,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function effectiveProductionConfig(): WebsiteProductionConfig {
-    return {
-      ...productionConfig,
-      customCss: billingEntitlements.features.customCss ? productionConfig.customCss : '',
-      ga4Id: billingEntitlements.features.productionIntegrations ? productionConfig.ga4Id : '',
-      gtmId: billingEntitlements.features.productionIntegrations ? productionConfig.gtmId : '',
-      metaPixelId: billingEntitlements.features.productionIntegrations ? productionConfig.metaPixelId : '',
-      plausibleDomain: billingEntitlements.features.productionIntegrations ? productionConfig.plausibleDomain : '',
-    };
+    return resolveEffectiveProductionConfig(productionConfig, billingEntitlements);
   }
 
   const refreshBilling = useCallback(async (
@@ -2093,38 +2085,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const raw = data as Record<string, unknown>;
-    const rawPlan = raw.plan === 'business' ? 'business' : raw.plan === 'pro' ? 'pro' : 'free';
-    const rawEntitlements = raw.entitlements && typeof raw.entitlements === 'object'
-      ? raw.entitlements as Record<string, unknown>
-      : {};
-    const rawFeatures = rawEntitlements.features && typeof rawEntitlements.features === 'object'
-      ? rawEntitlements.features as Partial<Record<BillingFeature, boolean>>
-      : {};
-    const local = LOCAL_BILLING_ENTITLEMENTS[rawPlan];
-    const entitlements: BillingEntitlements = {
-      plan: rawPlan,
-      maxPages: Number(rawEntitlements.maxPages) || local.maxPages,
-      maxWebsiteProjects: Number(rawEntitlements.maxWebsiteProjects) || local.maxWebsiteProjects,
-      maxReleaseHistory: Number(rawEntitlements.maxReleaseHistory) || local.maxReleaseHistory,
-      maxLeads: Number(rawEntitlements.maxLeads) || local.maxLeads,
-      maxAnalyticsEvents: Number(rawEntitlements.maxAnalyticsEvents) || local.maxAnalyticsEvents,
-      features: { ...local.features, ...rawFeatures },
-    };
-    const rawUsage = raw.usage && typeof raw.usage === 'object' ? raw.usage as Record<string, unknown> : {};
-
-    setBillingState({
-      plan: rawPlan,
-      entitlements,
-      subscription: raw.subscription && typeof raw.subscription === 'object' ? raw.subscription as BillingSubscriptionSnapshot : null,
-      usage: {
-        websiteProjects: Number(rawUsage.websiteProjects) || 0,
-        pages: pages.length,
-        releases: Number(rawUsage.releases) || 0,
-        leads: Number(rawUsage.leads) || 0,
-        analyticsEvents: Number(rawUsage.analyticsEvents) || 0,
-      },
-    });
+    setBillingState(normalizeBillingStatePayload(data as Record<string, unknown>, pages.length));
     setBillingLoading(false);
   }, [user?.id, pages.length, cloudProjectId]);
   async function startBillingCheckout(plan: 'pro' | 'business') {
