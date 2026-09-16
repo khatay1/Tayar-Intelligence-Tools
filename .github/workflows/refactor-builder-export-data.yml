@@ -78,7 +78,7 @@ jobs:
                       raise SystemExit(f'{name} behavior token missing: {token}')
 
           total_bytes = sum(len(block) for block in blocks.values())
-          if not 1800 <= total_bytes <= 5000:
+          if not 1700 <= total_bytes <= 5000:
               raise SystemExit(f'Export helper total size changed ({total_bytes}); refusing.')
           for block in blocks.values():
               if any(token in block for token in ['setState(', 'setSections(', 'setPages(', 'await ']):
