@@ -78,6 +78,7 @@
   "git": {
     "deploymentEnabled": {
       "main": true,
+      "internal-*": false,
       "translation-batch-check-20260902": false,
       "release/ai-patch-engine-v1": false,
       "mobile-native-react-native-20260907": false,
