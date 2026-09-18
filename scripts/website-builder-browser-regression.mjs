@@ -347,10 +347,11 @@ async function runBrowserRegression() {
     assert(initialFirst?.id && initialSecond?.id, 'Default canvas elements were not rendered.');
 
     await clickSelector('[data-tayar-canvas-element-id]', 0);
+    const dragBaseline = await canvasElementSnapshot(0);
     await dragSelector('[data-tayar-canvas-element-id]', 0, 64, 40);
     const draggedFirst = await canvasElementSnapshot(0);
     assert(
-      Math.abs(draggedFirst.x - initialFirst.x) >= 6 || Math.abs(draggedFirst.y - initialFirst.y) >= 6,
+      Math.abs(draggedFirst.x - dragBaseline.x) >= 6 || Math.abs(draggedFirst.y - dragBaseline.y) >= 6,
       'Direct pointer drag did not change element position.',
     );
     console.log('[browser] PASS direct pointer drag changes X/Y');
@@ -358,12 +359,18 @@ async function runBrowserRegression() {
     await waitFor('Undo after drag', `!document.querySelector('.tayar-v2-topbar__history button:first-child')?.disabled`);
     await clickSelector('.tayar-v2-topbar__history button', 0);
     const undoFirst = await canvasElementSnapshot(0);
-    assert(nearlyEqual(undoFirst.x, initialFirst.x, 4) && nearlyEqual(undoFirst.y, initialFirst.y, 4), 'Undo did not restore dragged element geometry.');
+    assert(
+      nearlyEqual(undoFirst.x, dragBaseline.x, 4) && nearlyEqual(undoFirst.y, dragBaseline.y, 4),
+      `Undo did not restore dragged element geometry. baseline=${JSON.stringify(dragBaseline)} undo=${JSON.stringify(undoFirst)}`,
+    );
 
     await waitFor('Redo after drag', `!document.querySelector('.tayar-v2-topbar__history button:nth-child(2)')?.disabled`);
     await clickSelector('.tayar-v2-topbar__history button', 1);
     const redoFirst = await canvasElementSnapshot(0);
-    assert(nearlyEqual(redoFirst.x, draggedFirst.x, 4) && nearlyEqual(redoFirst.y, draggedFirst.y, 4), 'Redo did not restore dragged geometry.');
+    assert(
+      nearlyEqual(redoFirst.x, draggedFirst.x, 4) && nearlyEqual(redoFirst.y, draggedFirst.y, 4),
+      `Redo did not restore dragged geometry. dragged=${JSON.stringify(draggedFirst)} redo=${JSON.stringify(redoFirst)}`,
+    );
     console.log('[browser] PASS undo/redo restores real drag geometry');
 
     const beforeResize = await canvasElementSnapshot(0);
