@@ -53,7 +53,7 @@ jobs:
           })()`);
           assert(resizeEventsInstalled, 'Could not install resize diagnostics.');
           const beforeResize = await snapshot(0);
-'''
+          '''
           if marker not in text:
               raise SystemExit('resize marker missing')
           text = text.replace(marker, injected, 1)
@@ -85,7 +85,7 @@ jobs:
             };
           })()`);
           console.log('[browser] RESIZE_DIAGNOSTIC ' + JSON.stringify(resizeDiagnostic));
-'''
+          '''
           if marker2 not in text:
               raise SystemExit('drag marker missing')
           text = text.replace(marker2, injected2, 1)
