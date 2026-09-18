@@ -18,6 +18,7 @@ function overlayStyle(item: EditorCanvasOverlayItem): CSSProperties {
     top: `${item.rect.y}px`,
     width: `${Math.max(1, item.rect.width)}px`,
     height: `${Math.max(1, item.rect.height)}px`,
+    pointerEvents: item.selected ? 'none' : 'auto',
   };
 }
 
