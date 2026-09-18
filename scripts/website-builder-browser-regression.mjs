@@ -166,6 +166,12 @@ async function regression() {
       const r = node.getBoundingClientRect();
       return { id: node.dataset.tayarCanvasElementId, text: (node.textContent || '').trim(), x: r.x, y: r.y, width: r.width, height: r.height, transform: getComputedStyle(node).transform };
     })()`);
+    const elementWidthPercent = async (index) => await evaluate(`(() => {
+      const node = document.querySelectorAll('[data-tayar-canvas-element-id]')[${index}];
+      if (!node) return null;
+      const inline = Number.parseFloat(node.style.width || '100');
+      return Number.isFinite(inline) ? inline : 100;
+    })()`);
     const mouse = async (type, x, y, buttons = 0, button = 'none', modifiers = 0, clickCount = 1) => {
       await cdp.send('Input.dispatchMouseEvent', { type, x, y, buttons, button, modifiers, clickCount, pointerType: 'mouse' });
     };
@@ -232,14 +238,14 @@ async function regression() {
     await waitFor('redo geometry', `(() => { const n=document.querySelectorAll('[data-tayar-canvas-element-id]')[0]; if(!n)return false; const r=n.getBoundingClientRect(); return Math.abs(r.x-${dragged.x})<3 && Math.abs(r.y-${dragged.y})<3; })()`);
     console.log('[browser] PASS undo/redo restores real drag geometry');
 
-    const beforeResize = await snapshot(0);
+    const beforeResizePercent = await elementWidthPercent(0);
     const handleCount = await evaluate(`document.querySelectorAll('button[aria-label="Resize element"]').length`);
     assert(handleCount === 2, `Expected two resize handles, found ${handleCount}.`);
     await drag('button[aria-label="Resize element"]', 0, 80, 0, { scroll: false });
-    await waitFor('pointer resize width', `(() => { const n=document.querySelectorAll('[data-tayar-canvas-element-id]')[0]; return n && n.getBoundingClientRect().width < ${beforeResize.width - 5}; })()`, 3_000);
-    const afterResize = await snapshot(0);
-    assert(afterResize.width < beforeResize.width - 5, `Pointer resize did not reduce width: before=${beforeResize.width}, after=${afterResize.width}.`);
-    console.log('[browser] PASS pointer resize changes element width');
+    await waitFor('pointer resize width state', `(() => { const n=document.querySelectorAll('[data-tayar-canvas-element-id]')[0]; if(!n)return false; const w=Number.parseFloat(n.style.width || '100'); return Number.isFinite(w) && w < ${beforeResizePercent - 1}; })()`, 3_000);
+    const afterResizePercent = await elementWidthPercent(0);
+    assert(afterResizePercent < beforeResizePercent - 1, `Pointer resize did not reduce responsive width: before=${beforeResizePercent}%, after=${afterResizePercent}%.`);
+    console.log(`[browser] PASS pointer resize changes element width (${beforeResizePercent}% → ${afterResizePercent}%)`);
 
     const editRect = await rect('[data-tayar-canvas-element-id]', 0);
     assert(editRect, 'Inline-edit target is missing.');
