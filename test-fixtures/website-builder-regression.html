@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website Builder Browser Regression</title>
+    <style>
+      /* Interaction tests assert final geometry, not animation timing. */
+      [data-tayar-canvas-element-id] {
+        transition: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/test/website-builder-browser-regression.tsx"></script>
+  </body>
+</html>
