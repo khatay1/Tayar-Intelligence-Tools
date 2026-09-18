@@ -1,0 +1,96 @@
+name: Website Builder Resize Diagnostic
+
+on:
+  push:
+    branches:
+      - 'test/website-builder-browser-regression-20260918'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Instrument resize browser check
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/website-builder-browser-regression.mjs')
+          text = path.read_text()
+          marker = "    const beforeResize = await snapshot(0);\n"
+          injected = r'''    const resizeEventsInstalled = await evaluate(`(() => {
+            window.__tayarResizeEvents = [];
+            const describe = (node) => node ? {
+              tag: node.tagName,
+              aria: node.getAttribute?.('aria-label') || '',
+              cls: typeof node.className === 'string' ? node.className : '',
+              canvasId: node.dataset?.tayarCanvasElementId || '',
+              kind: node.dataset?.kind || '',
+              selected: node.dataset?.selected || '',
+              active: node.dataset?.active || '',
+            } : null;
+            const record = (event) => {
+              if (window.__tayarResizeEvents.length >= 20) return;
+              window.__tayarResizeEvents.push({ type: event.type, pointerId: event.pointerId, x: event.clientX, y: event.clientY, target: describe(event.target) });
+            };
+            ['pointerdown','pointermove','pointerup','pointercancel'].forEach((type) => window.addEventListener(type, record, true));
+            return true;
+          })()`);
+          assert(resizeEventsInstalled, 'Could not install resize diagnostics.');
+          const beforeResize = await snapshot(0);
+'''
+          if marker not in text:
+              raise SystemExit('resize marker missing')
+          text = text.replace(marker, injected, 1)
+          marker2 = "    await drag('button[aria-label=\"Resize element\"]', 0, 80, 0, { scroll: false });\n"
+          injected2 = marker2 + r'''    const resizeDiagnostic = await evaluate(`(() => {
+            const handle = document.querySelectorAll('button[aria-label="Resize element"]')[0];
+            const element = document.querySelectorAll('[data-tayar-canvas-element-id]')[0];
+            if (!handle || !element) return null;
+            const r = handle.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            const hit = document.elementFromPoint(x, y);
+            const describe = (node) => node ? {
+              tag: node.tagName,
+              aria: node.getAttribute?.('aria-label') || '',
+              cls: typeof node.className === 'string' ? node.className : '',
+              canvasId: node.dataset?.tayarCanvasElementId || '',
+              kind: node.dataset?.kind || '',
+              selected: node.dataset?.selected || '',
+              active: node.dataset?.active || '',
+            } : null;
+            return {
+              handle: { left:r.left, top:r.top, width:r.width, height:r.height },
+              hit: describe(hit),
+              hitIsHandle: hit === handle || handle.contains(hit),
+              elementRect: (() => { const e=element.getBoundingClientRect(); return {x:e.x,y:e.y,width:e.width,height:e.height}; })(),
+              inlineWidth: element.style.width,
+              events: window.__tayarResizeEvents || [],
+            };
+          })()`);
+          console.log('[browser] RESIZE_DIAGNOSTIC ' + JSON.stringify(resizeDiagnostic));
+'''
+          if marker2 not in text:
+              raise SystemExit('drag marker missing')
+          text = text.replace(marker2, injected2, 1)
+          path.write_text(text)
+          PY
+
+      - name: Run focused browser regression
+        run: npm run smoke:website-builder:browser
