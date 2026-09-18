@@ -23,7 +23,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -34,6 +34,12 @@ jobs:
 
       - name: Project health
         run: npm run health:project
+
+      - name: Coding Assistance smoke
+        run: npm run smoke:code-assistant
+
+      - name: Website Builder browser regression
+        run: npm run smoke:website-builder:browser
 
       - name: Production build
         run: npm run build
