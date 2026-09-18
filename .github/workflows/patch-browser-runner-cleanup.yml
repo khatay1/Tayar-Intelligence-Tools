@@ -1,0 +1,109 @@
+name: Patch Browser Runner Cleanup
+
+on:
+  push:
+    branches:
+      - 'test/website-builder-browser-regression-20260918'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'Fix browser regression process cleanup'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: test/website-builder-browser-regression-20260918
+          fetch-depth: 0
+
+      - name: Patch process cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/website-builder-browser-regression.mjs')
+          text = path.read_text()
+
+          old_start = "  const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], ...options });"
+          new_start = """  const child = spawn(command, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
+    ...options,
+  });"""
+          if old_start not in text:
+              raise SystemExit('start() spawn signature not found')
+          text = text.replace(old_start, new_start, 1)
+
+          old_stop = """async function stop(child) {
+  if (!child || child.exitCode !== null) return;
+  child.kill('SIGTERM');
+  await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1200)]);
+  if (child.exitCode === null) child.kill('SIGKILL');
+}"""
+          new_stop = """function signalProcessTree(child, signal) {
+  if (!child?.pid) return;
+  if (process.platform === 'win32') {
+    if (signal === 'SIGKILL') {
+      spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+      return;
+    }
+    try { child.kill(signal); } catch { /* already stopped */ }
+    return;
+  }
+  try { process.kill(-child.pid, signal); }
+  catch {
+    try { child.kill(signal); } catch { /* already stopped */ }
+  }
+}
+
+async function stop(child) {
+  if (!child) return;
+  if (child.exitCode === null) signalProcessTree(child, 'SIGTERM');
+  await Promise.race([
+    child.exitCode !== null ? Promise.resolve() : new Promise((resolve) => child.once('exit', resolve)),
+    sleep(1200),
+  ]);
+  if (child.exitCode === null) signalProcessTree(child, 'SIGKILL');
+  child.stdout?.destroy();
+  child.stderr?.destroy();
+  child.unref?.();
+}"""
+          if old_stop not in text:
+              raise SystemExit('stop() implementation not found')
+          text = text.replace(old_stop, new_stop, 1)
+
+          old_tail = """await Promise.race([
+  regression(),
+  sleep(TIMEOUT_MS).then(() => { throw new Error(`Website Builder browser regression exceeded ${TIMEOUT_MS / 1000}s.`); }),
+]);"""
+          new_tail = """let timeoutId;
+const timeoutPromise = new Promise((_, reject) => {
+  timeoutId = setTimeout(() => {
+    reject(new Error(`Website Builder browser regression exceeded ${TIMEOUT_MS / 1000}s.`));
+  }, TIMEOUT_MS);
+});
+
+try {
+  await Promise.race([regression(), timeoutPromise]);
+} finally {
+  clearTimeout(timeoutId);
+}"""
+          if old_tail not in text:
+              raise SystemExit('browser timeout tail not found')
+          text = text.replace(old_tail, new_tail, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'tayar-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git add scripts/website-builder-browser-regression.mjs
+          git diff --cached --check
+          git commit -m 'Fix browser regression process cleanup'
+          git push origin HEAD:test/website-builder-browser-regression-20260918
