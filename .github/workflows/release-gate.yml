@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -39,7 +43,7 @@ jobs:
         run: npm run smoke:code-assistant
 
       - name: Website Builder browser regression
-        run: npm run smoke:website-builder:browser
+        run: timeout 75s npm run smoke:website-builder:browser
 
       - name: Production build
         run: npm run build
