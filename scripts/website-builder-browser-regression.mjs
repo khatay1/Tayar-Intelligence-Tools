@@ -206,7 +206,14 @@ async function regression() {
     };
 
     await waitFor('Website Builder desktop shell', `document.querySelector('.tayar-v2-shell') && document.querySelectorAll('[data-tayar-canvas-element-id]').length >= 2 && document.documentElement.dir === 'ltr'`);
-    await sleep(150);
+    await evaluate('document.fonts.ready.then(() => true)');
+    await waitFor('desktop panel layout after styles load', `(() => {
+      const left = document.querySelector('.tayar-v2-left-sidebar')?.getBoundingClientRect();
+      const canvas = document.querySelector('.tayar-v2-canvas')?.getBoundingClientRect();
+      const inspector = document.querySelector('.tayar-v2-inspector')?.getBoundingClientRect();
+      return left?.width > 0 && canvas?.width > 0 && inspector?.width > 0
+        && left.right <= canvas.left + 1 && canvas.right <= inspector.left + 1;
+    })()`);
 
     const layout = await evaluate(`(() => {
       const box = (selector) => { const node = document.querySelector(selector); if (!node) return null; const r = node.getBoundingClientRect(); return { left:r.left,right:r.right,width:r.width }; };
