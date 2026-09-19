@@ -109,6 +109,8 @@ export function ElementPreview({
 
   const dragProps = {
     'data-tayar-canvas-element-id': element.id,
+    'data-tayar-canvas-position-x': String(positionX),
+    'data-tayar-canvas-position-y': String(positionY),
     draggable: !editingInline,
     onDragStart: (e: React.DragEvent) => {
       if (editingInline) { e.preventDefault(); return; }
