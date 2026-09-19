@@ -281,6 +281,34 @@ async function regression() {
     assert(multi.layers === 2, `Layers did not reflect multi-selection; found ${multi.layers}.`);
     console.log('[browser] PASS multi-select synchronizes with Layers');
 
+    const beforeAlign = [await snapshot(0), await snapshot(1)];
+    assert(!near(beforeAlign[0].x, beforeAlign[1].x, 1), 'Alignment fixture must begin with different left edges.');
+    const alignLeft = async () => {
+      assert(await evaluate(`(() => {
+        const select = document.querySelector('select[aria-label="Arrange selected elements"]');
+        if (!select || select.disabled) return false;
+        select.value = 'left';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`), 'Arrange control is unavailable.');
+    };
+    await alignLeft();
+    await waitFor('left alignment', `(() => {
+      const nodes = document.querySelectorAll('[data-tayar-canvas-element-id]');
+      return Math.abs(nodes[0].getBoundingClientRect().left - nodes[1].getBoundingClientRect().left) < 1;
+    })()`);
+    console.log('[browser] PASS multi-selection alignment updates actual canvas geometry');
+    await alignLeft();
+    await sleep(100);
+    await click('.tayar-v2-topbar__history button', 0);
+    await waitFor('alignment undo without empty history entry', `(() => {
+      const nodes = document.querySelectorAll('[data-tayar-canvas-element-id]');
+      return Math.abs(nodes[0].getBoundingClientRect().left - ${beforeAlign[0].x}) < 1
+        && Math.abs(nodes[1].getBoundingClientRect().left - ${beforeAlign[1].x}) < 1;
+    })()`);
+    console.log('[browser] PASS repeated alignment does not consume an extra Undo');
+
+
     assert(await evaluate(`document.querySelector('.tayar-v2-canvas')?.dataset.zoom === '100'`), 'Initial canvas zoom is not 100%.');
     await click('.tayar-v2-canvas__zoom button', 2);
     await waitFor('125% zoom', `document.querySelector('.tayar-v2-canvas')?.dataset.zoom === '125'`);
@@ -308,7 +336,7 @@ async function regression() {
     const relevantConsoleErrors = consoleErrors.filter((message) => message && !message.includes('favicon.ico'));
     assert(relevantConsoleErrors.length === 0, `Browser console errors:\n${relevantConsoleErrors.join('\n')}`);
     console.log('[browser] PASS no runtime or console errors');
-    console.log('[website-builder-browser-regression] PASS 9 desktop browser scenarios');
+    console.log('[website-builder-browser-regression] PASS 11 desktop browser scenarios');
   } catch (error) {
     console.error('[website-builder-browser-regression] FAIL');
     console.error(error instanceof Error ? error.stack : error);

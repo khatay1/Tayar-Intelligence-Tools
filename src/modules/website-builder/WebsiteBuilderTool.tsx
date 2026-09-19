@@ -1,3 +1,4 @@
+import { arrangeCanvasElements } from './core/editor-arrangement';
 import { useLocalizer } from '@/lib/ui-localization';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createAIService } from '@/lib/ai/service';
@@ -3456,49 +3457,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const zoomHost = sectionHost.closest<HTMLElement>('[data-zoom]');
     const canvasScale = Math.min(1.5, Math.max(0.5, Number(zoomHost?.dataset.zoom || 100) / 100));
     const elementById = new Map(selectedElements.map((element) => [element.id, element]));
-    const positions = new Map<string, { x?: number; y?: number }>();
-    const setPositionDelta = (id: string, deltaX?: number, deltaY?: number) => {
-      const element = elementById.get(id);
-      if (!element) return;
-      const style = effectiveStyle(element, device);
-      const currentX = clampElementNumber(style.positionX, 0, -4000, 4000);
-      const currentY = clampElementNumber(style.positionY, 0, -4000, 4000);
-      positions.set(id, {
-        ...(deltaX === undefined ? {} : { x: Math.max(-4000, Math.min(4000, Math.round(currentX + (deltaX / canvasScale)))) }),
-        ...(deltaY === undefined ? {} : { y: Math.max(-4000, Math.min(4000, Math.round(currentY + (deltaY / canvasScale)))) }),
-      });
-    };
-
-    const left = Math.min(...measured.map(({ rect }) => rect.left));
-    const right = Math.max(...measured.map(({ rect }) => rect.right));
-    const top = Math.min(...measured.map(({ rect }) => rect.top));
-    const bottom = Math.max(...measured.map(({ rect }) => rect.bottom));
-    if (action === 'left') measured.forEach(({ id, rect }) => setPositionDelta(id, left - rect.left));
-    if (action === 'center') measured.forEach(({ id, rect }) => setPositionDelta(id, ((left + right) / 2) - (rect.left + (rect.width / 2))));
-    if (action === 'right') measured.forEach(({ id, rect }) => setPositionDelta(id, right - rect.right));
-    if (action === 'top') measured.forEach(({ id, rect }) => setPositionDelta(id, undefined, top - rect.top));
-    if (action === 'middle') measured.forEach(({ id, rect }) => setPositionDelta(id, undefined, ((top + bottom) / 2) - (rect.top + (rect.height / 2))));
-    if (action === 'bottom') measured.forEach(({ id, rect }) => setPositionDelta(id, undefined, bottom - rect.bottom));
-    if (action === 'distribute-horizontal') {
-      const ordered = [...measured].sort((a, b) => a.rect.left - b.rect.left);
-      const totalWidth = ordered.reduce((sum, item) => sum + item.rect.width, 0);
-      const gap = (right - left - totalWidth) / (ordered.length - 1);
-      let cursor = left;
-      ordered.forEach(({ id, rect }) => {
-        setPositionDelta(id, cursor - rect.left);
-        cursor += rect.width + gap;
-      });
-    }
-    if (action === 'distribute-vertical') {
-      const ordered = [...measured].sort((a, b) => a.rect.top - b.rect.top);
-      const totalHeight = ordered.reduce((sum, item) => sum + item.rect.height, 0);
-      const gap = (bottom - top - totalHeight) / (ordered.length - 1);
-      let cursor = top;
-      ordered.forEach(({ id, rect }) => {
-        setPositionDelta(id, undefined, cursor - rect.top);
-        cursor += rect.height + gap;
-      });
-    }
+    const positions = arrangeCanvasElements(measured.map(({ id, rect }) => {
+      const style = effectiveStyle(elementById.get(id)!, device);
+      return {
+        id, rect,
+        x: clampElementNumber(style.positionX, 0, -4000, 4000),
+        y: clampElementNumber(style.positionY, 0, -4000, 4000),
+      };
+    }), action, canvasScale);
     if (!positions.size) return;
 
     const symbolPositions = new Map<string, { x?: number; y?: number }>();

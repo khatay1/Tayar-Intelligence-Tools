@@ -81,105 +81,61 @@ export function commandCopySectionStyle<P extends EditorProjectLike>(
 }
 
 function numeric(value: unknown) {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function responsiveObject(element: EditorElementLike, device: 'tablet' | 'mobile') {
-  const responsive = element.responsive || (element.responsive = {});
-  const current = responsive[device];
-  const next = current && typeof current === 'object' ? { ...(current as Record<string, unknown>) } : {};
-  responsive[device] = next;
-  return next;
-}
-
-function repairElementResponsive(element: EditorElementLike) {
-  const style = element.style || {};
-  const fontSize = numeric(style.fontSize);
-  const padding = numeric(style.padding);
-  const marginTop = numeric(style.marginTop);
-  const marginRight = numeric(style.marginRight);
-  const marginBottom = numeric(style.marginBottom);
-  const marginLeft = numeric(style.marginLeft);
-  const positionX = numeric(style.positionX);
-  const positionY = numeric(style.positionY);
+// Add only missing device overrides. A second repair must be a true no-op,
+// otherwise linked components can be synchronized without an actual edit.
+function repairResponsiveValues(
+  source: Record<string, unknown>,
+  current: Record<string, unknown> | undefined,
+  rules: readonly [string, number, number, number][],
+) {
+  const result = { ...current };
   let changed = false;
-
-  const tablet = responsiveObject(element, 'tablet');
-  const mobile = responsiveObject(element, 'mobile');
-
-  if (fontSize !== undefined && fontSize > 52) {
-    if (tablet.fontSize === undefined) tablet.fontSize = Math.min(fontSize, 48);
-    if (mobile.fontSize === undefined) mobile.fontSize = Math.min(fontSize, 38);
-    changed = true;
-  }
-  if (padding !== undefined && padding > 40) {
-    if (tablet.padding === undefined) tablet.padding = Math.min(padding, 32);
-    if (mobile.padding === undefined) mobile.padding = Math.min(padding, 24);
-    changed = true;
-  }
-  for (const [key, value] of [
-    ['marginTop', marginTop], ['marginRight', marginRight], ['marginBottom', marginBottom], ['marginLeft', marginLeft],
-  ] as const) {
-    if (value !== undefined && Math.abs(value) > 56) {
-      if (tablet[key] === undefined) tablet[key] = Math.sign(value) * Math.min(Math.abs(value), 40);
-      if (mobile[key] === undefined) mobile[key] = Math.sign(value) * Math.min(Math.abs(value), 24);
+  for (const [device, limitIndex] of [['tablet', 2], ['mobile', 3]] as const) {
+    const existing = current?.[device];
+    const overrides = existing && typeof existing === 'object'
+      ? { ...existing as Record<string, unknown> } : {};
+    let deviceChanged = false;
+    for (const rule of rules) {
+      const [key, threshold] = rule;
+      const value = numeric(source[key]);
+      const magnitude = key.startsWith('margin') || key.startsWith('position') ? Math.abs(value ?? 0) : value;
+      if (value === undefined || magnitude === undefined || magnitude <= threshold || overrides[key] !== undefined) continue;
+      overrides[key] = Math.sign(value) * Math.min(Math.abs(value), rule[limitIndex]);
+      deviceChanged = true;
+    }
+    if (deviceChanged) {
+      result[device] = overrides;
       changed = true;
     }
   }
-  if (positionX !== undefined && Math.abs(positionX) > 120) {
-    if (tablet.positionX === undefined) tablet.positionX = 0;
-    if (mobile.positionX === undefined) mobile.positionX = 0;
-    changed = true;
-  }
-  if (positionY !== undefined && Math.abs(positionY) > 120) {
-    if (tablet.positionY === undefined) tablet.positionY = 0;
-    if (mobile.positionY === undefined) mobile.positionY = 0;
-    changed = true;
-  }
+  return changed ? result : undefined;
+}
 
-  if (!changed) {
-    if (Object.keys(tablet).length === 0) delete element.responsive?.tablet;
-    if (Object.keys(mobile).length === 0) delete element.responsive?.mobile;
-    if (element.responsive && Object.keys(element.responsive).length === 0) delete element.responsive;
-  }
-  return changed;
+function repairElementResponsive(element: EditorElementLike) {
+  const next = repairResponsiveValues(element.style || {}, element.responsive, [
+    ['fontSize', 52, 48, 38], ['padding', 40, 32, 24],
+    ['marginTop', 56, 40, 24], ['marginRight', 56, 40, 24],
+    ['marginBottom', 56, 40, 24], ['marginLeft', 56, 40, 24],
+    ['positionX', 120, 0, 0], ['positionY', 120, 0, 0],
+  ]);
+  if (!next) return false;
+  element.responsive = next;
+  return true;
 }
 
 function repairSectionResponsive(section: EditorSectionLike) {
-  const source = section.responsive && typeof section.responsive === 'object'
-    ? section.responsive as Record<string, unknown>
-    : {};
-  const tablet = source.tablet && typeof source.tablet === 'object' ? { ...(source.tablet as Record<string, unknown>) } : {};
-  const mobile = source.mobile && typeof source.mobile === 'object' ? { ...(source.mobile as Record<string, unknown>) } : {};
-  let changed = false;
-  const paddingY = numeric(section.sectionPaddingY);
-  const paddingX = numeric(section.sectionPaddingX);
-  const gap = numeric(section.layoutGap);
-  const minHeight = numeric(section.minHeight);
-
-  if (paddingY !== undefined && paddingY > 72) {
-    if (tablet.sectionPaddingY === undefined) tablet.sectionPaddingY = Math.min(paddingY, 56);
-    if (mobile.sectionPaddingY === undefined) mobile.sectionPaddingY = Math.min(paddingY, 40);
-    changed = true;
-  }
-  if (paddingX !== undefined && paddingX > 48) {
-    if (tablet.sectionPaddingX === undefined) tablet.sectionPaddingX = Math.min(paddingX, 36);
-    if (mobile.sectionPaddingX === undefined) mobile.sectionPaddingX = Math.min(paddingX, 24);
-    changed = true;
-  }
-  if (gap !== undefined && gap > 32) {
-    if (tablet.layoutGap === undefined) tablet.layoutGap = Math.min(gap, 28);
-    if (mobile.layoutGap === undefined) mobile.layoutGap = Math.min(gap, 20);
-    changed = true;
-  }
-  if (minHeight !== undefined && minHeight > 720) {
-    if (tablet.minHeight === undefined) tablet.minHeight = Math.min(minHeight, 640);
-    if (mobile.minHeight === undefined) mobile.minHeight = Math.min(minHeight, 520);
-    changed = true;
-  }
-  if (changed) section.responsive = { ...source, tablet, mobile };
-  return changed;
+  const next = repairResponsiveValues(section, section.responsive as Record<string, unknown> | undefined, [
+    ['sectionPaddingY', 72, 56, 40], ['sectionPaddingX', 48, 36, 24],
+    ['layoutGap', 32, 28, 20], ['minHeight', 720, 640, 520],
+  ]);
+  if (!next) return false;
+  section.responsive = next;
+  return true;
 }
 
 export function commandRepairResponsive<P extends EditorProjectLike>(
@@ -238,7 +194,9 @@ export function commandRepairAccessibility<P extends EditorProjectLike>(
 }
 
 function setStyle(element: EditorElementLike, changes: Record<string, unknown>) {
+  if (Object.entries(changes).every(([key, value]) => element.style?.[key] === value)) return false;
   element.style = { ...(element.style || {}), ...changes };
+  return true;
 }
 
 export function commandRestyleSite<P extends EditorProjectLike>(
@@ -260,10 +218,11 @@ export function commandRestyleSite<P extends EditorProjectLike>(
       for (const section of page.sections) {
         if (background !== undefined) section.backgroundColor = cloneEditorValue(background);
         for (const element of section.elements) {
-          if (element.type === 'button' && primary !== undefined) setStyle(element, { backgroundColor: cloneEditorValue(primary) });
-          if ((element.type === 'heading' || element.type === 'text') && text !== undefined) setStyle(element, { color: cloneEditorValue(text) });
-          if (element.type === 'text' && muted !== undefined && element.muted === true) setStyle(element, { color: cloneEditorValue(muted) });
-          if (element.symbolId) syncEditorSymbolFromInstance(draft, element.symbolId, element);
+          const styleChanges: Record<string, unknown> = {};
+          if (element.type === 'button' && primary !== undefined) styleChanges.backgroundColor = cloneEditorValue(primary);
+          if ((element.type === 'heading' || element.type === 'text') && text !== undefined) styleChanges.color = cloneEditorValue(text);
+          if (element.type === 'text' && muted !== undefined && element.muted === true) styleChanges.color = cloneEditorValue(muted);
+          if (setStyle(element, styleChanges) && element.symbolId) syncEditorSymbolFromInstance(draft, element.symbolId, element);
         }
       }
     }
