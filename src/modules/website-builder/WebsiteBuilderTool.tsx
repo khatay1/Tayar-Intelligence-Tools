@@ -2985,18 +2985,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function createEditHistoryEntry(label: string): ProjectHistoryEntry {
+  function createEditHistoryEntry(label: string, currentSections?: WebsiteSection[]): ProjectHistoryEntry {
     const savedAt = new Date().toISOString();
+    const snapshot = buildProjectSnapshot();
+    if (currentSections) {
+      const preservedSections = JSON.parse(JSON.stringify(currentSections)) as WebsiteSection[];
+      snapshot.pages = snapshot.pages.map((page) => page.id === activePageId
+        ? { ...page, sections: preservedSections }
+        : page);
+    }
     return {
       id: `edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       savedAt,
       label,
-      snapshot: buildProjectSnapshot(),
+      snapshot,
     };
   }
 
-  function remember(_current: WebsiteSection[], label = 'Manual edit') {
-    const entry = createEditHistoryEntry(label);
+  function remember(current: WebsiteSection[], label = 'Manual edit') {
+    // Event handlers can outlive a memoized project snapshot by one render. Preserve
+    // the exact sections supplied by the mutation so Undo always restores its input.
+    const entry = createEditHistoryEntry(label, current);
     setHistory((current) => [...current.slice(-49), entry]);
     setFuture([]);
   }
