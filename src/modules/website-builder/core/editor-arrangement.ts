@@ -61,3 +61,12 @@ export function arrangeCanvasElements(
   }
   return changed ? positions : new Map();
 }
+
+/** Measure the committed transform, not an intermediate frame of a previous move. */
+export function settledCanvasElementRect(node: HTMLElement): DOMRect {
+  for (const animation of node.getAnimations()) {
+    if ('transitionProperty' in animation && animation.transitionProperty === 'transform'
+      && animation.playState === 'running') animation.finish();
+  }
+  return node.getBoundingClientRect();
+}

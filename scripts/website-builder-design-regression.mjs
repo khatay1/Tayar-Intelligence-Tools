@@ -16,7 +16,7 @@ try {
     ].map((name) => `export * from './src/modules/website-builder/core/${name}.ts';`).join('\n'), resolveDir: process.cwd() },
     bundle: true, platform: 'node', format: 'esm', outfile,
   });
-  const { arrangeCanvasElements: arrange, commandRepairResponsive: repair, commandRestyleSite: restyle,
+  const { settledCanvasElementRect, arrangeCanvasElements: arrange, commandRepairResponsive: repair, commandRestyleSite: restyle,
     runEditorCommand: run, createEditorHistory: history, undoEditorHistory: undo, redoEditorHistory: redo } = await import(pathToFileURL(outfile));
   const box = (id, left, top, width = 20, height = 20, x = 0, y = 0) => ({ id, rect: { left, top, width, height }, x, y });
   check('all six alignments use the selection bounds', () => {
@@ -59,6 +59,19 @@ try {
   });
   check('offsets stay inside document limits', () => {
     assert.equal(arrange([box('a', 0, 0), box('b', 9000, 0)], 'left', 0.5).get('b').x, -4000);
+  });
+  check('measurement finishes only active transform transitions', () => {
+    let moving = true;
+    const target = { left: 120, top: 0, width: 20, height: 20 };
+    const node = {
+      getAnimations: () => [
+        { transitionProperty: 'transform', playState: 'running', finish: () => { moving = false; } },
+        { transitionProperty: 'opacity', playState: 'running', finish: () => { throw Error('opacity transition changed'); } },
+        { playState: 'running', finish: () => { throw Error('keyframe animation changed'); } },
+      ],
+      getBoundingClientRect: () => moving ? { ...target, left: 60 } : target,
+    };
+    assert.deepEqual(settledCanvasElementRect(node), target);
   });
   const project = () => ({ pages: [{ id: 'p', sections: [{ id: 's', sectionPaddingX: 80,
     elements: [{ id: 'e', type: 'heading', style: { fontSize: 80, marginLeft: -100, positionX: 200 },

@@ -1,4 +1,4 @@
-import { arrangeCanvasElements } from './core/editor-arrangement';
+import { arrangeCanvasElements, settledCanvasElementRect } from './core/editor-arrangement';
 import { useLocalizer } from '@/lib/ui-localization';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createAIService } from '@/lib/ai/service';
@@ -3451,7 +3451,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const selectedIds = new Set(selectedElements.map((element) => element.id));
     const measured = Array.from(sectionHost.querySelectorAll<HTMLElement>('[data-tayar-canvas-element-id]'))
       .filter((node) => selectedIds.has(node.dataset.tayarCanvasElementId || ''))
-      .map((node) => ({ id: node.dataset.tayarCanvasElementId || '', rect: node.getBoundingClientRect() }));
+      .map((node) => ({ id: node.dataset.tayarCanvasElementId || '', rect: settledCanvasElementRect(node) }));
     if (measured.length !== selectedElements.length) return;
 
     const zoomHost = sectionHost.closest<HTMLElement>('[data-zoom]');
