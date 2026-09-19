@@ -102,6 +102,14 @@ export interface WebsiteElement {
   animationOnce?: boolean;
   containerId?: string;
   symbolId?: string;
+  cmsBinding?: WebsiteCmsBinding;
+}
+
+export interface WebsiteCmsBinding {
+  collectionId: string;
+  fieldKey: string;
+  entryId?: string;
+  target: 'content' | 'src' | 'href';
 }
 
 export interface SectionResponsiveStyle {

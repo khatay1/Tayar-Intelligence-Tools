@@ -3,6 +3,7 @@ import type { WebsiteBrand, WebsiteElement, WebsiteSEO, WebsiteSection } from '.
 import type { WebsiteDeliveryConfig } from './delivery-config';
 import type { AIWebsitePatchReview } from './editor-ai-patch-review';
 import type { AIWebsiteAgentReview } from './editor-ai-scope';
+import type { WebsiteCmsState } from './website-cms';
 
 export interface WebsitePage {
   id: string;
@@ -17,6 +18,7 @@ export interface WebsitePage {
   language?: Language;
   translationKey?: string;
   noIndex?: boolean;
+  cmsTemplate?: { collectionId: string };
 }
 
 export interface WebsiteClipboardContext {
@@ -258,6 +260,7 @@ export interface PersistedWebsiteProject {
   symbols?: unknown[];
   seo?: WebsiteSEO;
   history?: ProjectHistoryEntry[];
+  cms?: WebsiteCmsState;
 }
 
 export function isWebsiteSymbol(value: unknown): value is WebsiteSymbol {

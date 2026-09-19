@@ -69,6 +69,7 @@ export interface WebsiteBuilderV2BridgeProps {
   canvas: ReactNode;
   overlaySlot?: ReactNode;
   aiPanel?: ReactNode;
+  cmsPanel?: ReactNode;
   topbarTrailingSlot?: ReactNode;
   sitePanel?: ReactNode;
   settingsPanel?: ReactNode;
@@ -244,6 +245,7 @@ export function WebsiteBuilderV2Bridge({
 canvas,
   overlaySlot,
   aiPanel,
+  cmsPanel,
   topbarTrailingSlot,
   sitePanel,
   settingsPanel,
@@ -890,6 +892,8 @@ canvas,
       aiPanel={
         aiPanel
       }
+
+      cmsPanel={cmsPanel}
 
       sitePanel={
         sitePanel

@@ -51,6 +51,7 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
   canvas: ReactNode;
   canvasOverlaySlot?: ReactNode;
   aiPanel?: ReactNode;
+  cmsPanel?: ReactNode;
   sitePanel?: ReactNode;
   settingsPanel?: ReactNode;
 
@@ -734,6 +735,7 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
   const renderLeftPanel = BuilderPanelRouter({
         shell,
         aiPanel: props.aiPanel,
+        cmsPanel: props.cmsPanel,
         sitePanel: props.sitePanel,
         settingsPanel: props.settingsPanel,
 

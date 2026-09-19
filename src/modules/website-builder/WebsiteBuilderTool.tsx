@@ -44,10 +44,12 @@ interface WebsiteBuilderToolProps {
   projectId?: string | null;
 }
 
-import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionResponsiveStyle, SectionType, WebsiteBrand, WebsiteElement, WebsiteElementContainer, WebsiteElementType, WebsiteFormField, WebsiteFormFieldType, WebsiteSEO, WebsiteSection } from './core/types';
+import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionResponsiveStyle, SectionType, WebsiteBrand, WebsiteCmsBinding, WebsiteElement, WebsiteElementContainer, WebsiteElementType, WebsiteFormField, WebsiteFormFieldType, WebsiteSEO, WebsiteSection } from './core/types';
 import { ELEMENT_LABELS, SECTION_LABELS, createDefaultContactFormFields, createElement, createSection, defaultBrand, defaultSEO, defaultSections, normalizeSection } from './core/defaults';
 import { resolveWebsiteBuilderV2Flags } from './core/editor-feature-flags';
 import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
+import { BuilderCmsPanel } from './v2-ui/BuilderCmsPanel';
+import { EMPTY_WEBSITE_CMS, materializeWebsiteCmsSections, normalizeWebsiteCms, validateWebsiteCms, type WebsiteCmsState } from './core/website-cms';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
 import type { EditorSelection } from './core/editor-selection';
@@ -267,6 +269,7 @@ export default function WebsiteBuilderTool({
   ]);
   const [activePageId, setActivePageId] = useState('page-home');
   const [homePageId, setHomePageId] = useState('page-home');
+  const [cms, setCms] = useState<WebsiteCmsState>(EMPTY_WEBSITE_CMS);
 
 const [brand, setBrand] = useState<WebsiteBrand>(defaultBrand);
   const [theme, setTheme] = useState<WebsiteTheme>(DEFAULT_THEME);
@@ -691,7 +694,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
   const buildProjectSnapshot = useCallback(() => {
     return {
-      version: 5,
+      version: 6,
       cloudProjectId,
       siteName,
       siteUrl,
@@ -706,6 +709,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       activePageId,
       homePageId,
       pages: getCurrentPages(),
+      cms,
       brand,
       theme,
       headerConfig,
@@ -718,7 +722,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       language: prefs.language,
       updatedAt: new Date().toISOString(),
     };
-  }, [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  }, [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
   const buildProjectFingerprint = useCallback(() => {
     return JSON.stringify({
@@ -735,6 +739,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       activePageId,
       homePageId,
       pages: getCurrentPages(),
+      cms,
       brand,
       theme,
       headerConfig,
@@ -746,7 +751,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       seo,
       language: prefs.language,
     });
-  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
   const buildEditableFingerprint = useCallback(() => {
     return JSON.stringify({
@@ -755,6 +760,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       faviconUrl,
       homePageId,
       pages: getCurrentPages(),
+      cms,
       brand,
       theme,
       headerConfig,
@@ -765,7 +771,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       seo,
       language: prefs.language,
     });
-  }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
+  }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, cms, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
 
   const currentAIEditableFingerprint = useMemo(
     () => buildEditableFingerprint(),
@@ -876,6 +882,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const normalizedPages = normalizedLoad.pages as WebsitePage[];
 
     if (normalizedLoad.kind === 'legacy-array') {
+      setCms(EMPTY_WEBSITE_CMS);
       setSections(normalizedSections);
       setPages(normalizedPages);
       setActivePageId(normalizedLoad.activePageId);
@@ -910,6 +917,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     const parsed = normalizedLoad.parsed as PersistedWebsiteProject;
+    setCms(normalizeWebsiteCms(parsed.cms));
 
     if (normalizedLoad.kind === 'pages') {
       setPages(normalizedPages);
@@ -2570,6 +2578,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     return pages[0] ?? null;
   }, [pages, activePageId, sections]);
+  const cmsIssues = useMemo(() => validateWebsiteCms(cms, getCurrentPages()), [cms, getCurrentPages]);
+  const cmsErrors = useMemo(() => cmsIssues.filter((issue) => issue.severity === 'error'), [cmsIssues]);
 
   const aiCandidateShowingBefore = aiCandidatePreview?.viewMode === 'before';
   const canvasPages = aiCandidatePreview
@@ -2579,7 +2589,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const canvasActivePage = aiCandidatePreview
     ? canvasPages.find((page) => page.id === canvasActivePageId) ?? canvasPages[0] ?? null
     : activePage;
-  const canvasSections = aiCandidatePreview ? canvasActivePage?.sections ?? [] : sections;
+  const cmsPreviewEntryId = activePage?.cmsTemplate
+    ? cms.collections.find((collection) => collection.id === activePage.cmsTemplate?.collectionId)?.entries[0]?.id
+    : undefined;
+  const canvasSections = aiCandidatePreview
+    ? canvasActivePage?.sections ?? []
+    : materializeWebsiteCmsSections(sections, cms, cmsPreviewEntryId);
   const canvasSiteName = aiCandidatePreview
     ? aiCandidateShowingBefore ? aiCandidatePreview.baselineSiteName : aiCandidatePreview.siteName
     : siteName;
@@ -9031,7 +9046,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const publicBaseUrl = buildPreviewSiteBaseUrl(previewUserId, previewProjectId, token);
       if (!publicBaseUrl) throw new Error('Could not build the public preview URL.');
 
-      const currentPages = getCurrentPages();
+      const currentPages = getOutputPages();
       const files: Array<{ name: string; content: string; contentType: string }> = currentPages.map((page) => ({
         name: page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`,
         content: getHtml(page.sections, page.id, publicBaseUrl, true, false),
@@ -9644,6 +9659,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: defaultSections, showInNavigation: true }]);
     setActivePageId('page-home');
     setHomePageId('page-home');
+    setCms(EMPTY_WEBSITE_CMS);
     setSelectedId(defaultSections[0].id);
     setSelectedElementId(defaultSections[0].elements[0]?.id ?? null);
     setSiteName('My Website');
@@ -9709,7 +9725,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       cloudProjectId,
       supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
       supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+      cms,
     });
+  }
+
+  function getOutputPages() {
+    return websiteOutputHelpers().pages;
   }
 
   function getHtml(
@@ -9891,7 +9912,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const currentPages = getCurrentPages();
+    const currentPages = getOutputPages();
     const files: Array<{ name: string; content: string }> = currentPages.map((page) => ({
       name: `site/${page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`}`,
       content: getHtml(page.sections, page.id, productionUrl, false, true),
@@ -10065,7 +10086,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
-    const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
+    const currentPages = getOutputPages();
     const files: Array<{ name: string; content: string }> = currentPages.map((page) => {
       const filename = page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`;
       return { name: filename, content: getHtml(page.sections, page.id, undefined, false, true) };
@@ -10104,6 +10125,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!networkOnline) return `${l('Publish preflight blocked')}: ${l('You are offline. Reconnect and try again.')}`;
     if (cloudSyncFailed || autoSaveStatus === 'failed') return l('Resolve cloud sync before publishing.');
     if (siteAudit.errors.length) return `${l('Publish preflight blocked')}: ${l('Fix critical audit errors first')} (${siteAudit.errors.length}).`;
+    if (cmsErrors.length) return `${l('Publish preflight blocked')}: CMS (${cmsErrors.length}) — ${cmsErrors[0].message}`;
     if (!user) return l('Sign in before publishing.');
     if (cloudProjectId && !projectTeamAccess.canPublish) return l('Only the project owner can publish a shared website.');
     return '';
@@ -10209,7 +10231,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('Could not build the public website URL.');
       }
 
-      const currentPages = getCurrentPages();
+      const currentPages = getOutputPages();
 
       if (!currentPages.length) {
         throw new Error('Add at least one page before publishing.');
@@ -12170,6 +12192,31 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         )}
       </div>
     </div>
+  );
+
+  const v2CmsPanel = (
+    <BuilderCmsPanel
+      cms={cms}
+      activePage={activePage || undefined}
+      selectedElement={selectedElement || undefined}
+      disabled={cloudBusy || publishBusy || aiBusy}
+      issues={cmsIssues.map((issue) => issue.message)}
+      onChange={(nextCms, label) => {
+        remember(sections, label);
+        setCms(normalizeWebsiteCms(nextCms));
+        setSaved(false);
+      }}
+      onBindElement={(binding?: WebsiteCmsBinding) => {
+        updateSelectedElement({ cmsBinding: binding });
+      }}
+      onSetPageTemplate={(collectionId?: string) => {
+        remember(sections, collectionId ? 'Connect dynamic page' : 'Disconnect dynamic page');
+        setPages((current) => current.map((page) => page.id === activePageId
+          ? { ...page, sections, cmsTemplate: collectionId ? { collectionId } : undefined }
+          : page));
+        setSaved(false);
+      }}
+    />
   );
 
   const v2SitePanel = (
@@ -15821,6 +15868,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         </>
       }
       sitePanel={v2SitePanel}
+      cmsPanel={v2CmsPanel}
       settingsPanel={v2SettingsPanel}
       symbols={symbols as unknown as EditorSymbolLike[]}
       onCreateSymbol={createSymbolFromSelected}
@@ -15954,6 +16002,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         !networkOnline ? 'Reconnect before publishing.' : '',
         user && cloudProjectId && !projectTeamAccess.canPublish ? 'Only the project owner can publish.' : '',
         siteAudit.errors.length ? `Fix ${siteAudit.errors.length} critical Check issue${siteAudit.errors.length === 1 ? '' : 's'} before publishing.` : '',
+        cmsErrors.length ? `Fix ${cmsErrors.length} CMS issue${cmsErrors.length === 1 ? '' : 's'} before publishing.` : '',
       ].filter(Boolean)}
       onUndo={undo}
       onRedo={redo}

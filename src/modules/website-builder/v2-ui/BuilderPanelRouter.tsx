@@ -62,6 +62,7 @@ export interface BuilderPanelRouterProps {
   ): void;
 
   aiPanel?: ReactNode;
+  cmsPanel?: ReactNode;
   sitePanel?: ReactNode;
   settingsPanel?: ReactNode;
 
@@ -212,6 +213,10 @@ export function BuilderPanelRouter(
           onSetHomePage={props.onSetHomePage}
         />
       );
+    }
+
+    if (panel === 'cms') {
+      return props.cmsPanel || <div className="tayar-v2-empty-panel">{l('CMS is loading...')}</div>;
     }
 
     if (panel === 'layers') {

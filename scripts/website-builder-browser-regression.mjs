@@ -225,6 +225,36 @@ async function regression() {
     assert(layout.canvas.right <= layout.inspector.left + 1, 'Inspector overlaps the canvas.');
     console.log('[browser] PASS desktop panels do not overlap');
 
+    await click('[data-panel-id="cms"]');
+    await waitFor('CMS panel', `document.querySelector('[data-testid="builder-cms-panel"]')`);
+    assert(await evaluate(`(() => {
+      const input = document.querySelector('[data-testid="builder-cms-panel"] input[placeholder="Collection name"]');
+      if (!input) return false;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Browser Articles');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`), 'CMS collection input is unavailable.');
+    await waitFor('CMS collection action', `!document.querySelector('[data-testid="builder-cms-panel"] button[title="Add collection"]')?.disabled`);
+    await click('[data-testid="builder-cms-panel"] button[title="Add collection"]');
+    await waitFor('CMS collection created', `Array.from(document.querySelectorAll('[data-testid="builder-cms-panel"] option')).some((option) => option.textContent === 'Browser Articles')`);
+    assert(await evaluate(`(() => {
+      const button = Array.from(document.querySelectorAll('[data-testid="builder-cms-panel"] button')).find((node) => node.textContent?.includes('Add entry'));
+      if (!button) return false;
+      button.click();
+      return true;
+    })()`), 'CMS add-entry action is unavailable.');
+    await waitFor('CMS entry editor', `document.querySelector('[data-testid="builder-cms-panel"] input[type="checkbox"]')`);
+    assert(await evaluate(`(() => {
+      const label = Array.from(document.querySelectorAll('[data-testid="builder-cms-panel"] label')).find((node) => node.textContent?.trim().startsWith('Title'));
+      const input = label?.querySelector('input');
+      if (!input) return false;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Browser Article');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`), 'CMS title field is unavailable.');
+    await waitFor('CMS entry value', `Array.from(document.querySelectorAll('[data-testid="builder-cms-panel"] option')).some((option) => option.textContent?.includes('Browser Article'))`);
+    console.log('[browser] PASS CMS collection and entry editing');
+
     const first = await snapshot(0);
     const second = await snapshot(1);
     assert(first?.id && second?.id, 'Default canvas elements were not rendered.');
@@ -340,7 +370,7 @@ async function regression() {
     const relevantConsoleErrors = consoleErrors.filter((message) => message && !message.includes('favicon.ico'));
     assert(relevantConsoleErrors.length === 0, `Browser console errors:\n${relevantConsoleErrors.join('\n')}`);
     console.log('[browser] PASS no runtime or console errors');
-    console.log('[website-builder-browser-regression] PASS 11 desktop browser scenarios');
+    console.log('[website-builder-browser-regression] PASS 12 desktop browser scenarios');
   } catch (error) {
     console.error('[website-builder-browser-regression] FAIL');
     console.error(error instanceof Error ? error.stack : error);

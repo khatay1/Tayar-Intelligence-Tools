@@ -1,13 +1,13 @@
 # Website Builder Pro review — 2026-09-19
 
-Baseline: `bf33d578f77169fb097f1ed8055c8ff1a6e49d72` (remote main).
+Baseline: `f9013e9258ab8f53cb5941718312b6bb8d9a20f1` (remote main).
 This is a code review, not proof of complete production capability or competitor parity.
 
 | Area | Existing implementation | Next complete delivery batch |
 | --- | --- | --- |
 | Visual Editor Pro | Free positioning, zoom/pan, multi-selection, alignment/distribution, responsive overrides, history, reusable components, real-browser regression | Precision and no-op safety (this batch); then instance-local component geometry and nested-layout behavior with browser coverage |
 | AI Quality + Design Systems | Native transactions, validation, patch review, themes, linked components, responsive/accessibility repair | Native repair no-op safety (this batch); then unify legacy/native repair semantics, reusable design tokens and consistent manual/AI application |
-| CMS / Dynamic Content | Static page/section/element model; no collection schema or data-binding model found in the builder | Collections, typed fields, entry editor, binding, dynamic routes, preview/publish parity, persistence and access control as one end-to-end feature |
+| CMS / Dynamic Content | Project-scoped collections, typed fields, drafts, entry editing, element bindings, dynamic page expansion, publish validation and preview/export/publish parity | Reference fields, collection import/export and server-side high-volume querying |
 | Localization + Domains + Staging | Page languages/translation groups, canonical URLs, translated output, unlisted previews, release archives and rollback | Verified domain provisioning and HTTPS state, explicit staging-to-live promotion, linked locale route coverage; a production URL field is not domain provisioning |
 | Collaboration Pro | Separate Team Workspace tool with invitations/roles and project access RPC integration | In-editor presence/comments and safe concurrent editing with permissions, reconnect handling and multi-session tests; team access alone is not simultaneous editing |
 
@@ -27,4 +27,14 @@ This is a code review, not proof of complete production capability or competitor
 
 Local lint, project health, production build, coding-assistance smoke and production dependency audit passed before the browser-suite extension. Final Release Gate must pass on the release commit before main advances. The build retains the existing large-chunk warning.
 
-No CMS, live co-editing, domain provisioning, database migration or production infrastructure change is introduced by this batch. Native design command improvements do not replace the separate legacy AI repair fallback. These remaining capabilities require complete follow-up batches; they are not reported as shipped.
+Native design command improvements do not replace the separate legacy AI repair fallback. Live co-editing, domain provisioning and production infrastructure remain separate follow-up batches; they are not reported as shipped.
+
+## CMS / Dynamic Content batch
+
+- Added bounded project-scoped collections with text, rich text, number, boolean, date, image and URL fields.
+- Added draft-aware entry editing, collection/field/entry deletion and validation for required values, duplicate slugs and dangling bindings.
+- Elements can bind content, image/video source or button links to fixed entries or a dynamic page context.
+- A page can act as a collection template; non-draft entries become concrete static pages with unique IDs and slugs.
+- The same expanded page set is used by share previews, production ZIP, client handoff, sitemap and live publish.
+- CMS data is included in project snapshots, autosave fingerprints, manual history and recovery, inheriting the existing project access/RLS boundary without a new public table or service-role path.
+- Added nine pure behavioral regressions and a twelfth real-browser scenario for collection and entry editing.

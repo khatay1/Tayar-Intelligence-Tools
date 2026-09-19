@@ -3,6 +3,7 @@ import type {
   SectionResponsiveStyle,
   SectionType,
   WebsiteBrand,
+  WebsiteCmsBinding,
   WebsiteElement,
   WebsiteElementType,
   WebsiteElementContainer,
@@ -10,6 +11,19 @@ import type {
   WebsiteSEO,
   WebsiteSection,
 } from './types';
+
+function normalizeCmsBinding(value: unknown): WebsiteCmsBinding | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const source = value as Partial<WebsiteCmsBinding>;
+  if (typeof source.collectionId !== 'string' || typeof source.fieldKey !== 'string') return undefined;
+  const target = source.target === 'src' || source.target === 'href' ? source.target : 'content';
+  return {
+    collectionId: source.collectionId.slice(0, 120),
+    fieldKey: source.fieldKey.slice(0, 80),
+    entryId: typeof source.entryId === 'string' ? source.entryId.slice(0, 120) : undefined,
+    target,
+  };
+}
 
 export const SECTION_LABELS: Record<SectionType, string> = {
   hero: 'Hero',
@@ -250,6 +264,7 @@ export function normalizeSection(section: Partial<WebsiteSection> & Pick<Website
     formRedirectUrl: section.type === 'contact' && typeof section.formRedirectUrl === 'string' ? section.formRedirectUrl : '',
     elements: sourceElements.map((element, index) => ({
       ...element,
+      cmsBinding: normalizeCmsBinding(element.cmsBinding),
       containerId: element.containerId && containerIds.has(element.containerId) ? element.containerId : undefined,
       layoutColumn: layout === 'stack'
         ? undefined

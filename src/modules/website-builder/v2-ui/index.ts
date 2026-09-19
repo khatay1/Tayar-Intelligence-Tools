@@ -13,6 +13,7 @@ export * from './BuilderMediaPanel';
 export * from './BuilderHistoryPanel';
 export * from './BuilderCanvasOverlay';
 export * from './BuilderPanelRouter';
+export * from './BuilderCmsPanel';
 export * from './BuilderInspectorFields';
 export * from './BuilderCanvasMeasurement';
 export * from './CanvasSpacingGuide';

@@ -55,6 +55,7 @@ export interface EditorPanelRegistration {
 export const EDITOR_LEFT_PANEL_REGISTRY: EditorPanelRegistration[] = [
   { id: 'ai', label: 'Tayar AI', compactLabel: 'AI', order: 10, shortcut: '1' },
   { id: 'pages', label: 'Pages', order: 20, shortcut: '2' },
+  { id: 'cms', label: 'CMS', order: 25 },
   { id: 'layers', label: 'Layers', order: 30, shortcut: '3' },
   { id: 'insert', label: 'Insert', order: 40, shortcut: '4' },
   { id: 'media', label: 'Media', order: 50, shortcut: '5' },

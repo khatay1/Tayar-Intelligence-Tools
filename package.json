@@ -13,7 +13,7 @@
     "smoke:website-builder:browser": "node scripts/website-builder-browser-regression-launcher.mjs",
     "launch:website-builder": "node scripts/website-builder-smoke.mjs && node scripts/website-builder-launch.mjs",
     "smoke:site-polish": "node scripts/site-polish-smoke.mjs",
-    "health:project": "npm run typecheck && npm run smoke:edge-functions && node scripts/project-health-refactor.mjs && npm run smoke:pdf-tools && npm run launch:website-builder && npm run smoke:published-runtime && npm run smoke:site-polish && npm run smoke:translator && npm run smoke:workspace-production && npm run smoke:i18n && npm run smoke:production && npm run smoke:mobile-store && npm run smoke:launch-pilot && npm run smoke:recovery-regression && npm run smoke:website-builder:design",
+    "health:project": "npm run typecheck && npm run smoke:edge-functions && node scripts/project-health-refactor.mjs && npm run smoke:pdf-tools && npm run launch:website-builder && npm run smoke:published-runtime && npm run smoke:site-polish && npm run smoke:translator && npm run smoke:workspace-production && npm run smoke:i18n && npm run smoke:production && npm run smoke:mobile-store && npm run smoke:launch-pilot && npm run smoke:recovery-regression && npm run smoke:website-builder:design && npm run smoke:website-builder:cms",
     "smoke:edge-functions": "node scripts/edge-functions-syntax-smoke.mjs",
     "smoke:launch-pilot": "node scripts/launch-pilot-smoke.mjs",
     "smoke:translator": "node scripts/translator-smoke.mjs",
@@ -30,7 +30,8 @@
     "templates:r2:migrate": "node scripts/template-library-r2-migrate.mjs --execute",
     "templates:supabase:purge:plan": "node scripts/template-library-supabase-purge.mjs",
     "templates:supabase:purge": "node scripts/template-library-supabase-purge.mjs --execute",
-    "smoke:website-builder:design": "node scripts/website-builder-design-regression.mjs"
+    "smoke:website-builder:design": "node scripts/website-builder-design-regression.mjs",
+    "smoke:website-builder:cms": "node scripts/website-builder-cms-regression.mjs"
   },
   "dependencies": {
     "@pdfme/pdf-lib": "^6.1.12",

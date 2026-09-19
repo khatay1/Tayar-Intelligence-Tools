@@ -11,6 +11,7 @@ import {
   Palette,
   Settings2,
   History,
+  Database,
 } from 'lucide-react';
 
 import {
@@ -34,6 +35,7 @@ export interface BuilderLeftSidebarProps {
 const ICONS = {
   ai: Sparkles,
   pages: FileText,
+  cms: Database,
   layers: Layers,
   insert: Plus,
   media: ImageIcon,

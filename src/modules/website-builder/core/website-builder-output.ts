@@ -4,6 +4,7 @@ import { normalizePageLanguage, normalizeSlug } from './project-identifiers';
 import type { WebsiteSEO, WebsiteSection } from './types';
 import type { WebsiteFooterConfig, WebsiteHeaderConfig, WebsitePage, WebsiteProductionConfig, WebsiteSiteEnhancements, WebsiteTheme } from './website-builder-model';
 import { buildFullHtml, normalizeSiteUrl } from './website-builder-rendering';
+import { expandWebsiteCmsPages, materializeWebsiteCmsSections, type WebsiteCmsState } from './website-cms';
 
 export interface WebsiteBuilderOutputDependencies {
   pages: WebsitePage[];
@@ -23,6 +24,7 @@ export interface WebsiteBuilderOutputDependencies {
   cloudProjectId: string | null;
   supabaseUrl: string;
   supabaseAnonKey: string;
+  cms: WebsiteCmsState;
 }
 
 export function createWebsiteBuilderOutput({
@@ -43,7 +45,11 @@ export function createWebsiteBuilderOutput({
   cloudProjectId,
   supabaseUrl,
   supabaseAnonKey,
+  cms,
 }: WebsiteBuilderOutputDependencies) {
+  const sourcePages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
+  const outputPages = expandWebsiteCmsPages(sourcePages, cms);
+
   function getHtml(
     pageSections: WebsiteSection[] = sections,
     pageId = activePageId,
@@ -51,7 +57,9 @@ export function createWebsiteBuilderOutput({
     homeUsesIndexFile = false,
     trackAnalytics = false,
   ) {
-    const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
+    const currentPages = outputPages.map((page) => page.id === pageId
+      ? { ...page, sections: materializeWebsiteCmsSections(pageSections, cms) }
+      : page);
     const page = currentPages.find((item) => item.id === pageId) || currentPages[0];
     const productionUrl = normalizeSiteUrl(productionUrlOverride ?? siteUrl);
     const filename = page?.id === homePageId ? 'index.html' : `${normalizeSlug(page?.slug || 'page')}.html`;
@@ -121,7 +129,7 @@ export function createWebsiteBuilderOutput({
       if (element.type === 'button') return { ...element, content: 'Back to Home', href: homeHref };
       return element;
     });
-    const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
+    const currentPages = outputPages;
     const homeLanguage = normalizePageLanguage(currentPages.find((page) => page.id === homePageId)?.language, preferredLanguage);
     return buildFullHtml([notFoundSection], {
       language: homeLanguage,
@@ -146,5 +154,5 @@ export function createWebsiteBuilderOutput({
     });
   }
 
-  return { getHtml, get404Html };
+  return { getHtml, get404Html, pages: outputPages };
 }
