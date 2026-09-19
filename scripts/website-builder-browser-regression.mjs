@@ -226,7 +226,7 @@ async function regression() {
     console.log('[browser] PASS desktop panels do not overlap');
 
     await click('[data-panel-id="cms"]');
-    await waitFor('CMS panel', `document.querySelector('[data-testid="builder-cms-panel"]')`);
+    await waitFor('CMS panel', `Boolean(document.querySelector('[data-testid="builder-cms-panel"]'))`);
     assert(await evaluate(`(() => {
       const input = document.querySelector('[data-testid="builder-cms-panel"] input[placeholder="Collection name"]');
       if (!input) return false;
@@ -243,7 +243,7 @@ async function regression() {
       button.click();
       return true;
     })()`), 'CMS add-entry action is unavailable.');
-    await waitFor('CMS entry editor', `document.querySelector('[data-testid="builder-cms-panel"] input[type="checkbox"]')`);
+    await waitFor('CMS entry editor', `Boolean(document.querySelector('[data-testid="builder-cms-panel"] input[type="checkbox"]'))`);
     assert(await evaluate(`(() => {
       const label = Array.from(document.querySelectorAll('[data-testid="builder-cms-panel"] label')).find((node) => node.textContent?.trim().startsWith('Title'));
       const input = label?.querySelector('input');
