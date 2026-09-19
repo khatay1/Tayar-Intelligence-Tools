@@ -14,7 +14,7 @@ This is a code review, not proof of complete production capability or competitor
 ## Delivered in this batch
 
 - Extracted DOM-independent arrangement calculation used by the actual editor.
-- Undo snapshots now preserve the exact pre-mutation active sections, even when an event handler overlaps a React render.
+- Undo snapshots preserve the exact pre-mutation active sections; arrangement snapshots additionally use the committed canvas coordinates that the user saw before the command.
 - Alignment retains zoom-aware coordinates and position limits, rejects invalid or duplicate measurements, and skips no-op history writes.
 - Arrangement settles active transform transitions before measuring, and reads committed document offsets from the canvas, preventing rapid repeated alignment from recording intermediate animation or stale state positions; immediate duplicate arrangement commands are ignored until the commit finishes.
 - Equal-gap distribution preserves its first and last anchors, including overlapping items with unequal sizes.

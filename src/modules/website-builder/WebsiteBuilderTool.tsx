@@ -3478,6 +3478,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     // calculating a second rapid command from a stale React event closure.
     const positions = arrangeCanvasElements(measured, action, canvasScale);
     if (!positions.size) return;
+    const committedPositions = new Map(measured.map(({ id, x, y }) => [id, { x, y }]));
+    const preArrangementSections = sections.map((section) => section.id !== selectedSection.id ? section : {
+      ...section,
+      elements: section.elements.map((element) => {
+        const committed = committedPositions.get(element.id);
+        return committed ? {
+          ...element,
+          responsive: {
+            ...element.responsive,
+            [device]: {
+              ...(element.responsive?.[device] || {}),
+              positionX: committed.x,
+              positionY: committed.y,
+            },
+          },
+        } : element;
+      }),
+    });
     // Ignore an immediate duplicate command until React has committed these offsets.
     canvasArrangementRef.current = { key: arrangementKey, appliedAt: performance.now() };
 
@@ -3505,7 +3523,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }),
     });
 
-    remember(sections, action.startsWith('distribute') ? 'Distribute selected elements' : 'Align selected elements');
+    remember(preArrangementSections, action.startsWith('distribute') ? 'Distribute selected elements' : 'Align selected elements');
     setSections((current) => current.map((section) => arrangeSection(section)));
     if (symbolPositions.size) {
       setPages((current) => current.map((page) => page.id === activePageId ? page : {
