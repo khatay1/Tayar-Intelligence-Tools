@@ -15,7 +15,7 @@ This is a code review, not proof of complete production capability or competitor
 
 - Extracted DOM-independent arrangement calculation used by the actual editor.
 - Alignment retains zoom-aware coordinates and position limits, rejects invalid or duplicate measurements, and skips no-op history writes.
-- Arrangement settles active transform transitions before measuring, and reads committed document offsets from the canvas, preventing rapid repeated alignment from recording intermediate animation or stale state positions.
+- Arrangement settles active transform transitions before measuring, and reads committed document offsets from the canvas, preventing rapid repeated alignment from recording intermediate animation or stale state positions; immediate duplicate arrangement commands are ignored until the commit finishes.
 - Equal-gap distribution preserves its first and last anchors, including overlapping items with unequal sizes.
 - Native responsive repair changes only missing overrides, preserves explicit settings and empty records, and does not resynchronize untouched linked components.
 - Native site restyling synchronizes linked components only when their styles change, protecting unrelated image content.

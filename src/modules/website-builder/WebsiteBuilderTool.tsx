@@ -367,6 +367,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     snapVerticalPosition?: number;
   } | null>(null);
   const canvasNudgeSessionRef = useRef<string | null>(null);
+  const canvasArrangementRef = useRef<{ key: string; appliedAt: number } | null>(null);
   const canvasResizeSessionRef = useRef<string | null>(null);
   const [cloudProjects, setCloudProjects] = useState<CloudWebsiteProject[]>([]);
   const [cloudProjectsLoaded, setCloudProjectsLoaded] = useState(false);
@@ -3445,6 +3446,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function arrangeSelectedElements(action: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distribute-horizontal' | 'distribute-vertical') {
     if (!selectedSection || selectedElements.length < 2) return;
     if ((action === 'distribute-horizontal' || action === 'distribute-vertical') && selectedElements.length < 3) return;
+    const arrangementKey = `${activePageId}:${selectedSection.id}:${device}:${action}:${selectedElements.map((element) => element.id).sort().join(',')}`;
+    const previousArrangement = canvasArrangementRef.current;
+    if (previousArrangement?.key === arrangementKey && performance.now() - previousArrangement.appliedAt < 250) return;
 
     const sectionHost = document.getElementById(sectionDomId(selectedSection));
     if (!sectionHost) return;
@@ -3465,6 +3469,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     // calculating a second rapid command from a stale React event closure.
     const positions = arrangeCanvasElements(measured, action, canvasScale);
     if (!positions.size) return;
+    // Ignore an immediate duplicate command until React has committed these offsets.
+    canvasArrangementRef.current = { key: arrangementKey, appliedAt: performance.now() };
 
     const symbolPositions = new Map<string, { x?: number; y?: number }>();
     selectedElements.forEach((element) => {
