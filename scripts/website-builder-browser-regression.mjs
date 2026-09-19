@@ -164,7 +164,7 @@ async function regression() {
       const node = document.querySelectorAll('[data-tayar-canvas-element-id]')[${index}];
       if (!node) return null;
       const r = node.getBoundingClientRect();
-      return { id: node.dataset.tayarCanvasElementId, text: (node.textContent || '').trim(), x: r.x, y: r.y, width: r.width, height: r.height, transform: getComputedStyle(node).transform };
+      return { id: node.dataset.tayarCanvasElementId, text: (node.textContent || '').trim(), x: r.x, y: r.y, width: r.width, height: r.height, transform: getComputedStyle(node).transform, inlineTransform: node.style.transform };
     })()`);
     const elementWidthPercent = async (index) => await evaluate(`(() => {
       const node = document.querySelectorAll('[data-tayar-canvas-element-id]')[${index}];
@@ -301,10 +301,11 @@ async function regression() {
     await alignLeft();
     await sleep(100);
     await click('.tayar-v2-topbar__history button', 0);
+    console.log('[browser] alignment undo offsets', JSON.stringify({ before: beforeAlign.map((item) => item.inlineTransform), after: [(await snapshot(0)).inlineTransform, (await snapshot(1)).inlineTransform] }));
     await waitFor('alignment undo without empty history entry', `(() => {
       const nodes = document.querySelectorAll('[data-tayar-canvas-element-id]');
-      return Math.abs(nodes[0].getBoundingClientRect().left - ${beforeAlign[0].x}) < 1
-        && Math.abs(nodes[1].getBoundingClientRect().left - ${beforeAlign[1].x}) < 1;
+      return nodes[0].style.transform === ${JSON.stringify(beforeAlign[0].inlineTransform)}
+        && nodes[1].style.transform === ${JSON.stringify(beforeAlign[1].inlineTransform)};
     })()`);
     console.log('[browser] PASS repeated alignment does not consume an extra Undo');
 
