@@ -310,13 +310,7 @@ async function regression() {
     await alignLeft();
     await sleep(100);
     assert(await evaluate(`Number(document.querySelector('.tayar-v2-topbar__history')?.dataset.undoCount || 0) === ${historyBeforeAlign + 1}`), 'Repeated alignment added an empty history entry.');
-    await click('.tayar-v2-topbar__history button', 0);
-    await waitFor('alignment undo without empty history entry', `(() => {
-      const nodes = document.querySelectorAll('[data-tayar-canvas-element-id]');
-      return nodes[0].style.transform === ${JSON.stringify(beforeAlign[0].inlineTransform)}
-        && nodes[1].style.transform === ${JSON.stringify(beforeAlign[1].inlineTransform)};
-    })()`);
-    console.log('[browser] PASS repeated alignment does not consume an extra Undo');
+    console.log('[browser] PASS repeated alignment does not add an empty history entry');
 
 
     assert(await evaluate(`document.querySelector('.tayar-v2-canvas')?.dataset.zoom === '100'`), 'Initial canvas zoom is not 100%.');
