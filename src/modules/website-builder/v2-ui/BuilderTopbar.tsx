@@ -69,7 +69,12 @@ export function BuilderTopbar({ shell, brandSlot, centerSlot, trailingSlot }: Bu
           {l('Edit')}
         </button>
       </div>
-      <div className="tayar-v2-topbar__history" aria-label={l('Editor history')}>
+      <div
+        className="tayar-v2-topbar__history"
+        aria-label={l('Editor history')}
+        data-undo-count={view.history.undo.length}
+        data-redo-count={view.history.redo.length}
+      >
         <button type="button" onClick={actions.onUndo} disabled={operationBusy || !view.canUndo}>{l('Undo')}</button>
         <button type="button" onClick={actions.onRedo} disabled={operationBusy || !view.canRedo}>{l('Redo')}</button>
       </div>

@@ -289,6 +289,7 @@ async function regression() {
     console.log('[browser] PASS multi-select synchronizes with Layers');
 
     const beforeAlign = [await snapshot(0), await snapshot(1)];
+    const historyBeforeAlign = await evaluate(`Number(document.querySelector('.tayar-v2-topbar__history')?.dataset.undoCount || 0)`);
     assert(!near(beforeAlign[0].x, beforeAlign[1].x, 1), 'Alignment fixture must begin with different left edges.');
     const alignLeft = async () => {
       assert(await evaluate(`(() => {
@@ -304,11 +305,12 @@ async function regression() {
       const nodes = document.querySelectorAll('[data-tayar-canvas-element-id]');
       return Math.abs(nodes[0].getBoundingClientRect().left - nodes[1].getBoundingClientRect().left) < 1;
     })()`);
+    await waitFor('alignment history commit', `Number(document.querySelector('.tayar-v2-topbar__history')?.dataset.undoCount || 0) === ${historyBeforeAlign + 1}`);
     console.log('[browser] PASS multi-selection alignment updates actual canvas geometry');
     await alignLeft();
     await sleep(100);
+    assert(await evaluate(`Number(document.querySelector('.tayar-v2-topbar__history')?.dataset.undoCount || 0) === ${historyBeforeAlign + 1}`), 'Repeated alignment added an empty history entry.');
     await click('.tayar-v2-topbar__history button', 0);
-    console.log('[browser] alignment undo offsets', JSON.stringify({ before: beforeAlign.map((item) => item.inlineTransform), after: [(await snapshot(0)).inlineTransform, (await snapshot(1)).inlineTransform] }));
     await waitFor('alignment undo without empty history entry', `(() => {
       const nodes = document.querySelectorAll('[data-tayar-canvas-element-id]');
       return nodes[0].style.transform === ${JSON.stringify(beforeAlign[0].inlineTransform)}

@@ -634,6 +634,7 @@ check('Desktop Builder protects unsaved work during same-document navigation',
   websiteBuilderV2Bridge.includes('destination.hash !== current.hash') &&
   websiteBuilderV2Bridge.includes('window.confirm(unsavedExitMessage)'));
 check('Desktop Builder topbar serializes save check publish and history actions',
+  builderTopbar.includes('data-undo-count={view.history.undo.length}') &&
   builderTopbar.includes('const operationBusy = Boolean(status.mutating || status.saving || status.publishing || status.checking)') &&
   builderTopbar.includes('disabled={operationBusy || !view.canUndo}') &&
   builderTopbar.includes('disabled={operationBusy || !view.dirty}') &&
