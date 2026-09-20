@@ -76,6 +76,7 @@ import {
   archivePublishedWebsiteFiles,
   downloadPublishedWebsiteFile,
   removePublishedWebsiteFiles,
+  readPublishedWebsiteFolderFiles,
   removeStalePublishedWebsiteFiles,
   replacePublishedWebsiteFiles,
   restorePublishedWebsiteSnapshot,
@@ -165,6 +166,13 @@ import {
 } from './core/editor-ai-review-targets';
 import { buildAIEditableSnapshotData } from './core/editor-ai-editable-snapshot';
 import { createWebsiteBuilderOutput } from './core/website-builder-output';
+import {
+  DEFAULT_WEBSITE_LOCALIZATION,
+  normalizeWebsiteLocalization,
+  validateWebsiteLocalization,
+  websitePathUrl,
+  type WebsiteLocalizationConfig,
+} from './core/website-localization';
 import { buildAuditReportText, buildDeliveryReportText, buildV1LaunchReportText } from './core/website-builder-reports';
 import { buildWebsiteAnalyticsCsv, buildWebsiteLeadsCsv, buildWebsiteProjectBackupText } from './core/website-builder-export-data';
 import {
@@ -270,6 +278,10 @@ export default function WebsiteBuilderTool({
   const [activePageId, setActivePageId] = useState('page-home');
   const [homePageId, setHomePageId] = useState('page-home');
   const [cms, setCms] = useState<WebsiteCmsState>(EMPTY_WEBSITE_CMS);
+  const [localization, setLocalization] = useState<WebsiteLocalizationConfig>(() => ({
+    ...DEFAULT_WEBSITE_LOCALIZATION,
+    defaultLanguage: prefs.language,
+  }));
 
 const [brand, setBrand] = useState<WebsiteBrand>(defaultBrand);
   const [theme, setTheme] = useState<WebsiteTheme>(DEFAULT_THEME);
@@ -395,6 +407,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewToken, setPreviewToken] = useState('');
   const [previewCreatedAt, setPreviewCreatedAt] = useState<string | null>(null);
+  const [previewFingerprint, setPreviewFingerprint] = useState('');
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [lastPublishedVersionId, setLastPublishedVersionId] = useState<string | null>(null);
@@ -704,12 +717,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       previewUrl,
       previewToken,
       previewCreatedAt,
+      previewFingerprint,
       lastPublishedVersionId,
       lastPublishedFingerprint,
       activePageId,
       homePageId,
       pages: getCurrentPages(),
       cms,
+      localization,
       brand,
       theme,
       headerConfig,
@@ -722,7 +737,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       language: prefs.language,
       updatedAt: new Date().toISOString(),
     };
-  }, [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  }, [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
   const buildProjectFingerprint = useCallback(() => {
     return JSON.stringify({
@@ -734,12 +749,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       previewUrl,
       previewToken,
       previewCreatedAt,
+      previewFingerprint,
       lastPublishedVersionId,
       lastPublishedFingerprint,
       activePageId,
       homePageId,
       pages: getCurrentPages(),
       cms,
+      localization,
       brand,
       theme,
       headerConfig,
@@ -751,7 +768,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       seo,
       language: prefs.language,
     });
-  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
   const buildEditableFingerprint = useCallback(() => {
     return JSON.stringify({
@@ -761,6 +778,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       homePageId,
       pages: getCurrentPages(),
       cms,
+      localization,
       brand,
       theme,
       headerConfig,
@@ -771,7 +789,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       seo,
       language: prefs.language,
     });
-  }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, cms, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
+  }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
 
   const currentAIEditableFingerprint = useMemo(
     () => buildEditableFingerprint(),
@@ -883,6 +901,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     if (normalizedLoad.kind === 'legacy-array') {
       setCms(EMPTY_WEBSITE_CMS);
+      setLocalization({ ...DEFAULT_WEBSITE_LOCALIZATION, defaultLanguage: prefs.language });
       setSections(normalizedSections);
       setPages(normalizedPages);
       setActivePageId(normalizedLoad.activePageId);
@@ -902,6 +921,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPreviewUrl('');
       setPreviewToken('');
       setPreviewCreatedAt(null);
+      setPreviewFingerprint('');
       setLastPublishedVersionId(null);
       setLastPublishedFingerprint('');
       setLiveVerification('idle');
@@ -918,6 +938,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const parsed = normalizedLoad.parsed as PersistedWebsiteProject;
     setCms(normalizeWebsiteCms(parsed.cms));
+    setLocalization(normalizeWebsiteLocalization(parsed.localization, parsed.language || prefs.language));
 
     if (normalizedLoad.kind === 'pages') {
       setPages(normalizedPages);
@@ -941,6 +962,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPreviewUrl(typeof parsed.previewUrl === 'string' ? normalizePublishedSiteUrl(parsed.previewUrl) : '');
     setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
     setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
+    setPreviewFingerprint(typeof parsed.previewFingerprint === 'string' ? parsed.previewFingerprint : '');
     setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
     setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
     setLiveVerification('idle');
@@ -2580,6 +2602,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [pages, activePageId, sections]);
   const cmsIssues = useMemo(() => validateWebsiteCms(cms, getCurrentPages()), [cms, getCurrentPages]);
   const cmsErrors = useMemo(() => cmsIssues.filter((issue) => issue.severity === 'error'), [cmsIssues]);
+  const localizationIssues = useMemo(
+    () => validateWebsiteLocalization(getCurrentPages(), homePageId, localization),
+    [getCurrentPages, homePageId, localization],
+  );
 
   const aiCandidateShowingBefore = aiCandidatePreview?.viewMode === 'before';
   const canvasPages = aiCandidatePreview
@@ -2718,15 +2744,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
     const errors: string[] = [];
     const warnings: string[] = [];
-    const slugs = new Map<string, number>();
     const pageSlugs = new Set(currentPages.map((page) => normalizeSlug(page.slug)));
     const anchors = new Set<string>();
     const canonicalOverrides = new Map<string, number>();
 
     const translationLanguages = new Map<string, Set<Language>>();
     currentPages.forEach((page) => {
-      const slug = normalizeSlug(page.slug);
-      slugs.set(slug, (slugs.get(slug) || 0) + 1);
       const translationGroup = page.translationKey?.trim();
       if (translationGroup) {
         const language = normalizePageLanguage(page.language, prefs.language);
@@ -2770,7 +2793,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     translationLanguages.forEach((languages, key) => {
       if (languages.size === 1) warnings.push(`Translation group "${key}" has only one language version.`);
     });
-    slugs.forEach((count, slug) => { if (count > 1) errors.push(`Duplicate page slug: /${slug}.`); });
+    localizationIssues.forEach((issue) => {
+      if (issue.code === 'missing-default-translation') warnings.push(issue.message);
+      else errors.push(issue.message);
+    });
     canonicalOverrides.forEach((count, canonical) => { if (count > 1) warnings.push(`Multiple pages use the same canonical URL: ${canonical}.`); });
     const validatedProduction = normalizeProductionConfig(productionConfig);
     if (productionConfig.ga4Id.trim() && !validatedProduction.ga4Id) warnings.push('GA4 Measurement ID is invalid. Expected G-XXXX.');
@@ -2789,7 +2815,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const uniqueWarnings = [...new Set(warnings)];
     const score = Math.max(0, 100 - uniqueErrors.length * 15 - uniqueWarnings.length * 5);
     return { errors: uniqueErrors.slice(0, 20), warnings: uniqueWarnings.slice(0, 30), score };
-  }, [pages, activePageId, homePageId, sections, seo, siteUrl, faviconUrl, headerConfig.enabled, productionConfig, siteName, prefs.language]);
+  }, [pages, activePageId, homePageId, sections, seo, siteUrl, faviconUrl, headerConfig.enabled, productionConfig, siteName, prefs.language, localizationIssues]);
 
   const qualityDiagnostics = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -9000,6 +9026,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return routeHealthy;
   }
   async function createSharePreview() {
+    if (previewBusy || publishBusy) return;
+    if (siteAudit.errors.length || cmsErrors.length) {
+      setPreviewError('Fix critical audit errors before creating staging.');
+      return;
+    }
     if (cloudProjectId && !projectTeamAccess.canPublish) {
       setPreviewError('Only the project owner can create public share previews.');
       return;
@@ -9013,7 +9044,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const previewLoadSequence = projectLoadSequenceRef.current;
     const previewProjectId = cloudProjectId;
     const previewUserId = user.id;
-    const existingPreviewToken = previewToken;
+    const previousPreviewToken = previewToken;
     const previewIsCurrent = () =>
       previewOperationSequenceRef.current === previewSequence &&
       projectLoadSequenceRef.current === previewLoadSequence &&
@@ -9033,12 +9064,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     try {
-      if (existingPreviewToken) {
-        const existingFolder = `${previewUserId}/${previewProjectId}/previews/${existingPreviewToken}`;
-        await removePublishedWebsiteFiles(existingFolder);
-        if (!previewIsCurrent()) return;
-      }
-
       const token = typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID().replace(/-/g, '')
         : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
@@ -9048,13 +9073,27 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       const currentPages = getOutputPages();
       const files: Array<{ name: string; content: string; contentType: string }> = currentPages.map((page) => ({
-        name: page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`,
+        name: getOutputFilename(page),
         content: getHtml(page.sections, page.id, publicBaseUrl, true, false),
         contentType: 'text/html; charset=utf-8',
       }));
       files.push({ name: '404.html', content: get404Html(publicBaseUrl, true, false), contentType: 'text/html; charset=utf-8' });
 
       await uploadPublishedWebsiteFolderFiles(folder, files);
+
+      // Freeze the production bundle at staging time, including forms and tracking.
+      // The share preview remains a separate, untracked rendering.
+      const liveBaseUrl = buildPublishedSiteBaseUrl(previewUserId, previewProjectId);
+      if (!liveBaseUrl) throw new Error('Could not build the production URL.');
+      const productionFiles = currentPages.map((page) => ({
+        name: getOutputFilename(page),
+        content: getHtml(page.sections, page.id, liveBaseUrl, true, true),
+        contentType: 'text/html; charset=utf-8',
+      }));
+      productionFiles.push({ name: '404.html', content: get404Html(liveBaseUrl, true, true), contentType: 'text/html; charset=utf-8' });
+      productionFiles.push({ name: 'sitemap.xml', content: '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + currentPages.filter((page) => !page.noIndex).map((page) => `<url><loc>${escapeHtml(websitePathUrl(liveBaseUrl, getOutputFilename(page), true))}</loc></url>`).join('') + '</urlset>', contentType: 'application/xml; charset=utf-8' });
+      productionFiles.push({ name: 'robots.txt', content: `User-agent: *\nAllow: /\n${sanitizeRobotsRules(productionConfig.customRobotsRules)}\nSitemap: ${liveBaseUrl}/sitemap.xml\n`, contentType: 'text/plain; charset=utf-8' });
+      await uploadPublishedWebsiteFolderFiles(`${folder}/release`, productionFiles);
 
       if (!previewIsCurrent()) return;
 
@@ -9070,10 +9109,35 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
 
       const createdAt = new Date().toISOString();
+      const createdFingerprint = buildEditableFingerprint();
+      const stagedProjectData = {
+        ...buildProjectData(),
+        previewToken: token,
+        previewUrl: nextUrl,
+        previewCreatedAt: createdAt,
+        previewFingerprint: createdFingerprint,
+      };
+      const stagedSave = await updateWebsiteProjectInCloud({
+        projectId: previewProjectId,
+        title: siteName,
+        content: stagedProjectData,
+        published: Boolean(publishedUrl),
+      });
+      if (stagedSave.error) throw new Error(stagedSave.error.message);
+      if (!previewIsCurrent()) return;
       setPreviewToken(token);
       setPreviewUrl(nextUrl);
       setPreviewCreatedAt(createdAt);
+      setPreviewFingerprint(createdFingerprint);
       setSaved(false);
+      if (previousPreviewToken) {
+        try {
+          await removePublishedWebsiteFiles(`${previewUserId}/${previewProjectId}/previews/${previousPreviewToken}`);
+        } catch {
+          if (previewIsCurrent()) setPreviewError('The new preview is ready, but the previous preview could not be revoked.');
+        }
+      }
+      if (!previewIsCurrent()) return;
       try { await navigator.clipboard.writeText(nextUrl); } catch { /* Clipboard access is optional. */ }
     } catch (error) {
       if (!previewIsCurrent()) return;
@@ -9084,7 +9148,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
     }
   }
+
+  async function promoteSharePreviewToLive() {
+    await publishWebsite(true);
+  }
   async function revokeSharePreview(updateBusy = true) {
+    if (publishBusy || previewBusy) return;
     if (!user || !cloudProjectId || !previewToken) return;
 
     const revokeSequence = ++previewOperationSequenceRef.current;
@@ -9109,6 +9178,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPreviewUrl('');
       setPreviewToken('');
       setPreviewCreatedAt(null);
+      setPreviewFingerprint('');
       setSaved(false);
     } catch (error) {
       if (!revokeIsCurrent()) return;
@@ -9540,6 +9610,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       previewUrl: '',
       previewToken: '',
       previewCreatedAt: null,
+      previewFingerprint: '',
       lastPublishedVersionId: null,
       lastPublishedFingerprint: '',
       deliveryConfig: { ...deliveryConfig, status: 'building', approvedAt: null, approvedFingerprint: '', deliveredAt: null },
@@ -9559,6 +9630,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPreviewUrl('');
       setPreviewToken('');
       setPreviewCreatedAt(null);
+      setPreviewFingerprint('');
       setLastPublishedVersionId(null);
       setLastPublishedFingerprint('');
       setDeliveryConfig((current) => ({ ...current, status: 'building', approvedAt: null, approvedFingerprint: '', deliveredAt: null }));
@@ -9605,6 +9677,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPreviewUrl('');
     setPreviewToken('');
     setPreviewCreatedAt(null);
+    setPreviewFingerprint('');
     setLastPublishedVersionId(null);
     setLastPublishedFingerprint('');
     setDeliveryConfig((current) => ({ ...current, status: 'building', approvedAt: null, approvedFingerprint: '', deliveredAt: null }));
@@ -9660,6 +9733,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setActivePageId('page-home');
     setHomePageId('page-home');
     setCms(EMPTY_WEBSITE_CMS);
+    setLocalization({ ...DEFAULT_WEBSITE_LOCALIZATION, defaultLanguage: prefs.language });
     setSelectedId(defaultSections[0].id);
     setSelectedElementId(defaultSections[0].elements[0]?.id ?? null);
     setSiteName('My Website');
@@ -9680,6 +9754,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPreviewUrl('');
     setPreviewToken('');
     setPreviewCreatedAt(null);
+    setPreviewFingerprint('');
     setLastPublishedVersionId(null);
     setLastPublishedFingerprint('');
     setPublishVersions([]);
@@ -9726,11 +9801,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
       supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
       cms,
+      localization,
     });
   }
 
   function getOutputPages() {
     return websiteOutputHelpers().pages;
+  }
+
+  function getOutputFilename(page: WebsitePage) {
+    return websiteOutputHelpers().filenameForPage(page);
   }
 
   function getHtml(
@@ -9793,6 +9873,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           previewUrl: '',
           previewToken: '',
           previewCreatedAt: null,
+          previewFingerprint: '',
           lastPublishedVersionId: null,
           lastPublishedFingerprint: '',
           deliveryConfig: {
@@ -9914,11 +9995,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const currentPages = getOutputPages();
     const files: Array<{ name: string; content: string }> = currentPages.map((page) => ({
-      name: `site/${page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`}`,
+      name: `site/${getOutputFilename(page)}`,
       content: getHtml(page.sections, page.id, productionUrl, false, true),
     }));
     const sitemapEntries = currentPages.filter((page) => page.noIndex !== true).map((page) => {
-      const location = page.id === homePageId ? `${productionUrl}/` : `${productionUrl}/${normalizeSlug(page.slug)}.html`;
+      const location = websitePathUrl(productionUrl, getOutputFilename(page), false);
       return `  <url><loc>${escapeHtml(location)}</loc></url>`;
     }).join('\n');
     const customRobotsRules = sanitizeRobotsRules(productionConfig.customRobotsRules);
@@ -10088,14 +10169,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     const currentPages = getOutputPages();
     const files: Array<{ name: string; content: string }> = currentPages.map((page) => {
-      const filename = page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`;
+      const filename = getOutputFilename(page);
       return { name: filename, content: getHtml(page.sections, page.id, undefined, false, true) };
     });
 
     const sitemapEntries = currentPages.filter((page) => page.noIndex !== true).map((page) => {
-      const location = page.id === homePageId
-        ? `${productionUrl}/`
-        : `${productionUrl}/${normalizeSlug(page.slug)}.html`;
+      const location = websitePathUrl(productionUrl, getOutputFilename(page), false);
       return `  <url><loc>${escapeHtml(location)}</loc></url>`;
     }).join('\n');
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapEntries}\n</urlset>`;
@@ -10131,7 +10210,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return '';
   }
 
-  async function publishWebsite() {
+  async function publishWebsite(fromStaging = false) {
+    if (publishBusy || previewBusy) return;
+    if (fromStaging && (!cloudProjectId || !previewToken || !previewFingerprint)) {
+      setPublishError('Regenerate staging before promoting it to production.');
+      return;
+    }
     const operationalBlocker = publishOperationalBlocker();
     if (operationalBlocker) {
       setPublishError(operationalBlocker);
@@ -10237,15 +10321,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         throw new Error('Add at least one page before publishing.');
       }
 
-      const files: Array<{
+      let files: Array<{
         name: string;
         content: string;
         contentType: string;
       }> = currentPages.map((page) => ({
-        name:
-          page.id === homePageId
-            ? 'index.html'
-            : normalizeSlug(page.slug) + '.html',
+        name: getOutputFilename(page),
         content: getHtml(
           page.sections,
           page.id,
@@ -10274,10 +10355,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const sitemapEntries = currentPages
         .filter((page) => page.noIndex !== true)
         .map((page) => {
-          const location =
-            page.id === homePageId
-              ? publicBaseUrl + '/index.html'
-              : publicBaseUrl + '/' + normalizeSlug(page.slug) + '.html';
+          const location = websitePathUrl(publicBaseUrl, getOutputFilename(page), true);
 
           return '  <url><loc>' + escapeHtml(location) + '</loc></url>';
         })
@@ -10321,8 +10399,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         },
       );
 
+      if (fromStaging) {
+        files = await readPublishedWebsiteFolderFiles(`${folder}/previews/${previewToken}/release`);
+        assertPublishIsCurrent();
+      }
       const publishBaseProjectData = buildProjectData();
-      const publishEditableFingerprint = buildEditableFingerprint();
+      const publishEditableFingerprint = fromStaging ? previewFingerprint : buildEditableFingerprint();
       const publishReleaseNote = releaseNote.trim().slice(0, 500);
       const publishReleaseHistoryEnabled =
         billingEntitlements.features.releaseHistory;
@@ -10387,6 +10469,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
           const provisionalData = {
             ...publishBaseProjectData,
+            ...(fromStaging ? JSON.parse(previewFingerprint) : {}),
             publishedUrl:
               publicBaseUrl +
               '/index.html',
@@ -12244,6 +12327,28 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       </details>
 
       <details open className="tayar-v2-manual-section">
+        <summary>{l("Localization")}</summary>
+        <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
+          <label>
+            <span>{l("Default language")}</span>
+            <select value={localization.defaultLanguage} onChange={(e) => { setLocalization((current) => ({ ...current, defaultLanguage: e.target.value as Language })); setSaved(false); }}>
+              <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option>
+              <option value="sv">{PAGE_LANGUAGE_LABELS.sv}</option>
+              <option value="ar">{PAGE_LANGUAGE_LABELS.ar}</option>
+            </select>
+          </label>
+          <label>
+            <span>{l("Locale routes")}</span>
+            <select value={localization.routeStrategy} onChange={(e) => { setLocalization((current) => ({ ...current, routeStrategy: e.target.value === 'flat' ? 'flat' : 'subdirectory' })); setSaved(false); }}>
+              <option value="subdirectory">/sv/page.html</option>
+              <option value="flat">/page.html</option>
+            </select>
+          </label>
+        </div>
+        {localizationIssues.length > 0 && <ul className="tayar-v2-manual-note">{localizationIssues.map((issue, index) => <li key={`${issue.code}-${index}`}>{l(issue.message)}</li>)}</ul>}
+      </details>
+
+      <details open className="tayar-v2-manual-section">
         <summary>{l("Global theme")}</summary>
         <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
           <label><span>{l("Primary")}</span><input type="color" value={theme.primaryColor} onChange={(e) => { setTheme((current) => ({ ...current, primaryColor: e.target.value })); setSaved(false); }} /></label>
@@ -13836,6 +13941,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')} className="text-xs font-semibold text-cyan-400">{l('Open')}</button>
                       <button onClick={() => void navigator.clipboard.writeText(previewUrl)} className="text-xs font-semibold text-sky-400">{l("Copy")}</button>
+                      <button onClick={() => void promoteSharePreviewToLive()} disabled={publishBusy || previewBusy} className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40">{publishBusy ? l('Promoting…') : l('Promote to live')}</button>
                       <button onClick={() => void createSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-indigo-400">{l('Regenerate')}</button>
                       <button onClick={() => void revokeSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-rose-400">{l('Revoke')}</button>
                     </div>
@@ -13844,6 +13950,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   <button onClick={() => void createSharePreview()} disabled={previewBusy || !user || !cloudProjectId} className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{previewBusy ? 'Creating…' : 'Create share preview'}</button>
                 )}
                 {previewCreatedAt && <p className="mt-2 text-[9px] text-gray-500">Created {new Date(previewCreatedAt).toLocaleString()}</p>}
+                {previewFingerprint && previewFingerprint !== currentAIEditableFingerprint && <p className="mt-1 text-[9px] font-semibold text-amber-400">{l('Staging is behind the current editor. Regenerate it before promotion if these changes should go live.')}</p>}
                 {previewError && <p className="mt-2 text-[10px] text-rose-400">{l(previewError)}</p>}
               </div>
             </div>
@@ -13973,6 +14080,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
+              <label className="text-[9px] text-gray-500">{l('Default language')}
+                <select value={localization.defaultLanguage} onChange={(e) => { setLocalization((current) => ({ ...current, defaultLanguage: e.target.value as Language })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
+                  <option value="en">EN</option><option value="sv">SV</option><option value="ar">AR</option>
+                </select>
+              </label>
+              <label className="text-[9px] text-gray-500">{l('Locale routes')}
+                <select value={localization.routeStrategy} onChange={(e) => { setLocalization((current) => ({ ...current, routeStrategy: e.target.value === 'flat' ? 'flat' : 'subdirectory' })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
+                  <option value="subdirectory">/sv/page.html</option><option value="flat">/page.html</option>
+                </select>
+              </label>
             </div>
 
             <button

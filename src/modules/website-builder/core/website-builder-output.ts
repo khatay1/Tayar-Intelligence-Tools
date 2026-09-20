@@ -5,6 +5,13 @@ import type { WebsiteSEO, WebsiteSection } from './types';
 import type { WebsiteFooterConfig, WebsiteHeaderConfig, WebsitePage, WebsiteProductionConfig, WebsiteSiteEnhancements, WebsiteTheme } from './website-builder-model';
 import { buildFullHtml, normalizeSiteUrl } from './website-builder-rendering';
 import { expandWebsiteCmsPages, materializeWebsiteCmsSections, type WebsiteCmsState } from './website-cms';
+import {
+  normalizeWebsiteLocalization,
+  relativeWebsitePageHref,
+  websitePageOutputPath,
+  websitePathUrl,
+  type WebsiteLocalizationConfig,
+} from './website-localization';
 
 export interface WebsiteBuilderOutputDependencies {
   pages: WebsitePage[];
@@ -25,6 +32,7 @@ export interface WebsiteBuilderOutputDependencies {
   supabaseUrl: string;
   supabaseAnonKey: string;
   cms: WebsiteCmsState;
+  localization: WebsiteLocalizationConfig;
 }
 
 export function createWebsiteBuilderOutput({
@@ -46,9 +54,19 @@ export function createWebsiteBuilderOutput({
   supabaseUrl,
   supabaseAnonKey,
   cms,
+  localization,
 }: WebsiteBuilderOutputDependencies) {
+  const normalizedLocalization = normalizeWebsiteLocalization(localization, preferredLanguage);
   const sourcePages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
-  const outputPages = expandWebsiteCmsPages(sourcePages, cms);
+  const expandedPages = expandWebsiteCmsPages(sourcePages, cms).map((page) => ({ ...page, language: normalizePageLanguage(page.language, normalizedLocalization.defaultLanguage) }));
+  const outputPages = expandedPages.map((page) => ({
+    ...page,
+    outputPath: websitePageOutputPath(page, expandedPages, homePageId, normalizedLocalization),
+  }));
+
+  function filenameForPage(page: WebsitePage): string {
+    return page.outputPath || websitePageOutputPath(page, outputPages, homePageId, normalizedLocalization);
+  }
 
   function getHtml(
     pageSections: WebsiteSection[] = sections,
@@ -62,12 +80,10 @@ export function createWebsiteBuilderOutput({
       : page);
     const page = currentPages.find((item) => item.id === pageId) || currentPages[0];
     const productionUrl = normalizeSiteUrl(productionUrlOverride ?? siteUrl);
-    const filename = page?.id === homePageId ? 'index.html' : `${normalizeSlug(page?.slug || 'page')}.html`;
+    const filename = page ? filenameForPage(page) : 'index.html';
     const canonicalOverride = page?.canonicalUrl?.trim() ? normalizeSiteUrl(page.canonicalUrl) : '';
     const canonicalUrl = canonicalOverride || (productionUrl
-      ? page?.id === homePageId
-        ? homeUsesIndexFile ? `${productionUrl}/index.html` : `${productionUrl}/`
-        : `${productionUrl}/${filename}`
+      ? websitePathUrl(productionUrl, filename, homeUsesIndexFile)
       : '');
     const baseTitle = seo.title.trim() || siteName;
     const defaultPageTitle = page?.id === homePageId ? baseTitle : `${page?.name || 'Page'} | ${baseTitle}`;
@@ -77,16 +93,28 @@ export function createWebsiteBuilderOutput({
     const translationKey = page?.translationKey?.trim();
     const translationPages = translationKey ? currentPages.filter((item) => item.translationKey?.trim() === translationKey) : [];
     const alternateLinks = productionUrl && translationPages.length > 1
-      ? translationPages.map((item, index) => ({
+      ? translationPages.map((item) => ({
           language: normalizePageLanguage(item.language, preferredLanguage),
-          href: item.id === homePageId
-            ? homeUsesIndexFile ? `${productionUrl}/index.html` : `${productionUrl}/`
-            : `${productionUrl}/${normalizeSlug(item.slug)}.html`,
-          isDefault: index === 0,
+          href: websitePathUrl(productionUrl, filenameForPage(item), homeUsesIndexFile),
+          isDefault: item.id === (translationPages.find((candidate) => candidate.language === normalizedLocalization.defaultLanguage) || translationPages[0]).id,
         }))
       : [];
 
-    return buildFullHtml(pageSections, {
+    const resolveLink = (value: string) => {
+      if (!value.startsWith('page:')) return value;
+      const matches = currentPages.filter((candidate) => normalizeSlug(candidate.slug) === normalizeSlug(value.slice(5)));
+      const target = matches.find((candidate) => candidate.language === pageLanguage) || matches[0];
+      return target ? relativeWebsitePageHref(filename, filenameForPage(target)) : value;
+    };
+    const localizeLinks = <T,>(value: T): T => {
+      if (Array.isArray(value)) return value.map(localizeLinks) as T;
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
+        typeof item === 'string' && ['href', 'buttonUrl', 'formRedirectUrl', 'ctaHref', 'announcementHref', 'popupButtonHref', 'floatingCtaHref'].includes(key)
+          ? resolveLink(item) : localizeLinks(item),
+      ])) as T;
+    };
+    return buildFullHtml(localizeLinks(page?.sections || pageSections), {
       language: pageLanguage,
       title: pageTitle,
       description: pageDescription,
@@ -97,9 +125,9 @@ export function createWebsiteBuilderOutput({
       noIndex: page?.noIndex === true,
       alternateLinks,
       theme,
-      headerConfig,
+      headerConfig: localizeLinks(headerConfig),
       footerConfig,
-      siteEnhancements,
+      siteEnhancements: localizeLinks(siteEnhancements),
       productionConfig: productionConfig,
       pages: currentPages,
       homePageId,
@@ -154,5 +182,5 @@ export function createWebsiteBuilderOutput({
     });
   }
 
-  return { getHtml, get404Html, pages: outputPages };
+  return { getHtml, get404Html, pages: outputPages, filenameForPage };
 }

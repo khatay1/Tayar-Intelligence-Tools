@@ -43,27 +43,45 @@ export async function listAllPublishedSiteFiles(
   const pageSize = boundedPositive(options.pageSize, 100, 1000);
   const maxEntries = boundedPositive(options.maxEntries, 5000, 50000);
   const entries: PublishedSiteStorageEntry[] = [];
+  const pending = [{ storagePath: folder, relativePath: '' }];
+  let visitedEntries = 0;
 
-  for (let offset = 0; offset < maxEntries; offset += pageSize) {
-    const { data, error } = await bucket.list(folder, {
-      limit: pageSize,
-      offset,
-      sortBy: { column: 'name', order: 'asc' },
-    });
+  while (pending.length) {
+    const directory = pending.shift();
+    if (!directory) break;
 
-    if (error) throw new Error(error.message || 'Published-site storage list failed.');
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await bucket.list(directory.storagePath, {
+        limit: pageSize,
+        offset,
+        sortBy: { column: 'name', order: 'asc' },
+      });
 
-    const batch = data || [];
-    entries.push(
-      ...batch
-        .filter((item): item is { id?: string | null; name: string } => typeof item.name === 'string' && item.name.length > 0)
-        .map((item) => ({ id: item.id, name: item.name })),
-    );
+      if (error) throw new Error(error.message || 'Published-site storage list failed.');
+      const batch = (data || []).filter(
+        (item): item is { id?: string | null; name: string } => typeof item.name === 'string' && item.name.length > 0,
+      );
 
-    if (batch.length < pageSize) return entries;
+      for (const item of batch) {
+        if (++visitedEntries > maxEntries) throw new Error('Published-site folder contains too many files to process safely.');
+        if (!item.name || /[\\/]/.test(item.name) || item.name === '.' || item.name === '..') {
+          throw new Error('Published-site storage returned an invalid path.');
+        }
+        // These contain independent releases, never part of the live bundle.
+        if (!directory.relativePath && /^(versions|previews)$/i.test(item.name)) continue;
+        const relativeName = directory.relativePath ? `${directory.relativePath}/${item.name}` : item.name;
+        if (item.id) entries.push({ id: item.id, name: relativeName });
+        else pending.push({ storagePath: `${directory.storagePath}/${item.name}`, relativePath: relativeName });
+        if (entries.length + pending.length > maxEntries) {
+          throw new Error('Published-site folder contains too many files to process safely.');
+        }
+      }
+
+      if ((data || []).length < pageSize) break;
+    }
   }
 
-  throw new Error('Published-site folder contains too many files to process safely.');
+  return entries;
 }
 
 export function publishedSiteFilePaths(

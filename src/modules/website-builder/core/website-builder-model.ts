@@ -4,6 +4,7 @@ import type { WebsiteDeliveryConfig } from './delivery-config';
 import type { AIWebsitePatchReview } from './editor-ai-patch-review';
 import type { AIWebsiteAgentReview } from './editor-ai-scope';
 import type { WebsiteCmsState } from './website-cms';
+import type { WebsiteLocalizationConfig } from './website-localization';
 
 export interface WebsitePage {
   id: string;
@@ -19,6 +20,7 @@ export interface WebsitePage {
   translationKey?: string;
   noIndex?: boolean;
   cmsTemplate?: { collectionId: string };
+  outputPath?: string;
 }
 
 export interface WebsiteClipboardContext {
@@ -248,6 +250,7 @@ export interface PersistedWebsiteProject {
   previewUrl?: string;
   previewToken?: string;
   previewCreatedAt?: string | null;
+  previewFingerprint?: string;
   lastPublishedVersionId?: string | null;
   lastPublishedFingerprint?: string;
   brand?: WebsiteBrand;
@@ -261,6 +264,7 @@ export interface PersistedWebsiteProject {
   seo?: WebsiteSEO;
   history?: ProjectHistoryEntry[];
   cms?: WebsiteCmsState;
+  localization?: WebsiteLocalizationConfig;
 }
 
 export function isWebsiteSymbol(value: unknown): value is WebsiteSymbol {

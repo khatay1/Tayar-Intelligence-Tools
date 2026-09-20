@@ -39,6 +39,7 @@ export function assertValidPublishedWebsiteBundle(
       !name ||
       name.startsWith('/') ||
       name.includes('\\') ||
+      /^(?:versions|previews)(?:\/|$)/i.test(name) ||
       segments.some((segment) => !segment || segment === '.' || segment === '..')
     ) {
       throw new Error('Published website bundle contains an invalid file path.');

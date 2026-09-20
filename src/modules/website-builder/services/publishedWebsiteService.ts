@@ -157,6 +157,27 @@ export async function snapshotPublishedWebsiteFiles(
   return { files: previousFiles };
 }
 
+export async function readPublishedWebsiteFolderFiles(folder: string): Promise<PublishedWebsiteFile[]> {
+  const entries = (await listAllPublishedSiteFiles(publishedSiteStorage, folder))
+    .filter((item) => Boolean(item.id) && Boolean(item.name));
+
+  if (entries.length > 250) throw new Error('Published-site folder contains too many files to promote safely.');
+
+  const files: PublishedWebsiteFile[] = [];
+  for (const entry of entries) {
+    const { data, error } = await publishedSiteStorage.download(`${folder}/${entry.name}`);
+    if (error || !data) throw new Error(`Could not read staged file ${entry.name}${error?.message ? `: ${error.message}` : '.'}`);
+    files.push({
+      name: entry.name,
+      content: await data.text(),
+      contentType: data.type || (entry.name.endsWith('.html') ? 'text/html; charset=utf-8' : entry.name.endsWith('.xml') ? 'application/xml; charset=utf-8' : 'text/plain; charset=utf-8'),
+    });
+  }
+
+  assertValidPublishedWebsiteBundle(files);
+  return files;
+}
+
 export async function restorePublishedWebsiteSnapshot(
   folder: string,
   snapshot: PublishedWebsiteSnapshot,

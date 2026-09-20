@@ -1,5 +1,6 @@
 import { localizeUi } from '@/lib/ui-localization';
 import type { Language } from '@/context/PreferencesContext';
+import { relativeWebsitePageHref } from './website-localization';
 import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionType, WebsiteElement, WebsiteElementContainer, WebsiteFormField, WebsiteSection } from './types';
 import { createDefaultContactFormFields, createSection } from './defaults';
 import { languageCodeLabel, normalizePageLanguage, normalizeSlug } from './project-identifiers';
@@ -557,8 +558,10 @@ export function safeFormRedirectHref(value: string, homeSlug = 'home'): string {
   return '';
 }
 
-export function pageHref(page: WebsitePage, homePageId: string): string {
-  return page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`;
+export function pageHref(page: WebsitePage, homePageId: string, currentPage?: WebsitePage): string {
+  const targetPath = page.outputPath || (page.id === homePageId ? 'index.html' : `${normalizeSlug(page.slug)}.html`);
+  const currentPath = currentPage?.outputPath || 'index.html';
+  return relativeWebsitePageHref(currentPath, targetPath);
 }
 
 export function escapeHtml(value: string): string {
@@ -996,7 +999,10 @@ export function buildFullHtml(
   const runtimeText = (text: string) => localizeUi(text, options.language);
   const runtimeHtml = (text: string) => escapeHtml(runtimeText(text));
   const runtimeJs = (text: string) => JSON.stringify(runtimeText(text)).replace(/</g, '\\u003c');
-  const homePage = options.pages.find((page) => page.id === options.homePageId) || options.pages[0];
+  const defaultHomePage = options.pages.find((page) => page.id === options.homePageId) || options.pages[0];
+  const homePage = options.pages.find((page) => defaultHomePage?.translationKey
+    && page.translationKey === defaultHomePage.translationKey
+    && normalizePageLanguage(page.language, options.language) === options.language) || defaultHomePage;
   const homeSlug = homePage?.slug || 'home';
   const leadCapture: LeadCaptureConfig | undefined = options.leadProjectId && options.supabaseUrl && options.supabaseAnonKey
     ? {
@@ -1030,11 +1036,11 @@ export function buildFullHtml(
   const languageSwitcher = headerConfig.languageSwitcher && translationPages.length > 1
     ? `<div class="site-language-switcher" aria-label="${runtimeHtml('Language')}">${translationPages.map((page) => {
         const lang = normalizePageLanguage(page.language, options.language);
-        return `<a href="${escapeHtml(pageHref(page, options.homePageId))}" hreflang="${lang}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(languageCodeLabel(lang))}</a>`;
+        return `<a href="${escapeHtml(pageHref(page, options.homePageId, currentPage))}" hreflang="${lang}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(languageCodeLabel(lang))}</a>`;
       }).join('')}</div>`
     : '';
   const navigation = headerConfig.enabled
-    ? `<nav class="site-nav${headerConfig.sticky ? ' sticky' : ''}${headerConfig.mobileMenu ? ' mobile-menu' : ''}" data-tayar-mobile-nav><a class="site-brand" href="${escapeHtml(pageHref(homePage, options.homePageId))}"><span class="site-brand-wrap">${headerLogo}<span>${escapeHtml(brandLabel)}</span></span></a>${headerConfig.mobileMenu ? `<button class="site-menu-toggle" type="button" aria-expanded="false" aria-label="${runtimeHtml('Toggle navigation')}"><span aria-hidden="true">☰</span><span>${runtimeHtml('Menu')}</span></button>` : ''}<div class="site-links">${navigationPages.map((page) => `<a href="${escapeHtml(pageHref(page, options.homePageId))}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(page.name)}</a>`).join('')}${languageSwitcher}${searchTrigger}${headerCta}</div></nav>`
+    ? `<nav class="site-nav${headerConfig.sticky ? ' sticky' : ''}${headerConfig.mobileMenu ? ' mobile-menu' : ''}" data-tayar-mobile-nav><a class="site-brand" href="${escapeHtml(pageHref(homePage, options.homePageId, currentPage))}"><span class="site-brand-wrap">${headerLogo}<span>${escapeHtml(brandLabel)}</span></span></a>${headerConfig.mobileMenu ? `<button class="site-menu-toggle" type="button" aria-expanded="false" aria-label="${runtimeHtml('Toggle navigation')}"><span aria-hidden="true">☰</span><span>${runtimeHtml('Menu')}</span></button>` : ''}<div class="site-links">${navigationPages.map((page) => `<a href="${escapeHtml(pageHref(page, options.homePageId, currentPage))}"${page.id === options.currentPageId ? ' class="active"' : ''}>${escapeHtml(page.name)}</a>`).join('')}${languageSwitcher}${searchTrigger}${headerCta}</div></nav>`
     : '';
 
   const navigationScript = headerConfig.enabled && headerConfig.mobileMenu ? `<script>
@@ -1061,7 +1067,7 @@ export function buildFullHtml(
     ['X', footerConfig.xUrl],
   ].filter((item) => item[1]);
   const footerNavigation = footerConfig.showNavigation
-    ? navigationPages.map((page) => `<a href="${escapeHtml(pageHref(page, options.homePageId))}">${escapeHtml(page.name)}</a>`).join('')
+    ? navigationPages.map((page) => `<a href="${escapeHtml(pageHref(page, options.homePageId, currentPage))}">${escapeHtml(page.name)}</a>`).join('')
     : '';
   const footerSocials = socialLinks
     .map(([label, href]) => `<a href="${escapeHtml(safeSocialUrl(href))}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`)
@@ -1236,7 +1242,7 @@ export function buildFullHtml(
     : '';
   const searchIndex = options.pages.map((page) => ({
     title: page.name,
-    href: pageHref(page, options.homePageId),
+    href: pageHref(page, options.homePageId, currentPage),
     text: page.sections.flatMap((section) => [section.title, section.description, ...(section.elements || []).map((element) => element.content || '')]).join(' ').replace(/\s+/g, ' ').trim().slice(0, 6000),
   }));
   const searchOverlay = siteEnhancements.siteSearch

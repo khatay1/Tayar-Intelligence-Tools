@@ -5,6 +5,11 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  'Promoting…': 'جارٍ النشر…',
+  'Promote to live': 'نشر النسخة التجريبية',
+  'Default language': 'اللغة الافتراضية',
+  'Locale routes': 'مسارات اللغات',
+  'Staging is behind the current editor. Regenerate it before promotion if these changes should go live.': 'النسخة التجريبية أقدم من المحرر. أعد إنشاءها قبل النشر إذا أردت تضمين التغييرات الحالية.',
   'Editor clipboard': 'حافظة المحرر',
   'Copy element': 'نسخ العنصر',
   'Paste element': 'لصق العنصر',
@@ -2716,6 +2721,11 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  'Promoting…': 'Publicerar…',
+  'Promote to live': 'Publicera testversionen',
+  'Default language': 'Standardspråk',
+  'Locale routes': 'Språksökvägar',
+  'Staging is behind the current editor. Regenerate it before promotion if these changes should go live.': 'Testversionen är äldre än redigeraren. Skapa om den före publicering om ändringarna ska inkluderas.',
   'Editor clipboard': 'Redigerarens urklipp',
   'Copy element': 'Kopiera element',
   'Paste element': 'Klistra in element',

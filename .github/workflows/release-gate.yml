@@ -42,6 +42,9 @@ jobs:
       - name: Coding Assistance smoke
         run: npm run smoke:code-assistant
 
+      - name: Localization and published storage regression
+        run: node scripts/website-builder-localization-regression.mjs
+
       - name: Website Builder browser regression
         run: timeout 75s npm run smoke:website-builder:browser
 
