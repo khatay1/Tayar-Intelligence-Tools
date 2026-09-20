@@ -51,6 +51,9 @@ jobs:
       - name: Collaboration Pro regression
         run: node scripts/website-collaboration-regression.mjs
 
+      - name: AI quality and design system regression
+        run: node scripts/website-design-system-regression.mjs
+
       - name: Website Builder browser regression
         run: timeout 75s npm run smoke:website-builder:browser
 

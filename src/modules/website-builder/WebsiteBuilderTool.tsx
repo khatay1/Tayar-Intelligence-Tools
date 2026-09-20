@@ -232,6 +232,12 @@ import {
   normalizeBillingStatePayload,
 } from './core/website-builder-config';
 import {
+  WEBSITE_DESIGN_SYSTEM_PRESETS,
+  analyzeWebsiteDesignSystem,
+  repairWebsiteDesignTheme,
+  type WebsiteDesignSystemPreset,
+} from './core/website-design-system';
+import {
   sectionColumnCount,
   sectionLayoutGap,
   sectionLayoutAlign,
@@ -1343,6 +1349,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSelectedId(active?.sections[0]?.id ?? null);
     setSelectedElementId(active?.sections[0]?.elements[0]?.id ?? null);
     setSaved(false);
+  }
+
+  function applyDesignSystemTheme(nextTheme: WebsiteTheme, label: string) {
+    const normalized = normalizeTheme(nextTheme);
+    remember(sections, label);
+    const nextPages = getCurrentPages().map((page) => ({
+      ...page,
+      sections: page.sections.map((section, index) => applyThemeToSection(section, index, normalized)),
+    }));
+    const active = nextPages.find((page) => page.id === activePageId) || nextPages[0];
+    setTheme(normalized);
+    setPages(nextPages);
+    setSections(active?.sections || []);
+    setSelectedId(active?.sections[0]?.id ?? null);
+    setSelectedElementId(active?.sections[0]?.elements[0]?.id ?? null);
+    setSaved(false);
+  }
+
+  function applyDesignSystemPreset(preset: WebsiteDesignSystemPreset) {
+    applyDesignSystemTheme(preset.theme, `Apply ${preset.name} design system`);
+  }
+
+  function repairActiveDesignSystem() {
+    applyDesignSystemTheme(repairWebsiteDesignTheme(theme), 'Repair design system tokens');
   }
 
   function publicWebsiteUrl(projectId: string, ownerId?: string) {
@@ -2835,6 +2865,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return preview;
   }, [aiCandidatePreview, aiPatchReview, canvasActivePage]);
 
+  const designSystemReport = useMemo(() => analyzeWebsiteDesignSystem(
+    theme,
+    pages.map((page) => page.id === activePageId ? { ...page, sections } : page),
+  ), [activePageId, pages, sections, theme]);
+
   const siteAudit = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
     const errors: string[] = [];
@@ -2905,12 +2940,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (productionConfig.maintenanceMode) warnings.push('Maintenance mode is enabled; visitors will not see the website content.');
     if (productionConfig.organizationSchema && !(productionConfig.organizationName.trim() || siteName.trim())) warnings.push('Organization schema has no organization name.');
     if (productionConfig.localBusinessSchema && !productionConfig.localBusinessAddress.trim()) warnings.push('Local Business schema has no address.');
+    designSystemReport.issues.forEach((issue) => {
+      const detail = `Design system: ${issue.title}. ${issue.detail}`;
+      if (issue.severity === 'critical') errors.push(detail);
+      else warnings.push(detail);
+    });
 
     const uniqueErrors = [...new Set(errors)];
     const uniqueWarnings = [...new Set(warnings)];
     const score = Math.max(0, 100 - uniqueErrors.length * 15 - uniqueWarnings.length * 5);
     return { errors: uniqueErrors.slice(0, 20), warnings: uniqueWarnings.slice(0, 30), score };
-  }, [pages, activePageId, homePageId, sections, seo, siteUrl, faviconUrl, headerConfig.enabled, productionConfig, siteName, prefs.language, localizationIssues]);
+  }, [pages, activePageId, homePageId, sections, seo, siteUrl, faviconUrl, headerConfig.enabled, productionConfig, siteName, prefs.language, localizationIssues, designSystemReport]);
 
   const qualityDiagnostics = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -8944,6 +8984,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ...qualityDiagnostics,
         warnings: [...qualityDiagnostics.warnings],
       },
+      designSystem: designSystemReport,
       deviceModes: ['desktop', 'tablet', 'mobile'],
     };
 
@@ -8972,17 +9013,34 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
       if (!review) throw new Error('AI quality check returned no review.');
 
+      const deterministicFindings: AIQualityReview['findings'] = designSystemReport.issues.map((issue) => ({
+        severity: issue.severity,
+        title: issue.title,
+        detail: issue.detail,
+      }));
+      const modelFindings: AIQualityReview['findings'] = Array.isArray(review.findings)
+        ? review.findings.map((finding) => ({
+            severity: finding.severity === 'critical' || finding.severity === 'warning' ? finding.severity : 'improvement',
+            title: String(finding.title || 'Website improvement').slice(0, 120),
+            detail: String(finding.detail || '').slice(0, 500),
+          }))
+        : [];
       const normalized: AIQualityReview = {
-        score: Math.max(0, Math.min(100, Number(review.score) || 0)),
+        score: Math.min(
+          designSystemReport.score,
+          Math.max(0, Math.min(100, Number(review.score) || 0)),
+        ),
         summary: String(review.summary || 'Quality review completed.').slice(0, 500),
-        findings: Array.isArray(review.findings)
-          ? review.findings.slice(0, 8).map((finding) => ({
-              severity: finding.severity === 'critical' || finding.severity === 'warning' ? finding.severity : 'improvement',
-              title: String(finding.title || 'Website improvement').slice(0, 120),
-              detail: String(finding.detail || '').slice(0, 500),
-            }))
-          : [],
-        fixPrompt: String(review.fixPrompt || '').slice(0, 5000),
+        findings: [
+          ...deterministicFindings,
+          ...modelFindings,
+        ].slice(0, 8),
+        fixPrompt: [
+          String(review.fixPrompt || ''),
+          deterministicFindings.length
+            ? `Respect the global design system and safely fix these measured issues: ${deterministicFindings.map((finding) => `${finding.title}: ${finding.detail}`).join(' | ')}`
+            : '',
+        ].filter(Boolean).join('\n').slice(0, 5000),
       };
 
       if (!operationCanApply()) return null;
@@ -8995,11 +9053,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setAiError(message);
       aiQualityReviewContextRef.current = operationContext;
       setAiQualityReview({
-        score: qualityAudit.score,
+        score: Math.min(qualityAudit.score, designSystemReport.score),
         summary: l('Automated builder audit is available, but the AI review could not complete.'),
         findings: [
           ...qualityAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: l('Publish blocker'), detail })),
           ...qualityAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: l('Recommended improvement'), detail })),
+          ...designSystemReport.issues.map((issue) => ({ severity: issue.severity, title: issue.title, detail: issue.detail })),
         ].slice(0, 8),
         fixPrompt: '',
       });
@@ -12497,6 +12556,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       <details open className="tayar-v2-manual-section">
         <summary>{l("Global theme")}</summary>
+        <div className="tayar-v2-manual-note">
+          <strong>{l('Design system score')}: {designSystemReport.score}/100</strong>
+          <p>{designSystemReport.metrics.contrastFailures} {l('contrast issues')} · {designSystemReport.metrics.customColors} {l('off-token colors')} · {designSystemReport.metrics.fontSizes} {l('type sizes')}</p>
+        </div>
+        <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
+          <label><span>{l('System preset')}</span><select value="" onChange={(event) => { const preset = WEBSITE_DESIGN_SYSTEM_PRESETS.find((item) => item.id === event.target.value); if (preset) applyDesignSystemPreset(preset); }}><option value="">{l('Choose a system…')}</option>{WEBSITE_DESIGN_SYSTEM_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{l(preset.name)}</option>)}</select></label>
+          <button type="button" className="tayar-v2-manual-action" disabled={!designSystemReport.issues.length} onClick={repairActiveDesignSystem}>{l('Auto-balance tokens')}</button>
+        </div>
         <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
           <label><span>{l("Primary")}</span><input type="color" value={theme.primaryColor} onChange={(e) => { setTheme((current) => ({ ...current, primaryColor: e.target.value })); setSaved(false); }} /></label>
           <label><span>{l("Secondary")}</span><input type="color" value={theme.secondaryColor} onChange={(e) => { setTheme((current) => ({ ...current, secondaryColor: e.target.value })); setSaved(false); }} /></label>
@@ -14477,6 +14544,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             <div className="mb-3 flex items-center gap-2">
               <Palette className="h-4 w-4 text-violet-400" />
               <span className="text-xs font-semibold">{l('Global Theme')}</span>
+            </div>
+            <div className={`mb-3 rounded-lg border p-2 ${designSystemReport.score >= 90 ? 'border-emerald-500/20' : 'border-amber-500/20'}`}>
+              <div className="flex items-center justify-between text-[10px]"><strong>{l('Design system score')}</strong><span>{designSystemReport.score}/100</span></div>
+              <p className="mt-1 text-[9px] text-gray-500">{designSystemReport.metrics.contrastFailures} {l('contrast issues')} · {designSystemReport.metrics.customColors} {l('off-token colors')}</p>
+              <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+                <select value="" onChange={(event) => { const preset = WEBSITE_DESIGN_SYSTEM_PRESETS.find((item) => item.id === event.target.value); if (preset) applyDesignSystemPreset(preset); }} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-violet-200 bg-white'}`}><option value="">{l('Choose a system…')}</option>{WEBSITE_DESIGN_SYSTEM_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{l(preset.name)}</option>)}</select>
+                <button type="button" disabled={!designSystemReport.issues.length} onClick={repairActiveDesignSystem} className="rounded border border-violet-500/30 px-2 py-1.5 text-[10px] font-semibold text-violet-400 disabled:opacity-40">{l('Auto-balance tokens')}</button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {([

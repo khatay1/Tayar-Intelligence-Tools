@@ -5,6 +5,17 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  'Design system score': 'درجة نظام التصميم',
+  'contrast issues': 'مشكلات تباين',
+  'off-token colors': 'ألوان خارج النظام',
+  'type sizes': 'أحجام خطوط',
+  'System preset': 'نمط النظام',
+  'Choose a system…': 'اختر نظامًا…',
+  'Auto-balance tokens': 'موازنة الرموز تلقائيًا',
+  'SaaS clarity': 'وضوح SaaS',
+  'Editorial': 'تحريري',
+  'Bold studio': 'استوديو جريء',
+  'Calm service': 'خدمة هادئة',
   'Project collaboration': 'تعاون المشروع',
   'Collaboration': 'التعاون',
   'online': 'متصلون',
@@ -2746,6 +2757,17 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  'Design system score': 'Designsystempoäng',
+  'contrast issues': 'kontrastproblem',
+  'off-token colors': 'färger utanför tokens',
+  'type sizes': 'textstorlekar',
+  'System preset': 'Systemförval',
+  'Choose a system…': 'Välj ett system…',
+  'Auto-balance tokens': 'Balansera tokens automatiskt',
+  'SaaS clarity': 'SaaS-tydlighet',
+  'Editorial': 'Redaktionell',
+  'Bold studio': 'Djärv studio',
+  'Calm service': 'Lugn tjänst',
   'Project collaboration': 'Projektsamarbete',
   'Collaboration': 'Samarbete',
   'online': 'online',
