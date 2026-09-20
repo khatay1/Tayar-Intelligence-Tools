@@ -5,6 +5,18 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  'Project collaboration': 'تعاون المشروع',
+  'Collaboration': 'التعاون',
+  'online': 'متصلون',
+  'open comments': 'تعليقات مفتوحة',
+  'Comment on': 'تعليق على',
+  'selected element': 'العنصر المحدد',
+  'selected section': 'القسم المحدد',
+  'Write a review comment…': 'اكتب تعليق مراجعة…',
+  'Show resolved': 'إظهار المحلول',
+  'Comment': 'تعليق',
+  'No review comments yet.': 'لا توجد تعليقات مراجعة بعد.',
+  'Delete this review comment?': 'هل تريد حذف تعليق المراجعة هذا؟',
   'Custom domain': 'الدومين المخصص',
   'Domain name': 'اسم الدومين',
   'Connect domain': 'ربط الدومين',
@@ -2734,6 +2746,18 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  'Project collaboration': 'Projektsamarbete',
+  'Collaboration': 'Samarbete',
+  'online': 'online',
+  'open comments': 'öppna kommentarer',
+  'Comment on': 'Kommentera',
+  'selected element': 'valt element',
+  'selected section': 'vald sektion',
+  'Write a review comment…': 'Skriv en granskningskommentar…',
+  'Show resolved': 'Visa lösta',
+  'Comment': 'Kommentera',
+  'No review comments yet.': 'Inga granskningskommentarer ännu.',
+  'Delete this review comment?': 'Ta bort den här granskningskommentaren?',
   'Custom domain': 'Egen domän',
   'Domain name': 'Domännamn',
   'Connect domain': 'Anslut domän',

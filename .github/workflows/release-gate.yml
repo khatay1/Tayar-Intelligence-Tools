@@ -48,6 +48,9 @@ jobs:
       - name: Custom domain regression
         run: node scripts/website-custom-domain-regression.mjs
 
+      - name: Collaboration Pro regression
+        run: node scripts/website-collaboration-regression.mjs
+
       - name: Website Builder browser regression
         run: timeout 75s npm run smoke:website-builder:browser
 

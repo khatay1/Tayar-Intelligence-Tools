@@ -49,6 +49,7 @@ import { ELEMENT_LABELS, SECTION_LABELS, createDefaultContactFormFields, createE
 import { resolveWebsiteBuilderV2Flags } from './core/editor-feature-flags';
 import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
 import { BuilderCmsPanel } from './v2-ui/BuilderCmsPanel';
+import { WebsiteCollaborationPanel } from './v2-ui/WebsiteCollaborationPanel';
 import { EMPTY_WEBSITE_CMS, materializeWebsiteCmsSections, normalizeWebsiteCms, validateWebsiteCms, type WebsiteCmsState } from './core/website-cms';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
@@ -9217,9 +9218,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         title: siteName,
         content: stagedProjectData,
         published: Boolean(publishedUrl),
+        expectedUpdatedAt: cloudProjects.find((project) => project.id === previewProjectId)?.updated_at,
+        updatedAt: String(stagedProjectData.updatedAt || createdAt),
       });
       if (stagedSave.error) throw new Error(stagedSave.error.message);
       if (!previewIsCurrent()) return;
+      setCloudProjects((current) => current.map((project) => project.id === previewProjectId
+        ? {
+            ...project,
+            content: stagedProjectData,
+            updated_at: stagedSave.data?.updated_at || String(stagedProjectData.updatedAt || createdAt),
+          }
+        : project));
       setPreviewToken(token);
       setPreviewUrl(nextUrl);
       setPreviewCreatedAt(createdAt);
@@ -9565,12 +9575,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setCloudSyncFailed(true);
         setCloudError('You are offline. Changes are saved locally and will retry when the connection returns.');
       } else if (cloudProjectId) {
+        const expectedUpdatedAt = cloudProjects.find((project) => project.id === cloudProjectId)?.updated_at;
+        const nextUpdatedAt = String(projectData.updatedAt || new Date().toISOString());
         const result = await updateWebsiteProjectInCloud({
           projectId: cloudProjectId,
           title: siteName.trim() || 'My Website',
           content: projectData,
           published: Boolean(publishedUrl),
           signal: saveController.signal,
+          expectedUpdatedAt,
+          updatedAt: nextUpdatedAt,
         });
 
         if (!saveIsCurrent()) return false;
@@ -9590,7 +9604,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     title: siteName.trim() || 'My Website',
                     content: projectData,
                     status: publishedUrl ? 'completed' : 'draft',
-                    updated_at: String(projectData.updatedAt || new Date().toISOString()),
+                    updated_at: result.data?.updated_at || nextUpdatedAt,
                   }
                 : project
             )
@@ -15994,11 +16008,37 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     </div>
   );
 
+  const collaborationPanel = (
+    <WebsiteCollaborationPanel
+      projectId={cloudProjectId}
+      canEdit={projectTeamAccess.canEdit}
+      canManage={projectTeamAccess.canManage}
+      pageId={activePageId}
+      pageName={activePage?.name || siteName}
+      sectionId={selectedId}
+      elementId={selectedElementId}
+      darkMode={darkMode}
+      onNavigate={(anchor) => {
+        const targetPage = getCurrentPages().find((page) => page.id === anchor.pageId);
+        if (targetPage && targetPage.id !== activePageId) switchPage(targetPage.id);
+        if (!anchor.sectionId || !targetPage) return;
+        const targetSection = targetPage.sections.find((section) => section.id === anchor.sectionId);
+        if (!targetSection) return;
+        const targetElementId = anchor.elementId && targetSection.elements.some((element) => element.id === anchor.elementId)
+          ? anchor.elementId
+          : null;
+        selectEditorTarget(targetSection.id, targetElementId);
+        setInspectorOpen(true);
+      }}
+    />
+  );
+
   if (!editorV2Flags.shell) {
-    return legacyBuilder;
+    return <>{legacyBuilder}{collaborationPanel}</>;
   }
 
   return (
+    <>
     <WebsiteBuilderV2Bridge
       canvas={v2Canvas}
       overlaySlot={commandPaletteOverlay}
@@ -16316,5 +16356,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setInspectorOpen(true);
       }}
     />
+    {collaborationPanel}
+    </>
   );
 }

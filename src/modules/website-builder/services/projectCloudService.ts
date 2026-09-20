@@ -14,6 +14,8 @@ export interface CreateWebsiteProjectCloudInput extends WebsiteProjectCloudSaveI
 
 export interface UpdateWebsiteProjectCloudInput extends WebsiteProjectCloudSaveInput {
   projectId: string;
+  expectedUpdatedAt?: string | null;
+  updatedAt?: string;
 }
 
 export interface CreatedWebsiteProjectCloudRow {
@@ -38,32 +40,38 @@ export async function updateWebsiteProjectInCloud({
   content,
   published,
   signal,
+  expectedUpdatedAt,
+  updatedAt,
 }: UpdateWebsiteProjectCloudInput): Promise<WebsiteProjectCloudMutationResult<{ id: string; updated_at?: string | null }>> {
   return retryCloudOperation(async () => {
-    const query = supabase
+    let query = supabase
       .from('projects')
       .update({
         title,
         content,
         status: published ? 'completed' : 'draft',
-        updated_at: new Date().toISOString(),
+        updated_at: updatedAt || new Date().toISOString(),
       })
-      .eq('id', projectId)
-      .select('id, updated_at')
-      .maybeSingle();
+      .eq('id', projectId);
 
-    const abortableQuery = query as typeof query & {
-      abortSignal?: (abortSignal: AbortSignal) => typeof query;
+    if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt);
+
+    const selectQuery = query.select('id, updated_at').maybeSingle();
+
+    const abortableQuery = selectQuery as typeof selectQuery & {
+      abortSignal?: (abortSignal: AbortSignal) => typeof selectQuery;
     };
     const result = await (
       signal && typeof abortableQuery.abortSignal === 'function'
         ? abortableQuery.abortSignal(signal)
-        : query
+        : selectQuery
     );
 
     if (!result.error && !result.data) {
       return missingMutationResult<{ id: string; updated_at?: string | null }>(
-        'Cloud save did not match an accessible website project. Reopen the project before saving again.',
+        expectedUpdatedAt
+          ? 'A teammate saved a newer version. Reopen the cloud project before saving so their changes are not overwritten.'
+          : 'Cloud save did not match an accessible website project. Reopen the project before saving again.',
       );
     }
 
