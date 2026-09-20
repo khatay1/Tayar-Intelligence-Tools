@@ -1,5 +1,6 @@
 const SAFE_SEGMENT = /^[A-Za-z0-9_-]{1,160}$/;
 const SAFE_FILE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,500}$/;
+const SAFE_HOSTNAME = /^(?=.{4,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 function queryValue(url, name) {
   const value = url.searchParams.get(name);
@@ -151,6 +152,19 @@ async function fetchStorageFile(supabaseUrl, storagePath) {
   );
 }
 
+async function projectForHostname(supabaseUrl, hostname) {
+  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '');
+  if (!serviceKey || !SAFE_HOSTNAME.test(hostname)) return null;
+  const query = new URLSearchParams({ hostname: `eq.${hostname}`, status: 'eq.verified', select: 'project_id,user_id', limit: '1' });
+  const response = await fetch(`${supabaseUrl}/rest/v1/website_custom_domains?${query}`, {
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    cache: 'no-store',
+  });
+  if (!response.ok) return null;
+  const row = (await response.json())[0];
+  return row ? { ownerId: row.user_id, projectId: row.project_id } : null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.setHeader('Allow', 'GET, HEAD');
@@ -173,8 +187,15 @@ export default async function handler(req, res) {
 
   const url = new URL(req.url || '/', `https://${req.headers.host || 'tayar.local'}`);
   const route = resolveRoute(req, url);
-  const ownerId = route.ownerId;
-  const projectId = route.projectId;
+  const hostname = queryValue(url, 'hostname').toLowerCase().replace(/\.$/, '');
+  const domainProject = hostname ? await projectForHostname(supabaseUrl, hostname) : null;
+  if (hostname && !domainProject) {
+    res.statusCode = 404;
+    res.end('Custom domain is not connected to a published website');
+    return;
+  }
+  const ownerId = domainProject?.ownerId || route.ownerId;
+  const projectId = domainProject?.projectId || route.projectId;
   const previewToken = route.previewToken;
   const file = safeFilePath(route.file || 'index.html');
 
@@ -211,7 +232,23 @@ export default async function handler(req, res) {
   let responseFile = file;
   let status = upstream.status;
 
-  if (!upstream.ok && /\.html?$/i.test(file) && file !== '404.html') {
+  if (hostname && !upstream.ok && !/\.[a-z0-9]{1,12}$/i.test(file)) {
+    for (const candidate of [`${file}.html`, `${file}/index.html`]) {
+      try {
+        const cleanRoute = await fetchStorageFile(supabaseUrl, `${root}/${candidate}`);
+        if (cleanRoute.ok) {
+          upstream = cleanRoute;
+          responseFile = candidate;
+          status = 200;
+          break;
+        }
+      } catch {
+        // Continue to the regular 404 fallback.
+      }
+    }
+  }
+
+  if (!upstream.ok && (/\.html?$/i.test(file) || (hostname && !/\.[a-z0-9]{1,12}$/i.test(file))) && file !== '404.html') {
     try {
       const fallback = await fetchStorageFile(supabaseUrl, `${root}/404.html`);
       if (fallback.ok) {

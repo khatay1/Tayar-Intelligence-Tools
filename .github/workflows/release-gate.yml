@@ -45,6 +45,9 @@ jobs:
       - name: Localization and published storage regression
         run: node scripts/website-builder-localization-regression.mjs
 
+      - name: Custom domain regression
+        run: node scripts/website-custom-domain-regression.mjs
+
       - name: Website Builder browser regression
         run: timeout 75s npm run smoke:website-builder:browser
 

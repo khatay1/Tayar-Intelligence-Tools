@@ -89,6 +89,13 @@ import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusable
 import { createWebsitePublishVersion, deleteWebsitePublishVersionArchive, discardWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
 import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
+import {
+  checkWebsiteCustomDomain,
+  connectWebsiteCustomDomain,
+  getWebsiteCustomDomain,
+  removeWebsiteCustomDomain,
+  type WebsiteCustomDomain,
+} from './services/websiteDomainService';
 import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
 import { buildProjectSnapshotDiffSummary } from './core/project-release-metrics';
 import { getWebsiteLeadPhone, getWebsiteLeadSource } from './core/website-lead-utils';
@@ -397,6 +404,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }), [user?.id, cloudProjectId, cloudProjects, projectTeamAccess.ownerId]);
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudError, setCloudError] = useState('');
+  const [customDomain, setCustomDomain] = useState<WebsiteCustomDomain | null>(null);
+  const [customDomainDraft, setCustomDomainDraft] = useState('');
+  const [customDomainBusy, setCustomDomainBusy] = useState(false);
+  const [customDomainError, setCustomDomainError] = useState('');
   const [projectHistory, setProjectHistory] = useState<ProjectHistoryEntry[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [releaseHistoryOpen, setReleaseHistoryOpen] = useState(false);
@@ -700,6 +711,89 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setSaved(false);
     }, 2000);
   }
+
+  const refreshCustomDomain = useCallback(async () => {
+    if (!cloudProjectId || !user) {
+      setCustomDomain(null);
+      setCustomDomainDraft('');
+      return;
+    }
+    const loadSequence = projectLoadSequenceRef.current;
+    const project = cloudProjectId;
+    const userId = user.id;
+    setCustomDomainBusy(true);
+    setCustomDomainError('');
+    try {
+      const domain = await getWebsiteCustomDomain(project);
+      if (projectLoadSequenceRef.current !== loadSequence || activeUserIdRef.current !== userId) return;
+      setCustomDomain(domain);
+      setCustomDomainDraft(domain?.hostname || '');
+    } catch (error) {
+      if (projectLoadSequenceRef.current === loadSequence && activeUserIdRef.current === userId) {
+        setCustomDomainError(error instanceof Error ? error.message : 'Could not load the custom domain.');
+      }
+    } finally {
+      if (projectLoadSequenceRef.current === loadSequence && activeUserIdRef.current === userId) setCustomDomainBusy(false);
+    }
+  }, [cloudProjectId, user]);
+
+  async function connectCustomDomain() {
+    if (!cloudProjectId || !customDomainDraft.trim()) return;
+    const loadSequence = projectLoadSequenceRef.current;
+    const project = cloudProjectId;
+    setCustomDomainBusy(true);
+    setCustomDomainError('');
+    try {
+      const domain = await connectWebsiteCustomDomain(project, customDomainDraft);
+      if (projectLoadSequenceRef.current !== loadSequence) return;
+      setCustomDomain(domain);
+      setCustomDomainDraft(domain?.hostname || customDomainDraft.trim().toLowerCase());
+      if (domain?.status === 'verified') { setSiteUrl(`https://${domain.hostname}`); setSaved(false); }
+    } catch (error) {
+      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainError(error instanceof Error ? error.message : 'Could not connect the domain.');
+    } finally {
+      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainBusy(false);
+    }
+  }
+
+  async function checkCustomDomain() {
+    if (!cloudProjectId || !customDomain?.hostname) return;
+    const loadSequence = projectLoadSequenceRef.current;
+    const project = cloudProjectId;
+    setCustomDomainBusy(true);
+    setCustomDomainError('');
+    try {
+      const domain = await checkWebsiteCustomDomain(project, customDomain.hostname);
+      if (projectLoadSequenceRef.current !== loadSequence) return;
+      setCustomDomain(domain);
+      if (domain?.status === 'verified') { setSiteUrl(`https://${domain.hostname}`); setSaved(false); }
+    } catch (error) {
+      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainError(error instanceof Error ? error.message : 'Could not verify the domain.');
+    } finally {
+      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainBusy(false);
+    }
+  }
+
+  async function removeCustomDomain() {
+    if (!cloudProjectId || !customDomain) return;
+    if (!window.confirm(l('Disconnect this custom domain?'))) return;
+    const loadSequence = projectLoadSequenceRef.current;
+    const project = cloudProjectId;
+    setCustomDomainBusy(true);
+    setCustomDomainError('');
+    try {
+      await removeWebsiteCustomDomain(project);
+      if (projectLoadSequenceRef.current !== loadSequence) return;
+      setCustomDomain(null);
+      setCustomDomainDraft('');
+    } catch (error) {
+      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainError(error instanceof Error ? error.message : 'Could not disconnect the domain.');
+    } finally {
+      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainBusy(false);
+    }
+  }
+
+  useEffect(() => { void refreshCustomDomain(); }, [refreshCustomDomain]);
 
   const getCurrentPages = useCallback(() => {
     return pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -9083,8 +9177,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       // Freeze the production bundle at staging time, including forms and tracking.
       // The share preview remains a separate, untracked rendering.
-      const liveBaseUrl = buildPublishedSiteBaseUrl(previewUserId, previewProjectId);
-      if (!liveBaseUrl) throw new Error('Could not build the production URL.');
+      const publicRouteBaseUrl = buildPublishedSiteBaseUrl(previewUserId, previewProjectId);
+      if (!publicRouteBaseUrl) throw new Error('Could not build the production URL.');
+      const liveBaseUrl = customDomain?.status === 'verified' ? `https://${customDomain.hostname}` : publicRouteBaseUrl;
       const productionFiles = currentPages.map((page) => ({
         name: getOutputFilename(page),
         content: getHtml(page.sections, page.id, liveBaseUrl, true, true),
@@ -10216,6 +10311,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       setPublishError('Regenerate staging before promoting it to production.');
       return;
     }
+    if (fromStaging && previewFingerprint !== buildEditableFingerprint()) {
+      setPublishError('Staging is behind the current editor. Regenerate it before promotion if these changes should go live.');
+      return;
+    }
     const operationalBlocker = publishOperationalBlocker();
     if (operationalBlocker) {
       setPublishError(operationalBlocker);
@@ -10314,6 +10413,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (!publicBaseUrl) {
         throw new Error('Could not build the public website URL.');
       }
+      const productionBaseUrl = customDomain?.status === 'verified' ? `https://${customDomain.hostname}` : publicBaseUrl;
+      const releasePublishedUrl = customDomain?.status === 'verified' ? `${productionBaseUrl}/` : `${publicBaseUrl}/index.html`;
 
       const currentPages = getOutputPages();
 
@@ -10330,7 +10431,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         content: getHtml(
           page.sections,
           page.id,
-          publicBaseUrl,
+          productionBaseUrl,
           true,
           true,
         ),
@@ -10344,7 +10445,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           content: getHtml(
             firstPage.sections,
             firstPage.id,
-            publicBaseUrl,
+            productionBaseUrl,
             true,
             true,
           ),
@@ -10355,7 +10456,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const sitemapEntries = currentPages
         .filter((page) => page.noIndex !== true)
         .map((page) => {
-          const location = websitePathUrl(publicBaseUrl, getOutputFilename(page), true);
+          const location = websitePathUrl(productionBaseUrl, getOutputFilename(page), true);
 
           return '  <url><loc>' + escapeHtml(location) + '</loc></url>';
         })
@@ -10370,7 +10471,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         {
           name: '404.html',
           content: get404Html(
-            publicBaseUrl,
+            productionBaseUrl,
             true,
             true,
           ),
@@ -10393,7 +10494,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
               ? '\n' + customRobotsRules + '\n'
               : '\n') +
             'Sitemap: ' +
-            publicBaseUrl +
+            productionBaseUrl +
             '/sitemap.xml\n',
           contentType: 'text/plain; charset=utf-8',
         },
@@ -10471,8 +10572,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             ...publishBaseProjectData,
             ...(fromStaging ? JSON.parse(previewFingerprint) : {}),
             publishedUrl:
-              publicBaseUrl +
-              '/index.html',
+              releasePublishedUrl,
             publishedAt:
               new Date().toISOString(),
             lastPublishedVersionId:
@@ -10488,7 +10588,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             projectId: publishProjectId,
             ownerId: publishUserId,
             releaseNote: publishReleaseNote,
-            publishedUrl: publicBaseUrl + '/index.html',
+            publishedUrl: releasePublishedUrl,
             storagePrefix: versionPrefix,
             editorFingerprint: publishEditableFingerprint,
             snapshot: provisionalData,
@@ -10521,17 +10621,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }
       }
 
-      const nextPublishedUrl =
+      const nextPublishedRouteUrl =
         buildPublishedSiteUrl(publishUserId, publishProjectId, 'index.html');
 
-      if (!nextPublishedUrl) {
+      if (!nextPublishedRouteUrl) {
         throw new Error('Could not build the public website URL.');
       }
 
       assertPublishIsCurrent();
 
       const renderedRouteHealthy =
-        await verifyPublishedRoute(nextPublishedUrl);
+        await verifyPublishedRoute(nextPublishedRouteUrl);
 
       assertPublishIsCurrent();
 
@@ -10543,6 +10643,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       const nextPublishedAt =
         new Date().toISOString();
+      const nextPublishedUrl = customDomain?.status === 'verified' ? `${productionBaseUrl}/` : nextPublishedRouteUrl;
 
       const projectData = {
         ...publishBaseProjectData,
@@ -12349,6 +12450,38 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       </details>
 
       <details open className="tayar-v2-manual-section">
+        <summary>{l("Custom domain")}</summary>
+        <div className="tayar-v2-manual-fields">
+          <label>
+            <span>{l("Domain name")}</span>
+            <input value={customDomainDraft} disabled={customDomainBusy || !cloudProjectId || !projectTeamAccess.canPublish} placeholder="www.example.com" onChange={(event) => setCustomDomainDraft(event.target.value.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''))} />
+          </label>
+          {!cloudProjectId && <p className="tayar-v2-manual-note">{l('Save this project to the cloud before connecting a domain.')}</p>}
+          {customDomain && (
+            <p className="tayar-v2-manual-note">
+              {l('Status')}: <strong>{l(customDomain.status)}</strong>
+              {customDomain.status === 'verified' && <> · <a href={`https://${customDomain.hostname}`} target="_blank" rel="noreferrer">https://{customDomain.hostname}</a></>}
+            </p>
+          )}
+          {customDomain?.status === 'verified' && <p className="tayar-v2-manual-note">{l('Publish again to update canonical URLs and activate the latest website on this domain.')}</p>}
+          {!!customDomain?.verification?.length && (
+            <div className="tayar-v2-manual-note">
+              <strong>{l('DNS records required')}</strong>
+              {customDomain.verification.map((record, index) => (
+                <p key={`${record.type}-${index}`}><code>{record.type || 'TXT'} {record.domain || customDomain.hostname} {record.value || record.reason || ''}</code></p>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="tayar-v2-manual-action" disabled={customDomainBusy || !cloudProjectId || !customDomainDraft.trim() || !projectTeamAccess.canPublish} onClick={() => void connectCustomDomain()}>{customDomainBusy ? l('Working…') : customDomain ? l('Update domain') : l('Connect domain')}</button>
+            {customDomain && <button type="button" className="tayar-v2-manual-action" disabled={customDomainBusy} onClick={() => void checkCustomDomain()}>{l('Check DNS')}</button>}
+            {customDomain && <button type="button" className="tayar-v2-manual-action is-danger" disabled={customDomainBusy} onClick={() => void removeCustomDomain()}>{l('Disconnect')}</button>}
+          </div>
+          {customDomainError && <p className="tayar-v2-manual-note text-rose-400">{l(customDomainError)}</p>}
+        </div>
+      </details>
+
+      <details open className="tayar-v2-manual-section">
         <summary>{l("Global theme")}</summary>
         <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
           <label><span>{l("Primary")}</span><input type="color" value={theme.primaryColor} onChange={(e) => { setTheme((current) => ({ ...current, primaryColor: e.target.value })); setSaved(false); }} /></label>
@@ -13941,7 +14074,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')} className="text-xs font-semibold text-cyan-400">{l('Open')}</button>
                       <button onClick={() => void navigator.clipboard.writeText(previewUrl)} className="text-xs font-semibold text-sky-400">{l("Copy")}</button>
-                      <button onClick={() => void promoteSharePreviewToLive()} disabled={publishBusy || previewBusy} className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40">{publishBusy ? l('Promoting…') : l('Promote to live')}</button>
+                      <button onClick={() => void promoteSharePreviewToLive()} disabled={publishBusy || previewBusy || previewFingerprint !== currentAIEditableFingerprint} className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40">{publishBusy ? l('Promoting…') : l('Promote to live')}</button>
                       <button onClick={() => void createSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-indigo-400">{l('Regenerate')}</button>
                       <button onClick={() => void revokeSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-rose-400">{l('Revoke')}</button>
                     </div>
