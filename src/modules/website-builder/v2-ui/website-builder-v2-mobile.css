@@ -1,11 +1,6 @@
-/* Mobile editor shell: keep the canvas usable while exposing full Tools and Inspector drawers. */
-.tayar-v2-topbar__mobile-panels {
-  display: none;
-}
-
-.tayar-v2-mobile-panel-scrim {
-  display: none;
-}
+/* Responsive editor shell: keep the canvas usable while exposing full Tools and Inspector drawers. */
+.tayar-v2-topbar__mobile-panels { display: none; }
+.tayar-v2-mobile-panel-scrim { display: none; }
 
 .tayar-v2-tools-heading {
   display: flex;
@@ -18,19 +13,19 @@
   font-weight: 600;
 }
 
-.tayar-v2-panel-close {
-  display: none;
-}
+.tayar-v2-panel-close { display: none; }
 
 @media (max-width: 850px) {
   .tayar-v2-panel-close {
     display: grid;
     place-items: center;
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 44px;
+    min-height: 44px;
     color: inherit;
     font-size: 22px;
+    touch-action: manipulation;
   }
+
   .tayar-v2-mobile-panel-scrim {
     display: block;
     position: absolute;
@@ -38,7 +33,8 @@
     z-index: 44;
     border: 0;
     padding: 0;
-    background: rgba(2, 6, 23, .42);
+    background: rgba(2, 6, 23, .54);
+    backdrop-filter: blur(2px);
     cursor: pointer;
   }
 
@@ -48,6 +44,7 @@
     height: calc(100dvh - 96px) !important;
     max-height: none;
     border-radius: 12px;
+    isolation: isolate;
   }
 
   .tayar-v2-shell__workspace {
@@ -64,12 +61,18 @@
     min-width: 0;
   }
 
+  .tayar-v2-left-sidebar,
+  .tayar-v2-inspector {
+    overscroll-behavior: contain;
+    background: #0b0b1d;
+  }
+
   .tayar-v2-left-sidebar {
     position: absolute !important;
     inset: 0 auto 0 0;
     z-index: 45;
     display: grid !important;
-    width: min(92vw, 320px);
+    width: min(92vw, 340px);
     max-width: 100%;
     grid-template-columns: var(--tayar-v2-left-rail) minmax(0, 1fr) !important;
     border-right: 1px solid rgba(148, 163, 184, .18);
@@ -81,6 +84,7 @@
     min-width: 0;
     overflow-x: hidden;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .tayar-v2-inspector {
@@ -88,11 +92,16 @@
     inset: 0 0 0 auto;
     z-index: 46;
     display: grid !important;
-    width: min(92vw, 320px);
+    width: min(92vw, 340px);
     max-width: 100%;
     grid-template-rows: auto minmax(0, 1fr);
     border-left: 1px solid rgba(148, 163, 184, .18);
     box-shadow: -18px 0 50px rgba(0, 0, 0, .42);
+  }
+
+  .tayar-v2-inspector__body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .tayar-v2-topbar {
@@ -109,9 +118,10 @@
   }
 
   .tayar-v2-topbar__mobile-panels .tayar-v2-mobile-panel-button {
-    min-height: 36px;
-    padding-inline: 9px;
+    min-height: 44px;
+    padding-inline: 10px;
     white-space: nowrap;
+    touch-action: manipulation;
   }
 
   .tayar-v2-topbar__mobile-panels .tayar-v2-mobile-panel-button[aria-pressed='true'] {
@@ -127,61 +137,83 @@
     justify-content: flex-end;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
+    scrollbar-width: none;
   }
 
-  .tayar-v2-topbar__actions button {
-    min-height: 36px;
+  .tayar-v2-topbar__actions::-webkit-scrollbar,
+  .tayar-v2-canvas__toolbar::-webkit-scrollbar,
+  .tayar-v2-statusbar::-webkit-scrollbar { display: none; }
+
+  .tayar-v2-topbar__actions button,
+  .tayar-v2-canvas__toolbar button {
+    min-height: 44px;
     flex: 0 0 auto;
     white-space: nowrap;
+    touch-action: manipulation;
   }
 
   .tayar-v2-canvas__toolbar {
     gap: 6px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
+    scrollbar-width: none;
   }
 
   .tayar-v2-canvas__toolbar > div,
-  .tayar-v2-canvas__toolbar > button {
-    flex: 0 0 auto;
-  }
+  .tayar-v2-canvas__toolbar > button { flex: 0 0 auto; }
 
   .tayar-v2-canvas__viewport {
     padding: 10px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .tayar-v2-statusbar {
     justify-content: flex-start;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
+    scrollbar-width: none;
   }
 }
 
 @media (max-width: 650px) {
-  .tayar-v2-topbar__brand {
-    display: none;
-  }
+  .tayar-v2-topbar__brand { display: none; }
 
   .tayar-v2-shell .tayar-v2-topbar__actions .tayar-v2-preview-button,
-  .tayar-v2-shell .tayar-v2-topbar__actions .tayar-v2-check-button {
-    display: inline-flex;
-  }
+  .tayar-v2-shell .tayar-v2-topbar__actions .tayar-v2-check-button { display: inline-flex; }
 
-  .tayar-v2-shell .tayar-v2-topbar {
-    flex-wrap: wrap;
-  }
+  .tayar-v2-shell .tayar-v2-topbar { flex-wrap: wrap; }
 
   .tayar-v2-shell .tayar-v2-topbar__actions {
     flex-basis: 100%;
     justify-content: flex-start;
-    padding-block: 4px;
+    padding-block: 2px 4px;
   }
 
-  .tayar-v2-topbar__actions {
-    gap: 4px;
+  .tayar-v2-topbar__actions { gap: 4px; }
+  .tayar-v2-canvas__viewport { padding: 6px; }
+}
+
+@media (max-width: 420px) {
+  .tayar-v2-shell {
+    height: calc(100dvh - 82px) !important;
+    border-radius: 8px;
   }
 
-  .tayar-v2-canvas__toolbar button {
-    min-height: 36px;
+  .tayar-v2-left-sidebar,
+  .tayar-v2-inspector { width: calc(100vw - 12px); }
+
+  .tayar-v2-topbar { padding-inline: 6px; }
+  .tayar-v2-statusbar { padding-inline: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tayar-v2-shell *,
+  .tayar-v2-shell *::before,
+  .tayar-v2-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
