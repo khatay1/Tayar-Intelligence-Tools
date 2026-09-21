@@ -2,7 +2,7 @@ import type { Language } from '@/lib/i18n';
 
 const ar: Record<string, string> = {
   'Website templates': 'قوالب المواقع', 'Sections, pages and complete sites ready to insert.': 'أقسام وصفحات ومواقع كاملة جاهزة للإدراج.',
-  'Search templates': 'البحث في القوالب', 'All': 'الكل', 'Sections': 'الأقسام', 'Pages': 'الصفحات', 'Sites': 'المواقع',
+  'Search templates': 'البحث في القوالب', 'Template type': 'نوع القالب', 'Category': 'التصنيف', 'All': 'الكل', 'Sections': 'الأقسام', 'Pages': 'الصفحات', 'Sites': 'المواقع',
   'All categories': 'كل التصنيفات', 'Business': 'أعمال', 'SaaS': 'برمجيات كخدمة', 'Portfolio': 'معرض أعمال', 'Commerce': 'تجارة', 'Content': 'محتوى', 'Launch': 'إطلاق',
   'Featured': 'مميز', 'Preview': 'معاينة', 'Insert': 'إدراج', 'Customize with AI': 'تخصيص بالذكاء الاصطناعي', 'No templates found': 'لم يتم العثور على قوالب',
   'Conversion Hero': 'واجهة تحويل رئيسية', 'Features + Proof': 'المزايا والإثبات', 'Pricing Conversion': 'تسعير للتحويل', 'Lead Contact': 'تواصل للعملاء المحتملين',
@@ -24,7 +24,7 @@ const ar: Record<string, string> = {
 
 const sv: Record<string, string> = {
   'Website templates': 'Webbplatsmallar', 'Sections, pages and complete sites ready to insert.': 'Sektioner, sidor och kompletta webbplatser redo att infogas.',
-  'Search templates': 'Sök mallar', 'All': 'Alla', 'Sections': 'Sektioner', 'Pages': 'Sidor', 'Sites': 'Webbplatser',
+  'Search templates': 'Sök mallar', 'Template type': 'Malltyp', 'Category': 'Kategori', 'All': 'Alla', 'Sections': 'Sektioner', 'Pages': 'Sidor', 'Sites': 'Webbplatser',
   'All categories': 'Alla kategorier', 'Business': 'Företag', 'SaaS': 'SaaS', 'Portfolio': 'Portfolio', 'Commerce': 'E-handel', 'Content': 'Innehåll', 'Launch': 'Lansering',
   'Featured': 'Utvald', 'Preview': 'Förhandsgranska', 'Insert': 'Infoga', 'Customize with AI': 'Anpassa med AI', 'No templates found': 'Inga mallar hittades',
   'Conversion Hero': 'Konverterande hero', 'Features + Proof': 'Funktioner + bevis', 'Pricing Conversion': 'Konverterande prissättning', 'Lead Contact': 'Leadkontakt',
