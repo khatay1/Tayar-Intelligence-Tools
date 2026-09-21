@@ -77,6 +77,13 @@ export function ElementPreview({
     transform: `translate3d(${positionX}px, ${positionY}px, 0) rotate(${rotate}deg) scale(${hoverScale})`,
     transition: 'transform .2s ease, opacity .2s ease, background-color .2s ease, color .2s ease, box-shadow .2s ease, border-color .2s ease',
     width: style.width ? `${style.width}%` : undefined,
+    minWidth: style.minWidth ? `${style.minWidth}px` : undefined,
+    maxWidth: style.maxWidth ? `${style.maxWidth}px` : undefined,
+    height: style.height ? `${style.height}px` : undefined,
+    minHeight: style.minHeight ? `${style.minHeight}px` : undefined,
+    maxHeight: style.maxHeight ? `${style.maxHeight}px` : undefined,
+    aspectRatio: style.aspectRatio || undefined,
+    overflow: style.height || style.maxHeight ? 'hidden' : undefined,
   } as const;
 
   const wrapper = `relative max-w-full rounded-lg outline-none transition duration-150 ${editingInline ? 'cursor-text' : 'cursor-grab active:cursor-grabbing'} ${

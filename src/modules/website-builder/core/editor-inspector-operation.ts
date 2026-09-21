@@ -35,7 +35,9 @@ function setNestedClone(
     cursor = next;
   }
 
-  cursor[path[path.length - 1]] = value;
+  const leaf = path[path.length - 1];
+  if (value === undefined) delete cursor[leaf];
+  else cursor[leaf] = value;
   return root;
 }
 

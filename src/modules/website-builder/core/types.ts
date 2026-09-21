@@ -21,8 +21,9 @@ export type SectionContentWidth = 'boxed' | 'full';
 export type ElementBorderStyle = 'solid' | 'dashed' | 'dotted';
 export type ElementShadow = 'none' | 'sm' | 'md' | 'lg' | 'xl';
 export type ElementAnimation = 'none' | 'fade' | 'fade-up' | 'fade-down' | 'fade-left' | 'fade-right' | 'zoom-in' | 'zoom-out';
-export type ElementContainerLayout = 'stack' | 'row';
+export type ElementContainerLayout = 'stack' | 'row' | 'grid';
 export type ElementContainerAlign = 'start' | 'center' | 'end' | 'stretch';
+export type ElementContainerJustify = 'start' | 'center' | 'end' | 'between';
 export type WebsiteFormFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox';
 
 export interface WebsiteFormField {
@@ -44,7 +45,12 @@ export interface ElementStyle {
   padding?: number;
   borderRadius?: number;
   width?: number;
+  minWidth?: number;
   maxWidth?: number;
+  height?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  aspectRatio?: number;
   marginTop?: number;
   marginRight?: number;
   marginBottom?: number;
@@ -52,6 +58,8 @@ export interface ElementStyle {
   positionX?: number;
   positionY?: number;
   order?: number;
+  flexGrow?: number;
+  flexShrink?: number;
   hidden?: boolean;
   alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
   columnSpan?: number;
@@ -79,7 +87,11 @@ export interface WebsiteElementContainer {
   name: string;
   layout: ElementContainerLayout;
   gap: number;
+  rowGap?: number;
+  columns?: number;
+  wrap?: boolean;
   align: ElementContainerAlign;
+  justify?: ElementContainerJustify;
   backgroundColor: string;
   padding: number;
   borderRadius: number;

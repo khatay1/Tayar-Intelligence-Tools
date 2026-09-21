@@ -498,6 +498,10 @@ export function SectionPreview({
               const column = containerColumn(entry.container, fallbackColumn, previewColumns);
               const span = containerColumnSpan(entry.container, column, previewColumns);
               const alignItems = entry.container.align === 'start' ? 'flex-start' : entry.container.align === 'end' ? 'flex-end' : entry.container.align === 'stretch' ? 'stretch' : 'center';
+              const justifyContent = entry.container.justify === 'start' ? 'flex-start' : entry.container.justify === 'end' ? 'flex-end' : entry.container.justify === 'between' ? 'space-between' : 'center';
+              const containerGap = clampElementNumber(entry.container.gap, 16, 0, 80);
+              const configuredContainerColumns = Math.round(clampElementNumber(entry.container.columns, 2, 1, 12));
+              const containerColumns = device === 'mobile' ? 1 : device === 'tablet' ? Math.min(2, configuredContainerColumns) : configuredContainerColumns;
               return (
                 <div
                   key={entry.container.id}
@@ -509,12 +513,16 @@ export function SectionPreview({
                 >
                   <div className="absolute -top-2 left-2 z-20 rounded bg-cyan-600 px-1.5 py-0.5 text-[9px] font-bold text-white">{entry.container.name}</div>
                   <div
-                    className="flex min-w-0 w-full"
+                    className="min-w-0 w-full"
                     style={{
+                      display: entry.container.layout === 'grid' ? 'grid' : 'flex',
                       flexDirection: entry.container.layout === 'row' && device !== 'mobile' ? 'row' : 'column',
-                      flexWrap: entry.container.layout === 'row' ? 'wrap' : undefined,
-                      gap: `${clampElementNumber(entry.container.gap, 16, 0, 80)}px`,
+                      flexWrap: entry.container.wrap === false ? 'nowrap' : 'wrap',
+                      gridTemplateColumns: entry.container.layout === 'grid' ? `repeat(${containerColumns}, minmax(0, 1fr))` : undefined,
+                      columnGap: `${containerGap}px`,
+                      rowGap: `${clampElementNumber(entry.container.rowGap, containerGap, 0, 80)}px`,
                       alignItems,
+                      justifyContent,
                       background: entry.container.backgroundColor || 'transparent',
                       padding: `${clampElementNumber(entry.container.padding, 20, 0, 120)}px`,
                       borderRadius: `${clampElementNumber(entry.container.borderRadius, 16, 0, 120)}px`,
@@ -535,8 +543,12 @@ export function SectionPreview({
                           tabIndex={-1}
                           className={`relative flex min-w-0 flex-col rounded-md transition ${aiWebsitePatchPreviewClass(aiPreview?.elementKinds[element.id])}`}
                           style={{
-                            flex: entry.container.layout === 'row' && device !== 'mobile' ? '1 1 180px' : '0 0 auto',
-                            width: '100%',
+                            flexGrow: clampElementNumber(elementLayoutStyle.flexGrow, entry.container.layout === 'row' ? 1 : 0, 0, 20),
+                            flexShrink: clampElementNumber(elementLayoutStyle.flexShrink, 1, 0, 20),
+                            flexBasis: entry.container.layout === 'row' && device !== 'mobile' ? '180px' : 'auto',
+                            width: entry.container.layout === 'stack' || device === 'mobile' ? '100%' : 'auto',
+                            minWidth: elementLayoutStyle.minWidth ? `${clampElementNumber(elementLayoutStyle.minWidth, 0, 0, 2400)}px` : 0,
+                            maxWidth: elementLayoutStyle.maxWidth ? `${clampElementNumber(elementLayoutStyle.maxWidth, 0, 0, 2400)}px` : undefined,
                             order: clampElementNumber(elementLayoutStyle.order, 0, -50, 50),
                             marginTop: `${clampElementNumber(elementLayoutStyle.marginTop, 0, -200, 400)}px`,
                             marginRight: `${clampElementNumber(elementLayoutStyle.marginRight, 0, -200, 400)}px`,
@@ -592,6 +604,9 @@ export function SectionPreview({
               marginBottom: `${clampElementNumber(elementLayoutStyle.marginBottom, 0, -200, 400)}px`,
               marginLeft: `${clampElementNumber(elementLayoutStyle.marginLeft, 0, -200, 400)}px`,
               maxWidth: elementLayoutStyle.maxWidth ? `${clampElementNumber(elementLayoutStyle.maxWidth, 0, 0, 2000)}px` : undefined,
+              minWidth: elementLayoutStyle.minWidth ? `${clampElementNumber(elementLayoutStyle.minWidth, 0, 0, 2400)}px` : 0,
+              flexGrow: clampElementNumber(elementLayoutStyle.flexGrow, 0, 0, 20),
+              flexShrink: clampElementNumber(elementLayoutStyle.flexShrink, 1, 0, 20),
               alignSelf: selfAlign,
               justifySelf: selfAlign,
               opacity: hiddenOnDevice ? 0.32 : 1,

@@ -22,7 +22,10 @@ export interface EditorInspectorField {
   min?: number;
   max?: number;
   step?: number;
+  unit?: string;
   placeholder?: string;
+  inheritedValue?: unknown;
+  overridden?: boolean;
 }
 
 interface FieldOptions {
@@ -31,7 +34,10 @@ interface FieldOptions {
   min?: number;
   max?: number;
   step?: number;
+  unit?: string;
   placeholder?: string;
+  inheritedValue?: unknown;
+  overridden?: boolean;
 }
 
 const field = (
@@ -118,70 +124,110 @@ function findFormField(
 function responsiveElementFields(
   device: 'tablet' | 'mobile',
   responsive: Record<string, unknown>,
+  baseStyle: Record<string, unknown>,
 ): EditorInspectorField[] {
   const deviceStyle =
     (responsive[device] as Record<string, unknown> | undefined) || {};
   const prefix = `responsive.${device}`;
   const title = device === 'tablet' ? 'Tablet overrides' : 'Mobile overrides';
+  const override = (key: string) => ({
+    inheritedValue: baseStyle[key],
+    overridden: Object.prototype.hasOwnProperty.call(deviceStyle, key),
+  });
 
   return [
     field(`${prefix}.fontSize`, 'Font size', deviceStyle.fontSize ?? '', 'number', 'responsive', {
       section: title,
       min: 8,
       max: 160,
+      unit: 'px',
+      ...override('fontSize'),
     }),
     field(`${prefix}.fontWeight`, 'Font weight', deviceStyle.fontWeight ?? '', 'number', 'responsive', {
       section: title,
       min: 100,
       max: 900,
       step: 100,
+      ...override('fontWeight'),
     }),
     field(`${prefix}.textAlign`, 'Text align', deviceStyle.textAlign ?? '', 'select', 'responsive', {
       section: title,
       options: ['', ...ALIGN_OPTIONS],
+      ...override('textAlign'),
     }),
     field(`${prefix}.width`, 'Width %', deviceStyle.width ?? '', 'number', 'responsive', {
       section: title,
       min: 0,
       max: 100,
+      unit: '%',
+      ...override('width'),
     }),
     field(`${prefix}.maxWidth`, 'Max width', deviceStyle.maxWidth ?? '', 'number', 'responsive', {
       section: title,
       min: 0,
       max: 2400,
+      unit: 'px',
+      ...override('maxWidth'),
     }),
     field(`${prefix}.padding`, 'Padding', deviceStyle.padding ?? '', 'number', 'responsive', {
       section: title,
       min: 0,
       max: 240,
+      unit: 'px',
+      ...override('padding'),
     }),
     field(`${prefix}.marginTop`, 'Margin top', deviceStyle.marginTop ?? '', 'number', 'responsive', {
       section: title,
       min: -240,
       max: 480,
+      unit: 'px',
+      ...override('marginTop'),
     }),
     field(`${prefix}.marginRight`, 'Margin right', deviceStyle.marginRight ?? '', 'number', 'responsive', {
       section: title,
       min: -240,
       max: 480,
+      unit: 'px',
+      ...override('marginRight'),
     }),
     field(`${prefix}.marginBottom`, 'Margin bottom', deviceStyle.marginBottom ?? '', 'number', 'responsive', {
       section: title,
       min: -240,
       max: 480,
+      unit: 'px',
+      ...override('marginBottom'),
     }),
     field(`${prefix}.marginLeft`, 'Margin left', deviceStyle.marginLeft ?? '', 'number', 'responsive', {
       section: title,
       min: -240,
       max: 480,
+      unit: 'px',
+      ...override('marginLeft'),
     }),
     field(`${prefix}.columnSpan`, 'Column span', deviceStyle.columnSpan ?? '', 'number', 'responsive', {
       section: title,
       min: 1,
       max: 3,
+      ...override('columnSpan'),
     }),
-    field(`${prefix}.hidden`, 'Hide on device', Boolean(deviceStyle.hidden), 'toggle', 'responsive', {
+    field(`${prefix}.hidden`, 'Hide on device', Boolean(deviceStyle.hidden ?? baseStyle.hidden), 'toggle', 'responsive', {
       section: title,
+      ...override('hidden'),
+    }),
+    field(`${prefix}.positionX`, 'Position X', deviceStyle.positionX ?? '', 'number', 'responsive', {
+      section: title, min: -2000, max: 2000, unit: 'px', ...override('positionX'),
+    }),
+    field(`${prefix}.positionY`, 'Position Y', deviceStyle.positionY ?? '', 'number', 'responsive', {
+      section: title, min: -2000, max: 2000, unit: 'px', ...override('positionY'),
+    }),
+    field(`${prefix}.height`, 'Height', deviceStyle.height ?? '', 'number', 'responsive', {
+      section: title, min: 0, max: 2400, unit: 'px', ...override('height'),
+    }),
+    field(`${prefix}.minHeight`, 'Min height', deviceStyle.minHeight ?? '', 'number', 'responsive', {
+      section: title, min: 0, max: 2400, unit: 'px', ...override('minHeight'),
+    }),
+    field(`${prefix}.maxHeight`, 'Max height', deviceStyle.maxHeight ?? '', 'number', 'responsive', {
+      section: title, min: 0, max: 2400, unit: 'px', ...override('maxHeight'),
     }),
   ];
 }
@@ -282,11 +328,28 @@ function buildElementFields(
       section: 'Size & spacing',
       min: 0,
       max: 100,
+      unit: '%',
+    }),
+    field('style.minWidth', 'Min width', style.minWidth ?? '', 'number', 'design', {
+      section: 'Size & spacing', min: 0, max: 2400, unit: 'px',
     }),
     field('style.maxWidth', 'Max width', style.maxWidth ?? '', 'number', 'design', {
       section: 'Size & spacing',
       min: 0,
       max: 2400,
+      unit: 'px',
+    }),
+    field('style.height', 'Height', style.height ?? '', 'number', 'design', {
+      section: 'Size & spacing', min: 0, max: 2400, unit: 'px',
+    }),
+    field('style.minHeight', 'Min height', style.minHeight ?? '', 'number', 'design', {
+      section: 'Size & spacing', min: 0, max: 2400, unit: 'px',
+    }),
+    field('style.maxHeight', 'Max height', style.maxHeight ?? '', 'number', 'design', {
+      section: 'Size & spacing', min: 0, max: 2400, unit: 'px',
+    }),
+    field('style.aspectRatio', 'Aspect ratio', style.aspectRatio ?? '', 'number', 'design', {
+      section: 'Size & spacing', min: 0.1, max: 10, step: 0.01,
     }),
     field('style.padding', 'Padding', style.padding ?? '', 'number', 'design', {
       section: 'Size & spacing',
@@ -337,6 +400,12 @@ function buildElementFields(
       section: 'Layout',
       min: -100,
       max: 100,
+    }),
+    field('style.flexGrow', 'Flex grow', style.flexGrow ?? '', 'number', 'design', {
+      section: 'Layout', min: 0, max: 20, step: 0.1,
+    }),
+    field('style.flexShrink', 'Flex shrink', style.flexShrink ?? '', 'number', 'design', {
+      section: 'Layout', min: 0, max: 20, step: 0.1,
     }),
     field('style.rotate', 'Rotate °', style.rotate ?? '', 'number', 'design', {
       section: 'Layout',
@@ -411,8 +480,8 @@ function buildElementFields(
       max: 1000,
     }),
 
-    ...responsiveElementFields('tablet', responsive),
-    ...responsiveElementFields('mobile', responsive),
+    ...responsiveElementFields('tablet', responsive, style),
+    ...responsiveElementFields('mobile', responsive, style),
 
     field('style.hidden', 'Hide element', Boolean(style.hidden), 'toggle', 'settings', {
       section: 'Visibility',
@@ -615,16 +684,29 @@ function buildContainerFields(
 
     field('layout', 'Layout', container.layout ?? 'stack', 'select', 'design', {
       section: 'Layout',
-      options: ['stack', 'row'],
+      options: ['stack', 'row', 'grid'],
     }),
     field('gap', 'Gap', container.gap ?? 16, 'number', 'design', {
       section: 'Layout',
       min: 0,
       max: 80,
+      unit: 'px',
+    }),
+    field('rowGap', 'Row gap', container.rowGap ?? '', 'number', 'design', {
+      section: 'Layout', min: 0, max: 80, unit: 'px',
+    }),
+    field('columns', 'Grid columns', container.columns ?? 2, 'number', 'design', {
+      section: 'Layout', min: 1, max: 12, step: 1,
+    }),
+    field('wrap', 'Wrap items', container.wrap !== false, 'toggle', 'design', {
+      section: 'Layout',
     }),
     field('align', 'Alignment', container.align ?? 'stretch', 'select', 'design', {
       section: 'Layout',
       options: ['start', 'center', 'end', 'stretch'],
+    }),
+    field('justify', 'Justify content', container.justify ?? 'center', 'select', 'design', {
+      section: 'Layout', options: ['start', 'center', 'end', 'between'],
     }),
     field('padding', 'Padding', container.padding ?? 0, 'number', 'design', {
       section: 'Spacing',

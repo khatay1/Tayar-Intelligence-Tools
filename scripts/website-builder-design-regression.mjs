@@ -13,11 +13,16 @@ try {
   await build({
     stdin: { contents: [
       'editor-arrangement', 'editor-design-commands', 'editor-command', 'editor-history',
+      'editor-inspector-model', 'editor-inspector-operation', 'editor-value-safety',
+      'editor-layout-style', 'defaults',
     ].map((name) => `export * from './src/modules/website-builder/core/${name}.ts';`).join('\n'), resolveDir: process.cwd() },
     bundle: true, platform: 'node', format: 'esm', outfile,
+    alias: { '@': join(process.cwd(), 'src') },
   });
   const { settledCanvasElementRect, arrangeCanvasElements: arrange, commandRepairResponsive: repair, commandRestyleSite: restyle,
-    runEditorCommand: run, createEditorHistory: history, undoEditorHistory: undo, redoEditorHistory: redo } = await import(pathToFileURL(outfile));
+    runEditorCommand: run, createEditorHistory: history, undoEditorHistory: undo, redoEditorHistory: redo,
+    buildEditorInspectorFields: inspectorFields, buildEditorInspectorOperation: inspectorOperation,
+    inspectEditorContainerSemantic: inspectContainer, containerLayoutCss, elementConstraintCss, normalizeSection } = await import(pathToFileURL(outfile));
   const box = (id, left, top, width = 20, height = 20, x = 0, y = 0) => ({ id, rect: { left, top, width, height }, x, y });
   check('all six alignments use the selection bounds', () => {
     const items = [box('a', 10, 20), box('b', 110, 120, 40, 40)];
@@ -120,6 +125,39 @@ try {
     assert.deepEqual(back.value, input);
     const forward = redo(back.value, back.history);
     assert.deepEqual(forward.value, result.project);
+  });
+  check('grid and flex container controls normalize and render safely', () => {
+    const section = normalizeSection({ id: 's-grid', type: 'features', containers: [{
+      id: 'c', name: 'Cards', layout: 'grid', gap: 24, rowGap: 32, columns: 99, wrap: false,
+      align: 'stretch', justify: 'between', backgroundColor: '#111111', padding: 12,
+      borderRadius: 8, borderWidth: 1, borderColor: '#222222', shadow: 'sm',
+    }], elements: [{ id: 'e', type: 'text', content: 'Card', containerId: 'c', style: {} }] });
+    const container = section.containers[0];
+    assert.equal(container.columns, 12);
+    assert.equal(inspectContainer(container).ok, true);
+    const css = containerLayoutCss(container).join(';');
+    assert.match(css, /display:grid/); assert.match(css, /repeat\(12,minmax\(0,1fr\)\)/);
+    assert.match(css, /row-gap:32px/); assert.match(css, /justify-content:space-between/);
+  });
+  check('element constraints are emitted for published output', () => {
+    const css = elementConstraintCss({ width: 72.5, minWidth: 160, maxWidth: 960, height: 320,
+      minHeight: 120, maxHeight: 640, aspectRatio: 1.5, flexGrow: 2, flexShrink: 0 });
+    const output = css.join(';');
+    assert.match(output, /width:72.5%/); assert.match(output, /min-width:160px/);
+    assert.match(output, /height:320px/); assert.match(output, /aspect-ratio:1.5/);
+  });
+  check('responsive inspector exposes inherited precision and reset removes override', () => {
+    const input = { pages: [{ id: 'p', sections: [{ id: 's', elements: [{ id: 'e', type: 'heading',
+      style: { width: 88, positionX: 14 }, responsive: { mobile: { width: 60, positionX: 0 } } }] }] }] };
+    const selection = { pageId: 'p', sectionId: 's', elementId: 'e' };
+    const fields = inspectorFields(input, selection);
+    const width = fields.find((item) => item.key === 'responsive.mobile.width');
+    assert.equal(width.unit, '%'); assert.equal(width.inheritedValue, 88); assert.equal(width.overridden, true);
+    const operation = inspectorOperation(input, selection, 'responsive.mobile.width', undefined);
+    assert.equal(operation.action, 'update_element');
+    assert.equal(operation.changes.responsive.mobile.width, undefined);
+    assert.equal(Object.hasOwn(operation.changes.responsive.mobile, 'width'), false);
+    assert.equal(operation.changes.responsive.mobile.positionX, 0);
   });
   console.log(`Design regression: ${passed} behavioral scenarios passed.`);
 } finally {

@@ -51,6 +51,7 @@ function renderFieldControl(
     return (
       <input
         type="checkbox"
+        aria-label={l(field.label)}
         disabled={disabled}
         checked={
           Boolean(field.value)
@@ -68,6 +69,7 @@ function renderFieldControl(
   if (field.kind === 'select') {
     return (
       <select
+        aria-label={l(field.label)}
         disabled={disabled}
         value={
           fieldValue(
@@ -100,6 +102,7 @@ function renderFieldControl(
   if (field.kind === 'textarea') {
     return (
       <textarea
+        aria-label={l(field.label)}
         rows={4}
         disabled={disabled}
         value={
@@ -164,8 +167,49 @@ function renderFieldControl(
     );
   }
 
+  if (field.kind === 'number') {
+    const hasValue = field.value !== '' && field.value !== undefined && field.value !== null;
+    const numeric = hasValue ? Number(field.value) : Number.NaN;
+    const fallback = Number(field.inheritedValue);
+    const current = Number.isFinite(numeric) ? numeric : Number.isFinite(fallback) ? fallback : 0;
+    const baseStep = field.step || 1;
+    const adjust = (direction: -1 | 1, precise: boolean) => {
+      const step = precise ? baseStep / 10 : baseStep;
+      const candidate = current + direction * step;
+      const bounded = Math.min(field.max ?? candidate, Math.max(field.min ?? candidate, candidate));
+      onChange(field.key, Number(bounded.toFixed(4)));
+    };
+    return (
+      <div className="tayar-v2-number-control">
+        <button type="button" disabled={disabled} aria-label={`${l('Decrease')} ${l(field.label)}`} title={l('Hold Alt for precision')} onClick={(event) => adjust(-1, event.altKey)}>−</button>
+        <input
+          aria-label={l(field.label)}
+          disabled={disabled}
+          type="number"
+          value={fieldValue(field.value)}
+          min={field.min}
+          max={field.max}
+          step={field.step}
+          placeholder={field.value === '' || field.value === undefined
+            ? field.inheritedValue === undefined ? field.placeholder ? l(field.placeholder) : undefined : `${l('Inherited')}: ${field.inheritedValue}`
+            : undefined}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => {
+            const raw = event.currentTarget.value;
+            onChange(field.key, raw === '' ? undefined : Number(raw));
+          }}
+        />
+        <span aria-hidden="true">{field.unit || ''}</span>
+        <button type="button" disabled={disabled} aria-label={`${l('Increase')} ${l(field.label)}`} title={l('Hold Alt for precision')} onClick={(event) => adjust(1, event.altKey)}>+</button>
+        {field.overridden && (
+          <button type="button" className="tayar-v2-number-control__reset" disabled={disabled} onClick={() => onChange(field.key, undefined)} title={l('Reset to inherited value')} aria-label={`${l('Reset')} ${l(field.label)}`}>↺</button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <input
+      aria-label={l(field.label)}
       disabled={disabled}
       type={
         field.kind === 'number'
@@ -301,7 +345,7 @@ export function BuilderInspectorFields({
             <div className="tayar-v2-inspector-section__fields">
               {section.fields.map(
                 (field) => (
-                  <label
+                  <div
                     className="tayar-v2-inspector-field"
                     data-kind={field.kind}
                     key={field.key}
@@ -316,7 +360,17 @@ export function BuilderInspectorFields({
                       l,
                       disabled,
                     )}
-                  </label>
+                    {field.inheritedValue !== undefined && !field.overridden && field.kind !== 'number' && (
+                      <small className="tayar-v2-inherited-hint">
+                        {l('Inherited')}: {String(field.inheritedValue)}
+                      </small>
+                    )}
+                    {field.kind !== 'number' && field.overridden && (
+                      <button type="button" className="tayar-v2-field-reset" disabled={disabled} onClick={() => onChange(field.key, undefined)} title={l('Reset to inherited value')}>
+                        {l('Reset')}
+                      </button>
+                    )}
+                  </div>
                 ),
               )}
             </div>

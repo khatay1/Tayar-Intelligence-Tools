@@ -82,8 +82,9 @@ const ANIMATIONS = new Set([
   'zoom-in',
   'zoom-out',
 ]);
-const CONTAINER_LAYOUTS = new Set(['stack', 'row']);
+const CONTAINER_LAYOUTS = new Set(['stack', 'row', 'grid']);
 const CONTAINER_ALIGNS = new Set(['start', 'center', 'end', 'stretch']);
+const CONTAINER_JUSTIFY = new Set(['start', 'center', 'end', 'between']);
 const FORM_FIELD_TYPES = new Set([
   'text',
   'email',
@@ -506,7 +507,12 @@ function validateElementStyle(
   optionalNumber(value, 'padding', 0, 240, errors, label);
   optionalNumber(value, 'borderRadius', 0, 240, errors, label);
   optionalNumber(value, 'width', 0, 100, errors, label);
+  optionalNumber(value, 'minWidth', 0, 2400, errors, label);
   optionalNumber(value, 'maxWidth', 0, 2400, errors, label);
+  optionalNumber(value, 'height', 0, 2400, errors, label);
+  optionalNumber(value, 'minHeight', 0, 2400, errors, label);
+  optionalNumber(value, 'maxHeight', 0, 2400, errors, label);
+  optionalNumber(value, 'aspectRatio', 0.1, 10, errors, label);
   optionalNumber(value, 'marginTop', -240, 480, errors, label);
   optionalNumber(value, 'marginRight', -240, 480, errors, label);
   optionalNumber(value, 'marginBottom', -240, 480, errors, label);
@@ -514,6 +520,8 @@ function validateElementStyle(
   optionalNumber(value, 'positionX', -2000, 2000, errors, label);
   optionalNumber(value, 'positionY', -2000, 2000, errors, label);
   optionalNumber(value, 'order', -100, 100, errors, label, { integer: true });
+  optionalNumber(value, 'flexGrow', 0, 20, errors, label);
+  optionalNumber(value, 'flexShrink', 0, 20, errors, label);
   optionalBoolean(value, 'hidden', errors, label);
   optionalEnum(value, 'alignSelf', ELEMENT_SELF_ALIGNS, errors, label);
   optionalNumber(value, 'columnSpan', 1, 3, errors, label, { integer: true });
@@ -582,7 +590,11 @@ function validateContainerRecord(
   optionalString(record, 'name', errors, label, 80, { allowEmpty: false });
   optionalEnum(record, 'layout', CONTAINER_LAYOUTS, errors, label);
   optionalNumber(record, 'gap', 0, 80, errors, label);
+  optionalNumber(record, 'rowGap', 0, 80, errors, label);
+  optionalNumber(record, 'columns', 1, 12, errors, label, { integer: true });
+  optionalBoolean(record, 'wrap', errors, label);
   optionalEnum(record, 'align', CONTAINER_ALIGNS, errors, label);
+  optionalEnum(record, 'justify', CONTAINER_JUSTIFY, errors, label);
   optionalColor(record, 'backgroundColor', errors, label);
   optionalNumber(record, 'padding', 0, 240, errors, label);
   optionalNumber(record, 'borderRadius', 0, 240, errors, label);

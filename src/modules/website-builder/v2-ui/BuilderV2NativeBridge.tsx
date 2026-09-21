@@ -467,18 +467,27 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
     key: string,
     value: unknown,
   ) {
-    const operation =
-      buildEditorInspectorOperation(
-        project,
-        selection,
-        key,
-        value,
-      );
+    const selectedIds = selection.elementId && selection.sectionId
+      ? Array.from(new Set([selection.elementId, ...(props.selectedElementIds || [])]))
+      : [];
+    const operations = selectedIds.length > 1
+      ? selectedIds.flatMap((elementId) => {
+          const operation = buildEditorInspectorOperation(
+            project,
+            { ...selection, elementId },
+            key,
+            value,
+          );
+          return operation ? [operation] : [];
+        })
+      : [buildEditorInspectorOperation(project, selection, key, value)].filter(
+          (operation): operation is EditorNativeOperation => Boolean(operation),
+        );
 
-    if (!operation) return;
+    if (!operations.length) return;
 
     applyOperations(
-      [operation],
+      operations,
       selection,
     );
   }
@@ -874,6 +883,11 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(
             <button type="button" onClick={props.onCopySelection} disabled={!props.onCopySelection}>{l(target.kind === 'element' ? 'Copy element' : 'Copy section')}</button>
             <button type="button" onClick={props.onCutSelection} disabled={!canCutTarget || !props.onCutSelection || Boolean(shell.status.mutating)}>{l(target.kind === 'element' ? 'Cut element' : 'Cut section')}</button>
             <button type="button" onClick={props.onPasteSelection} disabled={!props.clipboardKind || !props.onPasteSelection || Boolean(shell.status.mutating)}>{l(props.clipboardKind === 'section' ? 'Paste section' : props.clipboardKind === 'elements' ? 'Paste elements' : 'Paste element')}</button>
+          </div>
+        )}
+        {target.kind === 'element' && (props.selectedElementIds?.length || 0) > 1 && (
+          <div className="tayar-v2-multi-edit-note" role="status">
+            {props.selectedElementIds?.length} {l('Selected elements')} · {l('Inspector changes apply to all')}
           </div>
         )}
         <BuilderInspectorFields
