@@ -1,6 +1,6 @@
 import type { Language } from '@/lib/i18n';
 
-const ar: Record<string, string> = {
+const arTemplatePhrases: Record<string, string> = {
   'Website templates': 'قوالب المواقع', 'Sections, pages and complete sites ready to insert.': 'أقسام وصفحات ومواقع كاملة جاهزة للإدراج.',
   'Search templates': 'البحث في القوالب', 'Template type': 'نوع القالب', 'Category': 'التصنيف', 'All': 'الكل', 'Sections': 'الأقسام', 'Pages': 'الصفحات', 'Sites': 'المواقع',
   'All categories': 'كل التصنيفات', 'Business': 'أعمال', 'SaaS': 'برمجيات كخدمة', 'Portfolio': 'معرض أعمال', 'Commerce': 'تجارة', 'Content': 'محتوى', 'Launch': 'إطلاق',
@@ -22,7 +22,7 @@ const ar: Record<string, string> = {
   'Content-first site structure prepared for dynamic CMS expansion.': 'هيكل موقع يركز على المحتوى ومجهز للتوسع عبر CMS ديناميكي.',
 };
 
-const sv: Record<string, string> = {
+const svTemplatePhrases: Record<string, string> = {
   'Website templates': 'Webbplatsmallar', 'Sections, pages and complete sites ready to insert.': 'Sektioner, sidor och kompletta webbplatser redo att infogas.',
   'Search templates': 'Sök mallar', 'Template type': 'Malltyp', 'Category': 'Kategori', 'All': 'Alla', 'Sections': 'Sektioner', 'Pages': 'Sidor', 'Sites': 'Webbplatser',
   'All categories': 'Alla kategorier', 'Business': 'Företag', 'SaaS': 'SaaS', 'Portfolio': 'Portfolio', 'Commerce': 'E-handel', 'Content': 'Innehåll', 'Launch': 'Lansering',
@@ -45,7 +45,7 @@ const sv: Record<string, string> = {
 };
 
 export function localizeEditorTemplate(text: string, language: Language): string {
-  if (language === 'ar') return ar[text] ?? text;
-  if (language === 'sv') return sv[text] ?? text;
+  if (language === 'ar') return arTemplatePhrases[text] ?? text;
+  if (language === 'sv') return svTemplatePhrases[text] ?? text;
   return text;
 }
