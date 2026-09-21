@@ -1,3 +1,4 @@
+import { accessibleText, contrastRatio } from './website-design-system';
 import type {
   BillingEntitlements, BillingFeature, BillingPlan, BillingState, BillingSubscriptionSnapshot, WebsiteFooterConfig, WebsiteHeaderConfig,
   WebsiteProductionConfig, WebsiteSiteEnhancements, WebsiteTheme,
@@ -333,13 +334,13 @@ export function applyThemeToSection(section: WebsiteSection, index: number, them
     accent: theme.primaryColor,
     elements: section.elements.map((element) => {
       if (element.type === 'heading') {
-        return { ...element, style: { ...element.style, color: theme.textColor } };
+        return { ...element, style: { ...element.style, color: contrastRatio(theme.textColor, background) >= 4.5 ? theme.textColor : accessibleText(background) } };
       }
       if (element.type === 'text') {
-        return { ...element, style: { ...element.style, color: theme.mutedTextColor } };
+        return { ...element, style: { ...element.style, color: contrastRatio(theme.mutedTextColor, background) >= 4.5 ? theme.mutedTextColor : accessibleText(background) } };
       }
       if (element.type === 'button') {
-        return { ...element, style: { ...element.style, backgroundColor: theme.primaryColor, borderRadius: theme.buttonRadius } };
+        return { ...element, style: { ...element.style, backgroundColor: theme.primaryColor, color: accessibleText(theme.primaryColor), borderRadius: theme.buttonRadius } };
       }
       return element;
     }),

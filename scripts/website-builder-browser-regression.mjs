@@ -1,3 +1,4 @@
+import { runCollaborationBrowserChecks } from './website-collaboration-browser-checks.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -365,12 +366,13 @@ async function regression() {
     await waitFor('pan release', `document.querySelector('.tayar-v2-canvas__viewport')?.dataset.panReady === 'false' && document.querySelector('.tayar-v2-canvas__viewport')?.dataset.panning === 'false'`);
     console.log('[browser] PASS Space + pointer pan lifecycle');
 
+    await runCollaborationBrowserChecks(evaluate, waitFor);
     await sleep(100);
     assert(runtimeErrors.length === 0, `Browser runtime exceptions:\n${runtimeErrors.join('\n')}`);
     const relevantConsoleErrors = consoleErrors.filter((message) => message && !message.includes('favicon.ico'));
     assert(relevantConsoleErrors.length === 0, `Browser console errors:\n${relevantConsoleErrors.join('\n')}`);
     console.log('[browser] PASS no runtime or console errors');
-    console.log('[website-builder-browser-regression] PASS 12 desktop browser scenarios');
+    console.log('[website-builder-browser-regression] PASS 16 desktop browser scenarios');
   } catch (error) {
     console.error('[website-builder-browser-regression] FAIL');
     console.error(error instanceof Error ? error.stack : error);

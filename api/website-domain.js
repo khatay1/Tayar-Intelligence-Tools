@@ -21,7 +21,7 @@ function normalizeHostname(value) {
 }
 
 async function readBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body;
+  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
   if (typeof req.body === 'string' || Buffer.isBuffer(req.body)) {
     const raw = String(req.body);
     if (raw.length > 16_384) throw new Error('Request body is too large.');
@@ -56,7 +56,7 @@ async function authenticatedUser(req) {
 }
 
 async function ownedProject(projectId, userId) {
-  const query = new URLSearchParams({ id: `eq.${projectId}`, user_id: `eq.${userId}`, select: 'id,user_id', limit: '1' });
+  const query = new URLSearchParams({ id: `eq.${projectId}`, user_id: `eq.${userId}`, type: 'eq.website-builder', deleted_at: 'is.null', select: 'id,user_id', limit: '1' });
   const response = await supabaseRequest(`/rest/v1/projects?${query}`);
   if (!response.ok) throw new Error('Could not verify project ownership.');
   return (await response.json())[0] || null;
@@ -67,7 +67,7 @@ function vercelUrl(path) {
   return `https://api.vercel.com${path}${teamId ? `${path.includes('?') ? '&' : '?'}teamId=${encodeURIComponent(teamId)}` : ''}`;
 }
 
-async function vercelRequest(path, options = {}) {
+async function vercelRequest(path, options = {}, allowedStatuses = []) {
   const token = String(process.env.VERCEL_TOKEN || '').trim();
   if (!token) throw new Error('Vercel domain management is not configured.');
   const response = await fetch(vercelUrl(path), {
@@ -75,27 +75,34 @@ async function vercelRequest(path, options = {}) {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok && response.status !== 404 && response.status !== 409) throw new Error(payload?.error?.message || payload?.message || 'Vercel domain request failed.');
+  if (!response.ok && !allowedStatuses.includes(response.status)) {
+    const error = new Error(payload?.error?.message || payload?.message || 'Vercel domain request failed.');
+    error.statusCode = response.status === 409 ? 409 : 502;
+    throw error;
+  }
   return { response, payload };
 }
 
-function domainState(hostname, payload) {
-  const verified = payload?.verified === true && payload?.misconfigured !== true;
+function domainState(hostname, payload, config) {
+  const verified = payload?.verified === true && config?.misconfigured === false;
   return {
     hostname,
-    status: verified ? 'verified' : payload?.misconfigured ? 'misconfigured' : 'pending',
+    status: verified ? 'verified' : config?.misconfigured === true ? 'misconfigured' : 'pending',
     verification: Array.isArray(payload?.verification) ? payload.verification.slice(0, 10) : [],
   };
 }
 
-async function saveDomain(projectId, userId, state) {
-  const response = await supabaseRequest('/rest/v1/website_custom_domains?on_conflict=project_id', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' },
+async function saveDomain(projectId, userId, state, existing) {
+  const query = existing ? new URLSearchParams({ project_id: `eq.${projectId}`, user_id: `eq.${userId}`, hostname: `eq.${existing.hostname}`, updated_at: `eq.${existing.updated_at}` }) : null;
+  const response = await supabaseRequest(`/rest/v1/website_custom_domains${query ? `?${query}` : ''}`, {
+    method: existing ? 'PATCH' : 'POST',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
     body: JSON.stringify({ project_id: projectId, user_id: userId, ...state, updated_at: new Date().toISOString() }),
   });
-  if (!response.ok) throw new Error('Could not save the custom domain. Apply the website_custom_domains database migration first.');
-  return (await response.json())[0];
+  if (!response.ok) throw new Error('Could not save the custom domain. It may already be connected to another project.');
+  const saved = (await response.json())[0];
+  if (!saved) throw new Error('The custom domain changed during this request. Refresh its status before retrying.');
+  return saved;
 }
 
 async function currentDomain(projectId, userId) {
@@ -114,7 +121,9 @@ export default async function handler(req, res) {
     const user = await authenticatedUser(req);
     if (!user?.id) return json(res, 401, { error: 'Authentication required.' });
     const body = await readBody(req);
+    if (!body || Array.isArray(body) || typeof body !== 'object') return json(res, 400, { error: 'A JSON object is required.' });
     const action = String(body.action || 'get');
+    if (!['get', 'connect', 'check', 'remove'].includes(action)) return json(res, 400, { error: 'Unknown domain action.' });
     const projectId = String(body.projectId || '');
     if (!PROJECT_ID.test(projectId) || !(await ownedProject(projectId, user.id))) return json(res, 403, { error: 'Project owner access required.' });
     const vercelProject = encodeURIComponent(String(process.env.VERCEL_PROJECT_ID || '').trim());
@@ -124,8 +133,8 @@ export default async function handler(req, res) {
     if (action === 'get') return json(res, 200, { domain: existing });
 
     if (action === 'remove') {
-      if (existing?.hostname) await vercelRequest(`/v9/projects/${vercelProject}/domains/${encodeURIComponent(existing.hostname)}`, { method: 'DELETE' });
-      const query = new URLSearchParams({ project_id: `eq.${projectId}`, user_id: `eq.${user.id}` });
+      if (existing?.hostname) await vercelRequest(`/v9/projects/${vercelProject}/domains/${encodeURIComponent(existing.hostname)}`, { method: 'DELETE' }, [404]);
+      const query = new URLSearchParams({ project_id: `eq.${projectId}`, user_id: `eq.${user.id}`, ...(existing ? { hostname: `eq.${existing.hostname}`, updated_at: `eq.${existing.updated_at}` } : {}) });
       const deleted = await supabaseRequest(`/rest/v1/website_custom_domains?${query}`, { method: 'DELETE' });
       if (!deleted.ok) throw new Error('Could not remove the domain mapping.');
       return json(res, 200, { domain: null });
@@ -133,16 +142,37 @@ export default async function handler(req, res) {
 
     const hostname = normalizeHostname(body.hostname || existing?.hostname);
     if (!hostname) return json(res, 400, { error: 'Enter a valid custom hostname outside tayar.se and vercel.app.' });
-    let result = action === 'connect' && existing?.hostname !== hostname
+    if (action === 'check' && (!existing || existing.hostname !== hostname)) return json(res, 400, { error: 'Check the domain already connected to this project.' });
+    const creating = action === 'connect' && existing?.hostname !== hostname;
+    const domainPath = `/v9/projects/${vercelProject}/domains/${encodeURIComponent(hostname)}`;
+    let result = creating
       ? await vercelRequest(`/v10/projects/${vercelProject}/domains`, { method: 'POST', body: JSON.stringify({ name: hostname }) })
-      : await vercelRequest(`/v9/projects/${vercelProject}/domains/${encodeURIComponent(hostname)}`);
-    if (result.response.status === 409) result = await vercelRequest(`/v9/projects/${vercelProject}/domains/${encodeURIComponent(hostname)}`);
-    const saved = await saveDomain(projectId, user.id, domainState(hostname, result.payload));
+      : await vercelRequest(domainPath);
+    // A conflict is never permission to adopt an unrelated Vercel alias.
+    let saved;
+    try {
+      if (action === 'check' && result.payload.verified === false) {
+        const verification = await vercelRequest(`${domainPath}/verify`, { method: 'POST' }, [400]);
+        if (verification.response.ok) result = verification;
+      }
+      const config = await vercelRequest(`/v6/domains/${encodeURIComponent(hostname)}/config?projectIdOrName=${vercelProject}`);
+      saved = await saveDomain(projectId, user.id, domainState(hostname, result.payload, config.payload), existing);
+    } catch (error) {
+      if (creating) {
+        try { await vercelRequest(domainPath, { method: 'DELETE' }, [404]); }
+        catch { throw new Error(`${error.message} The new domain registration could not be cleaned up; contact support before retrying.`); }
+      }
+      throw error;
+    }
     if (existing?.hostname && existing.hostname !== hostname) {
-      await vercelRequest(`/v9/projects/${vercelProject}/domains/${encodeURIComponent(existing.hostname)}`, { method: 'DELETE' });
+      try {
+        await vercelRequest(`/v9/projects/${vercelProject}/domains/${encodeURIComponent(existing.hostname)}`, { method: 'DELETE' }, [404]);
+      } catch {
+        return json(res, 200, { domain: saved, warning: 'The new domain is connected, but the old registration needs support cleanup.' });
+      }
     }
     return json(res, 200, { domain: saved });
   } catch (error) {
-    return json(res, 500, { error: error instanceof Error ? error.message : 'Custom domain request failed.' });
+    return json(res, error instanceof SyntaxError ? 400 : error.statusCode || 500, { error: error instanceof Error ? error.message : 'Custom domain request failed.' });
   }
 }

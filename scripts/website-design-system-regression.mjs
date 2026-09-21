@@ -23,7 +23,7 @@ try {
   check('weak theme produces deterministic critical findings', () => {
     const report = design.analyzeWebsiteDesignSystem(weakTheme, pages);
     assert.ok(report.score < 70);
-    assert.ok(report.issues.some((issue) => issue.code.startsWith('contrast-') && issue.severity === 'critical'));
+    assert.ok(report.issues.some((issue) => issue.code.startsWith('contrast-') && issue.severity === 'warning'));
     assert.ok(report.issues.some((issue) => issue.code === 'tiny-text'));
   });
   check('repair raises global text contrast and snaps tokens', () => {
@@ -36,6 +36,34 @@ try {
   check('all presets pass body-text contrast', () => {
     assert.equal(design.WEBSITE_DESIGN_SYSTEM_PRESETS.length, 4);
     for (const preset of design.WEBSITE_DESIGN_SYSTEM_PRESETS) assert.ok(design.contrastRatio(preset.theme.textColor, preset.theme.backgroundColor) >= 4.5, preset.id);
+  });
+  check('actual button contrast is caught even when theme tokens pass', () => {
+    const theme = design.WEBSITE_DESIGN_SYSTEM_PRESETS.find((preset) => preset.id === 'bold').theme;
+    const pages = [{ id: 'p', sections: [{ id: 's', background: theme.backgroundColor, elements: [{ id: 'cta', type: 'button', content: 'Go', style: { color: '#fff', backgroundColor: theme.primaryColor, fontSize: 16 } }] }] }];
+    assert.ok(design.analyzeWebsiteDesignSystem(theme, pages).issues.some((issue) => issue.code.startsWith('element-contrast-') && issue.severity === 'critical'));
+  });
+  check('hidden text, images and unknown CSS colors do not invent blocking findings', () => {
+    const theme = design.WEBSITE_DESIGN_SYSTEM_PRESETS[0].theme;
+    const pages = [{ id: 'p', sections: [{ id: 's', background: '#fff', elements: [
+      { id: 'hidden', type: 'text', content: 'Hidden', style: { hidden: true, fontSize: 8, color: '#fff' } },
+      { id: 'image', type: 'image', content: 'image.png', style: { fontSize: 8 } },
+      { id: 'css', type: 'text', content: 'CSS', style: { color: 'var(--text)', fontSize: 16 } },
+    ] }] }];
+    assert.ok(!design.analyzeWebsiteDesignSystem(theme, pages).issues.some((issue) => issue.severity === 'critical'));
+    assert.ok(Number.isNaN(design.contrastRatio('transparent', '#fff')));
+  });
+  check('token repair keeps custom backgrounds, spacing and colors, and is idempotent', () => {
+    const source = [{ id: 'p', sections: [{ id: 's', background: '#123456', sectionPaddingX: 37, elements: [
+      { id: 'custom', type: 'text', content: 'Custom', style: { color: '#abcdef', padding: 13 } },
+      { id: 'bound', type: 'text', content: 'Bound', style: { color: weakTheme.textColor } },
+    ] }] }];
+    const before = structuredClone(source);
+    const repaired = design.repairWebsiteDesignTokens(weakTheme, source);
+    assert.equal(repaired.pages[0].sections[0].background, '#123456');
+    assert.equal(repaired.pages[0].sections[0].sectionPaddingX, 37);
+    assert.deepEqual(repaired.pages[0].sections[0].elements[0], source[0].sections[0].elements[0]);
+    assert.deepEqual(source, before);
+    assert.deepEqual(design.repairWebsiteDesignTokens(repaired.theme, repaired.pages), repaired);
   });
   console.log(`Design system regression: ${passed} behavioral scenarios passed.`);
 } finally {

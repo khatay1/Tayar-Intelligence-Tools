@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, CircleDot, MessageSquare, RefreshCw, Send, Trash2, Users, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLocalizer } from '@/lib/ui-localization';
@@ -7,7 +7,6 @@ import {
   createWebsiteProjectComment,
   deleteWebsiteProjectComment,
   heartbeatWebsiteProjectPresence,
-  leaveWebsiteProjectPresence,
   listWebsiteProjectComments,
   listWebsiteProjectPresence,
   resolveWebsiteProjectComment,
@@ -15,6 +14,10 @@ import {
   type WebsiteProjectComment,
   type WebsiteProjectPresence,
 } from '../services/websiteCollaborationService';
+
+import { createLatestAsyncRequest } from '../core/latest-async-request';
+
+type CommentMutation = ReturnType<typeof deleteWebsiteProjectComment>;
 
 type Props = {
   projectId: string | null;
@@ -34,7 +37,12 @@ function messageOf(value: unknown) {
   return 'Unexpected error';
 }
 
-export function WebsiteCollaborationPanel({
+export function WebsiteCollaborationPanel(props: Props) {
+  const { user } = useAuth();
+  return <CollaborationSession key={`${props.projectId || ''}:${user?.id || ''}`} {...props} />;
+}
+
+function CollaborationSession({
   projectId,
   canEdit,
   canManage,
@@ -62,60 +70,78 @@ export function WebsiteCollaborationPanel({
     ...(elementId ? { elementId } : {}),
   }), [elementId, pageId, pageName, sectionId]);
 
-  const refresh = useCallback(async () => {
-    if (!projectId || !user) return;
-    const [commentResult, presenceResult] = await Promise.all([
-      listWebsiteProjectComments(projectId, includeResolved),
-      listWebsiteProjectPresence(projectId),
-    ]);
-    if (commentResult.error) setError(commentResult.error.message);
-    else setComments((commentResult.data || []) as WebsiteProjectComment[]);
-    if (!presenceResult.error) setPresence((presenceResult.data || []) as WebsiteProjectPresence[]);
-  }, [includeResolved, projectId, user]);
+  const mounted = useRef(false);
+  const selection = useRef(anchor);
+  selection.current = anchor;
+  const [now, setNow] = useState(Date.now);
+  const userId = user?.id;
+  const displayName = String(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Teammate').slice(0, 100);
+  const commentsRequest = useMemo(() => createLatestAsyncRequest<Awaited<ReturnType<typeof listWebsiteProjectComments>>>(
+    (result) => {
+      if (result.error) setError(result.error.message);
+      else { setComments((result.data || []) as WebsiteProjectComment[]); setError(''); }
+    },
+    (caught) => setError(messageOf(caught)),
+  ), []);
+  const presenceRequest = useMemo(() => createLatestAsyncRequest<Awaited<ReturnType<typeof listWebsiteProjectPresence>>>(
+    (result) => { if (!result.error) setPresence((result.data || []) as WebsiteProjectPresence[]); },
+    (caught) => setError(messageOf(caught)),
+  ), []);
+  const refreshComments = useCallback(() => projectId && userId
+    ? commentsRequest.run(() => listWebsiteProjectComments(projectId, includeResolved))
+    : Promise.resolve(), [commentsRequest, includeResolved, projectId, userId]);
+  const refreshPresence = useCallback(() => projectId && userId
+    ? presenceRequest.run(() => listWebsiteProjectPresence(projectId))
+    : Promise.resolve(), [presenceRequest, projectId, userId]);
+  const refresh = useCallback(() => Promise.all([refreshComments(), refreshPresence()]), [refreshComments, refreshPresence]);
 
   useEffect(() => {
-    if (!projectId || !user) {
-      setComments([]);
-      setPresence([]);
-      return;
-    }
+    mounted.current = true;
+    return () => { mounted.current = false; commentsRequest.invalidate(); presenceRequest.invalidate(); };
+  }, [commentsRequest, presenceRequest]);
 
-    const displayName = String(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teammate').slice(0, 100);
+  useEffect(() => {
+    if (!projectId || !userId) return;
+    let active = true;
+    let inFlight = false;
     const heartbeat = async () => {
-      const result = await heartbeatWebsiteProjectPresence({
-        project_id: projectId,
-        user_id: user.id,
-        display_name: displayName || 'Teammate',
-        page_id: pageId || null,
-        selection: anchor,
-        last_seen_at: new Date().toISOString(),
-      });
-      if (result.error) setError(result.error.message);
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const result = await heartbeatWebsiteProjectPresence({
+          project_id: projectId, user_id: userId, display_name: displayName,
+          page_id: selection.current.pageId || null, selection: selection.current,
+          last_seen_at: new Date().toISOString(),
+        });
+        if (active && result.error) setError(result.error.message);
+      } catch (caught) {
+        if (active) setError(messageOf(caught));
+      } finally { inFlight = false; }
     };
-
     void heartbeat();
     const timer = window.setInterval(() => void heartbeat(), 25_000);
-    return () => window.clearInterval(timer);
-  }, [anchor, pageId, projectId, user]);
+    // Presence is shared across tabs: allow its lease to expire instead of
+    // deleting another active tab's presence when this panel closes.
+    return () => { active = false; window.clearInterval(timer); };
+  }, [displayName, projectId, userId]);
 
   useEffect(() => {
-    if (!projectId || !user) return;
-    void refresh();
+    void refreshComments();
+    return () => commentsRequest.invalidate();
+  }, [commentsRequest, refreshComments]);
+
+  useEffect(() => {
+    if (!projectId || !userId) return;
+    let active = true;
+    void refreshPresence();
     const channel = supabase
       .channel(`website-collaboration:${projectId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'website_project_comments', filter: `project_id=eq.${projectId}` }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'website_project_presence', filter: `project_id=eq.${projectId}` }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'website_project_comments', filter: `project_id=eq.${projectId}` }, () => { if (active) void refreshComments(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'website_project_presence', filter: `project_id=eq.${projectId}` }, () => { if (active) void refreshPresence(); })
       .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [projectId, refresh, user]);
-
-  useEffect(() => {
-    if (!projectId || !user) return;
-    return () => { void leaveWebsiteProjectPresence(projectId, user.id); };
-  }, [projectId, user]);
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => { active = false; window.clearInterval(timer); presenceRequest.invalidate(); void supabase.removeChannel(channel); };
+  }, [presenceRequest, projectId, refreshComments, refreshPresence, userId]);
 
   async function addComment() {
     if (!projectId || !draft.trim()) return;
@@ -124,34 +150,42 @@ export function WebsiteCollaborationPanel({
     try {
       const { error: createError } = await createWebsiteProjectComment(projectId, draft.trim(), anchor);
       if (createError) throw createError;
+      if (!mounted.current) return;
       setDraft('');
-      await refresh();
+      await refreshComments();
     } catch (caught) {
-      setError(messageOf(caught));
+      if (mounted.current) setError(messageOf(caught));
     } finally {
-      setBusy(false);
+      if (mounted.current) setBusy(false);
+    }
+  }
+
+  async function mutateComment(request: () => CommentMutation) {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await request();
+      if (result.error) throw result.error;
+      if (mounted.current) await refreshComments();
+    } catch (caught) {
+      if (mounted.current) setError(messageOf(caught));
+    } finally {
+      if (mounted.current) setBusy(false);
     }
   }
 
   async function setResolved(comment: WebsiteProjectComment, resolved: boolean) {
-    setBusy(true);
-    const { error: mutationError } = await resolveWebsiteProjectComment(comment.id, resolved);
-    if (mutationError) setError(mutationError.message);
-    await refresh();
-    setBusy(false);
+    await mutateComment(() => resolveWebsiteProjectComment(comment.id, resolved));
   }
 
   async function removeComment(comment: WebsiteProjectComment) {
     if (!window.confirm(l('Delete this review comment?'))) return;
-    setBusy(true);
-    const { error: mutationError } = await deleteWebsiteProjectComment(comment.id);
-    if (mutationError) setError(mutationError.message);
-    await refresh();
-    setBusy(false);
+    await mutateComment(() => deleteWebsiteProjectComment(comment.id));
   }
 
   if (!projectId || !user) return null;
-  const online = presence.filter((item) => Date.now() - Date.parse(item.last_seen_at) < 90_000);
+  const online = presence.filter((item) => now - Date.parse(item.last_seen_at) < 90_000);
   const unresolved = comments.filter((comment) => !comment.resolvedAt).length;
   const panel = darkMode ? 'border-white/10 bg-[#0b0f18] text-white' : 'border-gray-200 bg-white text-gray-900';
   const muted = darkMode ? 'text-gray-400' : 'text-gray-500';

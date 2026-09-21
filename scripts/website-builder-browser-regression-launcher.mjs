@@ -2,7 +2,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const PASS_MARKER = '[website-builder-browser-regression] PASS 12 desktop browser scenarios';
+const PASS_MARKER = '[website-builder-browser-regression] PASS 16 desktop browser scenarios';
 const FAIL_MARKER = '[website-builder-browser-regression] FAIL';
 const HARD_TIMEOUT_MS = 55_000;
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
