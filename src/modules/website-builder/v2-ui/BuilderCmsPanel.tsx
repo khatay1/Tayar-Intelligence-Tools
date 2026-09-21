@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Copy, Database, FilePlus2, Link2, Plus, Trash2, Unlink } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-cms';
 import { normalizeSlug } from '../core/project-identifiers';
 import {
   createWebsiteCmsCollection,
