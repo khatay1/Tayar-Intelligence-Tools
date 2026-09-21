@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -107,6 +107,24 @@ try {
     assert.equal(output.length, 1);
     assert.equal(output[0].name, 'Second story');
   });
+  check('views combine multiple filters with AND semantics', () => {
+    const viewed = cms.normalizeWebsiteCms({ collections: [{
+      id: 'catalog', name: 'Catalog', fields: [
+        { id: 'title', name: 'Title', key: 'title', type: 'text' },
+        { id: 'slug', name: 'Slug', key: 'slug', type: 'text' },
+        { id: 'category', name: 'Category', key: 'category', type: 'text' },
+        { id: 'featured', name: 'Featured', key: 'featured', type: 'boolean' },
+      ], entries: [
+        { id: 'one', draft: false, values: { title: 'Alpha', slug: 'alpha', category: 'news', featured: true } },
+        { id: 'two', draft: false, values: { title: 'Beta', slug: 'beta', category: 'news', featured: false } },
+        { id: 'three', draft: false, values: { title: 'Gamma', slug: 'gamma', category: 'docs', featured: true } },
+      ], views: [{ id: 'featured-news', name: 'Featured news', filters: [
+        { fieldKey: 'category', operator: 'equals', value: 'NEWS' },
+        { fieldKey: 'featured', operator: 'truthy' },
+      ], sortDirection: 'asc' }],
+    }] });
+    assert.deepEqual(cms.queryWebsiteCmsEntries(viewed.collections[0], 'featured-news').map((item) => item.id), ['one']);
+  });
   check('route patterns create deterministic dynamic slugs', () => {
     const routed = structuredClone(page);
     routed.cmsTemplate.routePattern = 'story-{slug}-{id}';
@@ -120,6 +138,15 @@ try {
     const issues = cms.validateWebsiteCms(invalid);
     assert.ok(issues.some((issue) => issue.message.includes('publishing window')));
     assert.ok(issues.some((issue) => issue.message.includes('missing collection')));
+  });
+  const cmsPanelSource = await readFile('src/modules/website-builder/v2-ui/BuilderCmsPanel.tsx', 'utf8');
+  check('CMS panel exposes collection routing, guarded relations and multi-filter controls', () => {
+    assert.match(cmsPanelSource, /Entry slug field/);
+    assert.match(cmsPanelSource, /Duplicate entry/);
+    assert.match(cmsPanelSource, /Matching published entries/);
+    assert.match(cmsPanelSource, /Add filter/);
+    assert.match(cmsPanelSource, /view\.filters\.map/);
+    assert.match(cmsPanelSource, /entryReferenceCount/);
   });
   console.log(`CMS regression: ${passed} behavioral scenarios passed.`);
 } finally {
