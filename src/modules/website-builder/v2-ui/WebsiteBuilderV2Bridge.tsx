@@ -13,6 +13,7 @@ import type { EditorTemplateLibraryItem } from '../core/editor-template-library'
 import type { EditorQualityIssue } from '../core/editor-site-quality';
 import { createElement as createWebsiteElement, createSection as createWebsiteSection } from '../core/defaults';
 import type { SectionType, WebsiteElementType } from '../core/types';
+import { BuilderPageSeoPanel } from './BuilderPageSeoPanel';
 import { BuilderSiteQualityPanel } from './BuilderSiteQualityPanel';
 import { BuilderV2NativeBridge } from './BuilderV2NativeBridge';
 import './website-builder-v2.css';
@@ -55,7 +56,8 @@ export function WebsiteBuilderV2Bridge(props: WebsiteBuilderV2BridgeProps) {
   function handleTemplateAI(template: EditorTemplateLibraryItem) { setLeftPanel('ai'); setLeftSidebarOpen(true); setFocusMode(false); const prompt = `Customize the ${template.kind} template "${template.name}" for this website. Preserve its structure unless a change improves the result. Adapt copy, sections, hierarchy and calls to action to the current project context.`; void onCustomizeTemplateWithAI?.(template, prompt); }
   function handleQualityIssue(item: EditorQualityIssue) { onSelect({ pageId: item.pageId || activePageId, sectionId: item.sectionId, elementId: item.elementId }); if (item.elementId && item.sectionId) onSelectElement?.(item.sectionId, item.elementId); setInspectorOpen(true); setFocusMode(false); }
   const qualityPanel = <BuilderSiteQualityPanel project={project} onSelectIssue={handleQualityIssue} onFixWithAI={onFixSiteQualityWithAI} />;
-  const combinedSettingsPanel = <>{qualityPanel}{settingsPanel}</>;
+  const seoPanel = <BuilderPageSeoPanel page={activePage} onApplyOperations={onApplyOperations} />;
+  const combinedSettingsPanel = <>{qualityPanel}{seoPanel}{settingsPanel}</>;
   return <BuilderV2NativeBridge shell={shell} project={project} selection={selection} selectedElementIds={selectedElementIds} onSelectElement={onSelectElement} brandSlot={<div><strong>{l('Website Builder')}</strong><small style={{ marginLeft: 8, opacity: 0.55 }}>V2</small></div>} topbarCenterSlot={<span>{activePage?.name || 'Website'}</span>} canvas={canvas} canvasOverlaySlot={overlaySlot} topbarTrailingSlot={topbarTrailingSlot} aiPanel={aiPanel} cmsPanel={cmsPanel} sitePanel={sitePanel} settingsPanel={combinedSettingsPanel} symbols={symbols} onCreateSymbol={onCreateSymbol} onDetachSymbol={onDetachSymbol} onInsertSymbol={onInsertSymbol} onDeleteSymbol={onDeleteSymbol} onRenameSymbol={onRenameSymbol} onDuplicateSymbol={onDuplicateSymbol} onSelectSymbolInstance={onSelectSymbolInstance} mediaAssets={mediaAssets} onMediaUpload={onMediaUpload} onGenerateMediaWithAI={onGenerateMediaWithAI} onAddPage={onAddPage} onMovePage={onMovePage} onDuplicatePage={onDuplicatePage} onDeletePage={onDeletePage} onSetHomePage={onSetHomePage} onMoveSection={onMoveSection} onDuplicateSection={onDuplicateSection} onDeleteSection={onDeleteSection} onMoveElement={onMoveElement} onDuplicateElement={onDuplicateElement} onCopySelection={onCopySelection} onCutSelection={onCutSelection} onPasteSelection={onPasteSelection} clipboardKind={clipboardKind} onDeleteElement={onDeleteElement} onPreviewTemplate={handleTemplatePreview} onCustomizeTemplateWithAI={handleTemplateAI} createSection={createNativeSection} createContainer={createNativeContainer} createElement={createNativeElement} onApplyOperations={onApplyOperations} onRestoreHistoryEntry={onRestoreHistoryEntry} />;
 }
 export default WebsiteBuilderV2Bridge;
