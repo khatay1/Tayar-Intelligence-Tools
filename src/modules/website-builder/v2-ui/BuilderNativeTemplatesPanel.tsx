@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { usePreferences } from '@/context/PreferencesContext';
 import { useLocalizer } from '@/lib/ui-localization';
+import { localizeEditorTemplate } from '../core/editor-template-localization';
 import {
   EDITOR_TEMPLATE_LIBRARY,
   filterEditorTemplateLibrary,
@@ -16,58 +18,36 @@ export interface BuilderNativeTemplatesPanelProps {
 }
 
 const KINDS: Array<{ id?: EditorTemplateKind; label: string }> = [
-  { label: 'All' },
-  { id: 'section', label: 'Sections' },
-  { id: 'page', label: 'Pages' },
-  { id: 'site', label: 'Sites' },
+  { label: 'All' }, { id: 'section', label: 'Sections' }, { id: 'page', label: 'Pages' }, { id: 'site', label: 'Sites' },
 ];
-
 const CATEGORIES: Array<{ id?: EditorTemplateCategory; label: string }> = [
-  { label: 'All categories' },
-  { id: 'business', label: 'Business' },
-  { id: 'saas', label: 'SaaS' },
-  { id: 'portfolio', label: 'Portfolio' },
-  { id: 'commerce', label: 'Commerce' },
-  { id: 'content', label: 'Content' },
-  { id: 'launch', label: 'Launch' },
+  { label: 'All categories' }, { id: 'business', label: 'Business' }, { id: 'saas', label: 'SaaS' }, { id: 'portfolio', label: 'Portfolio' }, { id: 'commerce', label: 'Commerce' }, { id: 'content', label: 'Content' }, { id: 'launch', label: 'Launch' },
 ];
 
 export function BuilderNativeTemplatesPanel({ disabled = false, onInsert, onPreview, onCustomizeWithAI }: BuilderNativeTemplatesPanelProps) {
-  const l = useLocalizer();
+  const baseLocalize = useLocalizer();
+  const { prefs } = usePreferences();
+  const l = (text: string) => localizeEditorTemplate(baseLocalize(text), prefs.language);
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<EditorTemplateKind>();
   const [category, setCategory] = useState<EditorTemplateCategory>();
   const items = useMemo(() => filterEditorTemplateLibrary(query, kind, category), [query, kind, category]);
 
-  return (
-    <section className="space-y-3 border-b border-white/10 p-3" aria-label={l('Website templates')}>
-      <div>
-        <div className="text-sm font-semibold text-white">{l('Website templates')}</div>
-        <p className="mt-1 text-[11px] leading-4 text-gray-500">{l('Insert complete sections, pages, or site structures and customize them with AI.')}</p>
-      </div>
-      <input type="search" value={query} onChange={event => setQuery(event.currentTarget.value)} placeholder={l('Search website templates')} aria-label={l('Search website templates')} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none" />
-      <div className="grid grid-cols-4 gap-1 rounded-lg border border-white/10 bg-black/15 p-1" role="group" aria-label={l('Template type')}>
-        {KINDS.map(item => <button key={item.id || 'all'} type="button" aria-pressed={kind === item.id || (!kind && !item.id)} onClick={() => setKind(item.id)} className="rounded-md px-2 py-1.5 text-[10px] text-gray-300 aria-pressed:bg-white/10 aria-pressed:text-white">{l(item.label)}</button>)}
-      </div>
-      <select value={category || ''} onChange={event => setCategory((event.currentTarget.value || undefined) as EditorTemplateCategory | undefined)} aria-label={l('Category')} className="w-full rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-gray-300 outline-none">
-        {CATEGORIES.map(item => <option key={item.id || 'all'} value={item.id || ''}>{l(item.label)}</option>)}
-      </select>
-      <div className="space-y-2">
-        {items.map(item => (
-          <article key={item.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-            <div className="flex items-center justify-between gap-2"><strong className="text-xs text-gray-100">{l(item.name)}</strong><span className="rounded bg-white/5 px-1.5 py-1 text-[9px] uppercase text-gray-500">{l(item.kind)}</span></div>
-            <p className="mt-1 text-[10px] leading-4 text-gray-500">{l(item.description)}</p>
-            <div className="mt-2 flex flex-wrap gap-1">{item.tags.slice(0, 4).map(tag => <span key={tag} className="rounded bg-white/5 px-1.5 py-1 text-[9px] text-gray-500">{l(tag)}</span>)}</div>
-            <div className="mt-3 grid grid-cols-3 gap-1">
-              <button type="button" disabled={disabled || !onPreview} onClick={() => onPreview?.(item)} className="rounded border border-white/10 px-2 py-1.5 text-[10px] text-gray-300 disabled:opacity-40">{l('Preview')}</button>
-              <button type="button" disabled={disabled || !onInsert} onClick={() => onInsert?.(item)} className="rounded border border-white/10 px-2 py-1.5 text-[10px] text-gray-300 disabled:opacity-40">{l('Insert')}</button>
-              <button type="button" disabled={disabled || !item.aiCustomizable || !onCustomizeWithAI} onClick={() => onCustomizeWithAI?.(item)} className="rounded border border-cyan-500/20 px-2 py-1.5 text-[10px] text-cyan-300 disabled:opacity-40">{l('Customize with AI')}</button>
-            </div>
-          </article>
-        ))}
-        {!items.length && <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-gray-500">{l('No website templates match this search.')}</div>}
-      </div>
-      <div className="text-[10px] text-gray-600">{items.length.toLocaleString()} / {EDITOR_TEMPLATE_LIBRARY.length.toLocaleString()}</div>
-    </section>
-  );
+  return <section className="space-y-3 border-b border-white/10 p-3" aria-label={l('Website templates')}>
+    <div><div className="text-sm font-semibold text-white">{l('Website templates')}</div><p className="mt-1 text-[11px] leading-4 text-gray-500">{l('Sections, pages and complete sites ready to insert.')}</p></div>
+    <input type="search" value={query} onChange={event => setQuery(event.currentTarget.value)} placeholder={l('Search templates')} aria-label={l('Search templates')} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none" />
+    <div className="grid grid-cols-4 gap-1 rounded-lg border border-white/10 bg-black/15 p-1" role="group" aria-label={l('Template type')}>
+      {KINDS.map(item => <button key={item.id || 'all'} type="button" aria-pressed={kind === item.id || (!kind && !item.id)} onClick={() => setKind(item.id)} className="rounded-md px-2 py-1.5 text-[10px] text-gray-300 aria-pressed:bg-white/10 aria-pressed:text-white">{l(item.label)}</button>)}
+    </div>
+    <select value={category || ''} onChange={event => setCategory((event.currentTarget.value || undefined) as EditorTemplateCategory | undefined)} aria-label={l('Category')} className="w-full rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-gray-300 outline-none">
+      {CATEGORIES.map(item => <option key={item.id || 'all'} value={item.id || ''}>{l(item.label)}</option>)}
+    </select>
+    <div className="space-y-2">{items.map(item => <article key={item.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+      <div className="flex items-center justify-between gap-2"><strong className="text-xs text-gray-100">{l(item.name)}</strong><span className="rounded bg-white/5 px-1.5 py-1 text-[9px] uppercase text-gray-500">{l(item.kind === 'section' ? 'Sections' : item.kind === 'page' ? 'Pages' : 'Sites')}</span></div>
+      <p className="mt-1 text-[10px] leading-4 text-gray-500">{l(item.description)}</p>
+      <div className="mt-2 flex flex-wrap gap-1">{item.tags.slice(0, 4).map(tag => <span key={tag} className="rounded bg-white/5 px-1.5 py-1 text-[9px] text-gray-500">{tag}</span>)}</div>
+      <div className="mt-3 grid grid-cols-3 gap-1"><button type="button" disabled={disabled || !onPreview} onClick={() => onPreview?.(item)} className="rounded border border-white/10 px-2 py-1.5 text-[10px] text-gray-300 disabled:opacity-40">{l('Preview')}</button><button type="button" disabled={disabled || !onInsert} onClick={() => onInsert?.(item)} className="rounded border border-white/10 px-2 py-1.5 text-[10px] text-gray-300 disabled:opacity-40">{l('Insert')}</button><button type="button" disabled={disabled || !item.aiCustomizable || !onCustomizeWithAI} onClick={() => onCustomizeWithAI?.(item)} className="rounded border border-cyan-500/20 px-2 py-1.5 text-[10px] text-cyan-300 disabled:opacity-40">{l('Customize with AI')}</button></div>
+    </article>)}{!items.length && <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-gray-500">{l('No templates found')}</div>}</div>
+    <div className="text-[10px] text-gray-600">{items.length.toLocaleString()} / {EDITOR_TEMPLATE_LIBRARY.length.toLocaleString()}</div>
+  </section>;
 }
