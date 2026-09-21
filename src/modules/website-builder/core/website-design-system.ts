@@ -36,7 +36,8 @@ export const WEBSITE_DESIGN_SYSTEM_PRESETS: WebsiteDesignSystemPreset[] = [
 ];
 
 function rgb(hex: string) {
-  const value = hex.replace('#', '');
+  const raw = hex.replace('#', '');
+  const value = /^[0-9a-f]{3}$/i.test(raw) ? raw.split('').map((part) => part + part).join('') : raw;
   if (!/^[0-9a-f]{6}$/i.test(value)) return null;
   return [0, 2, 4].map((offset) => Number.parseInt(value.slice(offset, offset + 2), 16));
 }
@@ -52,18 +53,19 @@ function luminance(hex: string) {
 }
 
 export function contrastRatio(foreground: string, background: string) {
+  if (!rgb(foreground) || !rgb(background)) return NaN;
   const a = luminance(foreground);
   const b = luminance(background);
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
-function accessibleText(background: string, minimum = 4.5) {
+export function accessibleText(background: string) {
   const dark = '#111827';
   const light = '#f9fafb';
   const darkRatio = contrastRatio(dark, background);
   const lightRatio = contrastRatio(light, background);
   const best = darkRatio >= lightRatio ? dark : light;
-  return Math.max(darkRatio, lightRatio) >= minimum ? best : best;
+  return best;
 }
 
 function nearest(value: number, scale: number[]) {
@@ -102,11 +104,11 @@ export function analyzeWebsiteDesignSystem(theme: WebsiteTheme, pages: WebsitePa
   let contrastFailures = 0;
   contrastPairs.forEach(([label, foreground, background, minimum]) => {
     const ratio = contrastRatio(foreground, background);
-    if (ratio >= minimum) return;
+    if (!Number.isFinite(ratio) || ratio >= minimum) return;
     contrastFailures += 1;
     issues.push({
       code: `contrast-${label.toLowerCase().replace(/\s+/g, '-')}`,
-      severity: minimum >= 4.5 ? 'critical' : 'warning',
+      severity: 'warning',
       title: `${label} contrast is too low`,
       detail: `${ratio.toFixed(2)}:1 contrast; target at least ${minimum}:1.`,
     });
@@ -129,12 +131,25 @@ export function analyzeWebsiteDesignSystem(theme: WebsiteTheme, pages: WebsitePa
       [style.color, style.backgroundColor, style.borderColor].forEach((value) => {
         if (value && /^#[0-9a-f]{6}$/i.test(value) && !tokenColors.has(value.toLowerCase())) customColors.add(value.toLowerCase());
       });
-      if (Number.isFinite(style.fontSize)) {
+      const textElement = ['heading', 'text', 'button', 'list'].includes(element.type);
+      const visibleText = textElement && style.hidden !== true && style.opacity !== 0 && Boolean(element.content?.trim());
+      if (visibleText && Number.isFinite(style.fontSize)) {
         fontSizes.add(Number(style.fontSize));
         if (Number(style.fontSize) < 12) tinyText += 1;
       }
+      if (visibleText && style.color && !section.backgroundImage && !element.containerId && (style.opacity === undefined || style.opacity === 1)) {
+        const background = style.backgroundColor && style.backgroundColor !== 'transparent' ? style.backgroundColor : section.background;
+        const ratio = contrastRatio(style.color, background || '');
+        const large = Number(style.fontSize) >= 24 || (Number(style.fontSize) >= 18.66 && Number(style.fontWeight) >= 700);
+        const minimum = large ? 3 : 4.5;
+        if (Number.isFinite(ratio) && ratio < minimum) {
+          contrastFailures += 1;
+          issues.push({ code: `element-contrast-${page.id}-${section.id}-${element.id}`, severity: 'critical',
+            title: 'Element text contrast is too low', detail: `${element.content.slice(0, 60)}: ${ratio.toFixed(2)}:1 contrast; target at least ${minimum}:1.` });
+        }
+      }
       if (Number.isFinite(style.borderRadius)) radii.add(Number(style.borderRadius));
-      if (Number.isFinite(style.lineHeight) && Number(style.lineHeight) < 1.2) tightLines += 1;
+      if (visibleText && Number.isFinite(style.lineHeight) && Number(style.lineHeight) < 1.2) tightLines += 1;
       [style.padding, style.marginTop, style.marginRight, style.marginBottom, style.marginLeft].forEach((value) => {
         if (Number.isFinite(value) && Number(value) % 4 !== 0) offGridSpacing += 1;
       });
@@ -154,4 +169,23 @@ export function analyzeWebsiteDesignSystem(theme: WebsiteTheme, pages: WebsitePa
     issues: issues.slice(0, 20),
     metrics: { contrastFailures, customColors: customColors.size, fontSizes: fontSizes.size, radiusValues: radii.size, offGridSpacing },
   };
+}
+
+/** Update only text colors bound to global tokens; keep custom section styling. */
+export function repairWebsiteDesignTokens(theme: WebsiteTheme, pages: WebsitePage[]) {
+  const nextTheme = repairWebsiteDesignTheme(theme);
+  const nextPages = pages.map((page) => ({ ...page, sections: page.sections.map((section) => ({
+    ...section,
+    elements: section.elements.map((element) => {
+      const color = element.style?.color;
+      if (!color || !['heading', 'text', 'button', 'list'].includes(element.type)) return element;
+      const token = color.toLowerCase() === theme.textColor.toLowerCase() ? nextTheme.textColor
+        : color.toLowerCase() === theme.mutedTextColor.toLowerCase() ? nextTheme.mutedTextColor : null;
+      if (!token) return element;
+      const surface = element.style?.backgroundColor || section.background;
+      const nextColor = !section.backgroundImage && !element.containerId && contrastRatio(token, surface) < 4.5 ? accessibleText(surface) : token;
+      return nextColor === color ? element : { ...element, style: { ...element.style, color: nextColor } };
+    }),
+  })) }));
+  return { theme: nextTheme, pages: nextPages };
 }

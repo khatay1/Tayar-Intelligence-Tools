@@ -21,14 +21,18 @@ assert.match(migration, /alter publication supabase_realtime add table public\.w
 assert.match(cloud, /expectedUpdatedAt/);
 assert.match(cloud, /query = query\.eq\('updated_at', expectedUpdatedAt\)/);
 assert.match(cloud, /A teammate saved a newer version/);
-assert.match(editor, /expectedUpdatedAt: cloudProjects\.find/);
+assert.match(editor, /expectedUpdatedAt: publishRevision/);
+assert.match(editor, /expectedUpdatedAt: rollbackRevision/);
+assert.match(editor, /expectedUpdatedAt: unpublishRevision/);
 
 assert.match(service, /list_website_project_comments/);
 assert.match(service, /website_project_presence/);
 assert.match(panel, /postgres_changes/);
 assert.match(panel, /25_000/);
-assert.match(panel, /leaveWebsiteProjectPresence/);
+assert.match(panel, /CollaborationSession key=/);
 assert.match(panel, /resolveWebsiteProjectComment/);
 assert.match(editor, /WebsiteCollaborationPanel/);
 
 console.log('PASS review comments, live presence, role guards and optimistic cloud-save conflicts');
+
+await import('./website-builder-concurrency-regression.mjs');

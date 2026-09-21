@@ -128,7 +128,9 @@ export async function updateWebsiteProjectPublicationState(input: {
   content: Record<string, unknown>;
   published: boolean;
   updatedAt: string;
+  expectedUpdatedAt: string | null | undefined;
 }): Promise<WebsiteProjectCloudMutationResult<{ id: string; updated_at?: string | null }>> {
+  if (!input.expectedUpdatedAt) return missingMutationResult('Reopen the cloud project before publishing so its current version can be verified.');
   const result = await supabase
     .from('projects')
     .update({
@@ -138,12 +140,15 @@ export async function updateWebsiteProjectPublicationState(input: {
     })
     .eq('id', input.projectId)
     .eq('user_id', input.userId)
+    .eq('type', 'website-builder')
+    .is('deleted_at', null)
+    .eq('updated_at', input.expectedUpdatedAt)
     .select('id, updated_at')
     .maybeSingle();
 
   if (!result.error && !result.data) {
     return missingMutationResult<{ id: string; updated_at?: string | null }>(
-      'Publication state could not be verified for this website project.',
+      'A teammate saved a newer version. Reopen the cloud project before publishing so their changes are not overwritten.',
     );
   }
 

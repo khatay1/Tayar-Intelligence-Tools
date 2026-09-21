@@ -234,7 +234,7 @@ import {
 import {
   WEBSITE_DESIGN_SYSTEM_PRESETS,
   analyzeWebsiteDesignSystem,
-  repairWebsiteDesignTheme,
+  repairWebsiteDesignTokens,
   type WebsiteDesignSystemPreset,
 } from './core/website-design-system';
 import {
@@ -487,6 +487,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const lastSavedSnapshotRef = useRef('');
   const autosaveTimerRef = useRef<number | null>(null);
   const skipNextAutosaveRef = useRef(false);
+  const cloudRevisionRef = useRef<{ projectId: string; updatedAt: string | null } | null>(null);
   const saveInFlightRef = useRef(false);
   const saveAbortControllerRef = useRef<AbortController | null>(null);
   const newProjectIntentRef = useRef(false);
@@ -755,6 +756,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       if (projectLoadSequenceRef.current !== loadSequence) return;
       setCustomDomain(domain);
       setCustomDomainDraft(domain?.hostname || customDomainDraft.trim().toLowerCase());
+      if (domain?.warning) setCustomDomainError(domain.warning);
       if (domain?.status === 'verified') { setSiteUrl(`https://${domain.hostname}`); setSaved(false); }
     } catch (error) {
       if (projectLoadSequenceRef.current === loadSequence) setCustomDomainError(error instanceof Error ? error.message : 'Could not connect the domain.');
@@ -1126,6 +1128,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       cancelPendingProjectPersistence();
       projectLoadSequenceRef.current += 1;
       setCloudProjects([]);
+      cloudRevisionRef.current = null;
       setCloudProjectId(null);
       setCloudError('');
       setCloudBusy(false);
@@ -1372,7 +1375,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
   function repairActiveDesignSystem() {
-    applyDesignSystemTheme(repairWebsiteDesignTheme(theme), 'Repair design system tokens');
+    const repaired = repairWebsiteDesignTokens(theme, getCurrentPages());
+    remember(sections, 'Repair design system tokens');
+    setTheme(repaired.theme);
+    setPages(repaired.pages);
+    setSections((repaired.pages.find((page) => page.id === activePageId) || repaired.pages[0])?.sections || []);
+    setSaved(false);
   }
 
   function publicWebsiteUrl(projectId: string, ownerId?: string) {
@@ -1443,19 +1451,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       };
 
       const recoverUpdatedAt = new Date().toISOString();
-      const { error: recoverError } = await updateWebsiteProjectPublicationState({
+      const { data: recoveredRow, error: recoverError } = await updateWebsiteProjectPublicationState({
         projectId: project.id,
         userId: recoveryUserId,
         content: recoveredContent,
         published: true,
         updatedAt: recoverUpdatedAt,
+        expectedUpdatedAt: project.updated_at,
       });
 
       if (!recoverError && loadIsCurrent()) {
+        cloudRevisionRef.current = { projectId: project.id, updatedAt: recoveredRow?.updated_at || recoverUpdatedAt };
         setCloudProjects((current) =>
           current.map((item) =>
             item.id === project.id
-              ? { ...item, content: recoveredContent, status: 'completed' }
+              ? { ...item, content: recoveredContent, status: 'completed', updated_at: recoveredRow?.updated_at || recoverUpdatedAt }
               : item
           )
         );
@@ -1482,6 +1492,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       activeUserIdRef.current === loadUserId;
 
     newProjectIntentRef.current = false;
+    cloudRevisionRef.current = { projectId: project.id, updatedAt: project.updated_at || null };
     setCloudProjectId(project.id);
     saveActiveWebsiteProjectId(project.id);
 
@@ -2421,7 +2432,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, []);
 
   useEffect(() => {
-    if (!networkOnline || !cloudSyncFailed || !user?.id || !projectTeamAccess.canEdit) return;
+    if (!networkOnline || !cloudSyncFailed || !user?.id || !projectTeamAccess.canEdit || publishBusy || previewBusy) return;
 
     const retryLoadSequence = projectLoadSequenceRef.current;
     const retryUserId = user.id;
@@ -2437,7 +2448,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }, 600);
 
     return () => window.clearTimeout(timer);
-  }, [networkOnline, cloudSyncFailed, user?.id, cloudProjectId, projectTeamAccess.canEdit]);
+  }, [networkOnline, cloudSyncFailed, user?.id, cloudProjectId, projectTeamAccess.canEdit, publishBusy, previewBusy]);
 
   const desktopShortcutActionsRef = useRef({
     busy: false,
@@ -2611,6 +2622,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   ]);
 
   useEffect(() => {
+    if (publishBusy || previewBusy) return;
     const fingerprint = buildProjectFingerprint();
     const decision = decideEditorAutosave({
       fingerprint,
@@ -2658,7 +2670,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return () => {
       if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     };
-  }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId]);
+  }, [buildProjectFingerprint, user, cloudProjectsLoaded, projectId, cloudProjectId, publishBusy, previewBusy]);
 
   const analyticsSummary = useMemo(
     () => summarizeWebsiteAnalytics(analyticsEvents),
@@ -9207,7 +9219,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPreviewBusy(true);
     setPreviewError('');
 
-    const latestSaved = await saveProject({ automatic: true, createHistory: false });
+    const latestSaved = await saveProject({ automatic: true, createHistory: false, forPublication: true });
 
     if (!previewIsCurrent()) return;
 
@@ -9217,6 +9229,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return;
     }
 
+    const previewRevision = cloudRevisionRef.current?.projectId === previewProjectId ? cloudRevisionRef.current.updatedAt : null;
     try {
       const token = typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID().replace(/-/g, '')
@@ -9277,11 +9290,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         title: siteName,
         content: stagedProjectData,
         published: Boolean(publishedUrl),
-        expectedUpdatedAt: cloudProjects.find((project) => project.id === previewProjectId)?.updated_at,
+        expectedUpdatedAt: previewRevision,
         updatedAt: String(stagedProjectData.updatedAt || createdAt),
       });
       if (stagedSave.error) throw new Error(stagedSave.error.message);
       if (!previewIsCurrent()) return;
+      cloudRevisionRef.current = { projectId: previewProjectId, updatedAt: stagedSave.data?.updated_at || createdAt };
       setCloudProjects((current) => current.map((project) => project.id === previewProjectId
         ? {
             ...project,
@@ -9354,6 +9368,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
   async function rollbackPublishVersion(version: WebsitePublishVersion) {
+    if (publishBusy || previewBusy || saveInFlightRef.current) return;
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
       setPublishError('Only the project owner can rollback a published release.');
@@ -9366,23 +9381,34 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const rollbackProjectId = cloudProjectId;
     const rollbackUserId = user.id;
     const rollbackBaseProjectData = buildProjectData();
+    const rollbackRevision = cloudRevisionRef.current?.projectId === rollbackProjectId ? cloudRevisionRef.current.updatedAt : null;
     const rollbackIsCurrent = () =>
       publishOperationSequenceRef.current === rollbackSequence &&
       projectLoadSequenceRef.current === rollbackLoadSequence &&
       activeUserIdRef.current === rollbackUserId;
 
+    const assertRollbackIsCurrent = () => { if (!rollbackIsCurrent()) throw new Error('Rollback stopped because the active project changed.'); };
+    let liveRollback: { folder: string; snapshot: Awaited<ReturnType<typeof snapshotPublishedWebsiteFiles>> } | null = null;
+    let rollbackStarted = false;
+    let committed = false;
+
     setPublishBusy(true);
     setPublishError('');
 
     try {
+      if (!rollbackRevision) throw new Error('Reopen the cloud project before rolling back so its current version can be verified.');
       const folder = `${rollbackUserId}/${rollbackProjectId}`;
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
       if (!manifest.length) throw new Error('This release has no stored files.');
 
+      const snapshot = await snapshotPublishedWebsiteFiles(folder);
+      assertRollbackIsCurrent();
+      liveRollback = { folder, snapshot };
+      rollbackStarted = true;
       const liveNames = new Set(manifest.map((item) => item.name));
       await removeStalePublishedWebsiteFiles(folder, liveNames);
 
-      if (!rollbackIsCurrent()) return;
+      assertRollbackIsCurrent();
 
       const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(rollbackUserId, rollbackProjectId);
       const nextPublishedUrl = buildPublishedSiteUrl(rollbackUserId, rollbackProjectId, 'index.html');
@@ -9393,17 +9419,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const canonicalVersionBase = legacyVersionUrl.replace(/\/index\.html(?:[?#].*)?$/i, '');
 
       for (const file of manifest) {
-        if (!rollbackIsCurrent()) return;
+        assertRollbackIsCurrent();
 
         const { data: blob, error: downloadError } = await downloadPublishedWebsiteFile(`${version.storage_prefix}/${file.name}`);
-        if (!rollbackIsCurrent()) return;
+        assertRollbackIsCurrent();
         if (downloadError || !blob) throw downloadError || new Error(`Could not restore ${file.name}`);
 
         let uploadBody: Blob = blob;
         const textual = /(?:text\/|application\/(?:json|xml))/i.test(file.contentType || blob.type || '') || /\.(?:html?|xml|txt|css|js|json)$/i.test(file.name);
         if (textual) {
           let text = await blob.text();
-          if (!rollbackIsCurrent()) return;
+          assertRollbackIsCurrent();
           if (legacyVersionBase && legacyVersionBase !== canonicalVersionBase) {
             text = text.split(legacyVersionBase).join(nextPublishedBaseUrl);
           }
@@ -9413,7 +9439,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           uploadBody = new Blob([text], { type: file.contentType || blob.type || 'text/plain; charset=utf-8' });
         }
 
-        if (!rollbackIsCurrent()) return;
+        assertRollbackIsCurrent();
 
         const { error: uploadError } = await uploadPublishedWebsiteBlob({
           path: `${folder}/${file.name}`,
@@ -9423,11 +9449,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           upsert: true,
         });
 
-        if (!rollbackIsCurrent()) return;
+        assertRollbackIsCurrent();
         if (uploadError) throw uploadError;
       }
 
-      if (!rollbackIsCurrent()) return;
+      assertRollbackIsCurrent();
 
       const nextPublishedAt = new Date().toISOString();
       const projectData = {
@@ -9439,18 +9465,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         updatedAt: nextPublishedAt,
       };
 
-      if (!rollbackIsCurrent()) return;
+      assertRollbackIsCurrent();
 
-      const { error: projectError } = await updateWebsiteProjectPublicationState({
+      const { data: publishedRow, error: projectError } = await updateWebsiteProjectPublicationState({
         projectId: rollbackProjectId,
+        expectedUpdatedAt: rollbackRevision,
         userId: rollbackUserId,
         content: projectData,
         published: true,
         updatedAt: nextPublishedAt,
       });
 
-      if (!rollbackIsCurrent()) return;
       if (projectError) throw projectError;
+      committed = true;
+      assertRollbackIsCurrent();
+      cloudRevisionRef.current = { projectId: rollbackProjectId, updatedAt: publishedRow?.updated_at || nextPublishedAt };
 
       setCloudProjects((current) =>
         current.map((project) =>
@@ -9459,7 +9488,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ...project,
                 content: projectData,
                 status: 'completed',
-                updated_at: nextPublishedAt,
+                updated_at: publishedRow?.updated_at || nextPublishedAt,
               }
             : project
         )
@@ -9478,8 +9507,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         rollbackLoadSequence,
       );
     } catch (error) {
-      if (!rollbackIsCurrent()) return;
-      setPublishError(error instanceof Error ? error.message : 'Could not rollback this release.');
+      let message = error instanceof Error ? error.message : 'Could not rollback this release.';
+      if (liveRollback && rollbackStarted && !committed) {
+        try {
+          await restorePublishedWebsiteSnapshot(liveRollback.folder, liveRollback.snapshot);
+          message += ' The previous live website was restored automatically.';
+        } catch { message += ' Automatic rollback needs support review.'; }
+      }
+      if (rollbackIsCurrent()) setPublishError(message);
     } finally {
       if (publishOperationSequenceRef.current === rollbackSequence) {
         setPublishBusy(false);
@@ -9558,7 +9593,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  async function saveProject(options: { automatic?: boolean; createHistory?: boolean } = {}): Promise<boolean> {
+  async function saveProject(options: { automatic?: boolean; createHistory?: boolean; forPublication?: boolean } = {}): Promise<boolean> {
+    if ((publishBusy || previewBusy) && !options.forPublication) return false;
     const automatic = options.automatic === true;
     if (user && projectId && cloudProjectId !== projectId) {
       setCloudError('Opening your saved website. Save will continue when it is loaded.');
@@ -9634,7 +9670,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         setCloudSyncFailed(true);
         setCloudError('You are offline. Changes are saved locally and will retry when the connection returns.');
       } else if (cloudProjectId) {
-        const expectedUpdatedAt = cloudProjects.find((project) => project.id === cloudProjectId)?.updated_at;
+        const expectedUpdatedAt = cloudRevisionRef.current?.projectId === cloudProjectId ? cloudRevisionRef.current.updatedAt : null;
+        if (!expectedUpdatedAt) throw new Error('Reopen the cloud project before saving so its current version can be verified.');
         const nextUpdatedAt = String(projectData.updatedAt || new Date().toISOString());
         const result = await updateWebsiteProjectInCloud({
           projectId: cloudProjectId,
@@ -9654,6 +9691,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setCloudSyncFailed(true);
         } else {
           cloudSaved = true;
+          cloudRevisionRef.current = { projectId: cloudProjectId, updatedAt: result.data?.updated_at || nextUpdatedAt };
           setCloudSyncFailed(false);
           setCloudProjects((current) =>
             current.map((project) =>
@@ -9686,6 +9724,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setCloudSyncFailed(true);
         } else {
           const createdProject = result.data;
+          cloudRevisionRef.current = { projectId: createdProject.id, updatedAt: createdProject.updated_at || null };
           newProjectIntentRef.current = false;
           setCloudProjectId(createdProject.id);
           saveActiveWebsiteProjectId(createdProject.id);
@@ -9832,6 +9871,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
 
     newProjectIntentRef.current = false;
+    cloudRevisionRef.current = { projectId: data.id, updatedAt: data.updated_at || null };
     setCloudProjectId(data.id);
     saveActiveWebsiteProjectId(data.id);
     setProjectHistory([]);
@@ -10434,6 +10474,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (publishProjectId) {
         const latestSaved = await saveProject({
+          forPublication: true,
           automatic: true,
           createHistory: false,
         });
@@ -10466,6 +10507,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         }
 
         publishProjectId = String((createResult.data as { id: string }).id);
+        cloudRevisionRef.current = { projectId: publishProjectId, updatedAt: createResult.data.updated_at || null };
         setCloudProjectId(publishProjectId);
         saveActiveWebsiteProjectId(publishProjectId);
         setProjectTeamAccess({
@@ -10481,6 +10523,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       assertPublishIsCurrent();
 
+      const publishRevision = cloudRevisionRef.current?.projectId === publishProjectId ? cloudRevisionRef.current.updatedAt : null;
+      if (!publishRevision) throw new Error('Reopen the cloud project before publishing so its current version can be verified.');
       const folder = publishUserId + '/' + publishProjectId;
       const publicBaseUrl = buildPublishedSiteBaseUrl(publishUserId, publishProjectId);
       if (!publicBaseUrl) {
@@ -10735,9 +10779,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       assertPublishIsCurrent();
 
       const {
+        data: publishedRow,
         error: projectError,
       } = await updateWebsiteProjectPublicationState({
         projectId: publishProjectId,
+        expectedUpdatedAt: publishRevision,
         userId: publishUserId,
         content: projectData,
         published: true,
@@ -10751,6 +10797,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         );
       }
 
+      if (publishIsCurrent()) cloudRevisionRef.current = { projectId: publishProjectId, updatedAt: publishedRow?.updated_at || nextPublishedAt };
       publicationStateCommitted = true;
       liveRollback = null;
       pendingArchiveCleanup = null;
@@ -10766,11 +10813,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             title: publishTitle,
             content: projectData,
             status: 'completed',
-            updated_at: nextPublishedAt,
+            updated_at: publishedRow?.updated_at || nextPublishedAt,
           }),
           content: projectData,
           status: 'completed',
-          updated_at: nextPublishedAt,
+          updated_at: publishedRow?.updated_at || nextPublishedAt,
         };
 
         return [
@@ -10866,6 +10913,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
   async function unpublishWebsite() {
+    if (publishBusy || previewBusy || saveInFlightRef.current) return;
     if (!user || !cloudProjectId) return;
     if (!projectTeamAccess.canPublish) {
       setPublishError('Only the project owner can unpublish a shared website.');
@@ -10878,6 +10926,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const unpublishProjectId = cloudProjectId;
     const unpublishUserId = user.id;
     const unpublishBaseProjectData = buildProjectData();
+    const unpublishRevision = cloudRevisionRef.current?.projectId === unpublishProjectId ? cloudRevisionRef.current.updatedAt : null;
     const unpublishIsCurrent = () =>
       publishOperationSequenceRef.current === unpublishSequence &&
       projectLoadSequenceRef.current === unpublishLoadSequence &&
@@ -10899,6 +10948,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setPublishError('');
 
     try {
+      if (!unpublishRevision) throw new Error('Reopen the cloud project before unpublishing so its current version can be verified.');
       const folder = `${unpublishUserId}/${unpublishProjectId}`;
       const previousLiveSnapshot = await snapshotPublishedWebsiteFiles(folder);
       assertUnpublishIsCurrent();
@@ -10920,8 +10970,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       assertUnpublishIsCurrent();
 
-      const { error: projectError } = await updateWebsiteProjectPublicationState({
+      const { data: publishedRow, error: projectError } = await updateWebsiteProjectPublicationState({
         projectId: unpublishProjectId,
+        expectedUpdatedAt: unpublishRevision,
         userId: unpublishUserId,
         content: projectData,
         published: false,
@@ -10929,6 +10980,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       });
 
       if (projectError) throw projectError;
+      if (unpublishIsCurrent()) cloudRevisionRef.current = { projectId: unpublishProjectId, updatedAt: publishedRow?.updated_at || nextUpdatedAt };
       publicationStateCommitted = true;
       liveRollback = null;
       assertUnpublishIsCurrent();
@@ -10940,7 +10992,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ...project,
                 content: projectData,
                 status: 'draft',
-                updated_at: nextUpdatedAt,
+                updated_at: publishedRow?.updated_at || nextUpdatedAt,
               }
             : project
         )

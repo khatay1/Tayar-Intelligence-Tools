@@ -41,7 +41,8 @@ try {
     if (target.includes('/rest/v1/projects?')) return Response.json([{ id: '22222222-2222-2222-8222-222222222222', user_id: '11111111-1111-1111-1111-111111111111' }]);
     if (target.includes('/rest/v1/website_custom_domains?project_id=')) return Response.json([]);
     if (target.includes('/v10/projects/tayar-project/domains')) return Response.json({ name: 'www.example.com', verified: false, verification: [{ type: 'TXT', domain: '_vercel', value: 'verify-me' }] });
-    if (target.includes('/rest/v1/website_custom_domains?on_conflict=')) return Response.json([{ id: 'domain', hostname: 'www.example.com', status: 'pending', verification: [] }]);
+    if (target.includes('/v6/domains/')) return Response.json({ misconfigured: false });
+    if (target.endsWith('/rest/v1/website_custom_domains') && options.method === 'POST') return Response.json([{ id: 'domain', hostname: 'www.example.com', status: 'pending', verification: [] }]);
     throw new Error(`Unexpected request: ${target}`);
   };
   const req = { method: 'POST', headers: { authorization: 'Bearer user-token' }, body: { action: 'connect', projectId: '22222222-2222-2222-8222-222222222222', hostname: 'https://www.example.com/path' } };
@@ -84,3 +85,5 @@ try {
 } finally {
   globalThis.fetch = originalFetch;
 }
+
+await import('./website-domain-lifecycle-regression.mjs');

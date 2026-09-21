@@ -12,6 +12,7 @@ export interface WebsiteCustomDomain {
   project_id: string;
   user_id: string;
   hostname: string;
+  warning?: string;
   status: 'pending' | 'verified' | 'misconfigured';
   verification: WebsiteDomainVerification[];
   created_at: string;
@@ -33,7 +34,7 @@ async function domainRequest(input: {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(String(result.error || 'Custom domain request failed.'));
-  return result.domain || null;
+  return result.domain ? { ...result.domain, ...(typeof result.warning === 'string' ? { warning: result.warning } : {}) } : null;
 }
 
 export const getWebsiteCustomDomain = (projectId: string) => domainRequest({ action: 'get', projectId });
