@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { usePreferences } from '@/context/PreferencesContext';
-import { useLocalizer } from '@/lib/ui-localization';
 import { localizeEditorTemplate } from '../core/editor-template-localization';
 import {
   EDITOR_TEMPLATE_LIBRARY,
@@ -25,9 +24,8 @@ const CATEGORIES: Array<{ id?: EditorTemplateCategory; label: string }> = [
 ];
 
 export function BuilderNativeTemplatesPanel({ disabled = false, onInsert, onPreview, onCustomizeWithAI }: BuilderNativeTemplatesPanelProps) {
-  const baseLocalize = useLocalizer();
   const { prefs } = usePreferences();
-  const l = (text: string) => localizeEditorTemplate(baseLocalize(text), prefs.language);
+  const l = (text: string) => localizeEditorTemplate(text, prefs.language);
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<EditorTemplateKind>();
   const [category, setCategory] = useState<EditorTemplateCategory>();
