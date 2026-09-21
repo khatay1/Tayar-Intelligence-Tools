@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { usePreferences } from '@/contexts/PreferencesContext';
+import { usePreferences } from '@/context/PreferencesContext';
 import type { EditorPageLike } from '../core/editor-model';
 import { normalizeEditorPageSeo, readEditorPageSeo, type EditorPageSeo } from '../core/editor-seo-model';
 import { localizeEditorSeo } from '../core/editor-seo-localization';
@@ -8,8 +8,8 @@ import type { EditorNativeOperation } from '../core/editor-native-operation';
 export interface BuilderPageSeoPanelProps { page?: EditorPageLike; onApplyOperations(operations: EditorNativeOperation[]): void; }
 
 export function BuilderPageSeoPanel({ page, onApplyOperations }: BuilderPageSeoPanelProps) {
-  const { language } = usePreferences();
-  const t = (value: string) => localizeEditorSeo(value, language);
+  const { prefs } = usePreferences();
+  const t = (value: string) => localizeEditorSeo(value, prefs.language);
   const [draft, setDraft] = useState<EditorPageSeo>(() => normalizeEditorPageSeo(page ? readEditorPageSeo(page) : {}));
   useEffect(() => { setDraft(normalizeEditorPageSeo(page ? readEditorPageSeo(page) : {})); }, [page]);
   if (!page) return null;
