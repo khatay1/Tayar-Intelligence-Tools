@@ -76,6 +76,8 @@ export interface BuilderPanelRouterProps {
   onDeleteSymbol?(symbolId: string): void;
   onRenameSymbol?(symbolId: string, name: string): void;
   onDuplicateSymbol?(symbolId: string): void;
+  onCreateSymbolVariant?(symbolId: string, variantName: string): void;
+  onUpdateSymbolMetadata?(symbolId: string, changes: Record<string, unknown>): void;
   onSelectSymbolInstance?(symbolId: string): void;
   activeSymbolId?: string;
   symbolInstanceCounts?: Record<string, number>;
@@ -258,6 +260,8 @@ export function BuilderPanelRouter(
           onDelete={props.onDeleteSymbol}
           onRename={props.onRenameSymbol}
           onDuplicate={props.onDuplicateSymbol}
+          onCreateVariant={props.onCreateSymbolVariant}
+          onUpdateMetadata={props.onUpdateSymbolMetadata}
           onSelectInstance={props.onSelectSymbolInstance}
           activeSymbolId={props.activeSymbolId}
           instanceCounts={props.symbolInstanceCounts}
@@ -289,18 +293,10 @@ export function BuilderPanelRouter(
     if (panel === 'insert') {
       return (
         <BuilderInsertPanel
-          query={
-            props.insertQuery
-          }
-          category={
-            props.insertCategory
-          }
-          onQueryChange={
-            props.onInsertQueryChange
-          }
-          onCategoryChange={
-            props.onInsertCategoryChange
-          }
+          query={props.insertQuery}
+          category={props.insertCategory}
+          onQueryChange={props.onInsertQueryChange}
+          onCategoryChange={props.onInsertCategoryChange}
           onInsert={props.onInsert}
           disabled={mutationBusy}
         />
@@ -310,32 +306,17 @@ export function BuilderPanelRouter(
     if (panel === 'media') {
       return (
         <BuilderMediaPanel
-          assets={
-            props.mediaAssets ||
-            []
-          }
-          filter={
-            props.mediaFilter
-          }
-          onFilterChange={
-            props.onMediaFilterChange
-          }
+          assets={props.mediaAssets || []}
+          filter={props.mediaFilter}
+          onFilterChange={props.onMediaFilterChange}
           onSelect={props.onMediaSelect}
           disabled={mutationBusy}
-          onUpload={
-            props.onMediaUpload
-          }
-          onGenerateWithAI={
-            props.onGenerateMediaWithAI
-          }
+          onUpload={props.onMediaUpload}
+          onGenerateWithAI={props.onGenerateMediaWithAI}
         />
       );
     }
 
-    return (
-      props.aiPanel || (
-        <div className="tayar-v2-empty-panel">{l('Tayar AI')}</div>
-      )
-    );
+    return props.aiPanel || <div className="tayar-v2-empty-panel">{l('Tayar AI')}</div>;
   };
 }
