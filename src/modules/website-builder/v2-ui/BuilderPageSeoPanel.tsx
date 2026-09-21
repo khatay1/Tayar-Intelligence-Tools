@@ -6,7 +6,10 @@ import { localizeEditorSeo } from '../core/editor-seo-localization';
 import type { EditorNativeOperation } from '../core/editor-native-operation';
 
 export interface BuilderPageSeoPanelProps { page?: EditorPageLike; onApplyOperations(operations: EditorNativeOperation[]): void; }
-
+const schemaOptions: Array<{ value: EditorPageSeo['schemaType']; label: string }> = [
+  { value: 'WebPage', label: 'Web page' }, { value: 'AboutPage', label: 'About page' }, { value: 'ContactPage', label: 'Contact page' },
+  { value: 'Article', label: 'Article' }, { value: 'Product', label: 'Product' }, { value: 'FAQPage', label: 'FAQ page' },
+];
 export function BuilderPageSeoPanel({ page, onApplyOperations }: BuilderPageSeoPanelProps) {
   const { prefs } = usePreferences();
   const t = (value: string) => localizeEditorSeo(value, prefs.language);
@@ -23,7 +26,7 @@ export function BuilderPageSeoPanel({ page, onApplyOperations }: BuilderPageSeoP
     <label>{t('Open Graph title')}<input value={draft.ogTitle} onChange={event => update('ogTitle', event.target.value)} /></label>
     <label>{t('Open Graph description')}<textarea value={draft.ogDescription} onChange={event => update('ogDescription', event.target.value)} /></label>
     <label>{t('Open Graph image')}<input type="url" value={draft.ogImage} onChange={event => update('ogImage', event.target.value)} /></label>
-    <label>{t('Schema type')}<select value={draft.schemaType} onChange={event => update('schemaType', event.target.value as EditorPageSeo['schemaType'])}><option>WebPage</option><option>AboutPage</option><option>ContactPage</option><option>Article</option><option>Product</option><option>FAQPage</option></select></label>
+    <label>{t('Schema type')}<select value={draft.schemaType} onChange={event => update('schemaType', event.target.value as EditorPageSeo['schemaType'])}>{schemaOptions.map(option => <option key={option.value} value={option.value}>{t(option.label)}</option>)}</select></label>
     <label>{t('Twitter card')}<select value={draft.twitterCard} onChange={event => update('twitterCard', event.target.value as EditorPageSeo['twitterCard'])}><option value="summary_large_image">{t('Large image')}</option><option value="summary">{t('Summary')}</option></select></label>
     <label><input type="checkbox" checked={draft.noIndex} onChange={event => update('noIndex', event.target.checked)} /> {t('Prevent search indexing')}</label>
     <label><input type="checkbox" checked={draft.noFollow} onChange={event => update('noFollow', event.target.checked)} /> {t('Do not follow links')}</label>
