@@ -24,10 +24,14 @@ export default defineConfig({
     chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-icons': ['lucide-react'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'vendor-react';
+          if (id.includes('/@supabase/')) return 'vendor-supabase';
+          if (id.includes('/lucide-react/')) return 'vendor-icons';
+          if (id.includes('/pdf-lib/') || id.includes('/pdfjs-dist/')) return 'vendor-pdf';
+          if (id.includes('/jszip/')) return 'vendor-archive';
+          return 'vendor-misc';
         },
       },
     },
