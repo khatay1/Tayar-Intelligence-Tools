@@ -175,6 +175,7 @@ export function buildAIEditableSnapshotData({
           containerId: element.containerId,
           symbolId: element.symbolId,
           animationOnce: element.animationOnce,
+          animationTrigger: element.animationTrigger,
           style: element.style,
           responsive: element.responsive || {},
         })),

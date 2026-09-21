@@ -124,6 +124,10 @@ export interface AIWebsitePatchChanges {
   elementAnimationDuration?: number;
   elementAnimationDelay?: number;
   elementAnimationDistance?: number;
+  elementAnimationEasing?: 'smooth' | 'ease' | 'linear' | 'spring';
+  elementAnimationIterations?: number;
+  elementParallaxSpeed?: number;
+  elementAnimationTrigger?: 'scroll' | 'load' | 'hover' | 'click';
   elementAnimationOnce?: boolean;
   containerName?: string;
   containerLayout?: 'stack' | 'row';

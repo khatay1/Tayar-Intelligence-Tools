@@ -101,6 +101,13 @@ const ANIMATION_OPTIONS = [
   'fade-right',
   'zoom-in',
   'zoom-out',
+  'slide-up',
+  'slide-down',
+  'slide-left',
+  'slide-right',
+  'blur-in',
+  'flip-in',
+  'bounce-in',
 ];
 
 function findContainer(
@@ -228,6 +235,21 @@ function responsiveElementFields(
     }),
     field(`${prefix}.maxHeight`, 'Max height', deviceStyle.maxHeight ?? '', 'number', 'responsive', {
       section: title, min: 0, max: 2400, unit: 'px', ...override('maxHeight'),
+    }),
+    field(`${prefix}.animation`, 'Animation', deviceStyle.animation ?? '', 'select', 'responsive', {
+      section: `${title} motion`, options: ['', ...ANIMATION_OPTIONS], ...override('animation'),
+    }),
+    field(`${prefix}.animationDuration`, 'Duration ms', deviceStyle.animationDuration ?? '', 'number', 'responsive', {
+      section: `${title} motion`, min: 100, max: 4000, step: 50, ...override('animationDuration'),
+    }),
+    field(`${prefix}.animationDelay`, 'Delay ms', deviceStyle.animationDelay ?? '', 'number', 'responsive', {
+      section: `${title} motion`, min: 0, max: 5000, step: 50, ...override('animationDelay'),
+    }),
+    field(`${prefix}.animationEasing`, 'Easing', deviceStyle.animationEasing ?? '', 'select', 'responsive', {
+      section: `${title} motion`, options: ['', 'smooth', 'ease', 'linear', 'spring'], ...override('animationEasing'),
+    }),
+    field(`${prefix}.parallaxSpeed`, 'Parallax speed', deviceStyle.parallaxSpeed ?? '', 'number', 'responsive', {
+      section: `${title} motion`, min: -1, max: 1, step: 0.05, ...override('parallaxSpeed'),
     }),
   ];
 }
@@ -479,6 +501,22 @@ function buildElementFields(
       min: 0,
       max: 1000,
     }),
+    field('style.animationEasing', 'Easing', style.animationEasing ?? 'smooth', 'select', 'design', {
+      section: 'Animation',
+      options: ['smooth', 'ease', 'linear', 'spring'],
+    }),
+    field('style.animationIterations', 'Iterations', style.animationIterations ?? 1, 'number', 'design', {
+      section: 'Animation',
+      min: 1,
+      max: 20,
+      step: 1,
+    }),
+    field('style.parallaxSpeed', 'Parallax speed', style.parallaxSpeed ?? 0, 'number', 'design', {
+      section: 'Animation',
+      min: -1,
+      max: 1,
+      step: 0.05,
+    }),
 
     ...responsiveElementFields('tablet', responsive, style),
     ...responsiveElementFields('mobile', responsive, style),
@@ -498,8 +536,12 @@ function buildElementFields(
     field('symbolId', 'Reusable component', element.symbolId ?? '', 'text', 'settings', {
       section: 'Advanced',
     }),
-    field('animationOnce', 'Animate once', Boolean(element.animationOnce), 'toggle', 'settings', {
+    field('animationOnce', 'Animate once', element.animationOnce !== false, 'toggle', 'settings', {
       section: 'Advanced',
+    }),
+    field('animationTrigger', 'Animation trigger', element.animationTrigger ?? 'scroll', 'select', 'settings', {
+      section: 'Advanced',
+      options: ['scroll', 'load', 'hover', 'click'],
     }),
   );
 

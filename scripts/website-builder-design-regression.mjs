@@ -14,7 +14,7 @@ try {
     stdin: { contents: [
       'editor-arrangement', 'editor-design-commands', 'editor-command', 'editor-history',
       'editor-inspector-model', 'editor-inspector-operation', 'editor-value-safety',
-      'editor-layout-style', 'defaults',
+      'editor-layout-style', 'editor-motion', 'defaults',
     ].map((name) => `export * from './src/modules/website-builder/core/${name}.ts';`).join('\n'), resolveDir: process.cwd() },
     bundle: true, platform: 'node', format: 'esm', outfile,
     alias: { '@': join(process.cwd(), 'src') },
@@ -22,7 +22,8 @@ try {
   const { settledCanvasElementRect, arrangeCanvasElements: arrange, commandRepairResponsive: repair, commandRestyleSite: restyle,
     runEditorCommand: run, createEditorHistory: history, undoEditorHistory: undo, redoEditorHistory: redo,
     buildEditorInspectorFields: inspectorFields, buildEditorInspectorOperation: inspectorOperation,
-    inspectEditorContainerSemantic: inspectContainer, containerLayoutCss, elementConstraintCss, normalizeSection } = await import(pathToFileURL(outfile));
+    inspectEditorContainerSemantic: inspectContainer, containerLayoutCss, elementConstraintCss, normalizeSection,
+    elementAnimationTransform, normalizeElementAnimation, elementAnimationEasing } = await import(pathToFileURL(outfile));
   const box = (id, left, top, width = 20, height = 20, x = 0, y = 0) => ({ id, rect: { left, top, width, height }, x, y });
   check('all six alignments use the selection bounds', () => {
     const items = [box('a', 10, 20), box('b', 110, 120, 40, 40)];
@@ -158,6 +159,23 @@ try {
     assert.equal(operation.changes.responsive.mobile.width, undefined);
     assert.equal(Object.hasOwn(operation.changes.responsive.mobile, 'width'), false);
     assert.equal(operation.changes.responsive.mobile.positionX, 0);
+  });
+  check('motion presets normalize safely and expose deterministic easing', () => {
+    assert.equal(normalizeElementAnimation('bounce-in'), 'bounce-in');
+    assert.equal(normalizeElementAnimation('unsafe-motion'), 'none');
+    assert.equal(elementAnimationTransform('slide-left', 48), 'translate3d(48px,0,0)');
+    assert.equal(elementAnimationTransform('flip-in', 48), 'perspective(900px) rotateX(-18deg)');
+    assert.equal(elementAnimationEasing('spring'), 'cubic-bezier(.34,1.56,.64,1)');
+  });
+  check('responsive inspector exposes inherited motion overrides', () => {
+    const input = { pages: [{ id: 'p', sections: [{ id: 's', elements: [{ id: 'e', type: 'heading',
+      style: { animation: 'fade-up', animationDuration: 700, parallaxSpeed: .2 },
+      responsive: { mobile: { animation: 'none', parallaxSpeed: 0 } } }] }] }] };
+    const fields = inspectorFields(input, { pageId: 'p', sectionId: 's', elementId: 'e' });
+    const animation = fields.find((item) => item.key === 'responsive.mobile.animation');
+    const parallax = fields.find((item) => item.key === 'responsive.mobile.parallaxSpeed');
+    assert.equal(animation.value, 'none'); assert.equal(animation.inheritedValue, 'fade-up');
+    assert.equal(parallax.value, 0); assert.equal(parallax.overridden, true);
   });
   console.log(`Design regression: ${passed} behavioral scenarios passed.`);
 } finally {

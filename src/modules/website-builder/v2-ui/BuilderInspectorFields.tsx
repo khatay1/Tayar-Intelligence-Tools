@@ -211,11 +211,7 @@ function renderFieldControl(
     <input
       aria-label={l(field.label)}
       disabled={disabled}
-      type={
-        field.kind === 'number'
-          ? 'number'
-          : 'text'
-      }
+      type="text"
       value={
         fieldValue(
           field.value,
@@ -231,14 +227,7 @@ function renderFieldControl(
         const raw =
           event.currentTarget.value;
 
-        onChange(
-          field.key,
-          field.kind === 'number'
-            ? raw === ''
-              ? undefined
-              : Number(raw)
-            : raw,
-        );
+        onChange(field.key, raw);
       }}
     />
   );

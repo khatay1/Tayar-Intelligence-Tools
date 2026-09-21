@@ -132,6 +132,7 @@ const ELEMENT_CHANGE_KEYS = new Set([
   'responsive',
   'layoutColumn',
   'animationOnce',
+  'animationTrigger',
   'muted',
 ]);
 
@@ -179,6 +180,9 @@ const ELEMENT_STYLE_KEYS = new Set([
   'animationDuration',
   'animationDelay',
   'animationDistance',
+  'animationEasing',
+  'animationIterations',
+  'parallaxSpeed',
 ]);
 
 const SECTION_RESPONSIVE_KEYS = new Set([

@@ -6016,7 +6016,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         'accordion', 'tabs', 'gallery', 'embed', 'code', 'countdown', 'stats', 'testimonials-slider',
       ]);
       const allowedShadows = new Set<ElementShadow>(['none', 'sm', 'md', 'lg', 'xl']);
-      const allowedAnimations = new Set<ElementAnimation>(['none', 'fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in', 'zoom-out']);
+      const allowedAnimations = new Set<ElementAnimation>(['none', 'fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in', 'zoom-out', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'blur-in', 'flip-in', 'bounce-in']);
+      const allowedAnimationTriggers = new Set(['scroll', 'load', 'hover', 'click']);
+      const allowedAnimationEasings = new Set(['smooth', 'ease', 'linear', 'spring']);
       const allowedFormFieldTypes = new Set<WebsiteFormFieldType>(['text', 'email', 'tel', 'textarea', 'select', 'checkbox']);
       const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
       const finiteStyleNumber = (value: unknown, min: number, max: number) =>
@@ -7899,6 +7901,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           if (changes.elementShadow && allowedShadows.has(changes.elementShadow)) createdStyle.shadow = changes.elementShadow;
           if (changes.elementHoverShadow && allowedShadows.has(changes.elementHoverShadow)) createdStyle.hoverShadow = changes.elementHoverShadow;
           if (changes.elementAnimation && allowedAnimations.has(changes.elementAnimation)) createdStyle.animation = changes.elementAnimation;
+          if (changes.elementAnimationEasing && allowedAnimationEasings.has(changes.elementAnimationEasing)) createdStyle.animationEasing = changes.elementAnimationEasing;
           if (changes.textAlign === 'left' || changes.textAlign === 'center' || changes.textAlign === 'right') createdStyle.textAlign = changes.textAlign;
           if (changes.alignSelf === 'auto' || changes.alignSelf === 'start' || changes.alignSelf === 'center' || changes.alignSelf === 'end' || changes.alignSelf === 'stretch') createdStyle.alignSelf = changes.alignSelf;
           if (typeof changes.hidden === 'boolean') createdStyle.hidden = changes.hidden;
@@ -7924,6 +7927,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setCreatedNumber('animationDuration', changes.elementAnimationDuration, 100, 4000);
           setCreatedNumber('animationDelay', changes.elementAnimationDelay, 0, 5000);
           setCreatedNumber('animationDistance', changes.elementAnimationDistance, 0, 300);
+          setCreatedNumber('animationIterations', changes.elementAnimationIterations, 1, 20);
+          setCreatedNumber('parallaxSpeed', changes.elementParallaxSpeed, -1, 1);
 
           const newElement: WebsiteElement = {
             ...created,
@@ -7932,6 +7937,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             src: typeof changes.elementSrc === 'string' ? changes.elementSrc.trim().slice(0, 2000) : created.src,
             style: createdStyle,
             animationOnce: typeof changes.elementAnimationOnce === 'boolean' ? changes.elementAnimationOnce : created.animationOnce,
+            animationTrigger: changes.elementAnimationTrigger && allowedAnimationTriggers.has(changes.elementAnimationTrigger) ? changes.elementAnimationTrigger : created.animationTrigger,
           };
 
           const beforeId =
@@ -7995,6 +8001,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           if (changes.elementShadow && allowedShadows.has(changes.elementShadow)) styleChanges.shadow = changes.elementShadow;
           if (changes.elementHoverShadow && allowedShadows.has(changes.elementHoverShadow)) styleChanges.hoverShadow = changes.elementHoverShadow;
           if (changes.elementAnimation && allowedAnimations.has(changes.elementAnimation)) styleChanges.animation = changes.elementAnimation;
+          if (changes.elementAnimationEasing && allowedAnimationEasings.has(changes.elementAnimationEasing)) styleChanges.animationEasing = changes.elementAnimationEasing;
           if (changes.textAlign === 'left' || changes.textAlign === 'center' || changes.textAlign === 'right') styleChanges.textAlign = changes.textAlign;
           if (changes.alignSelf === 'auto' || changes.alignSelf === 'start' || changes.alignSelf === 'center' || changes.alignSelf === 'end' || changes.alignSelf === 'stretch') styleChanges.alignSelf = changes.alignSelf;
           if (typeof changes.hidden === 'boolean') styleChanges.hidden = changes.hidden;
@@ -8021,9 +8028,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           setNumeric('animationDuration', changes.elementAnimationDuration, 100, 4000);
           setNumeric('animationDelay', changes.elementAnimationDelay, 0, 5000);
           setNumeric('animationDistance', changes.elementAnimationDistance, 0, 300);
+          setNumeric('animationIterations', changes.elementAnimationIterations, 1, 20);
+          setNumeric('parallaxSpeed', changes.elementParallaxSpeed, -1, 1);
 
           const hasContentChange = typeof changes.elementContent === 'string' || typeof changes.elementHref === 'string' || typeof changes.elementSrc === 'string';
-          const hasElementMetaChange = typeof changes.elementAnimationOnce === 'boolean';
+          const hasElementMetaChange = typeof changes.elementAnimationOnce === 'boolean'
+            || (typeof changes.elementAnimationTrigger === 'string' && allowedAnimationTriggers.has(changes.elementAnimationTrigger));
           if (!hasContentChange && !hasElementMetaChange && Object.keys(styleChanges).length === 0) continue;
 
           const responsiveDevice = operation.device === 'mobile' || operation.device === 'tablet' ? operation.device : null;
@@ -8040,6 +8050,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 ? Math.round(requestedColumn)
                 : targetElement.layoutColumn,
             animationOnce: typeof changes.elementAnimationOnce === 'boolean' ? changes.elementAnimationOnce : targetElement.animationOnce,
+            animationTrigger: changes.elementAnimationTrigger && allowedAnimationTriggers.has(changes.elementAnimationTrigger) ? changes.elementAnimationTrigger : targetElement.animationTrigger,
           };
           const updatedElement: WebsiteElement = responsiveDevice
             ? {
@@ -15609,6 +15620,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       <option value="fade-right">{l('Fade Right')}</option>
                       <option value="zoom-in">{l('Zoom In')}</option>
                       <option value="zoom-out">{l('Zoom Out')}</option>
+                      <option value="slide-up">{l('Slide Up')}</option>
+                      <option value="slide-down">{l('Slide Down')}</option>
+                      <option value="slide-left">{l('Slide Left')}</option>
+                      <option value="slide-right">{l('Slide Right')}</option>
+                      <option value="blur-in">{l('Blur In')}</option>
+                      <option value="flip-in">{l('Flip In')}</option>
+                      <option value="bounce-in">{l('Bounce In')}</option>
                     </select>
                   </label>
                   <div className="mt-2 grid grid-cols-3 gap-2">
@@ -15617,6 +15635,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <label className="text-[9px] text-gray-500">{l('Delay ms')}<input type="number" min="0" max="5000" step="50" value={effectiveStyle(selectedElement, device).animationDelay ?? 0} onChange={(e) => updateSelectedElement({ style: { animationDelay: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                     </label>
                     <label className="text-[9px] text-gray-500">{l('Distance px')}<input type="number" min="0" max="300" step="2" value={effectiveStyle(selectedElement, device).animationDistance ?? 36} onChange={(e) => updateSelectedElement({ style: { animationDistance: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                    </label>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-[9px] text-gray-500">{l('Trigger')}<select value={selectedElement.animationTrigger || 'scroll'} onChange={(e) => updateSelectedElement({ animationTrigger: e.target.value as 'scroll' | 'load' | 'hover' | 'click' })} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
+                        <option value="scroll">{l('On scroll')}</option><option value="load">{l('On load')}</option><option value="hover">{l('On hover')}</option><option value="click">{l('On click')}</option>
+                      </select>
+                    </label>
+                    <label className="text-[9px] text-gray-500">{l('Easing')}<select value={effectiveStyle(selectedElement, device).animationEasing || 'smooth'} onChange={(e) => updateSelectedElement({ style: { animationEasing: e.target.value as 'smooth' | 'ease' | 'linear' | 'spring' } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
+                        <option value="smooth">{l('Smooth')}</option><option value="ease">{l('Ease')}</option><option value="linear">{l('Linear')}</option><option value="spring">{l('Spring')}</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-[9px] text-gray-500">{l('Iterations')}<input type="number" min="1" max="20" value={effectiveStyle(selectedElement, device).animationIterations ?? 1} onChange={(e) => updateSelectedElement({ style: { animationIterations: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
+                    </label>
+                    <label className="text-[9px] text-gray-500">{l('Parallax speed')}<input type="number" min="-1" max="1" step="0.05" value={effectiveStyle(selectedElement, device).parallaxSpeed ?? 0} onChange={(e) => updateSelectedElement({ style: { parallaxSpeed: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
                     </label>
                   </div>
                   <label className="mt-2 flex items-center gap-2 text-[10px] text-gray-500">

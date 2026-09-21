@@ -20,7 +20,9 @@ export type SectionBackgroundSize = 'cover' | 'contain' | 'auto';
 export type SectionContentWidth = 'boxed' | 'full';
 export type ElementBorderStyle = 'solid' | 'dashed' | 'dotted';
 export type ElementShadow = 'none' | 'sm' | 'md' | 'lg' | 'xl';
-export type ElementAnimation = 'none' | 'fade' | 'fade-up' | 'fade-down' | 'fade-left' | 'fade-right' | 'zoom-in' | 'zoom-out';
+export type ElementAnimation = 'none' | 'fade' | 'fade-up' | 'fade-down' | 'fade-left' | 'fade-right' | 'zoom-in' | 'zoom-out' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right' | 'blur-in' | 'flip-in' | 'bounce-in';
+export type ElementAnimationTrigger = 'scroll' | 'load' | 'hover' | 'click';
+export type ElementAnimationEasing = 'smooth' | 'ease' | 'linear' | 'spring';
 export type ElementContainerLayout = 'stack' | 'row' | 'grid';
 export type ElementContainerAlign = 'start' | 'center' | 'end' | 'stretch';
 export type ElementContainerJustify = 'start' | 'center' | 'end' | 'between';
@@ -80,6 +82,9 @@ export interface ElementStyle {
   animationDuration?: number;
   animationDelay?: number;
   animationDistance?: number;
+  animationEasing?: ElementAnimationEasing;
+  animationIterations?: number;
+  parallaxSpeed?: number;
 }
 
 export interface WebsiteElementContainer {
@@ -112,6 +117,7 @@ export interface WebsiteElement {
   responsive?: Partial<Record<Device, ElementStyle>>;
   layoutColumn?: number;
   animationOnce?: boolean;
+  animationTrigger?: ElementAnimationTrigger;
   containerId?: string;
   symbolId?: string;
   cmsBinding?: WebsiteCmsBinding;

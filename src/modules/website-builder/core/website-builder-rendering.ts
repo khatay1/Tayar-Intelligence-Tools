@@ -1,8 +1,9 @@
 import { localizeUi } from '@/lib/ui-localization';
 import { containerLayoutCss, elementConstraintCss } from './editor-layout-style';
+import { elementAnimationEasing, elementAnimationTransform, normalizeElementAnimation } from './editor-motion';
 import type { Language } from '@/context/PreferencesContext';
 import { relativeWebsitePageHref } from './website-localization';
-import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionType, WebsiteElement, WebsiteElementContainer, WebsiteFormField, WebsiteSection } from './types';
+import type { Device, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionType, WebsiteElement, WebsiteElementContainer, WebsiteFormField, WebsiteSection } from './types';
 import { createDefaultContactFormFields, createSection } from './defaults';
 import { languageCodeLabel, normalizePageLanguage, normalizeSlug } from './project-identifiers';
 import type { WebsitePage, LeadCaptureConfig, WebsiteTheme, WebsiteHeaderConfig, WebsiteFooterConfig, WebsiteSiteEnhancements, WebsiteProductionConfig } from './website-builder-model';
@@ -191,7 +192,7 @@ export function elementVisualCss(style: WebsiteElement['style'], important = fal
     `border-color:${style.borderColor || 'transparent'}${suffix}`,
     `box-shadow:${elementShadowCss(style.shadow)}${suffix}`,
     `opacity:${opacity}${suffix}`,
-    `transform:translate3d(${positionX}px,${positionY}px,0) rotate(${rotate}deg)${suffix}`,
+    `transform:translate3d(${positionX}px,calc(${positionY}px + var(--tayar-parallax-y,0px)),0) rotate(${rotate}deg)${suffix}`,
     ...elementConstraintCss(style, suffix),
   ].join(';');
 }
@@ -204,7 +205,7 @@ export function elementHoverCss(style: WebsiteElement['style'], important = fals
   const scale = clampElementNumber(style.hoverScale, 1, 0.5, 1.6);
   const hoverOpacity = clampElementNumber(style.hoverOpacity, style.opacity ?? 1, 0, 1);
   const rules = [
-    `transform:translate3d(${positionX}px,${positionY}px,0) rotate(${rotate}deg) scale(${scale})${suffix}`,
+    `transform:translate3d(${positionX}px,calc(${positionY}px + var(--tayar-parallax-y,0px)),0) rotate(${rotate}deg) scale(${scale})${suffix}`,
     `opacity:${hoverOpacity}${suffix}`,
   ];
   if (style.hoverBackgroundColor) rules.push(`background-color:${style.hoverBackgroundColor}${suffix}`);
@@ -213,25 +214,12 @@ export function elementHoverCss(style: WebsiteElement['style'], important = fals
   return rules.join(';');
 }
 
-export function normalizeElementAnimation(value: unknown): ElementAnimation {
-  const allowed: ElementAnimation[] = ['none', 'fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in', 'zoom-out'];
-  return typeof value === 'string' && allowed.includes(value as ElementAnimation) ? value as ElementAnimation : 'none';
-}
+export { elementAnimationEasing, elementAnimationTransform, normalizeElementAnimation } from './editor-motion';
 
-export function elementAnimationTransform(animation: ElementAnimation, distance: number): string {
-  if (animation === 'fade-up') return `translate3d(0,${distance}px,0)`;
-  if (animation === 'fade-down') return `translate3d(0,-${distance}px,0)`;
-  if (animation === 'fade-left') return `translate3d(${distance}px,0,0)`;
-  if (animation === 'fade-right') return `translate3d(-${distance}px,0,0)`;
-  if (animation === 'zoom-in') return 'scale(.86)';
-  if (animation === 'zoom-out') return 'scale(1.14)';
-  return 'none';
-}
-
-export function elementRevealCss(style: WebsiteElement['style'], important = false): string {
+export function elementRevealCss(style: WebsiteElement['style'], important = false, trigger: WebsiteElement['animationTrigger'] = 'scroll'): string {
   const suffix = important ? ' !important' : '';
   const animation = normalizeElementAnimation(style.animation);
-  if (animation === 'none') {
+  if (animation === 'none' || trigger === 'hover' || trigger === 'click') {
     return `opacity:1${suffix};transform:none${suffix};transition-property:none${suffix}`;
   }
   const duration = clampElementNumber(style.animationDuration, 650, 100, 4000);
@@ -243,7 +231,8 @@ export function elementRevealCss(style: WebsiteElement['style'], important = fal
     `transition-property:opacity,transform${suffix}`,
     `transition-duration:${duration}ms${suffix}`,
     `transition-delay:${delay}ms${suffix}`,
-    `transition-timing-function:cubic-bezier(.22,1,.36,1)${suffix}`,
+    `transition-timing-function:${elementAnimationEasing(style.animationEasing)}${suffix}`,
+    animation === 'blur-in' ? `filter:blur(${Math.max(2, Math.min(30, distance / 2))}px)${suffix}` : '',
     `will-change:opacity,transform${suffix}`,
   ].join(';');
 }
@@ -252,7 +241,23 @@ export function elementRevealVisibleCss(style: WebsiteElement['style'], importan
   const suffix = important ? ' !important' : '';
   const animation = normalizeElementAnimation(style.animation);
   if (animation === 'none') return `opacity:1${suffix};transform:none${suffix}`;
-  return `opacity:1${suffix};transform:none${suffix}`;
+  return `opacity:1${suffix};transform:none${suffix};filter:none${suffix}`;
+}
+
+export function elementMotionAttributes(element: WebsiteElement, style: WebsiteElement['style']): string {
+  const trigger = element.animationTrigger === 'load' || element.animationTrigger === 'hover' || element.animationTrigger === 'click' ? element.animationTrigger : 'scroll';
+  return [
+    'data-tayar-animated',
+    `data-tayar-animation="${escapeHtml(normalizeElementAnimation(style.animation))}"`,
+    `data-tayar-animation-trigger="${trigger}"`,
+    `data-tayar-animation-once="${element.animationOnce === false ? 'false' : 'true'}"`,
+    `data-tayar-animation-duration="${clampElementNumber(style.animationDuration, 650, 100, 4000)}"`,
+    `data-tayar-animation-delay="${clampElementNumber(style.animationDelay, 0, 0, 5000)}"`,
+    `data-tayar-animation-distance="${clampElementNumber(style.animationDistance, 36, 0, 300)}"`,
+    `data-tayar-animation-easing="${escapeHtml(elementAnimationEasing(style.animationEasing))}"`,
+    `data-tayar-animation-iterations="${Math.round(clampElementNumber(style.animationIterations, 1, 1, 20))}"`,
+    `data-tayar-parallax="${clampElementNumber(style.parallaxSpeed, 0, -1, 1)}"`,
+  ].join(' ');
 }
 
 export function buildDesktopElementAnimationCss(sections: WebsiteSection[]): string {
@@ -261,7 +266,7 @@ export function buildDesktopElementAnimationCss(sections: WebsiteSection[]): str
     (section.elements || []).forEach((element) => {
       const style = effectiveStyle(element, 'desktop');
       const selector = `[data-tayar-element="${cssAttributeValue(element.id)}"]`;
-      rules.push(`.tayar-js ${selector}{${elementRevealCss(style)}}`);
+      rules.push(`.tayar-js ${selector}{${elementRevealCss(style, false, element.animationTrigger)}}`);
       rules.push(`.tayar-js ${selector}.tayar-visible{${elementRevealVisibleCss(style)}}`);
     });
   });
@@ -363,7 +368,7 @@ export function buildResponsiveElementCss(sections: WebsiteSection[]): string {
         const style = effectiveStyle(element, device);
         const selector = `[data-tayar-element="${cssAttributeValue(element.id)}"]`;
         rules.push(`${selector}{${elementSlotCss(style, column, columns, true)}}`);
-        rules.push(`.tayar-js ${selector}{${elementRevealCss(style, true)}}`);
+        rules.push(`.tayar-js ${selector}{${elementRevealCss(style, true, element.animationTrigger)}}`);
         rules.push(`.tayar-js ${selector}.tayar-visible{${elementRevealVisibleCss(style, true)}}`);
         rules.push(`${selector}>.tayar-element{${elementVisualCss(style, true)}}`);
         rules.push(`${selector}>.tayar-element:hover{${elementHoverCss(style, true)}}`);
@@ -399,7 +404,7 @@ export function sectionElementsToHtml(section: WebsiteSection, homeSlug: string,
       const span = containerColumnSpan(container, column, columns);
       const children = members.map((member) => {
         const style = effectiveStyle(member, 'desktop');
-        return `<div class="container-element-item" data-tayar-element="${escapeHtml(member.id)}" data-tayar-animated data-tayar-animation-once="${member.animationOnce === false ? 'false' : 'true'}" style="${elementSlotCss(style, 1, 1)}">${elementToHtml(member, homeSlug, 'desktop', language)}</div>`;
+        return `<div class="container-element-item" data-tayar-element="${escapeHtml(member.id)}" ${elementMotionAttributes(member, style)} style="${elementSlotCss(style, 1, 1)}">${elementToHtml(member, homeSlug, 'desktop', language)}</div>`;
       }).join('\n');
       const containerColumns = Math.round(clampElementNumber(container.columns, 2, 1, 12));
       items.push(`<div class="layout-item container-slot" data-column="${column}" data-tayar-container="${escapeHtml(container.id)}" style="grid-column:${columns > 1 ? `${column} / span ${span}` : '1 / span 1'}"><div class="tayar-container" data-layout="${container.layout}" data-columns="${containerColumns}" style="${containerVisualCss(container)}">${children}</div></div>`);
@@ -408,7 +413,7 @@ export function sectionElementsToHtml(section: WebsiteSection, homeSlug: string,
 
     const column = elementColumn(element, index, columns);
     const style = effectiveStyle(element, 'desktop');
-    items.push(`<div class="layout-item" data-tayar-element="${escapeHtml(element.id)}" data-tayar-animated data-tayar-animation-once="${element.animationOnce === false ? 'false' : 'true'}" data-column="${column}" style="${elementSlotCss(style, column, columns)}">${elementToHtml(element, homeSlug, 'desktop', language)}</div>`);
+    items.push(`<div class="layout-item" data-tayar-element="${escapeHtml(element.id)}" ${elementMotionAttributes(element, style)} data-column="${column}" style="${elementSlotCss(style, column, columns)}">${elementToHtml(element, homeSlug, 'desktop', language)}</div>`);
   });
 
   return `<div class="${containerClass}" ${containerAttrs}>${items.join('\n')}</div>`;
@@ -828,7 +833,7 @@ export function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCap
     const submitButton = submitElement
       ? (() => {
           const submitStyle = effectiveStyle(submitElement, 'desktop');
-          return `<div class="layout-item" data-tayar-element="${escapeHtml(submitElement.id)}" data-tayar-animated data-tayar-animation-once="${submitElement.animationOnce === false ? 'false' : 'true'}" data-column="1" style="${elementSlotCss(submitStyle, 1, 1)}"><button class="btn tayar-element" type="submit" style="${elementVisualCss(submitStyle)}"${enabled ? '' : ' disabled'}>${submitLabel}</button></div>`;
+          return `<div class="layout-item" data-tayar-element="${escapeHtml(submitElement.id)}" ${elementMotionAttributes(submitElement, submitStyle)} data-column="1" style="${elementSlotCss(submitStyle, 1, 1)}"><button class="btn tayar-element" type="submit" style="${elementVisualCss(submitStyle)}"${enabled ? '' : ' disabled'}>${submitLabel}</button></div>`;
         })()
       : `<button class="btn" type="submit"${enabled ? '' : ' disabled'}>${submitLabel}</button>`;
 
@@ -1411,24 +1416,82 @@ export function buildFullHtml(
   const items = Array.from(document.querySelectorAll('[data-tayar-animated]'));
   if (!items.length) return;
   const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reducedMotion || !('IntersectionObserver' in window)) {
+  if (reducedMotion) {
     items.forEach((item) => item.classList.add('tayar-visible'));
     return;
   }
 
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      const item = entry.target;
-      if (entry.isIntersecting) {
-        item.classList.add('tayar-visible');
-        if (item.getAttribute('data-tayar-animation-once') !== 'false') observer.unobserve(item);
-      } else if (item.getAttribute('data-tayar-animation-once') === 'false') {
-        item.classList.remove('tayar-visible');
-      }
-    });
-  }, { threshold: 0.12, rootMargin: '0px 0px -5% 0px' });
+  const byTrigger = (trigger) => items.filter((item) => (item.getAttribute('data-tayar-animation-trigger') || 'scroll') === trigger);
+  const loadItems = byTrigger('load');
+  requestAnimationFrame(() => loadItems.forEach((item) => item.classList.add('tayar-visible')));
 
-  items.forEach((item) => observer.observe(item));
+  const scrollItems = byTrigger('scroll');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const item = entry.target;
+        if (entry.isIntersecting) {
+          item.classList.add('tayar-visible');
+          if (item.getAttribute('data-tayar-animation-once') !== 'false') observer.unobserve(item);
+        } else if (item.getAttribute('data-tayar-animation-once') === 'false') {
+          item.classList.remove('tayar-visible');
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -5% 0px' });
+    scrollItems.forEach((item) => observer.observe(item));
+  } else scrollItems.forEach((item) => item.classList.add('tayar-visible'));
+
+  const playMotion = (item) => {
+    const animation = item.getAttribute('data-tayar-animation') || 'none';
+    if (animation === 'none' || typeof item.animate !== 'function') return;
+    const distance = Math.max(0, Math.min(300, Number(item.getAttribute('data-tayar-animation-distance')) || 36));
+    let transform = 'none';
+    if (animation === 'fade-up' || animation === 'slide-up') transform = 'translate3d(0,' + distance + 'px,0)';
+    if (animation === 'fade-down' || animation === 'slide-down') transform = 'translate3d(0,-' + distance + 'px,0)';
+    if (animation === 'fade-left' || animation === 'slide-left') transform = 'translate3d(' + distance + 'px,0,0)';
+    if (animation === 'fade-right' || animation === 'slide-right') transform = 'translate3d(-' + distance + 'px,0,0)';
+    if (animation === 'zoom-in') transform = 'scale(.86)';
+    if (animation === 'zoom-out') transform = 'scale(1.14)';
+    if (animation === 'flip-in') transform = 'perspective(900px) rotateX(-18deg)';
+    if (animation === 'bounce-in') transform = 'translate3d(0,24px,0) scale(.94)';
+    const blur = animation === 'blur-in' ? 'blur(' + Math.max(2, Math.min(30, distance / 2)) + 'px)' : 'none';
+    item.getAnimations().forEach((running) => running.cancel());
+    item.animate(
+      [{ opacity: animation === 'fade' || animation.startsWith('fade') || animation === 'blur-in' ? 0 : .35, transform, filter: blur }, { opacity: 1, transform: 'none', filter: 'none' }],
+      {
+        duration: Math.max(100, Math.min(4000, Number(item.getAttribute('data-tayar-animation-duration')) || 650)),
+        delay: Math.max(0, Math.min(5000, Number(item.getAttribute('data-tayar-animation-delay')) || 0)),
+        easing: item.getAttribute('data-tayar-animation-easing') || 'cubic-bezier(.22,1,.36,1)',
+        iterations: Math.max(1, Math.min(20, Number(item.getAttribute('data-tayar-animation-iterations')) || 1)),
+      },
+    );
+  };
+  byTrigger('hover').forEach((item) => item.addEventListener('pointerenter', () => playMotion(item)));
+  byTrigger('click').forEach((item) => item.addEventListener('click', () => playMotion(item)));
+
+  const parallaxItems = items.filter((item) => Math.abs(Number(item.getAttribute('data-tayar-parallax')) || 0) >= .01);
+  if (parallaxItems.length) {
+    let scheduled = false;
+    const updateParallax = () => {
+      scheduled = false;
+      const viewportCenter = window.innerHeight / 2;
+      parallaxItems.forEach((item) => {
+        const speed = Math.max(-1, Math.min(1, Number(item.getAttribute('data-tayar-parallax')) || 0));
+        const rect = item.getBoundingClientRect();
+        const offset = Math.max(-160, Math.min(160, (rect.top + rect.height / 2 - viewportCenter) * speed * -.12));
+        const visual = item.querySelector(':scope > .tayar-element');
+        if (visual) visual.style.setProperty('--tayar-parallax-y', offset.toFixed(2) + 'px');
+      });
+    };
+    const scheduleParallax = () => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(updateParallax);
+    };
+    addEventListener('scroll', scheduleParallax, { passive: true });
+    addEventListener('resize', scheduleParallax, { passive: true });
+    scheduleParallax();
+  }
 })();
 </script>`;
 

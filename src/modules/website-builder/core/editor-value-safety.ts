@@ -81,7 +81,16 @@ const ANIMATIONS = new Set([
   'fade-right',
   'zoom-in',
   'zoom-out',
+  'slide-up',
+  'slide-down',
+  'slide-left',
+  'slide-right',
+  'blur-in',
+  'flip-in',
+  'bounce-in',
 ]);
+const ANIMATION_TRIGGERS = new Set(['scroll', 'load', 'hover', 'click']);
+const ANIMATION_EASINGS = new Set(['smooth', 'ease', 'linear', 'spring']);
 const CONTAINER_LAYOUTS = new Set(['stack', 'row', 'grid']);
 const CONTAINER_ALIGNS = new Set(['start', 'center', 'end', 'stretch']);
 const CONTAINER_JUSTIFY = new Set(['start', 'center', 'end', 'between']);
@@ -542,6 +551,9 @@ function validateElementStyle(
   optionalNumber(value, 'animationDuration', 0, 10_000, errors, label);
   optionalNumber(value, 'animationDelay', 0, 10_000, errors, label);
   optionalNumber(value, 'animationDistance', 0, 1000, errors, label);
+  optionalEnum(value, 'animationEasing', ANIMATION_EASINGS, errors, label);
+  optionalNumber(value, 'animationIterations', 1, 20, errors, label, { integer: true });
+  optionalNumber(value, 'parallaxSpeed', -1, 1, errors, label);
 }
 
 function validateElementResponsive(
@@ -579,6 +591,7 @@ function validateElementRecord(
   validateElementResponsive(record.responsive, errors, `${label}.responsive`);
   optionalNumber(record, 'layoutColumn', 1, 3, errors, label, { integer: true });
   optionalBoolean(record, 'animationOnce', errors, label);
+  optionalEnum(record, 'animationTrigger', ANIMATION_TRIGGERS, errors, label);
   optionalBoolean(record, 'muted', errors, label);
 }
 
