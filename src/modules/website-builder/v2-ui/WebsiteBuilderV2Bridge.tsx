@@ -146,7 +146,10 @@ export function WebsiteBuilderV2Bridge(props: WebsiteBuilderV2BridgeProps) {
 
   const selection = useMemo<EditorSelection>(() => ({ pageId: activePageId, sectionId: selectedSectionId || undefined, elementId: selectedElementId || undefined, containerId: selectedContainerId || undefined, formFieldId: selectedFormFieldId || undefined }), [activePageId, selectedSectionId, selectedElementId, selectedContainerId, selectedFormFieldId]);
   const project = useMemo<EditorProjectLike>(() => ({ id: 'website-builder-v2', pages, homePageId, symbols }), [pages, homePageId, symbols]);
-  const controllerState = useMemo(() => createEditorControllerState({ leftPanel, leftSidebarOpen, inspectorOpen, inspectorTab, focusMode, device, selection }), [leftPanel, leftSidebarOpen, inspectorOpen, inspectorTab, focusMode, device, selection]);
+  const controllerState = useMemo(() => createEditorControllerState(project, {
+    selection,
+    layout: { leftPanel, leftSidebarOpen, inspectorOpen, inspectorTab, focusMode, previewDevice: device },
+  }), [project, selection, leftPanel, leftSidebarOpen, inspectorOpen, inspectorTab, focusMode, device]);
   const shellCallbacks = useMemo<EditorShellAdapterCallbacks>(() => ({
     undo: onUndo, redo: onRedo, save: onSave, preview: onPreview, publish: onPublish,
     runCheck: () => { setLeftPanel('settings'); setLeftSidebarOpen(true); setFocusMode(false); onRunCheck(); },
@@ -179,7 +182,7 @@ export function WebsiteBuilderV2Bridge(props: WebsiteBuilderV2BridgeProps) {
   function handleTemplatePreview(_template: EditorTemplateLibraryItem) { onPreview(); }
   function handleTemplateAI(template: EditorTemplateLibraryItem) {
     setLeftPanel('ai'); setLeftSidebarOpen(true); setFocusMode(false);
-    const prompt = `Customize the ${template.kind} template "${template.name}" for this website. Preserve its structure unless a change improves the result. Adapt copy, sections, hierarchy and calls to action to the current project context.`;
+    const prompt = `Customize the ${template.kind} template \"${template.name}\" for this website. Preserve its structure unless a change improves the result. Adapt copy, sections, hierarchy and calls to action to the current project context.`;
     void onCustomizeTemplateWithAI?.(template, prompt);
   }
 
