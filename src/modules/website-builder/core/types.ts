@@ -126,6 +126,7 @@ export interface WebsiteElement {
 export interface WebsiteCmsBinding {
   collectionId: string;
   fieldKey: string;
+  referenceFieldKey?: string;
   entryId?: string;
   target: 'content' | 'src' | 'href';
 }

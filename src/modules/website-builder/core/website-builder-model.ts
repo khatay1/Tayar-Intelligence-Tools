@@ -19,7 +19,11 @@ export interface WebsitePage {
   language?: Language;
   translationKey?: string;
   noIndex?: boolean;
-  cmsTemplate?: { collectionId: string };
+  cmsTemplate?: {
+    collectionId: string;
+    viewId?: string;
+    routePattern?: string;
+  };
   outputPath?: string;
 }
 

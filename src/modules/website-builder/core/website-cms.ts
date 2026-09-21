@@ -2,8 +2,9 @@ import { normalizeSlug } from './project-identifiers';
 import type { WebsiteCmsBinding, WebsiteSection } from './types';
 import type { WebsitePage } from './website-builder-model';
 
-export type WebsiteCmsFieldType = 'text' | 'rich-text' | 'number' | 'boolean' | 'date' | 'image' | 'url';
+export type WebsiteCmsFieldType = 'text' | 'rich-text' | 'number' | 'boolean' | 'date' | 'image' | 'url' | 'reference';
 export type WebsiteCmsValue = string | number | boolean;
+export type WebsiteCmsFilterOperator = 'equals' | 'not-equals' | 'contains' | 'truthy';
 
 export interface WebsiteCmsField {
   id: string;
@@ -11,12 +12,30 @@ export interface WebsiteCmsField {
   key: string;
   type: WebsiteCmsFieldType;
   required: boolean;
+  referenceCollectionId?: string;
 }
 
 export interface WebsiteCmsEntry {
   id: string;
   values: Record<string, WebsiteCmsValue>;
   draft: boolean;
+  publishAt?: string;
+  unpublishAt?: string;
+}
+
+export interface WebsiteCmsFilter {
+  fieldKey: string;
+  operator: WebsiteCmsFilterOperator;
+  value?: WebsiteCmsValue;
+}
+
+export interface WebsiteCmsView {
+  id: string;
+  name: string;
+  filters: WebsiteCmsFilter[];
+  sortField?: string;
+  sortDirection: 'asc' | 'desc';
+  limit?: number;
 }
 
 export interface WebsiteCmsCollection {
@@ -26,10 +45,11 @@ export interface WebsiteCmsCollection {
   slugField: string;
   fields: WebsiteCmsField[];
   entries: WebsiteCmsEntry[];
+  views: WebsiteCmsView[];
 }
 
 export interface WebsiteCmsState {
-  version: 1;
+  version: 2;
   collections: WebsiteCmsCollection[];
 }
 
@@ -40,10 +60,11 @@ export interface WebsiteCmsIssue {
   entryId?: string;
 }
 
-export const EMPTY_WEBSITE_CMS: WebsiteCmsState = { version: 1, collections: [] };
-export const WEBSITE_CMS_LIMITS = { collections: 20, fields: 30, entries: 500 } as const;
+export const EMPTY_WEBSITE_CMS: WebsiteCmsState = { version: 2, collections: [] };
+export const WEBSITE_CMS_LIMITS = { collections: 20, fields: 30, entries: 500, views: 20, filters: 8 } as const;
 
-const FIELD_TYPES = new Set<WebsiteCmsFieldType>(['text', 'rich-text', 'number', 'boolean', 'date', 'image', 'url']);
+const FIELD_TYPES = new Set<WebsiteCmsFieldType>(['text', 'rich-text', 'number', 'boolean', 'date', 'image', 'url', 'reference']);
+const FILTER_OPERATORS = new Set<WebsiteCmsFilterOperator>(['equals', 'not-equals', 'contains', 'truthy']);
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -70,6 +91,12 @@ function normalizeValue(value: unknown, type: WebsiteCmsFieldType): WebsiteCmsVa
   return typeof value === 'string' ? value.slice(0, type === 'rich-text' ? 20000 : 4000) : String(value ?? '');
 }
 
+function normalizeTimestamp(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined;
+}
+
 export function normalizeWebsiteCms(input: unknown): WebsiteCmsState {
   const source = record(input);
   const rawCollections = Array.isArray(source.collections) ? source.collections : [];
@@ -94,6 +121,9 @@ export function normalizeWebsiteCms(input: unknown): WebsiteCmsState {
         key,
         type,
         required: sourceField.required === true,
+        referenceCollectionId: type === 'reference'
+          ? safeId(sourceField.referenceCollectionId, '') || undefined
+          : undefined,
       } satisfies WebsiteCmsField;
     });
 
@@ -118,7 +148,40 @@ export function normalizeWebsiteCms(input: unknown): WebsiteCmsState {
         id: entryId,
         values,
         draft: sourceEntry.draft === true,
+        publishAt: normalizeTimestamp(sourceEntry.publishAt),
+        unpublishAt: normalizeTimestamp(sourceEntry.unpublishAt),
       } satisfies WebsiteCmsEntry;
+    });
+
+    const rawViews = Array.isArray(item.views) ? item.views : [];
+    const viewIds = new Set<string>();
+    const views = rawViews.slice(0, WEBSITE_CMS_LIMITS.views).map((candidateView, viewIndex) => {
+      const sourceView = record(candidateView);
+      let viewId = safeId(sourceView.id, `${id}-view-${viewIndex + 1}`);
+      while (viewIds.has(viewId)) viewId = `${viewId}-${viewIndex + 1}`;
+      viewIds.add(viewId);
+      const rawFilters = Array.isArray(sourceView.filters) ? sourceView.filters : [];
+      const filters = rawFilters.slice(0, WEBSITE_CMS_LIMITS.filters).map((candidateFilter) => {
+        const sourceFilter = record(candidateFilter);
+        const operator = FILTER_OPERATORS.has(sourceFilter.operator as WebsiteCmsFilterOperator)
+          ? sourceFilter.operator as WebsiteCmsFilterOperator
+          : 'equals';
+        const filter: WebsiteCmsFilter = {
+          fieldKey: fieldKey(sourceFilter.fieldKey, ''),
+          operator,
+        };
+        if (typeof sourceFilter.value === 'string' || typeof sourceFilter.value === 'number' || typeof sourceFilter.value === 'boolean') filter.value = sourceFilter.value;
+        return filter;
+      }).filter((filter) => fieldsByKey.has(filter.fieldKey));
+      const requestedSortField = fieldKey(sourceView.sortField, '');
+      return {
+        id: viewId,
+        name: cleanText(sourceView.name, `View ${viewIndex + 1}`, 80),
+        filters,
+        sortField: fieldsByKey.has(requestedSortField) ? requestedSortField : undefined,
+        sortDirection: sourceView.sortDirection === 'desc' ? 'desc' : 'asc',
+        limit: Number.isFinite(Number(sourceView.limit)) ? Math.min(500, Math.max(1, Math.round(Number(sourceView.limit)))) : undefined,
+      } satisfies WebsiteCmsView;
     });
 
     const slug = normalizeSlug(cleanText(item.slug, cleanText(item.name, `collection-${collectionIndex + 1}`)));
@@ -130,9 +193,10 @@ export function normalizeWebsiteCms(input: unknown): WebsiteCmsState {
       slugField: fieldsByKey.has(requestedSlugField) ? requestedSlugField : (fieldsByKey.has('slug') ? 'slug' : effectiveFields[0].key),
       fields: effectiveFields,
       entries,
+      views,
     } satisfies WebsiteCmsCollection;
   });
-  return { version: 1, collections };
+  return { version: 2, collections };
 }
 
 export function createWebsiteCmsCollection(name: string, id = `collection-${Date.now()}`): WebsiteCmsCollection {
@@ -144,10 +208,49 @@ export function createWebsiteCmsEntry(collection: WebsiteCmsCollection, id = `${
   return { id: safeId(id, `${collection.id}-entry`), draft: true, values: Object.fromEntries(collection.fields.map((field) => [field.key, field.type === 'boolean' ? false : field.type === 'number' ? 0 : ''])) };
 }
 
+export function isWebsiteCmsEntryPublished(entry: WebsiteCmsEntry, now: Date | number | string = Date.now()): boolean {
+  if (entry.draft) return false;
+  const timestamp = now instanceof Date ? now.getTime() : typeof now === 'number' ? now : Date.parse(now);
+  if (!Number.isFinite(timestamp)) return false;
+  if (entry.publishAt && Date.parse(entry.publishAt) > timestamp) return false;
+  if (entry.unpublishAt && Date.parse(entry.unpublishAt) <= timestamp) return false;
+  return true;
+}
+
+function matchesWebsiteCmsFilter(value: WebsiteCmsValue | undefined, filter: WebsiteCmsFilter): boolean {
+  if (filter.operator === 'truthy') return Boolean(value);
+  const left = String(value ?? '').toLocaleLowerCase();
+  const right = String(filter.value ?? '').toLocaleLowerCase();
+  if (filter.operator === 'not-equals') return left !== right;
+  if (filter.operator === 'contains') return left.includes(right);
+  return left === right;
+}
+
+export function queryWebsiteCmsEntries(
+  collection: WebsiteCmsCollection,
+  viewId?: string,
+  now: Date | number | string = Date.now(),
+): WebsiteCmsEntry[] {
+  const view = collection.views.find((candidate) => candidate.id === viewId);
+  const entries = collection.entries
+    .filter((entry) => isWebsiteCmsEntryPublished(entry, now))
+    .filter((entry) => !view || view.filters.every((filter) => matchesWebsiteCmsFilter(entry.values[filter.fieldKey], filter)));
+  if (view?.sortField) {
+    const direction = view.sortDirection === 'desc' ? -1 : 1;
+    entries.sort((left, right) => String(left.values[view.sortField!] ?? '').localeCompare(String(right.values[view.sortField!] ?? ''), undefined, { numeric: true }) * direction);
+  }
+  return view?.limit ? entries.slice(0, view.limit) : entries;
+}
+
 export function resolveWebsiteCmsValue(cms: WebsiteCmsState, binding: WebsiteCmsBinding, contextEntryId?: string): WebsiteCmsValue | undefined {
   const collection = cms.collections.find((item) => item.id === binding.collectionId);
   const entry = collection?.entries.find((item) => item.id === (binding.entryId || contextEntryId));
-  return entry?.values[binding.fieldKey];
+  const value = entry?.values[binding.fieldKey];
+  const field = collection?.fields.find((item) => item.key === binding.fieldKey);
+  if (field?.type !== 'reference' || !binding.referenceFieldKey || typeof value !== 'string') return value;
+  const targetCollection = cms.collections.find((item) => item.id === field.referenceCollectionId);
+  const targetEntry = targetCollection?.entries.find((item) => item.id === value);
+  return targetEntry?.values[binding.referenceFieldKey];
 }
 
 export function materializeWebsiteCmsSections(sections: WebsiteSection[], cms: WebsiteCmsState, contextEntryId?: string): WebsiteSection[] {
@@ -162,22 +265,27 @@ export function materializeWebsiteCmsSections(sections: WebsiteSection[], cms: W
   }));
 }
 
-export function expandWebsiteCmsPages(pages: WebsitePage[], cmsInput: WebsiteCmsState): WebsitePage[] {
+export function expandWebsiteCmsPages(pages: WebsitePage[], cmsInput: WebsiteCmsState, now: Date | number | string = Date.now()): WebsitePage[] {
   const cms = normalizeWebsiteCms(cmsInput);
   return pages.flatMap((page) => {
     const template = page.cmsTemplate;
     if (!template) return [{ ...page, sections: materializeWebsiteCmsSections(page.sections, cms) }];
     const collection = cms.collections.find((item) => item.id === template.collectionId);
-    const publishedEntries = collection?.entries.filter((entry) => !entry.draft) || [];
+    const publishedEntries = collection ? queryWebsiteCmsEntries(collection, template.viewId, now) : [];
     if (!collection || !publishedEntries.length) return [];
     return publishedEntries.map((entry) => {
       const entrySlug = normalizeSlug(String(entry.values[collection.slugField] || entry.id));
       const entryName = String(entry.values.title || entry.values.name || entrySlug);
+      const routePattern = cleanText(template.routePattern, `${collection.slug}-{slug}`, 160);
+      const pageSlug = normalizeSlug(routePattern
+        .replace(/\{collection\}/g, collection.slug)
+        .replace(/\{slug\}/g, entrySlug)
+        .replace(/\{id\}/g, entry.id));
       return {
         ...page,
         id: `${page.id}--${entry.id}`,
         name: entryName,
-        slug: `${normalizeSlug(collection.slug || page.slug)}-${entrySlug}`,
+        slug: pageSlug,
         showInNavigation: false,
         cmsTemplate: undefined,
         sections: materializeWebsiteCmsSections(page.sections, cms, entry.id),
@@ -202,10 +310,27 @@ export function validateWebsiteCms(cmsInput: WebsiteCmsState, pages: WebsitePage
         else if (publishedSlugs.has(slug)) issues.push({ severity: 'error', message: `${collection.name}: duplicate published slug “${slug}”.`, collectionId: collection.id, entryId: entry.id });
         publishedSlugs.add(slug);
       }
+      if (entry.publishAt && entry.unpublishAt && Date.parse(entry.publishAt) >= Date.parse(entry.unpublishAt)) issues.push({ severity: 'error', message: `${collection.name}: publishing window must end after it starts.`, collectionId: collection.id, entryId: entry.id });
+      collection.fields.filter((field) => field.type === 'reference').forEach((field) => {
+        const targetCollection = cms.collections.find((candidate) => candidate.id === field.referenceCollectionId);
+        if (!targetCollection) {
+          issues.push({ severity: 'error', message: `${collection.name}: ${field.name} references a missing collection.`, collectionId: collection.id });
+          return;
+        }
+        const targetId = entry.values[field.key];
+        if (typeof targetId === 'string' && targetId && !targetCollection.entries.some((candidate) => candidate.id === targetId)) issues.push({ severity: 'error', message: `${collection.name}: ${field.name} references a missing entry.`, collectionId: collection.id, entryId: entry.id });
+      });
+    });
+    collection.views.forEach((view) => {
+      view.filters.forEach((filter) => {
+        if (!collection.fields.some((field) => field.key === filter.fieldKey)) issues.push({ severity: 'error', message: `${collection.name}: ${view.name} filters a missing field.`, collectionId: collection.id });
+      });
     });
   });
   pages.filter((page) => page.cmsTemplate).forEach((page) => {
-    if (!cms.collections.some((collection) => collection.id === page.cmsTemplate?.collectionId)) issues.push({ severity: 'error', message: `${page.name}: dynamic collection is missing.` });
+    const collection = cms.collections.find((candidate) => candidate.id === page.cmsTemplate?.collectionId);
+    if (!collection) issues.push({ severity: 'error', message: `${page.name}: dynamic collection is missing.` });
+    else if (page.cmsTemplate?.viewId && !collection.views.some((view) => view.id === page.cmsTemplate?.viewId)) issues.push({ severity: 'error', message: `${page.name}: dynamic CMS view is missing.`, collectionId: collection.id });
   });
   pages.forEach((page) => page.sections.forEach((section) => section.elements.forEach((element) => {
     const binding = element.cmsBinding;
@@ -216,6 +341,11 @@ export function validateWebsiteCms(cmsInput: WebsiteCmsState, pages: WebsitePage
       return;
     }
     if (!collection.fields.some((field) => field.key === binding.fieldKey)) issues.push({ severity: 'error', message: `${page.name}: an element references a missing CMS field.`, collectionId: collection.id });
+    const boundField = collection.fields.find((field) => field.key === binding.fieldKey);
+    if (binding.referenceFieldKey) {
+      const targetCollection = cms.collections.find((candidate) => candidate.id === boundField?.referenceCollectionId);
+      if (boundField?.type !== 'reference' || !targetCollection?.fields.some((field) => field.key === binding.referenceFieldKey)) issues.push({ severity: 'error', message: `${page.name}: an element references a missing related CMS field.`, collectionId: collection.id });
+    }
     if (binding.entryId) {
       const entry = collection.entries.find((item) => item.id === binding.entryId);
       if (!entry) issues.push({ severity: 'error', message: `${page.name}: an element references a missing CMS entry.`, collectionId: collection.id });

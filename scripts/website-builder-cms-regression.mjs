@@ -77,6 +77,50 @@ try {
     broken.sections[0].elements[0].cmsBinding.fieldKey = 'missing';
     assert.ok(cms.validateWebsiteCms(state, [broken]).some((issue) => issue.message.includes('missing CMS field')));
   });
+  check('reference fields resolve values from related entries', () => {
+    const related = cms.normalizeWebsiteCms({ collections: [
+      { id: 'authors', name: 'Authors', entries: [{ id: 'ada', draft: false, values: { title: 'Ada', slug: 'ada' } }] },
+      { id: 'posts', name: 'Posts', fields: [
+        { id: 'post-title', name: 'Title', key: 'title', type: 'text' },
+        { id: 'post-slug', name: 'Slug', key: 'slug', type: 'text' },
+        { id: 'post-author', name: 'Author', key: 'author', type: 'reference', referenceCollectionId: 'authors' },
+      ], entries: [{ id: 'post', draft: false, values: { title: 'Post', slug: 'post', author: 'ada' } }] },
+    ] });
+    assert.equal(cms.resolveWebsiteCmsValue(related, { collectionId: 'posts', fieldKey: 'author', referenceFieldKey: 'title', entryId: 'post', target: 'content' }), 'Ada');
+  });
+  check('scheduled entries publish only inside their window', () => {
+    const scheduled = structuredClone(state);
+    scheduled.collections[0].entries[0].publishAt = '2030-01-01T00:00:00.000Z';
+    assert.equal(cms.expandWebsiteCmsPages([page], scheduled, '2029-12-31T23:59:59.000Z').length, 0);
+    assert.equal(cms.expandWebsiteCmsPages([page], scheduled, '2030-01-01T00:00:00.000Z').length, 1);
+    scheduled.collections[0].entries[0].unpublishAt = '2030-01-02T00:00:00.000Z';
+    assert.equal(cms.expandWebsiteCmsPages([page], scheduled, '2030-01-02T00:00:00.000Z').length, 0);
+  });
+  check('reusable views filter sort and limit dynamic entries', () => {
+    const viewed = structuredClone(state);
+    viewed.collections[0].entries.push({ id: 'second', draft: false, values: { title: 'Second story', slug: 'second-story', featured: true } });
+    viewed.collections[0].fields.push({ id: 'featured', name: 'Featured', key: 'featured', type: 'boolean', required: false });
+    viewed.collections[0].views = [{ id: 'featured', name: 'Featured', filters: [{ fieldKey: 'featured', operator: 'truthy' }], sortField: 'title', sortDirection: 'desc', limit: 1 }];
+    const dynamic = structuredClone(page);
+    dynamic.cmsTemplate.viewId = 'featured';
+    const output = cms.expandWebsiteCmsPages([dynamic], viewed);
+    assert.equal(output.length, 1);
+    assert.equal(output[0].name, 'Second story');
+  });
+  check('route patterns create deterministic dynamic slugs', () => {
+    const routed = structuredClone(page);
+    routed.cmsTemplate.routePattern = 'story-{slug}-{id}';
+    assert.equal(cms.expandWebsiteCmsPages([routed], state)[0].slug, 'story-first-story-first');
+  });
+  check('invalid relations and publishing windows block release', () => {
+    const invalid = cms.normalizeWebsiteCms({ collections: [{
+      id: 'posts', name: 'Posts', fields: [{ id: 'author', name: 'Author', key: 'author', type: 'reference', referenceCollectionId: 'missing' }],
+      entries: [{ id: 'post', draft: false, publishAt: '2030-02-01T00:00:00Z', unpublishAt: '2030-01-01T00:00:00Z', values: { author: 'nobody' } }],
+    }] });
+    const issues = cms.validateWebsiteCms(invalid);
+    assert.ok(issues.some((issue) => issue.message.includes('publishing window')));
+    assert.ok(issues.some((issue) => issue.message.includes('missing collection')));
+  });
   console.log(`CMS regression: ${passed} behavioral scenarios passed.`);
 } finally {
   await rm(temp, { recursive: true, force: true });

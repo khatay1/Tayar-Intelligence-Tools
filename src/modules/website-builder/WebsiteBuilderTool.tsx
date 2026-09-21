@@ -50,7 +50,7 @@ import { resolveWebsiteBuilderV2Flags } from './core/editor-feature-flags';
 import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
 import { BuilderCmsPanel } from './v2-ui/BuilderCmsPanel';
 import { WebsiteCollaborationPanel } from './v2-ui/WebsiteCollaborationPanel';
-import { EMPTY_WEBSITE_CMS, materializeWebsiteCmsSections, normalizeWebsiteCms, validateWebsiteCms, type WebsiteCmsState } from './core/website-cms';
+import { EMPTY_WEBSITE_CMS, materializeWebsiteCmsSections, normalizeWebsiteCms, queryWebsiteCmsEntries, validateWebsiteCms, type WebsiteCmsState } from './core/website-cms';
 import { EditorStore } from './core/editor-store';
 import type { EditorNativeOperation } from './core/editor-native-operation';
 import type { EditorSelection } from './core/editor-selection';
@@ -2754,7 +2754,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     ? canvasPages.find((page) => page.id === canvasActivePageId) ?? canvasPages[0] ?? null
     : activePage;
   const cmsPreviewEntryId = activePage?.cmsTemplate
-    ? cms.collections.find((collection) => collection.id === activePage.cmsTemplate?.collectionId)?.entries[0]?.id
+    ? (() => {
+        const collection = cms.collections.find((candidate) => candidate.id === activePage.cmsTemplate?.collectionId);
+        return collection ? queryWebsiteCmsEntries(collection, activePage.cmsTemplate.viewId)[0]?.id : undefined;
+      })()
     : undefined;
   const canvasSections = aiCandidatePreview
     ? canvasActivePage?.sections ?? []
@@ -12595,10 +12598,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       onBindElement={(binding?: WebsiteCmsBinding) => {
         updateSelectedElement({ cmsBinding: binding });
       }}
-      onSetPageTemplate={(collectionId?: string) => {
-        remember(sections, collectionId ? 'Connect dynamic page' : 'Disconnect dynamic page');
+      onSetPageTemplate={(template) => {
+        remember(sections, template ? 'Connect dynamic page' : 'Disconnect dynamic page');
         setPages((current) => current.map((page) => page.id === activePageId
-          ? { ...page, sections, cmsTemplate: collectionId ? { collectionId } : undefined }
+          ? { ...page, sections, cmsTemplate: template }
           : page));
         setSaved(false);
       }}

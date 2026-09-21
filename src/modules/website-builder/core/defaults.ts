@@ -20,6 +20,7 @@ function normalizeCmsBinding(value: unknown): WebsiteCmsBinding | undefined {
   return {
     collectionId: source.collectionId.slice(0, 120),
     fieldKey: source.fieldKey.slice(0, 80),
+    referenceFieldKey: typeof source.referenceFieldKey === 'string' ? source.referenceFieldKey.slice(0, 80) : undefined,
     entryId: typeof source.entryId === 'string' ? source.entryId.slice(0, 120) : undefined,
     target,
   };
