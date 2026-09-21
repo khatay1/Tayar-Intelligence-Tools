@@ -32,8 +32,11 @@ import {
 } from './editor-command-adapters';
 import {
   commandCreateSymbol,
+  commandDeleteSymbol,
   commandDetachSymbol,
+  commandDuplicateSymbol,
   commandInsertSymbol,
+  commandUpdateSymbol,
 } from './editor-symbol-commands';
 import {
   commandCopyElementStyle,
@@ -77,6 +80,9 @@ export type EditorNativeOperationAction =
   | 'create_symbol'
   | 'insert_symbol'
   | 'detach_symbol'
+  | 'update_symbol'
+  | 'duplicate_symbol'
+  | 'delete_symbol'
   | 'copy_element_style'
   | 'copy_section_style'
   | 'repair_responsive'
@@ -209,6 +215,28 @@ export function adaptEditorNativeOperation<P extends EditorProjectLike>(
           requireText(operation.pageId, 'pageId'),
           requireText(operation.sectionId, 'sectionId'),
           requireText(operation.elementId, 'elementId'),
+          options,
+        ) };
+      case 'update_symbol':
+        return { ok: true, command: commandUpdateSymbol<P>(
+          requireText(operation.symbolId, 'symbolId'),
+          operation.changes || {},
+          options,
+        ) };
+      case 'duplicate_symbol':
+        return { ok: true, command: commandDuplicateSymbol<P>(
+          requireText(operation.symbolId, 'symbolId'),
+          {
+            symbolId: typeof operation.changes?.symbolId === 'string' ? operation.changes.symbolId : undefined,
+            name: typeof operation.changes?.name === 'string' ? operation.changes.name : undefined,
+            asVariant: operation.changes?.asVariant === true,
+            variantName: typeof operation.changes?.variantName === 'string' ? operation.changes.variantName : undefined,
+          },
+          options,
+        ) };
+      case 'delete_symbol':
+        return { ok: true, command: commandDeleteSymbol<P>(
+          requireText(operation.symbolId, 'symbolId'),
           options,
         ) };
       case 'copy_element_style':

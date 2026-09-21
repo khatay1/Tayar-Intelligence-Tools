@@ -207,6 +207,11 @@ export interface WebsiteSymbol {
   id: string;
   name: string;
   element: WebsiteElement;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  variantGroupId?: string;
+  variantName?: string;
   updatedAt: string;
 }
 

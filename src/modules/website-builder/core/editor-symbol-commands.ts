@@ -8,7 +8,11 @@ import {
   type EditorProjectLike,
 } from './editor-model';
 import { cloneEditorValue } from './editor-transaction';
-import { createEditorSymbolTemplate } from './editor-symbols';
+import {
+  applyEditorSymbolMetadata,
+  createEditorSymbolTemplate,
+  type EditorSymbolMetadataChanges,
+} from './editor-symbols';
 import type { EditorCommandAdapterOptions, EditorInsertPosition } from './editor-command-adapters';
 
 function commandOptions<P>(
@@ -31,6 +35,17 @@ function normalizedId(value: string, label: string) {
   if (!id) throw new Error(`${label} ID is required`);
   if (id !== value) throw new Error(`${label} ID cannot contain surrounding whitespace`);
   return id;
+}
+
+function normalizedName(value: string | undefined, fallback: string) {
+  const name = typeof value === 'string' ? value.trim().slice(0, 80) : '';
+  return name || fallback;
+}
+
+function assertUniqueSymbolName<P extends EditorProjectLike>(draft: P, name: string, exceptId?: string) {
+  const key = name.toLocaleLowerCase();
+  const duplicate = (draft.symbols || []).some((symbol) => symbol.id !== exceptId && (symbol.name || '').trim().toLocaleLowerCase() === key);
+  if (duplicate) throw new Error(`A component named “${name}” already exists`);
 }
 
 function insertIndex<T extends { id: string }>(items: T[], position: EditorInsertPosition = {}) {
@@ -91,9 +106,11 @@ export function commandCreateSymbol<P extends EditorProjectLike>(
     const explicitSymbolId = input.symbolId === undefined ? undefined : normalizedId(input.symbolId, 'Symbol');
     const symbolId = explicitSymbolId || nextUniqueGeneratedId(draft, 'symbol', elementId, idFactory);
     if (findEditorSymbol(draft, symbolId)) throw new Error(`Symbol already exists: ${symbolId}`);
+    const name = normalizedName(input.name, 'Reusable component');
+    assertUniqueSymbolName(draft, name);
 
     const symbols = draft.symbols || (draft.symbols = []);
-    symbols.push(createEditorSymbolTemplate(symbolId, input.name?.trim() || 'Reusable component', match.element));
+    symbols.push(createEditorSymbolTemplate(symbolId, name, match.element));
     match.element.symbolId = symbolId;
   }, options);
 }
@@ -132,5 +149,99 @@ export function commandDetachSymbol<P extends EditorProjectLike>(
     if (!match) throw new Error(`Element not found: ${elementId}`);
     if (!match.element.symbolId) throw new Error('Element is not linked to a reusable component');
     delete match.element.symbolId;
+  }, options);
+}
+
+export function commandUpdateSymbol<P extends EditorProjectLike>(
+  symbolId: string,
+  changes: EditorSymbolMetadataChanges,
+  options: EditorCommandAdapterOptions = {},
+) {
+  return commandOptions<P>('Update reusable component', (draft) => {
+    const match = findEditorSymbol(draft, symbolId);
+    if (!match) throw new Error(`Symbol not found: ${symbolId}`);
+    if (typeof changes.name === 'string') {
+      const name = normalizedName(changes.name, match.symbol.name || 'Reusable component');
+      assertUniqueSymbolName(draft, name, symbolId);
+    }
+    (draft.symbols || [])[match.index] = applyEditorSymbolMetadata(match.symbol, changes);
+  }, options);
+}
+
+export function commandDuplicateSymbol<P extends EditorProjectLike>(
+  symbolId: string,
+  input: {
+    symbolId?: string;
+    name?: string;
+    asVariant?: boolean;
+    variantName?: string;
+  } = {},
+  options: EditorCommandAdapterOptions & { idFactory?: EditorCloneIdFactory } = {},
+) {
+  return commandOptions<P>(input.asVariant ? 'Create component variant' : 'Duplicate reusable component', (draft) => {
+    const match = findEditorSymbol(draft, symbolId);
+    if (!match) throw new Error(`Symbol not found: ${symbolId}`);
+    const idFactory = options.idFactory || createEditorCloneIdFactory(input.asVariant ? 'symbol-variant' : 'symbol-copy');
+    const explicitSymbolId = input.symbolId === undefined ? undefined : normalizedId(input.symbolId, 'Symbol');
+    const nextId = explicitSymbolId || nextUniqueGeneratedId(draft, 'symbol', symbolId, idFactory);
+    if (findEditorSymbol(draft, nextId)) throw new Error(`Symbol already exists: ${nextId}`);
+
+    const sourceName = match.symbol.name || 'Reusable component';
+    const variantName = normalizedName(input.variantName, 'Variant');
+    const name = normalizedName(input.name, input.asVariant ? `${sourceName} · ${variantName}` : `${sourceName} Copy`);
+    assertUniqueSymbolName(draft, name);
+
+    const next = cloneEditorValue(match.symbol);
+    next.id = nextId;
+    next.name = name;
+    next.element = cloneEditorValue(match.symbol.element);
+    next.updatedAt = new Date().toISOString();
+
+    if (input.asVariant) {
+      const groupId = match.symbol.variantGroupId || match.symbol.id;
+      if (!match.symbol.variantGroupId) {
+        (draft.symbols || [])[match.index] = applyEditorSymbolMetadata(match.symbol, {
+          variantGroupId: groupId,
+          variantName: match.symbol.variantName || 'Default',
+        });
+      }
+      next.variantGroupId = groupId;
+      next.variantName = variantName;
+    } else {
+      delete next.variantGroupId;
+      delete next.variantName;
+    }
+
+    (draft.symbols || (draft.symbols = [])).push(next);
+  }, options);
+}
+
+export function commandDeleteSymbol<P extends EditorProjectLike>(
+  symbolId: string,
+  options: EditorCommandAdapterOptions = {},
+) {
+  return commandOptions<P>('Delete reusable component', (draft) => {
+    const match = findEditorSymbol(draft, symbolId);
+    if (!match) throw new Error(`Symbol not found: ${symbolId}`);
+    const groupId = match.symbol.variantGroupId;
+
+    for (const page of draft.pages) {
+      for (const section of page.sections) {
+        for (const element of section.elements) {
+          if (element.symbolId === symbolId) delete element.symbolId;
+        }
+      }
+    }
+
+    const symbols = draft.symbols || [];
+    symbols.splice(match.index, 1);
+    if (groupId) {
+      const siblings = symbols.filter((symbol) => symbol.variantGroupId === groupId);
+      if (siblings.length === 1) {
+        const sibling = siblings[0];
+        const siblingIndex = symbols.findIndex((symbol) => symbol.id === sibling.id);
+        symbols[siblingIndex] = applyEditorSymbolMetadata(sibling, { variantGroupId: '', variantName: '' });
+      }
+    }
   }, options);
 }
