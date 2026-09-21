@@ -182,7 +182,7 @@ export function WebsiteBuilderV2Bridge(props: WebsiteBuilderV2BridgeProps) {
   function handleTemplatePreview(_template: EditorTemplateLibraryItem) { onPreview(); }
   function handleTemplateAI(template: EditorTemplateLibraryItem) {
     setLeftPanel('ai'); setLeftSidebarOpen(true); setFocusMode(false);
-    const prompt = `Customize the ${template.kind} template \"${template.name}\" for this website. Preserve its structure unless a change improves the result. Adapt copy, sections, hierarchy and calls to action to the current project context.`;
+    const prompt = `Customize the ${template.kind} template "${template.name}" for this website. Preserve its structure unless a change improves the result. Adapt copy, sections, hierarchy and calls to action to the current project context.`;
     void onCustomizeTemplateWithAI?.(template, prompt);
   }
 
