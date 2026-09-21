@@ -1,71 +1,30 @@
 import { useLocalizer } from '@/lib/ui-localization';
 import type { ReactNode } from 'react';
 
-import type {
-  EditorInsertCatalogItem,
-  EditorInsertCategory,
-} from '../core/editor-insert-catalog';
+import type { EditorInsertCatalogItem, EditorInsertCategory } from '../core/editor-insert-catalog';
+import type { EditorMediaAsset, EditorMediaFilter } from '../core/editor-media-library';
+import type { EditorShellContract } from '../core/editor-shell-contract';
+import type { EditorSymbolLike } from '../core/editor-model';
+import type { EditorLeftPanel } from '../core/editor-layout';
+import type { EditorTemplateLibraryItem } from '../core/editor-template-library';
 
-import type {
-  EditorMediaAsset,
-  EditorMediaFilter,
-} from '../core/editor-media-library';
-
-import type {
-  EditorShellContract,
-} from '../core/editor-shell-contract';
-
-import type {
-  EditorSymbolLike,
-} from '../core/editor-model';
-
-import type {
-  EditorLeftPanel,
-} from '../core/editor-layout';
-
-import {
-  BuilderHistoryPanel,
-} from './BuilderHistoryPanel';
-
-import {
-  BuilderComponentsPanel,
-} from './BuilderComponentsPanel';
-
-import {
-  BuilderInsertPanel,
-} from './BuilderInsertPanel';
-
-import {
-  BuilderLayersPanel,
-} from './BuilderLayersPanel';
-
-import {
-  BuilderMediaPanel,
-} from './BuilderMediaPanel';
-
-import {
-  BuilderPagesPanel,
-} from './BuilderPagesPanel';
-
-import {
-  BuilderTemplateLibraryPanel,
-} from './BuilderTemplateLibraryPanel';
+import { BuilderHistoryPanel } from './BuilderHistoryPanel';
+import { BuilderComponentsPanel } from './BuilderComponentsPanel';
+import { BuilderInsertPanel } from './BuilderInsertPanel';
+import { BuilderLayersPanel } from './BuilderLayersPanel';
+import { BuilderMediaPanel } from './BuilderMediaPanel';
+import { BuilderPagesPanel } from './BuilderPagesPanel';
+import { BuilderTemplateLibraryPanel } from './BuilderTemplateLibraryPanel';
+import { BuilderNativeTemplatesPanel } from './BuilderNativeTemplatesPanel';
 
 export interface BuilderPanelRouterProps {
   shell: EditorShellContract;
   selectedElementIds?: string[];
-  onSelectElement?(
-    sectionId: string,
-    elementId: string,
-    additive?: boolean,
-    range?: boolean,
-  ): void;
-
+  onSelectElement?(sectionId: string, elementId: string, additive?: boolean, range?: boolean): void;
   aiPanel?: ReactNode;
   cmsPanel?: ReactNode;
   sitePanel?: ReactNode;
   settingsPanel?: ReactNode;
-
   symbols?: EditorSymbolLike[];
   canCreateSymbol?: boolean;
   canInsertSymbol?: boolean;
@@ -81,242 +40,55 @@ export interface BuilderPanelRouterProps {
   onSelectSymbolInstance?(symbolId: string): void;
   activeSymbolId?: string;
   symbolInstanceCounts?: Record<string, number>;
-
   insertQuery?: string;
   insertCategory?: EditorInsertCategory;
-
-  onInsertQueryChange?(
-    query: string,
-  ): void;
-
-  onInsertCategoryChange?(
-    category?: EditorInsertCategory,
-  ): void;
-
-  onInsert?(
-    item: EditorInsertCatalogItem,
-  ): void;
-
+  onInsertQueryChange?(query: string): void;
+  onInsertCategoryChange?(category?: EditorInsertCategory): void;
+  onInsert?(item: EditorInsertCatalogItem): void;
+  onInsertTemplate?(template: EditorTemplateLibraryItem): void;
+  onPreviewTemplate?(template: EditorTemplateLibraryItem): void;
+  onCustomizeTemplateWithAI?(template: EditorTemplateLibraryItem): void;
   mediaAssets?: EditorMediaAsset[];
   mediaFilter?: EditorMediaFilter;
-
-  onMediaFilterChange?(
-    filter: EditorMediaFilter,
-  ): void;
-
-  onMediaSelect?(
-    asset: EditorMediaAsset,
-  ): void;
-
+  onMediaFilterChange?(filter: EditorMediaFilter): void;
+  onMediaSelect?(asset: EditorMediaAsset): void;
   onMediaUpload?(): void;
-
-  onGenerateMediaWithAI?(
-    prompt: string,
-  ): void | Promise<void>;
-
+  onGenerateMediaWithAI?(prompt: string): void | Promise<void>;
   onAddPage?(): void;
-
-  onMovePage?(
-    pageId: string,
-    direction: 'up' | 'down',
-  ): void;
-
+  onMovePage?(pageId: string, direction: 'up' | 'down'): void;
   onDuplicatePage?(): void;
   onDeletePage?(): void;
   onSetHomePage?(): void;
-
-  onMoveSection?(
-    sectionId: string,
-    direction: 'up' | 'down',
-  ): void;
-
-  onDuplicateSection?(
-    sectionId: string,
-  ): void;
-
-  onDeleteSection?(
-    sectionId: string,
-  ): void;
-
-  onMoveElement?(
-    sectionId: string,
-    elementId: string,
-    direction: 'up' | 'down',
-  ): void;
-
-  onDuplicateElement?(
-    sectionId: string,
-    elementId: string,
-  ): void;
-
-  onDeleteElement?(
-    sectionId: string,
-    elementId: string,
-  ): void;
-
-  onUngroupContainer?(
-    sectionId: string,
-    containerId: string,
-  ): void;
-
-  onAddFormField?(
-    sectionId: string,
-    type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox',
-  ): void;
-
-  onMoveFormField?(
-    sectionId: string,
-    formFieldId: string,
-    direction: 'up' | 'down',
-  ): void;
-
-  onDeleteFormField?(
-    sectionId: string,
-    formFieldId: string,
-  ): void;
-
+  onMoveSection?(sectionId: string, direction: 'up' | 'down'): void;
+  onDuplicateSection?(sectionId: string): void;
+  onDeleteSection?(sectionId: string): void;
+  onMoveElement?(sectionId: string, elementId: string, direction: 'up' | 'down'): void;
+  onDuplicateElement?(sectionId: string, elementId: string): void;
+  onDeleteElement?(sectionId: string, elementId: string): void;
+  onUngroupContainer?(sectionId: string, containerId: string): void;
+  onAddFormField?(sectionId: string, type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox'): void;
+  onMoveFormField?(sectionId: string, formFieldId: string, direction: 'up' | 'down'): void;
+  onDeleteFormField?(sectionId: string, formFieldId: string): void;
   onResetForm?(sectionId: string): void;
-
   onRestoreHistoryEntry?(entryId: string): void;
 }
 
-export function BuilderPanelRouter(
-  props: BuilderPanelRouterProps,
-) {
+export function BuilderPanelRouter(props: BuilderPanelRouterProps) {
   const l = useLocalizer();
-  const mutationBusy = Boolean(
-    props.shell.status.mutating ||
-    props.shell.status.saving ||
-    props.shell.status.publishing ||
-    props.shell.status.checking,
-  );
+  const mutationBusy = Boolean(props.shell.status.mutating || props.shell.status.saving || props.shell.status.publishing || props.shell.status.checking);
 
-  return function renderPanel(
-    panel: EditorLeftPanel,
-  ): ReactNode {
-    if (panel === 'ai') {
-      return (
-        <div className="tayar-v2-ai-panel-host">
-          {props.aiPanel || (
-            <div className="tayar-v2-empty-panel">{l('Tayar AI is loading...')}</div>
-          )}
-        </div>
-      );
-    }
-
-    if (panel === 'pages') {
-      return (
-        <BuilderPagesPanel
-          shell={props.shell}
-          onAddPage={props.onAddPage}
-          onMovePage={props.onMovePage}
-          onDuplicatePage={props.onDuplicatePage}
-          onDeletePage={props.onDeletePage}
-          onSetHomePage={props.onSetHomePage}
-        />
-      );
-    }
-
-    if (panel === 'cms') {
-      return props.cmsPanel || <div className="tayar-v2-empty-panel">{l('CMS is loading...')}</div>;
-    }
-
-    if (panel === 'layers') {
-      return (
-        <BuilderLayersPanel
-          shell={props.shell}
-          selectedElementIds={props.selectedElementIds}
-          onSelectElement={props.onSelectElement}
-          onMoveSection={props.onMoveSection}
-          onDuplicateSection={props.onDuplicateSection}
-          onDeleteSection={props.onDeleteSection}
-          onMoveElement={props.onMoveElement}
-          onDuplicateElement={props.onDuplicateElement}
-          onDeleteElement={props.onDeleteElement}
-          onUngroupContainer={props.onUngroupContainer}
-          onAddFormField={props.onAddFormField}
-          onMoveFormField={props.onMoveFormField}
-          onDeleteFormField={props.onDeleteFormField}
-          onResetForm={props.onResetForm}
-        />
-      );
-    }
-
-    if (panel === 'templates') {
-      return <BuilderTemplateLibraryPanel />;
-    }
-
-    if (panel === 'components') {
-      return (
-        <BuilderComponentsPanel
-          symbols={props.symbols || []}
-          canCreate={props.canCreateSymbol}
-          canInsert={props.canInsertSymbol}
-          canDetach={props.canDetachSymbol}
-          disabled={mutationBusy}
-          onCreate={props.onCreateSymbol}
-          onDetach={props.onDetachSymbol}
-          onInsert={props.onInsertSymbol}
-          onDelete={props.onDeleteSymbol}
-          onRename={props.onRenameSymbol}
-          onDuplicate={props.onDuplicateSymbol}
-          onCreateVariant={props.onCreateSymbolVariant}
-          onUpdateMetadata={props.onUpdateSymbolMetadata}
-          onSelectInstance={props.onSelectSymbolInstance}
-          activeSymbolId={props.activeSymbolId}
-          instanceCounts={props.symbolInstanceCounts}
-        />
-      );
-    }
-
-    if (panel === 'site') {
-      return props.sitePanel || (
-        <div className="tayar-v2-empty-panel">{l('Site controls are loading...')}</div>
-      );
-    }
-
-    if (panel === 'settings') {
-      return props.settingsPanel || (
-        <div className="tayar-v2-empty-panel">{l('Settings are loading...')}</div>
-      );
-    }
-
-    if (panel === 'history') {
-      return (
-        <BuilderHistoryPanel
-          shell={props.shell}
-          onRestoreEntry={props.onRestoreHistoryEntry}
-        />
-      );
-    }
-
-    if (panel === 'insert') {
-      return (
-        <BuilderInsertPanel
-          query={props.insertQuery}
-          category={props.insertCategory}
-          onQueryChange={props.onInsertQueryChange}
-          onCategoryChange={props.onInsertCategoryChange}
-          onInsert={props.onInsert}
-          disabled={mutationBusy}
-        />
-      );
-    }
-
-    if (panel === 'media') {
-      return (
-        <BuilderMediaPanel
-          assets={props.mediaAssets || []}
-          filter={props.mediaFilter}
-          onFilterChange={props.onMediaFilterChange}
-          onSelect={props.onMediaSelect}
-          disabled={mutationBusy}
-          onUpload={props.onMediaUpload}
-          onGenerateWithAI={props.onGenerateMediaWithAI}
-        />
-      );
-    }
-
+  return function renderPanel(panel: EditorLeftPanel): ReactNode {
+    if (panel === 'ai') return <div className="tayar-v2-ai-panel-host">{props.aiPanel || <div className="tayar-v2-empty-panel">{l('Tayar AI is loading...')}</div>}</div>;
+    if (panel === 'pages') return <BuilderPagesPanel shell={props.shell} onAddPage={props.onAddPage} onMovePage={props.onMovePage} onDuplicatePage={props.onDuplicatePage} onDeletePage={props.onDeletePage} onSetHomePage={props.onSetHomePage} />;
+    if (panel === 'cms') return props.cmsPanel || <div className="tayar-v2-empty-panel">{l('CMS is loading...')}</div>;
+    if (panel === 'layers') return <BuilderLayersPanel shell={props.shell} selectedElementIds={props.selectedElementIds} onSelectElement={props.onSelectElement} onMoveSection={props.onMoveSection} onDuplicateSection={props.onDuplicateSection} onDeleteSection={props.onDeleteSection} onMoveElement={props.onMoveElement} onDuplicateElement={props.onDuplicateElement} onDeleteElement={props.onDeleteElement} onUngroupContainer={props.onUngroupContainer} onAddFormField={props.onAddFormField} onMoveFormField={props.onMoveFormField} onDeleteFormField={props.onDeleteFormField} onResetForm={props.onResetForm} />;
+    if (panel === 'templates') return <div className="min-h-0 h-full overflow-y-auto"><BuilderNativeTemplatesPanel disabled={mutationBusy} onInsert={props.onInsertTemplate} onPreview={props.onPreviewTemplate} onCustomizeWithAI={props.onCustomizeTemplateWithAI} /><BuilderTemplateLibraryPanel /></div>;
+    if (panel === 'components') return <BuilderComponentsPanel symbols={props.symbols || []} canCreate={props.canCreateSymbol} canInsert={props.canInsertSymbol} canDetach={props.canDetachSymbol} disabled={mutationBusy} onCreate={props.onCreateSymbol} onDetach={props.onDetachSymbol} onInsert={props.onInsertSymbol} onDelete={props.onDeleteSymbol} onRename={props.onRenameSymbol} onDuplicate={props.onDuplicateSymbol} onCreateVariant={props.onCreateSymbolVariant} onUpdateMetadata={props.onUpdateSymbolMetadata} onSelectInstance={props.onSelectSymbolInstance} activeSymbolId={props.activeSymbolId} instanceCounts={props.symbolInstanceCounts} />;
+    if (panel === 'site') return props.sitePanel || <div className="tayar-v2-empty-panel">{l('Site controls are loading...')}</div>;
+    if (panel === 'settings') return props.settingsPanel || <div className="tayar-v2-empty-panel">{l('Settings are loading...')}</div>;
+    if (panel === 'history') return <BuilderHistoryPanel shell={props.shell} onRestoreEntry={props.onRestoreHistoryEntry} />;
+    if (panel === 'insert') return <BuilderInsertPanel query={props.insertQuery} category={props.insertCategory} onQueryChange={props.onInsertQueryChange} onCategoryChange={props.onInsertCategoryChange} onInsert={props.onInsert} disabled={mutationBusy} />;
+    if (panel === 'media') return <BuilderMediaPanel assets={props.mediaAssets || []} filter={props.mediaFilter} onFilterChange={props.onMediaFilterChange} onSelect={props.onMediaSelect} disabled={mutationBusy} onUpload={props.onMediaUpload} onGenerateWithAI={props.onGenerateMediaWithAI} />;
     return props.aiPanel || <div className="tayar-v2-empty-panel">{l('Tayar AI')}</div>;
   };
 }

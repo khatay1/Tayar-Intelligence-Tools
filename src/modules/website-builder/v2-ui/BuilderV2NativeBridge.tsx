@@ -23,6 +23,8 @@ import type {
 import type { EditorNativeOperation } from '../core/editor-native-operation';
 import type { EditorSelection } from '../core/editor-selection';
 import type { EditorShellContract } from '../core/editor-shell-contract';
+import type { EditorTemplateLibraryItem } from '../core/editor-template-library';
+import { planEditorTemplateInsert } from '../core/editor-template-operations';
 import type {
   EditorInspectorTab,
   EditorLeftPanel,
@@ -37,24 +39,16 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
   project: P;
   selection?: EditorSelection;
   selectedElementIds?: string[];
-  onSelectElement?(
-    sectionId: string,
-    elementId: string,
-    additive?: boolean,
-    range?: boolean,
-  ): void;
-
+  onSelectElement?(sectionId: string, elementId: string, additive?: boolean, range?: boolean): void;
   brandSlot?: ReactNode;
   topbarCenterSlot?: ReactNode;
   topbarTrailingSlot?: ReactNode;
-
   canvas: ReactNode;
   canvasOverlaySlot?: ReactNode;
   aiPanel?: ReactNode;
   cmsPanel?: ReactNode;
   sitePanel?: ReactNode;
   settingsPanel?: ReactNode;
-
   symbols?: EditorSymbolLike[];
   onCreateSymbol?(): void;
   onDetachSymbol?(): void;
@@ -63,878 +57,258 @@ export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
   onRenameSymbol?(symbolId: string, name: string): void;
   onDuplicateSymbol?(symbolId: string): void;
   onSelectSymbolInstance?(symbolId: string): void;
-
   mediaAssets?: EditorMediaAsset[];
-
   onMediaUpload?(): void;
-  onGenerateMediaWithAI?(
-    prompt: string,
-  ): void | Promise<void>;
-
+  onGenerateMediaWithAI?(prompt: string): void | Promise<void>;
   onAddPage?(): void;
-
-  onMovePage?(
-    pageId: string,
-    direction: 'up' | 'down',
-  ): void;
-
+  onMovePage?(pageId: string, direction: 'up' | 'down'): void;
   onDuplicatePage?(): void;
   onDeletePage?(): void;
   onSetHomePage?(): void;
-
-  onMoveSection?(
-    sectionId: string,
-    direction: 'up' | 'down',
-  ): void;
-
-  onDuplicateSection?(
-    sectionId: string,
-  ): void;
-
-  onDeleteSection?(
-    sectionId: string,
-  ): void;
-
-  onMoveElement?(
-    sectionId: string,
-    elementId: string,
-    direction: 'up' | 'down',
-  ): void;
-
-  onDuplicateElement?(
-    sectionId: string,
-    elementId: string,
-  ): void;
-
+  onMoveSection?(sectionId: string, direction: 'up' | 'down'): void;
+  onDuplicateSection?(sectionId: string): void;
+  onDeleteSection?(sectionId: string): void;
+  onMoveElement?(sectionId: string, elementId: string, direction: 'up' | 'down'): void;
+  onDuplicateElement?(sectionId: string, elementId: string): void;
   onCopySelection?(): void;
   onCutSelection?(): void;
   onPasteSelection?(): void;
   clipboardKind?: 'element' | 'elements' | 'section';
-
-  onDeleteElement?(
-    sectionId: string,
-    elementId: string,
-  ): void;
-
+  onDeleteElement?(sectionId: string, elementId: string): void;
   onRestoreHistoryEntry?(entryId: string): void;
-
+  onPreviewTemplate?(template: EditorTemplateLibraryItem): void;
+  onCustomizeTemplateWithAI?(template: EditorTemplateLibraryItem): void;
   createSection(item: EditorInsertCatalogItem): EditorSectionLike;
   createContainer(item: EditorInsertCatalogItem): EditorContainerLike;
-
-  createElement(
-    item: EditorInsertCatalogItem,
-    asset?: EditorMediaAsset,
-  ): EditorElementLike;
-
-  onApplyOperations(
-    operations: EditorNativeOperation[],
-    nextSelection?: EditorSelection,
-  ): void;
+  createElement(item: EditorInsertCatalogItem, asset?: EditorMediaAsset): EditorElementLike;
+  onApplyOperations(operations: EditorNativeOperation[], nextSelection?: EditorSelection): void;
 }
 
-const SECTION_INSERT_ITEM =
-  EDITOR_INSERT_CATALOG.find((item) => item.id === 'section') ||
-  EDITOR_INSERT_CATALOG[0];
+const SECTION_INSERT_ITEM = EDITOR_INSERT_CATALOG.find((item) => item.id === 'section') || EDITOR_INSERT_CATALOG[0];
+const IMAGE_INSERT_ITEM = EDITOR_INSERT_CATALOG.find((item) => item.id === 'image') || EDITOR_INSERT_CATALOG[0];
+const VIDEO_INSERT_ITEM = EDITOR_INSERT_CATALOG.find((item) => item.id === 'video') || IMAGE_INSERT_ITEM;
+const FILE_INSERT_ITEM = EDITOR_INSERT_CATALOG.find((item) => item.id === 'button') || EDITOR_INSERT_CATALOG[0];
 
-const IMAGE_INSERT_ITEM =
-  EDITOR_INSERT_CATALOG.find((item) => item.id === 'image') ||
-  EDITOR_INSERT_CATALOG[0];
-
-const VIDEO_INSERT_ITEM =
-  EDITOR_INSERT_CATALOG.find((item) => item.id === 'video') ||
-  IMAGE_INSERT_ITEM;
-
-const FILE_INSERT_ITEM =
-  EDITOR_INSERT_CATALOG.find((item) => item.id === 'button') ||
-  EDITOR_INSERT_CATALOG[0];
-
-function withContainer(
-  element: EditorElementLike,
-  containerId?: string,
-): EditorElementLike {
-  if (!containerId) return element;
-
-  return {
-    ...element,
-    containerId,
-  };
+function withContainer(element: EditorElementLike, containerId?: string): EditorElementLike {
+  return containerId ? { ...element, containerId } : element;
 }
 
-export function BuilderV2NativeBridge<P extends EditorProjectLike>(
-  props: BuilderV2NativeBridgeProps<P>,
-) {
+export function BuilderV2NativeBridge<P extends EditorProjectLike>(props: BuilderV2NativeBridgeProps<P>) {
   const l = useLocalizer();
-  const {
-    shell,
-    project,
-    selection = {},
-    mediaAssets = [],
-  } = props;
-
+  const { shell, project, selection = {}, mediaAssets = [] } = props;
   const [insertQuery, setInsertQuery] = useState('');
+  const [insertCategory, setInsertCategory] = useState<EditorInsertCategory | undefined>();
+  const [mediaFilter, setMediaFilter] = useState<EditorMediaFilter>({});
+  const inspectorFields = useMemo(() => buildEditorInspectorFields(project, selection), [project, selection]);
 
-  const [insertCategory, setInsertCategory] =
-    useState<EditorInsertCategory | undefined>();
-
-  const [mediaFilter, setMediaFilter] =
-    useState<EditorMediaFilter>({});
-
-  const inspectorFields = useMemo(
-    () => buildEditorInspectorFields(project, selection),
-    [project, selection],
-  );
-
-  function applyOperations(
-    operations: EditorNativeOperation[],
-    nextSelection?: EditorSelection,
-  ) {
+  function applyOperations(operations: EditorNativeOperation[], nextSelection?: EditorSelection) {
     if (!operations.length) return;
-
-    const manualOperations =
-      operations.map((operation) => ({
-        ...operation,
-        source: operation.source || 'manual' as const,
-      }));
-
-    props.onApplyOperations(
-      manualOperations,
-      nextSelection,
-    );
+    props.onApplyOperations(operations.map(operation => ({ ...operation, source: operation.source || 'manual' as const })), nextSelection);
   }
 
-  function ensureSection(
-    item: EditorInsertCatalogItem,
-  ): {
-    pageId: string;
-    sectionId: string;
-    containerId?: string;
-    operations: EditorNativeOperation[];
-  } | undefined {
-    const placement =
-      planEditorInsertPlacement(
-        project,
-        selection,
-      );
+  function handleTemplateInsert(template: EditorTemplateLibraryItem) {
+    const activePageId = selection.pageId || project.pages[0]?.id;
+    const plan = planEditorTemplateInsert(template, activePageId);
+    if (!plan.operations.length) return;
+    applyOperations(plan.operations, plan.selection);
+  }
 
+  function ensureSection(item: EditorInsertCatalogItem) {
+    const placement = planEditorInsertPlacement(project, selection);
     if (!placement) return undefined;
-
-    if (placement.sectionId) {
-      return {
-        pageId: placement.pageId,
-        sectionId: placement.sectionId,
-        containerId: placement.containerId,
-        operations: [],
-      };
-    }
-
-    const section =
-      props.createSection(
-        item.sectionType
-          ? item
-          : SECTION_INSERT_ITEM,
-      );
-
-    return {
-      pageId: placement.pageId,
-      sectionId: section.id,
-
-      operations: [
-        {
-          action: 'add_section',
-          pageId: placement.pageId,
-          section,
-        },
-      ],
-    };
+    if (placement.sectionId) return { pageId: placement.pageId, sectionId: placement.sectionId, containerId: placement.containerId, operations: [] as EditorNativeOperation[] };
+    const section = props.createSection(item.sectionType ? item : SECTION_INSERT_ITEM);
+    return { pageId: placement.pageId, sectionId: section.id, operations: [{ action: 'add_section' as const, pageId: placement.pageId, section }] };
   }
 
-  function handleInsert(
-    item: EditorInsertCatalogItem,
-  ) {
-    const placement =
-      planEditorInsertPlacement(
-        project,
-        selection,
-      );
-
+  function handleInsert(item: EditorInsertCatalogItem) {
+    const placement = planEditorInsertPlacement(project, selection);
     if (!placement) return;
-
     if (item.sectionType) {
-      const section =
-        props.createSection(item);
-
-      applyOperations(
-        [
-          {
-            action: 'add_section',
-            pageId: placement.pageId,
-            section,
-          },
-        ],
-        {
-          pageId: placement.pageId,
-          sectionId: section.id,
-        },
-      );
-
+      const section = props.createSection(item);
+      applyOperations([{ action: 'add_section', pageId: placement.pageId, section }], { pageId: placement.pageId, sectionId: section.id });
       return;
     }
-
-    const target =
-      ensureSection(item);
-
+    const target = ensureSection(item);
     if (!target) return;
-
-    const operations =
-      [...target.operations];
-
+    const operations = [...target.operations];
     if (item.elementType === 'container') {
-      const container =
-        props.createContainer(item);
-
-      operations.push({
-        action: 'add_container',
-        pageId: target.pageId,
-        sectionId: target.sectionId,
-        container,
-      });
-
-      applyOperations(
-        operations,
-        {
-          pageId: target.pageId,
-          sectionId: target.sectionId,
-          containerId: container.id,
-        },
-      );
-
+      const container = props.createContainer(item);
+      operations.push({ action: 'add_container', pageId: target.pageId, sectionId: target.sectionId, container });
+      applyOperations(operations, { pageId: target.pageId, sectionId: target.sectionId, containerId: container.id });
       return;
     }
-
     if (item.elementType) {
-      const element =
-        withContainer(
-          props.createElement(item),
-          target.containerId,
-        );
-
-      operations.push({
-        action: 'add_element',
-        pageId: target.pageId,
-        sectionId: target.sectionId,
-        element,
-      });
-
-      applyOperations(
-        operations,
-        {
-          pageId: target.pageId,
-          sectionId: target.sectionId,
-          elementId: element.id,
-          containerId: target.containerId,
-        },
-      );
+      const element = withContainer(props.createElement(item), target.containerId);
+      operations.push({ action: 'add_element', pageId: target.pageId, sectionId: target.sectionId, element });
+      applyOperations(operations, { pageId: target.pageId, sectionId: target.sectionId, elementId: element.id, containerId: target.containerId });
     }
   }
 
-  function handleMediaSelect(
-    asset: EditorMediaAsset,
-  ) {
-    if (
-      selection.pageId &&
-      selection.sectionId &&
-      selection.elementId
-    ) {
-      const match =
-        findEditorElement(
-          project,
-          selection.pageId,
-          selection.sectionId,
-          selection.elementId,
-        );
-
+  function handleMediaSelect(asset: EditorMediaAsset) {
+    if (selection.pageId && selection.sectionId && selection.elementId) {
+      const match = findEditorElement(project, selection.pageId, selection.sectionId, selection.elementId);
       if (match) {
         if (asset.kind === 'image' && match.element.type === 'image') {
-          applyOperations(
-            [{
-              action: 'update_element',
-              pageId: selection.pageId,
-              sectionId: selection.sectionId,
-              elementId: selection.elementId,
-              changes: {
-                src: asset.url,
-                content: asset.alt || asset.name,
-                alt: asset.alt || asset.name,
-              },
-            }],
-            selection,
-          );
+          applyOperations([{ action: 'update_element', pageId: selection.pageId, sectionId: selection.sectionId, elementId: selection.elementId, changes: { src: asset.url, content: asset.alt || asset.name, alt: asset.alt || asset.name } }], selection);
           return;
         }
-
         if (asset.kind === 'video' && match.element.type === 'video') {
-          applyOperations(
-            [{
-              action: 'update_element',
-              pageId: selection.pageId,
-              sectionId: selection.sectionId,
-              elementId: selection.elementId,
-              changes: {
-                src: asset.url,
-                content: asset.name,
-              },
-            }],
-            selection,
-          );
+          applyOperations([{ action: 'update_element', pageId: selection.pageId, sectionId: selection.sectionId, elementId: selection.elementId, changes: { src: asset.url, content: asset.name } }], selection);
           return;
         }
-
         if (asset.kind === 'file' && match.element.type === 'button') {
-          applyOperations(
-            [{
-              action: 'update_element',
-              pageId: selection.pageId,
-              sectionId: selection.sectionId,
-              elementId: selection.elementId,
-              changes: {
-                href: asset.url,
-                content: asset.name,
-              },
-            }],
-            selection,
-          );
+          applyOperations([{ action: 'update_element', pageId: selection.pageId, sectionId: selection.sectionId, elementId: selection.elementId, changes: { href: asset.url, content: asset.name } }], selection);
           return;
         }
       }
     }
-
-    const insertItem =
-      asset.kind === 'image'
-        ? IMAGE_INSERT_ITEM
-        : asset.kind === 'video'
-          ? VIDEO_INSERT_ITEM
-          : FILE_INSERT_ITEM;
-
-    const target =
-      ensureSection(insertItem);
-
+    const insertItem = asset.kind === 'image' ? IMAGE_INSERT_ITEM : asset.kind === 'video' ? VIDEO_INSERT_ITEM : FILE_INSERT_ITEM;
+    const target = ensureSection(insertItem);
     if (!target) return;
-
-    let element = props.createElement(
-      insertItem,
-      asset.kind === 'image' ? asset : undefined,
-    );
-
-    if (asset.kind === 'video') {
-      element = {
-        ...element,
-        src: asset.url,
-        content: asset.name,
-      };
-    } else if (asset.kind === 'file') {
-      element = {
-        ...element,
-        href: asset.url,
-        content: asset.name,
-      };
-    }
-
-    element = withContainer(
-      element,
-      target.containerId,
-    );
-
-    applyOperations(
-      [
-        ...target.operations,
-        {
-          action: 'add_element',
-          pageId: target.pageId,
-          sectionId: target.sectionId,
-          element,
-        },
-      ],
-      {
-        pageId: target.pageId,
-        sectionId: target.sectionId,
-        elementId: element.id,
-        containerId: target.containerId,
-      },
-    );
+    let element = props.createElement(insertItem, asset.kind === 'image' ? asset : undefined);
+    if (asset.kind === 'video') element = { ...element, src: asset.url, content: asset.name };
+    else if (asset.kind === 'file') element = { ...element, href: asset.url, content: asset.name };
+    element = withContainer(element, target.containerId);
+    applyOperations([...target.operations, { action: 'add_element', pageId: target.pageId, sectionId: target.sectionId, element }], { pageId: target.pageId, sectionId: target.sectionId, elementId: element.id, containerId: target.containerId });
   }
 
-  function handleInspectorChange(
-    key: string,
-    value: unknown,
-  ) {
-    const selectedIds = selection.elementId && selection.sectionId
-      ? Array.from(new Set([selection.elementId, ...(props.selectedElementIds || [])]))
-      : [];
+  function handleInspectorChange(key: string, value: unknown) {
+    const selectedIds = selection.elementId && selection.sectionId ? Array.from(new Set([selection.elementId, ...(props.selectedElementIds || [])])) : [];
     const operations = selectedIds.length > 1
-      ? selectedIds.flatMap((elementId) => {
-          const operation = buildEditorInspectorOperation(
-            project,
-            { ...selection, elementId },
-            key,
-            value,
-          );
+      ? selectedIds.flatMap(elementId => {
+          const operation = buildEditorInspectorOperation(project, { ...selection, elementId }, key, value);
           return operation ? [operation] : [];
         })
-      : [buildEditorInspectorOperation(project, selection, key, value)].filter(
-          (operation): operation is EditorNativeOperation => Boolean(operation),
-        );
-
-    if (!operations.length) return;
-
-    applyOperations(
-      operations,
-      selection,
-    );
+      : [buildEditorInspectorOperation(project, selection, key, value)].filter((operation): operation is EditorNativeOperation => Boolean(operation));
+    if (operations.length) applyOperations(operations, selection);
   }
 
   function manualId(prefix: string) {
-    const uuid =
-      globalThis.crypto?.randomUUID?.();
-
-    return uuid
-      ? `${prefix}-${uuid}`
-      : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const uuid = globalThis.crypto?.randomUUID?.();
+    return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  function handleUngroupContainer(
-    sectionId: string,
-    containerId: string,
-  ) {
+  function handleUngroupContainer(sectionId: string, containerId: string) {
     if (!selection.pageId) return;
-
-    const section =
-      project.pages
-        .find((page) => page.id === selection.pageId)
-        ?.sections
-        .find((candidate) => candidate.id === sectionId);
-
+    const section = project.pages.find(page => page.id === selection.pageId)?.sections.find(candidate => candidate.id === sectionId);
     if (!section) return;
-
-    const operations: EditorNativeOperation[] =
-      section.elements
-        .filter((element) => element.containerId === containerId)
-        .map((element) => ({
-          action: 'assign_element_container' as const,
-          pageId: selection.pageId,
-          sectionId,
-          elementId: element.id,
-          containerId: undefined,
-        }));
-
-    operations.push({
-      action: 'remove_container',
-      pageId: selection.pageId,
-      sectionId,
-      containerId,
-    });
-
-    applyOperations(
-      operations,
-      {
-        pageId: selection.pageId,
-        sectionId,
-      },
-    );
+    const operations: EditorNativeOperation[] = section.elements.filter(element => element.containerId === containerId).map(element => ({ action: 'assign_element_container' as const, pageId: selection.pageId, sectionId, elementId: element.id, containerId: undefined }));
+    operations.push({ action: 'remove_container', pageId: selection.pageId, sectionId, containerId });
+    applyOperations(operations, { pageId: selection.pageId, sectionId });
   }
 
-  function formFieldDefaults(
-    type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox',
-    index = 0,
-  ) {
-    const labels = {
-      text: 'Text',
-      email: 'Email',
-      tel: 'Phone',
-      textarea: 'Message',
-      select: 'Select',
-      checkbox: 'Checkbox',
-    } as const;
-
+  function formFieldDefaults(type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox', index = 0) {
+    const labels = { text: 'Text', email: 'Email', tel: 'Phone', textarea: 'Message', select: 'Select', checkbox: 'Checkbox' } as const;
     const id = manualId(`field-${type}`);
-
-    return {
-      id,
-      name: `${type}_${index + 1}`,
-      label: labels[type],
-      type,
-      placeholder:
-        type === 'checkbox'
-          ? ''
-          : `Enter ${labels[type].toLowerCase()}`,
-      required: type === 'email',
-      ...(type === 'select'
-        ? { options: ['Option 1', 'Option 2'] }
-        : {}),
-    };
+    return { id, name: `${type}_${index + 1}`, label: labels[type], type, placeholder: type === 'checkbox' ? '' : `Enter ${labels[type].toLowerCase()}`, required: type === 'email', ...(type === 'select' ? { options: ['Option 1', 'Option 2'] } : {}) };
   }
 
-  function handleAddFormField(
-    sectionId: string,
-    type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox',
-  ) {
+  function handleAddFormField(sectionId: string, type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox') {
     if (!selection.pageId) return;
-
-    const section =
-      project.pages
-        .find((page) => page.id === selection.pageId)
-        ?.sections
-        .find((candidate) => candidate.id === sectionId);
-
-    const field =
-      formFieldDefaults(
-        type,
-        section?.formFields?.length || 0,
-      );
-
-    applyOperations(
-      [{
-        action: 'add_form_field',
-        pageId: selection.pageId,
-        sectionId,
-        formField: field,
-      }],
-      {
-        pageId: selection.pageId,
-        sectionId,
-        formFieldId: field.id,
-      },
-    );
+    const section = project.pages.find(page => page.id === selection.pageId)?.sections.find(candidate => candidate.id === sectionId);
+    const field = formFieldDefaults(type, section?.formFields?.length || 0);
+    applyOperations([{ action: 'add_form_field', pageId: selection.pageId, sectionId, formField: field }], { pageId: selection.pageId, sectionId, formFieldId: field.id });
   }
 
-  function handleMoveFormField(
-    sectionId: string,
-    formFieldId: string,
-    direction: 'up' | 'down',
-  ) {
+  function handleMoveFormField(sectionId: string, formFieldId: string, direction: 'up' | 'down') {
     if (!selection.pageId) return;
-
-    const fields =
-      project.pages
-        .find((page) => page.id === selection.pageId)
-        ?.sections
-        .find((section) => section.id === sectionId)
-        ?.formFields || [];
-
-    const index =
-      fields.findIndex(
-        (field) => field.id === formFieldId,
-      );
-
+    const fields = project.pages.find(page => page.id === selection.pageId)?.sections.find(section => section.id === sectionId)?.formFields || [];
+    const index = fields.findIndex(field => field.id === formFieldId);
     if (index < 0) return;
-
-    const target =
-      direction === 'up'
-        ? index - 1
-        : index + 1;
-
-    if (
-      target < 0 ||
-      target >= fields.length
-    ) {
-      return;
-    }
-
-    applyOperations(
-      [{
-        action: 'move_form_field',
-        pageId: selection.pageId,
-        sectionId,
-        formFieldId,
-        position: {
-          index: target,
-        },
-      }],
-      {
-        pageId: selection.pageId,
-        sectionId,
-        formFieldId,
-      },
-    );
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= fields.length) return;
+    applyOperations([{ action: 'move_form_field', pageId: selection.pageId, sectionId, formFieldId, position: { index: target } }], { pageId: selection.pageId, sectionId, formFieldId });
   }
 
-  function handleDeleteFormField(
-    sectionId: string,
-    formFieldId: string,
-  ) {
-    if (!selection.pageId) return;
-
-    applyOperations(
-      [{
-        action: 'remove_form_field',
-        pageId: selection.pageId,
-        sectionId,
-        formFieldId,
-      }],
-      {
-        pageId: selection.pageId,
-        sectionId,
-      },
-    );
+  function handleDeleteFormField(sectionId: string, formFieldId: string) {
+    if (selection.pageId) applyOperations([{ action: 'remove_form_field', pageId: selection.pageId, sectionId, formFieldId }], { pageId: selection.pageId, sectionId });
   }
 
-  function handleResetForm(
-    sectionId: string,
-  ) {
+  function handleResetForm(sectionId: string) {
     if (!selection.pageId) return;
-
     const fields = [
-      {
-        ...formFieldDefaults('text', 0),
-        name: 'name',
-        label: 'Name',
-        placeholder: 'Your name',
-        required: true,
-      },
-      {
-        ...formFieldDefaults('email', 1),
-        name: 'email',
-        label: 'Email',
-        placeholder: 'Your email',
-        required: true,
-      },
-      {
-        ...formFieldDefaults('textarea', 2),
-        name: 'message',
-        label: 'Message',
-        placeholder: 'Your message',
-        required: true,
-      },
+      { ...formFieldDefaults('text', 0), name: 'name', label: 'Name', placeholder: 'Your name', required: true },
+      { ...formFieldDefaults('email', 1), name: 'email', label: 'Email', placeholder: 'Your email', required: true },
+      { ...formFieldDefaults('textarea', 2), name: 'message', label: 'Message', placeholder: 'Your message', required: true },
     ];
-
-    applyOperations(
-      [{
-        action: 'update_section',
-        pageId: selection.pageId,
-        sectionId,
-        changes: {
-          formFields: fields,
-          formSuccessMessage:
-            'Thanks! Your message has been sent.',
-          formSuccessAction: 'message',
-          formRedirectUrl: '',
-        },
-      }],
-      {
-        pageId: selection.pageId,
-        sectionId,
-        formFieldId: fields[0].id,
-      },
-    );
+    applyOperations([{ action: 'update_section', pageId: selection.pageId, sectionId, changes: { formFields: fields, formSuccessMessage: 'Thanks! Your message has been sent.', formSuccessAction: 'message', formRedirectUrl: '' } }], { pageId: selection.pageId, sectionId, formFieldId: fields[0].id });
   }
 
-  const activeSymbolId = project.pages
-    .find((page) => page.id === selection.pageId)
-    ?.sections.find((section) => section.id === selection.sectionId)
-    ?.elements.find((element) => element.id === selection.elementId)
-    ?.symbolId as string | undefined;
+  const activeSymbolId = project.pages.find(page => page.id === selection.pageId)?.sections.find(section => section.id === selection.sectionId)?.elements.find(element => element.id === selection.elementId)?.symbolId as string | undefined;
   const symbolInstanceCounts = project.pages.reduce<Record<string, number>>((counts, page) => {
-    page.sections.forEach((section) => section.elements.forEach((element) => {
-      if (typeof element.symbolId === 'string' && element.symbolId) {
-        counts[element.symbolId] = (counts[element.symbolId] || 0) + 1;
-      }
+    page.sections.forEach(section => section.elements.forEach(element => {
+      if (typeof element.symbolId === 'string' && element.symbolId) counts[element.symbolId] = (counts[element.symbolId] || 0) + 1;
     }));
     return counts;
   }, {});
 
   const renderLeftPanel = BuilderPanelRouter({
-        shell,
-        aiPanel: props.aiPanel,
-        cmsPanel: props.cmsPanel,
-        sitePanel: props.sitePanel,
-        settingsPanel: props.settingsPanel,
+    shell,
+    aiPanel: props.aiPanel,
+    cmsPanel: props.cmsPanel,
+    sitePanel: props.sitePanel,
+    settingsPanel: props.settingsPanel,
+    symbols: props.symbols,
+    canCreateSymbol: Boolean(selection.elementId && !project.pages.find(page => page.id === selection.pageId)?.sections.find(section => section.id === selection.sectionId)?.elements.find(element => element.id === selection.elementId)?.symbolId),
+    canInsertSymbol: Boolean(selection.sectionId),
+    canDetachSymbol: Boolean(selection.elementId && project.pages.find(page => page.id === selection.pageId)?.sections.find(section => section.id === selection.sectionId)?.elements.find(element => element.id === selection.elementId)?.symbolId),
+    onCreateSymbol: props.onCreateSymbol,
+    onDetachSymbol: props.onDetachSymbol,
+    onInsertSymbol: props.onInsertSymbol,
+    onDeleteSymbol: props.onDeleteSymbol,
+    onRenameSymbol: props.onRenameSymbol,
+    onDuplicateSymbol: props.onDuplicateSymbol,
+    onSelectSymbolInstance: props.onSelectSymbolInstance,
+    activeSymbolId,
+    symbolInstanceCounts,
+    insertQuery,
+    insertCategory,
+    onInsertQueryChange: setInsertQuery,
+    onInsertCategoryChange: setInsertCategory,
+    onInsert: handleInsert,
+    onInsertTemplate: handleTemplateInsert,
+    onPreviewTemplate: props.onPreviewTemplate,
+    onCustomizeTemplateWithAI: props.onCustomizeTemplateWithAI,
+    mediaAssets,
+    mediaFilter,
+    onMediaFilterChange: setMediaFilter,
+    onMediaSelect: handleMediaSelect,
+    onMediaUpload: props.onMediaUpload,
+    onGenerateMediaWithAI: props.onGenerateMediaWithAI,
+    onAddPage: props.onAddPage,
+    onMovePage: props.onMovePage,
+    onDuplicatePage: props.onDuplicatePage,
+    onDeletePage: props.onDeletePage,
+    onSetHomePage: props.onSetHomePage,
+    onMoveSection: props.onMoveSection,
+    onDuplicateSection: props.onDuplicateSection,
+    onDeleteSection: props.onDeleteSection,
+    onMoveElement: props.onMoveElement,
+    onDuplicateElement: props.onDuplicateElement,
+    onDeleteElement: props.onDeleteElement,
+    selectedElementIds: props.selectedElementIds,
+    onSelectElement: props.onSelectElement,
+    onUngroupContainer: handleUngroupContainer,
+    onAddFormField: handleAddFormField,
+    onMoveFormField: handleMoveFormField,
+    onDeleteFormField: handleDeleteFormField,
+    onResetForm: handleResetForm,
+    onRestoreHistoryEntry: props.onRestoreHistoryEntry,
+  });
 
-        symbols: props.symbols,
-        canCreateSymbol: Boolean(
-          selection.elementId &&
-          !project.pages
-            .find((page) => page.id === selection.pageId)
-            ?.sections
-            .find((section) => section.id === selection.sectionId)
-            ?.elements
-            .find((element) => element.id === selection.elementId)
-            ?.symbolId
-        ),
-        canInsertSymbol: Boolean(selection.sectionId),
-        canDetachSymbol: Boolean(
-          selection.elementId &&
-          project.pages
-            .find((page) => page.id === selection.pageId)
-            ?.sections
-            .find((section) => section.id === selection.sectionId)
-            ?.elements
-            .find((element) => element.id === selection.elementId)
-            ?.symbolId
-        ),
-        onCreateSymbol: props.onCreateSymbol,
-        onDetachSymbol: props.onDetachSymbol,
-        onInsertSymbol: props.onInsertSymbol,
-        onDeleteSymbol: props.onDeleteSymbol,
-        onRenameSymbol: props.onRenameSymbol,
-        onDuplicateSymbol: props.onDuplicateSymbol,
-        onSelectSymbolInstance: props.onSelectSymbolInstance,
-        activeSymbolId,
-        symbolInstanceCounts,
-
-        insertQuery,
-        insertCategory,
-
-        onInsertQueryChange:
-          setInsertQuery,
-
-        onInsertCategoryChange:
-          setInsertCategory,
-
-        onInsert:
-          handleInsert,
-
-        mediaAssets,
-        mediaFilter,
-
-        onMediaFilterChange:
-          setMediaFilter,
-
-        onMediaSelect:
-          handleMediaSelect,
-
-        onMediaUpload:
-          props.onMediaUpload,
-
-        onGenerateMediaWithAI:
-          props.onGenerateMediaWithAI,
-
-        onAddPage:
-          props.onAddPage,
-
-        onMovePage:
-          props.onMovePage,
-
-        onDuplicatePage:
-          props.onDuplicatePage,
-
-        onDeletePage:
-          props.onDeletePage,
-
-        onSetHomePage:
-          props.onSetHomePage,
-
-        onMoveSection:
-          props.onMoveSection,
-
-        onDuplicateSection:
-          props.onDuplicateSection,
-
-        onDeleteSection:
-          props.onDeleteSection,
-
-        onMoveElement:
-          props.onMoveElement,
-
-        onDuplicateElement:
-          props.onDuplicateElement,
-
-        onDeleteElement:
-          props.onDeleteElement,
-
-        selectedElementIds:
-          props.selectedElementIds,
-
-        onSelectElement:
-          props.onSelectElement,
-
-        onUngroupContainer:
-          handleUngroupContainer,
-
-        onAddFormField:
-          handleAddFormField,
-
-        onMoveFormField:
-          handleMoveFormField,
-
-        onDeleteFormField:
-          handleDeleteFormField,
-
-        onResetForm:
-          handleResetForm,
-
-        onRestoreHistoryEntry:
-          props.onRestoreHistoryEntry,
-      });
-
-  function renderInspector(
-    target:
-      EditorShellContract['view']['inspectorTarget'],
-
-    tab:
-      EditorInspectorTab,
-  ) {
-    const canCutTarget = target.kind === 'element' || (
-      target.kind === 'section' &&
-      (project.pages.find((page) => page.id === selection.pageId)?.sections.length || 0) > 1
-    );
-    return (
-      <>
-        {(target.kind === 'element' || target.kind === 'section') && (
-          <div className="tayar-v2-inspector-actions" aria-label={l('Editor clipboard')}>
-            <button type="button" onClick={props.onCopySelection} disabled={!props.onCopySelection}>{l(target.kind === 'element' ? 'Copy element' : 'Copy section')}</button>
-            <button type="button" onClick={props.onCutSelection} disabled={!canCutTarget || !props.onCutSelection || Boolean(shell.status.mutating)}>{l(target.kind === 'element' ? 'Cut element' : 'Cut section')}</button>
-            <button type="button" onClick={props.onPasteSelection} disabled={!props.clipboardKind || !props.onPasteSelection || Boolean(shell.status.mutating)}>{l(props.clipboardKind === 'section' ? 'Paste section' : props.clipboardKind === 'elements' ? 'Paste elements' : 'Paste element')}</button>
-          </div>
-        )}
-        {target.kind === 'element' && (props.selectedElementIds?.length || 0) > 1 && (
-          <div className="tayar-v2-multi-edit-note" role="status">
-            {props.selectedElementIds?.length} {l('Selected elements')} · {l('Inspector changes apply to all')}
-          </div>
-        )}
-        <BuilderInspectorFields
-          fields={inspectorFields}
-          group={tab}
-          onChange={handleInspectorChange}
-          disabled={Boolean(
-            shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking,
-          )}
-        />
-      </>
-    );
+  function renderInspector(target: EditorShellContract['view']['inspectorTarget'], tab: EditorInspectorTab) {
+    const canCutTarget = target.kind === 'element' || (target.kind === 'section' && (project.pages.find(page => page.id === selection.pageId)?.sections.length || 0) > 1);
+    return <>
+      {(target.kind === 'element' || target.kind === 'section') && <div className="tayar-v2-inspector-actions" aria-label={l('Editor clipboard')}>
+        <button type="button" onClick={props.onCopySelection} disabled={!props.onCopySelection}>{l(target.kind === 'element' ? 'Copy element' : 'Copy section')}</button>
+        <button type="button" onClick={props.onCutSelection} disabled={!canCutTarget || !props.onCutSelection || Boolean(shell.status.mutating)}>{l(target.kind === 'element' ? 'Cut element' : 'Cut section')}</button>
+        <button type="button" onClick={props.onPasteSelection} disabled={!props.clipboardKind || !props.onPasteSelection || Boolean(shell.status.mutating)}>{l(props.clipboardKind === 'section' ? 'Paste section' : props.clipboardKind === 'elements' ? 'Paste elements' : 'Paste element')}</button>
+      </div>}
+      {target.kind === 'element' && (props.selectedElementIds?.length || 0) > 1 && <div className="tayar-v2-multi-edit-note" role="status">{props.selectedElementIds?.length} {l('Selected elements')} · {l('Inspector changes apply to all')}</div>}
+      <BuilderInspectorFields fields={inspectorFields} group={tab} onChange={handleInspectorChange} disabled={Boolean(shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking)} />
+    </>;
   }
 
-  return (
-    <WebsiteBuilderV2Shell
-      shell={shell}
-
-      brandSlot={
-        props.brandSlot
-      }
-
-      topbarCenterSlot={
-        props.topbarCenterSlot
-      }
-
-      topbarTrailingSlot={
-        props.topbarTrailingSlot
-      }
-
-      canvas={
-        props.canvas
-      }
-
-      canvasOverlaySlot={
-        props.canvasOverlaySlot
-      }
-
-      renderLeftPanel={(
-        panel: EditorLeftPanel,
-      ) =>
-        renderLeftPanel(panel)
-      }
-
-      renderInspector={
-        renderInspector
-      }
-    />
-  );
+  return <WebsiteBuilderV2Shell shell={shell} brandSlot={props.brandSlot} topbarCenterSlot={props.topbarCenterSlot} topbarTrailingSlot={props.topbarTrailingSlot} canvas={props.canvas} canvasOverlaySlot={props.canvasOverlaySlot} renderLeftPanel={(panel: EditorLeftPanel) => renderLeftPanel(panel)} renderInspector={renderInspector} />;
 }
