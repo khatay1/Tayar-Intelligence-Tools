@@ -14,7 +14,7 @@ try {
     stdin: { contents: [
       'editor-arrangement', 'editor-design-commands', 'editor-command', 'editor-history',
       'editor-inspector-model', 'editor-inspector-operation', 'editor-value-safety',
-      'editor-layout-style', 'editor-motion', 'defaults',
+      'editor-layout-style', 'editor-motion', 'editor-ai-plan-coverage', 'defaults',
     ].map((name) => `export * from './src/modules/website-builder/core/${name}.ts';`).join('\n'), resolveDir: process.cwd() },
     bundle: true, platform: 'node', format: 'esm', outfile,
     alias: { '@': join(process.cwd(), 'src') },
@@ -23,7 +23,8 @@ try {
     runEditorCommand: run, createEditorHistory: history, undoEditorHistory: undo, redoEditorHistory: redo,
     buildEditorInspectorFields: inspectorFields, buildEditorInspectorOperation: inspectorOperation,
     inspectEditorContainerSemantic: inspectContainer, containerLayoutCss, elementConstraintCss, normalizeSection,
-    elementAnimationTransform, normalizeElementAnimation, elementAnimationEasing } = await import(pathToFileURL(outfile));
+    elementAnimationTransform, normalizeElementAnimation, elementAnimationEasing,
+    evaluateAIWebsitePlanCoverage } = await import(pathToFileURL(outfile));
   const box = (id, left, top, width = 20, height = 20, x = 0, y = 0) => ({ id, rect: { left, top, width, height }, x, y });
   check('all six alignments use the selection bounds', () => {
     const items = [box('a', 10, 20), box('b', 110, 120, 40, 40)];
@@ -176,6 +177,20 @@ try {
     const parallax = fields.find((item) => item.key === 'responsive.mobile.parallaxSpeed');
     assert.equal(animation.value, 'none'); assert.equal(animation.inheritedValue, 'fade-up');
     assert.equal(parallax.value, 0); assert.equal(parallax.overridden, true);
+  });
+  check('agent plan coverage reports missing unknown and unassigned work', () => {
+    const steps = [{ id: 'step-1', title: 'Hero' }, { id: 'step-2', title: 'Mobile' }];
+    const result = evaluateAIWebsitePlanCoverage(steps, [
+      { action: 'update_section', planStepId: 'step-1' },
+      { action: 'update_element', planStepId: 'missing-step' },
+      { action: 'update_seo' },
+    ]);
+    assert.equal(result.percent, 50);
+    assert.deepEqual(result.coveredStepIds, ['step-1']);
+    assert.deepEqual(result.uncoveredStepIds, ['step-2']);
+    assert.deepEqual(result.unknownStepIds, ['missing-step']);
+    assert.equal(result.unassignedOperationCount, 1);
+    assert.equal(result.warnings.length, 3);
   });
   console.log(`Design regression: ${passed} behavioral scenarios passed.`);
 } finally {

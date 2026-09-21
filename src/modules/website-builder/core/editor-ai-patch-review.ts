@@ -130,9 +130,13 @@ export interface AIWebsitePatchChanges {
   elementAnimationTrigger?: 'scroll' | 'load' | 'hover' | 'click';
   elementAnimationOnce?: boolean;
   containerName?: string;
-  containerLayout?: 'stack' | 'row';
+  containerLayout?: 'stack' | 'row' | 'grid';
   containerGap?: number;
+  containerRowGap?: number;
+  containerColumns?: number;
+  containerWrap?: boolean;
   containerAlign?: 'start' | 'center' | 'end' | 'stretch';
+  containerJustify?: 'start' | 'center' | 'end' | 'between';
   containerBackgroundColor?: string;
   containerPadding?: number;
   containerBorderRadius?: number;
@@ -153,6 +157,7 @@ export interface AIWebsitePatchChanges {
 
 export interface AIWebsitePatchOperation {
   action: 'add_page' | 'duplicate_page' | 'remove_page' | 'set_home_page' | 'move_page' | 'update_section' | 'add_section' | 'duplicate_section' | 'remove_section' | 'move_section' | 'add_container' | 'update_container' | 'remove_container' | 'assign_element_container' | 'create_symbol' | 'insert_symbol' | 'detach_symbol' | 'add_element' | 'duplicate_element' | 'remove_element' | 'move_element' | 'update_element' | 'update_form' | 'add_form_field' | 'update_form_field' | 'remove_form_field' | 'move_form_field' | 'copy_section_style' | 'copy_element_style' | 'repair_responsive' | 'repair_accessibility' | 'update_page' | 'update_theme' | 'restyle_site' | 'update_site' | 'update_seo' | 'update_header' | 'generate_image';
+  planStepId?: string;
   pageId?: string;
   pageSlug?: string;
   sectionId?: string;
@@ -198,6 +203,8 @@ export interface AIWebsiteAgentPlanStep {
   title: string;
   target?: string;
   reason?: string;
+  acceptanceCriteria?: string[];
+  affectedPageIds?: string[];
   destructive?: boolean;
 }
 
@@ -216,6 +223,7 @@ export interface AIWebsitePlanReview {
 export interface AIWebsitePatchReviewItem {
   id: string;
   action?: AIWebsitePatchOperation['action'];
+  planStepId?: string;
   label: string;
   target: string;
   fields: string[];
@@ -243,6 +251,9 @@ export interface AIWebsitePatchReview {
   warnings: string[];
   confidence: number | null;
   destructiveCount: number;
+  planCoveragePercent?: number;
+  planStepIds?: string[];
+  uncoveredPlanStepIds?: string[];
 }
 
 export function humanizeAIWebsitePatchAction(action: AIWebsitePatchOperation['action']): string {

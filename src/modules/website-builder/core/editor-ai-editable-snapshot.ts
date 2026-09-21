@@ -33,6 +33,16 @@ export function buildAIEditableSnapshotData({
 }: AIEditableSnapshotInput) {
   const scopedPages = pages
     .filter((page) => !scope || scope.kind === 'site' || page.id === scope.pageId);
+  const symbolUsage = new Map<string, number>();
+  let sectionCount = 0;
+  let elementCount = 0;
+  pages.forEach((page) => page.sections.forEach((section) => {
+    sectionCount += 1;
+    elementCount += section.elements.length;
+    section.elements.forEach((element) => {
+      if (element.symbolId) symbolUsage.set(element.symbolId, (symbolUsage.get(element.symbolId) || 0) + 1);
+    });
+  }));
 
   return {
     siteName,
@@ -44,6 +54,47 @@ export function buildAIEditableSnapshotData({
       sectionId: selectedId,
       elementId: selectedElementId,
       device,
+    },
+    projectMap: {
+      counts: {
+        pages: pages.length,
+        sections: sectionCount,
+        elements: elementCount,
+        reusableComponents: symbols.length,
+      },
+      limits: {
+        pages: 100,
+        sectionsPerPage: 40,
+        elementsPerSection: 60,
+        containersPerSection: 30,
+        formFieldsPerSection: 20,
+        reusableComponents: 50,
+        operationsPerRun: 60,
+      },
+      capabilities: [
+        'multi-page native editing', 'reusable components', 'responsive overrides',
+        'grid/flex containers', 'motion triggers and parallax', 'CMS bindings',
+        'forms', 'SEO and header controls', 'image generation',
+      ],
+      pages: pages.map((page) => ({
+        id: page.id,
+        name: page.name,
+        slug: page.slug,
+        home: page.id === homePageId,
+        sections: page.sections.map((section) => ({
+          id: section.id,
+          type: section.type,
+          anchorId: section.anchorId || '',
+          elementIds: section.elements.map((element) => element.id),
+          containerIds: (section.containers || []).map((container) => container.id),
+        })),
+      })),
+      reusableComponents: symbols.map((symbol) => ({
+        id: symbol.id,
+        name: symbol.name,
+        type: symbol.element.type,
+        instances: symbolUsage.get(symbol.id) || 0,
+      })),
     },
     seo: {
       title: seo.title,

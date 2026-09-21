@@ -173,6 +173,7 @@ import {
   reconcileAIWebsitePatchReviewTargets,
 } from './core/editor-ai-review-targets';
 import { buildAIEditableSnapshotData } from './core/editor-ai-editable-snapshot';
+import { evaluateAIWebsitePlanCoverage } from './core/editor-ai-plan-coverage';
 import { createWebsiteBuilderOutput } from './core/website-builder-output';
 import {
   DEFAULT_WEBSITE_LOCALIZATION,
@@ -5130,7 +5131,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         .map((operation) => operation.id)
         .filter((id) => selected.has(id));
       aiPatchReviewSelectionRef.current = selectedOperationIds;
-      return { ...current, selectedOperationIds };
+      const planStepIds = current.planStepIds || [];
+      const coveredStepIds = new Set(current.operations
+        .filter((operation) => selected.has(operation.id) && operation.planStepId)
+        .map((operation) => operation.planStepId as string));
+      const uncoveredPlanStepIds = planStepIds.filter((stepId) => !coveredStepIds.has(stepId));
+      return {
+        ...current,
+        selectedOperationIds,
+        planCoveragePercent: planStepIds.length ? Math.round((coveredStepIds.size / planStepIds.length) * 100) : 100,
+        uncoveredPlanStepIds,
+      };
     });
   }
 
@@ -5863,6 +5874,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 title,
                 target: typeof step.target === 'string' ? step.target.trim().slice(0, 180) : undefined,
                 reason: typeof step.reason === 'string' ? step.reason.trim().slice(0, 220) : undefined,
+                acceptanceCriteria: Array.isArray(step.acceptanceCriteria)
+                  ? step.acceptanceCriteria.map((criterion) => String(criterion).trim().slice(0, 180)).filter(Boolean).slice(0, 4)
+                  : [],
+                affectedPageIds: Array.isArray(step.affectedPageIds)
+                  ? step.affectedPageIds.map((pageId) => String(pageId).trim()).filter((pageId) => currentPages.some((page) => page.id === pageId)).slice(0, 12)
+                  : [],
                 destructive: step.destructive === true,
               };
             })
@@ -5943,6 +5960,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         'remove_page', 'remove_section', 'remove_container', 'remove_element', 'remove_form_field',
       ]);
       const destructiveOperations = operations.filter((operation) => operation && destructiveActions.has(operation.action));
+      const planCoverage = evaluateAIWebsitePlanCoverage(agentPlan.steps || [], operations);
       const patchWarnings = [
         ...(operations.length < proposedOperations.length
           ? [`${proposedOperations.length - operations.length} ${l('out-of-scope changes were blocked')}`]
@@ -5950,6 +5968,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         ...(Array.isArray(patch.warnings)
           ? patch.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
           : []),
+        ...planCoverage.warnings,
       ];
       const confidence = Number.isFinite(Number(patch.confidence))
         ? Math.min(1, Math.max(0, Number(patch.confidence)))
@@ -5962,6 +5981,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
           return {
             id: `operation-${index + 1}`,
             action: operation?.action,
+            planStepId: typeof operation?.planStepId === 'string' ? operation.planStepId.trim().slice(0, 40) : undefined,
             label: operation && typeof operation.action === 'string'
               ? humanizeAIWebsitePatchAction(operation.action)
               : 'Unsupported operation',
@@ -5981,6 +6001,9 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         warnings: patchWarnings,
         confidence,
         destructiveCount: destructiveOperations.length,
+        planCoveragePercent: planCoverage.percent,
+        planStepIds: (agentPlan.steps || []).map((step) => step.id),
+        uncoveredPlanStepIds: planCoverage.uncoveredStepIds,
       };
       const selectedPatchOperationIds = await requestAIPatchReview(exactPatchReview, abortController.signal);
       if (!selectedPatchOperationIds) {
@@ -6005,6 +6028,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return;
       }
       if (!operationCanApply()) return;
+
+      const selectedPlanCoverage = evaluateAIWebsitePlanCoverage(
+        agentPlan.steps || [],
+        operations.filter((_, index) => selectedOperationSet.has(`operation-${index + 1}`)),
+      );
 
       setAiStage('building');
 
@@ -8531,7 +8559,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return { ...page, slug };
       });
 
+      const appliedPlanCoverage = evaluateAIWebsitePlanCoverage(
+        agentPlan.steps || [],
+        operations.filter((_, index) => appliedOperationIds.has(`operation-${index + 1}`)),
+      );
       const deterministicReview = auditAIWebsiteCandidate(nextPages, nextSeo, nextHeaderConfig);
+      if (appliedPlanCoverage.percent < 100) {
+        deterministicReview.findings.unshift({
+          severity: 'warning',
+          title: 'Approved plan is only partially covered',
+          detail: `${appliedPlanCoverage.percent}% of approved steps produced safe applied operations. Review the uncovered steps before keeping the result.`,
+          target: 'agent-plan',
+        });
+        deterministicReview.findings = deterministicReview.findings.slice(0, 6);
+        deterministicReview.score = Math.min(
+          deterministicReview.score,
+          Math.max(0, 70 + Math.round(appliedPlanCoverage.percent * 0.2)),
+        );
+      }
       let agentReview: AIWebsiteAgentReview | null = {
         score: deterministicReview.score,
         summary: deterministicReview.findings.length
@@ -8601,6 +8646,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             action: 'review-edit',
             originalPrompt: prompt,
             executionPlan: agentPlan,
+            planCoverage: appliedPlanCoverage,
             proposedProject,
             deterministicAudit: deterministicReview,
           },
@@ -8677,12 +8723,16 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       const skipped = Math.max(0, operations.length - applied);
       const resultWarnings = [
         ...patchWarnings,
+        ...selectedPlanCoverage.warnings,
+        ...appliedPlanCoverage.warnings,
         ...nativeBridgeWarnings,
-      ].slice(0, 8);
+      ].filter((warning, index, warnings) => warnings.indexOf(warning) === index).slice(0, 10);
       const candidateReview = reconcileAIWebsitePatchReviewTargets(
         {
           ...exactPatchReview,
           operations: exactPatchReview.operations.filter((operation) => appliedOperationIds.has(operation.id)),
+          planCoveragePercent: appliedPlanCoverage.percent,
+          uncoveredPlanStepIds: appliedPlanCoverage.uncoveredStepIds,
         },
         snapshot.pages,
         nextPages,
@@ -12049,6 +12099,15 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                 <li key={step.id} className="rounded-lg border border-white/[0.07] bg-black/10 px-2.5 py-2 text-[9px] text-gray-300">
                   <span className="font-bold text-gray-200">{index + 1}. {step.title}</span>
                   {step.target && <span className="mt-0.5 block text-[8px] text-gray-500">{step.target}</span>}
+                  {step.reason && <span className="mt-1 block text-[8px] text-gray-400">{step.reason}</span>}
+                  {(step.acceptanceCriteria?.length ?? 0) > 0 && (
+                    <ul className="mt-1.5 space-y-0.5 text-[8px] text-emerald-300">
+                      {step.acceptanceCriteria?.map((criterion) => <li key={criterion}>✓ {criterion}</li>)}
+                    </ul>
+                  )}
+                  {(step.affectedPageIds?.length ?? 0) > 0 && (
+                    <span className="mt-1 block text-[7px] text-cyan-300">{l('Affected pages')}: {step.affectedPageIds?.join(', ')}</span>
+                  )}
                 </li>
               ))}
             </ol>
@@ -12088,6 +12147,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             </div>
             <p className="mt-1 text-[9px] leading-relaxed text-gray-300">{aiPatchReview.summary}</p>
             <p id="tayar-ai-patch-review-description" className="mt-2 text-[8px] font-semibold text-violet-300">{l('No website changes have been applied yet.')}</p>
+            {typeof aiPatchReview.planCoveragePercent === 'number' && (
+              <div className={`mt-2 rounded-lg border px-2 py-1.5 text-[8px] font-bold ${aiPatchReview.planCoveragePercent === 100 ? 'border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-300' : 'border-amber-400/20 bg-amber-500/[0.06] text-amber-300'}`}>
+                {l('Plan coverage')}: {aiPatchReview.planCoveragePercent}%
+                {(aiPatchReview.uncoveredPlanStepIds?.length ?? 0) > 0 && ` · ${l('Uncovered steps')}: ${aiPatchReview.uncoveredPlanStepIds?.join(', ')}`}
+              </div>
+            )}
             {aiSelectedDestructiveCount > 0 && (
               <p className="mt-2 rounded-lg border border-red-400/20 bg-red-500/[0.08] px-2 py-1.5 text-[8px] font-bold text-red-300">
                 {aiSelectedDestructiveCount} {l(aiSelectedDestructiveCount === 1 ? 'destructive change' : 'destructive changes')}
@@ -12111,6 +12176,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     </span>
                   </div>
                   <span className="mt-0.5 block truncate text-[8px] text-gray-500" title={operation.target}>{operation.target}</span>
+                  {operation.planStepId && <span className="mt-1 block text-[7px] font-bold text-cyan-300">{l('Plan step')}: {operation.planStepId}</span>}
                   {operation.fields.length > 0 && (
                     <span className="mt-1 block text-[8px] text-gray-400">{l('Fields')}: {operation.fields.join(', ')}</span>
                   )}

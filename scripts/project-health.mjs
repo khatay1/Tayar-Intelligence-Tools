@@ -160,6 +160,8 @@ const adminTools = read('src/components/admin/AdminTools.tsx');
 const adminAI = read('src/components/admin/AdminAI.tsx');
 const subscriptionView = read('src/components/workspace/SubscriptionView.tsx');
 const websiteBuilder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');
+const websiteBuilderAISnapshot = read('src/modules/website-builder/core/editor-ai-editable-snapshot.ts');
+const websiteBuilderAINativeBridge = read('src/modules/website-builder/core/editor-ai-native-bridge.ts');
 const editorAINativeBridge = read('src/modules/website-builder/core/editor-ai-native-bridge.ts');
 const editorCommandAdapters = read('src/modules/website-builder/core/editor-command-adapters.ts');
 const editorSymbolCommands = read('src/modules/website-builder/core/editor-symbol-commands.ts');
@@ -361,6 +363,9 @@ check('AI snapshot exposes reusable component library', websiteBuilder.includes(
 check('Website Builder Agent uses a plan-first two-pass workflow', websiteBuilder.includes('completeJSON<AIWebsiteAgentPlan>') && websiteBuilder.includes("action: 'plan-edit'") && websiteBuilder.includes('executionPlan: agentPlan'));
 check('Agent planning is read-only and uses exact builder context', aiPrompts.includes("action === 'plan-edit'") && aiPrompts.includes('This response is a plan only') && aiPrompts.includes('Never invent an existing ID'));
 check('Agent execution receives and follows the plan', aiPrompts.includes('EXECUTION PLAN') && aiPrompts.includes('Follow the supplied EXECUTION PLAN in order'));
+check('Agent execution is accountable to approved steps and acceptance criteria', aiPrompts.includes('acceptanceCriteria') && aiPrompts.includes('planStepId') && websiteBuilder.includes('evaluateAIWebsitePlanCoverage') && websiteBuilder.includes('planCoveragePercent'));
+check('Agent receives a bounded whole-project map even for targeted edits', websiteBuilderAISnapshot.includes('projectMap:') && websiteBuilderAISnapshot.includes('reusableComponents: symbols.map') && websiteBuilderAISnapshot.includes("'motion triggers and parallax'"));
+check('Agent controls MAX layout and motion through native fields', aiPrompts.includes('containerLayout": "stack|row|grid') && aiPrompts.includes('elementAnimationTrigger') && aiPrompts.includes('elementParallaxSpeed') && websiteBuilderAINativeBridge.includes('containerRowGap'));
 check('Agent surfaces its plan before native mutations', websiteBuilder.includes('ai-plan-') && websiteBuilder.includes("`${l('Plan')}: ${planPreview}") && websiteBuilder.includes("`${l('Planned steps')}: ${(agentPlan.steps || []).length}`"));
 check('Website Builder Agent performs a read-only post-execution review', websiteBuilder.includes("action: 'review-edit'") && websiteBuilder.includes('AIWebsiteAgentReview') && aiPrompts.includes("action === 'review-edit'") && aiPrompts.includes('This pass is read-only'));
 check('Agent supports native visual style transfer without replacing content', websiteBuilder.includes("operation.action === 'copy_element_style'") && websiteBuilder.includes("operation.action === 'copy_section_style'") && aiPrompts.includes('copies visual style/responsive design only'));

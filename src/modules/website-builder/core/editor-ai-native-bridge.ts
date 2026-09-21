@@ -724,6 +724,7 @@ export function convertLegacyAIUpdateOperationToNative(
 
     if (
       changes.containerLayout === 'row' ||
+      changes.containerLayout === 'grid' ||
       changes.containerLayout === 'stack'
     ) {
       mapped.layout = changes.containerLayout;
@@ -738,6 +739,9 @@ export function convertLegacyAIUpdateOperationToNative(
         80,
       ),
     );
+    assignDefined(mapped, 'rowGap', finiteLegacyNumber(changes.containerRowGap, 0, 80));
+    assignDefined(mapped, 'columns', finiteLegacyNumber(changes.containerColumns, 1, 12));
+    if (typeof changes.containerWrap === 'boolean') mapped.wrap = changes.containerWrap;
 
     if (
       changes.containerAlign === 'start' ||
@@ -747,6 +751,12 @@ export function convertLegacyAIUpdateOperationToNative(
     ) {
       mapped.align = changes.containerAlign;
     }
+    if (
+      changes.containerJustify === 'start' ||
+      changes.containerJustify === 'center' ||
+      changes.containerJustify === 'end' ||
+      changes.containerJustify === 'between'
+    ) mapped.justify = changes.containerJustify;
 
     if (validHex(changes.containerBackgroundColor)) {
       mapped.backgroundColor =
@@ -976,8 +986,8 @@ export function convertLegacyAIAddOperationToNative(
         text(changes.containerName, 80, false) ||
         `AI Container ${(context.existingContainerCount || 0) + 1}`,
       layout:
-        changes.containerLayout === 'row'
-          ? 'row'
+        changes.containerLayout === 'row' || changes.containerLayout === 'grid'
+          ? changes.containerLayout
           : 'stack',
       gap:
         finiteLegacyNumber(
@@ -985,11 +995,29 @@ export function convertLegacyAIAddOperationToNative(
           0,
           80,
         ) ?? 16,
+      rowGap:
+        finiteLegacyNumber(
+          changes.containerRowGap,
+          0,
+          80,
+        ),
+      columns:
+        Math.round(finiteLegacyNumber(changes.containerColumns, 1, 12) ?? 2),
+      wrap:
+        typeof changes.containerWrap === 'boolean'
+          ? changes.containerWrap
+          : true,
       align:
         changes.containerAlign === 'start' ||
         changes.containerAlign === 'end' ||
         changes.containerAlign === 'stretch'
           ? changes.containerAlign
+          : 'center',
+      justify:
+        changes.containerJustify === 'start' ||
+        changes.containerJustify === 'end' ||
+        changes.containerJustify === 'between'
+          ? changes.containerJustify
           : 'center',
       backgroundColor:
         validHex(changes.containerBackgroundColor)

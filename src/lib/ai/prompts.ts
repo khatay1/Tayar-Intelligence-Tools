@@ -809,6 +809,8 @@ Return ONLY valid JSON:
       "title": "specific action",
       "target": "exact page/section/element/component target when known",
       "reason": "short reason this step is needed",
+      "acceptanceCriteria": ["observable condition that proves this step is complete"],
+      "affectedPageIds": ["exact existing page id when applicable"],
       "destructive": false
     }
   ],
@@ -818,6 +820,8 @@ Return ONLY valid JSON:
 Planning rules:
 - Produce 1-12 ordered steps. Keep the plan as small as possible while fully satisfying the request.
 - Use exact page, section, element, container and symbol IDs from the supplied snapshot whenever a target already exists.
+- Give every step 1-4 concrete acceptance criteria that can be checked from the resulting native project structure.
+- affectedPageIds must contain only exact existing page IDs, except for a page-creation step where it may be empty.
 - Never invent an existing ID.
 - Preserve unrelated pages, sections, components, forms, responsive overrides and manual edits.
 - Mark destructive=true for any step that removes a page, section, container, element, form field or reusable component relationship.
@@ -835,6 +839,9 @@ ${input.originalPrompt || ''}
 
 EXECUTION PLAN:
 ${JSON.stringify(input.executionPlan || {}, null, 2)}
+
+DETERMINISTIC PLAN COVERAGE:
+${JSON.stringify(input.planCoverage || {}, null, 2)}
 
 PROPOSED PROJECT:
 ${JSON.stringify(input.proposedProject || {}, null, 2)}
@@ -863,6 +870,7 @@ Review rules:
 - Never claim a real browser, screenshot, network, device or publish test happened.
 - Never invent IDs or technical failures that are not visible in the supplied proposed project.
 - Treat deterministic audit findings as verified evidence. Include every verified critical finding and never score above the deterministic audit score.
+- Treat uncovered approved plan steps as a concrete completeness warning; do not claim the request is fully complete when plan coverage is below 100%.
 - Treat native Tayar elements/components as authoritative and preserve manual editability.
 - A critical finding must be a concrete structural or usability problem, not a subjective style preference.
 - followUpPrompt must request targeted native edits and must not rebuild unrelated content.
@@ -890,6 +898,7 @@ Return ONLY valid JSON with this shape:
   "confidence": 0.95,
   "operations": [
     {
+      "planStepId": "exact id of the approved execution-plan step this operation fulfills",
       "action": "add_page|duplicate_page|remove_page|set_home_page|move_page|update_section|add_section|duplicate_section|remove_section|move_section|add_container|update_container|remove_container|assign_element_container|create_symbol|insert_symbol|detach_symbol|add_element|duplicate_element|remove_element|move_element|update_element|update_form|add_form_field|update_form_field|remove_form_field|move_form_field|copy_section_style|copy_element_style|repair_responsive|repair_accessibility|update_page|update_theme|restyle_site|update_site|update_seo|update_header|generate_image",
       "pageId": "existing page id when applicable",
       "pageSlug": "existing page slug when applicable",
@@ -1030,15 +1039,23 @@ Return ONLY valid JSON with this shape:
         "elementHoverBackgroundColor": "#RRGGBB optional",
         "elementHoverColor": "#RRGGBB optional",
         "elementHoverShadow": "none|sm|md|lg|xl",
-        "elementAnimation": "none|fade|fade-up|fade-down|fade-left|fade-right|zoom-in|zoom-out",
+        "elementAnimation": "none|fade|fade-up|fade-down|fade-left|fade-right|zoom-in|zoom-out|slide-up|slide-down|slide-left|slide-right|blur-in|flip-in|bounce-in",
         "elementAnimationDuration": 650,
         "elementAnimationDelay": 0,
         "elementAnimationDistance": 36,
+        "elementAnimationEasing": "smooth|ease|linear|spring",
+        "elementAnimationIterations": 1,
+        "elementParallaxSpeed": 0.25,
+        "elementAnimationTrigger": "scroll|load|hover|click",
         "elementAnimationOnce": true,
         "containerName": "optional container name",
-        "containerLayout": "stack|row",
+        "containerLayout": "stack|row|grid",
         "containerGap": 16,
+        "containerRowGap": 16,
+        "containerColumns": 3,
+        "containerWrap": true,
         "containerAlign": "start|center|end|stretch",
+        "containerJustify": "start|center|end|between",
         "containerBackgroundColor": "#RRGGBB optional",
         "containerPadding": 20,
         "containerBorderRadius": 16,
@@ -1104,6 +1121,8 @@ Patch rules:
 - "Full width on mobile" means update_element with device mobile and width 100.
 - Prefer update_element over restyle_site for element-specific responsive requests.
 - For borders, shadows, hover states and reveal motion, use update_element rather than custom code.
+- Native motion supports scroll/load/hover/click triggers, responsive animation overrides, easing, iterations and parallax. Respect reduced-motion automatically; never add custom JavaScript for these effects.
+- Native containers support stack, row and grid layouts with independent row gap, 1-12 columns, wrapping, alignment and justification.
 - For contact forms: use update_form for success behavior, add_form_field/update_form_field/remove_form_field/move_form_field for fields.
 - Never add arbitrary JavaScript to solve a form or animation request when the native operation exists.
 - If the user says duplicate/copy/clone an existing page, use duplicate_page with its exact existing pageId or pageSlug. Put a requested new page name/slug in changes.name and changes.slug.
@@ -1113,6 +1132,8 @@ Patch rules:
 - update_theme may use primaryColor, secondaryColor, backgroundColor, textColor, mutedTextColor, fontFamily, themeContentWidth, themeButtonRadius and themeSectionSpacing.
 - update_header supports sticky/mobile menu/language switcher, brand text/logo, navigation typography/spacing, border and full header/CTA colors.
 - Follow the supplied EXECUTION PLAN in order. It is guidance, not permission to bypass safety rules; skip any planned step that cannot be represented safely by supported native operations.
+- Every operation must include planStepId matching one exact step ID from the supplied EXECUTION PLAN. Use multiple operations for one step when necessary.
+- Cover every approved plan step. If a step cannot be executed safely, omit unsafe operations and name the uncovered step in warnings.
 - Use RECENT EDIT CONTEXT only to resolve references and continuity. The current snapshot and latest USER REQUEST are authoritative.
 - Never redo a completed prior edit unless the latest request explicitly requires it.
 - Keep every result editable in the manual Tayar canvas and preserve unrelated manual work.
