@@ -9,10 +9,12 @@ const uiPath = 'src/lib/ui-localization.ts';
 const uiSupplementPath = 'src/lib/ui-localization-complete.ts';
 const uiReleasePath = 'src/lib/ui-localization-release.ts';
 const uiWorkspacePath = 'src/lib/ui-localization-workspace.ts';
+const uiCmsPath = 'src/lib/ui-localization-cms.ts';
 const ui = read(uiPath);
 const uiSupplement = read(uiSupplementPath);
 const uiRelease = read(uiReleasePath);
 const uiWorkspace = read(uiWorkspacePath);
+const uiCms = read(uiCmsPath);
 const onboarding = read('src/components/onboarding/OnboardingWizard.tsx');
 const settings = read('src/components/workspace/SettingsPage.tsx');
 const workspace = read('src/components/workspace/Workspace.tsx');
@@ -28,6 +30,7 @@ check('Swedish UI map exists', ui.includes('const sv: PhraseMap'));
 check('Supplemental UI localization layer exists', uiSupplement.includes('export function useLocalizer'));
 check('Release UI localization layer exists', uiRelease.includes('export function useLocalizer'));
 check('Workspace UI localization layer exists', uiWorkspace.includes('export function useLocalizer'));
+check('CMS UI localization layer exists', uiCms.includes('export function useLocalizer'));
 check('Onboarding uses UI localizer', onboarding.includes('const l = useLocalizer()'));
 check('Settings uses UI localizer', settings.includes('const l = useLocalizer()'));
 check('Workspace uses UI localizer', workspace.includes('const l = useLocalizer()'));
@@ -80,12 +83,14 @@ const arKeys = unionKeys(
   extractPhraseMapKeys(uiSupplement, 'export const arSupplement: PhraseMap', 'export const svSupplement: PhraseMap'),
   extractPhraseMapKeys(uiRelease, 'export const arReleaseSupplement: PhraseMap', 'export const svReleaseSupplement: PhraseMap'),
   extractPhraseMapKeys(uiWorkspace, 'export const arWorkspaceSupplement: PhraseMap', 'export const svWorkspaceSupplement: PhraseMap'),
+  extractPhraseMapKeys(uiCms, 'export const arCmsSupplement: PhraseMap', 'export const svCmsSupplement: PhraseMap'),
 );
 const svKeys = unionKeys(
   extractPhraseMapKeys(ui, 'const sv: PhraseMap', 'const maps:'),
   extractPhraseMapKeys(uiSupplement, 'export const svSupplement: PhraseMap', 'const supplementalMaps:'),
   extractPhraseMapKeys(uiRelease, 'export const svReleaseSupplement: PhraseMap', 'const releaseMaps:'),
   extractPhraseMapKeys(uiWorkspace, 'export const svWorkspaceSupplement: PhraseMap', 'const workspaceMaps:'),
+  extractPhraseMapKeys(uiCms, 'export const svCmsSupplement: PhraseMap', 'const cmsMaps:'),
 );
 
 const sourceFiles = collectFiles('src');
