@@ -39,6 +39,12 @@ export interface EditorSymbolLike {
   id: string;
   name?: string;
   element: EditorElementLike;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  variantGroupId?: string;
+  variantName?: string;
+  updatedAt?: string;
   [key: string]: unknown;
 }
 
@@ -222,8 +228,4 @@ export function editorProjectHasIdentity<P extends EditorProjectLike>(
   id: string,
 ) {
   return editorProjectIdentitySet(project, kind).has(id);
-}
-
-export function editorIdSet(values: Array<{ id: string }>) {
-  return new Set(values.map((value) => value.id));
 }
