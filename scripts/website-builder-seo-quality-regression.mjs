@@ -21,7 +21,7 @@ const checks = [
   ['quality dashboard', panel.includes('Fix with AI') && panel.includes('report.score')],
   ['page SEO editor', seoPanel.includes("action: 'update_page'") && seoPanel.includes('Save SEO')],
   ['bridge integration', bridge.includes('BuilderSiteQualityPanel') && bridge.includes('BuilderPageSeoPanel')],
-  ['issue navigation', bridge.includes('handleQualityIssue')],
+  ['issue navigation', bridge.includes('onSelectIssue=') && bridge.includes('item.pageId||activePageId') && bridge.includes('sectionId:item.sectionId') && bridge.includes('elementId:item.elementId') && bridge.includes('setInspectorOpen(true)')],
   ['AI fix contract', bridge.includes('onFixSiteQualityWithAI')],
   ['Arabic localization', localization.includes('arSiteQuality') && localization.includes('arSeoPhrases')],
   ['Swedish localization', localization.includes('svSiteQuality') && localization.includes('svSeoPhrases')],
