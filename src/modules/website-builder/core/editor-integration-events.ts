@@ -8,7 +8,7 @@ import {
 } from './editor-integration-runtime';
 
 export type EditorBuilderIntegrationEvent = Extract<EditorIntegrationEvent,
-  'page.viewed' | 'form.submitted' | 'commerce.started' | 'commerce.paid' | 'site.published'>;
+  'page.viewed' | 'form.submitted' | 'commerce.checkout' | 'commerce.paid' | 'site.published'>;
 
 export interface EditorBuilderIntegrationEventContext {
   projectId: string;
@@ -50,7 +50,7 @@ export function editorFormSubmissionEvent(projectId: string, payload: Record<str
 }
 
 export function editorCommerceEvent(projectId: string, paid: boolean, payload: Record<string, unknown>, environment: EditorIntegrationEnvironment = 'production'): EditorBuilderIntegrationEventContext {
-  return { projectId, environment, event: paid ? 'commerce.paid' : 'commerce.started', payload };
+  return { projectId, environment, event: paid ? 'commerce.paid' : 'commerce.checkout', payload };
 }
 
 export function editorPageViewEvent(projectId: string, payload: Record<string, unknown>, environment: EditorIntegrationEnvironment): EditorBuilderIntegrationEventContext {
