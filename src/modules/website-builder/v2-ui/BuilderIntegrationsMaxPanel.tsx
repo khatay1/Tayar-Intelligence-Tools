@@ -24,6 +24,12 @@ function createConnection(providerId: string): EditorIntegrationConnection {
   return { id: `${providerId}-${Date.now().toString(36)}`, providerId, name: provider.name, enabled: true, status: 'disconnected', environments: ['production'], config: {}, secrets: {}, events: provider.supportedEvents?.slice(0, 1) ?? [], createdAt: now, updatedAt: now };
 }
 
+function toggleEvent(events: EditorIntegrationEvent[] | undefined, event: EditorIntegrationEvent, checked: boolean): EditorIntegrationEvent[] {
+  const current = events ?? [];
+  if (checked) return current.includes(event) ? current : [...current, event];
+  return current.filter(item => item !== event);
+}
+
 export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onTestConnection }: Props) {
   const [providerId, setProviderId] = useState(EDITOR_INTEGRATION_PROVIDERS[0]?.id ?? '');
   const [testing, setTesting] = useState<string>();
@@ -42,7 +48,7 @@ export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onT
         <label>Name<input value={connection.name} onChange={event => patch(connection.id,{name:event.target.value})}/></label>
         <div className="builder-v2-grid">{provider.fields.map(field => field.secret ? <label key={field.key}>{field.label}<input type="password" autoComplete="new-password" placeholder={connection.secrets[field.key]?.ref ? 'Configured — enter to replace' : field.placeholder} onBlur={async event => { const value=event.target.value; if(!value||!onSetSecret)return; await onSetSecret(connection.id,field.key,value); event.target.value=''; }}/></label> : <label key={field.key}>{field.label}<input type={field.type==='url'?'url':'text'} value={String(connection.config[field.key] ?? '')} placeholder={field.placeholder} onChange={event => patch(connection.id,{config:{...connection.config,[field.key]:event.target.value}})}/></label>)}</div>
         <fieldset><legend>Environments</legend>{environments.map(environment => <label key={environment}><input type="checkbox" checked={connection.environments.includes(environment)} onChange={event => patch(connection.id,{environments:event.target.checked?[...new Set([...connection.environments,environment])]:connection.environments.filter(item=>item!==environment)})}/>{environment}</label>)}</fieldset>
-        {!!provider.supportedEvents?.length && <fieldset><legend>Events</legend>{provider.supportedEvents.map(event => <label key={event}><input type="checkbox" checked={connection.events?.includes(event) ?? false} onChange={change => patch(connection.id,{events:change.target.checked?[...new Set([...(connection.events??[]),event]) as EditorIntegrationEvent]:connection.events?.filter(item=>item!==event)})}/>{event}</label>)}</fieldset>}
+        {!!provider.supportedEvents?.length && <fieldset><legend>Events</legend>{provider.supportedEvents.map(event => <label key={event}><input type="checkbox" checked={connection.events?.includes(event) ?? false} onChange={change => patch(connection.id,{events:toggleEvent(connection.events,event,change.target.checked)})}/>{event}</label>)}</fieldset>}
         <div className="builder-v2-grid"><button type="button" disabled={!onTestConnection||testing===connection.id} onClick={async()=>{if(!onTestConnection)return;setTesting(connection.id);try{await onTestConnection(connection.id);}finally{setTesting(undefined);}}}>{testing===connection.id?'Testing…':'Test connection'}</button><button type="button" onClick={()=>onChange({...config,connections:config.connections.filter(item=>item.id!==connection.id)})}>Remove</button></div>
       </div>;
     })}
