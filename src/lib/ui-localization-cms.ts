@@ -26,6 +26,21 @@ export const arCmsSupplement: PhraseMap = {
   'Localized slug': 'المسار المترجم',
   'Translating…': 'جارٍ الترجمة…',
   'Translate page with AI': 'ترجمة الصفحة بالذكاء الاصطناعي',
+  'Integrations': 'التكاملات',
+  'Connect analytics, payments, email, CRM, APIs and signed webhooks.': 'اربط التحليلات والمدفوعات والبريد الإلكتروني وإدارة علاقات العملاء وواجهات API وخطافات الويب الموقعة.',
+  'Provider': 'المزوّد',
+  'Add integration': 'إضافة تكامل',
+  'active': 'نشط',
+  'configuration issue': 'مشكلة في الإعداد',
+  'configuration issues': 'مشكلات في الإعداد',
+  'Enabled': 'مفعّل',
+  'Name': 'الاسم',
+  'Environments': 'البيئات',
+  'Events': 'الأحداث',
+  'Configured — enter to replace': 'تم الإعداد — أدخل قيمة للاستبدال',
+  'Testing…': 'جارٍ الاختبار…',
+  'Test connection': 'اختبار الاتصال',
+  'Remove': 'إزالة',
 };
 
 export const svCmsSupplement: PhraseMap = {
@@ -49,6 +64,21 @@ export const svCmsSupplement: PhraseMap = {
   'Localized slug': 'Lokaliserad slug',
   'Translating…': 'Översätter…',
   'Translate page with AI': 'Översätt sidan med AI',
+  'Integrations': 'Integrationer',
+  'Connect analytics, payments, email, CRM, APIs and signed webhooks.': 'Anslut analys, betalningar, e-post, CRM, API:er och signerade webhooks.',
+  'Provider': 'Leverantör',
+  'Add integration': 'Lägg till integration',
+  'active': 'aktiva',
+  'configuration issue': 'konfigurationsproblem',
+  'configuration issues': 'konfigurationsproblem',
+  'Enabled': 'Aktiverad',
+  'Name': 'Namn',
+  'Environments': 'Miljöer',
+  'Events': 'Händelser',
+  'Configured — enter to replace': 'Konfigurerad — ange ett värde för att ersätta',
+  'Testing…': 'Testar…',
+  'Test connection': 'Testa anslutning',
+  'Remove': 'Ta bort',
 };
 
 const cmsMaps: Record<Language, PhraseMap> = {
