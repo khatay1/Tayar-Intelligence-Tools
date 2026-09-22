@@ -1,3 +1,6 @@
+import type { Language } from '@/context/PreferencesContext';
+import type { WebsitePage } from './website-builder-model';
+import type { WebsiteLocalizationConfig } from './website-localization';
 import {
   createEditorLocalizationConfig,
   normalizeEditorLocaleCode,
@@ -47,6 +50,65 @@ export function serializeEditorLocalization(config: EditorLocalizationConfig): E
 export function deserializeEditorLocalization(value: unknown): EditorLocalizationConfig {
   if (value && typeof value === 'object' && 'config' in value) return normalizeEditorLocalizationConfig((value as Partial<EditorLocalizationEnvelope>).config);
   return normalizeEditorLocalizationConfig(value);
+}
+
+/** Migrates the established page-per-locale model into the MAX workspace. */
+export function createEditorLocalizationFromWebsiteProject(
+  localization: WebsiteLocalizationConfig | null | undefined,
+  pages: Pick<WebsitePage, 'id' | 'name' | 'slug' | 'language' | 'translationKey' | 'seoTitle' | 'seoDescription' | 'canonicalUrl'>[],
+  fallbackLanguage: Language = 'en',
+): EditorLocalizationConfig {
+  const defaultLocale = localization?.defaultLanguage ?? fallbackLanguage;
+  const config = createEditorLocalizationConfig(defaultLocale);
+  const usedLanguages = new Set<string>([defaultLocale]);
+  const pageContent: EditorLocalizationConfig['pageContent'] = {};
+
+  for (const page of pages) {
+    const locale = normalizeEditorLocaleCode(page.language ?? defaultLocale);
+    usedLanguages.add(locale);
+    const sourcePageId = page.translationKey?.trim() || page.id;
+    pageContent[sourcePageId] = {
+      ...(pageContent[sourcePageId] ?? {}),
+      [locale]: {
+        locale,
+        name: page.name,
+        slug: page.slug,
+        values: {},
+        seo: {
+          title: page.seoTitle,
+          description: page.seoDescription,
+          canonical: page.canonicalUrl,
+        },
+      },
+    };
+  }
+
+  return normalizeEditorLocalizationConfig({
+    ...config,
+    defaultLocale,
+    locales: config.locales.map(locale => ({
+      ...locale,
+      enabled: locale.code === defaultLocale || usedLanguages.has(locale.code),
+      slugPrefix: localization?.routeStrategy === 'subdirectory' && locale.code !== defaultLocale ? locale.code : undefined,
+    })),
+    pageContent,
+  });
+}
+
+/** Synchronizes MAX settings back to the canonical persisted/runtime config. */
+export function websiteLocalizationFromEditorConfig(
+  config: EditorLocalizationConfig,
+  previous?: WebsiteLocalizationConfig | null,
+): WebsiteLocalizationConfig {
+  const normalized = normalizeEditorLocalizationConfig(config);
+  const defaultLanguage: Language = normalized.defaultLocale === 'ar' || normalized.defaultLocale === 'sv'
+    ? normalized.defaultLocale
+    : 'en';
+  const enabledNonDefault = normalized.locales.filter(locale => locale.enabled && locale.code !== normalized.defaultLocale);
+  const routeStrategy = enabledNonDefault.some(locale => (locale.slugPrefix ?? locale.code).length > 0)
+    ? 'subdirectory'
+    : (previous?.routeStrategy ?? 'flat');
+  return { defaultLanguage, routeStrategy };
 }
 
 export function setEditorLocalizedPageContent(config: EditorLocalizationConfig, pageId: string, localeCode: string, patch: Partial<EditorLocalizedPageContent>): EditorLocalizationConfig {
