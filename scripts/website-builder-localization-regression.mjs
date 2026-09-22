@@ -18,6 +18,7 @@ try {
   const config = await load('website-builder-config');
   const defaults = await load('defaults');
   const max = await load('editor-localization');
+  const maxStorage = await load('editor-localization-storage');
   const localizedOutput = await load('editor-localized-output');
   const en = { id: 'en', name: 'Home', slug: 'home', language: 'en', translationKey: 'home', showInNavigation: true, sections: [defaults.createSection('hero')] };
   const sv = { ...structuredClone(en), id: 'sv', language: 'sv' };
@@ -66,6 +67,13 @@ try {
   assert.equal(max.buildEditorLocalizedPath(maxConfig, 'home', 'sv', 'home'), '/sv/hem');
   assert.equal(max.resolveEditorLocaleHost(max.resolveEditorLocale(maxConfig, 'sv'), 'example.com'), 'sv.example.com');
   assert.ok(max.buildEditorLocaleHrefLang(maxConfig, 'home', 'home').some(item => item.hrefLang === 'ar'));
+
+  const migrated = maxStorage.createEditorLocalizationFromWebsiteProject(localization, pages);
+  assert.equal(migrated.defaultLocale, 'en');
+  assert.equal(migrated.locales.find(locale => locale.code === 'sv')?.enabled, true, 'existing translated pages enable their locale');
+  assert.equal(migrated.pageContent.home.sv.slug, 'home', 'existing translated page slugs migrate into MAX content');
+  assert.deepEqual(maxStorage.websiteLocalizationFromEditorConfig(migrated, localization), localization, 'MAX settings round-trip to canonical runtime localization');
+
   const project = { id: 'p', pages: [{ id: 'home', name: 'Home', slug: 'home' }], symbols: [] };
   const plan = { environment: 'production', pageIds: ['home'] };
   const manifest = localizedOutput.buildEditorLocalizedPublishManifest(project, maxConfig, plan, 'example.com');
@@ -79,7 +87,7 @@ try {
   assert.ok(panel.includes('localization-max-panel'));
   assert.ok(panel.includes('Fallback language') && panel.includes('Custom domain') && panel.includes('Subdomain'));
   assert.ok(panel.includes('Translate page with AI') && panel.includes('onTranslatePage'));
-  console.log('PASS Localization MAX routes, RTL/fallback, localized SEO, domain mapping, publish manifest, AI workspace, canonical, hreflang and bounded storage traversal');
+  console.log('PASS Localization MAX routes, RTL/fallback, legacy persistence bridge, localized SEO, domain mapping, publish manifest, AI workspace, canonical, hreflang and bounded storage traversal');
 } finally {
   await rm(temp, { recursive: true, force: true });
 }
