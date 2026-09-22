@@ -595,23 +595,40 @@ export function formFieldToHtml(field: WebsiteFormField): string {
   const label = escapeHtml(field.label || field.name || 'Field');
   const placeholder = escapeHtml(field.placeholder || '');
   const required = field.required ? ' required' : '';
+  const validation = field.validation || {};
+  const conditions = escapeHtml(JSON.stringify(field.conditions || []));
+  const wrapper = ` data-tayar-form-field data-field-name="${name}" data-conditions="${conditions}" class="form-field${field.width === 'half' ? ' form-field-half' : ''}"`;
+  const help = field.helpText ? `<small class="form-help">${escapeHtml(field.helpText)}</small>` : '';
+  const minLength = Number.isFinite(validation.minLength) ? ` minlength="${Number(validation.minLength)}"` : '';
+  const maxLength = Number.isFinite(validation.maxLength) ? ` maxlength="${Number(validation.maxLength)}"` : ` maxlength="${field.type === 'textarea' ? 4000 : 300}"`;
+  const min = Number.isFinite(validation.min) ? ` min="${Number(validation.min)}"` : '';
+  const max = Number.isFinite(validation.max) ? ` max="${Number(validation.max)}"` : '';
+  const pattern = validation.pattern ? ` pattern="${escapeHtml(validation.pattern)}"` : '';
 
   if (field.type === 'checkbox') {
-    return `<label class="form-checkbox"><input name="${name}" type="checkbox"${required}><span>${label}</span></label>`;
+    return `<label data-tayar-form-field data-field-name="${name}" data-conditions="${conditions}" class="form-checkbox${field.width === 'half' ? ' form-field-half' : ''}"><input name="${name}" type="checkbox"${required}><span>${label}</span>${help}</label>`;
   }
 
   if (field.type === 'textarea') {
-    return `<label class="form-field"><span>${label}${field.required ? ' *' : ''}</span><textarea name="${name}" placeholder="${placeholder}" maxlength="4000"${required}></textarea></label>`;
+    return `<label${wrapper}><span>${label}${field.required ? ' *' : ''}</span><textarea name="${name}" placeholder="${placeholder}"${minLength}${maxLength}${pattern}${required}></textarea>${help}</label>`;
   }
 
-  if (field.type === 'select') {
+  if (field.type === 'select' || field.type === 'radio') {
     const options = (field.options || []).filter(Boolean).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('');
-    return `<label class="form-field"><span>${label}${field.required ? ' *' : ''}</span><select name="${name}"${required}><option value="">${placeholder || 'Choose an option'}</option>${options}</select></label>`;
+    if (field.type === 'radio') {
+      return `<fieldset${wrapper}><legend>${label}${field.required ? ' *' : ''}</legend>${(field.options || []).filter(Boolean).map((option, index) => `<label class="form-radio"><input name="${name}" type="radio" value="${escapeHtml(option)}"${required && index === 0 ? ' required' : ''}><span>${escapeHtml(option)}</span></label>`).join('')}${help}</fieldset>`;
+    }
+    return `<label${wrapper}><span>${label}${field.required ? ' *' : ''}</span><select name="${name}"${required}><option value="">${placeholder || 'Choose an option'}</option>${options}</select>${help}</label>`;
   }
 
-  const inputType = field.type === 'email' || field.type === 'tel' ? field.type : 'text';
+  if (field.type === 'file') {
+    const accept = (validation.accept || []).filter(Boolean).join(',');
+    return `<label${wrapper}><span>${label}${field.required ? ' *' : ''}</span><input name="${name}" type="file"${accept ? ` accept="${escapeHtml(accept)}"` : ''} data-max-file-mb="${Number(validation.maxFileSizeMb) || 5}"${required}>${help}</label>`;
+  }
+
+  const inputType = ['email', 'tel', 'url', 'number', 'date'].includes(field.type) ? field.type : 'text';
   const autocomplete = field.type === 'email' ? ' autocomplete="email"' : field.type === 'tel' ? ' autocomplete="tel"' : '';
-  return `<label class="form-field"><span>${label}${field.required ? ' *' : ''}</span><input name="${name}" type="${inputType}" placeholder="${placeholder}" maxlength="300"${autocomplete}${required}></label>`;
+  return `<label${wrapper}><span>${label}${field.required ? ' *' : ''}</span><input name="${name}" type="${inputType}" placeholder="${placeholder}"${minLength}${maxLength}${min}${max}${pattern}${autocomplete}${required}>${help}</label>`;
 }
 
 export function normalizeSiteUrl(value: string): string {
@@ -841,7 +858,7 @@ export function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCap
 <section id="${sectionId}" data-tayar-section-id="${escapeHtml(section.id)}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
     ${sectionElementsToHtml(section, homeSlug, true, language)}
-    <form class="contact-box" data-tayar-lead-form data-success-message="${escapeHtml(section.formSuccessMessage || tr('Thanks! Your message has been sent.'))}" data-success-action="${section.formSuccessAction === 'redirect' ? 'redirect' : 'message'}" data-redirect-url="${escapeHtml(section.formRedirectUrl ? safeFormRedirectHref(section.formRedirectUrl, homeSlug) : '')}">
+    <form class="contact-box" data-tayar-lead-form data-form-id="${escapeHtml(section.id)}" data-success-message="${escapeHtml(section.formSuccessMessage || tr('Thanks! Your message has been sent.'))}" data-sending-message="${html('Sending…')}" data-error-message="${html('Could not send your message. Please try again.')}" data-success-action="${section.formSuccessAction === 'redirect' ? 'redirect' : 'message'}" data-redirect-url="${escapeHtml(section.formRedirectUrl ? safeFormRedirectHref(section.formRedirectUrl, homeSlug) : '')}">
       <label class="tayar-honeypot" aria-hidden="true">${html('Company')}<input name="_tayar_company" type="text" tabindex="-1" autocomplete="off"></label>
       ${(section.formFields ?? createDefaultContactFormFields()).map(formFieldToHtml).join('\n      ')}
       ${submitButton}
@@ -1086,11 +1103,33 @@ export function buildFullHtml(
 
   const leadScript = leadCapture ? `<script>
 (() => {
-  const endpoint = ${JSON.stringify(leadCapture.supabaseUrl + '/rest/v1/rpc/submit_website_form')};
+  const endpoint = ${JSON.stringify(leadCapture.supabaseUrl + '/functions/v1/website-form-submit')};
   const anonKey = ${JSON.stringify(leadCapture.supabaseAnonKey)};
   const projectId = ${JSON.stringify(leadCapture.projectId)};
 
   document.querySelectorAll('[data-tayar-lead-form]').forEach((form) => {
+    const startedAt = new Date().toISOString();
+    const refreshConditions = () => {
+      const values = Object.fromEntries(new FormData(form).entries());
+      form.querySelectorAll('[data-tayar-form-field]').forEach((wrapper) => {
+        let rules = [];
+        try { rules = JSON.parse(wrapper.dataset.conditions || '[]'); } catch { rules = []; }
+        const visible = !rules.length || rules.every((rule) => {
+          const actual = String(values[rule.fieldName] || '');
+          const expected = String(rule.value || '');
+          if (rule.operator === 'equals') return actual === expected;
+          if (rule.operator === 'not-equals') return actual !== expected;
+          if (rule.operator === 'contains') return actual.toLowerCase().includes(expected.toLowerCase());
+          if (rule.operator === 'not-empty') return actual.trim().length > 0;
+          return actual.trim().length === 0;
+        });
+        wrapper.hidden = !visible;
+        wrapper.querySelectorAll('input,textarea,select').forEach((control) => { control.disabled = !visible; });
+      });
+    };
+    form.addEventListener('input', refreshConditions);
+    form.addEventListener('change', refreshConditions);
+    refreshConditions();
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const status = form.querySelector('[data-form-status]');
@@ -1114,22 +1153,28 @@ export function buildFullHtml(
       if (document.referrer) values._referrer = String(document.referrer).slice(0, 500);
       values._page_language = document.documentElement.lang || '';
 
-      if (status) status.textContent = 'Sending…';
+      for (const input of form.querySelectorAll('input[type="file"]')) {
+        const maxBytes = Math.max(1, Number(input.dataset.maxFileMb) || 5) * 1024 * 1024;
+        if (input.files && [...input.files].some((file) => file.size > maxBytes)) {
+          if (status) status.textContent = 'A selected file is too large.';
+          return;
+        }
+      }
+
+      formData.set('_tayar_project_id', projectId);
+      formData.set('_tayar_form_id', form.dataset.formId || '');
+      formData.set('_tayar_page_path', (location.pathname + location.search).slice(0, 500));
+      formData.set('_tayar_started_at', startedAt);
+      formData.set('_tayar_context', JSON.stringify(values));
+
+      if (status) status.textContent = form.dataset.sendingMessage || 'Sending…';
       if (submitButton) submitButton.disabled = true;
 
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: {
-            apikey: anonKey,
-            Authorization: 'Bearer ' + anonKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            p_project_id: projectId,
-            p_form_data: values,
-            p_page_path: (location.pathname + location.search).slice(0, 500),
-          }),
+          headers: { apikey: anonKey, Authorization: 'Bearer ' + anonKey },
+          body: formData,
         });
 
         if (!response.ok) throw new Error('Lead submission failed');
@@ -1146,7 +1191,7 @@ export function buildFullHtml(
           status.textContent = form.dataset.successMessage || 'Thanks! Your message has been sent.';
         }
       } catch {
-        if (status) status.textContent = 'Could not send your message. Please try again.';
+        if (status) status.textContent = form.dataset.errorMessage || 'Could not send your message. Please try again.';
       } finally {
         if (submitButton) submitButton.disabled = false;
       }
@@ -1618,6 +1663,7 @@ h3{font-size:22px;margin-bottom:8px}
 .contact-box .btn{border:0;cursor:pointer}
 .contact-box .btn:disabled{cursor:not-allowed;opacity:.55}
 .form-status{min-height:20px;color:${theme.mutedTextColor};font-size:13px;text-align:center}
+.form-field-half{grid-column:span 1}.form-help{display:block;margin-top:6px;color:${theme.mutedTextColor};font-size:12px}.form-radio{display:flex;align-items:center;gap:8px;margin-top:8px}.form-radio input{width:auto}.contact-box [hidden]{display:none!important}
 .footer{padding:45px 24px;text-align:center}
 .footer h2{font-size:24px}
 .footer p{color:${theme.mutedTextColor}}

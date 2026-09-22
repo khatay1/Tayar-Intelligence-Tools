@@ -202,6 +202,10 @@ export function createSection(type: SectionType): WebsiteSection {
       formSuccessMessage: 'Thanks! Your message has been sent.',
       formSuccessAction: 'message',
       formRedirectUrl: '',
+      formName: 'Contact form',
+      formSpamProtection: 'standard',
+      formMinimumCompletionSeconds: 3,
+      formAutomations: [],
     };
   }
   return section;
@@ -267,6 +271,10 @@ export function normalizeSection(section: Partial<WebsiteSection> & Pick<Website
       : section.formSuccessMessage,
     formSuccessAction: section.type === 'contact' && section.formSuccessAction === 'redirect' ? 'redirect' : 'message',
     formRedirectUrl: section.type === 'contact' && typeof section.formRedirectUrl === 'string' ? section.formRedirectUrl : '',
+    formName: section.type === 'contact' && typeof section.formName === 'string' ? section.formName.slice(0, 120) : section.formName,
+    formSpamProtection: section.type === 'contact' && section.formSpamProtection === 'enhanced' ? 'enhanced' : 'standard',
+    formMinimumCompletionSeconds: section.type === 'contact' ? Math.min(60, Math.max(1, Number(section.formMinimumCompletionSeconds) || 3)) : section.formMinimumCompletionSeconds,
+    formAutomations: section.type === 'contact' && Array.isArray(section.formAutomations) ? section.formAutomations.slice(0, 10) : section.formAutomations,
     elements: sourceElements.map((element, index) => ({
       ...element,
       cmsBinding: normalizeCmsBinding(element.cmsBinding),

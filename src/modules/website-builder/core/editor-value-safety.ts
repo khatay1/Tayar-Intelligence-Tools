@@ -98,9 +98,14 @@ const FORM_FIELD_TYPES = new Set([
   'text',
   'email',
   'tel',
+  'url',
+  'number',
+  'date',
   'textarea',
   'select',
+  'radio',
   'checkbox',
+  'file',
 ]);
 const FORM_SUCCESS_ACTIONS = new Set(['message', 'redirect']);
 const FONT_FAMILIES = new Set([
@@ -630,7 +635,9 @@ function validateFormFieldRecord(
   optionalString(record, 'label', errors, label, 240);
   optionalEnum(record, 'type', FORM_FIELD_TYPES, errors, label);
   optionalString(record, 'placeholder', errors, label, 500);
+  optionalString(record, 'helpText', errors, label, 500);
   optionalBoolean(record, 'required', errors, label);
+  optionalEnum(record, 'width', new Set(['full', 'half']), errors, label);
 
   if (record.options !== undefined) {
     if (!Array.isArray(record.options)) {

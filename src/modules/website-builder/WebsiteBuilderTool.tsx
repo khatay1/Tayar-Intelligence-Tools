@@ -44,7 +44,7 @@ interface WebsiteBuilderToolProps {
   projectId?: string | null;
 }
 
-import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionResponsiveStyle, SectionType, WebsiteBrand, WebsiteCmsBinding, WebsiteElement, WebsiteElementContainer, WebsiteElementType, WebsiteFormField, WebsiteFormFieldType, WebsiteSEO, WebsiteSection } from './core/types';
+import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionResponsiveStyle, SectionType, WebsiteBrand, WebsiteCmsBinding, WebsiteElement, WebsiteElementContainer, WebsiteElementType, WebsiteFormAutomation, WebsiteFormField, WebsiteFormFieldType, WebsiteSEO, WebsiteSection } from './core/types';
 import { ELEMENT_LABELS, SECTION_LABELS, createDefaultContactFormFields, createElement, createSection, defaultBrand, defaultSEO, defaultSections, normalizeSection } from './core/defaults';
 import { resolveWebsiteBuilderV2Flags } from './core/editor-feature-flags';
 import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
@@ -89,6 +89,7 @@ import {
 import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
 import { createWebsitePublishVersion, deleteWebsitePublishVersionArchive, discardWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
 import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
+import { createWebsiteFormUploadUrl, deleteWebsiteFormUploads, listWebsiteFormDeliveries, restorePublishedWebsiteForms, snapshotPublishedWebsiteForms, syncPublishedWebsiteForms, type WebsiteFormDelivery, type WebsiteFormRow } from './services/websiteFormService';
 import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
 import {
   checkWebsiteCustomDomain,
@@ -451,6 +452,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const [leadsOpen, setLeadsOpen] = useState(false);
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [leadsError, setLeadsError] = useState('');
+  const [formDeliveries, setFormDeliveries] = useState<WebsiteFormDelivery[]>([]);
   const [leadQuery, setLeadQuery] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | WebsiteLead['status']>('all');
   const [leadStageFilter, setLeadStageFilter] = useState<'all' | LeadStage>('all');
@@ -1508,6 +1510,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!loadIsCurrent()) return;
 
     setLeads([]);
+    setFormDeliveries([]);
     setLeadsOpen(false);
     setAnalyticsEvents([]);
     setAnalyticsOpen(false);
@@ -1544,6 +1547,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!refreshUserId || !refreshProjectId) {
       if (refreshIsCurrent()) {
         setLeads([]);
+        setFormDeliveries([]);
         setLeadsError('');
         setLeadsLoading(false);
       }
@@ -1553,6 +1557,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     if (!projectTeamAccess.canManage) {
       if (refreshIsCurrent()) {
         setLeads([]);
+        setFormDeliveries([]);
         setLeadsError('Lead inbox is available to project owners and workspace admins.');
         setLeadsLoading(false);
       }
@@ -1562,18 +1567,23 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setLeadsLoading(true);
     setLeadsError('');
 
-    const { data, error } = await listWebsiteLeads(refreshProjectId);
+    const [leadResult, deliveryResult] = await Promise.all([
+      listWebsiteLeads(refreshProjectId),
+      listWebsiteFormDeliveries(refreshProjectId),
+    ]);
 
     if (!refreshIsCurrent()) return;
 
-    if (error) {
+    if (leadResult.error) {
       setLeadsError('Lead inbox is unavailable. Make sure the Sprint 11 database migration is applied.');
       setLeadsLoading(false);
       return;
     }
 
-    const nextLeads = (data || []) as WebsiteLead[];
+    const nextLeads = (leadResult.data || []) as WebsiteLead[];
     setLeads(nextLeads);
+    setFormDeliveries((deliveryResult.data || []) as WebsiteFormDelivery[]);
+    if (deliveryResult.error) setLeadsError('Automation delivery history is unavailable. Apply the Forms + Automations MAX database migration.');
     setSelectedLeadIds((current) => current.filter((id) => nextLeads.some((lead) => lead.id === id)));
     setLeadsLoading(false);
   }, [user, cloudProjectId, projectTeamAccess.canManage]);
@@ -1707,6 +1717,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const deleteUserId = user.id;
     const deleteProjectId = cloudProjectId;
     const deleteOwnerId = activeProjectOwnerId;
+    const uploadPaths = leads.find((lead) => lead.id === leadId)?.files?.map((file) => file.path) || [];
     const deleteIsCurrent = () =>
       projectLoadSequenceRef.current === deleteLoadSequence &&
       activeUserIdRef.current === deleteUserId;
@@ -1726,6 +1737,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     setLeads((current) => current.filter((lead) => lead.id !== leadId));
     setSelectedLeadIds((current) => current.filter((id) => id !== leadId));
+    if (uploadPaths.length) {
+      const cleanup = await deleteWebsiteFormUploads(uploadPaths);
+      if (deleteIsCurrent() && cleanup.error) setLeadsError('The submission was deleted, but one or more private uploads need cleanup.');
+    }
+  }
+
+  async function openWebsiteFormUpload(path: string) {
+    const { data, error } = await createWebsiteFormUploadUrl(path);
+    if (error || !data?.signedUrl) {
+      setLeadsError('Could not open this private form upload.');
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   }
 
   const refreshAnalytics = useCallback(async () => {
@@ -3383,6 +3407,29 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return updated;
     });
     updateSelected({ formFields: next });
+  }
+
+  function addFormAutomation(action: WebsiteFormAutomation['action']) {
+    if (!selectedSection || selectedSection.type !== 'contact') return;
+    const automation: WebsiteFormAutomation = {
+      id: `automation-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: action === 'email' ? 'Email notification' : 'Webhook',
+      enabled: true,
+      trigger: 'submission-created',
+      action,
+      destination: action === 'email' ? (user?.email || '') : 'https://',
+    };
+    updateSelected({ formAutomations: [...(selectedSection.formAutomations || []), automation] });
+  }
+
+  function updateFormAutomation(automationId: string, changes: Partial<WebsiteFormAutomation>) {
+    if (!selectedSection || selectedSection.type !== 'contact') return;
+    updateSelected({ formAutomations: (selectedSection.formAutomations || []).map((item) => item.id === automationId ? { ...item, ...changes } : item) });
+  }
+
+  function deleteFormAutomation(automationId: string) {
+    if (!selectedSection || selectedSection.type !== 'contact') return;
+    updateSelected({ formAutomations: (selectedSection.formAutomations || []).filter((item) => item.id !== automationId) });
   }
 
   function deleteFormField(fieldId: string) {
@@ -9942,6 +9989,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setHistory([]);
     setFuture([]);
     setLeads([]);
+    setFormDeliveries([]);
     setLeadsOpen(false);
     setSiteName(duplicateTitle);
     setPublishedUrl('');
@@ -10042,6 +10090,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setHistory([]);
     setFuture([]);
     setLeads([]);
+    setFormDeliveries([]);
     setLeadsOpen(false);
     setLeadsError('');
     setAnalyticsEvents([]);
@@ -10526,6 +10575,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     } | null = null;
     let liveFilesReplaced = false;
     let publicationStateCommitted = false;
+    let formRollback: { projectId: string; ownerId: string; rows: WebsiteFormRow[] } | null = null;
+    let formsSynchronized = false;
     let pendingArchiveCleanup: Parameters<typeof discardWebsitePublishVersionArchive>[0] | null = null;
 
     setPublishBusy(true);
@@ -10601,6 +10652,20 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (!currentPages.length) {
         throw new Error('Add at least one page before publishing.');
+      }
+
+      const formSnapshot = await snapshotPublishedWebsiteForms(publishProjectId, publishUserId);
+      if (formSnapshot.error) throw new Error('Published form configuration could not be backed up before publishing.');
+      formRollback = { projectId: publishProjectId, ownerId: publishUserId, rows: (formSnapshot.data || []) as WebsiteFormRow[] };
+      const formSync = await syncPublishedWebsiteForms({
+        projectId: publishProjectId,
+        ownerId: publishUserId,
+        pages: currentPages,
+      });
+      formsSynchronized = true;
+      assertPublishIsCurrent();
+      if (formSync.error) {
+        throw new Error('Published form configuration could not be synchronized. Apply the Forms + Automations MAX database migration and try again.');
       }
 
       let files: Array<{
@@ -10863,6 +10928,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
       if (publishIsCurrent()) cloudRevisionRef.current = { projectId: publishProjectId, updatedAt: publishedRow?.updated_at || nextPublishedAt };
       publicationStateCommitted = true;
+      formRollback = null;
       liveRollback = null;
       pendingArchiveCleanup = null;
       assertPublishIsCurrent();
@@ -10941,6 +11007,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       let message = error instanceof Error
         ? error.message
         : 'Could not publish this website.';
+
+      if (formRollback && formsSynchronized && !publicationStateCommitted) {
+        const restoredForms = await restorePublishedWebsiteForms(formRollback.projectId, formRollback.ownerId, formRollback.rows);
+        if (restoredForms.error) message += ' Form configuration rollback needs support review.';
+      }
 
       if (liveRollback && liveFilesReplaced && !publicationStateCommitted) {
         try {
@@ -12178,6 +12249,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                       {l(operation.kind === 'remove' ? 'Remove' : operation.kind === 'add' ? 'Add' : 'Update')}
                     </span>
                   </div>
+
                   <span className="mt-0.5 block truncate text-[8px] text-gray-500" title={operation.target}>{operation.target}</span>
                   {operation.planStepId && <span className="mt-1 block text-[7px] font-bold text-cyan-300">{l('Plan step')}: {operation.planStepId}</span>}
                   {operation.fields.length > 0 && (
@@ -14196,6 +14268,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   const phone = getWebsiteLeadPhone(lead);
                   const stage = lead.stage || 'new';
                   const visibleFormData = Object.entries(lead.form_data || {}).filter(([key]) => !key.startsWith('_'));
+                  const deliveryAttempts = formDeliveries.filter((delivery) => delivery.lead_id === lead.id);
                   return (
                   <article key={lead.id} className={`rounded-xl border p-3 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
                     <div className="mb-2 flex items-start justify-between gap-2">
@@ -14228,6 +14301,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     )}
 
                     {!!lead.tags?.length && <div className="mb-2 flex flex-wrap gap-1">{lead.tags.map((tag) => <span key={tag} className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-400">#{tag}</span>)}</div>}
+                    {(lead.form_name || lead.workflow_status || lead.files?.length) && <div className="mb-2 flex flex-wrap gap-1">{lead.form_name && <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[9px] text-cyan-400">{lead.form_name}</span>}{lead.workflow_status && <span className={`rounded-full px-2 py-0.5 text-[9px] ${lead.workflow_status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : lead.workflow_status === 'failed' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}`}>{l('Workflow')}: {lead.workflow_status}</span>}{Boolean(lead.files?.length) && <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] text-violet-400">{l('Uploaded files')}: {lead.files!.length}</span>}</div>}
+                    {!!lead.files?.length && <div className="mb-2 flex flex-wrap gap-1">{lead.files.map((file) => <button key={file.path} type="button" onClick={() => void openWebsiteFormUpload(file.path)} className="max-w-full truncate rounded border border-violet-500/20 px-2 py-1 text-[9px] font-semibold text-violet-400" title={`${file.name} · ${Math.ceil(file.size / 1024)} KB`}>{l('Open file')}: {file.name}</button>)}</div>}
+                    {!!deliveryAttempts.length && (
+                      <div className={`mb-2 rounded-lg border p-2 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-100 bg-sky-50'}`}>
+                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-sky-400">{l('Automation delivery log')}</p>
+                        <div className="grid gap-1">
+                          {deliveryAttempts.map((delivery) => (
+                            <div key={delivery.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px]">
+                              <span className="font-semibold uppercase text-gray-500">{delivery.action_type}</span>
+                              <span className="max-w-40 truncate text-gray-500" title={delivery.destination_hint}>{delivery.destination_hint}</span>
+                              <span className={delivery.status === 'delivered' ? 'text-emerald-400' : delivery.status === 'failed' ? 'text-rose-400' : 'text-amber-400'}>{l(delivery.status === 'delivered' ? 'Delivered' : delivery.status === 'failed' ? 'Failed' : delivery.status === 'processing' ? 'Processing' : 'Pending')}</span>
+                              <span className="text-gray-500">{l('Attempts')}: {delivery.attempts}</span>
+                              {delivery.response_status !== null && <span className="text-gray-500">HTTP {delivery.response_status}</span>}
+                              {delivery.last_error && <span className="basis-full break-words text-rose-400">{delivery.last_error}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <p className={`mb-3 whitespace-pre-wrap ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{lead.message}</p>
                     {!!visibleFormData.length && (
                       <div className={`mb-3 grid gap-1 rounded-lg border p-2 ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-100 bg-gray-50'}`}>
@@ -15962,6 +16054,12 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                     <button type="button" onClick={resetContactForm} className="text-[10px] font-semibold text-cyan-400">{l('Reset')}</button>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-[10px] text-gray-500">{l('Form name')}<input value={selectedSection.formName || selectedSection.title || 'Contact form'} onChange={(e) => updateSelected({ formName: e.target.value })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+                    <label className="text-[10px] text-gray-500">{l('Spam protection')}<select value={selectedSection.formSpamProtection === 'enhanced' ? 'enhanced' : 'standard'} onChange={(e) => updateSelected({ formSpamProtection: e.target.value === 'enhanced' ? 'enhanced' : 'standard' })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="standard">{l('Standard')}</option><option value="enhanced">{l('Enhanced')}</option></select></label>
+                  </div>
+                  <label className="block text-[10px] text-gray-500">{l('Minimum completion time')}<input type="number" min="1" max="60" value={selectedSection.formMinimumCompletionSeconds || 3} onChange={(e) => updateSelected({ formMinimumCompletionSeconds: Math.min(60, Math.max(1, Number(e.target.value) || 3)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
+
                   <div className="space-y-2">
                     {(selectedSection.formFields ?? createDefaultContactFormFields()).map((field, fieldIndex, fieldList) => (
                       <div key={field.id} className={`rounded-lg border p-2 ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white'}`}>
@@ -15970,16 +16068,21 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                             value={field.type}
                             onChange={(e) => updateFormField(field.id, {
                               type: e.target.value as WebsiteFormFieldType,
-                              options: e.target.value === 'select' ? (field.options?.length ? field.options : ['Option 1', 'Option 2']) : undefined,
+                              options: e.target.value === 'select' || e.target.value === 'radio' ? (field.options?.length ? field.options : ['Option 1', 'Option 2']) : undefined,
                             })}
                             className={`min-w-0 flex-1 rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}
                           >
                             <option value="text">{l('Text')}</option>
                             <option value="email">{l('Email')}</option>
                             <option value="tel">{l('Phone')}</option>
+                            <option value="url">URL</option>
+                            <option value="number">{l('Number')}</option>
+                            <option value="date">{l('Date')}</option>
                             <option value="textarea">{l('Textarea')}</option>
                             <option value="select">{l('Select')}</option>
+                            <option value="radio">{l('Radio')}</option>
                             <option value="checkbox">{l('Checkbox')}</option>
+                            <option value="file">{l('File upload')}</option>
                           </select>
                           <button type="button" onClick={() => moveFormField(field.id, 'up')} disabled={fieldIndex === 0} className="rounded p-1 text-gray-400 disabled:opacity-25" title={l('Move up')}><ChevronUp className="h-3 w-3" /></button>
                           <button type="button" onClick={() => moveFormField(field.id, 'down')} disabled={fieldIndex === fieldList.length - 1} className="rounded p-1 text-gray-400 disabled:opacity-25" title={l('Move down')}><ChevronDown className="h-3 w-3" /></button>
@@ -15999,7 +16102,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                             className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
                           />
                         </div>
-                        {field.type !== 'checkbox' && (
+                        {field.type !== 'checkbox' && field.type !== 'file' && (
                           <input
                             value={field.placeholder || ''}
                             onChange={(e) => updateFormField(field.id, { placeholder: e.target.value })}
@@ -16007,7 +16110,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                             className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
                           />
                         )}
-                        {field.type === 'select' && (
+                        {(field.type === 'select' || field.type === 'radio') && (
                           <textarea
                             value={(field.options || []).join('\n')}
                             onChange={(e) => updateFormField(field.id, { options: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })}
@@ -16016,6 +16119,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                             className={`mt-2 w-full resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
                           />
                         )}
+                        <input value={field.helpText || ''} onChange={(e) => updateFormField(field.id, { helpText: e.target.value })} placeholder={l('Help text')} className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <label className="text-[9px] text-gray-500">{l('Width')}<select value={field.width || 'full'} onChange={(e) => updateFormField(field.id, { width: e.target.value === 'half' ? 'half' : 'full' })} className={`mt-1 w-full rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="full">{l('Full width')}</option><option value="half">{l('Half width')}</option></select></label>
+                          {field.type === 'file' ? <label className="text-[9px] text-gray-500">{l('Max file MB')}<input type="number" min="1" max="10" value={field.validation?.maxFileSizeMb || 5} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, maxFileSizeMb: Math.min(10, Math.max(1, Number(e.target.value) || 5)) } })} className={`mt-1 w-full rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label> : field.type === 'number' ? <label className="text-[9px] text-gray-500">{l('Minimum')} / {l('Maximum')}<div className="mt-1 flex gap-1"><input type="number" value={field.validation?.min ?? ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, min: e.target.value === '' ? undefined : Number(e.target.value) } })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /><input type="number" value={field.validation?.max ?? ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, max: e.target.value === '' ? undefined : Number(e.target.value) } })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></div></label> : <label className="text-[9px] text-gray-500">{l('Min length')} / {l('Max length')}<div className="mt-1 flex gap-1"><input type="number" min="0" max="10000" value={field.validation?.minLength ?? ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, minLength: e.target.value === '' ? undefined : Number(e.target.value) } })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /><input type="number" min="1" max="10000" value={field.validation?.maxLength ?? ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, maxLength: e.target.value === '' ? undefined : Number(e.target.value) } })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></div></label>}
+                        </div>
+                        {field.type === 'file' && <input value={(field.validation?.accept || []).join(',')} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, accept: e.target.value.split(',').map((item) => item.trim()).filter(Boolean) } })} placeholder="image/png, application/pdf" className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />}
+                        {!['file', 'number', 'date', 'checkbox', 'select', 'radio'].includes(field.type) && <input value={field.validation?.pattern || ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, pattern: e.target.value } })} placeholder={l('Validation pattern')} className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />}
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          <select value={field.conditions?.[0]?.fieldName || ''} onChange={(e) => updateFormField(field.id, { conditions: e.target.value ? [{ fieldName: e.target.value, operator: field.conditions?.[0]?.operator || 'equals', value: field.conditions?.[0]?.value || '' }] : [] })} className={`rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="">{l('Always visible')}</option>{fieldList.filter((candidate) => candidate.id !== field.id).map((candidate) => <option key={candidate.id} value={candidate.name}>{l('When')} {candidate.label}</option>)}</select>
+                          {field.conditions?.[0] && <select value={field.conditions[0].operator} onChange={(e) => updateFormField(field.id, { conditions: [{ ...field.conditions![0], operator: e.target.value as NonNullable<WebsiteFormField['conditions']>[number]['operator'] }] })} className={`rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="equals">{l('Equals')}</option><option value="not-equals">{l('Not equal')}</option><option value="contains">{l('Contains')}</option><option value="not-empty">{l('Is not empty')}</option><option value="empty">{l('Is empty')}</option></select>}
+                          {field.conditions?.[0] && !['empty', 'not-empty'].includes(field.conditions[0].operator) && <input value={field.conditions[0].value || ''} onChange={(e) => updateFormField(field.id, { conditions: [{ ...field.conditions![0], value: e.target.value }] })} placeholder={l('Equals value')} className={`rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />}
+                        </div>
                         <label className="mt-2 flex items-center gap-2 text-[10px] text-gray-400">
                           <input type="checkbox" checked={field.required} onChange={(e) => updateFormField(field.id, { required: e.target.checked })} />{l("Required field")}</label>
                       </div>
@@ -16023,11 +16138,18 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
                   </div>
 
                   <div className="grid grid-cols-3 gap-1.5">
-                    {(['text', 'email', 'tel', 'textarea', 'select', 'checkbox'] as WebsiteFormFieldType[]).map((type) => (
+                    {(['text', 'email', 'tel', 'number', 'date', 'textarea', 'select', 'radio', 'checkbox', 'file'] as WebsiteFormFieldType[]).map((type) => (
                       <button key={type} type="button" onClick={() => addFormField(type)} className={`rounded-lg border px-2 py-1.5 text-[10px] font-semibold ${darkMode ? 'border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/10' : 'border-cyan-200 text-cyan-700 hover:bg-cyan-100'}`}>
                         + {type === 'tel' ? 'Phone' : type.charAt(0).toUpperCase() + type.slice(1)}
                       </button>
                     ))}
+                  </div>
+
+                  <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
+                    <div className="flex items-center justify-between"><strong className="text-[10px] text-violet-400">{l('Automations')}</strong><div className="flex gap-1"><button type="button" onClick={() => addFormAutomation('email')} className="text-[9px] font-semibold text-cyan-400">+ {l('Email')}</button><button type="button" onClick={() => addFormAutomation('webhook')} className="text-[9px] font-semibold text-cyan-400">+ {l('Webhook')}</button></div></div>
+                    {!(selectedSection.formAutomations || []).length && <p className="text-[9px] text-gray-500">{l('No automation runs after submission.')}</p>}
+                    {(selectedSection.formAutomations || []).map((automation) => <div key={automation.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2"><input type="checkbox" checked={automation.enabled} onChange={(e) => updateFormAutomation(automation.id, { enabled: e.target.checked })} /><input value={automation.destination} onChange={(e) => updateFormAutomation(automation.id, { destination: e.target.value })} placeholder={automation.action === 'email' ? 'team@example.com' : 'https://api.example.com/hook'} className={`min-w-0 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /><button type="button" onClick={() => deleteFormAutomation(automation.id)} className="text-rose-400" aria-label={l('Delete automation')}>×</button></div>)}
+                    <p className="text-[8px] text-gray-500">{l('Webhook payloads are signed and delivery attempts appear in the submission log.')}</p>
                   </div>
 
                   <label className="block text-[10px] text-gray-500">{l('After submit')}<select

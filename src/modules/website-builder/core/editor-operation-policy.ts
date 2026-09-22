@@ -96,6 +96,10 @@ const SECTION_CHANGE_KEYS = new Set([
   'formSuccessMessage',
   'formSuccessAction',
   'formRedirectUrl',
+  'formName',
+  'formSpamProtection',
+  'formMinimumCompletionSeconds',
+  'formAutomations',
   'anchorId',
   'layout',
   'layoutGap',
@@ -218,6 +222,10 @@ const FORM_FIELD_CHANGE_KEYS = new Set([
   'placeholder',
   'required',
   'options',
+  'helpText',
+  'validation',
+  'conditions',
+  'width',
 ]);
 
 const THEME_CHANGE_KEYS = new Set([

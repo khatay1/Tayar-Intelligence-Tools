@@ -805,7 +805,7 @@ function buildFormFieldFields(
     }),
     field('type', 'Type', formField.type ?? 'text', 'select', 'content', {
       section: 'Field',
-      options: ['text', 'email', 'tel', 'textarea', 'select', 'checkbox'],
+      options: ['text', 'email', 'tel', 'url', 'number', 'date', 'textarea', 'select', 'radio', 'checkbox', 'file'],
     }),
     field('placeholder', 'Placeholder', formField.placeholder ?? '', 'text', 'content', {
       section: 'Field',

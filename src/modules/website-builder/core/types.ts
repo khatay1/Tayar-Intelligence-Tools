@@ -26,7 +26,24 @@ export type ElementAnimationEasing = 'smooth' | 'ease' | 'linear' | 'spring';
 export type ElementContainerLayout = 'stack' | 'row' | 'grid';
 export type ElementContainerAlign = 'start' | 'center' | 'end' | 'stretch';
 export type ElementContainerJustify = 'start' | 'center' | 'end' | 'between';
-export type WebsiteFormFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox';
+export type WebsiteFormFieldType = 'text' | 'email' | 'tel' | 'url' | 'number' | 'date' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'file';
+export type WebsiteFormConditionOperator = 'equals' | 'not-equals' | 'contains' | 'not-empty' | 'empty';
+
+export interface WebsiteFormCondition {
+  fieldName: string;
+  operator: WebsiteFormConditionOperator;
+  value?: string;
+}
+
+export interface WebsiteFormValidation {
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  pattern?: string;
+  accept?: string[];
+  maxFileSizeMb?: number;
+}
 
 export interface WebsiteFormField {
   id: string;
@@ -36,6 +53,19 @@ export interface WebsiteFormField {
   placeholder?: string;
   required: boolean;
   options?: string[];
+  helpText?: string;
+  validation?: WebsiteFormValidation;
+  conditions?: WebsiteFormCondition[];
+  width?: 'full' | 'half';
+}
+
+export interface WebsiteFormAutomation {
+  id: string;
+  name: string;
+  enabled: boolean;
+  trigger: 'submission-created';
+  action: 'email' | 'webhook';
+  destination: string;
 }
 
 export interface ElementStyle {
@@ -153,6 +183,10 @@ export interface WebsiteSection {
   formSuccessMessage?: string;
   formSuccessAction?: 'message' | 'redirect';
   formRedirectUrl?: string;
+  formName?: string;
+  formSpamProtection?: 'standard' | 'enhanced';
+  formMinimumCompletionSeconds?: number;
+  formAutomations?: WebsiteFormAutomation[];
   anchorId?: string;
   layout?: SectionLayout;
   layoutGap?: number;

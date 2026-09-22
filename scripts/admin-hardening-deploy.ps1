@@ -22,7 +22,8 @@ $Functions = @(
   'delete-account',
   'email-service',
   'public-plan-catalog',
-  'stripe-webhook'
+  'stripe-webhook',
+  'website-form-submit'
 )
 
 function Invoke-Supabase {
@@ -102,7 +103,7 @@ Invoke-Supabase config push
 Write-Host ""
 Write-Host "Deploying Edge Functions that consume supabase/functions/_shared/billing.ts..." -ForegroundColor Yellow
 foreach ($FunctionName in $Functions) {
-  if ($FunctionName -in @('public-plan-catalog', 'stripe-webhook')) {
+  if ($FunctionName -in @('public-plan-catalog', 'stripe-webhook', 'website-form-submit')) {
     Invoke-Supabase functions deploy $FunctionName --project-ref $ProjectRef --no-verify-jwt
   } else {
     Invoke-Supabase functions deploy $FunctionName --project-ref $ProjectRef

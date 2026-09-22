@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 export async function listWebsiteLeads(projectId: string) {
   return supabase
     .from('website_leads')
-    .select('id, project_id, user_id, name, email, message, form_data, page_path, status, stage, priority, tags, notes, updated_at, created_at')
+    .select('id, project_id, user_id, name, email, message, form_data, page_path, form_id, form_name, files, workflow_status, status, stage, priority, tags, notes, updated_at, created_at')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false })
     .limit(100);
