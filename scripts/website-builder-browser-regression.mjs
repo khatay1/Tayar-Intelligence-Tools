@@ -8,7 +8,7 @@ const HOST = '127.0.0.1';
 const VITE_PORT = 4173;
 const CDP_PORT = 9222;
 const URL = `http://${HOST}:${VITE_PORT}/test-fixtures/website-builder-regression.html`;
-const TIMEOUT_MS = 40_000;
+const TIMEOUT_MS = 60_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const near = (a, b, tolerance = 3) => Math.abs(a - b) <= tolerance;
@@ -111,19 +111,36 @@ async function regression() {
     },
   });
   let chrome;
+  const chromeAttempts = [];
+  const userDataDirs = [];
   let cdp;
   const runtimeErrors = [];
   const consoleErrors = [];
 
   try {
     await waitHttp(URL);
-    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tayar-builder-browser-'));
-    chrome = start(chromeBinary(), [
-      '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
-      '--disable-component-update', '--disable-sync', '--metrics-recording-only', '--mute-audio', '--no-sandbox',
-      `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${userDataDir}`, '--window-size=1600,1000', 'about:blank',
-    ]);
-    await waitHttp(`http://${HOST}:${CDP_PORT}/json/version`);
+    const launchChrome = async (headlessFlag) => {
+      const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tayar-builder-browser-'));
+      userDataDirs.push(userDataDir);
+      const attempt = start(chromeBinary(), [
+        headlessFlag, '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check',
+        '--disable-background-networking', '--disable-component-update', '--disable-sync', '--metrics-recording-only',
+        '--mute-audio', '--no-sandbox', `--remote-debugging-address=${HOST}`, `--remote-debugging-port=${CDP_PORT}`,
+        `--user-data-dir=${userDataDir}`, '--window-size=1600,1000', 'about:blank',
+      ]);
+      chromeAttempts.push(attempt);
+      try {
+        await waitHttp(`http://${HOST}:${CDP_PORT}/json/version`, 10_000);
+        return attempt;
+      } catch (error) {
+        await stop(attempt.child);
+        const tail = attempt.output.join('').split(/\r?\n/).slice(-20).join('\n');
+        console.warn(`[browser] ${headlessFlag} did not expose CDP; retrying.${tail ? `\n${tail}` : ''}`);
+        return null;
+      }
+    };
+    chrome = await launchChrome('--headless=new') || await launchChrome('--headless');
+    assert(chrome, 'Chrome did not expose the debugging endpoint after both headless launch modes.');
     const targetResponse = await fetch(`http://${HOST}:${CDP_PORT}/json/new?${encodeURIComponent(URL)}`, { method: 'PUT' });
     assert(targetResponse.ok, `Chrome could not create the test target: ${targetResponse.status}`);
     const target = await targetResponse.json();
@@ -377,14 +394,16 @@ async function regression() {
     console.error('[website-builder-browser-regression] FAIL');
     console.error(error instanceof Error ? error.stack : error);
     const viteTail = vite.output.join('').split(/\r?\n/).slice(-20).join('\n');
-    const chromeTail = chrome?.output.join('').split(/\r?\n/).slice(-20).join('\n') || '';
+    const chromeTail = chromeAttempts.flatMap((attempt) => attempt.output).join('').split(/\r?\n/).slice(-40).join('\n');
     if (viteTail) console.error(`\n--- Vite tail ---\n${viteTail}`);
     if (chromeTail) console.error(`\n--- Chrome tail ---\n${chromeTail}`);
     throw error;
   } finally {
     cdp?.close();
     await stop(chrome?.child);
+    for (const attempt of chromeAttempts) await stop(attempt.child);
     await stop(vite.child);
+    for (const directory of userDataDirs) fs.rmSync(directory, { recursive: true, force: true });
   }
 }
 

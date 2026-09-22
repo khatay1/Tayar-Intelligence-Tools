@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const PASS_MARKER = '[website-builder-browser-regression] PASS 16 desktop browser scenarios';
 const FAIL_MARKER = '[website-builder-browser-regression] FAIL';
-const HARD_TIMEOUT_MS = 55_000;
+const HARD_TIMEOUT_MS = 70_000;
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const regressionScript = path.join(scriptDir, 'website-builder-browser-regression.mjs');
 const detached = process.platform !== 'win32';
