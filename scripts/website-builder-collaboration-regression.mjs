@@ -2,6 +2,7 @@ import fs from 'node:fs';
 const read=p=>fs.readFileSync(p,'utf8');
 const model=read('src/modules/website-builder/core/editor-collaboration.ts');
 const service=read('src/modules/website-builder/services/collaborationService.ts');
+const realtime=read('src/modules/website-builder/services/websiteCollaborationService.ts');
 const panel=read('src/modules/website-builder/v2-ui/BuilderCollaborationMaxPanel.tsx');
 const bridge=read('src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
 const migration=read('supabase/migrations/20260922153000_website_collaboration_max.sql');
@@ -15,6 +16,13 @@ const checks=[
  ['comments persistence',service.includes('createWebsiteComment')&&service.includes('resolveWebsiteComment')],
  ['reviews persistence',service.includes('createWebsiteReview')&&service.includes('updateWebsiteReviewStatus')],
  ['activity persistence',service.includes('recordWebsiteActivity')],
+ ['realtime presence channel',realtime.includes('createWebsiteRealtimeCollaborationChannel')&&realtime.includes("presence: { key: self.userId }")),
+ ['live cursor payload',realtime.includes('WebsiteRealtimeCursor')&&realtime.includes('cursor?: WebsiteRealtimeCursor')],
+ ['live selection payload',realtime.includes('selection: WebsiteCommentAnchor')],
+ ['reconnect tracking',realtime.includes("status === 'SUBSCRIBED'")&&realtime.includes('channel.track')],
+ ['realtime cleanup',realtime.includes('channel.untrack')&&realtime.includes('removeChannel')],
+ ['editing conflict detection',realtime.includes('hasWebsiteEditingConflict')&&realtime.includes('editingElementId')],
+ ['database presence fallback',realtime.includes('heartbeatWebsiteProjectPresence')&&realtime.includes('listWebsiteProjectPresence')],
  ['collaboration UI',panel.includes('Comments')&&panel.includes('Activity')&&panel.includes('Versions')],
  ['review UI',panel.includes('Approve')&&panel.includes('Request changes')],
  ['version restore UI',panel.includes('onRestoreVersion')],

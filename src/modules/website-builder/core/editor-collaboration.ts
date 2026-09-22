@@ -3,74 +3,12 @@ export type EditorReviewStatus = 'draft' | 'in_review' | 'changes_requested' | '
 export type EditorCommentStatus = 'open' | 'resolved';
 export type EditorActivityKind = 'comment' | 'mention' | 'edit' | 'review_requested' | 'approved' | 'changes_requested' | 'version_created' | 'version_restored';
 
-export interface EditorCollaborator {
-  id: string;
-  displayName: string;
-  email?: string;
-  avatarUrl?: string;
-  role: EditorCollaboratorRole;
-}
-
-export interface EditorCommentAnchor {
-  pageId: string;
-  sectionId?: string;
-  elementId?: string;
-  containerId?: string;
-  formFieldId?: string;
-}
-
-export interface EditorComment {
-  id: string;
-  projectId: string;
-  authorId: string;
-  body: string;
-  anchor: EditorCommentAnchor;
-  status: EditorCommentStatus;
-  mentionUserIds: string[];
-  parentId?: string;
-  createdAt: string;
-  updatedAt: string;
-  resolvedAt?: string;
-  resolvedBy?: string;
-}
-
-export interface EditorReview {
-  id: string;
-  projectId: string;
-  requestedBy: string;
-  reviewerIds: string[];
-  status: EditorReviewStatus;
-  note?: string;
-  versionId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EditorActivity {
-  id: string;
-  projectId: string;
-  actorId: string;
-  kind: EditorActivityKind;
-  createdAt: string;
-  pageId?: string;
-  sectionId?: string;
-  elementId?: string;
-  versionId?: string;
-  commentId?: string;
-  reviewId?: string;
-  summary?: string;
-}
-
-export interface EditorVersionSnapshot<TProject = unknown> {
-  id: string;
-  projectId: string;
-  createdBy: string;
-  createdAt: string;
-  label?: string;
-  note?: string;
-  source: 'manual' | 'autosave' | 'publish' | 'restore';
-  project: TProject;
-}
+export interface EditorCollaborator { id: string; displayName: string; email?: string; avatarUrl?: string; role: EditorCollaboratorRole; }
+export interface EditorCommentAnchor { pageId: string; sectionId?: string; elementId?: string; containerId?: string; formFieldId?: string; }
+export interface EditorComment { id: string; projectId: string; authorId: string; body: string; anchor: EditorCommentAnchor; status: EditorCommentStatus; mentionUserIds: string[]; parentId?: string; createdAt: string; updatedAt: string; resolvedAt?: string; resolvedBy?: string; }
+export interface EditorReview { id: string; projectId: string; requestedBy: string; reviewerIds: string[]; status: EditorReviewStatus; note?: string; versionId?: string; createdAt: string; updatedAt: string; }
+export interface EditorActivity { id: string; projectId: string; actorId: string; kind: EditorActivityKind; createdAt: string; pageId?: string; sectionId?: string; elementId?: string; versionId?: string; commentId?: string; reviewId?: string; summary?: string; }
+export interface EditorVersionSnapshot<TProject = unknown> { id: string; projectId: string; createdBy: string; createdAt: string; label?: string; note?: string; source: 'manual' | 'autosave' | 'publish' | 'restore'; project: TProject; }
 
 const ROLE_WEIGHT: Record<EditorCollaboratorRole, number> = { viewer: 0, reviewer: 1, editor: 2, admin: 3, owner: 4 };
 export function editorRoleAtLeast(role: EditorCollaboratorRole, required: EditorCollaboratorRole) { return ROLE_WEIGHT[role] >= ROLE_WEIGHT[required]; }
@@ -85,18 +23,35 @@ export function extractEditorMentions(body: string, collaborators: EditorCollabo
 }
 
 export interface EditorVersionChange { path: string; before: unknown; after: unknown; }
+export interface EditorVersionDiffSummary { added: number; removed: number; changed: number; total: number; topLevel: Record<string, number>; }
 export function compareEditorVersionValues(before: unknown, after: unknown, path = '$', changes: EditorVersionChange[] = []): EditorVersionChange[] {
   if (Object.is(before, after)) return changes;
-  if (typeof before !== 'object' || before === null || typeof after !== 'object' || after === null || Array.isArray(before) !== Array.isArray(after)) {
-    changes.push({ path, before, after }); return changes;
-  }
-  if (Array.isArray(before) && Array.isArray(after)) {
-    const length = Math.max(before.length, after.length);
-    for (let index = 0; index < length; index += 1) compareEditorVersionValues(before[index], after[index], `${path}[${index}]`, changes);
-    return changes;
-  }
+  if (typeof before !== 'object' || before === null || typeof after !== 'object' || after === null || Array.isArray(before) !== Array.isArray(after)) { changes.push({ path, before, after }); return changes; }
+  if (Array.isArray(before) && Array.isArray(after)) { const length = Math.max(before.length, after.length); for (let index = 0; index < length; index += 1) compareEditorVersionValues(before[index], after[index], `${path}[${index}]`, changes); return changes; }
   const left = before as Record<string, unknown>; const right = after as Record<string, unknown>;
-  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
-  keys.forEach(key => compareEditorVersionValues(left[key], right[key], `${path}.${key}`, changes));
-  return changes;
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]); keys.forEach(key => compareEditorVersionValues(left[key], right[key], `${path}.${key}`, changes)); return changes;
+}
+
+export function summarizeEditorVersionChanges(changes: EditorVersionChange[]): EditorVersionDiffSummary {
+  const summary: EditorVersionDiffSummary = { added: 0, removed: 0, changed: 0, total: changes.length, topLevel: {} };
+  for (const change of changes) {
+    if (change.before === undefined) summary.added += 1; else if (change.after === undefined) summary.removed += 1; else summary.changed += 1;
+    const top = change.path.replace(/^\$\.?/, '').split(/[.[]/, 1)[0] || 'root'; summary.topLevel[top] = (summary.topLevel[top] || 0) + 1;
+  }
+  return summary;
+}
+
+function pathTokens(path: string): Array<string | number> {
+  const tokens: Array<string | number> = []; path.replace(/^\$\.?/, '').replace(/([^.[\]]+)|\[(\d+)\]/g, (_m, key, index) => { tokens.push(index === undefined ? key : Number(index)); return ''; }); return tokens;
+}
+
+export function restoreEditorVersionPaths<T>(current: T, snapshot: T, paths: string[]): T {
+  const next = structuredClone(current);
+  for (const path of paths) {
+    const tokens = pathTokens(path); if (!tokens.length) return structuredClone(snapshot);
+    let target: any = next; let source: any = snapshot;
+    for (let index = 0; index < tokens.length - 1; index += 1) { const token = tokens[index]; source = source?.[token as any]; if (target?.[token as any] === undefined) target[token as any] = typeof tokens[index + 1] === 'number' ? [] : {}; target = target[token as any]; }
+    const leaf = tokens[tokens.length - 1]; const value = source?.[leaf as any]; if (value === undefined) { if (Array.isArray(target) && typeof leaf === 'number') target.splice(leaf, 1); else delete target[leaf as any]; } else target[leaf as any] = structuredClone(value);
+  }
+  return next;
 }
