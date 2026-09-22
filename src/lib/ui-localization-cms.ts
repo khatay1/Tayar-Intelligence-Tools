@@ -16,6 +16,16 @@ export const arCmsSupplement: PhraseMap = {
   'Matching published entries': 'الإدخالات المنشورة المطابقة',
   'Remove filter': 'إزالة الفلتر',
   'Add filter': 'إضافة فلتر',
+  'Manage multilingual content, routes, SEO, RTL and locale domains.': 'إدارة المحتوى متعدد اللغات والمسارات وتحسين محركات البحث واتجاه RTL ونطاقات اللغات.',
+  'Editing language': 'لغة التحرير',
+  'Direction': 'اتجاه الكتابة',
+  'Fallback language': 'اللغة الاحتياطية',
+  'Locale path prefix': 'بادئة مسار اللغة',
+  'Subdomain': 'النطاق الفرعي',
+  'Localized page name': 'اسم الصفحة المترجم',
+  'Localized slug': 'المسار المترجم',
+  'Translating…': 'جارٍ الترجمة…',
+  'Translate page with AI': 'ترجمة الصفحة بالذكاء الاصطناعي',
 };
 
 export const svCmsSupplement: PhraseMap = {
@@ -29,6 +39,16 @@ export const svCmsSupplement: PhraseMap = {
   'Matching published entries': 'Matchande publicerade poster',
   'Remove filter': 'Ta bort filter',
   'Add filter': 'Lägg till filter',
+  'Manage multilingual content, routes, SEO, RTL and locale domains.': 'Hantera flerspråkigt innehåll, rutter, SEO, RTL och språkdomäner.',
+  'Editing language': 'Redigeringsspråk',
+  'Direction': 'Skrivriktning',
+  'Fallback language': 'Reservspråk',
+  'Locale path prefix': 'Sökvägsprefix för språk',
+  'Subdomain': 'Underdomän',
+  'Localized page name': 'Lokaliserat sidnamn',
+  'Localized slug': 'Lokaliserad slug',
+  'Translating…': 'Översätter…',
+  'Translate page with AI': 'Översätt sidan med AI',
 };
 
 const cmsMaps: Record<Language, PhraseMap> = {
