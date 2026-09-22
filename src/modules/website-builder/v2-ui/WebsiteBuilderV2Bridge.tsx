@@ -43,7 +43,26 @@ export function WebsiteBuilderV2Bridge(props:WebsiteBuilderV2BridgeProps){
  const {canvas,overlaySlot,aiPanel,cmsPanel,topbarTrailingSlot,sitePanel,settingsPanel,symbols=[],pages,homePageId,activePageId,selectedSectionId,selectedElementId,selectedElementIds=[],selectedContainerId,selectedFormFieldId,device,dirty,canUndo,canRedo,historyEntries=[],futureEntries=[],saving,publishing,checking,mutating,saveError,publishError,checkScore,checkErrors,checkWarnings,lastCheckedAt,publishedUrl,publishedAt,publishedOutdated,liveVerification,publishBlockers=[],mediaAssets=[],accent='#7c3aed',publishRedirects=[],publishRevisions=[],restoringRevisionId,onPublishPlan,onChangePublishRedirects,onSavePublishRedirects,onRestorePublishRevision,onOpenDomains,onMediaOpen,onMediaUpload,onGenerateMediaWithAI,onAddPage,onMovePage,onDuplicatePage,onDeletePage,onSetHomePage,onMoveSection,onDuplicateSection,onDeleteSection,onMoveElement,onDuplicateElement,onCopySelection,onCutSelection,onPasteSelection,clipboardKind,onDeleteElement,onApplyOperations,onRestoreHistoryEntry,onUndo,onRedo,onSave,onPreview,onPublish,onRunCheck,onSetDevice,onSelect,onSelectElement,onCustomizeTemplateWithAI,onFixSiteQualityWithAI,onCreateSymbol,onDetachSymbol,onInsertSymbol,onDeleteSymbol,onRenameSymbol,onDuplicateSymbol,onSelectSymbolInstance}=props;
  const l=useLocalizer(); const [leftPanel,setLeftPanel]=useState<EditorLeftPanel>('pages'); const [leftSidebarOpen,setLeftSidebarOpen]=useState(true); const [inspectorOpen,setInspectorOpen]=useState(true); const [inspectorTab,setInspectorTab]=useState<EditorInspectorTab>('content'); const [focusMode,setFocusMode]=useState(false); const [publishingTool,setPublishingTool]=useState<'release'|'redirects'|'versions'>('release');
  const unsavedExitMessage=l('You have unsaved website changes. Leave without saving?');
- useEffect(()=>{if(!dirty||typeof window==='undefined')return;const before=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=unsavedExitMessage;};window.addEventListener('beforeunload',before);return()=>window.removeEventListener('beforeunload',before);},[dirty,unsavedExitMessage]);
+ useEffect(()=>{
+  if(!dirty||typeof window==='undefined')return;
+  const handleBeforeUnload=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=unsavedExitMessage;};
+  const handleSameDocumentNavigation=(event:MouseEvent)=>{
+   if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+   const target=event.target;
+   if(!(target instanceof Element))return;
+   const anchor=target.closest<HTMLAnchorElement>('a[href]');
+   if(!anchor||anchor.target==='_blank'||anchor.hasAttribute('download'))return;
+   let destination:URL;
+   try{destination=new URL(anchor.href,window.location.href);}catch{return;}
+   const current=new URL(window.location.href);
+   const sameDocument=destination.origin===current.origin&&destination.pathname===current.pathname&&destination.search===current.search;
+   if(!sameDocument||destination.hash===current.hash)return;
+   if(!window.confirm(unsavedExitMessage)){event.preventDefault();event.stopPropagation();}
+  };
+  window.addEventListener('beforeunload',handleBeforeUnload);
+  document.addEventListener('click',handleSameDocumentNavigation,true);
+  return()=>{window.removeEventListener('beforeunload',handleBeforeUnload);document.removeEventListener('click',handleSameDocumentNavigation,true);};
+ },[dirty,unsavedExitMessage]);
  const selection=useMemo<EditorSelection>(()=>({pageId:activePageId,sectionId:selectedSectionId||undefined,elementId:selectedElementId||undefined,containerId:selectedContainerId||undefined,formFieldId:selectedFormFieldId||undefined}),[activePageId,selectedSectionId,selectedElementId,selectedContainerId,selectedFormFieldId]);
  const project=useMemo<EditorProjectLike>(()=>({id:'website-builder-v2',pages,homePageId,symbols}),[pages,homePageId,symbols]);
  const controllerState=useMemo(()=>createEditorControllerState(project,{selection,layout:{leftPanel,leftSidebarOpen,inspectorOpen,inspectorTab,focusMode,previewDevice:device}}),[project,selection,leftPanel,leftSidebarOpen,inspectorOpen,inspectorTab,focusMode,device]);
