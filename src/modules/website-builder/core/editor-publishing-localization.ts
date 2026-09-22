@@ -1,0 +1,9 @@
+import type { Language } from '@/lib/i18n';
+
+const ar: Record<string,string> = {
+  'Publishing MAX':'النشر MAX','Release environment':'بيئة النشر','Staging':'المرحلة التجريبية','Production':'الإنتاج','Publish scope':'نطاق النشر','Full site':'الموقع كاملًا','Selected pages':'صفحات محددة','Schedule release':'جدولة النشر','Release note':'ملاحظة الإصدار','Publish now':'انشر الآن','Schedule publish':'جدولة النشر','Redirects':'إعادة التوجيه','Add redirect':'إضافة إعادة توجيه','Source path':'المسار المصدر','Target':'الهدف','Permanent':'دائم','Temporary':'مؤقت','Versions & rollback':'الإصدارات والاستعادة','Restore':'استعادة','Domains':'النطاقات','No redirects yet.':'لا توجد عمليات إعادة توجيه بعد.','Select at least one page.':'اختر صفحة واحدة على الأقل.','Release date and time':'تاريخ ووقت النشر'
+};
+const sv: Record<string,string> = {
+  'Publishing MAX':'Publicering MAX','Release environment':'Publiceringsmiljö','Staging':'Testmiljö','Production':'Produktion','Publish scope':'Publiceringsomfattning','Full site':'Hela webbplatsen','Selected pages':'Valda sidor','Schedule release':'Schemalägg publicering','Release note':'Versionsanteckning','Publish now':'Publicera nu','Schedule publish':'Schemalägg publicering','Redirects':'Omdirigeringar','Add redirect':'Lägg till omdirigering','Source path':'Källsökväg','Target':'Mål','Permanent':'Permanent','Temporary':'Tillfällig','Versions & rollback':'Versioner och återställning','Restore':'Återställ','Domains':'Domäner','No redirects yet.':'Inga omdirigeringar ännu.','Select at least one page.':'Välj minst en sida.','Release date and time':'Datum och tid för publicering'
+};
+export function localizeEditorPublishing(text:string, language:Language){ if(language==='ar') return ar[text]??text; if(language==='sv') return sv[text]??text; return text; }
