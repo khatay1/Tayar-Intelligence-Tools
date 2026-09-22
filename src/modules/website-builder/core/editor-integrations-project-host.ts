@@ -27,7 +27,7 @@ export function writeEditorIntegrationsToProject(projectData: unknown, config: E
 export function editorIntegrationPublishBlockers(config: EditorIntegrationsConfig): string[] {
   const productionIds = new Set(config.connections.filter(connection => connection.enabled && connection.environments.includes('production')).map(connection => connection.id));
   return validateEditorIntegrations(config)
-    .filter(issue => productionIds.has(issue.connectionId))
+    .filter(issue => typeof issue.connectionId === 'string' && productionIds.has(issue.connectionId))
     .map(issue => issue.message);
 }
 
