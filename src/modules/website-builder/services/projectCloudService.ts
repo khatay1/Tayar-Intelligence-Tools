@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { retryCloudOperation } from '../core/editor-project-lifecycle';
+import { embedEditorIntegrationsHostIntoProject } from '../core/editor-integrations-host-store';
 
 export interface WebsiteProjectCloudSaveInput {
   title: string;
@@ -48,7 +49,7 @@ export async function updateWebsiteProjectInCloud({
       .from('projects')
       .update({
         title,
-        content,
+        content: embedEditorIntegrationsHostIntoProject(content),
         status: published ? 'completed' : 'draft',
         updated_at: updatedAt || new Date().toISOString(),
       })
@@ -95,7 +96,7 @@ export async function createWebsiteProjectInCloud({
         user_id: userId,
         title,
         type: 'website-builder',
-        content,
+        content: embedEditorIntegrationsHostIntoProject(content),
         status: published ? 'completed' : 'draft',
       })
       .select('id, title, content, updated_at')
@@ -134,7 +135,7 @@ export async function updateWebsiteProjectPublicationState(input: {
   const result = await supabase
     .from('projects')
     .update({
-      content: input.content,
+      content: embedEditorIntegrationsHostIntoProject(input.content),
       status: input.published ? 'completed' : 'draft',
       updated_at: input.updatedAt,
     })
