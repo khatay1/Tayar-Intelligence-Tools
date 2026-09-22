@@ -18,6 +18,7 @@ export * from './BuilderInspectorFields';
 export * from './BuilderCanvasMeasurement';
 export * from './CanvasSpacingGuide';
 export * from './BuilderDropIndicator';
+export * from './BuilderIntegrationsMaxPanel';
 
 export * from './WebsiteBuilderV2Bridge';
 
