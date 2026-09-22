@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-localization-max';
 import type { EditorPageLike } from '../core/editor-model';
 import type { EditorLocalizationConfig, EditorLocaleDefinition, EditorLocalizedPageContent } from '../core/editor-localization';
 import { buildEditorLocalizedPath, resolveEditorLocalizedPageContent } from '../core/editor-localization';
