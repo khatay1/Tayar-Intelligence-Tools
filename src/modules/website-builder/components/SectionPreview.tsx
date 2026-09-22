@@ -684,10 +684,20 @@ export function SectionPreview({
                     <option>{field.placeholder || 'Choose an option'}</option>
                   </select>
                 </label>
+              ) : field.type === 'radio' ? (
+                <fieldset key={field.id} className="grid gap-1.5 text-left text-gray-300">
+                  <legend className="text-[11px] font-semibold">{field.label}{field.required ? ' *' : ''}</legend>
+                  {(field.options || []).slice(0, 3).map((option) => <label key={option} className="flex items-center gap-2"><input type="radio" disabled /><span>{option}</span></label>)}
+                </fieldset>
+              ) : field.type === 'file' ? (
+                <label key={field.id} className="grid gap-1.5 text-left text-gray-300">
+                  <span className="text-[11px] font-semibold">{field.label}{field.required ? ' *' : ''}</span>
+                  <input disabled type="file" className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-gray-400" />
+                </label>
               ) : (
                 <label key={field.id} className="grid gap-1.5 text-left text-gray-300">
                   <span className="text-[11px] font-semibold">{field.label}{field.required ? ' *' : ''}</span>
-                  <input disabled type={field.type === 'email' || field.type === 'tel' ? field.type : 'text'} placeholder={field.placeholder} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-gray-400" />
+                  <input disabled type={['email', 'tel', 'url', 'number', 'date'].includes(field.type) ? field.type : 'text'} placeholder={field.placeholder} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-gray-400" />
                 </label>
               )
             ))}

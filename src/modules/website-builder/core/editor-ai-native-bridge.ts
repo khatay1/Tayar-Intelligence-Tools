@@ -96,9 +96,14 @@ const ALLOWED_FORM_FIELD_TYPES = new Set([
   'text',
   'email',
   'tel',
+  'url',
+  'number',
+  'date',
   'textarea',
   'select',
+  'radio',
   'checkbox',
+  'file',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {

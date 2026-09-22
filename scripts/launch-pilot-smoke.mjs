@@ -149,13 +149,14 @@ check('Optional public legal identity variables are documented for deployment',
     .every(name => envExample.includes(name)));
 check('Guarded Supabase release applies Auth config and every changed billing function',
   deploymentGuard.includes('Invoke-Supabase config push') &&
-  ['billing-admin-control', 'billing-admin-status', 'billing-portal', 'create-checkout-session', 'delete-account', 'public-plan-catalog', 'stripe-webhook']
+  ['billing-admin-control', 'billing-admin-status', 'billing-portal', 'create-checkout-session', 'delete-account', 'public-plan-catalog', 'stripe-webhook', 'website-form-submit']
     .every(name => deploymentGuard.includes(`'${name}'`)) &&
-  deploymentGuard.includes("@('public-plan-catalog', 'stripe-webhook')") &&
+  deploymentGuard.includes("@('public-plan-catalog', 'stripe-webhook', 'website-form-submit')") &&
   deploymentGuard.includes('--no-verify-jwt') &&
   supabaseConfig.includes('[functions.public-plan-catalog]') &&
   supabaseConfig.includes('[functions.stripe-webhook]') &&
-  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 2 &&
+  supabaseConfig.includes('[functions.website-form-submit]') &&
+  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 3 &&
   deploymentGuard.includes('ConfirmAuthConfig'));
 
 let failed = 0;

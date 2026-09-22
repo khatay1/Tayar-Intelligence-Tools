@@ -79,6 +79,10 @@ export interface WebsiteLead {
   message: string;
   form_data?: Record<string, unknown> | null;
   page_path?: string | null;
+  form_id?: string | null;
+  form_name?: string | null;
+  files?: Array<{ name: string; path: string; size: number; type: string }> | null;
+  workflow_status?: 'pending' | 'processing' | 'completed' | 'partial' | 'failed';
   status: 'new' | 'read' | 'archived';
   stage?: LeadStage;
   priority?: number;
