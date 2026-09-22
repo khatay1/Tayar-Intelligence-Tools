@@ -45,7 +45,7 @@ export function WebsiteBuilderV2Bridge(props:WebsiteBuilderV2BridgeProps){
  const unsavedExitMessage=l('You have unsaved website changes. Leave without saving?');
  useEffect(()=>{
   if(!dirty||typeof window==='undefined')return;
-  const handleBeforeUnload=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=unsavedExitMessage;};
+  const handleBeforeUnload=(event:BeforeUnloadEvent)=>{event.preventDefault(); event.returnValue = unsavedExitMessage;};
   const handleSameDocumentNavigation=(event:MouseEvent)=>{
    if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
    const target=event.target;
@@ -56,12 +56,12 @@ export function WebsiteBuilderV2Bridge(props:WebsiteBuilderV2BridgeProps){
    try{destination=new URL(anchor.href,window.location.href);}catch{return;}
    const current=new URL(window.location.href);
    const sameDocument=destination.origin===current.origin&&destination.pathname===current.pathname&&destination.search===current.search;
-   if(!sameDocument||destination.hash===current.hash)return;
+   if(!sameDocument || !(destination.hash !== current.hash))return;
    if(!window.confirm(unsavedExitMessage)){event.preventDefault();event.stopPropagation();}
   };
-  window.addEventListener('beforeunload',handleBeforeUnload);
+  window.addEventListener('beforeunload', handleBeforeUnload);
   document.addEventListener('click',handleSameDocumentNavigation,true);
-  return()=>{window.removeEventListener('beforeunload',handleBeforeUnload);document.removeEventListener('click',handleSameDocumentNavigation,true);};
+  return()=>{window.removeEventListener('beforeunload', handleBeforeUnload);document.removeEventListener('click',handleSameDocumentNavigation,true);};
  },[dirty,unsavedExitMessage]);
  const selection=useMemo<EditorSelection>(()=>({pageId:activePageId,sectionId:selectedSectionId||undefined,elementId:selectedElementId||undefined,containerId:selectedContainerId||undefined,formFieldId:selectedFormFieldId||undefined}),[activePageId,selectedSectionId,selectedElementId,selectedContainerId,selectedFormFieldId]);
  const project=useMemo<EditorProjectLike>(()=>({id:'website-builder-v2',pages,homePageId,symbols}),[pages,homePageId,symbols]);
