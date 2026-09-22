@@ -2,6 +2,7 @@ import type { Language } from '@/context/PreferencesContext';
 import { createSection, normalizeSection } from './defaults';
 import type { WebsiteSection } from './types';
 import { normalizePageLanguage, normalizeSlug } from './project-identifiers';
+import { hydrateEditorIntegrationsHostFromProject } from './editor-integrations-host-store';
 
 export interface NormalizedWebsiteProjectPage {
   id: string;
@@ -68,6 +69,8 @@ function createLegacyHomePage(sections: WebsiteSection[]): NormalizedWebsiteProj
 }
 
 export function normalizeWebsiteProjectLoad(input: unknown): NormalizedWebsiteProjectLoad {
+  hydrateEditorIntegrationsHostFromProject(input);
+
   if (Array.isArray(input) && input.length) {
     const sections = input.map(normalizeSection);
     const page = createLegacyHomePage(sections);
