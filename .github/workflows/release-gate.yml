@@ -48,8 +48,8 @@ jobs:
       - name: Custom domain regression
         run: node scripts/website-custom-domain-regression.mjs
 
-      - name: Collaboration Pro regression
-        run: node scripts/website-collaboration-regression.mjs
+      - name: Collaboration MAX regression
+        run: npm run smoke:website-builder:collaboration
 
       - name: AI quality and design system regression
         run: node scripts/website-design-system-regression.mjs
