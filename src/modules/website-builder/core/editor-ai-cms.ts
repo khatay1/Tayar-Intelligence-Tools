@@ -237,6 +237,25 @@ export function applyWebsiteCmsAIPlan(inputCms: WebsiteCmsState, rawPlan: Websit
       continue;
     }
 
+    if (operation.action === 'add_view') {
+      if (collection.views.length >= WEBSITE_CMS_LIMITS.views) { skip(`Skipped AI view in ${collection.name}: view limit reached.`); continue; }
+      const name = operation.name?.trim();
+      if (!name) { skip(`Skipped AI view in ${collection.name}: view name is required.`); continue; }
+      const fieldKeys = new Set(collection.fields.map((field) => field.key));
+      const filters = (operation.filters || []).filter((filter) => fieldKeys.has(filter.fieldKey)).slice(0, WEBSITE_CMS_LIMITS.filters);
+      const view = {
+        id: uid('view'),
+        name: name.slice(0, 80),
+        filters,
+        sortField: operation.sortField && fieldKeys.has(operation.sortField) ? operation.sortField : undefined,
+        sortDirection: operation.sortDirection === 'desc' ? 'desc' as const : 'asc' as const,
+        limit: operation.limit,
+      };
+      cms = { ...cms, collections: cms.collections.map((item, index) => index === collectionIndex ? { ...collection, views: [...collection.views, view] } : item) };
+      applied += 1;
+      continue;
+    }
+
     const entryIndex = collection.entries.findIndex((entry) => entry.id === operation.entryId);
     if (entryIndex < 0) { skip(`Skipped ${operation.action} in ${collection.name}: entry was not found.`); continue; }
     const entry = collection.entries[entryIndex];
@@ -259,25 +278,6 @@ export function applyWebsiteCmsAIPlan(inputCms: WebsiteCmsState, rawPlan: Websit
       const localizedValues = { ...(entry.localizedValues || {}), [operation.language]: languageValues };
       const entries = collection.entries.map((candidate, index) => index === entryIndex ? { ...entry, localizedValues } : candidate);
       cms = { ...cms, collections: cms.collections.map((item, index) => index === collectionIndex ? { ...collection, entries } : item) };
-      applied += 1;
-      continue;
-    }
-
-    if (operation.action === 'add_view') {
-      if (collection.views.length >= WEBSITE_CMS_LIMITS.views) { skip(`Skipped AI view in ${collection.name}: view limit reached.`); continue; }
-      const name = operation.name?.trim();
-      if (!name) { skip(`Skipped AI view in ${collection.name}: view name is required.`); continue; }
-      const fieldKeys = new Set(collection.fields.map((field) => field.key));
-      const filters = (operation.filters || []).filter((filter) => fieldKeys.has(filter.fieldKey)).slice(0, WEBSITE_CMS_LIMITS.filters);
-      const view = {
-        id: uid('view'),
-        name: name.slice(0, 80),
-        filters,
-        sortField: operation.sortField && fieldKeys.has(operation.sortField) ? operation.sortField : undefined,
-        sortDirection: operation.sortDirection === 'desc' ? 'desc' as const : 'asc' as const,
-        limit: operation.limit,
-      };
-      cms = { ...cms, collections: cms.collections.map((item, index) => index === collectionIndex ? { ...collection, views: [...collection.views, view] } : item) };
       applied += 1;
     }
   }
