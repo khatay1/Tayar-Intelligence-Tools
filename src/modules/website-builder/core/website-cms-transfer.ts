@@ -1,6 +1,6 @@
 import type { Language } from '@/context/PreferencesContext';
 import { normalizeSlug } from './project-identifiers';
-import { WEBSITE_CMS_LANGUAGES, WEBSITE_CMS_LIMITS, type WebsiteCmsCollection, type WebsiteCmsEntry, type WebsiteCmsField, type WebsiteCmsLocalizedValues, type WebsiteCmsState, type WebsiteCmsValue } from './website-cms';
+import { WEBSITE_CMS_LANGUAGES, WEBSITE_CMS_LIMITS, type WebsiteCmsCollection, type WebsiteCmsEntry, type WebsiteCmsField, type WebsiteCmsFilter, type WebsiteCmsFilterOperator, type WebsiteCmsLocalizedValues, type WebsiteCmsState, type WebsiteCmsValue, type WebsiteCmsView } from './website-cms';
 
 export type WebsiteCmsImportMode = 'append' | 'replace';
 export type WebsiteCmsTransferFormat = 'json' | 'csv';
@@ -13,6 +13,7 @@ export interface WebsiteCmsImportPreview {
 }
 
 const FIELD_TYPES = new Set(['text', 'rich-text', 'number', 'boolean', 'date', 'image', 'url', 'reference']);
+const FILTER_OPERATORS = new Set<WebsiteCmsFilterOperator>(['equals', 'not-equals', 'contains', 'truthy']);
 const RESERVED_COLUMNS = new Set(['id', '_draft', '_publishAt', '_unpublishAt']);
 const LOCALIZED_COLUMN = /^(.*)__(en|sv|ar)$/;
 
@@ -80,6 +81,41 @@ export function exportWebsiteCmsCollectionCsv(collection: WebsiteCmsCollection):
   return [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\r\n');
 }
 
+function normalizeImportedViews(candidate: Partial<WebsiteCmsCollection>, fieldSpecs: Array<{ sourceKey: string; field: WebsiteCmsField }>, warnings: string[]): WebsiteCmsView[] {
+  const rawViews = Array.isArray(candidate.views) ? candidate.views : [];
+  if (rawViews.length > WEBSITE_CMS_LIMITS.views) warnings.push('Some views were skipped because the collection view limit was reached.');
+  const fieldKeyMap = new Map<string, string>();
+  for (const { sourceKey, field } of fieldSpecs) {
+    fieldKeyMap.set(sourceKey, field.key);
+    fieldKeyMap.set(field.key, field.key);
+  }
+  return rawViews.slice(0, WEBSITE_CMS_LIMITS.views).flatMap((rawView, viewIndex) => {
+    if (!rawView || typeof rawView !== 'object') return [];
+    const source = rawView as Partial<WebsiteCmsView>;
+    const rawFilters = Array.isArray(source.filters) ? source.filters : [];
+    const filters: WebsiteCmsFilter[] = rawFilters.slice(0, WEBSITE_CMS_LIMITS.filters).flatMap((rawFilter) => {
+      if (!rawFilter || typeof rawFilter !== 'object') return [];
+      const filter = rawFilter as Partial<WebsiteCmsFilter>;
+      const fieldKey = fieldKeyMap.get(String(filter.fieldKey || ''));
+      if (!fieldKey) return [];
+      const operator = FILTER_OPERATORS.has(filter.operator as WebsiteCmsFilterOperator) ? filter.operator as WebsiteCmsFilterOperator : 'equals';
+      const next: WebsiteCmsFilter = { fieldKey, operator };
+      if (typeof filter.value === 'string' || typeof filter.value === 'number' || typeof filter.value === 'boolean') next.value = filter.value;
+      return [next];
+    });
+    if (rawFilters.length > filters.length) warnings.push(`Some filters were skipped from imported view ${String(source.name || viewIndex + 1)}.`);
+    const mappedSortField = source.sortField ? fieldKeyMap.get(String(source.sortField)) : undefined;
+    return [{
+      id: uid('view'),
+      name: String(source.name || `View ${viewIndex + 1}`).slice(0, 80),
+      filters,
+      sortField: mappedSortField,
+      sortDirection: source.sortDirection === 'desc' ? 'desc' : 'asc',
+      limit: Number.isFinite(Number(source.limit)) ? Math.min(500, Math.max(1, Math.round(Number(source.limit)))) : undefined,
+    }];
+  });
+}
+
 function normalizeImportedCollection(raw: unknown, fallbackName: string): WebsiteCmsImportPreview {
   if (!raw || typeof raw !== 'object') throw new Error('Import file does not contain a CMS collection.');
   const source = ('collection' in raw && (raw as { collection?: unknown }).collection) || raw;
@@ -108,6 +144,7 @@ function normalizeImportedCollection(raw: unknown, fallbackName: string): Websit
     keys.add(key);
   }
   const fields = fieldSpecs.map((spec) => spec.field);
+  const fieldKeyMap = new Map(fieldSpecs.flatMap(({ sourceKey, field }) => [[sourceKey, field.key] as const, [field.key, field.key] as const]));
   const rawEntries = Array.isArray(candidate.entries) ? candidate.entries : [];
   const entries: WebsiteCmsEntry[] = rawEntries.slice(0, WEBSITE_CMS_LIMITS.entries).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
@@ -134,8 +171,10 @@ function normalizeImportedCollection(raw: unknown, fallbackName: string): Websit
     }];
   });
   if (rawEntries.length > entries.length) warnings.push('Some entries were skipped because the collection entry limit was reached.');
-  const slugField = fields.some((field) => field.key === candidate.slugField) ? String(candidate.slugField) : fields.find((field) => field.key === 'slug')?.key || fields[0].key;
-  return { collection: { id: uid('collection'), name: String(candidate.name || fallbackName).slice(0, 80), slug: normalizeSlug(String(candidate.slug || fallbackName)) || `collection-${Date.now()}`, slugField, fields, entries, views: [] }, warnings, importedEntries: entries.length, skippedEntries: Math.max(0, rawEntries.length - entries.length) };
+  const requestedSlugField = String(candidate.slugField || '');
+  const slugField = fieldKeyMap.get(requestedSlugField) || fields.find((field) => field.key === 'slug')?.key || fields[0].key;
+  const views = normalizeImportedViews(candidate, fieldSpecs, warnings);
+  return { collection: { id: uid('collection'), name: String(candidate.name || fallbackName).slice(0, 80), slug: normalizeSlug(String(candidate.slug || fallbackName)) || `collection-${Date.now()}`, slugField, fields, entries, views }, warnings, importedEntries: entries.length, skippedEntries: Math.max(0, rawEntries.length - entries.length) };
 }
 
 export function previewWebsiteCmsJsonImport(input: string, fallbackName = 'Imported collection'): WebsiteCmsImportPreview {
