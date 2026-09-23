@@ -26,5 +26,6 @@ export function sanitizeCVLink(value: string): string {
 }
 
 export function safeCVText(value: unknown, maxLength = 10_000): string {
-  return typeof value === 'string' ? value.replace(/\u0000/g, '').slice(0, maxLength) : '';
+  if (typeof value !== 'string') return '';
+  return value.split(String.fromCharCode(0)).join('').slice(0, maxLength);
 }
