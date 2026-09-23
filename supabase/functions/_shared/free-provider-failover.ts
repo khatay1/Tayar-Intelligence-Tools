@@ -13,6 +13,12 @@ interface BuildFailoverOptions<TProvider> {
   getDefaultModel: (provider: TProvider) => string;
 }
 
+export interface FailoverLifecycle<TProvider, TResult> {
+  onSuccess?: (candidate: FailoverCandidate<TProvider>, result: TResult, durationMs: number) => void;
+  onRetryableFailure?: (candidate: FailoverCandidate<TProvider>, error: unknown, durationMs: number) => void;
+  onTerminalFailure?: (candidate: FailoverCandidate<TProvider>, error: unknown, durationMs: number) => void;
+}
+
 /**
  * Loads only reviewed free providers that are actually configured at runtime.
  * Missing/disabled/secret-less providers are represented by loadProvider as null
@@ -40,16 +46,23 @@ export async function runFailoverCandidates<TProvider, TResult>(
   candidates: readonly FailoverCandidate<TProvider>[],
   run: (candidate: FailoverCandidate<TProvider>) => Promise<TResult>,
   canRetry: (error: unknown) => boolean,
-  onRetryableFailure?: (candidate: FailoverCandidate<TProvider>, error: unknown) => void,
+  lifecycle: FailoverLifecycle<TProvider, TResult> = {},
 ): Promise<{ result: TResult | null; lastRetryableError: unknown }> {
   let lastRetryableError: unknown = null;
   for (const candidate of candidates) {
+    const startedAt = Date.now();
     try {
-      return { result: await run(candidate), lastRetryableError };
+      const result = await run(candidate);
+      lifecycle.onSuccess?.(candidate, result, Date.now() - startedAt);
+      return { result, lastRetryableError };
     } catch (error) {
-      if (!canRetry(error)) throw error;
+      const durationMs = Date.now() - startedAt;
+      if (!canRetry(error)) {
+        lifecycle.onTerminalFailure?.(candidate, error, durationMs);
+        throw error;
+      }
       lastRetryableError = error;
-      onRetryableFailure?.(candidate, error);
+      lifecycle.onRetryableFailure?.(candidate, error, durationMs);
     }
   }
   return { result: null, lastRetryableError };
