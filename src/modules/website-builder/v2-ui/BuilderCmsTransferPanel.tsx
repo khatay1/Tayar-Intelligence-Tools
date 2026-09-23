@@ -72,7 +72,7 @@ export function BuilderCmsTransferPanel({ cms, collection, disabled, onChange, o
       setPreview(next);
     } catch (reason) {
       setPreview(undefined);
-      setError(reason instanceof Error ? reason.message : l('Import validation failed'));
+      setError(reason instanceof Error ? l(reason.message) : l('Import validation failed'));
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -89,12 +89,12 @@ export function BuilderCmsTransferPanel({ cms, collection, disabled, onChange, o
       setPreview(undefined);
       setError('');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : l('Import validation failed'));
+      setError(reason instanceof Error ? l(reason.message) : l('Import validation failed'));
     }
   };
 
   return <div className="space-y-2 rounded-xl border border-white/10 p-3" data-testid="builder-cms-transfer-panel">
-    <div className="flex items-center justify-between gap-2"><strong className="text-[11px] text-white">{l('Import / Export')}</strong><span className="text-[9px] text-gray-500">JSON · CSV</span></div>
+    <div className="flex items-center justify-between gap-2"><strong className="text-[11px] text-white">{l('Import / Export')}</strong><span className="text-[9px] text-gray-500">{l('JSON · CSV')}</span></div>
     <p className="text-[9px] leading-4 text-gray-500">{l('Preview and validate imported content before changing the project.')}</p>
     <div className="grid grid-cols-2 gap-2">
       <button type="button" className={button} onClick={() => exportCollection('json')} disabled={disabled || !collection}><FileJson2 size={13} />{l('Export JSON')}</button>
@@ -107,7 +107,7 @@ export function BuilderCmsTransferPanel({ cms, collection, disabled, onChange, o
     {preview && <div className="space-y-2 rounded-lg border border-violet-400/20 bg-violet-500/5 p-2" data-testid="cms-import-preview">
       <div className="flex items-center justify-between text-[10px]"><span className="font-semibold text-white">{l('Import preview')}</span><span className="text-violet-300">{preview.importedEntries} {l('Entries')}</span></div>
       <div className="text-[9px] text-gray-400">{preview.collection.fields.length} {l('Fields')} · {preview.collection.name}</div>
-      {preview.warnings.map((warning) => <div key={warning} className="text-[9px] text-amber-200">• {warning}</div>)}
+      {preview.warnings.map((warning) => <div key={warning} className="text-[9px] text-amber-200">• {l(warning)}</div>)}
       <select className={control} value={mode} onChange={(event) => setMode(event.target.value as WebsiteCmsImportMode)}>
         <option value="append">{l('Import as new collection')}</option>
         <option value="replace" disabled={!collection}>{l('Replace collection')}</option>
