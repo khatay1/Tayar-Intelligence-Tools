@@ -2,11 +2,24 @@ import { useCallback, useState } from 'react';
 import { CVData } from '@/lib/cv-types';
 import { CVProposal, applyVerifiedCVProposal, verifyCVProposal } from './cv-proposals';
 
-export function useCVAIProposals(cv: CVData, setCV: (next: CVData | ((current: CVData) => CVData)) => void) {
+function proposalKey(proposal: CVProposal): string {
+  return [proposal.kind, proposal.section, proposal.itemId ?? '', proposal.proposed.trim().toLocaleLowerCase()].join(':');
+}
+
+export function useCVAIProposals(_cv: CVData, setCV: (next: CVData | ((current: CVData) => CVData)) => void) {
   const [proposals, setProposals] = useState<CVProposal[]>([]);
 
   const addProposals = useCallback((next: CVProposal[]) => {
-    setProposals(current => [...current, ...next]);
+    setProposals(current => {
+      const seen = new Set(current.map(proposalKey));
+      const additions = next.filter(proposal => {
+        const key = proposalKey(proposal);
+        if (!proposal.proposed.trim() || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return additions.length ? [...current, ...additions] : current;
+    });
   }, []);
 
   const dismiss = useCallback((id: string) => {
@@ -14,13 +27,12 @@ export function useCVAIProposals(cv: CVData, setCV: (next: CVData | ((current: C
   }, []);
 
   const verifyAndApply = useCallback((id: string) => {
+    let selected: CVProposal | undefined;
     setProposals(current => {
-      const proposal = current.find(item => item.id === id);
-      if (!proposal) return current;
-      const verified = verifyCVProposal(proposal);
-      setCV(data => applyVerifiedCVProposal(data, verified));
-      return current.filter(item => item.id !== id);
+      selected = current.find(item => item.id === id);
+      return selected ? current.filter(item => item.id !== id) : current;
     });
+    if (selected) setCV(data => applyVerifiedCVProposal(data, verifyCVProposal(selected!)));
   }, [setCV]);
 
   const clear = useCallback(() => setProposals([]), []);
