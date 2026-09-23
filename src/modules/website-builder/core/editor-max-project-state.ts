@@ -2,6 +2,10 @@ import {
   embedEditorIntegrationsHostIntoProject,
   hydrateEditorIntegrationsHostFromProject,
 } from './editor-integrations-host-store';
+import {
+  getEditorLocalizationHostConfig,
+  hydrateEditorLocalizationHost,
+} from './editor-localization-host-store';
 
 export const EDITOR_MAX_STATE_KEY = 'maxState' as const;
 export const EDITOR_MAX_STATE_VERSION = 1 as const;
@@ -77,11 +81,15 @@ export function embedEditorMaxProjectState<T>(project: T): T {
   const record = asRecord(project);
   if (!record) return project;
 
-  const withMaxState = withEditorMaxProjectState(record, {});
+  const withMaxState = withEditorMaxProjectState(record, {
+    localization: getEditorLocalizationHostConfig(),
+  });
   return embedEditorIntegrationsHostIntoProject(withMaxState) as T;
 }
 
 export function hydrateEditorMaxProjectState(input: unknown): EditorMaxProjectState {
+  const state = readEditorMaxProjectState(input);
   hydrateEditorIntegrationsHostFromProject(input);
-  return readEditorMaxProjectState(input);
+  hydrateEditorLocalizationHost(state.localization);
+  return state;
 }
