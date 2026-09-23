@@ -6,6 +6,8 @@ const seo = read('src/modules/website-builder/core/editor-seo-model.ts');
 const panel = read('src/modules/website-builder/v2-ui/BuilderSiteQualityPanel.tsx');
 const seoPanel = read('src/modules/website-builder/v2-ui/BuilderPageSeoPanel.tsx');
 const bridge = read('src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
+const bridgeBase = read('src/modules/website-builder/v2-ui/WebsiteBuilderV2BridgeBase.tsx');
+const bridgeSources = `${bridge}\n${bridgeBase}`;
 const localization = read('src/modules/website-builder/core/editor-site-quality-localization.ts') + read('src/modules/website-builder/core/editor-seo-localization.ts');
 const checks = [
   ['quality audit', quality.includes('auditEditorSiteQuality')],
@@ -20,9 +22,9 @@ const checks = [
   ['canonical', seo.includes('canonical')],
   ['quality dashboard', panel.includes('Fix with AI') && panel.includes('report.score')],
   ['page SEO editor', seoPanel.includes("action: 'update_page'") && seoPanel.includes('Save SEO')],
-  ['bridge integration', bridge.includes('BuilderSiteQualityPanel') && bridge.includes('BuilderPageSeoPanel')],
-  ['issue navigation', bridge.includes('onSelectIssue=') && bridge.includes('item.pageId||activePageId') && bridge.includes('sectionId:item.sectionId') && bridge.includes('elementId:item.elementId') && bridge.includes('setInspectorOpen(true)')],
-  ['AI fix contract', bridge.includes('onFixSiteQualityWithAI')],
+  ['bridge integration', bridgeSources.includes('BuilderSiteQualityPanel') && bridgeSources.includes('BuilderPageSeoPanel')],
+  ['issue navigation', bridgeSources.includes('onSelectIssue=') && bridgeSources.includes('item.pageId||activePageId') && bridgeSources.includes('sectionId:item.sectionId') && bridgeSources.includes('elementId:item.elementId') && bridgeSources.includes('setInspectorOpen(true)')],
+  ['AI fix contract', bridgeSources.includes('onFixSiteQualityWithAI')],
   ['Arabic localization', localization.includes('arSiteQuality') && localization.includes('arSeoPhrases')],
   ['Swedish localization', localization.includes('svSiteQuality') && localization.includes('svSeoPhrases')],
 ];
