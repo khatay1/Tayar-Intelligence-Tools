@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { CVData } from '@/lib/cv-types';
 import {
   appendCollectionItem,
@@ -32,17 +32,25 @@ export function useCVEditor(cv: CVData, setCV: (next: CVData | ((current: CVData
     setCV(current => appendCollectionItem(current, collection, item));
   }, [setCV]);
 
-  return {
+  const addExperience = useCallback(() => appendItem('experience', createExperience()), [appendItem]);
+  const addEducation = useCallback(() => appendItem('education', createEducation()), [appendItem]);
+  const addSkill = useCallback(() => appendItem('skills', createSkill()), [appendItem]);
+  const addLanguage = useCallback(() => appendItem('languages', createLanguage()), [appendItem]);
+  const addProject = useCallback(() => appendItem('projects', createProject()), [appendItem]);
+  const addCertificate = useCallback(() => appendItem('certificates', createCertificate()), [appendItem]);
+  const addAward = useCallback(() => appendItem('awards', createAward()), [appendItem]);
+
+  return useMemo(() => ({
     cv,
     updatePersonal,
     updateItem,
     deleteItem,
-    addExperience: () => appendItem('experience', createExperience()),
-    addEducation: () => appendItem('education', createEducation()),
-    addSkill: () => appendItem('skills', createSkill()),
-    addLanguage: () => appendItem('languages', createLanguage()),
-    addProject: () => appendItem('projects', createProject()),
-    addCertificate: () => appendItem('certificates', createCertificate()),
-    addAward: () => appendItem('awards', createAward()),
-  };
+    addExperience,
+    addEducation,
+    addSkill,
+    addLanguage,
+    addProject,
+    addCertificate,
+    addAward,
+  }), [cv, updatePersonal, updateItem, deleteItem, addExperience, addEducation, addSkill, addLanguage, addProject, addCertificate, addAward]);
 }
