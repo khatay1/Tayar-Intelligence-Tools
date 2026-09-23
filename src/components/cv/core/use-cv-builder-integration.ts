@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CVData, ResumeVersion } from '@/lib/cv-types';
 import { useCVBuilderCore } from './use-cv-builder-core';
@@ -20,35 +20,47 @@ export function useCVBuilderIntegration({ supabase, projects, userId, enabled = 
   const persistence = useCVPersistence({ supabase, projects, userId });
   const [jobDescription, setJobDescription] = useState('');
 
+  const autosave = useCallback(async document => {
+    const title = document.data.personal.fullName.trim() || 'Untitled Resume';
+    await persistence.save(document, title, 0);
+  }, [persistence.save]);
+
   const core = useCVBuilderCore({
     userId,
     cvId: persistence.cvId,
     enabled,
-    autosave: async document => {
-      const title = document.data.personal.fullName.trim() || 'Untitled Resume';
-      await persistence.save(document, title, 0);
-    },
+    autosave,
   });
 
-  const sections = useCVSections(core.sections, core.setSections);
+  const sectionsController = useCVSections(core.sections, core.setSections);
   const quality = useCVQuality(core.cv, core.template, jobDescription);
   const proposals = useCVAIProposals(core.cv, core.setData);
-  const versions = useCVVersions(supabase, userId, persistence.cvId);
+  const versionState = useCVVersions(supabase, userId, persistence.cvId);
 
-  const saveVersion = useCallback(() => versions.save(core.cv, core.template), [versions, core.cv, core.template]);
+  const saveCurrentVersion = useCallback(
+    () => versionState.save(core.cv, core.template),
+    [versionState.save, core.cv, core.template],
+  );
+
   const restoreVersion = useCallback((version: ResumeVersion) => {
     core.setData(version.data as CVData);
     core.setTemplate(version.template as typeof core.template);
-  }, [core]);
+  }, [core.setData, core.setTemplate]);
 
-  return useMemo(() => ({
+  return {
     ...core,
     persistence,
-    sectionsController: sections,
+    sectionsController,
     quality,
     proposals,
-    versions: { ...versions, saveCurrent: saveVersion, restore: restoreVersion },
+    versions: {
+      versions: versionState.versions,
+      loading: versionState.loading,
+      load: versionState.load,
+      saveCurrent: saveCurrentVersion,
+      restore: restoreVersion,
+    },
     jobDescription,
     setJobDescription,
-  }), [core, persistence, sections, quality, proposals, versions, saveVersion, restoreVersion, jobDescription]);
+  };
 }
