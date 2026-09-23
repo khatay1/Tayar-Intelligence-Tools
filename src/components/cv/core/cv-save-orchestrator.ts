@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CVDocument } from './cv-document';
-import { saveCVRecord } from './cv-persistence';
+import { deleteCVRecord, saveCVRecord } from './cv-persistence';
 import { CVProjectAdapter, syncCVProject } from './cv-project-sync';
 
 export interface CVSaveContext {
@@ -32,13 +32,21 @@ export async function saveCVEverywhere(
     context.atsScore,
   );
 
-  const projectId = await syncCVProject(
-    projects,
-    context.userId,
-    context.projectId,
-    context.title,
-    context.document,
-  );
-
-  return { cvId: cvResult.cvId, projectId, createdCV: cvResult.created };
+  try {
+    const projectId = await syncCVProject(
+      projects,
+      context.userId,
+      context.projectId,
+      context.title,
+      context.document,
+    );
+    return { cvId: cvResult.cvId, projectId, createdCV: cvResult.created };
+  } catch (error) {
+    // A brand-new CV should not be left orphaned when its workspace project
+    // cannot be created. Existing CV updates are preserved and retried later.
+    if (cvResult.created) {
+      await deleteCVRecord(supabase, context.userId, cvResult.cvId).catch(() => undefined);
+    }
+    throw error;
+  }
 }
