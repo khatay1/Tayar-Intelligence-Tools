@@ -14,25 +14,37 @@ interface UseCVPersistenceOptions {
 
 export function useCVPersistence(options: UseCVPersistenceOptions) {
   const { supabase, projects, userId, initialCVId = null, initialProjectId = null } = options;
-  const [cvId, setCVId] = useState<string | null>(initialCVId);
-  const [projectId, setProjectId] = useState<string | null>(initialProjectId);
+  const [cvId, setCVIdState] = useState<string | null>(initialCVId);
+  const [projectId, setProjectIdState] = useState<string | null>(initialProjectId);
+  const cvIdRef = useRef<string | null>(initialCVId);
+  const projectIdRef = useRef<string | null>(initialProjectId);
   const inFlightRef = useRef<Promise<void> | null>(null);
   const latestRef = useRef<{ document: CVDocument; title: string; atsScore: number } | null>(null);
+
+  const setCVId = useCallback((value: string | null) => {
+    cvIdRef.current = value;
+    setCVIdState(value);
+  }, []);
+  const setProjectId = useCallback((value: string | null) => {
+    projectIdRef.current = value;
+    setProjectIdState(value);
+  }, []);
 
   const save = useCallback(async (document: CVDocument, title: string, atsScore: number) => {
     if (!userId) return;
     latestRef.current = { document, title, atsScore };
     if (inFlightRef.current) {
       await inFlightRef.current;
-      if (latestRef.current?.document !== document) return save(latestRef.current!.document, latestRef.current!.title, latestRef.current!.atsScore);
+      const latest = latestRef.current;
+      if (latest && latest.document !== document) await save(latest.document, latest.title, latest.atsScore);
       return;
     }
 
     const task = (async () => {
       const result = await saveCVEverywhere(supabase, projects, {
         userId,
-        cvId,
-        projectId,
+        cvId: cvIdRef.current,
+        projectId: projectIdRef.current,
         title,
         atsScore,
         document,
@@ -46,7 +58,7 @@ export function useCVPersistence(options: UseCVPersistenceOptions) {
     } finally {
       if (inFlightRef.current === task) inFlightRef.current = null;
     }
-  }, [userId, cvId, projectId, projects, supabase]);
+  }, [userId, projects, supabase, setCVId, setProjectId]);
 
   return { cvId, projectId, setCVId, setProjectId, save };
 }
