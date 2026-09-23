@@ -1,5 +1,6 @@
 import { useMemo, useState, type ComponentProps } from 'react';
 import { BuilderCmsPanel as BuilderCmsCorePanel } from './BuilderCmsCorePanel';
+import { BuilderCmsLocalizationPanel } from './BuilderCmsLocalizationPanel';
 import { BuilderCmsTransferPanel } from './BuilderCmsTransferPanel';
 
 type BuilderCmsPanelProps = ComponentProps<typeof BuilderCmsCorePanel>;
@@ -30,6 +31,7 @@ export function BuilderCmsPanel(props: BuilderCmsPanelProps) {
         onChange={onChange}
         onImportedCollection={setTransferCollectionId}
       />
+      <BuilderCmsLocalizationPanel cms={cms} disabled={disabled} onChange={onChange} />
     </div>
     <BuilderCmsCorePanel {...props} />
   </div>;
