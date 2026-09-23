@@ -1,5 +1,5 @@
 import React from 'react';
-import { ColorTheme, SectionConfig, TemplateId } from '@/lib/cv-types';
+import { ColorTheme, SectionConfig, TemplateId, ResumeVersion, CVData } from '@/lib/cv-types';
 import { CVContentEditor } from '../editor/CVContentEditor';
 import { CVDesignPanel } from '../design/CVDesignPanel';
 import { CVJobMatchPanel } from '../job/CVJobMatchPanel';
@@ -7,13 +7,12 @@ import { CVAIProposalPanel } from '../ai/CVAIProposalPanel';
 import { CVVersionsPanel } from '../versions/CVVersionsPanel';
 import { CVATSReport } from '../quality/cv-ats';
 import { CVProposal } from '../ai/cv-proposals';
-import { ResumeVersion, CVData } from '@/lib/cv-types';
 import { CVCollectionKey } from './cv-operations';
 
-type Panel = 'edit' | 'design' | 'ai' | 'job' | 'versions';
+export type CVBuilderPanel = 'edit' | 'design' | 'ai' | 'job' | 'versions';
 
 interface Props {
-  panel: Panel;
+  panel: CVBuilderPanel;
   editSection: string;
   cv: CVData;
   template: TemplateId;
@@ -21,6 +20,7 @@ interface Props {
   fontId: string;
   sections: SectionConfig[];
   editor: {
+    updatePersonal: <K extends keyof CVData['personal']>(field: K, value: CVData['personal'][K]) => void;
     updateItem: <K extends CVCollectionKey>(collection: K, id: string, patch: Partial<CVData[K][number]>) => void;
     deleteItem: <K extends CVCollectionKey>(collection: K, id: string) => void;
     addExperience: () => void; addEducation: () => void; addSkill: () => void; addLanguage: () => void;
@@ -39,8 +39,8 @@ interface Props {
   onDismissProposal: (id: string) => void;
   versions: ResumeVersion[];
   versionsLoading?: boolean;
-  onSaveVersion: () => void;
-  onRestoreVersion: (version: ResumeVersion) => void;
+  onSaveVersion: () => void | Promise<unknown>;
+  onRestoreVersion: (version: ResumeVersion) => void | Promise<unknown>;
 }
 
 export function CVBuilderShell(props: Props) {
