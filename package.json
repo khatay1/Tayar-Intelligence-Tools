@@ -13,7 +13,7 @@
     "smoke:website-builder:browser": "node scripts/website-builder-browser-regression-launcher.mjs",
     "launch:website-builder": "node scripts/website-builder-smoke.mjs && node scripts/website-builder-launch.mjs",
     "smoke:site-polish": "node scripts/site-polish-smoke.mjs",
-    "health:project": "npm run typecheck && npm run smoke:edge-functions && node scripts/project-health-refactor.mjs && npm run smoke:pdf-tools && npm run launch:website-builder && npm run smoke:published-runtime && npm run smoke:site-polish && npm run smoke:translator && npm run smoke:workspace-production && npm run smoke:i18n && npm run smoke:production && npm run smoke:mobile-store && npm run smoke:launch-pilot && npm run smoke:recovery-regression && npm run smoke:website-builder:design && npm run smoke:website-builder:cms && npm run smoke:website-builder:cms-transfer && npm run smoke:website-builder:cms-localization && npm run smoke:website-builder:cms-ai && npm run smoke:website-builder:templates && npm run smoke:website-builder:seo && npm run smoke:website-builder:forms && npm run smoke:website-builder:collaboration && npm run smoke:website-builder:integrations && npm run smoke:website-builder:reachability",
+    "health:project": "npm run typecheck && npm run smoke:edge-functions && node scripts/project-health-refactor.mjs && npm run smoke:pdf-tools && npm run launch:website-builder && npm run smoke:published-runtime && npm run smoke:site-polish && npm run smoke:translator && npm run smoke:workspace-production && npm run smoke:i18n && npm run smoke:production && npm run smoke:mobile-store && npm run smoke:launch-pilot && npm run smoke:recovery-regression && npm run smoke:website-builder:design && npm run smoke:website-builder:cms && npm run smoke:website-builder:cms-transfer && npm run smoke:website-builder:cms-localization && npm run smoke:website-builder:cms-ai && npm run smoke:website-builder:templates && npm run smoke:website-builder:seo && npm run smoke:website-builder:forms && npm run smoke:website-builder:collaboration && npm run smoke:website-builder:integrations && npm run smoke:website-builder:reachability && npm run smoke:website-builder:publishing-host",
     "smoke:edge-functions": "node scripts/edge-functions-syntax-smoke.mjs",
     "smoke:launch-pilot": "node scripts/launch-pilot-smoke.mjs",
     "smoke:translator": "node scripts/translator-smoke.mjs",
@@ -40,7 +40,8 @@
     "smoke:website-builder:forms": "node scripts/website-builder-forms-regression.mjs",
     "smoke:website-builder:collaboration": "node scripts/website-builder-collaboration-regression.mjs && node scripts/website-collaboration-regression.mjs",
     "smoke:website-builder:integrations": "node scripts/website-builder-integrations-regression.mjs",
-    "smoke:website-builder:reachability": "node scripts/website-builder-max-reachability-regression.mjs"
+    "smoke:website-builder:reachability": "node scripts/website-builder-max-reachability-regression.mjs",
+    "smoke:website-builder:publishing-host": "node scripts/website-builder-publishing-host-wiring-regression.mjs"
   },
   "dependencies": {
     "@pdfme/pdf-lib": "^6.1.12",
@@ -57,7 +58,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.18",
     "eslint": "^9.39.5",
-    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+    "eslint-plugin-react-hooks": "^5.0.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
     "globals": "^15.9.0",
     "postcss": "^8.4.35",
