@@ -11,9 +11,12 @@ import { CVCollectionKey } from './cv-operations';
 
 export type CVBuilderPanel = 'edit' | 'design' | 'ai' | 'job' | 'versions';
 
+interface EditSectionOption { id: string; label: string; }
 interface Props {
   panel: CVBuilderPanel;
   editSection: string;
+  editSections: EditSectionOption[];
+  setEditSection: (section: string) => void;
   cv: CVData;
   template: TemplateId;
   colorTheme: ColorTheme;
@@ -44,7 +47,7 @@ interface Props {
 }
 
 export function CVBuilderShell(props: Props) {
-  if (props.panel === 'edit') return <CVContentEditor cv={props.cv} section={props.editSection} setCV={props.setCV} editor={props.editor} />;
+  if (props.panel === 'edit') return <div className="space-y-4"><div className="grid grid-cols-2 gap-1.5">{props.editSections.map(section => <button type="button" key={section.id} aria-pressed={props.editSection === section.id} onClick={() => props.setEditSection(section.id)} className={`rounded-lg border px-2.5 py-2 text-left text-xs ${props.editSection === section.id ? 'border-violet-500/50 bg-violet-600/10 text-white' : 'border-white/10 text-gray-400 hover:text-white'}`}>{section.label}</button>)}</div><CVContentEditor cv={props.cv} section={props.editSection} setCV={props.setCV} editor={props.editor} /></div>;
   if (props.panel === 'design') return <CVDesignPanel template={props.template} colorTheme={props.colorTheme} fontId={props.fontId} sections={props.sections} setTemplate={props.setTemplate} setColorTheme={props.setColorTheme} setFontId={props.setFontId} {...props.sectionsController} />;
   if (props.panel === 'job') return <CVJobMatchPanel jobDescription={props.jobDescription} setJobDescription={props.setJobDescription} report={props.ats} />;
   if (props.panel === 'versions') return <CVVersionsPanel versions={props.versions} loading={props.versionsLoading} onSave={props.onSaveVersion} onRestore={props.onRestoreVersion} />;
