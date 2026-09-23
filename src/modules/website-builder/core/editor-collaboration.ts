@@ -42,16 +42,77 @@ export function summarizeEditorVersionChanges(changes: EditorVersionChange[]): E
 }
 
 function pathTokens(path: string): Array<string | number> {
-  const tokens: Array<string | number> = []; path.replace(/^\$\.?/, '').replace(/([^.[\]]+)|\[(\d+)\]/g, (_m, key, index) => { tokens.push(index === undefined ? key : Number(index)); return ''; }); return tokens;
+  const tokens: Array<string | number> = [];
+  path.replace(/^\$\.?/, '').replace(/([^.[\]]+)|\[(\d+)\]/g, (_match, key: string | undefined, index: string | undefined) => {
+    tokens.push(index === undefined ? key || '' : Number(index));
+    return '';
+  });
+  return tokens.filter((token) => token !== '');
+}
+
+type MutablePathContainer = Record<string, unknown> | unknown[];
+
+function isMutablePathContainer(value: unknown): value is MutablePathContainer {
+  return Array.isArray(value) || (typeof value === 'object' && value !== null);
+}
+
+function getPathChild(value: unknown, token: string | number): unknown {
+  if (Array.isArray(value)) return typeof token === 'number' ? value[token] : undefined;
+  if (typeof value === 'object' && value !== null && typeof token === 'string') return (value as Record<string, unknown>)[token];
+  return undefined;
+}
+
+function setPathChild(container: MutablePathContainer, token: string | number, value: unknown): boolean {
+  if (Array.isArray(container) && typeof token === 'number') {
+    container[token] = value;
+    return true;
+  }
+  if (!Array.isArray(container) && typeof token === 'string') {
+    container[token] = value;
+    return true;
+  }
+  return false;
+}
+
+function deletePathChild(container: MutablePathContainer, token: string | number): void {
+  if (Array.isArray(container) && typeof token === 'number') {
+    container.splice(token, 1);
+    return;
+  }
+  if (!Array.isArray(container) && typeof token === 'string') delete container[token];
 }
 
 export function restoreEditorVersionPaths<T>(current: T, snapshot: T, paths: string[]): T {
   const next = structuredClone(current);
   for (const path of paths) {
-    const tokens = pathTokens(path); if (!tokens.length) return structuredClone(snapshot);
-    let target: any = next; let source: any = snapshot;
-    for (let index = 0; index < tokens.length - 1; index += 1) { const token = tokens[index]; source = source?.[token as any]; if (target?.[token as any] === undefined) target[token as any] = typeof tokens[index + 1] === 'number' ? [] : {}; target = target[token as any]; }
-    const leaf = tokens[tokens.length - 1]; const value = source?.[leaf as any]; if (value === undefined) { if (Array.isArray(target) && typeof leaf === 'number') target.splice(leaf, 1); else delete target[leaf as any]; } else target[leaf as any] = structuredClone(value);
+    const tokens = pathTokens(path);
+    if (!tokens.length) return structuredClone(snapshot);
+    if (!isMutablePathContainer(next)) return structuredClone(snapshot);
+
+    let target: MutablePathContainer = next;
+    let source: unknown = snapshot;
+    let pathIsWritable = true;
+
+    for (let index = 0; index < tokens.length - 1; index += 1) {
+      const token = tokens[index];
+      source = getPathChild(source, token);
+      let child = getPathChild(target, token);
+      if (!isMutablePathContainer(child)) {
+        const created: MutablePathContainer = typeof tokens[index + 1] === 'number' ? [] : {};
+        if (!setPathChild(target, token, created)) {
+          pathIsWritable = false;
+          break;
+        }
+        child = created;
+      }
+      target = child;
+    }
+
+    if (!pathIsWritable) continue;
+    const leaf = tokens[tokens.length - 1];
+    const value = getPathChild(source, leaf);
+    if (value === undefined) deletePathChild(target, leaf);
+    else setPathChild(target, leaf, structuredClone(value));
   }
   return next;
 }
