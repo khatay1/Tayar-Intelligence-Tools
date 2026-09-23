@@ -26,8 +26,9 @@ const v2Sources = collectSourceFiles(v2Root).map((path) => readFileSync(path, 'u
 let smoke = readFileSync(smokePath, 'utf8');
 const builderDeclaration = "const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';";
 const bridgeDeclaration = "const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';";
+const fsImport = "import { readFileSync, existsSync } from 'node:fs';";
 
-if (!smoke.includes(builderDeclaration) || !smoke.includes(bridgeDeclaration)) {
+if (!smoke.includes(builderDeclaration) || !smoke.includes(bridgeDeclaration) || !smoke.includes(fsImport)) {
   console.error('Website Builder smoke compatibility runner could not locate the expected source declarations.');
   process.exit(1);
 }
@@ -40,8 +41,8 @@ writeFileSync(
 
 smoke = smoke
   .replace(
-    "import { existsSync, readFileSync } from 'node:fs';",
-    "import { existsSync, readFileSync } from 'node:fs';\nimport { builderSource, websiteBuilderV2Bridge } from './.website-builder-smoke-split.sources.generated.mjs';",
+    fsImport,
+    `${fsImport}\nimport { builderSource, websiteBuilderV2Bridge } from './.website-builder-smoke-split.sources.generated.mjs';`,
   )
   .replace(builderDeclaration, '')
   .replace(bridgeDeclaration, '');
