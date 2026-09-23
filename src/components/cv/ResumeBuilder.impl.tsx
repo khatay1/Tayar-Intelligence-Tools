@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ChevronDown, Copy, Download, FileDown, FileText, History, Loader2, Mail, Palette, Redo2, Sparkles, Undo2, Wand2, X, Zap, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Copy, Download, FileText, History, Loader2, Mail, Palette, Redo2, Sparkles, Undo2, Wand2, X, Zap, ZoomIn, ZoomOut } from 'lucide-react';
 import { AI_ACTIONS, AIAction, calculateResumeScore, generateSuggestions } from '@/lib/cv-ai';
 import { TEMPLATES, TemplateId, uid } from '@/lib/cv-types';
 import { exportToDOCX, exportToPDF, exportToTXT } from '@/lib/cv-export';
