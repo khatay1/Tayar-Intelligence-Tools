@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { CVData, ColorTheme, SectionConfig, TemplateId } from '@/lib/cv-types';
 import { useCVDocument } from './use-cv-document';
 import { useCVEditor } from './use-cv-editor';
@@ -15,10 +15,13 @@ interface UseCVBuilderCoreOptions {
 export function useCVBuilderCore(options: UseCVBuilderCoreOptions = {}) {
   const documentState = useCVDocument(options);
   const editor = useCVEditor(documentState.cv, documentState.setData);
+  const flushAutosave = documentState.flushAutosave;
+  const manualSave = options.manualSave;
+
   const save = useCallback(async () => {
-    await documentState.flushAutosave();
-    await options.manualSave?.();
-  }, [documentState, options]);
+    await flushAutosave();
+    await manualSave?.();
+  }, [flushAutosave, manualSave]);
 
   useCVKeyboard({
     enabled: options.enabled,
@@ -27,11 +30,11 @@ export function useCVBuilderCore(options: UseCVBuilderCoreOptions = {}) {
     save,
   });
 
-  return useMemo(() => ({
+  return {
     ...documentState,
     editor,
     save,
-  }), [documentState, editor, save]);
+  };
 }
 
 export type CVBuilderCore = ReturnType<typeof useCVBuilderCore>;
