@@ -24,8 +24,8 @@ export function mapImportedProfile(profile: CVImportedProfile): CVImportCandidat
     fullName: profile.fullName?.trim() ?? '',
     email: profile.email?.trim() ?? '',
     phone: profile.phone?.trim() ?? '',
-    location: profile.location?.trim() ?? '',
-    website: profile.website?.trim() ?? '',
+    address: profile.location?.trim() ?? '',
+    portfolio: profile.website?.trim() ?? '',
     linkedin: profile.linkedin?.trim() ?? '',
   };
   data.summary = profile.summary?.trim() ?? '';
