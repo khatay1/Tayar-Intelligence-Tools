@@ -1,5 +1,6 @@
+import type { Language } from '@/context/PreferencesContext';
 import { normalizeSlug } from './project-identifiers';
-import { WEBSITE_CMS_LIMITS, type WebsiteCmsCollection, type WebsiteCmsEntry, type WebsiteCmsField, type WebsiteCmsState, type WebsiteCmsValue } from './website-cms';
+import { WEBSITE_CMS_LANGUAGES, WEBSITE_CMS_LIMITS, type WebsiteCmsCollection, type WebsiteCmsEntry, type WebsiteCmsField, type WebsiteCmsLocalizedValues, type WebsiteCmsState, type WebsiteCmsValue } from './website-cms';
 
 export type WebsiteCmsImportMode = 'append' | 'replace';
 export type WebsiteCmsTransferFormat = 'json' | 'csv';
@@ -13,6 +14,7 @@ export interface WebsiteCmsImportPreview {
 
 const FIELD_TYPES = new Set(['text', 'rich-text', 'number', 'boolean', 'date', 'image', 'url', 'reference']);
 const RESERVED_COLUMNS = new Set(['id', '_draft', '_publishAt', '_unpublishAt']);
+const LOCALIZED_COLUMN = /^(.*)__(en|sv|ar)$/;
 
 function uid(prefix: string): string {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
@@ -32,6 +34,10 @@ function inferValue(value: string): WebsiteCmsValue {
 function csvEscape(value: unknown): string {
   const text = value == null ? '' : String(value);
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function activeLocalizedLanguages(collection: WebsiteCmsCollection): Language[] {
+  return WEBSITE_CMS_LANGUAGES.filter((language) => collection.entries.some((entry) => Object.keys(entry.localizedValues?.[language] || {}).length > 0));
 }
 
 export function parseWebsiteCmsCsv(input: string): string[][] {
@@ -56,12 +62,21 @@ export function parseWebsiteCmsCsv(input: string): string[][] {
 }
 
 export function exportWebsiteCmsCollectionJson(collection: WebsiteCmsCollection): string {
-  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), collection }, null, 2);
+  return JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), collection }, null, 2);
 }
 
 export function exportWebsiteCmsCollectionCsv(collection: WebsiteCmsCollection): string {
-  const headers = ['id', ...collection.fields.map((field) => field.key), '_draft', '_publishAt', '_unpublishAt'];
-  const rows = collection.entries.map((entry) => [entry.id, ...collection.fields.map((field) => entry.values[field.key] ?? ''), entry.draft, entry.publishAt ?? '', entry.unpublishAt ?? '']);
+  const languages = activeLocalizedLanguages(collection);
+  const localizedHeaders = languages.flatMap((language) => collection.fields.map((field) => `${field.key}__${language}`));
+  const headers = ['id', ...collection.fields.map((field) => field.key), ...localizedHeaders, '_draft', '_publishAt', '_unpublishAt'];
+  const rows = collection.entries.map((entry) => [
+    entry.id,
+    ...collection.fields.map((field) => entry.values[field.key] ?? ''),
+    ...languages.flatMap((language) => collection.fields.map((field) => entry.localizedValues?.[language]?.[field.key] ?? '')),
+    entry.draft,
+    entry.publishAt ?? '',
+    entry.unpublishAt ?? '',
+  ]);
   return [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\r\n');
 }
 
@@ -71,30 +86,52 @@ function normalizeImportedCollection(raw: unknown, fallbackName: string): Websit
   if (!source || typeof source !== 'object') throw new Error('Import file does not contain a CMS collection.');
   const candidate = source as Partial<WebsiteCmsCollection>;
   const warnings: string[] = [];
-  const fields: WebsiteCmsField[] = Array.isArray(candidate.fields) ? candidate.fields.slice(0, WEBSITE_CMS_LIMITS.fields).flatMap((item, index) => {
+  const fieldSpecs = Array.isArray(candidate.fields) ? candidate.fields.slice(0, WEBSITE_CMS_LIMITS.fields).flatMap((item, index) => {
     if (!item || typeof item !== 'object') return [];
     const field = item as Partial<WebsiteCmsField>;
     const type = FIELD_TYPES.has(String(field.type)) ? field.type as WebsiteCmsField['type'] : 'text';
-    const key = safeKey(String(field.key || field.name || ''), index);
-    return [{ id: uid('field'), name: String(field.name || key).slice(0, 80), key, type, required: Boolean(field.required), referenceCollectionId: type === 'reference' && field.referenceCollectionId ? String(field.referenceCollectionId) : undefined }];
+    const sourceKey = String(field.key || field.name || '');
+    const key = safeKey(sourceKey, index);
+    return [{
+      sourceKey,
+      field: { id: uid('field'), name: String(field.name || key).slice(0, 80), key, type, required: Boolean(field.required), referenceCollectionId: type === 'reference' && field.referenceCollectionId ? String(field.referenceCollectionId) : undefined } satisfies WebsiteCmsField,
+    }];
   }) : [];
-  if (!fields.length) throw new Error('Imported collection has no valid fields.');
-  if (Array.isArray(candidate.fields) && candidate.fields.length > fields.length) warnings.push('Some fields were skipped because the collection field limit was reached.');
+  if (!fieldSpecs.length) throw new Error('Imported collection has no valid fields.');
+  if (Array.isArray(candidate.fields) && candidate.fields.length > fieldSpecs.length) warnings.push('Some fields were skipped because the collection field limit was reached.');
   const keys = new Set<string>();
-  for (const field of fields) {
-    let key = field.key;
+  for (const spec of fieldSpecs) {
+    let key = spec.field.key;
     let suffix = 2;
-    while (keys.has(key)) key = `${field.key}_${suffix++}`;
-    field.key = key;
+    while (keys.has(key)) key = `${spec.field.key}_${suffix++}`;
+    spec.field.key = key;
     keys.add(key);
   }
+  const fields = fieldSpecs.map((spec) => spec.field);
   const rawEntries = Array.isArray(candidate.entries) ? candidate.entries : [];
   const entries: WebsiteCmsEntry[] = rawEntries.slice(0, WEBSITE_CMS_LIMITS.entries).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
     const entry = item as Partial<WebsiteCmsEntry>;
-    const rawValues = entry.values && typeof entry.values === 'object' ? entry.values : {};
-    const values = Object.fromEntries(fields.map((field) => [field.key, (rawValues as Record<string, WebsiteCmsValue>)[field.key] ?? (field.type === 'boolean' ? false : field.type === 'number' ? 0 : '')]));
-    return [{ id: uid('entry'), values, draft: entry.draft !== false, publishAt: typeof entry.publishAt === 'string' ? entry.publishAt : undefined, unpublishAt: typeof entry.unpublishAt === 'string' ? entry.unpublishAt : undefined }];
+    const rawValues = entry.values && typeof entry.values === 'object' ? entry.values as Record<string, WebsiteCmsValue> : {};
+    const values = Object.fromEntries(fieldSpecs.map(({ sourceKey, field }) => [field.key, rawValues[sourceKey] ?? rawValues[field.key] ?? (field.type === 'boolean' ? false : field.type === 'number' ? 0 : '')]));
+    const localizedValues: WebsiteCmsLocalizedValues = {};
+    for (const language of WEBSITE_CMS_LANGUAGES) {
+      const rawLocalized = entry.localizedValues?.[language];
+      if (!rawLocalized || typeof rawLocalized !== 'object') continue;
+      const localized = Object.fromEntries(fieldSpecs.flatMap(({ sourceKey, field }) => {
+        const value = (rawLocalized as Record<string, WebsiteCmsValue>)[sourceKey] ?? (rawLocalized as Record<string, WebsiteCmsValue>)[field.key];
+        return value === undefined ? [] : [[field.key, value]];
+      }));
+      if (Object.keys(localized).length) localizedValues[language] = localized;
+    }
+    return [{
+      id: uid('entry'),
+      values,
+      localizedValues: Object.keys(localizedValues).length ? localizedValues : undefined,
+      draft: entry.draft !== false,
+      publishAt: typeof entry.publishAt === 'string' ? entry.publishAt : undefined,
+      unpublishAt: typeof entry.unpublishAt === 'string' ? entry.unpublishAt : undefined,
+    }];
   });
   if (rawEntries.length > entries.length) warnings.push('Some entries were skipped because the collection entry limit was reached.');
   const slugField = fields.some((field) => field.key === candidate.slugField) ? String(candidate.slugField) : fields.find((field) => field.key === 'slug')?.key || fields[0].key;
@@ -110,7 +147,10 @@ export function previewWebsiteCmsCsvImport(input: string, fallbackName = 'Import
   if (rows.length < 1) throw new Error('CSV file is empty.');
   const rawHeaders = rows[0].map((header) => header.trim());
   const used = new Set<string>();
-  const fieldColumns = rawHeaders.map((header, index) => ({ header, index })).filter(({ header }) => header && !RESERVED_COLUMNS.has(header)).slice(0, WEBSITE_CMS_LIMITS.fields);
+  const baseColumns = rawHeaders
+    .map((header, index) => ({ header, index }))
+    .filter(({ header }) => header && !RESERVED_COLUMNS.has(header) && !LOCALIZED_COLUMN.test(header));
+  const fieldColumns = baseColumns.slice(0, WEBSITE_CMS_LIMITS.fields);
   const fields: WebsiteCmsField[] = fieldColumns.map(({ header }, index) => {
     const base = safeKey(header, index); let key = base; let suffix = 2; while (used.has(key)) key = `${base}_${suffix++}`; used.add(key);
     const sample = rows.slice(1, 21).map((row) => row[fieldColumns[index].index] || '').filter(Boolean);
@@ -119,14 +159,35 @@ export function previewWebsiteCmsCsvImport(input: string, fallbackName = 'Import
   });
   if (!fields.length) throw new Error('CSV file has no usable field columns.');
   const warnings: string[] = [];
-  if (fieldColumns.length < rawHeaders.filter((header) => header && !RESERVED_COLUMNS.has(header)).length) warnings.push('Some columns were skipped because the collection field limit was reached.');
+  if (fieldColumns.length < baseColumns.length) warnings.push('Some columns were skipped because the collection field limit was reached.');
+  const sourceHeaderToField = new Map(fieldColumns.map((column, index) => [column.header, fields[index]]));
+  const localizedColumns = rawHeaders.flatMap((header, index) => {
+    const match = LOCALIZED_COLUMN.exec(header);
+    if (!match) return [];
+    const field = sourceHeaderToField.get(match[1]);
+    if (!field) return [];
+    return [{ index, fieldKey: field.key, language: match[2] as Language }];
+  });
   const dataRows = rows.slice(1);
   const entries = dataRows.slice(0, WEBSITE_CMS_LIMITS.entries).map((row) => {
     const values = Object.fromEntries(fieldColumns.map(({ index }, fieldIndex) => [fields[fieldIndex].key, inferValue(row[index] || '')]));
+    const localizedValues: WebsiteCmsLocalizedValues = {};
+    for (const { index, fieldKey: localizedFieldKey, language } of localizedColumns) {
+      const rawValue = row[index] || '';
+      if (!rawValue) continue;
+      localizedValues[language] = { ...(localizedValues[language] || {}), [localizedFieldKey]: inferValue(rawValue) };
+    }
     const draftIndex = rawHeaders.indexOf('_draft');
     const publishIndex = rawHeaders.indexOf('_publishAt');
     const unpublishIndex = rawHeaders.indexOf('_unpublishAt');
-    return { id: uid('entry'), values, draft: draftIndex < 0 ? true : row[draftIndex] !== 'false', publishAt: publishIndex >= 0 && row[publishIndex] ? row[publishIndex] : undefined, unpublishAt: unpublishIndex >= 0 && row[unpublishIndex] ? row[unpublishIndex] : undefined } satisfies WebsiteCmsEntry;
+    return {
+      id: uid('entry'),
+      values,
+      localizedValues: Object.keys(localizedValues).length ? localizedValues : undefined,
+      draft: draftIndex < 0 ? true : row[draftIndex] !== 'false',
+      publishAt: publishIndex >= 0 && row[publishIndex] ? row[publishIndex] : undefined,
+      unpublishAt: unpublishIndex >= 0 && row[unpublishIndex] ? row[unpublishIndex] : undefined,
+    } satisfies WebsiteCmsEntry;
   });
   if (dataRows.length > entries.length) warnings.push('Some entries were skipped because the collection entry limit was reached.');
   const slugField = fields.find((field) => field.key === 'slug')?.key || fields[0].key;
