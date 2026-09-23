@@ -18,6 +18,10 @@ import {
   getEditorFormsHostState,
   hydrateEditorFormsHost,
 } from './editor-forms-host-store';
+import {
+  getEditorDesignSystemHostState,
+  hydrateEditorDesignSystemHost,
+} from './editor-design-system-host-store';
 
 export const EDITOR_MAX_STATE_KEY = 'maxState' as const;
 export const EDITOR_MAX_STATE_VERSION = 1 as const;
@@ -98,6 +102,7 @@ export function embedEditorMaxProjectState<T>(project: T): T {
     localization: getEditorLocalizationHostConfig(),
     publishing: getEditorPublishingHostState(),
     forms: getEditorFormsHostState(),
+    designSystem: getEditorDesignSystemHostState(),
   });
   return embedEditorIntegrationsHostIntoProject(withMaxState) as T;
 }
@@ -109,5 +114,6 @@ export function hydrateEditorMaxProjectState(input: unknown): EditorMaxProjectSt
   hydrateEditorLocalizationHost(state.localization);
   hydrateEditorPublishingHost(state.publishing);
   hydrateEditorFormsHost(state.forms);
+  hydrateEditorDesignSystemHost(state.designSystem);
   return state;
 }
