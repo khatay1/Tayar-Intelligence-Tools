@@ -4,6 +4,8 @@ const model=read('src/modules/website-builder/core/editor-collaboration.ts');
 const realtime=read('src/modules/website-builder/services/websiteCollaborationService.ts');
 const panel=read('src/modules/website-builder/v2-ui/BuilderCollaborationMaxPanel.tsx');
 const bridge=read('src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx');
+const bridgeBase=read('src/modules/website-builder/v2-ui/WebsiteBuilderV2BridgeBase.tsx');
+const bridgeSources=`${bridge}\n${bridgeBase}`;
 const migration=read('supabase/migrations/20260920160000_website_collaboration_pro.sql');
 const checks=[
  ['roles',model.includes("'owner' | 'admin' | 'editor' | 'reviewer' | 'viewer'")],
@@ -26,8 +28,8 @@ const checks=[
  ['collaboration UI',panel.includes('Comments')&&panel.includes('Activity')&&panel.includes('Version compare')],
  ['review UI',panel.includes('Approve')&&panel.includes('Request changes')],
  ['version restore UI',panel.includes('onRestoreVersion')],
- ['bridge integration',bridge.includes('BuilderCollaborationMaxPanel')&&bridge.includes('collaborationComments')],
- ['selection anchor',bridge.includes('anchor={selection}')],
+ ['bridge integration',bridgeSources.includes('BuilderCollaborationMaxPanel')&&bridgeSources.includes('collaborationComments')],
+ ['selection anchor',bridgeSources.includes('anchor={selection}')],
  ['RLS enabled',migration.includes('enable row level security')],
  ['RLS membership gate',migration.includes('website_project_team_role')&&migration.includes('website_project_presence_member_select')],
  ['Supabase realtime publication',migration.includes('supabase_realtime')&&migration.includes('website_project_presence')],
