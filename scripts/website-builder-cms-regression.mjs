@@ -139,14 +139,28 @@ try {
     assert.ok(issues.some((issue) => issue.message.includes('publishing window')));
     assert.ok(issues.some((issue) => issue.message.includes('missing collection')));
   });
+
   const cmsPanelSource = await readFile('src/modules/website-builder/v2-ui/BuilderCmsPanel.tsx', 'utf8');
-  check('CMS panel exposes collection routing, guarded relations and multi-filter controls', () => {
-    assert.match(cmsPanelSource, /Entry slug field/);
-    assert.match(cmsPanelSource, /Duplicate entry/);
-    assert.match(cmsPanelSource, /Matching published entries/);
-    assert.match(cmsPanelSource, /Add filter/);
-    assert.match(cmsPanelSource, /view\.filters\.map/);
-    assert.match(cmsPanelSource, /entryReferenceCount/);
+  const cmsCorePanelSource = await readFile('src/modules/website-builder/v2-ui/BuilderCmsCorePanel.tsx', 'utf8');
+  const cmsTransferPanelSource = await readFile('src/modules/website-builder/v2-ui/BuilderCmsTransferPanel.tsx', 'utf8');
+  check('CMS wrapper composes transfer and core editing surfaces', () => {
+    assert.match(cmsPanelSource, /BuilderCmsTransferPanel/);
+    assert.match(cmsPanelSource, /BuilderCmsCorePanel/);
+    assert.match(cmsPanelSource, /builder-cms-max-panel/);
+  });
+  check('CMS core panel exposes collection routing, guarded relations and multi-filter controls', () => {
+    assert.match(cmsCorePanelSource, /Entry slug field/);
+    assert.match(cmsCorePanelSource, /Duplicate entry/);
+    assert.match(cmsCorePanelSource, /Matching published entries/);
+    assert.match(cmsCorePanelSource, /Add filter/);
+    assert.match(cmsCorePanelSource, /view\.filters\.map/);
+    assert.match(cmsCorePanelSource, /entryReferenceCount/);
+  });
+  check('CMS transfer workflow remains reachable beside the core editor', () => {
+    assert.match(cmsTransferPanelSource, /Export JSON/);
+    assert.match(cmsTransferPanelSource, /Import CSV/);
+    assert.match(cmsTransferPanelSource, /cms-import-preview/);
+    assert.match(cmsTransferPanelSource, /applyWebsiteCmsCollectionImport/);
   });
   console.log(`CMS regression: ${passed} behavioral scenarios passed.`);
 } finally {
