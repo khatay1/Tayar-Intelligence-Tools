@@ -22,6 +22,10 @@ import {
   getEditorDesignSystemHostState,
   hydrateEditorDesignSystemHost,
 } from './editor-design-system-host-store';
+import {
+  getEditorCollaborationHostState,
+  hydrateEditorCollaborationHost,
+} from './editor-collaboration-host-store';
 
 export const EDITOR_MAX_STATE_KEY = 'maxState' as const;
 export const EDITOR_MAX_STATE_VERSION = 1 as const;
@@ -103,6 +107,7 @@ export function embedEditorMaxProjectState<T>(project: T): T {
     publishing: getEditorPublishingHostState(),
     forms: getEditorFormsHostState(),
     designSystem: getEditorDesignSystemHostState(),
+    collaboration: getEditorCollaborationHostState(),
   });
   return embedEditorIntegrationsHostIntoProject(withMaxState) as T;
 }
@@ -115,5 +120,6 @@ export function hydrateEditorMaxProjectState(input: unknown): EditorMaxProjectSt
   hydrateEditorPublishingHost(state.publishing);
   hydrateEditorFormsHost(state.forms);
   hydrateEditorDesignSystemHost(state.designSystem);
+  hydrateEditorCollaborationHost(state.collaboration);
   return state;
 }
