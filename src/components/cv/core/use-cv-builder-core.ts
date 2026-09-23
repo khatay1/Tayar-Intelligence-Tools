@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { CVData, ColorTheme, SectionConfig, TemplateId } from '@/lib/cv-types';
+import { CVDocument } from './cv-document';
 import { useCVDocument } from './use-cv-document';
 import { useCVEditor } from './use-cv-editor';
 
@@ -7,7 +8,7 @@ interface UseCVBuilderCoreOptions {
   userId?: string | null;
   cvId?: string | null;
   enabled?: boolean;
-  autosave?: Parameters<typeof useCVDocument>[0]['autosave'];
+  autosave?: (document: CVDocument) => Promise<void>;
   manualSave?: () => void | Promise<void>;
 }
 
