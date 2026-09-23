@@ -96,16 +96,18 @@ export function restoreEditorVersionPaths<T>(current: T, snapshot: T, paths: str
     for (let index = 0; index < tokens.length - 1; index += 1) {
       const token = tokens[index];
       source = getPathChild(source, token);
-      let child = getPathChild(target, token);
-      if (!isMutablePathContainer(child)) {
-        const created: MutablePathContainer = typeof tokens[index + 1] === 'number' ? [] : {};
-        if (!setPathChild(target, token, created)) {
-          pathIsWritable = false;
-          break;
-        }
-        child = created;
+      const child = getPathChild(target, token);
+      if (isMutablePathContainer(child)) {
+        target = child;
+        continue;
       }
-      target = child;
+
+      const created: MutablePathContainer = typeof tokens[index + 1] === 'number' ? [] : {};
+      if (!setPathChild(target, token, created)) {
+        pathIsWritable = false;
+        break;
+      }
+      target = created;
     }
 
     if (!pathIsWritable) continue;
