@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { assertServerToolAvailable, createAdminClient, HttpError, requireUser } from "../_shared/billing.ts";
+import { loadConfiguredFreeFailoverCandidates, runFailoverCandidates } from "../_shared/free-provider-failover.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")?.trim() || "";
 const rawFalKey = Deno.env.get("FAL_KEY") || "";
@@ -352,13 +353,16 @@ async function callRuntimeProvider(provider: RuntimeProvider, modelOverride: str
 async function runTextProvider(admin: ReturnType<typeof createAdminClient>, userId: string, tool: string, messages: IncomingMessage[], body: AIRequestBody): Promise<TextResult> {
   const route = await loadToolRouteV2(admin, tool);
   const attempts: { provider: RuntimeProvider; model: string }[] = [];
-  const seen = new Set<string>();
+  const seenProviders = new Set<string>();
+  const seenAttempts = new Set<string>();
   const addAttempt = (provider: RuntimeProvider | null, model: string) => {
     if (!provider) return;
+    const providerKey = provider.provider_key.trim().toLowerCase();
     const resolvedModel = model || provider.default_model;
-    const key = `${provider.provider_key}:${resolvedModel}`;
-    if (seen.has(key)) return;
-    seen.add(key);
+    const key = `${providerKey}:${resolvedModel}`;
+    if (seenAttempts.has(key)) return;
+    seenAttempts.add(key);
+    seenProviders.add(providerKey);
     attempts.push({ provider, model });
   };
 
@@ -375,13 +379,33 @@ async function runTextProvider(admin: ReturnType<typeof createAdminClient>, user
     } catch (error) {
       if (!canFailOver(error)) throw error;
       lastRetryableError = error;
-      console.warn(`[AI ENGINE] Provider ${attempt.provider.provider_key} failed; trying configured fallback`);
+      console.warn(`[AI ENGINE] Provider ${attempt.provider.provider_key} failed; trying next configured provider`);
     }
   }
 
-  if (GEMINI_API_KEY) {
+  const freeCandidates = await loadConfiguredFreeFailoverCandidates<RuntimeProvider>({
+    excludedProviderKeys: seenProviders,
+    loadProvider: (providerKey) => loadManagedProvider(admin, providerKey),
+    getProviderKey: (provider) => provider.provider_key,
+    getDefaultModel: (provider) => provider.default_model,
+  });
+  const freeFailover = await runFailoverCandidates<RuntimeProvider, TextResult>(
+    freeCandidates,
+    (candidate) => callRuntimeProvider(candidate.provider, candidate.model, messages, body),
+    canFailOver,
+    (candidate) => console.warn(`[AI ENGINE] Free provider ${candidate.providerKey} failed; trying next reviewed provider`),
+  );
+  if (freeFailover.result) return freeFailover.result;
+  if (freeFailover.lastRetryableError) lastRetryableError = freeFailover.lastRetryableError;
+
+  if (GEMINI_API_KEY && !seenProviders.has("gemini")) {
     const model = await resolveTextModel(admin, userId, tool);
-    return callGemini("https://generativelanguage.googleapis.com", GEMINI_API_KEY, model, messages, body, "gemini");
+    try {
+      return await callGemini("https://generativelanguage.googleapis.com", GEMINI_API_KEY, model, messages, body, "gemini");
+    } catch (error) {
+      if (!canFailOver(error)) throw error;
+      lastRetryableError = error;
+    }
   }
   if (lastRetryableError) throw lastRetryableError;
   throw new HttpError(503, "AI provider is not configured");
