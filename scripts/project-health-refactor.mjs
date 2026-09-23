@@ -41,7 +41,9 @@ const marker = "check('Website Builder AI supports multi-page generation with le
 const markerIndex = source.indexOf(marker);
 if (markerIndex < 0) throw new Error('Website Builder health marker not found.');
 const before = source.slice(0, markerIndex);
-let after = source.slice(markerIndex).replaceAll('websiteBuilder.includes(', 'websiteBuilderContractSources.includes(');
+let after = source.slice(markerIndex)
+  .replaceAll('websiteBuilder.includes(', 'websiteBuilderContractSources.includes(')
+  .replaceAll('websiteBuilder.indexOf(', 'websiteBuilderContractSources.indexOf(');
 // CMS UI was extracted into BuilderCmsCorePanel while BuilderCmsPanel remains the
 // composition shell. Health must follow the full Website Builder contract rather
 // than requiring every CMS label to stay in that shell file.

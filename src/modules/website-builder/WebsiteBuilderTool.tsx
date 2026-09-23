@@ -1,279 +1,217 @@
-import { arrangeCanvasElements, settledCanvasElementRect } from './core/editor-arrangement';
-import { useLocalizer } from '@/lib/ui-localization';
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { createAIService } from '@/lib/ai/service';
-import { usePreferences, type Language } from '@/context/PreferencesContext';
 import { useAuth } from '@/context/AuthContext';
+import { usePreferences,type Language } from '@/context/PreferencesContext';
+import { createAIService } from '@/lib/ai/service';
 import {
-  buildPreviewSiteBaseUrl,
-  buildPreviewSiteUrl,
-  buildPublishedSiteBaseUrl,
-  buildPublishedSiteUrl,
-  normalizePublishedSiteUrl,
+buildPublishedSiteUrl
 } from '@/lib/published-site-url';
+import { useLocalizer } from '@/lib/ui-localization';
 import {
-  Plus,
-  Trash2,
-  ChevronUp,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Monitor,
-  Smartphone,
-  Save,
-  RotateCcw,
-  Type,
-  Palette,
-  Eye,
-  Sparkles,
-  Download,
-  Copy,
-  ExternalLink,
-  Link,
-    Globe,
-  Check,
-  History as HistoryIcon,
-  Inbox,
-  BarChart3,
-  Images,
-  Upload,
+Check,
+Upload
 } from 'lucide-react';
+import { useCallback,useEffect,useMemo,useRef,useState,type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { createAIChangeHandler } from './core/editor-ai-change-handler';
+import { createAIGenerationHandler } from './core/editor-ai-generation-handler';
+import { createAIImageHandler } from './core/editor-ai-image-handler';
+import { createAIQualityCheckHandler } from './core/editor-ai-quality-handler';
+import { createApplyProjectDataHandler } from './core/editor-apply-project-handler';
+import { createArrangeSelectedElementsHandler } from './core/editor-arrange-handler';
+import { createClientHandoffHandler } from './core/editor-client-handoff-handler';
+import { createPrepareElementFreeDragHandler } from './core/editor-drag-prepare-handler';
+import { createUpdateElementFreeDragHandler } from './core/editor-drag-update-handler';
+import { createDuplicateProjectHandler } from './core/editor-duplicate-project-handler';
+import { createImportProjectBackupHandler } from './core/editor-import-backup-handler';
+import { createPublishWebsiteHandler } from './core/editor-publish-handler';
+import { createRecoverPublishedStateHandler } from './core/editor-recover-published-handler';
+import { createResetProjectHandler } from './core/editor-reset-project-handler';
+import { createRollbackPublishVersionHandler } from './core/editor-rollback-handler';
+import { createSaveProjectHandler } from './core/editor-save-handler';
+import { createSharePreviewHandler } from './core/editor-share-preview-handler';
+import { createUnpublishWebsiteHandler } from './core/editor-unpublish-handler';
+import { createV2DeleteElementHandler } from './core/editor-v2-delete-handler';
+import { createV2DuplicateElementHandler } from './core/editor-v2-duplicate-handler';
+import { createV2NativeOperationsHandler } from './core/editor-v2-native-handler';
 
 interface WebsiteBuilderToolProps {
   darkMode: boolean;
   projectId?: string | null;
 }
 
-import type { Device, ElementAnimation, ElementShadow, SectionBackgroundMode, SectionBackgroundPosition, SectionBackgroundSize, SectionContentWidth, SectionLayout, SectionLayoutAlign, SectionResponsiveStyle, SectionType, WebsiteBrand, WebsiteCmsBinding, WebsiteElement, WebsiteElementContainer, WebsiteElementType, WebsiteFormAutomation, WebsiteFormField, WebsiteFormFieldType, WebsiteSEO, WebsiteSection } from './core/types';
-import { ELEMENT_LABELS, SECTION_LABELS, createDefaultContactFormFields, createElement, createSection, defaultBrand, defaultSEO, defaultSections, normalizeSection } from './core/defaults';
-import { resolveWebsiteBuilderV2Flags } from './core/editor-feature-flags';
-import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
-import { BuilderCmsPanel } from './v2-ui/BuilderCmsPanel';
-import { WebsiteCollaborationPanel } from './v2-ui/WebsiteCollaborationPanel';
-import { EMPTY_WEBSITE_CMS, materializeWebsiteCmsSections, normalizeWebsiteCms, queryWebsiteCmsEntries, validateWebsiteCms, type WebsiteCmsState } from './core/website-cms';
-import { EditorStore } from './core/editor-store';
-import type { EditorNativeOperation } from './core/editor-native-operation';
-import type { EditorSelection } from './core/editor-selection';
-import type { EditorPageLike, EditorSymbolLike } from './core/editor-model';
+import { ELEMENT_LABELS,SECTION_LABELS,createDefaultContactFormFields,createElement,createSection,defaultBrand,defaultSEO,defaultSections,normalizeSection } from './core/defaults';
 import {
-  DEFAULT_EDITOR_PROJECT_ACCESS,
-  createEditorProjectAccessFallback,
-  normalizeEditorProjectAccess,
-  resolveEditorProjectOwnerId,
-  type EditorProjectAccess,
-} from './core/editor-project-access';
-import {
-  clearLocalWebsiteProjects,
-  hasRecoveryWebsiteProject,
-  loadActiveWebsiteProjectId,
-  loadLocalWebsiteProject,
-  loadRecoveryWebsiteProject,
-  saveActiveWebsiteProjectId,
-  saveLocalWebsiteProject,
-  saveRecoveryWebsiteProject,
-} from './core/editor-project-lifecycle';
-import { createWebsiteProjectInCloud, listWebsiteProjectsInCloud, updateWebsiteProjectInCloud, updateWebsiteProjectPublicationState } from './services/projectCloudService';
-import {
-  archivePublishedWebsiteFiles,
-  downloadPublishedWebsiteFile,
-  removePublishedWebsiteFiles,
-  readPublishedWebsiteFolderFiles,
-  removeStalePublishedWebsiteFiles,
-  replacePublishedWebsiteFiles,
-  restorePublishedWebsiteSnapshot,
-  snapshotPublishedWebsiteFiles,
-  uploadPublishedWebsiteBlob,
-  uploadPublishedWebsiteFolderFiles,
-  verifyPublishedRoute,
-} from './services/publishedWebsiteService';
-import { deleteReusableSectionInCloud, listReusableSectionsInCloud, saveReusableSectionInCloud } from './services/reusableSectionService';
-import { createWebsitePublishVersion, deleteWebsitePublishVersionArchive, discardWebsitePublishVersionArchive, listWebsitePublishVersions } from './services/publishVersionService';
-import { bulkUpdateWebsiteLeadStage, deleteWebsiteLead, listWebsiteLeads, updateWebsiteLeadCrm, updateWebsiteLeadStatus, updateWebsiteLeadsByStatus } from './services/websiteLeadService';
-import { createWebsiteFormUploadUrl, deleteWebsiteFormUploads, listWebsiteFormDeliveries, restorePublishedWebsiteForms, snapshotPublishedWebsiteForms, syncPublishedWebsiteForms, type WebsiteFormDelivery, type WebsiteFormRow } from './services/websiteFormService';
-import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
-import {
-  checkWebsiteCustomDomain,
-  connectWebsiteCustomDomain,
-  getWebsiteCustomDomain,
-  removeWebsiteCustomDomain,
-  type WebsiteCustomDomain,
-} from './services/websiteDomainService';
-import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
-import { buildProjectSnapshotDiffSummary } from './core/project-release-metrics';
-import { getWebsiteLeadPhone, getWebsiteLeadSource } from './core/website-lead-utils';
-import { deleteWebsiteMediaFile, getWebsiteMediaPublicUrl, listWebsiteMediaFiles, uploadWebsiteMediaFile } from './services/websiteMediaService';
-import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
-import { createWebsiteCheckoutSession, getWebsiteBuilderBillingState, openWebsiteBillingPortalSession } from './services/websiteBillingService';
-import { normalizeWebsiteProjectLoad } from './core/project-normalization';
-import {
-  DEFAULT_DELIVERY_CONFIG,
-  normalizeDeliveryConfig,
-  type DeliveryStatus,
-  type WebsiteDeliveryConfig,
+DEFAULT_DELIVERY_CONFIG,
+type DeliveryStatus,
+type WebsiteDeliveryConfig
 } from './core/delivery-config';
-import { languageCodeLabel, normalizePageLanguage, normalizeSlug, PAGE_LANGUAGE_LABELS } from './core/project-identifiers';
-import { createProjectHistoryEntry, decideEditorAutosave } from './core/editor-autosave-policy';
+import { buildAIEditableSnapshotData } from './core/editor-ai-editable-snapshot';
 import {
-  resolveCanvasDragPosition,
-  type CanvasAlignmentTargets,
-  type CanvasBounds,
-  type CanvasSnapGuides,
-} from './core/editor-canvas-geometry';
-import {
-  editorAIContextMatches,
-  editorAIProjectIdentityMatches,
-  type EditorAIAsyncContext,
+editorAIContextMatches,
+editorAIProjectIdentityMatches,
+type EditorAIAsyncContext,
 } from './core/editor-ai-operation-context';
 import {
-  convertLegacyAIGlobalOperationToNative,
-  convertLegacyAIAddOperationToNative,
-  convertLegacyAIPageOperationToNative,
-  convertLegacyAIPageUpdateOperationToNative,
-  convertLegacyAIStructuralOperationToNative,
-  convertLegacyAIUpdateOperationToNative,
-  isLegacyAIGlobalNativeAction,
-  isLegacyAIPageNativeAction,
-  isLegacyAIStructuralNativeAction,
-  isLegacyAIUpdateNativeAction,
-} from './core/editor-ai-native-bridge';
-import { applyEditorAIWorkingNativeOperations } from './core/editor-ai-working-project';
-import {
-  humanizeAIWebsitePatchAction,
-  aiWebsitePatchReviewKind,
-  mergeAIWebsitePatchReviewKind,
-  describeAIWebsitePatchTarget,
-  describeAIWebsitePatchFields,
-  type AIWebsitePageGeneration,
-  type AIWebsiteGeneration,
-  type AIWebsitePatchChanges,
-  type AIWebsitePatchOperation,
-  type AIQualityReview,
-  type AIWebsiteAgentPlanStep,
-  type AIWebsiteAgentPlan,
-  type AIWebsitePlanReview,
-  type AIWebsitePatchReviewItem,
-  type AIWebsiteCanvasPreview,
-  type AIWebsitePatchReview,
+mergeAIWebsitePatchReviewKind,
+type AIQualityReview,
+type AIWebsiteCanvasPreview,
+type AIWebsitePatchReview,
+type AIWebsitePatchReviewItem,
+type AIWebsitePlanReview
 } from './core/editor-ai-patch-review';
 import {
-  type AIEditScopeTarget,
-  aiOperationMatchesEditScope,
-  type AIWebsiteAgentReviewFinding,
-  type AIWebsiteAgentReview,
-  type AIWebsitePatch,
-  type AIBuilderStage,
-  type AIEditScope,
-  type AIBuilderMessage,
-  buildAIConversationContext,
-  AI_BUILDER_STAGE_ORDER,
-} from './core/editor-ai-scope';
-import {
-  aiWebsitePatchReviewItemIsGlobal,
-  aiWebsitePatchReviewItemTargetsPage,
-  aiWebsitePatchReviewItemTargetPage,
-  reconcileAIWebsitePatchReviewTargets,
+aiWebsitePatchReviewItemIsGlobal,
+aiWebsitePatchReviewItemTargetPage,
+aiWebsitePatchReviewItemTargetsPage
 } from './core/editor-ai-review-targets';
-import { buildAIEditableSnapshotData } from './core/editor-ai-editable-snapshot';
-import { evaluateAIWebsitePlanCoverage } from './core/editor-ai-plan-coverage';
+import {
+type AIBuilderMessage,
+type AIBuilderStage,
+type AIEditScope,
+type AIEditScopeTarget
+} from './core/editor-ai-scope';
+import { decideEditorAutosave } from './core/editor-autosave-policy';
+import {
+type CanvasAlignmentTargets,
+type CanvasBounds,
+type CanvasSnapGuides
+} from './core/editor-canvas-geometry';
+import { resolveWebsiteBuilderV2Flags } from './core/editor-feature-flags';
+import type { EditorPageLike,EditorSymbolLike } from './core/editor-model';
+import {
+DEFAULT_EDITOR_PROJECT_ACCESS,
+createEditorProjectAccessFallback,
+normalizeEditorProjectAccess,
+resolveEditorProjectOwnerId,
+type EditorProjectAccess,
+} from './core/editor-project-access';
+import {
+hasRecoveryWebsiteProject,
+loadActiveWebsiteProjectId,
+loadLocalWebsiteProject,
+loadRecoveryWebsiteProject,
+saveActiveWebsiteProjectId,
+saveLocalWebsiteProject,
+saveRecoveryWebsiteProject
+} from './core/editor-project-lifecycle';
+import { PAGE_LANGUAGE_LABELS,languageCodeLabel,normalizePageLanguage,normalizeSlug } from './core/project-identifiers';
+import { buildProjectSnapshotDiffSummary } from './core/project-release-metrics';
+import type { Device,SectionLayout,SectionResponsiveStyle,SectionType,WebsiteBrand,WebsiteCmsBinding,WebsiteElement,WebsiteElementContainer,WebsiteElementType,WebsiteFormAutomation,WebsiteFormField,WebsiteFormFieldType,WebsiteSEO,WebsiteSection } from './core/types';
+import { summarizeWebsiteAnalytics } from './core/website-analytics-summary';
+import {
+BILLING_PLAN_DETAILS,
+DEFAULT_FOOTER_CONFIG,
+DEFAULT_HEADER_CONFIG,
+DEFAULT_PRODUCTION_CONFIG,
+DEFAULT_SITE_ENHANCEMENTS,
+DEFAULT_THEME,
+FREE_BILLING_ENTITLEMENTS,
+REUSABLE_SECTIONS_KEY,
+applyThemeToSection,
+normalizeBillingStatePayload,
+normalizeProductionConfig,
+normalizeTheme,
+resolveEffectiveProductionConfig,
+sanitizeRobotsRules
+} from './core/website-builder-config';
+import { buildWebsiteAnalyticsCsv,buildWebsiteLeadsCsv,buildWebsiteProjectBackupText } from './core/website-builder-export-data';
+import {
+type AIWebsiteCandidatePreview,
+type AIWebsiteUndoSnapshot,
+type BillingFeature,
+type BillingState,
+type CloudWebsiteProject,
+type LeadStage,
+type LiveVerification,
+type PersistedWebsiteProject,
+type ProjectHistoryEntry,
+type ReusableSectionTemplate,
+type WebsiteAnalyticsEvent,
+type WebsiteClipboard,
+type WebsiteClipboardContext,
+type WebsiteFooterConfig,
+type WebsiteHeaderConfig,
+type WebsiteLead,
+type WebsiteMediaAsset,
+type WebsitePage,
+type WebsiteProductionConfig,
+type WebsitePublishVersion,
+type WebsiteSiteEnhancements,
+type WebsiteSymbol,
+type WebsiteTheme
+} from './core/website-builder-model';
 import { createWebsiteBuilderOutput } from './core/website-builder-output';
 import {
-  DEFAULT_WEBSITE_LOCALIZATION,
-  normalizeWebsiteLocalization,
-  validateWebsiteLocalization,
-  websitePathUrl,
-  type WebsiteLocalizationConfig,
-} from './core/website-localization';
-import { buildAuditReportText, buildDeliveryReportText, buildV1LaunchReportText } from './core/website-builder-reports';
-import { buildWebsiteAnalyticsCsv, buildWebsiteLeadsCsv, buildWebsiteProjectBackupText } from './core/website-builder-export-data';
-import {
-  type WebsitePage,
-  type WebsiteClipboardContext,
-  type WebsiteClipboard,
-  type AIWebsiteUndoSnapshot,
-  type CloudWebsiteProject,
-  type ProjectHistoryEntry,
-  type LeadStage,
-  type WebsiteLead,
-  type WebsiteAnalyticsEvent,
-  type WebsiteMediaAsset,
-  type WebsiteTheme,
-  type WebsiteHeaderConfig,
-  type WebsiteFooterConfig,
-  type WebsiteSiteEnhancements,
-  type WebsiteProductionConfig,
-  type WebsiteSymbol,
-  type AIWebsiteCandidatePreview,
-  type PersistedWebsiteProject,
-  isWebsiteSymbol,
-  type WebsitePublishVersion,
-  type LiveVerification,
-  type BillingPlan,
-  type BillingFeature,
-  type BillingState,
-  type ReusableSectionTemplate,
-} from './core/website-builder-model';
-import {
-  REUSABLE_SECTIONS_KEY,
-  FONT_OPTIONS,
-  DEFAULT_THEME,
-  DEFAULT_HEADER_CONFIG,
-  DEFAULT_FOOTER_CONFIG,
-  DEFAULT_SITE_ENHANCEMENTS,
-  DEFAULT_PRODUCTION_CONFIG,
-  FREE_BILLING_ENTITLEMENTS,
-  BUSINESS_BILLING_ENTITLEMENTS,
-  BILLING_PLAN_DETAILS,
-  sanitizeRobotsRules,
-  normalizeProductionConfig,
-  normalizeHeaderConfig,
-  normalizeFooterConfig,
-  normalizeSiteEnhancements,
-  normalizeTheme,
-  applyThemeToSection,
-  resolveEffectiveProductionConfig,
-  normalizeBillingStatePayload,
-} from './core/website-builder-config';
-import {
-  WEBSITE_DESIGN_SYSTEM_PRESETS,
-  analyzeWebsiteDesignSystem,
-  repairWebsiteDesignTokens,
-  type WebsiteDesignSystemPreset,
-} from './core/website-design-system';
-import {
-  sectionColumnCount,
-  sectionLayoutGap,
-  sectionLayoutAlign,
-  sectionBackgroundMode,
-  sectionBackgroundPosition,
-  sectionBackgroundSize,
-  sectionContentWidth,
-  sectionVisualNumber,
-  safeSectionColor,
-  elementColumn,
-  clampElementNumber,
-  cloneSymbolElement,
-  normalizeElementAnimation,
-  cloneSectionWithFreshIds,
-  createPage,
-  type PageTemplateDefinition,
-  type SectionTemplateDefinition,
-  PAGE_TEMPLATES,
-  SECTION_TEMPLATES,
-  createSectionFromTemplate,
-  normalizeAnchorId,
-  sectionDomId,
-  safeFormRedirectHref,
-  escapeHtml,
-  normalizeFormFieldName,
-  normalizeSiteUrl,
-  downloadTextFile,
-  buildCsv,
-  crc32,
-  createZipBlob,
-  effectiveStyle,
-  effectiveSectionStyle,
+clampElementNumber,
+cloneSectionWithFreshIds,
+cloneSymbolElement,
+createPage,
+createSectionFromTemplate,
+createZipBlob,
+downloadTextFile,
+effectiveSectionStyle,
+effectiveStyle,
+elementColumn,
+escapeHtml,
+normalizeFormFieldName,
+normalizeSiteUrl,
+safeFormRedirectHref,
+sectionColumnCount,
+sectionLayoutAlign,
+sectionLayoutGap,
+type PageTemplateDefinition,
+type SectionTemplateDefinition
 } from './core/website-builder-rendering';
-import { SectionPreview } from './components/SectionPreview';
+import { buildAuditReportText,buildDeliveryReportText,buildV1LaunchReportText } from './core/website-builder-reports';
+import { EMPTY_WEBSITE_CMS,materializeWebsiteCmsSections,normalizeWebsiteCms,queryWebsiteCmsEntries,validateWebsiteCms,type WebsiteCmsState } from './core/website-cms';
+import {
+analyzeWebsiteDesignSystem,
+repairWebsiteDesignTokens,
+type WebsiteDesignSystemPreset
+} from './core/website-design-system';
+import { getWebsiteLeadPhone,getWebsiteLeadSource } from './core/website-lead-utils';
+import {
+DEFAULT_WEBSITE_LOCALIZATION,
+validateWebsiteLocalization,
+websitePathUrl,
+type WebsiteLocalizationConfig
+} from './core/website-localization';
+import { listWebsiteProjectsInCloud } from './services/projectCloudService';
+import {
+downloadPublishedWebsiteFile,
+removePublishedWebsiteFiles,
+verifyPublishedRoute
+} from './services/publishedWebsiteService';
+import { deleteWebsitePublishVersionArchive,listWebsitePublishVersions } from './services/publishVersionService';
+import { deleteReusableSectionInCloud,listReusableSectionsInCloud,saveReusableSectionInCloud } from './services/reusableSectionService';
+import { getWebsiteProjectTeamAccess } from './services/websiteAccessService';
+import { listWebsiteAnalyticsEvents } from './services/websiteAnalyticsService';
+import { createWebsiteCheckoutSession,getWebsiteBuilderBillingState,openWebsiteBillingPortalSession } from './services/websiteBillingService';
+import {
+checkWebsiteCustomDomain,
+connectWebsiteCustomDomain,
+getWebsiteCustomDomain,
+removeWebsiteCustomDomain,
+type WebsiteCustomDomain,
+} from './services/websiteDomainService';
+import { createWebsiteFormUploadUrl,deleteWebsiteFormUploads,listWebsiteFormDeliveries,type WebsiteFormDelivery } from './services/websiteFormService';
+import { bulkUpdateWebsiteLeadStage,deleteWebsiteLead,listWebsiteLeads,updateWebsiteLeadCrm,updateWebsiteLeadStatus,updateWebsiteLeadsByStatus } from './services/websiteLeadService';
+import { deleteWebsiteMediaFile,getWebsiteMediaPublicUrl,listWebsiteMediaFiles,uploadWebsiteMediaFile } from './services/websiteMediaService';
+import { BuilderAiPanel } from './v2-ui/BuilderAiPanel';
+import { BuilderCmsPanel } from './v2-ui/BuilderCmsPanel';
+import { BuilderLegacyAnalytics } from './v2-ui/BuilderLegacyAnalytics';
+import { BuilderLegacyBilling } from './v2-ui/BuilderLegacyBilling';
+import { BuilderLegacyCanvas } from './v2-ui/BuilderLegacyCanvas';
+import { BuilderLegacyCommandPalette } from './v2-ui/BuilderLegacyCommandPalette';
+import { BuilderLegacyHeader } from './v2-ui/BuilderLegacyHeader';
+import { BuilderLegacyInspector } from './v2-ui/BuilderLegacyInspector';
+import { BuilderLegacyLaunchCenter } from './v2-ui/BuilderLegacyLaunchCenter';
+import { BuilderLegacyLeads } from './v2-ui/BuilderLegacyLeads';
+import { BuilderLegacyReleaseHistory } from './v2-ui/BuilderLegacyReleaseHistory';
+import { BuilderLegacySidebar } from './v2-ui/BuilderLegacySidebar';
+import { BuilderSettingsPanel } from './v2-ui/BuilderSettingsPanel';
+import { BuilderSitePanel } from './v2-ui/BuilderSitePanel';
+import { BuilderV2Canvas } from './v2-ui/BuilderV2Canvas';
+import { WebsiteBuilderV2Bridge } from './v2-ui/WebsiteBuilderV2Bridge';
+import { WebsiteCollaborationPanel } from './v2-ui/WebsiteCollaborationPanel';
 
 const LAUNCH_CENTER_SEEN_KEY = 'tayar.website-builder.launch-center-seen.v1';
 const LAUNCH_MANUAL_CHECKS_KEY = 'tayar.website-builder.launch-manual-checks.v1';
@@ -998,98 +936,44 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  function applyProjectData(input: unknown, loadHistory = true, resetEditHistory = true) {
-    const normalizedLoad = normalizeWebsiteProjectLoad(input);
-    if (normalizedLoad.kind === 'invalid') return;
-
-    const normalizedSections = normalizedLoad.sections;
-    const normalizedPages = normalizedLoad.pages as WebsitePage[];
-
-    if (normalizedLoad.kind === 'legacy-array') {
-      setCms(EMPTY_WEBSITE_CMS);
-      setLocalization({ ...DEFAULT_WEBSITE_LOCALIZATION, defaultLanguage: prefs.language });
-      setSections(normalizedSections);
-      setPages(normalizedPages);
-      setActivePageId(normalizedLoad.activePageId);
-      setHomePageId(normalizedLoad.homePageId);
-      setSelectedId(normalizedSections[0].id);
-      setSelectedElementId(normalizedSections[0].elements[0]?.id ?? null);
-      setFaviconUrl('');
-      setTheme(DEFAULT_THEME);
-      setHeaderConfig(DEFAULT_HEADER_CONFIG);
-      setFooterConfig(DEFAULT_FOOTER_CONFIG);
-      setSiteEnhancements(DEFAULT_SITE_ENHANCEMENTS);
-      setProductionConfig(DEFAULT_PRODUCTION_CONFIG);
-      setDeliveryConfig(DEFAULT_DELIVERY_CONFIG);
-      setSymbols([]);
-      setPublishedUrl('');
-      setPublishedAt(null);
-      setPreviewUrl('');
-      setPreviewToken('');
-      setPreviewCreatedAt(null);
-      setPreviewFingerprint('');
-      setLastPublishedVersionId(null);
-      setLastPublishedFingerprint('');
-      setLiveVerification('idle');
-      setPublishError('');
-      setPreviewError('');
-      if (resetEditHistory) {
-        setHistory([]);
-        setFuture([]);
-      }
-      if (loadHistory) setProjectHistory([]);
-      setSaved(false);
-      return;
-    }
-
-    const parsed = normalizedLoad.parsed as PersistedWebsiteProject;
-    setCms(normalizeWebsiteCms(parsed.cms));
-    setLocalization(normalizeWebsiteLocalization(parsed.localization, parsed.language || prefs.language));
-
-    if (normalizedLoad.kind === 'pages') {
-      setPages(normalizedPages);
-      setActivePageId(normalizedLoad.activePageId);
-      setHomePageId(normalizedLoad.homePageId);
-      setSections(normalizedSections);
-    } else {
-      setSections(normalizedSections);
-      setPages(normalizedPages);
-      setActivePageId(normalizedLoad.activePageId);
-      setHomePageId(normalizedLoad.homePageId);
-    }
-
-    setSelectedId(normalizedSections[0]?.id ?? null);
-    setSelectedElementId(normalizedSections[0]?.elements[0]?.id ?? null);
-    setSiteName(parsed.siteName || 'My Website');
-    setSiteUrl(parsed.siteUrl || '');
-    setFaviconUrl(typeof parsed.faviconUrl === 'string' ? parsed.faviconUrl : '');
-    setPublishedUrl(typeof parsed.publishedUrl === 'string' ? normalizePublishedSiteUrl(parsed.publishedUrl) : '');
-    setPublishedAt(typeof parsed.publishedAt === 'string' ? parsed.publishedAt : null);
-    setPreviewUrl(typeof parsed.previewUrl === 'string' ? normalizePublishedSiteUrl(parsed.previewUrl) : '');
-    setPreviewToken(typeof parsed.previewToken === 'string' ? parsed.previewToken : '');
-    setPreviewCreatedAt(typeof parsed.previewCreatedAt === 'string' ? parsed.previewCreatedAt : null);
-    setPreviewFingerprint(typeof parsed.previewFingerprint === 'string' ? parsed.previewFingerprint : '');
-    setLastPublishedVersionId(typeof parsed.lastPublishedVersionId === 'string' ? parsed.lastPublishedVersionId : null);
-    setLastPublishedFingerprint(typeof parsed.lastPublishedFingerprint === 'string' ? parsed.lastPublishedFingerprint : '');
-    setLiveVerification('idle');
-    setPublishError('');
-    setPreviewError('');
-    if (parsed.brand) setBrand(parsed.brand);
-    setTheme(normalizeTheme(parsed.theme));
-    setHeaderConfig(normalizeHeaderConfig(parsed.headerConfig));
-    setFooterConfig(normalizeFooterConfig(parsed.footerConfig));
-    setSiteEnhancements(normalizeSiteEnhancements(parsed.siteEnhancements));
-    setProductionConfig(normalizeProductionConfig(parsed.productionConfig));
-    setDeliveryConfig(normalizeDeliveryConfig(parsed.deliveryConfig));
-    setSymbols(Array.isArray(parsed.symbols) ? parsed.symbols.filter(isWebsiteSymbol).slice(0, 50) : []);
-    if (parsed.seo) setSeo(parsed.seo);
-    if (resetEditHistory) {
-      setHistory([]);
-      setFuture([]);
-    }
-    if (loadHistory) setProjectHistory(Array.isArray(parsed.history) ? parsed.history.slice(0, 30) : []);
-    setSaved(false);
-  }
+    const applyProjectData = createApplyProjectDataHandler({
+    prefs,
+    setActivePageId,
+    setBrand,
+    setCms,
+    setDeliveryConfig,
+    setFaviconUrl,
+    setFooterConfig,
+    setFuture,
+    setHeaderConfig,
+    setHistory,
+    setHomePageId,
+    setLastPublishedFingerprint,
+    setLastPublishedVersionId,
+    setLiveVerification,
+    setLocalization,
+    setPages,
+    setPreviewCreatedAt,
+    setPreviewError,
+    setPreviewFingerprint,
+    setPreviewToken,
+    setPreviewUrl,
+    setProductionConfig,
+    setProjectHistory,
+    setPublishedAt,
+    setPublishedUrl,
+    setPublishError,
+    setSaved,
+    setSections,
+    setSelectedElementId,
+    setSelectedId,
+    setSeo,
+    setSiteEnhancements,
+    setSiteName,
+    setSiteUrl,
+    setSymbols,
+    setTheme,
+  });
 
   async function refreshProjectTeamAccess(projectId: string | null, expectedLoadSequence?: number) {
     const accessUserId = user?.id ?? null;
@@ -1398,89 +1282,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return buildPublishedSiteUrl(resolvedOwnerId, projectId, 'index.html');
   }
 
-  async function recoverPublishedProjectState(project: CloudWebsiteProject, expectedLoadSequence?: number) {
-    const recoveryUserId = user?.id ?? null;
-    if (!recoveryUserId) return false;
-
-    const loadIsCurrent = () =>
-      (expectedLoadSequence === undefined ||
-        projectLoadSequenceRef.current === expectedLoadSequence) &&
-      activeUserIdRef.current === recoveryUserId;
-
-    if (!loadIsCurrent()) return false;
-
-    const ownerId = project.user_id || recoveryUserId;
-    const path = `${ownerId}/${project.id}/index.html`;
-    const { data, error } = await downloadPublishedWebsiteFile(path);
-
-    if (!loadIsCurrent()) return false;
-
-    const storedUrl =
-      typeof project.content?.publishedUrl === 'string'
-        ? project.content.publishedUrl
-        : '';
-
-    if (error || !data || data.size <= 0) {
-      setLiveVerification(storedUrl ? 'failed' : 'idle');
-      return false;
-    }
-
-    const canonicalStoredUrl = normalizePublishedSiteUrl(storedUrl);
-    const recoveredUrl = publicWebsiteUrl(project.id, ownerId) || canonicalStoredUrl;
-    const recoveredAt =
-      typeof project.content?.publishedAt === 'string'
-        ? project.content.publishedAt
-        : project.updated_at || new Date().toISOString();
-
-    if (!recoveredUrl) {
-      setLiveVerification('failed');
-      return false;
-    }
-
-    const routeHealthy = await verifyPublishedRoute(recoveredUrl);
-
-    if (!loadIsCurrent()) return false;
-
-    setPublishedUrl(recoveredUrl);
-    setPublishedAt(recoveredAt);
-    setLiveVerification(routeHealthy ? 'healthy' : 'failed');
-
-    if (project.user_id === recoveryUserId && routeHealthy && (!storedUrl || storedUrl !== recoveredUrl || project.status !== 'completed')) {
-      const recoveredContent = {
-        ...project.content,
-        publishedUrl: recoveredUrl,
-        publishedAt: recoveredAt,
-        updatedAt: new Date().toISOString(),
-      };
-
-      const recoverUpdatedAt = new Date().toISOString();
-      const { data: recoveredRow, error: recoverError } = await updateWebsiteProjectPublicationState({
-        projectId: project.id,
-        userId: recoveryUserId,
-        content: recoveredContent,
-        published: true,
-        updatedAt: recoverUpdatedAt,
-        expectedUpdatedAt: project.updated_at,
-      });
-
-      if (!recoverError && loadIsCurrent()) {
-        cloudRevisionRef.current = { projectId: project.id, updatedAt: recoveredRow?.updated_at || recoverUpdatedAt };
-        setCloudProjects((current) =>
-          current.map((item) =>
-            item.id === project.id
-              ? { ...item, content: recoveredContent, status: 'completed', updated_at: recoveredRow?.updated_at || recoverUpdatedAt }
-              : item
-          )
-        );
-        saveLocalWebsiteProject({
-          ...recoveredContent,
-          cloudProjectId: project.id,
-        });
-      }
-    }
-
-    return routeHealthy;
-  }
+    const recoverPublishedProjectState = createRecoverPublishedStateHandler({
+    activeUserIdRef,
+    cloudRevisionRef,
+    projectLoadSequenceRef,
+    publicWebsiteUrl,
+    setCloudProjects,
+    setLiveVerification,
+    setPublishedAt,
+    setPublishedUrl,
+    user,
+  });
 
   async function loadCloudProject(projectId: string) {
     const project = cloudProjects.find((item) => item.id === projectId);
@@ -3691,95 +3503,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function arrangeSelectedElements(action: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom' | 'distribute-horizontal' | 'distribute-vertical') {
-    if (!selectedSection || selectedElements.length < 2) return;
-    if ((action === 'distribute-horizontal' || action === 'distribute-vertical') && selectedElements.length < 3) return;
-    const arrangementKey = `${activePageId}:${selectedSection.id}:${device}:${action}:${selectedElements.map((element) => element.id).sort().join(',')}`;
-    const previousArrangement = canvasArrangementRef.current;
-    if (previousArrangement?.key === arrangementKey && performance.now() - previousArrangement.appliedAt < 250) return;
-
-    const sectionHost = document.getElementById(sectionDomId(selectedSection));
-    if (!sectionHost) return;
-    const selectedIds = new Set(selectedElements.map((element) => element.id));
-    const measured = Array.from(sectionHost.querySelectorAll<HTMLElement>('[data-tayar-canvas-element-id]'))
-      .filter((node) => selectedIds.has(node.dataset.tayarCanvasElementId || ''))
-      .map((node) => ({
-        id: node.dataset.tayarCanvasElementId || '',
-        rect: settledCanvasElementRect(node),
-        x: clampElementNumber(node.dataset.tayarCanvasPositionX, 0, -4000, 4000),
-        y: clampElementNumber(node.dataset.tayarCanvasPositionY, 0, -4000, 4000),
-      }));
-    if (measured.length !== selectedElements.length) return;
-
-    const zoomHost = sectionHost.closest<HTMLElement>('[data-zoom]');
-    const canvasScale = Math.min(1.5, Math.max(0.5, Number(zoomHost?.dataset.zoom || 100) / 100));
-    // The DOM carries the committed document offsets. Reading them here avoids
-    // calculating a second rapid command from a stale React event closure.
-    const positions = arrangeCanvasElements(measured, action, canvasScale);
-    if (!positions.size) return;
-    const committedPositions = new Map(measured.map(({ id, x, y }) => [id, { x, y }]));
-    const preArrangementSections = sections.map((section) => section.id !== selectedSection.id ? section : {
-      ...section,
-      elements: section.elements.map((element) => {
-        const committed = committedPositions.get(element.id);
-        return committed ? {
-          ...element,
-          responsive: {
-            ...element.responsive,
-            [device]: {
-              ...(element.responsive?.[device] || {}),
-              positionX: committed.x,
-              positionY: committed.y,
-            },
-          },
-        } : element;
-      }),
-    });
-    // Ignore an immediate duplicate command until React has committed these offsets.
-    canvasArrangementRef.current = { key: arrangementKey, appliedAt: performance.now() };
-
-    const symbolPositions = new Map<string, { x?: number; y?: number }>();
-    selectedElements.forEach((element) => {
-      const position = positions.get(element.id);
-      if (position && element.symbolId && !symbolPositions.has(element.symbolId)) symbolPositions.set(element.symbolId, position);
-    });
-    const updatePosition = (element: WebsiteElement, position: { x?: number; y?: number }): WebsiteElement => ({
-      ...element,
-      responsive: {
-        ...element.responsive,
-        [device]: {
-          ...(element.responsive?.[device] || {}),
-          ...(position.x === undefined ? {} : { positionX: position.x }),
-          ...(position.y === undefined ? {} : { positionY: position.y }),
-        },
-      },
-    });
-    const arrangeSection = (section: WebsiteSection, linkedOnly = false): WebsiteSection => ({
-      ...section,
-      elements: section.elements.map((element) => {
-        const position = element.symbolId ? symbolPositions.get(element.symbolId) : linkedOnly ? undefined : positions.get(element.id);
-        return position ? updatePosition(element, position) : element;
-      }),
-    });
-
-    remember(preArrangementSections, action.startsWith('distribute') ? 'Distribute selected elements' : 'Align selected elements');
-    setSections((current) => current.map((section) => arrangeSection(section)));
-    if (symbolPositions.size) {
-      setPages((current) => current.map((page) => page.id === activePageId ? page : {
-        ...page,
-        sections: page.sections.map((section) => arrangeSection(section, true)),
-      }));
-      setSymbols((current) => current.map((symbol) => {
-        const position = symbolPositions.get(symbol.id);
-        return position ? {
-          ...symbol,
-          element: updatePosition(symbol.element, position),
-          updatedAt: new Date().toISOString(),
-        } : symbol;
-      }));
-    }
-    setSaved(false);
-  }
+    const arrangeSelectedElements = createArrangeSelectedElementsHandler({
+    activePageId,
+    canvasArrangementRef,
+    device,
+    remember,
+    sections,
+    selectedElements,
+    selectedSection,
+    setPages,
+    setSaved,
+    setSections,
+    setSymbols,
+  });
 
   function normalizeSelectedElementFrames(action: 'match-width' | 'match-appearance' | 'reset-position' | 'show' | 'hide') {
     if (!selectedSection || !selectedElements.length || !selectedElement) return;
@@ -4518,194 +4254,31 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function prepareElementFreeDrag(
-    sectionId: string,
-    id: string,
-    clientX: number,
-    clientY: number,
-    target: HTMLElement,
-    started: boolean,
-  ) {
-    const sourceSection = sections.find((section) => section.id === sectionId);
-    const sourceElement = sourceSection?.elements.find((element) => element.id === id);
-    if (!sourceSection || !sourceElement) return false;
-    const groupElements = !started && selectedId === sectionId && selectedElementIds.includes(id) && selectedElements.length > 1
-      ? selectedElements
-      : [sourceElement];
-    const groupElementIds = new Set(groupElements.map((element) => element.id));
-    if (started) remember(sections, 'Move element');
-    draggedElementRef.current = id;
-    draggedElementSectionRef.current = sectionId;
-    const sourceStyle = effectiveStyle(sourceElement, device);
-    const zoomHost = target.closest<HTMLElement>('[data-zoom]');
-    const canvasScale = Math.min(1.5, Math.max(0.5, Number(zoomHost?.dataset.zoom || 100) / 100));
-    const sectionHost = target.closest<HTMLElement>('[data-tayar-section-canvas="true"]');
-    const sectionRect = sectionHost?.getBoundingClientRect();
-    const canvasElementNodes = sectionHost
-      ? Array.from(sectionHost.querySelectorAll<HTMLElement>('[data-tayar-canvas-element-id]'))
-      : [];
-    const movingBounds = canvasElementNodes
-      .filter((node) => groupElementIds.has(node.dataset.tayarCanvasElementId || ''))
-      .map((node) => node.getBoundingClientRect());
-    const targetRect = target.getBoundingClientRect();
-    const elementRect = movingBounds.length > 1
-      ? movingBounds.reduce((bounds, rect) => ({
-          left: Math.min(bounds.left, rect.left),
-          top: Math.min(bounds.top, rect.top),
-          right: Math.max(bounds.right, rect.right),
-          bottom: Math.max(bounds.bottom, rect.bottom),
-        }), { left: targetRect.left, top: targetRect.top, right: targetRect.right, bottom: targetRect.bottom })
-      : { left: targetRect.left, top: targetRect.top, right: targetRect.right, bottom: targetRect.bottom };
-    const siblingBounds = sectionHost
-      ? canvasElementNodes
-          .filter((node) => !groupElementIds.has(node.dataset.tayarCanvasElementId || ''))
-          .map((node) => node.getBoundingClientRect())
-      : [];
-    const alignmentTargets: CanvasAlignmentTargets = {
-      x: siblingBounds.flatMap((bounds) => [
-        bounds.left / canvasScale,
-        (bounds.left + (bounds.width / 2)) / canvasScale,
-        bounds.right / canvasScale,
-      ]),
-      y: siblingBounds.flatMap((bounds) => [
-        bounds.top / canvasScale,
-        (bounds.top + (bounds.height / 2)) / canvasScale,
-        bounds.bottom / canvasScale,
-      ]),
-    };
-    freeElementDragRef.current = {
-      pageId: activePageId,
-      device,
-      sectionId,
-      elementId: id,
-      symbolId: sourceElement.symbolId,
-      startClientX: clientX,
-      startClientY: clientY,
-      canvasScale,
-      startX: clampElementNumber(sourceStyle.positionX, 0, -4000, 4000),
-      startY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
-      currentX: clampElementNumber(sourceStyle.positionX, 0, -4000, 4000),
-      currentY: clampElementNumber(sourceStyle.positionY, 0, -4000, 4000),
-      groupTargets: groupElements.map((element) => {
-        const style = effectiveStyle(element, device);
-        const startX = clampElementNumber(style.positionX, 0, -4000, 4000);
-        const startY = clampElementNumber(style.positionY, 0, -4000, 4000);
-        return { id: element.id, symbolId: element.symbolId, startX, startY, currentX: startX, currentY: startY };
-      }),
-      elementBounds: {
-        left: elementRect.left / canvasScale,
-        top: elementRect.top / canvasScale,
-        width: (elementRect.right - elementRect.left) / canvasScale,
-        height: (elementRect.bottom - elementRect.top) / canvasScale,
-      },
-      sectionBounds: sectionRect ? {
-        left: sectionRect.left / canvasScale,
-        top: sectionRect.top / canvasScale,
-        width: sectionRect.width / canvasScale,
-        height: sectionRect.height / canvasScale,
-      } : undefined,
-      alignmentTargets,
-      snapHorizontal: false,
-      snapVertical: false,
-      started,
-    };
-    setCanvasSnapGuide(null);
-    setDraggedElementId(started ? id : null);
-    setDragOverElementId(null);
-    setDragOverElementPosition(null);
-    if (groupElements.length === 1) selectEditorTarget(sectionId, id);
-    return true;
-  }
+    const prepareElementFreeDrag = createPrepareElementFreeDragHandler({
+    activePageId,
+    device,
+    draggedElementRef,
+    draggedElementSectionRef,
+    freeElementDragRef,
+    remember,
+    sections,
+    selectedElementIds,
+    selectedElements,
+    selectedId,
+    selectEditorTarget,
+    setCanvasSnapGuide,
+    setDraggedElementId,
+    setDragOverElementId,
+    setDragOverElementPosition,
+  });
 
-  function updateElementFreeDrag(
-    sectionId: string,
-    id: string,
-    clientX: number,
-    clientY: number,
-    precisionMode: boolean,
-  ) {
-    const drag = freeElementDragRef.current;
-    if (
-      !drag ||
-      !drag.started ||
-      drag.pageId !== activePageId ||
-      drag.sectionId !== sectionId ||
-      drag.elementId !== id
-    ) {
-      return;
-    }
-
-    const nextPosition = resolveCanvasDragPosition({
-      startX: drag.startX,
-      startY: drag.startY,
-      deltaX: (clientX - drag.startClientX) / drag.canvasScale,
-      deltaY: (clientY - drag.startClientY) / drag.canvasScale,
-      precisionMode,
-      elementBounds: drag.elementBounds,
-      sectionBounds: drag.sectionBounds,
-      alignmentTargets: drag.alignmentTargets,
-    });
-    const nextX = nextPosition.x;
-    const nextY = nextPosition.y;
-    if (
-      nextPosition.guides.horizontal !== drag.snapHorizontal ||
-      nextPosition.guides.vertical !== drag.snapVertical ||
-      nextPosition.guides.horizontalPosition !== drag.snapHorizontalPosition ||
-      nextPosition.guides.verticalPosition !== drag.snapVerticalPosition
-    ) {
-      drag.snapHorizontal = nextPosition.guides.horizontal;
-      drag.snapVertical = nextPosition.guides.vertical;
-      drag.snapHorizontalPosition = nextPosition.guides.horizontalPosition;
-      drag.snapVerticalPosition = nextPosition.guides.verticalPosition;
-      setCanvasSnapGuide(
-        nextPosition.guides.horizontal || nextPosition.guides.vertical
-          ? {
-              sectionId,
-              ...nextPosition.guides,
-              horizontalPosition: nextPosition.guides.horizontalPosition === undefined || !drag.sectionBounds
-                ? undefined
-                : nextPosition.guides.horizontalPosition - drag.sectionBounds.top,
-              verticalPosition: nextPosition.guides.verticalPosition === undefined || !drag.sectionBounds
-                ? undefined
-                : nextPosition.guides.verticalPosition - drag.sectionBounds.left,
-            }
-          : null,
-      );
-    }
-    if (nextX === drag.currentX && nextY === drag.currentY) return;
-    drag.currentX = nextX;
-    drag.currentY = nextY;
-    const deltaX = nextX - drag.startX;
-    const deltaY = nextY - drag.startY;
-    const targetById = new Map(drag.groupTargets.map((target) => {
-      target.currentX = Math.max(-4000, Math.min(4000, target.startX + deltaX));
-      target.currentY = Math.max(-4000, Math.min(4000, target.startY + deltaY));
-      return [target.id, target] as const;
-    }));
-    const targetBySymbol = new Map(drag.groupTargets.flatMap((target) => target.symbolId ? [[target.symbolId, target] as const] : []));
-
-    setSections((current) => current.map((section) => ({
-      ...section,
-      elements: section.elements.map((element) => {
-        const groupTarget = element.symbolId
-          ? targetBySymbol.get(element.symbolId)
-          : section.id === sectionId ? targetById.get(element.id) : undefined;
-        if (!groupTarget) return element;
-        return {
-          ...element,
-          responsive: {
-            ...element.responsive,
-            [drag.device]: {
-              ...(element.responsive?.[drag.device] || {}),
-              positionX: groupTarget.currentX,
-              positionY: groupTarget.currentY,
-            },
-          },
-        };
-      }),
-    })));
-    setSaved(false);
-  }
+    const updateElementFreeDrag = createUpdateElementFreeDragHandler({
+    activePageId,
+    freeElementDragRef,
+    setCanvasSnapGuide,
+    setSaved,
+    setSections,
+  });
 
   function handleElementDragStart(sectionId: string, id: string, e: React.DragEvent) {
     if (!prepareElementFreeDrag(sectionId, id, e.clientX, e.clientY, e.currentTarget as HTMLElement, true)) return;
@@ -5510,277 +5083,54 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  async function generateWithAI(agentMode = false) {
-    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return;
-    const prompt = aiPrompt.trim();
-    if (!prompt || aiBusy || aiQualityBusy) return;
-    if (!window.confirm(l('Building a new website replaces the current pages. Continue?'))) return;
-
-    const operationSequence = ++aiOperationSequenceRef.current;
-    const abortController = beginAIRequest();
-    const operationUserId = user?.id ?? null;
-    const operationContext = captureAIEditorContext();
-    const operationIsLatest = () =>
-      aiOperationSequenceRef.current === operationSequence &&
-      activeUserIdRef.current === operationUserId;
-    const operationCanApply = () =>
-      operationIsLatest() &&
-      aiEditorContextIsCurrent(operationContext, false);
-
-    const requestId = `ai-request-${Date.now()}`;
-    setAiBusy(true);
-    setAiError('');
-    setAiPlan(null);
-    setAiPatchReview(null);
-    setAiCandidatePreview(null);
-    setAiStage('planning');
-    setAiMessages((current) => [
-      ...current,
-      { id: requestId, role: 'user' as const, content: prompt },
-    ].slice(-12));
-
-    try {
-      const ai = createAIService('website-builder');
-      const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
-        [],
-        { temperature: 0.65, maxTokens: 9000, signal: abortController.signal },
-      );
-
-      if (!operationCanApply()) return;
-
-      let generated = response.json;
-      if (!generated && response.content) {
-        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-        generated = JSON.parse(cleaned) as AIWebsiteGeneration;
-      }
-
-      const pageCandidates: AIWebsitePageGeneration[] = Array.isArray(generated?.pages) && generated.pages.length > 0
-        ? generated.pages
-        : Array.isArray(generated?.sections) && generated.sections.length > 0
-          ? [{ name: 'Home', slug: 'home', showInNavigation: true, sections: generated.sections }]
-          : [];
-
-      if (!generated || pageCandidates.length === 0) {
-        throw new Error(l('AI returned an invalid website plan. Please try a more specific description.'));
-      }
-
-      setAiStage('building');
-
-      const allowedTypes = new Set<SectionType>([
-        'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
-      ]);
-      const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
-      const isLightHex = (value: string) => {
-        const hex = value.replace('#', '');
-        const r = Number.parseInt(hex.slice(0, 2), 16);
-        const g = Number.parseInt(hex.slice(2, 4), 16);
-        const b = Number.parseInt(hex.slice(4, 6), 16);
-        return ((r * 299) + (g * 587) + (b * 114)) / 1000 > 165;
-      };
-      const generatedPrimary = validHex(generated.style?.primaryColor) ? generated.style!.primaryColor! : '#0f172a';
-      const generatedAccent = validHex(generated.style?.accentColor) ? generated.style!.accentColor! : '#7c3aed';
-      const generatedSurfaceIsLight = isLightHex(generatedPrimary);
-      const generatedAccentIsLight = isLightHex(generatedAccent);
-      const generatedTextColor = generatedSurfaceIsLight ? '#0f172a' : '#f8fafc';
-      const generatedMutedTextColor = generatedSurfaceIsLight ? '#475569' : '#cbd5e1';
-      const generatedAt = Date.now();
-      const maxGeneratedPages = Math.max(1, Math.min(6, billingEntitlements.maxPages || 1));
-      const usedSlugs = new Set<string>();
-
-      let nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
-        const normalizedSections = (page.sections || [])
-          .filter((section) => allowedTypes.has(section.type))
-          .slice(0, 8)
-          .map((section, sectionIndex) => normalizeSection({
-            id: `${section.type}-ai-${generatedAt}-${pageIndex}-${sectionIndex}-${Math.random().toString(36).slice(2, 6)}`,
-            type: section.type,
-            title: section.title?.trim() || SECTION_LABELS[section.type],
-            description: section.description?.trim() || '',
-            buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
-            buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
-            background: validHex(section.background) ? section.background! : generatedPrimary,
-            accent: validHex(section.accent) ? section.accent! : generatedAccent,
-            image: section.image?.trim() || undefined,
-            imagePrompt: section.imagePrompt?.trim() || undefined,
-          }));
-
-        const pageName = page.name?.trim() || (pageIndex === 0 ? 'Home' : `Page ${pageIndex + 1}`);
-        const rawSlug = (page.slug?.trim() || pageName)
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '') || `page-${pageIndex + 1}`;
-        let slug = pageIndex === 0 && rawSlug === 'home' ? 'home' : rawSlug;
-        let suffix = 2;
-        while (usedSlugs.has(slug)) {
-          slug = `${rawSlug}-${suffix}`;
-          suffix += 1;
-        }
-        usedSlugs.add(slug);
-
-        return {
-          id: `page-ai-${generatedAt}-${pageIndex}`,
-          name: pageName,
-          slug,
-          sections: normalizedSections,
-          showInNavigation: page.showInNavigation !== false,
-        } satisfies WebsitePage;
-      }).filter((page) => page.sections.length > 0);
-
-      if (nextPages.length === 0) {
-        throw new Error(l('AI did not return usable pages or sections. Please try again.'));
-      }
-
-      let agentImagesGenerated = 0;
-      if (agentMode) {
-        setAiStage('styling');
-        const visualTargets: Array<{ pageIndex: number; sectionIndex: number; prompt: string }> = [];
-        nextPages.forEach((page, pageIndex) => {
-          page.sections.forEach((section, sectionIndex) => {
-            if (visualTargets.length >= 2) return;
-            if ((section.type === 'hero' || section.type === 'about' || section.type === 'services') && section.imagePrompt?.trim()) {
-              visualTargets.push({ pageIndex, sectionIndex, prompt: section.imagePrompt.trim() });
-            }
-          });
-        });
-
-        for (const target of visualTargets) {
-          try {
-            const generatedImage = await requestGeneratedImage(target.prompt, abortController.signal);
-            if (!operationCanApply()) return;
-            const page = nextPages[target.pageIndex];
-            const section = page?.sections[target.sectionIndex];
-            if (!section) continue;
-            const nextSection: WebsiteSection = section.type === 'hero'
-              ? {
-                  ...section,
-                  image: generatedImage.url,
-                  backgroundMode: 'image',
-                  backgroundImage: generatedImage.url,
-                  backgroundPosition: 'center',
-                  backgroundSize: 'cover',
-                  overlayColor: '#000000',
-                  overlayOpacity: 0.42,
-                }
-              : {
-                  ...section,
-                  image: generatedImage.url,
-                  elements: section.elements.some((element) => element.type === 'image')
-                    ? section.elements.map((element) => element.type === 'image' ? { ...element, src: generatedImage.url, content: section.title || 'Generated image' } : element)
-                    : [...section.elements, { ...createElement('image', section.accent), src: generatedImage.url, content: section.title || 'Generated image' }],
-                };
-            nextPages = nextPages.map((candidate, pageIndex) => pageIndex === target.pageIndex
-              ? { ...candidate, sections: candidate.sections.map((candidateSection, sectionIndex) => sectionIndex === target.sectionIndex ? nextSection : candidateSection) }
-              : candidate
-            );
-            agentImagesGenerated += 1;
-          } catch {
-            if (!operationCanApply()) return;
-            // Agent image generation is best-effort; the site remains fully editable if the image provider is unavailable.
-          }
-        }
-      }
-
-      const firstPage = nextPages[0];
-      const totalSections = nextPages.reduce((sum, page) => sum + page.sections.length, 0);
-      const summary = generated.summary?.trim() || `${nextPages.length} page website with ${totalSections} structured sections.`;
-
-      if (!operationCanApply()) return;
-
-      pushProjectCheckpoint(agentMode ? 'Before Tayar Agent build' : 'Before AI build');
-      setAiPlan({
-        summary,
-        pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
-      });
-      setPages(nextPages);
-      setActivePageId(firstPage.id);
-      setHomePageId(firstPage.id);
-      setSections(firstPage.sections);
-      setSelectedId(firstPage.sections[0]?.id ?? null);
-      setSelectedElementId(firstPage.sections[0]?.elements[0]?.id ?? null);
-      setSiteName(generated.siteName?.trim() || 'My Website');
-
-      setAiStage('styling');
-      const tone = generated.style?.tone?.toLowerCase() || 'modern';
-      const nextGeneratedTheme = normalizeTheme({
-        ...theme,
-        primaryColor: generatedAccent,
-        secondaryColor: generatedPrimary,
-        backgroundColor: generatedPrimary,
-        textColor: generatedTextColor,
-        mutedTextColor: generatedMutedTextColor,
-        contentWidth: tone === 'editorial' ? 1040 : 1120,
-        buttonRadius: tone === 'premium' || tone === 'friendly' ? 16 : tone === 'corporate' ? 10 : 12,
-        sectionSpacing: tone === 'minimal' || tone === 'premium' ? 104 : 92,
-      });
-      const nextGeneratedHeader = {
-        ...headerConfig,
-        backgroundColor: generatedPrimary,
-        textColor: generatedTextColor,
-        activeColor: generatedTextColor,
-        hoverColor: generatedAccent,
-        ctaBackgroundColor: generatedAccent,
-        ctaTextColor: generatedAccentIsLight ? '#0f172a' : '#ffffff',
-        borderColor: generatedSurfaceIsLight ? '#e2e8f0' : '#334155',
-      };
-      const nextGeneratedSeo: WebsiteSEO = generated.seo || {
-        ...seo,
-        title: generated.siteName?.trim() || seo.title || 'Website',
-        description: generated.summary?.trim() || seo.description || 'Professional website built with Tayar.',
-        keywords: seo.keywords,
-      };
-      setTheme(nextGeneratedTheme);
-      setHeaderConfig(nextGeneratedHeader);
-      if (generated.brand) setBrand(generated.brand);
-      setSeo(nextGeneratedSeo);
-
-      const finalSiteName = generated.siteName?.trim() || 'My Website';
-      pushProjectCheckpoint(agentMode ? 'After Tayar Agent build' : 'After AI build', {
-        ...buildProjectSnapshot(),
-        siteName: finalSiteName,
-        pages: nextPages,
-        activePageId: firstPage.id,
-        homePageId: firstPage.id,
-        theme: nextGeneratedTheme,
-        headerConfig: nextGeneratedHeader,
-        brand: generated.brand || brand,
-        seo: nextGeneratedSeo,
-      });
-      aiUndoContextRef.current = null;
-      aiQualityReviewContextRef.current = null;
-      setAiUndoSnapshot(null);
-      setAiQualityReview(null);
-      setSaved(false);
-      setAiPrompt('');
-      setAiStage('ready');
-      setAiIntent('edit');
-      setAiMessages((current) => [
-        ...current,
-        {
-          id: `ai-result-${generatedAt}`,
-          role: 'assistant' as const,
-          content: agentMode
-            ? `Tayar Agent prepared ${nextPages.length} page${nextPages.length === 1 ? '' : 's'}, ${totalSections} sections, design system, SEO and ${agentImagesGenerated} generated image${agentImagesGenerated === 1 ? '' : 's'}. ${summary}`
-            : `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
-        },
-      ].slice(-12));
-    } catch (error) {
-      if (!operationCanApply()) return;
-      const message = error instanceof Error ? error.message : l('AI generation failed.');
-      setAiError(message);
-      setAiStage('error');
-      setAiMessages((current) => [
-        ...current,
-        { id: `ai-error-${Date.now()}`, role: 'assistant' as const, content: message },
-      ].slice(-12));
-    } finally {
-      finishAIRequest(abortController);
-      if (operationIsLatest()) {
-        setAiBusy(false);
-        if (!operationCanApply()) setAiStage('ready');
-      }
-    }
-  }
+    const generateWithAI = createAIGenerationHandler({
+    activeUserIdRef,
+    aiAbortControllerRef,
+    aiBusy,
+    aiEditorContextIsCurrent,
+    aiOperationSequenceRef,
+    aiPrompt,
+    aiQualityAbortControllerRef,
+    aiQualityBusy,
+    aiQualityReviewContextRef,
+    aiUndoContextRef,
+    beginAIRequest,
+    billingEntitlements,
+    brand,
+    buildProjectSnapshot,
+    captureAIEditorContext,
+    finishAIRequest,
+    headerConfig,
+    l,
+    pushProjectCheckpoint,
+    requestGeneratedImage,
+    seo,
+    setActivePageId,
+    setAiBusy,
+    setAiCandidatePreview,
+    setAiError,
+    setAiIntent,
+    setAiMessages,
+    setAiPatchReview,
+    setAiPlan,
+    setAiPrompt,
+    setAiQualityReview,
+    setAiStage,
+    setAiUndoSnapshot,
+    setBrand,
+    setHeaderConfig,
+    setHomePageId,
+    setPages,
+    setSaved,
+    setSections,
+    setSelectedElementId,
+    setSelectedId,
+    setSeo,
+    setSiteName,
+    setTheme,
+    theme,
+    user,
+  });
 
   function buildAIEditableSnapshot(scope?: AIEditScopeTarget) {
     return buildAIEditableSnapshotData({
@@ -5837,3193 +5187,99 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     ].slice(-12));
   }
 
-  async function applyAIChange(requestedPrompt?: string) {
-    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return;
-    const prompt = typeof requestedPrompt === 'string' ? requestedPrompt.trim() : aiPrompt.trim();
-    if (!prompt || aiBusy || aiQualityBusy) return;
-
-    const operationSequence = ++aiOperationSequenceRef.current;
-    const abortController = beginAIRequest();
-    const operationUserId = user?.id ?? null;
-    const operationContext = captureAIEditorContext();
-    const operationIsLatest = () =>
-      aiOperationSequenceRef.current === operationSequence &&
-      activeUserIdRef.current === operationUserId;
-    const operationCanApply = () =>
-      operationIsLatest() &&
-      aiEditorContextIsCurrent(operationContext, true);
-
-    const requestId = `ai-edit-${Date.now()}`;
-    const conversationContext = buildAIConversationContext(aiMessages);
-    aiPreparedFollowUpRef.current = null;
-    const currentPages = getCurrentPages();
-    const editScope: AIEditScopeTarget = {
-      kind: aiEditScope,
-      pageId: activePageId,
-      sectionId: selectedId,
-      elementId: selectedElementId,
-    };
-    const snapshot: AIWebsiteUndoSnapshot = {
-      pages: JSON.parse(JSON.stringify(currentPages)) as WebsitePage[],
-      activePageId,
-      homePageId,
-      siteName,
-      brand: JSON.parse(JSON.stringify(brand)) as WebsiteBrand,
-      seo: JSON.parse(JSON.stringify(seo)) as WebsiteSEO,
-      theme: JSON.parse(JSON.stringify(theme)) as WebsiteTheme,
-      headerConfig: JSON.parse(JSON.stringify(headerConfig)) as WebsiteHeaderConfig,
-      symbols: JSON.parse(JSON.stringify(symbols)) as WebsiteSymbol[],
-    };
-
-    setAiBusy(true);
-    setAiError('');
-    setAiPlan(null);
-    setAiPatchReview(null);
-    setAiCandidatePreview(null);
-    setAiStage('planning');
-    setAiMessages((current) => [
-      ...current,
-      { id: requestId, role: 'user' as const, content: prompt },
-    ].slice(-12));
-
-    try {
-      const ai = createAIService('website-builder');
-      const editableSnapshot = buildAIEditableSnapshot(editScope);
-      const planResponse = await ai.completeJSON<AIWebsiteAgentPlan>(
-        {
-          action: 'plan-edit',
-          prompt,
-          currentSite: editableSnapshot,
-          editScope,
-          conversationContext,
-        },
-        [],
-        { temperature: 0.2, maxTokens: 3500, signal: abortController.signal },
-      );
-
-      if (!operationCanApply()) return;
-
-      let rawAgentPlan = planResponse.json as AIWebsiteAgentPlan | null;
-      if (!rawAgentPlan && planResponse.content) {
-        try {
-          const cleanedPlan = planResponse.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-          rawAgentPlan = JSON.parse(cleanedPlan) as AIWebsiteAgentPlan;
-        } catch {
-          rawAgentPlan = null;
-        }
-      }
-
-      const plannedSteps = Array.isArray(rawAgentPlan?.steps)
-        ? rawAgentPlan.steps
-            .map((step, index): AIWebsiteAgentPlanStep | null => {
-              if (!step || typeof step !== 'object') return null;
-              const title = typeof step.title === 'string' ? step.title.trim().slice(0, 140) : '';
-              if (!title) return null;
-              return {
-                id: typeof step.id === 'string' && step.id.trim() ? step.id.trim().slice(0, 40) : `step-${index + 1}`,
-                title,
-                target: typeof step.target === 'string' ? step.target.trim().slice(0, 180) : undefined,
-                reason: typeof step.reason === 'string' ? step.reason.trim().slice(0, 220) : undefined,
-                acceptanceCriteria: Array.isArray(step.acceptanceCriteria)
-                  ? step.acceptanceCriteria.map((criterion) => String(criterion).trim().slice(0, 180)).filter(Boolean).slice(0, 4)
-                  : [],
-                affectedPageIds: Array.isArray(step.affectedPageIds)
-                  ? step.affectedPageIds.map((pageId) => String(pageId).trim()).filter((pageId) => currentPages.some((page) => page.id === pageId)).slice(0, 12)
-                  : [],
-                destructive: step.destructive === true,
-              };
-            })
-            .filter((step): step is AIWebsiteAgentPlanStep => Boolean(step))
-            .slice(0, 12)
-        : [];
-
-      const agentPlan: AIWebsiteAgentPlan = {
-        summary: typeof rawAgentPlan?.summary === 'string' && rawAgentPlan.summary.trim()
-          ? rawAgentPlan.summary.trim().slice(0, 240)
-          : 'Apply the requested website changes safely.',
-        steps: plannedSteps.length
-          ? plannedSteps
-          : [{ id: 'step-1', title: 'Apply the requested changes with native editable Tayar operations.', destructive: false }],
-        warnings: Array.isArray(rawAgentPlan?.warnings)
-          ? rawAgentPlan.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
-          : [],
-      };
-      const planPreview = (agentPlan.steps || []).map((step, index) => `${index + 1}. ${step.title}`).join(' → ');
-      setAiMessages((current) => [
-        ...current,
-        {
-          id: `ai-plan-${Date.now()}`,
-          role: 'assistant' as const,
-          content: `${l('Plan')}: ${planPreview}${agentPlan.warnings?.length ? ` · ${l('Warnings')}: ${agentPlan.warnings.join(' · ')}` : ''}`,
-        },
-      ].slice(-30));
-
-      const planApproved = await requestAIPlanReview({
-        summary: agentPlan.summary || 'Apply the requested website changes safely.',
-        steps: agentPlan.steps || [],
-        warnings: agentPlan.warnings || [],
-      }, abortController.signal);
-      if (!planApproved) {
-        if (operationIsLatest() && !abortController.signal.aborted) {
-          setAiStage('ready');
-          setAiMessages((current) => [
-            ...current,
-            { id: `ai-plan-discarded-${Date.now()}`, role: 'assistant' as const, content: l('AI plan discarded. No changes were applied.') },
-          ].slice(-20));
-        }
-        return;
-      }
-      if (!operationCanApply()) return;
-      setAiStage('building');
-
-      const response = await ai.completeJSON<AIWebsitePatch>(
-        {
-          action: 'edit',
-          prompt,
-          currentSite: editableSnapshot,
-          executionPlan: agentPlan,
-          editScope,
-          conversationContext,
-        },
-        [],
-        { temperature: 0.25, maxTokens: 12000, signal: abortController.signal },
-      );
-
-      if (!operationCanApply()) return;
-
-      let patch = response.json;
-      if (!patch && response.content) {
-        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-        patch = JSON.parse(cleaned) as AIWebsitePatch;
-      }
-
-      const proposedOperations = Array.isArray(patch?.operations) ? patch.operations.slice(0, 60) : [];
-      const operations = proposedOperations.filter((operation) =>
-        operation && aiOperationMatchesEditScope(operation, editScope, currentPages));
-      if (!patch || operations.length === 0) {
-        throw new Error(l(proposedOperations.length
-          ? 'AI proposed changes outside the locked scope. No changes were applied.'
-          : 'AI did not return any safe website changes. Try a more specific request.'));
-      }
-
-      const destructiveActions = new Set([
-        'remove_page', 'remove_section', 'remove_container', 'remove_element', 'remove_form_field',
-      ]);
-      const destructiveOperations = operations.filter((operation) => operation && destructiveActions.has(operation.action));
-      const planCoverage = evaluateAIWebsitePlanCoverage(agentPlan.steps || [], operations);
-      const patchWarnings = [
-        ...(operations.length < proposedOperations.length
-          ? [`${proposedOperations.length - operations.length} ${l('out-of-scope changes were blocked')}`]
-          : []),
-        ...(Array.isArray(patch.warnings)
-          ? patch.warnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 5)
-          : []),
-        ...planCoverage.warnings,
-      ];
-      const confidence = Number.isFinite(Number(patch.confidence))
-        ? Math.min(1, Math.max(0, Number(patch.confidence)))
-        : null;
-      const summary = patch.summary?.trim().slice(0, 280) || `Apply ${operations.length} targeted AI change${operations.length === 1 ? '' : 's'}.`;
-      const exactPatchReview: AIWebsitePatchReview = {
-        summary,
-        operations: operations.map((operation, index) => {
-          const kind = aiWebsitePatchReviewKind(operation?.action || '');
-          return {
-            id: `operation-${index + 1}`,
-            action: operation?.action,
-            planStepId: typeof operation?.planStepId === 'string' ? operation.planStepId.trim().slice(0, 40) : undefined,
-            label: operation && typeof operation.action === 'string'
-              ? humanizeAIWebsitePatchAction(operation.action)
-              : 'Unsupported operation',
-            target: operation ? describeAIWebsitePatchTarget(operation) : 'Site-wide',
-            fields: operation ? describeAIWebsitePatchFields(operation) : [],
-            kind,
-            pageId: operation?.pageId,
-            pageSlug: operation?.pageSlug,
-            sectionId: kind === 'add'
-              ? operation?.afterSectionId || operation?.beforeSectionId || operation?.sectionId
-              : operation?.sectionId,
-            elementId: operation?.elementId,
-            containerId: operation?.containerId,
-          };
-        }),
-        selectedOperationIds: operations.map((_, index) => `operation-${index + 1}`),
-        warnings: patchWarnings,
-        confidence,
-        destructiveCount: destructiveOperations.length,
-        planCoveragePercent: planCoverage.percent,
-        planStepIds: (agentPlan.steps || []).map((step) => step.id),
-        uncoveredPlanStepIds: planCoverage.uncoveredStepIds,
-      };
-      const selectedPatchOperationIds = await requestAIPatchReview(exactPatchReview, abortController.signal);
-      if (!selectedPatchOperationIds) {
-        if (operationIsLatest() && !abortController.signal.aborted) {
-          setAiStage('ready');
-          setAiMessages((current) => [
-            ...current,
-            { id: `ai-patch-discarded-${Date.now()}`, role: 'assistant' as const, content: l('AI changes discarded. No changes were applied.') },
-          ].slice(-20));
-        }
-        return;
-      }
-      const selectedOperationSet = new Set(selectedPatchOperationIds);
-      if (selectedOperationSet.size === 0) {
-        if (operationIsLatest() && !abortController.signal.aborted) {
-          setAiStage('ready');
-          setAiMessages((current) => [
-            ...current,
-            { id: `ai-patch-empty-${Date.now()}`, role: 'assistant' as const, content: l('No AI changes were selected.') },
-          ].slice(-20));
-        }
-        return;
-      }
-      if (!operationCanApply()) return;
-
-      const selectedPlanCoverage = evaluateAIWebsitePlanCoverage(
-        agentPlan.steps || [],
-        operations.filter((_, index) => selectedOperationSet.has(`operation-${index + 1}`)),
-      );
-
-      setAiStage('building');
-
-      const allowedTypes = new Set<SectionType>([
-        'hero', 'features', 'about', 'services', 'pricing', 'testimonials', 'contact', 'footer',
-      ]);
-      const allowedElementTypes = new Set<WebsiteElementType>([
-        'heading', 'text', 'button', 'image', 'video', 'list', 'divider', 'spacer',
-        'accordion', 'tabs', 'gallery', 'embed', 'code', 'countdown', 'stats', 'testimonials-slider',
-      ]);
-      const allowedShadows = new Set<ElementShadow>(['none', 'sm', 'md', 'lg', 'xl']);
-      const allowedAnimations = new Set<ElementAnimation>(['none', 'fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in', 'zoom-out', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'blur-in', 'flip-in', 'bounce-in']);
-      const allowedAnimationTriggers = new Set(['scroll', 'load', 'hover', 'click']);
-      const allowedAnimationEasings = new Set(['smooth', 'ease', 'linear', 'spring']);
-      const allowedFormFieldTypes = new Set<WebsiteFormFieldType>(['text', 'email', 'tel', 'textarea', 'select', 'checkbox']);
-      const validHex = (value?: string) => /^#[0-9a-fA-F]{6}$/.test(value || '');
-      const finiteStyleNumber = (value: unknown, min: number, max: number) =>
-        typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : undefined;
-      const normalizeSlugValue = (value: string) => value
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-
-      const updateSectionContent = (section: WebsiteSection, changes: AIWebsitePatchChanges): WebsiteSection => {
-        const next: WebsiteSection = {
-          ...section,
-          title: typeof changes.title === 'string' ? changes.title.trim() : section.title,
-          description: typeof changes.description === 'string' ? changes.description.trim() : section.description,
-          buttonText: typeof changes.buttonText === 'string' ? changes.buttonText.trim() : section.buttonText,
-          buttonUrl: typeof changes.buttonUrl === 'string' ? changes.buttonUrl.trim() : section.buttonUrl,
-          background: validHex(changes.background) ? changes.background! : section.background,
-          accent: validHex(changes.accent) ? changes.accent! : section.accent,
-          image: typeof changes.image === 'string' ? changes.image.trim() || undefined : section.image,
-          imagePrompt: typeof changes.imagePrompt === 'string' ? changes.imagePrompt.trim() || undefined : section.imagePrompt,
-        };
-
-        return {
-          ...next,
-          elements: section.elements.map((element) => {
-            if (changes.title !== undefined && element.type === 'heading') {
-              return { ...element, content: next.title };
-            }
-            if (changes.description !== undefined && element.type === 'text') {
-              return { ...element, content: next.description };
-            }
-            if (element.type === 'button') {
-              return {
-                ...element,
-                content: changes.buttonText !== undefined ? next.buttonText : element.content,
-                href: changes.buttonUrl !== undefined ? next.buttonUrl : element.href,
-                style: changes.accent !== undefined
-                  ? { ...element.style, backgroundColor: next.accent }
-                  : element.style,
-              };
-            }
-            return element;
-          }),
-        };
-      };
-
-      const validateAIProjectIntegrity = (candidatePages: WebsitePage[], expectedHomePageId: string, candidateSymbols: WebsiteSymbol[]): string[] => {
-        const errors: string[] = [];
-        if (!candidatePages.length) return ['The project must keep at least one page.'];
-        const pageIds = new Set<string>();
-        const sectionIds = new Set<string>();
-        const elementIds = new Set<string>();
-
-        for (const page of candidatePages) {
-          if (!page.id || pageIds.has(page.id)) errors.push(`Duplicate or missing page id: ${page.id || 'unknown'}.`);
-          pageIds.add(page.id);
-          if (!Array.isArray(page.sections) || page.sections.length === 0) {
-            errors.push(`${page.name || page.id}: page must contain at least one section.`);
-            continue;
-          }
-
-          for (const section of page.sections) {
-            if (!section.id || sectionIds.has(section.id)) errors.push(`Duplicate or missing section id: ${section.id || 'unknown'}.`);
-            sectionIds.add(section.id);
-            if (!Array.isArray(section.elements) || section.elements.length === 0) {
-              errors.push(`${page.name}: section ${section.id || section.type} must keep at least one editable element.`);
-              continue;
-            }
-
-            const containerIds = new Set<string>();
-            for (const container of section.containers || []) {
-              if (!container.id || containerIds.has(container.id)) errors.push(`${page.name}: duplicate or missing container id in ${section.id}.`);
-              containerIds.add(container.id);
-            }
-
-            for (const element of section.elements) {
-              if (!element.id || elementIds.has(element.id)) errors.push(`Duplicate or missing element id: ${element.id || 'unknown'}.`);
-              elementIds.add(element.id);
-              if (element.containerId && !containerIds.has(element.containerId)) {
-                errors.push(`${page.name}: element ${element.id} points to missing container ${element.containerId}.`);
-              }
-            }
-          }
-        }
-
-        if (!candidatePages.some((page) => page.id === expectedHomePageId)) errors.push('The selected home page no longer exists.');
-
-        const symbolIds = new Set<string>();
-        for (const symbol of candidateSymbols) {
-          if (!symbol.id || symbolIds.has(symbol.id)) errors.push(`Duplicate or missing reusable component id: ${symbol.id || 'unknown'}.`);
-          symbolIds.add(symbol.id);
-        }
-        for (const page of candidatePages) {
-          for (const section of page.sections) {
-            for (const element of section.elements) {
-              if (element.symbolId && !symbolIds.has(element.symbolId)) errors.push(`${page.name}: element ${element.id} points to missing reusable component ${element.symbolId}.`);
-            }
-          }
-        }
-        return [...new Set(errors)].slice(0, 20);
-      };
-
-      const auditAIWebsiteCandidate = (
-        candidatePages: WebsitePage[],
-        candidateSeo: WebsiteSEO,
-        candidateHeader: WebsiteHeaderConfig,
-      ): { score: number; findings: AIWebsiteAgentReviewFinding[]; fixPrompt?: string } => {
-        const findings: AIWebsiteAgentReviewFinding[] = [];
-        const pageSlugs = new Set(candidatePages.map((page) => normalizeSlug(page.slug)));
-        const addFinding = (finding: AIWebsiteAgentReviewFinding) => {
-          const duplicate = findings.some((current) =>
-            current.title === finding.title && current.target === finding.target);
-          if (!duplicate && findings.length < 12) findings.push(finding);
-        };
-
-        candidatePages.forEach((page) => {
-          const pageTarget = page.id;
-          const hasHeading = page.sections.some((section) => section.elements.some((element) =>
-            element.type === 'heading' && element.content.trim()));
-          if (!hasHeading) {
-            addFinding({
-              severity: 'warning',
-              title: 'Page has no clear heading',
-              detail: `${page.name} needs an editable heading to establish content hierarchy.`,
-              target: pageTarget,
-            });
-          }
-          if (!(page.seoDescription?.trim() || candidateSeo.description.trim())) {
-            addFinding({
-              severity: 'warning',
-              title: 'SEO description is missing',
-              detail: `${page.name} has no page or global meta description.`,
-              target: pageTarget,
-            });
-          }
-
-          page.sections.forEach((section) => {
-            section.elements.forEach((element) => {
-              const target = element.id;
-              if (element.type === 'image' && !element.src?.trim()) {
-                addFinding({
-                  severity: 'warning',
-                  title: 'Image source is missing',
-                  detail: `${page.name} contains an image element without usable media.`,
-                  target,
-                });
-              } else if (element.type === 'image' && !element.content.trim()) {
-                addFinding({
-                  severity: 'warning',
-                  title: 'Image alt text is missing',
-                  detail: `${page.name} contains an image without an accessible description.`,
-                  target,
-                });
-              }
-              if (element.type === 'button' && !element.content.trim()) {
-                addFinding({
-                  severity: 'warning',
-                  title: 'Button label is missing',
-                  detail: `${page.name} contains a call to action without a readable label.`,
-                  target,
-                });
-              }
-              if (element.type === 'button' && element.href?.startsWith('page:')) {
-                const destination = normalizeSlug(element.href.slice(5));
-                if (!pageSlugs.has(destination)) {
-                  addFinding({
-                    severity: 'critical',
-                    title: 'Button links to a missing page',
-                    detail: `${page.name} links to page:${destination}, but that page does not exist.`,
-                    target,
-                  });
-                }
-              }
-              const desktopX = Math.abs(Number(element.style.positionX) || 0);
-              const desktopY = Math.abs(Number(element.style.positionY) || 0);
-              const mobileOverride = element.responsive?.mobile;
-              if ((desktopX > 320 || desktopY > 320) &&
-                mobileOverride?.positionX === undefined && mobileOverride?.positionY === undefined) {
-                addFinding({
-                  severity: 'warning',
-                  title: 'Large position offset lacks a mobile override',
-                  detail: `${page.name} contains a freely positioned element that may leave the mobile viewport.`,
-                  target,
-                });
-              }
-            });
-          });
-        });
-
-        if (candidateHeader.enabled && candidateHeader.showCta && !candidateHeader.ctaLabel.trim()) {
-          addFinding({
-            severity: 'warning',
-            title: 'Header CTA label is missing',
-            detail: 'The header call to action is enabled without a readable label.',
-            target: 'header',
-          });
-        }
-        if (candidateHeader.enabled && candidateHeader.showCta && !candidateHeader.ctaHref.trim()) {
-          addFinding({
-            severity: 'warning',
-            title: 'Header CTA destination is missing',
-            detail: 'The header call to action is enabled but does not lead anywhere.',
-            target: 'header',
-          });
-        }
-        if (!candidateSeo.title.trim()) {
-          addFinding({
-            severity: 'critical',
-            title: 'Global SEO title is missing',
-            detail: 'The website needs a global title before it is ready to publish.',
-            target: 'seo',
-          });
-        }
-
-        const criticalCount = findings.filter((finding) => finding.severity === 'critical').length;
-        const warningCount = findings.filter((finding) => finding.severity === 'warning').length;
-        const score = Math.max(0, 100 - (criticalCount * 25) - (warningCount * 6));
-        const visibleFindings = findings.slice(0, 6);
-        const fixPrompt = visibleFindings.length
-          ? `Fix these verified issues with targeted native edits while preserving unrelated work: ${visibleFindings.map((finding) => `${finding.title} (${finding.target || 'site'})`).join('; ')}.`.slice(0, 500)
-          : undefined;
-        return { score, findings: visibleFindings, fixPrompt };
-      };
-
-      let nextPages = JSON.parse(JSON.stringify(currentPages)) as WebsitePage[];
-      let nextSiteName = siteName;
-      let nextHomePageId = homePageId;
-      let nextTheme = { ...theme };
-      let nextSeo: WebsiteSEO = { ...seo, keywords: [...seo.keywords] };
-      let nextHeaderConfig: WebsiteHeaderConfig = { ...headerConfig };
-      let nextSymbols = JSON.parse(JSON.stringify(symbols)) as WebsiteSymbol[];
-      let applied = 0;
-      const appliedOperationIds = new Set<string>();
-      const nativeBridgeWarnings: string[] = [];
-
-      const applyAIWorkingNativeOperations = (
-        nativeOperations: EditorNativeOperation[],
-        sourceAction: string,
-      ) => {
-        if (!nativeOperations.length) {
-          return 'unchanged' as const;
-        }
-
-        const nativeResult =
-          applyEditorAIWorkingNativeOperations(
-            {
-              pages:
-                nextPages as unknown as EditorPageLike[],
-              homePageId:
-                nextHomePageId,
-              theme: {
-                ...nextTheme,
-              },
-              seo: {
-                ...nextSeo,
-                keywords: [
-                  ...nextSeo.keywords,
-                ],
-              },
-              headerConfig: {
-                ...nextHeaderConfig,
-              },
-              symbols:
-                JSON.parse(
-                  JSON.stringify(nextSymbols),
-                ) as EditorSymbolLike[],
-            },
-            nativeOperations,
-            {
-              source: 'ai',
-              label:
-                `Apply AI ${sourceAction.replace(/_/g, ' ')}`,
-              limits: {
-                maxPages:
-                  BUSINESS_BILLING_ENTITLEMENTS.maxPages,
-                maxSymbols: 50,
-              },
-              validateProject: (
-                candidate,
-                previous,
-              ) => {
-                const pageCountIncreased =
-                  candidate.pages.length >
-                  previous.pages.length;
-
-                if (
-                  pageCountIncreased &&
-                  candidate.pages.length >
-                    billingEntitlements.maxPages
-                ) {
-                  return {
-                    ok: false,
-                    errors: [
-                      `Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports up to ${billingEntitlements.maxPages} pages.`,
-                    ],
-                  };
-                }
-
-                return {
-                  ok: true,
-                };
-              },
-            },
-          );
-
-        if (!nativeResult.ok) {
-          nativeBridgeWarnings.push(
-            ...nativeResult.errors
-              .map((error) =>
-                `${sourceAction}: ${error}`,
-              )
-              .slice(0, 3),
-          );
-          return 'rejected' as const;
-        }
-
-        if (!nativeResult.changed) {
-          return 'unchanged' as const;
-        }
-
-        const working =
-          nativeResult.working;
-
-        nextPages =
-          working.pages as unknown as WebsitePage[];
-
-        const requestedHomePageId =
-          typeof working.homePageId === 'string'
-            ? working.homePageId
-            : nextHomePageId;
-
-        if (
-          nextPages.some(
-            (page) =>
-              page.id ===
-              requestedHomePageId,
-          )
-        ) {
-          nextHomePageId =
-            requestedHomePageId;
-        }
-
-        if (
-          working.theme &&
-          typeof working.theme === 'object'
-        ) {
-          nextTheme =
-            normalizeTheme(
-              working.theme as Partial<WebsiteTheme>,
-            );
-        }
-
-        if (
-          working.seo &&
-          typeof working.seo === 'object'
-        ) {
-          const rawSeo =
-            working.seo as Partial<WebsiteSEO>;
-
-          nextSeo = {
-            title:
-              typeof rawSeo.title === 'string'
-                ? rawSeo.title
-                : nextSeo.title,
-            description:
-              typeof rawSeo.description === 'string'
-                ? rawSeo.description
-                : nextSeo.description,
-            keywords:
-              Array.isArray(rawSeo.keywords)
-                ? rawSeo.keywords
-                    .filter(
-                      (
-                        keyword,
-                      ): keyword is string =>
-                        typeof keyword === 'string',
-                    )
-                    .slice(0, 40)
-                : [
-                    ...nextSeo.keywords,
-                  ],
-          };
-        }
-
-        if (
-          working.headerConfig &&
-          typeof working.headerConfig ===
-            'object'
-        ) {
-          nextHeaderConfig =
-            normalizeHeaderConfig(
-              working.headerConfig as Partial<WebsiteHeaderConfig>,
-            );
-        }
-
-        if (
-          Array.isArray(
-            working.symbols,
-          )
-        ) {
-          nextSymbols =
-            working.symbols as unknown as WebsiteSymbol[];
-        }
-
-        applied += 1;
-        nativeBridgeWarnings.push(
-          ...nativeResult.warnings
-            .map((warning) =>
-              `${sourceAction}: ${warning}`,
-            )
-            .slice(0, 3),
-        );
-
-        return 'changed' as const;
-      };
-
-      const applyAIWorkingNativeOperation = (
-        nativeOperation: EditorNativeOperation,
-        sourceAction: string,
-      ) =>
-        applyAIWorkingNativeOperations(
-          [nativeOperation],
-          sourceAction,
-        );
-
-      const applyAIGlobalNativeOperation = (
-        operation: AIWebsitePatchOperation,
-      ) => {
-        if (!isLegacyAIGlobalNativeAction(operation.action)) {
-          return false;
-        }
-
-        const nativeOperation =
-          convertLegacyAIGlobalOperationToNative(
-            operation as unknown as {
-              action: string;
-              changes?: Record<string, unknown>;
-            },
-          );
-
-        if (nativeOperation) {
-          applyAIWorkingNativeOperation(
-            nativeOperation,
-            operation.action,
-          );
-        }
-
-        return true;
-      };
-
-      const resolvePageIndex = (operation: AIWebsitePatchOperation) => {
-        if (operation.pageId) {
-          const index = nextPages.findIndex((page) => page.id === operation.pageId);
-          if (index >= 0) return index;
-        }
-        if (operation.pageSlug) {
-          const slug = normalizeSlugValue(operation.pageSlug);
-          const index = nextPages.findIndex((page) => normalizeSlugValue(page.slug) === slug);
-          if (index >= 0) return index;
-        }
-        return nextPages.findIndex((page) => page.id === activePageId);
-      };
-
-      const applyAIPageNativeOperation = (
-        operation: AIWebsitePatchOperation,
-      ) => {
-        if (operation.action === 'duplicate_page') {
-          if (
-            nextPages.length >= billingEntitlements.maxPages ||
-            (!operation.pageId && !operation.pageSlug)
-          ) {
-            return true;
-          }
-
-          const sourceIndex = resolvePageIndex(operation);
-          if (sourceIndex < 0 || sourceIndex >= nextPages.length) {
-            return true;
-          }
-
-          const sourcePage = nextPages[sourceIndex];
-          const changes = operation.changes || {};
-          const requestedName =
-            typeof changes.name === 'string' && changes.name.trim()
-              ? changes.name.trim().slice(0, 60)
-              : `${sourcePage.name} Copy`;
-          const requestedSlug =
-            typeof changes.slug === 'string' && changes.slug.trim()
-              ? normalizeSlugValue(changes.slug)
-              : normalizeSlugValue(`${sourcePage.slug}-copy`);
-
-          applyAIWorkingNativeOperation(
-            {
-              action: 'duplicate_page',
-              source: 'ai',
-              pageId: sourcePage.id,
-              changes: {
-                name: requestedName,
-                slug: requestedSlug || `page-copy-${Date.now()}`,
-                translationKey: '',
-                canonicalUrl: '',
-              },
-            },
-            operation.action,
-          );
-
-          return true;
-        }
-
-        if (!isLegacyAIPageNativeAction(operation.action)) {
-          return false;
-        }
-
-        if (operation.action === 'move_page') {
-          if (
-            !operation.pageId ||
-            (!operation.beforePageId &&
-              !operation.afterPageId) ||
-            (operation.beforePageId &&
-              operation.afterPageId)
-          ) {
-            return true;
-          }
-
-          const sourceIndex =
-            nextPages.findIndex(
-              (page) =>
-                page.id === operation.pageId,
-            );
-
-          if (sourceIndex < 0) {
-            return true;
-          }
-
-          const destinationId =
-            operation.beforePageId ||
-            operation.afterPageId ||
-            '';
-
-          if (
-            destinationId ===
-            operation.pageId
-          ) {
-            return true;
-          }
-
-          const destinationExists =
-            nextPages.some(
-              (page) =>
-                page.id ===
-                destinationId,
-            );
-
-          if (!destinationExists) {
-            return true;
-          }
-
-          const nativeOperation =
-            convertLegacyAIPageOperationToNative(
-              operation,
-              operation.pageId,
-            );
-
-          if (nativeOperation) {
-            applyAIWorkingNativeOperation(
-              nativeOperation,
-              operation.action,
-            );
-          }
-
-          return true;
-        }
-
-        if (
-          !operation.pageId &&
-          !operation.pageSlug
-        ) {
-          return true;
-        }
-
-        const pageIndex =
-          resolvePageIndex(operation);
-
-        if (
-          pageIndex < 0 ||
-          pageIndex >= nextPages.length
-        ) {
-          return true;
-        }
-
-        const pageId =
-          nextPages[pageIndex].id;
-
-        if (
-          operation.action === 'remove_page' &&
-          (
-            nextPages.length <= 1 ||
-            pageId === nextHomePageId
-          )
-        ) {
-          return true;
-        }
-
-        if (
-          operation.action === 'set_home_page' &&
-          pageId === nextHomePageId
-        ) {
-          return true;
-        }
-
-        const nativeOperation =
-          convertLegacyAIPageOperationToNative(
-            operation,
-            pageId,
-          );
-
-        if (nativeOperation) {
-          applyAIWorkingNativeOperation(
-            nativeOperation,
-            operation.action,
-          );
-        }
-
-        return true;
-      };
-
-      const resolveSectionIndex = (page: WebsitePage, operation: AIWebsitePatchOperation) => {
-        if (operation.sectionId) {
-          const index = page.sections.findIndex((section) => section.id === operation.sectionId);
-          if (index >= 0) return index;
-        }
-        if (operation.sectionType && allowedTypes.has(operation.sectionType)) {
-          return page.sections.findIndex((section) => section.type === operation.sectionType);
-        }
-        return -1;
-      };
-
-      const applyAIPageScopedStructuralNativeOperation = (
-        operation: AIWebsitePatchOperation,
-        pageIndex: number,
-      ) => {
-        if (
-          operation.action !== 'remove_section' &&
-          operation.action !== 'move_section' &&
-          operation.action !== 'duplicate_section'
-        ) {
-          return false;
-        }
-
-        const page =
-          nextPages[pageIndex];
-
-        if (!page) {
-          return true;
-        }
-
-        if (
-          !operation.sectionId ||
-          !page.sections.some(
-            (section) =>
-              section.id ===
-              operation.sectionId,
-          )
-        ) {
-          return true;
-        }
-
-        if (
-          operation.action === 'remove_section' &&
-          page.sections.length <= 1
-        ) {
-          return true;
-        }
-
-        if (operation.action === 'duplicate_section') {
-          if (page.sections.length >= 20) {
-            return true;
-          }
-
-          const beforeCandidate =
-            typeof operation.beforeSectionId === 'string'
-              ? operation.beforeSectionId.trim()
-              : '';
-          const afterCandidate =
-            typeof operation.afterSectionId === 'string'
-              ? operation.afterSectionId.trim()
-              : '';
-          const beforeId =
-            beforeCandidate &&
-            page.sections.some((section) => section.id === beforeCandidate)
-              ? beforeCandidate
-              : '';
-          const afterId =
-            !beforeId &&
-            afterCandidate &&
-            page.sections.some((section) => section.id === afterCandidate)
-              ? afterCandidate
-              : '';
-
-          applyAIWorkingNativeOperation(
-            {
-              action: 'duplicate_section',
-              source: 'ai',
-              pageId: page.id,
-              sectionId: operation.sectionId,
-              changes: {
-                anchorId: undefined,
-              },
-              ...(beforeId
-                ? { position: { beforeId } }
-                : afterId
-                  ? { position: { afterId } }
-                  : {}),
-            },
-            operation.action,
-          );
-
-          return true;
-        }
-
-        if (
-          operation.action === 'move_section'
-        ) {
-          if (
-            (!operation.beforeSectionId &&
-              !operation.afterSectionId) ||
-            (operation.beforeSectionId &&
-              operation.afterSectionId)
-          ) {
-            return true;
-          }
-
-          const destinationId =
-            operation.beforeSectionId ||
-            operation.afterSectionId ||
-            '';
-
-          if (
-            destinationId ===
-            operation.sectionId ||
-            !page.sections.some(
-              (section) =>
-                section.id === destinationId,
-            )
-          ) {
-            return true;
-          }
-        }
-
-        const nativeOperations =
-          convertLegacyAIStructuralOperationToNative(
-            operation,
-            {
-              pageId: page.id,
-              sectionId:
-                operation.sectionId,
-            },
-          );
-
-        if (nativeOperations.length) {
-          applyAIWorkingNativeOperations(
-            nativeOperations,
-            operation.action,
-          );
-        }
-
-        return true;
-      };
-
-      const applyAISectionScopedStructuralNativeOperation = (
-        operation: AIWebsitePatchOperation,
-        pageIndex: number,
-        sectionIndex: number,
-      ) => {
-        const page =
-          nextPages[pageIndex];
-        const section =
-          page?.sections[sectionIndex];
-
-        if (!page || !section) {
-          return true;
-        }
-
-        if (operation.action === 'duplicate_element') {
-          if (
-            !operation.elementId ||
-            section.elements.length >= 60 ||
-            !section.elements.some(
-              (element) => element.id === operation.elementId,
-            )
-          ) {
-            return true;
-          }
-
-          const beforeCandidate =
-            typeof operation.beforeElementId === 'string'
-              ? operation.beforeElementId.trim()
-              : '';
-          const afterCandidate =
-            typeof operation.afterElementId === 'string'
-              ? operation.afterElementId.trim()
-              : '';
-          const beforeId =
-            beforeCandidate &&
-            beforeCandidate !== operation.elementId &&
-            section.elements.some(
-              (element) => element.id === beforeCandidate,
-            )
-              ? beforeCandidate
-              : '';
-          const afterId =
-            !beforeId &&
-            afterCandidate &&
-            afterCandidate !== operation.elementId &&
-            section.elements.some(
-              (element) => element.id === afterCandidate,
-            )
-              ? afterCandidate
-              : '';
-
-          applyAIWorkingNativeOperation(
-            {
-              action: 'duplicate_element',
-              source: 'ai',
-              pageId: page.id,
-              sectionId: section.id,
-              elementId: operation.elementId,
-              ...(beforeId
-                ? { position: { beforeId } }
-                : afterId
-                  ? { position: { afterId } }
-                  : {}),
-            },
-            operation.action,
-          );
-
-          return true;
-        }
-
-        if (operation.action === 'create_symbol') {
-          if (
-            !operation.elementId ||
-            nextSymbols.length >= 50
-          ) {
-            return true;
-          }
-
-          const targetElement =
-            section.elements.find(
-              (element) =>
-                element.id === operation.elementId,
-            );
-
-          if (!targetElement || targetElement.symbolId) {
-            return true;
-          }
-
-          const symbolName =
-            typeof operation.symbolName === 'string' &&
-            operation.symbolName.trim()
-              ? operation.symbolName.trim().slice(0, 80)
-              : (
-                  targetElement.content?.trim().slice(0, 60) ||
-                  ELEMENT_LABELS[targetElement.type] ||
-                  'Reusable component'
-                );
-
-          applyAIWorkingNativeOperation(
-            {
-              action: 'create_symbol',
-              source: 'ai',
-              pageId: page.id,
-              sectionId: section.id,
-              elementId: targetElement.id,
-              symbolName,
-            },
-            operation.action,
-          );
-
-          return true;
-        }
-
-        if (operation.action === 'insert_symbol') {
-          if (
-            !operation.symbolId ||
-            section.elements.length >= 60 ||
-            !nextSymbols.some(
-              (symbol) => symbol.id === operation.symbolId,
-            )
-          ) {
-            return true;
-          }
-
-          const beforeCandidate =
-            typeof operation.beforeElementId === 'string'
-              ? operation.beforeElementId.trim()
-              : '';
-          const afterCandidate =
-            typeof operation.afterElementId === 'string'
-              ? operation.afterElementId.trim()
-              : '';
-          const beforeId =
-            beforeCandidate &&
-            section.elements.some(
-              (element) => element.id === beforeCandidate,
-            )
-              ? beforeCandidate
-              : '';
-          const afterId =
-            !beforeId &&
-            afterCandidate &&
-            section.elements.some(
-              (element) => element.id === afterCandidate,
-            )
-              ? afterCandidate
-              : '';
-
-          applyAIWorkingNativeOperation(
-            {
-              action: 'insert_symbol',
-              source: 'ai',
-              pageId: page.id,
-              sectionId: section.id,
-              symbolId: operation.symbolId,
-              ...(beforeId
-                ? { position: { beforeId } }
-                : afterId
-                  ? { position: { afterId } }
-                  : {}),
-            },
-            operation.action,
-          );
-
-          return true;
-        }
-
-        if (
-          !isLegacyAIStructuralNativeAction(
-            operation.action,
-          ) ||
-          operation.action === 'remove_section' ||
-          operation.action === 'move_section'
-        ) {
-          return false;
-        }
-
-        if (
-          operation.action === 'remove_element'
-        ) {
-          if (
-            !operation.elementId ||
-            section.elements.length <= 1
-          ) {
-            return true;
-          }
-
-          const target =
-            section.elements.find(
-              (element) =>
-                element.id ===
-                operation.elementId,
-            );
-
-          if (!target || target.symbolId) {
-            return true;
-          }
-        }
-
-        if (
-          operation.action === 'move_element'
-        ) {
-          if (
-            !operation.elementId ||
-            (!operation.beforeElementId &&
-              !operation.afterElementId) ||
-            (operation.beforeElementId &&
-              operation.afterElementId)
-          ) {
-            return true;
-          }
-
-          const source =
-            section.elements.find(
-              (element) =>
-                element.id ===
-                operation.elementId,
-            );
-
-          if (!source || source.symbolId) {
-            return true;
-          }
-
-          const destinationId =
-            operation.beforeElementId ||
-            operation.afterElementId ||
-            '';
-
-          const destination =
-            section.elements.find(
-              (element) =>
-                element.id ===
-                destinationId,
-            );
-
-          if (
-            !destination ||
-            destination.id === source.id ||
-            destination.symbolId
-          ) {
-            return true;
-          }
-        }
-
-        if (
-          operation.action ===
-          'assign_element_container'
-        ) {
-          if (!operation.elementId) {
-            return true;
-          }
-
-          const element =
-            section.elements.find(
-              (candidate) =>
-                candidate.id ===
-                operation.elementId,
-            );
-
-          if (!element || element.symbolId) {
-            return true;
-          }
-
-          if (
-            operation.containerId &&
-            !(section.containers || []).some(
-              (container) =>
-                container.id ===
-                operation.containerId,
-            )
-          ) {
-            return true;
-          }
-        }
-
-        if (
-          operation.action ===
-          'detach_symbol'
-        ) {
-          if (!operation.elementId) {
-            return true;
-          }
-
-          const element =
-            section.elements.find(
-              (candidate) =>
-                candidate.id ===
-                operation.elementId,
-            );
-
-          if (!element?.symbolId) {
-            return true;
-          }
-        }
-
-        let detachElementIds:
-          | string[]
-          | undefined;
-
-        if (
-          operation.action === 'remove_container'
-        ) {
-          if (
-            !operation.containerId ||
-            !(section.containers || []).some(
-              (container) =>
-                container.id ===
-                operation.containerId,
-            )
-          ) {
-            return true;
-          }
-
-          detachElementIds =
-            section.elements
-              .filter(
-                (element) =>
-                  element.containerId ===
-                  operation.containerId,
-              )
-              .map(
-                (element) =>
-                  element.id,
-              );
-        }
-
-        if (
-          operation.action ===
-            'remove_form_field' ||
-          operation.action ===
-            'move_form_field'
-        ) {
-          if (
-            section.type !== 'contact' ||
-            !Array.isArray(
-              section.formFields,
-            )
-          ) {
-            return false;
-          }
-
-          const fields =
-            section.formFields;
-
-          if (
-            !operation.formFieldId ||
-            !fields.some(
-              (field) =>
-                field.id ===
-                operation.formFieldId,
-            )
-          ) {
-            return true;
-          }
-
-          if (
-            operation.action ===
-              'remove_form_field' &&
-            fields.length <= 1
-          ) {
-            return true;
-          }
-
-          if (
-            operation.action ===
-            'move_form_field'
-          ) {
-            if (
-              (!operation.beforeFormFieldId &&
-                !operation.afterFormFieldId) ||
-              (operation.beforeFormFieldId &&
-                operation.afterFormFieldId)
-            ) {
-              return true;
-            }
-
-            const destinationId =
-              operation.beforeFormFieldId ||
-              operation.afterFormFieldId ||
-              '';
-
-            if (
-              destinationId ===
-                operation.formFieldId ||
-              !fields.some(
-                (field) =>
-                  field.id ===
-                  destinationId,
-              )
-            ) {
-              return true;
-            }
-          }
-        }
-
-        const nativeOperations =
-          convertLegacyAIStructuralOperationToNative(
-            operation,
-            {
-              pageId: page.id,
-              sectionId: section.id,
-              detachElementIds,
-            },
-          );
-
-        if (nativeOperations.length) {
-          applyAIWorkingNativeOperations(
-            nativeOperations,
-            operation.action,
-          );
-        }
-
-        return true;
-      };
-
-      const applyAISectionScopedUpdateNativeOperation = (
-        operation: AIWebsitePatchOperation,
-        pageIndex: number,
-        sectionIndex: number,
-      ) => {
-        if (!isLegacyAIUpdateNativeAction(operation.action)) {
-          return false;
-        }
-
-        const page = nextPages[pageIndex];
-        const section = page?.sections[sectionIndex];
-        if (!page || !section) {
-          return true;
-        }
-
-        if (operation.action === 'update_form') {
-          if (section.type !== 'contact') {
-            return true;
-          }
-
-          const nativeOperation =
-            convertLegacyAIUpdateOperationToNative(
-              operation,
-              {
-                pageId: page.id,
-                sectionId: section.id,
-              },
-            );
-
-          if (!nativeOperation) {
-            applied += 1;
-            return true;
-          }
-
-          const status =
-            applyAIWorkingNativeOperation(
-              nativeOperation,
-              operation.action,
-            );
-
-          if (status === 'unchanged') {
-            applied += 1;
-          }
-
-          return true;
-        }
-
-        if (operation.action === 'update_container') {
-          if (
-            !operation.containerId ||
-            !(section.containers || []).some(
-              (container) =>
-                container.id === operation.containerId,
-            )
-          ) {
-            return true;
-          }
-
-          const nativeOperation =
-            convertLegacyAIUpdateOperationToNative(
-              operation,
-              {
-                pageId: page.id,
-                sectionId: section.id,
-                sectionColumns:
-                  sectionColumnCount(section.layout),
-                sectionIsStack:
-                  section.layout === 'stack',
-              },
-            );
-
-          if (!nativeOperation) {
-            applied += 1;
-            return true;
-          }
-
-          const status =
-            applyAIWorkingNativeOperation(
-              nativeOperation,
-              operation.action,
-            );
-
-          if (status === 'unchanged') {
-            applied += 1;
-          }
-
-          return true;
-        }
-
-        if (
-          section.type !== 'contact' ||
-          !Array.isArray(section.formFields)
-        ) {
-          return false;
-        }
-
-        if (!operation.formFieldId) {
-          return true;
-        }
-
-        const currentFormField =
-          section.formFields.find(
-            (field) =>
-              field.id === operation.formFieldId,
-          );
-
-        if (!currentFormField) {
-          return true;
-        }
-
-        const nativeOperation =
-          convertLegacyAIUpdateOperationToNative(
-            operation,
-            {
-              pageId: page.id,
-              sectionId: section.id,
-              currentFormField:
-                currentFormField as unknown as Record<string, unknown>,
-            },
-          );
-
-        if (!nativeOperation) {
-          return true;
-        }
-
-        const status =
-          applyAIWorkingNativeOperation(
-            nativeOperation,
-            operation.action,
-          );
-
-        if (status === 'unchanged') {
-          applied += 1;
-        }
-
-        return true;
-      };
-
-      const applyAISectionScopedAddNativeOperation = (
-        operation: AIWebsitePatchOperation,
-        pageIndex: number,
-        sectionIndex: number,
-      ) => {
-        if (
-          operation.action !== 'add_container' &&
-          operation.action !== 'add_form_field'
-        ) {
-          return false;
-        }
-
-        const page = nextPages[pageIndex];
-        const section = page?.sections[sectionIndex];
-        if (!page || !section) {
-          return true;
-        }
-
-        if (operation.action === 'add_container') {
-          const containers =
-            section.containers || [];
-
-          if (containers.length >= 30) {
-            return true;
-          }
-
-          const assignElement =
-            operation.elementId
-              ? section.elements.find(
-                  (element) =>
-                    element.id ===
-                    operation.elementId,
-                )
-              : undefined;
-
-          const assignElementId =
-            assignElement &&
-            !assignElement.symbolId
-              ? assignElement.id
-              : undefined;
-
-          const nativeOperations =
-            convertLegacyAIAddOperationToNative(
-              operation,
-              {
-                pageId: page.id,
-                sectionId: section.id,
-                generatedId:
-                  `container-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                sectionColumns:
-                  sectionColumnCount(section.layout),
-                sectionIsStack:
-                  section.layout === 'stack',
-                existingContainerCount:
-                  containers.length,
-                assignElementId,
-              },
-            );
-
-          if (nativeOperations.length) {
-            applyAIWorkingNativeOperations(
-              nativeOperations,
-              operation.action,
-            );
-          }
-
-          return true;
-        }
-
-        if (
-          section.type !== 'contact' ||
-          !Array.isArray(section.formFields)
-        ) {
-          return false;
-        }
-
-        if (
-          !operation.formFieldType ||
-          !allowedFormFieldTypes.has(
-            operation.formFieldType,
-          )
-        ) {
-          return true;
-        }
-
-        const fields =
-          section.formFields;
-
-        if (fields.length >= 20) {
-          return true;
-        }
-
-        const nativeOperations =
-          convertLegacyAIAddOperationToNative(
-            operation,
-            {
-              pageId: page.id,
-              sectionId: section.id,
-              generatedId:
-                `field-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-              existingFormFieldNames:
-                fields.map(
-                  (field) =>
-                    field.name,
-                ),
-              existingFormFieldIds:
-                fields.map(
-                  (field) =>
-                    field.id,
-                ),
-            },
-          );
-
-        if (nativeOperations.length) {
-          applyAIWorkingNativeOperations(
-            nativeOperations,
-            operation.action,
-          );
-        }
-
-        return true;
-      };
-
-      for (const [operationIndex, operation] of operations.entries()) {
-        if (!selectedOperationSet.has(`operation-${operationIndex + 1}`)) continue;
-        if (!operation || typeof operation.action !== 'string') continue;
-        const appliedBeforeOperation = applied;
-        try {
-
-        if (
-          applyAIGlobalNativeOperation(
-            operation,
-          ) ||
-          applyAIPageNativeOperation(
-            operation,
-          )
-        ) {
-          continue;
-        }
-
-        if (operation.action === 'add_page') {
-          const sourcePage = operation.page;
-          if (!sourcePage || nextPages.length >= billingEntitlements.maxPages) continue;
-          const sourceSections = Array.isArray(sourcePage.sections) ? sourcePage.sections : [];
-          const normalizedSections = sourceSections
-            .filter((section) => section && allowedTypes.has(section.type))
-            .slice(0, 8)
-            .map((section, sectionIndex) => normalizeSection({
-              ...section,
-              id: `${section.type}-ai-page-${Date.now()}-${sectionIndex}-${Math.random().toString(36).slice(2, 7)}`,
-              type: section.type,
-              title: section.title?.trim() || SECTION_LABELS[section.type],
-              description: section.description?.trim() || '',
-              buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
-              buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
-              background: validHex(section.background) ? section.background! : nextTheme.backgroundColor || '#0f172a',
-              accent: validHex(section.accent) ? section.accent! : nextTheme.primaryColor || '#7c3aed',
-              image: section.image?.trim() || undefined,
-              imagePrompt: section.imagePrompt?.trim() || undefined,
-            }));
-          if (!normalizedSections.length) continue;
-          const pageName = sourcePage.name?.trim().slice(0, 60) || `Page ${nextPages.length + 1}`;
-          const requestedSlug = normalizeSlugValue(sourcePage.slug || pageName) || `page-${nextPages.length + 1}`;
-          const createdPage: WebsitePage = {
-            id: `page-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: pageName,
-            slug: requestedSlug,
-            sections: normalizedSections,
-            showInNavigation: sourcePage.showInNavigation !== false,
-            language: prefs.language,
-            translationKey: '',
-            seoTitle: '',
-            seoDescription: '',
-            canonicalUrl: '',
-            noIndex: false,
-          };
-
-          applyAIWorkingNativeOperation(
-            {
-              action: 'add_page',
-              source: 'ai',
-              page:
-                createdPage as unknown as EditorPageLike,
-            },
-            operation.action,
-          );
-          continue;
-        }
-
-        if (operation.action === 'update_site') {
-          const changes = operation.changes || {};
-          if (typeof changes.name === 'string' && changes.name.trim()) {
-            nextSiteName = changes.name.trim().slice(0, 100);
-            applied += 1;
-          }
-          continue;
-        }
-
-        if (operation.action === 'repair_responsive') {
-          let repaired = 0;
-          const targetPageId = operation.pageId?.trim();
-          const targetPageSlug = operation.pageSlug ? normalizeSlugValue(operation.pageSlug) : '';
-          nextPages = nextPages.map((candidatePage) => {
-            const pageMatches = !targetPageId && !targetPageSlug
-              ? true
-              : targetPageId
-                ? candidatePage.id === targetPageId
-                : normalizeSlugValue(candidatePage.slug) === targetPageSlug;
-            if (!pageMatches) return candidatePage;
-
-            return {
-              ...candidatePage,
-              sections: candidatePage.sections.map((candidateSection) => {
-                let sectionChanged = false;
-                const sectionResponsive = { ...(candidateSection.responsive || {}) };
-                const mobileSection = { ...(sectionResponsive.mobile || {}) };
-                const tabletSection = { ...(sectionResponsive.tablet || {}) };
-
-                const basePaddingX = Number(candidateSection.sectionPaddingX);
-                if (Number.isFinite(basePaddingX) && basePaddingX > 28 && mobileSection.sectionPaddingX === undefined) {
-                  mobileSection.sectionPaddingX = 20;
-                  sectionChanged = true;
-                }
-                if (Number.isFinite(basePaddingX) && basePaddingX > 48 && tabletSection.sectionPaddingX === undefined) {
-                  tabletSection.sectionPaddingX = 32;
-                  sectionChanged = true;
-                }
-
-                const basePaddingY = Number(candidateSection.sectionPaddingY);
-                if (Number.isFinite(basePaddingY) && basePaddingY > 96 && mobileSection.sectionPaddingY === undefined) {
-                  mobileSection.sectionPaddingY = 64;
-                  sectionChanged = true;
-                }
-                if (Number.isFinite(basePaddingY) && basePaddingY > 120 && tabletSection.sectionPaddingY === undefined) {
-                  tabletSection.sectionPaddingY = 84;
-                  sectionChanged = true;
-                }
-
-                const baseGap = Number(candidateSection.layoutGap);
-                if (Number.isFinite(baseGap) && baseGap > 36 && mobileSection.layoutGap === undefined) {
-                  mobileSection.layoutGap = 24;
-                  sectionChanged = true;
-                }
-                if (Number.isFinite(baseGap) && baseGap > 52 && tabletSection.layoutGap === undefined) {
-                  tabletSection.layoutGap = 36;
-                  sectionChanged = true;
-                }
-
-                const elements = candidateSection.elements.map((element) => {
-                  let elementChanged = false;
-                  const responsive = { ...(element.responsive || {}) };
-                  const mobile = { ...(responsive.mobile || {}) };
-                  const tablet = { ...(responsive.tablet || {}) };
-                  const baseStyle = element.style || {};
-
-                  const fontSize = Number(baseStyle.fontSize);
-                  if (Number.isFinite(fontSize) && fontSize > 52 && mobile.fontSize === undefined) {
-                    mobile.fontSize = Math.max(28, Math.min(48, Math.round(fontSize * 0.72)));
-                    elementChanged = true;
-                  }
-                  if (Number.isFinite(fontSize) && fontSize > 76 && tablet.fontSize === undefined) {
-                    tablet.fontSize = Math.max(36, Math.min(68, Math.round(fontSize * 0.84)));
-                    elementChanged = true;
-                  }
-
-                  const padding = Number(baseStyle.padding);
-                  if (Number.isFinite(padding) && padding > 32 && mobile.padding === undefined) {
-                    mobile.padding = 20;
-                    elementChanged = true;
-                  }
-                  if (Number.isFinite(padding) && padding > 48 && tablet.padding === undefined) {
-                    tablet.padding = 32;
-                    elementChanged = true;
-                  }
-
-                  for (const side of ['marginLeft', 'marginRight'] as const) {
-                    const margin = Number(baseStyle[side]);
-                    if (Number.isFinite(margin) && Math.abs(margin) > 32 && mobile[side] === undefined) {
-                      mobile[side] = 0;
-                      elementChanged = true;
-                    }
-                    if (Number.isFinite(margin) && Math.abs(margin) > 64 && tablet[side] === undefined) {
-                      tablet[side] = 0;
-                      elementChanged = true;
-                    }
-                  }
-
-                  const positionX = Number(baseStyle.positionX || 0);
-                  const positionY = Number(baseStyle.positionY || 0);
-                  if (Math.abs(positionX) > 24 && mobile.positionX === undefined) {
-                    mobile.positionX = 0;
-                    elementChanged = true;
-                  }
-                  if (Math.abs(positionY) > 24 && mobile.positionY === undefined) {
-                    mobile.positionY = 0;
-                    elementChanged = true;
-                  }
-                  if (Math.abs(positionX) > 80 && tablet.positionX === undefined) {
-                    tablet.positionX = 0;
-                    elementChanged = true;
-                  }
-                  if (Math.abs(positionY) > 80 && tablet.positionY === undefined) {
-                    tablet.positionY = 0;
-                    elementChanged = true;
-                  }
-
-                  const maxWidth = Number(baseStyle.maxWidth);
-                  if (Number.isFinite(maxWidth) && maxWidth > 520 && mobile.maxWidth === undefined) {
-                    mobile.maxWidth = 420;
-                    mobile.width = mobile.width ?? 100;
-                    elementChanged = true;
-                  }
-                  if (Number.isFinite(maxWidth) && maxWidth > 900 && tablet.maxWidth === undefined) {
-                    tablet.maxWidth = 760;
-                    elementChanged = true;
-                  }
-
-                  if (!elementChanged) return element;
-                  repaired += 1;
-                  return {
-                    ...element,
-                    responsive: {
-                      ...responsive,
-                      mobile,
-                      tablet,
-                    },
-                  };
-                });
-
-                if (sectionChanged) {
-                  repaired += 1;
-                  sectionResponsive.mobile = mobileSection;
-                  sectionResponsive.tablet = tabletSection;
-                }
-
-                return sectionChanged
-                  ? { ...candidateSection, responsive: sectionResponsive, elements }
-                  : elements === candidateSection.elements
-                    ? candidateSection
-                    : { ...candidateSection, elements };
-              }),
-            };
-          });
-          if (repaired > 0) applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'repair_accessibility') {
-          let repaired = 0;
-          nextPages = nextPages.map((candidatePage) => ({
-            ...candidatePage,
-            sections: candidatePage.sections.map((candidateSection) => {
-              const elements = candidateSection.elements.map((element) => {
-                if (element.type === 'image' && element.src?.trim() && !element.content.trim()) {
-                  repaired += 1;
-                  return { ...element, content: `${candidateSection.title || candidatePage.name} image`.slice(0, 180) };
-                }
-                if (element.type === 'button' && !element.content.trim()) {
-                  repaired += 1;
-                  return { ...element, content: 'Learn more' };
-                }
-                return element;
-              });
-              if (candidateSection.type !== 'contact') return { ...candidateSection, elements };
-              const fields = (candidateSection.formFields || createDefaultContactFormFields()).map((field) => {
-                if (field.label.trim()) return field;
-                repaired += 1;
-                const fallback = field.name.replace(/[_-]+/g, ' ').trim() || 'Field';
-                return { ...field, label: fallback.charAt(0).toUpperCase() + fallback.slice(1) };
-              });
-              return { ...candidateSection, elements, formFields: fields };
-            }),
-          }));
-          if (repaired > 0) applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'restyle_site') {
-          const changes = operation.changes || {};
-          const backgroundColor = validHex(changes.backgroundColor)
-            ? changes.backgroundColor!
-            : validHex(changes.primaryColor)
-              ? changes.primaryColor!
-              : undefined;
-          const accentColor = validHex(changes.accentColor) ? changes.accentColor! : undefined;
-
-          if (!backgroundColor && !accentColor) continue;
-
-          nextPages = nextPages.map((page) => ({
-            ...page,
-            sections: page.sections.map((section) => {
-              const restyled = {
-                ...section,
-                background: backgroundColor || section.background,
-                accent: accentColor || section.accent,
-              };
-              return {
-                ...restyled,
-                elements: section.elements.map((element) => element.type === 'button' && accentColor
-                  ? { ...element, style: { ...element.style, backgroundColor: accentColor } }
-                  : element
-                ),
-              };
-            }),
-          }));
-
-          nextTheme = {
-            ...nextTheme,
-            backgroundColor: backgroundColor || nextTheme.backgroundColor,
-            secondaryColor: backgroundColor || nextTheme.secondaryColor,
-            primaryColor: accentColor || nextTheme.primaryColor,
-          };
-          applied += 1;
-          continue;
-        }
-
-        const pageIndex = resolvePageIndex(operation);
-        if (pageIndex < 0 || pageIndex >= nextPages.length) continue;
-        const page = nextPages[pageIndex];
-
-        if (
-          applyAIPageScopedStructuralNativeOperation(
-            operation,
-            pageIndex,
-          )
-        ) {
-          continue;
-        }
-
-        if (operation.action === 'update_page') {
-          const nativeOperation =
-            convertLegacyAIPageUpdateOperationToNative(
-              operation,
-              page.id,
-            );
-
-          if (!nativeOperation) {
-            applied += 1;
-            continue;
-          }
-
-          const status =
-            applyAIWorkingNativeOperation(
-              nativeOperation,
-              operation.action,
-            );
-
-          if (status === 'unchanged') {
-            applied += 1;
-          }
-
-          continue;
-        }
-
-        if (operation.action === 'add_section') {
-          const source = operation.section;
-          if (!source || !allowedTypes.has(source.type) || page.sections.length >= 20) continue;
-          const created = normalizeSection({
-            ...source,
-            id: `${source.type}-ai-edit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            type: source.type,
-            title: source.title?.trim() || SECTION_LABELS[source.type],
-            description: source.description?.trim() || '',
-            buttonText: source.type === 'footer' ? '' : (source.buttonText?.trim() || 'Learn More'),
-            buttonUrl: source.type === 'footer' ? '' : (source.buttonUrl?.trim() || '#contact'),
-            background: validHex(source.background) ? source.background! : page.sections[0]?.background || '#0f172a',
-            accent: validHex(source.accent) ? source.accent! : page.sections[0]?.accent || '#7c3aed',
-            image: source.image?.trim() || undefined,
-            imagePrompt: source.imagePrompt?.trim() || undefined,
-          });
-          const requestedAfter =
-            operation.afterSectionId &&
-            page.sections.some(
-              (section) =>
-                section.id === operation.afterSectionId,
-            )
-              ? operation.afterSectionId
-              : '';
-          const footer =
-            page.sections.find(
-              (section) =>
-                section.type === 'footer',
-            );
-          const position = requestedAfter
-            ? { afterId: requestedAfter }
-            : footer
-              ? { beforeId: footer.id }
-              : {};
-
-          applyAIWorkingNativeOperation(
-            {
-              action: 'add_section',
-              source: 'ai',
-              pageId: page.id,
-              section:
-                created as unknown as EditorPageLike['sections'][number],
-              position,
-            },
-            operation.action,
-          );
-          continue;
-        }
-
-        const sectionIndex = resolveSectionIndex(page, operation);
-        if (sectionIndex < 0 || sectionIndex >= page.sections.length) continue;
-
-        if (
-          applyAISectionScopedStructuralNativeOperation(
-            operation,
-            pageIndex,
-            sectionIndex,
-          )
-        ) {
-          continue;
-        }
-
-        if (
-          applyAISectionScopedUpdateNativeOperation(
-            operation,
-            pageIndex,
-            sectionIndex,
-          )
-        ) {
-          continue;
-        }
-
-        if (
-          applyAISectionScopedAddNativeOperation(
-            operation,
-            pageIndex,
-            sectionIndex,
-          )
-        ) {
-          continue;
-        }
-
-        if (operation.action === 'add_element') {
-          if (!operation.elementType || !allowedElementTypes.has(operation.elementType)) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.elements.length >= 60) continue;
-
-          const changes = operation.changes || {};
-          const created = createElement(operation.elementType, targetSection.accent);
-          const createdStyle: WebsiteElement['style'] = { ...created.style };
-          const setCreatedNumber = (key: keyof WebsiteElement['style'], value: unknown, min: number, max: number) => {
-            const nextValue = finiteStyleNumber(value, min, max);
-            if (nextValue !== undefined) {
-              (createdStyle as Record<string, unknown>)[key] = nextValue;
-            }
-          };
-
-          if (validHex(changes.color)) createdStyle.color = changes.color;
-          if (validHex(changes.elementBackgroundColor)) createdStyle.backgroundColor = changes.elementBackgroundColor;
-          if (validHex(changes.elementBorderColor)) createdStyle.borderColor = changes.elementBorderColor;
-          if (validHex(changes.elementHoverBackgroundColor)) createdStyle.hoverBackgroundColor = changes.elementHoverBackgroundColor;
-          if (validHex(changes.elementHoverColor)) createdStyle.hoverColor = changes.elementHoverColor;
-          if (changes.elementBorderStyle === 'solid' || changes.elementBorderStyle === 'dashed' || changes.elementBorderStyle === 'dotted') createdStyle.borderStyle = changes.elementBorderStyle;
-          if (changes.elementShadow && allowedShadows.has(changes.elementShadow)) createdStyle.shadow = changes.elementShadow;
-          if (changes.elementHoverShadow && allowedShadows.has(changes.elementHoverShadow)) createdStyle.hoverShadow = changes.elementHoverShadow;
-          if (changes.elementAnimation && allowedAnimations.has(changes.elementAnimation)) createdStyle.animation = changes.elementAnimation;
-          if (changes.elementAnimationEasing && allowedAnimationEasings.has(changes.elementAnimationEasing)) createdStyle.animationEasing = changes.elementAnimationEasing;
-          if (changes.textAlign === 'left' || changes.textAlign === 'center' || changes.textAlign === 'right') createdStyle.textAlign = changes.textAlign;
-          if (changes.alignSelf === 'auto' || changes.alignSelf === 'start' || changes.alignSelf === 'center' || changes.alignSelf === 'end' || changes.alignSelf === 'stretch') createdStyle.alignSelf = changes.alignSelf;
-          if (typeof changes.hidden === 'boolean') createdStyle.hidden = changes.hidden;
-          setCreatedNumber('fontSize', changes.fontSize, 8, 240);
-          setCreatedNumber('fontWeight', changes.fontWeight, 100, 1000);
-          setCreatedNumber('padding', changes.padding, 0, 160);
-          setCreatedNumber('borderRadius', changes.borderRadius, 0, 160);
-          setCreatedNumber('width', changes.width, 1, 100);
-          setCreatedNumber('maxWidth', changes.maxWidth, 0, 2000);
-          setCreatedNumber('marginTop', changes.marginTop, -200, 400);
-          setCreatedNumber('marginRight', changes.marginRight, -200, 400);
-          setCreatedNumber('marginBottom', changes.marginBottom, -200, 400);
-          setCreatedNumber('marginLeft', changes.marginLeft, -200, 400);
-          setCreatedNumber('positionX', changes.positionX, -4000, 4000);
-          setCreatedNumber('positionY', changes.positionY, -4000, 4000);
-          setCreatedNumber('lineHeight', changes.lineHeight, 0.7, 4);
-          setCreatedNumber('letterSpacing', changes.letterSpacing, -10, 30);
-          setCreatedNumber('opacity', changes.opacity, 0, 1);
-          setCreatedNumber('rotate', changes.rotate, -180, 180);
-          setCreatedNumber('borderWidth', changes.elementBorderWidth, 0, 24);
-          setCreatedNumber('hoverScale', changes.elementHoverScale, 0.5, 1.6);
-          setCreatedNumber('hoverOpacity', changes.elementHoverOpacity, 0, 1);
-          setCreatedNumber('animationDuration', changes.elementAnimationDuration, 100, 4000);
-          setCreatedNumber('animationDelay', changes.elementAnimationDelay, 0, 5000);
-          setCreatedNumber('animationDistance', changes.elementAnimationDistance, 0, 300);
-          setCreatedNumber('animationIterations', changes.elementAnimationIterations, 1, 20);
-          setCreatedNumber('parallaxSpeed', changes.elementParallaxSpeed, -1, 1);
-
-          const newElement: WebsiteElement = {
-            ...created,
-            content: typeof changes.elementContent === 'string' ? changes.elementContent.slice(0, 5000) : created.content,
-            href: typeof changes.elementHref === 'string' ? changes.elementHref.trim().slice(0, 2000) : created.href,
-            src: typeof changes.elementSrc === 'string' ? changes.elementSrc.trim().slice(0, 2000) : created.src,
-            style: createdStyle,
-            animationOnce: typeof changes.elementAnimationOnce === 'boolean' ? changes.elementAnimationOnce : created.animationOnce,
-            animationTrigger: changes.elementAnimationTrigger && allowedAnimationTriggers.has(changes.elementAnimationTrigger) ? changes.elementAnimationTrigger : created.animationTrigger,
-          };
-
-          const beforeId =
-            operation.beforeElementId &&
-            targetSection.elements.some(
-              (element) => element.id === operation.beforeElementId,
-            )
-              ? operation.beforeElementId
-              : '';
-          const afterId =
-            !beforeId &&
-            operation.afterElementId &&
-            targetSection.elements.some(
-              (element) => element.id === operation.afterElementId,
-            )
-              ? operation.afterElementId
-              : '';
-
-          applyAIWorkingNativeOperation(
-            {
-              action: 'add_element',
-              source: 'ai',
-              pageId: page.id,
-              sectionId: targetSection.id,
-              element:
-                newElement as unknown as EditorPageLike['sections'][number]['elements'][number],
-              ...(beforeId
-                ? { position: { beforeId } }
-                : afterId
-                  ? { position: { afterId } }
-                  : {}),
-            },
-            operation.action,
-          );
-          continue;
-        }
-
-        if (operation.action === 'update_element') {
-          if (!operation.elementId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const elementIndex = targetSection.elements.findIndex((element) => element.id === operation.elementId);
-          if (elementIndex < 0) continue;
-
-          const changes = operation.changes || {};
-          const targetElement = targetSection.elements[elementIndex];
-          const styleChanges: WebsiteElement['style'] = {};
-          const setNumeric = (key: keyof WebsiteElement['style'], value: unknown, min: number, max: number) => {
-            const nextValue = finiteStyleNumber(value, min, max);
-            if (nextValue !== undefined) {
-              (styleChanges as Record<string, unknown>)[key] = nextValue;
-            }
-          };
-
-          if (validHex(changes.color)) styleChanges.color = changes.color;
-          if (validHex(changes.elementBackgroundColor)) styleChanges.backgroundColor = changes.elementBackgroundColor;
-          if (validHex(changes.elementBorderColor)) styleChanges.borderColor = changes.elementBorderColor;
-          if (validHex(changes.elementHoverBackgroundColor)) styleChanges.hoverBackgroundColor = changes.elementHoverBackgroundColor;
-          if (validHex(changes.elementHoverColor)) styleChanges.hoverColor = changes.elementHoverColor;
-          if (changes.elementBorderStyle === 'solid' || changes.elementBorderStyle === 'dashed' || changes.elementBorderStyle === 'dotted') styleChanges.borderStyle = changes.elementBorderStyle;
-          if (changes.elementShadow && allowedShadows.has(changes.elementShadow)) styleChanges.shadow = changes.elementShadow;
-          if (changes.elementHoverShadow && allowedShadows.has(changes.elementHoverShadow)) styleChanges.hoverShadow = changes.elementHoverShadow;
-          if (changes.elementAnimation && allowedAnimations.has(changes.elementAnimation)) styleChanges.animation = changes.elementAnimation;
-          if (changes.elementAnimationEasing && allowedAnimationEasings.has(changes.elementAnimationEasing)) styleChanges.animationEasing = changes.elementAnimationEasing;
-          if (changes.textAlign === 'left' || changes.textAlign === 'center' || changes.textAlign === 'right') styleChanges.textAlign = changes.textAlign;
-          if (changes.alignSelf === 'auto' || changes.alignSelf === 'start' || changes.alignSelf === 'center' || changes.alignSelf === 'end' || changes.alignSelf === 'stretch') styleChanges.alignSelf = changes.alignSelf;
-          if (typeof changes.hidden === 'boolean') styleChanges.hidden = changes.hidden;
-          setNumeric('fontSize', changes.fontSize, 8, 240);
-          setNumeric('fontWeight', changes.fontWeight, 100, 1000);
-          setNumeric('padding', changes.padding, 0, 160);
-          setNumeric('borderRadius', changes.borderRadius, 0, 160);
-          setNumeric('width', changes.width, 1, 100);
-          setNumeric('maxWidth', changes.maxWidth, 0, 2000);
-          setNumeric('columnSpan', changes.elementColumnSpan, 1, sectionColumnCount(targetSection.layout));
-          setNumeric('marginTop', changes.marginTop, -200, 400);
-          setNumeric('marginRight', changes.marginRight, -200, 400);
-          setNumeric('marginBottom', changes.marginBottom, -200, 400);
-          setNumeric('marginLeft', changes.marginLeft, -200, 400);
-          setNumeric('positionX', changes.positionX, -4000, 4000);
-          setNumeric('positionY', changes.positionY, -4000, 4000);
-          setNumeric('lineHeight', changes.lineHeight, 0.7, 4);
-          setNumeric('letterSpacing', changes.letterSpacing, -10, 30);
-          setNumeric('opacity', changes.opacity, 0, 1);
-          setNumeric('rotate', changes.rotate, -180, 180);
-          setNumeric('borderWidth', changes.elementBorderWidth, 0, 24);
-          setNumeric('hoverScale', changes.elementHoverScale, 0.5, 1.6);
-          setNumeric('hoverOpacity', changes.elementHoverOpacity, 0, 1);
-          setNumeric('animationDuration', changes.elementAnimationDuration, 100, 4000);
-          setNumeric('animationDelay', changes.elementAnimationDelay, 0, 5000);
-          setNumeric('animationDistance', changes.elementAnimationDistance, 0, 300);
-          setNumeric('animationIterations', changes.elementAnimationIterations, 1, 20);
-          setNumeric('parallaxSpeed', changes.elementParallaxSpeed, -1, 1);
-
-          const hasContentChange = typeof changes.elementContent === 'string' || typeof changes.elementHref === 'string' || typeof changes.elementSrc === 'string';
-          const hasElementMetaChange = typeof changes.elementAnimationOnce === 'boolean'
-            || (typeof changes.elementAnimationTrigger === 'string' && allowedAnimationTriggers.has(changes.elementAnimationTrigger));
-          if (!hasContentChange && !hasElementMetaChange && Object.keys(styleChanges).length === 0) continue;
-
-          const responsiveDevice = operation.device === 'mobile' || operation.device === 'tablet' ? operation.device : null;
-          const sectionColumns = sectionColumnCount(targetSection.layout);
-          const requestedColumn = finiteStyleNumber(changes.elementColumn, 1, sectionColumns);
-          const baseElement: WebsiteElement = {
-            ...targetElement,
-            content: typeof changes.elementContent === 'string' ? changes.elementContent.slice(0, 5000) : targetElement.content,
-            href: typeof changes.elementHref === 'string' ? changes.elementHref.trim().slice(0, 2000) : targetElement.href,
-            src: typeof changes.elementSrc === 'string' ? changes.elementSrc.trim().slice(0, 2000) : targetElement.src,
-            layoutColumn: responsiveDevice
-              ? targetElement.layoutColumn
-              : requestedColumn !== undefined
-                ? Math.round(requestedColumn)
-                : targetElement.layoutColumn,
-            animationOnce: typeof changes.elementAnimationOnce === 'boolean' ? changes.elementAnimationOnce : targetElement.animationOnce,
-            animationTrigger: changes.elementAnimationTrigger && allowedAnimationTriggers.has(changes.elementAnimationTrigger) ? changes.elementAnimationTrigger : targetElement.animationTrigger,
-          };
-          const updatedElement: WebsiteElement = responsiveDevice
-            ? {
-                ...baseElement,
-                responsive: {
-                  ...(targetElement.responsive || {}),
-                  [responsiveDevice]: {
-                    ...(targetElement.responsive?.[responsiveDevice] || {}),
-                    ...styleChanges,
-                  },
-                },
-              }
-            : {
-                ...baseElement,
-                style: { ...targetElement.style, ...styleChanges },
-              };
-
-          if (targetElement.symbolId) {
-            const linkedSymbolId = targetElement.symbolId;
-            const syncInstance = (instance: WebsiteElement): WebsiteElement => ({
-              ...updatedElement,
-              id: instance.id,
-              containerId: instance.containerId,
-              layoutColumn: instance.layoutColumn,
-              symbolId: linkedSymbolId,
-            });
-            nextPages = nextPages.map((candidatePage) => ({
-              ...candidatePage,
-              sections: candidatePage.sections.map((candidateSection) => ({
-                ...candidateSection,
-                elements: candidateSection.elements.map((instance) =>
-                  instance.symbolId === linkedSymbolId ? syncInstance(instance) : instance
-                ),
-              })),
-            }));
-            nextSymbols = nextSymbols.map((symbol) => symbol.id === linkedSymbolId
-              ? { ...symbol, element: cloneSymbolElement(updatedElement), updatedAt: new Date().toISOString() }
-              : symbol
-            );
-          } else {
-            const nextElements = [...targetSection.elements];
-            nextElements[elementIndex] = updatedElement;
-            sectionList[sectionIndex] = { ...targetSection, elements: nextElements };
-            nextPages[pageIndex] = { ...page, sections: sectionList };
-          }
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'add_form_field') {
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.type !== 'contact' || !operation.formFieldType || !allowedFormFieldTypes.has(operation.formFieldType)) continue;
-          const fields = [...(targetSection.formFields || createDefaultContactFormFields())];
-          if (fields.length >= 20) continue;
-
-          const changes = operation.changes || {};
-          const baseName = typeof changes.formFieldName === 'string' && changes.formFieldName.trim()
-            ? normalizeFormFieldName(changes.formFieldName, 'field')
-            : operation.formFieldType === 'email'
-              ? 'email'
-              : operation.formFieldType === 'tel'
-                ? 'phone'
-                : operation.formFieldType === 'textarea'
-                  ? 'message'
-                  : operation.formFieldType === 'checkbox'
-                    ? 'consent'
-                    : operation.formFieldType === 'select'
-                      ? 'option'
-                      : 'field';
-          let uniqueName = baseName;
-          let suffix = 2;
-          while (fields.some((field) => field.name === uniqueName)) {
-            uniqueName = `${baseName}_${suffix}`;
-            suffix += 1;
-          }
-
-          const newField: WebsiteFormField = {
-            id: `field-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: uniqueName,
-            label: typeof changes.formFieldLabel === 'string' && changes.formFieldLabel.trim()
-              ? changes.formFieldLabel.trim().slice(0, 120)
-              : operation.formFieldType === 'textarea'
-                ? 'Message'
-                : operation.formFieldType === 'checkbox'
-                  ? 'I agree'
-                  : operation.formFieldType === 'select'
-                    ? 'Choose an option'
-                    : operation.formFieldType === 'tel'
-                      ? 'Phone'
-                      : operation.formFieldType === 'email'
-                        ? 'Email'
-                        : 'New field',
-            type: operation.formFieldType,
-            placeholder: operation.formFieldType === 'checkbox'
-              ? ''
-              : typeof changes.formFieldPlaceholder === 'string'
-                ? changes.formFieldPlaceholder.slice(0, 160)
-                : '',
-            required: changes.formFieldRequired === true,
-            options: operation.formFieldType === 'select'
-              ? (Array.isArray(changes.formFieldOptions)
-                  ? changes.formFieldOptions.map((item) => String(item).trim()).filter(Boolean).slice(0, 20)
-                  : ['Option 1', 'Option 2'])
-              : undefined,
-          };
-
-          const beforeIndex = operation.beforeFormFieldId ? fields.findIndex((field) => field.id === operation.beforeFormFieldId) : -1;
-          const afterIndex = operation.afterFormFieldId ? fields.findIndex((field) => field.id === operation.afterFormFieldId) : -1;
-          const insertAt = beforeIndex >= 0 ? beforeIndex : afterIndex >= 0 ? afterIndex + 1 : fields.length;
-          fields.splice(Math.min(Math.max(insertAt, 0), fields.length), 0, newField);
-
-          sectionList[sectionIndex] = { ...targetSection, formFields: fields };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'update_form_field') {
-          if (!operation.formFieldId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.type !== 'contact') continue;
-          const fields = [...(targetSection.formFields || createDefaultContactFormFields())];
-          const fieldIndex = fields.findIndex((field) => field.id === operation.formFieldId);
-          if (fieldIndex < 0) continue;
-
-          const changes = operation.changes || {};
-          const current = fields[fieldIndex];
-          const nextType = operation.formFieldType && allowedFormFieldTypes.has(operation.formFieldType)
-            ? operation.formFieldType
-            : current.type;
-          fields[fieldIndex] = {
-            ...current,
-            name: typeof changes.formFieldName === 'string' && changes.formFieldName.trim()
-              ? normalizeFormFieldName(changes.formFieldName, current.name || 'field')
-              : current.name,
-            label: typeof changes.formFieldLabel === 'string' ? changes.formFieldLabel.trim().slice(0, 120) : current.label,
-            type: nextType,
-            placeholder: nextType === 'checkbox'
-              ? ''
-              : typeof changes.formFieldPlaceholder === 'string'
-                ? changes.formFieldPlaceholder.slice(0, 160)
-                : current.placeholder,
-            required: typeof changes.formFieldRequired === 'boolean' ? changes.formFieldRequired : current.required,
-            options: nextType === 'select'
-              ? (Array.isArray(changes.formFieldOptions)
-                  ? changes.formFieldOptions.map((item) => String(item).trim()).filter(Boolean).slice(0, 20)
-                  : current.options || ['Option 1', 'Option 2'])
-              : undefined,
-          };
-
-          sectionList[sectionIndex] = { ...targetSection, formFields: fields };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'remove_form_field') {
-          if (!operation.formFieldId) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.type !== 'contact') continue;
-          const fields = [...(targetSection.formFields || createDefaultContactFormFields())];
-          if (fields.length <= 1 || !fields.some((field) => field.id === operation.formFieldId)) continue;
-
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            formFields: fields.filter((field) => field.id !== operation.formFieldId),
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'move_form_field') {
-          if (!operation.formFieldId || (!operation.beforeFormFieldId && !operation.afterFormFieldId)) continue;
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          if (targetSection.type !== 'contact') continue;
-          const fields = [...(targetSection.formFields || createDefaultContactFormFields())];
-          const sourceIndex = fields.findIndex((field) => field.id === operation.formFieldId);
-          if (sourceIndex < 0) continue;
-          const sourceField = fields[sourceIndex];
-          const withoutSource = fields.filter((field) => field.id !== sourceField.id);
-          const destinationId = operation.beforeFormFieldId || operation.afterFormFieldId || '';
-          const destinationIndex = withoutSource.findIndex((field) => field.id === destinationId);
-          if (destinationIndex < 0) continue;
-
-          const insertAt = destinationIndex + (operation.afterFormFieldId ? 1 : 0);
-          withoutSource.splice(Math.min(Math.max(insertAt, 0), withoutSource.length), 0, sourceField);
-          sectionList[sectionIndex] = { ...targetSection, formFields: withoutSource };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'copy_section_style') {
-          if (!operation.sourceSectionId) continue;
-          const sourceSection = nextPages
-            .flatMap((candidatePage) => candidatePage.sections)
-            .find((candidateSection) => candidateSection.id === operation.sourceSectionId);
-          if (!sourceSection) continue;
-
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          sectionList[sectionIndex] = {
-            ...targetSection,
-            background: sourceSection.background,
-            accent: sourceSection.accent,
-            backgroundMode: sourceSection.backgroundMode,
-            backgroundImage: sourceSection.backgroundImage,
-            backgroundPosition: sourceSection.backgroundPosition,
-            backgroundSize: sourceSection.backgroundSize,
-            gradientFrom: sourceSection.gradientFrom,
-            gradientTo: sourceSection.gradientTo,
-            gradientAngle: sourceSection.gradientAngle,
-            overlayColor: sourceSection.overlayColor,
-            overlayOpacity: sourceSection.overlayOpacity,
-            minHeight: sourceSection.minHeight,
-            sectionPaddingY: sourceSection.sectionPaddingY,
-            sectionPaddingX: sourceSection.sectionPaddingX,
-            sectionRadius: sourceSection.sectionRadius,
-            layoutGap: sourceSection.layoutGap,
-            layoutAlign: sourceSection.layoutAlign,
-            contentWidth: sourceSection.contentWidth,
-            responsive: sourceSection.responsive
-              ? JSON.parse(JSON.stringify(sourceSection.responsive)) as WebsiteSection['responsive']
-              : undefined,
-          };
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'copy_element_style') {
-          if (!operation.sourceElementId || !operation.elementId) continue;
-          const sourceElement = nextPages
-            .flatMap((candidatePage) => candidatePage.sections)
-            .flatMap((candidateSection) => candidateSection.elements)
-            .find((candidateElement) => candidateElement.id === operation.sourceElementId);
-          const targetSection = page.sections[sectionIndex];
-          const targetIndex = targetSection.elements.findIndex((candidateElement) => candidateElement.id === operation.elementId);
-          if (!sourceElement || targetIndex < 0) continue;
-          const targetElement = targetSection.elements[targetIndex];
-
-          const copyVisualStyle = (candidateElement: WebsiteElement): WebsiteElement => {
-            const copiedStyle = JSON.parse(JSON.stringify(sourceElement.style || {})) as WebsiteElement['style'];
-            copiedStyle.positionX = candidateElement.style.positionX;
-            copiedStyle.positionY = candidateElement.style.positionY;
-            copiedStyle.columnSpan = candidateElement.style.columnSpan;
-
-            const sourceResponsive = sourceElement.responsive
-              ? JSON.parse(JSON.stringify(sourceElement.responsive)) as WebsiteElement['responsive']
-              : {};
-            const copiedResponsive = { ...(sourceResponsive || {}) };
-            for (const responsiveDevice of ['desktop', 'tablet', 'mobile'] as Device[]) {
-              const sourceDevice = copiedResponsive?.[responsiveDevice];
-              if (!sourceDevice) continue;
-              const candidateDevice = candidateElement.responsive?.[responsiveDevice];
-              copiedResponsive[responsiveDevice] = {
-                ...sourceDevice,
-                positionX: candidateDevice?.positionX,
-                positionY: candidateDevice?.positionY,
-                columnSpan: candidateDevice?.columnSpan,
-              };
-            }
-            return {
-              ...candidateElement,
-              style: copiedStyle,
-              responsive: copiedResponsive,
-            };
-          };
-
-          const linkedSymbolId = targetElement.symbolId;
-          if (linkedSymbolId) {
-            nextPages = nextPages.map((candidatePage) => ({
-              ...candidatePage,
-              sections: candidatePage.sections.map((candidateSection) => ({
-                ...candidateSection,
-                elements: candidateSection.elements.map((candidateElement) =>
-                  candidateElement.symbolId === linkedSymbolId ? copyVisualStyle(candidateElement) : candidateElement
-                ),
-              })),
-            }));
-            nextSymbols = nextSymbols.map((symbol) => symbol.id === linkedSymbolId
-              ? {
-                  ...symbol,
-                  element: cloneSymbolElement(copyVisualStyle(symbol.element)),
-                  updatedAt: new Date().toISOString(),
-                }
-              : symbol
-            );
-          } else {
-            const sectionList = [...page.sections];
-            const elements = [...sectionList[sectionIndex].elements];
-            elements[targetIndex] = copyVisualStyle(targetElement);
-            sectionList[sectionIndex] = { ...sectionList[sectionIndex], elements };
-            nextPages[pageIndex] = { ...page, sections: sectionList };
-          }
-          applied += 1;
-          continue;
-        }
-
-        if (operation.action === 'generate_image') {
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const imagePrompt = operation.prompt?.trim() || targetSection.imagePrompt?.trim() || `${targetSection.title}. Professional website image for ${siteName}.`;
-          try {
-            const generatedImage = await requestGeneratedImage(imagePrompt, abortController.signal);
-            if (!operationCanApply()) return;
-            const placement = operation.placement || (targetSection.type === 'hero' ? 'section_background' : 'section_image');
-            if (placement === 'section_background') {
-              sectionList[sectionIndex] = {
-                ...targetSection,
-                image: generatedImage.url,
-                imagePrompt,
-                backgroundMode: 'image',
-                backgroundImage: generatedImage.url,
-                backgroundPosition: 'center',
-                backgroundSize: 'cover',
-                overlayColor: '#000000',
-                overlayOpacity: targetSection.type === 'hero' ? 0.42 : 0.3,
-              };
-            } else {
-              const existingImageIndex = targetSection.elements.findIndex((element) => element.type === 'image');
-              const nextElements = [...targetSection.elements];
-              if (existingImageIndex >= 0) {
-                nextElements[existingImageIndex] = {
-                  ...nextElements[existingImageIndex],
-                  src: generatedImage.url,
-                  content: targetSection.title || 'Generated image',
-                };
-              } else {
-                nextElements.push({
-                  ...createElement('image', targetSection.accent),
-                  src: generatedImage.url,
-                  content: targetSection.title || 'Generated image',
-                });
-              }
-              sectionList[sectionIndex] = {
-                ...targetSection,
-                image: generatedImage.url,
-                imagePrompt,
-                elements: nextElements,
-              };
-            }
-            nextPages[pageIndex] = { ...page, sections: sectionList };
-            applied += 1;
-          } catch {
-            // A failed image provider should not discard other safe patch operations in the same request.
-          }
-          continue;
-        }
-
-        if (operation.action === 'update_section') {
-          const changes = operation.changes || {};
-          const sectionList = [...page.sections];
-          const targetSection = sectionList[sectionIndex];
-          const responsiveDevice = operation.device === 'mobile' || operation.device === 'tablet' ? operation.device : null;
-          const sectionStyleChanges: Record<string, number> = {};
-          const setSectionNumber = (key: string, value: unknown, min: number, max: number) => {
-            const nextValue = finiteStyleNumber(value, min, max);
-            if (nextValue !== undefined) sectionStyleChanges[key] = nextValue;
-          };
-          setSectionNumber('minHeight', changes.sectionMinHeight, 0, 1200);
-          setSectionNumber('sectionPaddingY', changes.sectionPaddingY, 0, 240);
-          setSectionNumber('sectionPaddingX', changes.sectionPaddingX, 0, 160);
-          setSectionNumber('layoutGap', changes.sectionLayoutGap, 0, 80);
-
-          if (responsiveDevice) {
-            if (Object.keys(sectionStyleChanges).length === 0) continue;
-            sectionList[sectionIndex] = {
-              ...targetSection,
-              responsive: {
-                ...(targetSection.responsive || {}),
-                [responsiveDevice]: {
-                  ...(targetSection.responsive?.[responsiveDevice] || {}),
-                  ...sectionStyleChanges,
-                },
-              },
-            };
-          } else {
-            const baseUpdatedSection = updateSectionContent(targetSection, changes);
-            const updatedSection: WebsiteSection = {
-              ...baseUpdatedSection,
-              backgroundMode: changes.sectionBackgroundMode === 'gradient' || changes.sectionBackgroundMode === 'image'
-                ? changes.sectionBackgroundMode
-                : changes.sectionBackgroundMode === 'color'
-                  ? 'color'
-                  : baseUpdatedSection.backgroundMode,
-              backgroundImage: typeof changes.sectionBackgroundImage === 'string'
-                ? changes.sectionBackgroundImage.trim().slice(0, 2000) || undefined
-                : baseUpdatedSection.backgroundImage,
-              backgroundPosition: changes.sectionBackgroundPosition === 'top' || changes.sectionBackgroundPosition === 'bottom' || changes.sectionBackgroundPosition === 'left' || changes.sectionBackgroundPosition === 'right'
-                ? changes.sectionBackgroundPosition
-                : changes.sectionBackgroundPosition === 'center'
-                  ? 'center'
-                  : baseUpdatedSection.backgroundPosition,
-              backgroundSize: changes.sectionBackgroundSize === 'contain' || changes.sectionBackgroundSize === 'auto'
-                ? changes.sectionBackgroundSize
-                : changes.sectionBackgroundSize === 'cover'
-                  ? 'cover'
-                  : baseUpdatedSection.backgroundSize,
-              gradientFrom: validHex(changes.sectionGradientFrom) ? changes.sectionGradientFrom : baseUpdatedSection.gradientFrom,
-              gradientTo: validHex(changes.sectionGradientTo) ? changes.sectionGradientTo : baseUpdatedSection.gradientTo,
-              gradientAngle: finiteStyleNumber(changes.sectionGradientAngle, 0, 360) ?? baseUpdatedSection.gradientAngle,
-              overlayColor: validHex(changes.sectionOverlayColor) ? changes.sectionOverlayColor : baseUpdatedSection.overlayColor,
-              overlayOpacity: finiteStyleNumber(changes.sectionOverlayOpacity, 0, 1) ?? baseUpdatedSection.overlayOpacity,
-              sectionRadius: finiteStyleNumber(changes.sectionRadius, 0, 80) ?? baseUpdatedSection.sectionRadius,
-              anchorId: typeof changes.sectionAnchorId === 'string' && changes.sectionAnchorId.trim()
-                ? normalizeAnchorId(changes.sectionAnchorId, baseUpdatedSection.type)
-                : baseUpdatedSection.anchorId,
-            };
-            const nextLayout: SectionLayout =
-              changes.sectionLayout === 'two-column' || changes.sectionLayout === 'three-column'
-                ? changes.sectionLayout
-                : changes.sectionLayout === 'stack'
-                  ? 'stack'
-                  : (updatedSection.layout || 'stack');
-            const nextAlign: SectionLayoutAlign =
-              changes.sectionLayoutAlign === 'start' || changes.sectionLayoutAlign === 'end' || changes.sectionLayoutAlign === 'stretch'
-                ? changes.sectionLayoutAlign
-                : changes.sectionLayoutAlign === 'center'
-                  ? 'center'
-                  : (updatedSection.layoutAlign || 'center');
-            const nextContentWidth: SectionContentWidth =
-              changes.sectionContentWidth === 'full' ? 'full' : changes.sectionContentWidth === 'boxed' ? 'boxed' : (updatedSection.contentWidth || 'boxed');
-            const nextColumns = sectionColumnCount(nextLayout);
-
-            sectionList[sectionIndex] = {
-              ...updatedSection,
-              ...sectionStyleChanges,
-              layout: nextLayout,
-              layoutAlign: nextAlign,
-              contentWidth: nextContentWidth,
-              elements: updatedSection.elements.map((element, elementIndex) => {
-                const requestedColumn = Number(element.layoutColumn) || ((elementIndex % nextColumns) + 1);
-                const safeColumn = nextLayout === 'stack' ? undefined : Math.min(nextColumns, Math.max(1, requestedColumn));
-                const currentSpan = Number(element.style.columnSpan) || 1;
-                return {
-                  ...element,
-                  layoutColumn: safeColumn,
-                  style: {
-                    ...element.style,
-                    columnSpan: Math.min(nextColumns, Math.max(1, currentSpan)),
-                  },
-                };
-              }),
-            };
-          }
-
-          nextPages[pageIndex] = { ...page, sections: sectionList };
-          applied += 1;
-        }
-        } finally {
-          if (applied > appliedBeforeOperation) appliedOperationIds.add(`operation-${operationIndex + 1}`);
-        }
-      }
-
-      if (applied === 0) {
-        throw new Error(l('AI changes could not be matched safely to this website. Try naming the page or section more clearly.'));
-      }
-
-      setAiStage('styling');
-
-      const activeAfterPatch = nextPages.find((page) => page.id === activePageId) || nextPages[0];
-      const usedSlugs = new Set<string>();
-      nextPages = nextPages.map((page, index) => {
-        const baseSlug = normalizeSlugValue(page.slug || page.name) || `page-${index + 1}`;
-        let slug = baseSlug;
-        let suffix = 2;
-        while (usedSlugs.has(slug)) {
-          slug = `${baseSlug}-${suffix}`;
-          suffix += 1;
-        }
-        usedSlugs.add(slug);
-        return { ...page, slug };
-      });
-
-      const appliedPlanCoverage = evaluateAIWebsitePlanCoverage(
-        agentPlan.steps || [],
-        operations.filter((_, index) => appliedOperationIds.has(`operation-${index + 1}`)),
-      );
-      const deterministicReview = auditAIWebsiteCandidate(nextPages, nextSeo, nextHeaderConfig);
-      if (appliedPlanCoverage.percent < 100) {
-        deterministicReview.findings.unshift({
-          severity: 'warning',
-          title: 'Approved plan is only partially covered',
-          detail: `${appliedPlanCoverage.percent}% of approved steps produced safe applied operations. Review the uncovered steps before keeping the result.`,
-          target: 'agent-plan',
-        });
-        deterministicReview.findings = deterministicReview.findings.slice(0, 6);
-        deterministicReview.score = Math.min(
-          deterministicReview.score,
-          Math.max(0, 70 + Math.round(appliedPlanCoverage.percent * 0.2)),
-        );
-      }
-      let agentReview: AIWebsiteAgentReview | null = {
-        score: deterministicReview.score,
-        summary: deterministicReview.findings.length
-          ? 'Verified project checks found issues to review before keeping this result.'
-          : 'Verified project checks passed for structure, links, content basics and responsive risk.',
-        findings: deterministicReview.findings,
-        followUpPrompt: deterministicReview.fixPrompt,
-      };
-      try {
-        const proposedProject = {
-          homePageId: nextHomePageId,
-          siteName: nextSiteName,
-          theme: nextTheme,
-          seo: nextSeo,
-          header: nextHeaderConfig,
-          symbols: nextSymbols.slice(0, 50).map((symbol) => ({
-            id: symbol.id,
-            name: symbol.name,
-            type: symbol.element.type,
-            content: symbol.element.content?.slice(0, 160),
-            style: symbol.element.style,
-            responsive: symbol.element.responsive || {},
-          })),
-          pages: nextPages.slice(0, 24).map((candidatePage) => ({
-            id: candidatePage.id,
-            name: candidatePage.name,
-            slug: candidatePage.slug,
-            showInNavigation: candidatePage.showInNavigation,
-            seoTitle: candidatePage.seoTitle,
-            seoDescription: candidatePage.seoDescription,
-            sections: candidatePage.sections.slice(0, 20).map((candidateSection) => ({
-              id: candidateSection.id,
-              type: candidateSection.type,
-              title: candidateSection.title?.slice(0, 160),
-              description: candidateSection.description?.slice(0, 260),
-              background: candidateSection.background,
-              accent: candidateSection.accent,
-              backgroundMode: candidateSection.backgroundMode,
-              layout: candidateSection.layout,
-              layoutAlign: candidateSection.layoutAlign,
-              contentWidth: candidateSection.contentWidth,
-              responsive: candidateSection.responsive || {},
-              formFields: (candidateSection.formFields || []).slice(0, 20).map((field) => ({
-                id: field.id,
-                name: field.name,
-                label: field.label,
-                type: field.type,
-                required: field.required,
-              })),
-              elements: candidateSection.elements.slice(0, 40).map((element) => ({
-                id: element.id,
-                type: element.type,
-                content: element.content?.slice(0, 180),
-                href: element.href,
-                src: element.src,
-                containerId: element.containerId,
-                symbolId: element.symbolId,
-                style: element.style,
-                responsive: element.responsive || {},
-              })),
-            })),
-          })),
-        };
-
-        const reviewResponse = await ai.completeJSON<AIWebsiteAgentReview>(
-          {
-            action: 'review-edit',
-            originalPrompt: prompt,
-            executionPlan: agentPlan,
-            planCoverage: appliedPlanCoverage,
-            proposedProject,
-            deterministicAudit: deterministicReview,
-          },
-          [],
-          { temperature: 0.1, maxTokens: 3200, signal: abortController.signal },
-        );
-
-        if (!operationCanApply()) return;
-
-        let rawReview = reviewResponse.json as AIWebsiteAgentReview | null;
-        if (!rawReview && reviewResponse.content) {
-          try {
-            const cleanedReview = reviewResponse.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-            rawReview = JSON.parse(cleanedReview) as AIWebsiteAgentReview;
-          } catch {
-            rawReview = null;
-          }
-        }
-
-        if (rawReview) {
-          const score = Number.isFinite(Number(rawReview.score))
-            ? Math.max(0, Math.min(100, Math.round(Number(rawReview.score))))
-            : undefined;
-          const findings = Array.isArray(rawReview.findings)
-            ? rawReview.findings
-                .filter((finding) => finding && typeof finding === 'object')
-                .map((finding): AIWebsiteAgentReviewFinding => ({
-                  severity: finding.severity === 'critical' || finding.severity === 'warning' ? finding.severity : 'improvement',
-                  title: String(finding.title || 'Review note').trim().slice(0, 120),
-                  detail: String(finding.detail || '').trim().slice(0, 360),
-                  target: typeof finding.target === 'string' ? finding.target.trim().slice(0, 160) : undefined,
-                }))
-                .slice(0, 6)
-            : [];
-          const modelFindings = findings.filter((finding) => !deterministicReview.findings.some((verified) =>
-            verified.title === finding.title && verified.target === finding.target));
-          agentReview = {
-            score: score === undefined ? deterministicReview.score : Math.min(score, deterministicReview.score),
-            summary: typeof rawReview.summary === 'string' && rawReview.summary.trim()
-              ? rawReview.summary.trim().slice(0, 300)
-              : agentReview.summary,
-            findings: [...deterministicReview.findings, ...modelFindings].slice(0, 6),
-            followUpPrompt: deterministicReview.fixPrompt ||
-              (typeof rawReview.followUpPrompt === 'string' ? rawReview.followUpPrompt.trim().slice(0, 500) : undefined),
-          };
-        }
-      } catch {
-        // The deterministic candidate review remains available when the advisory model review fails.
-      }
-
-      if (!operationCanApply()) return;
-
-      const integrityErrors = validateAIProjectIntegrity(nextPages, nextHomePageId, nextSymbols);
-      if (integrityErrors.length) {
-        throw new Error(`AI change blocked by project safety validation: ${integrityErrors.join(' ')}`);
-      }
-
-      const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
-      const previousPagesById = new Map(snapshot.pages.map((page) => [page.id, page]));
-      const visualGlobalsChanged =
-        snapshot.siteName !== nextSiteName ||
-        JSON.stringify(snapshot.theme) !== JSON.stringify(nextTheme) ||
-        JSON.stringify(snapshot.headerConfig) !== JSON.stringify(nextHeaderConfig);
-      const changedPageIds = nextPages
-        .filter((page) => visualGlobalsChanged || JSON.stringify(previousPagesById.get(page.id)) !== JSON.stringify(page))
-        .map((page) => page.id);
-      const addedPageIds = nextPages
-        .filter((page) => !previousPagesById.has(page.id))
-        .map((page) => page.id);
-      const nextPageIds = new Set(nextPages.map((page) => page.id));
-      const removedPageIds = snapshot.pages
-        .filter((page) => !nextPageIds.has(page.id))
-        .map((page) => page.id);
-      const skipped = Math.max(0, operations.length - applied);
-      const resultWarnings = [
-        ...patchWarnings,
-        ...selectedPlanCoverage.warnings,
-        ...appliedPlanCoverage.warnings,
-        ...nativeBridgeWarnings,
-      ].filter((warning, index, warnings) => warnings.indexOf(warning) === index).slice(0, 10);
-      const candidateReview = reconcileAIWebsitePatchReviewTargets(
-        {
-          ...exactPatchReview,
-          operations: exactPatchReview.operations.filter((operation) => appliedOperationIds.has(operation.id)),
-          planCoveragePercent: appliedPlanCoverage.percent,
-          uncoveredPlanStepIds: appliedPlanCoverage.uncoveredStepIds,
-        },
-        snapshot.pages,
-        nextPages,
-      );
-      const candidateApproved = await requestAICandidatePreview({
-        review: candidateReview,
-        summary,
-        viewMode: 'after',
-        pages: nextPages,
-        baselinePages: snapshot.pages,
-        activePageId: finalActive?.id || activePageId,
-        homePageId: nextHomePageId,
-        siteName: nextSiteName,
-        theme: nextTheme,
-        seo: nextSeo,
-        headerConfig: nextHeaderConfig,
-        symbols: nextSymbols,
-        baselineSiteName: snapshot.siteName,
-        baselineTheme: snapshot.theme,
-        baselineHeaderConfig: snapshot.headerConfig,
-        changedPageIds,
-        addedPageIds,
-        removedPageIds,
-        reviewedPageIds: finalActive?.id ? [finalActive.id] : [],
-        reviewedOperationIds: [],
-        focusedOperationId: null,
-        applied,
-        skipped,
-        warnings: resultWarnings,
-        confidence,
-        agentReview,
-      }, abortController.signal);
-      if (!candidateApproved) {
-        if (operationIsLatest() && !abortController.signal.aborted) {
-          setAiStage('ready');
-          setAiMessages((current) => [
-            ...current,
-            { id: `ai-result-discarded-${Date.now()}`, role: 'assistant' as const, content: l('AI result discarded. No changes were applied.') },
-          ].slice(-20));
-        }
-        return;
-      }
-      if (!operationCanApply()) return;
-      remember(sections, `AI change: ${prompt.slice(0, 60)}`);
-      pushProjectCheckpoint(`Before AI change · ${prompt.slice(0, 60)}`);
-      aiUndoContextRef.current = operationContext;
-      setAiUndoSnapshot(snapshot);
-      setPages(nextPages);
-      setSections(finalActive?.sections || []);
-      setActivePageId(finalActive?.id || activePageId);
-      setHomePageId(nextHomePageId);
-      setSiteName(nextSiteName);
-      setTheme(nextTheme);
-      setSeo(nextSeo);
-      setHeaderConfig(nextHeaderConfig);
-      setSymbols(nextSymbols);
-
-      const handoffOperation = [...candidateReview.operations].reverse().find((operation) =>
-        operation.action &&
-        !['repair_accessibility', 'repair_responsive', 'update_theme', 'restyle_site', 'update_site', 'update_seo', 'update_header'].includes(operation.action)
-      );
-      const handoffPage = handoffOperation
-        ? aiWebsitePatchReviewItemTargetPage(handoffOperation, nextPages) ?? finalActive
-        : finalActive;
-      const handoffSection = handoffOperation?.sectionId
-        ? handoffPage?.sections.find((candidateSection) => candidateSection.id === handoffOperation.sectionId)
-        : handoffOperation?.elementId
-          ? handoffPage?.sections.find((candidateSection) => candidateSection.elements.some((candidateElement) => candidateElement.id === handoffOperation.elementId))
-          : handoffOperation?.containerId
-            ? handoffPage?.sections.find((candidateSection) => (candidateSection.containers || []).some((candidateContainer) => candidateContainer.id === handoffOperation.containerId))
-            : handoffPage?.sections[0];
-      const handoffElement = handoffOperation?.elementId
-        ? handoffPage?.sections.flatMap((candidateSection) => candidateSection.elements).find((candidateElement) => candidateElement.id === handoffOperation.elementId)
-        : handoffSection?.elements[0];
-
-      if (handoffPage) {
-        setActivePageId(handoffPage.id);
-        setSections(handoffPage.sections);
-      }
-      setSelectedId(handoffSection?.id ?? handoffPage?.sections[0]?.id ?? finalActive?.sections[0]?.id ?? null);
-      setSelectedElementId(handoffElement?.id ?? handoffSection?.elements[0]?.id ?? null);
-      setBuilderPanel('layers');
-      setInspectorOpen(true);
-      setSaved(false);
-      setAiPrompt(aiPreparedFollowUpRef.current || '');
-      aiPreparedFollowUpRef.current = null;
-      aiQualityReviewContextRef.current = null;
-      setAiQualityReview(null);
-      setAiStage('ready');
-      pushProjectCheckpoint(`After AI change · ${prompt.slice(0, 60)}`, {
-        ...buildProjectSnapshot(),
-        pages: nextPages,
-        activePageId: finalActive?.id || activePageId,
-        homePageId: nextHomePageId,
-        siteName: nextSiteName,
-        theme: nextTheme,
-        seo: nextSeo,
-        headerConfig: nextHeaderConfig,
-        symbols: nextSymbols,
-      });
-
-      setAiPlan({
-        summary,
-        pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
-      });
-      setAiMessages((current) => [
-        ...current,
-        {
-          id: `ai-patch-result-${Date.now()}`,
-          role: 'assistant' as const,
-          content: [
-            summary,
-            `${l('Planned steps')}: ${(agentPlan.steps || []).length}`,
-            `${l('Applied safe changes')}: ${applied}`,
-            skipped ? `${l('Skipped unsafe changes')}: ${skipped}` : '',
-            resultWarnings.length ? `${l('Warnings')}: ${resultWarnings.join(' · ')}` : '',
-            confidence !== null ? `${l('Confidence')}: ${Math.round(confidence * 100)}%` : '',
-            agentReview
-              ? `${l('Agent review')}${typeof agentReview.score === 'number' ? ` ${agentReview.score}/100` : ''}: ${agentReview.summary || l('Review complete.')}${agentReview.findings?.length ? ` · ${agentReview.findings.map((finding) => `${finding.severity}: ${finding.title}`).join(' · ')}` : ''}${agentReview.followUpPrompt ? ` · ${l('Suggested follow-up')}: ${agentReview.followUpPrompt}` : ''}`
-              : '',
-          ].filter(Boolean).join(' · '),
-        },
-      ].slice(-12));
-    } catch (error) {
-      if (!operationCanApply()) return;
-      const message = error instanceof Error ? error.message : l('AI edit failed.');
-      setAiError(message);
-      setAiStage('error');
-      setAiMessages((current) => [
-        ...current,
-        { id: `ai-patch-error-${Date.now()}`, role: 'assistant' as const, content: message },
-      ].slice(-12));
-    } finally {
-      finishAIRequest(abortController);
-      if (operationIsLatest()) {
-        setAiBusy(false);
-        if (!operationCanApply()) setAiStage('ready');
-      }
-    }
-  }
-
-  async function generateRealImage() {
-    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return;
-    if (!selectedSection || aiBusy || aiQualityBusy) return;
-
-    const operationSequence = ++aiOperationSequenceRef.current;
-    const abortController = beginAIRequest();
-    const operationUserId = user?.id ?? null;
-    const operationContext = captureAIEditorContext();
-    const operationIsLatest = () =>
-      aiOperationSequenceRef.current === operationSequence &&
-      activeUserIdRef.current === operationUserId;
-    const operationCanApply = () =>
-      operationIsLatest() &&
-      aiEditorContextIsCurrent(operationContext, true);
-    const targetSection = selectedSection;
-    const targetElementId = selectedElement?.type === 'image' ? selectedElement.id : null;
-    const existingImageId = targetElementId
-      ? null
-      : targetSection.elements.find((element) => element.type === 'image')?.id ?? null;
-
-    setAiBusy(true);
-    setAiError('');
-    pushProjectCheckpoint(`Before AI image · ${targetSection.title || SECTION_LABELS[targetSection.type]}`);
-
-    try {
-      const generatedImage = await requestGeneratedImage(
-        targetSection.imagePrompt || targetSection.title || `Professional ${targetSection.type} website image`,
-        abortController.signal,
-      );
-
-      if (!operationCanApply()) return;
-
-      remember(sections);
-
-      setSections((current) => current.map((section) => {
-        if (section.id !== targetSection.id) return section;
-
-        if (targetElementId) {
-          return {
-            ...section,
-            image: generatedImage.url,
-            elements: section.elements.map((element) =>
-              element.id === targetElementId
-                ? { ...element, src: generatedImage.url, content: targetSection.title || 'Generated image' }
-                : element
-            ),
-          };
-        }
-
-        if (targetSection.type === 'hero') {
-          return {
-            ...section,
-            image: generatedImage.url,
-            backgroundMode: 'image',
-            backgroundImage: generatedImage.url,
-            backgroundPosition: 'center',
-            backgroundSize: 'cover',
-            overlayColor: '#000000',
-            overlayOpacity: 0.42,
-          };
-        }
-
-        if (existingImageId) {
-          return {
-            ...section,
-            image: generatedImage.url,
-            elements: section.elements.map((element) =>
-              element.id === existingImageId
-                ? { ...element, src: generatedImage.url, content: targetSection.title || 'Generated image' }
-                : element
-            ),
-          };
-        }
-
-        const element: WebsiteElement = {
-          ...createElement('image', targetSection.accent),
-          src: generatedImage.url,
-          content: targetSection.title || 'Generated image',
-        };
-
-        return {
-          ...section,
-          image: generatedImage.url,
-          elements: [...section.elements, element],
-        };
-      }));
-
-      setSaved(false);
-      setAiMessages((current) => [
-        ...current,
-        { id: `ai-image-${Date.now()}`, role: 'assistant' as const, content: l('Generated the image, saved it to Media Library and applied it to the selected section.') },
-      ].slice(-12));
-    } catch (error) {
-      if (!operationCanApply()) return;
-      setAiError(error instanceof Error ? error.message : l('Image generation failed.'));
-    } finally {
-      finishAIRequest(abortController);
-      if (operationIsLatest()) setAiBusy(false);
-    }
-  }
+    const applyAIChange = createAIChangeHandler({
+    activePageId,
+    activeUserIdRef,
+    aiAbortControllerRef,
+    aiBusy,
+    aiEditorContextIsCurrent,
+    aiEditScope,
+    aiMessages,
+    aiOperationSequenceRef,
+    aiPreparedFollowUpRef,
+    aiPrompt,
+    aiQualityAbortControllerRef,
+    aiQualityBusy,
+    aiQualityReviewContextRef,
+    aiUndoContextRef,
+    beginAIRequest,
+    billingEntitlements,
+    billingPlan,
+    brand,
+    buildAIEditableSnapshot,
+    buildProjectSnapshot,
+    captureAIEditorContext,
+    finishAIRequest,
+    getCurrentPages,
+    headerConfig,
+    homePageId,
+    l,
+    prefs,
+    pushProjectCheckpoint,
+    remember,
+    requestAICandidatePreview,
+    requestAIPatchReview,
+    requestAIPlanReview,
+    requestGeneratedImage,
+    sections,
+    selectedElementId,
+    selectedId,
+    seo,
+    setActivePageId,
+    setAiBusy,
+    setAiCandidatePreview,
+    setAiError,
+    setAiMessages,
+    setAiPatchReview,
+    setAiPlan,
+    setAiPrompt,
+    setAiQualityReview,
+    setAiStage,
+    setAiUndoSnapshot,
+    setBuilderPanel,
+    setHeaderConfig,
+    setHomePageId,
+    setInspectorOpen,
+    setPages,
+    setSaved,
+    setSections,
+    setSelectedElementId,
+    setSelectedId,
+    setSeo,
+    setSiteName,
+    setSymbols,
+    setTheme,
+    siteName,
+    symbols,
+    theme,
+    user,
+  });
+
+    const generateRealImage = createAIImageHandler({
+    activeUserIdRef,
+    aiAbortControllerRef,
+    aiBusy,
+    aiEditorContextIsCurrent,
+    aiOperationSequenceRef,
+    aiQualityAbortControllerRef,
+    aiQualityBusy,
+    beginAIRequest,
+    captureAIEditorContext,
+    finishAIRequest,
+    l,
+    pushProjectCheckpoint,
+    remember,
+    requestGeneratedImage,
+    sections,
+    selectedElement,
+    selectedSection,
+    setAiBusy,
+    setAiError,
+    setAiMessages,
+    setSaved,
+    setSections,
+    user,
+  });
 
   async function generateImagePrompt() {
     if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return;
@@ -9084,113 +5340,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  async function runAIQualityCheck(): Promise<AIQualityReview | null> {
-    if (aiAbortControllerRef.current || aiQualityAbortControllerRef.current) return null;
-    if (aiQualityBusy || aiBusy) return aiQualityReview;
-
-    const operationSequence = ++aiQualityOperationSequenceRef.current;
-    const abortController = beginAIQualityRequest();
-    const operationUserId = user?.id ?? null;
-    const operationContext = captureAIEditorContext();
-    const operationIsLatest = () =>
-      aiQualityOperationSequenceRef.current === operationSequence &&
-      activeUserIdRef.current === operationUserId;
-    const operationCanApply = () =>
-      operationIsLatest() &&
-      aiEditorContextIsCurrent(operationContext, false);
-    const currentSite = buildAIEditableSnapshot();
-    const qualityAudit = {
-      score: siteAudit.score,
-      errors: [...siteAudit.errors],
-      warnings: [...siteAudit.warnings],
-      diagnostics: {
-        ...qualityDiagnostics,
-        warnings: [...qualityDiagnostics.warnings],
-      },
-      designSystem: designSystemReport,
-      deviceModes: ['desktop', 'tablet', 'mobile'],
-    };
-
-    setAiQualityBusy(true);
-    setAiQualityOpen(true);
-    setAiError('');
-
-    try {
-      const ai = createAIService('website-builder');
-      const response = await ai.completeJSON<AIQualityReview>(
-        {
-          action: 'quality-check',
-          currentSite,
-          audit: qualityAudit,
-        },
-        [],
-        { temperature: 0.25, maxTokens: 5000, signal: abortController.signal },
-      );
-
-      if (!operationCanApply()) return null;
-
-      let review = response.json;
-      if (!review && response.content) {
-        const cleaned = response.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-        review = JSON.parse(cleaned) as AIQualityReview;
-      }
-      if (!review) throw new Error('AI quality check returned no review.');
-
-      const deterministicFindings: AIQualityReview['findings'] = designSystemReport.issues.map((issue) => ({
-        severity: issue.severity,
-        title: issue.title,
-        detail: issue.detail,
-      }));
-      const modelFindings: AIQualityReview['findings'] = Array.isArray(review.findings)
-        ? review.findings.map((finding) => ({
-            severity: finding.severity === 'critical' || finding.severity === 'warning' ? finding.severity : 'improvement',
-            title: String(finding.title || 'Website improvement').slice(0, 120),
-            detail: String(finding.detail || '').slice(0, 500),
-          }))
-        : [];
-      const normalized: AIQualityReview = {
-        score: Math.min(
-          designSystemReport.score,
-          Math.max(0, Math.min(100, Number(review.score) || 0)),
-        ),
-        summary: String(review.summary || 'Quality review completed.').slice(0, 500),
-        findings: [
-          ...deterministicFindings,
-          ...modelFindings,
-        ].slice(0, 8),
-        fixPrompt: [
-          String(review.fixPrompt || ''),
-          deterministicFindings.length
-            ? `Respect the global design system and safely fix these measured issues: ${deterministicFindings.map((finding) => `${finding.title}: ${finding.detail}`).join(' | ')}`
-            : '',
-        ].filter(Boolean).join('\n').slice(0, 5000),
-      };
-
-      if (!operationCanApply()) return null;
-      aiQualityReviewContextRef.current = operationContext;
-      setAiQualityReview(normalized);
-      return normalized;
-    } catch (error) {
-      if (!operationCanApply()) return null;
-      const message = error instanceof Error ? error.message : 'AI quality check failed.';
-      setAiError(message);
-      aiQualityReviewContextRef.current = operationContext;
-      setAiQualityReview({
-        score: Math.min(qualityAudit.score, designSystemReport.score),
-        summary: l('Automated builder audit is available, but the AI review could not complete.'),
-        findings: [
-          ...qualityAudit.errors.slice(0, 4).map((detail) => ({ severity: 'critical' as const, title: l('Publish blocker'), detail })),
-          ...qualityAudit.warnings.slice(0, 4).map((detail) => ({ severity: 'warning' as const, title: l('Recommended improvement'), detail })),
-          ...designSystemReport.issues.map((issue) => ({ severity: issue.severity, title: issue.title, detail: issue.detail })),
-        ].slice(0, 8),
-        fixPrompt: '',
-      });
-      return null;
-    } finally {
-      finishAIQualityRequest(abortController);
-      if (operationIsLatest()) setAiQualityBusy(false);
-    }
-  }
+    const runAIQualityCheck = createAIQualityCheckHandler({
+    activeUserIdRef,
+    aiAbortControllerRef,
+    aiBusy,
+    aiEditorContextIsCurrent,
+    aiQualityAbortControllerRef,
+    aiQualityBusy,
+    aiQualityOperationSequenceRef,
+    aiQualityReview,
+    aiQualityReviewContextRef,
+    beginAIQualityRequest,
+    buildAIEditableSnapshot,
+    captureAIEditorContext,
+    designSystemReport,
+    finishAIQualityRequest,
+    l,
+    qualityDiagnostics,
+    setAiError,
+    setAiQualityBusy,
+    setAiQualityOpen,
+    setAiQualityReview,
+    siteAudit,
+    user,
+  });
 
   async function fixAIQualityIssues() {
     if (!aiQualityReview?.fixPrompt || aiBusy || aiQualityBusy) return;
@@ -9302,141 +5475,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
 
     return routeHealthy;
   }
-  async function createSharePreview() {
-    if (previewBusy || publishBusy) return;
-    if (siteAudit.errors.length || cmsErrors.length) {
-      setPreviewError('Fix critical audit errors before creating staging.');
-      return;
-    }
-    if (cloudProjectId && !projectTeamAccess.canPublish) {
-      setPreviewError('Only the project owner can create public share previews.');
-      return;
-    }
-    if (!user || !cloudProjectId) {
-      setPreviewError('Save this project to the cloud before creating a share preview.');
-      return;
-    }
 
-    const previewSequence = ++previewOperationSequenceRef.current;
-    const previewLoadSequence = projectLoadSequenceRef.current;
-    const previewProjectId = cloudProjectId;
-    const previewUserId = user.id;
-    const previousPreviewToken = previewToken;
-    const previewIsCurrent = () =>
-      previewOperationSequenceRef.current === previewSequence &&
-      projectLoadSequenceRef.current === previewLoadSequence &&
-      activeUserIdRef.current === previewUserId;
-
-    setPreviewBusy(true);
-    setPreviewError('');
-
-    const latestSaved = await saveProject({ automatic: true, createHistory: false, forPublication: true });
-
-    if (!previewIsCurrent()) return;
-
-    if (!latestSaved) {
-      setPreviewError('The latest editor changes could not be synchronized before creating the preview.');
-      setPreviewBusy(false);
-      return;
-    }
-
-    const previewRevision = cloudRevisionRef.current?.projectId === previewProjectId ? cloudRevisionRef.current.updatedAt : null;
-    try {
-      const token = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID().replace(/-/g, '')
-        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-      const folder = `${previewUserId}/${previewProjectId}/previews/${token}`;
-      const publicBaseUrl = buildPreviewSiteBaseUrl(previewUserId, previewProjectId, token);
-      if (!publicBaseUrl) throw new Error('Could not build the public preview URL.');
-
-      const currentPages = getOutputPages();
-      const files: Array<{ name: string; content: string; contentType: string }> = currentPages.map((page) => ({
-        name: getOutputFilename(page),
-        content: getHtml(page.sections, page.id, publicBaseUrl, true, false),
-        contentType: 'text/html; charset=utf-8',
-      }));
-      files.push({ name: '404.html', content: get404Html(publicBaseUrl, true, false), contentType: 'text/html; charset=utf-8' });
-
-      await uploadPublishedWebsiteFolderFiles(folder, files);
-
-      // Freeze the production bundle at staging time, including forms and tracking.
-      // The share preview remains a separate, untracked rendering.
-      const publicRouteBaseUrl = buildPublishedSiteBaseUrl(previewUserId, previewProjectId);
-      if (!publicRouteBaseUrl) throw new Error('Could not build the production URL.');
-      const liveBaseUrl = customDomain?.status === 'verified' ? `https://${customDomain.hostname}` : publicRouteBaseUrl;
-      const productionFiles = currentPages.map((page) => ({
-        name: getOutputFilename(page),
-        content: getHtml(page.sections, page.id, liveBaseUrl, true, true),
-        contentType: 'text/html; charset=utf-8',
-      }));
-      productionFiles.push({ name: '404.html', content: get404Html(liveBaseUrl, true, true), contentType: 'text/html; charset=utf-8' });
-      productionFiles.push({ name: 'sitemap.xml', content: '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + currentPages.filter((page) => !page.noIndex).map((page) => `<url><loc>${escapeHtml(websitePathUrl(liveBaseUrl, getOutputFilename(page), true))}</loc></url>`).join('') + '</urlset>', contentType: 'application/xml; charset=utf-8' });
-      productionFiles.push({ name: 'robots.txt', content: `User-agent: *\nAllow: /\n${sanitizeRobotsRules(productionConfig.customRobotsRules)}\nSitemap: ${liveBaseUrl}/sitemap.xml\n`, contentType: 'text/plain; charset=utf-8' });
-      await uploadPublishedWebsiteFolderFiles(`${folder}/release`, productionFiles);
-
-      if (!previewIsCurrent()) return;
-
-      const nextUrl = buildPreviewSiteUrl(previewUserId, previewProjectId, token, 'index.html');
-      if (!nextUrl) throw new Error('Could not build the public preview URL.');
-
-      const routeHealthy = await verifyPublishedRoute(nextUrl);
-
-      if (!previewIsCurrent()) return;
-
-      if (!routeHealthy) {
-        throw new Error('Preview files were saved, but the public preview renderer did not return HTML.');
-      }
-
-      const createdAt = new Date().toISOString();
-      const createdFingerprint = buildEditableFingerprint();
-      const stagedProjectData = {
-        ...buildProjectData(),
-        previewToken: token,
-        previewUrl: nextUrl,
-        previewCreatedAt: createdAt,
-        previewFingerprint: createdFingerprint,
-      };
-      const stagedSave = await updateWebsiteProjectInCloud({
-        projectId: previewProjectId,
-        title: siteName,
-        content: stagedProjectData,
-        published: Boolean(publishedUrl),
-        expectedUpdatedAt: previewRevision,
-        updatedAt: String(stagedProjectData.updatedAt || createdAt),
-      });
-      if (stagedSave.error) throw new Error(stagedSave.error.message);
-      if (!previewIsCurrent()) return;
-      cloudRevisionRef.current = { projectId: previewProjectId, updatedAt: stagedSave.data?.updated_at || createdAt };
-      setCloudProjects((current) => current.map((project) => project.id === previewProjectId
-        ? {
-            ...project,
-            content: stagedProjectData,
-            updated_at: stagedSave.data?.updated_at || String(stagedProjectData.updatedAt || createdAt),
-          }
-        : project));
-      setPreviewToken(token);
-      setPreviewUrl(nextUrl);
-      setPreviewCreatedAt(createdAt);
-      setPreviewFingerprint(createdFingerprint);
-      setSaved(false);
-      if (previousPreviewToken) {
-        try {
-          await removePublishedWebsiteFiles(`${previewUserId}/${previewProjectId}/previews/${previousPreviewToken}`);
-        } catch {
-          if (previewIsCurrent()) setPreviewError('The new preview is ready, but the previous preview could not be revoked.');
-        }
-      }
-      if (!previewIsCurrent()) return;
-      try { await navigator.clipboard.writeText(nextUrl); } catch { /* Clipboard access is optional. */ }
-    } catch (error) {
-      if (!previewIsCurrent()) return;
-      setPreviewError(error instanceof Error ? error.message : 'Could not create share preview.');
-    } finally {
-      if (previewOperationSequenceRef.current === previewSequence) {
-        setPreviewBusy(false);
-      }
-    }
-  }
 
   async function promoteSharePreviewToLive() {
     await publishWebsite(true);
@@ -9478,160 +5517,30 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }
     }
   }
-  async function rollbackPublishVersion(version: WebsitePublishVersion) {
-    if (publishBusy || previewBusy || saveInFlightRef.current) return;
-    if (!user || !cloudProjectId) return;
-    if (!projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can rollback a published release.');
-      return;
-    }
-    if (!window.confirm(`${l('Rollback the live website to the release from')} ${new Date(version.created_at).toLocaleString()}? ${l('Your editor draft will stay unchanged.')}`)) return;
-
-    const rollbackSequence = ++publishOperationSequenceRef.current;
-    const rollbackLoadSequence = projectLoadSequenceRef.current;
-    const rollbackProjectId = cloudProjectId;
-    const rollbackUserId = user.id;
-    const rollbackBaseProjectData = buildProjectData();
-    const rollbackRevision = cloudRevisionRef.current?.projectId === rollbackProjectId ? cloudRevisionRef.current.updatedAt : null;
-    const rollbackIsCurrent = () =>
-      publishOperationSequenceRef.current === rollbackSequence &&
-      projectLoadSequenceRef.current === rollbackLoadSequence &&
-      activeUserIdRef.current === rollbackUserId;
-
-    const assertRollbackIsCurrent = () => { if (!rollbackIsCurrent()) throw new Error('Rollback stopped because the active project changed.'); };
-    let liveRollback: { folder: string; snapshot: Awaited<ReturnType<typeof snapshotPublishedWebsiteFiles>> } | null = null;
-    let rollbackStarted = false;
-    let committed = false;
-
-    setPublishBusy(true);
-    setPublishError('');
-
-    try {
-      if (!rollbackRevision) throw new Error('Reopen the cloud project before rolling back so its current version can be verified.');
-      const folder = `${rollbackUserId}/${rollbackProjectId}`;
-      const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
-      if (!manifest.length) throw new Error('This release has no stored files.');
-
-      const snapshot = await snapshotPublishedWebsiteFiles(folder);
-      assertRollbackIsCurrent();
-      liveRollback = { folder, snapshot };
-      rollbackStarted = true;
-      const liveNames = new Set(manifest.map((item) => item.name));
-      await removeStalePublishedWebsiteFiles(folder, liveNames);
-
-      assertRollbackIsCurrent();
-
-      const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(rollbackUserId, rollbackProjectId);
-      const nextPublishedUrl = buildPublishedSiteUrl(rollbackUserId, rollbackProjectId, 'index.html');
-      if (!nextPublishedBaseUrl || !nextPublishedUrl) throw new Error('Could not build the live website URL.');
-
-      const legacyVersionUrl = normalizePublishedSiteUrl(version.published_url || '');
-      const legacyVersionBase = (version.published_url || '').replace(/\/index\.html(?:[?#].*)?$/i, '');
-      const canonicalVersionBase = legacyVersionUrl.replace(/\/index\.html(?:[?#].*)?$/i, '');
-
-      for (const file of manifest) {
-        assertRollbackIsCurrent();
-
-        const { data: blob, error: downloadError } = await downloadPublishedWebsiteFile(`${version.storage_prefix}/${file.name}`);
-        assertRollbackIsCurrent();
-        if (downloadError || !blob) throw downloadError || new Error(`Could not restore ${file.name}`);
-
-        let uploadBody: Blob = blob;
-        const textual = /(?:text\/|application\/(?:json|xml))/i.test(file.contentType || blob.type || '') || /\.(?:html?|xml|txt|css|js|json)$/i.test(file.name);
-        if (textual) {
-          let text = await blob.text();
-          assertRollbackIsCurrent();
-          if (legacyVersionBase && legacyVersionBase !== canonicalVersionBase) {
-            text = text.split(legacyVersionBase).join(nextPublishedBaseUrl);
-          }
-          if (canonicalVersionBase && canonicalVersionBase !== nextPublishedBaseUrl) {
-            text = text.split(canonicalVersionBase).join(nextPublishedBaseUrl);
-          }
-          uploadBody = new Blob([text], { type: file.contentType || blob.type || 'text/plain; charset=utf-8' });
-        }
-
-        assertRollbackIsCurrent();
-
-        const { error: uploadError } = await uploadPublishedWebsiteBlob({
-          path: `${folder}/${file.name}`,
-          body: uploadBody,
-          contentType: file.contentType || blob.type || 'application/octet-stream',
-          cacheControl: '0',
-          upsert: true,
-        });
-
-        assertRollbackIsCurrent();
-        if (uploadError) throw uploadError;
-      }
-
-      assertRollbackIsCurrent();
-
-      const nextPublishedAt = new Date().toISOString();
-      const projectData = {
-        ...rollbackBaseProjectData,
-        publishedUrl: nextPublishedUrl,
-        publishedAt: nextPublishedAt,
-        lastPublishedVersionId: version.id,
-        lastPublishedFingerprint: version.editor_fingerprint,
-        updatedAt: nextPublishedAt,
-      };
-
-      assertRollbackIsCurrent();
-
-      const { data: publishedRow, error: projectError } = await updateWebsiteProjectPublicationState({
-        projectId: rollbackProjectId,
-        expectedUpdatedAt: rollbackRevision,
-        userId: rollbackUserId,
-        content: projectData,
-        published: true,
-        updatedAt: nextPublishedAt,
-      });
-
-      if (projectError) throw projectError;
-      committed = true;
-      assertRollbackIsCurrent();
-      cloudRevisionRef.current = { projectId: rollbackProjectId, updatedAt: publishedRow?.updated_at || nextPublishedAt };
-
-      setCloudProjects((current) =>
-        current.map((project) =>
-          project.id === rollbackProjectId
-            ? {
-                ...project,
-                content: projectData,
-                status: 'completed',
-                updated_at: publishedRow?.updated_at || nextPublishedAt,
-              }
-            : project
-        )
-      );
-      setPublishedUrl(nextPublishedUrl);
-      setPublishedAt(nextPublishedAt);
-      setLastPublishedVersionId(version.id);
-      setLastPublishedFingerprint(version.editor_fingerprint);
-      saveLocalWebsiteProject(projectData);
-      lastSavedSnapshotRef.current = '';
-      setAutoSaveStatus('saved');
-
-      await verifyLiveDeployment(
-        rollbackProjectId,
-        rollbackUserId,
-        rollbackLoadSequence,
-      );
-    } catch (error) {
-      let message = error instanceof Error ? error.message : 'Could not rollback this release.';
-      if (liveRollback && rollbackStarted && !committed) {
-        try {
-          await restorePublishedWebsiteSnapshot(liveRollback.folder, liveRollback.snapshot);
-          message += ' The previous live website was restored automatically.';
-        } catch { message += ' Automatic rollback needs support review.'; }
-      }
-      if (rollbackIsCurrent()) setPublishError(message);
-    } finally {
-      if (publishOperationSequenceRef.current === rollbackSequence) {
-        setPublishBusy(false);
-      }
-    }
-  }
+    const rollbackPublishVersion = createRollbackPublishVersionHandler({
+    activeUserIdRef,
+    buildProjectData,
+    cloudProjectId,
+    cloudRevisionRef,
+    l,
+    lastSavedSnapshotRef,
+    previewBusy,
+    projectLoadSequenceRef,
+    projectTeamAccess,
+    publishBusy,
+    publishOperationSequenceRef,
+    saveInFlightRef,
+    setAutoSaveStatus,
+    setCloudProjects,
+    setLastPublishedFingerprint,
+    setLastPublishedVersionId,
+    setPublishBusy,
+    setPublishedAt,
+    setPublishedUrl,
+    setPublishError,
+    user,
+    verifyLiveDeployment,
+  });
   function restorePublishVersionToEditor(version: WebsitePublishVersion) {
     if (snapshotConflictsWithActiveProject(version.snapshot)) {
       setPublishVersionsError('This release snapshot does not belong to the active project.');
@@ -9704,316 +5613,119 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }
 
-  async function saveProject(options: { automatic?: boolean; createHistory?: boolean; forPublication?: boolean } = {}): Promise<boolean> {
-    if ((publishBusy || previewBusy) && !options.forPublication) return false;
-    const automatic = options.automatic === true;
-    if (user && projectId && cloudProjectId !== projectId) {
-      setCloudError('Opening your saved website. Save will continue when it is loaded.');
-      return false;
-    }
-
-    if (user && !cloudProjectId) {
-      const preservedProjectId = projectId || loadActiveWebsiteProjectId();
-      if (preservedProjectId) {
-        setCloudError('Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available.');
-        setAutoSaveStatus('failed');
-        return false;
-      }
-
-      if (!newProjectIntentRef.current && cloudProjectsLoaded && cloudProjects.length > 0) {
-        const fallbackProject =
-          cloudProjects.find((project) => project.user_id === user.id) ??
-          cloudProjects[0];
-
-        saveActiveWebsiteProjectId(fallbackProject.id);
-        setCloudError('Opening your most recent saved website before saving. No duplicate draft was created.');
-        setAutoSaveStatus('saving');
-        void loadCloudProjectRef.current(fallbackProject.id);
-        return false;
-      }
-    }
-
-    const createHistory = options.createHistory ?? !automatic;
-    const fingerprint = buildProjectFingerprint();
-
-    if (user && cloudProjectId && !projectTeamAccess.canEdit) {
-      setCloudError('This shared project is read-only for your Viewer role.');
-      setAutoSaveStatus('failed');
-      return false;
-    }
-
-    if (saveInFlightRef.current) {
-      return false;
-    }
-
-    const saveLoadSequence = projectLoadSequenceRef.current;
-    const saveUserId = user?.id ?? null;
-    const saveController = new AbortController();
-    const saveIsCurrent = () =>
-      !saveController.signal.aborted &&
-      projectLoadSequenceRef.current === saveLoadSequence &&
-      activeUserIdRef.current === saveUserId;
-
-    saveAbortControllerRef.current = saveController;
-    saveInFlightRef.current = true;
-
-    try {
-      let historyEntries = projectHistory;
-      if (createHistory) {
-        const snapshot = buildProjectSnapshot();
-        const entry = createProjectHistoryEntry(snapshot) as ProjectHistoryEntry;
-        historyEntries = [entry, ...projectHistory].slice(0, 30);
-      }
-
-      const projectData = buildProjectData(historyEntries);
-    const localSaved = saveLocalWebsiteProject(projectData);
-    if (!localSaved) {
-      setCloudError('Local recovery storage is full. Cloud save will still be attempted.');
-    }
-
-    let cloudSaved = !user;
-    if (user) {
-      setCloudBusy(true);
-      setCloudError('');
-      setAutoSaveStatus('saving');
-
-      if (!networkOnline) {
-        setCloudSyncFailed(true);
-        setCloudError('You are offline. Changes are saved locally and will retry when the connection returns.');
-      } else if (cloudProjectId) {
-        const expectedUpdatedAt = cloudRevisionRef.current?.projectId === cloudProjectId ? cloudRevisionRef.current.updatedAt : null;
-        if (!expectedUpdatedAt) throw new Error('Reopen the cloud project before saving so its current version can be verified.');
-        const nextUpdatedAt = String(projectData.updatedAt || new Date().toISOString());
-        const result = await updateWebsiteProjectInCloud({
-          projectId: cloudProjectId,
-          title: siteName.trim() || 'My Website',
-          content: projectData,
-          published: Boolean(publishedUrl),
-          signal: saveController.signal,
-          expectedUpdatedAt,
-          updatedAt: nextUpdatedAt,
-        });
-
-        if (!saveIsCurrent()) return false;
-
-        if (result.error) {
-          if (/limit reached/i.test(result.error.message || '')) openBillingWithMessage(result.error.message);
-          setCloudError(result.error.message || (automatic ? 'Autosaved locally, but cloud autosave failed.' : 'Saved locally, but cloud save failed.'));
-          setCloudSyncFailed(true);
-        } else {
-          cloudSaved = true;
-          cloudRevisionRef.current = { projectId: cloudProjectId, updatedAt: result.data?.updated_at || nextUpdatedAt };
-          setCloudSyncFailed(false);
-          setCloudProjects((current) =>
-            current.map((project) =>
-              project.id === cloudProjectId
-                ? {
-                    ...project,
-                    title: siteName.trim() || 'My Website',
-                    content: projectData,
-                    status: publishedUrl ? 'completed' : 'draft',
-                    updated_at: result.data?.updated_at || nextUpdatedAt,
-                  }
-                : project
-            )
-          );
-        }
-      } else {
-        const result = await createWebsiteProjectInCloud({
-          userId: user.id,
-          title: siteName.trim() || 'My Website',
-          content: projectData,
-          published: Boolean(publishedUrl),
-          signal: saveController.signal,
-        });
-
-        if (!saveIsCurrent()) return false;
-
-        if (result.error || !result.data) {
-          if (result.error && /limit reached/i.test(result.error.message || '')) openBillingWithMessage(result.error.message);
-          setCloudError(result.error?.message || (automatic ? 'Autosaved locally, but cloud autosave failed.' : 'Saved locally, but cloud save failed.'));
-          setCloudSyncFailed(true);
-        } else {
-          const createdProject = result.data;
-          cloudRevisionRef.current = { projectId: createdProject.id, updatedAt: createdProject.updated_at || null };
-          newProjectIntentRef.current = false;
-          setCloudProjectId(createdProject.id);
-          saveActiveWebsiteProjectId(createdProject.id);
-          saveLocalWebsiteProject({
-            ...projectData,
-            cloudProjectId: createdProject.id,
-          });
-          setProjectTeamAccess({ ...DEFAULT_EDITOR_PROJECT_ACCESS, ownerId: user.id });
-          setCloudProjects((current) => [
-            {
-              id: createdProject.id,
-              user_id: user.id,
-              workspace_id: null,
-              title: siteName.trim() || 'My Website',
-              content: projectData,
-              status: publishedUrl ? 'completed' : 'draft',
-              updated_at: typeof createdProject.updated_at === 'string'
-                ? createdProject.updated_at
-                : String(projectData.updatedAt || new Date().toISOString()),
-            },
-            ...current.filter((project) => project.id !== createdProject.id),
-          ]);
-          cloudSaved = true;
-          setCloudSyncFailed(false);
-        }
-      }
-
-      if (!saveIsCurrent()) return false;
-    }
-
-    if (!saveIsCurrent()) return false;
-
-    if (createHistory && (localSaved || cloudSaved)) {
-      setProjectHistory(historyEntries);
-    }
-
-    const durableSaved = user ? cloudSaved : localSaved;
-    if (durableSaved) lastSavedSnapshotRef.current = fingerprint;
-    setAutoSaveStatus(durableSaved ? 'saved' : 'failed');
-
-    if (!automatic) {
-      if (durableSaved) {
-        showSavedFeedback(saveLoadSequence, user?.id ?? null);
-      } else {
-        setSaved(false);
-      }
-    }
-    return durableSaved;
-    } catch (error) {
-      if (saveIsCurrent()) {
-        const message = error instanceof Error ? error.message : l('Unexpected save failure.');
-        setCloudSyncFailed(Boolean(saveUserId));
-        setCloudError(saveUserId ? `${l('Save failed')}: ${l(message)}` : l(message));
-        setAutoSaveStatus('failed');
-        if (!automatic) setSaved(false);
-      }
-      return false;
-    } finally {
-      if (saveAbortControllerRef.current === saveController) {
-        saveAbortControllerRef.current = null;
-        saveInFlightRef.current = false;
-        if (saveIsCurrent()) setCloudBusy(false);
-      }
-    }
-  }
+    const saveProject = createSaveProjectHandler({
+    activeUserIdRef,
+    buildProjectData,
+    buildProjectFingerprint,
+    buildProjectSnapshot,
+    cloudProjectId,
+    cloudProjects,
+    cloudProjectsLoaded,
+    cloudRevisionRef,
+    l,
+    lastSavedSnapshotRef,
+    loadCloudProjectRef,
+    networkOnline,
+    newProjectIntentRef,
+    openBillingWithMessage,
+    previewBusy,
+    projectHistory,
+    projectId,
+    projectLoadSequenceRef,
+    projectTeamAccess,
+    publishBusy,
+    publishedUrl,
+    saveAbortControllerRef,
+    saveInFlightRef,
+    setAutoSaveStatus,
+    setCloudBusy,
+    setCloudError,
+    setCloudProjectId,
+    setCloudProjects,
+    setCloudSyncFailed,
+    setProjectHistory,
+    setProjectTeamAccess,
+    setSaved,
+    showSavedFeedback,
+    siteName,
+    user,
+  });
 
   saveProjectRef.current = saveProject;
+  const createSharePreview = createSharePreviewHandler({
+    activeUserIdRef,
+    buildEditableFingerprint,
+    saveProject,
+    getOutputPages,
+    getOutputFilename,
+    getHtml,
+    get404Html,
+    buildProjectData,
+    cloudProjectId,
+    cloudRevisionRef,
+    cmsErrors,
+    customDomain,
+    previewBusy,
+    previewOperationSequenceRef,
+    previewToken,
+    productionConfig,
+    projectLoadSequenceRef,
+    projectTeamAccess,
+    publishBusy,
+    publishedUrl,
+    setCloudProjects,
+    setPreviewBusy,
+    setPreviewCreatedAt,
+    setPreviewError,
+    setPreviewFingerprint,
+    setPreviewToken,
+    setPreviewUrl,
+    setSaved,
+    siteAudit,
+    siteName,
+    user,
+  });
 
-  async function duplicateProject() {
-    if (user && billingState.usage.websiteProjects >= billingEntitlements.maxWebsiteProjects) {
-      openBillingWithMessage(`Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports ${billingEntitlements.maxWebsiteProjects} Website Builder project${billingEntitlements.maxWebsiteProjects === 1 ? '' : 's'}. Upgrade before duplicating another project.`);
-      return;
-    }
-
-    cancelPendingProjectPersistence();
-    projectLoadSequenceRef.current += 1;
-    const duplicateLoadSequence = projectLoadSequenceRef.current;
-    const duplicateUserId = user?.id ?? null;
-    const duplicateIsCurrent = () =>
-      projectLoadSequenceRef.current === duplicateLoadSequence &&
-      activeUserIdRef.current === duplicateUserId;
-
-    const duplicateTitle = `${siteName.trim() || 'My Website'} Copy`;
-    const duplicateContent = {
-      ...buildProjectSnapshot(),
-      cloudProjectId: null,
-      siteName: duplicateTitle,
-      publishedUrl: '',
-      publishedAt: null,
-      previewUrl: '',
-      previewToken: '',
-      previewCreatedAt: null,
-      previewFingerprint: '',
-      lastPublishedVersionId: null,
-      lastPublishedFingerprint: '',
-      deliveryConfig: { ...deliveryConfig, status: 'building', approvedAt: null, approvedFingerprint: '', deliveredAt: null },
-      history: [],
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (!user) {
-      setCloudProjectId(null);
-      saveActiveWebsiteProjectId(null);
-      setProjectHistory([]);
-      setHistory([]);
-      setFuture([]);
-      setSiteName(duplicateTitle);
-      setPublishedUrl('');
-      setPublishedAt(null);
-      setPreviewUrl('');
-      setPreviewToken('');
-      setPreviewCreatedAt(null);
-      setPreviewFingerprint('');
-      setLastPublishedVersionId(null);
-      setLastPublishedFingerprint('');
-      setDeliveryConfig((current) => ({ ...current, status: 'building', approvedAt: null, approvedFingerprint: '', deliveredAt: null }));
-      setPublishVersions([]);
-      setReleaseHistoryOpen(false);
-      setLiveVerification('idle');
-      saveLocalWebsiteProject(duplicateContent);
-      lastSavedSnapshotRef.current = '';
-      showSavedFeedback(duplicateLoadSequence, duplicateUserId);
-      return;
-    }
-
-    if (!duplicateUserId) return;
-
-    setCloudBusy(true);
-    setCloudError('');
-    const { data, error } = await createWebsiteProjectInCloud({
-      userId: duplicateUserId,
-      title: duplicateTitle,
-      content: duplicateContent,
-      published: false,
-    });
-
-    if (!duplicateIsCurrent()) return;
-
-    if (error || !data) {
-      if (error && /limit reached/i.test(error.message || '')) openBillingWithMessage(error.message);
-      setCloudError(error?.message || 'Could not duplicate this project.');
-      setCloudBusy(false);
-      return;
-    }
-
-    newProjectIntentRef.current = false;
-    cloudRevisionRef.current = { projectId: data.id, updatedAt: data.updated_at || null };
-    setCloudProjectId(data.id);
-    saveActiveWebsiteProjectId(data.id);
-    setProjectHistory([]);
-    setHistory([]);
-    setFuture([]);
-    setLeads([]);
-    setFormDeliveries([]);
-    setLeadsOpen(false);
-    setSiteName(duplicateTitle);
-    setPublishedUrl('');
-    setPublishedAt(null);
-    setPreviewUrl('');
-    setPreviewToken('');
-    setPreviewCreatedAt(null);
-    setPreviewFingerprint('');
-    setLastPublishedVersionId(null);
-    setLastPublishedFingerprint('');
-    setDeliveryConfig((current) => ({ ...current, status: 'building', approvedAt: null, approvedFingerprint: '', deliveredAt: null }));
-    setPublishVersions([]);
-    setReleaseHistoryOpen(false);
-    setLiveVerification('idle');
-    saveLocalWebsiteProject({
-      ...duplicateContent,
-      cloudProjectId: data.id,
-    });
-    lastSavedSnapshotRef.current = '';
-    await refreshCloudProjects();
-    if (!duplicateIsCurrent()) return;
-    setCloudBusy(false);
-    showSavedFeedback(duplicateLoadSequence, duplicateUserId);
-  }
+    const duplicateProject = createDuplicateProjectHandler({
+    activeUserIdRef,
+    billingEntitlements,
+    billingPlan,
+    billingState,
+    buildProjectSnapshot,
+    cancelPendingProjectPersistence,
+    cloudRevisionRef,
+    deliveryConfig,
+    lastSavedSnapshotRef,
+    newProjectIntentRef,
+    openBillingWithMessage,
+    projectLoadSequenceRef,
+    refreshCloudProjects,
+    setCloudBusy,
+    setCloudError,
+    setCloudProjectId,
+    setDeliveryConfig,
+    setFormDeliveries,
+    setFuture,
+    setHistory,
+    setLastPublishedFingerprint,
+    setLastPublishedVersionId,
+    setLeads,
+    setLeadsOpen,
+    setLiveVerification,
+    setPreviewCreatedAt,
+    setPreviewFingerprint,
+    setPreviewToken,
+    setPreviewUrl,
+    setProjectHistory,
+    setPublishedAt,
+    setPublishedUrl,
+    setPublishVersions,
+    setReleaseHistoryOpen,
+    setSiteName,
+    showSavedFeedback,
+    siteName,
+    user,
+  });
 
   function restoreHistoryEntry(entry: ProjectHistoryEntry) {
     const confirmed = window.confirm(`${l('Restore')} "${entry.label}"? ${l('Your current unsaved changes will be replaced.')}`);
@@ -10037,70 +5749,64 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setAutoSaveStatus('saving');
   }
 
-  function resetProject() {
-    const confirmed = window.confirm(
-      l('Reset the website builder to the default project?')
-    );
-
-    if (!confirmed) return;
-
-    saveRecoverySnapshot('before reset');
-    cancelPendingProjectPersistence();
-    projectLoadSequenceRef.current += 1;
-    newProjectIntentRef.current = true;
-    setSections(defaultSections);
-    setPages([{ id: 'page-home', name: 'Home', slug: 'home', sections: defaultSections, showInNavigation: true }]);
-    setActivePageId('page-home');
-    setHomePageId('page-home');
-    setCms(EMPTY_WEBSITE_CMS);
-    setLocalization({ ...DEFAULT_WEBSITE_LOCALIZATION, defaultLanguage: prefs.language });
-    setSelectedId(defaultSections[0].id);
-    setSelectedElementId(defaultSections[0].elements[0]?.id ?? null);
-    setSiteName('My Website');
-    setSiteUrl('');
-    setFaviconUrl('');
-    setBrand(defaultBrand);
-    setTheme(DEFAULT_THEME);
-    setHeaderConfig(DEFAULT_HEADER_CONFIG);
-    setFooterConfig(DEFAULT_FOOTER_CONFIG);
-    setSiteEnhancements(DEFAULT_SITE_ENHANCEMENTS);
-    setProductionConfig(DEFAULT_PRODUCTION_CONFIG);
-    setDeliveryConfig(DEFAULT_DELIVERY_CONFIG);
-    setDeliveryOpen(false);
-    setSymbols([]);
-    setSeo(defaultSEO);
-    setPublishedUrl('');
-    setPublishedAt(null);
-    setPreviewUrl('');
-    setPreviewToken('');
-    setPreviewCreatedAt(null);
-    setPreviewFingerprint('');
-    setLastPublishedVersionId(null);
-    setLastPublishedFingerprint('');
-    setPublishVersions([]);
-    setReleaseHistoryOpen(false);
-    setLiveVerification('idle');
-    setPublishError('');
-    setPreviewError('');
-    clearLocalWebsiteProjects();
-    setCloudProjectId(null);
-    saveActiveWebsiteProjectId(null);
-    setCloudError('');
-    setProjectHistory([]);
-    setHistory([]);
-    setFuture([]);
-    setLeads([]);
-    setFormDeliveries([]);
-    setLeadsOpen(false);
-    setLeadsError('');
-    setAnalyticsEvents([]);
-    setAnalyticsOpen(false);
-    setAnalyticsError('');
-    setHistoryOpen(false);
-    lastSavedSnapshotRef.current = '';
-    setAutoSaveStatus('idle');
-    setSaved(false);
-  }
+    const resetProject = createResetProjectHandler({
+    cancelPendingProjectPersistence,
+    l,
+    lastSavedSnapshotRef,
+    newProjectIntentRef,
+    prefs,
+    projectLoadSequenceRef,
+    saveRecoverySnapshot,
+    setActivePageId,
+    setAnalyticsError,
+    setAnalyticsEvents,
+    setAnalyticsOpen,
+    setAutoSaveStatus,
+    setBrand,
+    setCloudError,
+    setCloudProjectId,
+    setCms,
+    setDeliveryConfig,
+    setDeliveryOpen,
+    setFaviconUrl,
+    setFooterConfig,
+    setFormDeliveries,
+    setFuture,
+    setHeaderConfig,
+    setHistory,
+    setHistoryOpen,
+    setHomePageId,
+    setLastPublishedFingerprint,
+    setLastPublishedVersionId,
+    setLeads,
+    setLeadsError,
+    setLeadsOpen,
+    setLiveVerification,
+    setLocalization,
+    setPages,
+    setPreviewCreatedAt,
+    setPreviewError,
+    setPreviewFingerprint,
+    setPreviewToken,
+    setPreviewUrl,
+    setProductionConfig,
+    setProjectHistory,
+    setPublishedAt,
+    setPublishedUrl,
+    setPublishError,
+    setPublishVersions,
+    setReleaseHistoryOpen,
+    setSaved,
+    setSections,
+    setSelectedElementId,
+    setSelectedId,
+    setSeo,
+    setSiteEnhancements,
+    setSiteName,
+    setSiteUrl,
+    setSymbols,
+    setTheme,
+  });
 
   function websiteOutputHelpers() {
     return createWebsiteBuilderOutput({
@@ -10156,79 +5862,22 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     );
   }
 
-  function importProjectBackup() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-
-      const importLoadSequence = projectLoadSequenceRef.current;
-      const importUserId = user?.id ?? null;
-      const importIsCurrent = () =>
-        projectLoadSequenceRef.current === importLoadSequence &&
-        activeUserIdRef.current === importUserId;
-
-      let raw = '';
-      try {
-        raw = await file.text();
-      } catch {
-        if (importIsCurrent()) {
-          window.alert(l('This JSON file could not be read.'));
-        }
-        return;
-      }
-
-      if (!importIsCurrent()) return;
-
-      try {
-        const parsed = JSON.parse(raw);
-        const project = parsed?.project ?? parsed;
-        if (!project || (!Array.isArray(project.pages) && !Array.isArray(project.sections))) throw new Error('Invalid project backup');
-        const importedProject = {
-          ...project,
-          cloudProjectId: null,
-          publishedUrl: '',
-          publishedAt: null,
-          previewUrl: '',
-          previewToken: '',
-          previewCreatedAt: null,
-          previewFingerprint: '',
-          lastPublishedVersionId: null,
-          lastPublishedFingerprint: '',
-          deliveryConfig: {
-            ...normalizeDeliveryConfig(project.deliveryConfig),
-            status: 'building',
-            approvedAt: null,
-            approvedFingerprint: '',
-            deliveredAt: null,
-          },
-          history: [],
-          updatedAt: new Date().toISOString(),
-        };
-
-        if (!importIsCurrent()) return;
-
-        saveRecoverySnapshot('before importing backup');
-        cancelPendingProjectPersistence();
-        projectLoadSequenceRef.current += 1;
-        skipNextAutosaveRef.current = true;
-        applyProjectData(importedProject);
-        newProjectIntentRef.current = true;
-        setCloudProjectId(null);
-        saveActiveWebsiteProjectId(null);
-        setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
-        saveLocalWebsiteProject(importedProject);
-        lastSavedSnapshotRef.current = '';
-        setAutoSaveStatus('saved');
-        setOperationsOpen(false);
-      } catch {
-        window.alert(l('This JSON file is not a valid Tayar Website Builder backup.'));
-      }
-    };
-    input.click();
-  }
+    const importProjectBackup = createImportProjectBackupHandler({
+    activeUserIdRef,
+    applyProjectData,
+    cancelPendingProjectPersistence,
+    l,
+    lastSavedSnapshotRef,
+    newProjectIntentRef,
+    projectLoadSequenceRef,
+    saveRecoverySnapshot,
+    setAutoSaveStatus,
+    setCloudProjectId,
+    setOperationsOpen,
+    setProjectHistory,
+    skipNextAutosaveRef,
+    user,
+  });
 
   function exportLeadsCsv() {
     downloadTextFile(
@@ -10306,91 +5955,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     downloadTextFile(`${normalizeSlug(siteName || 'website')}-delivery-report.txt`, buildDeliveryReport());
   }
 
-  function downloadClientHandoffZip() {
-    if (!requireBillingFeature('clientDelivery', 'Client handoff ZIP')) return;
-    const productionUrl = normalizeSiteUrl(siteUrl) || (publishedUrl ? publishedUrl.replace(/\/index\.html(?:[?#].*)?$/i, '') : '');
-    if (!productionUrl) {
-      window.alert(l('Add a Production URL or publish the website before creating the client handoff package.'));
-      return;
-    }
 
-    const currentPages = getOutputPages();
-    const files: Array<{ name: string; content: string }> = currentPages.map((page) => ({
-      name: `site/${getOutputFilename(page)}`,
-      content: getHtml(page.sections, page.id, productionUrl, false, true),
-    }));
-    const sitemapEntries = currentPages.filter((page) => page.noIndex !== true).map((page) => {
-      const location = websitePathUrl(productionUrl, getOutputFilename(page), false);
-      return `  <url><loc>${escapeHtml(location)}</loc></url>`;
-    }).join('\n');
-    const customRobotsRules = sanitizeRobotsRules(productionConfig.customRobotsRules);
-    files.push(
-      { name: 'site/404.html', content: get404Html(productionUrl, false, true) },
-      { name: 'site/sitemap.xml', content: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapEntries}\n</urlset>` },
-      { name: 'site/robots.txt', content: `User-agent: *\nAllow: /\n${customRobotsRules ? `\n${customRobotsRules}\n` : '\n'}Sitemap: ${productionUrl}/sitemap.xml\n` },
-    );
-
-    const backupPayload = {
-      exportedAt: new Date().toISOString(),
-      app: deliveryConfig.whiteLabel ? 'Website Builder' : 'Tayar Website Builder',
-      project: buildProjectData(),
-    };
-    files.push({ name: 'project/project-backup.json', content: JSON.stringify(backupPayload, null, 2) });
-    files.push({ name: 'reports/delivery-report.txt', content: buildDeliveryReport() });
-
-    const leadRows: unknown[][] = [[ 'id', 'status', 'stage', 'priority', 'tags', 'notes', 'created_at', 'name', 'email', 'phone', 'message', 'page_path', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer' ]];
-    leads.forEach((lead) => {
-      const meta = getWebsiteLeadSource(lead);
-      leadRows.push([lead.id, lead.status, lead.stage || 'new', Number(lead.priority || 0), (lead.tags || []).join('|'), lead.notes || '', lead.created_at, lead.name, lead.email, getWebsiteLeadPhone(lead), lead.message, lead.page_path || '', meta.source, meta.medium, meta.campaign, meta.referrer]);
-    });
-    files.push({ name: 'reports/leads.csv', content: `\uFEFF${buildCsv(leadRows)}` });
-
-    const analyticsRows: unknown[][] = [[ 'created_at', 'event_type', 'page_path', 'referrer', 'session_id', 'event_data' ]];
-    analyticsEvents.forEach((event) => analyticsRows.push([event.created_at, event.event_type || 'page_view', event.page_path, event.referrer || '', event.session_id, event.event_data || {}]));
-    files.push({ name: 'reports/analytics.csv', content: `\uFEFF${buildCsv(analyticsRows)}` });
-    files.push({ name: 'reports/releases.txt', content: publishVersions.length
-      ? publishVersions.map((version, index) => `${index + 1}. ${version.created_at} | ${version.release_note || 'No release note'} | ${version.published_url}`).join('\n')
-      : 'No release history loaded.' });
-
-    const handoffTitle = deliveryConfig.whiteLabel ? 'CLIENT WEBSITE HANDOFF' : 'TAYAR WEBSITE BUILDER — CLIENT HANDOFF';
-    files.push({ name: 'HANDOFF.txt', content: [
-      handoffTitle,
-      '',
-      `Project: ${siteName}`,
-      `Client: ${deliveryConfig.clientName || '—'}`,
-      `Project code: ${deliveryConfig.projectCode || '—'}`,
-      `Live URL: ${publishedUrl || productionUrl}`,
-      `Launch readiness: ${launchReadiness.score}/100`,
-      '',
-      'Package contents:',
-      '- site/ — production HTML, sitemap and robots.txt',
-      '- project/project-backup.json — editable project backup',
-      '- reports/delivery-report.txt — approval, readiness and audit',
-      '- reports/leads.csv — currently loaded lead data',
-      '- reports/analytics.csv — currently loaded analytics events',
-      '- reports/releases.txt — currently loaded release history',
-      '- MANIFEST.txt — file sizes and CRC32 checksums',
-      '',
-      deliveryConfig.handoffNotes || '',
-    ].join('\n') });
-
-    const encoder = new TextEncoder();
-    const manifest = files.map((file) => {
-      const bytes = encoder.encode(file.content);
-      return `${file.name}\t${bytes.length} bytes\tCRC32 ${crc32(bytes).toString(16).padStart(8, '0')}`;
-    });
-    files.push({ name: 'MANIFEST.txt', content: [`Generated ${new Date().toISOString()}`, ...manifest].join('\n') });
-
-    const blob = createZipBlob(files);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${normalizeSlug(siteName || 'website')}-client-handoff.zip`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
 
   async function markAllLeadsRead() {
     if (!user || !cloudProjectId || !projectTeamAccess.canManage) return;
@@ -10531,637 +6096,73 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return '';
   }
 
-  async function publishWebsite(fromStaging = false) {
-    if (publishBusy || previewBusy) return;
-    if (fromStaging && (!cloudProjectId || !previewToken || !previewFingerprint)) {
-      setPublishError('Regenerate staging before promoting it to production.');
-      return;
-    }
-    if (fromStaging && previewFingerprint !== buildEditableFingerprint()) {
-      setPublishError('Staging is behind the current editor. Regenerate it before promotion if these changes should go live.');
-      return;
-    }
-    const operationalBlocker = publishOperationalBlocker();
-    if (operationalBlocker) {
-      setPublishError(operationalBlocker);
-      return;
-    }
-
-    if (!user) return;
-
-    const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
-    if (!supabaseUrl) {
-      setPublishError('Supabase URL is not configured.');
-      return;
-    }
-
-    const publishSequence = ++publishOperationSequenceRef.current;
-    const publishLoadSequence = projectLoadSequenceRef.current;
-    const publishUserId = user.id;
-    const publishTitle = siteName.trim() || 'My Website';
-    const publishIsCurrent = () =>
-      publishOperationSequenceRef.current === publishSequence &&
-      projectLoadSequenceRef.current === publishLoadSequence &&
-      activeUserIdRef.current === publishUserId;
-    const assertPublishIsCurrent = () => {
-      if (!publishIsCurrent()) {
-        throw new Error('Publishing stopped because the active project changed.');
-      }
-    };
-
-    let liveRollback: {
-      folder: string;
-      snapshot: Awaited<ReturnType<typeof snapshotPublishedWebsiteFiles>>;
-    } | null = null;
-    let liveFilesReplaced = false;
-    let publicationStateCommitted = false;
-    let formRollback: { projectId: string; ownerId: string; rows: WebsiteFormRow[] } | null = null;
-    let formsSynchronized = false;
-    let pendingArchiveCleanup: Parameters<typeof discardWebsitePublishVersionArchive>[0] | null = null;
-
-    setPublishBusy(true);
-    setPublishError('');
-    setPublishVersionsError('');
-    setLiveVerification('checking');
-
-    try {
-      let publishProjectId = cloudProjectId;
-
-      if (publishProjectId) {
-        const latestSaved = await saveProject({
-          forPublication: true,
-          automatic: true,
-          createHistory: false,
-        });
-
-        assertPublishIsCurrent();
-
-        if (!latestSaved) {
-          throw new Error('The latest editor changes could not be synchronized before publishing.');
-        }
-      } else {
-        const draftData = buildProjectData();
-        const createResult = await createWebsiteProjectInCloud({
-          userId: publishUserId,
-          title: publishTitle,
-          content: draftData,
-          published: false,
-        });
-
-        assertPublishIsCurrent();
-
-        if (createResult.error || !createResult.data) {
-          if (createResult.error && /limit reached/i.test(createResult.error.message || '')) {
-            openBillingWithMessage(createResult.error.message || 'Website project limit reached.');
-          }
-
-          throw new Error(
-            createResult.error?.message ||
-            'The project could not be created in Tayar cloud before publishing.'
-          );
-        }
-
-        publishProjectId = String((createResult.data as { id: string }).id);
-        cloudRevisionRef.current = { projectId: publishProjectId, updatedAt: createResult.data.updated_at || null };
-        setCloudProjectId(publishProjectId);
-        saveActiveWebsiteProjectId(publishProjectId);
-        setProjectTeamAccess({
-          ...DEFAULT_EDITOR_PROJECT_ACCESS,
-          ownerId: publishUserId,
-        });
-        setCloudSyncFailed(false);
-      }
-
-      if (!publishProjectId) {
-        throw new Error('A cloud project ID is required to publish.');
-      }
-
-      assertPublishIsCurrent();
-
-      const publishRevision = cloudRevisionRef.current?.projectId === publishProjectId ? cloudRevisionRef.current.updatedAt : null;
-      if (!publishRevision) throw new Error('Reopen the cloud project before publishing so its current version can be verified.');
-      const folder = publishUserId + '/' + publishProjectId;
-      const publicBaseUrl = buildPublishedSiteBaseUrl(publishUserId, publishProjectId);
-      if (!publicBaseUrl) {
-        throw new Error('Could not build the public website URL.');
-      }
-      const productionBaseUrl = customDomain?.status === 'verified' ? `https://${customDomain.hostname}` : publicBaseUrl;
-      const releasePublishedUrl = customDomain?.status === 'verified' ? `${productionBaseUrl}/` : `${publicBaseUrl}/index.html`;
-
-      const currentPages = getOutputPages();
-
-      if (!currentPages.length) {
-        throw new Error('Add at least one page before publishing.');
-      }
-
-      const formSnapshot = await snapshotPublishedWebsiteForms(publishProjectId, publishUserId);
-      if (formSnapshot.error) throw new Error('Published form configuration could not be backed up before publishing.');
-      formRollback = { projectId: publishProjectId, ownerId: publishUserId, rows: (formSnapshot.data || []) as WebsiteFormRow[] };
-      const formSync = await syncPublishedWebsiteForms({
-        projectId: publishProjectId,
-        ownerId: publishUserId,
-        pages: currentPages,
-      });
-      formsSynchronized = true;
-      assertPublishIsCurrent();
-      if (formSync.error) {
-        throw new Error('Published form configuration could not be synchronized. Apply the Forms + Automations MAX database migration and try again.');
-      }
-
-      let files: Array<{
-        name: string;
-        content: string;
-        contentType: string;
-      }> = currentPages.map((page) => ({
-        name: getOutputFilename(page),
-        content: getHtml(
-          page.sections,
-          page.id,
-          productionBaseUrl,
-          true,
-          true,
-        ),
-        contentType: 'text/html; charset=utf-8',
-      }));
-
-      if (!files.some((file) => file.name === 'index.html')) {
-        const firstPage = currentPages[0];
-        files.unshift({
-          name: 'index.html',
-          content: getHtml(
-            firstPage.sections,
-            firstPage.id,
-            productionBaseUrl,
-            true,
-            true,
-          ),
-          contentType: 'text/html; charset=utf-8',
-        });
-      }
-
-      const sitemapEntries = currentPages
-        .filter((page) => page.noIndex !== true)
-        .map((page) => {
-          const location = websitePathUrl(productionBaseUrl, getOutputFilename(page), true);
-
-          return '  <url><loc>' + escapeHtml(location) + '</loc></url>';
-        })
-        .join('\n');
-
-      const customRobotsRules =
-        sanitizeRobotsRules(
-          productionConfig.customRobotsRules,
-        );
-
-      files.push(
-        {
-          name: '404.html',
-          content: get404Html(
-            productionBaseUrl,
-            true,
-            true,
-          ),
-          contentType: 'text/html; charset=utf-8',
-        },
-        {
-          name: 'sitemap.xml',
-          content:
-            '<?xml version="1.0" encoding="UTF-8"?>\n' +
-            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-            sitemapEntries +
-            '\n</urlset>',
-          contentType: 'application/xml; charset=utf-8',
-        },
-        {
-          name: 'robots.txt',
-          content:
-            'User-agent: *\nAllow: /\n' +
-            (customRobotsRules
-              ? '\n' + customRobotsRules + '\n'
-              : '\n') +
-            'Sitemap: ' +
-            productionBaseUrl +
-            '/sitemap.xml\n',
-          contentType: 'text/plain; charset=utf-8',
-        },
-      );
-
-      if (fromStaging) {
-        files = await readPublishedWebsiteFolderFiles(`${folder}/previews/${previewToken}/release`);
-        assertPublishIsCurrent();
-      }
-      const publishBaseProjectData = buildProjectData();
-      const publishEditableFingerprint = fromStaging ? previewFingerprint : buildEditableFingerprint();
-      const publishReleaseNote = releaseNote.trim().slice(0, 500);
-      const publishReleaseHistoryEnabled =
-        billingEntitlements.features.releaseHistory;
-
-      const previousLiveSnapshot = await snapshotPublishedWebsiteFiles(folder);
-      assertPublishIsCurrent();
-      liveRollback = { folder, snapshot: previousLiveSnapshot };
-      await replacePublishedWebsiteFiles(folder, files, previousLiveSnapshot);
-      liveFilesReplaced = true;
-      assertPublishIsCurrent();
-
-      const versionId =
-        typeof crypto !== 'undefined' &&
-        'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-              .replace(
-                /[xy]/g,
-                (character) => {
-                  const random =
-                    Math.floor(
-                      Math.random() * 16,
-                    );
-
-                  const value =
-                    character === 'x'
-                      ? random
-                      : (random & 0x3) |
-                        0x8;
-
-                  return value.toString(16);
-                },
-              );
-
-      const versionPrefix =
-        folder +
-        '/versions/' +
-        versionId;
-
-      const manifest = files.map((file) => ({
-        name: file.name,
-        contentType: file.contentType,
-      }));
-
-      let archivedReleaseId:
-        string | null = null;
-
-      let archiveWarning = '';
-
-      if (publishReleaseHistoryEnabled) {
-        try {
-          await archivePublishedWebsiteFiles(versionPrefix, files);
-          pendingArchiveCleanup = {
-            versionId,
-            projectId: publishProjectId,
-            ownerId: publishUserId,
-            storagePrefix: versionPrefix,
-            fileManifest: manifest,
-          };
-
-          assertPublishIsCurrent();
-
-          const provisionalData = {
-            ...publishBaseProjectData,
-            ...(fromStaging ? JSON.parse(previewFingerprint) : {}),
-            publishedUrl:
-              releasePublishedUrl,
-            publishedAt:
-              new Date().toISOString(),
-            lastPublishedVersionId:
-              versionId,
-            lastPublishedFingerprint:
-              publishEditableFingerprint,
-          };
-
-          const {
-            error: versionError,
-          } = await createWebsitePublishVersion({
-            id: versionId,
-            projectId: publishProjectId,
-            ownerId: publishUserId,
-            releaseNote: publishReleaseNote,
-            publishedUrl: releasePublishedUrl,
-            storagePrefix: versionPrefix,
-            editorFingerprint: publishEditableFingerprint,
-            snapshot: provisionalData,
-            fileManifest: manifest,
-          });
-
-          assertPublishIsCurrent();
-
-          if (versionError) {
-            throw versionError;
-          }
-
-          archivedReleaseId =
-            versionId;
-        } catch (error) {
-          if (!publishIsCurrent()) throw error;
-          let archiveMessage =
-            error instanceof Error
-              ? error.message
-              : 'Release history could not be archived.';
-
-          if (pendingArchiveCleanup) {
-            const cleanup = pendingArchiveCleanup;
-            pendingArchiveCleanup = null;
-            const { error: cleanupError } = await discardWebsitePublishVersionArchive(cleanup);
-            if (cleanupError) archiveMessage += ' Archive cleanup needs support review.';
-          }
-
-          archiveWarning = archiveMessage;
-        }
-      }
-
-      const nextPublishedRouteUrl =
-        buildPublishedSiteUrl(publishUserId, publishProjectId, 'index.html');
-
-      if (!nextPublishedRouteUrl) {
-        throw new Error('Could not build the public website URL.');
-      }
-
-      assertPublishIsCurrent();
-
-      const renderedRouteHealthy =
-        await verifyPublishedRoute(nextPublishedRouteUrl);
-
-      assertPublishIsCurrent();
-
-      if (!renderedRouteHealthy) {
-        throw new Error(
-          'The website files were uploaded, but the public renderer did not return a valid HTML page.'
-        );
-      }
-
-      const nextPublishedAt =
-        new Date().toISOString();
-      const nextPublishedUrl = customDomain?.status === 'verified' ? `${productionBaseUrl}/` : nextPublishedRouteUrl;
-
-      const projectData = {
-        ...publishBaseProjectData,
-        publishedUrl:
-          nextPublishedUrl,
-        publishedAt:
-          nextPublishedAt,
-        lastPublishedVersionId:
-          archivedReleaseId,
-        lastPublishedFingerprint:
-          publishEditableFingerprint,
-        updatedAt:
-          nextPublishedAt,
-      };
-
-      assertPublishIsCurrent();
-
-      const {
-        data: publishedRow,
-        error: projectError,
-      } = await updateWebsiteProjectPublicationState({
-        projectId: publishProjectId,
-        expectedUpdatedAt: publishRevision,
-        userId: publishUserId,
-        content: projectData,
-        published: true,
-        updatedAt: nextPublishedAt,
-      });
-
-      if (projectError) {
-        throw new Error(
-          'The site is uploaded, but the project publish state could not be saved: ' +
-          projectError.message
-        );
-      }
-
-      if (publishIsCurrent()) cloudRevisionRef.current = { projectId: publishProjectId, updatedAt: publishedRow?.updated_at || nextPublishedAt };
-      publicationStateCommitted = true;
-      formRollback = null;
-      liveRollback = null;
-      pendingArchiveCleanup = null;
-      assertPublishIsCurrent();
-
-      setCloudProjects((current) => {
-        const existing = current.find((project) => project.id === publishProjectId);
-        const updatedProject: CloudWebsiteProject = {
-          ...(existing || {
-            id: publishProjectId,
-            user_id: publishUserId,
-            workspace_id: null,
-            title: publishTitle,
-            content: projectData,
-            status: 'completed',
-            updated_at: publishedRow?.updated_at || nextPublishedAt,
-          }),
-          content: projectData,
-          status: 'completed',
-          updated_at: publishedRow?.updated_at || nextPublishedAt,
-        };
-
-        return [
-          updatedProject,
-          ...current.filter((project) => project.id !== publishProjectId),
-        ];
-      });
-
-      setPublishedUrl(
-        nextPublishedUrl,
-      );
-
-      setPublishedAt(
-        nextPublishedAt,
-      );
-
-      setLastPublishedVersionId(
-        archivedReleaseId,
-      );
-
-      setLastPublishedFingerprint(
-        publishEditableFingerprint,
-      );
-
-      setReleaseNote('');
-
-      saveLocalWebsiteProject(projectData);
-
-      lastSavedSnapshotRef.current = '';
-
-      setAutoSaveStatus(
-        'saved',
-      );
-
-      setCloudSyncFailed(
-        false,
-      );
-
-      setLiveVerification(
-        'healthy',
-      );
-
-      if (archiveWarning) {
-        setPublishVersionsError(
-          `${l('Website published successfully. Release history was skipped:')} ${l(archiveWarning)}`
-        );
-      }
-
-      if (publishReleaseHistoryEnabled) {
-        await refreshPublishVersions(
-          publishProjectId,
-          publishUserId,
-          publishLoadSequence,
-        );
-      }
-    } catch (error) {
-      let message = error instanceof Error
-        ? error.message
-        : 'Could not publish this website.';
-
-      if (formRollback && formsSynchronized && !publicationStateCommitted) {
-        const restoredForms = await restorePublishedWebsiteForms(formRollback.projectId, formRollback.ownerId, formRollback.rows);
-        if (restoredForms.error) message += ' Form configuration rollback needs support review.';
-      }
-
-      if (liveRollback && liveFilesReplaced && !publicationStateCommitted) {
-        try {
-          await restorePublishedWebsiteSnapshot(liveRollback.folder, liveRollback.snapshot);
-          message += ' The previous live website was restored automatically.';
-        } catch (rollbackError) {
-          message += ' Automatic rollback needs support review: ' +
-            (rollbackError instanceof Error ? rollbackError.message : 'unknown rollback error');
-        }
-      }
-
-      if (pendingArchiveCleanup && !publicationStateCommitted) {
-        const cleanup = pendingArchiveCleanup;
-        pendingArchiveCleanup = null;
-        try {
-          const { error: cleanupError } = await discardWebsitePublishVersionArchive(cleanup);
-          if (cleanupError) message += ' Release archive cleanup needs support review.';
-        } catch {
-          message += ' Release archive cleanup needs support review.';
-        }
-      }
-
-      if (!publishIsCurrent()) return;
-
-      setPublishError(message);
-
-      setLiveVerification(
-        'failed',
-      );
-    } finally {
-      if (publishOperationSequenceRef.current === publishSequence) {
-        setPublishBusy(false);
-      }
-    }
-  }
-  async function unpublishWebsite() {
-    if (publishBusy || previewBusy || saveInFlightRef.current) return;
-    if (!user || !cloudProjectId) return;
-    if (!projectTeamAccess.canPublish) {
-      setPublishError('Only the project owner can unpublish a shared website.');
-      return;
-    }
-    if (!window.confirm(l('Remove the public version of this website?'))) return;
-
-    const unpublishSequence = ++publishOperationSequenceRef.current;
-    const unpublishLoadSequence = projectLoadSequenceRef.current;
-    const unpublishProjectId = cloudProjectId;
-    const unpublishUserId = user.id;
-    const unpublishBaseProjectData = buildProjectData();
-    const unpublishRevision = cloudRevisionRef.current?.projectId === unpublishProjectId ? cloudRevisionRef.current.updatedAt : null;
-    const unpublishIsCurrent = () =>
-      publishOperationSequenceRef.current === unpublishSequence &&
-      projectLoadSequenceRef.current === unpublishLoadSequence &&
-      activeUserIdRef.current === unpublishUserId;
-    const assertUnpublishIsCurrent = () => {
-      if (!unpublishIsCurrent()) {
-        throw new Error('Unpublishing stopped because the active project changed.');
-      }
-    };
-
-    let liveRollback: {
-      folder: string;
-      snapshot: Awaited<ReturnType<typeof snapshotPublishedWebsiteFiles>>;
-    } | null = null;
-    let removalStarted = false;
-    let publicationStateCommitted = false;
-
-    setPublishBusy(true);
-    setPublishError('');
-
-    try {
-      if (!unpublishRevision) throw new Error('Reopen the cloud project before unpublishing so its current version can be verified.');
-      const folder = `${unpublishUserId}/${unpublishProjectId}`;
-      const previousLiveSnapshot = await snapshotPublishedWebsiteFiles(folder);
-      assertUnpublishIsCurrent();
-      liveRollback = { folder, snapshot: previousLiveSnapshot };
-      removalStarted = true;
-      await removePublishedWebsiteFiles(folder);
-
-      assertUnpublishIsCurrent();
-
-      const nextUpdatedAt = new Date().toISOString();
-      const projectData = {
-        ...unpublishBaseProjectData,
-        publishedUrl: '',
-        publishedAt: null,
-        lastPublishedVersionId: null,
-        lastPublishedFingerprint: '',
-        updatedAt: nextUpdatedAt,
-      };
-
-      assertUnpublishIsCurrent();
-
-      const { data: publishedRow, error: projectError } = await updateWebsiteProjectPublicationState({
-        projectId: unpublishProjectId,
-        expectedUpdatedAt: unpublishRevision,
-        userId: unpublishUserId,
-        content: projectData,
-        published: false,
-        updatedAt: nextUpdatedAt,
-      });
-
-      if (projectError) throw projectError;
-      if (unpublishIsCurrent()) cloudRevisionRef.current = { projectId: unpublishProjectId, updatedAt: publishedRow?.updated_at || nextUpdatedAt };
-      publicationStateCommitted = true;
-      liveRollback = null;
-      assertUnpublishIsCurrent();
-
-      setCloudProjects((current) =>
-        current.map((project) =>
-          project.id === unpublishProjectId
-            ? {
-                ...project,
-                content: projectData,
-                status: 'draft',
-                updated_at: publishedRow?.updated_at || nextUpdatedAt,
-              }
-            : project
-        )
-      );
-
-      setPublishedUrl('');
-      setPublishedAt(null);
-      setLastPublishedVersionId(null);
-      setLastPublishedFingerprint('');
-      setLiveVerification('idle');
-      saveLocalWebsiteProject(projectData);
-      lastSavedSnapshotRef.current = '';
-      setAutoSaveStatus('saved');
-    } catch (error) {
-      let message = error instanceof Error ? error.message : 'Could not unpublish this website.';
-
-      if (liveRollback && removalStarted && !publicationStateCommitted) {
-        try {
-          await restorePublishedWebsiteSnapshot(liveRollback.folder, liveRollback.snapshot);
-          message += ' The public website was restored automatically.';
-        } catch (rollbackError) {
-          message += ' Automatic rollback needs support review: ' +
-            (rollbackError instanceof Error ? rollbackError.message : 'unknown rollback error');
-        }
-      }
-
-      if (!unpublishIsCurrent()) return;
-      setPublishError(message);
-    } finally {
-      if (publishOperationSequenceRef.current === unpublishSequence) {
-        setPublishBusy(false);
-      }
-    }
-  }
+    const publishWebsite = createPublishWebsiteHandler({
+    activeUserIdRef,
+    billingEntitlements,
+    buildEditableFingerprint,
+    buildProjectData,
+    cloudProjectId,
+    cloudRevisionRef,
+    customDomain,
+    get404Html,
+    getHtml,
+    getOutputFilename,
+    getOutputPages,
+    l,
+    lastSavedSnapshotRef,
+    openBillingWithMessage,
+    previewBusy,
+    previewFingerprint,
+    previewToken,
+    productionConfig,
+    projectLoadSequenceRef,
+    publishBusy,
+    publishOperationalBlocker,
+    publishOperationSequenceRef,
+    refreshPublishVersions,
+    releaseNote,
+    saveProject,
+    setAutoSaveStatus,
+    setCloudProjectId,
+    setCloudProjects,
+    setCloudSyncFailed,
+    setLastPublishedFingerprint,
+    setLastPublishedVersionId,
+    setLiveVerification,
+    setProjectTeamAccess,
+    setPublishBusy,
+    setPublishedAt,
+    setPublishedUrl,
+    setPublishError,
+    setPublishVersionsError,
+    setReleaseNote,
+    siteName,
+    user,
+  });
+    const unpublishWebsite = createUnpublishWebsiteHandler({
+    activeUserIdRef,
+    buildProjectData,
+    cloudProjectId,
+    cloudRevisionRef,
+    l,
+    lastSavedSnapshotRef,
+    previewBusy,
+    projectLoadSequenceRef,
+    projectTeamAccess,
+    publishBusy,
+    publishOperationSequenceRef,
+    saveInFlightRef,
+    setAutoSaveStatus,
+    setCloudProjects,
+    setLastPublishedFingerprint,
+    setLastPublishedVersionId,
+    setLiveVerification,
+    setPublishBusy,
+    setPublishedAt,
+    setPublishedUrl,
+    setPublishError,
+    user,
+  });
   async function copyHtml() {
     try {
       await navigator.clipboard.writeText(getHtml());
@@ -11238,6 +6239,25 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     const score = Math.min(100, auditPoints + checks.reduce((total, item) => total + (item.ok ? item.points : 0), 0));
     return { score, checks, auditPoints };
   }, [siteAudit.score, siteUrl, cloudProjectId, previewUrl, approvalCurrent, publishedUrl, faviconUrl]);
+  const downloadClientHandoffZip = createClientHandoffHandler({
+    launchReadiness,
+    analyticsEvents,
+    buildDeliveryReport,
+    buildProjectData,
+    deliveryConfig,
+    get404Html,
+    getHtml,
+    getOutputFilename,
+    getOutputPages,
+    l,
+    leads,
+    productionConfig,
+    publishedUrl,
+    publishVersions,
+    requireBillingFeature,
+    siteName,
+    siteUrl,
+  });
 
   const v1LaunchStatus = useMemo(() => {
     const currentPages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
@@ -11434,571 +6454,53 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setSaved(false);
   }
 
-  function v2DuplicateElementDirect(
-    sectionId: string,
-    elementId: string,
-  ) {
-    const targetSection =
-      sections.find(
-        (section) =>
-          section.id === sectionId,
-      );
-
-    const source =
-      targetSection?.elements.find(
-        (element) =>
-          element.id === elementId,
-      );
-
-    if (
-      !targetSection ||
-      !source
-    ) {
-      return;
-    }
-
-    const duplicate: WebsiteElement = {
-      ...source,
-
-      id:
-        `${source.type}-${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 8)}`,
-
-      style: {
-        ...source.style,
-      },
-
-      responsive:
-        source.responsive
-          ? JSON.parse(
-              JSON.stringify(
-                source.responsive,
-              ),
-            )
-          : undefined,
-
-      symbolId:
-        undefined,
-    };
-
-    remember(sections);
-
-    setSections((current) =>
-      current.map((section) => {
-        if (
-          section.id !== sectionId
-        ) {
-          return section;
-        }
-
-        const index = section.elements.findIndex(
-          (element) => element.id === elementId,
-        );
-        if (index < 0) return section;
-
-        const elements = [...section.elements];
-        elements.splice(index + 1, 0, duplicate);
-
-        return {
-          ...section,
-          elements,
-        };
-      }),
-    );
-
-    selectEditorTarget(
-      sectionId,
-      duplicate.id,
-    );
-
-    setSaved(false);
-  }
-
-  function v2DeleteElementDirect(
-    sectionId: string,
-    elementId: string,
-  ) {
-    const targetSection =
-      sections.find(
-        (section) =>
-          section.id === sectionId,
-      );
-
-    if (
-      !targetSection ||
-      targetSection.elements.length <= 1
-    ) {
-      return;
-    }
-
-    const index =
-      targetSection.elements.findIndex(
-        (element) =>
-          element.id === elementId,
-      );
-
-    if (index < 0) return;
-
-    const remaining =
-      targetSection.elements.filter(
-        (element) =>
-          element.id !== elementId,
-      );
-
-    const nextElement =
-      remaining[
-        Math.min(
-          index,
-          remaining.length - 1,
-        )
-      ];
-
-    remember(sections);
-
-    setSections((current) =>
-      current.map((section) => {
-        if (section.id !== sectionId) return section;
-        if (section.elements.length <= 1) return section;
-
-        const elements = section.elements.filter(
-          (element) => element.id !== elementId,
-        );
-        return elements.length === section.elements.length
-          ? section
-          : { ...section, elements };
-      }),
-    );
-
-    selectEditorTarget(
-      sectionId,
-      nextElement?.id ?? null,
-    );
-
-    setSaved(false);
-  }
-
-  function applyV2NativeOperations(
-    operations: EditorNativeOperation[],
-    nextSelection?: EditorSelection,
-  ) {
-    if (!operations.length) return;
-
-    const currentPages =
-      pages.map((page) =>
-        page.id === activePageId
-          ? {
-              ...page,
-              sections,
-            }
-          : page,
-      );
-
-    const initialSelection:
-      EditorSelection = {
-        pageId: activePageId,
-
-        ...(selectedId
-          ? {
-              sectionId:
-                selectedId,
-            }
-          : {}),
-
-        ...(selectedElementId
-          ? {
-              elementId:
-                selectedElementId,
-            }
-          : {}),
-
-        ...(!selectedElementId &&
-        selectedContainerId
-          ? {
-              containerId:
-                selectedContainerId,
-            }
-          : {}),
-
-        ...(!selectedElementId &&
-        !selectedContainerId &&
-        selectedFormFieldId
-          ? {
-              formFieldId:
-                selectedFormFieldId,
-            }
-          : {}),
-      };
-
-    const store =
-      new EditorStore(
-        {
-          pages:
-            currentPages as unknown as EditorPageLike[],
-
-          homePageId,
-
-          theme: {
-            ...theme,
-          },
-
-          seo: {
-            ...seo,
-            keywords: [
-              ...seo.keywords,
-            ],
-          },
-
-          headerConfig: {
-            ...headerConfig,
-          },
-
-          symbols:
-            JSON.parse(
-              JSON.stringify(symbols),
-            ) as EditorSymbolLike[],
-        },
-        {
-          selection:
-            initialSelection,
-        },
-      );
-
-    const result =
-      store.applyNativePatch(
-        operations,
-        {
-          limits: {
-            maxPages:
-              BUSINESS_BILLING_ENTITLEMENTS.maxPages,
-            maxSymbols: 50,
-          },
-          validateProject: (
-            candidate,
-            previous,
-          ) => {
-            const pageCountIncreased =
-              candidate.pages.length >
-              previous.pages.length;
-
-            if (
-              pageCountIncreased &&
-              candidate.pages.length >
-                billingEntitlements.maxPages
-            ) {
-              return {
-                ok: false,
-                errors: [
-                  `Your ${BILLING_PLAN_DETAILS[billingPlan].label} plan supports up to ${billingEntitlements.maxPages} pages.`,
-                ],
-              };
-            }
-
-            return {
-              ok: true,
-            };
-          },
-        },
-      );
-
-    if (
-      result.errors.length
-    ) {
-      console.error(
-        '[WebsiteBuilder V2] Native operation failed:',
-        {
-          operations,
-          errors:
-            result.errors,
-          warnings:
-            result.warnings,
-        },
-      );
-
-      return;
-    }
-
-    if (
-      !result.changed
-    ) {
-      console.warn(
-        '[WebsiteBuilder V2] Native operation produced no change:',
-        operations,
-      );
-
-      return;
-    }
-
-    const operationLabel = operations.length === 1
-      ? operations[0].action.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase())
-      : `${operations.length} manual changes`;
-
-    remember(sections, operationLabel);
-
-    const nextProject =
-      store
-        .getSnapshot()
-        .session
-        .project;
-
-    const nextPages =
-      nextProject.pages as unknown as WebsitePage[];
-
-    const rawTheme =
-      nextProject.theme &&
-      typeof nextProject.theme === 'object'
-        ? nextProject.theme as Partial<WebsiteTheme>
-        : theme;
-
-    const nextTheme =
-      normalizeTheme(rawTheme);
-
-    const rawHeaderConfig =
-      nextProject.headerConfig &&
-      typeof nextProject.headerConfig === 'object'
-        ? nextProject.headerConfig as Partial<WebsiteHeaderConfig>
-        : headerConfig;
-
-    const nextHeaderConfig =
-      normalizeHeaderConfig(
-        rawHeaderConfig,
-      );
-
-    const rawSeo =
-      nextProject.seo &&
-      typeof nextProject.seo === 'object'
-        ? nextProject.seo as Partial<WebsiteSEO>
-        : seo;
-
-    const nextSeo: WebsiteSEO = {
-      title:
-        typeof rawSeo.title === 'string'
-          ? rawSeo.title.trim().slice(0, 160)
-          : seo.title,
-      description:
-        typeof rawSeo.description === 'string'
-          ? rawSeo.description.trim().slice(0, 500)
-          : seo.description,
-      keywords:
-        Array.isArray(rawSeo.keywords)
-          ? rawSeo.keywords
-              .filter(
-                (keyword): keyword is string =>
-                  typeof keyword === 'string',
-              )
-              .map((keyword) =>
-                keyword.trim().slice(0, 80),
-              )
-              .filter(Boolean)
-              .slice(0, 40)
-          : [...seo.keywords],
-    };
-
-    const requestedHomePageId =
-      typeof nextProject.homePageId === 'string'
-        ? nextProject.homePageId.trim()
-        : '';
-
-    const nextHomePageId =
-      nextPages.some(
-        (page) =>
-          page.id === requestedHomePageId,
-      )
-        ? requestedHomePageId
-        : nextPages.some(
-            (page) =>
-              page.id === homePageId,
-          )
-          ? homePageId
-          : nextPages[0]?.id || '';
-
-    const previousSymbolsById =
-      new Map(
-        symbols.map((symbol) => [
-          symbol.id,
-          symbol,
-        ]),
-      );
-
-    const nextSymbols =
-      Array.isArray(nextProject.symbols)
-        ? nextProject.symbols
-            .slice(0, 50)
-            .map((rawSymbol) => {
-              const id =
-                typeof rawSymbol?.id === 'string'
-                  ? rawSymbol.id.trim()
-                  : '';
-
-              if (
-                !id ||
-                !rawSymbol?.element
-              ) {
-                return null;
-              }
-
-              const previous =
-                previousSymbolsById.get(id);
-
-              const name =
-                typeof rawSymbol.name === 'string' &&
-                rawSymbol.name.trim()
-                  ? rawSymbol.name
-                      .trim()
-                      .slice(0, 80)
-                  : previous?.name ||
-                    'Reusable component';
-
-              const element =
-                cloneSymbolElement(
-                  rawSymbol.element as unknown as WebsiteElement,
-                );
-
-              const unchanged =
-                Boolean(previous) &&
-                previous?.name === name &&
-                JSON.stringify(previous.element) ===
-                  JSON.stringify(element);
-
-              return {
-                id,
-                name,
-                element,
-                updatedAt:
-                  unchanged && previous
-                    ? previous.updatedAt
-                    : new Date().toISOString(),
-              } satisfies WebsiteSymbol;
-            })
-            .filter(
-              (
-                symbol,
-              ): symbol is WebsiteSymbol =>
-                Boolean(symbol),
-            )
-        : symbols;
-
-    const requestedPageId =
-      nextSelection?.pageId ||
-      activePageId;
-
-    const nextActivePage =
-      nextPages.find(
-        (page) =>
-          page.id ===
-          requestedPageId,
-      ) ||
-      nextPages[0];
-
-    if (!nextActivePage) {
-      return;
-    }
-
-    clearEditorDragState();
-    setPages(nextPages);
-    setHomePageId(nextHomePageId);
-    setTheme(nextTheme);
-    setSeo(nextSeo);
-    setHeaderConfig(nextHeaderConfig);
-    setSymbols(nextSymbols);
-
-    setActivePageId(
-      nextActivePage.id,
-    );
-
-    setSections(
-      nextActivePage.sections,
-    );
-
-    const requestedSectionId =
-      nextSelection?.sectionId;
-
-    const nextSection =
-      requestedSectionId
-        ? nextActivePage
-            .sections
-            .find(
-              (section) =>
-                section.id ===
-                requestedSectionId,
-            )
-        : undefined;
-
-    const resolvedSection =
-      nextSection ||
-      nextActivePage
-        .sections[0];
-
-    setSelectedId(
-      resolvedSection?.id ??
-        null,
-    );
-
-    const requestedElementId =
-      nextSelection?.elementId;
-
-    const hasRequestedElement =
-      Boolean(
-        requestedElementId &&
-        resolvedSection?.elements
-          .some(
-            (element) =>
-              element.id ===
-              requestedElementId,
-          ),
-      );
-
-    setSelectedElementId(
-      hasRequestedElement
-        ? requestedElementId!
-        : null,
-    );
-
-    const requestedContainerId =
-      nextSelection?.containerId;
-
-    const hasRequestedContainer =
-      Boolean(
-        !hasRequestedElement &&
-        requestedContainerId &&
-        resolvedSection?.containers
-          ?.some(
-            (container) =>
-              container.id ===
-              requestedContainerId,
-          ),
-      );
-
-    setSelectedContainerId(
-      hasRequestedContainer
-        ? requestedContainerId!
-        : null,
-    );
-
-    const requestedFormFieldId =
-      nextSelection?.formFieldId;
-
-    const hasRequestedFormField =
-      Boolean(
-        !hasRequestedElement &&
-        !hasRequestedContainer &&
-        requestedFormFieldId &&
-        resolvedSection?.formFields
-          ?.some(
-            (formField) =>
-              formField.id ===
-              requestedFormFieldId,
-          ),
-      );
-
-    setSelectedFormFieldId(
-      hasRequestedFormField
-        ? requestedFormFieldId!
-        : null,
-    );
-
-    setSaved(false);
-  }
+    const v2DuplicateElementDirect = createV2DuplicateElementHandler({
+    remember,
+    sections,
+    selectEditorTarget,
+    setSaved,
+    setSections,
+  });
+
+    const v2DeleteElementDirect = createV2DeleteElementHandler({
+    remember,
+    sections,
+    selectEditorTarget,
+    setSaved,
+    setSections,
+  });
+
+    const applyV2NativeOperations = createV2NativeOperationsHandler({
+    activePageId,
+    billingEntitlements,
+    billingPlan,
+    clearEditorDragState,
+    headerConfig,
+    homePageId,
+    pages,
+    remember,
+    sections,
+    selectedContainerId,
+    selectedElementId,
+    selectedFormFieldId,
+    selectedId,
+    seo,
+    setActivePageId,
+    setHeaderConfig,
+    setHomePageId,
+    setPages,
+    setSaved,
+    setSections,
+    setSelectedContainerId,
+    setSelectedElementId,
+    setSelectedFormFieldId,
+    setSelectedId,
+    setSeo,
+    setSymbols,
+    setTheme,
+    symbols,
+    theme,
+  });
 
   function submitV2AIRequest() {
     if (!aiPrompt.trim() || aiBusy || aiQualityBusy) return;
@@ -12070,589 +6572,59 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     });
     return () => window.cancelAnimationFrame(scrollFrame);
   }, [aiCanvasPreview]);
-
   const v2AiPanel = (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-white/10 px-3 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-violet-400" />
-
-              <strong className="text-xs">
-                Tayar AI
-              </strong>
-            </div>
-
-            <p className="mt-1 text-[9px] leading-relaxed text-gray-500">{l("Build or edit your website with natural language.")}</p>
-          </div>
-
-          <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-violet-300">
-            {aiBusy ? aiStageStatus : l('Agent')}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 px-3 pt-3" role="group" aria-label={l('AI action')}>
-        {(['edit', 'build'] as const).map((intent) => (
-          <button key={intent} type="button" disabled={aiBusy || aiQualityBusy} aria-pressed={aiIntent === intent}
-            onClick={() => setAiIntent(intent)}
-            className={`rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${aiIntent === intent ? 'border-violet-400/40 bg-violet-500/20 text-violet-200' : 'border-white/10 text-gray-400'}`}>
-            {intent === 'edit' ? l('Edit current website') : l('Build new website')}
-          </button>
-        ))}
-      </div>
-      {aiIntent === 'edit' && (
-        <div className="px-3 pt-3">
-          <p className="mb-1.5 text-[8px] font-black uppercase tracking-wider text-gray-500">{l('Edit scope')}</p>
-          <div className="grid grid-cols-2 gap-1.5" role="group" aria-label={l('Edit scope')}>
-            {aiEditScopeOptions.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                disabled={option.disabled || aiBusy || aiQualityBusy}
-                aria-pressed={aiEditScope === option.value}
-                onClick={() => setAiEditScope(option.value)}
-                className={`rounded-lg border px-2 py-1.5 text-[8px] font-bold transition disabled:cursor-not-allowed disabled:opacity-35 ${aiEditScope === option.value ? 'border-cyan-400/35 bg-cyan-500/10 text-cyan-200' : 'border-white/10 text-gray-400 hover:bg-white/[0.04]'}`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-        <div className="space-y-2">
-          {aiMessages.slice(-8).map((message) => (
-            <div
-              key={message.id}
-              className={
-                message.role === 'user'
-                  ? 'ml-5 rounded-xl border border-violet-500/15 bg-violet-500/10 px-3 py-2.5 text-[10px] leading-relaxed text-violet-50'
-                  : 'mr-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[10px] leading-relaxed text-gray-300'
-              }
-            >
-              <span className="mb-1 block text-[8px] font-black uppercase tracking-wider text-gray-500">
-                {message.role === 'user'
-                  ? l('You')
-                  : 'Tayar AI'}
-              </span>
-
-              {l(message.content)}
-            </div>
-          ))}
-        </div>
-
-        {aiBusy && (
-          <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.06] p-3">
-            <div className="flex items-center gap-2 text-[10px] font-bold text-violet-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              {aiStageStatus}
-            </div>
-          </div>
-        )}
-
-        {aiPlanReview && (
-          <div
-            className="rounded-xl border border-amber-400/25 bg-amber-500/[0.06] p-3"
-            role="dialog"
-            aria-labelledby="tayar-ai-plan-review-title"
-            aria-describedby="tayar-ai-plan-review-description"
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return;
-              event.preventDefault();
-              event.stopPropagation();
-              resolveAIPlanReview(false);
-            }}
-          >
-            <strong id="tayar-ai-plan-review-title" className="text-[10px] text-amber-200">{l('Review AI plan')}</strong>
-            <p className="mt-1 text-[9px] leading-relaxed text-gray-400">{aiPlanReview.summary}</p>
-            <p id="tayar-ai-plan-review-description" className="mt-2 text-[8px] font-semibold text-amber-300">{l('No website changes have been applied yet.')}</p>
-            <ol className="mt-2 space-y-1.5">
-              {aiPlanReview.steps.map((step, index) => (
-                <li key={step.id} className="rounded-lg border border-white/[0.07] bg-black/10 px-2.5 py-2 text-[9px] text-gray-300">
-                  <span className="font-bold text-gray-200">{index + 1}. {step.title}</span>
-                  {step.target && <span className="mt-0.5 block text-[8px] text-gray-500">{step.target}</span>}
-                  {step.reason && <span className="mt-1 block text-[8px] text-gray-400">{step.reason}</span>}
-                  {(step.acceptanceCriteria?.length ?? 0) > 0 && (
-                    <ul className="mt-1.5 space-y-0.5 text-[8px] text-emerald-300">
-                      {step.acceptanceCriteria?.map((criterion) => <li key={criterion}>✓ {criterion}</li>)}
-                    </ul>
-                  )}
-                  {(step.affectedPageIds?.length ?? 0) > 0 && (
-                    <span className="mt-1 block text-[7px] text-cyan-300">{l('Affected pages')}: {step.affectedPageIds?.join(', ')}</span>
-                  )}
-                </li>
-              ))}
-            </ol>
-            {aiPlanReview.warnings.length > 0 && (
-              <p className="mt-2 text-[8px] leading-relaxed text-amber-300">{aiPlanReview.warnings.join(' · ')}</p>
-            )}
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button ref={aiPlanApproveButtonRef} type="button" onClick={() => resolveAIPlanReview(true)} className="rounded-lg bg-emerald-600 px-2 py-2 text-[9px] font-black text-white hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
-                {l('Approve and continue')}
-              </button>
-              <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAIPlanReview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
-                {l('Discard plan')}
-              </button>
-            </div>
-            <p className="mt-2 text-center text-[8px] text-gray-500">{l('Press Escape to discard')}</p>
-          </div>
-        )}
-
-        {aiPatchReview && (
-          <div
-            className="rounded-xl border border-violet-400/30 bg-violet-500/[0.07] p-3"
-            role="dialog"
-            aria-labelledby="tayar-ai-patch-review-title"
-            aria-describedby="tayar-ai-patch-review-description"
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return;
-              event.preventDefault();
-              event.stopPropagation();
-              resolveAIPatchReview(false);
-            }}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <strong id="tayar-ai-patch-review-title" className="text-[10px] text-violet-200">{l('Review exact changes')}</strong>
-              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[8px] font-bold text-gray-300">
-                {aiPatchReview.selectedOperationIds.length}/{aiPatchReview.operations.length} {l('Selected')}
-              </span>
-            </div>
-            <p className="mt-1 text-[9px] leading-relaxed text-gray-300">{aiPatchReview.summary}</p>
-            <p id="tayar-ai-patch-review-description" className="mt-2 text-[8px] font-semibold text-violet-300">{l('No website changes have been applied yet.')}</p>
-            {typeof aiPatchReview.planCoveragePercent === 'number' && (
-              <div className={`mt-2 rounded-lg border px-2 py-1.5 text-[8px] font-bold ${aiPatchReview.planCoveragePercent === 100 ? 'border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-300' : 'border-amber-400/20 bg-amber-500/[0.06] text-amber-300'}`}>
-                {l('Plan coverage')}: {aiPatchReview.planCoveragePercent}%
-                {(aiPatchReview.uncoveredPlanStepIds?.length ?? 0) > 0 && ` · ${l('Uncovered steps')}: ${aiPatchReview.uncoveredPlanStepIds?.join(', ')}`}
-              </div>
-            )}
-            {aiSelectedDestructiveCount > 0 && (
-              <p className="mt-2 rounded-lg border border-red-400/20 bg-red-500/[0.08] px-2 py-1.5 text-[8px] font-bold text-red-300">
-                {aiSelectedDestructiveCount} {l(aiSelectedDestructiveCount === 1 ? 'destructive change' : 'destructive changes')}
-              </p>
-            )}
-            <ol className="mt-2 max-h-52 space-y-1.5 overflow-y-auto pr-1">
-              {aiPatchReview.operations.map((operation, index) => (
-                <li key={operation.id} className="rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2 text-[9px] text-gray-300">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex min-w-0 cursor-pointer items-center gap-2 font-bold text-gray-100">
-                      <input
-                        type="checkbox"
-                        checked={aiPatchReview.selectedOperationIds.includes(operation.id)}
-                        onChange={() => toggleAIPatchReviewOperation(operation.id)}
-                        className="h-3.5 w-3.5 shrink-0 accent-violet-500"
-                      />
-                      <span className="truncate">{index + 1}. {operation.label}</span>
-                    </label>
-                    <span className={`rounded-full border px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wide ${operation.kind === 'remove' ? 'border-red-400/25 bg-red-500/10 text-red-300' : operation.kind === 'add' ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300' : 'border-violet-400/25 bg-violet-500/10 text-violet-300'}`}>
-                      {l(operation.kind === 'remove' ? 'Remove' : operation.kind === 'add' ? 'Add' : 'Update')}
-                    </span>
-                  </div>
-
-                  <span className="mt-0.5 block truncate text-[8px] text-gray-500" title={operation.target}>{operation.target}</span>
-                  {operation.planStepId && <span className="mt-1 block text-[7px] font-bold text-cyan-300">{l('Plan step')}: {operation.planStepId}</span>}
-                  {operation.fields.length > 0 && (
-                    <span className="mt-1 block text-[8px] text-gray-400">{l('Fields')}: {operation.fields.join(', ')}</span>
-                  )}
-                </li>
-              ))}
-            </ol>
-            {aiPatchReview.warnings.length > 0 && (
-              <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-500/[0.06] px-2.5 py-2 text-[8px] leading-relaxed text-amber-300">
-                <span className="font-black">{l('Warnings')}:</span> {aiPatchReview.warnings.join(' · ')}
-              </div>
-            )}
-            {aiPatchReview.confidence !== null && (
-              <p className="mt-2 text-[8px] text-gray-400">{l('Confidence')}: {Math.round(aiPatchReview.confidence * 100)}%</p>
-            )}
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button ref={aiPatchApproveButtonRef} type="button" disabled={aiPatchReview.selectedOperationIds.length === 0} onClick={() => resolveAIPatchReview(true)} className="rounded-lg bg-emerald-600 px-2 py-2 text-[9px] font-black text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
-                {l('Apply changes')}
-              </button>
-              <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAIPatchReview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
-                {l('Discard changes')}
-              </button>
-            </div>
-            <p className="mt-2 text-center text-[8px] text-gray-500">{l('Press Escape to discard')}</p>
-          </div>
-        )}
-
-        {aiCandidatePreview && (
-          <div
-            className="rounded-xl border border-emerald-400/30 bg-emerald-500/[0.07] p-3"
-            role="dialog"
-            aria-labelledby="tayar-ai-result-review-title"
-            aria-describedby="tayar-ai-result-review-description"
-            aria-keyshortcuts="Escape Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown Alt+PageUp Alt+PageDown"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                resolveAICandidatePreview(false);
-                return;
-              }
-              if (!event.altKey) return;
-              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                event.preventDefault();
-                setAICandidatePreviewMode(event.key === 'ArrowLeft' ? 'before' : 'after');
-              } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                event.preventDefault();
-                moveAICandidatePreviewPage(event.key === 'ArrowUp' ? -1 : 1);
-              } else if (event.key === 'PageUp' || event.key === 'PageDown') {
-                event.preventDefault();
-                revealAdjacentAICandidateOperation(event.key === 'PageUp' ? -1 : 1);
-              }
-            }}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <strong id="tayar-ai-result-review-title" className="text-[10px] text-emerald-200">{l('Review rendered result')}</strong>
-              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[8px] font-bold text-gray-300">
-                {aiCandidatePreview.applied} {l('applied')} · {aiCandidatePreview.skipped} {l('skipped')}
-              </span>
-            </div>
-            <p className="mt-1 text-[9px] leading-relaxed text-gray-300">{aiCandidatePreview.summary}</p>
-            <p id="tayar-ai-result-review-description" className="mt-2 text-[8px] font-semibold text-emerald-300">
-              {l('This is a temporary preview. Your saved project is unchanged.')}
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-1.5" role="group" aria-label={l('Compare result')}>
-              {(['before', 'after'] as const).map((viewMode) => {
-                const selected = aiCandidatePreview.viewMode === viewMode;
-                const available = viewMode === 'before' ? aiCandidateCanShowBefore : aiCandidateCanShowAfter;
-                return (
-                  <button
-                    key={viewMode}
-                    type="button"
-                    aria-pressed={selected}
-                    aria-keyshortcuts={viewMode === 'before' ? 'Alt+ArrowLeft' : 'Alt+ArrowRight'}
-                    disabled={!available}
-                    onClick={() => setAICandidatePreviewMode(viewMode)}
-                    className={`rounded-lg border px-2 py-1.5 text-[8px] font-black transition disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-emerald-300/40 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-black/10 text-gray-400 hover:bg-white/[0.05]'}`}
-                  >
-                    {l(viewMode === 'before' ? 'Before' : 'After')}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[8px] font-black uppercase tracking-wide text-gray-500">{l('Preview pages')}</span>
-                <span className="text-[8px] font-semibold text-gray-400" aria-live="polite">
-                  {l('Reviewed pages')}: {aiCandidateReviewedPageCount}/{aiCandidateReviewPages.length}
-                </span>
-              </div>
-              <div className="mt-1.5 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto pr-1" role="group" aria-label={l('Preview pages')}>
-                {aiCandidateReviewPages.map(({ page, status, operationCount }) => {
-                    const active = page.id === aiCandidatePreview.activePageId;
-                    const reviewed = aiCandidatePreview.reviewedPageIds.includes(page.id);
-                    return (
-                      <button
-                        key={page.id}
-                        type="button"
-                        aria-pressed={active}
-                        aria-label={`${page.name}, ${l(status === 'added' ? 'Added' : status === 'removed' ? 'Removed' : status === 'changed' ? 'Changed' : 'Current')}, ${l(reviewed ? 'Reviewed' : 'Not reviewed')}`}
-                        onClick={() => previewAICandidatePage(page.id)}
-                        className={`rounded-lg border px-2 py-1.5 text-left text-[8px] font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 ${active ? 'border-emerald-300/40 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-black/10 text-gray-300 hover:bg-white/[0.05]'}`}
-                      >
-                        {reviewed && <span className="mr-1 text-emerald-300" aria-hidden="true">✓</span>}
-                        <span>{page.name}</span>
-                        {status !== 'current' && (
-                          <span className={`ml-1.5 text-[7px] uppercase tracking-wide ${status === 'added' ? 'text-cyan-300' : status === 'removed' ? 'text-red-300' : 'text-violet-300'}`}>
-                            {l(status === 'added' ? 'Added' : status === 'removed' ? 'Removed' : 'Changed')}
-                          </span>
-                        )}
-                        {operationCount > 0 && (
-                          <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[7px] text-gray-300" aria-hidden="true">
-                            {operationCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-              {aiCandidateReviewedPageCount < aiCandidateReviewPages.length && (
-                <button
-                  type="button"
-                  onClick={previewNextUnreviewedAICandidatePage}
-                  className="mt-1.5 w-full rounded-lg border border-emerald-400/20 bg-emerald-500/[0.06] px-2 py-1.5 text-[8px] font-bold text-emerald-200 transition hover:bg-emerald-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                >
-                  {l('Review next page')}
-                </button>
-              )}
-              {aiCandidateReviewPages.length > 1 && (
-                <div className="mt-1.5 flex items-center justify-between gap-2 text-[8px] text-gray-500">
-                  <span>{l('Alt + Up/Down switches pages')}</span>
-                  <span>{l('Alt + Left/Right compares before and after')}</span>
-                </div>
-              )}
-            </div>
-            {aiCandidateTargetableOperations.length > 0 && (
-              <div className="mt-2 rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[8px] font-black uppercase tracking-wide text-gray-500">{l('Reviewed changes')}</span>
-                  <span className="text-[8px] font-semibold text-gray-400" aria-live="polite">
-                    {aiCandidateReviewedOperationCount}/{aiCandidateTargetableOperations.length}
-                  </span>
-                </div>
-                {aiCandidateReviewedOperationCount < aiCandidateTargetableOperations.length && (
-                  <button
-                    type="button"
-                    onClick={previewNextUnreviewedAICandidateOperation}
-                    className="mt-1.5 w-full rounded-md border border-violet-400/20 bg-violet-500/[0.06] px-2 py-1.5 text-[8px] font-bold text-violet-200 transition hover:bg-violet-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                  >
-                    {l('Review next change')}
-                  </button>
-                )}
-              </div>
-            )}
-            {aiCandidateActiveOperations.length > 0 && (
-              <details className="mt-2 rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2 text-[8px] text-gray-300">
-                <summary className="cursor-pointer font-black text-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
-                  {l('Changes affecting this page')} · {aiCandidateActiveOperations.length}
-                  {aiCandidateGlobalOperations.length > 0 && (
-                    <span className="ml-1.5 font-semibold text-violet-300">
-                      ({aiCandidateGlobalOperations.length} {l(aiCandidateGlobalOperations.length === 1 ? 'site-wide change' : 'site-wide changes')})
-                    </span>
-                  )}
-                </summary>
-                <ol className="mt-2 space-y-1.5">
-                  {aiCandidateActiveOperations.map((operation) => {
-                    const reviewed = aiCandidatePreview.reviewedOperationIds.includes(operation.id);
-                    return (
-                    <li key={operation.id}>
-                      <button
-                        type="button"
-                        disabled={!operation.sectionId && !operation.elementId && !operation.containerId}
-                        onClick={() => revealAICandidateOperation(operation)}
-                        aria-pressed={operation.id === aiCandidatePreview.focusedOperationId}
-                        aria-label={`${operation.label}, ${l(reviewed ? 'Reviewed' : 'Not reviewed')}`}
-                        className={`flex w-full items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-left transition disabled:cursor-default disabled:hover:border-white/[0.06] disabled:hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 ${operation.id === aiCandidatePreview.focusedOperationId ? 'border-emerald-400/35 bg-emerald-500/10' : 'border-white/[0.06] hover:border-emerald-400/20 hover:bg-emerald-500/[0.05]'}`}
-                      >
-                        <span>
-                          <span className="block font-bold text-gray-200">
-                            {reviewed && <span className="mr-1 text-emerald-300" aria-hidden="true">✓</span>}
-                            {operation.label}
-                          </span>
-                          <span className="mt-0.5 block text-[7px] text-gray-500">{operation.target}</span>
-                          {(operation.sectionId || operation.elementId || operation.containerId) && (
-                            <span className="mt-1 block text-[7px] font-bold text-emerald-300">{l('Show on canvas')}</span>
-                          )}
-                        </span>
-                        <span className={`shrink-0 text-[7px] font-black uppercase tracking-wide ${operation.kind === 'remove' ? 'text-red-300' : operation.kind === 'add' ? 'text-emerald-300' : 'text-violet-300'}`}>
-                          {l(operation.kind === 'remove' ? 'Remove' : operation.kind === 'add' ? 'Add' : 'Update')}
-                        </span>
-                      </button>
-                    </li>
-                    );
-                  })}
-                </ol>
-                {aiCandidateTargetableOperations.length > 1 && (
-                  <div className="mt-2 grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      aria-keyshortcuts="Alt+PageUp"
-                      onClick={() => revealAdjacentAICandidateOperation(-1)}
-                      className="rounded-md border border-white/10 px-2 py-1.5 font-bold text-gray-300 transition hover:bg-white/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                    >
-                      ← {l('Previous change')}
-                    </button>
-                    <button
-                      type="button"
-                      aria-keyshortcuts="Alt+PageDown"
-                      onClick={() => revealAdjacentAICandidateOperation(1)}
-                      className="rounded-md border border-white/10 px-2 py-1.5 font-bold text-gray-300 transition hover:bg-white/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                    >
-                      {l('Next change')} →
-                    </button>
-                  </div>
-                )}
-                {aiCandidateTargetableOperations.length > 1 && (
-                  <p className="mt-1.5 text-center text-[7px] text-gray-500">{l('Alt + Page Up/Down switches changes')}</p>
-                )}
-              </details>
-            )}
-            {aiCandidatePreview.agentReview && (
-              <div className="mt-2 rounded-lg border border-white/[0.08] bg-black/15 px-2.5 py-2 text-[8px] text-gray-300">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-black text-gray-200">{l('Agent review')}</span>
-                  {typeof aiCandidatePreview.agentReview.score === 'number' && (
-                    <span className="font-black text-emerald-300">{aiCandidatePreview.agentReview.score}/100</span>
-                  )}
-                </div>
-                {aiCandidatePreview.agentReview.summary && <p className="mt-1 leading-relaxed text-gray-400">{aiCandidatePreview.agentReview.summary}</p>}
-                {(aiCandidatePreview.agentReview.findings?.length ?? 0) > 0 && (
-                  <ul className="mt-1.5 space-y-1">
-                    {(aiCandidatePreview.agentReview.findings ?? []).map((finding, index) => (
-                      <li key={`${finding.title}-${index}`} className={finding.severity === 'critical' ? 'text-red-300' : finding.severity === 'warning' ? 'text-amber-300' : ''}>
-                        <span className="font-bold">{finding.title}</span>{finding.detail ? ` · ${finding.detail}` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {aiCandidatePreview.agentReview.followUpPrompt && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const followUpPrompt = aiCandidatePreview.agentReview?.followUpPrompt || '';
-                      aiPreparedFollowUpRef.current = followUpPrompt;
-                      setAiIntent('edit');
-                      setAiPrompt(followUpPrompt);
-                    }}
-                    className="mt-2 w-full rounded-md border border-violet-400/20 bg-violet-500/[0.08] px-2 py-1.5 text-left font-bold text-violet-200 transition hover:bg-violet-500/[0.14]"
-                  >
-                    {l('Prepare suggested follow-up')}
-                  </button>
-                )}
-              </div>
-            )}
-            {aiCandidatePreview.warnings.length > 0 && (
-              <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-500/[0.06] px-2.5 py-2 text-[8px] leading-relaxed text-amber-300">
-                <span className="font-black">{l('Warnings')}:</span> {aiCandidatePreview.warnings.join(' · ')}
-              </div>
-            )}
-            {aiCandidatePreview.confidence !== null && (
-              <p className="mt-2 text-[8px] text-gray-400">{l('Confidence')}: {Math.round(aiCandidatePreview.confidence * 100)}%</p>
-            )}
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button ref={aiCandidateApproveButtonRef} type="button" onClick={approveAICandidatePreview} className="rounded-lg bg-emerald-600 px-2 py-2 text-[9px] font-black text-white hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300">
-                {l('Keep result')}
-              </button>
-              <button type="button" aria-keyshortcuts="Escape" onClick={() => resolveAICandidatePreview(false)} className="rounded-lg border border-white/10 px-2 py-2 text-[9px] font-bold text-gray-300 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300">
-                {l('Discard result')}
-              </button>
-            </div>
-            <p className="mt-2 text-center text-[8px] text-gray-500">{l('Press Escape to discard')}</p>
-          </div>
-        )}
-
-        {aiPlan && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-            <p className="text-[8px] font-black uppercase tracking-wider text-gray-500">{l("Website plan")}</p>
-
-            <p className="mt-1.5 text-[10px] leading-relaxed text-gray-300">
-              {aiPlan.summary}
-            </p>
-
-            <div className="mt-2 flex flex-wrap gap-1">
-              {aiPlan.pages.map((page) => (
-                <span
-                  key={page.name}
-                  className="rounded-full border border-white/10 px-2 py-1 text-[8px] text-gray-400"
-                >
-                  {page.name} - {page.sections} sections
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {aiQualityReview && (
-          <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3">
-            <div className="flex items-center justify-between gap-2">
-              <strong className="text-[10px] text-emerald-300">{l("Quality score")}</strong>
-
-              <span className="text-sm font-black text-emerald-400">
-                {aiQualityReview.score}/100
-              </span>
-            </div>
-
-            <p className="mt-1.5 text-[9px] leading-relaxed text-gray-400">
-              {aiQualityReview.summary}
-            </p>
-          </div>
-        )}
-
-        {aiError && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2.5 text-[10px] leading-relaxed text-red-300">
-            {aiError}
-          </div>
-        )}
-
-        <div>
-          <p className="mb-2 text-[8px] font-black uppercase tracking-wider text-gray-500">{l("Quick actions")}</p>
-
-          <div className="grid grid-cols-1 gap-1.5">
-            {[
-              'Make this page look more premium',
-              'Improve mobile and tablet layout',
-              'Improve the hero and calls to action',
-              'Review this website and fix safe issues',
-            ].map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                onClick={() => { setAiIntent('edit'); setAiPrompt(prompt); }}
-                disabled={aiBusy || aiQualityBusy}
-                className="rounded-lg border border-white/10 px-2.5 py-2 text-left text-[9px] text-gray-400 transition hover:bg-white/[0.04] hover:text-gray-200 disabled:opacity-40"
-              >
-                {l(prompt)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div ref={v2AiMessagesEndRef} aria-hidden="true" />
-      </div>
-
-      <div className="border-t border-white/10 p-3">
-        <textarea
-          value={aiPrompt}
-          onChange={(event) =>
-            setAiPrompt(event.target.value)
-          }
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
-            event.preventDefault();
-            submitV2AIRequest();
-          }}
-          disabled={aiBusy || aiQualityBusy}
-          rows={4}
-          placeholder={
-            aiIntent === 'edit'
-              ? l('Tell Tayar AI what to change...')
-              : l('Describe the website you want to build...')
-          }
-          className="w-full resize-none rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-[11px] leading-relaxed text-white outline-none placeholder:text-gray-600 focus:border-violet-500/50 disabled:opacity-50"
-        />
-        <p className="mt-1 text-[8px] text-gray-600">{l('Enter to send · Shift+Enter for a new line')}</p>
-
-        <button
-          type="button"
-          onClick={aiBusy ? stopAIRequest : submitV2AIRequest}
-          disabled={aiQualityBusy || (!aiBusy && !aiPrompt.trim())}
-          className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[10px] font-black text-white transition disabled:cursor-not-allowed disabled:opacity-40 ${aiBusy ? 'bg-rose-600 hover:bg-rose-500' : 'bg-violet-600 hover:bg-violet-500'}`}
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-
-          {aiBusy
-            ? l('Stop AI')
-            : aiIntent === 'edit'
-              ? l('Apply AI change')
-              : l('Build with Tayar AI')}
-        </button>
-
-        <div className="mt-2">
-          <button
-            type="button"
-            onClick={aiQualityBusy ? stopAIQualityCheck : () => void runAIQualityCheck()}
-            disabled={aiBusy}
-            className={`w-full rounded-lg border px-2 py-2 text-[9px] font-bold disabled:opacity-40 ${aiQualityBusy ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10' : 'border-white/10 text-gray-400 hover:bg-white/[0.04]'}`}
-          >
-            {aiQualityBusy
-              ? l('Stop check')
-              : l('Quality check')}
-          </button>
-        </div>
-
-        {aiUndoSnapshot && (
-          <button
-            type="button"
-            onClick={undoLastAIChange}
-            disabled={aiBusy}
-            className="mt-2 w-full rounded-lg border border-amber-500/20 bg-amber-500/[0.05] px-2 py-2 text-[9px] font-bold text-amber-300 disabled:opacity-40"
-          >{l("Undo last AI change")}</button>
-        )}
-      </div>
-    </div>
+    <BuilderAiPanel
+      aiBusy={aiBusy}
+      aiCandidateActiveOperations={aiCandidateActiveOperations}
+      aiCandidateApproveButtonRef={aiCandidateApproveButtonRef}
+      aiCandidateCanShowAfter={aiCandidateCanShowAfter}
+      aiCandidateCanShowBefore={aiCandidateCanShowBefore}
+      aiCandidateGlobalOperations={aiCandidateGlobalOperations}
+      aiCandidatePreview={aiCandidatePreview}
+      aiCandidateReviewedOperationCount={aiCandidateReviewedOperationCount}
+      aiCandidateReviewedPageCount={aiCandidateReviewedPageCount}
+      aiCandidateReviewPages={aiCandidateReviewPages}
+      aiCandidateTargetableOperations={aiCandidateTargetableOperations}
+      aiEditScope={aiEditScope}
+      aiEditScopeOptions={aiEditScopeOptions}
+      aiError={aiError}
+      aiIntent={aiIntent}
+      aiMessages={aiMessages}
+      aiPatchApproveButtonRef={aiPatchApproveButtonRef}
+      aiPatchReview={aiPatchReview}
+      aiPlan={aiPlan}
+      aiPlanApproveButtonRef={aiPlanApproveButtonRef}
+      aiPlanReview={aiPlanReview}
+      aiPreparedFollowUpRef={aiPreparedFollowUpRef}
+      aiPrompt={aiPrompt}
+      aiQualityBusy={aiQualityBusy}
+      aiQualityReview={aiQualityReview}
+      aiSelectedDestructiveCount={aiSelectedDestructiveCount}
+      aiStageStatus={aiStageStatus}
+      aiUndoSnapshot={aiUndoSnapshot}
+      approveAICandidatePreview={approveAICandidatePreview}
+      l={l}
+      moveAICandidatePreviewPage={moveAICandidatePreviewPage}
+      previewAICandidatePage={previewAICandidatePage}
+      previewNextUnreviewedAICandidateOperation={previewNextUnreviewedAICandidateOperation}
+      previewNextUnreviewedAICandidatePage={previewNextUnreviewedAICandidatePage}
+      resolveAICandidatePreview={resolveAICandidatePreview}
+      resolveAIPatchReview={resolveAIPatchReview}
+      resolveAIPlanReview={resolveAIPlanReview}
+      revealAdjacentAICandidateOperation={revealAdjacentAICandidateOperation}
+      revealAICandidateOperation={revealAICandidateOperation}
+      runAIQualityCheck={runAIQualityCheck}
+      setAICandidatePreviewMode={setAICandidatePreviewMode}
+      setAiEditScope={setAiEditScope}
+      setAiIntent={setAiIntent}
+      setAiPrompt={setAiPrompt}
+      stopAIQualityCheck={stopAIQualityCheck}
+      stopAIRequest={stopAIRequest}
+      submitV2AIRequest={submitV2AIRequest}
+      toggleAIPatchReviewOperation={toggleAIPatchReviewOperation}
+      undoLastAIChange={undoLastAIChange}
+      v2AiMessagesEndRef={v2AiMessagesEndRef}
+    />
   );
 
   const v2CmsPanel = (
@@ -12679,351 +6651,70 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       }}
     />
   );
-
   const v2SitePanel = (
-    <div className="tayar-v2-manual-panel">
-      <div className="tayar-v2-panel-heading">
-        <strong>{l("Site")}</strong>
-      </div>
-
-      <details open className="tayar-v2-manual-section">
-        <summary>{l("Identity")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <label>
-            <span>{l("Site name")}</span>
-            <input value={siteName} onChange={(e) => { setSiteName(e.target.value); setSaved(false); }} />
-          </label>
-          <label>
-            <span>{l("Production URL")}</span>
-            <input value={siteUrl} placeholder="https://example.com" onChange={(e) => { setSiteUrl(e.target.value); setSaved(false); }} />
-          </label>
-          <label>
-            <span>{l("Favicon URL")}</span>
-            <input value={faviconUrl} placeholder="https://..." onChange={(e) => { setFaviconUrl(e.target.value); setSaved(false); }} />
-          </label>
-        </div>
-      </details>
-
-      <details open className="tayar-v2-manual-section">
-        <summary>{l("Localization")}</summary>
-        <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
-          <label>
-            <span>{l("Default language")}</span>
-            <select value={localization.defaultLanguage} onChange={(e) => { setLocalization((current) => ({ ...current, defaultLanguage: e.target.value as Language })); setSaved(false); }}>
-              <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option>
-              <option value="sv">{PAGE_LANGUAGE_LABELS.sv}</option>
-              <option value="ar">{PAGE_LANGUAGE_LABELS.ar}</option>
-            </select>
-          </label>
-          <label>
-            <span>{l("Locale routes")}</span>
-            <select value={localization.routeStrategy} onChange={(e) => { setLocalization((current) => ({ ...current, routeStrategy: e.target.value === 'flat' ? 'flat' : 'subdirectory' })); setSaved(false); }}>
-              <option value="subdirectory">/sv/page.html</option>
-              <option value="flat">/page.html</option>
-            </select>
-          </label>
-        </div>
-        {localizationIssues.length > 0 && <ul className="tayar-v2-manual-note">{localizationIssues.map((issue, index) => <li key={`${issue.code}-${index}`}>{l(issue.message)}</li>)}</ul>}
-      </details>
-
-      <details open className="tayar-v2-manual-section">
-        <summary>{l("Custom domain")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <label>
-            <span>{l("Domain name")}</span>
-            <input value={customDomainDraft} disabled={customDomainBusy || !cloudProjectId || !projectTeamAccess.canPublish} placeholder="www.example.com" onChange={(event) => setCustomDomainDraft(event.target.value.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''))} />
-          </label>
-          {!cloudProjectId && <p className="tayar-v2-manual-note">{l('Save this project to the cloud before connecting a domain.')}</p>}
-          {customDomain && (
-            <p className="tayar-v2-manual-note">
-              {l('Status')}: <strong>{l(customDomain.status)}</strong>
-              {customDomain.status === 'verified' && <> · <a href={`https://${customDomain.hostname}`} target="_blank" rel="noreferrer">https://{customDomain.hostname}</a></>}
-            </p>
-          )}
-          {customDomain?.status === 'verified' && <p className="tayar-v2-manual-note">{l('Publish again to update canonical URLs and activate the latest website on this domain.')}</p>}
-          {!!customDomain?.verification?.length && (
-            <div className="tayar-v2-manual-note">
-              <strong>{l('DNS records required')}</strong>
-              {customDomain.verification.map((record, index) => (
-                <p key={`${record.type}-${index}`}><code>{record.type || 'TXT'} {record.domain || customDomain.hostname} {record.value || record.reason || ''}</code></p>
-              ))}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="tayar-v2-manual-action" disabled={customDomainBusy || !cloudProjectId || !customDomainDraft.trim() || !projectTeamAccess.canPublish} onClick={() => void connectCustomDomain()}>{customDomainBusy ? l('Working…') : customDomain ? l('Update domain') : l('Connect domain')}</button>
-            {customDomain && <button type="button" className="tayar-v2-manual-action" disabled={customDomainBusy} onClick={() => void checkCustomDomain()}>{l('Check DNS')}</button>}
-            {customDomain && <button type="button" className="tayar-v2-manual-action is-danger" disabled={customDomainBusy} onClick={() => void removeCustomDomain()}>{l('Disconnect')}</button>}
-          </div>
-          {customDomainError && <p className="tayar-v2-manual-note text-rose-400">{l(customDomainError)}</p>}
-        </div>
-      </details>
-
-      <details open className="tayar-v2-manual-section">
-        <summary>{l("Global theme")}</summary>
-        <div className="tayar-v2-manual-note">
-          <strong>{l('Design system score')}: {designSystemReport.score}/100</strong>
-          <p>{designSystemReport.metrics.contrastFailures} {l('contrast issues')} · {designSystemReport.metrics.customColors} {l('off-token colors')} · {designSystemReport.metrics.fontSizes} {l('type sizes')}</p>
-        </div>
-        <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
-          <label><span>{l('System preset')}</span><select value="" onChange={(event) => { const preset = WEBSITE_DESIGN_SYSTEM_PRESETS.find((item) => item.id === event.target.value); if (preset) applyDesignSystemPreset(preset); }}><option value="">{l('Choose a system…')}</option>{WEBSITE_DESIGN_SYSTEM_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{l(preset.name)}</option>)}</select></label>
-          <button type="button" className="tayar-v2-manual-action" disabled={!designSystemReport.issues.length} onClick={repairActiveDesignSystem}>{l('Auto-balance tokens')}</button>
-        </div>
-        <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
-          <label><span>{l("Primary")}</span><input type="color" value={theme.primaryColor} onChange={(e) => { setTheme((current) => ({ ...current, primaryColor: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Secondary")}</span><input type="color" value={theme.secondaryColor} onChange={(e) => { setTheme((current) => ({ ...current, secondaryColor: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Background")}</span><input type="color" value={theme.backgroundColor} onChange={(e) => { setTheme((current) => ({ ...current, backgroundColor: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Text")}</span><input type="color" value={theme.textColor} onChange={(e) => { setTheme((current) => ({ ...current, textColor: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Muted text")}</span><input type="color" value={theme.mutedTextColor} onChange={(e) => { setTheme((current) => ({ ...current, mutedTextColor: e.target.value })); setSaved(false); }} /></label>
-          <label>
-            <span>{l("Font")}</span>
-            <select value={theme.fontFamily} onChange={(e) => { setTheme((current) => ({ ...current, fontFamily: e.target.value })); setSaved(false); }}>
-              {FONT_OPTIONS.map((font) => <option key={font} value={font}>{font}</option>)}
-            </select>
-          </label>
-          <label><span>{l("Content width")}</span><input type="number" min="720" max="1440" step="20" value={theme.contentWidth} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, contentWidth: Number(e.target.value) })); setSaved(false); }} /></label>
-          <label><span>{l("Section spacing")}</span><input type="number" min="0" max="240" value={theme.sectionSpacing} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, sectionSpacing: Number(e.target.value) })); setSaved(false); }} /></label>
-          <label><span>{l("Button radius")}</span><input type="number" min="0" max="80" value={theme.buttonRadius} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, buttonRadius: Number(e.target.value) })); setSaved(false); }} /></label>
-        </div>
-      </details>
-
-      <details className="tayar-v2-manual-section">
-        <summary>{l("Header")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <label className="tayar-v2-manual-toggle"><span>{l("Enable header")}</span><input type="checkbox" checked={headerConfig.enabled} onChange={(e) => { setHeaderConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>{l("Sticky")}</span><input type="checkbox" checked={headerConfig.sticky} onChange={(e) => { setHeaderConfig((current) => ({ ...current, sticky: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>{l("Mobile menu")}</span><input type="checkbox" checked={headerConfig.mobileMenu} onChange={(e) => { setHeaderConfig((current) => ({ ...current, mobileMenu: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>{l("Language switcher")}</span><input type="checkbox" checked={headerConfig.languageSwitcher} onChange={(e) => { setHeaderConfig((current) => ({ ...current, languageSwitcher: e.target.checked })); setSaved(false); }} /></label>
-          <label><span>{l("Brand text")}</span><input value={headerConfig.brandText} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandText: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Logo URL")}</span><input value={headerConfig.logoUrl} placeholder="https://..." onChange={(e) => { setHeaderConfig((current) => ({ ...current, logoUrl: e.target.value })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>{l("Show CTA")}</span><input type="checkbox" checked={headerConfig.showCta} onChange={(e) => { setHeaderConfig((current) => ({ ...current, showCta: e.target.checked })); setSaved(false); }} /></label>
-          <label><span>{l("CTA label")}</span><input value={headerConfig.ctaLabel} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaLabel: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("CTA link")}</span><input value={headerConfig.ctaHref} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaHref: e.target.value })); setSaved(false); }} /></label>
-          <div className="tayar-v2-manual-fields tayar-v2-manual-fields--two">
-            <label><span>{l("Background")}</span><input type="color" value={headerConfig.backgroundColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, backgroundColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Text")}</span><input type="color" value={headerConfig.textColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, textColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Active")}</span><input type="color" value={headerConfig.activeColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, activeColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Hover")}</span><input type="color" value={headerConfig.hoverColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, hoverColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("CTA background")}</span><input type="color" value={headerConfig.ctaBackgroundColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaBackgroundColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("CTA text")}</span><input type="color" value={headerConfig.ctaTextColor} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaTextColor: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Nav gap")}</span><input type="number" min="0" max="80" value={headerConfig.navGap} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navGap: Number(e.target.value) })); setSaved(false); }} /></label>
-            <label><span>{l("Brand size")}</span><input type="number" min="10" max="60" value={headerConfig.brandSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandSize: Number(e.target.value) })); setSaved(false); }} /></label>
-            <label><span>{l("Nav size")}</span><input type="number" min="8" max="40" value={headerConfig.navSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navSize: Number(e.target.value) })); setSaved(false); }} /></label>
-          </div>
-        </div>
-      </details>
-
-      <details className="tayar-v2-manual-section">
-        <summary>{l("Footer")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <label className="tayar-v2-manual-toggle"><span>{l("Enable footer")}</span><input type="checkbox" checked={footerConfig.enabled} onChange={(e) => { setFooterConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>{l("Show navigation")}</span><input type="checkbox" checked={footerConfig.showNavigation} onChange={(e) => { setFooterConfig((current) => ({ ...current, showNavigation: e.target.checked })); setSaved(false); }} /></label>
-          <label><span>{l("Footer text")}</span><textarea rows={3} value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Instagram</span><input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Facebook</span><input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} /></label>
-          <label><span>LinkedIn</span><input value={footerConfig.linkedinUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, linkedinUrl: e.target.value })); setSaved(false); }} /></label>
-          <label><span>X</span><input value={footerConfig.xUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, xUrl: e.target.value })); setSaved(false); }} /></label>
-        </div>
-      </details>
-
-      <details className="tayar-v2-manual-section">
-        <summary>{l("Site features")}</summary>
-        <div className="tayar-v2-manual-fields">
-          {([
-            ['cookieBanner', 'Cookie banner'],
-            ['scrollProgress', 'Scroll progress'],
-            ['backToTop', 'Back to top'],
-            ['announcementBar', 'Announcement bar'],
-            ['popupEnabled', 'Popup'],
-            ['siteSearch', 'Site search'],
-            ['galleryLightbox', 'Gallery lightbox'],
-            ['floatingCta', 'Floating CTA'],
-            ['shareButtons', 'Share buttons'],
-          ] as const).map(([key, label]) => (
-            <label key={key} className="tayar-v2-manual-toggle">
-              <span>{l(label)}</span>
-              <input type="checkbox" checked={siteEnhancements[key]} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, [key]: e.target.checked })); setSaved(false); }} />
-            </label>
-          ))}
-          {siteEnhancements.announcementBar && <>
-            <label><span>{l("Announcement")}</span><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Announcement link")}</span><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} /></label>
-          </>}
-          {siteEnhancements.floatingCta && <>
-            <label><span>{l("Floating CTA label")}</span><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Floating CTA link")}</span><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} /></label>
-          </>}
-        </div>
-      </details>
-    </div>
+    <BuilderSitePanel
+      applyDesignSystemPreset={applyDesignSystemPreset}
+      checkCustomDomain={checkCustomDomain}
+      cloudProjectId={cloudProjectId}
+      connectCustomDomain={connectCustomDomain}
+      customDomain={customDomain}
+      customDomainBusy={customDomainBusy}
+      customDomainDraft={customDomainDraft}
+      customDomainError={customDomainError}
+      designSystemReport={designSystemReport}
+      faviconUrl={faviconUrl}
+      footerConfig={footerConfig}
+      headerConfig={headerConfig}
+      l={l}
+      localization={localization}
+      localizationIssues={localizationIssues}
+      projectTeamAccess={projectTeamAccess}
+      removeCustomDomain={removeCustomDomain}
+      repairActiveDesignSystem={repairActiveDesignSystem}
+      setCustomDomainDraft={setCustomDomainDraft}
+      setFaviconUrl={setFaviconUrl}
+      setFooterConfig={setFooterConfig}
+      setHeaderConfig={setHeaderConfig}
+      setLocalization={setLocalization}
+      setSaved={setSaved}
+      setSiteEnhancements={setSiteEnhancements}
+      setSiteName={setSiteName}
+      setSiteUrl={setSiteUrl}
+      setTheme={setTheme}
+      siteEnhancements={siteEnhancements}
+      siteName={siteName}
+      siteUrl={siteUrl}
+      theme={theme}
+    />
   );
-
   const v2SettingsPanel = (
-    <div className="tayar-v2-manual-panel">
-      <div className="tayar-v2-panel-heading">
-        <strong>{l("Settings")}</strong>
-      </div>
-
-      <details open className="tayar-v2-manual-section">
-        <summary>{l("Site Check")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <div className="tayar-v2-check-score" data-ok={siteAudit.errors.length === 0 ? 'true' : 'false'}>
-            <strong>{siteAudit.score}/100</strong>
-            <span>
-              {siteAudit.errors.length} {l('critical')} · {siteAudit.warnings.length} {l('warnings')}
-            </span>
-          </div>
-          {launchLastCheckedAt && (
-            <div className="tayar-v2-manual-note">
-              {l('Last checked')} {new Date(launchLastCheckedAt).toLocaleString()}
-            </div>
-          )}
-          {siteAudit.errors.length > 0 && (
-            <div className="tayar-v2-check-list is-error">
-              {siteAudit.errors.map((item) => <p key={item}>• {item}</p>)}
-            </div>
-          )}
-          {siteAudit.warnings.length > 0 && (
-            <div className="tayar-v2-check-list">
-              {siteAudit.warnings.slice(0, 12).map((item) => <p key={item}>• {item}</p>)}
-            </div>
-          )}
-          {!siteAudit.errors.length && !siteAudit.warnings.length && (
-            <div className="tayar-v2-manual-note">{l("No site issues detected.")}</div>
-          )}
-          <button
-            type="button"
-            className="tayar-v2-manual-action"
-            disabled={launchCheckBusy}
-            onClick={() => void runV1LaunchChecks()}
-          >
-            {launchCheckBusy ? l('Checking…') : l('Run check again')}
-          </button>
-        </div>
-      </details>
-
-      <details open className="tayar-v2-manual-section">
-        <summary>{l("Publishing")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <div
-            className="tayar-v2-publish-state"
-            data-live={publishedUrl && liveVerification === 'healthy' ? 'true' : 'false'}
-          >
-            <strong>
-              {!publishedUrl
-                ? l('DRAFT')
-                : hasUnpublishedChanges
-                  ? l('CHANGES WAITING')
-                : liveVerification === 'checking'
-                  ? l('VERIFYING')
-                  : liveVerification === 'failed'
-                    ? l('CHECK FAILED')
-                    : liveVerification === 'healthy'
-                      ? l('LIVE')
-                      : l('PUBLISHED')}
-            </strong>
-            <span>
-              {!publishedUrl
-                ? l('Your website is saved but not public.')
-                : hasUnpublishedChanges
-                  ? l('Your latest editor changes are not live yet.')
-                : liveVerification === 'failed'
-                  ? l('A published URL is saved, but the live file could not be verified.')
-                  : liveVerification === 'checking'
-                    ? l('Checking the public website now…')
-                    : liveVerification === 'healthy'
-                      ? l('Your website is public.')
-                      : l('The website is published. Verify the live renderer before treating it as live.')}
-            </span>
-          </div>
-          {publishedUrl && (
-            <>
-              <label>
-                <span>{l("Live URL")}</span>
-                <input value={publishedUrl} readOnly />
-              </label>
-              {publishedAt && <div className="tayar-v2-manual-note">{l('Published')} {new Date(publishedAt).toLocaleString()}</div>}
-              <div className="tayar-v2-publish-actions">
-                <button type="button" className="tayar-v2-manual-action" onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}>{l("Open live site")}</button>
-                <button type="button" className="tayar-v2-manual-action" onClick={() => void navigator.clipboard.writeText(publishedUrl)}>{l("Copy URL")}</button>
-                <button type="button" className="tayar-v2-manual-action" disabled={liveVerification === 'checking'} onClick={() => void verifyLiveDeployment()}>
-                  {liveVerification === 'checking' ? l('Verifying…') : l('Verify live')}
-                </button>
-                {hasUnpublishedChanges && (
-                  <button type="button" className="tayar-v2-manual-action" disabled={Boolean(publishBlocker) || publishBusy} onClick={() => void publishWebsite()} title={publishBlocker || l('Publish production changes')}>
-                    {publishBusy ? l('Publishing…') : l('Publish production changes')}
-                  </button>
-                )}
-                <button type="button" className="tayar-v2-manual-action is-danger" disabled={publishBusy} onClick={() => void unpublishWebsite()}>{l("Unpublish")}</button>
-              </div>
-            </>
-          )}
-          {publishError && (
-            <div className="tayar-v2-publish-error">{publishError}</div>
-          )}
-          {cloudError && (
-            <div className="tayar-v2-publish-error">{cloudError}</div>
-          )}
-          {!publishedUrl && (
-            <button type="button" className="tayar-v2-manual-action" disabled={publishBusy || Boolean(publishBlocker)} onClick={() => void publishWebsite()} title={publishBlocker || l('Publish website')}>
-              {publishBusy ? l('Publishing…') : publishBlocker ? l('Resolve publish blockers first') : l('Publish website')}
-            </button>
-          )}
-        </div>
-      </details>
-
-      <details className="tayar-v2-manual-section">
-        <summary>{l('SEO')}</summary>
-        <div className="tayar-v2-manual-fields">
-          <label><span>{l("Site title")}</span><input value={seo.title} onChange={(e) => { setSeo((current) => ({ ...current, title: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Description")}</span><textarea rows={4} value={seo.description} onChange={(e) => { setSeo((current) => ({ ...current, description: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Keywords")}</span><textarea rows={3} value={seo.keywords.join(', ')} onChange={(e) => { setSeo((current) => ({ ...current, keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 40) })); setSaved(false); }} /></label>
-          <div className="tayar-v2-manual-note">Audit: {siteAudit.score}/100 · {siteAudit.errors.length} critical · {siteAudit.warnings.length} warnings</div>
-        </div>
-      </details>
-
-      <details className="tayar-v2-manual-section">
-        <summary>{l("Analytics & verification")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <label><span>Google Analytics 4</span><input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} placeholder="G-XXXX" onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Google Tag Manager</span><input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} placeholder="GTM-XXXX" onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} /></label>
-          <label><span>Meta Pixel</span><input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Plausible domain")}</span><input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Google verification")}</span><input value={productionConfig.googleVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, googleVerification: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Bing verification")}</span><input value={productionConfig.bingVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, bingVerification: e.target.value })); setSaved(false); }} /></label>
-        </div>
-      </details>
-
-      <details className="tayar-v2-manual-section">
-        <summary>{l("Structured data")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <label className="tayar-v2-manual-toggle"><span>{l("Organization schema")}</span><input type="checkbox" checked={productionConfig.organizationSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationSchema: e.target.checked })); setSaved(false); }} /></label>
-          <label className="tayar-v2-manual-toggle"><span>{l("Local business schema")}</span><input type="checkbox" checked={productionConfig.localBusinessSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessSchema: e.target.checked })); setSaved(false); }} /></label>
-          <label><span>{l("Organization name")}</span><input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Organization URL")}</span><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Organization logo")}</span><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} /></label>
-          {productionConfig.localBusinessSchema && <>
-            <label><span>{l("Business type")}</span><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Phone")}</span><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Address")}</span><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} /></label>
-          </>}
-        </div>
-      </details>
-
-      <details className="tayar-v2-manual-section">
-        <summary>{l("Production")}</summary>
-        <div className="tayar-v2-manual-fields">
-          <label className="tayar-v2-manual-toggle"><span>{l("Maintenance mode")}</span><input type="checkbox" checked={productionConfig.maintenanceMode} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceMode: e.target.checked })); setSaved(false); }} /></label>
-          {productionConfig.maintenanceMode && <>
-            <label><span>{l("Maintenance title")}</span><input value={productionConfig.maintenanceTitle} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceTitle: e.target.value })); setSaved(false); }} /></label>
-            <label><span>{l("Maintenance message")}</span><textarea rows={3} value={productionConfig.maintenanceText} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceText: e.target.value })); setSaved(false); }} /></label>
-          </>}
-          <label><span>{l("Global custom CSS")}</span><textarea rows={7} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} /></label>
-          <label><span>{l("Extra robots.txt rules")}</span><textarea rows={5} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} /></label>
-          <button type="button" className="tayar-v2-manual-action" onClick={() => setReleaseHistoryOpen(true)}>{l("Release history")}</button>
-          <button type="button" className="tayar-v2-manual-action" onClick={() => setDeliveryOpen(true)}>{l("Client delivery")}</button>
-        </div>
-      </details>
-    </div>
+    <BuilderSettingsPanel
+      billingEntitlements={billingEntitlements}
+      cloudError={cloudError}
+      hasUnpublishedChanges={hasUnpublishedChanges}
+      l={l}
+      launchCheckBusy={launchCheckBusy}
+      launchLastCheckedAt={launchLastCheckedAt}
+      liveVerification={liveVerification}
+      productionConfig={productionConfig}
+      publishBlocker={publishBlocker}
+      publishBusy={publishBusy}
+      publishedAt={publishedAt}
+      publishedUrl={publishedUrl}
+      publishError={publishError}
+      publishWebsite={publishWebsite}
+      requireBillingFeature={requireBillingFeature}
+      runV1LaunchChecks={runV1LaunchChecks}
+      seo={seo}
+      setDeliveryOpen={setDeliveryOpen}
+      setProductionConfig={setProductionConfig}
+      setReleaseHistoryOpen={setReleaseHistoryOpen}
+      setSaved={setSaved}
+      setSeo={setSeo}
+      siteAudit={siteAudit}
+      unpublishWebsite={unpublishWebsite}
+      verifyLiveDeployment={verifyLiveDeployment}
+    />
   );
 
   const aiCanvasPreviewBanner = aiCanvasPreview ? (
@@ -13041,109 +6732,59 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   ) : null;
 
   const v2Canvas = (
-        <div data-tayar-v2-canvas="true"
-          className={`min-h-[600px] flex-1 overflow-auto p-3 lg:p-5 ${
-            darkMode ? 'bg-[#050914]' : 'bg-[#f3f4f6]'
-          }`}
-        >
-          {aiCanvasPreviewBanner}
-          <div
-            aria-disabled={aiCanvasPreview ? true : undefined}
-            onFocusCapture={(event) => {
-              if (!aiCanvasPreview) return;
-              event.stopPropagation();
-              (aiCandidatePreview ? aiCandidateApproveButtonRef : aiPatchApproveButtonRef).current?.focus();
-            }}
-            className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${aiCanvasPreview ? 'pointer-events-none select-none' : ''} ${
-              device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
-            } ${aiCanvasPreview?.global ? 'ring-2 ring-violet-400 shadow-[0_0_32px_rgba(139,92,246,0.25)]' : ''} ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
-            style={{ fontFamily: `${canvasTheme.fontFamily}, Arial, sans-serif` }}
-          >
-            {canvasHeaderConfig.enabled && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3" style={{ background: canvasHeaderConfig.backgroundColor, color: canvasHeaderConfig.textColor, borderColor: canvasHeaderConfig.borderColor }}>
-                <div className="flex min-w-0 items-center gap-2 font-bold" style={{ fontSize: `${canvasHeaderConfig.brandSize}px` }}>
-                  {canvasHeaderConfig.logoUrl && <img src={canvasHeaderConfig.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
-                  <span className="truncate">{canvasHeaderConfig.brandText.trim() || canvasSiteName}</span>
-                </div>
-                {device === 'mobile' && canvasHeaderConfig.mobileMenu ? (
-                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: canvasHeaderConfig.textColor, borderColor: canvasHeaderConfig.borderColor }}>☰ Menu</div>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-end text-[10px]" style={{ color: canvasHeaderConfig.textColor, gap: `${canvasHeaderConfig.navGap}px`, fontSize: `${canvasHeaderConfig.navSize}px` }}>
-                    {canvasPages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id} className={page.id === canvasActivePageId ? 'font-bold' : ''} style={{ color: page.id === canvasActivePageId ? canvasHeaderConfig.activeColor : canvasHeaderConfig.textColor }}>{page.name}</span>)}
-                    {canvasHeaderConfig.showCta && <span className="px-2.5 py-1.5 font-bold" style={{ background: canvasHeaderConfig.ctaBackgroundColor, color: canvasHeaderConfig.ctaTextColor, borderRadius: `${canvasTheme.buttonRadius}px` }}>{canvasHeaderConfig.ctaLabel}</span>}
-                  </div>
-                )}
-              </div>
-            )}
-            {canvasSections.map((section, sectionIndex) => (
-  <div
-    key={section.id}
-    onDragStart={(e) => handleDragStart(section.id, e)}
-    onDragOver={(e) => handleDragOver(e, section.id)}
-    onDragEnd={handleDragEnd}
-              onDrop={(e) => handleDrop(e, section.id)}
-              draggable={true}
-    className={`relative transition-all duration-150 ${
-      draggedId === section.id ? 'scale-[0.995] opacity-45' : 'opacity-100'
-      }
-    }`}
-  >
-    {dragOverId === section.id && dragOverSectionPosition && draggedId !== section.id && (
-      <span className={`pointer-events-none absolute left-2 right-2 z-[60] h-1 rounded-full bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.8)] ${dragOverSectionPosition === 'before' ? '-top-0.5' : '-bottom-0.5'}`} />
-    )}
-    <SectionPreview
-      section={section}
-      selected={selectedId === section.id}
-      selectedElementId={selectedId === section.id ? selectedElementId : null}
-      selectedElementIds={selectedId === section.id ? selectedElementIds : []}
-      onSelect={() => selectEditorTarget(section.id)}
-      onSelectElement={(elementId, additive, range) => selectCanvasElement(section.id, elementId, additive, range)}
-      onMarqueeSelect={(elementIds, additive) => selectCanvasElements(section.id, elementIds, additive)}
-      draggedElementId={draggedElementId}
-      dragOverElementId={dragOverElementId}
-      dragOverElementPosition={dragOverElementPosition}
-      snapGuides={canvasSnapGuide?.sectionId === section.id ? canvasSnapGuide : null}
-      onElementDragStart={(elementId, e) => handleElementDragStart(section.id, elementId, e)}
-      onElementDragMove={(elementId, e) => handleElementDragMove(section.id, elementId, e)}
-      onElementPointerDragStart={(elementId, e) => handleElementPointerDragStart(section.id, elementId, e)}
-      onElementDragOver={(elementId, e) => handleElementDragOver(section.id, elementId, e)}
-      onElementDrop={(elementId, e) => handleElementDrop(section.id, elementId, e)}
-      onElementDragEnd={handleElementDragEnd}
-      onResizeElementStart={(elementId) => beginElementResize(section.id, elementId)}
-      onResizeElementFrame={(elementId, frame) => resizeElementFrame(section.id, elementId, frame)}
-      onResizeElementEnd={endElementResize}
-      onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
-      onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
-      onOpenMediaLibrary={() => { selectEditorTarget(section.id); setMediaOpen(true); }}
-      onOpenInspector={() => setInspectorOpen(true)}
-      onDuplicateSelectedElement={duplicateSelectedElement}
-      onDeleteSelectedElement={deleteSelectedElement}
-      onInlineContentChange={(elementId, content) => updateInlineElementContent(section.id, elementId, content)}
-      onInlineSourceChange={(elementId, src) => updateInlineElementSource(section.id, elementId, src)}
-      onAddElement={(type) => addElementToSection(section.id, type)}
-      onMoveSection={(direction) => moveSection(section.id, direction)}
-      onDeleteSection={() => deleteSection(section.id)}
-      canMoveSectionUp={sectionIndex > 0}
-      canMoveSectionDown={sectionIndex < canvasSections.length - 1}
-      canDeleteSection={canvasSections.length > 1}
-      device={device}
-      theme={canvasTheme}
-      aiPreview={aiCanvasPreview}
-    />
-
-  </div>
-))}
-            {footerConfig.enabled && (
-              <div className="border-t border-white/10 px-5 py-5" style={{ background: canvasTheme.secondaryColor, color: canvasTheme.textColor }}>
-                <div className="flex flex-wrap items-start justify-between gap-4 text-[10px]">
-                  <div><p className="font-bold">{canvasHeaderConfig.brandText.trim() || canvasSiteName}</p><p className="mt-1" style={{ color: canvasTheme.mutedTextColor }}>{footerConfig.text.trim() || `© ${new Date().getFullYear()} ${canvasSiteName}. All rights reserved.`}</p></div>
-                  {footerConfig.showNavigation && <div className="flex flex-wrap gap-3" style={{ color: canvasTheme.mutedTextColor }}>{canvasPages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id}>{page.name}</span>)}</div>}
-                  <div className="flex flex-wrap gap-3" style={{ color: canvasTheme.mutedTextColor }}>{footerConfig.instagramUrl && <span>Instagram</span>}{footerConfig.facebookUrl && <span>Facebook</span>}{footerConfig.linkedinUrl && <span>LinkedIn</span>}{footerConfig.xUrl && <span>X</span>}</div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <BuilderV2Canvas
+              addElementToSection={addElementToSection}
+              aiCandidateApproveButtonRef={aiCandidateApproveButtonRef}
+              aiCandidatePreview={aiCandidatePreview}
+              aiCanvasPreview={aiCanvasPreview}
+              aiCanvasPreviewBanner={aiCanvasPreviewBanner}
+              aiPatchApproveButtonRef={aiPatchApproveButtonRef}
+              beginElementResize={beginElementResize}
+              canvasActivePageId={canvasActivePageId}
+              canvasHeaderConfig={canvasHeaderConfig}
+              canvasPages={canvasPages}
+              canvasSections={canvasSections}
+              canvasSiteName={canvasSiteName}
+              canvasSnapGuide={canvasSnapGuide}
+              canvasTheme={canvasTheme}
+              darkMode={darkMode}
+              deleteSection={deleteSection}
+              deleteSelectedElement={deleteSelectedElement}
+              device={device}
+              draggedElementId={draggedElementId}
+              draggedId={draggedId}
+              dragOverElementId={dragOverElementId}
+              dragOverElementPosition={dragOverElementPosition}
+              dragOverId={dragOverId}
+              dragOverSectionPosition={dragOverSectionPosition}
+              duplicateSelectedElement={duplicateSelectedElement}
+              endElementResize={endElementResize}
+              footerConfig={footerConfig}
+              handleDragEnd={handleDragEnd}
+              handleDragOver={handleDragOver}
+              handleDragStart={handleDragStart}
+              handleDrop={handleDrop}
+              handleElementDragEnd={handleElementDragEnd}
+              handleElementDragMove={handleElementDragMove}
+              handleElementDragOver={handleElementDragOver}
+              handleElementDragStart={handleElementDragStart}
+              handleElementDrop={handleElementDrop}
+              handleElementPointerDragStart={handleElementPointerDragStart}
+              moveSection={moveSection}
+              quickUpdateElement={quickUpdateElement}
+              resetElementPosition={resetElementPosition}
+              resizeElementFrame={resizeElementFrame}
+              selectCanvasElement={selectCanvasElement}
+              selectCanvasElements={selectCanvasElements}
+              selectedElementId={selectedElementId}
+              selectedElementIds={selectedElementIds}
+              selectedId={selectedId}
+              selectEditorTarget={selectEditorTarget}
+              setInspectorOpen={setInspectorOpen}
+              setMediaOpen={setMediaOpen}
+              updateInlineElementContent={updateInlineElementContent}
+              updateInlineElementSource={updateInlineElementSource}
+            />
   );
 
   const commandPaletteItems = [
@@ -13231,448 +6872,79 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         darkMode ? 'bg-[#06060f] text-white' : 'bg-gray-50 text-gray-900'
       }`}
     >
-      <header data-tayar-v1-header="true"
-        className={`flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 ${
-          darkMode
-            ? 'border-white/10 bg-[#0a0a1a]'
-            : 'border-gray-200 bg-white'
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600/12">
-            <Globe className="h-4 w-4 text-violet-400" />
-          </div>
-
-          <div>
-            <h1 className="text-sm font-bold">{l('Website Builder')}</h1>
-            <p className={`hidden text-[10px] lg:block ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-              {l('Build, preview and publish')}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={siteName}
-            onChange={(e) => {
-              setSiteName(e.target.value);
-              setSaved(false);
-            }}
-            className={`hidden md:block w-32 xl:w-36 rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:border-violet-500 ${
-              darkMode
-                ? 'border-white/10 bg-white/5 text-white'
-                : 'border-gray-200 bg-gray-50 text-gray-900'
-            }`}
-            placeholder={l('Website name')}
-          />
-
-
-          <div
-            className={`flex rounded-lg border p-1 ${
-              darkMode
-                ? 'border-white/10 bg-white/5'
-                : 'border-gray-200 bg-gray-50'
-            }`}
-          >
-            <button
-              onClick={() => setDevice('desktop')}
-              className={`rounded-md p-2 ${
-                device === 'desktop'
-                  ? 'bg-violet-600 text-white'
-                  : darkMode
-                    ? 'text-gray-400'
-                    : 'text-gray-500'
-              }`}
-              title={l('Desktop preview')}
-            >
-              <Monitor className="h-4 w-4" />
-            </button>            <button
-              onClick={() => setDevice('tablet')}
-              className={`rounded-md p-2 ${
-                device === 'tablet'
-                  ? 'bg-violet-600 text-white'
-                  : darkMode
-                    ? 'text-gray-400'
-                    : 'text-gray-500'
-              }`}
-              title={l('Tablet preview')}
-            >
-              <Monitor className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={() => setDevice('mobile')}
-              className={`rounded-md p-2 ${
-                device === 'mobile'
-                  ? 'bg-violet-600 text-white'
-                  : darkMode
-                    ? 'text-gray-400'
-                    : 'text-gray-500'
-              }`}
-              title={l('Mobile preview')}
-            >
-              <Smartphone className="h-4 w-4" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              const reopenPanels = !leftSidebarOpen && !inspectorOpen;
-              setLeftSidebarOpen(reopenPanels);
-              setInspectorOpen(reopenPanels);
-            }}
-            className={`flex items-center gap-2 rounded-lg border p-2 text-xs font-semibold transition ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
-            title={l(!leftSidebarOpen && !inspectorOpen ? 'Show editing panels' : 'Focus on canvas')}
-          >
-            <Eye className="h-4 w-4" />
-            <span className="hidden 2xl:inline">{l(!leftSidebarOpen && !inspectorOpen ? 'Panels' : 'Focus')}</span>
-          </button>
-
-          <button
-            onClick={undo}
-            disabled={!history.length}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
-            title={l('Undo')}
-          >
-            <RotateCcw className="h-4 w-4" /><span className="sr-only">{l('Undo')}</span></button>
-
-          <button
-            onClick={redo}
-            disabled={!future.length}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold `}
-            title={l('Redo')}
-          >
-            <RotateCcw className="h-4 w-4 rotate-180" /><span className="sr-only">{l('Redo')}</span></button>
-
-
-          <details className="relative">
-            <summary
-              className={'flex cursor-pointer list-none items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden ' + (darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100')}
-              title={l('More website tools')}
-            >
-              {l('More')}
-              <ChevronDown className="h-3.5 w-3.5" />
-            </summary>
-            <div className={'absolute right-0 top-11 z-[90] w-[min(92vw,430px)] rounded-2xl border p-3 shadow-2xl ' + (darkMode ? 'border-white/10 bg-[#0a0a1a] text-white' : 'border-gray-200 bg-white text-gray-900')}>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold">{l('Website tools')}</p>
-                  <p className="mt-0.5 text-[10px] text-gray-500">{l('Advanced tools stay here until you need them.')}</p>
-                </div>
-                <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] font-bold text-gray-500">{BILLING_PLAN_DETAILS[billingPlan].label}</span>
-              </div>
-              <div className={`mb-3 rounded-xl border p-2.5 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Project & domain')}</p>
-                <input
-                  value={siteUrl}
-                  onChange={(e) => { setSiteUrl(e.target.value); setSaved(false); }}
-                  placeholder="https://your-domain.com"
-                  className={`w-full rounded-lg border px-2.5 py-2 text-[11px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                />
-                {user && (
-                  <select
-                    value={cloudProjectId ?? ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (!value) {
-                        resetProject();
-                        return;
-                      }
-                      void loadCloudProject(value);
-                    }}
-                    disabled={cloudBusy}
-                    className={`mt-2 w-full rounded-lg border px-2.5 py-2 text-[11px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                  >
-                    <option value="">{l('Start a new website…')}</option>
-                    {cloudProjects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.title}{project.user_id !== user.id ? ' · Shared' : ''}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setMediaOpen((open) => !open)}
-            disabled={!user}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-              mediaOpen
-                ? 'border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-400'
-                : darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={!user ? 'Sign in to use the media library' : 'Open media library'}
-          >
-            <Images className="h-4 w-4" />{l("Media")}</button>
-
-          <button
-            onClick={() => setLeadsOpen((open) => !open)}
-            disabled={!user || !cloudProjectId}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-              leadsOpen
-                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                : darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={!user ? 'Sign in to view leads' : !cloudProjectId ? 'Save this project to cloud first' : 'Open lead inbox'}
-          >
-            <Inbox className="h-4 w-4" />
-            Leads
-            {leads.filter((lead) => lead.status === 'new').length > 0 && (
-              <span className="rounded-full bg-cyan-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                {leads.filter((lead) => lead.status === 'new').length}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => { if (requireBillingFeature('analytics', 'Site analytics')) setAnalyticsOpen((open) => !open); }}
-            disabled={!user || !cloudProjectId}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-              analyticsOpen
-                ? 'border-amber-500 bg-amber-500/10 text-amber-400'
-                : darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={!user ? 'Sign in to view analytics' : !cloudProjectId ? 'Save this project to cloud first' : 'Open site analytics'}
-          >
-            <BarChart3 className="h-4 w-4" />{l('Analytics')}</button>
-
-          <button
-            onClick={() => { setLaunchCenterOpen((open) => !open); if (!launchCenterOpen) void runV1LaunchChecks(); }}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              launchCenterOpen
-                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                : v1LaunchStatus.preflightReady
-                  ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
-                  : darkMode
-                    ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                    : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={l('Website Builder V1 launch center')}
-          >
-            <Check className="h-4 w-4" />{l("Launch")}<span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black ${v1LaunchStatus.status === 'V1 LIVE' ? 'bg-emerald-500 text-white' : v1LaunchStatus.preflightReady ? 'bg-cyan-500 text-white' : 'bg-amber-500/20 text-amber-400'}`}>{v1LaunchStatus.score}</span>
-          </button>
-
-          <button
-            onClick={() => { setBillingOpen((open) => !open); void refreshBilling(cloudProjectId); }}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              billingOpen
-                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
-                : darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={l('Plans, usage and billing')}
-          >
-            <Sparkles className="h-4 w-4" />
-            {BILLING_PLAN_DETAILS[billingPlan].label}
-          </button>
-
-          <button
-            onClick={() => setOperationsOpen((open) => !open)}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              operationsOpen
-                ? 'border-sky-500 bg-sky-500/10 text-sky-400'
-                : darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={l('Operations, backups and exports')}
-          >{l("Tools")}</button>
-
-          <button
-            onClick={() => { if (requireBillingFeature('clientDelivery', 'Client delivery workspace')) setDeliveryOpen((open) => !open); }}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              deliveryOpen
-                ? 'border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-400'
-                : darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={l('Client delivery, approval and handoff')}
-          >{l("Delivery")}<span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${
-              deliveryConfig.status === 'delivered' ? 'bg-emerald-500 text-white' : deliveryConfig.status === 'approved' ? 'bg-cyan-500 text-white' : 'bg-fuchsia-500/20 text-fuchsia-400'
-            }`}>{deliveryConfig.status}</span>
-          </button>
-
-          <button
-            onClick={() => setHistoryOpen((open) => !open)}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              historyOpen
-                ? 'border-violet-500 bg-violet-600/10 text-violet-400'
-                : darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={l('Project history')}
-          >
-            <HistoryIcon className="h-4 w-4" />{l("History")}</button>
-
-          <button
-            onClick={() => { if (requireBillingFeature('releaseHistory', 'Release history and rollback')) setReleaseHistoryOpen((open) => !open); }}
-            disabled={!user || !cloudProjectId}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-              releaseHistoryOpen
-                ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400'
-                : darkMode
-                  ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={!user ? 'Sign in to use release history' : !cloudProjectId ? 'Save this project to cloud first' : 'Publish releases, previews and rollback'}
-          >
-            Releases
-            {publishVersions.length > 0 && <span className="rounded-full bg-indigo-500 px-1.5 py-0.5 text-[9px] font-bold text-white">{publishVersions.length}</span>}
-          </button>
-
-          <button
-            onClick={() => void duplicateProject()}
-            disabled={cloudBusy}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${
-              darkMode
-                ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-            title={l('Duplicate project')}
-          >
-            <Copy className="h-4 w-4" />{l('Duplicate')}</button>
-
-
-              </div>
-              <div className="mt-3 border-t border-white/10 pt-3">
-                <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Project actions')}</p>
-                <div className="flex flex-wrap gap-2">
-          <button
-            onClick={downloadProductionZip}
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500"
-          >
-            <Download className="h-4 w-4" />{l("Export ZIP")}</button>
-
-          <button
-            onClick={resetProject}
-            className={`rounded-lg border p-2 ${
-              darkMode
-                ? 'border-white/10 text-gray-400 hover:bg-white/5'
-                : 'border-gray-200 text-gray-500 hover:bg-gray-100'
-            }`}
-            title={l('Reset')}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
-          {publishedUrl && (
-            <>
-              <button
-                onClick={() => window.open(publishedUrl, '_blank', 'noopener,noreferrer')}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-                  darkMode
-                    ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
-                    : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'
-                }`}
-                title={publishedAt ? `Published ${new Date(publishedAt).toLocaleString()}` : 'Open published website'}
-              >
-                <ExternalLink className="h-4 w-4" />{l('Live')}</button>
-              <button
-                onClick={() => void verifyLiveDeployment()}
-                disabled={liveVerification === 'checking'}
-                className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${
-                  liveVerification === 'healthy'
-                    ? 'border-emerald-500/30 text-emerald-400'
-                    : liveVerification === 'failed'
-                      ? 'border-red-500/30 text-red-400'
-                      : 'border-white/10 text-gray-400'
-                }`}
-                title={l('Verify that index.html exists in published storage')}
-              >
-                {liveVerification === 'checking' ? 'Checking…' : liveVerification === 'healthy' ? 'Live ✓' : liveVerification === 'failed' ? 'Check failed' : 'Verify'}
-              </button>
-              <button
-                onClick={() => void unpublishWebsite()}
-                disabled={publishBusy}
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-                  darkMode
-                    ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
-                    : 'border-red-200 text-red-600 hover:bg-red-50'
-                }`}
-                title={l('Remove public website')}
-              >{l("Unpublish")}</button>
-            </>
-          )}
-
-          <span className={`inline-flex text-[11px] ${
-            autoSaveStatus === 'saving'
-              ? 'text-amber-400'
-              : autoSaveStatus === 'saved'
-                ? 'text-emerald-400'
-                : autoSaveStatus === 'failed'
-                  ? 'text-red-400'
-                  : darkMode ? 'text-gray-500' : 'text-gray-400'
-          }`}>
-            {autoSaveStatus === 'saving' ? 'Autosaving…' : autoSaveStatus === 'saved' ? 'Autosaved' : autoSaveStatus === 'failed' ? 'Sync failed' : 'Autosave on'}
-          </span>
-
-          <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-bold ${networkOnline ? (qualityDiagnostics.healthy ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400') : 'border-red-500/30 text-red-400'}`}>
-            {networkOnline ? (qualityDiagnostics.healthy ? 'Health ✓' : 'Health warning') : 'Offline'}
-          </span>
-
-
-              </div>
-            </div>
-          </details>
-
-          <button
-            onClick={previewWebsite}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              darkMode
-                ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <ExternalLink className="h-4 w-4" /><span className="hidden 2xl:inline">{l('Preview')}</span></button>
-
-          <button
-            onClick={aiQualityBusy ? stopAIQualityCheck : () => void runAIQualityCheck()}
-            disabled={aiBusy}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${aiQualityReview && aiQualityReview.score >= 80 ? 'border-emerald-500/30 text-emerald-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
-            title={l('AI quality check before publishing')}
-          >
-            <Check className="h-4 w-4" />
-            <span className="hidden 2xl:inline">{aiQualityBusy ? l('Stop check') : aiQualityReview ? `Check ${aiQualityReview.score}` : l('Check')}</span>
-          </button>
-
-          <button
-            onClick={() => void saveProject()}
-            disabled={cloudBusy}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${darkMode ? 'border-white/10 text-gray-200 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
-            title={user ? 'Save locally and to your account' : 'Save locally'}
-          >
-            {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            <span className="hidden 2xl:inline">{saved ? 'Saved' : 'Save'}</span>
-          </button>
-
-          <button
-            onClick={() => void publishWebsite()}
-            disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish}
-            className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
-            title={!projectTeamAccess.canPublish ? 'Only the project owner can publish shared projects' : !v1LaunchStatus.preflightReady ? v1LaunchStatus.blockers[0] || 'Complete the Launch Center checks before publishing' : 'Publish website'}
-          >
-            <Globe className="h-4 w-4" />
-            {publishBusy ? 'Publishing…' : publishedUrl ? (hasUnpublishedChanges ? 'Publish Changes' : 'Republish') : 'Publish'}
-            {hasUnpublishedChanges && !publishBusy && <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[8px] font-black text-slate-900">{l('DRAFT')}</span>}
-          </button>
-
-
-
-
-        </div>
-      </header>
+      <BuilderLegacyHeader
+              aiBusy={aiBusy}
+              aiQualityBusy={aiQualityBusy}
+              aiQualityReview={aiQualityReview}
+              analyticsOpen={analyticsOpen}
+              autoSaveStatus={autoSaveStatus}
+              billingOpen={billingOpen}
+              billingPlan={billingPlan}
+              cloudBusy={cloudBusy}
+              cloudProjectId={cloudProjectId}
+              cloudProjects={cloudProjects}
+              darkMode={darkMode}
+              deliveryConfig={deliveryConfig}
+              deliveryOpen={deliveryOpen}
+              device={device}
+              downloadProductionZip={downloadProductionZip}
+              duplicateProject={duplicateProject}
+              future={future}
+              hasUnpublishedChanges={hasUnpublishedChanges}
+              history={history}
+              historyOpen={historyOpen}
+              inspectorOpen={inspectorOpen}
+              l={l}
+              launchCenterOpen={launchCenterOpen}
+              leads={leads}
+              leadsOpen={leadsOpen}
+              leftSidebarOpen={leftSidebarOpen}
+              liveVerification={liveVerification}
+              loadCloudProject={loadCloudProject}
+              mediaOpen={mediaOpen}
+              networkOnline={networkOnline}
+              operationsOpen={operationsOpen}
+              previewWebsite={previewWebsite}
+              projectTeamAccess={projectTeamAccess}
+              publishBusy={publishBusy}
+              publishedAt={publishedAt}
+              publishedUrl={publishedUrl}
+              publishVersions={publishVersions}
+              publishWebsite={publishWebsite}
+              qualityDiagnostics={qualityDiagnostics}
+              redo={redo}
+              refreshBilling={refreshBilling}
+              releaseHistoryOpen={releaseHistoryOpen}
+              requireBillingFeature={requireBillingFeature}
+              resetProject={resetProject}
+              runAIQualityCheck={runAIQualityCheck}
+              runV1LaunchChecks={runV1LaunchChecks}
+              saved={saved}
+              saveProject={saveProject}
+              setAnalyticsOpen={setAnalyticsOpen}
+              setBillingOpen={setBillingOpen}
+              setDeliveryOpen={setDeliveryOpen}
+              setDevice={setDevice}
+              setHistoryOpen={setHistoryOpen}
+              setInspectorOpen={setInspectorOpen}
+              setLaunchCenterOpen={setLaunchCenterOpen}
+              setLeadsOpen={setLeadsOpen}
+              setLeftSidebarOpen={setLeftSidebarOpen}
+              setMediaOpen={setMediaOpen}
+              setOperationsOpen={setOperationsOpen}
+              setReleaseHistoryOpen={setReleaseHistoryOpen}
+              setSaved={setSaved}
+              setSiteName={setSiteName}
+              setSiteUrl={setSiteUrl}
+              siteName={siteName}
+              siteUrl={siteUrl}
+              stopAIQualityCheck={stopAIQualityCheck}
+              undo={undo}
+              unpublishWebsite={unpublishWebsite}
+              user={user}
+              v1LaunchStatus={v1LaunchStatus}
+              verifyLiveDeployment={verifyLiveDeployment}
+            />
 
       {publishError && (
         <div className={`border-b px-4 py-2 text-xs ${darkMode ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-red-200 bg-red-50 text-red-700'}`}>
@@ -13729,256 +7001,116 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       )}
 
       {commandOpen && (
-        <div className="fixed inset-0 z-[250] flex items-start justify-center bg-black/70 px-4 pt-[10vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) closeCommandPalette(); }}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={l('Command palette')}
-            aria-busy={desktopShortcutActionsRef.current.busy}
-            onKeyDown={handleCommandDialogKeyDown}
-            className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-white/10 bg-[#0b0f18]' : 'border-gray-200 bg-white'}`}
-          >
-            <div className="border-b border-white/10 p-3">
-              <input autoFocus type="search" data-command-focus value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} onKeyDown={handleCommandInputKeyDown} aria-label={l('Type a command, page or section…')} placeholder={l('Type a command, page or section…')} className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-sky-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} />
-            </div>
-            <div className="max-h-[60vh] overflow-auto p-2">
-              {[
-                { label: 'Save project', keywords: 'save cloud', mutates: true, run: () => void saveProject() },
-                { label: 'Preview website', keywords: 'preview open', run: previewWebsite },
-                { label: 'Run AI quality check', keywords: 'check quality seo accessibility publish', mutates: true, run: () => void runAIQualityCheck() },
-                ...(selectedSection ? [{ label: 'Select all elements in section', keywords: 'select all section elements', run: selectAllCanvasElements }] : []),
-                ...(selectedElement && selectedSection && selectedSection.elements.filter((element) => element.type === selectedElement.type).length > 1 ? [{ label: 'Select elements of same type', keywords: `select matching ${selectedElement.type}`, run: () => selectRelatedCanvasElements('type') }] : []),
-                ...(selectedElement?.containerId && selectedSection && selectedSection.elements.filter((element) => element.containerId === selectedElement.containerId).length > 1 ? [{ label: 'Select all elements in group', keywords: 'select container group members', run: () => selectRelatedCanvasElements('container') }] : []),
-                ...(selectedSection ? [{ label: selectedElements.length > 1 ? 'Copy selected elements' : selectedElement ? 'Copy selected element' : 'Copy selected section', keywords: 'copy clipboard elements section', run: copySelectedTarget }] : []),
-                ...(selectedSection ? [{ label: selectedElements.length > 1 ? 'Cut selected elements' : selectedElement ? 'Cut selected element' : 'Cut selected section', keywords: 'cut clipboard elements section', mutates: true, run: cutSelectedTarget }] : []),
-                ...(selectedElements.length > 1 ? [{ label: 'Group selected elements', keywords: 'group container selected elements', mutates: true, run: createContainerForSelected }] : []),
-                ...(selectedElements.length > 1 && selectedElements.some((element) => element.containerId) ? [{ label: 'Ungroup selected elements', keywords: 'ungroup detach container selected elements', mutates: true, run: ungroupSelectedElements }] : []),
-                ...(selectedElements.length > 1 ? [
-                  { label: 'Match selected widths', keywords: 'size width equal match selection', mutates: true, run: () => normalizeSelectedElementFrames('match-width') },
-                  { label: 'Match selected appearance', keywords: 'style appearance colors typography match selection', mutates: true, run: () => normalizeSelectedElementFrames('match-appearance') },
-                  { label: 'Reset selected transforms', keywords: 'reset position rotate selection', mutates: true, run: () => normalizeSelectedElementFrames('reset-position') },
-                  { label: 'Align selected left', keywords: 'align left selection', mutates: true, run: () => arrangeSelectedElements('left') },
-                  { label: 'Align selected center', keywords: 'align horizontal center selection', mutates: true, run: () => arrangeSelectedElements('center') },
-                  { label: 'Align selected top', keywords: 'align top selection', mutates: true, run: () => arrangeSelectedElements('top') },
-                  { label: 'Align selected middle', keywords: 'align vertical middle selection', mutates: true, run: () => arrangeSelectedElements('middle') },
-                ] : []),
-                ...(selectedElements.length ? [
-                  { label: 'Bring selection to front', keywords: 'layer order front selection', mutates: true, run: () => moveSelectedElementsLayer('front') },
-                  { label: 'Bring selection forward', keywords: 'layer order forward selection', mutates: true, run: () => moveSelectedElementsLayer('forward') },
-                  { label: 'Send selection backward', keywords: 'layer order backward selection', mutates: true, run: () => moveSelectedElementsLayer('backward') },
-                  { label: 'Send selection to back', keywords: 'layer order back selection', mutates: true, run: () => moveSelectedElementsLayer('back') },
-                  { label: 'Show selected elements', keywords: 'visibility show selection', mutates: true, run: () => normalizeSelectedElementFrames('show') },
-                  { label: 'Hide selected elements', keywords: 'visibility hide selection', mutates: true, run: () => normalizeSelectedElementFrames('hide') },
-                ] : []),
-                ...(canPasteCopiedTarget() ? [{ label: editorClipboard?.kind === 'section' ? 'Paste copied section' : editorClipboard?.kind === 'elements' ? 'Paste copied elements' : 'Paste copied element', keywords: 'paste clipboard elements section', mutates: true, run: pasteCopiedTarget }] : []),
-                { label: 'Duplicate current page', keywords: 'copy page duplicate', mutates: true, run: duplicateActivePage },
-                { label: 'Export project backup', keywords: 'backup json export', run: exportProjectBackup },
-                { label: 'Import project backup', keywords: 'backup json import restore', mutates: true, run: importProjectBackup },
-                ...(recoveryAvailable ? [{ label: 'Restore recovery snapshot', keywords: 'recovery crash restore safety', mutates: true, run: restoreRecoverySnapshot }] : []),
-                { label: 'Export audit report', keywords: 'audit seo accessibility', run: exportAuditReport },
-                { label: 'Open V1 launch center', keywords: 'launch production go live checklist onboarding readiness', run: () => { setLaunchCenterOpen(true); void runV1LaunchChecks(); } },
-                { label: 'Export V1 launch report', keywords: 'launch report final production', run: exportV1LaunchReport },
-                { label: 'Open plans & billing', keywords: 'billing plan upgrade subscription usage stripe', run: () => { setBillingOpen(true); void refreshBilling(cloudProjectId); } },
-                { label: 'Open client delivery', keywords: 'client delivery handoff approval launch', run: () => { if (requireBillingFeature('clientDelivery', 'Client delivery workspace')) setDeliveryOpen(true); } },
-                { label: 'Download client handoff ZIP', keywords: 'client delivery handoff export zip', run: downloadClientHandoffZip },
-                { label: 'Open leads', keywords: 'leads inbox contacts', run: () => setLeadsOpen(true) },
-                { label: 'Open analytics', keywords: 'analytics stats traffic', run: () => { if (requireBillingFeature('analytics', 'Site analytics')) setAnalyticsOpen(true); } },
-                ...pages.map((page) => ({ label: `Go to page: ${page.name}`, keywords: `page ${page.slug}`, run: () => switchPage(page.id) })),
-                ...sections.map((section) => ({ label: `Select section: ${section.title || SECTION_LABELS[section.type]}`, keywords: `section ${section.type} ${section.anchorId || ''}`, run: () => { setSelectedId(section.id); setSelectedElementId(section.elements[0]?.id ?? null); } })),
-              ].filter((item) => !commandQuery.trim() || `${l(item.label)} ${item.keywords}`.toLowerCase().includes(commandQuery.trim().toLowerCase())).slice(0, 24).map((item) => (
-                <button
-                  key={`${l(item.label)}-${item.keywords}`}
-                  type="button"
-                  data-command-item
-                  data-command-focus
-                  disabled={'mutates' in item && item.mutates === true && desktopShortcutActionsRef.current.busy}
-                  onKeyDown={handleCommandItemKeyDown}
-                  onClick={() => { item.run(); closeCommandPalette(); }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${darkMode ? 'text-gray-200 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-100'}`}><span>{l(item.label)}</span><span className="text-[9px] text-gray-500">↵</span></button>
-              ))}
-            </div>
-            <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-[10px] text-gray-500"><span>{l('Ctrl/Cmd+K · Ctrl/Cmd+C/X/V')}</span><button type="button" data-command-focus onClick={closeCommandPalette} className="font-semibold text-violet-400">{l('Close')}</button></div>
-          </div>
-        </div>
+        <BuilderLegacyCommandPalette
+              arrangeSelectedElements={arrangeSelectedElements}
+              canPasteCopiedTarget={canPasteCopiedTarget}
+              closeCommandPalette={closeCommandPalette}
+              cloudProjectId={cloudProjectId}
+              commandQuery={commandQuery}
+              copySelectedTarget={copySelectedTarget}
+              createContainerForSelected={createContainerForSelected}
+              cutSelectedTarget={cutSelectedTarget}
+              darkMode={darkMode}
+              desktopShortcutActionsRef={desktopShortcutActionsRef}
+              downloadClientHandoffZip={downloadClientHandoffZip}
+              duplicateActivePage={duplicateActivePage}
+              editorClipboard={editorClipboard}
+              exportAuditReport={exportAuditReport}
+              exportProjectBackup={exportProjectBackup}
+              exportV1LaunchReport={exportV1LaunchReport}
+              handleCommandDialogKeyDown={handleCommandDialogKeyDown}
+              handleCommandInputKeyDown={handleCommandInputKeyDown}
+              handleCommandItemKeyDown={handleCommandItemKeyDown}
+              importProjectBackup={importProjectBackup}
+              l={l}
+              moveSelectedElementsLayer={moveSelectedElementsLayer}
+              normalizeSelectedElementFrames={normalizeSelectedElementFrames}
+              pages={pages}
+              pasteCopiedTarget={pasteCopiedTarget}
+              previewWebsite={previewWebsite}
+              recoveryAvailable={recoveryAvailable}
+              refreshBilling={refreshBilling}
+              requireBillingFeature={requireBillingFeature}
+              restoreRecoverySnapshot={restoreRecoverySnapshot}
+              runAIQualityCheck={runAIQualityCheck}
+              runV1LaunchChecks={runV1LaunchChecks}
+              saveProject={saveProject}
+              sections={sections}
+              selectAllCanvasElements={selectAllCanvasElements}
+              selectedElement={selectedElement}
+              selectedElements={selectedElements}
+              selectedSection={selectedSection}
+              selectRelatedCanvasElements={selectRelatedCanvasElements}
+              setAnalyticsOpen={setAnalyticsOpen}
+              setBillingOpen={setBillingOpen}
+              setCommandQuery={setCommandQuery}
+              setDeliveryOpen={setDeliveryOpen}
+              setLaunchCenterOpen={setLaunchCenterOpen}
+              setLeadsOpen={setLeadsOpen}
+              setSelectedElementId={setSelectedElementId}
+              setSelectedId={setSelectedId}
+              switchPage={switchPage}
+              ungroupSelectedElements={ungroupSelectedElements}
+            />
       )}
 
       {launchCenterOpen && (
-        <div className={`border-b px-4 py-4 ${darkMode ? 'border-cyan-500/20 bg-[#06141a]' : 'border-cyan-200 bg-cyan-50/60'}`}>
-          <div className="mx-auto max-w-6xl space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Check className="h-4 w-4 text-cyan-400" />
-                  <p className="text-sm font-black">{l('Website Builder V1 Launch Center')}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${v1LaunchStatus.status === 'V1 LIVE' ? 'bg-emerald-500 text-white' : v1LaunchStatus.preflightReady ? 'bg-cyan-500 text-white' : 'bg-amber-500/15 text-amber-400'}`}>{l(v1LaunchStatus.status)}</span>
-                  <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black text-gray-400">V1.0</span>
-                </div>
-                <p className="mt-1 text-[11px] text-gray-500">{l('One place to onboard a project, run production checks, publish the release and verify that the live site is healthy.')}</p>
-                {launchLastCheckedAt && <p className="mt-1 text-[9px] text-gray-600">{l('Last automated check')}: {new Date(launchLastCheckedAt).toLocaleString()}</p>}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => void runV1LaunchChecks()} disabled={launchCheckBusy} className="rounded-lg bg-cyan-600 px-3 py-2 text-[10px] font-black text-white hover:bg-cyan-500 disabled:opacity-50">{launchCheckBusy ? l('Checking…') : l('Run final checks')}</button>
-                <button onClick={exportV1LaunchReport} className="rounded-lg border border-cyan-500/25 px-3 py-2 text-[10px] font-bold text-cyan-400">{l('Export launch report')}</button>
-                <button onClick={closeLaunchCenter} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
-              </div>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-[.75fr_1.25fr]">
-              <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <div className="flex items-end justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-wider text-cyan-400">{l('Final readiness')}</p><p className="mt-1 text-xs text-gray-500">{l('Automated release gate for this project.')}</p></div><span className={`text-4xl font-black ${v1LaunchStatus.score >= 90 ? 'text-emerald-400' : v1LaunchStatus.score >= 70 ? 'text-cyan-400' : 'text-amber-400'}`}>{v1LaunchStatus.score}</span></div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${v1LaunchStatus.score >= 90 ? 'bg-emerald-500' : v1LaunchStatus.score >= 70 ? 'bg-cyan-500' : 'bg-amber-500'}`} style={{ width: `${v1LaunchStatus.score}%` }} /></div>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Audit')}</p><p className="text-lg font-black">{siteAudit.score}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Health')}</p><p className={`text-lg font-black ${qualityDiagnostics.healthy ? 'text-emerald-400' : 'text-amber-400'}`}>{qualityDiagnostics.healthy ? l('GOOD') : l('CHECK')}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Sync')}</p><p className={`text-lg font-black ${networkOnline && !cloudSyncFailed ? 'text-emerald-400' : 'text-rose-400'}`}>{networkOnline && !cloudSyncFailed ? l('OK') : l('FIX')}</p></div>
-                  <div className="rounded-xl border border-white/10 p-2"><p className="text-[9px] uppercase text-gray-500">{l('Live')}</p><p className={`text-lg font-black ${liveVerification === 'healthy' ? 'text-emerald-400' : publishedUrl ? 'text-amber-400' : 'text-gray-500'}`}>{liveVerification === 'healthy' ? l('VERIFIED') : publishedUrl ? l('VERIFY') : l('NOT YET')}</p></div>
-                </div>
-                {v1LaunchStatus.blockers.length > 0 ? <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3"><p className="text-[10px] font-black uppercase text-rose-400">{l('Launch blockers')}</p><div className="mt-2 space-y-1">{v1LaunchStatus.blockers.map((item) => <p key={item} className="text-[10px] text-rose-300">• {l(item)}</p>)}</div></div> : <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[10px] font-bold text-emerald-400">{l('✓ No critical production blockers detected.')}</div>}
-              </div>
-
-              <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <div className="flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-wider text-violet-400">{l('Automated launch checks')}</p><p className="mt-1 text-[10px] text-gray-500">{l('Publish only after the preflight items are green.')}</p></div><span className="text-[10px] font-bold text-gray-500">{v1LaunchStatus.checks.filter((item) => item.ok).length}/{v1LaunchStatus.checks.length}</span></div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {v1LaunchStatus.checks.map((check) => <div key={check.label} className={`rounded-xl border p-2.5 ${check.ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10 bg-black/10'}`}><div className="flex items-center gap-2"><span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${check.ok ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-500'}`}>{check.ok ? '✓' : '○'}</span><p className={`text-[10px] font-bold ${check.ok ? 'text-emerald-400' : 'text-gray-300'}`}>{l(check.label)}</p></div><p className="mt-1 pl-7 text-[9px] text-gray-500">{l(check.detail)}</p></div>)}
-                </div>
-              </div>
-            </div>
-
-            <div className={`rounded-2xl border p-4 ${darkMode ? 'border-violet-500/15 bg-violet-500/[0.03]' : 'border-violet-100 bg-white'}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-black">{l('Quick-start onboarding')}</p><p className="mt-1 text-[10px] text-gray-500">{l('Start from a proven page structure, then complete the production URL and cloud save.')}</p></div><span className="rounded-full bg-violet-500/10 px-2 py-1 text-[9px] font-black text-violet-400">{l('FIRST PROJECT')}</span></div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                {PAGE_TEMPLATES.slice(0, 6).map((template) => <button key={template.id} onClick={() => applyPageTemplate(template)} className={`rounded-xl border p-2.5 text-left ${darkMode ? 'border-white/10 bg-white/[0.03] hover:border-violet-500/40' : 'border-gray-200 bg-gray-50 hover:border-violet-300'}`}><p className="text-[10px] font-bold">{l(template.name)}</p><p className="mt-1 line-clamp-2 text-[9px] text-gray-500">{l(template.description)}</p></button>)}
-              </div>
-              <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-                <input value={siteName} onChange={(e) => { setSiteName(e.target.value.slice(0, 160)); setSaved(false); }} placeholder={l('Website name')} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} />
-                <input value={siteUrl} onChange={(e) => { setSiteUrl(e.target.value.slice(0, 1000)); setSaved(false); }} placeholder="https://example.com" className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} />
-                <button onClick={() => void saveProject()} disabled={cloudBusy} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50">{l('Save project')}</button>
-                <button onClick={previewWebsite} className="rounded-lg border border-violet-500/25 px-3 py-2 text-[10px] font-black text-violet-400">{l('Preview')}</button>
-              </div>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
-              <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">{l('Manual production sign-off')}</p>
-                <p className="mt-1 text-[10px] text-gray-500">{l('These checks involve external services and must be confirmed by a human before accepting paid customers.')}</p>
-                <div className="mt-3 space-y-2">
-                  {([
-                    ['stripe', 'Stripe test purchase + Customer Portal + webhook verified'],
-                    ['domain', 'Production domain / DNS / HTTPS verified'],
-                    ['support', 'Support contact + privacy / terms review completed'],
-                  ] as const).map(([key, label]) => <label key={key} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${launchManualChecks[key] ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/10'}`}><input type="checkbox" checked={launchManualChecks[key]} onChange={(e) => setLaunchManualCheck(key, e.target.checked)} className="mt-0.5" /><span className={`text-[10px] ${launchManualChecks[key] ? 'font-bold text-emerald-400' : 'text-gray-400'}`}>{l(label)}</span></label>)}
-                </div>
-              </div>
-
-              <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <p className="text-[10px] font-black uppercase tracking-wider text-cyan-400">{l('Release actions')}</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button onClick={() => { setBillingOpen(true); void refreshBilling(cloudProjectId); }} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Billing & limits')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Verify plan and Stripe state')}</div></button>
-                  <button onClick={() => setOperationsOpen(true)} className="rounded-xl border border-white/10 p-3 text-left text-[10px] font-bold">{l('Audit & backups')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Export backup and diagnostics')}</div></button>
-                  <button onClick={() => void publishWebsite()} disabled={!v1LaunchStatus.preflightReady || publishBusy || !projectTeamAccess.canPublish} className="rounded-xl bg-sky-600 p-3 text-left text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{publishedUrl ? l('Publish production changes') : l('Publish first release')}<div className="mt-1 text-[9px] font-normal text-sky-100">{l('Blocked until automated preflight is ready')}</div></button>
-                  <button onClick={() => void verifyLiveDeployment()} disabled={!publishedUrl || liveVerification === 'checking'} className="rounded-xl border border-emerald-500/20 p-3 text-left text-[10px] font-bold text-emerald-400 disabled:opacity-40">{l('Verify live release')}<div className="mt-1 text-[9px] font-normal text-gray-500">{l('Confirm index.html is deployed')}</div></button>
-                </div>
-                <div className={`mt-3 rounded-xl border p-3 ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-black/10'}`}>
-                  <p className="text-[10px] font-black">{l('V1 release decision')}</p>
-                  <p className={`mt-1 text-xs font-black ${v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>{v1LaunchStatus.status === 'V1 LIVE' && Object.values(launchManualChecks).every(Boolean) ? l('GO — READY FOR FIRST PAYING CUSTOMERS') : v1LaunchStatus.preflightReady ? l('CODE READY — COMPLETE PUBLISH / MANUAL CHECKS') : l('NO-GO — FIX AUTOMATED BLOCKERS')}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <BuilderLegacyLaunchCenter
+              applyPageTemplate={applyPageTemplate}
+              closeLaunchCenter={closeLaunchCenter}
+              cloudBusy={cloudBusy}
+              cloudProjectId={cloudProjectId}
+              cloudSyncFailed={cloudSyncFailed}
+              darkMode={darkMode}
+              exportV1LaunchReport={exportV1LaunchReport}
+              l={l}
+              launchCheckBusy={launchCheckBusy}
+              launchLastCheckedAt={launchLastCheckedAt}
+              launchManualChecks={launchManualChecks}
+              liveVerification={liveVerification}
+              networkOnline={networkOnline}
+              previewWebsite={previewWebsite}
+              projectTeamAccess={projectTeamAccess}
+              publishBusy={publishBusy}
+              publishedUrl={publishedUrl}
+              publishWebsite={publishWebsite}
+              qualityDiagnostics={qualityDiagnostics}
+              refreshBilling={refreshBilling}
+              runV1LaunchChecks={runV1LaunchChecks}
+              saveProject={saveProject}
+              setBillingOpen={setBillingOpen}
+              setLaunchManualCheck={setLaunchManualCheck}
+              setOperationsOpen={setOperationsOpen}
+              setSaved={setSaved}
+              setSiteName={setSiteName}
+              setSiteUrl={setSiteUrl}
+              siteAudit={siteAudit}
+              siteName={siteName}
+              siteUrl={siteUrl}
+              v1LaunchStatus={v1LaunchStatus}
+              verifyLiveDeployment={verifyLiveDeployment}
+            />
       )}
 
       {billingOpen && (
-        <div className={`border-b px-4 py-4 ${darkMode ? 'border-emerald-500/20 bg-[#07140f]' : 'border-emerald-200 bg-emerald-50/60'}`}>
-          <div className="mx-auto max-w-6xl space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-emerald-400" />
-                  <p className="text-sm font-bold">{l('Plans & Billing')}</p>
-                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-400">{BILLING_PLAN_DETAILS[billingPlan].badge}</span>
-                </div>
-                <p className="mt-1 text-[11px] text-gray-500">{l('Secure entitlements, usage limits and Stripe subscription management.')}</p>
-                {billingState.subscription?.status && (
-                  <p className="mt-1 text-[10px] text-gray-500">{l("Subscription:")}<span className="font-semibold text-gray-300">{l(billingState.subscription.status)}</span>
-                    {billingState.subscription.currentPeriodEnd ? ` · ${l('period ends')} ${new Date(billingState.subscription.currentPeriodEnd).toLocaleDateString()}` : ''}
-                    {billingState.subscription.cancelAtPeriodEnd ? ` · ${l('cancels at period end')}` : ''}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {billingState.subscription?.stripeCustomerId && (
-                  <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-[10px] font-bold text-emerald-400 disabled:opacity-50">{l('Manage subscription')}</button>
-                )}
-                <button onClick={() => void refreshBilling(cloudProjectId)} disabled={billingLoading} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{billingLoading ? l('Refreshing…') : l('Refresh')}</button>
-                <button onClick={() => setBillingOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
-              </div>
-            </div>
-
-            {billingError && (
-              <div className={`rounded-xl border px-3 py-2 text-[11px] ${darkMode ? 'border-amber-500/25 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>{l(billingError)}</div>
-            )}
-
-            <div className="grid gap-3 md:grid-cols-3">
-              {(['free', 'pro', 'business'] as BillingPlan[]).map((plan) => {
-                const details = BILLING_PLAN_DETAILS[plan];
-                const current = billingPlan === plan;
-                const isPaid = plan !== 'free';
-                return (
-                  <div key={plan} className={`rounded-2xl border p-4 ${current ? 'border-emerald-500/50 bg-emerald-500/10' : darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-black">{l(details.label)}</p>
-                        <p className="mt-1 text-[10px] text-gray-500">{l(details.description)}</p>
-                      </div>
-                      {current && <span className="rounded-full bg-emerald-500 px-2 py-1 text-[8px] font-black text-white">{l('CURRENT')}</span>}
-                    </div>
-                    <div className="mt-3 space-y-1.5">
-                      {details.bullets.map((bullet) => <p key={bullet} className="text-[10px] text-gray-400">✓ {l(bullet)}</p>)}
-                    </div>
-                    <div className="mt-4">
-                      {current ? (
-                        <div className="rounded-lg border border-emerald-500/20 px-3 py-2 text-center text-[10px] font-bold text-emerald-400">{l('Active plan')}</div>
-                      ) : isPaid ? (
-                        <button onClick={() => void startBillingCheckout(plan)} disabled={billingBusy} className="w-full rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-500 disabled:opacity-50">{billingBusy ? l('Opening Stripe…') : `${l('Choose')} ${l(details.label)}`}</button>
-                      ) : billingState.subscription?.stripeCustomerId ? (
-                        <button onClick={() => void openBillingPortal()} disabled={billingBusy} className="w-full rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-gray-400 disabled:opacity-50">{l('Manage downgrade in Stripe')}</button>
-                      ) : (
-                        <div className="rounded-lg border border-white/10 px-3 py-2 text-center text-[10px] text-gray-500">{l('Default plan')}</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className={`rounded-2xl border p-4 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="text-xs font-bold">{l('Website Builder Usage')}</p>
-                <p className="text-[9px] text-gray-500">{l('Limits are also enforced by Supabase for project/page growth.')}</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                {[
-                  ['Projects', billingState.usage.websiteProjects, billingEntitlements.maxWebsiteProjects],
-                  ['Pages', pages.length, billingEntitlements.maxPages],
-                  ['Releases', billingState.usage.releases, billingEntitlements.maxReleaseHistory],
-                  ['Leads', Math.max(billingState.usage.leads, leads.length), billingEntitlements.maxLeads],
-                  ['Analytics', Math.max(billingState.usage.analyticsEvents, analyticsEvents.length), billingEntitlements.maxAnalyticsEvents],
-                ].map(([label, rawValue, rawLimit]) => {
-                  const value = Number(rawValue) || 0;
-                  const limit = Number(rawLimit) || 1;
-                  const percent = Math.min(100, Math.round((value / limit) * 100));
-                  return <div key={String(label)} className="rounded-xl border border-white/10 p-3"><div className="flex items-center justify-between text-[10px]"><span className="font-semibold">{l(String(label))}</span><span className="text-gray-500">{value}/{limit.toLocaleString()}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/20"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${percent}%` }} /></div></div>;
-                })}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[9px] text-gray-500">
-              <span>{l('Paid prices are controlled by STRIPE_PRO_PRICE_ID and STRIPE_BUSINESS_PRICE_ID, so the app never trusts a browser-supplied amount.')}</span>
-              <span>{l("Webhook is the source of truth for upgrades, renewals, cancellation and payment status.")}</span>
-            </div>
-          </div>
-        </div>
+        <BuilderLegacyBilling
+              analyticsEvents={analyticsEvents}
+              billingBusy={billingBusy}
+              billingEntitlements={billingEntitlements}
+              billingError={billingError}
+              billingLoading={billingLoading}
+              billingPlan={billingPlan}
+              billingState={billingState}
+              cloudProjectId={cloudProjectId}
+              darkMode={darkMode}
+              l={l}
+              leads={leads}
+              openBillingPortal={openBillingPortal}
+              pages={pages}
+              refreshBilling={refreshBilling}
+              setBillingOpen={setBillingOpen}
+              startBillingCheckout={startBillingCheckout}
+            />
       )}
 
       {deliveryOpen && (
@@ -14073,73 +7205,17 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       )}
 
       {analyticsOpen && (
-        <div className={`border-b px-4 py-3 ${darkMode ? 'border-amber-500/20 bg-[#181208]' : 'border-amber-200 bg-amber-50/50'}`}>
-          <div className="mx-auto flex max-w-6xl flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold">{l('Site Analytics')}</p>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                  {l('Last 30 days. Anonymous session IDs only; no IP addresses are stored.')}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={exportAnalyticsCsv} disabled={!analyticsEvents.length} className="text-xs font-semibold text-sky-400 disabled:opacity-40">CSV</button>
-                <button onClick={() => void refreshAnalytics()} disabled={analyticsLoading} className="text-xs font-semibold text-amber-400 disabled:opacity-50">
-                  {analyticsLoading ? l('Refreshing…') : l('Refresh')}
-                </button>
-                <button onClick={() => setAnalyticsOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
-              </div>
-            </div>
-
-            {analyticsError && <p className="text-xs text-amber-400">{l(analyticsError)}</p>}
-
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
-              {[
-                ['Views · 30d', analyticsSummary.views],
-                ['Visitors · 30d', analyticsSummary.sessions],
-                ['Views · 7d', analyticsSummary.last7Days],
-                ['Views · Today', analyticsSummary.todayViews],
-                ['CTA clicks', analyticsSummary.ctaClicks],
-                ['Form submits', analyticsSummary.formSubmits],
-                ['Form CVR', `${analyticsSummary.conversionRate}%`],
-              ].map(([label, value]) => (
-                <div key={String(label)} className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                  <p className={`text-[10px] font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{l(String(label))}</p>
-                  <p className="mt-1 text-xl font-black">{value}</p>
-                </div>
-              ))}
-            </div>
-
-            {!analyticsLoading && !analyticsEvents.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l("No page views yet. Publish or export the site with Sprint 15 tracking enabled, then visits will appear here.")}</div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                  <p className="mb-2 text-xs font-bold">{l('Top pages')}</p>
-                  <div className="space-y-2">
-                    {analyticsSummary.topPages.map(([page, count]) => (
-                      <div key={page} className="flex items-center justify-between gap-3 text-xs">
-                        <span className="min-w-0 truncate" title={page}>{page}</span>
-                        <span className="font-bold text-amber-400">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                  <p className="mb-2 text-xs font-bold">{l('Traffic sources')}</p>
-                  <div className="space-y-2">
-                    {analyticsSummary.topReferrers.map(([source, count]) => (
-                      <div key={source} className="flex items-center justify-between gap-3 text-xs">
-                        <span className="min-w-0 truncate" title={source}>{source}</span>
-                        <span className="font-bold text-amber-400">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <BuilderLegacyAnalytics
+              analyticsError={analyticsError}
+              analyticsEvents={analyticsEvents}
+              analyticsLoading={analyticsLoading}
+              analyticsSummary={analyticsSummary}
+              darkMode={darkMode}
+              exportAnalyticsCsv={exportAnalyticsCsv}
+              l={l}
+              refreshAnalytics={refreshAnalytics}
+              setAnalyticsOpen={setAnalyticsOpen}
+            />
       )}
 
       {mediaOpen && (
@@ -14202,224 +7278,68 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       )}
 
       {leadsOpen && (
-        <div className={`border-b px-4 py-3 ${darkMode ? 'border-cyan-500/20 bg-[#08131a]' : 'border-cyan-200 bg-cyan-50/50'}`}>
-          <div className="mx-auto flex max-w-7xl flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold">{l('Lead CRM')}</p>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l('Search, qualify, prioritize and follow up with website leads.')}</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button onClick={exportLeadsCsv} disabled={!leads.length} className="text-xs font-semibold text-sky-400 disabled:opacity-40">CSV</button>
-                <button onClick={() => void markAllLeadsRead()} disabled={!leads.some((lead) => lead.status === 'new')} className="text-xs font-semibold text-emerald-400 disabled:opacity-40">{l('Read all')}</button>
-                <button onClick={() => void archiveReadLeads()} disabled={!leads.some((lead) => lead.status === 'read')} className="text-xs font-semibold text-gray-400 disabled:opacity-40">{l('Archive read')}</button>
-                <button onClick={() => void refreshLeads()} disabled={leadsLoading} className="text-xs font-semibold text-cyan-400 disabled:opacity-50">{leadsLoading ? 'Refreshing…' : 'Refresh'}</button>
-                <button onClick={() => setLeadsOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-              {[
-                ['Total', leadCrmSummary.total],
-                ['New', leadCrmSummary.newCount],
-                ['Qualified', leadCrmSummary.qualified],
-                ['Contacted', leadCrmSummary.contacted],
-                ['Won', leadCrmSummary.won],
-                ['Lost', leadCrmSummary.lost],
-                ['High priority', leadCrmSummary.highPriority],
-                ['Win rate', `${leadCrmSummary.winRate}%`],
-              ].map(([label, value]) => (
-                <div key={String(label)} className={`rounded-xl border p-2 ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-100 bg-white'}`}>
-                  <p className="text-[9px] uppercase tracking-wide text-gray-500">{label}</p>
-                  <p className="mt-1 text-sm font-black">{value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <input value={leadQuery} onChange={(e) => setLeadQuery(e.target.value)} placeholder={l('Search name, email, message, tags…')} className={`min-w-56 flex-1 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
-              <select value={leadStatusFilter} onChange={(e) => setLeadStatusFilter(e.target.value as 'all' | WebsiteLead['status'])} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                <option value="all">{l('All inbox statuses')}</option><option value="new">{l('New')}</option><option value="read">{l('Read')}</option><option value="archived">{l('Archived')}</option>
-              </select>
-              <select value={leadStageFilter} onChange={(e) => setLeadStageFilter(e.target.value as 'all' | LeadStage)} className={`rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                <option value="all">{l('All CRM stages')}</option><option value="new">{l('New')}</option><option value="qualified">{l('Qualified')}</option><option value="contacted">{l('Contacted')}</option><option value="won">{l('Won')}</option><option value="lost">{l('Lost')}</option>
-              </select>
-              <button type="button" onClick={() => setSelectedLeadIds(filteredLeads.map((lead) => lead.id))} disabled={!filteredLeads.length} className="rounded-lg border border-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-400 disabled:opacity-40">{l('Select shown')}</button>
-              {!!selectedLeadIds.length && <button type="button" onClick={() => setSelectedLeadIds([])} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-400">Clear ({selectedLeadIds.length})</button>}
-            </div>
-
-            {!!selectedLeadIds.length && (
-              <div className={`flex flex-wrap items-center gap-2 rounded-xl border p-2 ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
-                <span className="text-[10px] font-bold text-violet-400">{l('Bulk stage:')}</span>
-                {(['qualified', 'contacted', 'won', 'lost'] as LeadStage[]).map((stage) => <button key={stage} type="button" onClick={() => void bulkUpdateLeadStage(stage)} className="rounded border border-violet-500/20 px-2 py-1 text-[10px] font-semibold capitalize text-violet-400">{l(stage)}</button>)}
-              </div>
-            )}
-
-            {leadsError && <p className="text-xs text-amber-400">{l(leadsError)}</p>}
-
-            {!leadsLoading && !leads.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l('No leads yet. Publish a website with a Contact section, then submissions will appear here.')}</div>
-            ) : !leadsLoading && !filteredLeads.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l('No leads match the current search and filters.')}</div>
-            ) : (
-              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {filteredLeads.map((lead) => {
-                  const meta = getWebsiteLeadSource(lead);
-                  const phone = getWebsiteLeadPhone(lead);
-                  const stage = lead.stage || 'new';
-                  const visibleFormData = Object.entries(lead.form_data || {}).filter(([key]) => !key.startsWith('_'));
-                  const deliveryAttempts = formDeliveries.filter((delivery) => delivery.lead_id === lead.id);
-                  return (
-                  <article key={lead.id} className={`rounded-xl border p-3 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}>
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-start gap-2">
-                        <input type="checkbox" checked={selectedLeadIds.includes(lead.id)} onChange={(e) => setSelectedLeadIds((current) => e.target.checked ? [...new Set([...current, lead.id])] : current.filter((id) => id !== lead.id))} />
-                        <div className="min-w-0">
-                          <p className="truncate font-bold">{lead.name}</p>
-                          {lead.email && <a href={`mailto:${lead.email}`} className="block truncate text-cyan-400">{lead.email}</a>}
-                          {phone && <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="block truncate text-emerald-400">{phone}</a>}
-                        </div>
-                      </div>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${lead.status === 'new' ? 'bg-cyan-500/15 text-cyan-400' : lead.status === 'archived' ? 'bg-gray-500/15 text-gray-400' : 'bg-emerald-500/15 text-emerald-400'}`}>{l(lead.status)}</span>
-                    </div>
-
-                    <div className="mb-2 grid grid-cols-2 gap-2">
-                      <select value={stage} onChange={(e) => void updateLeadCrm(lead.id, { stage: e.target.value as LeadStage })} className={`rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                        <option value="new">{l('New')}</option><option value="qualified">{l('Qualified')}</option><option value="contacted">{l('Contacted')}</option><option value="won">{l('Won')}</option><option value="lost">{l('Lost')}</option>
-                      </select>
-                      <select value={Number(lead.priority || 0)} onChange={(e) => void updateLeadCrm(lead.id, { priority: Number(e.target.value) })} className={`rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                        <option value={0}>{l('Normal priority')}</option><option value={1}>{l('★ Priority')}</option><option value={2}>{l('★★ High priority')}</option>
-                      </select>
-                    </div>
-
-                    {(meta.source || meta.campaign || meta.referrer) && (
-                      <div className="mb-2 flex flex-wrap gap-1">
-                        {meta.source && <span className="rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[9px] text-fuchsia-400">Source: {meta.source}{meta.medium ? ` / ${meta.medium}` : ''}</span>}
-                        {meta.campaign && <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] text-violet-400">Campaign: {meta.campaign}</span>}
-                        {!meta.source && meta.referrer && <span className="max-w-full truncate rounded-full bg-sky-500/10 px-2 py-0.5 text-[9px] text-sky-400">Referrer: {meta.referrer}</span>}
-                      </div>
-                    )}
-
-                    {!!lead.tags?.length && <div className="mb-2 flex flex-wrap gap-1">{lead.tags.map((tag) => <span key={tag} className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-400">#{tag}</span>)}</div>}
-                    {(lead.form_name || lead.workflow_status || lead.files?.length) && <div className="mb-2 flex flex-wrap gap-1">{lead.form_name && <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[9px] text-cyan-400">{lead.form_name}</span>}{lead.workflow_status && <span className={`rounded-full px-2 py-0.5 text-[9px] ${lead.workflow_status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : lead.workflow_status === 'failed' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}`}>{l('Workflow')}: {lead.workflow_status}</span>}{Boolean(lead.files?.length) && <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] text-violet-400">{l('Uploaded files')}: {lead.files!.length}</span>}</div>}
-                    {!!lead.files?.length && <div className="mb-2 flex flex-wrap gap-1">{lead.files.map((file) => <button key={file.path} type="button" onClick={() => void openWebsiteFormUpload(file.path)} className="max-w-full truncate rounded border border-violet-500/20 px-2 py-1 text-[9px] font-semibold text-violet-400" title={`${file.name} · ${Math.ceil(file.size / 1024)} KB`}>{l('Open file')}: {file.name}</button>)}</div>}
-                    {!!deliveryAttempts.length && (
-                      <div className={`mb-2 rounded-lg border p-2 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-100 bg-sky-50'}`}>
-                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-sky-400">{l('Automation delivery log')}</p>
-                        <div className="grid gap-1">
-                          {deliveryAttempts.map((delivery) => (
-                            <div key={delivery.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px]">
-                              <span className="font-semibold uppercase text-gray-500">{delivery.action_type}</span>
-                              <span className="max-w-40 truncate text-gray-500" title={delivery.destination_hint}>{delivery.destination_hint}</span>
-                              <span className={delivery.status === 'delivered' ? 'text-emerald-400' : delivery.status === 'failed' ? 'text-rose-400' : 'text-amber-400'}>{l(delivery.status === 'delivered' ? 'Delivered' : delivery.status === 'failed' ? 'Failed' : delivery.status === 'processing' ? 'Processing' : 'Pending')}</span>
-                              <span className="text-gray-500">{l('Attempts')}: {delivery.attempts}</span>
-                              {delivery.response_status !== null && <span className="text-gray-500">HTTP {delivery.response_status}</span>}
-                              {delivery.last_error && <span className="basis-full break-words text-rose-400">{delivery.last_error}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <p className={`mb-3 whitespace-pre-wrap ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{lead.message}</p>
-                    {!!visibleFormData.length && (
-                      <div className={`mb-3 grid gap-1 rounded-lg border p-2 ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-100 bg-gray-50'}`}>
-                        {visibleFormData.map(([key, value]) => <div key={key} className="grid grid-cols-[90px_1fr] gap-2 text-[10px]"><span className="truncate font-semibold text-gray-500">{key}</span><span className={`break-words ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value ?? '')}</span></div>)}
-                      </div>
-                    )}
-                    {lead.notes && <div className={`mb-2 rounded-lg border p-2 text-[10px] ${darkMode ? 'border-amber-500/20 bg-amber-500/5 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}><strong>{l('Notes:')}</strong> {lead.notes}</div>}
-                    {lead.page_path && <p className="mb-1 text-[10px] text-gray-500">Page: {lead.page_path}</p>}
-                    <p className="mb-3 text-[10px] text-gray-500">{new Date(lead.created_at).toLocaleString()}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {lead.status === 'new' && <button onClick={() => void updateLeadStatus(lead.id, 'read')} className="font-semibold text-emerald-400">{l('Mark read')}</button>}
-                      {lead.status !== 'archived' && <button onClick={() => void updateLeadStatus(lead.id, 'archived')} className="font-semibold text-gray-400">{l('Archive')}</button>}
-                      <button onClick={() => { const value = window.prompt('Comma-separated tags', (lead.tags || []).join(', ')); if (value !== null) void updateLeadCrm(lead.id, { tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) }); }} className="font-semibold text-amber-400">{l('Tags')}</button>
-                      <button onClick={() => { const value = window.prompt('Lead notes', lead.notes || ''); if (value !== null) void updateLeadCrm(lead.id, { notes: value }); }} className="font-semibold text-violet-400">{l('Notes')}</button>
-                      <button onClick={() => void copyLeadSummary(lead)} className="font-semibold text-sky-400">{l("Copy")}</button>
-                      <button onClick={() => void deleteLead(lead.id)} className="font-semibold text-rose-400">{l('Delete')}</button>
-                    </div>
-                  </article>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+        <BuilderLegacyLeads
+              archiveReadLeads={archiveReadLeads}
+              bulkUpdateLeadStage={bulkUpdateLeadStage}
+              copyLeadSummary={copyLeadSummary}
+              darkMode={darkMode}
+              deleteLead={deleteLead}
+              exportLeadsCsv={exportLeadsCsv}
+              filteredLeads={filteredLeads}
+              formDeliveries={formDeliveries}
+              l={l}
+              leadCrmSummary={leadCrmSummary}
+              leadQuery={leadQuery}
+              leads={leads}
+              leadsError={leadsError}
+              leadsLoading={leadsLoading}
+              leadStageFilter={leadStageFilter}
+              leadStatusFilter={leadStatusFilter}
+              markAllLeadsRead={markAllLeadsRead}
+              openWebsiteFormUpload={openWebsiteFormUpload}
+              refreshLeads={refreshLeads}
+              selectedLeadIds={selectedLeadIds}
+              setLeadQuery={setLeadQuery}
+              setLeadsOpen={setLeadsOpen}
+              setLeadStageFilter={setLeadStageFilter}
+              setLeadStatusFilter={setLeadStatusFilter}
+              setSelectedLeadIds={setSelectedLeadIds}
+              updateLeadCrm={updateLeadCrm}
+              updateLeadStatus={updateLeadStatus}
+            />
       )}
 
       {releaseHistoryOpen && (
-        <div className={`border-b px-4 py-3 ${darkMode ? 'border-indigo-500/20 bg-[#0b0d1d]' : 'border-indigo-200 bg-indigo-50/40'}`}>
-          <div className="mx-auto flex max-w-6xl flex-col gap-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold">{l('Release Management')}</p>
-                <p className="text-[10px] text-gray-500">{l('Immutable publish archives, live rollback and unlisted draft previews.')}</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => void refreshPublishVersions()} disabled={publishVersionsLoading} className="text-xs font-semibold text-indigo-400">{publishVersionsLoading ? 'Refreshing…' : 'Refresh'}</button>
-                <button onClick={() => setReleaseHistoryOpen(false)} className="text-xs font-semibold text-violet-400">{l('Close')}</button>
-              </div>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
-              <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-indigo-400">{l('Next release')}</p>
-                <textarea value={releaseNote} onChange={(e) => setReleaseNote(e.target.value.slice(0, 500))} rows={2} placeholder={l('Release note (optional): what changed?')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 bg-black/20 text-white' : 'border-gray-200 bg-white'}`} />
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
-                  <span className={`rounded-full px-2 py-1 ${hasUnpublishedChanges ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>{publishedUrl ? (hasUnpublishedChanges ? 'Unpublished changes' : 'Editor matches live release') : 'Not published yet'}</span>
-                  {lastPublishedVersionId && <span className="text-gray-500">Release: {lastPublishedVersionId.slice(0, 8)}</span>}
-                </div>
-              </div>
-
-              <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-cyan-400">{l('Unlisted share preview')}</p>
-                {previewUrl ? (
-                  <>
-                    <p className="truncate text-[10px] text-cyan-400">{previewUrl}</p>
-                    <p className="mt-1 text-[9px] text-gray-500">{l('Anyone with this URL can open it. Tracking integrations are disabled in preview.')}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')} className="text-xs font-semibold text-cyan-400">{l('Open')}</button>
-                      <button onClick={() => void navigator.clipboard.writeText(previewUrl)} className="text-xs font-semibold text-sky-400">{l("Copy")}</button>
-                      <button onClick={() => void promoteSharePreviewToLive()} disabled={publishBusy || previewBusy || previewFingerprint !== currentAIEditableFingerprint} className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40">{publishBusy ? l('Promoting…') : l('Promote to live')}</button>
-                      <button onClick={() => void createSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-indigo-400">{l('Regenerate')}</button>
-                      <button onClick={() => void revokeSharePreview()} disabled={previewBusy} className="text-xs font-semibold text-rose-400">{l('Revoke')}</button>
-                    </div>
-                  </>
-                ) : (
-                  <button onClick={() => void createSharePreview()} disabled={previewBusy || !user || !cloudProjectId} className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{previewBusy ? 'Creating…' : 'Create share preview'}</button>
-                )}
-                {previewCreatedAt && <p className="mt-2 text-[9px] text-gray-500">Created {new Date(previewCreatedAt).toLocaleString()}</p>}
-                {previewFingerprint && previewFingerprint !== currentAIEditableFingerprint && <p className="mt-1 text-[9px] font-semibold text-amber-400">{l('Staging is behind the current editor. Regenerate it before promotion if these changes should go live.')}</p>}
-                {previewError && <p className="mt-2 text-[10px] text-rose-400">{l(previewError)}</p>}
-              </div>
-            </div>
-
-            {publishVersionsError && <p className="text-xs text-rose-400">{l(publishVersionsError)}</p>}
-            {!publishVersionsLoading && !publishVersions.length ? (
-              <div className={`rounded-lg border p-4 text-xs ${darkMode ? 'border-white/10 bg-white/5 text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>{l('No releases yet. Add an optional release note and click Publish.')}</div>
-            ) : (
-              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {publishVersions.map((version, index) => (
-                  <article key={version.id} className={`rounded-xl border p-3 text-xs ${darkMode ? 'border-white/10 bg-white/[0.04]' : 'border-gray-200 bg-white'}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-bold">Release {publishVersions.length - index}</p>
-                        <p className="text-[9px] text-gray-500">{new Date(version.created_at).toLocaleString()}</p>
-                      </div>
-                      {version.id === lastPublishedVersionId && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold text-emerald-400">{l('LIVE REF')}</span>}
-                    </div>
-                    <p className={`mt-2 min-h-8 text-[10px] ${version.release_note ? (darkMode ? 'text-gray-300' : 'text-gray-700') : 'text-gray-500'}`}>{version.release_note || 'No release note.'}</p>
-                    <p className="mt-2 text-[9px] text-indigo-400">Current vs release: {releaseDiffSummary(version)}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button onClick={() => void rollbackPublishVersion(version)} disabled={publishBusy} className="font-semibold text-amber-400">{l('Rollback live')}</button>
-                      <button onClick={() => restorePublishVersionToEditor(version)} className="font-semibold text-violet-400">{l('Restore editor')}</button>
-                      <button onClick={() => void deletePublishVersion(version)} disabled={publishVersionsLoading || version.id === lastPublishedVersionId} className="font-semibold text-rose-400 disabled:opacity-30">{l('Delete archive')}</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <BuilderLegacyReleaseHistory
+              cloudProjectId={cloudProjectId}
+              createSharePreview={createSharePreview}
+              currentAIEditableFingerprint={currentAIEditableFingerprint}
+              darkMode={darkMode}
+              deletePublishVersion={deletePublishVersion}
+              hasUnpublishedChanges={hasUnpublishedChanges}
+              l={l}
+              lastPublishedVersionId={lastPublishedVersionId}
+              previewBusy={previewBusy}
+              previewCreatedAt={previewCreatedAt}
+              previewError={previewError}
+              previewFingerprint={previewFingerprint}
+              previewUrl={previewUrl}
+              promoteSharePreviewToLive={promoteSharePreviewToLive}
+              publishBusy={publishBusy}
+              publishedUrl={publishedUrl}
+              publishVersions={publishVersions}
+              publishVersionsError={publishVersionsError}
+              publishVersionsLoading={publishVersionsLoading}
+              refreshPublishVersions={refreshPublishVersions}
+              releaseDiffSummary={releaseDiffSummary}
+              releaseNote={releaseNote}
+              restorePublishVersionToEditor={restorePublishVersionToEditor}
+              revokeSharePreview={revokeSharePreview}
+              rollbackPublishVersion={rollbackPublishVersion}
+              setReleaseHistoryOpen={setReleaseHistoryOpen}
+              setReleaseNote={setReleaseNote}
+              user={user}
+            />
       )}
 
       {historyOpen && (
@@ -14454,1908 +7374,206 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       )}
 
       <div data-tayar-v1-workspace="true" className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside data-tayar-v1-left="true"
-          className={`w-full shrink-0 border-b p-3 transition-[width,padding] duration-200 lg:border-b-0 lg:border-r ${leftSidebarOpen ? 'lg:w-56 xl:w-60 lg:p-3' : 'lg:w-12 lg:p-2'} ${
-            darkMode
-              ? 'border-white/10 bg-[#0a0a1a]'
-              : 'border-gray-200 bg-white'
-          }`}
-        >
-          <div className="mb-2 hidden lg:flex lg:justify-end">
-            <button
-              type="button"
-              onClick={() => setLeftSidebarOpen((open) => !open)}
-              className={`grid h-8 w-8 place-items-center rounded-lg border transition ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white' : 'border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-              title={l(leftSidebarOpen ? 'Collapse tools panel' : 'Expand tools panel')}
-              aria-label={l(leftSidebarOpen ? 'Collapse tools panel' : 'Expand tools panel')}
-              aria-expanded={leftSidebarOpen}
-            >
-              {leftSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-          </div>
-          <div className={leftSidebarOpen ? 'block' : 'lg:hidden'}>
-          <div className={`mb-3 grid grid-cols-3 gap-1 rounded-xl border p-1 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-            {([
-              ['add', l('Add')],
-              ['pages', l('Pages')],
-              ['layers', l('Layers')],
-            ] as const).map(([panel, label]) => (
-              <button
-                key={panel}
-                type="button"
-                onClick={() => setBuilderPanel(panel)}
-                className={`rounded-lg px-2 py-2 text-[10px] font-bold transition ${builderPanel === panel ? 'bg-violet-600 text-white shadow-sm' : darkMode ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-white'}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {builderPanel === 'pages' && (
-            <>
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold">{l('Pages')}</span>
-              <button type="button" onClick={addPage} className="rounded p-1 text-violet-400 hover:bg-violet-500/10" title={l('Add page')}>
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-1">
-              {pages.map((page, index) => (
-                <div key={page.id} className={`flex items-center gap-1 rounded-lg ${activePageId === page.id ? (darkMode ? 'bg-violet-500/15' : 'bg-violet-100') : ''}`}>
-                  <button type="button" onClick={() => switchPage(page.id)} className={`min-w-0 flex-1 px-2 py-1.5 text-left text-xs ${activePageId === page.id ? (darkMode ? 'text-violet-300' : 'text-violet-700') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900')}`}>
-                    <span className="flex items-center gap-1.5">
-                      {page.id === homePageId && <span className="text-[9px] font-bold text-emerald-400">{l('HOME')}</span>}
-                      <span className="truncate">{page.name}</span>
-                      <span className="rounded bg-sky-500/10 px-1 text-[8px] font-bold text-sky-400">{languageCodeLabel(normalizePageLanguage(page.language, prefs.language))}</span>
-                      {page.showInNavigation === false && <span className="text-[9px] text-gray-500">{l('HIDDEN')}</span>}
-                    </span>
-                    <span className="block truncate text-[9px] text-gray-500">/{page.slug}</span>
-                  </button>
-                  <div className="flex shrink-0 flex-col pr-1">
-                    <button type="button" onClick={() => movePage(page.id, 'up')} disabled={index === 0} className="rounded p-0.5 text-gray-500 hover:text-violet-400 disabled:opacity-20" title={l('Move page up')}><ChevronUp className="h-3 w-3" /></button>
-                    <button type="button" onClick={() => movePage(page.id, 'down')} disabled={index === pages.length - 1} className="rounded p-0.5 text-gray-500 hover:text-violet-400 disabled:opacity-20" title={l('Move page down')}><ChevronDown className="h-3 w-3" /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
-              <label className="text-[9px] text-gray-500">{l('Default language')}
-                <select value={localization.defaultLanguage} onChange={(e) => { setLocalization((current) => ({ ...current, defaultLanguage: e.target.value as Language })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                  <option value="en">EN</option><option value="sv">SV</option><option value="ar">AR</option>
-                </select>
-              </label>
-              <label className="text-[9px] text-gray-500">{l('Locale routes')}
-                <select value={localization.routeStrategy} onChange={(e) => { setLocalization((current) => ({ ...current, routeStrategy: e.target.value === 'flat' ? 'flat' : 'subdirectory' })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                  <option value="subdirectory">/sv/page.html</option><option value="flat">/page.html</option>
-                </select>
-              </label>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setPageSettingsOpen((open) => !open)}
-              className={'mt-3 flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-[10px] font-semibold ' + (darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-white')}
-              aria-expanded={pageSettingsOpen}
-            >
-              <span>{l('Page settings')}</span>
-              <ChevronDown className={'h-3.5 w-3.5 transition-transform ' + (pageSettingsOpen ? 'rotate-180' : '')} />
-            </button>
-            {activePage && pageSettingsOpen && (
-              <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                <div className="flex items-center justify-between gap-2 text-[10px]">
-                  <label className="flex items-center gap-1.5 text-gray-500">
-                    <input type="checkbox" checked={activePage.showInNavigation !== false} onChange={(e) => updateActivePageMeta({ showInNavigation: e.target.checked })} />{l("Show in navigation")}</label>
-                  <button type="button" onClick={makeActivePageHome} disabled={activePage.id === homePageId} className="rounded px-2 py-1 font-semibold text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40">
-                    {activePage.id === homePageId ? 'Home page' : 'Set home'}
-                  </button>
-                </div>
-                <input value={activePage.name} onChange={(e) => updateActivePageMeta({ name: e.target.value })} placeholder={l('Page name')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                <div className="grid grid-cols-[110px_1fr] gap-2">
-                  <select value={normalizePageLanguage(activePage.language, prefs.language)} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ language: e.target.value as Language }); }} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}>
-                    <option value="en">{l(PAGE_LANGUAGE_LABELS.en)}</option><option value="sv">{PAGE_LANGUAGE_LABELS.sv}</option><option value="ar">{PAGE_LANGUAGE_LABELS.ar}</option>
-                  </select>
-                  <input value={activePage.translationKey || ''} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Multilingual pages')) return; updateActivePageMeta({ translationKey: e.target.value.slice(0, 120) }); }} placeholder={billingEntitlements.features.multilingual ? 'Translation group (optional)' : 'Translation groups · Pro'} className={`rounded-lg border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {(['en', 'sv', 'ar'] as Language[]).filter((language) => language !== normalizePageLanguage(activePage.language, prefs.language)).map((language) => (
-                    <button key={language} type="button" disabled={!billingEntitlements.features.multilingual} onClick={() => duplicatePageAsTranslation(language)} className="rounded-md border border-sky-500/20 px-2 py-1 text-[9px] font-semibold text-sky-400 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-40">+ {PAGE_LANGUAGE_LABELS[language]}</button>
-                  ))}
-                  {!billingEntitlements.features.multilingual && <button type="button" onClick={() => openBillingWithMessage('Multilingual pages require the Pro plan or higher.')} className="rounded-md border border-amber-500/20 px-2 py-1 text-[9px] font-bold text-amber-400 hover:bg-amber-500/10">{l('Unlock multilingual')}</button>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-500">/</span>
-                  <input value={activePage.slug} onChange={(e) => updateActivePageMeta({ slug: e.target.value })} placeholder="page-slug" className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <button type="button" onClick={duplicateActivePage} className="rounded p-1.5 text-sky-400 hover:bg-sky-500/10" title={l('Duplicate page')}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                  <button type="button" onClick={deleteActivePage} disabled={pages.length <= 1} className="rounded p-1.5 text-red-400 disabled:opacity-30" title={l('Delete page')}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="space-y-2 border-t border-white/10 pt-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">{l('Page SEO')}</span>
-                    <label className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                      <input type="checkbox" checked={activePage.noIndex === true} onChange={(e) => updateActivePageMeta({ noIndex: e.target.checked })} />{l("Hide from search")}</label>
-                  </div>
-                  <input value={activePage.seoTitle || ''} onChange={(e) => updateActivePageMeta({ seoTitle: e.target.value })} placeholder={l('Custom SEO title (optional)')} maxLength={70} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <textarea value={activePage.seoDescription || ''} onChange={(e) => updateActivePageMeta({ seoDescription: e.target.value })} placeholder={l('Custom meta description (optional)')} maxLength={180} rows={3} className={`w-full resize-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={activePage.socialImage || ''} onChange={(e) => updateActivePageMeta({ socialImage: e.target.value })} placeholder={l('Social share image URL')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={activePage.canonicalUrl || ''} onChange={(e) => updateActivePageMeta({ canonicalUrl: e.target.value })} placeholder={l('Canonical URL override (optional)')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                </div>
-              </div>
-            )}
-          </div>
-
-
-          <button
-            type="button"
-            onClick={() => setAdvancedSiteSettingsOpen((open) => !open)}
-            className={'mb-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs font-semibold ' + (advancedSiteSettingsOpen ? 'border-violet-500/40 bg-violet-500/10 text-violet-400' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50')}
-            aria-expanded={advancedSiteSettingsOpen}
-          >
-            <span>
-              <span className="block">{l('Site settings')}</span>
-              <span className="mt-0.5 block text-[9px] font-normal text-gray-500">{l('Header, footer, theme, SEO and advanced options')}</span>
-            </span>
-            <ChevronDown className={'h-4 w-4 transition-transform ' + (advancedSiteSettingsOpen ? 'rotate-180' : '')} />
-          </button>
-
-          {advancedSiteSettingsOpen && (
-            <>
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/60'}`}>
-            <div className="mb-3 flex items-center gap-2">
-              <Globe className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-semibold">{l('Global Header & Footer')}</span>
-            </div>
-            <div className="space-y-3">
-              <div className="rounded-lg border border-emerald-500/15 p-2.5">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{l('Header')}</span>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.enabled} onChange={(e) => { setHeaderConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} />{l('Enabled')}</label>
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.sticky} onChange={(e) => { setHeaderConfig((current) => ({ ...current, sticky: e.target.checked })); setSaved(false); }} />{l('Sticky')}</label>
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.mobileMenu} onChange={(e) => { setHeaderConfig((current) => ({ ...current, mobileMenu: e.target.checked })); setSaved(false); }} />{l('Mobile menu')}</label>
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.languageSwitcher} disabled={!billingEntitlements.features.multilingual} onChange={(e) => { if (!requireBillingFeature('multilingual', 'Language switcher')) return; setHeaderConfig((current) => ({ ...current, languageSwitcher: e.target.checked })); setSaved(false); }} /> Language switcher {!billingEntitlements.features.multilingual && <span className="font-bold text-amber-400">PRO</span>}</label>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <input value={headerConfig.brandText} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandText: e.target.value })); setSaved(false); }} placeholder={l('Brand text (blank = site name)')} maxLength={80} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                  <input value={headerConfig.logoUrl} onChange={(e) => { setHeaderConfig((current) => ({ ...current, logoUrl: e.target.value })); setSaved(false); }} placeholder={l('Logo image URL (optional)')} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                  <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={headerConfig.showCta} onChange={(e) => { setHeaderConfig((current) => ({ ...current, showCta: e.target.checked })); setSaved(false); }} />{l('Show CTA button')}</label>
-                  {headerConfig.showCta && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <input value={headerConfig.ctaLabel} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaLabel: e.target.value })); setSaved(false); }} placeholder={l('CTA label')} maxLength={80} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                      <input value={headerConfig.ctaHref} onChange={(e) => { setHeaderConfig((current) => ({ ...current, ctaHref: e.target.value })); setSaved(false); }} placeholder="#contact or page:about" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    </div>
-                  )}
-                  <div className={`rounded-lg border p-2 ${darkMode ? 'border-white/10 bg-black/10' : 'border-emerald-100 bg-emerald-50/50'}`}>
-                    <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-emerald-400">{l('Navigation style')}</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {([
-                        ['Bg', 'backgroundColor'],
-                        ['Text', 'textColor'],
-                        ['Active', 'activeColor'],
-                        ['Hover', 'hoverColor'],
-                        ['CTA Bg', 'ctaBackgroundColor'],
-                        ['CTA Text', 'ctaTextColor'],
-                        ['Border', 'borderColor'],
-                      ] as const).map(([label, key]) => (
-                        <label key={key} className="text-[9px] text-gray-500">{label}
-                          <input type="color" value={headerConfig[key]} onChange={(e) => { setHeaderConfig((current) => ({ ...current, [key]: e.target.value })); setSaved(false); }} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" />
-                        </label>
-                      ))}
-                    </div>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
-                      <label className="text-[9px] text-gray-500">{l('Link gap')}<input type="number" min="4" max="48" value={headerConfig.navGap} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navGap: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                      </label>
-                      <label className="text-[9px] text-gray-500">{l('Brand px')}<input type="number" min="12" max="32" value={headerConfig.brandSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, brandSize: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                      </label>
-                      <label className="text-[9px] text-gray-500">{l('Links px')}<input type="number" min="10" max="24" value={headerConfig.navSize} onChange={(e) => { setHeaderConfig((current) => ({ ...current, navSize: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-emerald-500/15 p-2.5">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{l('Footer')}</span>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={footerConfig.enabled} onChange={(e) => { setFooterConfig((current) => ({ ...current, enabled: e.target.checked })); setSaved(false); }} />{l('Enabled')}</label>
-                    <label className="flex items-center gap-1.5 text-[9px] text-gray-500"><input type="checkbox" checked={footerConfig.showNavigation} onChange={(e) => { setFooterConfig((current) => ({ ...current, showNavigation: e.target.checked })); setSaved(false); }} />{l('Page links')}</label>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <input value={footerConfig.text} onChange={(e) => { setFooterConfig((current) => ({ ...current, text: e.target.value })); setSaved(false); }} placeholder={l('Footer text (blank = automatic copyright)')} maxLength={300} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input value={footerConfig.instagramUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, instagramUrl: e.target.value })); setSaved(false); }} placeholder="Instagram URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.facebookUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, facebookUrl: e.target.value })); setSaved(false); }} placeholder="Facebook URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.linkedinUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, linkedinUrl: e.target.value })); setSaved(false); }} placeholder="LinkedIn URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                    <input value={footerConfig.xUrl} onChange={(e) => { setFooterConfig((current) => ({ ...current, xUrl: e.target.value })); setSaved(false); }} placeholder="X URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-emerald-200 bg-white'}`} />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p className="mt-2 text-[9px] leading-4 text-gray-500">{l('Header and footer are global across every page and are included in Preview, ZIP Export and Publish.')}</p>
-          </div>
-
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
-            <div className="mb-3 flex items-center gap-2">
-              <Eye className="h-4 w-4 text-cyan-400" />
-              <span className="text-xs font-semibold">{l('Site Experience')}</span>
-            </div>
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.scrollProgress} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, scrollProgress: e.target.checked })); setSaved(false); }} />{l('Scroll progress')}</label>
-                <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.backToTop} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, backToTop: e.target.checked })); setSaved(false); }} />{l('Back to top')}</label>
-              </div>
-              <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.cookieBanner} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieBanner: e.target.checked })); setSaved(false); }} />{l('Cookie / privacy notice')}</label>
-              {siteEnhancements.cookieBanner && (
-                <div className="grid gap-2">
-                  <textarea rows={3} value={siteEnhancements.cookieText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieText: e.target.value })); setSaved(false); }} maxLength={500} placeholder={l('Privacy notice text')} className={`w-full resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} />
-                  <input value={siteEnhancements.cookieButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, cookieButtonLabel: e.target.value })); setSaved(false); }} maxLength={60} placeholder={l('Accept button label')} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} />
-                </div>
-              )}
-              <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-black/10' : 'border-cyan-100 bg-white'}`}>
-                <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-cyan-400">{l('Marketing & discovery')}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.announcementBar} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementBar: e.target.checked })); setSaved(false); }} />{l('Announcement')}</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.popupEnabled} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupEnabled: e.target.checked })); setSaved(false); }} />{l('Popup')}</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.siteSearch} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, siteSearch: e.target.checked })); setSaved(false); }} />{l('Site search')}</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.galleryLightbox} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, galleryLightbox: e.target.checked })); setSaved(false); }} />{l('Gallery lightbox')}</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.floatingCta} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCta: e.target.checked })); setSaved(false); }} />{l('Floating CTA')}</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={siteEnhancements.shareButtons} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, shareButtons: e.target.checked })); setSaved(false); }} />{l('Share tools')}</label>
-                </div>
-                {siteEnhancements.announcementBar && <div className="mt-2 grid gap-2"><input value={siteEnhancements.announcementText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementText: e.target.value })); setSaved(false); }} placeholder={l('Announcement text')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-2 gap-2"><input value={siteEnhancements.announcementLinkLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementLinkLabel: e.target.value })); setSaved(false); }} placeholder={l('Link label')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.announcementHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, announcementHref: e.target.value })); setSaved(false); }} placeholder="#anchor / page:about / URL" className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
-                {siteEnhancements.popupEnabled && <div className="mt-2 grid gap-2"><input value={siteEnhancements.popupTitle} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupTitle: e.target.value })); setSaved(false); }} placeholder={l('Popup title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><textarea rows={2} value={siteEnhancements.popupText} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupText: e.target.value })); setSaved(false); }} placeholder={l('Popup message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><div className="grid grid-cols-3 gap-2"><input value={siteEnhancements.popupButtonLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonLabel: e.target.value })); setSaved(false); }} placeholder={l('Button')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.popupButtonHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupButtonHref: e.target.value })); setSaved(false); }} placeholder={l('Button link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input type="number" min="0" max="60" value={siteEnhancements.popupDelaySeconds} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, popupDelaySeconds: Number(e.target.value) })); setSaved(false); }} title={l('Delay in seconds')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div></div>}
-                {siteEnhancements.floatingCta && <div className="mt-2 grid grid-cols-2 gap-2"><input value={siteEnhancements.floatingCtaLabel} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaLabel: e.target.value })); setSaved(false); }} placeholder={l('Floating CTA label')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /><input value={siteEnhancements.floatingCtaHref} onChange={(e) => { setSiteEnhancements((current) => ({ ...current, floatingCtaHref: e.target.value })); setSaved(false); }} placeholder={l('CTA link')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`} /></div>}
-              </div>
-              <div className={`rounded-lg border p-2.5 ${siteAudit.errors.length ? 'border-red-500/30' : siteAudit.warnings.length ? 'border-amber-500/30' : 'border-emerald-500/30'}`}>
-                <div className="flex items-center justify-between gap-2"><p className="text-[9px] font-bold uppercase tracking-wide text-cyan-400">{l('Pre-publish audit')}</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${siteAudit.score >= 90 ? 'bg-emerald-500/15 text-emerald-400' : siteAudit.score >= 70 ? 'bg-amber-500/15 text-amber-400' : 'bg-red-500/15 text-red-400'}`}>{siteAudit.score}/100</span></div>
-                <p className="mt-1 text-[9px] text-gray-500">{siteAudit.errors.length} errors · {siteAudit.warnings.length} warnings · checks SEO, accessibility basics and internal links.</p>
-                <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] text-gray-500"><span>{qualityDiagnostics.pages} pages</span><span>{qualityDiagnostics.sections} sections</span><span>{qualityDiagnostics.elements} elements</span><span>{qualityDiagnostics.snapshotKb} KB snapshot</span></div>
-                {qualityDiagnostics.warnings.length > 0 && <div className="mt-2 space-y-1">{qualityDiagnostics.warnings.slice(0, 4).map((item) => <p key={item} className="text-[9px] text-orange-400">• {item}</p>)}</div>}
-                {recoveryAvailable && <button onClick={restoreRecoverySnapshot} className="mt-2 rounded-lg border border-cyan-500/30 px-2 py-1 text-[9px] font-bold text-cyan-400">{l('Restore recovery snapshot')}</button>}
-                {(siteAudit.errors.length > 0 || siteAudit.warnings.length > 0) && <div className="mt-2 max-h-32 space-y-1 overflow-auto">{siteAudit.errors.slice(0, 5).map((item) => <p key={`e-${item}`} className="text-[9px] text-red-400">• {item}</p>)}{siteAudit.warnings.slice(0, 7).map((item) => <p key={`w-${item}`} className="text-[9px] text-amber-400">• {item}</p>)}</div>}
-              </div>
-              <p className="text-[9px] leading-4 text-gray-500">{l('FAQ structured data is generated automatically from Accordion elements during Preview, Export and Publish.')}</p>
-            </div>
-          </div>
-
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-blue-500/20 bg-blue-500/5' : 'border-blue-200 bg-blue-50/60'}`}>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2"><Globe className="h-4 w-4 text-blue-400" /><span className="text-xs font-semibold">{l('Production Integrations')}</span></div>
-              {!billingEntitlements.features.productionIntegrations && <button type="button" onClick={() => openBillingWithMessage('Production tracking integrations require the Pro plan or higher.')} className="rounded-full border border-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-400">PRO</button>}
-            </div>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <input value={productionConfig.ga4Id} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, ga4Id: e.target.value })); setSaved(false); }} placeholder="GA4 · G-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.gtmId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, gtmId: e.target.value })); setSaved(false); }} placeholder="GTM · GTM-XXXX" className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.metaPixelId} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, metaPixelId: e.target.value })); setSaved(false); }} placeholder={l('Meta Pixel ID')} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.plausibleDomain} disabled={!billingEntitlements.features.productionIntegrations} onChange={(e) => { if (!requireBillingFeature('productionIntegrations', 'Production tracking integrations')) return; setProductionConfig((current) => ({ ...current, plausibleDomain: e.target.value })); setSaved(false); }} placeholder={l('Plausible domain')} className={`rounded border px-2 py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input value={productionConfig.googleVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, googleVerification: e.target.value })); setSaved(false); }} placeholder={l('Google verification token')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                <input value={productionConfig.bingVerification} onChange={(e) => { setProductionConfig((current) => ({ ...current, bingVerification: e.target.value })); setSaved(false); }} placeholder={l('Bing verification token')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-              </div>
-              <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-white/10' : 'border-blue-100 bg-white/70'}`}>
-                <div className="mb-2 grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={productionConfig.organizationSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationSchema: e.target.checked })); setSaved(false); }} />{l('Organization schema')}</label>
-                  <label className="flex items-center gap-2 text-[10px] text-gray-500"><input type="checkbox" checked={productionConfig.localBusinessSchema} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessSchema: e.target.checked })); setSaved(false); }} />{l('Local Business schema')}</label>
-                </div>
-                {(productionConfig.organizationSchema || productionConfig.localBusinessSchema) && <div className="grid gap-2">
-                  <input value={productionConfig.organizationName} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationName: e.target.value })); setSaved(false); }} placeholder={l('Organization / business name')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-                  <div className="grid grid-cols-2 gap-2"><input value={productionConfig.organizationUrl} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationUrl: e.target.value })); setSaved(false); }} placeholder={l('Organization URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.organizationLogo} onChange={(e) => { setProductionConfig((current) => ({ ...current, organizationLogo: e.target.value })); setSaved(false); }} placeholder={l('Logo URL')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div>
-                  {productionConfig.localBusinessSchema && <><div className="grid grid-cols-2 gap-2"><input value={productionConfig.localBusinessType} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessType: e.target.value })); setSaved(false); }} placeholder={l('Schema type · LocalBusiness')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /><input value={productionConfig.localBusinessPhone} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessPhone: e.target.value })); setSaved(false); }} placeholder={l('Phone')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></div><input value={productionConfig.localBusinessAddress} onChange={(e) => { setProductionConfig((current) => ({ ...current, localBusinessAddress: e.target.value })); setSaved(false); }} placeholder={l('Business address')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} /></>}
-                </div>}
-              </div>
-              <div className={`rounded-lg border p-2.5 ${productionConfig.maintenanceMode ? 'border-amber-500/30' : darkMode ? 'border-white/10' : 'border-blue-100 bg-white/70'}`}>
-                <label className="flex items-center gap-2 text-[10px] font-semibold text-amber-400"><input type="checkbox" checked={productionConfig.maintenanceMode} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceMode: e.target.checked })); setSaved(false); }} />{l('Maintenance mode')}</label>
-                {productionConfig.maintenanceMode && <div className="mt-2 grid gap-2"><input value={productionConfig.maintenanceTitle} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceTitle: e.target.value })); setSaved(false); }} placeholder={l('Maintenance title')} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-amber-200 bg-white'}`} /><textarea rows={2} value={productionConfig.maintenanceText} onChange={(e) => { setProductionConfig((current) => ({ ...current, maintenanceText: e.target.value })); setSaved(false); }} placeholder={l('Maintenance message')} className={`resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-amber-200 bg-white'}`} /></div>}
-              </div>
-              <label className="block text-[10px] text-gray-500">{l('Global custom CSS')}<textarea rows={5} value={productionConfig.customCss} disabled={!billingEntitlements.features.customCss} onChange={(e) => { if (!requireBillingFeature('customCss', 'Global custom CSS')) return; setProductionConfig((current) => ({ ...current, customCss: e.target.value })); setSaved(false); }} placeholder={billingEntitlements.features.customCss ? '.my-class { ... }' : 'Custom CSS · Pro'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-              </label>
-              <label className="block text-[10px] text-gray-500">{l('Extra robots.txt rules')}<textarea rows={4} value={productionConfig.customRobotsRules} onChange={(e) => { setProductionConfig((current) => ({ ...current, customRobotsRules: e.target.value })); setSaved(false); }} placeholder={'Disallow: /private\nCrawl-delay: 5'} className={`mt-1 w-full resize-y rounded border px-2 py-1.5 font-mono text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-blue-200 bg-white'}`} />
-              </label>
-              <p className="text-[9px] leading-4 text-gray-500">{l('Tracking integrations are generated from validated IDs. Custom CSS is included in Preview, Export and Publish; raw script injection is intentionally not allowed here.')}</p>
-            </div>
-          </div>
-
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
-            <div className="mb-3 flex items-center gap-2">
-              <Palette className="h-4 w-4 text-violet-400" />
-              <span className="text-xs font-semibold">{l('Global Theme')}</span>
-            </div>
-            <div className={`mb-3 rounded-lg border p-2 ${designSystemReport.score >= 90 ? 'border-emerald-500/20' : 'border-amber-500/20'}`}>
-              <div className="flex items-center justify-between text-[10px]"><strong>{l('Design system score')}</strong><span>{designSystemReport.score}/100</span></div>
-              <p className="mt-1 text-[9px] text-gray-500">{designSystemReport.metrics.contrastFailures} {l('contrast issues')} · {designSystemReport.metrics.customColors} {l('off-token colors')}</p>
-              <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
-                <select value="" onChange={(event) => { const preset = WEBSITE_DESIGN_SYSTEM_PRESETS.find((item) => item.id === event.target.value); if (preset) applyDesignSystemPreset(preset); }} className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-violet-200 bg-white'}`}><option value="">{l('Choose a system…')}</option>{WEBSITE_DESIGN_SYSTEM_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{l(preset.name)}</option>)}</select>
-                <button type="button" disabled={!designSystemReport.issues.length} onClick={repairActiveDesignSystem} className="rounded border border-violet-500/30 px-2 py-1.5 text-[10px] font-semibold text-violet-400 disabled:opacity-40">{l('Auto-balance tokens')}</button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                ['Primary', 'primaryColor'],
-                ['Secondary', 'secondaryColor'],
-                ['Background', 'backgroundColor'],
-                ['Text', 'textColor'],
-                ['Muted', 'mutedTextColor'],
-              ] as const).map(([label, key]) => (
-                <label key={key} className="text-[10px] text-gray-500">{l(String(label))}
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <input type="color" value={theme[key]} onChange={(e) => { setTheme((current) => ({ ...current, [key]: e.target.value })); setSaved(false); }} className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent" />
-                    <span className="truncate text-[9px]">{theme[key]}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
-            <label className="mt-3 block text-[10px] text-gray-500">{l('Font')}<select value={theme.fontFamily} onChange={(e) => { setTheme((current) => ({ ...current, fontFamily: e.target.value })); setSaved(false); }} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-violet-200 bg-white'}`}>
-                {FONT_OPTIONS.map((font) => <option key={font} value={font}>{font}</option>)}
-              </select>
-            </label>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              <label className="text-[9px] text-gray-500">{l('Width')}<input type="number" min="720" max="1440" step="20" value={theme.contentWidth} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, contentWidth: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
-              </label>
-              <label className="text-[9px] text-gray-500">{l('Radius')}<input type="number" min="0" max="40" value={theme.buttonRadius} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, buttonRadius: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
-              </label>
-              <label className="text-[9px] text-gray-500">{l('Spacing')}<input type="number" min="40" max="140" value={theme.sectionSpacing} onChange={(e) => { setTheme((current) => normalizeTheme({ ...current, sectionSpacing: Number(e.target.value) })); setSaved(false); }} className={`mt-1 w-full rounded border px-1.5 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} />
-              </label>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" onClick={applyThemeToCurrentPage} className="rounded-lg bg-violet-600 px-2 py-2 text-[10px] font-semibold text-white hover:bg-violet-500">{l('Apply to page')}</button>
-              <button type="button" onClick={applyThemeToAllPages} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${darkMode ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10' : 'border-violet-300 text-violet-700 hover:bg-violet-100'}`}>{l('Apply all pages')}</button>
-            </div>
-            <p className="mt-2 text-[9px] leading-4 text-gray-500">{l('Font, width and spacing apply globally. “Apply” also recolors existing sections and buttons.')}</p>
-          </div>
-
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="mb-3 flex items-center gap-2">
-              <Globe className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-semibold">{l('Site SEO & Branding')}</span>
-            </div>
-            <div className="space-y-2">
-              <input value={seo.title} onChange={(e) => { setSeo({ ...seo, title: e.target.value }); setSaved(false); }} placeholder={l('Default SEO title')} maxLength={70} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              <textarea value={seo.description} onChange={(e) => { setSeo({ ...seo, description: e.target.value }); setSaved(false); }} placeholder={l('Default meta description')} maxLength={180} rows={3} className={`w-full resize-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              <input value={seo.keywords.join(', ')} onChange={(e) => { setSeo({ ...seo, keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20) }); setSaved(false); }} placeholder={l('Keywords, comma separated')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              <input value={faviconUrl} onChange={(e) => { setFaviconUrl(e.target.value); setSaved(false); }} placeholder={l('Favicon image URL')} className={`w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              <p className="text-[9px] leading-4 text-gray-500">{l("Page SEO overrides these defaults. Production export and Publish also include a no-index 404.html page.")}</p>
-            </div>
-          </div>
-
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-400" />
-              <span className="text-xs font-semibold">{l('Page Templates')}</span>
-            </div>
-            <div className="space-y-2">
-              {PAGE_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => applyPageTemplate(template)}
-                  className={`w-full rounded-lg border px-2.5 py-2 text-left transition ${darkMode ? 'border-white/10 hover:border-amber-400/40 hover:bg-amber-400/5' : 'border-gray-200 bg-white hover:border-amber-300 hover:bg-amber-50'}`}
-                >
-                  <span className="block text-xs font-semibold">{l(template.name)}</span>
-                  <span className="mt-0.5 block text-[10px] leading-4 text-gray-500">{l(template.description)}</span>
-                  <span className="mt-1 block text-[9px] font-semibold uppercase tracking-wide text-amber-500">{l('Use template')}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="mb-3 flex items-center gap-2">
-              <Copy className="h-4 w-4 text-cyan-400" />
-              <span className="text-xs font-semibold">{l('Section Templates')}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-              {SECTION_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => addSectionTemplate(template)}
-                  className={`rounded-lg border px-2.5 py-2 text-left transition ${darkMode ? 'border-white/10 hover:border-cyan-400/40 hover:bg-cyan-400/5' : 'border-gray-200 bg-white hover:border-cyan-300 hover:bg-cyan-50'}`}
-                >
-                  <span className="block text-xs font-semibold">{l(template.name)}</span>
-                  <span className="mt-0.5 block text-[9px] leading-4 text-gray-500">{l(template.description)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className={`mb-5 rounded-xl border p-3 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-200 bg-sky-50/60'}`}>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Copy className="h-4 w-4 text-sky-400" />
-                <span className="text-xs font-semibold">{l('My Sections')}</span>
-              </div>
-              <button type="button" onClick={() => void saveSelectedSectionAsReusable()} disabled={!selectedSection || reusableBusy} className="rounded px-2 py-1 text-[9px] font-bold text-sky-400 hover:bg-sky-500/10 disabled:opacity-40">{l('Save selected')}</button>
-            </div>
-            <p className="mb-2 text-[9px] leading-4 text-gray-500">{l("Reusable section templates are saved to your account when signed in, or this browser when signed out.")}</p>
-            {reusableError && <p className="mb-2 text-[10px] text-amber-400">{l(reusableError)}</p>}
-            {reusableBusy && !reusableSections.length ? (
-              <p className="text-[10px] text-gray-500">{l('Loading templates…')}</p>
-            ) : reusableSections.length ? (
-              <div className="max-h-44 space-y-1.5 overflow-auto pr-1">
-                {reusableSections.map((template) => (
-                  <div key={template.id} className={`flex items-center gap-1 rounded-lg border p-1.5 ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-100 bg-white'}`}>
-                    <button type="button" onClick={() => insertReusableSection(template)} className="min-w-0 flex-1 text-left">
-                      <span className="block truncate text-[10px] font-semibold">{template.title}</span>
-                      <span className="block text-[9px] text-gray-500">{SECTION_LABELS[template.section.type]} · Use template</span>
-                    </button>
-                    <button type="button" onClick={() => void deleteReusableSection(template)} className="rounded p-1 text-rose-400 hover:bg-rose-500/10" title={l('Delete template')}>
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[10px] text-gray-500">{l('No saved sections yet.')}</p>
-            )}
-          </div>
-
-          </>
-          )}
-
-            </>
-          )}
-
-          {builderPanel === 'add' && (
-          <details open className={`rounded-xl border ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center gap-2 text-xs font-semibold">
-                <Plus className="h-4 w-4 text-violet-400" />
-                {l('Add')}
-              </span>
-              <span className="flex items-center gap-2 text-[9px] text-gray-500">{l('Sections & elements')}<ChevronDown className="h-3.5 w-3.5" /></span>
-            </summary>
-            <div className="space-y-3 border-t border-violet-500/10 p-3">
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-gray-500">{l('Popular sections')}</p>
-                  <span className="text-[9px] text-gray-600">{l('Start simple')}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['hero', 'features', 'services', 'contact'] as SectionType[]).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => addSection(type)}
-                      className={`rounded-lg border px-2 py-2 text-left text-[11px] transition-colors ${
-                        darkMode
-                          ? 'border-white/10 text-gray-300 hover:border-violet-500/40 hover:bg-violet-500/10'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-violet-300 hover:bg-violet-50'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5"><Plus className="h-3 w-3 text-violet-400" />{SECTION_LABELS[type]}</span>
-                    </button>
-                  ))}
-                </div>
-                <details className={`mt-2 rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white'}`}>
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
-                    <span>{l('More sections')}</span>
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </summary>
-                  <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-2.5">
-                    {(['about', 'pricing', 'testimonials', 'footer'] as SectionType[]).map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => addSection(type)}
-                        className={`rounded-lg border px-2 py-2 text-left text-[10px] transition-colors ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        + {SECTION_LABELS[type]}
-                      </button>
-                    ))}
-                  </div>
-                </details>
-              </div>
-
-              {selectedSection && (
-                <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white'}`}>
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
-                    <span className="flex items-center gap-2"><Type className="h-3.5 w-3.5 text-violet-400" />{l('Add element')}</span>
-                    <span className="flex items-center gap-2 text-[9px] text-gray-500">{l('Common first')}<ChevronDown className="h-3.5 w-3.5" /></span>
-                  </summary>
-                  <div className="border-t border-white/10 p-2.5">
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['heading', 'text', 'button', 'image', 'video', 'list'] as WebsiteElementType[]).map((type) => (
-                        <button
-                          key={type}
-                          onClick={() => addElement(type)}
-                          className={`rounded-lg border px-2 py-2 text-[10px] ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                        >
-                          + {ELEMENT_LABELS[type]}
-                        </button>
-                      ))}
-                    </div>
-                    <details className={`mt-2 rounded-lg border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[9px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
-                        <span>{l('Advanced elements')}</span>
-                        <ChevronDown className="h-3 w-3" />
-                      </summary>
-                      <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-2">
-                        {(['divider', 'spacer', 'accordion', 'tabs', 'gallery', 'embed', 'code', 'countdown', 'stats', 'testimonials-slider'] as WebsiteElementType[]).map((type) => (
-                          <button
-                            key={type}
-                            onClick={() => addElement(type)}
-                            className={`rounded-lg border px-2 py-2 text-[9px] ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-gray-200' : 'border-gray-200 text-gray-600 hover:bg-white'}`}
-                          >
-                            + {ELEMENT_LABELS[type]}
-                          </button>
-                        ))}
-                      </div>
-                    </details>
-                  </div>
-                </details>
-              )}
-
-              <p className="text-[9px] leading-relaxed text-gray-500">{l('Choose a section first. Add individual elements only when you need more control.')}</p>
-            </div>
-          </details>
-
-          )}
-
-          {builderPanel === 'layers' && (
-          <div className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-              <div>
-                <span className="text-xs font-semibold">{l('Layers')}</span>
-                <p className="mt-0.5 text-[9px] text-gray-500">{l('Select a section to see its elements.')}</p>
-              </div>
-              <span className="text-[9px] text-gray-500">{sections.length} {l('sections')}</span>
-            </div>
-            <div className="max-h-[420px] space-y-1.5 overflow-auto border-t border-white/10 p-2.5">
-              {sections.map((section, sectionIndex) => (
-                <div key={section.id}>
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedId(section.id); setSelectedElementId(null); }}
-                    className={`flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-xs transition ${selectedId === section.id ? (darkMode ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700') : (darkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-white')}`}
-                  >
-                    <span className="min-w-0 truncate">{sectionIndex + 1}. {SECTION_LABELS[section.type]}</span>
-                    <span className="ml-2 flex shrink-0 items-center gap-1 text-[9px] text-gray-500">
-                      {section.elements.length}
-                      <ChevronRight className={`h-3 w-3 transition-transform ${selectedId === section.id ? 'rotate-90' : ''}`} />
-                    </span>
-                  </button>
-                  {selectedId === section.id && (
-                    <div className="ml-3 mt-1 space-y-1 border-l border-violet-500/20 pl-2">
-                      {section.elements.length ? section.elements.map((element, elementIndex) => (
-                        <button
-                          key={element.id}
-                          type="button"
-                          onClick={() => { setSelectedId(section.id); setSelectedElementId(element.id); setInspectorOpen(true); }}
-                          className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[10px] transition ${selectedElementId === element.id ? (darkMode ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700') : (darkMode ? 'text-gray-400 hover:bg-white/5 hover:text-gray-200' : 'text-gray-600 hover:bg-white')}`}
-                        >
-                          <span className="w-4 shrink-0 text-[9px] text-gray-500">{elementIndex + 1}</span>
-                          <span className="truncate">{ELEMENT_LABELS[element.type]}{element.content ? ` · ${element.content}` : ''}</span>
-                        </button>
-                      )) : (
-                        <p className="px-2 py-1 text-[9px] text-gray-600">{l('No elements in this section.')}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          )}
-
-          {builderPanel === 'add' && (
-            <div className="mt-3 space-y-3">
-          <div className={`mt-3 overflow-hidden rounded-2xl border shadow-sm ${darkMode ? 'border-white/10 bg-[#0d1220]/80' : 'border-gray-200 bg-white'}`}>
-            <div className={`flex items-start justify-between gap-3 border-b px-3.5 py-3 ${darkMode ? 'border-white/[0.06]' : 'border-gray-100'}`}>
-              <div className="min-w-0">
-                <span className="flex items-center gap-2 text-xs font-black">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10">
-                    <Sparkles className="h-3.5 w-3.5 text-violet-400" />
-                  </span>
-                  {l('Tayar AI Builder')}
-                </span>
-                <p className="mt-1 pl-9 text-[8px] leading-relaxed text-gray-500">{l('Build, refine and undo with natural language.')}</p>
-              </div>
-              <span className="mt-0.5 rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-violet-400">{l("Agent")}</span>
-            </div>
-
-            <div className="space-y-3.5 p-3.5">
-              <div className="max-h-36 space-y-2 overflow-auto pr-1">
-                {aiMessages.slice(-4).map((message) => (
-                  <div key={message.id} className={`rounded-xl border px-3 py-2.5 text-[10px] leading-relaxed ${message.role === 'user' ? (darkMode ? 'ml-7 border-violet-500/10 bg-violet-500/[0.09] text-violet-50' : 'ml-7 border-violet-100 bg-violet-50 text-violet-900') : (darkMode ? 'mr-2 border-white/[0.06] bg-white/[0.025] text-gray-300' : 'mr-2 border-gray-100 bg-gray-50/80 text-gray-700')}`}>
-                    <span className={`mb-1.5 block text-[7px] font-black uppercase tracking-[0.14em] ${message.role === 'user' ? 'text-violet-400' : 'text-gray-500'}`}>{message.role === 'user' ? l('You') : 'Tayar AI'}</span>
-                    {l(message.content)}
-                  </div>
-                ))}
-              </div>
-
-              {aiBusy && (
-                <div className="grid grid-cols-4 gap-1.5">
-                  {AI_BUILDER_STAGE_ORDER.map((stage, index) => {
-                    const activeIndex = AI_BUILDER_STAGE_ORDER.indexOf(aiStage === 'idle' || aiStage === 'error' ? 'planning' : aiStage);
-                    const complete = aiStage === 'ready' || index < activeIndex;
-                    const active = aiStage === stage && aiStage !== 'ready';
-                    return (
-                      <div key={stage} className={`rounded-lg border px-1 py-1.5 text-center text-[7px] font-black uppercase tracking-wide ${complete ? 'border-emerald-500/15 bg-emerald-500/[0.07] text-emerald-400' : active ? 'border-violet-500/20 bg-violet-500/[0.08] text-violet-300' : darkMode ? 'border-white/[0.06] text-gray-600' : 'border-gray-100 text-gray-400'}`}>
-                        {complete ? '✓ ' : ''}{l(stage === 'planning' ? 'Planning' : stage === 'building' ? 'Building' : stage === 'styling' ? 'Styling' : 'Ready')}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {aiStage === 'ready' && (
-                <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.035] px-3 py-2">
-                  <span className="flex items-center gap-1.5 text-[8px] font-black text-emerald-400">
-                    <Check className="h-3 w-3" />
-                    {l('Safe patch mode')}
-                  </span>
-                  <span className="text-right text-[8px] text-gray-500">{l('Unrelated content stays intact')}</span>
-                </div>
-              )}
-
-              {aiPlan && (
-                <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/[0.06] bg-black/10' : 'border-gray-100 bg-gray-50/70'}`}>
-                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-gray-500">{l('Website plan')}</p>
-                  <p className="mt-1.5 text-[9px] leading-relaxed text-gray-500">{aiPlan.summary}</p>
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {aiPlan.pages.map((page) => (
-                      <span key={page.name} className={`rounded-full border px-2 py-1 text-[8px] font-semibold ${darkMode ? 'border-white/[0.07] bg-white/[0.025] text-gray-400' : 'border-gray-200 bg-white text-gray-500'}`}>
-                        {page.name} · {page.sections}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-1.5">
-                {(aiStage === 'ready' ? [
-                  'Make the hero more premium and concise',
-                  'Add a pricing section before contact',
-                  'Make selected heading smaller on mobile',
-                  'Make selected button full width on mobile',
-                  'Make selected section two columns',
-                  'Put selected element in column two',
-                  'Make selected element span two columns',
-                  'Duplicate selected element and keep it editable',
-                  'Turn selected element into a reusable component',
-                  'Detach selected component instance',
-                  'Fix accessibility issues across the website',
-                  'Repair mobile and tablet layout without changing desktop',
-                  'Polish this page for responsive, accessibility and visual consistency',
-                  'Review this site like a premium launch and suggest the next safe edit',
-                  'Duplicate this section',
-                  'Duplicate the current page',
-                  'Make global typography more premium',
-                  'Make the header compact and sticky',
-                  'Repair mobile spacing on this page without changing desktop',
-                  'Make all CTAs on this page visually consistent',
-                  'Improve this page without changing unrelated sections',
-                  'Wrap selected element in a glass card',
-                  'Animate selected heading with fade-up',
-                  'Give selected button a premium hover effect',
-                  'Make the hero use a subtle gradient',
-                  'Add a required phone field to contact form',
-                  'Add a second button after the selected element',
-                  'Move the selected element after the text',
-                  'Remove the selected element',
-                  'Reduce selected section spacing on mobile',
-                  'Reduce the hero height on mobile',
-                  'Use a dark background with gold accents',
-                  'Rewrite the current page in Swedish',
-                ] : [
-                  'Modern business website with Home, Services, About and Contact',
-                  'Premium landing page focused on conversions and trust',
-                  'Clean portfolio website with projects, about and contact',
-                ]).map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    onClick={() => { setAiPrompt(example); setAiError(''); }}
-                    disabled={aiBusy}
-                    className={`min-h-8 rounded-lg border px-2 py-1.5 text-left text-[8px] font-semibold leading-tight transition ${darkMode ? 'border-white/[0.07] bg-white/[0.02] text-gray-400 hover:border-violet-500/20 hover:bg-violet-500/[0.05] hover:text-violet-300' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700'} disabled:opacity-40`}
-                  >
-                    {example.split(' ').slice(0, 4).join(' ')}
-                  </button>
-                ))}
-              </div>
-
-              <textarea
-                value={aiPrompt}
-                onChange={(e) => {
-                  setAiPrompt(e.target.value);
-                  setAiError('');
-                  if (aiStage === 'error') setAiStage('idle');
-                }}
-                rows={4}
-                placeholder={aiStage === 'ready'
-                  ? 'Ask Tayar to change this website without rebuilding it...'
-                  : 'Describe the website: business, audience, pages, style, language, location and goal...'}
-                className={`w-full resize-none rounded-xl border px-3.5 py-3 text-xs leading-relaxed outline-none transition focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 ${darkMode ? 'border-white/[0.08] bg-black/15 text-white placeholder:text-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400'}`}
-              />
-
-              {aiStage === 'ready' ? (
-                <div className="space-y-2">
-                  <button
-                    onClick={() => void applyAIChange()}
-                    disabled={!aiPrompt.trim() || aiBusy || aiQualityBusy}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    {aiBusy ? 'Applying AI change...' : l('Apply AI change')}
-                  </button>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void generateWithAI(false)}
-                      disabled={!aiPrompt.trim() || aiBusy || aiQualityBusy}
-                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
-                    >
-                      {l('Rebuild from prompt')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setBuilderPanel('layers'); setLeftSidebarOpen(true); setInspectorOpen(true); }}
-                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-300 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      {l('Edit manually')}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void generateRealImage()}
-                      disabled={aiBusy || aiQualityBusy || !selectedSection}
-                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-cyan-500/15 bg-cyan-500/[0.03] text-cyan-300 hover:bg-cyan-500/[0.07]' : 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100'} disabled:opacity-40`}
-                    >
-                      {l('Generate selected image')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={aiQualityBusy ? stopAIQualityCheck : () => void runAIQualityCheck()}
-                      disabled={aiBusy}
-                      className={`rounded-xl border px-2 py-2.5 text-[9px] font-bold transition ${darkMode ? 'border-emerald-500/15 bg-emerald-500/[0.03] text-emerald-300 hover:bg-emerald-500/[0.07]' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'} disabled:opacity-40`}
-                    >
-                      {aiQualityBusy ? l('Stop check') : l('Quality check')}
-                    </button>
-                  </div>
-                  {aiUndoSnapshot && (
-                    <button
-                      type="button"
-                      onClick={undoLastAIChange}
-                      disabled={aiBusy}
-                      className={`flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-amber-500/15 bg-amber-500/[0.035] text-amber-300 hover:bg-amber-500/[0.07]' : 'border-amber-200 bg-amber-50/70 text-amber-700 hover:bg-amber-100'} disabled:opacity-40`}
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      {l('Undo AI change')}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <button
-                    onClick={() => void generateWithAI(true)}
-                    disabled={!aiPrompt.trim() || aiBusy}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-3 text-xs font-black text-white shadow-sm shadow-violet-950/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    {aiBusy ? aiStageStatus : l('Build with Tayar Agent')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void generateWithAI(false)}
-                    disabled={!aiPrompt.trim() || aiBusy}
-                    className={`w-full rounded-xl border px-3 py-2 text-[9px] font-bold transition ${darkMode ? 'border-white/[0.07] text-gray-400 hover:bg-white/[0.03]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40`}
-                  >
-                    {l('Fast build · no generated images')}
-                  </button>
-                </div>
-              )}
-
-              {aiError && <p className={`rounded-lg border px-2.5 py-2 text-[9px] leading-relaxed ${darkMode ? 'border-red-500/15 bg-red-500/[0.04] text-red-300' : 'border-red-100 bg-red-50 text-red-600'}`}>{l(aiError)}</p>}
-              <p className="px-1 text-[8px] leading-relaxed text-gray-600">{l('AI creates and patches real Tayar pages and sections. Follow-up changes preserve unrelated content and remain editable in the visual builder.')}</p>
-            </div>
-          </div>
-
-          <details className={`mt-3 rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-semibold text-gray-500 [&::-webkit-details-marker]:hidden">
-              <span>{l('Developer export')}</span>
-              <ChevronDown className="h-3.5 w-3.5" />
-            </summary>
-            <div className="border-t border-white/10 p-3">
-              <button
-                onClick={copyHtml}
-                className={`flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-100'}`}
-              >
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? 'Copied HTML' : 'Copy HTML'}
-              </button>
-            </div>
-          </details>
-            </div>
-          )}
-          </div>
-        </aside>
-
-        <main data-tayar-v1-canvas="true"
-          className={`min-h-[600px] flex-1 overflow-auto p-3 lg:p-5 ${
-            darkMode ? 'bg-[#050914]' : 'bg-[#f3f4f6]'
-          }`}
-        >
-          {aiCanvasPreviewBanner}
-          <div
-            aria-disabled={aiCanvasPreview ? true : undefined}
-            onFocusCapture={(event) => {
-              if (!aiCanvasPreview) return;
-              event.stopPropagation();
-              (aiCandidatePreview ? aiCandidateApproveButtonRef : aiPatchApproveButtonRef).current?.focus();
-            }}
-            className={`mx-auto overflow-hidden rounded-xl border shadow-xl transition-all duration-200 ${aiCanvasPreview ? 'pointer-events-none select-none' : ''} ${
-              device === 'mobile' ? 'max-w-[390px]' : device === 'tablet' ? 'max-w-[768px]' : 'w-full max-w-6xl'
-            } ${aiCanvasPreview?.global ? 'ring-2 ring-violet-400 shadow-[0_0_32px_rgba(139,92,246,0.25)]' : ''} ${darkMode ? 'border-white/10 bg-[#0f172a]' : 'border-gray-200 bg-white'}`}
-            style={{ fontFamily: `${canvasTheme.fontFamily}, Arial, sans-serif` }}
-          >
-            {canvasHeaderConfig.enabled && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3" style={{ background: canvasHeaderConfig.backgroundColor, color: canvasHeaderConfig.textColor, borderColor: canvasHeaderConfig.borderColor }}>
-                <div className="flex min-w-0 items-center gap-2 font-bold" style={{ fontSize: `${canvasHeaderConfig.brandSize}px` }}>
-                  {canvasHeaderConfig.logoUrl && <img src={canvasHeaderConfig.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
-                  <span className="truncate">{canvasHeaderConfig.brandText.trim() || canvasSiteName}</span>
-                </div>
-                {device === 'mobile' && canvasHeaderConfig.mobileMenu ? (
-                  <div className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold" style={{ color: canvasHeaderConfig.textColor, borderColor: canvasHeaderConfig.borderColor }}>☰ Menu</div>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-end text-[10px]" style={{ color: canvasHeaderConfig.textColor, gap: `${canvasHeaderConfig.navGap}px`, fontSize: `${canvasHeaderConfig.navSize}px` }}>
-                    {canvasPages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id} className={page.id === canvasActivePageId ? 'font-bold' : ''} style={{ color: page.id === canvasActivePageId ? canvasHeaderConfig.activeColor : canvasHeaderConfig.textColor }}>{page.name}</span>)}
-                    {canvasHeaderConfig.showCta && <span className="px-2.5 py-1.5 font-bold" style={{ background: canvasHeaderConfig.ctaBackgroundColor, color: canvasHeaderConfig.ctaTextColor, borderRadius: `${canvasTheme.buttonRadius}px` }}>{canvasHeaderConfig.ctaLabel}</span>}
-                  </div>
-                )}
-              </div>
-            )}
-            {canvasSections.map((section, sectionIndex) => (
-  <div
-    key={section.id}
-    onDragStart={(e) => handleDragStart(section.id, e)}
-    onDragOver={(e) => handleDragOver(e, section.id)}
-    onDragEnd={handleDragEnd}
-              onDrop={(e) => handleDrop(e, section.id)}
-              draggable={true}
-    className={`relative transition-all duration-150 ${
-      draggedId === section.id ? 'scale-[0.995] opacity-45' : 'opacity-100'
-      }
-    }`}
-  >
-    {dragOverId === section.id && dragOverSectionPosition && draggedId !== section.id && (
-      <span className={`pointer-events-none absolute left-2 right-2 z-[60] h-1 rounded-full bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.8)] ${dragOverSectionPosition === 'before' ? '-top-0.5' : '-bottom-0.5'}`} />
-    )}
-    <SectionPreview
-      section={section}
-      selected={selectedId === section.id}
-      selectedElementId={selectedId === section.id ? selectedElementId : null}
-      selectedElementIds={selectedId === section.id ? selectedElementIds : []}
-      onSelect={() => selectEditorTarget(section.id)}
-      onSelectElement={(elementId, additive, range) => selectCanvasElement(section.id, elementId, additive, range)}
-      onMarqueeSelect={(elementIds, additive) => selectCanvasElements(section.id, elementIds, additive)}
-      draggedElementId={draggedElementId}
-      dragOverElementId={dragOverElementId}
-      dragOverElementPosition={dragOverElementPosition}
-      snapGuides={canvasSnapGuide?.sectionId === section.id ? canvasSnapGuide : null}
-      onElementDragStart={(elementId, e) => handleElementDragStart(section.id, elementId, e)}
-      onElementDragMove={(elementId, e) => handleElementDragMove(section.id, elementId, e)}
-      onElementPointerDragStart={(elementId, e) => handleElementPointerDragStart(section.id, elementId, e)}
-      onElementDragOver={(elementId, e) => handleElementDragOver(section.id, elementId, e)}
-      onElementDrop={(elementId, e) => handleElementDrop(section.id, elementId, e)}
-      onElementDragEnd={handleElementDragEnd}
-      onResizeElementStart={(elementId) => beginElementResize(section.id, elementId)}
-      onResizeElementFrame={(elementId, frame) => resizeElementFrame(section.id, elementId, frame)}
-      onResizeElementEnd={endElementResize}
-      onResetElementPosition={(elementId) => resetElementPosition(section.id, elementId)}
-      onQuickUpdateElement={(elementId, changes) => quickUpdateElement(section.id, elementId, changes)}
-      onOpenMediaLibrary={() => { selectEditorTarget(section.id); setMediaOpen(true); }}
-      onOpenInspector={() => setInspectorOpen(true)}
-      onDuplicateSelectedElement={duplicateSelectedElement}
-      onDeleteSelectedElement={deleteSelectedElement}
-      onInlineContentChange={(elementId, content) => updateInlineElementContent(section.id, elementId, content)}
-      onInlineSourceChange={(elementId, src) => updateInlineElementSource(section.id, elementId, src)}
-      onAddElement={(type) => addElementToSection(section.id, type)}
-      onMoveSection={(direction) => moveSection(section.id, direction)}
-      onDeleteSection={() => deleteSection(section.id)}
-      canMoveSectionUp={sectionIndex > 0}
-      canMoveSectionDown={sectionIndex < canvasSections.length - 1}
-      canDeleteSection={canvasSections.length > 1}
-      device={device}
-      theme={canvasTheme}
-      aiPreview={aiCanvasPreview}
-    />
-    <div data-tayar-v1-root="true"
-      className="group/add-section relative flex h-8 items-center justify-center"
-      draggable={false}
-      onDragStart={(event) => event.stopPropagation()}
-      onClick={(event) => event.stopPropagation()}
-    >
-      <div className="h-px w-full bg-violet-500/0 transition group-hover/add-section:bg-violet-500/20" />
-      <details className="absolute z-40">
-        <summary className="flex cursor-pointer list-none items-center gap-1 rounded-full border border-violet-400/20 bg-[#111122]/90 px-2.5 py-1 text-[9px] font-bold text-violet-300 opacity-60 shadow transition hover:opacity-100 [&::-webkit-details-marker]:hidden">
-          <Plus className="h-3 w-3" /> {l('Add section')}
-        </summary>
-        <div className="absolute left-1/2 top-7 z-50 grid w-56 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#111122] p-2 shadow-2xl">
-          {(Object.keys(SECTION_LABELS) as SectionType[]).map((type) => (
-            <button key={type} type="button" onClick={() => insertSectionAfter(section.id, type)} className="rounded-lg px-2 py-2 text-left text-[10px] font-semibold text-gray-200 hover:bg-white/10">
-              + {SECTION_LABELS[type]}
-            </button>
-          ))}
-        </div>
-      </details>
-    </div>
-  </div>
-))}
-            {footerConfig.enabled && (
-              <div className="border-t border-white/10 px-5 py-5" style={{ background: canvasTheme.secondaryColor, color: canvasTheme.textColor }}>
-                <div className="flex flex-wrap items-start justify-between gap-4 text-[10px]">
-                  <div><p className="font-bold">{canvasHeaderConfig.brandText.trim() || canvasSiteName}</p><p className="mt-1" style={{ color: canvasTheme.mutedTextColor }}>{footerConfig.text.trim() || `© ${new Date().getFullYear()} ${canvasSiteName}. All rights reserved.`}</p></div>
-                  {footerConfig.showNavigation && <div className="flex flex-wrap gap-3" style={{ color: canvasTheme.mutedTextColor }}>{canvasPages.filter((page) => page.showInNavigation !== false).map((page) => <span key={page.id}>{page.name}</span>)}</div>}
-                  <div className="flex flex-wrap gap-3" style={{ color: canvasTheme.mutedTextColor }}>{footerConfig.instagramUrl && <span>Instagram</span>}{footerConfig.facebookUrl && <span>Facebook</span>}{footerConfig.linkedinUrl && <span>LinkedIn</span>}{footerConfig.xUrl && <span>X</span>}</div>
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
-
-        <aside data-tayar-v1-inspector="true" data-tayar-v1-left="true"
-          className={`w-full shrink-0 border-t p-3 transition-[width,padding] duration-200 lg:border-l lg:border-t-0 ${inspectorOpen ? 'lg:w-72 xl:w-80 lg:p-3' : 'lg:w-12 lg:p-2'} ${
-            darkMode
-              ? 'border-white/10 bg-[#0a0a1a]'
-              : 'border-gray-200 bg-white'
-          }`}
-        >
-          <div className="mb-2 hidden lg:flex lg:justify-start">
-            <button
-              type="button"
-              onClick={() => setInspectorOpen((open) => !open)}
-              className={`grid h-8 w-8 place-items-center rounded-lg border transition ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white' : 'border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-              title={l(inspectorOpen ? 'Collapse inspector' : 'Expand inspector')}
-              aria-label={l(inspectorOpen ? 'Collapse inspector' : 'Expand inspector')}
-              aria-expanded={inspectorOpen}
-            >
-              {inspectorOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </button>
-          </div>
-          <div className={inspectorOpen ? 'block' : 'lg:hidden'}>
-          <div className="mb-3 flex items-center gap-2">
-            <Eye className="h-4 w-4 text-violet-400" />
-            <div>
-              <h2 className="text-xs font-bold">{selectedElement ? `${l('Edit')} ${ELEMENT_LABELS[selectedElement.type]}` : l('Inspector')}</h2>
-              <p className="mt-0.5 text-[9px] text-gray-500">{selectedElement ? (selectedElement.type === 'heading' || selectedElement.type === 'text' ? l('Double-click the text on the page for quick editing, or use the controls here.') : l('Change the basics here. Open Advanced only when you need it.')) : l('Select something on the page to start editing.')}</p>
-            </div>
-          </div>
-
-          {selectedElement && (
-            <div className={`mb-3 space-y-2.5 rounded-xl border p-2.5 ${darkMode ? 'border-violet-500/25 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold">{ELEMENT_LABELS[selectedElement.type]}</span>
-                <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => moveSelectedElement('up')} title={l('Move element up')} className={`rounded p-1 ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}>
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  </button>
-                  <button type="button" onClick={() => moveSelectedElement('down')} title={l('Move element down')} className={`rounded p-1 ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}>
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </button>
-                  <span className="ml-1 text-[10px] uppercase text-gray-500">{device}</span>
-                </div>
-              </div>
-              <p className="text-[10px] text-gray-500">{l("Drag this element on the canvas to reorder it.")}</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={duplicateSelectedElement} className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>
-                  <Copy className="h-3.5 w-3.5" />{l('Duplicate')}</button>
-                <button onClick={deleteSelectedElement} className="flex items-center justify-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10">
-                  <Trash2 className="h-3.5 w-3.5" />{l('Delete')}</button>
-              </div>
-              <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-violet-200 bg-white/70'}`}>
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
-                  <span>{l('Structure')}</span><span className="sr-only">{l('Structure & reusable components')}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
-                </summary>
-                <div className="space-y-2 border-t border-white/10 p-2">
-<div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-200 bg-sky-50/70'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-sky-400">{l('Container / Group')}</span>
-                  {!selectedContainer && <button type="button" onClick={createContainerForSelected} className="text-[9px] font-semibold text-sky-400">{l('+ New container')}</button>}
-                </div>
-                <select value={selectedElement.containerId || ''} onChange={(e) => assignSelectedToContainer(e.target.value || undefined)} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}>
-                  <option value="">{l('No container')}</option>
-                  {(selectedSection?.containers || []).map((container) => <option key={container.id} value={container.id}>{container.name}</option>)}
-                </select>
-                {selectedContainer && (
-                  <div className="space-y-2">
-                    <input value={selectedContainer.name} onChange={(e) => updateSelectedContainer({ name: e.target.value })} maxLength={80} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} />
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[9px] text-gray-500">{l('Layout')}<select value={selectedContainer.layout} onChange={(e) => updateSelectedContainer({ layout: e.target.value as 'stack' | 'row' })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="stack">{l('Stack')}</option><option value="row">{l('Row')}</option></select>
-                      </label>
-                      <label className="text-[9px] text-gray-500">{l('Align')}<select value={selectedContainer.align} onChange={(e) => updateSelectedContainer({ align: e.target.value as 'start' | 'center' | 'end' | 'stretch' })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="start">{l('Start')}</option><option value="center">{l('Center')}</option><option value="end">{l('End')}</option><option value="stretch">{l('Stretch')}</option></select>
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <label className="text-[9px] text-gray-500">{l('Gap')}<input type="number" min="0" max="80" value={selectedContainer.gap} onChange={(e) => updateSelectedContainer({ gap: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                      <label className="text-[9px] text-gray-500">{l('Padding')}<input type="number" min="0" max="120" value={selectedContainer.padding} onChange={(e) => updateSelectedContainer({ padding: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                      <label className="text-[9px] text-gray-500">{l('Radius')}<input type="number" min="0" max="120" value={selectedContainer.borderRadius} onChange={(e) => updateSelectedContainer({ borderRadius: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <label className="text-[9px] text-gray-500">{l('Background')}<input type="color" value={/^#[0-9a-f]{6}$/i.test(selectedContainer.backgroundColor) ? selectedContainer.backgroundColor : '#111827'} onChange={(e) => updateSelectedContainer({ backgroundColor: e.target.value })} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" /></label>
-                      <label className="text-[9px] text-gray-500">{l('Border')}<input type="color" value={/^#[0-9a-f]{6}$/i.test(selectedContainer.borderColor) ? selectedContainer.borderColor : '#374151'} onChange={(e) => updateSelectedContainer({ borderColor: e.target.value })} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" /></label>
-                      <label className="text-[9px] text-gray-500">{l('Width')}<input type="number" min="0" max="16" value={selectedContainer.borderWidth} onChange={(e) => updateSelectedContainer({ borderWidth: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                    </div>
-                    <select value={selectedContainer.shadow} onChange={(e) => updateSelectedContainer({ shadow: e.target.value as ElementShadow })} className={`w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-sky-200 bg-white'}`}><option value="none">{l('No shadow')}</option><option value="sm">{l('Small shadow')}</option><option value="md">{l('Medium shadow')}</option><option value="lg">{l('Large shadow')}</option><option value="xl">{l('XL shadow')}</option></select>
-              {selectedContainer && selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="text-[9px] text-gray-500">{l('Container column')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.layoutColumn || 1} onChange={(e) => updateSelectedContainer({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                        <label className="text-[9px] text-gray-500">{l('Span')}<input type="number" min="1" max={sectionColumnCount(selectedSection.layout)} value={selectedContainer.columnSpan || 1} onChange={(e) => updateSelectedContainer({ columnSpan: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-sky-200 bg-white'}`} /></label>
-                      </div>
-                    )}
-                    <button type="button" onClick={deleteSelectedContainer} className="w-full rounded border border-red-500/20 px-2 py-1.5 text-[10px] font-semibold text-red-400">{l('Delete container & ungroup')}</button>
-                  </div>
-                )}
-              </div>
-
-              <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/70'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-amber-400">{l('Reusable Symbols')}</span>
-                  {selectedElement.symbolId ? <button type="button" onClick={detachSelectedSymbol} className="text-[9px] font-semibold text-amber-400">{l('Detach')}</button> : <button type="button" onClick={createSymbolFromSelected} className="text-[9px] font-semibold text-amber-400">{l('Create symbol')}</button>}
-                </div>
-                {selectedElement.symbolId && <p className="text-[9px] text-amber-300">{l("Linked symbol — edits sync across all pages automatically.")}</p>}
-                {!symbols.length ? <p className="text-[9px] text-gray-500">{l('No symbols yet. Create one from this element.')}</p> : (
-                  <div className="max-h-40 space-y-1.5 overflow-auto">
-                    {symbols.map((symbol) => (
-                      <div key={symbol.id} className={`flex items-center gap-1.5 rounded border p-1.5 ${darkMode ? 'border-white/10' : 'border-amber-200 bg-white'}`}>
-                        <button type="button" onClick={() => insertSymbol(symbol)} className="min-w-0 flex-1 truncate text-left text-[10px] font-semibold">+ {symbol.name}</button>
-                        <button type="button" onClick={() => deleteSymbol(symbol.id)} title={l('Delete symbol')} className="text-[10px] text-red-400">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-                </div>
-              </details>
-              {selectedElement.type === 'image' ? (
-                <div className="space-y-2">
-                  <input
-                    value={selectedElement.src || ''}
-                    onChange={(e) => updateSelectedElement({ src: e.target.value })}
-                    placeholder="https://..."
-                    className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setMediaOpen(true)} disabled={!user} className={`flex items-center justify-center gap-2 rounded-lg border px-2 py-2 text-[11px] disabled:opacity-50 ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}><Images className="h-3.5 w-3.5" />{l('Library')}</button>
-                    <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 py-2 text-[11px] ${!user || mediaUploading ? 'pointer-events-none opacity-50' : ''} ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-white'}`}><Upload className="h-3.5 w-3.5" />{l('Upload')}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" disabled={!user || mediaUploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMediaFile(file); event.currentTarget.value = ''; }} /></label>
-                  </div>
-                </div>
-              ) : selectedElement.type === 'video' ? (
-                <div className="space-y-2">
-                  <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder={l('YouTube, Vimeo or direct video URL')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder={l('Video title / accessibility label')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                </div>
-              ) : selectedElement.type === 'embed' ? (
-                <div className="space-y-2">
-                  <input value={selectedElement.src || ''} onChange={(e) => updateSelectedElement({ src: e.target.value })} placeholder="https://... map or embed URL" className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                  <input value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} placeholder={l('Accessibility title')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-                </div>
-              ) : selectedElement.type === 'gallery' ? (
-                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder={l('One image URL per line')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              ) : selectedElement.type === 'accordion' || selectedElement.type === 'tabs' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={8} placeholder={l('Title | Content — one item per line')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">{l('Use one line per item: Title | Content')}</p></div>
-              ) : selectedElement.type === 'countdown' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={3} placeholder={l('2026-12-31T23:59:59 | Launching soon')} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">{l('Format: ISO date/time | label')}</p></div>
-              ) : selectedElement.type === 'stats' || selectedElement.type === 'testimonials-slider' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={7} placeholder={selectedElement.type === 'stats' ? '120 | Projects completed\n98 | Satisfaction %' : 'Alex | Amazing experience\nSarah | Great service'} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-gray-500">{l('One item per line')}: {selectedElement.type === 'stats' ? l('value | label') : l('name | quote')}</p></div>
-              ) : selectedElement.type === 'code' ? (
-                <div className="space-y-1.5"><textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={10} placeholder={l('Custom HTML (scripts and inline event handlers are stripped)')} className={`w-full resize-none rounded-lg border px-3 py-2 font-mono text-[10px] outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} /><p className="text-[9px] text-emerald-500">{l('Safe HTML mode: script/object/embed tags and on* handlers are removed before preview/publish.')}</p></div>
-              ) : selectedElement.type === 'divider' || selectedElement.type === 'spacer' ? (
-                <p className="text-[10px] text-gray-500">{l('Use the styling controls below to adjust')} {selectedElement.type === 'divider' ? l('width, color and opacity') : l('height (Padding × 2)')}.</p>
-              ) : (
-                <textarea value={selectedElement.content} onChange={(e) => updateSelectedElement({ content: e.target.value })} rows={selectedElement.type === 'text' || selectedElement.type === 'list' ? 4 : 2} placeholder={selectedElement.type === 'list' ? l('One list item per line') : undefined} className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`} />
-              )}
-              {selectedElement.type === 'button' && (
-                <div className="space-y-2">
-                  <input
-                    value={selectedElement.href || ''}
-                    onChange={(e) => updateSelectedElement({ href: e.target.value })}
-                    placeholder="#contact, https://... or page:about"
-                    className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                  />
-                  <select
-                    value={(selectedElement.href || '').startsWith('page:') ? selectedElement.href : ''}
-                    onChange={(e) => e.target.value && updateSelectedElement({ href: e.target.value })}
-                    className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${darkMode ? 'border-white/10 bg-[#111122] text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                  >
-                    <option value="">{l('Link to internal page…')}</option>
-                    {pages.map((page) => <option key={page.id} value={`page:${page.slug}`}>{page.name} (/{page.slug})</option>)}
-                  </select>
-                </div>
-              )}
-              <div className={`space-y-2 rounded-lg border p-2.5 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-white'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">{l('Quick style')}</span>
-                  <span className="text-[9px] uppercase text-gray-500">{l(device)}</span>
-                </div>
-                {(selectedElement.type === 'heading' || selectedElement.type === 'text' || selectedElement.type === 'button' || selectedElement.type === 'list') && (
-                  <>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-[10px] text-gray-500">{l('Size')}<input type="number" min="10" max="120" value={effectiveStyle(selectedElement, device).fontSize || 16} onChange={(e) => updateSelectedElement({ style: { fontSize: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
-                <label className="text-[10px] text-gray-500">{l('Text color')}<input type="color" value={effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { color: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" /></label>
-              </div>
-              <label className="block text-[10px] text-gray-500">{l('Alignment')}<select value={effectiveStyle(selectedElement, device).textAlign || 'center'} onChange={(e) => updateSelectedElement({ style: { textAlign: e.target.value as 'left' | 'center' | 'right' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="left">{l('Left')}</option><option value="center">{l('Center')}</option><option value="right">{l('Right')}</option></select></label>
-                  </>
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">{l('Width %')}<input type="number" min="10" max="100" value={effectiveStyle(selectedElement, device).width || 100} onChange={(e) => updateSelectedElement({ style: { width: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
-                  {selectedElement.type === 'button' ? (
-              <label className="text-[10px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { backgroundColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" /></label>
-                  ) : <div />}
-                </div>
-
-              </div>
-
-              {selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
-                <div className={`rounded-lg border p-2 ${darkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50/60'}`}>
-                  <label className="block text-[10px] font-semibold text-indigo-400">{l("Column")}<select value={Math.min(sectionColumnCount(selectedSection.layout), Math.max(1, Number(selectedElement.layoutColumn) || 1))} onChange={(e) => updateSelectedElement({ layoutColumn: Number(e.target.value) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-indigo-200 bg-white'}`}>
-                      {Array.from({ length: sectionColumnCount(selectedSection.layout) }, (_, index) => <option key={index + 1} value={index + 1}>Column {index + 1}</option>)}
-                    </select>
-                  </label>
-                </div>
-              )}
-
-              <details className={`rounded-lg border ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white/70'}`}>
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
-                  <span>{l('Advanced')}</span><span className="sr-only">{l('Advanced design & responsive')}</span>
-                  <span className="flex items-center gap-2 text-[9px] uppercase text-gray-500">{device}<ChevronDown className="h-3.5 w-3.5" /></span>
-                </summary>
-                <div className="space-y-3 border-t border-white/10 p-2">
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button type="button" onClick={resetSelectedElementResponsive} className={`rounded-lg border px-2.5 py-2 text-[10px] font-semibold ${darkMode ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                      {l('Reset')} {l(device)}
-                    </button>
-                    {(['desktop', 'tablet', 'mobile'] as Device[]).filter((sourceDevice) => sourceDevice !== device).map((sourceDevice) => (
-                      <button
-                        key={sourceDevice}
-                        type="button"
-                        onClick={() => copySelectedElementResponsiveFrom(sourceDevice)}
-                        className={`rounded-lg border px-2.5 py-2 text-[10px] font-semibold ${darkMode ? 'border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/10' : 'border-cyan-200 text-cyan-700 hover:bg-cyan-50'}`}
-                        title={`${l('Copy')} ${l(sourceDevice)} → ${l(device)}`}
-                      >
-                        {l('Copy')} {l(sourceDevice)}
-                      </button>
-                    ))}
-                  </div>
-<div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-400">{l('Responsive layout')}</span>
-                  <span className="text-[9px] uppercase text-gray-500">{l(device)}</span>
-                </div>
-                <label className="flex items-center justify-between gap-3 text-[10px] text-gray-500">
-                  Visible on {device}
-                  <input
-                    type="checkbox"
-                    checked={!effectiveStyle(selectedElement, device).hidden}
-                    onChange={(e) => updateSelectedElement({ style: { hidden: !e.target.checked } }, true)}
-                  />
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">{l('Max width px')}<input
-                      type="number"
-                      min="0"
-                      max="2000"
-                      placeholder={l('Auto')}
-                      value={effectiveStyle(selectedElement, device).maxWidth ?? ''}
-                      onChange={(e) => updateSelectedElement({ style: { maxWidth: e.target.value ? Number(e.target.value) : undefined } }, true)}
-                      className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`}
-                    />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Order')}<input
-                      type="number"
-                      min="-50"
-                      max="50"
-                      value={effectiveStyle(selectedElement, device).order ?? 0}
-                      onChange={(e) => updateSelectedElement({ style: { order: Number(e.target.value) } }, true)}
-                      className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`}
-                    />
-                  </label>
-                </div>
-                <div className={`rounded-lg border p-2.5 ${darkMode ? 'border-violet-500/15 bg-violet-500/[0.04]' : 'border-violet-200 bg-violet-50/50'}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold text-violet-400">{l('Free position')}</span>
-                    <button type="button" onClick={() => updateSelectedElement({ style: { positionX: 0, positionY: 0 } }, true)} className="text-[9px] font-semibold text-violet-400 hover:text-violet-300">{l('Reset')}</button>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-gray-500">X<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionX ?? 0} onChange={(e) => updateSelectedElement({ style: { positionX: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} /></label>
-                    <label className="text-[10px] text-gray-500">Y<input type="number" min="-4000" max="4000" value={effectiveStyle(selectedElement, device).positionY ?? 0} onChange={(e) => updateSelectedElement({ style: { positionY: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-violet-200 bg-white'}`} /></label>
-                  </div>
-                  <p className="mt-1.5 text-[9px] text-gray-500">{l('Drag freely on the canvas. Hold Shift while dragging to reorder instead.')}</p>
-                </div>
-                <label className="block text-[10px] text-gray-500">{l('Element position')}<select
-                    value={effectiveStyle(selectedElement, device).alignSelf || 'auto'}
-                    onChange={(e) => updateSelectedElement({ style: { alignSelf: e.target.value as 'auto' | 'start' | 'center' | 'end' | 'stretch' } }, true)}
-                    className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-cyan-200 bg-white'}`}
-                  >
-                    <option value="auto">{l('Auto')}</option>
-                    <option value="start">{l('Start')}</option>
-                    <option value="center">{l('Center')}</option>
-                    <option value="end">{l('End')}</option>
-                    <option value="stretch">{l('Stretch')}</option>
-                  </select>
-                </label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {([['T', 'marginTop'], ['R', 'marginRight'], ['B', 'marginBottom'], ['L', 'marginLeft']] as const).map(([label, key]) => (
-                    <label key={key} className="text-[9px] text-gray-500">M {label}
-                      <input
-                        type="number"
-                        min="-200"
-                        max="400"
-                        value={effectiveStyle(selectedElement, device)[key] ?? 0}
-                        onChange={(e) => updateSelectedElement({ style: { [key]: Number(e.target.value) } }, true)}
-                        className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-cyan-200 bg-white'}`}
-                      />
-                    </label>
-                  ))}
-                </div>
-                {device === 'desktop' && selectedSection && sectionColumnCount(selectedSection.layout) > 1 && (
-                  <label className="block text-[10px] text-gray-500">{l('Column span')}<select
-                      value={Math.min(sectionColumnCount(selectedSection.layout), Math.max(1, Number(effectiveStyle(selectedElement, device).columnSpan) || 1))}
-                      onChange={(e) => updateSelectedElement({ style: { columnSpan: Number(e.target.value) } }, true)}
-                      className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-cyan-200 bg-white'}`}
-                    >
-                      {Array.from({ length: sectionColumnCount(selectedSection.layout) }, (_, index) => <option key={index + 1} value={index + 1}>Span {index + 1} column{index ? 's' : ''}</option>)}
-                    </select>
-                  </label>
-                )}
-              </div>
-
-              {(selectedElement.type === 'heading' || selectedElement.type === 'text' || selectedElement.type === 'button' || selectedElement.type === 'list' || selectedElement.type === 'accordion' || selectedElement.type === 'tabs' || selectedElement.type === 'code' || selectedElement.type === 'countdown' || selectedElement.type === 'stats' || selectedElement.type === 'testimonials-slider') && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-gray-500">{l('Size')}<input type="number" min="10" max="120" value={effectiveStyle(selectedElement, device).fontSize || 16} onChange={(e) => updateSelectedElement({ style: { fontSize: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
-                    </label>
-                    <label className="text-[10px] text-gray-500">{l('Weight')}<select value={effectiveStyle(selectedElement, device).fontWeight || 400} onChange={(e) => updateSelectedElement({ style: { fontWeight: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                        <option value="400">400</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="800">800</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-gray-500">{l('Text color')}<input type="color" value={effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { color: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
-                    </label>
-                    <label className="text-[10px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { backgroundColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
-                    </label>
-                  </div>
-                  <label className="text-[10px] text-gray-500">{l('Alignment')}<select value={effectiveStyle(selectedElement, device).textAlign || 'center'} onChange={(e) => updateSelectedElement({ style: { textAlign: e.target.value as 'left' | 'center' | 'right' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}>
-                      <option value="left">{l('Left')}</option><option value="center">{l('Center')}</option><option value="right">{l('Right')}</option>
-                    </select>
-                  </label>
-                </>
-              )}
-              {(selectedElement.type === 'heading' || selectedElement.type === 'text' || selectedElement.type === 'button' || selectedElement.type === 'list' || selectedElement.type === 'accordion' || selectedElement.type === 'tabs' || selectedElement.type === 'code' || selectedElement.type === 'countdown' || selectedElement.type === 'stats' || selectedElement.type === 'testimonials-slider') && (
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">{l('Line height')}<input type="number" min="0.7" max="4" step="0.05" value={effectiveStyle(selectedElement, device).lineHeight ?? 1.4} onChange={(e) => updateSelectedElement({ style: { lineHeight: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Letter spacing')}<input type="number" min="-10" max="30" step="0.25" value={effectiveStyle(selectedElement, device).letterSpacing ?? 0} onChange={(e) => updateSelectedElement({ style: { letterSpacing: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
-                  </label>
-                </div>
-              )}
-
-              <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-fuchsia-500/20 bg-fuchsia-500/5' : 'border-fuchsia-200 bg-fuchsia-50/60'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-400">{l('Effects')}</span>
-                  <span className="text-[9px] uppercase text-gray-500">{l(device)}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">{l('Opacity %')}<input type="number" min="0" max="100" value={Math.round((effectiveStyle(selectedElement, device).opacity ?? 1) * 100)} onChange={(e) => updateSelectedElement({ style: { opacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Rotate °')}<input type="number" min="-180" max="180" value={effectiveStyle(selectedElement, device).rotate ?? 0} onChange={(e) => updateSelectedElement({ style: { rotate: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                  </label>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">{l('Border width')}<input type="number" min="0" max="24" value={effectiveStyle(selectedElement, device).borderWidth ?? 0} onChange={(e) => updateSelectedElement({ style: { borderWidth: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Border style')}<select value={effectiveStyle(selectedElement, device).borderStyle || 'solid'} onChange={(e) => updateSelectedElement({ style: { borderStyle: e.target.value as 'solid' | 'dashed' | 'dotted' } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                      <option value="solid">{l('Solid')}</option><option value="dashed">{l('Dashed')}</option><option value="dotted">{l('Dotted')}</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">{l('Border color')}<input type="color" value={effectiveStyle(selectedElement, device).borderColor || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { borderColor: e.target.value } }, true)} className="mt-1 h-8 w-full rounded border-0 bg-transparent p-0" />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Shadow')}<select value={effectiveStyle(selectedElement, device).shadow || 'none'} onChange={(e) => updateSelectedElement({ style: { shadow: e.target.value as ElementShadow } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                      <option value="none">{l('None')}</option><option value="sm">{l('Small')}</option><option value="md">{l('Medium')}</option><option value="lg">{l('Large')}</option><option value="xl">{l('XL')}</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="border-t border-fuchsia-500/15 pt-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[9px] font-semibold uppercase tracking-wide text-fuchsia-400">{l('Entrance Animation')}</span>
-                    <span className="text-[9px] text-gray-500">{device}</span>
-                  </div>
-                  <label className="mt-2 block text-[10px] text-gray-500">{l('Animation')}<select value={normalizeElementAnimation(effectiveStyle(selectedElement, device).animation)} onChange={(e) => updateSelectedElement({ style: { animation: e.target.value as ElementAnimation } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                      <option value="none">{l('None')}</option>
-                      <option value="fade">{l('Fade')}</option>
-                      <option value="fade-up">{l('Fade Up')}</option>
-                      <option value="fade-down">{l('Fade Down')}</option>
-                      <option value="fade-left">{l('Fade Left')}</option>
-                      <option value="fade-right">{l('Fade Right')}</option>
-                      <option value="zoom-in">{l('Zoom In')}</option>
-                      <option value="zoom-out">{l('Zoom Out')}</option>
-                      <option value="slide-up">{l('Slide Up')}</option>
-                      <option value="slide-down">{l('Slide Down')}</option>
-                      <option value="slide-left">{l('Slide Left')}</option>
-                      <option value="slide-right">{l('Slide Right')}</option>
-                      <option value="blur-in">{l('Blur In')}</option>
-                      <option value="flip-in">{l('Flip In')}</option>
-                      <option value="bounce-in">{l('Bounce In')}</option>
-                    </select>
-                  </label>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <label className="text-[9px] text-gray-500">{l('Duration ms')}<input type="number" min="100" max="4000" step="50" value={effectiveStyle(selectedElement, device).animationDuration ?? 650} onChange={(e) => updateSelectedElement({ style: { animationDuration: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                    </label>
-                    <label className="text-[9px] text-gray-500">{l('Delay ms')}<input type="number" min="0" max="5000" step="50" value={effectiveStyle(selectedElement, device).animationDelay ?? 0} onChange={(e) => updateSelectedElement({ style: { animationDelay: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                    </label>
-                    <label className="text-[9px] text-gray-500">{l('Distance px')}<input type="number" min="0" max="300" step="2" value={effectiveStyle(selectedElement, device).animationDistance ?? 36} onChange={(e) => updateSelectedElement({ style: { animationDistance: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                    </label>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <label className="text-[9px] text-gray-500">{l('Trigger')}<select value={selectedElement.animationTrigger || 'scroll'} onChange={(e) => updateSelectedElement({ animationTrigger: e.target.value as 'scroll' | 'load' | 'hover' | 'click' })} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                        <option value="scroll">{l('On scroll')}</option><option value="load">{l('On load')}</option><option value="hover">{l('On hover')}</option><option value="click">{l('On click')}</option>
-                      </select>
-                    </label>
-                    <label className="text-[9px] text-gray-500">{l('Easing')}<select value={effectiveStyle(selectedElement, device).animationEasing || 'smooth'} onChange={(e) => updateSelectedElement({ style: { animationEasing: e.target.value as 'smooth' | 'ease' | 'linear' | 'spring' } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                        <option value="smooth">{l('Smooth')}</option><option value="ease">{l('Ease')}</option><option value="linear">{l('Linear')}</option><option value="spring">{l('Spring')}</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <label className="text-[9px] text-gray-500">{l('Iterations')}<input type="number" min="1" max="20" value={effectiveStyle(selectedElement, device).animationIterations ?? 1} onChange={(e) => updateSelectedElement({ style: { animationIterations: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                    </label>
-                    <label className="text-[9px] text-gray-500">{l('Parallax speed')}<input type="number" min="-1" max="1" step="0.05" value={effectiveStyle(selectedElement, device).parallaxSpeed ?? 0} onChange={(e) => updateSelectedElement({ style: { parallaxSpeed: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                    </label>
-                  </div>
-                  <label className="mt-2 flex items-center gap-2 text-[10px] text-gray-500">
-                    <input type="checkbox" checked={selectedElement.animationOnce !== false} onChange={(e) => updateSelectedElement({ animationOnce: e.target.checked })} />{l("Play once per page view")}</label>
-                  <p className="mt-1 text-[9px] text-gray-500">{l("Turn this off to replay when the element leaves and re-enters the viewport.")}</p>
-                </div>
-
-                <div className="border-t border-fuchsia-500/15 pt-3">
-                  <span className="text-[9px] font-semibold uppercase tracking-wide text-fuchsia-400">{l('Hover')}</span>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-gray-500">{l('Scale')}<input type="number" min="0.5" max="1.6" step="0.01" value={effectiveStyle(selectedElement, device).hoverScale ?? 1} onChange={(e) => updateSelectedElement({ style: { hoverScale: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                    </label>
-                    <label className="text-[10px] text-gray-500">{l('Opacity %')}<input type="number" min="0" max="100" value={Math.round((effectiveStyle(selectedElement, device).hoverOpacity ?? effectiveStyle(selectedElement, device).opacity ?? 1) * 100)} onChange={(e) => updateSelectedElement({ style: { hoverOpacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                    </label>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <label className="text-[9px] text-gray-500">{l('Text')}<input type="color" value={effectiveStyle(selectedElement, device).hoverColor || effectiveStyle(selectedElement, device).color || '#ffffff'} onChange={(e) => updateSelectedElement({ style: { hoverColor: e.target.value } }, true)} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" />
-                    </label>
-                    <label className="text-[9px] text-gray-500">{l('Background')}<input type="color" value={effectiveStyle(selectedElement, device).hoverBackgroundColor || effectiveStyle(selectedElement, device).backgroundColor || '#7c3aed'} onChange={(e) => updateSelectedElement({ style: { hoverBackgroundColor: e.target.value } }, true)} className="mt-1 h-7 w-full rounded border-0 bg-transparent p-0" />
-                    </label>
-                    <label className="text-[9px] text-gray-500">{l('Shadow')}<select value={effectiveStyle(selectedElement, device).hoverShadow || 'none'} onChange={(e) => updateSelectedElement({ style: { hoverShadow: e.target.value as ElementShadow } }, true)} className={`mt-1 w-full rounded border px-1.5 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                        <option value="none">{l('None')}</option><option value="sm">S</option><option value="md">M</option><option value="lg">L</option><option value="xl">{l('XL')}</option>
-                      </select>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <label className="text-[10px] text-gray-500">{l('Width %')}<input type="number" min="10" max="100" value={effectiveStyle(selectedElement, device).width || 100} onChange={(e) => updateSelectedElement({ style: { width: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
-                </label>
-                <label className="text-[10px] text-gray-500">{l('Padding')}<input type="number" min="0" max="80" value={effectiveStyle(selectedElement, device).padding || 0} onChange={(e) => updateSelectedElement({ style: { padding: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
-                </label>
-                <label className="text-[10px] text-gray-500">{l('Radius')}<input type="number" min="0" max="80" value={effectiveStyle(selectedElement, device).borderRadius || 0} onChange={(e) => updateSelectedElement({ style: { borderRadius: Number(e.target.value) } }, true)} className={`mt-1 w-full rounded border px-2 py-1.5 text-xs ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
-                </label>
-              </div>
-                </div>
-              </details>
-            </div>
-          )}
-
-          {!selectedSection ? (
-            <div className="py-10 text-center text-xs text-gray-500">{l("Select a section to edit it.")}</div>
-          ) : (
-            <details
-              open={sectionSettingsOpen}
-              onToggle={(event) => setSectionSettingsOpen(event.currentTarget.open)}
-              className={`rounded-xl border ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}
-            >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold">{l('Section settings')}</p>
-                  <p className="truncate text-[9px] text-gray-500">{SECTION_LABELS[selectedSection.type]}{selectedElement ? ` · ${l('collapsed while editing element')}` : ''}</p>
-                </div>
-                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform ${sectionSettingsOpen ? 'rotate-180' : ''}`} />
-              </summary>
-              <div className="space-y-5 border-t border-white/10 p-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">{l("Section")}</label>
-                <div
-                  className={`rounded-lg border px-3 py-2 text-xs ${
-                    darkMode
-                      ? 'border-white/10 bg-white/5 text-gray-300'
-                      : 'border-gray-200 bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  {SECTION_LABELS[selectedSection.type]}
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                  <Type className="h-3.5 w-3.5" />{l("Title")}</label>
-                <input
-                  value={selectedSection.title}
-                  onChange={(e) => updateSelected({ title: e.target.value })}
-                  className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-                    darkMode
-                      ? 'border-white/10 bg-white/5 text-white'
-                      : 'border-gray-200 bg-gray-50 text-gray-900'
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">{l("Description")}</label>
-                <textarea
-                  value={selectedSection.description}
-                  onChange={(e) =>
-                    updateSelected({ description: e.target.value })
-                  }
-                  rows={4}
-                  className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-                    darkMode
-                      ? 'border-white/10 bg-white/5 text-white'
-                      : 'border-gray-200 bg-gray-50 text-gray-900'
-                  }`}
-                />
-              </div>
-
-              <div className={`rounded-xl border p-3 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
-                <label className="block text-[10px] font-semibold text-cyan-400">{l('Section Anchor / ID')}<input value={selectedSection.anchorId || ''} onChange={(e) => updateSelected({ anchorId: normalizeAnchorId(e.target.value, selectedSection.type) })} placeholder={selectedSection.type} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5 text-white' : 'border-cyan-200 bg-white text-gray-900'}`} />
-                </label>
-                <p className="mt-1 text-[9px] text-gray-500">Link to this section with #{sectionDomId(selectedSection)}.</p>
-              </div>
-
-              <div className={`rounded-xl border p-2.5 ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/60'}`}>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-violet-400">{l('Responsive layout')}</span>
-                  <span className="text-[9px] uppercase text-gray-500">{l(device)}</span>
-                </div>
-                {device === 'desktop' ? (
-                  <p className="text-[9px] text-gray-500">{l('Desktop')} · {l('styles')}</p>
-                ) : (
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button type="button" onClick={resetSelectedSectionResponsive} className={`rounded-lg border px-2 py-1.5 text-[9px] font-semibold ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-violet-200 bg-white text-violet-700'}`}>{l('Reset')} {l(device)}</button>
-                    {(['desktop', 'tablet', 'mobile'] as Device[]).filter((sourceDevice) => sourceDevice !== device).map((sourceDevice) => (
-                      <button key={sourceDevice} type="button" onClick={() => copySelectedSectionResponsiveFrom(sourceDevice)} className={`rounded-lg border px-2 py-1.5 text-[9px] font-semibold ${darkMode ? 'border-violet-500/20 text-violet-300 hover:bg-violet-500/10' : 'border-violet-200 bg-white text-violet-700'}`}>{l('Copy')} {l(sourceDevice)}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50/60'}`}>
-                <div>
-                  <p className="text-xs font-bold text-indigo-400">{l('Section Layout')}</p>
-                  <p className="mt-0.5 text-[10px] text-gray-500">{l("Choose columns for this section. Mobile automatically collapses to one column.")}</p>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {([['stack', 'Stack'], ['two-column', '2 Columns'], ['three-column', '3 Columns']] as const).map(([layout, label]) => (
-                    <button key={layout} type="button" onClick={() => setSelectedSectionLayout(layout)} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${(selectedSection.layout || 'stack') === layout ? 'border-indigo-400 bg-indigo-500 text-white' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-100'}`}>{label}</button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">{l('Gap')}<input type="number" min="0" max="80" value={sectionLayoutGap(effectiveSectionStyle(selectedSection, device))} onChange={(e) => updateSelectedSectionResponsive({ layoutGap: Math.min(80, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-indigo-200 bg-white'}`} />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Alignment')}<select value={sectionLayoutAlign(selectedSection)} onChange={(e) => updateSelected({ layoutAlign: e.target.value as SectionLayoutAlign })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-indigo-200 bg-white'}`}>
-                      <option value="start">{l('Start')}</option><option value="center">{l('Center')}</option><option value="end">{l('End')}</option><option value="stretch">{l('Stretch')}</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-
-              <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-fuchsia-500/20 bg-fuchsia-500/5' : 'border-fuchsia-200 bg-fuchsia-50/60'}`}>
-                <div>
-                  <p className="text-xs font-bold text-fuchsia-400">{l('Section Visuals')}</p>
-                  <p className="mt-0.5 text-[10px] text-gray-500">{l("Control background, spacing, height and content width for this section.")}</p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1.5">
-                  {([['color', 'Color'], ['gradient', 'Gradient'], ['image', 'Image']] as const).map(([mode, label]) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => updateSelected({ backgroundMode: mode as SectionBackgroundMode })}
-                      className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${sectionBackgroundMode(selectedSection) === mode ? 'border-fuchsia-400 bg-fuchsia-500 text-white' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-fuchsia-200 bg-white text-fuchsia-700 hover:bg-fuchsia-100'}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {sectionBackgroundMode(selectedSection) === 'gradient' && (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[10px] text-gray-500">{l('From')}<div className="mt-1 flex gap-1.5">
-                          <input type="color" value={safeSectionColor(selectedSection.gradientFrom, selectedSection.background || '#111827')} onChange={(e) => updateSelected({ gradientFrom: e.target.value })} className="h-8 w-10 rounded border-0 bg-transparent" />
-                          <input value={safeSectionColor(selectedSection.gradientFrom, selectedSection.background || '#111827')} onChange={(e) => updateSelected({ gradientFrom: e.target.value })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                        </div>
-                      </label>
-                      <label className="text-[10px] text-gray-500">{l('To')}<div className="mt-1 flex gap-1.5">
-                          <input type="color" value={safeSectionColor(selectedSection.gradientTo, selectedSection.accent || '#7c3aed')} onChange={(e) => updateSelected({ gradientTo: e.target.value })} className="h-8 w-10 rounded border-0 bg-transparent" />
-                          <input value={safeSectionColor(selectedSection.gradientTo, selectedSection.accent || '#7c3aed')} onChange={(e) => updateSelected({ gradientTo: e.target.value })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                        </div>
-                      </label>
-                    </div>
-                    <label className="block text-[10px] text-gray-500">{l('Gradient angle')}<input type="range" min="0" max="360" value={sectionVisualNumber(selectedSection.gradientAngle, 135, 0, 360)} onChange={(e) => updateSelected({ gradientAngle: Number(e.target.value) })} className="mt-1 w-full" />
-                      <span className="text-[9px] text-gray-500">{sectionVisualNumber(selectedSection.gradientAngle, 135, 0, 360)}°</span>
-                    </label>
-                  </div>
-                )}
-
-                {sectionBackgroundMode(selectedSection) === 'image' && (
-                  <div className="space-y-2">
-                    <label className="block text-[10px] text-gray-500">{l('Background image URL')}<input
-                        value={selectedSection.backgroundImage || ''}
-                        onChange={(e) => updateSelected({ backgroundImage: e.target.value })}
-                        placeholder="https://..."
-                        className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`}
-                      />
-                    </label>
-                    {selectedElement?.type === 'image' && selectedElement.src && (
-                      <button type="button" onClick={() => updateSelected({ backgroundImage: selectedElement.src, backgroundMode: 'image' })} className="w-full rounded-lg border border-fuchsia-500/30 px-2 py-1.5 text-[10px] font-semibold text-fuchsia-400">{l("Use selected image as background")}</button>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[10px] text-gray-500">{l('Position')}<select value={sectionBackgroundPosition(selectedSection)} onChange={(e) => updateSelected({ backgroundPosition: e.target.value as SectionBackgroundPosition })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                          <option value="center">{l('Center')}</option><option value="top">{l('Top')}</option><option value="bottom">{l('Bottom')}</option><option value="left">{l('Left')}</option><option value="right">{l('Right')}</option>
-                        </select>
-                      </label>
-                      <label className="text-[10px] text-gray-500">{l('Size')}<select value={sectionBackgroundSize(selectedSection)} onChange={(e) => updateSelected({ backgroundSize: e.target.value as SectionBackgroundSize })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-fuchsia-200 bg-white'}`}>
-                          <option value="cover">{l('Cover')}</option><option value="contain">{l('Contain')}</option><option value="auto">{l('Auto')}</option>
-                        </select>
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[10px] text-gray-500">{l('Overlay')}<input type="color" value={safeSectionColor(selectedSection.overlayColor, '#000000')} onChange={(e) => updateSelected({ overlayColor: e.target.value })} className="mt-1 h-8 w-full rounded border-0 bg-transparent" />
-                      </label>
-                      <label className="text-[10px] text-gray-500">{l('Opacity')}<input type="range" min="0" max="1" step="0.05" value={sectionVisualNumber(selectedSection.overlayOpacity, 0.35, 0, 1)} onChange={(e) => updateSelected({ overlayOpacity: Number(e.target.value) })} className="mt-2 w-full" />
-                        <span className="text-[9px] text-gray-500">{Math.round(sectionVisualNumber(selectedSection.overlayOpacity, 0.35, 0, 1) * 100)}%</span>
-                      </label>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-500">{l('Min height')}<input type="number" min="0" max="1200" value={sectionVisualNumber(effectiveSectionStyle(selectedSection, device).minHeight, 0, 0, 1200)} onChange={(e) => updateSelectedSectionResponsive({ minHeight: Math.min(1200, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Corner radius')}<input type="number" min="0" max="80" value={sectionVisualNumber(selectedSection.sectionRadius, 0, 0, 80)} onChange={(e) => updateSelected({ sectionRadius: Math.min(80, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Vertical padding')}<input type="number" min="0" max="240" value={sectionVisualNumber(effectiveSectionStyle(selectedSection, device).sectionPaddingY, theme.sectionSpacing, 0, 240)} onChange={(e) => updateSelectedSectionResponsive({ sectionPaddingY: Math.min(240, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                  </label>
-                  <label className="text-[10px] text-gray-500">{l('Horizontal padding')}<input type="number" min="0" max="160" value={sectionVisualNumber(effectiveSectionStyle(selectedSection, device).sectionPaddingX, 24, 0, 160)} onChange={(e) => updateSelectedSectionResponsive({ sectionPaddingX: Math.min(160, Math.max(0, Number(e.target.value) || 0)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-fuchsia-200 bg-white'}`} />
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5">
-                  {([['boxed', 'Boxed'], ['full', 'Full width']] as const).map(([width, label]) => (
-                    <button key={width} type="button" onClick={() => updateSelected({ contentWidth: width as SectionContentWidth })} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${sectionContentWidth(selectedSection) === width ? 'border-fuchsia-400 bg-fuchsia-500 text-white' : darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-fuchsia-200 bg-white text-fuchsia-700 hover:bg-fuchsia-100'}`}>{label}</button>
-                  ))}
-                </div>
-              </div>
-
-              {selectedSection.type === 'contact' && (
-                <div className={`space-y-3 rounded-xl border p-3 ${darkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50/60'}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-bold text-cyan-400">{l('Form Builder')}</p>
-                      <p className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{l("Add, edit and reorder the fields visitors must fill in.")}</p>
-                    </div>
-                    <button type="button" onClick={resetContactForm} className="text-[10px] font-semibold text-cyan-400">{l('Reset')}</button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-gray-500">{l('Form name')}<input value={selectedSection.formName || selectedSection.title || 'Contact form'} onChange={(e) => updateSelected({ formName: e.target.value })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
-                    <label className="text-[10px] text-gray-500">{l('Spam protection')}<select value={selectedSection.formSpamProtection === 'enhanced' ? 'enhanced' : 'standard'} onChange={(e) => updateSelected({ formSpamProtection: e.target.value === 'enhanced' ? 'enhanced' : 'standard' })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="standard">{l('Standard')}</option><option value="enhanced">{l('Enhanced')}</option></select></label>
-                  </div>
-                  <label className="block text-[10px] text-gray-500">{l('Minimum completion time')}<input type="number" min="1" max="60" value={selectedSection.formMinimumCompletionSeconds || 3} onChange={(e) => updateSelected({ formMinimumCompletionSeconds: Math.min(60, Math.max(1, Number(e.target.value) || 3)) })} className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label>
-
-                  <div className="space-y-2">
-                    {(selectedSection.formFields ?? createDefaultContactFormFields()).map((field, fieldIndex, fieldList) => (
-                      <div key={field.id} className={`rounded-lg border p-2 ${darkMode ? 'border-white/10 bg-black/10' : 'border-gray-200 bg-white'}`}>
-                        <div className="mb-2 flex items-center gap-1">
-                          <select
-                            value={field.type}
-                            onChange={(e) => updateFormField(field.id, {
-                              type: e.target.value as WebsiteFormFieldType,
-                              options: e.target.value === 'select' || e.target.value === 'radio' ? (field.options?.length ? field.options : ['Option 1', 'Option 2']) : undefined,
-                            })}
-                            className={`min-w-0 flex-1 rounded border px-2 py-1 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}
-                          >
-                            <option value="text">{l('Text')}</option>
-                            <option value="email">{l('Email')}</option>
-                            <option value="tel">{l('Phone')}</option>
-                            <option value="url">URL</option>
-                            <option value="number">{l('Number')}</option>
-                            <option value="date">{l('Date')}</option>
-                            <option value="textarea">{l('Textarea')}</option>
-                            <option value="select">{l('Select')}</option>
-                            <option value="radio">{l('Radio')}</option>
-                            <option value="checkbox">{l('Checkbox')}</option>
-                            <option value="file">{l('File upload')}</option>
-                          </select>
-                          <button type="button" onClick={() => moveFormField(field.id, 'up')} disabled={fieldIndex === 0} className="rounded p-1 text-gray-400 disabled:opacity-25" title={l('Move up')}><ChevronUp className="h-3 w-3" /></button>
-                          <button type="button" onClick={() => moveFormField(field.id, 'down')} disabled={fieldIndex === fieldList.length - 1} className="rounded p-1 text-gray-400 disabled:opacity-25" title={l('Move down')}><ChevronDown className="h-3 w-3" /></button>
-                          <button type="button" onClick={() => deleteFormField(field.id)} className="rounded p-1 text-rose-400" title={l('Delete field')}><Trash2 className="h-3 w-3" /></button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            value={field.label}
-                            onChange={(e) => updateFormField(field.id, { label: e.target.value })}
-                            placeholder={l('Label')}
-                            className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
-                          />
-                          <input
-                            value={field.name}
-                            onChange={(e) => updateFormField(field.id, { name: e.target.value })}
-                            placeholder="field_name"
-                            className={`rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
-                          />
-                        </div>
-                        {field.type !== 'checkbox' && field.type !== 'file' && (
-                          <input
-                            value={field.placeholder || ''}
-                            onChange={(e) => updateFormField(field.id, { placeholder: e.target.value })}
-                            placeholder={l('Placeholder')}
-                            className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
-                          />
-                        )}
-                        {(field.type === 'select' || field.type === 'radio') && (
-                          <textarea
-                            value={(field.options || []).join('\n')}
-                            onChange={(e) => updateFormField(field.id, { options: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })}
-                            rows={3}
-                            placeholder={'One option per line'}
-                            className={`mt-2 w-full resize-none rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
-                          />
-                        )}
-                        <input value={field.helpText || ''} onChange={(e) => updateFormField(field.id, { helpText: e.target.value })} placeholder={l('Help text')} className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />
-                        <div className="mt-2 grid grid-cols-2 gap-2">
-                          <label className="text-[9px] text-gray-500">{l('Width')}<select value={field.width || 'full'} onChange={(e) => updateFormField(field.id, { width: e.target.value === 'half' ? 'half' : 'full' })} className={`mt-1 w-full rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="full">{l('Full width')}</option><option value="half">{l('Half width')}</option></select></label>
-                          {field.type === 'file' ? <label className="text-[9px] text-gray-500">{l('Max file MB')}<input type="number" min="1" max="10" value={field.validation?.maxFileSizeMb || 5} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, maxFileSizeMb: Math.min(10, Math.max(1, Number(e.target.value) || 5)) } })} className={`mt-1 w-full rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></label> : field.type === 'number' ? <label className="text-[9px] text-gray-500">{l('Minimum')} / {l('Maximum')}<div className="mt-1 flex gap-1"><input type="number" value={field.validation?.min ?? ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, min: e.target.value === '' ? undefined : Number(e.target.value) } })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /><input type="number" value={field.validation?.max ?? ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, max: e.target.value === '' ? undefined : Number(e.target.value) } })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></div></label> : <label className="text-[9px] text-gray-500">{l('Min length')} / {l('Max length')}<div className="mt-1 flex gap-1"><input type="number" min="0" max="10000" value={field.validation?.minLength ?? ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, minLength: e.target.value === '' ? undefined : Number(e.target.value) } })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /><input type="number" min="1" max="10000" value={field.validation?.maxLength ?? ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, maxLength: e.target.value === '' ? undefined : Number(e.target.value) } })} className={`min-w-0 flex-1 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /></div></label>}
-                        </div>
-                        {field.type === 'file' && <input value={(field.validation?.accept || []).join(',')} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, accept: e.target.value.split(',').map((item) => item.trim()).filter(Boolean) } })} placeholder="image/png, application/pdf" className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />}
-                        {!['file', 'number', 'date', 'checkbox', 'select', 'radio'].includes(field.type) && <input value={field.validation?.pattern || ''} onChange={(e) => updateFormField(field.id, { validation: { ...field.validation, pattern: e.target.value } })} placeholder={l('Validation pattern')} className={`mt-2 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />}
-                        <div className="mt-2 grid grid-cols-3 gap-2">
-                          <select value={field.conditions?.[0]?.fieldName || ''} onChange={(e) => updateFormField(field.id, { conditions: e.target.value ? [{ fieldName: e.target.value, operator: field.conditions?.[0]?.operator || 'equals', value: field.conditions?.[0]?.value || '' }] : [] })} className={`rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="">{l('Always visible')}</option>{fieldList.filter((candidate) => candidate.id !== field.id).map((candidate) => <option key={candidate.id} value={candidate.name}>{l('When')} {candidate.label}</option>)}</select>
-                          {field.conditions?.[0] && <select value={field.conditions[0].operator} onChange={(e) => updateFormField(field.id, { conditions: [{ ...field.conditions![0], operator: e.target.value as NonNullable<WebsiteFormField['conditions']>[number]['operator'] }] })} className={`rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}><option value="equals">{l('Equals')}</option><option value="not-equals">{l('Not equal')}</option><option value="contains">{l('Contains')}</option><option value="not-empty">{l('Is not empty')}</option><option value="empty">{l('Is empty')}</option></select>}
-                          {field.conditions?.[0] && !['empty', 'not-empty'].includes(field.conditions[0].operator) && <input value={field.conditions[0].value || ''} onChange={(e) => updateFormField(field.id, { conditions: [{ ...field.conditions![0], value: e.target.value }] })} placeholder={l('Equals value')} className={`rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} />}
-                        </div>
-                        <label className="mt-2 flex items-center gap-2 text-[10px] text-gray-400">
-                          <input type="checkbox" checked={field.required} onChange={(e) => updateFormField(field.id, { required: e.target.checked })} />{l("Required field")}</label>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {(['text', 'email', 'tel', 'number', 'date', 'textarea', 'select', 'radio', 'checkbox', 'file'] as WebsiteFormFieldType[]).map((type) => (
-                      <button key={type} type="button" onClick={() => addFormField(type)} className={`rounded-lg border px-2 py-1.5 text-[10px] font-semibold ${darkMode ? 'border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/10' : 'border-cyan-200 text-cyan-700 hover:bg-cyan-100'}`}>
-                        + {type === 'tel' ? 'Phone' : type.charAt(0).toUpperCase() + type.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className={`space-y-2 rounded-lg border p-2 ${darkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
-                    <div className="flex items-center justify-between"><strong className="text-[10px] text-violet-400">{l('Automations')}</strong><div className="flex gap-1"><button type="button" onClick={() => addFormAutomation('email')} className="text-[9px] font-semibold text-cyan-400">+ {l('Email')}</button><button type="button" onClick={() => addFormAutomation('webhook')} className="text-[9px] font-semibold text-cyan-400">+ {l('Webhook')}</button></div></div>
-                    {!(selectedSection.formAutomations || []).length && <p className="text-[9px] text-gray-500">{l('No automation runs after submission.')}</p>}
-                    {(selectedSection.formAutomations || []).map((automation) => <div key={automation.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2"><input type="checkbox" checked={automation.enabled} onChange={(e) => updateFormAutomation(automation.id, { enabled: e.target.checked })} /><input value={automation.destination} onChange={(e) => updateFormAutomation(automation.id, { destination: e.target.value })} placeholder={automation.action === 'email' ? 'team@example.com' : 'https://api.example.com/hook'} className={`min-w-0 rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`} /><button type="button" onClick={() => deleteFormAutomation(automation.id)} className="text-rose-400" aria-label={l('Delete automation')}>×</button></div>)}
-                    <p className="text-[8px] text-gray-500">{l('Webhook payloads are signed and delivery attempts appear in the submission log.')}</p>
-                  </div>
-
-                  <label className="block text-[10px] text-gray-500">{l('After submit')}<select
-                      value={selectedSection.formSuccessAction === 'redirect' ? 'redirect' : 'message'}
-                      onChange={(e) => updateSelected({ formSuccessAction: e.target.value === 'redirect' ? 'redirect' : 'message' })}
-                      className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-[#111122]' : 'border-gray-200 bg-white'}`}
-                    >
-                      <option value="message">{l('Show success message')}</option>
-                      <option value="redirect">{l('Redirect to thank-you page / URL')}</option>
-                    </select>
-                  </label>
-
-                  {selectedSection.formSuccessAction === 'redirect' ? (
-                    <div className="space-y-2">
-                      <label className="block text-[10px] text-gray-500">{l('Redirect target')}<input
-                          value={selectedSection.formRedirectUrl || ''}
-                          onChange={(e) => updateSelected({ formRedirectUrl: e.target.value })}
-                          placeholder="page:thank-you or https://example.com/thanks"
-                          className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
-                        />
-                      </label>
-                      <div className="flex flex-wrap gap-1">
-                        {pages.map((page) => (
-                          <button key={page.id} type="button" onClick={() => updateSelected({ formRedirectUrl: `page:${page.slug}` })} className={`rounded border px-2 py-1 text-[9px] ${darkMode ? 'border-white/10 text-gray-300' : 'border-gray-200 text-gray-600'}`}>{page.name}</button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <label className="block text-[10px] text-gray-500">{l('Success message')}<input
-                        value={selectedSection.formSuccessMessage || 'Thanks! Your message has been sent.'}
-                        onChange={(e) => updateSelected({ formSuccessMessage: e.target.value })}
-                        className={`mt-1 w-full rounded border px-2 py-1.5 text-[10px] ${darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'}`}
-                      />
-                    </label>
-                  )}
-                </div>
-              )}
-
-              {selectedSection.type !== 'footer' && (
-                <>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-gray-400">{l("Button Text")}</label>
-                    <input
-                      value={selectedSection.buttonText}
-                      onChange={(e) =>
-                        updateSelected({ buttonText: e.target.value })
-                      }
-                      className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-                        darkMode
-                          ? 'border-white/10 bg-white/5 text-white'
-                          : 'border-gray-200 bg-gray-50 text-gray-900'
-                      }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                      <Link className="h-3.5 w-3.5" />{l("Button Link")}</label>
-                    <input
-                      value={selectedSection.buttonUrl}
-                      onChange={(e) =>
-                        updateSelected({ buttonUrl: e.target.value })
-                      }
-                      placeholder="#contact or https://..."
-                      className={`w-full rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-                        darkMode
-                          ? 'border-white/10 bg-white/5 text-white'
-                          : 'border-gray-200 bg-gray-50 text-gray-900'
-                      }`}
-                    />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                  <Palette className="h-3.5 w-3.5" />{l('Background')}</label>
-
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={selectedSection.background}
-                    onChange={(e) =>
-                      updateSelected({ background: e.target.value })
-                    }
-                    className="h-9 w-12 cursor-pointer rounded border-0 bg-transparent"
-                  />
-                  <input
-                    value={selectedSection.background}
-                    onChange={(e) =>
-                      updateSelected({ background: e.target.value })
-                    }
-                    className={`flex-1 rounded-lg border px-3 py-2 text-xs uppercase outline-none focus:border-violet-500 ${
-                      darkMode
-                        ? 'border-white/10 bg-white/5 text-white'
-                        : 'border-gray-200 bg-gray-50 text-gray-900'
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">{l("Accent")}</label>
-
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={selectedSection.accent}
-                    onChange={(e) =>
-                      updateSelected({ accent: e.target.value })
-                    }
-                    className="h-9 w-12 cursor-pointer rounded border-0 bg-transparent"
-                  />
-                  <input
-                    value={selectedSection.accent}
-                    onChange={(e) =>
-                      updateSelected({ accent: e.target.value })
-                    }
-                    className={`flex-1 rounded-lg border px-3 py-2 text-xs uppercase outline-none focus:border-violet-500 ${
-                      darkMode
-                        ? 'border-white/10 bg-white/5 text-white'
-                        : 'border-gray-200 bg-gray-50 text-gray-900'
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-violet-300">{l("AI Image")}</label>
-
-                  <textarea
-                    value={selectedSection.imagePrompt || ''}
-                    onChange={(e) =>
-                      updateSelected({ imagePrompt: e.target.value })
-                    }
-                    rows={3}
-                    placeholder={l('Describe the image you want for this section...')}
-                    className={`w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none focus:border-violet-500 ${
-                      darkMode
-                        ? 'border-white/10 bg-white/5 text-white'
-                        : 'border-gray-200 bg-gray-50 text-gray-900'
-                    }`}
-                  />
-                </div>
-
-                <button
-                  onClick={generateImagePrompt}
-                  disabled={aiBusy || aiQualityBusy}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {aiBusy ? 'Generating...' : '✨ Generate AI Prompt'}
-                </button>
-
-                <button
-                  onClick={generateRealImage}
-                  disabled={aiBusy || aiQualityBusy}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {aiBusy ? 'Generating Image...' : '🖼️ Generate Image'}
-                </button>
-
-                {selectedSection.image &&
-                  /^https?:\/\//i.test(selectedSection.image) && (
-                    <img
-                      src={selectedSection.image}
-                      alt={selectedSection.title}
-                      className="mt-2 w-full rounded-lg border border-white/10 object-cover"
-                    />
-                  )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => moveSection(selectedSection.id, 'up')}
-                  className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs ${
-                    darkMode
-                      ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <ChevronUp className="h-3.5 w-3.5" />
-                  Up
-                </button>
-
-                <button
-                  onClick={() => moveSection(selectedSection.id, 'down')}
-                  className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs ${
-                    darkMode
-                      ? 'border-white/10 text-gray-300 hover:bg-white/5'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <ChevronDown className="h-3.5 w-3.5" />{l("Down")}</button>
-              </div>
-
-              <button
-                onClick={() => deleteSection(selectedSection.id)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10"
-              >
-                <Trash2 className="h-3.5 w-3.5" />{l("Delete Section")}</button>
-              </div>
-            </details>
-          )}
-          </div>
-        </aside>
+        <BuilderLegacySidebar
+              activePage={activePage}
+              activePageId={activePageId}
+              addElement={addElement}
+              addPage={addPage}
+              addSection={addSection}
+              addSectionTemplate={addSectionTemplate}
+              advancedSiteSettingsOpen={advancedSiteSettingsOpen}
+              aiBusy={aiBusy}
+              aiError={aiError}
+              aiMessages={aiMessages}
+              aiPlan={aiPlan}
+              aiPrompt={aiPrompt}
+              aiQualityBusy={aiQualityBusy}
+              aiStage={aiStage}
+              aiStageStatus={aiStageStatus}
+              aiUndoSnapshot={aiUndoSnapshot}
+              applyAIChange={applyAIChange}
+              applyDesignSystemPreset={applyDesignSystemPreset}
+              applyPageTemplate={applyPageTemplate}
+              applyThemeToAllPages={applyThemeToAllPages}
+              applyThemeToCurrentPage={applyThemeToCurrentPage}
+              billingEntitlements={billingEntitlements}
+              builderPanel={builderPanel}
+              copied={copied}
+              copyHtml={copyHtml}
+              darkMode={darkMode}
+              deleteActivePage={deleteActivePage}
+              deleteReusableSection={deleteReusableSection}
+              designSystemReport={designSystemReport}
+              duplicateActivePage={duplicateActivePage}
+              duplicatePageAsTranslation={duplicatePageAsTranslation}
+              faviconUrl={faviconUrl}
+              footerConfig={footerConfig}
+              generateRealImage={generateRealImage}
+              generateWithAI={generateWithAI}
+              headerConfig={headerConfig}
+              homePageId={homePageId}
+              insertReusableSection={insertReusableSection}
+              l={l}
+              leftSidebarOpen={leftSidebarOpen}
+              localization={localization}
+              makeActivePageHome={makeActivePageHome}
+              movePage={movePage}
+              openBillingWithMessage={openBillingWithMessage}
+              pages={pages}
+              pageSettingsOpen={pageSettingsOpen}
+              prefs={prefs}
+              productionConfig={productionConfig}
+              qualityDiagnostics={qualityDiagnostics}
+              recoveryAvailable={recoveryAvailable}
+              repairActiveDesignSystem={repairActiveDesignSystem}
+              requireBillingFeature={requireBillingFeature}
+              restoreRecoverySnapshot={restoreRecoverySnapshot}
+              reusableBusy={reusableBusy}
+              reusableError={reusableError}
+              reusableSections={reusableSections}
+              runAIQualityCheck={runAIQualityCheck}
+              saveSelectedSectionAsReusable={saveSelectedSectionAsReusable}
+              sections={sections}
+              selectedElementId={selectedElementId}
+              selectedId={selectedId}
+              selectedSection={selectedSection}
+              seo={seo}
+              setAdvancedSiteSettingsOpen={setAdvancedSiteSettingsOpen}
+              setAiError={setAiError}
+              setAiPrompt={setAiPrompt}
+              setAiStage={setAiStage}
+              setBuilderPanel={setBuilderPanel}
+              setFaviconUrl={setFaviconUrl}
+              setFooterConfig={setFooterConfig}
+              setHeaderConfig={setHeaderConfig}
+              setInspectorOpen={setInspectorOpen}
+              setLeftSidebarOpen={setLeftSidebarOpen}
+              setLocalization={setLocalization}
+              setPageSettingsOpen={setPageSettingsOpen}
+              setProductionConfig={setProductionConfig}
+              setSaved={setSaved}
+              setSelectedElementId={setSelectedElementId}
+              setSelectedId={setSelectedId}
+              setSeo={setSeo}
+              setSiteEnhancements={setSiteEnhancements}
+              setTheme={setTheme}
+              siteAudit={siteAudit}
+              siteEnhancements={siteEnhancements}
+              stopAIQualityCheck={stopAIQualityCheck}
+              switchPage={switchPage}
+              theme={theme}
+              undoLastAIChange={undoLastAIChange}
+              updateActivePageMeta={updateActivePageMeta}
+            />
+
+        <BuilderLegacyCanvas
+              addElementToSection={addElementToSection}
+              aiCandidateApproveButtonRef={aiCandidateApproveButtonRef}
+              aiCandidatePreview={aiCandidatePreview}
+              aiCanvasPreview={aiCanvasPreview}
+              aiCanvasPreviewBanner={aiCanvasPreviewBanner}
+              aiPatchApproveButtonRef={aiPatchApproveButtonRef}
+              beginElementResize={beginElementResize}
+              canvasActivePageId={canvasActivePageId}
+              canvasHeaderConfig={canvasHeaderConfig}
+              canvasPages={canvasPages}
+              canvasSections={canvasSections}
+              canvasSiteName={canvasSiteName}
+              canvasSnapGuide={canvasSnapGuide}
+              canvasTheme={canvasTheme}
+              darkMode={darkMode}
+              deleteSection={deleteSection}
+              deleteSelectedElement={deleteSelectedElement}
+              device={device}
+              draggedElementId={draggedElementId}
+              draggedId={draggedId}
+              dragOverElementId={dragOverElementId}
+              dragOverElementPosition={dragOverElementPosition}
+              dragOverId={dragOverId}
+              dragOverSectionPosition={dragOverSectionPosition}
+              duplicateSelectedElement={duplicateSelectedElement}
+              endElementResize={endElementResize}
+              footerConfig={footerConfig}
+              handleDragEnd={handleDragEnd}
+              handleDragOver={handleDragOver}
+              handleDragStart={handleDragStart}
+              handleDrop={handleDrop}
+              handleElementDragEnd={handleElementDragEnd}
+              handleElementDragMove={handleElementDragMove}
+              handleElementDragOver={handleElementDragOver}
+              handleElementDragStart={handleElementDragStart}
+              handleElementDrop={handleElementDrop}
+              handleElementPointerDragStart={handleElementPointerDragStart}
+              insertSectionAfter={insertSectionAfter}
+              l={l}
+              moveSection={moveSection}
+              quickUpdateElement={quickUpdateElement}
+              resetElementPosition={resetElementPosition}
+              resizeElementFrame={resizeElementFrame}
+              selectCanvasElement={selectCanvasElement}
+              selectCanvasElements={selectCanvasElements}
+              selectedElementId={selectedElementId}
+              selectedElementIds={selectedElementIds}
+              selectedId={selectedId}
+              selectEditorTarget={selectEditorTarget}
+              setInspectorOpen={setInspectorOpen}
+              setMediaOpen={setMediaOpen}
+              updateInlineElementContent={updateInlineElementContent}
+              updateInlineElementSource={updateInlineElementSource}
+            />
+
+        <BuilderLegacyInspector
+              addFormAutomation={addFormAutomation}
+              addFormField={addFormField}
+              aiBusy={aiBusy}
+              aiQualityBusy={aiQualityBusy}
+              assignSelectedToContainer={assignSelectedToContainer}
+              copySelectedElementResponsiveFrom={copySelectedElementResponsiveFrom}
+              copySelectedSectionResponsiveFrom={copySelectedSectionResponsiveFrom}
+              createContainerForSelected={createContainerForSelected}
+              createSymbolFromSelected={createSymbolFromSelected}
+              darkMode={darkMode}
+              deleteFormAutomation={deleteFormAutomation}
+              deleteFormField={deleteFormField}
+              deleteSection={deleteSection}
+              deleteSelectedContainer={deleteSelectedContainer}
+              deleteSelectedElement={deleteSelectedElement}
+              deleteSymbol={deleteSymbol}
+              detachSelectedSymbol={detachSelectedSymbol}
+              device={device}
+              duplicateSelectedElement={duplicateSelectedElement}
+              generateImagePrompt={generateImagePrompt}
+              generateRealImage={generateRealImage}
+              insertSymbol={insertSymbol}
+              inspectorOpen={inspectorOpen}
+              l={l}
+              mediaUploading={mediaUploading}
+              moveFormField={moveFormField}
+              moveSection={moveSection}
+              moveSelectedElement={moveSelectedElement}
+              pages={pages}
+              resetContactForm={resetContactForm}
+              resetSelectedElementResponsive={resetSelectedElementResponsive}
+              resetSelectedSectionResponsive={resetSelectedSectionResponsive}
+              sectionSettingsOpen={sectionSettingsOpen}
+              selectedContainer={selectedContainer}
+              selectedElement={selectedElement}
+              selectedSection={selectedSection}
+              setInspectorOpen={setInspectorOpen}
+              setMediaOpen={setMediaOpen}
+              setSectionSettingsOpen={setSectionSettingsOpen}
+              setSelectedSectionLayout={setSelectedSectionLayout}
+              symbols={symbols}
+              theme={theme}
+              updateFormAutomation={updateFormAutomation}
+              updateFormField={updateFormField}
+              updateSelected={updateSelected}
+              updateSelectedContainer={updateSelectedContainer}
+              updateSelectedElement={updateSelectedElement}
+              updateSelectedSectionResponsive={updateSelectedSectionResponsive}
+              uploadMediaFile={uploadMediaFile}
+              user={user}
+            />
       </div>
     </div>
   );

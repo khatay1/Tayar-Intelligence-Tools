@@ -14,6 +14,8 @@ const adminUsers = read('src/components/admin/AdminUsers.tsx');
 const subscription = read('src/components/workspace/SubscriptionView.tsx');
 const gate = read('src/modules/shared/ToolAccessGate.tsx');
 const builder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');
+const publishHandler = read('src/modules/website-builder/core/editor-publish-handler.ts');
+const unpublishHandler = read('src/modules/website-builder/core/editor-unpublish-handler.ts');
 const publishedService = read('src/modules/website-builder/services/publishedWebsiteService.ts');
 const publishVersionService = read('src/modules/website-builder/services/publishVersionService.ts');
 const sharedBilling = read('supabase/functions/_shared/billing.ts');
@@ -118,15 +120,19 @@ check('Stripe webhook events are claimed idempotently and reject stale updates',
 check('Publish and unpublish compensate storage when project state fails',
   publishedService.includes('snapshotPublishedWebsiteFiles') &&
   publishedService.includes('restorePublishedWebsiteSnapshot') &&
-  builder.includes('publicationStateCommitted') &&
-  builder.includes('await restorePublishedWebsiteSnapshot'));
+  publishHandler.includes('publicationStateCommitted') &&
+  publishHandler.includes('await restorePublishedWebsiteSnapshot') &&
+  unpublishHandler.includes('await restorePublishedWebsiteSnapshot') &&
+  builder.includes('createPublishWebsiteHandler') &&
+  builder.includes('createUnpublishWebsiteHandler'));
 check('Release archive uploads clean up partial failures',
   publishedService.includes('uploadedPaths') &&
   publishedService.includes('Archive cleanup was incomplete'));
 check('Release archive deletion preserves record/file consistency',
   archiveDeleteFlow.indexOf(".from('website_publish_versions')") < archiveDeleteFlow.indexOf('removeWebsitePublishVersionArchiveFiles') &&
   publishVersionService.includes('discardWebsitePublishVersionArchive') &&
-  builder.includes('await discardWebsitePublishVersionArchive(cleanup)'));
+  publishHandler.includes('await discardWebsitePublishVersionArchive(cleanup)') &&
+  builder.includes('createPublishWebsiteHandler'));
 
 check('Optional analytics defaults off and phantom marketing consent is removed',
   cookieConsent.includes('analytics: false') &&

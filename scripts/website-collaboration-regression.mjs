@@ -6,6 +6,9 @@ const cloud = await readFile('src/modules/website-builder/services/projectCloudS
 const service = await readFile('src/modules/website-builder/services/websiteCollaborationService.ts', 'utf8');
 const panel = await readFile('src/modules/website-builder/v2-ui/WebsiteCollaborationPanel.tsx', 'utf8');
 const editor = await readFile('src/modules/website-builder/WebsiteBuilderTool.tsx', 'utf8');
+const publishHandler = await readFile('src/modules/website-builder/core/editor-publish-handler.ts', 'utf8');
+const rollbackHandler = await readFile('src/modules/website-builder/core/editor-rollback-handler.ts', 'utf8');
+const unpublishHandler = await readFile('src/modules/website-builder/core/editor-unpublish-handler.ts', 'utf8');
 
 assert.match(migration, /create table if not exists public\.website_project_comments/i);
 assert.match(migration, /create table if not exists public\.website_project_presence/i);
@@ -21,9 +24,12 @@ assert.match(migration, /alter publication supabase_realtime add table public\.w
 assert.match(cloud, /expectedUpdatedAt/);
 assert.match(cloud, /query = query\.eq\('updated_at', expectedUpdatedAt\)/);
 assert.match(cloud, /A teammate saved a newer version/);
-assert.match(editor, /expectedUpdatedAt: publishRevision/);
-assert.match(editor, /expectedUpdatedAt: rollbackRevision/);
-assert.match(editor, /expectedUpdatedAt: unpublishRevision/);
+assert.match(publishHandler, /expectedUpdatedAt: publishRevision/);
+assert.match(rollbackHandler, /expectedUpdatedAt: rollbackRevision/);
+assert.match(unpublishHandler, /expectedUpdatedAt: unpublishRevision/);
+assert.match(editor, /createPublishWebsiteHandler/);
+assert.match(editor, /createRollbackPublishVersionHandler/);
+assert.match(editor, /createUnpublishWebsiteHandler/);
 
 assert.match(service, /list_website_project_comments/);
 assert.match(service, /website_project_presence/);

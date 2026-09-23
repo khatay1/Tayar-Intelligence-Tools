@@ -177,6 +177,40 @@ for (const [label, path] of [
 }
 
 const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
+const aiChangeHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-ai-change-handler.ts');
+const aiChangeHandlerSource = existsSync(aiChangeHandlerPath) ? readFileSync(aiChangeHandlerPath, 'utf8') : '';
+const publishHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-publish-handler.ts');
+const publishHandlerSource = existsSync(publishHandlerPath) ? readFileSync(publishHandlerPath, 'utf8') : '';
+const v2NativeHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-v2-native-handler.ts');
+const v2NativeHandlerSource = existsSync(v2NativeHandlerPath) ? readFileSync(v2NativeHandlerPath, 'utf8') : '';
+const aiGenerationHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-ai-generation-handler.ts');
+const aiGenerationHandlerSource = existsSync(aiGenerationHandlerPath) ? readFileSync(aiGenerationHandlerPath, 'utf8') : '';
+const saveHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-save-handler.ts');
+const saveHandlerSource = existsSync(saveHandlerPath) ? readFileSync(saveHandlerPath, 'utf8') : '';
+const projectAndElementHandlers = ['editor-import-backup-handler.ts', 'editor-reset-project-handler.ts', 'editor-v2-duplicate-handler.ts', 'editor-v2-delete-handler.ts']
+  .map((name) => resolve(root, 'src/modules/website-builder/core', name))
+  .map((file) => existsSync(file) ? readFileSync(file, 'utf8') : '')
+  .join('\n');
+const canvasActionHandlers = ['editor-arrange-handler.ts', 'editor-drag-prepare-handler.ts', 'editor-drag-update-handler.ts']
+  .map((name) => resolve(root, 'src/modules/website-builder/core', name))
+  .map((file) => existsSync(file) ? readFileSync(file, 'utf8') : '')
+  .join('\n');
+const lifecycleHandlers = ['editor-apply-project-handler.ts', 'editor-recover-published-handler.ts', 'editor-client-handoff-handler.ts']
+  .map((name) => resolve(root, 'src/modules/website-builder/core', name))
+  .map((file) => existsSync(file) ? readFileSync(file, 'utf8') : '')
+  .join('\n');
+const editorActionHandlers = ['editor-duplicate-project-handler.ts', 'editor-ai-quality-handler.ts', 'editor-ai-image-handler.ts']
+  .map((name) => resolve(root, 'src/modules/website-builder/core', name))
+  .map((file) => existsSync(file) ? readFileSync(file, 'utf8') : '')
+  .join('\n');
+const publicationHandlers = ['editor-rollback-handler.ts', 'editor-share-preview-handler.ts', 'editor-unpublish-handler.ts']
+  .map((name) => resolve(root, 'src/modules/website-builder/core', name))
+  .map((file) => existsSync(file) ? readFileSync(file, 'utf8') : '')
+  .join('\n');
+const extractedPanelSources = ['BuilderAiPanel.tsx', 'BuilderSitePanel.tsx', 'BuilderSettingsPanel.tsx', 'BuilderLegacySectionSettings.tsx', 'BuilderLegacyHeader.tsx', 'BuilderLegacySidebar.tsx', 'BuilderLegacyInspector.tsx', 'BuilderLegacyLeads.tsx', 'BuilderLegacyCanvas.tsx', 'BuilderV2Canvas.tsx', 'BuilderLegacyBilling.tsx', 'BuilderLegacyAnalytics.tsx', 'BuilderLegacyReleaseHistory.tsx', 'BuilderLegacyLaunchCenter.tsx', 'BuilderLegacyCommandPalette.tsx']
+  .map((name) => resolve(root, 'src/modules/website-builder/v2-ui', name))
+  .map((file) => existsSync(file) ? readFileSync(file, 'utf8') : '')
+  .join('\n');
 const editorAIPatchReview = existsSync(editorAIPatchReviewPath) ? readFileSync(editorAIPatchReviewPath, 'utf8') : '';
 const editorAIScope = existsSync(editorAIScopePath) ? readFileSync(editorAIScopePath, 'utf8') : '';
 const editorAIReviewTargets = existsSync(editorAIReviewTargetsPath) ? readFileSync(editorAIReviewTargetsPath, 'utf8') : '';
@@ -189,7 +223,21 @@ const editorAIEditableSnapshot = existsSync(editorAIEditableSnapshotPath) ? read
 const websiteBuilderOutput = existsSync(websiteBuilderOutputPath) ? readFileSync(websiteBuilderOutputPath, 'utf8') : '';
 const websiteBuilderReports = existsSync(websiteBuilderReportsPath) ? readFileSync(websiteBuilderReportsPath, 'utf8') : '';
 const websiteBuilderExportData = existsSync(websiteBuilderExportDataPath) ? readFileSync(websiteBuilderExportDataPath, 'utf8') : '';
-const builder = `${builderSource}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}\n${editorAIEditableSnapshot}\n${websiteBuilderOutput}\n${websiteBuilderReports}\n${websiteBuilderExportData}`;
+const builder = `${builderSource}\n${aiChangeHandlerSource}\n${publishHandlerSource}\n${v2NativeHandlerSource}\n${aiGenerationHandlerSource}\n${saveHandlerSource}\n${publicationHandlers}\n${editorActionHandlers}\n${lifecycleHandlers}\n${canvasActionHandlers}\n${projectAndElementHandlers}\n${extractedPanelSources}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}\n${editorAIEditableSnapshot}\n${websiteBuilderOutput}\n${websiteBuilderReports}\n${websiteBuilderExportData}`;
+check('Backup, reset and native element handlers remain connected', ['createImportProjectBackupHandler', 'createResetProjectHandler', 'createV2DuplicateElementHandler', 'createV2DeleteElementHandler'].every((name) => builderSource.includes(`${name}({`) && projectAndElementHandlers.includes(`export function ${name}(`)));
+check('Canvas arrangement and drag handlers remain connected', ['createArrangeSelectedElementsHandler', 'createPrepareElementFreeDragHandler', 'createUpdateElementFreeDragHandler'].every((name) => builderSource.includes(`${name}({`) && canvasActionHandlers.includes(`export function ${name}(`)));
+check('Load, recovery, and handoff handlers remain connected', ['createApplyProjectDataHandler', 'createRecoverPublishedStateHandler', 'createClientHandoffHandler'].every((name) => builderSource.includes(`${name}({`) && lifecycleHandlers.includes(`export function ${name}(`)));
+check('Duplicate and AI action handlers remain connected', ['createDuplicateProjectHandler', 'createAIQualityCheckHandler', 'createAIImageHandler'].every((name) => builderSource.includes(`${name}({`) && editorActionHandlers.includes(`export function ${name}(`)));
+check('Rollback, staging, and unpublish handlers remain connected', ['createRollbackPublishVersionHandler', 'createSharePreviewHandler', 'createUnpublishWebsiteHandler'].every((name) => builderSource.includes(`${name}({`) && publicationHandlers.includes(`export function ${name}(`)));
+check('Save and AI generation handlers remain connected', builderSource.includes('createSaveProjectHandler({') && builderSource.includes('createAIGenerationHandler({') && saveHandlerSource.includes('return async function saveProject(') && aiGenerationHandlerSource.includes('return async function generateWithAI('));
+check('V2 native operations remain connected to the editor', builderSource.includes('createV2NativeOperationsHandler({') && v2NativeHandlerSource.includes('return function applyV2NativeOperations('));
+check('Publish handler remains connected to the editor', builderSource.includes('createPublishWebsiteHandler({') && publishHandlerSource.includes('return async function publishWebsite('));
+check('AI change handler remains connected to the editor', builderSource.includes('createAIChangeHandler({') && aiChangeHandlerSource.includes('return async function applyAIChange('));
+check('Extracted builder panels remain mounted and available',
+  ['BuilderAiPanel', 'BuilderSitePanel', 'BuilderSettingsPanel', 'BuilderLegacySectionSettings', 'BuilderLegacyHeader', 'BuilderLegacySidebar', 'BuilderLegacyInspector', 'BuilderLegacyLeads', 'BuilderLegacyCanvas', 'BuilderV2Canvas', 'BuilderLegacyBilling', 'BuilderLegacyAnalytics', 'BuilderLegacyReleaseHistory', 'BuilderLegacyLaunchCenter', 'BuilderLegacyCommandPalette'].every((name) =>
+    (builderSource.includes(`import { ${name} } from './v2-ui/${name}'`) || extractedPanelSources.includes(`import { ${name} } from './${name}'`))
+    && builder.includes(`<${name}`)
+    && extractedPanelSources.includes(`export function ${name}(`)));
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
 const canvasGeometry = existsSync(editorCanvasGeometryPath) ? readFileSync(editorCanvasGeometryPath, 'utf8') : '';
 const websiteBuilderV2Bridge = existsSync(websiteBuilderV2BridgePath) ? readFileSync(websiteBuilderV2BridgePath, 'utf8') : '';
@@ -347,7 +395,7 @@ check('Core V3 centralizes project access and owner resolution', projectAccessCo
 check('Core V3 centralizes published storage cleanup', publishedStorageCore.includes('publishedSiteFilePaths') && publishedStorageCore.includes('removePublishedSiteFiles') && publishedWebsiteService.includes("from '../core/editor-published-storage'") && builder.includes("from './services/publishedWebsiteService'"));
 check('Shared lead policy keeps row ownership tied to the website owner', sharedRuntimeMigration.includes('website_leads.project_id'));
 check('Recovery snapshot storage is enabled', projectLifecycleCore.includes('RECOVERY_STORAGE_KEY') && projectLifecycleCore.includes('saveRecoveryWebsiteProject') && builder.includes("from './core/editor-project-lifecycle'"));
-check('Project load normalization is extracted from the builder', projectNormalization.includes('normalizeWebsiteProjectLoad') && builder.includes("from './core/project-normalization'"));
+check('Project load normalization is extracted from the builder', projectNormalization.includes('normalizeWebsiteProjectLoad') && lifecycleHandlers.includes("from '../core/project-normalization'"));
 check('Cloud save/create is extracted from the builder', projectCloudService.includes('createWebsiteProjectInCloud') && projectCloudService.includes('updateWebsiteProjectInCloud') && builder.includes("from './services/projectCloudService'"));
 check('Cloud project identity survives local re-entry', builder.includes('cloudProjectId?: string | null') && builder.includes('cloudProjectId,\n      siteName') && builder.includes('saveActiveWebsiteProjectId(savedIdentity)') && builder.includes('cloudProjectId: project.id'));
 check('Autosave cannot create a duplicate draft while an existing identity reconnects', builder.includes('const preservedProjectId = projectId || loadActiveWebsiteProjectId()') && builder.includes('Tayar will not create a duplicate draft while its saved identity is available.'));
@@ -373,7 +421,7 @@ check('Partial published-site replacements rollback overwritten and newly create
   publishedWebsiteService.includes('new Set(snapshot.files.keys())') &&
   publishedWebsiteService.includes('await restorePublishedWebsiteSnapshot(folder, snapshot)') &&
   publishedWebsiteService.includes('The previous live website was restored automatically.'));
-check('Builder has no direct Supabase calls', !builder.includes("from '@/lib/supabase'") && !/\bsupabase\b/.test(builder) && !builder.includes(".from('projects')") && !builder.includes(".from('website_leads')") && !builder.includes(".from('website_analytics_events')") && !builder.includes(".from('website_publish_versions')") && !builder.includes(".from('website-media')") && !builder.includes(".from('published-sites')"));
+check('Builder has no direct Supabase calls', !builder.includes("from '@/lib/supabase'") && !/\bsupabase\s*\./.test(builder) && !builder.includes(".from('projects')") && !builder.includes(".from('website_leads')") && !builder.includes(".from('website_analytics_events')") && !builder.includes(".from('website_publish_versions')") && !builder.includes(".from('website-media')") && !builder.includes(".from('published-sites')"));
 check('Online/offline state is monitored', builder.includes("window.addEventListener('offline'"));
 check('Failed cloud sync is tracked', builder.includes('cloudSyncFailed'));
 check('Cloud mutations retry transient failures', projectCloudService.includes('retryCloudOperation') && builder.includes('createWebsiteProjectInCloud') && builder.includes('updateWebsiteProjectInCloud'));
