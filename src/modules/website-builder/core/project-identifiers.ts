@@ -2,9 +2,10 @@ import type { Language } from '@/context/PreferencesContext';
 
 export function normalizeSlug(value: string): string {
   return value
+    .normalize('NFKC')
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '') || 'page';
 }
 
