@@ -5,7 +5,13 @@ export function createDefaultSections(): SectionConfig[] {
 }
 
 export function toggleCVSection(sections: SectionConfig[], id: SectionType): SectionConfig[] {
-  return sections.map(section => section.id === id ? { ...section, visible: !section.visible } : section);
+  let changed = false;
+  const next = sections.map(section => {
+    if (section.id !== id) return section;
+    changed = true;
+    return { ...section, visible: !section.visible };
+  });
+  return changed ? next : sections;
 }
 
 export function moveCVSection(sections: SectionConfig[], fromIndex: number, toIndex: number): SectionConfig[] {
@@ -19,14 +25,21 @@ export function moveCVSection(sections: SectionConfig[], fromIndex: number, toIn
 }
 
 export function normalizeCVSections(sections?: SectionConfig[] | null): SectionConfig[] {
-  const incoming = new Map((sections ?? []).map(section => [section.id, section]));
-  const normalized = DEFAULT_SECTIONS.map(defaultSection => ({
-    ...defaultSection,
-    ...incoming.get(defaultSection.id),
-  }));
-  const known = new Set(normalized.map(section => section.id));
+  const defaults = new Map(DEFAULT_SECTIONS.map(section => [section.id, section]));
+  const seen = new Set<SectionType>();
+  const normalized: SectionConfig[] = [];
+
+  // Keep the user's persisted order, while dropping duplicate/unknown entries.
   for (const section of sections ?? []) {
-    if (!known.has(section.id)) normalized.push({ ...section });
+    const base = defaults.get(section.id);
+    if (!base || seen.has(section.id)) continue;
+    seen.add(section.id);
+    normalized.push({ ...base, ...section, id: base.id });
+  }
+
+  // Append any sections introduced by newer versions of the builder.
+  for (const section of DEFAULT_SECTIONS) {
+    if (!seen.has(section.id)) normalized.push({ ...section });
   }
   return normalized;
 }
