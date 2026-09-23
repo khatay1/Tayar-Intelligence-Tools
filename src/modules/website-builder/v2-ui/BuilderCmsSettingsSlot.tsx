@@ -18,14 +18,22 @@ interface BuilderCmsSettingsSlotProps {
   onSetPageTemplate(template?: WebsitePage['cmsTemplate']): void;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
 function asWebsitePage(page?: EditorPageLike): WebsitePage | undefined {
-  if (!page) return undefined;
-  return page as WebsitePage;
+  if (!page || typeof page.id !== 'string' || !Array.isArray(page.sections)) return undefined;
+  const candidate = page as unknown as WebsitePage;
+  if ('cmsTemplate' in page && page.cmsTemplate !== undefined && !isRecord(page.cmsTemplate)) return undefined;
+  return candidate;
 }
 
 function asWebsiteElement(element?: EditorElementLike): WebsiteElement | undefined {
-  if (!element) return undefined;
-  return element as WebsiteElement;
+  if (!element || typeof element.id !== 'string') return undefined;
+  const candidate = element as unknown as WebsiteElement;
+  if ('cmsBinding' in element && element.cmsBinding !== undefined && !isRecord(element.cmsBinding)) return undefined;
+  return candidate;
 }
 
 export function BuilderCmsSettingsSlot({
