@@ -31,6 +31,7 @@ try {
         sv: { title: 'Svensk titel', slug: 'svensk-titel' },
       },
     }],
+    views: [{ id: 'titles', name: 'Titles', filters: [{ fieldKey: 'title', operator: 'contains', value: 'title' }], sortField: 'title', sortDirection: 'asc', limit: 20 }],
   }] });
 
   check('normalization preserves bounded localized values', () => {
@@ -72,10 +73,14 @@ try {
     assert.equal(preview.collection.entries[0].localizedValues.ar.title, 'عنوان عربي');
     assert.equal(preview.collection.entries[0].localizedValues.sv.slug, 'svensk-titel');
   });
-  check('JSON transfer preserves localized values', () => {
+  check('JSON transfer preserves localized values and reusable views', () => {
     const json = transfer.exportWebsiteCmsCollectionJson(state.collections[0]);
     const preview = transfer.previewWebsiteCmsJsonImport(json, 'Imported');
     assert.equal(preview.collection.entries[0].localizedValues.ar.title, 'عنوان عربي');
+    assert.equal(preview.collection.views.length, 1);
+    assert.equal(preview.collection.views[0].filters[0].fieldKey, 'title');
+    assert.equal(preview.collection.views[0].sortField, 'title');
+    assert.equal(preview.collection.views[0].limit, 20);
   });
 
   const localizationPanel = await readFile('src/modules/website-builder/v2-ui/BuilderCmsLocalizationPanel.tsx', 'utf8');
