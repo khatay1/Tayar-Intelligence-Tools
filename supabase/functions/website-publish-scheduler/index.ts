@@ -9,11 +9,7 @@ const BATCH_SIZE = 10;
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
-
-function safeSegment(value: unknown): string {
-  return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "");
-}
-
+function safeSegment(value: unknown): string { return String(value || "").replace(/[^a-zA-Z0-9_-]/g, ""); }
 function authorize(req: Request): boolean {
   if (!CRON_SECRET) return false;
   const bearer = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim() || "";
@@ -25,32 +21,21 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "Scheduler runtime is not configured" }, 503);
   if (!authorize(req)) return json({ error: "Unauthorized" }, 401);
-
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-  const now = new Date().toISOString();
-  const { data: due, error: dueError } = await admin
-    .from("website_publish_schedules")
+  const { data: due, error: dueError } = await admin.from("website_publish_schedules")
     .select("id,project_id,user_id,environment,mode,page_ids,scheduled_at,release_note,status")
-    .eq("status", "scheduled")
-    .lte("scheduled_at", now)
-    .order("scheduled_at", { ascending: true })
-    .limit(BATCH_SIZE);
+    .eq("status", "scheduled").lte("scheduled_at", new Date().toISOString()).order("scheduled_at", { ascending: true }).limit(BATCH_SIZE);
   if (dueError) return json({ error: "Could not load scheduled publishes" }, 500);
 
   const results: Array<{ id: string; status: string; error?: string }> = [];
   for (const schedule of due || []) {
     const id = String(schedule.id || "");
     try {
-      const { data: claimed, error: claimError } = await admin
-        .from("website_publish_schedules")
+      const { data: claimed, error: claimError } = await admin.from("website_publish_schedules")
         .update({ status: "processing", last_error: null, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("status", "scheduled")
-        .select("id")
-        .maybeSingle();
+        .eq("id", id).eq("status", "scheduled").select("id").maybeSingle();
       if (claimError) throw claimError;
       if (!claimed) continue;
-
       const ownerId = safeSegment(schedule.user_id);
       const projectId = safeSegment(schedule.project_id);
       if (!ownerId || !projectId) throw new Error("Invalid publish owner or project id");
@@ -68,23 +53,26 @@ Deno.serve(async (req: Request) => {
       const files = (releaseFiles || []).filter((item) => item.name && item.name !== ".emptyFolderPlaceholder");
       if (!files.length) throw new Error("Scheduled release bundle is empty");
 
-      const { data: currentFiles } = await admin.storage.from("website-published").list(productionRoot, { limit: 1000 });
-      const removable = (currentFiles || []).filter((item) => item.name && !item.name.includes("/") && item.name !== "previews").map((item) => `${productionRoot}/${item.name}`);
+      const { data: currentFiles, error: currentError } = await admin.storage.from("website-published").list(productionRoot, { limit: 1000 });
+      if (currentError) throw currentError;
+      const removable = (currentFiles || []).filter((item) => item.name && item.name !== "previews").map((item) => `${productionRoot}/${item.name}`);
       if (removable.length) {
         const { error } = await admin.storage.from("website-published").remove(removable);
         if (error) throw error;
       }
-
       for (const file of files) {
-        const sourcePath = `${releaseRoot}/${file.name}`;
-        const { data: blob, error: downloadError } = await admin.storage.from("website-published").download(sourcePath);
+        const { data: blob, error: downloadError } = await admin.storage.from("website-published").download(`${releaseRoot}/${file.name}`);
         if (downloadError || !blob) throw downloadError || new Error(`Could not read ${file.name}`);
         const { error: uploadError } = await admin.storage.from("website-published").upload(`${productionRoot}/${file.name}`, blob, { upsert: true, contentType: blob.type || undefined });
         if (uploadError) throw uploadError;
       }
 
       const publishedAt = new Date().toISOString();
-      const { error: projectError } = await admin.from("projects").update({ published: true, updated_at: publishedAt }).eq("id", projectId).eq("user_id", ownerId);
+      const { data: project, error: projectReadError } = await admin.from("projects").select("content").eq("id", projectId).eq("user_id", ownerId).eq("type", "website-builder").is("deleted_at", null).maybeSingle();
+      if (projectReadError || !project) throw projectReadError || new Error("Website project is no longer available");
+      const content = project.content && typeof project.content === "object" && !Array.isArray(project.content) ? { ...(project.content as Record<string, unknown>) } : {};
+      content.publishedAt = publishedAt;
+      const { error: projectError } = await admin.from("projects").update({ content, status: "completed", updated_at: publishedAt }).eq("id", projectId).eq("user_id", ownerId).eq("type", "website-builder").is("deleted_at", null);
       if (projectError) throw projectError;
       const { error: finishError } = await admin.from("website_publish_schedules").update({ status: "published", last_error: null, updated_at: publishedAt }).eq("id", id).eq("status", "processing");
       if (finishError) throw finishError;
@@ -95,6 +83,5 @@ Deno.serve(async (req: Request) => {
       results.push({ id, status: "failed", error: message });
     }
   }
-
   return json({ processed: results.length, results });
 });
