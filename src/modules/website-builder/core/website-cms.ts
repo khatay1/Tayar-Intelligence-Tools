@@ -1,10 +1,12 @@
-import { normalizeSlug } from './project-identifiers';
+import type { Language } from '@/context/PreferencesContext';
+import { normalizePageLanguage, normalizeSlug } from './project-identifiers';
 import type { WebsiteCmsBinding, WebsiteSection } from './types';
 import type { WebsitePage } from './website-builder-model';
 
 export type WebsiteCmsFieldType = 'text' | 'rich-text' | 'number' | 'boolean' | 'date' | 'image' | 'url' | 'reference';
 export type WebsiteCmsValue = string | number | boolean;
 export type WebsiteCmsFilterOperator = 'equals' | 'not-equals' | 'contains' | 'truthy';
+export type WebsiteCmsLocalizedValues = Partial<Record<Language, Record<string, WebsiteCmsValue>>>;
 
 export interface WebsiteCmsField {
   id: string;
@@ -18,6 +20,7 @@ export interface WebsiteCmsField {
 export interface WebsiteCmsEntry {
   id: string;
   values: Record<string, WebsiteCmsValue>;
+  localizedValues?: WebsiteCmsLocalizedValues;
   draft: boolean;
   publishAt?: string;
   unpublishAt?: string;
@@ -62,6 +65,7 @@ export interface WebsiteCmsIssue {
 
 export const EMPTY_WEBSITE_CMS: WebsiteCmsState = { version: 2, collections: [] };
 export const WEBSITE_CMS_LIMITS = { collections: 20, fields: 30, entries: 500, views: 20, filters: 8 } as const;
+export const WEBSITE_CMS_LANGUAGES: Language[] = ['en', 'sv', 'ar'];
 
 const FIELD_TYPES = new Set<WebsiteCmsFieldType>(['text', 'rich-text', 'number', 'boolean', 'date', 'image', 'url', 'reference']);
 const FILTER_OPERATORS = new Set<WebsiteCmsFilterOperator>(['equals', 'not-equals', 'contains', 'truthy']);
@@ -95,6 +99,20 @@ function normalizeTimestamp(value: unknown): string | undefined {
   if (typeof value !== 'string' || !value.trim()) return undefined;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined;
+}
+
+function normalizeLocalizedValues(source: unknown, fieldsByKey: Map<string, WebsiteCmsField>): WebsiteCmsLocalizedValues | undefined {
+  const localizedSource = record(source);
+  const localizedValues: WebsiteCmsLocalizedValues = {};
+  for (const language of WEBSITE_CMS_LANGUAGES) {
+    const rawValues = record(localizedSource[language]);
+    const values: Record<string, WebsiteCmsValue> = {};
+    fieldsByKey.forEach((field, key) => {
+      if (key in rawValues) values[key] = normalizeValue(rawValues[key], field.type);
+    });
+    if (Object.keys(values).length) localizedValues[language] = values;
+  }
+  return Object.keys(localizedValues).length ? localizedValues : undefined;
 }
 
 export function normalizeWebsiteCms(input: unknown): WebsiteCmsState {
@@ -147,6 +165,7 @@ export function normalizeWebsiteCms(input: unknown): WebsiteCmsState {
       return {
         id: entryId,
         values,
+        localizedValues: normalizeLocalizedValues(sourceEntry.localizedValues, fieldsByKey),
         draft: sourceEntry.draft === true,
         publishAt: normalizeTimestamp(sourceEntry.publishAt),
         unpublishAt: normalizeTimestamp(sourceEntry.unpublishAt),
@@ -242,40 +261,77 @@ export function queryWebsiteCmsEntries(
   return view?.limit ? entries.slice(0, view.limit) : entries;
 }
 
-export function resolveWebsiteCmsValue(cms: WebsiteCmsState, binding: WebsiteCmsBinding, contextEntryId?: string): WebsiteCmsValue | undefined {
+export function resolveWebsiteCmsEntryValue(
+  entry: WebsiteCmsEntry,
+  fieldKeyValue: string,
+  language?: Language,
+  defaultLanguage: Language = 'en',
+): WebsiteCmsValue | undefined {
+  if (language && language !== defaultLanguage) {
+    const localized = entry.localizedValues?.[language]?.[fieldKeyValue];
+    if (localized !== undefined && localized !== '') return localized;
+  }
+  return entry.values[fieldKeyValue];
+}
+
+export function resolveWebsiteCmsValue(
+  cms: WebsiteCmsState,
+  binding: WebsiteCmsBinding,
+  contextEntryId?: string,
+  language?: Language,
+  defaultLanguage: Language = 'en',
+): WebsiteCmsValue | undefined {
   const collection = cms.collections.find((item) => item.id === binding.collectionId);
   const entry = collection?.entries.find((item) => item.id === (binding.entryId || contextEntryId));
-  const value = entry?.values[binding.fieldKey];
+  if (!entry) return undefined;
+  const value = resolveWebsiteCmsEntryValue(entry, binding.fieldKey, language, defaultLanguage);
   const field = collection?.fields.find((item) => item.key === binding.fieldKey);
   if (field?.type !== 'reference' || !binding.referenceFieldKey || typeof value !== 'string') return value;
   const targetCollection = cms.collections.find((item) => item.id === field.referenceCollectionId);
   const targetEntry = targetCollection?.entries.find((item) => item.id === value);
-  return targetEntry?.values[binding.referenceFieldKey];
+  return targetEntry ? resolveWebsiteCmsEntryValue(targetEntry, binding.referenceFieldKey, language, defaultLanguage) : undefined;
 }
 
-export function materializeWebsiteCmsSections(sections: WebsiteSection[], cms: WebsiteCmsState, contextEntryId?: string): WebsiteSection[] {
+export function materializeWebsiteCmsSections(
+  sections: WebsiteSection[],
+  cms: WebsiteCmsState,
+  contextEntryId?: string,
+  language?: Language,
+  defaultLanguage: Language = 'en',
+): WebsiteSection[] {
   return sections.map((section) => ({
     ...section,
     elements: section.elements.map((element) => {
       if (!element.cmsBinding) return element;
-      const value = resolveWebsiteCmsValue(cms, element.cmsBinding, contextEntryId);
+      const value = resolveWebsiteCmsValue(cms, element.cmsBinding, contextEntryId, language, defaultLanguage);
       if (value === undefined || value === '') return element;
       return { ...element, [element.cmsBinding.target]: String(value) };
     }),
   }));
 }
 
-export function expandWebsiteCmsPages(pages: WebsitePage[], cmsInput: WebsiteCmsState, now: Date | number | string = Date.now()): WebsitePage[] {
+export function expandWebsiteCmsPages(
+  pages: WebsitePage[],
+  cmsInput: WebsiteCmsState,
+  now: Date | number | string = Date.now(),
+  defaultLanguage: Language = 'en',
+): WebsitePage[] {
   const cms = normalizeWebsiteCms(cmsInput);
   return pages.flatMap((page) => {
+    const language = normalizePageLanguage(page.language, defaultLanguage);
     const template = page.cmsTemplate;
-    if (!template) return [{ ...page, sections: materializeWebsiteCmsSections(page.sections, cms) }];
+    if (!template) return [{ ...page, sections: materializeWebsiteCmsSections(page.sections, cms, undefined, language, defaultLanguage) }];
     const collection = cms.collections.find((item) => item.id === template.collectionId);
     const publishedEntries = collection ? queryWebsiteCmsEntries(collection, template.viewId, now) : [];
     if (!collection || !publishedEntries.length) return [];
     return publishedEntries.map((entry) => {
-      const entrySlug = normalizeSlug(String(entry.values[collection.slugField] || entry.id));
-      const entryName = String(entry.values.title || entry.values.name || entrySlug);
+      const localizedSlug = resolveWebsiteCmsEntryValue(entry, collection.slugField, language, defaultLanguage);
+      const entrySlug = normalizeSlug(String(localizedSlug || entry.id));
+      const entryName = String(
+        resolveWebsiteCmsEntryValue(entry, 'title', language, defaultLanguage)
+        || resolveWebsiteCmsEntryValue(entry, 'name', language, defaultLanguage)
+        || entrySlug,
+      );
       const routePattern = cleanText(template.routePattern, `${collection.slug}-{slug}`, 160);
       const pageSlug = normalizeSlug(routePattern
         .replace(/\{collection\}/g, collection.slug)
@@ -288,7 +344,7 @@ export function expandWebsiteCmsPages(pages: WebsitePage[], cmsInput: WebsiteCms
         slug: pageSlug,
         showInNavigation: false,
         cmsTemplate: undefined,
-        sections: materializeWebsiteCmsSections(page.sections, cms, entry.id),
+        sections: materializeWebsiteCmsSections(page.sections, cms, entry.id, language, defaultLanguage),
       };
     });
   });
@@ -299,6 +355,7 @@ export function validateWebsiteCms(cmsInput: WebsiteCmsState, pages: WebsitePage
   const issues: WebsiteCmsIssue[] = [];
   cms.collections.forEach((collection) => {
     const publishedSlugs = new Set<string>();
+    const localizedPublishedSlugs = new Map<Language, Set<string>>(WEBSITE_CMS_LANGUAGES.map((language) => [language, new Set<string>()]));
     collection.entries.forEach((entry) => {
       collection.fields.filter((field) => field.required && !entry.draft).forEach((field) => {
         if (entry.values[field.key] === undefined || entry.values[field.key] === '') issues.push({ severity: 'error', message: `${collection.name}: ${field.name} is required.`, collectionId: collection.id, entryId: entry.id });
@@ -309,6 +366,14 @@ export function validateWebsiteCms(cmsInput: WebsiteCmsState, pages: WebsitePage
         if (!rawSlug) issues.push({ severity: 'error', message: `${collection.name}: published entry needs a slug.`, collectionId: collection.id, entryId: entry.id });
         else if (publishedSlugs.has(slug)) issues.push({ severity: 'error', message: `${collection.name}: duplicate published slug “${slug}”.`, collectionId: collection.id, entryId: entry.id });
         publishedSlugs.add(slug);
+        for (const language of WEBSITE_CMS_LANGUAGES) {
+          const localizedRaw = String(entry.localizedValues?.[language]?.[collection.slugField] ?? '').trim();
+          if (!localizedRaw) continue;
+          const localizedSlug = normalizeSlug(localizedRaw);
+          const seen = localizedPublishedSlugs.get(language)!;
+          if (seen.has(localizedSlug)) issues.push({ severity: 'error', message: `${collection.name}: duplicate ${language.toUpperCase()} published slug “${localizedSlug}”.`, collectionId: collection.id, entryId: entry.id });
+          seen.add(localizedSlug);
+        }
       }
       if (entry.publishAt && entry.unpublishAt && Date.parse(entry.publishAt) >= Date.parse(entry.unpublishAt)) issues.push({ severity: 'error', message: `${collection.name}: publishing window must end after it starts.`, collectionId: collection.id, entryId: entry.id });
       collection.fields.filter((field) => field.type === 'reference').forEach((field) => {
@@ -317,8 +382,10 @@ export function validateWebsiteCms(cmsInput: WebsiteCmsState, pages: WebsitePage
           issues.push({ severity: 'error', message: `${collection.name}: ${field.name} references a missing collection.`, collectionId: collection.id });
           return;
         }
-        const targetId = entry.values[field.key];
-        if (typeof targetId === 'string' && targetId && !targetCollection.entries.some((candidate) => candidate.id === targetId)) issues.push({ severity: 'error', message: `${collection.name}: ${field.name} references a missing entry.`, collectionId: collection.id, entryId: entry.id });
+        const targetIds = [entry.values[field.key], ...WEBSITE_CMS_LANGUAGES.map((language) => entry.localizedValues?.[language]?.[field.key])];
+        for (const targetId of targetIds) {
+          if (typeof targetId === 'string' && targetId && !targetCollection.entries.some((candidate) => candidate.id === targetId)) issues.push({ severity: 'error', message: `${collection.name}: ${field.name} references a missing entry.`, collectionId: collection.id, entryId: entry.id });
+        }
       });
     });
     collection.views.forEach((view) => {
