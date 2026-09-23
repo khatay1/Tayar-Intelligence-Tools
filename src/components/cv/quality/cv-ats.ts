@@ -10,23 +10,35 @@ export interface CVATSReport {
 }
 
 const STOP_WORDS = new Set(['and','the','with','for','from','that','this','you','your','our','are','will','have','has','job','role','work','team']);
+const TOKEN_PATTERN = /[\p{L}\p{N}][\p{L}\p{N}+#.-]{1,}/gu;
 
-function extractKeywords(text: string): string[] {
-  const words = text.toLowerCase().match(/[a-z][a-z0-9+#.-]{2,}/g) ?? [];
-  const counts = new Map<string, number>();
-  words.forEach(word => { if (!STOP_WORDS.has(word)) counts.set(word, (counts.get(word) ?? 0) + 1); });
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([word]) => word);
+function tokenize(text: string): string[] {
+  return (text.toLocaleLowerCase().match(TOKEN_PATTERN) ?? [])
+    .map(token => token.replace(/^[.-]+|[.-]+$/g, ''))
+    .filter(token => token.length >= 2);
 }
 
-function cvSearchText(cv: CVData): string {
-  return [
+function extractKeywords(text: string): string[] {
+  const counts = new Map<string, number>();
+  tokenize(text).forEach(word => {
+    if (!STOP_WORDS.has(word)) counts.set(word, (counts.get(word) ?? 0) + 1);
+  });
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 30)
+    .map(([word]) => word);
+}
+
+function cvSearchTokens(cv: CVData): Set<string> {
+  const text = [
     cv.summary,
     ...cv.experience.flatMap(item => [item.jobTitle, item.company, item.description]),
     ...cv.education.flatMap(item => [item.degree, item.institution, item.description]),
     ...cv.skills.map(item => item.name),
     ...cv.projects.flatMap(item => [item.name, item.description]),
     ...cv.certificates.flatMap(item => [item.name, item.issuer]),
-  ].join(' ').toLowerCase();
+  ].join(' ');
+  return new Set(tokenize(text));
 }
 
 export function analyzeCVForATS(cv: CVData, template: TemplateId, jobDescription = ''): CVATSReport {
@@ -36,9 +48,9 @@ export function analyzeCVForATS(cv: CVData, template: TemplateId, jobDescription
   if (!cv.personal.phone.trim()) issues.push({ id: 'ats-phone', category: 'ats', severity: 'warning', message: 'Phone number is missing from contact information.', section: 'personal' });
 
   const keywords = jobDescription.trim() ? extractKeywords(jobDescription) : [];
-  const haystack = cvSearchText(cv);
-  const matchedKeywords = keywords.filter(keyword => haystack.includes(keyword));
-  const missingKeywords = keywords.filter(keyword => !haystack.includes(keyword));
+  const cvTokens = cvSearchTokens(cv);
+  const matchedKeywords = keywords.filter(keyword => cvTokens.has(keyword));
+  const missingKeywords = keywords.filter(keyword => !cvTokens.has(keyword));
 
   if (keywords.length && missingKeywords.length) issues.push({ id: 'ats-keywords', category: 'ats', severity: 'info', message: `${missingKeywords.length} relevant job-description keywords are not present in the CV.`, fix: 'Review missing keywords and add only those that truthfully match your experience.' });
   return { issues, keywords, matchedKeywords, missingKeywords };
