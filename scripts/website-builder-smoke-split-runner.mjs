@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 const root = process.cwd();
 const smokePath = resolve(root, 'scripts/website-builder-smoke.mjs');
 const tempPath = resolve(root, 'scripts/.website-builder-smoke-split.generated.mjs');
+const sourcesPath = resolve(root, 'scripts/.website-builder-smoke-split.sources.generated.mjs');
 
 function collectSourceFiles(directory) {
   const files = [];
@@ -19,12 +20,8 @@ function collectSourceFiles(directory) {
 
 const moduleRoot = resolve(root, 'src/modules/website-builder');
 const v2Root = resolve(moduleRoot, 'v2-ui');
-const moduleSources = collectSourceFiles(moduleRoot)
-  .map((path) => readFileSync(path, 'utf8'))
-  .join('\n');
-const v2Sources = collectSourceFiles(v2Root)
-  .map((path) => readFileSync(path, 'utf8'))
-  .join('\n');
+const moduleSources = collectSourceFiles(moduleRoot).map((path) => readFileSync(path, 'utf8')).join('\n');
+const v2Sources = collectSourceFiles(v2Root).map((path) => readFileSync(path, 'utf8')).join('\n');
 
 let smoke = readFileSync(smokePath, 'utf8');
 const builderDeclaration = "const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';";
@@ -35,12 +32,19 @@ if (!smoke.includes(builderDeclaration) || !smoke.includes(bridgeDeclaration)) {
   process.exit(1);
 }
 
-// The smoke suite predates the monolith split. Keep every assertion intact, but
-// evaluate source-presence contracts against the complete Website Builder module
-// and V2 UI module so moved code is still verified after extraction.
+writeFileSync(
+  sourcesPath,
+  `export const builderSource = ${JSON.stringify(moduleSources)};\nexport const websiteBuilderV2Bridge = ${JSON.stringify(v2Sources)};\n`,
+  'utf8',
+);
+
 smoke = smoke
-  .replace(builderDeclaration, `const builderSource = ${JSON.stringify(moduleSources)};`)
-  .replace(bridgeDeclaration, `const websiteBuilderV2Bridge = ${JSON.stringify(v2Sources)};`);
+  .replace(
+    "import { existsSync, readFileSync } from 'node:fs';",
+    "import { existsSync, readFileSync } from 'node:fs';\nimport { builderSource, websiteBuilderV2Bridge } from './.website-builder-smoke-split.sources.generated.mjs';",
+  )
+  .replace(builderDeclaration, '')
+  .replace(bridgeDeclaration, '');
 
 try {
   writeFileSync(tempPath, smoke, 'utf8');
@@ -48,4 +52,5 @@ try {
   process.exitCode = result.status ?? 1;
 } finally {
   rmSync(tempPath, { force: true });
+  rmSync(sourcesPath, { force: true });
 }
