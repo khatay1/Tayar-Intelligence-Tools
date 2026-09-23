@@ -29,14 +29,13 @@ export function validateCVExport(request: CVExportRequest): CVExportValidation {
   const warnings: string[] = [];
   if (!request.cv.personal.fullName.trim()) errors.push('Add your full name before exporting.');
   if (!request.cv.personal.email.trim()) warnings.push('The exported CV has no email address.');
-  if (request.format === 'txt' && request.cv.personal.photo) warnings.push('Photos are not included in ATS text exports.');
   return { valid: errors.length === 0, errors, warnings };
 }
 
 export function buildATSTextExport(cv: CVData): string {
   const lines: string[] = [];
   const push = (...values: Array<string | undefined>) => values.filter(Boolean).forEach(value => lines.push(value!.trim()));
-  push(cv.personal.fullName, cv.personal.email, cv.personal.phone, cv.personal.location, cv.personal.website, cv.personal.linkedin);
+  push(cv.personal.fullName, cv.personal.email, cv.personal.phone, cv.personal.address, cv.personal.portfolio, cv.personal.linkedin);
   if (cv.summary) { lines.push('', 'SUMMARY'); push(cv.summary); }
   if (cv.experience.length) {
     lines.push('', 'EXPERIENCE');
