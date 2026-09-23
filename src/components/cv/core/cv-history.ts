@@ -1,4 +1,4 @@
-import { CVDocument, cloneCVDocument } from './cv-document';
+import { CVDocument, cloneCVDocument, serializeCVDocument } from './cv-document';
 
 export interface CVHistoryState {
   past: CVDocument[];
@@ -12,7 +12,13 @@ export function createCVHistory(document: CVDocument): CVHistoryState {
   return { past: [], present: cloneCVDocument(document), future: [] };
 }
 
+function documentsEqual(left: CVDocument, right: CVDocument): boolean {
+  if (left === right) return true;
+  return JSON.stringify(serializeCVDocument(left)) === JSON.stringify(serializeCVDocument(right));
+}
+
 export function commitCVHistory(state: CVHistoryState, next: CVDocument): CVHistoryState {
+  if (documentsEqual(state.present, next)) return state;
   const previous = cloneCVDocument(state.present);
   const past = [...state.past, previous].slice(-CV_HISTORY_LIMIT);
   return { past, present: cloneCVDocument(next), future: [] };
