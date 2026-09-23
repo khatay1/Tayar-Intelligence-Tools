@@ -22,11 +22,17 @@ export function useCVDocument(options: UseCVDocumentOptions = {}) {
 
   const replaceDocument = useCallback((next: CVDocument, recordHistory = true) => {
     setHistory(current => recordHistory ? commitCVHistory(current, next) : createCVHistory(next));
+    hydratedRef.current = true;
     setSaveStatus('dirty');
   }, []);
 
   const updateDocument = useCallback((recipe: (current: CVDocument) => CVDocument) => {
-    setHistory(current => commitCVHistory(current, recipe(current.present)));
+    setHistory(current => {
+      const next = recipe(current.present);
+      if (next === current.present) return current;
+      return commitCVHistory(current, next);
+    });
+    hydratedRef.current = true;
     setSaveStatus('dirty');
   }, []);
 
@@ -53,17 +59,20 @@ export function useCVDocument(options: UseCVDocumentOptions = {}) {
 
   const hydrate = useCallback((value: unknown) => {
     const next = normalizeCVDocument(value);
+    autosaveRef.current.cancel();
     setHistory(createCVHistory(next));
     setSaveStatus('saved');
     hydratedRef.current = true;
   }, []);
 
   const undo = useCallback(() => {
-    setHistory(current => undoCVHistory(current));
+    setHistory(current => canUndoCVHistory(current) ? undoCVHistory(current) : current);
+    hydratedRef.current = true;
     setSaveStatus('dirty');
   }, []);
   const redo = useCallback(() => {
-    setHistory(current => redoCVHistory(current));
+    setHistory(current => canRedoCVHistory(current) ? redoCVHistory(current) : current);
+    hydratedRef.current = true;
     setSaveStatus('dirty');
   }, []);
 
@@ -80,7 +89,6 @@ export function useCVDocument(options: UseCVDocumentOptions = {}) {
         clearLocalCVDraft(userId, cvId);
       } catch {
         setSaveStatus('error');
-        throw new Error('CV autosave failed');
       }
     });
   }, [document, enabled, userId, cvId, autosave]);
