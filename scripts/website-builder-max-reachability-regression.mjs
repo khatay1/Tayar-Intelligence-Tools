@@ -14,6 +14,8 @@ const [
   integrationsRuntime,
   localizationSlot,
   localizationStore,
+  cmsSlot,
+  cmsStore,
   maxState,
   lifecycle,
   normalization,
@@ -28,6 +30,8 @@ const [
   read('src/modules/website-builder/core/editor-integration-runtime.ts'),
   read('src/modules/website-builder/v2-ui/BuilderLocalizationSettingsSlot.tsx'),
   read('src/modules/website-builder/core/editor-localization-host-store.ts'),
+  read('src/modules/website-builder/v2-ui/BuilderCmsSettingsSlot.tsx'),
+  read('src/modules/website-builder/core/editor-cms-host-store.ts'),
   read('src/modules/website-builder/core/editor-max-project-state.ts'),
   read('src/modules/website-builder/core/editor-project-lifecycle.ts'),
   read('src/modules/website-builder/core/project-normalization.ts'),
@@ -62,6 +66,21 @@ assert.match(maxState, /forms:/, 'MAX state must reserve forms state');
 assert.match(maxState, /designSystem:/, 'MAX state must reserve design-system state');
 assert.match(maxState, /collaboration:/, 'MAX state must reserve collaboration state');
 assert.match(maxState, /integrations:/, 'MAX state must reserve integrations state');
+
+assert.match(maxState, /cms: getEditorCmsHostState\(\)/, 'Saving MAX state must capture the active CMS host');
+assert.match(maxState, /hydrateEditorCmsHost\(state\.cms\)/, 'Loading MAX state must restore CMS host state');
+assert.match(cmsStore, /normalizeWebsiteCms/, 'CMS host must normalize persisted and edited state');
+assert.match(cmsStore, /subscribeEditorCmsHost/, 'CMS host must notify the UI after hydration or edits');
+assert.match(cmsSlot, /BuilderCmsPanel/, 'CMS settings slot must render the existing CMS panel');
+assert.match(cmsSlot, /useSyncExternalStore/, 'CMS panel must track persisted host state');
+assert.match(cmsSlot, /setEditorCmsHostState/, 'CMS collection edits must update the persisted host state');
+assert.match(cmsSlot, /asWebsitePage/, 'CMS V2 page conversion must use runtime narrowing');
+assert.match(cmsSlot, /asWebsiteElement/, 'CMS V2 element conversion must use runtime narrowing');
+assert.match(bridgeSources, /BuilderCmsSettingsSlot/, 'V2 CMS surface must expose persisted CMS state');
+assert.match(bridgeSources, /action:'update_page'.*cmsTemplate/, 'CMS template changes must use native page operations');
+assert.match(bridgeSources, /action:'update_element'.*cmsBinding/, 'CMS bindings must use native element operations');
+assert.match(bridgeSources, /cmsPanel=\{persistedCmsPanel\|\|cmsPanel\}/, 'Persisted CMS must occupy the existing CMS surface without duplicating settings UI');
+
 assert.match(maxState, /localization: getEditorLocalizationHostConfig\(\)/, 'Saving MAX state must capture the active localization host');
 assert.match(maxState, /hydrateEditorLocalizationHost\(state\.localization\)/, 'Loading MAX state must restore localization host state');
 assert.match(localizationStore, /subscribeEditorLocalizationHost/, 'Localization host must notify the UI after hydration or edits');
@@ -81,4 +100,4 @@ assert.match(bridgeSources, /useSyncExternalStore/, 'V2 bridge must stay synchro
 assert.match(bridgeSources, /editorIntegrationPublishBlockers/, 'V2 publish controls must include integration blockers');
 assert.match(bridgeSources, /resolvedOnChangeIntegrations/, 'V2 settings must remain editable even when the legacy host omits new props');
 
-console.log('PASS Website Builder MAX reachability: versioned MAX state, localization and integrations persist through local/cloud project lifecycle and remain reachable from V2 settings');
+console.log('PASS Website Builder MAX reachability: versioned MAX state, CMS, localization and integrations persist through local/cloud project lifecycle and remain reachable through V2');
