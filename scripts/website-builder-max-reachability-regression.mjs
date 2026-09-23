@@ -16,6 +16,9 @@ const [
   localizationStore,
   cmsSlot,
   cmsStore,
+  publishingPanel,
+  publishingStore,
+  redirectsPanel,
   maxState,
   lifecycle,
   normalization,
@@ -32,6 +35,9 @@ const [
   read('src/modules/website-builder/core/editor-localization-host-store.ts'),
   read('src/modules/website-builder/v2-ui/BuilderCmsSettingsSlot.tsx'),
   read('src/modules/website-builder/core/editor-cms-host-store.ts'),
+  read('src/modules/website-builder/v2-ui/BuilderPublishingMaxPanel.tsx'),
+  read('src/modules/website-builder/core/editor-publishing-host-store.ts'),
+  read('src/modules/website-builder/v2-ui/BuilderRedirectsPanel.tsx'),
   read('src/modules/website-builder/core/editor-max-project-state.ts'),
   read('src/modules/website-builder/core/editor-project-lifecycle.ts'),
   read('src/modules/website-builder/core/project-normalization.ts'),
@@ -90,14 +96,29 @@ assert.match(localizationSlot, /useSyncExternalStore/, 'Localization settings mu
 assert.match(localizationSlot, /setEditorLocalizationHostConfig/, 'Localization edits must update the persisted host state');
 assert.match(bridgeSources, /BuilderLocalizationSettingsSlot/, 'V2 Settings must expose persisted Localization MAX');
 
+assert.match(maxState, /publishing: getEditorPublishingHostState\(\)/, 'Saving MAX state must capture the active Publishing draft');
+assert.match(maxState, /hydrateEditorPublishingHost\(state\.publishing\)/, 'Loading MAX state must restore Publishing draft state');
+assert.match(publishingStore, /subscribeEditorPublishingHost/, 'Publishing host must notify the UI after hydration or edits');
+assert.match(publishingStore, /normalizeEditorPublishRedirect/, 'Persisted redirects must pass through publishing normalization');
+assert.match(publishingStore, /redirects: EditorPublishRedirect\[\]/, 'Publishing MAX state must reserve project redirects');
+assert.match(publishingPanel, /useSyncExternalStore/, 'Publishing MAX UI must track the persisted project draft');
+assert.match(publishingPanel, /patchEditorPublishingHostState/, 'Publishing MAX edits must update the persisted host state');
+assert.match(publishingPanel, /scheduledAt/, 'Publishing MAX must retain scheduled release state');
+assert.match(publishingPanel, /releaseNote/, 'Publishing MAX must retain release notes');
+assert.match(publishingPanel, /pageIds/, 'Publishing MAX must retain selective page scope');
+assert.match(redirectsPanel, /onChange/, 'Redirects panel must remain externally controlled so the persisted host can own redirect state');
+assert.match(bridgeSources, /BuilderPublishingMaxPanel/, 'V2 Settings must expose Publishing MAX');
+assert.match(bridgeSources, /BuilderRedirectsPanel/, 'V2 Publishing surface must keep redirects reachable');
+assert.match(bridgeSources, /BuilderPublishVersionsPanel/, 'V2 Publishing surface must keep revisions and rollback reachable');
+
 // End-to-end reachability guard. The V2 bridge is intentionally split into a host wrapper and UI base.
 assert.match(bridgeSources, /BuilderIntegrationsSettingsSlot/, 'V2 Settings must expose Integrations MAX');
 assert.match(bridgeSources, /integrationsConfig/, 'V2 bridge must accept integrations project state');
 assert.match(bridgeSources, /onChangeIntegrations/, 'V2 bridge must expose integrations persistence callback');
 assert.match(bridgeSources, /onSetIntegrationSecret/, 'V2 bridge must expose secure secret callback');
 assert.match(bridgeSources, /onTestIntegrationConnection/, 'V2 bridge must expose connection testing callback');
-assert.match(bridgeSources, /useSyncExternalStore/, 'V2 bridge must stay synchronized with the persisted integrations host');
+assert.match(bridgeSources, /useSyncExternalStore/, 'V2 bridge must stay synchronized with persisted host state');
 assert.match(bridgeSources, /editorIntegrationPublishBlockers/, 'V2 publish controls must include integration blockers');
 assert.match(bridgeSources, /resolvedOnChangeIntegrations/, 'V2 settings must remain editable even when the legacy host omits new props');
 
-console.log('PASS Website Builder MAX reachability: versioned MAX state, CMS, localization and integrations persist through local/cloud project lifecycle and remain reachable through V2');
+console.log('PASS Website Builder MAX reachability: versioned MAX state, CMS, localization, publishing and integrations persist through local/cloud project lifecycle and remain reachable through V2');
