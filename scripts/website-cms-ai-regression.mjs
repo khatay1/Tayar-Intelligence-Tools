@@ -92,6 +92,13 @@ try {
     assert.equal(field.referenceCollectionId, 'authors');
   });
 
+  check('AI transactions roll back when a plan introduces new CMS validation errors', () => {
+    const result = ai.applyWebsiteCmsAIPlan(cms, { summary: 'Unsafe required field', warnings: [], operations: [{ action: 'add_field', collectionId: 'authors', field: { name: 'Biography', key: 'bio', type: 'text', required: true } }] });
+    assert.equal(result.applied, 0);
+    assert.equal(result.cms.collections.find((collection) => collection.id === 'authors').fields.some((field) => field.key === 'bio'), false);
+    assert.ok(result.warnings.some((warning) => warning.includes('AI plan rejected')));
+  });
+
   check('AI views keep only valid collection fields', () => {
     const result = ai.applyWebsiteCmsAIPlan(cms, { summary: 'View', warnings: [], operations: [{ action: 'add_view', collectionId: 'posts', name: 'News', filters: [{ fieldKey: 'category', operator: 'equals', value: 'news' }, { fieldKey: 'missing', operator: 'equals', value: 'x' }], sortField: 'title', sortDirection: 'asc', limit: 25 }] });
     const view = result.cms.collections.find((collection) => collection.id === 'posts').views[0];
