@@ -17,11 +17,13 @@ export function handleCVKeyboardShortcut(event: KeyboardEvent, actions: CVKeyboa
 
   if (key === 's') {
     event.preventDefault();
-    void actions.save?.();
+    void Promise.resolve(actions.save?.()).catch(() => undefined);
     return true;
   }
 
-  if (isEditableTarget(event.target) && key !== 'z' && key !== 'y') return false;
+  // Native text editing history is more granular than document history.
+  // Do not hijack undo/redo while the user is typing in a field.
+  if (isEditableTarget(event.target)) return false;
 
   if (key === 'z' && event.shiftKey) {
     event.preventDefault();
