@@ -21,30 +21,40 @@ export function useCVDocument(options: UseCVDocumentOptions = {}) {
   const document = history.present;
 
   const replaceDocument = useCallback((next: CVDocument, recordHistory = true) => {
-    setHistory(current => recordHistory ? commitCVHistory(current, next) : createCVHistory(next));
-    hydratedRef.current = true;
-    setSaveStatus('dirty');
+    setHistory(current => {
+      const updated = recordHistory ? commitCVHistory(current, next) : createCVHistory(next);
+      if (updated === current) return current;
+      hydratedRef.current = true;
+      setSaveStatus('dirty');
+      return updated;
+    });
   }, []);
 
   const updateDocument = useCallback((recipe: (current: CVDocument) => CVDocument) => {
     setHistory(current => {
       const next = recipe(current.present);
       if (next === current.present) return current;
-      return commitCVHistory(current, next);
+      const updated = commitCVHistory(current, next);
+      if (updated === current) return current;
+      hydratedRef.current = true;
+      setSaveStatus('dirty');
+      return updated;
     });
-    hydratedRef.current = true;
-    setSaveStatus('dirty');
   }, []);
 
   const setData = useCallback((next: CVData | ((current: CVData) => CVData)) => {
-    updateDocument(current => ({
-      ...current,
-      data: typeof next === 'function' ? next(current.data) : next,
-    }));
+    updateDocument(current => {
+      const data = typeof next === 'function' ? next(current.data) : next;
+      return data === current.data ? current : { ...current, data };
+    });
   }, [updateDocument]);
 
   const updateSettings = useCallback((patch: Partial<CVDocument['settings']>) => {
-    updateDocument(current => ({ ...current, settings: { ...current.settings, ...patch } }));
+    updateDocument(current => {
+      const changed = (Object.keys(patch) as Array<keyof CVDocument['settings']>)
+        .some(key => !Object.is(current.settings[key], patch[key]));
+      return changed ? { ...current, settings: { ...current.settings, ...patch } } : current;
+    });
   }, [updateDocument]);
 
   const restoreLocalDraft = useCallback(() => {
@@ -66,14 +76,20 @@ export function useCVDocument(options: UseCVDocumentOptions = {}) {
   }, []);
 
   const undo = useCallback(() => {
-    setHistory(current => canUndoCVHistory(current) ? undoCVHistory(current) : current);
-    hydratedRef.current = true;
-    setSaveStatus('dirty');
+    setHistory(current => {
+      if (!canUndoCVHistory(current)) return current;
+      hydratedRef.current = true;
+      setSaveStatus('dirty');
+      return undoCVHistory(current);
+    });
   }, []);
   const redo = useCallback(() => {
-    setHistory(current => canRedoCVHistory(current) ? redoCVHistory(current) : current);
-    hydratedRef.current = true;
-    setSaveStatus('dirty');
+    setHistory(current => {
+      if (!canRedoCVHistory(current)) return current;
+      hydratedRef.current = true;
+      setSaveStatus('dirty');
+      return redoCVHistory(current);
+    });
   }, []);
 
   useEffect(() => {
