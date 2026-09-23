@@ -8,7 +8,6 @@ function proposalKey(proposal: CVProposal): string {
 
 export function useCVAIProposals(_cv: CVData, setCV: (next: CVData | ((current: CVData) => CVData)) => void) {
   const [proposals, setProposals] = useState<CVProposal[]>([]);
-
   const addProposals = useCallback((next: CVProposal[]) => {
     setProposals(current => {
       const seen = new Set(current.map(proposalKey));
@@ -21,21 +20,13 @@ export function useCVAIProposals(_cv: CVData, setCV: (next: CVData | ((current: 
       return additions.length ? [...current, ...additions] : current;
     });
   }, []);
-
-  const dismiss = useCallback((id: string) => {
-    setProposals(current => current.filter(proposal => proposal.id !== id));
-  }, []);
-
+  const dismiss = useCallback((id: string) => setProposals(current => current.filter(proposal => proposal.id !== id)), []);
   const verifyAndApply = useCallback((id: string) => {
-    let selected: CVProposal | undefined;
-    setProposals(current => {
-      selected = current.find(item => item.id === id);
-      return selected ? current.filter(item => item.id !== id) : current;
-    });
-    if (selected) setCV(data => applyVerifiedCVProposal(data, verifyCVProposal(selected!)));
-  }, [setCV]);
-
+    const selected = proposals.find(item => item.id === id);
+    if (!selected) return;
+    setProposals(current => current.filter(item => item.id !== id));
+    setCV(data => applyVerifiedCVProposal(data, verifyCVProposal(selected)));
+  }, [proposals, setCV]);
   const clear = useCallback(() => setProposals([]), []);
-
   return { proposals, addProposals, dismiss, verifyAndApply, clear, count: proposals.length };
 }
