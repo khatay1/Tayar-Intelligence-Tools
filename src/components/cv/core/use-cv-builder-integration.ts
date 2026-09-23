@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { CVData, ResumeVersion } from '@/lib/cv-types';
+import { ResumeVersion } from '@/lib/cv-types';
 import { useCVBuilderCore } from './use-cv-builder-core';
 import { useCVPersistence } from './use-cv-persistence';
 import { useCVVersions } from './use-cv-versions';
@@ -8,6 +8,7 @@ import { useCVSections } from './use-cv-sections';
 import { useCVQuality } from '../quality/use-cv-quality';
 import { useCVAIProposals } from '../ai/use-cv-ai-proposals';
 import { CVProjectAdapter } from './cv-project-sync';
+import { normalizeCVDocument } from './cv-document';
 
 interface Options {
   supabase: SupabaseClient;
@@ -19,11 +20,12 @@ interface Options {
 export function useCVBuilderIntegration({ supabase, projects, userId, enabled = true }: Options) {
   const persistence = useCVPersistence({ supabase, projects, userId });
   const [jobDescription, setJobDescription] = useState('');
+  const [atsScore, setAtsScore] = useState(0);
 
   const autosave = useCallback(async document => {
     const title = document.data.personal.fullName.trim() || 'Untitled Resume';
-    await persistence.save(document, title, 0);
-  }, [persistence.save]);
+    await persistence.save(document, title, atsScore);
+  }, [persistence.save, atsScore]);
 
   const core = useCVBuilderCore({
     userId,
@@ -43,9 +45,8 @@ export function useCVBuilderIntegration({ supabase, projects, userId, enabled = 
   );
 
   const restoreVersion = useCallback((version: ResumeVersion) => {
-    core.setData(version.data as CVData);
-    core.setTemplate(version.template as typeof core.template);
-  }, [core.setData, core.setTemplate]);
+    core.replaceDocument(normalizeCVDocument({ cv: version.data, template: version.template }), true);
+  }, [core.replaceDocument]);
 
   return {
     ...core,
@@ -62,5 +63,7 @@ export function useCVBuilderIntegration({ supabase, projects, userId, enabled = 
     },
     jobDescription,
     setJobDescription,
+    atsScore,
+    setAtsScore,
   };
 }
