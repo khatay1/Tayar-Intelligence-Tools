@@ -67,3 +67,16 @@ export async function saveCVRecord(
   if (error) throw error;
   return { cvId, created: false };
 }
+
+export async function deleteCVRecord(
+  supabase: SupabaseClient,
+  userId: string,
+  cvId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('cvs')
+    .delete()
+    .eq('id', cvId)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
