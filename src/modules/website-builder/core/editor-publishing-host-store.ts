@@ -1,4 +1,9 @@
-import type { EditorPublishEnvironment, EditorPublishMode } from './editor-publishing';
+import {
+  normalizeEditorPublishRedirect,
+  type EditorPublishEnvironment,
+  type EditorPublishMode,
+  type EditorPublishRedirect,
+} from './editor-publishing';
 
 export interface EditorPublishingHostState {
   environment: EditorPublishEnvironment;
@@ -6,6 +11,7 @@ export interface EditorPublishingHostState {
   pageIds: string[];
   scheduledAt: string;
   releaseNote: string;
+  redirects: EditorPublishRedirect[];
 }
 
 const EMPTY_PUBLISHING_STATE: EditorPublishingHostState = {
@@ -14,6 +20,7 @@ const EMPTY_PUBLISHING_STATE: EditorPublishingHostState = {
   pageIds: [],
   scheduledAt: '',
   releaseNote: '',
+  redirects: [],
 };
 
 let currentState: EditorPublishingHostState = EMPTY_PUBLISHING_STATE;
@@ -26,12 +33,18 @@ function emit(): void {
 function normalize(value: unknown): EditorPublishingHostState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return EMPTY_PUBLISHING_STATE;
   const input = value as Partial<EditorPublishingHostState>;
+  const redirects = Array.isArray(input.redirects)
+    ? input.redirects
+        .filter((redirect): redirect is EditorPublishRedirect => Boolean(redirect) && typeof redirect === 'object')
+        .map(redirect => normalizeEditorPublishRedirect(redirect))
+    : [];
   return {
     environment: input.environment === 'staging' ? 'staging' : 'production',
     mode: input.mode === 'selective' ? 'selective' : 'full',
     pageIds: Array.from(new Set(Array.isArray(input.pageIds) ? input.pageIds.filter((id): id is string => typeof id === 'string' && Boolean(id)) : [])),
     scheduledAt: typeof input.scheduledAt === 'string' ? input.scheduledAt : '',
     releaseNote: typeof input.releaseNote === 'string' ? input.releaseNote.slice(0, 500) : '',
+    redirects,
   };
 }
 
