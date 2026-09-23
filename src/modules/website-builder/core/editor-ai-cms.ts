@@ -10,6 +10,7 @@ import {
   type WebsiteCmsFieldType,
   type WebsiteCmsFilter,
   type WebsiteCmsFilterOperator,
+  type WebsiteCmsIssue,
   type WebsiteCmsState,
   type WebsiteCmsValue,
 } from './website-cms';
@@ -100,6 +101,10 @@ function safeFilters(value: unknown): WebsiteCmsFilter[] | undefined {
   return filters.length ? filters : undefined;
 }
 
+function issueKey(issue: WebsiteCmsIssue): string {
+  return `${issue.severity}|${issue.collectionId || ''}|${issue.entryId || ''}|${issue.message}`;
+}
+
 export function normalizeWebsiteCmsAIPlan(input: unknown): WebsiteCmsAIPlan {
   const source = object(input);
   const operations = Array.isArray(source.operations) ? source.operations.slice(0, WEBSITE_CMS_AI_LIMITS.operations).flatMap((candidate) => {
@@ -128,7 +133,7 @@ export function normalizeWebsiteCmsAIPlan(input: unknown): WebsiteCmsAIPlan {
       name: text(rawField.name, 80),
       key: text(rawField.key, 80) || undefined,
       type: fieldType,
-      required: rawField.required === true,
+      required: typeof rawField.required === 'boolean' ? rawField.required : undefined,
       referenceCollectionId: text(rawField.referenceCollectionId, 120) || undefined,
     };
     return [normalized];
@@ -153,7 +158,9 @@ function uniqueFieldKey(requested: string, existing: Set<string>, fallback: stri
 
 export function applyWebsiteCmsAIPlan(inputCms: WebsiteCmsState, rawPlan: WebsiteCmsAIPlan): WebsiteCmsAIApplyResult {
   const plan = normalizeWebsiteCmsAIPlan(rawPlan);
-  let cms = normalizeWebsiteCms(inputCms);
+  const originalCms = normalizeWebsiteCms(inputCms);
+  const baselineErrorKeys = new Set(validateWebsiteCms(originalCms).filter((issue) => issue.severity === 'error').map(issueKey));
+  let cms = originalCms;
   const warnings = [...plan.warnings];
   let applied = 0;
   const skip = (message: string) => warnings.push(message);
@@ -208,7 +215,11 @@ export function applyWebsiteCmsAIPlan(inputCms: WebsiteCmsState, rawPlan: Websit
       const fieldIndex = collection.fields.findIndex((field) => field.id === operation.fieldId);
       if (fieldIndex < 0) { skip(`Skipped AI field update in ${collection.name}: field was not found.`); continue; }
       const requested = operation.field;
-      const fields = collection.fields.map((field, index) => index === fieldIndex ? { ...field, ...(requested?.name ? { name: requested.name.slice(0, 80) } : {}), ...(requested ? { required: requested.required === true } : {}) } : field);
+      const fields = collection.fields.map((field, index) => index === fieldIndex ? {
+        ...field,
+        ...(requested?.name ? { name: requested.name.slice(0, 80) } : {}),
+        ...(typeof requested?.required === 'boolean' ? { required: requested.required } : {}),
+      } : field);
       cms = { ...cms, collections: cms.collections.map((item, index) => index === collectionIndex ? { ...collection, fields } : item) };
       applied += 1;
       continue;
@@ -272,7 +283,11 @@ export function applyWebsiteCmsAIPlan(inputCms: WebsiteCmsState, rawPlan: Websit
   }
 
   cms = normalizeWebsiteCms(cms);
-  const issues = validateWebsiteCms(cms).filter((issue) => issue.severity === 'error');
-  if (issues.length) warnings.push(...issues.slice(0, 5).map((issue) => `CMS validation: ${issue.message}`));
+  const newErrors = validateWebsiteCms(cms)
+    .filter((issue) => issue.severity === 'error' && !baselineErrorKeys.has(issueKey(issue)));
+  if (newErrors.length) {
+    warnings.push(...newErrors.slice(0, 5).map((issue) => `AI plan rejected: ${issue.message}`));
+    return { cms: originalCms, applied: 0, warnings: [...new Set(warnings)].slice(0, 20) };
+  }
   return { cms, applied, warnings: [...new Set(warnings)].slice(0, 20) };
 }
