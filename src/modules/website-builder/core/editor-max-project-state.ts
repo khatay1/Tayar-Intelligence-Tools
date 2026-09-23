@@ -17,6 +17,8 @@ export interface EditorMaxProjectState {
   integrations?: unknown;
 }
 
+export type EditorMaxProjectStatePatch = Partial<Omit<EditorMaxProjectState, 'version'>>;
+
 type ProjectRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): ProjectRecord | null {
@@ -54,16 +56,28 @@ export function readEditorMaxProjectState(input: unknown): EditorMaxProjectState
   };
 }
 
+export function withEditorMaxProjectState<T>(project: T, patch: EditorMaxProjectStatePatch): T {
+  const record = asRecord(project);
+  if (!record) return project;
+
+  const current = readEditorMaxProjectState(record);
+  const maxState: EditorMaxProjectState = {
+    ...current,
+    ...patch,
+    version: EDITOR_MAX_STATE_VERSION,
+  };
+
+  return {
+    ...record,
+    [EDITOR_MAX_STATE_KEY]: maxState,
+  } as T;
+}
+
 export function embedEditorMaxProjectState<T>(project: T): T {
   const record = asRecord(project);
   if (!record) return project;
 
-  const state = readEditorMaxProjectState(record);
-  const withMaxState = {
-    ...record,
-    [EDITOR_MAX_STATE_KEY]: state,
-  };
-
+  const withMaxState = withEditorMaxProjectState(record, {});
   return embedEditorIntegrationsHostIntoProject(withMaxState) as T;
 }
 
