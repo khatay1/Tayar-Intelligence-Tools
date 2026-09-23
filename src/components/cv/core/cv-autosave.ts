@@ -11,17 +11,23 @@ export function createCVAutosaveController(delayMs = 1200): CVAutosaveController
   let pending: (() => Promise<void>) | null = null;
   let inFlight: Promise<void> | null = null;
 
-  const runPending = async () => {
+  const runPending = async (): Promise<void> => {
+    if (inFlight) {
+      await inFlight;
+      if (pending) await runPending();
+      return;
+    }
     if (!pending) return;
     const save = pending;
     pending = null;
-    const task = save();
+    const task = Promise.resolve().then(save);
     inFlight = task;
     try {
       await task;
     } finally {
       if (inFlight === task) inFlight = null;
     }
+    if (pending) await runPending();
   };
 
   return {
@@ -30,7 +36,7 @@ export function createCVAutosaveController(delayMs = 1200): CVAutosaveController
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         timer = null;
-        void runPending();
+        void runPending().catch(() => undefined);
       }, delayMs);
     },
     async flush() {
@@ -38,7 +44,6 @@ export function createCVAutosaveController(delayMs = 1200): CVAutosaveController
         clearTimeout(timer);
         timer = null;
       }
-      if (inFlight) await inFlight;
       await runPending();
     },
     cancel() {
