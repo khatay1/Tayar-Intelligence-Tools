@@ -6,6 +6,7 @@ const read = path => readFile(new URL(path, root), 'utf8');
 
 const [
   bridge,
+  bridgeBase,
   v2Index,
   integrationsSlot,
   integrationsHost,
@@ -16,6 +17,7 @@ const [
   cloudService,
 ] = await Promise.all([
   read('src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx'),
+  read('src/modules/website-builder/v2-ui/WebsiteBuilderV2BridgeBase.tsx'),
   read('src/modules/website-builder/v2-ui/index.ts'),
   read('src/modules/website-builder/v2-ui/BuilderIntegrationsSettingsSlot.tsx'),
   read('src/modules/website-builder/core/editor-integrations-project-host.ts'),
@@ -25,6 +27,7 @@ const [
   read('src/modules/website-builder/core/project-normalization.ts'),
   read('src/modules/website-builder/services/projectCloudService.ts'),
 ]);
+const bridgeSources = `${bridge}\n${bridgeBase}`;
 
 assert.match(v2Index, /BuilderIntegrationsSettingsSlot/, 'Integrations settings slot must be exported from V2 UI');
 assert.match(integrationsSlot, /BuilderIntegrationsMaxPanel/, 'Integrations settings slot must render the MAX panel');
@@ -43,14 +46,14 @@ assert.match(normalization, /hydrateEditorIntegrationsHostFromProject\(input\)/,
 assert.match(cloudService, /embedEditorIntegrationsHostIntoProject\(content\)/, 'Cloud save/create must persist integrations');
 assert.match(cloudService, /embedEditorIntegrationsHostIntoProject\(input\.content\)/, 'Publish-state cloud writes must persist integrations');
 
-// End-to-end reachability guard. This fails if Integrations MAX becomes implemented-but-unreachable.
-assert.match(bridge, /BuilderIntegrationsSettingsSlot/, 'V2 Settings must expose Integrations MAX');
-assert.match(bridge, /integrationsConfig/, 'V2 bridge must accept integrations project state');
-assert.match(bridge, /onChangeIntegrations/, 'V2 bridge must expose integrations persistence callback');
-assert.match(bridge, /onSetIntegrationSecret/, 'V2 bridge must expose secure secret callback');
-assert.match(bridge, /onTestIntegrationConnection/, 'V2 bridge must expose connection testing callback');
-assert.match(bridge, /useSyncExternalStore/, 'V2 bridge must stay synchronized with the persisted integrations host');
-assert.match(bridge, /editorIntegrationPublishBlockers/, 'V2 publish controls must include integration blockers');
-assert.match(bridge, /resolvedOnChangeIntegrations/, 'V2 settings must remain editable even when the legacy host omits new props');
+// End-to-end reachability guard. The V2 bridge is intentionally split into a host wrapper and UI base.
+assert.match(bridgeSources, /BuilderIntegrationsSettingsSlot/, 'V2 Settings must expose Integrations MAX');
+assert.match(bridgeSources, /integrationsConfig/, 'V2 bridge must accept integrations project state');
+assert.match(bridgeSources, /onChangeIntegrations/, 'V2 bridge must expose integrations persistence callback');
+assert.match(bridgeSources, /onSetIntegrationSecret/, 'V2 bridge must expose secure secret callback');
+assert.match(bridgeSources, /onTestIntegrationConnection/, 'V2 bridge must expose connection testing callback');
+assert.match(bridgeSources, /useSyncExternalStore/, 'V2 bridge must stay synchronized with the persisted integrations host');
+assert.match(bridgeSources, /editorIntegrationPublishBlockers/, 'V2 publish controls must include integration blockers');
+assert.match(bridgeSources, /resolvedOnChangeIntegrations/, 'V2 settings must remain editable even when the legacy host omits new props');
 
 console.log('PASS Website Builder MAX reachability: integrations UI, persisted local/cloud project state, publish preflight, secrets boundary and runtime are wired end-to-end');
