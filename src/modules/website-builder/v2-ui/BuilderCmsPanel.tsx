@@ -1,5 +1,7 @@
 import { useMemo, useState, type ComponentProps } from 'react';
 import { BuilderCmsPanel as BuilderCmsCorePanel } from './BuilderCmsCorePanel';
+import { BuilderCmsAiPanel } from './BuilderCmsAiPanel';
+import { BuilderCmsLocalizationPanel } from './BuilderCmsLocalizationPanel';
 import { BuilderCmsTransferPanel } from './BuilderCmsTransferPanel';
 
 type BuilderCmsPanelProps = ComponentProps<typeof BuilderCmsCorePanel>;
@@ -14,6 +16,7 @@ export function BuilderCmsPanel(props: BuilderCmsPanelProps) {
 
   return <div data-testid="builder-cms-max-panel">
     <div className="space-y-2 px-3 pt-3">
+      <BuilderCmsAiPanel cms={cms} disabled={disabled} onChange={onChange} />
       {cms.collections.length > 1 && <select
         className="w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-xs text-white outline-none focus:border-violet-400"
         value={transferCollection?.id || ''}
@@ -30,6 +33,7 @@ export function BuilderCmsPanel(props: BuilderCmsPanelProps) {
         onChange={onChange}
         onImportedCollection={setTransferCollectionId}
       />
+      <BuilderCmsLocalizationPanel cms={cms} disabled={disabled} onChange={onChange} />
     </div>
     <BuilderCmsCorePanel {...props} />
   </div>;

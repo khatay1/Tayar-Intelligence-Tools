@@ -58,7 +58,8 @@ export function createWebsiteBuilderOutput({
 }: WebsiteBuilderOutputDependencies) {
   const normalizedLocalization = normalizeWebsiteLocalization(localization, preferredLanguage);
   const sourcePages = pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
-  const expandedPages = expandWebsiteCmsPages(sourcePages, cms).map((page) => ({ ...page, language: normalizePageLanguage(page.language, normalizedLocalization.defaultLanguage) }));
+  const expandedPages = expandWebsiteCmsPages(sourcePages, cms, Date.now(), normalizedLocalization.defaultLanguage)
+    .map((page) => ({ ...page, language: normalizePageLanguage(page.language, normalizedLocalization.defaultLanguage) }));
   const outputPages = expandedPages.map((page) => ({
     ...page,
     outputPath: websitePageOutputPath(page, expandedPages, homePageId, normalizedLocalization),
@@ -76,7 +77,16 @@ export function createWebsiteBuilderOutput({
     trackAnalytics = false,
   ) {
     const currentPages = outputPages.map((page) => page.id === pageId
-      ? { ...page, sections: materializeWebsiteCmsSections(pageSections, cms) }
+      ? {
+          ...page,
+          sections: materializeWebsiteCmsSections(
+            pageSections,
+            cms,
+            undefined,
+            normalizePageLanguage(page.language, normalizedLocalization.defaultLanguage),
+            normalizedLocalization.defaultLanguage,
+          ),
+        }
       : page);
     const page = currentPages.find((item) => item.id === pageId) || currentPages[0];
     const productionUrl = normalizeSiteUrl(productionUrlOverride ?? siteUrl);
