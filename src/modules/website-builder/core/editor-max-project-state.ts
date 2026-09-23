@@ -6,6 +6,10 @@ import {
   getEditorLocalizationHostConfig,
   hydrateEditorLocalizationHost,
 } from './editor-localization-host-store';
+import {
+  getEditorCmsHostState,
+  hydrateEditorCmsHost,
+} from './editor-cms-host-store';
 
 export const EDITOR_MAX_STATE_KEY = 'maxState' as const;
 export const EDITOR_MAX_STATE_VERSION = 1 as const;
@@ -82,6 +86,7 @@ export function embedEditorMaxProjectState<T>(project: T): T {
   if (!record) return project;
 
   const withMaxState = withEditorMaxProjectState(record, {
+    cms: getEditorCmsHostState(),
     localization: getEditorLocalizationHostConfig(),
   });
   return embedEditorIntegrationsHostIntoProject(withMaxState) as T;
@@ -90,6 +95,7 @@ export function embedEditorMaxProjectState<T>(project: T): T {
 export function hydrateEditorMaxProjectState(input: unknown): EditorMaxProjectState {
   const state = readEditorMaxProjectState(input);
   hydrateEditorIntegrationsHostFromProject(input);
+  hydrateEditorCmsHost(state.cms);
   hydrateEditorLocalizationHost(state.localization);
   return state;
 }
