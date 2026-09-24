@@ -13,7 +13,11 @@ const settings = read('src/components/workspace/SettingsPage.tsx');
 const adminUsers = read('src/components/admin/AdminUsers.tsx');
 const subscription = read('src/components/workspace/SubscriptionView.tsx');
 const gate = read('src/modules/shared/ToolAccessGate.tsx');
-const builder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');
+const builder = [
+  'src/modules/website-builder/WebsiteBuilderTool.tsx',
+  'src/modules/website-builder/core/use-website-builder-controller.tsx',
+  'src/modules/website-builder/v2-ui/WebsiteBuilderPresentation.tsx',
+].map(read).join('\n');
 const publishHandler = read('src/modules/website-builder/core/editor-publish-handler.ts');
 const unpublishHandler = read('src/modules/website-builder/core/editor-unpublish-handler.ts');
 const publishedService = read('src/modules/website-builder/services/publishedWebsiteService.ts');

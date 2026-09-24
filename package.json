@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "smoke:website-builder": "node scripts/website-builder-smoke-split-runner.mjs",
+    "smoke:website-builder": "node scripts/website-builder-smoke-split-runner.mjs && node scripts/website-builder-ai-request-regression.mjs && node scripts/website-builder-ai-loader-regression.mjs && node scripts/website-builder-history-regression.mjs && node scripts/website-builder-snapshot-regression.mjs && node scripts/website-builder-ai-audit-regression.mjs",
     "smoke:website-builder:browser": "node scripts/website-builder-browser-regression-launcher.mjs",
     "launch:website-builder": "node scripts/website-builder-smoke-split-runner.mjs && node scripts/website-builder-launch.mjs",
     "smoke:site-polish": "node scripts/site-polish-smoke.mjs",

@@ -51,6 +51,7 @@ export default function ResumeBuilder({ onBack, projectId = null, cvId = null }:
   const [showCoverLetter, setShowCoverLetter] = useState(false);
 
   const builder = useCVBuilderIntegration({ supabase, projects, userId: user?.id, enabled: phase === 'builder', initialProjectId: projectId, initialCVId: cvId });
+  const addProposals = builder.proposals.addProposals;
   const score = useMemo(() => calculateResumeScore(builder.cv), [builder.cv]);
   const suggestions = useMemo(() => generateSuggestions(builder.cv), [builder.cv]);
   const setAtsScore = builder.setAtsScore;
@@ -61,7 +62,7 @@ export default function ResumeBuilder({ onBack, projectId = null, cvId = null }:
   useCVKeyboard({ enabled: phase === 'builder', undo: builder.undo, redo: builder.redo, save: builder.flushAutosave });
 
   const chooseTemplate = (template: TemplateId) => { builder.setTemplate(template); setPhase('builder'); toast.success(l('Template selected')); };
-  const addTextProposal = useCallback((proposal: Omit<CVProposal, 'id' | 'requiresVerification'>) => { builder.proposals.addProposals([{ ...proposal, id: uid(), requiresVerification: true }]); }, [builder.proposals.addProposals]);
+  const addTextProposal = useCallback((proposal: Omit<CVProposal, 'id' | 'requiresVerification'>) => { addProposals([{ ...proposal, id: uid(), requiresVerification: true }]); }, [addProposals]);
 
   async function handleAIAction(action: AIAction) {
     if (aiLoading) return;

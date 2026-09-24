@@ -5,7 +5,11 @@ const migration = await readFile('supabase/migrations/20260920160000_website_col
 const cloud = await readFile('src/modules/website-builder/services/projectCloudService.ts', 'utf8');
 const service = await readFile('src/modules/website-builder/services/websiteCollaborationService.ts', 'utf8');
 const panel = await readFile('src/modules/website-builder/v2-ui/WebsiteCollaborationPanel.tsx', 'utf8');
-const editor = await readFile('src/modules/website-builder/WebsiteBuilderTool.tsx', 'utf8');
+const editor = (await Promise.all([
+  'src/modules/website-builder/WebsiteBuilderTool.tsx',
+  'src/modules/website-builder/core/use-website-builder-controller.tsx',
+  'src/modules/website-builder/v2-ui/WebsiteBuilderPresentation.tsx',
+].map((file) => readFile(file, 'utf8')))).join('\n');
 const publishHandler = await readFile('src/modules/website-builder/core/editor-publish-handler.ts', 'utf8');
 const rollbackHandler = await readFile('src/modules/website-builder/core/editor-rollback-handler.ts', 'utf8');
 const unpublishHandler = await readFile('src/modules/website-builder/core/editor-unpublish-handler.ts', 'utf8');

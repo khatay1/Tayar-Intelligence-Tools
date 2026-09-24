@@ -160,6 +160,7 @@ const adminTools = read('src/components/admin/AdminTools.tsx');
 const adminAI = read('src/components/admin/AdminAI.tsx');
 const subscriptionView = read('src/components/workspace/SubscriptionView.tsx');
 const websiteBuilder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');
+const websiteBuilderController = read('src/modules/website-builder/core/use-website-builder-controller.tsx');
 const websiteBuilderAISnapshot = read('src/modules/website-builder/core/editor-ai-editable-snapshot.ts');
 const websiteBuilderAINativeBridge = read('src/modules/website-builder/core/editor-ai-native-bridge.ts');
 const websiteBuilderCms = read('src/modules/website-builder/core/website-cms.ts');
@@ -301,7 +302,7 @@ check('PDF dependencies and licenses are pinned through the lockfile', packageJs
 check('Lossy PDF compression is disclosed before processing', pdfToolsUi.includes('Links and selectable text will be flattened'));
 check('Background Remover inference stays local and metered without image upload', backgroundRemoverClient.includes('InferenceSession.create') && backgroundRemoverClient.includes("executionProviders: ['wasm']") && backgroundRemoverClient.includes('completeMeteredLocalAction') && !backgroundRemoverClient.includes('supabase.functions.invoke') && !backgroundRemoverClient.includes('FAL_KEY'));
 check('Retired Background Remover Edge Function rejects server-side processing', backgroundRemoverEdge.includes('status: 410') && backgroundRemoverEdge.includes('retired: true') && backgroundRemoverEdge.includes('runs locally in the browser') && !backgroundRemoverEdge.includes('FAL_KEY'));
-check('Website Builder project persistence is isolated from the monolith', websiteBuilder.includes("from './core/editor-project-lifecycle'") && !websiteBuilder.includes("const STORAGE_KEY = 'tayar.website-builder.project.v5'") && !websiteBuilder.includes('ACTIVE_PROJECT_STORAGE_KEY') && !websiteBuilder.includes('RECOVERY_STORAGE_KEY'));
+check('Website Builder project persistence is isolated from the monolith', websiteBuilderController.includes("from './editor-project-lifecycle'") && !websiteBuilderController.includes("const STORAGE_KEY = 'tayar.website-builder.project.v5'") && !websiteBuilderController.includes('ACTIVE_PROJECT_STORAGE_KEY') && !websiteBuilderController.includes('RECOVERY_STORAGE_KEY'));
 check('Website Builder lifecycle owns local, active, recovery, and cloud retry behavior', websiteBuilderProjectLifecycle.includes('loadLocalWebsiteProject') && websiteBuilderProjectLifecycle.includes('saveLocalWebsiteProject') && websiteBuilderProjectLifecycle.includes('saveActiveWebsiteProjectId') && websiteBuilderProjectLifecycle.includes('saveRecoveryWebsiteProject') && websiteBuilderProjectLifecycle.includes('retryCloudOperation'));
 check('Website Builder lifecycle keeps legacy local project migration keys', websiteBuilderProjectLifecycle.includes('tayar.website-builder.project.v4') && websiteBuilderProjectLifecycle.includes('tayar.website-builder.project.v3') && websiteBuilderProjectLifecycle.includes('tayar.website-builder.project.v2') && websiteBuilderProjectLifecycle.includes("LEGACY_STORAGE_KEY = 'tayar.website-builder.project'"));
 check('Website Builder AI prompt uses multi-page planner schema', aiPrompts.includes('Tayar AI Builder') && aiPrompts.includes('"pages": [') && aiPrompts.includes('Build 1-6 useful pages'));
