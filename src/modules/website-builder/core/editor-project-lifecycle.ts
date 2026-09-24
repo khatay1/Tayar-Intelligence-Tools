@@ -1,7 +1,7 @@
 import {
-  embedEditorIntegrationsHostIntoProject,
-  hydrateEditorIntegrationsHostFromProject,
-} from './editor-integrations-host-store';
+  embedEditorMaxProjectState,
+  hydrateEditorMaxProjectState,
+} from './editor-max-project-state';
 
 export const STORAGE_KEY = 'tayar.website-builder.project.v5';
 export const ACTIVE_PROJECT_STORAGE_KEY = 'tayar.website-builder.active-project.v1';
@@ -48,7 +48,7 @@ export function loadLocalWebsiteProject(): unknown | null {
     const raw = storage.getItem(key);
     if (!raw) continue;
     const project = JSON.parse(raw);
-    hydrateEditorIntegrationsHostFromProject(project);
+    hydrateEditorMaxProjectState(project);
     return project;
   }
 
@@ -60,7 +60,7 @@ export function saveLocalWebsiteProject(project: unknown): boolean {
   if (!storage) return false;
 
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(embedEditorIntegrationsHostIntoProject(project)));
+    storage.setItem(STORAGE_KEY, JSON.stringify(embedEditorMaxProjectState(project)));
     return true;
   } catch {
     return false;
@@ -129,7 +129,7 @@ export function saveRecoveryWebsiteProject(
       JSON.stringify({
         savedAt: new Date().toISOString(),
         reason: reason.slice(0, 120),
-        project: embedEditorIntegrationsHostIntoProject(project),
+        project: embedEditorMaxProjectState(project),
       }),
     );
     return true;
@@ -150,7 +150,7 @@ export function loadRecoveryWebsiteProject<TProject = unknown>(): EditorRecovery
     throw new Error('Invalid recovery snapshot');
   }
 
-  hydrateEditorIntegrationsHostFromProject(parsed.project);
+  hydrateEditorMaxProjectState(parsed.project);
   return {
     savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : '',
     reason: typeof parsed.reason === 'string' ? parsed.reason : '',

@@ -2,7 +2,10 @@ import type { Language } from '@/context/PreferencesContext';
 import { createSection, normalizeSection } from './defaults';
 import type { WebsiteSection } from './types';
 import { normalizePageLanguage, normalizeSlug } from './project-identifiers';
-import { hydrateEditorIntegrationsHostFromProject } from './editor-integrations-host-store';
+import {
+  hydrateEditorMaxProjectState,
+  type EditorMaxProjectState,
+} from './editor-max-project-state';
 
 export interface NormalizedWebsiteProjectPage {
   id: string;
@@ -48,13 +51,14 @@ interface NormalizedProjectLoadBase {
   sections: WebsiteSection[];
   activePageId: string;
   homePageId: string;
+  maxState: EditorMaxProjectState;
 }
 
 export type NormalizedWebsiteProjectLoad =
   | ({ kind: 'legacy-array'; parsed: null } & NormalizedProjectLoadBase)
   | ({ kind: 'pages'; parsed: PersistedProjectEnvelope } & NormalizedProjectLoadBase)
   | ({ kind: 'sections'; parsed: PersistedProjectEnvelope } & NormalizedProjectLoadBase)
-  | { kind: 'invalid'; parsed: null; pages: []; sections: []; activePageId: ''; homePageId: '' };
+  | ({ kind: 'invalid'; parsed: null; pages: []; sections: []; activePageId: ''; homePageId: '' } & Pick<NormalizedProjectLoadBase, 'maxState'>);
 
 function createLegacyHomePage(sections: WebsiteSection[]): NormalizedWebsiteProjectPage {
   return {
@@ -69,7 +73,7 @@ function createLegacyHomePage(sections: WebsiteSection[]): NormalizedWebsiteProj
 }
 
 export function normalizeWebsiteProjectLoad(input: unknown): NormalizedWebsiteProjectLoad {
-  hydrateEditorIntegrationsHostFromProject(input);
+  const maxState = hydrateEditorMaxProjectState(input);
 
   if (Array.isArray(input) && input.length) {
     const sections = input.map(normalizeSection);
@@ -81,6 +85,7 @@ export function normalizeWebsiteProjectLoad(input: unknown): NormalizedWebsitePr
       sections,
       activePageId: page.id,
       homePageId: page.id,
+      maxState,
     };
   }
 
@@ -92,6 +97,7 @@ export function normalizeWebsiteProjectLoad(input: unknown): NormalizedWebsitePr
       sections: [],
       activePageId: '',
       homePageId: '',
+      maxState,
     };
   }
 
@@ -129,6 +135,7 @@ export function normalizeWebsiteProjectLoad(input: unknown): NormalizedWebsitePr
       sections: activePage.sections,
       activePageId: activePage.id,
       homePageId,
+      maxState,
     };
   }
 
@@ -142,6 +149,7 @@ export function normalizeWebsiteProjectLoad(input: unknown): NormalizedWebsitePr
       sections,
       activePageId: page.id,
       homePageId: page.id,
+      maxState,
     };
   }
 
@@ -152,5 +160,6 @@ export function normalizeWebsiteProjectLoad(input: unknown): NormalizedWebsitePr
     sections: [],
     activePageId: '',
     homePageId: '',
+    maxState,
   };
 }
