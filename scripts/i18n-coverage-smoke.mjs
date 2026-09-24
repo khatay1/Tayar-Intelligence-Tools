@@ -20,7 +20,11 @@ const cvLocalization = read(cvLocalizationPath);
 const onboarding = read('src/components/onboarding/OnboardingWizard.tsx');
 const settings = read('src/components/workspace/SettingsPage.tsx');
 const workspace = read('src/components/workspace/Workspace.tsx');
-const builder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');
+const builder = [
+  'src/modules/website-builder/WebsiteBuilderTool.tsx',
+  'src/modules/website-builder/core/use-website-builder-controller.tsx',
+  'src/modules/website-builder/v2-ui/WebsiteBuilderPresentation.tsx',
+].map(read).join('\n');
 const resumeEntry = read('src/components/cv/ResumeBuilder.tsx');
 const resumeImplPath = 'src/components/cv/ResumeBuilder.impl.tsx';
 const resume = `${resumeEntry}\n${fs.existsSync(resumeImplPath) ? read(resumeImplPath) : ''}`;

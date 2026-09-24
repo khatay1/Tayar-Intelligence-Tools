@@ -4,7 +4,12 @@ import path from 'node:path';
 const cwd = process.cwd();
 const read = (p) => fs.readFileSync(path.join(cwd, p), 'utf8');
 const exists = (p) => fs.existsSync(path.join(cwd, p));
-const builder = read('src/modules/website-builder/WebsiteBuilderTool.tsx');
+const builder = [
+  'src/modules/website-builder/WebsiteBuilderTool.tsx',
+  'src/modules/website-builder/core/use-website-builder-controller.tsx',
+  'src/modules/website-builder/core/editor-launch-readiness.ts',
+  'src/modules/website-builder/v2-ui/WebsiteBuilderPresentation.tsx',
+].map(read).join('\n');
 const launchCenter = read('src/modules/website-builder/v2-ui/BuilderLegacyLaunchCenter.tsx');
 const moduleIndex = read('src/modules/website-builder/index.ts');
 const packageJson = JSON.parse(read('package.json'));
@@ -15,7 +20,7 @@ const check = (label, ok) => checks.push({ label, ok: Boolean(ok) });
 check('Website Builder is registered as active', moduleIndex.includes("status: 'active'"));
 check('Website Builder module is version 1.0.0', moduleIndex.includes("version: '1.0.0'"));
 check('V1 Launch Center exists', launchCenter.includes('Website Builder V1 Launch Center'));
-check('Launch Center is connected to the editor', builder.includes("from './v2-ui/BuilderLegacyLaunchCenter'") && builder.includes('<BuilderLegacyLaunchCenter'));
+check('Launch Center is connected to the editor', builder.includes("from './BuilderLegacyLaunchCenter'") && builder.includes('<BuilderLegacyLaunchCenter'));
 check('Launch Center has automated checks', launchCenter.includes('Automated launch checks'));
 check('Launch Center has manual production sign-off', launchCenter.includes('Manual production sign-off'));
 check('Launch Center has quick-start onboarding', launchCenter.includes('Quick-start onboarding'));

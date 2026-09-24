@@ -3,6 +3,31 @@ import { resolve } from 'node:path';
 
 const root = process.cwd();
 const builderPath = resolve(root, 'src/modules/website-builder/WebsiteBuilderTool.tsx');
+const builderControllerPath = resolve(root, 'src/modules/website-builder/core/use-website-builder-controller.tsx');
+const builderPresentationPath = resolve(root, 'src/modules/website-builder/v2-ui/WebsiteBuilderPresentation.tsx');
+const candidateReviewHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-ai-candidate-review-handlers.ts');
+const leadManagementHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-lead-management-handlers.ts');
+const mediaManagementHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-media-management-handlers.ts');
+const reusableElementHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-reusable-element-handlers.ts');
+const pageManagementHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-page-management-handlers.ts');
+const sectionManagementHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-section-management-handlers.ts');
+const formManagementHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-form-management-handlers.ts');
+const sectionEditingHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-section-editing-handlers.ts');
+const elementContentHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-element-content-handlers.ts');
+const elementArrangementHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-element-arrangement-handlers.ts');
+const editorClipboardHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-clipboard-handlers.ts');
+const aiRequestHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-ai-request-handlers.ts');
+const elementDragHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-element-drag-handlers.ts');
+const editorExportHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-export-handlers.ts');
+const editorDeliveryActionsPath = resolve(root, 'src/modules/website-builder/core/editor-delivery-actions.ts');
+const v2DirectActionsPath = resolve(root, 'src/modules/website-builder/core/editor-v2-direct-actions.ts');
+const livePreviewHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-live-preview-handlers.ts');
+const releaseHistoryHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-release-history-handlers.ts');
+const launchActionsPath = resolve(root, 'src/modules/website-builder/core/editor-launch-actions.ts');
+const launchReadinessPath = resolve(root, 'src/modules/website-builder/core/editor-launch-readiness.ts');
+const editHistoryHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-edit-history-handlers.ts');
+const aiImagePromptHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-ai-image-prompt-handler.ts');
+const aiUndoHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-ai-undo-handler.ts');
 const qualityMigrationPath = resolve(root, 'supabase/migrations/20260828161000_quality_security_hardening.sql');
 const teamMigrationPath = resolve(root, 'supabase/migrations/20260828155500_add_team_workspaces.sql');
 const billingMigrationPath = resolve(root, 'supabase/migrations/20260828154000_add_secure_billing_entitlements.sql');
@@ -176,7 +201,35 @@ for (const [label, path] of [
   check(label, existsSync(path));
 }
 
-const builderSource = existsSync(builderPath) ? readFileSync(builderPath, 'utf8') : '';
+const builderSource = [builderPath, builderControllerPath, builderPresentationPath]
+  .filter(existsSync)
+  .map((file) => readFileSync(file, 'utf8'))
+  .join('\n');
+const builderControllerSource = readFileSync(builderControllerPath, 'utf8');
+const builderPresentationSource = readFileSync(builderPresentationPath, 'utf8');
+const candidateReviewHandlersSource = existsSync(candidateReviewHandlersPath) ? readFileSync(candidateReviewHandlersPath, 'utf8') : '';
+const leadManagementHandlersSource = existsSync(leadManagementHandlersPath) ? readFileSync(leadManagementHandlersPath, 'utf8') : '';
+const mediaManagementHandlersSource = existsSync(mediaManagementHandlersPath) ? readFileSync(mediaManagementHandlersPath, 'utf8') : '';
+const reusableElementHandlersSource = existsSync(reusableElementHandlersPath) ? readFileSync(reusableElementHandlersPath, 'utf8') : '';
+const pageManagementHandlersSource = existsSync(pageManagementHandlersPath) ? readFileSync(pageManagementHandlersPath, 'utf8') : '';
+const sectionManagementHandlersSource = existsSync(sectionManagementHandlersPath) ? readFileSync(sectionManagementHandlersPath, 'utf8') : '';
+const formManagementHandlersSource = existsSync(formManagementHandlersPath) ? readFileSync(formManagementHandlersPath, 'utf8') : '';
+const sectionEditingHandlersSource = existsSync(sectionEditingHandlersPath) ? readFileSync(sectionEditingHandlersPath, 'utf8') : '';
+const elementContentHandlersSource = existsSync(elementContentHandlersPath) ? readFileSync(elementContentHandlersPath, 'utf8') : '';
+const elementArrangementHandlersSource = existsSync(elementArrangementHandlersPath) ? readFileSync(elementArrangementHandlersPath, 'utf8') : '';
+const editorClipboardHandlersSource = existsSync(editorClipboardHandlersPath) ? readFileSync(editorClipboardHandlersPath, 'utf8') : '';
+const aiRequestHandlersSource = existsSync(aiRequestHandlersPath) ? readFileSync(aiRequestHandlersPath, 'utf8') : '';
+const elementDragHandlersSource = existsSync(elementDragHandlersPath) ? readFileSync(elementDragHandlersPath, 'utf8') : '';
+const editorExportHandlersSource = existsSync(editorExportHandlersPath) ? readFileSync(editorExportHandlersPath, 'utf8') : '';
+const editorDeliveryActionsSource = existsSync(editorDeliveryActionsPath) ? readFileSync(editorDeliveryActionsPath, 'utf8') : '';
+const v2DirectActionsSource = existsSync(v2DirectActionsPath) ? readFileSync(v2DirectActionsPath, 'utf8') : '';
+const livePreviewHandlersSource = existsSync(livePreviewHandlersPath) ? readFileSync(livePreviewHandlersPath, 'utf8') : '';
+const releaseHistoryHandlersSource = existsSync(releaseHistoryHandlersPath) ? readFileSync(releaseHistoryHandlersPath, 'utf8') : '';
+const launchActionsSource = existsSync(launchActionsPath) ? readFileSync(launchActionsPath, 'utf8') : '';
+const launchReadinessSource = existsSync(launchReadinessPath) ? readFileSync(launchReadinessPath, 'utf8') : '';
+const editHistoryHandlersSource = existsSync(editHistoryHandlersPath) ? readFileSync(editHistoryHandlersPath, 'utf8') : '';
+const aiImagePromptHandlerSource = existsSync(aiImagePromptHandlerPath) ? readFileSync(aiImagePromptHandlerPath, 'utf8') : '';
+const aiUndoHandlerSource = existsSync(aiUndoHandlerPath) ? readFileSync(aiUndoHandlerPath, 'utf8') : '';
 const aiChangeHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-ai-change-handler.ts');
 const aiChangeHandlerSource = existsSync(aiChangeHandlerPath) ? readFileSync(aiChangeHandlerPath, 'utf8') : '';
 const publishHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-publish-handler.ts');
@@ -223,9 +276,27 @@ const editorAIEditableSnapshot = existsSync(editorAIEditableSnapshotPath) ? read
 const websiteBuilderOutput = existsSync(websiteBuilderOutputPath) ? readFileSync(websiteBuilderOutputPath, 'utf8') : '';
 const websiteBuilderReports = existsSync(websiteBuilderReportsPath) ? readFileSync(websiteBuilderReportsPath, 'utf8') : '';
 const websiteBuilderExportData = existsSync(websiteBuilderExportDataPath) ? readFileSync(websiteBuilderExportDataPath, 'utf8') : '';
-const builder = `${builderSource}\n${aiChangeHandlerSource}\n${publishHandlerSource}\n${v2NativeHandlerSource}\n${aiGenerationHandlerSource}\n${saveHandlerSource}\n${publicationHandlers}\n${editorActionHandlers}\n${lifecycleHandlers}\n${canvasActionHandlers}\n${projectAndElementHandlers}\n${extractedPanelSources}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}\n${editorAIEditableSnapshot}\n${websiteBuilderOutput}\n${websiteBuilderReports}\n${websiteBuilderExportData}`;
+const builder = `${launchReadinessSource}\n${builderSource}\n${candidateReviewHandlersSource}\n${leadManagementHandlersSource}\n${mediaManagementHandlersSource}\n${reusableElementHandlersSource}\n${pageManagementHandlersSource}\n${sectionManagementHandlersSource}\n${formManagementHandlersSource}\n${sectionEditingHandlersSource}\n${elementContentHandlersSource}\n${elementArrangementHandlersSource}\n${editorClipboardHandlersSource}\n${aiRequestHandlersSource}\n${elementDragHandlersSource}\n${editorExportHandlersSource}\n${editorDeliveryActionsSource}\n${v2DirectActionsSource}\n${livePreviewHandlersSource}\n${releaseHistoryHandlersSource}\n${launchActionsSource}\n${editHistoryHandlersSource}\n${aiImagePromptHandlerSource}\n${aiUndoHandlerSource}\n${aiChangeHandlerSource}\n${publishHandlerSource}\n${v2NativeHandlerSource}\n${aiGenerationHandlerSource}\n${saveHandlerSource}\n${publicationHandlers}\n${editorActionHandlers}\n${lifecycleHandlers}\n${canvasActionHandlers}\n${projectAndElementHandlers}\n${extractedPanelSources}\n${editorAIPatchReview}\n${editorAIScope}\n${editorAIReviewTargets}\n${websiteBuilderModel}\n${websiteBuilderConfig}\n${websiteBuilderRendering}\n${builderElementPreview}\n${builderSectionPreview}\n${editorAIEditableSnapshot}\n${websiteBuilderOutput}\n${websiteBuilderReports}\n${websiteBuilderExportData}`;
 check('Backup, reset and native element handlers remain connected', ['createImportProjectBackupHandler', 'createResetProjectHandler', 'createV2DuplicateElementHandler', 'createV2DeleteElementHandler'].every((name) => builderSource.includes(`${name}({`) && projectAndElementHandlers.includes(`export function ${name}(`)));
 check('Canvas arrangement and drag handlers remain connected', ['createArrangeSelectedElementsHandler', 'createPrepareElementFreeDragHandler', 'createUpdateElementFreeDragHandler'].every((name) => builderSource.includes(`${name}({`) && canvasActionHandlers.includes(`export function ${name}(`)));
+check('Form, section, element and arrangement actions remain connected', [
+  ['createFormManagementHandlers', formManagementHandlersSource],
+  ['createSectionEditingHandlers', sectionEditingHandlersSource],
+  ['createElementContentHandlers', elementContentHandlersSource],
+  ['createElementArrangementHandlers', elementArrangementHandlersSource],
+  ['createEditorClipboardHandlers', editorClipboardHandlersSource],
+  ['createAIRequestHandlers', aiRequestHandlersSource],
+  ['createElementDragHandlers', elementDragHandlersSource],
+  ['createEditorExportHandlers', editorExportHandlersSource],
+  ['createDeliveryActions', editorDeliveryActionsSource],
+  ['createV2DirectActions', v2DirectActionsSource],
+  ['createLivePreviewHandlers', livePreviewHandlersSource],
+  ['createReleaseHistoryHandlers', releaseHistoryHandlersSource],
+  ['createLaunchActions', launchActionsSource],
+  ['createEditHistoryHandlers', editHistoryHandlersSource],
+  ['createAIImagePromptHandler', aiImagePromptHandlerSource],
+  ['createAIUndoHandler', aiUndoHandlerSource],
+].every(([name, source]) => builderControllerSource.includes(`${name}({`) && source.includes(`export function ${name}(`)));
 check('Load, recovery, and handoff handlers remain connected', ['createApplyProjectDataHandler', 'createRecoverPublishedStateHandler', 'createClientHandoffHandler'].every((name) => builderSource.includes(`${name}({`) && lifecycleHandlers.includes(`export function ${name}(`)));
 check('Duplicate and AI action handlers remain connected', ['createDuplicateProjectHandler', 'createAIQualityCheckHandler', 'createAIImageHandler'].every((name) => builderSource.includes(`${name}({`) && editorActionHandlers.includes(`export function ${name}(`)));
 check('Rollback, staging, and unpublish handlers remain connected', ['createRollbackPublishVersionHandler', 'createSharePreviewHandler', 'createUnpublishWebsiteHandler'].every((name) => builderSource.includes(`${name}({`) && publicationHandlers.includes(`export function ${name}(`)));
@@ -235,7 +306,7 @@ check('Publish handler remains connected to the editor', builderSource.includes(
 check('AI change handler remains connected to the editor', builderSource.includes('createAIChangeHandler({') && aiChangeHandlerSource.includes('return async function applyAIChange('));
 check('Extracted builder panels remain mounted and available',
   ['BuilderAiPanel', 'BuilderSitePanel', 'BuilderSettingsPanel', 'BuilderLegacySectionSettings', 'BuilderLegacyHeader', 'BuilderLegacySidebar', 'BuilderLegacyInspector', 'BuilderLegacyLeads', 'BuilderLegacyCanvas', 'BuilderV2Canvas', 'BuilderLegacyBilling', 'BuilderLegacyAnalytics', 'BuilderLegacyReleaseHistory', 'BuilderLegacyLaunchCenter', 'BuilderLegacyCommandPalette'].every((name) =>
-    (builderSource.includes(`import { ${name} } from './v2-ui/${name}'`) || extractedPanelSources.includes(`import { ${name} } from './${name}'`))
+    (builderPresentationSource.includes(`import { ${name} } from './${name}'`) || extractedPanelSources.includes(`import { ${name} } from './${name}'`))
     && builder.includes(`<${name}`)
     && extractedPanelSources.includes(`export function ${name}(`)));
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';
@@ -391,29 +462,29 @@ check('Shared project recovery uses the actual project owner', builder.includes(
 check('Lead operations require owner or workspace admin', builder.includes('Lead inbox is available to project owners and workspace admins.') && sharedRuntimeMigration.includes("IN ('owner', 'admin')"));
 check('Analytics is available to shared editors without exposing leads', builder.includes('Analytics is available to project owners, admins, and editors.') && sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor')"));
 check('Shared release history is read-only while rollback stays owner-only', sharedRuntimeMigration.includes("IN ('owner', 'admin', 'editor', 'viewer')") && builder.includes('Only the project owner can rollback a published release.') && builder.includes('Only the project owner can delete release archives.'));
-check('Core V3 centralizes project access and owner resolution', projectAccessCore.includes('resolveEditorProjectOwnerId') && projectAccessCore.includes('normalizeEditorProjectAccess') && builder.includes("from './core/editor-project-access'"));
-check('Core V3 centralizes published storage cleanup', publishedStorageCore.includes('publishedSiteFilePaths') && publishedStorageCore.includes('removePublishedSiteFiles') && publishedWebsiteService.includes("from '../core/editor-published-storage'") && builder.includes("from './services/publishedWebsiteService'"));
+check('Core V3 centralizes project access and owner resolution', projectAccessCore.includes('resolveEditorProjectOwnerId') && projectAccessCore.includes('normalizeEditorProjectAccess') && builderControllerSource.includes("from './editor-project-access'"));
+check('Core V3 centralizes published storage cleanup', publishedStorageCore.includes('publishedSiteFilePaths') && publishedStorageCore.includes('removePublishedSiteFiles') && publishedWebsiteService.includes("from '../core/editor-published-storage'") && livePreviewHandlersSource.includes("from '../services/publishedWebsiteService'") && builderControllerSource.includes('createLivePreviewHandlers({'));
 check('Shared lead policy keeps row ownership tied to the website owner', sharedRuntimeMigration.includes('website_leads.project_id'));
-check('Recovery snapshot storage is enabled', projectLifecycleCore.includes('RECOVERY_STORAGE_KEY') && projectLifecycleCore.includes('saveRecoveryWebsiteProject') && builder.includes("from './core/editor-project-lifecycle'"));
+check('Recovery snapshot storage is enabled', projectLifecycleCore.includes('RECOVERY_STORAGE_KEY') && projectLifecycleCore.includes('saveRecoveryWebsiteProject') && builderControllerSource.includes("from './editor-project-lifecycle'"));
 check('Project load normalization is extracted from the builder', projectNormalization.includes('normalizeWebsiteProjectLoad') && lifecycleHandlers.includes("from '../core/project-normalization'"));
-check('Cloud save/create is extracted from the builder', projectCloudService.includes('createWebsiteProjectInCloud') && projectCloudService.includes('updateWebsiteProjectInCloud') && builder.includes("from './services/projectCloudService'"));
+check('Cloud save/create is extracted from the builder', projectCloudService.includes('createWebsiteProjectInCloud') && projectCloudService.includes('updateWebsiteProjectInCloud') && builderControllerSource.includes("from '../services/projectCloudService'"));
 check('Cloud project identity survives local re-entry', builder.includes('cloudProjectId?: string | null') && builder.includes('cloudProjectId,\n      siteName') && builder.includes('saveActiveWebsiteProjectId(savedIdentity)') && builder.includes('cloudProjectId: project.id'));
 check('Autosave cannot create a duplicate draft while an existing identity reconnects', builder.includes('const preservedProjectId = projectId || loadActiveWebsiteProjectId()') && builder.includes('Tayar will not create a duplicate draft while its saved identity is available.'));
 check('Duplicate and imported projects detach source cloud identity', builder.includes('cloudProjectId: null,\n      siteName: duplicateTitle') && builder.includes('cloudProjectId: null,\n          publishedUrl:'));
-check('Publish and unpublish storage writes are extracted', publishedWebsiteService.includes('replacePublishedWebsiteFiles') && publishedWebsiteService.includes('removePublishedWebsiteFiles') && builder.includes("from './services/publishedWebsiteService'"));
-check('Autosave policy and history entry creation are extracted', autosavePolicy.includes('decideEditorAutosave') && autosavePolicy.includes('createProjectHistoryEntry') && builder.includes("from './core/editor-autosave-policy'"));
+check('Publish and unpublish storage writes are extracted', publishedWebsiteService.includes('replacePublishedWebsiteFiles') && publishedWebsiteService.includes('removePublishedWebsiteFiles') && livePreviewHandlersSource.includes("from '../services/publishedWebsiteService'") && builderControllerSource.includes('createPublishWebsiteHandler({') && builderControllerSource.includes('createUnpublishWebsiteHandler({'));
+check('Autosave policy and history entry creation are extracted', autosavePolicy.includes('decideEditorAutosave') && autosavePolicy.includes('createProjectHistoryEntry') && builderControllerSource.includes("from './editor-autosave-policy'"));
 check('Manual history snapshots preserve the exact pre-mutation active sections', builder.includes('function createEditHistoryEntry(label: string, currentSections?: WebsiteSection[])') && builder.includes('const preservedSections = JSON.parse(JSON.stringify(currentSections))') && builder.includes('createEditHistoryEntry(label, current)'));
-check('Reusable section cloud mutations are extracted', reusableSectionService.includes('listReusableSectionsInCloud') && reusableSectionService.includes('saveReusableSectionInCloud') && reusableSectionService.includes('deleteReusableSectionInCloud') && builder.includes("from './services/reusableSectionService'"));
-check('Publish version create/list/delete is extracted', publishVersionService.includes('createWebsitePublishVersion') && publishVersionService.includes('listWebsitePublishVersions') && publishVersionService.includes('deleteWebsitePublishVersionArchive') && builder.includes("from './services/publishVersionService'"));
-check('Lead CRUD is extracted', websiteLeadService.includes('listWebsiteLeads') && websiteLeadService.includes('updateWebsiteLeadStatus') && websiteLeadService.includes('deleteWebsiteLead') && builder.includes("from './services/websiteLeadService'"));
-check('Analytics querying and summary are extracted', websiteAnalyticsService.includes('listWebsiteAnalyticsEvents') && websiteAnalyticsSummary.includes('summarizeWebsiteAnalytics') && builder.includes("from './services/websiteAnalyticsService'") && builder.includes("from './core/website-analytics-summary'"));
-check('Media storage operations are extracted', websiteMediaService.includes('listWebsiteMediaFiles') && websiteMediaService.includes('uploadWebsiteMediaFile') && websiteMediaService.includes('deleteWebsiteMediaFile') && builder.includes("from './services/websiteMediaService'"));
-check('Project access RPC is extracted', websiteAccessService.includes('getWebsiteProjectTeamAccess') && builder.includes("from './services/websiteAccessService'"));
-check('Billing RPC is extracted', websiteBillingService.includes('getWebsiteBuilderBillingState') && builder.includes("from './services/websiteBillingService'"));
-check('Project slug and language identifiers are centralized', projectIdentifiers.includes('normalizeSlug') && projectIdentifiers.includes('normalizePageLanguage') && projectIdentifiers.includes('PAGE_LANGUAGE_LABELS') && builder.includes("from './core/project-identifiers'") && projectNormalization.includes("from './project-identifiers'"));
-check('Release metrics are extracted', projectReleaseMetrics.includes('buildProjectSnapshotDiffSummary') && builder.includes("from './core/project-release-metrics'"));
-check('Lead parsing utilities are extracted', websiteLeadUtils.includes('getWebsiteLeadPhone') && websiteLeadUtils.includes('getWebsiteLeadSource') && builder.includes("from './core/website-lead-utils'"));
-check('Delivery config defaults and normalization are extracted', deliveryConfig.includes('DEFAULT_DELIVERY_CONFIG') && deliveryConfig.includes('normalizeDeliveryConfig') && builder.includes("from './core/delivery-config'"));
+check('Reusable section cloud mutations are extracted', reusableSectionService.includes('listReusableSectionsInCloud') && reusableSectionService.includes('saveReusableSectionInCloud') && reusableSectionService.includes('deleteReusableSectionInCloud') && builderControllerSource.includes("from '../services/reusableSectionService'"));
+check('Publish version create/list/delete is extracted', publishVersionService.includes('createWebsitePublishVersion') && publishVersionService.includes('listWebsitePublishVersions') && publishVersionService.includes('deleteWebsitePublishVersionArchive') && builderControllerSource.includes("from '../services/publishVersionService'"));
+check('Lead CRUD is extracted', websiteLeadService.includes('listWebsiteLeads') && websiteLeadService.includes('updateWebsiteLeadStatus') && websiteLeadService.includes('deleteWebsiteLead') && builderControllerSource.includes("from '../services/websiteLeadService'"));
+check('Analytics querying and summary are extracted', websiteAnalyticsService.includes('listWebsiteAnalyticsEvents') && websiteAnalyticsSummary.includes('summarizeWebsiteAnalytics') && builderControllerSource.includes("from '../services/websiteAnalyticsService'") && builderControllerSource.includes("from './website-analytics-summary'"));
+check('Media storage operations are extracted', websiteMediaService.includes('listWebsiteMediaFiles') && websiteMediaService.includes('uploadWebsiteMediaFile') && websiteMediaService.includes('deleteWebsiteMediaFile') && builderControllerSource.includes("from '../services/websiteMediaService'"));
+check('Project access RPC is extracted', websiteAccessService.includes('getWebsiteProjectTeamAccess') && builderControllerSource.includes("from '../services/websiteAccessService'"));
+check('Billing RPC is extracted', websiteBillingService.includes('getWebsiteBuilderBillingState') && builderControllerSource.includes("from '../services/websiteBillingService'"));
+check('Project slug and language identifiers are centralized', projectIdentifiers.includes('normalizeSlug') && projectIdentifiers.includes('normalizePageLanguage') && projectIdentifiers.includes('PAGE_LANGUAGE_LABELS') && builderControllerSource.includes("from './project-identifiers'") && projectNormalization.includes("from './project-identifiers'"));
+check('Release metrics are extracted', projectReleaseMetrics.includes('buildProjectSnapshotDiffSummary') && releaseHistoryHandlersSource.includes("from './project-release-metrics'") && builderControllerSource.includes('createReleaseHistoryHandlers({'));
+check('Lead parsing utilities are extracted', websiteLeadUtils.includes('getWebsiteLeadPhone') && websiteLeadUtils.includes('getWebsiteLeadSource') && leadManagementHandlersSource.includes("from './website-lead-utils'"));
+check('Delivery config defaults and normalization are extracted', deliveryConfig.includes('DEFAULT_DELIVERY_CONFIG') && deliveryConfig.includes('normalizeDeliveryConfig') && builderControllerSource.includes("from './delivery-config'"));
 check('Published, preview and release bundles validate index.html before storage writes', publishedSiteValidation.includes('assertValidPublishedWebsiteBundle') && publishedSiteValidation.includes('isValidPublishedHtml') && (publishedWebsiteService.match(/assertValidPublishedWebsiteBundle\(files\)/g) || []).length >= 3 && publishedWebsiteService.includes('const verifiedHtml = await verifiedIndex.text()') && publishedWebsiteService.includes('await removePublishedSiteFiles(publishedSiteStorage, stalePaths)'));
 check('Published-site replacement snapshots the previous live state before mutation', publishedWebsiteService.includes('const previousFiles = new Map<string, Blob>()') && publishedWebsiteService.includes('Could not create a safe pre-publish backup'));
 check('Partial published-site replacements rollback overwritten and newly created files',
@@ -664,7 +735,7 @@ check('Publish actions expose Preview Check Publish flow', builder.includes("AI 
 check('Section palette remains available in focused Add panel', builder.includes("Object.keys(SECTION_LABELS)") && builder.includes("Sections & elements"));
 check('Layers show elements only for the selected section', builder.includes("Select a section to see its elements.") && builder.includes("selectedId === section.id && (") && builder.includes("setInspectorOpen(true)"));
 check('Legacy array backups use a valid default language', projectNormalization.includes('if (Array.isArray(input) && input.length)') && projectNormalization.includes("language: 'en'") && projectNormalization.includes("translationKey: 'home'"));
-check('Analytics CSV export uses the shared CSV serializer', websiteBuilderExportData.includes('export function buildWebsiteAnalyticsCsv') && websiteBuilderExportData.includes('buildCsv(rows)') && builderSource.includes('buildWebsiteAnalyticsCsv(analyticsEvents)'));
+check('Analytics CSV export uses the shared CSV serializer', websiteBuilderExportData.includes('export function buildWebsiteAnalyticsCsv') && websiteBuilderExportData.includes('buildCsv(rows)') && editorExportHandlersSource.includes('buildWebsiteAnalyticsCsv(analyticsEvents)') && builderControllerSource.includes('createEditorExportHandlers({'));
 check('Container column controls are reachable', builder.includes('selectedSection && sectionColumnCount(selectedSection.layout) > 1'));
 check('Media insertion is not misclassified as a React hook', builder.includes('function applyMediaAsset') && !builder.includes('function useMediaAsset'));
 check('Generated counter regex preserves numeric escapes', builder.includes('raw.match(/-?\\\\d+(?:\\\\.\\\\d+)?/)'));
