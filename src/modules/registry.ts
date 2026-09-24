@@ -2,6 +2,8 @@ import { createElement } from 'react';
 import { ToolModule } from './types';
 import ToolAccessGate from './shared/ToolAccessGate';
 
+const INTERNAL_ROUTE_IDS = new Set(['cv']);
+
 class ToolRegistryImpl {
   private tools = new Map<string, ToolModule>();
 
@@ -42,21 +44,22 @@ class ToolRegistryImpl {
   }
 
   byCategory(category: string): ToolModule[] {
-    return this.all().filter(t => t.category === category);
+    return this.available().filter(t => t.category === category);
   }
 
   active(): ToolModule[] {
-    return this.all().filter(t => t.status === 'active');
+    return this.all().filter(t => t.status === 'active' && !INTERNAL_ROUTE_IDS.has(t.id));
   }
 
   available(): ToolModule[] {
-    return this.all().filter(t => t.status === 'active' || t.status === 'beta');
+    return this.all().filter(t => (t.status === 'active' || t.status === 'beta') && !INTERNAL_ROUTE_IDS.has(t.id));
   }
 
   search(query: string): ToolModule[] {
     const q = query.toLowerCase().trim();
-    if (!q) return this.all();
-    return this.all().filter(
+    const visible = this.all().filter(t => !INTERNAL_ROUTE_IDS.has(t.id));
+    if (!q) return visible;
+    return visible.filter(
       t =>
         t.name.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q) ||
