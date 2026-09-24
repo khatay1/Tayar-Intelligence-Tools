@@ -17,6 +17,7 @@ import { createAIQualityCheckHandler } from './editor-ai-quality-handler';
 import { createApplyProjectDataHandler } from './editor-apply-project-handler';
 import { createArrangeSelectedElementsHandler } from './editor-arrange-handler';
 import { createClientHandoffHandler } from './editor-client-handoff-handler';
+import { useCustomDomainHandlers } from './editor-custom-domain-handlers';
 import { createPrepareElementFreeDragHandler } from './editor-drag-prepare-handler';
 import { createUpdateElementFreeDragHandler } from './editor-drag-update-handler';
 import { createDuplicateProjectHandler } from './editor-duplicate-project-handler';
@@ -41,11 +42,14 @@ import { createPublishWebsiteHandler } from './editor-publish-handler';
 import { createRecoverPublishedStateHandler } from './editor-recover-published-handler';
 import { createResetProjectHandler } from './editor-reset-project-handler';
 import { createReusableElementHandlers } from './editor-reusable-element-handlers';
+import { useReusableSectionHandlers } from './editor-reusable-section-handlers';
 import { createRollbackPublishVersionHandler } from './editor-rollback-handler';
 import { createSaveProjectHandler } from './editor-save-handler';
 import { createSectionManagementHandlers } from './editor-section-management-handlers';
 import { createSectionEditingHandlers } from './editor-section-editing-handlers';
 import { createSharePreviewHandler } from './editor-share-preview-handler';
+import { createThemeActions } from './editor-theme-actions';
+import { createEditorProjectSnapshot, fingerprintEditorProject, fingerprintEditableProject } from './editor-project-snapshot';
 import { createUnpublishWebsiteHandler } from './editor-unpublish-handler';
 import { createV2DeleteElementHandler } from './editor-v2-delete-handler';
 import { createV2DuplicateElementHandler } from './editor-v2-duplicate-handler';
@@ -58,21 +62,14 @@ export interface WebsiteBuilderToolProps {
 
 import { listWebsiteProjectsInCloud } from '../services/projectCloudService';
 import { listWebsitePublishVersions } from '../services/publishVersionService';
-import { deleteReusableSectionInCloud,listReusableSectionsInCloud,saveReusableSectionInCloud } from '../services/reusableSectionService';
 import { getWebsiteProjectTeamAccess } from '../services/websiteAccessService';
 import { listWebsiteAnalyticsEvents } from '../services/websiteAnalyticsService';
 import { createWebsiteCheckoutSession,getWebsiteBuilderBillingState,openWebsiteBillingPortalSession } from '../services/websiteBillingService';
-import {
-checkWebsiteCustomDomain,
-connectWebsiteCustomDomain,
-getWebsiteCustomDomain,
-removeWebsiteCustomDomain,
-type WebsiteCustomDomain,
-} from '../services/websiteDomainService';
+import type { WebsiteCustomDomain } from '../services/websiteDomainService';
 import { listWebsiteFormDeliveries,type WebsiteFormDelivery } from '../services/websiteFormService';
 import { listWebsiteLeads } from '../services/websiteLeadService';
 import { getWebsiteMediaPublicUrl,listWebsiteMediaFiles } from '../services/websiteMediaService';
-import { SECTION_LABELS,defaultBrand,defaultSEO,defaultSections,normalizeSection } from './defaults';
+import { defaultBrand,defaultSEO,defaultSections } from './defaults';
 import {
 DEFAULT_DELIVERY_CONFIG,
 type WebsiteDeliveryConfig
@@ -134,11 +131,8 @@ DEFAULT_PRODUCTION_CONFIG,
 DEFAULT_SITE_ENHANCEMENTS,
 DEFAULT_THEME,
 FREE_BILLING_ENTITLEMENTS,
-REUSABLE_SECTIONS_KEY,
-applyThemeToSection,
 normalizeBillingStatePayload,
 normalizeProductionConfig,
-normalizeTheme,
 resolveEffectiveProductionConfig
 } from './website-builder-config';
 import {
@@ -167,7 +161,6 @@ type WebsiteTheme
 } from './website-builder-model';
 import { createWebsiteBuilderOutput } from './website-builder-output';
 import {
-cloneSectionWithFreshIds,
 cloneSymbolElement,
 downloadTextFile,
 normalizeSiteUrl,
@@ -175,11 +168,7 @@ safeFormRedirectHref,
 } from './website-builder-rendering';
 import { buildV1LaunchReportText } from './website-builder-reports';
 import { EMPTY_WEBSITE_CMS,materializeWebsiteCmsSections,queryWebsiteCmsEntries,validateWebsiteCms,type WebsiteCmsState } from './website-cms';
-import {
-analyzeWebsiteDesignSystem,
-repairWebsiteDesignTokens,
-type WebsiteDesignSystemPreset
-} from './website-design-system';
+import { analyzeWebsiteDesignSystem } from './website-design-system';
 import {
 DEFAULT_WEBSITE_LOCALIZATION,
 validateWebsiteLocalization,
@@ -635,87 +624,11 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }, 2000);
   }
 
-  const refreshCustomDomain = useCallback(async () => {
-    if (!cloudProjectId || !user) {
-      setCustomDomain(null);
-      setCustomDomainDraft('');
-      return;
-    }
-    const loadSequence = projectLoadSequenceRef.current;
-    const project = cloudProjectId;
-    const userId = user.id;
-    setCustomDomainBusy(true);
-    setCustomDomainError('');
-    try {
-      const domain = await getWebsiteCustomDomain(project);
-      if (projectLoadSequenceRef.current !== loadSequence || activeUserIdRef.current !== userId) return;
-      setCustomDomain(domain);
-      setCustomDomainDraft(domain?.hostname || '');
-    } catch (error) {
-      if (projectLoadSequenceRef.current === loadSequence && activeUserIdRef.current === userId) {
-        setCustomDomainError(error instanceof Error ? error.message : 'Could not load the custom domain.');
-      }
-    } finally {
-      if (projectLoadSequenceRef.current === loadSequence && activeUserIdRef.current === userId) setCustomDomainBusy(false);
-    }
-  }, [cloudProjectId, user]);
-
-  async function connectCustomDomain() {
-    if (!cloudProjectId || !customDomainDraft.trim()) return;
-    const loadSequence = projectLoadSequenceRef.current;
-    const project = cloudProjectId;
-    setCustomDomainBusy(true);
-    setCustomDomainError('');
-    try {
-      const domain = await connectWebsiteCustomDomain(project, customDomainDraft);
-      if (projectLoadSequenceRef.current !== loadSequence) return;
-      setCustomDomain(domain);
-      setCustomDomainDraft(domain?.hostname || customDomainDraft.trim().toLowerCase());
-      if (domain?.warning) setCustomDomainError(domain.warning);
-      if (domain?.status === 'verified') { setSiteUrl(`https://${domain.hostname}`); setSaved(false); }
-    } catch (error) {
-      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainError(error instanceof Error ? error.message : 'Could not connect the domain.');
-    } finally {
-      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainBusy(false);
-    }
-  }
-
-  async function checkCustomDomain() {
-    if (!cloudProjectId || !customDomain?.hostname) return;
-    const loadSequence = projectLoadSequenceRef.current;
-    const project = cloudProjectId;
-    setCustomDomainBusy(true);
-    setCustomDomainError('');
-    try {
-      const domain = await checkWebsiteCustomDomain(project, customDomain.hostname);
-      if (projectLoadSequenceRef.current !== loadSequence) return;
-      setCustomDomain(domain);
-      if (domain?.status === 'verified') { setSiteUrl(`https://${domain.hostname}`); setSaved(false); }
-    } catch (error) {
-      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainError(error instanceof Error ? error.message : 'Could not verify the domain.');
-    } finally {
-      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainBusy(false);
-    }
-  }
-
-  async function removeCustomDomain() {
-    if (!cloudProjectId || !customDomain) return;
-    if (!window.confirm(l('Disconnect this custom domain?'))) return;
-    const loadSequence = projectLoadSequenceRef.current;
-    const project = cloudProjectId;
-    setCustomDomainBusy(true);
-    setCustomDomainError('');
-    try {
-      await removeWebsiteCustomDomain(project);
-      if (projectLoadSequenceRef.current !== loadSequence) return;
-      setCustomDomain(null);
-      setCustomDomainDraft('');
-    } catch (error) {
-      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainError(error instanceof Error ? error.message : 'Could not disconnect the domain.');
-    } finally {
-      if (projectLoadSequenceRef.current === loadSequence) setCustomDomainBusy(false);
-    }
-  }
+  const { refreshCustomDomain, connectCustomDomain, checkCustomDomain, removeCustomDomain } = useCustomDomainHandlers({
+    cloudProjectId, user, customDomain, customDomainDraft, projectLoadSequenceRef,
+    activeUserIdRef, setCustomDomain, setCustomDomainDraft, setCustomDomainBusy,
+    setCustomDomainError, setSiteUrl, setSaved, l,
+  });
 
   useEffect(() => { void refreshCustomDomain(); }, [refreshCustomDomain]);
 
@@ -723,91 +636,24 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     return pages.map((page) => page.id === activePageId ? { ...page, sections } : page);
   }, [pages, activePageId, sections]);
 
-  const buildProjectSnapshot = useCallback(() => {
-    return {
-      version: 6,
-      cloudProjectId,
-      siteName,
-      siteUrl,
-      faviconUrl,
-      publishedUrl,
-      publishedAt,
-      previewUrl,
-      previewToken,
-      previewCreatedAt,
-      previewFingerprint,
-      lastPublishedVersionId,
-      lastPublishedFingerprint,
-      activePageId,
-      homePageId,
-      pages: getCurrentPages(),
-      cms,
-      localization,
-      brand,
-      theme,
-      headerConfig,
-      footerConfig,
-      siteEnhancements,
-      productionConfig,
-      deliveryConfig,
-      symbols,
-      seo,
-      language: prefs.language,
-      updatedAt: new Date().toISOString(),
-    };
-  }, [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  const projectSnapshotValues = useMemo(() => ({
+    cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt,
+    previewUrl, previewToken, previewCreatedAt, previewFingerprint,
+    lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId,
+    pages: getCurrentPages(), cms, localization, brand, theme, headerConfig,
+    footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols,
+    seo, language: prefs.language,
+  }), [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
-  const buildProjectFingerprint = useCallback(() => {
-    return JSON.stringify({
-      siteName,
-      siteUrl,
-      faviconUrl,
-      publishedUrl,
-      publishedAt,
-      previewUrl,
-      previewToken,
-      previewCreatedAt,
-      previewFingerprint,
-      lastPublishedVersionId,
-      lastPublishedFingerprint,
-      activePageId,
-      homePageId,
-      pages: getCurrentPages(),
-      cms,
-      localization,
-      brand,
-      theme,
-      headerConfig,
-      footerConfig,
-      siteEnhancements,
-      productionConfig,
-      deliveryConfig,
-      symbols,
-      seo,
-      language: prefs.language,
-    });
-  }, [siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
-
-  const buildEditableFingerprint = useCallback(() => {
-    return JSON.stringify({
-      siteName,
-      siteUrl,
-      faviconUrl,
-      homePageId,
-      pages: getCurrentPages(),
-      cms,
-      localization,
-      brand,
-      theme,
-      headerConfig,
-      footerConfig,
-      siteEnhancements,
-      productionConfig,
-      symbols,
-      seo,
-      language: prefs.language,
-    });
-  }, [siteName, siteUrl, faviconUrl, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, symbols, seo, prefs.language]);
+  const buildProjectSnapshot = useCallback(
+    () => createEditorProjectSnapshot(projectSnapshotValues), [projectSnapshotValues],
+  );
+  const buildProjectFingerprint = useCallback(
+    () => fingerprintEditorProject(projectSnapshotValues), [projectSnapshotValues],
+  );
+  const buildEditableFingerprint = useCallback(
+    () => fingerprintEditableProject(projectSnapshotValues), [projectSnapshotValues],
+  );
 
   const currentAIEditableFingerprint = useMemo(
     () => buildEditableFingerprint(),
@@ -1043,213 +889,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     }
   }, [user, cancelPendingProjectPersistence]);
 
-  const loadLocalReusableSections = useCallback(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(REUSABLE_SECTIONS_KEY) || '[]');
-      if (!Array.isArray(stored)) return [];
-      return stored
-        .filter((item) => item && item.section && item.title)
-        .slice(0, 30) as ReusableSectionTemplate[];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  const refreshReusableSections = useCallback(async () => {
-    const refreshUserId = user?.id ?? null;
-    const refreshSequence = ++reusableRefreshSequenceRef.current;
-    const refreshIsCurrent = () =>
-      reusableRefreshSequenceRef.current === refreshSequence &&
-      activeUserIdRef.current === refreshUserId;
-
-    setReusableError('');
-
-    if (!refreshUserId) {
-      if (refreshIsCurrent()) {
-        setReusableSections(loadLocalReusableSections());
-        setReusableBusy(false);
-      }
-      return;
-    }
-
-    setReusableBusy(true);
-
-    const { data, error } = await listReusableSectionsInCloud(refreshUserId);
-
-    if (!refreshIsCurrent()) return;
-
-    if (error) {
-      setReusableError('Could not load reusable sections.');
-      setReusableBusy(false);
-      return;
-    }
-
-    const items: ReusableSectionTemplate[] = (data || [])
-      .map((item) => {
-        const content = item.content as { section?: WebsiteSection } | null;
-        if (!content?.section) return null;
-        return {
-          id: item.id,
-          cloudId: item.id,
-          title: item.title || SECTION_LABELS[content.section.type],
-          section: normalizeSection(content.section),
-          updatedAt: item.updated_at,
-        } as ReusableSectionTemplate;
-      })
-      .filter((item): item is ReusableSectionTemplate => Boolean(item));
-
-    setReusableSections(items);
-    setReusableBusy(false);
-  }, [user?.id, loadLocalReusableSections]);
-
-  async function saveSelectedSectionAsReusable() {
-    if (!selectedSection) return;
-    const title = window.prompt('Template name', selectedSection.title || SECTION_LABELS[selectedSection.type])?.trim();
-    if (!title) return;
-
-    setReusableError('');
-    const savedSection = JSON.parse(JSON.stringify(selectedSection)) as WebsiteSection;
-    const operationUserId = user?.id ?? null;
-
-    if (!operationUserId) {
-      const item: ReusableSectionTemplate = {
-        id: `local-template-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        title,
-        section: savedSection,
-        updatedAt: new Date().toISOString(),
-      };
-      const next = [item, ...reusableSections].slice(0, 30);
-      setReusableSections(next);
-      localStorage.setItem(REUSABLE_SECTIONS_KEY, JSON.stringify(next));
-      setReusableBusy(false);
-      return;
-    }
-
-    const operationSequence = ++reusableOperationSequenceRef.current;
-    const operationIsCurrent = () =>
-      reusableOperationSequenceRef.current === operationSequence &&
-      activeUserIdRef.current === operationUserId;
-
-    setReusableBusy(true);
-    let refreshStarted = false;
-
-    try {
-      const { error } = await saveReusableSectionInCloud(operationUserId, title, savedSection);
-
-      if (!operationIsCurrent()) return;
-
-      if (error) {
-        setReusableError('Could not save this reusable section.');
-        return;
-      }
-
-      refreshStarted = true;
-      await refreshReusableSections();
-    } finally {
-      if (operationIsCurrent() && !refreshStarted) {
-        setReusableBusy(false);
-      }
-    }
-  }
-
-
-  function insertReusableSection(template: ReusableSectionTemplate) {
-    remember(sections);
-    const section = cloneSectionWithFreshIds(template.section, sections);
-    setSections((current) => [...current, section]);
-    setSelectedId(section.id);
-    setSelectedElementId(section.elements[0]?.id ?? null);
-    setSaved(false);
-  }
-
-  async function deleteReusableSection(template: ReusableSectionTemplate) {
-    if (!window.confirm(`${l('Delete reusable section')} “${template.title}”?`)) return;
-    setReusableError('');
-
-    const operationUserId = user?.id ?? null;
-
-    if (!operationUserId || !template.cloudId) {
-      const next = reusableSections.filter((item) => item.id !== template.id);
-      setReusableSections(next);
-      localStorage.setItem(REUSABLE_SECTIONS_KEY, JSON.stringify(next));
-      return;
-    }
-
-    const operationSequence = ++reusableOperationSequenceRef.current;
-    const operationIsCurrent = () =>
-      reusableOperationSequenceRef.current === operationSequence &&
-      activeUserIdRef.current === operationUserId;
-
-    setReusableBusy(true);
-    let refreshStarted = false;
-
-    try {
-      const { error } = await deleteReusableSectionInCloud(operationUserId, template.cloudId);
-
-      if (!operationIsCurrent()) return;
-
-      if (error) {
-        setReusableError('Could not delete this reusable section.');
-        return;
-      }
-
-      refreshStarted = true;
-      await refreshReusableSections();
-    } finally {
-      if (operationIsCurrent() && !refreshStarted) {
-        setReusableBusy(false);
-      }
-    }
-  }
-  function applyThemeToCurrentPage() {
-    remember(sections);
-    setSections(sections.map((section, index) => applyThemeToSection(section, index, theme)));
-    setSaved(false);
-  }
-
-  function applyThemeToAllPages() {
-    remember(sections, 'Apply theme to all pages');
-    const currentPages = getCurrentPages();
-    const nextPages = currentPages.map((page) => ({
-      ...page,
-      sections: page.sections.map((section, index) => applyThemeToSection(section, index, theme)),
-    }));
-    const active = nextPages.find((page) => page.id === activePageId) || nextPages[0];
-    setPages(nextPages);
-    setSections(active?.sections || []);
-    setSelectedId(active?.sections[0]?.id ?? null);
-    setSelectedElementId(active?.sections[0]?.elements[0]?.id ?? null);
-    setSaved(false);
-  }
-
-  function applyDesignSystemTheme(nextTheme: WebsiteTheme, label: string) {
-    const normalized = normalizeTheme(nextTheme);
-    remember(sections, label);
-    const nextPages = getCurrentPages().map((page) => ({
-      ...page,
-      sections: page.sections.map((section, index) => applyThemeToSection(section, index, normalized)),
-    }));
-    const active = nextPages.find((page) => page.id === activePageId) || nextPages[0];
-    setTheme(normalized);
-    setPages(nextPages);
-    setSections(active?.sections || []);
-    setSelectedId(active?.sections[0]?.id ?? null);
-    setSelectedElementId(active?.sections[0]?.elements[0]?.id ?? null);
-    setSaved(false);
-  }
-
-  function applyDesignSystemPreset(preset: WebsiteDesignSystemPreset) {
-    applyDesignSystemTheme(preset.theme, `Apply ${preset.name} design system`);
-  }
-
-  function repairActiveDesignSystem() {
-    const repaired = repairWebsiteDesignTokens(theme, getCurrentPages());
-    remember(sections, 'Repair design system tokens');
-    setTheme(repaired.theme);
-    setPages(repaired.pages);
-    setSections((repaired.pages.find((page) => page.id === activePageId) || repaired.pages[0])?.sections || []);
-    setSaved(false);
-  }
+  const { applyThemeToCurrentPage, applyThemeToAllPages, applyDesignSystemPreset, repairActiveDesignSystem } = createThemeActions({
+    sections, theme, activePageId, getCurrentPages, remember, setSections,
+    setPages, setTheme, setSelectedId, setSelectedElementId, setSaved,
+  });
 
   function publicWebsiteUrl(projectId: string, ownerId?: string) {
     const resolvedOwnerId = ownerId || resolveEditorProjectOwnerId({
@@ -1490,6 +1133,13 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     () => sections.find((section) => section.id === selectedId) ?? null,
     [sections, selectedId]
   );
+
+  const { refreshReusableSections, saveSelectedSectionAsReusable, insertReusableSection, deleteReusableSection } = useReusableSectionHandlers({
+    user, sections, selectedSection, reusableSections, reusableRefreshSequenceRef,
+    reusableOperationSequenceRef, activeUserIdRef, setReusableError, setReusableBusy,
+    setReusableSections, setSections, setSelectedId, setSelectedElementId,
+    setSaved, remember, l,
+  });
 
   const selectedElement = useMemo(
     () => selectedSection?.elements.find((element) => element.id === selectedElementId) ?? null,
