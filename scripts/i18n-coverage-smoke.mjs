@@ -10,11 +10,13 @@ const uiSupplementPath = 'src/lib/ui-localization-complete.ts';
 const uiReleasePath = 'src/lib/ui-localization-release.ts';
 const uiWorkspacePath = 'src/lib/ui-localization-workspace.ts';
 const uiCmsPath = 'src/lib/ui-localization-cms.ts';
+const cvLocalizationPath = 'src/components/cv/i18n/use-cv-text.ts';
 const ui = read(uiPath);
 const uiSupplement = read(uiSupplementPath);
 const uiRelease = read(uiReleasePath);
 const uiWorkspace = read(uiWorkspacePath);
 const uiCms = read(uiCmsPath);
+const cvLocalization = read(cvLocalizationPath);
 const onboarding = read('src/components/onboarding/OnboardingWizard.tsx');
 const settings = read('src/components/workspace/SettingsPage.tsx');
 const workspace = read('src/components/workspace/Workspace.tsx');
@@ -31,6 +33,7 @@ check('Supplemental UI localization layer exists', uiSupplement.includes('export
 check('Release UI localization layer exists', uiRelease.includes('export function useLocalizer'));
 check('Workspace UI localization layer exists', uiWorkspace.includes('export function useLocalizer'));
 check('CMS UI localization layer exists', uiCms.includes('export function useLocalizer'));
+check('Scoped CV localization layer exists', cvLocalization.includes('export function useCVText'));
 check('Onboarding uses UI localizer', onboarding.includes('const l = useLocalizer()'));
 check('Settings uses UI localizer', settings.includes('const l = useLocalizer()'));
 check('Workspace uses UI localizer', workspace.includes('const l = useLocalizer()'));
@@ -40,7 +43,7 @@ check('Admin UI uses UI localizer', admin.includes('const l = useLocalizer()'));
 check('Stale workspace translation key removed', !workspace.includes("'nav.workspace'"));
 check('Onboarding goals are localized', onboarding.includes('{l(g.label)}'));
 check('Onboarding personas are localized', onboarding.includes('{l(ut.description)}'));
-check('Resume dynamic navigation labels are localized', resume.includes('{l(item.label)}'));
+check('Resume dynamic navigation labels are localized', resume.includes('label: l(section.label)') || resume.includes('{l(item.label)}'));
 check('Arabic onboarding translation included', ui.includes("'Get Started': 'ابدأ'"));
 check('Swedish onboarding translation included', ui.includes("'Get Started': 'Kom igång'"));
 check('Arabic admin translation included', ui.includes("'Access Denied': 'تم رفض الوصول'"));
@@ -66,9 +69,9 @@ function extractPhraseMapKeys(source, startMarker, endMarker) {
   if (start < 0 || end < 0) return new Set();
   const section = source.slice(start, end);
   const keys = new Set();
-  const keyPattern = /(?:'((?:\\'|[^'])+)'|"((?:\\"|[^"])+)")\s*:/g;
+  const keyPattern = /(?:'((?:\\'|[^'])+)'|"((?:\\"|[^"])+)"|([A-Za-z_$][\w$]*))\s*:/g;
   for (const match of section.matchAll(keyPattern)) {
-    const raw = match[1] ?? match[2];
+    const raw = match[1] ?? match[2] ?? match[3];
     keys.add(raw.replace(/\\'/g, "'").replace(/\\"/g, '"'));
   }
   return keys;
@@ -84,6 +87,7 @@ const arKeys = unionKeys(
   extractPhraseMapKeys(uiRelease, 'export const arReleaseSupplement: PhraseMap', 'export const svReleaseSupplement: PhraseMap'),
   extractPhraseMapKeys(uiWorkspace, 'export const arWorkspaceSupplement: PhraseMap', 'export const svWorkspaceSupplement: PhraseMap'),
   extractPhraseMapKeys(uiCms, 'export const arCmsSupplement: PhraseMap', 'export const svCmsSupplement: PhraseMap'),
+  extractPhraseMapKeys(cvLocalization, 'const ar: Record<string, string>', 'const sv: Record<string, string>'),
 );
 const svKeys = unionKeys(
   extractPhraseMapKeys(ui, 'const sv: PhraseMap', 'const maps:'),
@@ -91,6 +95,7 @@ const svKeys = unionKeys(
   extractPhraseMapKeys(uiRelease, 'export const svReleaseSupplement: PhraseMap', 'const releaseMaps:'),
   extractPhraseMapKeys(uiWorkspace, 'export const svWorkspaceSupplement: PhraseMap', 'const workspaceMaps:'),
   extractPhraseMapKeys(uiCms, 'export const svCmsSupplement: PhraseMap', 'const cmsMaps:'),
+  extractPhraseMapKeys(cvLocalization, 'const sv: Record<string, string>', 'export function useCVText'),
 );
 
 const sourceFiles = collectFiles('src');
@@ -118,6 +123,13 @@ for (const file of sourceFiles) {
     list.push(file);
     localizedUsage.set(key, list);
   }
+  for (const match of source.matchAll(/\bt\(\s*'((?:\\'|[^'])+)'\s*\)/g)) {
+    if (!file.startsWith('src/components/cv/')) continue;
+    const key = match[1].replace(/\\'/g, "'");
+    const list = localizedUsage.get(key) || [];
+    list.push(file);
+    localizedUsage.set(key, list);
+  }
 
   for (const match of source.matchAll(hardcodedJsxRe)) {
     const text = match[1].trim();
@@ -138,14 +150,12 @@ for (const [key, files] of localizedUsage) {
 const expectedContentCandidates = hardcodedCandidates.filter(({ file }) => contentOnlyFiles.has(file));
 const unexpectedHardcoded = hardcodedCandidates.filter(({ file, text }) => {
   if (contentOnlyFiles.has(file)) return false;
-  // Runtime serialization can resemble JSX text to the lightweight scanner. It is
-  // already localized before JSON serialization and is not hard-coded customer UI.
   if (file.startsWith('src/modules/website-builder/') && text.startsWith('JSON.stringify(')) return false;
   return true;
 });
 
-check('Every useLocalizer phrase has an Arabic translation', missingArabic.length === 0);
-check('Every useLocalizer phrase has a Swedish translation', missingSwedish.length === 0);
+check('Every localized phrase has an Arabic translation', missingArabic.length === 0);
+check('Every localized phrase has a Swedish translation', missingSwedish.length === 0);
 check('No unexpected hard-coded application UI remains', unexpectedHardcoded.length === 0);
 
 if (missingArabic.length) {
