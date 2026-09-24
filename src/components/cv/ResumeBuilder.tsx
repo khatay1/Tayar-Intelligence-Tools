@@ -3,6 +3,8 @@ import { PageSkeleton } from '@/components/ui/Skeleton';
 
 interface ResumeBuilderProps {
   onBack: () => void;
+  projectId?: string | null;
+  cvId?: string | null;
 }
 
 const ResumeBuilderImpl = lazy(() => import('./ResumeBuilder.impl'));
