@@ -12,53 +12,38 @@ interface UseCVPersistenceOptions {
   initialProjectId?: string | null;
 }
 
+type PendingSave = { document: CVDocument; title: string; atsScore: number };
+
 export function useCVPersistence(options: UseCVPersistenceOptions) {
   const { supabase, projects, userId, initialCVId = null, initialProjectId = null } = options;
   const [cvId, setCVIdState] = useState<string | null>(initialCVId);
   const [projectId, setProjectIdState] = useState<string | null>(initialProjectId);
   const cvIdRef = useRef<string | null>(initialCVId);
   const projectIdRef = useRef<string | null>(initialProjectId);
-  const inFlightRef = useRef<Promise<void> | null>(null);
-  const latestRef = useRef<{ document: CVDocument; title: string; atsScore: number } | null>(null);
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
 
-  const setCVId = useCallback((value: string | null) => {
-    cvIdRef.current = value;
-    setCVIdState(value);
-  }, []);
-  const setProjectId = useCallback((value: string | null) => {
-    projectIdRef.current = value;
-    setProjectIdState(value);
-  }, []);
+  const setCVId = useCallback((value: string | null) => { cvIdRef.current = value; setCVIdState(value); }, []);
+  const setProjectId = useCallback((value: string | null) => { projectIdRef.current = value; setProjectIdState(value); }, []);
 
-  const save = useCallback(async (document: CVDocument, title: string, atsScore: number) => {
-    if (!userId) return;
-    latestRef.current = { document, title, atsScore };
-    if (inFlightRef.current) {
-      await inFlightRef.current;
-      const latest = latestRef.current;
-      if (latest && latest.document !== document) await save(latest.document, latest.title, latest.atsScore);
-      return;
-    }
-
-    const task = (async () => {
+  const save = useCallback((document: CVDocument, title: string, atsScore: number) => {
+    if (!userId) return Promise.resolve();
+    const pending: PendingSave = { document, title, atsScore };
+    const task = queueRef.current.catch(() => undefined).then(async () => {
       const result = await saveCVEverywhere(supabase, projects, {
         userId,
         cvId: cvIdRef.current,
         projectId: projectIdRef.current,
-        title,
-        atsScore,
-        document,
+        title: pending.title,
+        atsScore: pending.atsScore,
+        document: pending.document,
       });
       setCVId(result.cvId);
       setProjectId(result.projectId);
-    })();
-    inFlightRef.current = task;
-    try {
-      await task;
-    } finally {
-      if (inFlightRef.current === task) inFlightRef.current = null;
-    }
+    });
+    queueRef.current = task;
+    return task;
   }, [userId, projects, supabase, setCVId, setProjectId]);
 
-  return { cvId, projectId, setCVId, setProjectId, save };
+  const flush = useCallback(() => queueRef.current, []);
+  return { cvId, projectId, setCVId, setProjectId, save, flush };
 }
