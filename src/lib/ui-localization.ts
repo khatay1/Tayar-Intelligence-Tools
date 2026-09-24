@@ -5,6 +5,18 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  'Loading CV...': 'جارٍ تحميل السيرة الذاتية...',
+  'Could not open this CV': 'تعذر فتح هذه السيرة الذاتية',
+  'The file may be missing or no longer accessible.': 'قد يكون الملف مفقودًا أو لم يعد بإمكانك الوصول إليه.',
+  'Design System MAX': 'نظام التصميم MAX',
+  'Design tokens': 'متغيرات التصميم',
+  'Add token': 'إضافة متغير',
+  'Token name': 'اسم المتغير',
+  'Token type': 'نوع المتغير',
+  'Token value': 'قيمة المتغير',
+  'Style presets': 'أنماط جاهزة',
+  'Add preset': 'إضافة نمط جاهز',
+  'Preset name': 'اسم النمط الجاهز',
   'Design system score': 'درجة نظام التصميم',
   'contrast issues': 'مشكلات تباين',
   'off-token colors': 'ألوان خارج النظام',
@@ -2846,6 +2858,18 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  'Loading CV...': 'Läser in CV...',
+  'Could not open this CV': 'Det gick inte att öppna detta CV',
+  'The file may be missing or no longer accessible.': 'Filen kan saknas eller inte längre vara tillgänglig.',
+  'Design System MAX': 'Designsystem MAX',
+  'Design tokens': 'Designtokens',
+  'Add token': 'Lägg till token',
+  'Token name': 'Tokennamn',
+  'Token type': 'Tokentyp',
+  'Token value': 'Tokenvärde',
+  'Style presets': 'Stilförinställningar',
+  'Add preset': 'Lägg till förinställning',
+  'Preset name': 'Namn på förinställning',
   'Design system score': 'Designsystempoäng',
   'contrast issues': 'kontrastproblem',
   'off-token colors': 'färger utanför tokens',
