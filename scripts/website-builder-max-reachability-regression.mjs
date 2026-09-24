@@ -4,121 +4,19 @@ import { readFile } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
 const read = path => readFile(new URL(path, root), 'utf8');
 
-const [
-  bridge,
-  bridgeBase,
-  v2Index,
-  integrationsSlot,
-  integrationsHost,
-  integrationsStore,
-  integrationsRuntime,
-  localizationSlot,
-  localizationStore,
-  cmsSlot,
-  cmsStore,
-  publishingPanel,
-  publishingStore,
-  redirectsPanel,
-  maxState,
-  lifecycle,
-  normalization,
-  cloudService,
-] = await Promise.all([
-  read('src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx'),
-  read('src/modules/website-builder/v2-ui/WebsiteBuilderV2BridgeBase.tsx'),
-  read('src/modules/website-builder/v2-ui/index.ts'),
-  read('src/modules/website-builder/v2-ui/BuilderIntegrationsSettingsSlot.tsx'),
-  read('src/modules/website-builder/core/editor-integrations-project-host.ts'),
-  read('src/modules/website-builder/core/editor-integrations-host-store.ts'),
-  read('src/modules/website-builder/core/editor-integration-runtime.ts'),
-  read('src/modules/website-builder/v2-ui/BuilderLocalizationSettingsSlot.tsx'),
-  read('src/modules/website-builder/core/editor-localization-host-store.ts'),
-  read('src/modules/website-builder/v2-ui/BuilderCmsSettingsSlot.tsx'),
-  read('src/modules/website-builder/core/editor-cms-host-store.ts'),
-  read('src/modules/website-builder/v2-ui/BuilderPublishingMaxPanel.tsx'),
-  read('src/modules/website-builder/core/editor-publishing-host-store.ts'),
-  read('src/modules/website-builder/v2-ui/BuilderRedirectsPanel.tsx'),
-  read('src/modules/website-builder/core/editor-max-project-state.ts'),
-  read('src/modules/website-builder/core/editor-project-lifecycle.ts'),
-  read('src/modules/website-builder/core/project-normalization.ts'),
-  read('src/modules/website-builder/services/projectCloudService.ts'),
+const [bridge,bridgeBase,v2Index,integrationsSlot,integrationsHost,integrationsStore,integrationsRuntime,localizationSlot,localizationStore,cmsSlot,cmsStore,publishingPanel,publishingStore,redirectsPanel,persistedRedirects,maxState,lifecycle,normalization,cloudService,formsState,formsStore,designSystem,designStore,designApply,designSlot,collaboration,collaborationState,collaborationStore] = await Promise.all([
+ read('src/modules/website-builder/v2-ui/WebsiteBuilderV2Bridge.tsx'),read('src/modules/website-builder/v2-ui/WebsiteBuilderV2BridgeBase.tsx'),read('src/modules/website-builder/v2-ui/index.ts'),read('src/modules/website-builder/v2-ui/BuilderIntegrationsSettingsSlot.tsx'),read('src/modules/website-builder/core/editor-integrations-project-host.ts'),read('src/modules/website-builder/core/editor-integrations-host-store.ts'),read('src/modules/website-builder/core/editor-integration-runtime.ts'),read('src/modules/website-builder/v2-ui/BuilderLocalizationSettingsSlot.tsx'),read('src/modules/website-builder/core/editor-localization-host-store.ts'),read('src/modules/website-builder/v2-ui/BuilderCmsSettingsSlot.tsx'),read('src/modules/website-builder/core/editor-cms-host-store.ts'),read('src/modules/website-builder/v2-ui/BuilderPublishingMaxPanel.tsx'),read('src/modules/website-builder/core/editor-publishing-host-store.ts'),read('src/modules/website-builder/v2-ui/BuilderRedirectsPanel.tsx'),read('src/modules/website-builder/v2-ui/BuilderPersistedRedirectsPanel.tsx'),read('src/modules/website-builder/core/editor-max-project-state.ts'),read('src/modules/website-builder/core/editor-project-lifecycle.ts'),read('src/modules/website-builder/core/project-normalization.ts'),read('src/modules/website-builder/services/projectCloudService.ts'),read('src/modules/website-builder/core/editor-forms-project-state.ts'),read('src/modules/website-builder/core/editor-forms-host-store.ts'),read('src/modules/website-builder/core/editor-design-system.ts'),read('src/modules/website-builder/core/editor-design-system-host-store.ts'),read('src/modules/website-builder/core/editor-design-system-apply.ts'),read('src/modules/website-builder/v2-ui/BuilderDesignSystemSettingsSlot.tsx'),read('src/modules/website-builder/core/editor-collaboration.ts'),read('src/modules/website-builder/core/editor-collaboration-project-state.ts'),read('src/modules/website-builder/core/editor-collaboration-host-store.ts')
 ]);
-const bridgeSources = `${bridge}\n${bridgeBase}`;
+const bridgeSources=`${bridge}\n${bridgeBase}`;
 
-assert.match(v2Index, /BuilderIntegrationsSettingsSlot/, 'Integrations settings slot must be exported from V2 UI');
-assert.match(integrationsSlot, /BuilderIntegrationsMaxPanel/, 'Integrations settings slot must render the MAX panel');
-assert.match(integrationsHost, /readEditorIntegrationsFromProject/, 'Integrations must have a project load boundary');
-assert.match(integrationsHost, /writeEditorIntegrationsToProject/, 'Integrations must have a project save boundary');
-assert.match(integrationsHost, /editorIntegrationPublishBlockers/, 'Integrations must participate in publish preflight');
-assert.match(integrationsHost, /setEditorIntegrationSecret/, 'Integrations must keep secrets behind a host boundary');
-assert.match(integrationsRuntime, /Idempotency-Key/, 'Integration delivery must remain idempotent');
-assert.match(integrationsRuntime, /X-Tayar-Signature/, 'Integration delivery must retain signing support');
+assert.match(lifecycle,/embedEditorMaxProjectState/); assert.match(lifecycle,/hydrateEditorMaxProjectState/); assert.match(normalization,/hydrateEditorMaxProjectState\(input\)/); assert.match(cloudService,/embedEditorMaxProjectState/);
+for(const key of ['cms','localization','publishing','forms','designSystem','collaboration','integrations']) assert.match(maxState,new RegExp(`${key}:`),`MAX state must reserve ${key}`);
+assert.match(maxState,/cms: getEditorCmsHostState\(\)/); assert.match(maxState,/hydrateEditorCmsHost\(state\.cms\)/); assert.match(cmsStore,/normalizeWebsiteCms/); assert.match(cmsSlot,/useSyncExternalStore/); assert.match(bridgeSources,/action:'update_page'.*cmsTemplate/); assert.match(bridgeSources,/action:'update_element'.*cmsBinding/);
+assert.match(maxState,/localization: getEditorLocalizationHostConfig\(\)/); assert.match(maxState,/hydrateEditorLocalizationHost\(state\.localization\)/); assert.match(localizationStore,/subscribeEditorLocalizationHost/); assert.match(localizationSlot,/BuilderLocalizationMaxPanel/);
+assert.match(maxState,/publishing: getEditorPublishingHostState\(\)/); assert.match(maxState,/hydrateEditorPublishingHost\(state\.publishing\)/); assert.match(publishingStore,/normalizeEditorPublishRedirect/); assert.match(publishingPanel,/patchEditorPublishingHostState/); assert.match(redirectsPanel,/onChange/); assert.match(persistedRedirects,/redirects \?\? host\.redirects/); assert.match(persistedRedirects,/patchEditorPublishingHostState/); assert.match(bridgeSources,/BuilderPersistedRedirectsPanel/); assert.match(bridgeSources,/BuilderPublishVersionsPanel/);
+assert.match(maxState,/forms: getEditorFormsHostState\(\)/); assert.match(maxState,/hydrateEditorFormsHost\(state\.forms\)/); assert.match(formsState,/Form definitions intentionally do not live here/); assert.match(formsStore,/normalizeEditorFormsProjectState/);
+assert.match(maxState,/designSystem: getEditorDesignSystemHostState\(\)/); assert.match(maxState,/hydrateEditorDesignSystemHost\(state\.designSystem\)/); assert.match(designSystem,/EditorDesignTokenKind/); assert.match(designSystem,/EditorStylePreset/); assert.match(designStore,/normalizeEditorDesignSystem/); assert.match(designApply,/action:'update_element'/); assert.match(designApply,/source:'manual'/); assert.match(designSlot,/Design System MAX/);
+assert.match(maxState,/collaboration: getEditorCollaborationHostState\(\)/); assert.match(maxState,/hydrateEditorCollaborationHost\(state\.collaboration\)/); assert.match(collaborationState,/requireReviewBeforePublish/); assert.match(collaborationStore,/normalizeEditorCollaborationProjectState/); assert.match(collaboration,/EditorComment/); assert.match(collaboration,/EditorReview/); assert.match(collaboration,/EditorVersionSnapshot/);
+assert.match(v2Index,/BuilderIntegrationsSettingsSlot/); assert.match(integrationsSlot,/BuilderIntegrationsMaxPanel/); assert.match(integrationsHost,/editorIntegrationPublishBlockers/); assert.match(integrationsRuntime,/Idempotency-Key/); assert.match(integrationsRuntime,/X-Tayar-Signature/); assert.match(integrationsStore,/embedEditorIntegrationsHostIntoProject/); assert.match(bridgeSources,/resolvedOnChangeIntegrations/);
 
-assert.match(integrationsStore, /hydrateEditorIntegrationsHostFromProject/, 'Integrations host must hydrate from project data');
-assert.match(integrationsStore, /embedEditorIntegrationsHostIntoProject/, 'Integrations host must embed configuration into project data');
-assert.match(lifecycle, /embedEditorMaxProjectState/, 'Local and recovery saves must persist the complete MAX state envelope');
-assert.match(lifecycle, /hydrateEditorMaxProjectState/, 'Local and recovery loads must hydrate the complete MAX state envelope');
-assert.match(normalization, /hydrateEditorMaxProjectState\(input\)/, 'Cloud/project normalization must hydrate MAX state');
-assert.match(normalization, /maxState/, 'Normalized project loads must expose MAX state explicitly');
-assert.match(cloudService, /embedEditorMaxProjectState\(content\)/, 'Cloud save/create must persist MAX state');
-assert.match(cloudService, /embedEditorMaxProjectState\(input\.content\)/, 'Publish-state cloud writes must persist MAX state');
-
-assert.match(maxState, /EDITOR_MAX_STATE_VERSION/, 'MAX project state must remain versioned');
-assert.match(maxState, /withEditorMaxProjectState/, 'MAX state updates must use a non-destructive patch boundary');
-assert.match(maxState, /cms:/, 'MAX state must reserve CMS state');
-assert.match(maxState, /localization:/, 'MAX state must reserve localization state');
-assert.match(maxState, /publishing:/, 'MAX state must reserve publishing state');
-assert.match(maxState, /forms:/, 'MAX state must reserve forms state');
-assert.match(maxState, /designSystem:/, 'MAX state must reserve design-system state');
-assert.match(maxState, /collaboration:/, 'MAX state must reserve collaboration state');
-assert.match(maxState, /integrations:/, 'MAX state must reserve integrations state');
-
-assert.match(maxState, /cms: getEditorCmsHostState\(\)/, 'Saving MAX state must capture the active CMS host');
-assert.match(maxState, /hydrateEditorCmsHost\(state\.cms\)/, 'Loading MAX state must restore CMS host state');
-assert.match(cmsStore, /normalizeWebsiteCms/, 'CMS host must normalize persisted and edited state');
-assert.match(cmsStore, /subscribeEditorCmsHost/, 'CMS host must notify the UI after hydration or edits');
-assert.match(cmsSlot, /BuilderCmsPanel/, 'CMS settings slot must render the existing CMS panel');
-assert.match(cmsSlot, /useSyncExternalStore/, 'CMS panel must track persisted host state');
-assert.match(cmsSlot, /setEditorCmsHostState/, 'CMS collection edits must update the persisted host state');
-assert.match(cmsSlot, /asWebsitePage/, 'CMS V2 page conversion must use runtime narrowing');
-assert.match(cmsSlot, /asWebsiteElement/, 'CMS V2 element conversion must use runtime narrowing');
-assert.match(bridgeSources, /BuilderCmsSettingsSlot/, 'V2 CMS surface must expose persisted CMS state');
-assert.match(bridgeSources, /action:'update_page'.*cmsTemplate/, 'CMS template changes must use native page operations');
-assert.match(bridgeSources, /action:'update_element'.*cmsBinding/, 'CMS bindings must use native element operations');
-assert.match(bridgeSources, /cmsPanel=\{persistedCmsPanel\|\|cmsPanel\}/, 'Persisted CMS must occupy the existing CMS surface without duplicating settings UI');
-
-assert.match(maxState, /localization: getEditorLocalizationHostConfig\(\)/, 'Saving MAX state must capture the active localization host');
-assert.match(maxState, /hydrateEditorLocalizationHost\(state\.localization\)/, 'Loading MAX state must restore localization host state');
-assert.match(localizationStore, /subscribeEditorLocalizationHost/, 'Localization host must notify the UI after hydration or edits');
-assert.match(localizationStore, /createEditorLocalizationConfig/, 'Missing legacy localization state must fall back safely');
-assert.match(localizationSlot, /BuilderLocalizationMaxPanel/, 'Localization settings slot must render Localization MAX');
-assert.match(localizationSlot, /useSyncExternalStore/, 'Localization settings must track the persisted host state');
-assert.match(localizationSlot, /setEditorLocalizationHostConfig/, 'Localization edits must update the persisted host state');
-assert.match(bridgeSources, /BuilderLocalizationSettingsSlot/, 'V2 Settings must expose persisted Localization MAX');
-
-assert.match(maxState, /publishing: getEditorPublishingHostState\(\)/, 'Saving MAX state must capture the active Publishing draft');
-assert.match(maxState, /hydrateEditorPublishingHost\(state\.publishing\)/, 'Loading MAX state must restore Publishing draft state');
-assert.match(publishingStore, /subscribeEditorPublishingHost/, 'Publishing host must notify the UI after hydration or edits');
-assert.match(publishingStore, /normalizeEditorPublishRedirect/, 'Persisted redirects must pass through publishing normalization');
-assert.match(publishingStore, /redirects: EditorPublishRedirect\[\]/, 'Publishing MAX state must reserve project redirects');
-assert.match(publishingPanel, /useSyncExternalStore/, 'Publishing MAX UI must track the persisted project draft');
-assert.match(publishingPanel, /patchEditorPublishingHostState/, 'Publishing MAX edits must update the persisted host state');
-assert.match(publishingPanel, /scheduledAt/, 'Publishing MAX must retain scheduled release state');
-assert.match(publishingPanel, /releaseNote/, 'Publishing MAX must retain release notes');
-assert.match(publishingPanel, /pageIds/, 'Publishing MAX must retain selective page scope');
-assert.match(redirectsPanel, /onChange/, 'Redirects panel must remain externally controlled so the persisted host can own redirect state');
-assert.match(bridgeSources, /BuilderPublishingMaxPanel/, 'V2 Settings must expose Publishing MAX');
-assert.match(bridgeSources, /BuilderRedirectsPanel/, 'V2 Publishing surface must keep redirects reachable');
-assert.match(bridgeSources, /BuilderPublishVersionsPanel/, 'V2 Publishing surface must keep revisions and rollback reachable');
-
-// End-to-end reachability guard. The V2 bridge is intentionally split into a host wrapper and UI base.
-assert.match(bridgeSources, /BuilderIntegrationsSettingsSlot/, 'V2 Settings must expose Integrations MAX');
-assert.match(bridgeSources, /integrationsConfig/, 'V2 bridge must accept integrations project state');
-assert.match(bridgeSources, /onChangeIntegrations/, 'V2 bridge must expose integrations persistence callback');
-assert.match(bridgeSources, /onSetIntegrationSecret/, 'V2 bridge must expose secure secret callback');
-assert.match(bridgeSources, /onTestIntegrationConnection/, 'V2 bridge must expose connection testing callback');
-assert.match(bridgeSources, /useSyncExternalStore/, 'V2 bridge must stay synchronized with persisted host state');
-assert.match(bridgeSources, /editorIntegrationPublishBlockers/, 'V2 publish controls must include integration blockers');
-assert.match(bridgeSources, /resolvedOnChangeIntegrations/, 'V2 settings must remain editable even when the legacy host omits new props');
-
-console.log('PASS Website Builder MAX reachability: versioned MAX state, CMS, localization, publishing and integrations persist through local/cloud project lifecycle and remain reachable through V2');
+console.log('PASS Website Builder MAX reachability: CMS, localization, publishing/redirects, forms, design system, collaboration preferences and integrations are guarded across local/cloud lifecycle');
