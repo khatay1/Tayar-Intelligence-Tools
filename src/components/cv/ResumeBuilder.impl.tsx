@@ -17,7 +17,7 @@ import { useCVBuilderIntegration } from './core/use-cv-builder-integration';
 import { useCVKeyboard } from './core/use-cv-keyboard';
 import { createAchievementProposals, createSkillProposals, CVProposal } from './ai/cv-proposals';
 
-interface ResumeBuilderProps { onBack: () => void; }
+interface ResumeBuilderProps { onBack: () => void; projectId?: string | null; cvId?: string | null; }
 type Phase = 'template-select' | 'builder';
 type EditSection = 'personal' | 'summary' | 'experience' | 'education' | 'skills' | 'languages' | 'projects' | 'certificates' | 'awards';
 
@@ -31,14 +31,15 @@ const panels: { id: CVBuilderPanel; label: string; icon: React.ElementType }[] =
   { id: 'job', label: 'Job Match', icon: Zap }, { id: 'versions', label: 'History', icon: History },
 ];
 
-export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
+export default function ResumeBuilder({ onBack, projectId = null, cvId = null }: ResumeBuilderProps) {
   const l = useLocalizer();
   const { prefs } = usePreferences();
   const { user } = useAuth();
   const toast = useToast();
   const projectApi = useProjects();
   const projects = useMemo(() => ({ createProject: projectApi.createProject, saveProject: projectApi.saveProject, createFileEntry: projectApi.createFileEntry, logActivity: projectApi.logActivity }), [projectApi.createProject, projectApi.saveProject, projectApi.createFileEntry, projectApi.logActivity]);
-  const [phase, setPhase] = useState<Phase>('template-select');
+  const openingExisting = Boolean(projectId || cvId);
+  const [phase, setPhase] = useState<Phase>(openingExisting ? 'builder' : 'template-select');
   const [activePanel, setActivePanel] = useState<CVBuilderPanel>('edit');
   const [editSection, setEditSection] = useState<EditSection>('personal');
   const [zoom, setZoom] = useState(1);
@@ -49,7 +50,7 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
   const [coverLetterCompany, setCoverLetterCompany] = useState('');
   const [showCoverLetter, setShowCoverLetter] = useState(false);
 
-  const builder = useCVBuilderIntegration({ supabase, projects, userId: user?.id, enabled: phase === 'builder' });
+  const builder = useCVBuilderIntegration({ supabase, projects, userId: user?.id, enabled: phase === 'builder', initialProjectId: projectId, initialCVId: cvId });
   const score = useMemo(() => calculateResumeScore(builder.cv), [builder.cv]);
   const suggestions = useMemo(() => generateSuggestions(builder.cv), [builder.cv]);
   const setAtsScore = builder.setAtsScore;
@@ -59,15 +60,8 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
   useEffect(() => { if (activePanel === 'versions') void loadVersions(); }, [activePanel, loadVersions]);
   useCVKeyboard({ enabled: phase === 'builder', undo: builder.undo, redo: builder.redo, save: builder.flushAutosave });
 
-  const chooseTemplate = (template: TemplateId) => {
-    builder.setTemplate(template);
-    setPhase('builder');
-    toast.success(l('Template selected'));
-  };
-
-  const addTextProposal = useCallback((proposal: Omit<CVProposal, 'id' | 'requiresVerification'>) => {
-    builder.proposals.addProposals([{ ...proposal, id: uid(), requiresVerification: true }]);
-  }, [builder.proposals.addProposals]);
+  const chooseTemplate = (template: TemplateId) => { builder.setTemplate(template); setPhase('builder'); toast.success(l('Template selected')); };
+  const addTextProposal = useCallback((proposal: Omit<CVProposal, 'id' | 'requiresVerification'>) => { builder.proposals.addProposals([{ ...proposal, id: uid(), requiresVerification: true }]); }, [builder.proposals.addProposals]);
 
   async function handleAIAction(action: AIAction) {
     if (aiLoading) return;
@@ -79,41 +73,33 @@ export default function ResumeBuilder({ onBack }: ResumeBuilderProps) {
         const res = await ai.complete({ action, jobTitle: builder.cv.personal.jobTitle, skills: builder.cv.skills.map(s => s.name), experiences: builder.cv.experience });
         builder.proposals.addProposals(createSkillProposals(builder.cv, res.content.split(/,|\n/)));
       } else if (action === 'generate-achievements') {
-        const exp = builder.cv.experience[0];
-        if (!exp) throw new Error(l('Add an experience entry first'));
+        const exp = builder.cv.experience[0]; if (!exp) throw new Error(l('Add an experience entry first'));
         const res = await ai.complete({ action, jobTitle: builder.cv.personal.jobTitle, company: exp.company, description: exp.description });
         builder.proposals.addProposals(createAchievementProposals(exp.id, res.content.split('\n').map(v => v.replace(/^[-•*]\s*/, ''))));
       } else if (action === 'optimize-ats') {
         const res = await ai.complete({ action, summary: builder.cv.summary, jobTitle: builder.cv.personal.jobTitle });
         addTextProposal({ kind: 'text-rewrite', section: 'summary', before: builder.cv.summary, proposed: res.content.trim(), reason: l('AI ATS rewrite. Verify that every statement remains accurate.') });
       } else if (action === 'generate-cover-letter') {
-        const res = await ai.complete({ action, cv: builder.cv, company: coverLetterCompany });
-        setCoverLetter(res.content);
-        setShowCoverLetter(true);
+        const res = await ai.complete({ action, cv: builder.cv, company: coverLetterCompany }); setCoverLetter(res.content); setShowCoverLetter(true);
       } else if (action === 'rewrite-experience' || action === 'shorten-text' || action === 'expand-text' || action === 'improve-grammar') {
-        const exp = builder.cv.experience[0];
-        if (!exp) throw new Error(l('Add experience first'));
+        const exp = builder.cv.experience[0]; if (!exp) throw new Error(l('Add experience first'));
         const res = await ai.complete(action === 'rewrite-experience' ? { action, experiences: builder.cv.experience } : { action, text: exp.description });
         addTextProposal({ kind: 'text-rewrite', section: 'experience', itemId: exp.id, before: exp.description, proposed: res.content.trim(), reason: l('AI rewrite. Verify every detail before applying.') });
       }
-    } catch (error) {
-      toast.error(error instanceof AIError ? error.message : error instanceof Error ? error.message : l('AI request failed'));
-    } finally { setAiLoading(null); }
+    } catch (error) { toast.error(error instanceof AIError ? error.message : error instanceof Error ? error.message : l('AI request failed')); }
+    finally { setAiLoading(null); }
   }
 
   async function doExport(format: 'pdf' | 'docx' | 'txt') {
-    if (exporting) return;
-    setExporting(true); setExportMenu(false);
-    try {
-      if (format === 'pdf') exportToPDF();
-      else if (format === 'docx') exportToDOCX(builder.cv, builder.template, builder.colorTheme, prefs.language);
-      else exportToTXT(builder.cv, prefs.language);
-      toast.success(`${format.toUpperCase()} ${l('exported')}`);
-    } catch (error) { toast.error(error instanceof Error ? error.message : l('Export failed')); }
+    if (exporting) return; setExporting(true); setExportMenu(false);
+    try { if (format === 'pdf') exportToPDF(); else if (format === 'docx') exportToDOCX(builder.cv, builder.template, builder.colorTheme, prefs.language); else exportToTXT(builder.cv, prefs.language); toast.success(`${format.toUpperCase()} ${l('exported')}`); }
+    catch (error) { toast.error(error instanceof Error ? error.message : l('Export failed')); }
     finally { setExporting(false); }
   }
 
   if (phase === 'template-select') return <div className="min-h-full p-6"><div className="max-w-5xl mx-auto"><button type="button" onClick={onBack} className="text-gray-400 hover:text-white text-sm mb-6 flex items-center gap-2"><ArrowLeft className="w-4 h-4" />{l('Back to Tools')}</button><div className="text-center mb-8"><h1 className="text-3xl font-bold text-white">{l('Choose a Template')}</h1><p className="text-gray-400 mt-2">{l('Select a starting design. You can change it later.')}</p></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{TEMPLATES.map(template => <button type="button" key={template.id} onClick={() => chooseTemplate(template.id)} className="text-left bg-white/[0.03] border border-white/10 hover:border-violet-500/40 rounded-2xl p-5 transition"><div className="h-40 rounded-xl bg-white mb-4 flex items-center justify-center text-gray-800 font-bold">{l(template.name)}</div><h3 className="text-white font-semibold">{l(template.name)}</h3><p className="text-gray-500 text-xs mt-1">{l(template.description)}</p></button>)}</div></div></div>;
+  if (openingExisting && builder.initialLoadState === 'loading') return <div className="min-h-full flex items-center justify-center bg-[#09090f] text-gray-300"><div className="flex items-center gap-3"><Loader2 className="w-5 h-5 animate-spin text-violet-400" />{l('Loading CV...')}</div></div>;
+  if (openingExisting && builder.initialLoadState === 'error') return <div className="min-h-full flex flex-col items-center justify-center gap-4 bg-[#09090f] px-6 text-center"><FileText className="w-10 h-10 text-red-400" /><div><h2 className="text-white font-semibold">{l('Could not open this CV')}</h2><p className="mt-1 text-sm text-gray-500">{l('The file may be missing or no longer accessible.')}</p></div><button type="button" onClick={onBack} className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">{l('Back to Tools')}</button></div>;
 
   return <div className="h-full flex flex-col bg-[#09090f]">
     <header className="h-14 border-b border-white/10 flex items-center px-4 gap-3 flex-shrink-0"><button type="button" aria-label={l('Back to Tools')} onClick={onBack} className="text-gray-400 hover:text-white"><ArrowLeft className="w-5 h-5" /></button><div className="text-white font-semibold flex-1">{builder.cv.personal.fullName || l('Untitled Resume')}</div><span className="text-[10px] text-gray-500" role="status">{l(builder.saveStatus)}</span><button type="button" aria-label={l('Undo')} disabled={!builder.canUndo} onClick={builder.undo}><Undo2 className="w-4 h-4" /></button><button type="button" aria-label={l('Redo')} disabled={!builder.canRedo} onClick={builder.redo}><Redo2 className="w-4 h-4" /></button><button type="button" aria-label={l('Zoom out')} onClick={() => setZoom(v => Math.max(.5, v - .1))}><ZoomOut className="w-4 h-4" /></button><span className="text-xs text-gray-400">{Math.round(zoom * 100)}%</span><button type="button" aria-label={l('Zoom in')} onClick={() => setZoom(v => Math.min(1.5, v + .1))}><ZoomIn className="w-4 h-4" /></button><div className="relative"><button type="button" aria-expanded={exportMenu} onClick={() => setExportMenu(v => !v)} className="bg-violet-600 text-white text-xs px-3 py-2 rounded-lg flex gap-1.5"><Download className="w-3.5 h-3.5" /> {l('Export')} <ChevronDown className="w-3 h-3" /></button>{exportMenu && <div className="absolute right-0 mt-2 w-40 rounded-xl border border-white/10 bg-[#171722] shadow-xl z-50">{(['pdf','docx','txt'] as const).map(f => <button type="button" key={f} disabled={exporting} onClick={() => void doExport(f)} className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5">{l('Export')} {f.toUpperCase()}</button>)}</div>}</div></header>
