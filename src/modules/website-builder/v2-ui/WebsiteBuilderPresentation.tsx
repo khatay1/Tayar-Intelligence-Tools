@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import {
 Check,
 Upload
@@ -10,23 +11,24 @@ import type { EditorPageLike,EditorSymbolLike } from '../core/editor-model';
 import type { Device,WebsiteCmsBinding } from '../core/types';
 import type { useWebsiteBuilderController } from '../core/use-website-builder-controller';
 import { normalizeWebsiteCms } from '../core/website-cms';
-import { BuilderAiPanel } from './BuilderAiPanel';
 import { BuilderCmsPanel } from './BuilderCmsPanel';
-import { BuilderLegacyAnalytics } from './BuilderLegacyAnalytics';
-import { BuilderLegacyBilling } from './BuilderLegacyBilling';
 import { BuilderLegacyCanvas } from './BuilderLegacyCanvas';
-import { BuilderLegacyCommandPalette } from './BuilderLegacyCommandPalette';
 import { BuilderLegacyHeader } from './BuilderLegacyHeader';
 import { BuilderLegacyInspector } from './BuilderLegacyInspector';
-import { BuilderLegacyLaunchCenter } from './BuilderLegacyLaunchCenter';
-import { BuilderLegacyLeads } from './BuilderLegacyLeads';
-import { BuilderLegacyReleaseHistory } from './BuilderLegacyReleaseHistory';
 import { BuilderLegacySidebar } from './BuilderLegacySidebar';
 import { BuilderSettingsPanel } from './BuilderSettingsPanel';
 import { BuilderSitePanel } from './BuilderSitePanel';
 import { BuilderV2Canvas } from './BuilderV2Canvas';
 import { WebsiteBuilderV2Bridge } from './WebsiteBuilderV2Bridge';
 import { WebsiteCollaborationPanel } from './WebsiteCollaborationPanel';
+
+const BuilderAiPanel = lazy(() => import('./BuilderAiPanel').then((module) => ({ default: module.BuilderAiPanel })));
+const BuilderLegacyAnalytics = lazy(() => import('./BuilderLegacyAnalytics').then((module) => ({ default: module.BuilderLegacyAnalytics })));
+const BuilderLegacyBilling = lazy(() => import('./BuilderLegacyBilling').then((module) => ({ default: module.BuilderLegacyBilling })));
+const BuilderLegacyCommandPalette = lazy(() => import('./BuilderLegacyCommandPalette').then((module) => ({ default: module.BuilderLegacyCommandPalette })));
+const BuilderLegacyLaunchCenter = lazy(() => import('./BuilderLegacyLaunchCenter').then((module) => ({ default: module.BuilderLegacyLaunchCenter })));
+const BuilderLegacyLeads = lazy(() => import('./BuilderLegacyLeads').then((module) => ({ default: module.BuilderLegacyLeads })));
+const BuilderLegacyReleaseHistory = lazy(() => import('./BuilderLegacyReleaseHistory').then((module) => ({ default: module.BuilderLegacyReleaseHistory })));
 
 type WebsiteBuilderView = ReturnType<typeof useWebsiteBuilderController>;
 
@@ -85,7 +87,8 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
     hasUnsavedChanges, cmsErrors, clearEditorDragState,
   } = view;
   const v2AiPanel = (
-    <BuilderAiPanel
+    <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
+      <BuilderAiPanel
       aiBusy={aiBusy}
       aiCandidateActiveOperations={aiCandidateActiveOperations}
       aiCandidateApproveButtonRef={aiCandidateApproveButtonRef}
@@ -137,6 +140,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       undoLastAIChange={undoLastAIChange}
       v2AiMessagesEndRef={v2AiMessagesEndRef}
     />
+    </Suspense>
   );
 
   const v2CmsPanel = (
@@ -513,6 +517,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       )}
 
       {commandOpen && (
+        <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
         <BuilderLegacyCommandPalette
               arrangeSelectedElements={arrangeSelectedElements}
               canPasteCopiedTarget={canPasteCopiedTarget}
@@ -564,9 +569,11 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
               switchPage={switchPage}
               ungroupSelectedElements={ungroupSelectedElements}
             />
+        </Suspense>
       )}
 
       {launchCenterOpen && (
+        <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
         <BuilderLegacyLaunchCenter
               applyPageTemplate={applyPageTemplate}
               closeLaunchCenter={closeLaunchCenter}
@@ -602,9 +609,11 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
               v1LaunchStatus={v1LaunchStatus}
               verifyLiveDeployment={verifyLiveDeployment}
             />
+        </Suspense>
       )}
 
       {billingOpen && (
+        <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
         <BuilderLegacyBilling
               analyticsEvents={analyticsEvents}
               billingBusy={billingBusy}
@@ -623,6 +632,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
               setBillingOpen={setBillingOpen}
               startBillingCheckout={startBillingCheckout}
             />
+        </Suspense>
       )}
 
       {deliveryOpen && (
@@ -717,6 +727,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       )}
 
       {analyticsOpen && (
+        <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
         <BuilderLegacyAnalytics
               analyticsError={analyticsError}
               analyticsEvents={analyticsEvents}
@@ -728,6 +739,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
               refreshAnalytics={refreshAnalytics}
               setAnalyticsOpen={setAnalyticsOpen}
             />
+        </Suspense>
       )}
 
       {mediaOpen && (
@@ -790,6 +802,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       )}
 
       {leadsOpen && (
+        <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
         <BuilderLegacyLeads
               archiveReadLeads={archiveReadLeads}
               bulkUpdateLeadStage={bulkUpdateLeadStage}
@@ -819,9 +832,11 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
               updateLeadCrm={updateLeadCrm}
               updateLeadStatus={updateLeadStatus}
             />
+        </Suspense>
       )}
 
       {releaseHistoryOpen && (
+        <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
         <BuilderLegacyReleaseHistory
               cloudProjectId={cloudProjectId}
               createSharePreview={createSharePreview}
@@ -852,6 +867,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
               setReleaseNote={setReleaseNote}
               user={user}
             />
+        </Suspense>
       )}
 
       {historyOpen && (

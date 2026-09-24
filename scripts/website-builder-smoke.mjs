@@ -28,6 +28,7 @@ const launchReadinessPath = resolve(root, 'src/modules/website-builder/core/edit
 const editHistoryHandlersPath = resolve(root, 'src/modules/website-builder/core/editor-edit-history-handlers.ts');
 const aiImagePromptHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-ai-image-prompt-handler.ts');
 const aiUndoHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-ai-undo-handler.ts');
+const aiChangeLoaderPath = resolve(root, 'src/modules/website-builder/core/editor-ai-change-loader.ts');
 const qualityMigrationPath = resolve(root, 'supabase/migrations/20260828161000_quality_security_hardening.sql');
 const teamMigrationPath = resolve(root, 'supabase/migrations/20260828155500_add_team_workspaces.sql');
 const billingMigrationPath = resolve(root, 'supabase/migrations/20260828154000_add_secure_billing_entitlements.sql');
@@ -230,6 +231,7 @@ const launchReadinessSource = existsSync(launchReadinessPath) ? readFileSync(lau
 const editHistoryHandlersSource = existsSync(editHistoryHandlersPath) ? readFileSync(editHistoryHandlersPath, 'utf8') : '';
 const aiImagePromptHandlerSource = existsSync(aiImagePromptHandlerPath) ? readFileSync(aiImagePromptHandlerPath, 'utf8') : '';
 const aiUndoHandlerSource = existsSync(aiUndoHandlerPath) ? readFileSync(aiUndoHandlerPath, 'utf8') : '';
+const aiChangeLoaderSource = existsSync(aiChangeLoaderPath) ? readFileSync(aiChangeLoaderPath, 'utf8') : '';
 const aiChangeHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-ai-change-handler.ts');
 const aiChangeHandlerSource = existsSync(aiChangeHandlerPath) ? readFileSync(aiChangeHandlerPath, 'utf8') : '';
 const publishHandlerPath = resolve(root, 'src/modules/website-builder/core/editor-publish-handler.ts');
@@ -303,10 +305,10 @@ check('Rollback, staging, and unpublish handlers remain connected', ['createRoll
 check('Save and AI generation handlers remain connected', builderSource.includes('createSaveProjectHandler({') && builderSource.includes('createAIGenerationHandler({') && saveHandlerSource.includes('return async function saveProject(') && aiGenerationHandlerSource.includes('return async function generateWithAI('));
 check('V2 native operations remain connected to the editor', builderSource.includes('createV2NativeOperationsHandler({') && v2NativeHandlerSource.includes('return function applyV2NativeOperations('));
 check('Publish handler remains connected to the editor', builderSource.includes('createPublishWebsiteHandler({') && publishHandlerSource.includes('return async function publishWebsite('));
-check('AI change handler remains connected to the editor', builderSource.includes('createAIChangeHandler({') && aiChangeHandlerSource.includes('return async function applyAIChange('));
+check('AI change handler loads on demand and remains connected to the editor', builderSource.includes('createLazyAIChangeHandler({') && aiChangeLoaderSource.includes("import('./editor-ai-change-handler')") && aiChangeHandlerSource.includes('return async function applyAIChange('));
 check('Extracted builder panels remain mounted and available',
   ['BuilderAiPanel', 'BuilderSitePanel', 'BuilderSettingsPanel', 'BuilderLegacySectionSettings', 'BuilderLegacyHeader', 'BuilderLegacySidebar', 'BuilderLegacyInspector', 'BuilderLegacyLeads', 'BuilderLegacyCanvas', 'BuilderV2Canvas', 'BuilderLegacyBilling', 'BuilderLegacyAnalytics', 'BuilderLegacyReleaseHistory', 'BuilderLegacyLaunchCenter', 'BuilderLegacyCommandPalette'].every((name) =>
-    (builderPresentationSource.includes(`import { ${name} } from './${name}'`) || extractedPanelSources.includes(`import { ${name} } from './${name}'`))
+    (builderPresentationSource.includes(`import { ${name} } from './${name}'`) || builderPresentationSource.includes(`import('./${name}')`) || extractedPanelSources.includes(`import { ${name} } from './${name}'`))
     && builder.includes(`<${name}`)
     && extractedPanelSources.includes(`export function ${name}(`)));
 const aiService = existsSync(aiServicePath) ? readFileSync(aiServicePath, 'utf8') : '';

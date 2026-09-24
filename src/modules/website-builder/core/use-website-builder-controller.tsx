@@ -10,7 +10,7 @@ import { createCandidateReviewHandlers } from './editor-ai-candidate-review-hand
 import { createAIRequestHandlers } from './editor-ai-request-handlers';
 import { createAIImagePromptHandler } from './editor-ai-image-prompt-handler';
 import { createAIUndoHandler } from './editor-ai-undo-handler';
-import { createAIChangeHandler } from './editor-ai-change-handler';
+import { createLazyAIChangeHandler } from './editor-ai-change-loader';
 import { createAIGenerationHandler } from './editor-ai-generation-handler';
 import { createAIImageHandler } from './editor-ai-image-handler';
 import { createAIQualityCheckHandler } from './editor-ai-quality-handler';
@@ -408,6 +408,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   const projectLoadSequenceRef = useRef(0);
   const savedFeedbackSequenceRef = useRef(0);
   const aiOperationSequenceRef = useRef(0);
+  const aiChangeModuleLoadingRef = useRef<number | null>(null);
   const aiAbortControllerRef = useRef<AbortController | null>(null);
   const aiPlanReviewResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const aiPatchReviewResolverRef = useRef<((selectedOperationIds: string[] | null) => void) | null>(null);
@@ -3137,7 +3138,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     setBrand, setSeo, setTheme, setHeaderConfig, setSymbols, setSaved, l,
   });
 
-    const applyAIChange = createAIChangeHandler({
+    const applyAIChange = createLazyAIChangeHandler({
     activePageId,
     activeUserIdRef,
     aiAbortControllerRef,
@@ -3203,7 +3204,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     symbols,
     theme,
     user,
-  });
+  }, aiChangeModuleLoadingRef);
 
     const generateRealImage = createAIImageHandler({
     activeUserIdRef,

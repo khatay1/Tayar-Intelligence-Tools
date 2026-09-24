@@ -25,11 +25,22 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('/src/modules/website-builder/v2-ui/BuilderLegacySidebar.tsx') ||
+              id.includes('/src/modules/website-builder/v2-ui/BuilderLegacyInspector.tsx')) return 'website-builder-legacy-editor';
+          if (id.includes('/src/modules/website-builder/core/editor-operation-policy.ts') ||
+              id.includes('/src/modules/website-builder/core/editor-native-operation.ts') ||
+              id.includes('/src/modules/website-builder/core/editor-value-safety.ts') ||
+              id.includes('/src/modules/website-builder/core/editor-inspector-model.ts') ||
+              id.includes('/src/modules/website-builder/core/editor-command-adapters.ts')) return 'website-builder-operations';
+          if (id.includes('/src/modules/website-builder/core/website-builder-rendering.ts') ||
+              id.includes('/src/modules/website-builder/core/website-builder-output.ts') ||
+              id.includes('/src/modules/website-builder/core/website-builder-config.ts')) return 'website-builder-rendering';
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'vendor-react';
           if (id.includes('/@supabase/')) return 'vendor-supabase';
           if (id.includes('/lucide-react/')) return 'vendor-icons';
-          if (id.includes('/pdf-lib/') || id.includes('/pdfjs-dist/')) return 'vendor-pdf';
+          if (id.includes('/pdf-lib/')) return 'vendor-pdf-lib';
+          if (id.includes('/pdfjs-dist/')) return 'vendor-pdfjs';
           if (id.includes('/jszip/')) return 'vendor-archive';
           return 'vendor-misc';
         },

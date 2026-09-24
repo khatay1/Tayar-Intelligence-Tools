@@ -23,7 +23,7 @@ import { cloneSymbolElement,normalizeAnchorId,normalizeFormFieldName,sectionColu
 import type { WebsiteCmsState } from '../core/website-cms';
 import type { WebsiteLocalizationConfig } from '../core/website-localization';
 
-interface AIChangeHandlerDependencies {
+export interface AIChangeHandlerDependencies {
   activePageId: string;
   activeUserIdRef: React.MutableRefObject<string | null>;
   aiAbortControllerRef: React.MutableRefObject<AbortController | null>;
