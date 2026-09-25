@@ -38,3 +38,7 @@ Reviewed the Vite/React application, registered tool modules, admin views, Supab
 - `npm audit --omit=dev`
 
 Keep the fixes on an isolated review branch until the automated gate is green. The database guard was applied immediately so the current UI cannot enqueue jobs that cannot run.
+
+## Follow-up: publishing workflow integrity
+
+Corrected the workflow service production folder to match the live route, rejected malformed owner/project IDs without rewriting them, isolated archive restoration to the current project, used the existing non-overwriting archive uploader, and restored the prior live snapshot after public-route verification failure. The built-in publishing bridge now rejects unsupported selective publication instead of publishing the whole website. Scheduled timestamps are serialized as UTC ISO values and rescheduling performs the same readiness check as new schedules. Scheduler activation remains blocked pending a snapshot-bound executor and operational configuration. Behavioral regressions cover live destination, invalid archive rejection, verification rollback, rollback failure reporting, immutable archive delegation and the selective publication guard.

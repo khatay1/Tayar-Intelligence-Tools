@@ -36,10 +36,8 @@ export async function createWebsitePublishSchedule(input: {
   if (plan.environment !== 'production' || plan.mode !== 'full') errors.push('Scheduled publishing currently supports full production releases only.');
   if (errors.length) return { data: null, error: new Error(errors.join(' ')) };
 
-  const { data: ready, error: readinessError } = await supabase.rpc('website_publish_scheduler_ready');
-  if (readinessError || ready !== true) return { data: null, error: new Error('Scheduled publishing is unavailable until its executor is configured.') };
-  const { data: status, error: functionError } = await supabase.functions.invoke('website-publish-scheduler', { body: { action: 'status' } });
-  if (functionError || status?.ready !== true) return { data: null, error: new Error('Scheduled publishing is unavailable until its executor is configured.') };
+  const readinessError = await checkSchedulerReadiness();
+  if (readinessError) return { data: null, error: readinessError };
 
   return supabase.from('website_publish_schedules').insert({
     id: input.id,
@@ -48,7 +46,7 @@ export async function createWebsitePublishSchedule(input: {
     environment: plan.environment,
     mode: plan.mode,
     page_ids: plan.pageIds,
-    scheduled_at: plan.scheduledAt,
+    scheduled_at: new Date(plan.scheduledAt!).toISOString(),
     release_note: plan.releaseNote,
     status: 'scheduled',
   }).select('id').single();
@@ -74,6 +72,8 @@ export async function rescheduleWebsitePublish(input: {
 }) {
   const timestamp = Date.parse(input.scheduledAt);
   if (!Number.isFinite(timestamp) || timestamp <= Date.now()) return { data: null, error: new Error('Scheduled publish time must be in the future.') };
+  const readinessError = await checkSchedulerReadiness();
+  if (readinessError) return { data: null, error: readinessError };
   return supabase
     .from('website_publish_schedules')
     .update({ scheduled_at: new Date(timestamp).toISOString(), status: 'scheduled', last_error: null, updated_at: new Date().toISOString() })
@@ -83,4 +83,13 @@ export async function rescheduleWebsitePublish(input: {
     .in('status', ['scheduled', 'failed'])
     .select('id')
     .single();
+}
+
+async function checkSchedulerReadiness(): Promise<Error | null> {
+  const { data: ready, error: readinessError } = await supabase.rpc('website_publish_scheduler_ready');
+  if (readinessError || ready !== true) return new Error('Scheduled publishing is unavailable until its executor is configured.');
+  const { data: status, error: functionError } = await supabase.functions.invoke('website-publish-scheduler', { body: { action: 'status' } });
+  if (functionError || status?.ready !== true) return new Error('Scheduled publishing is unavailable until its executor is configured.');
+
+  return null;
 }
