@@ -2,7 +2,8 @@ import {
   readPublishedWebsiteFolderFiles,
   replacePublishedWebsiteFiles,
   snapshotPublishedWebsiteFiles,
-  uploadPublishedWebsiteFolderFiles,
+  archivePublishedWebsiteFiles,
+  restorePublishedWebsiteSnapshot,
   verifyPublishedRoute,
   type PublishedWebsiteFile,
 } from './publishedWebsiteService';
@@ -20,11 +21,10 @@ export interface WebsitePublishingFolders {
 }
 
 export function websitePublishingFolders(projectId: string, ownerId: string): WebsitePublishingFolders {
-  const safeProject = projectId.replace(/[^a-zA-Z0-9_-]/g, '');
-  const safeOwner = ownerId.replace(/[^a-zA-Z0-9_-]/g, '');
-  if (!safeProject || !safeOwner) throw new Error('Publishing requires a valid project and owner.');
-  const root = `${safeOwner}/${safeProject}`;
-  return { staging: `${root}/staging`, production: `${root}/production` };
+  const safeSegment = /^[a-zA-Z0-9_-]{1,160}$/;
+  if (!safeSegment.test(projectId) || !safeSegment.test(ownerId)) throw new Error('Publishing requires a valid project and owner.');
+  const root = `${ownerId}/${projectId}`;
+  return { staging: `${root}/staging`, production: root };
 }
 
 export async function stageWebsiteRelease(input: {
@@ -47,7 +47,7 @@ export async function promoteStagingToProduction(input: {
   const rollback = await snapshotPublishedWebsiteFiles(folders.production);
   await replacePublishedWebsiteFiles(folders.production, staged, rollback);
   if (input.productionUrl && !(await verifyPublishedRoute(input.productionUrl))) {
-    throw new Error('Production promotion completed in storage but the public route could not be verified.');
+    await restoreAfterVerificationFailure(folders.production, rollback);
   }
   return { files: staged, rollback };
 }
@@ -59,10 +59,14 @@ export async function restoreProductionFromArchive(input: {
   productionUrl?: string;
 }) {
   const folders = websitePublishingFolders(input.projectId, input.ownerId);
+  if (!input.archivePrefix.startsWith(`${folders.production}/versions/`) || !/^[a-zA-Z0-9_-]+$/.test(input.archivePrefix.slice(`${folders.production}/versions/`.length))) {
+    throw new Error('Release archive must belong to this project.');
+  }
   const archived = await readPublishedWebsiteFolderFiles(input.archivePrefix);
-  await replacePublishedWebsiteFiles(folders.production, archived);
+  const rollback = await snapshotPublishedWebsiteFiles(folders.production);
+  await replacePublishedWebsiteFiles(folders.production, archived, rollback);
   if (input.productionUrl && !(await verifyPublishedRoute(input.productionUrl))) {
-    throw new Error('Rollback files were restored but the public route could not be verified.');
+    await restoreAfterVerificationFailure(folders.production, rollback);
   }
   return archived;
 }
@@ -86,6 +90,15 @@ export async function createImmutableReleaseArchive(input: {
   archivePrefix: string;
   files: PublishedWebsiteFile[];
 }) {
-  await uploadPublishedWebsiteFolderFiles(input.archivePrefix, input.files);
+  await archivePublishedWebsiteFiles(input.archivePrefix, input.files);
   return input.archivePrefix;
+}
+
+async function restoreAfterVerificationFailure(folder: string, snapshot: Awaited<ReturnType<typeof snapshotPublishedWebsiteFiles>>): Promise<never> {
+  try {
+    await restorePublishedWebsiteSnapshot(folder, snapshot);
+  } catch (error) {
+    throw new Error('Public route verification failed. Automatic rollback was incomplete: ' + (error instanceof Error ? error.message : String(error)));
+  }
+  throw new Error('Public route verification failed. The previous live website was restored automatically.');
 }

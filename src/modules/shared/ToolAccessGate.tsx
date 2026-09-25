@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Crown, Gauge, Loader2, LockKeyhole, ShieldAlert } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useLocalizer } from '@/lib/ui-localization';
 
@@ -42,6 +43,9 @@ const MANUAL_AFTER_AI_QUOTA = new Set(['website-builder']);
 
 export default function ToolAccessGate({ toolId, fallbackPlan, children }: ToolAccessGateProps) {
   const l = useLocalizer();
+  const { user } = useAuth();
+  const userId = user?.id;
+  const [checkedUserId, setCheckedUserId] = useState<string>();
   const [state, setState] = useState<ToolAccessState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +54,14 @@ export default function ToolAccessGate({ toolId, fallbackPlan, children }: ToolA
     let active = true;
     setLoading(true);
     setError(null);
+    setState(null);
+    if (!userId) {
+      setLoading(false);
+      setError('Not authenticated');
+      return;
+    }
 
-    void supabase
-      .rpc('check_tool_usage', { p_tool_id: toolId })
+    void Promise.resolve(supabase.rpc('check_tool_usage', { p_tool_id: toolId }))
       .then(({ data, error: accessError }) => {
         if (!active) return;
         if (accessError) {
@@ -60,7 +69,8 @@ export default function ToolAccessGate({ toolId, fallbackPlan, children }: ToolA
           setError(accessError.message || 'Could not verify tool access.');
           setState(null);
         } else {
-          const raw = (data || {}) as Partial<ToolAccessState>;
+          if (!data || typeof data.allowed !== 'boolean') throw new Error('Invalid tool access response');
+          const raw = data as Partial<ToolAccessState>;
           const required = raw.required_plan === 'business' || raw.required_plan === 'pro' || raw.required_plan === 'free' ? raw.required_plan : fallbackPlan;
           const effective = raw.effective_plan === 'business' || raw.effective_plan === 'pro' || raw.effective_plan === 'free' ? raw.effective_plan : 'free';
           setState({
@@ -77,13 +87,20 @@ export default function ToolAccessGate({ toolId, fallbackPlan, children }: ToolA
             reason: raw.reason,
           });
         }
+        setCheckedUserId(userId);
+        setLoading(false);
+      }).catch(() => {
+        if (!active) return;
+        setError('Could not verify tool access.');
+        setState(null);
+        setCheckedUserId(userId);
         setLoading(false);
       });
 
     return () => { active = false; };
-  }, [toolId, fallbackPlan]);
+  }, [toolId, fallbackPlan, userId]);
 
-  if (loading) return <div className="flex min-h-[45vh] items-center justify-center p-6"><div className="flex items-center gap-3 text-sm text-gray-400"><Loader2 className="h-5 w-5 animate-spin text-violet-400" />{l('Checking access...')}</div></div>;
+  if (loading || (user && checkedUserId !== user.id)) return <div className="flex min-h-[45vh] items-center justify-center p-6"><div className="flex items-center gap-3 text-sm text-gray-400"><Loader2 className="h-5 w-5 animate-spin text-violet-400" />{l('Checking access...')}</div></div>;
 
   if (error) return <div className="mx-auto flex min-h-[45vh] max-w-xl items-center justify-center p-4 sm:p-6"><div className="w-full rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-5 text-center sm:p-7"><ShieldAlert className="mx-auto mb-3 h-8 w-8 text-amber-400" /><h2 className="text-lg font-bold text-white">{l('Access check unavailable')}</h2><p className="mt-2 break-words text-sm leading-6 text-gray-400">{l('We could not safely verify your plan. Please retry in a moment.')}</p><button type="button" onClick={() => window.location.reload()} className="mt-5 min-h-11 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/15">{l('Retry')}</button></div></div>;
 

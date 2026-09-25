@@ -49,13 +49,13 @@ try {
     async list(path) {
       listed.push(path);
       return { error: null, data: path === 'owner/project'
-        ? [{ id: 'index', name: 'index.html' }, { name: 'sv' }, { name: 'previews' }, { name: 'versions' }]
+        ? [{ id: 'index', name: 'index.html' }, { name: 'sv' }, { name: 'previews' }, { name: 'versions' }, { name: 'staging' }]
         : [{ id: 'sv-index', name: 'index.html' }] };
     },
   };
   const files = await storage.listAllPublishedSiteFiles(bucket, 'owner/project');
   assert.deepEqual(files.map((file) => file.name), ['index.html', 'sv/index.html']);
-  assert.deepEqual(listed, ['owner/project', 'owner/project/sv'], 'replacement never traverses release or preview archives');
+  assert.deepEqual(listed, ['owner/project', 'owner/project/sv'], 'replacement never traverses release, preview or staging folders');
   const endless = { async list() { return { error: null, data: [{ name: 'nested' }] }; } };
   await assert.rejects(storage.listAllPublishedSiteFiles(endless, 'root', { maxEntries: 5 }), /too many/);
 

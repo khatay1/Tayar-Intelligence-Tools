@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 
@@ -14,73 +14,92 @@ export interface Notification {
 
 export function useNotifications() {
   const { user } = useAuth();
+  const userId = user?.id;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const requestRevision = useRef(0);
+  const currentUserId = useRef(userId);
+  currentUserId.current = userId;
+  const [loadedUserId, setLoadedUserId] = useState<string>();
 
   const fetchNotifications = useCallback(async () => {
-    if (!user) {
+    const revision = ++requestRevision.current;
+    const isCurrent = () => revision === requestRevision.current && currentUserId.current === userId;
+    if (!userId) {
       setNotifications([]);
       setUnreadCount(0);
+      setLoadedUserId(undefined);
       setLoading(false);
       setError(false);
       return;
     }
     setLoading(true);
     setError(false);
-    const { data, error: fetchError } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    if (fetchError) {
-      setError(true);
-      setLoading(false);
-      return;
+    try {
+      const [rows, unread] = await Promise.all([
+        supabase.from('notifications').select('*').eq('user_id', userId)
+          .order('created_at', { ascending: false }).limit(20),
+        supabase.from('notifications').select('id', { count: 'exact', head: true })
+          .eq('user_id', userId).eq('read', false),
+      ]);
+      if (!isCurrent()) return;
+      if (rows.error || unread.error) throw rows.error || unread.error;
+      setNotifications((rows.data as Notification[]) || []);
+      setUnreadCount(unread.count || 0);
+      setLoadedUserId(userId);
+    } catch {
+      if (isCurrent()) setError(true);
+    } finally {
+      if (isCurrent()) setLoading(false);
     }
-    const rows = (data as Notification[]) || [];
-    setNotifications(rows);
-    setUnreadCount(rows.filter(n => !n.read).length);
-    setLoading(false);
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    fetchNotifications();
+    void fetchNotifications();
+    return () => { requestRevision.current += 1; };
   }, [fetchNotifications]);
 
+  // Refresh after confirmed writes: repeated clicks and overlapping operations
+  // cannot double-decrement a locally maintained count or revive stale rows.
   const markAsRead = useCallback(async (id: string) => {
-    const { error: updateError } = await supabase.from('notifications').update({ read: true }).eq('id', id);
-    if (updateError) { setError(true); return; }
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  }, []);
+    if (!userId || currentUserId.current !== userId) return;
+    try {
+      const { error: updateError } = await supabase.from('notifications')
+        .update({ read: true }).eq('id', id).eq('user_id', userId).eq('read', false);
+      if (currentUserId.current !== userId) return;
+      if (updateError) throw updateError;
+      await fetchNotifications();
+    } catch { if (currentUserId.current === userId) setError(true); }
+  }, [userId, fetchNotifications]);
 
   const markAllRead = useCallback(async () => {
-    if (!user) return;
-    const { error: updateError } = await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
-    if (updateError) { setError(true); return; }
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    setUnreadCount(0);
-  }, [user]);
+    if (!userId || currentUserId.current !== userId) return;
+    try {
+      const { error: updateError } = await supabase.from('notifications')
+        .update({ read: true }).eq('user_id', userId).eq('read', false);
+      if (currentUserId.current !== userId) return;
+      if (updateError) throw updateError;
+      await fetchNotifications();
+    } catch { if (currentUserId.current === userId) setError(true); }
+  }, [userId, fetchNotifications]);
 
   const deleteNotification = useCallback(async (id: string) => {
-    const removed = notifications.find(notification => notification.id === id);
-    const { error: deleteError } = await supabase.from('notifications').delete().eq('id', id);
-    if (deleteError) { setError(true); return; }
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-    if (removed && !removed.read) setUnreadCount(count => Math.max(0, count - 1));
-  }, [notifications]);
+    if (!userId || currentUserId.current !== userId) return;
+    try {
+      const { error: deleteError } = await supabase.from('notifications')
+        .delete().eq('id', id).eq('user_id', userId);
+      if (currentUserId.current !== userId) return;
+      if (deleteError) throw deleteError;
+      await fetchNotifications();
+    } catch { if (currentUserId.current === userId) setError(true); }
+  }, [userId, fetchNotifications]);
 
   return {
-    notifications,
-    unreadCount,
-    loading,
-    error,
-    markAsRead,
-    markAllRead,
-    deleteNotification,
+    notifications: loadedUserId === userId ? notifications : [],
+    unreadCount: loadedUserId === userId ? unreadCount : 0,
+    loading, error, markAsRead, markAllRead, deleteNotification,
     refresh: fetchNotifications,
   };
 }

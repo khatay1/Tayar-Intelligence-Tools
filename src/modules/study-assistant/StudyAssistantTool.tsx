@@ -16,7 +16,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
 
 export default function StudyAssistantTool({ darkMode: _darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
-  const { loading, update } = useToast();
+  const { loading, update, error: showError } = useToast();
   const [action, setAction] = useState('explain');
   const [topic, setTopic] = useState('');
   const [level, setLevel] = useState('Beginner');
@@ -26,8 +26,9 @@ export default function StudyAssistantTool({ darkMode: _darkMode }: { darkMode: 
   const [copied, setCopied] = useState(false);
 
   async function handleGenerate() {
-    if (!topic) return;
+    if (generating || !topic.trim()) return;
     setGenerating(true);
+    setCopied(false);
     setResult('');
     const toastId = loading(l('Generating study material...'));
     try {
@@ -44,10 +45,15 @@ export default function StudyAssistantTool({ darkMode: _darkMode }: { darkMode: 
     setGenerating(false);
   }
 
-  function copyResult() {
-    navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copyResult() {
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      showError(l('Could not copy to clipboard.'));
+    }
   }
 
   return (

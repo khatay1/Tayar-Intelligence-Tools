@@ -6,7 +6,8 @@ import WebsiteBuilderV2BridgeBase, { type WebsiteBuilderV2BridgeProps } from './
 
 function createScheduleId(): string {
   const uuid = globalThis.crypto?.randomUUID?.();
-  return uuid || `publish-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  if (!uuid) throw new Error('Secure publishing requires a browser with crypto.randomUUID support.');
+  return uuid;
 }
 
 export type { WebsiteBuilderV2BridgeProps } from './WebsiteBuilderV2BridgeBase';
@@ -18,6 +19,10 @@ export function WebsiteBuilderV2Bridge(props: WebsiteBuilderV2BridgeProps) {
     if (props.onPublishPlan) {
       await props.onPublishPlan(plan);
       return;
+    }
+
+    if (plan.mode === 'selective') {
+      throw new Error('Selected-page publishing is not available yet. Choose Full site to publish all pages.');
     }
 
     if (plan.scheduledAt) {

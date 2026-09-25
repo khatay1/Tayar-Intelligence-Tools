@@ -5,6 +5,11 @@ import { useCallback } from 'react';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  "Batch Image Tools": "أدوات معالجة الصور دفعة واحدة",
+  "Analytics AI": "تحليلات الذكاء الاصطناعي",
+  "Code Assistant": "مساعد البرمجة",
+  "Could not copy to clipboard.": "تعذر النسخ إلى الحافظة.",
+
   'Loading CV...': 'جارٍ تحميل السيرة الذاتية...',
   'Could not open this CV': 'تعذر فتح هذه السيرة الذاتية',
   'The file may be missing or no longer accessible.': 'قد يكون الملف مفقودًا أو لم يعد بإمكانك الوصول إليه.',
@@ -2858,6 +2863,11 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  "Batch Image Tools": "Bildverktyg för batchbearbetning",
+  "Analytics AI": "AI-analys",
+  "Code Assistant": "Kodassistent",
+  "Could not copy to clipboard.": "Kunde inte kopiera till urklipp.",
+
   'Loading CV...': 'Läser in CV...',
   'Could not open this CV': 'Det gick inte att öppna detta CV',
   'The file may be missing or no longer accessible.': 'Filen kan saknas eller inte längre vara tillgänglig.',

@@ -240,7 +240,7 @@ check('Contact email uses configured support recipient', emailService.includes('
 check('Email templates escape user-controlled HTML', emailService.includes('function escapeHtml'));
 check('AI usage inserts are no longer client-writable', aiSecurityMigration.includes('DROP POLICY IF EXISTS "insert_own_ai_usage"'));
 check('ws security override is pinned to 8.21.3+', packageJson.overrides?.ws === '8.21.3' && packageLock.packages?.['node_modules/ws']?.version === '8.21.3');
-check('Auth refreshes profile after auth state changes', auth.includes('void fetchProfile(nextSession.user.id)'));
+check('Auth refreshes profile after auth state changes', auth.includes('await fetchProfile(nextSession.user.id, () => isCurrent(revision))'));
 check('Admin access uses trusted is_admin RPC', adminContext.includes("supabase.rpc('is_admin')") && !adminContext.includes(".select('role')"));
 check('Admin role fields are not directly client-updatable', adminSecurityMigration.includes('REVOKE UPDATE ON public.profiles FROM authenticated') && adminSecurityMigration.includes('GRANT UPDATE (full_name, avatar_url, language)'));
 check('Admin user mutations use protected server paths',

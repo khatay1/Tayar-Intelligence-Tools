@@ -68,7 +68,8 @@ export async function listAllPublishedSiteFiles(
           throw new Error('Published-site storage returned an invalid path.');
         }
         // These contain independent releases, never part of the live bundle.
-        if (!directory.relativePath && /^(versions|previews)$/i.test(item.name)) continue;
+        // Snapshot/replace on the project root must not delete staging files.
+        if (!directory.relativePath && /^(versions|previews|staging)$/i.test(item.name)) continue;
         const relativeName = directory.relativePath ? `${directory.relativePath}/${item.name}` : item.name;
         if (item.id) entries.push({ id: item.id, name: relativeName });
         else pending.push({ storagePath: `${directory.storagePath}/${item.name}`, relativePath: relativeName });

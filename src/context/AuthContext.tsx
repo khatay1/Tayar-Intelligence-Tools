@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -34,6 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const authRevision = useRef(0);
+  const currentUserId = useRef<string | null>(null);
 
   async function isSignupAllowed() {
     const { data, error } = await supabase.rpc('is_signup_enabled');
@@ -60,13 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { blocked: data === true, error: null };
   }
 
-  async function fetchProfile(userId: string) {
+  async function fetchProfile(userId: string, isCurrent: () => boolean) {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url, plan, language, role, suspended')
       .eq('id', userId)
       .maybeSingle();
 
+    if (!isCurrent()) return;
     if (error) {
       console.error('Failed to fetch profile:', error);
       return;
@@ -77,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       const { data: userData } = await supabase.auth.getUser();
 
+      if (!isCurrent() || userData.user?.id !== userId) return;
       const fullName = userData.user?.user_metadata?.full_name || '';
       const avatarUrl = userData.user?.user_metadata?.avatar_url || null;
 
@@ -91,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('id, full_name, avatar_url, plan, language, role, suspended')
         .maybeSingle();
 
+      if (!isCurrent()) return;
       if (createError) {
         console.error('Failed to create profile:', createError);
         return;
@@ -104,90 +109,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const isCurrent = (revision: number) => mounted && authRevision.current === revision;
 
-    async function initializeAuth() {
-      const {
-        data: { session: initialSession },
-        error,
-      } = await supabase.auth.getSession();
-
-      if (!mounted) return;
-
-      if (error) {
-        console.error('[AUTH] getSession error:', error);
+    async function applySession(nextSession: Session | null, revision: number) {
+      if (!isCurrent(revision)) return;
+      const userId = nextSession?.user.id ?? null;
+      if (currentUserId.current !== userId) setProfile(null);
+      currentUserId.current = userId;
+      try {
+        if (userId) {
+          const blockState = await isCurrentUserBlocked();
+          if (!isCurrent(revision)) return;
+          if (blockState.error || blockState.blocked) {
+            await supabase.auth.signOut();
+            if (!isCurrent(revision)) return;
+            nextSession = null;
+            currentUserId.current = null;
+            setProfile(null);
+          }
+        }
+        if (!isCurrent(revision)) return;
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        if (nextSession?.user) {
+          await fetchProfile(nextSession.user.id, () => isCurrent(revision));
+        }
+      } catch (error) {
+        if (!isCurrent(revision)) return;
+        console.error('[AUTH] Session initialization failed:', error);
         setSession(null);
         setUser(null);
         setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      if (initialSession?.user) {
-        const blockState = await isCurrentUserBlocked();
-        if (!mounted) return;
-
-        if (blockState.error || blockState.blocked) {
-          await supabase.auth.signOut();
-          if (!mounted) return;
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
-      }
-
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-
-      if (initialSession?.user) {
-        await fetchProfile(initialSession.user.id);
-      }
-
-      if (mounted) {
-        setLoading(false);
+        currentUserId.current = null;
+      } finally {
+        if (isCurrent(revision)) setLoading(false);
       }
     }
 
-    void initializeAuth();
+    const initialRevision = ++authRevision.current;
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!isCurrent(initialRevision)) return;
+      if (error) console.error('[AUTH] getSession error:', error);
+      return applySession(error ? null : data.session, initialRevision);
+    }).catch((error) => {
+      if (!isCurrent(initialRevision)) return;
+      console.error('[AUTH] getSession failed:', error);
+      void applySession(null, initialRevision);
+    });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return;
-
-      if (event === 'PASSWORD_RECOVERY') {
-        window.location.hash = 'reset';
-      }
-
+      const revision = ++authRevision.current;
+      if (event === 'PASSWORD_RECOVERY') window.location.hash = 'reset';
       if (!nextSession?.user) {
+        currentUserId.current = null;
         setSession(null);
         setUser(null);
         setProfile(null);
+        setLoading(false);
         return;
       }
-
-      void (async () => {
-        const blockState = await isCurrentUserBlocked();
-        if (!mounted) return;
-
-        if (blockState.error || blockState.blocked) {
-          await supabase.auth.signOut();
-          if (!mounted) return;
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          return;
-        }
-
-        setSession(nextSession);
-        setUser(nextSession.user);
-        void fetchProfile(nextSession.user.id);
-      })();
+      if (currentUserId.current !== nextSession.user.id) {
+        setProfile(null);
+        setUser(null);
+        setSession(null);
+        setLoading(true);
+      }
+      // Defer Supabase calls until the auth callback releases its session lock.
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        void applySession(nextSession, revision);
+      }, 0);
+      timers.add(timer);
     });
 
     return () => {
       mounted = false;
+      authRevision.current += 1;
+      timers.forEach(clearTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -261,6 +261,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    authRevision.current += 1;
+    currentUserId.current = null;
     await supabase.auth.signOut();
 
     setSession(null);
@@ -322,10 +324,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null };
     }
 
-    const { error } = await supabase
+    const userId = user.id;
+    const { data, error } = await supabase
       .from('profiles')
       .update(safeUpdates)
-      .eq('id', user.id);
+      .eq('id', userId)
+      .select('id')
+      .single();
 
     if (error) {
       return {
@@ -333,7 +338,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    setProfile((prev) => (prev ? { ...prev, ...safeUpdates } : prev));
+    if (!data) return { error: 'Profile was not updated.' };
+    if (currentUserId.current === userId) {
+      setProfile((prev) => (prev?.id === userId ? { ...prev, ...safeUpdates } : prev));
+    }
 
     return {
       error: null,
