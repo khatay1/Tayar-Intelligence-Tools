@@ -30,16 +30,24 @@ export function assertValidPublishedWebsiteBundle(
     throw new Error('Published index.html is not a valid HTML document.');
   }
 
+  assertValidPublishedWebsiteFileNames(files.map((file) => file.name));
+}
+
+export function assertValidPublishedWebsiteFileNames(names: unknown[]): void {
+  if (!Array.isArray(names) || !names.includes('index.html') || names.length > 250) {
+    throw new Error('Published website file list is missing index.html or exceeds its limit.');
+  }
   const duplicateNames = new Set<string>();
   const seenNames = new Set<string>();
-  for (const file of files) {
-    const name = String(file.name || '').trim();
+  for (const candidate of names) {
+    const name = typeof candidate === 'string' ? candidate : '';
     const segments = name.split('/');
     if (
       !name ||
+      name !== name.trim() ||
       name.startsWith('/') ||
       name.includes('\\') ||
-      /^(?:versions|previews)(?:\/|$)/i.test(name) ||
+      /^(?:versions|previews|staging)(?:\/|$)/i.test(name) ||
       segments.some((segment) => !segment || segment === '.' || segment === '..')
     ) {
       throw new Error('Published website bundle contains an invalid file path.');

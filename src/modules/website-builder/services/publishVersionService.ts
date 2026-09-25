@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { assertValidPublishVersionArchive } from '../core/publish-version-archive-validation';
 
 export interface PublishVersionManifestItem {
   name: string;
@@ -42,6 +43,8 @@ export async function listWebsitePublishVersions(
 }
 
 export async function deleteWebsitePublishVersionArchive(input: WebsitePublishVersionArchiveTarget) {
+  try { assertValidPublishVersionArchive(input); }
+  catch (error) { return { error: error instanceof Error ? error : new Error('Invalid release archive.'), recordDeleted: false }; }
   // Delete the visible database record first. If that fails, keep its files so
   // the release never points at a missing archive.
   const { data, error: deleteError } = await supabase
@@ -70,6 +73,8 @@ export async function deleteWebsitePublishVersionArchive(input: WebsitePublishVe
 }
 
 export async function discardWebsitePublishVersionArchive(input: WebsitePublishVersionArchiveTarget) {
+  try { assertValidPublishVersionArchive(input); }
+  catch (error) { return { error: error instanceof Error ? error : new Error('Invalid release archive.') }; }
   // Compensation may run before or after the version row was inserted. A
   // no-match delete is therefore expected; storage cleanup must still proceed.
   const { error: deleteError } = await supabase
