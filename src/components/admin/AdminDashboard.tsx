@@ -12,22 +12,23 @@ import { LineChart, BarChart, DonutChart, Sparkline } from './Charts';
 export default function AdminDashboard() {
   const l = useLocalizer();
   const { stats, loading, error, refresh } = useDashboardStats();
-  const { data: userGrowth } = useUserGrowth();
-  const { data: revenueData } = useRevenueData();
-  const { data: aiUsage } = useAIUsageData();
-  const { data: toolPop } = useToolPopularity();
+  const { data: userGrowth, error: growthError } = useUserGrowth();
+  const { data: revenueData, error: revenueError } = useRevenueData();
+  const { data: aiUsage, error: usageError } = useAIUsageData();
+  const { data: toolPop, error: popularityError } = useToolPopularity();
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-violet-500 animate-spin" /></div>;
   }
 
-  if (error || !stats) {
+  const chartError = growthError || revenueError || usageError || popularityError;
+  if (error || chartError || !stats) {
     return (
       <div className="max-w-xl mx-auto rounded-2xl border border-red-500/20 bg-red-500/5 p-4 sm:p-6 text-center min-w-0">
         <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
         <h2 className="text-white font-semibold mb-2">{l('Dashboard data unavailable')}</h2>
-        <p className="text-sm text-gray-400 mb-4 break-words">{error || l('The admin data source could not be loaded.')}</p>
-        <button onClick={() => void refresh()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
+        <p className="text-sm text-gray-400 mb-4 break-words">{error || chartError || l('The admin data source could not be loaded.')}</p>
+        <button onClick={() => chartError ? window.location.reload() : void refresh()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
           <RefreshCw className="w-4 h-4" /> {l('Retry')}
         </button>
       </div>
@@ -115,7 +116,7 @@ export default function AdminDashboard() {
         <h3 className="text-white font-semibold text-sm mb-1">{l('Admin Data Status')}</h3>
         <p className="text-xs text-gray-500 mb-4 break-words">{l('Only verified live data is shown here; placeholder health metrics have been removed.')}</p>
         <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
-          {[{ label: 'Profiles', value: 'Connected' },{ label: 'Subscriptions', value: 'Connected' },{ label: 'AI Usage', value: 'Connected' },{ label: 'Projects', value: 'Connected' }].map(item => (
+          {[{ label: 'Profiles', value: stats.serverStatus === 'online' ? 'Connected' : 'Unavailable' },{ label: 'Subscriptions', value: stats.serverStatus === 'online' ? 'Connected' : 'Unavailable' },{ label: 'AI Usage', value: stats.serverStatus === 'online' ? 'Connected' : 'Unavailable' },{ label: 'Projects', value: stats.serverStatus === 'online' ? 'Connected' : 'Unavailable' }].map(item => (
             <div key={l(item.label)} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 min-w-0"><div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" /><div className="min-w-0"><div className="text-xs text-gray-500 truncate">{l(item.label)}</div><div className="text-sm font-medium text-white truncate">{l(item.value)}</div></div></div>
           ))}
         </div>

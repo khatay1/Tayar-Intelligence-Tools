@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/Toast';
 
 export default function CoverLetterTool({ darkMode: _darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
-  const { loading, update } = useToast();
+  const { loading, update, error: showError } = useToast();
   const [name, setName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [company, setCompany] = useState('');
@@ -18,8 +18,9 @@ export default function CoverLetterTool({ darkMode: _darkMode }: { darkMode: boo
   const [copied, setCopied] = useState(false);
 
   async function handleGenerate() {
-    if (!jobTitle) return;
+    if (generating || !jobTitle.trim()) return;
     setGenerating(true);
+    setCopied(false);
     setResult('');
     const toastId = loading(l('Writing cover letter...'));
     try {
@@ -36,10 +37,15 @@ export default function CoverLetterTool({ darkMode: _darkMode }: { darkMode: boo
     setGenerating(false);
   }
 
-  function copyResult() {
-    navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copyResult() {
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      showError(l('Could not copy to clipboard.'));
+    }
   }
 
   return (

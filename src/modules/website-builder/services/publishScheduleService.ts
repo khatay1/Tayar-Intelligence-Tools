@@ -33,7 +33,14 @@ export async function createWebsitePublishSchedule(input: {
   const plan = normalizeEditorPublishPlan(input.plan, input.allPageIds);
   const errors = validateEditorPublishPlan(plan);
   if (!plan.scheduledAt) errors.push('Scheduled publishing requires a future date and time.');
+  if (plan.environment !== 'production' || plan.mode !== 'full') errors.push('Scheduled publishing currently supports full production releases only.');
   if (errors.length) return { data: null, error: new Error(errors.join(' ')) };
+
+  const { data: ready, error: readinessError } = await supabase.rpc('website_publish_scheduler_ready');
+  if (readinessError || ready !== true) return { data: null, error: new Error('Scheduled publishing is unavailable until its executor is configured.') };
+  const { data: status, error: functionError } = await supabase.functions.invoke('website-publish-scheduler', { body: { action: 'status' } });
+  if (functionError || status?.ready !== true) return { data: null, error: new Error('Scheduled publishing is unavailable until its executor is configured.') };
+
   return supabase.from('website_publish_schedules').insert({
     id: input.id,
     project_id: input.projectId,

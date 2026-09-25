@@ -21,7 +21,7 @@ export function useTemplateLibrary(query: MirroredTemplateQuery, enabled = true)
   const requestId = useRef(0);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) { setLoading(false); return; }
 
     const id = requestId.current + 1;
     requestId.current = id;
@@ -45,6 +45,7 @@ export function useTemplateLibrary(query: MirroredTemplateQuery, enabled = true)
 
     return () => {
       window.clearTimeout(timer);
+      requestId.current += 1;
     };
   }, [enabled, category, format, page, pageSize, searchQuery, sort]);
 

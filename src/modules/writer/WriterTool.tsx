@@ -11,7 +11,7 @@ const LENGTHS = ['Short', 'Medium', 'Long'];
 
 export default function WriterTool({ darkMode: _darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
-  const { loading, update } = useToast();
+  const { loading, update, error: showError } = useToast();
   const [type, setType] = useState('Blog Post');
   const [topic, setTopic] = useState('');
   const [tone, setTone] = useState('Professional');
@@ -23,8 +23,9 @@ export default function WriterTool({ darkMode: _darkMode }: { darkMode: boolean 
   const [copied, setCopied] = useState(false);
 
   async function handleGenerate() {
-    if (!topic) return;
+    if (generating || !topic.trim()) return;
     setGenerating(true);
+    setCopied(false);
     setResult('');
     const toastId = loading(l('Writing content...'));
     try {
@@ -41,10 +42,15 @@ export default function WriterTool({ darkMode: _darkMode }: { darkMode: boolean 
     setGenerating(false);
   }
 
-  function copyResult() {
-    navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copyResult() {
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      showError(l('Could not copy to clipboard.'));
+    }
   }
 
   return (

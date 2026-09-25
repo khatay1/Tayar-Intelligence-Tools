@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -21,6 +21,21 @@ const DEFAULT_PREFS: UserPreferences = {
   marketing_emails: false,
 };
 
+function normalizePreferences(value: unknown, fallback: UserPreferences): UserPreferences {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as Partial<UserPreferences> : {};
+  return {
+    theme: raw.theme === 'dark' || raw.theme === 'light' ? raw.theme : fallback.theme,
+    language: raw.language === 'en' || raw.language === 'ar' || raw.language === 'sv' ? raw.language : fallback.language,
+    email_notifications: typeof raw.email_notifications === 'boolean' ? raw.email_notifications : fallback.email_notifications,
+    push_notifications: typeof raw.push_notifications === 'boolean' ? raw.push_notifications : fallback.push_notifications,
+    marketing_emails: typeof raw.marketing_emails === 'boolean' ? raw.marketing_emails : fallback.marketing_emails,
+  };
+}
+
+function storePreferences(prefs: UserPreferences) {
+  try { localStorage.setItem('tayar-prefs', JSON.stringify(prefs)); } catch { /* Keep in-memory preferences when storage is blocked. */ }
+}
+
 interface PreferencesContextValue {
   prefs: UserPreferences;
   loading: boolean;
@@ -33,46 +48,38 @@ const PreferencesContext = createContext<PreferencesContextValue | undefined>(un
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const userId = user?.id;
   const [prefs, setPrefs] = useState<UserPreferences>(DEFAULT_PREFS);
   const [loading, setLoading] = useState(true);
+  const prefsRef = useRef(prefs);
+  const editRevision = useRef(0);
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
 
-  // Load from localStorage immediately for instant theme/lang
   useEffect(() => {
-    const stored = localStorage.getItem('tayar-prefs');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setPrefs(prev => ({ ...prev, ...parsed }));
-      } catch { /* ignore */ }
-    }
+    try {
+      const next = normalizePreferences(JSON.parse(localStorage.getItem('tayar-prefs') || 'null'), DEFAULT_PREFS);
+      prefsRef.current = next;
+      setPrefs(next);
+    } catch { /* Private browsing and malformed stored data must not crash the app. */ }
   }, []);
 
-  // Load from DB when user is available
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    supabase
-      .from('user_preferences')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          const dbPrefs: UserPreferences = {
-            theme: data.theme as Theme,
-            language: data.language as Language,
-            email_notifications: data.email_notifications,
-            push_notifications: data.push_notifications,
-            marketing_emails: data.marketing_emails,
-          };
-          setPrefs(dbPrefs);
-          localStorage.setItem('tayar-prefs', JSON.stringify(dbPrefs));
-        }
-        setLoading(false);
-      });
-  }, [user]);
+    let active = true;
+    const revision = editRevision.current;
+    if (!userId) { setLoading(false); return; }
+    setLoading(true);
+    void Promise.resolve(supabase.from('user_preferences').select('*').eq('user_id', userId).maybeSingle())
+      .then(({ data, error }) => {
+        if (!active || revision !== editRevision.current || error || !data) return;
+        const next = normalizePreferences(data, prefsRef.current);
+        prefsRef.current = next;
+        setPrefs(next);
+        storePreferences(next);
+      })
+      .catch(() => { /* Stored device preferences remain usable offline. */ })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [userId]);
 
   // Apply theme to document
   useEffect(() => {
@@ -93,16 +100,21 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [prefs.language]);
 
   const updatePrefs = useCallback(async (updates: Partial<UserPreferences>) => {
-    const newPrefs = { ...prefs, ...updates };
-    setPrefs(newPrefs);
-    localStorage.setItem('tayar-prefs', JSON.stringify(newPrefs));
-    if (user) {
-      await supabase.from('user_preferences').upsert({
-        user_id: user.id,
-        ...newPrefs,
-      }, { onConflict: 'user_id' });
+    editRevision.current += 1;
+    const next = normalizePreferences(updates, prefsRef.current);
+    prefsRef.current = next;
+    setPrefs(next);
+    storePreferences(next);
+    if (userId) {
+      // Serialize saves so an older language/theme write cannot finish last.
+      const save = saveQueue.current.catch(() => undefined).then(async () => {
+        const { error } = await supabase.from('user_preferences').upsert({ user_id: userId, ...next }, { onConflict: 'user_id' });
+        if (error) console.warn('Could not sync preferences:', error.message);
+      }).catch(() => { /* Device preferences remain available if the network fails. */ });
+      saveQueue.current = save;
+      await save;
     }
-  }, [prefs, user]);
+  }, [userId]);
 
   const setTheme = useCallback((theme: Theme) => {
     updatePrefs({ theme });

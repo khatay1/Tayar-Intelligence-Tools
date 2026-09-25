@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 
@@ -51,6 +51,7 @@ function sanitizedDuplicateContent(project: Project): Record<string, unknown> {
 export function useProjects() {
   const { success, error, loading, update } = useToast();
   const [saving, setSaving] = useState(false);
+  const pendingSaves = useRef(0);
 
   // Create a new project. Returns the project id or null on failure.
   const createProject = useCallback(async (
@@ -77,17 +78,24 @@ export function useProjects() {
     projectId: string,
     updates: { title?: string; content?: Record<string, unknown>; status?: string }
   ): Promise<boolean> => {
+    pendingSaves.current += 1;
     setSaving(true);
-    const { error: err } = await supabase
-      .from('projects')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', projectId);
-    setSaving(false);
-    if (err) {
+    try {
+      const { data, error: err } = await supabase
+        .from('projects')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', projectId)
+        .select('id')
+        .single();
+      if (err || !data) throw err || new Error('Project was not updated');
+      return true;
+    } catch {
       error('Failed to save');
       return false;
+    } finally {
+      pendingSaves.current -= 1;
+      setSaving(pendingSaves.current > 0);
     }
-    return true;
   }, [error]);
 
   // Save with toast feedback (used by Save Draft buttons)
@@ -114,8 +122,8 @@ export function useProjects() {
   // Delete a project
   const deleteProject = useCallback(async (projectId: string): Promise<boolean> => {
     const toastId = loading('Deleting...');
-    const { error: err } = await supabase.from('projects').delete().eq('id', projectId);
-    if (err) {
+    const { data, error: err } = await supabase.from('projects').delete().eq('id', projectId).select('id').single();
+    if (err || !data) {
       update(toastId, 'Failed to delete', 'error');
       return false;
     }
@@ -125,11 +133,13 @@ export function useProjects() {
 
   // Rename a project
   const renameProject = useCallback(async (projectId: string, newTitle: string): Promise<boolean> => {
-    const { error: err } = await supabase
+    const { data, error: err } = await supabase
       .from('projects')
       .update({ title: newTitle, updated_at: new Date().toISOString() })
-      .eq('id', projectId);
-    if (err) {
+      .eq('id', projectId)
+      .select('id')
+      .single();
+    if (err || !data) {
       error('Failed to rename');
       return false;
     }

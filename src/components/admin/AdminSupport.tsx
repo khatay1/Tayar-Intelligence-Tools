@@ -1,5 +1,5 @@
 import { useLocalizer } from '@/lib/ui-localization';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { LifeBuoy, Loader2, Bug, Lightbulb, MessageSquare, X, Send, Clock, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -27,6 +27,8 @@ export default function AdminSupport() {
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [response, setResponse] = useState('');
   const [responding, setResponding] = useState(false);
+  const selectedId = useRef(selected?.id);
+  selectedId.current = selected?.id;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,23 +57,33 @@ export default function AdminSupport() {
   });
 
   async function respond() {
-    if (!selected || !response.trim()) return;
+    if (!selected || !response.trim() || responding) return;
+    const ticketId = selected.id;
     setResponding(true);
-    const { error } = await supabase.from('support_tickets').update({ admin_response: response, status: 'closed', updated_at: new Date().toISOString() }).eq('id', selected.id);
-    if (error) showError('Failed to send response');
-    else {
+    try {
+      const { data, error } = await supabase.from('support_tickets')
+        .update({ admin_response: response.trim(), status: 'closed', updated_at: new Date().toISOString() })
+        .eq('id', ticketId).select('id').single();
+      if (error || !data) throw error || new Error('Ticket was not updated');
       success('Response sent and ticket closed');
-      setSelected(null);
-      setResponse('');
-      void load();
-    }
-    setResponding(false);
+      if (selectedId.current === ticketId) {
+        setSelected(null);
+        setResponse('');
+      }
+      setTickets(current => current.map(ticket => ticket.id === ticketId ? { ...ticket, admin_response: response.trim(), status: 'closed' } : ticket));
+    } catch { showError('Failed to send response'); }
+    finally { setResponding(false); }
   }
 
   async function changeStatus(ticket: Ticket, status: string) {
-    const { error } = await supabase.from('support_tickets').update({ status, updated_at: new Date().toISOString() }).eq('id', ticket.id);
-    if (error) showError('Failed to update ticket');
-    else { success('Ticket updated'); void load(); }
+    try {
+      const { data, error } = await supabase.from('support_tickets')
+        .update({ status, updated_at: new Date().toISOString() }).eq('id', ticket.id).select('id').single();
+      if (error || !data) throw error || new Error('Ticket was not updated');
+      success('Ticket updated');
+      setTickets(current => current.map(row => row.id === ticket.id ? { ...row, status } : row));
+      setSelected(current => current?.id === ticket.id ? { ...current, status } : current);
+    } catch { showError('Failed to update ticket'); }
   }
 
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-violet-500 animate-spin" /></div>;

@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/Toast';
 
 export default function CVBuilderTool({ darkMode: _darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
-  const { loading, update } = useToast();
+  const { loading, update, error: showError } = useToast();
   const [fullName, setFullName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [years, setYears] = useState('');
@@ -20,6 +20,7 @@ export default function CVBuilderTool({ darkMode: _darkMode }: { darkMode: boole
   async function handleGenerate() {
     if (!jobTitle && !fullName) return;
     setGenerating(true);
+    setCopied(false);
     setResult('');
     const toastId = loading(l('Generating CV...'));
     try {
@@ -37,10 +38,15 @@ export default function CVBuilderTool({ darkMode: _darkMode }: { darkMode: boole
     setGenerating(false);
   }
 
-  function copyResult() {
-    navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copyResult() {
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      showError(l('Could not copy to clipboard.'));
+    }
   }
 
   return (

@@ -41,8 +41,9 @@ export default function AdminUsers() {
     });
   }, [users, search, planFilter, statusFilter]);
 
-  const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
   const totalPages = Math.ceil(filtered.length / pageSize);
+  const visiblePage = Math.min(page, Math.max(0, totalPages - 1));
+  const paged = filtered.slice(visiblePage * pageSize, (visiblePage + 1) * pageSize);
 
   async function toggleSuspend(user: AdminUser) {
     if (currentUser?.id === user.id) {
@@ -217,7 +218,7 @@ export default function AdminUsers() {
         </div>
 
         {filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-500">{l('No users found')}</div>}
-        {totalPages > 1 && <div className="flex items-center justify-between border-t border-white/5 px-3 py-3 sm:px-4"><span className="text-xs text-gray-500">{page * pageSize + 1}-{Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length}</span><div className="flex items-center gap-2"><button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-white/5 hover:text-white disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button><span className="text-xs text-gray-400">{page + 1} / {totalPages}</span><button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-white/5 hover:text-white disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button></div></div>}
+        {totalPages > 1 && <div className="flex items-center justify-between border-t border-white/5 px-3 py-3 sm:px-4"><span className="text-xs text-gray-500">{page * pageSize + 1}-{Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length}</span><div className="flex items-center gap-2"><button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={visiblePage === 0} className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-white/5 hover:text-white disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button><span className="text-xs text-gray-400">{visiblePage + 1} / {totalPages}</span><button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={visiblePage >= totalPages - 1} className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-white/5 hover:text-white disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button></div></div>}
       </div>
 
       {editUser && <EditUserModal user={editUser} isSelf={currentUser?.id === editUser.id} onSave={saveEdit} onAccessChanged={() => { void refresh(); setEditUser(null); }} onClose={() => setEditUser(null)} loading={actionLoading} />}

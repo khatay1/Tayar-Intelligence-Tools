@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { readAllRows } from '@/lib/paginated-query';
 
 export interface AdminUser {
   id: string;
@@ -40,19 +41,18 @@ export function useDashboardStats() {
     setLoading(true);
     setError(null);
     try {
-      const [profilesRes, projectsRes, aiRes, subsRes] = await Promise.all([
-        supabase.from('profiles').select('id, created_at, plan, suspended'),
-        supabase.from('projects').select('id, created_at', { count: 'exact', head: false }),
-        supabase.from('ai_usage').select('id, user_id, created_at, status, cost_usd'),
-        supabase.from('subscriptions').select('id, plan, status'),
+      const [profilesRes, projectsRes, aiRes, subsRes, recentAiRes] = await Promise.all([
+        readAllRows(() => supabase.from('profiles').select('id, created_at, plan, suspended').order('id')),
+        supabase.from('projects').select('id', { count: 'exact', head: true }),
+        supabase.from('ai_usage').select('id', { count: 'exact', head: true }),
+        readAllRows(() => supabase.from('subscriptions').select('id, plan, status').order('id')),
+        readAllRows(() => supabase.from('ai_usage').select('user_id').gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()).order('id')),
       ]);
 
-      const queryError = profilesRes.error || projectsRes.error || aiRes.error || subsRes.error;
+      const queryError = profilesRes.error || projectsRes.error || aiRes.error || subsRes.error || recentAiRes.error;
       if (queryError) throw queryError;
 
       const profiles = profilesRes.data || [];
-      const projects = projectsRes.data || [];
-      const aiUsage = aiRes.data || [];
       const subs = subsRes.data || [];
 
       const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -67,15 +67,14 @@ export function useDashboardStats() {
         .reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0);
 
       // AI-active users: users with AI requests in the last 7 days.
-      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-      const activeUserIds = new Set(aiUsage.filter(u => new Date(u.created_at) >= weekAgo).map(u => u.user_id).filter(Boolean));
+      const activeUserIds = new Set(recentAiRes.data.map(u => u.user_id).filter(Boolean));
 
       setStats({
         totalUsers: profiles.length,
         activeUsers: activeUserIds.size,
         newUsersToday,
-        totalAIRequests: aiUsage.length,
-        totalDocuments: projects.length,
+        totalAIRequests: aiRes.count || 0,
+        totalDocuments: projectsRes.count || 0,
         activeSubscriptions,
         monthlyRevenue,
         serverStatus: 'online',
@@ -95,14 +94,13 @@ export function useDashboardStats() {
 export function useUserGrowth() {
   const [data, setData] = useState<UserGrowthPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('created_at')
-        .order('created_at', { ascending: true });
+      const { data: profiles, error: queryError } = await readAllRows(() => supabase.from('profiles').select('created_at').order('id'));
+      if (queryError) { setError(queryError.message); setLoading(false); return; }
       const profilesData = (profiles || []) as { created_at: string }[];
 
       // Group by day for the last 30 days while preserving users created
@@ -110,11 +108,11 @@ export function useUserGrowth() {
       const days: Record<string, number> = {};
       const now = new Date();
       const firstDay = new Date(now);
-      firstDay.setDate(firstDay.getDate() - 29);
-      firstDay.setHours(0, 0, 0, 0);
+      firstDay.setUTCDate(firstDay.getUTCDate() - 29);
+      firstDay.setUTCHours(0, 0, 0, 0);
 
       for (let i = 29; i >= 0; i--) {
-        const d = new Date(now); d.setDate(d.getDate() - i);
+        const d = new Date(now); d.setUTCDate(d.getUTCDate() - i);
         const key = d.toISOString().split('T')[0];
         days[key] = 0;
       }
@@ -137,17 +135,19 @@ export function useUserGrowth() {
     })();
   }, []);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 export function useRevenueData() {
   const [data, setData] = useState<RevenuePoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: subs } = await supabase.from('subscriptions').select('plan, status, created_at');
+      const { data: subs, error: queryError } = await readAllRows(() => supabase.from('subscriptions').select('plan, status, created_at').order('id'));
+      if (queryError) { setError(queryError.message); setLoading(false); return; }
       const subsData = (subs || []) as { plan: string; status: string; created_at: string }[];
       const planPrices: Record<string, number> = { pro: 19, business: 49, enterprise: 99, free: 0 };
 
@@ -171,27 +171,26 @@ export function useRevenueData() {
     })();
   }, []);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 export function useAIUsageData() {
   const [data, setData] = useState<AIUsagePoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: usage } = await supabase
-        .from('ai_usage')
-        .select('created_at, tokens_in, tokens_out')
-        .order('created_at', { ascending: true })
-        .limit(5000);
+      const windowStart = new Date(); windowStart.setUTCDate(windowStart.getUTCDate() - 29); windowStart.setUTCHours(0, 0, 0, 0);
+      const { data: usage, error: queryError } = await readAllRows(() => supabase.from('ai_usage').select('created_at, tokens_in, tokens_out').gte('created_at', windowStart.toISOString()).order('id'));
+      if (queryError) { setError(queryError.message); setLoading(false); return; }
       const usageData = (usage || []) as { created_at: string; tokens_in: number; tokens_out: number }[];
 
       const days: Record<string, { requests: number; tokens: number }> = {};
       const now = new Date();
       for (let i = 29; i >= 0; i--) {
-        const d = new Date(now); d.setDate(d.getDate() - i);
+        const d = new Date(now); d.setUTCDate(d.getUTCDate() - i);
         const key = d.toISOString().split('T')[0];
         days[key] = { requests: 0, tokens: 0 };
       }
@@ -207,20 +206,19 @@ export function useAIUsageData() {
     })();
   }, []);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 export function useToolPopularity() {
   const [data, setData] = useState<ToolPopularityPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: usage } = await supabase
-        .from('ai_usage')
-        .select('tool')
-        .limit(10000);
+      const { data: usage, error: queryError } = await readAllRows(() => supabase.from('ai_usage').select('tool').order('id'));
+      if (queryError) { setError(queryError.message); setLoading(false); return; }
       const usageData = (usage || []) as { tool: string }[];
       const counts: Record<string, number> = {};
       for (const u of usageData) counts[u.tool] = (counts[u.tool] || 0) + 1;
@@ -230,7 +228,7 @@ export function useToolPopularity() {
     })();
   }, []);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 export function useAdminUsers() {
@@ -255,6 +253,7 @@ export function useAdminUsers() {
     const result = ((data || []) as AdminUser[]).map((user) => ({
       ...user,
       email: user.email || '',
+      full_name: user.full_name || '',
       project_count: Number(user.project_count || 0),
       ai_request_count: Number(user.ai_request_count || 0),
     }));

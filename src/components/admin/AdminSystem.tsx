@@ -82,9 +82,11 @@ function SettingsTab() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     const { data, error } = await supabase
       .from('admin_settings')
       .select('key, value')
@@ -92,12 +94,12 @@ function SettingsTab() {
 
     if (error) {
       console.error('Failed to load admin settings:', error);
-      showError(error.message || 'Failed to load settings');
+      setLoadError(error.message || 'Failed to load settings');
       setLoading(false);
       return;
     }
 
-    const map: Record<string, string> = {};
+    const map: Record<string, string> = { signup_enabled: 'true' };
     for (const s of (data || []) as { key: string; value: unknown }[]) {
       if (typeof s.value === 'string') map[s.key] = s.value.replace(/^"|"$/g, '');
       else if (typeof s.value === 'number' || typeof s.value === 'boolean') map[s.key] = String(s.value);
@@ -105,11 +107,12 @@ function SettingsTab() {
     }
     setSettings(map);
     setLoading(false);
-  }, [showError]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
   async function save() {
+    if (loading || loadError || saving) return;
     setSaving(true);
     const entries = SYSTEM_SETTING_KEYS.map((key) => ({
       key,
@@ -127,6 +130,8 @@ function SettingsTab() {
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
+
+  if (loadError) return <AdminTabError title={l('System Settings')} message={loadError} onRetry={() => void load()} />;
 
   return (
     <div className="space-y-4">
@@ -482,8 +487,8 @@ function EmailTab() {
   useEffect(() => { void load(); }, [load]);
 
   async function saveTemplate(t: { id: string; subject: string; body: string }) {
-    const { error } = await supabase.from('email_templates').update({ subject: t.subject, body: t.body, updated_at: new Date().toISOString() }).eq('id', t.id);
-    if (error) showError('Failed to save template');
+    const { data, error } = await supabase.from('email_templates').update({ subject: t.subject, body: t.body, updated_at: new Date().toISOString() }).eq('id', t.id).select('id').single();
+    if (error || !data) showError('Failed to save template');
     else { success('Template saved'); setEditing(null); void load(); }
   }
 
@@ -654,8 +659,8 @@ function FlagsTab() {
   async function toggle(flag: { id: string; key: string; label: string; enabled: boolean }) {
     const newVal = !flag.enabled;
     setFlags(prev => prev.map(f => f.id === flag.id ? { ...f, enabled: newVal } : f));
-    const { error } = await supabase.from('feature_flags').update({ enabled: newVal, updated_at: new Date().toISOString() }).eq('id', flag.id);
-    if (error) {
+    const { data, error } = await supabase.from('feature_flags').update({ enabled: newVal, updated_at: new Date().toISOString() }).eq('id', flag.id).select('id').single();
+    if (error || !data) {
       setFlags(prev => prev.map(f => f.id === flag.id ? { ...f, enabled: !newVal } : f));
       showError('Failed to toggle flag');
     } else {

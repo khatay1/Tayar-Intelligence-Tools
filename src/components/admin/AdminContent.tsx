@@ -2,6 +2,7 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { useEffect, useState } from 'react';
 import { FileText, Save, Loader2, Eye } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { restoreAdminContentDraft } from '@/lib/admin-content-draft';
 import { supabase } from '@/lib/supabase';
 
 type ContentType = 'landing' | 'pricing' | 'faq' | 'terms' | 'privacy';
@@ -81,7 +82,7 @@ export default function AdminContent() {
         console.error('Failed to load admin content draft:', error);
         showError(l('Failed to load saved content draft'));
       } else if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
-        setContent((current) => ({ ...current, ...(data.value as Partial<typeof CONTENT>) }));
+        setContent(restoreAdminContentDraft(CONTENT, data.value));
       }
       setLoading(false);
     })();

@@ -38,7 +38,9 @@ function getSessionId(): string {
 
 function getQueue(): AnalyticsEvent[] {
   try {
-    return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    const parsed: unknown = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is AnalyticsEvent => Boolean(item) && typeof item === 'object' && typeof item.event === 'string' && typeof item.category === 'string').slice(-100);
   } catch {
     return [];
   }
@@ -108,7 +110,10 @@ export function startAnalytics() {
   }
 }
 
+let flushing = false;
+
 export async function flush() {
+  if (flushing) return;
   if (!hasAnalyticsConsent()) {
     setQueue([]);
     return;
@@ -117,25 +122,33 @@ export async function flush() {
   const queue = getQueue();
   if (queue.length === 0) return;
 
-  setQueue([]);
-  const sessionId = getSessionId();
+  const batch = queue.slice(0, BATCH_SIZE);
+  setQueue(queue.slice(BATCH_SIZE));
+  flushing = true;
 
   try {
+    const sessionId = getSessionId();
     const { data: session } = await supabase.auth.getSession();
     const userId = session.session?.user?.id;
 
     // Log to activity_log table (best-effort, don't block on failure)
-    const rows = queue.slice(0, BATCH_SIZE).map(e => ({
+    const rows = batch.map(e => ({
   user_id: userId,
   action: e.event,
   tool: e.category,
   metadata: { ...e.properties, session_id: sessionId },
 }));
 
-    await supabase.from('activity_log').insert(rows).then(() => undefined);
+    if (!userId || !hasAnalyticsConsent()) return;
+    const { error } = await supabase.from('activity_log').insert(rows);
+    if (error) throw error;
   } catch {
     // Re-queue on failure
-    const current = getQueue();
-    setQueue([...queue, ...current].slice(-100));
+    if (hasAnalyticsConsent()) {
+      const current = getQueue();
+      setQueue([...batch, ...current].slice(-100));
+    }
+  } finally {
+    flushing = false;
   }
 }

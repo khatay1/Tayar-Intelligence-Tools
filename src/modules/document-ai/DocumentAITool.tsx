@@ -13,7 +13,7 @@ const ACTIONS = [
 
 export default function DocumentAITool({ darkMode: _darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
-  const { loading, update } = useToast();
+  const { loading, update, error: showError } = useToast();
   const [action, setAction] = useState('summarize');
   const [content, setContent] = useState('');
   const [question, setQuestion] = useState('');
@@ -22,8 +22,9 @@ export default function DocumentAITool({ darkMode: _darkMode }: { darkMode: bool
   const [copied, setCopied] = useState(false);
 
   async function handleAnalyze() {
-    if (!content) return;
+    if (generating || !content.trim()) return;
     setGenerating(true);
+    setCopied(false);
     setResult('');
     const toastId = loading(l('Analyzing document...'));
     try {
@@ -40,10 +41,15 @@ export default function DocumentAITool({ darkMode: _darkMode }: { darkMode: bool
     setGenerating(false);
   }
 
-  function copyResult() {
-    navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copyResult() {
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      showError(l('Could not copy to clipboard.'));
+    }
   }
 
   return (
