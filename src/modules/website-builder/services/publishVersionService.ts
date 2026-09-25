@@ -45,6 +45,27 @@ export async function listWebsitePublishVersions(
 export async function deleteWebsitePublishVersionArchive(input: WebsitePublishVersionArchiveTarget) {
   try { assertValidPublishVersionArchive(input); }
   catch (error) { return { error: error instanceof Error ? error : new Error('Invalid release archive.'), recordDeleted: false }; }
+  const { data: stored, error: lookupError } = await supabase
+    .from('website_publish_versions')
+    .select('storage_prefix, file_manifest')
+    .eq('id', input.versionId)
+    .eq('project_id', input.projectId)
+    .eq('user_id', input.ownerId)
+    .single();
+
+  if (lookupError || !stored) {
+    return { error: lookupError || new Error('Stored release archive was not found.'), recordDeleted: false };
+  }
+  try {
+    assertValidPublishVersionArchive({ ...input, storagePrefix: stored.storage_prefix, fileManifest: stored.file_manifest });
+  } catch (error) {
+    return { error: error instanceof Error ? error : new Error('Stored release archive is invalid.'), recordDeleted: false };
+  }
+  const storedNames = new Map(stored.file_manifest.map((item: PublishVersionManifestItem) => [item.name, item.contentType]));
+  if (stored.storage_prefix !== input.storagePrefix || storedNames.size !== input.fileManifest.length ||
+    input.fileManifest.some(item => storedNames.get(item.name) !== item.contentType)) {
+    return { error: new Error('Release archive changed. Refresh release history before deleting it.'), recordDeleted: false };
+  }
   // Delete the visible database record first. If that fails, keep its files so
   // the release never points at a missing archive.
   const { data, error: deleteError } = await supabase

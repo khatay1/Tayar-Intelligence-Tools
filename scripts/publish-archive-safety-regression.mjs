@@ -28,6 +28,29 @@ assert.ok((await versions.deleteWebsitePublishVersionArchive({ ...valid, storage
 assert.ok((await versions.discardWebsitePublishVersionArchive({ ...valid, fileManifest: [{ name: '../index.html', contentType: 'text/html' }] })).error);
 assert.equal(dbChanges, 0, 'invalid targets must be rejected before deleting any database row');
 
+let deleteWrites = 0;
+let removedPaths = [];
+let storedArchive = { storage_prefix: valid.storagePrefix, file_manifest: valid.fileManifest };
+const archiveStore = hookHarness('src/modules/website-builder/services/publishVersionService.ts', {
+  '@/lib/supabase': { supabase: {
+    from: () => ({
+      select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: storedArchive, error: null }) }) }) }) }),
+      delete: () => { deleteWrites++; return { eq: () => ({ eq: () => ({ eq: () => ({ select: async () => ({ data: [{ id: valid.versionId }], error: null }) }) }) }) }; },
+    }),
+    storage: { from: () => ({ remove: async paths => { removedPaths = paths; return { error: null }; } }) },
+  } },
+  '../core/publish-version-archive-validation': validation,
+}).exports;
+storedArchive = { ...storedArchive, storage_prefix: 'owner/project/versions/another-release' };
+assert.ok((await archiveStore.deleteWebsitePublishVersionArchive(valid)).error);
+storedArchive = { ...storedArchive, storage_prefix: valid.storagePrefix, file_manifest: [{ name: 'index.html', contentType: 'text/html' }] };
+assert.ok((await archiveStore.deleteWebsitePublishVersionArchive(valid)).error);
+assert.equal(deleteWrites, 0, 'stored archive identity and manifest must match before deleting the record');
+storedArchive = { storage_prefix: valid.storagePrefix, file_manifest: [...valid.fileManifest].reverse() };
+assert.equal((await archiveStore.deleteWebsitePublishVersionArchive(valid)).error, null);
+assert.equal(deleteWrites, 1);
+assert.deepEqual(removedPaths, valid.fileManifest.map(item => `${valid.storagePrefix}/${item.name}`));
+
 let projectWrites = 0;
 let liveWrites = 0;
 let restores = 0;
@@ -66,4 +89,4 @@ assert.equal(liveWrites, 1, 'archive is restored before public verification');
 assert.equal(restores, 1, 'failed public verification restores previous live snapshot');
 assert.equal(projectWrites, 0, 'failed public verification never commits project published state');
 assert.match(errorText, /restored automatically/);
-console.log('PASS publication rollback: project-scoped archive, safe manifest, no unsafe cleanup, route verification before state commit');
+console.log('PASS publication rollback: project-scoped archive, stored manifest matching, safe cleanup, route verification before state commit');
