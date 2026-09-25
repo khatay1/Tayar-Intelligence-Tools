@@ -5,12 +5,13 @@ import type * as React from 'react';
 import type { WebsiteDeliveryConfig } from '../core/delivery-config';
 import type { EditorProjectAccess } from '../core/editor-project-access';
 import { saveLocalWebsiteProject } from '../core/editor-project-lifecycle';
+import { assertValidPublishVersionArchive } from '../core/publish-version-archive-validation';
 import type { WebsiteBrand,WebsiteSEO } from '../core/types';
 import type { CloudWebsiteProject,ProjectHistoryEntry,WebsiteFooterConfig,WebsiteHeaderConfig,WebsitePage,WebsiteProductionConfig,WebsitePublishVersion,WebsiteSiteEnhancements,WebsiteSymbol,WebsiteTheme } from '../core/website-builder-model';
 import type { WebsiteCmsState } from '../core/website-cms';
 import type { WebsiteLocalizationConfig } from '../core/website-localization';
 import { updateWebsiteProjectPublicationState } from '../services/projectCloudService';
-import { downloadPublishedWebsiteFile,removeStalePublishedWebsiteFiles,restorePublishedWebsiteSnapshot,snapshotPublishedWebsiteFiles,uploadPublishedWebsiteBlob } from '../services/publishedWebsiteService';
+import { downloadPublishedWebsiteFile,removeStalePublishedWebsiteFiles,restorePublishedWebsiteSnapshot,snapshotPublishedWebsiteFiles,uploadPublishedWebsiteBlob,verifyPublishedRoute } from '../services/publishedWebsiteService';
 
 interface CreateRollbackPublishVersionHandlerDependencies {
   activeUserIdRef: React.MutableRefObject<string | null>;
@@ -93,7 +94,16 @@ export function createRollbackPublishVersionHandler({
       if (!rollbackRevision) throw new Error('Reopen the cloud project before rolling back so its current version can be verified.');
       const folder = `${rollbackUserId}/${rollbackProjectId}`;
       const manifest = Array.isArray(version.file_manifest) ? version.file_manifest : [];
-      if (!manifest.length) throw new Error('This release has no stored files.');
+      if (version.project_id !== rollbackProjectId || version.user_id !== rollbackUserId) {
+        throw new Error('This release belongs to another project.');
+      }
+      assertValidPublishVersionArchive({
+        versionId: version.id,
+        projectId: rollbackProjectId,
+        ownerId: rollbackUserId,
+        storagePrefix: version.storage_prefix,
+        fileManifest: manifest,
+      });
 
       const snapshot = await snapshotPublishedWebsiteFiles(folder);
       assertRollbackIsCurrent();
@@ -147,6 +157,13 @@ export function createRollbackPublishVersionHandler({
         if (uploadError) throw uploadError;
       }
 
+      assertRollbackIsCurrent();
+
+      // Verify the actual public route while the previous project state and
+      // rollback snapshot are still available. A failed route restores storage.
+      if (!(await verifyPublishedRoute(nextPublishedUrl))) {
+        throw new Error('The restored website did not pass public route verification.');
+      }
       assertRollbackIsCurrent();
 
       const nextPublishedAt = new Date().toISOString();

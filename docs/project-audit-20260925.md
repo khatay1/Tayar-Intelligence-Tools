@@ -48,3 +48,7 @@ The live storage traversal also excludes the project staging folder, so producti
 ## Production pricing follow-up
 
 Verified on the live Arabic page after the catalog request finished: Free $0, Pro $19/month, Business $49/month, with live tool limits. A previous early page snapshot showed the fallback during loading; the catalog service later returned HTTP 200. The pricing component now reports a localized loading state until the request resolves. Paid checkout was not exercised without a test account.
+
+## Follow-up: release rollback integrity
+
+Release restore now validates the archive owner/project/version prefix and every manifest path before changing live storage. Archive deletion also checks its target before deleting the database row or storage files. The rollback handler checks the public published route before committing the project state, so failed verification restores the previous live snapshot. Scheduled publishing remains disabled: its former executor relied on the newest preview, which is revoked when a later preview is created; it needs a durable release snapshot plus safe concurrency control and cron/secret configuration before activation.
