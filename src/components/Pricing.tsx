@@ -27,6 +27,7 @@ const pricingCopy = {
     year: 'year',
     lifetime: 'lifetime',
     live: 'Live plan data',
+    loading: 'Loading live plan data…',
     fallback: 'Live pricing temporarily unavailable',
     plans: [
       { name: 'Free', price: '$0', period: 'forever', desc: 'For exploring Tayar with Free tool access and plan limits.', features: ['Free-access tools with Free usage limits', 'Personal workspace and project saving', 'No credit card required'] },
@@ -52,6 +53,7 @@ const pricingCopy = {
     year: 'سنة',
     lifetime: 'مدى الحياة',
     live: 'بيانات الخطط المباشرة',
+    loading: 'جارٍ تحميل بيانات الخطط المباشرة…',
     fallback: 'الأسعار المباشرة غير متاحة مؤقتاً',
     plans: [
       { name: 'Free', price: '$0', period: 'دائماً', desc: 'لاستكشاف Tayar باستخدام أدوات Free وحدود الخطة الفعلية.', features: ['أدوات Free ضمن حدود الخطة المجانية', 'مساحة شخصية وحفظ المشاريع', 'لا تحتاج بطاقة ائتمان'] },
@@ -77,6 +79,7 @@ const pricingCopy = {
     year: 'år',
     lifetime: 'livstid',
     live: 'Live plandata',
+    loading: 'Läser in aktuella plandata…',
     fallback: 'Livepriser är tillfälligt otillgängliga',
     plans: [
       { name: 'Free', price: '$0', period: 'för alltid', desc: 'För att utforska Tayar med Free-verktyg och planens faktiska gränser.', features: ['Free-verktyg med Free-planens gränser', 'Personlig arbetsyta och projektsparning', 'Inget betalkort krävs'] },
@@ -175,7 +178,7 @@ export default function Pricing({ onGetStarted }: PricingProps) {
 
         <div className="mx-auto mb-4 flex max-w-6xl items-center justify-end gap-2 text-[11px] text-gray-600">
           {catalogLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          <span>{catalog ? c.live : c.fallback}</span>
+          <span>{catalogLoading ? c.loading : catalog ? c.live : c.fallback}</span>
         </div>
 
         <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-3">
