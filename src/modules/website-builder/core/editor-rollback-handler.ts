@@ -6,6 +6,7 @@ import type { WebsiteDeliveryConfig } from '../core/delivery-config';
 import type { EditorProjectAccess } from '../core/editor-project-access';
 import { saveLocalWebsiteProject } from '../core/editor-project-lifecycle';
 import { assertValidPublishVersionArchive } from '../core/publish-version-archive-validation';
+import { isValidPublishedHtml } from '../core/published-site-validation';
 import type { WebsiteBrand,WebsiteSEO } from '../core/types';
 import type { CloudWebsiteProject,ProjectHistoryEntry,WebsiteFooterConfig,WebsiteHeaderConfig,WebsitePage,WebsiteProductionConfig,WebsitePublishVersion,WebsiteSiteEnhancements,WebsiteSymbol,WebsiteTheme } from '../core/website-builder-model';
 import type { WebsiteCmsState } from '../core/website-cms';
@@ -105,15 +106,6 @@ export function createRollbackPublishVersionHandler({
         fileManifest: manifest,
       });
 
-      const snapshot = await snapshotPublishedWebsiteFiles(folder);
-      assertRollbackIsCurrent();
-      liveRollback = { folder, snapshot };
-      rollbackStarted = true;
-      const liveNames = new Set(manifest.map((item) => item.name));
-      await removeStalePublishedWebsiteFiles(folder, liveNames);
-
-      assertRollbackIsCurrent();
-
       const nextPublishedBaseUrl = buildPublishedSiteBaseUrl(rollbackUserId, rollbackProjectId);
       const nextPublishedUrl = buildPublishedSiteUrl(rollbackUserId, rollbackProjectId, 'index.html');
       if (!nextPublishedBaseUrl || !nextPublishedUrl) throw new Error('Could not build the live website URL.');
@@ -122,6 +114,7 @@ export function createRollbackPublishVersionHandler({
       const legacyVersionBase = (version.published_url || '').replace(/\/index\.html(?:[?#].*)?$/i, '');
       const canonicalVersionBase = legacyVersionUrl.replace(/\/index\.html(?:[?#].*)?$/i, '');
 
+      const archivedFiles: Array<{ name: string; body: Blob; contentType: string }> = [];
       for (const file of manifest) {
         assertRollbackIsCurrent();
 
@@ -143,12 +136,30 @@ export function createRollbackPublishVersionHandler({
           uploadBody = new Blob([text], { type: file.contentType || blob.type || 'text/plain; charset=utf-8' });
         }
 
+        if (file.name === 'index.html') {
+          if (!/^text\/html(?:;|$)/i.test(file.contentType.trim()) || !isValidPublishedHtml(await uploadBody.text())) {
+            throw new Error('The archived index.html is not a valid published HTML page.');
+          }
+        }
+
+        archivedFiles.push({ name: file.name, body: uploadBody, contentType: file.contentType || blob.type || 'application/octet-stream' });
+      }
+
+      assertRollbackIsCurrent();
+      const snapshot = await snapshotPublishedWebsiteFiles(folder);
+      assertRollbackIsCurrent();
+      liveRollback = { folder, snapshot };
+      rollbackStarted = true;
+      const liveNames = new Set(archivedFiles.map(file => file.name));
+
+      for (const file of archivedFiles) {
+
         assertRollbackIsCurrent();
 
         const { error: uploadError } = await uploadPublishedWebsiteBlob({
           path: `${folder}/${file.name}`,
-          body: uploadBody,
-          contentType: file.contentType || blob.type || 'application/octet-stream',
+          body: file.body,
+          contentType: file.contentType,
           cacheControl: '0',
           upsert: true,
         });
@@ -157,6 +168,14 @@ export function createRollbackPublishVersionHandler({
         if (uploadError) throw uploadError;
       }
 
+      assertRollbackIsCurrent();
+      const { data: liveIndex, error: liveIndexError } = await downloadPublishedWebsiteFile(`${folder}/index.html`);
+      assertRollbackIsCurrent();
+      if (liveIndexError || !liveIndex || !isValidPublishedHtml(await liveIndex.text())) {
+        throw liveIndexError || new Error('The restored index.html could not be verified in live storage.');
+      }
+      assertRollbackIsCurrent();
+      await removeStalePublishedWebsiteFiles(folder, liveNames);
       assertRollbackIsCurrent();
 
       // Verify the actual public route while the previous project state and
