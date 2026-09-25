@@ -52,3 +52,5 @@ Verified on the live Arabic page after the catalog request finished: Free $0, Pr
 ## Follow-up: release rollback integrity
 
 Release restore now validates the archive owner/project/version prefix and every manifest path before changing live storage. Archive deletion also checks its target before deleting the database row or storage files. The rollback handler checks the public published route before committing the project state, so failed verification restores the previous live snapshot. Scheduled publishing remains disabled: its former executor relied on the newest preview, which is revoked when a later preview is created; it needs a durable release snapshot plus safe concurrency control and cron/secret configuration before activation.
+
+Archive deletion now also reads the stored release record and compares its path and complete file manifest with the requested target before deleting anything. This prevents a stale or forged editor release entry from deleting a record while leaving archived files behind, or deleting files from another archive in the same project. The regression covers mismatched stored paths and manifests.
