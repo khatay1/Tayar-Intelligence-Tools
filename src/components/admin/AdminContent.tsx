@@ -70,21 +70,24 @@ export default function AdminContent() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data, error } = await supabase
-        .from('admin_settings')
-        .select('value')
-        .eq('key', 'content_draft')
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('admin_settings')
+          .select('value')
+          .eq('key', 'content_draft')
+          .maybeSingle();
 
-      if (!active) return;
-
-      if (error) {
+        if (!active) return;
+        if (error) throw error;
+        if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
+          setContent(restoreAdminContentDraft(CONTENT, data.value));
+        }
+      } catch (error) {
         console.error('Failed to load admin content draft:', error);
-        showError(l('Failed to load saved content draft'));
-      } else if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
-        setContent(restoreAdminContentDraft(CONTENT, data.value));
+        if (active) showError(l('Failed to load saved content draft'));
+      } finally {
+        if (active) setLoading(false);
       }
-      setLoading(false);
     })();
 
     return () => { active = false; };
@@ -102,22 +105,22 @@ export default function AdminContent() {
 
   async function save() {
     setSaving(true);
-    const { error } = await supabase
-      .from('admin_settings')
-      .upsert({
-        key: 'content_draft',
-        value: content,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'key' });
+    try {
+      const { error } = await supabase
+        .from('admin_settings')
+        .upsert({
+          key: 'content_draft',
+          value: content,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'key' });
 
-    setSaving(false);
-
-    if (error) {
-      showError(error.message || l('Failed to save content draft'));
-      return;
+      if (error) throw error;
+      success(l('Content draft saved'));
+    } catch (error) {
+      showError(error && typeof error === 'object' && 'message' in error ? String(error.message) : l('Failed to save content draft'));
+    } finally {
+      setSaving(false);
     }
-
-    success(l('Content draft saved'));
   }
 
   const current = content[activeType];

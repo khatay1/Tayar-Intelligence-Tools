@@ -29,6 +29,11 @@ export function hookHarness(file, mocks = {}, globals = {}) {
       if (!equal(slots[i]?.deps, deps)) slots[i] = { fn, deps };
       return slots[i].fn;
     },
+    useMemo(fn, deps) {
+      const i = cursor++;
+      if (!equal(slots[i]?.deps, deps)) slots[i] = { value: fn(), deps };
+      return slots[i].value;
+    },
     useEffect(fn, deps) {
       const i = cursor++;
       if (!equal(slots[i]?.deps, deps)) effects.push(() => {

@@ -66,3 +66,7 @@ The public website renderer now rejects `/site/{owner}/{project}/staging/...` an
 ## Follow-up: cloud staging action (2026-09-26)
 
 The publishing panel's staging action now calls the actual cloud share-preview handler instead of the local browser preview. It awaits a boolean result and reports failed staging; the primary button explicitly says Create staging preview. The handler now includes initial project synchronization inside its try/finally so rejected saves cannot leave the busy state stuck. Behavioral tests cover the cloud callback, failure propagation, save rejection, failed synchronization, unhealthy preview routes, revision conflicts, and retaining the previous preview until the new one commits. Local lint and production build pass. These checks do not replace an authenticated browser journey against a test project.
+
+## Follow-up: admin request recovery (2026-09-26)
+
+The admin payment-settings view no longer retries a failed billing-status request on every render; it fetches once when opened and retains an explicit Retry action. User lookup, user updates, suspension, complimentary access, plan catalog, operations toggles, system settings, content draft, AI routing and notification count now release loading/saving state and surface request failures when a network call rejects. A behavioral regression exercises a rejected user lookup followed by retry and a rejected billing-status request across repeated renders. These are client recovery fixes, not a substitute for authenticated admin workflows or live Stripe test transactions.
