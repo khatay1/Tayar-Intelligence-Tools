@@ -10,12 +10,14 @@ const uiSupplementPath = 'src/lib/ui-localization-complete.ts';
 const uiReleasePath = 'src/lib/ui-localization-release.ts';
 const uiWorkspacePath = 'src/lib/ui-localization-workspace.ts';
 const uiCmsPath = 'src/lib/ui-localization-cms.ts';
+const uiToolsPath = 'src/lib/ui-localization-tools.ts';
 const cvLocalizationPath = 'src/components/cv/i18n/use-cv-text.ts';
 const ui = read(uiPath);
 const uiSupplement = read(uiSupplementPath);
 const uiRelease = read(uiReleasePath);
 const uiWorkspace = read(uiWorkspacePath);
 const uiCms = read(uiCmsPath);
+const uiTools = read(uiToolsPath);
 const cvLocalization = read(cvLocalizationPath);
 const onboarding = read('src/components/onboarding/OnboardingWizard.tsx');
 const settings = read('src/components/workspace/SettingsPage.tsx');
@@ -91,6 +93,7 @@ const arKeys = unionKeys(
   extractPhraseMapKeys(uiRelease, 'export const arReleaseSupplement: PhraseMap', 'export const svReleaseSupplement: PhraseMap'),
   extractPhraseMapKeys(uiWorkspace, 'export const arWorkspaceSupplement: PhraseMap', 'export const svWorkspaceSupplement: PhraseMap'),
   extractPhraseMapKeys(uiCms, 'export const arCmsSupplement: PhraseMap', 'export const svCmsSupplement: PhraseMap'),
+  extractPhraseMapKeys(uiTools, 'const ar: Record<string, string>', 'const sv: Record<string, string>'),
   extractPhraseMapKeys(cvLocalization, 'const ar: Record<string, string>', 'const sv: Record<string, string>'),
 );
 const svKeys = unionKeys(
@@ -99,6 +102,7 @@ const svKeys = unionKeys(
   extractPhraseMapKeys(uiRelease, 'export const svReleaseSupplement: PhraseMap', 'const releaseMaps:'),
   extractPhraseMapKeys(uiWorkspace, 'export const svWorkspaceSupplement: PhraseMap', 'const workspaceMaps:'),
   extractPhraseMapKeys(uiCms, 'export const svCmsSupplement: PhraseMap', 'const cmsMaps:'),
+  extractPhraseMapKeys(uiTools, 'const sv: Record<string, string>', 'const maps:'),
   extractPhraseMapKeys(cvLocalization, 'const sv: Record<string, string>', 'export function useCVText'),
 );
 

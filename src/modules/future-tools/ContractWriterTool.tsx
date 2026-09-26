@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, Check, Copy, FileSearch, FileSignature, Loader2, PenLine, Sparkles } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization-release';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { useToast } from '@/components/ui/Toast';
 import {
   ToolField,

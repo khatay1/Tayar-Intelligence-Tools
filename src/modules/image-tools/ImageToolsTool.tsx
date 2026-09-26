@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Download, Image as ImageIcon, Lock, RefreshCw, ShieldCheck, Unlock } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { completeMeteredLocalAction } from '@/lib/tool-usage';
 import {
   ToolField,
@@ -73,7 +73,7 @@ export default function ImageToolsTool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   return (
-    <ToolShell icon={ImageIcon} title={l('Image Tools')} description={l('Resize, compress and convert images directly in your browser.')} badge="Local processing">
+    <ToolShell icon={ImageIcon} title={l('Image Tools')} description={l('Resize, compress and convert images directly in your browser.')} badge={l('Local processing')}>
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100"><ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" /><div className="min-w-0"><div className="font-medium">{l('Processed locally')}</div><div className="text-emerald-200/60 text-xs mt-0.5">{l('Your image stays in this browser. Tayar does not upload it for these operations.')}</div></div></div>
 
       <div className="grid min-w-0 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-4 sm:gap-6 items-start">

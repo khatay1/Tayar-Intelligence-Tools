@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy, Download, FilePenLine, Sparkles } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { completeMeteredLocalAction } from '@/lib/tool-usage';
 import { ToolField, ToolInputPanel, ToolOutputPanel, ToolShell, toolInputClass } from '../shared/ToolShell';
 import { generateLetter, safeLetterFileName } from './letter-generator';
@@ -82,7 +82,7 @@ export default function LetterGeneratorTool({ darkMode: _darkMode }: { darkMode:
       icon={FilePenLine}
       title={l('Letter Generator')}
       description={l('Create practical letters from original Tayar templates and edit the result manually.')}
-      badge="No API"
+      badge={l('No API')}
     >
       <div className="grid xl:grid-cols-[390px_minmax(0,1fr)] gap-6 items-start">
         <ToolInputPanel>
