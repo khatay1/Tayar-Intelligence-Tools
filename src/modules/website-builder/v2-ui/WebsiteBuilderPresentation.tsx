@@ -839,7 +839,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
         <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
         <BuilderLegacyReleaseHistory
               cloudProjectId={cloudProjectId}
-              createSharePreview={createSharePreview}
+              createSharePreview={async () => { await createSharePreview(); }}
               currentAIEditableFingerprint={currentAIEditableFingerprint}
               darkMode={darkMode}
               deletePublishVersion={deletePublishVersion}
@@ -1399,6 +1399,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       onRedo={redo}
       onSave={() => void saveProject()}
       onPreview={previewWebsite}
+      onStage={createSharePreview}
       onPublish={() => void publishWebsite()}
       onRunCheck={() => void runV1LaunchChecks()}
       onSetDevice={(nextDevice) => {
