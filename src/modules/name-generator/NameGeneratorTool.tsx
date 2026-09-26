@@ -74,7 +74,7 @@ export default function NameGeneratorTool({ darkMode: _darkMode }: { darkMode: b
       icon={Wand2}
       title={l('Name Generator')}
       description={l('Generate original business, product, brand and social-name ideas locally.')}
-      badge="No API"
+      badge={l('No API')}
     >
       <div className="grid xl:grid-cols-[340px_minmax(0,1fr)] gap-6 items-start">
         <ToolInputPanel>
@@ -180,7 +180,9 @@ export default function NameGeneratorTool({ darkMode: _darkMode }: { darkMode: b
                         {copied === item.name ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                       </button>
                     </div>
-                    <div className="text-[11px] text-gray-600 mt-3 break-words">{l(item.reason)}</div>
+                    <div className="text-[11px] text-gray-600 mt-3 break-words">
+                      {item.reason.split(' · ').map((part) => l(part)).join(' · ')}
+                    </div>
                   </article>
                 ))}
               </div>

@@ -81,7 +81,7 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
       icon={Eraser}
       title={l('Background Remover')}
       description={l('Remove image backgrounds privately with AI running directly in your browser.')}
-      badge="Private · Local AI"
+      badge={l('Private · Local AI')}
     >
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />

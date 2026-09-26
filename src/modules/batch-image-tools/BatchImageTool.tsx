@@ -126,7 +126,7 @@ export default function BatchImageTool({ darkMode: _darkMode }: { darkMode: bool
       icon={Images}
       title={l('Batch Image Converter')}
       description={l('Convert and resize multiple images locally, then download them individually or as one ZIP.')}
-      badge="Local batch"
+      badge={l('Local batch')}
     >
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />

@@ -94,7 +94,7 @@ export default function CsvCleanerTool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   return (
-    <ToolShell icon={FileSpreadsheet} title={l('CSV Cleaner')} description={l('Clean and prepare CSV data safely without uploading it.')} badge="Local processing">
+    <ToolShell icon={FileSpreadsheet} title={l('CSV Cleaner')} description={l('Clean and prepare CSV data safely without uploading it.')} badge={l('Local processing')}>
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
         <div className="min-w-0"><div className="font-medium">{l('Processed locally')}</div><div className="text-emerald-200/60 text-xs mt-0.5">{l('Your CSV stays in this browser. Spreadsheet-safe export is enabled by default.')}</div></div>

@@ -98,7 +98,7 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   return (
-    <ToolShell icon={FileStack} title={l('Image to PDF')} description={l('Combine JPEG, PNG and WebP images into one PDF directly in your browser.')} badge="Local PDF">
+    <ToolShell icon={FileStack} title={l('Image to PDF')} description={l('Combine JPEG, PNG and WebP images into one PDF directly in your browser.')} badge={l('Local PDF')}>
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex gap-3 text-sm text-emerald-100">
         <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
         <div className="min-w-0"><div className="font-medium">{l('Processed locally')}</div><div className="text-emerald-200/60 text-xs mt-0.5">{l('Images stay in your browser. Tayar creates a new PDF and never parses an uploaded PDF in this tool.')}</div></div>

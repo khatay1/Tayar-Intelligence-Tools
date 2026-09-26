@@ -43,7 +43,7 @@ export default function PromptLibraryTool({ darkMode: _darkMode }: { darkMode: b
       icon={Sparkles}
       title={l('Prompt Library')}
       description={l('Search original Tayar prompt templates and personalize them for your task.')}
-      badge="Original library"
+      badge={l('Original library')}
     >
       <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-sm text-violet-100">
         <div className="font-medium">{l('Original Tayar prompts')}</div>
