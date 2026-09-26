@@ -43,10 +43,15 @@ function publicKey(key: string, ref: string): boolean {
 }
 
 /** The browser receives only a public project key. It must never reuse Tayar's platform client. */
-export function createIsolatedApplicationClient(config: ApplicationPublicBackend, platformUrl: string): SupabaseClient {
+export function validateApplicationPublicBackend(config: ApplicationPublicBackend, platformUrl: string): void {
   const ref = projectRef(config.url);
   if (ref !== config.projectRef || ref === projectRef(platformUrl)) throw new Error('Application backend identity does not match its dedicated project.');
   if (!publicKey(config.publishableKey, ref)) throw new Error('Application backend requires a public anon or publishable key for this project.');
+}
+
+export function createIsolatedApplicationClient(config: ApplicationPublicBackend, platformUrl: string): SupabaseClient {
+  validateApplicationPublicBackend(config, platformUrl);
+  const ref = config.projectRef;
   return createClient(config.url, config.publishableKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce', storageKey: `tayar-app-${ref}-auth` },
   });

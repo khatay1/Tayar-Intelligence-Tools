@@ -31,6 +31,9 @@ try {
   assert.match(sql, /create table public\."app_bookings"/);
   assert.match(sql, /create table private\.app_schema_revisions/);
   assert.match(sql, /revoke all on private\.app_schema_revisions from public, anon, authenticated/);
+  assert.match(sql, /create or replace function public\.app_deployed_definition\(\).*security invoker/);
+  assert.match(sql, /grant execute on function public\.app_deployed_definition\(\) to service_role/);
+  assert.match(sql, /revoke all on function public\.app_deployed_definition\(\) from public, anon, authenticated/);
   assert.match(sql, /create table public\."app_vehicles"/);
   assert.ok(sql.indexOf('create table public."app_vehicles"') < sql.indexOf('add constraint "app_fk_0_1"'), 'Relationships apply after all tables exist');
   assert.match(sql, /default 'O''Brien'/);
@@ -69,6 +72,7 @@ try {
   assert.match(changes, /from private\.app_schema_revisions where id = true for update/);
   assert.match(changes, /Application schema revision does not match deployed definition/);
   assert.match(changes, /update private\.app_schema_revisions set definition/);
+  assert.match(changes, /create or replace function public\.app_deployed_definition\(\)/);
   if (process.env.APPLICATION_MIGRATION_OUTPUT) await writeFile(process.env.APPLICATION_MIGRATION_OUTPUT, `${changes}\n`);
   assert.match(changes, /alter table public\."app_bookings" add column "status" text not null default 'pending'/);
   assert.match(changes, /create table public\."app_locations"/);

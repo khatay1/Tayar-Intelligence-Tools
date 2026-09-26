@@ -138,6 +138,22 @@ $$;`,
   ];
 }
 
+function revisionReadInfrastructure(): string[] {
+  return [
+    'grant usage on schema private to service_role;',
+    `create or replace function private.app_deployed_definition() returns jsonb language sql stable security definer set search_path = '' as $$
+  select definition from private.app_schema_revisions where id = true
+$$;`,
+    'revoke all on function private.app_deployed_definition() from public, anon, authenticated;',
+    'grant execute on function private.app_deployed_definition() to service_role;',
+    `create or replace function public.app_deployed_definition() returns jsonb language sql stable security invoker set search_path = '' as $$
+  select private.app_deployed_definition()
+$$;`,
+    'revoke all on function public.app_deployed_definition() from public, anon, authenticated;',
+    'grant execute on function public.app_deployed_definition() to service_role;',
+  ];
+}
+
 /** Initial schema for one isolated generated-app Supabase database. No migration of existing data. */
 export function compileInitialApplicationSchema(input: ApplicationDefinition): string[] {
   const app = readApplicationDefinition(input);
@@ -147,6 +163,7 @@ export function compileInitialApplicationSchema(input: ApplicationDefinition): s
   statements.push('create table private.app_schema_revisions (id boolean primary key default true check (id), definition jsonb not null);');
   statements.push('revoke all on private.app_schema_revisions from public, anon, authenticated;');
   statements.push(`insert into private.app_schema_revisions (id, definition) values (true, ${literal(JSON.stringify(app))}::jsonb);`);
+  statements.push(...revisionReadInfrastructure());
   statements.push(`create function public.app_guard_audit_fields() returns trigger language plpgsql set search_path = '' as $$
 begin
   if new.id is distinct from old.id or new.owner_id is distinct from old.owner_id or new.created_at is distinct from old.created_at then
@@ -207,6 +224,7 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
   end if;
 end $revision$;`,
   ];
+  statements.push(...revisionReadInfrastructure());
   if (!before.roles.length && after.roles.length) statements.push(...roleInfrastructure());
   for (const [index, table] of after.tables.entries()) {
     const old = before.tables[index];

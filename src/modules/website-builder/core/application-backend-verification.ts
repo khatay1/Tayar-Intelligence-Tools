@@ -1,0 +1,31 @@
+import type { ApplicationDefinition } from './application-model';
+import { readApplicationDefinition } from './application-validation';
+import { validateApplicationPublicBackend, type ApplicationPublicBackend } from './application-data-runtime';
+
+export interface ApplicationRevisionReader {
+  /** The trusted server client must target this exact dedicated app backend. */
+  url: string;
+  readDeployedDefinition(): Promise<unknown>;
+}
+
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`).join(',')}}`;
+  return JSON.stringify(value) ?? 'undefined';
+}
+
+/** Server-side preflight. The reader uses the dedicated app's service-only revision RPC. */
+export async function assertApplicationBackendRevision(
+  definition: ApplicationDefinition,
+  backend: ApplicationPublicBackend,
+  platformUrl: string,
+  reader: ApplicationRevisionReader,
+): Promise<void> {
+  validateApplicationPublicBackend(backend, platformUrl);
+  if (reader.url !== backend.url) throw new Error('Application revision reader targets another backend.');
+  const expected = readApplicationDefinition(definition);
+  let deployed: ApplicationDefinition;
+  try { deployed = readApplicationDefinition(await reader.readDeployedDefinition()); }
+  catch { throw new Error('Application backend revision could not be verified.'); }
+  if (canonical(deployed) !== canonical(expected)) throw new Error('Application backend schema revision does not match the project.');
+}
