@@ -47,7 +47,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     const path = `application.tables[${index}]`;
     if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions'], path)) return;
     identity(table.id, `${path}.id`, tableIds);
-    if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_')) issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside the reserved tayar_ namespace.');
+    if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_') || table.key === 'user_roles') issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside reserved namespaces.');
     else tableKeys.add(table.key);
     if (!name(table.name)) issue(`${path}.name`, 'invalid-name', 'A table requires a display name.');
   });

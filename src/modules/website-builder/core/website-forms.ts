@@ -1,5 +1,6 @@
 import type { WebsiteFormAutomation, WebsiteFormCondition, WebsiteFormField, WebsiteSection } from './types';
 import type { WebsitePage } from './website-builder-model';
+import { isPublicIntegrationEndpoint } from './editor-integration-security';
 
 export const WEBSITE_FORM_MAX_FIELDS = 45;
 export const WEBSITE_FORM_MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -55,7 +56,7 @@ export function normalizeWebsiteFormAutomation(value: unknown, index = 0): Websi
   if (source.action !== 'email' && source.action !== 'webhook') return null;
   const destination = cleanText(source.destination, 1000);
   if (source.action === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination)) return null;
-  if (source.action === 'webhook' && !/^https:\/\//i.test(destination)) return null;
+  if (source.action === 'webhook' && !isPublicIntegrationEndpoint(destination)) return null;
   return {
     id: cleanText(source.id, 120) || `automation-${index + 1}`,
     name: cleanText(source.name, 120) || (source.action === 'email' ? 'Email notification' : 'Webhook'),

@@ -72,3 +72,11 @@ Branch: `feat/fullstack-max-20260926`. Do not merge/deploy until the full releas
 - PARTIAL: existing `ai-engine` plans those same operations; the server response is parsed strictly, dry-run validated through the same command, reviewed in the UI, and checked against project ID, load sequence and definition fingerprint before application. No AI-only project model.
 - PASS: mocked AI-engine rejection tests, model/serialization/history tests, integrations regression, reachability, TypeScript, changed-file lint and production Vite build. These do not demonstrate a generated-app runtime.
 - NEXT: independent per-app backend identity and row-level enforcement; after isolated SQL/Edge tests, wire project secret storage/API/actions and payments. Production publishing continues to fail closed for configured applications.
+
+## Checkpoint 2026-09-26 — isolated schema draft and form webhook hardening
+
+- PARTIAL: compiled initial SQL for a dedicated generated-app database: typed tables, indexes, references, owner immutability, private role lookup, grants and RLS for read/create/update/delete. This is a schema candidate, not an applied migration or functioning generated backend.
+- COMPLETE: existing form webhook delivery refuses missing signing key, unsafe endpoint strings and redirects; failure logs omit network exception details. UI form automation normalizer now uses the same public endpoint preflight.
+- PASS: schema security assertions, signed webhook runtime test with injected fetch, existing form regression, edge TypeScript syntax, full app TypeScript and affected lint. Actual Postgres policy tests are NOT available in this branch yet.
+- BLOCKED: Supabase development branch creation returned `PaymentRequiredException` (current organization free plan). Read-only cost query says a separate project is $0/month, but the Supabase connector explicitly requires the user to choose its organization before project creation. No production SQL, deployment, migration or production branch change was performed.
+- NEXT: obtain an isolated Postgres project, run generated SQL in a transaction, test authenticated/anonymous/owner/role CRUD and cross-app isolation, then connect migration/provisioning and runtime. The browser/server publishing gate stays closed until that is complete.

@@ -15,9 +15,11 @@ assert.equal(field.validation.min, 10);
 assert.equal(forms.fieldIsVisible(field, { kind: 'paid' }), true);
 assert.equal(forms.fieldIsVisible(field, { kind: 'free' }), false);
 assert.equal(forms.normalizeWebsiteFormAutomation({ action: 'webhook', destination: 'http://unsafe.test', enabled: true }), null);
-assert.equal(forms.normalizeWebsiteFormAutomation({ action: 'webhook', destination: 'https://safe.test/hook', enabled: true }).action, 'webhook');
+assert.equal(forms.normalizeWebsiteFormAutomation({ action: 'webhook', destination: 'https://hooks.example.com/hook', enabled: true }).action, 'webhook');
+assert.equal(forms.normalizeWebsiteFormAutomation({ action: 'webhook', destination: 'https://safe.test/hook', enabled: true }), null);
+assert.equal(forms.normalizeWebsiteFormAutomation({ action: 'webhook', destination: 'https://hooks.example.com/hook?token=private', enabled: true }), null);
 
-const page = { id: 'home', name: 'Home', slug: 'home', showInNavigation: true, sections: [{ id: 'contact-1', type: 'contact', title: 'Lead form', description: '', buttonText: 'Send', buttonUrl: '', background: '#000000', accent: '#ffffff', elements: [], formFields: [field], formAutomations: [{ id: 'a1', name: 'Webhook', trigger: 'submission-created', action: 'webhook', destination: 'https://safe.test/hook', enabled: true }] }] };
+const page = { id: 'home', name: 'Home', slug: 'home', showInNavigation: true, sections: [{ id: 'contact-1', type: 'contact', title: 'Lead form', description: '', buttonText: 'Send', buttonUrl: '', background: '#000000', accent: '#ffffff', elements: [], formFields: [field], formAutomations: [{ id: 'a1', name: 'Webhook', trigger: 'submission-created', action: 'webhook', destination: 'https://hooks.example.com/hook', enabled: true }] }] };
 const definitions = forms.collectWebsiteFormDefinitions([page]);
 assert.equal(definitions.length, 1);
 assert.equal(definitions[0].automations.length, 1);
@@ -27,7 +29,7 @@ const endpoint = fs.readFileSync('supabase/functions/website-form-submit/index.t
 const migration = fs.readFileSync('supabase/migrations/20260921191410_website_forms_automations_max.sql', 'utf8');
 const service = fs.readFileSync('src/modules/website-builder/services/websiteFormService.ts', 'utf8');
 for (const token of ['data-conditions', 'website-form-submit', '_tayar_started_at', 'data-max-file-mb']) assert.ok(rendering.includes(token), `rendering missing ${token}`);
-for (const token of ['enforce_website_public_rate_limit', 'website-form-uploads', 'WEBSITE_FORM_WEBHOOK_SECRET', 'workflow_status', 'validWebhookDestination', 'safeValidationPattern', 'cf-connecting-ip']) assert.ok(endpoint.includes(token), `endpoint missing ${token}`);
+for (const token of ['enforce_website_public_rate_limit', 'website-form-uploads', 'WEBSITE_FORM_WEBHOOK_SECRET', 'workflow_status', 'validWebsiteWebhookDestination', 'safeValidationPattern', 'cf-connecting-ip']) assert.ok(endpoint.includes(token), `endpoint missing ${token}`);
 for (const token of ['enable row level security', 'website_forms_owner_insert', 'website_form_deliveries_team_select', 'file_size_limit']) assert.ok(migration.toLowerCase().includes(token.toLowerCase()), `migration missing ${token}`);
 assert.ok(service.includes("onConflict: 'project_id,form_id'"));
 assert.ok(service.includes('snapshotPublishedWebsiteForms') && service.includes('restorePublishedWebsiteForms'));
