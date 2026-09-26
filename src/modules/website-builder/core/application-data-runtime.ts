@@ -8,6 +8,13 @@ export interface ApplicationPublicBackend {
   projectRef: string;
 }
 
+export function canAccessApplicationPage(definition: ApplicationDefinition, pageId: string, user: { is_anonymous?: boolean } | null, roles: readonly string[] = []): boolean {
+  const rule = definition.pageAccess.find(item => item.pageId === pageId);
+  if (!rule || rule.access === 'public') return true;
+  if (!definition.auth.enabled || !user || user.is_anonymous) return false;
+  return rule.access === 'authenticated' || (rule.access === 'role' && !!rule.roleId && roles.includes(rule.roleId));
+}
+
 function projectRef(url: string): string {
   const parsed = new URL(url);
   const match = /^([a-z0-9]{20})\.supabase\.co$/.exec(parsed.hostname);
@@ -91,6 +98,20 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
       async isRoleAdministrator() {
         if (!app.auth.enabled || !app.roles.length) return false;
         return checked(await client.rpc('app_is_role_admin')) === true;
+      },
+      async canAccessPage(pageId: string) {
+        const rule = app.pageAccess.find(item => item.pageId === pageId);
+        if (!rule || rule.access === 'public') return true;
+        if (!app.auth.enabled) return false;
+        const session = await client.auth.getSession();
+        if (session.error) throw new Error(session.error.message);
+        if (!session.data.session) return false;
+        const userResult = await client.auth.getUser();
+        if (userResult.error) throw new Error(userResult.error.message);
+        const user = userResult.data.user;
+        if (!user || user.is_anonymous || rule.access === 'authenticated') return canAccessApplicationPage(app, pageId, user);
+        const roles = checked(await client.rpc('app_my_roles')) as string[];
+        return canAccessApplicationPage(app, pageId, user, Array.isArray(roles) ? roles : []);
       },
       async setUserRole(userId: string, roleId: string, enabled: boolean) {
         if (!app.auth.enabled || !app.roles.some(role => role.id === roleId)) throw new Error('Unknown application role.');

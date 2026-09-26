@@ -9,7 +9,7 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-app-runtime-'));
 try {
   const outfile = join(dir, 'runtime.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-data-runtime.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { createIsolatedApplicationClient, createApplicationDataRuntime } = (await import(pathToFileURL(outfile))).default;
+  const { createIsolatedApplicationClient, createApplicationDataRuntime, canAccessApplicationPage } = (await import(pathToFileURL(outfile))).default;
   const platform = 'https://pnbllxdlskljcakyaylt.supabase.co';
   const config = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_fixture' };
   const app = {
@@ -50,10 +50,19 @@ try {
     assert.match(requests[0].url, /offset=5|limit=10/);
     assert.doesNotMatch(requests[0].url, /pnbllxdlskljcakyaylt/);
     assert.deepEqual(await runtime.auth.currentRoles(), []);
+    assert.equal(await runtime.auth.canAccessPage('landing'), true);
     const roleApp = structuredClone(app);
     roleApp.auth.enabled = true;
     roleApp.roles = [{ id: 'staff', name: 'Staff' }];
+    roleApp.pageAccess = [{ pageId: 'dashboard', access: 'authenticated' }, { pageId: 'staff-area', access: 'role', roleId: 'staff' }];
+    assert.equal(canAccessApplicationPage(roleApp, 'landing', null), true);
+    assert.equal(canAccessApplicationPage(roleApp, 'dashboard', null), false);
+    assert.equal(canAccessApplicationPage(roleApp, 'dashboard', { is_anonymous: true }), false);
+    assert.equal(canAccessApplicationPage(roleApp, 'dashboard', { is_anonymous: false }), true);
+    assert.equal(canAccessApplicationPage(roleApp, 'staff-area', { is_anonymous: false }, ['staff']), true);
+    assert.equal(canAccessApplicationPage(roleApp, 'staff-area', { is_anonymous: false }, []), false);
     const roleRuntime = createApplicationDataRuntime(roleApp, config, platform);
+    assert.equal(await roleRuntime.auth.canAccessPage('dashboard'), false);
     await assert.rejects(() => roleRuntime.auth.setUserRole('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'invented', true), /Unknown application role/);
     await assert.rejects(() => roleRuntime.auth.setUserRole('bad-id', 'staff', true), /valid record ID/);
     await roleRuntime.auth.setUserRole('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'staff', true);

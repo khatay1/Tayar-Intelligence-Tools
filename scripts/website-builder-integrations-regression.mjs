@@ -31,6 +31,8 @@ try {
   assert.ok(issues.some(issue => issue.code === 'invalid-url'));
   assert.ok(issues.some(issue => issue.code === 'missing-secret'));
   assert.ok(issues.some(issue => issue.code === 'unsupported-event'));
+  const invalidId = structuredClone(config); invalidId.connections[0].id = 'hook\r\nAuthorization: bad';
+  assert.ok(integrations.validateEditorIntegrations(invalidId).some(issue => issue.code === 'invalid-config'), 'Invalid connection IDs block publishing');
 
   const event = runtime.createEditorIntegrationEvent({ id: 'evt-1', projectId, event: 'commerce.paid', environment: 'production', occurredAt: '2026-09-22T10:00:00.000Z', payload: { orderId: 'order-1' } });
   let requests = 0;
