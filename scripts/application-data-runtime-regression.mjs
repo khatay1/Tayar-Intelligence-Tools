@@ -16,9 +16,11 @@ try {
     version: 1, roles: [], pageAccess: [], auth: { enabled: false, signUpEnabled: false, emailVerificationRequired: true },
     tables: [{ id: 'vehicles', key: 'vehicles', name: 'Vehicles', fields: [{ id: 'plate', key: 'plate', name: 'Plate', type: 'text', required: true }], permissions: [{ operation: 'read', access: 'public' }] }],
   };
-  const legacyAnon = `a.${Buffer.from(JSON.stringify({ role: 'anon' })).toString('base64url')}.signature`;
-  const serviceRole = `a.${Buffer.from(JSON.stringify({ role: 'service_role' })).toString('base64url')}.signature`;
+  const legacyAnon = `a.${Buffer.from(JSON.stringify({ iss: 'supabase', ref: config.projectRef, role: 'anon' })).toString('base64url')}.signature`;
+  const serviceRole = `a.${Buffer.from(JSON.stringify({ iss: 'supabase', ref: config.projectRef, role: 'service_role' })).toString('base64url')}.signature`;
   assert.ok(createIsolatedApplicationClient({ ...config, publishableKey: legacyAnon }, platform));
+  const platformAnon = `a.${Buffer.from(JSON.stringify({ iss: 'supabase', ref: 'pnbllxdlskljcakyaylt', role: 'anon' })).toString('base64url')}.signature`;
+  assert.throws(() => createIsolatedApplicationClient({ ...config, publishableKey: platformAnon }, platform), /public anon/);
   assert.throws(() => createIsolatedApplicationClient({ ...config, publishableKey: serviceRole }, platform), /public anon/);
   assert.throws(() => createIsolatedApplicationClient({ ...config, publishableKey: 'sb_secret_private' }, platform), /public anon/);
   assert.throws(() => createIsolatedApplicationClient({ ...config, url: platform }, platform), /identity/);

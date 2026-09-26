@@ -17,14 +17,14 @@ function projectRef(url: string): string {
   return match[1];
 }
 
-function publicKey(key: string): boolean {
+function publicKey(key: string, ref: string): boolean {
   if (/^sb_publishable_[A-Za-z0-9_-]+$/.test(key)) return true;
   // Older Supabase projects expose a legacy anon JWT. Reject service_role tokens.
   const parts = key.split('.');
   if (parts.length !== 3) return false;
   try {
-    const body = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))) as { role?: unknown };
-    return body.role === 'anon';
+    const body = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))) as { role?: unknown; ref?: unknown; iss?: unknown };
+    return body.role === 'anon' && body.ref === ref && body.iss === 'supabase';
   } catch { return false; }
 }
 
@@ -32,7 +32,7 @@ function publicKey(key: string): boolean {
 export function createIsolatedApplicationClient(config: ApplicationPublicBackend, platformUrl: string): SupabaseClient {
   const ref = projectRef(config.url);
   if (ref !== config.projectRef || ref === projectRef(platformUrl)) throw new Error('Application backend identity does not match its dedicated project.');
-  if (!publicKey(config.publishableKey)) throw new Error('Application backend requires a public anon or publishable key.');
+  if (!publicKey(config.publishableKey, ref)) throw new Error('Application backend requires a public anon or publishable key for this project.');
   return createClient(config.url, config.publishableKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce', storageKey: `tayar-app-${ref}-auth` },
   });
