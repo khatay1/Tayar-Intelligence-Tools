@@ -41,6 +41,8 @@ import { createEditorClipboardHandlers } from './editor-clipboard-handlers';
 import { createPublishWebsiteHandler } from './editor-publish-handler';
 import { createRecoverPublishedStateHandler } from './editor-recover-published-handler';
 import { createResetProjectHandler } from './editor-reset-project-handler';
+import type { ApplicationDefinition } from './application-model';
+import { applicationPublishBlockers } from './application-publish-readiness';
 import { createReusableElementHandlers } from './editor-reusable-element-handlers';
 import { useReusableSectionHandlers } from './editor-reusable-section-handlers';
 import { createRollbackPublishVersionHandler } from './editor-rollback-handler';
@@ -194,6 +196,7 @@ export function useWebsiteBuilderController({
   const [activePageId, setActivePageId] = useState('page-home');
   const [homePageId, setHomePageId] = useState('page-home');
   const [cms, setCms] = useState<WebsiteCmsState>(EMPTY_WEBSITE_CMS);
+  const [application, setApplication] = useState<ApplicationDefinition>();
   const [localization, setLocalization] = useState<WebsiteLocalizationConfig>(() => ({
     ...DEFAULT_WEBSITE_LOCALIZATION,
     defaultLanguage: prefs.language,
@@ -640,10 +643,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt,
     previewUrl, previewToken, previewCreatedAt, previewFingerprint,
     lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId,
-    pages: getCurrentPages(), cms, localization, brand, theme, headerConfig,
+    pages: getCurrentPages(), cms, application, localization, brand, theme, headerConfig,
     footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols,
     seo, language: prefs.language,
-  }), [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  }), [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, application, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
   const buildProjectSnapshot = useCallback(
     () => createEditorProjectSnapshot(projectSnapshotValues), [projectSnapshotValues],
@@ -757,6 +760,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
     const applyProjectData = createApplyProjectDataHandler({
+    setApplication,
     prefs,
     setActivePageId,
     setBrand,
@@ -3132,6 +3136,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   });
 
     const resetProject = createResetProjectHandler({
+    setApplication,
     cancelPendingProjectPersistence,
     l,
     lastSavedSnapshotRef,
@@ -3266,6 +3271,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   });
 
   function publishOperationalBlocker(): string {
+    const appBlocker = applicationPublishBlockers(application, new Set(getCurrentPages().map(page => page.id)))[0];
+    if (appBlocker) return `${l('Publish preflight blocked')}: ${appBlocker.message}`;
     if (!networkOnline) return `${l('Publish preflight blocked')}: ${l('You are offline. Reconnect and try again.')}`;
     if (cloudSyncFailed || autoSaveStatus === 'failed') return l('Resolve cloud sync before publishing.');
     if (siteAudit.errors.length) return `${l('Publish preflight blocked')}: ${l('Fix critical audit errors first')} (${siteAudit.errors.length}).`;

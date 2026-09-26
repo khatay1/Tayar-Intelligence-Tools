@@ -249,6 +249,7 @@ export interface AIWebsiteCandidatePreview {
 }
 
 export interface PersistedWebsiteProject {
+  application?: import('./application-model').ApplicationDefinition;
   cloudProjectId?: string | null;
   pages?: Partial<WebsitePage>[];
   sections?: WebsiteSection[];

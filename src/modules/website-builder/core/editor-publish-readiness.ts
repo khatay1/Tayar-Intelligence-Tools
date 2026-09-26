@@ -1,5 +1,6 @@
 import type { EditorProjectLike } from './editor-model';
 import { validateEditorProject } from './editor-validation';
+import { applicationPublishBlockers } from './application-publish-readiness';
 
 export type EditorReadinessSeverity = 'blocker' | 'warning';
 
@@ -38,6 +39,9 @@ export function checkEditorPublishReadiness<P extends EditorProjectLike>(
   const blockers: EditorReadinessIssue[] = [];
   const warnings: EditorReadinessIssue[] = [];
   const validation = validateEditorProject(project);
+  for (const issue of applicationPublishBlockers(project.application, new Set(project.pages.map(page => page.id)))) {
+    addIssue(blockers, { code: `APPLICATION_${issue.code}`, severity: 'blocker', message: `${issue.path}: ${issue.message}` });
+  }
 
   for (const error of validation.errors || []) {
     addIssue(blockers, { code: 'STRUCTURE_INVALID', severity: 'blocker', message: error });

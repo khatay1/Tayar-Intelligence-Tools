@@ -1,0 +1,67 @@
+# Full-stack implementation checkpoint
+
+Base: `36adde894332a5d9adea26db2950ccabd34575b1` (latest main fetched 2026-09-26).
+Branch: `feat/fullstack-max-20260926`. Do not merge/deploy until the full release criteria pass.
+
+## Evidence-based inventory
+
+| Area | Status | Existing implementation / remaining work |
+|---|---|---|
+| Visual pages, elements, free positioning, responsive styles, reusable components | NEEDS VERIFICATION | Native operation/command engine and existing design tests; preserve and exercise in full-stack apps. |
+| CMS | PARTIAL | `website-cms.ts`: typed fields, references, views, localized entries and materialization. Public content, not a transactional user database. Reuse bindings and UI patterns. |
+| Persistence | PARTIAL | Legacy snapshot v6 retained; optional application schema persists in v7 through snapshot, fingerprints and load/reset. Canonical integration envelope now preserves legacy readers. Full-stack runtime lifecycle still incomplete. |
+| AI operations | PARTIAL | Native deterministic commands, transactions, patch review, scope and stale response checks exist. AI context/operations do not include application backend definitions. |
+| Forms | PARTIAL | Validated public submission endpoint, uploads, leads and email/webhook automations exist. No generated-app data CRUD/action chain. |
+| Integrations | PARTIAL | Provider registry, environments, secret reference interfaces and adapter-based dispatcher exist. UI secret writer/test callbacks have no concrete controller implementation; several provider adapters are absent. |
+| Secrets | MISSING | No project-scoped persistent secret service connected to builder. Existing interfaces must be extended; never use Tayar billing/AI credentials as generated-app credentials. |
+| Generated-app database/auth/roles | MISSING | Versioned metadata and validated shared commands exist; no generated-app runtime, schema provisioning or independent app auth flow. Platform Supabase auth is not a substitute. |
+| Generated-app payments | MISSING | Stripe registry entry exists; `websiteBillingService` invokes Tayar subscription billing. Do not reuse it for customers' apps. |
+| Actions, variables, backend functions | MISSING | Existing visual interactions and form automations are not a general application action executor. |
+| Publishing | PARTIAL | Static site pipeline, versions, rollback, domain and staging configuration exist. No backend deployment/provisioning gate. |
+| Full-stack templates and A/B/C test apps | MISSING | Visual templates exist. No proven SaaS/booking/secret API test application. |
+| Final E2E / security release | NEEDS VERIFICATION | Existing regression gate is a baseline, not evidence of full-stack runtime completion. |
+
+## Protected reuse points
+
+- `core/editor-native-operation.ts`, `editor-command.ts`, `editor-transaction.ts`: shared manual/AI operation layer.
+- `core/editor-project-snapshot.ts`, `editor-max-project-state.ts`, `services/projectCloudService.ts`: persistence lifecycle.
+- `core/website-cms.ts`, `editor-ai-cms.ts`: content schema/binding patterns.
+- `core/editor-integrations*.ts`, `editor-integration-runtime.ts`: provider, secret references and dispatch boundary.
+- `supabase/functions/website-form-submit`: existing form backend; no parallel submission engine.
+- Existing publishing services and controller preflight: extend, do not replace.
+
+## Ordered batches
+
+1. IN PROGRESS: integration boundary security and canonical persistence, then versioned application definitions and shared validated operations.
+2. MISSING: real isolated app data/auth/permissions execution plus manual Data/Auth editor and AI operations.
+3. MISSING: project secret service, REST/backend actions, workflows and bindings using existing integration contracts.
+4. MISSING: project Stripe checkout/subscriptions, verified webhooks and storage/email flows.
+5. MISSING: full-stack templates, publish/provision gate, end-to-end apps A/B/C, final audit.
+
+## Rules for this branch
+
+- No production deployment during incomplete implementation.
+- No placeholder runtime is counted COMPLETE.
+- Preserve old project data and identity; reject invalid new operations without partial application.
+- Runtime rows, users, secret values and payment records stay outside editable/exported project snapshots.
+- Frontend visibility is not backend authorization.
+- Verify migrations against an isolated database before any production migration.
+
+## Known execution prerequisites
+
+- Local environment currently has no `supabase`, `psql`, `docker` or `deno` executable. Database and Edge runtime integration tests need an isolated runtime provisioned before those features can be certified.
+- Payment E2E needs project-specific Stripe test credentials/webhook delivery; never make live charges to test the builder.
+- No genuine user credential is needed for schema/model/pure-runtime implementation; continue that work autonomously.
+
+## Checkpoint 2026-09-26 — foundation (not a full-stack release)
+
+- COMPLETE: integration boundary fixes, canonical/legacy persistence, reject unsupported secret references, mandatory webhook signing, environment opt-out preservation. Commit `9dfe021`.
+- COMPLETE: versioned application metadata, strict schema/reference validation, atomic commands using existing transactions/history; captures immutable reviewed plan and approval.
+- COMPLETE: snapshot/load/reset integration; legacy projects remain v6; application projects v7; fingerprints include application definitions.
+- COMPLETE: fail-closed static publishing gate for configurations requiring a backend that has not been provisioned.
+- PARTIAL: manual/AI parity proven at the command layer only. Neither visual Data/Auth panels nor AI service routing is wired yet.
+- MISSING: actual generated-app database/auth/runtime/Stripe/secrets service. No feature claimed functional solely from metadata.
+- Validation PASS: application foundation regression (including actual loader, history, stale/wrong-project rejection and atomic rollback), existing snapshot regression, integrations regression, full TypeScript, lint on changed TS/TSX, whitespace.
+- New foundation regression added to `health:project`. Full health/build/E2E not yet run for this batch.
+- Next: wire the shared command layer into existing builder history/controller and Data/Auth editor; implement isolated server enforcement before enabling publishing. Keep runtime rows and secret values outside metadata.
+- No merge, production deployment, remote schema migration or user project modification performed.

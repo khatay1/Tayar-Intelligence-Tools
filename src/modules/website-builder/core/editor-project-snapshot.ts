@@ -7,6 +7,7 @@ import type {
 } from './website-builder-model';
 import type { WebsiteCmsState } from './website-cms';
 import type { WebsiteLocalizationConfig } from './website-localization';
+import type { ApplicationDefinition } from './application-model';
 
 export interface EditorProjectSnapshotValues {
   cloudProjectId: string | null;
@@ -25,6 +26,7 @@ export interface EditorProjectSnapshotValues {
   homePageId: string;
   pages: WebsitePage[];
   cms: WebsiteCmsState;
+  application?: ApplicationDefinition;
   localization: WebsiteLocalizationConfig;
   brand: WebsiteBrand;
   theme: WebsiteTheme;
@@ -39,7 +41,7 @@ export interface EditorProjectSnapshotValues {
 }
 
 export function createEditorProjectSnapshot(values: EditorProjectSnapshotValues) {
-  return { version: 6, ...values, updatedAt: new Date().toISOString() };
+  return { version: values.application ? 7 : 6, ...values, updatedAt: new Date().toISOString() };
 }
 
 export function fingerprintEditorProject(values: EditorProjectSnapshotValues) {
@@ -59,6 +61,7 @@ export function fingerprintEditorProject(values: EditorProjectSnapshotValues) {
     homePageId: values.homePageId,
     pages: values.pages,
     cms: values.cms,
+    application: values.application,
     localization: values.localization,
     brand: values.brand,
     theme: values.theme,
@@ -81,6 +84,7 @@ export function fingerprintEditableProject(values: EditorProjectSnapshotValues) 
     homePageId: values.homePageId,
     pages: values.pages,
     cms: values.cms,
+    application: values.application,
     localization: values.localization,
     brand: values.brand,
     theme: values.theme,
