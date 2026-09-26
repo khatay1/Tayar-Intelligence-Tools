@@ -20,7 +20,9 @@ try {
   const security = await load('editor-integration-security');
   assert.ok(integrations.EDITOR_INTEGRATION_PROVIDERS.some(provider => provider.id === 'stripe'));
   assert.ok(integrations.EDITOR_INTEGRATION_PROVIDERS.some(provider => provider.id === 'webhook'));
-  const config = integrations.normalizeEditorIntegrationsConfig({ connections: [{ id: 'hook', providerId: 'webhook', name: 'Orders', enabled: true, status: 'active', environments: ['production'], config: { url: 'https://example.com/hook' }, secrets: { signingSecret: { ref: 'secret://hook' } }, events: ['commerce.paid'] }] });
+  const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const ref = `secret://website/${projectId}/hook/signingSecret/production`;
+  const config = integrations.normalizeEditorIntegrationsConfig({ connections: [{ id: 'hook', providerId: 'webhook', name: 'Orders', enabled: true, status: 'active', environments: ['production'], config: { url: 'https://example.com/hook' }, secrets: { signingSecret: { ref } }, events: ['commerce.paid'] }] });
   assert.deepEqual(integrations.validateEditorIntegrations(config), []);
   assert.equal(integrations.integrationsForEvent(config, 'commerce.paid', 'production').length, 1);
   assert.equal(integrations.integrationsForEvent(config, 'commerce.paid', 'preview').length, 0);
@@ -30,11 +32,11 @@ try {
   assert.ok(issues.some(issue => issue.code === 'missing-secret'));
   assert.ok(issues.some(issue => issue.code === 'unsupported-event'));
 
-  const event = runtime.createEditorIntegrationEvent({ id: 'evt-1', projectId: 'project-1', event: 'commerce.paid', environment: 'production', occurredAt: '2026-09-22T10:00:00.000Z', payload: { orderId: 'order-1' } });
+  const event = runtime.createEditorIntegrationEvent({ id: 'evt-1', projectId, event: 'commerce.paid', environment: 'production', occurredAt: '2026-09-22T10:00:00.000Z', payload: { orderId: 'order-1' } });
   let requests = 0;
   const waits = [];
   const deliveries = await runtime.dispatchEditorIntegrationEvent(config, event, {
-    async resolveSecret(ref, scope) { assert.equal(ref, 'secret://hook'); assert.deepEqual(scope, { projectId: 'project-1', environment: 'production', connectionId: 'hook', field: 'signingSecret' }); return 'sign-me'; },
+    async resolveSecret(actual, scope) { assert.equal(actual, ref); assert.deepEqual(scope, { projectId, environment: 'production', connectionId: 'hook', field: 'signingSecret' }); return 'sign-me'; },
     async sign(body, secret) { assert.equal(secret, 'sign-me'); assert.ok(body.includes('order-1')); return 'signature'; },
     async request(input) {
       requests += 1;
@@ -51,6 +53,23 @@ try {
   assert.deepEqual(waits, [10]);
   assert.equal(deliveries[0].status, 'delivered');
   assert.equal(deliveries[0].attempt, 2);
+
+  for (const different of [ref.replace(projectId, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'), ref.replace('/production', '/staging'), ref.replace('/hook/', '/other/'), 'secret://hook']) {
+    const foreign = structuredClone(config);
+    foreign.connections[0].secrets.signingSecret.ref = different;
+    const denied = await runtime.dispatchEditorIntegrationEvent(foreign, event, {
+      async resolveSecret() { assert.fail('Foreign credential must not be read'); },
+      async request() { assert.fail('Foreign credential must not be delivered'); },
+      async sign() { assert.fail('Foreign credential must not be signed'); },
+    });
+    assert.equal(denied[0]?.status, 'failed');
+    assert.equal(denied[0]?.attempt, 0);
+  }
+  const malformed = await runtime.dispatchEditorIntegrationEvent(config, { ...event, id: 'evt-1\r\nAuthorization: injected' }, {
+    async resolveSecret() { assert.fail('Invalid event ID must fail before secret lookup'); },
+    async request() { assert.fail('Invalid event ID must fail before request'); },
+  });
+  assert.equal(malformed[0]?.status, 'failed');
 
   const clientOnly = integrations.normalizeEditorIntegrationsConfig({ connections: [{ id: 'ga', providerId: 'google-analytics', name: 'GA', enabled: true, status: 'active', environments: ['production'], config: { measurementId: 'G-TEST' }, secrets: {}, events: ['page.viewed'] }] });
   const skipped = await runtime.dispatchEditorIntegrationEvent(clientOnly, { ...event, event: 'page.viewed' }, { async resolveSecret() {}, async request() { throw new Error('must not request'); } });

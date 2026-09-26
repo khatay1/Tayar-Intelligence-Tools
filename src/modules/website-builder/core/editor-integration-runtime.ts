@@ -51,14 +51,17 @@ function endpoint(connection: EditorIntegrationConnection) {
 async function secretHeaders(connection: EditorIntegrationConnection, adapter: EditorIntegrationRuntimeAdapter, body: string, event: EditorIntegrationEventEnvelope) {
   const headers: Record<string, string> = {};
   const scope = { projectId: event.projectId, environment: event.environment, connectionId: connection.id };
+  const scopedRef = (field: string) => `secret://website/${scope.projectId}/${scope.connectionId}/${field}/${scope.environment}`;
   const authRef = connection.secrets.authorization?.ref;
   if (authRef) {
+    if (authRef !== scopedRef('authorization')) throw new Error('Credential scope mismatch');
     const authorization = await adapter.resolveSecret(authRef, { ...scope, field: 'authorization' });
     if (!authorization || /[\r\n]/.test(authorization)) throw new Error('Credential unavailable');
     headers.Authorization = authorization;
   }
   const signingRef = connection.secrets.signingSecret?.ref;
   if (signingRef) {
+    if (signingRef !== scopedRef('signingSecret')) throw new Error('Credential scope mismatch');
     if (!adapter.sign) throw new Error('Signer unavailable');
     const signingSecret = await adapter.resolveSecret(signingRef, { ...scope, field: 'signingSecret' });
     if (!signingSecret) throw new Error('Credential unavailable');
@@ -79,11 +82,16 @@ export async function dispatchEditorIntegrationEvent(config: EditorIntegrationsC
   const connections = integrationsForEvent(config, event.event, event.environment);
   const maxAttempts = Math.max(1, Math.min(5, options.maxAttempts ?? 3));
   const baseDelayMs = Math.max(0, Math.min(10_000, options.baseDelayMs ?? 500));
+  const prefix = options.idempotencyPrefix ?? 'tayar';
   const deliveries: EditorIntegrationDelivery[] = [];
 
   for (const connection of connections) {
     if (options.signal?.aborted) break;
-    if (!event.projectId.trim() || validateEditorIntegrations({ version: 1, connections: [connection] }).length) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(event.projectId)
+      || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection.id)
+      || !/^[a-zA-Z0-9][a-zA-Z0-9:._-]{0,199}$/.test(event.id)
+      || !/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,63}$/.test(prefix)
+      || validateEditorIntegrations({ version: 1, connections: [connection] }).length) {
       deliveries.push({ eventId: event.id, connectionId: connection.id, attempt: 0, status: 'failed', error: 'Integration configuration is invalid.' });
       continue;
     }
@@ -104,7 +112,7 @@ export async function dispatchEditorIntegrationEvent(config: EditorIntegrationsC
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       if (options.signal?.aborted) break;
       try {
-        const response = await adapter.request({ url, method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Tayar-Event': event.event, 'X-Tayar-Event-Id': event.id, 'Idempotency-Key': `${options.idempotencyPrefix ?? 'tayar'}:${event.id}:${connection.id}`, ...headers }, body, redirect: 'error', signal: options.signal });
+        const response = await adapter.request({ url, method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Tayar-Event': event.event, 'X-Tayar-Event-Id': event.id, 'Idempotency-Key': `${prefix}:${event.id}:${connection.id}`, ...headers }, body, redirect: 'error', signal: options.signal });
         if (response.ok) {
           final = { eventId: event.id, connectionId: connection.id, attempt, status: 'delivered', statusCode: response.status, deliveredAt: (adapter.now?.() ?? new Date()).toISOString() };
           break;
