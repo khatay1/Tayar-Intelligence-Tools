@@ -80,3 +80,12 @@ Branch: `feat/fullstack-max-20260926`. Do not merge/deploy until the full releas
 - PASS: schema security assertions, signed webhook runtime test with injected fetch, existing form regression, edge TypeScript syntax, full app TypeScript and affected lint. Actual Postgres policy tests are NOT available in this branch yet.
 - BLOCKED: Supabase development branch creation returned `PaymentRequiredException` (current organization free plan). Read-only cost query says a separate project is $0/month, but the Supabase connector explicitly requires the user to choose its organization before project creation. No production SQL, deployment, migration or production branch change was performed.
 - NEXT: obtain an isolated Postgres project, run generated SQL in a transaction, test authenticated/anonymous/owner/role CRUD and cross-app isolation, then connect migration/provisioning and runtime. The browser/server publishing gate stays closed until that is complete.
+
+## Checkpoint 2026-09-26 — real isolated PostgreSQL validation
+
+- Dedicated free test project `sgewokeojtzsqjaeluan` created in the user-selected Tayar Tools organization; Tayar production project `pnbllxdlskljcakyaylt` was not mutated.
+- PASS: generated booking schema applied to PostgreSQL 17, then improved after Supabase security/performance advisors and applied again. Disposable fixture includes vehicles, bookings and a private manager role table.
+- PASS: SQL transaction tests for unauthenticated visitor, owner, manager, unrelated authenticated user and Supabase anonymous sign-in; verified read/write denial, owner spoofing prevention, role-only delete, public inventory and rollback. Durable test script: `scripts/fixtures/application-booking-rls.sql`.
+- PASS: final advisors no generated-schema security warnings; only INFO `private.app_user_roles` deliberately lacks direct-access policies and `unused_index` on tiny test data. The test project's account setting warns leaked-password protection is disabled; production app configuration must enable it.
+- PARTIAL: the SQL compiler is a validated *initial* schema, not an incremental migration/provisioner. Generated-app auth frontend, page enforcement, production publishing, secret store, payments and integrations remain unimplemented. Publishing gate stays closed.
+- NEXT: implement isolated per-app backend provisioning and client/server runtime; exercise complete application A/B/C before release. Keep test project separate from Tayar infrastructure.

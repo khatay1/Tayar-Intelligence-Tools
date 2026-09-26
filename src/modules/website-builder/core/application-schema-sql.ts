@@ -9,14 +9,14 @@ const fieldType = (field: ApplicationField) => ({
   uuid: 'uuid', json: 'jsonb', enum: 'text', reference: 'uuid',
 })[field.type];
 const operationSql = { read: 'SELECT', create: 'INSERT', update: 'UPDATE', delete: 'DELETE' } as const;
-const permanentUser = "((select auth.uid()) is not null and (select (auth.jwt()->>'is_anonymous')::boolean) is not true)";
+const permanentUser = "((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true)";
 
 function condition(rule: ApplicationPermission): string {
   switch (rule.access) {
     case 'public': return 'true';
     case 'authenticated': return permanentUser;
     case 'owner': return `(${permanentUser} and (select auth.uid()) = owner_id)`;
-    case 'role': return `(${permanentUser} and private.app_has_role(${literal(rule.roleId!)}))`;
+    case 'role': return `(${permanentUser} and (select private.app_has_role(${literal(rule.roleId!)})))`;
   }
 }
 
@@ -24,7 +24,7 @@ function condition(rule: ApplicationPermission): string {
 export function compileInitialApplicationSchema(input: ApplicationDefinition): string[] {
   const app = readApplicationDefinition(input);
   const statements: string[] = [];
-  statements.push(`create function public.app_guard_audit_fields() returns trigger language plpgsql as $$
+  statements.push(`create function public.app_guard_audit_fields() returns trigger language plpgsql set search_path = '' as $$
 begin
   if new.id is distinct from old.id or new.owner_id is distinct from old.owner_id or new.created_at is distinct from old.created_at then
     raise exception 'Immutable application record identity';
@@ -40,7 +40,7 @@ end $$;`);
     statements.push('alter table private.app_user_roles enable row level security;');
     statements.push('revoke all on private.app_user_roles from public, anon, authenticated;');
     statements.push(`create function private.app_has_role(requested_role text) returns boolean language sql stable security definer set search_path = '' as $$
-  select (select auth.uid()) is not null and (select (auth.jwt()->>'is_anonymous')::boolean) is not true
+  select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
     and exists (select 1 from private.app_user_roles where user_id = (select auth.uid()) and role_id = requested_role)
 $$;`);
     statements.push('revoke all on function private.app_has_role(text) from public;');
@@ -65,6 +65,7 @@ $$;`);
 );`);
     statements.push(`alter table ${name} enable row level security;`);
     statements.push(`revoke all on ${name} from public, anon, authenticated;`);
+    statements.push(`create index ${sqlName(`app_i_${tableIndex}_owner`)} on ${name} (owner_id);`);
     statements.push(`create trigger app_guard_audit before update on ${name} for each row execute function public.app_guard_audit_fields();`);
     for (const [fieldIndex, field] of table.fields.entries()) {
       if (field.unique) statements.push(`create unique index ${sqlName(`app_i_${tableIndex}_${fieldIndex}_unique`)} on ${name} (${sqlName(field.key)});`);
@@ -79,17 +80,19 @@ $$;`);
   }
   for (const [tableIndex, table] of app.tables.entries()) {
     const name = `public.${sqlName(tableName(table))}`;
-    table.permissions.forEach((rule, index) => {
-      const verb = operationSql[rule.operation];
-      const audience = rule.access === 'public' ? 'anon, authenticated' : 'authenticated';
-      const check = condition(rule);
+    for (const operation of ['read', 'create', 'update', 'delete'] as const) {
+      const rules = table.permissions.filter(rule => rule.operation === operation);
+      if (!rules.length) continue;
+      const verb = operationSql[operation];
+      const audience = rules.some(rule => rule.access === 'public') ? 'anon, authenticated' : 'authenticated';
+      const check = rules.map(condition).join(' or ');
       statements.push(`grant ${verb} on ${name} to ${audience};`);
-      const policy = sqlName(`app_p_${tableIndex}_${rule.operation}_${index}`);
-      const options = rule.operation === 'create' ? `with check ((${check}) and owner_id = (select auth.uid()))`
-        : rule.operation === 'update' ? `using (${check}) with check (${check})`
+      const policy = sqlName(`app_p_${tableIndex}_${operation}`);
+      const options = operation === 'create' ? `with check ((${check}) and owner_id = (select auth.uid()))`
+        : operation === 'update' ? `using (${check}) with check (${check})`
         : `using (${check})`;
       statements.push(`create policy ${policy} on ${name} for ${verb} to ${audience} ${options};`);
-    });
+    }
   }
   return statements;
 }
