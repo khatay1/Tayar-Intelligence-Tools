@@ -44,6 +44,13 @@ try {
   assert.equal((sql.match(/create policy "app_p_0_read"/g) ?? []).length, 1);
   assert.match(sql, /create policy "app_p_0_delete".*private\.app_has_role\('manager'\)/);
   assert.match(sql, /revoke all on private\.app_user_roles from public, anon, authenticated/);
+  assert.match(sql, /create table private\.app_role_administrators/);
+  assert.match(sql, /revoke all on function public\.app_bootstrap_role_admin\(uuid\) from public, anon, authenticated/);
+  assert.match(sql, /grant execute on function public\.app_bootstrap_role_admin\(uuid\) to service_role/);
+  assert.match(sql, /create function private\.app_set_user_role_impl.*security definer set search_path = ''/);
+  assert.match(sql, /create function public\.app_set_user_role.*security invoker set search_path = ''/);
+  assert.match(sql, /r\.value->>'id' = requested_role/);
+  assert.match(sql, /create function public\.app_my_roles/);
   assert.doesNotMatch(sql, /grant select on private\.app_user_roles to authenticated/);
   assert.match(sql, /create policy "app_p_1_read".*to anon, authenticated using \(true\)/);
   assert.doesNotMatch(sql, /grant (insert|update|delete) on public\."app_vehicles" to anon/i);
@@ -87,6 +94,7 @@ try {
   firstRole.roles.push({ id: 'manager', name: 'Manager' });
   firstRole.tables[0].permissions.push({ operation: 'read', access: 'role', roleId: 'manager' });
   assert.match(migrate(noRoles, firstRole).join('\n'), /create table private\.app_user_roles/);
+  assert.match(migrate(noRoles, firstRole).join('\n'), /create function public\.app_set_user_role/);
   assert.throws(() => migrate(app, { ...app, roles: [] }), /Select an existing application role|Removing/);
   assert.throws(() => migrate(app, { ...app, auth: { ...app.auth, signUpEnabled: false } }), /Authentication changes/);
   console.log('PASS initial isolated-app schema compiler: references, RLS, immutable ownership, role rules and safe identifiers');

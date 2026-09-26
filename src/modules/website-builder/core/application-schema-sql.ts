@@ -68,12 +68,73 @@ function roleInfrastructure(): string[] {
     'create table private.app_user_roles (user_id uuid not null references auth.users(id) on delete cascade, role_id text not null, primary key (user_id, role_id));',
     'alter table private.app_user_roles enable row level security;',
     'revoke all on private.app_user_roles from public, anon, authenticated;',
+    'create table private.app_role_administrators (user_id uuid primary key references auth.users(id) on delete cascade);',
+    'alter table private.app_role_administrators enable row level security;',
+    'revoke all on private.app_role_administrators from public, anon, authenticated;',
     `create function private.app_has_role(requested_role text) returns boolean language sql stable security definer set search_path = '' as $$
   select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
     and exists (select 1 from private.app_user_roles where user_id = (select auth.uid()) and role_id = requested_role)
 $$;`,
     'revoke all on function private.app_has_role(text) from public;',
     'grant execute on function private.app_has_role(text) to authenticated;',
+    `create function public.app_bootstrap_role_admin(target_user uuid) returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if target_user is null or not exists (select 1 from auth.users where id = target_user and is_anonymous is not true) then
+    raise exception 'Valid permanent application user required';
+  end if;
+  insert into private.app_role_administrators(user_id) values (target_user) on conflict do nothing;
+end $$;`,
+    'revoke all on function public.app_bootstrap_role_admin(uuid) from public, anon, authenticated;',
+    'grant execute on function public.app_bootstrap_role_admin(uuid) to service_role;',
+    `create function private.app_is_role_admin_impl() returns boolean language sql stable security definer set search_path = '' as $$
+  select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
+    and exists (select 1 from private.app_role_administrators where user_id = (select auth.uid()))
+$$;`,
+    'revoke all on function private.app_is_role_admin_impl() from public;',
+    'grant execute on function private.app_is_role_admin_impl() to authenticated;',
+    `create function public.app_is_role_admin() returns boolean language sql stable security invoker set search_path = '' as $$
+  select private.app_is_role_admin_impl()
+$$;`,
+    'revoke all on function public.app_is_role_admin() from public, anon;',
+    'grant execute on function public.app_is_role_admin() to authenticated;',
+    `create function private.app_my_roles_impl() returns setof text language sql stable security definer set search_path = '' as $$
+  select r.role_id from private.app_user_roles r where r.user_id = (select auth.uid())
+    and (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
+$$;`,
+    'revoke all on function private.app_my_roles_impl() from public;',
+    'grant execute on function private.app_my_roles_impl() to authenticated;',
+    `create function public.app_my_roles() returns setof text language sql stable security invoker set search_path = '' as $$
+  select * from private.app_my_roles_impl()
+$$;`,
+    'revoke all on function public.app_my_roles() from public, anon;',
+    'grant execute on function public.app_my_roles() to authenticated;',
+    `create function private.app_set_user_role_impl(target_user uuid, requested_role text, enabled boolean) returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if (select auth.uid()) is null or (((select auth.jwt())->>'is_anonymous')::boolean) is true
+    or not exists (select 1 from private.app_role_administrators where user_id = (select auth.uid())) then
+    raise exception 'Application role administration denied';
+  end if;
+  if target_user is null or not exists (select 1 from auth.users where id = target_user and is_anonymous is not true) then
+    raise exception 'Valid permanent application user required';
+  end if;
+  if requested_role is null or not exists (
+    select 1 from private.app_schema_revisions s, jsonb_array_elements(s.definition->'roles') as r(value)
+    where s.id = true and r.value->>'id' = requested_role
+  ) then raise exception 'Unknown application role'; end if;
+  if enabled is null then raise exception 'Role state required'; end if;
+  if enabled then
+    insert into private.app_user_roles(user_id,role_id) values (target_user,requested_role) on conflict do nothing;
+  else
+    delete from private.app_user_roles where user_id = target_user and role_id = requested_role;
+  end if;
+end $$;`,
+    'revoke all on function private.app_set_user_role_impl(uuid,text,boolean) from public;',
+    'grant execute on function private.app_set_user_role_impl(uuid,text,boolean) to authenticated;',
+    `create function public.app_set_user_role(target_user uuid, requested_role text, enabled boolean) returns void language sql security invoker set search_path = '' as $$
+  select private.app_set_user_role_impl(target_user, requested_role, enabled)
+$$;`,
+    'revoke all on function public.app_set_user_role(uuid,text,boolean) from public, anon;',
+    'grant execute on function public.app_set_user_role(uuid,text,boolean) to authenticated;',
   ];
 }
 

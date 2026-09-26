@@ -84,6 +84,20 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
         if (result.error) throw new Error(result.error.message);
         return result.data.user;
       },
+      async currentRoles() {
+        if (!app.auth.enabled || !app.roles.length) return [];
+        return checked(await client.rpc('app_my_roles')) as string[];
+      },
+      async isRoleAdministrator() {
+        if (!app.auth.enabled || !app.roles.length) return false;
+        return checked(await client.rpc('app_is_role_admin')) === true;
+      },
+      async setUserRole(userId: string, roleId: string, enabled: boolean) {
+        if (!app.auth.enabled || !app.roles.some(role => role.id === roleId)) throw new Error('Unknown application role.');
+        if (typeof enabled !== 'boolean') throw new Error('Role state must be a boolean.');
+        const result = await client.rpc('app_set_user_role', { target_user: rowId(userId), requested_role: roleId, enabled });
+        if (result.error) throw new Error(result.error.message);
+      },
       async requestPasswordReset(email: string) {
         if (!app.auth.enabled) throw new Error('Authentication is disabled for this application.');
         const result = await client.auth.resetPasswordForEmail(email);

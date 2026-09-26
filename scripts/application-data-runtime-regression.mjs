@@ -31,7 +31,9 @@ try {
   const requests = [];
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
-    requests.push({ url: input instanceof Request ? input.url : String(input), init });
+    const url = input instanceof Request ? input.url : String(input);
+    requests.push({ url, init });
+    if (url.includes('/rpc/app_set_user_role')) return new Response(null, { status: 204 });
     return new Response(JSON.stringify([{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', plate: 'ABC' }]), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   try {
@@ -47,6 +49,15 @@ try {
     assert.match(requests[0].url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/app_vehicles\?/);
     assert.match(requests[0].url, /offset=5|limit=10/);
     assert.doesNotMatch(requests[0].url, /pnbllxdlskljcakyaylt/);
+    assert.deepEqual(await runtime.auth.currentRoles(), []);
+    const roleApp = structuredClone(app);
+    roleApp.auth.enabled = true;
+    roleApp.roles = [{ id: 'staff', name: 'Staff' }];
+    const roleRuntime = createApplicationDataRuntime(roleApp, config, platform);
+    await assert.rejects(() => roleRuntime.auth.setUserRole('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'invented', true), /Unknown application role/);
+    await assert.rejects(() => roleRuntime.auth.setUserRole('bad-id', 'staff', true), /valid record ID/);
+    await roleRuntime.auth.setUserRole('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'staff', true);
+    assert.match(requests.at(-1).url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/rpc\/app_set_user_role/);
   } finally { globalThis.fetch = previousFetch; }
   console.log('PASS isolated application client: public-only keys, project boundary, CRUD whitelist and dedicated endpoint');
 } finally { await rm(dir, { recursive: true, force: true }); }
