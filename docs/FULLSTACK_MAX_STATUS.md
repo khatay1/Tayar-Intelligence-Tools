@@ -10,11 +10,11 @@ Branch: `feat/fullstack-max-20260926`. Do not merge/deploy until the full releas
 | Visual pages, elements, free positioning, responsive styles, reusable components | NEEDS VERIFICATION | Native operation/command engine and existing design tests; preserve and exercise in full-stack apps. |
 | CMS | PARTIAL | `website-cms.ts`: typed fields, references, views, localized entries and materialization. Public content, not a transactional user database. Reuse bindings and UI patterns. |
 | Persistence | PARTIAL | Legacy snapshot v6 retained; optional application schema persists in v7 through snapshot, fingerprints and load/reset. Canonical integration envelope now preserves legacy readers. Full-stack runtime lifecycle still incomplete. |
-| AI operations | PARTIAL | Native deterministic commands, transactions, patch review, scope and stale response checks exist. AI context/operations do not include application backend definitions. |
+| AI operations | PARTIAL | Existing AI engine now proposes validated application table/auth/permission operations through the same manual command and review path. Runtime actions and full-stack orchestration remain missing. |
 | Forms | PARTIAL | Validated public submission endpoint, uploads, leads and email/webhook automations exist. No generated-app data CRUD/action chain. |
 | Integrations | PARTIAL | Provider registry, environments, secret reference interfaces and adapter-based dispatcher exist. UI secret writer/test callbacks have no concrete controller implementation; several provider adapters are absent. |
 | Secrets | MISSING | No project-scoped persistent secret service connected to builder. Existing interfaces must be extended; never use Tayar billing/AI credentials as generated-app credentials. |
-| Generated-app database/auth/roles | MISSING | Versioned metadata and validated shared commands exist; no generated-app runtime, schema provisioning or independent app auth flow. Platform Supabase auth is not a substitute. |
+| Generated-app database/auth/roles | PARTIAL | Versioned shared model, RLS SQL, revisioned additive migrations, isolated browser client and PostgreSQL policy tests exist. Automated per-project provisioning, role assignment and published auth/UI are missing. Platform Supabase auth is not a substitute. |
 | Generated-app payments | MISSING | Stripe registry entry exists; `websiteBillingService` invokes Tayar subscription billing. Do not reuse it for customers' apps. |
 | Actions, variables, backend functions | MISSING | Existing visual interactions and form automations are not a general application action executor. |
 | Publishing | PARTIAL | Static site pipeline, versions, rollback, domain and staging configuration exist. No backend deployment/provisioning gate. |
@@ -49,7 +49,7 @@ Branch: `feat/fullstack-max-20260926`. Do not merge/deploy until the full releas
 
 ## Known execution prerequisites
 
-- Local environment currently has no `supabase`, `psql`, `docker` or `deno` executable. Database and Edge runtime integration tests need an isolated runtime provisioned before those features can be certified.
+- Local environment has no `supabase`, `psql`, `docker` or `deno` executable. An isolated Supabase test project is available through the connector for database policy and migration tests; generated app Edge/browser integration tests still need real deployment/configuration.
 - Payment E2E needs project-specific Stripe test credentials/webhook delivery; never make live charges to test the builder.
 - No genuine user credential is needed for schema/model/pure-runtime implementation; continue that work autonomously.
 
