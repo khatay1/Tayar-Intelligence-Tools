@@ -3092,6 +3092,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     cmsErrors,
     customDomain,
     previewBusy,
+    previewOperationalBlocker: publishOperationalBlocker,
     previewOperationSequenceRef,
     previewToken,
     productionConfig,
