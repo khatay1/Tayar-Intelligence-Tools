@@ -22,5 +22,19 @@ try {
   assert.equal(reads, 1, 'Wrong backend identity fails before any service query');
   await assert.rejects(() => assertApplicationBackendRevision(app, backend, platformUrl, { ...reader, async readDeployedDefinition() { return { ...app, tables: [] }; } }), /does not match/);
   await assert.rejects(() => assertApplicationBackendRevision(app, backend, platformUrl, { ...reader, async readDeployedDefinition() { return null; } }), /could not be verified/);
+  const serviceOutfile = join(dir, 'service.cjs');
+  await build({ entryPoints: ['src/modules/website-builder/services/websiteApplicationBackendService.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: serviceOutfile });
+  const { recordVerifiedWebsiteApplicationBackend } = (await import(pathToFileURL(serviceOutfile))).default;
+  const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const calls = [];
+  const platform = { async rpc(name, args) { calls.push({ name, args }); return { error: null }; } };
+  const input = { platform, platformUrl, projectId, definition: app, backend, revisionReader: reader };
+  await recordVerifiedWebsiteApplicationBackend(input);
+  assert.equal(calls[0].name, 'website_record_application_backend');
+  assert.deepEqual(calls[0].args, { p_project_id: projectId, p_backend_ref: backend.projectRef, p_publishable_key: backend.publishableKey, p_deployed_definition: app });
+  await assert.rejects(() => recordVerifiedWebsiteApplicationBackend({ ...input, projectId: 'wrong' }), /Invalid Tayar project/);
+  await assert.rejects(() => recordVerifiedWebsiteApplicationBackend({ ...input, revisionReader: { ...reader, async readDeployedDefinition() { return { ...app, tables: [] }; } } }), /does not match/);
+  assert.equal(calls.length, 1, 'Invalid or stale backend must not reach platform registration');
+  await assert.rejects(() => recordVerifiedWebsiteApplicationBackend({ ...input, platform: { async rpc() { return { error: { message: 'private-key-leak' } }; } } }), error => !error.message.includes('private-key-leak'));
   console.log('PASS backend revision preflight: isolated identity, service reader target, exact definition and stale/invalid denial');
 } finally { await rm(dir, { recursive: true, force: true }); }
