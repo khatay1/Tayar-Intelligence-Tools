@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Download, Image as ImageIcon, Lock, RefreshCw, ShieldCheck, Unlock } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { completeMeteredLocalAction } from '@/lib/tool-usage';
 import {
   ToolField,

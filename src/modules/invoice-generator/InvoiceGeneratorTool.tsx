@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Printer, ReceiptText, RotateCcw, Save } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { usePreferences } from '@/context/PreferencesContext';
 import { consumeToolAction } from '@/lib/tool-usage';
 import {

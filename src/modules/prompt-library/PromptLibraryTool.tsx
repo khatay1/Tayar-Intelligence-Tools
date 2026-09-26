@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy, Search, Sparkles } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { ToolField, ToolShell, toolInputClass } from '../shared/ToolShell';
 import { searchPrompts } from './prompt-catalog';
 import { personalizePrompt } from './prompt-utils';

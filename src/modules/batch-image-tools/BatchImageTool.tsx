@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { ToolField, ToolInputPanel, ToolOutputPanel, ToolShell, toolInputClass } from '../shared/ToolShell';
 import { OUTPUT_FORMATS, ImageOutputFormat } from '../image-tools/image-types';
 import { buildBatchZip, downloadBlob } from './batch-download';

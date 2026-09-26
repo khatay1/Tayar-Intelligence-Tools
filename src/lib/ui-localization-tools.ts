@@ -1,4 +1,7 @@
 import type { Language } from './i18n';
+import { useCallback } from 'react';
+import { usePreferences } from '@/context/PreferencesContext';
+import { localizeUi as localizeReleaseUi } from './ui-localization-release';
 
 // Tool labels that were left in English in the signed-in Swedish and Arabic workspace.
 const ar: Record<string, string> = {
@@ -157,4 +160,13 @@ const maps: Record<Language, Record<string, string>> = { en: {}, ar, sv };
 
 export function localizeToolPhrase(text: string, language: Language): string | undefined {
   return maps[language][text];
+}
+
+export function useLocalizer() {
+  const { prefs } = usePreferences();
+  const language = prefs.language;
+  return useCallback(
+    (text: string) => localizeToolPhrase(text, language) ?? localizeReleaseUi(text, language),
+    [language],
+  );
 }

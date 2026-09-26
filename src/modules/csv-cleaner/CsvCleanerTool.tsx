@@ -1,6 +1,6 @@
 import { ChangeEvent, useState } from 'react';
 import { Download, FileSpreadsheet, ShieldCheck, Sparkles } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { completeMeteredLocalAction } from '@/lib/tool-usage';
 import {
   ToolInputPanel,

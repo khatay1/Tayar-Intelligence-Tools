@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy, RefreshCw, Sparkles, Wand2 } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { completeMeteredLocalAction } from '@/lib/tool-usage';
 import { ToolField, ToolInputPanel, ToolOutputPanel, ToolShell, toolInputClass } from '../shared/ToolShell';
 import { generateNames } from './name-generator';

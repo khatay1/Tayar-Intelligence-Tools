@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy, Loader2, Mailbox, Reply, Sparkles, Wand2 } from 'lucide-react';
-import { useLocalizer } from '@/lib/ui-localization-release';
+import { useLocalizer } from '@/lib/ui-localization-tools';
 import { useToast } from '@/components/ui/Toast';
 import {
   ToolField,
