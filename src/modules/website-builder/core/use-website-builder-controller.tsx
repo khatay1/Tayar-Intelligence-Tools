@@ -44,6 +44,8 @@ import { createResetProjectHandler } from './editor-reset-project-handler';
 import type { ApplicationDefinition } from './application-model';
 import { applicationPublishBlockers } from './application-publish-readiness';
 import { applicationFingerprint, createApplicationCommand, type ApplicationOperation } from './application-operations';
+import { editorIntegrationPublishBlockers } from './editor-integrations-project-host';
+import { getEditorIntegrationsHostConfig } from './editor-integrations-host-store';
 import { runEditorCommand } from './editor-command';
 import { createEditorHistory } from './editor-history';
 import { createReusableElementHandlers } from './editor-reusable-element-handlers';
@@ -3289,6 +3291,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function publishOperationalBlocker(): string {
     const appBlocker = applicationPublishBlockers(application, new Set(getCurrentPages().map(page => page.id)))[0];
     if (appBlocker) return `${l('Publish preflight blocked')}: ${appBlocker.message}`;
+    const integrationBlocker = editorIntegrationPublishBlockers(getEditorIntegrationsHostConfig())[0];
+    if (integrationBlocker) return `${l('Publish preflight blocked')}: ${integrationBlocker}`;
     if (!networkOnline) return `${l('Publish preflight blocked')}: ${l('You are offline. Reconnect and try again.')}`;
     if (cloudSyncFailed || autoSaveStatus === 'failed') return l('Resolve cloud sync before publishing.');
     if (siteAudit.errors.length) return `${l('Publish preflight blocked')}: ${l('Fix critical audit errors first')} (${siteAudit.errors.length}).`;

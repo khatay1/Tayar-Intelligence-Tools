@@ -26,6 +26,11 @@ try {
   assert.deepEqual(integrations.validateEditorIntegrations(config), []);
   assert.equal(integrations.integrationsForEvent(config, 'commerce.paid', 'production').length, 1);
   assert.equal(integrations.integrationsForEvent(config, 'commerce.paid', 'preview').length, 0);
+  assert.ok(projectHost.editorIntegrationPublishBlockers(config).some(message => /not deployed/.test(message)), 'Configured production webhook cannot silently publish as functional');
+  const previewOnly = structuredClone(config); previewOnly.connections[0].environments = ['preview'];
+  assert.deepEqual(projectHost.editorIntegrationPublishBlockers(previewOnly), [], 'Preview-only metadata must not block a static production release');
+  const disabled = structuredClone(config); disabled.connections[0].enabled = false;
+  assert.deepEqual(projectHost.editorIntegrationPublishBlockers(disabled), [], 'Disabled connections remain harmless');
   const invalid = integrations.normalizeEditorIntegrationsConfig({ connections: [{ id: 'bad', providerId: 'webhook', name: 'Bad', enabled: true, environments: ['production'], config: { url: 'http://example.com' }, secrets: {}, events: ['page.viewed'] }] });
   const issues = integrations.validateEditorIntegrations(invalid);
   assert.ok(issues.some(issue => issue.code === 'invalid-url'));

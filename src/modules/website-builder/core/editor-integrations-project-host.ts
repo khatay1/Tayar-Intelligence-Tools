@@ -38,10 +38,12 @@ export function writeEditorIntegrationsToProject(projectData: unknown, config: E
 }
 
 export function editorIntegrationPublishBlockers(config: EditorIntegrationsConfig): string[] {
-  const productionIds = new Set(config.connections.filter(connection => connection.enabled && connection.environments.includes('production')).map(connection => connection.id));
-  return validateEditorIntegrations(config)
+  const production = config.connections.filter(connection => connection.enabled && connection.environments.includes('production'));
+  const productionIds = new Set(production.map(connection => connection.id));
+  return [...validateEditorIntegrations(config)
     .filter(issue => typeof issue.connectionId === 'string' && productionIds.has(issue.connectionId))
-    .map(issue => issue.message);
+    .map(issue => issue.message),
+  ...production.map(connection => `${connection.name}: integration execution is not deployed for published sites.`)];
 }
 
 export async function setEditorIntegrationSecret(
