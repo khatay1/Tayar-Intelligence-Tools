@@ -41,7 +41,7 @@
     "smoke:website-builder:forms": "node scripts/website-builder-forms-regression.mjs && node scripts/website-webhook-security-regression.mjs",
     "smoke:website-builder:collaboration": "node scripts/website-builder-collaboration-regression.mjs && node scripts/website-collaboration-regression.mjs",
     "smoke:website-builder:integrations": "node scripts/website-builder-integrations-regression.mjs",
-    "smoke:website-builder:application": "node scripts/application-foundation-regression.mjs && node scripts/application-ai-regression.mjs && node scripts/application-schema-regression.mjs",
+    "smoke:website-builder:application": "node scripts/application-foundation-regression.mjs && node scripts/application-ai-regression.mjs && node scripts/application-schema-regression.mjs && node scripts/application-data-runtime-regression.mjs",
     "smoke:website-builder:reachability": "node scripts/website-builder-max-reachability-regression.mjs"
   },
   "dependencies": {
