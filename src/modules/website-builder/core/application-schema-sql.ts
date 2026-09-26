@@ -62,6 +62,21 @@ function policies(table: ApplicationTable, tableIndex: number): string[] {
   return statements;
 }
 
+function roleInfrastructure(): string[] {
+  return [
+    'grant usage on schema private to authenticated;',
+    'create table private.app_user_roles (user_id uuid not null references auth.users(id) on delete cascade, role_id text not null, primary key (user_id, role_id));',
+    'alter table private.app_user_roles enable row level security;',
+    'revoke all on private.app_user_roles from public, anon, authenticated;',
+    `create function private.app_has_role(requested_role text) returns boolean language sql stable security definer set search_path = '' as $$
+  select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
+    and exists (select 1 from private.app_user_roles where user_id = (select auth.uid()) and role_id = requested_role)
+$$;`,
+    'revoke all on function private.app_has_role(text) from public;',
+    'grant execute on function private.app_has_role(text) to authenticated;',
+  ];
+}
+
 /** Initial schema for one isolated generated-app Supabase database. No migration of existing data. */
 export function compileInitialApplicationSchema(input: ApplicationDefinition): string[] {
   const app = readApplicationDefinition(input);
@@ -79,18 +94,7 @@ begin
   new.updated_at := now();
   return new;
 end $$;`);
-  if (app.roles.length) {
-    statements.push('grant usage on schema private to authenticated;');
-    statements.push('create table private.app_user_roles (user_id uuid not null references auth.users(id) on delete cascade, role_id text not null, primary key (user_id, role_id));');
-    statements.push('alter table private.app_user_roles enable row level security;');
-    statements.push('revoke all on private.app_user_roles from public, anon, authenticated;');
-    statements.push(`create function private.app_has_role(requested_role text) returns boolean language sql stable security definer set search_path = '' as $$
-  select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
-    and exists (select 1 from private.app_user_roles where user_id = (select auth.uid()) and role_id = requested_role)
-$$;`);
-    statements.push('revoke all on function private.app_has_role(text) from public;');
-    statements.push('grant execute on function private.app_has_role(text) to authenticated;');
-  }
+  if (app.roles.length) statements.push(...roleInfrastructure());
   for (const [tableIndex, table] of app.tables.entries()) {
     const name = `public.${sqlName(tableName(table))}`;
     const fields = table.fields.map(column);
@@ -121,8 +125,11 @@ $$;`);
 export function compileAdditiveApplicationMigration(previous: ApplicationDefinition, next: ApplicationDefinition): string[] {
   const before = readApplicationDefinition(previous);
   const after = readApplicationDefinition(next);
-  if (JSON.stringify(before.roles) !== JSON.stringify(after.roles) || JSON.stringify(before.auth) !== JSON.stringify(after.auth)) {
-    throw new Error('Role or authentication changes require a separately reviewed backend migration.');
+  if (JSON.stringify(before.auth) !== JSON.stringify(after.auth)) {
+    throw new Error('Authentication changes require a separately reviewed backend migration.');
+  }
+  if (before.roles.length > after.roles.length || before.roles.some((role, index) => JSON.stringify(role) !== JSON.stringify(after.roles[index]))) {
+    throw new Error('Removing, reordering or changing existing roles requires a separately reviewed backend migration.');
   }
   if (before.tables.length > after.tables.length || before.tables.some((table, index) => {
     const updated = after.tables[index];
@@ -139,6 +146,7 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
   end if;
 end $revision$;`,
   ];
+  if (!before.roles.length && after.roles.length) statements.push(...roleInfrastructure());
   for (const [index, table] of after.tables.entries()) {
     const old = before.tables[index];
     const name = `public.${sqlName(tableName(table))}`;

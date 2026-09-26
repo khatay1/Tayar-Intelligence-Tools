@@ -107,3 +107,9 @@ Branch: `feat/fullstack-max-20260926`. Do not merge/deploy until the full releas
 - Legacy anon JWTs must also carry the matching project ref and Supabase issuer; an anon key from Tayar's platform project is rejected even though it has the public `anon` role.
 - Full `health:project` suite and Vite production build passed at this checkpoint. These gates cover existing Tayar behavior but cannot certify unfinished full-stack runtime features.
 - MISSING: backend provisioning and verified public config persistence, role assignment service, page route guard, dynamic component bindings, production publish integration. The fail-closed publish gate remains in effect.
+
+## Checkpoint 2026-09-26 — additive app roles
+
+- PARTIAL: additive schema upgrades now accept appended role definitions. When adding the first role, they create the existing private role table and lookup function; later role additions only update the guarded schema revision and affected RLS policies. Removing, reordering or altering existing roles still requires a separately reviewed migration.
+- PASS: PostgreSQL transaction test for adding the first role to a no-role app, with private table inaccessible to the browser role; rollback restored the existing booking fixture. A subsequent committed upgrade appended `Staff` to the booking app. `scripts/fixtures/application-role-upgrade.sql` proves unassigned users cannot update inventory, assigned Staff can, and neither can change record ownership. Advisor reports no new generated-schema security findings.
+- MISSING: safe privileged role assignment/bootstrap service and UI; service-role-only fixture setup is test scaffolding, not a production role management feature.

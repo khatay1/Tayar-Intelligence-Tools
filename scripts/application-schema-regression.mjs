@@ -77,7 +77,18 @@ try {
   const unbackfilled = structuredClone(app);
   unbackfilled.tables[0].fields.push({ id: 'new-required', key: 'must_supply', name: 'Must supply', type: 'text', required: true });
   assert.throws(() => migrate(app, unbackfilled), /needs a default/);
-  assert.throws(() => migrate(app, { ...app, roles: [...app.roles, { id: 'staff', name: 'Staff' }] }), /Role or authentication/);
+  const roleAdded = { ...app, roles: [...app.roles, { id: 'staff', name: 'Staff' }] };
+  assert.match(migrate(app, roleAdded).join('\n'), /update private\.app_schema_revisions/);
+  assert.doesNotMatch(migrate(app, roleAdded).join('\n'), /create table private\.app_user_roles/);
+  const noRoles = structuredClone(app);
+  noRoles.roles = [];
+  noRoles.tables[0].permissions = noRoles.tables[0].permissions.filter(rule => rule.access !== 'role');
+  const firstRole = structuredClone(noRoles);
+  firstRole.roles.push({ id: 'manager', name: 'Manager' });
+  firstRole.tables[0].permissions.push({ operation: 'read', access: 'role', roleId: 'manager' });
+  assert.match(migrate(noRoles, firstRole).join('\n'), /create table private\.app_user_roles/);
+  assert.throws(() => migrate(app, { ...app, roles: [] }), /Select an existing application role|Removing/);
+  assert.throws(() => migrate(app, { ...app, auth: { ...app.auth, signUpEnabled: false } }), /Authentication changes/);
   console.log('PASS initial isolated-app schema compiler: references, RLS, immutable ownership, role rules and safe identifiers');
   console.log('PASS additive schema migration: new tables/fields, cross-references, policy removal and destructive change rejection');
 } finally { await rm(dir, { recursive: true, force: true }); }
