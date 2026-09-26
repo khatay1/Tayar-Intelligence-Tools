@@ -32,11 +32,12 @@ try {
   const ai = apply(manual.project, [
     { type: 'set_auth', auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true } },
     { type: 'put_role', role: { id: 'manager', name: 'Manager' } },
-    { type: 'put_table', table: { ...table, permissions: [...table.permissions, { operation: 'update', access: 'role', roleId: 'manager' }] } },
+    { type: 'put_table', table: { ...table, fields: [{ ...table.fields[0], indexed: true, defaultValue: 'Untitled' }], permissions: [...table.permissions, { operation: 'update', access: 'role', roleId: 'manager' }] } },
     { type: 'set_page_access', rules: [{ pageId: 'home', access: 'role', roleId: 'manager' }] },
   ], 'ai', review(manual.project), manual.history);
   assert.equal(ai.transaction.ok, true);
   assert.equal(ai.project.application.tables.length, 1, 'AI edits the manually created table');
+  assert.equal(ai.project.application.tables[0].fields[0].indexed, true);
   assert.equal(ai.history.past.at(-1).source, 'ai');
   const undone = history.undoEditorHistory(ai.project, ai.history);
   assert.deepEqual(undone.value, manual.project);
@@ -85,6 +86,7 @@ try {
   assert.equal(snapshot.version, 7);
   const persisted = JSON.parse(JSON.stringify(snapshot));
   assert.deepEqual(validation.readApplicationDefinition(persisted.application), app);
+  assert.equal(persisted.application.tables[0].fields[0].defaultValue, 'Untitled');
   assert.notEqual(snapshots.fingerprintEditableProject(ai.project), snapshots.fingerprintEditableProject(manual.project));
   let restored;
   let mutations = 0;

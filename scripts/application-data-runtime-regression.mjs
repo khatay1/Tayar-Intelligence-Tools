@@ -49,6 +49,13 @@ try {
     assert.match(requests[0].url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/app_vehicles\?/);
     assert.match(requests[0].url, /offset=5|limit=10/);
     assert.doesNotMatch(requests[0].url, /pnbllxdlskljcakyaylt/);
+    await runtime.list('vehicles', { sort: { field: 'plate', direction: 'asc' }, filters: [{ field: 'plate', operator: 'eq', value: 'ABC' }] });
+    assert.match(requests.at(-1).url, /plate=eq\.ABC/);
+    assert.match(requests.at(-1).url, /plate\.asc/);
+    await assert.rejects(() => runtime.list('vehicles', { filters: [{ field: 'platform_users', operator: 'eq', value: 'x' }] }), /Invalid query filter/);
+    await assert.rejects(() => runtime.list('vehicles', { sort: { field: 'owner_id;drop table', direction: 'asc' } }), /Invalid sort/);
+    await assert.rejects(() => runtime.list('vehicles', { filters: [{ field: 'plate', operator: 'ilike', value: 'A'.repeat(501) }] }), /Invalid query filter/);
+    await assert.rejects(() => runtime.list('vehicles', { filters: Array.from({ length: 11 }, () => ({ field: 'plate', operator: 'eq', value: 'A' })) }), /Invalid query filters/);
     assert.deepEqual(await runtime.auth.currentRoles(), []);
     assert.equal(await runtime.auth.canAccessPage('landing'), true);
     const roleApp = structuredClone(app);

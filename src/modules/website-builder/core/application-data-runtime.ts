@@ -8,6 +8,13 @@ export interface ApplicationPublicBackend {
   projectRef: string;
 }
 
+export interface ApplicationListOptions {
+  limit?: number;
+  offset?: number;
+  sort?: { field: string; direction: 'asc' | 'desc' };
+  filters?: Array<{ field: string; operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'ilike'; value: string | number | boolean }>;
+}
+
 export function canAccessApplicationPage(definition: ApplicationDefinition, pageId: string, user: { is_anonymous?: boolean } | null, roles: readonly string[] = []): boolean {
   const rule = definition.pageAccess.find(item => item.pageId === pageId);
   if (!rule || rule.access === 'public') return true;
@@ -137,12 +144,34 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
         if (result.error) throw new Error(result.error.message);
       },
     },
-    async list(tableId: string, options: { limit?: number; offset?: number } = {}) {
+    async list(tableId: string, options: ApplicationListOptions = {}) {
       const target = table(tableId);
       const limit = options.limit ?? 25;
       const offset = options.offset ?? 0;
       if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid pagination.');
-      return checked(await client.from(`app_${target.key}`).select('*').order('created_at', { ascending: false }).range(offset, offset + limit - 1));
+      const fields = new Map(target.fields.map(field => [field.key, field]));
+      const sortable = new Set(['id', 'created_at', 'updated_at', ...fields.keys()]);
+      const sort = options.sort ?? { field: 'created_at', direction: 'desc' };
+      if (!sortable.has(sort.field) || !['asc', 'desc'].includes(sort.direction)) throw new Error('Invalid sort field or direction.');
+      if (options.filters !== undefined && (!Array.isArray(options.filters) || options.filters.length > 10)) throw new Error('Invalid query filters.');
+      let query = client.from(`app_${target.key}`).select('*');
+      for (const filter of options.filters ?? []) {
+        if (!filter || !fields.has(filter.field) || !['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'ilike'].includes(filter.operator)
+          || !['string', 'number', 'boolean'].includes(typeof filter.value)
+          || (typeof filter.value === 'string' && filter.value.length > 500)
+          || (typeof filter.value === 'number' && !Number.isFinite(filter.value))
+          || (filter.operator === 'ilike' && (!['text', 'enum'].includes(fields.get(filter.field)!.type) || typeof filter.value !== 'string'))) throw new Error('Invalid query filter.');
+        switch (filter.operator) {
+          case 'eq': query = query.eq(filter.field, filter.value); break;
+          case 'neq': query = query.neq(filter.field, filter.value); break;
+          case 'gt': query = query.gt(filter.field, filter.value); break;
+          case 'gte': query = query.gte(filter.field, filter.value); break;
+          case 'lt': query = query.lt(filter.field, filter.value); break;
+          case 'lte': query = query.lte(filter.field, filter.value); break;
+          case 'ilike': query = query.ilike(filter.field, String(filter.value)); break;
+        }
+      }
+      return checked(await query.order(sort.field, { ascending: sort.direction === 'asc' }).range(offset, offset + limit - 1));
     },
     async get(tableId: string, id: string) {
       const target = table(tableId);
