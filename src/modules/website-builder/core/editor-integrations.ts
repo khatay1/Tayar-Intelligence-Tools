@@ -1,3 +1,5 @@
+import { hasEmbeddedIntegrationCredentials, isEditorSecretReference, isPublicIntegrationEndpoint } from './editor-integration-security';
+
 export type EditorIntegrationCategory = 'analytics' | 'payments' | 'email' | 'crm' | 'api' | 'webhook';
 export type EditorIntegrationStatus = 'disconnected' | 'configured' | 'active' | 'error' | 'disabled';
 export type EditorIntegrationEnvironment = 'preview' | 'staging' | 'production';
@@ -50,7 +52,7 @@ export interface EditorIntegrationsConfig {
 export interface EditorIntegrationValidationIssue {
   connectionId?: string;
   field?: string;
-  code: 'unknown-provider' | 'missing-field' | 'missing-secret' | 'invalid-url' | 'unsupported-event' | 'duplicate-id';
+  code: 'unknown-provider' | 'missing-field' | 'missing-secret' | 'invalid-url' | 'unsupported-event' | 'duplicate-id' | 'invalid-config' | 'invalid-secret-ref';
   message: string;
 }
 
@@ -89,10 +91,17 @@ export function normalizeEditorIntegrationsConfig(value: unknown): EditorIntegra
     const providerId = cleanString(source.providerId, 120);
     if (!id || seen.has(id) || !getEditorIntegrationProvider(providerId)) continue;
     seen.add(id);
-    const config = Object.fromEntries(Object.entries(source.config ?? {}).filter(([, item]) => typeof item === 'string' || typeof item === 'boolean').map(([key, item]) => [key.slice(0, 120), typeof item === 'string' ? item.slice(0, 5000) : item]));
-    const secrets = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([, item]) => !!item && typeof item === 'object' && typeof (item as EditorIntegrationSecretRef).ref === 'string').map(([key, item]) => [key.slice(0, 120), { ref: cleanString((item as EditorIntegrationSecretRef).ref, 500), updatedAt: cleanString((item as EditorIntegrationSecretRef).updatedAt, 80) || undefined }]));
-    const environments = Array.from(new Set((source.environments ?? []).filter((item): item is EditorIntegrationEnvironment => item === 'preview' || item === 'staging' || item === 'production')));
-    normalized.push({ id, providerId, name: cleanString(source.name, 160) || getEditorIntegrationProvider(providerId)?.name || providerId, enabled: source.enabled !== false, status: source.status === 'active' || source.status === 'error' || source.status === 'disabled' || source.status === 'configured' ? source.status : 'disconnected', environments: environments.length ? environments : ['production'], config, secrets, events: Array.from(new Set((source.events ?? []).filter((event): event is EditorIntegrationEvent => typeof event === 'string'))) as EditorIntegrationEvent[], createdAt: cleanString(source.createdAt, 80) || new Date().toISOString(), updatedAt: cleanString(source.updatedAt, 80) || new Date().toISOString() });
+    const provider = getEditorIntegrationProvider(providerId)!;
+    const publicFields = new Set(provider.fields.filter(field => !field.secret).map(field => field.key));
+    const secretFields = new Set(provider.fields.filter(field => field.secret).map(field => field.key));
+    const config = Object.fromEntries(Object.entries(source.config ?? {}).filter(([key, item]) => publicFields.has(key) && (typeof item === 'string' || typeof item === 'boolean')).map(([key, item]) => [key, typeof item === 'string' ? item.slice(0, 5000) : item]));
+    for (const field of provider.fields) {
+      if (field.type === 'url' && typeof config[field.key] === 'string' && hasEmbeddedIntegrationCredentials(String(config[field.key]))) delete config[field.key];
+    }
+    if (providerId === 'stripe' && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
+    const secrets = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([key, item]) => secretFields.has(key) && !!item && typeof item === 'object' && isEditorSecretReference((item as EditorIntegrationSecretRef).ref)).map(([key, item]) => [key, { ref: (item as EditorIntegrationSecretRef).ref, updatedAt: cleanString((item as EditorIntegrationSecretRef).updatedAt, 80) || undefined }]));
+    const environments = Array.from(new Set((Array.isArray(source.environments) ? source.environments : ['production']).filter((item): item is EditorIntegrationEnvironment => item === 'preview' || item === 'staging' || item === 'production')));
+    normalized.push({ id, providerId, name: cleanString(source.name, 160) || provider.name, enabled: source.enabled !== false, status: source.status === 'active' || source.status === 'error' || source.status === 'disabled' || source.status === 'configured' ? source.status : 'disconnected', environments, config, secrets, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event): event is EditorIntegrationEvent => typeof event === 'string'))) as EditorIntegrationEvent[], createdAt: cleanString(source.createdAt, 80) || new Date().toISOString(), updatedAt: cleanString(source.updatedAt, 80) || new Date().toISOString() });
   }
   return { version: 1, connections: normalized };
 }
@@ -105,6 +114,13 @@ export function validateEditorIntegrations(config: EditorIntegrationsConfig): Ed
     ids.add(connection.id);
     const provider = getEditorIntegrationProvider(connection.providerId);
     if (!provider) { issues.push({ connectionId: connection.id, code: 'unknown-provider', message: `Unknown integration provider: ${connection.providerId}` }); continue; }
+    for (const key of Object.keys(connection.config)) {
+      if (!provider.fields.some(field => field.key === key && !field.secret)) issues.push({ connectionId: connection.id, field: key, code: 'invalid-config', message: 'Public integration configuration contains an unsupported or private field.' });
+    }
+    for (const [key, secret] of Object.entries(connection.secrets)) {
+      if (!provider.fields.some(field => field.key === key && field.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection.id, field: key, code: 'invalid-secret-ref', message: 'A private credential must use a valid server-managed reference.' });
+    }
+    if (connection.providerId === 'stripe' && connection.config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(connection.config.publishableKey))) issues.push({ connectionId: connection.id, field: 'publishableKey', code: 'invalid-config', message: 'Stripe requires a publishable key; private keys belong in secure server storage.' });
     for (const field of provider.fields) {
       if (!field.required) continue;
       if (field.secret) {
@@ -113,7 +129,7 @@ export function validateEditorIntegrations(config: EditorIntegrationsConfig): Ed
     }
     for (const field of provider.fields.filter(item => item.type === 'url')) {
       const value = connection.config[field.key];
-      if (typeof value === 'string' && value) { try { const url = new URL(value); if (url.protocol !== 'https:') throw new Error(); } catch { issues.push({ connectionId: connection.id, field: field.key, code: 'invalid-url', message: `${field.label} must use a valid HTTPS URL.` }); } }
+      if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection.id, field: field.key, code: 'invalid-url', message: `${field.label} must use a public HTTPS URL without embedded credentials.` });
     }
     if (provider.supportedEvents) for (const event of connection.events ?? []) if (!provider.supportedEvents.includes(event)) issues.push({ connectionId: connection.id, code: 'unsupported-event', message: `${provider.name} does not support ${event}.` });
   }

@@ -36,7 +36,7 @@ export function removeEditorIntegration(config: EditorIntegrationsConfig, connec
 export function redactEditorIntegrationSecrets(config: EditorIntegrationsConfig): EditorIntegrationsConfig {
   return {
     version: 1,
-    connections: config.connections.map(connection => ({
+    connections: normalizeEditorIntegrationsConfig(config).connections.map(connection => ({
       ...connection,
       secrets: Object.fromEntries(Object.entries(connection.secrets).map(([key, value]) => [key, { ref: value.ref ? 'secret://redacted' : '', updatedAt: value.updatedAt }])),
     })),
