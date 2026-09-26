@@ -210,7 +210,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (!previewToken && /^(?:versions|previews)(?:\/|$)/i.test(file)) {
+  // Internal storage folders are not pages. A preview token may serve its
+  // shareable rendering, but never its frozen production release bundle.
+  if ((!previewToken && /^(?:versions|previews|staging)(?:\/|$)/i.test(file)) ||
+      (previewToken && /^release(?:\/|$)/i.test(file))) {
     res.statusCode = 404;
     res.end('Published page not found');
     return;

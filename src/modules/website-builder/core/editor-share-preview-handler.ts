@@ -84,18 +84,18 @@ export function createSharePreviewHandler({
   user,
 }: CreateSharePreviewHandlerDependencies) {
   return async function createSharePreview() {
-    if (previewBusy || publishBusy) return;
+    if (previewBusy || publishBusy) return false;
     if (siteAudit.errors.length || cmsErrors.length) {
       setPreviewError('Fix critical audit errors before creating staging.');
-      return;
+      return false;
     }
     if (cloudProjectId && !projectTeamAccess.canPublish) {
       setPreviewError('Only the project owner can create public share previews.');
-      return;
+      return false;
     }
     if (!user || !cloudProjectId) {
       setPreviewError('Save this project to the cloud before creating a share preview.');
-      return;
+      return false;
     }
 
     const previewSequence = ++previewOperationSequenceRef.current;
@@ -111,18 +111,14 @@ export function createSharePreviewHandler({
     setPreviewBusy(true);
     setPreviewError('');
 
-    const latestSaved = await saveProject({ automatic: true, createHistory: false, forPublication: true });
-
-    if (!previewIsCurrent()) return;
-
-    if (!latestSaved) {
-      setPreviewError('The latest editor changes could not be synchronized before creating the preview.');
-      setPreviewBusy(false);
-      return;
-    }
-
-    const previewRevision = cloudRevisionRef.current?.projectId === previewProjectId ? cloudRevisionRef.current.updatedAt : null;
     try {
+      const latestSaved = await saveProject({ automatic: true, createHistory: false, forPublication: true });
+      if (!previewIsCurrent()) return false;
+      if (!latestSaved) {
+        setPreviewError('The latest editor changes could not be synchronized before creating the preview.');
+        return false;
+      }
+      const previewRevision = cloudRevisionRef.current?.projectId === previewProjectId ? cloudRevisionRef.current.updatedAt : null;
       const token = typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID().replace(/-/g, '')
         : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
@@ -155,14 +151,14 @@ export function createSharePreviewHandler({
       productionFiles.push({ name: 'robots.txt', content: `User-agent: *\nAllow: /\n${sanitizeRobotsRules(productionConfig.customRobotsRules)}\nSitemap: ${liveBaseUrl}/sitemap.xml\n`, contentType: 'text/plain; charset=utf-8' });
       await uploadPublishedWebsiteFolderFiles(`${folder}/release`, productionFiles);
 
-      if (!previewIsCurrent()) return;
+      if (!previewIsCurrent()) return false;
 
       const nextUrl = buildPreviewSiteUrl(previewUserId, previewProjectId, token, 'index.html');
       if (!nextUrl) throw new Error('Could not build the public preview URL.');
 
       const routeHealthy = await verifyPublishedRoute(nextUrl);
 
-      if (!previewIsCurrent()) return;
+      if (!previewIsCurrent()) return false;
 
       if (!routeHealthy) {
         throw new Error('Preview files were saved, but the public preview renderer did not return HTML.');
@@ -186,7 +182,7 @@ export function createSharePreviewHandler({
         updatedAt: String(stagedProjectData.updatedAt || createdAt),
       });
       if (stagedSave.error) throw new Error(stagedSave.error.message);
-      if (!previewIsCurrent()) return;
+      if (!previewIsCurrent()) return false;
       cloudRevisionRef.current = { projectId: previewProjectId, updatedAt: stagedSave.data?.updated_at || createdAt };
       setCloudProjects((current) => current.map((project) => project.id === previewProjectId
         ? {
@@ -207,11 +203,13 @@ export function createSharePreviewHandler({
           if (previewIsCurrent()) setPreviewError('The new preview is ready, but the previous preview could not be revoked.');
         }
       }
-      if (!previewIsCurrent()) return;
+      if (!previewIsCurrent()) return false;
       try { await navigator.clipboard.writeText(nextUrl); } catch { /* Clipboard access is optional. */ }
+      return true;
     } catch (error) {
-      if (!previewIsCurrent()) return;
+      if (!previewIsCurrent()) return false;
       setPreviewError(error instanceof Error ? error.message : 'Could not create share preview.');
+      return false;
     } finally {
       if (previewOperationSequenceRef.current === previewSequence) {
         setPreviewBusy(false);

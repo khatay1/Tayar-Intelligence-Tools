@@ -42,7 +42,9 @@ export function WebsiteBuilderV2Bridge(props: WebsiteBuilderV2BridgeProps) {
     }
 
     if (plan.environment === 'staging') {
-      await Promise.resolve(props.onPreview());
+      if (!props.onStage || !(await props.onStage())) {
+        throw new Error('Staging could not be created. Check the preview error and try again.');
+      }
       return;
     }
 

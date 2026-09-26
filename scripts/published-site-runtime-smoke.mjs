@@ -130,6 +130,29 @@ await check('Archived release files cannot be exposed through live routes', asyn
   assert.equal(calls.length, 0);
 });
 
+await check('Staging files cannot be exposed through live routes or query parameters', async () => {
+  for (const url of [
+    '/site/owner-1/project-1/staging/index.html',
+    '/api/published-site?ownerId=owner-1&projectId=project-1&file=staging%2Findex.html',
+  ]) {
+    const { res, calls } = await execute({
+      url,
+      fetchImpl: async () => new Response('should-not-run', { status: 200 }),
+    });
+    assert.equal(res.statusCode, 404);
+    assert.equal(calls.length, 0);
+  }
+});
+
+await check('Preview URLs cannot expose their production release bundle', async () => {
+  const { res, calls } = await execute({
+    url: '/preview/owner-1/project-1/token-1/release/index.html',
+    fetchImpl: async () => new Response('should-not-run', { status: 200 }),
+  });
+  assert.equal(res.statusCode, 404);
+  assert.equal(calls.length, 0);
+});
+
 await check('Path traversal is rejected before storage access', async () => {
   const { res, calls } = await execute({
     url: '/api/published-site?ownerId=owner-1&projectId=project-1&file=../secret.html',
