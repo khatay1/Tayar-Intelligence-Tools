@@ -43,6 +43,9 @@ import { createRecoverPublishedStateHandler } from './editor-recover-published-h
 import { createResetProjectHandler } from './editor-reset-project-handler';
 import type { ApplicationDefinition } from './application-model';
 import { applicationPublishBlockers } from './application-publish-readiness';
+import { applicationFingerprint, createApplicationCommand, type ApplicationOperation } from './application-operations';
+import { runEditorCommand } from './editor-command';
+import { createEditorHistory } from './editor-history';
 import { createReusableElementHandlers } from './editor-reusable-element-handlers';
 import { useReusableSectionHandlers } from './editor-reusable-section-handlers';
 import { createRollbackPublishVersionHandler } from './editor-rollback-handler';
@@ -2250,6 +2253,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function remember(current: WebsiteSection[], label = 'Manual edit') {
     editHistoryHandlers.remember(current, label);
   }
+  function applyApplicationOperations(operations: ApplicationOperation[], source: 'manual' | 'ai' = 'manual', review?: { fingerprint: string; loadSequence: number; projectId: string | null }): string | null {
+    if (source === 'ai' && (!review || review.loadSequence !== projectLoadSequenceRef.current || review.projectId !== cloudProjectId)) return 'The project changed while AI was planning. Create a new plan.';
+    const current = { cloudProjectId, pages: getCurrentPages(), application };
+    const result = runEditorCommand(current, createApplicationCommand(operations, {
+      projectId: cloudProjectId, fingerprint: source === 'ai' ? review!.fingerprint : applicationFingerprint(current), reviewed: true,
+    }, source), { history: createEditorHistory() });
+    if (!result.transaction.ok) return result.transaction.errors.join(' ') || 'Application change failed.';
+    if (!result.transaction.changed) return null;
+    editHistoryHandlers.remember(sections, source === 'ai' ? 'AI application edit' : 'Application edit');
+    setApplication(result.project.application);
+    setSaved(false);
+    return null;
+  }
   function undo() { editHistoryHandlers.undo(); }
   function redo() { editHistoryHandlers.redo(); }
   function restoreEditHistoryEntry(entryId: string) { editHistoryHandlers.restoreEditHistoryEntry(entryId); }
@@ -3598,6 +3614,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     symbols, updateFormAutomation, updateFormField, updateSelected, updateSelectedContainer, updateSelectedSectionResponsive, getCurrentPages, editorV2Flags,
     duplicateSelectedTarget, deleteSelectedTarget, renameSymbol, duplicateSymbol, selectNextSymbolInstance, openV2MediaUpload, generateMediaLibraryImage, v2DuplicateSectionDirect,
     v2MoveElementDirect, v2DuplicateElementDirect, v2DeleteElementDirect, applyV2NativeOperations, restoreEditHistoryEntry, brand, selectedContainerId, selectedFormFieldId,
-    hasUnsavedChanges, cmsErrors, clearEditorDragState, projectId,
+    hasUnsavedChanges, cmsErrors, clearEditorDragState, projectId, application, applicationLoadSequence: projectLoadSequenceRef.current, applyApplicationOperations,
   };
 }

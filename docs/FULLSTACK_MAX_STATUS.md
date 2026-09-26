@@ -65,3 +65,10 @@ Branch: `feat/fullstack-max-20260926`. Do not merge/deploy until the full releas
 - New foundation regression added to `health:project`. Full health/build/E2E not yet run for this batch.
 - Next: wire the shared command layer into existing builder history/controller and Data/Auth editor; implement isolated server enforcement before enabling publishing. Keep runtime rows and secret values outside metadata.
 - No merge, production deployment, remote schema migration or user project modification performed.
+
+## Checkpoint 2026-09-26 — Data/Auth editing and reviewed AI plans
+
+- PARTIAL: Settings now exposes a lazy Data/Auth panel using the validated application operations, existing edit history and save fingerprint. Tables, fields, CRUD rules, roles and protected-page definitions are editable as metadata; runtime access remains blocked until actual backend provisioning.
+- PARTIAL: existing `ai-engine` plans those same operations; the server response is parsed strictly, dry-run validated through the same command, reviewed in the UI, and checked against project ID, load sequence and definition fingerprint before application. No AI-only project model.
+- PASS: mocked AI-engine rejection tests, model/serialization/history tests, integrations regression, reachability, TypeScript, changed-file lint and production Vite build. These do not demonstrate a generated-app runtime.
+- NEXT: independent per-app backend identity and row-level enforcement; after isolated SQL/Edge tests, wire project secret storage/API/actions and payments. Production publishing continues to fail closed for configured applications.

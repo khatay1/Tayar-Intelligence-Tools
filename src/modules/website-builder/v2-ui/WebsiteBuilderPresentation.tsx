@@ -23,6 +23,7 @@ import { WebsiteBuilderV2Bridge } from './WebsiteBuilderV2Bridge';
 import { WebsiteCollaborationPanel } from './WebsiteCollaborationPanel';
 
 const BuilderAiPanel = lazy(() => import('./BuilderAiPanel').then((module) => ({ default: module.BuilderAiPanel })));
+const BuilderApplicationPanel = lazy(() => import('./BuilderApplicationPanel'));
 const BuilderLegacyAnalytics = lazy(() => import('./BuilderLegacyAnalytics').then((module) => ({ default: module.BuilderLegacyAnalytics })));
 const BuilderLegacyBilling = lazy(() => import('./BuilderLegacyBilling').then((module) => ({ default: module.BuilderLegacyBilling })));
 const BuilderLegacyCommandPalette = lazy(() => import('./BuilderLegacyCommandPalette').then((module) => ({ default: module.BuilderLegacyCommandPalette })));
@@ -84,7 +85,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
     symbols, updateFormAutomation, updateFormField, updateSelected, updateSelectedContainer, updateSelectedSectionResponsive, getCurrentPages, editorV2Flags,
     duplicateSelectedTarget, deleteSelectedTarget, renameSymbol, duplicateSymbol, selectNextSymbolInstance, openV2MediaUpload, generateMediaLibraryImage, v2DuplicateSectionDirect,
     v2MoveElementDirect, v2DuplicateElementDirect, v2DeleteElementDirect, applyV2NativeOperations, restoreEditHistoryEntry, brand, selectedContainerId, selectedFormFieldId,
-    hasUnsavedChanges, cmsErrors, clearEditorDragState,
+    hasUnsavedChanges, cmsErrors, clearEditorDragState, application, applicationLoadSequence, applyApplicationOperations,
   } = view;
   const v2AiPanel = (
     <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
@@ -203,7 +204,10 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       theme={theme}
     />
   );
-  const v2SettingsPanel = (
+  const v2SettingsPanel = (<>
+    <Suspense fallback={<div role="status">{l('Loading...')}</div>}>
+      <BuilderApplicationPanel value={application} pages={getCurrentPages()} cloudProjectId={cloudProjectId} loadSequence={applicationLoadSequence} disabled={cloudBusy || publishBusy || aiBusy} onApply={applyApplicationOperations} />
+    </Suspense>
     <BuilderSettingsPanel
       billingEntitlements={billingEntitlements}
       cloudError={cloudError}
@@ -231,6 +235,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       unpublishWebsite={unpublishWebsite}
       verifyLiveDeployment={verifyLiveDeployment}
     />
+  </>
   );
 
   const aiCanvasPreviewBanner = aiCanvasPreview ? (
