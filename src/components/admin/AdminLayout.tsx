@@ -52,10 +52,10 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
 
   useEffect(() => {
     let active = true;
-    void supabase
+    void Promise.resolve(supabase
       .from('admin_notifications')
       .select('id', { count: 'exact', head: true })
-      .eq('read', false)
+      .eq('read', false))
       .then(({ count, error }) => {
         if (!active) return;
         if (error) {
@@ -66,6 +66,11 @@ export default function AdminLayout({ activeView, onViewChange, onExitToWorkspac
         }
         setUnreadCount(count || 0);
         setNotificationError(false);
+      }).catch((error) => {
+        if (!active) return;
+        console.error('Failed to load admin notification count:', error);
+        setUnreadCount(0);
+        setNotificationError(true);
       });
     return () => { active = false; };
   }, [activeView]);

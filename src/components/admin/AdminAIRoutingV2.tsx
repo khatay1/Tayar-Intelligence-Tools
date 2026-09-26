@@ -71,14 +71,19 @@ export default function AdminAIRoutingV2() {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null); setMessage(null);
-    const [providerRes, routeRes] = await Promise.all([
-      supabase.functions.invoke('ai-admin-control', { body: { action: 'list' } }),
-      supabase.from('admin_settings').select('value').eq('key', 'ai_tool_routes_v2').maybeSingle(),
-    ]);
-    if (providerRes.error || routeRes.error) setError(providerRes.error?.message || routeRes.error?.message || c.loadError);
-    setProviders((providerRes.data?.providers || []) as ProviderRow[]);
-    setConfig(normalizeConfig(routeRes.data?.value));
-    setLoading(false);
+    try {
+      const [providerRes, routeRes] = await Promise.all([
+        supabase.functions.invoke('ai-admin-control', { body: { action: 'list' } }),
+        supabase.from('admin_settings').select('value').eq('key', 'ai_tool_routes_v2').maybeSingle(),
+      ]);
+      if (providerRes.error || routeRes.error) setError(providerRes.error?.message || routeRes.error?.message || c.loadError);
+      setProviders((providerRes.data?.providers || []) as ProviderRow[]);
+      setConfig(normalizeConfig(routeRes.data?.value));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : c.loadError);
+    } finally {
+      setLoading(false);
+    }
   }, [c.loadError]);
 
   useEffect(() => { void load(); }, [load]);
@@ -112,10 +117,15 @@ export default function AdminAIRoutingV2() {
       if (route.primaryProviderKey || route.primaryModel || route.fallbackProviderKey || route.fallbackModel) cleaned.routes[toolId] = route;
     }
     setSaving(true); setError(null); setMessage(null);
-    const { error: saveError } = await supabase.from('admin_settings').upsert({ key: 'ai_tool_routes_v2', value: cleaned, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    setSaving(false);
-    if (saveError) { setError(saveError.message || c.saveError); return; }
-    setConfig(cleaned); setMessage(c.saved);
+    try {
+      const { error: saveError } = await supabase.from('admin_settings').upsert({ key: 'ai_tool_routes_v2', value: cleaned, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      if (saveError) { setError(saveError.message || c.saveError); return; }
+      setConfig(cleaned); setMessage(c.saved);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : c.saveError);
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) return <div className="flex items-center justify-center rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.03] py-12"><Loader2 className="h-7 w-7 animate-spin text-cyan-400" /></div>;

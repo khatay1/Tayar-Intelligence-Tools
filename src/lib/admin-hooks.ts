@@ -239,27 +239,28 @@ export function useAdminUsers() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    try {
+      const { data, error: rpcError } = await supabase.rpc('admin_list_users');
+      if (rpcError) throw rpcError;
 
-    const { data, error: rpcError } = await supabase.rpc('admin_list_users');
+      const result = ((data || []) as AdminUser[]).map((user) => ({
+        ...user,
+        email: user.email || '',
+        full_name: user.full_name || '',
+        project_count: Number(user.project_count || 0),
+        ai_request_count: Number(user.ai_request_count || 0),
+      }));
 
-    if (rpcError) {
-      console.error('Failed to load admin users:', rpcError);
+      setUsers(result);
+    } catch (error) {
+      console.error('Failed to load admin users:', error);
       setUsers([]);
-      setError(rpcError.message || 'Failed to load users.');
+      setError(error && typeof error === 'object' && 'message' in error
+        ? String(error.message || 'Failed to load users.')
+        : 'Failed to load users.');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const result = ((data || []) as AdminUser[]).map((user) => ({
-      ...user,
-      email: user.email || '',
-      full_name: user.full_name || '',
-      project_count: Number(user.project_count || 0),
-      ai_request_count: Number(user.ai_request_count || 0),
-    }));
-
-    setUsers(result);
-    setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);

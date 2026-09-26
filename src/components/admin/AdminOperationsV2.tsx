@@ -95,14 +95,19 @@ export default function AdminOperationsV2() {
     setLoading(true);
     setError(null);
     setMessage(null);
-    const { data, error: loadError } = await supabase
-      .from('admin_settings')
-      .select('value')
-      .eq('key', 'operations_v2')
-      .maybeSingle();
-    if (loadError) setError(loadError.message || c.loadError);
-    else setConfig(normalizeConfig(data?.value));
-    setLoading(false);
+    try {
+      const { data, error: loadError } = await supabase
+        .from('admin_settings')
+        .select('value')
+        .eq('key', 'operations_v2')
+        .maybeSingle();
+      if (loadError) setError(loadError.message || c.loadError);
+      else setConfig(normalizeConfig(data?.value));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : c.loadError);
+    } finally {
+      setLoading(false);
+    }
   }, [c.loadError]);
 
   useEffect(() => { void load(); }, [load]);
@@ -116,13 +121,18 @@ export default function AdminOperationsV2() {
       aiEnabled: Boolean(config.aiEnabled),
       checkoutEnabled: Boolean(config.checkoutEnabled),
     };
-    const { error: saveError } = await supabase
-      .from('admin_settings')
-      .upsert({ key: 'operations_v2', value: cleaned, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    setSaving(false);
-    if (saveError) { setError(saveError.message || c.saveError); return; }
-    setConfig(cleaned);
-    setMessage(c.saved);
+    try {
+      const { error: saveError } = await supabase
+        .from('admin_settings')
+        .upsert({ key: 'operations_v2', value: cleaned, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      if (saveError) { setError(saveError.message || c.saveError); return; }
+      setConfig(cleaned);
+      setMessage(c.saved);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : c.saveError);
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) {

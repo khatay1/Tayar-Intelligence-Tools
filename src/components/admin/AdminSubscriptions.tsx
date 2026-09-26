@@ -78,35 +78,49 @@ export default function AdminSubscriptions() {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    const [subscriptionsRes, usersRes] = await Promise.all([
-      supabase.from('subscriptions').select('id, user_id, plan, status, renewal_date, current_period_end, cancel_at_period_end, created_at').order('created_at', { ascending: false }),
-      supabase.rpc('admin_list_users'),
-    ]);
-    const queryError = subscriptionsRes.error || usersRes.error;
-    if (queryError) {
-      setSubs([]); setUsers({}); setError(queryError.message || 'Failed to load subscriptions.');
-    } else {
-      setSubs((subscriptionsRes.data || []) as SubRow[]);
-      const next: Record<string, AdminUserRow> = {};
-      for (const row of (usersRes.data || []) as AdminUserRow[]) next[row.id] = row;
-      setUsers(next);
+    try {
+      const [subscriptionsRes, usersRes] = await Promise.all([
+        supabase.from('subscriptions').select('id, user_id, plan, status, renewal_date, current_period_end, cancel_at_period_end, created_at').order('created_at', { ascending: false }),
+        supabase.rpc('admin_list_users'),
+      ]);
+      const queryError = subscriptionsRes.error || usersRes.error;
+      if (queryError) {
+        setSubs([]); setUsers({}); setError(queryError.message || 'Failed to load subscriptions.');
+      } else {
+        setSubs((subscriptionsRes.data || []) as SubRow[]);
+        const next: Record<string, AdminUserRow> = {};
+        for (const row of (usersRes.data || []) as AdminUserRow[]) next[row.id] = row;
+        setUsers(next);
+      }
+    } catch (error) {
+      setSubs([]); setUsers({});
+      setError(error instanceof Error ? error.message : 'Failed to load subscriptions.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const loadBillingStatus = useCallback(async () => {
     setBillingStatusLoading(true); setBillingStatusError(null);
-    const { data, error: statusError } = await supabase.functions.invoke('billing-admin-status', { body: {} });
-    if (statusError) {
-      setBillingStatus(null); setBillingStatusError(statusError.message || 'Could not load Stripe configuration.');
-    } else setBillingStatus(data as BillingStatus);
-    setBillingStatusLoading(false);
+    try {
+      const { data, error: statusError } = await supabase.functions.invoke('billing-admin-status', { body: {} });
+      if (statusError) throw statusError;
+      if (!data) throw new Error('Could not load Stripe configuration.');
+      setBillingStatus(data as BillingStatus);
+    } catch (error) {
+      setBillingStatus(null);
+      setBillingStatusError(error && typeof error === 'object' && 'message' in error
+        ? String(error.message || 'Could not load Stripe configuration.')
+        : 'Could not load Stripe configuration.');
+    } finally {
+      setBillingStatusLoading(false);
+    }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
-    if (section === 'payments' && !billingStatus && !billingStatusLoading) void loadBillingStatus();
-  }, [section, billingStatus, billingStatusLoading, loadBillingStatus]);
+    if (section === 'payments') void loadBillingStatus();
+  }, [section, loadBillingStatus]);
 
   const computed = useMemo(() => {
     const now = new Date();

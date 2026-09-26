@@ -113,18 +113,22 @@ export default function AdminPlansV2({ onOpenTools }: { onOpenTools: () => void 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const [settingRes, publicResult] = await Promise.all([
-      supabase.from('admin_settings').select('value').eq('key', 'plan_catalog_v2').maybeSingle(),
-      fetchPublicPlanCatalogV2().then(data => ({ data, error: null as Error | null })).catch(loadError => ({ data: null, error: loadError instanceof Error ? loadError : new Error(String(loadError)) })),
-    ]);
+    try {
+      const [settingRes, publicResult] = await Promise.all([
+        supabase.from('admin_settings').select('value').eq('key', 'plan_catalog_v2').maybeSingle(),
+        fetchPublicPlanCatalogV2().then(data => ({ data, error: null as Error | null })).catch(loadError => ({ data: null, error: loadError instanceof Error ? loadError : new Error(String(loadError)) })),
+      ]);
 
-    if (!settingRes.error && settingRes.data?.value) setCatalog(normalizePlanAdminCatalogV2(settingRes.data.value));
-    else if (settingRes.error) setError(settingRes.error.message);
+      if (!settingRes.error && settingRes.data?.value) setCatalog(normalizePlanAdminCatalogV2(settingRes.data.value));
+      else if (settingRes.error) setError(settingRes.error.message);
 
-    if (publicResult.data) setLiveCatalog(publicResult.data);
-    else if (!settingRes.error) setError(c.loadError);
-
-    setLoading(false);
+      if (publicResult.data) setLiveCatalog(publicResult.data);
+      else if (!settingRes.error) setError(c.loadError);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : c.loadError);
+    } finally {
+      setLoading(false);
+    }
   }, [c.loadError]);
 
   useEffect(() => { void load(); }, [load]);
@@ -164,23 +168,23 @@ export default function AdminPlansV2({ onOpenTools }: { onOpenTools: () => void 
     setSaving(true);
     setMessage(null);
     setError(null);
-    const payload = normalizePlanAdminCatalogV2(catalog);
-    const { error: saveError } = await supabase.from('admin_settings').upsert({
-      key: 'plan_catalog_v2',
-      value: payload,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'key' });
+    try {
+      const payload = normalizePlanAdminCatalogV2(catalog);
+      const { error: saveError } = await supabase.from('admin_settings').upsert({
+        key: 'plan_catalog_v2',
+        value: payload,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
 
-    if (saveError) {
-      setError(saveError.message || c.saveError);
+      if (saveError) throw saveError;
+      setCatalog(payload);
+      setMessage(c.saved);
+      try { setLiveCatalog(await fetchPublicPlanCatalogV2()); } catch { /* saved config remains authoritative */ }
+    } catch (error) {
+      setError(error && typeof error === 'object' && 'message' in error ? String(error.message) : c.saveError);
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setCatalog(payload);
-    setMessage(c.saved);
-    try { setLiveCatalog(await fetchPublicPlanCatalogV2()); } catch { /* saved config remains authoritative */ }
-    setSaving(false);
   }
 
   if (loading) {

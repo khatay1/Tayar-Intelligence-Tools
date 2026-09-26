@@ -51,15 +51,20 @@ export default function AdminUsers() {
       return;
     }
     setActionLoading(true);
-    const { error: actionError } = await supabase.rpc('admin_update_user', {
-      p_user_id: user.id,
-      p_full_name: user.full_name,
-      p_role: user.role,
-      p_suspended: !user.suspended,
-    });
-    if (actionError) showError(actionError.message || 'Failed to update user');
-    else { success(user.suspended ? 'User reinstated' : 'User suspended'); void refresh(); }
-    setActionLoading(false);
+    try {
+      const { error: actionError } = await supabase.rpc('admin_update_user', {
+        p_user_id: user.id,
+        p_full_name: user.full_name,
+        p_role: user.role,
+        p_suspended: !user.suspended,
+      });
+      if (actionError) showError(actionError.message || 'Failed to update user');
+      else { success(user.suspended ? 'User reinstated' : 'User suspended'); void refresh(); }
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Failed to update user');
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function deleteUser(user: AdminUser) {
@@ -103,15 +108,20 @@ export default function AdminUsers() {
 
   async function saveEdit(updated: AdminUser) {
     setActionLoading(true);
-    const { error: actionError } = await supabase.rpc('admin_update_user', {
-      p_user_id: updated.id,
-      p_full_name: updated.full_name,
-      p_role: updated.role,
-      p_suspended: updated.suspended,
-    });
-    if (actionError) showError(actionError.message || 'Failed to save changes');
-    else { success('User updated'); void refresh(); setEditUser(null); }
-    setActionLoading(false);
+    try {
+      const { error: actionError } = await supabase.rpc('admin_update_user', {
+        p_user_id: updated.id,
+        p_full_name: updated.full_name,
+        p_role: updated.role,
+        p_suspended: updated.suspended,
+      });
+      if (actionError) showError(actionError.message || 'Failed to save changes');
+      else { success('User updated'); void refresh(); setEditUser(null); }
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Failed to save changes');
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   if (loading) {
@@ -250,25 +260,36 @@ function EditUserModal({ user, isSelf, onSave, onAccessChanged, onClose, loading
     let active = true;
     if (isSelf || user.role === 'admin') { setAccessLoading(false); return () => { active = false; }; }
     setAccessLoading(true);
-    void supabase.from('admin_access_overrides').select('plan, reason, expires_at').eq('user_id', user.id).maybeSingle().then(({ data, error }) => {
-      if (!active) return;
-      if (error) showError(error.message || 'Failed to load complimentary access');
-      const plan = data?.plan === 'pro' || data?.plan === 'business' ? data.plan : 'none';
-      setAccessOverride(plan);
-      setAccessReason(data?.reason || '');
-      setAccessExpiry(toLocalDateTime(data?.expires_at));
-      setAccessLoading(false);
-    });
+    void (async () => {
+      try {
+        const { data, error } = await supabase.from('admin_access_overrides').select('plan, reason, expires_at').eq('user_id', user.id).maybeSingle();
+        if (!active) return;
+        if (error) throw error;
+        const plan = data?.plan === 'pro' || data?.plan === 'business' ? data.plan : 'none';
+        setAccessOverride(plan);
+        setAccessReason(data?.reason || '');
+        setAccessExpiry(toLocalDateTime(data?.expires_at));
+      } catch (error) {
+        if (active) showError(error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Failed to load complimentary access');
+      } finally {
+        if (active) setAccessLoading(false);
+      }
+    })();
     return () => { active = false; };
   }, [isSelf, showError, user.id, user.role]);
 
   async function saveAccessOverride() {
     setAccessSaving(true);
-    const { error } = await supabase.rpc('admin_set_access_override', { p_user_id: user.id, p_plan: accessOverride === 'none' ? null : accessOverride, p_reason: accessReason, p_expires_at: accessExpiry ? new Date(accessExpiry).toISOString() : null });
-    setAccessSaving(false);
-    if (error) { showError(error.message || 'Failed to update complimentary access'); return; }
-    success(accessOverride === 'none' ? 'Complimentary access removed' : 'Complimentary access saved');
-    onAccessChanged();
+    try {
+      const { error } = await supabase.rpc('admin_set_access_override', { p_user_id: user.id, p_plan: accessOverride === 'none' ? null : accessOverride, p_reason: accessReason, p_expires_at: accessExpiry ? new Date(accessExpiry).toISOString() : null });
+      if (error) { showError(error.message || 'Failed to update complimentary access'); return; }
+      success(accessOverride === 'none' ? 'Complimentary access removed' : 'Complimentary access saved');
+      onAccessChanged();
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Failed to update complimentary access');
+    } finally {
+      setAccessSaving(false);
+    }
   }
 
   return (

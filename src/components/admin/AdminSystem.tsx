@@ -87,26 +87,26 @@ function SettingsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const { data, error } = await supabase
-      .from('admin_settings')
-      .select('key, value')
-      .in('key', [...SYSTEM_SETTING_KEYS]);
+    try {
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .select('key, value')
+        .in('key', [...SYSTEM_SETTING_KEYS]);
 
-    if (error) {
+      if (error) throw error;
+      const map: Record<string, string> = { signup_enabled: 'true' };
+      for (const s of (data || []) as { key: string; value: unknown }[]) {
+        if (typeof s.value === 'string') map[s.key] = s.value.replace(/^"|"$/g, '');
+        else if (typeof s.value === 'number' || typeof s.value === 'boolean') map[s.key] = String(s.value);
+        else if (s.value != null) map[s.key] = JSON.stringify(s.value);
+      }
+      setSettings(map);
+    } catch (error) {
       console.error('Failed to load admin settings:', error);
-      setLoadError(error.message || 'Failed to load settings');
+      setLoadError(error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Failed to load settings');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const map: Record<string, string> = { signup_enabled: 'true' };
-    for (const s of (data || []) as { key: string; value: unknown }[]) {
-      if (typeof s.value === 'string') map[s.key] = s.value.replace(/^"|"$/g, '');
-      else if (typeof s.value === 'number' || typeof s.value === 'boolean') map[s.key] = String(s.value);
-      else if (s.value != null) map[s.key] = JSON.stringify(s.value);
-    }
-    setSettings(map);
-    setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -119,14 +119,15 @@ function SettingsTab() {
       value: settings[key] === 'true',
       updated_at: new Date().toISOString(),
     }));
-    const { error } = await supabase.from('admin_settings').upsert(entries, { onConflict: 'key' });
-
-    setSaving(false);
-    if (error) {
-      showError(error.message || l('Failed to save settings'));
-      return;
+    try {
+      const { error } = await supabase.from('admin_settings').upsert(entries, { onConflict: 'key' });
+      if (error) throw error;
+      success(l('Settings saved'));
+    } catch (error) {
+      showError(error && typeof error === 'object' && 'message' in error ? String(error.message) : l('Failed to save settings'));
+    } finally {
+      setSaving(false);
     }
-    success(l('Settings saved'));
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-violet-500 animate-spin" /></div>;
