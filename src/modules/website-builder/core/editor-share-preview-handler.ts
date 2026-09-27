@@ -25,6 +25,7 @@ interface CreateSharePreviewHandlerDependencies {
   cmsErrors: import("./website-cms").WebsiteCmsIssue[];
   customDomain: WebsiteCustomDomain | null;
   previewBusy: boolean;
+  previewOperationalBlocker: () => string;
   previewOperationSequenceRef: React.MutableRefObject<number>;
   previewToken: string;
   productionConfig: WebsiteProductionConfig;
@@ -59,6 +60,7 @@ export function createSharePreviewHandler({
   cmsErrors,
   customDomain,
   previewBusy,
+  previewOperationalBlocker,
   previewOperationSequenceRef,
   previewToken,
   productionConfig,
@@ -85,6 +87,11 @@ export function createSharePreviewHandler({
 }: CreateSharePreviewHandlerDependencies) {
   return async function createSharePreview() {
     if (previewBusy || publishBusy) return false;
+    const operationalBlocker = previewOperationalBlocker();
+    if (operationalBlocker) {
+      setPreviewError(operationalBlocker);
+      return false;
+    }
     if (siteAudit.errors.length || cmsErrors.length) {
       setPreviewError('Fix critical audit errors before creating staging.');
       return false;

@@ -86,6 +86,7 @@ let saveThrows = false;
 let saveSucceeds = true;
 let previewHealthy = true;
 let commitFails = false;
+let previewBlocked = false;
 const previewEvents = [];
 const previewState = {};
 const previewHandler = hookHarness('src/modules/website-builder/core/editor-share-preview-handler.ts', {
@@ -114,6 +115,7 @@ const createPreview = previewHandler({
   cloudRevisionRef: { current: { projectId: 'project', updatedAt: 'before' } },
   previewOperationSequenceRef: { current: 0 }, projectLoadSequenceRef: { current: 0 },
   previewBusy: false, publishBusy: false, previewToken: 'old',
+  previewOperationalBlocker: () => previewBlocked ? 'Backend release gate blocked staging.' : '',
   projectTeamAccess: { canPublish: true }, user: { id: 'owner' },
   siteAudit: { errors: [] }, cmsErrors: [], productionConfig: {},
   siteName: 'Test', publishedUrl: '',
@@ -122,6 +124,11 @@ const createPreview = previewHandler({
   getOutputPages: () => [{ id: 'home', sections: [] }], getOutputFilename: () => 'index.html',
   getHtml: () => '<!doctype html><html></html>', get404Html: () => '<!doctype html><html>404</html>',
 });
+previewBlocked = true;
+assert.equal(await createPreview(), false);
+assert.equal(previewState.PreviewError, 'Backend release gate blocked staging.');
+assert.equal(previewEvents.length, 0, 'Blocked app staging must not upload static pages');
+previewBlocked = false;
 saveThrows = true;
 assert.equal(await createPreview(), false);
 assert.equal(previewState.PreviewBusy, false, 'save exceptions must release the busy state');

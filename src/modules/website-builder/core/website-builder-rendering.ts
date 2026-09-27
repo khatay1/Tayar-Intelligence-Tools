@@ -1,4 +1,4 @@
-import { localizeUi } from '@/lib/ui-localization';
+import { localizeUi } from '../../../lib/ui-localization-complete-data';
 import { containerLayoutCss, elementConstraintCss } from './editor-layout-style';
 import { elementAnimationEasing, elementAnimationTransform, normalizeElementAnimation } from './editor-motion';
 import type { Language } from '@/context/PreferencesContext';

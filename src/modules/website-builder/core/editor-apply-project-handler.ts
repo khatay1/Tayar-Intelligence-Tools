@@ -11,8 +11,11 @@ import type { WebsiteCmsState } from '../core/website-cms';
 import { EMPTY_WEBSITE_CMS,normalizeWebsiteCms } from '../core/website-cms';
 import type { WebsiteLocalizationConfig } from '../core/website-localization';
 import { DEFAULT_WEBSITE_LOCALIZATION,normalizeWebsiteLocalization } from '../core/website-localization';
+import type { ApplicationDefinition } from './application-model';
+import { readApplicationDefinition } from './application-validation';
 
 interface createApplyProjectDataHandlerDependencies {
+  setApplication?: React.Dispatch<React.SetStateAction<ApplicationDefinition | undefined>>;
   prefs: import("@/context/PreferencesContext").UserPreferences;
   setActivePageId: React.Dispatch<React.SetStateAction<string>>;
   setBrand: React.Dispatch<React.SetStateAction<WebsiteBrand>>;
@@ -52,6 +55,7 @@ interface createApplyProjectDataHandlerDependencies {
 }
 
 export function createApplyProjectDataHandler({
+  setApplication,
   prefs,
   setActivePageId,
   setBrand,
@@ -90,8 +94,13 @@ export function createApplyProjectDataHandler({
   setTheme,
 }: createApplyProjectDataHandlerDependencies) {
   return function applyProjectData(input: unknown, loadHistory = true, resetEditHistory = true) {
+    const rawApplication = input && typeof input === 'object' && !Array.isArray(input) ? (input as PersistedWebsiteProject).application : undefined;
+    // Validate before normalization hydrates any global editor stores.
+    const rawPages = input && typeof input === 'object' && !Array.isArray(input) ? (input as PersistedWebsiteProject).pages : undefined;
+    const nextApplication = rawApplication === undefined ? undefined : readApplicationDefinition(rawApplication, new Set((rawPages ?? []).map(page => String(page.id))));
     const normalizedLoad = normalizeWebsiteProjectLoad(input);
     if (normalizedLoad.kind === 'invalid') return;
+    setApplication?.(nextApplication);
 
     const normalizedSections = normalizedLoad.sections;
     const normalizedPages = normalizedLoad.pages as WebsitePage[];

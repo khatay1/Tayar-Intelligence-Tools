@@ -47,3 +47,11 @@ verify_jwt = true
 
 [functions.template-library-delete-invalid]
 verify_jwt = true
+
+# Owner-only linking; handler also verifies the current user and project ownership.
+[functions.website-application-backend-link]
+verify_jwt = true
+
+# Owner-scoped release status/reconciliation; publication flags default off.
+[functions.website-application-release]
+verify_jwt = true

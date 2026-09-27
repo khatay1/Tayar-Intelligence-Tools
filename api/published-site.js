@@ -1,5 +1,7 @@
+import { tryServePublishedApplication } from '../server/generated/website-application-runtime.js';
+
 const SAFE_SEGMENT = /^[A-Za-z0-9_-]{1,160}$/;
-const SAFE_FILE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,500}$/;
+const SAFE_FILE = /^[\p{L}\p{N}][\p{L}\p{N}._/-]{0,500}$/u;
 const SAFE_HOSTNAME = /^(?=.{4,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 function queryValue(url, name) {
@@ -216,6 +218,26 @@ export default async function handler(req, res) {
       (previewToken && /^release(?:\/|$)/i.test(file))) {
     res.statusCode = 404;
     res.end('Published page not found');
+    return;
+  }
+
+  // Private application mode never falls through to public storage on an error.
+  const applicationHeaders = new Headers();
+  for (const name of ['authorization', 'cookie']) {
+    const value = firstHeader(req, name);
+    if (value) applicationHeaders.set(name, value);
+  }
+  const applicationResponse = await tryServePublishedApplication({
+    request: new Request(url.href, { method: req.method, headers: applicationHeaders }),
+    ownerId, projectId, file, platformUrl: supabaseUrl, preview: Boolean(previewToken),
+  });
+  if (applicationResponse) {
+    // Sandbox every private response, including SVG or mislabeled active content.
+    // The validated manifest's Content-Type is applied below.
+    setCommonHeaders(res, 'index.html', Boolean(previewToken));
+    applicationResponse.headers.forEach((value, name) => res.setHeader(name, value));
+    res.statusCode = applicationResponse.status;
+    res.end(req.method === 'HEAD' ? undefined : Buffer.from(await applicationResponse.arrayBuffer()));
     return;
   }
 

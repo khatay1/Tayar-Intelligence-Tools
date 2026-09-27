@@ -41,6 +41,13 @@ import { createEditorClipboardHandlers } from './editor-clipboard-handlers';
 import { createPublishWebsiteHandler } from './editor-publish-handler';
 import { createRecoverPublishedStateHandler } from './editor-recover-published-handler';
 import { createResetProjectHandler } from './editor-reset-project-handler';
+import type { ApplicationDefinition } from './application-model';
+import { applicationPublishBlockers } from './application-publish-readiness';
+import { applicationFingerprint, createApplicationCommand, type ApplicationOperation } from './application-operations';
+import { editorIntegrationPublishBlockers } from './editor-integrations-project-host';
+import { getEditorIntegrationsHostConfig } from './editor-integrations-host-store';
+import { runEditorCommand } from './editor-command';
+import { createEditorHistory } from './editor-history';
 import { createReusableElementHandlers } from './editor-reusable-element-handlers';
 import { useReusableSectionHandlers } from './editor-reusable-section-handlers';
 import { createRollbackPublishVersionHandler } from './editor-rollback-handler';
@@ -194,6 +201,7 @@ export function useWebsiteBuilderController({
   const [activePageId, setActivePageId] = useState('page-home');
   const [homePageId, setHomePageId] = useState('page-home');
   const [cms, setCms] = useState<WebsiteCmsState>(EMPTY_WEBSITE_CMS);
+  const [application, setApplication] = useState<ApplicationDefinition>();
   const [localization, setLocalization] = useState<WebsiteLocalizationConfig>(() => ({
     ...DEFAULT_WEBSITE_LOCALIZATION,
     defaultLanguage: prefs.language,
@@ -640,10 +648,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt,
     previewUrl, previewToken, previewCreatedAt, previewFingerprint,
     lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId,
-    pages: getCurrentPages(), cms, localization, brand, theme, headerConfig,
+    pages: getCurrentPages(), cms, application, localization, brand, theme, headerConfig,
     footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols,
     seo, language: prefs.language,
-  }), [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
+  }), [cloudProjectId, siteName, siteUrl, faviconUrl, publishedUrl, publishedAt, previewUrl, previewToken, previewCreatedAt, previewFingerprint, lastPublishedVersionId, lastPublishedFingerprint, activePageId, homePageId, getCurrentPages, cms, application, localization, brand, theme, headerConfig, footerConfig, siteEnhancements, productionConfig, deliveryConfig, symbols, seo, prefs.language]);
 
   const buildProjectSnapshot = useCallback(
     () => createEditorProjectSnapshot(projectSnapshotValues), [projectSnapshotValues],
@@ -757,6 +765,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
     const applyProjectData = createApplyProjectDataHandler({
+    setApplication,
     prefs,
     setActivePageId,
     setBrand,
@@ -2246,6 +2255,19 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   function remember(current: WebsiteSection[], label = 'Manual edit') {
     editHistoryHandlers.remember(current, label);
   }
+  function applyApplicationOperations(operations: ApplicationOperation[], source: 'manual' | 'ai' = 'manual', review?: { fingerprint: string; loadSequence: number; projectId: string | null }): string | null {
+    if (source === 'ai' && (!review || review.loadSequence !== projectLoadSequenceRef.current || review.projectId !== cloudProjectId)) return 'The project changed while AI was planning. Create a new plan.';
+    const current = { cloudProjectId, pages: getCurrentPages(), application };
+    const result = runEditorCommand(current, createApplicationCommand(operations, {
+      projectId: cloudProjectId, fingerprint: source === 'ai' ? review!.fingerprint : applicationFingerprint(current), reviewed: true,
+    }, source), { history: createEditorHistory() });
+    if (!result.transaction.ok) return result.transaction.errors.join(' ') || 'Application change failed.';
+    if (!result.transaction.changed) return null;
+    editHistoryHandlers.remember(sections, source === 'ai' ? 'AI application edit' : 'Application edit');
+    setApplication(result.project.application);
+    setSaved(false);
+    return null;
+  }
   function undo() { editHistoryHandlers.undo(); }
   function redo() { editHistoryHandlers.redo(); }
   function restoreEditHistoryEntry(entryId: string) { editHistoryHandlers.restoreEditHistoryEntry(entryId); }
@@ -3070,6 +3092,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     cmsErrors,
     customDomain,
     previewBusy,
+    previewOperationalBlocker: publishOperationalBlocker,
     previewOperationSequenceRef,
     previewToken,
     productionConfig,
@@ -3132,6 +3155,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   });
 
     const resetProject = createResetProjectHandler({
+    setApplication,
     cancelPendingProjectPersistence,
     l,
     lastSavedSnapshotRef,
@@ -3266,6 +3290,10 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   });
 
   function publishOperationalBlocker(): string {
+    const appBlocker = applicationPublishBlockers(application, new Set(getCurrentPages().map(page => page.id)))[0];
+    if (appBlocker) return `${l('Publish preflight blocked')}: ${appBlocker.message}`;
+    const integrationBlocker = editorIntegrationPublishBlockers(getEditorIntegrationsHostConfig())[0];
+    if (integrationBlocker) return `${l('Publish preflight blocked')}: ${integrationBlocker}`;
     if (!networkOnline) return `${l('Publish preflight blocked')}: ${l('You are offline. Reconnect and try again.')}`;
     if (cloudSyncFailed || autoSaveStatus === 'failed') return l('Resolve cloud sync before publishing.');
     if (siteAudit.errors.length) return `${l('Publish preflight blocked')}: ${l('Fix critical audit errors first')} (${siteAudit.errors.length}).`;
@@ -3591,6 +3619,6 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     symbols, updateFormAutomation, updateFormField, updateSelected, updateSelectedContainer, updateSelectedSectionResponsive, getCurrentPages, editorV2Flags,
     duplicateSelectedTarget, deleteSelectedTarget, renameSymbol, duplicateSymbol, selectNextSymbolInstance, openV2MediaUpload, generateMediaLibraryImage, v2DuplicateSectionDirect,
     v2MoveElementDirect, v2DuplicateElementDirect, v2DeleteElementDirect, applyV2NativeOperations, restoreEditHistoryEntry, brand, selectedContainerId, selectedFormFieldId,
-    hasUnsavedChanges, cmsErrors, clearEditorDragState, projectId,
+    hasUnsavedChanges, cmsErrors, clearEditorDragState, projectId, application, applicationLoadSequence: projectLoadSequenceRef.current, applyApplicationOperations,
   };
 }

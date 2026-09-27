@@ -77,7 +77,7 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "main": true,
+      "main": false,
       "internal-*": false,
       "translation-batch-check-20260902": false,
       "release/ai-patch-engine-v1": false,

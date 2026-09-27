@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient, HttpError } from "../_shared/billing.ts";
+import { deliverSignedWebsiteWebhook, validWebsiteWebhookDestination } from "../_shared/website-webhook-security.ts";
 
 type FormField = {
   name: string;
@@ -36,17 +37,6 @@ function safeValidationPattern(value: unknown) {
   try { return new RegExp(pattern); } catch { return null; }
 }
 function validEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
-function validWebhookDestination(value: string) {
-  try {
-    const url = new URL(value);
-    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) return false;
-    if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host === "0.0.0.0" || host === "::1") return false;
-    if (/^127\.|^10\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
-    if (/^fc|^fd|^fe[89ab]/i.test(host.replaceAll(":", ""))) return false;
-    return host.includes(".");
-  } catch { return false; }
-}
 function visible(field: FormField, values: Record<string, unknown>) {
   return !(field.conditions || []).length || field.conditions!.every((rule) => {
     const actual = text(values[rule.fieldName], 1000);
@@ -88,14 +78,6 @@ function validate(definition: Definition, values: Record<string, unknown>) {
 function escapeHtml(value: unknown) {
   return text(value, 10_000).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
-async function hmac(payload: string) {
-  const secret = Deno.env.get("WEBSITE_FORM_WEBHOOK_SECRET") || "";
-  if (!secret) return "";
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-  return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });
   if (req.method !== "POST") return response(req, { error: "Method not allowed" }, 405);
@@ -152,7 +134,7 @@ Deno.serve(async (req) => {
 
     const find = (needle: string) => Object.entries(values).find(([key]) => key.toLowerCase().includes(needle))?.[1];
     const automations = (definition.automations || []).filter((item) => item.enabled && (
-      item.action === "email" ? validEmail(text(item.destination, 320)) : item.action === "webhook" && validWebhookDestination(text(item.destination, 1000))
+      item.action === "email" ? validEmail(text(item.destination, 320)) : item.action === "webhook" && validWebsiteWebhookDestination(text(item.destination, 1000))
     )).slice(0, 10);
     const lead = {
       id: leadId, project_id: projectId, user_id: formRow.user_id, form_id: formId, form_name: text(formRow.name, 120),
@@ -173,7 +155,7 @@ Deno.serve(async (req) => {
         const payload = JSON.stringify({ event: "website.form.submitted", projectId, formId, leadId, formName: formRow.name, pagePath, values, files, createdAt: new Date().toISOString() });
         let deliveryResponse: Response;
         if (automation.action === "webhook") {
-          deliveryResponse = await fetch(automation.destination, { method: "POST", headers: { "Content-Type": "application/json", "X-Tayar-Event": "website.form.submitted", "X-Tayar-Signature": await hmac(payload) }, body: payload, signal: AbortSignal.timeout(10_000) });
+          deliveryResponse = await deliverSignedWebsiteWebhook(automation.destination, payload, Deno.env.get("WEBSITE_FORM_WEBHOOK_SECRET"));
         } else {
           const apiKey = Deno.env.get("EMAIL_API_KEY");
           if (!apiKey) throw new Error("Email provider is not configured");
@@ -183,7 +165,7 @@ Deno.serve(async (req) => {
         delivered += 1;
         await admin.from("website_form_deliveries").update({ status: "delivered", response_status: deliveryResponse.status, delivered_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", deliveryId);
       } catch (error) {
-        await admin.from("website_form_deliveries").update({ status: "failed", last_error: error instanceof Error ? error.message.slice(0, 500) : "Delivery failed", updated_at: new Date().toISOString() }).eq("id", deliveryId);
+        await admin.from("website_form_deliveries").update({ status: "failed", last_error: error instanceof Error && error.message === "Webhook signing is not configured" ? error.message : "Delivery failed", updated_at: new Date().toISOString() }).eq("id", deliveryId);
       }
     }
     if (automations.length) await admin.from("website_leads").update({ workflow_status: delivered === automations.length ? "completed" : delivered ? "partial" : "failed" }).eq("id", leadId);

@@ -13,6 +13,7 @@ import { DEFAULT_WEBSITE_LOCALIZATION } from '../core/website-localization';
 import type { WebsiteFormDelivery } from '../services/websiteFormService';
 
 interface createResetProjectHandlerDependencies {
+  setApplication?: React.Dispatch<React.SetStateAction<import('./application-model').ApplicationDefinition | undefined>>;
   cancelPendingProjectPersistence: () => void;
   l: (text: string) => string;
   lastSavedSnapshotRef: React.MutableRefObject<string>;
@@ -72,6 +73,7 @@ interface createResetProjectHandlerDependencies {
 }
 
 export function createResetProjectHandler({
+  setApplication,
   cancelPendingProjectPersistence,
   l,
   lastSavedSnapshotRef,
@@ -145,6 +147,7 @@ export function createResetProjectHandler({
     setActivePageId('page-home');
     setHomePageId('page-home');
     setCms(EMPTY_WEBSITE_CMS);
+    setApplication?.(undefined);
     setLocalization({ ...DEFAULT_WEBSITE_LOCALIZATION, defaultLanguage: prefs.language });
     setSelectedId(defaultSections[0].id);
     setSelectedElementId(defaultSections[0].elements[0]?.id ?? null);
