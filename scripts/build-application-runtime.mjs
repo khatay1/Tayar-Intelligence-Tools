@@ -1,3 +1,4 @@
+import './build-application-auth-browser.mjs';
 import { build } from 'esbuild';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const output = 'server/generated/website-application-runtime.js';

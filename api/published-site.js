@@ -223,7 +223,7 @@ export default async function handler(req, res) {
 
   // Private application mode never falls through to public storage on an error.
   const applicationHeaders = new Headers();
-  for (const name of ['authorization', 'cookie']) {
+  for (const name of ['authorization', 'cookie', 'accept']) {
     const value = firstHeader(req, name);
     if (value) applicationHeaders.set(name, value);
   }

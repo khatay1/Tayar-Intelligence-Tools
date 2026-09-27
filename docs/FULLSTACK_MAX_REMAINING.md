@@ -1,6 +1,6 @@
 # Tayar Fullstack MAX — remaining work after source consolidation
 
-Updated 2026-09-27. Source integration into main was explicitly requested by the owner. Integration is not production activation or completion of MAX.
+Updated 2026-09-27. Earlier foundations are consolidated on main; ongoing work now lives on `internal-fullstack-max-continue-20260927` by explicit owner request. Read FULLSTACK_MAX_HANDOFF.md first. Integration is not production activation or completion of MAX.
 
 ## Implemented foundations to preserve
 
@@ -16,7 +16,7 @@ Updated 2026-09-27. Source integration into main was explicitly requested by the
 
 | Priority | Workstream | Concrete remaining work / completion evidence |
 |---|---|---|
-| 1 | Published authentication and navigation | Embed the dedicated runtime in generated pages; provide login, signup, email verification, password reset and logout controls; synchronize refresh and protected navigation; expose role administration safely. Verify direct links, reloads, multiple tabs, expired sessions and revoked permissions in a real browser. |
+| 1 | Published authentication and navigation | A trusted isolated account shell now provides login/signup/reset/recovery/logout flows, with mocked tests. Embed the dedicated runtime and account controls in authored generated pages; synchronize refresh and protected navigation; expose role administration safely. Verify direct links, reloads, multiple tabs, expired sessions and revoked permissions in a real browser. |
 | 2 | Live isolated backend and host lifecycle | Connect creation/preparation of per-app backends and controlled schema upgrades; configure isolated app DNS/hosting/routing and Auth redirect/email delivery; verify linking and credential rotation against a live test deployment. Existing linking assumes a prepared backend. |
 | 3 | Data-driven UI and application actions | Bind visual components, lists and forms to declared app tables; implement CRUD actions, variables, action sequences and server functions through the shared manual/AI operation path. Prove persisted data and permission behavior end to end. |
 | 4 | Secrets and integrations | Connect secret-management controls to the existing project Vault boundary; implement server execution, REST/provider adapters, email/storage flows, safe errors, timeouts/retries and environment isolation. Never expose service keys to generated HTML or use Tayar's own credentials for customer apps. |
