@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-28. Branch: `internal-fullstack-max-continue-20260927`. HEAD: the latest commit on this branch containing this checkpoint; Phase 2 registry checkpoint is `b50877a`. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-28. Branch: `internal-fullstack-max-continue-20260927`. HEAD: the latest commit on this branch containing this checkpoint; GitHub verifier checkpoint is `e200d1d`. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -24,7 +24,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - Phase 1 architecture classification and ownership decision are recorded here.
 - Phase 2 has a server-owned connection contract for GitHub, Supabase, Vercel, Stripe and external providers: owner/project/account/environment identity, permissions, status, version, operation nonce, verified timestamp and stale-response checks. A private platform registry migration adds a service-role-only version-guarded writer and owner-scoped read RPC. An owner reader drops undeclared payload fields and rejects cross-project, stale, malformed and duplicate responses. The migration is source only; OAuth provider adapters and token custody remain unimplemented.
 - Phase 3 has a pure GitHub target/export guard: it requires a matching observed installation account, immutable repository ID, repository owner, selected installation access and write permission. It checks branch/head, project, connection version and source digest before planning an export. It does not call GitHub, write a repository or mark a deployment successful.
-- A server-only GitHub App user-grant verifier now checks the installation through the user-scoped installations API, then checks the selected repository through that installation. It requires Contents write, user push permission, matching account/repository identity and an active repository. The setup URL's installation ID is treated as untrusted. The user token stays request-local. OAuth code exchange, one-time state, custody and a deployed callback still need implementation.
+- A server-only GitHub App user-grant verifier now checks the installation through the user-scoped installations API, then checks the selected repository through that installation. It requires Contents write, user push permission, matching account/repository identity and an active repository. The setup URL's installation ID is treated as untrusted. The user token stays request-local. OAuth code exchange and a deployed callback still need implementation.
+- One-time OAuth state now uses 256 bits of randomness; only its SHA-256 hash and owner/project/provider/environment/expiry are held in a private platform table. A service-role-only create RPC checks current project ownership and caps active attempts; atomic DELETE/RETURNING consumes once. This is source-only and does not yet exchange a provider code or activate a connection.
 
 ## Verified
 
@@ -32,11 +33,12 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - The migration was run only inside rolled-back transactions on `Tayar Fullstack MAX Validation` with a disposable `public.projects` fixture: service-role insert and guarded update, stale-version refusal, owner projection, other-owner refusal and authenticated write denial passed. A post-rollback query found neither fixture table. This is isolated PostgreSQL proof, not a platform migration or live OAuth proof.
 - GitHub target/export guard regression uses fixture observations for wrong account/repository, revoked permission, branch drift and stale connection. TypeScript passed. GitHub's own documentation says installation repository access and Contents write permission must be checked, and ref updates must avoid force when guarding fast-forward changes; no live GitHub write was attempted.
 - GitHub verifier regression uses mocked HTTP for valid installation/repository, missing installation, read-only/suspended grant, wrong owner, absent push access, archived repo and error masking. TypeScript and ESLint passed. No live OAuth or GitHub API call was made.
+- OAuth state service regression uses mocked RPC for random/hash custody, replay, provider mismatch and stale owner. On the isolated validation PostgreSQL database, the migration passed in rolled-back transactions with a disposable project fixture: owner/expiry guard, single-use consume, authenticated RPC denial and five-active-attempt limit. A post-rollback query confirmed the fixture absent. No production migration or callback was deployed.
 - Earlier Vault inventory checks used mocked RPC, not a live customer account.
 
 ## In progress
 
-- Phase 2 trusted OAuth/installation identity verification and token custody, then Phase 3 provider adapter and repository write/reconciliation. The connection status UI must read server-owned records, never editable snapshot claims.
+- Phase 2 trusted OAuth code exchange, GitHub App registration, callback and short-lived grant handling; then Phase 3 repository write/reconciliation. The connection status UI must read server-owned records, never editable snapshot claims.
 
 ## Remaining
 
@@ -53,11 +55,11 @@ No live GitHub OAuth/installation, Supabase account ownership, Vercel team owner
 
 ## Files changed in the latest batch
 
-Latest GitHub verifier batch: `docs/FULLSTACK_MAX_CHECKPOINT.md`, `package.json`, `src/modules/website-builder/services/websiteGithubInstallationService.ts`, `scripts/website-github-installation-regression.mjs`. Earlier GitHub guard batch: `src/modules/website-builder/core/application-github-target.ts`, `scripts/application-github-target-regression.mjs`. BYO registry batch: `src/modules/website-builder/core/application-infrastructure-connections.ts`, `src/modules/website-builder/services/websiteInfrastructureConnectionClient.ts`, `supabase/migrations/20260928205027_website_byo_infrastructure_connections.sql`, `scripts/application-infrastructure-connections-regression.mjs`, `scripts/website-infrastructure-connection-client-regression.mjs`.
+Latest OAuth state batch: `docs/FULLSTACK_MAX_CHECKPOINT.md`, `package.json`, `src/modules/website-builder/services/websiteConnectionOAuthStateService.ts`, `supabase/migrations/20260928215024_website_byo_oauth_state.sql`, `scripts/website-connection-oauth-state-regression.mjs`. Earlier GitHub verifier: `src/modules/website-builder/services/websiteGithubInstallationService.ts`, `scripts/website-github-installation-regression.mjs`; target guard: `src/modules/website-builder/core/application-github-target.ts`, `scripts/application-github-target-regression.mjs`; BYO registry: `src/modules/website-builder/core/application-infrastructure-connections.ts`, `src/modules/website-builder/services/websiteInfrastructureConnectionClient.ts`, `supabase/migrations/20260928205027_website_byo_infrastructure_connections.sql`, `scripts/application-infrastructure-connections-regression.mjs`, `scripts/website-infrastructure-connection-client-regression.mjs`.
 
 ## Next exact batch
 
-Add one-time OAuth state and a trusted GitHub App code-exchange callback bound to the currently authenticated Tayar owner/project. Feed its user token only into the server-side verifier, then save the observed installation/repository in the private connection registry under CAS. Mint installation tokens on demand for export; perform a non-force branch update with uncertain-commit reconciliation and a durable repository/branch cursor. Only then expose a working Connect GitHub button and server-backed status. Keep Supabase/Vercel adapters and publish gates closed until their own verification exists.
+Add a trusted GitHub App code-exchange callback that consumes the new one-time state, feeds the user token only into the server-side verifier, and records the observed installation/repository in the private registry under CAS. Mint installation tokens on demand for export; perform a non-force branch update with uncertain-commit reconciliation and a durable repository/branch cursor. Only then expose a working Connect GitHub button and server-backed status. Keep Supabase/Vercel adapters and publish gates closed until their own verification exists.
 
 ## Known blockers
 
