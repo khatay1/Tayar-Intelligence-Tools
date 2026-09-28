@@ -29,6 +29,10 @@ try {
   };
   const sql = compile(app).join('\n');
   assert.match(sql, /create table public\."app_bookings"/);
+  assert.match(sql, /_tayar_request_id uuid/);
+  assert.match(sql, /create unique index "app_i_0_request".*\(owner_id, _tayar_request_id\) where _tayar_request_id is not null/);
+  assert.match(sql, /create trigger app_guard_form_request before update on public\."app_bookings"/);
+  assert.match(sql, /new\._tayar_request_id is distinct from old\._tayar_request_id/);
   assert.match(sql, /create table private\.app_schema_revisions/);
   assert.match(sql, /revoke all on private\.app_schema_revisions from public, anon, authenticated/);
   assert.match(sql, /create or replace function public\.app_deployed_definition\(\).*security invoker/);
@@ -76,6 +80,8 @@ try {
   if (process.env.APPLICATION_MIGRATION_OUTPUT) await writeFile(process.env.APPLICATION_MIGRATION_OUTPUT, `${changes}\n`);
   assert.match(changes, /alter table public\."app_bookings" add column "status" text not null default 'pending'/);
   assert.match(changes, /create table public\."app_locations"/);
+  assert.match(changes, /create unique index "app_i_2_request".*\(owner_id, _tayar_request_id\) where _tayar_request_id is not null/);
+  assert.doesNotMatch(changes, /alter table public\."app_bookings" add column _tayar_request_id/, 'Older tables need a guarded runtime upgrade, not an implicit schema change');
   assert.ok(changes.indexOf('create table public."app_locations"') < changes.indexOf('add constraint "app_fk_0_3"'));
   assert.match(changes, /revoke all on public\."app_bookings" from anon, authenticated/);
   assert.match(changes, /drop policy "app_p_0_delete"/);

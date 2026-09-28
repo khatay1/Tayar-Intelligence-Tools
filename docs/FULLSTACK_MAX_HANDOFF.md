@@ -12,7 +12,13 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Latest completed batch — manual application form mapping controls
+## Latest completed batch — application request identity foundation
+
+- New isolated application schemas and newly added tables include nullable `_tayar_request_id`, a unique `(owner_id, _tayar_request_id)` index and an update trigger that prevents changing the request identity. Ordinary CRUD can omit it. The dedicated public-key client has `createOnce(tableId, values, requestId)` and uses only the declared fields plus that UUID; after a failed insert it attempts owner-scoped reconciliation only when a read rule exists, otherwise reports an uncertain outcome. No platform credential is involved.
+- PASS schema compiler assertions and SDK/HTTP-mocked request tests including scope, system-field denial and masked uncertainty; full project health, TypeScript, ESLint, Vite build, application regression suite and generated runtime consistency. These checks do not prove PostgreSQL enforcement or live recovery.
+- The existing backend schema lacks this column, and there is no guarded backfill/capability verification yet. The saved form controller and published UI do not call `createOnce`; bound publishing remains closed. Never treat this as completed durable idempotency or enable it on production.
+
+## Previous completed batch — manual application form mapping controls
 
 - The V2 section inspector now displays application form data mapping for a selected contact section. It lists only tables with a declared create permission, maps each existing form field to a declared table field, validates the entire binding with the same compiler as private rendering, and saves or removes it through the shared native `update_section` operation. A saved mapping reopens from project state; project/schema changes remount the draft to prevent stale application.
 - Added EN/AR/SV labels and a bounded responsive grid. An invalid candidate cannot be saved. The UI warns that a bound form cannot accept records until secure private execution is available; the private renderer continues to refuse publication of bound mutations.
@@ -60,7 +66,7 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 ## Next work — do not redo earlier foundations
 
 1. Verify the account screen in a real browser, including password reset/confirmation links and multiple-tab behavior against an isolated test backend. Resolve any UI/Auth callback defects found.
-2. Implement a server-owned idempotency/reconciliation boundary for creates before allowing the private renderer to emit bound forms; then connect published form listeners to the tested controller and verify the editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
+2. Add a guarded, versioned upgrade for `_tayar_request_id` on existing isolated backends and a service-only capability preflight. Verify PostgreSQL unique/trigger/RLS behavior and same-request recovery in an isolated transaction. Then connect the saved form controller to stable request IDs and published listeners, only lifting the renderer gate when those paths are proved. Verify editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
 3. Finish isolated backend provisioning/schema application, configured Auth redirects/SMTP and per-app DNS/routing; preserve production separation.
 4. Continue the data bindings/actions, integration execution/secrets UI, application Stripe, private publishing lifecycle and A/B/C live release gates in FULLSTACK_MAX_REMAINING.md.
 
@@ -87,6 +93,8 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 - `scripts/application-form-binding-regression.mjs`
 - `src/modules/website-builder/v2-ui/BuilderApplicationFormMapping.tsx`
 - `scripts/application-form-mapping-regression.mjs`
+- `src/modules/website-builder/core/application-schema-sql.ts`
+- `src/modules/website-builder/core/application-data-runtime.ts`
 
 Run `node scripts/build-application-runtime.mjs` and `node scripts/build-application-release.mjs` after shared/browser changes; their consistency checks also check the generated Auth and published-page scripts. Run affected tests, `npm run health:project`, `npm run lint`, and `npm run build` when a substantive batch is ready.
 

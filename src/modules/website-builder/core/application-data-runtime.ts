@@ -193,6 +193,30 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
       const target = table(tableId);
       return checked(await client.from(`app_${target.key}`).insert(writable(target, input)).select('*').single());
     },
+    /** The UUID is stable for one intentional submission. The dedicated database
+     * enforces owner-scoped uniqueness; a lost insert response can be checked
+     * only through a read policy for the same live user. No service key is used. */
+    async createOnce(tableId: string, input: Record<string, unknown>, requestId: string): Promise<'created' | 'already-created'> {
+      const target = table(tableId);
+      const request = rowId(requestId).toLowerCase();
+      const values = writable(target, input);
+      try {
+        const result = await client.from(`app_${target.key}`).insert({ ...values, _tayar_request_id: request });
+        if (!result.error) return 'created';
+      } catch { /* The database may have committed before transport failed. */ }
+      if (target.permissions.some(rule => rule.operation === 'read')) {
+        try {
+          const identity = await client.auth.getUser();
+          const user = identity.data.user;
+          if (identity.error || !user || user.is_anonymous) throw new Error();
+          rowId(user.id);
+          const lookup = await client.from(`app_${target.key}`).select('id')
+            .eq('owner_id', user.id).eq('_tayar_request_id', request).maybeSingle();
+          if (!lookup.error && lookup.data?.id) return 'already-created';
+        } catch { /* Unknown commit outcome remains uncertain. */ }
+      }
+      throw new Error('Application submission outcome is uncertain.');
+    },
     async update(tableId: string, id: string, input: Record<string, unknown>) {
       const target = table(tableId);
       const row = checked(await client.from(`app_${target.key}`).update(writable(target, input)).eq('id', rowId(id)).select('*').maybeSingle());

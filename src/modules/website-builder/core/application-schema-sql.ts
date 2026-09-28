@@ -138,6 +138,26 @@ $$;`,
   ];
 }
 
+/** A nullable request UUID leaves ordinary CRUD unchanged. Bound creates will
+ * use it to prevent a second row when a browser loses the first response. */
+function formRequestInfrastructure(): string[] {
+  return [`create or replace function public.app_guard_form_request() returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new._tayar_request_id is distinct from old._tayar_request_id then
+    raise exception 'Immutable application request identity';
+  end if;
+  return new;
+end $$;`];
+}
+
+function formRequestIndex(tableIndex: number, table: ApplicationTable): string {
+  return `create unique index ${sqlName(`app_i_${tableIndex}_request`)} on public.${sqlName(tableName(table))} (owner_id, _tayar_request_id) where _tayar_request_id is not null;`;
+}
+
+function formRequestTrigger(table: ApplicationTable): string {
+  return `create trigger app_guard_form_request before update on public.${sqlName(tableName(table))} for each row execute function public.app_guard_form_request();`;
+}
+
 function revisionReadInfrastructure(): string[] {
   return [
     'grant usage on schema private to service_role;',
@@ -164,6 +184,7 @@ export function compileInitialApplicationSchema(input: ApplicationDefinition): s
   statements.push('revoke all on private.app_schema_revisions from public, anon, authenticated;');
   statements.push(`insert into private.app_schema_revisions (id, definition) values (true, ${literal(JSON.stringify(app))}::jsonb);`);
   statements.push(...revisionReadInfrastructure());
+  statements.push(...formRequestInfrastructure());
   statements.push(`create function public.app_guard_audit_fields() returns trigger language plpgsql set search_path = '' as $$
 begin
   if new.id is distinct from old.id or new.owner_id is distinct from old.owner_id or new.created_at is distinct from old.created_at then
@@ -180,12 +201,14 @@ end $$;`);
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()${fields.length ? `,\n  ${fields.join(',\n  ')}` : ''}
+  updated_at timestamptz not null default now(),
+  _tayar_request_id uuid${fields.length ? `,\n  ${fields.join(',\n  ')}` : ''}
 );`);
     statements.push(`alter table ${name} enable row level security;`);
     statements.push(`revoke all on ${name} from public, anon, authenticated;`);
     statements.push(`create index ${sqlName(`app_i_${tableIndex}_owner`)} on ${name} (owner_id);`);
     statements.push(`create trigger app_guard_audit before update on ${name} for each row execute function public.app_guard_audit_fields();`);
+    statements.push(formRequestIndex(tableIndex, table), formRequestTrigger(table));
     for (const [index, field] of table.fields.entries()) statements.push(...fieldIndex(tableIndex, index, table, field));
   }
   // Add references only after all tables exist, including cyclic relationships.
@@ -226,6 +249,7 @@ end $revision$;`,
   ];
   statements.push(...revisionReadInfrastructure());
   if (!before.roles.length && after.roles.length) statements.push(...roleInfrastructure());
+  if (after.tables.length > before.tables.length) statements.push(...formRequestInfrastructure());
   for (const [index, table] of after.tables.entries()) {
     const old = before.tables[index];
     const name = `public.${sqlName(tableName(table))}`;
@@ -235,12 +259,14 @@ end $revision$;`,
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()${fields.length ? `,\n  ${fields.join(',\n  ')}` : ''}
+  updated_at timestamptz not null default now(),
+  _tayar_request_id uuid${fields.length ? `,\n  ${fields.join(',\n  ')}` : ''}
 );`);
       statements.push(`alter table ${name} enable row level security;`);
       statements.push(`revoke all on ${name} from public, anon, authenticated;`);
       statements.push(`create index ${sqlName(`app_i_${index}_owner`)} on ${name} (owner_id);`);
       statements.push(`create trigger app_guard_audit before update on ${name} for each row execute function public.app_guard_audit_fields();`);
+      statements.push(formRequestIndex(index, table), formRequestTrigger(table));
     }
     for (let fieldIndexValue = old?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
       const field = table.fields[fieldIndexValue];

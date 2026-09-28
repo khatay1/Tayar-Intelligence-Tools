@@ -29,11 +29,15 @@ try {
   assert.throws(() => createIsolatedApplicationClient({ ...config, url: 'https://sgewokeojtzsqjaeluan.supabase.co.evil.invalid' }, platform), /HTTPS/);
 
   const requests = [];
+  let denyCreate = false;
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     requests.push({ url, init });
     if (url.includes('/rpc/app_set_user_role')) return new Response(null, { status: 204 });
+    if (init?.method === 'POST' && url.includes('/rest/v1/app_vehicles')) return denyCreate
+      ? Response.json({ message: 'SECRET_DATABASE_ERROR' }, { status: 403 })
+      : new Response(null, { status: 201 });
     return new Response(JSON.stringify([{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', plate: 'ABC' }]), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   try {
@@ -74,6 +78,22 @@ try {
     await assert.rejects(() => roleRuntime.auth.setUserRole('bad-id', 'staff', true), /valid record ID/);
     await roleRuntime.auth.setUserRole('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'staff', true);
     assert.match(requests.at(-1).url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/rpc\/app_set_user_role/);
+    const requestId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const createApp = structuredClone(roleApp);
+    createApp.tables[0].permissions.push({ operation: 'create', access: 'owner' });
+    const once = createApplicationDataRuntime(createApp, config, platform);
+    assert.equal(await once.createOnce('vehicles', { plate: 'ABC' }, requestId), 'created');
+    assert.equal(new URL(requests.at(-1).url).pathname, '/rest/v1/app_vehicles');
+    assert.equal(requests.at(-1).init.method, 'POST');
+    assert.deepEqual(JSON.parse(requests.at(-1).init.body), { plate: 'ABC', _tayar_request_id: requestId });
+    assert.equal(new Headers(requests.at(-1).init.headers).get('apikey'), config.publishableKey);
+    const beforeInvalid = requests.length;
+    await assert.rejects(() => once.createOnce('vehicles', { owner_id: 'forged' }, requestId));
+    await assert.rejects(() => once.createOnce('vehicles', { plate: 'ABC' }, 'not-a-uuid'));
+    assert.equal(requests.length, beforeInvalid);
+    denyCreate = true;
+    await assert.rejects(() => once.createOnce('vehicles', { plate: 'ABC' }, requestId), /outcome is uncertain/);
+    once.dispose();
   } finally { globalThis.fetch = previousFetch; }
   console.log('PASS isolated application client: public-only keys, project boundary, CRUD whitelist and dedicated endpoint');
 } finally { await rm(dir, { recursive: true, force: true }); }
