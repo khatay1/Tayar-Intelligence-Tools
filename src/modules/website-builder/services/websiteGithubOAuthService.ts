@@ -7,7 +7,8 @@ const codePattern = /^[a-zA-Z0-9_-]{1,1024}$/;
 
 function callbackUrl(value: string): string {
   const url = new URL(value);
-  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password || url.hash || url.search) {
+  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password || url.hash
+    || (url.search && url.search !== '?action=callback')) {
     throw new Error('GitHub connection is not configured.');
   }
   return url.toString();

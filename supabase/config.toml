@@ -55,3 +55,8 @@ verify_jwt = true
 # Owner-scoped release status/reconciliation; publication flags default off.
 [functions.website-application-release]
 verify_jwt = true
+
+# GitHub OAuth callback has no Tayar bearer JWT. The begin action checks the
+# current user JWT and project ownership; callback consumes one-use state.
+[functions.website-github-connection]
+verify_jwt = false
