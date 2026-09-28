@@ -296,3 +296,9 @@ Implementation branch: `feat/fullstack-max-20260926`. On 2026-09-27 the user exp
 
 - PARTIAL: a dedicated form controller persists a UUID and payload fingerprint before its create-once call, reuses the identity after reload for the same values, and preserves it after uncertain outcome/disposal. Changed payloads, corrupt/blocked storage and concurrent same-key submissions fail closed. Confirmed submissions clear the marker for a new intentional record.
 - PASS: lost-response/reload, changed payload, storage refusal, concurrency and new-record regression with mocked runtime; TypeScript plus project checks. The key must be supplied by a future published listener with real backend/user/form scope. No published listener, multi-tab/browser or live PostgreSQL proof yet, so bound form publishing remains closed. No main merge, deployment, migration or flags.
+
+## Checkpoint 2026-09-28 — isolated request upgrade proof
+
+- PASS on the dedicated Supabase validation project: generated the legacy upgrade from its live saved definition and executed it within a rolled-back PostgreSQL 17 transaction. Verified version marker, column/trigger presence, owner insert and same-request uniqueness, immutable request ID, owner reconciliation, anonymous insert denial and foreign non-manager read denial. A repeated upgrade in the same transaction succeeded. A pre-existing correct column/index on a newly added table was accepted; wrong column type and unrelated same-name index were rejected. Post-rollback inspection confirmed no marker/columns and unchanged booking count.
+- SECURITY: moved the privileged revision implementation to `private`; the exposed service-only RPC is `security invoker`. The test fixture is `scripts/fixtures/application-form-request-upgrade.sql`.
+- LIMIT: no production migration or deployment, published listener or real browser recovery. Bound form publication remains closed. `main` and runtime flags remain unchanged.

@@ -18,6 +18,13 @@ The owner explicitly requested continuing on this GitHub side branch so work sur
 - Concurrent calls in the same page runtime for the same storage key are serialized; confirmed submissions clear the marker, while uncertain/disposed submissions keep it. Storage or hashing failures stop before the network mutation. This boundary is not wired to published HTML: safe form discovery, identity scoping, lifecycle and live reconciliation still need work. Cross-tab coordination is not proved.
 - PASS mocked lost-response/reload, changed payload, failure, concurrency and intentional new-record regression; TypeScript and project checks at this checkpoint. No live browser or database execution.
 
+## Isolated PostgreSQL verification — 2026-09-28
+
+- On the dedicated `Tayar Fullstack MAX Validation` Supabase project only, generated the upgrade from its actual saved legacy definition (vehicles, bookings, locations) and ran it inside a transaction followed by `ROLLBACK`. It passed owner insert and same-request uniqueness, immutable request identity, owner lookup, anonymous insert denial, other non-manager user read denial, column/trigger checks and service-only RPC privilege checks. A second invocation inside the same transaction returned version 1. Post-rollback inspection showed no capability table, no request columns and the original two booking rows.
+- The upgrade also tolerates a previously added table with the correctly typed request column and unique index. It validates both before writing the marker and replaces the trigger. Separate rolled-back tests confirmed that a wrong column type or unrelated same-name index aborts the upgrade without a capability marker.
+- Moved the privileged capability reader into `private`; the exposed `public` RPC now runs with invoker rights and is granted only to `service_role`. The proof query lives in `scripts/fixtures/application-form-request-upgrade.sql` for a disposable validation backend.
+- These checks prove the generated upgrade against the existing test backend, not a production deployment, browser submission or multi-tab recovery.
+
 ## Previous completed batch — guarded request-identity upgrade and preflight
 
 - Added a transactional, definition-checked SQL upgrade for legacy isolated app tables. It locks the saved schema revision, adds request UUIDs with owner-scoped unique indexes and immutable triggers, and writes a private version marker last. A repeat call with the same marker is a no-op. A service-role-only revision RPC and dedicated-backend reader let release preparation check the capability against the same isolated backend.
@@ -78,7 +85,7 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 ## Next work — do not redo earlier foundations
 
 1. Verify the account screen in a real browser, including password reset/confirmation links and multiple-tab behavior against an isolated test backend. Resolve any UI/Auth callback defects found.
-2. Run the guarded `_tayar_request_id` upgrade on a disposable legacy isolated backend and verify PostgreSQL uniqueness/trigger/RLS behavior and same-request recovery in a transaction. Resolve the mixed legacy/additive table case before automated lifecycle application. Then connect the durable controller to trusted published form discovery/listeners and scope its storage key to the actual dedicated project/user/form; only lift the renderer gate when those paths are proved. Verify editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
+2. Connect the durable controller to trusted published form discovery/listeners and scope its storage key to the actual dedicated project/user/form; prove browser submission, reload and reconciliation before lifting the renderer gate. Verify editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
 3. Finish isolated backend provisioning/schema application, configured Auth redirects/SMTP and per-app DNS/routing; preserve production separation.
 4. Continue the data bindings/actions, integration execution/secrets UI, application Stripe, private publishing lifecycle and A/B/C live release gates in FULLSTACK_MAX_REMAINING.md.
 

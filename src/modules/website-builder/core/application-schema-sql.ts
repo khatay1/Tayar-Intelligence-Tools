@@ -155,8 +155,13 @@ function formRequestCapability(): string[] {
     'create table private.app_runtime_capabilities (id boolean primary key default true check (id), form_request_version integer not null check (form_request_version = 1));',
     'revoke all on private.app_runtime_capabilities from public, anon, authenticated;',
     'insert into private.app_runtime_capabilities (id, form_request_version) values (true, 1);',
-    `create or replace function public.app_form_request_revision() returns integer language sql stable security definer set search_path = '' as $$
+    `create or replace function private.app_form_request_revision() returns integer language sql stable security definer set search_path = '' as $$
   select form_request_version from private.app_runtime_capabilities where id = true
+$$;`,
+    'revoke all on function private.app_form_request_revision() from public, anon, authenticated;',
+    'grant execute on function private.app_form_request_revision() to service_role;',
+    `create or replace function public.app_form_request_revision() returns integer language sql stable security invoker set search_path = '' as $$
+  select private.app_form_request_revision()
 $$;`,
     'revoke all on function public.app_form_request_revision() from public, anon, authenticated;',
     'grant execute on function public.app_form_request_revision() to service_role;',
@@ -321,13 +326,26 @@ end $revision$;`,
  * The caller still must verify the marker against the same dedicated backend. */
 export function compileApplicationFormRequestUpgrade(input: ApplicationDefinition): string[] {
   const app = readApplicationDefinition(input);
-  const ddl = [...formRequestFunction()];
+  const actions = formRequestFunction().map(statement => `execute ${literal(statement)};`);
   for (const [index, table] of app.tables.entries()) {
     const name = `public.${sqlName(tableName(table))}`;
-    ddl.push(`alter table ${name} add column _tayar_request_id uuid;`);
-    ddl.push(formRequestIndex(index, table), formRequestTrigger(table));
+    const indexName = sqlName(`app_i_${index}_request`);
+    actions.push(`execute ${literal(`alter table ${name} add column if not exists _tayar_request_id uuid;`)};`);
+    actions.push(`if not exists (select 1 from pg_attribute where attrelid = ${literal(name)}::regclass
+      and attname = '_tayar_request_id' and atttypid = 'uuid'::regtype and not attnotnull and not attisdropped)
+      then raise exception 'Application request column is invalid'; end if;`);
+    actions.push(`execute ${literal(formRequestIndex(index, table).replace('create unique index ', 'create unique index if not exists '))};`);
+    actions.push(`if not exists (select 1 from pg_index i join pg_class c on c.oid = i.indexrelid
+      where i.indrelid = ${literal(name)}::regclass and c.relnamespace = 'public'::regnamespace
+      and c.relname = ${literal(`app_i_${index}_request`)} and i.indisunique and i.indisvalid and i.indisready
+      and i.indnkeyatts = 2 and i.indnatts = 2 and i.indexprs is null
+      and i.indkey[0] = (select attnum from pg_attribute where attrelid = ${literal(name)}::regclass and attname = 'owner_id')
+      and i.indkey[1] = (select attnum from pg_attribute where attrelid = ${literal(name)}::regclass and attname = '_tayar_request_id')
+      and pg_get_expr(i.indpred, i.indrelid) = '(_tayar_request_id IS NOT NULL)')
+      then raise exception 'Application request index ${indexName} is invalid'; end if;`);
+    actions.push(`execute ${literal(formRequestTrigger(table).replace('create trigger ', 'create or replace trigger '))};`);
   }
-  ddl.push(...formRequestCapability());
+  actions.push(...formRequestCapability().map(statement => `execute ${literal(statement)};`));
   return [`do $form_request_upgrade$
 declare v_version integer;
 begin
@@ -340,6 +358,6 @@ begin
     if v_version = 1 then return; end if;
     raise exception 'Application request capability is invalid';
   end if;
-  ${ddl.map(statement => `execute ${literal(statement)};`).join('\n  ')}
+  ${actions.join('\n  ')}
 end $form_request_upgrade$;`];
 }

@@ -37,6 +37,9 @@ try {
   assert.match(sql, /create table private\.app_runtime_capabilities/);
   assert.match(sql, /grant execute on function public\.app_form_request_revision\(\) to service_role/);
   assert.match(sql, /revoke all on function public\.app_form_request_revision\(\) from public, anon, authenticated/);
+  assert.match(sql, /create or replace function private\.app_form_request_revision\(\).*security definer/);
+  assert.match(sql, /create or replace function public\.app_form_request_revision\(\).*security invoker/);
+  assert.match(sql, /revoke all on function private\.app_form_request_revision\(\) from public, anon, authenticated/);
   assert.match(sql, /create table private\.app_schema_revisions/);
   assert.match(sql, /revoke all on private\.app_schema_revisions from public, anon, authenticated/);
   assert.match(sql, /create or replace function public\.app_deployed_definition\(\).*security invoker/);
@@ -92,8 +95,11 @@ try {
   assert.match(requestUpgrade, /Application schema revision does not match deployed definition/);
   assert.match(requestUpgrade, /to_regclass\('private\.app_runtime_capabilities'\)/);
   assert.match(requestUpgrade, /if v_version = 1 then return/);
-  assert.match(requestUpgrade, /alter table public\."app_bookings" add column _tayar_request_id uuid/);
-  assert.match(requestUpgrade, /alter table public\."app_vehicles" add column _tayar_request_id uuid/);
+  assert.match(requestUpgrade, /alter table public\."app_bookings" add column if not exists _tayar_request_id uuid/);
+  assert.match(requestUpgrade, /alter table public\."app_vehicles" add column if not exists _tayar_request_id uuid/);
+  assert.match(requestUpgrade, /Application request column is invalid/);
+  assert.match(requestUpgrade, /Application request index .* is invalid/);
+  assert.match(requestUpgrade, /create or replace trigger app_guard_form_request/);
   assert.ok(requestUpgrade.indexOf('create table private.app_runtime_capabilities') > requestUpgrade.indexOf('app_guard_form_request before update on public."app_vehicles"'), 'Capability is committed last');
   assert.equal(upgradeRequests(app).length, 1, 'Legacy upgrade is one atomic SQL statement');
   assert.ok(changes.indexOf('create table public."app_locations"') < changes.indexOf('add constraint "app_fk_0_3"'));
