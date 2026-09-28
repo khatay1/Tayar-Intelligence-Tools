@@ -166,7 +166,11 @@ check('Guarded Supabase release applies Auth config and every changed billing fu
   supabaseConfig.includes('[functions.public-plan-catalog]') &&
   supabaseConfig.includes('[functions.stripe-webhook]') &&
   supabaseConfig.includes('[functions.website-form-submit]') &&
-  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 3 &&
+  // The BYO GitHub OAuth callback is source-only on this branch. It has a
+  // one-use state and checks JWT on begin, and is absent from this production guard.
+  supabaseConfig.includes('[functions.website-github-connection]\nverify_jwt = false') &&
+  !deploymentGuard.includes("'website-github-connection'") &&
+  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 4 &&
   deploymentGuard.includes('ConfirmAuthConfig'));
 
 let failed = 0;

@@ -39,6 +39,14 @@ export const arCmsSupplement: PhraseMap = {
   'Manage multilingual content, routes, SEO, RTL and locale domains.': 'إدارة المحتوى متعدد اللغات والمسارات وتحسين محركات البحث واتجاه RTL ونطاقات اللغات.', 'Editing language': 'لغة التحرير', 'Direction': 'اتجاه الكتابة', 'Fallback language': 'اللغة الاحتياطية', 'Locale path prefix': 'بادئة مسار اللغة', 'Subdomain': 'النطاق الفرعي', 'Localized page name': 'اسم الصفحة المترجم', 'Localized slug': 'المسار المترجم', 'Translating…': 'جارٍ الترجمة…', 'Translate page with AI': 'ترجمة الصفحة بالذكاء الاصطناعي',
   'Secure secret storage is not connected yet.': 'خدمة الحفظ الآمن للمفاتيح غير موصولة بعد.', 'Infrastructure': 'البنية التشغيلية', 'Your accounts own the code, database and hosting. Tayar handles setup.': 'الكود وقاعدة البيانات والاستضافة على حساباتك. طيار يتولى الإعداد.', 'Infrastructure ready for publishing': 'البنية التشغيلية جاهزة للنشر', 'Connect your accounts after saving the project': 'اربط حساباتك بعد حفظ المشروع', 'Not required': 'غير مطلوب', 'Account': 'الحساب', 'Target': 'الوجهة', 'Connect account': 'وصل الحساب', 'Manage connection': 'إدارة الاتصال', 'Refresh connection status': 'تحديث حالة الاتصال', 'Connection setup is not available yet.': 'إعداد الاتصال غير متاح بعد.', 'Connection could not be completed. Try again.': 'تعذّر إكمال الاتصال. حاول مجدداً.', 'Connection status could not be refreshed.': 'تعذّر تحديث حالة الاتصال.', 'disconnected': 'غير متصل', 'connecting': 'جارٍ الاتصال', 'connected': 'متصل', 'permissions-missing': 'صلاحيات ناقصة', 'setup-incomplete': 'إعداد غير مكتمل', 'outdated-schema': 'مخطط قديم', 'deployment-failed': 'فشل النشر', 'credentials-revoked': 'أُلغيت الصلاحية', 'ready': 'جاهز', 'Secret could not be saved. Enter it again to retry.': 'تعذّر حفظ المفتاح. أدخله مجدداً لإعادة المحاولة.', 'Connection test failed. Check the configuration and try again.': 'فشل اختبار الاتصال. راجع الإعدادات وحاول مجدداً.', 'Choose exactly one environment before storing a credential.': 'اختر بيئة واحدة فقط قبل حفظ بيانات الاعتماد.', 'Checking credentials…': 'جارٍ التحقق من بيانات الاعتماد…', 'Check stored credentials': 'التحقق من بيانات الاعتماد المحفوظة', 'Stored credentials': 'بيانات اعتماد محفوظة', 'Missing references': 'مراجع مفقودة', 'Unlinked credentials': 'بيانات اعتماد غير مرتبطة', 'Credential check failed. Try again.': 'تعذّر التحقق من بيانات الاعتماد. حاول مجدداً.',
   'Integrations': 'التكاملات', 'Connect analytics, payments, email, CRM, APIs and signed webhooks.': 'اربط التحليلات والمدفوعات والبريد الإلكتروني وإدارة علاقات العملاء وواجهات API وخطافات الويب الموقعة.', 'Provider': 'المزوّد', 'Add integration': 'إضافة تكامل', 'active': 'نشط', 'configuration issue': 'مشكلة في الإعداد', 'configuration issues': 'مشكلات في الإعداد', 'Enabled': 'مفعّل', 'Name': 'الاسم', 'Environments': 'البيئات', 'Events': 'الأحداث', 'Configured — enter to replace': 'تم الإعداد — أدخل قيمة للاستبدال', 'Testing…': 'جارٍ الاختبار…', 'Test connection': 'اختبار الاتصال', 'Remove': 'إزالة',
+  'Choose GitHub repository': 'اختر مستودع GitHub',
+  'Select the account and repository that will own your source code.': 'اختر الحساب والمستودع اللذين سيملكان كود مشروعك.',
+  'Choose another account': 'اختر حساباً آخر',
+  'Loading repositories...': 'جارٍ تحميل المستودعات...',
+  'GitHub repositories are unavailable. Reconnect GitHub.': 'تعذّر عرض المستودعات. أعد ربط GitHub.',
+  'Repository connection could not be verified. Try again.': 'تعذّر التحقق من ربط المستودع. حاول مجدداً.',
+  'Repository connected. Publishing setup is still required.': 'تم ربط المستودع. ما زال إعداد النشر مطلوباً.',
+  'Next page': 'الصفحة التالية',
 };
 
 export const svCmsSupplement: PhraseMap = {
@@ -77,16 +85,6 @@ export const svCmsSupplement: PhraseMap = {
   'Integrations': 'Integrationer', 'Connect analytics, payments, email, CRM, APIs and signed webhooks.': 'Anslut analys, betalningar, e-post, CRM, API:er och signerade webhooks.', 'Provider': 'Leverantör', 'Add integration': 'Lägg till integration', 'active': 'aktiva', 'configuration issue': 'konfigurationsproblem', 'configuration issues': 'konfigurationsproblem', 'Enabled': 'Aktiverad', 'Name': 'Namn', 'Environments': 'Miljöer', 'Events': 'Händelser', 'Configured — enter to replace': 'Konfigurerad — ange ett värde för att ersätta', 'Testing…': 'Testar…', 'Test connection': 'Testa anslutning', 'Remove': 'Ta bort',
 };
 
-Object.assign(arCmsSupplement, {
-  'Choose GitHub repository': 'اختر مستودع GitHub',
-  'Select the account and repository that will own your source code.': 'اختر الحساب والمستودع اللذين سيملكان كود مشروعك.',
-  'Choose another account': 'اختر حساباً آخر',
-  'Loading repositories...': 'جارٍ تحميل المستودعات...',
-  'GitHub repositories are unavailable. Reconnect GitHub.': 'تعذّر عرض المستودعات. أعد ربط GitHub.',
-  'Repository connection could not be verified. Try again.': 'تعذّر التحقق من ربط المستودع. حاول مجدداً.',
-  'Repository connected. Publishing setup is still required.': 'تم ربط المستودع. ما زال إعداد النشر مطلوباً.',
-  'Next page': 'الصفحة التالية',
-});
 Object.assign(svCmsSupplement, {
   'Choose GitHub repository': 'Välj GitHub-arkiv',
   'Select the account and repository that will own your source code.': 'Välj kontot och arkivet som ska äga källkoden.',
