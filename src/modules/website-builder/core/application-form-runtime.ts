@@ -11,6 +11,7 @@ export interface ApplicationCreateFormBinding {
 export type ApplicationFormSubmissionState = 'idle' | 'submitting' | 'confirmed' | 'uncertain';
 const invalid = () => new Error('The form does not match the application fields.');
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const activeFormRequests = new Set<string>();
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 function exact(value: unknown, keys: string[]) {
   if (!record(value) || Object.keys(value).some(key => !keys.includes(key))) throw invalid();
@@ -153,6 +154,61 @@ export function createApplicationFormSubmission(compiled: ReturnType<typeof comp
         state = disposed ? 'uncertain' : 'confirmed';
       } catch { state = 'uncertain'; }
       return state;
+    },
+    resetConfirmed() { if (disposed || state !== 'confirmed') throw new Error('This submission cannot be reset.'); state = 'idle'; },
+    dispose() { disposed = true; if (state === 'submitting') state = 'uncertain'; },
+  };
+}
+
+/** A tab-scoped pending identity survives page navigation without persisting
+ * submitted values. The caller supplies a key scoped to the dedicated project,
+ * authenticated user and form. A changed payload cannot reuse its identity.
+ * Storage failure stops the mutation before it reaches the database. */
+export function createDurableApplicationFormSubmission(compiled: ReturnType<typeof compileApplicationCreateForm>, runtime: {
+  createOnce(tableId: string, values: Record<string, unknown>, requestId: string): Promise<'created' | 'already-created'>;
+}, scope: { key: string; storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>; crypto: Pick<Crypto, 'randomUUID' | 'subtle'> }) {
+  if (!scope || typeof scope.key !== 'string' || !/^tayar-app-form:[a-zA-Z0-9:._-]{1,240}$/.test(scope.key)
+    || !scope.storage || !scope.crypto?.subtle || typeof scope.crypto.randomUUID !== 'function') throw new Error('Application form identity is unavailable.');
+  let state: ApplicationFormSubmissionState = 'idle', disposed = false;
+  const digest = async (payload: Record<string, unknown>) => {
+    const bytes = await scope.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
+    return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
+  };
+  return {
+    status: () => ({ state, disposed }),
+    async submit(entries: Iterable<[string, unknown]>): Promise<'confirmed' | 'uncertain'> {
+      if (disposed || (state !== 'idle' && state !== 'uncertain')) throw new Error('This submission is not available.');
+      const payload = compiled.values(entries);
+      let fingerprint: string;
+      try { fingerprint = await digest(payload); }
+      catch { throw new Error('Application form identity is unavailable.'); }
+      if (disposed || (state !== 'idle' && state !== 'uncertain')) throw new Error('This submission is not available.');
+      if (activeFormRequests.has(scope.key)) throw new Error('This submission is not available.');
+      activeFormRequests.add(scope.key);
+      try {
+        let requestId: string;
+        try {
+          const stored = scope.storage.getItem(scope.key);
+          if (stored !== null) {
+            const pending: unknown = JSON.parse(stored);
+            if (!record(pending) || Object.keys(pending).length !== 2 || typeof pending.requestId !== 'string'
+              || !uuid.test(pending.requestId) || pending.fingerprint !== fingerprint) throw new Error();
+            requestId = pending.requestId;
+          } else {
+            requestId = scope.crypto.randomUUID();
+            if (!uuid.test(requestId)) throw new Error();
+            scope.storage.setItem(scope.key, JSON.stringify({ requestId, fingerprint }));
+          }
+        } catch { throw new Error('Application form identity is unavailable.'); }
+        state = 'submitting';
+        try {
+          await runtime.createOnce(compiled.tableId, payload, requestId);
+          if (disposed) { state = 'uncertain'; return state; }
+          scope.storage.removeItem(scope.key);
+          state = 'confirmed';
+        } catch { state = 'uncertain'; }
+        return state;
+      } finally { activeFormRequests.delete(scope.key); }
     },
     resetConfirmed() { if (disposed || state !== 'confirmed') throw new Error('This submission cannot be reset.'); state = 'idle'; },
     dispose() { disposed = true; if (state === 'submitting') state = 'uncertain'; },

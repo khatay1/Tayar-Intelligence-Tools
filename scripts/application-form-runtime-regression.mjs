@@ -3,12 +3,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { webcrypto } from 'node:crypto';
 import { build } from 'esbuild';
 const dir = await mkdtemp(join(tmpdir(), 'tayar-app-form-'));
 try {
   const outfile = join(dir, 'form.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-form-runtime.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { compileApplicationCreateForm: compile, createApplicationFormSubmission: create } = (await import(pathToFileURL(outfile))).default;
+  const { compileApplicationCreateForm: compile, createApplicationFormSubmission: create, createDurableApplicationFormSubmission: durable } = (await import(pathToFileURL(outfile))).default;
   const definitions = [
     ['label', 'text', 'text'], ['count', 'number', 'number'], ['enabled', 'boolean', 'checkbox'], ['date', 'date', 'date'],
     ['timestamp', 'datetime', 'text'], ['reference', 'uuid', 'text'], ['choice', 'enum', 'select'], ['metadata', 'json', 'textarea'],
@@ -78,6 +79,46 @@ try {
   const abandoned = create(captured, { create: () => new Promise(resolve => { finish = resolve; }) });
   const old = abandoned.submit(entries()); abandoned.dispose(); finish({ id: 'saved' });
   assert.equal(await old, 'uncertain'); await assert.rejects(abandoned.submit(entries()));
+  const saved = new Map();
+  const storage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => { saved.set(key, value); }, removeItem: key => { saved.delete(key); } };
+  const scope = { key: 'tayar-app-form:project:user:page:form', storage, crypto: webcrypto };
+  const onceCalls = [];
+  let loseResponse = true;
+  const onceRuntime = { async createOnce(tableId, values, requestId) {
+    onceCalls.push({ tableId, values, requestId });
+    if (loseResponse) throw new Error('PRIVATE_UPSTREAM_ERROR');
+    return 'already-created';
+  } };
+  const durableFirst = durable(captured, onceRuntime, scope);
+  assert.equal(await durableFirst.submit(entries()), 'uncertain');
+  assert.equal(saved.size, 1, 'Pending request survives a lost response');
+  assert.equal(onceCalls.length, 1);
+  await assert.rejects(durableFirst.submit(entries({ label: 'Changed' })), /identity is unavailable/);
+  assert.equal(onceCalls.length, 1, 'Changed values cannot inherit a committed request identity');
+  durableFirst.dispose(); loseResponse = false;
+  const reloaded = durable(captured, onceRuntime, scope);
+  assert.equal(await reloaded.submit(entries()), 'confirmed', 'Reload uses the exact same request identity');
+  assert.equal(onceCalls[1].requestId, onceCalls[0].requestId);
+  assert.equal(saved.size, 0);
+  reloaded.resetConfirmed();
+  assert.equal(await reloaded.submit(entries()), 'confirmed');
+  assert.notEqual(onceCalls[2].requestId, onceCalls[0].requestId, 'A new intentional record receives a new identity');
+  const brokenStorage = { ...storage, setItem() { throw new Error('STORAGE_DENIED'); } };
+  await assert.rejects(durable(captured, onceRuntime, { ...scope, storage: brokenStorage }).submit(entries()), /identity is unavailable/);
+  assert.equal(onceCalls.length, 3, 'Storage failure cannot start a mutation');
+  storage.setItem(scope.key, '{bad');
+  await assert.rejects(durable(captured, onceRuntime, scope).submit(entries()), /identity is unavailable/);
+  assert.equal(onceCalls.length, 3);
+  storage.removeItem(scope.key);
+  let completeRequest;
+  const inFlightRuntime = { createOnce: () => new Promise(resolve => { completeRequest = resolve; }) };
+  const active = durable(captured, inFlightRuntime, scope);
+  const duplicate = durable(captured, inFlightRuntime, scope);
+  const activeRequest = active.submit(entries());
+  await new Promise(resolve => setImmediate(resolve));
+  await assert.rejects(duplicate.submit(entries()), /not available/);
+  completeRequest('created');
+  assert.equal(await activeRequest, 'confirmed');
   const runtimeFile = join(dir, 'runtime.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-data-runtime.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: runtimeFile });
   const { createApplicationDataRuntime } = (await import(pathToFileURL(runtimeFile))).default;

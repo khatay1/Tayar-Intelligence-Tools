@@ -12,7 +12,13 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Latest completed batch — guarded request-identity upgrade and preflight
+## Latest completed batch — durable browser request identity boundary
+
+- Added `createDurableApplicationFormSubmission`, a controller for the dedicated `createOnce` runtime. A caller-supplied key must scope the dedicated project, authenticated user and form. It stores only a random UUID and SHA-256 payload fingerprint in tab session storage before mutation, reuses the UUID for the identical pending payload after reload, and rejects changed values/corrupt storage. It allows an explicit same-payload retry after uncertainty, with owner-scoped database uniqueness remaining the authority.
+- Concurrent calls in the same page runtime for the same storage key are serialized; confirmed submissions clear the marker, while uncertain/disposed submissions keep it. Storage or hashing failures stop before the network mutation. This boundary is not wired to published HTML: safe form discovery, identity scoping, lifecycle and live reconciliation still need work. Cross-tab coordination is not proved.
+- PASS mocked lost-response/reload, changed payload, failure, concurrency and intentional new-record regression; TypeScript and project checks at this checkpoint. No live browser or database execution.
+
+## Previous completed batch — guarded request-identity upgrade and preflight
 
 - Added a transactional, definition-checked SQL upgrade for legacy isolated app tables. It locks the saved schema revision, adds request UUIDs with owner-scoped unique indexes and immutable triggers, and writes a private version marker last. A repeat call with the same marker is a no-op. A service-role-only revision RPC and dedicated-backend reader let release preparation check the capability against the same isolated backend.
 - A saved bound form requires this capability at release time and still fails closed: stable browser request IDs, published listeners and live PostgreSQL behavior are not yet proved. No migration was executed against a live project. The upgrade must run before further additive table migrations on a legacy backend; a mixed pre-upgrade state fails safely and needs an explicit recovery plan.
@@ -72,7 +78,7 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 ## Next work — do not redo earlier foundations
 
 1. Verify the account screen in a real browser, including password reset/confirmation links and multiple-tab behavior against an isolated test backend. Resolve any UI/Auth callback defects found.
-2. Run the guarded `_tayar_request_id` upgrade on a disposable legacy isolated backend and verify PostgreSQL uniqueness/trigger/RLS behavior and same-request recovery in a transaction. Resolve the mixed legacy/additive table case before automated lifecycle application. Then connect the saved form controller to stable request IDs and published listeners, only lifting the renderer gate when those paths are proved. Verify editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
+2. Run the guarded `_tayar_request_id` upgrade on a disposable legacy isolated backend and verify PostgreSQL uniqueness/trigger/RLS behavior and same-request recovery in a transaction. Resolve the mixed legacy/additive table case before automated lifecycle application. Then connect the durable controller to trusted published form discovery/listeners and scope its storage key to the actual dedicated project/user/form; only lift the renderer gate when those paths are proved. Verify editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
 3. Finish isolated backend provisioning/schema application, configured Auth redirects/SMTP and per-app DNS/routing; preserve production separation.
 4. Continue the data bindings/actions, integration execution/secrets UI, application Stripe, private publishing lifecycle and A/B/C live release gates in FULLSTACK_MAX_REMAINING.md.
 
