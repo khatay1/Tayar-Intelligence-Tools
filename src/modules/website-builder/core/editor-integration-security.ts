@@ -7,9 +7,9 @@ export function isEditorSecretReference(value: unknown): value is string {
 
 /** A project Vault reference identifies one connection, field and environment. */
 export function isEditorProjectSecretReferenceFor(value: unknown, connectionId: string, field: string, environment: string): boolean {
-  return isEditorSecretReference(value)
-    && /^secret:\/\/website\/[0-9a-f-]{36}\//i.test(value)
-    && value.endsWith(`/${connectionId}/${field}/${environment}`);
+  if (!isEditorSecretReference(value)) return false;
+  const match = /^secret:\/\/website\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/([a-zA-Z0-9][a-zA-Z0-9_-]{0,119})\/([a-zA-Z][a-zA-Z0-9_-]{0,63})\/(preview|staging|production)$/i.exec(value);
+  return Boolean(match && match[2] === connectionId && match[3] === field && match[4] === environment);
 }
 
 /** Lexical preflight only. Server adapters must also validate DNS and forbid redirects. */

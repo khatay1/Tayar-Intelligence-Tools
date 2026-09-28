@@ -22,6 +22,13 @@ try {
   assert.ok(integrations.EDITOR_INTEGRATION_PROVIDERS.some(provider => provider.id === 'webhook'));
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   const ref = `secret://website/${projectId}/hook/signingSecret/production`;
+  assert.equal(security.isEditorProjectSecretReferenceFor(ref, 'hook', 'signingSecret', 'production'), true);
+  for (const malformed of [
+    `secret://website/not-a-uuid/hook/signingSecret/production`,
+    `secret://website/${projectId}/other/hook/signingSecret/production`,
+    `secret://website/${projectId}/hook/signingSecret/preview/production`,
+    `secret://website/${projectId}/hook/signingSecret/production/extra`,
+  ]) assert.equal(security.isEditorProjectSecretReferenceFor(malformed, 'hook', 'signingSecret', 'production'), false, malformed);
   const config = integrations.normalizeEditorIntegrationsConfig({ connections: [{ id: 'hook', providerId: 'webhook', name: 'Orders', enabled: true, status: 'active', environments: ['production'], config: { url: 'https://example.com/hook' }, secrets: { signingSecret: { ref } }, events: ['commerce.paid'] }] });
   assert.deepEqual(integrations.validateEditorIntegrations(config), []);
   const movedEnvironment = structuredClone(config); movedEnvironment.connections[0].environments = ['staging'];
