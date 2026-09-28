@@ -73,6 +73,26 @@ end $$;
 revoke all on function public.website_consume_connection_handoff(uuid,uuid,uuid,text) from public, anon, authenticated;
 grant execute on function public.website_consume_connection_handoff(uuid,uuid,uuid,text) to service_role;
 
+-- Repository chooser may inspect the still-live grant without consuming it.
+-- Only a trusted service caller receives the token, after owner/project scope.
+create function public.website_peek_connection_handoff(
+  p_id uuid, p_owner_id uuid, p_project_id uuid, p_provider text
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_handoff private.website_connection_handoffs%rowtype; v_token text;
+begin
+  select * into v_handoff from private.website_connection_handoffs
+  where id=p_id and owner_id=p_owner_id and project_id=p_project_id and provider=p_provider
+    and expires_at > clock_timestamp();
+  if not found then return null; end if;
+  if not exists (select 1 from public.projects where id=p_project_id and user_id=p_owner_id
+    and type='website-builder' and deleted_at is null) then return null; end if;
+  select decrypted_secret into v_token from vault.decrypted_secrets where id=v_handoff.secret_id;
+  if v_token is null then return null; end if;
+  return jsonb_build_object('environment',v_handoff.environment,'userToken',v_token);
+end $$;
+revoke all on function public.website_peek_connection_handoff(uuid,uuid,uuid,text) from public, anon, authenticated;
+grant execute on function public.website_peek_connection_handoff(uuid,uuid,uuid,text) to service_role;
+
 create function public.website_revoke_connection_handoff(p_id uuid,p_owner_id uuid,p_project_id uuid)
 returns boolean language plpgsql security definer set search_path = '' as $$
 begin

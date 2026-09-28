@@ -31,13 +31,26 @@ try {
       if (name === 'website_create_connection_oauth_state') return { error: null };
       if (name === 'website_consume_connection_oauth_state') return { data: { ownerId, projectId, environment: 'production', provider: 'github' }, error: null };
       if (name === 'website_store_connection_handoff') return { error: null };
+      if (name === 'website_peek_connection_handoff' || name === 'website_consume_connection_handoff') {
+        if (args.p_owner_id !== ownerId || args.p_project_id !== projectId) return { data: null, error: null };
+        return { data: { environment: 'production', userToken: token }, error: null };
+      }
+      if (name === 'website_record_infrastructure_connection') return { data: 1, error: null };
       throw new Error(`Unexpected RPC ${name}`);
     },
   };
   const fetcher = async (url, options) => {
-    assert.equal(url, 'https://github.com/login/oauth/access_token');
-    assert.equal(options.body.get('redirect_uri'), callback);
-    return { ok: true, headers: { get: () => null }, text: async () => JSON.stringify({ token_type: 'bearer', access_token: token }) };
+    let payload;
+    if (url === 'https://github.com/login/oauth/access_token') {
+      assert.equal(options.body.get('redirect_uri'), callback);
+      payload = { token_type: 'bearer', access_token: token };
+    } else {
+      assert.equal(options.headers.Authorization, `Bearer ${token}`);
+      payload = url.includes('/repositories?')
+        ? { repositories: [{ id: 88, owner: { id: 17 }, full_name: 'owner/site', default_branch: 'main', permissions: { push: true } }] }
+        : { installations: [{ id: 42, account: { id: 17, login: 'owner' }, permissions: { contents: 'write' }, suspended_at: null }] };
+    }
+    return { ok: true, headers: { get: () => null }, text: async () => JSON.stringify(payload) };
   };
   const context = { platform, clientId: 'Iv1_clientid', clientSecret: 'fixture-secret', callback, returnUrl, fetcher };
   const request = (body, auth = true) => new Request(callback.replace('action=callback', 'action=begin'), { method: 'POST',
@@ -66,10 +79,26 @@ try {
   const stored = writes.find(write => write.name === 'website_store_connection_handoff');
   assert.equal(stored.args.p_token, token);
   assert.equal(stored.args.p_owner_id, ownerId);
+  const handoffId = stored.args.p_id;
+  const post = (action, body) => new Request(callback.replace('action=callback', `action=${action}`), { method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer header.payload.signature' }, body: JSON.stringify({ projectId, handoffId, ...body }) });
+  const optionsResponse = await handle(post('options', { installationId: '42', page: 1 }), context);
+  assert.equal(optionsResponse.status, 200);
+  const choices = await optionsResponse.json();
+  assert.deepEqual(choices.repositories, [{ id: '88', fullName: 'owner/site', defaultBranch: 'main' }]);
+  assert.ok(!JSON.stringify(choices).includes(token));
+  assert.equal((await handle(post('options', { installationId: '99', page: 1 }), context)).status, 409);
+  const bind = await handle(post('bind', { installationId: '42', repositoryId: '88' }), context);
+  assert.equal(bind.status, 200);
+  assert.equal((await bind.json()).status, 'connected');
+  const recorded = writes.find(write => write.name === 'website_record_infrastructure_connection');
+  assert.equal(recorded.args.p_owner_id, ownerId);
+  assert.equal(recorded.args.p_target_id, '88');
+  assert.equal(recorded.args.p_status, 'connected');
   assert.equal((await handle(new Request(`${callback}&state=wrong&code=code123`), context)).status, 400);
   assert.equal((await handle(request({ projectId, environment: 'production' }), { ...context, returnUrl: 'https://evil.example/path?next=1' })).status, 503);
   const beforeMisconfiguration = writes.length;
   assert.equal((await handle(request({ projectId, environment: 'production' }), { ...context, clientSecret: '' })).status, 503);
   assert.equal(writes.length, beforeMisconfiguration);
-  console.log('PASS GitHub endpoint: owner auth, fixed callback, hashed state, opaque handoff and no token redirect');
+  console.log('PASS GitHub endpoint: owner auth, fixed callback, opaque handoff, scoped choices and metadata-only binding');
 } finally { await rm(dir, { recursive: true, force: true }); }

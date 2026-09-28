@@ -30,6 +30,56 @@ async function githubGet(fetcher: typeof fetch, token: string, path: string): Pr
   try { return object(JSON.parse(body)); } catch { throw new Error('GitHub account could not be verified.'); }
 }
 
+/** Sanitized, paginated chooser data. Caller must first read the temporary
+ * owner-scoped Vault handoff; no provider token crosses this response. */
+export async function listGitHubRepositoryChoices(input: {
+  userToken: string;
+  installationId?: string;
+  page: number;
+  fetcher?: typeof fetch;
+}): Promise<{ installations: Array<{ id: string; accountId: string; accountLogin: string }>;
+  repositories: Array<{ id: string; fullName: string; defaultBranch: string }>; hasMore: boolean }> {
+  if (typeof window !== 'undefined' || !input.userToken || input.userToken.length > 4096
+    || !Number.isSafeInteger(input.page) || input.page < 1 || input.page > 10
+    || (input.installationId !== undefined && !numeric.test(input.installationId))) {
+    throw new Error('GitHub repositories are unavailable.');
+  }
+  try {
+    const fetcher = input.fetcher ?? fetch;
+    const installations: Array<{ id: string; accountId: string; accountLogin: string }> = [];
+    let chosen: { id: string; accountId: string; accountLogin: string } | undefined;
+    let installationHasMore = false;
+    const last = input.installationId ? 10 : input.page;
+    for (let page = 1; page <= last; page++) {
+      const result = await githubGet(fetcher, input.userToken, `/user/installations?per_page=100&page=${page}`);
+      if (!Array.isArray(result.installations) || result.installations.length > 100) throw new Error();
+      if (page === input.page) installationHasMore = result.installations.length === 100;
+      for (const item of result.installations.map(object)) {
+        if (item.suspended_at || object(item.permissions).contents !== 'write') continue;
+        const account = object(item.account);
+        const entry = { id: String(item.id), accountId: String(account.id), accountLogin: String(account.login) };
+        if (!numeric.test(entry.id) || !numeric.test(entry.accountId) || !/^[a-zA-Z0-9-]{1,100}$/.test(entry.accountLogin)) throw new Error();
+        if (entry.id === input.installationId) chosen = entry;
+        if (!input.installationId && page === input.page) installations.push(entry);
+      }
+      if (result.installations.length < 100) break;
+    }
+    if (!input.installationId) return { installations, repositories: [], hasMore: installationHasMore };
+    if (!chosen) throw new Error();
+    const result = await githubGet(fetcher, input.userToken,
+      `/user/installations/${input.installationId}/repositories?per_page=100&page=${input.page}`);
+    if (!Array.isArray(result.repositories) || result.repositories.length > 100) throw new Error();
+    const repositories = result.repositories.map(object).filter(item => !item.archived && !item.disabled
+      && object(item.owner).id !== undefined && String(object(item.owner).id) === chosen.accountId
+      && object(item.permissions).push === true).map(item => {
+      const entry = { id: String(item.id), fullName: String(item.full_name), defaultBranch: String(item.default_branch) };
+      if (!numeric.test(entry.id) || !repoName.test(entry.fullName) || !branch.test(entry.defaultBranch)) throw new Error();
+      return entry;
+    });
+    return { installations: [chosen], repositories, hasMore: result.repositories.length === 100 };
+  } catch { throw new Error('GitHub repositories are unavailable.'); }
+}
+
 /** A short-lived user token is supplied by a trusted OAuth callback; this
  * function never writes it to a snapshot, registry or log. The installation
  * token used later for export must be minted on the server and rechecked. */

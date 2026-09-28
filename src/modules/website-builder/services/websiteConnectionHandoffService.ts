@@ -58,6 +58,28 @@ export async function consumeWebsiteConnectionHandoff(input: {
   return { environment: data.environment, userToken: data.userToken };
 }
 
+/** Trusted chooser read. The short expiry, owner scope and service-only RPC
+ * apply on every read; a browser receives only sanitized repository options. */
+export async function peekWebsiteConnectionHandoff(input: {
+  client: Pick<SupabaseClient, 'rpc'>;
+  id: string;
+  ownerId: string;
+  projectId: string;
+  provider: Provider;
+  isCurrentOwner(): boolean;
+}): Promise<{ environment: Environment; userToken: string }> {
+  serverOnly();
+  if (!uuid.test(input.id) || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
+    || !input.isCurrentOwner()) throw new Error('Connection handoff is unavailable.');
+  const { data, error } = await input.client.rpc('website_peek_connection_handoff', {
+    p_id: input.id, p_owner_id: input.ownerId, p_project_id: input.projectId, p_provider: input.provider,
+  });
+  if (error || !data || !['preview', 'production'].includes(data.environment)
+    || typeof data.userToken !== 'string' || data.userToken.length < 20 || data.userToken.length > 4096
+    || !input.isCurrentOwner()) throw new Error('Connection handoff is unavailable.');
+  return { environment: data.environment, userToken: data.userToken };
+}
+
 export async function revokeWebsiteConnectionHandoff(input: {
   client: Pick<SupabaseClient, 'rpc'>;
   id: string;

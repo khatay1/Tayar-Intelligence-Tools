@@ -117,9 +117,189 @@ async function storeWebsiteConnectionHandoff(input) {
   if (error) throw new Error("Connection handoff could not be stored.");
   return id;
 }
+async function consumeWebsiteConnectionHandoff(input) {
+  serverOnly2();
+  if (!uuid2.test(input.id) || !uuid2.test(input.ownerId) || !uuid2.test(input.projectId) || !input.isCurrentOwner()) throw new Error("Connection handoff is unavailable.");
+  const { data, error } = await input.client.rpc("website_consume_connection_handoff", {
+    p_id: input.id,
+    p_owner_id: input.ownerId,
+    p_project_id: input.projectId,
+    p_provider: input.provider
+  });
+  if (error || !data || !["preview", "production"].includes(data.environment) || typeof data.userToken !== "string" || data.userToken.length < 20 || data.userToken.length > 4096 || !input.isCurrentOwner()) throw new Error("Connection handoff is unavailable.");
+  return { environment: data.environment, userToken: data.userToken };
+}
+async function peekWebsiteConnectionHandoff(input) {
+  serverOnly2();
+  if (!uuid2.test(input.id) || !uuid2.test(input.ownerId) || !uuid2.test(input.projectId) || !input.isCurrentOwner()) throw new Error("Connection handoff is unavailable.");
+  const { data, error } = await input.client.rpc("website_peek_connection_handoff", {
+    p_id: input.id,
+    p_owner_id: input.ownerId,
+    p_project_id: input.projectId,
+    p_provider: input.provider
+  });
+  if (error || !data || !["preview", "production"].includes(data.environment) || typeof data.userToken !== "string" || data.userToken.length < 20 || data.userToken.length > 4096 || !input.isCurrentOwner()) throw new Error("Connection handoff is unavailable.");
+  return { environment: data.environment, userToken: data.userToken };
+}
+
+// src/modules/website-builder/services/websiteGithubInstallationService.ts
+var numeric = /^[1-9][0-9]{0,19}$/;
+var repoName = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
+var branch = /^[a-zA-Z0-9_./-]{1,200}$/;
+var api = "https://api.github.com";
+function object(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("GitHub account could not be verified.");
+  return value;
+}
+async function githubGet(fetcher, token, path) {
+  const response = await fetcher(`${api}${path}`, {
+    method: "GET",
+    redirect: "error",
+    signal: AbortSignal.timeout(8e3),
+    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, "X-GitHub-Api-Version": "2022-11-28" }
+  });
+  if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 3e6) throw new Error("GitHub account could not be verified.");
+  const body = await response.text();
+  if (body.length > 3e6) throw new Error("GitHub account could not be verified.");
+  try {
+    return object(JSON.parse(body));
+  } catch {
+    throw new Error("GitHub account could not be verified.");
+  }
+}
+async function listGitHubRepositoryChoices(input) {
+  if (typeof window !== "undefined" || !input.userToken || input.userToken.length > 4096 || !Number.isSafeInteger(input.page) || input.page < 1 || input.page > 10 || input.installationId !== void 0 && !numeric.test(input.installationId)) {
+    throw new Error("GitHub repositories are unavailable.");
+  }
+  try {
+    const fetcher = input.fetcher ?? fetch;
+    const installations = [];
+    let chosen;
+    let installationHasMore = false;
+    const last = input.installationId ? 10 : input.page;
+    for (let page = 1; page <= last; page++) {
+      const result2 = await githubGet(fetcher, input.userToken, `/user/installations?per_page=100&page=${page}`);
+      if (!Array.isArray(result2.installations) || result2.installations.length > 100) throw new Error();
+      if (page === input.page) installationHasMore = result2.installations.length === 100;
+      for (const item of result2.installations.map(object)) {
+        if (item.suspended_at || object(item.permissions).contents !== "write") continue;
+        const account = object(item.account);
+        const entry = { id: String(item.id), accountId: String(account.id), accountLogin: String(account.login) };
+        if (!numeric.test(entry.id) || !numeric.test(entry.accountId) || !/^[a-zA-Z0-9-]{1,100}$/.test(entry.accountLogin)) throw new Error();
+        if (entry.id === input.installationId) chosen = entry;
+        if (!input.installationId && page === input.page) installations.push(entry);
+      }
+      if (result2.installations.length < 100) break;
+    }
+    if (!input.installationId) return { installations, repositories: [], hasMore: installationHasMore };
+    if (!chosen) throw new Error();
+    const result = await githubGet(
+      fetcher,
+      input.userToken,
+      `/user/installations/${input.installationId}/repositories?per_page=100&page=${input.page}`
+    );
+    if (!Array.isArray(result.repositories) || result.repositories.length > 100) throw new Error();
+    const repositories = result.repositories.map(object).filter((item) => !item.archived && !item.disabled && object(item.owner).id !== void 0 && String(object(item.owner).id) === chosen.accountId && object(item.permissions).push === true).map((item) => {
+      const entry = { id: String(item.id), fullName: String(item.full_name), defaultBranch: String(item.default_branch) };
+      if (!numeric.test(entry.id) || !repoName.test(entry.fullName) || !branch.test(entry.defaultBranch)) throw new Error();
+      return entry;
+    });
+    return { installations: [chosen], repositories, hasMore: result.repositories.length === 100 };
+  } catch {
+    throw new Error("GitHub repositories are unavailable.");
+  }
+}
+async function verifyGitHubInstallationRepository(input) {
+  if (typeof window !== "undefined") throw new Error("GitHub verification requires a server.");
+  const { userToken, installationId, repositoryId } = input;
+  if (!numeric.test(installationId) || !numeric.test(repositoryId) || !userToken || userToken.length > 4096) {
+    throw new Error("GitHub account could not be verified.");
+  }
+  const fetcher = input.fetcher ?? fetch;
+  try {
+    let installation;
+    for (let page = 1; page <= 10 && !installation; page++) {
+      const result = await githubGet(fetcher, userToken, `/user/installations?per_page=100&page=${page}`);
+      if (!Array.isArray(result.installations) || result.installations.length > 100) throw new Error();
+      installation = result.installations.map(object).find((item) => String(item.id) === installationId);
+      if (result.installations.length < 100) break;
+    }
+    if (!installation || installation.suspended_at || object(installation.permissions).contents !== "write") throw new Error();
+    const account = object(installation.account);
+    const accountId = String(account.id);
+    if (!numeric.test(accountId) || typeof account.login !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(account.login)) throw new Error();
+    let repository;
+    for (let page = 1; page <= 10 && !repository; page++) {
+      const result = await githubGet(fetcher, userToken, `/user/installations/${installationId}/repositories?per_page=100&page=${page}`);
+      if (!Array.isArray(result.repositories) || result.repositories.length > 100) throw new Error();
+      repository = result.repositories.map(object).find((item) => String(item.id) === repositoryId);
+      if (result.repositories.length < 100) break;
+    }
+    if (!repository || repository.archived || repository.disabled || object(repository.owner).id !== account.id || typeof repository.full_name !== "string" || !repoName.test(repository.full_name) || typeof repository.default_branch !== "string" || !branch.test(repository.default_branch) || object(repository.permissions).push !== true) throw new Error();
+    return {
+      installationId,
+      accountId,
+      accountLogin: account.login,
+      repositoryId,
+      repositoryFullName: repository.full_name,
+      defaultBranch: repository.default_branch
+    };
+  } catch {
+    throw new Error("GitHub account could not be verified.");
+  }
+}
+
+// src/modules/website-builder/services/websiteGithubRepositoryBindingService.ts
+var uuid3 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function bindWebsiteGitHubRepository(input) {
+  if (typeof window !== "undefined") throw new Error("GitHub binding requires a trusted server.");
+  if (!uuid3.test(input.ownerId) || !uuid3.test(input.projectId) || !uuid3.test(input.handoffId) || input.connectionId !== void 0 && !uuid3.test(input.connectionId) || input.expectedVersion !== void 0 && (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1) || Boolean(input.connectionId) !== Boolean(input.expectedVersion) || !input.isCurrentOwner()) throw new Error("GitHub connection could not be verified.");
+  try {
+    const grant = await consumeWebsiteConnectionHandoff({
+      client: input.client,
+      id: input.handoffId,
+      ownerId: input.ownerId,
+      projectId: input.projectId,
+      provider: "github",
+      isCurrentOwner: input.isCurrentOwner
+    });
+    if (!input.isCurrentOwner()) throw new Error();
+    const observed = await verifyGitHubInstallationRepository({
+      userToken: grant.userToken,
+      installationId: input.installationId,
+      repositoryId: input.repositoryId,
+      fetcher: input.fetcher
+    });
+    if (!input.isCurrentOwner()) throw new Error();
+    const connectionId = input.connectionId ?? crypto.randomUUID();
+    const { data, error } = await input.client.rpc("website_record_infrastructure_connection", {
+      p_id: connectionId,
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId,
+      p_expected_version: input.expectedVersion ?? 0,
+      p_provider: "github",
+      p_environment: grant.environment,
+      p_account_id: observed.accountId,
+      p_target_id: observed.repositoryId,
+      p_permissions: ["contents:write"],
+      p_status: "connected",
+      p_operation_id: null,
+      p_verified_at: (input.now ?? (() => (/* @__PURE__ */ new Date()).toISOString()))()
+    });
+    if (error || data !== (input.expectedVersion ?? 0) + 1 || !input.isCurrentOwner()) throw new Error();
+    return {
+      connectionId,
+      repositoryId: observed.repositoryId,
+      repositoryFullName: observed.repositoryFullName,
+      version: data
+    };
+  } catch {
+    throw new Error("GitHub connection could not be verified.");
+  }
+}
 
 // server/website-github-connection.ts
-var uuid3 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var state = /^[a-f0-9]{64}$/;
 var code = /^[a-zA-Z0-9_-]{1,1024}$/;
 var responseHeaders = { "cache-control": "no-store", "referrer-policy": "no-referrer", "content-security-policy": "default-src 'none'", "x-content-type-options": "nosniff" };
@@ -164,27 +344,29 @@ async function handleWebsiteGitHubConnection(request, context) {
       return json(409, { error: "GitHub authorization could not be completed. Start the connection again." });
     }
   }
-  if (action !== "begin" || request.method !== "POST") return json(405, { error: "Method not allowed." });
+  if (!["begin", "options", "bind"].includes(action ?? "") || request.method !== "POST") return json(405, { error: "Method not allowed." });
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get("content-type") ?? "")) return json(415, { error: "JSON request required." });
   const token = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(request.headers.get("authorization") ?? "")?.[1];
   if (!token || token.length > 16384) return json(401, { error: "Sign in required." });
   let ownerId;
   try {
     const identity = await context.platform.auth.getUser(token);
-    if (identity.error || !identity.data.user || identity.data.user.is_anonymous || !uuid3.test(identity.data.user.id)) throw new Error();
+    if (identity.error || !identity.data.user || identity.data.user.is_anonymous || !uuid4.test(identity.data.user.id)) throw new Error();
     ownerId = identity.data.user.id;
   } catch {
     return json(401, { error: "Sign in required." });
   }
-  let projectId, environment;
+  let projectId, input;
   try {
     if (Number(request.headers.get("content-length") ?? 0) > 4096) throw new Error();
     const body = await request.text();
     if (body.length > 4096) throw new Error();
-    const input = JSON.parse(body);
-    if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some((key) => !["projectId", "environment"].includes(key)) || !uuid3.test(input.projectId) || !["preview", "production"].includes(input.environment)) throw new Error();
+    input = JSON.parse(body);
+    const keys = action === "begin" ? ["projectId", "environment"] : action === "options" ? ["projectId", "handoffId", "installationId", "page"] : ["projectId", "handoffId", "installationId", "repositoryId", "connectionId", "expectedVersion"];
+    if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some((key) => !keys.includes(key)) || typeof input.projectId !== "string" || !uuid4.test(input.projectId)) throw new Error();
+    if (action === "begin" && !["preview", "production"].includes(String(input.environment))) throw new Error();
+    if (action !== "begin" && (typeof input.handoffId !== "string" || !uuid4.test(input.handoffId))) throw new Error();
     projectId = input.projectId;
-    environment = input.environment;
   } catch {
     return json(400, { error: "Invalid connection request." });
   }
@@ -192,17 +374,49 @@ async function handleWebsiteGitHubConnection(request, context) {
     const { data, error } = await context.platform.from("projects").select("id").eq("id", projectId).eq("user_id", ownerId).eq("type", "website-builder").is("deleted_at", null).maybeSingle();
     if (error) return json(503, { error: "Project is unavailable." });
     if (!data) return json(404, { error: "Project not found." });
-    const rawState = await createWebsiteConnectionOAuthState({
+    if (action === "begin") {
+      const rawState = await createWebsiteConnectionOAuthState({
+        client: context.platform,
+        ownerId,
+        projectId,
+        environment: input.environment,
+        provider: "github",
+        isCurrentOwner: () => true
+      });
+      return json(200, { authorizationUrl: githubAuthorizationUrl({ clientId: context.clientId, callback: callback.toString(), state: rawState }) });
+    }
+    if (action === "options") {
+      const grant = await peekWebsiteConnectionHandoff({
+        client: context.platform,
+        id: input.handoffId,
+        ownerId,
+        projectId,
+        provider: "github",
+        isCurrentOwner: () => true
+      });
+      const choices = await listGitHubRepositoryChoices({
+        userToken: grant.userToken,
+        installationId: input.installationId,
+        page: input.page,
+        fetcher: context.fetcher
+      });
+      return json(200, choices);
+    }
+    const result = await bindWebsiteGitHubRepository({
       client: context.platform,
       ownerId,
       projectId,
-      environment,
-      provider: "github",
-      isCurrentOwner: () => true
+      handoffId: input.handoffId,
+      installationId: input.installationId,
+      repositoryId: input.repositoryId,
+      connectionId: input.connectionId,
+      expectedVersion: input.expectedVersion,
+      isCurrentOwner: () => true,
+      fetcher: context.fetcher
     });
-    return json(200, { authorizationUrl: githubAuthorizationUrl({ clientId: context.clientId, callback: callback.toString(), state: rawState }) });
+    return json(200, { status: "connected", ...result });
   } catch {
-    return json(409, { error: "GitHub connection could not be started." });
+    return json(409, { error: "GitHub connection could not be completed. Refresh and try again." });
   }
 }
 Deno.serve(async (request) => {

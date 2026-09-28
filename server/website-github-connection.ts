@@ -1,7 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createWebsiteConnectionOAuthState } from '../src/modules/website-builder/services/websiteConnectionOAuthStateService';
 import { acceptGitHubOAuthCallback, githubAuthorizationUrl } from '../src/modules/website-builder/services/websiteGithubOAuthService';
-import { storeWebsiteConnectionHandoff } from '../src/modules/website-builder/services/websiteConnectionHandoffService';
+import { peekWebsiteConnectionHandoff, storeWebsiteConnectionHandoff } from '../src/modules/website-builder/services/websiteConnectionHandoffService';
+import { listGitHubRepositoryChoices } from '../src/modules/website-builder/services/websiteGithubInstallationService';
+import { bindWebsiteGitHubRepository } from '../src/modules/website-builder/services/websiteGithubRepositoryBindingService';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const state = /^[a-f0-9]{64}$/;
@@ -51,7 +53,7 @@ export async function handleWebsiteGitHubConnection(request: Request, context: {
       return new Response(null, { status: 303, headers: { ...responseHeaders, location: destination.toString() } });
     } catch { return json(409, { error: 'GitHub authorization could not be completed. Start the connection again.' }); }
   }
-  if (action !== 'begin' || request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
+  if (!['begin', 'options', 'bind'].includes(action ?? '') || request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') ?? '')) return json(415, { error: 'JSON request required.' });
   const token = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(request.headers.get('authorization') ?? '')?.[1];
   if (!token || token.length > 16384) return json(401, { error: 'Sign in required.' });
@@ -61,25 +63,45 @@ export async function handleWebsiteGitHubConnection(request: Request, context: {
     if (identity.error || !identity.data.user || identity.data.user.is_anonymous || !uuid.test(identity.data.user.id)) throw new Error();
     ownerId = identity.data.user.id;
   } catch { return json(401, { error: 'Sign in required.' }); }
-  let projectId: string, environment: 'preview' | 'production';
+  let projectId: string, input: Record<string, unknown>;
   try {
     if (Number(request.headers.get('content-length') ?? 0) > 4096) throw new Error();
     const body = await request.text();
     if (body.length > 4096) throw new Error();
-    const input = JSON.parse(body);
-    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['projectId', 'environment'].includes(key))
-      || !uuid.test(input.projectId) || !['preview', 'production'].includes(input.environment)) throw new Error();
-    projectId = input.projectId; environment = input.environment;
+    input = JSON.parse(body);
+    const keys = action === 'begin' ? ['projectId', 'environment'] : action === 'options'
+      ? ['projectId', 'handoffId', 'installationId', 'page']
+      : ['projectId', 'handoffId', 'installationId', 'repositoryId', 'connectionId', 'expectedVersion'];
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !keys.includes(key))
+      || typeof input.projectId !== 'string' || !uuid.test(input.projectId)) throw new Error();
+    if (action === 'begin' && !['preview', 'production'].includes(String(input.environment))) throw new Error();
+    if (action !== 'begin' && (typeof input.handoffId !== 'string' || !uuid.test(input.handoffId))) throw new Error();
+    projectId = input.projectId;
   } catch { return json(400, { error: 'Invalid connection request.' }); }
   try {
     const { data, error } = await context.platform.from('projects').select('id').eq('id', projectId)
       .eq('user_id', ownerId).eq('type', 'website-builder').is('deleted_at', null).maybeSingle();
     if (error) return json(503, { error: 'Project is unavailable.' });
     if (!data) return json(404, { error: 'Project not found.' });
-    const rawState = await createWebsiteConnectionOAuthState({ client: context.platform,
-      ownerId, projectId, environment, provider: 'github', isCurrentOwner: () => true });
-    return json(200, { authorizationUrl: githubAuthorizationUrl({ clientId: context.clientId, callback: callback.toString(), state: rawState }) });
-  } catch { return json(409, { error: 'GitHub connection could not be started.' }); }
+    if (action === 'begin') {
+      const rawState = await createWebsiteConnectionOAuthState({ client: context.platform,
+        ownerId, projectId, environment: input.environment as 'preview' | 'production', provider: 'github', isCurrentOwner: () => true });
+      return json(200, { authorizationUrl: githubAuthorizationUrl({ clientId: context.clientId, callback: callback.toString(), state: rawState }) });
+    }
+    if (action === 'options') {
+      const grant = await peekWebsiteConnectionHandoff({ client: context.platform, id: input.handoffId as string,
+        ownerId, projectId, provider: 'github', isCurrentOwner: () => true });
+      const choices = await listGitHubRepositoryChoices({ userToken: grant.userToken,
+        installationId: input.installationId as string | undefined, page: input.page as number, fetcher: context.fetcher });
+      return json(200, choices);
+    }
+    const result = await bindWebsiteGitHubRepository({ client: context.platform, ownerId, projectId,
+      handoffId: input.handoffId as string, installationId: input.installationId as string,
+      repositoryId: input.repositoryId as string, connectionId: input.connectionId as string | undefined,
+      expectedVersion: input.expectedVersion as number | undefined, isCurrentOwner: () => true,
+      fetcher: context.fetcher });
+    return json(200, { status: 'connected', ...result });
+  } catch { return json(409, { error: 'GitHub connection could not be completed. Refresh and try again.' }); }
 }
 
 Deno.serve(async request => {
