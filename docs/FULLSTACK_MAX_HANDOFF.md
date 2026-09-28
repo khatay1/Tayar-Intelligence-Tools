@@ -1,4 +1,6 @@
-# Fullstack MAX — resume here
+# Fullstack MAX — historical handoff
+
+The canonical current architecture, work state and next batch are in `FULLSTACK_MAX_CHECKPOINT.md`. This document preserves the earlier managed-runtime foundation history; do not treat its old delivery order as the BYO plan.
 
 Updated: 2026-09-28.
 
