@@ -20,7 +20,7 @@ try {
   const result = data => ({ data, error: fail ? new Error('PRIVATE_UPSTREAM_ERROR') : null });
   const auth = {
     async getSession() { if (pause) await pause; return result({ session }); },
-    async getUser() { return result({ user: { id: '33333333-3333-4333-8333-333333333333', is_anonymous: false } }); },
+    async getUser() { return result({ user: session ? { id: '33333333-3333-4333-8333-333333333333', is_anonymous: false } : null }); },
     onAuthStateChange(callback) { listeners.add(callback); return { data: { subscription: { unsubscribe: () => listeners.delete(callback) } } }; },
     async signInWithPassword(input) { calls.push(['signIn', input]); session = { access_token: 'a.b.c' }; return result({ session }); },
     async signUp(input) { calls.push(['signUp', input]); return result({ session }); },
@@ -78,6 +78,7 @@ try {
   await assert.rejects(controller.updatePassword('new-password'));
   assert.equal(calls.length, before, 'Recovery state required before password update');
   listeners.forEach(listener => listener('PASSWORD_RECOVERY'));
+  session = { access_token: 'recovery.token.fixture' };
   assert.equal(controller.status().state, 'recovery');
   assert.equal(await controller.updatePassword('new-password'), 'password-updated');
   fail = true;
@@ -99,6 +100,21 @@ try {
   pause = undefined;
   assert.equal(disposed, 2);
   await assert.rejects(disabled.initialize());
+  const lostSession = create(config, { client: { auth }, bridge: { async synchronize() { session = null; }, dispose() {} } }); controllers.push(lostSession);
+  session = { access_token: 'stale.token.fixture' };
+  await assert.rejects(lostSession.initialize());
+  assert.equal(lostSession.status().state, 'signed-out', 'Stale session cannot become signed in after synchronization');
+  lostSession.dispose();
+  let navigationSyncs = 0;
+  const navigationRace = create(config, { client: { auth }, bridge: {
+    async synchronize() { if (++navigationSyncs === 2) session = null; },
+    dispose() {},
+  } }); controllers.push(navigationRace);
+  session = { access_token: 'navigation.token.fixture' };
+  assert.equal(await navigationRace.initialize(), 'signed-in');
+  await assert.rejects(navigationRace.prepareNavigation());
+  assert.equal(navigationRace.status().state, 'signed-out', 'A lost session cannot proceed to a protected route');
+  navigationRace.dispose();
   controller.dispose();
   assert.equal(listeners.size, 0);
   console.log('PASS account controller: synchronized navigation, signup/reset redirects, recovery-only update, local logout, safe errors, request serialization and disposal');

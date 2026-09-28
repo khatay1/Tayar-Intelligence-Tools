@@ -43,11 +43,14 @@ export function createApplicationAuthController(input: ApplicationAuthScreenConf
   const checked = <T extends { error: unknown }>(result: T): T => { if (result.error || disposed) throw unavailable(); return result; };
   const email = (value: string) => { if (!value.trim() || value.length > 320) throw unavailable(); return value.trim(); };
   const password = (value: string) => { if (!value || value.length > 4096) throw unavailable(); return value; };
-  const activeUser = async () => {
-    if (state !== 'signed-in' && state !== 'password-updated') throw unavailable();
+  const verifiedUser = async () => {
     const user = checked(await client.auth.getUser()).data.user;
     if (!user || user.is_anonymous) throw unavailable();
     return user.id;
+  };
+  const activeUser = async () => {
+    if (state !== 'signed-in' && state !== 'password-updated') throw unavailable();
+    return verifiedUser();
   };
   const roleAdministrator = async () => {
     if (!config.roles?.length || !client.rpc) throw unavailable();
@@ -63,16 +66,18 @@ export function createApplicationAuthController(input: ApplicationAuthScreenConf
       if (state === 'recovery') return state;
       if (!session) { state = 'signed-out'; return state; }
       // Synchronization verifies the access token upstream; getSession alone is not authorization.
-      await bridge.synchronize(); state = 'signed-in'; return state;
+      state = 'signed-out';
+      await bridge.synchronize(); await verifiedUser(); state = 'signed-in'; return state;
     }),
     signIn: (address: string, secret: string) => run(async () => {
       checked(await client.auth.signInWithPassword({ email: email(address), password: password(secret) }));
-      await bridge.synchronize(); state = 'signed-in'; return state;
+      state = 'signed-out';
+      await bridge.synchronize(); await verifiedUser(); state = 'signed-in'; return state;
     }),
     signUp: (address: string, secret: string) => run(async () => {
       if (!config.signUpEnabled) throw unavailable();
       const { data } = checked(await client.auth.signUp({ email: email(address), password: password(secret), options: { emailRedirectTo: callback.href } }));
-      if (data.session) { await bridge.synchronize(); state = 'signed-in'; }
+      if (data.session) { state = 'signed-out'; await bridge.synchronize(); await verifiedUser(); state = 'signed-in'; }
       else state = 'verification-sent';
       return state;
     }),
@@ -84,7 +89,7 @@ export function createApplicationAuthController(input: ApplicationAuthScreenConf
     updatePassword: (secret: string) => run(async () => {
       if (state !== 'recovery') throw unavailable();
       checked(await client.auth.updateUser({ password: password(secret) }));
-      await bridge.synchronize(); state = 'password-updated'; return state;
+      await bridge.synchronize(); await verifiedUser(); state = 'password-updated'; return state;
     }),
     signOut: () => run(async () => {
       checked(await client.auth.signOut({ scope: 'local' }));
@@ -93,7 +98,9 @@ export function createApplicationAuthController(input: ApplicationAuthScreenConf
     prepareNavigation: () => run(async () => {
       if (state !== 'signed-in' && state !== 'password-updated') throw unavailable();
       if (!checked(await client.auth.getSession()).data.session) { state = 'signed-out'; throw unavailable(); }
-      await bridge.synchronize(); return destination.href;
+      await bridge.synchronize();
+      try { await verifiedUser(); } catch { state = 'signed-out'; throw unavailable(); }
+      return destination.href;
     }),
     currentUserId: () => run(activeUser),
     roleAdministration: () => run(async () => ({ userId: await roleAdministrator() })),

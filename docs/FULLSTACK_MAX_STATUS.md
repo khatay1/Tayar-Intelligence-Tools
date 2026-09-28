@@ -1,5 +1,10 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — account synchronization race
+
+- After isolated cookie synchronization, the account controller requires a fresh permanent Auth user before showing signed-in state or continuing to a protected route. Regressions simulate session loss during initial synchronization and protected navigation.
+- Local application suite and generated browser/runtime bundle passed. Real host/browser, backend lifecycle and remaining MAX work are still pending; no release flag or production deployment was enabled.
+
 ## Current side-branch checkpoint — account role controls
 
 - Added an administrator-checked role form to the isolated account shell; signed-in users can see their own UUID, while only verified administrators can see grant/removal controls. Server-side role RPC remains authoritative.
