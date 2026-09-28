@@ -28,7 +28,7 @@ try {
     if (url.origin === platformUrl) {
       if (url.pathname.endsWith('/website_application_published_release')) return Response.json(live);
       if (url.pathname.endsWith('/website_application_release_credential')) return Response.json('sb_secret_backend_fixture');
-      if (url.pathname.startsWith('/storage/v1/object/website-application-releases/')) return new Response('<html>Private content</html>');
+      if (url.pathname.startsWith('/storage/v1/object/website-application-releases/')) return new Response('<html><body>Private content</body></html>');
       throw new Error(`Unexpected platform request ${url.pathname}`);
     }
     assert.equal(url.origin, backend.url);
@@ -87,6 +87,21 @@ try {
   assert.ok(calls.some(url => url.endsWith('/auth/v1/user')), 'Every cookie navigation revalidates with the dedicated Auth server');
   assert.match(result.headers.get('content-security-policy'), /allow-same-origin/);
   assert.match(result.headers.get('cache-control'), /private, no-store/);
+  result = await page(cookie, { headers: { cookie, accept: 'text/html' } });
+  assert.equal(result.statusCode, 200);
+  assert.match(result.body, /data-tayar-application-runtime/);
+  assert.match(result.body, /Private content/);
+  assert.doesNotMatch(result.body, /sb_secret_/);
+  assert.match(result.headers.get('vary'), /Accept/);
+  const pageConfig = JSON.parse(/data-application="(.*?)"/.exec(result.body)[1].replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
+  assert.deepEqual(pageConfig.definition, app);
+  assert.ok(pageConfig.paths.includes(`/site/${ownerId}/${projectId}/dashboard.html`));
+  assert.equal(pageConfig.backend.url, backend.url);
+  result = await page(cookie, { headers: { cookie, accept: 'application/json' } });
+  assert.doesNotMatch(result.body, /data-tayar-application-runtime/);
+  result = await page(cookie, { method: 'HEAD', headers: { cookie, accept: 'text/html' } });
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body, '');
   result = await page(cookie, { host: 'tayar.se' });
   assert.equal(result.statusCode, 401);
   assert.doesNotMatch(result.headers.get('content-security-policy'), /allow-same-origin/);

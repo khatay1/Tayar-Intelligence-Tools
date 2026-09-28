@@ -1,3 +1,4 @@
+import { addApplicationPageBootstrap } from './websiteApplicationPageBootstrapService';
 import { applicationAuthScreenResponse } from './websiteApplicationAuthScreenService';
 import { applicationRequestWithBrowserSession } from './websiteApplicationSessionService';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -96,19 +97,20 @@ export async function servePublishedWebsiteApplication(input: {
     const isolatedHtmlBrowser = input.browserSession && new URL(request.url).origin === input.browserSession.applicationOrigin
       && request.method === 'GET' && request.headers.get('accept')?.includes('text/html')
       && /^text\/html(?:;|$)/i.test(entry.contentType) && definition.auth.enabled;
-    const authScreen = (status: 200 | 401) => {
+    const browserConfig = () => {
       const snapshot = storedRelease.snapshot as Record<string, unknown>;
       const pages = snapshot.pages as Array<Record<string, unknown>>;
       const page = pages.find(item => item.id === entry.pageId);
       const language = page?.language ?? normalizeWebsiteLocalization(snapshot.localization as Partial<WebsiteLocalizationConfig> | undefined).defaultLanguage;
-      return applicationAuthScreenResponse({ ...input.browserSession!, projectId, ownerId, backend, platformUrl,
+      return { ...input.browserSession!, projectId, ownerId, backend, platformUrl,
         returnPath: `/site/${ownerId}/${projectId}/${file.split('/').map(encodeURIComponent).join('/')}`,
-        signUpEnabled: definition.auth.signUpEnabled, language: language === 'ar' || language === 'sv' ? language : 'en',
-      }, status);
+        signUpEnabled: definition.auth.signUpEnabled, language: (language === 'ar' || language === 'sv' ? language : 'en') as 'ar' | 'sv' | 'en',
+      };
     };
+    const authScreen = (status: 200 | 401) => applicationAuthScreenResponse(browserConfig(), status);
     // Account management is a separate trusted shell, not a private-content bypass.
     if (isolatedHtmlBrowser && new URL(request.url).searchParams.get('applicationAuth') === '1') return authScreen(200);
-    const response = await serveWebsiteApplicationPage({ request: authorizedRequest, pageId: entry.pageId, pageIds, definition, backend, platformUrl, async loadPage() {
+    let response = await serveWebsiteApplicationPage({ request: authorizedRequest, pageId: entry.pageId, pageIds, definition, backend, platformUrl, async loadPage() {
       const current = await load();
       if (current.error || JSON.stringify(current.data) !== JSON.stringify(result.data)) throw new Error('Release changed.');
       const object = await platform.storage.from('website-application-releases').download(`${storedRelease.storage_prefix}/${entry.name}`);
@@ -116,6 +118,13 @@ export async function servePublishedWebsiteApplication(input: {
       return new Response(object.data, { headers: { 'content-type': entry.contentType } });
     } });
     if (isolatedHtmlBrowser && response.status === 401) return authScreen(401);
+    if (isolatedHtmlBrowser && response.status === 200) {
+      const prefix = `/site/${ownerId}/${projectId}/`;
+      const paths = manifest.filter(item => /^text\/html(?:;|$)/i.test(item.contentType))
+        .map(item => prefix + item.name.split('/').map(encodeURIComponent).join('/'));
+      if (paths.includes(prefix + 'index.html')) paths.push(prefix, prefix.slice(0, -1));
+      response = await addApplicationPageBootstrap(response, { ...browserConfig(), definition, paths });
+    }
     if (input.browserSession && new URL(request.url).origin === input.browserSession.applicationOrigin) {
       // Only the per-project isolated host may use its own localStorage/Auth SDK.
       // Shared Tayar-origin pages retain the existing opaque-origin sandbox.

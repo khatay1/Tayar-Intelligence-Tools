@@ -86,7 +86,7 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
     return result.data;
   };
   return {
-    dispose() { sessionBridge?.dispose(); },
+    dispose() { sessionBridge?.dispose(); void client.auth.stopAutoRefresh().catch(() => {}); },
     auth: {
       async prepareNavigation() { await sessionBridge?.synchronize(); },
       async signUp(email: string, password: string) {
