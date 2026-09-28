@@ -12,11 +12,17 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Latest completed batch — application request identity foundation
+## Latest completed batch — guarded request-identity upgrade and preflight
+
+- Added a transactional, definition-checked SQL upgrade for legacy isolated app tables. It locks the saved schema revision, adds request UUIDs with owner-scoped unique indexes and immutable triggers, and writes a private version marker last. A repeat call with the same marker is a no-op. A service-role-only revision RPC and dedicated-backend reader let release preparation check the capability against the same isolated backend.
+- A saved bound form requires this capability at release time and still fails closed: stable browser request IDs, published listeners and live PostgreSQL behavior are not yet proved. No migration was executed against a live project. The upgrade must run before further additive table migrations on a legacy backend; a mixed pre-upgrade state fails safely and needs an explicit recovery plan.
+- PASS local SQL compiler, backend reader and release refusal regressions plus application suite. Full project health, lint and build are recorded below after this batch.
+
+## Previous completed batch — application request identity foundation
 
 - New isolated application schemas and newly added tables include nullable `_tayar_request_id`, a unique `(owner_id, _tayar_request_id)` index and an update trigger that prevents changing the request identity. Ordinary CRUD can omit it. The dedicated public-key client has `createOnce(tableId, values, requestId)` and uses only the declared fields plus that UUID; after a failed insert it attempts owner-scoped reconciliation only when a read rule exists, otherwise reports an uncertain outcome. No platform credential is involved.
 - PASS schema compiler assertions and SDK/HTTP-mocked request tests including scope, system-field denial and masked uncertainty; full project health, TypeScript, ESLint, Vite build, application regression suite and generated runtime consistency. These checks do not prove PostgreSQL enforcement or live recovery.
-- The existing backend schema lacks this column, and there is no guarded backfill/capability verification yet. The saved form controller and published UI do not call `createOnce`; bound publishing remains closed. Never treat this as completed durable idempotency or enable it on production.
+- The saved form controller and published UI do not call `createOnce`; bound publishing remains closed. Never treat this as completed durable idempotency or enable it on production.
 
 ## Previous completed batch — manual application form mapping controls
 
@@ -66,7 +72,7 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 ## Next work — do not redo earlier foundations
 
 1. Verify the account screen in a real browser, including password reset/confirmation links and multiple-tab behavior against an isolated test backend. Resolve any UI/Auth callback defects found.
-2. Add a guarded, versioned upgrade for `_tayar_request_id` on existing isolated backends and a service-only capability preflight. Verify PostgreSQL unique/trigger/RLS behavior and same-request recovery in an isolated transaction. Then connect the saved form controller to stable request IDs and published listeners, only lifting the renderer gate when those paths are proved. Verify editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
+2. Run the guarded `_tayar_request_id` upgrade on a disposable legacy isolated backend and verify PostgreSQL uniqueness/trigger/RLS behavior and same-request recovery in a transaction. Resolve the mixed legacy/additive table case before automated lifecycle application. Then connect the saved form controller to stable request IDs and published listeners, only lifting the renderer gate when those paths are proved. Verify editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
 3. Finish isolated backend provisioning/schema application, configured Auth redirects/SMTP and per-app DNS/routing; preserve production separation.
 4. Continue the data bindings/actions, integration execution/secrets UI, application Stripe, private publishing lifecycle and A/B/C live release gates in FULLSTACK_MAX_REMAINING.md.
 

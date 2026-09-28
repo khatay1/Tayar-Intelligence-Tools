@@ -203,6 +203,15 @@ function validateApplicationPublicBackend(config, platformUrl) {
 }
 
 // src/modules/website-builder/core/application-backend-verification.ts
+async function assertApplicationFormRequestCapability(backend, platformUrl, reader) {
+  validateApplicationPublicBackend(backend, platformUrl);
+  if (reader.url !== backend.url || !reader.readFormRequestRevision) throw new Error("Application form request capability is unavailable.");
+  try {
+    if (await reader.readFormRequestRevision() !== 1) throw new Error();
+  } catch {
+    throw new Error("Application form request capability is unavailable.");
+  }
+}
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
@@ -278,7 +287,7 @@ function createDedicatedApplicationRevisionReader(backend, platformUrl, serviceK
     global: {
       fetch: (input, init) => {
         const target = input instanceof Request ? input.url : String(input);
-        if (target !== `${backendUrl}/rest/v1/rpc/app_deployed_definition`) {
+        if (target !== `${backendUrl}/rest/v1/rpc/app_deployed_definition` && target !== `${backendUrl}/rest/v1/rpc/app_form_request_revision`) {
           throw new Error("Unexpected application revision endpoint.");
         }
         return fetch(input, { ...init, redirect: "error", signal: AbortSignal.timeout(1e4) });
@@ -294,6 +303,15 @@ function createDedicatedApplicationRevisionReader(backend, platformUrl, serviceK
         return data;
       } catch {
         throw new Error("Dedicated application revision is unavailable.");
+      }
+    },
+    async readFormRequestRevision() {
+      try {
+        const { data, error } = await client.rpc("app_form_request_revision");
+        if (error || data !== 1) throw new Error();
+        return data;
+      } catch {
+        throw new Error("Dedicated application request capability is unavailable.");
       }
     }
   };
@@ -9965,6 +9983,15 @@ async function publishWebsiteApplicationRelease(input) {
       createRevisionReader: (backend2) => createStoredApplicationRevisionReader({ platform, platformUrl, projectId, backend: backend2 })
     });
     const backend = await verifyBackend();
+    const hasBoundForm = Array.isArray(snapshot.pages) && snapshot.pages.some((page) => {
+      if (!page || typeof page !== "object" || !Array.isArray(page.sections)) return false;
+      return page.sections.some((section) => !!section && typeof section === "object" && "applicationFormBinding" in section);
+    });
+    if (hasBoundForm) {
+      const reader = await createStoredApplicationRevisionReader({ platform, platformUrl, projectId, backend });
+      await assertApplicationFormRequestCapability(backend, platformUrl, reader);
+      throw new Error("Application form publishing is unavailable.");
+    }
     const rendered = await renderSaved(JSON.parse(serialized), { ...backend });
     const files = rendered.map((file) => ({ name: file.name, content: file.content, contentType: file.contentType, pageId: file.pageId }));
     assertValidPublishedWebsiteBundle(files);

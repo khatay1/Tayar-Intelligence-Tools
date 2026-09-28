@@ -140,7 +140,7 @@ $$;`,
 
 /** A nullable request UUID leaves ordinary CRUD unchanged. Bound creates will
  * use it to prevent a second row when a browser loses the first response. */
-function formRequestInfrastructure(): string[] {
+function formRequestFunction(): string[] {
   return [`create or replace function public.app_guard_form_request() returns trigger language plpgsql set search_path = '' as $$
 begin
   if new._tayar_request_id is distinct from old._tayar_request_id then
@@ -148,6 +148,19 @@ begin
   end if;
   return new;
 end $$;`];
+}
+
+function formRequestCapability(): string[] {
+  return [
+    'create table private.app_runtime_capabilities (id boolean primary key default true check (id), form_request_version integer not null check (form_request_version = 1));',
+    'revoke all on private.app_runtime_capabilities from public, anon, authenticated;',
+    'insert into private.app_runtime_capabilities (id, form_request_version) values (true, 1);',
+    `create or replace function public.app_form_request_revision() returns integer language sql stable security definer set search_path = '' as $$
+  select form_request_version from private.app_runtime_capabilities where id = true
+$$;`,
+    'revoke all on function public.app_form_request_revision() from public, anon, authenticated;',
+    'grant execute on function public.app_form_request_revision() to service_role;',
+  ];
 }
 
 function formRequestIndex(tableIndex: number, table: ApplicationTable): string {
@@ -184,7 +197,7 @@ export function compileInitialApplicationSchema(input: ApplicationDefinition): s
   statements.push('revoke all on private.app_schema_revisions from public, anon, authenticated;');
   statements.push(`insert into private.app_schema_revisions (id, definition) values (true, ${literal(JSON.stringify(app))}::jsonb);`);
   statements.push(...revisionReadInfrastructure());
-  statements.push(...formRequestInfrastructure());
+  statements.push(...formRequestFunction(), ...formRequestCapability());
   statements.push(`create function public.app_guard_audit_fields() returns trigger language plpgsql set search_path = '' as $$
 begin
   if new.id is distinct from old.id or new.owner_id is distinct from old.owner_id or new.created_at is distinct from old.created_at then
@@ -249,7 +262,7 @@ end $revision$;`,
   ];
   statements.push(...revisionReadInfrastructure());
   if (!before.roles.length && after.roles.length) statements.push(...roleInfrastructure());
-  if (after.tables.length > before.tables.length) statements.push(...formRequestInfrastructure());
+  if (after.tables.length > before.tables.length) statements.push(...formRequestFunction());
   for (const [index, table] of after.tables.entries()) {
     const old = before.tables[index];
     const name = `public.${sqlName(tableName(table))}`;
@@ -300,4 +313,33 @@ end $revision$;`,
   }
   statements.push(`update private.app_schema_revisions set definition = ${literal(JSON.stringify(after))}::jsonb where id = true;`);
   return statements;
+}
+
+/** One guarded transaction upgrades a legacy isolated backend without changing
+ * its application definition. The private capability row is written last, so
+ * retries either observe a complete upgrade or run from the original schema.
+ * The caller still must verify the marker against the same dedicated backend. */
+export function compileApplicationFormRequestUpgrade(input: ApplicationDefinition): string[] {
+  const app = readApplicationDefinition(input);
+  const ddl = [...formRequestFunction()];
+  for (const [index, table] of app.tables.entries()) {
+    const name = `public.${sqlName(tableName(table))}`;
+    ddl.push(`alter table ${name} add column _tayar_request_id uuid;`);
+    ddl.push(formRequestIndex(index, table), formRequestTrigger(table));
+  }
+  ddl.push(...formRequestCapability());
+  return [`do $form_request_upgrade$
+declare v_version integer;
+begin
+  perform 1 from private.app_schema_revisions where id = true for update;
+  if not found or not exists (
+    select 1 from private.app_schema_revisions where id = true and definition = ${literal(JSON.stringify(app))}::jsonb
+  ) then raise exception 'Application schema revision does not match deployed definition'; end if;
+  if to_regclass('private.app_runtime_capabilities') is not null then
+    execute 'select form_request_version from private.app_runtime_capabilities where id = true' into v_version;
+    if v_version = 1 then return; end if;
+    raise exception 'Application request capability is invalid';
+  end if;
+  ${ddl.map(statement => `execute ${literal(statement)};`).join('\n  ')}
+end $form_request_upgrade$;`];
 }

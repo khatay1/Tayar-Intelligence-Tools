@@ -9,7 +9,7 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-backend-revision-'));
 try {
   const outfile = join(dir, 'verification.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-backend-verification.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { assertApplicationBackendRevision, applicationDefinitionDigest } = (await import(pathToFileURL(outfile))).default;
+  const { assertApplicationBackendRevision, assertApplicationFormRequestCapability, applicationDefinitionDigest } = (await import(pathToFileURL(outfile))).default;
   const platformUrl = 'https://pnbllxdlskljcakyaylt.supabase.co';
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_fixture' };
   const app = { version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, roles: [], tables: [{ id: 'bookings', key: 'bookings', name: 'Bookings', fields: [], permissions: [{ operation: 'read', access: 'authenticated' }] }], pageAccess: [] };
@@ -35,12 +35,18 @@ try {
   const originalFetch = globalThis.fetch;
   const revisionRequests = [];
   globalThis.fetch = async (input, init) => {
-    revisionRequests.push({ url: input instanceof Request ? input.url : String(input), init });
-    return new Response(JSON.stringify(app), { status: 200, headers: { 'content-type': 'application/json' } });
+    const url = input instanceof Request ? input.url : String(input);
+    revisionRequests.push({ url, init });
+    return new Response(JSON.stringify(url.endsWith('/app_form_request_revision') ? 1 : app), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   try {
     const remoteReader = createDedicatedApplicationRevisionReader(backend, platformUrl, serviceKey);
     await assertApplicationBackendRevision(app, backend, platformUrl, remoteReader);
+    await assertApplicationFormRequestCapability(backend, platformUrl, remoteReader);
+    assert.match(revisionRequests[1].url, /\/rest\/v1\/rpc\/app_form_request_revision$/);
+    assert.equal(revisionRequests[1].init.redirect, 'error');
+    await assert.rejects(() => assertApplicationFormRequestCapability(backend, platformUrl, reader), /unavailable/);
+    await assert.rejects(() => assertApplicationFormRequestCapability(backend, platformUrl, { ...remoteReader, url: platformUrl }), /unavailable|identity/);
     assert.match(revisionRequests[0].url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/rpc\/app_deployed_definition/);
     assert.doesNotMatch(revisionRequests[0].url, /pnbllxdlskljcakyaylt/);
     assert.equal(revisionRequests[0].init.redirect, 'error', 'Never forward service credentials through redirects');

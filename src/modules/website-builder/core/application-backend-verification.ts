@@ -6,6 +6,18 @@ export interface ApplicationRevisionReader {
   /** The trusted server client must target this exact dedicated app backend. */
   url: string;
   readDeployedDefinition(): Promise<unknown>;
+  readFormRequestRevision?(): Promise<unknown>;
+}
+
+/** Check the separately upgraded runtime capability on the same dedicated
+ * backend. Definition equality alone cannot prove that legacy tables have the
+ * request identity column/index/trigger. */
+export async function assertApplicationFormRequestCapability(backend: ApplicationPublicBackend, platformUrl: string, reader: ApplicationRevisionReader): Promise<void> {
+  validateApplicationPublicBackend(backend, platformUrl);
+  if (reader.url !== backend.url || !reader.readFormRequestRevision) throw new Error('Application form request capability is unavailable.');
+  try {
+    if (await reader.readFormRequestRevision() !== 1) throw new Error();
+  } catch { throw new Error('Application form request capability is unavailable.'); }
 }
 
 function canonical(value: unknown): string {

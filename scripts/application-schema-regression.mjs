@@ -9,7 +9,8 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-schema-'));
 try {
   const outfile = join(dir, 'schema.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-schema-sql.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { compileInitialApplicationSchema: compile, compileAdditiveApplicationMigration: migrate } = (await import(pathToFileURL(outfile))).default;
+  const { compileInitialApplicationSchema: compile, compileAdditiveApplicationMigration: migrate,
+    compileApplicationFormRequestUpgrade: upgradeRequests } = (await import(pathToFileURL(outfile))).default;
   const table = (id, fields, permissions) => ({ id, key: id, name: id, fields, permissions });
   const app = {
     version: 1,
@@ -33,6 +34,9 @@ try {
   assert.match(sql, /create unique index "app_i_0_request".*\(owner_id, _tayar_request_id\) where _tayar_request_id is not null/);
   assert.match(sql, /create trigger app_guard_form_request before update on public\."app_bookings"/);
   assert.match(sql, /new\._tayar_request_id is distinct from old\._tayar_request_id/);
+  assert.match(sql, /create table private\.app_runtime_capabilities/);
+  assert.match(sql, /grant execute on function public\.app_form_request_revision\(\) to service_role/);
+  assert.match(sql, /revoke all on function public\.app_form_request_revision\(\) from public, anon, authenticated/);
   assert.match(sql, /create table private\.app_schema_revisions/);
   assert.match(sql, /revoke all on private\.app_schema_revisions from public, anon, authenticated/);
   assert.match(sql, /create or replace function public\.app_deployed_definition\(\).*security invoker/);
@@ -82,6 +86,16 @@ try {
   assert.match(changes, /create table public\."app_locations"/);
   assert.match(changes, /create unique index "app_i_2_request".*\(owner_id, _tayar_request_id\) where _tayar_request_id is not null/);
   assert.doesNotMatch(changes, /alter table public\."app_bookings" add column _tayar_request_id/, 'Older tables need a guarded runtime upgrade, not an implicit schema change');
+  assert.doesNotMatch(changes, /create table private\.app_runtime_capabilities/, 'Adding a table cannot claim existing tables were upgraded');
+  const requestUpgrade = upgradeRequests(app).join('\n');
+  assert.match(requestUpgrade, /from private\.app_schema_revisions where id = true for update/);
+  assert.match(requestUpgrade, /Application schema revision does not match deployed definition/);
+  assert.match(requestUpgrade, /to_regclass\('private\.app_runtime_capabilities'\)/);
+  assert.match(requestUpgrade, /if v_version = 1 then return/);
+  assert.match(requestUpgrade, /alter table public\."app_bookings" add column _tayar_request_id uuid/);
+  assert.match(requestUpgrade, /alter table public\."app_vehicles" add column _tayar_request_id uuid/);
+  assert.ok(requestUpgrade.indexOf('create table private.app_runtime_capabilities') > requestUpgrade.indexOf('app_guard_form_request before update on public."app_vehicles"'), 'Capability is committed last');
+  assert.equal(upgradeRequests(app).length, 1, 'Legacy upgrade is one atomic SQL statement');
   assert.ok(changes.indexOf('create table public."app_locations"') < changes.indexOf('add constraint "app_fk_0_3"'));
   assert.match(changes, /revoke all on public\."app_bookings" from anon, authenticated/);
   assert.match(changes, /drop policy "app_p_0_delete"/);

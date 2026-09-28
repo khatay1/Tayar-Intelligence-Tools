@@ -81,6 +81,12 @@ try {
   assert.equal(result.status, 'active');
   assert.equal(events.filter(event => Array.isArray(event) && event[0] === 'upload').length, 2);
   for (const event of events.filter(event => Array.isArray(event) && event[0] === 'upload')) assert.match(event[2], /^<!doctype html>/i);
+  snapshot.pages[0].sections.push({ id: 'bound', type: 'contact', applicationFormBinding: { operation: 'create', tableId: 'records', fields: [] } });
+  result = await run();
+  assert.equal(result.status, 'failed');
+  assert.ok(events.includes('website_application_backend_credential'));
+  assert.ok(!events.some(event => Array.isArray(event) && event[0] === 'upload'), 'Bound form release fails before storage even with a custom renderer');
+  snapshot.pages[0].sections.pop();
   for (const denied of [{ unauthorized: true }, { foreign: true }, { publicCopies: true }, { badPage: true }, { rendererError: true }]) {
     result = await run(denied);
     assert.equal(result.status, 'failed');

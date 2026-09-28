@@ -270,7 +270,7 @@ function createDedicatedApplicationRevisionReader(backend, platformUrl, serviceK
     global: {
       fetch: (input, init) => {
         const target = input instanceof Request ? input.url : String(input);
-        if (target !== `${backendUrl}/rest/v1/rpc/app_deployed_definition`) {
+        if (target !== `${backendUrl}/rest/v1/rpc/app_deployed_definition` && target !== `${backendUrl}/rest/v1/rpc/app_form_request_revision`) {
           throw new Error("Unexpected application revision endpoint.");
         }
         return fetch(input, { ...init, redirect: "error", signal: AbortSignal.timeout(1e4) });
@@ -286,6 +286,15 @@ function createDedicatedApplicationRevisionReader(backend, platformUrl, serviceK
         return data;
       } catch {
         throw new Error("Dedicated application revision is unavailable.");
+      }
+    },
+    async readFormRequestRevision() {
+      try {
+        const { data, error } = await client.rpc("app_form_request_revision");
+        if (error || data !== 1) throw new Error();
+        return data;
+      } catch {
+        throw new Error("Dedicated application request capability is unavailable.");
       }
     }
   };

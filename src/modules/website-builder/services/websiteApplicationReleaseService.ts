@@ -6,6 +6,7 @@ import type { ApplicationPublicBackend } from '../core/application-data-runtime'
 import { assertValidPublishedWebsiteBundle, type PublishedWebsiteBundleFile } from '../core/published-site-validation';
 import { verifySavedWebsiteApplicationBackend } from './websiteApplicationBackendService';
 import { createStoredApplicationRevisionReader } from './websiteApplicationBackendLinkService';
+import { assertApplicationFormRequestCapability } from '../core/application-backend-verification';
 import { validateWebsiteApplicationRelease } from './websiteApplicationPublishedService';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,6 +60,18 @@ export async function publishWebsiteApplicationRelease(input: {
       createRevisionReader: backend => createStoredApplicationRevisionReader({ platform, platformUrl, projectId, backend }),
     });
     const backend = await verifyBackend();
+    const hasBoundForm = Array.isArray(snapshot.pages) && snapshot.pages.some(page => {
+      if (!page || typeof page !== 'object' || !Array.isArray(page.sections)) return false;
+      return page.sections.some((section: unknown) => !!section && typeof section === 'object'
+        && 'applicationFormBinding' in section);
+    });
+    if (hasBoundForm) {
+      const reader = await createStoredApplicationRevisionReader({ platform, platformUrl, projectId, backend });
+      await assertApplicationFormRequestCapability(backend, platformUrl, reader);
+      // The capability is necessary but not sufficient: published form execution
+      // and stable browser request identity must pass before this gate opens.
+      throw new Error('Application form publishing is unavailable.');
+    }
     const rendered = await renderSaved(JSON.parse(serialized), { ...backend });
     // Copy renderer output before awaits; the renderer cannot mutate uploaded files later.
     const files = rendered.map(file => ({ name: file.name, content: file.content, contentType: file.contentType, pageId: file.pageId }));

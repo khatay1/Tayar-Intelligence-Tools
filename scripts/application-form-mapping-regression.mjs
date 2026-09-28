@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
@@ -8,7 +7,8 @@ import { build } from 'esbuild';
 const require = createRequire(import.meta.url);
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
-const dir = await mkdtemp(join(tmpdir(), 'tayar-form-ui-'));
+// Keep the external React require inside this project's dependency tree.
+const dir = await mkdtemp(join(process.cwd(), 'node_modules', '.tayar-form-ui-'));
 try {
   const outfile = join(dir, 'ui.cjs');
   await build({ entryPoints: ['src/modules/website-builder/v2-ui/BuilderApplicationFormMapping.tsx'],
