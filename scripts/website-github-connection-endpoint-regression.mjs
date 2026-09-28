@@ -35,6 +35,7 @@ try {
         if (args.p_owner_id !== ownerId || args.p_project_id !== projectId) return { data: null, error: null };
         return { data: { environment: 'production', userToken: token }, error: null };
       }
+      if (name === 'website_reconcile_infrastructure_connection') return { data: null, error: null };
       if (name === 'website_record_infrastructure_connection') return { data: 1, error: null };
       throw new Error(`Unexpected RPC ${name}`);
     },
@@ -95,6 +96,7 @@ try {
   assert.equal(recorded.args.p_owner_id, ownerId);
   assert.equal(recorded.args.p_target_id, '88');
   assert.equal(recorded.args.p_status, 'connected');
+  assert.equal(recorded.args.p_commit_id, handoffId);
   assert.equal((await handle(new Request(`${callback}&state=wrong&code=code123`), context)).status, 400);
   assert.equal((await handle(request({ projectId, environment: 'production' }), { ...context, returnUrl: 'https://evil.example/path?next=1' })).status, 503);
   const beforeMisconfiguration = writes.length;

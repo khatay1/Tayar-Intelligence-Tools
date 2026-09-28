@@ -18,6 +18,7 @@ try {
   let consumes = 0;
   let recorded;
   const client = { async rpc(name, args) {
+    if (name === 'website_reconcile_infrastructure_connection') return { data: null, error: null };
     if (name === 'website_consume_connection_handoff') {
       consumes++;
       assert.deepEqual(args, { p_id: handoffId, p_owner_id: ownerId, p_project_id: projectId, p_provider: 'github' });
@@ -37,7 +38,7 @@ try {
   const input = { client, ownerId, projectId, handoffId, installationId: '42', repositoryId: '88',
     isCurrentOwner: () => true, fetcher, now: () => '2026-09-28T20:00:00Z' };
   const result = await bind(input);
-  assert.match(result.connectionId, /^[0-9a-f-]{36}$/i);
+  assert.equal(result.connectionId, handoffId, 'Initial identity is stable across a lost response');
   assert.equal(result.repositoryFullName, 'owner/site');
   assert.equal(result.version, 1);
   assert.equal(writes, 1);
@@ -47,11 +48,35 @@ try {
   assert.equal(recorded.p_target_id, '88');
   assert.equal(recorded.p_expected_version, 0);
   assert.equal(recorded.p_status, 'connected', 'Repo access alone is not deployment readiness');
+  assert.equal(recorded.p_commit_id, handoffId);
   assert.ok(!JSON.stringify(recorded).includes(token), 'Grant is not stored in the connection registry');
   const before = consumes;
   await assert.rejects(bind({ ...input, isCurrentOwner: () => false }), /could not be verified/);
   assert.equal(consumes, before, 'Stale user never consumes custody');
   await assert.rejects(bind({ ...input, repositoryId: '99' }), /could not be verified/);
   assert.equal(writes, 1, 'Unselected repository never reaches registry');
+  let retryConsumes = 0;
+  let saved = null;
+  const uncertainClient = { async rpc(name, args) {
+    if (name === 'website_reconcile_infrastructure_connection') {
+      assert.equal(args.p_commit_id, handoffId);
+      return { data: saved && args.p_target_id === saved.repositoryId ? saved : null, error: null };
+    }
+    if (name === 'website_consume_connection_handoff') {
+      retryConsumes++;
+      return { data: { environment: 'production', userToken: token }, error: null };
+    }
+    assert.equal(name, 'website_record_infrastructure_connection');
+    saved = { connectionId: args.p_id, repositoryId: args.p_target_id, version: 1, environment: 'production' };
+    return { data: null, error: new Error('transport timeout after commit') };
+  } };
+  const uncertainInput = { ...input, client: uncertainClient };
+  const recovered = await bind(uncertainInput);
+  assert.deepEqual(recovered, { connectionId: handoffId, repositoryId: '88', version: 1 });
+  const replay = await bind(uncertainInput);
+  assert.deepEqual(replay, recovered);
+  assert.equal(retryConsumes, 1, 'A committed replay does not consume custody twice');
+  await assert.rejects(bind({ ...uncertainInput, repositoryId: '99' }), /could not be verified/);
+  assert.equal(retryConsumes, 2, 'Different target cannot claim the committed result');
   console.log('PASS GitHub binding: owner handoff, observed installation/repo, metadata-only CAS and no fake ready');
 } finally { await rm(dir, { recursive: true, force: true }); }
