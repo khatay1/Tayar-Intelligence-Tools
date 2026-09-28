@@ -42,6 +42,7 @@ try {
   assert.equal(result.version, 1);
   assert.equal(writes, 1);
   assert.equal(recorded.p_project_id, projectId);
+  assert.equal(recorded.p_owner_id, ownerId);
   assert.equal(recorded.p_account_id, '17');
   assert.equal(recorded.p_target_id, '88');
   assert.equal(recorded.p_expected_version, 0);

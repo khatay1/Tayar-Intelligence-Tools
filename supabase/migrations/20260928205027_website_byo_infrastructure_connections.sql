@@ -33,7 +33,7 @@ revoke all on private.website_infrastructure_connections from public, anon, auth
 -- A trusted provider adapter first verifies the account/installation and then
 -- records its observed state. expected_version is a mandatory CAS guard.
 create function public.website_record_infrastructure_connection(
-  p_id uuid, p_project_id uuid, p_expected_version bigint, p_provider text,
+  p_id uuid, p_project_id uuid, p_owner_id uuid, p_expected_version bigint, p_provider text,
   p_environment text, p_account_id text, p_target_id text, p_permissions text[],
   p_status text, p_operation_id uuid, p_verified_at timestamptz
 ) returns bigint language plpgsql security definer set search_path = '' as $$
@@ -41,7 +41,9 @@ declare v_owner uuid; v_version bigint; v_permission text;
 begin
   select user_id into v_owner from public.projects
   where id = p_project_id and type = 'website-builder' and deleted_at is null for update;
-  if not found or v_owner is null then raise exception 'Project unavailable'; end if;
+  if not found or v_owner is null or p_owner_id is distinct from v_owner then
+    raise exception 'Project unavailable';
+  end if;
   if p_id is null or p_expected_version is null or p_expected_version < 0
     or p_provider is null or p_provider not in ('github','supabase','vercel','stripe','external')
     or p_environment is null or p_environment not in ('preview','production')
@@ -79,8 +81,8 @@ begin
   if v_version is null then raise exception 'Infrastructure connection changed'; end if;
   return v_version;
 end $$;
-revoke all on function public.website_record_infrastructure_connection(uuid,uuid,bigint,text,text,text,text,text[],text,uuid,timestamptz) from public, anon, authenticated;
-grant execute on function public.website_record_infrastructure_connection(uuid,uuid,bigint,text,text,text,text,text[],text,uuid,timestamptz) to service_role;
+revoke all on function public.website_record_infrastructure_connection(uuid,uuid,uuid,bigint,text,text,text,text,text[],text,uuid,timestamptz) from public, anon, authenticated;
+grant execute on function public.website_record_infrastructure_connection(uuid,uuid,uuid,bigint,text,text,text,text,text[],text,uuid,timestamptz) to service_role;
 
 create function private.website_infrastructure_connections_for_owner(p_project_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$

@@ -35,7 +35,8 @@ export async function bindWebsiteGitHubRepository(input: {
     if (!input.isCurrentOwner()) throw new Error();
     const connectionId = input.connectionId ?? crypto.randomUUID();
     const { data, error } = await input.client.rpc('website_record_infrastructure_connection', {
-      p_id: connectionId, p_project_id: input.projectId, p_expected_version: input.expectedVersion ?? 0,
+      p_id: connectionId, p_project_id: input.projectId, p_owner_id: input.ownerId,
+      p_expected_version: input.expectedVersion ?? 0,
       p_provider: 'github', p_environment: grant.environment, p_account_id: observed.accountId,
       p_target_id: observed.repositoryId, p_permissions: ['contents:write'],
       p_status: 'connected', p_operation_id: null, p_verified_at: (input.now ?? (() => new Date().toISOString()))(),
