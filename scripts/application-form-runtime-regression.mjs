@@ -94,6 +94,7 @@ try {
   assert.equal(saved.size, 1, 'Pending request survives a lost response');
   assert.equal(onceCalls.length, 1);
   await assert.rejects(durableFirst.submit(entries({ label: 'Changed' })), /identity is unavailable/);
+  await assert.rejects(durable({ ...captured, tableId: 'different-table' }, onceRuntime, scope).submit(entries()), /identity is unavailable/);
   assert.equal(onceCalls.length, 1, 'Changed values cannot inherit a committed request identity');
   durableFirst.dispose(); loseResponse = false;
   const reloaded = durable(captured, onceRuntime, scope);

@@ -171,7 +171,7 @@ export function createDurableApplicationFormSubmission(compiled: ReturnType<type
     || !scope.storage || !scope.crypto?.subtle || typeof scope.crypto.randomUUID !== 'function') throw new Error('Application form identity is unavailable.');
   let state: ApplicationFormSubmissionState = 'idle', disposed = false;
   const digest = async (payload: Record<string, unknown>) => {
-    const bytes = await scope.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
+    const bytes = await scope.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([compiled.tableId, payload])));
     return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
   };
   return {

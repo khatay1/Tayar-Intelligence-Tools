@@ -291,7 +291,7 @@ function createDedicatedApplicationRevisionReader(backend, platformUrl, serviceK
     async readFormRequestRevision() {
       try {
         const { data, error } = await client.rpc("app_form_request_revision");
-        if (error || data !== 1) throw new Error();
+        if (error || data !== 2) throw new Error();
         return data;
       } catch {
         throw new Error("Dedicated application request capability is unavailable.");

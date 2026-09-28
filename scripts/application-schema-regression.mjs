@@ -35,6 +35,9 @@ try {
   assert.match(sql, /create trigger app_guard_form_request before update on public\."app_bookings"/);
   assert.match(sql, /new\._tayar_request_id is distinct from old\._tayar_request_id/);
   assert.match(sql, /create table private\.app_runtime_capabilities/);
+  assert.match(sql, /create table private\.app_form_request_ledger/);
+  assert.match(sql, /create trigger app_record_form_request after insert on public\.\"app_bookings\"/);
+  assert.match(sql, /values \(true, 2\)/);
   assert.match(sql, /grant execute on function public\.app_form_request_revision\(\) to service_role/);
   assert.match(sql, /revoke all on function public\.app_form_request_revision\(\) from public, anon, authenticated/);
   assert.match(sql, /create or replace function private\.app_form_request_revision\(\).*security definer/);
@@ -94,7 +97,9 @@ try {
   assert.match(requestUpgrade, /from private\.app_schema_revisions where id = true for update/);
   assert.match(requestUpgrade, /Application schema revision does not match deployed definition/);
   assert.match(requestUpgrade, /to_regclass\('private\.app_runtime_capabilities'\)/);
-  assert.match(requestUpgrade, /if v_version = 1 then return/);
+  assert.match(requestUpgrade, /if v_version = 2 then return/);
+  assert.match(requestUpgrade, /update private\.app_runtime_capabilities set form_request_version = 2/);
+  assert.match(requestUpgrade, /insert into private\.app_form_request_ledger\(owner_id, table_name, request_id, record_id\)/);
   assert.match(requestUpgrade, /alter table public\."app_bookings" add column if not exists _tayar_request_id uuid/);
   assert.match(requestUpgrade, /alter table public\."app_vehicles" add column if not exists _tayar_request_id uuid/);
   assert.match(requestUpgrade, /Application request column is invalid/);

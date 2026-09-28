@@ -37,12 +37,13 @@ try {
   globalThis.fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     revisionRequests.push({ url, init });
-    return new Response(JSON.stringify(url.endsWith('/app_form_request_revision') ? 1 : app), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify(url.endsWith('/app_form_request_revision') ? 2 : app), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   try {
     const remoteReader = createDedicatedApplicationRevisionReader(backend, platformUrl, serviceKey);
     await assertApplicationBackendRevision(app, backend, platformUrl, remoteReader);
     await assertApplicationFormRequestCapability(backend, platformUrl, remoteReader);
+    await assert.rejects(() => assertApplicationFormRequestCapability(backend, platformUrl, { ...reader, async readFormRequestRevision() { return 1; } }), /unavailable/, 'Version 1 has no durable deletion tombstone');
     assert.match(revisionRequests[1].url, /\/rest\/v1\/rpc\/app_form_request_revision$/);
     assert.equal(revisionRequests[1].init.redirect, 'error');
     await assert.rejects(() => assertApplicationFormRequestCapability(backend, platformUrl, reader), /unavailable/);

@@ -16,7 +16,7 @@ export async function assertApplicationFormRequestCapability(backend: Applicatio
   validateApplicationPublicBackend(backend, platformUrl);
   if (reader.url !== backend.url || !reader.readFormRequestRevision) throw new Error('Application form request capability is unavailable.');
   try {
-    if (await reader.readFormRequestRevision() !== 1) throw new Error();
+    if (await reader.readFormRequestRevision() !== 2) throw new Error();
   } catch { throw new Error('Application form request capability is unavailable.'); }
 }
 

@@ -207,7 +207,7 @@ async function assertApplicationFormRequestCapability(backend, platformUrl, read
   validateApplicationPublicBackend(backend, platformUrl);
   if (reader.url !== backend.url || !reader.readFormRequestRevision) throw new Error("Application form request capability is unavailable.");
   try {
-    if (await reader.readFormRequestRevision() !== 1) throw new Error();
+    if (await reader.readFormRequestRevision() !== 2) throw new Error();
   } catch {
     throw new Error("Application form request capability is unavailable.");
   }
@@ -308,7 +308,7 @@ function createDedicatedApplicationRevisionReader(backend, platformUrl, serviceK
     async readFormRequestRevision() {
       try {
         const { data, error } = await client.rpc("app_form_request_revision");
-        if (error || data !== 1) throw new Error();
+        if (error || data !== 2) throw new Error();
         return data;
       } catch {
         throw new Error("Dedicated application request capability is unavailable.");

@@ -1,5 +1,12 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — 2026-09-28
+
+- Branch: `internal-fullstack-max-continue-20260927`; main remains `2643566473d5e255b948574224dc9369036a1046`. No deployment, production migration, flag activation or merge.
+- The request ledger survives business-row deletion and prevents the same owner/table/request UUID from creating a second record. A guarded upgrade backfills version-1 requests and emits capability version 2; form identity fingerprints include the target table.
+- Dedicated validation PostgreSQL: legacy-to-v2 and v1-to-v2 upgrades, backfill, authenticated insertion, delete-then-repeat denial passed in transactions ending with ROLLBACK. Follow-up inspection confirmed no persistent ledger/marker or changed booking count.
+- Full `health:project`, `lint`, `build`, generated application bundles, application suite and `git diff --check` passed. Release gate remains closed pending real browser/Auth and isolated host end-to-end proof. Seven workstreams in `FULLSTACK_MAX_REMAINING.md` remain partial.
+
 Base: `36adde894332a5d9adea26db2950ccabd34575b1` (latest main fetched 2026-09-26).
 Implementation branch: `feat/fullstack-max-20260926`. On 2026-09-27 the user explicitly requested merging the completed work into `main`. This authorizes source integration; production deployment and full-stack feature enablement remain gated on the full release criteria.
 

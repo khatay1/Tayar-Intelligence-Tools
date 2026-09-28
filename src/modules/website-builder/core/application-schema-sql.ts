@@ -147,14 +147,31 @@ begin
     raise exception 'Immutable application request identity';
   end if;
   return new;
-end $$;`];
+end $$;`,
+    `create or replace function private.app_record_form_request() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new._tayar_request_id is not null then
+    insert into private.app_form_request_ledger(owner_id, table_name, request_id, record_id)
+      values (new.owner_id, TG_TABLE_NAME, new._tayar_request_id, new.id);
+  end if;
+  return new;
+end $$;`,
+    'revoke all on function private.app_record_form_request() from public, anon, authenticated;'];
+}
+
+function formRequestLedger(): string[] {
+  return [
+    'create table private.app_form_request_ledger (owner_id uuid not null, table_name text not null, request_id uuid not null, record_id uuid not null, primary key (owner_id, table_name, request_id));',
+    'alter table private.app_form_request_ledger enable row level security;',
+    'revoke all on private.app_form_request_ledger from public, anon, authenticated;',
+  ];
 }
 
 function formRequestCapability(): string[] {
   return [
-    'create table private.app_runtime_capabilities (id boolean primary key default true check (id), form_request_version integer not null check (form_request_version = 1));',
+    'create table private.app_runtime_capabilities (id boolean primary key default true check (id), form_request_version integer not null check (form_request_version in (1, 2)));',
     'revoke all on private.app_runtime_capabilities from public, anon, authenticated;',
-    'insert into private.app_runtime_capabilities (id, form_request_version) values (true, 1);',
+    'insert into private.app_runtime_capabilities (id, form_request_version) values (true, 2);',
     `create or replace function private.app_form_request_revision() returns integer language sql stable security definer set search_path = '' as $$
   select form_request_version from private.app_runtime_capabilities where id = true
 $$;`,
@@ -174,6 +191,10 @@ function formRequestIndex(tableIndex: number, table: ApplicationTable): string {
 
 function formRequestTrigger(table: ApplicationTable): string {
   return `create trigger app_guard_form_request before update on public.${sqlName(tableName(table))} for each row execute function public.app_guard_form_request();`;
+}
+
+function formRequestLedgerTrigger(table: ApplicationTable): string {
+  return `create trigger app_record_form_request after insert on public.${sqlName(tableName(table))} for each row execute function private.app_record_form_request();`;
 }
 
 function revisionReadInfrastructure(): string[] {
@@ -202,7 +223,7 @@ export function compileInitialApplicationSchema(input: ApplicationDefinition): s
   statements.push('revoke all on private.app_schema_revisions from public, anon, authenticated;');
   statements.push(`insert into private.app_schema_revisions (id, definition) values (true, ${literal(JSON.stringify(app))}::jsonb);`);
   statements.push(...revisionReadInfrastructure());
-  statements.push(...formRequestFunction(), ...formRequestCapability());
+  statements.push(...formRequestLedger(), ...formRequestFunction(), ...formRequestCapability());
   statements.push(`create function public.app_guard_audit_fields() returns trigger language plpgsql set search_path = '' as $$
 begin
   if new.id is distinct from old.id or new.owner_id is distinct from old.owner_id or new.created_at is distinct from old.created_at then
@@ -226,7 +247,7 @@ end $$;`);
     statements.push(`revoke all on ${name} from public, anon, authenticated;`);
     statements.push(`create index ${sqlName(`app_i_${tableIndex}_owner`)} on ${name} (owner_id);`);
     statements.push(`create trigger app_guard_audit before update on ${name} for each row execute function public.app_guard_audit_fields();`);
-    statements.push(formRequestIndex(tableIndex, table), formRequestTrigger(table));
+    statements.push(formRequestIndex(tableIndex, table), formRequestTrigger(table), formRequestLedgerTrigger(table));
     for (const [index, field] of table.fields.entries()) statements.push(...fieldIndex(tableIndex, index, table, field));
   }
   // Add references only after all tables exist, including cyclic relationships.
@@ -285,6 +306,13 @@ end $revision$;`,
       statements.push(`create index ${sqlName(`app_i_${index}_owner`)} on ${name} (owner_id);`);
       statements.push(`create trigger app_guard_audit before update on ${name} for each row execute function public.app_guard_audit_fields();`);
       statements.push(formRequestIndex(index, table), formRequestTrigger(table));
+      // Legacy deployments can still add tables before the guarded v2 upgrade.
+      // That upgrade backfills and installs the ledger trigger on every table.
+      statements.push(`do $form_ledger$ begin
+  if to_regclass('private.app_form_request_ledger') is not null then
+    execute ${literal(formRequestLedgerTrigger(table))};
+  end if;
+end $form_ledger$;`);
     }
     for (let fieldIndexValue = old?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
       const field = table.fields[fieldIndexValue];
@@ -326,7 +354,7 @@ end $revision$;`,
  * The caller still must verify the marker against the same dedicated backend. */
 export function compileApplicationFormRequestUpgrade(input: ApplicationDefinition): string[] {
   const app = readApplicationDefinition(input);
-  const actions = formRequestFunction().map(statement => `execute ${literal(statement)};`);
+  const actions = [...formRequestLedger(), ...formRequestFunction()].map(statement => `execute ${literal(statement)};`);
   for (const [index, table] of app.tables.entries()) {
     const name = `public.${sqlName(tableName(table))}`;
     const indexName = sqlName(`app_i_${index}_request`);
@@ -344,8 +372,11 @@ export function compileApplicationFormRequestUpgrade(input: ApplicationDefinitio
       and pg_get_expr(i.indpred, i.indrelid) = '(_tayar_request_id IS NOT NULL)')
       then raise exception 'Application request index ${indexName} is invalid'; end if;`);
     actions.push(`execute ${literal(formRequestTrigger(table).replace('create trigger ', 'create or replace trigger '))};`);
+    actions.push(`execute ${literal(`insert into private.app_form_request_ledger(owner_id, table_name, request_id, record_id)
+      select owner_id, ${literal(tableName(table))}, _tayar_request_id, id from ${name} where _tayar_request_id is not null;`)};`);
+    actions.push(`execute ${literal(formRequestLedgerTrigger(table).replace('create trigger ', 'create or replace trigger '))};`);
   }
-  actions.push(...formRequestCapability().map(statement => `execute ${literal(statement)};`));
+  const capability = formRequestCapability().map(statement => `execute ${literal(statement)};`);
   return [`do $form_request_upgrade$
 declare v_version integer;
 begin
@@ -355,9 +386,17 @@ begin
   ) then raise exception 'Application schema revision does not match deployed definition'; end if;
   if to_regclass('private.app_runtime_capabilities') is not null then
     execute 'select form_request_version from private.app_runtime_capabilities where id = true' into v_version;
-    if v_version = 1 then return; end if;
-    raise exception 'Application request capability is invalid';
+    if v_version = 2 then return; end if;
+    if v_version is distinct from 1 then raise exception 'Application request capability is invalid'; end if;
   end if;
   ${actions.join('\n  ')}
+  if v_version = 1 then
+    alter table private.app_runtime_capabilities drop constraint app_runtime_capabilities_form_request_version_check;
+    alter table private.app_runtime_capabilities add constraint app_runtime_capabilities_form_request_version_check
+      check (form_request_version in (1, 2));
+    update private.app_runtime_capabilities set form_request_version = 2 where id = true;
+  else
+    ${capability.join('\n    ')}
+  end if;
 end $form_request_upgrade$;`];
 }

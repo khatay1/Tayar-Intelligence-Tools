@@ -12,7 +12,14 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Latest source batch — strict same-request reconciliation
+## Current source batch — durable request ledger (2026-09-28)
+
+- New isolated schemas now record each non-null form request UUID in a private owner/table/request ledger from an insert trigger. Deleting a business row does not delete this ledger entry; the same request cannot create another row. The capability marker is version 2, and the trusted reader rejects version 1.
+- The guarded legacy upgrade accepts an absent marker or version 1, backfills existing request rows, installs the ledger triggers and commits version 2 last. Newly added tables install the ledger trigger when the ledger already exists; otherwise the later guarded upgrade covers them.
+- The tab-scoped pending fingerprint includes the destination table ID as well as submitted values, so rebinding a form cannot reuse a request identity. Bound form publication remains closed.
+- Local schema, backend and controller regressions passed. On the dedicated validation database, both legacy-to-v2 and v1-to-v2 paths passed inside transactions ending in ROLLBACK, including delete-then-repeat rejection and v1 row backfill. Post-rollback inspection showed no persistent marker, ledger or test row. These are database checks, not live browser/hosting proof.
+
+## Previous source batch — strict same-request reconciliation
 
 - The isolated `createOnce` client now requires a verified permanent dedicated-app user before insert and checks the same identity after a successful response. Following an uncertain insert, it only reports `already-created` if an owner-scoped readable row has the same request UUID **and every submitted field matches**. Missing/different fields or an account change remain uncertain; no raw row or backend error reaches the form.
 - PASS SDK/HTTP-mocked tests for no-session preflight, matching row, mismatched/missing field and switched user; full project checks are recorded at the checkpoint. Published bound forms remain blocked pending real browser/Auth and live submission proof.
