@@ -421,6 +421,7 @@ export function sectionElementsToHtml(section: WebsiteSection, homeSlug: string,
 
 export function cloneSectionWithFreshIds(source: WebsiteSection, siblingSections: WebsiteSection[] = []): WebsiteSection {
   const cloned = JSON.parse(JSON.stringify(source)) as WebsiteSection;
+  const formFieldIdMap = new Map<string, string>();
   const containerIdMap = new Map<string, string>();
   const containers = (cloned.containers || []).map((container) => {
     const id = `container-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -447,9 +448,13 @@ export function cloneSectionWithFreshIds(source: WebsiteSection, siblingSections
     })),
     formFields: cloned.formFields?.map((field) => ({
       ...field,
-      id: `field-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: (() => { const id = `field-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; formFieldIdMap.set(field.id, id); return id; })(),
       options: field.options ? [...field.options] : undefined,
     })),
+    applicationFormBinding: cloned.applicationFormBinding ? {
+      ...cloned.applicationFormBinding,
+      fields: cloned.applicationFormBinding.fields.map(mapping => ({ ...mapping, formFieldId: formFieldIdMap.get(mapping.formFieldId) || mapping.formFieldId })),
+    } : undefined,
   };
 }
 

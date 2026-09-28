@@ -12,7 +12,14 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Latest completed batch — typed application form submission boundary
+## Latest completed batch — persisted form-binding contract
+
+- Added a reference-only `applicationFormBinding` on contact sections. The existing `update_section` operation accepts its bounded shape for manual and AI edits; semantic validation rejects extra keys, submitted values, malformed IDs and non-contact sections. Project snapshots/history carry the field through the existing page model.
+- Both native duplication and builder copy remap form field IDs while retaining application table/field references. A trusted private render compiles any saved binding against the current definition and fails closed until durable idempotent application form execution is wired; it cannot silently fall back to platform lead capture.
+- PASS shared operation/clone regression, malformed/valid private-render refusal, full project health including the application suite, TypeScript, ESLint, Vite build and generated release bundle consistency. These are local checks, not live browser/backend evidence.
+- This is metadata and safety groundwork only. No visual mapping controls or published form execution are enabled. The publishing gate remains closed.
+
+## Previous completed batch — typed application form submission boundary
 
 - Added `application-form-runtime.ts`, compiling existing contact-form field IDs to declared application table/field IDs. The binding carries references only, never submitted values, records or credentials.
 - Handles bounded text/number/boolean/date/UTC datetime/UUID/reference/enum/JSON values, required fields/default coverage and basic field constraints. Rejects system fields, unknown/duplicate values, unsupported file/conditional/automation/redirect/regex flows, malformed types and excessive JSON depth/size.
@@ -47,7 +54,7 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 ## Next work — do not redo earlier foundations
 
 1. Verify the account screen in a real browser, including password reset/confirmation links and multiple-tab behavior against an isolated test backend. Resolve any UI/Auth callback defects found.
-2. Connect the tested create-form compiler/submission controller to persisted, validated section bindings and the shared manual/AI command path; add the visual table/field mapping controls. Validate bindings at release/render time, keep unbound contact forms on their existing path, and do not enable irreversible retry after uncertain mutation. Then implement published form wiring, durable idempotency/reconciliation, read/list/update/delete bindings and action sequences. Runtime instantiation alone does not implement authored data-driven UI; no global privileged client is exposed.
+2. Add the visual table/field mapping controls over the persisted section binding, with save/reopen/history and stale-schema tests. Implement a server-owned idempotency/reconciliation boundary for creates before allowing the private renderer to emit bound forms; then connect published form listeners to the tested controller. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
 3. Finish isolated backend provisioning/schema application, configured Auth redirects/SMTP and per-app DNS/routing; preserve production separation.
 4. Continue the data bindings/actions, integration execution/secrets UI, application Stripe, private publishing lifecycle and A/B/C live release gates in FULLSTACK_MAX_REMAINING.md.
 
@@ -68,6 +75,10 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 - `scripts/build-application-page-browser.mjs`
 - `src/modules/website-builder/core/application-form-runtime.ts`
 - `scripts/application-form-runtime-regression.mjs`
+- `src/modules/website-builder/core/editor-value-safety.ts`
+- `src/modules/website-builder/core/editor-clone.ts`
+- `src/modules/website-builder/services/websiteApplicationRenderService.ts`
+- `scripts/application-form-binding-regression.mjs`
 
 Run `node scripts/build-application-runtime.mjs` and `node scripts/build-application-release.mjs` after shared/browser changes; their consistency checks also check the generated Auth and published-page scripts. Run affected tests, `npm run health:project`, `npm run lint`, and `npm run build` when a substantive batch is ready.
 

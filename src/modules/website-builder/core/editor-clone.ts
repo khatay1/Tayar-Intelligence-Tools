@@ -46,11 +46,17 @@ export function cloneEditorSectionIndependent(
     cloneEditorElementIndependent(element, idFactory, containerIdMap),
   );
 
+  const formFieldIdMap = new Map<string, string>();
   clone.formFields = (section.formFields || []).map((field) => {
     const next = cloneEditorValue(field);
     next.id = idFactory('form-field', field.id);
+    formFieldIdMap.set(field.id, next.id);
     return next;
   });
+  if (clone.applicationFormBinding && typeof clone.applicationFormBinding === 'object') {
+    const binding = clone.applicationFormBinding as { fields?: Array<{ formFieldId: string }> };
+    binding.fields = binding.fields?.map(mapping => ({ ...mapping, formFieldId: formFieldIdMap.get(mapping.formFieldId) || mapping.formFieldId }));
+  }
 
   return clone;
 }

@@ -314,16 +314,16 @@ async function verifySavedWebsiteApplicationBackend(input) {
       throw new Error("Saved application backend is unavailable.");
     }
     if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Saved application backend is unavailable.");
-    const record5 = data;
-    if (typeof record5.url !== "string" || typeof record5.projectRef !== "string" || typeof record5.publishableKey !== "string") {
+    const record6 = data;
+    if (typeof record6.url !== "string" || typeof record6.projectRef !== "string" || typeof record6.publishableKey !== "string") {
       throw new Error("Invalid saved application backend.");
     }
-    const backend2 = { url: record5.url, projectRef: record5.projectRef, publishableKey: record5.publishableKey };
+    const backend2 = { url: record6.url, projectRef: record6.projectRef, publishableKey: record6.publishableKey };
     validateApplicationPublicBackend(backend2, platformUrl);
     await assertApplicationBackendRevision(definition, backend2, platformUrl, {
       url: backend2.url,
       async readDeployedDefinition() {
-        return record5.deployedDefinition;
+        return record6.deployedDefinition;
       }
     });
     return backend2;
@@ -9686,8 +9686,138 @@ function assertValidPublishedWebsiteFileNames(names) {
   }
 }
 
-// src/modules/website-builder/services/websiteApplicationRenderService.ts
+// src/modules/website-builder/core/application-form-runtime.ts
+var invalid = () => new Error("The form does not match the application fields.");
+var uuid4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var record2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+function exact(value, keys) {
+  if (!record2(value) || Object.keys(value).some((key) => !keys.includes(key))) throw invalid();
+}
+function date(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) throw invalid();
+  const parsed = /* @__PURE__ */ new Date(`${value}T00:00:00Z`);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) throw invalid();
+  return value;
+}
+function boundedJson(text2) {
+  if (text2.length > 32768) throw invalid();
+  const result = JSON.parse(text2);
+  let nodes = 0;
+  function inspect(value, depth) {
+    if (++nodes > 4096 || depth > 24) throw invalid();
+    if (typeof value === "number" && (!Number.isFinite(value) || Number.isInteger(value) && !Number.isSafeInteger(value))) throw invalid();
+    if (value && typeof value === "object") Object.values(value).forEach((item) => inspect(item, depth + 1));
+  }
+  inspect(result, 0);
+  return result;
+}
+function convert(form, field, raw) {
+  if (field.type === "boolean") {
+    if (raw !== void 0 && raw !== "on" && raw !== "true" && raw !== "false") throw invalid();
+    const checked = raw === "on" || raw === "true";
+    if (form.required && !checked) throw invalid();
+    return checked;
+  }
+  if (raw === void 0 || raw.trim() === "") {
+    if (field.required || form.required) throw invalid();
+    return null;
+  }
+  if (raw.length > (field.type === "json" ? 32768 : 4e3)) throw invalid();
+  const validation = form.validation;
+  if (validation?.minLength !== void 0 && raw.length < validation.minLength || validation?.maxLength !== void 0 && raw.length > validation.maxLength) throw invalid();
+  if (form.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) throw invalid();
+  if (form.type === "url" && !["http:", "https:"].includes(new URL(raw).protocol)) throw invalid();
+  switch (field.type) {
+    case "text":
+      return raw;
+    case "number": {
+      if (raw.length > 100 || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(raw.trim())) throw invalid();
+      const value = Number(raw);
+      if (!Number.isFinite(value) || Number.isInteger(value) && !Number.isSafeInteger(value)) throw invalid();
+      if (validation?.min !== void 0 && value < validation.min || validation?.max !== void 0 && value > validation.max) throw invalid();
+      return value;
+    }
+    case "date":
+      return date(raw);
+    case "datetime": {
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(raw)) throw invalid();
+      date(raw.slice(0, 10));
+      const value = new Date(raw);
+      if (!Number.isFinite(value.getTime()) || value.toISOString().slice(0, 19) !== raw.slice(0, 19)) throw invalid();
+      return value.toISOString();
+    }
+    case "uuid":
+    case "reference":
+      if (!uuid4.test(raw)) throw invalid();
+      return raw.toLowerCase();
+    case "enum":
+      if (!field.options?.includes(raw)) throw invalid();
+      return raw;
+    case "json": {
+      const value = boundedJson(raw);
+      if (value === null && field.required) throw invalid();
+      return value;
+    }
+  }
+}
+function compileApplicationCreateForm(definition, source, input) {
+  const app = readApplicationDefinition(definition);
+  const section = JSON.parse(JSON.stringify(source));
+  const binding = JSON.parse(JSON.stringify(input));
+  exact(binding, ["operation", "tableId", "fields"]);
+  if (section.type !== "contact" || binding.operation !== "create" || typeof binding.tableId !== "string" || !Array.isArray(binding.fields) || binding.fields.length < 1 || binding.fields.length > 45 || !Array.isArray(section.formFields) || section.formFields.length !== binding.fields.length || section.formAutomations?.some((item) => item.enabled) || section.formSuccessAction === "redirect") throw invalid();
+  const table = app.tables.find((item) => item.id === binding.tableId);
+  if (!table || !table.permissions.some((item) => item.operation === "create")) throw invalid();
+  const formIds = /* @__PURE__ */ new Set(), tableIds = /* @__PURE__ */ new Set(), names = /* @__PURE__ */ new Set();
+  const fields = binding.fields.map((mapping) => {
+    exact(mapping, ["formFieldId", "tableFieldId"]);
+    if (typeof mapping.formFieldId !== "string" || typeof mapping.tableFieldId !== "string" || formIds.has(mapping.formFieldId) || tableIds.has(mapping.tableFieldId)) throw invalid();
+    const form = section.formFields.find((item) => item.id === mapping.formFieldId);
+    const field = table.fields.find((item) => item.id === mapping.tableFieldId);
+    if (!form || !field || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || names.has(form.name) || form.name.startsWith("_tayar_") || form.conditions?.length || form.type === "file") throw invalid();
+    if (form.validation) {
+      exact(form.validation, ["minLength", "maxLength", "min", "max", "pattern"]);
+      if (form.validation.pattern) throw invalid();
+      for (const key of ["minLength", "maxLength", "min", "max"]) {
+        const value = form.validation[key];
+        if (value !== void 0 && (typeof value !== "number" || !Number.isFinite(value) || key.endsWith("Length") && (!Number.isInteger(value) || value < 0 || value > 32768))) throw invalid();
+      }
+      if ((form.validation.minLength ?? 0) > (form.validation.maxLength ?? 32768) || (form.validation.min ?? -Infinity) > (form.validation.max ?? Infinity)) throw invalid();
+    }
+    const compatible = field.type === "boolean" ? form.type === "checkbox" : field.type === "number" ? form.type === "number" : field.type === "date" ? form.type === "date" : field.type === "enum" ? ["select", "radio"].includes(form.type) && !!form.options?.length && form.options.every((value) => field.options?.includes(value)) : ["text", "email", "tel", "url", "textarea"].includes(form.type);
+    if (!compatible) throw invalid();
+    formIds.add(form.id);
+    tableIds.add(field.id);
+    names.add(form.name);
+    return { form, field };
+  });
+  if (new Set(section.formFields.map((field) => field.id)).size !== section.formFields.length || table.fields.some((field) => field.required && field.defaultValue === void 0 && !tableIds.has(field.id))) throw invalid();
+  return {
+    tableId: table.id,
+    values(entries) {
+      const values = /* @__PURE__ */ new Map();
+      let count = 0;
+      for (const [name2, value] of entries) {
+        if (++count > 46 || typeof value !== "string" || values.has(name2)) throw invalid();
+        if (name2 === "_tayar_company") {
+          if (value) throw invalid();
+          values.set(name2, value);
+          continue;
+        }
+        if (!names.has(name2) || value.length > 32768) throw invalid();
+        values.set(name2, value);
+      }
+      try {
+        return Object.fromEntries(fields.map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))]));
+      } catch {
+        throw invalid();
+      }
+    }
+  };
+}
+
+// src/modules/website-builder/services/websiteApplicationRenderService.ts
+var record3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var text = (value, fallback = "") => typeof value === "string" ? value : fallback;
 async function renderWebsiteApplicationSnapshot(input) {
   if (typeof window !== "undefined") throw new Error("Private release rendering requires a server runtime.");
@@ -9696,10 +9826,15 @@ async function renderWebsiteApplicationSnapshot(input) {
   if (editorIntegrationPublishBlockers(readEditorIntegrationsFromProject(snapshot)).length) {
     throw new Error("Published integration execution is unavailable.");
   }
-  const localization = normalizeWebsiteLocalization(record2(snapshot.localization) ? snapshot.localization : void 0);
+  const localization = normalizeWebsiteLocalization(record3(snapshot.localization) ? snapshot.localization : void 0);
   const pages = snapshot.pages.map((page) => {
-    if (!record2(page) || typeof page.id !== "string" || !page.id || typeof page.slug !== "string" || !Array.isArray(page.sections) || page.sections.length > 100 || page.sections.some((section) => !record2(section)) || page.language !== void 0 && !["en", "ar", "sv"].includes(String(page.language))) throw new Error("Invalid saved application page.");
+    if (!record3(page) || typeof page.id !== "string" || !page.id || typeof page.slug !== "string" || !Array.isArray(page.sections) || page.sections.length > 100 || page.sections.some((section) => !record3(section)) || page.language !== void 0 && !["en", "ar", "sv"].includes(String(page.language))) throw new Error("Invalid saved application page.");
     if (page.cmsTemplate) throw new Error("Private CMS route mapping is unavailable.");
+    for (const section of page.sections) {
+      if (section.applicationFormBinding === void 0) continue;
+      compileApplicationCreateForm(snapshot.application, section, section.applicationFormBinding);
+      throw new Error("Application form publishing is unavailable.");
+    }
     return {
       ...page,
       outputPath: void 0,
@@ -9713,7 +9848,7 @@ async function renderWebsiteApplicationSnapshot(input) {
   const pageIds = new Set(pages.map((page) => page.id));
   if (pageIds.size !== pages.length || !pageIds.has(snapshot.homePageId)) throw new Error("Invalid saved application page identity.");
   const home = pages.find((page) => page.id === snapshot.homePageId);
-  const seo = record2(snapshot.seo) ? snapshot.seo : {};
+  const seo = record3(snapshot.seo) ? snapshot.seo : {};
   const output = createWebsiteBuilderOutput({
     pages,
     sections: home.sections,
@@ -9723,11 +9858,11 @@ async function renderWebsiteApplicationSnapshot(input) {
     siteName: text(snapshot.siteName, "My Website"),
     faviconUrl: text(snapshot.faviconUrl),
     seo: { title: text(seo.title), description: text(seo.description), keywords: Array.isArray(seo.keywords) ? seo.keywords.filter((value) => typeof value === "string") : [] },
-    theme: normalizeTheme(record2(snapshot.theme) ? snapshot.theme : void 0),
-    headerConfig: normalizeHeaderConfig(record2(snapshot.headerConfig) ? snapshot.headerConfig : void 0),
-    footerConfig: normalizeFooterConfig(record2(snapshot.footerConfig) ? snapshot.footerConfig : void 0),
-    siteEnhancements: normalizeSiteEnhancements(record2(snapshot.siteEnhancements) ? snapshot.siteEnhancements : void 0),
-    productionConfig: normalizeProductionConfig(record2(snapshot.productionConfig) ? snapshot.productionConfig : void 0),
+    theme: normalizeTheme(record3(snapshot.theme) ? snapshot.theme : void 0),
+    headerConfig: normalizeHeaderConfig(record3(snapshot.headerConfig) ? snapshot.headerConfig : void 0),
+    footerConfig: normalizeFooterConfig(record3(snapshot.footerConfig) ? snapshot.footerConfig : void 0),
+    siteEnhancements: normalizeSiteEnhancements(record3(snapshot.siteEnhancements) ? snapshot.siteEnhancements : void 0),
+    productionConfig: normalizeProductionConfig(record3(snapshot.productionConfig) ? snapshot.productionConfig : void 0),
     preferredLanguage: localization.defaultLanguage,
     cms: normalizeWebsiteCms(snapshot.cms),
     localization,
@@ -9767,14 +9902,14 @@ function assertValidPublishVersionArchive(reference) {
 import { createClient as createClient4 } from "npm:@supabase/supabase-js@2.57.4";
 
 // src/modules/website-builder/services/websiteApplicationPublishedService.ts
-var uuid4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var record3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var uuid5 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var record4 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validateWebsiteApplicationRelease(release, projectId, ownerId, platformUrl) {
-  if (!record3(release) || typeof release.id !== "string" || !uuid4.test(release.id) || release.project_id !== projectId || release.user_id !== ownerId || release.storage_bucket !== "website-application-releases" || typeof release.storage_prefix !== "string" || !record3(release.snapshot) || !record3(release.backend)) throw new Error("Invalid private release.");
+  if (!record4(release) || typeof release.id !== "string" || !uuid5.test(release.id) || release.project_id !== projectId || release.user_id !== ownerId || release.storage_bucket !== "website-application-releases" || typeof release.storage_prefix !== "string" || !record4(release.snapshot) || !record4(release.backend)) throw new Error("Invalid private release.");
   const snapshot = release.snapshot;
   if (!snapshot.application || !Array.isArray(snapshot.pages) || !snapshot.pages.length || snapshot.pages.length > 100 || typeof snapshot.homePageId !== "string") throw new Error("Invalid private release.");
   const pages = snapshot.pages;
-  if (pages.some((page) => !record3(page) || typeof page.id !== "string" || typeof page.slug !== "string" || page.language !== void 0 && (typeof page.language !== "string" || !["en", "ar", "sv"].includes(page.language)) || page.translationKey !== void 0 && typeof page.translationKey !== "string")) throw new Error("Invalid private release.");
+  if (pages.some((page) => !record4(page) || typeof page.id !== "string" || typeof page.slug !== "string" || page.language !== void 0 && (typeof page.language !== "string" || !["en", "ar", "sv"].includes(page.language)) || page.translationKey !== void 0 && typeof page.translationKey !== "string")) throw new Error("Invalid private release.");
   const pageIds = new Set(pages.map((page) => page.id));
   if (pageIds.size !== pages.length || !pageIds.has(snapshot.homePageId)) throw new Error("Invalid private release.");
   const definition = readApplicationDefinition(snapshot.application, pageIds);
@@ -9785,7 +9920,7 @@ function validateWebsiteApplicationRelease(release, projectId, ownerId, platform
   };
   validateApplicationPublicBackend(backend, platformUrl);
   const manifest = release.file_manifest;
-  if (!Array.isArray(manifest) || manifest.some((item) => !record3(item) || typeof item.name !== "string" || !/^[\p{L}\p{N}][\p{L}\p{N}._/-]{0,500}$/u.test(item.name) || typeof item.pageId !== "string" || !pageIds.has(item.pageId) || typeof item.contentType !== "string" || !/^[a-z]+\/[a-z0-9.+-]+(?:; charset=utf-8)?$/i.test(item.contentType))) throw new Error("Invalid private release.");
+  if (!Array.isArray(manifest) || manifest.some((item) => !record4(item) || typeof item.name !== "string" || !/^[\p{L}\p{N}][\p{L}\p{N}._/-]{0,500}$/u.test(item.name) || typeof item.pageId !== "string" || !pageIds.has(item.pageId) || typeof item.contentType !== "string" || !/^[a-z]+\/[a-z0-9.+-]+(?:; charset=utf-8)?$/i.test(item.contentType))) throw new Error("Invalid private release.");
   assertValidPublishVersionArchive({ versionId: release.id, projectId, ownerId, storagePrefix: release.storage_prefix, fileManifest: manifest });
   const localization = normalizeWebsiteLocalization(snapshot.localization);
   const htmlPaths = /* @__PURE__ */ new Map();
@@ -9799,7 +9934,7 @@ function validateWebsiteApplicationRelease(release, projectId, ownerId, platform
 }
 
 // src/modules/website-builder/services/websiteApplicationReleaseService.ts
-var uuid5 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid6 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var bucket = "website-application-releases";
 async function publishWebsiteApplicationRelease(input) {
   if (typeof window !== "undefined") throw new Error("Private releases require a server runtime.");
@@ -9811,10 +9946,10 @@ async function publishWebsiteApplicationRelease(input) {
   let attemptedPaths = [];
   let commitStarted = false;
   try {
-    if (!uuid5.test(projectId) || !accessToken || accessToken.length > 16384 || releaseNote.length > 500 || publishedUrl.length > 2e3 || new URL(publishedUrl).protocol !== "https:") throw new Error();
+    if (!uuid6.test(projectId) || !accessToken || accessToken.length > 16384 || releaseNote.length > 500 || publishedUrl.length > 2e3 || new URL(publishedUrl).protocol !== "https:") throw new Error();
     const identity = await platform.auth.getUser(accessToken);
     const ownerId = identity.data.user?.id;
-    if (identity.error || !ownerId || !uuid5.test(ownerId) || identity.data.user?.is_anonymous) throw new Error();
+    if (identity.error || !ownerId || !uuid6.test(ownerId) || identity.data.user?.is_anonymous) throw new Error();
     const saved = await platform.from("projects").select("content").eq("id", projectId).eq("user_id", ownerId).eq("type", "website-builder").is("deleted_at", null).maybeSingle();
     if (saved.error || !saved.data?.content || typeof saved.data.content !== "object" || Array.isArray(saved.data.content)) throw new Error();
     const serialized = JSON.stringify(saved.data.content);
@@ -9899,10 +10034,10 @@ async function inspectWebsiteApplicationReleaseOutcome(input) {
   if (typeof window !== "undefined") throw new Error("Private releases require a server runtime.");
   const { platform, accessToken, projectId, versionId } = input;
   try {
-    if (!uuid5.test(projectId) || !uuid5.test(versionId) || !accessToken || accessToken.length > 16384) return "unavailable";
+    if (!uuid6.test(projectId) || !uuid6.test(versionId) || !accessToken || accessToken.length > 16384) return "unavailable";
     const identity = await platform.auth.getUser(accessToken);
     const ownerId = identity.data.user?.id;
-    if (identity.error || !ownerId || !uuid5.test(ownerId) || identity.data.user?.is_anonymous) return "unavailable";
+    if (identity.error || !ownerId || !uuid6.test(ownerId) || identity.data.user?.is_anonymous) return "unavailable";
     const result = await platform.rpc("website_application_release_outcome", { p_project_id: projectId, p_owner_id: ownerId, p_version_id: versionId });
     if (result.error || !["selected", "recorded", "unresolved"].includes(result.data)) return "unavailable";
     return result.data;
@@ -9912,8 +10047,8 @@ async function inspectWebsiteApplicationReleaseOutcome(input) {
 }
 
 // src/modules/website-builder/services/websiteApplicationReleaseEndpoint.ts
-var uuid6 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var record4 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var uuid7 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var record5 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var reply = (status, body) => new Response(JSON.stringify(body), {
   status,
   headers: { "content-type": "application/json", "cache-control": "private, no-store", "vary": "Authorization, Origin" }
@@ -9927,10 +10062,10 @@ async function handleWebsiteApplicationRelease(request, context) {
   let body;
   try {
     const input = await readBoundedJson(request, 4096);
-    if (!record4(input) || typeof input.projectId !== "string" || !uuid6.test(input.projectId) || !["status", "outcome", "publish"].includes(String(input.operation))) throw new Error();
+    if (!record5(input) || typeof input.projectId !== "string" || !uuid7.test(input.projectId) || !["status", "outcome", "publish"].includes(String(input.operation))) throw new Error();
     const allowed = input.operation === "publish" ? ["operation", "projectId", "expectedSnapshotDigest", "releaseNote"] : input.operation === "outcome" ? ["operation", "projectId", "versionId"] : ["operation", "projectId"];
     if (Object.keys(input).some((key) => !allowed.includes(key))) throw new Error();
-    if (input.operation === "outcome" && (typeof input.versionId !== "string" || !uuid6.test(input.versionId))) throw new Error();
+    if (input.operation === "outcome" && (typeof input.versionId !== "string" || !uuid7.test(input.versionId))) throw new Error();
     if (input.operation === "publish" && (typeof input.expectedSnapshotDigest !== "string" || !/^[a-f0-9]{64}$/.test(input.expectedSnapshotDigest) || input.releaseNote !== void 0 && (typeof input.releaseNote !== "string" || input.releaseNote.length > 500))) throw new Error();
     body = input;
   } catch {
@@ -9949,7 +10084,7 @@ async function handleWebsiteApplicationRelease(request, context) {
   try {
     const identity = await platform.auth.getUser(accessToken);
     const ownerId = identity.data.user?.id;
-    if (identity.error || !ownerId || !uuid6.test(ownerId) || identity.data.user?.is_anonymous) return reply(401, { error: "Sign in required." });
+    if (identity.error || !ownerId || !uuid7.test(ownerId) || identity.data.user?.is_anonymous) return reply(401, { error: "Sign in required." });
     const project = await platform.from("projects").select("id").eq("id", projectId).eq("user_id", ownerId).eq("type", "website-builder").is("deleted_at", null).maybeSingle();
     if (project.error) return reply(503, { error: "Project is unavailable." });
     if (!project.data) return reply(404, { error: "Project not found." });
@@ -9958,10 +10093,10 @@ async function handleWebsiteApplicationRelease(request, context) {
       if (result2.error) throw new Error();
       let versionId = null;
       if (result2.data !== null) {
-        if (!record4(result2.data) || result2.data.enabled !== true) throw new Error();
+        if (!record5(result2.data) || result2.data.enabled !== true) throw new Error();
         if (result2.data.release !== null) {
           const release = result2.data.release;
-          if (!record4(release) || typeof release.id !== "string" || !uuid6.test(release.id) || release.project_id !== projectId || release.user_id !== ownerId) throw new Error();
+          if (!record5(release) || typeof release.id !== "string" || !uuid7.test(release.id) || release.project_id !== projectId || release.user_id !== ownerId) throw new Error();
           versionId = release.id;
         }
       }

@@ -56,6 +56,18 @@ try {
   const duplicate = structuredClone(snapshot); duplicate.pages[1].id = 'home';
   const missingHome = { ...snapshot, homePageId: 'missing' };
   const cms = structuredClone(snapshot); cms.pages[1].cmsTemplate = { collectionId: 'records' };
+  const bound = structuredClone(snapshot);
+  bound.pages[0].sections.push({ ...createSection('contact'), applicationFormBinding: { operation: 'create', tableId: 'records', fields: [{ formFieldId: 'missing', tableFieldId: 'missing' }] } });
+  await assert.rejects(() => render(bound), /form does not match/);
+  const validBound = structuredClone(snapshot);
+  const form = createSection('contact');
+  validBound.application.tables = [{ id: 'records', key: 'records', name: 'Records', permissions: [{ operation: 'create', access: 'owner' }],
+    fields: form.formFields.map((field, index) => ({ id: `db_${index}`, key: field.name, name: field.label, type: 'text', required: true })) }];
+  form.applicationFormBinding = { operation: 'create', tableId: 'records', fields: form.formFields.map((field, index) => ({ formFieldId: field.id, tableFieldId: `db_${index}` })) };
+  validBound.pages[0].sections.push(form);
+  await assert.rejects(() => render(validBound), /Application form publishing is unavailable/);
+  form.applicationFormBinding = null;
+  await assert.rejects(() => render(validBound), /form does not match/);
   for (const invalid of [duplicate, missingHome, cms, { ...snapshot, pages: [] }]) await assert.rejects(() => render(invalid));
   console.log('PASS trusted saved-project HTML export: immutable input, canonical routes, private page mapping, language isolation, RTL and no platform identity');
 } finally { await rm(dir, { recursive: true, force: true }); }

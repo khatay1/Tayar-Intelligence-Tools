@@ -415,6 +415,20 @@ function validateSectionRecord(
   optionalUrl(record, 'image', 'media', errors, label, 5000);
   optionalString(record, 'imagePrompt', errors, label, 8000);
   optionalString(record, 'formSuccessMessage', errors, label, 2000);
+  if (record.applicationFormBinding !== undefined) {
+    const binding = record.applicationFormBinding;
+    if ((record.type !== undefined && record.type !== 'contact') || !isRecord(binding)
+      || Object.keys(binding).some(key => !['operation', 'tableId', 'fields'].includes(key))
+      || binding.operation !== 'create' || typeof binding.tableId !== 'string'
+      || !/^[a-zA-Z0-9_-]{1,120}$/.test(binding.tableId)
+      || !Array.isArray(binding.fields) || binding.fields.length < 1 || binding.fields.length > 20
+      || binding.fields.some((entry: unknown) => !isRecord(entry)
+        || Object.keys(entry).some(key => !['formFieldId', 'tableFieldId'].includes(key))
+        || typeof entry.formFieldId !== 'string' || !/^[a-zA-Z0-9_-]{1,120}$/.test(entry.formFieldId)
+        || typeof entry.tableFieldId !== 'string' || !/^[a-zA-Z0-9_-]{1,120}$/.test(entry.tableFieldId))) {
+      pushError(errors, `${label}.applicationFormBinding`, 'must contain only valid application field references');
+    }
+  }
   optionalEnum(record, 'formSuccessAction', FORM_SUCCESS_ACTIONS, errors, label);
   optionalUrl(record, 'formRedirectUrl', 'link', errors, label);
   optionalString(record, 'anchorId', errors, label, 120, { trimmed: true });

@@ -7,6 +7,8 @@ import { editorIntegrationPublishBlockers, readEditorIntegrationsFromProject } f
 import { assertValidPublishedWebsiteBundle, isValidPublishedHtml } from '../core/published-site-validation';
 import type { WebsitePage } from '../core/website-builder-model';
 import type { WebsiteSection } from '../core/types';
+import { compileApplicationCreateForm } from '../core/application-form-runtime';
+import type { ApplicationDefinition } from '../core/application-model';
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const text = (value: unknown, fallback = '') => typeof value === 'string' ? value : fallback;
@@ -31,6 +33,13 @@ export async function renderWebsiteApplicationSnapshot(input: Record<string, unk
     // Generated CMS IDs need a trusted template-to-runtime authorization mapping.
     // Refuse this case rather than omitting/reclassifying protected dynamic pages.
     if (page.cmsTemplate) throw new Error('Private CMS route mapping is unavailable.');
+    for (const section of page.sections as WebsiteSection[]) {
+      if (section.applicationFormBinding === undefined) continue;
+      compileApplicationCreateForm(snapshot.application as ApplicationDefinition, section, section.applicationFormBinding);
+      // A bound mutation requires an idempotent server boundary before it can be
+      // rendered into an interactive private release. Never emit a lead form in its place.
+      throw new Error('Application form publishing is unavailable.');
+    }
     return { ...page, outputPath: undefined, id: page.id, slug: page.slug, name: text(page.name, 'Page'),
       sections: (page.sections as WebsiteSection[]).map(normalizeSection),
       showInNavigation: page.showInNavigation !== false,
