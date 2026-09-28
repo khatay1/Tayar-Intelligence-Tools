@@ -18,6 +18,7 @@ The owner explicitly requested continuing on this GitHub side branch so work sur
 - The guarded legacy upgrade accepts an absent marker or version 1, backfills existing request rows, installs the ledger triggers and commits version 2 last. Newly added tables install the ledger trigger when the ledger already exists; otherwise the later guarded upgrade covers them.
 - The tab-scoped pending fingerprint includes the destination table ID as well as submitted values, so rebinding a form cannot reuse a request identity. Bound form publication remains closed.
 - Local schema, backend and controller regressions passed. On the dedicated validation database, both legacy-to-v2 and v1-to-v2 paths passed inside transactions ending in ROLLBACK, including delete-then-repeat rejection and v1 row backfill. Post-rollback inspection showed no persistent marker, ledger or test row. These are database checks, not live browser/hosting proof.
+- The repeatable `scripts/fixtures/application-form-request-upgrade.sql` proof now checks version 2, ledger permissions/triggers and authenticated delete-then-replay rejection. It passed after the generated upgrade in another rolled-back validation transaction.
 
 ## Previous source batch — strict same-request reconciliation
 
