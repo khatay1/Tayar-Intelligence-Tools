@@ -1,5 +1,10 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — integration secret editor wiring
+
+- Connected saved cloud project integration secret entry to the owner-checked Vault RPC and stored only a scoped opaque reference in editor state. The UI requires one selected environment; stale project/configuration checks prevent cross-project attachment.
+- Local service, stale response, SSR panel, integrations runtime, full project health, TypeScript and lint checks passed. No production Vault migration or credential write occurred. Execution/adapters and live integration proof remain open.
+
 ## Current side-branch checkpoint — account synchronization race
 
 - After isolated cookie synchronization, the account controller requires a fresh permanent Auth user before showing signed-in state or continuing to a protected route. Regressions simulate session loss during initial synchronization and protected navigation.

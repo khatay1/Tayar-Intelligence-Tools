@@ -1,4 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useRef } from 'react';
+import { getEditorIntegrationsHostConfig, setEditorIntegrationsHostConfig } from '../core/editor-integrations-host-store';
+import { saveWebsiteIntegrationSecretForProject } from '../services/websiteProjectSecretClient';
 import {
 Check,
 Upload
@@ -87,6 +89,19 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
     v2MoveElementDirect, v2DuplicateElementDirect, v2DeleteElementDirect, applyV2NativeOperations, restoreEditHistoryEntry, brand, selectedContainerId, selectedFormFieldId,
     hasUnsavedChanges, cmsErrors, clearEditorDragState, application, applicationLoadSequence, applyApplicationOperations,
   } = view;
+  const secretTarget = useRef({ projectId: cloudProjectId, loadSequence: applicationLoadSequence, userId: user?.id });
+  secretTarget.current = { projectId: cloudProjectId, loadSequence: applicationLoadSequence, userId: user?.id };
+  const setIntegrationSecret = async (connectionId: string, field: string, value: string) => {
+    const target = secretTarget.current;
+    if (!target.projectId || !target.userId || cloudBusy) throw new Error('Save this cloud project before adding integration secrets.');
+    await saveWebsiteIntegrationSecretForProject({
+      projectId: target.projectId, connectionId, field, value,
+      getConfig: getEditorIntegrationsHostConfig,
+      isCurrentProject: () => secretTarget.current.projectId === target.projectId
+        && secretTarget.current.loadSequence === target.loadSequence && secretTarget.current.userId === target.userId,
+      apply: next => { setEditorIntegrationsHostConfig(next); setSaved(false); },
+    });
+  };
   const v2AiPanel = (
     <Suspense fallback={<div role="status" className="tayar-v2-empty-panel">{l('Loading...')}</div>}>
       <BuilderAiPanel
@@ -1144,6 +1159,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
     <>
     <WebsiteBuilderV2Bridge
       application={application}
+      onSetIntegrationSecret={user && cloudProjectId ? setIntegrationSecret : undefined}
       canvas={v2Canvas}
       overlaySlot={commandPaletteOverlay}
       aiPanel={v2AiPanel}

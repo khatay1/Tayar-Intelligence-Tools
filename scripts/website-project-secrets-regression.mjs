@@ -9,7 +9,7 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-project-secrets-'));
 try {
   const outfile = join(dir, 'secrets.cjs');
   await build({ entryPoints: ['src/modules/website-builder/services/websiteProjectSecretService.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { createWebsiteProjectSecretWriter } = (await import(pathToFileURL(outfile))).default;
+  const { createWebsiteProjectSecretWriter, saveWebsiteIntegrationSecret } = (await import(pathToFileURL(outfile))).default;
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   const ref = `secret://website/${projectId}/stripe/secretKey/production`;
   const calls = [];
@@ -26,5 +26,26 @@ try {
   await assert.rejects(() => wrong.setSecret('stripe', 'secretKey', 'private-value'), /does not match/);
   const failed = createWebsiteProjectSecretWriter({ async rpc() { return { data: null, error: { message: 'private-value must stay hidden' } }; } }, projectId, 'production');
   await assert.rejects(() => failed.setSecret('stripe', 'secretKey', 'private-value'), error => !error.message.includes('private-value'));
+  const connection = { id: 'stripe', providerId: 'stripe', name: 'Stripe', enabled: true, status: 'disconnected',
+    environments: ['production'], config: { publishableKey: 'pk_test_fixture' }, secrets: {}, events: [],
+    createdAt: '2026-09-28T00:00:00.000Z', updatedAt: '2026-09-28T00:00:00.000Z' };
+  let config = { version: 1, connections: [connection] };
+  const save = (overrides = {}) => saveWebsiteIntegrationSecret({
+    client, projectId, connectionId: 'stripe', field: 'secretKey', value: 'private-value',
+    getConfig: () => config, isCurrentProject: () => true, apply(next) { config = next; }, ...overrides,
+  });
+  await save();
+  assert.equal(config.connections[0].secrets.secretKey.ref, ref);
+  assert.ok(!JSON.stringify(config).includes('private-value'), 'Snapshots only receive an opaque reference');
+  const beforeGuard = calls.length;
+  config = { version: 1, connections: [{ ...connection, environments: ['preview', 'production'] }] };
+  await assert.rejects(save, /one integration environment/);
+  assert.equal(calls.length, beforeGuard, 'Ambiguous environment never reaches Vault');
+  config = { version: 1, connections: [connection] };
+  await assert.rejects(save({ isCurrentProject: () => false }), /project changed/);
+  assert.equal(config.connections[0].secrets.secretKey, undefined, 'Stale project never receives the reference');
+  const original = config;
+  await assert.rejects(save({ getConfig: () => { const result = config; config = { ...config }; return result; } }), /project changed/);
+  assert.notEqual(config, original, 'Concurrent editor changes invalidate the in-flight result');
   console.log('PASS project secret writer: target validation, owner RPC payload, scoped opaque reference and safe errors');
 } finally { await rm(dir, { recursive: true, force: true }); }

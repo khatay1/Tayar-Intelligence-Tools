@@ -12,7 +12,13 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Current source batch — refreshed account identity
+## Current source batch — editor integration secret storage
+
+- The existing V2 integrations panel now sends a secret entered for a saved cloud project to the owner-scoped Vault RPC through `websiteProjectSecretService`. The project snapshot receives only an opaque reference. The callback rechecks project ID, user ID, load sequence and editor configuration after the RPC; a stale response cannot attach a reference to another project or overwrite newer edits.
+- The current integration model has one reference per secret field. The panel therefore enables secret entry only when exactly one environment is selected and explains the constraint in English, Arabic and Swedish. Test-connection and published integration execution remain disabled/unimplemented; production publish blockers remain in place.
+- PASS secret writer and stale-project regressions, panel SSR for secure-writer/one-environment gating, integration runtime regression, full `health:project`, typecheck and lint. The Vault migration is source only; no production secret or migration was written.
+
+## Previous source batch — refreshed account identity
 
 - Account initialization, sign-in, confirmed sign-up, password recovery completion and protected-page continuation now verify a fresh permanent dedicated Auth user after session-cookie synchronization. A session lost during synchronization cannot leave the account shell in a signed-in state or navigate to a protected page.
 - A regression forces logout between the stale session read and bridge synchronization, and again before protected navigation. The controller stays signed out and refuses navigation. Browser bundle and local application tests passed; a real isolated-host multi-tab browser test is still required.
