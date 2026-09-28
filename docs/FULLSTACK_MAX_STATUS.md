@@ -3,6 +3,7 @@
 ## Current side-branch checkpoint — integration secret editor wiring
 
 - Connected saved cloud project integration secret entry to the owner-checked Vault RPC and stored only a scoped opaque reference in editor state. The UI requires one selected environment; stale project/configuration checks prevent cross-project attachment.
+- Switching the integration environment or selecting multiple environments now flags its old project Vault reference as invalid and removes the misleading “Configured” hint. The credential remains in Vault until an explicit reconciliation/removal flow is built.
 - Local service, stale response, SSR panel, integrations runtime, full project health, TypeScript and lint checks passed. No production Vault migration or credential write occurred. Execution/adapters and live integration proof remain open.
 
 ## Current side-branch checkpoint — account synchronization race

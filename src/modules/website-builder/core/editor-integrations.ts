@@ -1,4 +1,4 @@
-import { hasEmbeddedIntegrationCredentials, isEditorSecretReference, isPublicIntegrationEndpoint } from './editor-integration-security';
+import { hasEmbeddedIntegrationCredentials, isEditorProjectSecretReferenceFor, isEditorSecretReference, isPublicIntegrationEndpoint } from './editor-integration-security';
 
 export type EditorIntegrationCategory = 'analytics' | 'payments' | 'email' | 'crm' | 'api' | 'webhook';
 export type EditorIntegrationStatus = 'disconnected' | 'configured' | 'active' | 'error' | 'disabled';
@@ -120,6 +120,9 @@ export function validateEditorIntegrations(config: EditorIntegrationsConfig): Ed
     }
     for (const [key, secret] of Object.entries(connection.secrets)) {
       if (!provider.fields.some(field => field.key === key && field.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection.id, field: key, code: 'invalid-secret-ref', message: 'A private credential must use a valid server-managed reference.' });
+      else if (secret.ref.startsWith('secret://website/') && (connection.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection.id, key, connection.environments[0]))) {
+        issues.push({ connectionId: connection.id, field: key, code: 'invalid-secret-ref', message: 'The private credential belongs to another integration environment. Store it again for the selected environment.' });
+      }
     }
     if (connection.providerId === 'stripe' && connection.config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(connection.config.publishableKey))) issues.push({ connectionId: connection.id, field: 'publishableKey', code: 'invalid-config', message: 'Stripe requires a publishable key; private keys belong in secure server storage.' });
     for (const field of provider.fields) {

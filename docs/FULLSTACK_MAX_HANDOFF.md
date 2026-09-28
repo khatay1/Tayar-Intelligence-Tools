@@ -16,6 +16,7 @@ The owner explicitly requested continuing on this GitHub side branch so work sur
 
 - The existing V2 integrations panel now sends a secret entered for a saved cloud project to the owner-scoped Vault RPC through `websiteProjectSecretService`. The project snapshot receives only an opaque reference. The callback rechecks project ID, user ID, load sequence and editor configuration after the RPC; a stale response cannot attach a reference to another project or overwrite newer edits.
 - The current integration model has one reference per secret field. The panel therefore enables secret entry only when exactly one environment is selected and explains the constraint in English, Arabic and Swedish. Test-connection and published integration execution remain disabled/unimplemented; production publish blockers remain in place.
+- A changed or multi-selected environment invalidates an existing project Vault reference in local configuration checks; the password field no longer labels that reference as configured. Vault cleanup and reference reconciliation remain a separate owner-facing flow.
 - PASS secret writer and stale-project regressions, panel SSR for secure-writer/one-environment gating, integration runtime regression, full `health:project`, typecheck and lint. The Vault migration is source only; no production secret or migration was written.
 
 ## Previous source batch — refreshed account identity

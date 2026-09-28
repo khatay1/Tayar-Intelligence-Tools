@@ -29,5 +29,15 @@ try {
   assert.match(render(['preview', 'production'], async () => {}), /Choose exactly one environment/);
   assert.match(render(['preview', 'production'], async () => {}), /type="password"[^>]*disabled/);
   assert.match(render(['production']), /Secure secret storage is not connected yet/);
+  const configured = renderToStaticMarkup(React.createElement(Panel, {
+    config: { version: 1, connections: [{ ...connection, secrets: { signingSecret: { ref: 'secret://website/dddddddd-dddd-4ddd-8ddd-dddddddddddd/hook/signingSecret/production' } } }] },
+    onChange() {}, onSetSecret: async () => {},
+  }));
+  assert.match(configured, /Configured — enter to replace/);
+  const stale = renderToStaticMarkup(React.createElement(Panel, {
+    config: { version: 1, connections: [{ ...connection, environments: ['staging'], secrets: { signingSecret: { ref: 'secret://website/dddddddd-dddd-4ddd-8ddd-dddddddddddd/hook/signingSecret/production' } } }] },
+    onChange() {}, onSetSecret: async () => {},
+  }));
+  assert.doesNotMatch(stale, /Configured — enter to replace/);
   console.log('PASS integration secret panel: enabled only with a secure writer and one environment');
 } finally { await rm(dir, { recursive: true, force: true }); }

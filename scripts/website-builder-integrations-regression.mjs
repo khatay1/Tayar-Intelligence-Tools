@@ -24,6 +24,10 @@ try {
   const ref = `secret://website/${projectId}/hook/signingSecret/production`;
   const config = integrations.normalizeEditorIntegrationsConfig({ connections: [{ id: 'hook', providerId: 'webhook', name: 'Orders', enabled: true, status: 'active', environments: ['production'], config: { url: 'https://example.com/hook' }, secrets: { signingSecret: { ref } }, events: ['commerce.paid'] }] });
   assert.deepEqual(integrations.validateEditorIntegrations(config), []);
+  const movedEnvironment = structuredClone(config); movedEnvironment.connections[0].environments = ['staging'];
+  assert.ok(integrations.validateEditorIntegrations(movedEnvironment).some(issue => issue.code === 'invalid-secret-ref'), 'Changing environment cannot make an old Vault reference look configured');
+  const multipleEnvironments = structuredClone(config); multipleEnvironments.connections[0].environments = ['preview', 'production'];
+  assert.ok(integrations.validateEditorIntegrations(multipleEnvironments).some(issue => issue.code === 'invalid-secret-ref'), 'One reference cannot cover multiple environments');
   assert.equal(integrations.integrationsForEvent(config, 'commerce.paid', 'production').length, 1);
   assert.equal(integrations.integrationsForEvent(config, 'commerce.paid', 'preview').length, 0);
   assert.ok(projectHost.editorIntegrationPublishBlockers(config).some(message => /not deployed/.test(message)), 'Configured production webhook cannot silently publish as functional');

@@ -5,6 +5,13 @@ export function isEditorSecretReference(value: unknown): value is string {
     && value !== 'secret://redacted';
 }
 
+/** A project Vault reference identifies one connection, field and environment. */
+export function isEditorProjectSecretReferenceFor(value: unknown, connectionId: string, field: string, environment: string): boolean {
+  return isEditorSecretReference(value)
+    && /^secret:\/\/website\/[0-9a-f-]{36}\//i.test(value)
+    && value.endsWith(`/${connectionId}/${field}/${environment}`);
+}
+
 /** Lexical preflight only. Server adapters must also validate DNS and forbid redirects. */
 export function hasEmbeddedIntegrationCredentials(value: string): boolean {
   try {

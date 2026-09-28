@@ -9528,6 +9528,9 @@ function createWebsiteBuilderOutput({
 function isEditorSecretReference(value) {
   return typeof value === "string" && /^secret:\/\/[a-zA-Z0-9][a-zA-Z0-9/_:.-]{0,450}$/.test(value) && value !== "secret://redacted";
 }
+function isEditorProjectSecretReferenceFor(value, connectionId, field, environment) {
+  return isEditorSecretReference(value) && /^secret:\/\/website\/[0-9a-f-]{36}\//i.test(value) && value.endsWith(`/${connectionId}/${field}/${environment}`);
+}
 function hasEmbeddedIntegrationCredentials(value) {
   try {
     const url = new URL(value);
@@ -9617,6 +9620,9 @@ function validateEditorIntegrations(config) {
     }
     for (const [key, secret] of Object.entries(connection.secrets)) {
       if (!provider.fields.some((field) => field.key === key && field.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection.id, field: key, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
+      else if (secret.ref.startsWith("secret://website/") && (connection.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection.id, key, connection.environments[0]))) {
+        issues.push({ connectionId: connection.id, field: key, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
+      }
     }
     if (connection.providerId === "stripe" && connection.config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(connection.config.publishableKey))) issues.push({ connectionId: connection.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
     for (const field of provider.fields) {
