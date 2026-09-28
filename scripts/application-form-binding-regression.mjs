@@ -12,10 +12,14 @@ try {
     export { inspectEditorSectionSemantic } from './src/modules/website-builder/core/editor-value-safety';
     export { cloneEditorSectionIndependent } from './src/modules/website-builder/core/editor-clone';
     export { cloneSectionWithFreshIds } from './src/modules/website-builder/core/website-builder-rendering';
+    export { adaptEditorNativeOperation } from './src/modules/website-builder/core/editor-native-operation';
+    export { runEditorCommand } from './src/modules/website-builder/core/editor-command';
+    export { createEditorHistory, undoEditorHistory } from './src/modules/website-builder/core/editor-history';
     export { createSection } from './src/modules/website-builder/core/defaults';`, resolveDir: process.cwd(), loader: 'ts' },
   tsconfig: 'tsconfig.app.json', bundle: true, platform: 'node', format: 'cjs', outfile });
   const { preflightEditorNativeOperations: preflight, inspectEditorSectionSemantic: inspect,
-    cloneEditorSectionIndependent: clone, cloneSectionWithFreshIds: cloneBuilder, createSection } = (await import(pathToFileURL(outfile))).default;
+    cloneEditorSectionIndependent: clone, cloneSectionWithFreshIds: cloneBuilder, createSection,
+    adaptEditorNativeOperation: adapt, runEditorCommand: run, createEditorHistory: history, undoEditorHistory: undo } = (await import(pathToFileURL(outfile))).default;
   const section = createSection('contact');
   const binding = { operation: 'create', tableId: 'records', fields: section.formFields.map((field, index) => ({ formFieldId: field.id, tableFieldId: `db_${index}` })) };
   section.applicationFormBinding = binding;
@@ -24,6 +28,18 @@ try {
   for (const source of ['manual', 'ai']) {
     assert.equal(preflight([{ action: 'update_section', source, pageId: 'home', sectionId: section.id, changes: { applicationFormBinding: binding } }], { project }).ok, true);
   }
+  const bare = { pages: [{ id: 'home', sections: [{ ...section, applicationFormBinding: undefined }] }] };
+  const save = adapt({ action: 'update_section', source: 'manual', pageId: 'home', sectionId: section.id, changes: { applicationFormBinding: binding } });
+  assert.equal(save.ok, true);
+  const saved = run(bare, save.command, { history: history() });
+  assert.equal(saved.transaction.ok, true);
+  assert.deepEqual(saved.project.pages[0].sections[0].applicationFormBinding, binding);
+  assert.equal(JSON.parse(JSON.stringify(saved.project)).pages[0].sections[0].applicationFormBinding.tableId, 'records');
+  assert.equal(undo(saved.project, saved.history).value.pages[0].sections[0].applicationFormBinding, undefined);
+  const clear = adapt({ action: 'update_section', source: 'manual', pageId: 'home', sectionId: section.id, changes: { applicationFormBinding: undefined } });
+  const cleared = run(saved.project, clear.command, { history: saved.history });
+  assert.equal(cleared.transaction.ok, true);
+  assert.equal(JSON.parse(JSON.stringify(cleared.project)).pages[0].sections[0].applicationFormBinding, undefined);
   for (const wrong of [{ ...binding, credential: 'secret' }, { ...binding, fields: [{ formFieldId: 'bad/path', tableFieldId: 'db_0' }] },
     { ...binding, fields: [{ formFieldId: section.formFields[0].id, tableFieldId: 'db_0', submittedValue: 'private' }] }]) {
     assert.equal(inspect({ ...section, applicationFormBinding: wrong }).ok, false);

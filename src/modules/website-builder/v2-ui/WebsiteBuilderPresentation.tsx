@@ -1143,6 +1143,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
   return (
     <>
     <WebsiteBuilderV2Bridge
+      application={application}
       canvas={v2Canvas}
       overlaySlot={commandPaletteOverlay}
       aiPanel={v2AiPanel}

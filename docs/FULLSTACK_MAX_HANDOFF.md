@@ -12,7 +12,13 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Latest completed batch — persisted form-binding contract
+## Latest completed batch — manual application form mapping controls
+
+- The V2 section inspector now displays application form data mapping for a selected contact section. It lists only tables with a declared create permission, maps each existing form field to a declared table field, validates the entire binding with the same compiler as private rendering, and saves or removes it through the shared native `update_section` operation. A saved mapping reopens from project state; project/schema changes remount the draft to prevent stale application.
+- Added EN/AR/SV labels and a bounded responsive grid. An invalid candidate cannot be saved. The UI warns that a bound form cannot accept records until secure private execution is available; the private renderer continues to refuse publication of bound mutations.
+- PASS mapping SSR regression for permission filtering, saved/invalid state; shared command save/JSON round-trip/undo/remove regression. Full health, lint and Vite build run at this checkpoint. No real browser interaction, backend insert or published form behavior is claimed.
+
+## Previous completed batch — persisted form-binding contract
 
 - Added a reference-only `applicationFormBinding` on contact sections. The existing `update_section` operation accepts its bounded shape for manual and AI edits; semantic validation rejects extra keys, submitted values, malformed IDs and non-contact sections. Project snapshots/history carry the field through the existing page model.
 - Both native duplication and builder copy remap form field IDs while retaining application table/field references. A trusted private render compiles any saved binding against the current definition and fails closed until durable idempotent application form execution is wired; it cannot silently fall back to platform lead capture.
@@ -54,7 +60,7 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 ## Next work — do not redo earlier foundations
 
 1. Verify the account screen in a real browser, including password reset/confirmation links and multiple-tab behavior against an isolated test backend. Resolve any UI/Auth callback defects found.
-2. Add the visual table/field mapping controls over the persisted section binding, with save/reopen/history and stale-schema tests. Implement a server-owned idempotency/reconciliation boundary for creates before allowing the private renderer to emit bound forms; then connect published form listeners to the tested controller. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
+2. Implement a server-owned idempotency/reconciliation boundary for creates before allowing the private renderer to emit bound forms; then connect published form listeners to the tested controller and verify the editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
 3. Finish isolated backend provisioning/schema application, configured Auth redirects/SMTP and per-app DNS/routing; preserve production separation.
 4. Continue the data bindings/actions, integration execution/secrets UI, application Stripe, private publishing lifecycle and A/B/C live release gates in FULLSTACK_MAX_REMAINING.md.
 
@@ -79,6 +85,8 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 - `src/modules/website-builder/core/editor-clone.ts`
 - `src/modules/website-builder/services/websiteApplicationRenderService.ts`
 - `scripts/application-form-binding-regression.mjs`
+- `src/modules/website-builder/v2-ui/BuilderApplicationFormMapping.tsx`
+- `scripts/application-form-mapping-regression.mjs`
 
 Run `node scripts/build-application-runtime.mjs` and `node scripts/build-application-release.mjs` after shared/browser changes; their consistency checks also check the generated Auth and published-page scripts. Run affected tests, `npm run health:project`, `npm run lint`, and `npm run build` when a substantive batch is ready.
 

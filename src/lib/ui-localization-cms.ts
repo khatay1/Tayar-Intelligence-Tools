@@ -6,6 +6,11 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arCmsSupplement: PhraseMap = {
+  'Application form data': 'بيانات نموذج التطبيق',
+  'Bound forms require secure application publishing before they can accept records.': 'تحتاج النماذج المرتبطة إلى نشر التطبيق الآمن قبل استقبال السجلات.',
+  'Target table': 'الجدول المستهدف', 'Select a table': 'اختر جدولًا', 'Select a field': 'اختر حقلًا',
+  'Match every form field to a compatible application field.': 'اربط كل حقل في النموذج بحقل متوافق في التطبيق.',
+  'Save data binding': 'حفظ ربط البيانات', 'Remove data binding': 'إزالة ربط البيانات',
   "Application backend connection": "ربط خلفية التطبيق",
   "Connect an existing dedicated backend with the matching application schema.": "اربط خلفية مستقلة موجودة تطابق بنية التطبيق.",
   "Save this project before linking a backend.": "احفظ هذا المشروع قبل ربط الخلفية.",
@@ -37,6 +42,11 @@ export const arCmsSupplement: PhraseMap = {
 };
 
 export const svCmsSupplement: PhraseMap = {
+  'Application form data': 'Data för appformulär',
+  'Bound forms require secure application publishing before they can accept records.': 'Kopplade formulär kräver säker apppublicering innan de kan ta emot poster.',
+  'Target table': 'Måltabell', 'Select a table': 'Välj tabell', 'Select a field': 'Välj fält',
+  'Match every form field to a compatible application field.': 'Koppla varje formulärfält till ett kompatibelt appfält.',
+  'Save data binding': 'Spara datakoppling', 'Remove data binding': 'Ta bort datakoppling',
   "Application backend connection": "Anslut appens backend",
   "Connect an existing dedicated backend with the matching application schema.": "Anslut en befintlig separat backend med matchande appschema.",
   "Save this project before linking a backend.": "Spara projektet innan du ansluter en backend.",

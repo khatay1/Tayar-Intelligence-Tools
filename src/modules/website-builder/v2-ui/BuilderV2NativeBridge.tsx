@@ -21,6 +21,9 @@ import type {
   EditorMediaFilter,
 } from '../core/editor-media-library';
 import type { EditorNativeOperation } from '../core/editor-native-operation';
+import type { ApplicationDefinition } from '../core/application-model';
+import type { WebsiteSection } from '../core/types';
+import { BuilderApplicationFormMapping } from './BuilderApplicationFormMapping';
 import type { EditorSelection } from '../core/editor-selection';
 import type { EditorShellContract } from '../core/editor-shell-contract';
 import type { EditorTemplateLibraryItem } from '../core/editor-template-library';
@@ -35,6 +38,7 @@ import { BuilderPanelRouter } from './BuilderPanelRouter';
 import { WebsiteBuilderV2Shell } from './WebsiteBuilderV2Shell';
 
 export interface BuilderV2NativeBridgeProps<P extends EditorProjectLike> {
+  application?: ApplicationDefinition;
   shell: EditorShellContract;
   project: P;
   selection?: EditorSelection;
@@ -299,6 +303,7 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(props: Builde
 
   function renderInspector(target: EditorShellContract['view']['inspectorTarget'], tab: EditorInspectorTab) {
     const canCutTarget = target.kind === 'element' || (target.kind === 'section' && (project.pages.find(page => page.id === selection.pageId)?.sections.length || 0) > 1);
+    const formSection = project.pages.find(page => page.id === selection.pageId)?.sections.find(section => section.id === selection.sectionId);
     return <>
       {(target.kind === 'element' || target.kind === 'section') && <div className="tayar-v2-inspector-actions" aria-label={l('Editor clipboard')}>
         <button type="button" onClick={props.onCopySelection} disabled={!props.onCopySelection}>{l(target.kind === 'element' ? 'Copy element' : 'Copy section')}</button>
@@ -307,6 +312,11 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(props: Builde
       </div>}
       {target.kind === 'element' && (props.selectedElementIds?.length || 0) > 1 && <div className="tayar-v2-multi-edit-note" role="status">{props.selectedElementIds?.length} {l('Selected elements')} · {l('Inspector changes apply to all')}</div>}
       <BuilderInspectorFields fields={inspectorFields} group={tab} onChange={handleInspectorChange} disabled={Boolean(shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking)} />
+      {target.kind === 'section' && formSection?.type === 'contact' && props.application && selection.pageId && <BuilderApplicationFormMapping
+        key={`${selection.pageId}:${formSection.id}:${JSON.stringify(formSection.applicationFormBinding)}:${JSON.stringify(props.application)}`}
+        section={formSection as unknown as WebsiteSection} application={props.application}
+        disabled={Boolean(shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking)}
+        onChange={applicationFormBinding => applyOperations([{ action: 'update_section', pageId: selection.pageId, sectionId: formSection.id, changes: { applicationFormBinding } }], selection)} />}
     </>;
   }
 
