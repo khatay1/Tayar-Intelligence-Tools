@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useLocalizer } from '@/lib/ui-localization-cms';
 import { isEditorProjectSecretReferenceFor, isEditorSecretReference } from '../core/editor-integration-security';
 import {
@@ -10,11 +10,14 @@ import {
   type EditorIntegrationEvent,
   type EditorIntegrationsConfig,
 } from '../core/editor-integrations';
+import type { WebsiteSecretInventory } from '../services/websiteProjectSecretService';
 
 interface Props {
   config: EditorIntegrationsConfig;
   onChange(config: EditorIntegrationsConfig): void;
   onSetSecret?(connectionId: string, field: string, value: string): void | Promise<void>;
+  onInspectSecrets?(): Promise<WebsiteSecretInventory>;
+  secretScope?: string;
   onTestConnection?(connectionId: string): void | Promise<void>;
 }
 
@@ -32,12 +35,16 @@ function toggleEvent(events: EditorIntegrationEvent[] | undefined, event: Editor
   return current.filter(item => item !== event);
 }
 
-export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onTestConnection }: Props) {
+export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onInspectSecrets, secretScope, onTestConnection }: Props) {
   const l = useLocalizer();
   const [providerId, setProviderId] = useState(EDITOR_INTEGRATION_PROVIDERS[0]?.id ?? '');
   const [testing, setTesting] = useState<string>();
   const [savingSecret, setSavingSecret] = useState<string>();
   const [error, setError] = useState('');
+  const [inspecting, setInspecting] = useState(false);
+  const [inventory, setInventory] = useState<{ scope: string | undefined; config: EditorIntegrationsConfig; result: WebsiteSecretInventory }>();
+  const current = useRef({ config, secretScope });
+  current.current = { config, secretScope };
   const issues = useMemo(() => validateEditorIntegrations(config), [config]);
   const patch = (id: string, change: Partial<EditorIntegrationConnection>) => onChange({ ...config, connections: config.connections.map(item => item.id === id ? { ...item, ...change, updatedAt: new Date().toISOString() } : item) });
 
@@ -46,6 +53,16 @@ export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onT
     <div className="builder-v2-grid"><label>{l('Provider')}<select value={providerId} onChange={event => setProviderId(event.target.value)}>{EDITOR_INTEGRATION_PROVIDERS.map(provider => <option key={provider.id} value={provider.id}>{provider.name} · {provider.category}</option>)}</select></label><button type="button" onClick={() => onChange({ ...config, connections: [...config.connections, createConnection(providerId)] })}>{l('Add integration')}</button></div>
     {error && <p role="alert">{l(error)}</p>}
     {!onSetSecret && <p>{l('Secure secret storage is not connected yet.')}</p>}
+    {onInspectSecrets && <div><button type="button" disabled={inspecting} onClick={async () => {
+      const source = current.current;
+      setError(''); setInspecting(true); setInventory(undefined);
+      try {
+        const result = await onInspectSecrets();
+        if (current.current.config === source.config && current.current.secretScope === source.secretScope) setInventory({ config: source.config, scope: source.secretScope, result });
+      } catch { if (current.current.config === source.config && current.current.secretScope === source.secretScope) setError('Credential check failed. Try again.'); }
+      finally { setInspecting(false); }
+    }}>{l(inspecting ? 'Checking credentials…' : 'Check stored credentials')}</button>
+    {inventory?.config === config && inventory.scope === secretScope && <p role="status">{l('Stored credentials')}: {inventory.result.configured} · {l('Missing references')}: {inventory.result.missing} · {l('Unlinked credentials')}: {inventory.result.unlinked}</p>}</div>}
     {issues.length > 0 && <div className="builder-v2-card builder-v2-card--nested"><strong>{issues.length} {l(issues.length === 1 ? 'configuration issue' : 'configuration issues')}</strong>{issues.slice(0, 6).map((issue, index) => <small key={`${issue.connectionId}-${issue.field}-${index}`}>{issue.message}</small>)}</div>}
     {config.connections.map(connection => {
       const provider = getEditorIntegrationProvider(connection.providerId);

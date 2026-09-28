@@ -29,6 +29,11 @@ try {
   assert.match(render(['preview', 'production'], async () => {}), /Choose exactly one environment/);
   assert.match(render(['preview', 'production'], async () => {}), /type="password"[^>]*disabled/);
   assert.match(render(['production']), /Secure secret storage is not connected yet/);
+  const inspectable = renderToStaticMarkup(React.createElement(Panel, {
+    config: { version: 1, connections: [connection] }, onChange() {}, onInspectSecrets: async () => ({ configured: 0, missing: 0, unlinked: 0 }), secretScope: 'test-project',
+  }));
+  assert.match(inspectable, /Check stored credentials/);
+  assert.doesNotMatch(render(['production']), /Check stored credentials/);
   const configured = renderToStaticMarkup(React.createElement(Panel, {
     config: { version: 1, connections: [{ ...connection, secrets: { signingSecret: { ref: 'secret://website/dddddddd-dddd-4ddd-8ddd-dddddddddddd/hook/signingSecret/production' } } }] },
     onChange() {}, onSetSecret: async () => {},

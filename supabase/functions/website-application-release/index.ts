@@ -9529,7 +9529,9 @@ function isEditorSecretReference(value) {
   return typeof value === "string" && /^secret:\/\/[a-zA-Z0-9][a-zA-Z0-9/_:.-]{0,450}$/.test(value) && value !== "secret://redacted";
 }
 function isEditorProjectSecretReferenceFor(value, connectionId, field, environment) {
-  return isEditorSecretReference(value) && /^secret:\/\/website\/[0-9a-f-]{36}\//i.test(value) && value.endsWith(`/${connectionId}/${field}/${environment}`);
+  if (!isEditorSecretReference(value)) return false;
+  const match = /^secret:\/\/website\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/([a-zA-Z0-9][a-zA-Z0-9_-]{0,119})\/([a-zA-Z][a-zA-Z0-9_-]{0,63})\/(preview|staging|production)$/i.exec(value);
+  return Boolean(match && match[2] === connectionId && match[3] === field && match[4] === environment);
 }
 function hasEmbeddedIntegrationCredentials(value) {
   try {

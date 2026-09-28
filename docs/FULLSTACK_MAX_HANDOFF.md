@@ -14,6 +14,8 @@ The owner explicitly requested continuing on this GitHub side branch so work sur
 
 ## Current source batch — editor integration secret storage
 
+- Owner-facing read-only Vault inventory (2026-09-28): the saved-project integrations panel can check scoped reference counts (linked, missing and unlinked) through the existing owner-only reference RPC. Results are discarded if project/user/load sequence or editor configuration changes. Invalid/duplicate/foreign-project RPC rows fail closed; no plaintext credential is fetched or added to the project snapshot. EN/AR/SV labels, mocked owner-RPC cases, SSR control, full project health, lint and Vite build passed. Unlinked entries are reported, not deleted; live owner-session/browser proof and deliberate cleanup remain pending.
+
 - Follow-up on 2026-09-28: project Vault references now require an exact UUID/connection/field/environment path. References with extra path segments or malformed IDs cannot appear configured or pass integration validation. Focused integration and writer regressions, TypeScript and ESLint passed. This does not reconcile orphaned Vault entries or verify a live owner session.
 
 - The existing V2 integrations panel now sends a secret entered for a saved cloud project to the owner-scoped Vault RPC through `websiteProjectSecretService`. The project snapshot receives only an opaque reference. The callback rechecks project ID, user ID, load sequence and editor configuration after the RPC; a stale response cannot attach a reference to another project or overwrite newer edits.

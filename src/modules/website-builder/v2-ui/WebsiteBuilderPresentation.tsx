@@ -1,6 +1,6 @@
 import { lazy, Suspense, useRef } from 'react';
 import { getEditorIntegrationsHostConfig, setEditorIntegrationsHostConfig } from '../core/editor-integrations-host-store';
-import { saveWebsiteIntegrationSecretForProject } from '../services/websiteProjectSecretClient';
+import { inspectWebsiteIntegrationSecretsForProject, saveWebsiteIntegrationSecretForProject } from '../services/websiteProjectSecretClient';
 import {
 Check,
 Upload
@@ -100,6 +100,15 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       isCurrentProject: () => secretTarget.current.projectId === target.projectId
         && secretTarget.current.loadSequence === target.loadSequence && secretTarget.current.userId === target.userId,
       apply: next => { setEditorIntegrationsHostConfig(next); setSaved(false); },
+    });
+  };
+  const inspectIntegrationSecrets = async () => {
+    const target = secretTarget.current;
+    if (!target.projectId || !target.userId || cloudBusy) throw new Error('Save this cloud project before checking credentials.');
+    return inspectWebsiteIntegrationSecretsForProject({
+      projectId: target.projectId, getConfig: getEditorIntegrationsHostConfig,
+      isCurrentProject: () => secretTarget.current.projectId === target.projectId
+        && secretTarget.current.loadSequence === target.loadSequence && secretTarget.current.userId === target.userId,
     });
   };
   const v2AiPanel = (
@@ -1160,6 +1169,8 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
     <WebsiteBuilderV2Bridge
       application={application}
       onSetIntegrationSecret={user && cloudProjectId ? setIntegrationSecret : undefined}
+      onInspectIntegrationSecrets={user && cloudProjectId ? inspectIntegrationSecrets : undefined}
+      integrationSecretScope={`${cloudProjectId ?? ''}:${applicationLoadSequence}:${user?.id ?? ''}`}
       canvas={v2Canvas}
       overlaySlot={commandPaletteOverlay}
       aiPanel={v2AiPanel}

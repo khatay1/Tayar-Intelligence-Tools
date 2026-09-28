@@ -9,7 +9,7 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-project-secrets-'));
 try {
   const outfile = join(dir, 'secrets.cjs');
   await build({ entryPoints: ['src/modules/website-builder/services/websiteProjectSecretService.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { createWebsiteProjectSecretWriter, saveWebsiteIntegrationSecret } = (await import(pathToFileURL(outfile))).default;
+  const { createWebsiteProjectSecretWriter, saveWebsiteIntegrationSecret, inspectWebsiteIntegrationSecrets } = (await import(pathToFileURL(outfile))).default;
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   const ref = `secret://website/${projectId}/stripe/secretKey/production`;
   const calls = [];
@@ -47,5 +47,22 @@ try {
   const original = config;
   await assert.rejects(save({ getConfig: () => { const result = config; config = { ...config }; return result; } }), /project changed/);
   assert.notEqual(config, original, 'Concurrent editor changes invalidate the in-flight result');
+  config = { version: 1, connections: [{ ...connection, secrets: { secretKey: { ref } } }] };
+  const inspect = (data, overrides = {}) => inspectWebsiteIntegrationSecrets({
+    client: { async rpc(name, args) { assert.equal(name, 'website_project_secret_refs'); assert.deepEqual(args, { p_project_id: projectId }); return { data, error: null }; } },
+    projectId, getConfig: () => config, isCurrentProject: () => true, ...overrides,
+  });
+  const record = (reference, connectionId = 'stripe', field = 'secretKey') => ({ ref: reference, connection_id: connectionId, field, environment: 'production' });
+  assert.deepEqual(await inspect([record(ref)]), { configured: 1, missing: 0, unlinked: 0 });
+  assert.deepEqual(await inspect([]), { configured: 0, missing: 1, unlinked: 0 });
+  assert.deepEqual(await inspect([record(ref), record(`secret://website/${projectId}/unused/key/production`, 'unused', 'key')]), { configured: 1, missing: 0, unlinked: 1 });
+  config = { version: 1, connections: [{ ...connection, secrets: { secretKey: { ref: ref.replace(projectId, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee') } } }] };
+  assert.deepEqual(await inspect([record(ref)]), { configured: 0, missing: 1, unlinked: 1 });
+  await assert.rejects(inspect([record(ref.replace(projectId, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'))]), /could not be checked/);
+  await assert.rejects(inspect([record(ref), record(ref)]), /could not be checked/);
+  await assert.rejects(inspect([record(ref)], { isCurrentProject: () => false }), /Project changed/);
+  const snapshot = config;
+  await assert.rejects(inspect([record(ref)], { getConfig() { const result = config; config = { ...config }; return result; } }), /Project changed/);
+  assert.notEqual(config, snapshot, 'An in-flight inventory cannot describe a newer editor snapshot');
   console.log('PASS project secret writer: target validation, owner RPC payload, scoped opaque reference and safe errors');
 } finally { await rm(dir, { recursive: true, force: true }); }

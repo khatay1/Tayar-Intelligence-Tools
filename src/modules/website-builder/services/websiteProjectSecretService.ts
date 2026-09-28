@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isEditorSecretReference } from '../core/editor-integration-security';
+import { isEditorProjectSecretReferenceFor, isEditorSecretReference } from '../core/editor-integration-security';
 import type { EditorIntegrationEnvironment } from '../core/editor-integrations';
 import type { EditorIntegrationSecretWriter } from '../core/editor-integrations-host';
 import { setEditorIntegrationSecret } from '../core/editor-integrations-host';
@@ -53,4 +53,43 @@ export async function saveWebsiteIntegrationSecret(input: {
   const next = await setEditorIntegrationSecret(before, input.connectionId, input.field, input.value, writer);
   if (!input.isCurrentProject() || input.getConfig() !== before) throw new Error('The project changed while storing its secret.');
   input.apply(next);
+}
+
+export interface WebsiteSecretInventory {
+  configured: number;
+  missing: number;
+  unlinked: number;
+}
+
+/** Compare owner-visible Vault references with the current editor snapshot. No secret values are read. */
+export async function inspectWebsiteIntegrationSecrets(input: {
+  client: Pick<SupabaseClient, 'rpc'>;
+  projectId: string;
+  getConfig(): EditorIntegrationsConfig;
+  isCurrentProject(): boolean;
+}): Promise<WebsiteSecretInventory> {
+  if (!uuid.test(input.projectId) || !input.isCurrentProject()) throw new Error('Project changed while checking credentials.');
+  const before = input.getConfig();
+  const { data, error } = await input.client.rpc('website_project_secret_refs', { p_project_id: input.projectId });
+  if (error || !Array.isArray(data)) throw new Error('Project credentials could not be checked.');
+  const stored = new Set<string>();
+  for (const row of data) {
+    if (!row || typeof row !== 'object' || !connection.test(row.connection_id) || !fieldKey.test(row.field)
+      || !['preview', 'staging', 'production'].includes(row.environment)
+      || row.ref !== `secret://website/${input.projectId}/${row.connection_id}/${row.field}/${row.environment}`
+      || stored.has(row.ref)) throw new Error('Project credentials could not be checked.');
+    stored.add(row.ref);
+  }
+  if (!input.isCurrentProject() || input.getConfig() !== before) throw new Error('Project changed while checking credentials.');
+  const linked = new Set<string>();
+  let missing = 0;
+  for (const item of before.connections) {
+    for (const [field, secret] of Object.entries(item.secrets)) {
+      if (!secret?.ref?.startsWith('secret://website/')) continue;
+      if (item.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, item.id, field, item.environments[0])
+        || !secret.ref.startsWith(`secret://website/${input.projectId}/`) || !stored.has(secret.ref)) missing++;
+      else linked.add(secret.ref);
+    }
+  }
+  return { configured: linked.size, missing, unlinked: stored.size - linked.size };
 }
