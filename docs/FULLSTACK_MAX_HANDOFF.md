@@ -12,6 +12,11 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
+## Latest source batch — strict same-request reconciliation
+
+- The isolated `createOnce` client now requires a verified permanent dedicated-app user before insert and checks the same identity after a successful response. Following an uncertain insert, it only reports `already-created` if an owner-scoped readable row has the same request UUID **and every submitted field matches**. Missing/different fields or an account change remain uncertain; no raw row or backend error reaches the form.
+- PASS SDK/HTTP-mocked tests for no-session preflight, matching row, mismatched/missing field and switched user; full project checks are recorded at the checkpoint. Published bound forms remain blocked pending real browser/Auth and live submission proof.
+
 ## Latest source batch — authorized page form listener, still gated
 
 - After successful private-page authorization, the server projects only each valid bound form's page/section IDs, form field constraints and binding references into the page bootstrap. It omits disabled automation settings and all platform lead credentials; the account shell does not get this metadata.

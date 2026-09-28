@@ -29,15 +29,26 @@ try {
   assert.throws(() => createIsolatedApplicationClient({ ...config, url: 'https://sgewokeojtzsqjaeluan.supabase.co.evil.invalid' }, platform), /HTTPS/);
 
   const requests = [];
-  let denyCreate = false;
+  let denyCreate = false, recoveredPlate = 'ABC', omitRecoveredField = false, switchUserAfterInsert = false;
+  const userId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const otherUserId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  let currentUserId = userId;
+  const token = `a.${Buffer.from(JSON.stringify({ sub: userId, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.signature`;
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     requests.push({ url, init });
+    if (url.includes('/auth/v1/token')) return Response.json({ access_token: token, refresh_token: 'fixture-refresh', token_type: 'bearer', expires_in: 3600,
+      user: { id: userId, is_anonymous: false } });
+    if (url.includes('/auth/v1/user')) return Response.json({ id: currentUserId, is_anonymous: false });
     if (url.includes('/rpc/app_set_user_role')) return new Response(null, { status: 204 });
-    if (init?.method === 'POST' && url.includes('/rest/v1/app_vehicles')) return denyCreate
-      ? Response.json({ message: 'SECRET_DATABASE_ERROR' }, { status: 403 })
-      : new Response(null, { status: 201 });
+    if (init?.method === 'POST' && url.includes('/rest/v1/app_vehicles')) {
+      if (switchUserAfterInsert) currentUserId = otherUserId;
+      return denyCreate ? Response.json({ message: 'SECRET_DATABASE_ERROR' }, { status: 403 }) : new Response(null, { status: 201 });
+    }
+    if (url.includes('/rest/v1/app_vehicles') && new URL(url).searchParams.has('_tayar_request_id')) {
+      return Response.json({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ...(omitRecoveredField ? {} : { plate: recoveredPlate }) });
+    }
     return new Response(JSON.stringify([{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', plate: 'ABC' }]), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   try {
@@ -82,17 +93,33 @@ try {
     const createApp = structuredClone(roleApp);
     createApp.tables[0].permissions.push({ operation: 'create', access: 'owner' });
     const once = createApplicationDataRuntime(createApp, config, platform);
+    const beforeSignIn = requests.length;
+    await assert.rejects(() => once.createOnce('vehicles', { plate: 'ABC' }, requestId), /identity is unavailable/);
+    assert.ok(!requests.slice(beforeSignIn).some(item => item.init?.method === 'POST' && item.url.includes('/rest/v1/app_vehicles')));
+    await once.auth.signIn('owner@example.invalid', 'fixture-password');
     assert.equal(await once.createOnce('vehicles', { plate: 'ABC' }, requestId), 'created');
-    assert.equal(new URL(requests.at(-1).url).pathname, '/rest/v1/app_vehicles');
-    assert.equal(requests.at(-1).init.method, 'POST');
-    assert.deepEqual(JSON.parse(requests.at(-1).init.body), { plate: 'ABC', _tayar_request_id: requestId });
-    assert.equal(new Headers(requests.at(-1).init.headers).get('apikey'), config.publishableKey);
+    const inserted = requests.findLast(item => item.init?.method === 'POST' && item.url.includes('/rest/v1/app_vehicles'));
+    assert.equal(new URL(inserted.url).pathname, '/rest/v1/app_vehicles');
+    assert.deepEqual(JSON.parse(inserted.init.body), { plate: 'ABC', _tayar_request_id: requestId });
+    assert.equal(new Headers(inserted.init.headers).get('apikey'), config.publishableKey);
     const beforeInvalid = requests.length;
     await assert.rejects(() => once.createOnce('vehicles', { owner_id: 'forged' }, requestId));
     await assert.rejects(() => once.createOnce('vehicles', { plate: 'ABC' }, 'not-a-uuid'));
     assert.equal(requests.length, beforeInvalid);
     denyCreate = true;
+    assert.equal(await once.createOnce('vehicles', { plate: 'ABC' }, requestId), 'already-created');
+    const lookup = requests.at(-1);
+    assert.equal(new URL(lookup.url).searchParams.get('select'), 'id,plate');
+    assert.equal(new URL(lookup.url).searchParams.get('owner_id'), `eq.${userId}`);
+    recoveredPlate = 'OTHER';
     await assert.rejects(() => once.createOnce('vehicles', { plate: 'ABC' }, requestId), /outcome is uncertain/);
+    omitRecoveredField = true;
+    await assert.rejects(() => once.createOnce('vehicles', { plate: 'ABC' }, requestId), /outcome is uncertain/);
+    omitRecoveredField = false; recoveredPlate = 'ABC'; switchUserAfterInsert = true;
+    const beforeSwitch = requests.length;
+    await assert.rejects(() => once.createOnce('vehicles', { plate: 'ABC' }, requestId), /outcome is uncertain/);
+    assert.ok(!requests.slice(beforeSwitch).some(item => new URL(item.url).searchParams.has('_tayar_request_id')),
+      'A switched user cannot reconcile the previous owner request');
     once.dispose();
   } finally { globalThis.fetch = previousFetch; }
   console.log('PASS isolated application client: public-only keys, project boundary, CRUD whitelist and dedicated endpoint');

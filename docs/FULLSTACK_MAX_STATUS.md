@@ -312,3 +312,8 @@ Implementation branch: `feat/fullstack-max-20260926`. On 2026-09-27 the user exp
 
 - PARTIAL: the trusted renderer validates saved bindings and emits contact form HTML with the submit button disabled and no platform lead endpoint. The isolated authorized-page listener is prepared to enable and handle it. The release service still rejects every bound form before storage, even with an alternate renderer.
 - PASS direct HTML render and release refusal regressions; no live browser or published insert. Production/deployment/flags and `main` unchanged.
+
+## Checkpoint 2026-09-28 — strict create-once reconciliation
+
+- PARTIAL: the isolated public-key client checks a permanent dedicated Auth identity before insert and again before confirming it. A lost-response lookup must match the same owner/request UUID and every submitted field; a changed account, missing field or different value stays uncertain. The form controller still retains the request marker and values for a safe explicit retry.
+- PASS actual Supabase SDK with mocked HTTP for same/different/missing payload, missing session, endpoint/key isolation and account switch. Live browser and published insert E2E remain pending. No production mutation, deployment, flag enablement or main merge.

@@ -71,6 +71,23 @@ function writable(table: ApplicationTable, input: Record<string, unknown>): Reco
   return Object.fromEntries(values);
 }
 
+function sameRequestField(type: ApplicationTable['fields'][number]['type'], submitted: unknown, stored: unknown): boolean {
+  if (type === 'datetime' && typeof submitted === 'string' && typeof stored === 'string') {
+    const left = Date.parse(submitted), right = Date.parse(stored);
+    return Number.isFinite(left) && Number.isFinite(right) && left === right;
+  }
+  if ((type === 'uuid' || type === 'reference') && typeof submitted === 'string' && typeof stored === 'string') {
+    return submitted.toLowerCase() === stored.toLowerCase();
+  }
+  if (type === 'json') {
+    const canonical = (value: unknown): string => JSON.stringify(value, (_, item: unknown) =>
+      item && typeof item === 'object' && !Array.isArray(item)
+        ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+    return canonical(submitted) === canonical(stored);
+  }
+  return submitted === stored;
+}
+
 /** Client operations always target the dedicated app project; PostgreSQL RLS is the authority. */
 export function createApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, platformUrl: string, browserSession?: ApplicationBrowserSessionOptions) {
   const app = readApplicationDefinition(definition);
@@ -194,25 +211,39 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
       return checked(await client.from(`app_${target.key}`).insert(writable(target, input)).select('*').single());
     },
     /** The UUID is stable for one intentional submission. The dedicated database
-     * enforces owner-scoped uniqueness; a lost insert response can be checked
-     * only through a read policy for the same live user. No service key is used. */
+     * enforces owner-scoped uniqueness; a lost insert response is confirmed only
+     * if the same user's readable row still matches every submitted field. */
     async createOnce(tableId: string, input: Record<string, unknown>, requestId: string): Promise<'created' | 'already-created'> {
       const target = table(tableId);
       const request = rowId(requestId).toLowerCase();
       const values = writable(target, input);
+      const currentOwner = async () => {
+        const identity = await client.auth.getUser();
+        const user = identity.data.user;
+        if (identity.error || !user || user.is_anonymous) throw new Error();
+        return rowId(user.id);
+      };
+      let owner: string;
+      try { owner = await currentOwner(); }
+      catch { throw new Error('Application submission identity is unavailable.'); }
       try {
         const result = await client.from(`app_${target.key}`).insert({ ...values, _tayar_request_id: request });
-        if (!result.error) return 'created';
+        if (!result.error) {
+          try { if (await currentOwner() === owner) return 'created'; }
+          catch { /* A changed/unavailable session makes the commit uncertain. */ }
+          throw new Error('Application submission outcome is uncertain.');
+        }
       } catch { /* The database may have committed before transport failed. */ }
       if (target.permissions.some(rule => rule.operation === 'read')) {
         try {
-          const identity = await client.auth.getUser();
-          const user = identity.data.user;
-          if (identity.error || !user || user.is_anonymous) throw new Error();
-          rowId(user.id);
-          const lookup = await client.from(`app_${target.key}`).select('id')
-            .eq('owner_id', user.id).eq('_tayar_request_id', request).maybeSingle();
-          if (!lookup.error && lookup.data?.id) return 'already-created';
+          if (await currentOwner() !== owner) throw new Error();
+          const lookup = await client.from(`app_${target.key}`).select(['id', ...Object.keys(values)].join(','))
+            .eq('owner_id', owner).eq('_tayar_request_id', request).maybeSingle();
+          const row = lookup.data as unknown as Record<string, unknown> | null;
+          if (!lookup.error && row && typeof row.id === 'string' && Object.entries(values).every(([key, value]) => {
+            const field = target.fields.find(item => item.key === key);
+            return !!field && Object.prototype.hasOwnProperty.call(row, key) && sameRequestField(field.type, value, row[key]);
+          })) return 'already-created';
         } catch { /* Unknown commit outcome remains uncertain. */ }
       }
       throw new Error('Application submission outcome is uncertain.');
