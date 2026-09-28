@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-28. Branch: `internal-fullstack-max-continue-20260927`. HEAD: the latest commit on this branch containing this checkpoint; GitHub OAuth boundary checkpoint is `c66d3be`. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-28. Branch: `internal-fullstack-max-continue-20260927`. HEAD: the latest commit on this branch containing this checkpoint; encrypted handoff checkpoint is `712ffc0`. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -28,6 +28,7 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - One-time OAuth state now uses 256 bits of randomness; only its SHA-256 hash and owner/project/provider/environment/expiry are held in a private platform table. A service-role-only create RPC checks current project ownership and caps active attempts; atomic DELETE/RETURNING consumes once. This migration is source-only; state consumption alone never activates a connection.
 - A server-only GitHub App authorization URL/code-exchange boundary uses the one-time state, a fixed HTTPS callback from server configuration and GitHub's token endpoint. It consumes state before exchange and masks upstream errors. The user token is returned only to a trusted caller; repository selection, actual HTTP endpoints and GitHub App credentials are still pending. No browser/client secret exposure is permitted.
 - A private temporary handoff now stores the exchanged user token in Vault for at most five minutes while the owner chooses a repository. Browser code receives an opaque UUID only. A service-only consume checks owner/project/provider and deletes the Vault entry atomically; explicit revoke and trusted expired-entry cleanup are available. This migration is source-only and is not a permanent runtime secret store.
+- A trusted repository-choice service composes handoff consumption, live user-grant verification and the private version-guarded registry writer. It records only observed GitHub account/repository IDs and Contents write permission with status `connected`, never the user token or `ready`. This is a server-side source path with mocked transport, not an enabled UI action or live callback.
 
 ## Verified
 
@@ -38,11 +39,12 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - OAuth state service regression uses mocked RPC for random/hash custody, replay, provider mismatch and stale owner. On the isolated validation PostgreSQL database, the migration passed in rolled-back transactions with a disposable project fixture: owner/expiry guard, single-use consume, authenticated RPC denial and five-active-attempt limit. A post-rollback query confirmed the fixture absent. No production migration or callback was deployed.
 - GitHub OAuth boundary regression uses mocked token exchange for exact fixed endpoint/redirect, state replay refusal, token response parsing and masked errors. TypeScript and ESLint passed. This is not a live OAuth callback.
 - Handoff service regression uses mocked RPC for opaque handle, scope, one-use consume and revoke. The migration passed rolled-back isolated PostgreSQL tests for cross-owner refusal, consume/replay, Vault secret removal, authenticated RPC denial and expired-entry maintenance cleanup. Post-rollback found no fixture table or test secret. TypeScript and ESLint passed. No platform migration or scheduled cleanup job is deployed.
+- GitHub repository-choice regression uses mocked Vault RPC and GitHub HTTP for owner scope, selected repository, metadata-only registry write, `connected` status and refusal after account switching. TypeScript and ESLint passed; uncertain registry commits and a live OAuth session remain unproved.
 - Earlier Vault inventory checks used mocked RPC, not a live customer account.
 
 ## In progress
 
-- Phase 2 GitHub App registration, deployed OAuth endpoints, scheduled expired-handoff cleanup and verified registry binding; then Phase 3 repository write/reconciliation. The connection status UI must read server-owned records, never editable snapshot claims.
+- Phase 2 GitHub App registration, deployed OAuth endpoints, scheduled expired-handoff cleanup and uncertain registry-write reconciliation; then Phase 3 repository write/reconciliation. The connection status UI must read server-owned records, never editable snapshot claims.
 
 ## Remaining
 
@@ -59,11 +61,11 @@ No live GitHub OAuth/installation, Supabase account ownership, Vercel team owner
 
 ## Files changed in the latest batch
 
-Latest encrypted handoff: `docs/FULLSTACK_MAX_CHECKPOINT.md`, `package.json`, `src/modules/website-builder/services/websiteConnectionHandoffService.ts`, `supabase/migrations/20260928215959_website_byo_connection_handoff.sql`, `scripts/website-connection-handoff-regression.mjs`. Earlier GitHub OAuth boundary: `src/modules/website-builder/services/websiteGithubOAuthService.ts`, `scripts/website-github-oauth-regression.mjs`; OAuth state: `src/modules/website-builder/services/websiteConnectionOAuthStateService.ts`, `supabase/migrations/20260928215024_website_byo_oauth_state.sql`, `scripts/website-connection-oauth-state-regression.mjs`; verifier: `src/modules/website-builder/services/websiteGithubInstallationService.ts`, `scripts/website-github-installation-regression.mjs`; target guard: `src/modules/website-builder/core/application-github-target.ts`, `scripts/application-github-target-regression.mjs`; BYO registry: `src/modules/website-builder/core/application-infrastructure-connections.ts`, `src/modules/website-builder/services/websiteInfrastructureConnectionClient.ts`, `supabase/migrations/20260928205027_website_byo_infrastructure_connections.sql`, `scripts/application-infrastructure-connections-regression.mjs`, `scripts/website-infrastructure-connection-client-regression.mjs`.
+Latest repository-choice binding: `docs/FULLSTACK_MAX_CHECKPOINT.md`, `package.json`, `src/modules/website-builder/services/websiteGithubRepositoryBindingService.ts`, `scripts/website-github-repository-binding-regression.mjs`. Earlier encrypted handoff: `src/modules/website-builder/services/websiteConnectionHandoffService.ts`, `supabase/migrations/20260928215959_website_byo_connection_handoff.sql`, `scripts/website-connection-handoff-regression.mjs`; GitHub OAuth boundary: `src/modules/website-builder/services/websiteGithubOAuthService.ts`, `scripts/website-github-oauth-regression.mjs`; OAuth state: `src/modules/website-builder/services/websiteConnectionOAuthStateService.ts`, `supabase/migrations/20260928215024_website_byo_oauth_state.sql`, `scripts/website-connection-oauth-state-regression.mjs`; verifier: `src/modules/website-builder/services/websiteGithubInstallationService.ts`, `scripts/website-github-installation-regression.mjs`; target guard: `src/modules/website-builder/core/application-github-target.ts`, `scripts/application-github-target-regression.mjs`; BYO registry: `src/modules/website-builder/core/application-infrastructure-connections.ts`, `src/modules/website-builder/services/websiteInfrastructureConnectionClient.ts`, `supabase/migrations/20260928205027_website_byo_infrastructure_connections.sql`, `scripts/application-infrastructure-connections-regression.mjs`, `scripts/website-infrastructure-connection-client-regression.mjs`.
 
 ## Next exact batch
 
-Compose the authenticated GitHub begin/callback/repository-choice endpoints around the existing state, code exchange, temporary handoff, verifier and private registry. Verify the chosen installation/repository using the consumed user token, then record only observed metadata under CAS. Configure a GitHub App and scheduled handoff cleanup on an isolated environment before enabling Connect GitHub. Mint installation tokens on demand for export; perform a non-force branch update with uncertain-commit reconciliation and a durable repository/branch cursor. Keep Supabase/Vercel adapters and publish gates closed until their own verification exists.
+Compose authenticated begin/callback/repository-choice HTTP endpoints around the existing state, exchange, handoff and trusted binding service. Add uncertain registry-write reconciliation, configure a GitHub App and scheduled handoff cleanup on an isolated environment, then enable Connect GitHub with server-backed status. Mint installation tokens on demand for export; perform a non-force branch update with uncertain-commit reconciliation and a durable repository/branch cursor. Keep Supabase/Vercel adapters and publish gates closed until their own verification exists.
 
 ## Known blockers
 
