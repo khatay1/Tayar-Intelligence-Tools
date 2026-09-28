@@ -11,6 +11,8 @@ import type { WebsitePage } from '../core/website-builder-model';
 import { createDedicatedApplicationRevisionReader } from './websiteApplicationBackendService';
 import { assertDedicatedApplicationAuthSettings } from './websiteApplicationAuthSettingsService';
 import { serveWebsiteApplicationPage } from './websiteApplicationPageService';
+import { preparePublishedApplicationForms } from '../core/application-published-forms';
+import type { WebsiteSection } from '../core/types';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -123,7 +125,12 @@ export async function servePublishedWebsiteApplication(input: {
       const paths = manifest.filter(item => /^text\/html(?:;|$)/i.test(item.contentType))
         .map(item => prefix + item.name.split('/').map(encodeURIComponent).join('/'));
       if (paths.includes(prefix + 'index.html')) paths.push(prefix, prefix.slice(0, -1));
-      response = await addApplicationPageBootstrap(response, { ...browserConfig(), definition, paths });
+      const savedPage = (storedRelease.snapshot as { pages: Array<{ id: string; sections?: WebsiteSection[] }> }).pages
+        .find(page => page.id === entry.pageId);
+      if (!savedPage) throw new Error('Private page forms are unavailable.');
+      const applicationForms = preparePublishedApplicationForms(definition, entry.pageId,
+        Array.isArray(savedPage.sections) ? savedPage.sections : []);
+      response = await addApplicationPageBootstrap(response, { ...browserConfig(), definition, paths, pageId: entry.pageId, applicationForms });
     }
     if (input.browserSession && new URL(request.url).origin === input.browserSession.applicationOrigin) {
       // Only the per-project isolated host may use its own localStorage/Auth SDK.

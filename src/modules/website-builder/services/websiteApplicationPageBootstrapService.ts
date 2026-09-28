@@ -1,12 +1,14 @@
 import type { ApplicationAuthScreenConfig } from '../core/application-auth-controller';
 import type { ApplicationDefinition } from '../core/application-model';
 import { applicationPageScript } from '../browser/generated/application-page-script';
+import type { PublishedApplicationForm } from '../core/application-published-forms';
 
 /** Called only on an authorized private HTML response on its isolated origin.
  * The stored immutable page stays unchanged; only public runtime configuration
  * from that same release is added to this no-store response. */
 export async function addApplicationPageBootstrap(response: Response, config: ApplicationAuthScreenConfig & {
-  definition: ApplicationDefinition; paths: string[];
+  definition: ApplicationDefinition; paths: string[]; pageId: string;
+  applicationForms: PublishedApplicationForm[];
 }): Promise<Response> {
   const html = await response.text();
   const end = html.toLowerCase().lastIndexOf('</body>');

@@ -12,7 +12,13 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Latest completed batch — durable browser request identity boundary
+## Latest source batch — authorized page form listener, still gated
+
+- After successful private-page authorization, the server projects only each valid bound form's page/section IDs, form field constraints and binding references into the page bootstrap. It omits disabled automation settings and all platform lead credentials; the account shell does not get this metadata.
+- The isolated page script captures contact-form submissions so Enter cannot fall back to a page POST. Bound forms stay disabled until a dedicated non-anonymous user is checked and the exact form/section match is compiled. Each submit rereads the dedicated Auth user, uses the tab-stable `createOnce` controller, serializes pending clicks, and shows a distinct uncertain result without clearing values. Sign-out/pagehide disposes the controllers. Unbound contact forms remain disabled on private app pages.
+- PASS projection privacy/validation regression and application suite with regenerated browser/release bundles. This is not enabled for new bound releases: the release service and trusted renderer still refuse publication. Real browser, auth callback and live published form submission tests remain required before opening the gate.
+
+## Previous completed batch — durable browser request identity boundary
 
 - Added `createDurableApplicationFormSubmission`, a controller for the dedicated `createOnce` runtime. A caller-supplied key must scope the dedicated project, authenticated user and form. It stores only a random UUID and SHA-256 payload fingerprint in tab session storage before mutation, reuses the UUID for the identical pending payload after reload, and rejects changed values/corrupt storage. It allows an explicit same-payload retry after uncertainty, with owner-scoped database uniqueness remaining the authority.
 - Concurrent calls in the same page runtime for the same storage key are serialized; confirmed submissions clear the marker, while uncertain/disposed submissions keep it. Storage or hashing failures stop before the network mutation. This boundary is not wired to published HTML: safe form discovery, identity scoping, lifecycle and live reconciliation still need work. Cross-tab coordination is not proved.
@@ -85,7 +91,7 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 ## Next work — do not redo earlier foundations
 
 1. Verify the account screen in a real browser, including password reset/confirmation links and multiple-tab behavior against an isolated test backend. Resolve any UI/Auth callback defects found.
-2. Connect the durable controller to trusted published form discovery/listeners and scope its storage key to the actual dedicated project/user/form; prove browser submission, reload and reconciliation before lifting the renderer gate. Verify editor mapping interactively in a real browser. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
+2. Verify the prepared page listener with a real browser and isolated Auth/backend: form discovery, sign-in, duplicate Enter/click, reload after lost response, user switch, revocation and multi-tab behavior. Then complete trusted private HTML form rendering and only lift the release/renderer gates after these paths pass. Verify editor mapping interactively. Keep unbound contact forms on their existing path. Follow with read/list/update/delete bindings and action sequences. No global privileged client is exposed.
 3. Finish isolated backend provisioning/schema application, configured Auth redirects/SMTP and per-app DNS/routing; preserve production separation.
 4. Continue the data bindings/actions, integration execution/secrets UI, application Stripe, private publishing lifecycle and A/B/C live release gates in FULLSTACK_MAX_REMAINING.md.
 
@@ -105,7 +111,9 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 - `scripts/application-navigation-regression.mjs`
 - `scripts/build-application-page-browser.mjs`
 - `src/modules/website-builder/core/application-form-runtime.ts`
+- `src/modules/website-builder/core/application-published-forms.ts`
 - `scripts/application-form-runtime-regression.mjs`
+- `scripts/application-published-form-regression.mjs`
 - `src/modules/website-builder/core/editor-value-safety.ts`
 - `src/modules/website-builder/core/editor-clone.ts`
 - `src/modules/website-builder/services/websiteApplicationRenderService.ts`
