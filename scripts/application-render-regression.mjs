@@ -65,7 +65,11 @@ try {
     fields: form.formFields.map((field, index) => ({ id: `db_${index}`, key: field.name, name: field.label, type: 'text', required: true })) }];
   form.applicationFormBinding = { operation: 'create', tableId: 'records', fields: form.formFields.map((field, index) => ({ formFieldId: field.id, tableFieldId: `db_${index}` })) };
   validBound.pages[0].sections.push(form);
-  await assert.rejects(() => render(validBound), /Application form publishing is unavailable/);
+  const boundHtml = (await render(validBound))[0].content;
+  assert.match(boundHtml, /data-tayar-lead-form/);
+  assert.match(boundHtml, /data-form-id="[^"]+"/);
+  assert.match(boundHtml, /type="submit"[^>]* disabled/);
+  assert.doesNotMatch(boundHtml, /website-form-submit|DO_NOT_EMBED_PLATFORM/);
   form.applicationFormBinding = null;
   await assert.rejects(() => render(validBound), /form does not match/);
   for (const invalid of [duplicate, missingHome, cms, { ...snapshot, pages: [] }]) await assert.rejects(() => render(invalid));

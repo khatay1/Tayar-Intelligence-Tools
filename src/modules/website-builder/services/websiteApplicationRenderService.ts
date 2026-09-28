@@ -36,9 +36,9 @@ export async function renderWebsiteApplicationSnapshot(input: Record<string, unk
     for (const section of page.sections as WebsiteSection[]) {
       if (section.applicationFormBinding === undefined) continue;
       compileApplicationCreateForm(snapshot.application as ApplicationDefinition, section, section.applicationFormBinding);
-      // A bound mutation requires an idempotent server boundary before it can be
-      // rendered into an interactive private release. Never emit a lead form in its place.
-      throw new Error('Application form publishing is unavailable.');
+      // The exporter emits a disabled contact button and no platform lead
+      // endpoint. Only the authorized isolated page bootstrap can attach the
+      // dedicated application listener. Release preflight remains closed.
     }
     return { ...page, outputPath: undefined, id: page.id, slug: page.slug, name: text(page.name, 'Page'),
       sections: (page.sections as WebsiteSection[]).map(normalizeSection),

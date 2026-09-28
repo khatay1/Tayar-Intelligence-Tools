@@ -306,4 +306,9 @@ Implementation branch: `feat/fullstack-max-20260926`. On 2026-09-27 the user exp
 ## Checkpoint 2026-09-28 — private-page form listener preparation
 
 - PARTIAL: on an authorized HTML page only, a minimal validated form projection reaches the isolated browser bootstrap. The page script captures all private contact-form submits, validates the exact bound section, waits for a dedicated Auth user, checks that user again per attempt and uses the tab-stable create-once controller. Unbound forms remain disabled; uncertain submissions retain values and identity.
-- PASS: projection rejects malformed/duplicate sections and excludes disabled automation secrets; application regressions and generated bundles pass. Release and renderer gates still refuse any new bound form publication. No real DOM/browser, live published insert or multi-tab proof, deployment, migration, flag or `main` change.
+- PASS: projection rejects malformed/duplicate sections and excludes disabled automation secrets; application regressions and generated bundles pass. The release gate still refuses any new bound form publication. No real DOM/browser, live published insert or multi-tab proof, deployment, migration, flag or `main` change.
+
+## Checkpoint 2026-09-28 — disabled bound form export
+
+- PARTIAL: the trusted renderer validates saved bindings and emits contact form HTML with the submit button disabled and no platform lead endpoint. The isolated authorized-page listener is prepared to enable and handle it. The release service still rejects every bound form before storage, even with an alternate renderer.
+- PASS direct HTML render and release refusal regressions; no live browser or published insert. Production/deployment/flags and `main` unchanged.

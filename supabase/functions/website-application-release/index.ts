@@ -9851,7 +9851,6 @@ async function renderWebsiteApplicationSnapshot(input) {
     for (const section of page.sections) {
       if (section.applicationFormBinding === void 0) continue;
       compileApplicationCreateForm(snapshot.application, section, section.applicationFormBinding);
-      throw new Error("Application form publishing is unavailable.");
     }
     return {
       ...page,

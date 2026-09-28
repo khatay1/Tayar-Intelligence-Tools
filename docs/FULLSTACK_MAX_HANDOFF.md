@@ -16,7 +16,12 @@ The owner explicitly requested continuing on this GitHub side branch so work sur
 
 - After successful private-page authorization, the server projects only each valid bound form's page/section IDs, form field constraints and binding references into the page bootstrap. It omits disabled automation settings and all platform lead credentials; the account shell does not get this metadata.
 - The isolated page script captures contact-form submissions so Enter cannot fall back to a page POST. Bound forms stay disabled until a dedicated non-anonymous user is checked and the exact form/section match is compiled. Each submit rereads the dedicated Auth user, uses the tab-stable `createOnce` controller, serializes pending clicks, and shows a distinct uncertain result without clearing values. Sign-out/pagehide disposes the controllers. Unbound contact forms remain disabled on private app pages.
-- PASS projection privacy/validation regression and application suite with regenerated browser/release bundles. This is not enabled for new bound releases: the release service and trusted renderer still refuse publication. Real browser, auth callback and live published form submission tests remain required before opening the gate.
+- PASS projection privacy/validation regression and application suite with regenerated browser/release bundles. This is not enabled for new bound releases: the release service still refuses publication. Real browser, auth callback and live published form submission tests remain required before opening the gate.
+
+## Latest source batch — disabled private form HTML
+
+- The trusted private renderer now validates a saved binding and can produce the existing contact form markup with its submit button disabled and without the platform lead endpoint. The isolated page bootstrap may enable it only after dedicated Auth and matching section checks. The release service continues to refuse bound form publication before upload, including when a custom renderer is supplied.
+- PASS direct trusted-render regression for disabled markup and no platform identity, plus release refusal regression. This prepares the real HTML path; it does not open publishing or establish a browser E2E.
 
 ## Previous completed batch — durable browser request identity boundary
 
