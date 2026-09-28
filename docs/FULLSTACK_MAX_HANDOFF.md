@@ -12,7 +12,16 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
-## Latest completed batch — 2026-09-28
+## Latest completed batch — typed application form submission boundary
+
+- Added `application-form-runtime.ts`, compiling existing contact-form field IDs to declared application table/field IDs. The binding carries references only, never submitted values, records or credentials.
+- Handles bounded text/number/boolean/date/UTC datetime/UUID/reference/enum/JSON values, required fields/default coverage and basic field constraints. Rejects system fields, unknown/duplicate values, unsupported file/conditional/automation/redirect/regex flows, malformed types and excessive JSON depth/size.
+- The submission controller serializes one create operation, captures the compiled scope and never exposes raw backend errors or returned rows. Once an insert call starts, a failure or disposal produces an uncertain result; automatic retry/reset is blocked. Confirmed submissions can be explicitly reset for another intentional record.
+- PASS pure boundary tests plus the actual dedicated Supabase client with mocked HTTP, including exact dedicated endpoint/public key, no owner_id injection, RLS rejection, no retry, request serialization and disposal. Full health/TypeScript, lint, Vite build and whitespace pass.
+- This is a tested execution foundation, NOT a completed visible form-binding feature. No new project schema metadata or UI was silently enabled. Durable idempotency/reconciliation and authored form integration remain required.
+- Browser tooling was checked again: agent-browser and Chrome/Chromium are unavailable in this workspace. Real browser tests remain explicitly pending; no fake DOM test is represented as live browser proof.
+
+## Previous completed page-navigation batch — 2026-09-28
 
 - Successfully authorized isolated HTML page responses now embed the dedicated data/Auth runtime and localized shadow-root account/logout controls. Immutable stored HTML stays unchanged; the response uses only the frozen release public backend/definition.
 - Ordinary same-origin links to HTML routes in the immutable manifest synchronize the cookie before navigating. Unicode routes and query/fragment destinations work; external links, downloads, new tabs and same-page anchors retain native behavior. Account management remains reachable even when synchronization fails.
@@ -38,7 +47,7 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 ## Next work — do not redo earlier foundations
 
 1. Verify the account screen in a real browser, including password reset/confirmation links and multiple-tab behavior against an isolated test backend. Resolve any UI/Auth callback defects found.
-2. The published-page runtime and account/navigation controls are now wired. Verify them in a real browser and continue visual data bindings/forms/actions through the existing runtime. Runtime instantiation alone does not implement authored data-driven UI; no global privileged client is exposed.
+2. Connect the tested create-form compiler/submission controller to persisted, validated section bindings and the shared manual/AI command path; add the visual table/field mapping controls. Validate bindings at release/render time, keep unbound contact forms on their existing path, and do not enable irreversible retry after uncertain mutation. Then implement published form wiring, durable idempotency/reconciliation, read/list/update/delete bindings and action sequences. Runtime instantiation alone does not implement authored data-driven UI; no global privileged client is exposed.
 3. Finish isolated backend provisioning/schema application, configured Auth redirects/SMTP and per-app DNS/routing; preserve production separation.
 4. Continue the data bindings/actions, integration execution/secrets UI, application Stripe, private publishing lifecycle and A/B/C live release gates in FULLSTACK_MAX_REMAINING.md.
 
@@ -57,6 +66,8 @@ Not tested: real DOM interaction/accessibility in a browser, real Supabase email
 - `src/modules/website-builder/services/websiteApplicationPageBootstrapService.ts`
 - `scripts/application-navigation-regression.mjs`
 - `scripts/build-application-page-browser.mjs`
+- `src/modules/website-builder/core/application-form-runtime.ts`
+- `scripts/application-form-runtime-regression.mjs`
 
 Run `node scripts/build-application-runtime.mjs` and `node scripts/build-application-release.mjs` after shared/browser changes; their consistency checks also check the generated Auth and published-page scripts. Run affected tests, `npm run health:project`, `npm run lint`, and `npm run build` when a substantive batch is ready.
 
