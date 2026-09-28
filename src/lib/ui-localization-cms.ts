@@ -77,6 +77,26 @@ export const svCmsSupplement: PhraseMap = {
   'Integrations': 'Integrationer', 'Connect analytics, payments, email, CRM, APIs and signed webhooks.': 'Anslut analys, betalningar, e-post, CRM, API:er och signerade webhooks.', 'Provider': 'Leverantör', 'Add integration': 'Lägg till integration', 'active': 'aktiva', 'configuration issue': 'konfigurationsproblem', 'configuration issues': 'konfigurationsproblem', 'Enabled': 'Aktiverad', 'Name': 'Namn', 'Environments': 'Miljöer', 'Events': 'Händelser', 'Configured — enter to replace': 'Konfigurerad — ange ett värde för att ersätta', 'Testing…': 'Testar…', 'Test connection': 'Testa anslutning', 'Remove': 'Ta bort',
 };
 
+Object.assign(arCmsSupplement, {
+  'Choose GitHub repository': 'اختر مستودع GitHub',
+  'Select the account and repository that will own your source code.': 'اختر الحساب والمستودع اللذين سيملكان كود مشروعك.',
+  'Choose another account': 'اختر حساباً آخر',
+  'Loading repositories...': 'جارٍ تحميل المستودعات...',
+  'GitHub repositories are unavailable. Reconnect GitHub.': 'تعذّر عرض المستودعات. أعد ربط GitHub.',
+  'Repository connection could not be verified. Try again.': 'تعذّر التحقق من ربط المستودع. حاول مجدداً.',
+  'Repository connected. Publishing setup is still required.': 'تم ربط المستودع. ما زال إعداد النشر مطلوباً.',
+  'Next page': 'الصفحة التالية',
+});
+Object.assign(svCmsSupplement, {
+  'Choose GitHub repository': 'Välj GitHub-arkiv',
+  'Select the account and repository that will own your source code.': 'Välj kontot och arkivet som ska äga källkoden.',
+  'Choose another account': 'Välj ett annat konto',
+  'Loading repositories...': 'Läser in arkiv...',
+  'GitHub repositories are unavailable. Reconnect GitHub.': 'Arkiven kan inte visas. Anslut GitHub igen.',
+  'Repository connection could not be verified. Try again.': 'Arkivanslutningen kunde inte verifieras. Försök igen.',
+  'Repository connected. Publishing setup is still required.': 'Arkivet är anslutet. Publicering måste fortfarande konfigureras.',
+  'Next page': 'Nästa sida',
+});
 const cmsMaps: Record<Language, PhraseMap> = { en: {}, ar: arCmsSupplement, sv: svCmsSupplement };
 export function localizeUi(text: string, language: Language): string { if (language === 'en') return text; return cmsMaps[language][text] ?? localizeBaseUi(text, language); }
 export function useLocalizer() { const { prefs } = usePreferences(); const language = prefs.language; return useCallback((text: string) => localizeUi(text, language), [language]); }
