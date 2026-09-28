@@ -106,7 +106,8 @@ export async function servePublishedWebsiteApplication(input: {
       const language = page?.language ?? normalizeWebsiteLocalization(snapshot.localization as Partial<WebsiteLocalizationConfig> | undefined).defaultLanguage;
       return { ...input.browserSession!, projectId, ownerId, backend, platformUrl,
         returnPath: `/site/${ownerId}/${projectId}/${file.split('/').map(encodeURIComponent).join('/')}`,
-        signUpEnabled: definition.auth.signUpEnabled, language: (language === 'ar' || language === 'sv' ? language : 'en') as 'ar' | 'sv' | 'en',
+        signUpEnabled: definition.auth.signUpEnabled, roles: definition.roles.map(role => ({ id: role.id, name: role.name })),
+        language: (language === 'ar' || language === 'sv' ? language : 'en') as 'ar' | 'sv' | 'en',
       };
     };
     const authScreen = (status: 200 | 401) => applicationAuthScreenResponse(browserConfig(), status);

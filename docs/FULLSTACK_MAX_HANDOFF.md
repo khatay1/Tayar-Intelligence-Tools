@@ -12,6 +12,12 @@ Base main commit: `2643566473d5e255b948574224dc9369036a1046` (all earlier comple
 
 The owner explicitly requested continuing on this GitHub side branch so work survives a usage limit/session interruption. Save tested batches here. Do not merge to main or deploy production until the full requested work is complete. The `internal-*` Vercel auto-deploy exclusion applies; main auto-deploy is also disabled. Keep runtime/release/session flags off.
 
+## Current source batch — account role controls (2026-09-28)
+
+- The isolated account shell now shows the signed-in user's own UUID after dedicated Auth verification. When the dedicated backend confirms role administrator status, it reveals a role form for a known target UUID and a declared application role. Grant/removal calls recheck the current user and administrator status; the existing security-definer RPC remains the final authority. The shell does not enumerate users.
+- Account markup, English/Arabic/Swedish labels and browser bundle were updated. Local controller and route regressions cover manager checks, invalid target/role refusal and hidden controls before verification. On the dedicated validation backend, a temporary administrator grant succeeded and a nonadministrator grant failed inside a rolled-back transaction; post-rollback inspection found no administrator or role grant.
+- This source path still needs a real isolated-host browser test for login, role controls, reloads and revocation before publishing. Flags and production remain closed.
+
 ## Current source batch — durable request ledger (2026-09-28)
 
 - New isolated schemas now record each non-null form request UUID in a private owner/table/request ledger from an insert trigger. Deleting a business row does not delete this ledger entry; the same request cannot create another row. The capability marker is version 2, and the trusted reader rejects version 1.

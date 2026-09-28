@@ -20,6 +20,7 @@ try {
   const result = data => ({ data, error: fail ? new Error('PRIVATE_UPSTREAM_ERROR') : null });
   const auth = {
     async getSession() { if (pause) await pause; return result({ session }); },
+    async getUser() { return result({ user: { id: '33333333-3333-4333-8333-333333333333', is_anonymous: false } }); },
     onAuthStateChange(callback) { listeners.add(callback); return { data: { subscription: { unsubscribe: () => listeners.delete(callback) } } }; },
     async signInWithPassword(input) { calls.push(['signIn', input]); session = { access_token: 'a.b.c' }; return result({ session }); },
     async signUp(input) { calls.push(['signUp', input]); return result({ session }); },
@@ -35,6 +36,32 @@ try {
   assert.equal(calls.at(-1)[1].email, 'user@example.test');
   assert.equal(syncs, 1);
   assert.equal(await controller.prepareNavigation(), config.applicationOrigin + config.returnPath);
+  const roleCalls = [];
+  let admin = true;
+  const roleController = create({ ...config, roles: [{ id: 'manager', name: 'Manager' }] }, {
+    client: { auth, async rpc(name, args) {
+      roleCalls.push([name, args]);
+      return { data: name === 'app_is_role_admin' ? admin : null, error: null };
+    } }, bridge,
+  }); controllers.push(roleController);
+  await roleController.initialize();
+  assert.equal(await roleController.currentUserId(), '33333333-3333-4333-8333-333333333333');
+  assert.deepEqual(await roleController.roleAdministration(), { userId: '33333333-3333-4333-8333-333333333333' });
+  await roleController.setUserRole('44444444-4444-4444-8444-444444444444', 'manager', true);
+  assert.deepEqual(roleCalls.at(-1), ['app_set_user_role', { target_user: '44444444-4444-4444-8444-444444444444', requested_role: 'manager', enabled: true }]);
+  const mutations = roleCalls.filter(([name]) => name === 'app_set_user_role').length;
+  await assert.rejects(roleController.setUserRole('invalid', 'manager', true));
+  await assert.rejects(roleController.setUserRole('44444444-4444-4444-8444-444444444444', 'unknown', true));
+  assert.equal(roleCalls.filter(([name]) => name === 'app_set_user_role').length, mutations);
+  admin = false;
+  await assert.rejects(roleController.roleAdministration());
+  await assert.rejects(roleController.setUserRole('44444444-4444-4444-8444-444444444444', 'manager', false));
+  assert.equal(roleCalls.filter(([name]) => name === 'app_set_user_role').length, mutations);
+  await roleController.signOut();
+  await assert.rejects(roleController.currentUserId());
+  await assert.rejects(roleController.roleAdministration(), 'Signed-out state must fail before role RPC');
+  roleController.dispose();
+  session = { access_token: 'a.b.c' };
   bridgeFailure = true;
   await assert.rejects(controller.prepareNavigation(), { message: 'The account request could not be completed. Please try again.' });
   bridgeFailure = false;
@@ -70,7 +97,7 @@ try {
   disabled.dispose(); release();
   await assert.rejects(pending);
   pause = undefined;
-  assert.equal(disposed, 1);
+  assert.equal(disposed, 2);
   await assert.rejects(disabled.initialize());
   controller.dispose();
   assert.equal(listeners.size, 0);

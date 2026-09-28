@@ -12,7 +12,7 @@ const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: '
 const origin = `https://${projectId}.apps.tayar.example`;
 const makeToken = exp => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ exp })).toString('base64url')}.fixture_signature`;
 const token = makeToken(Math.floor(Date.now() / 1000) + 1800);
-const app = { version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, roles: [], tables: [], pageAccess: [{ pageId: 'dashboard', access: 'authenticated' }] };
+const app = { version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, roles: [{ id: 'manager', name: 'Manager' }], tables: [], pageAccess: [{ pageId: 'dashboard', access: 'authenticated' }] };
 const release = { id: versionId, project_id: projectId, user_id: ownerId, backend, storage_bucket: 'website-application-releases', storage_prefix: `${ownerId}/${projectId}/versions/${versionId}`,
   snapshot: { application: app, homePageId: 'home', pages: [{ id: 'home', slug: 'home' }, { id: 'dashboard', slug: 'dashboard' }] },
   file_manifest: [{ name: 'index.html', pageId: 'home', contentType: 'text/html' }, { name: 'dashboard.html', pageId: 'dashboard', contentType: 'text/html' }],
@@ -52,6 +52,8 @@ try {
   let shell = await page('', { headers: { accept: 'text/html' } });
   assert.equal(shell.statusCode, 401);
   assert.match(shell.body, /id="account-form"/);
+  assert.match(shell.body, /id="role-admin" hidden/);
+  assert.match(shell.body, /id="account-identity" hidden/);
   assert.match(shell.headers.get('content-type'), /text\/html/);
   assert.match(shell.headers.get('content-security-policy'), /form-action 'none'/);
   assert.ok(!calls.some(url => url.includes('/storage/')), 'Account challenge must not download the private page');
@@ -59,6 +61,7 @@ try {
   const embedded = JSON.parse(/<script id="application-auth-config" type="application\/json">(.*?)<\/script>/.exec(shell.body)[1]);
   assert.equal(embedded.backend.url, backend.url);
   assert.equal(embedded.returnPath, `/site/${ownerId}/${projectId}/dashboard.html`);
+  assert.deepEqual(embedded.roles, [{ id: 'manager', name: 'Manager' }]);
   shell = await page('', { host: 'tayar.se', headers: { accept: 'text/html' } });
   assert.equal(shell.statusCode, 401);
   assert.doesNotMatch(shell.body, /account-form/);

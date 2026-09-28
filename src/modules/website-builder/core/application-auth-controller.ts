@@ -9,13 +9,14 @@ export interface ApplicationAuthScreenConfig extends ApplicationBrowserSessionOp
   returnPath: string;
   signUpEnabled: boolean;
   language: 'en' | 'ar' | 'sv';
+  roles?: Array<{ id: string; name: string }>;
 }
 export type ApplicationAuthState = 'signed-out' | 'signed-in' | 'verification-sent' | 'reset-sent' | 'recovery' | 'password-updated';
 
 /** Browser-side account flow only. Server authorization remains authoritative.
  * Dependencies can be supplied by tests without simulating server permission. */
 export function createApplicationAuthController(input: ApplicationAuthScreenConfig, dependencies?: {
-  client: Pick<SupabaseClient, 'auth'>;
+  client: Pick<SupabaseClient, 'auth'> & Partial<Pick<SupabaseClient, 'rpc'>>;
   bridge: { synchronize(): Promise<void>; dispose(): void };
 }) {
   const config = { ...input, backend: { ...input.backend } };
@@ -42,6 +43,18 @@ export function createApplicationAuthController(input: ApplicationAuthScreenConf
   const checked = <T extends { error: unknown }>(result: T): T => { if (result.error || disposed) throw unavailable(); return result; };
   const email = (value: string) => { if (!value.trim() || value.length > 320) throw unavailable(); return value.trim(); };
   const password = (value: string) => { if (!value || value.length > 4096) throw unavailable(); return value; };
+  const activeUser = async () => {
+    if (state !== 'signed-in' && state !== 'password-updated') throw unavailable();
+    const user = checked(await client.auth.getUser()).data.user;
+    if (!user || user.is_anonymous) throw unavailable();
+    return user.id;
+  };
+  const roleAdministrator = async () => {
+    if (!config.roles?.length || !client.rpc) throw unavailable();
+    const userId = await activeUser();
+    if (checked(await client.rpc('app_is_role_admin')).data !== true) throw unavailable();
+    return userId;
+  };
   const callback = new URL(destination); callback.searchParams.set('applicationAuth', '1');
   return {
     status: () => ({ state, busy, disposed }),
@@ -81,6 +94,14 @@ export function createApplicationAuthController(input: ApplicationAuthScreenConf
       if (state !== 'signed-in' && state !== 'password-updated') throw unavailable();
       if (!checked(await client.auth.getSession()).data.session) { state = 'signed-out'; throw unavailable(); }
       await bridge.synchronize(); return destination.href;
+    }),
+    currentUserId: () => run(activeUser),
+    roleAdministration: () => run(async () => ({ userId: await roleAdministrator() })),
+    setUserRole: (userId: string, roleId: string, enabled: boolean) => run(async () => {
+      await roleAdministrator();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)
+        || !config.roles?.some(role => role.id === roleId) || typeof enabled !== 'boolean') throw unavailable();
+      checked(await client.rpc!('app_set_user_role', { target_user: userId, requested_role: roleId, enabled }));
     }),
     dispose() {
       if (disposed) return;

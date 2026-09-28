@@ -1,5 +1,10 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — account role controls
+
+- Added an administrator-checked role form to the isolated account shell; signed-in users can see their own UUID, while only verified administrators can see grant/removal controls. Server-side role RPC remains authoritative.
+- Local account controller, isolated route and application suite passed. A real dedicated PostgreSQL transaction proved manager grant and nonmanager denial, then rolled back with zero persisted grants. Real browser/host lifecycle and the rest of the MAX plan remain open; no production activation.
+
 ## Current side-branch checkpoint — 2026-09-28
 
 - Branch: `internal-fullstack-max-continue-20260927`; main remains `2643566473d5e255b948574224dc9369036a1046`. No deployment, production migration, flag activation or merge.
