@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-28. Branch: `internal-fullstack-max-continue-20260927`. HEAD: the latest commit on this branch containing this checkpoint; starting baseline was `d166683`. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-28. Branch: `internal-fullstack-max-continue-20260927`. HEAD: the latest commit on this branch containing this checkpoint; Phase 2 registry checkpoint is `b50877a`. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -21,16 +21,18 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - Historical Fullstack MAX foundations through branch baseline `d166683` remain intact; see `FULLSTACK_MAX_HANDOFF.md` for detailed historical evidence.
 - Phase 1 architecture classification and ownership decision are recorded here.
 - Phase 2 has a server-owned connection contract for GitHub, Supabase, Vercel, Stripe and external providers: owner/project/account/environment identity, permissions, status, version, operation nonce, verified timestamp and stale-response checks. A private platform registry migration adds a service-role-only version-guarded writer and owner-scoped read RPC. An owner reader drops undeclared payload fields and rejects cross-project, stale, malformed and duplicate responses. The migration is source only; OAuth provider adapters and token custody remain unimplemented.
+- Phase 3 has a pure GitHub target/export guard: it requires a matching observed installation account, immutable repository ID, repository owner, selected installation access and write permission. It checks branch/head, project, connection version and source digest before planning an export. It does not call GitHub, write a repository or mark a deployment successful.
 
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
 - The migration was run only inside rolled-back transactions on `Tayar Fullstack MAX Validation` with a disposable `public.projects` fixture: service-role insert and guarded update, stale-version refusal, owner projection, other-owner refusal and authenticated write denial passed. A post-rollback query found neither fixture table. This is isolated PostgreSQL proof, not a platform migration or live OAuth proof.
+- GitHub target/export guard regression uses fixture observations for wrong account/repository, revoked permission, branch drift and stale connection. TypeScript passed. GitHub's own documentation says installation repository access and Contents write permission must be checked, and ref updates must avoid force when guarding fast-forward changes; no live GitHub write was attempted.
 - Earlier Vault inventory checks used mocked RPC, not a live customer account.
 
 ## In progress
 
-- Phase 2 trusted OAuth/installation identity verification and token custody. The connection status UI must read server-owned records, never editable snapshot claims.
+- Phase 2 trusted OAuth/installation identity verification and token custody, then Phase 3 provider adapter and repository write/reconciliation. The connection status UI must read server-owned records, never editable snapshot claims.
 
 ## Remaining
 
@@ -47,11 +49,11 @@ No GitHub OAuth/installation, Supabase account ownership, Vercel team ownership,
 
 ## Files changed in the latest batch
 
-`docs/FULLSTACK_MAX_CHECKPOINT.md`, `docs/FULLSTACK_MAX_HANDOFF.md`, `package.json`, `src/modules/website-builder/core/application-infrastructure-connections.ts`, `src/modules/website-builder/services/websiteInfrastructureConnectionClient.ts`, `supabase/migrations/20260928205027_website_byo_infrastructure_connections.sql`, `scripts/application-infrastructure-connections-regression.mjs`, `scripts/website-infrastructure-connection-client-regression.mjs`.
+Latest GitHub guard batch: `docs/FULLSTACK_MAX_CHECKPOINT.md`, `package.json`, `src/modules/website-builder/core/application-github-target.ts`, `scripts/application-github-target-regression.mjs`. Previous BYO registry batch: `docs/FULLSTACK_MAX_CHECKPOINT.md`, `docs/FULLSTACK_MAX_HANDOFF.md`, `package.json`, `src/modules/website-builder/core/application-infrastructure-connections.ts`, `src/modules/website-builder/services/websiteInfrastructureConnectionClient.ts`, `supabase/migrations/20260928205027_website_byo_infrastructure_connections.sql`, `scripts/application-infrastructure-connections-regression.mjs`, `scripts/website-infrastructure-connection-client-regression.mjs`.
 
 ## Next exact batch
 
-Add a trusted GitHub installation/account adapter on this registry: verify the current user's grant and repository ownership/permissions against GitHub, keep tokens in separate short-lived custody, and do not mark ready until the target is observed. Add a read-only connection status surface only after the trusted adapter is wired. Keep Supabase/Vercel adapters and publish gates closed until their own verification exists.
+Build a trusted GitHub installation/account adapter on the new registry: verify the current user's grant and repository ownership/permissions against live GitHub, keep tokens in separate short-lived custody, and perform a non-force branch update with uncertain-commit reconciliation. Persist the observed repository/branch cursor under version guards. Add a read-only connection status surface only after live verification is wired. Keep Supabase/Vercel adapters and publish gates closed until their own verification exists.
 
 ## Known blockers
 
