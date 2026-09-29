@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Vercel identity batch: `fe4ef4b6dc3d618085850ac299046016e571a661` (tree `19db74d2d50d1ca60420b007f640cf1a84a9c948`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Supabase custody batch: `8d7b8d072f4f57071355b9000c28b7fef8bb1238` (tree `4fb57b4daf1dc2c87e45dd38f39b33bad44e9570`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -86,6 +86,8 @@ No live GitHub OAuth/installation, Supabase account ownership or catalog read, V
 
 ## Files changed in the latest batch
 
+Supabase OAuth custody batch: `supabase/migrations/20260929170000_website_byo_supabase_oauth_custody.sql`, `src/modules/website-builder/services/websiteSupabaseOAuthCustodyService.ts`, `scripts/website-supabase-oauth-custody-regression.mjs`, `package.json` and this checkpoint. A service-only Vault record binds a short-lived setup grant to current owner/project/connection/environment/account/organization/ref and CAS versions. Read returns plaintext only to the trusted worker; metadata reconciliation handles a lost write response; expiry and erasure remove the grant. It is source-only and not wired to the OAuth callback. The isolated validation PostgreSQL rollback transaction exercised Vault creation/read, wrong-owner refusal, exact reconciliation and `anon` execute denial; a subsequent read found no fixture objects or secret. The service regression uses mocked RPC; no live customer OAuth, token refresh, provider revocation or scheduled cleanup was run.
+
 Vercel target proof batch: `server/website-owned-vercel-project.ts`, `scripts/website-owned-vercel-project-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. A read-only customer grant checks the authenticated Vercel user, team Owner membership if a team is selected, the exact project account ID and immutable project ID, and its linked GitHub repository ID/owner/name and production branch. It rechecks the project and the private connection freshness before and after. Personal accounts are supported. This does not claim deployment, domain, environment or billing readiness; no live Vercel account is connected.
 
 Supabase OAuth source batch: `src/modules/website-builder/services/websiteSupabaseOAuthService.ts`, `scripts/website-supabase-oauth-regression.mjs`, `package.json` and this checkpoint. Reuses the one-use owner/project/provider/environment OAuth state. A server-held HMAC secret derives PKCE from random state, avoiding a second persistent verifier. The callback consumes state before code exchange, validates the fixed HTTPS redirect and bounded token response, and returns access/refresh tokens only to the trusted caller for future encrypted custody. No real Supabase OAuth app or endpoint is configured; Connect Supabase remains disabled, and the tokens are not persisted in project data.
@@ -112,11 +114,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The Vercel project verifier checks the user or team account and exact GitHub-linked project through read-only API calls, then rejects account switching, repository mismatches and stale connection state. Mocked HTTP regression, infrastructure suite, TypeScript and ESLint are the verification scope. It is source only: deployment/domain/env verification and live OAuth remain pending.
+The Supabase OAuth custody migration and service establish encrypted, owner-scoped setup-token storage with version CAS, expiry, uncertain-write reconciliation and erasure. TypeScript, targeted ESLint, mocked RPC/static regression and an isolated validation PostgreSQL rollback transaction passed. No live OAuth connection, refresh or customer runtime dependency was introduced.
 
 ## Next exact batch
 
-Implement short-lived encrypted Supabase OAuth token custody, refresh/rotation and exact private account/organization/project binding; mount the callback and project chooser only after they are real. Calibrate catalog policy expressions and role metadata against a disposable isolated PostgreSQL project. Add Vercel OAuth/team/project binding, domain/env and observed deployment verification, then connect these proofs to the owned source capture and GitHub worker. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
+Implement trusted Supabase OAuth refresh and provider revocation with exact owner/project proof before rotating encrypted custody, plus interrupted-refresh recovery and cleanup scheduling. Mount the callback and account chooser only after real provider credentials and endpoint verification. Continue Supabase schema/RLS calibration and Vercel OAuth/owned deployment verification; keep Publish closed until the real lifecycle and secret handoff are proven. No production flags or migrations.
 
 ## Known blockers
 
