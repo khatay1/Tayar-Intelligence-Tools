@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createIsolatedApplicationClient, type ApplicationPublicBackend } from './application-data-runtime';
-import { createApplicationBrowserSessionBridge, type ApplicationBrowserSessionOptions } from './application-browser-session';
+import { createIsolatedApplicationClient, createOwnedApplicationClient, validateOwnedApplicationPublicBackend, type ApplicationPublicBackend } from './application-data-runtime';
+import { createApplicationBrowserSessionBridge, createOwnedApplicationBrowserSessionBridge,
+  type ApplicationBrowserSessionOptions } from './application-browser-session';
 import { assertApplicationOriginScope } from './application-origin';
 
 export interface ApplicationAuthScreenConfig extends ApplicationBrowserSessionOptions {
@@ -11,14 +12,26 @@ export interface ApplicationAuthScreenConfig extends ApplicationBrowserSessionOp
   language: 'en' | 'ar' | 'sv';
   roles?: Array<{ id: string; name: string }>;
 }
+export interface OwnedApplicationAuthScreenConfig {
+  mode: 'owned';
+  projectId: string;
+  applicationOrigin: string;
+  expectedProjectRef: string;
+  backend: ApplicationPublicBackend;
+  returnPath: string;
+  signUpEnabled: boolean;
+  language: 'en' | 'ar' | 'sv';
+  roles?: Array<{ id: string; name: string }>;
+}
 export type ApplicationAuthState = 'signed-out' | 'signed-in' | 'verification-sent' | 'reset-sent' | 'recovery' | 'password-updated';
+type Dependencies = {
+  client: Pick<SupabaseClient, 'auth'> & Partial<Pick<SupabaseClient, 'rpc'>>;
+  bridge: { synchronize(): Promise<void>; dispose(): void };
+};
 
 /** Browser-side account flow only. Server authorization remains authoritative.
  * Dependencies can be supplied by tests without simulating server permission. */
-export function createApplicationAuthController(input: ApplicationAuthScreenConfig, dependencies?: {
-  client: Pick<SupabaseClient, 'auth'> & Partial<Pick<SupabaseClient, 'rpc'>>;
-  bridge: { synchronize(): Promise<void>; dispose(): void };
-}) {
+export function createApplicationAuthController(input: ApplicationAuthScreenConfig, dependencies?: Dependencies) {
   const config = { ...input, backend: { ...input.backend } };
   assertApplicationOriginScope(config.applicationOrigin, config.projectId, config.platformOrigin);
   const destination = new URL(config.returnPath, config.applicationOrigin);
@@ -27,6 +40,31 @@ export function createApplicationAuthController(input: ApplicationAuthScreenConf
     || !destination.pathname.startsWith(prefix) || /[%\\]/.test(config.returnPath.replace(/%[a-f0-9]{2}/gi, ''))) throw new Error('Invalid application return path.');
   const client = dependencies?.client ?? createIsolatedApplicationClient(config.backend, config.platformUrl);
   const bridge = dependencies?.bridge ?? createApplicationBrowserSessionBridge(client, config);
+  return createAuthController(config, destination, client, bridge, !!dependencies);
+}
+
+export function createOwnedApplicationAuthController(input: OwnedApplicationAuthScreenConfig, dependencies?: Dependencies) {
+  const config = { ...input, backend: { ...input.backend } };
+  validateOwnedApplicationAuthScreenConfig(config);
+  const destination = new URL(config.returnPath, config.applicationOrigin);
+  const client = dependencies?.client ?? createOwnedApplicationClient(config.backend, config.expectedProjectRef);
+  const bridge = dependencies?.bridge ?? createOwnedApplicationBrowserSessionBridge(client, config);
+  return createAuthController(config, destination, client, bridge, !!dependencies);
+}
+
+export function validateOwnedApplicationAuthScreenConfig(config: OwnedApplicationAuthScreenConfig): void {
+  const origin = new URL(config.applicationOrigin);
+  const destination = new URL(config.returnPath, config.applicationOrigin);
+  if (config.mode !== 'owned' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.projectId)
+    || origin.protocol !== 'https:' || origin.origin !== config.applicationOrigin
+    || !config.returnPath.startsWith('/') || config.returnPath.startsWith('//')
+    || destination.origin !== config.applicationOrigin || destination.pathname !== config.returnPath
+    || destination.search || destination.hash || /[%\\]/.test(config.returnPath)) throw new Error('Invalid owned application return path.');
+  validateOwnedApplicationPublicBackend(config.backend, config.expectedProjectRef);
+}
+
+function createAuthController(config: ApplicationAuthScreenConfig | OwnedApplicationAuthScreenConfig,
+  destination: URL, client: Dependencies['client'], bridge: Dependencies['bridge'], injected: boolean) {
   let disposed = false, busy = false, state: ApplicationAuthState = 'signed-out';
   const unavailable = () => new Error('The account request could not be completed. Please try again.');
   const subscription = client.auth.onAuthStateChange(event => {
@@ -113,7 +151,7 @@ export function createApplicationAuthController(input: ApplicationAuthScreenConf
     dispose() {
       if (disposed) return;
       disposed = true; subscription.unsubscribe(); bridge.dispose();
-      if (!dependencies) void client.auth.stopAutoRefresh().catch(() => {});
+      if (!injected) void client.auth.stopAutoRefresh().catch(() => {});
     },
   };
 }

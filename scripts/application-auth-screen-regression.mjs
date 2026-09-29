@@ -9,7 +9,7 @@ const controllers = [];
 try {
   const outfile = join(dir, 'controller.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-auth-controller.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { createApplicationAuthController: create } = (await import(pathToFileURL(outfile))).default;
+  const { createApplicationAuthController: create, createOwnedApplicationAuthController: createOwned } = (await import(pathToFileURL(outfile))).default;
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', ownerId = '11111111-1111-4111-8111-111111111111';
   const config = { projectId, ownerId, applicationOrigin: `https://${projectId}.apps.tayar.example`, platformOrigin: 'https://tayar.se',
     platformUrl: 'https://pnbllxdlskljcakyaylt.supabase.co', backend: { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_fixture' },
@@ -29,6 +29,34 @@ try {
     async signOut(input) { calls.push(['signOut', input]); session = null; return result({}); },
   };
   const bridge = { async synchronize() { syncs++; if (bridgeFailure) throw new Error('BRIDGE_PRIVATE_ERROR'); }, dispose() { disposed++; } };
+  const ownedConfig = { mode: 'owned', projectId, applicationOrigin: 'https://customer.example.test',
+    expectedProjectRef: config.backend.projectRef, backend: config.backend, returnPath: '/dashboard.html', signUpEnabled: true, language: 'en' };
+  const shellFile = join(dir, 'shell.cjs');
+  await build({ entryPoints: ['src/modules/website-builder/services/websiteApplicationAuthScreenService.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: shellFile });
+  const { applicationAuthScreenResponse } = (await import(pathToFileURL(shellFile))).default;
+  const shell = applicationAuthScreenResponse(ownedConfig, 401);
+  assert.equal(shell.status, 401);
+  const markup = await shell.text();
+  assert.ok(markup.includes('https://customer.example.test'));
+  assert.ok(!markup.includes(config.platformUrl));
+  assert.throws(() => applicationAuthScreenResponse({ ...ownedConfig, expectedProjectRef: 'aaaaaaaaaaaaaaaaaaaa' }, 401));
+  const owned = createOwned(ownedConfig, { client: { auth }, bridge }); controllers.push(owned);
+  assert.equal(await owned.initialize(), 'signed-out');
+  await owned.signIn('owned@example.test', 'password');
+  assert.equal(await owned.prepareNavigation(), 'https://customer.example.test/dashboard.html');
+  assert.equal((await owned.requestReset('owned@example.test')), 'reset-sent');
+  assert.equal(new URL(calls.at(-1)[2].redirectTo).origin, ownedConfig.applicationOrigin);
+  await owned.signOut(); owned.dispose();
+  for (const wrong of [
+    { applicationOrigin: 'http://customer.example.test' },
+    { applicationOrigin: 'https://customer.example.test/path' },
+    { returnPath: '//evil.example.test/' },
+    { returnPath: '/dashboard.html?next=evil' },
+    { returnPath: '/%2fadmin' },
+    { expectedProjectRef: 'aaaaaaaaaaaaaaaaaaaa' },
+    { backend: { ...ownedConfig.backend, publishableKey: 'service-secret' } },
+  ]) assert.throws(() => createOwned({ ...ownedConfig, ...wrong }, { client: { auth }, bridge }));
+  syncs = 0;
   const controller = create(config, { client: { auth }, bridge }); controllers.push(controller);
   assert.equal(await controller.initialize(), 'signed-out');
   await assert.rejects(controller.prepareNavigation());
@@ -98,7 +126,7 @@ try {
   disabled.dispose(); release();
   await assert.rejects(pending);
   pause = undefined;
-  assert.equal(disposed, 2);
+  assert.equal(disposed, 3);
   await assert.rejects(disabled.initialize());
   const lostSession = create(config, { client: { auth }, bridge: { async synchronize() { session = null; }, dispose() {} } }); controllers.push(lostSession);
   session = { access_token: 'stale.token.fixture' };

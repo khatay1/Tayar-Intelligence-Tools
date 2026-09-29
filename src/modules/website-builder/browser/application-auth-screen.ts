@@ -1,7 +1,8 @@
-import { createApplicationAuthController, type ApplicationAuthScreenConfig } from '../core/application-auth-controller';
+import { createApplicationAuthController, createOwnedApplicationAuthController,
+  type ApplicationAuthScreenConfig, type OwnedApplicationAuthScreenConfig } from '../core/application-auth-controller';
 import { applicationAuthCopy } from '../core/application-auth-copy';
 
-const config = JSON.parse(document.getElementById('application-auth-config')!.textContent!) as ApplicationAuthScreenConfig;
+const config = JSON.parse(document.getElementById('application-auth-config')!.textContent!) as ApplicationAuthScreenConfig | OwnedApplicationAuthScreenConfig;
 const copy = applicationAuthCopy[config.language] ?? applicationAuthCopy.en;
 const form = document.getElementById('account-form') as HTMLFormElement;
 const status = document.getElementById('account-status')!;
@@ -17,7 +18,8 @@ const roleSelect = document.getElementById('role-select') as HTMLSelectElement;
 const roleStatus = document.getElementById('role-status')!;
 const roleButtons = [...roleForm.querySelectorAll<HTMLButtonElement>('button')];
 try {
-  const controller = createApplicationAuthController(config);
+  const controller = 'mode' in config && config.mode === 'owned'
+    ? createOwnedApplicationAuthController(config) : createApplicationAuthController(config as ApplicationAuthScreenConfig);
   let roleGeneration = 0;
   for (const role of config.roles ?? []) {
     const option = document.createElement('option');

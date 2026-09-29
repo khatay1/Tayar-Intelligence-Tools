@@ -1,10 +1,12 @@
-import type { ApplicationAuthScreenConfig } from '../core/application-auth-controller';
+import { validateOwnedApplicationAuthScreenConfig,
+  type ApplicationAuthScreenConfig, type OwnedApplicationAuthScreenConfig } from '../core/application-auth-controller';
 import { applicationAuthCopy } from '../core/application-auth-copy';
 import { applicationAuthScript } from '../browser/generated/application-auth-script';
 
 /** Trusted account shell, never the private page contents. Config contains only
  * public backend settings and server-derived scope; no user/refresh/service token. */
-export function applicationAuthScreenResponse(config: ApplicationAuthScreenConfig, status: 200 | 401): Response {
+export function applicationAuthScreenResponse(config: ApplicationAuthScreenConfig | OwnedApplicationAuthScreenConfig, status: 200 | 401): Response {
+  if ('mode' in config && config.mode === 'owned') validateOwnedApplicationAuthScreenConfig(config);
   const copy = applicationAuthCopy[config.language];
   const json = JSON.stringify(config).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
   const button = (value: string, label: string, hidden = false) => `<button disabled type="submit" name="action" value="${value}"${hidden ? ' hidden' : ''}>${label}</button>`;
