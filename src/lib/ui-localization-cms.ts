@@ -47,6 +47,13 @@ export const arCmsSupplement: PhraseMap = {
   'Repository connection could not be verified. Try again.': 'تعذّر التحقق من ربط المستودع. حاول مجدداً.',
   'Repository connected. Publishing setup is still required.': 'تم ربط المستودع. ما زال إعداد النشر مطلوباً.',
   'Next page': 'الصفحة التالية',
+  'Choose Vercel project': 'اختر مشروع Vercel',
+  'Only projects linked to the selected GitHub repository are shown.': 'تظهر فقط المشاريع المرتبطة بمستودع GitHub المحدد.',
+  'Loading Vercel projects...': 'جارٍ تحميل مشاريع Vercel...',
+  'Vercel projects are unavailable. Reconnect Vercel.': 'تعذّر عرض مشاريع Vercel. أعد ربط Vercel.',
+  'No matching Vercel project. Create or link one to the GitHub repository first.': 'لا يوجد مشروع Vercel مطابق. أنشئ مشروعاً أو اربطه بمستودع GitHub أولاً.',
+  'Vercel project connection could not be verified. Try again.': 'تعذّر التحقق من ربط مشروع Vercel. حاول مجدداً.',
+  'Vercel project connected. Deployment setup is still required.': 'تم ربط مشروع Vercel. ما زال إعداد النشر مطلوباً.',
 };
 
 export const svCmsSupplement: PhraseMap = {
@@ -83,6 +90,13 @@ export const svCmsSupplement: PhraseMap = {
   'Manage multilingual content, routes, SEO, RTL and locale domains.': 'Hantera flerspråkigt innehåll, rutter, SEO, RTL och språkdomäner.', 'Editing language': 'Redigeringsspråk', 'Direction': 'Skrivriktning', 'Fallback language': 'Reservspråk', 'Locale path prefix': 'Sökvägsprefix för språk', 'Subdomain': 'Underdomän', 'Localized page name': 'Lokaliserat sidnamn', 'Localized slug': 'Lokaliserad slug', 'Translating…': 'Översätter…', 'Translate page with AI': 'Översätt sidan med AI',
   'Secure secret storage is not connected yet.': 'Säker lagring av hemligheter är inte ansluten ännu.', 'Infrastructure': 'Infrastruktur', 'Your accounts own the code, database and hosting. Tayar handles setup.': 'Dina konton äger koden, databasen och driften. Tayar sköter inställningen.', 'Infrastructure ready for publishing': 'Infrastrukturen är redo för publicering', 'Connect your accounts after saving the project': 'Anslut dina konton efter att projektet har sparats', 'Not required': 'Krävs inte', 'Account': 'Konto', 'Target': 'Mål', 'Connect account': 'Anslut konto', 'Manage connection': 'Hantera anslutning', 'Refresh connection status': 'Uppdatera anslutningsstatus', 'Connection setup is not available yet.': 'Anslutning är inte tillgänglig ännu.', 'Connection could not be completed. Try again.': 'Anslutningen kunde inte slutföras. Försök igen.', 'Connection status could not be refreshed.': 'Anslutningsstatus kunde inte uppdateras.', 'disconnected': 'Frånkopplad', 'connecting': 'Ansluter', 'connected': 'Ansluten', 'permissions-missing': 'Behörighet saknas', 'setup-incomplete': 'Inställningen är ofullständig', 'outdated-schema': 'Föråldrat schema', 'deployment-failed': 'Publiceringen misslyckades', 'credentials-revoked': 'Åtkomsten återkallad', 'ready': 'Redo', 'Secret could not be saved. Enter it again to retry.': 'Hemligheten kunde inte sparas. Ange den igen för att försöka på nytt.', 'Connection test failed. Check the configuration and try again.': 'Anslutningstestet misslyckades. Kontrollera inställningarna och försök igen.', 'Choose exactly one environment before storing a credential.': 'Välj exakt en miljö innan du sparar en autentiseringsuppgift.', 'Checking credentials…': 'Kontrollerar autentiseringsuppgifter…', 'Check stored credentials': 'Kontrollera sparade autentiseringsuppgifter', 'Stored credentials': 'Sparade autentiseringsuppgifter', 'Missing references': 'Saknade referenser', 'Unlinked credentials': 'Ej kopplade autentiseringsuppgifter', 'Credential check failed. Try again.': 'Det gick inte att kontrollera autentiseringsuppgifterna. Försök igen.',
   'Integrations': 'Integrationer', 'Connect analytics, payments, email, CRM, APIs and signed webhooks.': 'Anslut analys, betalningar, e-post, CRM, API:er och signerade webhooks.', 'Provider': 'Leverantör', 'Add integration': 'Lägg till integration', 'active': 'aktiva', 'configuration issue': 'konfigurationsproblem', 'configuration issues': 'konfigurationsproblem', 'Enabled': 'Aktiverad', 'Name': 'Namn', 'Environments': 'Miljöer', 'Events': 'Händelser', 'Configured — enter to replace': 'Konfigurerad — ange ett värde för att ersätta', 'Testing…': 'Testar…', 'Test connection': 'Testa anslutning', 'Remove': 'Ta bort',
+  'Choose Vercel project': 'Välj Vercel-projekt',
+  'Only projects linked to the selected GitHub repository are shown.': 'Endast projekt som är kopplade till det valda GitHub-arkivet visas.',
+  'Loading Vercel projects...': 'Läser in Vercel-projekt...',
+  'Vercel projects are unavailable. Reconnect Vercel.': 'Vercel-projekten kan inte visas. Anslut Vercel igen.',
+  'No matching Vercel project. Create or link one to the GitHub repository first.': 'Inget matchande Vercel-projekt. Skapa eller koppla ett till GitHub-arkivet först.',
+  'Vercel project connection could not be verified. Try again.': 'Vercel-projektanslutningen kunde inte verifieras. Försök igen.',
+  'Vercel project connected. Deployment setup is still required.': 'Vercel-projektet är anslutet. Publiceringen måste fortfarande konfigureras.',
 };
 
 Object.assign(svCmsSupplement, {
