@@ -71,7 +71,7 @@ export async function acceptSupabaseOAuthCallback(input: {
       body: new URLSearchParams({ grant_type: 'authorization_code', code: input.code,
         redirect_uri: callback, code_verifier: codeVerifier }),
     });
-    if (response.status !== 200 || Number(response.headers.get('content-length') ?? 0) > 16_384) throw new Error();
+    if (!response.ok || Number(response.headers.get('content-length') ?? 0) > 16_384) throw new Error();
     const raw = await response.text();
     if (raw.length > 16_384) throw new Error();
     const tokens = JSON.parse(raw);

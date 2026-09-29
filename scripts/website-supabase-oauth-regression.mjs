@@ -50,6 +50,12 @@ try {
   assert.equal(tokens.environment, 'preview');
   assert.equal(tokens.accessToken, 'customer-access-token-fixture');
   assert.equal(tokens.refreshToken, 'customer-refresh-token-fixture');
+  const created = await acceptSupabaseOAuthCallback({ ...callbackInput, stateClient: {
+    async rpc() { return { data: { ownerId: tokens.ownerId, projectId: tokens.projectId,
+      provider: 'supabase', environment: 'preview' }, error: null }; },
+  }, fetcher: async () => Response.json({ token_type: 'Bearer', access_token: 'customer-access-token-fixture',
+    refresh_token: 'customer-refresh-token-fixture', expires_in: 3600 }, { status: 201 }) });
+  assert.equal(created.accessToken, tokens.accessToken);
   await assert.rejects(acceptSupabaseOAuthCallback(callbackInput), /invalid or expired/);
   assert.equal(exchanges, 1);
   await assert.rejects(acceptSupabaseOAuthCallback({ ...callbackInput, pkceSecret: 'short' }), /not configured/);
