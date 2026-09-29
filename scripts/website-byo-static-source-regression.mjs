@@ -12,6 +12,10 @@ try {
     tsconfig: 'tsconfig.app.json', metafile: true, bundle: true, platform: 'node', format: 'cjs', outfile });
   assert(!Object.keys(built.metafile.inputs).some(path => /src\/lib\/(?:env|supabase)\.ts/.test(path)));
   const { compileWebsiteByoStaticSource: compile } = (await import(pathToFileURL(outfile))).default;
+  const capabilityOut = join(dir, 'capabilities.cjs');
+  await build({ entryPoints: ['src/modules/website-builder/core/application-byo-source-capabilities.ts'],
+    bundle: true, platform: 'node', format: 'cjs', outfile: capabilityOut });
+  const { analyzeByoSourceCapabilities: capabilities } = (await import(pathToFileURL(capabilityOut))).default;
   const defaultsOut = join(dir, 'defaults.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/defaults.ts'], tsconfig: 'tsconfig.app.json',
     bundle: true, platform: 'node', format: 'cjs', outfile: defaultsOut });
@@ -28,6 +32,18 @@ try {
   const config = { environment: 'production', platformOrigin: 'https://tayar.example',
     platformUrl: 'https://platform.invalid' };
   const before = JSON.stringify(snapshot);
+  assert.deepEqual(capabilities(snapshot, 'production').needs,
+    { auth: false, database: false, privatePages: false, forms: false, integrations: false, cms: false });
+  const dynamic = capabilities({ ...snapshot, application: { ...application,
+    auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true },
+    pageAccess: [{ pageId: 'home', access: 'authenticated' }] } }, 'production');
+  assert.equal(dynamic.needs.auth, true);
+  assert.equal(dynamic.needs.database, true);
+  assert.equal(dynamic.needs.privatePages, true);
+  assert.deepEqual(dynamic.blockers, []);
+  assert(capabilities({ ...snapshot, pages: [{ ...snapshot.pages[0], sections: [{ ...section, type: 'contact' }] }] },
+    'production').blockers.some(item => item.includes('Contact forms')));
+  assert.throws(() => capabilities({ ...snapshot, pages: [snapshot.pages[0], snapshot.pages[0]] }, 'production'));
   const files = await compile(snapshot, config);
   assert.equal(JSON.stringify(snapshot), before);
   assert.deepEqual(files.map(file => file.path), ['vercel.json', 'public/index.html', 'public/لوحة.html']);

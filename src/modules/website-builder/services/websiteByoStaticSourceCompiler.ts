@@ -1,4 +1,5 @@
 import { readApplicationDefinition } from '../core/application-validation';
+import { analyzeByoSourceCapabilities } from '../core/application-byo-source-capabilities';
 import { readEditorIntegrationsFromProject } from '../core/editor-integrations-project-host';
 import { renderWebsiteApplicationSnapshot } from './websiteApplicationRenderService';
 import { validateGitHubSourceManifest, type GitHubSourceFile } from './websiteGithubExportTransport';
@@ -27,8 +28,10 @@ export async function compileWebsiteByoStaticSource(snapshot: Record<string, unk
   }
   const pages = snapshot.pages as Array<Record<string, unknown>>;
   const pageIds = new Set(pages.map(page => String(page?.id ?? '')));
+  const capabilities = analyzeByoSourceCapabilities(snapshot, input.environment);
   const app = readApplicationDefinition(snapshot.application, pageIds);
-  if (app.tables.length || app.roles.length || app.auth.enabled || app.pageAccess.some(rule => rule.access !== 'public')) {
+  if (capabilities.needs.database || capabilities.needs.privatePages || capabilities.needs.forms
+    || capabilities.blockers.length || app.tables.length || app.roles.length || app.auth.enabled) {
     throw new Error('BYO application runtime is required before exporting this project.');
   }
   if (readEditorIntegrationsFromProject(snapshot).connections.some(connection =>

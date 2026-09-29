@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (Europe/Stockholm). Current branch: `internal-fullstack-max-continue-20260927`. Previous completed remote batch: `8a13beba782afb171e5b582d7f62e8d674911442` (tree `18d00bb9c771f55d6667f805d7f10f816ff485bf`). Current HEAD is the live side-branch ref: read `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` at the start of a session. Always fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (Europe/Stockholm). Current branch: `internal-fullstack-max-continue-20260927`. Previous completed remote batch: `e44e6f748aa08dbd438757a17df0cf9b819675bf` (tree `94dbbc7421eead7c2e338de91a3cf8d266585735`). Current HEAD is the live side-branch ref: read `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` at the start of a session. Always fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -86,6 +86,8 @@ No live GitHub OAuth/installation, Supabase account ownership, Vercel team owner
 
 ## Files changed in the latest batch
 
+Source capability gate batch: `src/modules/website-builder/core/application-byo-source-capabilities.ts`, `src/modules/website-builder/services/websiteByoStaticSourceCompiler.ts`, `scripts/website-byo-static-source-regression.mjs`, this checkpoint. This is static export validation, not a generated customer Vercel function.
+
 Owned route adapter batch: `src/modules/website-builder/services/websiteOwnedApplicationRouteService.ts`, `src/modules/website-builder/browser/application-page.ts`, `src/modules/website-builder/services/websiteApplicationPageBootstrapService.ts`, `scripts/website-byo-session-page-regression.mjs`, generated browser/server bundles and this checkpoint. Source-only adapter with mock Auth HTTP; Vercel function/source compiler and real deployment remain pending.
 
 Owned Auth shell batch: `src/modules/website-builder/core/application-auth-controller.ts`, `src/modules/website-builder/browser/application-auth-screen.ts`, `src/modules/website-builder/services/websiteApplicationAuthScreenService.ts`, `scripts/application-auth-screen-regression.mjs`, generated browser/server bundles and this checkpoint. Targeted application/infrastructure suites, TypeScript and ESLint passed; no live provider or real browser proof.
@@ -94,11 +96,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-Customer-owned route adapter now binds a fixed deployment manifest to the existing Auth shell, session endpoint, protected page authorization, form projection and browser bootstrap. Page Auth/CRUD browser code reuses the same application model through the owned runtime and never needs Tayar platform URL. It rejects unknown/duplicate paths, invalid backend identity and request-origin switching before private HTML is loaded. The adapter remains source-only: no Vercel function or fullstack GitHub export is generated yet. Targeted application/infrastructure suites, TypeScript and ESLint passed; Auth HTTP was mocked, without real browser or customer deployment.
+A shared source capability analyzer now identifies Auth/database/private page/form/CMS/integration needs and explicit unsupported source paths from the saved Application Model. The static exporter uses it to reject dynamic projects rather than emit deceptively incomplete HTML. Customer-owned route adapter from the prior batch remains source-only: no Vercel function or fullstack GitHub export is generated yet. Targeted infrastructure suite, TypeScript and ESLint passed; no real browser or customer deployment.
 
 ## Next exact batch
 
-Generate a bounded Vercel function/source package from an immutable saved application and verified customer origin/backend binding. Start with an explicit capability/readiness matrix from the saved Application Model, keep private HTML out of `public/`, and bind the route adapter to deployment-local assets without Tayar runtime calls. Never export the private Tayar release route as customer-independent app code. Keep the worker unmounted until compiler and integration tests plus isolated customer-account validation prove the end-to-end flow. Then add user-owned Supabase lifecycle and Vercel connection/deployment orchestration in phase order. No production flags or migrations.
+Generate a bounded Vercel function/source package from an immutable saved application and verified customer origin/backend binding, using the new capability report. Keep private HTML out of `public/`, bind the route adapter to deployment-local assets without Tayar runtime calls, and prove Vercel rewrite/function behavior before enabling export. Never export the private Tayar release route as customer-independent app code. Keep the worker unmounted until compiler and integration tests plus isolated customer-account validation prove the end-to-end flow. Then add user-owned Supabase lifecycle and Vercel connection/deployment orchestration in phase order. No production flags or migrations.
 
 ## Known blockers
 
