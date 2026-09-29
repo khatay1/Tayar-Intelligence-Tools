@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Supabase OAuth batch: `145389470d415a12824b9caee66035af04b2e1cc` (tree `95acdec777acca61048a32983659d1e644845aec`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Vercel identity batch: `fe4ef4b6dc3d618085850ac299046016e571a661` (tree `19db74d2d50d1ca60420b007f640cf1a84a9c948`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -86,6 +86,8 @@ No live GitHub OAuth/installation, Supabase account ownership or catalog read, V
 
 ## Files changed in the latest batch
 
+Vercel target proof batch: `server/website-owned-vercel-project.ts`, `scripts/website-owned-vercel-project-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. A read-only customer grant checks the authenticated Vercel user, team Owner membership if a team is selected, the exact project account ID and immutable project ID, and its linked GitHub repository ID/owner/name and production branch. It rechecks the project and the private connection freshness before and after. Personal accounts are supported. This does not claim deployment, domain, environment or billing readiness; no live Vercel account is connected.
+
 Supabase OAuth source batch: `src/modules/website-builder/services/websiteSupabaseOAuthService.ts`, `scripts/website-supabase-oauth-regression.mjs`, `package.json` and this checkpoint. Reuses the one-use owner/project/provider/environment OAuth state. A server-held HMAC secret derives PKCE from random state, avoiding a second persistent verifier. The callback consumes state before code exchange, validates the fixed HTTPS redirect and bounded token response, and returns access/refresh tokens only to the trusted caller for future encrypted custody. No real Supabase OAuth app or endpoint is configured; Connect Supabase remains disabled, and the tokens are not persisted in project data.
 
 Role catalog batch: `src/modules/website-builder/core/application-schema-sql.ts`, `server/website-owned-supabase-catalog.ts`, `scripts/website-owned-supabase-catalog-regression.mjs` and this checkpoint. The role RPC manifest is derived from existing compiler SQL bodies. A read-only catalog query checks the eight expected role functions, their exact source, signature, security definer/invoker flag, `search_path`, volatility, owner and effective execute grants; another checks private schema usage and both role tables' RLS and effective grants. Role-bearing apps no longer fail solely because roles exist, but real PostgreSQL formatting and permissions remain uncalibrated. Mocked catalog tests do not establish live customer readiness.
@@ -110,11 +112,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The Supabase OAuth adapter now produces a fixed callback authorization URL with PKCE and consumes existing one-use state before a bounded code exchange. Targeted mocked HTTP regression, infrastructure suite, TypeScript and ESLint are the verification scope. It is source only: token custody, deployed callback, project selection and live account proof remain pending.
+The Vercel project verifier checks the user or team account and exact GitHub-linked project through read-only API calls, then rejects account switching, repository mismatches and stale connection state. Mocked HTTP regression, infrastructure suite, TypeScript and ESLint are the verification scope. It is source only: deployment/domain/env verification and live OAuth remain pending.
 
 ## Next exact batch
 
-Implement short-lived encrypted Supabase OAuth token custody, refresh/rotation and exact private account/organization/project binding; mount the callback and project chooser only after they are real. Calibrate catalog policy expressions and role metadata against a disposable isolated PostgreSQL project before wiring live preflight. Add Vercel account/project/domain identity verification. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
+Implement short-lived encrypted Supabase OAuth token custody, refresh/rotation and exact private account/organization/project binding; mount the callback and project chooser only after they are real. Calibrate catalog policy expressions and role metadata against a disposable isolated PostgreSQL project. Add Vercel OAuth/team/project binding, domain/env and observed deployment verification, then connect these proofs to the owned source capture and GitHub worker. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
 
 ## Known blockers
 
