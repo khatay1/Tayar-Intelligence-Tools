@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (Europe/Stockholm). Branch: `internal-fullstack-max-continue-20260927`. Head at session start: remote `de5e300f89d74226274f0ead44de830c6ec8fc41`; resolve the latest actual HEAD with `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` after this batch. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (Europe/Stockholm). Branch: `internal-fullstack-max-continue-20260927`. Current branch `internal-fullstack-max-continue-20260927`; last completed code HEAD remote `e3723d134ea37b5134631eb33d381641fcd3991c`. Resolve the latest actual branch HEAD with `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` after this batch. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -61,6 +61,7 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - Saved-project source capture mocked regression checks deterministic digest, current owner/connection/revision, changed compiler output and unsafe file paths. TypeScript and targeted ESLint passed. No complete BYO runtime source compiler exists yet.
 - GitHub worker regression uses mocked GitHub HTTP and private RPC, with a disposable local RSA key. It checks token/branch/cursor composition, uncertain cursor response and exact retry reconciliation, forged tree refusal, existing branch conflict and switched owner denial. TypeScript and targeted ESLint passed. No live GitHub write was made.
 - BYO readiness pure regression covers static and protected app needs, connected versus ready, Stripe config, wrong owner and missing runtime source proof. TypeScript and targeted ESLint passed. This report is not a live provider preflight.
+- Full `npm run health:project` checkpoint gate ran after the worker/readiness batches and exited 0, including TypeScript, project health (322/0), edge syntax (30/0), production/website-builder smoke suites and the new BYO infrastructure tests. These remain local/mock/static checks, not live BYO E2E.
 - Earlier Vault inventory checks used mocked RPC, not a live customer account.
 
 ## In progress
