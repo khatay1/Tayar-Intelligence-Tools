@@ -48,6 +48,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - A standalone Vercel browser handoff and chooser now mirror the guarded GitHub flow: the opaque fragment is removed before async work, the pending owner/project is tab-scoped, options are strictly sanitized, and account/project switches invalidate in-flight responses. Binding sends provider/project identities only; the trusted server supplies GitHub repository identity. The chooser remains unmounted while the source-only endpoint lacks real credentials.
 
+- A read-only owned Vercel deployment inspector now checks the authenticated user/team Owner, exact customer project and GitHub link, required environment-variable names for the target, exact deployment/project/account/target/source commit/branch, and two identical deployment observations. It exposes only missing variable names, a bounded state and a validated `vercel.app` URL; it never returns environment values or provider payloads. `READY` alone is insufficient when env or identity checks fail.
+
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
@@ -87,9 +89,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Vercel browser regression checks fixed authorization URL, bearer transport, immediate fragment cleanup, pending owner/project scope, removal of undeclared secret fields, binding without browser-supplied GitHub identity, wrong-project refusal and stale in-flight response denial. The complete local infrastructure smoke suite, TypeScript and targeted ESLint passed. No real browser redirect or Vercel account was used.
 
+- Owned Vercel deployment regression uses mocked HTTP for ready, missing environment, building, failed, wrong account/project/commit and changed second observation. It checks that environment values do not enter the report. The complete local infrastructure smoke suite, TypeScript and targeted ESLint passed. No live deployment or environment variable was read.
+
 ## In progress
 
-- Vercel endpoint bundling/mounting, optional shared-installation-safe uninstall and deployment/environment/domain reconciliation remain in progress; the standalone browser handoff UI is complete but deliberately unmounted until the real callback exists.
+- Vercel endpoint bundling/mounting, optional shared-installation-safe uninstall, deployment attempt persistence/status commit and domain reconciliation remain in progress. Read-only env/deployment inspection and standalone browser handoff UI are complete but unmounted.
 - Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
@@ -106,6 +110,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+Owned Vercel deployment inspection batch: `server/website-owned-vercel-deployment.ts`, `scripts/website-owned-vercel-deployment-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. It checks required environment names without returning values and requires two identical observations of the exact deployment, project, account, source commit and branch before reporting `ready`. The full local infrastructure suite passed. HTTP is mocked; no live Vercel deployment or environment was inspected.
 
 Vercel browser handoff batch: `src/modules/website-builder/services/websiteVercelBrowserConnection.ts`, `src/modules/website-builder/v2-ui/BuilderVercelConnectionChooser.tsx`, `scripts/website-vercel-browser-connection-regression.mjs`, `src/lib/ui-localization-cms.ts`, `package.json` and this checkpoint. The callback fragment is erased immediately, pending identity is scoped to the current tab/project, provider choices are sanitized and stale responses are refused. The full local infrastructure suite passed. The chooser remains unmounted and no live browser OAuth was run.
 
@@ -157,7 +163,7 @@ The source-only Supabase connection endpoint completes begin/callback/options/bi
 
 ## Next exact batch
 
-Bundle and mount the Supabase endpoint only when its OAuth app credentials and fixed callback are available, then run a live disposable-account connection and calibrate catalog security. Bundle and mount the Vercel endpoint and its prepared browser chooser only when External Integration credentials and the fixed callback are available. Meanwhile implement observed environment/deployment status reconciliation; keep account-wide uninstall separate and shared-binding safe. Keep Publish closed until Supabase ready, Vercel deployment reconciliation and secrets handoff are proven. No production flags or migrations.
+Bundle and mount the Supabase endpoint only when its OAuth app credentials and fixed callback are available, then run a live disposable-account connection and calibrate catalog security. Persist Vercel deployment attempts and atomically commit observed status/readiness using the new inspector, then add safe environment-variable handoff. Bundle and mount the endpoint/chooser only with real Integration credentials and callback; keep account-wide uninstall shared-binding safe. Keep Publish closed until Supabase ready, Vercel deployment reconciliation and secrets handoff are proven. No production flags or migrations.
 
 ## Known blockers
 
