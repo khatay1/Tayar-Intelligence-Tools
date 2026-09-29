@@ -27,5 +27,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "server/website-owned-source-compiler.ts"]
 }
