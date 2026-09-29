@@ -157,6 +157,24 @@ $$;`,
   ];
 }
 
+/** Keep the privileged role RPC proof tied to the schema compiler's bodies.
+ * Unknown function syntax fails closed rather than silently omitting an RPC. */
+export function applicationRoleFunctionManifest(): Array<{
+  schema: string; name: string; arguments: string; result: string;
+  language: string; stable: boolean; securityDefiner: boolean; source: string;
+}> {
+  const statements = roleInfrastructure().filter(statement => statement.startsWith('create function '));
+  const functions = statements.map(statement => {
+    const match = /^create function (private|public)\.(app_[a-z_]+)\(([^)]*)\) returns (setof )?(boolean|void|text) language (sql|plpgsql)( stable)? security (definer|invoker) set search_path = '' as \$\$([\s\S]*)\$\$;$/.exec(statement);
+    if (!match) throw new Error('Application role function manifest is unavailable.');
+    return { schema: match[1], name: match[2], arguments: match[3].replace(/,\s*/g, ', '),
+      result: `${match[4] ?? ''}${match[5]}`, language: match[6], stable: Boolean(match[7]),
+      securityDefiner: match[8] === 'definer', source: match[9] };
+  });
+  if (functions.length !== 8) throw new Error('Application role function manifest is incomplete.');
+  return functions;
+}
+
 /** A nullable request UUID leaves ordinary CRUD unchanged. Bound creates will
  * use it to prevent a second row when a browser loses the first response. */
 function formRequestFunction(): string[] {
