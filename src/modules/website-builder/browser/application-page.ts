@@ -1,5 +1,5 @@
-import { createApplicationDataRuntime } from '../core/application-data-runtime';
-import type { ApplicationAuthScreenConfig } from '../core/application-auth-controller';
+import { createApplicationDataRuntime, createOwnedApplicationDataRuntime } from '../core/application-data-runtime';
+import type { ApplicationAuthScreenConfig, OwnedApplicationAuthScreenConfig } from '../core/application-auth-controller';
 import type { ApplicationDefinition } from '../core/application-model';
 import { applicationAuthCopy } from '../core/application-auth-copy';
 import { createApplicationNavigator } from '../core/application-navigation';
@@ -7,7 +7,8 @@ import { compileApplicationCreateForm, createDurableApplicationFormSubmission } 
 import type { PublishedApplicationForm } from '../core/application-published-forms';
 
 const script = document.currentScript as HTMLScriptElement;
-const config = JSON.parse(script.dataset.application!) as ApplicationAuthScreenConfig & { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[] };
+const config = JSON.parse(script.dataset.application!) as (ApplicationAuthScreenConfig | OwnedApplicationAuthScreenConfig) &
+  { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[] };
 const copy = applicationAuthCopy[config.language] ?? applicationAuthCopy.en;
 const formCopy = {
   en: { unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' },
@@ -32,7 +33,10 @@ const logout = document.createElement('button'); logout.type = 'button'; logout.
 const status = document.createElement('p'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
 nav.append(link, logout, status); root.append(style, nav); document.body.append(host);
 try {
-  const runtime = createApplicationDataRuntime(config.definition, config.backend, config.platformUrl, config);
+  const runtime = 'mode' in config && config.mode === 'owned'
+    ? createOwnedApplicationDataRuntime(config.definition, config.backend, config.expectedProjectRef, config)
+    : createApplicationDataRuntime(config.definition, config.backend, (config as ApplicationAuthScreenConfig).platformUrl,
+      config as ApplicationAuthScreenConfig);
   const navigator = createApplicationNavigator({ paths: config.paths, currentUrl: () => window.location.href,
     synchronize: () => runtime.auth.prepareNavigation(), navigate: url => { if (!signingOut) window.location.assign(url); },
   });
