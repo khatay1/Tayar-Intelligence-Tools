@@ -1,6 +1,7 @@
 import type { ApplicationDefinition } from '../core/application-model';
 import { readApplicationDefinition } from '../core/application-validation';
-import { validateApplicationPublicBackend, type ApplicationPublicBackend } from '../core/application-data-runtime';
+import { validateApplicationPublicBackend, validateOwnedApplicationPublicBackend,
+  type ApplicationPublicBackend } from '../core/application-data-runtime';
 
 /** Validate the actual Auth service, not editable metadata or a successful database RPC.
  * Only the model's email/password provider is supported by this release.
@@ -14,6 +15,18 @@ export async function assertDedicatedApplicationAuthSettings(
   if (typeof window !== 'undefined') throw new Error('Backend authentication verification requires a server runtime.');
   const backend = { ...config };
   validateApplicationPublicBackend(backend, platformUrl);
+  return assertAuthSettings(definition, backend);
+}
+
+export async function assertOwnedApplicationAuthSettings(definition: ApplicationDefinition,
+  config: ApplicationPublicBackend, expectedProjectRef: string): Promise<void> {
+  if (typeof window !== 'undefined') throw new Error('Backend authentication verification requires a server runtime.');
+  const backend = { ...config };
+  validateOwnedApplicationPublicBackend(backend, expectedProjectRef);
+  return assertAuthSettings(definition, backend);
+}
+
+async function assertAuthSettings(definition: ApplicationDefinition, backend: ApplicationPublicBackend): Promise<void> {
   const app = readApplicationDefinition(definition);
   let settings: Record<string, unknown>;
   try {

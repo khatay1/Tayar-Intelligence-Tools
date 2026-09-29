@@ -9,7 +9,9 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-backend-revision-'));
 try {
   const outfile = join(dir, 'verification.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-backend-verification.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { assertApplicationBackendRevision, assertApplicationFormRequestCapability, applicationDefinitionDigest } = (await import(pathToFileURL(outfile))).default;
+  const { assertApplicationBackendRevision, assertApplicationFormRequestCapability,
+    assertOwnedApplicationBackendRevision, assertOwnedApplicationFormRequestCapability,
+    applicationDefinitionDigest } = (await import(pathToFileURL(outfile))).default;
   const platformUrl = 'https://pnbllxdlskljcakyaylt.supabase.co';
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_fixture' };
   const app = { version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, roles: [], tables: [{ id: 'bookings', key: 'bookings', name: 'Bookings', fields: [], permissions: [{ operation: 'read', access: 'authenticated' }] }], pageAccess: [] };
@@ -23,6 +25,10 @@ try {
   await assert.rejects(() => assertApplicationBackendRevision(app, { ...backend, url: platformUrl, projectRef: 'pnbllxdlskljcakyaylt' }, platformUrl, reader), /identity/);
   await assert.rejects(() => assertApplicationBackendRevision(app, backend, platformUrl, { ...reader, url: platformUrl }), /another backend/);
   assert.equal(reads, 1, 'Wrong backend identity fails before any service query');
+  await assertOwnedApplicationBackendRevision(app, backend, backend.projectRef, reader);
+  await assert.rejects(() => assertOwnedApplicationBackendRevision(app, backend, 'aaaaaaaaaaaaaaaaaaaa', reader), /identity/);
+  await assert.rejects(() => assertOwnedApplicationBackendRevision(app, backend, backend.projectRef,
+    { ...reader, url: platformUrl }), /another backend/);
   await assert.rejects(() => assertApplicationBackendRevision(app, backend, platformUrl, { ...reader, async readDeployedDefinition() { return { ...app, tables: [] }; } }), /does not match/);
   await assert.rejects(() => assertApplicationBackendRevision(app, backend, platformUrl, { ...reader, async readDeployedDefinition() { return null; } }), /could not be verified/);
   const serviceOutfile = join(dir, 'service.cjs');
@@ -43,6 +49,8 @@ try {
     const remoteReader = createDedicatedApplicationRevisionReader(backend, platformUrl, serviceKey);
     await assertApplicationBackendRevision(app, backend, platformUrl, remoteReader);
     await assertApplicationFormRequestCapability(backend, platformUrl, remoteReader);
+    await assertOwnedApplicationFormRequestCapability(backend, backend.projectRef, remoteReader);
+    await assert.rejects(() => assertOwnedApplicationFormRequestCapability(backend, 'aaaaaaaaaaaaaaaaaaaa', remoteReader), /identity/);
     await assert.rejects(() => assertApplicationFormRequestCapability(backend, platformUrl, { ...reader, async readFormRequestRevision() { return 1; } }), /unavailable/, 'Version 1 has no durable deletion tombstone');
     assert.match(revisionRequests[1].url, /\/rest\/v1\/rpc\/app_form_request_revision$/);
     assert.equal(revisionRequests[1].init.redirect, 'error');

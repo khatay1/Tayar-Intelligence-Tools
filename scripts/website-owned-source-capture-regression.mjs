@@ -49,8 +49,9 @@ try {
   };
   const args = { projectId, ownerId, githubConnectionId: githubId, environment: 'production',
     platformOrigin: 'https://tayar.example', platformUrl: 'https://pnbllxdlskljcakyaylt.supabase.co', reader,
-    async verifyRuntime(current, supabase, vercel) { checks++;
+    async verifyRuntime(current, supabase, vercel, capabilities) { checks++;
       assert.equal(current.backend.projectRef, backend.projectRef);
+      assert.equal(capabilities.definition.auth.enabled, true);
       assert.equal(supabase.provider, 'supabase'); assert.equal(vercel.provider, 'vercel'); return verified; } };
   const source = await capture(args);
   assert.deepEqual(source.files.map(file => file.path), ['api/application.js', 'package.json', 'vercel.json']);

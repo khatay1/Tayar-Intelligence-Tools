@@ -1,6 +1,7 @@
 import { captureWebsiteGitHubExportSource, type SourceReader } from '../src/modules/website-builder/services/websiteGithubExportSourceService';
 import { assertInfrastructureConnection, type InfrastructureConnection } from '../src/modules/website-builder/core/application-infrastructure-connections';
 import { validateOwnedApplicationPublicBackend, type ApplicationPublicBackend } from '../src/modules/website-builder/core/application-data-runtime';
+import { analyzeByoSourceCapabilities, type ByoSourceCapabilities } from '../src/modules/website-builder/core/application-byo-source-capabilities';
 import { compileWebsiteOwnedApplicationSource } from './website-owned-source-compiler';
 
 type Environment = 'preview' | 'production';
@@ -17,7 +18,7 @@ export interface OwnedSourceReader extends SourceReader {
   readOwnedRuntimeBinding(projectId: string, ownerId: string, environment: Environment): Promise<OwnedRuntimeBinding | null>;
 }
 type Verification = (binding: OwnedRuntimeBinding, supabase: InfrastructureConnection,
-  vercel: InfrastructureConnection) => Promise<boolean>;
+  vercel: InfrastructureConnection, capabilities: ByoSourceCapabilities) => Promise<boolean>;
 
 /** Source-only trust boundary. The binding and both provider records come from
  * private, owner-scoped persistence, never editable snapshot fields. Provider
@@ -32,6 +33,7 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     throw new Error('Customer runtime scope is unavailable.');
   }
   const captured: { value?: { binding: OwnedRuntimeBinding; supabase: InfrastructureConnection; vercel: InfrastructureConnection } } = {};
+  const state: { capabilities?: ByoSourceCapabilities } = {};
   const identity = (connection: InfrastructureConnection) => JSON.stringify({
     id: connection.id, ownerId: connection.ownerId, projectId: connection.projectId,
     provider: connection.provider, environment: connection.environment, accountId: connection.accountId,
@@ -61,12 +63,14 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     if (origin.protocol !== 'https:' || origin.origin !== binding.applicationOrigin
       || origin.origin === input.platformOrigin || origin.origin === input.platformUrl
       || origin.hostname.endsWith('.supabase.co')) throw new Error();
-    if (!await input.verifyRuntime(structuredClone(binding), structuredClone(supabase), structuredClone(vercel))) throw new Error();
+    if (!state.capabilities || !await input.verifyRuntime(structuredClone(binding), structuredClone(supabase),
+      structuredClone(vercel), structuredClone(state.capabilities))) throw new Error();
     return { binding, supabase, vercel };
   }
   const source = await captureWebsiteGitHubExportSource({
     projectId: input.projectId, ownerId: input.ownerId, connectionId: input.githubConnectionId, reader: input.reader,
     async compile(snapshot) {
+      state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment);
       captured.value = await current();
       return compileWebsiteOwnedApplicationSource(snapshot, { projectId: input.projectId,
         applicationOrigin: captured.value.binding.applicationOrigin, expectedProjectRef: captured.value.supabase.targetId!,

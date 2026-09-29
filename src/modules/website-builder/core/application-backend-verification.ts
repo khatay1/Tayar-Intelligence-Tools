@@ -1,6 +1,6 @@
 import type { ApplicationDefinition } from './application-model';
 import { readApplicationDefinition } from './application-validation';
-import { validateApplicationPublicBackend, type ApplicationPublicBackend } from './application-data-runtime';
+import { validateApplicationPublicBackend, validateOwnedApplicationPublicBackend, type ApplicationPublicBackend } from './application-data-runtime';
 
 export interface ApplicationRevisionReader {
   /** The trusted server client must target this exact dedicated app backend. */
@@ -14,6 +14,16 @@ export interface ApplicationRevisionReader {
  * request identity column/index/trigger. */
 export async function assertApplicationFormRequestCapability(backend: ApplicationPublicBackend, platformUrl: string, reader: ApplicationRevisionReader): Promise<void> {
   validateApplicationPublicBackend(backend, platformUrl);
+  return assertFormRequestCapability(backend, reader);
+}
+
+export async function assertOwnedApplicationFormRequestCapability(backend: ApplicationPublicBackend,
+  expectedProjectRef: string, reader: ApplicationRevisionReader): Promise<void> {
+  validateOwnedApplicationPublicBackend(backend, expectedProjectRef);
+  return assertFormRequestCapability(backend, reader);
+}
+
+async function assertFormRequestCapability(backend: ApplicationPublicBackend, reader: ApplicationRevisionReader): Promise<void> {
   if (reader.url !== backend.url || !reader.readFormRequestRevision) throw new Error('Application form request capability is unavailable.');
   try {
     if (await reader.readFormRequestRevision() !== 2) throw new Error();
@@ -34,6 +44,19 @@ export async function assertApplicationBackendRevision(
   reader: ApplicationRevisionReader,
 ): Promise<void> {
   validateApplicationPublicBackend(backend, platformUrl);
+  return assertBackendRevision(definition, backend, reader);
+}
+
+export async function assertOwnedApplicationBackendRevision(
+  definition: ApplicationDefinition, backend: ApplicationPublicBackend,
+  expectedProjectRef: string, reader: ApplicationRevisionReader,
+): Promise<void> {
+  validateOwnedApplicationPublicBackend(backend, expectedProjectRef);
+  return assertBackendRevision(definition, backend, reader);
+}
+
+async function assertBackendRevision(definition: ApplicationDefinition, backend: ApplicationPublicBackend,
+  reader: ApplicationRevisionReader): Promise<void> {
   if (reader.url !== backend.url) throw new Error('Application revision reader targets another backend.');
   const expected = readApplicationDefinition(definition);
   let deployed: ApplicationDefinition;

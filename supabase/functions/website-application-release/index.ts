@@ -205,6 +205,9 @@ function validateApplicationPublicBackend(config, platformUrl) {
 // src/modules/website-builder/core/application-backend-verification.ts
 async function assertApplicationFormRequestCapability(backend, platformUrl, reader) {
   validateApplicationPublicBackend(backend, platformUrl);
+  return assertFormRequestCapability(backend, reader);
+}
+async function assertFormRequestCapability(backend, reader) {
   if (reader.url !== backend.url || !reader.readFormRequestRevision) throw new Error("Application form request capability is unavailable.");
   try {
     if (await reader.readFormRequestRevision() !== 2) throw new Error();
@@ -219,6 +222,9 @@ function canonical(value) {
 }
 async function assertApplicationBackendRevision(definition, backend, platformUrl, reader) {
   validateApplicationPublicBackend(backend, platformUrl);
+  return assertBackendRevision(definition, backend, reader);
+}
+async function assertBackendRevision(definition, backend, reader) {
   if (reader.url !== backend.url) throw new Error("Application revision reader targets another backend.");
   const expected = readApplicationDefinition(definition);
   let deployed;
@@ -235,6 +241,9 @@ async function assertDedicatedApplicationAuthSettings(definition, config, platfo
   if (typeof window !== "undefined") throw new Error("Backend authentication verification requires a server runtime.");
   const backend = { ...config };
   validateApplicationPublicBackend(backend, platformUrl);
+  return assertAuthSettings(definition, backend);
+}
+async function assertAuthSettings(definition, backend) {
   const app = readApplicationDefinition(definition);
   let settings;
   try {

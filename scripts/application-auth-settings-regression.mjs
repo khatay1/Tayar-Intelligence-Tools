@@ -9,7 +9,8 @@ const originalFetch = globalThis.fetch;
 try {
   const outfile = join(dir, 'auth.cjs');
   await build({ entryPoints: ['src/modules/website-builder/services/websiteApplicationAuthSettingsService.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { assertDedicatedApplicationAuthSettings: verify } = (await import(pathToFileURL(outfile))).default;
+  const { assertDedicatedApplicationAuthSettings: verify,
+    assertOwnedApplicationAuthSettings: verifyOwned } = (await import(pathToFileURL(outfile))).default;
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_fixture' };
   const platformUrl = 'https://pnbllxdlskljcakyaylt.supabase.co';
   const app = { version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, roles: [], tables: [], pageAccess: [] };
@@ -26,6 +27,10 @@ try {
     return new Response(JSON.stringify(settings));
   };
   await verify(app, backend, platformUrl);
+  await verifyOwned(app, backend, backend.projectRef);
+  const beforeOwnedMismatch = calls;
+  await assert.rejects(() => verifyOwned(app, backend, 'aaaaaaaaaaaaaaaaaaaa'), /identity/);
+  assert.equal(calls, beforeOwnedMismatch);
   for (const invalid of [null, [], {}, { ...good, disable_signup: 'false' }, { ...good, disable_signup: true }, { ...good, mailer_autoconfirm: true }, { ...good, external: { ...good.external, email: false } }, { ...good, external: { email: true } }, { ...good, external: { ...good.external, anonymous_users: true } }, { ...good, external: { ...good.external, google: true } }, { ...good, saml_enabled: true }, { ...good, passkeys_enabled: true }]) {
     settings = invalid;
     await assert.rejects(() => verify(app, backend, platformUrl));

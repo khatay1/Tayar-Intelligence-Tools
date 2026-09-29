@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (Europe/Stockholm). Current branch: `internal-fullstack-max-continue-20260927`. Previous completed remote batch: `756c3fca3c7b3c48fc007b37768d4219c30896d0` (tree `e8687e431b70b4db5b34aad2b06f908eb5637ac4`). Current HEAD is the live side-branch ref: read `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` at the start of a session. Always fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (Europe/Stockholm). Current branch: `internal-fullstack-max-continue-20260927`. Previous completed remote batch: `a206e947f695d622656a2159b975dcaf96d67b63` (tree `04f413b83ca5005573c9a1cd9e317bd76fb97c0d`). Current HEAD is the live side-branch ref: read `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` at the start of a session. Always fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -86,6 +86,8 @@ No live GitHub OAuth/installation, Supabase account ownership, Vercel team owner
 
 ## Files changed in the latest batch
 
+Owned Supabase preflight batch: `src/modules/website-builder/core/application-backend-verification.ts`, `src/modules/website-builder/services/websiteApplicationAuthSettingsService.ts`, `server/website-owned-supabase-verifier.ts`, `server/website-owned-source-capture.ts`, corresponding targeted regressions, generated server/Edge bundles, `package.json`, `tsconfig.app.json` and this checkpoint. It reuses legacy revision/Auth checks for a verified customer ref, requires form revision and an independently supplied live catalog RLS/grant/policy proof. The catalog reader and provider ownership adapter are still absent; tests mock them and do not mark any connection ready.
+
 Trusted owned source capture batch: `server/website-owned-source-capture.ts`, `scripts/website-owned-source-capture-regression.mjs`, `package.json`, `tsconfig.app.json`, this checkpoint. It captures owner-scoped saved project and GitHub source together with private Supabase/Vercel binding and ready connection identities, invokes a supplied provider/schema verifier, and rechecks all identities before remote writes. The verifier is mocked in tests and no HTTP worker is mounted.
 
 Owned function package batch: `server/website-owned-source-compiler.ts`, `scripts/website-owned-source-regression.mjs`, `package.json`, `tsconfig.app.json`, this checkpoint. It compiles a bounded CommonJS Vercel function with private HTML bundled in server source, exact route rewrites and no `public/` HTML, using a verified customer origin/ref and the existing Auth/page/session adapter. Source-only; it is not mounted into the GitHub worker or proven on live Vercel.
@@ -100,11 +102,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The trusted source capture boundary now composes the saved project/GitHub digest with private customer Supabase and Vercel connection identities and the bounded owned function compiler. A changed account, backend ref, application origin, connection status/version or project revision invalidates `isCurrent`; the source cannot be treated as ready without a provider/schema verifier. Targeted infrastructure suite, TypeScript and ESLint passed with mocked provider proof. It remains source-only: no live customer connection, Vercel rewrite test, real browser or mounted GitHub/Publish worker.
+The customer Supabase preflight now reuses the same deployed definition and Auth settings checks as the isolated legacy backend, with an exact customer project ref and a customer-targeted reader. It requires durable form revision when tables/forms exist and a separate privileged live security proof for RLS, grants and policies. Source capture passes the saved Application Model capabilities to its verifier. Application/infrastructure targeted suites, TypeScript and ESLint passed with mocked catalog/provider proof; no real customer project or migration was touched.
 
 ## Next exact batch
 
-Implement actual customer Supabase ownership/schema/Auth/RLS revision verification behind the new capture verifier, and Vercel account/project/domain identity verification. Test the generated package against disposable customer-owned projects when available, including actual rewrites and browser Auth/CRUD. Then feed verified `isCurrent` into the GitHub worker without permitting stale writes. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
+Implement the customer Supabase project owner verifier and actual privileged catalog reader for RLS/policy/grant proof behind the preflight interface, plus Vercel account/project/domain identity verification. Test the generated package against disposable customer-owned projects when available, including actual rewrites and browser Auth/CRUD. Then feed verified `isCurrent` into the GitHub worker without permitting stale writes. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
 
 ## Known blockers
 
