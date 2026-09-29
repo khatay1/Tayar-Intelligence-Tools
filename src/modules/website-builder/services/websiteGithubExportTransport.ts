@@ -21,7 +21,7 @@ type Input = {
   fetcher?: typeof fetch;
 };
 
-function validateManifest(files: GitHubSourceFile[]): void {
+export function validateGitHubSourceManifest(files: GitHubSourceFile[]): void {
   if (!Array.isArray(files) || files.length < 1 || files.length > 400) throw new Error('GitHub source manifest is unavailable.');
   let bytes = 0;
   const paths = new Set<string>();
@@ -65,7 +65,7 @@ export async function writeWebsiteGitHubExport(input: Input): Promise<{ status: 
   if (typeof window !== 'undefined' || !fullName.test(input.repositoryFullName)
     || !numeric.test(input.connection.accountId) || !numeric.test(String(input.connection.targetId))
     || typeof input.token !== 'string' || input.token.length < 20) throw new Error('GitHub export scope changed.');
-  validateManifest(input.files);
+  validateGitHubSourceManifest(input.files);
   const fetcher = input.fetcher ?? fetch;
   const repoPath = `/repos/${input.repositoryFullName}`;
   const refPath = `${repoPath}/git/ref/heads/${input.cursor.branch.split('/').map(encodeURIComponent).join('/')}`;
