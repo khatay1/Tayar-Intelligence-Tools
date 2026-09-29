@@ -7,7 +7,8 @@ const clientPattern = /^[A-Za-z0-9_-]{5,128}$/;
 
 function callbackUrl(value: string): string {
   const url = new URL(value);
-  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password || url.search || url.hash) {
+  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password || url.hash
+    || (url.search && url.search !== '?action=callback')) {
     throw new Error('Supabase connection is not configured.');
   }
   return url.toString();

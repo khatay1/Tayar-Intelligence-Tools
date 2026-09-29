@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current BYO custody cleanup batch: `6ba00acffb823358aeff09a3d77bdcbd31e2fca6` (tree `bf9cd5028eb035d2b97fa72eabcf0ba36457610f`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Supabase connection batch: `3aa6d6556908c86b88d285fd1b705f9f3cec2f22` (tree `b022718b9b9d35b90f0d8ea3e5f4504e9f86f443`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -86,6 +86,8 @@ No live GitHub OAuth/installation, Supabase account ownership or catalog read, V
 
 ## Files changed in the latest batch
 
+Supabase user-owned project connection batch: `src/modules/website-builder/services/websiteSupabaseProjectBindingService.ts`, `server/website-supabase-connection.ts`, `supabase/migrations/20260929223000_website_byo_supabase_project_binding.sql`, `scripts/website-supabase-project-binding-regression.mjs`, `scripts/website-supabase-connection-endpoint-regression.mjs`, `src/modules/website-builder/services/websiteSupabaseOAuthService.ts`, `package.json` and this checkpoint. The source endpoint now supports authenticated begin, one-use PKCE callback, opaque encrypted handoff, sanitized project choices and atomic binding. Choices exclude Tayar's organization and require the OAuth profile to be the single Owner of an active project organization. Binding rechecks the exact account/organization/project and writes `connected` metadata plus encrypted setup custody in one transaction; it does not claim `ready`. Mocked endpoint/provider/RPC regressions passed. An isolated validation PostgreSQL rollback transaction proved atomic connected metadata/custody, exact lost-response reconciliation, wrong-operation refusal and anonymous execute denial; post-rollback objects and Vault fixture were absent. The endpoint is not bundled/mounted and no live OAuth app/account was used, so Connect Supabase remains disabled.
+
 BYO custody cleanup schedule batch: `supabase/migrations/20260929190000_website_byo_custody_cleanup_schedule.sql` and this checkpoint. The source-only migration schedules 15-minute maintenance of expired provider handoffs and customer Supabase OAuth custody on the Tayar platform when `pg_cron` and both service-only cleanup RPCs exist; reads remain expiry-gated without the scheduler. An isolated validation PostgreSQL rollback transaction ran both cleanup RPCs after expiring disposable entries and found zero custody rows, Vault fixtures or anonymous execute grants; post-rollback fixtures were absent. The validation project lacks `pg_cron`, so job creation and actual time-based execution were **not** live-tested. No production migration or flag changed.
 
 Supabase disconnect batch: `supabase/migrations/20260929182500_website_byo_supabase_disconnect.sql`, `server/website-owned-supabase-oauth-disconnect.ts`, `scripts/website-supabase-oauth-disconnect-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. A private durable attempt is written before one provider revocation request, so a retry after a lost response or failed local commit skips the provider POST. The worker then atomically changes the private connection status and erases Vault custody and the attempt in PostgreSQL. It reports provider revocation as confirmed only on HTTP 204; an uncertain response never triggers an automatic provider retry. Exact commit/version reconciliation handles a lost database reply. Mocked HTTP/RPC regression and an isolated validation PostgreSQL rollback transaction checked the durable attempt, disconnected status/version, empty attempt/custody/Vault, exact reconciliation and anonymous execute denial; post-rollback all fixture objects and secrets were absent. No live provider revocation or mounted endpoint was exercised.
@@ -120,11 +122,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The source-only BYO custody cleanup migration schedules expired handoff/OAuth Vault deletion every 15 minutes when pg_cron is present. Expired reads fail closed even without the job. Both cleanup RPCs and Vault trigger erasure passed in a rolled-back isolated validation database transaction; the actual cron job could not be tested there because pg_cron is unavailable.
+The source-only Supabase connection endpoint completes begin/callback/options/bind with PKCE, opaque Vault handoff, owner-only customer organization/project choices and atomic private connection plus OAuth custody. It records `connected`; schema/Auth/RLS proof is still required for `ready`. Mocked HTTP/RPC tests and a rolled-back isolated PostgreSQL transaction passed. The endpoint remains unmounted pending real OAuth credentials and live verification.
 
 ## Next exact batch
 
-Complete the Supabase OAuth callback and user-owned account/project chooser with real provider configuration, then prove customer organization ownership and catalog security on disposable user-owned infrastructure. Keep one-click Connect disabled until its trusted endpoint is mounted and live-tested. Continue Vercel OAuth/owned deployment and publish orchestration; no production deployment, flags or migrations.
+Bundle and mount the Supabase endpoint only when its OAuth app credentials and fixed callback are available, then run a live disposable-account connection and calibrate catalog security. In parallel, continue Vercel OAuth custody/team/project binding and owned deployment status verification. Keep Publish closed until Supabase ready, Vercel deployment reconciliation and secrets handoff are proven. No production flags or migrations.
 
 ## Known blockers
 
