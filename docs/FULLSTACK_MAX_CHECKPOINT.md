@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Vercel disconnect batch: `68e0ded9f3103b273b6a0028e28cc5f3dd8e1824` (tree `a65895be8fa74ea08437cdacde9c7e8428cf65ac`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `5ad95ef1c5e9a260e5e1ffe901c31dcd5baca91a`; equivalent parent remote HEAD for this batch: `33000f432ed23799bfcfb0147e4b2f423c16895e` (shared tree `415acf637ed314b1e6ada1dfa42c24e2c323bb36`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -50,6 +50,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - A read-only owned Vercel deployment inspector now checks the authenticated user/team Owner, exact customer project and GitHub link, required environment-variable names for the target, exact deployment/project/account/target/source commit/branch, and two identical deployment observations. It exposes only missing variable names, a bounded state and a validated `vercel.app` URL; it never returns environment values or provider payloads. `READY` alone is insufficient when env or identity checks fail.
 
+- A private Vercel deployment-attempt ledger now binds one resumable operation to the exact connection version, customer project, repository, source commit, target and required environment names. A retry with the same operation reuses the attempt; a different operation cannot replace an unresolved attempt. Committing an inspector observation atomically advances the attempt and the private connection status/custody version, while exact full-report reconciliation recovers a response lost after commit. No token, environment value, source or deployment log enters the ledger.
+
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
@@ -91,9 +93,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Owned Vercel deployment regression uses mocked HTTP for ready, missing environment, building, failed, wrong account/project/commit and changed second observation. It checks that environment values do not enter the report. The complete local infrastructure smoke suite, TypeScript and targeted ESLint passed. No live deployment or environment variable was read.
 
+- Vercel deployment-attempt regression uses mocked RPC plus static SQL checks for commit-bound begin, duplicate-trigger prevention, terminal readiness commit, exact full-report lost-response reconciliation and malformed report refusal. The complete local `smoke:website-builder:infrastructure` suite, TypeScript, targeted ESLint and diff checks passed. The migration was not executed against a database, and no live Vercel deployment was triggered or observed.
+
 ## In progress
 
-- Vercel endpoint bundling/mounting, optional shared-installation-safe uninstall, deployment attempt persistence/status commit and domain reconciliation remain in progress. Read-only env/deployment inspection and standalone browser handoff UI are complete but unmounted.
+- Vercel endpoint bundling/mounting, safe environment-variable handoff, optional shared-installation-safe uninstall and domain reconciliation remain in progress. Read-only env/deployment inspection, durable attempt/status commit and standalone browser handoff UI are complete but unmounted.
 - Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
@@ -110,6 +114,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+Vercel deployment-attempt batch: `supabase/migrations/20260930013000_website_byo_vercel_deployment_attempt.sql`, `src/modules/website-builder/services/websiteVercelDeploymentAttemptService.ts`, `scripts/website-vercel-deployment-attempt-regression.mjs`, `package.json` and this checkpoint. It binds retryable observation to one customer-owned source commit, prevents a second trigger while unresolved, commits verified status atomically and reconciles only an exact full report. The full local infrastructure suite passed. RPC/provider behavior is mocked and SQL was inspected statically; no database migration or deployment ran.
 
 Owned Vercel deployment inspection batch: `server/website-owned-vercel-deployment.ts`, `scripts/website-owned-vercel-deployment-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. It checks required environment names without returning values and requires two identical observations of the exact deployment, project, account, source commit and branch before reporting `ready`. The full local infrastructure suite passed. HTTP is mocked; no live Vercel deployment or environment was inspected.
 
@@ -159,11 +165,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The source-only Supabase connection endpoint completes begin/callback/options/bind with PKCE, opaque Vault handoff, owner-only customer organization/project choices and atomic private connection plus OAuth custody. It records `connected`; schema/Auth/RLS proof is still required for `ready`. Mocked HTTP/RPC tests and a rolled-back isolated PostgreSQL transaction passed. The endpoint remains unmounted pending real OAuth credentials and live verification.
+The source-only Vercel deployment ledger persists a commit-bound operation before observation, prevents duplicate triggers while it is unresolved, and atomically commits the inspector's state to the attempt, connection and custody versions. Exact report reconciliation recovers an uncertain database response. Mocked RPC/static SQL regression, the full infrastructure suite, TypeScript and targeted ESLint passed; the migration was not applied and no live deployment ran.
 
 ## Next exact batch
 
-Bundle and mount the Supabase endpoint only when its OAuth app credentials and fixed callback are available, then run a live disposable-account connection and calibrate catalog security. Persist Vercel deployment attempts and atomically commit observed status/readiness using the new inspector, then add safe environment-variable handoff. Bundle and mount the endpoint/chooser only with real Integration credentials and callback; keep account-wide uninstall shared-binding safe. Keep Publish closed until Supabase ready, Vercel deployment reconciliation and secrets handoff are proven. No production flags or migrations.
+Add safe multi-environment Vercel environment-variable handoff from scoped Vault references: validate names/destinations, create or replace idempotently without returning/logging raw values, record rotation/removal intent, and verify destination metadata before deployment readiness. Then compose the attempt ledger with GitHub export and the read-only deployment inspector. Bundle and mount provider endpoints/choosers only with real credentials and callbacks. Keep Publish closed until Supabase ready, Vercel reconciliation and secret handoff are proven. No production flags or migrations.
 
 ## Known blockers
 
