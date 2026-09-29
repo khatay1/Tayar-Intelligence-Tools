@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Vercel OAuth batch: `4a968293adbf4c94450c61467fd154cc42d092a5` (tree `99985dd3d1d9676652aaf76e94985f0bd22eedc6`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Vercel disconnect batch: `68e0ded9f3103b273b6a0028e28cc5f3dd8e1824` (tree `a65895be8fa74ea08437cdacde9c7e8428cf65ac`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -44,6 +44,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - A source-only authenticated Vercel connection handler now composes begin/callback/options/bind. It returns an opaque handoff fragment, loads the exact GitHub repository/branch through a trusted server callback, rejects binding before GitHub, and returns `connected` only after the atomic Vault commit. The browser cannot supply repository identity. It is not bundled, mounted or enabled in the Infrastructure panel.
 
+- A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody. Exact commit/version reconciliation recovers a lost SQL response. It deliberately retains the account-wide Vercel Integration installation because another Tayar project may share that configuration; a future explicit uninstall must first prove there are no other bindings.
+
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
@@ -79,9 +81,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - The Vercel endpoint mocked regression checks Tayar owner auth, official installation URL, callback exchange, opaque redirect, token-free choices, trusted GitHub target injection, exact project binding and missing-GitHub refusal. The full local `smoke:website-builder:infrastructure` suite exited 0 with all Vercel/GitHub/Supabase infrastructure regressions; TypeScript and targeted ESLint also passed. These are mocked/local checks, not a live Integration install.
 
+- Vercel disconnect regression uses mocked RPC and static SQL checks for first commit, already-committed retry, lost SQL response, wrong provider/stale owner refusal, disconnected metadata and Vault deletion. TypeScript and targeted ESLint passed. The SQL migration was not executed against a database, and no live Vercel installation was removed.
+
 ## In progress
 
-- Vercel endpoint bundling/mounting, browser handoff UI, durable disconnect and deployment/env/domain reconciliation remain in progress; the source handler, scoped Vault custody and atomic project binding are complete but not database-tested.
+- Vercel endpoint bundling/mounting, browser handoff UI, optional shared-installation-safe uninstall and deployment/env/domain reconciliation remain in progress; source handler, scoped Vault custody, atomic project binding and project disconnect are complete but not database-tested.
 - Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
@@ -98,6 +102,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+Vercel project disconnect batch: `server/website-owned-vercel-disconnect.ts`, `supabase/migrations/20260930003000_website_byo_vercel_disconnect.sql`, `scripts/website-vercel-disconnect-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. It atomically severs only the selected Tayar project and erases its Vault token, while retaining the account-wide Vercel Integration to avoid breaking another project. Mocked RPC/static SQL regression, TypeScript and targeted ESLint passed. The migration is source-only and no live installation was changed.
 
 Vercel connection endpoint batch: `server/website-vercel-connection.ts`, `scripts/website-vercel-connection-endpoint-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. The authenticated handler composes begin/callback/options/bind and obtains GitHub identity only from a trusted server loader. Callback output is an opaque fragment; choices contain no token; binding reports `connected` only. The full local infrastructure smoke suite passed. It remains source-only and disabled pending credentials, bundling and live disposable-account verification.
 
@@ -145,7 +151,7 @@ The source-only Supabase connection endpoint completes begin/callback/options/bi
 
 ## Next exact batch
 
-Bundle and mount the Supabase endpoint only when its OAuth app credentials and fixed callback are available, then run a live disposable-account connection and calibrate catalog security. Bundle and mount the Vercel endpoint only when External Integration credentials and its fixed callback are available. Meanwhile implement durable disconnect, browser handoff UI and observed deployment/env status reconciliation. Keep Publish closed until Supabase ready, Vercel deployment reconciliation and secrets handoff are proven. No production flags or migrations.
+Bundle and mount the Supabase endpoint only when its OAuth app credentials and fixed callback are available, then run a live disposable-account connection and calibrate catalog security. Bundle and mount the Vercel endpoint only when External Integration credentials and its fixed callback are available. Meanwhile implement browser handoff UI and observed deployment/environment status reconciliation; keep account-wide uninstall separate and shared-binding safe. Keep Publish closed until Supabase ready, Vercel deployment reconciliation and secrets handoff are proven. No production flags or migrations.
 
 ## Known blockers
 
