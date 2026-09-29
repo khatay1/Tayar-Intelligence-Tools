@@ -8,7 +8,7 @@ interface SavedProject {
   snapshot: Record<string, unknown>;
 }
 
-interface SourceReader {
+export interface SourceReader {
   /** The trusted platform client reads the saved website project with its
    * owner and deletion/type guards, not an editor-side draft. */
   readSavedProject(projectId: string, ownerId: string): Promise<SavedProject | null>;
