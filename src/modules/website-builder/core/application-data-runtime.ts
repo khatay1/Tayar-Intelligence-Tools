@@ -1,4 +1,5 @@
-import { createApplicationBrowserSessionBridge, type ApplicationBrowserSessionOptions } from './application-browser-session';
+import { createApplicationBrowserSessionBridge, createOwnedApplicationBrowserSessionBridge,
+  type ApplicationBrowserSessionOptions } from './application-browser-session';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ApplicationDefinition, ApplicationTable } from './application-model';
 import { readApplicationDefinition } from './application-validation';
@@ -108,18 +109,22 @@ function sameRequestField(type: ApplicationTable['fields'][number]['type'], subm
 /** Client operations always target the dedicated app project; PostgreSQL RLS is the authority. */
 export function createApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, platformUrl: string, browserSession?: ApplicationBrowserSessionOptions) {
   const client = createIsolatedApplicationClient(config, platformUrl);
-  return buildApplicationDataRuntime(definition, client, browserSession);
+  return buildApplicationDataRuntime(definition, client,
+    browserSession ? createApplicationBrowserSessionBridge(client, browserSession) : null);
 }
 
 /** Customer-owned browser execution uses the same validated Auth/CRUD model.
  * Protected page delivery still requires a separately verified server route. */
-export function createOwnedApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, expectedProjectRef: string) {
-  return buildApplicationDataRuntime(definition, createOwnedApplicationClient(config, expectedProjectRef));
+export function createOwnedApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend,
+  expectedProjectRef: string, browserSession?: { projectId: string; applicationOrigin: string }) {
+  const client = createOwnedApplicationClient(config, expectedProjectRef);
+  return buildApplicationDataRuntime(definition, client,
+    browserSession ? createOwnedApplicationBrowserSessionBridge(client, browserSession) : null);
 }
 
-function buildApplicationDataRuntime(definition: ApplicationDefinition, client: SupabaseClient, browserSession?: ApplicationBrowserSessionOptions) {
+function buildApplicationDataRuntime(definition: ApplicationDefinition, client: SupabaseClient,
+  sessionBridge: ReturnType<typeof createApplicationBrowserSessionBridge> | null) {
   const app = readApplicationDefinition(definition);
-  const sessionBridge = browserSession ? createApplicationBrowserSessionBridge(client, browserSession) : null;
   const table = (id: string) => {
     const found = app.tables.find(item => item.id === id);
     if (!found) throw new Error('Unknown application table.');

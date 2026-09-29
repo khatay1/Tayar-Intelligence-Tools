@@ -11,7 +11,8 @@ const bridges = [];
 try {
   const outfile = join(dir, 'bridge.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-browser-session.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { createApplicationBrowserSessionBridge: create } = (await import(pathToFileURL(outfile))).default;
+  const { createApplicationBrowserSessionBridge: create,
+    createOwnedApplicationBrowserSessionBridge: createOwned } = (await import(pathToFileURL(outfile))).default;
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   const options = { projectId, ownerId: '11111111-1111-4111-8111-111111111111', applicationOrigin: `https://${projectId}.apps.tayar.example`, platformOrigin: 'https://tayar.se' };
   let session = { access_token: 'header.first.signature', refresh_token: 'REFRESH_MUST_NOT_LEAVE' };
@@ -95,6 +96,18 @@ try {
   assert.throws(() => create(client, { ...options, projectId: options.ownerId }));
   assert.throws(() => create(client, { ...options, applicationOrigin: options.platformOrigin }));
   assert.throws(() => create(client, { ...options, platformOrigin: options.applicationOrigin }));
+  const customerOrigin = 'https://customer-app.example';
+  window.location.origin = customerOrigin;
+  session = { access_token: 'header.customer.signature', refresh_token: 'CUSTOMER_REFRESH_PRIVATE' };
+  const owned = createOwned(client, { projectId, applicationOrigin: customerOrigin });
+  bridges.push(owned);
+  await owned.synchronize();
+  assert.equal(calls.at(-1).url, `${customerOrigin}/api/application-session`);
+  assert.equal(calls.at(-1).headers.authorization, 'Bearer header.customer.signature');
+  assert.ok(!JSON.stringify(calls).includes(session.refresh_token));
+  assert.throws(() => createOwned(client, { projectId, applicationOrigin: 'https://other.example' }));
+  assert.throws(() => createOwned(client, { projectId, applicationOrigin: 'http://customer-app.example' }));
+  owned.dispose();
   window.location.origin = 'https://unrelated.example';
   assert.throws(() => create(client, options));
   window.location.origin = options.applicationOrigin;

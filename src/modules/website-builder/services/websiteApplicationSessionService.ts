@@ -1,13 +1,20 @@
 import { assertApplicationOriginScope } from '../core/application-origin';
 import { readApplicationDefinition } from '../core/application-validation';
 import type { ApplicationDefinition } from '../core/application-model';
-import { validateApplicationPublicBackend, type ApplicationPublicBackend } from '../core/application-data-runtime';
+import { validateApplicationPublicBackend, validateOwnedApplicationPublicBackend,
+  type ApplicationPublicBackend } from '../core/application-data-runtime';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const tokenPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const cookieName = '__Host-tayar-app-session';
 const cookieAttributes = 'Path=/; Secure; HttpOnly; SameSite=Lax';
 const validToken = (value: string) => value.length <= 3500 && tokenPattern.test(value);
+
+function assertOwnedOrigin(applicationOrigin: string, backend: ApplicationPublicBackend): void {
+  const origin = new URL(applicationOrigin);
+  if (origin.protocol !== 'https:' || origin.origin !== applicationOrigin || origin.hostname.endsWith('.supabase.co')
+    || origin.origin === new URL(backend.url).origin) throw new Error('Customer application origin is unavailable.');
+}
 
 /** Call only after validating the request's configured isolated origin. Clearing
  * navigation transport does not assert that the upstream session was revoked. */
@@ -33,7 +40,22 @@ export function applicationRequestWithBrowserSession(request: Request, scope: {
 }): Request {
   if (typeof window !== 'undefined') throw new Error('Application cookies require a server runtime.');
   assertApplicationOriginScope(scope.applicationOrigin, scope.projectId, scope.platformOrigin);
-  if (new URL(request.url).origin !== scope.applicationOrigin || request.headers.has('authorization')) return request;
+  return requestWithSessionCookie(request, scope.applicationOrigin);
+}
+
+/** The origin must come from a verified customer Vercel project/domain record,
+ * never the Host header or a project snapshot. */
+export function ownedApplicationRequestWithBrowserSession(request: Request, scope: {
+  applicationOrigin: string; backend: ApplicationPublicBackend; expectedProjectRef: string;
+}): Request {
+  if (typeof window !== 'undefined') throw new Error('Application cookies require a server runtime.');
+  validateOwnedApplicationPublicBackend(scope.backend, scope.expectedProjectRef);
+  assertOwnedOrigin(scope.applicationOrigin, scope.backend);
+  return requestWithSessionCookie(request, scope.applicationOrigin);
+}
+
+function requestWithSessionCookie(request: Request, applicationOrigin: string): Request {
+  if (new URL(request.url).origin !== applicationOrigin || request.headers.has('authorization')) return request;
   const token = cookieToken(request);
   if (!token) return request;
   const headers = new Headers(request.headers);
@@ -49,16 +71,36 @@ export async function handleWebsiteApplicationBrowserSession(request: Request, c
   applicationOrigin: string; projectId: string; platformOrigin: string;
   backend: ApplicationPublicBackend; definition: ApplicationDefinition; platformUrl: string;
 }): Promise<Response> {
+  return handleCheckedBrowserSession(request, context, backend => {
+    assertApplicationOriginScope(context.applicationOrigin, context.projectId, context.platformOrigin);
+    validateApplicationPublicBackend(backend, context.platformUrl);
+  });
+}
+
+/** Customer-owned navigation cookie exchange. It never calls Tayar services;
+ * every protected page still revalidates the access token against customer Auth. */
+export async function handleOwnedWebsiteApplicationBrowserSession(request: Request, context: {
+  applicationOrigin: string; backend: ApplicationPublicBackend;
+  expectedProjectRef: string; definition: ApplicationDefinition;
+}): Promise<Response> {
+  return handleCheckedBrowserSession(request, context, backend => {
+    validateOwnedApplicationPublicBackend(backend, context.expectedProjectRef);
+    assertOwnedOrigin(context.applicationOrigin, backend);
+  });
+}
+
+async function handleCheckedBrowserSession(request: Request, context: {
+  applicationOrigin: string; backend: ApplicationPublicBackend; definition: ApplicationDefinition;
+}, validateScope: (backend: ApplicationPublicBackend) => void): Promise<Response> {
   if (typeof window !== 'undefined') throw new Error('Application cookies require a server runtime.');
   const headers = new Headers({ 'cache-control': 'private, no-store', 'cdn-cache-control': 'no-store',
     'vercel-cdn-cache-control': 'no-store', vary: 'Origin, Authorization, Cookie', 'content-type': 'application/json', 'x-content-type-options': 'nosniff' });
   const reply = (status: number, message: string) => new Response(JSON.stringify({ status: message }), { status, headers });
   try {
-    const { applicationOrigin, projectId, platformOrigin, platformUrl } = context;
+    const { applicationOrigin } = context;
     const backend = { ...context.backend };
     const definition = readApplicationDefinition(context.definition);
-    assertApplicationOriginScope(applicationOrigin, projectId, platformOrigin);
-    validateApplicationPublicBackend(backend, platformUrl);
+    validateScope(backend);
     if (new URL(request.url).origin !== applicationOrigin || request.headers.get('origin') !== applicationOrigin
       || (request.headers.has('sec-fetch-site') && request.headers.get('sec-fetch-site') !== 'same-origin')) return reply(403, 'Origin not allowed.');
     if (!['POST', 'DELETE'].includes(request.method)) { headers.set('allow', 'POST, DELETE'); return reply(405, 'Method not allowed.'); }

@@ -1,21 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
 import type { ApplicationDefinition } from '../core/application-model';
 import { readApplicationDefinition } from '../core/application-validation';
-import { canAccessApplicationPage, validateApplicationPublicBackend, type ApplicationPublicBackend } from '../core/application-data-runtime';
+import { canAccessApplicationPage, validateApplicationPublicBackend,
+  validateOwnedApplicationPublicBackend, type ApplicationPublicBackend } from '../core/application-data-runtime';
 
-/** Server handler for a trusted route resolved from the deployed page manifest.
- * Content must live in private storage; never also upload protected HTML to a public bucket.
- * The caller must verify the deployed project/backend binding before invoking this handler.
- */
-export async function serveWebsiteApplicationPage(input: {
+type PageRequest = {
   request: Request;
   pageId: string;
   pageIds: ReadonlySet<string>;
   definition: ApplicationDefinition;
   backend: ApplicationPublicBackend;
-  platformUrl: string;
   loadPage: () => Promise<Response>;
-}): Promise<Response> {
+};
+
+/** Server handler for a trusted route resolved from the deployed page manifest.
+ * Content must live in private storage; never also upload protected HTML to a public bucket.
+ * The caller must verify the deployed project/backend binding before invoking this handler.
+ */
+export async function serveWebsiteApplicationPage(input: PageRequest & { platformUrl: string }): Promise<Response> {
+  return serveCheckedApplicationPage(input, backend => validateApplicationPublicBackend(backend, input.platformUrl));
+}
+
+/** Customer Vercel route primitive. A trusted adapter binds expectedProjectRef
+ * to the customer's verified Supabase project and resolves private HTML by the
+ * immutable page manifest. Browser navigation/session handoff is separate. */
+export async function serveOwnedWebsiteApplicationPage(input: PageRequest & { expectedProjectRef: string }): Promise<Response> {
+  return serveCheckedApplicationPage(input, backend => validateOwnedApplicationPublicBackend(backend, input.expectedProjectRef));
+}
+
+async function serveCheckedApplicationPage(input: PageRequest, validateBackend: (backend: ApplicationPublicBackend) => void): Promise<Response> {
   if (typeof window !== 'undefined') throw new Error('Application page protection requires a server runtime.');
   const backend = { ...input.backend };
   const headers = new Headers({
@@ -35,7 +48,7 @@ export async function serveWebsiteApplicationPage(input: {
   try {
     if (!input.definition) throw new Error('Missing deployed application definition.');
     app = readApplicationDefinition(input.definition, input.pageIds);
-    validateApplicationPublicBackend(backend, input.platformUrl);
+    validateBackend(backend);
   } catch { return deny(503, 'Application configuration is unavailable.'); }
   const rule = app.pageAccess.find(item => item.pageId === input.pageId);
   if (rule && rule.access !== 'public') {
