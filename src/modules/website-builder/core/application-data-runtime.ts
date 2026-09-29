@@ -50,6 +50,23 @@ export function validateApplicationPublicBackend(config: ApplicationPublicBacken
   if (!publicKey(config.publishableKey, ref)) throw new Error('Application backend requires a public anon or publishable key for this project.');
 }
 
+/** The expected ref comes from the trusted, verified customer Supabase binding.
+ * A project snapshot cannot choose it, and only a public key reaches the browser. */
+export function validateOwnedApplicationPublicBackend(config: ApplicationPublicBackend, expectedProjectRef: string): void {
+  if (!/^[a-z0-9]{20}$/.test(expectedProjectRef) || projectRef(config.url) !== expectedProjectRef
+    || config.projectRef !== expectedProjectRef || !publicKey(config.publishableKey, expectedProjectRef)) {
+    throw new Error('Customer Supabase backend identity is unavailable.');
+  }
+}
+
+export function createOwnedApplicationClient(config: ApplicationPublicBackend, expectedProjectRef: string): SupabaseClient {
+  validateOwnedApplicationPublicBackend(config, expectedProjectRef);
+  return createClient(config.url, config.publishableKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce',
+      storageKey: `tayar-app-${expectedProjectRef}-auth` },
+  });
+}
+
 export function createIsolatedApplicationClient(config: ApplicationPublicBackend, platformUrl: string): SupabaseClient {
   validateApplicationPublicBackend(config, platformUrl);
   const ref = config.projectRef;
@@ -90,8 +107,18 @@ function sameRequestField(type: ApplicationTable['fields'][number]['type'], subm
 
 /** Client operations always target the dedicated app project; PostgreSQL RLS is the authority. */
 export function createApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, platformUrl: string, browserSession?: ApplicationBrowserSessionOptions) {
-  const app = readApplicationDefinition(definition);
   const client = createIsolatedApplicationClient(config, platformUrl);
+  return buildApplicationDataRuntime(definition, client, browserSession);
+}
+
+/** Customer-owned browser execution uses the same validated Auth/CRUD model.
+ * Protected page delivery still requires a separately verified server route. */
+export function createOwnedApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, expectedProjectRef: string) {
+  return buildApplicationDataRuntime(definition, createOwnedApplicationClient(config, expectedProjectRef));
+}
+
+function buildApplicationDataRuntime(definition: ApplicationDefinition, client: SupabaseClient, browserSession?: ApplicationBrowserSessionOptions) {
+  const app = readApplicationDefinition(definition);
   const sessionBridge = browserSession ? createApplicationBrowserSessionBridge(client, browserSession) : null;
   const table = (id: string) => {
     const found = app.tables.find(item => item.id === id);

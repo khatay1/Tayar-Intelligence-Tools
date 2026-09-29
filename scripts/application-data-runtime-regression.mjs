@@ -9,7 +9,8 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-app-runtime-'));
 try {
   const outfile = join(dir, 'runtime.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-data-runtime.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { createIsolatedApplicationClient, createApplicationDataRuntime, canAccessApplicationPage } = (await import(pathToFileURL(outfile))).default;
+  const { createIsolatedApplicationClient, createApplicationDataRuntime, createOwnedApplicationDataRuntime,
+    validateOwnedApplicationPublicBackend, canAccessApplicationPage } = (await import(pathToFileURL(outfile))).default;
   const platform = 'https://pnbllxdlskljcakyaylt.supabase.co';
   const config = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_fixture' };
   const app = {
@@ -120,7 +121,20 @@ try {
     await assert.rejects(() => once.createOnce('vehicles', { plate: 'ABC' }, requestId), /outcome is uncertain/);
     assert.ok(!requests.slice(beforeSwitch).some(item => new URL(item.url).searchParams.has('_tayar_request_id')),
       'A switched user cannot reconcile the previous owner request');
+    assert.doesNotThrow(() => validateOwnedApplicationPublicBackend(config, config.projectRef));
+    for (const invalid of [{ ...config, publishableKey: serviceRole },
+      { ...config, publishableKey: 'sb_secret_private' },
+      { ...config, projectRef: 'aaaaaaaaaaaaaaaaaaaa' },
+      { ...config, url: platform }]) {
+      assert.throws(() => createOwnedApplicationDataRuntime(app, invalid, config.projectRef), /backend identity|HTTPS/);
+    }
+    const owned = createOwnedApplicationDataRuntime(app, config, config.projectRef);
+    const ownedRows = await owned.list('vehicles', { limit: 1 });
+    assert.equal(ownedRows.length, 1);
+    assert.match(requests.at(-1).url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/app_vehicles/);
+    assert.ok(!requests.at(-1).url.includes('pnbllxdlskljcakyaylt'));
+    owned.dispose();
     once.dispose();
   } finally { globalThis.fetch = previousFetch; }
-  console.log('PASS isolated application client: public-only keys, project boundary, CRUD whitelist and dedicated endpoint');
+  console.log('PASS isolated/owned application client: public-only keys, project boundary, shared CRUD whitelist and dedicated endpoint');
 } finally { await rm(dir, { recursive: true, force: true }); }
