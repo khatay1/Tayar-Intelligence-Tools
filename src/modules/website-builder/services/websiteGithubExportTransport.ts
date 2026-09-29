@@ -6,7 +6,7 @@ const sha = /^[0-9a-f]{40}$/i;
 const digest = /^[0-9a-f]{64}$/i;
 const numeric = /^[1-9][0-9]{0,19}$/;
 const fullName = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
-const safePath = /^[a-zA-Z0-9_][a-zA-Z0-9_./-]{0,239}$/;
+const safePath = /^[\p{L}\p{N}_][\p{L}\p{N}_.-]*(?:\/[\p{L}\p{N}_.-]+)*$/u;
 export interface GitHubSourceFile { path: string; content: string }
 
 type Input = {
@@ -27,7 +27,7 @@ export function validateGitHubSourceManifest(files: GitHubSourceFile[]): void {
   let bytes = 0;
   const paths = new Set<string>();
   for (const file of files) {
-    if (!file || typeof file.path !== 'string' || !safePath.test(file.path)
+    if (!file || typeof file.path !== 'string' || file.path.length > 240 || !safePath.test(file.path)
       || file.path.includes('//') || file.path.split('/').some(part => part === '.' || part === '..' || part.startsWith('.'))
       || /(?:^|\/)(?:node_modules|project-backup\.json|\.env(?:\..*)?|.*(?:secret|credential|private.key|service.role).*)$/i.test(file.path)
       || typeof file.content !== 'string' || file.content.includes('\0')) throw new Error('GitHub source manifest is unavailable.');

@@ -49,7 +49,7 @@ export async function captureWebsiteGitHubExportSource(input: {
   const files = await input.compile(structuredClone(saved.snapshot));
   validateGitHubSourceManifest(files);
   const captured = files.map(file => ({ path: file.path, content: file.content }))
-    .sort((a, b) => a.path.localeCompare(b.path, 'en'));
+    .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   const manifestDigest = await hash(JSON.stringify(captured));
   const sourceDigest = await hash(`${snapshotDigest}:${manifestDigest}`);
   const capturedConnection = structuredClone(connection);
