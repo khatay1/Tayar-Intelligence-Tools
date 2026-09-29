@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current catalog batch: `122167795d1bdfa7c9a3c979477d878fc5f24cba`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current owner-proof batch: `f15754995ae6236e0798d309b82cfc7442d10e66` (tree `dad4bae3313651b91cdfed8494fb9b05c3b3a401`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -86,6 +86,8 @@ No live GitHub OAuth/installation, Supabase account ownership or catalog read, V
 
 ## Files changed in the latest batch
 
+Customer Supabase owner-proof batch: `server/website-owned-supabase-project.ts`, `scripts/website-owned-supabase-project-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. A request-local OAuth grant reads `/v1/profile`, the exact project and organization members, requires the connected account user to be an Owner of the expected non-Tayar organization and an active project, then rechecks project identity. A composed security callback guards current connection state around owner and catalog reads. This requires `projects:read`, `organizations:read` and `database:read` scopes and a separately verified private connection binding; no OAuth callback, token custody or live customer account is wired yet.
+
 Customer Supabase catalog batch: `server/website-owned-supabase-catalog.ts`, `src/modules/website-builder/core/application-schema-sql.ts`, `scripts/website-owned-supabase-catalog-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. A request-local customer OAuth grant with `database:read` queries the exact customer project via the Management API read-only SQL endpoint; raw provider errors and tokens do not enter the result. The conservative checker compares every generated public table, RLS, effective table/column privileges, policy command/audience and expression against the shared compiler. It fails closed for role RPCs and for PostgreSQL expression rewrites it cannot establish as identical. This remains an optional adapter to the mandatory preflight callback until provider ownership and customer token custody are verified; no live project has been queried.
 
 Owned Supabase preflight batch: `src/modules/website-builder/core/application-backend-verification.ts`, `src/modules/website-builder/services/websiteApplicationAuthSettingsService.ts`, `server/website-owned-supabase-verifier.ts`, `server/website-owned-source-capture.ts`, corresponding targeted regressions, generated server/Edge bundles, `package.json`, `tsconfig.app.json` and this checkpoint. It reuses legacy revision/Auth checks for a verified customer ref, requires form revision and an independently supplied live catalog RLS/grant/policy proof. The catalog reader and provider ownership adapter are still absent; tests mock them and do not mark any connection ready.
@@ -104,11 +106,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The customer Supabase read-only catalog adapter checks generated table identities, RLS, effective grants and exact policy expressions with a request-local customer OAuth grant. Targeted mocked HTTP regression, infrastructure suite, TypeScript and ESLint are the verification scope. It cannot mark a connection ready on its own; role RPCs and live provider ownership still fail closed. No real customer project or migration was touched.
+The customer Supabase owner-proof adapter checks OAuth profile, customer organization Owner membership, exact active project and transfer/revoke cases, then composes a current-connection guard with the catalog proof. Mocked HTTP regression, infrastructure suite, TypeScript and ESLint are the verification scope. This is an adapter awaiting private connection/OAuth custody wiring; it cannot mark a connection ready on its own. No real customer project or migration was touched.
 
 ## Next exact batch
 
-Implement the customer Supabase project owner verifier and request-scoped OAuth custody; finish role RPC catalog proof and calibrate policy expression equality against a disposable isolated database before wiring the catalog adapter to live preflight. Add Vercel account/project/domain identity verification. Then feed verified `isCurrent` into the GitHub worker without permitting stale writes. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
+Implement request-scoped customer Supabase OAuth custody and exact private account/organization/project binding, then finish role RPC catalog proof and calibrate policy expression equality against a disposable isolated database before wiring the composed adapter to live preflight. Add Vercel account/project/domain identity verification. Then feed verified `isCurrent` into the GitHub worker without permitting stale writes. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
 
 ## Known blockers
 
