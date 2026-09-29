@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (Europe/Stockholm). Branch: `internal-fullstack-max-continue-20260927`. Current branch `internal-fullstack-max-continue-20260927`; last completed code HEAD remote `e3723d134ea37b5134631eb33d381641fcd3991c`. Resolve the latest actual branch HEAD with `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` after this batch. Always fetch the branch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (Europe/Stockholm). Current branch: `internal-fullstack-max-continue-20260927`. Last completed code batch: remote `4783a94313b39d5f5ff1ed21ae23afd7ee2910c8` (local tree `de9f70295ac011095cff2c28af2760bbf6064d2d`). Current HEAD is the live side-branch ref: read `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` at the start of a session. Always fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
