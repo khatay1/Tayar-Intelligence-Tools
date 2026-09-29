@@ -42,6 +42,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Vercel project binding now consumes the temporary handoff only after an exact recovery check, re-verifies the authenticated user, team Owner membership and the selected project twice, then atomically writes `connected` metadata and a 90-day maximum Vault lease. Exact operation/account/configuration/project reconciliation recovers a lost SQL response without replaying the provider operation. A service-only read/delete/expiry cleanup boundary is included for later deployment and disconnect workers. The migration is source-only and unmounted.
 
+- A source-only authenticated Vercel connection handler now composes begin/callback/options/bind. It returns an opaque handoff fragment, loads the exact GitHub repository/branch through a trusted server callback, rejects binding before GitHub, and returns `connected` only after the atomic Vault commit. The browser cannot supply repository identity. It is not bundled, mounted or enabled in the Infrastructure panel.
+
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
@@ -75,9 +77,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Vercel binding regression uses mocked HTTP/RPC to check consumed handoff scope, two exact project observations, custody lease arguments, first connection commit, account mismatch refusal and lost-response recovery without provider replay. TypeScript, targeted ESLint and diff checks passed. The new SQL migration has not been applied to any database and no live Vercel token was stored.
 
+- The Vercel endpoint mocked regression checks Tayar owner auth, official installation URL, callback exchange, opaque redirect, token-free choices, trusted GitHub target injection, exact project binding and missing-GitHub refusal. The full local `smoke:website-builder:infrastructure` suite exited 0 with all Vercel/GitHub/Supabase infrastructure regressions; TypeScript and targeted ESLint also passed. These are mocked/local checks, not a live Integration install.
+
 ## In progress
 
-- Vercel endpoint/browser wiring, durable disconnect and deployment/env/domain reconciliation remain in progress; source-only scoped Vault custody and atomic project binding are complete but not database-tested.
+- Vercel endpoint bundling/mounting, browser handoff UI, durable disconnect and deployment/env/domain reconciliation remain in progress; the source handler, scoped Vault custody and atomic project binding are complete but not database-tested.
 - Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
@@ -94,6 +98,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+Vercel connection endpoint batch: `server/website-vercel-connection.ts`, `scripts/website-vercel-connection-endpoint-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. The authenticated handler composes begin/callback/options/bind and obtains GitHub identity only from a trusted server loader. Callback output is an opaque fragment; choices contain no token; binding reports `connected` only. The full local infrastructure smoke suite passed. It remains source-only and disabled pending credentials, bundling and live disposable-account verification.
 
 Vercel atomic binding and custody batch: `src/modules/website-builder/services/websiteVercelProjectChoiceService.ts`, `supabase/migrations/20260929233000_website_byo_vercel_project_binding.sql`, `scripts/website-vercel-project-choice-regression.mjs` and this checkpoint. The trusted worker rechecks the selected user/team/project/GitHub link before a single SQL transaction records `connected` and moves the Integration token into a scoped 90-day maximum Vault lease. Exact reconciliation avoids replay after an uncertain SQL response. Mocked HTTP/RPC tests passed; SQL execution, endpoint mounting, disconnect and live Vercel proof remain pending.
 
@@ -139,7 +145,7 @@ The source-only Supabase connection endpoint completes begin/callback/options/bi
 
 ## Next exact batch
 
-Bundle and mount the Supabase endpoint only when its OAuth app credentials and fixed callback are available, then run a live disposable-account connection and calibrate catalog security. Continue with the authenticated Vercel begin/callback/options/bind endpoint, then durable disconnect and owned deployment status verification. Keep Publish closed until Supabase ready, Vercel deployment reconciliation and secrets handoff are proven. No production flags or migrations.
+Bundle and mount the Supabase endpoint only when its OAuth app credentials and fixed callback are available, then run a live disposable-account connection and calibrate catalog security. Bundle and mount the Vercel endpoint only when External Integration credentials and its fixed callback are available. Meanwhile implement durable disconnect, browser handoff UI and observed deployment/env status reconciliation. Keep Publish closed until Supabase ready, Vercel deployment reconciliation and secrets handoff are proven. No production flags or migrations.
 
 ## Known blockers
 
