@@ -62,6 +62,25 @@ function policies(table: ApplicationTable, tableIndex: number): string[] {
   return statements;
 }
 
+/** Expected policy expressions are shared with the privileged catalog check.
+ * The catalog reader may reject a legitimate PostgreSQL rewrite, but must
+ * never accept an expression whose meaning is merely inferred from its name. */
+export function applicationSecurityPolicies(input: ApplicationDefinition) {
+  const app = readApplicationDefinition(input);
+  return app.tables.flatMap((table, tableIndex) =>
+    (['read', 'create', 'update', 'delete'] as const).flatMap(operation => {
+      const rules = table.permissions.filter(rule => rule.operation === operation);
+      if (!rules.length) return [];
+      const expression = rules.map(condition).join(' or ');
+      return [{ table: `app_${table.key}`, name: `app_p_${tableIndex}_${operation}`,
+        command: ({ read: 'r', create: 'a', update: 'w', delete: 'd' } as const)[operation],
+        roles: rules.some(rule => rule.access === 'public') ? ['anon', 'authenticated'] : ['authenticated'],
+        using: operation === 'create' ? null : expression,
+        check: operation === 'create' ? `((${expression}) and owner_id = (select auth.uid()))`
+          : operation === 'update' ? expression : null }];
+    }));
+}
+
 function roleInfrastructure(): string[] {
   return [
     'grant usage on schema private to authenticated;',

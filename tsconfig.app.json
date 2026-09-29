@@ -27,5 +27,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "server/website-owned-source-compiler.ts", "server/website-owned-source-capture.ts", "server/website-owned-supabase-verifier.ts"]
+  "include": ["src", "server/website-owned-source-compiler.ts", "server/website-owned-source-capture.ts", "server/website-owned-supabase-verifier.ts", "server/website-owned-supabase-catalog.ts"]
 }

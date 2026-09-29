@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (Europe/Stockholm). Current branch: `internal-fullstack-max-continue-20260927`. Previous completed remote batch: `a206e947f695d622656a2159b975dcaf96d67b63` (tree `04f413b83ca5005573c9a1cd9e317bd76fb97c0d`). Current HEAD is the live side-branch ref: read `git ls-remote origin refs/heads/internal-fullstack-max-continue-20260927` at the start of a session. Always fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current catalog batch: `122167795d1bdfa7c9a3c979477d878fc5f24cba`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -69,7 +69,7 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 ## In progress
 
-- Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
+- Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
 
@@ -82,9 +82,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 ## Tests still mocked / live E2E pending
 
-No live GitHub OAuth/installation, Supabase account ownership, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier has mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
+No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+Customer Supabase catalog batch: `server/website-owned-supabase-catalog.ts`, `src/modules/website-builder/core/application-schema-sql.ts`, `scripts/website-owned-supabase-catalog-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. A request-local customer OAuth grant with `database:read` queries the exact customer project via the Management API read-only SQL endpoint; raw provider errors and tokens do not enter the result. The conservative checker compares every generated public table, RLS, effective table/column privileges, policy command/audience and expression against the shared compiler. It fails closed for role RPCs and for PostgreSQL expression rewrites it cannot establish as identical. This remains an optional adapter to the mandatory preflight callback until provider ownership and customer token custody are verified; no live project has been queried.
 
 Owned Supabase preflight batch: `src/modules/website-builder/core/application-backend-verification.ts`, `src/modules/website-builder/services/websiteApplicationAuthSettingsService.ts`, `server/website-owned-supabase-verifier.ts`, `server/website-owned-source-capture.ts`, corresponding targeted regressions, generated server/Edge bundles, `package.json`, `tsconfig.app.json` and this checkpoint. It reuses legacy revision/Auth checks for a verified customer ref, requires form revision and an independently supplied live catalog RLS/grant/policy proof. The catalog reader and provider ownership adapter are still absent; tests mock them and do not mark any connection ready.
 
@@ -102,11 +104,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The customer Supabase preflight now reuses the same deployed definition and Auth settings checks as the isolated legacy backend, with an exact customer project ref and a customer-targeted reader. It requires durable form revision when tables/forms exist and a separate privileged live security proof for RLS, grants and policies. Source capture passes the saved Application Model capabilities to its verifier. Application/infrastructure targeted suites, TypeScript and ESLint passed with mocked catalog/provider proof; no real customer project or migration was touched.
+The customer Supabase read-only catalog adapter checks generated table identities, RLS, effective grants and exact policy expressions with a request-local customer OAuth grant. Targeted mocked HTTP regression, infrastructure suite, TypeScript and ESLint are the verification scope. It cannot mark a connection ready on its own; role RPCs and live provider ownership still fail closed. No real customer project or migration was touched.
 
 ## Next exact batch
 
-Implement the customer Supabase project owner verifier and actual privileged catalog reader for RLS/policy/grant proof behind the preflight interface, plus Vercel account/project/domain identity verification. Test the generated package against disposable customer-owned projects when available, including actual rewrites and browser Auth/CRUD. Then feed verified `isCurrent` into the GitHub worker without permitting stale writes. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
+Implement the customer Supabase project owner verifier and request-scoped OAuth custody; finish role RPC catalog proof and calibrate policy expression equality against a disposable isolated database before wiring the catalog adapter to live preflight. Add Vercel account/project/domain identity verification. Then feed verified `isCurrent` into the GitHub worker without permitting stale writes. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
 
 ## Known blockers
 
