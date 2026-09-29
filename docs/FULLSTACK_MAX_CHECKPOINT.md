@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current role-catalog batch: `408d0085141f1098485cb313d2a3e62634009e1b` (tree `ea2a5b63f8d9aada771d6c16fed4659c3d78a02e`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for the current Supabase OAuth batch: `145389470d415a12824b9caee66035af04b2e1cc` (tree `95acdec777acca61048a32983659d1e644845aec`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -86,6 +86,8 @@ No live GitHub OAuth/installation, Supabase account ownership or catalog read, V
 
 ## Files changed in the latest batch
 
+Supabase OAuth source batch: `src/modules/website-builder/services/websiteSupabaseOAuthService.ts`, `scripts/website-supabase-oauth-regression.mjs`, `package.json` and this checkpoint. Reuses the one-use owner/project/provider/environment OAuth state. A server-held HMAC secret derives PKCE from random state, avoiding a second persistent verifier. The callback consumes state before code exchange, validates the fixed HTTPS redirect and bounded token response, and returns access/refresh tokens only to the trusted caller for future encrypted custody. No real Supabase OAuth app or endpoint is configured; Connect Supabase remains disabled, and the tokens are not persisted in project data.
+
 Role catalog batch: `src/modules/website-builder/core/application-schema-sql.ts`, `server/website-owned-supabase-catalog.ts`, `scripts/website-owned-supabase-catalog-regression.mjs` and this checkpoint. The role RPC manifest is derived from existing compiler SQL bodies. A read-only catalog query checks the eight expected role functions, their exact source, signature, security definer/invoker flag, `search_path`, volatility, owner and effective execute grants; another checks private schema usage and both role tables' RLS and effective grants. Role-bearing apps no longer fail solely because roles exist, but real PostgreSQL formatting and permissions remain uncalibrated. Mocked catalog tests do not establish live customer readiness.
 
 Customer Supabase owner-proof batch: `server/website-owned-supabase-project.ts`, `scripts/website-owned-supabase-project-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. A request-local OAuth grant reads `/v1/profile`, the exact project and organization members, requires the connected account user to be an Owner of the expected non-Tayar organization and an active project, then rechecks project identity. A composed security callback guards current connection state around owner and catalog reads. This requires `projects:read`, `organizations:read` and `database:read` scopes and a separately verified private connection binding; no OAuth callback, token custody or live customer account is wired yet.
@@ -108,11 +110,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The privileged read-only Supabase catalog adapter now checks the generated role administration functions and private role tables in addition to app table policies and grants. Mocked catalog regressions exercise source, owner, search path, grants, table RLS and schema usage. Infrastructure suite, TypeScript and ESLint are the verification scope. No real customer project or migration was touched.
+The Supabase OAuth adapter now produces a fixed callback authorization URL with PKCE and consumes existing one-use state before a bounded code exchange. Targeted mocked HTTP regression, infrastructure suite, TypeScript and ESLint are the verification scope. It is source only: token custody, deployed callback, project selection and live account proof remain pending.
 
 ## Next exact batch
 
-Implement request-scoped customer Supabase OAuth custody and exact private account/organization/project binding. Calibrate catalog policy expressions and role function metadata against a disposable isolated PostgreSQL project before wiring the composed adapter to live preflight. Add Vercel account/project/domain identity verification. Then feed verified `isCurrent` into the GitHub worker without permitting stale writes. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
+Implement short-lived encrypted Supabase OAuth token custody, refresh/rotation and exact private account/organization/project binding; mount the callback and project chooser only after they are real. Calibrate catalog policy expressions and role metadata against a disposable isolated PostgreSQL project before wiring live preflight. Add Vercel account/project/domain identity verification. Keep Publish closed until Supabase lifecycle, Vercel deployment reconciliation and secrets handoff are implemented. No production flags or migrations.
 
 ## Known blockers
 
