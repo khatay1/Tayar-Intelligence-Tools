@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `d620d7f0a8c009ddde70c38645df2eb4bdc93748`; equivalent parent remote HEAD for this batch: `337d58bbb434c90aca7c8d29553c3e86070705c8` (shared tree `20c7b29fd5f0c8d95b969fb17fa5e2a9482e30c2`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `2dc5fdb9170ca5ca15ba5c9e515b2332ea54c41e`; equivalent parent remote HEAD for this batch: `672e91e53e40e16f677fba83ff1010fc82e317bf` (shared tree `4dcc25394ba04cc80cfa9e9b12a56d761c801ebc`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -67,6 +67,7 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - A source-only authenticated BYO Publish endpoint contract now accepts only explicit Preview, Production or status actions with owner/project/operation UUIDs. Provider targets and credentials can only come from trusted callbacks, not browser input. It verifies Tayar Auth and project ownership before and after work, returns only sanitized stage/version/live-URL evidence, maps pending/blocked/ready to 202/409/200, and rejects undeclared fields or stale scope. A deterministic generated module and freshness gate exist; there is no deployed HTTP wrapper or editor enablement.
 
 - A standalone BYO Publish browser service now creates cryptographically random operation UUIDs scoped by owner/project/environment, keeps only operation ID/status in versioned `sessionStorage`, reuses pending operations after uncertain responses, requires a stored ready Preview before Production, and polls only pending operations. A standalone React panel renders idle/pending/blocked/failed/ready explicitly, stops polling after terminal/error states, disables Production until Preview is verified, and disables every action when no real controller is supplied. Both remain unmounted.
+- A trusted service-only Publish target projection now derives the exact GitHub Preview and Vercel Preview/Production connection IDs and versions from the private registry. It proves the Vercel bindings share the same customer account/project/repository/branch and have live custody, returns metadata only, and is executable only by `service_role`. Preview does not require a Production connection; Production does. A runner composition injects these targets into the existing adapters, while status reads remain available from owner-scoped durable checkpoints after provider expiry. A lightweight source-only Edge transport enforces a fixed HTTPS origin and delegates to injected trusted runners without bundling the Node-based source compiler. The deterministic bundle exists but nothing is mounted, migrated or deployed.
 
 ## Verified
 
@@ -131,7 +132,7 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 ## In progress
 
-- Authenticated BYO Publish trusted target loader/HTTP wrapper and eventual editor mounting, optional shared-installation-safe uninstall and live domain reconciliation remain in progress. The endpoint contract/bundle, browser client/panel, Preview secret handoff/rotation/removal, read-only env/deployment inspection, durable Preview/Production checkpoint flows, promotion ledger/worker and standalone connection UI are complete but unmounted.
+- Authenticated BYO Publish persisted source/runtime reader, deployment-compatible runner host and eventual editor mounting, optional shared-installation-safe uninstall and live domain reconciliation remain in progress. The trusted target loader, endpoint/Edge contracts and bundles, browser client/panel, Preview secret handoff/rotation/removal, read-only env/deployment inspection, durable Preview/Production checkpoint flows, promotion ledger/worker and standalone connection UI are complete but unmounted.
 - Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
@@ -145,9 +146,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 ## Tests still mocked / live E2E pending
 
-No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer, BYO deployment or production promotion is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry; the new Publish/promotion migrations have static inspection only and were not executed. Real browser sign-in, form submission and full customer-account deployment remain pending.
+No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer, BYO deployment or production promotion is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry; the new Publish/promotion/target-projection migrations have static inspection only and were not executed. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+Trusted Publish composition batch: `supabase/migrations/20260930050000_website_byo_publish_targets.sql`, `server/website-byo-publish-targets.ts`, `server/website-byo-publish-runners.ts`, `server/website-byo-publish-edge.ts`, `server/generated/website-byo-publish-edge.js`, three matching regression scripts, `scripts/build-website-byo-publish-edge.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. The browser cannot choose provider IDs or versions; the service projection proves matching leased customer targets, Preview stays independent of Production, and status remains readable from the durable owner-scoped ledger. The Edge wrapper is deliberately separate from the Node source compiler. Targeted mocked/static tests, deterministic bundle freshness, the complete infrastructure suite, TypeScript and targeted ESLint passed. The migration is source-only; no endpoint was mounted and no database/provider/deployment operation ran.
 
 BYO Publish browser-client batch: `src/modules/website-builder/services/websiteByoPublishBrowserService.ts`, `src/modules/website-builder/v2-ui/BuilderByoPublishPanel.tsx`, `scripts/website-byo-publish-browser-regression.mjs`, `scripts/website-byo-publish-panel-regression.mjs`, `package.json` and this checkpoint. It retains scoped idempotency UUIDs without credentials, polls pending operations only, requires a verified Preview before Production, renders terminal/error states distinctly and refuses to enable actions without a real endpoint controller. Mocked browser/SSR regressions, the complete infrastructure suite, TypeScript and targeted ESLint passed. The panel is not mounted and no live browser, migration or deployment ran.
 
@@ -217,11 +220,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The standalone browser Publish service and status panel now preserve idempotent owner/project/environment operation IDs, retry uncertain pending work without a duplicate operation, poll pending work only, require a ready Preview for Production and show blocked/failed separately from ready. No credentials enter browser storage, and the UI is disabled without a real controller. Mocked browser/SSR regressions, the full infrastructure suite, TypeScript and targeted ESLint passed; the component remains unmounted.
+The service-only Publish target loader and runner composition now choose exact private-registry GitHub/Vercel IDs and versions, prove matching customer Vercel project/repository custody, inject them into the existing Preview/Production adapters, and expose the endpoint through a fixed-origin lightweight Edge transport. Preview does not require a Production target, and durable status remains readable after provider expiry. Mocked/static regressions, deterministic bundle freshness, the full infrastructure suite, TypeScript and targeted ESLint passed; all source/migrations remain unmounted and unapplied.
 
 ## Next exact batch
 
-Implement a trusted service-only Publish target loader and endpoint runner composition. It must derive Preview/Production GitHub and Vercel connection IDs/versions from the private registry, never browser input; bind the explicit browser operation to current owner/project/source; call the existing Preview or Production adapter; and expose the already-built endpoint contract through a source-only Edge wrapper with deterministic bundle/config checks. Keep it unmounted and do not add real credentials, migrations or deployment.
+Implement the concrete trusted persisted-source/runtime reader required by the Publish runners. It must read the exact saved owner project, private connection records and Preview runtime binding from service-only persistence; derive the customer Supabase public backend without legacy Tayar-managed runtime activation; reject stale project/application/connection revisions; and provide deterministic mocked/static tests. Then compose a deployment-compatible runner host boundary without mounting it, adding credentials, applying migrations or deploying.
 
 ## Known blockers
 
