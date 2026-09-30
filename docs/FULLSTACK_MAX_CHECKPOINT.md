@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `914f35d3f656f40bc9a448ef1e77f1113dd818c1`; equivalent parent remote HEAD for this batch: `c75c9bd5ca41a681a2563bbcbe996c428dc6a815` (shared tree `642ab94f0de143e3b85857b439240ed883b451f8`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `2f1b00b1f0a43f150c073c95ac56d9214c8ea2ae`; equivalent parent remote HEAD for this batch: `5900832eb13ab854611cfa5ef6de59988ff275e2` (shared tree `5b84c1503e9406a181a17b1482303ed738dc2333`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -64,6 +64,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - The durable BYO Publish checkpoint now has disjoint Preview and Production graphs. Preview alone can export and observe a deployment. Production must bind an exact still-ready Preview operation and can transition only `created -> validated -> promoting -> verifying-production -> ready`. The production adapter calls the durable promotion worker with that same deployment/SHA and has no GitHub export or deployment-trigger callback. Custom production domains and promotion versions are evidence-bound in every CAS/reconciliation response. Existing Preview semantics remain intact; the additive migration and both adapters are unmounted.
 
+- A source-only authenticated BYO Publish endpoint contract now accepts only explicit Preview, Production or status actions with owner/project/operation UUIDs. Provider targets and credentials can only come from trusted callbacks, not browser input. It verifies Tayar Auth and project ownership before and after work, returns only sanitized stage/version/live-URL evidence, maps pending/blocked/ready to 202/409/200, and rejects undeclared fields or stale scope. A deterministic generated module and freshness gate exist; there is no deployed HTTP wrapper or editor enablement.
+
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
@@ -121,9 +123,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Production Publish regressions check the disjoint checkpoint graphs, exact ready-Preview foreign evidence, refusal of the export path from Production, persisted pre-effect `promoting`, custom-domain evidence, `verifying-production`, ready retries with no repeated promotion, and adapter composition into the existing production custody/promotion worker. The complete infrastructure suite, TypeScript and targeted ESLint passed. RPC/provider behavior and SQL are mocked/static; no endpoint, migration or deployment ran.
 
+- BYO Publish endpoint regression checks unauthenticated refusal, exact owner/project scope, explicit action schemas, Preview pending, Production ready, status polling, blocked mapping, undeclared provider-target refusal and ownership loss. Bundle regeneration/check, the complete infrastructure suite, TypeScript and targeted ESLint passed. Runners are mocked and the generated module is not an Edge function or deployed endpoint.
+
 ## In progress
 
-- Authenticated BYO Publish endpoint bundling/mounting, optional shared-installation-safe uninstall and live domain reconciliation remain in progress. Preview secret handoff/rotation/removal, read-only env/deployment inspection, durable Preview/Production checkpoint flows, production promotion ledger/worker and standalone browser handoff UI are complete but unmounted.
+- Authenticated BYO Publish HTTP wrapper/mounting and browser client/UI wiring, optional shared-installation-safe uninstall and live domain reconciliation remain in progress. The endpoint contract/bundle, Preview secret handoff/rotation/removal, read-only env/deployment inspection, durable Preview/Production checkpoint flows, production promotion ledger/worker and standalone connection UI are complete but unmounted.
 - Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
@@ -140,6 +144,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer, BYO deployment or production promotion is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry; the new Publish/promotion migrations have static inspection only and were not executed. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+BYO Publish endpoint-contract batch: `server/website-byo-publish-endpoint.ts`, `server/generated/website-byo-publish-endpoint.js`, `scripts/website-byo-publish-endpoint-regression.mjs`, `scripts/build-website-byo-publish-endpoint.mjs`, `package.json` and this checkpoint. It authenticates the Tayar owner, whitelists Preview/Production/status request shapes, keeps provider identity server-owned, rechecks project ownership after work, and exposes sanitized checkpoint evidence only. Mocked endpoint regression, deterministic bundle freshness, the complete infrastructure suite, TypeScript and targeted ESLint passed. No Edge wrapper was mounted and no deployment or migration ran.
 
 Production Publish checkpoint-integration batch: `server/website-byo-publish-worker.ts`, `server/website-byo-production-publish-worker.ts`, `server/website-byo-publish-store.ts`, `server/website-byo-publish-adapters.ts`, `supabase/migrations/20260930043000_website_byo_production_publish_checkpoint.sql`, `scripts/website-byo-publish-worker-regression.mjs`, `scripts/website-byo-publish-store-regression.mjs`, `scripts/website-byo-production-publish-worker-regression.mjs`, `scripts/website-byo-publish-adapters-regression.mjs`, `package.json` and this checkpoint. It makes Preview the only export/deployment path and Production an exact ready-Preview promotion path with persisted promotion/domain evidence and no duplicate side-effect path. Mocked/static targeted tests, the complete infrastructure suite, TypeScript and targeted ESLint passed. The additive migration is source-only; nothing was mounted, migrated or deployed.
 
@@ -205,11 +211,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The source-only Production Publish path now consumes an exact ready Preview checkpoint, persists `promoting` before delegating to the one-claim promotion worker, records `verifying-production` evidence and only then becomes ready. Production cannot enter GitHub export or deployment-observation stages, and retries cannot re-export, re-trigger deployment or re-promote. Mocked HTTP/RPC/static SQL regressions, the full infrastructure suite, TypeScript and targeted ESLint passed. Nothing was mounted, migrated or deployed.
+The source-only authenticated Publish contract now exposes the completed Preview/Production runners through a narrow owner-scoped transport boundary. It refuses browser-supplied provider targets, rejects stale ownership, and returns only sanitized pending/blocked/ready checkpoint evidence. Its generated module is reproducible and checked, but no live HTTP wrapper is mounted. Mocked endpoint regression, the full infrastructure suite, TypeScript and targeted ESLint passed.
 
 ## Next exact batch
 
-Implement a source-only authenticated BYO Publish endpoint contract that creates/reuses durable operation IDs, invokes the Preview or Production adapter by explicit action, returns only sanitized pending/blocked/ready evidence, and refuses stale owner/project/environment responses. Add a deterministic bundle freshness check, but keep the endpoint unmounted and disabled in the editor until real provider configuration and database migrations are available. No production flags, migrations or live deployment.
+Implement a standalone browser Publish client and status presentation that generates and retains idempotent operation UUIDs per saved project/environment, invokes the authenticated endpoint contract, polls only pending operations, and clearly renders blocked/failed/ready without treating HTTP acceptance as deployment success. Keep buttons disabled unless a real endpoint callback is supplied, and keep the component unmounted until the backend wrapper and migrations are configured. No production flags, migrations or live deployment.
 
 ## Known blockers
 
