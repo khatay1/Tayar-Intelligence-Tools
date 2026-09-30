@@ -12,7 +12,7 @@ begin
   v_connection_version:=public.website_record_infrastructure_connection(
     p_connection_id,p_project_id,p_owner_id,p_expected_version,'supabase',
     p_environment,p_account_id,p_project_ref,
-    array['projects:read','organizations:read','database:read'],
+    array['projects:read','organizations:read','database:read','secrets:read'],
     'connected',null,clock_timestamp(),p_operation_id
   );
   -- A reconnect has no surviving custody because disconnect erases it.

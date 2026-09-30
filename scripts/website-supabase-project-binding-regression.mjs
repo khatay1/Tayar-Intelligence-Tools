@@ -15,6 +15,7 @@ try {
   const sql = await readFile('supabase/migrations/20260929223000_website_byo_supabase_project_binding.sql', 'utf8');
   assert.match(sql, /website_record_infrastructure_connection/);
   assert.match(sql, /website_store_supabase_oauth_custody/);
+  assert.match(sql, /'secrets:read'/);
   assert.match(sql, /c\.status='connected'/);
   assert.doesNotMatch(sql, /'ready'/);
   const ownerId = '11111111-1111-4111-8111-111111111111';
