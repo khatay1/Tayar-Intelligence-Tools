@@ -52,7 +52,7 @@
     "smoke:website-builder:publish-endpoint": "node scripts/website-byo-publish-endpoint-regression.mjs",
     "smoke:website-builder:publish-browser": "node scripts/website-byo-publish-browser-regression.mjs && node scripts/website-byo-publish-panel-regression.mjs",
     "smoke:website-builder:publish-composition": "node scripts/website-byo-publish-targets-regression.mjs && node scripts/website-byo-publish-runners-regression.mjs && node scripts/website-byo-publish-edge-regression.mjs && node scripts/build-website-byo-publish-edge.mjs --check",
-    "smoke:website-builder:owned-source-reader": "node scripts/website-owned-source-reader-regression.mjs && node scripts/website-byo-publish-host-regression.mjs && node scripts/website-owned-runtime-binding-regression.mjs && node scripts/website-owned-runtime-setup-adapters-regression.mjs && node scripts/website-owned-supabase-migration-regression.mjs",
+    "smoke:website-builder:owned-source-reader": "node scripts/website-owned-source-reader-regression.mjs && node scripts/website-byo-publish-host-regression.mjs && node scripts/website-owned-runtime-binding-regression.mjs && node scripts/website-owned-runtime-setup-adapters-regression.mjs && node scripts/website-owned-supabase-migration-regression.mjs && node scripts/website-owned-supabase-migration-store-regression.mjs",
     "smoke:website-builder:publish-adapters": "node scripts/website-byo-publish-adapters-regression.mjs",
     "smoke:website-builder:vercel-promotion": "node scripts/website-vercel-promotion-regression.mjs"
   },
