@@ -33,7 +33,7 @@ try {
     [githubId]: { ...common, id: githubId, provider: 'github', accountId: '77', targetId: '88',
       status: 'connected', permissions: ['contents:write'] },
     [supabaseId]: { ...common, id: supabaseId, provider: 'supabase', accountId: 'customer-org', targetId: backend.projectRef },
-    [vercelId]: { ...common, id: vercelId, provider: 'vercel', accountId: 'team-customer', targetId: 'prj_customer' },
+    [vercelId]: { ...common, id: vercelId, provider: 'vercel', accountId: 'team-customer', targetId: 'prj_customer', status: 'connected' },
   };
   let binding = { projectId, ownerId, environment: 'production', supabaseConnectionId: supabaseId,
     vercelConnectionId: vercelId, applicationOrigin: 'https://customer-app.example', backend };
@@ -55,6 +55,7 @@ try {
       assert.equal(supabase.provider, 'supabase'); assert.equal(vercel.provider, 'vercel'); return verified; } };
   const source = await capture(args);
   assert.deepEqual(source.files.map(file => file.path), ['api/application.js', 'package.json', 'vercel.json']);
+  assert.equal(source.capabilities.needs.auth, true);
   assert(source.files.every(file => !file.content.includes('PLATFORM_SECRET_NEVER_EXPORT')));
   assert.equal(await source.isCurrent(), true);
   assert(checks >= 3);
@@ -69,7 +70,7 @@ try {
   records[supabaseId] = { ...records[supabaseId], version: 1, accountId: 'customer-org' };
   records[vercelId] = { ...records[vercelId], status: 'credentials-revoked' };
   assert.equal(await source.isCurrent(), false, 'Revoked Vercel connection invalidates source');
-  records[vercelId] = { ...records[vercelId], status: 'ready' };
+  records[vercelId] = { ...records[vercelId], status: 'connected' };
   verified = false;
   assert.equal(await source.isCurrent(), false, 'Live verifier failure invalidates source');
   verified = true;

@@ -24,12 +24,16 @@ export async function exportWebsiteProjectToOwnedGitHub(input: {
   client: Pick<SupabaseClient, 'rpc'>;
   appClientId: string;
   appPrivateKeyPkcs8: string;
+  expectedSourceDigest?: string;
   fetcher?: typeof fetch;
 }): Promise<{ status: 'unchanged' | 'exported' | 'recovery-required'; headSha: string }> {
   if (typeof window !== 'undefined' || !uuid.test(input.projectId) || !uuid.test(input.ownerId)
     || !uuid.test(input.connectionId) || !uuid.test(input.operationId)
     || !['preview', 'production'].includes(input.environment)) throw new Error('GitHub export scope changed.');
   const source = await captureWebsiteGitHubExportSource(input);
+  if (input.expectedSourceDigest !== undefined && source.sourceDigest !== input.expectedSourceDigest) {
+    throw new Error('GitHub export source changed.');
+  }
   const connection = source.connection;
   if (connection.environment !== input.environment || !connection.targetId || !await source.isCurrent()) {
     throw new Error('GitHub export scope changed.');

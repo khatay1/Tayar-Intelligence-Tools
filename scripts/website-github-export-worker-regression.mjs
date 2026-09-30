@@ -84,6 +84,8 @@ try {
     compile: async saved => [{ path: 'index.html', content: `<html>${saved.pages[0].title}</html>` }],
     appClientId: 'Iv1_fixture', appPrivateKeyPkcs8: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() };
   const success = fixture();
+  await assert.rejects(run({ ...baseInput, ...success, expectedSourceDigest: '0'.repeat(64) }), /source changed/);
+  assert.equal(success.refWrites(), 0, 'Digest mismatch is refused before a remote write');
   assert.deepEqual(await run({ ...baseInput, ...success }), { status: 'exported', headSha: head });
   assert.equal(success.cursorWrites(), 1);
   assert.equal(success.refWrites(), 1);

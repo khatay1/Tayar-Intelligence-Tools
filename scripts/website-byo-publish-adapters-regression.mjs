@@ -1,0 +1,15 @@
+import assert from'node:assert/strict';import{mkdtemp,readFile,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{join}from'node:path';import{pathToFileURL}from'node:url';import{build}from'esbuild';
+const dir=await mkdtemp(join(tmpdir(),'tayar-publish-adapters-'));try{const out=join(dir,'deployment.cjs');await build({entryPoints:['server/website-owned-vercel-deployment.ts'],bundle:true,platform:'node',format:'cjs',outfile:out});
+const{discoverOwnedVercelDeployment:discover}=(await import(pathToFileURL(out))).default;const commit='a'.repeat(40),base={accessToken:'token_fixture',accountId:'team_customer123',projectId:'prj_customer123',sourceCommitSha:commit,sourceBranch:'tayar/22222222-2222-4222-8222-222222222222/preview',target:'preview',isCurrent:async()=>true};
+const item={uid:'dpl_fixture123',projectId:'prj_customer123',target:null,meta:{githubCommitSha:commit,githubCommitRef:base.sourceBranch}};let requests=0;
+const response=deployments=>async(url,options)=>{requests++;assert.equal(options.method,'GET');assert(url.includes('/v6/deployments?'));assert(url.includes('teamId=team_customer123'));assert(!options.headers.Authorization.includes('\n'));return new Response(JSON.stringify({deployments}),{status:200});};
+assert.equal(await discover({...base,fetcher:response([item])}),'dpl_fixture123');assert.equal(await discover({...base,fetcher:response([])}),null);
+assert.equal(await discover({...base,fetcher:response([{...item,meta:{...item.meta,githubCommitSha:'b'.repeat(40)}}])}),null,'wrong commit is not adopted');
+await assert.rejects(discover({...base,fetcher:response([item,{...item,uid:'dpl_fixture456'}])}),/unavailable/,'ambiguous deployments fail closed');
+const before=requests;await assert.rejects(discover({...base,isCurrent:async()=>false,fetcher:response([item])}),/unavailable/);assert.equal(requests,before,'stale scope makes no provider read');
+const adapter=await readFile('server/website-byo-publish-adapters.ts','utf8'),sql=await readFile('supabase/migrations/20260930033000_website_byo_publish_adapters.sql','utf8');
+for(const proof of['captureWebsiteOwnedApplicationSource','exportWebsiteProjectToOwnedGitHub','expectedSourceDigest:capturedSource.sourceDigest','website_verify_vercel_secret_receipts','website_vercel_deployment_attempt_for_worker','beginWebsiteVercelDeploymentAttempt','discoverOwnedVercelDeployment','inspectOwnedVercelDeployment','commitWebsiteVercelDeploymentObservation','deterministicCommitId'])assert.ok(adapter.includes(proof),proof);
+for(const proof of["security definer set search_path=''",'revoke all on function public.website_vercel_deployment_attempt_for_worker','revoke all on function public.website_verify_vercel_secret_receipts',"h.status='verified'",'v.custody_expires_at>clock_timestamp()'])assert.ok(sql.includes(proof),proof);
+assert.ok(!/decrypted_secret|accessToken|secretValue/i.test(sql),'proof RPCs never return grants or secret values');
+console.log('PASS BYO publish adapters: exact source digest, verified secret receipts, existing attempt reuse, read-only commit discovery and concrete worker composition');
+}finally{await rm(dir,{recursive:true,force:true});}

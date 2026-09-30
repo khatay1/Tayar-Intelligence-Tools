@@ -56,7 +56,8 @@ export async function captureWebsiteOwnedApplicationSource(input: {
       || supabase.id !== binding.supabaseConnectionId || vercel.id !== binding.vercelConnectionId
       || supabase.provider !== 'supabase' || vercel.provider !== 'vercel'
       || supabase.environment !== input.environment || vercel.environment !== input.environment
-      || supabase.status !== 'ready' || vercel.status !== 'ready'
+      || supabase.status !== 'ready'
+      || !['connected','setup-incomplete','deployment-failed','ready'].includes(vercel.status)
       || supabase.targetId !== binding.backend.projectRef) throw new Error();
     validateOwnedApplicationPublicBackend(binding.backend, supabase.targetId);
     const origin = new URL(binding.applicationOrigin);
@@ -92,5 +93,5 @@ export async function captureWebsiteOwnedApplicationSource(input: {
   }
   if (!await isCurrent()) throw new Error('Customer runtime scope changed.');
   return { ...source, binding: structuredClone(initial.binding), supabase: structuredClone(initial.supabase),
-    vercel: structuredClone(initial.vercel), isCurrent };
+    vercel: structuredClone(initial.vercel), capabilities: structuredClone(state.capabilities!), isCurrent };
 }

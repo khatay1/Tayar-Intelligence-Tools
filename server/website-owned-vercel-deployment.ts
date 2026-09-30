@@ -13,12 +13,44 @@ const branch = /^[A-Za-z0-9_./-]{1,200}$/;
 const sha = /^[0-9a-f]{40}$/i;
 const envName = /^[A-Z][A-Z0-9_]{1,99}$/;
 
+/** Git push is the deployment trigger. Discovery only observes the deployment
+ * for the exact customer project/commit; it never creates or retries one. */
+export async function discoverOwnedVercelDeployment(input: {
+  accessToken:string;accountId:string;projectId:string;sourceCommitSha:string;
+  sourceBranch:string;target:'preview'|'production';isCurrent:()=>Promise<boolean>;fetcher?:typeof fetch;
+}):Promise<string|null>{
+  if(typeof window!=='undefined'||!input.accessToken||input.accessToken.length>4096||/[\r\n]/.test(input.accessToken)
+    ||!id.test(input.accountId)||!project.test(input.projectId)||!sha.test(input.sourceCommitSha)
+    ||!branch.test(input.sourceBranch)||input.sourceBranch.includes('..')
+    ||!['preview','production'].includes(input.target))throw new Error('Vercel deployment discovery is unavailable.');
+  const teamScope=team.test(input.accountId),query=new URLSearchParams({projectId:input.projectId,limit:'20',
+    branch:input.sourceBranch,sha:input.sourceCommitSha});
+  if(input.target==='production')query.set('target','production');
+  if(teamScope)query.set('teamId',input.accountId);
+  try{
+    if(!await input.isCurrent())throw new Error();const response=await(input.fetcher??fetch)(`https://api.vercel.com/v6/deployments?${query}`,{
+      method:'GET',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000),headers:{Authorization:`Bearer ${input.accessToken}`,Accept:'application/json'}});
+    if(response.status!==200||Number(response.headers.get('content-length')??0)>262_144)throw new Error();
+    const raw=await response.text();if(raw.length>262_144)throw new Error();const parsed:unknown=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Array.isArray((parsed as {deployments?:unknown}).deployments)
+      ||(parsed as {deployments:unknown[]}).deployments.length>20)throw new Error();
+    const matches=(parsed as {deployments:unknown[]}).deployments.filter((item):item is Record<string,unknown>=>{
+      if(!item||typeof item!=='object'||Array.isArray(item))return false;const value=item as Record<string,unknown>,meta=value.meta;
+      const targetMatches=input.target==='production'?value.target==='production':value.target==null;
+      return deployment.test(String(value.uid??value.id))&&value.projectId===input.projectId&&targetMatches
+        &&!!meta&&typeof meta==='object'&&!Array.isArray(meta)
+        &&(meta as Record<string,unknown>).githubCommitSha===input.sourceCommitSha
+        &&(meta as Record<string,unknown>).githubCommitRef===input.sourceBranch;});
+    if(!await input.isCurrent()||matches.length>1)throw new Error();return matches.length?String(matches[0].uid??matches[0].id):null;
+  }catch{throw new Error('Vercel deployment discovery is unavailable.');}
+}
+
 /** Read-only final-state proof. It never returns environment values, logs or
  * raw provider payloads and requires the same deployment observation twice. */
 export async function inspectOwnedVercelDeployment(input: {
   accessToken: string; userId: string; accountId: string; platformAccountId: string;
   projectId: string; deploymentId: string; repositoryId: string; repositoryOwner: string;
-  repositoryName: string; productionBranch: string; sourceCommitSha: string;
+  repositoryName: string; productionBranch: string; sourceBranch?: string; sourceCommitSha: string;
   target: 'preview' | 'production'; requiredEnvironment: string[];
   isCurrent: () => Promise<boolean>; fetcher?: typeof fetch;
 }): Promise<OwnedVercelDeploymentReport> {
@@ -28,7 +60,8 @@ export async function inspectOwnedVercelDeployment(input: {
     || !project.test(input.projectId) || !deployment.test(input.deploymentId)
     || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner)
     || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch)
-    || input.productionBranch.includes('..') || !sha.test(input.sourceCommitSha)
+    || input.productionBranch.includes('..') || (input.sourceBranch!==undefined&&(!branch.test(input.sourceBranch)||input.sourceBranch.includes('..')))
+    || !sha.test(input.sourceCommitSha)
     || !['preview', 'production'].includes(input.target) || !Array.isArray(input.requiredEnvironment)
     || input.requiredEnvironment.length > 64 || input.requiredEnvironment.some(key => !envName.test(key))
     || new Set(input.requiredEnvironment).size !== input.requiredEnvironment.length) {
@@ -62,11 +95,12 @@ export async function inspectOwnedVercelDeployment(input: {
   }
   function deploymentState(value: Record<string, unknown>): { state: string; url: string | null } | null {
     const meta = value.meta;
+    const targetMatches=input.target==='production'?value.target==='production':value.target==null;
     if (value.id !== input.deploymentId || value.projectId !== input.projectId
-      || value.ownerId !== input.accountId || value.target !== input.target
+      || value.ownerId !== input.accountId || !targetMatches
       || !meta || typeof meta !== 'object' || Array.isArray(meta)
       || (meta as Record<string, unknown>).githubCommitSha !== input.sourceCommitSha
-      || (meta as Record<string, unknown>).githubCommitRef !== input.productionBranch
+      || (meta as Record<string, unknown>).githubCommitRef !== (input.sourceBranch??input.productionBranch)
       || typeof value.readyState !== 'string') return null;
     const state = value.readyState;
     let url: string | null = null;
@@ -117,4 +151,3 @@ export async function inspectOwnedVercelDeployment(input: {
       liveUrl: status === 'ready' ? second.url : null, observedState: second.state };
   } catch { throw new Error('Vercel deployment status is unavailable.'); }
 }
-
