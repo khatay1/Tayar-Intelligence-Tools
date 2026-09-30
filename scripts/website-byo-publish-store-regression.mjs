@@ -1,0 +1,18 @@
+import assert from'node:assert/strict';import{mkdtemp,readFile,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{join}from'node:path';import{pathToFileURL}from'node:url';import{build}from'esbuild';
+const dir=await mkdtemp(join(tmpdir(),'tayar-publish-store-'));try{const out=join(dir,'store.cjs');await build({entryPoints:['server/website-byo-publish-store.ts'],bundle:true,platform:'node',format:'cjs',outfile:out});
+const mod=(await import(pathToFileURL(out))).default;const ids={operationId:'11111111-1111-4111-8111-111111111111',projectId:'22222222-2222-4222-8222-222222222222',ownerId:'33333333-3333-4333-8333-333333333333',environment:'production'};
+let current=true;let row={...ids,stage:'created',version:1,sourceDigest:null,requiredEnvironment:[],headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null};const calls=[];let lose=false;
+const client={async rpc(name,args){calls.push({name,args});if(name==='website_initialize_byo_publish_operation')return{data:structuredClone(row),error:null};if(name==='website_read_byo_publish_operation')return{data:structuredClone(row),error:null};
+ if(name==='website_transition_byo_publish_operation'){row={...ids,stage:args.p_next_stage,version:args.p_expected_version+1,sourceDigest:args.p_source_digest,requiredEnvironment:args.p_required_environment,headSha:args.p_head_sha,attemptVersion:args.p_attempt_version,deploymentId:args.p_deployment_id,liveUrl:args.p_live_url};return lose?{data:null,error:{message:'lost'}}:{data:structuredClone(row),error:null};}
+ if(name==='website_reconcile_byo_publish_transition')return{data:structuredClone(row),error:null};throw Error(name);}};const scope={client,...ids,isCurrent:()=>current};
+assert.equal((await mod.initializeWebsiteByoPublishOperation(scope)).stage,'created');const store=mod.createWebsiteByoPublishStore(scope);assert.equal((await store.read(ids.operationId)).version,1);
+lose=true;const validated=await store.transition(row,{...row,stage:'validated',sourceDigest:'a'.repeat(64),requiredEnvironment:['STRIPE_SECRET_KEY']});assert.equal(validated.version,2);assert.equal(calls.at(-1).name,'website_reconcile_byo_publish_transition');
+assert.equal(calls.at(-1).args.p_transition_key,`${ids.operationId}:1:validated`);assert.deepEqual(calls.at(-1).args.p_required_environment,['STRIPE_SECRET_KEY']);
+await assert.rejects(()=>store.transition(validated,{...validated,stage:'ready',deploymentId:'dpl_fixture123',liveUrl:'https://app.vercel.app'}),/changed/,'illegal stage jump denied before RPC');
+await assert.rejects(()=>store.transition(validated,{...validated,ownerId:'44444444-4444-4444-8444-444444444444',stage:'exporting'}),/changed/,'scope switching denied');
+current=false;await assert.rejects(()=>store.read(ids.operationId),/unavailable/,'stale owner/session denied');
+const sql=await readFile('supabase/migrations/20260930030000_website_byo_publish_checkpoint.sql','utf8');
+for(const proof of['enable row level security','revoke all on private.website_byo_publish_operations from public,anon,authenticated','security definer set search_path=\'\'','observing\' and p_next_stage in(\'observing\',\'blocked\',\'ready\')','is not distinct from p_source_digest','last_transition_key=p_transition_key'])assert.ok(sql.includes(proof),proof);
+assert.ok(!/access_token|refresh_token|secret_value|service_role_key/i.test(sql),'no credentials or secret values persisted');
+console.log('PASS BYO publish store: private scoped initialization/read, exact CAS graph, evidence-bound lost-response reconciliation and stale-scope refusal');
+}finally{await rm(dir,{recursive:true,force:true});}

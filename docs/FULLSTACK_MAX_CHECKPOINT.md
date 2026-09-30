@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `d467969ac431d5c4eb0b8ee47ea7d2f757432ac5`; equivalent parent remote HEAD for this batch: `05d4cc5fdafc9ba4deff358a127924c0d9d48d0a` (shared tree `74c2e75184e1f768683f4fbc7ba76cd98f95a8fc`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `bfdb3aa3a7abae0f336e46603755ece119b4c681`; equivalent parent remote HEAD for this batch: `7d8336b09b46197a05ae87777e3fdda8b6fcbb5a` (shared tree `a02d8f52f9c663f97f05d95fd2ae688b536d64d5`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -56,7 +56,7 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Verified Vercel secret removal now transitions the receipt through a distinct `removing` state, reads only the exact recorded destination ID, refuses changed metadata, deletes that ID, and requires a second non-decrypting list to prove absence before committing `removed`. The operation is versioned and resumable after uncertain provider or SQL responses; recovery of an already committed removal does not require the expired/revoked provider token.
 
-- A source-only BYO Publish coordinator now enforces the order `validate -> persist exporting -> GitHub export -> persist commit -> begin Vercel attempt -> discover/inspect -> commit observation -> ready`. It reuses one operation ID for GitHub recovery, persists side-effect stages before calls, keeps uncertain export/deployment states pending, blocks missing-env/failed observations and returns `ready` only after the final inspector report. Its durable CAS store and real adapters are not implemented or mounted yet.
+- A source-only BYO Publish coordinator now enforces the order `validate -> persist exporting -> GitHub export -> persist commit -> begin Vercel attempt -> discover/inspect -> commit observation -> ready`. Its private service-role-only checkpoint store locks immutable owner/project/environment/operation scope, accepts only the exact transition graph with CAS versions, and recovers a lost SQL response only when every persisted evidence field and deterministic transition key match. Runtime object spreads can no longer inject the next version. The migration is source-only; real adapters and mounting remain pending.
 
 ## Verified
 
@@ -107,6 +107,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - BYO Publish worker regression checks persisted pre-side-effect stages, same-operation GitHub recovery, exact source commit propagation, deployment discovery, connecting/blocked/final-ready behavior and ready retry without side effects. The complete infrastructure suite, TypeScript, targeted ESLint and diff checks passed. All provider/store callbacks are mocked; this is not a live deployment or mounted Publish action.
 
+- BYO Publish checkpoint regression uses mocked RPC plus static SQL checks for exact owner/project/environment/operation scope, sorted required environment names, the seven allowed CAS edges, stale-session denial and full-evidence lost-response reconciliation. The targeted store/worker tests, complete infrastructure suite, TypeScript and targeted ESLint passed. The migration was not executed against PostgreSQL and no provider side effect ran.
+
 ## In progress
 
 - Vercel endpoint bundling/mounting, optional shared-installation-safe uninstall and domain reconciliation remain in progress. Sensitive environment handoff/rotation/removal, read-only env/deployment inspection, durable attempt/status commit and standalone browser handoff UI are complete but unmounted.
@@ -123,9 +125,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 ## Tests still mocked / live E2E pending
 
-No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
+No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry; the new Publish checkpoint migration has static inspection only and was not executed. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+BYO Publish checkpoint-store batch: `server/website-byo-publish-store.ts`, `server/website-byo-publish-worker.ts`, `supabase/migrations/20260930030000_website_byo_publish_checkpoint.sql`, `scripts/website-byo-publish-store-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. It adds private service-only initialization/read/CAS RPCs, exact evidence-bound recovery, immutable scope and runtime version stripping. Targeted store/worker tests, the complete infrastructure suite, TypeScript and targeted ESLint passed. RPC is mocked, SQL was inspected statically, the migration is source-only and Publish remains unmounted.
 
 BYO Publish coordinator batch: `server/website-byo-publish-worker.ts`, `scripts/website-byo-publish-worker-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. It supplies one resumable stage machine around the existing GitHub/Vercel workers and requires a CAS store to persist every transition. The full infrastructure suite passed. Store/provider adapters are mocked and the coordinator is unmounted.
 
@@ -183,14 +187,14 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The source-only BYO Publish coordinator persists side-effect stages, reuses one operation through GitHub recovery, binds the exported commit to Vercel observation and reports success only after final readiness. Mocked coordinator regression, the full infrastructure suite, TypeScript and targeted ESLint passed. Its CAS store and real adapters are still pending; no live deployment ran.
+The source-only BYO Publish checkpoint store now persists the coordinator under immutable owner/project/environment/operation scope, enforces exact CAS transitions, strips caller-supplied versions and reconciles a lost SQL response only against identical evidence. Mocked RPC/static SQL regression, worker regression, the full infrastructure suite, TypeScript and targeted ESLint passed. The migration was not executed and no live deployment ran.
 
 ## Next exact batch
 
-Implement the private CAS checkpoint store for the BYO Publish coordinator, including owner/project/environment scope, immutable operation identity, exact transition graph and lost-response reconciliation. Then wire adapters for owned source capture, required secret receipts, GitHub export, Vercel attempt/discovery/inspection without mounting HTTP/UI. Keep Publish disabled until Supabase readiness and real disposable-account proof. No production flags, migrations or live deployment.
+Wire trusted adapters into the BYO Publish coordinator for owned source capture, required secret receipts, GitHub export, Vercel attempt/discovery/inspection and exact current-owner checks, without mounting HTTP/UI. Reuse the new checkpoint store and existing workers; do not duplicate provider logic. Keep Publish disabled until Supabase readiness and real disposable-account proof. No production flags, migrations or live deployment.
 
 ## Known blockers
 
-- The current isolated validation Supabase project does not have Tayar's `public.projects` table; the new migration was tested with a rolled-back fixture, but actual platform integration is still unproven. Never apply it to production during this branch work.
+- The current isolated validation Supabase project does not have Tayar's `public.projects` table. Earlier migrations were tested with rolled-back fixtures, but the new Publish checkpoint migration has static inspection only and actual platform integration remains unproven. Never apply it to production during this branch work.
 - Customer OAuth grants and live provider accounts are not yet configured. Do not mark a connection ready from a UI click or a mocked 200 response.
 - A GitHub App registration (App ID, callback URL, private key and minimum Contents write permission) is needed before a live one-click connection can be verified. Its credential belongs in Tayar platform secrets, never the generated project. The UI must not offer a pretend Connected state while the callback is absent.

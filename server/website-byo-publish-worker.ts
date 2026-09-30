@@ -1,7 +1,7 @@
 import type { OwnedVercelDeploymentReport } from './website-owned-vercel-deployment';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const sha=/^[0-9a-f]{40}$/;const env=/^[A-Z][A-Z0-9_]{1,99}$/;
+const sha=/^[0-9a-f]{40}$/;const digest=/^[0-9a-f]{64}$/;const env=/^[A-Z][A-Z0-9_]{1,99}$/;
 export type ByoPublishStage='created'|'validated'|'exporting'|'exported'|'observing'|'blocked'|'ready';
 export interface ByoPublishCheckpoint{operationId:string;projectId:string;ownerId:string;environment:'preview'|'production';
   stage:ByoPublishStage;version:number;sourceDigest:string|null;requiredEnvironment:string[];headSha:string|null;
@@ -27,13 +27,19 @@ export async function runByoPublishWorker(input:{
   if(!state||state.operationId!==input.operationId||state.projectId!==input.projectId||state.ownerId!==input.ownerId
     ||state.environment!==input.environment||!Number.isSafeInteger(state.version)||state.version<1)throw new Error('BYO publish unavailable.');
   const move=async(next:Omit<ByoPublishCheckpoint,'version'>)=>{if(!await input.isCurrent())throw new Error();
-    const saved=await input.store.transition(state!,next);if(saved.version!==state!.version+1||!await input.isCurrent())throw new Error();state=saved;};
+    // Runtime object spreads retain `version` even when Omit hides it. The
+    // durable store, rather than its caller, owns the next CAS version.
+    const payload:Omit<ByoPublishCheckpoint,'version'>={operationId:next.operationId,projectId:next.projectId,
+      ownerId:next.ownerId,environment:next.environment,stage:next.stage,sourceDigest:next.sourceDigest,
+      requiredEnvironment:[...next.requiredEnvironment],headSha:next.headSha,attemptVersion:next.attemptVersion,
+      deploymentId:next.deploymentId,liveUrl:next.liveUrl};
+    const saved=await input.store.transition(state!,payload);if(saved.version!==state!.version+1||!await input.isCurrent())throw new Error();state=saved;};
   try{
     if(state.stage==='ready')return{status:'ready',checkpoint:state};
     if(state.stage==='blocked')return{status:'blocked',checkpoint:state};
     if(state.stage==='created'){
       const proof=await input.validate(),required=[...proof.requiredEnvironment].sort();
-      if(!sha.test(proof.sourceDigest)||required.length>64||required.some(v=>!env.test(v))||new Set(required).size!==required.length)throw new Error();
+      if(!digest.test(proof.sourceDigest)||required.length>64||required.some(v=>!env.test(v))||new Set(required).size!==required.length)throw new Error();
       await move({...state,stage:'validated',sourceDigest:proof.sourceDigest,requiredEnvironment:required});
     }
     if(state.stage==='validated')await move({...state,stage:'exporting'});
