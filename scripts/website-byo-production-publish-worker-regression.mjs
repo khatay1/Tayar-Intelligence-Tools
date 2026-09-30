@@ -1,0 +1,17 @@
+import assert from'node:assert/strict';import{mkdtemp,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{join}from'node:path';import{pathToFileURL}from'node:url';import{build}from'esbuild';
+const dir=await mkdtemp(join(tmpdir(),'tayar-production-publish-'));try{const out=join(dir,'worker.cjs');await build({entryPoints:['server/website-byo-production-publish-worker.ts'],bundle:true,platform:'node',format:'cjs',outfile:out});
+const{runByoProductionPublishWorker:run}=(await import(pathToFileURL(out))).default;
+const ids={operationId:'11111111-1111-4111-8111-111111111111',previewOperationId:'22222222-2222-4222-8222-222222222222',projectId:'33333333-3333-4333-8333-333333333333',ownerId:'44444444-4444-4444-8444-444444444444'};
+const common={projectId:ids.projectId,ownerId:ids.ownerId,sourceDigest:'a'.repeat(64),requiredEnvironment:['SUPABASE_URL'],headSha:'b'.repeat(40),attemptVersion:7,deploymentId:'dpl_preview1234'};
+const preview={...common,operationId:ids.previewOperationId,environment:'preview',stage:'ready',version:9,liveUrl:'https://preview.vercel.app',previewOperationId:null,promotionVersion:null,productionAliases:[]};
+let state={...common,operationId:ids.operationId,environment:'production',stage:'created',version:1,sourceDigest:null,requiredEnvironment:[],headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null,previewOperationId:null,promotionVersion:null,productionAliases:[]};
+const order=[];const store={async read(){return structuredClone(state);},async transition(current,next){assert.equal(current.version,state.version);state={...structuredClone(next),version:state.version+1};order.push(`save:${state.stage}`);return structuredClone(state);}};
+let promotions=0;const base={...ids,store,isCurrent:async()=>true,readPreview:async op=>{assert.equal(op,ids.previewOperationId);order.push('preview');return structuredClone(preview);},promote:async source=>{promotions++;assert.equal(source.headSha,common.headSha);order.push('promote');return{status:'ready',deploymentId:common.deploymentId,sourceCommitSha:common.headSha,aliases:['app.example.com','app.vercel.app'],liveUrl:'https://app.example.com',promotionVersion:4};}};
+const result=await run(base);assert.equal(result.status,'ready');assert.equal(result.checkpoint.previewOperationId,ids.previewOperationId);assert.equal(result.checkpoint.promotionVersion,4);
+assert.deepEqual(order,['preview','save:validated','save:promoting','preview','promote','save:verifying-production','save:ready']);assert.equal(promotions,1);
+assert.equal((await run(base)).status,'ready');assert.equal(promotions,1,'ready retry cannot promote again');
+state={...state,stage:'promoting',version:20,promotionVersion:null,productionAliases:[],liveUrl:null};order.length=0;await run(base);assert.equal(promotions,2);assert.deepEqual(order,['preview','promote','save:verifying-production','save:ready']);
+state={...state,stage:'created',version:30,sourceDigest:null,requiredEnvironment:[],headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null,previewOperationId:null,promotionVersion:null,productionAliases:[]};
+await assert.rejects(run({...base,readPreview:async()=>({...preview,headSha:'c'.repeat(40)})}),/unavailable/);
+console.log('PASS BYO production publish: exact ready Preview binding, persisted promote/verify stages and no GitHub/deployment/re-promote path');
+}finally{await rm(dir,{recursive:true,force:true});}

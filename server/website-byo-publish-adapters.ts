@@ -4,6 +4,8 @@ import { discoverOwnedVercelDeployment, inspectOwnedVercelDeployment,
   type OwnedVercelDeploymentReport } from './website-owned-vercel-deployment';
 import { createWebsiteByoPublishStore, initializeWebsiteByoPublishOperation } from './website-byo-publish-store';
 import { runByoPublishWorker } from './website-byo-publish-worker';
+import { runByoProductionPublishWorker } from './website-byo-production-publish-worker';
+import { runWebsiteOwnedVercelPromotion } from './website-owned-vercel-promotion-worker';
 import { exportWebsiteProjectToOwnedGitHub } from '../src/modules/website-builder/services/websiteGithubExportWorker';
 import { beginWebsiteVercelDeploymentAttempt,
   commitWebsiteVercelDeploymentObservation } from '../src/modules/website-builder/services/websiteVercelDeploymentAttemptService';
@@ -100,4 +102,43 @@ export async function runWebsiteOwnedByoPublish(input:{
       expectedAttemptVersion:attemptVersion,operationId:input.operationId,commitId:await deterministicCommitId(input.operationId,attemptVersion,report),
       report,isCurrent:()=>current});return committed.attemptVersion;},
   });}catch{throw new Error('BYO publish adapters unavailable.');}
+}
+
+/** Production consumes an already verified Preview checkpoint. It has no
+ * GitHub export or deployment-trigger callback and can only promote that SHA. */
+export async function runWebsiteOwnedByoProductionPublish(input:{
+  client:Client;operationId:string;previewOperationId:string;projectId:string;ownerId:string;
+  previewVercelConnectionId:string;productionVercelConnectionId:string;
+  previewConnectionVersion:number;productionConnectionVersion:number;
+  ownerCurrent():Promise<boolean>;fetcher?:typeof fetch;
+}){
+  if(typeof window!=='undefined'||![input.operationId,input.previewOperationId,input.projectId,input.ownerId,
+    input.previewVercelConnectionId,input.productionVercelConnectionId].every(v=>uuid.test(v))
+    ||input.operationId===input.previewOperationId||input.previewVercelConnectionId===input.productionVercelConnectionId
+    ||![input.previewConnectionVersion,input.productionConnectionVersion].every(v=>Number.isSafeInteger(v)&&v>0)
+    ||!await input.ownerCurrent())throw new Error('BYO production publish adapters unavailable.');
+  let current=true;const owner=async()=>{if(!current)return false;current=await input.ownerCurrent();return current;};
+  const previewScope={client:input.client,operationId:input.previewOperationId,projectId:input.projectId,ownerId:input.ownerId,
+    environment:'preview' as const,isCurrent:()=>current};
+  const productionScope={client:input.client,operationId:input.operationId,projectId:input.projectId,ownerId:input.ownerId,
+    environment:'production' as const,isCurrent:()=>current};
+  try{
+    const previewStore=createWebsiteByoPublishStore(previewScope),store=createWebsiteByoPublishStore(productionScope);
+    if(!await store.read(input.operationId))await initializeWebsiteByoPublishOperation(productionScope);
+    const custodyResult=await input.client.rpc('website_read_vercel_integration_custody',{p_connection_id:input.productionVercelConnectionId,
+      p_project_id:input.projectId,p_owner_id:input.ownerId,p_expected_connection_version:input.productionConnectionVersion});
+    if(custodyResult.error||!await owner())throw new Error();const custody=parseCustody(custodyResult.data,'production');
+    return await runByoProductionPublishWorker({operationId:input.operationId,previewOperationId:input.previewOperationId,
+      projectId:input.projectId,ownerId:input.ownerId,store,isCurrent:owner,readPreview:op=>previewStore.read(op),
+      promote:async preview=>{
+        if(!preview.attemptVersion||!preview.deploymentId||!preview.headSha||!await owner())throw new Error();
+        return runWebsiteOwnedVercelPromotion({client:input.client,operationId:input.operationId,projectId:input.projectId,
+          ownerId:input.ownerId,previewConnectionId:input.previewVercelConnectionId,
+          productionConnectionId:input.productionVercelConnectionId,previewConnectionVersion:input.previewConnectionVersion,
+          productionConnectionVersion:input.productionConnectionVersion,previewAttemptVersion:preview.attemptVersion,
+          vercelProjectId:custody.vercelProjectId,deploymentId:preview.deploymentId,sourceCommitSha:preview.headSha,
+          sourceBranch:`tayar/${input.projectId}/preview`,accessToken:custody.accessToken,accountId:custody.accountId,
+          productionBranch:custody.productionBranch,isCurrent:owner,fetcher:input.fetcher});},
+    });
+  }catch{throw new Error('BYO production publish adapters unavailable.');}
 }

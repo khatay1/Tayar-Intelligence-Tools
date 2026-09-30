@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `0750905e81696b83d26da5360c42b2cdbed5f003`; equivalent parent remote HEAD for this batch: `3d4983def809a5b798394dc4fbe6d9a6ce6dc453` (shared tree `ec56e46c5990b28f894a674b739b988ae2425012`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `914f35d3f656f40bc9a448ef1e77f1113dd818c1`; equivalent parent remote HEAD for this batch: `c75c9bd5ca41a681a2563bbcbe996c428dc6a815` (shared tree `642ab94f0de143e3b85857b439240ed883b451f8`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -62,6 +62,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - A separate source-only Vercel production-promotion stage now binds a verified ready Preview attempt to a distinct Production connection for the same customer account, project, repository and branch. It captures a stable complete production-domain set before the effect, persists `prepared`, atomically claims the one allowed external request, and makes every later retry provider-read-only. Final readiness requires two identical observations of the exact deployment/source plus its assigned aliases and completed promote-alias mappings. The Production connection advances to `ready` only in the exact evidence commit; an exact reconciliation RPC recovers a lost SQL response. The stage and migration remain unmounted and unapplied.
 
+- The durable BYO Publish checkpoint now has disjoint Preview and Production graphs. Preview alone can export and observe a deployment. Production must bind an exact still-ready Preview operation and can transition only `created -> validated -> promoting -> verifying-production -> ready`. The production adapter calls the durable promotion worker with that same deployment/SHA and has no GitHub export or deployment-trigger callback. Custom production domains and promotion versions are evidence-bound in every CAS/reconciliation response. Existing Preview semantics remain intact; the additive migration and both adapters are unmounted.
+
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
@@ -117,9 +119,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Vercel promotion regression uses mocked HTTP/RPC plus static SQL checks for stable verified domains, exact Preview/Production customer scope, a single durable `prepared -> claimed` effect, provider reconciliation without a second POST, exact deployment/source/alias proof observed twice, atomic Production readiness and lost SQL-response recovery. The standalone promotion worker, complete infrastructure suite, TypeScript and targeted ESLint passed. No migration was applied and no live Vercel promote/domain/deployment call ran.
 
+- Production Publish regressions check the disjoint checkpoint graphs, exact ready-Preview foreign evidence, refusal of the export path from Production, persisted pre-effect `promoting`, custom-domain evidence, `verifying-production`, ready retries with no repeated promotion, and adapter composition into the existing production custody/promotion worker. The complete infrastructure suite, TypeScript and targeted ESLint passed. RPC/provider behavior and SQL are mocked/static; no endpoint, migration or deployment ran.
+
 ## In progress
 
-- Vercel endpoint bundling/mounting, integration of the completed source-only promotion stage into the top-level Publish checkpoint, optional shared-installation-safe uninstall and live domain reconciliation remain in progress. Preview secret handoff/rotation/removal, read-only env/deployment inspection, durable attempt/status commit, production promotion ledger/worker and standalone browser handoff UI are complete but unmounted.
+- Authenticated BYO Publish endpoint bundling/mounting, optional shared-installation-safe uninstall and live domain reconciliation remain in progress. Preview secret handoff/rotation/removal, read-only env/deployment inspection, durable Preview/Production checkpoint flows, production promotion ledger/worker and standalone browser handoff UI are complete but unmounted.
 - Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
@@ -136,6 +140,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer, BYO deployment or production promotion is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry; the new Publish/promotion migrations have static inspection only and were not executed. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+Production Publish checkpoint-integration batch: `server/website-byo-publish-worker.ts`, `server/website-byo-production-publish-worker.ts`, `server/website-byo-publish-store.ts`, `server/website-byo-publish-adapters.ts`, `supabase/migrations/20260930043000_website_byo_production_publish_checkpoint.sql`, `scripts/website-byo-publish-worker-regression.mjs`, `scripts/website-byo-publish-store-regression.mjs`, `scripts/website-byo-production-publish-worker-regression.mjs`, `scripts/website-byo-publish-adapters-regression.mjs`, `package.json` and this checkpoint. It makes Preview the only export/deployment path and Production an exact ready-Preview promotion path with persisted promotion/domain evidence and no duplicate side-effect path. Mocked/static targeted tests, the complete infrastructure suite, TypeScript and targeted ESLint passed. The additive migration is source-only; nothing was mounted, migrated or deployed.
 
 Vercel production-promotion batch: `server/website-owned-vercel-promotion.ts`, `server/website-owned-vercel-promotion-worker.ts`, `src/modules/website-builder/services/websiteVercelPromotionService.ts`, `supabase/migrations/20260930040000_website_byo_vercel_promotion.sql`, `scripts/website-vercel-promotion-regression.mjs`, `package.json` and this checkpoint. It binds exact customer Preview evidence to a separate matching Production connection/domain set, persists and claims the only allowed POST before the effect, reconciles uncertain responses through reads, requires two identical deployment/alias observations, and commits `ready` with exact CAS evidence. Mocked HTTP/RPC/static SQL regression, the complete infrastructure suite, TypeScript and targeted ESLint passed. The migration is source-only; nothing was mounted, migrated or deployed.
 
@@ -199,15 +205,15 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The source-only Vercel promotion stage now persists scope before the external effect, allows exactly one claimed promote request, and turns retries into read-only reconciliation. It binds the verified Preview deployment/commit to the same customer's distinct Production connection and stable verified domains, then requires repeated exact deployment and alias evidence before atomically marking Production ready. Mocked HTTP/RPC/static SQL regressions, the full infrastructure suite, TypeScript and targeted ESLint passed. Nothing was mounted, migrated or deployed.
+The source-only Production Publish path now consumes an exact ready Preview checkpoint, persists `promoting` before delegating to the one-claim promotion worker, records `verifying-production` evidence and only then becomes ready. Production cannot enter GitHub export or deployment-observation stages, and retries cannot re-export, re-trigger deployment or re-promote. Mocked HTTP/RPC/static SQL regressions, the full infrastructure suite, TypeScript and targeted ESLint passed. Nothing was mounted, migrated or deployed.
 
 ## Next exact batch
 
-Integrate the completed promotion worker into an explicit production branch of the durable BYO Publish checkpoint. Bind it to the exact completed Preview operation/source commit, add persisted `promoting -> verifying-production -> ready` evidence without weakening the existing preview transitions, and ensure a Publish retry cannot re-export, re-trigger deployment or re-promote. Keep the entire flow source-only and unmounted; no production flags, migrations or live deployment.
+Implement a source-only authenticated BYO Publish endpoint contract that creates/reuses durable operation IDs, invokes the Preview or Production adapter by explicit action, returns only sanitized pending/blocked/ready evidence, and refuses stale owner/project/environment responses. Add a deterministic bundle freshness check, but keep the endpoint unmounted and disabled in the editor until real provider configuration and database migrations are available. No production flags, migrations or live deployment.
 
 ## Known blockers
 
 - The current isolated validation Supabase project does not have Tayar's `public.projects` table. Earlier migrations were tested with rolled-back fixtures, but the new Publish checkpoint migration has static inspection only and actual platform integration remains unproven. Never apply it to production during this branch work.
 - Customer OAuth grants and live provider accounts are not yet configured. Do not mark a connection ready from a UI click or a mocked 200 response.
-- GitHub exports to a dedicated Tayar branch. The separate promotion worker now handles the required verified Preview promotion, but the top-level Publish adapter still refuses Production until its checkpoint transitions are integrated and regression-tested.
+- GitHub exports to a dedicated Tayar Preview branch. Production now promotes the exact verified Preview deployment through a separate persisted graph; the remaining blocker is a safely configured authenticated endpoint and live disposable-account verification, not another export/deploy path.
 - A GitHub App registration (App ID, callback URL, private key and minimum Contents write permission) is needed before a live one-click connection can be verified. Its credential belongs in Tayar platform secrets, never the generated project. The UI must not offer a pretend Connected state while the callback is absent.

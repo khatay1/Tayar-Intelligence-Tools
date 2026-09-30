@@ -2,10 +2,11 @@ import type { OwnedVercelDeploymentReport } from './website-owned-vercel-deploym
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const sha=/^[0-9a-f]{40}$/;const digest=/^[0-9a-f]{64}$/;const env=/^[A-Z][A-Z0-9_]{1,99}$/;
-export type ByoPublishStage='created'|'validated'|'exporting'|'exported'|'observing'|'blocked'|'ready';
+export type ByoPublishStage='created'|'validated'|'exporting'|'exported'|'observing'|'blocked'|'promoting'|'verifying-production'|'ready';
 export interface ByoPublishCheckpoint{operationId:string;projectId:string;ownerId:string;environment:'preview'|'production';
   stage:ByoPublishStage;version:number;sourceDigest:string|null;requiredEnvironment:string[];headSha:string|null;
-  attemptVersion:number|null;deploymentId:string|null;liveUrl:string|null;}
+  attemptVersion:number|null;deploymentId:string|null;liveUrl:string|null;previewOperationId:string|null;
+  promotionVersion:number|null;productionAliases:string[];}
 export interface ByoPublishStore{read(operationId:string):Promise<ByoPublishCheckpoint|null>;
   transition(current:ByoPublishCheckpoint,next:Omit<ByoPublishCheckpoint,'version'>):Promise<ByoPublishCheckpoint>;}
 
@@ -22,7 +23,7 @@ export async function runByoPublishWorker(input:{
   commitObservation(attemptVersion:number,report:OwnedVercelDeploymentReport):Promise<number>;
 }):Promise<{status:'pending'|'blocked'|'ready';checkpoint:ByoPublishCheckpoint}>{
   if(typeof window!=='undefined'||![input.operationId,input.projectId,input.ownerId].every(v=>uuid.test(v))
-    ||!['preview','production'].includes(input.environment)||!await input.isCurrent())throw new Error('BYO publish unavailable.');
+    ||input.environment!=='preview'||!await input.isCurrent())throw new Error('BYO publish unavailable.');
   let state=await input.store.read(input.operationId);
   if(!state||state.operationId!==input.operationId||state.projectId!==input.projectId||state.ownerId!==input.ownerId
     ||state.environment!==input.environment||!Number.isSafeInteger(state.version)||state.version<1)throw new Error('BYO publish unavailable.');
@@ -32,7 +33,8 @@ export async function runByoPublishWorker(input:{
     const payload:Omit<ByoPublishCheckpoint,'version'>={operationId:next.operationId,projectId:next.projectId,
       ownerId:next.ownerId,environment:next.environment,stage:next.stage,sourceDigest:next.sourceDigest,
       requiredEnvironment:[...next.requiredEnvironment],headSha:next.headSha,attemptVersion:next.attemptVersion,
-      deploymentId:next.deploymentId,liveUrl:next.liveUrl};
+      deploymentId:next.deploymentId,liveUrl:next.liveUrl,previewOperationId:next.previewOperationId,
+      promotionVersion:next.promotionVersion,productionAliases:[...next.productionAliases]};
     const saved=await input.store.transition(state!,payload);if(saved.version!==state!.version+1||!await input.isCurrent())throw new Error();state=saved;};
   try{
     if(state.stage==='ready')return{status:'ready',checkpoint:state};

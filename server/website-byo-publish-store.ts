@@ -5,28 +5,36 @@ type Client=Pick<SupabaseClient,'rpc'>;
 type Scope={client:Client;operationId:string;projectId:string;ownerId:string;environment:'preview'|'production';isCurrent():boolean};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const digest=/^[0-9a-f]{64}$/;const sha=/^[0-9a-f]{40}$/;const env=/^[A-Z][A-Z0-9_]{1,99}$/;
-const deployment=/^dpl_[A-Za-z0-9]{8,128}$/;const live=/^https:\/\/[a-z0-9-]+[.]vercel[.]app$/;
-const stages=new Set<ByoPublishStage>(['created','validated','exporting','exported','observing','blocked','ready']);
-const edges=new Set(['created:validated','validated:exporting','exporting:exported','exported:observing',
+const deployment=/^dpl_[A-Za-z0-9]{8,128}$/;const live=/^https:\/\/(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+(?:[a-z]{2,63}|vercel[.]app)$/;
+const hostname=/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+(?:[a-z]{2,63}|vercel[.]app)$/;
+const stages=new Set<ByoPublishStage>(['created','validated','exporting','exported','observing','blocked','promoting','verifying-production','ready']);
+const previewEdges=new Set(['created:validated','validated:exporting','exporting:exported','exported:observing',
   'observing:observing','observing:blocked','observing:ready']);
+const productionEdges=new Set(['created:validated','validated:promoting','promoting:verifying-production','verifying-production:ready']);
 
 function assertScope(scope:Scope){if(typeof window!=='undefined'||![scope.operationId,scope.projectId,scope.ownerId].every(v=>uuid.test(v))
   ||!['preview','production'].includes(scope.environment)||!scope.isCurrent())throw new Error('BYO publish checkpoint unavailable.');}
 function assertEvidence(v:ByoPublishCheckpoint|Omit<ByoPublishCheckpoint,'version'>){
   const empty=v.requiredEnvironment.length===0,source=v.sourceDigest!==null,head=v.headSha!==null,attempt=v.attemptVersion!==null;
-  const deployed=v.deploymentId!==null,url=v.liveUrl!==null;
-  const valid=v.stage==='created'?empty&&!source&&!head&&!attempt&&!deployed&&!url
-    :v.stage==='validated'||v.stage==='exporting'?source&&!head&&!attempt&&!deployed&&!url
-    :v.stage==='exported'?source&&head&&!attempt&&!deployed&&!url
-    :v.stage==='observing'?source&&head&&attempt&&!url
-    :v.stage==='blocked'?source&&head&&attempt&&deployed&&!url
-    :source&&head&&attempt&&deployed&&url;
+  const deployed=v.deploymentId!==null,url=v.liveUrl!==null,preview=v.previewOperationId!==null,promotion=v.promotionVersion!==null;
+  const aliases=v.productionAliases.length>0;
+  const valid=v.stage==='created'?empty&&!source&&!head&&!attempt&&!deployed&&!url&&!preview&&!promotion&&!aliases
+    :v.stage==='validated'&&v.environment==='production'?source&&head&&attempt&&deployed&&!url&&preview&&!promotion&&!aliases
+    :v.stage==='validated'||v.stage==='exporting'?source&&!head&&!attempt&&!deployed&&!url&&!preview&&!promotion&&!aliases
+    :v.stage==='exported'?v.environment==='preview'&&source&&head&&!attempt&&!deployed&&!url&&!preview&&!promotion&&!aliases
+    :v.stage==='observing'?v.environment==='preview'&&source&&head&&attempt&&!url&&!preview&&!promotion&&!aliases
+    :v.stage==='blocked'?v.environment==='preview'&&source&&head&&attempt&&deployed&&!url&&!preview&&!promotion&&!aliases
+    :v.stage==='promoting'?v.environment==='production'&&source&&head&&attempt&&deployed&&!url&&preview&&!promotion&&!aliases
+    :v.stage==='verifying-production'?v.environment==='production'&&source&&head&&attempt&&deployed&&url&&preview&&promotion&&aliases
+    :source&&head&&attempt&&deployed&&url&&(v.environment==='preview'?(!preview&&!promotion&&!aliases):(preview&&promotion&&aliases));
   if(!valid)throw new Error();
 }
 function checkpoint(value:unknown,scope:Omit<Scope,'client'|'isCurrent'>):ByoPublishCheckpoint{
   if(!value||typeof value!=='object')throw new Error();const v=value as Record<string,unknown>;
-  if(!Array.isArray(v.requiredEnvironment)||!v.requiredEnvironment.every(x=>typeof x==='string'))throw new Error();
+  if(!Array.isArray(v.requiredEnvironment)||!v.requiredEnvironment.every(x=>typeof x==='string')
+    ||!Array.isArray(v.productionAliases)||!v.productionAliases.every(x=>typeof x==='string'))throw new Error();
   const required=v.requiredEnvironment as string[];
+  const aliases=v.productionAliases as string[];
   const sorted=[...required].sort();
   if(v.operationId!==scope.operationId||v.projectId!==scope.projectId||v.ownerId!==scope.ownerId||v.environment!==scope.environment
     ||!stages.has(v.stage as ByoPublishStage)||!Number.isSafeInteger(v.version)||(v.version as number)<1
@@ -35,17 +43,24 @@ function checkpoint(value:unknown,scope:Omit<Scope,'client'|'isCurrent'>):ByoPub
     ||(v.headSha!==null&&(typeof v.headSha!=='string'||!sha.test(v.headSha)))
     ||(v.attemptVersion!==null&&(!Number.isSafeInteger(v.attemptVersion)||(v.attemptVersion as number)<1))
     ||(v.deploymentId!==null&&(typeof v.deploymentId!=='string'||!deployment.test(v.deploymentId)))
-    ||(v.liveUrl!==null&&(typeof v.liveUrl!=='string'||!live.test(v.liveUrl))))throw new Error();
-  const row=v as unknown as ByoPublishCheckpoint;assertEvidence(row);return{...row,requiredEnvironment:[...required]};
+    ||(v.liveUrl!==null&&(typeof v.liveUrl!=='string'||!live.test(v.liveUrl)))
+    ||(v.previewOperationId!==null&&(typeof v.previewOperationId!=='string'||!uuid.test(v.previewOperationId)))
+    ||(v.promotionVersion!==null&&(!Number.isSafeInteger(v.promotionVersion)||(v.promotionVersion as number)<1))
+    ||aliases.length>100||aliases.some(x=>!hostname.test(x))||new Set(aliases).size!==aliases.length
+    ||aliases.some((x,i)=>x!==[...aliases].sort()[i]))throw new Error();
+  const row=v as unknown as ByoPublishCheckpoint;assertEvidence(row);return{...row,requiredEnvironment:[...required],productionAliases:[...aliases]};
 }
 function argumentsFor(scope:Scope,current:ByoPublishCheckpoint,next:Omit<ByoPublishCheckpoint,'version'>){
+  const edges=scope.environment==='preview'?previewEdges:productionEdges;
   if(!edges.has(`${current.stage}:${next.stage}`)||next.operationId!==current.operationId||next.projectId!==current.projectId
     ||next.ownerId!==current.ownerId||next.environment!==current.environment)throw new Error();
   const checked=checkpoint({...next,version:current.version+1},scope);const key=`${scope.operationId}:${current.version}:${next.stage}`;
   return{args:{p_operation_id:scope.operationId,p_project_id:scope.projectId,p_owner_id:scope.ownerId,
     p_environment:scope.environment,p_expected_version:current.version,p_expected_stage:current.stage,p_next_stage:next.stage,
     p_source_digest:checked.sourceDigest,p_required_environment:checked.requiredEnvironment,p_head_sha:checked.headSha,
-    p_attempt_version:checked.attemptVersion,p_deployment_id:checked.deploymentId,p_live_url:checked.liveUrl,p_transition_key:key}};
+    p_attempt_version:checked.attemptVersion,p_deployment_id:checked.deploymentId,p_live_url:checked.liveUrl,
+    p_preview_operation_id:checked.previewOperationId,p_promotion_version:checked.promotionVersion,
+    p_production_aliases:checked.productionAliases,p_transition_key:key}};
 }
 
 export async function initializeWebsiteByoPublishOperation(scope:Scope):Promise<ByoPublishCheckpoint>{
@@ -69,7 +84,9 @@ export function createWebsiteByoPublishStore(scope:Scope):ByoPublishStore{
       const accept=(value:unknown)=>{const saved=checkpoint(value,exact);
         if(saved.version!==current.version+1||saved.stage!==next.stage||saved.sourceDigest!==next.sourceDigest
           ||saved.headSha!==next.headSha||saved.attemptVersion!==next.attemptVersion||saved.deploymentId!==next.deploymentId
-          ||saved.liveUrl!==next.liveUrl||saved.requiredEnvironment.length!==next.requiredEnvironment.length
+          ||saved.liveUrl!==next.liveUrl||saved.previewOperationId!==next.previewOperationId||saved.promotionVersion!==next.promotionVersion
+          ||saved.productionAliases.length!==next.productionAliases.length||saved.productionAliases.some((v,i)=>v!==next.productionAliases[i])
+          ||saved.requiredEnvironment.length!==next.requiredEnvironment.length
           ||saved.requiredEnvironment.some((v,i)=>v!==next.requiredEnvironment[i]))throw new Error();return saved;};
       const recover=async()=>{const result=await scope.client.rpc('website_reconcile_byo_publish_transition',request.args);
         if(result.error||!scope.isCurrent())throw new Error();return accept(result.data);};
