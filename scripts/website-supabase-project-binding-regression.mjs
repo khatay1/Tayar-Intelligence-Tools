@@ -16,6 +16,7 @@ try {
   assert.match(sql, /website_record_infrastructure_connection/);
   assert.match(sql, /website_store_supabase_oauth_custody/);
   assert.match(sql, /'secrets:read'/);
+  assert.match(sql, /'database:write'/);
   assert.match(sql, /c\.status='connected'/);
   assert.doesNotMatch(sql, /'ready'/);
   const ownerId = '11111111-1111-4111-8111-111111111111';
