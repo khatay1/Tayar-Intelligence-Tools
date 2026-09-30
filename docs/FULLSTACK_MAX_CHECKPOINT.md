@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-29 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `d7f3f1024fbf2326966c6c64d681c27c9202432e`; equivalent parent remote HEAD for this batch: `5a2b84fff5de98b7db5ae15724be6635e3260cee` (shared tree `239f29c2d6e66a488d6e10dfc1b58c006705f57b`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `0fe254df20e147fd61431859db4499aee40f8b21`; equivalent parent remote HEAD for this batch: `aa34d9d95c7894c8e9c08cdee143eaabf3b3dc72` (shared tree `35c7d3b1c51eb4361880c4bd1450dc950d07049d`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -54,6 +54,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - A source-only Vercel secret handoff now reads a project Vault value only inside a trusted service operation, writes it to the exact customer project as a `sensitive` preview/production variable using idempotent upsert, and proves the exact key/target/branch/operation marker through a non-decrypting metadata read. The atomic commit stores destination metadata and erases Tayar's Vault copy; the existing opaque project reference resolves through the verified receipt. Re-entering a value performs a guarded rotation. Raw values are absent from receipts, project snapshots, return values and error messages.
 
+- Verified Vercel secret removal now transitions the receipt through a distinct `removing` state, reads only the exact recorded destination ID, refuses changed metadata, deletes that ID, and requires a second non-decrypting list to prove absence before committing `removed`. The operation is versioned and resumable after uncertain provider or SQL responses; recovery of an already committed removal does not require the expired/revoked provider token.
+
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
@@ -99,9 +101,11 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Vercel secret-handoff regression uses mocked Vercel HTTP/RPC plus static SQL checks for sensitive upsert, team/project scope, exact non-decrypting metadata proof, uncertain provider response, lost SQL response, rotation-ready receipt and post-verification Vault deletion. The complete local infrastructure and integrations suites, TypeScript, targeted ESLint and diff checks passed. The migration was not executed, no live variable was written, and removal/revocation is still pending.
 
+- Vercel secret-removal regression uses mocked HTTP/RPC plus static SQL checks for exact destination identity, changed-metadata refusal, absent-before-delete recovery, absent-after-delete proof, uncertain DELETE, lost commit response and completed recovery without live custody. The complete infrastructure and integrations suites, TypeScript, targeted ESLint and diff checks passed. The migration was not executed and no live Vercel variable was deleted.
+
 ## In progress
 
-- Vercel endpoint bundling/mounting, verified environment-variable removal, optional shared-installation-safe uninstall and domain reconciliation remain in progress. Sensitive environment handoff/rotation, read-only env/deployment inspection, durable attempt/status commit and standalone browser handoff UI are complete but unmounted.
+- Vercel endpoint bundling/mounting, optional shared-installation-safe uninstall and domain reconciliation remain in progress. Sensitive environment handoff/rotation/removal, read-only env/deployment inspection, durable attempt/status commit and standalone browser handoff UI are complete but unmounted.
 - Phase 2 GitHub App registration, live OAuth endpoint validation, editor integration of the prepared browser flow and scheduled expired-handoff cleanup; Phase 3 fullstack BYO runtime compiler beyond the static subset, deployment-grade retry/ownership verification and live token validation. Phase 4 customer Supabase ownership proof and catalog evidence are incomplete. Mount the standalone connection status UI only when its owner-scoped reader and real handlers are ready.
 
 ## Remaining
@@ -118,6 +122,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+Vercel secret-removal batch: `server/website-owned-vercel-environment.ts`, `supabase/migrations/20260930023000_website_byo_vercel_secret_removal.sql`, `scripts/website-vercel-secret-removal-regression.mjs`, `package.json` and this checkpoint. It deletes only the exact receipt destination, verifies absence through a second non-decrypting read, commits `removed` atomically and reconciles uncertain provider/SQL responses even after custody expires. Infrastructure/integrations suites passed. HTTP/RPC are mocked and SQL was inspected statically; no migration or live deletion ran.
 
 Vercel sensitive-secret handoff batch: `server/website-owned-vercel-environment.ts`, `supabase/migrations/20260930020000_website_byo_vercel_secret_handoff.sql`, `scripts/website-vercel-secret-handoff-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. It uses `sensitive` upsert plus an operation marker, verifies destination metadata without decryption, deletes Tayar's Vault copy only inside the verified commit, and retains an opaque receipt for readiness and rotation. Infrastructure/integrations suites passed. HTTP/RPC are mocked and SQL was inspected statically; no migration or live Vercel write ran.
 
@@ -171,11 +177,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The source-only Vercel secret handoff moves one scoped Vault value to a write-only sensitive variable in the user's exact Vercel project/environment. Exact metadata and operation-marker verification precede the atomic receipt commit and Vault deletion; rotations and uncertain responses are idempotent. Mocked HTTP/RPC/static SQL regression, infrastructure/integrations suites, TypeScript and targeted ESLint passed; the migration was not applied and no live variable was written.
+The source-only Vercel removal path deletes only the exact environment-variable ID stored in a verified receipt, refuses provider metadata drift, proves absence after DELETE, and commits `removed` with exact lost-response reconciliation. Mocked HTTP/RPC/static SQL regression, infrastructure/integrations suites, TypeScript and targeted ESLint passed; the migration was not applied and no live variable was deleted.
 
 ## Next exact batch
 
-Add verified Vercel variable removal/revocation with a separate operation/version, exact destination ID, absent-after-delete proof and lost-response reconciliation; mark the opaque receipt removed only after provider proof. Then compose GitHub export, secret readiness, deployment attempt and the read-only inspector into the resumable Publish worker. Bundle and mount provider endpoints/choosers only with real credentials and callbacks. Keep Publish closed until Supabase ready and live disposable-account proof. No production flags or migrations.
+Compose saved-project capture, GitHub export, required-secret receipt checks, Vercel deployment attempt and the read-only deployment inspector into one resumable Publish worker. Persist step/operation identities before side effects, resume the same commit after uncertain responses, and return success only after final observed readiness. Keep its HTTP/UI entry point disabled until Supabase migration readiness and real provider credentials exist. No production flags, migrations or live deployment.
 
 ## Known blockers
 
