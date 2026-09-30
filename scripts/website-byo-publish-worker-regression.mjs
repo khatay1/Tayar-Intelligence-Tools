@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';import{mkdtemp,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{join}from'node:path';import{pathToFileURL}from'node:url';import{build}from'esbuild';
+const dir=await mkdtemp(join(tmpdir(),'tayar-publish-worker-'));try{const out=join(dir,'worker.cjs');await build({entryPoints:['server/website-byo-publish-worker.ts'],bundle:true,platform:'node',format:'cjs',outfile:out});
+const{runByoPublishWorker:run}=(await import(pathToFileURL(out))).default;const ids={operationId:'11111111-1111-4111-8111-111111111111',projectId:'22222222-2222-4222-8222-222222222222',ownerId:'33333333-3333-4333-8333-333333333333'};
+let state={...ids,environment:'production',stage:'created',version:1,sourceDigest:null,requiredEnvironment:[],headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null};const order=[];
+const store={async read(){return structuredClone(state);},async transition(current,next){assert.equal(current.version,state.version);state={...structuredClone(next),version:state.version+1};order.push(`save:${state.stage}`);return structuredClone(state);}};
+const base={...ids,environment:'production',store,isCurrent:async()=>true,validate:async()=>{order.push('validate');return{sourceDigest:'a'.repeat(40),requiredEnvironment:['STRIPE_SECRET_KEY']};},
+exportGitHub:async op=>{assert.equal(op,ids.operationId);order.push('github');return{status:'exported',headSha:'b'.repeat(40)};},beginDeployment:async()=>{order.push('begin');return 1;},
+discoverDeployment:async()=>{order.push('discover');return'dpl_fixture123';},inspectDeployment:async()=>{order.push('inspect');return{status:'ready',deploymentId:'dpl_fixture123',missingEnvironment:[],liveUrl:'https://app.vercel.app',observedState:'READY'};},commitObservation:async()=>{order.push('commit');return 2;}};
+const result=await run(base);assert.equal(result.status,'ready');assert.equal(result.checkpoint.liveUrl,'https://app.vercel.app');
+assert.deepEqual(order,['validate','save:validated','save:exporting','github','save:exported','begin','save:observing','discover','save:observing','inspect','commit','save:ready']);
+assert.equal((await run(base)).status,'ready','ready retry performs no side effects');
+state={...state,stage:'exporting',version:20,headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null};base.exportGitHub=async()=>({status:'recovery-required',headSha:'c'.repeat(40)});assert.equal((await run(base)).status,'pending');assert.equal(state.stage,'exporting');
+state={...state,stage:'observing',version:30,headSha:'b'.repeat(40),attemptVersion:4,deploymentId:'dpl_fixture123'};base.inspectDeployment=async()=>({status:'setup-incomplete',deploymentId:'dpl_fixture123',missingEnvironment:['STRIPE_SECRET_KEY'],liveUrl:null,observedState:'READY'});base.commitObservation=async()=>5;
+assert.equal((await run(base)).status,'blocked');assert.equal(state.stage,'blocked');console.log('PASS BYO publish worker: persisted pre-side-effect stages, same-operation GitHub recovery, deployment observation and final readiness');
+}finally{await rm(dir,{recursive:true,force:true});}

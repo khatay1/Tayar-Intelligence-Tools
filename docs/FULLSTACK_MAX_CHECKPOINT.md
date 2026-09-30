@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `0fe254df20e147fd61431859db4499aee40f8b21`; equivalent parent remote HEAD for this batch: `aa34d9d95c7894c8e9c08cdee143eaabf3b3dc72` (shared tree `35c7d3b1c51eb4361880c4bd1450dc950d07049d`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-09-30 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Local HEAD at batch start: `d467969ac431d5c4eb0b8ee47ea7d2f757432ac5`; equivalent parent remote HEAD for this batch: `05d4cc5fdafc9ba4deff358a127924c0d9d48d0a` (shared tree `74c2e75184e1f768683f4fbc7ba76cd98f95a8fc`). Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -56,6 +56,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Verified Vercel secret removal now transitions the receipt through a distinct `removing` state, reads only the exact recorded destination ID, refuses changed metadata, deletes that ID, and requires a second non-decrypting list to prove absence before committing `removed`. The operation is versioned and resumable after uncertain provider or SQL responses; recovery of an already committed removal does not require the expired/revoked provider token.
 
+- A source-only BYO Publish coordinator now enforces the order `validate -> persist exporting -> GitHub export -> persist commit -> begin Vercel attempt -> discover/inspect -> commit observation -> ready`. It reuses one operation ID for GitHub recovery, persists side-effect stages before calls, keeps uncertain export/deployment states pending, blocks missing-env/failed observations and returns `ready` only after the final inspector report. Its durable CAS store and real adapters are not implemented or mounted yet.
+
 ## Verified
 
 - BYO contract regression checks wrong owner/project/account, stale version and operation, false ready state, repeated completion, disconnect and secret-shaped account IDs. Owner-reader regression uses mocked RPC and checks scoped response handling. TypeScript passed.
@@ -103,6 +105,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Vercel secret-removal regression uses mocked HTTP/RPC plus static SQL checks for exact destination identity, changed-metadata refusal, absent-before-delete recovery, absent-after-delete proof, uncertain DELETE, lost commit response and completed recovery without live custody. The complete infrastructure and integrations suites, TypeScript, targeted ESLint and diff checks passed. The migration was not executed and no live Vercel variable was deleted.
 
+- BYO Publish worker regression checks persisted pre-side-effect stages, same-operation GitHub recovery, exact source commit propagation, deployment discovery, connecting/blocked/final-ready behavior and ready retry without side effects. The complete infrastructure suite, TypeScript, targeted ESLint and diff checks passed. All provider/store callbacks are mocked; this is not a live deployment or mounted Publish action.
+
 ## In progress
 
 - Vercel endpoint bundling/mounting, optional shared-installation-safe uninstall and domain reconciliation remain in progress. Sensitive environment handoff/rotation/removal, read-only env/deployment inspection, durable attempt/status commit and standalone browser handoff UI are complete but unmounted.
@@ -122,6 +126,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 No live GitHub OAuth/installation, Supabase account ownership or catalog read, Vercel team ownership, Stripe checkout, BYO secret transfer or BYO deployment is proven. The GitHub verifier and the customer Supabase catalog reader have mocked HTTP only. Existing isolated database rollback tests prove older schema/RLS foundations and the source-only BYO registry, not production account connections. Real browser sign-in, form submission and full customer-account deployment remain pending.
 
 ## Files changed in the latest batch
+
+BYO Publish coordinator batch: `server/website-byo-publish-worker.ts`, `scripts/website-byo-publish-worker-regression.mjs`, `package.json`, `tsconfig.app.json` and this checkpoint. It supplies one resumable stage machine around the existing GitHub/Vercel workers and requires a CAS store to persist every transition. The full infrastructure suite passed. Store/provider adapters are mocked and the coordinator is unmounted.
 
 Vercel secret-removal batch: `server/website-owned-vercel-environment.ts`, `supabase/migrations/20260930023000_website_byo_vercel_secret_removal.sql`, `scripts/website-vercel-secret-removal-regression.mjs`, `package.json` and this checkpoint. It deletes only the exact receipt destination, verifies absence through a second non-decrypting read, commits `removed` atomically and reconciles uncertain provider/SQL responses even after custody expires. Infrastructure/integrations suites passed. HTTP/RPC are mocked and SQL was inspected statically; no migration or live deletion ran.
 
@@ -177,11 +183,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The source-only Vercel removal path deletes only the exact environment-variable ID stored in a verified receipt, refuses provider metadata drift, proves absence after DELETE, and commits `removed` with exact lost-response reconciliation. Mocked HTTP/RPC/static SQL regression, infrastructure/integrations suites, TypeScript and targeted ESLint passed; the migration was not applied and no live variable was deleted.
+The source-only BYO Publish coordinator persists side-effect stages, reuses one operation through GitHub recovery, binds the exported commit to Vercel observation and reports success only after final readiness. Mocked coordinator regression, the full infrastructure suite, TypeScript and targeted ESLint passed. Its CAS store and real adapters are still pending; no live deployment ran.
 
 ## Next exact batch
 
-Compose saved-project capture, GitHub export, required-secret receipt checks, Vercel deployment attempt and the read-only deployment inspector into one resumable Publish worker. Persist step/operation identities before side effects, resume the same commit after uncertain responses, and return success only after final observed readiness. Keep its HTTP/UI entry point disabled until Supabase migration readiness and real provider credentials exist. No production flags, migrations or live deployment.
+Implement the private CAS checkpoint store for the BYO Publish coordinator, including owner/project/environment scope, immutable operation identity, exact transition graph and lost-response reconciliation. Then wire adapters for owned source capture, required secret receipts, GitHub export, Vercel attempt/discovery/inspection without mounting HTTP/UI. Keep Publish disabled until Supabase readiness and real disposable-account proof. No production flags, migrations or live deployment.
 
 ## Known blockers
 
