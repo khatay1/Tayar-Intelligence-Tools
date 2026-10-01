@@ -1,0 +1,38 @@
+name: Media Studio Browser Syntax Fix Temp
+
+on:
+  push:
+    branches:
+      - feature/web-media-studio-max
+    paths:
+      - '.github/workflows/media-studio-browser-syntax-fix-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/web-media-studio-max
+      - name: Patch nested template literals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/media-studio-max-browser-regression.mjs')
+          text = p.read_text()
+          text = text.replace("ctx.fillStyle = `hsl(${(hue + frame * 8) % 360} 70% 42%)`;", "ctx.fillStyle = 'hsl(' + ((hue + frame * 8) % 360) + ' 70% 42%)';")
+          text = text.replace("ctx.fillText(`T${frame}`, 12, 32);", "ctx.fillText('T' + frame, 12, 32);")
+          p.write_text(text)
+          PY
+          node --check scripts/media-studio-max-browser-regression.mjs
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/media-studio-max-browser-regression.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix Media Studio browser regression syntax"
+          git push origin HEAD:feature/web-media-studio-max
