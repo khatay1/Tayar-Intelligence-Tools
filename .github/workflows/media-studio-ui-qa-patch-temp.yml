@@ -23,48 +23,57 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('src/modules/media-studio-max/MediaStudioMax.tsx')
           text = p.read_text()
-          old = """      const message = cause instanceof Error ? cause.message : t('operationFailed');
-          setError(message === 'Selected video has no audio track.' ? t('noAudioTrack') : message);"""
-          new = """      const message = cause instanceof Error ? cause.message : t('operationFailed');
-          if (message === 'Selected video has no audio track.') setError(t('noAudioTrack'));
-          else if (message === 'MEDIA_ENGINE_LOAD_TIMEOUT') setError(t('engineTimeout'));
-          else if (message.startsWith('MEDIA_ENGINE_DOWNLOAD_FAILED:')) setError(t('engineDownloadFailed'));
-          else setError(message);"""
-          if old not in text:
-              raise SystemExit('error mapping target not found')
-          text = text.replace(old, new, 1)
-          text = text.replace(
-              '<div dir={language === \'ar\' ? \'rtl\' : \'ltr\'} className="mx-auto max-w-[1500px] space-y-5 pb-12">',
-              '<div data-testid="media-studio-max" dir={language === \'ar\' ? \'rtl\' : \'ltr\'} className="mx-auto max-w-[1500px] space-y-5 pb-12">',
-              1,
+
+          pattern = re.compile(
+              r"(\s+const message = cause instanceof Error \? cause\.message : t\('operationFailed'\);\n)"
+              r"\s+setError\(message === 'Selected video has no audio track\.' \? t\('noAudioTrack'\) : message\);"
           )
-          text = text.replace(
-              '<button key={item.id} type="button" disabled={processing} onClick={() => chooseOperation(item.id)}',
-              '<button key={item.id} data-operation-id={item.id} type="button" disabled={processing} onClick={() => chooseOperation(item.id)}',
-              1,
+          replacement = (
+              "\\1"
+              "      if (message === 'Selected video has no audio track.') setError(t('noAudioTrack'));\n"
+              "      else if (message === 'MEDIA_ENGINE_LOAD_TIMEOUT') setError(t('engineTimeout'));\n"
+              "      else if (message.startsWith('MEDIA_ENGINE_DOWNLOAD_FAILED:')) setError(t('engineDownloadFailed'));\n"
+              "      else setError(message);"
           )
-          text = text.replace(
-              '<input ref={fileInputRef} type="file" className="hidden"',
-              '<input ref={fileInputRef} data-testid="media-file-input" type="file" className="hidden"',
-              1,
-          )
-          text = text.replace(
-              '{error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">',
-              '{error && <div data-testid="media-error" className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">',
-              1,
-          )
-          text = text.replace(
-              '<button type="button" disabled={processing || !sources.length} onClick={() => void processMedia()} className="flex min-h-12',
-              '<button data-testid="media-process" type="button" disabled={processing || !sources.length} onClick={() => void processMedia()} className="flex min-h-12',
-              1,
-          )
-          text = text.replace(
-              '<article key={result.previewUrl} className={`overflow-hidden rounded-2xl border',
-              '<article key={result.previewUrl} data-testid="media-result" className={`overflow-hidden rounded-2xl border',
-              1,
-          )
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'error mapping replacement count: {count}')
+
+          replacements = [
+              (
+                  '<div dir={language === \'ar\' ? \'rtl\' : \'ltr\'} className="mx-auto max-w-[1500px] space-y-5 pb-12">',
+                  '<div data-testid="media-studio-max" dir={language === \'ar\' ? \'rtl\' : \'ltr\'} className="mx-auto max-w-[1500px] space-y-5 pb-12">',
+              ),
+              (
+                  '<button key={item.id} type="button" disabled={processing} onClick={() => chooseOperation(item.id)}',
+                  '<button key={item.id} data-operation-id={item.id} type="button" disabled={processing} onClick={() => chooseOperation(item.id)}',
+              ),
+              (
+                  '<input ref={fileInputRef} type="file" className="hidden"',
+                  '<input ref={fileInputRef} data-testid="media-file-input" type="file" className="hidden"',
+              ),
+              (
+                  '{error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">',
+                  '{error && <div data-testid="media-error" className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">',
+              ),
+              (
+                  '<button type="button" disabled={processing || !sources.length} onClick={() => void processMedia()} className="flex min-h-12',
+                  '<button data-testid="media-process" type="button" disabled={processing || !sources.length} onClick={() => void processMedia()} className="flex min-h-12',
+              ),
+              (
+                  '<article key={result.previewUrl} className={`overflow-hidden rounded-2xl border',
+                  '<article key={result.previewUrl} data-testid="media-result" className={`overflow-hidden rounded-2xl border',
+              ),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'QA hook target not found: {old[:70]}')
+              text = text.replace(old, new, 1)
+
           p.write_text(text)
           PY
 
