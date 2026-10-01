@@ -42,32 +42,40 @@ class FFmpegWasmMediaEngine implements MediaEngine {
   }
 
   async load(events: MediaEngineEvents = {}) {
-    if (events.onLog) this.logCallbacks.add(events.onLog);
-    if (events.onProgress) this.progressCallbacks.add(events.onProgress);
-    if (this.ffmpeg?.loaded) return;
-    if (this.loading) return this.loading;
+    const logCallback = events.onLog;
+    const progressCallback = events.onProgress;
+    if (logCallback) this.logCallbacks.add(logCallback);
+    if (progressCallback) this.progressCallbacks.add(progressCallback);
 
-    this.loading = (async () => {
-      const ffmpeg = new FFmpeg();
-      ffmpeg.on('log', ({ message }) => {
-        this.logCallbacks.forEach((callback) => callback(message));
+    try {
+      if (this.ffmpeg?.loaded) return;
+      if (this.loading) return await this.loading;
+
+      this.loading = (async () => {
+        const ffmpeg = new FFmpeg();
+        ffmpeg.on('log', ({ message }) => {
+          this.logCallbacks.forEach((callback) => callback(message));
+        });
+        ffmpeg.on('progress', ({ progress }) => {
+          const normalized = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
+          this.progressCallbacks.forEach((callback) => callback(normalized));
+        });
+
+        const [coreURL, wasmURL] = await Promise.all([
+          toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.js`, 'text/javascript'),
+          toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
+        ]);
+        await ffmpeg.load({ coreURL, wasmURL });
+        this.ffmpeg = ffmpeg;
+      })().finally(() => {
+        this.loading = null;
       });
-      ffmpeg.on('progress', ({ progress }) => {
-        const normalized = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
-        this.progressCallbacks.forEach((callback) => callback(normalized));
-      });
 
-      const [coreURL, wasmURL] = await Promise.all([
-        toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.js`, 'text/javascript'),
-        toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
-      ]);
-      await ffmpeg.load({ coreURL, wasmURL });
-      this.ffmpeg = ffmpeg;
-    })().finally(() => {
-      this.loading = null;
-    });
-
-    return this.loading;
+      await this.loading;
+    } finally {
+      if (logCallback) this.logCallbacks.delete(logCallback);
+      if (progressCallback) this.progressCallbacks.delete(progressCallback);
+    }
   }
 
   cancel() {
@@ -82,7 +90,7 @@ class FFmpegWasmMediaEngine implements MediaEngine {
     if (events.onLog) this.logCallbacks.add(events.onLog);
     if (events.onProgress) this.progressCallbacks.add(events.onProgress);
 
-    await this.load(events);
+    await this.load();
     const ffmpeg = this.ffmpeg;
     if (!ffmpeg) throw new Error('Media engine did not initialize.');
 
