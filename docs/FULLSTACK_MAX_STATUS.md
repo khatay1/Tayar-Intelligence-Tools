@@ -340,3 +340,9 @@ Implementation branch: `feat/fullstack-max-20260926`. On 2026-09-27 the user exp
 
 - PARTIAL: the isolated public-key client checks a permanent dedicated Auth identity before insert and again before confirming it. A lost-response lookup must match the same owner/request UUID and every submitted field; a changed account, missing field or different value stays uncertain. The form controller still retains the request marker and values for a safe explicit retry.
 - PASS actual Supabase SDK with mocked HTTP for same/different/missing payload, missing session, endpoint/key isolation and account switch. Live browser and published insert E2E remain pending. No production mutation, deployment, flag enablement or main merge.
+
+## Checkpoint 2026-10-01 — customer Supabase migration target worker
+
+- COMPLETE at the unmounted source boundary: the trusted worker accepts only owner/project/environment/operation, derives the exact customer connection/custody/project ref and durable attempt through a service-only projection, proves customer ownership, reads the live deployed definition through `database:read`, and reuses the existing durable additive executor.
+- SAFETY: unresolved attempts can be resumed only by their original operation; a claimed mutation is never automatically replayed. Revision, Auth, form capability and RLS/grants are checked twice before readiness. Results contain digest/version metadata only, never OAuth grants, public keys, definitions or SQL.
+- PASS: mocked HTTP/RPC worker regression, static service-role SQL checks, targeted owned-source suite, complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks. The full gate also fixed six missing Arabic/Swedish BYO Publish labels and regenerated tested application bundles. The migration was generated through Supabase CLI but not applied. No live provider mutation, endpoint, production flag or `main` update occurred.
