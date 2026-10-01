@@ -1,5 +1,12 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — owned backend preparation
+
+- Added an unmounted server-only composition that completes or reconciles the exact customer Supabase migration before selecting a ready Supabase/Vercel runtime target and recording the runtime binding.
+- Runtime-binding CAS state now comes from an owner/project/environment/operation-scoped service-role projection. Same-operation retries receive the prior expected version and reuse the existing exact full-field reconciliation path instead of writing another binding version.
+- The result exposes no provider target, token, public key or application definition. Mocked orchestration/RPC and static-SQL regression, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. The CLI-generated migration remains unapplied; no endpoint, provider call, deployment, production flag or main merge was performed.
+- NEXT: invoke this preparation from the unmounted Preview publish runner before target/source capture, with exact retry ordering and no checkpoint/export/deploy progress after preparation failure.
+
 ## Current side-branch checkpoint — integration secret editor wiring
 
 - Connected saved cloud project integration secret entry to the owner-checked Vault RPC and stored only a scoped opaque reference in editor state. The UI requires one selected environment; stale project/configuration checks prevent cross-project attachment.
