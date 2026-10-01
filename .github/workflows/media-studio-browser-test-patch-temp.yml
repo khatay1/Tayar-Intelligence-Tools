@@ -1,0 +1,49 @@
+name: Media Studio Browser Test Patch Temp
+
+on:
+  push:
+    branches:
+      - feature/web-media-studio-max
+    paths:
+      - '.github/workflows/media-studio-browser-test-patch-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/web-media-studio-max
+
+      - name: Patch deterministic QA selectors
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/media-studio-max-browser-regression.mjs')
+          text = p.read_text()
+          pairs = [
+            ("document.querySelector('input[type=\"file\"]')", "document.querySelector('[data-testid=\"media-file-input\"]')"),
+            ("Array.from(document.querySelectorAll('button')).find((node) => (node.textContent || '').trim() === 'Process media')", "document.querySelector('[data-testid=\"media-process\"]')"),
+            ("document.querySelectorAll('article').length > 0 || (document.body.innerText.includes('failed') && !document.body.innerText.includes('Processing...'))", "document.querySelectorAll('[data-testid=\"media-result\"]').length > 0 || Boolean(document.querySelector('[data-testid=\"media-error\"]'))"),
+            ("document.querySelectorAll('article').length", "document.querySelectorAll('[data-testid=\"media-result\"]').length"),
+          ]
+          for old, new in pairs:
+              if old not in text:
+                  raise SystemExit(f'target not found: {old}')
+              text = text.replace(old, new)
+          p.write_text(text)
+          PY
+          node --check scripts/media-studio-max-browser-regression.mjs
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/media-studio-max-browser-regression.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "Harden Media Studio browser regression selectors"
+          git push origin HEAD:feature/web-media-studio-max
