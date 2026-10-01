@@ -1,0 +1,45 @@
+name: Media Studio Browser Verify Temp
+
+on:
+  push:
+    branches:
+      - feature/web-media-studio-max
+    paths:
+      - 'src/modules/media-studio-max/**'
+      - 'src/test/media-studio-max-browser-regression.tsx'
+      - 'test-fixtures/media-studio-max-regression.html'
+      - 'scripts/media-studio-max-browser-regression.mjs'
+      - '.github/workflows/media-studio-browser-verify-temp.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: media-studio-browser-verify
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Media Studio real Chromium regression
+        run: node scripts/media-studio-max-browser-regression.mjs
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
