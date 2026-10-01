@@ -57,6 +57,8 @@
     "smoke:website-builder:vercel-promotion": "node scripts/website-vercel-promotion-regression.mjs"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@pdfme/pdf-lib": "^6.1.12",
     "@supabase/supabase-js": "^2.57.4",
     "lucide-react": "^0.344.0",
