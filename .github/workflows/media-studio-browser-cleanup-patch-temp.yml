@@ -1,0 +1,87 @@
+name: Media Studio Browser Cleanup Patch Temp
+
+on:
+  push:
+    branches:
+      - feature/web-media-studio-max
+    paths:
+      - '.github/workflows/media-studio-browser-cleanup-patch-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/web-media-studio-max
+
+      - name: Patch browser cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('scripts/media-studio-max-browser-regression.mjs')
+          text = p.read_text()
+
+          old_stop = """async function stop(child) {
+            if (!child || child.exitCode !== null) return;
+            child.kill('SIGTERM');
+            await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1200)]);
+            if (child.exitCode === null) child.kill('SIGKILL');
+          }
+          """
+          new_stop = """async function stop(child) {
+            if (!child || child.exitCode !== null) return;
+            child.kill('SIGTERM');
+            await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1500)]);
+            if (child.exitCode === null) {
+              child.kill('SIGKILL');
+              await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1200)]);
+            }
+          }
+
+          function cleanupUserDataDir(dir) {
+            try {
+              fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 150 });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              console.warn(`[media-browser] cleanup warning for ${dir}: ${message}`);
+            }
+          }
+          """
+          if old_stop not in text:
+              raise SystemExit('stop() target not found')
+          text = text.replace(old_stop, new_stop, 1)
+
+          old_cleanup = """    cdp?.close();
+              await stop(chrome?.child);
+              for (const attempt of chromeAttempts) await stop(attempt.child);
+              await stop(vite.child);
+              for (const dir of userDataDirs) fs.rmSync(dir, { recursive: true, force: true });
+          """
+          new_cleanup = """    cdp?.close();
+              await stop(chrome?.child);
+              for (const attempt of chromeAttempts) await stop(attempt.child);
+              await stop(vite.child);
+              await sleep(250);
+              for (const dir of userDataDirs) cleanupUserDataDir(dir);
+          """
+          if old_cleanup not in text:
+              raise SystemExit('cleanup target not found')
+          text = text.replace(old_cleanup, new_cleanup, 1)
+          p.write_text(text)
+          PY
+          node --check scripts/media-studio-max-browser-regression.mjs
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/media-studio-max-browser-regression.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "Harden Media Studio browser QA cleanup"
+          git push origin HEAD:feature/web-media-studio-max
