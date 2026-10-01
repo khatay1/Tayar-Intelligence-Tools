@@ -16,17 +16,22 @@ function readVideoMetadata(url: string) {
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.muted = true;
-    const done = () => {
+    const cleanup = () => {
+      video.removeAttribute('src');
+      video.load();
+    };
+    video.onloadedmetadata = () => {
       resolve({
         duration: Number.isFinite(video.duration) ? video.duration : undefined,
         width: video.videoWidth || undefined,
         height: video.videoHeight || undefined,
       });
-      video.removeAttribute('src');
-      video.load();
+      cleanup();
     };
-    video.onloadedmetadata = done;
-    video.onerror = () => resolve({});
+    video.onerror = () => {
+      resolve({});
+      cleanup();
+    };
     video.src = url;
   });
 }
@@ -44,8 +49,8 @@ export async function createMediaSource(file: File, index: number): Promise<Medi
   const objectUrl = URL.createObjectURL(file);
   const kind = detectMediaKind(file);
   let metadata: Pick<MediaSourceFile, 'duration' | 'width' | 'height'> = {};
-  if (kind === 'video' || kind === 'gif') metadata = await readVideoMetadata(objectUrl);
-  else if (kind === 'image') metadata = await readImageMetadata(objectUrl);
+  if (kind === 'video') metadata = await readVideoMetadata(objectUrl);
+  else if (kind === 'image' || kind === 'gif') metadata = await readImageMetadata(objectUrl);
   return {
     id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
     file,
