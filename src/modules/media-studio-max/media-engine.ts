@@ -1,9 +1,14 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL } from '@ffmpeg/util';
 import { createMediaInputNames, createMediaJobPlan } from './command-planner';
 import type { MediaOperationId, MediaOperationSettings, MediaResult, MediaSourceFile } from './types';
 
-const CORE_BASE_URL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+const CORE_VERSION = '0.12.10';
+const CORE_SOURCES = [
+  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/esm`,
+  `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm`,
+];
+const CORE_FETCH_TIMEOUT_MS = 20_000;
+const CORE_BOOT_TIMEOUT_MS = 30_000;
 
 export interface MediaEngineEvents {
   onProgress?: (progress: number) => void;
@@ -33,6 +38,61 @@ function outputMatcher(pattern: string) {
   const expression = escaped.replace(/%0?\d*d/g, '\\d+');
   const regex = new RegExp(`^${expression}$`);
   return (name: string) => regex.test(name);
+}
+
+async function fetchCoreBytes(url: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), CORE_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      mode: 'cors',
+      cache: 'force-cache',
+      credentials: 'omit',
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.arrayBuffer();
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+async function loadCoreBlobUrls() {
+  let lastError: unknown;
+  for (const baseUrl of CORE_SOURCES) {
+    try {
+      const [coreBytes, wasmBytes] = await Promise.all([
+        fetchCoreBytes(`${baseUrl}/ffmpeg-core.js`),
+        fetchCoreBytes(`${baseUrl}/ffmpeg-core.wasm`),
+      ]);
+      return {
+        coreURL: URL.createObjectURL(new Blob([coreBytes], { type: 'text/javascript' })),
+        wasmURL: URL.createObjectURL(new Blob([wasmBytes], { type: 'application/wasm' })),
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  const reason = lastError instanceof Error ? lastError.message : String(lastError || 'unknown error');
+  throw new Error(`MEDIA_ENGINE_DOWNLOAD_FAILED:${reason}`);
+}
+
+async function bootFFmpeg(ffmpeg: FFmpeg, urls: { coreURL: string; wasmURL: string }) {
+  let timeout: number | undefined;
+  try {
+    await Promise.race([
+      ffmpeg.load(urls),
+      new Promise<never>((_, reject) => {
+        timeout = window.setTimeout(() => {
+          try { ffmpeg.terminate(); } catch { /* worker may already be stopped */ }
+          reject(new Error('MEDIA_ENGINE_LOAD_TIMEOUT'));
+        }, CORE_BOOT_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) window.clearTimeout(timeout);
+  }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement) {
@@ -137,13 +197,18 @@ class FFmpegWasmMediaEngine implements MediaEngine {
           this.progressCallbacks.forEach((callback) => callback(normalized));
         });
 
-        const [coreURL, wasmURL] = await Promise.all([
-          toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.js`, 'text/javascript'),
-          toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
-        ]);
-        await ffmpeg.load({ coreURL, wasmURL });
-        this.ffmpeg = ffmpeg;
-      })().finally(() => {
+        const urls = await loadCoreBlobUrls();
+        try {
+          await bootFFmpeg(ffmpeg, urls);
+          this.ffmpeg = ffmpeg;
+        } finally {
+          URL.revokeObjectURL(urls.coreURL);
+          URL.revokeObjectURL(urls.wasmURL);
+        }
+      })().catch((error) => {
+        this.ffmpeg = null;
+        throw error;
+      }).finally(() => {
         this.loading = null;
       });
 
