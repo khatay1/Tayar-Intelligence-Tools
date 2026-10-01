@@ -238,7 +238,10 @@ export default function MediaStudioMax({ darkMode }: Props) {
     } catch (cause) {
       setEngineStatus(mediaEngine.isLoaded() ? 'ready' : 'failed');
       const message = cause instanceof Error ? cause.message : t('operationFailed');
-      setError(message === 'Selected video has no audio track.' ? t('noAudioTrack') : message);
+      if (message === 'Selected video has no audio track.') setError(t('noAudioTrack'));
+      else if (message === 'MEDIA_ENGINE_LOAD_TIMEOUT') setError(t('engineTimeout'));
+      else if (message.startsWith('MEDIA_ENGINE_DOWNLOAD_FAILED:')) setError(t('engineDownloadFailed'));
+      else setError(message);
     } finally {
       setProcessing(false);
     }
@@ -276,7 +279,7 @@ export default function MediaStudioMax({ darkMode }: Props) {
   const muted = darkMode ? 'text-gray-400' : 'text-gray-600';
 
   return (
-    <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="mx-auto max-w-[1500px] space-y-5 pb-12">
+    <div data-testid="media-studio-max" dir={language === 'ar' ? 'rtl' : 'ltr'} className="mx-auto max-w-[1500px] space-y-5 pb-12">
       <section className={`relative overflow-hidden rounded-3xl border p-5 sm:p-7 ${card}`}>
         <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-violet-600/15 blur-3xl" />
         <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
@@ -315,7 +318,7 @@ export default function MediaStudioMax({ darkMode }: Props) {
             const copy = getLocalizedOperation(item.id, language);
             const active = item.id === operationId;
             return (
-              <button key={item.id} type="button" disabled={processing} onClick={() => chooseOperation(item.id)} className={`min-h-28 rounded-2xl border p-4 text-start transition ${active ? 'border-violet-400/60 bg-violet-500/15 shadow-[0_0_28px_rgba(139,92,246,0.08)]' : darkMode ? 'border-white/8 bg-black/10 hover:border-white/20 hover:bg-white/[0.05]' : 'border-gray-200 bg-gray-50 hover:border-violet-300 hover:bg-white'}`}>
+              <button key={item.id} data-operation-id={item.id} type="button" disabled={processing} onClick={() => chooseOperation(item.id)} className={`min-h-28 rounded-2xl border p-4 text-start transition ${active ? 'border-violet-400/60 bg-violet-500/15 shadow-[0_0_28px_rgba(139,92,246,0.08)]' : darkMode ? 'border-white/8 bg-black/10 hover:border-white/20 hover:bg-white/[0.05]' : 'border-gray-200 bg-gray-50 hover:border-violet-300 hover:bg-white'}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${active ? 'bg-violet-500/20 text-violet-300' : darkMode ? 'bg-white/5 text-gray-400' : 'bg-white text-gray-500'}`}><Video className="h-4 w-4" /></div>
                   {item.recommended && <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-400">{t('recommended')}</span>}
@@ -339,7 +342,7 @@ export default function MediaStudioMax({ darkMode }: Props) {
             <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${darkMode ? 'bg-violet-500/10 text-violet-300' : 'bg-violet-50 text-violet-600'}`}><FileVideo className="h-5 w-5" /></div>
           </div>
 
-          <input ref={fileInputRef} type="file" className="hidden" accept={acceptForKinds(operation.input)} multiple={Boolean(operation.acceptsMultiple || operation.input.length > 1)} onChange={event => { void addFiles(Array.from(event.target.files || [])); event.currentTarget.value = ''; }} />
+          <input ref={fileInputRef} data-testid="media-file-input" type="file" className="hidden" accept={acceptForKinds(operation.input)} multiple={Boolean(operation.acceptsMultiple || operation.input.length > 1)} onChange={event => { void addFiles(Array.from(event.target.files || [])); event.currentTarget.value = ''; }} />
           <div onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addFiles(Array.from(event.dataTransfer.files)); }} className={`rounded-2xl border border-dashed p-6 text-center transition ${darkMode ? 'border-violet-400/25 bg-violet-500/[0.04]' : 'border-violet-200 bg-violet-50/50'}`}>
             <Upload className="mx-auto h-8 w-8 text-violet-400" />
             <p className={`mt-3 text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t('drop')}</p>
@@ -367,7 +370,7 @@ export default function MediaStudioMax({ darkMode }: Props) {
 
           <div className={`mt-5 rounded-2xl border p-3.5 ${darkMode ? 'border-amber-400/10 bg-amber-500/[0.04]' : 'border-amber-200 bg-amber-50'}`}><p className={`text-xs leading-5 ${darkMode ? 'text-amber-200/80' : 'text-amber-800'}`}>{t('memoryNote')}</p></div>
 
-          {error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-words">{error}</span></div>}
+          {error && <div data-testid="media-error" className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-words">{error}</span></div>}
 
           {processing && <div className="mt-5">
             <div className="mb-2 flex items-center justify-between gap-3 text-xs"><span className={muted}>{engineStatus === 'loading' ? t('engineLoading') : t('processing')}</span><span className="font-semibold text-violet-400">{Math.round(progress * 100)}%</span></div>
@@ -375,7 +378,7 @@ export default function MediaStudioMax({ darkMode }: Props) {
           </div>}
 
           <div className="mt-5 flex gap-3">
-            <button type="button" disabled={processing || !sources.length} onClick={() => void processMedia()} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 text-sm font-bold text-white shadow-lg shadow-violet-900/20 transition hover:from-violet-500 hover:to-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-40">{processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{processing ? t('processing') : t('process')}</button>
+            <button data-testid="media-process" type="button" disabled={processing || !sources.length} onClick={() => void processMedia()} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 text-sm font-bold text-white shadow-lg shadow-violet-900/20 transition hover:from-violet-500 hover:to-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-40">{processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{processing ? t('processing') : t('process')}</button>
             {processing && <button type="button" onClick={cancelProcessing} className={`min-h-12 rounded-xl border px-4 text-sm font-semibold ${darkMode ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>{t('cancel')}</button>}
           </div>
         </div>
@@ -395,7 +398,7 @@ export default function MediaStudioMax({ darkMode }: Props) {
 
         {!results.length ? <div className={`mt-4 flex min-h-40 flex-col items-center justify-center rounded-2xl border border-dashed ${darkMode ? 'border-white/8 bg-black/10' : 'border-gray-200 bg-gray-50'}`}><FileVideo className={`h-8 w-8 ${darkMode ? 'text-gray-700' : 'text-gray-300'}`} /><p className={`mt-3 text-sm ${muted}`}>{t('noResult')}</p></div> : <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {results.map(result => (
-            <article key={result.previewUrl} className={`overflow-hidden rounded-2xl border ${darkMode ? 'border-white/8 bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
+            <article key={result.previewUrl} data-testid="media-result" className={`overflow-hidden rounded-2xl border ${darkMode ? 'border-white/8 bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
               <div className={`flex min-h-40 items-center justify-center overflow-hidden ${darkMode ? 'bg-black/30' : 'bg-gray-100'}`}>
                 {result.mimeType.startsWith('video/') ? <video src={result.previewUrl} controls className="max-h-72 w-full" /> : result.mimeType.startsWith('image/') ? <img src={result.previewUrl} alt="" className="max-h-72 w-full object-contain" /> : result.mimeType.startsWith('audio/') ? <audio src={result.previewUrl} controls className="w-[90%]" /> : <FileVideo className="h-10 w-10 text-violet-400" />}
               </div>
