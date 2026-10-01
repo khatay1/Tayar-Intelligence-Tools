@@ -1,0 +1,83 @@
+name: Media Studio UI QA Patch Temp
+
+on:
+  push:
+    branches:
+      - feature/web-media-studio-max
+    paths:
+      - '.github/workflows/media-studio-ui-qa-patch-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/web-media-studio-max
+
+      - name: Patch Media Studio UI QA hooks
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/modules/media-studio-max/MediaStudioMax.tsx')
+          text = p.read_text()
+          old = """      const message = cause instanceof Error ? cause.message : t('operationFailed');
+          setError(message === 'Selected video has no audio track.' ? t('noAudioTrack') : message);"""
+          new = """      const message = cause instanceof Error ? cause.message : t('operationFailed');
+          if (message === 'Selected video has no audio track.') setError(t('noAudioTrack'));
+          else if (message === 'MEDIA_ENGINE_LOAD_TIMEOUT') setError(t('engineTimeout'));
+          else if (message.startsWith('MEDIA_ENGINE_DOWNLOAD_FAILED:')) setError(t('engineDownloadFailed'));
+          else setError(message);"""
+          if old not in text:
+              raise SystemExit('error mapping target not found')
+          text = text.replace(old, new, 1)
+          text = text.replace(
+              '<div dir={language === \'ar\' ? \'rtl\' : \'ltr\'} className="mx-auto max-w-[1500px] space-y-5 pb-12">',
+              '<div data-testid="media-studio-max" dir={language === \'ar\' ? \'rtl\' : \'ltr\'} className="mx-auto max-w-[1500px] space-y-5 pb-12">',
+              1,
+          )
+          text = text.replace(
+              '<button key={item.id} type="button" disabled={processing} onClick={() => chooseOperation(item.id)}',
+              '<button key={item.id} data-operation-id={item.id} type="button" disabled={processing} onClick={() => chooseOperation(item.id)}',
+              1,
+          )
+          text = text.replace(
+              '<input ref={fileInputRef} type="file" className="hidden"',
+              '<input ref={fileInputRef} data-testid="media-file-input" type="file" className="hidden"',
+              1,
+          )
+          text = text.replace(
+              '{error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">',
+              '{error && <div data-testid="media-error" className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">',
+              1,
+          )
+          text = text.replace(
+              '<button type="button" disabled={processing || !sources.length} onClick={() => void processMedia()} className="flex min-h-12',
+              '<button data-testid="media-process" type="button" disabled={processing || !sources.length} onClick={() => void processMedia()} className="flex min-h-12',
+              1,
+          )
+          text = text.replace(
+              '<article key={result.previewUrl} className={`overflow-hidden rounded-2xl border',
+              '<article key={result.previewUrl} data-testid="media-result" className={`overflow-hidden rounded-2xl border',
+              1,
+          )
+          p.write_text(text)
+          PY
+
+      - name: Typecheck patch
+        run: |
+          npm ci
+          npm run typecheck
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/media-studio-max/MediaStudioMax.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Improve Media Studio localized errors and QA hooks"
+          git push origin HEAD:feature/web-media-studio-max
