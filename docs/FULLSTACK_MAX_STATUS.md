@@ -1,5 +1,13 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — preparation-first Preview Publish
+
+- Preview Publish now runs the customer-owned backend preparation composition before selecting GitHub/Vercel Publish targets or entering the durable Publish adapter.
+- First attempts and exact retries use the same owner/project/operation scope; the runner receives the Tayar Supabase organization only from trusted host configuration and accepts no browser connection IDs or CAS versions.
+- Preparation failure stops before target capture. A stale scope immediately after successful preparation stops before checkpoint initialization, GitHub export or Vercel deployment. Production remains a separate verified-Preview promotion path.
+- Mocked runner/host regressions, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. No endpoint, UI, migration, provider call, deployment, production flag or main merge was enabled.
+- NEXT: add a strict unmounted server-environment deployment-entry factory around the Node-compatible host, without creating an auto-mounted API route.
+
 ## Current side-branch checkpoint — owned backend preparation
 
 - Added an unmounted server-only composition that completes or reconciles the exact customer Supabase migration before selecting a ready Supabase/Vercel runtime target and recording the runtime binding.

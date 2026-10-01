@@ -4,6 +4,7 @@ import type {OwnedSourceReader} from './website-owned-source-capture';
 import {runWebsiteOwnedByoProductionPublish,runWebsiteOwnedByoPublish} from './website-byo-publish-adapters';
 import {createWebsiteByoPublishStore} from './website-byo-publish-store';
 import {captureWebsiteByoPublishTargets} from './website-byo-publish-targets';
+import {prepareWebsiteOwnedBackend} from './website-owned-backend-preparation-worker';
 
 type Client=Pick<SupabaseClient,'rpc'>;
 type Scope={ownerId:string;projectId:string;operationId:string};
@@ -16,7 +17,7 @@ function status(checkpoint:NonNullable<Awaited<ReturnType<ReturnType<typeof crea
 /** Trusted endpoint runners. The HTTP request never supplies connection IDs,
  * versions, provider accounts, credentials or runtime bindings. */
 export function createWebsiteByoPublishRunners(input:{client:Client;reader:OwnedSourceReader;
-  platformOrigin:string;platformUrl:string;platformVercelAccountId:string;
+  platformOrigin:string;platformUrl:string;platformSupabaseOrganizationId:string;platformVercelAccountId:string;
   githubAppClientId:string;githubAppPrivateKeyPkcs8:string;verifyRuntime:VerifyRuntime;
   requiredEnvironment(capabilities:ByoSourceCapabilities):Promise<string[]>;fetcher?:typeof fetch;
 }){
@@ -24,6 +25,9 @@ export function createWebsiteByoPublishRunners(input:{client:Client;reader:Owned
     captureWebsiteByoPublishTargets({client:input.client,...scope});
   return{
     async runPreview(scope:Scope){
+      await prepareWebsiteOwnedBackend({client:input.client,reader:input.reader,...scope,environment:'preview',
+        platformOrigin:input.platformOrigin,platformSupabaseOrganizationId:input.platformSupabaseOrganizationId,
+        platformVercelAccountId:input.platformVercelAccountId,fetcher:input.fetcher});
       const selected=await capture(scope);
       return runWebsiteOwnedByoPublish({client:input.client,...scope,environment:'preview',reader:input.reader,
         githubConnectionId:selected.targets.githubPreview.connectionId,
