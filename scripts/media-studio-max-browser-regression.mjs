@@ -193,7 +193,7 @@ async function regression() {
     };
     const upload = async (keys) => {
       const uploaded = await evaluate(`(() => {
-        const input = document.querySelector('input[type="file"]');
+        const input = document.querySelector('[data-testid="media-file-input"]');
         if (!input || !window.__tayarMediaFiles) return false;
         const transfer = new DataTransfer();
         for (const key of ${JSON.stringify(keys)}) {
@@ -237,18 +237,18 @@ async function regression() {
     };
     const process = async (label, timeout = 90_000) => {
       await waitFor(`${label} process button`, `(() => {
-        const button = Array.from(document.querySelectorAll('button')).find((node) => (node.textContent || '').trim() === 'Process media');
+        const button = document.querySelector('[data-testid="media-process"]');
         return Boolean(button && !button.disabled);
       })()`);
       const clicked = await evaluate(`(() => {
-        const button = Array.from(document.querySelectorAll('button')).find((node) => (node.textContent || '').trim() === 'Process media');
+        const button = document.querySelector('[data-testid="media-process"]');
         if (!button || button.disabled) return false;
         button.click();
         return true;
       })()`);
       assert(clicked, `Could not start ${label}.`);
-      await waitFor(`${label} output`, `document.querySelectorAll('article').length > 0 || (document.body.innerText.includes('failed') && !document.body.innerText.includes('Processing...'))`, timeout);
-      const resultCount = await evaluate(`document.querySelectorAll('article').length`);
+      await waitFor(`${label} output`, `document.querySelectorAll('[data-testid="media-result"]').length > 0 || Boolean(document.querySelector('[data-testid="media-error"]'))`, timeout);
+      const resultCount = await evaluate(`document.querySelectorAll('[data-testid="media-result"]').length`);
       if (!resultCount) throw new Error(`${label} produced no result. Page tail: ${(await bodyText()).slice(-1800)}`);
       return resultCount;
     };
