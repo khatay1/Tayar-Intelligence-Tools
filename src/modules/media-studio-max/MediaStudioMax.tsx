@@ -135,6 +135,8 @@ export default function MediaStudioMax({ darkMode }: Props) {
   const [engineStatus, setEngineStatus] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sourcesRef = useRef<MediaSourceFile[]>([]);
+  const resultsRef = useRef<MediaResult[]>([]);
 
   const operation = getMediaOperation(operationId)!;
   const localizedOperation = getLocalizedOperation(operationId, language);
@@ -149,10 +151,12 @@ export default function MediaStudioMax({ darkMode }: Props) {
     });
   }, [group, query, language]);
 
+  useEffect(() => { sourcesRef.current = sources; }, [sources]);
+  useEffect(() => { resultsRef.current = results; }, [results]);
   useEffect(() => () => {
-    disposeSources(sources);
-    results.forEach(result => URL.revokeObjectURL(result.previewUrl));
-  }, [sources, results]);
+    disposeSources(sourcesRef.current);
+    resultsRef.current.forEach(result => URL.revokeObjectURL(result.previewUrl));
+  }, []);
 
   function clearResults() {
     setResults(current => {
@@ -177,7 +181,16 @@ export default function MediaStudioMax({ darkMode }: Props) {
     setError(null);
     clearResults();
     const created = await Promise.all(files.map(createMediaSource));
-    setSources(current => operation.acceptsMultiple || operation.input.length > 1 ? [...current, ...created] : created.slice(0, 1));
+    if (operation.acceptsMultiple || operation.input.length > 1) {
+      setSources(current => [...current, ...created]);
+      return;
+    }
+    const [first, ...unused] = created;
+    disposeSources(unused);
+    setSources(current => {
+      disposeSources(current);
+      return first ? [first] : [];
+    });
   }
 
   function removeSource(id: string) {
