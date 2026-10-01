@@ -56,6 +56,7 @@ export interface MediaSourceFile {
   duration?: number;
   width?: number;
   height?: number;
+  hasAudio?: boolean;
 }
 
 export interface MediaOperationSettings {
