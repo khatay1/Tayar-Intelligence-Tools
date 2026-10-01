@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
+  Archive,
   CheckCircle2,
   Download,
   FileVideo,
@@ -22,6 +23,7 @@ import { mediaEngine } from './media-engine';
 import { mediaStudioText, type MediaStudioTextKey } from './i18n';
 import { getLocalizedOperation } from './operation-i18n';
 import MediaSettingsPanel from './MediaSettingsPanel';
+import { createMediaResultsZip } from './zip-results';
 import type {
   MediaInputKind,
   MediaOperationGroup,
@@ -235,9 +237,31 @@ export default function MediaStudioMax({ darkMode }: Props) {
       setProgress(1);
     } catch (cause) {
       setEngineStatus(mediaEngine.isLoaded() ? 'ready' : 'failed');
-      setError(cause instanceof Error ? cause.message : t('operationFailed'));
+      const message = cause instanceof Error ? cause.message : t('operationFailed');
+      setError(message === 'Selected video has no audio track.' ? t('noAudioTrack') : message);
     } finally {
       setProcessing(false);
+    }
+  }
+
+  async function downloadAllResults() {
+    try {
+      setError(null);
+      const entries = await Promise.all(results.map(async result => ({
+        name: result.name,
+        data: new Uint8Array(await result.blob.arrayBuffer()),
+      })));
+      const zip = createMediaResultsZip(entries);
+      const url = URL.createObjectURL(zip);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `tayar-media-${operationId}-results.zip`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('operationFailed'));
     }
   }
 
@@ -358,7 +382,16 @@ export default function MediaStudioMax({ darkMode }: Props) {
       </section>
 
       <section className={`rounded-3xl border p-4 sm:p-5 ${card}`}>
-        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-400">{results.length > 1 ? t('results') : t('result')}</p><h2 className={`mt-1 text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-950'}`}>{results.length ? `${t('done')} · ${results.length}` : t('outputPreview')}</h2></div>{results.length > 0 && <CheckCircle2 className="h-6 w-6 text-emerald-400" />}</div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-400">{results.length > 1 ? t('results') : t('result')}</p>
+            <h2 className={`mt-1 text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-950'}`}>{results.length ? `${t('done')} · ${results.length}` : t('outputPreview')}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {results.length > 1 && <button type="button" onClick={() => void downloadAllResults()} className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${darkMode ? 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}><Archive className="h-4 w-4" /> {t('downloadAll')}</button>}
+            {results.length > 0 && <CheckCircle2 className="h-6 w-6 text-emerald-400" />}
+          </div>
+        </div>
 
         {!results.length ? <div className={`mt-4 flex min-h-40 flex-col items-center justify-center rounded-2xl border border-dashed ${darkMode ? 'border-white/8 bg-black/10' : 'border-gray-200 bg-gray-50'}`}><FileVideo className={`h-8 w-8 ${darkMode ? 'text-gray-700' : 'text-gray-300'}`} /><p className={`mt-3 text-sm ${muted}`}>{t('noResult')}</p></div> : <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {results.map(result => (
