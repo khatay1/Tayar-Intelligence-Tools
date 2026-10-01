@@ -1,0 +1,61 @@
+name: Media Studio Browser Exit Patch Temp
+
+on:
+  push:
+    branches:
+      - feature/web-media-studio-max
+    paths:
+      - '.github/workflows/media-studio-browser-exit-patch-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/web-media-studio-max
+
+      - name: Patch deterministic browser-runner exit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/media-studio-max-browser-regression.mjs')
+          text = p.read_text()
+          old = """regression()
+            .catch((error) => {
+              console.error('[media-studio-browser-regression] FAIL');
+              console.error(error instanceof Error ? error.stack || error.message : String(error));
+              process.exitCode = 1;
+            })
+            .finally(() => clearTimeout(hardTimeout));
+          """
+          new = """regression()
+            .then(() => {
+              clearTimeout(hardTimeout);
+              process.exit(0);
+            })
+            .catch((error) => {
+              clearTimeout(hardTimeout);
+              console.error('[media-studio-browser-regression] FAIL');
+              console.error(error instanceof Error ? error.stack || error.message : String(error));
+              process.exit(1);
+            });
+          """
+          if old not in text:
+              raise SystemExit('browser-runner exit target not found')
+          p.write_text(text.replace(old, new, 1))
+          PY
+          node --check scripts/media-studio-max-browser-regression.mjs
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/media-studio-max-browser-regression.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "Make Media Studio browser QA exit deterministically"
+          git push origin HEAD:feature/web-media-studio-max
