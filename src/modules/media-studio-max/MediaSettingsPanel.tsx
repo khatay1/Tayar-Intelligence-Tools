@@ -71,7 +71,7 @@ export default function MediaSettingsPanel({ operation, settings, onChange, dark
 
       {operation === 'rotate-video' && <label><span className={labelClass}>{t('rotation')}</span><select className={fieldClass} value={settings.rotation || 90} onChange={e => set('rotation', Number(e.target.value) as 90 | 180 | 270)}><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>}
 
-      {operation === 'flip-video' && <label><span className={labelClass}>{t('flip')}</span><select className={fieldClass} value={settings.flip || 'horizontal'} onChange={e => set('flip', e.target.value as 'horizontal' | 'vertical')}><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option></select></label>}
+      {operation === 'flip-video' && <label><span className={labelClass}>{t('flip')}</span><select className={fieldClass} value={settings.flip || 'horizontal'} onChange={e => set('flip', e.target.value as 'horizontal' | 'vertical')}><option value="horizontal">{t('horizontal')}</option><option value="vertical">{t('vertical')}</option></select></label>}
 
       {operation === 'change-aspect-ratio' && <label><span className={labelClass}>{t('aspectRatio')}</span><select className={fieldClass} value={settings.aspectRatio || '16:9'} onChange={e => set('aspectRatio', e.target.value)}><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="21:9">21:9</option></select></label>}
 
@@ -84,7 +84,7 @@ export default function MediaSettingsPanel({ operation, settings, onChange, dark
 
       {(operation === 'add-text-watermark' || operation === 'add-image-watermark') && <>
         {operation === 'add-text-watermark' && <label className="sm:col-span-2"><span className={labelClass}>{t('text')}</span><input className={fieldClass} type="text" value={settings.text || 'Tayar'} onChange={e => set('text', e.target.value)} /></label>}
-        <label><span className={labelClass}>{t('position')}</span><select className={fieldClass} value={settings.position || 'bottom-right'} onChange={e => set('position', e.target.value as MediaOperationSettings['position'])}><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="center">Center</option><option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option></select></label>
+        <label><span className={labelClass}>{t('position')}</span><select className={fieldClass} value={settings.position || 'bottom-right'} onChange={e => set('position', e.target.value as MediaOperationSettings['position'])}><option value="top-left">{t('topLeft')}</option><option value="top-right">{t('topRight')}</option><option value="center">{t('center')}</option><option value="bottom-left">{t('bottomLeft')}</option><option value="bottom-right">{t('bottomRight')}</option></select></label>
         <label><span className={labelClass}>{t('opacity')} · {Math.round(number('opacity', 0.8) * 100)}%</span><input className="h-11 w-full accent-violet-500" type="range" min="0.05" max="1" step="0.05" value={number('opacity', 0.8)} onChange={e => set('opacity', Number(e.target.value))} /></label>
       </>}
 
