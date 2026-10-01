@@ -43,3 +43,5 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+      # Intentionally kept temporary until the real-browser QA pass is green.
