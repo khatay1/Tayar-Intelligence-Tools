@@ -48,8 +48,20 @@ function start(command, args, options = {}) {
 async function stop(child) {
   if (!child || child.exitCode !== null) return;
   child.kill('SIGTERM');
-  await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1200)]);
-  if (child.exitCode === null) child.kill('SIGKILL');
+  await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1500)]);
+  if (child.exitCode === null) {
+    child.kill('SIGKILL');
+    await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1200)]);
+  }
+}
+
+function cleanupUserDataDir(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 150 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[media-browser] cleanup warning for ${dir}: ${message}`);
+  }
 }
 
 async function waitHttp(url, timeout = 20_000) {
@@ -439,7 +451,8 @@ async function regression() {
     await stop(chrome?.child);
     for (const attempt of chromeAttempts) await stop(attempt.child);
     await stop(vite.child);
-    for (const dir of userDataDirs) fs.rmSync(dir, { recursive: true, force: true });
+    await sleep(250);
+    for (const dir of userDataDirs) cleanupUserDataDir(dir);
   }
 }
 
