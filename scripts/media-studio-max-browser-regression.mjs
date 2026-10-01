@@ -462,9 +462,13 @@ const hardTimeout = setTimeout(() => {
 }, TIMEOUT_MS);
 
 regression()
+  .then(() => {
+    clearTimeout(hardTimeout);
+    process.exit(0);
+  })
   .catch((error) => {
+    clearTimeout(hardTimeout);
     console.error('[media-studio-browser-regression] FAIL');
     console.error(error instanceof Error ? error.stack || error.message : String(error));
-    process.exitCode = 1;
-  })
-  .finally(() => clearTimeout(hardTimeout));
+    process.exit(1);
+  });
