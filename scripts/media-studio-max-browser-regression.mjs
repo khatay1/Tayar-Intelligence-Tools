@@ -283,11 +283,11 @@ async function regression() {
         const stopped = new Promise((resolve) => recorder.addEventListener('stop', resolve, { once: true }));
         let frame = 0;
         const draw = () => {
-          ctx.fillStyle = `hsl(${(hue + frame * 8) % 360} 70% 42%)`;
+          ctx.fillStyle = 'hsl(' + ((hue + frame * 8) % 360) + ' 70% 42%)';
           ctx.fillRect(0, 0, 160, 90);
           ctx.fillStyle = '#fff';
           ctx.font = '20px sans-serif';
-          ctx.fillText(`T${frame}`, 12, 32);
+          ctx.fillText('T' + frame, 12, 32);
           ctx.fillStyle = '#111827';
           ctx.fillRect((frame * 9) % 130, 55, 28, 20);
           frame += 1;
