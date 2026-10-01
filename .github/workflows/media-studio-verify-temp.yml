@@ -1,5 +1,6 @@
 name: Media Studio Verify Temp
 
+# Temporary verification workflow for the isolated Media Studio branch.
 on:
   push:
     branches:
