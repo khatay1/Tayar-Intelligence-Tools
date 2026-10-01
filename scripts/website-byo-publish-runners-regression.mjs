@@ -16,3 +16,4 @@ globalThis.__tayarPreparationMode='stale';const staleStart=calls.length;await as
 const count=calls.length,result=await runners.readStatus({ownerId,projectId,operationId,environment:'preview'});assert.equal(result.status,'ready');assert.equal(result.checkpoint.version,2);assert.equal(calls.length,count+1);assert.equal(calls.at(-1)[0],'store');
 console.log('PASS BYO publish runners: preparation-first Preview/retry, stale/failure stop, trusted target injection, Production separation and status composition');
 }finally{delete globalThis.__tayarPublishCalls;delete globalThis.__tayarPreparationMode;await rm(dir,{recursive:true,force:true});}
+await import('./website-byo-publish-deployment-entry-regression.mjs');

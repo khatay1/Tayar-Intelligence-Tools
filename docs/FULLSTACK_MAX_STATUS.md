@@ -1,5 +1,13 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — server-only Publish deployment entry
+
+- Added an unmounted Node factory that validates all Publish environment configuration once, creates the Supabase platform secret client internally and returns a reusable Fetch handler.
+- It accepts `sb_secret_` or a legacy JWT with the exact `service_role` payload role, while refusing publishable/anon values, public-prefixed secret/private-key variables, unsafe origins, wrong Supabase host shape, malformed provider IDs/PKCS#8 and missing trusted callbacks.
+- Supabase client sessions, refresh and URL detection are disabled. Initialization errors are fixed and secret-free; tests prove one client/host per cold start and reuse across warm requests.
+- The source is not an auto-discovered root `server.ts` and is outside `api/`. `.env.example` records empty server-only names; nothing is mounted, deployed or enabled.
+- Focused and complete infrastructure tests, full project health, production build, TypeScript and targeted ESLint passed. NEXT: replace the two remaining trusted runtime callbacks with a concrete owned Publish runtime policy and exact Vercel environment manifest.
+
 ## Current side-branch checkpoint — preparation-first Preview Publish
 
 - Preview Publish now runs the customer-owned backend preparation composition before selecting GitHub/Vercel Publish targets or entering the durable Publish adapter.
