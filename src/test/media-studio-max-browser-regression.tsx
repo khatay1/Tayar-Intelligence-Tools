@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { AuthProvider } from '@/context/AuthContext';
 import { PreferencesProvider } from '@/context/PreferencesContext';
 import MediaStudioMax from '@/modules/media-studio-max/MediaStudioMax';
 import type { Language } from '@/lib/i18n';
@@ -27,7 +28,9 @@ root.style.minHeight = '100vh';
 root.style.padding = '24px';
 
 createRoot(root).render(
-  <PreferencesProvider>
-    <MediaStudioMax darkMode />
-  </PreferencesProvider>,
+  <AuthProvider>
+    <PreferencesProvider>
+      <MediaStudioMax darkMode />
+    </PreferencesProvider>
+  </AuthProvider>,
 );
