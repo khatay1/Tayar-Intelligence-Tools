@@ -48,4 +48,4 @@ jobs:
       - name: Production build
         run: npm run build
 
-      # Final temporary verification gate; delete after green.
+      # Rerun after making Chrome teardown and profile cleanup non-blocking.
