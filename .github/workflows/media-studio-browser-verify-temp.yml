@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: media-studio-browser-verify
+  group: media-studio-browser-verify-v2
   cancel-in-progress: true
 
 jobs:
@@ -48,4 +48,4 @@ jobs:
       - name: Production build
         run: npm run build
 
-      # Verification pass with deterministic Chrome/Vite teardown.
+      # Isolated verification group to avoid the obsolete pre-fix runner.
