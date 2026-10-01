@@ -1,6 +1,6 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
-import { createMediaJobPlan } from './command-planner';
+import { createMediaInputNames, createMediaJobPlan } from './command-planner';
 import type { MediaOperationId, MediaOperationSettings, MediaResult, MediaSourceFile } from './types';
 
 const CORE_BASE_URL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
@@ -23,12 +23,88 @@ function asBlob(data: Uint8Array | string, mimeType: string) {
   return new Blob([copied.buffer], { type: mimeType });
 }
 
+function asText(data: Uint8Array | string) {
+  return typeof data === 'string' ? data : new TextDecoder().decode(data);
+}
+
 function outputMatcher(pattern: string) {
   if (!pattern.includes('%')) return (name: string) => name === pattern;
   const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const expression = escaped.replace(/%0?\d*d/g, '\\d+');
   const regex = new RegExp(`^${expression}$`);
   return (name: string) => regex.test(name);
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Could not render text watermark.')), 'image/png');
+  });
+}
+
+async function createTextWatermarkSource(text: string): Promise<MediaSourceFile> {
+  const value = text.trim() || 'Tayar';
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas is unavailable in this browser.');
+
+  const fontSize = 48;
+  const paddingX = 24;
+  const paddingY = 16;
+  context.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
+  const measured = Math.ceil(context.measureText(value).width);
+  canvas.width = Math.min(1400, Math.max(180, measured + paddingX * 2));
+  canvas.height = fontSize + paddingY * 2;
+
+  context.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
+  context.textBaseline = 'middle';
+  context.direction = /[\u0590-\u08ff]/.test(value) ? 'rtl' : 'ltr';
+  context.textAlign = context.direction === 'rtl' ? 'right' : 'left';
+  context.fillStyle = 'rgba(0, 0, 0, 0.48)';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#ffffff';
+  const x = context.direction === 'rtl' ? canvas.width - paddingX : paddingX;
+  context.fillText(value, x, canvas.height / 2, canvas.width - paddingX * 2);
+
+  const blob = await canvasToBlob(canvas);
+  const file = new File([blob], 'tayar-text-watermark.png', { type: 'image/png' });
+  return {
+    id: `text-watermark-${Date.now()}`,
+    file,
+    objectUrl: '',
+    kind: 'image',
+    width: canvas.width,
+    height: canvas.height,
+  };
+}
+
+async function probeVideoSource(ffmpeg: FFmpeg, inputName: string, source: MediaSourceFile, index: number, cleanup: Set<string>) {
+  if (source.kind !== 'video') return source;
+  const probeName = `probe_${index}.json`;
+  cleanup.add(probeName);
+
+  try {
+    const exitCode = await ffmpeg.ffprobe([
+      '-v', 'error',
+      '-show_entries', 'stream=codec_type:format=duration',
+      '-of', 'json',
+      inputName,
+      '-o', probeName,
+    ]);
+    if (exitCode !== 0) return source;
+    const probeData = await ffmpeg.readFile(probeName, 'utf8');
+    const parsed = JSON.parse(asText(probeData)) as {
+      streams?: Array<{ codec_type?: string }>;
+      format?: { duration?: string };
+    };
+    const probedDuration = Number(parsed.format?.duration);
+    return {
+      ...source,
+      hasAudio: Boolean(parsed.streams?.some((stream) => stream.codec_type === 'audio')),
+      duration: Number.isFinite(probedDuration) && probedDuration > 0 ? probedDuration : source.duration,
+    };
+  } catch {
+    return source;
+  }
 }
 
 class FFmpegWasmMediaEngine implements MediaEngine {
@@ -94,17 +170,24 @@ class FFmpegWasmMediaEngine implements MediaEngine {
     const ffmpeg = this.ffmpeg;
     if (!ffmpeg) throw new Error('Media engine did not initialize.');
 
-    const plan = createMediaJobPlan(operation, sources, settings);
+    const workingSources = operation === 'add-text-watermark'
+      ? [...sources, await createTextWatermarkSource(settings.text || 'Tayar')]
+      : [...sources];
+    const inputNames = createMediaInputNames(workingSources);
     const cleanup = new Set<string>();
 
     try {
-      for (let index = 0; index < sources.length; index += 1) {
-        const source = sources[index];
-        const virtualName = plan.inputNames[index];
+      for (let index = 0; index < workingSources.length; index += 1) {
+        const source = workingSources[index];
+        const virtualName = inputNames[index];
         cleanup.add(virtualName);
         await ffmpeg.writeFile(virtualName, new Uint8Array(await source.file.arrayBuffer()));
       }
 
+      const enrichedSources = await Promise.all(
+        workingSources.map((source, index) => probeVideoSource(ffmpeg, inputNames[index], source, index, cleanup)),
+      );
+      const plan = createMediaJobPlan(operation, enrichedSources, settings);
       const exitCode = await ffmpeg.exec(plan.args);
       if (exitCode !== 0) throw new Error(`FFmpeg exited with code ${exitCode}.`);
 
