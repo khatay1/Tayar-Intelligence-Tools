@@ -1,13 +1,21 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — Production runtime receipt and promotion binding
+## Current side-branch checkpoint — exact Vercel runtime cleanup on disconnect
+
+- Preview and Production disconnect now begin by claiming the exact verified runtime receipt. Only its two immutable Vercel environment IDs may be deleted, and every present row must retain the recorded key, Config type, target, branch rule and Tayar marker.
+- A non-decrypting list occurs before and after deletion. Customer-mutated receipt IDs fail closed, absent IDs recover uncertain DELETE responses, and unrelated customer variables are preserved. The account-wide Vercel Integration remains installed.
+- The final service-only SQL transaction marks the receipt removed, advances the connection to disconnected and erases Vault custody together. Whole-request reconciliation returns a committed result before any provider access, so a lost database response cannot replay provider deletion. Missing/previously removed receipts use a provider-free path; preparing, mismatched or independently rebound receipts are refused.
+- Focused mocked HTTP/RPC/static-SQL regression, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. The CLI-generated migration remains unapplied; local migration listing reached the known unavailable PostgreSQL endpoint. No live provider request, endpoint, UI action, deployment, flag or database mutation was performed.
+- NEXT: add the authenticated server endpoint and browser adapter for this receipt-aware disconnect flow, while keeping the UI action disabled until SQL and disposable-account proof exist.
+
+## Previous side-branch checkpoint — Production runtime receipt and promotion binding
 
 - Production Publish now derives the same `SUPABASE_URL` and publishable key from the persisted owned Preview binding, then prepares them through the separately verified Production Vercel connection before any promotion effect.
 - The provider write targets only `production` and deliberately omits `gitBranch`. Metadata-only receipt verification requires the exact key, Config type, Production target, operation marker and immutable Vercel environment IDs; values and provider tokens never enter the receipt.
 - Rotation installs and verifies the new pair before deleting only exact prior Tayar IDs, with absent-after-delete proof and lost POST/DELETE/SQL-response reconciliation. A same-operation retry cannot rotate after its captured binding changes.
 - Promotion begin, claim, final commit and lost-response reconciliation now require the exact Production receipt version/IDs. The final transaction advances the Production connection, custody and unchanged receipt CAS together. Preview terminal observation likewise advances its connection, custody, binding and receipt together so Production can prove continuity.
 - Focused mocked HTTP/RPC/static-SQL regressions, the full project-health gate, production build, TypeScript and targeted ESLint passed. `supabase migration list --local` reached the known unavailable PostgreSQL endpoint at `127.0.0.1:54322`, so SQL execution is not claimed. The CLI-generated migration remains unapplied; no provider write, promotion, deployment, endpoint, UI or live database mutation was performed.
-- NEXT: add exact Preview/Production runtime-variable cleanup to Vercel disconnect/rebind lifecycle, deleting only receipt-owned unchanged IDs and reconciling uncertain provider/database responses without touching customer variables.
+- COMPLETE in the checkpoint above: exact Preview/Production runtime-variable cleanup now gates project disconnect and retains safe rebind rotation behavior.
 
 ## Current side-branch checkpoint — deployment runtime-receipt binding
 

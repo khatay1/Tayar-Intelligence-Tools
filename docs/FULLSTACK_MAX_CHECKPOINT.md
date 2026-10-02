@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `4911e466d045591ee91b5a4276f968db4feec26e`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `f3576f214a2b2c8c879574d3096e0f67a14fa5c5`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -249,11 +249,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-Production Publish now installs the owned public runtime pair on the distinct Production connection without a Preview branch override, persists only exact metadata/digests, and binds promotion begin, claim, commit and reconciliation to that receipt. Preview and Production connection-version advances now move their unchanged receipt/binding evidence in the same transaction. Focused HTTP/RPC/static-SQL regressions, the full project-health gate, production build, TypeScript and targeted ESLint passed; no endpoint, migration, provider call, UI enablement or production flag was added.
+Vercel project disconnect now claims the matching verified Preview or Production runtime receipt before custody can be erased, deletes only its two unchanged immutable provider IDs, refuses customer-mutated metadata, proves both IDs absent with a second non-decrypting list, and preserves unrelated variables. The final SQL transaction marks the receipt removed, disconnects the exact connection and erases Vault custody together. Whole-request and final-commit reconciliation prevent provider replay after uncertain DELETE or database responses; a missing/removed receipt takes a provider-free path, while an in-flight or mismatched rebind fails closed. Focused mocked HTTP/RPC/static-SQL regression, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. The CLI-generated migration is source-only and `supabase migration list --local` reached the known unavailable `127.0.0.1:54322`; no endpoint, live migration, provider call, UI enablement or production effect occurred.
 
 ## Next exact batch
 
-Add exact runtime-variable cleanup to the Vercel disconnect and rebind lifecycle for both Preview and Production. It must use only verified receipt-owned IDs, refuse customer-mutated metadata, prove absence after deletion, preserve unrelated variables, and reconcile uncertain DELETE/database responses without provider replay. Keep migrations/provider effects/UI/deployment disabled.
+Add the authenticated server endpoint and browser adapter for the receipt-aware Vercel disconnect workflow, with owner/session verification, bounded UUID request validation and exact retry semantics for both Preview and Production. Keep the UI action disabled and keep migrations/provider effects/deployment disabled until SQL and disposable-account verification exist.
 
 ## Known blockers
 
