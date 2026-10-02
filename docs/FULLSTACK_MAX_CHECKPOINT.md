@@ -1,6 +1,12 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `main`. The explicitly authorized source integration fast-forwarded remote `main` from `2643566473d5e255b948574224dc9369036a1046` to `e495a16043315e34ba78f4841d64ba76c24cccfb`, matching the former side-branch tree `37d0892d3b74271f93cde2ff9731ddeb8a77be6a`. Production deployment, migrations, credentials and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `main`. The isolated Activation project contains all 107 migrations and version 2 of the three connection functions. Their deployment entry now converts missing/invalid OAuth configuration into fixed secret-free `503` responses instead of cold-start failure. OAuth credentials, browser endpoints, provider resources, production deployment and flags remain unchanged.
+
+## Current activation state
+
+- `website-github-connection`, `website-supabase-connection` and `website-vercel-connection` are `ACTIVE` only on `Tayar Fullstack MAX Activation` (`uepltkguloltmebepvbo`), all at version 2 with `verify_jwt=false` for the one-use callback route.
+- The strict composition factories still reject malformed environments. A separate runtime boundary catches that rejection before `Deno.serve`, starts the function and returns a fixed no-store `503`; live requests proved all three provider-specific responses.
+- No OAuth application or secret is configured, so provider begin/callback/bind E2E remains closed. The production `tayar tools` project was not changed.
 
 ## Architecture decision
 

@@ -98,3 +98,11 @@ export function createWebsiteSupabaseConnectionEdge(input: { environment: Enviro
     };
   } catch { throw new Error('Supabase connection deployment unavailable.'); }
 }
+
+/** Edge-runtime boundary: invalid or incomplete deployment configuration must
+ * fail closed without preventing Deno.serve from starting. */
+export function createWebsiteSupabaseConnectionDeployment(input: { environment: Environment;
+  fetcher?: typeof fetch; clientFactory?: ClientFactory }) {
+  try { return createWebsiteSupabaseConnectionEdge(input); }
+  catch { return async () => json(503, 'Supabase connection is unavailable.'); }
+}

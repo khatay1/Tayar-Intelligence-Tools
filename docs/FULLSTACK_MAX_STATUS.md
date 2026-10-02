@@ -1,11 +1,18 @@
 # Full-stack implementation checkpoint
 
-## Current main checkpoint — live isolated schema proof
+## Current main checkpoint — fail-closed Activation functions
+
+- GitHub, Supabase and Vercel connection functions were deployed only to the isolated Activation project. All three are `ACTIVE` at version 2 with `verify_jwt=false`; this permits their public one-use OAuth callbacks while authenticated browser actions continue to validate the Tayar bearer inside the handlers.
+- The generated runtime now catches invalid or incomplete cold-start configuration at the deployment boundary. Live secret-free requests return fixed no-store `503` JSON for each provider instead of terminating with `500 WORKER_ERROR`; strict factories still throw during composition tests so malformed configuration cannot become usable.
+- Focused Edge regressions and generated-bundle freshness checks passed. No OAuth credential, provider request, browser endpoint, customer resource, Publish/Production effect or production-project mutation occurred.
+- NEXT: register the three isolated OAuth applications, install their values through server-side secret custody, expose only the exact public function URLs to the isolated browser build and run callback/binding E2E with disposable provider resources.
+
+## Previous main checkpoint — live isolated schema proof
 
 - A new free Supabase project, `Tayar Fullstack MAX Activation` (`uepltkguloltmebepvbo`), now contains all 107 repository migrations applied in order. The earlier validation project was paused with explicit approval and remains restorable; the production `tayar tools` project and its migration history were unchanged.
 - Real PostgreSQL 17 execution exposed two source-only SQL defects that mocked/static checks missed: `jsonb_object_length(jsonb)` does not exist, and a composite row variable cannot share a multi-target PL/pgSQL `INTO` list. The source migrations and focused regressions now cover both corrections, and the corrected migrations applied successfully.
-- All public tables have RLS, the required worker functions exist and no privileged BYO function is executable by `anon`. No Edge Function, OAuth credential, provider request, deployment or Production mutation occurred.
-- NEXT: register isolated GitHub/Supabase/Vercel OAuth applications, install their values through secret custody, deploy only the three guarded connection functions and run live callback/binding E2E before any Publish/Production effect.
+- All public tables have RLS, the required worker functions exist and no privileged BYO function is executable by `anon`. At this checkpoint no Edge Function, OAuth credential, provider request, deployment or Production mutation had occurred.
+- The next checkpoint deploys only the three guarded connection functions; OAuth registration and live callback/binding E2E remain required before any Publish/Production effect.
 
 ## Current main checkpoint — source integration and activation boundary
 

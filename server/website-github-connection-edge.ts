@@ -90,3 +90,11 @@ export function createWebsiteGitHubConnectionEdge(input: { environment: Environm
     };
   } catch { throw new Error('GitHub connection deployment unavailable.'); }
 }
+
+/** Edge-runtime boundary: invalid or incomplete deployment configuration must
+ * fail closed without preventing Deno.serve from starting. */
+export function createWebsiteGitHubConnectionDeployment(input: { environment: Environment;
+  fetcher?: typeof fetch; clientFactory?: ClientFactory }) {
+  try { return createWebsiteGitHubConnectionEdge(input); }
+  catch { return async () => json(503, 'GitHub connection is unavailable.'); }
+}

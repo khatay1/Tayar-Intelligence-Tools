@@ -18,7 +18,8 @@ try {
       builder.onLoad({ filter: /^endpoint$/, namespace: 'fixture' }, () => ({ contents:
         `export async function handleWebsiteSupabaseConnection(request,context){globalThis.__tayarSupabaseEdgeCalls.push(['endpoint',context]);return new Response(JSON.stringify({ok:true}),{status:200,headers:{'x-core':'yes'}})}` }));
     } }] });
-  const { createWebsiteSupabaseConnectionEdge: create } = (await import(pathToFileURL(outfile))).default;
+  const { createWebsiteSupabaseConnectionEdge: create,
+    createWebsiteSupabaseConnectionDeployment: createDeployment } = (await import(pathToFileURL(outfile))).default;
   const serviceKey = `sb_secret_${'s'.repeat(32)}`;
   const environment = { SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: serviceKey, WEBSITE_SUPABASE_OAUTH_CLIENT_ID: 'supabase-client',
@@ -59,11 +60,15 @@ try {
     const copy = { ...environment }; delete copy[missing];
     assert.throws(() => create({ environment: copy }), /deployment unavailable/);
   }
+  const unavailable = await createDeployment({ environment: {} })(new Request('https://platform.example/'));
+  assert.equal(unavailable.status, 503);
+  assert.deepEqual(await unavailable.json(), { error: 'Supabase connection is unavailable.' });
+  assert.equal(unavailable.headers.get('cache-control'), 'no-store');
   const generated = await readFile('supabase/functions/website-supabase-connection/index.ts', 'utf8');
   const config = await readFile('supabase/config.toml', 'utf8');
   const deploymentGuard = await readFile('scripts/admin-hardening-deploy.ps1', 'utf8');
   const example = await readFile('.env.example', 'utf8');
-  assert.match(generated, /Deno[.]serve\(createWebsiteSupabaseConnectionEdge/);
+  assert.match(generated, /Deno[.]serve\(createWebsiteSupabaseConnectionDeployment/);
   assert.match(generated, /npm:@supabase\/supabase-js@2[.]57[.]4/);
   assert.match(config, /\[functions[.]website-supabase-connection\]\nverify_jwt = false/);
   assert.ok(!deploymentGuard.includes("'website-supabase-connection'"));

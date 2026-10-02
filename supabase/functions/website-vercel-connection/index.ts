@@ -1108,7 +1108,15 @@ function createWebsiteVercelConnectionEdge(input) {
     throw new Error("Vercel connection deployment unavailable.");
   }
 }
+function createWebsiteVercelConnectionDeployment(input) {
+  try {
+    return createWebsiteVercelConnectionEdge(input);
+  } catch {
+    return async () => json2(503, "Vercel connection is unavailable.");
+  }
+}
 export {
+  createWebsiteVercelConnectionDeployment,
   createWebsiteVercelConnectionEdge
 };
-Deno.serve(createWebsiteVercelConnectionEdge({environment:{"SUPABASE_URL":Deno.env.get("SUPABASE_URL"),"SUPABASE_SERVICE_ROLE_KEY":Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),"WEBSITE_VERCEL_INTEGRATION_SLUG":Deno.env.get("WEBSITE_VERCEL_INTEGRATION_SLUG"),"WEBSITE_VERCEL_CLIENT_ID":Deno.env.get("WEBSITE_VERCEL_CLIENT_ID"),"WEBSITE_VERCEL_CLIENT_SECRET":Deno.env.get("WEBSITE_VERCEL_CLIENT_SECRET"),"WEBSITE_VERCEL_CALLBACK_URL":Deno.env.get("WEBSITE_VERCEL_CALLBACK_URL"),"WEBSITE_VERCEL_RETURN_URL":Deno.env.get("WEBSITE_VERCEL_RETURN_URL"),"TAYAR_PLATFORM_VERCEL_ACCOUNT_ID":Deno.env.get("TAYAR_PLATFORM_VERCEL_ACCOUNT_ID"),"TAYAR_GITHUB_APP_CLIENT_ID":Deno.env.get("TAYAR_GITHUB_APP_CLIENT_ID"),"TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8":Deno.env.get("TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8")}}));
+Deno.serve(createWebsiteVercelConnectionDeployment({environment:{"SUPABASE_URL":Deno.env.get("SUPABASE_URL"),"SUPABASE_SERVICE_ROLE_KEY":Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),"WEBSITE_VERCEL_INTEGRATION_SLUG":Deno.env.get("WEBSITE_VERCEL_INTEGRATION_SLUG"),"WEBSITE_VERCEL_CLIENT_ID":Deno.env.get("WEBSITE_VERCEL_CLIENT_ID"),"WEBSITE_VERCEL_CLIENT_SECRET":Deno.env.get("WEBSITE_VERCEL_CLIENT_SECRET"),"WEBSITE_VERCEL_CALLBACK_URL":Deno.env.get("WEBSITE_VERCEL_CALLBACK_URL"),"WEBSITE_VERCEL_RETURN_URL":Deno.env.get("WEBSITE_VERCEL_RETURN_URL"),"TAYAR_PLATFORM_VERCEL_ACCOUNT_ID":Deno.env.get("TAYAR_PLATFORM_VERCEL_ACCOUNT_ID"),"TAYAR_GITHUB_APP_CLIENT_ID":Deno.env.get("TAYAR_GITHUB_APP_CLIENT_ID"),"TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8":Deno.env.get("TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8")}}));

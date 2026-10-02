@@ -121,3 +121,11 @@ export function createWebsiteVercelConnectionEdge(input: { environment: Environm
     };
   } catch { throw new Error('Vercel connection deployment unavailable.'); }
 }
+
+/** Edge-runtime boundary: invalid or incomplete deployment configuration must
+ * fail closed without preventing Deno.serve from starting. */
+export function createWebsiteVercelConnectionDeployment(input: { environment: Environment;
+  fetcher?: typeof fetch; clientFactory?: ClientFactory }) {
+  try { return createWebsiteVercelConnectionEdge(input); }
+  catch { return async () => json(503, 'Vercel connection is unavailable.'); }
+}

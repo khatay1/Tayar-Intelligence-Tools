@@ -547,7 +547,15 @@ function createWebsiteGitHubConnectionEdge(input) {
     throw new Error("GitHub connection deployment unavailable.");
   }
 }
+function createWebsiteGitHubConnectionDeployment(input) {
+  try {
+    return createWebsiteGitHubConnectionEdge(input);
+  } catch {
+    return async () => json2(503, "GitHub connection is unavailable.");
+  }
+}
 export {
+  createWebsiteGitHubConnectionDeployment,
   createWebsiteGitHubConnectionEdge
 };
-Deno.serve(createWebsiteGitHubConnectionEdge({environment:{"SUPABASE_URL":Deno.env.get("SUPABASE_URL"),"SUPABASE_SERVICE_ROLE_KEY":Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),"WEBSITE_GITHUB_APP_CLIENT_ID":Deno.env.get("WEBSITE_GITHUB_APP_CLIENT_ID"),"WEBSITE_GITHUB_APP_CLIENT_SECRET":Deno.env.get("WEBSITE_GITHUB_APP_CLIENT_SECRET"),"WEBSITE_GITHUB_CALLBACK_URL":Deno.env.get("WEBSITE_GITHUB_CALLBACK_URL"),"WEBSITE_GITHUB_RETURN_URL":Deno.env.get("WEBSITE_GITHUB_RETURN_URL")}}));
+Deno.serve(createWebsiteGitHubConnectionDeployment({environment:{"SUPABASE_URL":Deno.env.get("SUPABASE_URL"),"SUPABASE_SERVICE_ROLE_KEY":Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),"WEBSITE_GITHUB_APP_CLIENT_ID":Deno.env.get("WEBSITE_GITHUB_APP_CLIENT_ID"),"WEBSITE_GITHUB_APP_CLIENT_SECRET":Deno.env.get("WEBSITE_GITHUB_APP_CLIENT_SECRET"),"WEBSITE_GITHUB_CALLBACK_URL":Deno.env.get("WEBSITE_GITHUB_CALLBACK_URL"),"WEBSITE_GITHUB_RETURN_URL":Deno.env.get("WEBSITE_GITHUB_RETURN_URL")}}));

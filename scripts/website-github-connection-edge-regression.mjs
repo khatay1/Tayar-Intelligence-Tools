@@ -18,7 +18,8 @@ try {
       builder.onLoad({ filter: /^endpoint$/, namespace: 'fixture' }, () => ({ contents:
         `export async function handleWebsiteGitHubConnection(request,context){globalThis.__tayarGithubEdgeCalls.push(['endpoint',context]);return new Response(JSON.stringify({ok:true}),{status:200,headers:{'x-core':'yes'}})}` }));
     } }] });
-  const { createWebsiteGitHubConnectionEdge: create } = (await import(pathToFileURL(outfile))).default;
+  const { createWebsiteGitHubConnectionEdge: create,
+    createWebsiteGitHubConnectionDeployment: createDeployment } = (await import(pathToFileURL(outfile))).default;
   const serviceKey = `sb_secret_${'s'.repeat(32)}`;
   const environment = { SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: serviceKey, WEBSITE_GITHUB_APP_CLIENT_ID: 'Iv1_fixture',
@@ -56,11 +57,15 @@ try {
     const copy = { ...environment }; delete copy[missing];
     assert.throws(() => create({ environment: copy }), /deployment unavailable/);
   }
+  const unavailable = await createDeployment({ environment: {} })(new Request('https://platform.example/'));
+  assert.equal(unavailable.status, 503);
+  assert.deepEqual(await unavailable.json(), { error: 'GitHub connection is unavailable.' });
+  assert.equal(unavailable.headers.get('cache-control'), 'no-store');
   const generated = await readFile('supabase/functions/website-github-connection/index.ts', 'utf8');
   const config = await readFile('supabase/config.toml', 'utf8');
   const deploymentGuard = await readFile('scripts/admin-hardening-deploy.ps1', 'utf8');
   const example = await readFile('.env.example', 'utf8');
-  assert.match(generated, /Deno[.]serve\(createWebsiteGitHubConnectionEdge/);
+  assert.match(generated, /Deno[.]serve\(createWebsiteGitHubConnectionDeployment/);
   assert.match(generated, /npm:@supabase\/supabase-js@2[.]57[.]4/);
   assert.match(config, /\[functions[.]website-github-connection\]\nverify_jwt = false/);
   assert.ok(!deploymentGuard.includes("'website-github-connection'"));

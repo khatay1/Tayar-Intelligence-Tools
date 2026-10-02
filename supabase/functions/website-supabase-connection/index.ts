@@ -595,7 +595,15 @@ function createWebsiteSupabaseConnectionEdge(input) {
     throw new Error("Supabase connection deployment unavailable.");
   }
 }
+function createWebsiteSupabaseConnectionDeployment(input) {
+  try {
+    return createWebsiteSupabaseConnectionEdge(input);
+  } catch {
+    return async () => json2(503, "Supabase connection is unavailable.");
+  }
+}
 export {
+  createWebsiteSupabaseConnectionDeployment,
   createWebsiteSupabaseConnectionEdge
 };
-Deno.serve(createWebsiteSupabaseConnectionEdge({environment:{"SUPABASE_URL":Deno.env.get("SUPABASE_URL"),"SUPABASE_SERVICE_ROLE_KEY":Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),"WEBSITE_SUPABASE_OAUTH_CLIENT_ID":Deno.env.get("WEBSITE_SUPABASE_OAUTH_CLIENT_ID"),"WEBSITE_SUPABASE_OAUTH_CLIENT_SECRET":Deno.env.get("WEBSITE_SUPABASE_OAUTH_CLIENT_SECRET"),"WEBSITE_SUPABASE_PKCE_SECRET":Deno.env.get("WEBSITE_SUPABASE_PKCE_SECRET"),"WEBSITE_SUPABASE_CALLBACK_URL":Deno.env.get("WEBSITE_SUPABASE_CALLBACK_URL"),"WEBSITE_SUPABASE_RETURN_URL":Deno.env.get("WEBSITE_SUPABASE_RETURN_URL"),"WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID":Deno.env.get("WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID")}}));
+Deno.serve(createWebsiteSupabaseConnectionDeployment({environment:{"SUPABASE_URL":Deno.env.get("SUPABASE_URL"),"SUPABASE_SERVICE_ROLE_KEY":Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),"WEBSITE_SUPABASE_OAUTH_CLIENT_ID":Deno.env.get("WEBSITE_SUPABASE_OAUTH_CLIENT_ID"),"WEBSITE_SUPABASE_OAUTH_CLIENT_SECRET":Deno.env.get("WEBSITE_SUPABASE_OAUTH_CLIENT_SECRET"),"WEBSITE_SUPABASE_PKCE_SECRET":Deno.env.get("WEBSITE_SUPABASE_PKCE_SECRET"),"WEBSITE_SUPABASE_CALLBACK_URL":Deno.env.get("WEBSITE_SUPABASE_CALLBACK_URL"),"WEBSITE_SUPABASE_RETURN_URL":Deno.env.get("WEBSITE_SUPABASE_RETURN_URL"),"WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID":Deno.env.get("WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID")}}));

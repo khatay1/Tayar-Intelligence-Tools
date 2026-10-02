@@ -21,7 +21,8 @@ try {
       builder.onLoad({ filter: /^loader$/, namespace: 'fixture' }, () => ({ contents:
         `export function createWebsiteVercelGithubTargetLoader(input){globalThis.__tayarVercelEdgeCalls.push(['loader',input]);return async scope=>{globalThis.__tayarVercelEdgeCalls.push(['scope',scope]);if(!await scope.isCurrentOwner())return null;return{repositoryId:'88',repositoryOwner:'customer',repositoryName:'booking',productionBranch:'main'}}}` }));
     } }] });
-  const { createWebsiteVercelConnectionEdge: create } = (await import(pathToFileURL(outfile))).default;
+  const { createWebsiteVercelConnectionEdge: create,
+    createWebsiteVercelConnectionDeployment: createDeployment } = (await import(pathToFileURL(outfile))).default;
   const serviceKey = `sb_secret_${'s'.repeat(32)}`;
   const privateKey = `-----BEGIN PRIVATE KEY-----\n${'A'.repeat(128)}\n-----END PRIVATE KEY-----`;
   const environment = { SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co',
@@ -67,11 +68,15 @@ try {
     const copy = { ...environment }; delete copy[missing];
     assert.throws(() => create({ environment: copy }), /deployment unavailable/);
   }
+  const unavailable = await createDeployment({ environment: {} })(new Request('https://platform.example/'));
+  assert.equal(unavailable.status, 503);
+  assert.deepEqual(await unavailable.json(), { error: 'Vercel connection is unavailable.' });
+  assert.equal(unavailable.headers.get('cache-control'), 'no-store');
   const generated = await readFile('supabase/functions/website-vercel-connection/index.ts', 'utf8');
   const config = await readFile('supabase/config.toml', 'utf8');
   const deploymentGuard = await readFile('scripts/admin-hardening-deploy.ps1', 'utf8');
   const example = await readFile('.env.example', 'utf8');
-  assert.match(generated, /Deno[.]serve\(createWebsiteVercelConnectionEdge/);
+  assert.match(generated, /Deno[.]serve\(createWebsiteVercelConnectionDeployment/);
   assert.match(generated, /npm:@supabase\/supabase-js@2[.]57[.]4/);
   assert.match(config, /\[functions[.]website-vercel-connection\]\nverify_jwt = false/);
   assert.ok(!deploymentGuard.includes("'website-vercel-connection'"));
