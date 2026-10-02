@@ -1,12 +1,20 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — endpoint-gated browser availability
+## Current side-branch checkpoint — unified browser OAuth coordinator
+
+- The missing Supabase browser adapter now matches the existing GitHub/Vercel scope rules: begin requires the current owner/project/load sequence, the returned authorization URL must be the official Supabase PKCE route, and session storage contains only pending editor identity.
+- Callback handling removes `tayar_supabase_handoff` before asynchronous work and accepts exactly one UUID bound to that pending scope. Options return only validated account/project/organization metadata; bind checks the exact project and next registry version, with no provider grant exposed to the browser.
+- A shared coordinator starts GitHub, Supabase or Vercel only when the endpoint catalog returns a transport for that provider. It dispatches only the three recognized opaque fragments and refuses unavailable providers before HTTP; arbitrary redirects and Stripe are outside the contract.
+- Focused Supabase/coordinator regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript and targeted ESLint passed. The controller/UI remain unmounted, endpoints and credentials remain empty and no deployment, migration, provider, flag or production effect occurred.
+- NEXT: add the Supabase project chooser UI and an unmounted Infrastructure controller that owns status refresh, begin/handoff/chooser state and project-load invalidation for all three providers.
+
+## Previous side-branch checkpoint — endpoint-gated browser availability
 
 - A browser-only catalog now accepts connection endpoints solely from explicit `VITE_WEBSITE_GITHUB_CONNECTION_URL`, `VITE_WEBSITE_SUPABASE_CONNECTION_URL` and `VITE_WEBSITE_VERCEL_CONNECTION_URL` values.
 - Every configured URL must be the exact query-free function path on the configured HTTPS Supabase origin. Cross-origin, HTTP, swapped-path and malformed values fail closed; absent values simply leave that provider unavailable. A service-role-shaped key is refused before any transport is returned.
 - The catalog exposes one frozen public transport only for available providers. The Infrastructure panel receives an explicit provider availability list and keeps Connect/Manage disabled for every missing provider; the default remains fully unavailable even if a generic callback exists.
 - Focused catalog/panel regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript and targeted ESLint passed. Endpoints remain empty, the panel remains unmounted and no deployment, OAuth configuration, migration, provider, flag or production effect occurred.
-- NEXT: add the missing Supabase browser handoff/chooser and a provider coordinator that uses this catalog while preserving owner/project/load-sequence guards; keep it unmounted and disabled by default.
+- COMPLETE in the checkpoint above: the Supabase browser handoff and gated provider coordinator now exist and remain unmounted.
 
 ## Previous side-branch checkpoint — unpublished GitHub Edge composition
 

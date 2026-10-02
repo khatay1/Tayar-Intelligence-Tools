@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `a8c647a204beba208c70771f4a36040600934237`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `98ab6760251e5fd2977d476f7f2b63580acd1ce9`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -49,6 +49,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - The GitHub OAuth connection handler is likewise runtime-neutral behind a deterministic generated Edge composition. Its cold-start factory validates the platform service key, GitHub OAuth credentials and exact callback/return URLs once, reuses one session-disabled client, applies fixed-origin no-store CORS and returns only sanitized failures. The one-use callback remains `verify_jwt=false`; the function is still absent from guarded production deployment and the Infrastructure action remains disabled.
 
 - A browser-safe endpoint catalog now recognizes GitHub, Supabase and Vercel connection functions only from explicit public configuration. Every URL must be the exact provider function path on the configured HTTPS Supabase origin, and the shared browser key must not be service-role shaped. Missing values produce partial/unavailable providers; malformed or cross-origin values fail the composition closed. The Infrastructure panel accepts this availability list and keeps each Connect action disabled by default.
+
+- The missing Supabase browser adapter now mirrors the GitHub/Vercel owner/project/load-sequence boundary: it validates the official PKCE authorization URL, removes the opaque callback fragment before asynchronous work, returns sanitized owned-project choices and verifies exact binding acknowledgements. A provider coordinator starts only catalog-available GitHub/Supabase/Vercel flows and dispatches recognized opaque handoffs without accepting Stripe or arbitrary redirects. It remains unmounted.
 
 - A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody after exact Preview/Production runtime-receipt cleanup. Exact commit/version reconciliation recovers lost provider or SQL responses. The browser adapter persists one stable operation/commit UUID pair before HTTP and reuses it after an uncertain response; only an exact verified success clears it. The account-wide Vercel Integration remains installed because another Tayar project may share that configuration.
 
@@ -255,11 +257,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-A browser-safe endpoint catalog now binds the three provider connection paths to explicit `VITE_WEBSITE_*_CONNECTION_URL` values only when each is exact, HTTPS, query-free and on the configured Supabase origin. It rejects service-role-shaped browser keys, cross-origin or swapped paths, exposes no server credential, and returns a transport only for configured providers. The Infrastructure panel now gates each Connect/Manage action on that provider availability rather than a single optional callback; its default remains fully disabled. Focused catalog/panel regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript, targeted ESLint and diff checks passed. No function was deployed, no OAuth value was configured and no UI mount, migration, provider or production effect occurred.
+The missing Supabase browser path now begins only through the endpoint-gated transport, validates the official PKCE authorization URL, stores only pending owner/project identity, removes the opaque callback fragment synchronously, lists sanitized owned-project metadata and verifies exact bind/version acknowledgements. A shared provider coordinator starts only catalog-available GitHub/Supabase/Vercel flows and dispatches only their recognized fragments; unavailable providers fail before HTTP. Focused coordinator/Supabase regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript, targeted ESLint and diff checks passed. The coordinator and panel remain unmounted, endpoints and OAuth values remain empty, and no deployment, migration, provider, flag or production effect occurred.
 
 ## Next exact batch
 
-Implement the missing standalone Supabase browser handoff/chooser adapter and a provider connection coordinator that consumes the endpoint catalog to begin GitHub, Supabase or Vercel OAuth only for an available provider. Preserve owner/project/load-sequence guards, validate redirect origins and opaque fragments, and keep the coordinator unmounted with the panel disabled by default. Do not deploy functions, configure OAuth, apply migrations or claim live connectivity.
+Add the missing Supabase project chooser UI and a standalone Infrastructure connection controller that composes the owner-scoped status reader, endpoint catalog, provider coordinator and GitHub/Supabase/Vercel chooser state under one project-load lifecycle. Keep it unmounted and fail disabled without explicit endpoints; do not deploy functions, configure OAuth, apply migrations or claim live connectivity.
 
 ## Known blockers
 
