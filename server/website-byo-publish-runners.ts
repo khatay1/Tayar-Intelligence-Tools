@@ -46,7 +46,7 @@ export function createWebsiteByoPublishRunners(input:{client:Client;reader:Owned
         productionVercelConnectionId:production.connectionId,
         previewConnectionVersion:selected.targets.vercelPreview.version,
         productionConnectionVersion:production.version,
-        ownerCurrent:selected.isCurrent,fetcher:input.fetcher});
+        reader:input.reader,ownerCurrent:selected.isCurrent,fetcher:input.fetcher});
     },
     async readStatus(scope:Scope&{environment:'preview'|'production'}){
       const store=createWebsiteByoPublishStore({client:input.client,...scope,isCurrent:()=>true});

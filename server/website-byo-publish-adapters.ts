@@ -6,7 +6,8 @@ import { createWebsiteByoPublishStore, initializeWebsiteByoPublishOperation } fr
 import { runByoPublishWorker } from './website-byo-publish-worker';
 import { runByoProductionPublishWorker } from './website-byo-production-publish-worker';
 import { runWebsiteOwnedVercelPromotion } from './website-owned-vercel-promotion-worker';
-import { prepareOwnedVercelRuntimeEnvironment } from './website-owned-vercel-runtime-environment';
+import { prepareOwnedVercelProductionRuntimeEnvironment,
+  prepareOwnedVercelRuntimeEnvironment } from './website-owned-vercel-runtime-environment';
 import { exportWebsiteProjectToOwnedGitHub } from '../src/modules/website-builder/services/websiteGithubExportWorker';
 import { beginWebsiteVercelDeploymentAttempt,
   commitWebsiteVercelDeploymentObservation } from '../src/modules/website-builder/services/websiteVercelDeploymentAttemptService';
@@ -122,7 +123,7 @@ export async function runWebsiteOwnedByoProductionPublish(input:{
   client:Client;operationId:string;previewOperationId:string;projectId:string;ownerId:string;
   previewVercelConnectionId:string;productionVercelConnectionId:string;
   previewConnectionVersion:number;productionConnectionVersion:number;
-  ownerCurrent():Promise<boolean>;fetcher?:typeof fetch;
+  reader:OwnedSourceReader;ownerCurrent():Promise<boolean>;fetcher?:typeof fetch;
 }){
   if(typeof window!=='undefined'||![input.operationId,input.previewOperationId,input.projectId,input.ownerId,
     input.previewVercelConnectionId,input.productionVercelConnectionId].every(v=>uuid.test(v))
@@ -144,10 +145,22 @@ export async function runWebsiteOwnedByoProductionPublish(input:{
       projectId:input.projectId,ownerId:input.ownerId,store,isCurrent:owner,readPreview:op=>previewStore.read(op),
       promote:async preview=>{
         if(!preview.attemptVersion||!preview.deploymentId||!preview.headSha||!await owner())throw new Error();
+        const binding=await input.reader.readOwnedRuntimeBinding(input.projectId,input.ownerId,'preview');
+        if(!binding)throw new Error();
+        const[supabase,previewVercel,productionVercel]=await Promise.all([
+          input.reader.readConnection(binding.supabaseConnectionId,input.projectId,input.ownerId),
+          input.reader.readConnection(input.previewVercelConnectionId,input.projectId,input.ownerId),
+          input.reader.readConnection(input.productionVercelConnectionId,input.projectId,input.ownerId),
+        ]);if(!supabase||!previewVercel||!productionVercel)throw new Error();
+        const runtimeReceipt=await prepareOwnedVercelProductionRuntimeEnvironment({client:input.client,projectId:input.projectId,
+          ownerId:input.ownerId,operationId:input.operationId,binding,supabase,previewVercel,productionVercel,
+          accessToken:custody.accessToken,userId:custody.userId,accountId:custody.accountId,
+          vercelProjectId:custody.vercelProjectId,isCurrent:owner,fetcher:input.fetcher});
         return runWebsiteOwnedVercelPromotion({client:input.client,operationId:input.operationId,projectId:input.projectId,
           ownerId:input.ownerId,previewConnectionId:input.previewVercelConnectionId,
           productionConnectionId:input.productionVercelConnectionId,previewConnectionVersion:input.previewConnectionVersion,
           productionConnectionVersion:input.productionConnectionVersion,previewAttemptVersion:preview.attemptVersion,
+          runtimeEnvironmentReceiptVersion:runtimeReceipt.receiptVersion,runtimeEnvironmentIds:runtimeReceipt.environmentIds,
           vercelProjectId:custody.vercelProjectId,deploymentId:preview.deploymentId,sourceCommitSha:preview.headSha,
           sourceBranch:`tayar/${input.projectId}/preview`,accessToken:custody.accessToken,accountId:custody.accountId,
           productionBranch:custody.productionBranch,isCurrent:owner,fetcher:input.fetcher});},

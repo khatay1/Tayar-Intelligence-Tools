@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `9dd126fd6dba3c6520a224148244bf995c6c9a59`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `4911e466d045591ee91b5a4276f968db4feec26e`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -249,11 +249,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-Preview deployment attempts and observations are now bound to the exact verified runtime-environment receipt version and Vercel environment IDs captured before export. Provider inspection refuses same-name replacements, and the additive SQL boundary refuses begin, commit and reconciliation after receipt rotation, supersession or binding drift. Focused HTTP/RPC/static-SQL regressions, the full project-health gate, production build, TypeScript and targeted ESLint passed; no endpoint, migration, provider call, UI enablement or production flag was added.
+Production Publish now installs the owned public runtime pair on the distinct Production connection without a Preview branch override, persists only exact metadata/digests, and binds promotion begin, claim, commit and reconciliation to that receipt. Preview and Production connection-version advances now move their unchanged receipt/binding evidence in the same transaction. Focused HTTP/RPC/static-SQL regressions, the full project-health gate, production build, TypeScript and targeted ESLint passed; no endpoint, migration, provider call, UI enablement or production flag was added.
 
 ## Next exact batch
 
-Prepare a separately verified Production Vercel runtime environment on the distinct Production connection before promotion. It must derive the same public runtime pair from the current owned binding, use Production scope with no Preview branch override, persist exact non-decrypting IDs/digests, and bind promotion preparation, final observation and lost-response reconciliation to that receipt. Add wrong-connection, same-name replacement, rotation and domain/promotion drift regressions; keep all migrations/provider effects/UI/deployment disabled.
+Add exact runtime-variable cleanup to the Vercel disconnect and rebind lifecycle for both Preview and Production. It must use only verified receipt-owned IDs, refuse customer-mutated metadata, prove absence after deletion, preserve unrelated variables, and reconcile uncertain DELETE/database responses without provider replay. Keep migrations/provider effects/UI/deployment disabled.
 
 ## Known blockers
 

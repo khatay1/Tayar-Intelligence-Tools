@@ -1,12 +1,21 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — Production runtime receipt and promotion binding
+
+- Production Publish now derives the same `SUPABASE_URL` and publishable key from the persisted owned Preview binding, then prepares them through the separately verified Production Vercel connection before any promotion effect.
+- The provider write targets only `production` and deliberately omits `gitBranch`. Metadata-only receipt verification requires the exact key, Config type, Production target, operation marker and immutable Vercel environment IDs; values and provider tokens never enter the receipt.
+- Rotation installs and verifies the new pair before deleting only exact prior Tayar IDs, with absent-after-delete proof and lost POST/DELETE/SQL-response reconciliation. A same-operation retry cannot rotate after its captured binding changes.
+- Promotion begin, claim, final commit and lost-response reconciliation now require the exact Production receipt version/IDs. The final transaction advances the Production connection, custody and unchanged receipt CAS together. Preview terminal observation likewise advances its connection, custody, binding and receipt together so Production can prove continuity.
+- Focused mocked HTTP/RPC/static-SQL regressions, the full project-health gate, production build, TypeScript and targeted ESLint passed. `supabase migration list --local` reached the known unavailable PostgreSQL endpoint at `127.0.0.1:54322`, so SQL execution is not claimed. The CLI-generated migration remains unapplied; no provider write, promotion, deployment, endpoint, UI or live database mutation was performed.
+- NEXT: add exact Preview/Production runtime-variable cleanup to Vercel disconnect/rebind lifecycle, deleting only receipt-owned unchanged IDs and reconciling uncertain provider/database responses without touching customer variables.
+
 ## Current side-branch checkpoint — deployment runtime-receipt binding
 
 - Every new Preview deployment attempt now stores the exact verified runtime-environment receipt version and the sorted Vercel environment-ID map that existed before export/deployment observation. The TypeScript boundary refuses Production, missing keys, duplicate provider IDs and invalid receipt versions before RPC.
 - Provider inspection counts a required variable only when its name, Preview target, exact Tayar branch and immutable Vercel environment ID match the captured receipt. Replacing a variable under the same name therefore produces `setup-incomplete` instead of a false-ready observation.
 - A CLI-generated additive migration makes begin, final observation commit and lost-response reconciliation join the same current verified receipt. A superseded, rotated, rebound or differently versioned receipt fails closed; no value or provider token enters the attempt ledger.
 - Focused mocked HTTP/RPC/static-SQL regressions, the full project-health gate, production build, TypeScript and targeted ESLint passed. `supabase migration list --local` reached the known unavailable PostgreSQL endpoint at `127.0.0.1:54322`, so SQL execution is not claimed. The migration remains unapplied; no provider request, deployment, endpoint, UI, Production effect or live database mutation was performed.
-- NEXT: prepare a separately verified Production Vercel runtime-environment receipt on the Production connection without a Preview branch override, then bind promotion preparation and final observation to that exact receipt.
+- Production runtime preparation and exact promotion binding are completed by the checkpoint above.
 
 ## Current side-branch checkpoint — runtime-environment rotation cleanup
 

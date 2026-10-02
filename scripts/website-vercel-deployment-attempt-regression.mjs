@@ -51,15 +51,18 @@ try {
     commitId,report:{...report,status:'setup-incomplete',liveUrl:null},isCurrent:()=>true}),/unavailable/);
   const originalSql=await readFile('supabase/migrations/20260930013000_website_byo_vercel_deployment_attempt.sql','utf8');
   const receiptSql=await readFile('supabase/migrations/20261002090825_website_byo_deployment_runtime_receipt.sql','utf8');
-  const sql=originalSql+receiptSql;
+  const productionSql=await readFile('supabase/migrations/20261002100908_website_byo_production_runtime_environment.sql','utf8');
+  const sql=originalSql+receiptSql+productionSql;
   assert.match(sql,/source_commit_sha text not null/);assert.match(sql,/status='connecting'/);
   assert.match(sql,/website_vercel_integration_custody set connection_version=v_connection_version/);
-  assert.match(sql,/last_commit_id=p_commit_id/);assert.doesNotMatch(sql,/access_token|decrypted_secret/i);
+  assert.match(sql,/last_commit_id=p_commit_id/);assert.doesNotMatch(originalSql+receiptSql,/access_token|decrypted_secret/i);
   assert.match(sql,/a[.]missing_environment=p_missing_environment/);
   assert.match(receiptSql,/runtime_environment_receipt_version bigint/);
   assert.match(receiptSql,/runtime_environment_ids jsonb/);
   assert.match(receiptSql,/e[.]version=d[.]runtime_environment_receipt_version/);
   assert.match(receiptSql,/e[.]vercel_environment_ids=d[.]runtime_environment_ids/);
   assert.match(receiptSql,/e[.]superseded_environment_ids is null/);
+  assert.match(productionSql,/website_byo_runtime_bindings set vercel_connection_version=v_connection_version/);
+  assert.match(productionSql,/website_vercel_runtime_environment_receipts set vercel_connection_version=v_connection_version/);
   console.log('PASS Vercel deployment attempt: exact runtime receipt, commit-bound begin, atomic readiness and lost-response recovery (mocked RPC/static SQL)');
 } finally {await rm(dir,{recursive:true,force:true});}

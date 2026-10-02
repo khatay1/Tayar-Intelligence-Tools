@@ -99,3 +99,89 @@ export async function prepareOwnedVercelRuntimeEnvironment(input:{client:Client;
   return{receiptVersion:expected,environmentIds,status:'verified'};
  }catch{throw new Error('Vercel runtime environment unavailable.');}
 }
+
+/** Installs the same public owned-backend pair in Production on the separately
+ * verified Production connection. Production variables deliberately have no
+ * Preview branch override. */
+export async function prepareOwnedVercelProductionRuntimeEnvironment(input:{client:Client;projectId:string;ownerId:string;
+ operationId:string;binding:OwnedRuntimeBinding;supabase:InfrastructureConnection;previewVercel:InfrastructureConnection;
+ productionVercel:InfrastructureConnection;accessToken:string;userId:string;accountId:string;vercelProjectId:string;
+ isCurrent():Promise<boolean>;fetcher?:typeof fetch;
+}):Promise<{receiptVersion:number;environmentIds:Record<Name,string>;status:'verified'}>{
+ try{
+  if(typeof window!=='undefined'||![input.projectId,input.ownerId,input.operationId].every(v=>uuid.test(v))
+   ||!input.accessToken||input.accessToken.length>4096||/[\r\n]/.test(input.accessToken)
+   ||!provider.test(input.userId)||!provider.test(input.accountId)||!project.test(input.vercelProjectId))throw new Error();
+  assertInfrastructureConnection(input.supabase);assertInfrastructureConnection(input.previewVercel);
+  assertInfrastructureConnection(input.productionVercel);
+  const b=input.binding,s=input.supabase,p=input.previewVercel,v=input.productionVercel;
+  if(b.projectId!==input.projectId||b.ownerId!==input.ownerId||b.environment!=='preview'
+   ||b.supabaseConnectionId!==s.id||b.supabaseConnectionVersion!==s.version||s.provider!=='supabase'||s.targetId!==b.backend.projectRef
+   ||b.vercelConnectionId!==p.id||b.vercelConnectionVersion!==p.version||p.provider!=='vercel'||p.targetId!==input.vercelProjectId
+   ||s.projectId!==input.projectId||s.ownerId!==input.ownerId||s.environment!=='preview'
+   ||p.projectId!==input.projectId||p.ownerId!==input.ownerId||p.environment!=='preview'
+   ||v.projectId!==input.projectId||v.ownerId!==input.ownerId||v.environment!=='production'||v.provider!=='vercel'
+   ||v.id===p.id||v.targetId!==input.vercelProjectId||!Number.isSafeInteger(b.bindingVersion)||b.bindingVersion<1
+   ||!await input.isCurrent())throw new Error();
+  validateOwnedApplicationPublicBackend(b.backend,s.targetId!);
+  const values:Record<Name,string>={SUPABASE_ANON_KEY:b.backend.publishableKey,SUPABASE_URL:b.backend.url};
+  const digests:Record<Name,string>={SUPABASE_ANON_KEY:await sha256(values.SUPABASE_ANON_KEY),SUPABASE_URL:await sha256(values.SUPABASE_URL)};
+  const begun=await input.client.rpc('website_begin_vercel_production_runtime_environment',{p_project_id:input.projectId,
+   p_owner_id:input.ownerId,p_binding_version:b.bindingVersion,p_supabase_connection_id:s.id,
+   p_supabase_connection_version:s.version,p_production_connection_id:v.id,p_production_connection_version:v.version,
+   p_vercel_project_id:input.vercelProjectId,p_value_digests:digests,p_operation_id:input.operationId});
+  const raw=object(begun.data),begin=raw as unknown as Begin;
+  if(begun.error||!Number.isSafeInteger(begin.receiptVersion)||begin.receiptVersion<1
+   ||!['preparing','verified'].includes(begin.status)||typeof begin.newlyClaimed!=='boolean'
+   ||typeof begin.marker!=='string'||!/^Tayar production runtime [0-9a-f-]{36}$/i.test(begin.marker)
+   ||(begin.status==='preparing'&&begin.marker!==`Tayar production runtime ${input.operationId}`)
+   ||!await input.isCurrent())throw new Error();
+  if(begin.status==='verified')return{receiptVersion:begin.receiptVersion,environmentIds:ids(begin.environmentIds),status:'verified'};
+  const superseded=begin.supersededEnvironmentIds==null?null:ids(begin.supersededEnvironmentIds);
+  const team=input.accountId!==input.userId?`&teamId=${encodeURIComponent(input.accountId)}`:'';
+  const path=`https://api.vercel.com/v10/projects/${input.vercelProjectId}/env`;
+  const deletePath=`https://api.vercel.com/v9/projects/${input.vercelProjectId}/env`;
+  const headers={Authorization:`Bearer ${input.accessToken}`,'Content-Type':'application/json',Accept:'application/json'};
+  if(begin.newlyClaimed){
+   if(!await input.isCurrent())throw new Error();
+   try{await(input.fetcher??fetch)(`${path}?upsert=true${team}`,{method:'POST',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000),headers,
+    body:JSON.stringify(names.map(name=>({key:name,value:values[name],type:'plain',target:['production'],comment:begin.marker})))});}catch{/* exact metadata proof resolves an uncertain response */}
+  }
+  const read=async()=>{if(!await input.isCurrent())throw new Error();
+   const response=await(input.fetcher??fetch)(`${path}?decrypt=false${team}`,{method:'GET',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000),headers});
+   if(response.status!==200||Number(response.headers.get('content-length')??0)>262144)throw new Error();
+   const text=await response.text();if(text.length>262144)throw new Error();const payload=object(JSON.parse(text));
+   if(!Array.isArray(payload.envs)||payload.envs.length>1000)throw new Error();return payload.envs;};
+  const before=await read(),environmentIds={}as Record<Name,string>;
+  const current=(item:unknown,name:Name)=>{if(!item||typeof item!=='object'||Array.isArray(item))return false;
+   const row=item as Record<string,unknown>,targets=Array.isArray(row.target)?row.target:[];
+   return row.key===name&&row.type==='plain'&&row.comment===begin.marker&&targets.length===1&&targets[0]==='production'
+    &&row.gitBranch==null&&typeof row.id==='string'&&provider.test(row.id);};
+  for(const name of names){const matches=before.filter(item=>current(item,name));
+   if(matches.length!==1)throw new Error();environmentIds[name]=(matches[0]as Record<string,unknown>).id as string;
+  }
+  if(new Set(Object.values(environmentIds)).size!==2||!await input.isCurrent())throw new Error();
+  const removed:string[]=[];
+  if(superseded)for(const name of names){const oldId=superseded[name];if(Object.values(environmentIds).includes(oldId))continue;
+   const matches=before.filter(item=>!!item&&typeof item==='object'&&!Array.isArray(item)&&(item as Record<string,unknown>).id===oldId);
+   if(matches.length>1)throw new Error();if(matches.length===1){const row=matches[0]as Record<string,unknown>,targets=Array.isArray(row.target)?row.target:[];
+    if(row.key!==name||row.type!=='plain'||targets.length!==1||targets[0]!=='production'||row.gitBranch!=null
+     ||typeof row.comment!=='string'||!/^Tayar production runtime [0-9a-f-]{36}$/i.test(row.comment))throw new Error();
+    if(!await input.isCurrent())throw new Error();try{await(input.fetcher??fetch)(`${deletePath}/${oldId}${team?`?${team.slice(1)}`:''}`,
+     {method:'DELETE',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000),headers});}catch{/* absence proof resolves an uncertain DELETE */}
+   }removed.push(oldId);
+  }
+  removed.sort();const after=await read();
+  if(removed.some(oldId=>after.some(item=>!!item&&typeof item==='object'&&!Array.isArray(item)&&(item as Record<string,unknown>).id===oldId)))throw new Error();
+  for(const name of names)if(after.filter(item=>current(item,name)&&(item as Record<string,unknown>).id===environmentIds[name]).length!==1)throw new Error();
+  if(!await input.isCurrent())throw new Error();
+  const commit=await commitId(input.operationId,environmentIds,removed),args={p_project_id:input.projectId,p_owner_id:input.ownerId,
+   p_expected_receipt_version:begin.receiptVersion,p_operation_id:input.operationId,
+   p_vercel_environment_ids:environmentIds,p_removed_environment_ids:removed,p_commit_id:commit},expected=begin.receiptVersion+1;
+  const reconcile=async()=>{const result=await input.client.rpc('website_reconcile_vercel_production_runtime_environment',args);
+   return!result.error&&result.data===expected&&await input.isCurrent();};
+  if(!await reconcile()){try{const result=await input.client.rpc('website_commit_vercel_production_runtime_environment',args);
+   if(result.error||result.data!==expected||!await input.isCurrent())throw new Error();}catch{if(!await reconcile())throw new Error();}}
+  return{receiptVersion:expected,environmentIds,status:'verified'};
+ }catch{throw new Error('Vercel Production runtime environment unavailable.');}
+}
