@@ -136,8 +136,9 @@ export async function inspectOwnedVercelDeployment(input: {
       const variable = raw as Record<string, unknown>;
       if (typeof variable.key !== 'string' || !envName.test(variable.key) || !Array.isArray(variable.target)) continue;
       const target = input.target === 'production' ? 'production' : 'preview';
+      const expectedBranch=input.target==='preview'?input.sourceBranch:input.productionBranch;
       if (variable.target.includes(target)
-        && (variable.gitBranch == null || variable.gitBranch === input.productionBranch)) available.add(variable.key);
+        && (variable.gitBranch == null || variable.gitBranch === expectedBranch)) available.add(variable.key);
     }
     const missingEnvironment = input.requiredEnvironment.filter(key => !available.has(key)).sort();
     const first = deploymentState(await read(deploymentPath));

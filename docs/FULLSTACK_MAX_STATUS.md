@@ -1,5 +1,14 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — owned Vercel runtime environment
+
+- Preview Publish now derives `SUPABASE_URL` and `SUPABASE_ANON_KEY` only from the freshly verified owned runtime binding and writes them as Vercel Config values to the exact customer project and `tayar/{projectId}/preview` branch before source export.
+- A CLI-generated private receipt ledger stores only SHA-256 value digests and Vercel environment IDs. Service-role-only begin/commit/reconcile/verify RPCs bind the receipt to exact binding, Supabase and Vercel versions and current custody; values and provider tokens are not persisted in the receipt.
+- An uncertain Vercel response is resolved by a non-decrypting metadata read with the exact operation marker. An exact retry verifies only and never repeats the provider POST; a lost SQL commit response reconciles the full destination-ID map.
+- Deployment inspection now checks Preview variables against the source branch rather than the Production branch. Wrong project, stale binding, wrong branch and service-role-shaped backend values fail closed.
+- Mocked provider/RPC and static-SQL regressions, the complete infrastructure and project-health gates, production build, TypeScript and targeted ESLint passed. `supabase migration list --local` was attempted, but the known local PostgreSQL endpoint at `127.0.0.1:54322` remains unavailable. The additive migration remains unapplied and no provider call, endpoint mount, deployment, UI or Production path was enabled.
+- NEXT: add durable removal/rotation reconciliation for superseded public runtime-environment receipts and prove exact cleanup without deleting unrelated branch variables.
+
 ## Current side-branch checkpoint — concrete Publish runtime policy
 
 - The unmounted host now creates its runtime verifier and environment manifest internally from the service-role source reader; deployment callers can no longer inject either callback.

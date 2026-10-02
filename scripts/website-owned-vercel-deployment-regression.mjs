@@ -46,6 +46,14 @@ try {
   assert.deepEqual(ready, { status: 'ready', deploymentId: input.deploymentId,
     missingEnvironment: [], liveUrl: 'https://booking-abc.vercel.app', observedState: 'READY' });
   assert.ok(!JSON.stringify(ready).includes('must-not-return'));
+  const sourceBranch='tayar/22222222-2222-4222-8222-222222222222/preview',previewDeployment={...deployment,target:null,
+    meta:{...deployment.meta,githubCommitRef:sourceBranch}};
+  const preview=await inspect({...input,target:'preview',sourceBranch,fetcher:fixture({deployment:previewDeployment,
+    envs:[{key:'SUPABASE_URL',target:['preview'],gitBranch:sourceBranch},{key:'SUPABASE_ANON_KEY',target:['preview'],gitBranch:sourceBranch}]})});
+  assert.equal(preview.status,'ready','Preview reads its exact source branch environment');
+  const wrongBranch=await inspect({...input,target:'preview',sourceBranch,fetcher:fixture({deployment:previewDeployment,
+    envs:[{key:'SUPABASE_URL',target:['preview'],gitBranch:input.productionBranch},{key:'SUPABASE_ANON_KEY',target:['preview'],gitBranch:input.productionBranch}]})});
+  assert.deepEqual(wrongBranch.missingEnvironment,['SUPABASE_ANON_KEY','SUPABASE_URL'],'production-branch variables cannot satisfy Preview');
   const missing = await inspect({ ...input, fetcher: fixture({ envs: [
     { key: 'SUPABASE_URL', target: ['production'] }] }) });
   assert.deepEqual(missing.missingEnvironment, ['SUPABASE_ANON_KEY']);
@@ -64,4 +72,3 @@ try {
     fetcher: fixture() }), /unavailable/);
   console.log('PASS owned Vercel deployment: exact project/source, env presence, two final observations and safe readiness states (mocked HTTP)');
 } finally { await rm(dir, { recursive: true, force: true }); }
-

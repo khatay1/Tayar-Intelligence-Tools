@@ -6,6 +6,7 @@ import { createWebsiteByoPublishStore, initializeWebsiteByoPublishOperation } fr
 import { runByoPublishWorker } from './website-byo-publish-worker';
 import { runByoProductionPublishWorker } from './website-byo-production-publish-worker';
 import { runWebsiteOwnedVercelPromotion } from './website-owned-vercel-promotion-worker';
+import { prepareOwnedVercelRuntimeEnvironment } from './website-owned-vercel-runtime-environment';
 import { exportWebsiteProjectToOwnedGitHub } from '../src/modules/website-builder/services/websiteGithubExportWorker';
 import { beginWebsiteVercelDeploymentAttempt,
   commitWebsiteVercelDeploymentObservation } from '../src/modules/website-builder/services/websiteVercelDeploymentAttemptService';
@@ -67,9 +68,16 @@ export async function runWebsiteOwnedByoPublish(input:{
   const environment=async()=>{if(required)return required;const capturedSource=await source(),vercel=await grant();
     required=[...await input.requiredEnvironment(capturedSource.capabilities)].sort();
     if(required.length>64||required.some(v=>!env.test(v))||new Set(required).size!==required.length)throw new Error();
-    const proof=await input.client.rpc('website_verify_vercel_secret_receipts',{p_connection_id:input.vercelConnectionId,
-      p_project_id:input.projectId,p_owner_id:input.ownerId,p_connection_version:capturedSource.vercel.version,
-      p_vercel_project_id:vercel.vercelProjectId,p_target:input.environment,p_git_branch:vercel.productionBranch,p_required_environment:required});
+    const sourceBranch=`tayar/${input.projectId}/preview`;
+    await prepareOwnedVercelRuntimeEnvironment({client:input.client,projectId:input.projectId,ownerId:input.ownerId,
+      operationId:input.operationId,binding:capturedSource.binding,supabase:capturedSource.supabase,vercel:capturedSource.vercel,
+      accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,vercelProjectId:vercel.vercelProjectId,
+      isCurrent:async()=>await capturedSource.isCurrent()&&await owner(),fetcher:input.fetcher});
+    const proof=await input.client.rpc('website_verify_vercel_runtime_environment',{p_project_id:input.projectId,
+      p_owner_id:input.ownerId,p_binding_version:capturedSource.binding.bindingVersion,
+      p_supabase_connection_id:capturedSource.supabase.id,p_supabase_connection_version:capturedSource.supabase.version,
+      p_vercel_connection_id:capturedSource.vercel.id,p_vercel_connection_version:capturedSource.vercel.version,
+      p_vercel_project_id:vercel.vercelProjectId,p_git_branch:sourceBranch,p_required_environment:required});
     if(proof.error||proof.data!==true||!await owner())throw new Error();return required;};
   try{return await runByoPublishWorker({operationId:input.operationId,projectId:input.projectId,ownerId:input.ownerId,
     environment:input.environment,store,isCurrent:owner,
