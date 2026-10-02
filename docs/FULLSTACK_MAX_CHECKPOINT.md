@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `0272481be20347afe2ca455dd949064e115245cf`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `main`. The explicitly authorized source integration fast-forwarded remote `main` from `2643566473d5e255b948574224dc9369036a1046` to `e495a16043315e34ba78f4841d64ba76c24cccfb`, matching the former side-branch tree `37d0892d3b74271f93cde2ff9731ddeb8a77be6a`. Production deployment, migrations, credentials and flags remain unchanged.
 
 ## Architecture decision
 
@@ -263,7 +263,7 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-An isolated activation preflight now inventories the exact 29 source-only BYO migrations and three generated connection functions, requires explicit isolated mode, validates exact Supabase callback/browser endpoints and one HTTPS return origin, confirms the callback JWT configuration and verifies the functions remain excluded from the production deploy script. Its secret-free report contains names only, rejects secret-shaped public variables and fails closed for incomplete, cross-origin or missing-file input. The complete infrastructure suite and project-health gate passed, production built 2141 modules, and TypeScript/ESLint passed; the generated Vercel function was rebuilt after correcting a source-level empty catch without changing uncertain-delete reconciliation. The gate performs no provider request, database connection, migration, deployment or file write.
+All Fullstack MAX source work was fast-forwarded into `main` with no force update and no divergent commits. `main` and the former side branch are identical at `e495a16043315e34ba78f4841d64ba76c24cccfb`. The activation command revalidated the GitHub, Supabase and Vercel generated bundles, then failed closed because no isolated mode, platform/OAuth secret set or exact callback/endpoint URLs are configured. The report exposed names only and performed no provider request, database connection, migration or deployment.
 
 ## Next exact batch
 

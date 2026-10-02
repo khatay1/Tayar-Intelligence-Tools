@@ -1,6 +1,12 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — isolated activation preflight
+## Current main checkpoint — source integration and activation boundary
+
+- On 2026-10-02 the explicitly authorized integration fast-forwarded `main` from `2643566473d5e255b948574224dc9369036a1046` to `e495a16043315e34ba78f4841d64ba76c24cccfb`. The former side branch and `main` resolve to the same tree `37d0892d3b74271f93cde2ff9731ddeb8a77be6a`; no force update, conflict resolution or production effect occurred.
+- The read-only activation command revalidated all three generated function bundles, then stopped with exit 1 because isolated mode, platform/OAuth credentials and exact callback/endpoint URLs are not configured. Its output contained missing names only. No provider request, migration or deployment occurred.
+- Source integration is complete. The next plan step is an authorized disposable Supabase platform environment plus isolated OAuth applications/secrets, followed by the documented preflight and live E2E; production remains closed.
+
+## Previous side-branch checkpoint — isolated activation preflight
 
 - Added a read-only fail-closed gate for the exact 29 BYO migrations and three generated GitHub/Supabase/Vercel Edge functions. It requires explicit isolated mode, validates exact callback/browser endpoint topology and a shared HTTPS return origin, and confirms the functions remain outside the existing production deploy script.
 - The report exposes only missing key, provider and file names. Public secret-shaped variables are rejected and configured values are never returned. Regression coverage proves incomplete, cross-origin, public-secret and missing-file cases stay closed.
