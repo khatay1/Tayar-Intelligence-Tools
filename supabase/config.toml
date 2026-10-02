@@ -60,3 +60,8 @@ verify_jwt = true
 # current user JWT and project ownership; callback consumes one-use state.
 [functions.website-github-connection]
 verify_jwt = false
+
+# Vercel OAuth callback has no Tayar bearer JWT. Browser actions authenticate
+# inside the handler; this source-only function is absent from production deploy.
+[functions.website-vercel-connection]
+verify_jwt = false

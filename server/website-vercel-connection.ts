@@ -33,7 +33,8 @@ type GithubTarget = { repositoryId: string; repositoryOwner: string;
 export async function handleWebsiteVercelConnection(request: Request, context: {
   platform: Pick<SupabaseClient, 'auth' | 'from' | 'rpc'>; integrationSlug: string;
   clientId: string; clientSecret: string; callback: string; returnUrl: string;
-  platformAccountId: string; loadGithubTarget(input: { ownerId: string; projectId: string }): Promise<GithubTarget | null>;
+  platformAccountId: string; loadGithubTarget(input: { ownerId: string; projectId: string;
+    isCurrentOwner(): Promise<boolean> }): Promise<GithubTarget | null>;
   fetcher?: typeof fetch;
 }): Promise<Response> {
   const action = new URL(request.url).searchParams.get('action');
@@ -156,7 +157,7 @@ export async function handleWebsiteVercelConnection(request: Request, context: {
         operationId, commitId, isCurrentOwner, fetcher: context.fetcher });
       return json(200, { status: 'disconnected', connectionId, ...result });
     }
-    const target = await context.loadGithubTarget({ ownerId, projectId });
+    const target = await context.loadGithubTarget({ ownerId, projectId, isCurrentOwner });
     if (!target) return json(409, { error: 'Connect the correct GitHub repository first.' });
     const shared = { client: context.platform, ownerId, projectId,
       handoffId: input.handoffId as string, platformAccountId: context.platformAccountId,

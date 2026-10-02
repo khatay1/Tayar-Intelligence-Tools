@@ -88,7 +88,8 @@ try {
   const context = { platform, integrationSlug: 'tayar-connect', clientId: 'vercel-client-id',
     clientSecret: 'vercel-client-secret-value', callback, returnUrl,
     platformAccountId: 'team_tayar1234', fetcher, loadGithubTarget: async scope => {
-      targetReads++; assert.deepEqual(scope, { ownerId, projectId }); return target;
+      targetReads++; assert.equal(scope.ownerId, ownerId); assert.equal(scope.projectId, projectId);
+      assert.equal(await scope.isCurrentOwner(), true); return target;
     } };
   const post = (action, body, auth = true) => new Request(callback.replace('action=callback', `action=${action}`), {
     method: 'POST', headers: { 'content-type': 'application/json',

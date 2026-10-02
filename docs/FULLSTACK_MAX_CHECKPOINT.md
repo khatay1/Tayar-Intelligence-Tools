@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `a6828776fb80c721179a5018b4ec13ca9d3683d3`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `8e9cb10711587d39a8a3cc3e7a072aecb965f487`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -42,7 +42,7 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Vercel project binding now consumes the temporary handoff only after an exact recovery check, re-verifies the authenticated user, team Owner membership and the selected project twice, then atomically writes `connected` metadata and a 90-day maximum Vault lease. Exact operation/account/configuration/project reconciliation recovers a lost SQL response without replaying the provider operation. A service-only read/delete/expiry cleanup boundary is included for later deployment and disconnect workers. The migration is source-only and unmounted.
 
-- A source-only authenticated Vercel connection handler now composes begin/callback/options/bind/disconnect. Disconnect accepts only the exact owner/project/connection/version/operation/commit shape, rechecks the bearer session and saved project ownership throughout the receipt-aware worker, and reconciles an already committed request before loading the connection or touching Vercel. It remains unbundled, unmounted and disabled in the Infrastructure panel.
+- The authenticated Vercel connection handler now composes begin/callback/options/bind/disconnect behind a deterministic Supabase Edge bundle. Its strict cold-start environment factory creates one service client, applies fixed-origin CORS and leaves OAuth values optional so authenticated disconnect remains available during credential rotation. The function is configured for the unauthenticated one-use OAuth callback but remains absent from the guarded production deploy and disabled in the Infrastructure panel.
 
 - A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody after exact Preview/Production runtime-receipt cleanup. Exact commit/version reconciliation recovers lost provider or SQL responses. The browser adapter persists one stable operation/commit UUID pair before HTTP and reuses it after an uncertain response; only an exact verified success clears it. The account-wide Vercel Integration remains installed because another Tayar project may share that configuration.
 
@@ -249,11 +249,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The authenticated Vercel handler now exposes the receipt-aware project disconnect contract without accepting provider identity from the browser. It strictly validates the owner-scoped connection/version and stable operation/commit UUIDs, revalidates the bearer and saved project ownership throughout the worker, performs completed-request reconciliation before connection custody or provider access, and remains usable while OAuth installation credentials are unavailable. The browser adapter stores the exact UUID pair before HTTP, reuses it after a lost response and clears it only after an exact disconnected response. Focused mocked endpoint/browser/worker regressions, the complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks passed. The handler remains source-only and the UI action remains disabled; no live migration, provider call, endpoint mount, deployment, flag or production effect occurred.
+The Vercel connection handler now has a deterministic, source-generated Supabase Edge entry with strict server-only environment parsing, fixed-origin CORS, one cold-start service client and lazy per-request user-scoped registry reads. Its GitHub target loader discovers the Preview connection through the owner projection, proves the exact same version through the existing service-only projection, then uses a repository-scoped GitHub App grant to verify immutable repository owner/name/default branch immediately before Vercel selection. Browser input still cannot supply repository identity. Focused loader/Edge/endpoint regressions, generated-bundle freshness, 31-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks passed. No migration was needed. The Edge function remains excluded from guarded production deployment and the UI action remains disabled; no secrets were configured and no live provider/database/deployment effect occurred.
 
 ## Next exact batch
 
-Create a deterministic unmounted Edge/server-environment wrapper for the Vercel connection handler and derive its trusted GitHub target from the existing service-only registry projection. Add generated-bundle freshness and entrypoint regressions, but keep the Infrastructure UI action disabled and do not deploy, configure credentials, apply migrations or call a live provider.
+Apply the same deterministic server-environment and generated-Edge boundary to the existing Supabase connection handler, including callback-safe JWT configuration, fixed-origin CORS, pinned dependency/freshness checks and sanitized initialization failures. Keep it outside guarded production deployment and leave every Infrastructure connect action disabled; do not configure OAuth, deploy or apply migrations.
 
 ## Known blockers
 

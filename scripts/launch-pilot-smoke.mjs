@@ -170,7 +170,9 @@ check('Guarded Supabase release applies Auth config and every changed billing fu
   // one-use state and checks JWT on begin, and is absent from this production guard.
   supabaseConfig.includes('[functions.website-github-connection]\nverify_jwt = false') &&
   !deploymentGuard.includes("'website-github-connection'") &&
-  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 4 &&
+  supabaseConfig.includes('[functions.website-vercel-connection]\nverify_jwt = false') &&
+  !deploymentGuard.includes("'website-vercel-connection'") &&
+  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 5 &&
   deploymentGuard.includes('ConfirmAuthConfig'));
 
 let failed = 0;
