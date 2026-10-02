@@ -55,6 +55,13 @@ export const arCmsSupplement: PhraseMap = {
   'No matching Vercel project. Create or link one to the GitHub repository first.': 'لا يوجد مشروع Vercel مطابق. أنشئ مشروعاً أو اربطه بمستودع GitHub أولاً.',
   'Vercel project connection could not be verified. Try again.': 'تعذّر التحقق من ربط مشروع Vercel. حاول مجدداً.',
   'Vercel project connected. Deployment setup is still required.': 'تم ربط مشروع Vercel. ما زال إعداد النشر مطلوباً.',
+  'Choose Supabase project': 'اختر مشروع Supabase',
+  'Only active projects in organizations you own are shown. Tayar accounts are excluded.': 'تظهر فقط المشاريع النشطة في المؤسسات التي تملكها. تُستبعد حسابات طيار.',
+  'Loading Supabase projects...': 'جارٍ تحميل مشاريع Supabase...',
+  'Supabase projects are unavailable. Reconnect Supabase.': 'تعذّر عرض مشاريع Supabase. أعد ربط Supabase.',
+  'No eligible Supabase project was found.': 'لم يُعثر على مشروع Supabase مؤهل.',
+  'Supabase project connection could not be verified. Try again.': 'تعذّر التحقق من ربط مشروع Supabase. حاول مجدداً.',
+  'Supabase project connected. Backend setup is still required.': 'تم ربط مشروع Supabase. ما زال إعداد الخلفية مطلوباً.',
 };
 
 export const svCmsSupplement: PhraseMap = {
@@ -99,6 +106,13 @@ export const svCmsSupplement: PhraseMap = {
   'No matching Vercel project. Create or link one to the GitHub repository first.': 'Inget matchande Vercel-projekt. Skapa eller koppla ett till GitHub-arkivet först.',
   'Vercel project connection could not be verified. Try again.': 'Vercel-projektanslutningen kunde inte verifieras. Försök igen.',
   'Vercel project connected. Deployment setup is still required.': 'Vercel-projektet är anslutet. Publiceringen måste fortfarande konfigureras.',
+  'Choose Supabase project': 'Välj Supabase-projekt',
+  'Only active projects in organizations you own are shown. Tayar accounts are excluded.': 'Endast aktiva projekt i organisationer som du äger visas. Tayars konton undantas.',
+  'Loading Supabase projects...': 'Läser in Supabase-projekt...',
+  'Supabase projects are unavailable. Reconnect Supabase.': 'Supabase-projekten kan inte visas. Anslut Supabase igen.',
+  'No eligible Supabase project was found.': 'Inget behörigt Supabase-projekt hittades.',
+  'Supabase project connection could not be verified. Try again.': 'Supabase-projektanslutningen kunde inte verifieras. Försök igen.',
+  'Supabase project connected. Backend setup is still required.': 'Supabase-projektet är anslutet. Backend måste fortfarande konfigureras.',
 };
 
 Object.assign(svCmsSupplement, {

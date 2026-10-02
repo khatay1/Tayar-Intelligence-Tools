@@ -1,12 +1,16 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — unified browser OAuth coordinator
+## Current side-branch checkpoint — Infrastructure project lifecycle controller
 
-- The missing Supabase browser adapter now matches the existing GitHub/Vercel scope rules: begin requires the current owner/project/load sequence, the returned authorization URL must be the official Supabase PKCE route, and session storage contains only pending editor identity.
-- Callback handling removes `tayar_supabase_handoff` before asynchronous work and accepts exactly one UUID bound to that pending scope. Options return only validated account/project/organization metadata; bind checks the exact project and next registry version, with no provider grant exposed to the browser.
-- A shared coordinator starts GitHub, Supabase or Vercel only when the endpoint catalog returns a transport for that provider. It dispatches only the three recognized opaque fragments and refuses unavailable providers before HTTP; arbitrary redirects and Stripe are outside the contract.
-- Focused Supabase/coordinator regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript and targeted ESLint passed. The controller/UI remain unmounted, endpoints and credentials remain empty and no deployment, migration, provider, flag or production effect occurred.
-- NEXT: add the Supabase project chooser UI and an unmounted Infrastructure controller that owns status refresh, begin/handoff/chooser state and project-load invalidation for all three providers.
+- A standalone controller now owns owner/project-scoped status refresh, provider begin/navigation, opaque callback handoff state and disposal for the active editor load. Sequence guards and the owner reader prevent stale project responses from becoming visible.
+- The new Supabase chooser lists only sanitized active projects in organizations owned by the authenticated customer, excludes Tayar's platform organization, reuses exact connection/version metadata for reconnect and refuses stale selections after a project switch.
+- Focused controller/chooser and localization regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript and targeted ESLint passed. The controller and chooser remain unmounted, endpoints and credentials remain empty and no deployment, migration, provider, flag or production effect occurred.
+- NEXT: compose the controller, status panel and GitHub/Supabase/Vercel choosers into one unmounted editor-facing container with explicit chooser transitions and refresh-after-bind behavior.
+
+## Previous side-branch checkpoint — unified browser OAuth coordinator
+
+- The Supabase browser adapter matches the existing GitHub/Vercel scope rules, removes its opaque fragment before async work and exposes only sanitized choices and exact binding acknowledgements.
+- The shared coordinator starts and dispatches only catalog-available GitHub, Supabase or Vercel flows; arbitrary redirects and Stripe remain outside the contract.
 
 ## Previous side-branch checkpoint — endpoint-gated browser availability
 
