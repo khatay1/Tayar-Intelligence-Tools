@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `c638435a530b30f1c92600f50831a3d8147aa042`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `0272481be20347afe2ca455dd949064e115245cf`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -263,11 +263,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The Infrastructure surface is now reachable from V2 Settings through a fail-closed adapter. It constructs the strict endpoint catalog and project controller only for a saved UUID project with a matching authenticated owner/current load sequence, rechecks the browser session before any provider request and renders the disabled panel for every invalid or server-rendered scope. Empty endpoint defaults keep GitHub, Supabase and Vercel actions disabled. Focused adapter/SSR/reachability regression, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build of 2141 modules, TypeScript, targeted ESLint, localization and diff checks passed. No function was deployed, no OAuth credential or endpoint was configured, no migration was applied and no provider/production effect occurred.
+An isolated activation preflight now inventories the exact 29 source-only BYO migrations and three generated connection functions, requires explicit isolated mode, validates exact Supabase callback/browser endpoints and one HTTPS return origin, confirms the callback JWT configuration and verifies the functions remain excluded from the production deploy script. Its secret-free report contains names only, rejects secret-shaped public variables and fails closed for incomplete, cross-origin or missing-file input. The complete infrastructure suite and project-health gate passed, production built 2141 modules, and TypeScript/ESLint passed; the generated Vercel function was rebuilt after correcting a source-level empty catch without changing uncertain-delete reconciliation. The gate performs no provider request, database connection, migration, deployment or file write.
 
 ## Next exact batch
 
-Operational activation now requires explicit external authorization: review/apply the source-only platform migrations, configure GitHub/Supabase/Vercel OAuth applications and server secrets, deploy the three guarded Edge functions, set the three exact public endpoint URLs and run live callback/binding/readiness E2E in an isolated environment before production. None of those external mutations are authorized or available in this source-only checkpoint.
+Run the documented preflight with authorized secret-managed values against a disposable isolated Tayar platform environment. Applying migrations, configuring OAuth applications/secrets, deploying the three guarded functions and running live callback/binding/readiness E2E remain separate external mutations requiring explicit authorization. Source-only implementation is now at that operational boundary.
 
 ## Known blockers
 

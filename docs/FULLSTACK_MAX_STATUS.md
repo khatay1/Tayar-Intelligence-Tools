@@ -1,5 +1,12 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — isolated activation preflight
+
+- Added a read-only fail-closed gate for the exact 29 BYO migrations and three generated GitHub/Supabase/Vercel Edge functions. It requires explicit isolated mode, validates exact callback/browser endpoint topology and a shared HTTPS return origin, and confirms the functions remain outside the existing production deploy script.
+- The report exposes only missing key, provider and file names. Public secret-shaped variables are rejected and configured values are never returned. Regression coverage proves incomplete, cross-origin, public-secret and missing-file cases stay closed.
+- The complete infrastructure suite and project-health gate passed, production built 2141 modules, and TypeScript/ESLint passed. An empty generated Vercel disconnect catch found by the full lint was corrected at its trusted source and rebuilt without changing its uncertain-delete reconciliation behavior.
+- The gate performs no provider request, database connection, migration, deployment or file write. Operational mutations and live E2E still require explicit authorization and real isolated credentials.
+
 ## Current side-branch checkpoint — fail-closed editor Infrastructure surface
 
 - V2 Settings now mounts the Infrastructure surface through an adapter that requires a saved UUID project, matching authenticated owner and current load sequence before creating a catalog, controller or callback consumer.

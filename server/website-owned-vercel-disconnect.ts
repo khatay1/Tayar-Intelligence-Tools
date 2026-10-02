@@ -107,7 +107,10 @@ export async function disconnectOwnedVercelProject(input: {
           try {
             await (input.fetcher ?? fetch)(`https://api.vercel.com/v9/projects/${begin.vercelProjectId}/env/${id}${suffix}`,
               { method: 'DELETE', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(8000), headers });
-          } catch { /* a second non-decrypting list resolves an uncertain DELETE */ }
+          } catch {
+            // A second non-decrypting list resolves an uncertain DELETE.
+            continue;
+          }
         }
       }
       const after = await read();

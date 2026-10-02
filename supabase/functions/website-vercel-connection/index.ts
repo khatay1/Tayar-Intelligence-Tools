@@ -552,6 +552,7 @@ async function disconnectOwnedVercelProject(input) {
               { method: "DELETE", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8e3), headers }
             );
           } catch {
+            continue;
           }
         }
       }
