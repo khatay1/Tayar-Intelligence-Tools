@@ -157,7 +157,7 @@ create or replace function public.website_verify_vercel_runtime_environment(
    and e.git_branch=p_git_branch and e.git_branch='tayar/'||p_project_id::text||'/preview'
    and e.value_digests=jsonb_build_object('SUPABASE_URL',encode(extensions.digest('https://'||s.target_id||'.supabase.co','sha256'),'hex'),
     'SUPABASE_ANON_KEY',encode(extensions.digest(b.publishable_key,'sha256'),'hex'))
-   and jsonb_object_length(e.vercel_environment_ids)=2 and p.user_id=p_owner_id
+   and (select count(*) from jsonb_object_keys(e.vercel_environment_ids))=2 and p.user_id=p_owner_id
    and p.type='website-builder' and p.deleted_at is null and s.version=b.supabase_connection_version
    and v.version=b.vercel_connection_version and s.status='ready'
    and v.status in('connected','setup-incomplete','deployment-failed','ready'))

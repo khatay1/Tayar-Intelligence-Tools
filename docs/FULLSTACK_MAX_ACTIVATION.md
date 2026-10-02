@@ -26,3 +26,11 @@ The command performs no provider request, database connection, migration, deploy
 8. Preserve identifiers and redacted receipts for review; remove disposable provider resources when the rehearsal is complete.
 
 Production remains a separate decision. Never reuse customer runtime credentials as Tayar platform credentials, never place service-role/OAuth/private-key material in public-prefixed variables, and never infer readiness from a callback or mocked success alone.
+
+## Isolated rehearsal evidence — 2026-10-02
+
+- Supabase project `Tayar Fullstack MAX Activation` (`uepltkguloltmebepvbo`, `eu-west-1`) was created on the free plan after the user approved pausing the older `Tayar Fullstack MAX Validation` project. The production `tayar tools` project was not modified.
+- All 107 repository migrations were applied in order. The operator explicitly confirmed the template redistribution assertion/public bucket and approved schema-only installation of the Vercel promotion and remaining Production-capability migrations; no provider token, customer account or deployment effect was used.
+- Live PostgreSQL 17 validation found and fixed two source defects: unsupported `jsonb_object_length(jsonb)` calls were replaced with `jsonb_object_keys` counts, and a composite PL/pgSQL row target was removed from a multi-item `INTO` list. Both corrected migrations then applied successfully.
+- Every public table has RLS enabled, the four required service-worker functions exist, and no BYO privileged function is executable by `anon`. Advisor notices for policy-free `private` tables are expected because their table grants are revoked and access is service-only. Existing public signup/form/analytics RPC warnings remain separate legacy review items.
+- No Edge Function, OAuth application, provider secret, public endpoint, GitHub export, Vercel deployment or Production migration was configured. The next gate is isolated OAuth registration and secret custody, followed by deployment of only the three connection functions.

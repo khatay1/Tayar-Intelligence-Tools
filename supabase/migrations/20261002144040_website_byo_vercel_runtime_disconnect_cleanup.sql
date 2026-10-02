@@ -33,14 +33,13 @@ create function public.website_begin_vercel_runtime_disconnect(
  p_connection_id uuid,p_project_id uuid,p_owner_id uuid,
  p_expected_connection_version bigint,p_operation_id uuid
 ) returns jsonb language plpgsql security definer set search_path='' as $$
-declare c private.website_infrastructure_connections%rowtype;
- r private.website_vercel_runtime_environment_receipts%rowtype;
- v_user text;v_account text;v_project text;v_token text;v_next bigint;
+declare r private.website_vercel_runtime_environment_receipts%rowtype;
+ v_environment text;v_user text;v_account text;v_project text;v_token text;v_next bigint;
 begin
  if p_expected_connection_version is null or p_expected_connection_version<1 or p_operation_id is null
   then raise exception 'Vercel disconnect unavailable';end if;
- select x,v.user_id,v.account_id,v.vercel_project_id,d.decrypted_secret
- into c,v_user,v_account,v_project,v_token
+ select x.environment,v.user_id,v.account_id,v.vercel_project_id,d.decrypted_secret
+ into v_environment,v_user,v_account,v_project,v_token
  from private.website_infrastructure_connections x
  join public.projects p on p.id=x.project_id
  join private.website_vercel_integration_custody v on v.connection_id=x.id
@@ -55,7 +54,7 @@ begin
  for update of x,v;
  if not found or v_token is null then raise exception 'Vercel disconnect changed';end if;
  select * into r from private.website_vercel_runtime_environment_receipts
- where project_id=p_project_id and environment=c.environment for update;
+ where project_id=p_project_id and environment=v_environment for update;
  if not found or r.status='removed' then
   return jsonb_build_object('cleanupRequired',false,'receiptVersion',null);
  end if;
@@ -68,21 +67,21 @@ begin
   or exists(select 1 from jsonb_each_text(r.vercel_environment_ids)e where e.value!~'^[A-Za-z0-9_-]{3,128}$')
   or (select count(*)from jsonb_each_text(r.vercel_environment_ids))
     <>(select count(distinct e.value)from jsonb_each_text(r.vercel_environment_ids)e)
-  or (c.environment='preview' and(r.git_branch is distinct from 'tayar/'||p_project_id::text||'/preview'
+  or (v_environment='preview' and(r.git_branch is distinct from 'tayar/'||p_project_id::text||'/preview'
     or r.marker!~'^Tayar runtime [0-9a-f-]{36}$'))
-  or (c.environment='production' and(r.git_branch is not null
+  or (v_environment='production' and(r.git_branch is not null
     or r.marker!~'^Tayar production runtime [0-9a-f-]{36}$'))
   then raise exception 'Runtime environment cleanup changed';end if;
  if r.status='verified' then
   v_next:=r.version+1;
   update private.website_vercel_runtime_environment_receipts set status='removing',operation_id=p_operation_id,
    last_commit_id=null,version=v_next,updated_at=clock_timestamp()
-  where project_id=p_project_id and environment=c.environment returning * into r;
+  where project_id=p_project_id and environment=v_environment returning * into r;
  elsif r.status='removing' and r.operation_id=p_operation_id then
   v_next:=r.version;
  else raise exception 'Runtime environment cleanup changed';end if;
  return jsonb_build_object('cleanupRequired',true,'receiptVersion',v_next,'accessToken',v_token,
-  'userId',v_user,'accountId',v_account,'vercelProjectId',v_project,'environment',c.environment,
+  'userId',v_user,'accountId',v_account,'vercelProjectId',v_project,'environment',v_environment,
   'gitBranch',r.git_branch,'marker',r.marker,'environmentIds',r.vercel_environment_ids);
 end $$;
 revoke all on function public.website_begin_vercel_runtime_disconnect(uuid,uuid,uuid,bigint,uuid)

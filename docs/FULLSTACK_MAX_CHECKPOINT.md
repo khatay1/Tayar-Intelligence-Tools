@@ -263,11 +263,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-All Fullstack MAX source work was fast-forwarded into `main` with no force update and no divergent commits. `main` and the former side branch are identical at `e495a16043315e34ba78f4841d64ba76c24cccfb`. The activation command revalidated the GitHub, Supabase and Vercel generated bundles, then failed closed because no isolated mode, platform/OAuth secret set or exact callback/endpoint URLs are configured. The report exposed names only and performed no provider request, database connection, migration or deployment.
+A free isolated Supabase activation project now proves the complete 107-migration repository sequence on PostgreSQL 17. Live execution found and corrected the unsupported `jsonb_object_length(jsonb)` calls in Preview/rotation verification plus the composite-row/multi-item `INTO` error in Vercel disconnect cleanup; focused regressions cover both and the corrected migrations applied successfully. All public tables have RLS, required worker functions exist and no privileged BYO function is executable by `anon`. The older validation project was paused with explicit approval and remains restorable. Production `tayar tools`, Edge Functions, OAuth credentials, provider APIs and deployments were unchanged.
 
 ## Next exact batch
 
-Run the documented preflight with authorized secret-managed values against a disposable isolated Tayar platform environment. Applying migrations, configuring OAuth applications/secrets, deploying the three guarded functions and running live callback/binding/readiness E2E remain separate external mutations requiring explicit authorization. Source-only implementation is now at that operational boundary.
+Register isolated GitHub, Supabase and Vercel OAuth applications with exact Activation callbacks, install their values only through secret custody, run the documented preflight, deploy only the three guarded connection functions and exercise callback/account/project binding E2E. Preview/Production provider effects remain closed until that connection proof succeeds.
 
 ## Known blockers
 

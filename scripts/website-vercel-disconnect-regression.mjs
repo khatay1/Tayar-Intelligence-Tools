@@ -103,6 +103,9 @@ try {
   assert.match(sql, /status in\('preparing','verified','removing','removed'\)/);
   assert.match(sql, /drop function public\.website_disconnect_vercel_connection/);
   assert.match(sql, /website_reconcile_completed_vercel_runtime_disconnect/);
+  assert.match(sql, /select x\.environment,v\.user_id,v\.account_id,v\.vercel_project_id,d\.decrypted_secret/);
+  assert.doesNotMatch(sql, /into c,v_user,v_account,v_project,v_token/,
+    'a composite row variable cannot share a PL/pgSQL INTO target list');
   assert.match(sql, /old\.status='removing'.+new\.status<>'removed'/s);
   assert.match(sql, /delete from private\.website_vercel_integration_custody/);
   assert.match(sql, /removed_environment_ids=p_removed_environment_ids/);

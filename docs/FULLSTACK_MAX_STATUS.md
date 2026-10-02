@@ -1,5 +1,12 @@
 # Full-stack implementation checkpoint
 
+## Current main checkpoint — live isolated schema proof
+
+- A new free Supabase project, `Tayar Fullstack MAX Activation` (`uepltkguloltmebepvbo`), now contains all 107 repository migrations applied in order. The earlier validation project was paused with explicit approval and remains restorable; the production `tayar tools` project and its migration history were unchanged.
+- Real PostgreSQL 17 execution exposed two source-only SQL defects that mocked/static checks missed: `jsonb_object_length(jsonb)` does not exist, and a composite row variable cannot share a multi-target PL/pgSQL `INTO` list. The source migrations and focused regressions now cover both corrections, and the corrected migrations applied successfully.
+- All public tables have RLS, the required worker functions exist and no privileged BYO function is executable by `anon`. No Edge Function, OAuth credential, provider request, deployment or Production mutation occurred.
+- NEXT: register isolated GitHub/Supabase/Vercel OAuth applications, install their values through secret custody, deploy only the three guarded connection functions and run live callback/binding E2E before any Publish/Production effect.
+
 ## Current main checkpoint — source integration and activation boundary
 
 - On 2026-10-02 the explicitly authorized integration fast-forwarded `main` from `2643566473d5e255b948574224dc9369036a1046` to `e495a16043315e34ba78f4841d64ba76c24cccfb`. The former side branch and `main` resolve to the same tree `37d0892d3b74271f93cde2ff9731ddeb8a77be6a`; no force update, conflict resolution or production effect occurred.
