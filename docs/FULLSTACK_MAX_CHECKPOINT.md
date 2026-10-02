@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `0924788d60de61d9893771d3c2709ed9761aa612`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `86e6cdf9f86943aea5f09070e0a4cee001b0dc09`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -53,6 +53,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - The missing Supabase browser adapter now mirrors the GitHub/Vercel owner/project/load-sequence boundary: it validates the official PKCE authorization URL, removes the opaque callback fragment before asynchronous work, returns sanitized owned-project choices and verifies exact binding acknowledgements. A provider coordinator starts only catalog-available GitHub/Supabase/Vercel flows and dispatches recognized opaque handoffs without accepting Stripe or arbitrary redirects. It remains unmounted.
 
 - A standalone Infrastructure controller now owns owner-scoped status refresh, endpoint-gated provider begin, opaque callback handoff state and project-load invalidation. Its request sequence prevents an earlier project response from replacing the active project. A Supabase project chooser lists only sanitized active projects from owned organizations, reuses connection CAS metadata on reconnect and refuses stale editor scopes. Both remain unmounted and the endpoint catalog still defaults to no available providers.
+
+- An editor-facing Infrastructure container now composes that controller with the status panel and the GitHub, Supabase and Vercel choosers. It consumes a recognized opaque fragment before refresh, opens only the matching chooser with a catalog-issued transport, refreshes owner state after binding and disposes the project lifecycle on unmount. The container remains absent from the editor entry point, and Stripe cannot enter its OAuth path.
 
 - A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody after exact Preview/Production runtime-receipt cleanup. Exact commit/version reconciliation recovers lost provider or SQL responses. The browser adapter persists one stable operation/commit UUID pair before HTTP and reuses it after an uncertain response; only an exact verified success clears it. The account-wide Vercel Integration remains installed because another Tayar project may share that configuration.
 
@@ -259,11 +261,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The Supabase project chooser and a standalone Infrastructure lifecycle controller are now implemented. The controller composes the owner-scoped connection reader, strict endpoint catalog and provider coordinator; it owns refresh, begin, opaque handoff and stale-project invalidation without persisting provider grants. The chooser returns sanitized owned-project labels and binds through the exact existing connection/version scope. Focused controller/chooser regression, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript, targeted ESLint, localization and diff checks passed. The controller and chooser remain unmounted, endpoints and OAuth values remain empty, and no deployment, migration, provider, flag or production effect occurred.
+The standalone Infrastructure controller, status panel and GitHub/Supabase/Vercel choosers are now composed in one editor-facing container. It consumes only recognized opaque handoffs, uses only catalog-issued transports, refreshes the owner-scoped projection after binding and disposes the active project lifecycle; Stripe is explicitly refused by the OAuth action. Focused container SSR/lifecycle regression, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript, targeted ESLint, localization and diff checks passed. The container remains absent from the editor entry point, endpoints and OAuth values remain empty, and no deployment, migration, provider, flag or production effect occurred.
 
 ## Next exact batch
 
-Compose the standalone controller, Infrastructure status panel and the three provider choosers into one editor-facing container with explicit chooser transitions and refresh-after-bind behavior. Keep the container unmounted and every provider disabled unless its strict endpoint is configured; add lifecycle/fragment/status regressions without deploying functions, configuring OAuth, applying migrations or claiming live connectivity.
+Add a fail-closed editor adapter that creates the endpoint catalog and controller only for a saved cloud project with a current authenticated owner, then mount the container in the existing Infrastructure surface while the empty endpoint defaults keep every provider disabled. Do not deploy functions, configure OAuth, apply migrations or claim live connectivity.
 
 ## Known blockers
 

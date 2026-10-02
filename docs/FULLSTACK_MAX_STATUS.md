@@ -1,11 +1,16 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — Infrastructure project lifecycle controller
+## Current side-branch checkpoint — composed Infrastructure connection container
 
-- A standalone controller now owns owner/project-scoped status refresh, provider begin/navigation, opaque callback handoff state and disposal for the active editor load. Sequence guards and the owner reader prevent stale project responses from becoming visible.
-- The new Supabase chooser lists only sanitized active projects in organizations owned by the authenticated customer, excludes Tayar's platform organization, reuses exact connection/version metadata for reconnect and refuses stale selections after a project switch.
-- Focused controller/chooser and localization regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript and targeted ESLint passed. The controller and chooser remain unmounted, endpoints and credentials remain empty and no deployment, migration, provider, flag or production effect occurred.
-- NEXT: compose the controller, status panel and GitHub/Supabase/Vercel choosers into one unmounted editor-facing container with explicit chooser transitions and refresh-after-bind behavior.
+- One container now composes the project controller, status panel and all three provider choosers. It consumes a recognized handoff before status refresh, opens only the matching chooser with a catalog-issued transport, refreshes after an exact bind acknowledgement and disposes on unmount.
+- Stripe is explicitly excluded from the OAuth begin path. Loading/failure state is localized, and the container test proves it is still absent from the editor entry point.
+- Focused SSR/lifecycle and localization regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript and targeted ESLint passed. Endpoints and credentials remain empty and no deployment, migration, provider, flag or production effect occurred.
+- NEXT: add the fail-closed saved-project/authenticated-owner adapter and mount this container in the existing Infrastructure surface while empty endpoint defaults keep all provider actions disabled.
+
+## Previous side-branch checkpoint — Infrastructure project lifecycle controller
+
+- The standalone controller owns owner/project-scoped status refresh, provider begin/navigation, opaque callback handoff state and disposal. Sequence guards prevent stale project responses from becoming visible.
+- The Supabase chooser lists sanitized eligible projects, reuses exact connection/version metadata and refuses stale selections.
 
 ## Previous side-branch checkpoint — unified browser OAuth coordinator
 

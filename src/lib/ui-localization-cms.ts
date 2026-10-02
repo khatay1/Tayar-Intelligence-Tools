@@ -62,6 +62,8 @@ export const arCmsSupplement: PhraseMap = {
   'No eligible Supabase project was found.': 'لم يُعثر على مشروع Supabase مؤهل.',
   'Supabase project connection could not be verified. Try again.': 'تعذّر التحقق من ربط مشروع Supabase. حاول مجدداً.',
   'Supabase project connected. Backend setup is still required.': 'تم ربط مشروع Supabase. ما زال إعداد الخلفية مطلوباً.',
+  'Loading infrastructure status...': 'جارٍ تحميل حالة البنية التشغيلية...',
+  'Infrastructure status is unavailable.': 'حالة البنية التشغيلية غير متاحة.',
 };
 
 export const svCmsSupplement: PhraseMap = {
@@ -113,6 +115,8 @@ export const svCmsSupplement: PhraseMap = {
   'No eligible Supabase project was found.': 'Inget behörigt Supabase-projekt hittades.',
   'Supabase project connection could not be verified. Try again.': 'Supabase-projektanslutningen kunde inte verifieras. Försök igen.',
   'Supabase project connected. Backend setup is still required.': 'Supabase-projektet är anslutet. Backend måste fortfarande konfigureras.',
+  'Loading infrastructure status...': 'Läser in infrastrukturstatus...',
+  'Infrastructure status is unavailable.': 'Infrastrukturstatus är inte tillgänglig.',
 };
 
 Object.assign(svCmsSupplement, {

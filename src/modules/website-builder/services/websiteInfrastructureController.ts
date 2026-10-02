@@ -42,6 +42,7 @@ export function createWebsiteInfrastructureController(input: {
   };
   return Object.freeze({
     availableProviders: input.catalog.availableProviders,
+    transportFor: input.catalog.transportFor,
     getState: snapshot,
     refresh,
     consumeHandoff: () => {
@@ -63,3 +64,5 @@ export function createWebsiteInfrastructureController(input: {
     dispose: () => { disposed = true; requestSequence += 1; state = { connections: [], handoff: null, loading: false, error: '' }; },
   });
 }
+
+export type WebsiteInfrastructureController = ReturnType<typeof createWebsiteInfrastructureController>;
