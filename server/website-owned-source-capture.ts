@@ -9,8 +9,11 @@ export interface OwnedRuntimeBinding {
   projectId: string;
   ownerId: string;
   environment: Environment;
+  bindingVersion: number;
   supabaseConnectionId: string;
+  supabaseConnectionVersion: number;
   vercelConnectionId: string;
+  vercelConnectionVersion: number;
   applicationOrigin: string;
   backend: ApplicationPublicBackend;
 }
@@ -43,8 +46,10 @@ export async function captureWebsiteOwnedApplicationSource(input: {
   async function current() {
     const binding = await input.reader.readOwnedRuntimeBinding(input.projectId, input.ownerId, input.environment);
     if (!binding || binding.ownerId !== input.ownerId || binding.projectId !== input.projectId
-      || binding.environment !== input.environment || !binding.supabaseConnectionId
-      || !binding.vercelConnectionId || binding.supabaseConnectionId === binding.vercelConnectionId) throw new Error();
+      || binding.environment !== input.environment || !Number.isSafeInteger(binding.bindingVersion)||binding.bindingVersion<1
+      || !binding.supabaseConnectionId||!Number.isSafeInteger(binding.supabaseConnectionVersion)||binding.supabaseConnectionVersion<1
+      || !binding.vercelConnectionId||!Number.isSafeInteger(binding.vercelConnectionVersion)||binding.vercelConnectionVersion<1
+      || binding.supabaseConnectionId === binding.vercelConnectionId) throw new Error();
     const [supabase, vercel] = await Promise.all([
       input.reader.readConnection(binding.supabaseConnectionId, input.projectId, input.ownerId),
       input.reader.readConnection(binding.vercelConnectionId, input.projectId, input.ownerId),
@@ -54,6 +59,7 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     if (supabase.ownerId !== input.ownerId || vercel.ownerId !== input.ownerId
       || supabase.projectId !== input.projectId || vercel.projectId !== input.projectId
       || supabase.id !== binding.supabaseConnectionId || vercel.id !== binding.vercelConnectionId
+      || supabase.version !== binding.supabaseConnectionVersion||vercel.version !== binding.vercelConnectionVersion
       || supabase.provider !== 'supabase' || vercel.provider !== 'vercel'
       || supabase.environment !== input.environment || vercel.environment !== input.environment
       || supabase.status !== 'ready'

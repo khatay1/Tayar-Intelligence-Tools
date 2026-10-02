@@ -29,16 +29,21 @@ export function createWebsiteOwnedSourceReader(client:Client):OwnedSourceReader{
    const row=object(await rpc(client,'website_byo_runtime_binding_for_worker',{p_project_id:projectId,
     p_owner_id:ownerId,p_environment:environment})),backend=object(row?.backend);
    if(!row||!backend||row.projectId!==projectId||row.ownerId!==ownerId||row.environment!==environment
+    ||!Number.isSafeInteger(row.bindingVersion)||(row.bindingVersion as number)<1
     ||typeof row.supabaseConnectionId!=='string'||!uuid.test(row.supabaseConnectionId)
+    ||!Number.isSafeInteger(row.supabaseConnectionVersion)||(row.supabaseConnectionVersion as number)<1
     ||typeof row.vercelConnectionId!=='string'||!uuid.test(row.vercelConnectionId)
+    ||!Number.isSafeInteger(row.vercelConnectionVersion)||(row.vercelConnectionVersion as number)<1
     ||row.supabaseConnectionId===row.vercelConnectionId||typeof row.applicationOrigin!=='string'
     ||typeof backend.url!=='string'||typeof backend.projectRef!=='string'||typeof backend.publishableKey!=='string')return null;
    try{const origin=new URL(row.applicationOrigin);if(origin.protocol!=='https:'||origin.origin!==row.applicationOrigin
      ||origin.username||origin.password||origin.port||origin.hostname.endsWith('.supabase.co'))return null;
     const publicBackend={url:backend.url,publishableKey:backend.publishableKey,projectRef:backend.projectRef};
     validateOwnedApplicationPublicBackend(publicBackend,publicBackend.projectRef);
-    return structuredClone({projectId,ownerId,environment,supabaseConnectionId:row.supabaseConnectionId,
-     vercelConnectionId:row.vercelConnectionId,applicationOrigin:row.applicationOrigin,backend:publicBackend}as OwnedRuntimeBinding);
+    return structuredClone({projectId,ownerId,environment,bindingVersion:row.bindingVersion,
+     supabaseConnectionId:row.supabaseConnectionId,supabaseConnectionVersion:row.supabaseConnectionVersion,
+     vercelConnectionId:row.vercelConnectionId,vercelConnectionVersion:row.vercelConnectionVersion,
+     applicationOrigin:row.applicationOrigin,backend:publicBackend}as OwnedRuntimeBinding);
    }catch{return null;}
   },
  };

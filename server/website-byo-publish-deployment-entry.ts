@@ -2,7 +2,7 @@ import{createClient}from'@supabase/supabase-js';
 import{createWebsiteByoPublishHost}from'./website-byo-publish-host';
 
 type HostInput=Parameters<typeof createWebsiteByoPublishHost>[0];
-type TrustedRuntime=Pick<HostInput['runner'],'verifyRuntime'|'requiredEnvironment'|'fetcher'>;
+type DeploymentRuntime=Pick<HostInput['runner'],'fetcher'>;
 type Environment=Readonly<Record<string,string|undefined>>;
 const provider=/^[A-Za-z0-9_-]{1,200}$/,githubClient=/^[A-Za-z0-9_]{5,100}$/;
 const publicSecret=/^(?:NEXT_PUBLIC_|VITE_|PUBLIC_).*?(?:SECRET|SERVICE_ROLE|PRIVATE_KEY)/i;
@@ -38,10 +38,9 @@ function privateKey(value:string){
 /** Unmounted Node deployment boundary. Environment values are parsed once at
  * cold start; the returned Fetch handler never accepts platform configuration
  * or provider credentials from an HTTP request. */
-export function createWebsiteByoPublishDeploymentEntry(input:{environment:Environment}&TrustedRuntime){
+export function createWebsiteByoPublishDeploymentEntry(input:{environment:Environment}&DeploymentRuntime){
  try{
-  if(typeof input.verifyRuntime!=='function'||typeof input.requiredEnvironment!=='function'
-   ||(input.fetcher!==undefined&&typeof input.fetcher!=='function'))throw new Error();
+  if(input.fetcher!==undefined&&typeof input.fetcher!=='function')throw new Error();
   for(const[key,value]of Object.entries(input.environment))if(value&&publicSecret.test(key))throw new Error();
   const platformUrl=exactHttps(required(input.environment,keyNames.url,2048),true);
   const platformOrigin=exactHttps(required(input.environment,keyNames.origin,2048));
@@ -57,6 +56,6 @@ export function createWebsiteByoPublishDeploymentEntry(input:{environment:Enviro
    ...(input.fetcher?{global:{fetch:input.fetcher}}:{})});
   return createWebsiteByoPublishHost({platform,allowedOrigin:platformOrigin,runner:{platformOrigin,platformUrl,
    platformSupabaseOrganizationId,platformVercelAccountId,githubAppClientId,githubAppPrivateKeyPkcs8,
-   verifyRuntime:input.verifyRuntime,requiredEnvironment:input.requiredEnvironment,fetcher:input.fetcher}});
+   fetcher:input.fetcher}});
  }catch{throw new Error('BYO publish deployment unavailable.');}
 }

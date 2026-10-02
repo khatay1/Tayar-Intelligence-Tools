@@ -35,8 +35,10 @@ try {
     [supabaseId]: { ...common, id: supabaseId, provider: 'supabase', accountId: 'customer-org', targetId: backend.projectRef },
     [vercelId]: { ...common, id: vercelId, provider: 'vercel', accountId: 'team-customer', targetId: 'prj_customer', status: 'connected' },
   };
-  let binding = { projectId, ownerId, environment: 'production', supabaseConnectionId: supabaseId,
-    vercelConnectionId: vercelId, applicationOrigin: 'https://customer-app.example', backend };
+  let binding = { projectId, ownerId, environment: 'production', bindingVersion: 1,
+    supabaseConnectionId: supabaseId, supabaseConnectionVersion: 1,
+    vercelConnectionId: vercelId, vercelConnectionVersion: 1,
+    applicationOrigin: 'https://customer-app.example', backend };
   let verified = true, checks = 0;
   const reader = {
     async readSavedProject() { return { projectId, ownerId, snapshot: structuredClone(snapshot) }; },

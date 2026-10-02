@@ -1,12 +1,21 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — concrete Publish runtime policy
+
+- The unmounted host now creates its runtime verifier and environment manifest internally from the service-role source reader; deployment callers can no longer inject either callback.
+- Only the existing owned Auth/data/forms/private-page runtime is accepted. CMS, integrations, custom code/embeds, capability blockers and disabled Auth/database paths fail closed before source export.
+- Every verification re-reads and exactly compares the persisted runtime binding CAS version plus Supabase/Vercel connection identities and bound versions. The Vercel manifest is exactly `SUPABASE_ANON_KEY` and `SUPABASE_URL`.
+- A Supabase-CLI-generated additive projection exposes only these identities to `service_role`; it remains unapplied. Local migration listing was attempted but PostgreSQL at `127.0.0.1:54322` is still unavailable.
+- Stale binding/Supabase/Vercel regressions, blocker/manifest regressions, host/entry composition, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. Nothing was mounted, deployed, migrated or enabled.
+- NEXT: prepare the two public runtime values from the verified binding into the exact customer Vercel Preview branch with durable metadata-only receipts and lost-response reconciliation.
+
 ## Current side-branch checkpoint — server-only Publish deployment entry
 
 - Added an unmounted Node factory that validates all Publish environment configuration once, creates the Supabase platform secret client internally and returns a reusable Fetch handler.
-- It accepts `sb_secret_` or a legacy JWT with the exact `service_role` payload role, while refusing publishable/anon values, public-prefixed secret/private-key variables, unsafe origins, wrong Supabase host shape, malformed provider IDs/PKCS#8 and missing trusted callbacks.
+- It accepts `sb_secret_` or a legacy JWT with the exact `service_role` payload role, while refusing publishable/anon values, public-prefixed secret/private-key variables, unsafe origins, wrong Supabase host shape and malformed provider IDs/PKCS#8.
 - Supabase client sessions, refresh and URL detection are disabled. Initialization errors are fixed and secret-free; tests prove one client/host per cold start and reuse across warm requests.
 - The source is not an auto-discovered root `server.ts` and is outside `api/`. `.env.example` records empty server-only names; nothing is mounted, deployed or enabled.
-- Focused and complete infrastructure tests, full project health, production build, TypeScript and targeted ESLint passed. NEXT: replace the two remaining trusted runtime callbacks with a concrete owned Publish runtime policy and exact Vercel environment manifest.
+- Focused and complete infrastructure tests, full project health, production build, TypeScript and targeted ESLint passed. The injected runtime callbacks were removed in the following concrete-policy batch.
 
 ## Current side-branch checkpoint — preparation-first Preview Publish
 
