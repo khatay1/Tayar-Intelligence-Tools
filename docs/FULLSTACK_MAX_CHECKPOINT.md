@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `bad8ffe64432da3d5685b8fd31a7c24829d37e3b`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `a8c647a204beba208c70771f4a36040600934237`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -47,6 +47,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - The Supabase OAuth connection handler is now separated from its runtime entry and wrapped by a deterministic generated Edge composition. The cold-start factory strictly validates the platform service key, OAuth/PKCE secrets, callback/return URLs and platform organization, creates one reusable client, applies fixed-origin no-store CORS and exposes only sanitized initialization/request failures. Its unauthenticated callback remains protected by one-use state and `verify_jwt=false`; the function stays outside guarded production deployment and disabled in the Infrastructure panel.
 
 - The GitHub OAuth connection handler is likewise runtime-neutral behind a deterministic generated Edge composition. Its cold-start factory validates the platform service key, GitHub OAuth credentials and exact callback/return URLs once, reuses one session-disabled client, applies fixed-origin no-store CORS and returns only sanitized failures. The one-use callback remains `verify_jwt=false`; the function is still absent from guarded production deployment and the Infrastructure action remains disabled.
+
+- A browser-safe endpoint catalog now recognizes GitHub, Supabase and Vercel connection functions only from explicit public configuration. Every URL must be the exact provider function path on the configured HTTPS Supabase origin, and the shared browser key must not be service-role shaped. Missing values produce partial/unavailable providers; malformed or cross-origin values fail the composition closed. The Infrastructure panel accepts this availability list and keeps each Connect action disabled by default.
 
 - A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody after exact Preview/Production runtime-receipt cleanup. Exact commit/version reconciliation recovers lost provider or SQL responses. The browser adapter persists one stable operation/commit UUID pair before HTTP and reuses it after an uncertain response; only an exact verified success clears it. The account-wide Vercel Integration remains installed because another Tayar project may share that configuration.
 
@@ -253,11 +255,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The existing GitHub connection handler is now a runtime-neutral core behind a deterministic generated Edge entry. Its cold-start environment boundary validates the platform service key, GitHub OAuth client/secret and exact callback/return URLs once, creates one reusable session-disabled service client and refuses public-prefixed secret aliases. Fixed-origin no-store CORS stops foreign/preflight requests before core work; callback transport remains compatible with one-use state under `verify_jwt=false`, while browser actions authenticate internally. Focused Edge/endpoint regressions, generated-bundle freshness, 32-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks passed. No migration was needed. The function remains excluded from guarded production deployment and the UI action remains disabled; no GitHub App values were configured and no live provider/database/deployment effect occurred.
+A browser-safe endpoint catalog now binds the three provider connection paths to explicit `VITE_WEBSITE_*_CONNECTION_URL` values only when each is exact, HTTPS, query-free and on the configured Supabase origin. It rejects service-role-shaped browser keys, cross-origin or swapped paths, exposes no server credential, and returns a transport only for configured providers. The Infrastructure panel now gates each Connect/Manage action on that provider availability rather than a single optional callback; its default remains fully disabled. Focused catalog/panel regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript, targeted ESLint and diff checks passed. No function was deployed, no OAuth value was configured and no UI mount, migration, provider or production effect occurred.
 
 ## Next exact batch
 
-Add one browser-safe connection-endpoint availability/composition boundary for GitHub, Supabase and Vercel. It must accept only fixed HTTPS function URLs from explicit public configuration, keep every action disabled when any required endpoint is absent, preserve owner/project stale-response guards and expose no server credential. Add panel/browser regressions only; do not deploy functions, configure OAuth, apply migrations or claim live connectivity.
+Implement the missing standalone Supabase browser handoff/chooser adapter and a provider connection coordinator that consumes the endpoint catalog to begin GitHub, Supabase or Vercel OAuth only for an available provider. Preserve owner/project/load-sequence guards, validate redirect origins and opaque fragments, and keep the coordinator unmounted with the panel disabled by default. Do not deploy functions, configure OAuth, apply migrations or claim live connectivity.
 
 ## Known blockers
 

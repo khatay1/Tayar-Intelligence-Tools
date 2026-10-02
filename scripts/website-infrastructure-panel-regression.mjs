@@ -27,13 +27,18 @@ try {
   const base = { id: '33333333-3333-4333-8333-333333333333', ownerId: '11111111-1111-4111-8111-111111111111',
     projectId: '22222222-2222-4222-8222-222222222222', environment: 'production', accountId: 'user-team', targetId: 'user/site',
     permissions: ['contents:write'], version: 1, verifiedAt: '2026-09-28T20:00:00Z', updatedAt: '2026-09-28T20:00:00Z' };
-  const connected = render({ connections: [{ ...base, provider: 'github', status: 'connected' }], onConnect: async () => {} });
+  const connected = render({ connections: [{ ...base, provider: 'github', status: 'connected' }],
+    availableProviders: ['github'], onConnect: async () => {} });
   assert.doesNotMatch(connected, /Infrastructure ready for publishing/);
   assert.match(connected, /Manage connection/);
-  const ready = render({ connections: ['github', 'supabase', 'vercel'].map(provider => ({ ...base, provider, status: 'ready' })), onConnect: async () => {} });
+  const ready = render({ connections: ['github', 'supabase', 'vercel'].map(provider => ({ ...base, provider, status: 'ready' })),
+    availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} });
   assert.match(ready, /Infrastructure ready for publishing/);
   assert.match(ready, /Not required/);
   assert.doesNotMatch(render({ connections: ['github', 'supabase', 'vercel'].map(provider => ({ ...base, provider, status: 'ready' })), requiresStripe: true }), /Infrastructure ready for publishing/);
   assert.match(render({ projectSaved: false, onConnect: async () => {} }), /button type="button" disabled/);
-  console.log('PASS infrastructure panel: no false readiness, optional Stripe and disabled connect without a real handler');
+  const unavailable = render({ onConnect: async () => {} });
+  assert.match(unavailable, /Connection setup is not available yet/);
+  assert.equal((unavailable.match(/<button type="button" disabled/g) ?? []).length, 3);
+  console.log('PASS infrastructure panel: no false readiness, optional Stripe and endpoint-gated connect actions');
 } finally { await rm(dir, { recursive: true, force: true }); }

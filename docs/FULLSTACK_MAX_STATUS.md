@@ -1,12 +1,20 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — unpublished GitHub Edge composition
+## Current side-branch checkpoint — endpoint-gated browser availability
+
+- A browser-only catalog now accepts connection endpoints solely from explicit `VITE_WEBSITE_GITHUB_CONNECTION_URL`, `VITE_WEBSITE_SUPABASE_CONNECTION_URL` and `VITE_WEBSITE_VERCEL_CONNECTION_URL` values.
+- Every configured URL must be the exact query-free function path on the configured HTTPS Supabase origin. Cross-origin, HTTP, swapped-path and malformed values fail closed; absent values simply leave that provider unavailable. A service-role-shaped key is refused before any transport is returned.
+- The catalog exposes one frozen public transport only for available providers. The Infrastructure panel receives an explicit provider availability list and keeps Connect/Manage disabled for every missing provider; the default remains fully unavailable even if a generic callback exists.
+- Focused catalog/panel regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript and targeted ESLint passed. Endpoints remain empty, the panel remains unmounted and no deployment, OAuth configuration, migration, provider, flag or production effect occurred.
+- NEXT: add the missing Supabase browser handoff/chooser and a provider coordinator that uses this catalog while preserving owner/project/load-sequence guards; keep it unmounted and disabled by default.
+
+## Previous side-branch checkpoint — unpublished GitHub Edge composition
 
 - The GitHub OAuth handler is now runtime-neutral; its inline `Deno.serve` block moved into a deterministic generated Edge entry sourced from a dedicated cold-start factory.
 - The factory validates the exact Supabase platform host/service-role shape, GitHub OAuth client/secret and callback/return URLs before creating one reusable session-disabled client. Public-prefixed secret aliases, malformed values and unsafe origins fail with fixed secret-free errors.
 - Fixed-origin no-store CORS rejects foreign requests and completes preflight before endpoint work. The callback remains public only to consume one-use OAuth state under `verify_jwt=false`; begin/options/bind continue to authenticate the Tayar bearer inside the core.
 - Focused Edge/endpoint regressions, pinned bundle freshness, 32-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. No migration was added. The function is absent from the guarded deploy, credentials remain empty and the UI action remains disabled; no live provider, database, deployment, flag or production effect occurred.
-- NEXT: add a single browser-safe endpoint availability/composition boundary so provider actions can become reachable only after explicit HTTPS endpoint configuration, while remaining disabled by default and without live deployment or credentials.
+- COMPLETE in the checkpoint above: explicit same-origin endpoint availability now gates every provider action and defaults to unavailable.
 
 ## Previous side-branch checkpoint — unpublished Supabase Edge composition
 

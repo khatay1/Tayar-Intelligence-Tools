@@ -8,13 +8,15 @@ interface Props {
   connections: PublicInfrastructureConnection[];
   projectSaved: boolean;
   requiresStripe?: boolean;
+  availableProviders?: readonly Provider[];
   onConnect?(provider: Provider): Promise<void>;
   onRefresh?(): Promise<void>;
 }
 const providers: Provider[] = ['github', 'supabase', 'vercel', 'stripe'];
 const names: Record<Provider, string> = { github: 'GitHub', supabase: 'Supabase', vercel: 'Vercel', stripe: 'Stripe' };
 
-export function BuilderInfrastructurePanel({ connections, projectSaved, requiresStripe = false, onConnect, onRefresh }: Props) {
+export function BuilderInfrastructurePanel({ connections, projectSaved, requiresStripe = false,
+  availableProviders = [], onConnect, onRefresh }: Props) {
   const l = useLocalizer();
   const [busy, setBusy] = useState<Provider | 'refresh'>();
   const [error, setError] = useState('');
@@ -29,12 +31,13 @@ export function BuilderInfrastructurePanel({ connections, projectSaved, requires
       const item = connections.find(connection => connection.provider === provider && connection.environment === 'production');
       const status = item?.status ?? 'disconnected';
       const optional = provider === 'stripe' && !requiresStripe;
+      const available = availableProviders.includes(provider);
       return <div className="builder-v2-card builder-v2-card--nested" key={provider}>
         <div className="builder-v2-card__header"><strong>{names[provider]}</strong><span>{l(optional ? 'Not required' : status)}</span></div>
         {item?.accountId && <small>{l('Account')}: {item.accountId}</small>}
         {item?.targetId && <small>{l('Target')}: {item.targetId}</small>}
-        {!optional && <button type="button" disabled={!projectSaved || !onConnect || !!busy} onClick={async () => {
-          if (!onConnect) return;
+        {!optional && <button type="button" disabled={!projectSaved || !onConnect || !available || !!busy} onClick={async () => {
+          if (!onConnect || !available) return;
           setBusy(provider); setError('');
           try { await onConnect(provider); } catch { setError('Connection could not be completed. Try again.'); }
           finally { setBusy(undefined); }
@@ -46,7 +49,8 @@ export function BuilderInfrastructurePanel({ connections, projectSaved, requires
       try { await onRefresh(); } catch { setError('Connection status could not be refreshed.'); }
       finally { setBusy(undefined); }
     }}>{l('Refresh connection status')}</button>}
-    {!onConnect && <small>{l('Connection setup is not available yet.')}</small>}
+    {(!onConnect || required.some(provider => !availableProviders.includes(provider)))
+      && <small>{l('Connection setup is not available yet.')}</small>}
   </section>;
 }
 
