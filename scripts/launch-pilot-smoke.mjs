@@ -172,7 +172,9 @@ check('Guarded Supabase release applies Auth config and every changed billing fu
   !deploymentGuard.includes("'website-github-connection'") &&
   supabaseConfig.includes('[functions.website-vercel-connection]\nverify_jwt = false') &&
   !deploymentGuard.includes("'website-vercel-connection'") &&
-  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 5 &&
+  supabaseConfig.includes('[functions.website-supabase-connection]\nverify_jwt = false') &&
+  !deploymentGuard.includes("'website-supabase-connection'") &&
+  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 6 &&
   deploymentGuard.includes('ConfirmAuthConfig'));
 
 let failed = 0;

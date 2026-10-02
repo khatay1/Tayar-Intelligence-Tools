@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createWebsiteConnectionOAuthState } from '../src/modules/website-builder/services/websiteConnectionOAuthStateService';
 import { acceptSupabaseOAuthCallback, supabaseAuthorizationUrl } from '../src/modules/website-builder/services/websiteSupabaseOAuthService';
 import { storeWebsiteConnectionHandoff } from '../src/modules/website-builder/services/websiteConnectionHandoffService';
@@ -109,19 +109,3 @@ export async function handleWebsiteSupabaseConnection(request: Request, context:
     return json(200, { status: 'connected', ...result });
   } catch { return json(409, { error: 'Supabase connection could not be completed. Refresh and try again.' }); }
 }
-
-Deno.serve(async request => {
-  const returnUrl = Deno.env.get('WEBSITE_SUPABASE_RETURN_URL') ?? '', origin = request.headers.get('origin');
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
-  try {
-    if (origin && new URL(returnUrl).origin !== origin) return json(403, { error: 'Origin not allowed.' });
-    const platform = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false, autoRefreshToken: false } });
-    return await handleWebsiteSupabaseConnection(request, { platform,
-      clientId: Deno.env.get('WEBSITE_SUPABASE_OAUTH_CLIENT_ID') ?? '',
-      clientSecret: Deno.env.get('WEBSITE_SUPABASE_OAUTH_CLIENT_SECRET') ?? '',
-      pkceSecret: Deno.env.get('WEBSITE_SUPABASE_PKCE_SECRET') ?? '',
-      callback: Deno.env.get('WEBSITE_SUPABASE_CALLBACK_URL') ?? '', returnUrl,
-      platformOrganizationId: Deno.env.get('WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID') ?? '' });
-  } catch { return json(503, { error: 'Supabase connection is unavailable.' }); }
-});

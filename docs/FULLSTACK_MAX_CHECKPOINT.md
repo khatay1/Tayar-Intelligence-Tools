@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `8e9cb10711587d39a8a3cc3e7a072aecb965f487`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `aebabc873f53edcf718274c3531a7fabd78cf2d6`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -43,6 +43,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - Vercel project binding now consumes the temporary handoff only after an exact recovery check, re-verifies the authenticated user, team Owner membership and the selected project twice, then atomically writes `connected` metadata and a 90-day maximum Vault lease. Exact operation/account/configuration/project reconciliation recovers a lost SQL response without replaying the provider operation. A service-only read/delete/expiry cleanup boundary is included for later deployment and disconnect workers. The migration is source-only and unmounted.
 
 - The authenticated Vercel connection handler now composes begin/callback/options/bind/disconnect behind a deterministic Supabase Edge bundle. Its strict cold-start environment factory creates one service client, applies fixed-origin CORS and leaves OAuth values optional so authenticated disconnect remains available during credential rotation. The function is configured for the unauthenticated one-use OAuth callback but remains absent from the guarded production deploy and disabled in the Infrastructure panel.
+
+- The Supabase OAuth connection handler is now separated from its runtime entry and wrapped by a deterministic generated Edge composition. The cold-start factory strictly validates the platform service key, OAuth/PKCE secrets, callback/return URLs and platform organization, creates one reusable client, applies fixed-origin no-store CORS and exposes only sanitized initialization/request failures. Its unauthenticated callback remains protected by one-use state and `verify_jwt=false`; the function stays outside guarded production deployment and disabled in the Infrastructure panel.
 
 - A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody after exact Preview/Production runtime-receipt cleanup. Exact commit/version reconciliation recovers lost provider or SQL responses. The browser adapter persists one stable operation/commit UUID pair before HTTP and reuses it after an uncertain response; only an exact verified success clears it. The account-wide Vercel Integration remains installed because another Tayar project may share that configuration.
 
@@ -249,11 +251,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The Vercel connection handler now has a deterministic, source-generated Supabase Edge entry with strict server-only environment parsing, fixed-origin CORS, one cold-start service client and lazy per-request user-scoped registry reads. Its GitHub target loader discovers the Preview connection through the owner projection, proves the exact same version through the existing service-only projection, then uses a repository-scoped GitHub App grant to verify immutable repository owner/name/default branch immediately before Vercel selection. Browser input still cannot supply repository identity. Focused loader/Edge/endpoint regressions, generated-bundle freshness, 31-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks passed. No migration was needed. The Edge function remains excluded from guarded production deployment and the UI action remains disabled; no secrets were configured and no live provider/database/deployment effect occurred.
+The existing Supabase connection handler is now a runtime-neutral core behind a deterministic generated Edge entry. Its cold-start environment boundary requires and validates the platform service key, OAuth client secret, PKCE secret, exact callback/return URLs and excluded platform organization once, then reuses a single session-disabled service client. Fixed-origin no-store CORS stops foreign/preflight requests before the core; callback transport remains compatible with one-use state under `verify_jwt=false`, while browser actions still authenticate internally. Focused Edge/endpoint regressions, generated-bundle freshness, 32-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks passed. No migration was needed. The function remains excluded from guarded production deployment and the UI action remains disabled; no OAuth values were configured and no live provider/database/deployment effect occurred.
 
 ## Next exact batch
 
-Apply the same deterministic server-environment and generated-Edge boundary to the existing Supabase connection handler, including callback-safe JWT configuration, fixed-origin CORS, pinned dependency/freshness checks and sanitized initialization failures. Keep it outside guarded production deployment and leave every Infrastructure connect action disabled; do not configure OAuth, deploy or apply migrations.
+Refactor the existing GitHub connection handler behind the same strict cold-start server-environment factory and deterministic generated Edge entry. Preserve its one-use callback flow and pinned dependency/freshness check, add sanitized initialization/CORS regressions, and keep it absent from guarded production deployment with every Infrastructure connect action disabled. Do not configure the GitHub App, deploy or apply migrations.
 
 ## Known blockers
 

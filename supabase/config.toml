@@ -65,3 +65,8 @@ verify_jwt = false
 # inside the handler; this source-only function is absent from production deploy.
 [functions.website-vercel-connection]
 verify_jwt = false
+
+# Supabase OAuth callback has no Tayar bearer JWT. Browser actions authenticate
+# inside the handler; this source-only function is absent from production deploy.
+[functions.website-supabase-connection]
+verify_jwt = false

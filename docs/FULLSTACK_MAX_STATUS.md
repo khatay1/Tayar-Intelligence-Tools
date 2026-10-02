@@ -1,12 +1,20 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — unpublished Vercel Edge composition
+## Current side-branch checkpoint — unpublished Supabase Edge composition
+
+- The existing Supabase OAuth handler is now runtime-neutral; its former inline `Deno.serve` block has moved into a deterministic generated Edge entry sourced from a dedicated cold-start factory.
+- The factory validates the exact Supabase host/service-role shape, OAuth client and secret, PKCE secret, callback/return URLs and platform organization before creating one reusable session-disabled client. Public-prefixed secret aliases, malformed values and unsafe origins fail with fixed secret-free errors.
+- Fixed-origin no-store CORS rejects foreign requests and completes preflight before endpoint work. The callback remains public only to consume one-use OAuth state under `verify_jwt=false`; begin/options/bind continue to authenticate the Tayar bearer inside the core.
+- Focused Edge/endpoint regressions, pinned bundle freshness, 32-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. No migration was added. The function is absent from the guarded deploy, credentials remain empty and the UI action remains disabled; no live provider, database, deployment, flag or production effect occurred.
+- NEXT: apply this strict generated Edge/environment split to the existing GitHub connection handler without configuring the App, deploying, migrating or enabling the UI.
+
+## Previous side-branch checkpoint — unpublished Vercel Edge composition
 
 - A deterministic generated Supabase Edge entry now wraps the complete Vercel begin/callback/options/bind/disconnect handler. Its cold-start factory validates the platform URL/service key, callback and browser return URL, rejects public-prefixed secrets, pins `supabase-js`, creates one reusable service client and exposes only fixed secret-free initialization errors.
 - The callback remains compatible with one-use OAuth state under `verify_jwt=false`; browser actions still authenticate inside the handler. Fixed-origin CORS rejects foreign browsers before endpoint work. Optional OAuth/GitHub settings may remain empty so the separately authenticated disconnect path is not blocked during credential rotation.
 - Vercel repository matching no longer needs an injected placeholder loader. A user-scoped RPC discovers the unique connected GitHub Preview target, the existing service-only connection projection proves its exact version/owner/project metadata, and a repository-scoped GitHub App grant verifies owner/name/default branch immediately before Vercel choices or binding. Repository identity never comes from browser input.
 - Mocked target/Edge/endpoint regressions, bundle freshness, 31-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks passed. No migration was added. The function is explicitly absent from the guarded production deploy, credentials remain empty and the UI action remains disabled; no live provider, database, endpoint deployment, flag or production effect occurred.
-- NEXT: give the existing Supabase connection handler the same strict generated Edge/environment boundary and callback-safe configuration, without deployment, credentials, migrations or UI enablement.
+- COMPLETE in the checkpoint above: the Supabase handler now has the strict generated Edge/environment boundary and remains undeployed.
 
 ## Previous side-branch checkpoint — authenticated receipt-aware Vercel disconnect
 
