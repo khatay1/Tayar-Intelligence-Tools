@@ -1,11 +1,16 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — composed Infrastructure connection container
+## Current side-branch checkpoint — fail-closed editor Infrastructure surface
 
-- One container now composes the project controller, status panel and all three provider choosers. It consumes a recognized handoff before status refresh, opens only the matching chooser with a catalog-issued transport, refreshes after an exact bind acknowledgement and disposes on unmount.
-- Stripe is explicitly excluded from the OAuth begin path. Loading/failure state is localized, and the container test proves it is still absent from the editor entry point.
-- Focused SSR/lifecycle and localization regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript and targeted ESLint passed. Endpoints and credentials remain empty and no deployment, migration, provider, flag or production effect occurred.
-- NEXT: add the fail-closed saved-project/authenticated-owner adapter and mount this container in the existing Infrastructure surface while empty endpoint defaults keep all provider actions disabled.
+- V2 Settings now mounts the Infrastructure surface through an adapter that requires a saved UUID project, matching authenticated owner and current load sequence before creating a catalog, controller or callback consumer.
+- Browser session identity is rechecked before provider requests. Invalid, anonymous, unsaved, malformed-config and server-rendered scopes receive the disabled panel; the empty endpoint defaults keep all three provider actions disabled.
+- Focused adapter/SSR/reachability and localization regressions, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build of 2141 modules, TypeScript and targeted ESLint passed. No function was deployed, no OAuth or endpoint value was configured, no migration was applied and no provider/production effect occurred.
+- NEXT requires explicit operational authority: isolated migration review/apply, OAuth applications/secrets, guarded function deployment, exact endpoint configuration and live provider E2E before production.
+
+## Previous side-branch checkpoint — composed Infrastructure connection container
+
+- The container composes the project controller, status panel and all three chooser transitions, refreshes after binding and disposes on unmount.
+- Stripe is excluded from OAuth and the source-only endpoint defaults remain empty.
 
 ## Previous side-branch checkpoint — Infrastructure project lifecycle controller
 

@@ -14,6 +14,9 @@ interface EnvConfig {
   gaMeasurementId: string;
   sentryDsn: string;
   stripePublishableKey: string;
+  websiteGithubConnectionUrl: string;
+  websiteSupabaseConnectionUrl: string;
+  websiteVercelConnectionUrl: string;
 }
 
 function getEnv(key: string, fallback = ''): string {
@@ -33,6 +36,9 @@ export const env: EnvConfig = {
   gaMeasurementId: getEnv('VITE_GA_MEASUREMENT_ID'),
   sentryDsn: getEnv('VITE_SENTRY_DSN'),
   stripePublishableKey: getEnv('VITE_STRIPE_PUBLISHABLE_KEY'),
+  websiteGithubConnectionUrl: getEnv('VITE_WEBSITE_GITHUB_CONNECTION_URL'),
+  websiteSupabaseConnectionUrl: getEnv('VITE_WEBSITE_SUPABASE_CONNECTION_URL'),
+  websiteVercelConnectionUrl: getEnv('VITE_WEBSITE_VERCEL_CONNECTION_URL'),
 };
 
 export const isProd = env.env === 'production';

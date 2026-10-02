@@ -18,6 +18,7 @@ import { BuilderLegacyCanvas } from './BuilderLegacyCanvas';
 import { BuilderLegacyHeader } from './BuilderLegacyHeader';
 import { BuilderLegacyInspector } from './BuilderLegacyInspector';
 import { BuilderLegacySidebar } from './BuilderLegacySidebar';
+import { BuilderInfrastructureSettingsSlot } from './BuilderInfrastructureSettingsSlot';
 import { BuilderSettingsPanel } from './BuilderSettingsPanel';
 import { BuilderSitePanel } from './BuilderSitePanel';
 import { BuilderV2Canvas } from './BuilderV2Canvas';
@@ -229,6 +230,8 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
     />
   );
   const v2SettingsPanel = (<>
+    <BuilderInfrastructureSettingsSlot projectId={cloudProjectId} ownerId={user?.id} ownerIsAnonymous={user?.is_anonymous}
+      loadSequence={applicationLoadSequence} />
     <Suspense fallback={<div role="status">{l('Loading...')}</div>}>
       <BuilderApplicationPanel hasUnsavedChanges={hasUnsavedChanges} value={application} pages={getCurrentPages()} cloudProjectId={cloudProjectId} loadSequence={applicationLoadSequence} disabled={cloudBusy || publishBusy || aiBusy} onApply={applyApplicationOperations} />
     </Suspense>

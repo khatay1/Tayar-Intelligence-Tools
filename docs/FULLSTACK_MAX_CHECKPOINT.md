@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `86e6cdf9f86943aea5f09070e0a4cee001b0dc09`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `c638435a530b30f1c92600f50831a3d8147aa042`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -55,6 +55,8 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 - A standalone Infrastructure controller now owns owner-scoped status refresh, endpoint-gated provider begin, opaque callback handoff state and project-load invalidation. Its request sequence prevents an earlier project response from replacing the active project. A Supabase project chooser lists only sanitized active projects from owned organizations, reuses connection CAS metadata on reconnect and refuses stale editor scopes. Both remain unmounted and the endpoint catalog still defaults to no available providers.
 
 - An editor-facing Infrastructure container now composes that controller with the status panel and the GitHub, Supabase and Vercel choosers. It consumes a recognized opaque fragment before refresh, opens only the matching chooser with a catalog-issued transport, refreshes owner state after binding and disposes the project lifecycle on unmount. The container remains absent from the editor entry point, and Stripe cannot enter its OAuth path.
+
+- The Infrastructure surface is now mounted in V2 Settings through a fail-closed adapter. Only a saved UUID project, matching authenticated owner and current load sequence can create the catalog/controller. Session identity is rechecked before provider requests; invalid, anonymous, unsaved, server-rendered or malformed public configuration paths render the disabled status panel. The three endpoint values remain empty in the environment template, so source reachability does not activate a provider.
 
 - A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody after exact Preview/Production runtime-receipt cleanup. Exact commit/version reconciliation recovers lost provider or SQL responses. The browser adapter persists one stable operation/commit UUID pair before HTTP and reuses it after an uncertain response; only an exact verified success clears it. The account-wide Vercel Integration remains installed because another Tayar project may share that configuration.
 
@@ -261,11 +263,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The standalone Infrastructure controller, status panel and GitHub/Supabase/Vercel choosers are now composed in one editor-facing container. It consumes only recognized opaque handoffs, uses only catalog-issued transports, refreshes the owner-scoped projection after binding and disposes the active project lifecycle; Stripe is explicitly refused by the OAuth action. Focused container SSR/lifecycle regression, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build, TypeScript, targeted ESLint, localization and diff checks passed. The container remains absent from the editor entry point, endpoints and OAuth values remain empty, and no deployment, migration, provider, flag or production effect occurred.
+The Infrastructure surface is now reachable from V2 Settings through a fail-closed adapter. It constructs the strict endpoint catalog and project controller only for a saved UUID project with a matching authenticated owner/current load sequence, rechecks the browser session before any provider request and renders the disabled panel for every invalid or server-rendered scope. Empty endpoint defaults keep GitHub, Supabase and Vercel actions disabled. Focused adapter/SSR/reachability regression, the complete infrastructure suite, 32-function syntax smoke, launch guard, full project health, production build of 2141 modules, TypeScript, targeted ESLint, localization and diff checks passed. No function was deployed, no OAuth credential or endpoint was configured, no migration was applied and no provider/production effect occurred.
 
 ## Next exact batch
 
-Add a fail-closed editor adapter that creates the endpoint catalog and controller only for a saved cloud project with a current authenticated owner, then mount the container in the existing Infrastructure surface while the empty endpoint defaults keep every provider disabled. Do not deploy functions, configure OAuth, apply migrations or claim live connectivity.
+Operational activation now requires explicit external authorization: review/apply the source-only platform migrations, configure GitHub/Supabase/Vercel OAuth applications and server secrets, deploy the three guarded Edge functions, set the three exact public endpoint URLs and run live callback/binding/readiness E2E in an isolated environment before production. None of those external mutations are authorized or available in this source-only checkpoint.
 
 ## Known blockers
 
