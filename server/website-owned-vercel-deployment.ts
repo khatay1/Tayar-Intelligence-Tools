@@ -51,7 +51,7 @@ export async function inspectOwnedVercelDeployment(input: {
   accessToken: string; userId: string; accountId: string; platformAccountId: string;
   projectId: string; deploymentId: string; repositoryId: string; repositoryOwner: string;
   repositoryName: string; productionBranch: string; sourceBranch?: string; sourceCommitSha: string;
-  target: 'preview' | 'production'; requiredEnvironment: string[];
+  target: 'preview' | 'production'; requiredEnvironment: string[];requiredEnvironmentIds?:Record<string,string>;
   isCurrent: () => Promise<boolean>; fetcher?: typeof fetch;
 }): Promise<OwnedVercelDeploymentReport> {
   if (typeof window !== 'undefined' || !input.accessToken || input.accessToken.length > 4096
@@ -64,7 +64,10 @@ export async function inspectOwnedVercelDeployment(input: {
     || !sha.test(input.sourceCommitSha)
     || !['preview', 'production'].includes(input.target) || !Array.isArray(input.requiredEnvironment)
     || input.requiredEnvironment.length > 64 || input.requiredEnvironment.some(key => !envName.test(key))
-    || new Set(input.requiredEnvironment).size !== input.requiredEnvironment.length) {
+    || new Set(input.requiredEnvironment).size !== input.requiredEnvironment.length
+    ||(input.requiredEnvironmentIds!==undefined&&(Object.keys(input.requiredEnvironmentIds).sort().join(',')!==[...input.requiredEnvironment].sort().join(',')
+      ||Object.values(input.requiredEnvironmentIds).some(value=>!id.test(value))
+      ||new Set(Object.values(input.requiredEnvironmentIds)).size!==input.requiredEnvironment.length))) {
     throw new Error('Vercel deployment status is unavailable.');
   }
   const fetcher = input.fetcher ?? fetch, teamScope = input.accountId !== input.userId;
@@ -138,7 +141,8 @@ export async function inspectOwnedVercelDeployment(input: {
       const target = input.target === 'production' ? 'production' : 'preview';
       const expectedBranch=input.target==='preview'?input.sourceBranch:input.productionBranch;
       if (variable.target.includes(target)
-        && (variable.gitBranch == null || variable.gitBranch === expectedBranch)) available.add(variable.key);
+        && (variable.gitBranch == null || variable.gitBranch === expectedBranch)
+        &&(input.requiredEnvironmentIds===undefined||variable.id===input.requiredEnvironmentIds[variable.key]))available.add(variable.key);
     }
     const missingEnvironment = input.requiredEnvironment.filter(key => !available.has(key)).sort();
     const first = deploymentState(await read(deploymentPath));

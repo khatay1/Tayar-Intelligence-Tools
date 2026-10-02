@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `889dc8cbaaf74a5eca3e3e60bbf033c8526c3ce3`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `9dd126fd6dba3c6520a224148244bf995c6c9a59`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -249,11 +249,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-The unmounted Publish deployment composition now owns its runtime policy instead of accepting verifier/environment callbacks. The policy allows only supported owned Auth/data/forms/private pages with no blockers, rereads the exact persisted runtime binding and Supabase/Vercel connection identities, and derives only the sorted `SUPABASE_ANON_KEY`/`SUPABASE_URL` manifest. Stale identities and CMS/integrations/custom code fail before source export. Focused and complete infrastructure tests, full project health, production build, TypeScript and targeted ESLint passed; no endpoint, migration, provider call, UI enablement or production flag was added.
+Preview deployment attempts and observations are now bound to the exact verified runtime-environment receipt version and Vercel environment IDs captured before export. Provider inspection refuses same-name replacements, and the additive SQL boundary refuses begin, commit and reconciliation after receipt rotation, supersession or binding drift. Focused HTTP/RPC/static-SQL regressions, the full project-health gate, production build, TypeScript and targeted ESLint passed; no endpoint, migration, provider call, UI enablement or production flag was added.
 
 ## Next exact batch
 
-Add an unmounted server-only Vercel runtime-environment preparation worker before source export. It must derive `SUPABASE_URL` and the publishable key only from the freshly verified owned runtime binding, write them to the exact customer Vercel project with Preview scoped to `tayar/{projectId}/preview` (not the production branch), persist/reconcile exact non-decrypting destination receipts, and make the existing manifest proof consume those receipts. Add lost-response, stale-binding, wrong-project and branch-scope regressions; never accept browser values or copy a secret/service-role key, and keep migrations/provider calls/UI/production disabled.
+Prepare a separately verified Production Vercel runtime environment on the distinct Production connection before promotion. It must derive the same public runtime pair from the current owned binding, use Production scope with no Preview branch override, persist exact non-decrypting IDs/digests, and bind promotion preparation, final observation and lost-response reconciliation to that receipt. Add wrong-connection, same-name replacement, rotation and domain/promotion drift regressions; keep all migrations/provider effects/UI/deployment disabled.
 
 ## Known blockers
 

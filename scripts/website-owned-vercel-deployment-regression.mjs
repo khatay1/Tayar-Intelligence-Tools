@@ -34,8 +34,8 @@ try {
         membership: { uid: input.userId, role: 'OWNER', confirmed: true } });
       if (path.startsWith(`/v9/projects/${input.projectId}`)) return Response.json(overrides.project ?? project);
       if (path.startsWith(`/v10/projects/${input.projectId}/env`)) return Response.json({ envs: overrides.envs ?? [
-        { key: 'SUPABASE_URL', target: ['production'], value: 'must-not-return' },
-        { key: 'SUPABASE_ANON_KEY', target: ['production'], value: 'must-not-return' }] });
+        { id: 'env_url123', key: 'SUPABASE_URL', target: ['production'], value: 'must-not-return' },
+        { id: 'env_anon123', key: 'SUPABASE_ANON_KEY', target: ['production'], value: 'must-not-return' }] });
       assert.equal(path, `/v13/deployments/${input.deploymentId}?teamId=${input.accountId}`);
       deploymentReads++;
       return Response.json(deploymentReads === 2 ? overrides.second ?? overrides.deployment ?? deployment
@@ -48,12 +48,22 @@ try {
   assert.ok(!JSON.stringify(ready).includes('must-not-return'));
   const sourceBranch='tayar/22222222-2222-4222-8222-222222222222/preview',previewDeployment={...deployment,target:null,
     meta:{...deployment.meta,githubCommitRef:sourceBranch}};
-  const preview=await inspect({...input,target:'preview',sourceBranch,fetcher:fixture({deployment:previewDeployment,
-    envs:[{key:'SUPABASE_URL',target:['preview'],gitBranch:sourceBranch},{key:'SUPABASE_ANON_KEY',target:['preview'],gitBranch:sourceBranch}]})});
+  const receiptIds={SUPABASE_URL:'env_url123',SUPABASE_ANON_KEY:'env_anon123'};
+  const preview=await inspect({...input,target:'preview',sourceBranch,requiredEnvironmentIds:receiptIds,
+    fetcher:fixture({deployment:previewDeployment,envs:[
+      {id:'env_url123',key:'SUPABASE_URL',target:['preview'],gitBranch:sourceBranch},
+      {id:'env_anon123',key:'SUPABASE_ANON_KEY',target:['preview'],gitBranch:sourceBranch}]})});
   assert.equal(preview.status,'ready','Preview reads its exact source branch environment');
-  const wrongBranch=await inspect({...input,target:'preview',sourceBranch,fetcher:fixture({deployment:previewDeployment,
-    envs:[{key:'SUPABASE_URL',target:['preview'],gitBranch:input.productionBranch},{key:'SUPABASE_ANON_KEY',target:['preview'],gitBranch:input.productionBranch}]})});
+  const wrongBranch=await inspect({...input,target:'preview',sourceBranch,requiredEnvironmentIds:receiptIds,
+    fetcher:fixture({deployment:previewDeployment,envs:[
+      {id:'env_url123',key:'SUPABASE_URL',target:['preview'],gitBranch:input.productionBranch},
+      {id:'env_anon123',key:'SUPABASE_ANON_KEY',target:['preview'],gitBranch:input.productionBranch}]})});
   assert.deepEqual(wrongBranch.missingEnvironment,['SUPABASE_ANON_KEY','SUPABASE_URL'],'production-branch variables cannot satisfy Preview');
+  const staleReceipt=await inspect({...input,target:'preview',sourceBranch,requiredEnvironmentIds:receiptIds,
+    fetcher:fixture({deployment:previewDeployment,envs:[
+      {id:'env_replaced123',key:'SUPABASE_URL',target:['preview'],gitBranch:sourceBranch},
+      {id:'env_anon123',key:'SUPABASE_ANON_KEY',target:['preview'],gitBranch:sourceBranch}]})});
+  assert.deepEqual(staleReceipt.missingEnvironment,['SUPABASE_URL'],'a replaced provider ID cannot satisfy the receipt by name');
   const missing = await inspect({ ...input, fetcher: fixture({ envs: [
     { key: 'SUPABASE_URL', target: ['production'] }] }) });
   assert.deepEqual(missing.missingEnvironment, ['SUPABASE_ANON_KEY']);
@@ -70,5 +80,7 @@ try {
   ]) await assert.rejects(inspect({ ...input, fetcher: fixture(overrides) }), /unavailable/);
   await assert.rejects(inspect({ ...input, requiredEnvironment: ['SUPABASE_URL', 'SUPABASE_URL'],
     fetcher: fixture() }), /unavailable/);
-  console.log('PASS owned Vercel deployment: exact project/source, env presence, two final observations and safe readiness states (mocked HTTP)');
+  await assert.rejects(inspect({ ...input, requiredEnvironmentIds: {SUPABASE_URL:'env_same123',SUPABASE_ANON_KEY:'env_same123'},
+    fetcher: fixture() }), /unavailable/);
+  console.log('PASS owned Vercel deployment: exact project/source/runtime IDs, two final observations and safe readiness states (mocked HTTP)');
 } finally { await rm(dir, { recursive: true, force: true }); }

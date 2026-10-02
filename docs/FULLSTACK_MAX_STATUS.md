@@ -1,5 +1,13 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — deployment runtime-receipt binding
+
+- Every new Preview deployment attempt now stores the exact verified runtime-environment receipt version and the sorted Vercel environment-ID map that existed before export/deployment observation. The TypeScript boundary refuses Production, missing keys, duplicate provider IDs and invalid receipt versions before RPC.
+- Provider inspection counts a required variable only when its name, Preview target, exact Tayar branch and immutable Vercel environment ID match the captured receipt. Replacing a variable under the same name therefore produces `setup-incomplete` instead of a false-ready observation.
+- A CLI-generated additive migration makes begin, final observation commit and lost-response reconciliation join the same current verified receipt. A superseded, rotated, rebound or differently versioned receipt fails closed; no value or provider token enters the attempt ledger.
+- Focused mocked HTTP/RPC/static-SQL regressions, the full project-health gate, production build, TypeScript and targeted ESLint passed. `supabase migration list --local` reached the known unavailable PostgreSQL endpoint at `127.0.0.1:54322`, so SQL execution is not claimed. The migration remains unapplied; no provider request, deployment, endpoint, UI, Production effect or live database mutation was performed.
+- NEXT: prepare a separately verified Production Vercel runtime-environment receipt on the Production connection without a Preview branch override, then bind promotion preparation and final observation to that exact receipt.
+
 ## Current side-branch checkpoint — runtime-environment rotation cleanup
 
 - A CLI-generated additive migration preserves the two prior verified Vercel environment IDs only while a changed owned binding is prepared. It records the exact removed-ID set and clears the superseded set only in the verified commit; no runtime value or provider token is added to persistence.
@@ -7,7 +15,7 @@
 - A prior ID is deleted only when its key, Config type, Preview target, exact Tayar branch and Tayar operation marker still match. Customer-mutated or ambiguous metadata fails closed without a DELETE, and unrelated variables are never selected.
 - Lost POST, lost DELETE and lost SQL commit responses reconcile through exact metadata/absence/full-receipt reads. A claimed retry does not repeat the provider POST.
 - Focused mocked HTTP/RPC/static-SQL regression, TypeScript, targeted ESLint and diff checks passed. `supabase migration list --local` reached the known unavailable PostgreSQL endpoint at `127.0.0.1:54322`, so SQL execution is not claimed. The migration remains unapplied and no provider, endpoint, UI, deployment or Production effect was enabled.
-- NEXT: bind each Vercel deployment attempt and final observation to the exact verified runtime-environment receipt version/IDs, so drift after preparation cannot pass on variable names alone.
+- Deployment-attempt and final-observation binding to the exact receipt version/IDs is completed by the checkpoint above.
 
 ## Current side-branch checkpoint — owned Vercel runtime environment
 

@@ -8,6 +8,7 @@ const sha = /^[0-9a-f]{40}$/;
 const env = /^[A-Z][A-Z0-9_]{1,99}$/;
 const observedState = /^[A-Z_]{3,40}$/;
 const liveUrl = /^https:\/\/[a-z0-9-]+[.]vercel[.]app$/;
+const providerEnvironment = /^[A-Za-z0-9_-]{3,128}$/;
 const statuses = new Set(['connecting', 'setup-incomplete', 'deployment-failed', 'ready']);
 
 function validateReport(report: OwnedVercelDeploymentReport): string[] {
@@ -29,23 +30,29 @@ function validateReport(report: OwnedVercelDeploymentReport): string[] {
 export async function beginWebsiteVercelDeploymentAttempt(input: {
   client: Pick<SupabaseClient, 'rpc'>; connectionId: string; projectId: string; ownerId: string;
   connectionVersion: number; expectedAttemptVersion: number; vercelProjectId: string;
-  repositoryId: string; sourceCommitSha: string; target: 'preview' | 'production';
-  requiredEnvironment: string[]; operationId: string; isCurrent(): boolean;
+  repositoryId: string; sourceCommitSha: string; target: 'preview';
+  requiredEnvironment: string[]; runtimeEnvironmentReceiptVersion: number;
+  runtimeEnvironmentIds: Record<string,string>; operationId: string; isCurrent(): boolean;
 }): Promise<number> {
   const required = [...input.requiredEnvironment].sort();
+  const ids=Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a],[b])=>a.localeCompare(b)));
   if (typeof window !== 'undefined' || ![input.connectionId,input.projectId,input.ownerId,input.operationId].every(value => uuid.test(value))
     || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion<1
     || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion<0
     || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId)
-    || !sha.test(input.sourceCommitSha) || !['preview','production'].includes(input.target)
+    || !sha.test(input.sourceCommitSha) || input.target!=='preview'
     || required.length>64 || required.some(key => !env.test(key))
-    || new Set(required).size!==required.length || !input.isCurrent()) throw new Error('Vercel deployment attempt unavailable.');
+    || new Set(required).size!==required.length||!Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion)
+    ||input.runtimeEnvironmentReceiptVersion<1||Object.keys(ids).join(',')!==required.join(',')
+    ||Object.values(ids).some(value=>!providerEnvironment.test(value))
+    ||new Set(Object.values(ids)).size!==required.length||!input.isCurrent()) throw new Error('Vercel deployment attempt unavailable.');
   const { data, error } = await input.client.rpc('website_begin_vercel_deployment_attempt', {
     p_connection_id: input.connectionId,p_project_id: input.projectId,p_owner_id: input.ownerId,
     p_connection_version: input.connectionVersion,p_expected_attempt_version: input.expectedAttemptVersion,
     p_vercel_project_id: input.vercelProjectId,p_repository_id: input.repositoryId,
     p_source_commit_sha: input.sourceCommitSha,p_target: input.target,
-    p_required_environment: required,p_operation_id: input.operationId,
+    p_required_environment: required,p_runtime_environment_receipt_version:input.runtimeEnvironmentReceiptVersion,
+    p_runtime_environment_ids:ids,p_operation_id: input.operationId,
   });
   if (error || !Number.isSafeInteger(data) || data<1 || !input.isCurrent()) throw new Error('Vercel deployment attempt unavailable.');
   return data;

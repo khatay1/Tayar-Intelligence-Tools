@@ -37,7 +37,7 @@ function parseCustody(value:unknown,environment:Environment):Custody{
 /** Source-only composition root. Each adapter reuses the existing verified
  * worker boundary; HTTP/UI mounting remains deliberately absent. */
 export async function runWebsiteOwnedByoPublish(input:{
-  client:Client;operationId:string;projectId:string;ownerId:string;environment:Environment;
+  client:Client;operationId:string;projectId:string;ownerId:string;environment:'preview';
   githubConnectionId:string;vercelConnectionId:string;reader:OwnedSourceReader;
   platformOrigin:string;platformUrl:string;platformVercelAccountId:string;
   githubAppClientId:string;githubAppPrivateKeyPkcs8:string;
@@ -51,7 +51,8 @@ export async function runWebsiteOwnedByoPublish(input:{
   const scope={client:input.client,operationId:input.operationId,projectId:input.projectId,ownerId:input.ownerId,
     environment:input.environment,isCurrent:()=>current};let current=true;
   const store=createWebsiteByoPublishStore(scope);if(!await store.read(input.operationId))await initializeWebsiteByoPublishOperation(scope);
-  let captured:Awaited<ReturnType<typeof captureWebsiteOwnedApplicationSource>>|undefined,custody:Custody|undefined,required:string[]|undefined;
+  let captured:Awaited<ReturnType<typeof captureWebsiteOwnedApplicationSource>>|undefined,custody:Custody|undefined,required:string[]|undefined,
+    runtimeReceipt:Awaited<ReturnType<typeof prepareOwnedVercelRuntimeEnvironment>>|undefined;
   const owner=async()=>{if(!current)return false;current=await input.ownerCurrent();return current;};
   const source=async()=>{
     if(!captured)captured=await captureWebsiteOwnedApplicationSource({projectId:input.projectId,ownerId:input.ownerId,
@@ -69,7 +70,7 @@ export async function runWebsiteOwnedByoPublish(input:{
     required=[...await input.requiredEnvironment(capturedSource.capabilities)].sort();
     if(required.length>64||required.some(v=>!env.test(v))||new Set(required).size!==required.length)throw new Error();
     const sourceBranch=`tayar/${input.projectId}/preview`;
-    await prepareOwnedVercelRuntimeEnvironment({client:input.client,projectId:input.projectId,ownerId:input.ownerId,
+    runtimeReceipt=await prepareOwnedVercelRuntimeEnvironment({client:input.client,projectId:input.projectId,ownerId:input.ownerId,
       operationId:input.operationId,binding:capturedSource.binding,supabase:capturedSource.supabase,vercel:capturedSource.vercel,
       accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,vercelProjectId:vercel.vercelProjectId,
       isCurrent:async()=>await capturedSource.isCurrent()&&await owner(),fetcher:input.fetcher});
@@ -88,6 +89,7 @@ export async function runWebsiteOwnedByoPublish(input:{
       expectedSourceDigest:capturedSource.sourceDigest,client:input.client,appClientId:input.githubAppClientId,
       appPrivateKeyPkcs8:input.githubAppPrivateKeyPkcs8,fetcher:input.fetcher});},
     beginDeployment:async(headSha,names)=>{const capturedSource=await source(),vercel=await grant();
+      await environment();if(!runtimeReceipt)throw new Error();
       const prior=await input.client.rpc('website_vercel_deployment_attempt_for_worker',{p_connection_id:input.vercelConnectionId,
         p_project_id:input.projectId,p_owner_id:input.ownerId});if(prior.error)throw new Error();
       const value=prior.data as Record<string,unknown>|null,version=value===null?0:value.version;
@@ -95,16 +97,18 @@ export async function runWebsiteOwnedByoPublish(input:{
       return beginWebsiteVercelDeploymentAttempt({client:input.client,connectionId:input.vercelConnectionId,projectId:input.projectId,
         ownerId:input.ownerId,connectionVersion:capturedSource.vercel.version,expectedAttemptVersion:version as number,
         vercelProjectId:vercel.vercelProjectId,repositoryId:vercel.repositoryId,sourceCommitSha:headSha,target:input.environment,
-        requiredEnvironment:names,operationId:input.operationId,isCurrent:()=>current});},
+        requiredEnvironment:names,runtimeEnvironmentReceiptVersion:runtimeReceipt.receiptVersion,
+        runtimeEnvironmentIds:runtimeReceipt.environmentIds,operationId:input.operationId,isCurrent:()=>current});},
     discoverDeployment:async headSha=>{const vercel=await grant();return discoverOwnedVercelDeployment({accessToken:vercel.accessToken,
       accountId:vercel.accountId,projectId:vercel.vercelProjectId,sourceCommitSha:headSha,sourceBranch:`tayar/${input.projectId}/${input.environment}`,
       target:input.environment,isCurrent:owner,fetcher:input.fetcher});},
-    inspectDeployment:async(deploymentId,headSha,names)=>{const vercel=await grant();return inspectOwnedVercelDeployment({
+    inspectDeployment:async(deploymentId,headSha,names)=>{const vercel=await grant();await environment();if(!runtimeReceipt)throw new Error();
+      return inspectOwnedVercelDeployment({
       accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,platformAccountId:input.platformVercelAccountId,
       projectId:vercel.vercelProjectId,deploymentId,repositoryId:vercel.repositoryId,repositoryOwner:vercel.repositoryOwner,
       repositoryName:vercel.repositoryName,productionBranch:vercel.productionBranch,sourceBranch:`tayar/${input.projectId}/${input.environment}`,
       sourceCommitSha:headSha,target:input.environment,
-      requiredEnvironment:names,isCurrent:owner,fetcher:input.fetcher});},
+      requiredEnvironment:names,requiredEnvironmentIds:runtimeReceipt.environmentIds,isCurrent:owner,fetcher:input.fetcher});},
     commitObservation:async(attemptVersion,report)=>{if(!await owner())throw new Error();const committed=await commitWebsiteVercelDeploymentObservation({
       client:input.client,connectionId:input.vercelConnectionId,projectId:input.projectId,ownerId:input.ownerId,
       expectedAttemptVersion:attemptVersion,operationId:input.operationId,commitId:await deterministicCommitId(input.operationId,attemptVersion,report),
