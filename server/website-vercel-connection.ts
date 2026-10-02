@@ -4,6 +4,8 @@ import { storeWebsiteConnectionHandoff } from '../src/modules/website-builder/se
 import { acceptVercelOAuthCallback, vercelAuthorizationUrl } from '../src/modules/website-builder/services/websiteVercelOAuthService';
 import { bindWebsiteVercelProject, encodeVercelOAuthHandoff,
   listWebsiteVercelProjectChoices } from '../src/modules/website-builder/services/websiteVercelProjectChoiceService';
+import { createWebsiteOwnedSourceReader } from './website-owned-source-reader';
+import { disconnectOwnedVercelProject } from './website-owned-vercel-disconnect';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const state = /^[a-f0-9]{64}$/, code = /^[A-Za-z0-9._~-]{1,2048}$/;
@@ -34,16 +36,17 @@ export async function handleWebsiteVercelConnection(request: Request, context: {
   platformAccountId: string; loadGithubTarget(input: { ownerId: string; projectId: string }): Promise<GithubTarget | null>;
   fetcher?: typeof fetch;
 }): Promise<Response> {
-  let callback: URL, destination: URL;
+  const action = new URL(request.url).searchParams.get('action');
+  let callback: URL, destination: URL | null = null;
   try {
-    callback = fixedHttps(context.callback, true); destination = fixedHttps(context.returnUrl);
+    callback = fixedHttps(context.callback, true);
     const current = new URL(request.url);
     if (callback.origin !== current.origin || callback.pathname !== current.pathname
-      || !/^[a-z0-9][a-z0-9-]{1,99}$/.test(context.integrationSlug)
-      || !providerId.test(context.clientId) || context.clientSecret.length < 20
-      || /[\r\n]/.test(context.clientSecret) || !providerId.test(context.platformAccountId)) throw new Error();
+      || (action !== 'disconnect' && (!/^[a-z0-9][a-z0-9-]{1,99}$/.test(context.integrationSlug)
+        || !providerId.test(context.clientId) || context.clientSecret.length < 20
+        || /[\r\n]/.test(context.clientSecret) || !providerId.test(context.platformAccountId)))) throw new Error();
+    if (action !== 'disconnect') destination = fixedHttps(context.returnUrl);
   } catch { return json(503, { error: 'Vercel connection is not configured.' }); }
-  const action = new URL(request.url).searchParams.get('action');
   if (action === 'callback') {
     if (request.method !== 'GET') return json(405, { error: 'Method not allowed.' });
     const params = new URL(request.url).searchParams, callbackTeamId = params.get('teamId');
@@ -63,11 +66,11 @@ export async function handleWebsiteVercelConnection(request: Request, context: {
         provider: 'vercel', userToken: encodeVercelOAuthHandoff({ accessToken: grant.accessToken,
           userId: grant.userId, teamId: grant.teamId, configurationId: grant.configurationId,
           receivedAt: new Date().toISOString() }) });
-      destination.hash = new URLSearchParams({ tayar_vercel_handoff: handoffId }).toString();
-      return new Response(null, { status: 303, headers: { ...responseHeaders, location: destination.toString() } });
+      destination!.hash = new URLSearchParams({ tayar_vercel_handoff: handoffId }).toString();
+      return new Response(null, { status: 303, headers: { ...responseHeaders, location: destination!.toString() } });
     } catch { return json(409, { error: 'Vercel authorization could not be completed. Start again.' }); }
   }
-  if (!['begin', 'options', 'bind'].includes(action ?? '') || request.method !== 'POST')
+  if (!['begin', 'options', 'bind', 'disconnect'].includes(action ?? '') || request.method !== 'POST')
     return json(405, { error: 'Method not allowed.' });
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') ?? ''))
     return json(415, { error: 'JSON request required.' });
@@ -86,13 +89,21 @@ export async function handleWebsiteVercelConnection(request: Request, context: {
     const raw = await request.text(); if (raw.length > 8192) throw new Error();
     input = JSON.parse(raw);
     const keys = action === 'begin' ? ['projectId', 'environment'] : action === 'options'
-      ? ['projectId', 'handoffId'] : ['projectId', 'handoffId', 'connectionId', 'expectedVersion',
-        'userId', 'accountId', 'configurationId', 'vercelProjectId'];
+      ? ['projectId', 'handoffId'] : action === 'disconnect'
+        ? ['projectId', 'connectionId', 'expectedVersion', 'operationId', 'commitId']
+        : ['projectId', 'handoffId', 'connectionId', 'expectedVersion',
+          'userId', 'accountId', 'configurationId', 'vercelProjectId'];
     if (!input || typeof input !== 'object' || Array.isArray(input)
       || Object.keys(input).some(key => !keys.includes(key))
       || typeof input.projectId !== 'string' || !uuid.test(input.projectId)
       || (action === 'begin' && !['preview', 'production'].includes(String(input.environment)))
-      || (action !== 'begin' && (typeof input.handoffId !== 'string' || !uuid.test(input.handoffId)))) throw new Error();
+      || (['options', 'bind'].includes(action ?? '')
+        && (typeof input.handoffId !== 'string' || !uuid.test(input.handoffId)))) throw new Error();
+    if (action === 'disconnect' && (Object.keys(input).sort().join(',') !== keys.sort().join(',')
+      || typeof input.connectionId !== 'string' || !uuid.test(input.connectionId)
+      || !Number.isSafeInteger(input.expectedVersion) || Number(input.expectedVersion) < 1
+      || typeof input.operationId !== 'string' || !uuid.test(input.operationId)
+      || typeof input.commitId !== 'string' || !uuid.test(input.commitId))) throw new Error();
     if (action === 'bind' && (!providerId.test(String(input.userId))
       || !providerId.test(String(input.accountId)) || !configurationId.test(String(input.configurationId))
       || !vercelProjectId.test(String(input.vercelProjectId)))) throw new Error();
@@ -103,12 +114,47 @@ export async function handleWebsiteVercelConnection(request: Request, context: {
       .eq('user_id', ownerId).eq('type', 'website-builder').is('deleted_at', null).maybeSingle();
     if (error) return json(503, { error: 'Project is unavailable.' });
     if (!data) return json(404, { error: 'Project not found.' });
+    const isCurrentOwner = async () => {
+      try {
+        const currentIdentity = await context.platform.auth.getUser(bearer);
+        if (currentIdentity.error || currentIdentity.data.user?.id !== ownerId
+          || currentIdentity.data.user.is_anonymous) return false;
+        const currentProject = await context.platform.from('projects').select('id').eq('id', projectId)
+          .eq('user_id', ownerId).eq('type', 'website-builder').is('deleted_at', null).maybeSingle();
+        return !currentProject.error && currentProject.data?.id === projectId;
+      } catch { return false; }
+    };
     if (action === 'begin') {
       const rawState = await createWebsiteConnectionOAuthState({ client: context.platform,
         ownerId, projectId, environment: input.environment as 'preview' | 'production',
         provider: 'vercel', isCurrentOwner: () => true });
       return json(200, { authorizationUrl: vercelAuthorizationUrl({
         integrationSlug: context.integrationSlug, state: rawState }) });
+    }
+    if (action === 'disconnect') {
+      const connectionId = input.connectionId as string, expectedVersion = input.expectedVersion as number;
+      const operationId = input.operationId as string, commitId = input.commitId as string;
+      const completedArgs = { p_connection_id: connectionId, p_project_id: projectId, p_owner_id: ownerId,
+        p_expected_connection_version: expectedVersion, p_operation_id: operationId, p_commit_id: commitId };
+      const completed = await context.platform.rpc('website_reconcile_completed_vercel_runtime_disconnect', completedArgs);
+      if (completed.error || !await isCurrentOwner()) throw new Error();
+      if (completed.data != null) {
+        const exact = completed.data as Record<string, unknown>;
+        if (!exact || typeof exact !== 'object' || Array.isArray(exact)
+          || Object.keys(exact).sort().join(',') !== 'connectionVersion,receiptVersion'
+          || exact.connectionVersion !== expectedVersion + 1
+          || !(exact.receiptVersion == null
+            || (Number.isSafeInteger(exact.receiptVersion) && Number(exact.receiptVersion) > 0))) throw new Error();
+        return json(200, { status: 'disconnected', connectionId,
+          version: exact.connectionVersion, installation: 'retained' });
+      }
+      const connection = await createWebsiteOwnedSourceReader(context.platform)
+        .readConnection(connectionId, projectId, ownerId);
+      if (!connection || connection.provider !== 'vercel' || connection.version !== expectedVersion
+        || connection.status === 'disconnected') throw new Error();
+      const result = await disconnectOwnedVercelProject({ client: context.platform, connection,
+        operationId, commitId, isCurrentOwner, fetcher: context.fetcher });
+      return json(200, { status: 'disconnected', connectionId, ...result });
     }
     const target = await context.loadGithubTarget({ ownerId, projectId });
     if (!target) return json(409, { error: 'Connect the correct GitHub repository first.' });
@@ -123,6 +169,7 @@ export async function handleWebsiteVercelConnection(request: Request, context: {
       configurationId: input.configurationId as string,
       vercelProjectId: input.vercelProjectId as string });
     return json(200, { status: 'connected', ...result });
-  } catch { return json(409, { error: 'Vercel connection could not be completed. Refresh and try again.' }); }
+  } catch { return json(409, { error: action === 'disconnect'
+    ? 'Vercel connection could not be disconnected. Refresh and try again.'
+    : 'Vercel connection could not be completed. Refresh and try again.' }); }
 }
-

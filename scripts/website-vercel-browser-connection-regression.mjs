@@ -11,7 +11,8 @@ try {
   await build({ entryPoints: ['src/modules/website-builder/services/websiteVercelBrowserConnection.ts'],
     bundle: true, platform: 'node', format: 'cjs', outfile });
   const { beginWebsiteVercelConnection: begin, consumeWebsiteVercelHandoffFragment: consume,
-    listWebsiteVercelChoices: list, selectWebsiteVercelProject: select } =
+    listWebsiteVercelChoices: list, selectWebsiteVercelProject: select,
+    disconnectWebsiteVercelConnection: disconnect } =
     (await import(pathToFileURL(outfile))).default;
   const ownerId = '11111111-1111-4111-8111-111111111111';
   const projectId = '22222222-2222-4222-8222-222222222222';
@@ -64,6 +65,34 @@ try {
   await assert.rejects(list({ scope: { ...nextScope, projectId: '44444444-4444-4444-8444-444444444444' },
     transport, handoff }), /changed/);
   assert.equal(calls.length, before);
+  const connection = { id: handoffId, ownerId, projectId, provider: 'vercel', environment: 'production',
+    accountId: response.accountId, targetId: response.projects[0].projectId, permissions: ['project:read'],
+    status: 'connected', version: 1, verifiedAt: '2026-10-02T12:00:00.000Z',
+    updatedAt: '2026-10-02T12:00:00.000Z' };
+  const disconnectCalls = [];
+  let uncertain = true;
+  const disconnectTransport = { ...transport, fetcher: async (url, options) => {
+    disconnectCalls.push({ url, options });
+    if (uncertain) { uncertain = false; throw new Error('response lost'); }
+    return { ok: true, headers: { get: () => null }, text: async () => JSON.stringify({
+      status: 'disconnected', connectionId: handoffId, version: 2, installation: 'retained',
+    }) };
+  } };
+  const ids = ['55555555-5555-4555-8555-555555555555', '66666666-6666-4666-8666-666666666666'];
+  await assert.rejects(disconnect({ scope: nextScope, transport: disconnectTransport, connection, storage,
+    randomUUID: () => ids.shift() }), /unavailable/);
+  assert.equal(state.size, 1, 'uncertain response retains the exact disconnect identity');
+  const firstDisconnectBody = JSON.parse(disconnectCalls[0].options.body);
+  assert.deepEqual(firstDisconnectBody, { projectId, connectionId: handoffId, expectedVersion: 1,
+    operationId: '55555555-5555-4555-8555-555555555555',
+    commitId: '66666666-6666-4666-8666-666666666666' });
+  assert.deepEqual(await disconnect({ scope: nextScope, transport: disconnectTransport, connection, storage,
+    randomUUID: () => { throw new Error('retry must reuse IDs'); } }), { connectionId: handoffId, version: 2 });
+  assert.deepEqual(JSON.parse(disconnectCalls[1].options.body), firstDisconnectBody);
+  assert.equal(state.size, 0, 'verified disconnect clears the pending identity');
+  await assert.rejects(disconnect({ scope: nextScope, transport: disconnectTransport,
+    connection: { ...connection, ownerId: '44444444-4444-4444-8444-444444444444' }, storage }), /changed/);
+  assert.equal(disconnectCalls.length, 2, 'cross-owner disconnect is refused before HTTP');
   let releaseFetch;
   pause = new Promise(resolve => { releaseFetch = resolve; });
   const started = new Promise(resolve => { fetchStarted = resolve; });
@@ -72,6 +101,5 @@ try {
   await assert.rejects(stale, /unavailable|changed/);
   assert.equal(consume({ scope: nextScope, location: { ...location,
     hash: `#tayar_vercel_handoff=${handoffId}&extra=1` }, history, storage }), null);
-  console.log('PASS Vercel browser handoff: fragment cleanup, owner scope, sanitized choices, trusted GitHub target and stale response refusal');
+  console.log('PASS Vercel browser handoff: sanitized binding plus stable receipt-aware disconnect retry and stale scope refusal');
 } finally { await rm(dir, { recursive: true, force: true }); }
-

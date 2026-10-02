@@ -1,6 +1,6 @@
 # Fullstack MAX — canonical BYO checkpoint
 
-Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `f3576f214a2b2c8c879574d3096e0f67a14fa5c5`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
+Updated: 2026-10-02 (UTC). Current branch: `internal-fullstack-max-continue-20260927`. Parent remote HEAD for this batch: `a6828776fb80c721179a5018b4ec13ca9d3683d3`. Read the current side-branch ref at the start of a session and fetch before continuing. `main`, production deployment, migrations and flags remain unchanged.
 
 ## Architecture decision
 
@@ -42,9 +42,9 @@ No-repeat: do not rebuild the model, editor operations, history, schema compiler
 
 - Vercel project binding now consumes the temporary handoff only after an exact recovery check, re-verifies the authenticated user, team Owner membership and the selected project twice, then atomically writes `connected` metadata and a 90-day maximum Vault lease. Exact operation/account/configuration/project reconciliation recovers a lost SQL response without replaying the provider operation. A service-only read/delete/expiry cleanup boundary is included for later deployment and disconnect workers. The migration is source-only and unmounted.
 
-- A source-only authenticated Vercel connection handler now composes begin/callback/options/bind. It returns an opaque handoff fragment, loads the exact GitHub repository/branch through a trusted server callback, rejects binding before GitHub, and returns `connected` only after the atomic Vault commit. The browser cannot supply repository identity. It is not bundled, mounted or enabled in the Infrastructure panel.
+- A source-only authenticated Vercel connection handler now composes begin/callback/options/bind/disconnect. Disconnect accepts only the exact owner/project/connection/version/operation/commit shape, rechecks the bearer session and saved project ownership throughout the receipt-aware worker, and reconciles an already committed request before loading the connection or touching Vercel. It remains unbundled, unmounted and disabled in the Infrastructure panel.
 
-- A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody. Exact commit/version reconciliation recovers a lost SQL response. It deliberately retains the account-wide Vercel Integration installation because another Tayar project may share that configuration; a future explicit uninstall must first prove there are no other bindings.
+- A source-only project-scoped Vercel disconnect now atomically changes the private registry to `disconnected` and deletes its Vault custody after exact Preview/Production runtime-receipt cleanup. Exact commit/version reconciliation recovers lost provider or SQL responses. The browser adapter persists one stable operation/commit UUID pair before HTTP and reuses it after an uncertain response; only an exact verified success clears it. The account-wide Vercel Integration remains installed because another Tayar project may share that configuration.
 
 - A standalone Vercel browser handoff and chooser now mirror the guarded GitHub flow: the opaque fragment is removed before async work, the pending owner/project is tab-scoped, options are strictly sanitized, and account/project switches invalidate in-flight responses. Binding sends provider/project identities only; the trusted server supplies GitHub repository identity. The chooser remains unmounted while the source-only endpoint lacks real credentials.
 
@@ -249,11 +249,11 @@ Latest owned page/session batch: `src/modules/website-builder/services/websiteAp
 
 ## Last completed batch
 
-Vercel project disconnect now claims the matching verified Preview or Production runtime receipt before custody can be erased, deletes only its two unchanged immutable provider IDs, refuses customer-mutated metadata, proves both IDs absent with a second non-decrypting list, and preserves unrelated variables. The final SQL transaction marks the receipt removed, disconnects the exact connection and erases Vault custody together. Whole-request and final-commit reconciliation prevent provider replay after uncertain DELETE or database responses; a missing/removed receipt takes a provider-free path, while an in-flight or mismatched rebind fails closed. Focused mocked HTTP/RPC/static-SQL regression, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. The CLI-generated migration is source-only and `supabase migration list --local` reached the known unavailable `127.0.0.1:54322`; no endpoint, live migration, provider call, UI enablement or production effect occurred.
+The authenticated Vercel handler now exposes the receipt-aware project disconnect contract without accepting provider identity from the browser. It strictly validates the owner-scoped connection/version and stable operation/commit UUIDs, revalidates the bearer and saved project ownership throughout the worker, performs completed-request reconciliation before connection custody or provider access, and remains usable while OAuth installation credentials are unavailable. The browser adapter stores the exact UUID pair before HTTP, reuses it after a lost response and clears it only after an exact disconnected response. Focused mocked endpoint/browser/worker regressions, the complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks passed. The handler remains source-only and the UI action remains disabled; no live migration, provider call, endpoint mount, deployment, flag or production effect occurred.
 
 ## Next exact batch
 
-Add the authenticated server endpoint and browser adapter for the receipt-aware Vercel disconnect workflow, with owner/session verification, bounded UUID request validation and exact retry semantics for both Preview and Production. Keep the UI action disabled and keep migrations/provider effects/deployment disabled until SQL and disposable-account verification exist.
+Create a deterministic unmounted Edge/server-environment wrapper for the Vercel connection handler and derive its trusted GitHub target from the existing service-only registry projection. Add generated-bundle freshness and entrypoint regressions, but keep the Infrastructure UI action disabled and do not deploy, configure credentials, apply migrations or call a live provider.
 
 ## Known blockers
 

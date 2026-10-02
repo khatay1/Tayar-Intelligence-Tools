@@ -22,6 +22,13 @@ try {
     paused: false, link: { type: 'github', repoId: Number(target.repositoryId), org: target.repositoryOwner,
       repo: target.repositoryName, productionBranch: target.productionBranch } };
   let storedPayload = '', handoffId = '', committed = false;
+  let disconnectCommitted = false, runtimeRows = [
+    { id: 'env_anon123', key: 'SUPABASE_ANON_KEY', type: 'plain', target: ['production'],
+      comment: 'Tayar production runtime 66666666-6666-4666-8666-666666666666' },
+    { id: 'env_url123', key: 'SUPABASE_URL', type: 'plain', target: ['production'],
+      comment: 'Tayar production runtime 66666666-6666-4666-8666-666666666666' },
+    { id: 'env_customer123', key: 'CUSTOMER_VALUE', type: 'plain', target: ['production'] },
+  ];
   const calls = [];
   const platform = {
     auth: { getUser: async () => ({ data: { user: { id: ownerId, is_anonymous: false } }, error: null }) },
@@ -41,6 +48,21 @@ try {
         data: { environment: 'production', userToken: storedPayload }, error: null };
       if (name === 'website_reconcile_vercel_project_binding') return { data: committed ? 1 : null, error: null };
       if (name === 'website_bind_vercel_project') { committed = true; return { data: 1, error: null }; }
+      if (name === 'website_reconcile_completed_vercel_runtime_disconnect') return { data: disconnectCommitted
+        ? { connectionVersion: 2, receiptVersion: 4 } : null, error: null };
+      if (name === 'website_byo_connection_for_worker') return { data: {
+        id: handoffId, ownerId, projectId, provider: 'vercel', environment: 'production',
+        accountId: grant.teamId, targetId: project.id, permissions: ['project:read'], status: 'connected',
+        version: 1, operationId: null, verifiedAt: '2026-10-02T12:00:00.000Z', updatedAt: '2026-10-02T12:00:00.000Z',
+      }, error: null };
+      if (name === 'website_begin_vercel_runtime_disconnect') return { data: { cleanupRequired: true,
+        receiptVersion: 3, accessToken: grant.accessToken, userId: grant.userId, accountId: grant.teamId,
+        vercelProjectId: project.id, environment: 'production', gitBranch: null,
+        marker: 'Tayar production runtime 66666666-6666-4666-8666-666666666666',
+        environmentIds: { SUPABASE_ANON_KEY: 'env_anon123', SUPABASE_URL: 'env_url123' } }, error: null };
+      if (name === 'website_reconcile_vercel_runtime_disconnect') return { data: null, error: null };
+      if (name === 'website_commit_vercel_runtime_disconnect') { disconnectCommitted = true;
+        return { data: { connectionVersion: 2, receiptVersion: 4 }, error: null }; }
       throw Error(`Unexpected RPC ${name}`);
     },
   };
@@ -54,6 +76,11 @@ try {
       membership: { uid: grant.userId, role: 'OWNER', confirmed: true } });
     if (url.includes('/v9/projects?')) return Response.json({ projects: [project,
       { ...project, id: 'prj_attacker123', link: { ...project.link, repoId: 9 } }] });
+    if (url.includes(`/v10/projects/${project.id}/env?decrypt=false`)) return Response.json({ envs: runtimeRows });
+    if (url.includes(`/v9/projects/${project.id}/env/`) && init.method === 'DELETE') {
+      const id = url.split('/').at(-1).split('?')[0]; runtimeRows = runtimeRows.filter(row => row.id !== id);
+      return Response.json({});
+    }
     if (url.includes(`/v9/projects/${project.id}`)) return Response.json(project);
     throw Error(`Unexpected URL ${url}`);
   };
@@ -90,8 +117,25 @@ try {
   assert.equal(write.args.p_repository_id, target.repositoryId);
   assert.equal(write.args.p_vercel_project_id, project.id);
   assert.equal(targetReads, 2);
+  const disconnectBody = { projectId, connectionId: handoffId, expectedVersion: 1,
+    operationId: '77777777-7777-4777-8777-777777777777', commitId: '88888888-8888-4888-8888-888888888888' };
+  const disconnected = await handle(post('disconnect', disconnectBody), context);
+  assert.equal(disconnected.status, 200);
+  assert.deepEqual(await disconnected.json(), { status: 'disconnected', connectionId: handoffId,
+    version: 2, installation: 'retained' });
+  assert.deepEqual(runtimeRows.map(row => row.id), ['env_customer123']);
+  const providerCalls = calls.filter(item => item.name === 'website_begin_vercel_runtime_disconnect').length;
+  const retried = await handle(post('disconnect', disconnectBody), context);
+  assert.equal(retried.status, 200); assert.equal((await retried.json()).version, 2);
+  assert.equal(calls.filter(item => item.name === 'website_begin_vercel_runtime_disconnect').length, providerCalls,
+    'completed endpoint retry reconciles before provider access');
+  const noOauth = { ...context, integrationSlug: '', clientId: '', clientSecret: '', returnUrl: 'invalid',
+    platformAccountId: '' };
+  assert.equal((await handle(post('disconnect', disconnectBody), noOauth)).status, 200,
+    'disconnect remains available while OAuth installation settings are unavailable');
+  assert.equal((await handle(post('disconnect', { ...disconnectBody, commitId: undefined }), context)).status, 400);
+  assert.equal(targetReads, 2, 'disconnect never reloads GitHub binding metadata');
   const noGithub = { ...context, loadGithubTarget: async () => null };
   assert.equal((await handle(post('options', { projectId, handoffId }), noGithub)).status, 409);
-  console.log('PASS Vercel endpoint: owner auth, opaque OAuth handoff, trusted GitHub target and atomic connected binding (mocked HTTP/RPC)');
+  console.log('PASS Vercel endpoint: owner auth, opaque OAuth handoff, trusted binding, receipt-aware disconnect and provider-free committed retry (mocked HTTP/RPC)');
 } finally { await rm(dir, { recursive: true, force: true }); }
-

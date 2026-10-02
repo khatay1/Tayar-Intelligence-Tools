@@ -1,9 +1,12 @@
+import { assertInfrastructureConnection, type PublicInfrastructureConnection } from '../core/application-infrastructure-connections';
+
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const providerId = /^[A-Za-z0-9_-]{3,128}$/;
 const configurationId = /^icfg_[A-Za-z0-9]{8,128}$/;
 const projectId = /^prj_[A-Za-z0-9]{8,128}$/;
 const branch = /^[A-Za-z0-9_./-]{1,200}$/;
 const pendingKey = 'tayar:vercel-connection-pending';
+const pendingDisconnectKey = 'tayar:vercel-disconnect-pending';
 
 export interface VercelBrowserScope {
   ownerId: string; projectId: string; loadSequence: number; isCurrent(): boolean;
@@ -20,7 +23,7 @@ function assertScope(scope: VercelBrowserScope) {
     || scope.loadSequence < 0 || !scope.isCurrent()) throw new Error('Project or account changed.');
 }
 async function request(input: { scope: VercelBrowserScope; transport: VercelBrowserTransport;
-  action: 'begin' | 'options' | 'bind'; body: Record<string, unknown> }) {
+  action: 'begin' | 'options' | 'bind' | 'disconnect'; body: Record<string, unknown> }) {
   assertScope(input.scope);
   const session = await input.transport.getSession();
   if (!session || session.ownerId !== input.scope.ownerId || !session.accessToken || !input.scope.isCurrent())
@@ -126,4 +129,60 @@ export async function selectWebsiteVercelProject(input: {
     || data.vercelProjectId !== input.vercelProjectId || !Number.isSafeInteger(data.version)
     || data.version !== (input.expectedVersion ?? 0) + 1) throw new Error('Vercel project binding could not be verified.');
   return { connectionId: data.connectionId as string, version: data.version as number };
+}
+
+type DisconnectPending = { ownerId: string; projectId: string; connectionId: string;
+  expectedVersion: number; operationId: string; commitId: string };
+function parseDisconnectPending(value: string | null): DisconnectPending | null {
+  try {
+    const row = JSON.parse(value ?? 'null') as Record<string, unknown> | null;
+    if (!row || Object.keys(row).sort().join(',')
+      !== ['commitId', 'connectionId', 'expectedVersion', 'operationId', 'ownerId', 'projectId'].join(',')
+      || ![row.ownerId, row.projectId, row.connectionId, row.operationId, row.commitId]
+        .every(item => typeof item === 'string' && uuid.test(item))
+      || !Number.isSafeInteger(row.expectedVersion) || Number(row.expectedVersion) < 1) return null;
+    return row as DisconnectPending;
+  } catch { return null; }
+}
+
+/** Keeps the exact operation/commit UUIDs after an uncertain response so a
+ * user retry reconciles the committed disconnect before any provider replay. */
+export async function disconnectWebsiteVercelConnection(input: {
+  scope: VercelBrowserScope; transport: VercelBrowserTransport;
+  connection: PublicInfrastructureConnection;
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+  randomUUID?: () => string;
+}): Promise<{ connectionId: string; version: number }> {
+  assertScope(input.scope);
+  const connection = assertInfrastructureConnection({ ...input.connection, operationId: null });
+  if (connection.provider !== 'vercel' || connection.ownerId !== input.scope.ownerId
+    || connection.projectId !== input.scope.projectId || connection.status === 'disconnected'
+    || !connection.targetId) throw new Error('Project or account changed.');
+  const key = `${pendingDisconnectKey}:${connection.id}`;
+  let pending: DisconnectPending | null;
+  try { pending = parseDisconnectPending(input.storage.getItem(key)); } catch {
+    throw new Error('Vercel disconnect is unavailable. Refresh and try again.');
+  }
+  if (!pending || pending.ownerId !== input.scope.ownerId || pending.projectId !== input.scope.projectId
+    || pending.connectionId !== connection.id || pending.expectedVersion !== connection.version) {
+    const create = input.randomUUID ?? (() => crypto.randomUUID());
+    const operationId = create(), commitId = create();
+    if (!uuid.test(operationId) || !uuid.test(commitId) || operationId === commitId)
+      throw new Error('Vercel disconnect is unavailable. Refresh and try again.');
+    pending = { ownerId: input.scope.ownerId, projectId: input.scope.projectId,
+      connectionId: connection.id, expectedVersion: connection.version, operationId, commitId };
+    try { input.storage.setItem(key, JSON.stringify(pending)); } catch {
+      throw new Error('Vercel disconnect is unavailable. Refresh and try again.');
+    }
+  }
+  const data = await request({ scope: input.scope, transport: input.transport, action: 'disconnect', body: {
+    connectionId: pending.connectionId, expectedVersion: pending.expectedVersion,
+    operationId: pending.operationId, commitId: pending.commitId,
+  } });
+  if (!data || Object.keys(data).sort().join(',') !== ['connectionId', 'installation', 'status', 'version'].join(',')
+    || data.status !== 'disconnected' || data.installation !== 'retained'
+    || data.connectionId !== connection.id || data.version !== connection.version + 1)
+    throw new Error('Vercel disconnect could not be verified.');
+  try { input.storage.removeItem(key); } catch { /* a stale UUID pair remains safe to reconcile */ }
+  return { connectionId: connection.id, version: data.version as number };
 }

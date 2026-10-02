@@ -95,7 +95,8 @@ try {
 
   await assert.rejects(disconnect({ ...input, client: previewRpc.client,
     connection: { ...baseConnection, provider: 'github' } }), /unavailable/);
-  await assert.rejects(disconnect({ ...input, client: previewRpc.client, isCurrentOwner: () => false }), /unavailable/);
+  await assert.rejects(disconnect({ ...input, client: previewRpc.client,
+    isCurrentOwner: async () => false }), /unavailable/);
 
   const migration = 'supabase/migrations/20261002144040_website_byo_vercel_runtime_disconnect_cleanup.sql';
   const sql = await readFile(migration, 'utf8');

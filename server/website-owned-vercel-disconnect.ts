@@ -38,10 +38,10 @@ function completed(value: unknown, expectedConnectionVersion: number): Completed
  * custody. The account-wide Vercel Integration remains installed. */
 export async function disconnectOwnedVercelProject(input: {
   client: Client; connection: InfrastructureConnection; operationId: string; commitId: string;
-  isCurrentOwner: () => boolean; fetcher?: typeof fetch;
+  isCurrentOwner: () => boolean | Promise<boolean>; fetcher?: typeof fetch;
 }): Promise<{ version: number; installation: 'retained' }> {
   try {
-    if (typeof window !== 'undefined' || !input.isCurrentOwner()
+    if (typeof window !== 'undefined' || !await input.isCurrentOwner()
       || !uuid.test(input.operationId) || !uuid.test(input.commitId)) throw new Error();
     const connection = assertInfrastructureConnection(input.connection);
     if (connection.provider !== 'vercel' || connection.version < 1 || connection.status === 'disconnected'
@@ -51,7 +51,7 @@ export async function disconnectOwnedVercelProject(input: {
       p_owner_id: connection.ownerId, p_expected_connection_version: connection.version,
       p_operation_id: input.operationId, p_commit_id: input.commitId };
     const initial = await input.client.rpc('website_reconcile_completed_vercel_runtime_disconnect', completedArgs);
-    if (initial.error || !input.isCurrentOwner()) throw new Error();
+    if (initial.error || !await input.isCurrentOwner()) throw new Error();
     const alreadyCompleted = completed(initial.data, expectedConnectionVersion);
     if (alreadyCompleted) return { version: alreadyCompleted.connectionVersion, installation: 'retained' };
 
@@ -59,7 +59,7 @@ export async function disconnectOwnedVercelProject(input: {
       p_connection_id: connection.id, p_project_id: connection.projectId, p_owner_id: connection.ownerId,
       p_expected_connection_version: connection.version, p_operation_id: input.operationId,
     });
-    if (begun.error || !input.isCurrentOwner()) throw new Error();
+    if (begun.error || !await input.isCurrentOwner()) throw new Error();
     const begin = object(begun.data) as unknown as Begin;
     if (typeof begin.cleanupRequired !== 'boolean'
       || !(begin.receiptVersion == null || (Number.isSafeInteger(begin.receiptVersion) && begin.receiptVersion > 0))) throw new Error();
@@ -81,7 +81,7 @@ export async function disconnectOwnedVercelProject(input: {
       const listUrl = `https://api.vercel.com/v10/projects/${begin.vercelProjectId}/env?decrypt=false${team}`;
       const headers = { Authorization: `Bearer ${begin.accessToken}`, 'Content-Type': 'application/json', Accept: 'application/json' };
       const read = async () => {
-        if (!input.isCurrentOwner()) throw new Error();
+        if (!await input.isCurrentOwner()) throw new Error();
         const response = await (input.fetcher ?? fetch)(listUrl, { method: 'GET', redirect: 'error', cache: 'no-store',
           signal: AbortSignal.timeout(8000), headers });
         if (response.status !== 200 || Number(response.headers.get('content-length') ?? 0) > 262144) throw new Error();
@@ -102,7 +102,7 @@ export async function disconnectOwnedVercelProject(input: {
           if (row.key !== name || row.type !== 'plain' || row.comment !== begin.marker
             || targets.length !== 1 || targets[0] !== begin.environment
             || (preview ? row.gitBranch !== expectedBranch : row.gitBranch != null)) throw new Error();
-          if (!input.isCurrentOwner()) throw new Error();
+          if (!await input.isCurrentOwner()) throw new Error();
           const suffix = team ? `?${team.slice(1)}` : '';
           try {
             await (input.fetcher ?? fetch)(`https://api.vercel.com/v9/projects/${begin.vercelProjectId}/env/${id}${suffix}`,
@@ -112,7 +112,7 @@ export async function disconnectOwnedVercelProject(input: {
       }
       const after = await read();
       if (after.some(item => !!item && typeof item === 'object' && !Array.isArray(item)
-        && Object.values(ids).includes((item as Record<string, unknown>).id as string)) || !input.isCurrentOwner()) throw new Error();
+        && Object.values(ids).includes((item as Record<string, unknown>).id as string)) || !await input.isCurrentOwner()) throw new Error();
       removedEnvironmentIds = Object.values(ids).sort();
     } else if (begin.receiptVersion != null) throw new Error();
 
@@ -121,7 +121,7 @@ export async function disconnectOwnedVercelProject(input: {
     const expectedReceiptVersion = begin.receiptVersion == null ? null : begin.receiptVersion + 1;
     const reconcile = async () => {
       const result = await input.client.rpc('website_reconcile_vercel_runtime_disconnect', commitArgs);
-      if (result.error || !input.isCurrentOwner()) return null;
+      if (result.error || !await input.isCurrentOwner()) return null;
       const exact = completed(result.data, expectedConnectionVersion);
       if (exact && exact.receiptVersion !== expectedReceiptVersion) throw new Error();
       return exact;
@@ -130,7 +130,7 @@ export async function disconnectOwnedVercelProject(input: {
     if (!result) {
       try {
         const committed = await input.client.rpc('website_commit_vercel_runtime_disconnect', commitArgs);
-        if (committed.error || !input.isCurrentOwner()) throw new Error();
+        if (committed.error || !await input.isCurrentOwner()) throw new Error();
         result = completed(committed.data, expectedConnectionVersion);
         if (!result || result.receiptVersion !== expectedReceiptVersion) throw new Error();
       } catch {

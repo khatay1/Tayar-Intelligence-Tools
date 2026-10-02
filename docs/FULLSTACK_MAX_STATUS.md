@@ -1,12 +1,20 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — exact Vercel runtime cleanup on disconnect
+## Current side-branch checkpoint — authenticated receipt-aware Vercel disconnect
+
+- The source-only Vercel connection handler now accepts an exact `disconnect` request containing only project, connection, expected version and stable operation/commit UUIDs. It authenticates the non-anonymous Tayar owner, verifies the saved Website Builder project and rechecks both session and ownership throughout the destructive worker. Disconnect remains available when OAuth installation credentials are absent or being rotated.
+- A completed request is reconciled before the private connection is loaded or Vercel is contacted. The current connection must be the exact active Vercel version, and all failures return a fixed secret-free response. The shared disconnect worker now awaits asynchronous owner checks around RPC reads/commits, provider reads and each exact deletion.
+- The standalone browser adapter validates the public connection and active editor scope, persists one owner/project/connection/version-scoped UUID pair before HTTP, reuses it after an uncertain response and clears it only after an exact `disconnected` acknowledgement. No token, provider target or runtime receipt is stored or sent by the browser.
+- Focused mocked endpoint/browser/worker regressions, the complete infrastructure suite, full project health, production build, TypeScript, targeted ESLint and diff checks passed. The endpoint remains unbundled and unmounted, and the UI action remains disabled. No live provider request, migration, endpoint deployment, flag or database mutation was performed.
+- NEXT: add a deterministic unmounted Edge/server-environment wrapper and service-only trusted GitHub target loader for this handler; keep credentials, deployment and the UI action disabled.
+
+## Previous side-branch checkpoint — exact Vercel runtime cleanup on disconnect
 
 - Preview and Production disconnect now begin by claiming the exact verified runtime receipt. Only its two immutable Vercel environment IDs may be deleted, and every present row must retain the recorded key, Config type, target, branch rule and Tayar marker.
 - A non-decrypting list occurs before and after deletion. Customer-mutated receipt IDs fail closed, absent IDs recover uncertain DELETE responses, and unrelated customer variables are preserved. The account-wide Vercel Integration remains installed.
 - The final service-only SQL transaction marks the receipt removed, advances the connection to disconnected and erases Vault custody together. Whole-request reconciliation returns a committed result before any provider access, so a lost database response cannot replay provider deletion. Missing/previously removed receipts use a provider-free path; preparing, mismatched or independently rebound receipts are refused.
 - Focused mocked HTTP/RPC/static-SQL regression, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. The CLI-generated migration remains unapplied; local migration listing reached the known unavailable PostgreSQL endpoint. No live provider request, endpoint, UI action, deployment, flag or database mutation was performed.
-- NEXT: add the authenticated server endpoint and browser adapter for this receipt-aware disconnect flow, while keeping the UI action disabled until SQL and disposable-account proof exist.
+- COMPLETE in the checkpoint above: the authenticated endpoint and stable browser retry adapter now expose this cleanup path without mounting it or enabling the UI.
 
 ## Previous side-branch checkpoint — Production runtime receipt and promotion binding
 
