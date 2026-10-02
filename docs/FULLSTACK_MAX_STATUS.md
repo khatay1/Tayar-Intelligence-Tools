@@ -1,5 +1,14 @@
 # Full-stack implementation checkpoint
 
+## Current side-branch checkpoint — runtime-environment rotation cleanup
+
+- A CLI-generated additive migration preserves the two prior verified Vercel environment IDs only while a changed owned binding is prepared. It records the exact removed-ID set and clears the superseded set only in the verified commit; no runtime value or provider token is added to persistence.
+- The worker installs and verifies the new branch-scoped pair first, deletes only prior IDs that were not reused by Vercel, then performs a second non-decrypting list that proves every superseded ID absent and both new IDs still present.
+- A prior ID is deleted only when its key, Config type, Preview target, exact Tayar branch and Tayar operation marker still match. Customer-mutated or ambiguous metadata fails closed without a DELETE, and unrelated variables are never selected.
+- Lost POST, lost DELETE and lost SQL commit responses reconcile through exact metadata/absence/full-receipt reads. A claimed retry does not repeat the provider POST.
+- Focused mocked HTTP/RPC/static-SQL regression, TypeScript, targeted ESLint and diff checks passed. `supabase migration list --local` reached the known unavailable PostgreSQL endpoint at `127.0.0.1:54322`, so SQL execution is not claimed. The migration remains unapplied and no provider, endpoint, UI, deployment or Production effect was enabled.
+- NEXT: bind each Vercel deployment attempt and final observation to the exact verified runtime-environment receipt version/IDs, so drift after preparation cannot pass on variable names alone.
+
 ## Current side-branch checkpoint — owned Vercel runtime environment
 
 - Preview Publish now derives `SUPABASE_URL` and `SUPABASE_ANON_KEY` only from the freshly verified owned runtime binding and writes them as Vercel Config values to the exact customer project and `tayar/{projectId}/preview` branch before source export.
@@ -7,7 +16,7 @@
 - An uncertain Vercel response is resolved by a non-decrypting metadata read with the exact operation marker. An exact retry verifies only and never repeats the provider POST; a lost SQL commit response reconciles the full destination-ID map.
 - Deployment inspection now checks Preview variables against the source branch rather than the Production branch. Wrong project, stale binding, wrong branch and service-role-shaped backend values fail closed.
 - Mocked provider/RPC and static-SQL regressions, the complete infrastructure and project-health gates, production build, TypeScript and targeted ESLint passed. `supabase migration list --local` was attempted, but the known local PostgreSQL endpoint at `127.0.0.1:54322` remains unavailable. The additive migration remains unapplied and no provider call, endpoint mount, deployment, UI or Production path was enabled.
-- NEXT: add durable removal/rotation reconciliation for superseded public runtime-environment receipts and prove exact cleanup without deleting unrelated branch variables.
+- Rotation/removal reconciliation is completed by the following checkpoint; deployment-attempt binding remains next.
 
 ## Current side-branch checkpoint — concrete Publish runtime policy
 
