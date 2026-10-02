@@ -1,12 +1,20 @@
 # Full-stack implementation checkpoint
 
-## Current side-branch checkpoint — unpublished Supabase Edge composition
+## Current side-branch checkpoint — unpublished GitHub Edge composition
+
+- The GitHub OAuth handler is now runtime-neutral; its inline `Deno.serve` block moved into a deterministic generated Edge entry sourced from a dedicated cold-start factory.
+- The factory validates the exact Supabase platform host/service-role shape, GitHub OAuth client/secret and callback/return URLs before creating one reusable session-disabled client. Public-prefixed secret aliases, malformed values and unsafe origins fail with fixed secret-free errors.
+- Fixed-origin no-store CORS rejects foreign requests and completes preflight before endpoint work. The callback remains public only to consume one-use OAuth state under `verify_jwt=false`; begin/options/bind continue to authenticate the Tayar bearer inside the core.
+- Focused Edge/endpoint regressions, pinned bundle freshness, 32-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. No migration was added. The function is absent from the guarded deploy, credentials remain empty and the UI action remains disabled; no live provider, database, deployment, flag or production effect occurred.
+- NEXT: add a single browser-safe endpoint availability/composition boundary so provider actions can become reachable only after explicit HTTPS endpoint configuration, while remaining disabled by default and without live deployment or credentials.
+
+## Previous side-branch checkpoint — unpublished Supabase Edge composition
 
 - The existing Supabase OAuth handler is now runtime-neutral; its former inline `Deno.serve` block has moved into a deterministic generated Edge entry sourced from a dedicated cold-start factory.
 - The factory validates the exact Supabase host/service-role shape, OAuth client and secret, PKCE secret, callback/return URLs and platform organization before creating one reusable session-disabled client. Public-prefixed secret aliases, malformed values and unsafe origins fail with fixed secret-free errors.
 - Fixed-origin no-store CORS rejects foreign requests and completes preflight before endpoint work. The callback remains public only to consume one-use OAuth state under `verify_jwt=false`; begin/options/bind continue to authenticate the Tayar bearer inside the core.
 - Focused Edge/endpoint regressions, pinned bundle freshness, 32-function syntax smoke, the complete infrastructure suite, full project health, production build, TypeScript and targeted ESLint passed. No migration was added. The function is absent from the guarded deploy, credentials remain empty and the UI action remains disabled; no live provider, database, deployment, flag or production effect occurred.
-- NEXT: apply this strict generated Edge/environment split to the existing GitHub connection handler without configuring the App, deploying, migrating or enabling the UI.
+- COMPLETE in the checkpoint above: the GitHub handler now has the strict generated Edge/environment boundary and remains undeployed.
 
 ## Previous side-branch checkpoint — unpublished Vercel Edge composition
 

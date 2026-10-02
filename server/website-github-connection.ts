@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createWebsiteConnectionOAuthState } from '../src/modules/website-builder/services/websiteConnectionOAuthStateService';
 import { acceptGitHubOAuthCallback, githubAuthorizationUrl } from '../src/modules/website-builder/services/websiteGithubOAuthService';
 import { peekWebsiteConnectionHandoff, storeWebsiteConnectionHandoff } from '../src/modules/website-builder/services/websiteConnectionHandoffService';
@@ -103,29 +103,3 @@ export async function handleWebsiteGitHubConnection(request: Request, context: {
     return json(200, { status: 'connected', ...result });
   } catch { return json(409, { error: 'GitHub connection could not be completed. Refresh and try again.' }); }
 }
-
-Deno.serve(async request => {
-  const allowedOrigin = Deno.env.get('WEBSITE_GITHUB_RETURN_URL') ?? '';
-  const origin = request.headers.get('origin');
-  const headers = new Headers(responseHeaders);
-  headers.set('vary', 'Origin');
-  try {
-    if (origin && new URL(allowedOrigin).origin !== origin) return json(403, { error: 'Origin not allowed.' });
-  } catch { return json(503, { error: 'GitHub connection is not configured.' }); }
-  if (origin) headers.set('access-control-allow-origin', origin);
-  headers.set('access-control-allow-methods', 'POST, GET, OPTIONS');
-  headers.set('access-control-allow-headers', 'authorization, apikey, content-type, x-client-info');
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
-  try {
-    const platformUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const platform = createClient(platformUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const response = await handleWebsiteGitHubConnection(request, { platform,
-      clientId: Deno.env.get('WEBSITE_GITHUB_APP_CLIENT_ID') ?? '',
-      clientSecret: Deno.env.get('WEBSITE_GITHUB_APP_CLIENT_SECRET') ?? '',
-      callback: Deno.env.get('WEBSITE_GITHUB_CALLBACK_URL') ?? '', returnUrl: allowedOrigin });
-    const combined = new Headers(response.headers);
-    headers.forEach((value, key) => combined.set(key, value));
-    return new Response(response.body, { status: response.status, headers: combined });
-  } catch { return json(503, { error: 'GitHub connection is unavailable.' }); }
-});
