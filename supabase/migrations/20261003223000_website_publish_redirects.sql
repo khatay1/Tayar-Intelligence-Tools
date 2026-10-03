@@ -6,12 +6,14 @@ create table if not exists public.website_publish_redirects (
   source_path text not null check (
     char_length(source_path) between 1 and 2048
     and left(source_path,1)='/'
-    and source_path !~ '[\\r\\n]'
+    and position(chr(10) in source_path)=0
+    and position(chr(13) in source_path)=0
   ),
   target text not null check (
     char_length(target) between 1 and 4096
-    and target !~ '[\\r\\n]'
-    and target !~* '^\\s*javascript:'
+    and position(chr(10) in target)=0
+    and position(chr(13) in target)=0
+    and lower(ltrim(target)) not like 'javascript:%'
   ),
   status_code integer not null default 301 check (status_code in (301,302,307,308)),
   enabled boolean not null default true,
@@ -99,11 +101,13 @@ begin
       or jsonb_typeof(e.value->'from')<>'string'
       or char_length(e.value->>'from') not between 1 and 2048
       or left(e.value->>'from',1)<>'/'
-      or (e.value->>'from') ~ '[\\r\\n]'
+      or position(chr(10) in (e.value->>'from'))>0
+      or position(chr(13) in (e.value->>'from'))>0
       or jsonb_typeof(e.value->'to')<>'string'
       or char_length(e.value->>'to') not between 1 and 4096
-      or (e.value->>'to') ~ '[\\r\\n]'
-      or (e.value->>'to') ~* '^\\s*javascript:'
+      or position(chr(10) in (e.value->>'to'))>0
+      or position(chr(13) in (e.value->>'to'))>0
+      or lower(ltrim(e.value->>'to')) like 'javascript:%'
       or jsonb_typeof(e.value->'status')<>'number'
       or (e.value->>'status')::integer not in (301,302,307,308)
       or jsonb_typeof(e.value->'enabled')<>'boolean'
