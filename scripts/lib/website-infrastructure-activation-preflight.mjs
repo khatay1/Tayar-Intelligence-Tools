@@ -33,6 +33,7 @@ export const infrastructureMigrationFiles = Object.freeze([
   '20261002144040_website_byo_vercel_runtime_disconnect_cleanup.sql',
 ]);
 
+const publishFunctionName = 'website-byo-publish';
 const providers = Object.freeze({
   github: {
     functionName: 'website-github-connection',
@@ -77,7 +78,10 @@ export async function inspectWebsiteInfrastructureActivation(input = {}) {
     if (!(await exists(join(root, 'supabase/migrations', file)))) missingMigrations.push(file);
   checks.push(result('migration-manifest', missingMigrations.length === 0, missingMigrations));
 
-  const functionFiles = Object.values(providers).map(provider => `supabase/functions/${provider.functionName}/index.ts`);
+  const functionFiles = [
+    ...Object.values(providers).map(provider => `supabase/functions/${provider.functionName}/index.ts`),
+    `supabase/functions/${publishFunctionName}/index.ts`,
+  ];
   const missingFunctions = [];
   for (const file of functionFiles) if (!(await exists(join(root, file)))) missingFunctions.push(file);
   checks.push(result('generated-functions', missingFunctions.length === 0, missingFunctions));
@@ -91,17 +95,26 @@ export async function inspectWebsiteInfrastructureActivation(input = {}) {
   const badConfig = Object.values(providers).filter(provider =>
     !config.includes(`[functions.${provider.functionName}]\nverify_jwt = false`)).map(provider => provider.functionName);
   checks.push(result('callback-jwt-config', badConfig.length === 0, badConfig));
+  const publishJwtConfig = config.includes(`[functions.${publishFunctionName}]\nverify_jwt = true`);
+  checks.push(result('publish-jwt-config', publishJwtConfig, publishJwtConfig ? [] : [publishFunctionName]));
   const accidentallyDeployed = Object.values(providers).filter(provider =>
     new RegExp(`['\"]${provider.functionName}['\"]`).test(deploymentGuard)).map(provider => provider.functionName);
   if (!deploymentGuardReadable) accidentallyDeployed.unshift('scripts/admin-hardening-deploy.ps1');
   checks.push(result('production-deploy-isolation', accidentallyDeployed.length === 0, accidentallyDeployed));
 
   const requiredKeys = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
+    'TAYAR_PLATFORM_ORIGIN', 'TAYAR_PLATFORM_SUPABASE_ORGANIZATION_ID',
     ...Object.values(providers).flatMap(provider => provider.secrets),
     ...Object.values(providers).flatMap(provider => [provider.callback, provider.returnUrl, provider.publicUrl])];
   const missingKeys = [...new Set(requiredKeys)].filter(key => !nonEmpty(environment[key]));
   checks.push(result('configuration-presence', missingKeys.length === 0, missingKeys));
 
+  const applicationOrigin = safeUrl(environment.TAYAR_PLATFORM_ORIGIN);
+  checks.push(result('application-origin', Boolean(applicationOrigin && applicationOrigin.origin === environment.TAYAR_PLATFORM_ORIGIN
+    && applicationOrigin.pathname === '/' && !applicationOrigin.search && !applicationOrigin.hash),
+    applicationOrigin && applicationOrigin.origin === environment.TAYAR_PLATFORM_ORIGIN
+      && applicationOrigin.pathname === '/' && !applicationOrigin.search && !applicationOrigin.hash
+      ? [] : ['TAYAR_PLATFORM_ORIGIN']));
   const platform = safeUrl(environment.SUPABASE_URL);
   const platformOrigin = platform && platform.origin === environment.SUPABASE_URL && platform.pathname === '/'
     && /^[a-z0-9]{20}[.]supabase[.]co$/.test(platform.hostname) ? platform.origin : null;
@@ -121,6 +134,8 @@ export async function inspectWebsiteInfrastructureActivation(input = {}) {
     else returnOrigins.add(destination.origin);
   }
   if (returnOrigins.size > 1) returnFailures.push('shared-origin');
+  if (applicationOrigin && returnOrigins.size === 1 && !returnOrigins.has(applicationOrigin.origin))
+    returnFailures.push('application-origin');
   checks.push(result('oauth-callbacks', callbackFailures.length === 0, callbackFailures));
   checks.push(result('browser-endpoints', endpointFailures.length === 0, endpointFailures));
   checks.push(result('browser-return-origin', returnFailures.length === 0, returnFailures));
