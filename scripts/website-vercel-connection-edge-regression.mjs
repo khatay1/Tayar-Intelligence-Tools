@@ -24,13 +24,12 @@ try {
   const { createWebsiteVercelConnectionEdge: create,
     createWebsiteVercelConnectionDeployment: createDeployment } = (await import(pathToFileURL(outfile))).default;
   const serviceKey = `sb_secret_${'s'.repeat(32)}`;
-  const privateKey = `-----BEGIN PRIVATE KEY-----\n${'A'.repeat(128)}\n-----END PRIVATE KEY-----`;
   const environment = { SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: serviceKey, WEBSITE_VERCEL_INTEGRATION_SLUG: 'tayar-connect',
     WEBSITE_VERCEL_CLIENT_ID: 'vercel-client-id', WEBSITE_VERCEL_CLIENT_SECRET: 'vercel-client-secret-value',
     WEBSITE_VERCEL_CALLBACK_URL: 'https://abcdefghijklmnopqrst.supabase.co/functions/v1/website-vercel-connection?action=callback',
     WEBSITE_VERCEL_RETURN_URL: 'https://tayar.example/builder', TAYAR_PLATFORM_VERCEL_ACCOUNT_ID: 'team_tayar1234',
-    TAYAR_GITHUB_APP_CLIENT_ID: 'Iv1_fixture', TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: privateKey };
+    WEBSITE_GITHUB_APP_CLIENT_ID: 'Iv1_fixture', WEBSITE_GITHUB_APP_CLIENT_SECRET: 'github-client-secret-value' };
   const fetcher = async () => new Response('{}');
   const handler = create({ environment, fetcher });
   assert.equal(calls.filter(call => call[0] === 'client').length, 1, 'service client is cold-start scoped');
@@ -38,7 +37,8 @@ try {
     method: 'POST', headers: { origin: 'https://tayar.example', authorization: 'Bearer header.payload.signature' },
   });
   const first = await handler(request());
-  assert.equal(first.status, 200); assert.equal(first.headers.get('access-control-allow-origin'), 'https://tayar.example');
+  assert.equal(first.status, 200);
+  assert.equal(first.headers.get('access-control-allow-origin'), 'https://tayar.example');
   assert.equal(first.headers.get('x-core'), 'yes');
   assert.deepEqual(await first.json(), { repositoryId: '88', repositoryOwner: 'customer',
     repositoryName: 'booking', productionBranch: 'main' });
@@ -48,29 +48,26 @@ try {
   assert.equal(clients[0][0], environment.SUPABASE_URL); assert.equal(clients[0][1], serviceKey);
   assert.equal(clients[0][2].auth.detectSessionInUrl, false); assert.equal(clients[0][2].global.fetch, fetcher);
   assert.equal(clients[1][2].global.headers.Authorization, 'Bearer header.payload.signature');
+  const loader = calls.filter(call => call[0] === 'loader').at(-1)[1];
+  assert.equal(loader.githubClientId, environment.WEBSITE_GITHUB_APP_CLIENT_ID);
+  assert.equal(loader.githubClientSecret, environment.WEBSITE_GITHUB_APP_CLIENT_SECRET);
   assert.equal(calls.filter(call => call[0] === 'endpoint').length, 2);
   assert.equal((await handler(new Request('https://platform.example/functions/v1/website-vercel-connection', {
     method: 'POST', headers: { origin: 'https://attacker.example' } }))).status, 403);
   assert.equal((await handler(new Request('https://platform.example/functions/v1/website-vercel-connection', {
     method: 'OPTIONS', headers: { origin: 'https://tayar.example' } }))).status, 204);
   assert.equal(calls.filter(call => call[0] === 'endpoint').length, 2, 'CORS refusal/preflight stop before endpoint');
-  for (const lineEnding of ['\n', '\r\n']) {
-    const normalizedHandler = create({ environment: { ...environment,
-      TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `${privateKey}${lineEnding}` }, fetcher });
-    assert.equal((await normalizedHandler(request())).status, 200);
-    assert.equal(calls.filter(call => call[0] === 'loader').at(-1)[1].githubAppPrivateKeyPkcs8, privateKey,
-      'one conventional terminal PEM line ending is removed before use');
-  }
+
   const disconnectOnly = { ...environment, WEBSITE_VERCEL_INTEGRATION_SLUG: '', WEBSITE_VERCEL_CLIENT_ID: '',
-    WEBSITE_VERCEL_CLIENT_SECRET: '', TAYAR_PLATFORM_VERCEL_ACCOUNT_ID: '', TAYAR_GITHUB_APP_CLIENT_ID: '',
-    TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: '' };
+    WEBSITE_VERCEL_CLIENT_SECRET: '', TAYAR_PLATFORM_VERCEL_ACCOUNT_ID: '', WEBSITE_GITHUB_APP_CLIENT_ID: '',
+    WEBSITE_GITHUB_APP_CLIENT_SECRET: '' };
   assert.equal(typeof create({ environment: disconnectOnly }), 'function');
   for (const change of [{ SUPABASE_SERVICE_ROLE_KEY: 'sb_publishable_public_fixture' },
     { WEBSITE_VERCEL_CALLBACK_URL: 'http://platform.example/functions/v1/website-vercel-connection?action=callback' },
     { WEBSITE_VERCEL_CALLBACK_URL: 'https://otherplatform000000.supabase.co/functions/v1/website-vercel-connection?action=callback' },
-    { NEXT_PUBLIC_WEBSITE_VERCEL_CLIENT_SECRET: 'leak' }, { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: 'not-a-key' },
-    { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `${privateKey}\n\n` },
-    { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `${privateKey} ` }]) {
+    { NEXT_PUBLIC_WEBSITE_VERCEL_CLIENT_SECRET: 'leak' }, { WEBSITE_GITHUB_APP_CLIENT_SECRET: 'too-short' },
+    { WEBSITE_GITHUB_APP_CLIENT_SECRET: 'invalid\nsecret-value-that-is-long-enough' },
+    { WEBSITE_GITHUB_APP_CLIENT_ID: 'bad/id' }]) {
     assert.throws(() => create({ environment: { ...environment, ...change } }), /deployment unavailable/);
   }
   for (const missing of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'WEBSITE_VERCEL_CALLBACK_URL',
@@ -91,6 +88,6 @@ try {
   assert.match(config, /\[functions[.]website-vercel-connection\]\nverify_jwt = false/);
   assert.ok(!deploymentGuard.includes("'website-vercel-connection'"));
   for (const key of Object.keys(environment)) assert.ok(example.includes(`${key}=""`), key);
-  assert.ok(!/^(?:VITE_|NEXT_PUBLIC_)WEBSITE_VERCEL_.*(?:SECRET|PRIVATE_KEY)/m.test(example));
-  console.log('PASS Vercel connection Edge: cold service client, user-scoped target reads, strict env/CORS and undeployed generated entry');
+  assert.ok(!/^(?:VITE_|NEXT_PUBLIC_).*(?:SECRET|PRIVATE_KEY)/m.test(example));
+  console.log('PASS Vercel connection Edge: cold service client, OAuth-custody GitHub target reads, strict env/CORS and generated entry');
 } finally { delete globalThis.__tayarVercelEdgeCalls; await rm(dir, { recursive: true, force: true }); }
