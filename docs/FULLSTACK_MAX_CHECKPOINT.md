@@ -7,6 +7,7 @@ Updated: 2026-10-03 (UTC). Current branch: `main`. The isolated Activation proje
 - `website-github-connection` and `website-supabase-connection` are `ACTIVE` at version 8 and `website-vercel-connection` is `ACTIVE` at version 9 only on `Tayar Fullstack MAX Activation` (`uepltkguloltmebepvbo`), with `verify_jwt=false` for the one-use callback routes.
 - The strict composition factories still reject malformed environments. The GitHub App key path accepts only one terminal LF or CRLF and passes the normalized PKCS#8 value to the target loader; regressions reject multiple line endings and trailing spaces.
 - Live preflights for all three connection functions returned `204` with the expected no-store CORS headers. The GitHub App is installed only on `khatay1/Tayar-Intelligence-Tools` with Metadata read-only and Code read/write access. A live disposable-user GitHub App OAuth flow returned one installation and that one repository, then created a verified Preview connection with status `connected`, version 1 and `contents:write`. It did not export source or set publish readiness. The production `tayar tools` project was not changed.
+- The disposable Auth user was removed after verification; database counts for its project and infrastructure connection are both zero. Temporary local credential/state files and the obsolete standalone GitHub OAuth App were deleted. The private GitHub App and its scoped installation remain the active GitHub connection mechanism.
 
 ## Architecture decision
 
