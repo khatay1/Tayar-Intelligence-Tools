@@ -1036,6 +1036,13 @@ function privateKey(value) {
   if (value && (value.length > 24e3 || !/^-----BEGIN PRIVATE KEY-----\s+[A-Za-z0-9+/=\s]+\s+-----END PRIVATE KEY-----$/.test(value))) throw new Error();
   return value;
 }
+function optionalPrivateKey(environment, key, max) {
+  const raw = environment[key] ?? "";
+  if (typeof raw !== "string" || raw.length > max + 2 || raw.includes(String.fromCharCode(0))) throw new Error();
+  const value = raw.endsWith("\r\n") ? raw.slice(0, -2) : raw.endsWith("\n") ? raw.slice(0, -1) : raw;
+  if (raw && !value || value.length > max || value.trim() !== value) throw new Error();
+  return privateKey(value);
+}
 function json2(status, error) {
   return new Response(JSON.stringify({ error }), {
     status,
@@ -1055,7 +1062,7 @@ function createWebsiteVercelConnectionEdge(input) {
     const clientSecret = optional(input.environment, keys.clientSecret, 4096);
     const platformAccountId = optional(input.environment, keys.platformAccount, 128);
     const githubAppClientId = optional(input.environment, keys.githubClient, 100);
-    const githubAppPrivateKeyPkcs8 = privateKey(optional(input.environment, keys.githubKey, 24e3));
+    const githubAppPrivateKeyPkcs8 = optionalPrivateKey(input.environment, keys.githubKey, 24e3);
     if (integrationSlug && !slug.test(integrationSlug) || clientId2 && !provider2.test(clientId2) || clientSecret && (clientSecret.length < 20 || /[\r\n]/.test(clientSecret)) || platformAccountId && !provider2.test(platformAccountId) || githubAppClientId && !githubClient.test(githubAppClientId)) throw new Error();
     const factory = input.clientFactory ?? createClient2;
     const options = {

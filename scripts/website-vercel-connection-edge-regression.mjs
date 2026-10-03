@@ -54,13 +54,22 @@ try {
   assert.equal((await handler(new Request('https://platform.example/functions/v1/website-vercel-connection', {
     method: 'OPTIONS', headers: { origin: 'https://tayar.example' } }))).status, 204);
   assert.equal(calls.filter(call => call[0] === 'endpoint').length, 2, 'CORS refusal/preflight stop before endpoint');
+  for (const lineEnding of ['\n', '\r\n']) {
+    const normalizedHandler = create({ environment: { ...environment,
+      TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `${privateKey}${lineEnding}` }, fetcher });
+    assert.equal((await normalizedHandler(request())).status, 200);
+    assert.equal(calls.filter(call => call[0] === 'loader').at(-1)[1].githubAppPrivateKeyPkcs8, privateKey,
+      'one conventional terminal PEM line ending is removed before use');
+  }
   const disconnectOnly = { ...environment, WEBSITE_VERCEL_INTEGRATION_SLUG: '', WEBSITE_VERCEL_CLIENT_ID: '',
     WEBSITE_VERCEL_CLIENT_SECRET: '', TAYAR_PLATFORM_VERCEL_ACCOUNT_ID: '', TAYAR_GITHUB_APP_CLIENT_ID: '',
     TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: '' };
   assert.equal(typeof create({ environment: disconnectOnly }), 'function');
   for (const change of [{ SUPABASE_SERVICE_ROLE_KEY: 'sb_publishable_public_fixture' },
     { WEBSITE_VERCEL_CALLBACK_URL: 'http://platform.example/functions/v1/website-vercel-connection?action=callback' },
-    { NEXT_PUBLIC_WEBSITE_VERCEL_CLIENT_SECRET: 'leak' }, { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: 'not-a-key' }]) {
+    { NEXT_PUBLIC_WEBSITE_VERCEL_CLIENT_SECRET: 'leak' }, { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: 'not-a-key' },
+    { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `${privateKey}\n\n` },
+    { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `${privateKey} ` }]) {
     assert.throws(() => create({ environment: { ...environment, ...change } }), /deployment unavailable/);
   }
   for (const missing of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'WEBSITE_VERCEL_CALLBACK_URL',
