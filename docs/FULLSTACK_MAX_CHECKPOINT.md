@@ -6,7 +6,7 @@ Updated: 2026-10-03 (UTC). Current branch: `main`. The isolated Activation proje
 
 - `website-github-connection` and `website-supabase-connection` are `ACTIVE` at version 6 and `website-vercel-connection` is `ACTIVE` at version 7 only on `Tayar Fullstack MAX Activation` (`uepltkguloltmebepvbo`), with `verify_jwt=false` for the one-use callback routes.
 - The strict composition factories still reject malformed environments. The GitHub App key path accepts only one terminal LF or CRLF and passes the normalized PKCS#8 value to the target loader; regressions reject multiple line endings and trailing spaces.
-- Live Vercel preflight returned `204` with the expected no-store CORS headers. GitHub App installation and end-to-end provider binding remain closed pending separate authorization. The production `tayar tools` project was not changed.
+- Live preflights for all three connection functions returned `204` with the expected no-store CORS headers. The GitHub App is installed only on `khatay1/Tayar-Intelligence-Tools` with Metadata read-only and Code read/write access. End-to-end provider binding remains the next gate. The production `tayar tools` project was not changed.
 
 ## Architecture decision
 

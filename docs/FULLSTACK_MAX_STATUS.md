@@ -5,7 +5,7 @@
 - GitHub OAuth, Supabase OAuth, a private Vercel integration and a private GitHub App were configured for the isolated Activation project. Their secrets remain server-side; no private value is stored in source or public-prefixed configuration.
 - Supabase preserves a terminal newline on the multiline GitHub App PEM. The Vercel connection runtime now removes exactly one LF or CRLF before strict PKCS#8 validation, while rejecting leading/trailing spaces and repeated line endings.
 - `website-github-connection` and `website-supabase-connection` are `ACTIVE` at version 6; `website-vercel-connection` is `ACTIVE` at version 7. A live Vercel preflight returned `204` with the expected no-store CORS headers. Full project health passed `322/322` and Edge syntax passed `32/32`.
-- NEXT: obtain separate authorization to install the private GitHub App on the exact disposable repository, then run live callback/binding E2E. No customer export, Vercel deployment, Publish/Production effect or production-project mutation has occurred.
+- The private GitHub App is installed only on `khatay1/Tayar-Intelligence-Tools`; GitHub confirms Metadata read-only plus Code read/write access. NEXT: run live callback/binding E2E. No customer export, Vercel deployment, Publish/Production effect or production-project mutation has occurred.
 
 ## Previous main checkpoint — live isolated schema proof
 
