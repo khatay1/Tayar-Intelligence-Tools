@@ -3,6 +3,11 @@ import type { InfrastructureConnection } from '../src/modules/website-builder/co
 import { readWebsiteSupabaseOAuthCustody, storeWebsiteSupabaseOAuthCustody } from '../src/modules/website-builder/services/websiteSupabaseOAuthCustodyService';
 import { verifyOwnedSupabaseProject } from './website-owned-supabase-project';
 
+const providerTokenMaxBytes = 65_536;
+const providerResponseMaxBytes = 131_072;
+const validProviderToken = (value: unknown): value is string => typeof value === 'string' && value.length >= 20
+  && new TextEncoder().encode(value).length <= providerTokenMaxBytes && !/[\r\n]/.test(value);
+
 /** A single trusted attempt. Never retry an uncertain provider refresh: the
  * old refresh token may already be invalidated. A lost response needs reconnect. */
 export async function refreshOwnedSupabaseOAuthGrant(input: {
@@ -24,18 +29,17 @@ export async function refreshOwnedSupabaseOAuthGrant(input: {
   let next: { accessToken: string; refreshToken: string; expiresIn: number };
   try {
     const response = await (input.fetcher ?? fetch)('https://api.supabase.com/v1/oauth/token', {
-      method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(8000),
+      method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(30_000),
       headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded',
         Authorization: `Basic ${basic}` },
       body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: previous.refreshToken }),
     });
-    if (!response.ok || Number(response.headers.get('content-length') ?? 0) > 16_384) throw new Error();
+    if (!response.ok || Number(response.headers.get('content-length') ?? 0) > providerResponseMaxBytes) throw new Error();
     const raw = await response.text();
-    if (raw.length > 16_384) throw new Error();
+    if (new TextEncoder().encode(raw).length > providerResponseMaxBytes) throw new Error();
     const token = JSON.parse(raw);
     if (token?.token_type?.toLowerCase() !== 'bearer'
-      || typeof token.access_token !== 'string' || token.access_token.length < 20 || token.access_token.length > 4096
-      || typeof token.refresh_token !== 'string' || token.refresh_token.length < 20 || token.refresh_token.length > 4096
+      || !validProviderToken(token.access_token) || !validProviderToken(token.refresh_token)
       || !Number.isInteger(token.expires_in) || token.expires_in < 60 || token.expires_in > 86_400) throw new Error();
     next = { accessToken: token.access_token, refreshToken: token.refresh_token, expiresIn: token.expires_in };
   } catch { throw new Error('Supabase grant refresh uncertain; reconnect required.'); }
