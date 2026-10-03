@@ -1,0 +1,41 @@
+name: Temporary Vercel Custody Builder
+
+on:
+  push:
+    branches:
+      - fix/github-oauth-custody-byo-publish-20261004
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-check:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/github-oauth-custody-byo-publish-20261004
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/build-website-vercel-connection.mjs
+      - run: npm run typecheck
+      - run: node scripts/website-github-oauth-custody-regression.mjs
+      - run: node scripts/website-vercel-github-target-regression.mjs
+      - run: node scripts/website-vercel-connection-edge-regression.mjs
+      - run: node scripts/website-infrastructure-activation-preflight-regression.mjs
+      - name: Commit generated Vercel Edge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/website-vercel-connection/index.ts
+          if git diff --cached --quiet; then
+            echo "Generated Vercel Edge already current"
+            exit 0
+          fi
+          git commit -m "build: refresh Vercel OAuth-custody Edge"
+          git push origin HEAD:fix/github-oauth-custody-byo-publish-20261004
