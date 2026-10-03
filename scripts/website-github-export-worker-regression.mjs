@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash, generateKeyPairSync } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +12,6 @@ try {
   await build({ entryPoints: ['src/modules/website-builder/services/websiteGithubExportWorker.ts'],
     bundle: true, platform: 'node', format: 'cjs', outfile });
   const { exportWebsiteProjectToOwnedGitHub: run } = (await import(pathToFileURL(outfile))).default;
-  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const projectId = '22222222-2222-4222-8222-222222222222';
   const ownerId = '11111111-1111-4111-8111-111111111111';
   const connectionId = '33333333-3333-4333-8333-333333333333';
@@ -21,6 +20,7 @@ try {
   const head = 'a'.repeat(40), tree = 'b'.repeat(40), base = 'c'.repeat(40);
   const content = '<html>Ready</html>';
   const blob = createHash('sha1').update(`blob ${Buffer.byteLength(content)}\0`).update(content).digest('hex');
+  const accessToken = 'ghu_fixture_export_token_1234567890';
   const connection = { id: connectionId, ownerId, projectId, provider: 'github', environment: 'production',
     accountId: '17', targetId: '88', status: 'connected', permissions: ['contents:write'], version: 2,
     operationId: null, verifiedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
@@ -34,6 +34,12 @@ try {
       readConnection: async () => structuredClone(currentConnection),
     };
     const client = { async rpc(name, args) {
+      if (name === 'website_read_github_oauth_custody') return { data: {
+        version: 1, accountId: '17', installationId: '42', repositoryId: '88', repositoryFullName: 'owner/site',
+        defaultBranch: 'main', environment: 'production', accessExpiresAt: null, refreshExpiresAt: null,
+        custodyExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        grant: { accessToken, refreshToken: null },
+      }, error: null };
       if (name === 'website_github_export_cursor_for_worker') return { data: cursor, error: null };
       if (name === 'website_initialize_github_export_cursor') {
         assert.equal(args.p_branch, branch);
@@ -51,13 +57,9 @@ try {
       throw new Error(`Unexpected RPC ${name}`);
     } };
     const fetcher = async (url, options) => {
+      assert.equal(options.headers.Authorization, `Bearer ${accessToken}`);
       const path = new URL(url).pathname;
       const respond = (value, status = 200) => new Response(JSON.stringify(value), { status });
-      if (path === '/app/installations' && url.includes('?')) return respond([{ id: 42, account: { id: 17 },
-        permissions: { contents: 'write' }, suspended_at: null }]);
-      if (path === '/app/installations/42/access_tokens') return respond({ token: 'fixture-token-1234567890123456',
-        expires_at: new Date(Date.now() + 3_600_000).toISOString(), permissions: { contents: 'write' },
-        repositories: [{ id: 88, owner: { id: 17 }, full_name: 'owner/site', default_branch: 'main' }] });
       if (path === '/repos/owner/site') return respond({ id: 88, owner: { id: 17 },
         full_name: 'owner/site', default_branch: 'main' });
       if (path.endsWith(`/git/ref/heads/${branch}`) && options.method === 'GET') {
@@ -82,7 +84,7 @@ try {
   }
   const baseInput = { projectId, ownerId, connectionId, operationId, environment: 'production',
     compile: async saved => [{ path: 'index.html', content: `<html>${saved.pages[0].title}</html>` }],
-    appClientId: 'Iv1_fixture', appPrivateKeyPkcs8: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() };
+    githubClientId: 'Iv1_fixture', githubClientSecret: 'fixture-client-secret-value' };
   const success = fixture();
   await assert.rejects(run({ ...baseInput, ...success, expectedSourceDigest: '0'.repeat(64) }), /source changed/);
   assert.equal(success.refWrites(), 0, 'Digest mismatch is refused before a remote write');
@@ -104,5 +106,5 @@ try {
   const switched = fixture(); switched.switchOwner();
   await assert.rejects(run({ ...baseInput, ...switched }), /source changed/);
   assert.equal(switched.refWrites(), 0);
-  console.log('PASS GitHub export worker: mocked scoped token, cursor, remote write, lost cursor response and existing branch');
+  console.log('PASS GitHub export worker: Vault-backed user grant, cursor, remote write, lost cursor response and recovery');
 } finally { await rm(dir, { recursive: true, force: true }); }
