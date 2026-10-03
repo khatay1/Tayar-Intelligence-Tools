@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -114,5 +114,19 @@ try {
   await assert.rejects(resolve({ client: expiredClient, connection, clientId: 'Iv1_fixture',
     clientSecret: 'fixture-client-secret-value', isCurrentOwner: () => true, now: () => now }), /access is unavailable/);
   assert.ok(readCount >= 2);
-  console.log('PASS GitHub OAuth custody: scoped read, direct reuse, verified refresh rotation, legacy grant and expiry refusal');
+  const sql = await readFile('supabase/migrations/20261003231500_website_byo_github_oauth_custody.sql', 'utf8');
+  for (const proof of [
+    'alter table private.website_github_oauth_custody enable row level security',
+    'revoke all on private.website_github_oauth_custody from public, anon, authenticated',
+    'v_connection_version:=public.website_record_infrastructure_connection',
+    'vault.create_secret',
+    'website_read_github_oauth_custody',
+    'website_refresh_github_oauth_custody',
+    'website_reconcile_github_oauth_refresh',
+    'website_delete_github_oauth_custody',
+  ]) assert.ok(sql.includes(proof), proof);
+  assert.ok(!/grant execute on function public\.website_(?:bind|read|refresh|delete)_github[^\n]* to authenticated/i.test(sql));
+  const cleanup = await readFile('supabase/migrations/20261003231600_website_byo_github_custody_cleanup_schedule.sql', 'utf8');
+  assert.ok(cleanup.includes('website_cleanup_expired_github_oauth_custody()'));
+  console.log('PASS GitHub OAuth custody: scoped read, direct reuse, verified refresh rotation, Vault/RLS SQL and expiry cleanup');
 } finally { await rm(dir, { recursive: true, force: true }); }
