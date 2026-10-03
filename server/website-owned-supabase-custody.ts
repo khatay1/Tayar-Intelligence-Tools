@@ -7,7 +7,7 @@ export interface OwnedSupabaseCustody{version:number;accountId:string;organizati
 
 const provider=/^[A-Za-z0-9_-]{1,200}$/,slug=/^[a-z0-9][a-z0-9-]{0,199}$/,ref=/^[a-z]{20}$/;
 const providerTokenMaxBytes=65_536;
-const token=(value:unknown)=>typeof value==='string'&&value.length>=20
+const token=(value:unknown):value is string=>typeof value==='string'&&value.length>=20
  &&new TextEncoder().encode(value).length<=providerTokenMaxBytes&&!/[\r\n]/.test(value);
 const object=(value:unknown)=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:null;
 const exact=(row:Record<string,unknown>,keys:string[])=>Object.keys(row).every(key=>keys.includes(key));
