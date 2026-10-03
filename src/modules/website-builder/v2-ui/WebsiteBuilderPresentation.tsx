@@ -36,6 +36,16 @@ const BuilderLegacyReleaseHistory = lazy(() => import('./BuilderLegacyReleaseHis
 
 type WebsiteBuilderView = ReturnType<typeof useWebsiteBuilderController>;
 
+function publishRevisionPageIds(snapshot: Record<string, unknown>): string[] | undefined {
+  if (!Array.isArray(snapshot.pages)) return undefined;
+  const ids = snapshot.pages.flatMap((page) => {
+    if (!page || typeof page !== 'object' || Array.isArray(page)) return [];
+    const id = (page as Record<string, unknown>).id;
+    return typeof id === 'string' && id ? [id] : [];
+  });
+  return ids.length ? ids : undefined;
+}
+
 export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
   const {
     aiBusy, aiCandidateActiveOperations, aiCandidateApproveButtonRef, aiCandidateCanShowAfter, aiCandidateCanShowBefore, aiCandidateGlobalOperations, aiCandidatePreview, aiCandidateReviewedOperationCount,
@@ -1438,6 +1448,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
         releaseNote: version.release_note,
         createdAt: version.created_at,
         editorFingerprint: version.editor_fingerprint,
+        pageIds: publishRevisionPageIds(version.snapshot),
       }))}
       onOpenPublishVersions={() => {
         void refreshPublishVersions();
