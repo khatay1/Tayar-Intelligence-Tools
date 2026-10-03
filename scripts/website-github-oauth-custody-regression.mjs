@@ -23,8 +23,8 @@ try {
   const baseCustody = { version: 1, accountId: '17', installationId: '42', repositoryId: '88',
     repositoryFullName: 'owner/site', defaultBranch: 'main', environment: 'preview',
     accessExpiresAt: new Date(now + 60_000).toISOString(),
-    refreshExpiresAt: new Date(now + 10_000_000).toISOString(),
-    custodyExpiresAt: new Date(now + 10_000_000).toISOString(),
+    refreshExpiresAt: new Date(now + 100 * 86_400_000).toISOString(),
+    custodyExpiresAt: new Date(now + 100 * 86_400_000).toISOString(),
     grant: { accessToken: 'ghu_expiring_access_token_1234567890', refreshToken: 'ghr_refresh_token_123456789012345' } };
 
   let readCount = 0, refreshWrites = 0, reconciles = 0;
