@@ -11,6 +11,8 @@ const environment = {
   WEBSITE_SUPABASE_PKCE_SECRET: 'p'.repeat(40), WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID: 'isolated-org',
   WEBSITE_VERCEL_INTEGRATION_SLUG: 'tayar-connect', WEBSITE_VERCEL_CLIENT_ID: 'vercel-client',
   WEBSITE_VERCEL_CLIENT_SECRET: 'v'.repeat(32), TAYAR_PLATFORM_VERCEL_ACCOUNT_ID: 'team_isolated',
+  TAYAR_PLATFORM_ORIGIN: 'https://isolated.tayar.example',
+  TAYAR_PLATFORM_SUPABASE_ORGANIZATION_ID: 'isolated-supabase-org',
   TAYAR_GITHUB_APP_CLIENT_ID: 'Iv1_fixture',
   TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `-----BEGIN PRIVATE KEY-----\n${'A'.repeat(64)}\n-----END PRIVATE KEY-----`,
 };
@@ -22,6 +24,8 @@ for (const provider of ['github', 'supabase', 'vercel']) {
 }
 const ready = await inspectWebsiteInfrastructureActivation({ environment });
 assert.equal(ready.ready, true);
+assert.equal(ready.checks.find(check => check.id === 'publish-jwt-config').ok, true);
+assert.equal(ready.checks.find(check => check.id === 'application-origin').ok, true);
 assert.equal(infrastructureMigrationFiles.length, 29);
 assert.ok(ready.checks.every(check => check.ok));
 const serialized = JSON.stringify(ready);
@@ -44,7 +48,7 @@ const missingFiles = await inspectWebsiteInfrastructureActivation({ environment,
   readText: async () => { throw new Error('missing fixture'); } });
 assert.equal(missingFiles.ready, false);
 assert.equal(missingFiles.checks.find(check => check.id === 'migration-manifest').missing.length, 29);
-assert.equal(missingFiles.checks.find(check => check.id === 'generated-functions').missing.length, 3);
+assert.equal(missingFiles.checks.find(check => check.id === 'generated-functions').missing.length, 4);
 assert.deepEqual(missingFiles.checks.find(check => check.id === 'production-deploy-isolation').missing,
   ['scripts/admin-hardening-deploy.ps1']);
 console.log('PASS Infrastructure activation preflight: fixed migration/function manifest, exact URLs, isolated mode and secret-free report');
