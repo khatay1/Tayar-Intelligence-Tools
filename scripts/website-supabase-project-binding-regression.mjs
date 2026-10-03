@@ -26,9 +26,9 @@ try {
     refreshToken: 'customer-refresh-token-fixture', expiresIn: 3600,
     receivedAt: new Date().toISOString() };
   const payload = encode(grant);
-  const largePayload = encode({ ...grant, accessToken: 'a'.repeat(12_000), refreshToken: 'b'.repeat(12_000) });
-  assert.equal(JSON.parse(largePayload).accessToken.length, 12_000);
-  assert.throws(() => encode({ ...grant, accessToken: 'a'.repeat(16_385) }), /unavailable/);
+  const largePayload = encode({ ...grant, accessToken: 'a'.repeat(32_000), refreshToken: 'b'.repeat(32_000) });
+  assert.equal(JSON.parse(largePayload).accessToken.length, 32_000);
+  assert.throws(() => encode({ ...grant, accessToken: 'a'.repeat(65_537) }), /unavailable/);
   let consumed = false, committed = false, lost = false, owner = true;
   const client = { async rpc(name, args) {
     if (name === 'website_peek_connection_handoff') return { data: { environment: 'production', userToken: payload }, error: null };
