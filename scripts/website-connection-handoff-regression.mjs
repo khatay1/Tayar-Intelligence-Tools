@@ -48,5 +48,12 @@ try {
   await revoke({ client, id: another, ownerId, projectId });
   assert.equal(custody.has(another), false);
   await assert.rejects(store({ ...input, userToken: 'short' }), /could not be stored/);
+  const largeToken = 'x'.repeat(12_000);
+  const largeId = await store({ ...input, provider: 'supabase', userToken: largeToken });
+  assert.equal(custody.get(largeId).token.length, 12_000, 'Supabase OAuth handoff can exceed the former 4KiB envelope');
+  assert.deepEqual(await peek({ client, id: largeId, ownerId, projectId, provider: 'supabase', isCurrentOwner: () => true }),
+    { environment: 'production', userToken: largeToken });
+  await revoke({ client, id: largeId, ownerId, projectId });
+  await assert.rejects(store({ ...input, provider: 'supabase', userToken: 'x'.repeat(65_537) }), /could not be stored/);
   console.log('PASS encrypted handoff boundary: opaque handle, scoped chooser read, one-use consume and revoke');
 } finally { await rm(dir, { recursive: true, force: true }); }
