@@ -1,20 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { readWebsiteInfrastructureConnections } from '../src/modules/website-builder/services/websiteInfrastructureConnectionClient';
-import { mintWebsiteGitHubRepositoryToken } from '../src/modules/website-builder/services/websiteGithubInstallationTokenService';
+import { resolveWebsiteGitHubRepositoryGrant } from '../src/modules/website-builder/services/websiteGithubOAuthCustodyService';
 import { createWebsiteOwnedSourceReader } from './website-owned-source-reader';
 
 type Client = Pick<SupabaseClient, 'rpc'>;
 const numeric = /^[1-9][0-9]{0,19}$/;
 
-/** Resolves Vercel's GitHub identity without accepting repository metadata from
- * the browser. The owner projection discovers the current connection, the
- * service-only projection proves its exact version, and the GitHub App proves
- * the repository name/default branch immediately before Vercel selection. */
+/** Resolve Vercel's GitHub target from the exact owner-visible connection and
+ * service-only OAuth custody. No App private key or browser repository metadata
+ * participates; an expiring user grant is refreshed and re-verified when needed. */
 export function createWebsiteVercelGithubTargetLoader(input: {
   ownerClient: Client;
   serviceClient: Client;
-  githubAppClientId: string;
-  githubAppPrivateKeyPkcs8: string;
+  githubClientId: string;
+  githubClientSecret: string;
   fetcher?: typeof fetch;
 }) {
   return async (scope: { ownerId: string; projectId: string;
@@ -39,13 +38,13 @@ export function createWebsiteVercelGithubTargetLoader(input: {
         || exact.operationId !== null || exact.permissions.length !== 1
         || exact.permissions[0] !== 'contents:write' || !exact.verifiedAt
         || !await scope.isCurrentOwner()) return null;
-      const verified = await mintWebsiteGitHubRepositoryToken({ clientId: input.githubAppClientId,
-        privateKeyPkcs8: input.githubAppPrivateKeyPkcs8, accountId: exact.accountId,
-        repositoryId: exact.targetId!, fetcher: input.fetcher });
-      if (!await scope.isCurrentOwner() || verified.repositoryId !== exact.targetId) return null;
+      const verified = await resolveWebsiteGitHubRepositoryGrant({ client: input.serviceClient,
+        connection: exact, clientId: input.githubClientId, clientSecret: input.githubClientSecret,
+        isCurrentOwner: scope.isCurrentOwner, fetcher: input.fetcher });
+      if (!await scope.isCurrentOwner()) return null;
       const parts = verified.repositoryFullName.split('/');
       if (parts.length !== 2) return null;
-      return { repositoryId: verified.repositoryId, repositoryOwner: parts[0],
+      return { repositoryId: exact.targetId!, repositoryOwner: parts[0],
         repositoryName: parts[1], productionBranch: verified.defaultBranch };
     } catch { return null; }
   };
