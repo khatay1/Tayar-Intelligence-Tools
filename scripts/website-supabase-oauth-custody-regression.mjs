@@ -13,6 +13,10 @@ try {
   const { storeWebsiteSupabaseOAuthCustody: store, readWebsiteSupabaseOAuthCustody: read,
     eraseWebsiteSupabaseOAuthCustody: erase } = (await import(pathToFileURL(outfile))).default;
   const sql = await readFile('supabase/migrations/20260929170000_website_byo_supabase_oauth_custody.sql', 'utf8');
+  const capacitySql = await readFile('supabase/migrations/20261003220000_website_byo_supabase_oauth_capacity.sql', 'utf8');
+  assert.match(capacitySql, /create or replace function public\.website_store_supabase_oauth_custody/);
+  assert.match(capacitySql, /octet_length\(p_access_token\) > 65536/);
+  assert.match(capacitySql, /octet_length\(p_refresh_token\) > 65536/);
   assert.match(sql, /vault\.create_secret/); assert.match(sql, /vault\.update_secret/);
   assert.match(sql, /vault\.decrypted_secrets/); assert.match(sql, /vault\.secrets where id=old\.secret_id/);
   assert.match(sql, /connection_version=p_expected_connection_version/);
