@@ -4,11 +4,12 @@ import { readFile } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
-const [bridge, presentation, versions, publishing] = await Promise.all([
+const [bridge, presentation, versions, publishing, publishHandler] = await Promise.all([
   read('src/modules/website-builder/v2-ui/WebsiteBuilderV2BridgeBase.tsx'),
   read('src/modules/website-builder/v2-ui/WebsiteBuilderPresentation.tsx'),
   read('src/modules/website-builder/v2-ui/BuilderPublishVersionsPanel.tsx'),
   read('src/modules/website-builder/v2-ui/BuilderPublishingMaxPanel.tsx'),
+  read('src/modules/website-builder/core/editor-publish-handler.ts'),
 ]);
 
 assert.match(bridge, /onOpenPublishVersions\?\(\):void/,
@@ -43,5 +44,23 @@ assert.match(publishing, /Versions & rollback|onOpenVersions/,
   'Publishing MAX must retain the visible Versions & rollback entry point');
 assert.match(publishing, /onOpenDomains/,
   'Publishing MAX must retain the visible Domains entry point');
+assert.match(publishing, /!onPublishPlan/,
+  'An unbound Publishing MAX action must be visibly disabled instead of becoming a no-op');
 
-console.log('PASS Publishing MAX V2 reachability: versions refresh, live rollback, page counts, busy guard and native domain navigation');
+assert.match(presentation, /onPublishPlan=\{async \(plan\) => \{/,
+  'The current Website Builder host must execute Publishing MAX plans');
+assert.match(presentation, /plan\.mode !== 'full' \|\| plan\.scheduledAt/,
+  'The host must fail closed for unsupported selective or scheduled plans');
+assert.match(presentation, /plan\.environment === 'staging'[\s\S]*await createSharePreview\(\)/,
+  'Staging plans must use the real preview pipeline');
+assert.match(presentation, /await publishWebsite\(false, plan\.releaseNote\)/,
+  'Production plans must use the real publishing pipeline with the submitted release note');
+assert.match(presentation, /setReleaseNote\(plan\.releaseNote\)/,
+  'Publishing MAX release notes must stay synchronized with the legacy release state');
+
+assert.match(publishHandler, /publishWebsite\(fromStaging = false, releaseNoteOverride\?: string\)/,
+  'The publishing handler must accept a race-free release-note override');
+assert.match(publishHandler, /\(releaseNoteOverride \?\? releaseNote\)\.trim\(\)\.slice\(0, 500\)/,
+  'The persisted release note must use the plan override while retaining the existing 500 character bound');
+
+console.log('PASS Publishing MAX V2 reachability: executable staging\/production plans, versions refresh, live rollback, page counts, busy guard and native domain navigation');
