@@ -50,7 +50,7 @@ async function consumeWebsiteConnectionOAuthState(input) {
 
 // src/modules/website-builder/services/websiteConnectionHandoffService.ts
 var uuid2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var handoffTokenMaxBytes = 65536;
+var handoffTokenMaxBytes = 131072;
 function serverOnly2() {
   if (isUntrustedBrowserRuntime()) throw new Error("Connection handoff requires a trusted server.");
 }
