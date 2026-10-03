@@ -5,8 +5,9 @@ import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ref = /^[a-z]{20}$/;
 const slug = /^[a-z0-9][a-z0-9-]{0,199}$/;
+const providerTokenMaxBytes = 16_384;
 const token = (value: unknown): value is string => typeof value === 'string' && value.length >= 20
-  && new TextEncoder().encode(value).length <= 4096 && !/[\r\n]/.test(value);
+  && new TextEncoder().encode(value).length <= providerTokenMaxBytes && !/[\r\n]/.test(value);
 
 type Grant = { accessToken: string; refreshToken: string; expiresIn: number; receivedAt: string };
 export type SupabaseProjectChoice = { projectRef: string; projectName: string;
