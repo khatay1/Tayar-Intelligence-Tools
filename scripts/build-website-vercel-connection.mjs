@@ -5,7 +5,7 @@ const output = 'supabase/functions/website-vercel-connection/index.ts';
 const environmentKeys = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
   'WEBSITE_VERCEL_INTEGRATION_SLUG', 'WEBSITE_VERCEL_CLIENT_ID', 'WEBSITE_VERCEL_CLIENT_SECRET',
   'WEBSITE_VERCEL_CALLBACK_URL', 'WEBSITE_VERCEL_RETURN_URL', 'TAYAR_PLATFORM_VERCEL_ACCOUNT_ID',
-  'TAYAR_GITHUB_APP_CLIENT_ID', 'TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8'];
+  'WEBSITE_GITHUB_APP_CLIENT_ID', 'WEBSITE_GITHUB_APP_CLIENT_SECRET'];
 const environment = `{${environmentKeys.map(key => `${JSON.stringify(key)}:Deno.env.get(${JSON.stringify(key)})`).join(',')}}`;
 const result = await build({ entryPoints: ['server/website-vercel-connection-edge.ts'], bundle: true, write: false,
   platform: 'neutral', format: 'esm', target: 'es2022',
