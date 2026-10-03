@@ -48,7 +48,7 @@ export function BuilderPublishingMaxPanel({ pages, publishing, onPublishPlan, on
     {scheduledAt&&<button type="button" onClick={()=>patchEditorPublishingHostState({scheduledAt:''})}>{t('Clear scheduled date')}</button>}
     <label>{t('Release note')}<textarea maxLength={500} value={releaseNote} onChange={e=>patchEditorPublishingHostState({releaseNote:e.target.value})}/></label>
     {error&&<div className="tayar-v2-error" role="alert">{error}</div>}
-    <button type="button" className="tayar-v2-primary-action" disabled={publishing || submitting || mode==='selective' || Boolean(scheduledAt)} onClick={() => void submit()}>{environment==='staging'?t('Create staging preview'):t('Publish now')}</button>
+    <button type="button" className="tayar-v2-primary-action" disabled={publishing || submitting || !onPublishPlan || mode==='selective' || Boolean(scheduledAt)} onClick={() => void submit()}>{environment==='staging'?t('Create staging preview'):t('Publish now')}</button>
     <div className="tayar-v2-publishing-tools"><button type="button" onClick={onOpenRedirects}>{t('Redirects')}</button><button type="button" onClick={onOpenVersions}>{t('Versions & rollback')}</button><button type="button" onClick={onOpenDomains}>{t('Domains')}</button></div>
   </section>;
 }
