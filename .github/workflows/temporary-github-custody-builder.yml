@@ -1,0 +1,46 @@
+name: Temporary GitHub Custody Builder
+
+on:
+  push:
+    branches:
+      - fix/github-oauth-custody-byo-publish-20261004
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-check:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/github-oauth-custody-byo-publish-20261004
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/build-website-github-connection.mjs
+      - run: node scripts/build-website-byo-publish-function.mjs
+      - run: npm run typecheck
+      - run: node scripts/website-github-oauth-regression.mjs
+      - run: node scripts/website-github-oauth-custody-regression.mjs
+      - run: node scripts/website-github-repository-binding-regression.mjs
+      - run: node scripts/website-github-connection-endpoint-regression.mjs
+      - run: node scripts/website-github-export-worker-regression.mjs
+      - run: node scripts/website-byo-publish-runners-regression.mjs
+      - run: node scripts/website-byo-publish-deployment-entry-regression.mjs
+      - run: node scripts/website-infrastructure-activation-preflight-regression.mjs
+      - name: Commit generated functions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/website-github-connection/index.ts supabase/functions/website-byo-publish/index.ts
+          if git diff --cached --quiet; then
+            echo "Generated functions already current"
+            exit 0
+          fi
+          git commit -m "build: refresh GitHub custody Edge bundles"
+          git push origin HEAD:fix/github-oauth-custody-byo-publish-20261004
