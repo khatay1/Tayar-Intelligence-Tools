@@ -1,6 +1,6 @@
-import { serveOwnedApplicationRoute } from '../src/modules/website-builder/services/websiteOwnedApplicationRouteService';
+import { serveOwnedApplicationRoute, type OwnedApplicationRouteManifest } from '../src/modules/website-builder/services/websiteOwnedApplicationRouteService';
 
-declare const __TAYAR_MANIFEST__: any;
+declare const __TAYAR_MANIFEST__: OwnedApplicationRouteManifest;
 declare const __TAYAR_PAGES__: Map<string, string>;
 declare const __TAYAR_PATHS__: Map<string, string>;
 
