@@ -89,21 +89,21 @@ grant execute on function public.website_bind_github_repository(uuid,uuid,uuid,b
 
 create function public.website_reconcile_github_repository_binding(
   p_connection_id uuid,p_project_id uuid,p_owner_id uuid,p_expected_version bigint,
-  p_account_id text,p_installation_id text,p_repository_id text,p_operation_id uuid
-) returns bigint language sql stable security definer set search_path = '' as $$
+  p_installation_id text,p_repository_id text,p_operation_id uuid
+) returns bigint language sql stable security definer set search_path = '' as $
   select c.version from private.website_infrastructure_connections c
   join private.website_github_oauth_custody g on g.connection_id=c.id
   join public.projects p on p.id=c.project_id
   where c.id=p_connection_id and c.project_id=p_project_id and c.owner_id=p_owner_id
     and p.user_id=p_owner_id and p.type='website-builder' and p.deleted_at is null
-    and c.provider='github' and c.account_id=p_account_id and c.target_id=p_repository_id
+    and c.provider='github' and c.target_id=p_repository_id
     and c.status='connected' and c.version=p_expected_version+1 and c.last_commit_id=p_operation_id
     and g.connection_version=c.version and g.account_id=c.account_id and g.repository_id=c.target_id
     and g.installation_id=p_installation_id and g.last_operation_id=p_operation_id
     and g.custody_expires_at>clock_timestamp();
 $$;
-revoke all on function public.website_reconcile_github_repository_binding(uuid,uuid,uuid,bigint,text,text,text,uuid) from public, anon, authenticated;
-grant execute on function public.website_reconcile_github_repository_binding(uuid,uuid,uuid,bigint,text,text,text,uuid) to service_role;
+revoke all on function public.website_reconcile_github_repository_binding(uuid,uuid,uuid,bigint,text,text,uuid) from public, anon, authenticated;
+grant execute on function public.website_reconcile_github_repository_binding(uuid,uuid,uuid,bigint,text,text,uuid) to service_role;
 
 create function public.website_read_github_oauth_custody(
   p_connection_id uuid,p_project_id uuid,p_owner_id uuid,p_expected_connection_version bigint
