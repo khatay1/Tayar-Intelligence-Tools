@@ -1,70 +1,29 @@
--- Publishing MAX redirects: owner-scoped persistence with atomic replacement.
-create table if not exists public.website_publish_redirects (
-  id text primary key check (char_length(id) between 1 and 128),
-  project_id uuid not null references public.projects(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  source_path text not null check (
+-- Repair redirect validation for already-migrated environments without regex escaping ambiguity.
+-- Invalid legacy rows are removed before the corrected constraints are installed.
+delete from public.website_publish_redirects
+where position(chr(10) in source_path)>0
+   or position(chr(13) in source_path)>0
+   or position(chr(10) in target)>0
+   or position(chr(13) in target)>0
+   or lower(ltrim(target)) like 'javascript:%';
+
+alter table public.website_publish_redirects
+  drop constraint if exists website_publish_redirects_source_path_check,
+  drop constraint if exists website_publish_redirects_target_check;
+
+alter table public.website_publish_redirects
+  add constraint website_publish_redirects_source_path_check check (
     char_length(source_path) between 1 and 2048
     and left(source_path,1)='/'
     and position(chr(10) in source_path)=0
     and position(chr(13) in source_path)=0
   ),
-  target text not null check (
+  add constraint website_publish_redirects_target_check check (
     char_length(target) between 1 and 4096
     and position(chr(10) in target)=0
     and position(chr(13) in target)=0
     and lower(ltrim(target)) not like 'javascript:%'
-  ),
-  status_code integer not null default 301 check (status_code in (301,302,307,308)),
-  enabled boolean not null default true,
-  created_at timestamptz not null default clock_timestamp(),
-  updated_at timestamptz not null default clock_timestamp(),
-  unique (project_id,user_id,source_path)
-);
-
-create index if not exists website_publish_redirects_project_owner_idx
-  on public.website_publish_redirects(project_id,user_id,source_path);
-
-alter table public.website_publish_redirects enable row level security;
-
-drop policy if exists website_publish_redirects_owner_select on public.website_publish_redirects;
-create policy website_publish_redirects_owner_select
-on public.website_publish_redirects for select to authenticated
-using (
-  user_id=(select auth.uid())
-  and exists (
-    select 1 from public.projects p
-    where p.id=website_publish_redirects.project_id
-      and p.user_id=(select auth.uid())
-      and p.type='website-builder'
-      and p.deleted_at is null
-  )
-);
-
-drop policy if exists website_publish_redirects_owner_insert on public.website_publish_redirects;
-create policy website_publish_redirects_owner_insert
-on public.website_publish_redirects for insert to authenticated
-with check (
-  user_id=(select auth.uid())
-  and exists (
-    select 1 from public.projects p
-    where p.id=website_publish_redirects.project_id
-      and p.user_id=(select auth.uid())
-      and p.type='website-builder'
-      and p.deleted_at is null
-  )
-);
-
-drop policy if exists website_publish_redirects_owner_update on public.website_publish_redirects;
-create policy website_publish_redirects_owner_update
-on public.website_publish_redirects for update to authenticated
-using (user_id=(select auth.uid()))
-with check (user_id=(select auth.uid()));
-
-drop policy if exists website_publish_redirects_owner_delete on public.website_publish_redirects;
-create policy website_publish_redirects_owner_delete
-on public.website_publish_redirects for delete to authenticated
-using (user_id=(select auth.uid()));
+  );
 
 create or replace function public.website_replace_publish_redirects(
   p_project_id uuid,

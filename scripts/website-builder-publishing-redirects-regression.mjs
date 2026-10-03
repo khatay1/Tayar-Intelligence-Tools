@@ -17,6 +17,10 @@ assert.doesNotMatch(sql, /website_projects/, 'Legacy Website Builder project tab
 assert.match(sql, /enable row level security/i, 'Redirect persistence must enforce RLS');
 assert.match(sql, /website_replace_publish_redirects/, 'Atomic redirect replacement RPC must exist');
 assert.match(sql, /jsonb_array_length\(p_redirects\)>100/, 'Redirect replacement must stay bounded');
+assert.match(sql, /position\(chr\(10\) in source_path\)=0/, 'Source line breaks must be blocked without regex escaping');
+assert.match(sql, /position\(chr\(13\) in target\)=0/, 'Target line breaks must be blocked without regex escaping');
+assert.match(sql, /lower\(ltrim\(target\)\) not like 'javascript:%'/, 'Javascript targets must be blocked after leading whitespace');
+assert.doesNotMatch(sql, /source_path !~/, 'Redirect safety must not depend on ambiguous PostgreSQL regex escaping');
 assert.match(sql, /delete from public\.website_publish_redirects[\s\S]*insert into public\.website_publish_redirects/,
   'Replacement must happen in one database transaction');
 
@@ -36,6 +40,16 @@ assert.match(panel, /externallyControlled/, 'Explicit host wiring must still ove
 assert.match(bridge, /publishingTool==='redirects'/, 'Publishing MAX must expose the redirects surface');
 assert.match(bridge, /BuilderPersistedRedirectsPanel/, 'Publishing MAX must render the persisted redirects surface');
 assert.match(publishing, /validateEditorPublishRedirects/, 'Redirects must keep central safety validation');
+assert.match(publishing, /Redirect contains an invalid line break/, 'UI validation must reject redirect line breaks');
+assert.match(publishing, /\^\\s\*javascript:/, 'UI validation must reject whitespace-prefixed javascript targets');
 assert.match(publishing, /Unsafe redirect target/, 'Unsafe redirect targets must remain blocked');
 
-console.log('PASS Publishing MAX redirects: owner-scoped atomic persistence, reconciliation, stale-result guards and V2 reachability');
+const repair = await read('supabase/migrations/20261003224500_website_publish_redirects_validation_fix.sql');
+assert.match(repair, /drop constraint if exists website_publish_redirects_source_path_check/,
+  'Already-migrated databases must replace the weak source constraint');
+assert.match(repair, /delete from public\.website_publish_redirects/,
+  'Unsafe rows created before the repair must be removed before constraints are replaced');
+assert.match(repair, /position\(chr\(10\) in \(e\.value->>'from'\)\)>0/,
+  'The repaired RPC must reject line breaks without regex escaping');
+
+console.log('PASS Publishing MAX redirects: owner-scoped atomic persistence, reconciliation, escape-proof validation, stale-result guards and V2 reachability');
