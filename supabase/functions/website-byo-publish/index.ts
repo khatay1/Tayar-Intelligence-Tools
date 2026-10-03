@@ -171,14 +171,14 @@ function validateGitHubSourceManifest(files) {
     if (bytes > 4e6) throw new Error("GitHub source manifest is unavailable.");
   }
 }
-async function request(fetcher, token2, path, method = "GET", body) {
+async function request(fetcher, token4, path, method = "GET", body) {
   const response = await fetcher(`${api}${path}`, {
     method,
     redirect: "error",
     signal: AbortSignal.timeout(8e3),
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token2}`,
+      Authorization: `Bearer ${token4}`,
       "X-GitHub-Api-Version": "2022-11-28",
       ...body === void 0 ? {} : { "Content-Type": "application/json" }
     },
@@ -8037,7 +8037,7 @@ function sanitizeRobotsRules(value) {
 }
 function normalizeProductionConfig(value) {
   const text2 = (candidate, max) => typeof candidate === "string" ? candidate.trim().slice(0, max) : "";
-  const token2 = (candidate, max = 200) => text2(candidate, max).replace(/[^A-Za-z0-9._:-]/g, "");
+  const token4 = (candidate, max = 200) => text2(candidate, max).replace(/[^A-Za-z0-9._:-]/g, "");
   const ga4 = text2(value?.ga4Id, 40).toUpperCase();
   const gtm = text2(value?.gtmId, 40).toUpperCase();
   const pixel = text2(value?.metaPixelId, 40).replace(/\D/g, "");
@@ -8048,8 +8048,8 @@ function normalizeProductionConfig(value) {
     gtmId: /^GTM-[A-Z0-9]+$/.test(gtm) ? gtm : "",
     metaPixelId: /^\d{5,30}$/.test(pixel) ? pixel : "",
     plausibleDomain: /^[A-Za-z0-9.-]+$/.test(plausible) ? plausible : "",
-    googleVerification: token2(value?.googleVerification, 300),
-    bingVerification: token2(value?.bingVerification, 300),
+    googleVerification: token4(value?.googleVerification, 300),
+    bingVerification: token4(value?.bingVerification, 300),
     organizationSchema: value?.organizationSchema === true,
     organizationName: text2(value?.organizationName, 160),
     organizationUrl: text2(value?.organizationUrl, 1e3),
@@ -10646,13 +10646,13 @@ function validDomains(values) {
   if (!result.length || result.length > 100 || new Set(result).size !== result.length || result.some((value) => !hostname3.test(value))) throw new Error();
   return result;
 }
-async function json3(fetcher, url, token2) {
+async function json3(fetcher, url, token4) {
   const response = await fetcher(url, {
     method: "GET",
     redirect: "error",
     cache: "no-store",
     signal: AbortSignal.timeout(8e3),
-    headers: { Authorization: `Bearer ${token2}`, Accept: "application/json" }
+    headers: { Authorization: `Bearer ${token4}`, Accept: "application/json" }
   });
   if (response.status !== 200 || Number(response.headers.get("content-length") ?? 0) > 262144) throw new Error();
   const raw = await response.text();
@@ -10974,7 +10974,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
     if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid10.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project5.test(input.vercelProjectId)) throw new Error();
     assertInfrastructureConnection(input.supabase);
     assertInfrastructureConnection(input.vercel);
-    const b = input.binding, s = input.supabase, v = input.vercel, branch8 = `tayar/${input.projectId}/preview`;
+    const b = input.binding, s = input.supabase, v = input.vercel, branch9 = `tayar/${input.projectId}/preview`;
     if (b.projectId !== input.projectId || b.ownerId !== input.ownerId || b.environment !== "preview" || b.supabaseConnectionId !== s.id || b.supabaseConnectionVersion !== s.version || s.provider !== "supabase" || s.targetId !== b.backend.projectRef || b.vercelConnectionId !== v.id || b.vercelConnectionVersion !== v.version || v.provider !== "vercel" || v.targetId !== input.vercelProjectId || s.projectId !== input.projectId || s.ownerId !== input.ownerId || s.environment !== "preview" || v.projectId !== input.projectId || v.ownerId !== input.ownerId || v.environment !== "preview" || !Number.isSafeInteger(b.bindingVersion) || b.bindingVersion < 1 || !await input.isCurrent()) throw new Error();
     validateOwnedApplicationPublicBackend(b.backend, s.targetId);
     const values = { SUPABASE_ANON_KEY: b.backend.publishableKey, SUPABASE_URL: b.backend.url };
@@ -10988,7 +10988,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
       p_vercel_connection_id: v.id,
       p_vercel_connection_version: v.version,
       p_vercel_project_id: input.vercelProjectId,
-      p_git_branch: branch8,
+      p_git_branch: branch9,
       p_value_digests: digests,
       p_operation_id: input.operationId
     });
@@ -11009,7 +11009,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
           cache: "no-store",
           signal: AbortSignal.timeout(8e3),
           headers,
-          body: JSON.stringify(names.map((name2) => ({ key: name2, value: values[name2], type: "plain", target: ["preview"], gitBranch: branch8, comment: begin.marker })))
+          body: JSON.stringify(names.map((name2) => ({ key: name2, value: values[name2], type: "plain", target: ["preview"], gitBranch: branch9, comment: begin.marker })))
         });
       } catch {
       }
@@ -11028,7 +11028,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
     const current = (item, name2) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return false;
       const row = item, targets = Array.isArray(row.target) ? row.target : [];
-      return row.key === name2 && row.type === "plain" && row.comment === begin.marker && targets.length === 1 && targets[0] === "preview" && row.gitBranch === branch8 && typeof row.id === "string" && provider3.test(row.id);
+      return row.key === name2 && row.type === "plain" && row.comment === begin.marker && targets.length === 1 && targets[0] === "preview" && row.gitBranch === branch9 && typeof row.id === "string" && provider3.test(row.id);
     };
     for (const name2 of names) {
       const matches = before.filter((item) => current(item, name2));
@@ -11044,7 +11044,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
       if (matches.length > 1) throw new Error();
       if (matches.length === 1) {
         const row = matches[0], targets = Array.isArray(row.target) ? row.target : [];
-        if (row.key !== name2 || row.type !== "plain" || targets.length !== 1 || targets[0] !== "preview" || row.gitBranch !== branch8 || typeof row.comment !== "string" || !/^Tayar runtime [0-9a-f-]{36}$/i.test(row.comment)) throw new Error();
+        if (row.key !== name2 || row.type !== "plain" || targets.length !== 1 || targets[0] !== "preview" || row.gitBranch !== branch9 || typeof row.comment !== "string" || !/^Tayar runtime [0-9a-f-]{36}$/i.test(row.comment)) throw new Error();
         if (!await input.isCurrent()) throw new Error();
         try {
           await (input.fetcher ?? fetch)(
@@ -11212,98 +11212,262 @@ function isUntrustedBrowserRuntime() {
   return typeof window !== "undefined" && typeof deno?.version?.deno !== "string";
 }
 
-// src/modules/website-builder/services/websiteGithubInstallationTokenService.ts
+// src/modules/website-builder/services/websiteGithubOAuthService.ts
+var appId = /^[a-zA-Z0-9_]{5,100}$/;
+var providerTokenMaxBytes = 65536;
+function token(value) {
+  return typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes && !/[\r\n\s]/.test(value);
+}
+function seconds(value, max) {
+  if (value === void 0 || value === null) return null;
+  return Number.isSafeInteger(value) && value > 0 && value <= max ? value : NaN;
+}
+function parseGrant(value, receivedAt) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  const row = value;
+  const expiresIn = seconds(row.expires_in, 86400);
+  const refreshExpiresIn = seconds(row.refresh_token_expires_in, 31536e3);
+  const refreshToken = row.refresh_token === void 0 || row.refresh_token === null ? null : row.refresh_token;
+  if (row.token_type?.toString().toLowerCase() !== "bearer" || !token(row.access_token) || Number.isNaN(expiresIn) || Number.isNaN(refreshExpiresIn) || refreshToken !== null && !token(refreshToken) || (expiresIn !== null || refreshExpiresIn !== null || refreshToken !== null) && (expiresIn === null || refreshExpiresIn === null || refreshToken === null) || expiresIn !== null && refreshExpiresIn !== null && refreshExpiresIn <= expiresIn || !Number.isFinite(Date.parse(receivedAt))) throw new Error();
+  return { accessToken: row.access_token, receivedAt, expiresIn, refreshToken, refreshTokenExpiresIn: refreshExpiresIn };
+}
+function parseStoredGrant(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  const row = value;
+  if (Object.keys(row).some((key) => !["accessToken", "receivedAt", "expiresIn", "refreshToken", "refreshTokenExpiresIn"].includes(key)) || !token(row.accessToken) || typeof row.receivedAt !== "string" || !Number.isFinite(Date.parse(row.receivedAt)) || !(row.expiresIn === null || Number.isSafeInteger(row.expiresIn) && row.expiresIn > 0 && row.expiresIn <= 86400) || !(row.refreshToken === null || token(row.refreshToken)) || !(row.refreshTokenExpiresIn === null || Number.isSafeInteger(row.refreshTokenExpiresIn) && row.refreshTokenExpiresIn > 0 && row.refreshTokenExpiresIn <= 31536e3) || (row.expiresIn !== null || row.refreshToken !== null || row.refreshTokenExpiresIn !== null) && (row.expiresIn === null || row.refreshToken === null || row.refreshTokenExpiresIn === null) || row.expiresIn !== null && row.refreshTokenExpiresIn !== null && row.refreshTokenExpiresIn <= row.expiresIn) throw new Error();
+  return {
+    accessToken: row.accessToken,
+    receivedAt: row.receivedAt,
+    expiresIn: row.expiresIn,
+    refreshToken: row.refreshToken,
+    refreshTokenExpiresIn: row.refreshTokenExpiresIn
+  };
+}
+function githubGrantExpiries(grant) {
+  const parsed = parseStoredGrant(grant), received = Date.parse(parsed.receivedAt);
+  const access = parsed.expiresIn === null ? null : received + parsed.expiresIn * 1e3;
+  const refresh = parsed.refreshTokenExpiresIn === null ? null : received + parsed.refreshTokenExpiresIn * 1e3;
+  const custody = refresh ?? received + 180 * 864e5;
+  if (!Number.isFinite(custody) || custody <= received) throw new Error("GitHub authorization failed.");
+  return {
+    accessExpiresAt: access === null ? null : new Date(access).toISOString(),
+    refreshExpiresAt: refresh === null ? null : new Date(refresh).toISOString(),
+    custodyExpiresAt: new Date(custody).toISOString()
+  };
+}
+async function tokenRequest(input) {
+  if (isUntrustedBrowserRuntime()) throw new Error("GitHub exchange requires a server.");
+  if (!appId.test(input.clientId) || !input.clientSecret || input.clientSecret.length > 4096 || /[\r\n]/.test(input.clientSecret)) {
+    throw new Error("GitHub authorization failed.");
+  }
+  try {
+    const response = await (input.fetcher ?? fetch)("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      redirect: "error",
+      signal: AbortSignal.timeout(8e3),
+      headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+      body: input.body
+    });
+    if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 16384) throw new Error();
+    const raw = await response.text();
+    if (raw.length > 16384) throw new Error();
+    const now = (input.now ?? Date.now)();
+    if (!Number.isFinite(now)) throw new Error();
+    return parseGrant(JSON.parse(raw), new Date(now).toISOString());
+  } catch {
+    throw new Error("GitHub authorization failed.");
+  }
+}
+async function refreshGitHubAppUserGrant(input) {
+  if (!token(input.refreshToken)) throw new Error("GitHub authorization failed.");
+  const body = new URLSearchParams({
+    client_id: input.clientId,
+    client_secret: input.clientSecret,
+    grant_type: "refresh_token",
+    refresh_token: input.refreshToken
+  });
+  return tokenRequest({ ...input, body });
+}
+
+// src/modules/website-builder/services/websiteGithubInstallationService.ts
 var numeric2 = /^[1-9][0-9]{0,19}$/;
-var clientId = /^[a-zA-Z0-9_]{5,100}$/;
 var repoName = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
 var branch5 = /^[a-zA-Z0-9_./-]{1,200}$/;
 var api2 = "https://api.github.com";
-function base64Url(bytes) {
-  let value = "";
-  for (const byte of bytes) value += String.fromCharCode(byte);
-  return btoa(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-async function appJwt(input) {
-  const match = /^-----BEGIN PRIVATE KEY-----\s+([A-Za-z0-9+/=\s]+)\s+-----END PRIVATE KEY-----\s*$/.exec(input.privateKeyPkcs8);
-  if (!match || match[1].length > 16384) throw new Error();
-  const bytes = Uint8Array.from(atob(match[1].replace(/\s/g, "")), (char) => char.charCodeAt(0));
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    bytes,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const timestamp = Math.floor(input.now / 1e3);
-  const head = base64Url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
-  const claim = base64Url(new TextEncoder().encode(JSON.stringify({ iat: timestamp - 60, exp: timestamp + 540, iss: input.clientId })));
-  const payload = `${head}.${claim}`;
-  const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(payload)));
-  return `${payload}.${base64Url(signature)}`;
-}
-async function github(input) {
-  const response = await input.fetcher(`${api2}${input.path}`, {
-    method: input.method,
-    redirect: "error",
-    signal: AbortSignal.timeout(8e3),
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${input.token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...input.body ? { "Content-Type": "application/json" } : {}
-    },
-    ...input.body ? { body: JSON.stringify(input.body) } : {}
-  });
-  if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 3e6) throw new Error();
-  const raw = await response.text();
-  if (raw.length > 3e6) throw new Error();
-  const value = JSON.parse(raw);
-  if (!value || typeof value !== "object") throw new Error();
+function object3(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("GitHub account could not be verified.");
   return value;
 }
-async function mintWebsiteGitHubRepositoryToken(input) {
-  if (isUntrustedBrowserRuntime()) throw new Error("GitHub export requires a trusted server.");
-  if (!clientId.test(input.clientId) || !numeric2.test(input.accountId) || !numeric2.test(input.repositoryId) || !Number.isSafeInteger(Number(input.repositoryId))) {
+async function githubGet(fetcher, token4, path) {
+  const response = await fetcher(`${api2}${path}`, {
+    method: "GET",
+    redirect: "error",
+    signal: AbortSignal.timeout(8e3),
+    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token4}`, "X-GitHub-Api-Version": "2022-11-28" }
+  });
+  if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 3e6) throw new Error("GitHub account could not be verified.");
+  const body = await response.text();
+  if (body.length > 3e6) throw new Error("GitHub account could not be verified.");
+  try {
+    return object3(JSON.parse(body));
+  } catch {
+    throw new Error("GitHub account could not be verified.");
+  }
+}
+async function verifyGitHubInstallationRepository(input) {
+  if (isUntrustedBrowserRuntime()) throw new Error("GitHub verification requires a server.");
+  const { userToken, installationId, repositoryId } = input;
+  if (!numeric2.test(installationId) || !numeric2.test(repositoryId) || !userToken || userToken.length > 4096) {
+    throw new Error("GitHub account could not be verified.");
+  }
+  const fetcher = input.fetcher ?? fetch;
+  try {
+    let installation;
+    for (let page = 1; page <= 10 && !installation; page++) {
+      const result = await githubGet(fetcher, userToken, `/user/installations?per_page=100&page=${page}`);
+      if (!Array.isArray(result.installations) || result.installations.length > 100) throw new Error();
+      installation = result.installations.map(object3).find((item) => String(item.id) === installationId);
+      if (result.installations.length < 100) break;
+    }
+    if (!installation || installation.suspended_at || object3(installation.permissions).contents !== "write") throw new Error();
+    const account = object3(installation.account);
+    const accountId = String(account.id);
+    if (!numeric2.test(accountId) || typeof account.login !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(account.login)) throw new Error();
+    let repository;
+    for (let page = 1; page <= 10 && !repository; page++) {
+      const result = await githubGet(fetcher, userToken, `/user/installations/${installationId}/repositories?per_page=100&page=${page}`);
+      if (!Array.isArray(result.repositories) || result.repositories.length > 100) throw new Error();
+      repository = result.repositories.map(object3).find((item) => String(item.id) === repositoryId);
+      if (result.repositories.length < 100) break;
+    }
+    if (!repository || repository.archived || repository.disabled || object3(repository.owner).id !== account.id || typeof repository.full_name !== "string" || !repoName.test(repository.full_name) || typeof repository.default_branch !== "string" || !branch5.test(repository.default_branch) || object3(repository.permissions).push !== true) throw new Error();
+    return {
+      installationId,
+      accountId,
+      accountLogin: account.login,
+      repositoryId,
+      repositoryFullName: repository.full_name,
+      defaultBranch: repository.default_branch
+    };
+  } catch {
+    throw new Error("GitHub account could not be verified.");
+  }
+}
+
+// src/modules/website-builder/services/websiteGithubOAuthCustodyService.ts
+var uuid11 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var numeric3 = /^[1-9][0-9]{0,19}$/;
+var repoName2 = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
+var branch6 = /^[a-zA-Z0-9_./-]{1,200}$/;
+var tokenMaxBytes = 65536;
+function token2(value) {
+  return typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= tokenMaxBytes && !/[\r\n\s]/.test(value);
+}
+function optionalTime(value) {
+  if (value === null) return null;
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) throw new Error();
+  return value;
+}
+function assertConnection(value) {
+  if (typeof window !== "undefined") throw new Error("GitHub OAuth custody scope changed.");
+  const connection = assertInfrastructureConnection(value);
+  if (connection.provider !== "github" || !connection.targetId || !numeric3.test(connection.accountId) || !numeric3.test(connection.targetId) || !["connected", "setup-incomplete", "deployment-failed", "ready"].includes(connection.status)) {
+    throw new Error("GitHub OAuth custody scope changed.");
+  }
+  return connection;
+}
+async function readWebsiteGitHubOAuthCustody(input) {
+  const connection = assertConnection(input.connection);
+  if (!await input.isCurrentOwner()) throw new Error("GitHub OAuth custody scope changed.");
+  const { data, error } = await input.client.rpc("website_read_github_oauth_custody", {
+    p_connection_id: connection.id,
+    p_project_id: connection.projectId,
+    p_owner_id: connection.ownerId,
+    p_expected_connection_version: connection.version
+  });
+  try {
+    if (error || !data || !await input.isCurrentOwner() || !Number.isSafeInteger(data.version) || data.version < 1 || data.accountId !== connection.accountId || data.repositoryId !== connection.targetId || data.environment !== connection.environment || !numeric3.test(data.installationId) || !repoName2.test(data.repositoryFullName) || !branch6.test(data.defaultBranch) || data.defaultBranch.includes("..") || data.defaultBranch.startsWith("/") || data.defaultBranch.endsWith("/") || !token2(data.grant?.accessToken) || !(data.grant?.refreshToken === null || token2(data.grant?.refreshToken))) throw new Error();
+    const accessExpiresAt = optionalTime(data.accessExpiresAt);
+    const refreshExpiresAt = optionalTime(data.refreshExpiresAt);
+    if (accessExpiresAt === null !== (data.grant.refreshToken === null) || refreshExpiresAt === null !== (data.grant.refreshToken === null) || typeof data.custodyExpiresAt !== "string" || !Number.isFinite(Date.parse(data.custodyExpiresAt)) || Date.parse(data.custodyExpiresAt) <= Date.now() || refreshExpiresAt !== null && Date.parse(refreshExpiresAt) <= Date.parse(accessExpiresAt)) throw new Error();
+    return {
+      version: data.version,
+      installationId: data.installationId,
+      repositoryId: data.repositoryId,
+      repositoryFullName: data.repositoryFullName,
+      defaultBranch: data.defaultBranch,
+      accessToken: data.grant.accessToken,
+      refreshToken: data.grant.refreshToken,
+      accessExpiresAt,
+      refreshExpiresAt,
+      custodyExpiresAt: data.custodyExpiresAt
+    };
+  } catch {
+    throw new Error("GitHub OAuth custody unavailable.");
+  }
+}
+async function resolveWebsiteGitHubRepositoryGrant(input) {
+  const connection = assertConnection(input.connection);
+  if (!await input.isCurrentOwner()) throw new Error("GitHub repository access is unavailable.");
+  const custody = await readWebsiteGitHubOAuthCustody({ client: input.client, connection, isCurrentOwner: input.isCurrentOwner });
+  const now = (input.now ?? Date.now)();
+  if (!Number.isFinite(now) || !await input.isCurrentOwner()) throw new Error("GitHub repository access is unavailable.");
+  if (custody.accessExpiresAt === null || Date.parse(custody.accessExpiresAt) > now + 12e4) {
+    return {
+      accessToken: custody.accessToken,
+      repositoryFullName: custody.repositoryFullName,
+      defaultBranch: custody.defaultBranch
+    };
+  }
+  if (!custody.refreshToken || !custody.refreshExpiresAt || Date.parse(custody.refreshExpiresAt) <= now + 12e4) {
     throw new Error("GitHub repository access is unavailable.");
   }
   try {
-    const now = (input.now ?? Date.now)();
-    if (!Number.isFinite(now)) throw new Error();
-    const jwt = await appJwt({ clientId: input.clientId, privateKeyPkcs8: input.privateKeyPkcs8, now });
-    const fetcher = input.fetcher ?? fetch;
-    let installationId;
-    for (let page = 1; page <= 10 && !installationId; page++) {
-      const result = await github({ fetcher, path: `/app/installations?per_page=100&page=${page}`, method: "GET", token: jwt });
-      if (!Array.isArray(result) || result.length > 100) throw new Error();
-      for (const candidate of result) {
-        const account2 = candidate.account;
-        if (String(account2?.id) === input.accountId && !candidate.suspended_at && candidate.permissions?.contents === "write") {
-          if (!numeric2.test(String(candidate.id)) || installationId) throw new Error();
-          installationId = String(candidate.id);
-        }
-      }
-      if (result.length < 100) break;
-    }
-    if (!installationId) throw new Error();
-    const grant = await github({
-      fetcher,
-      path: `/app/installations/${installationId}/access_tokens`,
-      method: "POST",
-      token: jwt,
-      body: { repository_ids: [Number(input.repositoryId)], permissions: { contents: "write" } }
+    const grant = await refreshGitHubAppUserGrant({
+      clientId: input.clientId,
+      clientSecret: input.clientSecret,
+      refreshToken: custody.refreshToken,
+      fetcher: input.fetcher,
+      now: () => now
     });
-    if (typeof grant.token !== "string" || grant.token.length < 20 || grant.token.length > 16384 || grant.permissions?.contents !== "write" || !Array.isArray(grant.repositories) || grant.repositories.length !== 1) throw new Error();
-    const repository = grant.repositories[0];
-    const account = repository.owner;
-    if (String(repository.id) !== input.repositoryId || String(account?.id) !== input.accountId || typeof repository.full_name !== "string" || !repoName.test(repository.full_name) || typeof repository.default_branch !== "string" || !branch5.test(repository.default_branch) || repository.archived || repository.disabled) throw new Error();
-    const expiry = Date.parse(String(grant.expires_at));
-    if (!Number.isFinite(expiry) || expiry <= now + 6e4 || expiry > now + 39e5) throw new Error();
+    const expiries = githubGrantExpiries(grant);
+    if (!grant.refreshToken || !expiries.accessExpiresAt || !expiries.refreshExpiresAt || !await input.isCurrentOwner()) throw new Error();
+    const observed = await verifyGitHubInstallationRepository({
+      userToken: grant.accessToken,
+      installationId: custody.installationId,
+      repositoryId: custody.repositoryId,
+      fetcher: input.fetcher
+    });
+    if (!await input.isCurrentOwner() || observed.accountId !== connection.accountId || observed.repositoryId !== connection.targetId || observed.repositoryFullName !== custody.repositoryFullName || observed.defaultBranch !== custody.defaultBranch) throw new Error();
+    const operationId = crypto.randomUUID();
+    if (!uuid11.test(operationId)) throw new Error();
+    const base = {
+      p_connection_id: connection.id,
+      p_project_id: connection.projectId,
+      p_owner_id: connection.ownerId,
+      p_expected_connection_version: connection.version,
+      p_expected_version: custody.version,
+      p_operation_id: operationId
+    };
+    const expected = custody.version + 1;
+    const args = {
+      ...base,
+      p_access_token: grant.accessToken,
+      p_refresh_token: grant.refreshToken,
+      p_access_expires_at: expiries.accessExpiresAt,
+      p_refresh_expires_at: expiries.refreshExpiresAt,
+      p_custody_expires_at: expiries.custodyExpiresAt
+    };
+    const result = await input.client.rpc("website_refresh_github_oauth_custody", args);
+    if (result.error || result.data !== expected) {
+      const reconcile = await input.client.rpc("website_reconcile_github_oauth_refresh", base);
+      if (reconcile.error || reconcile.data !== expected) throw new Error();
+    }
+    if (!await input.isCurrentOwner()) throw new Error();
     return {
-      token: grant.token,
-      expiresAt: new Date(expiry).toISOString(),
-      repositoryId: input.repositoryId,
-      repositoryFullName: repository.full_name,
-      defaultBranch: repository.default_branch
+      accessToken: grant.accessToken,
+      repositoryFullName: custody.repositoryFullName,
+      defaultBranch: custody.defaultBranch
     };
   } catch {
     throw new Error("GitHub repository access is unavailable.");
@@ -11311,12 +11475,12 @@ async function mintWebsiteGitHubRepositoryToken(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportCursorService.ts
-var uuid11 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid12 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var sha10 = /^[0-9a-f]{40}$/i;
 var digest6 = /^[0-9a-f]{64}$/i;
-var numeric3 = /^[1-9][0-9]{0,19}$/;
+var numeric4 = /^[1-9][0-9]{0,19}$/;
 function assertScope2(input) {
-  if (typeof window !== "undefined" || !uuid11.test(input.connectionId) || !uuid11.test(input.projectId) || !uuid11.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid12.test(input.connectionId) || !uuid12.test(input.projectId) || !uuid12.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
 }
 async function readWebsiteGitHubExportCursor(input) {
   assertScope2(input);
@@ -11328,7 +11492,7 @@ async function readWebsiteGitHubExportCursor(input) {
   if (error || !input.isCurrentOwner()) throw new Error("GitHub export cursor is unavailable.");
   if (data === null) return null;
   const item = data;
-  if (item.projectId !== input.projectId || !numeric3.test(String(item.repositoryId)) || !["preview", "production"].includes(String(item.environment)) || item.branch !== `tayar/${input.projectId}/${item.environment}` || !Number.isSafeInteger(item.connectionVersion) || item.connectionVersion < 1 || !Number.isSafeInteger(item.version) || item.version < 1 || item.lastHeadSha !== null && (typeof item.lastHeadSha !== "string" || !sha10.test(item.lastHeadSha)) || item.lastSourceDigest !== null && (typeof item.lastSourceDigest !== "string" || !digest6.test(item.lastSourceDigest)) || item.lastHeadSha === null !== (item.lastSourceDigest === null)) {
+  if (item.projectId !== input.projectId || !numeric4.test(String(item.repositoryId)) || !["preview", "production"].includes(String(item.environment)) || item.branch !== `tayar/${input.projectId}/${item.environment}` || !Number.isSafeInteger(item.connectionVersion) || item.connectionVersion < 1 || !Number.isSafeInteger(item.version) || item.version < 1 || item.lastHeadSha !== null && (typeof item.lastHeadSha !== "string" || !sha10.test(item.lastHeadSha)) || item.lastSourceDigest !== null && (typeof item.lastSourceDigest !== "string" || !digest6.test(item.lastSourceDigest)) || item.lastHeadSha === null !== (item.lastSourceDigest === null)) {
     throw new Error("GitHub export cursor is unavailable.");
   }
   return {
@@ -11344,7 +11508,7 @@ async function readWebsiteGitHubExportCursor(input) {
 }
 async function initializeWebsiteGitHubExportCursor(input) {
   assertScope2(input);
-  if (!input.branchIsAbsent || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !numeric3.test(input.repositoryId)) throw new Error("GitHub export target changed.");
+  if (!input.branchIsAbsent || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !numeric4.test(input.repositoryId)) throw new Error("GitHub export target changed.");
   const { data, error } = await input.client.rpc("website_initialize_github_export_cursor", {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -11367,7 +11531,7 @@ async function initializeWebsiteGitHubExportCursor(input) {
 }
 async function commitWebsiteGitHubExportCursor(input) {
   assertScope2(input);
-  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric3.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha10.test(input.cursor.lastHeadSha) || !sha10.test(input.newHeadSha) || !digest6.test(input.sourceDigest) || !uuid11.test(input.operationId)) {
+  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha10.test(input.cursor.lastHeadSha) || !sha10.test(input.newHeadSha) || !digest6.test(input.sourceDigest) || !uuid12.test(input.operationId)) {
     throw new Error("GitHub export cursor changed.");
   }
   const args = {
@@ -11408,9 +11572,9 @@ async function commitWebsiteGitHubExportCursor(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportWorker.ts
-var uuid12 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid13 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function exportWebsiteProjectToOwnedGitHub(input) {
-  if (typeof window !== "undefined" || !uuid12.test(input.projectId) || !uuid12.test(input.ownerId) || !uuid12.test(input.connectionId) || !uuid12.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid13.test(input.projectId) || !uuid13.test(input.ownerId) || !uuid13.test(input.connectionId) || !uuid13.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
   const source = await captureWebsiteGitHubExportSource(input);
   if (input.expectedSourceDigest !== void 0 && source.sourceDigest !== input.expectedSourceDigest) {
     throw new Error("GitHub export source changed.");
@@ -11419,11 +11583,12 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
   if (connection.environment !== input.environment || !connection.targetId || !await source.isCurrent()) {
     throw new Error("GitHub export scope changed.");
   }
-  const token2 = await mintWebsiteGitHubRepositoryToken({
-    clientId: input.appClientId,
-    privateKeyPkcs8: input.appPrivateKeyPkcs8,
-    accountId: connection.accountId,
-    repositoryId: connection.targetId,
+  const token4 = await resolveWebsiteGitHubRepositoryGrant({
+    client: input.client,
+    connection,
+    clientId: input.githubClientId,
+    clientSecret: input.githubClientSecret,
+    isCurrentOwner: source.isCurrent,
     fetcher: input.fetcher
   });
   if (!await source.isCurrent()) throw new Error("GitHub export scope changed.");
@@ -11445,8 +11610,8 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
   };
   const observedHead = await observeWebsiteGitHubExportBranch({
     connection,
-    repositoryFullName: token2.repositoryFullName,
-    token: token2.token,
+    repositoryFullName: token4.repositoryFullName,
+    token: token4.accessToken,
     cursor: cursorCandidate,
     fetcher: input.fetcher
   });
@@ -11469,8 +11634,8 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
     if (!observedHead || !await verifyWebsiteGitHubExportRecovery({
       connection,
       cursor,
-      repositoryFullName: token2.repositoryFullName,
-      token: token2.token,
+      repositoryFullName: token4.repositoryFullName,
+      token: token4.accessToken,
       sourceDigest: source.sourceDigest,
       files: source.files,
       isCurrent: source.isCurrent,
@@ -11498,8 +11663,8 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
   const result = await writeWebsiteGitHubExport({
     connection,
     cursor,
-    repositoryFullName: token2.repositoryFullName,
-    token: token2.token,
+    repositoryFullName: token4.repositoryFullName,
+    token: token4.accessToken,
     sourceDigest: source.sourceDigest,
     files: source.files,
     isCurrent: source.isCurrent,
@@ -11524,7 +11689,7 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
 }
 
 // src/modules/website-builder/services/websiteVercelDeploymentAttemptService.ts
-var uuid13 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid14 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var providerProject = /^prj_[A-Za-z0-9]{8,128}$/;
 var providerDeployment = /^dpl_[A-Za-z0-9]{8,128}$/;
 var sha11 = /^[0-9a-f]{40}$/;
@@ -11545,7 +11710,7 @@ function validateReport(report) {
 async function beginWebsiteVercelDeploymentAttempt(input) {
   const required2 = [...input.requiredEnvironment].sort();
   const ids2 = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid13.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha11.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key) => !env3.test(key)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid14.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha11.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key) => !env3.test(key)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
   const { data, error } = await input.client.rpc("website_begin_vercel_deployment_attempt", {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -11566,7 +11731,7 @@ async function beginWebsiteVercelDeploymentAttempt(input) {
 }
 async function commitWebsiteVercelDeploymentObservation(input) {
   const missingEnvironment = validateReport(input.report);
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid13.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid14.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
   const args = {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -11613,12 +11778,12 @@ async function commitWebsiteVercelDeploymentObservation(input) {
 }
 
 // server/website-byo-publish-adapters.ts
-var uuid14 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid15 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider4 = /^[A-Za-z0-9_-]{3,128}$/;
 var gitName2 = /^[A-Za-z0-9_.-]{1,100}$/;
 var project6 = /^prj_[A-Za-z0-9]{8,128}$/;
-var numeric4 = /^\d+$/;
-var branch6 = /^[A-Za-z0-9_./-]{1,200}$/;
+var numeric5 = /^\d+$/;
+var branch7 = /^[A-Za-z0-9_./-]{1,200}$/;
 var env4 = /^[A-Z][A-Z0-9_]{1,99}$/;
 async function deterministicCommitId(operationId, attemptVersion, report) {
   const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify({ operationId, attemptVersion, report }))));
@@ -11630,11 +11795,11 @@ async function deterministicCommitId(operationId, attemptVersion, report) {
 function parseCustody(value, environment) {
   if (!value || typeof value !== "object") throw new Error();
   const v = value;
-  if (typeof v.accessToken !== "string" || !v.accessToken || v.accessToken.length > 4096 || /[\r\n]/.test(v.accessToken) || typeof v.userId !== "string" || !provider4.test(v.userId) || typeof v.accountId !== "string" || !provider4.test(v.accountId) || typeof v.vercelProjectId !== "string" || !project6.test(v.vercelProjectId) || typeof v.repositoryId !== "string" || !numeric4.test(v.repositoryId) || typeof v.repositoryOwner !== "string" || !gitName2.test(v.repositoryOwner) || typeof v.repositoryName !== "string" || !gitName2.test(v.repositoryName) || typeof v.productionBranch !== "string" || !branch6.test(v.productionBranch) || v.productionBranch.includes("..") || v.environment !== environment) throw new Error();
+  if (typeof v.accessToken !== "string" || !v.accessToken || v.accessToken.length > 4096 || /[\r\n]/.test(v.accessToken) || typeof v.userId !== "string" || !provider4.test(v.userId) || typeof v.accountId !== "string" || !provider4.test(v.accountId) || typeof v.vercelProjectId !== "string" || !project6.test(v.vercelProjectId) || typeof v.repositoryId !== "string" || !numeric5.test(v.repositoryId) || typeof v.repositoryOwner !== "string" || !gitName2.test(v.repositoryOwner) || typeof v.repositoryName !== "string" || !gitName2.test(v.repositoryName) || typeof v.productionBranch !== "string" || !branch7.test(v.productionBranch) || v.productionBranch.includes("..") || v.environment !== environment) throw new Error();
   return v;
 }
 async function runWebsiteOwnedByoPublish(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid14.test(v)) || input.environment !== "preview" || !provider4.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid15.test(v)) || input.environment !== "preview" || !provider4.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
   const scope = {
     client: input.client,
     operationId: input.operationId,
@@ -11745,8 +11910,8 @@ async function runWebsiteOwnedByoPublish(input) {
           },
           expectedSourceDigest: capturedSource.sourceDigest,
           client: input.client,
-          appClientId: input.githubAppClientId,
-          appPrivateKeyPkcs8: input.githubAppPrivateKeyPkcs8,
+          githubClientId: input.githubClientId,
+          githubClientSecret: input.githubClientSecret,
           fetcher: input.fetcher
         });
       },
@@ -11845,7 +12010,7 @@ async function runWebsiteOwnedByoProductionPublish(input) {
     input.ownerId,
     input.previewVercelConnectionId,
     input.productionVercelConnectionId
-  ].every((v) => uuid14.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
+  ].every((v) => uuid15.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
   let current = true;
   const owner = async () => {
     if (!current) return false;
@@ -11943,11 +12108,11 @@ async function runWebsiteOwnedByoProductionPublish(input) {
 }
 
 // server/website-byo-publish-targets.ts
-var uuid15 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid16 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function parseTarget(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   const row = value;
-  if (Object.keys(row).some((key) => !["connectionId", "version"].includes(key)) || typeof row.connectionId !== "string" || !uuid15.test(row.connectionId) || !Number.isSafeInteger(row.version) || row.version < 1) throw new Error();
+  if (Object.keys(row).some((key) => !["connectionId", "version"].includes(key)) || typeof row.connectionId !== "string" || !uuid16.test(row.connectionId) || !Number.isSafeInteger(row.version) || row.version < 1) throw new Error();
   return { connectionId: row.connectionId, version: row.version };
 }
 function parse(value) {
@@ -11966,7 +12131,7 @@ function parse(value) {
 }
 var identity2 = (value) => JSON.stringify(value);
 async function captureWebsiteByoPublishTargets(input) {
-  if (typeof window !== "undefined" || !uuid15.test(input.projectId) || !uuid15.test(input.ownerId))
+  if (typeof window !== "undefined" || !uuid16.test(input.projectId) || !uuid16.test(input.ownerId))
     throw new Error("BYO publish targets unavailable.");
   const read = async () => {
     const { data, error } = await input.client.rpc("website_byo_publish_targets", {
@@ -12476,13 +12641,13 @@ async function verifyOwnedSupabaseCatalogSecurity(definition, query) {
 var provider5 = /^[A-Za-z0-9_-]{1,200}$/;
 var slug = /^[a-z0-9][a-z0-9-]{0,199}$/;
 var ref = /^[a-z]{20}$/;
-var providerTokenMaxBytes = 65536;
-var token = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes && !/[\r\n]/.test(value);
-var object3 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var providerTokenMaxBytes2 = 65536;
+var token3 = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes2 && !/[\r\n]/.test(value);
+var object4 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 var exact2 = (row, keys) => Object.keys(row).every((key) => keys.includes(key));
 var currentDate = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now();
 function parseOwnedSupabaseCustody(value, environment, target2) {
-  const row = object3(value), grant = object3(row?.grant);
+  const row = object4(value), grant = object4(row?.grant);
   if (!row || !grant || !exact2(row, [
     "version",
     "accountId",
@@ -12493,7 +12658,7 @@ function parseOwnedSupabaseCustody(value, environment, target2) {
     "accessExpiresAt",
     "custodyExpiresAt",
     "grant"
-  ]) || !exact2(grant, ["accessToken", "refreshToken"]) || !Number.isSafeInteger(row.version) || row.version < 1 || target2.custodyVersion !== void 0 && row.version !== target2.custodyVersion || typeof row.accountId !== "string" || !provider5.test(row.accountId) || typeof row.organizationId !== "string" || !provider5.test(row.organizationId) || typeof row.organizationSlug !== "string" || !slug.test(row.organizationSlug) || row.projectRef !== target2.projectRef || !ref.test(String(row.projectRef)) || row.environment !== environment || !currentDate(row.accessExpiresAt) || !currentDate(row.custodyExpiresAt) || !token(grant.accessToken) || !token(grant.refreshToken)) throw new Error();
+  ]) || !exact2(grant, ["accessToken", "refreshToken"]) || !Number.isSafeInteger(row.version) || row.version < 1 || target2.custodyVersion !== void 0 && row.version !== target2.custodyVersion || typeof row.accountId !== "string" || !provider5.test(row.accountId) || typeof row.organizationId !== "string" || !provider5.test(row.organizationId) || typeof row.organizationSlug !== "string" || !slug.test(row.organizationSlug) || row.projectRef !== target2.projectRef || !ref.test(String(row.projectRef)) || row.environment !== environment || !currentDate(row.accessExpiresAt) || !currentDate(row.custodyExpiresAt) || !token3(grant.accessToken) || !token3(grant.refreshToken)) throw new Error();
   return {
     version: row.version,
     accountId: row.accountId,
@@ -12518,7 +12683,7 @@ async function readOwnedSupabasePublicBackend(input) {
   const value = JSON.parse(text2);
   if (!Array.isArray(value) || value.length > 32) throw new Error();
   const keys = value.map((item) => {
-    const row = object3(item);
+    const row = object4(item);
     if (!row || typeof row.type !== "string" || typeof row.api_key !== "string" || row.name != null && typeof row.name !== "string") throw new Error();
     return row;
   });
@@ -12635,7 +12800,7 @@ async function verifyOwnedSupabaseApplicationRuntime(input) {
 
 // server/website-owned-supabase-migration.ts
 var ref2 = /^[a-z]{20}$/;
-var uuid16 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var digest7 = /^[0-9a-f]{64}$/;
 var sha12 = async (value) => Array.from(
   new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))),
@@ -12682,7 +12847,7 @@ async function commitId3(operationId, attemptVersion, plan) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 async function migrateOwnedSupabaseApplication(input) {
-  if (typeof window !== "undefined" || !ref2.test(input.projectRef) || !uuid16.test(input.operationId) || !await input.isCurrent())
+  if (typeof window !== "undefined" || !ref2.test(input.projectRef) || !uuid17.test(input.operationId) || !await input.isCurrent())
     throw new Error("Customer Supabase migration unavailable.");
   const plan = await planOwnedSupabaseAdditiveMigration(input.previous, input.next);
   const verify = async () => await input.isCurrent() && await input.verifyDeployed(structuredClone(plan.next)) && await input.isCurrent();
@@ -12734,16 +12899,16 @@ function assertOwnedSupabaseMigrationMetadata(value) {
 }
 
 // server/website-owned-supabase-migration-store.ts
-var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref3 = /^[a-z]{20}$/;
-var object4 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object5 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function committed(value) {
-  const row = object4(value);
+  const row = object5(value);
   if (!row || Object.keys(row).some((key) => !["attemptVersion", "connectionVersion"].includes(key)) || !Number.isSafeInteger(row.attemptVersion) || row.attemptVersion < 1 || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1) throw new Error();
   return { attemptVersion: row.attemptVersion, connectionVersion: row.connectionVersion };
 }
 function createOwnedSupabaseMigrationStore(input) {
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid17.test(value)) || !["preview", "production"].includes(input.environment) || !ref3.test(input.projectRef) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0)
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid18.test(value)) || !["preview", "production"].includes(input.environment) || !ref3.test(input.projectRef) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0)
     throw new Error("Customer Supabase migration store unavailable.");
   const scope = { p_connection_id: input.connectionId, p_project_id: input.projectId, p_owner_id: input.ownerId };
   const metadata = (plan) => {
@@ -12782,7 +12947,7 @@ function createOwnedSupabaseMigrationStore(input) {
           p_expected_attempt_version: attemptVersion,
           p_operation_id: input.operationId
         });
-        const row = object4(data);
+        const row = object5(data);
         if (error || !row || Object.keys(row).some((key) => !["attemptVersion", "issueMutation", "accessToken"].includes(key)) || !Number.isSafeInteger(row.attemptVersion) || row.attemptVersion < attemptVersion || typeof row.issueMutation !== "boolean" || typeof row.accessToken !== "string" || row.accessToken.length < 20 || row.accessToken.length > 4096 || /[\r\n]/.test(row.accessToken) || !await input.isCurrent()) throw new Error();
         return { attemptVersion: row.attemptVersion, issueMutation: row.issueMutation, accessToken: row.accessToken };
       } catch {
@@ -12792,7 +12957,7 @@ function createOwnedSupabaseMigrationStore(input) {
     async commit(attemptVersion, plan, commitId4) {
       try {
         const meta = metadata(plan);
-        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid17.test(commitId4) || !await input.isCurrent()) throw new Error();
+        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid18.test(commitId4) || !await input.isCurrent()) throw new Error();
         const { data, error } = await input.client.rpc("website_commit_supabase_migration", {
           ...scope,
           p_expected_attempt_version: attemptVersion,
@@ -12809,7 +12974,7 @@ function createOwnedSupabaseMigrationStore(input) {
     async reconcile(attemptVersion, plan, commitId4) {
       try {
         const meta = metadata(plan);
-        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid17.test(commitId4) || !await input.isCurrent()) throw new Error();
+        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid18.test(commitId4) || !await input.isCurrent()) throw new Error();
         const { data, error } = await input.client.rpc("website_reconcile_supabase_migration", {
           ...scope,
           p_expected_attempt_version: attemptVersion,
@@ -12827,16 +12992,16 @@ function createOwnedSupabaseMigrationStore(input) {
 }
 
 // server/website-owned-supabase-migration-worker.ts
-var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref4 = /^[a-z]{20}$/;
 var provider6 = /^[A-Za-z0-9_-]{1,200}$/;
 var slug2 = /^[a-z0-9][a-z0-9-]{0,199}$/;
 var digest8 = /^[0-9a-f]{64}$/;
-var object5 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object6 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 var exact3 = (row, keys) => Object.keys(row).every((key) => keys.includes(key));
 function parseAttempt(value) {
   if (value === null) return null;
-  const row = object5(value);
+  const row = object6(value);
   if (!row || !exact3(row, [
     "version",
     "status",
@@ -12848,7 +13013,7 @@ function parseAttempt(value) {
     "nextDigest",
     "queryDigest",
     "statementCount"
-  ]) || !Number.isSafeInteger(row.version) || row.version < 1 || !["prepared", "claimed", "ready"].includes(String(row.status)) || typeof row.operationId !== "string" || !uuid18.test(row.operationId) || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1 || ![row.previousDigest, row.nextDigest, row.queryDigest].every((value2) => typeof value2 === "string" && digest8.test(value2)) || row.previousDigest === row.nextDigest || !Number.isSafeInteger(row.statementCount) || row.statementCount < 1 || row.statementCount > 512) throw new Error();
+  ]) || !Number.isSafeInteger(row.version) || row.version < 1 || !["prepared", "claimed", "ready"].includes(String(row.status)) || typeof row.operationId !== "string" || !uuid19.test(row.operationId) || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1 || ![row.previousDigest, row.nextDigest, row.queryDigest].every((value2) => typeof value2 === "string" && digest8.test(value2)) || row.previousDigest === row.nextDigest || !Number.isSafeInteger(row.statementCount) || row.statementCount < 1 || row.statementCount > 512) throw new Error();
   return {
     version: row.version,
     status: row.status,
@@ -12863,7 +13028,7 @@ function parseAttempt(value) {
   };
 }
 function parseTarget2(value) {
-  const row = object5(value);
+  const row = object6(value);
   if (!row || !exact3(row, [
     "connectionId",
     "connectionVersion",
@@ -12874,7 +13039,7 @@ function parseTarget2(value) {
     "organizationSlug",
     "definition",
     "attempt"
-  ]) || typeof row.connectionId !== "string" || !uuid18.test(row.connectionId) || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1 || !Number.isSafeInteger(row.custodyVersion) || row.custodyVersion < 1 || typeof row.projectRef !== "string" || !ref4.test(row.projectRef) || typeof row.accountId !== "string" || !provider6.test(row.accountId) || typeof row.organizationId !== "string" || !provider6.test(row.organizationId) || typeof row.organizationSlug !== "string" || !slug2.test(row.organizationSlug)) throw new Error();
+  ]) || typeof row.connectionId !== "string" || !uuid19.test(row.connectionId) || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1 || !Number.isSafeInteger(row.custodyVersion) || row.custodyVersion < 1 || typeof row.projectRef !== "string" || !ref4.test(row.projectRef) || typeof row.accountId !== "string" || !provider6.test(row.accountId) || typeof row.organizationId !== "string" || !provider6.test(row.organizationId) || typeof row.organizationSlug !== "string" || !slug2.test(row.organizationSlug)) throw new Error();
   return {
     connectionId: row.connectionId,
     connectionVersion: row.connectionVersion,
@@ -12888,7 +13053,7 @@ function parseTarget2(value) {
   };
 }
 async function migrateWebsiteOwnedSupabaseFromCustody(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid18.test(value)) || !["preview", "production"].includes(input.environment) || !provider6.test(input.platformSupabaseOrganizationId))
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid19.test(value)) || !["preview", "production"].includes(input.environment) || !provider6.test(input.platformSupabaseOrganizationId))
     throw new Error("Customer Supabase migration worker unavailable.");
   const fetcher = input.fetcher ?? fetch;
   const readTarget = async () => {
@@ -12931,7 +13096,7 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
       if (!Array.isArray(value) || value.length !== 1) {
         throw new Error();
       }
-      const row = object5(value[0]);
+      const row = object6(value[0]);
       if (!row || !exact3(row, ["definition"])) throw new Error();
       return readApplicationDefinition(row.definition);
     };
@@ -12947,7 +13112,7 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
         if (!Array.isArray(value) || value.length !== 1) {
           throw new Error();
         }
-        const row = object5(value[0]);
+        const row = object6(value[0]);
         if (!row || !exact3(row, ["form_request_version"])) throw new Error();
         return row.form_request_version;
       },
@@ -13018,17 +13183,17 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
 }
 
 // server/website-owned-runtime-binding.ts
-var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref5 = /^[a-z]{20}$/;
 var vercel = /^prj_[A-Za-z0-9]{8,128}$/;
-var object6 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object7 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function target(value, kind) {
-  const row = object6(value), identity4 = kind === "supabase" ? row?.projectRef : row?.projectId;
-  if (!row || Object.keys(row).some((key) => !["connectionId", "version", kind === "supabase" ? "projectRef" : "projectId"].includes(key)) || typeof row.connectionId !== "string" || !uuid19.test(row.connectionId) || !Number.isSafeInteger(row.version) || row.version < 1 || typeof identity4 !== "string" || !(kind === "supabase" ? ref5 : vercel).test(identity4)) throw new Error();
+  const row = object7(value), identity4 = kind === "supabase" ? row?.projectRef : row?.projectId;
+  if (!row || Object.keys(row).some((key) => !["connectionId", "version", kind === "supabase" ? "projectRef" : "projectId"].includes(key)) || typeof row.connectionId !== "string" || !uuid20.test(row.connectionId) || !Number.isSafeInteger(row.version) || row.version < 1 || typeof identity4 !== "string" || !(kind === "supabase" ? ref5 : vercel).test(identity4)) throw new Error();
   return { connectionId: row.connectionId, version: row.version, [kind === "supabase" ? "projectRef" : "projectId"]: identity4 };
 }
 function parse2(value) {
-  const row = object6(value);
+  const row = object7(value);
   if (!row || Object.keys(row).some((key) => !["supabase", "vercel"].includes(key))) throw new Error();
   const supabase = target(row.supabase, "supabase");
   const vercelTarget = target(row.vercel, "vercel");
@@ -13037,7 +13202,7 @@ function parse2(value) {
 }
 var identity3 = (value) => JSON.stringify(value);
 async function setupWebsiteOwnedRuntimeBinding(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid19.test(value)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 0) throw new Error("BYO runtime setup unavailable.");
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid20.test(value)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 0) throw new Error("BYO runtime setup unavailable.");
   const readTargets = async () => {
     const { data, error } = await input.client.rpc("website_byo_runtime_setup_targets", {
       p_project_id: input.projectId,
@@ -13049,7 +13214,7 @@ async function setupWebsiteOwnedRuntimeBinding(input) {
   };
   try {
     const targets = await readTargets(), captured = identity3(targets), saved = await input.reader.readSavedProject(input.projectId, input.ownerId);
-    if (!saved || saved.projectId !== input.projectId || saved.ownerId !== input.ownerId || !object6(saved.snapshot.application)) throw new Error();
+    if (!saved || saved.projectId !== input.projectId || saved.ownerId !== input.ownerId || !object7(saved.snapshot.application)) throw new Error();
     const snapshotDigest = await websiteProjectReleaseDigest(saved.snapshot), application = structuredClone(saved.snapshot.application);
     const definition = readApplicationDefinition(application);
     const isCurrent = async () => {
@@ -13063,7 +13228,7 @@ async function setupWebsiteOwnedRuntimeBinding(input) {
     if (!await isCurrent()) throw new Error();
     const supabase = await input.verifySupabase({ definition: structuredClone(definition), targets: structuredClone(targets), isCurrent });
     if (!supabase || supabase.verified !== true || !await isCurrent()) throw new Error();
-    const backendRow = object6(supabase.backend);
+    const backendRow = object7(supabase.backend);
     if (!backendRow || Object.keys(backendRow).some((key) => !["url", "projectRef", "publishableKey"].includes(key)) || typeof backendRow.url !== "string" || typeof backendRow.projectRef !== "string" || typeof backendRow.publishableKey !== "string") throw new Error();
     const backend = { url: backendRow.url, projectRef: backendRow.projectRef, publishableKey: backendRow.publishableKey };
     validateOwnedApplicationPublicBackend(backend, targets.supabase.projectRef);
@@ -13142,16 +13307,16 @@ async function verifyOwnedVercelProject(input) {
 }
 
 // server/website-owned-runtime-setup-adapters.ts
-var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider7 = /^[A-Za-z0-9_-]{1,200}$/;
 var project7 = /^prj_[A-Za-z0-9]{8,128}$/;
 var gitName3 = /^[A-Za-z0-9_.-]{1,100}$/;
-var branch7 = /^[A-Za-z0-9_./-]{1,200}$/;
-var object7 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var branch8 = /^[A-Za-z0-9_./-]{1,200}$/;
+var object8 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 var exact4 = (row, keys) => Object.keys(row).every((key) => keys.includes(key));
 var currentDate2 = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now();
 function parseVercelCustody(value, environment, target2) {
-  const row = object7(value);
+  const row = object8(value);
   if (!row || !exact4(row, [
     "userId",
     "accountId",
@@ -13164,7 +13329,7 @@ function parseVercelCustody(value, environment, target2) {
     "environment",
     "custodyExpiresAt",
     "accessToken"
-  ]) || typeof row.userId !== "string" || !provider7.test(row.userId) || typeof row.accountId !== "string" || !provider7.test(row.accountId) || typeof row.configurationId !== "string" || !/^icfg_[A-Za-z0-9]{8,128}$/.test(row.configurationId) || row.vercelProjectId !== target2.projectId || !project7.test(String(row.vercelProjectId)) || typeof row.repositoryId !== "string" || !/^\d{1,30}$/.test(row.repositoryId) || typeof row.repositoryOwner !== "string" || !gitName3.test(row.repositoryOwner) || typeof row.repositoryName !== "string" || !gitName3.test(row.repositoryName) || typeof row.productionBranch !== "string" || !branch7.test(row.productionBranch) || row.productionBranch.includes("..") || row.environment !== environment || !currentDate2(row.custodyExpiresAt) || typeof row.accessToken !== "string" || row.accessToken.length < 20 || row.accessToken.length > 4096 || /[\r\n]/.test(row.accessToken)) throw new Error();
+  ]) || typeof row.userId !== "string" || !provider7.test(row.userId) || typeof row.accountId !== "string" || !provider7.test(row.accountId) || typeof row.configurationId !== "string" || !/^icfg_[A-Za-z0-9]{8,128}$/.test(row.configurationId) || row.vercelProjectId !== target2.projectId || !project7.test(String(row.vercelProjectId)) || typeof row.repositoryId !== "string" || !/^\d{1,30}$/.test(row.repositoryId) || typeof row.repositoryOwner !== "string" || !gitName3.test(row.repositoryOwner) || typeof row.repositoryName !== "string" || !gitName3.test(row.repositoryName) || typeof row.productionBranch !== "string" || !branch8.test(row.productionBranch) || row.productionBranch.includes("..") || row.environment !== environment || !currentDate2(row.custodyExpiresAt) || typeof row.accessToken !== "string" || row.accessToken.length < 20 || row.accessToken.length > 4096 || /[\r\n]/.test(row.accessToken)) throw new Error();
   return row;
 }
 function runtimeReader(custody, isCurrent, fetcher) {
@@ -13173,7 +13338,7 @@ function runtimeReader(custody, isCurrent, fetcher) {
     if (!await isCurrent()) throw new Error();
     const value = await query(sql);
     if (!Array.isArray(value) || value.length !== 1) throw new Error();
-    const row = object7(value[0]);
+    const row = object8(value[0]);
     if (!row || !exact4(row, [key]) || !await isCurrent()) throw new Error();
     return row[key];
   };
@@ -13185,7 +13350,7 @@ function runtimeReader(custody, isCurrent, fetcher) {
   };
 }
 async function setupWebsiteOwnedRuntimeBindingFromCustody(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid20.test(value)) || !provider7.test(input.platformSupabaseOrganizationId) || !provider7.test(input.platformVercelAccountId))
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid21.test(value)) || !provider7.test(input.platformSupabaseOrganizationId) || !provider7.test(input.platformVercelAccountId))
     throw new Error("BYO runtime setup adapters unavailable.");
   const fetcher = input.fetcher ?? fetch;
   try {
@@ -13245,11 +13410,11 @@ async function setupWebsiteOwnedRuntimeBindingFromCustody(input) {
 }
 
 // server/website-owned-backend-preparation-worker.ts
-var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid22 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider8 = /^[A-Za-z0-9_-]{1,200}$/;
-var object8 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object9 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function parseState(value) {
-  const row = object8(value);
+  const row = object9(value);
   if (!row || Object.keys(row).some((key) => !["bindingVersion", "expectedBindingVersion", "operationCommitted"].includes(key)) || !Number.isSafeInteger(row.bindingVersion) || row.bindingVersion < 0 || !Number.isSafeInteger(row.expectedBindingVersion) || row.expectedBindingVersion < 0 || typeof row.operationCommitted !== "boolean") throw new Error();
   const bindingVersion = row.bindingVersion, expectedBindingVersion = row.expectedBindingVersion;
   if (row.operationCommitted ? bindingVersion !== expectedBindingVersion + 1 : bindingVersion !== expectedBindingVersion) throw new Error();
@@ -13257,7 +13422,7 @@ function parseState(value) {
 }
 function createWebsiteOwnedBackendPreparationWorker(dependencies) {
   return async function prepareWebsiteOwnedBackend2(input) {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid21.test(value)) || !["preview", "production"].includes(input.environment) || !provider8.test(input.platformSupabaseOrganizationId) || !provider8.test(input.platformVercelAccountId)) throw new Error("Customer backend preparation unavailable.");
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid22.test(value)) || !["preview", "production"].includes(input.environment) || !provider8.test(input.platformSupabaseOrganizationId) || !provider8.test(input.platformVercelAccountId)) throw new Error("Customer backend preparation unavailable.");
     try {
       const migration = await dependencies.migrate({
         client: input.client,
@@ -13336,8 +13501,8 @@ function createWebsiteByoPublishRunners(input) {
         platformOrigin: input.platformOrigin,
         platformUrl: input.platformUrl,
         platformVercelAccountId: input.platformVercelAccountId,
-        githubAppClientId: input.githubAppClientId,
-        githubAppPrivateKeyPkcs8: input.githubAppPrivateKeyPkcs8,
+        githubClientId: input.githubClientId,
+        githubClientSecret: input.githubClientSecret,
         ownerCurrent: selected.isCurrent,
         verifyRuntime: input.verifyRuntime,
         requiredEnvironment: input.requiredEnvironment,
@@ -13434,8 +13599,8 @@ function createWebsiteByoPublishRuntimePolicy(reader) {
 }
 
 // server/website-owned-source-reader.ts
-var uuid22 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var object9 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var uuid23 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var object10 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 async function rpc(client, name2, args) {
   const { data, error } = await client.rpc(name2, args);
   if (error) return null;
@@ -13444,15 +13609,15 @@ async function rpc(client, name2, args) {
 function createWebsiteOwnedSourceReader(client) {
   return {
     async readSavedProject(projectId, ownerId) {
-      if (!uuid22.test(projectId) || !uuid22.test(ownerId)) return null;
-      const row = object9(await rpc(client, "website_byo_saved_project", { p_project_id: projectId, p_owner_id: ownerId }));
-      const snapshot = object9(row?.snapshot);
+      if (!uuid23.test(projectId) || !uuid23.test(ownerId)) return null;
+      const row = object10(await rpc(client, "website_byo_saved_project", { p_project_id: projectId, p_owner_id: ownerId }));
+      const snapshot = object10(row?.snapshot);
       if (!row || row.projectId !== projectId || row.ownerId !== ownerId || !snapshot) return null;
       return { projectId, ownerId, snapshot: structuredClone(snapshot) };
     },
     async readConnection(connectionId, projectId, ownerId) {
-      if (![connectionId, projectId, ownerId].every((value) => uuid22.test(value))) return null;
-      const row = object9(await rpc(client, "website_byo_connection_for_worker", {
+      if (![connectionId, projectId, ownerId].every((value) => uuid23.test(value))) return null;
+      const row = object10(await rpc(client, "website_byo_connection_for_worker", {
         p_connection_id: connectionId,
         p_project_id: projectId,
         p_owner_id: ownerId
@@ -13468,13 +13633,13 @@ function createWebsiteOwnedSourceReader(client) {
       }
     },
     async readOwnedRuntimeBinding(projectId, ownerId, environment) {
-      if (!uuid22.test(projectId) || !uuid22.test(ownerId) || !["preview", "production"].includes(environment)) return null;
-      const row = object9(await rpc(client, "website_byo_runtime_binding_for_worker", {
+      if (!uuid23.test(projectId) || !uuid23.test(ownerId) || !["preview", "production"].includes(environment)) return null;
+      const row = object10(await rpc(client, "website_byo_runtime_binding_for_worker", {
         p_project_id: projectId,
         p_owner_id: ownerId,
         p_environment: environment
-      })), backend = object9(row?.backend);
-      if (!row || !backend || row.projectId !== projectId || row.ownerId !== ownerId || row.environment !== environment || !Number.isSafeInteger(row.bindingVersion) || row.bindingVersion < 1 || typeof row.supabaseConnectionId !== "string" || !uuid22.test(row.supabaseConnectionId) || !Number.isSafeInteger(row.supabaseConnectionVersion) || row.supabaseConnectionVersion < 1 || typeof row.vercelConnectionId !== "string" || !uuid22.test(row.vercelConnectionId) || !Number.isSafeInteger(row.vercelConnectionVersion) || row.vercelConnectionVersion < 1 || row.supabaseConnectionId === row.vercelConnectionId || typeof row.applicationOrigin !== "string" || typeof backend.url !== "string" || typeof backend.projectRef !== "string" || typeof backend.publishableKey !== "string") return null;
+      })), backend = object10(row?.backend);
+      if (!row || !backend || row.projectId !== projectId || row.ownerId !== ownerId || row.environment !== environment || !Number.isSafeInteger(row.bindingVersion) || row.bindingVersion < 1 || typeof row.supabaseConnectionId !== "string" || !uuid23.test(row.supabaseConnectionId) || !Number.isSafeInteger(row.supabaseConnectionVersion) || row.supabaseConnectionVersion < 1 || typeof row.vercelConnectionId !== "string" || !uuid23.test(row.vercelConnectionId) || !Number.isSafeInteger(row.vercelConnectionVersion) || row.vercelConnectionVersion < 1 || row.supabaseConnectionId === row.vercelConnectionId || typeof row.applicationOrigin !== "string" || typeof backend.url !== "string" || typeof backend.projectRef !== "string" || typeof backend.publishableKey !== "string") return null;
       try {
         const origin = new URL(row.applicationOrigin);
         if (origin.protocol !== "https:" || origin.origin !== row.applicationOrigin || origin.username || origin.password || origin.port || origin.hostname.endsWith(".supabase.co")) return null;
@@ -13514,11 +13679,11 @@ var publicSecret = /^(?:NEXT_PUBLIC_|VITE_|PUBLIC_).*?(?:SECRET|SERVICE_ROLE|PRI
 var keyNames = {
   url: "TAYAR_PLATFORM_SUPABASE_URL",
   secret: "TAYAR_PLATFORM_SUPABASE_SECRET_KEY",
-  origin: "TAYAR_PLATFORM_ORIGIN",
-  organization: "TAYAR_PLATFORM_SUPABASE_ORGANIZATION_ID",
+  returnUrl: "WEBSITE_GITHUB_RETURN_URL",
+  organization: "WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID",
   vercelAccount: "TAYAR_PLATFORM_VERCEL_ACCOUNT_ID",
-  githubClient: "TAYAR_GITHUB_APP_CLIENT_ID",
-  githubKey: "TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8"
+  githubClient: "WEBSITE_GITHUB_APP_CLIENT_ID",
+  githubSecret: "WEBSITE_GITHUB_APP_CLIENT_SECRET"
 };
 function required(environment, key, max) {
   const value = environment[key];
@@ -13528,6 +13693,11 @@ function required(environment, key, max) {
 function exactHttps(value, supabase = false) {
   const url = new URL(value);
   if (url.protocol !== "https:" || url.origin !== value || url.username || url.password || url.port || url.pathname !== "/" || url.search || url.hash || supabase && !/^[a-z0-9]{20}[.]supabase[.]co$/.test(url.hostname)) throw new Error();
+  return url.origin;
+}
+function returnOrigin(value) {
+  const url = new URL(value);
+  if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.hash || url.search) throw new Error();
   return url.origin;
 }
 function legacyServiceRole(value) {
@@ -13544,8 +13714,8 @@ function secretKey(value) {
   if (/[\s\r\n]/.test(value) || value.length > 4096 || !/^sb_secret_[A-Za-z0-9_-]{20,}$/.test(value) && !legacyServiceRole(value)) throw new Error();
   return value;
 }
-function privateKey(value) {
-  if (value.length > 24e3 || !/^-----BEGIN PRIVATE KEY-----\s+[A-Za-z0-9+/=\s]+\s+-----END PRIVATE KEY-----$/.test(value)) throw new Error();
+function providerSecret(value) {
+  if (value.length < 20 || value.length > 4096 || /[\r\n]/.test(value)) throw new Error();
   return value;
 }
 function createWebsiteByoPublishDeploymentEntry(input) {
@@ -13553,14 +13723,14 @@ function createWebsiteByoPublishDeploymentEntry(input) {
     if (input.fetcher !== void 0 && typeof input.fetcher !== "function") throw new Error();
     for (const [key, value] of Object.entries(input.environment)) if (value && publicSecret.test(key)) throw new Error();
     const platformUrl = exactHttps(required(input.environment, keyNames.url, 2048), true);
-    const platformOrigin = exactHttps(required(input.environment, keyNames.origin, 2048));
+    const platformOrigin = returnOrigin(required(input.environment, keyNames.returnUrl, 2048));
     if (platformOrigin === platformUrl) throw new Error();
     const platformSupabaseOrganizationId = required(input.environment, keyNames.organization, 200);
     const platformVercelAccountId = required(input.environment, keyNames.vercelAccount, 200);
-    const githubAppClientId = required(input.environment, keyNames.githubClient, 100);
-    if (!provider9.test(platformSupabaseOrganizationId) || !provider9.test(platformVercelAccountId) || !githubClient.test(githubAppClientId)) throw new Error();
+    const githubClientId = required(input.environment, keyNames.githubClient, 100);
+    const githubClientSecret = providerSecret(required(input.environment, keyNames.githubSecret, 4096));
+    if (!provider9.test(platformSupabaseOrganizationId) || !provider9.test(platformVercelAccountId) || !githubClient.test(githubClientId)) throw new Error();
     const serviceKey = secretKey(required(input.environment, keyNames.secret, 4096));
-    const githubAppPrivateKeyPkcs8 = privateKey(required(input.environment, keyNames.githubKey, 24e3));
     const platform = createClient2(platformUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       ...input.fetcher ? { global: { fetch: input.fetcher } } : {}
@@ -13570,8 +13740,8 @@ function createWebsiteByoPublishDeploymentEntry(input) {
       platformUrl,
       platformSupabaseOrganizationId,
       platformVercelAccountId,
-      githubAppClientId,
-      githubAppPrivateKeyPkcs8,
+      githubClientId,
+      githubClientSecret,
       fetcher: input.fetcher
     } });
   } catch {
@@ -13584,9 +13754,9 @@ export {
 Deno.serve(createWebsiteByoPublishDeploymentEntry({ environment: {
   "TAYAR_PLATFORM_SUPABASE_URL": Deno.env.get("SUPABASE_URL"),
   "TAYAR_PLATFORM_SUPABASE_SECRET_KEY": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
-  "TAYAR_PLATFORM_ORIGIN": Deno.env.get("TAYAR_PLATFORM_ORIGIN"),
-  "TAYAR_PLATFORM_SUPABASE_ORGANIZATION_ID": Deno.env.get("TAYAR_PLATFORM_SUPABASE_ORGANIZATION_ID"),
+  "WEBSITE_GITHUB_RETURN_URL": Deno.env.get("WEBSITE_GITHUB_RETURN_URL"),
+  "WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID": Deno.env.get("WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID"),
   "TAYAR_PLATFORM_VERCEL_ACCOUNT_ID": Deno.env.get("TAYAR_PLATFORM_VERCEL_ACCOUNT_ID"),
-  "TAYAR_GITHUB_APP_CLIENT_ID": Deno.env.get("TAYAR_GITHUB_APP_CLIENT_ID"),
-  "TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8": Deno.env.get("TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8")
+  "WEBSITE_GITHUB_APP_CLIENT_ID": Deno.env.get("WEBSITE_GITHUB_APP_CLIENT_ID"),
+  "WEBSITE_GITHUB_APP_CLIENT_SECRET": Deno.env.get("WEBSITE_GITHUB_APP_CLIENT_SECRET")
 } }));
