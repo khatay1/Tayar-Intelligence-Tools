@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createWebsiteConnectionOAuthState } from '../src/modules/website-builder/services/websiteConnectionOAuthStateService';
-import { acceptGitHubOAuthCallback, githubAuthorizationUrl } from '../src/modules/website-builder/services/websiteGithubOAuthService';
+import { acceptGitHubOAuthCallback, decodeGitHubOAuthHandoff, githubAuthorizationUrl } from '../src/modules/website-builder/services/websiteGithubOAuthService';
 import { peekWebsiteConnectionHandoff, storeWebsiteConnectionHandoff } from '../src/modules/website-builder/services/websiteConnectionHandoffService';
 import { listGitHubRepositoryChoices } from '../src/modules/website-builder/services/websiteGithubInstallationService';
 import { bindWebsiteGitHubRepository } from '../src/modules/website-builder/services/websiteGithubRepositoryBindingService';
@@ -91,7 +91,8 @@ export async function handleWebsiteGitHubConnection(request: Request, context: {
     if (action === 'options') {
       const grant = await peekWebsiteConnectionHandoff({ client: context.platform, id: input.handoffId as string,
         ownerId, projectId, provider: 'github', isCurrentOwner: () => true });
-      const choices = await listGitHubRepositoryChoices({ userToken: grant.userToken,
+      const oauth = decodeGitHubOAuthHandoff(grant.userToken);
+      const choices = await listGitHubRepositoryChoices({ userToken: oauth.accessToken,
         installationId: input.installationId as string | undefined, page: input.page as number, fetcher: context.fetcher });
       return json(200, choices);
     }
