@@ -1,5 +1,5 @@
 import type { Language } from '@/context/PreferencesContext';
-import { buildPreviewSiteBaseUrl,buildPreviewSiteUrl,buildPublishedSiteBaseUrl } from '@/lib/published-site-url';
+import { buildPreviewSiteBaseUrl,buildPreviewSiteUrl,buildPublishedSiteBaseUrl,buildPublishedSiteUrl } from '@/lib/published-site-url';
 import type { User } from '@supabase/supabase-js';
 import type * as React from 'react';
 import type { WebsiteDeliveryConfig } from '../core/delivery-config';
@@ -15,6 +15,14 @@ import { updateWebsiteProjectInCloud } from '../services/projectCloudService';
 import { removePublishedWebsiteFiles,uploadPublishedWebsiteFolderFiles,verifyPublishedRoute } from '../services/publishedWebsiteService';
 import type { WebsiteCustomDomain } from '../services/websiteDomainService';
 import type { WebsiteSection } from './types';
+
+export interface WebsiteSharePreviewArtifact {
+  previewToken: string;
+  releasePrefix: string;
+  editorFingerprint: string;
+  projectUpdatedAt: string;
+  publishedUrl: string;
+}
 
 interface CreateSharePreviewHandlerDependencies {
   activeUserIdRef: React.MutableRefObject<string | null>;
@@ -85,7 +93,7 @@ export function createSharePreviewHandler({
   siteName,
   user,
 }: CreateSharePreviewHandlerDependencies) {
-  return async function createSharePreview() {
+  return async function createSharePreview(onCreated?: (artifact: WebsiteSharePreviewArtifact) => void) {
     if (previewBusy || publishBusy) return false;
     const operationalBlocker = previewOperationalBlocker();
     if (operationalBlocker) {
@@ -148,6 +156,11 @@ export function createSharePreviewHandler({
       const publicRouteBaseUrl = buildPublishedSiteBaseUrl(previewUserId, previewProjectId);
       if (!publicRouteBaseUrl) throw new Error('Could not build the production URL.');
       const liveBaseUrl = customDomain?.status === 'verified' ? `https://${customDomain.hostname}` : publicRouteBaseUrl;
+      const defaultPublishedUrl = buildPublishedSiteUrl(previewUserId, previewProjectId, 'index.html');
+      const releasePublishedUrl = customDomain?.status === 'verified'
+        ? `${liveBaseUrl}/`
+        : defaultPublishedUrl;
+      if (!releasePublishedUrl) throw new Error('Could not build the scheduled production URL.');
       const productionFiles = currentPages.map((page) => ({
         name: getOutputFilename(page),
         content: getHtml(page.sections, page.id, liveBaseUrl, true, true),
@@ -190,7 +203,8 @@ export function createSharePreviewHandler({
       });
       if (stagedSave.error) throw new Error(stagedSave.error.message);
       if (!previewIsCurrent()) return false;
-      cloudRevisionRef.current = { projectId: previewProjectId, updatedAt: stagedSave.data?.updated_at || createdAt };
+      const committedRevision = stagedSave.data?.updated_at || String(stagedProjectData.updatedAt || createdAt);
+      cloudRevisionRef.current = { projectId: previewProjectId, updatedAt: committedRevision };
       setCloudProjects((current) => current.map((project) => project.id === previewProjectId
         ? {
             ...project,
@@ -203,6 +217,17 @@ export function createSharePreviewHandler({
       setPreviewCreatedAt(createdAt);
       setPreviewFingerprint(createdFingerprint);
       setSaved(false);
+      try {
+        onCreated?.({
+          previewToken: token,
+          releasePrefix: `${folder}/release`,
+          editorFingerprint: createdFingerprint,
+          projectUpdatedAt: committedRevision,
+          publishedUrl: releasePublishedUrl,
+        });
+      } catch {
+        // Receipt consumers cannot invalidate an already-committed preview.
+      }
       if (previousPreviewToken) {
         try {
           await removePublishedWebsiteFiles(`${previewUserId}/${previewProjectId}/previews/${previousPreviewToken}`);
