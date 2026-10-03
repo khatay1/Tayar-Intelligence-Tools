@@ -54,7 +54,10 @@ export function validateEditorPublishRedirects(redirects: EditorPublishRedirect[
     if (sources.has(normalized.from)) errors.push(`Duplicate redirect source: ${normalized.from}`);
     sources.add(normalized.from);
     if (normalized.from === normalized.to) errors.push(`Redirect cannot point to itself: ${normalized.from}`);
-    if (/^javascript:/i.test(normalized.to)) errors.push(`Unsafe redirect target: ${normalized.from}`);
+    if (/[\r\n]/.test(normalized.from) || /[\r\n]/.test(normalized.to)) {
+      errors.push(`Redirect contains an invalid line break: ${normalized.from}`);
+    }
+    if (/^\s*javascript:/i.test(normalized.to)) errors.push(`Unsafe redirect target: ${normalized.from}`);
   }
   return errors;
 }
