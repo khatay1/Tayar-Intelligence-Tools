@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { consumeWebsiteConnectionOAuthState } from './websiteConnectionOAuthStateService';
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const statePattern = /^[0-9a-f]{64}$/;
 const codePattern = /^[A-Za-z0-9._~-]{1,2048}$/;
@@ -32,7 +33,7 @@ async function verifier(state: string, secret: string): Promise<string> {
 export async function supabaseAuthorizationUrl(input: {
   clientId: string; callback: string; state: string; pkceSecret: string;
 }): Promise<string> {
-  if (typeof window !== 'undefined' || !clientPattern.test(input.clientId)) throw new Error('Supabase connection is not configured.');
+  if (isUntrustedBrowserRuntime() || !clientPattern.test(input.clientId)) throw new Error('Supabase connection is not configured.');
   const codeVerifier = await verifier(input.state, input.pkceSecret);
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier)));
   const url = new URL('https://api.supabase.com/v1/oauth/authorize');
@@ -54,7 +55,7 @@ export async function acceptSupabaseOAuthCallback(input: {
   callback: string; pkceSecret: string; fetcher?: typeof fetch;
 }): Promise<{ ownerId: string; projectId: string; environment: 'preview' | 'production';
   accessToken: string; refreshToken: string; expiresIn: number }> {
-  if (typeof window !== 'undefined' || !clientPattern.test(input.clientId)
+  if (isUntrustedBrowserRuntime() || !clientPattern.test(input.clientId)
     || !input.clientSecret || input.clientSecret.length > 4096 || /[\r\n]/.test(input.clientSecret)
     || !codePattern.test(input.code)) throw new Error('Supabase authorization failed.');
   const callback = callbackUrl(input.callback);

@@ -4,12 +4,18 @@
 // server/website-github-connection-edge.ts
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
+// src/modules/website-builder/services/trustedServerRuntime.ts
+function isUntrustedBrowserRuntime() {
+  const deno = globalThis.Deno;
+  return typeof window !== "undefined" && typeof deno?.version?.deno !== "string";
+}
+
 // src/modules/website-builder/services/websiteConnectionOAuthStateService.ts
 var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var statePattern = /^[0-9a-f]{64}$/;
 var providers = ["github", "supabase", "vercel", "stripe"];
 function serverOnly() {
-  if (typeof window !== "undefined") throw new Error("OAuth state requires a trusted server.");
+  if (isUntrustedBrowserRuntime()) throw new Error("OAuth state requires a trusted server.");
 }
 async function hash(state2) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(state2));
@@ -62,7 +68,7 @@ function githubAuthorizationUrl(input) {
   return url.toString();
 }
 async function exchangeGitHubAppUserCode(input) {
-  if (typeof window !== "undefined") throw new Error("GitHub exchange requires a server.");
+  if (isUntrustedBrowserRuntime()) throw new Error("GitHub exchange requires a server.");
   if (!appId.test(input.clientId) || !input.clientSecret || input.clientSecret.length > 4096 || !codePattern.test(input.code)) throw new Error("GitHub authorization failed.");
   try {
     const body = new URLSearchParams({
@@ -97,7 +103,7 @@ async function acceptGitHubOAuthCallback(input) {
 // src/modules/website-builder/services/websiteConnectionHandoffService.ts
 var uuid2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function serverOnly2() {
-  if (typeof window !== "undefined") throw new Error("Connection handoff requires a trusted server.");
+  if (isUntrustedBrowserRuntime()) throw new Error("Connection handoff requires a trusted server.");
 }
 async function storeWebsiteConnectionHandoff(input) {
   serverOnly2();
@@ -168,7 +174,7 @@ async function githubGet(fetcher, token, path) {
   }
 }
 async function listGitHubRepositoryChoices(input) {
-  if (typeof window !== "undefined" || !input.userToken || input.userToken.length > 4096 || !Number.isSafeInteger(input.page) || input.page < 1 || input.page > 10 || input.installationId !== void 0 && !numeric.test(input.installationId)) {
+  if (isUntrustedBrowserRuntime() || !input.userToken || input.userToken.length > 4096 || !Number.isSafeInteger(input.page) || input.page < 1 || input.page > 10 || input.installationId !== void 0 && !numeric.test(input.installationId)) {
     throw new Error("GitHub repositories are unavailable.");
   }
   try {
@@ -210,7 +216,7 @@ async function listGitHubRepositoryChoices(input) {
   }
 }
 async function verifyGitHubInstallationRepository(input) {
-  if (typeof window !== "undefined") throw new Error("GitHub verification requires a server.");
+  if (isUntrustedBrowserRuntime()) throw new Error("GitHub verification requires a server.");
   const { userToken, installationId, repositoryId } = input;
   if (!numeric.test(installationId) || !numeric.test(repositoryId) || !userToken || userToken.length > 4096) {
     throw new Error("GitHub account could not be verified.");
@@ -252,7 +258,7 @@ async function verifyGitHubInstallationRepository(input) {
 // src/modules/website-builder/services/websiteGithubRepositoryBindingService.ts
 var uuid3 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function bindWebsiteGitHubRepository(input) {
-  if (typeof window !== "undefined") throw new Error("GitHub binding requires a trusted server.");
+  if (isUntrustedBrowserRuntime()) throw new Error("GitHub binding requires a trusted server.");
   if (!uuid3.test(input.ownerId) || !uuid3.test(input.projectId) || !uuid3.test(input.handoffId) || input.connectionId !== void 0 && !uuid3.test(input.connectionId) || input.expectedVersion !== void 0 && (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1) || Boolean(input.connectionId) !== Boolean(input.expectedVersion) || !input.isCurrentOwner()) throw new Error("GitHub connection could not be verified.");
   const connectionId = input.connectionId ?? input.handoffId;
   const expectedVersion = input.expectedVersion ?? 0;
@@ -339,7 +345,7 @@ async function handleWebsiteGitHubConnection(request, context) {
   try {
     callback = fixedHttps(context.callback, true);
     destination = fixedHttps(context.returnUrl);
-    if (callback.origin !== new URL(request.url).origin || callback.pathname !== new URL(request.url).pathname || !/^[a-zA-Z0-9_]{5,100}$/.test(context.clientId) || !context.clientSecret) throw new Error();
+    if (!callback.pathname.endsWith("/functions/v1/website-github-connection") || !/^[a-zA-Z0-9_]{5,100}$/.test(context.clientId) || !context.clientSecret) throw new Error();
   } catch {
     return json(503, { error: "GitHub connection is not configured." });
   }
@@ -470,9 +476,9 @@ function platformUrl(value) {
   if (url.protocol !== "https:" || url.origin !== value || url.pathname !== "/" || url.port || url.username || url.password || url.search || url.hash || !/^[a-z0-9]{20}[.]supabase[.]co$/.test(url.hostname)) throw new Error();
   return url.origin;
 }
-function callbackUrl2(value) {
+function callbackUrl2(value, platformOrigin) {
   const url = new URL(value);
-  if (url.protocol !== "https:" || url.username || url.password || url.hash || url.search !== "?action=callback" || !url.pathname.endsWith("/functions/v1/website-github-connection")) throw new Error();
+  if (url.protocol !== "https:" || url.origin !== platformOrigin || url.username || url.password || url.hash || url.search !== "?action=callback" || !url.pathname.endsWith("/functions/v1/website-github-connection")) throw new Error();
   return url.toString();
 }
 function browserReturn(value) {
@@ -509,7 +515,7 @@ function createWebsiteGitHubConnectionEdge(input) {
     const serviceRole = serviceKey(required(input.environment, keys.secret, 4096));
     const clientId = required(input.environment, keys.clientId, 100);
     const clientSecret = required(input.environment, keys.clientSecret, 4096);
-    const callback = callbackUrl2(required(input.environment, keys.callback, 2048));
+    const callback = callbackUrl2(required(input.environment, keys.callback, 2048), url);
     const destination = browserReturn(required(input.environment, keys.returnUrl, 2048));
     if (!client.test(clientId) || clientSecret.length < 20 || /[\r\n]/.test(clientSecret)) throw new Error();
     const factory = input.clientFactory ?? createClient;

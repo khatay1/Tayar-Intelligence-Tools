@@ -8,7 +8,8 @@ const dir = await mkdtemp(join(process.cwd(), 'node_modules', '.tayar-github-end
 try {
   const outfile = join(dir, 'endpoint.cjs');
   await build({ entryPoints: ['server/website-github-connection.ts'], bundle: true,
-    platform: 'node', format: 'cjs', outfile, banner: { js: 'globalThis.Deno = { serve() {} };' },
+    platform: 'node', format: 'cjs', outfile,
+    banner: { js: 'globalThis.window = {}; globalThis.Deno = { version: { deno: "fixture" }, serve() {} };' },
     plugins: [{ name: 'supabase-test', setup(builder) {
       builder.onResolve({ filter: /^@supabase\/supabase-js$/ }, () => ({ path: 'supabase', namespace: 'test' }));
       builder.onLoad({ filter: /.*/, namespace: 'test' }, () => ({ contents: 'export const createClient = () => { throw new Error("not called"); };', loader: 'js' }));

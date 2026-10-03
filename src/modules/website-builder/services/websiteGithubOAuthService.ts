@@ -1,5 +1,6 @@
 import { consumeWebsiteConnectionOAuthState } from './websiteConnectionOAuthStateService';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const statePattern = /^[0-9a-f]{64}$/;
 const appId = /^[a-zA-Z0-9_]{5,100}$/;
@@ -34,7 +35,7 @@ export async function exchangeGitHubAppUserCode(input: {
   code: string;
   fetcher?: typeof fetch;
 }): Promise<string> {
-  if (typeof window !== 'undefined') throw new Error('GitHub exchange requires a server.');
+  if (isUntrustedBrowserRuntime()) throw new Error('GitHub exchange requires a server.');
   if (!appId.test(input.clientId) || !input.clientSecret || input.clientSecret.length > 4096
     || !codePattern.test(input.code)) throw new Error('GitHub authorization failed.');
   try {

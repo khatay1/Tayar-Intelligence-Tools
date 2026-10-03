@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { consumeWebsiteConnectionHandoff, peekWebsiteConnectionHandoff } from './websiteConnectionHandoffService';
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ref = /^[a-z]{20}$/;
@@ -46,7 +47,7 @@ export async function listWebsiteSupabaseProjectChoices(input: {
   client: Pick<SupabaseClient, 'rpc'>; ownerId: string; projectId: string; handoffId: string;
   platformOrganizationId: string; isCurrentOwner(): boolean; fetcher?: typeof fetch;
 }): Promise<{ accountUserId: string; projects: SupabaseProjectChoice[] }> {
-  if (typeof window !== 'undefined' || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
+  if (isUntrustedBrowserRuntime() || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
     || !uuid.test(input.handoffId) || !input.platformOrganizationId || !input.isCurrentOwner()) {
     throw new Error('Supabase projects are unavailable.');
   }
@@ -104,7 +105,7 @@ export async function bindWebsiteSupabaseProject(input: {
   organizationId: string; organizationSlug: string; accountUserId: string;
   platformOrganizationId: string; isCurrentOwner(): boolean; fetcher?: typeof fetch;
 }): Promise<{ connectionId: string; projectRef: string; version: number }> {
-  if (typeof window !== 'undefined' || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
+  if (isUntrustedBrowserRuntime() || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
     || !uuid.test(input.handoffId) || (input.connectionId !== undefined && !uuid.test(input.connectionId))
     || Boolean(input.connectionId) !== Boolean(input.expectedVersion)
     || (input.expectedVersion !== undefined && (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion! < 1))

@@ -28,7 +28,7 @@ try {
   const environment = { SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: serviceKey, WEBSITE_VERCEL_INTEGRATION_SLUG: 'tayar-connect',
     WEBSITE_VERCEL_CLIENT_ID: 'vercel-client-id', WEBSITE_VERCEL_CLIENT_SECRET: 'vercel-client-secret-value',
-    WEBSITE_VERCEL_CALLBACK_URL: 'https://platform.example/functions/v1/website-vercel-connection?action=callback',
+    WEBSITE_VERCEL_CALLBACK_URL: 'https://abcdefghijklmnopqrst.supabase.co/functions/v1/website-vercel-connection?action=callback',
     WEBSITE_VERCEL_RETURN_URL: 'https://tayar.example/builder', TAYAR_PLATFORM_VERCEL_ACCOUNT_ID: 'team_tayar1234',
     TAYAR_GITHUB_APP_CLIENT_ID: 'Iv1_fixture', TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: privateKey };
   const fetcher = async () => new Response('{}');
@@ -67,6 +67,7 @@ try {
   assert.equal(typeof create({ environment: disconnectOnly }), 'function');
   for (const change of [{ SUPABASE_SERVICE_ROLE_KEY: 'sb_publishable_public_fixture' },
     { WEBSITE_VERCEL_CALLBACK_URL: 'http://platform.example/functions/v1/website-vercel-connection?action=callback' },
+    { WEBSITE_VERCEL_CALLBACK_URL: 'https://otherplatform000000.supabase.co/functions/v1/website-vercel-connection?action=callback' },
     { NEXT_PUBLIC_WEBSITE_VERCEL_CLIENT_SECRET: 'leak' }, { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: 'not-a-key' },
     { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `${privateKey}\n\n` },
     { TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `${privateKey} ` }]) {

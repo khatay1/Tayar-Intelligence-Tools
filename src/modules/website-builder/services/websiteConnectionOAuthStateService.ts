@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const statePattern = /^[0-9a-f]{64}$/;
@@ -7,7 +8,7 @@ type Provider = typeof providers[number];
 type Environment = 'preview' | 'production';
 
 function serverOnly() {
-  if (typeof window !== 'undefined') throw new Error('OAuth state requires a trusted server.');
+  if (isUntrustedBrowserRuntime()) throw new Error('OAuth state requires a trusted server.');
 }
 
 async function hash(state: string): Promise<string> {

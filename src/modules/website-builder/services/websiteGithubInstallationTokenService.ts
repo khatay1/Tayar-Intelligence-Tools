@@ -1,3 +1,5 @@
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
+
 /** Server-only GitHub App installation token minted for one observed account
  * and one repository. The App's PKCS#8 signing key stays in platform secrets;
  * the installation token exists only for the current export request. */
@@ -50,7 +52,7 @@ export async function mintWebsiteGitHubRepositoryToken(input: {
   fetcher?: typeof fetch;
   now?: () => number;
 }): Promise<{ token: string; expiresAt: string; repositoryId: string; repositoryFullName: string; defaultBranch: string }> {
-  if (typeof window !== 'undefined') throw new Error('GitHub export requires a trusted server.');
+  if (isUntrustedBrowserRuntime()) throw new Error('GitHub export requires a trusted server.');
   if (!clientId.test(input.clientId) || !numeric.test(input.accountId) || !numeric.test(input.repositoryId)
     || !Number.isSafeInteger(Number(input.repositoryId))) {
     throw new Error('GitHub repository access is unavailable.');

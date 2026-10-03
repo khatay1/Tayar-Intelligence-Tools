@@ -34,7 +34,7 @@ export async function handleWebsiteGitHubConnection(request: Request, context: {
   try {
     callback = fixedHttps(context.callback, true);
     destination = fixedHttps(context.returnUrl);
-    if (callback.origin !== new URL(request.url).origin || callback.pathname !== new URL(request.url).pathname
+    if (!callback.pathname.endsWith('/functions/v1/website-github-connection')
       || !/^[a-zA-Z0-9_]{5,100}$/.test(context.clientId) || !context.clientSecret) throw new Error();
   } catch { return json(503, { error: 'GitHub connection is not configured.' }); }
   const action = new URL(request.url).searchParams.get('action');

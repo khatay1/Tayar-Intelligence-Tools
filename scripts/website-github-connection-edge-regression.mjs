@@ -24,7 +24,7 @@ try {
   const environment = { SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: serviceKey, WEBSITE_GITHUB_APP_CLIENT_ID: 'Iv1_fixture',
     WEBSITE_GITHUB_APP_CLIENT_SECRET: 'github-client-secret-value',
-    WEBSITE_GITHUB_CALLBACK_URL: 'https://platform.example/functions/v1/website-github-connection?action=callback',
+    WEBSITE_GITHUB_CALLBACK_URL: 'https://abcdefghijklmnopqrst.supabase.co/functions/v1/website-github-connection?action=callback',
     WEBSITE_GITHUB_RETURN_URL: 'https://tayar.example/builder' };
   const fetcher = async () => new Response('{}');
   const handler = create({ environment, fetcher });
@@ -49,6 +49,7 @@ try {
   assert.equal(calls.filter(call => call[0] === 'endpoint').length, 2, 'CORS refusal/preflight stop before endpoint');
   for (const change of [{ SUPABASE_SERVICE_ROLE_KEY: 'sb_publishable_public_fixture' },
     { WEBSITE_GITHUB_CALLBACK_URL: 'http://platform.example/functions/v1/website-github-connection?action=callback' },
+    { WEBSITE_GITHUB_CALLBACK_URL: 'https://otherplatform000000.supabase.co/functions/v1/website-github-connection?action=callback' },
     { NEXT_PUBLIC_WEBSITE_GITHUB_APP_CLIENT_SECRET: 'leak' },
     { WEBSITE_GITHUB_APP_CLIENT_SECRET: 'too-short' }, { WEBSITE_GITHUB_APP_CLIENT_ID: 'bad/id' }]) {
     assert.throws(() => create({ environment: { ...environment, ...change } }), /deployment unavailable/);

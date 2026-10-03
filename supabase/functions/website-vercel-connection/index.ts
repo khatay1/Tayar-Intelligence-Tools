@@ -4,12 +4,18 @@
 // server/website-vercel-connection-edge.ts
 import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.57.4";
 
+// src/modules/website-builder/services/trustedServerRuntime.ts
+function isUntrustedBrowserRuntime() {
+  const deno = globalThis.Deno;
+  return typeof window !== "undefined" && typeof deno?.version?.deno !== "string";
+}
+
 // src/modules/website-builder/services/websiteConnectionOAuthStateService.ts
 var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var statePattern = /^[0-9a-f]{64}$/;
 var providers = ["github", "supabase", "vercel", "stripe"];
 function serverOnly() {
-  if (typeof window !== "undefined") throw new Error("OAuth state requires a trusted server.");
+  if (isUntrustedBrowserRuntime()) throw new Error("OAuth state requires a trusted server.");
 }
 async function hash(state2) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(state2));
@@ -45,7 +51,7 @@ async function consumeWebsiteConnectionOAuthState(input) {
 // src/modules/website-builder/services/websiteConnectionHandoffService.ts
 var uuid2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function serverOnly2() {
-  if (typeof window !== "undefined") throw new Error("Connection handoff requires a trusted server.");
+  if (isUntrustedBrowserRuntime()) throw new Error("Connection handoff requires a trusted server.");
 }
 async function storeWebsiteConnectionHandoff(input) {
   serverOnly2();
@@ -106,13 +112,13 @@ function secret(value) {
   return typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= 4096 && !/[\r\n]/.test(value);
 }
 function vercelAuthorizationUrl(input) {
-  if (typeof window !== "undefined" || !slugPattern.test(input.integrationSlug) || !statePattern2.test(input.state)) throw new Error("Vercel connection is not configured.");
+  if (isUntrustedBrowserRuntime() || !slugPattern.test(input.integrationSlug) || !statePattern2.test(input.state)) throw new Error("Vercel connection is not configured.");
   const url = new URL(`https://vercel.com/integrations/${input.integrationSlug}/new`);
   url.searchParams.set("state", input.state);
   return url.toString();
 }
 async function acceptVercelOAuthCallback(input) {
-  if (typeof window !== "undefined" || !providerId.test(input.clientId) || !secret(input.clientSecret) || !codePattern.test(input.code) || !configurationId.test(input.callbackConfigurationId) || input.callbackTeamId != null && !teamId.test(input.callbackTeamId)) {
+  if (isUntrustedBrowserRuntime() || !providerId.test(input.clientId) || !secret(input.clientSecret) || !codePattern.test(input.code) || !configurationId.test(input.callbackConfigurationId) || input.callbackTeamId != null && !teamId.test(input.callbackTeamId)) {
     throw new Error("Vercel authorization failed.");
   }
   const callback = callbackUrl(input.callback);
@@ -195,7 +201,7 @@ async function read(accessToken, path, fetcher) {
   return parsed;
 }
 async function listWebsiteVercelProjectChoices(input) {
-  if (typeof window !== "undefined" || !uuid3.test(input.ownerId) || !uuid3.test(input.projectId) || !uuid3.test(input.handoffId) || !providerId2.test(input.platformAccountId) || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner) || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch) || input.productionBranch.includes("..") || input.productionBranch.startsWith("/") || input.productionBranch.endsWith("/") || !input.isCurrentOwner()) {
+  if (isUntrustedBrowserRuntime() || !uuid3.test(input.ownerId) || !uuid3.test(input.projectId) || !uuid3.test(input.handoffId) || !providerId2.test(input.platformAccountId) || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner) || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch) || input.productionBranch.includes("..") || input.productionBranch.startsWith("/") || input.productionBranch.endsWith("/") || !input.isCurrentOwner()) {
     throw new Error("Vercel projects are unavailable.");
   }
   try {
@@ -251,7 +257,7 @@ function projectMatches(raw, expected) {
   return raw.id === expected.vercelProjectId && raw.accountId === expected.accountId && raw.paused !== true && !!link && typeof link === "object" && !Array.isArray(link) && link.type === "github" && String(link.repoId) === expected.repositoryId && link.org === expected.repositoryOwner && link.repo === expected.repositoryName && link.productionBranch === expected.productionBranch;
 }
 async function bindWebsiteVercelProject(input) {
-  if (typeof window !== "undefined" || !uuid3.test(input.ownerId) || !uuid3.test(input.projectId) || !uuid3.test(input.handoffId) || input.connectionId !== void 0 && !uuid3.test(input.connectionId) || Boolean(input.connectionId) !== Boolean(input.expectedVersion) || input.expectedVersion !== void 0 && (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1) || !providerId2.test(input.userId) || !providerId2.test(input.accountId) || !/^icfg_[A-Za-z0-9]{8,128}$/.test(input.configurationId) || !projectId.test(input.vercelProjectId) || input.accountId === input.platformAccountId || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner) || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch) || input.productionBranch.includes("..") || input.productionBranch.startsWith("/") || input.productionBranch.endsWith("/") || !input.isCurrentOwner()) {
+  if (isUntrustedBrowserRuntime() || !uuid3.test(input.ownerId) || !uuid3.test(input.projectId) || !uuid3.test(input.handoffId) || input.connectionId !== void 0 && !uuid3.test(input.connectionId) || Boolean(input.connectionId) !== Boolean(input.expectedVersion) || input.expectedVersion !== void 0 && (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1) || !providerId2.test(input.userId) || !providerId2.test(input.accountId) || !/^icfg_[A-Za-z0-9]{8,128}$/.test(input.configurationId) || !projectId.test(input.vercelProjectId) || input.accountId === input.platformAccountId || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner) || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch) || input.productionBranch.includes("..") || input.productionBranch.startsWith("/") || input.productionBranch.endsWith("/") || !input.isCurrentOwner()) {
     throw new Error("Vercel project could not be connected.");
   }
   const connectionId = input.connectionId ?? input.handoffId, expectedVersion = input.expectedVersion ?? 0;
@@ -482,7 +488,7 @@ function completed(value, expectedConnectionVersion) {
 }
 async function disconnectOwnedVercelProject(input) {
   try {
-    if (typeof window !== "undefined" || !await input.isCurrentOwner() || !uuid6.test(input.operationId) || !uuid6.test(input.commitId)) throw new Error();
+    if (isUntrustedBrowserRuntime() || !await input.isCurrentOwner() || !uuid6.test(input.operationId) || !uuid6.test(input.commitId)) throw new Error();
     const connection = assertInfrastructureConnection(input.connection);
     if (connection.provider !== "vercel" || connection.version < 1 || connection.status === "disconnected" || !project.test(connection.targetId ?? "")) throw new Error();
     const expectedConnectionVersion = connection.version + 1;
@@ -619,8 +625,7 @@ async function handleWebsiteVercelConnection(request, context) {
   let callback, destination = null;
   try {
     callback = fixedHttps(context.callback, true);
-    const current = new URL(request.url);
-    if (callback.origin !== current.origin || callback.pathname !== current.pathname || action !== "disconnect" && (!/^[a-z0-9][a-z0-9-]{1,99}$/.test(context.integrationSlug) || !providerId3.test(context.clientId) || context.clientSecret.length < 20 || /[\r\n]/.test(context.clientSecret) || !providerId3.test(context.platformAccountId))) throw new Error();
+    if (!callback.pathname.endsWith("/functions/v1/website-vercel-connection") || action !== "disconnect" && (!/^[a-z0-9][a-z0-9-]{1,99}$/.test(context.integrationSlug) || !providerId3.test(context.clientId) || context.clientSecret.length < 20 || /[\r\n]/.test(context.clientSecret) || !providerId3.test(context.platformAccountId))) throw new Error();
     if (action !== "disconnect") destination = fixedHttps(context.returnUrl);
   } catch {
     return json(503, { error: "Vercel connection is not configured." });
@@ -881,7 +886,7 @@ async function github(input) {
   return value;
 }
 async function mintWebsiteGitHubRepositoryToken(input) {
-  if (typeof window !== "undefined") throw new Error("GitHub export requires a trusted server.");
+  if (isUntrustedBrowserRuntime()) throw new Error("GitHub export requires a trusted server.");
   if (!clientId.test(input.clientId) || !numeric.test(input.accountId) || !numeric.test(input.repositoryId) || !Number.isSafeInteger(Number(input.repositoryId))) {
     throw new Error("GitHub repository access is unavailable.");
   }
@@ -1007,9 +1012,9 @@ function platformUrl(value) {
   if (url.protocol !== "https:" || url.origin !== value || url.pathname !== "/" || url.port || url.username || url.password || url.search || url.hash || !/^[a-z0-9]{20}[.]supabase[.]co$/.test(url.hostname)) throw new Error();
   return url.origin;
 }
-function callbackUrl2(value) {
+function callbackUrl2(value, platformOrigin) {
   const url = new URL(value);
-  if (url.protocol !== "https:" || url.username || url.password || url.hash || url.search !== "?action=callback" || !url.pathname.endsWith("/functions/v1/website-vercel-connection")) throw new Error();
+  if (url.protocol !== "https:" || url.origin !== platformOrigin || url.username || url.password || url.hash || url.search !== "?action=callback" || !url.pathname.endsWith("/functions/v1/website-vercel-connection")) throw new Error();
   return url.toString();
 }
 function browserReturn(value) {
@@ -1055,7 +1060,7 @@ function createWebsiteVercelConnectionEdge(input) {
     for (const [key, value] of Object.entries(input.environment)) if (value && publicSecret.test(key)) throw new Error();
     const url = platformUrl(required(input.environment, keys.url, 2048));
     const secret2 = serviceKey(required(input.environment, keys.secret, 4096));
-    const callback = callbackUrl2(required(input.environment, keys.callback, 2048));
+    const callback = callbackUrl2(required(input.environment, keys.callback, 2048), url);
     const destination = browserReturn(required(input.environment, keys.returnUrl, 2048));
     const integrationSlug = optional(input.environment, keys.integrationSlug, 100);
     const clientId2 = optional(input.environment, keys.clientId, 128);

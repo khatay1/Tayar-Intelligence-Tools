@@ -29,7 +29,7 @@ export async function handleWebsiteSupabaseConnection(request: Request, context:
   let callback: URL, destination: URL;
   try {
     callback = fixedHttps(context.callback, true); destination = fixedHttps(context.returnUrl);
-    if (callback.origin !== new URL(request.url).origin || callback.pathname !== new URL(request.url).pathname
+    if (!callback.pathname.endsWith('/functions/v1/website-supabase-connection')
       || !/^[A-Za-z0-9_-]{5,128}$/.test(context.clientId) || !context.clientSecret
       || context.pkceSecret.length < 32 || !context.platformOrganizationId) throw new Error();
   } catch { return json(503, { error: 'Supabase connection is not configured.' }); }

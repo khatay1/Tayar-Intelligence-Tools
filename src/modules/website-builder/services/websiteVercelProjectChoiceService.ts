@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { consumeWebsiteConnectionHandoff, peekWebsiteConnectionHandoff } from './websiteConnectionHandoffService';
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const providerId = /^[A-Za-z0-9_-]{3,128}$/;
@@ -55,7 +56,7 @@ export async function listWebsiteVercelProjectChoices(input: {
   fetcher?: typeof fetch;
 }): Promise<{ userId: string; accountId: string; configurationId: string;
   projects: VercelProjectChoice[] }> {
-  if (typeof window !== 'undefined' || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
+  if (isUntrustedBrowserRuntime() || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
     || !uuid.test(input.handoffId) || !providerId.test(input.platformAccountId)
     || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner)
     || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch)
@@ -128,7 +129,7 @@ export async function bindWebsiteVercelProject(input: {
   repositoryId: string; repositoryOwner: string; repositoryName: string;
   productionBranch: string; isCurrentOwner(): boolean; fetcher?: typeof fetch;
 }): Promise<{ connectionId: string; accountId: string; vercelProjectId: string; version: number }> {
-  if (typeof window !== 'undefined' || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
+  if (isUntrustedBrowserRuntime() || !uuid.test(input.ownerId) || !uuid.test(input.projectId)
     || !uuid.test(input.handoffId) || (input.connectionId !== undefined && !uuid.test(input.connectionId))
     || Boolean(input.connectionId) !== Boolean(input.expectedVersion)
     || (input.expectedVersion !== undefined && (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1))

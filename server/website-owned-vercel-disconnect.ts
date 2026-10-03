@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { assertInfrastructureConnection, type InfrastructureConnection } from '../src/modules/website-builder/core/application-infrastructure-connections';
+import { isUntrustedBrowserRuntime } from '../src/modules/website-builder/services/trustedServerRuntime';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const provider = /^[A-Za-z0-9_-]{3,128}$/;
@@ -41,7 +42,7 @@ export async function disconnectOwnedVercelProject(input: {
   isCurrentOwner: () => boolean | Promise<boolean>; fetcher?: typeof fetch;
 }): Promise<{ version: number; installation: 'retained' }> {
   try {
-    if (typeof window !== 'undefined' || !await input.isCurrentOwner()
+    if (isUntrustedBrowserRuntime() || !await input.isCurrentOwner()
       || !uuid.test(input.operationId) || !uuid.test(input.commitId)) throw new Error();
     const connection = assertInfrastructureConnection(input.connection);
     if (connection.provider !== 'vercel' || connection.version < 1 || connection.status === 'disconnected'

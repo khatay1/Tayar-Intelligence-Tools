@@ -24,9 +24,9 @@ function platformUrl(value: string) {
     || !/^[a-z0-9]{20}[.]supabase[.]co$/.test(url.hostname)) throw new Error();
   return url.origin;
 }
-function callbackUrl(value: string) {
+function callbackUrl(value: string, platformOrigin: string) {
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.username || url.password || url.hash
+  if (url.protocol !== 'https:' || url.origin !== platformOrigin || url.username || url.password || url.hash
     || url.search !== '?action=callback'
     || !url.pathname.endsWith('/functions/v1/website-github-connection')) throw new Error();
   return url.toString();
@@ -65,7 +65,7 @@ export function createWebsiteGitHubConnectionEdge(input: { environment: Environm
     const serviceRole = serviceKey(required(input.environment, keys.secret, 4096));
     const clientId = required(input.environment, keys.clientId, 100);
     const clientSecret = required(input.environment, keys.clientSecret, 4096);
-    const callback = callbackUrl(required(input.environment, keys.callback, 2048));
+    const callback = callbackUrl(required(input.environment, keys.callback, 2048), url);
     const destination = browserReturn(required(input.environment, keys.returnUrl, 2048));
     if (!client.test(clientId) || clientSecret.length < 20 || /[\r\n]/.test(clientSecret)) throw new Error();
     const factory = input.clientFactory ?? createClient;

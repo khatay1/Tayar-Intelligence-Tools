@@ -26,9 +26,9 @@ function platformUrl(value: string) {
     || !/^[a-z0-9]{20}[.]supabase[.]co$/.test(url.hostname)) throw new Error();
   return url.origin;
 }
-function callbackUrl(value: string) {
+function callbackUrl(value: string, platformOrigin: string) {
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.username || url.password || url.hash
+  if (url.protocol !== 'https:' || url.origin !== platformOrigin || url.username || url.password || url.hash
     || url.search !== '?action=callback'
     || !url.pathname.endsWith('/functions/v1/website-supabase-connection')) throw new Error();
   return url.toString();
@@ -72,7 +72,7 @@ export function createWebsiteSupabaseConnectionEdge(input: { environment: Enviro
     const clientId = required(input.environment, keys.clientId, 128);
     const clientSecret = secret(required(input.environment, keys.clientSecret, 4096), 20);
     const pkceSecret = secret(required(input.environment, keys.pkceSecret, 4096), 32);
-    const callback = callbackUrl(required(input.environment, keys.callback, 2048));
+    const callback = callbackUrl(required(input.environment, keys.callback, 2048), url);
     const destination = browserReturn(required(input.environment, keys.returnUrl, 2048));
     const platformOrganizationId = required(input.environment, keys.organization, 128);
     if (!provider.test(clientId) || !organization.test(platformOrganizationId)) throw new Error();

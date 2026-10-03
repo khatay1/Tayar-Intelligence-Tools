@@ -41,8 +41,7 @@ export async function handleWebsiteVercelConnection(request: Request, context: {
   let callback: URL, destination: URL | null = null;
   try {
     callback = fixedHttps(context.callback, true);
-    const current = new URL(request.url);
-    if (callback.origin !== current.origin || callback.pathname !== current.pathname
+    if (!callback.pathname.endsWith('/functions/v1/website-vercel-connection')
       || (action !== 'disconnect' && (!/^[a-z0-9][a-z0-9-]{1,99}$/.test(context.integrationSlug)
         || !providerId.test(context.clientId) || context.clientSecret.length < 20
         || /[\r\n]/.test(context.clientSecret) || !providerId.test(context.platformAccountId)))) throw new Error();

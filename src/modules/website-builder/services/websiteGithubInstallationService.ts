@@ -1,3 +1,5 @@
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
+
 /** Server-only GitHub App user-token verification. The setup URL's
  * installation_id is untrusted until these user-scoped API reads succeed. */
 export interface VerifiedGitHubRepository {
@@ -39,7 +41,7 @@ export async function listGitHubRepositoryChoices(input: {
   fetcher?: typeof fetch;
 }): Promise<{ installations: Array<{ id: string; accountId: string; accountLogin: string }>;
   repositories: Array<{ id: string; fullName: string; defaultBranch: string }>; hasMore: boolean }> {
-  if (typeof window !== 'undefined' || !input.userToken || input.userToken.length > 4096
+  if (isUntrustedBrowserRuntime() || !input.userToken || input.userToken.length > 4096
     || !Number.isSafeInteger(input.page) || input.page < 1 || input.page > 10
     || (input.installationId !== undefined && !numeric.test(input.installationId))) {
     throw new Error('GitHub repositories are unavailable.');
@@ -89,7 +91,7 @@ export async function verifyGitHubInstallationRepository(input: {
   repositoryId: string;
   fetcher?: typeof fetch;
 }): Promise<VerifiedGitHubRepository> {
-  if (typeof window !== 'undefined') throw new Error('GitHub verification requires a server.');
+  if (isUntrustedBrowserRuntime()) throw new Error('GitHub verification requires a server.');
   const { userToken, installationId, repositoryId } = input;
   if (!numeric.test(installationId) || !numeric.test(repositoryId) || !userToken || userToken.length > 4096) {
     throw new Error('GitHub account could not be verified.');

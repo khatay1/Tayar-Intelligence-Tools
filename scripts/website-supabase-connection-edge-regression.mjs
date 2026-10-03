@@ -25,7 +25,7 @@ try {
     SUPABASE_SERVICE_ROLE_KEY: serviceKey, WEBSITE_SUPABASE_OAUTH_CLIENT_ID: 'supabase-client',
     WEBSITE_SUPABASE_OAUTH_CLIENT_SECRET: 'supabase-client-secret-value',
     WEBSITE_SUPABASE_PKCE_SECRET: 'server-only-pkce-secret-12345678901234567890',
-    WEBSITE_SUPABASE_CALLBACK_URL: 'https://platform.example/functions/v1/website-supabase-connection?action=callback',
+    WEBSITE_SUPABASE_CALLBACK_URL: 'https://abcdefghijklmnopqrst.supabase.co/functions/v1/website-supabase-connection?action=callback',
     WEBSITE_SUPABASE_RETURN_URL: 'https://tayar.example/builder',
     WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID: 'tayar-org' };
   const fetcher = async () => new Response('{}');
@@ -52,6 +52,7 @@ try {
   assert.equal(calls.filter(call => call[0] === 'endpoint').length, 2, 'CORS refusal/preflight stop before endpoint');
   for (const change of [{ SUPABASE_SERVICE_ROLE_KEY: 'sb_publishable_public_fixture' },
     { WEBSITE_SUPABASE_CALLBACK_URL: 'http://platform.example/functions/v1/website-supabase-connection?action=callback' },
+    { WEBSITE_SUPABASE_CALLBACK_URL: 'https://otherplatform000000.supabase.co/functions/v1/website-supabase-connection?action=callback' },
     { NEXT_PUBLIC_WEBSITE_SUPABASE_OAUTH_CLIENT_SECRET: 'leak' },
     { WEBSITE_SUPABASE_PKCE_SECRET: 'too-short' }, { WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID: 'bad/org' }]) {
     assert.throws(() => create({ environment: { ...environment, ...change } }), /deployment unavailable/);

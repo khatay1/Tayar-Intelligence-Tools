@@ -8,7 +8,8 @@ const dir = await mkdtemp(join(process.cwd(), 'node_modules', '.tayar-vercel-end
 try {
   const outfile = join(dir, 'endpoint.cjs');
   await build({ entryPoints: ['server/website-vercel-connection.ts'], bundle: true,
-    platform: 'node', format: 'cjs', outfile });
+    platform: 'node', format: 'cjs', outfile,
+    banner: { js: 'globalThis.window = {}; globalThis.Deno = { version: { deno: "fixture" } };' } });
   const { handleWebsiteVercelConnection: handle } = createRequire(import.meta.url)(outfile);
   const ownerId = '11111111-1111-4111-8111-111111111111';
   const projectId = '22222222-2222-4222-8222-222222222222';

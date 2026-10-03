@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { consumeWebsiteConnectionOAuthState } from './websiteConnectionOAuthStateService';
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const statePattern = /^[0-9a-f]{64}$/;
 const codePattern = /^[A-Za-z0-9._~-]{1,2048}$/;
@@ -23,7 +24,7 @@ function secret(value: unknown): value is string {
 /** Vercel External Integrations configure permissions centrally. The URL only
  * starts an installation and binds its callback to Tayar's one-use scope. */
 export function vercelAuthorizationUrl(input: { integrationSlug: string; state: string }): string {
-  if (typeof window !== 'undefined' || !slugPattern.test(input.integrationSlug)
+  if (isUntrustedBrowserRuntime() || !slugPattern.test(input.integrationSlug)
     || !statePattern.test(input.state)) throw new Error('Vercel connection is not configured.');
   const url = new URL(`https://vercel.com/integrations/${input.integrationSlug}/new`);
   url.searchParams.set('state', input.state);
@@ -38,7 +39,7 @@ export async function acceptVercelOAuthCallback(input: {
   clientId: string; clientSecret: string; callback: string; fetcher?: typeof fetch;
 }): Promise<{ ownerId: string; projectId: string; environment: 'preview' | 'production';
   accessToken: string; userId: string; teamId: string | null; configurationId: string }> {
-  if (typeof window !== 'undefined' || !providerId.test(input.clientId) || !secret(input.clientSecret)
+  if (isUntrustedBrowserRuntime() || !providerId.test(input.clientId) || !secret(input.clientSecret)
     || !codePattern.test(input.code) || !configurationId.test(input.callbackConfigurationId)
     || (input.callbackTeamId != null && !teamId.test(input.callbackTeamId))) {
     throw new Error('Vercel authorization failed.');

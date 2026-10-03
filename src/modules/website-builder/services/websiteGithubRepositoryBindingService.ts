@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { consumeWebsiteConnectionHandoff } from './websiteConnectionHandoffService';
 import { verifyGitHubInstallationRepository } from './websiteGithubInstallationService';
+import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,7 +21,7 @@ export async function bindWebsiteGitHubRepository(input: {
   fetcher?: typeof fetch;
   now?: () => string;
 }): Promise<{ connectionId: string; repositoryId: string; repositoryFullName?: string; version: number }> {
-  if (typeof window !== 'undefined') throw new Error('GitHub binding requires a trusted server.');
+  if (isUntrustedBrowserRuntime()) throw new Error('GitHub binding requires a trusted server.');
   if (!uuid.test(input.ownerId) || !uuid.test(input.projectId) || !uuid.test(input.handoffId)
     || (input.connectionId !== undefined && !uuid.test(input.connectionId))
     || (input.expectedVersion !== undefined && (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1))

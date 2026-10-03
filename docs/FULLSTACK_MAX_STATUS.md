@@ -1,11 +1,11 @@
 # Full-stack implementation checkpoint
 
-## Current main checkpoint — isolated provider configuration and PEM correction
+## Current main checkpoint — live GitHub App binding proof
 
 - GitHub OAuth, Supabase OAuth, a private Vercel integration and a private GitHub App were configured for the isolated Activation project. Their secrets remain server-side; no private value is stored in source or public-prefixed configuration.
 - Supabase preserves a terminal newline on the multiline GitHub App PEM. The Vercel connection runtime now removes exactly one LF or CRLF before strict PKCS#8 validation, while rejecting leading/trailing spaces and repeated line endings.
-- `website-github-connection` and `website-supabase-connection` are `ACTIVE` at version 6; `website-vercel-connection` is `ACTIVE` at version 7. A live Vercel preflight returned `204` with the expected no-store CORS headers. Full project health passed `322/322` and Edge syntax passed `32/32`.
-- The private GitHub App is installed only on `khatay1/Tayar-Intelligence-Tools`; GitHub confirms Metadata read-only plus Code read/write access. NEXT: run live callback/binding E2E. No customer export, Vercel deployment, Publish/Production effect or production-project mutation has occurred.
+- `website-github-connection` and `website-supabase-connection` are `ACTIVE` at version 8; `website-vercel-connection` is `ACTIVE` at version 9. The callback factories use the trusted Supabase origin rather than the ambient rewritten Edge URL, and server-only boundaries accept Deno Edge despite its `window` global while still rejecting real browser execution. Full project health passed, including project health `322/322`, Edge syntax `32/32` and all infrastructure regressions.
+- The private GitHub App is installed only on `khatay1/Tayar-Intelligence-Tools`; GitHub confirms Metadata read-only plus Code read/write access. Live GitHub App OAuth completed for the disposable Activation user, returned exactly one installation and that repository, and bound it to the disposable Preview project as `connected`, version 1, with `contents:write`. No source export, readiness promotion, Vercel deployment, Publish/Production effect or production-project mutation occurred.
 
 ## Previous main checkpoint — live isolated schema proof
 
