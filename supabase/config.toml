@@ -70,3 +70,8 @@ verify_jwt = false
 # inside the handler; this source-only function is absent from production deploy.
 [functions.website-supabase-connection]
 verify_jwt = false
+
+# Owner-scoped BYO publish orchestration. Supabase Gateway verifies the bearer
+# JWT before the handler re-checks the user and project ownership.
+[functions.website-byo-publish]
+verify_jwt = true
