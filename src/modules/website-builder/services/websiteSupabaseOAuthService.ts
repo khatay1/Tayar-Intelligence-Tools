@@ -5,6 +5,16 @@ import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 const statePattern = /^[0-9a-f]{64}$/;
 const codePattern = /^[A-Za-z0-9._~-]{1,2048}$/;
 const clientPattern = /^[A-Za-z0-9_-]{5,128}$/;
+const providerTokenMaxBytes = 16_384;
+const providerResponseMaxBytes = 65_536;
+const providerErrorCodes = new Set([
+  'invalid_grant', 'invalid_client', 'invalid_request', 'unauthorized_client',
+  'unsupported_grant_type', 'temporarily_unavailable', 'server_error', 'access_denied',
+]);
+
+function reportTokenExchangeFailure(details: Record<string, unknown>) {
+  console.error('website-supabase-oauth-token-exchange', JSON.stringify(details));
+}
 
 function callbackUrl(value: string): string {
   const url = new URL(value);
@@ -55,33 +65,94 @@ export async function acceptSupabaseOAuthCallback(input: {
   callback: string; pkceSecret: string; fetcher?: typeof fetch;
 }): Promise<{ ownerId: string; projectId: string; environment: 'preview' | 'production';
   accessToken: string; refreshToken: string; expiresIn: number }> {
-  if (isUntrustedBrowserRuntime() || !clientPattern.test(input.clientId)
-    || !input.clientSecret || input.clientSecret.length > 4096 || /[\r\n]/.test(input.clientSecret)
-    || !codePattern.test(input.code)) throw new Error('Supabase authorization failed.');
-  const callback = callbackUrl(input.callback);
-  const codeVerifier = await verifier(input.state, input.pkceSecret);
-  const scope = await consumeWebsiteConnectionOAuthState({ client: input.stateClient,
-    state: input.state, provider: 'supabase' });
+  const callbackPreconditions = {
+    trustedRuntime: !isUntrustedBrowserRuntime(),
+    clientId: clientPattern.test(input.clientId),
+    clientSecret: !!input.clientSecret && input.clientSecret.length <= 4096 && !/[\r\n]/.test(input.clientSecret),
+    code: codePattern.test(input.code),
+  };
+  if (Object.values(callbackPreconditions).some(value => !value)) {
+    reportTokenExchangeFailure({ stage: 'callback-precondition', ...callbackPreconditions });
+    throw new Error('Supabase authorization failed.');
+  }
+
+  let callback: string, codeVerifier: string;
   try {
-    const credentials = encoded(new TextEncoder().encode(`${input.clientId}:${input.clientSecret}`));
-    // Basic authentication uses standard base64, not URL encoding.
-    const basic = credentials.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(credentials.length / 4) * 4, '=');
-    const response = await (input.fetcher ?? fetch)('https://api.supabase.com/v1/oauth/token', {
-      method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(8000),
+    callback = callbackUrl(input.callback);
+    codeVerifier = await verifier(input.state, input.pkceSecret);
+  } catch {
+    reportTokenExchangeFailure({ stage: 'callback-config' });
+    throw new Error('Supabase authorization failed.');
+  }
+
+  let scope: Awaited<ReturnType<typeof consumeWebsiteConnectionOAuthState>>;
+  try {
+    scope = await consumeWebsiteConnectionOAuthState({ client: input.stateClient,
+      state: input.state, provider: 'supabase' });
+  } catch {
+    reportTokenExchangeFailure({ stage: 'state-consume' });
+    throw new Error('Supabase authorization failed.');
+  }
+
+  const credentials = encoded(new TextEncoder().encode(`${input.clientId}:${input.clientSecret}`));
+  // Basic authentication uses standard base64, not URL encoding.
+  const basic = credentials.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(credentials.length / 4) * 4, '=');
+  let response: Response;
+  try {
+    response = await (input.fetcher ?? fetch)('https://api.supabase.com/v1/oauth/token', {
+      method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(30_000),
       headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded',
         Authorization: `Basic ${basic}` },
       body: new URLSearchParams({ grant_type: 'authorization_code', code: input.code,
         redirect_uri: callback, code_verifier: codeVerifier }),
     });
-    if (!response.ok || Number(response.headers.get('content-length') ?? 0) > 16_384) throw new Error();
-    const raw = await response.text();
-    if (raw.length > 16_384) throw new Error();
-    const tokens = JSON.parse(raw);
-    if (tokens?.token_type?.toLowerCase() !== 'bearer'
-      || typeof tokens.access_token !== 'string' || tokens.access_token.length < 20 || tokens.access_token.length > 4096
-      || typeof tokens.refresh_token !== 'string' || tokens.refresh_token.length < 20 || tokens.refresh_token.length > 4096
-      || !Number.isInteger(tokens.expires_in) || tokens.expires_in < 60 || tokens.expires_in > 86_400) throw new Error();
-    return { ownerId: scope.ownerId, projectId: scope.projectId, environment: scope.environment,
-      accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresIn: tokens.expires_in };
-  } catch { throw new Error('Supabase authorization failed.'); }
+  } catch (error) {
+    const reason = error instanceof DOMException && error.name === 'TimeoutError' ? 'timeout' : 'request';
+    reportTokenExchangeFailure({ stage: 'network', reason });
+    throw new Error('Supabase authorization failed.');
+  }
+
+  if (!response.ok) {
+    let providerError = 'unknown';
+    try {
+      const failure = JSON.parse(await response.clone().text());
+      if (typeof failure.error === 'string' && providerErrorCodes.has(failure.error)) providerError = failure.error;
+    } catch { /* keep a redacted unknown provider error */ }
+    reportTokenExchangeFailure({ stage: 'http', status: response.status, providerError });
+    throw new Error('Supabase authorization failed.');
+  }
+  if (Number(response.headers.get('content-length') ?? 0) > providerResponseMaxBytes) {
+    reportTokenExchangeFailure({ stage: 'response-size' });
+    throw new Error('Supabase authorization failed.');
+  }
+
+  let raw: string;
+  try { raw = await response.text(); }
+  catch {
+    reportTokenExchangeFailure({ stage: 'response-read' });
+    throw new Error('Supabase authorization failed.');
+  }
+  if (new TextEncoder().encode(raw).length > providerResponseMaxBytes) {
+    reportTokenExchangeFailure({ stage: 'response-size' });
+    throw new Error('Supabase authorization failed.');
+  }
+
+  let tokens: Record<string, unknown>;
+  try { tokens = JSON.parse(raw); }
+  catch {
+    reportTokenExchangeFailure({ stage: 'response-json' });
+    throw new Error('Supabase authorization failed.');
+  }
+  const validToken = (value: unknown): value is string => typeof value === 'string' && value.length >= 20
+    && new TextEncoder().encode(value).length <= providerTokenMaxBytes && !/[\r\n]/.test(value);
+  if (typeof tokens.token_type !== 'string' || tokens.token_type.toLowerCase() !== 'bearer'
+    || !validToken(tokens.access_token) || !validToken(tokens.refresh_token)
+    || !Number.isInteger(tokens.expires_in) || Number(tokens.expires_in) < 60 || Number(tokens.expires_in) > 86_400) {
+    reportTokenExchangeFailure({ stage: 'response-shape', tokenType: typeof tokens.token_type,
+      accessToken: typeof tokens.access_token, refreshToken: typeof tokens.refresh_token,
+      expiresIn: Number.isInteger(tokens.expires_in) ? tokens.expires_in : typeof tokens.expires_in });
+    throw new Error('Supabase authorization failed.');
+  }
+  return { ownerId: scope.ownerId, projectId: scope.projectId, environment: scope.environment,
+    accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresIn: Number(tokens.expires_in) };
 }
