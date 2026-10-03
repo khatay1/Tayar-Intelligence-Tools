@@ -165,6 +165,7 @@ async function acceptSupabaseOAuthCallback(input) {
       const failure = JSON.parse(await response.clone().text());
       if (typeof failure.error === "string" && providerErrorCodes.has(failure.error)) providerError = failure.error;
     } catch {
+      providerError = "unknown";
     }
     reportTokenExchangeFailure({ stage: "http", status: response.status, providerError });
     throw new Error("Supabase authorization failed.");
