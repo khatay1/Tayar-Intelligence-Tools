@@ -41,7 +41,7 @@ export async function runWebsiteOwnedByoPublish(input:{
   client:Client;operationId:string;projectId:string;ownerId:string;environment:'preview';
   githubConnectionId:string;vercelConnectionId:string;reader:OwnedSourceReader;
   platformOrigin:string;platformUrl:string;platformVercelAccountId:string;
-  githubAppClientId:string;githubAppPrivateKeyPkcs8:string;
+  githubClientId:string;githubClientSecret:string;
   ownerCurrent():Promise<boolean>;
   verifyRuntime:Parameters<typeof captureWebsiteOwnedApplicationSource>[0]['verifyRuntime'];
   requiredEnvironment(capabilities:ByoSourceCapabilities):Promise<string[]>;
@@ -87,8 +87,8 @@ export async function runWebsiteOwnedByoPublish(input:{
     exportGitHub:async()=>{const capturedSource=await source();return exportWebsiteProjectToOwnedGitHub({projectId:input.projectId,
       ownerId:input.ownerId,connectionId:input.githubConnectionId,environment:input.environment,operationId:input.operationId,
       reader:input.reader,compile:async()=>{if(!await capturedSource.isCurrent())throw new Error();return capturedSource.files;},
-      expectedSourceDigest:capturedSource.sourceDigest,client:input.client,appClientId:input.githubAppClientId,
-      appPrivateKeyPkcs8:input.githubAppPrivateKeyPkcs8,fetcher:input.fetcher});},
+      expectedSourceDigest:capturedSource.sourceDigest,client:input.client,githubClientId:input.githubClientId,
+      githubClientSecret:input.githubClientSecret,fetcher:input.fetcher});},
     beginDeployment:async(headSha,names)=>{const capturedSource=await source(),vercel=await grant();
       await environment();if(!runtimeReceipt)throw new Error();
       const prior=await input.client.rpc('website_vercel_deployment_attempt_for_worker',{p_connection_id:input.vercelConnectionId,

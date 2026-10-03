@@ -31,6 +31,8 @@ export const infrastructureMigrationFiles = Object.freeze([
   '20261002090825_website_byo_deployment_runtime_receipt.sql',
   '20261002100908_website_byo_production_runtime_environment.sql',
   '20261002144040_website_byo_vercel_runtime_disconnect_cleanup.sql',
+  '20261003231500_website_byo_github_oauth_custody.sql',
+  '20261003231600_website_byo_github_custody_cleanup_schedule.sql',
 ]);
 
 const publishFunctionName = 'website-byo-publish';
@@ -50,7 +52,7 @@ const providers = Object.freeze({
     functionName: 'website-vercel-connection',
     callback: 'WEBSITE_VERCEL_CALLBACK_URL', returnUrl: 'WEBSITE_VERCEL_RETURN_URL', publicUrl: 'VITE_WEBSITE_VERCEL_CONNECTION_URL',
     secrets: ['WEBSITE_VERCEL_INTEGRATION_SLUG', 'WEBSITE_VERCEL_CLIENT_ID', 'WEBSITE_VERCEL_CLIENT_SECRET',
-      'TAYAR_PLATFORM_VERCEL_ACCOUNT_ID', 'TAYAR_GITHUB_APP_CLIENT_ID', 'TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8'],
+      'TAYAR_PLATFORM_VERCEL_ACCOUNT_ID'],
   },
 });
 const nonEmpty = value => typeof value === 'string' && value.length > 0 && value.trim() === value && !value.includes('\0');
@@ -103,18 +105,16 @@ export async function inspectWebsiteInfrastructureActivation(input = {}) {
   checks.push(result('production-deploy-isolation', accidentallyDeployed.length === 0, accidentallyDeployed));
 
   const requiredKeys = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
-    'TAYAR_PLATFORM_ORIGIN', 'TAYAR_PLATFORM_SUPABASE_ORGANIZATION_ID',
     ...Object.values(providers).flatMap(provider => provider.secrets),
     ...Object.values(providers).flatMap(provider => [provider.callback, provider.returnUrl, provider.publicUrl])];
   const missingKeys = [...new Set(requiredKeys)].filter(key => !nonEmpty(environment[key]));
   checks.push(result('configuration-presence', missingKeys.length === 0, missingKeys));
 
-  const applicationOrigin = safeUrl(environment.TAYAR_PLATFORM_ORIGIN);
-  checks.push(result('application-origin', Boolean(applicationOrigin && applicationOrigin.origin === environment.TAYAR_PLATFORM_ORIGIN
-    && applicationOrigin.pathname === '/' && !applicationOrigin.search && !applicationOrigin.hash),
-    applicationOrigin && applicationOrigin.origin === environment.TAYAR_PLATFORM_ORIGIN
-      && applicationOrigin.pathname === '/' && !applicationOrigin.search && !applicationOrigin.hash
-      ? [] : ['TAYAR_PLATFORM_ORIGIN']));
+  const applicationReturn = safeUrl(environment.WEBSITE_GITHUB_RETURN_URL);
+  const applicationOrigin = applicationReturn && !applicationReturn.search && !applicationReturn.hash
+    ? applicationReturn.origin : null;
+  checks.push(result('application-origin', Boolean(applicationOrigin),
+    applicationOrigin ? [] : ['WEBSITE_GITHUB_RETURN_URL']));
   const platform = safeUrl(environment.SUPABASE_URL);
   const platformOrigin = platform && platform.origin === environment.SUPABASE_URL && platform.pathname === '/'
     && /^[a-z0-9]{20}[.]supabase[.]co$/.test(platform.hostname) ? platform.origin : null;
@@ -134,7 +134,7 @@ export async function inspectWebsiteInfrastructureActivation(input = {}) {
     else returnOrigins.add(destination.origin);
   }
   if (returnOrigins.size > 1) returnFailures.push('shared-origin');
-  if (applicationOrigin && returnOrigins.size === 1 && !returnOrigins.has(applicationOrigin.origin))
+  if (applicationOrigin && returnOrigins.size === 1 && !returnOrigins.has(applicationOrigin))
     returnFailures.push('application-origin');
   checks.push(result('oauth-callbacks', callbackFailures.length === 0, callbackFailures));
   checks.push(result('browser-endpoints', endpointFailures.length === 0, endpointFailures));

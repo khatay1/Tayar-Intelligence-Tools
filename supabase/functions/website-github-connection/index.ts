@@ -52,12 +52,66 @@ async function consumeWebsiteConnectionOAuthState(input) {
 var statePattern2 = /^[0-9a-f]{64}$/;
 var appId = /^[a-zA-Z0-9_]{5,100}$/;
 var codePattern = /^[a-zA-Z0-9_-]{1,1024}$/;
+var providerTokenMaxBytes = 65536;
 function callbackUrl(value) {
   const url = new URL(value);
   if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.hash || url.search && url.search !== "?action=callback") {
     throw new Error("GitHub connection is not configured.");
   }
   return url.toString();
+}
+function token(value) {
+  return typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes && !/[\r\n\s]/.test(value);
+}
+function seconds(value, max) {
+  if (value === void 0 || value === null) return null;
+  return Number.isSafeInteger(value) && value > 0 && value <= max ? value : NaN;
+}
+function parseGrant(value, receivedAt) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  const row = value;
+  const expiresIn = seconds(row.expires_in, 86400);
+  const refreshExpiresIn = seconds(row.refresh_token_expires_in, 31536e3);
+  const refreshToken = row.refresh_token === void 0 || row.refresh_token === null ? null : row.refresh_token;
+  if (row.token_type?.toString().toLowerCase() !== "bearer" || !token(row.access_token) || Number.isNaN(expiresIn) || Number.isNaN(refreshExpiresIn) || refreshToken !== null && !token(refreshToken) || (expiresIn !== null || refreshExpiresIn !== null || refreshToken !== null) && (expiresIn === null || refreshExpiresIn === null || refreshToken === null) || expiresIn !== null && refreshExpiresIn !== null && refreshExpiresIn <= expiresIn || !Number.isFinite(Date.parse(receivedAt))) throw new Error();
+  return { accessToken: row.access_token, receivedAt, expiresIn, refreshToken, refreshTokenExpiresIn: refreshExpiresIn };
+}
+function parseStoredGrant(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  const row = value;
+  if (Object.keys(row).some((key) => !["accessToken", "receivedAt", "expiresIn", "refreshToken", "refreshTokenExpiresIn"].includes(key)) || !token(row.accessToken) || typeof row.receivedAt !== "string" || !Number.isFinite(Date.parse(row.receivedAt)) || !(row.expiresIn === null || Number.isSafeInteger(row.expiresIn) && row.expiresIn > 0 && row.expiresIn <= 86400) || !(row.refreshToken === null || token(row.refreshToken)) || !(row.refreshTokenExpiresIn === null || Number.isSafeInteger(row.refreshTokenExpiresIn) && row.refreshTokenExpiresIn > 0 && row.refreshTokenExpiresIn <= 31536e3) || (row.expiresIn !== null || row.refreshToken !== null || row.refreshTokenExpiresIn !== null) && (row.expiresIn === null || row.refreshToken === null || row.refreshTokenExpiresIn === null) || row.expiresIn !== null && row.refreshTokenExpiresIn !== null && row.refreshTokenExpiresIn <= row.expiresIn) throw new Error();
+  return {
+    accessToken: row.accessToken,
+    receivedAt: row.receivedAt,
+    expiresIn: row.expiresIn,
+    refreshToken: row.refreshToken,
+    refreshTokenExpiresIn: row.refreshTokenExpiresIn
+  };
+}
+function encodeGitHubOAuthHandoff(grant) {
+  return JSON.stringify(parseStoredGrant(grant));
+}
+function decodeGitHubOAuthHandoff(value) {
+  if (typeof value !== "string" || value.length < 20 || new TextEncoder().encode(value).length > providerTokenMaxBytes) {
+    throw new Error("GitHub authorization failed.");
+  }
+  try {
+    return parseStoredGrant(JSON.parse(value));
+  } catch {
+    throw new Error("GitHub authorization failed.");
+  }
+}
+function githubGrantExpiries(grant) {
+  const parsed = parseStoredGrant(grant), received = Date.parse(parsed.receivedAt);
+  const access = parsed.expiresIn === null ? null : received + parsed.expiresIn * 1e3;
+  const refresh = parsed.refreshTokenExpiresIn === null ? null : received + parsed.refreshTokenExpiresIn * 1e3;
+  const custody = refresh ?? received + 180 * 864e5;
+  if (!Number.isFinite(custody) || custody <= received) throw new Error("GitHub authorization failed.");
+  return {
+    accessExpiresAt: access === null ? null : new Date(access).toISOString(),
+    refreshExpiresAt: refresh === null ? null : new Date(refresh).toISOString(),
+    custodyExpiresAt: new Date(custody).toISOString()
+  };
 }
 function githubAuthorizationUrl(input) {
   if (!appId.test(input.clientId) || !statePattern2.test(input.state)) throw new Error("GitHub connection is not configured.");
@@ -67,37 +121,48 @@ function githubAuthorizationUrl(input) {
   url.searchParams.set("state", input.state);
   return url.toString();
 }
-async function exchangeGitHubAppUserCode(input) {
+async function tokenRequest(input) {
   if (isUntrustedBrowserRuntime()) throw new Error("GitHub exchange requires a server.");
-  if (!appId.test(input.clientId) || !input.clientSecret || input.clientSecret.length > 4096 || !codePattern.test(input.code)) throw new Error("GitHub authorization failed.");
+  if (!appId.test(input.clientId) || !input.clientSecret || input.clientSecret.length > 4096 || /[\r\n]/.test(input.clientSecret)) {
+    throw new Error("GitHub authorization failed.");
+  }
   try {
-    const body = new URLSearchParams({
-      client_id: input.clientId,
-      client_secret: input.clientSecret,
-      code: input.code,
-      redirect_uri: callbackUrl(input.callback)
-    });
     const response = await (input.fetcher ?? fetch)("https://github.com/login/oauth/access_token", {
       method: "POST",
       redirect: "error",
       signal: AbortSignal.timeout(8e3),
       headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
-      body
+      body: input.body
     });
     if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 16384) throw new Error();
     const raw = await response.text();
     if (raw.length > 16384) throw new Error();
-    const token = JSON.parse(raw);
-    if (!token || token.token_type?.toLowerCase() !== "bearer" || typeof token.access_token !== "string" || token.access_token.length < 20 || token.access_token.length > 4096) throw new Error();
-    return token.access_token;
+    const now = (input.now ?? Date.now)();
+    if (!Number.isFinite(now)) throw new Error();
+    return parseGrant(JSON.parse(raw), new Date(now).toISOString());
   } catch {
     throw new Error("GitHub authorization failed.");
   }
 }
+async function exchangeGitHubAppUserCode(input) {
+  if (!codePattern.test(input.code)) throw new Error("GitHub authorization failed.");
+  const body = new URLSearchParams({
+    client_id: input.clientId,
+    client_secret: input.clientSecret,
+    code: input.code,
+    redirect_uri: callbackUrl(input.callback)
+  });
+  return tokenRequest({ ...input, body });
+}
 async function acceptGitHubOAuthCallback(input) {
   const scope = await consumeWebsiteConnectionOAuthState({ client: input.stateClient, state: input.state, provider: "github" });
-  const userToken = await exchangeGitHubAppUserCode(input);
-  return { ownerId: scope.ownerId, projectId: scope.projectId, environment: scope.environment, userToken };
+  const grant = await exchangeGitHubAppUserCode(input);
+  return {
+    ownerId: scope.ownerId,
+    projectId: scope.projectId,
+    environment: scope.environment,
+    userToken: encodeGitHubOAuthHandoff(grant)
+  };
 }
 
 // src/modules/website-builder/services/websiteConnectionHandoffService.ts
@@ -158,12 +223,12 @@ function object(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("GitHub account could not be verified.");
   return value;
 }
-async function githubGet(fetcher, token, path) {
+async function githubGet(fetcher, token2, path) {
   const response = await fetcher(`${api}${path}`, {
     method: "GET",
     redirect: "error",
     signal: AbortSignal.timeout(8e3),
-    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, "X-GitHub-Api-Version": "2022-11-28" }
+    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token2}`, "X-GitHub-Api-Version": "2022-11-28" }
   });
   if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 3e6) throw new Error("GitHub account could not be verified.");
   const body = await response.text();
@@ -263,25 +328,26 @@ async function bindWebsiteGitHubRepository(input) {
   if (!uuid3.test(input.ownerId) || !uuid3.test(input.projectId) || !uuid3.test(input.handoffId) || input.connectionId !== void 0 && !uuid3.test(input.connectionId) || input.expectedVersion !== void 0 && (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1) || Boolean(input.connectionId) !== Boolean(input.expectedVersion) || !input.isCurrentOwner()) throw new Error("GitHub connection could not be verified.");
   const connectionId = input.connectionId ?? input.handoffId;
   const expectedVersion = input.expectedVersion ?? 0;
+  const reconcileArgs = {
+    p_connection_id: connectionId,
+    p_project_id: input.projectId,
+    p_owner_id: input.ownerId,
+    p_expected_version: expectedVersion,
+    p_installation_id: input.installationId,
+    p_repository_id: input.repositoryId,
+    p_operation_id: input.handoffId
+  };
   const reconcile = async () => {
-    const { data, error } = await input.client.rpc("website_reconcile_infrastructure_connection", {
-      p_id: connectionId,
-      p_project_id: input.projectId,
-      p_owner_id: input.ownerId,
-      p_provider: "github",
-      p_commit_id: input.handoffId,
-      p_expected_version: expectedVersion,
-      p_target_id: input.repositoryId
-    });
+    const { data, error } = await input.client.rpc("website_reconcile_github_repository_binding", reconcileArgs);
     if (error || !input.isCurrentOwner()) throw new Error();
-    if (!data) return null;
-    if (data.connectionId !== connectionId || data.repositoryId !== input.repositoryId || data.version !== expectedVersion + 1 || !["preview", "production"].includes(data.environment)) throw new Error();
-    return { connectionId, repositoryId: input.repositoryId, version: data.version };
+    if (data === null) return null;
+    if (data !== expectedVersion + 1) throw new Error();
+    return { connectionId, repositoryId: input.repositoryId, version: data };
   };
   try {
     const previouslyCommitted = await reconcile();
     if (previouslyCommitted) return previouslyCommitted;
-    const grant = await consumeWebsiteConnectionHandoff({
+    const handoff = await consumeWebsiteConnectionHandoff({
       client: input.client,
       id: input.handoffId,
       ownerId: input.ownerId,
@@ -290,27 +356,33 @@ async function bindWebsiteGitHubRepository(input) {
       isCurrentOwner: input.isCurrentOwner
     });
     if (!input.isCurrentOwner()) throw new Error();
+    const grant = decodeGitHubOAuthHandoff(handoff.userToken);
+    const expiries = githubGrantExpiries(grant);
+    if (expiries.accessExpiresAt !== null && Date.parse(expiries.accessExpiresAt) <= Date.now()) throw new Error();
     const observed = await verifyGitHubInstallationRepository({
-      userToken: grant.userToken,
+      userToken: grant.accessToken,
       installationId: input.installationId,
       repositoryId: input.repositoryId,
       fetcher: input.fetcher
     });
     if (!input.isCurrentOwner()) throw new Error();
-    const { data, error } = await input.client.rpc("website_record_infrastructure_connection", {
-      p_id: connectionId,
+    const { data, error } = await input.client.rpc("website_bind_github_repository", {
+      p_connection_id: connectionId,
       p_project_id: input.projectId,
       p_owner_id: input.ownerId,
       p_expected_version: expectedVersion,
-      p_provider: "github",
-      p_environment: grant.environment,
+      p_environment: handoff.environment,
       p_account_id: observed.accountId,
-      p_target_id: observed.repositoryId,
-      p_permissions: ["contents:write"],
-      p_status: "connected",
-      p_operation_id: null,
-      p_verified_at: (input.now ?? (() => (/* @__PURE__ */ new Date()).toISOString()))(),
-      p_commit_id: input.handoffId
+      p_installation_id: observed.installationId,
+      p_repository_id: observed.repositoryId,
+      p_repository_full_name: observed.repositoryFullName,
+      p_default_branch: observed.defaultBranch,
+      p_access_token: grant.accessToken,
+      p_refresh_token: grant.refreshToken,
+      p_access_expires_at: expiries.accessExpiresAt,
+      p_refresh_expires_at: expiries.refreshExpiresAt,
+      p_custody_expires_at: expiries.custodyExpiresAt,
+      p_operation_id: input.handoffId
     });
     if (error || data !== expectedVersion + 1 || !input.isCurrentOwner()) {
       const committed = await reconcile();
@@ -376,11 +448,11 @@ async function handleWebsiteGitHubConnection(request, context) {
   }
   if (!["begin", "options", "bind"].includes(action ?? "") || request.method !== "POST") return json(405, { error: "Method not allowed." });
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get("content-type") ?? "")) return json(415, { error: "JSON request required." });
-  const token = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(request.headers.get("authorization") ?? "")?.[1];
-  if (!token || token.length > 16384) return json(401, { error: "Sign in required." });
+  const token2 = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(request.headers.get("authorization") ?? "")?.[1];
+  if (!token2 || token2.length > 16384) return json(401, { error: "Sign in required." });
   let ownerId;
   try {
-    const identity = await context.platform.auth.getUser(token);
+    const identity = await context.platform.auth.getUser(token2);
     if (identity.error || !identity.data.user || identity.data.user.is_anonymous || !uuid4.test(identity.data.user.id)) throw new Error();
     ownerId = identity.data.user.id;
   } catch {
@@ -424,8 +496,9 @@ async function handleWebsiteGitHubConnection(request, context) {
         provider: "github",
         isCurrentOwner: () => true
       });
+      const oauth = decodeGitHubOAuthHandoff(grant.userToken);
       const choices = await listGitHubRepositoryChoices({
-        userToken: grant.userToken,
+        userToken: oauth.accessToken,
         installationId: input.installationId,
         page: input.page,
         fetcher: context.fetcher

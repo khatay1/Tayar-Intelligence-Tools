@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { generateKeyPairSync } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -25,36 +24,40 @@ try {
     assert.deepEqual(args, { p_project_id: projectId });
     return { data: [connection], error: null };
   } };
-  let exactRow = exact;
+  let exactRow = exact, custodyReads = 0;
   const serviceClient = { async rpc(name, args) {
-    assert.equal(name, 'website_byo_connection_for_worker');
-    assert.deepEqual(args, { p_connection_id: connectionId, p_project_id: projectId, p_owner_id: ownerId });
-    return { data: exactRow, error: null };
+    if (name === 'website_byo_connection_for_worker') {
+      assert.deepEqual(args, { p_connection_id: connectionId, p_project_id: projectId, p_owner_id: ownerId });
+      return { data: exactRow, error: null };
+    }
+    if (name === 'website_read_github_oauth_custody') {
+      custodyReads++;
+      assert.deepEqual(args, { p_connection_id: connectionId, p_project_id: projectId,
+        p_owner_id: ownerId, p_expected_connection_version: 3 });
+      return { data: { version: 1, accountId: '17', installationId: '42', repositoryId: '88',
+        repositoryFullName: 'customer/booking-app', defaultBranch: 'main', environment: 'preview',
+        accessExpiresAt: null, refreshExpiresAt: null,
+        custodyExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        grant: { accessToken: 'github-long-lived-user-token-1234567890', refreshToken: null } }, error: null };
+    }
+    throw new Error(`Unexpected RPC ${name}`);
   } };
-  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
-  const privateKeyPkcs8 = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
-  let providerCalls = 0;
-  const fetcher = async (url, options) => {
-    providerCalls++;
-    assert.match(options.headers.Authorization, /^Bearer /);
-    const payload = url.includes('/app/installations?')
-      ? [{ id: 42, account: { id: 17 }, permissions: { contents: 'write' }, suspended_at: null }]
-      : { token: 'fixture-installation-token-1234567890123456',
-        expires_at: new Date(Date.now() + 3_600_000).toISOString(), permissions: { contents: 'write' },
-        repositories: [{ id: 88, owner: { id: 17 }, full_name: 'customer/booking-app', default_branch: 'main' }] };
-    return { ok: true, headers: { get: () => null }, text: async () => JSON.stringify(payload) };
-  };
-  let current = true, ownerChecks = 0;
-  const load = create({ ownerClient, serviceClient, githubAppClientId: 'Iv1_fixture',
-    githubAppPrivateKeyPkcs8: privateKeyPkcs8, fetcher });
+  let current = true, ownerChecks = 0, providerCalls = 0;
+  const load = create({ ownerClient, serviceClient, githubClientId: 'Iv1_fixture',
+    githubClientSecret: 'fixture-client-secret-value',
+    fetcher: async () => { providerCalls++; throw new Error('valid custody must not call GitHub'); } });
   assert.deepEqual(await load({ ownerId, projectId, isCurrentOwner: async () => { ownerChecks++; return current; } }),
     { repositoryId: '88', repositoryOwner: 'customer', repositoryName: 'booking-app', productionBranch: 'main' });
-  assert.equal(providerCalls, 2); assert.ok(ownerChecks >= 4);
+  assert.equal(custodyReads, 1);
+  assert.equal(providerCalls, 0);
+  assert.ok(ownerChecks >= 4);
+
   exactRow = { ...exact, version: 4 };
   assert.equal(await load({ ownerId, projectId, isCurrentOwner: async () => true }), null);
-  assert.equal(providerCalls, 2, 'service projection mismatch stops before GitHub');
+  assert.equal(custodyReads, 1, 'service projection mismatch stops before OAuth custody');
+
   exactRow = exact; current = false;
   assert.equal(await load({ ownerId, projectId, isCurrentOwner: async () => current }), null);
-  assert.equal(providerCalls, 2, 'stale owner stops before registry/provider access');
-  console.log('PASS Vercel GitHub target: owner projection, exact service recheck, live App identity and stale/mismatch refusal');
+  assert.equal(custodyReads, 1, 'stale owner stops before registry/custody access');
+  console.log('PASS Vercel GitHub target: owner projection, exact service recheck, OAuth custody identity and stale/mismatch refusal');
 } finally { await rm(dir, { recursive: true, force: true }); }

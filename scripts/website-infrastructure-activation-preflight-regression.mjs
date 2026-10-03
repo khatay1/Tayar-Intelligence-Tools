@@ -11,10 +11,6 @@ const environment = {
   WEBSITE_SUPABASE_PKCE_SECRET: 'p'.repeat(40), WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID: 'isolated-org',
   WEBSITE_VERCEL_INTEGRATION_SLUG: 'tayar-connect', WEBSITE_VERCEL_CLIENT_ID: 'vercel-client',
   WEBSITE_VERCEL_CLIENT_SECRET: 'v'.repeat(32), TAYAR_PLATFORM_VERCEL_ACCOUNT_ID: 'team_isolated',
-  TAYAR_PLATFORM_ORIGIN: 'https://isolated.tayar.example',
-  TAYAR_PLATFORM_SUPABASE_ORGANIZATION_ID: 'isolated-supabase-org',
-  TAYAR_GITHUB_APP_CLIENT_ID: 'Iv1_fixture',
-  TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8: `-----BEGIN PRIVATE KEY-----\n${'A'.repeat(64)}\n-----END PRIVATE KEY-----`,
 };
 for (const provider of ['github', 'supabase', 'vercel']) {
   const upper = provider.toUpperCase(), functionName = `website-${provider}-connection`;
@@ -26,11 +22,11 @@ const ready = await inspectWebsiteInfrastructureActivation({ environment });
 assert.equal(ready.ready, true);
 assert.equal(ready.checks.find(check => check.id === 'publish-jwt-config').ok, true);
 assert.equal(ready.checks.find(check => check.id === 'application-origin').ok, true);
-assert.equal(infrastructureMigrationFiles.length, 29);
+assert.equal(infrastructureMigrationFiles.length, 31);
 assert.ok(ready.checks.every(check => check.ok));
 const serialized = JSON.stringify(ready);
 for (const secret of [environment.SUPABASE_SERVICE_ROLE_KEY, environment.WEBSITE_GITHUB_APP_CLIENT_SECRET,
-  environment.WEBSITE_SUPABASE_PKCE_SECRET, environment.TAYAR_GITHUB_APP_PRIVATE_KEY_PKCS8])
+  environment.WEBSITE_SUPABASE_PKCE_SECRET])
   assert.ok(!serialized.includes(secret), 'report must not expose configured values');
 
 const incomplete = await inspectWebsiteInfrastructureActivation({ environment: {} });
@@ -47,7 +43,7 @@ assert.deepEqual(wrongOrigin.checks.find(check => check.id === 'no-public-secret
 const missingFiles = await inspectWebsiteInfrastructureActivation({ environment, exists: async () => false,
   readText: async () => { throw new Error('missing fixture'); } });
 assert.equal(missingFiles.ready, false);
-assert.equal(missingFiles.checks.find(check => check.id === 'migration-manifest').missing.length, 29);
+assert.equal(missingFiles.checks.find(check => check.id === 'migration-manifest').missing.length, 31);
 assert.equal(missingFiles.checks.find(check => check.id === 'generated-functions').missing.length, 4);
 assert.deepEqual(missingFiles.checks.find(check => check.id === 'production-deploy-isolation').missing,
   ['scripts/admin-hardening-deploy.ps1']);

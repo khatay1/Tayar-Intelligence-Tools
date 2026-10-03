@@ -21,7 +21,8 @@ try {
   const callback = 'https://platform.example/functions/v1/website-github-connection?action=callback';
   const returnUrl = 'https://tayar.example/builder';
   const token = 'fixture-github-token-12345678901234567890';
-  let writes = [];
+  const handoff = JSON.stringify({ accessToken: token, receivedAt: '2026-10-03T20:00:00.000Z', expiresIn: null, refreshToken: null, refreshTokenExpiresIn: null });
+  let writes = [], storedHandoff = handoff;
   let authorized = true;
   const platform = {
     auth: { getUser: async () => ({ data: { user: { id: ownerId, is_anonymous: false } }, error: null }) },
@@ -31,13 +32,13 @@ try {
       writes.push({ name, args });
       if (name === 'website_create_connection_oauth_state') return { error: null };
       if (name === 'website_consume_connection_oauth_state') return { data: { ownerId, projectId, environment: 'production', provider: 'github' }, error: null };
-      if (name === 'website_store_connection_handoff') return { error: null };
+      if (name === 'website_store_connection_handoff') { storedHandoff = args.p_token; return { error: null }; }
       if (name === 'website_peek_connection_handoff' || name === 'website_consume_connection_handoff') {
         if (args.p_owner_id !== ownerId || args.p_project_id !== projectId) return { data: null, error: null };
-        return { data: { environment: 'production', userToken: token }, error: null };
+        return { data: { environment: 'production', userToken: storedHandoff }, error: null };
       }
-      if (name === 'website_reconcile_infrastructure_connection') return { data: null, error: null };
-      if (name === 'website_record_infrastructure_connection') return { data: 1, error: null };
+      if (name === 'website_reconcile_github_repository_binding') return { data: null, error: null };
+      if (name === 'website_bind_github_repository') return { data: 1, error: null };
       throw new Error(`Unexpected RPC ${name}`);
     },
   };
@@ -79,7 +80,12 @@ try {
   assert.match(destination.hash, /^#tayar_github_handoff=[0-9a-f-]{36}$/);
   assert.ok(!returned.headers.get('location').includes(token));
   const stored = writes.find(write => write.name === 'website_store_connection_handoff');
-  assert.equal(stored.args.p_token, token);
+  const storedGrant = JSON.parse(stored.args.p_token);
+  assert.equal(storedGrant.accessToken, token);
+  assert.equal(storedGrant.refreshToken, null);
+  assert.equal(storedGrant.expiresIn, null);
+  assert.ok(Number.isFinite(Date.parse(storedGrant.receivedAt)));
+  assert.ok(!stored.args.p_token.includes(context.clientSecret));
   assert.equal(stored.args.p_owner_id, ownerId);
   const handoffId = stored.args.p_id;
   const post = (action, body) => new Request(callback.replace('action=callback', `action=${action}`), { method: 'POST',
@@ -93,15 +99,18 @@ try {
   const bind = await handle(post('bind', { installationId: '42', repositoryId: '88' }), context);
   assert.equal(bind.status, 200);
   assert.equal((await bind.json()).status, 'connected');
-  const recorded = writes.find(write => write.name === 'website_record_infrastructure_connection');
+  const recorded = writes.find(write => write.name === 'website_bind_github_repository');
   assert.equal(recorded.args.p_owner_id, ownerId);
-  assert.equal(recorded.args.p_target_id, '88');
-  assert.equal(recorded.args.p_status, 'connected');
-  assert.equal(recorded.args.p_commit_id, handoffId);
+  assert.equal(recorded.args.p_repository_id, '88');
+  assert.equal(recorded.args.p_repository_full_name, 'owner/site');
+  assert.equal(recorded.args.p_installation_id, '42');
+  assert.equal(recorded.args.p_access_token, token);
+  assert.equal(recorded.args.p_refresh_token, null);
+  assert.equal(recorded.args.p_operation_id, handoffId);
   assert.equal((await handle(new Request(`${callback}&state=wrong&code=code123`), context)).status, 400);
   assert.equal((await handle(request({ projectId, environment: 'production' }), { ...context, returnUrl: 'https://evil.example/path?next=1' })).status, 503);
   const beforeMisconfiguration = writes.length;
   assert.equal((await handle(request({ projectId, environment: 'production' }), { ...context, clientSecret: '' })).status, 503);
   assert.equal(writes.length, beforeMisconfiguration);
-  console.log('PASS GitHub endpoint: owner auth, fixed callback, opaque handoff, scoped choices and metadata-only binding');
+  console.log('PASS GitHub endpoint: owner auth, fixed callback, structured opaque handoff, scoped choices and atomic OAuth custody binding');
 } finally { await rm(dir, { recursive: true, force: true }); }

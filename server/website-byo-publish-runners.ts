@@ -18,7 +18,7 @@ function status(checkpoint:NonNullable<Awaited<ReturnType<ReturnType<typeof crea
  * versions, provider accounts, credentials or runtime bindings. */
 export function createWebsiteByoPublishRunners(input:{client:Client;reader:OwnedSourceReader;
   platformOrigin:string;platformUrl:string;platformSupabaseOrganizationId:string;platformVercelAccountId:string;
-  githubAppClientId:string;githubAppPrivateKeyPkcs8:string;verifyRuntime:VerifyRuntime;
+  githubClientId:string;githubClientSecret:string;verifyRuntime:VerifyRuntime;
   requiredEnvironment(capabilities:ByoSourceCapabilities):Promise<string[]>;fetcher?:typeof fetch;
 }){
   const capture=(scope:Pick<Scope,'ownerId'|'projectId'>&{requireProduction?:boolean})=>
@@ -33,8 +33,8 @@ export function createWebsiteByoPublishRunners(input:{client:Client;reader:Owned
         githubConnectionId:selected.targets.githubPreview.connectionId,
         vercelConnectionId:selected.targets.vercelPreview.connectionId,
         platformOrigin:input.platformOrigin,platformUrl:input.platformUrl,
-        platformVercelAccountId:input.platformVercelAccountId,githubAppClientId:input.githubAppClientId,
-        githubAppPrivateKeyPkcs8:input.githubAppPrivateKeyPkcs8,ownerCurrent:selected.isCurrent,
+        platformVercelAccountId:input.platformVercelAccountId,githubClientId:input.githubClientId,
+        githubClientSecret:input.githubClientSecret,ownerCurrent:selected.isCurrent,
         verifyRuntime:input.verifyRuntime,requiredEnvironment:input.requiredEnvironment,fetcher:input.fetcher});
     },
     async runProduction(scope:Scope&{previewOperationId:string}){
