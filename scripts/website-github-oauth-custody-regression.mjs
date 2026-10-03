@@ -109,7 +109,7 @@ try {
   const expiredClient = { async rpc(name) {
     assert.equal(name, 'website_read_github_oauth_custody');
     return { data: { ...baseCustody, accessExpiresAt: new Date(now - 1).toISOString(),
-      refreshExpiresAt: new Date(now - 1).toISOString() }, error: null };
+      refreshExpiresAt: new Date(now + 60_000).toISOString() }, error: null };
   } };
   await assert.rejects(resolve({ client: expiredClient, connection, clientId: 'Iv1_fixture',
     clientSecret: 'fixture-client-secret-value', isCurrentOwner: () => true, now: () => now }), /access is unavailable/);
