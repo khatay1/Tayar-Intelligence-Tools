@@ -61,8 +61,8 @@ begin
     or p_organization_id is null or p_organization_id !~ '^[a-zA-Z0-9_-]{1,200}$'
     or p_organization_slug is null or p_organization_slug !~ '^[a-z0-9][a-z0-9-]{0,199}$'
     or p_project_ref is null or p_project_ref !~ '^[a-z]{20}$'
-    or p_access_token is null or length(p_access_token) < 20 or octet_length(p_access_token) > 4096
-    or p_refresh_token is null or length(p_refresh_token) < 20 or octet_length(p_refresh_token) > 4096
+    or p_access_token is null or length(p_access_token) < 20 or octet_length(p_access_token) > 65536
+    or p_refresh_token is null or length(p_refresh_token) < 20 or octet_length(p_refresh_token) > 65536
     or p_access_expires_at is null or p_access_expires_at <= clock_timestamp()
     or p_access_expires_at > clock_timestamp() + interval '1 day'
     or p_custody_expires_at is null or p_custody_expires_at <= clock_timestamp()

@@ -16,6 +16,8 @@ try {
   assert.match(sql, /vault\.create_secret/); assert.match(sql, /vault\.update_secret/);
   assert.match(sql, /vault\.decrypted_secrets/); assert.match(sql, /vault\.secrets where id=old\.secret_id/);
   assert.match(sql, /connection_version=p_expected_connection_version/);
+  assert.match(sql, /octet_length\(p_access_token\) > 65536/);
+  assert.match(sql, /octet_length\(p_refresh_token\) > 65536/);
   for (const name of ['store', 'read', 'reconcile', 'delete', 'cleanup_expired']) {
     assert.match(sql, new RegExp(`revoke all on function public.website_${name}_supabase_oauth_custody|revoke all on function public.website_supabase_oauth_custody_${name}`));
   }
@@ -24,8 +26,8 @@ try {
     accountId: 'user_1234', targetId: 'abcdefghijklmnopqrst', permissions: ['projects:read', 'database:read'],
     status: 'connected', version: 7, operationId: null,
     verifiedAt: '2026-09-29T16:00:00.000Z', updatedAt: '2026-09-29T16:00:00.000Z' };
-  const accessToken = 'customer-access-token-fixture';
-  const refreshToken = 'customer-refresh-token-fixture';
+  const accessToken = 'a'.repeat(32_000);
+  const refreshToken = 'b'.repeat(32_000);
   const accessExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
   const custodyExpiresAt = new Date(Date.now() + 7 * 86_400_000).toISOString();
   let stored = null, storeCalls = 0, lostResponse = false;

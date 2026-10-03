@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const handoffTokenMaxBytes = 65_536;
+const handoffTokenMaxBytes = 131_072;
 type Provider = 'github' | 'supabase' | 'vercel' | 'stripe';
 type Environment = 'preview' | 'production';
 

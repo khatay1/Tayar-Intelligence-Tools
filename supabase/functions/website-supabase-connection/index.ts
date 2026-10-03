@@ -52,8 +52,8 @@ async function consumeWebsiteConnectionOAuthState(input) {
 var statePattern2 = /^[0-9a-f]{64}$/;
 var codePattern = /^[A-Za-z0-9._~-]{1,2048}$/;
 var clientPattern = /^[A-Za-z0-9_-]{5,128}$/;
-var providerTokenMaxBytes = 16384;
-var providerResponseMaxBytes = 65536;
+var providerTokenMaxBytes = 65536;
+var providerResponseMaxBytes = 131072;
 var providerErrorCodes = /* @__PURE__ */ new Set([
   "invalid_grant",
   "invalid_client",
@@ -215,7 +215,7 @@ async function acceptSupabaseOAuthCallback(input) {
 
 // src/modules/website-builder/services/websiteConnectionHandoffService.ts
 var uuid2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var handoffTokenMaxBytes = 65536;
+var handoffTokenMaxBytes = 131072;
 function serverOnly2() {
   if (isUntrustedBrowserRuntime()) throw new Error("Connection handoff requires a trusted server.");
 }
@@ -266,7 +266,7 @@ async function peekWebsiteConnectionHandoff(input) {
 var uuid3 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref = /^[a-z]{20}$/;
 var slug = /^[a-z0-9][a-z0-9-]{0,199}$/;
-var providerTokenMaxBytes2 = 16384;
+var providerTokenMaxBytes2 = 65536;
 var token = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes2 && !/[\r\n]/.test(value);
 function encodeSupabaseOAuthHandoff(grant) {
   if (!token(grant.accessToken) || !token(grant.refreshToken) || !Number.isInteger(grant.expiresIn) || grant.expiresIn < 60 || grant.expiresIn > 86400 || !Number.isFinite(Date.parse(grant.receivedAt))) throw new Error("Supabase authorization is unavailable.");

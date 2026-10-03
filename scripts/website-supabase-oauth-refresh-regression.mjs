@@ -22,6 +22,7 @@ try {
     custodyExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
     grant: { accessToken: 'previous-customer-access-token',
       refreshToken: 'previous-customer-refresh-token' } };
+  const newAccessToken = 'a'.repeat(32_000), newRefreshToken = 'b'.repeat(32_000);
   let writes = 0, exchanges = 0, owner = true, responseLost = false;
   const client = { async rpc(name, args) {
     if (name === 'website_read_supabase_oauth_custody') {
@@ -29,7 +30,7 @@ try {
     }
     if (name === 'website_store_supabase_oauth_custody') {
       writes++; assert.equal(args.p_expected_version, 1);
-      assert.equal(args.p_refresh_token, 'new-customer-refresh-token');
+      assert.equal(args.p_refresh_token, newRefreshToken);
       assert.equal(args.p_owner_id, connection.ownerId);
       assert.equal(args.p_project_ref, connection.targetId);
       return responseLost ? { data: null, error: Error('lost') } : { data: 2, error: null };
@@ -43,10 +44,10 @@ try {
       assert.equal(init.body.get('grant_type'), 'refresh_token');
       assert.equal(init.body.get('refresh_token'), old.grant.refreshToken);
       assert.equal(init.headers.Authorization, `Basic ${btoa('supabase-client:client-secret')}`);
-      return Response.json({ token_type: 'Bearer', access_token: 'new-customer-access-token',
-        refresh_token: 'new-customer-refresh-token', expires_in: 3600 }, { status: 201 });
+      return Response.json({ token_type: 'Bearer', access_token: newAccessToken,
+        refresh_token: newRefreshToken, expires_in: 3600 }, { status: 201 });
     }
-    assert.equal(init.headers.Authorization, 'Bearer new-customer-access-token');
+    assert.equal(init.headers.Authorization, `Bearer ${newAccessToken}`);
     if (url.endsWith('/profile')) return Response.json({ gotrue_id: connection.accountId });
     if (url.endsWith('/members')) return Response.json([{ user_id: connection.accountId, role_name: 'Owner' }]);
     assert.equal(url, `https://api.supabase.com/v1/projects/${connection.targetId}`);
@@ -77,6 +78,12 @@ try {
     if (url.endsWith('/profile')) return Response.json({ gotrue_id: 'different-user' });
     throw Error('wrong identity');
   } }), /owner or project changed/);
+  assert.equal(writes, 2);
+  await assert.rejects(refresh({ ...input, fetcher: async url => {
+    if (url.endsWith('/oauth/token')) return Response.json({ token_type: 'Bearer',
+      access_token: 'a'.repeat(65_537), refresh_token: newRefreshToken, expires_in: 3600 });
+    throw Error('oversized token must fail before ownership verification');
+  } }), /uncertain; reconnect required/);
   assert.equal(writes, 2);
   console.log('PASS Supabase OAuth refresh: owner proof, rotated custody, SQL uncertainty and provider uncertainty (mocked HTTP/RPC)');
 } finally { await rm(dir, { recursive: true, force: true }); }

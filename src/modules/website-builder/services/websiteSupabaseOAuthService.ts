@@ -5,8 +5,8 @@ import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 const statePattern = /^[0-9a-f]{64}$/;
 const codePattern = /^[A-Za-z0-9._~-]{1,2048}$/;
 const clientPattern = /^[A-Za-z0-9_-]{5,128}$/;
-const providerTokenMaxBytes = 16_384;
-const providerResponseMaxBytes = 65_536;
+const providerTokenMaxBytes = 65_536;
+const providerResponseMaxBytes = 131_072;
 const providerErrorCodes = new Set([
   'invalid_grant', 'invalid_client', 'invalid_request', 'unauthorized_client',
   'unsupported_grant_type', 'temporarily_unavailable', 'server_error', 'access_denied',
