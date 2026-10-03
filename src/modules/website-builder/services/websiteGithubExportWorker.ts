@@ -3,7 +3,7 @@ import type { GitHubSourceFile } from './websiteGithubExportTransport';
 import { observeWebsiteGitHubExportBranch, verifyWebsiteGitHubExportRecovery,
   writeWebsiteGitHubExport } from './websiteGithubExportTransport';
 import { captureWebsiteGitHubExportSource, type SourceReader } from './websiteGithubExportSourceService';
-import { mintWebsiteGitHubRepositoryToken } from './websiteGithubInstallationTokenService';
+import { resolveWebsiteGitHubRepositoryGrant } from './websiteGithubOAuthCustodyService';
 import { commitWebsiteGitHubExportCursor, initializeWebsiteGitHubExportCursor,
   readWebsiteGitHubExportCursor } from './websiteGithubExportCursorService';
 
@@ -22,8 +22,8 @@ export async function exportWebsiteProjectToOwnedGitHub(input: {
   reader: SourceReader;
   compile(snapshot: Record<string, unknown>): Promise<GitHubSourceFile[]>;
   client: Pick<SupabaseClient, 'rpc'>;
-  appClientId: string;
-  appPrivateKeyPkcs8: string;
+  githubClientId: string;
+  githubClientSecret: string;
   expectedSourceDigest?: string;
   fetcher?: typeof fetch;
 }): Promise<{ status: 'unchanged' | 'exported' | 'recovery-required'; headSha: string }> {
@@ -38,9 +38,9 @@ export async function exportWebsiteProjectToOwnedGitHub(input: {
   if (connection.environment !== input.environment || !connection.targetId || !await source.isCurrent()) {
     throw new Error('GitHub export scope changed.');
   }
-  const token = await mintWebsiteGitHubRepositoryToken({ clientId: input.appClientId,
-    privateKeyPkcs8: input.appPrivateKeyPkcs8, accountId: connection.accountId,
-    repositoryId: connection.targetId, fetcher: input.fetcher });
+  const token = await resolveWebsiteGitHubRepositoryGrant({ client: input.client, connection,
+    clientId: input.githubClientId, clientSecret: input.githubClientSecret,
+    isCurrentOwner: source.isCurrent, fetcher: input.fetcher });
   if (!await source.isCurrent()) throw new Error('GitHub export scope changed.');
   const scope = { client: input.client, connectionId: input.connectionId, projectId: input.projectId,
     ownerId: input.ownerId, isCurrentOwner: () => currentOwner };
@@ -49,7 +49,7 @@ export async function exportWebsiteProjectToOwnedGitHub(input: {
     repositoryId: connection.targetId, branch: `tayar/${input.projectId}/${input.environment}`,
     lastHeadSha: null, lastSourceDigest: null };
   const observedHead = await observeWebsiteGitHubExportBranch({ connection, repositoryFullName: token.repositoryFullName,
-    token: token.token, cursor: cursorCandidate, fetcher: input.fetcher });
+    token: token.accessToken, cursor: cursorCandidate, fetcher: input.fetcher });
   if (!await source.isCurrent()) throw new Error('GitHub export scope changed.');
   let cursor = await readWebsiteGitHubExportCursor(scope);
   if (!cursor) {
@@ -64,7 +64,7 @@ export async function exportWebsiteProjectToOwnedGitHub(input: {
   }
   if (cursor.lastHeadSha !== observedHead) {
     if (!observedHead || !await verifyWebsiteGitHubExportRecovery({ connection, cursor,
-      repositoryFullName: token.repositoryFullName, token: token.token, sourceDigest: source.sourceDigest,
+      repositoryFullName: token.repositoryFullName, token: token.accessToken, sourceDigest: source.sourceDigest,
       files: source.files, isCurrent: source.isCurrent, observedHead, fetcher: input.fetcher })) {
       throw new Error('GitHub branch changed since the last verified export.');
     }
@@ -78,7 +78,7 @@ export async function exportWebsiteProjectToOwnedGitHub(input: {
     } catch { return { status: 'recovery-required', headSha: observedHead }; }
   }
   const result = await writeWebsiteGitHubExport({ connection, cursor,
-    repositoryFullName: token.repositoryFullName, token: token.token, sourceDigest: source.sourceDigest,
+    repositoryFullName: token.repositoryFullName, token: token.accessToken, sourceDigest: source.sourceDigest,
     files: source.files, isCurrent: source.isCurrent, fetcher: input.fetcher });
   if (result.status === 'unchanged') return { status: 'unchanged', headSha: result.headSha };
   // Remote ref verification has completed. A DB timeout/owner change does not
