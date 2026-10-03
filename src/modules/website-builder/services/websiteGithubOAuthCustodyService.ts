@@ -34,8 +34,8 @@ export interface WebsiteGitHubOAuthCustody {
   custodyExpiresAt: string;
 }
 
-function assertConnection(value: InfrastructureConnection, isCurrentOwner: () => boolean) {
-  if (typeof window !== 'undefined' || !isCurrentOwner()) throw new Error('GitHub OAuth custody scope changed.');
+function assertConnection(value: InfrastructureConnection) {
+  if (typeof window !== 'undefined') throw new Error('GitHub OAuth custody scope changed.');
   const connection = assertInfrastructureConnection(value);
   if (connection.provider !== 'github' || !connection.targetId || !numeric.test(connection.accountId)
     || !numeric.test(connection.targetId)
@@ -46,15 +46,16 @@ function assertConnection(value: InfrastructureConnection, isCurrentOwner: () =>
 }
 
 export async function readWebsiteGitHubOAuthCustody(input: {
-  client: Client; connection: InfrastructureConnection; isCurrentOwner: () => boolean;
+  client: Client; connection: InfrastructureConnection; isCurrentOwner: () => boolean | Promise<boolean>;
 }): Promise<WebsiteGitHubOAuthCustody> {
-  const connection = assertConnection(input.connection, input.isCurrentOwner);
+  const connection = assertConnection(input.connection);
+  if (!await input.isCurrentOwner()) throw new Error('GitHub OAuth custody scope changed.');
   const { data, error } = await input.client.rpc('website_read_github_oauth_custody', {
     p_connection_id: connection.id, p_project_id: connection.projectId,
     p_owner_id: connection.ownerId, p_expected_connection_version: connection.version,
   });
   try {
-    if (error || !data || !input.isCurrentOwner() || !Number.isSafeInteger(data.version) || data.version < 1
+    if (error || !data || !await input.isCurrentOwner() || !Number.isSafeInteger(data.version) || data.version < 1
       || data.accountId !== connection.accountId || data.repositoryId !== connection.targetId
       || data.environment !== connection.environment || !numeric.test(data.installationId)
       || !repoName.test(data.repositoryFullName) || !branch.test(data.defaultBranch)
@@ -77,12 +78,13 @@ export async function readWebsiteGitHubOAuthCustody(input: {
 
 export async function resolveWebsiteGitHubRepositoryGrant(input: {
   client: Client; connection: InfrastructureConnection; clientId: string; clientSecret: string;
-  isCurrentOwner: () => boolean; fetcher?: typeof fetch; now?: () => number;
+  isCurrentOwner: () => boolean | Promise<boolean>; fetcher?: typeof fetch; now?: () => number;
 }): Promise<{ accessToken: string; repositoryFullName: string; defaultBranch: string }> {
-  const connection = assertConnection(input.connection, input.isCurrentOwner);
+  const connection = assertConnection(input.connection);
+  if (!await input.isCurrentOwner()) throw new Error('GitHub repository access is unavailable.');
   const custody = await readWebsiteGitHubOAuthCustody({ client: input.client, connection, isCurrentOwner: input.isCurrentOwner });
   const now = (input.now ?? Date.now)();
-  if (!Number.isFinite(now) || !input.isCurrentOwner()) throw new Error('GitHub repository access is unavailable.');
+  if (!Number.isFinite(now) || !await input.isCurrentOwner()) throw new Error('GitHub repository access is unavailable.');
   if (custody.accessExpiresAt === null || Date.parse(custody.accessExpiresAt) > now + 120_000) {
     return { accessToken: custody.accessToken, repositoryFullName: custody.repositoryFullName,
       defaultBranch: custody.defaultBranch };
@@ -94,10 +96,10 @@ export async function resolveWebsiteGitHubRepositoryGrant(input: {
     const grant = await refreshGitHubAppUserGrant({ clientId: input.clientId, clientSecret: input.clientSecret,
       refreshToken: custody.refreshToken, fetcher: input.fetcher, now: () => now });
     const expiries = githubGrantExpiries(grant);
-    if (!grant.refreshToken || !expiries.accessExpiresAt || !expiries.refreshExpiresAt || !input.isCurrentOwner()) throw new Error();
+    if (!grant.refreshToken || !expiries.accessExpiresAt || !expiries.refreshExpiresAt || !await input.isCurrentOwner()) throw new Error();
     const observed = await verifyGitHubInstallationRepository({ userToken: grant.accessToken,
       installationId: custody.installationId, repositoryId: custody.repositoryId, fetcher: input.fetcher });
-    if (!input.isCurrentOwner() || observed.accountId !== connection.accountId
+    if (!await input.isCurrentOwner() || observed.accountId !== connection.accountId
       || observed.repositoryId !== connection.targetId || observed.repositoryFullName !== custody.repositoryFullName
       || observed.defaultBranch !== custody.defaultBranch) throw new Error();
     const operationId = crypto.randomUUID();
@@ -114,7 +116,7 @@ export async function resolveWebsiteGitHubRepositoryGrant(input: {
       const reconcile = await input.client.rpc('website_reconcile_github_oauth_refresh', base);
       if (reconcile.error || reconcile.data !== expected) throw new Error();
     }
-    if (!input.isCurrentOwner()) throw new Error();
+    if (!await input.isCurrentOwner()) throw new Error();
     return { accessToken: grant.accessToken, repositoryFullName: custody.repositoryFullName,
       defaultBranch: custody.defaultBranch };
   } catch { throw new Error('GitHub repository access is unavailable.'); }
