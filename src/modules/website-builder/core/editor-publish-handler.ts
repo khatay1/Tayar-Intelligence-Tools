@@ -107,7 +107,7 @@ export function createPublishWebsiteHandler({
   siteName,
   user,
 }: PublishWebsiteHandlerDependencies) {
-  return async function publishWebsite(fromStaging = false) {
+  return async function publishWebsite(fromStaging = false, releaseNoteOverride?: string) {
     if (publishBusy || previewBusy) return;
     if (fromStaging && (!cloudProjectId || !previewToken || !previewFingerprint)) {
       setPublishError('Regenerate staging before promoting it to production.');
@@ -328,7 +328,7 @@ export function createPublishWebsiteHandler({
       }
       const publishBaseProjectData = buildProjectData();
       const publishEditableFingerprint = fromStaging ? previewFingerprint : buildEditableFingerprint();
-      const publishReleaseNote = releaseNote.trim().slice(0, 500);
+      const publishReleaseNote = (releaseNoteOverride ?? releaseNote).trim().slice(0, 500);
       const publishReleaseHistoryEnabled =
         billingEntitlements.features.releaseHistory;
 
