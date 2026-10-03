@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -12,6 +12,9 @@ try {
   const { storeWebsiteConnectionHandoff: store, consumeWebsiteConnectionHandoff: consume,
     peekWebsiteConnectionHandoff: peek,
     revokeWebsiteConnectionHandoff: revoke } = (await import(pathToFileURL(outfile))).default;
+  const capacitySql = await readFile('supabase/migrations/20261003220000_website_byo_supabase_oauth_capacity.sql', 'utf8');
+  assert.match(capacitySql, /create or replace function public\.website_store_connection_handoff/);
+  assert.match(capacitySql, /octet_length\(p_token\) > 131072/);
   const ownerId = '11111111-1111-4111-8111-111111111111';
   const projectId = '22222222-2222-4222-8222-222222222222';
   const token = 'fixture-user-token-1234567890123456';
