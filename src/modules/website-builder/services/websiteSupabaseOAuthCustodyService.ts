@@ -5,6 +5,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ref = /^[a-z]{20}$/;
 const organizationIdPattern = /^[A-Za-z0-9_-]{1,200}$/;
 const organizationSlugPattern = /^[a-z0-9][a-z0-9-]{0,199}$/;
+const providerTokenMaxBytes = 65_536;
 
 type Client = Pick<SupabaseClient, 'rpc'>;
 type Scope = {
@@ -26,7 +27,7 @@ function assertScope(input: Scope) {
 }
 
 function token(value: unknown): value is string {
-  return typeof value === 'string' && value.length >= 20 && new TextEncoder().encode(value).length <= 4096
+  return typeof value === 'string' && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes
     && !/[\r\n]/.test(value);
 }
 
