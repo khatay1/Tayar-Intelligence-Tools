@@ -6,6 +6,9 @@ export interface OwnedSupabaseCustody{version:number;accountId:string;organizati
  projectRef:string;environment:OwnedSupabaseEnvironment;accessToken:string;}
 
 const provider=/^[A-Za-z0-9_-]{1,200}$/,slug=/^[a-z0-9][a-z0-9-]{0,199}$/,ref=/^[a-z]{20}$/;
+const providerTokenMaxBytes=65_536;
+const token=(value:unknown)=>typeof value==='string'&&value.length>=20
+ &&new TextEncoder().encode(value).length<=providerTokenMaxBytes&&!/[\r\n]/.test(value);
 const object=(value:unknown)=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:null;
 const exact=(row:Record<string,unknown>,keys:string[])=>Object.keys(row).every(key=>keys.includes(key));
 const currentDate=(value:unknown)=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&Date.parse(value)>Date.now();
@@ -21,8 +24,7 @@ export function parseOwnedSupabaseCustody(value:unknown,environment:OwnedSupabas
   ||typeof row.accountId!=='string'||!provider.test(row.accountId)||typeof row.organizationId!=='string'||!provider.test(row.organizationId)
   ||typeof row.organizationSlug!=='string'||!slug.test(row.organizationSlug)||row.projectRef!==target.projectRef
   ||!ref.test(String(row.projectRef))||row.environment!==environment||!currentDate(row.accessExpiresAt)||!currentDate(row.custodyExpiresAt)
-  ||typeof grant.accessToken!=='string'||grant.accessToken.length<20||grant.accessToken.length>4096||/[\r\n]/.test(grant.accessToken)
-  ||typeof grant.refreshToken!=='string'||grant.refreshToken.length<20||grant.refreshToken.length>4096)throw new Error();
+  ||!token(grant.accessToken)||!token(grant.refreshToken))throw new Error();
  return{version:row.version as number,accountId:row.accountId,organizationId:row.organizationId,
   organizationSlug:row.organizationSlug,projectRef:row.projectRef as string,environment,accessToken:grant.accessToken};
 }
