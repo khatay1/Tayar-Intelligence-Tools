@@ -1,8 +1,8 @@
-import { build } from 'esbuild';
 import { analyzeByoSourceCapabilities } from '../src/modules/website-builder/core/application-byo-source-capabilities';
 import { validateOwnedApplicationPublicBackend, type ApplicationPublicBackend } from '../src/modules/website-builder/core/application-data-runtime';
 import { renderWebsiteApplicationSnapshot } from '../src/modules/website-builder/services/websiteApplicationRenderService';
 import { validateGitHubSourceManifest, type GitHubSourceFile } from '../src/modules/website-builder/services/websiteGithubExportTransport';
+import { websiteOwnedApplicationRuntimeTemplate } from './generated/website-owned-application-runtime-template';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const safeRoute = /^(?:[\p{L}\p{N}._-]+\/)*[\p{L}\p{N}._-]+\.html$/u;
@@ -48,23 +48,10 @@ export async function compileWebsiteOwnedApplicationSource(snapshot: Record<stri
   const manifest = { projectId: input.projectId, applicationOrigin: input.applicationOrigin,
     expectedProjectRef: input.expectedProjectRef, backend: input.backend, definition: capabilities.definition,
     pages: routes.map(({ html: _html, ...page }) => page) };
-  const contents = `import { serveOwnedApplicationRoute } from './src/modules/website-builder/services/websiteOwnedApplicationRouteService';
-const manifest = ${JSON.stringify(manifest)};
-const pages = new Map(${JSON.stringify(routes.map(route => [route.pageId, route.html]))});
-const paths = new Map(${JSON.stringify(routes.map(route => [route.pageId, route.path]))});
-export default async function handler(request) {
-  const url = new URL(request.url);
-  const route = url.searchParams.get('tayarRoute');
-  if (route === 'session') url.pathname = '/api/application-session';
-  else if (route && paths.has(route)) url.pathname = paths.get(route);
-  else return new Response('Application route not found.', { status: 404, headers: { 'cache-control': 'private, no-store' } });
-  url.searchParams.delete('tayarRoute');
-  return serveOwnedApplicationRoute(new Request(url, request), manifest, async pageId =>
-    new Response(pages.get(pageId), { headers: { 'content-type': 'text/html; charset=utf-8' } }));
-}`;
-  const result = await build({ stdin: { contents, resolveDir: process.cwd(), loader: 'ts' },
-    tsconfig: 'tsconfig.app.json', bundle: true, write: false, platform: 'node', format: 'cjs', target: 'node22' });
-  const runtime = result.outputFiles[0].text + '\nmodule.exports = module.exports.default;\n';
+  const runtime = `const __TAYAR_MANIFEST__ = ${JSON.stringify(manifest)};
+const __TAYAR_PAGES__ = new Map(${JSON.stringify(routes.map(route => [route.pageId, route.html]))});
+const __TAYAR_PATHS__ = new Map(${JSON.stringify(routes.map(route => [route.pageId, route.path]))});
+${websiteOwnedApplicationRuntimeTemplate}`;
   // Bundled Supabase SDK includes the literal role name "service_role" for its
   // own compatibility logic; reject key material rather than that code string.
   if (/(?:secret:\/\/|sb_secret_|\bsk_(?:test|live)_[a-zA-Z0-9]{8,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)/i.test(runtime)

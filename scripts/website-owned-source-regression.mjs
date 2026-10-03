@@ -9,10 +9,10 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-owned-source-'));
 const oldFetch = globalThis.fetch;
 try {
   const outfile = join(dir, 'compiler.cjs');
-  await build({ entryPoints: ['server/website-owned-source-compiler.ts'], bundle: true,
-    plugins: [{ name: 'local-esbuild', setup(plugin) {
-      plugin.onResolve({ filter: /^esbuild$/ }, () => ({ path: import.meta.resolve('esbuild').replace(/^file:\/\//, ''), external: true }));
-    } }], platform: 'node', format: 'cjs', outfile });
+  const compilerBuild = await build({ entryPoints: ['server/website-owned-source-compiler.ts'], bundle: true,
+    metafile: true, platform: 'node', format: 'cjs', outfile });
+  assert(!Object.keys(compilerBuild.metafile.inputs).some(path => /node_modules\/esbuild|website-owned-source-compiler\.ts.*esbuild/.test(path)),
+    'Owned source compilation must not require esbuild at request time');
   const { compileWebsiteOwnedApplicationSource: compile } = (await import(pathToFileURL(outfile))).default;
   const defaultsFile = join(dir, 'defaults.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/defaults.ts'], bundle: true,
