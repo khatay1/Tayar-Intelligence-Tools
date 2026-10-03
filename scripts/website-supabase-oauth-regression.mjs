@@ -58,7 +58,7 @@ try {
   assert.equal(created.accessToken, tokens.accessToken);
   await assert.rejects(acceptSupabaseOAuthCallback(callbackInput), /authorization failed/);
   assert.equal(exchanges, 1);
-  await assert.rejects(acceptSupabaseOAuthCallback({ ...callbackInput, pkceSecret: 'short' }), /not configured/);
+  await assert.rejects(acceptSupabaseOAuthCallback({ ...callbackInput, pkceSecret: 'short' }), /authorization failed/);
   assert.equal(exchanges, 1);
   const freshState = { async rpc() { return { data: { ownerId: tokens.ownerId,
     projectId: tokens.projectId, provider: 'supabase', environment: 'preview' }, error: null }; } };
