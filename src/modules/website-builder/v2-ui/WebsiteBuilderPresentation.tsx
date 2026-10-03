@@ -1431,6 +1431,21 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
         siteAudit.errors.length ? `Fix ${siteAudit.errors.length} critical Check issue${siteAudit.errors.length === 1 ? '' : 's'} before publishing.` : '',
         cmsErrors.length ? `Fix ${cmsErrors.length} CMS issue${cmsErrors.length === 1 ? '' : 's'} before publishing.` : '',
       ].filter(Boolean)}
+      publishRevisions={publishVersions.map((version) => ({
+        id: version.id,
+        environment: 'production' as const,
+        publishedUrl: version.published_url,
+        releaseNote: version.release_note,
+        createdAt: version.created_at,
+        editorFingerprint: version.editor_fingerprint,
+      }))}
+      onOpenPublishVersions={() => {
+        void refreshPublishVersions();
+      }}
+      onRestorePublishRevision={(revision) => {
+        const version = publishVersions.find((candidate) => candidate.id === revision.id);
+        if (version) void rollbackPublishVersion(version);
+      }}
       onUndo={undo}
       onRedo={redo}
       onSave={() => void saveProject()}
