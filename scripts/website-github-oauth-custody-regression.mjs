@@ -51,7 +51,7 @@ try {
     throw new Error(`Unexpected RPC ${name}`);
   } };
   const fetcher = async (url, options) => {
-    const path = new URL(url).pathname;
+    const parsed = new URL(url), path = parsed.pathname;
     if (url === 'https://github.com/login/oauth/access_token') {
       const body = options.body;
       assert.equal(body.get('grant_type'), 'refresh_token');
@@ -61,15 +61,15 @@ try {
         refresh_token_expires_in: 15897600 }), { status: 200 });
     }
     assert.equal(options.headers.Authorization, 'Bearer ghu_rotated_access_token_1234567890');
-    if (path === '/user/installations') throw new Error('pagination query expected');
-    if (path === '/user/installations/42/repositories') throw new Error('pagination query expected');
-    if (path === '/user/installations' || path.endsWith('/repositories')) throw new Error('unexpected path');
-    if (path === '/user/installations') return new Response('{}');
-    if (path.startsWith('/user/installations') && !path.includes('/repositories')) {
+    if (path === '/user/installations') {
+      assert.equal(parsed.searchParams.get('per_page'), '100');
+      assert.equal(parsed.searchParams.get('page'), '1');
       return new Response(JSON.stringify({ installations: [{ id: 42, account: { id: 17, login: 'owner' },
         permissions: { contents: 'write' }, suspended_at: null }] }), { status: 200 });
     }
-    if (path.startsWith('/user/installations/42/repositories')) {
+    if (path === '/user/installations/42/repositories') {
+      assert.equal(parsed.searchParams.get('per_page'), '100');
+      assert.equal(parsed.searchParams.get('page'), '1');
       return new Response(JSON.stringify({ repositories: [{ id: 88, owner: { id: 17 }, full_name: 'owner/site',
         default_branch: 'main', permissions: { push: true }, archived: false, disabled: false }] }), { status: 200 });
     }
