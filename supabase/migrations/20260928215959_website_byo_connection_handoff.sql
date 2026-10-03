@@ -35,7 +35,7 @@ begin
   if not found then raise exception 'Project access denied'; end if;
   if p_id is null or p_provider is null or p_provider not in ('github','supabase','vercel','stripe')
     or p_environment is null or p_environment not in ('preview','production')
-    or p_token is null or length(p_token) < 20 or octet_length(p_token) > 4096
+    or p_token is null or length(p_token) < 20 or octet_length(p_token) > 65536
     or p_expires_at is null or p_expires_at <= clock_timestamp()
     or p_expires_at > clock_timestamp() + interval '5 minutes' then
     raise exception 'Invalid connection handoff';
