@@ -1461,6 +1461,17 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
       onRedo={redo}
       onSave={() => void saveProject()}
       onPreview={previewWebsite}
+      onPublishPlan={async (plan) => {
+        if (plan.mode !== 'full' || plan.scheduledAt) {
+          throw new Error('Only immediate full-site publishing is available.');
+        }
+        setReleaseNote(plan.releaseNote);
+        if (plan.environment === 'staging') {
+          await createSharePreview();
+          return;
+        }
+        await publishWebsite(false, plan.releaseNote);
+      }}
       onStage={createSharePreview}
       onPublish={() => void publishWebsite()}
       onRunCheck={() => void runV1LaunchChecks()}
