@@ -15,10 +15,14 @@ const [sql, service, panel, bridge, publishing] = await Promise.all([
 assert.match(sql, /references public\.projects\(id\)/, 'Redirects must bind to the canonical project table');
 assert.doesNotMatch(sql, /website_projects/, 'Legacy Website Builder project tables must not return');
 assert.match(sql, /enable row level security/i, 'Redirect persistence must enforce RLS');
-assert.match(sql, /revoke all on table public\.website_publish_redirects from public, anon/,
-  'Anonymous/default table privileges must be explicitly revoked');
+assert.match(sql, /revoke all on table public\.website_publish_redirects from public, anon, authenticated/,
+  'Default and inherited authenticated table privileges must be explicitly reset');
 assert.match(sql, /grant select, insert, delete on table public\.website_publish_redirects to authenticated/,
   'Authenticated Data API access must be explicit on new Supabase projects');
+assert.doesNotMatch(sql, /grant[^\n]*update[^\n]*website_publish_redirects to authenticated/,
+  'Authenticated clients must not receive direct UPDATE when the UI uses atomic replace');
+assert.match(sql, /website_publish_redirects_user_project_idx/,
+  'The user_id foreign key must have a covering index');
 assert.match(sql, /website_replace_publish_redirects/, 'Atomic redirect replacement RPC must exist');
 assert.match(sql, /jsonb_array_length\(p_redirects\)>100/, 'Redirect replacement must stay bounded');
 assert.match(sql, /position\(chr\(10\) in source_path\)=0/, 'Source line breaks must be blocked without regex escaping');
@@ -57,11 +61,13 @@ assert.match(repair, /position\(chr\(10\) in \(e\.value->>'from'\)\)>0/,
   'The repaired RPC must reject line breaks without regex escaping');
 
 const grants = await read('supabase/migrations/20261003230000_website_publish_redirects_explicit_grants.sql');
-assert.match(grants, /revoke all on table public\.website_publish_redirects from public, anon/,
-  'Already-migrated environments must drop anonymous/default table privileges');
+assert.match(grants, /revoke all on table public\.website_publish_redirects from public, anon, authenticated/,
+  'Already-migrated environments must reset inherited authenticated privileges');
 assert.match(grants, /grant select, insert, delete on table public\.website_publish_redirects to authenticated/,
   'Already-migrated environments must receive explicit authenticated Data API grants');
 assert.match(grants, /grant select, insert, update, delete on table public\.website_publish_redirects to service_role/,
   'Service operations must retain explicit table access after PUBLIC privileges are revoked');
+assert.match(grants, /website_publish_redirects_user_project_idx/,
+  'Already-migrated environments must receive the owner foreign-key index');
 
 console.log('PASS Publishing MAX redirects: owner-scoped atomic persistence, reconciliation, escape-proof validation, stale-result guards and V2 reachability');

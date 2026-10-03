@@ -24,13 +24,15 @@ create table if not exists public.website_publish_redirects (
 
 create index if not exists website_publish_redirects_project_owner_idx
   on public.website_publish_redirects(project_id,user_id,source_path);
+create index if not exists website_publish_redirects_user_project_idx
+  on public.website_publish_redirects(user_id,project_id);
 
 alter table public.website_publish_redirects enable row level security;
 
 -- Supabase projects created after May 30, 2026 may not expose new public
 -- tables to the Data API automatically. Keep browser access explicit and
 -- owner-scoped through RLS rather than relying on project default privileges.
-revoke all on table public.website_publish_redirects from public, anon;
+revoke all on table public.website_publish_redirects from public, anon, authenticated;
 grant select, insert, delete on table public.website_publish_redirects to authenticated;
 grant select, insert, update, delete on table public.website_publish_redirects to service_role;
 
