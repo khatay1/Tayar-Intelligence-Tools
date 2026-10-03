@@ -52,6 +52,21 @@ async function consumeWebsiteConnectionOAuthState(input) {
 var statePattern2 = /^[0-9a-f]{64}$/;
 var codePattern = /^[A-Za-z0-9._~-]{1,2048}$/;
 var clientPattern = /^[A-Za-z0-9_-]{5,128}$/;
+var providerTokenMaxBytes = 16384;
+var providerResponseMaxBytes = 65536;
+var providerErrorCodes = /* @__PURE__ */ new Set([
+  "invalid_grant",
+  "invalid_client",
+  "invalid_request",
+  "unauthorized_client",
+  "unsupported_grant_type",
+  "temporarily_unavailable",
+  "server_error",
+  "access_denied"
+]);
+function reportTokenExchangeFailure(details) {
+  console.error("website-supabase-oauth-token-exchange", JSON.stringify(details));
+}
 function callbackUrl(value) {
   const url = new URL(value);
   if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.hash || url.search && url.search !== "?action=callback") {
@@ -89,22 +104,44 @@ async function supabaseAuthorizationUrl(input) {
   return url.toString();
 }
 async function acceptSupabaseOAuthCallback(input) {
-  if (isUntrustedBrowserRuntime() || !clientPattern.test(input.clientId) || !input.clientSecret || input.clientSecret.length > 4096 || /[\r\n]/.test(input.clientSecret) || !codePattern.test(input.code)) throw new Error("Supabase authorization failed.");
-  const callback = callbackUrl(input.callback);
-  const codeVerifier = await verifier(input.state, input.pkceSecret);
-  const scope = await consumeWebsiteConnectionOAuthState({
-    client: input.stateClient,
-    state: input.state,
-    provider: "supabase"
-  });
+  const callbackPreconditions = {
+    trustedRuntime: !isUntrustedBrowserRuntime(),
+    clientId: clientPattern.test(input.clientId),
+    clientSecret: !!input.clientSecret && input.clientSecret.length <= 4096 && !/[\r\n]/.test(input.clientSecret),
+    code: codePattern.test(input.code)
+  };
+  if (Object.values(callbackPreconditions).some((value) => !value)) {
+    reportTokenExchangeFailure({ stage: "callback-precondition", ...callbackPreconditions });
+    throw new Error("Supabase authorization failed.");
+  }
+  let callback, codeVerifier;
   try {
-    const credentials = encoded(new TextEncoder().encode(`${input.clientId}:${input.clientSecret}`));
-    const basic = credentials.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(credentials.length / 4) * 4, "=");
-    const response = await (input.fetcher ?? fetch)("https://api.supabase.com/v1/oauth/token", {
+    callback = callbackUrl(input.callback);
+    codeVerifier = await verifier(input.state, input.pkceSecret);
+  } catch {
+    reportTokenExchangeFailure({ stage: "callback-config" });
+    throw new Error("Supabase authorization failed.");
+  }
+  let scope;
+  try {
+    scope = await consumeWebsiteConnectionOAuthState({
+      client: input.stateClient,
+      state: input.state,
+      provider: "supabase"
+    });
+  } catch {
+    reportTokenExchangeFailure({ stage: "state-consume" });
+    throw new Error("Supabase authorization failed.");
+  }
+  const credentials = encoded(new TextEncoder().encode(`${input.clientId}:${input.clientSecret}`));
+  const basic = credentials.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(credentials.length / 4) * 4, "=");
+  let response;
+  try {
+    response = await (input.fetcher ?? fetch)("https://api.supabase.com/v1/oauth/token", {
       method: "POST",
       redirect: "error",
       cache: "no-store",
-      signal: AbortSignal.timeout(8e3),
+      signal: AbortSignal.timeout(3e4),
       headers: {
         Accept: "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
@@ -117,32 +154,74 @@ async function acceptSupabaseOAuthCallback(input) {
         code_verifier: codeVerifier
       })
     });
-    if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 16384) throw new Error();
-    const raw = await response.text();
-    if (raw.length > 16384) throw new Error();
-    const tokens = JSON.parse(raw);
-    if (tokens?.token_type?.toLowerCase() !== "bearer" || typeof tokens.access_token !== "string" || tokens.access_token.length < 20 || tokens.access_token.length > 4096 || typeof tokens.refresh_token !== "string" || tokens.refresh_token.length < 20 || tokens.refresh_token.length > 4096 || !Number.isInteger(tokens.expires_in) || tokens.expires_in < 60 || tokens.expires_in > 86400) throw new Error();
-    return {
-      ownerId: scope.ownerId,
-      projectId: scope.projectId,
-      environment: scope.environment,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      expiresIn: tokens.expires_in
-    };
-  } catch {
+  } catch (error) {
+    const reason = error instanceof DOMException && error.name === "TimeoutError" ? "timeout" : "request";
+    reportTokenExchangeFailure({ stage: "network", reason });
     throw new Error("Supabase authorization failed.");
   }
+  if (!response.ok) {
+    let providerError = "unknown";
+    try {
+      const failure = JSON.parse(await response.clone().text());
+      if (typeof failure.error === "string" && providerErrorCodes.has(failure.error)) providerError = failure.error;
+    } catch {
+      providerError = "unknown";
+    }
+    reportTokenExchangeFailure({ stage: "http", status: response.status, providerError });
+    throw new Error("Supabase authorization failed.");
+  }
+  if (Number(response.headers.get("content-length") ?? 0) > providerResponseMaxBytes) {
+    reportTokenExchangeFailure({ stage: "response-size" });
+    throw new Error("Supabase authorization failed.");
+  }
+  let raw;
+  try {
+    raw = await response.text();
+  } catch {
+    reportTokenExchangeFailure({ stage: "response-read" });
+    throw new Error("Supabase authorization failed.");
+  }
+  if (new TextEncoder().encode(raw).length > providerResponseMaxBytes) {
+    reportTokenExchangeFailure({ stage: "response-size" });
+    throw new Error("Supabase authorization failed.");
+  }
+  let tokens;
+  try {
+    tokens = JSON.parse(raw);
+  } catch {
+    reportTokenExchangeFailure({ stage: "response-json" });
+    throw new Error("Supabase authorization failed.");
+  }
+  const validToken = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes && !/[\r\n]/.test(value);
+  if (typeof tokens.token_type !== "string" || tokens.token_type.toLowerCase() !== "bearer" || !validToken(tokens.access_token) || !validToken(tokens.refresh_token) || !Number.isInteger(tokens.expires_in) || Number(tokens.expires_in) < 60 || Number(tokens.expires_in) > 86400) {
+    reportTokenExchangeFailure({
+      stage: "response-shape",
+      tokenType: typeof tokens.token_type,
+      accessToken: typeof tokens.access_token,
+      refreshToken: typeof tokens.refresh_token,
+      expiresIn: Number.isInteger(tokens.expires_in) ? tokens.expires_in : typeof tokens.expires_in
+    });
+    throw new Error("Supabase authorization failed.");
+  }
+  return {
+    ownerId: scope.ownerId,
+    projectId: scope.projectId,
+    environment: scope.environment,
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresIn: Number(tokens.expires_in)
+  };
 }
 
 // src/modules/website-builder/services/websiteConnectionHandoffService.ts
 var uuid2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var handoffTokenMaxBytes = 65536;
 function serverOnly2() {
   if (isUntrustedBrowserRuntime()) throw new Error("Connection handoff requires a trusted server.");
 }
 async function storeWebsiteConnectionHandoff(input) {
   serverOnly2();
-  if (!uuid2.test(input.ownerId) || !uuid2.test(input.projectId) || !["github", "supabase", "vercel", "stripe"].includes(input.provider) || !["preview", "production"].includes(input.environment) || !input.userToken || input.userToken.length < 20 || new TextEncoder().encode(input.userToken).length > 65536) {
+  if (!uuid2.test(input.ownerId) || !uuid2.test(input.projectId) || !["github", "supabase", "vercel", "stripe"].includes(input.provider) || !["preview", "production"].includes(input.environment) || !input.userToken || input.userToken.length < 20 || new TextEncoder().encode(input.userToken).length > handoffTokenMaxBytes) {
     throw new Error("Connection handoff could not be stored.");
   }
   const id = crypto.randomUUID();
@@ -167,7 +246,7 @@ async function consumeWebsiteConnectionHandoff(input) {
     p_project_id: input.projectId,
     p_provider: input.provider
   });
-  if (error || !data || !["preview", "production"].includes(data.environment) || typeof data.userToken !== "string" || data.userToken.length < 20 || new TextEncoder().encode(data.userToken).length > 65536 || !input.isCurrentOwner()) throw new Error("Connection handoff is unavailable.");
+  if (error || !data || !["preview", "production"].includes(data.environment) || typeof data.userToken !== "string" || data.userToken.length < 20 || new TextEncoder().encode(data.userToken).length > handoffTokenMaxBytes || !input.isCurrentOwner()) throw new Error("Connection handoff is unavailable.");
   return { environment: data.environment, userToken: data.userToken };
 }
 async function peekWebsiteConnectionHandoff(input) {
@@ -179,7 +258,7 @@ async function peekWebsiteConnectionHandoff(input) {
     p_project_id: input.projectId,
     p_provider: input.provider
   });
-  if (error || !data || !["preview", "production"].includes(data.environment) || typeof data.userToken !== "string" || data.userToken.length < 20 || new TextEncoder().encode(data.userToken).length > 65536 || !input.isCurrentOwner()) throw new Error("Connection handoff is unavailable.");
+  if (error || !data || !["preview", "production"].includes(data.environment) || typeof data.userToken !== "string" || data.userToken.length < 20 || new TextEncoder().encode(data.userToken).length > handoffTokenMaxBytes || !input.isCurrentOwner()) throw new Error("Connection handoff is unavailable.");
   return { environment: data.environment, userToken: data.userToken };
 }
 
@@ -187,7 +266,8 @@ async function peekWebsiteConnectionHandoff(input) {
 var uuid3 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref = /^[a-z]{20}$/;
 var slug = /^[a-z0-9][a-z0-9-]{0,199}$/;
-var token = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= 4096 && !/[\r\n]/.test(value);
+var providerTokenMaxBytes2 = 16384;
+var token = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes2 && !/[\r\n]/.test(value);
 function encodeSupabaseOAuthHandoff(grant) {
   if (!token(grant.accessToken) || !token(grant.refreshToken) || !Number.isInteger(grant.expiresIn) || grant.expiresIn < 60 || grant.expiresIn > 86400 || !Number.isFinite(Date.parse(grant.receivedAt))) throw new Error("Supabase authorization is unavailable.");
   return JSON.stringify(grant);

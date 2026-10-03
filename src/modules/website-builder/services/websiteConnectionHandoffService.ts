@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isUntrustedBrowserRuntime } from './trustedServerRuntime';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const handoffTokenMaxBytes = 65_536;
 type Provider = 'github' | 'supabase' | 'vercel' | 'stripe';
 type Environment = 'preview' | 'production';
 
@@ -24,7 +25,7 @@ export async function storeWebsiteConnectionHandoff(input: {
   if (!uuid.test(input.ownerId) || !uuid.test(input.projectId)
     || !['github', 'supabase', 'vercel', 'stripe'].includes(input.provider)
     || !['preview', 'production'].includes(input.environment)
-    || !input.userToken || input.userToken.length < 20 || new TextEncoder().encode(input.userToken).length > 65_536) {
+    || !input.userToken || input.userToken.length < 20 || new TextEncoder().encode(input.userToken).length > handoffTokenMaxBytes) {
     throw new Error('Connection handoff could not be stored.');
   }
   const id = crypto.randomUUID();
@@ -54,7 +55,7 @@ export async function consumeWebsiteConnectionHandoff(input: {
     p_id: input.id, p_owner_id: input.ownerId, p_project_id: input.projectId, p_provider: input.provider,
   });
   if (error || !data || !['preview', 'production'].includes(data.environment)
-    || typeof data.userToken !== 'string' || data.userToken.length < 20 || new TextEncoder().encode(data.userToken).length > 65_536
+    || typeof data.userToken !== 'string' || data.userToken.length < 20 || new TextEncoder().encode(data.userToken).length > handoffTokenMaxBytes
     || !input.isCurrentOwner()) throw new Error('Connection handoff is unavailable.');
   return { environment: data.environment, userToken: data.userToken };
 }
@@ -76,7 +77,7 @@ export async function peekWebsiteConnectionHandoff(input: {
     p_id: input.id, p_owner_id: input.ownerId, p_project_id: input.projectId, p_provider: input.provider,
   });
   if (error || !data || !['preview', 'production'].includes(data.environment)
-    || typeof data.userToken !== 'string' || data.userToken.length < 20 || new TextEncoder().encode(data.userToken).length > 65_536
+    || typeof data.userToken !== 'string' || data.userToken.length < 20 || new TextEncoder().encode(data.userToken).length > handoffTokenMaxBytes
     || !input.isCurrentOwner()) throw new Error('Connection handoff is unavailable.');
   return { environment: data.environment, userToken: data.userToken };
 }

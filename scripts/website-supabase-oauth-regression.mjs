@@ -56,9 +56,9 @@ try {
   }, fetcher: async () => Response.json({ token_type: 'Bearer', access_token: 'customer-access-token-fixture',
     refresh_token: 'customer-refresh-token-fixture', expires_in: 3600 }, { status: 201 }) });
   assert.equal(created.accessToken, tokens.accessToken);
-  await assert.rejects(acceptSupabaseOAuthCallback(callbackInput), /invalid or expired/);
+  await assert.rejects(acceptSupabaseOAuthCallback(callbackInput), /authorization failed/);
   assert.equal(exchanges, 1);
-  await assert.rejects(acceptSupabaseOAuthCallback({ ...callbackInput, pkceSecret: 'short' }), /not configured/);
+  await assert.rejects(acceptSupabaseOAuthCallback({ ...callbackInput, pkceSecret: 'short' }), /authorization failed/);
   assert.equal(exchanges, 1);
   const freshState = { async rpc() { return { data: { ownerId: tokens.ownerId,
     projectId: tokens.projectId, provider: 'supabase', environment: 'preview' }, error: null }; } };
@@ -68,5 +68,18 @@ try {
   await assert.rejects(acceptSupabaseOAuthCallback({ ...callbackInput, stateClient: freshState,
     fetcher: async () => Response.json({ token_type: 'Bearer', access_token: 'customer-access-token-fixture',
       expires_in: 3600 }) }), /authorization failed/);
+  const largeAccess = 'a'.repeat(12_000), largeRefresh = 'b'.repeat(12_000);
+  const large = await acceptSupabaseOAuthCallback({ ...callbackInput, stateClient: freshState,
+    fetcher: async () => Response.json({ token_type: 'Bearer', access_token: largeAccess,
+      refresh_token: largeRefresh, expires_in: 3600 }) });
+  assert.equal(large.accessToken.length, 12_000);
+  assert.equal(large.refreshToken.length, 12_000);
+  await assert.rejects(acceptSupabaseOAuthCallback({ ...callbackInput, stateClient: freshState,
+    fetcher: async () => Response.json({ token_type: 'Bearer', access_token: 'a'.repeat(16_385),
+      refresh_token: 'customer-refresh-token-fixture', expires_in: 3600 }) }), /authorization failed/);
+  await assert.rejects(acceptSupabaseOAuthCallback({ ...callbackInput, stateClient: freshState,
+    fetcher: async () => Response.json({ token_type: 'Bearer', access_token: 'customer-access-token-fixture',
+      refresh_token: 'customer-refresh-token-fixture', expires_in: 3600, padding: 'x'.repeat(70_000) }) }),
+  /authorization failed/);
   console.log('PASS Supabase OAuth: fixed callback, stateless PKCE, one-use state, scoped token exchange and safe errors (mocked HTTP)');
 } finally { await rm(dir, { recursive: true, force: true }); }
