@@ -27,6 +27,13 @@ create index if not exists website_publish_redirects_project_owner_idx
 
 alter table public.website_publish_redirects enable row level security;
 
+-- Supabase projects created after May 30, 2026 may not expose new public
+-- tables to the Data API automatically. Keep browser access explicit and
+-- owner-scoped through RLS rather than relying on project default privileges.
+revoke all on table public.website_publish_redirects from public, anon;
+grant select, insert, delete on table public.website_publish_redirects to authenticated;
+grant select, insert, update, delete on table public.website_publish_redirects to service_role;
+
 drop policy if exists website_publish_redirects_owner_select on public.website_publish_redirects;
 create policy website_publish_redirects_owner_select
 on public.website_publish_redirects for select to authenticated
