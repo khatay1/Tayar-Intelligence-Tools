@@ -1,6 +1,14 @@
 # Full-stack implementation checkpoint
 
-## Current main checkpoint — live GitHub App binding proof
+## Current main checkpoint — live Preview Auth/Connect begin proof
+
+- Main includes the Preview Supabase-origin gate and resumable runtime preparation. Preview `dpl_kPP4nV4aMhRDAu8mAdJBzq6axDt4` is READY/200; its compiled browser bundle uses Activation Supabase for the session and all three Connect endpoints with zero production-platform Supabase hostname occurrences. Vercel reported no warning/error/fatal runtime logs or runtime error clusters.
+- A disposable confirmed Activation Auth user was created through the official admin boundary, authenticated through the normal password session endpoint, and its Website Builder project was saved through the public Data API under RLS using that JWT.
+- Authenticated `begin` calls for GitHub, Supabase and Vercel all returned HTTP 200, valid one-use state and the correct provider authorization destination. This proves the live browser-session/project-ownership boundary and all three OAuth start paths after the Preview environment split.
+- Cleanup deleted the disposable user and cascaded project state; verification returned zero probe users, projects and OAuth states. The temporary probe is inert and its one-use database gate was removed.
+- Provider consent/callback/options/bind and the first complete Preview Publish remain the next live gate. No provider connection was fabricated and Production remains closed.
+
+## Previous main checkpoint — live GitHub App binding proof
 
 - GitHub OAuth, Supabase OAuth, a private Vercel integration and a private GitHub App were configured for the isolated Activation project. Their secrets remain server-side; no private value is stored in source or public-prefixed configuration.
 - Supabase preserves a terminal newline on the multiline GitHub App PEM. The Vercel connection runtime now removes exactly one LF or CRLF before strict PKCS#8 validation, while rejecting leading/trailing spaces and repeated line endings.

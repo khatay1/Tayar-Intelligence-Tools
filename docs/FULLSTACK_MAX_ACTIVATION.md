@@ -2,7 +2,11 @@
 
 ## Current live gate — 2026-10-04
 
-The isolated Activation environment is upgraded through the Stripe publish-runtime migration and `website-byo-publish` v7. The Vercel Preview build now uses Activation Supabase for the browser session and the same Activation origin for GitHub/Supabase/Vercel Connect endpoints; Production retains its original Supabase variables separately. Main Preview `dpl_kPP4nV4aMhRDAu8mAdJBzq6axDt4` is READY/200 with no runtime errors. Activation has zero connection, binding, OAuth-state, handoff and Publish-operation rows, so the next mutation must start from a real disposable signed-in user and genuine provider OAuth. Do not seed provider connections or promote Production to bypass this gate.
+The isolated Activation environment is upgraded through the Stripe publish-runtime migration and `website-byo-publish` v7. The Vercel Preview build now uses Activation Supabase for the browser session and the same Activation origin for GitHub/Supabase/Vercel Connect endpoints; Production retains its original Supabase variables separately. Main Preview `dpl_kPP4nV4aMhRDAu8mAdJBzq6axDt4` is READY/200 with no runtime errors.
+
+A live one-shot proof created a disposable confirmed Activation Auth user through the official Auth admin boundary, signed in through the normal password token endpoint, saved a Website Builder project through RLS with that user JWT, and called authenticated `begin` on GitHub, Supabase and Vercel. All three returned HTTP 200, issued valid 256-bit one-use state, and pointed only to the expected HTTPS provider authorization origins/paths. The proof did not grant provider consent, execute a callback, bind a provider resource, export source, deploy a customer app or promote Production. Cleanup deleted the disposable Auth user; cascading verification returned zero matching users, projects and OAuth-state rows. The temporary probe was retired to HTTP 410 and its one-use gate table/function were dropped.
+
+The next live mutation is genuine provider consent/callback/options/bind for GitHub, Supabase and Vercel using a disposable signed-in Activation user, followed by the first full Preview Publish E2E. Do not seed provider connections or promote Production to bypass this gate.
 
 
 This runbook covers the first authorized activation rehearsal for Tayar's customer-owned GitHub, Supabase and Vercel infrastructure. It is intentionally read-only until an operator separately approves migrations, secret configuration and deployment against a disposable isolated platform environment.
