@@ -16,6 +16,7 @@ export interface ByoPublishStore{read(operationId:string):Promise<ByoPublishChec
 export async function runByoPublishWorker(input:{
   operationId:string;projectId:string;ownerId:string;environment:'preview'|'production';store:ByoPublishStore;
   isCurrent():Promise<boolean>;validate():Promise<{sourceDigest:string;requiredEnvironment:string[]}>;
+  prepareRuntime():Promise<void>;
   exportGitHub(operationId:string):Promise<{status:'unchanged'|'exported'|'recovery-required';headSha:string}>;
   beginDeployment(headSha:string,requiredEnvironment:string[]):Promise<number>;
   discoverDeployment(headSha:string):Promise<string|null>;
@@ -44,7 +45,10 @@ export async function runByoPublishWorker(input:{
       if(!digest.test(proof.sourceDigest)||required.length>64||required.some(v=>!env.test(v))||new Set(required).size!==required.length)throw new Error();
       await move({...state,stage:'validated',sourceDigest:proof.sourceDigest,requiredEnvironment:required});
     }
-    if(state.stage==='validated')await move({...state,stage:'exporting'});
+    if(state.stage==='validated'){
+      await input.prepareRuntime();if(!await input.isCurrent())throw new Error();
+      await move({...state,stage:'exporting'});
+    }
     if(state.stage==='exporting'){
       const exported=await input.exportGitHub(input.operationId);
       if(exported.status==='recovery-required')return{status:'pending',checkpoint:state};
