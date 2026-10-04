@@ -9,8 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: node scripts/temp-activation-auth-begin-probe.mjs
+      - name: Invoke one-shot Activation probe
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error             https://uepltkguloltmebepvbo.supabase.co/functions/v1/website-activation-e2e-probe
