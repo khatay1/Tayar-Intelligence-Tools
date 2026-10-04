@@ -113,12 +113,20 @@ try{
     vercelConnectionVersion:7,expectedHandoffVersion:0,expectedStripeConnectionVersion:0,sourceConnectionId:'stripe-prod',
     sourceUpdatedAt:'2026-10-04T10:00:00.000Z',publishableKey:publishable,environment:'production',isCurrent:()=>true,
     fetcher:async()=>{throw Error('completed Stripe runtime must not touch providers');}}),expectedReceipt);
-  const sql=await (await import('node:fs/promises')).readFile('supabase/migrations/20261004113000_website_byo_stripe_runtime_binding.sql','utf8');
+  const fs=await import('node:fs/promises');
+  const sql=await fs.readFile('supabase/migrations/20261004113000_website_byo_stripe_runtime_binding.sql','utf8');
   for(const proofText of ['website_record_stripe_secret_proof','website_activate_stripe_runtime',
     'website_reconcile_stripe_runtime_binding',"h.status='verified'","h.environment_key='STRIPE_SECRET_KEY'"])
     assert.ok(sql.includes(proofText),proofText);
   assert.ok(!/\\bas \\$(?:\\r?\\n)|^\\s*end \\$;\\s*$|^\\s*\\$;\\s*$/im.test(sql),
     'Stripe migration function bodies must use paired dollar quotes');
   assert.ok(!/decrypted_secret|secret_value|authorization/i.test(sql),'Stripe proof migration stores metadata only');
-  console.log('PASS owned Stripe verifier/runtime handoff: exact account proof, same-secret Vercel delivery, durable metadata receipt and idempotent ready recovery');
+  const publishSql=await fs.readFile('supabase/migrations/20261004150000_website_byo_stripe_publish_runtime.sql','utf8');
+  for(const proofText of ['website_set_project_secret_v2','website_stripe_runtime_state_for_worker',
+    "security definer set search_path=''","h.environment_key='STRIPE_SECRET_KEY'","v_stripe.status='ready'"])
+    assert.ok(publishSql.includes(proofText),proofText);
+  assert.ok(!/decrypted_secret|accessToken|secretValue/i.test(publishSql),'Publish state RPC returns metadata only');
+  assert.ok(!/\\bas \\$(?:\\r?\\n)|^\\s*end \\$;\\s*$|^\\s*\\$;\\s*$/im.test(publishSql),
+    'Stripe publish migration function bodies must use paired dollar quotes');
+  console.log('PASS owned Stripe verifier/runtime handoff: exact account proof, same-secret Vercel delivery, durable publish state, live destination proof and idempotent recovery');
 }finally{await rm(dir,{recursive:true,force:true});}
