@@ -10,6 +10,7 @@ const CORE_SOURCES = [
 ];
 const CORE_FETCH_TIMEOUT_MS = 20_000;
 const CORE_BOOT_TIMEOUT_MS = 90_000;
+const PROBE_TIMEOUT_MS = 12_000;
 
 export interface MediaEngineEvents {
   onProgress?: (progress: number) => void;
@@ -150,7 +151,7 @@ async function probeVideoSource(ffmpeg: FFmpeg, inputName: string, source: Media
       '-of', 'json',
       inputName,
       '-o', probeName,
-    ]);
+    ], PROBE_TIMEOUT_MS);
     if (exitCode !== 0) return source;
     const probeData = await ffmpeg.readFile(probeName, 'utf8');
     const parsed = JSON.parse(asText(probeData)) as {
