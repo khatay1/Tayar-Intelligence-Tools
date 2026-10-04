@@ -4,10 +4,16 @@ const{runByoPublishWorker:run}=(await import(pathToFileURL(out))).default;const 
 let state={...ids,environment:'preview',stage:'created',version:1,sourceDigest:null,requiredEnvironment:[],headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null,previewOperationId:null,promotionVersion:null,productionAliases:[]};const order=[];
 const store={async read(){return structuredClone(state);},async transition(current,next){assert.equal(current.version,state.version);state={...structuredClone(next),version:state.version+1};order.push(`save:${state.stage}`);return structuredClone(state);}};
 const base={...ids,environment:'preview',store,isCurrent:async()=>true,validate:async()=>{order.push('validate');return{sourceDigest:'a'.repeat(64),requiredEnvironment:['STRIPE_SECRET_KEY']};},
+prepareRuntime:async()=>{order.push('runtime');},
 exportGitHub:async op=>{assert.equal(op,ids.operationId);order.push('github');return{status:'exported',headSha:'b'.repeat(40)};},beginDeployment:async()=>{order.push('begin');return 1;},
 discoverDeployment:async()=>{order.push('discover');return'dpl_fixture123';},inspectDeployment:async()=>{order.push('inspect');return{status:'ready',deploymentId:'dpl_fixture123',missingEnvironment:[],liveUrl:'https://app.vercel.app',observedState:'READY'};},commitObservation:async()=>{order.push('commit');return 2;}};
 const result=await run(base);assert.equal(result.status,'ready');assert.equal(result.checkpoint.liveUrl,'https://app.vercel.app');
-assert.deepEqual(order,['validate','save:validated','save:exporting','github','save:exported','begin','save:observing','discover','save:observing','inspect','commit','save:ready']);
+assert.deepEqual(order,['validate','save:validated','runtime','save:exporting','github','save:exported','begin','save:observing','discover','save:observing','inspect','commit','save:ready']);
+state={...ids,environment:'preview',stage:'validated',version:10,sourceDigest:'a'.repeat(64),requiredEnvironment:['STRIPE_SECRET_KEY'],headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null,previewOperationId:null,promotionVersion:null,productionAliases:[]};
+let runtimeAttempts=0,githubAfterRuntime=0;base.prepareRuntime=async()=>{runtimeAttempts++;if(runtimeAttempts===1)throw Error('runtime uncertain');};
+base.exportGitHub=async()=>{githubAfterRuntime++;return{status:'exported',headSha:'b'.repeat(40)};};
+await assert.rejects(run(base),/unavailable/);assert.equal(state.stage,'validated');assert.equal(githubAfterRuntime,0,'runtime failure never reaches GitHub');
+assert.equal((await run(base)).status,'ready');assert.equal(runtimeAttempts,2);assert.equal(githubAfterRuntime,1);
 assert.equal((await run(base)).status,'ready','ready retry performs no side effects');
 state={...state,stage:'exporting',version:20,headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null};base.exportGitHub=async()=>({status:'recovery-required',headSha:'c'.repeat(40)});assert.equal((await run(base)).status,'pending');assert.equal(state.stage,'exporting');
 state={...state,stage:'observing',version:30,headSha:'b'.repeat(40),attemptVersion:4,deploymentId:'dpl_fixture123'};base.inspectDeployment=async()=>({status:'setup-incomplete',deploymentId:'dpl_fixture123',missingEnvironment:['STRIPE_SECRET_KEY'],liveUrl:null,observedState:'READY'});base.commitObservation=async()=>5;

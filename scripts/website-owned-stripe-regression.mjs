@@ -9,7 +9,8 @@ const dir=await mkdtemp(join(tmpdir(),'tayar-owned-stripe-'));
 try{
   const out=join(dir,'stripe.cjs');
   await build({entryPoints:['server/website-owned-stripe.ts'],bundle:true,platform:'node',format:'cjs',outfile:out});
-  const {verifyOwnedStripeAccount:verify,handoffOwnedStripeRuntime:handoff}=(await import(pathToFileURL(out))).default;
+  const {verifyOwnedStripeAccount:verify,handoffOwnedStripeRuntime:handoff,
+    inspectOwnedStripeRuntimeForPublish:inspectState,verifyOwnedStripeRuntimeDestination:verifyDestination}=(await import(pathToFileURL(out))).default;
   const restricted=['rk','live','fixtureaccountkey123456789'].join('_');
   const publishable=['pk','live','fixturepublickey123456789'].join('_');
   let calls=0;
@@ -50,6 +51,26 @@ try{
   assert.deepEqual(await verify({secretKey:testSecret,publishableKey:testPublic,environment:'preview',isCurrent:()=>true,
     fetcher:async()=>new Response(JSON.stringify({id:'acct_sandbox12345678',object:'account',charges_enabled:false}),{status:200})}),
     {accountId:'acct_sandbox12345678',keyType:'secret',mode:'test',chargesEnabled:false});
+  const state=await inspectState({client:{async rpc(name,args){assert.equal(name,'website_stripe_runtime_state_for_worker');
+    assert.equal(args.p_source_connection_id,'stripe-prod');return{data:{stripeConnectionId:'11111111-1111-4111-8111-111111111111',
+      stripeConnectionVersion:1,handoffId:'33333333-3333-4333-8333-333333333333',handoffVersion:2,handoffStatus:'verified',
+      handoffOperationId:'66666666-6666-4666-8666-666666666666',environmentId:'env_fixture123',sourceAvailable:false,ready:true},error:null};}},
+    projectId:'44444444-4444-4444-8444-444444444444',ownerId:'55555555-5555-4555-8555-555555555555',
+    vercelConnectionId:'22222222-2222-4222-8222-222222222222',vercelConnectionVersion:7,
+    sourceConnectionId:'stripe-prod',sourceUpdatedAt:'2026-10-04T10:00:00.000Z',environment:'production'});
+  assert.equal(state.ready,true);assert.equal(state.environmentId,'env_fixture123');
+  let destinationReads=0;await verifyDestination({accessToken:'vercel_fixture_token_123456789',userId:'user_fixture123',
+    accountId:'team_fixture123',vercelProjectId:'prj_fixture123',environmentId:'env_fixture123',
+    projectId:'44444444-4444-4444-8444-444444444444',environment:'production',
+    handoffOperationId:'66666666-6666-4666-8666-666666666666',isCurrent:()=>true,
+    fetcher:async(_url,init)=>{destinationReads++;assert.equal(init.method,'GET');return Response.json({envs:[{
+      id:'env_fixture123',key:'STRIPE_SECRET_KEY',type:'sensitive',target:['production'],comment:'Tayar handoff 66666666-6666-4666-8666-666666666666'}]});}});
+  assert.equal(destinationReads,1);
+  await assert.rejects(verifyDestination({accessToken:'vercel_fixture_token_123456789',userId:'user_fixture123',
+    accountId:'team_fixture123',vercelProjectId:'prj_fixture123',environmentId:'env_fixture123',
+    projectId:'44444444-4444-4444-8444-444444444444',environment:'production',
+    handoffOperationId:'66666666-6666-4666-8666-666666666666',isCurrent:()=>true,
+    fetcher:async()=>Response.json({envs:[]})}),/destination unavailable/);
   const ids={stripeConnectionId:'11111111-1111-4111-8111-111111111111',
     vercelConnectionId:'22222222-2222-4222-8222-222222222222',handoffId:'33333333-3333-4333-8333-333333333333',
     projectId:'44444444-4444-4444-8444-444444444444',ownerId:'55555555-5555-4555-8555-555555555555',
@@ -92,12 +113,20 @@ try{
     vercelConnectionVersion:7,expectedHandoffVersion:0,expectedStripeConnectionVersion:0,sourceConnectionId:'stripe-prod',
     sourceUpdatedAt:'2026-10-04T10:00:00.000Z',publishableKey:publishable,environment:'production',isCurrent:()=>true,
     fetcher:async()=>{throw Error('completed Stripe runtime must not touch providers');}}),expectedReceipt);
-  const sql=await (await import('node:fs/promises')).readFile('supabase/migrations/20261004113000_website_byo_stripe_runtime_binding.sql','utf8');
+  const fs=await import('node:fs/promises');
+  const sql=await fs.readFile('supabase/migrations/20261004113000_website_byo_stripe_runtime_binding.sql','utf8');
   for(const proofText of ['website_record_stripe_secret_proof','website_activate_stripe_runtime',
     'website_reconcile_stripe_runtime_binding',"h.status='verified'","h.environment_key='STRIPE_SECRET_KEY'"])
     assert.ok(sql.includes(proofText),proofText);
   assert.ok(!/\\bas \\$(?:\\r?\\n)|^\\s*end \\$;\\s*$|^\\s*\\$;\\s*$/im.test(sql),
     'Stripe migration function bodies must use paired dollar quotes');
   assert.ok(!/decrypted_secret|secret_value|authorization/i.test(sql),'Stripe proof migration stores metadata only');
-  console.log('PASS owned Stripe verifier/runtime handoff: exact account proof, same-secret Vercel delivery, durable metadata receipt and idempotent ready recovery');
+  const publishSql=await fs.readFile('supabase/migrations/20261004150000_website_byo_stripe_publish_runtime.sql','utf8');
+  for(const proofText of ['website_set_project_secret_v2','website_stripe_runtime_state_for_worker',
+    "security definer set search_path=''","h.environment_key='STRIPE_SECRET_KEY'","v_stripe.status='ready'"])
+    assert.ok(publishSql.includes(proofText),proofText);
+  assert.ok(!/decrypted_secret|accessToken|secretValue/i.test(publishSql),'Publish state RPC returns metadata only');
+  assert.ok(!/\\bas \\$(?:\\r?\\n)|^\\s*end \\$;\\s*$|^\\s*\\$;\\s*$/im.test(publishSql),
+    'Stripe publish migration function bodies must use paired dollar quotes');
+  console.log('PASS owned Stripe verifier/runtime handoff: exact account proof, same-secret Vercel delivery, durable publish state, live destination proof and idempotent recovery');
 }finally{await rm(dir,{recursive:true,force:true});}

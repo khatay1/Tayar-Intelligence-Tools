@@ -2,6 +2,8 @@ import { captureWebsiteGitHubExportSource, type SourceReader } from '../src/modu
 import { assertInfrastructureConnection, type InfrastructureConnection } from '../src/modules/website-builder/core/application-infrastructure-connections';
 import { validateOwnedApplicationPublicBackend, type ApplicationPublicBackend } from '../src/modules/website-builder/core/application-data-runtime';
 import { analyzeByoSourceCapabilities, type ByoSourceCapabilities } from '../src/modules/website-builder/core/application-byo-source-capabilities';
+import { readEditorIntegrationsFromProject } from '../src/modules/website-builder/core/editor-integrations-project-host';
+import { isEditorProjectSecretReferenceFor } from '../src/modules/website-builder/core/editor-integration-security';
 import { compileWebsiteOwnedApplicationSource } from './website-owned-source-compiler';
 
 type Environment = 'preview' | 'production';
@@ -22,6 +24,24 @@ export interface OwnedSourceReader extends SourceReader {
 }
 type Verification = (binding: OwnedRuntimeBinding, supabase: InfrastructureConnection,
   vercel: InfrastructureConnection, capabilities: ByoSourceCapabilities) => Promise<boolean>;
+export interface OwnedStripeRuntimeSource { sourceConnectionId:string;sourceUpdatedAt:string;publishableKey:string; }
+const stripePublishable=/^pk_(test|live)_[A-Za-z0-9]+$/;
+function stripeRuntimeSource(snapshot:Record<string,unknown>,projectId:string,environment:Environment,
+  capabilities:ByoSourceCapabilities):OwnedStripeRuntimeSource|null{
+  if(!capabilities.integrationProviders.includes('stripe')&&!capabilities.stripeCheckouts.length)return null;
+  const active=readEditorIntegrationsFromProject(snapshot).connections.filter(item=>item.enabled&&item.status!=='disabled'
+    &&item.providerId==='stripe'&&item.environments.includes(environment));
+  if(active.length!==1)throw new Error('Customer Stripe runtime source is unavailable.');
+  const selected=active[0],secret=selected.secrets.secretKey;
+  const publishableKey=typeof selected.config.publishableKey==='string'?selected.config.publishableKey:'';
+  const match=stripePublishable.exec(publishableKey),mode=environment==='production'?'live':'test';
+  if(selected.environments.length!==1||selected.environments[0]!==environment||!match||match[1]!==mode||!secret
+    ||!isEditorProjectSecretReferenceFor(secret.ref,selected.id,'secretKey',environment)
+    ||!secret.ref.startsWith(`secret://website/${projectId}/`)
+    ||typeof secret.updatedAt!=='string'||!Number.isFinite(Date.parse(secret.updatedAt)))
+    throw new Error('Customer Stripe runtime source is unavailable.');
+  return{sourceConnectionId:selected.id,sourceUpdatedAt:secret.updatedAt,publishableKey};
+}
 
 /** Source-only trust boundary. The binding and both provider records come from
  * private, owner-scoped persistence, never editable snapshot fields. Provider
@@ -36,7 +56,7 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     throw new Error('Customer runtime scope is unavailable.');
   }
   const captured: { value?: { binding: OwnedRuntimeBinding; supabase: InfrastructureConnection; vercel: InfrastructureConnection } } = {};
-  const state: { capabilities?: ByoSourceCapabilities } = {};
+  const state: { capabilities?: ByoSourceCapabilities;stripeRuntime?:OwnedStripeRuntimeSource|null } = {};
   const identity = (connection: InfrastructureConnection) => JSON.stringify({
     id: connection.id, ownerId: connection.ownerId, projectId: connection.projectId,
     provider: connection.provider, environment: connection.environment, accountId: connection.accountId,
@@ -78,6 +98,7 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     projectId: input.projectId, ownerId: input.ownerId, connectionId: input.githubConnectionId, reader: input.reader,
     async compile(snapshot) {
       state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment);
+      state.stripeRuntime=stripeRuntimeSource(snapshot,input.projectId,input.environment,state.capabilities);
       captured.value = await current();
       return compileWebsiteOwnedApplicationSource(snapshot, { projectId: input.projectId,
         applicationOrigin: captured.value.binding.applicationOrigin, expectedProjectRef: captured.value.supabase.targetId!,
@@ -99,5 +120,6 @@ export async function captureWebsiteOwnedApplicationSource(input: {
   }
   if (!await isCurrent()) throw new Error('Customer runtime scope changed.');
   return { ...source, binding: structuredClone(initial.binding), supabase: structuredClone(initial.supabase),
-    vercel: structuredClone(initial.vercel), capabilities: structuredClone(state.capabilities!), isCurrent };
+    vercel: structuredClone(initial.vercel), capabilities: structuredClone(state.capabilities!),
+    stripeRuntime:state.stripeRuntime?structuredClone(state.stripeRuntime):null,isCurrent };
 }
