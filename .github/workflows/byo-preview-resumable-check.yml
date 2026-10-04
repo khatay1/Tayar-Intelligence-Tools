@@ -1,0 +1,23 @@
+name: Temporary BYO Preview Resumable Check
+on:
+  push:
+    branches:
+      - feat/byo-publish-stripe-resumable-20261004
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: node scripts/website-project-secrets-regression.mjs
+      - run: node scripts/website-byo-publish-worker-regression.mjs
+      - run: node scripts/website-owned-stripe-regression.mjs
+      - run: node scripts/website-owned-source-capture-regression.mjs
+      - run: node scripts/website-byo-publish-adapters-regression.mjs
+      - run: node scripts/website-infrastructure-activation-preflight-regression.mjs
