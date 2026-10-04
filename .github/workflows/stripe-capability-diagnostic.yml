@@ -1,0 +1,43 @@
+name: Temporary Stripe Capability Diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/stripe-capability-diagnostic.yml
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Print safe Stripe capability blockers
+        run: |
+          node --input-type=module <<'NODE'
+          import { build } from 'esbuild';
+          import { mkdtemp } from 'node:fs/promises';
+          import { tmpdir } from 'node:os';
+          import { join } from 'node:path';
+          import { pathToFileURL } from 'node:url';
+          const dir=await mkdtemp(join(tmpdir(),'stripe-cap-'));
+          const defaultsFile=join(dir,'defaults.cjs'),capFile=join(dir,'cap.cjs');
+          await build({entryPoints:['src/modules/website-builder/core/defaults.ts'],bundle:true,platform:'node',format:'cjs',outfile:defaultsFile});
+          await build({entryPoints:['src/modules/website-builder/core/application-byo-source-capabilities.ts'],bundle:true,platform:'node',format:'cjs',outfile:capFile});
+          const {createSection}=(await import(pathToFileURL(defaultsFile))).default;
+          const {analyzeByoSourceCapabilities:analyze}=(await import(pathToFileURL(capFile))).default;
+          const section=createSection('hero');section.title='Owner App';
+          const id='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+          const snapshot={homePageId:'home',siteName:'Owner App',application:{version:1,tables:[],roles:[],auth:{enabled:true,signUpEnabled:true,emailVerificationRequired:true},pageAccess:[{pageId:'dashboard',access:'authenticated'}]},pages:[{id:'home',name:'Home',slug:'home',language:'en',sections:[section]},{id:'dashboard',name:'Dashboard',slug:'dashboard',language:'en',sections:[section]}]};
+          const stripe=structuredClone(snapshot);stripe.pages[0].sections[0]=structuredClone(stripe.pages[0].sections[0]);
+          const checkout=stripe.pages[0].sections[0].elements.find(element=>element.type==='button');
+          checkout.action='stripe-checkout';checkout.stripePreviewPriceId='price_preview12345678';checkout.stripeProductionPriceId='price_production12345678';
+          stripe.integrationsMax={version:1,connections:[{id:'stripe-prod',providerId:'stripe',name:'Stripe',enabled:true,status:'configured',environments:['production'],config:{publishableKey:'pk_live_fixture123456789'},secrets:{secretKey:{ref:`secret://website/${id}/stripe-prod/secretKey/production`,updatedAt:'2026-10-04T10:00:00.000Z'}},events:[],createdAt:'2026-10-04T10:00:00.000Z',updatedAt:'2026-10-04T10:00:00.000Z'}]};
+          const result=analyze(stripe,'production');
+          console.log(JSON.stringify({blockers:result.blockers,integrationProviders:result.integrationProviders,stripeCheckouts:result.stripeCheckouts,needs:result.needs}));
+          NODE
