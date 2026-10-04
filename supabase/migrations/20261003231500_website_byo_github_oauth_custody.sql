@@ -21,6 +21,8 @@ create table private.website_github_oauth_custody (
 );
 create index website_github_oauth_custody_expiry_idx
   on private.website_github_oauth_custody(custody_expires_at);
+create index website_github_oauth_custody_project_idx
+  on private.website_github_oauth_custody(project_id);
 alter table private.website_github_oauth_custody enable row level security;
 revoke all on private.website_github_oauth_custody from public, anon, authenticated;
 
@@ -90,7 +92,7 @@ grant execute on function public.website_bind_github_repository(uuid,uuid,uuid,b
 create function public.website_reconcile_github_repository_binding(
   p_connection_id uuid,p_project_id uuid,p_owner_id uuid,p_expected_version bigint,
   p_installation_id text,p_repository_id text,p_operation_id uuid
-) returns bigint language sql stable security definer set search_path = '' as $
+) returns bigint language sql stable security definer set search_path = '' as $$
   select c.version from private.website_infrastructure_connections c
   join private.website_github_oauth_custody g on g.connection_id=c.id
   join public.projects p on p.id=c.project_id
