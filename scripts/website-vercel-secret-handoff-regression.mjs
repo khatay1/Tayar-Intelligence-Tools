@@ -21,6 +21,7 @@ try{
     target:'production',gitBranch:'',isCurrent:()=>true};
   const marker=`Tayar handoff ${ids.operationId}`;let posted;let rpcNames=[];
   const client={async rpc(name,args){rpcNames.push(name);
+    if(name==='website_reconcile_completed_vercel_secret_handoff')return{data:null,error:null};
     if(name==='website_begin_vercel_secret_handoff'){assert.equal(args.p_environment_key,'STRIPE_SECRET_KEY');return{data:begun,error:null};}
     if(name==='website_reconcile_vercel_secret_handoff')return{data:null,error:null};
     if(name==='website_commit_vercel_secret_handoff'){assert.equal(args.p_vercel_environment_id,'env_fixture123');return{data:2,error:null};}
@@ -33,24 +34,36 @@ try{
   assert.deepEqual(result,{handoffVersion:2,environmentId:'env_fixture123',status:'verified'});
   assert.equal(posted.value,secret);assert.equal(posted.type,'sensitive');assert.deepEqual(posted.target,['production']);
   assert.equal(posted.comment,marker);assert.ok(!JSON.stringify(result).includes(secret));
-  assert.deepEqual(rpcNames,['website_begin_vercel_secret_handoff','website_reconcile_vercel_secret_handoff','website_commit_vercel_secret_handoff']);
+  assert.deepEqual(rpcNames,['website_reconcile_completed_vercel_secret_handoff','website_begin_vercel_secret_handoff','website_reconcile_vercel_secret_handoff','website_commit_vercel_secret_handoff']);
   let uncertainChecks=0;
   assert.deepEqual(await handoff({...base,client:{async rpc(name){
+    if(name==='website_reconcile_completed_vercel_secret_handoff')return{data:null,error:null};
     if(name==='website_begin_vercel_secret_handoff')return{data:begun,error:null};
     if(name==='website_reconcile_vercel_secret_handoff')return{data:++uncertainChecks===1?null:2,error:null};
     if(name==='website_commit_vercel_secret_handoff')return{data:null,error:{message:'response lost'}};throw Error();}},fetcher}),result);
   assert.equal(uncertainChecks,2,'lost commit response requires an exact second reconciliation');
   let calls=0;
-  assert.deepEqual(await handoff({...base,client:{async rpc(name){if(name==='website_begin_vercel_secret_handoff')return{data:begun,error:null};
+  assert.deepEqual(await handoff({...base,client:{async rpc(name){if(name==='website_reconcile_completed_vercel_secret_handoff')return{data:null,error:null};
+    if(name==='website_begin_vercel_secret_handoff')return{data:begun,error:null};
     if(name==='website_reconcile_vercel_secret_handoff'){calls++;return{data:2,error:null};}throw Error();}},
     fetcher:async(url,init)=>{if(init.method==='POST')throw Error('response lost');return fetcher(url,init);}}),result);
   assert.equal(calls,1,'already committed handoff reconciles without replaying the SQL commit');
+  let completedReads=0;
+  assert.deepEqual(await handoff({...base,client:{async rpc(name,args){completedReads++;assert.equal(name,'website_reconcile_completed_vercel_secret_handoff');
+    assert.equal(args.p_environment_key,'STRIPE_SECRET_KEY');return{data:{handoffVersion:2,environmentId:'env_fixture123'},error:null};}},
+    fetcher(){throw Error('verified retry must not call Vercel');}}),result);
+  assert.equal(completedReads,1,'cross-request retry recovers from verified receipt after source Vault deletion');
   await assert.rejects(handoff({...base,client,fetcher:async(url,init)=>init.method==='POST'?new Response('{}',{status:201}):
     new Response(JSON.stringify({envs:[{id:'env_fixture123',key:'STRIPE_SECRET_KEY',type:'plain',target:['production'],comment:marker}]}),{status:200})}),/unavailable/);
   const sql=await readFile('supabase/migrations/20260930020000_website_byo_vercel_secret_handoff.sql','utf8');
+  const recovery=await readFile('supabase/migrations/20261004110500_website_byo_vercel_secret_handoff_recovery.sql','utf8');
   assert.match(sql,/delete from private[.]website_project_secrets/);assert.match(sql,/join vault[.]decrypted_secrets s_secret/);
   assert.match(sql,/status='verified'/);assert.match(sql,/website_project_secret_refs_impl/);
   assert.match(sql,/grant execute on function public[.]website_begin_vercel_secret_handoff[^;]+to service_role/s);
   assert.doesNotMatch(sql,/grant execute on function public[.]website_begin_vercel_secret_handoff[^;]+to authenticated/s);
+  assert.match(recovery,/website_reconcile_completed_vercel_secret_handoff/);
+  assert.match(recovery,/h[.]version=p_expected_handoff_version[+]2/);
+  assert.match(recovery,/h[.]status='verified'/);
+  assert.doesNotMatch(recovery,/vault[.]decrypted_secrets|website_project_secrets/);
   console.log('PASS Vercel secret handoff: sensitive upsert, exact metadata proof, lost-response recovery and Vault cleanup receipt (mocked HTTP/RPC/static SQL)');
 }finally{await rm(dir,{recursive:true,force:true});}

@@ -12,6 +12,14 @@ type RemovalResult={alreadyRemoved:boolean;handoffVersion:number;accessToken?:st
 
 function validBranch(value:string){return value===''||(branch.test(value)&&!value.includes('..')&&!value.startsWith('/')&&!value.endsWith('/'));}
 function parseObject(raw:string):Record<string,unknown>{const value:unknown=JSON.parse(raw);if(!value||typeof value!=='object'||Array.isArray(value))throw new Error();return value as Record<string,unknown>;}
+function verifiedHandoff(value:unknown,expectedVersion:number){
+  if(value===null)return null;
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error();
+  const row=value as Record<string,unknown>;
+  if(Object.keys(row).sort().join(',')!=='environmentId,handoffVersion'
+    ||row.handoffVersion!==expectedVersion||typeof row.environmentId!=='string'||!provider.test(row.environmentId))throw new Error();
+  return{handoffVersion:expectedVersion,environmentId:row.environmentId};
+}
 
 /** Copies one Vault value into a write-only customer Vercel variable, verifies
  * destination metadata, then commits the receipt and erases Tayar's Vault copy. */
@@ -29,6 +37,15 @@ export async function handoffOwnedSecretToVercel(input:{
     ||!['preview','staging','production'].includes(input.sourceEnvironment)||!['preview','production'].includes(input.target)
     ||!validBranch(input.gitBranch)||(input.target==='production'&&input.gitBranch!=='')
     ||!Number.isFinite(Date.parse(input.sourceUpdatedAt))||!input.isCurrent())throw new Error('Vercel secret handoff unavailable.');
+  const completedArgs={p_id:input.handoffId,p_connection_id:input.connectionId,p_project_id:input.projectId,p_owner_id:input.ownerId,
+    p_connection_version:input.connectionVersion,p_expected_handoff_version:input.expectedHandoffVersion,
+    p_source_connection_id:input.sourceConnectionId,p_source_field:input.sourceField,
+    p_source_environment:input.sourceEnvironment,p_environment_key:input.environmentKey,
+    p_target:input.target,p_git_branch:input.gitBranch,p_operation_id:input.operationId};
+  const completed=await input.client.rpc('website_reconcile_completed_vercel_secret_handoff',completedArgs);
+  if(completed.error||!input.isCurrent())throw new Error('Vercel secret handoff unavailable.');
+  const verified=verifiedHandoff(completed.data,input.expectedHandoffVersion+2);
+  if(verified)return{...verified,status:'verified'};
   const base={p_id:input.handoffId,p_connection_id:input.connectionId,p_project_id:input.projectId,p_owner_id:input.ownerId,
     p_connection_version:input.connectionVersion,p_expected_handoff_version:input.expectedHandoffVersion,
     p_source_connection_id:input.sourceConnectionId,p_source_field:input.sourceField,
