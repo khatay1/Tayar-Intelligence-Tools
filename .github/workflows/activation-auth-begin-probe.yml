@@ -1,0 +1,125 @@
+name: Temporary Activation Auth Begin Probe
+on:
+  push:
+    branches: [test/activation-auth-begin-probe-20261004]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ACTIVATION_URL: https://uepltkguloltmebepvbo.supabase.co
+      ACTIVATION_PUBLIC_KEY: sb_publishable_XPyyhranUSrm3ArH7sntqg_nAXqto_J
+    steps:
+      - uses: actions/checkout@v4
+      - name: Official signup, project save, and OAuth begin probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          EMAIL="tayar-e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.com"
+          PASSWORD="$(openssl rand -hex 24)"
+          signup_code="$(curl -sS -o signup.json -w '%{http_code}' \
+            -X POST "$ACTIVATION_URL/auth/v1/signup" \
+            -H "apikey: $ACTIVATION_PUBLIC_KEY" \
+            -H "content-type: application/json" \
+            --data "$(jq -nc --arg e "$EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p,data:{purpose:"tayar-activation-e2e"}}')")"
+          USER_ID="$(jq -r '.user.id // empty' signup.json)"
+          ACCESS_TOKEN="$(jq -r '.access_token // empty' signup.json)"
+          echo "SIGNUP_HTTP=$signup_code"
+          echo "USER_ID=$USER_ID"
+          if [[ -z "$USER_ID" ]]; then
+            echo "SIGNUP_ERROR=$(jq -r '.msg // .message // .error_description // .error // "unknown"' signup.json | head -c 240)"
+            exit 2
+          fi
+          if [[ -z "$ACCESS_TOKEN" ]]; then
+            echo "SIGNUP_SESSION=missing"
+            exit 3
+          fi
+          echo "SIGNUP_SESSION=present"
+
+          PROJECT_ID="$(python - <<'PY'
+import uuid
+print(uuid.uuid4())
+PY
+)"
+          FIXTURE="$(jq -nc --arg pid "$PROJECT_ID" '{
+            id:$pid,
+            title:"Tayar Fullstack MAX Preview E2E",
+            type:"website-builder",
+            status:"draft",
+            content:{
+              homePageId:"home",
+              siteName:"Tayar Fullstack MAX Preview E2E",
+              application:{
+                version:1,
+                tables:[],
+                roles:[],
+                auth:{enabled:true,signUpEnabled:true,emailVerificationRequired:true},
+                pageAccess:[{pageId:"dashboard",access:"authenticated"}]
+              },
+              pages:[
+                {id:"home",name:"Home",slug:"home",language:"en",sections:[]},
+                {id:"dashboard",name:"Dashboard",slug:"dashboard",language:"en",sections:[]}
+              ]
+            }
+          }')"
+          project_code="$(curl -sS -o project.json -w '%{http_code}' \
+            -X POST "$ACTIVATION_URL/rest/v1/projects?select=id,user_id,type,status" \
+            -H "apikey: $ACTIVATION_PUBLIC_KEY" \
+            -H "authorization: Bearer $ACCESS_TOKEN" \
+            -H "content-type: application/json" \
+            -H "prefer: return=representation" \
+            --data "$(jq -c --arg uid "$USER_ID" '. + {user_id:$uid}' <<<"$FIXTURE")")"
+          echo "PROJECT_HTTP=$project_code"
+          echo "PROJECT_ID=$PROJECT_ID"
+          if [[ "$project_code" -lt 200 || "$project_code" -ge 300 ]]; then
+            echo "PROJECT_ERROR=$(jq -r '.message // .hint // .details // .code // "unknown"' project.json | head -c 240)"
+            exit 4
+          fi
+
+          begin_probe () {
+            local provider="$1"
+            local endpoint="$ACTIVATION_URL/functions/v1/website-$provider-connection?action=begin"
+            local out="$provider.json"
+            local code
+            code="$(curl -sS -o "$out" -w '%{http_code}' \
+              -X POST "$endpoint" \
+              -H "apikey: $ACTIVATION_PUBLIC_KEY" \
+              -H "authorization: Bearer $ACCESS_TOKEN" \
+              -H "content-type: application/json" \
+              --data "$(jq -nc --arg pid "$PROJECT_ID" '{projectId:$pid,environment:"preview"}')")"
+            local auth_url
+            auth_url="$(jq -r '.authorizationUrl // empty' "$out")"
+            upper="$(tr '[:lower:]' '[:upper:]' <<<"$provider")"
+            echo "${upper}_BEGIN_HTTP=$code"
+            if [[ "$code" -ne 200 || -z "$auth_url" ]]; then
+              echo "${upper}_BEGIN_ERROR=$(jq -r '.error // "unknown"' "$out" | head -c 240)"
+              return 1
+            fi
+            python - "$provider" "$auth_url" <<'PY'
+import sys, urllib.parse
+provider, raw = sys.argv[1], sys.argv[2]
+u = urllib.parse.urlparse(raw)
+allowed = {
+  "github": ("github.com", "/login/oauth/authorize"),
+  "supabase": ("api.supabase.com", None),
+  "vercel": ("vercel.com", None),
+}
+host, path = allowed[provider]
+if u.scheme != "https" or u.hostname != host:
+    raise SystemExit(f"{provider} unexpected authorization origin")
+if path and u.path != path:
+    raise SystemExit(f"{provider} unexpected authorization path")
+if "state" not in urllib.parse.parse_qs(u.query):
+    raise SystemExit(f"{provider} missing OAuth state")
+print(f"{provider.upper()}_AUTH_ORIGIN={u.scheme}://{u.hostname}")
+print(f"{provider.upper()}_AUTH_PATH={u.path}")
+PY
+          }
+
+          begin_probe github
+          begin_probe supabase
+          begin_probe vercel
+          echo "ACTIVATION_BEGIN_PROBE=success"
