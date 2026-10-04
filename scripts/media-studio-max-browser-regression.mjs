@@ -192,7 +192,7 @@ async function regression() {
       }
       throw new Error(`Timed out waiting for ${label}. Last value: ${JSON.stringify(lastValue)}`);
     };
-    const bodyText = async () => await evaluate('document.body.innerText');
+    const bodyText = async () => await evaluate(`document.body?.innerText || ''`);
     const clickOperation = async (name) => {
       const clicked = await evaluate(`(() => {
         const target = Array.from(document.querySelectorAll('button')).find((button) => (button.textContent || '').includes(${JSON.stringify(name)}));
@@ -218,7 +218,7 @@ async function regression() {
         return true;
       })()`);
       assert(uploaded, `Could not upload generated media files: ${keys.join(', ')}`);
-      await waitFor('selected files', `document.body.innerText.includes('Selected files')`);
+      await waitFor('selected files', `document.body?.innerText?.includes('Selected files')`);
     };
     const setNumber = async (labelText, value) => {
       const changed = await evaluate(`(() => {
@@ -267,7 +267,7 @@ async function regression() {
           processDisabled: Boolean(document.querySelector('[data-testid="media-process"]')?.disabled),
           errorText: document.querySelector('[data-testid="media-error"]')?.textContent || '',
           resultCount: document.querySelectorAll('[data-testid="media-result"]').length,
-          tail: document.body.innerText.slice(-2400),
+          tail: (document.body?.innerText || '').slice(-2400),
         }))()`);
         throw new Error(`${label} timed out. Diagnostic: ${JSON.stringify(diagnostic)}. Cause: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -283,10 +283,10 @@ async function regression() {
       return { size: blob.size, type: blob.type, signature: Array.from(bytes) };
     })()`);
 
-    await waitFor('Media Studio MAX title', `document.body.innerText.includes('Media Studio MAX')`);
+    await waitFor('Media Studio MAX title', `document.body?.innerText?.includes('Media Studio MAX')`);
     assert(await evaluate(`document.documentElement.dir === 'ltr'`), 'English fixture must be LTR.');
     for (const name of EXPECTED_OPERATIONS) {
-      assert(await evaluate(`document.body.innerText.includes(${JSON.stringify(name)})`), `Missing operation in browser UI: ${name}`);
+      assert(await evaluate(`document.body?.innerText?.includes(${JSON.stringify(name)})`), `Missing operation in browser UI: ${name}`);
     }
     console.log(`[media-browser] PASS catalog renders ${EXPECTED_OPERATIONS.length} operations`);
 
@@ -443,12 +443,12 @@ async function regression() {
     console.log('[media-browser] PASS silent-video merge path');
 
     await cdp.send('Page.navigate', { url: `${FIXTURE}?lang=ar` });
-    await waitFor('Arabic Media Studio', `document.body.innerText.includes('استوديو الوسائط MAX') && document.body.innerText.includes('فيديو إلى GIF')`);
+    await waitFor('Arabic Media Studio', `document.body?.innerText?.includes('استوديو الوسائط MAX') && document.body?.innerText?.includes('فيديو إلى GIF')`);
     assert(await evaluate(`document.documentElement.dir === 'rtl' && document.querySelector('#root > div')?.getAttribute('dir') === 'rtl'`), 'Arabic Media Studio must render RTL.');
     console.log('[media-browser] PASS Arabic localization + RTL');
 
     await cdp.send('Page.navigate', { url: `${FIXTURE}?lang=sv` });
-    await waitFor('Swedish Media Studio', `document.body.innerText.includes('Video till GIF') && document.body.innerText.includes('Bearbeta media')`);
+    await waitFor('Swedish Media Studio', `document.body?.innerText?.includes('Video till GIF') && document.body?.innerText?.includes('Bearbeta media')`);
     assert(await evaluate(`document.documentElement.dir === 'ltr'`), 'Swedish Media Studio must render LTR.');
     console.log('[media-browser] PASS Swedish localization');
 
